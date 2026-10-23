@@ -7,7 +7,7 @@
 
 | Preny (observed / published) | What we do |
 |---|---|
-| Website + dashboard on Next.js App Router, next-intl, Axios | Keep Next.js App Router for both the marketing site and the dashboard |
+| Website + dashboard on Next.js App Router, next-intl, Axios | **Do not copy.** Dashboard as a Vite + React SPA on a CDN (instant navigation), marketing site on Astro (ADR-009) |
 | Separate backend `api.<domain>/api/v1`, header `X-ACCOUNT-ID`, bearer + refresh token | Similar: separate, versioned API, header `X-Workspace-Id`, access/refresh token — but **the server always checks membership** and never trusts the header |
 | MongoDB (per their privacy policy) | **Do not copy.** Use PostgreSQL because the credit ledger, orders, and CRM need transactions + relational constraints (see [ADR-002](adr/ADR-002-postgresql.md)) |
 | "ChatGPT platform", model labels Smart/Pro/Neo, Neo "coordinates multiple models" | Multi-provider LLM Gateway; Smart/Pro/Neo are **commercial tiers** mapped to pipeline configurations (see [06](06-ai-engine.md)) |
@@ -28,8 +28,8 @@
 ```mermaid
 flowchart TB
   subgraph Clients
-    DASH[Dashboard Next.js<br/>app.domain]
-    WEB[Marketing site Next.js<br/>domain]
+    DASH[Dashboard Vite React SPA on CDN<br/>app.domain]
+    WEB[Marketing site Astro static<br/>domain]
     WIDGET[Website chat widget<br/>JS embed]
     MOBILE[Mobile app - later phase]
   end
@@ -94,8 +94,8 @@ flowchart TB
 |---|---|---|---|
 | Language | **TypeScript** throughout (frontend, backend, worker, widget) | One full-stack team, types/DTOs shared via a common package | Go backend if the team is strong in Go |
 | Monorepo | **pnpm workspaces + Turborepo** | Build cache, `shared` package | Nx |
-| Dashboard | **Next.js 15+ (App Router)**, React, TypeScript, **shadcn/ui + Tailwind**, TanStack Query, TanStack Table, React Hook Form + Zod, next-intl | Same as Preny, large ecosystem, heavy data tables (CRM/orders) | Vite SPA (the dashboard does not need SEO) |
-| Marketing site | Next.js (SSG/ISR) + headless CMS (Payload or Strapi) | SEO, industry-specific content, blog, case studies (Preny has ~140 content URLs) | Separate WordPress |
+| Dashboard | **Vite + React 19 SPA**: TanStack Router (preloading), TanStack Query, TanStack Table + Virtual, **Tailwind v4 + shadcn/ui**, `motion`, `cmdk`, React Hook Form + Zod, i18next; static files on CDN (ADR-009) | Instant client-side navigation, optimistic UI, heavy data tables (CRM/orders); no SEO needed; cheapest layer to scale | Next.js App Router (previous choice, superseded by ADR-009) |
+| Marketing site | **Astro** (static, islands) + content collections; same design tokens | Fastest public pages for Vietnamese SEO, industry-specific content, blog, case studies (Preny has ~140 content URLs) | Next.js SSG + headless CMS |
 | Backend API | **NestJS** (Fastify adapter), Prisma *or* Drizzle ORM, class-validator/Zod | Modules + DI suit a modular monolith; guards/interceptors for RBAC & tenancy | Plain Fastify |
 | Realtime | **Socket.IO** + Redis adapter | Realtime inbox with many staff, typing, assignment | SSE for the widget |
 | Queue | **BullMQ** on Redis | Delayed jobs, retry/backoff, per-group rate limiting (per page/OA), repeatable jobs | Kafka at > a few thousand msg/s; Temporal for long workflows |

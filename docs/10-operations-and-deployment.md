@@ -15,7 +15,7 @@ Configuration via environment variables + secret manager; the env schema is vali
 
 **Stage 1 (MVP → closed beta, < 200 workspaces):**
 - 1 small cluster: 2–3 VMs or a managed container service; **managed** Postgres (with PITR), managed Redis, object storage.
-- Processes: `api` ×2, `webhook` ×2, `worker` ×2 (shared queues), `scheduler` ×1 (leader lock), `web` (Next.js) ×2.
+- Processes: `api` ×2, `webhook` ×2, `worker` ×2 (shared queues), `scheduler` ×1 (leader lock); `web` and `site` are static builds on the CDN (no process).
 - CDN + WAF in front of web/api.
 
 **Stage 2 (GA, broad rollout):**

@@ -35,7 +35,7 @@ Pick a task from `TODO.md` → branch `type/T-xxx-slug` → write the plan in th
 
 ## Stack
 
-TypeScript · pnpm + Turborepo · Next.js · NestJS · PostgreSQL + pgvector · Redis + BullMQ · multi-provider LLM gateway. Decisions: [`docs/adr/`](docs/adr/README.md).
+TypeScript · pnpm + Turborepo · Vite + React SPA (TanStack) · Astro site · NestJS on Fastify · PostgreSQL + pgvector · Redis + BullMQ · multi-provider LLM gateway. Decisions: [`docs/adr/`](docs/adr/README.md).
 
 ## License
 

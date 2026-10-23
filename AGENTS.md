@@ -61,7 +61,7 @@ bash scripts/verify-setup.sh   # verify your local environment and the agent set
 
 ## 5. Tech stack (decided — see `docs/adr/`)
 
-TypeScript everywhere · pnpm workspaces + Turborepo · Next.js (App Router) for dashboard/site/admin · NestJS modular monolith (`api`, `webhook`, `worker` processes) · PostgreSQL 16 + pgvector (Drizzle ORM) · Redis + BullMQ · S3-compatible object storage · multi-provider LLM gateway (`packages/ai-core`) · Vitest, Playwright · OpenTelemetry, Sentry, Langfuse.
+TypeScript everywhere · pnpm workspaces + Turborepo · **Vite + React SPA** (TanStack Router/Query/Table, Tailwind v4, shadcn/ui) for dashboard and admin · **Astro** for the marketing site · Preact widget · **NestJS on Fastify** modular monolith (`api`, `webhook`, `worker` processes) · PostgreSQL 16 + pgvector (Drizzle ORM, PgBouncer) · Redis + BullMQ · S3-compatible object storage · multi-provider LLM gateway (`packages/ai-core`) · Vitest, Playwright · OpenTelemetry, Sentry, Langfuse. Performance budgets are binding: `docs/16-performance-and-scale.md`.
 
 ## 6. Who reviews
 

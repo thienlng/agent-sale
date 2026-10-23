@@ -248,6 +248,10 @@ outbox_events(id, aggregate, aggregate_id, type, payload, created_at, published_
 feature_flags(key, workspace_id NULL, value JSONB)
 ```
 
+## 8b. Vertical objects and tenant extensibility
+
+`resources`, `availability_rules`, `services`, `appointments`, `quote_forms`, `price_rules`, `quotes`, `applications`, `application_documents`, `custom_field_definitions`, `vertical_packs`, `workspace_packs` — defined in `docs/17-multi-tenancy-and-verticals.md` §4. `products.catalog_kind` distinguishes products / services / rooms / courses / menu / spec products on the single catalog. `packages/db` also ships the workspace→database connection router described in `docs/17` §6 from the first migration.
+
 ## 9. Key data rules
 
 1. **Normalize phone numbers (SĐT)** to E.164 (`+84…`) on save; display as `09xx…`.

@@ -25,13 +25,16 @@ Input source: `../../preny/preny-research/` (Preny research dossier dated 23/10/
 | 13 | [Testing & quality](13-testing-and-quality.md) | QA, AI | Test pyramid, AI eval suite, critical business cases |
 | 14 | [Open decisions](14-open-decisions.md) | Project owner | Questions to finalize + default proposals |
 | 15 | [Team workflow](15-team-workflow.md) | Humans | How two maintainers run many agents: roles, cadence, review policy, Phase 0 plan |
+| 16 | [Performance & scale](16-performance-and-scale.md) | Everyone | Binding budgets for "fast, smooth, modern", mandatory patterns, scale plan to ~1,000 tenants |
+| 17 | [Multi-tenancy & verticals](17-multi-tenancy-and-verticals.md) | PO, architects | Vertical packs (hotel, education, solar/mechanical, …), first-class objects (appointments, quotes, applications), per-tenant extensibility, horizontal scaling model |
 | — | [ADR](adr/README.md) | Tech lead | 8 architecture decisions |
 | — | [Preny dashboard specification](reference/preny-dashboard-spec.md) | Reference | Each screen, field, column, button, observed limit |
+| — | [Preny industry verticals](reference/preny-verticals.md) | Reference | 17 verticals, how (little) the product differs per industry, gaps we exploit |
 
 ## One-page summary
 
 - **Product:** multichannel AI sales bot (FB, IG, Zalo, TikTok, Lazada, website) + inbox for sales staff + Mini CRM + orders/shipping + remarketing (ZBS, FMM, email) + follow-up workflows + plans/credit wallet + affiliate.
-- **Stack:** TypeScript monorepo · Next.js (dashboard, site) · NestJS modular monolith (api/webhook/worker) · PostgreSQL + pgvector · Redis + BullMQ · S3 · multi-provider LLM gateway · OpenTelemetry/Grafana/Sentry/Langfuse · Docker → Kubernetes.
+- **Stack:** TypeScript monorepo · Vite + React SPA (dashboard) · Astro (site) · NestJS on Fastify modular monolith (api/webhook/worker) · PostgreSQL + pgvector · Redis + BullMQ · S3 · multi-provider LLM gateway · OpenTelemetry/Grafana/Sentry/Langfuse · Docker → Kubernetes.
 - **Differentiators:** one shared catalog for the bot & orders; transparent answer sources; complete handoff; real audit; sandbox that does not pollute metrics; GHN/GHTK; ROI measurement from ads → orders.
 - **Plan:** Phase 0 (2 weeks) → MVP (10 weeks, alpha with 5–10 shops) → Beta (8 weeks, 30–50 paying shops) → GA (8 weeks of hardening) ≈ 7 months with a team of 9–10 people.
 - **Immediate actions:** finalize the [open decisions](14-open-decisions.md), submit Meta Business Verification/App Review + Zalo app, interview shops, scaffold the repo.

@@ -5,9 +5,9 @@
 ```
 agent-sale-src/
 ├── apps/
-│   ├── web/               # Next.js — dashboard (app.<domain>)
-│   ├── site/              # Next.js — marketing site + docs + blog (<domain>)
-│   ├── admin/             # Next.js — internal back-office
+│   ├── web/               # Vite + React SPA — dashboard (app.<domain>), served from CDN
+│   ├── site/              # Astro — marketing site + docs + blog (<domain>)
+│   ├── admin/             # Vite + React SPA — internal back-office
 │   ├── api/               # NestJS — REST /api/v1 + WebSocket
 │   ├── webhook/           # lightweight NestJS/Fastify — receives channel, payment, carrier webhooks
 │   ├── worker/            # NestJS standalone — BullMQ processors (queues selected via env WORKER_QUEUES)

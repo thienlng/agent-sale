@@ -27,7 +27,7 @@ Personas: **Shop owner** (Owner), **Sales manager**, **Sales staff**, **Bot conf
 | ACC-08 | Multiple workspaces / switch workspace | P2 | For agencies managing many shops [+] |
 | ACC-09 | Post-sign-up onboarding wizard: choose industry → create a template bot → test chat → connect a channel | P0 | Measure time to "first value" (the bot correctly answers 1 question from the shop's data) |
 | ACC-10 | Session management, remote logout | P1 | |
-| ACC-11 | Multilingual UI (vi, en) | P1 | next-intl; no VI metadata on EN pages (a Preny bug) [+] |
+| ACC-11 | Multilingual UI (vi, en) | P1 | i18next in the SPA, Astro i18n on the site; no VI metadata on EN pages (a Preny bug) [+] |
 
 ## 2. Bot & training (`BOT`)
 
@@ -236,6 +236,23 @@ The Preny inbox layout could not be captured → we design it on the standard 3-
 | WEB-04 | Privacy policy, terms, purchase/payment policy, DPA | P0 |
 | WEB-05 | Bilingual vi/en with correct canonical/hreflang; error-free sitemap | P1 |
 | WEB-06 | Demo bot on our own website (dogfooding the widget) | P0 |
+
+## 14b. Vertical packs and business objects (`VRT`) — design in `docs/17`
+
+| ID | Feature | Priority | Acceptance criteria |
+|---|---|---|---|
+| VRT-01 | Industry picker at bot/workspace creation applies a **vertical pack** (seeded FAQs/scenarios with `{{placeholders}}`, statuses, tags, custom fields, workflow templates, KPIs) | P0 | Onboarding checklist not "ready" until all placeholders used by seeded knowledge are filled |
+| VRT-02 | Retail pack (e-commerce, fashion, phone, restaurant menu) on the shared catalog | P0 | `catalog_kind` per workspace; product cards and order drafts from chat |
+| VRT-03 | Appointment **request** intake (no calendar): bot collects slot preferences, creates `appointments` in `requested`, staff confirm | P0 | Confirmed/attended are conversion events that stop follow-up |
+| VRT-04 | Resources + availability rules + `check_availability`/`create_appointment` tools; reminders and no-show follow-up | P1 | Double-booking impossible (unique slot per resource); reschedule/cancel from chat |
+| VRT-05 | Quote engine v1: quote forms (spec questions), deterministic price rules as data, `estimate_price`/`create_quote` tools, PDF, versioning, human approval before binding | P1 | Solar example: kWh → kWp → tiered price; LLM never invents numbers |
+| VRT-06 | Custom fields on contact/order/appointment/quote/application/product with validation and filtering | P1 | Filter < 150 ms with expression indexes |
+| VRT-07 | Conversion events for services (`appointment_confirmed`, `attended`, `enrolled`, `quote_accepted`, `application_submitted`) feeding workflows and ad attribution (CAPI `Schedule`/`Lead`/`Purchase`) | P1 | Events idempotent by object id |
+| VRT-08 | Applications (eligibility checklist + document upload + specialist handoff) for finance / study abroad / labor export | P2 | Documents in tenant-prefixed storage; status per document |
+| VRT-09 | Per-vertical guardrails (no medical diagnosis, no credit/visa promises) as pack data | P1 | Covered by eval cases per pack |
+| VRT-10 | Public API + webhooks for tenants' own systems (PMS, LMS, POS, ERP) | P2 | Scoped API keys, rate limits, signed webhooks |
+| VRT-11 | Back-office pack editor and pack versioning; re-apply pack updates without overwriting tenant edits | P2 | — |
+| VRT-12 | Vertical KPI dashboards (booking rate, show-up rate, quote-to-order, repeat rate) | P2 | — |
 
 ## 15. Non-functional requirements (NFR)
 
