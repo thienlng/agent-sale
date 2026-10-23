@@ -21,7 +21,7 @@
 - Verify before claiming: paste the actual commands you ran and their results in the PR (`pnpm check` output summary, test counts, screenshots for UI). "Should work" is not done.
 - Use the `open-pr` skill. Fill the template completely. Reference the task ID. Update `TODO.md` and the task file in the same PR.
 - Reply to every review comment. If you disagree, explain with evidence; do not silently comply or silently ignore.
-- After merge (done by a human), you are finished with that task. Do not start the next one in the same branch.
+- Continue with the next task of the same milestone on the same branch (Rule 02). After the milestone PR is merged, start the next milestone from a fresh branch off `main`.
 
 ## Communication
 

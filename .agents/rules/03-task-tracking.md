@@ -40,7 +40,7 @@ Front matter + sections: Context, Goal, Scope / Out of scope, Acceptance criteri
 `backlog → next → in-progress → (blocked) → review → done`
 
 - `backlog`/`next`: humans decide priority. An agent may propose a new backlog task (with a file) when it discovers follow-up work, and must mention it in the PR.
-- `in-progress`: set when you create the branch. Put your owner handle on the line. Only one in-progress task per agent session.
+- `in-progress`: set when you create the branch. Put your owner handle on the line. Work tasks of the same milestone one after another on the milestone branch; only one task is actively being coded at a time, the others of the block stay in **Next**.
 - `blocked`: write the blocker in the file and on the board line; stop and report to a human.
 - `review`: PR opened and ready. Add the PR number to the board line.
 - `done`: set by the PR that finishes the task: in that same PR, move the file to `todo/done/`, set `status: done`, record the PR number, and move the board line to **Done**.

@@ -12,7 +12,7 @@ description: Open or finalize a pull request for a T-xxx task — final checks, 
 - [ ] Tests cover the new behavior; no test was skipped/deleted.
 - [ ] Docs updated; ADR added if architectural (Rule 05).
 - [ ] No secrets, no PII, no `console.log`, no commented-out code.
-- [ ] Diff ≤ ~400 lines (excluding generated/lockfiles). If larger, explain why or split.
+- [ ] One commit (or a few) per task; PR body has one section per task and a "start reading here" pointer.
 
 ## Update tracking (same branch)
 
