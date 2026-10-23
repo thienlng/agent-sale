@@ -76,7 +76,7 @@ export function FaqList({ botId }: { botId: string }) {
   };
 
   return (
-    <section className="mx-auto w-full max-w-3xl">
+    <section className="w-full">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 className="text-xl font-semibold tracking-tight">{t('faq.title')}</h2>

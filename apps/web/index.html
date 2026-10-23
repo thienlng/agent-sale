@@ -29,10 +29,9 @@
           opacity: 0.45;
         }
       }
-      @media (prefers-color-scheme: dark) {
-        .boot {
-          background: #17130f;
-        }
+      /* .dark is set by the preferences boot script injected first in <head>. */
+      .dark .boot {
+        background: #17130f;
       }
       @media (prefers-reduced-motion: reduce) {
         .boot svg {

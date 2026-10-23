@@ -16,4 +16,5 @@ Layout and rules: `docs/ARCHITECTURE.md` §4 — `features/<module>` mirrors bac
 - `src/lib/session.ts` — session store: access token in memory, HttpOnly refresh cookie, `razpi.session` hint in localStorage so logged-out visitors make no refresh call; `ensureSession()` guards `/app` and `/admin`.
 - `src/lib/query-keys.ts` — query keys shared across features (e.g. a FAQ edit refreshes the bot's readiness).
 - `/admin/*` — platform back-office (LLM providers and tier routing), shown only to `isPlatformAdmin` users; lives here until `apps/admin` exists (ADR-009 note).
-- Dark mode follows the OS (`.dark` class set by `lib/theme.ts`).
+- Shell: shadcn `Sidebar` with the Studio Admin layout model (see `THIRD_PARTY_NOTICES.md`). User preferences — mode, colour preset, sidebar variant/collapse, content width, sticky navbar — live in `src/lib/preferences/registry.ts` (single source; `vite.config.ts` injects the boot script that applies them before first paint). Pages do not set their own max width or page padding; full-bleed pages set `data-content-padding="false"`.
+- `e2e/responsive.spec.ts` fails the build on horizontal overflow at 375/768/1280/1920 px and in every layout combination, with long Vietnamese content. Run it after any layout change.

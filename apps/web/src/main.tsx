@@ -2,10 +2,10 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import { App } from './app/app';
-import { followSystemTheme } from './lib/theme';
+import { initPreferences } from './lib/preferences/preferences';
 import './styles.css';
 
-followSystemTheme();
+initPreferences();
 
 const root = document.getElementById('root');
 if (!root) throw new Error('#root not found');

@@ -20,7 +20,10 @@
     "comingSoon": "Sắp có",
     "mainLabel": "Điều hướng chính",
     "logout": "Đăng xuất",
-    "language": "Ngôn ngữ"
+    "language": "Ngôn ngữ",
+    "groupWork": "Bán hàng",
+    "adminLlm": "Mô hình AI",
+    "toggleSidebar": "Mở hoặc thu gọn thanh bên"
   },
   "auth": {
     "login": "Đăng nhập",
@@ -287,5 +290,45 @@
     "solar__price_range": "Khoảng giá hệ thống",
     "solar__payback": "Thời gian hoàn vốn",
     "solar__warranty": "Bảo hành"
+  },
+  "preferences": {
+    "title": "Tuỳ chỉnh giao diện",
+    "subtitle": "Áp dụng cho trình duyệt này.",
+    "reset": "Khôi phục mặc định",
+    "toggleTheme": "Chuyển sáng / tối",
+    "theme_preset": {
+      "label": "Bảng màu",
+      "razpi": "Razpi",
+      "ocean": "Biển",
+      "forest": "Rừng",
+      "graphite": "Than chì"
+    },
+    "theme_mode": {
+      "label": "Chế độ",
+      "light": "Sáng",
+      "dark": "Tối",
+      "system": "Theo máy"
+    },
+    "sidebar_variant": {
+      "label": "Kiểu thanh bên",
+      "sidebar": "Liền",
+      "inset": "Lồng",
+      "floating": "Nổi"
+    },
+    "sidebar_collapsible": {
+      "label": "Khi thu gọn",
+      "icon": "Còn biểu tượng",
+      "offcanvas": "Ẩn hẳn"
+    },
+    "content_layout": {
+      "label": "Bố cục nội dung",
+      "centered": "Căn giữa",
+      "full-width": "Toàn màn hình"
+    },
+    "navbar_style": {
+      "label": "Thanh trên cùng",
+      "sticky": "Cố định",
+      "scroll": "Cuộn theo"
+    }
   }
 }

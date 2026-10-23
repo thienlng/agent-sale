@@ -3,6 +3,7 @@ import {
   BadgeCheck,
   CircleHelp,
   Headset,
+  PanelRightClose,
   RotateCcw,
   SendHorizontal,
   ShieldAlert,
@@ -85,7 +86,16 @@ function Outcome({ result }: { result: PlaygroundResponse }) {
  * The owner plays the customer; the bot answers exactly as it would on a
  * channel, and every reply says where it came from.
  */
-export function TestChat({ botId, greeting }: { botId: string; greeting: string }) {
+export function TestChat({
+  botId,
+  greeting,
+  onHide,
+}: {
+  botId: string;
+  greeting: string;
+  /** Shown as a close button when the panel is docked. */
+  onHide?: () => void;
+}) {
   const { t } = useTranslation();
   const playground = usePlayground(botId);
   const seq = useRef(0);
@@ -143,8 +153,8 @@ export function TestChat({ botId, greeting }: { botId: string; greeting: string 
       aria-label={t('playground.title')}
       className="flex h-full min-h-0 flex-col bg-background"
     >
-      <header className="flex items-start justify-between gap-3 border-b px-4 py-3">
-        <div>
+      <header className="flex items-start gap-1 border-b px-4 py-3">
+        <div className="mr-auto">
           <h2 className="font-semibold">{t('playground.title')}</h2>
           <p className="text-sm text-muted-foreground">{t('playground.subtitle')}</p>
         </div>
@@ -158,6 +168,17 @@ export function TestChat({ botId, greeting }: { botId: string; greeting: string 
         >
           <RotateCcw />
         </Button>
+        {onHide ? (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={onHide}
+            aria-label={t('playground.hide')}
+            title={t('playground.hide')}
+          >
+            <PanelRightClose />
+          </Button>
+        ) : null}
       </header>
 
       <MessageScrollerProvider autoScroll>

@@ -1,6 +1,6 @@
 import { fillPlaceholders, placeholdersIn } from '@agent-sales/shared';
 import { createFileRoute, Outlet } from '@tanstack/react-router';
-import { MessageSquareText, PanelRightClose } from 'lucide-react';
+import { MessageSquareText } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -28,7 +28,7 @@ function BotSpace() {
   if (bot.error instanceof ApiClientError && bot.error.status === 404) return <NotFound />;
   if (!bot.data) {
     return (
-      <div className="flex flex-col gap-4 p-6">
+      <div className="flex flex-col gap-4">
         <Skeleton className="h-8 w-64" />
         <Skeleton className="h-64 w-full rounded-xl" />
       </div>
@@ -39,30 +39,28 @@ function BotSpace() {
   // with an unfilled placeholder is not sent, so it is not shown either.
   const filled = fillPlaceholders(bot.data.settings.greeting, bot.data.settings.placeholders);
   const greeting = placeholdersIn(filled).length ? '' : filled;
-  const chat = <TestChat key={bot.data.id} botId={bot.data.id} greeting={greeting} />;
+  const chat = (onHide?: () => void) => (
+    <TestChat
+      key={bot.data.id}
+      botId={bot.data.id}
+      greeting={greeting}
+      {...(onHide ? { onHide } : {})}
+    />
+  );
 
   return (
-    <div className="flex min-h-0 flex-1">
+    // Full-bleed in the shell; the test chat docks on the right from xl and is a sheet below.
+    <div data-content-padding="false" className="flex min-h-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col">
         <BotHeader bot={bot.data} />
-        <div className="min-h-0 flex-1 overflow-y-auto p-6 lg:p-8">
+        <div className="flex-1 p-4 md:p-6">
           <Outlet />
         </div>
       </div>
 
       {chatOpen ? (
-        <aside className="relative hidden w-[380px] shrink-0 border-l xl:flex xl:flex-col">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="absolute top-3 -left-11 bg-background"
-            onClick={() => setChatOpen(false)}
-            aria-label={t('playground.hide')}
-            title={t('playground.hide')}
-          >
-            <PanelRightClose />
-          </Button>
-          {chat}
+        <aside className="chat-dock sticky hidden w-[380px] shrink-0 self-start border-l xl:flex xl:flex-col">
+          {chat(() => setChatOpen(false))}
         </aside>
       ) : null}
 
@@ -78,7 +76,7 @@ function BotSpace() {
       <Sheet open={mobileChat} onOpenChange={setMobileChat}>
         <SheetContent side="right" className="w-full p-0 sm:max-w-md">
           <SheetTitle className="sr-only">{t('playground.title')}</SheetTitle>
-          {chat}
+          {chat()}
         </SheetContent>
       </Sheet>
     </div>

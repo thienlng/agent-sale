@@ -18,7 +18,7 @@ export function BotList() {
   const date = new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium' });
 
   return (
-    <section className="mx-auto w-full max-w-4xl">
+    <section className="w-full">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{t('bots.title')}</h1>

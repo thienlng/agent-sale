@@ -20,7 +20,10 @@
     "comingSoon": "Soon",
     "mainLabel": "Main navigation",
     "logout": "Log out",
-    "language": "Language"
+    "language": "Language",
+    "groupWork": "Sales",
+    "adminLlm": "AI models",
+    "toggleSidebar": "Open or collapse the sidebar"
   },
   "auth": {
     "login": "Log in",
@@ -287,5 +290,45 @@
     "solar__price_range": "System price range",
     "solar__payback": "Payback period",
     "solar__warranty": "Warranty"
+  },
+  "preferences": {
+    "title": "Appearance",
+    "subtitle": "Applies to this browser.",
+    "reset": "Reset to defaults",
+    "toggleTheme": "Switch light / dark",
+    "theme_preset": {
+      "label": "Colour",
+      "razpi": "Razpi",
+      "ocean": "Ocean",
+      "forest": "Forest",
+      "graphite": "Graphite"
+    },
+    "theme_mode": {
+      "label": "Mode",
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    },
+    "sidebar_variant": {
+      "label": "Sidebar style",
+      "sidebar": "Attached",
+      "inset": "Inset",
+      "floating": "Floating"
+    },
+    "sidebar_collapsible": {
+      "label": "When collapsed",
+      "icon": "Icons only",
+      "offcanvas": "Hidden"
+    },
+    "content_layout": {
+      "label": "Content width",
+      "centered": "Centered",
+      "full-width": "Full width"
+    },
+    "navbar_style": {
+      "label": "Top bar",
+      "sticky": "Sticky",
+      "scroll": "Scrolls away"
+    }
   }
 }

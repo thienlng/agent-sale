@@ -97,6 +97,8 @@ testing/        render helpers, msw handlers, factories
 
 Rules: `shared → features → routes/app`; features never import each other (compose in routes); no `index.ts` barrels; one API client (`lib/api-client.ts`, raw `fetch` is lint-banned outside it); no business logic in components (hooks/stores); every user-facing string from `packages/i18n`.
 
+Layout rules (T-017): build UI from shadcn/ui components in `components/ui` (add new ones with `pnpm --filter @agent-sales/web exec shadcn add <name>`, never hand-roll an equivalent); the dashboard shell (`components/app-shell.tsx`, shadcn `Sidebar`) owns page padding and content width, so pages set neither (full-bleed pages put `data-content-padding="false"` on their root); colours only through tokens (`packages/ui/tokens.css`, `presets.css`), never hex values in components; any layout change must keep `e2e/responsive.spec.ts` green (no horizontal overflow at 375–1920 px in every layout preference).
+
 ## 5. Mechanical enforcement (all run in `pnpm check`)
 
 | Check | Tool | What it catches |
