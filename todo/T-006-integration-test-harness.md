@@ -42,6 +42,7 @@ Rule 04 requires integration tests (API + DB + queue) and a cross-tenant test fo
 ## Log
 
 - 2026-10-23 — created.
+- 2026-10-23 — T-004 delivered the Postgres Testcontainers harness (`startTestPostgres`) and `test:integration` CI job; remaining: authenticated request helper + Redis container.
 
 ## Links
 

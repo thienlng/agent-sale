@@ -1,18 +1,21 @@
+import type { Database } from '@agent-sales/db';
 import { Module } from '@nestjs/common';
 
+import { DB_TENANT } from '../../common/db/db.module.js';
 import { WORKSPACE_FACADE } from './api/workspace.facade.js';
 import { CreateWorkspaceHandler } from './application/commands/create-workspace/create-workspace.handler.js';
-import { EVENT_PUBLISHER } from './application/ports/event-publisher.js';
+import { WORKSPACE_UOW } from './application/ports/workspace-unit-of-work.js';
 import { GetWorkspaceHandler } from './application/queries/get-workspace/get-workspace.handler.js';
 import { WorkspaceFacadeImpl } from './application/workspace.facade.impl.js';
-import { WORKSPACE_REPOSITORY } from './domain/ports/workspace.repository.js';
-import { InMemoryEventPublisher } from './infrastructure/messaging/in-memory-event-publisher.js';
-import { InMemoryWorkspaceRepository } from './infrastructure/persistence/workspace.in-memory-repository.js';
+import {
+  DrizzleWorkspaceUnitOfWork,
+  InMemoryWorkspaceUnitOfWork,
+} from './infrastructure/workspace.unit-of-work.js';
 import { WorkspaceController } from './interface/http/workspace.controller.js';
 
 /**
- * Providers are bound by token. The in-memory adapters are the default until
- * T-004 wires DrizzleWorkspaceRepository + the outbox publisher.
+ * Ports are bound by token. With a database configured the unit of work is
+ * Drizzle-backed (withTenant + outbox); otherwise in-memory.
  * Exports ONLY what api/ declares.
  */
 @Module({
@@ -20,8 +23,12 @@ import { WorkspaceController } from './interface/http/workspace.controller.js';
   providers: [
     CreateWorkspaceHandler,
     GetWorkspaceHandler,
-    { provide: WORKSPACE_REPOSITORY, useClass: InMemoryWorkspaceRepository },
-    { provide: EVENT_PUBLISHER, useClass: InMemoryEventPublisher },
+    {
+      provide: WORKSPACE_UOW,
+      inject: [{ token: DB_TENANT, optional: true }],
+      useFactory: (db: Database | null | undefined) =>
+        db ? new DrizzleWorkspaceUnitOfWork(db) : new InMemoryWorkspaceUnitOfWork(),
+    },
     { provide: WORKSPACE_FACADE, useClass: WorkspaceFacadeImpl },
   ],
   exports: [WORKSPACE_FACADE],

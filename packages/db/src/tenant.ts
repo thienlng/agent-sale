@@ -14,8 +14,9 @@ export function tenantContextSql(workspaceId: WorkspaceId) {
 
 /**
  * Runs `fn` inside a transaction whose RLS context is `workspaceId`.
- * This is the ONLY sanctioned way to touch tenant tables; the lint rules
- * forbid using the raw `db` handle outside packages/db.
+ * `db` must be a connection logged in as a member of `app_tenant`.
+ * This is the ONLY sanctioned way to touch tenant tables; lint forbids using
+ * the raw handle outside packages/db and infrastructure/.
  */
 export async function withTenant<T>(
   db: Database,
@@ -24,10 +25,10 @@ export async function withTenant<T>(
 ): Promise<T> {
   return db.transaction(async (tx) => {
     await tx.execute(tenantContextSql(workspaceId));
-    const [row] = await tx.execute<{ ws: string | null }>(
+    const rows = await tx.execute<{ ws: string | null }>(
       sql`select nullif(current_setting('app.workspace_id', true), '') as ws`,
     );
-    if (row?.ws !== workspaceId) {
+    if (rows[0]?.ws !== workspaceId) {
       throw new Error('withTenant: tenant context was not applied');
     }
     return fn(tx);
@@ -35,12 +36,10 @@ export async function withTenant<T>(
 }
 
 /**
- * Cross-tenant work (webhook ingress, scheduler, reconciliation, back-office)
- * runs as the `app_system` role with an explicit marker, never by bypassing RLS.
+ * Cross-tenant work (webhook ingress, scheduler, reconciliation, back-office).
+ * `db` must be a connection logged in as a member of `app_system`; isolation
+ * comes from the DB role and its policies, never from a settable flag.
  */
 export async function withSystem<T>(db: Database, fn: (tx: TenantTx) => Promise<T>): Promise<T> {
-  return db.transaction(async (tx) => {
-    await tx.execute(sql`select set_config('app.role', 'system', true)`);
-    return fn(tx);
-  });
+  return db.transaction(fn);
 }

@@ -9,6 +9,7 @@ export const EnvSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
   LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error']).default('info'),
   DATABASE_URL: z.string().url().optional(),
+  DATABASE_SYSTEM_URL: z.string().url().optional(),
   REDIS_URL: z.string().url().optional(),
   APP_VERSION: z.string().default('0.0.0-dev'),
 });

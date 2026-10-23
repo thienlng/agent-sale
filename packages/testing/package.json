@@ -22,7 +22,9 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@agent-sales/shared": "workspace:*"
+    "@agent-sales/shared": "workspace:*",
+    "@testcontainers/postgresql": "^12.2.0",
+    "testcontainers": "^12.2.0"
   },
   "devDependencies": {
     "typescript": "^5.8.3",

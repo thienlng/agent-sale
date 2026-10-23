@@ -1,9 +1,10 @@
-import type { WorkspaceId } from '@agent-sales/shared';
+import type { UserId, WorkspaceId } from '@agent-sales/shared';
 
+import type { MemberRepository, Membership } from '../../domain/ports/member.repository.js';
 import type { WorkspaceRepository } from '../../domain/ports/workspace.repository.js';
 import { Workspace } from '../../domain/workspace.js';
 
-/** In-memory adapter for unit tests and local prototyping. */
+/** In-memory adapters for unit tests and DB-less local runs. */
 export class InMemoryWorkspaceRepository implements WorkspaceRepository {
   readonly #rows = new Map<string, ReturnType<Workspace['snapshot']>>();
 
@@ -14,5 +15,17 @@ export class InMemoryWorkspaceRepository implements WorkspaceRepository {
 
   async save(workspace: Workspace): Promise<void> {
     this.#rows.set(workspace.id, workspace.snapshot());
+  }
+}
+
+export class InMemoryMemberRepository implements MemberRepository {
+  readonly rows: Membership[] = [];
+
+  async add(membership: Membership): Promise<void> {
+    this.rows.push(membership);
+  }
+
+  async find(workspaceId: WorkspaceId, userId: UserId): Promise<Membership | null> {
+    return this.rows.find((m) => m.workspaceId === workspaceId && m.userId === userId) ?? null;
   }
 }

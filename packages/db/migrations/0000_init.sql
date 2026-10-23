@@ -79,24 +79,27 @@ create table if not exists members (
 );
 create index if not exists members_workspace_user_idx on members (workspace_id, user_id);
 
--- RLS: forced, InitPlan predicate, system marker for app_system work.
+-- RLS: forced; policies are scoped to DB roles so a tenant connection can never
+-- escalate by setting a GUC. app_tenant sees only its workspace (InitPlan
+-- predicate); app_system (ingress, scheduler, reconciliation, back-office) sees all.
 alter table workspaces enable row level security;
 alter table workspaces force row level security;
 drop policy if exists workspaces_tenant on workspaces;
-create policy workspaces_tenant on workspaces for all to app_tenant, app_system
-  using (workspace_id = (select nullif(current_setting('app.workspace_id', true), '')::uuid)
-         or current_setting('app.role', true) = 'system')
-  with check (workspace_id = (select nullif(current_setting('app.workspace_id', true), '')::uuid)
-         or current_setting('app.role', true) = 'system');
+drop policy if exists workspaces_system on workspaces;
+create policy workspaces_tenant on workspaces for all to app_tenant
+  using (workspace_id = (select nullif(current_setting('app.workspace_id', true), '')::uuid))
+  with check (workspace_id = (select nullif(current_setting('app.workspace_id', true), '')::uuid));
+create policy workspaces_system on workspaces for all to app_system using (true) with check (true);
 
 alter table members enable row level security;
 alter table members force row level security;
 drop policy if exists members_tenant on members;
-create policy members_tenant on members for all to app_tenant, app_system
-  using (workspace_id = (select nullif(current_setting('app.workspace_id', true), '')::uuid)
-         or current_setting('app.role', true) = 'system')
-  with check (workspace_id = (select nullif(current_setting('app.workspace_id', true), '')::uuid)
-         or current_setting('app.role', true) = 'system');
+drop policy if exists members_system on members;
+create policy members_tenant on members for all to app_tenant
+  using (workspace_id = (select nullif(current_setting('app.workspace_id', true), '')::uuid))
+  with check (workspace_id = (select nullif(current_setting('app.workspace_id', true), '')::uuid));
+create policy members_system on members for all to app_system using (true) with check (true);
 
+grant usage on schema public to app_tenant, app_system;
 grant select, insert, update, delete on all tables in schema public to app_tenant, app_system;
 grant usage, select on all sequences in schema public to app_tenant, app_system;

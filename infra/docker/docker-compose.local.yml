@@ -1,0 +1,35 @@
+# Local development services (self-hosted stack, ADR-006). Not for production.
+# Usage: docker compose -f infra/docker/docker-compose.local.yml up -d
+#        pnpm db:migrate
+name: razpi-local
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: razpi
+    ports: ['5433:5432'] # 5433 avoids clashing with a host Postgres
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d razpi']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    command: ['redis-server', '--appendonly', 'yes']
+    ports: ['6379:6379']
+    volumes: [redisdata:/data]
+
+  # Object storage: not needed before media upload. MinIO no longer publishes
+  # community images (pull access denied, 2026-10); choice tracked in T-013.
+  mailpit:
+    image: axllent/mailpit:latest
+    ports: ['1025:1025', '8025:8025']
+
+volumes:
+  pgdata:
+  redisdata:

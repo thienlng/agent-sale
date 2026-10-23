@@ -57,7 +57,11 @@ module.exports = {
       severity: 'error',
       comment:
         '@agent-sales/db is imported only by infrastructure/ and tests (withTenant lives there).',
-      from: { path: '^apps/backend/src/', pathNot: '/(infrastructure|__tests__)/|\\.spec\\.ts$' },
+      from: {
+        path: '^apps/backend/src/',
+        pathNot:
+          '/(infrastructure|__tests__)/|^apps/backend/src/common/db/|\\.spec\\.ts$|/[^/]+\\.module\\.ts$',
+      },
       to: { path: '^packages/db/' },
     },
     {
