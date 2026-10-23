@@ -40,6 +40,7 @@ export const UserDto = z.object({
   emailVerified: z.boolean(),
   locale: z.string(),
   timezone: z.string(),
+  isPlatformAdmin: z.boolean(),
 });
 export type UserDto = z.infer<typeof UserDto>;
 

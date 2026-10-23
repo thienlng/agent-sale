@@ -115,7 +115,7 @@ Adding a module: `pnpm gen module <name>` → fill `MODULE.md` → add its row t
 |---|---|---|
 | `entries/api.ts` | HTTP (Fastify) + all modules' `interface/http` | — |
 | `entries/worker.ts` | modules' `application/jobs` for `WORKER_QUEUES` | outbound, campaign, workflow, indexer, scheduler |
-| `entries/agent.ts` | `ai` + its dependencies; the only process that calls LLMs | conversation (+ priority) |
+| `entries/agent.ts` | `ai` + its dependencies; the only process that calls LLMs for conversations (exception: the request/response dashboard playground and the admin connection test run in `api`) | conversation (+ priority) |
 | `entries/realtime.ts` | SSE + websocket-only Socket.IO, Redis pub/sub | — |
 
 `apps/webhook` is separate on purpose (no Nest, no business logic, p99 ≤ 500 ms).

@@ -23,6 +23,7 @@ declare module 'fastify' {
 
 export const IS_PUBLIC = 'razpi:isPublic';
 export const IS_WORKSPACE_SCOPED = 'razpi:isWorkspaceScoped';
+export const IS_PLATFORM_ADMIN = 'razpi:isPlatformAdmin';
 
 /** Route needs no authentication (health, signup, login, refresh). */
 export const Public = () => SetMetadata(IS_PUBLIC, true);
@@ -33,6 +34,12 @@ export const Public = () => SetMetadata(IS_PUBLIC, true);
  * workspace the user does not belong to answers 404 (never 403).
  */
 export const WorkspaceScoped = () => SetMetadata(IS_WORKSPACE_SCOPED, true);
+
+/**
+ * Platform back-office route (LLM providers, plans…): the user must be a
+ * platform admin. Anyone else gets 404 so the admin surface is not discoverable.
+ */
+export const PlatformAdmin = () => SetMetadata(IS_PLATFORM_ADMIN, true);
 
 export const CurrentUser = createParamDecorator((_d: unknown, ctx: ExecutionContext): AuthState => {
   const req = ctx.switchToHttp().getRequest<FastifyRequest>();

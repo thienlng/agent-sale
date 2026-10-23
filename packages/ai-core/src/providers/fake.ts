@@ -1,4 +1,4 @@
-import type { GenerateRequest, GenerateResponse, LlmProvider } from '../gateway.js';
+import type { GenerateRequest, GenerateResponse, LlmProvider, ModelTarget } from '../gateway.js';
 
 /**
  * Deterministic provider for tests and evals: replies are scripted by a
@@ -18,16 +18,17 @@ export class FakeLlmProvider implements LlmProvider {
     this.name = name;
   }
 
-  async generate(request: GenerateRequest, model: string): Promise<GenerateResponse> {
+  async generate(request: GenerateRequest, target: ModelTarget): Promise<GenerateResponse> {
     this.calls.push(request);
     const out = this.script(request);
     if (out instanceof Error) throw out;
     return {
       text: out.text ?? 'ok',
       toolCalls: out.toolCalls ?? [],
+      stopReason: out.stopReason ?? 'end',
       usage: out.usage ?? { inputTokens: 10, outputTokens: 5, cachedInputTokens: 0 },
       provider: this.name,
-      model,
+      model: target.model,
       latencyMs: 1,
     };
   }

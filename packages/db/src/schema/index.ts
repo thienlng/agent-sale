@@ -4,3 +4,4 @@ export * from './workspace.js';
 export * from './platform.js';
 export * from './bot.js';
 export * from './knowledge.js';
+export * from './ai.js';

@@ -9,12 +9,20 @@ import {
   BotReadiness,
   FaqDto,
   FaqListResponse,
+  LlmProviderDto,
+  LlmTierRouteList,
+  PlaygroundResponse,
+  TestLlmProviderResponse,
 } from '@agent-sales/contracts';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
 import { createHttpApp } from '../src/bootstrap.js';
+import {
+  USER_REPOSITORY,
+  type UserRepository,
+} from '../src/modules/identity/domain/ports/user.repository.js';
 
 /** HTTP-level tests through Fastify inject; no DB configured → in-memory adapters. */
 let current: NestFastifyApplication | undefined;
@@ -37,7 +45,7 @@ async function app(): Promise<NestFastifyApplication> {
 }
 
 type InjectOpts = {
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
   url: string;
   payload?: Record<string, unknown>;
   headers?: Record<string, string>;
@@ -370,4 +378,238 @@ describe('HTTP: bots and FAQs', () => {
     });
     expect(res.statusCode).toBe(400);
   });
+});
+
+describe('HTTP: AI playground', () => {
+  async function botWithFaq(a: NestFastifyApplication) {
+    const { token } = await signup(a, `ai-owner-${Math.random()}@shop.vn`);
+    const ws = (await bootstrap(a, token)).memberships[0]?.workspaceId ?? '';
+    const h = { authorization: `Bearer ${token}`, 'x-workspace-id': ws };
+    const bot = BotDto.parse(
+      (
+        await inject(a, {
+          method: 'POST',
+          url: '/api/v1/bots',
+          headers: h,
+          payload: { name: 'Razpi Bot', industry: 'other' },
+        })
+      ).json(),
+    );
+    await inject(a, {
+      method: 'POST',
+      url: `/api/v1/bots/${bot.id}/faqs`,
+      headers: h,
+      payload: { question: 'Áo thun giá bao nhiêu?', answer: 'Dạ áo thun giá 350.000đ ạ' },
+    });
+    return { h, bot, token };
+  }
+
+  const ask = (a: NestFastifyApplication, h: Record<string, string>, botId: string, text: string) =>
+    inject(a, {
+      method: 'POST',
+      url: `/api/v1/bots/${botId}/playground`,
+      headers: h,
+      payload: { messages: [{ role: 'customer', content: text }] },
+    });
+
+  it('answers from the FAQ (unaccented question), cites it and meters the run', async () => {
+    const a = await app();
+    const { h, bot } = await botWithFaq(a);
+    const res = await ask(a, h, bot.id, 'ao thun gia bao nhieu vay shop');
+    expect(res.statusCode).toBe(200);
+    const body = PlaygroundResponse.parse(res.json());
+    expect(body.outcome).toBe('answered');
+    expect(body.reply).toContain('350.000');
+    expect(body.sources.find((s) => s.used)?.question).toBe('Áo thun giá bao nhiêu?');
+    expect(body.provider).toBe('dev-fake');
+    expect(body.usage.outputTokens).toBeGreaterThan(0);
+
+    const metrics = await inject(a, { method: 'GET', url: '/metrics' });
+    expect(metrics.body).toContain('ai_runs_total{outcome="answered",test="true"}');
+  });
+
+  it("uses the bot's own fallback and handoff messages", async () => {
+    const a = await app();
+    const { h, bot } = await botWithFaq(a);
+    const unknown = PlaygroundResponse.parse(
+      (await ask(a, h, bot.id, 'shop có bán xe máy không')).json(),
+    );
+    expect(unknown.outcome).toBe('fallback');
+    expect(unknown.reply).toBe(bot.settings.fallbackMessage);
+
+    const human = PlaygroundResponse.parse(
+      (await ask(a, h, bot.id, 'cho mình gặp nhân viên')).json(),
+    );
+    expect(human.outcome).toBe('handoff');
+    expect(human.reply).toBe(bot.settings.handoffMessage);
+  });
+
+  it('validates the conversation and hides bots of other workspaces', async () => {
+    const a = await app();
+    const { h, bot } = await botWithFaq(a);
+    const botLast = await inject(a, {
+      method: 'POST',
+      url: `/api/v1/bots/${bot.id}/playground`,
+      headers: h,
+      payload: { messages: [{ role: 'bot', content: 'Dạ em chào anh/chị' }] },
+    });
+    expect(botLast.statusCode).toBe(400);
+
+    const other = await botWithFaq(a);
+    const foreign = await ask(a, other.h, bot.id, 'áo thun giá bao nhiêu');
+    expect(foreign.statusCode).toBe(404);
+  });
+});
+
+describe('HTTP: platform admin — LLM configuration', () => {
+  async function admin(a: NestFastifyApplication) {
+    const email = `admin-${Math.random()}@razpi.vn`;
+    const { token } = await signup(a, email);
+    await a.get<UserRepository>(USER_REPOSITORY).setPlatformAdmin(email, true);
+    return { authorization: `Bearer ${token}` };
+  }
+
+  it('is invisible (404) to users who are not platform admins', async () => {
+    const a = await app();
+    const { token } = await signup(a, `owner-${Math.random()}@shop.vn`);
+    const res = await inject(a, {
+      method: 'GET',
+      url: '/api/v1/admin/llm/providers',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(404);
+    const me = await bootstrap(a, token);
+    expect(me.user.isPlatformAdmin).toBe(false);
+  });
+
+  it('manages providers and tier routes; API keys are write-only', async () => {
+    const a = await app();
+    const h = await admin(a);
+    const created = await inject(a, {
+      method: 'POST',
+      url: '/api/v1/admin/llm/providers',
+      headers: h,
+      payload: {
+        name: 'selfhost',
+        kind: 'openai_compatible',
+        baseUrl: 'http://127.0.0.1:9/v1',
+        apiKey: 'sk-local-secret-9876',
+      },
+    });
+    expect(created.statusCode).toBe(201);
+    expect(created.body).not.toContain('sk-local-secret');
+    const provider = LlmProviderDto.parse(created.json());
+    expect(provider).toMatchObject({ hasApiKey: true, apiKeyHint: '9876', isEnabled: true });
+    expect(provider.options.structuredOutput).toBe('json_schema');
+
+    const dup = await inject(a, {
+      method: 'POST',
+      url: '/api/v1/admin/llm/providers',
+      headers: h,
+      payload: { name: 'selfhost', kind: 'anthropic' },
+    });
+    expect(dup.statusCode).toBe(409);
+
+    const noUrl = await inject(a, {
+      method: 'POST',
+      url: '/api/v1/admin/llm/providers',
+      headers: h,
+      payload: { name: 'nourl', kind: 'openai_compatible' },
+    });
+    expect(noUrl.statusCode).toBe(400);
+
+    const put = await inject(a, {
+      method: 'PUT',
+      url: '/api/v1/admin/llm/tiers/smart',
+      headers: h,
+      payload: {
+        primary: { providerId: provider.id, model: 'qwen3-32b', effort: 'low' },
+        fallback: null,
+      },
+    });
+    expect(put.statusCode).toBe(200);
+    const tiers = LlmTierRouteList.parse(
+      (await inject(a, { method: 'GET', url: '/api/v1/admin/llm/tiers', headers: h })).json(),
+    );
+    expect(tiers.data.map((t) => [t.tier, t.primary.model])).toEqual([['smart', 'qwen3-32b']]);
+
+    const inUse = await inject(a, {
+      method: 'DELETE',
+      url: `/api/v1/admin/llm/providers/${provider.id}`,
+      headers: h,
+    });
+    expect(inUse.statusCode).toBe(409);
+
+    const badTier = await inject(a, {
+      method: 'PUT',
+      url: '/api/v1/admin/llm/tiers/ultra',
+      headers: h,
+      payload: { primary: { providerId: provider.id, model: 'm', effort: null }, fallback: null },
+    });
+    expect(badTier.statusCode).toBe(400);
+  });
+
+  it('a tier routed to an unreachable server: test reports it, the playground answers 503', async () => {
+    const a = await app();
+    const h = await admin(a);
+    const provider = LlmProviderDto.parse(
+      (
+        await inject(a, {
+          method: 'POST',
+          url: '/api/v1/admin/llm/providers',
+          headers: h,
+          payload: {
+            name: 'down',
+            kind: 'openai_compatible',
+            baseUrl: 'http://127.0.0.1:9/v1',
+            options: { timeoutMs: 2000 },
+          },
+        })
+      ).json(),
+    );
+    const test = TestLlmProviderResponse.parse(
+      (
+        await inject(a, {
+          method: 'POST',
+          url: `/api/v1/admin/llm/providers/${provider.id}/test`,
+          headers: h,
+          payload: { model: 'qwen3-32b' },
+        })
+      ).json(),
+    );
+    expect(test.ok).toBe(false);
+    expect(test.error).toBeTruthy();
+
+    await inject(a, {
+      method: 'PUT',
+      url: '/api/v1/admin/llm/tiers/smart',
+      headers: h,
+      payload: {
+        primary: { providerId: provider.id, model: 'qwen3-32b', effort: null },
+        fallback: null,
+      },
+    });
+
+    // The admin's own workspace; new bots default to the smart tier.
+    const ws = (await bootstrap(a, h.authorization.slice(7))).memberships[0]?.workspaceId ?? '';
+    const wh = { ...h, 'x-workspace-id': ws };
+    const bot = BotDto.parse(
+      (
+        await inject(a, {
+          method: 'POST',
+          url: '/api/v1/bots',
+          headers: wh,
+          payload: { name: 'Bot', industry: 'other' },
+        })
+      ).json(),
+    );
+    const res = await inject(a, {
+      method: 'POST',
+      url: `/api/v1/bots/${bot.id}/playground`,
+      headers: wh,
+      payload: { messages: [{ role: 'customer', content: 'xin chào' }] },
+    });
+    expect(res.statusCode).toBe(503);
+    expect(res.json().error.code).toBe('AI_UNAVAILABLE');
+  }, 20_000);
 });

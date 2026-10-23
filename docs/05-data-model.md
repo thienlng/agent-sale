@@ -246,6 +246,12 @@ notifications(id, workspace_id, user_id, type, title, body, link, read_at, creat
 audit_events(id, workspace_id, actor_type, actor_id, action, target_type, target_id, ip, ua, before, after, created_at)
 outbox_events(id, aggregate, aggregate_id, type, payload, created_at, published_at)   -- outbox pattern
 feature_flags(key, workspace_id NULL, value JSONB)
+
+-- Platform configuration (GLOBAL, app_system only, edited by platform admins — users.is_platform_admin)
+llm_providers(id, name UNIQUE, kind: anthropic|openai_compatible, base_url, api_key_cipher /* AES-256-GCM */,
+              api_key_hint, options JSONB /* structuredOutput, sendReasoningEffort, timeoutMs */, is_enabled)
+llm_tier_routes(tier PK: basic|smart|pro|neo, provider_id, model, effort, fallback_provider_id, fallback_model,
+                fallback_effort, updated_by, updated_at)
 ```
 
 ## 8b. Vertical objects and tenant extensibility

@@ -13,6 +13,7 @@ export const ErrorCode = z.enum([
   'QUOTA_EXCEEDED',
   'FEATURE_LOCKED',
   'RATE_LIMITED',
+  'AI_UNAVAILABLE',
   'INTERNAL',
 ]);
 export type ErrorCode = z.infer<typeof ErrorCode>;

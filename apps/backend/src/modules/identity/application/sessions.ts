@@ -38,6 +38,7 @@ export function toUserDto(user: User): UserDto {
     emailVerified: s.emailVerifiedAt !== null,
     locale: s.locale,
     timezone: s.timezone,
+    isPlatformAdmin: s.isPlatformAdmin,
   };
 }
 

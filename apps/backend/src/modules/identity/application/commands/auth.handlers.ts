@@ -116,6 +116,11 @@ export class AccountQueries {
     return toUserDto(user);
   }
 
+  /** Read on every admin request (not from the token) so revoking takes effect immediately. */
+  async isPlatformAdmin(userId: UserId): Promise<boolean> {
+    return (await this.users.findById(userId))?.isPlatformAdmin ?? false;
+  }
+
   async bootstrap(userId: UserId): Promise<BootstrapResponse> {
     const [user, memberships] = await Promise.all([
       this.me(userId),

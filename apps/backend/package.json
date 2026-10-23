@@ -15,7 +15,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
-    "test:integration": "vitest run --config vitest.integration.config.ts"
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "platform-admin": "tsx --env-file-if-exists=../../.env src/cli/platform-admin.ts"
   },
   "dependencies": {
     "@agent-sales/ai-core": "workspace:*",

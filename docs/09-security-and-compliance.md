@@ -56,6 +56,8 @@ Default roles (custom roles can be created on Pro+ plans):
 
 - Meta/Zalo/TikTok/carrier tokens: **envelope encryption** (AES-256-GCM data key, master key in KMS/Vault); never logged; only connectors can read them.
 - Application secrets in Vault/KMS/Secret Manager, never in the repo or committed env files.
+- Secrets that admins enter in the product (LLM provider API keys today, channel tokens later) are sealed with AES-256-GCM (`SecretBox`, `v1.` format leaves room for key rotation) using `SECRETS_ENCRYPTION_KEY`, which lives outside the database; required in production. APIs never return them — only a 4-character hint.
+- Platform admin (`users.is_platform_admin`) is granted only from the CLI (`pnpm --filter @agent-sales/backend platform-admin grant <email>`), checked against the database on every admin request, and admin routes answer 404 to everyone else.
 - Webhooks: verify signatures 100% of the time; reject replays older than 5 minutes when a timestamp is present.
 
 ## 6. Application protection

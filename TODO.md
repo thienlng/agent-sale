@@ -4,10 +4,9 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
-Milestone **M2-bot-playground** — branch `feat/T-015-m2-bot-playground`: T-015 done → T-016 → T-005, one PR.
+Milestone **M2-bot-playground** — branch `feat/T-015-m2-bot-playground`: T-015, T-016 done → T-005, one PR.
 
-- [ ] T-016 AI playground: LLM providers, FAQ retrieval, grounded replies, metering — @agent:claude · [details](todo/T-016-ai-playground-llm-providers-faq-retrieval-grounded.md)
-- [ ] T-005 Complete the web shell: auth pages, bots, FAQ and chat-test pages, size and Lighthouse CI — @agent:claude · [details](todo/T-005-scaffold-web.md)
+- [ ] T-005 Complete the web shell: auth pages, bots, FAQ and chat-test pages, admin LLM settings, size and Lighthouse CI — @agent:claude · [details](todo/T-005-scaffold-web.md)
 
 ## Next
 
@@ -27,6 +26,7 @@ Milestone **M2-bot-playground** — branch `feat/T-015-m2-bot-playground`: T-015
 
 ## Done (last 10 — older ones live in todo/done/)
 
+- [x] T-016 AI playground, LLM providers (Anthropic + OpenAI-compatible) and admin-managed tier routing — @agent:claude · [details](todo/done/T-016-ai-playground-llm-providers-faq-retrieval-grounded.md) · M2 PR
 - [x] T-015 Bot and knowledge modules — @agent:claude · [details](todo/done/T-015-bot-and-knowledge-modules-bots-settings-faq-indust.md) · M2 PR
 - [x] T-014 Authentication and workspace onboarding — @agent:claude · [details](todo/done/T-014-authentication-and-workspace-onboarding-signup-log.md) · M1-foundation PR
 - [x] T-003 Complete the backend runtime: OpenAPI, request tracing, readiness, metrics — @agent:claude · [details](todo/done/T-003-scaffold-api.md) · M1-foundation PR

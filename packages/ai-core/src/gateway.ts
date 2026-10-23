@@ -31,33 +31,51 @@ export interface GenerateRequest {
   /** Stable prefix for prompt caching: tools → system → tenant knowledge. */
   cachePrefixKey?: string;
   maxOutputTokens?: number;
+  /**
+   * Constrains the reply to JSON matching this schema (structured output).
+   * Providers enforce it where they can; callers still parse the text.
+   */
+  responseFormat?: z.ZodType;
 }
 
+/** `inputTokens` excludes cache reads, which are counted in `cachedInputTokens`. */
 export interface Usage {
   inputTokens: number;
   outputTokens: number;
   cachedInputTokens: number;
 }
 
+/** Provider-neutral reason the model stopped. `refusal` = declined by provider safety systems. */
+export type StopReason = 'end' | 'max_tokens' | 'tool_use' | 'refusal';
+
 export interface GenerateResponse {
   text: string;
   toolCalls: ToolCall[];
+  stopReason: StopReason;
   usage: Usage;
   provider: string;
   model: string;
   latencyMs: number;
 }
 
+/** Reasoning depth for providers that support it; ignored elsewhere. */
+export type Effort = 'low' | 'medium' | 'high';
+
+/** Which model a provider should run, plus per-tier knobs. */
+export interface ModelTarget {
+  model: string;
+  effort?: Effort;
+}
+
 /** One concrete provider (OpenAI, Anthropic, Google, local…). */
 export interface LlmProvider {
   readonly name: string;
-  generate(request: GenerateRequest, model: string): Promise<GenerateResponse>;
+  generate(request: GenerateRequest, target: ModelTarget): Promise<GenerateResponse>;
 }
 
-export interface TierPolicy {
+export interface TierPolicy extends ModelTarget {
   provider: string;
-  model: string;
-  fallback?: { provider: string; model: string };
+  fallback?: ModelTarget & { provider: string };
 }
 
 /**
@@ -82,12 +100,12 @@ export class LlmGateway {
     await this.hooks.admit?.(request);
     const policy = this.tiers[request.tier];
     try {
-      const res = await this.#call(policy.provider, policy.model, request);
+      const res = await this.#call(policy.provider, policy, request);
       await this.hooks.record?.(request, res);
       return res;
     } catch (error) {
       if (!policy.fallback) throw error;
-      const res = await this.#call(policy.fallback.provider, policy.fallback.model, request);
+      const res = await this.#call(policy.fallback.provider, policy.fallback, request);
       await this.hooks.record?.(request, res);
       return res;
     }
@@ -95,11 +113,12 @@ export class LlmGateway {
 
   async #call(
     providerName: string,
-    model: string,
+    target: ModelTarget,
     request: GenerateRequest,
   ): Promise<GenerateResponse> {
     const provider = this.#providers.get(providerName);
     if (!provider) throw new Error(`LLM provider not registered: ${providerName}`);
-    return provider.generate(request, model);
+    const { model, effort } = target;
+    return provider.generate(request, effort ? { model, effort } : { model });
   }
 }

@@ -1,5 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+/** The versioned prompt files shipped with this package (works from src/ and dist/). */
+export const PROMPTS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'prompts');
 
 /**
  * Prompts are versioned files: prompts/<name>@<version>.md. Changing a prompt

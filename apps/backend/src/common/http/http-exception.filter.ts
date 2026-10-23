@@ -16,13 +16,13 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const traceId = request.id;
 
     const apiError = this.#normalize(exception);
-    if (apiError.status >= 500) {
+    if (apiError.code === 'INTERNAL') {
       this.logger.error({ err: exception, traceId, url: request.url }, 'unhandled error');
     }
     void reply.status(apiError.status).send({
       error: {
         code: apiError.code,
-        message: apiError.status >= 500 ? 'Internal error' : apiError.message,
+        message: apiError.code === 'INTERNAL' ? 'Internal error' : apiError.message,
         details: apiError.details,
         traceId,
       },

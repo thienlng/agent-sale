@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createDb, type Database } from './client.js';
 import { ensureLoginRoles, migrate, withCredentials } from './migrate.js';
-import { members, users, workspaces } from './schema/index.js';
+import { llmProviders, llmTierRoutes, members, users, workspaces } from './schema/index.js';
 import { sql } from 'drizzle-orm';
 import { withSystem, withTenant } from './tenant.js';
 
@@ -104,6 +104,18 @@ describe('tenant isolation (ADR-004)', () => {
 
   it('identity tables are not readable by tenant connections', async () => {
     await expect(withTenant(tenantDb.db, a, (tx) => tx.select().from(users))).rejects.toThrow();
+  });
+
+  it('platform LLM configuration is not readable by tenant connections', async () => {
+    await expect(
+      withTenant(tenantDb.db, a, (tx) => tx.select().from(llmProviders)),
+    ).rejects.toThrow();
+    await expect(
+      withTenant(tenantDb.db, a, (tx) => tx.select().from(llmTierRoutes)),
+    ).rejects.toThrow();
+    await expect(withSystem(systemDb.db, (tx) => tx.select().from(llmProviders))).resolves.toEqual(
+      [],
+    );
   });
 
   it('the system role reads across tenants', async () => {

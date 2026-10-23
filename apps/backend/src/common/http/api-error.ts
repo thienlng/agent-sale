@@ -10,6 +10,7 @@ const STATUS: Record<ErrorCode, number> = {
   QUOTA_EXCEEDED: 402,
   FEATURE_LOCKED: 402,
   RATE_LIMITED: 429,
+  AI_UNAVAILABLE: 503,
   INTERNAL: 500,
 };
 
