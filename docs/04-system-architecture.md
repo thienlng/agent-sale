@@ -195,7 +195,7 @@ Staff replies sent *from another platform* (Meta Page inbox, Pancake…) are rec
 
 ## 9. Multi-tenancy & data partitioning
 
-- Phases 1–2: **shared database, shared schema**, `workspace_id` column + RLS (`SET app.workspace_id` per transaction).
+- Phases 1–2: **shared database, shared schema**, `workspace_id` column + RLS (`set_config('app.workspace_id', $1, true)` inside every transaction via `withTenant()` — ADR-004).
 - Large tables (`messages`, `inbound_events`, `ai_runs`, `ledger_entries`, `campaign_recipients`) use **monthly partitioning** (pg_partman) for easy archiving/retention.
 - Expansion / Enterprise phase: support a **dedicated database** for large tenants (routing workspace → connection), or Citus if sharding is needed.
 
