@@ -6,11 +6,10 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 Milestone **M1-foundation** — branch `feat/T-004-m1-foundation`, one PR for T-004, T-003, T-014.
 
-- [ ] T-003 Complete the backend runtime: OpenAPI, request tracing, readiness, auth placeholder — @agent:claude · [details](todo/T-003-scaffold-api.md)
+- [ ] T-014 Authentication and workspace onboarding: signup, login, refresh rotation, membership guard, bootstrap — @agent:claude · [details](todo/T-014-authentication-and-workspace-onboarding-signup-log.md)
 
 ## Next
 
-- [ ] T-014 Authentication and workspace onboarding: signup, login, refresh rotation, membership guard, bootstrap — @agent:claude · [details](todo/T-014-authentication-and-workspace-onboarding-signup-log.md)
 - [ ] T-005 Complete the web shell: auth pages, layout, size and Lighthouse CI — @unassigned · [details](todo/T-005-scaffold-web.md)
 
 ## Backlog
@@ -27,6 +26,7 @@ Milestone **M1-foundation** — branch `feat/T-004-m1-foundation`, one PR for T-
 
 ## Done (last 10 — older ones live in todo/done/)
 
+- [x] T-003 Complete the backend runtime: OpenAPI, request tracing, readiness, metrics — @agent:claude · [details](todo/done/T-003-scaffold-api.md) · M1-foundation PR
 - [x] T-004 Wire the database: local infra, migration runner, RLS integration tests, Drizzle repositories — @agent:claude · [details](todo/done/T-004-packages-db.md) · M1-foundation PR
 - [x] T-012 Record brand Razpi, white-orange theme and single maintainer — @agent:claude · [details](todo/done/T-012-record-brand-razpi-white-orange-theme-and-single-m.md)
 - [x] T-010 Scaffold codebase skeleton and architecture conventions — @agent:claude · [details](todo/done/T-010-scaffold-codebase-skeleton-and-architecture-conven.md) · PR #10 (squashed into #9)

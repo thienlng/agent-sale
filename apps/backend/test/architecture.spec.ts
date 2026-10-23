@@ -47,6 +47,28 @@ describe('module structure', () => {
   });
 });
 
+describe('dependency injection', () => {
+  // tsx/esbuild (dev runtime) does not emit decorator metadata, so class-typed
+  // constructor injection silently becomes `undefined`. Every constructor
+  // parameter of a Nest class must use @Inject(TOKEN) (docs/ARCHITECTURE.md).
+  const files = walk(path.join(modulesDir, '..')).filter((f) => !f.endsWith('.spec.ts'));
+  it.each(files.map((f) => [path.relative(path.join(modulesDir, '..'), f), f]))(
+    '%s injects every constructor dependency with @Inject',
+    (_rel, file) => {
+      const src = readFileSync(file, 'utf8');
+      if (!/@(Injectable|Controller)\(/.test(src)) return;
+      const ctor = /constructor\(([^)]*(?:\([^)]*\)[^)]*)*)\)\s*\{/s.exec(src);
+      if (!ctor?.[1]?.trim()) return;
+      const params = ctor[1]
+        .split(/,(?![^(]*\))/)
+        .map((p) => p.trim())
+        .filter(Boolean);
+      for (const p of params)
+        expect(p, `${file}: "${p}" must use @Inject(TOKEN)`).toMatch(/^@Inject\(/);
+    },
+  );
+});
+
 function walk(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((d) => {
     const p = path.join(dir, d.name);

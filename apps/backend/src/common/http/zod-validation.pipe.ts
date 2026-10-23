@@ -1,4 +1,4 @@
-import { Injectable, type PipeTransform } from '@nestjs/common';
+import type { PipeTransform } from '@nestjs/common';
 import type { z } from 'zod';
 
 import { ApiError } from './api-error.js';
@@ -6,8 +6,8 @@ import { ApiError } from './api-error.js';
 /**
  * Validates request bodies/queries/params against a contracts schema.
  * Usage: `@Body(new ZodValidationPipe(CreateWorkspaceRequest)) body: CreateWorkspaceRequest`.
+ * Always instantiated with `new` (not a DI provider).
  */
-@Injectable()
 export class ZodValidationPipe<T> implements PipeTransform<unknown, T> {
   constructor(private readonly schema: z.ZodType<T>) {}
 
