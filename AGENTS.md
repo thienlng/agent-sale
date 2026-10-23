@@ -37,7 +37,8 @@ CLAUDE.md, GEMINI.md ← thin pointers to AGENTS.md for tools that look for them
 .agents/
   rules/             ← numbered rule files (mandatory)
   skills/            ← reusable workflows (onboarding, start-task, open-pr, …)
-.claude/ .codex/ .opencode/  ← per-tool config; skills are symlinked to .agents/skills
+.claude/ .codex/       ← per-tool config; Claude Code reads skills via .claude/skills → .agents/skills,
+                         Codex and OpenCode read .agents/skills natively
 .mcp.json, opencode.json, .codex/config.toml ← MCP servers per tool
 TODO.md              ← task board (short). Details live in todo/T-xxx-*.md
 todo/                ← one file per task; todo/done/ for finished tasks

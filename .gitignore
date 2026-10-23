@@ -25,4 +25,4 @@ coverage/
 # agent tool local state (keep project config, ignore user state)
 .claude/settings.local.json
 .codex/sessions/
-.opencode/node_modules/
+.opencode/

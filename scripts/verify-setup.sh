@@ -16,9 +16,8 @@ command -v pnpm >/dev/null && ok "pnpm $(pnpm -v)" || bad "pnpm missing: corepac
 echo "Agent setup"
 [[ -f AGENTS.md ]] && ok "AGENTS.md" || bad "AGENTS.md missing"
 for f in .agents/rules/0{1,2,3,4,5,6,7,8}-*.md; do [[ -f "$f" ]] && ok "$f" || bad "$f missing"; done
-for link in .claude/skills .opencode/skill; do
-  if [[ -L "$link" && -d "$link" ]]; then ok "$link -> $(readlink "$link")"; else bad "$link should be a symlink to ../.agents/skills"; fi
-done
+if [[ -L .claude/skills && -d .claude/skills ]]; then ok ".claude/skills -> $(readlink .claude/skills)"; else bad ".claude/skills should be a symlink to ../.agents/skills"; fi
+[[ -d .agents/skills ]] && ok ".agents/skills (read natively by Codex and OpenCode)" || bad ".agents/skills missing"
 for s in .agents/skills/*/SKILL.md; do head -1 "$s" | grep -q '^---$' && ok "$s" || bad "$s has no front matter"; done
 [[ -f .mcp.json && -f opencode.json && -f .codex/config.toml ]] && ok "MCP configs present" || bad "MCP config missing"
 

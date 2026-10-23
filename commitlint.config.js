@@ -43,7 +43,8 @@ export default {
     ],
     'header-max-length': [2, 'always', 100],
     'body-max-line-length': [2, 'always', 100],
-    'subject-case': [2, 'always', 'lower-case'],
+    // Subject starts lowercase; proper nouns (Codex, NestJS, Zalo) are allowed mid-subject.
+    'subject-case': [2, 'never', ['sentence-case', 'start-case', 'pascal-case', 'upper-case']],
     // Every commit must reference a task: "Refs: T-012" or "Closes: T-012"
     'references-empty': [2, 'never'],
   },
