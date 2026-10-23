@@ -9,7 +9,7 @@ agent-sale-src/
 │   ├── site/              # Astro — marketing site + docs + blog (<domain>)
 │   ├── admin/             # Vite + React SPA — internal back-office
 │   ├── api/               # NestJS — REST /api/v1 + WebSocket
-│   ├── webhook/           # lightweight NestJS/Fastify — receives channel, payment, carrier webhooks
+│   ├── webhook/           # thin Fastify app (no NestJS) — verify, persist, enqueue channel/payment/carrier webhooks
 │   ├── agent/             # NestJS standalone — AI conversation runtime (consumes the `conversation` queue; built on ai-core)
 │   ├── worker/            # NestJS standalone — BullMQ processors for outbound, campaign, workflow, indexer (queue group via env WORKER_QUEUES)
 │   ├── mobile/            # (later) React Native + Expo — inbox, handoff, CRM, notifications

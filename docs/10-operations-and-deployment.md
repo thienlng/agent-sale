@@ -15,12 +15,12 @@ Configuration via environment variables + secret manager; the env schema is vali
 
 **Stage 1 (MVP → closed beta, < 200 workspaces):**
 - 1 small cluster: 2–3 VMs or a managed container service; **managed** Postgres (with PITR), managed Redis, object storage.
-- Processes: `api` ×2, `webhook` ×2, `worker` ×2 (shared queues), `scheduler` ×1 (leader lock); `web` and `site` are static builds on the CDN (no process).
+- Deployables (kept to **four** so two humans can operate them): `api`, `webhook`, `worker` (one image; `WORKER_QUEUES` selects `agent` / `outbound` / `campaign` / `indexer` / `scheduler`; separate Deployments per group only when scaling needs differ), `realtime` (SSE + websocket-only Socket.IO, long termination grace). `web` and `site` are static builds on the CDN (no process). Repeatable jobs live in BullMQ, so no leader election is needed for the scheduler.
 - CDN + WAF in front of web/api.
 
 **Stage 2 (GA, broad rollout):**
 - **Kubernetes** (EKS/GKE or a Vietnamese cloud's K8s), Helm charts, Argo CD (GitOps).
-- HPA based on CPU + **queue length** (KEDA) for workers: separate deployments per queue (`conversation`, `outbound`, `campaign`, `indexer`, `jobs`) so that campaign bursts do not affect message replies.
+- HPA based on CPU + **queue length** (KEDA `redis-lists` scaler on `bull:<queue>:wait`, or a tiny `/metrics` exporter — KEDA has no native BullMQ scaler) for workers: separate deployments per queue group (`agent`, `outbound`, `campaign`, `indexer`) so that campaign bursts do not affect message replies.
 - Postgres: primary + read replica (analytics/reports read from the replica), PgBouncer; Redis HA (Sentinel/Cluster).
 - Multi-AZ; cross-region backups.
 
@@ -51,10 +51,10 @@ flowchart LR
 
 | Signal | Tool | Mandatory content |
 |---|---|---|
-| Logs | Loki (JSON log, pino) | `trace_id`, `workspace_id`, `conversation_id`, never log tokens/raw PII |
-| Metrics | Prometheus/Grafana | RED for the API; queue depth, job latency, retries; webhook lag; outbound success per connector; AI latency/cost per tier; ledger reconciliation |
-| Traces | OpenTelemetry → Tempo | webhook → worker → LLM → outbound in a single trace |
-| LLM | Langfuse | prompt, retrieved context, output, eval scores, cost |
+| Logs | Grafana Cloud Logs (JSON via pino + OTel) | `trace_id`, `workspace_id`, `conversation_id`, never log tokens/raw PII |
+| Metrics | Grafana Cloud Metrics (Prometheus format) | RED for the API; queue depth per queue/tier, job latency, retries; webhook lag; outbound success per connector; AI latency/cost per tier; provider rate-limit headroom; ledger reconciliation |
+| Traces | OpenTelemetry → Grafana Cloud Traces | webhook → worker → LLM → outbound in a single trace |
+| LLM | Langfuse Cloud (sampled: all errors, 5–10 % successes; 100 % for flagged tenants) | prompt version, retrieved context, output, eval scores, cost |
 | Errors | Sentry (FE + BE) | release tracking |
 | Uptime | Synthetic check | login, end-to-end widget message sending every 5 min |
 | Status page | status.<domain> | status per connector (FB/Zalo/…) |

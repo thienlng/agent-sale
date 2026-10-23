@@ -30,6 +30,8 @@ Input source: `../../preny/preny-research/` (Preny research dossier dated 23/10/
 | — | [ADR](adr/README.md) | Tech lead | 8 architecture decisions |
 | — | [Preny dashboard specification](reference/preny-dashboard-spec.md) | Reference | Each screen, field, column, button, observed limit |
 | — | [Preny industry verticals](reference/preny-verticals.md) | Reference | 17 verticals, how (little) the product differs per industry, gaps we exploit |
+| — | [Stack review 2026-10-23](reference/2026-10-23-stack-review.md) | Reference | Independent adversarial review of ADR-009 (17 findings) that drove the revisions |
+| — | [Best practices 2026-10-23](reference/2026-10-23-best-practices.md) | Reference | Survey of current production practices (multi-tenancy, queues, LLM agents, frontend, realtime, backend, agent-operated repos) |
 
 ## One-page summary
 

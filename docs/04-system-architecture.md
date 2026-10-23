@@ -96,9 +96,10 @@ flowchart TB
 | Monorepo | **pnpm workspaces + Turborepo** | Build cache, `shared` package | Nx |
 | Dashboard | **Vite + React 19 SPA**: TanStack Router (preloading), TanStack Query, TanStack Table + Virtual, **Tailwind v4 + shadcn/ui**, `motion`, `cmdk`, React Hook Form + Zod, i18next; static files on CDN (ADR-009) | Instant client-side navigation, optimistic UI, heavy data tables (CRM/orders); no SEO needed; cheapest layer to scale | Next.js App Router (previous choice, superseded by ADR-009) |
 | Marketing site | **Astro** (static, islands) + content collections; same design tokens | Fastest public pages for Vietnamese SEO, industry-specific content, blog, case studies (Preny has ~140 content URLs) | Next.js SSG + headless CMS |
-| Backend API | **NestJS** (Fastify adapter), Prisma *or* Drizzle ORM, class-validator/Zod | Modules + DI suit a modular monolith; guards/interceptors for RBAC & tenancy | Plain Fastify |
-| Realtime | **Socket.IO** + Redis adapter | Realtime inbox with many staff, typing, assignment | SSE for the widget |
-| Queue | **BullMQ** on Redis | Delayed jobs, retry/backoff, per-group rate limiting (per page/OA), repeatable jobs | Kafka at > a few thousand msg/s; Temporal for long workflows |
+| Backend API | **NestJS** (Fastify adapter), **Drizzle ORM**, Zod DTOs (`nestjs-zod`) | Modules + guards give agent-written code a fixed structure; Fastify for speed. Rules to limit framework magic: no request-scoped providers, no circular module imports (lint), thin handlers, framework-free domain services | Plain Fastify/Hono + explicit modules (considered; revisit if NestJS friction shows in T-003) |
+| Webhook ingress | Thin **Fastify** app (no NestJS): verify → persist → enqueue | p95 ≤ 200 ms / p99 ≤ 500 ms ack; isolated from API deploys | — |
+| Realtime | **SSE** (server→client: inbox updates, agent streaming) fed by Redis pub/sub, resumable via `Last-Event-ID`; a small websocket-only **Socket.IO** surface for typing/presence (Redis adapter, no sticky sessions); separate `realtime` deployment | Stateless scaling, survives deploys and Cloudflare idle cut-offs (heartbeat 30 s) | Ably / Cloudflare Durable Objects if connections outgrow a small Node tier |
+| Queue | **BullMQ** on Redis + our own tenant-fairness layer (`packages/queue`: Redis token bucket per workspace/channel, tier queues) | Delayed jobs, retry/backoff, repeatable jobs. Per-group limits are BullMQ Pro only (ADR-003) | Trigger.dev / Temporal for durable multi-step workflows (decision gate at Beta); Kafka at > a few thousand msg/s |
 | Database | **PostgreSQL 16** + pgvector + pg_trgm + unaccent; PgBouncer | Transactions for ledger/orders, JSONB for flexible data, vectors in the same DB reduce operations | Mongo (like Preny) – not recommended |
 | Search | Postgres FTS + trigram (Vietnamese unaccent) in the early phase | Sufficient for CRM with a few hundred thousand records/tenant | OpenSearch / Meilisearch when needed |
 | Object storage | S3-compatible (AWS S3 / Cloudflare R2 / MinIO / Viettel Cloud Object Storage) | Bot media, import files, attachments, exports | — |
@@ -106,7 +107,7 @@ flowchart TB
 | LLM | Internal LLM Gateway (`ai-core` package) calling multiple providers; Vercel AI SDK or native SDKs | Switch models without changing business code, fallback, cost measurement | LiteLLM proxy |
 | Embedding | A multilingual model with good Vietnamese support (candidates: OpenAI text-embedding-3-small/large, Gemini embedding, self-hosted bge-m3) | Chosen via a Vietnamese eval set, not by gut feeling | — |
 | Auth | Built in-house (JWT access 15', refresh token rotation stored in DB, 2FA TOTP) + Google OAuth login | Need tight control over workspace/role | Keycloak / Clerk |
-| Observability | OpenTelemetry → Grafana (Tempo, Loki, Prometheus/Mimir); **Sentry**; **Langfuse** (self-hosted) for LLM traces | Trace across webhook → worker → LLM → outbound | Datadog |
+| Observability | OpenTelemetry → **managed Grafana Cloud** (traces, logs, metrics); **Sentry**; **Langfuse Cloud** for LLM traces (sampled: 100 % errors, 5–10 % successes) | Two human operators cannot run a second data platform; self-host only after GA if cost justifies | Self-hosted Grafana stack + Langfuse (v3 needs Postgres + ClickHouse + Redis + S3) |
 | Infrastructure | Docker; early phase: VM + docker compose or managed (ECS/Cloud Run); wider production: **Kubernetes** | See [10](10-operations-and-deployment.md) | — |
 | CI/CD | GitHub Actions / GitLab CI, Terraform, Argo CD (once on K8s) | — | — |
 
@@ -176,7 +177,7 @@ sequenceDiagram
   O->>RT: emit message.status
 ```
 
-Requirements: p95 from webhook receipt to sending the AI reply ≤ 8s (excluding configured debounce); webhook ack p99 < 500ms.
+Requirements: in normal load, p95 from webhook receipt to the AI reply ≤ 8 s (excluding configured debounce); webhook ack p95 ≤ 200 ms / p99 ≤ 500 ms. Under burst (ad campaigns) the system degrades deliberately — see `docs/16` §3: acknowledge within 1 s with a holding message, prioritise by tenant tier, answer within minutes. The credit debit is a separate short transaction, never inside the LLM call (ADR-008).
 
 **Debounce + lock** solve two classic bugs: the customer sends 3 consecutive messages → the bot replies 3 times; and a new message arrives while the AI is running → the reply is based on stale context. If a new message arrives while the AI is running, the old result is discarded and the run is repeated (comparing `last_message_seq`).
 

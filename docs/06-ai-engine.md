@@ -93,6 +93,8 @@ Tool availability per workspace is declared by its vertical pack (`docs/17` §3)
 - Re-index when FAQs/documents are edited (job `knowledge.reindex`); versions tied to `bot_version`.
 - Answer caching: **do not** cache answers containing live data; only cache query embeddings.
 
+Retrieval index strategy (revised after review): for the typical bot (< 10 k chunks) use an exact scan over `(bot_id)` — no HNSW, no recall loss; add a partial HNSW index only above a threshold, with pgvector ≥ 0.8 iterative scans; store embeddings per model so model changes do not force a rebuild. Admission control, per-tenant token budgets and prompt-cache layout are specified in `docs/16` §2b and are part of `ai-core`, not of individual tools.
+
 ## 5. Classification & extraction for CRM
 
 Runs after each turn (small, cheap model, async, does not block the reply):

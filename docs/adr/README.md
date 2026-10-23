@@ -11,5 +11,5 @@ Each ADR: Context → Decision → Consequences. Status: `Proposed` → `Accepte
 | [005](ADR-005-llm-gateway.md) | Multi-provider LLM Gateway, commercial tiers | Proposed |
 | [006](ADR-006-hosting-region.md) | Infrastructure & data region | **To be finalized** |
 | [007](ADR-007-auth.md) | Build auth in-house | Proposed |
-| [009](ADR-009-tech-stack-for-speed-and-scale.md) | Stack for perceived speed and ~1,000-tenant scale: Vite SPA + Astro + NestJS/Fastify; supersedes the Next.js dashboard choice | Proposed |
 | [008](ADR-008-credit-ledger.md) | Immutable ledger, milli-credit unit | Proposed |
+| [009](ADR-009-tech-stack-for-speed-and-scale.md) | Stack for perceived speed and ~1,000-tenant scale: Vite SPA + Astro + NestJS/Fastify; supersedes the Next.js dashboard choice | Proposed |
