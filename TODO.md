@@ -24,5 +24,5 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## Done (last 10 — older ones live in todo/done/)
 
-- [x] T-009 Decide performance-oriented tech stack (ADR-009) — @agent:claude · [details](todo/done/T-009-decide-performance-oriented-tech-stack-adr-009.md) · PR (this)
+- [x] T-009 Decide performance-oriented tech stack (ADR-009) — @agent:claude · [details](todo/done/T-009-decide-performance-oriented-tech-stack-adr-009.md) · PR #9
 - [x] T-001 Repository foundation: agent rules, skills, tooling, CI — initial commit
