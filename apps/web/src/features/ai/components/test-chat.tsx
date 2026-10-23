@@ -101,7 +101,9 @@ export function TestChat({ botId, greeting }: { botId: string; greeting: string 
     setDraft('');
     const messages = [
       ...(greeting ? [{ role: 'bot' as const, content: greeting }] : []),
-      ...history.filter((h) => !h.error).map((h) => ({ role: h.role, content: h.content })),
+      ...history
+        .filter((h) => !h.error && h.content.trim())
+        .map((h) => ({ role: h.role, content: h.content })),
     ];
     playground.mutate(messages, {
       onSuccess: (result) =>

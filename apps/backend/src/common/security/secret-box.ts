@@ -43,8 +43,13 @@ export class SecretBox {
     if (version !== VERSION || !iv || !tag || data === undefined) {
       throw new Error('Unsupported secret format');
     }
-    const decipher = createDecipheriv('aes-256-gcm', this.#key, Buffer.from(iv, 'base64url'));
-    decipher.setAuthTag(Buffer.from(tag, 'base64url'));
+    const authTag = Buffer.from(tag, 'base64url');
+    // Pin the tag length: GCM would otherwise accept truncated tags, which are easier to forge.
+    if (authTag.length !== 16) throw new Error('Invalid secret authentication tag');
+    const decipher = createDecipheriv('aes-256-gcm', this.#key, Buffer.from(iv, 'base64url'), {
+      authTagLength: 16,
+    });
+    decipher.setAuthTag(authTag);
     return Buffer.concat([
       decipher.update(Buffer.from(data, 'base64url')),
       decipher.final(),

@@ -19,7 +19,8 @@ export const Route = createFileRoute('/login')({
 function LoginPage() {
   const navigate = useNavigate();
   const { redirect: target } = Route.useSearch();
-  const safe = target && !target.startsWith('//') ? target : '/app/bots';
+  // A same-app path only: one leading slash, not followed by another slash or a backslash.
+  const safe = target && /^\/(?![/\\])/.test(target) ? target : '/app/bots';
   return (
     <AuthLayout>
       <LoginForm onSuccess={() => void navigate({ to: safe })} />

@@ -196,6 +196,9 @@ export function ProviderDialog({
               }
               className="h-10"
             />
+            {provider?.hasApiKey && !apiKey && (baseUrl || null) !== provider.baseUrl ? (
+              <p className="text-sm text-warning">{t('admin.baseUrlDropsKey')}</p>
+            ) : null}
             {provider?.hasApiKey ? (
               <label className="flex items-center gap-2 text-sm text-muted-foreground">
                 <input

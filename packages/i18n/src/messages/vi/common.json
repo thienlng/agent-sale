@@ -241,7 +241,8 @@
     "saveTier": "Lưu",
     "tierSaved": "Đã lưu gói {{tier}}",
     "save": "Lưu máy chủ",
-    "cancel": "Hủy"
+    "cancel": "Hủy",
+    "baseUrlDropsKey": "Đổi địa chỉ API sẽ xóa key đã lưu. Nhập lại key cho địa chỉ mới."
   },
   "errors": {
     "notFoundTitle": "Không tìm thấy trang",

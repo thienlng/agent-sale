@@ -53,7 +53,10 @@ export const CreateLlmProviderRequest = z
   });
 export type CreateLlmProviderRequest = z.infer<typeof CreateLlmProviderRequest>;
 
-/** `apiKey: null` removes the stored key; omitted keeps it. `baseUrl: null` clears it. */
+/**
+ * `apiKey: null` removes the stored key; omitted keeps it — unless `baseUrl` changes,
+ * which drops the stored key (it is never sent to a new host). `baseUrl: null` clears it.
+ */
 export const UpdateLlmProviderRequest = z.object({
   baseUrl: BaseUrl.nullable().optional(),
   apiKey: z.string().trim().min(1).max(500).nullable().optional(),

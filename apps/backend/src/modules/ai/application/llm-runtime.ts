@@ -8,7 +8,12 @@ import {
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { AiNotConfiguredError, AiProviderFailedError } from '../domain/ai.errors.js';
-import { type ModelTargetConfig, type Tier, TIERS } from '../domain/llm-config.js';
+import {
+  type LlmProviderConfig,
+  type ModelTargetConfig,
+  type Tier,
+  TIERS,
+} from '../domain/llm-config.js';
 import {
   LLM_CONFIG_REPOSITORY,
   type LlmConfigRepository,
@@ -47,7 +52,14 @@ export class LlmRuntime {
   }
 
   async generate(request: GenerateRequest): Promise<GenerateResponse> {
-    const snapshot = await this.#current();
+    let snapshot: Snapshot;
+    try {
+      snapshot = await this.#current();
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      this.#log.error(`Could not load the LLM configuration: ${err.message}`, err.stack);
+      throw new AiProviderFailedError();
+    }
     if (!snapshot.configured.has(request.tier) && !this.factory.developmentFallback()) {
       throw new AiNotConfiguredError(request.tier);
     }
@@ -66,10 +78,12 @@ export class LlmRuntime {
   #current(): Promise<Snapshot> {
     if (!this.#snapshot || Date.now() - this.#loadedAt > CACHE_TTL_MS) {
       this.#loadedAt = Date.now();
-      this.#snapshot = this.#load().catch((error: unknown) => {
-        this.#snapshot = undefined;
+      const loading: Promise<Snapshot> = this.#load().catch((error: unknown) => {
+        // Only forget this load; a newer one started by invalidate() must survive.
+        if (this.#snapshot === loading) this.#snapshot = undefined;
         throw error;
       });
+      this.#snapshot = loading;
     }
     return this.#snapshot;
   }
@@ -79,8 +93,19 @@ export class LlmRuntime {
       this.config.listProviders(),
       this.config.listRoutes(),
     ]);
-    const enabled = new Map(providers.filter((p) => p.isEnabled).map((p) => [p.id, p]));
-    const instances: LlmProvider[] = [...enabled.values()].map((p) => this.factory.create(p));
+    // A provider that cannot be built (e.g. its key no longer decrypts) is skipped,
+    // so routes using it run on their fallback instead of failing every tier.
+    const enabled = new Map<string, LlmProviderConfig>();
+    const instances: LlmProvider[] = [];
+    for (const p of providers.filter((c) => c.isEnabled)) {
+      try {
+        instances.push(this.factory.create(p));
+        enabled.set(p.id, p);
+      } catch (error) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        this.#log.error(`LLM provider ${p.name} skipped: ${err.message}`);
+      }
+    }
 
     const dev = this.factory.developmentFallback();
     if (dev) instances.push(dev.provider);

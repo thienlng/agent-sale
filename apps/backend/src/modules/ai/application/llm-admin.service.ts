@@ -19,6 +19,7 @@ import {
 import {
   apiKeyHint,
   DEFAULT_PROVIDER_OPTIONS,
+  DEV_FAKE_PROVIDER,
   type LlmProviderConfig,
   type LlmProviderOptions,
   type ModelTargetConfig,
@@ -93,6 +94,11 @@ export class LlmAdminService {
   }
 
   async createProvider(input: CreateLlmProviderRequest): Promise<LlmProviderDto> {
+    if (input.name === DEV_FAKE_PROVIDER) {
+      throw new InvalidLlmConfigError(
+        `"${DEV_FAKE_PROVIDER}" is reserved for the development model`,
+      );
+    }
     const now = new Date();
     const provider: LlmProviderConfig = {
       id: newId(),
@@ -115,6 +121,11 @@ export class LlmAdminService {
     const current = await this.#provider(id);
     const next: LlmProviderConfig = { ...current, updatedAt: new Date() };
     if (change.baseUrl !== undefined) next.baseUrl = change.baseUrl;
+    // A stored key is never sent to a new host the admin did not also give a key for.
+    if (next.baseUrl !== current.baseUrl && change.apiKey === undefined) {
+      next.apiKeyCipher = null;
+      next.apiKeyHint = null;
+    }
     if (change.apiKey !== undefined) {
       next.apiKeyCipher = change.apiKey === null ? null : this.secrets.seal(change.apiKey);
       next.apiKeyHint = change.apiKey === null ? null : apiKeyHint(change.apiKey);

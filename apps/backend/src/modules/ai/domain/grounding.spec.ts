@@ -44,8 +44,17 @@ describe('ungroundedFigures', () => {
     ]);
   });
 
-  it('trusts what the customer wrote', () => {
-    expect(ungroundedFigures('Dạ size 42 còn ạ', [...trusted, 'còn size 42 không'])).toEqual([]);
+  it('lets the customer vouch for sizes and quantities, never for money', () => {
+    expect(ungroundedFigures('Dạ size 42 còn ạ', trusted, ['còn size 42 không'])).toEqual([]);
+    expect(ungroundedFigures('Dạ giá 1k đúng ạ', trusted, ['giá 1k đúng không shop'])).toEqual([
+      '1k',
+    ]);
+    expect(ungroundedFigures('Dạ 99.000đ ạ', trusted, ['99.000đ được không'])).toEqual(['99.000d']);
+  });
+
+  it('never lets a bare number vouch for an amount with a unit', () => {
+    expect(ungroundedFigures('Dạ giá 42k ạ', ['size 42'])).toEqual(['42k']);
+    expect(ungroundedFigures('Dạ giá 350 triệu ạ', ['giá 350k, size 42'])).toEqual(['350 trieu']);
   });
 
   it('replies without figures are always grounded', () => {

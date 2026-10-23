@@ -540,6 +540,27 @@ describe('HTTP: platform admin — LLM configuration', () => {
     });
     expect(inUse.statusCode).toBe(409);
 
+    // Changing the URL without a new key drops the stored key (never sent to a new host).
+    const moved = LlmProviderDto.parse(
+      (
+        await inject(a, {
+          method: 'PATCH',
+          url: `/api/v1/admin/llm/providers/${provider.id}`,
+          headers: h,
+          payload: { baseUrl: 'http://10.0.0.5:8000/v1' },
+        })
+      ).json(),
+    );
+    expect(moved).toMatchObject({ hasApiKey: false, apiKeyHint: null });
+
+    const reserved = await inject(a, {
+      method: 'POST',
+      url: '/api/v1/admin/llm/providers',
+      headers: h,
+      payload: { name: 'dev-fake', kind: 'anthropic' },
+    });
+    expect(reserved.statusCode).toBe(400);
+
     const badTier = await inject(a, {
       method: 'PUT',
       url: '/api/v1/admin/llm/tiers/ultra',

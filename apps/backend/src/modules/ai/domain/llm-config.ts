@@ -47,6 +47,9 @@ export interface TierRouteConfig {
   updatedAt: Date;
 }
 
+/** Name of the deterministic development provider (outside production); reserved for it. */
+export const DEV_FAKE_PROVIDER = 'dev-fake';
+
 export function apiKeyHint(apiKey: string): string {
   return apiKey.length > 8 ? apiKey.slice(-4) : '';
 }

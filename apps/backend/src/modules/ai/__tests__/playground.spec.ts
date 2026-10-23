@@ -8,7 +8,7 @@ import type { WorkspaceFacade } from '../../workspace/api/index.js';
 import { LlmRuntime } from '../application/llm-runtime.js';
 import { PlaygroundService } from '../application/playground.service.js';
 import type { LlmProviderFactory } from '../application/ports/llm-provider-factory.js';
-import { AiNotConfiguredError } from '../domain/ai.errors.js';
+import { AiNotConfiguredError, AiProviderFailedError } from '../domain/ai.errors.js';
 import { DEFAULT_PROVIDER_OPTIONS, type LlmProviderConfig } from '../domain/llm-config.js';
 import { InMemoryAiRunRepository } from '../infrastructure/persistence/ai-run.repositories.js';
 import { InMemoryLlmConfigRepository } from '../infrastructure/persistence/llm-config.in-memory-repository.js';
@@ -153,6 +153,37 @@ describe('PlaygroundService', () => {
   });
 });
 
+describe('PlaygroundService fallback and handoff text', () => {
+  it('never sends model text when the bot has no fallback message', async () => {
+    const fake = provider('dev-fake', {
+      outcome: 'unknown',
+      reply: 'Dạ khoảng 500k ạ',
+      sources: [],
+    });
+    const runs = new InMemoryAiRunRepository();
+    const svc = new PlaygroundService(
+      { getBot: async () => ({ ...bot, fallbackMessage: '', handoffMessage: '' }) } as BotFacade,
+      { searchFaqs: async () => [] } as unknown as KnowledgeFacade,
+      { getById: async () => ({ name: 'Shop Lan' }) } as unknown as WorkspaceFacade,
+      new LlmRuntime(new InMemoryLlmConfigRepository(), factory(fake)),
+      runs,
+    );
+    const res = await svc.playground(ws, botId, ask('ao bao nhieu'));
+    expect(res.outcome).toBe('fallback');
+    expect(res.reply).not.toContain('500k');
+    expect(res.reply).toBe(
+      'Dạ, em chưa có thông tin này, em sẽ kiểm tra lại và báo anh/chị ngay ạ.',
+    );
+  });
+
+  it('does not let the customer make the bot confirm a price', async () => {
+    const fake = provider('dev-fake', { outcome: 'answer', reply: 'Dạ đúng 99k ạ', sources: [] });
+    const { svc } = service(new LlmRuntime(new InMemoryLlmConfigRepository(), factory(fake)));
+    const res = await svc.playground(ws, botId, ask('ao 99k dung ko shop'));
+    expect(res).toMatchObject({ outcome: 'fallback', guardrail: 'ungrounded_figure:99k' });
+  });
+});
+
 describe('LlmRuntime', () => {
   const req: GenerateRequest = {
     workspaceId: ws,
@@ -209,6 +240,32 @@ describe('LlmRuntime', () => {
     expect((await runtime.generate(req)).provider).toBe('backup');
     expect((await runtime.generate({ ...req, tier: 'pro' })).provider).toBe('backup');
     expect(stubs.off.calls).toHaveLength(0);
+  });
+
+  it('skips a provider that cannot be built and serves the tier from its fallback', async () => {
+    const repo = new InMemoryLlmConfigRepository();
+    const broken = providerConfig('broken');
+    const backup = providerConfig('backup');
+    for (const p of [broken, backup]) await repo.saveProvider(p);
+    await repo.saveRoute({
+      tier: 'smart',
+      primary: { providerId: broken.id, model: 'm', effort: null },
+      fallback: { providerId: backup.id, model: 'b', effort: null },
+      updatedBy: null,
+      updatedAt: new Date(),
+    });
+    // `factory` throws for names without a stub, like a key that no longer decrypts.
+    const runtime = new LlmRuntime(repo, factory(null, { backup: provider('backup', {}) }));
+    expect((await runtime.generate(req)).provider).toBe('backup');
+  });
+
+  it('answers AI_UNAVAILABLE when the configuration cannot be loaded', async () => {
+    const repo = new InMemoryLlmConfigRepository();
+    repo.listProviders = async () => {
+      throw new Error('db down');
+    };
+    const runtime = new LlmRuntime(repo, factory(provider('dev-fake', {})));
+    await expect(runtime.generate(req)).rejects.toBeInstanceOf(AiProviderFailedError);
   });
 
   it('refuses unconfigured tiers when there is no development fallback (production)', async () => {

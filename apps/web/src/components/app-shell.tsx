@@ -1,4 +1,5 @@
 import type { Locale } from '@agent-sales/i18n';
+import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 import {
   BarChart3,
@@ -86,6 +87,7 @@ function UserMenu() {
   const { t, i18n } = useTranslation();
   const session = useSession();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   if (!session) return null;
   const { user } = session;
   const workspace = session.memberships.find((m) => m.workspaceId === session.workspaceId);
@@ -139,7 +141,11 @@ function UserMenu() {
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onSelect={() => {
-            void logout().finally(() => navigate({ to: '/login' }));
+            // Drop cached data so the next user in this tab never sees it.
+            void logout().finally(() => {
+              queryClient.clear();
+              void navigate({ to: '/login' });
+            });
           }}
         >
           <LogOut />

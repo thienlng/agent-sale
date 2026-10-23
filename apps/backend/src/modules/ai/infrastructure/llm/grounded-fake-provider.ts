@@ -1,5 +1,7 @@
 import { FakeLlmProvider, type GenerateRequest } from '@agent-sales/ai-core';
 
+import { DEV_FAKE_PROVIDER } from '../../domain/llm-config.js';
+
 const ENTRY = /\[(kb:\d+)\]\nQ: [^\n]*\nA: ([^\n]*)/;
 const HANDOFF = /nhan vien|nguoi that|human|staff/;
 
@@ -9,7 +11,7 @@ const HANDOFF = /nhan vien|nguoi that|human|staff/;
  * verbatim, asks for a human when the customer does, otherwise "unknown".
  */
 export function groundedFakeProvider(): FakeLlmProvider {
-  return new FakeLlmProvider('dev-fake', (req: GenerateRequest) => {
+  return new FakeLlmProvider(DEV_FAKE_PROVIDER, (req: GenerateRequest) => {
     const last = req.messages.at(-1)?.content ?? '';
     const customer = last
       .normalize('NFD')

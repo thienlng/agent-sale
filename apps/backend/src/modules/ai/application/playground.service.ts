@@ -9,6 +9,7 @@ import { BOT_FACADE, type BotFacade, type BotView } from '../../bot/api/index.js
 import { KNOWLEDGE_FACADE, type KnowledgeFacade } from '../../knowledge/api/index.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
 import type { AiFacade } from '../api/ai.facade.js';
+import { defaultFallbackMessage, defaultHandoffMessage } from '../domain/default-messages.js';
 import {
   knowledgeBlock,
   type KnowledgeSource,
@@ -163,20 +164,20 @@ function decide(
   sources: KnowledgeSource[],
   customerTexts: string[],
 ): Decision {
-  const fallback = (guardrail: string | null, modelReply = ''): Decision => ({
+  // Fallback and handoff never send model text: an empty setting uses the built-in message.
+  const fallback = (guardrail: string | null): Decision => ({
     outcome: 'fallback',
-    reply: bot.fallbackMessage || modelReply,
+    reply: bot.fallbackMessage.trim() || defaultFallbackMessage(bot),
     guardrail,
     used: new Set(),
   });
-  if (stopReason === 'refusal') {
-    return {
-      outcome: 'handoff',
-      reply: bot.handoffMessage,
-      guardrail: 'provider_refusal',
-      used: new Set(),
-    };
-  }
+  const handoff = (guardrail: string | null): Decision => ({
+    outcome: 'handoff',
+    reply: bot.handoffMessage.trim() || defaultHandoffMessage(bot),
+    guardrail,
+    used: new Set(),
+  });
+  if (stopReason === 'refusal') return handoff('provider_refusal');
   if (stopReason === 'max_tokens') return fallback('output_truncated');
 
   let parsed: z.infer<typeof ModelReply>;
@@ -185,24 +186,16 @@ function decide(
   } catch {
     return fallback('invalid_output');
   }
-  if (parsed.outcome === 'handoff') {
-    return {
-      outcome: 'handoff',
-      reply: bot.handoffMessage || parsed.reply,
-      guardrail: null,
-      used: new Set(),
-    };
-  }
-  if (parsed.outcome === 'unknown' || !parsed.reply.trim()) return fallback(null, parsed.reply);
+  if (parsed.outcome === 'handoff') return handoff(null);
+  if (parsed.outcome === 'unknown' || !parsed.reply.trim()) return fallback(null);
 
   const trusted = [
     ...sources.flatMap((s) => [s.question, s.answer]),
-    ...customerTexts,
     bot.mission,
     bot.greeting,
     ...Object.values(bot.placeholders),
   ];
-  const ungrounded = ungroundedFigures(parsed.reply, trusted);
+  const ungrounded = ungroundedFigures(parsed.reply, trusted, customerTexts);
   if (ungrounded.length) return fallback(`ungrounded_figure:${ungrounded.join(',')}`);
 
   const known = new Set(sources.map((s) => s.key));

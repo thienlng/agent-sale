@@ -26,6 +26,14 @@ describe('SecretBox', () => {
     expect(() => new SecretBox(randomBytes(32)).open(sealed)).toThrow();
   });
 
+  it('rejects a truncated authentication tag', () => {
+    const parts = box.seal('value').split('.');
+    parts[2] = Buffer.from(parts[2] ?? '', 'base64url')
+      .subarray(0, 4)
+      .toString('base64url');
+    expect(() => box.open(parts.join('.'))).toThrow('authentication tag');
+  });
+
   it('requires a 32-byte key', () => {
     expect(() => SecretBox.fromBase64(randomBytes(16).toString('base64'))).toThrow('32 bytes');
   });
