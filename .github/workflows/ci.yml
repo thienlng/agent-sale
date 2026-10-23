@@ -51,8 +51,8 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Commit messages (PR only)
-        if: github.event_name == 'pull_request'
+      - name: Commit messages (PR only; Dependabot exempt)
+        if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
         run: pnpm commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
 
   secrets:
