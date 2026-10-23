@@ -24,6 +24,7 @@ Input source: `../../preny/preny-research/` (Preny research dossier dated 23/10/
 | 12 | [Roadmap & plan](12-roadmap-and-plan.md) | Everyone | Team, Phases 0–4, sprints, exit criteria, risks |
 | 13 | [Testing & quality](13-testing-and-quality.md) | QA, AI | Test pyramid, AI eval suite, critical business cases |
 | 14 | [Open decisions](14-open-decisions.md) | Project owner | Questions to finalize + default proposals |
+| 15 | [Team workflow](15-team-workflow.md) | Humans | How two maintainers run many agents: roles, cadence, review policy, Phase 0 plan |
 | — | [ADR](adr/README.md) | Tech lead | 8 architecture decisions |
 | — | [Preny dashboard specification](reference/preny-dashboard-spec.md) | Reference | Each screen, field, column, button, observed limit |
 

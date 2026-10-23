@@ -29,7 +29,11 @@
       "Bash(git commit -n *)",
       "Bash(gh pr merge*)",
       "Read(./.env)",
-      "Read(./.env.*)"
+      "Read(./.env.local)",
+      "Read(./.env.development)",
+      "Read(./.env.staging)",
+      "Read(./.env.production)",
+      "Read(./.env.*.local)"
     ]
   }
 }
