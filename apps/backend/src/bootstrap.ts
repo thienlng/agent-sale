@@ -2,13 +2,14 @@ import 'reflect-metadata';
 
 import { randomUUID } from 'node:crypto';
 
+import fastifyCookie from '@fastify/cookie';
 import { type INestApplication, RequestMethod, type Type } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 import type { RawRequestDefaultExpression } from 'fastify';
 import type { Logger } from 'pino';
 
-import { type Env, loadEnv } from './common/config.js';
+import { configureEnv, type Env } from './common/config.js';
 import { HttpExceptionFilter } from './common/http/http-exception.filter.js';
 import { installHttpObservability } from './common/http/observability.js';
 import { createLogger, PinoNestLogger } from './common/logger.js';
@@ -26,7 +27,7 @@ export async function createHttpApp(
   rootModule: Type<unknown>,
   envSource?: NodeJS.ProcessEnv,
 ): Promise<BootedApp> {
-  const env = loadEnv(envSource);
+  const env = configureEnv(envSource ?? process.env);
   const logger = createLogger(env.LOG_LEVEL);
   const adapter = new FastifyAdapter({
     trustProxy: true,
@@ -41,6 +42,7 @@ export async function createHttpApp(
     logger: new PinoNestLogger(logger),
     bufferLogs: true,
   });
+  await app.register(fastifyCookie);
   app.setGlobalPrefix('api/v1', { exclude: [{ path: 'metrics', method: RequestMethod.GET }] });
   app.useGlobalFilters(new HttpExceptionFilter(logger));
   app.enableShutdownHooks();

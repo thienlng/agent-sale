@@ -4,7 +4,7 @@ import { Module } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 
-import { loadEnv } from '../common/config.js';
+import { configureEnv } from '../common/config.js';
 import { createLogger, PinoNestLogger } from '../common/logger.js';
 
 /**
@@ -15,7 +15,7 @@ import { createLogger, PinoNestLogger } from '../common/logger.js';
 @Module({ imports: [] })
 class RealtimeModule {}
 
-const env = loadEnv();
+const env = configureEnv();
 const logger = createLogger(env.LOG_LEVEL);
 const app = await NestFactory.create<NestFastifyApplication>(RealtimeModule, new FastifyAdapter(), {
   logger: new PinoNestLogger(logger),

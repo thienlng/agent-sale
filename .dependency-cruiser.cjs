@@ -16,8 +16,23 @@ module.exports = {
       from: { path: '^apps/backend/src/modules/([^/]+)/' },
       to: {
         path: '^apps/backend/src/modules/(?!$1/)[^/]+/',
-        pathNot: '^apps/backend/src/modules/[^/]+/api/',
+        // api/ is the contract; <name>.module.ts imports are Nest DI wiring (see next rule).
+        pathNot: [
+          '^apps/backend/src/modules/[^/]+/api/',
+          '^apps/backend/src/modules/[^/]+/[^/]+\\.module\\.ts$',
+        ],
       },
+    },
+    {
+      name: 'module-wiring-only-from-module-files',
+      severity: 'error',
+      comment:
+        "Only a <name>.module.ts may import another module's <name>.module.ts (Nest imports: [...]). Everything else goes through api/.",
+      from: {
+        path: '^apps/backend/src/modules/([^/]+)/',
+        pathNot: '^apps/backend/src/modules/[^/]+/[^/]+\\.module\\.ts$',
+      },
+      to: { path: '^apps/backend/src/modules/(?!$1/)[^/]+/[^/]+\\.module\\.ts$' },
     },
     {
       name: 'domain-is-pure',

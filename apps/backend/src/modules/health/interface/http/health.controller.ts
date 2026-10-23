@@ -7,6 +7,7 @@ import {
 import { Controller, Get, Header, Inject, Res } from '@nestjs/common';
 import type { FastifyReply } from 'fastify';
 
+import { Public } from '../../../../common/http/auth-context.js';
 import { metricsRegistry } from '../../../../common/metrics.js';
 import { CheckReadiness } from '../../application/check-readiness.js';
 
@@ -14,6 +15,7 @@ const startedAt = Date.now();
 const version = process.env['APP_VERSION'] ?? '0.0.0-dev';
 
 /** Operational endpoints: liveness, readiness, metrics, API description. */
+@Public()
 @Controller()
 export class HealthController {
   constructor(@Inject(CheckReadiness) private readonly readiness: CheckReadiness) {}

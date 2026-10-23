@@ -1,7 +1,7 @@
 import { createDb, type Database } from '@agent-sales/db';
 import { Global, Module, type OnApplicationShutdown } from '@nestjs/common';
 
-import { loadEnv } from '../config.js';
+import { getEnv } from '../config.js';
 
 /** Tenant-scoped connection (login ∈ app_tenant). `null` when DATABASE_URL is unset. */
 export const DB_TENANT = Symbol('DB_TENANT');
@@ -25,8 +25,8 @@ function open(url: string | undefined): Database | null {
 @Global()
 @Module({
   providers: [
-    { provide: DB_TENANT, useFactory: () => open(loadEnv().DATABASE_URL) },
-    { provide: DB_SYSTEM, useFactory: () => open(loadEnv().DATABASE_SYSTEM_URL) },
+    { provide: DB_TENANT, useFactory: () => open(getEnv().DATABASE_URL) },
+    { provide: DB_SYSTEM, useFactory: () => open(getEnv().DATABASE_SYSTEM_URL) },
   ],
   exports: [DB_TENANT, DB_SYSTEM],
 })

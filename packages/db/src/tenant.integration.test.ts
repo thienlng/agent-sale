@@ -43,8 +43,10 @@ beforeAll(async () => {
   b = workspaceId(newId());
   for (const ws of [a, b]) {
     const owner = userId(newId());
+    await withSystem(systemDb.db, (tx) =>
+      tx.insert(users).values({ id: owner, email: `${owner}@example.test`, name: 'Owner' }),
+    );
     await withTenant(tenantDb.db, ws, async (tx) => {
-      await tx.insert(users).values({ id: owner, email: `${owner}@example.test`, name: 'Owner' });
       await tx.insert(workspaces).values({
         id: ws,
         workspaceId: ws,
@@ -98,6 +100,10 @@ describe('tenant isolation (ADR-004)', () => {
       return tx.select().from(workspaces);
     });
     expect(rows).toEqual([]);
+  });
+
+  it('identity tables are not readable by tenant connections', async () => {
+    await expect(withTenant(tenantDb.db, a, (tx) => tx.select().from(users))).rejects.toThrow();
   });
 
   it('the system role reads across tenants', async () => {

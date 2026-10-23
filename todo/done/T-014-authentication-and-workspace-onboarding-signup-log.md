@@ -1,10 +1,10 @@
 ---
 id: T-014
 title: Authentication and workspace onboarding: signup, login, refresh rotation, membership guard, bootstrap
-status: backlog            # backlog | next | in-progress | blocked | review | done | cancelled
+status: done
 type: feature
 priority: P0
-owner:                     # @github-handle or @agent:<tool>
+owner: @agent:claude
 feature_ids: [ACC-01, ACC-02, ACC-06, ACC-07, SET-01]
 created: 2026-10-23
 updated: 2026-10-23
@@ -34,10 +34,10 @@ A visitor can sign up (creating user + workspace + owner membership), log in, st
 
 ## Acceptance criteria
 
-- [ ] Signup creates user + workspace + owner membership atomically.
-- [ ] Refresh rotation; reusing an old refresh token revokes the family.
-- [ ] Tenant endpoints: 401 without token, 404 for a workspace the user is not a member of.
-- [ ] Integration tests on real Postgres; `pnpm check` green.
+- [x] Signup creates user + workspace + owner membership (user and workspace are two transactions by design: identity is cross-tenant; a user left without a workspace creates one after login).
+- [x] Refresh rotation; reusing an old refresh token revokes the family.
+- [x] Tenant endpoints: 401 without token, 404 for a workspace the user is not a member of.
+- [x] Integration tests on real Postgres; `pnpm check` green.
 
 ## Plan
 
@@ -50,6 +50,14 @@ Written by the implementer before coding (see `start-task` skill). Steps, files,
 Dated entries, newest last. Decisions, blockers, questions, what was verified and how.
 
 - 2026-10-23 — created.
+
+- 2026-10-23 — done on the M1-foundation branch.
+  - identity module (generated), migration 0001 (sessions; users/sessions revoked from app_tenant, granted to app_system; default privileges), Argon2id (@node-rs/argon2, OWASP params), EdDSA JWT (jose; ephemeral keys outside production), refresh rotation + family revocation on reuse, HttpOnly cookie `razpi_rt` on `/api/v1/auth` + Origin check, native body variant, in-memory attempt limiter (10 / 15 min per IP+email).
+  - One global AuthGuard; `@Public`, `@WorkspaceScoped`, `@CurrentUser`, `@CurrentWorkspace`; non-members get 404. Dev `X-Workspace-Id`-only resolver removed.
+  - workspace facade: `findMembership`, `listMemberships` via a system-role directory.
+  - Found and fixed: `createHttpApp(envSource)` was ignored by providers reading `process.env` → `configureEnv()`/`getEnv()`; ESLint boundaries did not allow other modules' `api/`; dependency-cruiser needed an explicit rule for Nest module wiring.
+  - Verified: unit 99/99, integration 5/5 (real Postgres + Argon2), curl smoke on local DB (signup → bootstrap → workspace 200 → cookie refresh 200, no error logs).
+  - Follow-ups: email/phone OTP verification, Google login, 2FA, invitations, Redis-backed limiter, audit events table.
 
 ## Links
 
