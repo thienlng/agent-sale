@@ -1,0 +1,29 @@
+{
+  "name": "@agent-sales/webhook",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Thin Fastify webhook ingress: verify signature → persist raw event → enqueue. No business logic (ADR-009).",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "start": "node dist/main.js",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@agent-sales/channels": "workspace:*",
+    "@agent-sales/queue": "workspace:*",
+    "@agent-sales/shared": "workspace:*",
+    "fastify": "^5.0.0",
+    "pino": "^10.0.0",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.3",
+    "vitest": "^5.0.5"
+  }
+}

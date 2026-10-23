@@ -1,0 +1,9 @@
+import { Controller, Inject } from '@nestjs/common';
+
+import { {{upper name}}_FACADE, type {{pascal name}}Facade } from '../../api/{{name}}.facade.js';
+
+/** Thin controller: Zod-validate (packages/contracts) → facade → DTO. */
+@Controller('{{name}}')
+export class {{pascal name}}Controller {
+  constructor(@Inject({{upper name}}_FACADE) private readonly facade: {{pascal name}}Facade) {}
+}

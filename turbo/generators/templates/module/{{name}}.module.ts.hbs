@@ -1,0 +1,13 @@
+import { Module } from '@nestjs/common';
+
+import { {{upper name}}_FACADE } from './api/{{name}}.facade.js';
+import { {{pascal name}}FacadeImpl } from './application/{{name}}.facade.impl.js';
+import { {{pascal name}}Controller } from './interface/http/{{name}}.controller.js';
+
+/** Bind ports to adapters here. Export ONLY what api/ declares. */
+@Module({
+  controllers: [{{pascal name}}Controller],
+  providers: [{ provide: {{upper name}}_FACADE, useClass: {{pascal name}}FacadeImpl }],
+  exports: [{{upper name}}_FACADE],
+})
+export class {{pascal name}}Module {}

@@ -1,0 +1,32 @@
+{
+  "name": "@agent-sales/queue",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Queue names, job contracts, idempotent job ids and the per-tenant fairness layer on top of BullMQ (open-source BullMQ has no per-group limits — ADR-003).",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@agent-sales/shared": "workspace:*",
+    "bullmq": "^6.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "vitest": "^5.0.5"
+  }
+}

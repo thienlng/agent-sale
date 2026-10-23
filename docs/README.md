@@ -27,7 +27,9 @@ Input source: `../../preny/preny-research/` (Preny research dossier dated 23/10/
 | 15 | [Team workflow](15-team-workflow.md) | Humans | How two maintainers run many agents: roles, cadence, review policy, Phase 0 plan |
 | 16 | [Performance & scale](16-performance-and-scale.md) | Everyone | Binding budgets for "fast, smooth, modern", mandatory patterns, scale plan to ~1,000 tenants |
 | 17 | [Multi-tenancy & verticals](17-multi-tenancy-and-verticals.md) | PO, architects | Vertical packs (hotel, education, solar/mechanical, …), first-class objects (appointments, quotes, applications), per-tenant extensibility, horizontal scaling model |
-| — | [ADR](adr/README.md) | Tech lead | 8 architecture decisions |
+| — | [ARCHITECTURE.md](ARCHITECTURE.md) | Everyone writing code | Where code goes, the fixed module shape, allowed imports, enforcement, generators — mandatory before any code change |
+| — | [ADR](adr/README.md) | Tech lead | 9 architecture decisions |
+| — | [Architecture research 2026-10-23](reference/2026-10-23-architecture-research.md) | Reference | Survey of agent-friendly code organization that ARCHITECTURE.md is based on |
 | — | [Preny dashboard specification](reference/preny-dashboard-spec.md) | Reference | Each screen, field, column, button, observed limit |
 | — | [Preny industry verticals](reference/preny-verticals.md) | Reference | 17 verticals, how (little) the product differs per industry, gaps we exploit |
 | — | [Stack review 2026-10-23](reference/2026-10-23-stack-review.md) | Reference | Independent adversarial review of ADR-009 (17 findings) that drove the revisions |

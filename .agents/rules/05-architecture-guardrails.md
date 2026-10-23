@@ -4,6 +4,8 @@ These protect the product from eroding over hundreds of agent-written PRs. Full 
 
 ## Structure
 
+The operational map is `docs/ARCHITECTURE.md` — one fixed module shape (`api/ · domain/ · application/ · infrastructure/ · interface/ · MODULE.md · __tests__/`), the allowed module graph, and the frontend feature layout. Create modules only with `pnpm gen module <name>`; copy the golden module `apps/backend/src/modules/workspace`. `pnpm arch` (dependency-cruiser), ESLint boundaries and `apps/backend/test/architecture.spec.ts` enforce it; a violation is a failing check, not a review comment.
+
 - Monorepo: deployable apps in `apps/*`, shared code in `packages/*`. Apps may depend on packages; packages never depend on apps; packages do not import each other in cycles (`dependency-cruiser`/ESLint boundaries enforce this when configured).
 - Backend is a **modular monolith** (NestJS). Each domain module (`identity`, `workspace`, `billing`, `bot`, `knowledge`, `channel`, `conversation`, `ai`, `crm`, `commerce`, `shipping`, `marketing`, `automation`, `analytics`, `notification`, `support`, `affiliate`, `audit`) owns its tables and repositories. **Cross-module access goes through the other module's service interface or a domain event — never through its repository or tables.**
 - Four runtime processes share the codebase: `api` (HTTP + WebSocket), `webhook` (verify + persist + enqueue only; no business logic), `agent` (AI conversation runtime consuming the `conversation` queue; the only process that calls LLMs, via `packages/ai-core`), `worker` (BullMQ processors for outbound, campaign, workflow, indexer). Do not put slow work in `api`/`webhook` request paths; do not put CPU-heavy work (PDF parsing, OCR, local embeddings) in `agent`.

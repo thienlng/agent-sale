@@ -1,0 +1,13 @@
+import { Test } from '@nestjs/testing';
+import { describe, expect, it } from 'vitest';
+
+import { {{upper name}}_FACADE } from '../api/index.js';
+import { {{pascal name}}Module } from '../{{name}}.module.js';
+
+/** Contract test: the public API behaves as MODULE.md promises. */
+describe('{{pascal name}}Facade (contract)', () => {
+  it('is provided by the module', async () => {
+    const moduleRef = await Test.createTestingModule({ imports: [{{pascal name}}Module] }).compile();
+    expect(moduleRef.get({{upper name}}_FACADE)).toBeDefined();
+  });
+});

@@ -1,0 +1,18 @@
+# {{name}}
+
+**Purpose:** <one sentence: what business capability this module owns>
+
+**Owned tables:** <list; schema in `packages/db/src/schema/{{name}}.ts`>
+
+**Public API (`api/`):**
+- `{{upper name}}_FACADE` → `{{pascal name}}Facade.<useCase>(...)`
+- Events: `{{name}}.<thing>.<verb>.v1` (schemas in `packages/contracts/src/{{name}}/`)
+
+**Events consumed:** <other modules' events handled in `application/event-handlers`>
+
+**Invariants:**
+- <rule the aggregate enforces>
+
+**Do not:** read other modules' tables; put HTTP/Drizzle types in `domain/`; call LLMs outside `ai-core`.
+
+**Test:** `pnpm --filter @agent-sales/backend test -- {{name}}`
