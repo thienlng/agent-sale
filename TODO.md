@@ -4,12 +4,14 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
-Milestone **M1-foundation** — branch `feat/T-004-m1-foundation`: T-004, T-003, T-014 done; PR open for review.
+Milestone **M2-bot-playground** — branch `feat/T-015-m2-bot-playground`: T-015 done → T-016 → T-005, one PR.
 
+- [ ] T-016 AI playground: LLM providers, FAQ retrieval, grounded replies, metering — @agent:claude · [details](todo/T-016-ai-playground-llm-providers-faq-retrieval-grounded.md)
+- [ ] T-005 Complete the web shell: auth pages, bots, FAQ and chat-test pages, size and Lighthouse CI — @agent:claude · [details](todo/T-005-scaffold-web.md)
 
 ## Next
 
-- [ ] T-005 Complete the web shell: auth pages, layout, size and Lighthouse CI — @unassigned · [details](todo/T-005-scaffold-web.md)
+(none)
 
 ## Backlog
 
@@ -25,6 +27,7 @@ Milestone **M1-foundation** — branch `feat/T-004-m1-foundation`: T-004, T-003,
 
 ## Done (last 10 — older ones live in todo/done/)
 
+- [x] T-015 Bot and knowledge modules — @agent:claude · [details](todo/done/T-015-bot-and-knowledge-modules-bots-settings-faq-indust.md) · M2 PR
 - [x] T-014 Authentication and workspace onboarding — @agent:claude · [details](todo/done/T-014-authentication-and-workspace-onboarding-signup-log.md) · M1-foundation PR
 - [x] T-003 Complete the backend runtime: OpenAPI, request tracing, readiness, metrics — @agent:claude · [details](todo/done/T-003-scaffold-api.md) · M1-foundation PR
 - [x] T-004 Wire the database: local infra, migration runner, RLS integration tests, Drizzle repositories — @agent:claude · [details](todo/done/T-004-packages-db.md) · M1-foundation PR

@@ -5,6 +5,10 @@ import {
   HealthResponse,
   ReadinessResponse,
   WorkspaceDto,
+  BotDto,
+  BotReadiness,
+  FaqDto,
+  FaqListResponse,
 } from '@agent-sales/contracts';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -33,7 +37,7 @@ async function app(): Promise<NestFastifyApplication> {
 }
 
 type InjectOpts = {
-  method: 'GET' | 'POST';
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   url: string;
   payload?: Record<string, unknown>;
   headers?: Record<string, string>;
@@ -239,5 +243,131 @@ describe('HTTP: auth and tenancy', () => {
     });
     expect(res.statusCode).toBe(400);
     expect((res.json() as { error: { code: string } }).error.code).toBe('VALIDATION_FAILED');
+  });
+});
+
+describe('HTTP: bots and FAQs', () => {
+  async function owner(a: NestFastifyApplication) {
+    const { token } = await signup(a, `bot-owner-${Math.random()}@shop.vn`);
+    const ws = (await bootstrap(a, token)).memberships[0]?.workspaceId ?? '';
+    return { authorization: `Bearer ${token}`, 'x-workspace-id': ws };
+  }
+
+  it('creates a bot from an industry pack, fills placeholders and becomes FAQ-ready', async () => {
+    const a = await app();
+    const h = await owner(a);
+    const created = await inject(a, {
+      method: 'POST',
+      url: '/api/v1/bots',
+      headers: h,
+      payload: { name: 'Razpi Bot', industry: 'retail' },
+    });
+    expect(created.statusCode).toBe(201);
+    const bot = BotDto.parse(created.json());
+
+    const faqs = FaqListResponse.parse(
+      (await inject(a, { method: 'GET', url: `/api/v1/bots/${bot.id}/faqs`, headers: h })).json(),
+    );
+    expect(faqs.data.length).toBeGreaterThanOrEqual(6);
+    expect(faqs.data.some((f) => f.missingPlaceholders.includes('store.address'))).toBe(true);
+
+    const readiness = BotReadiness.parse(
+      (
+        await inject(a, { method: 'GET', url: `/api/v1/bots/${bot.id}/readiness`, headers: h })
+      ).json(),
+    );
+    const values = Object.fromEntries(
+      readiness.missingPlaceholders.map((p) => [p, `giá trị ${p}`]),
+    );
+    const patched = await inject(a, {
+      method: 'PATCH',
+      url: `/api/v1/bots/${bot.id}`,
+      headers: h,
+      payload: { settings: { placeholders: values } },
+    });
+    expect(patched.statusCode).toBe(200);
+    const after = BotReadiness.parse(
+      (
+        await inject(a, { method: 'GET', url: `/api/v1/bots/${bot.id}/readiness`, headers: h })
+      ).json(),
+    );
+    expect(after.missingPlaceholders).toEqual([]);
+    expect(after.checks.find((c) => c.key === 'channel')?.done).toBe(false);
+  });
+
+  it('FAQ CRUD; bots of another workspace answer 404', async () => {
+    const a = await app();
+    const h = await owner(a);
+    const bot = BotDto.parse(
+      (
+        await inject(a, {
+          method: 'POST',
+          url: '/api/v1/bots',
+          headers: h,
+          payload: { name: 'B', industry: 'other' },
+        })
+      ).json(),
+    );
+    const faq = FaqDto.parse(
+      (
+        await inject(a, {
+          method: 'POST',
+          url: `/api/v1/bots/${bot.id}/faqs`,
+          headers: h,
+          payload: { question: 'Có freeship không?', answer: 'Freeship đơn từ 500.000đ' },
+        })
+      ).json(),
+    );
+    const edited = await inject(a, {
+      method: 'PATCH',
+      url: `/api/v1/bots/${bot.id}/faqs/${faq.id}`,
+      headers: h,
+      payload: { answer: 'Freeship đơn từ 300.000đ' },
+    });
+    expect(FaqDto.parse(edited.json()).answer).toBe('Freeship đơn từ 300.000đ');
+    const del = await inject(a, {
+      method: 'DELETE',
+      url: `/api/v1/bots/${bot.id}/faqs/${faq.id}`,
+      headers: h,
+    });
+    expect(del.statusCode).toBe(204);
+
+    const other = await owner(a);
+    const foreign = await inject(a, {
+      method: 'GET',
+      url: `/api/v1/bots/${bot.id}`,
+      headers: other,
+    });
+    expect(foreign.statusCode).toBe(404);
+    const notUuid = await inject(a, { method: 'GET', url: '/api/v1/bots/not-a-uuid', headers: h });
+    expect(notUuid.statusCode).toBe(404);
+    const foreignFaqs = await inject(a, {
+      method: 'GET',
+      url: `/api/v1/bots/${bot.id}/faqs`,
+      headers: other,
+    });
+    expect(foreignFaqs.statusCode).toBe(404);
+  });
+
+  it('rejects settings that break the contract after merge', async () => {
+    const a = await app();
+    const h = await owner(a);
+    const bot = BotDto.parse(
+      (
+        await inject(a, {
+          method: 'POST',
+          url: '/api/v1/bots',
+          headers: h,
+          payload: { name: 'B', industry: 'spa' },
+        })
+      ).json(),
+    );
+    const res = await inject(a, {
+      method: 'PATCH',
+      url: `/api/v1/bots/${bot.id}`,
+      headers: h,
+      payload: { settings: { creativity: 'wild' } },
+    });
+    expect(res.statusCode).toBe(400);
   });
 });
