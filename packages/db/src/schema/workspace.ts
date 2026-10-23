@@ -3,9 +3,29 @@ import { index, pgPolicy, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-
 
 import { users } from './identity.js';
 
-/** RLS predicate shared by every tenant table (InitPlan form, ADR-004). */
+/**
+ * RLS predicate shared by every tenant table (InitPlan form, ADR-004).
+ * Policies are role-scoped: `app_tenant` gets this predicate, `app_system` sees
+ * all rows. Migrations are hand-written; these declarations mirror them.
+ */
 export const tenantPredicate = sql`workspace_id = (select nullif(current_setting('app.workspace_id', true), '')::uuid)`;
-export const systemPredicate = sql`current_setting('app.role', true) = 'system'`;
+
+export function tenantPolicies(table: string) {
+  return [
+    pgPolicy(`${table}_tenant`, {
+      for: 'all',
+      to: 'app_tenant',
+      using: tenantPredicate,
+      withCheck: tenantPredicate,
+    }),
+    pgPolicy(`${table}_system`, {
+      for: 'all',
+      to: 'app_system',
+      using: sql`true`,
+      withCheck: sql`true`,
+    }),
+  ];
+}
 
 export const workspaces = pgTable(
   'workspaces',
@@ -24,13 +44,7 @@ export const workspaces = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
-  (t) => [
-    index('workspaces_owner_idx').on(t.ownerUserId),
-    pgPolicy('workspaces_tenant', {
-      for: 'all',
-      using: sql`${tenantPredicate} or ${systemPredicate}`,
-    }),
-  ],
+  (t) => [index('workspaces_owner_idx').on(t.ownerUserId), ...tenantPolicies('workspaces')],
 );
 
 export const members = pgTable(
@@ -49,9 +63,6 @@ export const members = pgTable(
   },
   (t) => [
     index('members_workspace_user_idx').on(t.workspaceId, t.userId),
-    pgPolicy('members_tenant', {
-      for: 'all',
-      using: sql`${tenantPredicate} or ${systemPredicate}`,
-    }),
+    ...tenantPolicies('members'),
   ],
 );

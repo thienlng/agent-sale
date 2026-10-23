@@ -42,7 +42,7 @@ Assign primary reviewer per task        Scan CI failures / Dependabot           
 
 ### Running agents
 
-- One agent session = one task = one branch. Use `git worktree` (or the tool's worktree mode) so several agents can run in parallel on the same machine without interfering.
+- One agent session = one milestone branch (tasks done sequentially, a commit per task). Use `git worktree` (or the tool's worktree mode) so several agents can run in parallel on the same machine without interfering.
 - Start every session with the `onboarding` skill, then `start-task`. Do not paste requirements in chat that are not in the task file — put them in the file first so the next session sees them.
 - Prefer **plan-first** for larger tasks: the agent pushes a draft PR with only the plan; a human comments "plan approved" (or edits the plan) before implementation. This is the cheapest point to catch wrong direction.
 - Mix tools deliberately: the agent that implements and the agent that pre-reviews should be different (e.g. Claude Code implements, Codex runs `review-pr`, or vice versa). Humans read the agent review first, then the diff.

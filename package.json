@@ -22,7 +22,12 @@
     "gen": "turbo gen",
     "todo:new": "bash scripts/new-todo.sh",
     "verify": "bash scripts/verify-setup.sh",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test:integration": "turbo run test:integration",
+    "db:migrate": "pnpm --filter @agent-sales/db db:migrate",
+    "db:migrate:dev": "pnpm --filter @agent-sales/db db:migrate:dev",
+    "infra:up": "docker compose -f infra/docker/docker-compose.local.yml up -d --wait",
+    "infra:down": "docker compose -f infra/docker/docker-compose.local.yml down"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.8.1",

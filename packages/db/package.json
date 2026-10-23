@@ -22,8 +22,10 @@
     "test": "vitest run",
     "lint": "eslint .",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:migrate": "tsx src/cli/migrate.ts",
+    "db:studio": "drizzle-kit studio",
+    "db:migrate:dev": "tsx src/cli/migrate.ts --dev-roles",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
     "@agent-sales/shared": "workspace:*",
@@ -31,7 +33,9 @@
     "postgres": "^3.4.7"
   },
   "devDependencies": {
+    "@agent-sales/testing": "workspace:*",
     "drizzle-kit": "^0.31.0",
+    "tsx": "^4.20.0",
     "typescript": "^5.8.3",
     "vitest": "^5.0.5"
   }

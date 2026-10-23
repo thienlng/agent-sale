@@ -5,7 +5,7 @@
   "description": "NestJS 12 on Fastify modular monolith. One codebase, four entrypoints: api, worker, agent, realtime.",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/entries/api.ts",
+    "dev": "tsx watch --env-file-if-exists=../../.env src/entries/api.ts",
     "start:api": "node dist/entries/api.js",
     "start:worker": "node dist/entries/worker.js",
     "start:agent": "node dist/entries/agent.js",
@@ -14,7 +14,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
     "@agent-sales/ai-core": "workspace:*",
@@ -23,11 +24,15 @@
     "@agent-sales/db": "workspace:*",
     "@agent-sales/queue": "workspace:*",
     "@agent-sales/shared": "workspace:*",
+    "@fastify/cookie": "^11.0.0",
     "@nestjs/common": "^12.0.0",
     "@nestjs/core": "^12.0.0",
     "@nestjs/platform-fastify": "^12.0.0",
+    "@node-rs/argon2": "^2.0.2",
     "fastify": "^5.0.0",
+    "jose": "^6.1.0",
     "pino": "^10.0.0",
+    "prom-client": "^15.1.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "zod": "^4.1.0"

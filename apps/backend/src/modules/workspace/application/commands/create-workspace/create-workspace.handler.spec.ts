@@ -1,25 +1,21 @@
 import { WorkspaceCreatedV1 } from '@agent-sales/contracts';
-import { newId, userId } from '@agent-sales/shared';
+import { newId, userId, workspaceId } from '@agent-sales/shared';
 import { describe, expect, it } from 'vitest';
 
-import { InMemoryWorkspaceRepository } from '../../../infrastructure/persistence/workspace.in-memory-repository.js';
-import { InMemoryEventPublisher } from '../../../infrastructure/messaging/in-memory-event-publisher.js';
+import { InMemoryWorkspaceUnitOfWork } from '../../../infrastructure/workspace.unit-of-work.js';
 import { CreateWorkspaceHandler } from './create-workspace.handler.js';
 
 describe('CreateWorkspaceHandler', () => {
-  it('persists the workspace and publishes a versioned integration event', async () => {
-    const repo = new InMemoryWorkspaceRepository();
-    const events = new InMemoryEventPublisher();
-    const handler = new CreateWorkspaceHandler(repo, events);
+  it('persists the workspace, its owner membership and a versioned event', async () => {
+    const uow = new InMemoryWorkspaceUnitOfWork();
+    const handler = new CreateWorkspaceHandler(uow);
+    const owner = userId(newId());
 
-    const dto = await handler.execute({
-      name: 'Shop ABC',
-      industry: 'retail',
-      ownerUserId: userId(newId()),
-    });
+    const dto = await handler.execute({ name: 'Shop ABC', industry: 'retail', ownerUserId: owner });
 
-    expect(await repo.findById(dto.id as never)).not.toBeNull();
-    expect(events.published).toHaveLength(1);
-    expect(WorkspaceCreatedV1.safeParse(events.published[0]?.event).success).toBe(true);
+    expect(await uow.workspaces.findById(workspaceId(dto.id))).not.toBeNull();
+    expect(await uow.members.find(workspaceId(dto.id), owner)).toMatchObject({ role: 'owner' });
+    expect(uow.events.published).toHaveLength(1);
+    expect(WorkspaceCreatedV1.safeParse(uow.events.published[0]?.event).success).toBe(true);
   });
 });

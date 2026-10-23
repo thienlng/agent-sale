@@ -22,7 +22,7 @@ Rules in `.agents/rules/` override anything in `docs/`. `docs/` describes the in
 | # | Rule | Details |
 |---|------|---------|
 | 1 | **English** for code, identifiers, comments, commits, PRs, tests, todo files and technical docs. Vietnamese is allowed only in chat with humans, in product UI strings (i18n files) and in business/marketing content. | `01-language.md` |
-| 2 | **One task → one branch → one PR.** Branch `type/T-123-short-slug`. Conventional Commits. PR must reference its task ID. | `02-git-and-pr.md` |
+| 2 | **One milestone/block of tasks → one branch → one PR** (few, larger PRs), one commit per task inside. Branch `type/T-123-short-slug`. Conventional Commits. PR references every task it closes. | `02-git-and-pr.md` |
 | 3 | **Work is tracked in `TODO.md` + `todo/`.** Never start work without a task file; keep its status current in the same PR. | `03-task-tracking.md` |
 | 4 | **`pnpm check` must pass** (lint, typecheck, tests, build) before you claim anything is done. New behavior needs tests. Never delete or skip a test to make CI green. | `04-code-quality.md` |
 | 5 | **Respect the architecture.** Module boundaries, tenant isolation (`workspace_id`), ledger rules, backward-compatible migrations. Architecture changes need an ADR. | `05-architecture-guardrails.md` |

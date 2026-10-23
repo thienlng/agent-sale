@@ -58,8 +58,16 @@ Layer import rules (lower may import higher, never the reverse):
 
 Cross-module interaction:
 - **Reads**: call the other module's facade (injected by token from its `api/`). Never query another module's tables.
+- **Nest wiring**: only `<name>.module.ts` may import another module's `<name>.module.ts` (in `imports: [...]`) so its exported facade can be injected; enforced by `module-wiring-only-from-module-files`.
+- **Auth**: one global `AuthGuard` (identity). Routes are authenticated by default; mark exceptions `@Public()`. Routes acting on a workspace use `@WorkspaceScoped()` and read it with `@CurrentWorkspace()`; the current user comes from `@CurrentUser()` (`common/http/auth-context.ts`). Controllers never parse auth headers.
 - **Writes / side effects**: publish an integration event (`api/<name>.events.ts`) through the **transactional outbox** (`outbox_events`, same transaction as the business row); consumers are `application/event-handlers` with an idempotent inbox. In-process transport now; broker later without changing handlers.
 - **Analytics** reads event-fed read models, not facade chains.
+
+HTTP contract: every route under `/api/v1` is declared in `packages/contracts/src/<module>/<module>.routes.ts` (method, path, auth, body/query, responses) and appended to `allRoutes`; the OpenAPI document (`/api/v1/openapi.json`) is built from it and `apps/backend/test/http.spec.ts` fails if served routes and declared routes differ.
+
+Dependency injection: every constructor parameter of a Nest provider/controller uses `@Inject(TOKEN)` (a symbol or the class itself). Class-typed injection without `@Inject` works under `tsc`/Vitest but is `undefined` under `tsx` (no decorator metadata) — an architecture test enforces this.
+
+Units of work: a module that writes more than one row (or a row + an event) exposes a `<Module>UnitOfWork` port in `application/ports/`; the Drizzle adapter runs one `withTenant` transaction and hands out repositories + the outbox publisher bound to it (see `workspace`).
 
 Tenancy: every repository method and every query takes a `WorkspaceId`; persistence runs inside `withTenant()` from `packages/db` (transaction-scoped `set_config`, RLS backstop — ADR-004). `WorkspaceId` is a branded type from `packages/shared`.
 

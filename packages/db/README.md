@@ -8,6 +8,7 @@ Drizzle schema, SQL migrations, tenant-scoped transactions and DB roles. **Only 
 - Tenant access only through `withTenant(db, workspaceId, tx => …)` — transaction-scoped `set_config`, verified after set. Cross-tenant work through `withSystem` (role marker, audited), used only by: webhook ingress channel lookup, scheduler/outbox publisher, reconciliation, analytics rollups, back-office.
 - Global tables (no `workspace_id`): `users`, `tenant_routes`, `outbox_events` (nullable), `inbox_events` — plus the list in docs/05 §9 as modules are added.
 - Schema lives in `src/schema/<module>.ts` (one file per backend module). Migrations are SQL in `migrations/`; `drizzle-kit generate` helps draft them, roles/policies/partitions are hand-written. `drizzle-kit push` is banned.
+- Logins: `owner` runs migrations only; `razpi_tenant` (∈ `app_tenant`) and `razpi_system` (∈ `app_system`) are what apps use. **Never connect an app as a superuser** — superusers bypass RLS even when it is forced. Every table with `workspace_id` (except global `tenant_routes`, `outbox_events`) must have RLS enabled + forced; an integration test enforces this.
 - Connection: PgBouncer transaction mode → `prepare: false`, no session state, no `LISTEN`.
 
 ## Commands

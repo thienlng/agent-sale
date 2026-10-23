@@ -1,6 +1,6 @@
 # health
 
-**Purpose:** liveness/readiness for load balancers and uptime checks. The minimal example of an interface-only module.
+**Purpose:** operational endpoints — liveness (`/api/v1/health`), readiness (`/api/v1/health/ready`, 503 when a configured dependency is down), Prometheus `/metrics` (outside the prefix) and the OpenAPI document (`/api/v1/openapi.json`, built from `packages/contracts` route contracts).
 
 **Owned tables:** none.
 
@@ -8,7 +8,7 @@
 
 **Events:** none.
 
-**Invariants:** `GET /api/v1/health` never touches the database; readiness (`/health/ready`, later) does.
+**Invariants:** liveness never touches dependencies; readiness checks each configured dependency with a 1 s timeout (probes registered under `READINESS_PROBES`); metric labels use route templates only (no tenant ids, no raw URLs).
 
 **Do not:** add business logic here.
 

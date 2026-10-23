@@ -51,12 +51,8 @@ const policies = [
   {
     from: any('be-application'),
     allow: {
-      to: [
-        sameModule('be-domain'),
-        sameModule('be-application'),
-        sameModule('be-api'),
-        any('be-common'),
-      ],
+      // Other modules are reachable only through their api/ (facade + events).
+      to: [sameModule('be-domain'), sameModule('be-application'), any('be-api'), any('be-common')],
     },
   },
   {
@@ -67,12 +63,13 @@ const policies = [
         sameModule('be-application'),
         sameModule('be-infrastructure'),
         any('be-common'),
+        any('be-api'),
       ],
     },
   },
   {
     from: any('be-interface'),
-    allow: { to: [sameModule('be-application'), sameModule('be-api'), any('be-common')] },
+    allow: { to: [sameModule('be-application'), any('be-api'), any('be-common')] },
   },
   {
     from: any('be-tests'),

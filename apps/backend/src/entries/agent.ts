@@ -3,7 +3,7 @@ import 'reflect-metadata';
 import { Module } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 
-import { loadEnv } from '../common/config.js';
+import { configureEnv } from '../common/config.js';
 import { createLogger, PinoNestLogger } from '../common/logger.js';
 
 /**
@@ -14,7 +14,7 @@ import { createLogger, PinoNestLogger } from '../common/logger.js';
 @Module({ imports: [] })
 class AgentModule {}
 
-const env = loadEnv();
+const env = configureEnv();
 const logger = createLogger(env.LOG_LEVEL);
 const ctx = await NestFactory.createApplicationContext(AgentModule, {
   logger: new PinoNestLogger(logger),

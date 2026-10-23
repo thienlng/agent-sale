@@ -59,6 +59,6 @@ jobs:
           DELETIONS: ${{ github.event.pull_request.deletions }}
         run: |
           total=$((ADDITIONS + DELETIONS))
-          if [ "$total" -gt 800 ]; then
-            echo "::warning::PR changes $total lines; target is <= 400 (excluding generated files). Consider splitting."
+          if [ "$total" -gt 5000 ]; then
+            echo "::warning::PR changes $total lines. Large PRs are fine (rule 02) but make sure the body has one section per task and a start-reading pointer."
           fi
