@@ -11,6 +11,8 @@ permissions:
 jobs:
   conventions:
     name: conventions
+    # Dependabot PRs follow their own branch/commit format and are reviewed via .github/dependabot.yml.
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

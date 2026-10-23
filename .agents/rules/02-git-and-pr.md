@@ -38,6 +38,10 @@ Refs: T-012
 - Merge strategy: **squash merge** by a human. The squash commit message is the PR title + body.
 - Agents never merge, never approve, never push to `main`, never edit branch protection.
 
+## Dependabot PRs
+
+Dependabot is exempt from the branch-name, task-reference and commitlint checks (its format is fixed by `.github/dependabot.yml`), but not from `pnpm check`. Humans merge them weekly: minor/patch when CI is green; majors get a quick read of the release notes first and, if they touch runtime code, a task.
+
 ## Reviewers (humans)
 
 Review checklist lives in `.github/PULL_REQUEST_TEMPLATE.md` (reviewer section). Reviewers check scope, tests, architecture guardrails, docs, and that the task file status matches reality.
