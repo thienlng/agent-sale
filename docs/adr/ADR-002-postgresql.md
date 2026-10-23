@@ -6,7 +6,7 @@
 Preny has publicly stated that it uses MongoDB. Our system has credit wallets, a ledger, orders, inventory, and campaigns that deduct money — requiring multi-table transactions, unique constraints (idempotency), and relational reporting. The AI needs vector search.
 
 ## Decision
-Managed PostgreSQL 16, with extensions `pgvector`, `pg_trgm`, `unaccent`, `citext`, `pg_partman`. JSONB for flexible data (settings, channel payloads, custom fields).
+Self-hosted PostgreSQL 16 (Patroni for HA, pgBackRest for PITR, PgBouncer in transaction mode), with extensions `pgvector`, `pg_trgm`, `unaccent`, `citext`. JSONB for flexible data (settings, channel payloads, custom fields). No managed/cloud database by owner decision (2026-10-23).
 
 ## Consequences
 - One DB for relational + vector + full-text → fewer components to operate.

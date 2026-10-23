@@ -28,7 +28,7 @@ Load envelope at 1,000 tenants (estimate, see `docs/16-performance-and-scale.md`
 | Cache / queue | Redis 7 (BullMQ, cache, rate limit, locks, Socket.IO adapter). | Per ADR-003. |
 | Storage | S3-compatible object storage behind a CDN with signed URLs. | Media never passes through the API. |
 | AI | `packages/ai-core` gateway (ADR-005), streaming where the UI can show it. | — |
-| Edge / hosting | Cloudflare (CDN, WAF, DNS) in front; compute in Singapore (or Vietnam, per ADR-006); Docker now, Kubernetes with HPA/KEDA at scale. | ~30–40 ms RTT from Vietnam; static assets at the edge. |
+| Edge / hosting | **Self-hosted** compute (VMs/bare metal in a Vietnamese data center or any IaaS, per ADR-006): Docker Compose now, Kubernetes (k3s/RKE2) with HPA/KEDA at scale; Patroni Postgres, Redis Sentinel, MinIO, self-hosted LGTM/Sentry/Langfuse. CDN/WAF: Cloudflare in front for static assets and DDoS (edge only, no data at rest) **or** self-hosted nginx/Caddy + CrowdSec if the owners prefer zero third-party edge. | Owner constraint: no managed cloud services for data or observability; static assets still served from the edge for speed. |
 
 ### The AI agent runtime is its own process (TypeScript)
 
@@ -67,7 +67,7 @@ An adversarial review (17 findings) and a best-practice survey (Oct 2026 sources
 | SPA refresh-token storage unspecified (agents would use `localStorage`) | Access token in memory; refresh token in HttpOnly cookie scoped to `/auth/refresh`; native clients via body; `/bootstrap` endpoint; strict CSP | docs/09 |
 | Socket.IO inside `api` → reconnect storms on every deploy; stickiness | SSE-first realtime, separate `realtime` deployment, websocket-only Socket.IO for presence | this ADR, docs/04 |
 | pgvector hash partitions + HNSW lose recall for small bots; fixed `VECTOR(1536)` | Exact scan by default, partial HNSW for large bots, per-model embedding storage | docs/17 §6, docs/06 §4 |
-| Observability stack too large for two operators | Managed Grafana Cloud + Langfuse Cloud (sampled) until GA; four deployables; KEDA `redis-lists` scaler | docs/04, docs/10 |
+| Observability stack size | Owner decision: operational load is **not** a constraint and no cloud/managed services are allowed → self-hosted Grafana LGTM + Sentry + Langfuse v3; deployables kept to four anyway for simplicity; KEDA `redis-lists` scaler | docs/04, docs/10 |
 | Streaming/prompt caching/provider pooling named but undesigned | Streaming only for the widget (SSE); pooling = admission controller; single primary provider per tier, failover = degraded-cost mode; promptfoo + Langfuse as the eval/trace pair | docs/16 §2b, docs/06 |
 | First-load claims overstated; budget arithmetic tight | Budgets aligned to Core Web Vitals (LCP ≤ 2.5 s, INP ≤ 200 ms); lazy-load `motion`/charts/i18n; SSE/`ws` instead of `socket.io-client` in the shell; table budget rewritten | docs/16 §1 |
 | Contradictions (webhook framework, ack budgets, ORM, process list) | Webhook = thin Fastify; ack p95 ≤ 200 / p99 ≤ 500 ms everywhere; Drizzle + Zod only; processes `api`/`webhook`/`agent`/`worker`/`realtime` | docs/04, docs/10, docs/11 |

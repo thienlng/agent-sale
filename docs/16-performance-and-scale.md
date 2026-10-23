@@ -57,7 +57,7 @@ Assumptions (to be replaced by measurements in beta): 1,000 active workspaces ·
 | `api` | 2 × (1 vCPU, 1 GB) | 6–10 pods | HPA on CPU + latency |
 | `webhook` | 2 × small | 4–6 pods | HPA on RPS; stateless |
 | `worker` | 2 × medium | per queue: conversation 6–12, outbound 4–8, campaign 2–6, indexer 2 | KEDA on queue depth; per-tenant concurrency caps (noisy neighbor) |
-| PostgreSQL | 2 vCPU / 8 GB managed, PITR | 8 vCPU / 32 GB primary + 1 read replica; PgBouncer; partitions on `messages`, `inbound_events`, `ai_runs`, `ledger_entries`, `campaign_recipients` | vertical first, then replica for reads/analytics; Citus or per-tenant DB for outliers |
+| PostgreSQL (self-hosted, Patroni + pgBackRest) | 1 node 4 vCPU / 16 GB (+ 1 standby), PITR | 8–16 vCPU / 64 GB primary + 1 sync standby + 1 read replica; PgBouncer; NVMe; partitions only where allowed by docs/05 §9 | vertical first, then replica for reads/analytics; dedicated DB for outliers via `tenant_routes` |
 | Redis | 1 GB HA | 4–8 GB cluster | split queue vs cache instances |
 | Object storage | — | ~2 TB/year media | lifecycle to cold tier |
 | Storage growth | — | messages ≈ 1 KB each → ~1 TB/year hot; archive partitions > 12 months to S3 (Parquet) | retention policy per plan |

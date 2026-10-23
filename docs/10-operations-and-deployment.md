@@ -14,8 +14,8 @@ Configuration via environment variables + secret manager; the env schema is vali
 ## 2. Infrastructure roadmap
 
 **Stage 1 (MVP → closed beta, < 200 workspaces):**
-- 1 small cluster: 2–3 VMs or a managed container service; **managed** Postgres (with PITR), managed Redis, object storage.
-- Deployables (kept to **four** so two humans can operate them): `api`, `webhook`, `worker` (one image; `WORKER_QUEUES` selects `agent` / `outbound` / `campaign` / `indexer` / `scheduler`; separate Deployments per group only when scaling needs differ), `realtime` (SSE + websocket-only Socket.IO, long termination grace). `web` and `site` are static builds on the CDN (no process). Repeatable jobs live in BullMQ, so no leader election is needed for the scheduler.
+- **Self-hosting is a product constraint** (owner decision 2026-10-23): every stateful service runs on our own servers — PostgreSQL 16 with **Patroni** (HA, automatic failover) and **pgBackRest** (PITR, off-site backups), **PgBouncer**, Redis with **Sentinel**, **MinIO** object storage, the Grafana LGTM stack, Sentry and Langfuse. Only LLM provider APIs and channel/payment/carrier APIs are external. Phase 1: 3 VMs or bare-metal nodes (app ×2 + db/redis/minio) with Docker Compose + Ansible; operational load is explicitly accepted by the owners.
+- Deployables: `api`, `webhook`, `worker` (one image; `WORKER_QUEUES` selects `agent` / `outbound` / `campaign` / `indexer` / `scheduler`; separate Deployments per group when scaling needs differ), `realtime` (SSE + websocket-only Socket.IO, long termination grace). `web` and `site` are static builds served by nginx/Caddy behind the CDN/WAF (no process). Repeatable jobs live in BullMQ, so no leader election is needed for the scheduler.
 - CDN + WAF in front of web/api.
 
 **Stage 2 (GA, broad rollout):**
@@ -51,10 +51,10 @@ flowchart LR
 
 | Signal | Tool | Mandatory content |
 |---|---|---|
-| Logs | Grafana Cloud Logs (JSON via pino + OTel) | `trace_id`, `workspace_id`, `conversation_id`, never log tokens/raw PII |
-| Metrics | Grafana Cloud Metrics (Prometheus format) | RED for the API; queue depth per queue/tier, job latency, retries; webhook lag; outbound success per connector; AI latency/cost per tier; provider rate-limit headroom; ledger reconciliation |
-| Traces | OpenTelemetry → Grafana Cloud Traces | webhook → worker → LLM → outbound in a single trace |
-| LLM | Langfuse Cloud (sampled: all errors, 5–10 % successes; 100 % for flagged tenants) | prompt version, retrieved context, output, eval scores, cost |
+| Logs | **Loki** (self-hosted; JSON via pino + OTel Collector) | `trace_id`, `workspace_id`, `conversation_id`, never log tokens/raw PII |
+| Metrics | **Mimir/Prometheus + Grafana** (self-hosted) | RED for the API; queue depth per queue/tier, job latency, retries; webhook lag; outbound success per connector; AI latency/cost per tier; provider rate-limit headroom; ledger reconciliation |
+| Traces | OpenTelemetry → **Tempo** (self-hosted) | webhook → worker → LLM → outbound in a single trace |
+| LLM | **Langfuse self-hosted** (v3: Postgres + ClickHouse + Redis + MinIO); 100 % of traces by default, sampling of successes only if ClickHouse volume requires it | prompt version, retrieved context, output, eval scores, cost |
 | Errors | Sentry (FE + BE) | release tracking |
 | Uptime | Synthetic check | login, end-to-end widget message sending every 5 min |
 | Status page | status.<domain> | status per connector (FB/Zalo/…) |
