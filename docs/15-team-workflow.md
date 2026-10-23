@@ -1,13 +1,15 @@
 # 15 — Team workflow: two humans, many agents
 
-> How the two human maintainers (`thienlng`, `tungdd7`) run a product that is mostly written by coding agents. This complements the rules in `.agents/rules/` (which bind agents) with the operating model for humans. Revisit after the first month; adjust via PR.
+> **Update 2026-10-23:** there is currently **one** human maintainer (`thienlng`), who holds both the product-owner and tech-lead roles. Wherever this document says "2 humans", read: maintainer approval **plus** a fresh-context agent review (`review-pr` skill, ideally from a different tool than the implementer) whose findings are posted on the PR. A second maintainer is added back to `.github/CODEOWNERS` when one joins.
+
+> How the two human maintainers (`thienlng`, and a future second maintainer) run a product that is mostly written by coding agents. This complements the rules in `.agents/rules/` (which bind agents) with the operating model for humans. Revisit after the first month; adjust via PR.
 
 ## 1. Roles
 
 | Role | Who | Owns |
 |---|---|---|
 | Product owner | `thienlng` | `TODO.md` priority order, acceptance criteria, `docs/14-open-decisions.md`, product behavior, pricing, go/no-go for phases |
-| Tech lead | `tungdd7` | Architecture guardrails (Rule 05), ADR acceptance, CI/infra/tooling, protected files, security review |
+| Tech lead | `thienlng` (until a second maintainer joins) | Architecture guardrails (Rule 05), ADR acceptance, CI/infra/tooling, protected files, security review |
 | Reviewer | both | Any PR. Each human is the **primary** reviewer for the areas above and **secondary** for the rest |
 | Agent operator | both | Launching agents on tasks, answering their questions, keeping their sessions unblocked |
 
@@ -76,7 +78,7 @@ Reject patterns to watch for in agent PRs: silently widened scope, tests that as
 
 ## 6. First two weeks (Phase 0) — concrete plan
 
-| Day | thienlng | tungdd7 | Agents |
+| Day | thienlng | second maintainer (when present) | Agents |
 |---|---|---|---|
 | 1 | Answer `docs/14-open-decisions.md` (T-002); invite the second maintainer; decide on GitHub Pro (branch protection for the private repo — until then the `pre-push` hook + `Main guard` workflow are the controls) | Clone, `bash scripts/verify-setup.sh`, review this framework, propose rule changes via PR | — |
 | 2–3 | Start Meta Business Verification + Zalo developer app; brand/domain | Review and merge T-003/T-004 plans | T-003 (api skeleton), T-004 (db) plan-first, then implement |

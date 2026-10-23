@@ -2,7 +2,7 @@
 
 - Status: Proposed (supersedes the "Next.js for the dashboard" choice in ADR-001 §Decision and `docs/04` §4; everything else in ADR-001…008 stands)
 - Date: 2026-10-23
-- Deciders: `thienlng`, `tungdd7`
+- Deciders: `thienlng`
 
 ## Context
 

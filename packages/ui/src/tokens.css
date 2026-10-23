@@ -1,18 +1,19 @@
-/* Design tokens (docs/16 §1, docs/03 §6). Imported once by each app's global CSS. */
+/* Razpi design tokens — white base, orange primary (owner decision 2026-10-23).
+   docs/16 §1, docs/03 §6. Imported once by each app's global CSS. */
 @theme {
   --color-background: oklch(100% 0 0);
-  --color-foreground: oklch(14% 0.01 260);
-  --color-primary: oklch(55% 0.2 262);
+  --color-foreground: oklch(20% 0.02 50);
+  --color-primary: oklch(68% 0.19 45);
   --color-primary-foreground: oklch(99% 0 0);
-  --color-secondary: oklch(96% 0.01 260);
-  --color-secondary-foreground: oklch(20% 0.01 260);
-  --color-accent: oklch(94% 0.02 262);
-  --color-accent-foreground: oklch(20% 0.01 260);
+  --color-secondary: oklch(97% 0.02 70);
+  --color-secondary-foreground: oklch(30% 0.06 45);
+  --color-accent: oklch(95% 0.04 60);
+  --color-accent-foreground: oklch(35% 0.12 45);
   --color-destructive: oklch(58% 0.22 27);
-  --color-muted: oklch(96% 0.01 260);
-  --color-muted-foreground: oklch(50% 0.02 260);
-  --color-border: oklch(90% 0.01 260);
-  --color-ring: oklch(55% 0.2 262);
+  --color-muted: oklch(97% 0.01 70);
+  --color-muted-foreground: oklch(50% 0.02 50);
+  --color-border: oklch(91% 0.02 60);
+  --color-ring: oklch(68% 0.19 45);
   --radius: 0.5rem;
   --font-sans: 'Inter', system-ui, sans-serif;
 }
