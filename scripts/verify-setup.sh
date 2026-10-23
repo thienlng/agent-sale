@@ -28,7 +28,8 @@ for f in todo/T-*.md todo/done/T-*.md; do [[ -f "$f" ]] || continue; head -1 "$f
 echo "Dependencies"
 if [[ ! -d node_modules ]]; then echo "  installing…"; pnpm install --frozen-lockfile; fi
 ok "node_modules present"
-[[ -f .husky/pre-commit && -f .husky/commit-msg ]] && ok "git hooks" || bad "husky hooks missing (run pnpm install)"
+[[ -f .husky/pre-commit && -f .husky/commit-msg && -f .husky/pre-push ]] && ok "git hooks (pre-commit, commit-msg, pre-push)" || bad "husky hooks missing (run pnpm install)"
+[[ "$(git config core.hooksPath)" == ".husky/_" ]] && ok "core.hooksPath -> .husky/_" || bad "git hooks not installed: run pnpm install (husky)"
 
 echo "Gate: pnpm check"
 if pnpm check >/tmp/agent-sales-check.log 2>&1; then ok "pnpm check passed"; else bad "pnpm check failed — see /tmp/agent-sales-check.log"; fi

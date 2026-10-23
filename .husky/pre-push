@@ -1,0 +1,13 @@
+# Block direct pushes to main (compensating control while GitHub branch
+# protection is unavailable on this plan). Humans may override once with
+# ALLOW_MAIN_PUSH=1 for emergencies; agents never do.
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+  case "$remote_ref" in
+    refs/heads/main)
+      if [ "${ALLOW_MAIN_PUSH:-0}" != "1" ]; then
+        echo "✘ Direct push to main is not allowed. Open a pull request (see .agents/rules/02-git-and-pr.md)." >&2
+        exit 1
+      fi
+      ;;
+  esac
+done

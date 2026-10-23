@@ -3,6 +3,7 @@
 ## Branches
 
 - `main` is protected: no direct pushes, no force pushes, PR + 1 human approval + green CI required.
+  - GitHub-side branch protection is not available on the current plan (private repo, GitHub Free). Until it is enabled (`scripts/github-branch-protection.sh`), the rule is enforced by the `pre-push` git hook, the `Main guard` workflow (fails on any commit that reaches `main` without a merged PR) and reviewer discipline. A red `Main guard` run means someone bypassed the process: revert and open a PR.
 - One task → one branch → one PR. Branch name: `<type>/T-<id>-<short-slug>`, e.g. `feat/T-012-contact-import`, `fix/T-040-webhook-dedup`, `chore/T-003-ci-cache`.
 - Types: `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `perf`, `ci`, `build`.
 - Branch from an up-to-date `main`. Rebase (do not merge `main` into your branch) if you need newer changes.
