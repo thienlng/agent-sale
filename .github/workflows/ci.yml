@@ -55,6 +55,35 @@ jobs:
         if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
         run: pnpm commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
 
+  web:
+    name: web (e2e smoke + Lighthouse)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+        working-directory: .
+      # Builds the web app and its workspace dependencies; fails above the bundle budget (docs/16 §1).
+      - name: Build
+        run: pnpm turbo build --filter=@agent-sales/web
+        working-directory: .
+      - name: Playwright browser
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Smoke tests (API mocked)
+        run: pnpm test:e2e
+      # Accessibility and best practices block the PR; performance warns (CI hardware varies).
+      - name: Lighthouse CI on /login
+        run: pnpm dlx @lhci/cli@0.15.1 autorun
+
   integration:
     name: integration
     runs-on: ubuntu-latest

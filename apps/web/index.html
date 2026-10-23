@@ -4,11 +4,55 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
-    <meta name="theme-color" content="#f97316" />
+    <meta name="theme-color" content="#f26b1d" />
+    <meta
+      name="description"
+      content="Razpi — bot bán hàng AI cho cửa hàng và doanh nghiệp Việt Nam."
+    />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <title>Razpi</title>
+    <style>
+      /* Static splash painted before the app's JavaScript arrives (replaced on first render). */
+      .boot {
+        display: grid;
+        place-items: center;
+        min-height: 100dvh;
+        background: #fff;
+      }
+      .boot svg {
+        width: 44px;
+        height: 44px;
+        animation: boot 1.2s ease-in-out infinite;
+      }
+      @keyframes boot {
+        50% {
+          opacity: 0.45;
+        }
+      }
+      @media (prefers-color-scheme: dark) {
+        .boot {
+          background: #17130f;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .boot svg {
+          animation: none;
+        }
+      }
+    </style>
   </head>
-  <body class="bg-background text-foreground">
-    <div id="root"></div>
+  <body>
+    <div id="root">
+      <div class="boot" aria-hidden="true">
+        <svg viewBox="0 0 32 32">
+          <path
+            d="M6 4h20a4 4 0 0 1 4 4v12a4 4 0 0 1-4 4H14l-6.5 5.2A1 1 0 0 1 6 28.4V24a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4Z"
+            fill="#f26b1d"
+          />
+          <path d="M11 11.5h10M11 16.5h6" stroke="#fff" stroke-width="2.6" stroke-linecap="round" />
+        </svg>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

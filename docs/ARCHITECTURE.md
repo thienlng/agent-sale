@@ -19,7 +19,7 @@ packages/
   queue/          BullMQ wrappers: queue names, job contracts, tenant fairness (token buckets), idempotent job ids.
   ai-core/        LLM gateway (providers, fake provider for tests), prompt registry (`prompts/<name>@<version>.md`), tools/retrieval/guardrail interfaces, metering.
   channels/       ChannelAdapter interface + NormalizedEvent types; one adapter per platform.
-  ui/             Design tokens + primitives (shadcn-style) shared by web/admin/widget.
+  ui/             Design tokens (shadcn variable names, Razpi palette). shadcn/ui components live in each app's src/components/ui.
   i18n/           Message catalogs (vi, en).
   testing/        Factories, tenant helpers, cross-tenant assertions. Test-only.
 turbo/generators/ `pnpm gen module|use-case|feature` templates — the only sanctioned way to create a module.

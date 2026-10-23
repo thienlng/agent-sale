@@ -10,19 +10,33 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as SignupRouteImport } from './routes/signup'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as AdminLlmRouteImport } from './routes/admin/llm'
+import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as AppAnalyticsRouteImport } from './routes/app/analytics'
-import { Route as AppBotsRouteImport } from './routes/app/bots'
 import { Route as AppChannelsRouteImport } from './routes/app/channels'
 import { Route as AppContactsRouteImport } from './routes/app/contacts'
 import { Route as AppInboxRouteImport } from './routes/app/inbox'
 import { Route as AppOrdersRouteImport } from './routes/app/orders'
 import { Route as AppSettingsRouteImport } from './routes/app/settings'
+import { Route as AppBotsIndexRouteImport } from './routes/app/bots/index'
+import { Route as AppBotsBotIdRouteImport } from './routes/app/bots/$botId'
+import { Route as AppBotsBotIdIndexRouteImport } from './routes/app/bots/$botId/index'
+import { Route as AppBotsBotIdKnowledgeRouteImport } from './routes/app/bots/$botId/knowledge'
+import { Route as AppBotsBotIdSettingsRouteImport } from './routes/app/bots/$botId/settings'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppRoute = AppRouteImport.update({
@@ -35,14 +49,29 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminLlmRoute = AdminLlmRouteImport.update({
+  id: '/llm',
+  path: '/llm',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AppIndexRoute = AppIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAnalyticsRoute = AppAnalyticsRouteImport.update({
   id: '/analytics',
   path: '/analytics',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppBotsRoute = AppBotsRouteImport.update({
-  id: '/bots',
-  path: '/bots',
   getParentRoute: () => AppRoute,
 } as any)
 const AppChannelsRoute = AppChannelsRouteImport.update({
@@ -70,87 +99,162 @@ const AppSettingsRoute = AppSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AppRoute,
 } as any)
+const AppBotsIndexRoute = AppBotsIndexRouteImport.update({
+  id: '/bots/',
+  path: '/bots/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppBotsBotIdRoute = AppBotsBotIdRouteImport.update({
+  id: '/bots/$botId',
+  path: '/bots/$botId',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppBotsBotIdIndexRoute = AppBotsBotIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppBotsBotIdRoute,
+} as any)
+const AppBotsBotIdKnowledgeRoute = AppBotsBotIdKnowledgeRouteImport.update({
+  id: '/knowledge',
+  path: '/knowledge',
+  getParentRoute: () => AppBotsBotIdRoute,
+} as any)
+const AppBotsBotIdSettingsRoute = AppBotsBotIdSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppBotsBotIdRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
   '/app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
+  '/signup': typeof SignupRoute
+  '/admin/llm': typeof AdminLlmRoute
   '/app/analytics': typeof AppAnalyticsRoute
-  '/app/bots': typeof AppBotsRoute
   '/app/channels': typeof AppChannelsRoute
   '/app/contacts': typeof AppContactsRoute
   '/app/inbox': typeof AppInboxRoute
   '/app/orders': typeof AppOrdersRoute
   '/app/settings': typeof AppSettingsRoute
+  '/admin/': typeof AdminIndexRoute
+  '/app/': typeof AppIndexRoute
+  '/app/bots/$botId': typeof AppBotsBotIdRouteWithChildren
+  '/app/bots/': typeof AppBotsIndexRoute
+  '/app/bots/$botId/knowledge': typeof AppBotsBotIdKnowledgeRoute
+  '/app/bots/$botId/settings': typeof AppBotsBotIdSettingsRoute
+  '/app/bots/$botId/': typeof AppBotsBotIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
+  '/signup': typeof SignupRoute
+  '/admin/llm': typeof AdminLlmRoute
   '/app/analytics': typeof AppAnalyticsRoute
-  '/app/bots': typeof AppBotsRoute
   '/app/channels': typeof AppChannelsRoute
   '/app/contacts': typeof AppContactsRoute
   '/app/inbox': typeof AppInboxRoute
   '/app/orders': typeof AppOrdersRoute
   '/app/settings': typeof AppSettingsRoute
+  '/admin': typeof AdminIndexRoute
+  '/app': typeof AppIndexRoute
+  '/app/bots': typeof AppBotsIndexRoute
+  '/app/bots/$botId/knowledge': typeof AppBotsBotIdKnowledgeRoute
+  '/app/bots/$botId/settings': typeof AppBotsBotIdSettingsRoute
+  '/app/bots/$botId': typeof AppBotsBotIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
   '/app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
+  '/signup': typeof SignupRoute
+  '/admin/llm': typeof AdminLlmRoute
   '/app/analytics': typeof AppAnalyticsRoute
-  '/app/bots': typeof AppBotsRoute
   '/app/channels': typeof AppChannelsRoute
   '/app/contacts': typeof AppContactsRoute
   '/app/inbox': typeof AppInboxRoute
   '/app/orders': typeof AppOrdersRoute
   '/app/settings': typeof AppSettingsRoute
+  '/admin/': typeof AdminIndexRoute
+  '/app/': typeof AppIndexRoute
+  '/app/bots/$botId': typeof AppBotsBotIdRouteWithChildren
+  '/app/bots/': typeof AppBotsIndexRoute
+  '/app/bots/$botId/knowledge': typeof AppBotsBotIdKnowledgeRoute
+  '/app/bots/$botId/settings': typeof AppBotsBotIdSettingsRoute
+  '/app/bots/$botId/': typeof AppBotsBotIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
     | '/app'
     | '/login'
+    | '/signup'
+    | '/admin/llm'
     | '/app/analytics'
-    | '/app/bots'
     | '/app/channels'
     | '/app/contacts'
     | '/app/inbox'
     | '/app/orders'
     | '/app/settings'
+    | '/admin/'
+    | '/app/'
+    | '/app/bots/$botId'
+    | '/app/bots/'
+    | '/app/bots/$botId/knowledge'
+    | '/app/bots/$botId/settings'
+    | '/app/bots/$botId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/app'
     | '/login'
+    | '/signup'
+    | '/admin/llm'
     | '/app/analytics'
-    | '/app/bots'
     | '/app/channels'
     | '/app/contacts'
     | '/app/inbox'
     | '/app/orders'
     | '/app/settings'
+    | '/admin'
+    | '/app'
+    | '/app/bots'
+    | '/app/bots/$botId/knowledge'
+    | '/app/bots/$botId/settings'
+    | '/app/bots/$botId'
   id:
     | '__root__'
     | '/'
+    | '/admin'
     | '/app'
     | '/login'
+    | '/signup'
+    | '/admin/llm'
     | '/app/analytics'
-    | '/app/bots'
     | '/app/channels'
     | '/app/contacts'
     | '/app/inbox'
     | '/app/orders'
     | '/app/settings'
+    | '/admin/'
+    | '/app/'
+    | '/app/bots/$botId'
+    | '/app/bots/'
+    | '/app/bots/$botId/knowledge'
+    | '/app/bots/$botId/settings'
+    | '/app/bots/$botId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRouteWithChildren
   AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
+  SignupRoute: typeof SignupRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -160,6 +264,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/app': {
@@ -176,18 +287,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/llm': {
+      id: '/admin/llm'
+      path: '/llm'
+      fullPath: '/admin/llm'
+      preLoaderRoute: typeof AdminLlmRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/app/': {
+      id: '/app/'
+      path: '/'
+      fullPath: '/app/'
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/analytics': {
       id: '/app/analytics'
       path: '/analytics'
       fullPath: '/app/analytics'
       preLoaderRoute: typeof AppAnalyticsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/bots': {
-      id: '/app/bots'
-      path: '/bots'
-      fullPath: '/app/bots'
-      preLoaderRoute: typeof AppBotsRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/channels': {
@@ -225,35 +357,104 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/bots/': {
+      id: '/app/bots/'
+      path: '/bots'
+      fullPath: '/app/bots/'
+      preLoaderRoute: typeof AppBotsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/bots/$botId': {
+      id: '/app/bots/$botId'
+      path: '/bots/$botId'
+      fullPath: '/app/bots/$botId'
+      preLoaderRoute: typeof AppBotsBotIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/bots/$botId/': {
+      id: '/app/bots/$botId/'
+      path: '/'
+      fullPath: '/app/bots/$botId/'
+      preLoaderRoute: typeof AppBotsBotIdIndexRouteImport
+      parentRoute: typeof AppBotsBotIdRoute
+    }
+    '/app/bots/$botId/knowledge': {
+      id: '/app/bots/$botId/knowledge'
+      path: '/knowledge'
+      fullPath: '/app/bots/$botId/knowledge'
+      preLoaderRoute: typeof AppBotsBotIdKnowledgeRouteImport
+      parentRoute: typeof AppBotsBotIdRoute
+    }
+    '/app/bots/$botId/settings': {
+      id: '/app/bots/$botId/settings'
+      path: '/settings'
+      fullPath: '/app/bots/$botId/settings'
+      preLoaderRoute: typeof AppBotsBotIdSettingsRouteImport
+      parentRoute: typeof AppBotsBotIdRoute
+    }
   }
 }
 
+interface AdminRouteChildren {
+  AdminLlmRoute: typeof AdminLlmRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminLlmRoute: AdminLlmRoute,
+  AdminIndexRoute: AdminIndexRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
+interface AppBotsBotIdRouteChildren {
+  AppBotsBotIdKnowledgeRoute: typeof AppBotsBotIdKnowledgeRoute
+  AppBotsBotIdSettingsRoute: typeof AppBotsBotIdSettingsRoute
+  AppBotsBotIdIndexRoute: typeof AppBotsBotIdIndexRoute
+}
+
+const AppBotsBotIdRouteChildren: AppBotsBotIdRouteChildren = {
+  AppBotsBotIdKnowledgeRoute: AppBotsBotIdKnowledgeRoute,
+  AppBotsBotIdSettingsRoute: AppBotsBotIdSettingsRoute,
+  AppBotsBotIdIndexRoute: AppBotsBotIdIndexRoute,
+}
+
+const AppBotsBotIdRouteWithChildren = AppBotsBotIdRoute._addFileChildren(
+  AppBotsBotIdRouteChildren,
+)
+
 interface AppRouteChildren {
   AppAnalyticsRoute: typeof AppAnalyticsRoute
-  AppBotsRoute: typeof AppBotsRoute
   AppChannelsRoute: typeof AppChannelsRoute
   AppContactsRoute: typeof AppContactsRoute
   AppInboxRoute: typeof AppInboxRoute
   AppOrdersRoute: typeof AppOrdersRoute
   AppSettingsRoute: typeof AppSettingsRoute
+  AppIndexRoute: typeof AppIndexRoute
+  AppBotsBotIdRoute: typeof AppBotsBotIdRouteWithChildren
+  AppBotsIndexRoute: typeof AppBotsIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppAnalyticsRoute: AppAnalyticsRoute,
-  AppBotsRoute: AppBotsRoute,
   AppChannelsRoute: AppChannelsRoute,
   AppContactsRoute: AppContactsRoute,
   AppInboxRoute: AppInboxRoute,
   AppOrdersRoute: AppOrdersRoute,
   AppSettingsRoute: AppSettingsRoute,
+  AppIndexRoute: AppIndexRoute,
+  AppBotsBotIdRoute: AppBotsBotIdRouteWithChildren,
+  AppBotsIndexRoute: AppBotsIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRouteWithChildren,
   AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
+  SignupRoute: SignupRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

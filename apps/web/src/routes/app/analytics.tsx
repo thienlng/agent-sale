@@ -1,14 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { useTranslation } from 'react-i18next';
+
+import { ComingSoon } from '@/components/coming-soon';
 
 export const Route = createFileRoute('/app/analytics')({
-  component: () => {
-    const { t } = useTranslation();
-    return (
-      <section>
-        <h1 className="text-2xl font-semibold">{t('nav.analytics')}</h1>
-        <p className="mt-2 text-muted-foreground">{t('common.empty')}</p>
-      </section>
-    );
-  },
+  component: () => <ComingSoon titleKey="nav.analytics" />,
 });
