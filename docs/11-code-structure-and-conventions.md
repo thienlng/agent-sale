@@ -10,7 +10,9 @@ agent-sale-src/
 │   ├── admin/             # Vite + React SPA — internal back-office
 │   ├── api/               # NestJS — REST /api/v1 + WebSocket
 │   ├── webhook/           # lightweight NestJS/Fastify — receives channel, payment, carrier webhooks
-│   ├── worker/            # NestJS standalone — BullMQ processors (queues selected via env WORKER_QUEUES)
+│   ├── agent/             # NestJS standalone — AI conversation runtime (consumes the `conversation` queue; built on ai-core)
+│   ├── worker/            # NestJS standalone — BullMQ processors for outbound, campaign, workflow, indexer (queue group via env WORKER_QUEUES)
+│   ├── mobile/            # (later) React Native + Expo — inbox, handoff, CRM, notifications
 │   └── widget/            # Preact — website chat widget (loader + iframe app)
 ├── packages/
 │   ├── db/                # schema, migrations, seed, RLS policies, repository helpers

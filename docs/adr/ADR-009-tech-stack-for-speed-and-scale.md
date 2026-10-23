@@ -30,6 +30,16 @@ Load envelope at 1,000 tenants (estimate, see `docs/16-performance-and-scale.md`
 | AI | `packages/ai-core` gateway (ADR-005), streaming where the UI can show it. | — |
 | Edge / hosting | Cloudflare (CDN, WAF, DNS) in front; compute in Singapore (or Vietnam, per ADR-006); Docker now, Kubernetes with HPA/KEDA at scale. | ~30–40 ms RTT from Vietnam; static assets at the edge. |
 
+### The AI agent runtime is its own process (TypeScript)
+
+The conversation agent (orchestrator, LLM calls, retrieval, tools, guardrails) runs as a **separate deployable `apps/agent`** (NestJS standalone consuming the `conversation` queue) built on `packages/ai-core`. Reasons: failure isolation (slow/failed LLM providers never slow the API), independent scaling on queue depth, a hard boundary that lint can enforce ("LLM calls only via `ai-core`, domain access only via service interfaces"), and a cheap exit if the runtime ever needs another language — only one queue consumer changes.
+
+Why TypeScript and not Go/Python for it: the workload is almost entirely I/O-bound (waiting on LLM APIs, DB, vector search) where Node's concurrency is ideal and Go's CPU/memory advantages are irrelevant at our scale; tool definitions reuse the same Zod schemas as the domain API, so tools cannot drift from the product; the TS AI ecosystem (provider SDKs with tool calling/streaming, Vercel AI SDK) is strong. Python is adopted only for ML-heavy components (custom reranker, local embeddings, fine-tuned classifiers) and then as **separate inference servers** (TEI/vLLM-style, HTTP) behind the `ai-core` retrieval/gateway interfaces — the runtime does not change. CPU-heavy work (PDF parsing, OCR, local embedding) never runs inside the reply loop; it belongs to the `indexer` worker. Long multi-day flows (follow-up sequences) start on BullMQ delayed jobs; Temporal is the upgrade path if durable execution becomes complex.
+
+### Mobile readiness
+
+The dashboard is one client of an API-first backend; a mobile app is a second client, not a new backend. Planned path: PWA (manifest, service worker, Web Push) during beta → **React Native + Expo** (`apps/mobile`) for inbox, handoff, quick CRM and notifications, sharing `packages/shared` (schemas, error codes), the generated OpenAPI client, TanStack Query hooks and Tailwind design tokens (NativeWind); Socket.IO client for realtime; FCM/APNs via the `notification` module with a `device_tokens` table. Constraints kept from the first API task so mobile is never blocked: bearer tokens (no cookie-only auth), explicit CORS, versioned API with cursor pagination and `fields` selection, canonical deep links (`/app/inbox/{id}`), rate limits per user/device.
+
 ## Alternatives considered
 
 | Alternative | Why not (now) |

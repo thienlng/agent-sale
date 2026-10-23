@@ -45,7 +45,7 @@ flowchart TB
   end
 
   subgraph Workers
-    WCONV[conversation-worker<br/>AI reply, routing]
+    WCONV[apps/agent: AI conversation runtime<br/>reply, tools, routing — own deployable]
     WOUT[outbound-worker<br/>send per channel, rate limit]
     WJOB[job-worker<br/>import, sync, campaign, workflow, export]
     WSCHED[scheduler<br/>cron, timers, follow-up]
