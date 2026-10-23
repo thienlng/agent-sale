@@ -1,0 +1,28 @@
+name: Bug report
+description: Something is broken. A task (T-xxx) will be created from this issue.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: Observed behavior vs expected. Include error messages verbatim.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: 1. … 2. … 3. …
+    validations:
+      required: true
+  - type: input
+    id: where
+    attributes:
+      label: Where
+      placeholder: app/package, route, environment (local/dev/staging/prod), version/commit
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Logs, trace IDs, screenshots. No customer PII.

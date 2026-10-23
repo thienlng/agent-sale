@@ -1,0 +1,10 @@
+# OpenAI Codex project config. Instructions come from AGENTS.md (read natively).
+# Skills: .agents/skills (Agent Skills standard).
+
+[mcp_servers.context7]
+command = "npx"
+args = ["-y", "@upstash/context7-mcp"]
+
+[mcp_servers.playwright]
+command = "npx"
+args = ["-y", "@playwright/mcp@latest"]

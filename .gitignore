@@ -1,0 +1,28 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build
+dist/
+.next/
+out/
+.turbo/
+coverage/
+*.tsbuildinfo
+
+# env & secrets — never commit real values
+.env
+.env.*
+!.env.example
+
+# tooling
+.DS_Store
+*.log
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# agent tool local state (keep project config, ignore user state)
+.claude/settings.local.json
+.codex/sessions/
+.opencode/node_modules/

@@ -1,0 +1,154 @@
+# 06 — AI Engine (sales bot)
+
+> This is the differentiating part and also the riskiest. Goal: **answer correctly from the shop's own data, never fabricate prices/stock/policies, know when to ask again or hand off to a human, and produce actions (leads, tags, orders)**.
+> References for verified Preny behavior: `08-dashboard-thuc-te/02-bot-ai-va-huan-luyen.md`, `09-ket-qua-thu-nghiem.md`.
+
+## 1. Preny behavior to reproduce (baseline)
+
+| Observed behavior | Our requirement |
+|---|---|
+| FAQs asked verbatim and paraphrased are both answered correctly | Semantic + keyword (hybrid) retrieval |
+| SKU without data → "cần kiểm tra lại" (needs to be checked), no number given | Guardrail "no source, no number" |
+| Asking about a declared product → correct price + **product card** | Tool `show_product` returns a rich message |
+| A new bot comes with 6 FAQs + 3 sample situations per industry | Industry templates when creating a bot |
+| 4-step readiness checklist (FAQ, guidance, products, integrations) | Onboarding checklist |
+| Test chat right in the dashboard; test conversations show up in the inbox as "Website / Test User" | Sandbox chat — **but flagged `is_test=true`, not counted in customer statistics/quota** (an improvement over Preny) |
+| Advanced settings (see §6) | All become versioned `bot_settings` |
+| Model labels Smart / Pro / Neo, priced at 110/150/195 VND per reply; Bot V1/2/3 = 60 VND | Commercial tier → pipeline configuration (see §7) |
+
+## 2. Knowledge layers
+
+| Layer | Input source | How it is used at runtime |
+|---|---|---|
+| **Bot instructions (system)** | Main mission, greeting, addressing style, reactions | Always in the system prompt |
+| **Situations (scripts)** | A list of "when the customer … the bot …" (opening hours, branches, step-by-step consulting process) | Retrieve top-k by relevance; situations marked `always_on` are always included |
+| **FAQ / information** | Manual entry, Excel/CSV import, Excel export | Hybrid retrieval (vector + trigram/BM25); FAQ answers get high priority |
+| **Documents** | PDF, DOCX, TXT, website URL (crawl) | Parse → chunk (~500 tokens, overlap 50) → embed |
+| **Bot products** | Name, code, price (text), description, images, per-product instructions; or a **link to the operational catalog** | Tool `search_products` (structured); the full catalog is never put into the prompt |
+| **Media albums** | Images/videos by album | Tool `send_media(album/asset)`; sent as a gallery of up to N images |
+| **Live data** | Operational catalog, stock, the customer's orders, waybill status | Read-only tools scoped to the current customer |
+
+**Mandatory improvement over Preny:** Preny separates "bot products" and the "order catalog" — products added to the bot do not appear in the order form. We design **a single catalog** (`products`); the bot only has a `visible_to_bot` flag + its own `bot_instructions`. Price the AI quotes = price in the catalog = price on the order.
+
+## 3. Single-turn processing pipeline
+
+```mermaid
+flowchart TD
+  A[Messages batched after debounce] --> B[Pre-check: bot ON? schedule? taken over? credit? spam?]
+  B -->|no| X[Do not reply / create handoff]
+  B -->|yes| C[Normalize: unaccented Vietnamese, teencode, emoji; OCR/vision if there is an image and image reading is enabled]
+  C --> D[Fast classification - small model: intent, language, needs human?, sensitive?, injection?]
+  D -->|needs human / sensitive| H[Handoff + templated transition message]
+  D --> E[Entity extraction: phone number, address, name, size, quantity]
+  E --> F[Retrieve: situations + FAQ + document chunks, hybrid, rerank]
+  F --> G[Main LLM with tools]
+  G --> T{Tool calls?}
+  T -->|search_products / get_order / show_product / send_media / create_order_draft / tag_contact / handoff| U[Execute tool with permissions + idempotency]
+  U --> G
+  T -->|done| V[Post-check: price/number grounding, policy, length, addressing]
+  V -->|fail| W[Retry once or give a safe answer / ask again]
+  V -->|pass| Y[Send + save ai_run, metering, update CRM/tags]
+```
+
+### 3.1 Context build
+
+- System prompt = system frame (immutable, written by us) + bot instructions (the shop's) + safety rules + per-channel output format.
+- History: the last N turns (default 20 messages or ≤ 3k tokens) + a **summary of older conversation** updated at the end of each turn (stored in `conversations.summary`).
+- Customer profile: name, form of address, gender (if the channel provides it), tags, status, most recent order.
+- Retrieved knowledge: sources are marked `[[kb:<id>]]` for post-checking and for showing the bot configurator "which sources the answer used" (Preny lacks this).
+
+### 3.2 Tools (function calling)
+
+| Tool | Description | Safety notes |
+|---|---|---|
+| `search_products(query, filters)` | Search products/variants, prices, stock | Read-only, workspace-scoped |
+| `show_product(product_id)` | Send a product card (image, name, price, buttons) | Rendered per channel: FB generic template, Zalo list, widget card |
+| `send_media(album_id | asset_ids)` | Send images/videos | Limit of N images per turn |
+| `get_customer_orders()` | Orders + waybills of the current customer | Only the customer of this conversation |
+| `collect_contact(phone, address, name)` | Save phone number/address to CRM | Validate Vietnamese phone numbers (10 digits, carrier prefix) |
+| `create_order_draft(items, shipping)` | Create a **draft order** from chat | The bot does not confirm orders on its own unless settings allow it; always reads the order summary back to the customer for confirmation; idempotency on `conversation_id + cart_hash` |
+| `tag_contact(tag)` | Apply a tag (VIP, interested, red tag "không trả lời được" (could not answer)...) | Only tags allowed for AI |
+| `handoff(reason, summary)` | Hand off to a human + summary + open questions | Stops the bot on the conversation |
+| `book_appointment(...)` *(P2)* | Capture booking requests | Records the request; does not lock a slot unless a calendar is integrated |
+
+### 3.3 Guardrails
+
+1. **Number grounding**: every price/stock/fee/% figure in an answer must appear in the retrieved sources or tool results; otherwise → rewrite as "để em kiểm tra lại" (let me check that again) (matches Preny behavior T06).
+2. **No-commitment policy**: a configurable list of things the bot must not promise on its own (discounts outside programs, guaranteed delivery times…).
+3. **Prompt injection**: customer content + document content are wrapped in delimiters, and the system frame explicitly says not to follow instructions found in data; an injection classifier → safe answer.
+4. **"Tag đỏ" (Red tag)**: when the bot cannot answer → apply the red tag + (depending on settings) handoff; used as a workflow trigger and for an "unanswered questions" report so the shop can add FAQs — **a knowledge-improvement loop**.
+5. **PII**: do not send card numbers, national ID (CCCD) numbers… to the LLM if detected; mask them in logs.
+6. **Cost limits**: max tool iterations (5), max output tokens, 20s timeout → fall back to a cheaper model or hand off.
+
+## 4. Retrieval
+
+- Index: `knowledge_chunks(embedding vector(1024|1536), tsv, text_unaccent)` with an HNSW index.
+- Hybrid query: vector top 20 + trigram/FTS top 20 → **Reciprocal Rank Fusion** → rerank (rerank model or small LLM) → top 5–8.
+- Vietnamese: store an unaccented version (`unaccent`) in parallel so customers typing without diacritics still get hits.
+- Re-index when FAQs/documents are edited (job `knowledge.reindex`); versions tied to `bot_version`.
+- Answer caching: **do not** cache answers containing live data; only cache query embeddings.
+
+## 5. Classification & extraction for CRM
+
+Runs after each turn (small, cheap model, async, does not block the reply):
+
+- Classify the customer according to the shop's **"hướng dẫn phân loại khách"** (customer classification guide) → assign status/tag (e.g. Tham khảo (Browsing), Quan tâm (Interested), Chốt đơn (Closed order)).
+- Extract phone number, address (normalized to province/district/ward per the new administrative catalog after the 2025 merger — requires an up-to-date data table), email.
+- Detect hashtags/ad codes (ref param from ads, `#code` in the first message) → customer source + ad code.
+- Results flow through `crm_rules` (see [02](02-functional-requirements.md) §CRM automation).
+
+## 6. Bot settings (full clone of Preny)
+
+**Basic:** name, avatar, color (widget), language, model tier, reply schedule (by day of week, time slots, outside hours → off-hours message or keep replying).
+
+**Advanced:**
+
+| Group | Setting | Default |
+|---|---|---|
+| Scope | Reply to first message; reply to comments; proactively message on Messenger when there is a comment (private reply) | On / Off / Off |
+| Pacing | Reply speed: Instant / simulated typing (delay by length) | Instant |
+| Creativity | Strict / Balanced / Creative (→ temperature + how much the LLM may use general knowledge) | Balanced |
+| Classification | Customer classification guide (prompt) | Industry template |
+| Not understood | Reply when not understood; template message for transferring to staff | Template |
+| Addressing | Fixed self/customer pronouns; include customer name; by gender (if the channel provides it) | "em" (self) / "anh/chị" (customer) |
+| Media | Send images as a gallery (up to the first 30 images); read images sent by the customer (vision) | On |
+| Stop | Stop replying once full contact information is collected | Off |
+| Human coordination | Stay silent N minutes when someone replies from another platform; auto re-enable after N minutes when staff reply manually | 5' / 5' |
+| Follow-up | Follow up within 24h (nudge silent customers); follow up after a phone number is obtained | Off |
+| Use LLM knowledge | Allow answering beyond the data (general knowledge) | Off |
+
+Every change → a `bot_audit` record (who, when, diff) — Preny's "Lịch sử chỉnh sửa" (Edit history) screen is empty; we must actually implement it.
+
+## 7. Model tiers & LLM Gateway
+
+A tier is a **configuration bundle**, not a hard-coded model name:
+
+| Tier | Pipeline | Example configuration (finalized by eval, updated per provider pricing) | Selling price per reply (Preny reference) |
+|---|---|---|---|
+| Basic (V1–V3) | No tools, FAQ only + small model | Smallest model that passes the FAQ eval | 60 VND |
+| Smart | 1 mid-range model + tools + retrieval | E.g. `claude-haiku-5-5` / GPT mini / Gemini Flash | 110 VND |
+| Pro | Stronger model + rerank + vision | E.g. `claude-sonnet-5-5` / equivalent | 150 VND |
+| Neo | Multi-model: small model classifies → strong model answers → verifier model cross-checks facts (matching the description "Neo coordinates multiple models, controls facts") | Router + verifier | 195 VND |
+
+Gateway (`packages/ai-core`):
+- Unified interface `generate({messages, tools, model_policy})`, optional streaming.
+- Per-tier fallback chain on provider errors/timeouts; circuit breaker.
+- Writes `ai_runs`: provider, model, prompt_version, input/output tokens, cached tokens, latency, cost_vnd (per internal price table), guardrail results.
+- Prompt caching of the system part + stable knowledge to reduce cost.
+- Never send data to providers whose policy uses it for training; sign DPAs with providers.
+
+**Customer billing unit**: 1 "AI message" = 1 bot reply sent out (internal tool loops and background classification are not counted). We must track **actual COGS per AI message** per tier; target AI gross margin ≥ 60%.
+
+## 8. Quality evaluation (eval) — mandatory before every model/prompt change
+
+- Vietnamese eval set of ≥ 300 cases at the MVP stage, growing by industry: correct FAQ, paraphrasing, unaccented/teencode/typos, multiple intents, changing mind midway, missing data, out of scope, injection, handoff, order creation, price changes.
+- Scoring: exact-match for facts (codes, prices), LLM-as-judge with a rubric for style, checking tool calls have correct parameters.
+- Release-blocking thresholds: 0 critical errors (wrong price, fabricated policy, wrong order created) on the "critical" set; ≥ 90% on the common set.
+- Runs in CI (nightly + on changes to `prompts/` or the model map). Details in [13](13-testing-and-quality.md).
+- Production: sample 1–2% of conversations for review; staff 👍/👎 buttons + "edit answer" → suggest new FAQs (requires approval, no self-learning).
+
+## 9. Abuse & cost prevention
+
+- Per-contact rate limit (e.g. 20 AI turns / 10 minutes) to prevent spam burning credit.
+- Detect bot-to-bot loops (two bots replying to each other) → stop.
+- When the wallet/quota is exhausted: no AI replies, push a handoff + notify the shop owner (Preny: the sandbox still replies when the wallet is 0 — we define it clearly: **test chat does not debit the wallet but has its own daily cap**).

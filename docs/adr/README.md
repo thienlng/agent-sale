@@ -1,0 +1,14 @@
+# Architecture Decision Records
+
+Each ADR: Context → Decision → Consequences. Status: `Proposed` → `Accepted` / `Superseded by ADR-xxx`. Add a new ADR by copying `ADR-000-template.md`.
+
+| ADR | Topic | Status |
+|---|---|---|
+| [001](ADR-001-typescript-nestjs-modular-monolith.md) | TypeScript + NestJS modular monolith, monorepo | Proposed |
+| [002](ADR-002-postgresql.md) | PostgreSQL + pgvector instead of MongoDB | Proposed |
+| [003](ADR-003-queue-bullmq.md) | Redis + BullMQ for asynchronous processing | Proposed |
+| [004](ADR-004-multi-tenant-rls.md) | Multi-tenant shared schema + RLS | Proposed |
+| [005](ADR-005-llm-gateway.md) | Multi-provider LLM Gateway, commercial tiers | Proposed |
+| [006](ADR-006-hosting-region.md) | Infrastructure & data region | **To be finalized** |
+| [007](ADR-007-auth.md) | Build auth in-house | Proposed |
+| [008](ADR-008-credit-ledger.md) | Immutable ledger, milli-credit unit | Proposed |
