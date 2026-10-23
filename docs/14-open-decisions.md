@@ -6,7 +6,7 @@
 
 | # | Question | Default proposal | Impact |
 |---|---|---|---|
-| A1 | Brand name, domain name? | Must be chosen — **do not use Preny's name/brand identity** | Marketing site, Meta App, Zalo App |
+| A1 | Brand name, domain name? | **Decided 2026-10-23: Razpi** (working name; domain still open). Visual identity: white base, orange primary. Code package scope stays `@agent-sales/*` so a rename never touches imports | Marketing site, Meta App, Zalo App |
 | A2 | Priority ICP for the MVP? | ICP A (shops running click-to-message ads: fashion/cosmetics) | Industry templates, channels, order features |
 | A3 | Priority channels for the MVP? | Facebook Messenger + Zalo OA + Website widget | Phase 1 |
 | A4 | Pricing & plans: copy Preny or price differently? | Keep the 3-plan structure + Free + AI wallet; prices decided by the business after interviewing 10–15 shops | Billing seed |

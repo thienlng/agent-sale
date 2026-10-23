@@ -9,8 +9,8 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 ## Next
 
 - [ ] T-003 Complete the backend runtime: OpenAPI, request tracing, readiness, auth placeholder — @unassigned · [details](todo/T-003-scaffold-api.md)
-- [ ] T-004 Add packages/db with Drizzle, Postgres docker-compose and first migration — @unassigned · [details](todo/T-004-packages-db.md)
-- [ ] T-005 Scaffold apps/web Next.js dashboard shell with auth pages — @unassigned · [details](todo/T-005-scaffold-web.md)
+- [ ] T-004 Wire the database: local infra, migration runner, RLS integration tests, Drizzle repositories — @unassigned · [details](todo/T-004-packages-db.md)
+- [ ] T-005 Complete the web shell: auth pages, layout, size and Lighthouse CI — @unassigned · [details](todo/T-005-scaffold-web.md)
 
 ## Backlog
 
@@ -21,10 +21,11 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## Blocked
 
-- [ ] T-002 Finalize open decisions (brand, hosting region, team, priorities) — @thienlng · blocked: human decision · [details](todo/T-002-finalize-open-decisions.md)
+- [ ] T-002 Finalize open decisions (domain, data-center location, MVP channels) — @thienlng · blocked: human decision · [details](todo/T-002-finalize-open-decisions.md)
 
 ## Done (last 10 — older ones live in todo/done/)
 
-- [x] T-010 Scaffold codebase skeleton and architecture conventions — @agent:claude · [details](todo/done/T-010-scaffold-codebase-skeleton-and-architecture-conven.md) · PR (this)
+- [x] T-012 Record brand Razpi, white-orange theme and single maintainer — @agent:claude · [details](todo/done/T-012-record-brand-razpi-white-orange-theme-and-single-m.md)
+- [x] T-010 Scaffold codebase skeleton and architecture conventions — @agent:claude · [details](todo/done/T-010-scaffold-codebase-skeleton-and-architecture-conven.md) · PR #10 (squashed into #9)
 - [x] T-009 Decide performance-oriented tech stack (ADR-009) — @agent:claude · [details](todo/done/T-009-decide-performance-oriented-tech-stack-adr-009.md) · PR #9
 - [x] T-001 Repository foundation: agent rules, skills, tooling, CI — initial commit

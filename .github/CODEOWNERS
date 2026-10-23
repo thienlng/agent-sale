@@ -1,13 +1,13 @@
 # Every PR needs one human approval from a code owner.
-*                         @thienlng @tungdd7
+*                         @thienlng
 
 # Protected: agent rules, CI, tooling, decisions — review with extra care.
-/AGENTS.md                @thienlng @tungdd7
-/.agents/                 @thienlng @tungdd7
-/.github/                 @thienlng @tungdd7
-/docs/adr/                @thienlng @tungdd7
-/package.json             @thienlng @tungdd7
-/turbo.json               @thienlng @tungdd7
-/tsconfig.base.json       @thienlng @tungdd7
-/eslint.config.js         @thienlng @tungdd7
-/commitlint.config.js     @thienlng @tungdd7
+/AGENTS.md                @thienlng
+/.agents/                 @thienlng
+/.github/                 @thienlng
+/docs/adr/                @thienlng
+/package.json             @thienlng
+/turbo.json               @thienlng
+/tsconfig.base.json       @thienlng
+/eslint.config.js         @thienlng
+/commitlint.config.js     @thienlng
