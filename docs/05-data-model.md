@@ -225,7 +225,7 @@ entitlement_overrides(id, workspace_id, key, value JSONB, reason, expires_at, cr
 usage_counters(workspace_id, key, period_start, used BIGINT, PRIMARY KEY(workspace_id, key, period_start))
 wallets(id, workspace_id, type, balance BIGINT, held BIGINT, status, UNIQUE(workspace_id, type))
 ledger_entries(id, wallet_id, workspace_id, kind, amount BIGINT, balance_after BIGINT,
-               ref_type, ref_id, feature, idempotency_key UNIQUE, created_by, meta JSONB, created_at)  -- partition
+               ref_type, ref_id, feature, idempotency_key UNIQUE, created_by, meta JSONB, created_at)  -- NEVER partitioned (ADR-008)
 payments(id, workspace_id, purpose: subscription|topup_ai|topup_zbs|addon, invoice_no, amount_before_vat, vat,
          amount, method: vnpay|bank_transfer|momo|manual, provider_ref, status: pending|paid|failed|refunded,
          approval_status: auto|pending|approved|rejected, paid_at, raw JSONB)
@@ -248,12 +248,18 @@ outbox_events(id, aggregate, aggregate_id, type, payload, created_at, published_
 feature_flags(key, workspace_id NULL, value JSONB)
 ```
 
+## 8b. Vertical objects and tenant extensibility
+
+`resources`, `availability_rules`, `services`, `appointments`, `quote_forms`, `price_rules`, `quotes`, `applications`, `application_documents`, `custom_field_definitions`, `vertical_packs`, `workspace_packs` — defined in `docs/17-multi-tenancy-and-verticals.md` §4. `products.catalog_kind` distinguishes products / services / rooms / courses / menu / spec products on the single catalog. `packages/db` also ships the workspace→database connection router described in `docs/17` §6 from the first migration.
+
 ## 9. Key data rules
 
 1. **Normalize phone numbers (SĐT)** to E.164 (`+84…`) on save; display as `09xx…`.
 2. **Customer dedup**: soft uniqueness on (`workspace_id`, `phone_e164`) — not a hard constraint because some customers share a phone number; merge via `merged_into_id`, preserving history.
 3. **Message sequence** `messages.seq` increases monotonically per conversation (taken from `conversations.last_message_seq` + 1 within the transaction) → lets the AI detect stale context.
 4. **Snapshot** name/price/SKU in `order_items` — editing the catalog does not change existing orders.
-5. **Partition** fast-growing tables by month; a retention job drops old partitions according to the plan's policy.
-6. **Migrations**: only versioned migrations (Prisma Migrate / Drizzle Kit); migrations must not lock large tables (add nullable column, backfill in batches, then set NOT NULL).
+5. **Partitioning — only where it does not break a guarantee.** PostgreSQL requires every unique constraint on a partitioned table to include the partition key, so tables whose correctness depends on a global unique key (`ledger_entries.idempotency_key`, `messages.idempotency_key`, `inbound_events (channel_kind, external_event_id)`, `shipments.request_key`, `orders.idempotency_key`) are **not** partitioned. Start with no partitioning at all; when `messages`/`inbound_events`/`ai_runs` need time-based retention, partition them by month **and** move their dedup keys to small unpartitioned key tables (`message_keys(key PK, message_id)`, `inbound_event_keys(channel_kind, external_event_id, received_at)`) or a Redis `SET NX EX` fast path with the key table as the durable fallback. No foreign keys between partitioned tables (`messages.ai_run_id`, `ai_runs.trigger_message_id` are plain indexed columns). Partition changes are hand-written SQL migrations (drizzle-kit does not manage partitions); `drizzle-kit push` is banned.
+5b. **Tenant context and roles** per ADR-004: all tenant access through `withTenant()`; policies use the InitPlan form; two roles `app_tenant`/`app_system`. **Global tables** (no `workspace_id`, no RLS): `users`, `sessions`, `otp_codes`, `plans`, `vouchers`, `vertical_packs`, `admin_units`, `feature_flags` (global rows), `affiliate_accounts`, `affiliate_links`, `affiliate_clicks`, `commissions`, `payouts`. Everything else is a tenant table. Cross-boundary references (`members.user_id → users`) are allowed; tenant tables never reference other tenants' rows.
+5c. **Indexes**: `workspace_id` is the leading column of every composite index on tenant tables; every new heavy query ships an `EXPLAIN` run under the `app_tenant` role (RLS can prevent pushing non-leakproof predicates such as `ILIKE`/trigram below the policy — verify on a 1 M-row tenant before promising budgets).
+6. **Migrations**: only versioned migrations (Drizzle Kit `generate` + hand-written SQL for partitions/policies/roles, linted for lock safety); migrations must not lock large tables (add nullable column, backfill in batches, then set NOT NULL).
 7. **Seed data**: industry templates (FAQ, situations, workflows), 7 sources, 8 statuses, 4 system tags, 9 CRM rules, administrative unit catalog, plans & pricing.

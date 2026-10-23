@@ -1,0 +1,85 @@
+import { type ChannelAdapter, ChannelRegistry } from '@agent-sales/channels';
+import { describe, expect, it } from 'vitest';
+
+import { buildServer } from './server.js';
+
+function fakeAdapter(valid: boolean): ChannelAdapter {
+  return {
+    kind: 'website',
+    verifyWebhook: () => valid,
+    parseWebhook: (body) => {
+      const b = body as { id: string };
+      return [
+        {
+          kind: 'website',
+          assetExternalId: 'site-1',
+          externalEventId: b.id,
+          type: 'message',
+          senderExternalId: 'visitor-1',
+          occurredAt: new Date(),
+          text: 'hi',
+          raw: body,
+        },
+      ];
+    },
+    send: async () => ({ externalMessageId: 'm' }),
+    capabilities: () => ({
+      richCards: true,
+      quickReplies: true,
+      media: true,
+      replyWindowHours: null,
+    }),
+    mapError: () => ({ code: 'unknown', retryable: false }),
+  };
+}
+
+function harness(valid = true) {
+  const seen = new Set<string>();
+  const enqueued: string[] = [];
+  const app = buildServer({
+    registry: new ChannelRegistry().register(fakeAdapter(valid)),
+    store: {
+      storeOnce: async (_k, id) => {
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      },
+    },
+    queue: { enqueue: async (_k, id) => void enqueued.push(id) },
+    secrets: { website: 's' },
+    logLevel: 'silent',
+  });
+  return { app, enqueued };
+}
+
+describe('webhook ingress', () => {
+  it('stores and enqueues a new event once, acks duplicates with 200', async () => {
+    const { app, enqueued } = harness();
+    const first = await app.inject({
+      method: 'POST',
+      url: '/webhooks/website',
+      payload: { id: 'evt-1' },
+    });
+    const second = await app.inject({
+      method: 'POST',
+      url: '/webhooks/website',
+      payload: { id: 'evt-1' },
+    });
+    expect(first.statusCode).toBe(200);
+    expect(first.json()).toEqual({ received: 1, stored: 1 });
+    expect(second.json()).toEqual({ received: 1, stored: 0 });
+    expect(enqueued).toEqual(['evt-1']);
+  });
+
+  it('rejects an invalid signature with 401 and unknown channels with 404', async () => {
+    const { app } = harness(false);
+    expect(
+      (await app.inject({ method: 'POST', url: '/webhooks/website', payload: { id: 'x' } }))
+        .statusCode,
+    ).toBe(401);
+    expect(
+      (await app.inject({ method: 'POST', url: '/webhooks/nope', payload: { id: 'x' } }))
+        .statusCode,
+    ).toBe(404);
+  });
+});

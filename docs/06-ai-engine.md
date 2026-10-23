@@ -69,7 +69,12 @@ flowchart TD
 | `create_order_draft(items, shipping)` | Create a **draft order** from chat | The bot does not confirm orders on its own unless settings allow it; always reads the order summary back to the customer for confirmation; idempotency on `conversation_id + cart_hash` |
 | `tag_contact(tag)` | Apply a tag (VIP, interested, red tag "không trả lời được" (could not answer)...) | Only tags allowed for AI |
 | `handoff(reason, summary)` | Hand off to a human + summary + open questions | Stops the bot on the conversation |
-| `book_appointment(...)` *(P2)* | Capture booking requests | Records the request; does not lock a slot unless a calendar is integrated |
+| `create_appointment(slot, resource?)` *(P0 request-only, P1 with availability)* | Appointment request / booking for scheduled-service verticals | P0 records `requested`; P1 checks `check_availability` first and never double-books |
+| `check_availability(service, date_range)` *(P1)* | Free slots from `resources` + `availability_rules` | Deterministic query, no LLM arithmetic |
+| `estimate_price(form_id, inputs)` / `create_quote(...)` *(P1)* | Quotes for long-decision verticals (furniture, real estate, solar/mechanical B2B) | Price comes only from tenant `price_rules`; quote needs human approval before it is binding |
+| `collect_document(type)` *(P2)* | Eligibility/application flows (finance, study abroad, labor export) | Documents to tenant-prefixed storage; no eligibility promise by the bot |
+
+Tool availability per workspace is declared by its vertical pack (`docs/17` §3); tools not in the pack are not exposed to the model.
 
 ### 3.3 Guardrails
 
@@ -87,6 +92,8 @@ flowchart TD
 - Vietnamese: store an unaccented version (`unaccent`) in parallel so customers typing without diacritics still get hits.
 - Re-index when FAQs/documents are edited (job `knowledge.reindex`); versions tied to `bot_version`.
 - Answer caching: **do not** cache answers containing live data; only cache query embeddings.
+
+Retrieval index strategy (revised after review): for the typical bot (< 10 k chunks) use an exact scan over `(bot_id)` — no HNSW, no recall loss; add a partial HNSW index only above a threshold, with pgvector ≥ 0.8 iterative scans; store embeddings per model so model changes do not force a rebuild. Admission control, per-tenant token budgets and prompt-cache layout are specified in `docs/16` §2b and are part of `ai-core`, not of individual tools.
 
 ## 5. Classification & extraction for CRM
 

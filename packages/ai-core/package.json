@@ -1,0 +1,33 @@
+{
+  "name": "@agent-sales/ai-core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "LLM gateway (providers, fake provider for tests), prompt registry, tool/retrieval/guardrail interfaces and metering. The only package allowed to call LLM providers (ADR-005).",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "prompts"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@agent-sales/shared": "workspace:*",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "vitest": "^5.0.5"
+  }
+}

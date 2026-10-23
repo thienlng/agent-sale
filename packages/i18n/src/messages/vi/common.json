@@ -1,0 +1,31 @@
+{
+  "app": { "name": "Agent Sales" },
+  "nav": {
+    "bots": "Đào tạo Bot",
+    "inbox": "Tin nhắn đa kênh",
+    "channels": "Tích hợp nền tảng",
+    "contacts": "Khách hàng",
+    "segments": "Tệp khách hàng",
+    "campaigns": "Remarketing",
+    "workflows": "Automation Workflow",
+    "orders": "Đơn hàng",
+    "products": "Sản phẩm",
+    "analytics": "Thống kê",
+    "usage": "Hạn mức sử dụng",
+    "upgrade": "Nâng cấp",
+    "settings": "Cài đặt"
+  },
+  "auth": {
+    "login": "Đăng nhập",
+    "signup": "Đăng ký",
+    "email": "Email",
+    "password": "Mật khẩu",
+    "forgotPassword": "Quên mật khẩu?"
+  },
+  "common": {
+    "loading": "Đang tải…",
+    "save": "Lưu",
+    "cancel": "Hủy",
+    "empty": "Chưa có dữ liệu"
+  }
+}

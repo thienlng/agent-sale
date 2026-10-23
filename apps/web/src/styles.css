@@ -1,0 +1,8 @@
+@import 'tailwindcss';
+@import '@agent-sales/ui/tokens.css';
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+  }
+}

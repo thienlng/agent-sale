@@ -14,13 +14,13 @@ Configuration via environment variables + secret manager; the env schema is vali
 ## 2. Infrastructure roadmap
 
 **Stage 1 (MVP → closed beta, < 200 workspaces):**
-- 1 small cluster: 2–3 VMs or a managed container service; **managed** Postgres (with PITR), managed Redis, object storage.
-- Processes: `api` ×2, `webhook` ×2, `worker` ×2 (shared queues), `scheduler` ×1 (leader lock), `web` (Next.js) ×2.
+- **Self-hosting is a product constraint** (owner decision 2026-10-23): every stateful service runs on our own servers — PostgreSQL 16 with **Patroni** (HA, automatic failover) and **pgBackRest** (PITR, off-site backups), **PgBouncer**, Redis with **Sentinel**, **MinIO** object storage, the Grafana LGTM stack, Sentry and Langfuse. Only LLM provider APIs and channel/payment/carrier APIs are external. Phase 1: 3 VMs or bare-metal nodes (app ×2 + db/redis/minio) with Docker Compose + Ansible; operational load is explicitly accepted by the owners.
+- Deployables: `api`, `webhook`, `worker` (one image; `WORKER_QUEUES` selects `agent` / `outbound` / `campaign` / `indexer` / `scheduler`; separate Deployments per group when scaling needs differ), `realtime` (SSE + websocket-only Socket.IO, long termination grace). `web` and `site` are static builds served by nginx/Caddy behind the CDN/WAF (no process). Repeatable jobs live in BullMQ, so no leader election is needed for the scheduler.
 - CDN + WAF in front of web/api.
 
 **Stage 2 (GA, broad rollout):**
 - **Kubernetes** (EKS/GKE or a Vietnamese cloud's K8s), Helm charts, Argo CD (GitOps).
-- HPA based on CPU + **queue length** (KEDA) for workers: separate deployments per queue (`conversation`, `outbound`, `campaign`, `indexer`, `jobs`) so that campaign bursts do not affect message replies.
+- HPA based on CPU + **queue length** (KEDA `redis-lists` scaler on `bull:<queue>:wait`, or a tiny `/metrics` exporter — KEDA has no native BullMQ scaler) for workers: separate deployments per queue group (`agent`, `outbound`, `campaign`, `indexer`) so that campaign bursts do not affect message replies.
 - Postgres: primary + read replica (analytics/reports read from the replica), PgBouncer; Redis HA (Sentinel/Cluster).
 - Multi-AZ; cross-region backups.
 
@@ -51,10 +51,10 @@ flowchart LR
 
 | Signal | Tool | Mandatory content |
 |---|---|---|
-| Logs | Loki (JSON log, pino) | `trace_id`, `workspace_id`, `conversation_id`, never log tokens/raw PII |
-| Metrics | Prometheus/Grafana | RED for the API; queue depth, job latency, retries; webhook lag; outbound success per connector; AI latency/cost per tier; ledger reconciliation |
-| Traces | OpenTelemetry → Tempo | webhook → worker → LLM → outbound in a single trace |
-| LLM | Langfuse | prompt, retrieved context, output, eval scores, cost |
+| Logs | **Loki** (self-hosted; JSON via pino + OTel Collector) | `trace_id`, `workspace_id`, `conversation_id`, never log tokens/raw PII |
+| Metrics | **Mimir/Prometheus + Grafana** (self-hosted) | RED for the API; queue depth per queue/tier, job latency, retries; webhook lag; outbound success per connector; AI latency/cost per tier; provider rate-limit headroom; ledger reconciliation |
+| Traces | OpenTelemetry → **Tempo** (self-hosted) | webhook → worker → LLM → outbound in a single trace |
+| LLM | **Langfuse self-hosted** (v3: Postgres + ClickHouse + Redis + MinIO); 100 % of traces by default, sampling of successes only if ClickHouse volume requires it | prompt version, retrieved context, output, eval scores, cost |
 | Errors | Sentry (FE + BE) | release tracking |
 | Uptime | Synthetic check | login, end-to-end widget message sending every 5 min |
 | Status page | status.<domain> | status per connector (FB/Zalo/…) |

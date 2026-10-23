@@ -24,7 +24,7 @@
 | B3 | Queue | Redis + BullMQ; revisit Kafka/Temporal when > 1,000 msg/s or workflows become complex | ADR-003 |
 | B4 | Multi-tenant | Shared schema + `workspace_id` + RLS | ADR-004 |
 | B5 | LLM provider | Multi-provider via a gateway; choose the model for each tier using Vietnamese evals | ADR-005 |
-| B6 | Cloud & data region | Initial stage: a cloud with managed Postgres in Singapore **or** VN infrastructure (Viettel IDC/VNG/FPT) if target customers require data to stay in-country | ADR-006 |
+| B6 | Hosting & data region | **Decided 2026-10-23: self-hosted only** (no cloud Postgres/Grafana/Langfuse). Remaining choice: Vietnamese data center / colocation vs IaaS VMs (VN or SG) — all self-managed | ADR-006 |
 | B7 | Build auth in-house or use a service | Build in-house (need control over workspace/role; per-MAU cost of external services is high at scale) | ADR-007 |
 | B8 | Credit unit | 1 credit = 1,000 VND, stored as milli-credit (bigint) | ADR-008 |
 | B9 | Quick replies at bot level (like Preny) or workspace level? | Workspace | — |

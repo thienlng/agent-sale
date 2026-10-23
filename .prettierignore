@@ -6,3 +6,5 @@ coverage
 pnpm-lock.yaml
 *.md
 .husky
+**/routeTree.gen.ts
+**/*.hbs

@@ -1,0 +1,32 @@
+{
+  "name": "@agent-sales/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Zod schemas and TypeScript types for HTTP DTOs and integration events, per module. The only backend-side package the web app imports.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@agent-sales/shared": "workspace:*",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "vitest": "^5.0.5"
+  }
+}

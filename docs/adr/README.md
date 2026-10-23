@@ -9,6 +9,7 @@ Each ADR: Context → Decision → Consequences. Status: `Proposed` → `Accepte
 | [003](ADR-003-queue-bullmq.md) | Redis + BullMQ for asynchronous processing | Proposed |
 | [004](ADR-004-multi-tenant-rls.md) | Multi-tenant shared schema + RLS | Proposed |
 | [005](ADR-005-llm-gateway.md) | Multi-provider LLM Gateway, commercial tiers | Proposed |
-| [006](ADR-006-hosting-region.md) | Infrastructure & data region | **To be finalized** |
+| [006](ADR-006-hosting-region.md) | Hosting model (self-hosted only — decided) & data region (open) | Partially decided |
 | [007](ADR-007-auth.md) | Build auth in-house | Proposed |
 | [008](ADR-008-credit-ledger.md) | Immutable ledger, milli-credit unit | Proposed |
+| [009](ADR-009-tech-stack-for-speed-and-scale.md) | Stack for perceived speed and ~1,000-tenant scale: Vite SPA + Astro + NestJS/Fastify; supersedes the Next.js dashboard choice | Proposed |

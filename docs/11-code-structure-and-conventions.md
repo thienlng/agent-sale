@@ -5,37 +5,32 @@
 ```
 agent-sale-src/
 ├── apps/
-│   ├── web/               # Next.js — dashboard (app.<domain>)
-│   ├── site/              # Next.js — marketing site + docs + blog (<domain>)
-│   ├── admin/             # Next.js — internal back-office
-│   ├── api/               # NestJS — REST /api/v1 + WebSocket
-│   ├── webhook/           # lightweight NestJS/Fastify — receives channel, payment, carrier webhooks
-│   ├── worker/            # NestJS standalone — BullMQ processors (queues selected via env WORKER_QUEUES)
-│   └── widget/            # Preact — website chat widget (loader + iframe app)
+│   ├── backend/           # NestJS 12 on Fastify — modular monolith; src/entries/{api,worker,agent,realtime}.ts; src/modules/<name>/
+│   ├── webhook/           # thin Fastify app (no NestJS) — verify, persist, enqueue channel/payment/carrier webhooks
+│   ├── web/               # Vite + React SPA — dashboard (app.<domain>), served from CDN; src/features/<module>
+│   ├── admin/             # (later) Vite + React SPA — internal back-office
+│   ├── site/              # (later) Astro — marketing site + docs + blog (<domain>)
+│   ├── widget/            # (later) Preact — website chat widget (loader + iframe app)
+│   └── mobile/            # (later) React Native + Expo — inbox, handoff, CRM, notifications
 ├── packages/
-│   ├── db/                # schema, migrations, seed, RLS policies, repository helpers
-│   ├── shared/            # types, zod schemas, DTO, enums, error codes, permission keys
-│   ├── ai-core/           # LLM gateway, prompts (versioned), tools, retrieval, guardrails
-│   ├── channels/          # ChannelAdapter: facebook, instagram, zalo, tiktok, lazada, website, email
-│   ├── carriers/          # CarrierAdapter: viettelpost, ghn, ghtk, jt, spx
-│   ├── payments/          # vnpay, vietqr/bank webhook, momo
-│   ├── billing/           # entitlement, quota, ledger (pure domain logic, thoroughly tested)
-│   ├── ui/                # design system (shadcn-based), shared by web/admin/site
-│   ├── i18n/              # messages vi/en
-│   ├── config/            # eslint, tsconfig, tailwind preset
-│   └── testing/           # factories, real webhook fixtures (record/replay), helpers
-├── evals/                 # AI eval suites per industry (yaml/jsonl) + runner
-├── infra/
-│   ├── docker/            # Dockerfile per app, docker-compose.local.yml
-│   ├── helm/              # charts (stage 2)
-│   └── terraform/         # cloud infrastructure
-├── docs/                  # this documentation
-├── .github/workflows/     # CI
-├── turbo.json, pnpm-workspace.yaml, package.json
+│   ├── shared/            # shared kernel: ids (branded), Result/DomainError, DomainEvent/AggregateRoot, money, phone
+│   ├── contracts/         # Zod schemas + types for DTOs and integration events, per module (the only backend thing web imports)
+│   ├── db/                # Drizzle schema per module, SQL migrations, withTenant()/withSystem(), roles
+│   ├── queue/             # queue catalogue, TenantJob, jobId(), tenant fairness token buckets
+│   ├── ai-core/           # LLM gateway, providers (fake for tests), prompt registry (prompts/<name>@<v>.md)
+│   ├── channels/          # ChannelAdapter contract + registry; one adapter per platform
+│   ├── ui/                # design tokens + primitives (shadcn-style)
+│   ├── i18n/              # message catalogs vi/en
+│   └── testing/           # factories, tenant helpers, cross-tenant assertions (test-only)
+├── turbo/generators/      # `pnpm gen module|feature` templates
+├── evals/                 # (T-007) AI eval cases + runner
+├── infra/                 # docker compose, Dockerfiles, Ansible/Terraform, Helm (later)
+├── docs/                  # design docs, ARCHITECTURE.md, ADRs, reference
+├── .dependency-cruiser.cjs, eslint.config.js, turbo.json, pnpm-workspace.yaml, package.json
 └── README.md
 ```
 
-Inside `apps/api/src/modules/<module>/`: `controller`, `service`, `repository`, `dto`, `events`, `policies` (permission), `*.spec.ts`. Do not import another module's repository.
+Inside `apps/backend/src/modules/<name>/`: the fixed shape from `docs/ARCHITECTURE.md` §2 (`api/`, `domain/`, `application/`, `infrastructure/`, `interface/`, `MODULE.md`, `__tests__/`). Other modules import only `api/`.
 
 ## 2. API conventions
 

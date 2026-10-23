@@ -31,8 +31,9 @@ line="- [ ] ${id} ${TITLE} — @unassigned · [details](${file})"
 # Insert under "## Backlog" (append at end of that section = before next "## " heading)
 awk -v line="$line" '
   /^## Backlog/ { print; inb=1; next }
-  inb && /^## / { print line; inb=0 }
-  { print }
+  inb && /^## / { print line; print ""; inb=0 }
+  inb && /^$/ { blank=1; next }
+  { if (blank && inb) { print ""; blank=0 } print }
   END { if (inb) print line }
 ' "$ROOT/TODO.md" > "$ROOT/TODO.md.tmp" && mv "$ROOT/TODO.md.tmp" "$ROOT/TODO.md"
 
