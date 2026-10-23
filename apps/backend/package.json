@@ -1,0 +1,43 @@
+{
+  "name": "@agent-sales/backend",
+  "version": "0.0.0",
+  "private": true,
+  "description": "NestJS 12 on Fastify modular monolith. One codebase, four entrypoints: api, worker, agent, realtime.",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/entries/api.ts",
+    "start:api": "node dist/entries/api.js",
+    "start:worker": "node dist/entries/worker.js",
+    "start:agent": "node dist/entries/agent.js",
+    "start:realtime": "node dist/entries/realtime.js",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@agent-sales/ai-core": "workspace:*",
+    "@agent-sales/channels": "workspace:*",
+    "@agent-sales/contracts": "workspace:*",
+    "@agent-sales/db": "workspace:*",
+    "@agent-sales/queue": "workspace:*",
+    "@agent-sales/shared": "workspace:*",
+    "@nestjs/common": "^12.0.0",
+    "@nestjs/core": "^12.0.0",
+    "@nestjs/platform-fastify": "^12.0.0",
+    "fastify": "^5.0.0",
+    "pino": "^10.0.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@agent-sales/testing": "workspace:*",
+    "@nestjs/testing": "^12.0.0",
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.3",
+    "vitest": "^5.0.5"
+  }
+}

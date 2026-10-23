@@ -19,11 +19,11 @@ The backend is a NestJS modular monolith (`docs/adr/ADR-001-typescript-nestjs-mo
 
 ## Goal
 
-`pnpm --filter api dev` starts an HTTP server exposing `GET /api/v1/health`, with the module layout, config validation, logging and test setup described in the docs.
+`pnpm --filter @agent-sales/backend dev` starts an HTTP server exposing `GET /api/v1/health`, with the module layout, config validation, logging and test setup described in the docs.
 
 ## Scope
 
-- `apps/api` with NestJS (Fastify adapter), `src/main.ts`, `src/app.module.ts`, `src/modules/health/`.
+- `apps/backend` already has the skeleton (T-010): entries, `health` and golden `workspace` modules; this task adds the missing runtime pieces.
 - Env schema validated with Zod at boot (`src/config/`), `.env.example`.
 - Structured JSON logging (pino) with request id.
 - Global validation pipe, exception filter producing the error shape in `docs/11-code-structure-and-conventions.md` §2.

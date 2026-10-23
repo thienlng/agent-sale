@@ -1,0 +1,31 @@
+{
+  "app": { "name": "Agent Sales" },
+  "nav": {
+    "bots": "Bot training",
+    "inbox": "Inbox",
+    "channels": "Channels",
+    "contacts": "Contacts",
+    "segments": "Segments",
+    "campaigns": "Remarketing",
+    "workflows": "Automation workflows",
+    "orders": "Orders",
+    "products": "Products",
+    "analytics": "Analytics",
+    "usage": "Usage",
+    "upgrade": "Upgrade",
+    "settings": "Settings"
+  },
+  "auth": {
+    "login": "Log in",
+    "signup": "Sign up",
+    "email": "Email",
+    "password": "Password",
+    "forgotPassword": "Forgot password?"
+  },
+  "common": {
+    "loading": "Loading…",
+    "save": "Save",
+    "cancel": "Cancel",
+    "empty": "No data yet"
+  }
+}

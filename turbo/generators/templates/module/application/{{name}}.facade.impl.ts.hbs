@@ -1,0 +1,7 @@
+import { Injectable } from '@nestjs/common';
+
+import type { {{pascal name}}Facade } from '../api/{{name}}.facade.js';
+
+/** Delegates to command/query handlers; no logic of its own. */
+@Injectable()
+export class {{pascal name}}FacadeImpl implements {{pascal name}}Facade {}

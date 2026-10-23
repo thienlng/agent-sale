@@ -10,13 +10,16 @@
     "pnpm": ">=10"
   },
   "scripts": {
-    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "check": "pnpm lint && pnpm arch && pnpm typecheck && pnpm test && pnpm build",
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write . && eslint . --fix",
+    "arch": "depcruise --config .dependency-cruiser.cjs apps packages",
+    "arch:graph": "depcruise --config .dependency-cruiser.cjs --output-type dot apps packages | dot -T svg > docs/reference/dependency-graph.svg",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "build": "turbo run build",
     "dev": "turbo run dev",
+    "gen": "turbo gen",
     "todo:new": "bash scripts/new-todo.sh",
     "verify": "bash scripts/verify-setup.sh",
     "prepare": "husky"
@@ -25,9 +28,13 @@
     "@commitlint/cli": "^19.8.1",
     "@commitlint/config-conventional": "^19.8.1",
     "@eslint/js": "^9.30.0",
+    "@turbo/gen": "^2.5.4",
     "@types/node": "^24.0.0",
+    "dependency-cruiser": "^18.0.0",
     "eslint": "^9.30.0",
     "eslint-config-prettier": "^10.1.5",
+    "eslint-import-resolver-typescript": "^4.4.5",
+    "eslint-plugin-boundaries": "^7.0.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.1.2",
     "prettier": "^3.6.2",
@@ -38,7 +45,8 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": [
-      "esbuild"
+      "esbuild",
+      "msgpackr-extract"
     ]
   },
   "lint-staged": {
@@ -46,7 +54,7 @@
       "eslint --fix",
       "prettier --write"
     ],
-    "*.{json,yml,yaml}": [
+    "*.{json,yml,yaml,css}": [
       "prettier --write"
     ]
   }

@@ -1,0 +1,26 @@
+{
+  "name": "@agent-sales/i18n",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Message catalogs (vi, en) shared by web, admin and widget. Every user-facing string lives here.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}
