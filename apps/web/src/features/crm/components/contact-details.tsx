@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { ApiClientError } from '@/lib/api-client';
+import { useCan } from '@/lib/permissions';
 
 import { useUpdateContact } from '../api/crm';
 import { crmErrorMessage } from '../hooks/crm-errors';
@@ -25,6 +26,7 @@ export function ContactDetailsTab({
 }) {
   const { t } = useTranslation();
   const update = useUpdateContact(contact.id);
+  const readOnly = !useCan('contacts.edit');
   const base = useMemo(() => draftOf(contact), [contact]);
   const [draft, setDraft] = useState<ContactDraft>(base);
   const [invalid, setInvalid] = useState<ReadonlySet<string>>(new Set());
@@ -50,14 +52,16 @@ export function ContactDetailsTab({
   return (
     <div className="flex flex-col gap-6">
       <form onSubmit={submit} className="flex flex-col gap-4">
-        <ContactFields
-          idPrefix="cd"
-          value={draft}
-          onChange={setDraft}
-          lookups={lookups}
-          invalid={invalid}
-        />
-        <div className="flex justify-end gap-2">
+        <fieldset disabled={readOnly} className="contents">
+          <ContactFields
+            idPrefix="cd"
+            value={draft}
+            onChange={setDraft}
+            lookups={lookups}
+            invalid={invalid}
+          />
+        </fieldset>
+        <div className={readOnly ? 'hidden' : 'flex justify-end gap-2'}>
           <Button type="button" variant="ghost" disabled={!dirty} onClick={() => setDraft(base)}>
             {t('crm.detail.cancel')}
           </Button>
@@ -66,7 +70,7 @@ export function ContactDetailsTab({
           </Button>
         </div>
       </form>
-      <ContactTags contact={contact} lookups={lookups} />
+      <ContactTags contact={contact} lookups={lookups} readOnly={readOnly} />
     </div>
   );
 }

@@ -121,8 +121,19 @@ export interface ContactQuery {
   sort: ContactSort;
   /** For local-day date rules (created/updated on a day). */
   timezone: string;
+  /** Only customers this user owns (Sales or CSKH) or nobody owns; null = all. */
+  ownerScope: string | null;
   offset: number;
   limit: number;
+}
+
+export interface PolicyRecord {
+  sourceId: string;
+  enabled: boolean;
+  candidates: Array<{ userId: string; weight: number }>;
+  /** Customers handed out so far (drives the round robin). */
+  cursor: number;
+  version: number;
 }
 
 /** An integration event for the outbox (written in the same transaction as the change). */
@@ -219,6 +230,17 @@ export interface CrmTx {
     insert(workspaceId: WorkspaceId, v: ViewRecord): Promise<void>;
     update(v: ViewRecord): Promise<void>;
     delete(id: string): Promise<void>;
+  };
+  policies: {
+    list(): Promise<PolicyRecord[]>;
+    find(sourceId: string, opts?: { forUpdate?: boolean }): Promise<PolicyRecord | null>;
+    /** Saves when the stored version is `expectedVersion` (0 = none yet); the new version or null. */
+    save(
+      p: Pick<PolicyRecord, 'sourceId' | 'enabled' | 'candidates'>,
+      expectedVersion: number,
+    ): Promise<number | null>;
+    /** One more customer handed out. */
+    advance(sourceId: string): Promise<void>;
   };
   outbox(workspaceId: WorkspaceId, e: CrmOutboxEvent): Promise<void>;
 }

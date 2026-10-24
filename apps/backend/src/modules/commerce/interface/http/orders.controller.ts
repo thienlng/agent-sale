@@ -28,6 +28,7 @@ import {
   type AuthState,
   CurrentUser,
   CurrentWorkspace,
+  RequireCapability,
   WorkspaceScoped,
 } from '../../../../common/http/auth-context.js';
 import { ZodValidationPipe } from '../../../../common/http/zod-validation.pipe.js';
@@ -39,6 +40,7 @@ import { OrderService } from '../../application/order.service.js';
 export class OrdersController {
   constructor(@Inject(OrderService) private readonly orders: OrderService) {}
 
+  @RequireCapability('orders.view')
   @Get('orders')
   list(
     @CurrentWorkspace() ws: WorkspaceId,
@@ -47,6 +49,7 @@ export class OrdersController {
     return this.orders.list(ws, query);
   }
 
+  @RequireCapability('orders.manage')
   @Post('orders')
   @HttpCode(201)
   create(
@@ -58,6 +61,7 @@ export class OrdersController {
   }
 
   // Declared before orders/:orderId so "overview" is not taken for an id.
+  @RequireCapability('orders.view')
   @Get('orders/overview')
   overview(
     @CurrentWorkspace() ws: WorkspaceId,
@@ -66,11 +70,13 @@ export class OrdersController {
     return this.orders.overview(ws, query);
   }
 
+  @RequireCapability('orders.view')
   @Get('orders/:orderId')
   get(@CurrentWorkspace() ws: WorkspaceId, @Param('orderId') id: string): Promise<OrderDto> {
     return this.orders.get(ws, id);
   }
 
+  @RequireCapability('orders.manage')
   @Patch('orders/:orderId')
   update(
     @CurrentWorkspace() ws: WorkspaceId,
@@ -81,6 +87,7 @@ export class OrdersController {
     return this.orders.update(ws, id, body, user.userId);
   }
 
+  @RequireCapability('orders.manage')
   @Post('orders/:orderId/status')
   @HttpCode(200)
   changeStatus(
@@ -97,6 +104,7 @@ export class OrdersController {
     return this.orders.getSettings(ws);
   }
 
+  @RequireCapability('settings.manage')
   @Put('order-settings')
   putSettings(
     @CurrentWorkspace() ws: WorkspaceId,

@@ -19,12 +19,15 @@ import {
   UpdateContactRequest,
 } from './contact.schema.js';
 import {
+  AssignmentPolicyDto,
+  AssignmentPolicyList,
   AssignTagRequest,
   CreateCrmOptionRequest,
   CreateTagRequest,
   CrmAssigneeList,
   CrmOptionDto,
   CrmOptionList,
+  PutAssignmentPolicyRequest,
   RemoveTagAssignmentRequest,
   ReorderCrmOptionsRequest,
   TagAssignmentDto,
@@ -180,6 +183,19 @@ export const crmRoutes = defineRoutes([
     summary: 'Edit or archive a tag (version-checked)',
     body: UpdateTagRequest,
     responses: { 200: TagDto },
+  }),
+  route({
+    method: 'get',
+    path: '/crm/assignment-policies',
+    summary: 'Auto-assignment policy of every source',
+    responses: { 200: AssignmentPolicyList },
+  }),
+  route({
+    method: 'put',
+    path: '/crm/assignment-policies/{sourceId}',
+    summary: 'Set the auto-assignment policy of a source (version-checked)',
+    body: PutAssignmentPolicyRequest,
+    responses: { 200: AssignmentPolicyDto },
   }),
   route({
     method: 'get',

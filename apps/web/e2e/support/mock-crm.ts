@@ -145,6 +145,69 @@ export function crmRoute(path: string): unknown {
     return {
       data: [{ userId: '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d10', name: LONG_NAME, role: 'owner' }],
     };
+  if (path === '/crm/assignment-policies')
+    return {
+      data: sources.map((src, i) => ({
+        sourceId: src.id,
+        enabled: i === 0,
+        candidates: i === 0 ? [{ userId: '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d10', weight: 3 }] : [],
+        version: i === 0 ? 2 : 0,
+      })),
+    };
+  if (path === '/members')
+    return {
+      data: [
+        {
+          userId: '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d10',
+          name: LONG_NAME,
+          email: 'nguyen.thi.thanh.huong.lan@mot-ten-mien-rat-dai.vn',
+          role: 'owner',
+          status: 'active',
+          joinedAt: now,
+          isYou: true,
+        },
+        {
+          userId: id(80),
+          name: 'Trần Văn Bình',
+          email: 'binh@shop.vn',
+          role: 'sales',
+          status: 'active',
+          joinedAt: now,
+          isYou: false,
+        },
+        {
+          userId: id(81),
+          name: 'Lê Thị Hoa',
+          email: 'hoa@shop.vn',
+          role: 'care',
+          status: 'removed',
+          joinedAt: now,
+          isYou: false,
+        },
+      ],
+    };
+  if (path === '/invitations')
+    return {
+      data: [
+        {
+          id: id(82),
+          email: 'nhan.vien.ban.hang.moi.rat.dai@mot-ten-mien-rat-dai.vn',
+          role: 'sales',
+          invitedByName: LONG_NAME,
+          status: 'pending',
+          expiresAt: now,
+          createdAt: now,
+        },
+      ],
+    };
+  if (path.startsWith('/invitation-links/'))
+    return {
+      workspaceName: LONG_NAME,
+      role: 'sales',
+      email: 'binh@shop.vn',
+      status: 'pending',
+      emailMatches: true,
+    };
   if (path === '/saved-views')
     return {
       data: [

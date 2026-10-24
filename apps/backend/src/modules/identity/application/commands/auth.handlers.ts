@@ -121,6 +121,11 @@ export class AccountQueries implements IdentityFacade {
     return (await this.users.findById(userId))?.snapshot().name ?? null;
   }
 
+  async profile(userId: UserId): Promise<{ name: string; email: string } | null> {
+    const user = (await this.users.findById(userId))?.snapshot();
+    return user ? { name: user.name, email: user.email } : null;
+  }
+
   /** Read on every admin request (not from the token) so revoking takes effect immediately. */
   async isPlatformAdmin(userId: UserId): Promise<boolean> {
     return (await this.users.findById(userId))?.isPlatformAdmin ?? false;

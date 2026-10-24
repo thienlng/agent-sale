@@ -7,10 +7,11 @@ import type { WorkspaceId } from '@agent-sales/shared';
 import { Body, Controller, Get, Inject, Param, Patch, Post, Query } from '@nestjs/common';
 import { z } from 'zod';
 import {
-  CurrentWorkspace,
-  CurrentUser,
-  WorkspaceScoped,
   type AuthState,
+  CurrentUser,
+  CurrentWorkspace,
+  RequireCapability,
+  WorkspaceScoped,
 } from '../../../../common/http/auth-context.js';
 import { ZodValidationPipe } from '../../../../common/http/zod-validation.pipe.js';
 import { ConversationFacadeImpl } from '../../application/conversation.facade.impl.js';
@@ -28,7 +29,9 @@ export class ConversationController {
   @Get(':id') get(@CurrentWorkspace() ws: WorkspaceId, @Param('id', idPipe) id: string) {
     return this.inbox.get(ws, id);
   }
-  @Patch(':id') update(
+  @RequireCapability('contacts.edit')
+  @Patch(':id')
+  update(
     @CurrentWorkspace() ws: WorkspaceId,
     @CurrentUser() user: AuthState,
     @Param('id', idPipe) id: string,
@@ -36,7 +39,9 @@ export class ConversationController {
   ) {
     return this.inbox.update(ws, id, input, user.userId);
   }
-  @Post(':id/messages') send(
+  @RequireCapability('contacts.edit')
+  @Post(':id/messages')
+  send(
     @CurrentWorkspace() ws: WorkspaceId,
     @CurrentUser() user: AuthState,
     @Param('id', idPipe) id: string,

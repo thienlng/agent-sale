@@ -90,7 +90,7 @@ async function addMember(workspaceId: string, userId: string, status = 'active')
     id: crypto.randomUUID(),
     workspaceId,
     userId,
-    role: 'member',
+    role: 'sales',
     status,
   });
 }

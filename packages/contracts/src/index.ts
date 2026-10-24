@@ -8,6 +8,7 @@ import { commerceRoutes } from './commerce/commerce.routes.js';
 import { crmRoutes } from './crm/crm.routes.js';
 import { healthRoutes } from './health/health.routes.js';
 import { identityRoutes } from './identity/identity.routes.js';
+import { accessRoutes } from './workspace/access.routes.js';
 import { workspaceRoutes } from './workspace/workspace.routes.js';
 
 export * from './ai/ai.schema.js';
@@ -36,6 +37,8 @@ export * from './identity/identity.routes.js';
 export * from './workspace/workspace.schema.js';
 export * from './workspace/workspace.events.js';
 export * from './workspace/workspace.routes.js';
+export * from './workspace/access.schema.js';
+export * from './workspace/access.routes.js';
 
 /** Every HTTP route of /api/v1. Append each module's routes here. */
 export const allRoutes = [
@@ -45,6 +48,7 @@ export const allRoutes = [
   ...healthRoutes,
   ...identityRoutes,
   ...workspaceRoutes,
+  ...accessRoutes,
   ...botRoutes,
   ...aiRoutes,
   ...llmAdminRoutes,

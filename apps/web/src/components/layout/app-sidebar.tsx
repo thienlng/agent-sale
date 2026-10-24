@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   ShoppingBag,
   Users,
+  UsersRound,
 } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -33,6 +34,7 @@ import {
   SidebarRail,
   useSidebar,
 } from '@/components/ui/sidebar';
+import { useCan } from '@/lib/permissions';
 import { usePreferences } from '@/lib/preferences/preferences';
 import { useSession } from '@/lib/session';
 
@@ -49,6 +51,7 @@ interface NavItem {
 const BOTS: readonly NavItem[] = [{ to: '/app/bots', key: 'nav.bots', icon: Bot, ready: true }];
 const WORK: readonly NavItem[] = [
   { to: '/app/analytics', key: 'nav.analytics', icon: BarChart3 },
+  { to: '/app/members', key: 'nav.members', icon: UsersRound, ready: true },
   { to: '/app/settings', key: 'nav.settings', icon: Settings },
 ];
 
@@ -230,6 +233,7 @@ export function AppSidebar() {
   const { t } = useTranslation();
   const session = useSession();
   const prefs = usePreferences();
+  const canSettings = useCan('settings.manage');
   return (
     <Sidebar variant={prefs.sidebar_variant} collapsible={prefs.sidebar_collapsible}>
       <SidebarHeader>
@@ -249,11 +253,16 @@ export function AppSidebar() {
         <nav aria-label={t('nav.mainLabel')} className="contents">
           <NavGroup label={t('nav.groupWork')} items={BOTS}>
             <MultichannelNav />
-            <SectionNav label="nav.contacts" icon={Users} items={CONTACTS} paths={CONTACT_PATHS} />
+            <SectionNav
+              label="nav.contacts"
+              icon={Users}
+              items={CONTACTS.filter((i) => canSettings || i.to !== '/app/crm-settings')}
+              paths={CONTACT_PATHS}
+            />
             <SectionNav
               label="nav.orders"
               icon={ShoppingBag}
-              items={ORDERS}
+              items={ORDERS.filter((i) => canSettings || i.to !== '/app/order-settings')}
               paths={ORDER_PATHS}
               exact="/app/orders"
             />

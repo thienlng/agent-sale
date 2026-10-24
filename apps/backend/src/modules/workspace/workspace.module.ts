@@ -4,6 +4,7 @@ import { Module } from '@nestjs/common';
 import { DB_SYSTEM, DB_TENANT } from '../../common/db/db.module.js';
 import { WORKSPACE_FACADE } from './api/workspace.facade.js';
 import { CreateWorkspaceHandler } from './application/commands/create-workspace/create-workspace.handler.js';
+import { ManageMembersHandler } from './application/commands/manage-members/manage-members.handler.js';
 import { WORKSPACE_DIRECTORY } from './application/ports/workspace-directory.js';
 import { WORKSPACE_UOW } from './application/ports/workspace-unit-of-work.js';
 import { GetWorkspaceHandler } from './application/queries/get-workspace/get-workspace.handler.js';
@@ -30,6 +31,7 @@ const MEMORY_STORE = Symbol('WORKSPACE_MEMORY_STORE');
   providers: [
     CreateWorkspaceHandler,
     GetWorkspaceHandler,
+    ManageMembersHandler,
     { provide: MEMORY_STORE, useFactory: () => new InMemoryWorkspaceUnitOfWork() },
     {
       provide: WORKSPACE_UOW,

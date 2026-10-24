@@ -176,8 +176,8 @@ The Preny inbox layout could not be captured → we design it on the standard 3-
 
 | ID | Feature | Priority |
 |---|---|---|
-| SET-01 | Members: list (Name, Role, Phone number, Email, Status), invite by email, member quota | P0 |
-| SET-02 | Access permissions: roles + permissions; customer distribution mode (Off / by page / by ratio / ratio by day) | P0 |
+| SET-01 | Members: list (Name, Role, Phone number, Email, Status), invite by email, member quota | P0 — built (M3b): list, roles, remove, invitation links shared by the owner; email sending and quota later |
+| SET-02 | Access permissions: roles + permissions; customer distribution mode (Off / by page / by ratio / ratio by day) | P0 — built (M3b): 5 fixed roles with capabilities, Sales/CSKH customer scope, distribution Off / by ratio per source; by page and by day later |
 | SET-03 | Custom roles | P2 |
 | SET-04 | General settings (sub-nav): Notifications, Customer sources, Sync, Automation, Statuses, Advanced connections (Google Email; SMS/ZNS coming soon), Workspace information | P0–P1 |
 | SET-05 | Notifications: on/off, up to 5 reminder offsets before an event (default 0', 2h, 24h); channels: in-app, email, push | P0 |

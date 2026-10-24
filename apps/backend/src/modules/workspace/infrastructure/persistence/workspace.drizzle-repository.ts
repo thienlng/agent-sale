@@ -70,6 +70,17 @@ export class DrizzleMemberRepository implements MemberRepository {
     });
   }
 
+  async update(m: Membership): Promise<void> {
+    await this.tx
+      .update(schema.members)
+      .set({
+        role: m.role,
+        status: m.status,
+        removedAt: m.status === 'removed' ? new Date() : null,
+      })
+      .where(eq(schema.members.id, m.id));
+  }
+
   async find(ws: WorkspaceId, user: UserId): Promise<Membership | null> {
     const [row] = await this.tx
       .select()

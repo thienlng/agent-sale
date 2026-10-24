@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/table';
 import { ApiClientError } from '@/lib/api-client';
 import { formatNumber } from '@/lib/format';
+import { useCan } from '@/lib/permissions';
 import { cn } from '@/lib/utils';
 
 import { useContacts } from '../api/crm';
@@ -39,6 +40,7 @@ export function ContactsList({
   const lookups = useCrmLookups();
   const columns = useVisibleContactColumns();
   const [creating, setCreating] = useState(false);
+  const canEdit = useCan('contacts.edit');
   const page = search.page ?? 1;
   const pageSize = search.pageSize ?? 20;
   const contacts = useContacts({
@@ -74,10 +76,12 @@ export function ContactsList({
             </p>
           ) : null}
         </div>
-        <Button size="lg" onClick={() => setCreating(true)}>
-          <Plus />
-          {t('crm.add')}
-        </Button>
+        {canEdit ? (
+          <Button size="lg" onClick={() => setCreating(true)}>
+            <Plus />
+            {t('crm.add')}
+          </Button>
+        ) : null}
       </header>
 
       <ContactsToolbar search={search} onChange={change} lookups={lookups} />
