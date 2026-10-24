@@ -35,6 +35,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [ ] T-049 Inbox dead letters in the UI, OAuth flow purge and page release on disconnect — @unassigned · [details](todo/T-049-inbox-dead-letters-in-the-ui-oauth-flow-purge-and-.md)
 - [ ] T-050 Pin the Hermes version and run a live hermes-runtime acceptance probe — @unassigned · [details](todo/T-050-pin-the-hermes-version-and-run-a-live-hermes-runti.md)
 - [ ] T-051 Move Meta inbox and training docs into the docs structure — @unassigned · [details](todo/T-051-move-meta-inbox-and-training-docs-into-the-docs-st.md)
+- [ ] T-053 Bot reply quality and pipeline robustness found by scenario QA — @unassigned · [details](todo/T-053-bot-reply-quality-and-pipeline-robustness-found-by.md)
 
 ## Blocked
 
