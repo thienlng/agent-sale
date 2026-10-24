@@ -1,5 +1,5 @@
 import { FakeLlmProvider, type GenerateRequest, type LlmProvider } from '@agent-sales/ai-core';
-import type { ProductDto, TrainingItemDto } from '@agent-sales/contracts';
+import type { PlaygroundRequest, ProductDto, TrainingItemDto } from '@agent-sales/contracts';
 import { newId, workspaceId } from '@agent-sales/shared';
 import { describe, expect, it } from 'vitest';
 
@@ -57,8 +57,10 @@ const media = {
   mediaUrl: 'https://img.example.com/size.png',
 } as unknown as TrainingItemDto;
 
-function build(reply: object, products: ProductDto[] = [oxford]) {
-  const fake = new FakeLlmProvider('dev-fake', () => ({ text: JSON.stringify(reply) }));
+function build(reply: object | string, products: ProductDto[] = [oxford], queries: string[] = []) {
+  const fake = new FakeLlmProvider('dev-fake', () => ({
+    text: typeof reply === 'string' ? reply : JSON.stringify(reply),
+  }));
   const factory: LlmProviderFactory = {
     create: () => fake as LlmProvider,
     hermesLogin: () => {
@@ -74,7 +76,13 @@ function build(reply: object, products: ProductDto[] = [oxford]) {
     new LlmRuntime(new InMemoryLlmConfigRepository(), factory),
     new InMemoryAiRunRepository(),
     { list: async () => [media] } as unknown as TrainingFacade,
-    { getBotProducts: async () => products } as unknown as CatalogFacade,
+    {
+      getBotProducts: async (_ws: unknown, query: string) => {
+        queries.push(query);
+        return products;
+      },
+      listBotCatalog: async () => products,
+    } as unknown as CatalogFacade,
   );
   const ask = (text: string) =>
     svc.reply(
@@ -86,7 +94,9 @@ function build(reply: object, products: ProductDto[] = [oxford]) {
         isTest: false,
       },
     );
-  return { fake, ask };
+  const askWith = (messages: PlaygroundRequest['messages']) =>
+    svc.reply(ws, botId, { messages }, { conversationId: newId(), isTest: false });
+  return { fake, ask, askWith };
 }
 
 const answer = (imageIds?: string[]) => ({
@@ -156,5 +166,48 @@ describe('bot-sent images', () => {
     expect(JSON.stringify((fake.calls[0] as GenerateRequest).messages)).not.toContain(
       'Images you may send (id: label)',
     );
+  });
+});
+
+describe('product lookup keeps the product being discussed', () => {
+  it('adds the last bot reply to the catalog search, so "size 41?" still finds the product', async () => {
+    const queries: string[] = [];
+    const { askWith } = build(answer(), [oxford], queries);
+    await askWith([
+      { role: 'customer', content: 'cho xem ảnh giày da Oxford' },
+      { role: 'bot', content: 'Dạ em gửi ảnh giày da nam Oxford ạ.' },
+      { role: 'customer', content: 'size 41 thì sao, giá bao nhiêu?' },
+    ]);
+    const query = queries.at(-1) ?? '';
+    expect(query.startsWith('cho xem ảnh giày da Oxford\nsize 41')).toBe(true);
+    expect(query).toContain('giày da nam Oxford');
+  });
+  it('searches with the customer text alone before the bot has said anything', async () => {
+    const queries: string[] = [];
+    const { ask } = build(answer(), [oxford], queries);
+    await ask('giá giày Oxford bao nhiêu?');
+    expect(queries.at(-1)).toBe('giá giày Oxford bao nhiêu?');
+  });
+});
+
+describe('answers that are not JSON', () => {
+  it('accepts a short plain-prose answer after the retry', async () => {
+    const { ask } = build('Dạ, cửa hàng có giày da nam Oxford và giày lười Loafer ạ.');
+    const res = await ask('shop có những mẫu nào vậy?');
+    expect(res.outcome).toBe('answered');
+    expect(res.reply).toBe('Dạ, cửa hàng có giày da nam Oxford và giày lười Loafer ạ.');
+  });
+  it('falls back when the prose is broken JSON', async () => {
+    const { ask } = build('{"outcome": "answer", "reply": ');
+    const res = await ask('shop có những mẫu nào vậy?');
+    expect(res.outcome).toBe('fallback');
+    expect(res.guardrail).toMatch(/^invalid_output/);
+  });
+  it('lists every product on sale as a catalog overview in the model request', async () => {
+    const { fake, ask } = build(answer());
+    await ask('shop có những mẫu nào vậy?');
+    const sent = JSON.stringify((fake.calls[0] as GenerateRequest).messages);
+    expect(sent).toContain('catalog_overview');
+    expect(sent).toContain(oxford.name);
   });
 });

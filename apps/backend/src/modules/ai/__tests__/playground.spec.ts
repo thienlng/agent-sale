@@ -73,10 +73,10 @@ function factory(
   };
 }
 
-function service(llm: LlmRuntime) {
+function service(llm: LlmRuntime, botView: typeof bot = bot) {
   const runs = new InMemoryAiRunRepository();
   const svc = new PlaygroundService(
-    { getBot: async () => bot } as BotFacade,
+    { getBot: async () => botView } as BotFacade,
     { searchFaqs: async () => [hit] } as unknown as KnowledgeFacade,
     { getById: async () => ({ name: 'Shop Lan' }) } as unknown as WorkspaceFacade,
     llm,
@@ -130,6 +130,18 @@ describe('PlaygroundService', () => {
     ]);
   });
 
+  it('introduces the shop by the store name setting, not the workspace name', async () => {
+    const fake = provider('dev-fake', { outcome: 'answer', reply: 'Dạ ạ', sources: [] });
+    const named = { ...bot, placeholders: { ...bot.placeholders, 'store.name': 'TinyMind Store' } };
+    const { svc } = service(
+      new LlmRuntime(new InMemoryLlmConfigRepository(), factory(fake)),
+      named,
+    );
+    await svc.playground(ws, botId, ask('hi'));
+    const system = JSON.stringify((fake.calls[0] as { messages: unknown[] }).messages[0]);
+    expect(system).toContain('TinyMind Store');
+  });
+
   it('replaces a reply whose price is not in the sources with the fallback message', async () => {
     const fake = provider('dev-fake', {
       outcome: 'answer',
@@ -147,7 +159,7 @@ describe('PlaygroundService', () => {
   });
 
   it('treats unparseable output and provider refusals safely', async () => {
-    const garbage = new FakeLlmProvider('dev-fake', () => ({ text: 'not json' }));
+    const garbage = new FakeLlmProvider('dev-fake', () => ({ text: '{"outcome": broken' }));
     const a = service(new LlmRuntime(new InMemoryLlmConfigRepository(), factory(garbage)));
     expect(await a.svc.playground(ws, botId, ask('hi'))).toMatchObject({
       outcome: 'fallback',
@@ -186,6 +198,15 @@ describe('PlaygroundService invalid model output', () => {
     expect(runs.runs).toHaveLength(1);
   });
 
+  it('reminds the model of the JSON format on the retry only', async () => {
+    const { fake, svc } = scripted('Xin lỗi, đây là câu trả lời', JSON.stringify(valid));
+    await svc.playground(ws, botId, ask('ao thun bao nhieu'));
+    const first = JSON.stringify((fake.calls[0] as { messages: unknown[] }).messages);
+    const second = JSON.stringify((fake.calls[1] as { messages: unknown[] }).messages);
+    expect(first).not.toContain('previous reply was not a JSON object');
+    expect(second).toContain('previous reply was not a JSON object');
+  });
+
   it('falls back after two invalid outputs and records the rejection category only', async () => {
     const { fake, svc, runs } = scripted('plain text one', '{"outcome":"answer","reply":"x"}');
     const res = await svc.playground(ws, botId, ask('ao thun bao nhieu'));
@@ -196,6 +217,19 @@ describe('PlaygroundService invalid model output', () => {
     });
     expect(fake.calls).toHaveLength(2);
     expect(JSON.stringify(runs.runs)).not.toContain('plain text one');
+  });
+
+  it('keeps a plain-prose answer after the retry, but the number guard still applies', async () => {
+    const kept = scripted('Dạ cửa hàng có áo thun ạ.', 'Dạ cửa hàng có áo thun và áo sơ mi ạ.');
+    const res = await kept.svc.playground(ws, botId, ask('shop có mẫu nào'));
+    expect(res).toMatchObject({
+      outcome: 'answered',
+      reply: 'Dạ cửa hàng có áo thun và áo sơ mi ạ.',
+    });
+    const priced = scripted('Dạ giá 299k ạ.', 'Dạ giá 299k ạ.');
+    expect((await priced.svc.playground(ws, botId, ask('ao thun bao nhieu'))).outcome).toBe(
+      'fallback',
+    );
   });
 
   it('does not retry a valid output that is merely ungrounded', async () => {

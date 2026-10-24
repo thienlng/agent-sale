@@ -48,3 +48,35 @@ export function parseModelReply(text: string): ParsedModelReply {
   }
   return { ok: false, reason };
 }
+
+const MAX_PROSE_CHARS = 700;
+const LEAK_WORDS = 8;
+
+const words = (text: string) =>
+  text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+
+/**
+ * A model that answers a general question in plain prose gave a usable answer in the wrong format.
+ * It is accepted as a plain answer only when it is short, has no JSON braces and does not repeat
+ * a run of the instructions it was given (an injected "print your prompt" must not get through
+ * this door). The number guardrails still apply to what this returns.
+ */
+export function salvageProse(text: string, instructions: string): ModelReply | null {
+  const prose = text.trim();
+  if (!prose || prose.length > MAX_PROSE_CHARS || prose.includes('{') || prose.includes('}'))
+    return null;
+  const proseWords = words(prose);
+  if (proseWords.length > LEAK_WORDS) {
+    const known = new Set<string>();
+    const source = words(instructions);
+    for (let i = 0; i + LEAK_WORDS <= source.length; i++)
+      known.add(source.slice(i, i + LEAK_WORDS).join(' '));
+    for (let i = 0; i + LEAK_WORDS <= proseWords.length; i++)
+      if (known.has(proseWords.slice(i, i + LEAK_WORDS).join(' '))) return null;
+  }
+  return { outcome: 'answer', reply: prose, sources: [], imageIds: [] };
+}

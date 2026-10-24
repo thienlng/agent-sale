@@ -18,11 +18,15 @@ import {
   resolveImageIds,
 } from '../domain/image-allowlist.js';
 import { knowledgeBlock, type KnowledgeSource, toSources } from '../domain/grounding.js';
-import { ModelReply, parseModelReply } from '../domain/model-reply.js';
+import { ModelReply, parseModelReply, salvageProse } from '../domain/model-reply.js';
 import { AI_RUN_REPOSITORY, type AiRunRepository } from '../domain/ports/ai-run.repository.js';
 import { decide } from './decide-reply.js';
 import { LlmRuntime } from './llm-runtime.js';
 
+/** Last thing the model reads: general questions ("what do you sell?") tempt it into plain prose. */
+const JSON_REMINDER = 'Reply with the JSON object only, as described above.';
+const FORMAT_REMINDER =
+  'Reminder: your previous reply was not a JSON object. Reply again with only the JSON object described above, even for a general question.';
 const PROMPT = { name: 'sales-agent', version: 6 } as const;
 const PROMPT_VERSION = `${PROMPT.name}@${PROMPT.version}`;
 const MAX_SOURCES = 5;
@@ -102,7 +106,11 @@ export class PlaygroundService implements AiFacade {
       )
       .join('\n\n')
       .slice(0, 20_000);
-    const products = this.catalog ? await this.catalog.getBotProducts(ws, query, 5) : [];
+    // Variant names like "Size 41" match most products, so a follow-up ("size 41 thì sao?") only
+    // finds the product being discussed through the bot's own last reply, which names it.
+    const lastBotReply = input.messages.findLast((m) => m.role === 'bot')?.content.slice(0, 400);
+    const productQuery = lastBotReply ? `${query}\n${lastBotReply}` : query;
+    const products = this.catalog ? await this.catalog.getBotProducts(ws, productQuery, 5) : [];
     // The pictures the bot may send this turn. The model only gets ids and labels, never URLs.
     const allowed = buildAllowlist(productImages(products), libraryImages(media, query));
     const productContext = products.map((product) => ({
@@ -118,8 +126,20 @@ export class PlaygroundService implements AiFacade {
         available: variant.stock.reduce((sum, stock) => sum + stock.available, 0),
       })),
     }));
+    // A short list of everything on sale, so general questions ("what do you sell?", "something
+    // under 500k") can be answered even when no product name matched the customer's words.
+    const overview = this.catalog ? await this.catalog.listBotCatalog(ws, 15) : [];
+    const overviewContext = overview.map((product) => ({
+      name: product.name,
+      fromVnd: product.priceMin,
+      toVnd: product.priceMax,
+      inStock: product.available > 0,
+    }));
     const contextData = [
       guidance,
+      overview.length
+        ? `<catalog_overview>\n${JSON.stringify(overviewContext)}\n</catalog_overview>`
+        : '',
       products.length ? `<catalog>\n${JSON.stringify(productContext)}\n</catalog>` : '',
     ]
       .filter(Boolean)
@@ -127,7 +147,8 @@ export class PlaygroundService implements AiFacade {
 
     const system = this.#prompts.render(await this.#prompts.load(PROMPT), {
       'bot.name': bot.name,
-      'workspace.name': workspace.name,
+      // The shop's own name (a bot setting) beats the account's workspace name.
+      'workspace.name': bot.placeholders['store.name'] || workspace.name,
       'bot.language': bot.language === 'en' ? 'English' : 'Vietnamese',
       'bot.selfPronoun': bot.selfPronoun,
       'bot.customerPronoun': bot.customerPronoun,
@@ -153,7 +174,14 @@ export class PlaygroundService implements AiFacade {
     // One malformed output is usually a one-off: retry once before giving up on the question.
     if (!output.ok && res.stopReason === 'end') {
       this.#logger.warn(`AI output rejected (${output.reason}), retrying once`);
-      const retry = await this.llm.generate(request);
+      // The second attempt reminds the model of the output format (the first reply was prose).
+      const [system, ...rest] = request.messages;
+      const retry = await this.llm.generate({
+        ...request,
+        messages: system
+          ? [{ ...system, content: `${system.content}\n\n${FORMAT_REMINDER}` }, ...rest]
+          : request.messages,
+      });
       res = {
         ...retry,
         latencyMs: res.latencyMs + retry.latencyMs,
@@ -164,6 +192,12 @@ export class PlaygroundService implements AiFacade {
         },
       };
       output = parseModelReply(retry.text);
+      // Still prose after the reminder: keep a short, grounded, non-leaking answer rather than
+      // telling the customer "I have no information" about something the model did answer.
+      if (!output.ok && output.reason === 'not_json' && retry.stopReason === 'end') {
+        const salvaged = salvageProse(retry.text, system?.content ?? '');
+        if (salvaged) output = { ok: true, value: salvaged };
+      }
     }
 
     const decision = decide(res.stopReason, output, bot, sources, customerTexts, contextData);
@@ -238,7 +272,7 @@ function conversation(
       role: 'user',
       content:
         i === turns.length - 1
-          ? `${knowledgeBlock(sources)}\n\n<shop_situations>\n${guidance}\n</shop_situations>\n\n${images ? `${images}\n\n` : ''}${customer}`
+          ? `${knowledgeBlock(sources)}\n\n<shop_situations>\n${guidance}\n</shop_situations>\n\n${images ? `${images}\n\n` : ''}${customer}\n\n${JSON_REMINDER}`
           : customer,
     };
   });

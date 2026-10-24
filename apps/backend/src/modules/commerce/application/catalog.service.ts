@@ -116,6 +116,17 @@ export class CatalogService {
     return [...unique.values()].sort((a, b) => score(b) - score(a)).slice(0, cap);
   }
 
+  async listBotCatalog(ws: WorkspaceId, limit: number): Promise<ProductDto[]> {
+    const cap = Math.max(1, Math.min(limit, 30));
+    try {
+      const page = await this.listProducts(ws, { status: 'active', page: 1, pageSize: cap });
+      return page.data.filter((product) => product.visibleToBot);
+    } catch (error) {
+      if (error instanceof CommerceUnavailableError) return [];
+      throw error;
+    }
+  }
+
   // ─── Warehouses ───────────────────────────────────────────────────────────
 
   async listWarehouses(ws: WorkspaceId): Promise<WarehouseDto[]> {

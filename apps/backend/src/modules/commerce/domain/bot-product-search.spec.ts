@@ -13,7 +13,7 @@ describe('botProductSearches', () => {
       'phí ship bao nhiêu vậy\ncho xem ảnh giày sneaker trắng',
     );
     expect(searches).toContain('sneaker');
-    expect(searches.length).toBeLessThanOrEqual(8);
+    expect(searches.length).toBeLessThanOrEqual(14);
   });
 
   it('returns nothing for an empty message', () => {

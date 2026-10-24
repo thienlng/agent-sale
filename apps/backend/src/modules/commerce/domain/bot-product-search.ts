@@ -27,11 +27,11 @@ const NOISE = new Set([
   'shop',
 ]);
 
-const MAX_SEARCHES = 8;
+const MAX_SEARCHES = 14;
 
 /**
  * The whole message plus its meaningful words: the catalog is searched once per entry. A merged
- * customer turn can carry several questions, so the cap leaves room for a product named late.
+ * customer turn can carry several questions, so the cap leaves room for a product named late, or only in the bot's previous reply.
  */
 export function botProductSearches(query: string): { searches: string[]; words: string[] } {
   const words = foldVietnamese(query)
