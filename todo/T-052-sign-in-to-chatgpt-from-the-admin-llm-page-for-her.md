@@ -1,7 +1,7 @@
 ---
 id: T-052
 title: Sign in to ChatGPT from the Admin LLM page for hermes-runtime
-status: backlog            # backlog | next | in-progress | blocked | review | done | cancelled
+status: in-progress            # backlog | next | in-progress | blocked | review | done | cancelled
 type: feature              # feature | bug | chore | spike | docs
 priority: P2
 owner: @mrkenknight
@@ -52,6 +52,7 @@ Written by the implementer before coding (see `start-task` skill). Steps, files,
 Dated entries, newest last. Decisions, blockers, questions, what was verified and how.
 
 - 2026-10-24 — created by the maintainer when splitting commit `2896628` out of PR #40; code kept on `feat/T-052-hermes-chatgpt-admin-login`.
+- 2026-10-24 — PR #40 merged; branch rebased onto `main`, draft PR opened for the team to continue.
 
 ## Links
 
