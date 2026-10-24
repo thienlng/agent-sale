@@ -164,6 +164,7 @@ export class ContactService {
           // The CRM form is the only way to create a customer today; channel and import come later.
           origin: 'manual',
           phoneCaptured: contact.phoneProvidedAt !== null,
+          statusId: contact.statusId,
         }),
       });
       return this.#dto(tx, contact);

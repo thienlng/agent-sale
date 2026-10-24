@@ -36,7 +36,12 @@ export class ProjectorService {
 
   /** One batch. Returns how many events were consumed (0 when idle or when another projector is working). */
   async tick(limit = BATCH_SIZE): Promise<number> {
-    const done = await this.store.withLease(async (lease) => {
+    return (await this.#project(limit)) ?? 0;
+  }
+
+  /** `null` when another projector holds the lease: nothing was done, and the caller may want to wait. */
+  async #project(limit: number): Promise<number | null> {
+    return this.store.withLease(async (lease) => {
       const after = await lease.checkpoint();
       const rows = await lease.readBatch(after, limit);
       if (!rows.length) return 0;
@@ -55,12 +60,26 @@ export class ProjectorService {
       await lease.commit(rows.reduce((max, r) => Math.max(max, r.id), after));
       return rows.length;
     });
-    return done ?? 0;
   }
 
-  /** Reads stay fresh without a worker: consume what is pending (bounded) before answering. */
-  async catchUp(maxBatches = 10): Promise<void> {
-    for (let i = 0; i < maxBatches; i++) if ((await this.tick()) < BATCH_SIZE) return;
+  /**
+   * Reads stay fresh without a worker: consume what is pending (bounded) before answering. When
+   * another projector (the worker, or a concurrent query) holds the lease this waits for it instead
+   * of reading around it, so everything committed before the call is projected when it returns.
+   * After `waitMs` it gives up and the answer carries the lag.
+   */
+  async catchUp(maxBatches = 10, waitMs = 3000): Promise<void> {
+    const deadline = Date.now() + waitMs;
+    for (let batches = 0; batches < maxBatches;) {
+      const done = await this.#project(BATCH_SIZE);
+      if (done === null) {
+        if (Date.now() >= deadline) return;
+        await new Promise((r) => setTimeout(r, 25));
+        continue;
+      }
+      if (done < BATCH_SIZE) return;
+      batches++;
+    }
   }
 
   health(): Promise<ProjectionHealth> {

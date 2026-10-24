@@ -56,6 +56,8 @@ function fromCrm(row: OutboxRow, c: Common): FactDraft[] {
       return [
         fact('customer.created', { origin: e.origin }),
         ...(e.phoneCaptured ? [fact('phone.captured', { origin: e.origin })] : []),
+        // Where the customer started; later moves are `status.changed`.
+        ...(e.statusId ? [fact('status.initial', { subjectId: e.statusId })] : []),
       ];
     case 'crm.contact.updated.v1':
       return e.phoneCaptured ? [fact('phone.captured', { origin: 'manual' })] : [];

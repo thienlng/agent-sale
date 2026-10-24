@@ -19,6 +19,8 @@ export const ContactCreatedV1 = z.object({
   origin: z.enum(['channel', 'manual', 'import']).default('manual'),
   /** The customer was created with a phone number. */
   phoneCaptured: z.boolean().default(false),
+  /** The status the customer started with (statuses are otherwise only known from changes). */
+  statusId: z.uuid().nullable().default(null),
 });
 export const ContactUpdatedV1 = z.object({
   type: z.literal('crm.contact.updated.v1'),

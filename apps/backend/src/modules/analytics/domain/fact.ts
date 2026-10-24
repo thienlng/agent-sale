@@ -4,6 +4,7 @@ export const FACT_KINDS = [
   'phone.captured',
   'tag.assigned',
   'tag.removed',
+  'status.initial',
   'status.changed',
   'assignment.changed',
   'conversation.opened',

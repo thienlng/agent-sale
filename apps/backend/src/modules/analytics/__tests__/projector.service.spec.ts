@@ -127,6 +127,26 @@ describe('ProjectorService', () => {
     expect(fakes.checkpoint).toBe(2);
   });
 
+  it('catchUp waits for a busy projector instead of reading around it', async () => {
+    const { fakes, projector } = setup();
+    fakes.outbox = [created(1)];
+    fakes.busy = true;
+    setTimeout(() => {
+      fakes.busy = false;
+    }, 60);
+    await projector.catchUp();
+    // It returned only after the other projector was done and the event was projected.
+    expect(fakes.checkpoint).toBe(1);
+  });
+
+  it('catchUp gives up after the wait and leaves the lag to be reported', async () => {
+    const { fakes, projector } = setup();
+    fakes.outbox = [created(1)];
+    fakes.busy = true;
+    await projector.catchUp(10, 60);
+    expect(fakes.checkpoint).toBe(0);
+  });
+
   it('catchUp drains more than one batch', async () => {
     const { fakes, projector } = setup();
     fakes.outbox = Array.from({ length: 1200 }, (_, i) => created(i + 1));

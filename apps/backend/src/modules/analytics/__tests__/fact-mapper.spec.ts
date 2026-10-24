@@ -58,6 +58,14 @@ describe('mapOutboxEvent — customers', () => {
     ]);
   });
 
+  it('the status a customer starts with is its own kind, so it is not a change', () => {
+    const facts = mapOutboxEvent(
+      row('crm.contact.created.v1', crm({ sourceId: null, statusId: TAG })),
+    );
+    expect(facts.map((f) => f.kind)).toEqual(['customer.created', 'status.initial']);
+    expect(facts[1]).toMatchObject({ subjectId: TAG, fromSubjectId: null });
+  });
+
   it('an edit only matters when it stored a first phone number', () => {
     expect(mapOutboxEvent(row('crm.contact.updated.v1', crm({ fields: ['name'] })))).toEqual([]);
     const [f] = mapOutboxEvent(
