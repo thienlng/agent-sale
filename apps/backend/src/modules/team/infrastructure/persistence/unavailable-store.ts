@@ -6,8 +6,7 @@ const fail = () => Promise.reject(new TeamUnavailableError());
 /** Without a database, invitations answer 503. */
 export class UnavailableInvitationStore implements InvitationStore {
   list = fail;
-  insert = fail;
-  revokePending = fail;
+  replacePending = fail;
   revoke = fail;
   findByTokenHash = fail;
   markAccepted = fail;

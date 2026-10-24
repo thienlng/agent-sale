@@ -18,9 +18,8 @@ export interface InvitationRecord {
 /** Invitations of one workspace (tenant transaction) and lookups by link (system role). */
 export interface InvitationStore {
   list(ws: WorkspaceId): Promise<InvitationRecord[]>;
-  insert(ws: WorkspaceId, i: InvitationRecord): Promise<void>;
-  /** Revokes every pending invitation of this email (before re-inviting). */
-  revokePending(ws: WorkspaceId, email: string): Promise<void>;
+  /** Revokes the pending invitation of the same email and inserts this one, in one transaction. */
+  replacePending(ws: WorkspaceId, i: InvitationRecord): Promise<void>;
   revoke(ws: WorkspaceId, id: string): Promise<InvitationRecord | null>;
   /** Any workspace: the invitee is not a member yet, so this runs as the system role. */
   findByTokenHash(hash: string): Promise<InvitationRecord | null>;

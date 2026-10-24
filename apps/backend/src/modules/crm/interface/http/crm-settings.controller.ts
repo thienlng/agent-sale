@@ -139,6 +139,7 @@ export class CrmSettingsController {
     return this.settings.updateTag(ws, id, body);
   }
 
+  @RequireCapability('settings.manage')
   @Get('crm/assignment-policies')
   async policies(@CurrentWorkspace() ws: WorkspaceId) {
     return { data: await this.distribution.list(ws) };

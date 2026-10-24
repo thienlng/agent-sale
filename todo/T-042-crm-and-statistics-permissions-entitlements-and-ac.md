@@ -42,4 +42,4 @@ Dependencies: Needs team invitations (members other than the owner).
 ## Log
 
 - 2026-10-24 — created from GitHub #38.
-- 2026-10-24 — roles, capabilities and CRM customer scope shipped as T-044 (M3b); entitlements, page scope, analytics permissions and the BA acceptance suite remain.
+- 2026-10-24 — roles, capabilities and CRM customer scope shipped as T-044 (M3b); entitlements, page scope, analytics permissions and the BA acceptance suite remain. Known gap: orders are not scoped by customer owner yet (Sales/CSKH see all orders) — orders are not linked to CRM customers yet; scope them when they are.

@@ -6,6 +6,7 @@ import {
   type InvitationDto,
   type InvitationPreview,
   type MemberDto,
+  roleCan,
 } from '@agent-sales/contracts';
 import { isUuid, newId, userId, type UserId, type WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable } from '@nestjs/common';
@@ -31,6 +32,12 @@ import {
   type InvitationRecord,
   type InvitationStore,
 } from './ports/invitation-store.js';
+
+/** `l***@shop.vn`: enough to recognise your own address, not to learn someone else's. */
+function maskEmail(email: string): string {
+  const [local = '', domain = ''] = email.split('@');
+  return `${local.slice(0, 1)}***@${domain}`;
+}
 
 /** The person acting: their user id and role in the workspace (from the guard). */
 export interface Actor {
@@ -61,15 +68,17 @@ export class TeamService implements TeamFacade {
     @Inject(IDENTITY_FACADE) private readonly identity: IdentityFacade,
   ) {}
 
+  /** Managers see emails and former members; everyone else sees active names and roles. */
   async listMembers(ws: WorkspaceId, actor: Actor): Promise<MemberDto[]> {
-    const members = await this.workspaces.listMembers(ws, { includeRemoved: true });
+    const manager = roleCan(actor.role, 'members.manage');
+    const members = await this.workspaces.listMembers(ws, { includeRemoved: manager });
     return Promise.all(
       members.map(async (m) => {
         const p = await this.identity.profile(m.userId);
         return {
           userId: m.userId,
           name: p?.name ?? '—',
-          email: p?.email ?? '',
+          email: manager || m.userId === actor.userId ? (p?.email ?? '') : '',
           role: m.role,
           status: m.status,
           joinedAt: m.joinedAt.toISOString(),
@@ -121,8 +130,7 @@ export class TeamService implements TeamFacade {
       revokedAt: null,
       createdAt: now,
     };
-    await this.invitations.revokePending(ws, email);
-    await this.invitations.insert(ws, record);
+    await this.invitations.replacePending(ws, record);
     return { invitation: toInvitationDto(record), token };
   }
 
@@ -138,12 +146,14 @@ export class TeamService implements TeamFacade {
       this.workspaces.getById(i.workspaceId as WorkspaceId),
       this.identity.profile(user),
     ]);
+    const emailMatches = profile?.email.toLowerCase() === i.email;
     return {
       workspaceName: workspace.name,
       role: i.role,
-      email: i.email,
+      // Someone else holding the link learns only a hint of the address.
+      email: emailMatches ? i.email : maskEmail(i.email),
       status: invitationStatus(i),
-      emailMatches: profile?.email.toLowerCase() === i.email,
+      emailMatches,
     };
   }
 
@@ -161,12 +171,27 @@ export class TeamService implements TeamFacade {
     if (status !== 'pending') throw new InvitationUnusableError(status);
     const profile = await this.identity.profile(user);
     if (profile?.email.toLowerCase() !== i.email) throw new InvitationEmailMismatchError();
+    await this.#assertInviterStillMay(ws, i);
+    // Claim the invitation first: a revoke or a second accept in between makes this fail.
+    if (!(await this.invitations.markAccepted(i.id, user, new Date()))) {
+      const now = await this.invitations.findByTokenHash(i.tokenHash);
+      if (now?.acceptedByUserId === user) return done;
+      throw new InvitationUnusableError(now ? invitationStatus(now) : 'revoked');
+    }
     await this.workspaces.joinMember(ws, user, i.role);
-    await this.invitations.markAccepted(i.id, user, new Date());
     return done;
   }
 
   // ─── helpers ──────────────────────────────────────────────────────────────
+
+  /** A link is only as good as its inviter: removed or demoted inviters' links stop working. */
+  async #assertInviterStillMay(ws: WorkspaceId, i: InvitationRecord): Promise<void> {
+    const inviter = (await this.workspaces.listMembers(ws)).find(
+      (m) => m.userId === i.invitedByUserId,
+    );
+    const may = inviter?.role === 'owner' || (inviter?.role === 'admin' && i.role !== 'admin');
+    if (!may) throw new InvitationUnusableError('inviter_changed');
+  }
 
   async #byToken(token: string): Promise<InvitationRecord> {
     const i = await this.invitations.findByTokenHash(hashInvitationToken(token));

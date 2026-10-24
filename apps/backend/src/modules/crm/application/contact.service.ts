@@ -74,7 +74,7 @@ export class ContactService implements CrmFacade {
       if (!(error instanceof DuplicateContactRequestError) || !requestId) throw error;
       return this.store.run(ws, async (tx) => {
         const first = await tx.contacts.findByRequestId(requestId);
-        if (!first) throw error;
+        if (!first || !canSee(first, viewer)) throw error;
         return this.#dto(tx, first);
       });
     }
@@ -92,9 +92,15 @@ export class ContactService implements CrmFacade {
     return this.store.run(ws, async (tx) => {
       if (clientRequestId) {
         const first = await tx.contacts.findByRequestId(clientRequestId);
-        if (first) return this.#dto(tx, first);
+        if (first && canSee(first, viewer)) return this.#dto(tx, first);
       }
       await assertChoosable(tx, fields, {});
+      // A scoped creator (Sales, CSKH) owns what they create, so they keep seeing it.
+      const me = scopeOf(viewer);
+      if (me && !fields.salesUserId && !fields.careUserId) {
+        if (viewer.role === 'care') fields.careUserId = me;
+        else fields.salesUserId = me;
+      }
       // No Sales given: the source's auto-assignment policy may pick one (T-033).
       const autoSales =
         !fields.salesUserId && fields.sourceId

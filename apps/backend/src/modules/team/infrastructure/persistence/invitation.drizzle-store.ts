@@ -34,18 +34,14 @@ export class DrizzleInvitationStore implements InvitationStore {
     );
   }
 
-  insert(ws: WorkspaceId, i: InvitationRecord) {
-    return withTenant(this.tenantDb, ws, async (tx) => {
-      await tx.insert(t).values({ ...i, workspaceId: ws });
-    });
-  }
-
-  revokePending(ws: WorkspaceId, email: string) {
+  replacePending(ws: WorkspaceId, i: InvitationRecord) {
     return withTenant(this.tenantDb, ws, async (tx) => {
       await tx
         .update(t)
         .set({ revokedAt: new Date() })
-        .where(and(eq(t.email, email), isNull(t.acceptedAt), isNull(t.revokedAt)));
+        .where(and(eq(t.email, i.email), isNull(t.acceptedAt), isNull(t.revokedAt)));
+      // A concurrent re-invite loses on the pending-unique index instead of leaving two links.
+      await tx.insert(t).values({ ...i, workspaceId: ws });
     });
   }
 

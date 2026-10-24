@@ -128,6 +128,8 @@ describe('team and access on Postgres', () => {
       workspaceName: 'Shop Chủ shop Lan',
       role: 'sales',
       emailMatches: false,
+      // Only a hint of the invited address.
+      email: 'b***@team.vn',
     });
     expect(
       (await call(mallory.auth, 'POST', '/invitation-links/accept', { token: created.token }))
@@ -168,7 +170,9 @@ describe('team and access on Postgres', () => {
 
     // Sales cannot manage members; the owner cannot be removed or demoted.
     const asBinh = binh.in(lan.ownWorkspace);
-    expect((await call(asBinh, 'GET', '/members')).statusCode).toBe(200);
+    const seen = MemberList.parse((await call(asBinh, 'GET', '/members')).json()).data;
+    expect(seen.find((m) => m.role === 'owner')?.email).toBe('');
+    expect(seen.find((m) => m.isYou)?.email).toBe('binh@team.vn');
     expect(
       (await call(asBinh, 'POST', '/invitations', { email: 'x@team.vn', role: 'sales' }))
         .statusCode,
@@ -237,7 +241,21 @@ describe('team and access on Postgres', () => {
     expect(
       (await call(asAdmin, 'PATCH', `/members/${sale.userId}`, { role: 'admin' })).statusCode,
     ).toBe(403);
+    // Links of a removed admin stop working.
+    const pending = CreatedInvitation.parse(
+      (
+        await call(other.in(lan.ownWorkspace), 'POST', '/invitations', {
+          email: 'late2@team.vn',
+          role: 'sales',
+        })
+      ).json(),
+    );
     expect((await call(lan.h, 'POST', `/members/${other.userId}/remove`)).statusCode).toBe(200);
+    const late = await user('late2@team.vn', 'Đến muộn');
+    expect(
+      (await call(late.auth, 'POST', '/invitation-links/accept', { token: pending.token }))
+        .statusCode,
+    ).toBe(409);
   });
 
   it('roles decide what members may do, and Sales see only their own and unassigned customers', async () => {
@@ -374,6 +392,18 @@ describe('team and access on Postgres', () => {
         })
       ).statusCode,
     ).toBe(400);
+    // Analysts do not sell: they cannot receive customers.
+    const analyst = await user('analyst4@team.vn', 'Phân tích');
+    await join(lan, analyst, 'analyst4@team.vn', 'analyst');
+    expect(
+      (
+        await call(lan.h, 'PUT', `/crm/assignment-policies/${facebook?.id}`, {
+          enabled: true,
+          candidates: [{ userId: analyst.userId, weight: 1 }],
+          expectedVersion: 1,
+        })
+      ).statusCode,
+    ).toBe(400);
     expect(
       (
         await call(binh.in(lan.ownWorkspace), 'PUT', `/crm/assignment-policies/${facebook?.id}`, {
@@ -407,6 +437,13 @@ describe('team and access on Postgres', () => {
       (await call(lan.h, 'POST', '/contacts', { name: 'Từ Zalo', sourceId: zalo?.id })).json(),
     );
     expect(other.salesUserId).toBeNull();
+
+    // A Sales member creating a customer owns it themselves (no hand-off to a colleague).
+    const own = await call(chi.in(lan.ownWorkspace), 'POST', '/contacts', {
+      name: 'Của Chi tạo',
+      sourceId: facebook?.id,
+    });
+    expect(ContactDto.parse(own.json()).salesUserId).toBe(chi.userId);
 
     // A removed member is skipped.
     await call(lan.h, 'POST', `/members/${chi.userId}/remove`);

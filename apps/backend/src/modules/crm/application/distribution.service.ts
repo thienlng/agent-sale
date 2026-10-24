@@ -11,6 +11,8 @@ import {
 import { pickCandidate } from '../domain/distribution.js';
 import { CRM_STORE, type CrmStore, type CrmTx } from './ports/crm-store.js';
 
+const SELLER_ROLES: ReadonlySet<string> = new Set(['owner', 'admin', 'sales']);
+
 /**
  * Per-source auto-assignment of new customers to Sales (SET-02, T-033): a
  * weighted round robin whose cursor lives on the policy row, which is locked
@@ -43,9 +45,14 @@ export class DistributionService {
 
   async put(ws: WorkspaceId, sourceId: string, raw: unknown): Promise<AssignmentPolicyDto> {
     const input = PutAssignmentPolicyRequest.parse(raw);
-    const members = new Set((await this.workspaces.listMembers(ws)).map((m) => String(m.userId)));
+    // Only people who sell can receive customers.
+    const sellers = new Set(
+      (await this.workspaces.listMembers(ws))
+        .filter((m) => SELLER_ROLES.has(m.role))
+        .map((m) => String(m.userId)),
+    );
     for (const c of input.candidates) {
-      if (!members.has(c.userId)) throw new NotAMemberError('sales', c.userId);
+      if (!sellers.has(c.userId)) throw new NotAMemberError('sales', c.userId);
     }
     return this.store.run(ws, async (tx) => {
       if (!isUuid(sourceId) || !(await tx.options.find('source', sourceId))) {
@@ -71,7 +78,11 @@ export class DistributionService {
   async pick(tx: CrmTx, ws: WorkspaceId, sourceId: string): Promise<string | null> {
     const policy = await tx.policies.find(sourceId, { forUpdate: true });
     if (!policy?.enabled) return null;
-    const active = new Set((await this.workspaces.listMembers(ws)).map((m) => String(m.userId)));
+    const active = new Set(
+      (await this.workspaces.listMembers(ws))
+        .filter((m) => SELLER_ROLES.has(m.role))
+        .map((m) => String(m.userId)),
+    );
     const candidates = policy.candidates.filter((c) => active.has(c.userId));
     const chosen = pickCandidate(candidates, policy.cursor);
     if (chosen) await tx.policies.advance(sourceId);

@@ -8,7 +8,7 @@ Milestone **M3b-team-access** — branch `feat/T-043-m3b-team-access`: T-043, T-
 
 ## Next
 
-(none)
+- [ ] T-045 Email verification at signup (ACC-01) and verified-email invitations — @unassigned · [details](todo/T-045-email-verification-at-signup-acc-01-and-verified-e.md)
 
 ## Backlog
 

@@ -1,13 +1,14 @@
 -- 0007_team_access: invitation links, member removal and roles, and per-source
 -- auto-assignment policies for new customers (docs/02 SET-01, SET-02; T-043, T-044, T-033).
 
--- Roles become owner | admin | sales | care | analyst; older names map to the closest one.
-update members set role = 'admin' where role in ('sales_manager');
-update members set role = 'sales' where role in ('sale');
+-- Roles become owner | admin | sales | care | analyst; older names map to the least
+-- privileged fitting role (an owner can promote later). Statuses become active | removed.
+update members set role = 'sales' where role in ('sales_manager', 'sale');
 update members set role = 'analyst' where role in ('bot_editor', 'accountant');
 
 alter table members add column if not exists removed_at timestamptz;
-create unique index if not exists members_workspace_user_unique on members (workspace_id, user_id);
+update members set status = 'removed', removed_at = coalesce(removed_at, now())
+  where status not in ('active', 'removed');
 
 -- One row per invitation. Only a SHA-256 hash of the link secret is stored.
 create table if not exists invitations (
@@ -26,6 +27,9 @@ create table if not exists invitations (
 );
 create unique index if not exists invitations_token_unique on invitations (token_hash);
 create index if not exists invitations_workspace_idx on invitations (workspace_id, created_at desc);
+-- At most one usable invitation per email and workspace.
+create unique index if not exists invitations_pending_unique on invitations (workspace_id, lower(email))
+  where accepted_at is null and revoked_at is null;
 
 -- Weighted round robin per source: `cursor` counts the customers handed out so far.
 create table if not exists crm_assignment_policies (
