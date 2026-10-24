@@ -396,6 +396,13 @@ describe('sales-agent prompt and handoff reply', () => {
     expect(system).toContain('never start with a greeting');
     expect(system).toContain('Answer every question in the last <customer> block');
     expect(system).toContain('Promise no follow-up');
+    expect(system).toContain(
+      'Answer each question the blocks can answer, even when another one cannot',
+    );
+    expect(system).toContain('the "unknown" fallback is only for when none can be answered');
+    expect(system).toContain('State only facts that appear in the blocks');
+    expect(system).toContain('Never add inferred conclusions');
+    expect(system).toContain('never announce that you are about to answer');
     expect(system).toContain('use outcome "handoff" and let "reply" confirm it');
     expect(system).toContain('language other than Vietnamese');
     expect(system).not.toMatch(/\{\{[^}]+\}\}/);
