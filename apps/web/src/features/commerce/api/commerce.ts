@@ -209,3 +209,45 @@ export function useSaveOrderSettings() {
     onSuccess: (s) => qc.setQueryData(queryKeys.orderSettings(ws), s),
   });
 }
+
+/**
+ * Moves several orders to one status, one request each (every order keeps its
+ * own stock and history rules). Resolves with how many succeeded.
+ */
+export function useBulkChangeStatus() {
+  const ws = useWorkspaceId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ ids, body }: { ids: string[]; body: ChangeOrderStatusRequest }) => {
+      let ok = 0;
+      for (const id of ids) {
+        try {
+          await api(`/orders/${id}/status`, OrderDto, { method: 'POST', body });
+          ok += 1;
+        } catch {
+          // Counted as failed; e.g. cancelling an order whose goods already left.
+        }
+      }
+      return { ok, total: ids.length };
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.orders(ws) });
+      void qc.invalidateQueries({ queryKey: queryKeys.products(ws) });
+      void qc.invalidateQueries({ queryKey: queryKeys.variants(ws) });
+    },
+  });
+}
+
+/** Every order matching the filter (100 per request, up to 5,000) for the CSV export. */
+export async function fetchAllOrders(query: Omit<OrderListQuery, 'page' | 'pageSize'>) {
+  const rows = [];
+  for (let page = 1; page <= 50; page += 1) {
+    const res = await api(
+      withQuery('/orders', { ...query, page, pageSize: 100 }),
+      OrderListResponse,
+    );
+    rows.push(...res.data);
+    if (page * 100 >= res.total) break;
+  }
+  return rows;
+}

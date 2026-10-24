@@ -388,13 +388,19 @@
       "createdBy": "Người tạo",
       "placedAt": "Tạo lúc",
       "status": "Trạng thái",
-      "tracking": "Mã vận đơn"
+      "tracking": "Mã vận đơn",
+      "carrier": "ĐVVC",
+      "subtotal": "Tiền hàng",
+      "shipping": "Phí VC thu khách",
+      "paid": "Đã thanh toán",
+      "note": "Ghi chú"
     },
     "footer": {
       "qty": "SL sản phẩm",
       "shipping": "Phí VC thu khách",
       "cod": "COD",
-      "total": "Tổng tiền"
+      "total": "Tổng tiền",
+      "label": "Tổng"
     },
     "empty": "Chưa có đơn hàng nào phù hợp với bộ lọc.",
     "emptyStart": "Chưa có đơn hàng nào. Tạo đơn đầu tiên để bắt đầu theo dõi doanh thu.",
@@ -402,7 +408,40 @@
     "more_items": "+{{count}} sản phẩm khác",
     "unavailable": "Đơn hàng cần cơ sở dữ liệu. Liên hệ quản trị hệ thống.",
     "prevPage": "Trang trước",
-    "nextPage": "Trang sau"
+    "nextPage": "Trang sau",
+    "summary": "{{count}} đơn · tổng {{total}}",
+    "filters": {
+      "status": "Trạng thái",
+      "allStatuses": "Mọi trạng thái",
+      "sort": "Sắp xếp",
+      "columns": "Cột",
+      "resetColumns": "Cột mặc định",
+      "export": "Xuất Excel",
+      "exporting": "Đang xuất…",
+      "exported": "Đã xuất {{count}} đơn",
+      "remove": "Bỏ lọc {{name}}",
+      "clear": "Xoá bộ lọc"
+    },
+    "bulk": {
+      "selected": "Đã chọn {{count}} đơn",
+      "changeStatus": "Đổi trạng thái",
+      "clear": "Bỏ chọn",
+      "title": "Đổi trạng thái {{count}} đơn",
+      "pick": "Chọn trạng thái",
+      "apply": "Cập nhật {{count}} đơn",
+      "done": "Đã cập nhật {{ok}}/{{total}} đơn",
+      "selectPage": "Chọn tất cả đơn trên trang",
+      "selectRow": "Chọn đơn {{code}}"
+    },
+    "row": {
+      "menu": "Thao tác với đơn {{code}}",
+      "view": "Xem chi tiết",
+      "copy": "Sao chép mã đơn",
+      "copied": "Đã sao chép mã đơn"
+    },
+    "perPage": "{{count}} / trang",
+    "perPageLabel": "Số đơn mỗi trang",
+    "pagination": "Phân trang"
   },
   "orderForm": {
     "title": "Tạo đơn hàng mới",

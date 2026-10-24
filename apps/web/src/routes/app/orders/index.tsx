@@ -16,6 +16,12 @@ const Search = z.object({
     .optional()
     .catch(undefined),
   page: z.coerce.number().int().min(1).optional().catch(undefined),
+  pageSize: z.coerce
+    .number()
+    .int()
+    .pipe(z.union([z.literal(20), z.literal(50), z.literal(100)]))
+    .optional()
+    .catch(undefined),
 });
 
 export const Route = createFileRoute('/app/orders/')({

@@ -388,13 +388,19 @@
       "createdBy": "Created by",
       "placedAt": "Created",
       "status": "Status",
-      "tracking": "Tracking code"
+      "tracking": "Tracking code",
+      "carrier": "Carrier",
+      "subtotal": "Goods",
+      "shipping": "Shipping charged",
+      "paid": "Paid",
+      "note": "Note"
     },
     "footer": {
       "qty": "Product qty",
       "shipping": "Shipping charged",
       "cod": "COD",
-      "total": "Total"
+      "total": "Total",
+      "label": "Total"
     },
     "empty": "No orders match the filters.",
     "emptyStart": "No orders yet. Create the first one to start tracking sales.",
@@ -402,7 +408,40 @@
     "more_items": "+{{count}} more products",
     "unavailable": "Orders need a database. Contact the platform admin.",
     "prevPage": "Previous page",
-    "nextPage": "Next page"
+    "nextPage": "Next page",
+    "summary": "{{count}} orders · total {{total}}",
+    "filters": {
+      "status": "Status",
+      "allStatuses": "All statuses",
+      "sort": "Sort",
+      "columns": "Columns",
+      "resetColumns": "Default columns",
+      "export": "Export to Excel",
+      "exporting": "Exporting…",
+      "exported": "Exported {{count}} orders",
+      "remove": "Remove filter {{name}}",
+      "clear": "Clear filters"
+    },
+    "bulk": {
+      "selected": "{{count}} orders selected",
+      "changeStatus": "Change status",
+      "clear": "Clear selection",
+      "title": "Change status of {{count}} orders",
+      "pick": "Pick a status",
+      "apply": "Update {{count}} orders",
+      "done": "Updated {{ok}} of {{total}} orders",
+      "selectPage": "Select all orders on this page",
+      "selectRow": "Select order {{code}}"
+    },
+    "row": {
+      "menu": "Actions for order {{code}}",
+      "view": "View details",
+      "copy": "Copy order code",
+      "copied": "Order code copied"
+    },
+    "perPage": "{{count}} / page",
+    "perPageLabel": "Orders per page",
+    "pagination": "Pagination"
   },
   "orderForm": {
     "title": "New order",

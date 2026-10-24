@@ -87,7 +87,7 @@ function OrdersNav() {
                   <Link
                     to={to}
                     // The list must not light up on /app/orders/new or /overview.
-                    activeOptions={{ exact: to === '/app/orders' }}
+                    activeOptions={{ exact: to === '/app/orders', includeSearch: false }}
                     activeProps={{ 'data-active': true }}
                     onClick={() => isMobile && setOpenMobile(false)}
                   >
