@@ -17,6 +17,7 @@ Milestone **M2-bot-playground** — branch `feat/T-015-m2-bot-playground`: T-015
 - [ ] T-007 Add packages/ai-core LLM gateway skeleton with eval runner — @unassigned · [details](todo/T-007-ai-core-skeleton.md)
 - [ ] T-008 Add deploy workflows (dev/staging) and environment docs — @unassigned · [details](todo/T-008-deploy-workflows.md)
 - [ ] T-011 Add Claude Code hooks: eslint --fix after edits and pnpm check on stop — @unassigned · [details](todo/T-011-add-claude-code-hooks-eslint-fix-after-edits-and-p.md)
+- [ ] T-019 Orders and products web: overview, order list, create order, order detail, products, warehouses, order settings — @unassigned · [details](todo/T-019-orders-and-products-web-overview-order-list-create.md)
 
 ## Blocked
 
@@ -24,6 +25,7 @@ Milestone **M2-bot-playground** — branch `feat/T-015-m2-bot-playground`: T-015
 
 ## Done (last 10 — older ones live in todo/done/)
 
+- [x] T-018 Commerce backend: products, variants, warehouses, inventory, orders, statuses, overview — @agent:claude · [details](todo/done/T-018-commerce-backend-products-variants-warehouses-inve.md) · M2 PR
 - [x] T-017 Dashboard layout system: shadcn sidebar, user UI preferences, responsive guard — @agent:claude · [details](todo/done/T-017-dashboard-layout-system-shadcn-sidebar-user-ui-pre.md) · M2 PR
 - [x] T-005 Web dashboard: auth, bots, FAQ, settings, test chat, admin LLM settings — @agent:claude · [details](todo/done/T-005-scaffold-web.md) · M2 PR
 - [x] T-016 AI playground, LLM providers (Anthropic + OpenAI-compatible) and admin-managed tier routing — @agent:claude · [details](todo/done/T-016-ai-playground-llm-providers-faq-retrieval-grounded.md) · M2 PR

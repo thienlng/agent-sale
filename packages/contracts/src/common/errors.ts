@@ -14,6 +14,7 @@ export const ErrorCode = z.enum([
   'FEATURE_LOCKED',
   'RATE_LIMITED',
   'AI_UNAVAILABLE',
+  'UNAVAILABLE',
   'INTERNAL',
 ]);
 export type ErrorCode = z.infer<typeof ErrorCode>;

@@ -11,6 +11,7 @@ const STATUS: Record<ErrorCode, number> = {
   FEATURE_LOCKED: 402,
   RATE_LIMITED: 429,
   AI_UNAVAILABLE: 503,
+  UNAVAILABLE: 503,
   INTERNAL: 500,
 };
 

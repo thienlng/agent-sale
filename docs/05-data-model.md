@@ -192,6 +192,10 @@ free_shipping     ⇒ shipping_fee_charged = 0 (shop absorbs shipping_fee)
 profit (statistics) = Σ(unit_price − cost) × qty − discount_amount − (shipping_fee − shipping_fee_charged)
 ```
 
+**Implemented (M2, migration 0004):** money columns are `bigint` VND; `orders.stock_state` (`reserved | shipped | released | returned`) records where the goods are, and every inventory change appends to `inventory_movements` (rules in `apps/backend/src/modules/commerce/MODULE.md`). Order codes come from `order_counters` (`DH000001`…). `orders.search_text` and `products.search_text` hold folded text (trigram-indexed) for accent-insensitive search. Names of who created/changed an order are snapshotted (`created_by_name`, `order_status_history.actor_name`). Not yet: `admin_units` (addresses are free text), carriers/shipments, `shipping_settings`, sources as entities (`orders.source` is an enum).
+
+**Overview definitions (ORD-11)**, per local day in the workspace time zone: sales = Σ total of orders not cancelled; closed orders = statuses confirmed → delivered (`CLOSED_ORDER_STATUSES`); revenue = Σ total of closed orders; profit = Σ profit of closed orders; returned = orders returning/returned.
+
 ## 7. Marketing & automation
 
 ```sql

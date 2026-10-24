@@ -5,6 +5,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { DB_SYSTEM } from '../../common/db/db.module.js';
 import { getEnv } from '../../common/config.js';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
+import { IDENTITY_FACADE } from './api/identity.facade.js';
 import {
   AccountQueries,
   LoginHandler,
@@ -71,6 +72,8 @@ import { AuthGuard } from './interface/http/auth.guard.js';
       },
     },
     { provide: APP_GUARD, useClass: AuthGuard },
+    { provide: IDENTITY_FACADE, useExisting: AccountQueries },
   ],
+  exports: [IDENTITY_FACADE],
 })
 export class IdentityModule {}
