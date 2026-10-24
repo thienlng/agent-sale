@@ -61,6 +61,37 @@ export class ConversationFacadeImpl implements ConversationFacade {
       messages: await tx.messages(id),
     }));
   }
+  /**
+   * The bot passes the conversation to staff (upset customer, a phone number, unreadable media).
+   * Unlike a manual takeover it comes back to the bot by itself after the bot's takeover window
+   * (the next customer message after it), unless the bot is set to never resume automatically.
+   */
+  async handOff(ws: WorkspaceId, id: string, actorId: string): Promise<ConversationDto> {
+    const channelId = await this.store.run(
+      ws,
+      async (tx) => (await requireConversation(tx, id)).channelId,
+    );
+    const bot = await this.channelBot(ws, channelId);
+    return this.store.run(ws, async (tx) => {
+      const c = await requireConversation(tx, id);
+      const updated = {
+        ...c,
+        mode: 'human' as const,
+        autoResumeAt: this.resumeAt(bot),
+        revision: c.revision + 1,
+        updatedAt: now(),
+      };
+      await tx.save(updated);
+      await tx.audit(id, 'conversation.control.updated.v1', {
+        actorId,
+        mode: updated.mode,
+        status: updated.status,
+        assigneeId: updated.assigneeId,
+        revision: updated.revision,
+      });
+      return updated;
+    });
+  }
   async update(ws: WorkspaceId, id: string, input: UpdateConversationRequest, actorId: string) {
     if (input.mode === 'bot') {
       // Resolve the cross-module read before opening the write transaction (see reserveAndDeliver).

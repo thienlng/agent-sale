@@ -23,6 +23,8 @@ export interface ConversationFacade {
     input: UpdateConversationRequest,
     actorId: string,
   ): Promise<ConversationDto>;
+  /** Bot-initiated hand-over to staff; resumes the bot automatically after the takeover window. */
+  handOff(ws: WorkspaceId, id: string, actorId: string): Promise<ConversationDto>;
   receive(ws: WorkspaceId, channelId: string, event: NormalizedEvent): Promise<ConversationDto>;
   getReplyContext(
     ws: WorkspaceId,

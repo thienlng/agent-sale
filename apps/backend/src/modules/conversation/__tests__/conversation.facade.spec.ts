@@ -239,6 +239,21 @@ describe('ConversationFacade tenant and delivery contract', () => {
     vi.advanceTimersByTime(2 * 60000);
     expect((await service.receive(ws, channelId, event('in3'))).mode).toBe('bot');
   });
+  it('a bot hand-over resumes the bot by itself after the takeover window', async () => {
+    const c = await service.receive(ws, channelId, event());
+    expect((await service.handOff(ws, c.id, 'system')).mode).toBe('human');
+    vi.advanceTimersByTime(4 * 60000);
+    expect((await service.receive(ws, channelId, event('in2'))).mode).toBe('human');
+    vi.advanceTimersByTime(2 * 60000);
+    expect((await service.receive(ws, channelId, event('in3'))).mode).toBe('bot');
+  });
+  it('a bot hand-over stays with staff when the bot never resumes automatically', async () => {
+    bot.autoResumeAfterManual = false;
+    const c = await service.receive(ws, channelId, event());
+    await service.handOff(ws, c.id, 'system');
+    vi.advanceTimersByTime(3600000);
+    expect((await service.receive(ws, channelId, event('in2'))).mode).toBe('human');
+  });
   it('honors indefinite manual pauses and the external-reply silence setting', async () => {
     bot.autoResumeAfterManual = false;
     const c = await service.receive(ws, channelId, event());

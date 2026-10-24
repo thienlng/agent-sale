@@ -105,7 +105,7 @@ export class MetaInboxProcessor {
   /** The last retry failed: give the customer a human instead of silently dropping the message. */
   private async handOver(job: PendingMetaEvent, conversationId: string): Promise<void> {
     try {
-      await this.inbox.update(job.workspaceId, conversationId, { mode: 'human' }, 'system');
+      await this.inbox.handOff(job.workspaceId, conversationId, 'system');
       await this.channels.completeEvent(job.id, job.claimToken);
     } catch {
       this.logger.error(`Meta inbox handover after final retry failed for event ${job.id}`);
@@ -209,8 +209,7 @@ export class MetaInboxProcessor {
         text: handoffText(bot),
         idempotencyKey: key,
       });
-      if (result)
-        await this.inbox.update(job.workspaceId, c.id, { mode: 'human' }, c.assigneeId ?? 'system');
+      if (result) await this.inbox.handOff(job.workspaceId, c.id, c.assigneeId ?? 'system');
       return;
     }
     // One customer turn per burst: every question after the last reply reaches the model together.
@@ -267,7 +266,7 @@ export class MetaInboxProcessor {
         `Meta inbox event ${job.id}: a bubble was not delivered (${result.status}), the answer is incomplete`,
       );
     if (result && response.outcome === 'handoff')
-      await this.inbox.update(job.workspaceId, c.id, { mode: 'human' }, c.assigneeId ?? 'system');
+      await this.inbox.handOff(job.workspaceId, c.id, c.assigneeId ?? 'system');
     if (result?.status === 'sent' && response.outcome === 'answered')
       await this.sendImages(job, c.id, response.images ?? []);
   }
