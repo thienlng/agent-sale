@@ -18,6 +18,7 @@ function job(
   text: string,
   at: number,
   attempt = 1,
+  attachments: NormalizedEvent['attachments'] = undefined,
 ): PendingMetaEvent {
   const event: NormalizedEvent = {
     kind: 'facebook',
@@ -28,6 +29,7 @@ function job(
     type,
     occurredAt: new Date(at),
     text,
+    ...(attachments ? { attachments } : {}),
     raw: {},
   };
   return {
@@ -40,7 +42,15 @@ function job(
   };
 }
 function setup() {
-  const bot = { id: botId, isActive: true, silenceOnExternalReply: true } as BotView;
+  const bot = {
+    id: botId,
+    isActive: true,
+    silenceOnExternalReply: true,
+    handoffMessage: 'Staff will help you',
+    language: 'vi',
+    selfPronoun: 'em',
+    customerPronoun: 'anh/chị',
+  } as BotView;
   let sent = 0;
   const channels = {
     getConnection: vi.fn(async () => ({
@@ -114,6 +124,110 @@ describe('MetaInboxProcessor', () => {
     ]);
     await processor.tick();
     expect(channels.deliver).toHaveBeenCalledTimes(1);
+  });
+
+  it('answers a parallel burst whose Meta timestamps disagree with arrival order', async () => {
+    const { channels, ai, processor } = setup();
+    const t0 = Date.now();
+    // Claim (arrival) order is a, b, c; Meta stamped them c, a, b.
+    vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+      job('a', 'message', 'Shop ơi', t0 - 2000),
+      job('b', 'message', 'mua giày', t0 - 3000),
+      job('c', 'message', 'size 41 giá bao nhiêu', t0 - 1000 - 5000),
+    ]);
+    await processor.tick();
+    expect(channels.deliver).toHaveBeenCalledTimes(1);
+    expect(ai.reply.mock.calls[0]?.[2].messages.map((m: { content: string }) => m.content)).toEqual(
+      ['Shop ơi', 'mua giày', 'size 41 giá bao nhiêu'],
+    );
+  });
+  it('orders messages received within the same millisecond by arrival', async () => {
+    const { channels, ai, processor } = setup();
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(new Date('2026-10-24T03:00:00Z'));
+      const t0 = Date.now();
+      vi.mocked(channels.claimEvents).mockResolvedValueOnce(
+        ['a', 'b', 'c', 'd', 'e', 'f'].map((k) => job(`x${k}`, 'message', k, t0 - 100)),
+      );
+      await processor.tick();
+      expect(channels.deliver).toHaveBeenCalledTimes(1);
+      expect(ai.reply.mock.calls[0]?.[2].messages.at(-1).content).toBe('f');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it('shows the model a late burst after the earlier reply, newest customer turn last', async () => {
+    const { channels, ai, processor } = setup();
+    const t0 = Date.now();
+    // Claim debounce: the first message is answered alone, the rest are claimed in the next tick.
+    vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+      job('m1', 'message', 'Chào shop', t0 - 9000),
+    ]);
+    await processor.tick();
+    vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+      job('m2', 'message', 'mình muốn mua giày da', t0 - 7800),
+      job('m3', 'message', 'Oxford size 41 giá bao nhiêu?', t0 - 6600),
+      job('sent1', 'echo', 're: Chào shop', t0 - 1000),
+    ]);
+    await processor.tick();
+    expect(channels.deliver).toHaveBeenCalledTimes(2);
+    expect(ai.reply.mock.calls[1]?.[2].messages).toEqual([
+      { role: 'customer', content: 'Chào shop' },
+      { role: 'bot', content: 're: Chào shop' },
+      { role: 'customer', content: 'mình muốn mua giày da' },
+      { role: 'customer', content: 'Oxford size 41 giá bao nhiêu?' },
+    ]);
+  });
+  it('hands an attachment-only message to staff with the handoff message', async () => {
+    const { channels, ai, inbox, processor } = setup();
+    vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+      job('img', 'message', '', Date.now(), 1, [
+        { type: 'image', url: 'https://cdn.example/a.jpg' },
+      ]),
+    ]);
+    await processor.tick();
+    expect(ai.reply).not.toHaveBeenCalled();
+    expect(channels.deliver).toHaveBeenCalledTimes(1);
+    expect(channels.deliver).toHaveBeenCalledWith(
+      ws,
+      channelId,
+      'customer',
+      { text: 'Staff will help you' },
+      'bot:img',
+    );
+    const [c] = (await inbox.list(ws, { limit: 10 } as never)).data;
+    expect(c?.mode).toBe('human');
+    expect(channels.completeEvent).toHaveBeenCalled();
+  });
+  it('tells the model when a text message came with an image', async () => {
+    const { channels, ai, processor } = setup();
+    vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+      job('it', 'message', 'Mình muốn mua đôi giống này', Date.now(), 1, [
+        { type: 'image', url: 'https://cdn.example/a.jpg' },
+      ]),
+    ]);
+    await processor.tick();
+    const last = ai.reply.mock.calls[0]?.[2].messages.at(-1);
+    expect(last.role).toBe('customer');
+    expect(last.content).toContain('Mình muốn mua đôi giống này');
+    expect(last.content).toContain('Khách đã gửi kèm 1 ảnh');
+  });
+  it('answers the text of a burst that ends with an image and notes the image', async () => {
+    const { channels, ai, processor } = setup();
+    const t0 = Date.now();
+    vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+      job('t1', 'message', 'giày này còn không?', t0 - 2000),
+      job('t2', 'message', '', t0 - 1000, 1, [{ type: 'image', url: 'https://cdn.example/a.jpg' }]),
+    ]);
+    await processor.tick();
+    expect(channels.deliver).toHaveBeenCalledTimes(1);
+    expect(ai.reply).toHaveBeenCalledTimes(1);
+    const contents = ai.reply.mock.calls[0]?.[2].messages.map(
+      (m: { content: string }) => m.content,
+    );
+    expect(contents[0]).toBe('giày này còn không?');
+    expect(contents[1]).toContain('Khách đã gửi kèm 1 ảnh');
   });
   it('hands the conversation to staff when the final retry fails', async () => {
     const { channels, ai, inbox, processor } = setup();

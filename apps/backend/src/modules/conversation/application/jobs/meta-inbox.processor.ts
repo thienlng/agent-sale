@@ -1,3 +1,4 @@
+import type { NormalizedEvent } from '@agent-sales/channels';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   CHANNEL_FACADE,
@@ -6,8 +7,37 @@ import {
   type PendingMetaEvent,
 } from '../../../channel/api/index.js';
 import { AI_FACADE, type AiFacade } from '../../../ai/api/index.js';
-import { BOT_FACADE, type BotFacade, withinReplySchedule } from '../../../bot/api/index.js';
+import {
+  BOT_FACADE,
+  type BotFacade,
+  type BotView,
+  withinReplySchedule,
+} from '../../../bot/api/index.js';
 import { CONVERSATION_FACADE, type ConversationFacade } from '../../api/conversation.facade.js';
+const isCustomerContent = (e: NormalizedEvent): boolean =>
+  e.type === 'message' && Boolean(e.text?.trim() || e.attachments?.length);
+
+function handoffText(bot: BotView): string {
+  return (
+    bot.handoffMessage.trim() ||
+    (bot.language === 'en'
+      ? "I've passed your conversation to our staff. They'll reply shortly."
+      : `Dạ, ${bot.selfPronoun} đã chuyển cho nhân viên hỗ trợ, ${bot.customerPronoun} đợi một chút ạ.`)
+  );
+}
+
+/** The model cannot open media, so the customer turn says so instead of silently dropping it. */
+function withAttachmentNote(text: string, attachments: readonly { type: string }[]): string {
+  if (!attachments.length) return text;
+  const images = attachments.filter((a) => a.type === 'image').length;
+  const others = attachments.length - images;
+  const notes = [images && `${images} ảnh`, others && `${others} tệp đính kèm`].filter(Boolean);
+  const hint = images
+    ? 'bạn không xem được hình ảnh, hãy nói rõ và nhờ khách mô tả hoặc nhân viên sẽ xem'
+    : 'bạn không mở được tệp, hãy nói rõ và nhờ khách mô tả hoặc nhân viên sẽ xem';
+  return `${text}\n[Khách đã gửi kèm ${notes.join(' và ')} — ${hint}]`.trim();
+}
+
 /** Invoked exclusively by the agent entry; API never starts background inference. */
 @Injectable()
 export class MetaInboxProcessor {
@@ -43,10 +73,10 @@ export class MetaInboxProcessor {
       }
     }
     for (const { conversationId, jobs: group } of groups.values()) {
-      group.sort((a, b) => a.event.occurredAt.getTime() - b.event.occurredAt.getTime());
-      // Answer the newest customer text: a trailing echo or attachment-only event must not swallow it.
-      const latest =
-        group.findLast((j) => j.event.type === 'message' && j.event.text?.trim()) ?? group.at(-1);
+      // `group` is in claim order (= receipt order), which is also the order `receive` stored the
+      // messages in. Meta timestamps are never used to pick the newest: they can disagree with arrival.
+      // The newest customer message answers for the burst; a trailing echo must not swallow it.
+      const latest = group.findLast((j) => isCustomerContent(j.event)) ?? group.at(-1);
       if (!latest) continue;
       for (const job of group)
         if (job !== latest) await this.channels.completeEvent(job.id, job.claimToken);
@@ -88,39 +118,56 @@ export class MetaInboxProcessor {
   }
   async process(job: PendingMetaEvent): Promise<void> {
     const c = await this.inbox.receive(job.workspaceId, job.connectionId, job.event);
-    if (job.event.type !== 'message' || !job.event.text || c.mode !== 'bot' || c.status !== 'open')
-      return;
+    if (job.event.type !== 'message' || !isCustomerContent(job.event))
+      return this.skip(job, 'not a customer message');
+    if (c.mode !== 'bot' || c.status !== 'open') return this.skip(job, 'conversation not on bot');
     const channel = await this.channels.getConnection(job.workspaceId, job.connectionId);
     // Re-auth pending: the message is stored for staff, but the bot cannot send.
-    if (!channel.botId || channel.status !== 'connected') return;
+    if (!channel.botId || channel.status !== 'connected')
+      return this.skip(job, 'no bot or connection not connected');
     const bot = await this.bots.getBot(job.workspaceId, channel.botId);
-    if (!bot.isActive) return;
+    if (!bot.isActive) return this.skip(job, 'bot inactive');
     // Outside the bot's reply hours the message stays in the inbox for staff.
-    if (bot.replySchedule && !withinReplySchedule(bot.replySchedule, new Date())) return;
+    if (bot.replySchedule && !withinReplySchedule(bot.replySchedule, new Date()))
+      return this.skip(job, 'outside reply hours');
     const context = await this.inbox.getReplyContext(job.workspaceId, c.id);
-    // Ids are UUIDv7, so they order messages by when we stored them rather than by Meta timestamps.
-    // An inbound stored after our last reply is still unanswered, even if the customer sent it earlier.
+    // Ids are monotonic (see nextMessageId), so they order messages by when we stored them rather
+    // than by Meta timestamps or the store's createdAt order. This is the single notion of "arrival".
     const stored = [...context.messages]
       .filter((m) => m.status !== 'failed')
       .sort((a, b) => (a.id < b.id ? -1 : 1));
-    const latestText = stored.findLast((m) => m.direction === 'inbound' && m.text.trim());
+    const newest = stored.findLast(
+      (m) => m.direction === 'inbound' && (m.text.trim() || m.attachments.length),
+    );
     if (
       stored.at(-1)?.direction !== 'inbound' ||
-      latestText?.externalId !== job.event.externalMessageId
+      newest?.externalId !== (job.event.externalMessageId ?? job.event.externalEventId)
     )
+      return this.skip(job, 'a newer message will answer for this one');
+    if (context.conversation.mode !== 'bot' || context.conversation.status !== 'open')
+      return this.skip(job, 'conversation control changed');
+    const key = `bot:${job.event.externalEventId}`;
+    const lastReply = stored.findLastIndex((m) => m.direction === 'outbound');
+    const pending = stored.slice(lastReply + 1);
+    if (!pending.some((m) => m.direction === 'inbound' && m.text.trim())) {
+      // Only media after the last reply: the model cannot see it, so staff take over.
+      const result = await this.inbox.commitBotReply(job.workspaceId, c.id, {
+        revision: context.revision,
+        text: handoffText(bot),
+        idempotencyKey: key,
+      });
+      if (result)
+        await this.inbox.update(job.workspaceId, c.id, { mode: 'human' }, c.assigneeId ?? 'system');
       return;
-    if (context.conversation.mode !== 'bot' || context.conversation.status !== 'open') return;
-    const messages = context.messages
-      // Media-only turns stay in context as a marker so the model knows the customer sent something.
-      .map((m) =>
-        m.text.trim() || !m.attachments[0] ? m : { ...m, text: `[${m.attachments[0].type}]` },
-      )
-      .filter((m) => m.text.trim() && (m.direction === 'inbound' || m.status === 'sent'))
-      .slice(-20)
+    }
+    const messages = stored
+      .filter((m) => m.direction === 'inbound' || m.status === 'sent')
       .map((m) => ({
         role: m.sender === 'customer' ? ('customer' as const) : ('bot' as const),
-        content: m.text.slice(0, 2000),
-      }));
+        content: withAttachmentNote(m.text, m.attachments).slice(0, 2000),
+      }))
+      .filter((m) => m.content.trim())
+      .slice(-20);
     const response = await this.ai.reply(
       job.workspaceId,
       channel.botId,
@@ -130,9 +177,14 @@ export class MetaInboxProcessor {
     const result = await this.inbox.commitBotReply(job.workspaceId, c.id, {
       revision: context.revision,
       text: response.reply.slice(0, 2000),
-      idempotencyKey: `bot:${job.event.externalEventId}`,
+      idempotencyKey: key,
     });
     if (result && response.outcome === 'handoff')
       await this.inbox.update(job.workspaceId, c.id, { mode: 'human' }, c.assigneeId ?? 'system');
+  }
+
+  /** A customer message with nothing to answer is never silent: the reason is logged. */
+  private skip(job: PendingMetaEvent, reason: string): void {
+    this.logger.log(`Meta inbox event ${job.id} not answered by the bot: ${reason}`);
   }
 }

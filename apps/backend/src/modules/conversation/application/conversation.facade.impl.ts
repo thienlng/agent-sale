@@ -16,6 +16,7 @@ import {
 } from '../../channel/api/index.js';
 import type { ConversationFacade } from '../api/conversation.facade.js';
 import { ConversationError } from '../domain/conversation.errors.js';
+import { nextMessageId } from '../domain/message-id.js';
 import {
   CONVERSATION_STORE,
   type ConversationStore,
@@ -180,7 +181,7 @@ export class ConversationFacadeImpl implements ConversationFacade {
       await tx.save(c);
       await tx.saveMessage(
         {
-          id: newId(),
+          id: nextMessageId(),
           conversationId: c.id,
           direction: event.type === 'echo' ? 'outbound' : 'inbound',
           sender: event.type === 'echo' ? 'human' : 'customer',
@@ -296,7 +297,7 @@ export class ConversationFacadeImpl implements ConversationFacade {
         updatedAt: now(),
       };
       const message: InboxMessageDto = {
-        id: newId(),
+        id: nextMessageId(),
         conversationId: id,
         direction: 'outbound',
         sender: actorId ? 'human' : 'bot',
