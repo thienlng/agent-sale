@@ -9,6 +9,7 @@
 **Events consumed:** none. Uses the `knowledge` facade (seed + FAQ CRUD after an ownership check).
 
 **Invariants:**
+
 - New bots are inactive and get their industry pack (`domain/packs.ts`): default settings + seed FAQs whose answers use `{{placeholders}}` (e.g. `{{store.address}}`). Seeds never ship vague non-answers.
 - Settings updates are partial; the merged result must still satisfy contracts `BotSettings`. Placeholder values merge key by key; an empty string removes one.
 - Readiness = mission ≥ 20 chars, ≥ 1 FAQ, no missing placeholders, ≥ 1 channel (always false until M3).
