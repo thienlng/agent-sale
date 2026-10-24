@@ -1,7 +1,7 @@
 ---
 id: T-055
 title: Workspace members: seat limits, resend and reassignment on removal (ADM-01)
-status: review
+status: done
 type: feature
 priority: P1
 owner: @agent:claude
@@ -9,7 +9,7 @@ feature_ids: [ADM-01]
 created: 2026-10-24
 updated: 2026-10-24
 branch: feat/T-053-m4a-admin-foundation
-pr:
+pr: 53
 parent:
 ---
 

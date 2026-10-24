@@ -4,8 +4,6 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
-Milestone **M4a-admin-foundation** — branch `feat/T-053-m4a-admin-foundation`: T-053..T-057 implemented, PR in review (epic #43: #44, #45, #47).
-
 ## Next
 
 - [ ] T-045 Email verification at signup (ACC-01) and verified-email invitations — @unassigned · [details](todo/T-045-email-verification-at-signup-acc-01-and-verified-e.md)
@@ -48,13 +46,13 @@ Milestone **M4a-admin-foundation** — branch `feat/T-053-m4a-admin-foundation`:
 
 ## Done (last 10 — older ones live in todo/done/)
 
-- [x] T-057 Account two-factor authentication with TOTP and recovery codes (ADM-04) — @agent:claude · [details](todo/done/T-057-account-two-factor-authentication-with-totp-and-re.md) · M4a PR
-- [x] T-056 Workspace business profile and private logo (ADM-02) — @agent:claude · [details](todo/done/T-056-workspace-business-profile-and-private-logo-adm-02.md) · M4a PR
-- [x] T-055 Workspace members: seat limits, resend and reassignment on removal (ADM-01) — @agent:claude · [details](todo/done/T-055-workspace-members-seat-limits-resend-and-reassignm.md) · M4a PR
-- [x] T-054 Audit trail for workspace and security changes — @agent:claude · [details](todo/done/T-054-audit-trail-for-workspace-and-security-changes.md) · M4a PR
-- [x] T-053 Billing foundation: plans, subscriptions and entitlements — @agent:claude · [details](todo/done/T-053-billing-foundation-plans-subscriptions-and-entitle.md) · M4a PR
+- [x] T-064 Fix the M4a review findings: sessions on 2FA changes, owner removal, seat backfill, audit grants — @agent:claude · [details](todo/done/T-064-fix-the-m4a-review-findings.md) · #55
+- [x] T-057 Account two-factor authentication with TOTP and recovery codes (ADM-04) — @agent:claude · [details](todo/done/T-057-account-two-factor-authentication-with-totp-and-re.md) · #53
+- [x] T-056 Workspace business profile and private logo (ADM-02) — @agent:claude · [details](todo/done/T-056-workspace-business-profile-and-private-logo-adm-02.md) · #53
+- [x] T-055 Workspace members: seat limits, resend and reassignment on removal (ADM-01) — @agent:claude · [details](todo/done/T-055-workspace-members-seat-limits-resend-and-reassignm.md) · #53
+- [x] T-054 Audit trail for workspace and security changes — @agent:claude · [details](todo/done/T-054-audit-trail-for-workspace-and-security-changes.md) · #53
+- [x] T-053 Billing foundation: plans, subscriptions and entitlements — @agent:claude · [details](todo/done/T-053-billing-foundation-plans-subscriptions-and-entitle.md) · #53
 - [x] T-044 Workspace roles, capabilities and CRM object scope — @agent:claude · [details](todo/done/T-044-workspace-roles-capabilities-and-crm-object-scope.md) · #41
 - [x] T-043 Workspace members and invitation links — @agent:claude · [details](todo/done/T-043-workspace-members-and-invitation-links.md) · #41
 - [x] T-033 CRM auto-assignment distribution policies for Sales and CSKH — @agent:claude · [details](todo/done/T-033-crm-auto-assignment-distribution-policies-for-sale.md) · #41
 - [x] T-047 Rebuild bot training and multichannel UI to match Preny screens — @agent:claude-code · [details](todo/done/T-047-rebuild-bot-training-and-multichannel-ui-to-match-.md) · #40
-- [x] T-045 Implement Preny bot training and Meta inbox with an isolated Hermes runtime — @agent:codex · [details](todo/done/T-045-implement-preny-bot-training-and-meta-inbox-with-a.md) · #40

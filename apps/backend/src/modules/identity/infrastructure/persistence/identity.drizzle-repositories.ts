@@ -131,6 +131,25 @@ export class DrizzleSessionRepository implements SessionRepository {
         .where(and(eq(schema.sessions.familyId, familyId), isNull(schema.sessions.revokedAt))),
     );
   }
+
+  async revokeOtherFamilies(userId: UserId, keepSessionId: string, at: Date): Promise<void> {
+    await withSystem(this.systemDb, (tx) => {
+      const keep = tx
+        .select({ familyId: schema.sessions.familyId })
+        .from(schema.sessions)
+        .where(eq(schema.sessions.id, keepSessionId));
+      return tx
+        .update(schema.sessions)
+        .set({ revokedAt: at })
+        .where(
+          and(
+            eq(schema.sessions.userId, userId),
+            isNull(schema.sessions.revokedAt),
+            sql`${schema.sessions.familyId} is distinct from (${keep})`,
+          ),
+        );
+    });
+  }
 }
 
 export class DrizzleMfaRepository implements MfaRepository {

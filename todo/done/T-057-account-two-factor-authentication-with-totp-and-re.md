@@ -1,7 +1,7 @@
 ---
 id: T-057
 title: Account two-factor authentication with TOTP and recovery codes (ADM-04)
-status: review
+status: done
 type: feature
 priority: P1
 owner: @agent:claude
@@ -9,7 +9,7 @@ feature_ids: [ADM-04]
 created: 2026-10-24
 updated: 2026-10-24
 branch: feat/T-053-m4a-admin-foundation
-pr:
+pr: 53
 parent:
 ---
 

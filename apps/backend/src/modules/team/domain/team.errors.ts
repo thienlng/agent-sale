@@ -38,6 +38,14 @@ export class AdminOnlyByOwnerError extends DomainError {
   }
 }
 
+/** The owner's membership is fixed: checked before anything moves (their customers included). */
+export class OwnerNotManageableError extends DomainError {
+  readonly code = 'CONFLICT';
+  constructor() {
+    super('The owner cannot be removed or given another role');
+  }
+}
+
 export class TeamUnavailableError extends DomainError {
   readonly code = 'UNAVAILABLE';
   constructor() {

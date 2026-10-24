@@ -91,6 +91,7 @@ stateDiagram-v2
 
 - Periods: 1/3/6/12 months (Preny publicly lists 3/6/12; its policy mentions 1 month).
 - Mid-period upgrade: **prorate** the remaining value of the old plan and credit it against the new plan; downgrade: effective next period. Preny: no refunds — include in the ToS.
+- Upgrades: a workspace with no `subscriptions` row is on free. Workspaces that existed before billing (migration 0015) get a `members.max = null` override (reason `grandfathered…`, migration 0020) so an upgrade does not cut their team to one seat; the operator removes it when putting the shop on a plan.
 - When `suspended`: the bot stops replying, data is kept intact, read-only; when downgraded to free while exceeding stock quotas (e.g. 20,000 contacts > 5,000): **do not delete**, block new additions.
 - Payments: VNPAY, VietQR bank transfer with auto-matching, (P2) MoMo; **vouchers** (percentage discount, fixed amount, bonus credit, bonus days) with an expiry date, usage limit, and applicable plans.
 - Invoices: store `invoices` + invoicing details (company name, tax ID, address, email) in "Thông tin workspace" (Workspace information); e-invoice (HĐĐT) integration (P1).

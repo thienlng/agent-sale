@@ -47,6 +47,7 @@ Written by the implementer before coding (see `start-task` skill). Steps, files,
 Dated entries, newest last. Decisions, blockers, questions, what was verified and how.
 
 - 2026-10-24 — created.
+- 2026-10-24 — from the M4a review (T-064): `resolveEntitlements` ignores `subscriptions.status` and `current_period_end`, so an expired, suspended or canceled subscription keeps its paid limits. This task owns the lifecycle (docs/08 state machine): expiry, suspension and the downgrade to free must change the effective entitlements.
 
 ## Links
 

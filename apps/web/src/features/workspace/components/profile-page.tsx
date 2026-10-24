@@ -1,6 +1,6 @@
 import type { WorkspaceProfileDto } from '@agent-sales/contracts';
 import { useBlocker } from '@tanstack/react-router';
-import { type FormEvent, useEffect, useState } from 'react';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
@@ -22,6 +22,7 @@ import { errorMessage } from '@/lib/errors';
 import { useCan } from '@/lib/permissions';
 
 import { useProfile, useProfileMutations } from '../api/profile';
+import { rebaseDraft } from '../utils/profile-draft';
 import { LogoField } from './logo-field';
 
 type Draft = Pick<
@@ -49,7 +50,12 @@ function ProfileForm({ profile }: { profile: WorkspaceProfileDto }) {
     enableBeforeUnload: () => dirty,
     withResolver: true,
   });
-  useEffect(() => setDraft(draftOf(profile)), [profile]);
+  const shown = useRef(base);
+  useEffect(() => {
+    const old = shown.current;
+    shown.current = draftOf(profile);
+    setDraft((d) => rebaseDraft(d, old, shown.current));
+  }, [profile]);
 
   const set = (patch: Partial<Draft>) => setDraft({ ...draft, ...patch });
   const submit = (e: FormEvent) => {

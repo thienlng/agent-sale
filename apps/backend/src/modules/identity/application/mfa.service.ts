@@ -22,6 +22,7 @@ import {
   otpauthUri,
   verifyTotp,
 } from '../domain/totp.js';
+import { SessionService } from './sessions.js';
 import {
   ATTEMPT_LIMITER,
   type AttemptLimiter,
@@ -35,7 +36,8 @@ const ISSUER = 'Rapiz';
  * TOTP second factor (ADM-04). Turning it on needs a confirmed first code;
  * changing it needs the password again (a stolen access token must not be
  * enough to disable it). Codes are single use (lastUsedStep), recovery codes
- * are hashed and burn on use.
+ * are hashed and burn on use. Every change signs out the user's other sessions:
+ * turning 2FA on after a suspected compromise must also end the intruder's session.
  */
 @Injectable()
 export class MfaService {
@@ -45,6 +47,7 @@ export class MfaService {
     @Inject(PASSWORD_HASHER) private readonly hasher: PasswordHasher,
     @Inject(ATTEMPT_LIMITER) private readonly limiter: AttemptLimiter,
     @Inject(SECRET_BOX) private readonly secrets: SecretBox,
+    @Inject(SessionService) private readonly sessions: SessionService,
   ) {}
 
   async status(userId: UserId): Promise<MfaStatus> {
@@ -71,7 +74,7 @@ export class MfaService {
   }
 
   /** Confirms the first code; returns the recovery codes, shown once. */
-  async enable(userId: UserId, code: string): Promise<string[]> {
+  async enable(userId: UserId, code: string, sessionId: string): Promise<string[]> {
     await this.throttle(userId);
     const row = await this.repo.find(userId);
     if (!row) throw new MfaStateError('no_setup');
@@ -83,20 +86,28 @@ export class MfaService {
       throw new MfaStateError('already_enabled');
     }
     await this.limiter.reset(`mfa:${userId}`);
+    await this.sessions.revokeOthers(userId, sessionId);
     return codes;
   }
 
-  async disable(userId: UserId, password: string, code: string): Promise<void> {
+  async disable(userId: UserId, password: string, code: string, sessionId: string): Promise<void> {
     await this.reauth(userId, password);
     await this.requireValidCode(userId, code);
     await this.repo.remove(userId);
+    await this.sessions.revokeOthers(userId, sessionId);
   }
 
-  async regenerateRecoveryCodes(userId: UserId, password: string, code: string): Promise<string[]> {
+  async regenerateRecoveryCodes(
+    userId: UserId,
+    password: string,
+    code: string,
+    sessionId: string,
+  ): Promise<string[]> {
     await this.reauth(userId, password);
     await this.requireValidCode(userId, code);
     const codes = newRecoveryCodes();
     await this.repo.replaceRecovery(userId, codes.map(hashRecoveryCode));
+    await this.sessions.revokeOthers(userId, sessionId);
     return codes;
   }
 
