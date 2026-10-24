@@ -4,16 +4,6 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -31,13 +21,21 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { ApiClientError } from '@/lib/api-client';
 import { errorMessage } from '@/lib/errors';
 import { formatDateTime } from '@/lib/format';
 import { useCan, useRole } from '@/lib/permissions';
 import { cn } from '@/lib/utils';
 
-import { useInvitations, useMembers, useTeamMutations } from '../api/team';
+import { invitationLink, useInvitations, useMembers, useTeamMutations } from '../api/team';
 import { InviteDialog } from './invite-dialog';
+import { LinkDialog } from './link-dialog';
+import { QuotaDialog } from './quota-dialog';
+import { RemoveMemberDialog } from './remove-member-dialog';
+import { SeatMeter } from './seat-meter';
+
+/** The plan has no free seat (HTTP 402 QUOTA_EXCEEDED). */
+const isQuota = (err: unknown) => err instanceof ApiClientError && err.code === 'QUOTA_EXCEEDED';
 
 /** Admins manage sales, CSKH and analysts; only the owner manages admins (same as the server). */
 function canManage(actorRole: string | undefined, m: MemberDto): boolean {
@@ -52,8 +50,13 @@ export function MembersPage() {
   const actorRole = useRole();
   const members = useMembers();
   const invitations = useInvitations(manage);
-  const { changeRole, remove, revoke } = useTeamMutations();
+  const { changeRole, resend, revoke } = useTeamMutations();
   const [inviting, setInviting] = useState(false);
+  const [resentLink, setResentLink] = useState<string | null>(null);
+  const [quota, setQuota] = useState(false);
+  const seats = members.data?.seats;
+  const full =
+    seats?.limit !== undefined && seats.limit !== null && seats.used + seats.pending >= seats.limit;
   const [removing, setRemoving] = useState<MemberDto | null>(null);
   const fail = (err: unknown) => toast.error(errorMessage(t, err));
   const roles = ASSIGNABLE_ROLES.filter((r) => actorRole === 'owner' || r !== 'admin');
@@ -63,12 +66,14 @@ export function MembersPage() {
       <header className="flex flex-wrap items-end justify-between gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">{t('team.title')}</h1>
         {manage ? (
-          <Button size="lg" onClick={() => setInviting(true)}>
+          <Button size="lg" onClick={() => (full ? setQuota(true) : setInviting(true))}>
             <UserPlus />
             {t('team.invite')}
           </Button>
         ) : null}
       </header>
+
+      {seats ? <SeatMeter seats={seats} /> : null}
 
       <div className="flex flex-col gap-2">
         <h2 className="font-semibold">{t('team.members')}</h2>
@@ -92,7 +97,7 @@ export function MembersPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                (members.data ?? []).map((m) => {
+                (members.data?.data ?? []).map((m) => {
                   const editable = manage && canManage(actorRole, m);
                   return (
                     <TableRow key={m.userId} className={cn(m.status === 'removed' && 'opacity-60')}>
@@ -178,7 +183,7 @@ export function MembersPage() {
                     <TableHead className="hidden lg:table-cell">
                       {t('team.col.invitedBy')}
                     </TableHead>
-                    <TableHead className="w-24" />
+                    <TableHead className="w-40" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -194,19 +199,39 @@ export function MembersPage() {
                         {i.invitedByName ?? '—'}
                       </TableCell>
                       <TableCell>
-                        {i.status === 'pending' ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() =>
-                              revoke.mutate(i.id, {
-                                onSuccess: () => toast.success(t('team.revoked')),
-                                onError: fail,
-                              })
-                            }
-                          >
-                            {t('team.revoke')}
-                          </Button>
+                        {i.status !== 'accepted' ? (
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={resend.isPending}
+                              onClick={() =>
+                                resend.mutate(i.id, {
+                                  onSuccess: (r) => {
+                                    setResentLink(invitationLink(r.token));
+                                    toast.success(t('team.resent'));
+                                  },
+                                  onError: (err) => (isQuota(err) ? setQuota(true) : fail(err)),
+                                })
+                              }
+                            >
+                              {t('team.resend')}
+                            </Button>
+                            {i.status === 'pending' ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  revoke.mutate(i.id, {
+                                    onSuccess: () => toast.success(t('team.revoked')),
+                                    onError: fail,
+                                  })
+                                }
+                              >
+                                {t('team.revoke')}
+                              </Button>
+                            ) : null}
+                          </div>
                         ) : null}
                       </TableCell>
                     </TableRow>
@@ -221,30 +246,17 @@ export function MembersPage() {
       ) : null}
 
       <InviteDialog open={inviting} onOpenChange={setInviting} />
-      <AlertDialog open={removing !== null} onOpenChange={(o) => !o && setRemoving(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('team.remove')}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t('team.removeConfirm', { name: removing?.name ?? '' })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t('team.cancel')}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() =>
-                removing &&
-                remove.mutate(removing.userId, {
-                  onSuccess: () => toast.success(t('team.removed')),
-                  onError: fail,
-                })
-              }
-            >
-              {t('team.remove')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <QuotaDialog open={quota} seats={seats} onClose={() => setQuota(false)} />
+      <RemoveMemberDialog
+        member={removing}
+        members={members.data?.data ?? []}
+        onClose={() => setRemoving(null)}
+      />
+      <LinkDialog
+        link={resentLink}
+        title={t('team.resendTitle')}
+        onClose={() => setResentLink(null)}
+      />
     </section>
   );
 }

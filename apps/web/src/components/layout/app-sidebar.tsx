@@ -52,7 +52,7 @@ const BOTS: readonly NavItem[] = [{ to: '/app/bots', key: 'nav.bots', icon: Bot,
 const WORK: readonly NavItem[] = [
   { to: '/app/analytics', key: 'nav.analytics', icon: BarChart3 },
   { to: '/app/members', key: 'nav.members', icon: UsersRound, ready: true },
-  { to: '/app/settings', key: 'nav.settings', icon: Settings },
+  { to: '/app/settings', key: 'nav.settings', icon: Settings, ready: true },
 ];
 
 /** "Chat đa kênh" (Preny): the inbox and the platform integrations under one entry. */

@@ -31,7 +31,8 @@
     "orderSettings": "Setup",
     "contactsList": "Customer list",
     "crmSettings": "Customer settings",
-    "members": "Members"
+    "members": "Members",
+    "settingsHome": "Settings"
   },
   "auth": {
     "login": "Log in",
@@ -63,6 +64,18 @@
       "bot": "Dạ áo thun trắng size L còn hàng ạ, giá 189.000đ. Anh/chị muốn em lên đơn luôn không ạ?",
       "source": "Answered from FAQ: T-shirt price",
       "caption": "Customers type without accents and abbreviate. The bot still answers with the exact price you taught it."
+    },
+    "mfa": {
+      "title": "Two-step verification",
+      "subtitle": "Enter the 6-digit code from your authenticator app.",
+      "code": "Verification code",
+      "useRecovery": "Use a recovery code",
+      "useApp": "Use an app code",
+      "recoveryLabel": "Recovery code",
+      "recoveryHint": "Each recovery code works only once.",
+      "verify": "Verify",
+      "back": "Back",
+      "invalid": "That code is wrong or already used. Try a fresh one."
     }
   },
   "industries": {
@@ -270,7 +283,8 @@
     "invalidName": "Lowercase letters, digits and dashes only (2–40 characters)",
     "conflict": "This name is already used",
     "inUse": "A plan uses this server. Move the plan to another server first.",
-    "forbidden": "Your role cannot do this."
+    "forbidden": "Your role cannot do this.",
+    "quotaExceeded": "The plan has no room left for this. Free some up or upgrade the plan."
   },
   "common": {
     "loading": "Loading…",
@@ -1024,6 +1038,140 @@
       "loginFirst": "Sign in or create an account with the invited email to join.",
       "login": "Sign in",
       "signup": "Create account"
+    },
+    "seats": "Members {{used}}/{{limit}}",
+    "seatsUnlimited": "{{used}} members",
+    "seatsPending": "{{count}} waiting invitations hold a seat",
+    "quota": {
+      "title": "All member seats of the plan are used",
+      "body": "Your plan allows {{limit}} members, counting waiting invitations ({{members}} members + {{pending}} invitations). Revoke an invitation, remove a member or upgrade the plan to invite more.",
+      "close": "Got it"
+    },
+    "resend": "Resend",
+    "resent": "A new link was created; the old one no longer works",
+    "resendTitle": "New invitation link",
+    "removeDialog": {
+      "title": "Remove {{name}} from the shop?",
+      "body": "They lose access at once. The customers, orders and notes they made stay.",
+      "owns": "{{name}} owns {{sales}} customers (Sales) and {{care}} customers (CSKH). Choose who takes over; each customer's history records it.",
+      "transfer": "Hand over to another member",
+      "unassign": "Leave unassigned (customers become unowned)",
+      "pick": "Choose a member",
+      "loading": "Checking the customers this member owns…",
+      "confirm": "Remove member"
+    },
+    "audit": {
+      "title": "Change log",
+      "empty": "No changes yet.",
+      "more": "Show more",
+      "all": "All",
+      "actor": "By",
+      "system": "System",
+      "actions": {
+        "member.invited": "Member invited",
+        "member.invitation_resent": "Invitation resent",
+        "member.invitation_revoked": "Invitation revoked",
+        "member.joined": "Member joined",
+        "member.role_changed": "Role changed",
+        "member.removed": "Member removed",
+        "workspace.profile_updated": "Shop profile updated",
+        "workspace.logo_changed": "Logo changed",
+        "workspace.logo_removed": "Logo removed",
+        "billing.plan_set": "Plan changed",
+        "security.mfa_enabled": "Two-factor enabled",
+        "security.mfa_disabled": "Two-factor disabled",
+        "security.recovery_codes_regenerated": "Recovery codes regenerated"
+      },
+      "areas": {
+        "member": "Members",
+        "workspace": "Shop profile",
+        "security": "Security",
+        "billing": "Plan and billing"
+      }
+    }
+  },
+  "wsettings": {
+    "title": "Settings",
+    "tabs": {
+      "profile": "Shop profile",
+      "security": "Security",
+      "audit": "Change log"
+    },
+    "profile": {
+      "title": "Shop information",
+      "hint": "The shop's business details. Separate from your own login account and from invoicing details.",
+      "name": "Shop name",
+      "companyName": "Company name",
+      "businessServices": "Business field / services",
+      "productDescription": "Product and service description",
+      "save": "Save changes",
+      "saved": "Shop information saved",
+      "reset": "Undo",
+      "dirty": "Unsaved changes",
+      "readOnly": "You can only view this. The owner or an admin can edit it.",
+      "stale": "Someone else just changed the shop information. The latest version is loaded; check it and save again.",
+      "leave": "You have unsaved changes. Leaving this page discards them.",
+      "stay": "Stay",
+      "leaveConfirm": "Leave page"
+    },
+    "logo": {
+      "title": "Logo",
+      "rules": "PNG or JPG, square, up to 1 MB. 720 × 720 px recommended (128 to 2048 px accepted).",
+      "alt": "Shop logo",
+      "none": "No logo yet",
+      "upload": "Choose image",
+      "change": "Change logo",
+      "remove": "Remove logo",
+      "uploaded": "Logo updated",
+      "removed": "Logo removed",
+      "uploading": "Uploading…",
+      "errors": {
+        "too_large": "The image is over 1 MB. Compress it or pick a smaller one.",
+        "not_an_image": "This file is not a valid PNG or JPG image.",
+        "corrupt": "The image could not be read (damaged or cut off). Export it again and retry.",
+        "not_square": "The image must be square (it is {{width}} × {{height}} px).",
+        "too_small": "The image is too small (at least 128 × 128 px).",
+        "too_big": "The image is too large (at most 2048 × 2048 px).",
+        "type": "Only PNG or JPG images are accepted."
+      }
+    },
+    "security": {
+      "title": "Two-step verification",
+      "hint": "An extra layer of protection: besides your password, signing in needs a code from an authenticator app (Google Authenticator, Authy, 1Password…).",
+      "off": "Off",
+      "on": "On",
+      "recoveryLeft": "{{count}} recovery codes left",
+      "enable": "Turn on two-step verification",
+      "disable": "Turn off two-step verification",
+      "newCodes": "Generate new recovery codes",
+      "password": "Current password",
+      "code": "Verification code",
+      "codeOrRecovery": "Verification or recovery code",
+      "continue": "Continue",
+      "confirm": "Confirm",
+      "cancel": "Cancel",
+      "step1": "1. Confirm your password",
+      "step2": "2. Scan the QR code with your authenticator app",
+      "step3": "3. Enter the 6-digit code the app shows",
+      "manual": "Can't scan? Enter this key in the app:",
+      "copy": "Copy",
+      "copied": "Copied",
+      "qrAlt": "QR code to add this account to an authenticator app",
+      "codesTitle": "Save your recovery codes",
+      "codesHint": "Each code works once if you lose your phone. They are shown only here, only now — keep them somewhere safe.",
+      "codesDone": "I saved the codes",
+      "downloadCodes": "Download",
+      "disableTitle": "Turn off two-step verification?",
+      "disableHint": "Your account will be protected by your password alone.",
+      "newCodesTitle": "Generate new recovery codes?",
+      "newCodesHint": "The old codes will stop working.",
+      "errors": {
+        "invalid_password": "Wrong password.",
+        "invalid_code": "Wrong code. Try a fresh one from the app.",
+        "already_enabled": "Two-step verification is already on."
+      },
+      "enabledToast": "Two-step verification is on",
+      "disabledToast": "Two-step verification is off"
     }
   }
 }

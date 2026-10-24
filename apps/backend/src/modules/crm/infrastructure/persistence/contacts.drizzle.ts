@@ -84,6 +84,28 @@ export function contactsTx(
         const [r] = await tx.select().from(c).where(eq(c.clientRequestId, requestId)).limit(1);
         return r ? toContact(r) : null;
       },
+      async countOwnedBy(userId) {
+        const [r] = await tx
+          .select({
+            sales: sql<number>`count(*) filter (where ${c.salesUserId} = ${userId})`,
+            care: sql<number>`count(*) filter (where ${c.careUserId} = ${userId})`,
+          })
+          .from(c);
+        return { sales: Number(r?.sales ?? 0), care: Number(r?.care ?? 0) };
+      },
+      async reassignOwner(role, from, to, at) {
+        const column = role === 'sales' ? c.salesUserId : c.careUserId;
+        const rows = await tx
+          .update(c)
+          .set({
+            ...(role === 'sales' ? { salesUserId: to } : { careUserId: to }),
+            version: sql`${c.version} + 1`,
+            updatedAt: at,
+          })
+          .where(eq(column, from))
+          .returning({ id: c.id });
+        return rows.map((r) => r.id);
+      },
       async query(q) {
         const where = compileContactWhere(q);
         const [rows, [count]] = await Promise.all([

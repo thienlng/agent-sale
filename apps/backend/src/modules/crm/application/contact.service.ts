@@ -15,7 +15,6 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import { IDENTITY_FACADE, type IdentityFacade } from '../../identity/api/index.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
-import type { CrmFacade } from '../api/crm.facade.js';
 import {
   ContactNotFoundError,
   DuplicateContactRequestError,
@@ -43,17 +42,13 @@ const ASSIGNMENT_FIELDS = ['salesUserId', 'careUserId'] as const;
 
 /** Customers: profile, notes and the audit history (CRM-01). */
 @Injectable()
-export class ContactService implements CrmFacade {
+export class ContactService {
   constructor(
     @Inject(CRM_STORE) private readonly store: CrmStore,
     @Inject(IDENTITY_FACADE) private readonly identity: IdentityFacade,
     @Inject(WORKSPACE_FACADE) private readonly workspaces: WorkspaceFacade,
     @Inject(DistributionService) private readonly distribution: DistributionService,
   ) {}
-
-  getContact(ws: WorkspaceId, id: string): Promise<ContactDto> {
-    return this.get(ws, id);
-  }
 
   /** Without a viewer (other modules) every customer is visible. */
   get(ws: WorkspaceId, id: string, viewer?: Viewer): Promise<ContactDto> {

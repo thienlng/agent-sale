@@ -17,7 +17,9 @@ import {
   DrizzleWorkspaceUnitOfWork,
   InMemoryWorkspaceUnitOfWork,
 } from './infrastructure/workspace.unit-of-work.js';
+import { ProfileController } from './interface/http/profile.controller.js';
 import { WorkspaceController } from './interface/http/workspace.controller.js';
+import { ProfileService } from './application/profile.service.js';
 
 const MEMORY_STORE = Symbol('WORKSPACE_MEMORY_STORE');
 
@@ -27,11 +29,12 @@ const MEMORY_STORE = Symbol('WORKSPACE_MEMORY_STORE');
  * one store. Exports ONLY what api/ declares.
  */
 @Module({
-  controllers: [WorkspaceController],
+  controllers: [WorkspaceController, ProfileController],
   providers: [
     CreateWorkspaceHandler,
     GetWorkspaceHandler,
     ManageMembersHandler,
+    ProfileService,
     { provide: MEMORY_STORE, useFactory: () => new InMemoryWorkspaceUnitOfWork() },
     {
       provide: WORKSPACE_UOW,

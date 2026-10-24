@@ -16,7 +16,9 @@
     "test:watch": "vitest",
     "lint": "eslint .",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "platform-admin": "tsx --env-file-if-exists=../../.env src/cli/platform-admin.ts"
+    "platform-admin": "tsx --env-file-if-exists=../../.env src/cli/platform-admin.ts",
+    "mfa-reset": "tsx --env-file-if-exists=../../.env src/cli/mfa-reset.ts",
+    "workspace-plan": "tsx --env-file-if-exists=../../.env src/cli/workspace-plan.ts"
   },
   "dependencies": {
     "@agent-sales/ai-core": "workspace:*",

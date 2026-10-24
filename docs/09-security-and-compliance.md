@@ -12,7 +12,7 @@ The product processes end-customer messages (containing phone numbers, addresses
 - Sign-up: full name, email, phone number, password (as in Preny) → email verification (OTP/link); **phone number verification via OTP** (Zalo ZNS OTP or SMS) before using campaign-sending features (Preny also gates email campaigns behind phone number verification — anti-spam).
 - Passwords: Argon2id; minimum length policy ≥ 8; optional breach check (HIBP k-anonymity).
 - Google OAuth login.
-- TOTP 2FA (+ recovery codes); 2FA required for the Owner on paid plans (recommended).
+- TOTP 2FA (+ recovery codes) — implemented (T-057, ADM-04): see `apps/backend/src/modules/identity/MODULE.md`. 2FA required for the Owner on paid plans is still a recommendation, not enforced.
 - Tokens: 15-minute access JWT (signed with EdDSA/RS256, with `kid` for rotation), opaque refresh token stored hashed in the DB, **rotation + reuse detection** → revoke the whole chain.
 - **Where tokens live (SPA):** the access token only in memory (never `localStorage`/`sessionStorage`); the refresh token in an `HttpOnly; Secure; SameSite=Lax` cookie scoped to `api.<domain>/api/v1/auth/refresh`, with an `Origin` check on that endpoint. On boot the SPA calls `/auth/refresh` (cookie) then `/bootstrap` (session + workspace + entitlements + flags) before first paint. Native/mobile clients send `client=native` and receive the refresh token in the response body (secure storage on device). Strict CSP (no `unsafe-inline`), sanitized rendering of all message content and attachments. Bearer tokens are used for every API call by every client, so SSE/WebSocket/mobile share one auth path (RFC 10017 ranks a BFF/session cookie first; this hybrid keeps the long-lived credential out of JavaScript while preserving API parity).
 - Session management: device list, remote logout, log out everywhere on password change.
@@ -71,7 +71,7 @@ Default roles (custom roles can be created on Pro+ plans):
 
 ## 7. Audit log
 
-`audit_events (id, workspace_id, actor_type, actor_id, action, target_type, target_id, ip, user_agent, before JSONB, after JSONB, created_at)` — append-only (no UPDATE/DELETE privileges granted to the app role), retained ≥ 1 year.
+`audit_events (id, workspace_id, actor_user_id, actor_name, action, target_type, target_id, data JSONB, created_at)` (built, T-054; `data` holds `{ field: { from, to } }` and context. `ip`, `user_agent` and account-level events such as 2FA changes are not recorded yet) — append-only (no UPDATE/DELETE privileges granted to the app role), retained ≥ 1 year.
 
 Mandatory events: login/2FA, permission changes/inviting/removing members, connecting/disconnecting channels, editing bot configuration, data export, deleting/merging contacts, editing order prices, creating/sending campaigns, manual wallet top-ups/deductions, admin impersonation.
 

@@ -6,7 +6,7 @@
 
 **Public API (`api/`):**
 
-- `CRM_FACADE` → `getContact(workspaceId, contactId)`.
+- `CRM_FACADE` → `getContact(workspaceId, contactId)`, `ownedContactCounts(workspaceId, userId)` and `reassignContacts(workspaceId, from, to | null, actor)` (used by `team` when a member is removed; history entries are written per customer).
 - HTTP (workspace-scoped): `/contacts`, `/contacts/query`, `/contacts/{id}` (+ `/notes`, `/history`, `/tags`), `/tag-assignments/{id}` (+ `/remove`), `/crm/sources`, `/crm/statuses` (+ `/order`), `/crm/tags`, `/crm/assignees`, `/saved-views`. Contracts: `packages/contracts/src/crm/`.
 - Events (outbox, same transaction as the change): `crm.contact.created.v1`, `crm.contact.updated.v1`, `crm.contact.status_changed.v1`, `crm.contact.assigned.v1`, `crm.tag.assigned.v1`, `crm.tag.removed.v1`.
 

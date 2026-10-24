@@ -15,6 +15,11 @@ export interface AuthState {
   sessionId: string;
   /** The member's role in the workspace of a @WorkspaceScoped() route. */
   role?: string | undefined;
+  /**
+   * The user's display name, looked up on first call only (reads never pay for it).
+   * Mutations use it to stamp audit events without importing the identity module.
+   */
+  displayName?: (() => Promise<string | null>) | undefined;
 }
 
 declare module 'fastify' {

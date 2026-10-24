@@ -41,7 +41,12 @@ export class AuthGuard implements CanActivate {
     const token = header?.startsWith('Bearer ') ? header.slice(7) : undefined;
     const claims = token ? await this.tokens.verify(token) : null;
     if (!claims) throw new ApiError('UNAUTHENTICATED', 'Authentication required');
-    req.auth = { userId: claims.userId, sessionId: claims.sessionId };
+    let name: Promise<string | null> | undefined;
+    req.auth = {
+      userId: claims.userId,
+      sessionId: claims.sessionId,
+      displayName: () => (name ??= this.accounts.displayName(claims.userId)),
+    };
 
     if (this.reflector.getAllAndOverride<boolean>(IS_PLATFORM_ADMIN, targets)) {
       if (!(await this.accounts.isPlatformAdmin(claims.userId))) {

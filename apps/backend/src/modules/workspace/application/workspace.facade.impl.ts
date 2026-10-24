@@ -4,6 +4,7 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import type {
   GivenRole,
+  MemberActor,
   WorkspaceFacade,
   WorkspaceMember,
   WorkspaceMembership,
@@ -51,15 +52,25 @@ export class WorkspaceFacadeImpl implements WorkspaceFacade {
     return this.directory.listMembers(workspaceId, opts?.includeRemoved ?? false);
   }
 
-  async joinMember(workspaceId: WorkspaceId, userId: UserId, role: GivenRole): Promise<void> {
-    await this.members.join(workspaceId, userId, role);
+  async joinMember(
+    workspaceId: WorkspaceId,
+    userId: UserId,
+    role: GivenRole,
+    opts: { seatLimit: number | null; actor: MemberActor },
+  ): Promise<void> {
+    await this.members.join(workspaceId, userId, role, opts.seatLimit, opts.actor);
   }
 
-  async changeMemberRole(workspaceId: WorkspaceId, userId: UserId, role: GivenRole): Promise<void> {
-    await this.members.changeRole(workspaceId, userId, role);
+  async changeMemberRole(
+    workspaceId: WorkspaceId,
+    userId: UserId,
+    role: GivenRole,
+    actor: MemberActor,
+  ): Promise<void> {
+    await this.members.changeRole(workspaceId, userId, role, actor);
   }
 
-  async removeMember(workspaceId: WorkspaceId, userId: UserId): Promise<void> {
-    await this.members.remove(workspaceId, userId);
+  async removeMember(workspaceId: WorkspaceId, userId: UserId, actor: MemberActor): Promise<void> {
+    await this.members.remove(workspaceId, userId, actor);
   }
 }

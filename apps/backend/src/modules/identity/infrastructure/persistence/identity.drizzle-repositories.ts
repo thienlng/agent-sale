@@ -2,6 +2,7 @@ import { and, type Database, eq, isNull, schema, sql, withSystem } from '@agent-
 import { type UserId, userId } from '@agent-sales/shared';
 
 import { EmailTakenError } from '../../domain/identity.errors.js';
+import type { MfaRecord, MfaRepository } from '../../domain/ports/mfa.repository.js';
 import type { SessionRecord, SessionRepository } from '../../domain/ports/session.repository.js';
 import type { UserRepository } from '../../domain/ports/user.repository.js';
 import { User } from '../../domain/user.js';
@@ -129,5 +130,93 @@ export class DrizzleSessionRepository implements SessionRepository {
         .set({ revokedAt: at })
         .where(and(eq(schema.sessions.familyId, familyId), isNull(schema.sessions.revokedAt))),
     );
+  }
+}
+
+export class DrizzleMfaRepository implements MfaRepository {
+  constructor(private readonly systemDb: Database) {}
+
+  find(id: UserId): Promise<MfaRecord | null> {
+    return withSystem(this.systemDb, async (tx) => {
+      const [row] = await tx
+        .select()
+        .from(schema.userMfa)
+        .where(eq(schema.userMfa.userId, id))
+        .limit(1);
+      return row ? { ...row, userId: userId(row.userId) } : null;
+    });
+  }
+
+  savePending(id: UserId, secretSealed: string): Promise<boolean> {
+    return withSystem(this.systemDb, async (tx) => {
+      const rows = await tx
+        .insert(schema.userMfa)
+        .values({ userId: id, secretSealed })
+        .onConflictDoUpdate({
+          target: schema.userMfa.userId,
+          set: { secretSealed, lastUsedStep: 0, recoveryHashes: [] },
+          setWhere: isNull(schema.userMfa.enabledAt),
+        })
+        .returning({ id: schema.userMfa.userId });
+      return rows.length === 1;
+    });
+  }
+
+  enable(id: UserId, step: number, recoveryHashes: string[]): Promise<boolean> {
+    return withSystem(this.systemDb, async (tx) => {
+      const rows = await tx
+        .update(schema.userMfa)
+        .set({ enabledAt: new Date(), lastUsedStep: step, recoveryHashes })
+        .where(and(eq(schema.userMfa.userId, id), isNull(schema.userMfa.enabledAt)))
+        .returning({ id: schema.userMfa.userId });
+      return rows.length === 1;
+    });
+  }
+
+  advanceStep(id: UserId, step: number): Promise<boolean> {
+    return withSystem(this.systemDb, async (tx) => {
+      const rows = await tx
+        .update(schema.userMfa)
+        .set({ lastUsedStep: step })
+        .where(and(eq(schema.userMfa.userId, id), sql`${schema.userMfa.lastUsedStep} < ${step}`))
+        .returning({ id: schema.userMfa.userId });
+      return rows.length === 1;
+    });
+  }
+
+  consumeRecovery(id: UserId, hash: string): Promise<boolean> {
+    return withSystem(this.systemDb, async (tx) => {
+      const rows = await tx
+        .update(schema.userMfa)
+        .set({ recoveryHashes: sql`array_remove(${schema.userMfa.recoveryHashes}, ${hash})` })
+        .where(
+          and(
+            eq(schema.userMfa.userId, id),
+            sql`${schema.userMfa.enabledAt} is not null`,
+            sql`${hash} = any(${schema.userMfa.recoveryHashes})`,
+          ),
+        )
+        .returning({ id: schema.userMfa.userId });
+      return rows.length === 1;
+    });
+  }
+
+  async replaceRecovery(id: UserId, hashes: string[]): Promise<void> {
+    await withSystem(this.systemDb, (tx) =>
+      tx
+        .update(schema.userMfa)
+        .set({ recoveryHashes: hashes })
+        .where(eq(schema.userMfa.userId, id)),
+    );
+  }
+
+  remove(id: UserId): Promise<boolean> {
+    return withSystem(this.systemDb, async (tx) => {
+      const rows = await tx
+        .delete(schema.userMfa)
+        .where(eq(schema.userMfa.userId, id))
+        .returning({ id: schema.userMfa.userId });
+      return rows.length === 1;
+    });
   }
 }

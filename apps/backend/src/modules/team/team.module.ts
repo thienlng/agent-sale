@@ -2,6 +2,8 @@ import type { Database } from '@agent-sales/db';
 import { Module } from '@nestjs/common';
 
 import { DB_SYSTEM, DB_TENANT } from '../../common/db/db.module.js';
+import { BillingModule } from '../billing/billing.module.js';
+import { CrmModule } from '../crm/crm.module.js';
 import { IdentityModule } from '../identity/identity.module.js';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
 import { TEAM_FACADE } from './api/team.facade.js';
@@ -13,7 +15,7 @@ import { TeamController } from './interface/http/team.controller.js';
 
 /** Members and invitation links (docs/02 SET-01). Member rows belong to `workspace`. */
 @Module({
-  imports: [IdentityModule, WorkspaceModule],
+  imports: [IdentityModule, WorkspaceModule, BillingModule, CrmModule],
   controllers: [TeamController],
   providers: [
     {

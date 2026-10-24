@@ -43,6 +43,17 @@ export async function createHttpApp(
     bufferLogs: true,
   });
   await app.register(fastifyCookie);
+  // Logo uploads are raw image bodies, read as a Buffer for these two types only. The limit is a little
+  // above the 1 MiB rule so an oversized file gets the precise error from the service, not a bare 413.
+  adapter
+    .getInstance()
+    .addContentTypeParser(
+      ['image/png', 'image/jpeg'],
+      { parseAs: 'buffer', bodyLimit: 1_200_000 },
+      (_req, body, done) => {
+        done(null, body);
+      },
+    );
   app.setGlobalPrefix('api/v1', { exclude: [{ path: 'metrics', method: RequestMethod.GET }] });
   app.useGlobalFilters(new HttpExceptionFilter(logger));
   app.enableShutdownHooks();

@@ -11,6 +11,8 @@ import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../../workspace/api/i
 import {
   EmailTakenError,
   InvalidCredentialsError,
+  MfaCodeInvalidError,
+  MfaRequiredError,
   SessionInvalidError,
   TooManyAttemptsError,
 } from '../../domain/identity.errors.js';
@@ -23,6 +25,7 @@ import {
   type PasswordHasher,
 } from '../ports/security.js';
 import type { IdentityFacade } from '../../api/identity.facade.js';
+import { MfaService } from '../mfa.service.js';
 import { type ClientMeta, type IssuedSession, SessionService, toUserDto } from '../sessions.js';
 
 /**
@@ -69,6 +72,7 @@ export class LoginHandler {
     @Inject(PASSWORD_HASHER) private readonly hasher: PasswordHasher,
     @Inject(ATTEMPT_LIMITER) private readonly limiter: AttemptLimiter,
     @Inject(SessionService) private readonly sessions: SessionService,
+    @Inject(MfaService) private readonly mfa: MfaService,
   ) {}
 
   async execute(input: LoginRequest, meta: ClientMeta): Promise<IssuedSession> {
@@ -82,6 +86,11 @@ export class LoginHandler {
     }
     if (!(await this.hasher.verify(user.passwordHash, input.password))) {
       throw new InvalidCredentialsError();
+    }
+    // The attempt stays counted until the second factor passes too, so codes cannot be guessed freely.
+    if (await this.mfa.isEnabled(user.id)) {
+      if (!input.code) throw new MfaRequiredError();
+      if (!(await this.mfa.verifyLogin(user.id, input.code))) throw new MfaCodeInvalidError();
     }
     await this.limiter.reset(key);
     return this.sessions.start(user, meta);

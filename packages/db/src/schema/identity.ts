@@ -1,4 +1,5 @@
-import { boolean, index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import { bigint, boolean, index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 /** GLOBAL table (no workspace_id, no RLS). Only app_system may access it (migration 0001). */
 export const users = pgTable('users', {
@@ -35,3 +36,20 @@ export const sessions = pgTable(
   },
   (t) => [index('sessions_user_idx').on(t.userId), index('sessions_family_idx').on(t.familyId)],
 );
+
+/** GLOBAL: TOTP second factor, one row per user (migration 0018). app_system only. */
+export const userMfa = pgTable('user_mfa', {
+  userId: uuid('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  secretSealed: text('secret_sealed').notNull(),
+  /** Null while setup is pending (secret issued, first code not confirmed yet). */
+  enabledAt: timestamp('enabled_at', { withTimezone: true }),
+  /** Highest accepted 30 s step: a code can never be replayed. */
+  lastUsedStep: bigint('last_used_step', { mode: 'number' }).notNull().default(0),
+  recoveryHashes: text('recovery_hashes')
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});

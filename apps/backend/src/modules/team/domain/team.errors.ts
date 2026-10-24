@@ -44,3 +44,29 @@ export class TeamUnavailableError extends DomainError {
     super('Members need a database (DATABASE_URL is not configured)');
   }
 }
+
+/** No free seat for another invitation (active members plus waiting invitations fill the plan). */
+export class SeatLimitReachedError extends DomainError {
+  readonly code = 'QUOTA_EXCEEDED';
+  constructor(limit: number, members: number, pending: number) {
+    super('The plan has no free member seat', { key: 'members.max', limit, members, pending });
+  }
+}
+
+/** The member owns customers: say where they go (another member, or unassigned). */
+export class ReassignmentRequiredError extends DomainError {
+  readonly code = 'VALIDATION_FAILED';
+  constructor(owned: { sales: number; care: number }) {
+    super('This member owns customers: choose who takes them over', {
+      reassignmentRequired: true,
+      ...owned,
+    });
+  }
+}
+
+export class InvalidReassignmentError extends DomainError {
+  readonly code = 'VALIDATION_FAILED';
+  constructor() {
+    super('Customers can only go to another active owner, admin, Sales or CSKH member');
+  }
+}

@@ -5,8 +5,13 @@ import type {
   WorkspaceTxContext,
   WorkspaceUnitOfWork,
 } from '../application/ports/workspace-unit-of-work.js';
+import { DrizzleAuditWriter, InMemoryAuditWriter } from './messaging/audit-writer.js';
 import { InMemoryEventPublisher } from './messaging/in-memory-event-publisher.js';
 import { OutboxEventPublisher } from './messaging/outbox-event-publisher.js';
+import {
+  DrizzleProfileRepository,
+  InMemoryProfileRepository,
+} from './persistence/profile.drizzle-repository.js';
 import {
   DrizzleMemberRepository,
   DrizzleWorkspaceRepository,
@@ -25,7 +30,9 @@ export class DrizzleWorkspaceUnitOfWork implements WorkspaceUnitOfWork {
       fn({
         workspaces: new DrizzleWorkspaceRepository(tx),
         members: new DrizzleMemberRepository(tx),
+        profiles: new DrizzleProfileRepository(tx),
         events: new OutboxEventPublisher(tx),
+        audit: new DrizzleAuditWriter(tx),
       }),
     );
   }
@@ -35,9 +42,17 @@ export class DrizzleWorkspaceUnitOfWork implements WorkspaceUnitOfWork {
 export class InMemoryWorkspaceUnitOfWork implements WorkspaceUnitOfWork {
   readonly workspaces = new InMemoryWorkspaceRepository();
   readonly members = new InMemoryMemberRepository();
+  readonly profiles = new InMemoryProfileRepository();
   readonly events = new InMemoryEventPublisher();
+  readonly audit = new InMemoryAuditWriter();
 
   run<T>(_workspaceId: WorkspaceId, fn: (ctx: WorkspaceTxContext) => Promise<T>): Promise<T> {
-    return fn({ workspaces: this.workspaces, members: this.members, events: this.events });
+    return fn({
+      workspaces: this.workspaces,
+      members: this.members,
+      profiles: this.profiles,
+      events: this.events,
+      audit: this.audit,
+    });
   }
 }

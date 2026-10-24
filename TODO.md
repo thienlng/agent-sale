@@ -4,7 +4,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
-Milestone **M3b-team-access** — branch `feat/T-043-m3b-team-access`: T-043, T-044, T-033 done; PR #41 open for review.
+Milestone **M4a-admin-foundation** — branch `feat/T-053-m4a-admin-foundation`: T-053..T-057 implemented, PR in review (epic #43: #44, #45, #47).
 
 ## Next
 
@@ -35,6 +35,12 @@ Milestone **M3b-team-access** — branch `feat/T-043-m3b-team-access`: T-043, T-
 - [ ] T-050 Pin the Hermes version and run a live hermes-runtime acceptance probe — @unassigned · [details](todo/T-050-pin-the-hermes-version-and-run-a-live-hermes-runti.md)
 - [ ] T-051 Move Meta inbox and training docs into the docs structure — @unassigned · [details](todo/T-051-move-meta-inbox-and-training-docs-into-the-docs-st.md)
 - [ ] T-052 Sign in to ChatGPT from the Admin LLM page for hermes-runtime — @mrkenknight · [details](todo/T-052-sign-in-to-chatgpt-from-the-admin-llm-page-for-her.md)
+- [ ] T-058 Notification preferences and reminder offsets (ADM-03) — @unassigned · [details](todo/T-058-notification-preferences-and-reminder-offsets-adm-.md)
+- [ ] T-059 Plan purchase history, invoices and payment approval states (ADM-05) — @unassigned · [details](todo/T-059-plan-purchase-history-invoices-and-payment-approva.md)
+- [ ] T-060 AI and ZBS credit wallets, ledgers and vouchers (ADM-06) — @unassigned · [details](todo/T-060-ai-and-zbs-credit-wallets-ledgers-and-vouchers-adm.md)
+- [ ] T-061 Affiliate onboarding, referral reporting and commissions (ADM-07) — @unassigned · [details](todo/T-061-affiliate-onboarding-referral-reporting-and-commis.md)
+- [ ] T-062 Support tickets with department routing and attachments (ADM-08) — @unassigned · [details](todo/T-062-support-tickets-with-department-routing-and-attach.md)
+- [ ] T-063 Advanced Google connector and capability-aware settings navigation (ADM-09) — @unassigned · [details](todo/T-063-advanced-google-connector-and-capability-aware-set.md)
 
 ## Blocked
 
@@ -42,13 +48,13 @@ Milestone **M3b-team-access** — branch `feat/T-043-m3b-team-access`: T-043, T-
 
 ## Done (last 10 — older ones live in todo/done/)
 
+- [x] T-057 Account two-factor authentication with TOTP and recovery codes (ADM-04) — @agent:claude · [details](todo/done/T-057-account-two-factor-authentication-with-totp-and-re.md) · M4a PR
+- [x] T-056 Workspace business profile and private logo (ADM-02) — @agent:claude · [details](todo/done/T-056-workspace-business-profile-and-private-logo-adm-02.md) · M4a PR
+- [x] T-055 Workspace members: seat limits, resend and reassignment on removal (ADM-01) — @agent:claude · [details](todo/done/T-055-workspace-members-seat-limits-resend-and-reassignm.md) · M4a PR
+- [x] T-054 Audit trail for workspace and security changes — @agent:claude · [details](todo/done/T-054-audit-trail-for-workspace-and-security-changes.md) · M4a PR
+- [x] T-053 Billing foundation: plans, subscriptions and entitlements — @agent:claude · [details](todo/done/T-053-billing-foundation-plans-subscriptions-and-entitle.md) · M4a PR
 - [x] T-044 Workspace roles, capabilities and CRM object scope — @agent:claude · [details](todo/done/T-044-workspace-roles-capabilities-and-crm-object-scope.md) · #41
 - [x] T-043 Workspace members and invitation links — @agent:claude · [details](todo/done/T-043-workspace-members-and-invitation-links.md) · #41
 - [x] T-033 CRM auto-assignment distribution policies for Sales and CSKH — @agent:claude · [details](todo/done/T-033-crm-auto-assignment-distribution-policies-for-sale.md) · #41
 - [x] T-047 Rebuild bot training and multichannel UI to match Preny screens — @agent:claude-code · [details](todo/done/T-047-rebuild-bot-training-and-multichannel-ui-to-match-.md) · #40
 - [x] T-045 Implement Preny bot training and Meta inbox with an isolated Hermes runtime — @agent:codex · [details](todo/done/T-045-implement-preny-bot-training-and-meta-inbox-with-a.md) · #40
-- [x] T-032 CRM classification and attribute tags with assignments — @agent:claude · [details](todo/done/T-032-crm-classification-and-attribute-tags-with-assignm.md) · #39
-- [x] T-031 CRM sources, pipeline statuses and Sales/CSKH assignment — @agent:claude · [details](todo/done/T-031-crm-sources-pipeline-statuses-and-sales-cskh-assig.md) · #39
-- [x] T-030 CRM typed contact filters, table preferences and saved views — @agent:claude · [details](todo/done/T-030-crm-typed-contact-filters-table-preferences-and-sa.md) · #39
-- [x] T-029 CRM contact workspace: profile, notes and audit history — @agent:claude · [details](todo/done/T-029-crm-contact-workspace-profile-notes-and-audit-hist.md) · #39
-- [x] T-027 Live-backend commerce E2E regression suite — @agent:claude · [details](todo/done/T-027-live-backend-commerce-e2e-regression-suite.md) · #24

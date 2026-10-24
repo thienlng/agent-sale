@@ -1,14 +1,18 @@
 import type { WorkspaceId } from '@agent-sales/shared';
 
 import type { MemberRepository } from '../../domain/ports/member.repository.js';
+import type { ProfileRepository } from '../../domain/ports/profile.repository.js';
 import type { WorkspaceRepository } from '../../domain/ports/workspace.repository.js';
+import type { AuditWriter } from './audit-writer.js';
 import type { EventPublisher } from './event-publisher.js';
 
 /** Everything a handler may touch inside one transaction. */
 export interface WorkspaceTxContext {
   workspaces: WorkspaceRepository;
   members: MemberRepository;
+  profiles: ProfileRepository;
   events: EventPublisher;
+  audit: AuditWriter;
 }
 
 /**

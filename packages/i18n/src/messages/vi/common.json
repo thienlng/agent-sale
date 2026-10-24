@@ -31,7 +31,8 @@
     "orderSettings": "Thiết lập",
     "contactsList": "Danh sách khách hàng",
     "crmSettings": "Cài đặt khách hàng",
-    "members": "Thành viên"
+    "members": "Thành viên",
+    "settingsHome": "Cài đặt"
   },
   "auth": {
     "login": "Đăng nhập",
@@ -63,6 +64,18 @@
       "bot": "Dạ áo thun trắng size L còn hàng ạ, giá 189.000đ. Anh/chị muốn em lên đơn luôn không ạ?",
       "source": "Trả lời từ FAQ: Giá áo thun",
       "caption": "Khách gõ không dấu, viết tắt. Bot vẫn trả lời đúng giá, đúng nguồn bạn đã dạy."
+    },
+    "mfa": {
+      "title": "Xác minh 2 bước",
+      "subtitle": "Nhập mã 6 số từ ứng dụng xác thực của bạn.",
+      "code": "Mã xác minh",
+      "useRecovery": "Dùng mã khôi phục",
+      "useApp": "Dùng mã từ ứng dụng",
+      "recoveryLabel": "Mã khôi phục",
+      "recoveryHint": "Mỗi mã khôi phục chỉ dùng được một lần.",
+      "verify": "Xác minh",
+      "back": "Quay lại",
+      "invalid": "Mã không đúng hoặc đã dùng. Thử mã mới."
     }
   },
   "industries": {
@@ -270,7 +283,8 @@
     "invalidName": "Chỉ dùng chữ thường, số và dấu gạch ngang (2–40 ký tự)",
     "conflict": "Tên này đã được dùng",
     "inUse": "Máy chủ đang được một gói sử dụng. Đổi gói sang máy chủ khác trước.",
-    "forbidden": "Vai trò của bạn không làm được việc này."
+    "forbidden": "Vai trò của bạn không làm được việc này.",
+    "quotaExceeded": "Gói hiện tại đã hết hạn mức này. Hãy giải phóng chỗ hoặc nâng cấp gói."
   },
   "common": {
     "loading": "Đang tải…",
@@ -1024,6 +1038,140 @@
       "loginFirst": "Đăng nhập hoặc tạo tài khoản bằng email được mời để tham gia.",
       "login": "Đăng nhập",
       "signup": "Tạo tài khoản"
+    },
+    "seats": "Thành viên {{used}}/{{limit}}",
+    "seatsUnlimited": "{{used}} thành viên",
+    "seatsPending": "{{count}} lời mời đang chờ giữ chỗ",
+    "quota": {
+      "title": "Đã dùng hết số thành viên của gói",
+      "body": "Gói hiện tại cho phép {{limit}} thành viên, tính cả lời mời đang chờ ({{members}} thành viên + {{pending}} lời mời). Thu hồi một lời mời, xoá một thành viên hoặc nâng cấp gói để mời thêm.",
+      "close": "Đã hiểu"
+    },
+    "resend": "Gửi lại",
+    "resent": "Đã tạo link mới; link cũ không dùng được nữa",
+    "resendTitle": "Link mời mới",
+    "removeDialog": {
+      "title": "Xoá {{name}} khỏi shop?",
+      "body": "Người này mất quyền truy cập ngay. Khách, đơn và ghi chú họ đã làm vẫn được giữ.",
+      "owns": "{{name}} đang phụ trách {{sales}} khách (Sales) và {{care}} khách (CSKH). Chọn người tiếp nhận; việc này được ghi lại trong lịch sử từng khách.",
+      "transfer": "Chuyển cho thành viên khác",
+      "unassign": "Bỏ phụ trách (khách thành chưa ai nhận)",
+      "pick": "Chọn thành viên",
+      "loading": "Đang kiểm tra khách do người này phụ trách…",
+      "confirm": "Xoá thành viên"
+    },
+    "audit": {
+      "title": "Nhật ký thay đổi",
+      "empty": "Chưa có thay đổi nào.",
+      "more": "Xem thêm",
+      "all": "Tất cả",
+      "actor": "Người thực hiện",
+      "system": "Hệ thống",
+      "actions": {
+        "member.invited": "Mời thành viên",
+        "member.invitation_resent": "Gửi lại lời mời",
+        "member.invitation_revoked": "Thu hồi lời mời",
+        "member.joined": "Thành viên tham gia",
+        "member.role_changed": "Đổi vai trò",
+        "member.removed": "Xoá thành viên",
+        "workspace.profile_updated": "Cập nhật hồ sơ shop",
+        "workspace.logo_changed": "Đổi logo",
+        "workspace.logo_removed": "Gỡ logo",
+        "billing.plan_set": "Đổi gói",
+        "security.mfa_enabled": "Bật xác thực 2 bước",
+        "security.mfa_disabled": "Tắt xác thực 2 bước",
+        "security.recovery_codes_regenerated": "Tạo lại mã khôi phục"
+      },
+      "areas": {
+        "member": "Thành viên",
+        "workspace": "Hồ sơ shop",
+        "security": "Bảo mật",
+        "billing": "Gói và thanh toán"
+      }
+    }
+  },
+  "wsettings": {
+    "title": "Cài đặt",
+    "tabs": {
+      "profile": "Hồ sơ shop",
+      "security": "Bảo mật",
+      "audit": "Nhật ký"
+    },
+    "profile": {
+      "title": "Thông tin shop",
+      "hint": "Thông tin kinh doanh của shop. Khác với tài khoản đăng nhập của bạn và thông tin xuất hoá đơn.",
+      "name": "Tên shop",
+      "companyName": "Tên công ty",
+      "businessServices": "Lĩnh vực / dịch vụ kinh doanh",
+      "productDescription": "Mô tả sản phẩm, dịch vụ",
+      "save": "Lưu thay đổi",
+      "saved": "Đã lưu thông tin shop",
+      "reset": "Hoàn tác",
+      "dirty": "Có thay đổi chưa lưu",
+      "readOnly": "Bạn chỉ xem được thông tin này. Chủ shop hoặc quản trị mới sửa được.",
+      "stale": "Thông tin shop vừa được người khác sửa. Đã tải bản mới nhất, hãy kiểm tra rồi lưu lại.",
+      "leave": "Có thay đổi chưa lưu. Rời trang sẽ mất các thay đổi này.",
+      "stay": "Ở lại",
+      "leaveConfirm": "Rời trang"
+    },
+    "logo": {
+      "title": "Logo",
+      "rules": "PNG hoặc JPG, hình vuông, tối đa 1 MB. Khuyến nghị 720 × 720 px (cho phép từ 128 đến 2048 px).",
+      "alt": "Logo của shop",
+      "none": "Chưa có logo",
+      "upload": "Chọn ảnh",
+      "change": "Đổi logo",
+      "remove": "Gỡ logo",
+      "uploaded": "Đã cập nhật logo",
+      "removed": "Đã gỡ logo",
+      "uploading": "Đang tải lên…",
+      "errors": {
+        "too_large": "Ảnh lớn hơn 1 MB. Hãy nén hoặc chọn ảnh nhỏ hơn.",
+        "not_an_image": "Tệp này không phải ảnh PNG hoặc JPG hợp lệ.",
+        "corrupt": "Không đọc được ảnh (tệp hỏng hoặc bị cắt). Hãy xuất lại rồi thử lại.",
+        "not_square": "Ảnh phải là hình vuông (hiện là {{width}} × {{height}} px).",
+        "too_small": "Ảnh quá nhỏ (từ 128 × 128 px trở lên).",
+        "too_big": "Ảnh quá lớn (tối đa 2048 × 2048 px).",
+        "type": "Chỉ nhận ảnh PNG hoặc JPG."
+      }
+    },
+    "security": {
+      "title": "Xác minh 2 bước",
+      "hint": "Thêm một lớp bảo vệ: ngoài mật khẩu, đăng nhập cần mã từ ứng dụng xác thực (Google Authenticator, Authy, 1Password…).",
+      "off": "Đang tắt",
+      "on": "Đang bật",
+      "recoveryLeft": "Còn {{count}} mã khôi phục",
+      "enable": "Bật xác minh 2 bước",
+      "disable": "Tắt xác minh 2 bước",
+      "newCodes": "Tạo mã khôi phục mới",
+      "password": "Mật khẩu hiện tại",
+      "code": "Mã xác minh",
+      "codeOrRecovery": "Mã xác minh hoặc mã khôi phục",
+      "continue": "Tiếp tục",
+      "confirm": "Xác nhận",
+      "cancel": "Huỷ",
+      "step1": "1. Xác nhận mật khẩu",
+      "step2": "2. Quét mã QR bằng ứng dụng xác thực",
+      "step3": "3. Nhập mã 6 số hiện trên ứng dụng",
+      "manual": "Không quét được? Nhập khóa này vào ứng dụng:",
+      "copy": "Sao chép",
+      "copied": "Đã sao chép",
+      "qrAlt": "Mã QR để thêm tài khoản vào ứng dụng xác thực",
+      "codesTitle": "Lưu các mã khôi phục",
+      "codesHint": "Mỗi mã dùng được một lần khi mất điện thoại. Chúng chỉ hiện ở đây một lần — hãy lưu ở nơi an toàn.",
+      "codesDone": "Tôi đã lưu các mã",
+      "downloadCodes": "Tải về",
+      "disableTitle": "Tắt xác minh 2 bước?",
+      "disableHint": "Tài khoản chỉ còn được bảo vệ bằng mật khẩu.",
+      "newCodesTitle": "Tạo mã khôi phục mới?",
+      "newCodesHint": "Các mã cũ sẽ không còn dùng được.",
+      "errors": {
+        "invalid_password": "Mật khẩu không đúng.",
+        "invalid_code": "Mã không đúng. Thử mã mới trên ứng dụng.",
+        "already_enabled": "Xác minh 2 bước đã bật."
+      },
+      "enabledToast": "Đã bật xác minh 2 bước",
+      "disabledToast": "Đã tắt xác minh 2 bước"
     }
   }
 }

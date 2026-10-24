@@ -6,11 +6,17 @@ import {
   type InvitationDto,
   type InvitationPreview,
   type MemberDto,
+  type MemberList,
+  MEMBERS_LIMIT,
+  type RemovalPreview,
+  RemoveMemberRequest,
   roleCan,
 } from '@agent-sales/contracts';
 import { isUuid, newId, userId, type UserId, type WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
+import { BILLING_FACADE, type BillingFacade } from '../../billing/api/index.js';
+import { CRM_FACADE, type CrmFacade } from '../../crm/api/index.js';
 import { IDENTITY_FACADE, type IdentityFacade } from '../../identity/api/index.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
 import type { TeamFacade } from '../api/team.facade.js';
@@ -23,9 +29,12 @@ import {
 import {
   AdminOnlyByOwnerError,
   AlreadyMemberError,
+  InvalidReassignmentError,
   InvitationEmailMismatchError,
   InvitationNotFoundError,
   InvitationUnusableError,
+  ReassignmentRequiredError,
+  SeatLimitReachedError,
 } from '../domain/team.errors.js';
 import {
   INVITATION_STORE,
@@ -55,10 +64,17 @@ const toInvitationDto = (i: InvitationRecord): InvitationDto => ({
   createdAt: i.createdAt.toISOString(),
 });
 
+/** Roles that may take over customers: they must be able to see and work them. */
+const CAN_OWN_CUSTOMERS: ReadonlySet<string> = new Set(['owner', 'admin', 'sales', 'care']);
+
 /**
- * Members and invitation links (docs/02 SET-01). Admins manage sales, CSKH and
- * analysts; only the owner invites, changes or removes admins. The owner's
- * own membership never changes (workspace module rule).
+ * Members and invitation links (docs/02 SET-01, ADM-01). Admins manage sales,
+ * CSKH and analysts; only the owner invites, changes or removes admins. The
+ * owner's own membership never changes (workspace module rule).
+ *
+ * Seats (`members.max`): an invitation is only created while active members plus
+ * waiting invitations fit the limit (so links are never dead on arrival), and the
+ * hard check runs atomically when a member is added (workspace module).
  */
 @Injectable()
 export class TeamService implements TeamFacade {
@@ -66,6 +82,8 @@ export class TeamService implements TeamFacade {
     @Inject(INVITATION_STORE) private readonly invitations: InvitationStore,
     @Inject(WORKSPACE_FACADE) private readonly workspaces: WorkspaceFacade,
     @Inject(IDENTITY_FACADE) private readonly identity: IdentityFacade,
+    @Inject(BILLING_FACADE) private readonly billing: BillingFacade,
+    @Inject(CRM_FACADE) private readonly crm: CrmFacade,
   ) {}
 
   /** Managers see emails and former members; everyone else sees active names and roles. */
@@ -88,15 +106,64 @@ export class TeamService implements TeamFacade {
     );
   }
 
+  /** The member list with the seat indicator (used / waiting invitations / limit). */
+  async overview(ws: WorkspaceId, actor: Actor): Promise<MemberList> {
+    const manager = roleCan(actor.role, 'members.manage');
+    const [data, limit, active, pending] = await Promise.all([
+      this.listMembers(ws, actor),
+      this.billing.limit(ws, MEMBERS_LIMIT),
+      this.workspaces.listMembers(ws),
+      manager ? this.invitations.countPending(ws, '') : Promise.resolve(0),
+    ]);
+    return { data, seats: { used: active.length, pending, limit } };
+  }
+
   async changeRole(ws: WorkspaceId, target: string, role: AssignableRole, actor: Actor) {
     await this.#assertManages(ws, target, role, actor);
-    await this.workspaces.changeMemberRole(ws, userId(target), role);
+    await this.workspaces.changeMemberRole(ws, userId(target), role, await this.#who(actor));
     return this.#member(ws, target, actor);
   }
 
-  async remove(ws: WorkspaceId, target: string, actor: Actor) {
+  /** How many customers a member owns, shown before removing them. */
+  async removalPreview(ws: WorkspaceId, target: string, actor: Actor): Promise<RemovalPreview> {
     await this.#assertManages(ws, target, undefined, actor);
-    await this.workspaces.removeMember(ws, userId(target));
+    const owned = await this.crm.ownedContactCounts(ws, target);
+    return { ...owned, requiresReassignment: owned.sales + owned.care > 0 };
+  }
+
+  /**
+   * Removes a member. If they own customers, the request must say where those go
+   * (another member, or unassigned): never silently. Customers move first, then
+   * the membership ends, so a failure in between leaves a member with no customers
+   * rather than customers owned by someone without access; a retry is safe.
+   */
+  async remove(ws: WorkspaceId, target: string, raw: unknown, actor: Actor) {
+    const { reassign } = RemoveMemberRequest.parse(raw ?? {});
+    await this.#assertManages(ws, target, undefined, actor);
+    const owned = await this.crm.ownedContactCounts(ws, target);
+    const who = await this.#who(actor);
+    if (owned.sales + owned.care > 0) {
+      if (!reassign) throw new ReassignmentRequiredError(owned);
+      let to: string | null = null;
+      if (reassign.mode === 'transfer') {
+        to = reassign.toUserId;
+        const members = await this.workspaces.listMembers(ws);
+        const dest = members.find((m) => m.userId === to);
+        if (to === target || !dest || !CAN_OWN_CUSTOMERS.has(dest.role)) {
+          throw new InvalidReassignmentError();
+        }
+      }
+      await this.crm.reassignContacts(ws, { from: target, to, actor: who });
+    }
+    await this.workspaces.removeMember(ws, userId(target), who);
+    // A customer assigned to them between the handover and the removal (auto-assignment) is moved too.
+    if (reassign) {
+      await this.crm.reassignContacts(ws, {
+        from: target,
+        to: reassign.mode === 'transfer' ? reassign.toUserId : null,
+        actor: who,
+      });
+    }
     return this.#member(ws, target, actor);
   }
 
@@ -107,35 +174,25 @@ export class TeamService implements TeamFacade {
   /** A new link replaces any pending one for the same email. */
   async invite(ws: WorkspaceId, raw: unknown, actor: Actor): Promise<CreatedInvitation> {
     const { email, role } = CreateInvitationRequest.parse(raw);
-    if (role === 'admin' && actor.role !== 'owner') throw new AdminOnlyByOwnerError();
-    const members = await this.workspaces.listMembers(ws);
-    for (const m of members) {
-      if ((await this.identity.profile(m.userId))?.email.toLowerCase() === email) {
-        throw new AlreadyMemberError();
-      }
-    }
-    const { token, hash } = newInvitationToken();
-    const now = new Date();
-    const record: InvitationRecord = {
-      id: newId(),
-      workspaceId: ws,
-      email,
-      role,
-      tokenHash: hash,
-      invitedByUserId: actor.userId,
-      invitedByName: await this.identity.displayName(userId(actor.userId)),
-      expiresAt: new Date(now.getTime() + INVITATION_TTL_MS),
-      acceptedAt: null,
-      acceptedByUserId: null,
-      revokedAt: null,
-      createdAt: now,
-    };
-    await this.invitations.replacePending(ws, record);
-    return { invitation: toInvitationDto(record), token };
+    return this.#issue(ws, email, role, actor, 'member.invited');
   }
 
-  async revoke(ws: WorkspaceId, id: string): Promise<InvitationDto> {
-    const r = isUuid(id) ? await this.invitations.revoke(ws, id) : null;
+  /** A fresh link for the same email and role; the old one stops working. */
+  async resend(ws: WorkspaceId, id: string, actor: Actor): Promise<CreatedInvitation> {
+    const old = isUuid(id) ? await this.invitations.find(ws, id) : null;
+    if (!old) throw new InvitationNotFoundError();
+    if (old.acceptedAt) throw new InvitationUnusableError('accepted');
+    return this.#issue(ws, old.email, old.role, actor, 'member.invitation_resent');
+  }
+
+  async revoke(ws: WorkspaceId, id: string, actor: Actor): Promise<InvitationDto> {
+    const r = isUuid(id)
+      ? await this.invitations.revoke(ws, id, {
+          actorUserId: actor.userId,
+          actorName: await this.identity.displayName(userId(actor.userId)),
+          action: 'member.invitation_revoked',
+        })
+      : null;
     if (!r) throw new InvitationNotFoundError();
     return toInvitationDto(r);
   }
@@ -160,6 +217,7 @@ export class TeamService implements TeamFacade {
   /**
    * Joins the workspace of a pending invitation sent to the signed-in user's
    * email. Accepting the same invitation again is a no-op that answers the same.
+   * If no seat is free the claim is released, so the link works once a seat opens.
    */
   async accept(token: string, user: UserId): Promise<AcceptedInvitation> {
     const i = await this.#byToken(token);
@@ -178,11 +236,77 @@ export class TeamService implements TeamFacade {
       if (now?.acceptedByUserId === user) return done;
       throw new InvitationUnusableError(now ? invitationStatus(now) : 'revoked');
     }
-    await this.workspaces.joinMember(ws, user, i.role);
+    try {
+      await this.workspaces.joinMember(ws, user, i.role, {
+        seatLimit: await this.billing.limit(ws, MEMBERS_LIMIT),
+        actor: { userId: user, name: profile.name },
+      });
+    } catch (error) {
+      await this.invitations.releaseAccepted(i.id, user);
+      throw error;
+    }
     return done;
   }
 
   // ─── helpers ──────────────────────────────────────────────────────────────
+
+  async #issue(
+    ws: WorkspaceId,
+    email: string,
+    role: AssignableRole,
+    actor: Actor,
+    action: string,
+  ): Promise<CreatedInvitation> {
+    if (role === 'admin' && actor.role !== 'owner') throw new AdminOnlyByOwnerError();
+    const members = await this.workspaces.listMembers(ws);
+    for (const m of members) {
+      if ((await this.identity.profile(m.userId))?.email.toLowerCase() === email) {
+        throw new AlreadyMemberError();
+      }
+    }
+    // Waiting invitations reserve seats at invite time (the same email's old link is replaced).
+    const limit = await this.billing.limit(ws, MEMBERS_LIMIT);
+    if (limit !== null) {
+      const waiting = await this.invitations.countPending(ws, email);
+      if (members.length + waiting >= limit) {
+        throw new SeatLimitReachedError(limit, members.length, waiting);
+      }
+    }
+    const { token, hash } = newInvitationToken();
+    const now = new Date();
+    const actorName = await this.identity.displayName(userId(actor.userId));
+    const record: InvitationRecord = {
+      id: newId(),
+      workspaceId: ws,
+      email,
+      role,
+      tokenHash: hash,
+      invitedByUserId: actor.userId,
+      invitedByName: actorName,
+      expiresAt: new Date(now.getTime() + INVITATION_TTL_MS),
+      acceptedAt: null,
+      acceptedByUserId: null,
+      revokedAt: null,
+      createdAt: now,
+    };
+    await this.invitations.replacePending(ws, record, {
+      actorUserId: actor.userId,
+      actorName,
+      action,
+      data: { emailHint: maskEmail(email) },
+    });
+    return { invitation: toInvitationDto(record), token };
+  }
+
+  async #who(actor: Actor) {
+    return { userId: actor.userId, name: await this.identity.displayName(userId(actor.userId)) };
+  }
+
+  async #byToken(token: string): Promise<InvitationRecord> {
+    const i = await this.invitations.findByTokenHash(hashInvitationToken(token));
+    if (!i) throw new InvitationNotFoundError();
+    return i;
+  }
 
   /** A link is only as good as its inviter: removed or demoted inviters' links stop working. */
   async #assertInviterStillMay(ws: WorkspaceId, i: InvitationRecord): Promise<void> {
@@ -191,12 +315,6 @@ export class TeamService implements TeamFacade {
     );
     const may = inviter?.role === 'owner' || (inviter?.role === 'admin' && i.role !== 'admin');
     if (!may) throw new InvitationUnusableError('inviter_changed');
-  }
-
-  async #byToken(token: string): Promise<InvitationRecord> {
-    const i = await this.invitations.findByTokenHash(hashInvitationToken(token));
-    if (!i) throw new InvitationNotFoundError();
-    return i;
   }
 
   /** Admins cannot touch admins (or make someone admin); only the owner can. */
