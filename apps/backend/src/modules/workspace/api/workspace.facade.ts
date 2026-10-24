@@ -15,6 +15,12 @@ export interface WorkspaceMember {
   joinedAt: Date;
 }
 
+/** Who is acting, for the audit trail. */
+export interface MemberActor {
+  userId: string;
+  name: string | null;
+}
+
 /** Roles that can be given; there is exactly one owner. */
 export type GivenRole = 'admin' | 'sales' | 'care' | 'analyst';
 
@@ -39,12 +45,26 @@ export interface WorkspaceFacade {
     workspaceId: WorkspaceId,
     opts?: { includeRemoved?: boolean },
   ): Promise<WorkspaceMember[]>;
-  /** Adds a member or reactivates a removed one with this role (the owner is left as is). */
-  joinMember(workspaceId: WorkspaceId, userId: UserId, role: GivenRole): Promise<void>;
+  /**
+   * Adds a member or reactivates a removed one with this role (the owner is left as
+   * is). `seatLimit` (`null` = unlimited) is enforced atomically: QUOTA_EXCEEDED when
+   * no seat is free for a newly active member.
+   */
+  joinMember(
+    workspaceId: WorkspaceId,
+    userId: UserId,
+    role: GivenRole,
+    opts: { seatLimit: number | null; actor: MemberActor },
+  ): Promise<void>;
   /** NOT_FOUND for non-members; CONFLICT for the owner. */
-  changeMemberRole(workspaceId: WorkspaceId, userId: UserId, role: GivenRole): Promise<void>;
+  changeMemberRole(
+    workspaceId: WorkspaceId,
+    userId: UserId,
+    role: GivenRole,
+    actor: MemberActor,
+  ): Promise<void>;
   /** Their work stays (history, assignments); they lose access. CONFLICT for the owner. */
-  removeMember(workspaceId: WorkspaceId, userId: UserId): Promise<void>;
+  removeMember(workspaceId: WorkspaceId, userId: UserId, actor: MemberActor): Promise<void>;
 }
 
 export const WORKSPACE_FACADE = Symbol('WORKSPACE_FACADE');

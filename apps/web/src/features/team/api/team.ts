@@ -7,6 +7,8 @@ import {
   InvitationPreview,
   MemberDto,
   MemberList,
+  RemovalPreview,
+  type RemoveMemberRequest,
 } from '@agent-sales/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -14,12 +16,26 @@ import { api } from '@/lib/api-client';
 import { queryKeys } from '@/lib/query-keys';
 import { useWorkspaceId } from '@/lib/use-workspace';
 
+/** Members with the seat indicator (`seats`). */
 export function useMembers() {
   const ws = useWorkspaceId();
   return useQuery({
     queryKey: queryKeys.members(ws),
-    queryFn: async () => (await api('/members', MemberList)).data,
+    queryFn: () => api('/members', MemberList),
     enabled: Boolean(ws),
+  });
+}
+
+/** What removing a member does to the customers they own; fetched when the dialog opens. */
+export function useRemovalPreview(userId: string | undefined) {
+  const ws = useWorkspaceId();
+  return useQuery({
+    queryKey: [...queryKeys.members(ws), 'removal', userId],
+    queryFn: () => api(`/members/${userId}/removal-preview`, RemovalPreview),
+    enabled: Boolean(ws && userId),
+    // Always fresh: customers may have changed hands since the page loaded.
+    staleTime: 0,
+    gcTime: 0,
   });
 }
 
@@ -57,10 +73,19 @@ export function useTeamMutations() {
         api(`/members/${v.userId}`, MemberDto, { method: 'PATCH', body: { role: v.role } }),
       onSuccess: refresh,
     }),
-    remove: useMutation({
-      mutationFn: (userId: string) =>
-        api(`/members/${userId}/remove`, MemberDto, { method: 'POST' }),
+    resend: useMutation({
+      mutationFn: (id: string) =>
+        api(`/invitations/${id}/resend`, CreatedInvitation, { method: 'POST' }),
       onSuccess: refresh,
+    }),
+    remove: useMutation({
+      mutationFn: (v: { userId: string; body: RemoveMemberRequest }) =>
+        api(`/members/${v.userId}/remove`, MemberDto, { method: 'POST', body: v.body }),
+      onSuccess: () => {
+        refresh();
+        // Customers changed hands.
+        void qc.invalidateQueries({ queryKey: queryKeys.contacts(ws) });
+      },
     }),
   };
 }

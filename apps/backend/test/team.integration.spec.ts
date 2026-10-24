@@ -1,14 +1,18 @@
 import {
   AcceptedInvitation,
   AssignmentPolicyDto,
+  AuditList,
   AuthResponse,
   BootstrapResponse,
   ContactDto,
+  ContactHistoryList,
   ContactListResponse,
   CreatedInvitation,
+  EntitlementsDto,
   CrmOptionList,
   InvitationPreview,
   MemberList,
+  RemovalPreview,
 } from '@agent-sales/contracts';
 import { createDb, ensureLoginRoles, eq, migrate, schema, withCredentials } from '@agent-sales/db';
 import { startTestPostgres, type TestPostgres } from '@agent-sales/testing';
@@ -75,6 +79,8 @@ async function user(email: string, name: string) {
   const authorization = `Bearer ${accessToken}`;
   const boot = BootstrapResponse.parse((await call({ authorization }, 'GET', '/bootstrap')).json());
   const own = boot.memberships[0]?.workspaceId ?? '';
+  // Free has one seat; most tests need a team, so every shop starts with plenty.
+  await setSeats(own, 50);
   return {
     userId: boot.user.id,
     ownWorkspace: own,
@@ -82,6 +88,20 @@ async function user(email: string, name: string) {
     h: { authorization, 'x-workspace-id': own } as Headers,
     in: (ws: string): Headers => ({ authorization, 'x-workspace-id': ws }),
   };
+}
+
+/** Sets the member seat limit of a workspace (an entitlement override, as an operator would). */
+async function setSeats(workspaceId: string, seats: number | null) {
+  await owner.db
+    .insert(schema.workspaceEntitlementOverrides)
+    .values({ workspaceId, key: 'members.max', value: seats, reason: 'test' })
+    .onConflictDoUpdate({
+      target: [
+        schema.workspaceEntitlementOverrides.workspaceId,
+        schema.workspaceEntitlementOverrides.key,
+      ],
+      set: { value: seats },
+    });
 }
 
 /** Owner invites `email` as `role`; the invitee accepts with their own session. */
@@ -474,7 +494,10 @@ describe('team and access on Postgres', () => {
     expect(ContactDto.parse(own.json()).salesUserId).toBe(chi.userId);
 
     // A removed member is skipped.
-    await call(lan.h, 'POST', `/members/${chi.userId}/remove`);
+    // (Chi owns customers, so their hand-over has to be named.)
+    await call(lan.h, 'POST', `/members/${chi.userId}/remove`, {
+      reassign: { mode: 'transfer', toUserId: binh.userId },
+    });
     const after = await Promise.all(
       Array.from({ length: 3 }, (_, i) =>
         call(lan.h, 'POST', '/contacts', { name: `Sau ${i}`, sourceId: facebook?.id }),
@@ -494,5 +517,246 @@ describe('team and access on Postgres', () => {
       type: 'contact.created',
       data: { autoAssigned: true },
     });
+  });
+
+  it('keeps seats: waiting invitations reserve them and the last seat goes to one joiner (ADM-01)', async () => {
+    const lan = await user('lan5@team.vn', 'Chủ shop');
+    const a = await user('a5@team.vn', 'Sales A');
+    const c = await user('c5@team.vn', 'Sales C');
+    const d = await user('d5@team.vn', 'Sales D');
+    await setSeats(lan.ownWorkspace, 3); // the owner and two more
+
+    const invite = (email: string) => call(lan.h, 'POST', '/invitations', { email, role: 'sales' });
+    const tokenOf = (r: { json(): unknown }) => CreatedInvitation.parse(r.json());
+    const first = tokenOf(await invite('a5@team.vn'));
+    const second = tokenOf(await invite('b5@team.vn'));
+    // The owner and two waiting invitations fill three seats: no further link.
+    const full = await invite('c5@team.vn');
+    expect(full.statusCode).toBe(402);
+    expect(full.json()).toMatchObject({
+      error: { code: 'QUOTA_EXCEEDED', details: { limit: 3, members: 1, pending: 2 } },
+    });
+    expect(MemberList.parse((await call(lan.h, 'GET', '/members')).json()).seats).toEqual({
+      used: 1,
+      pending: 2,
+      limit: 3,
+    });
+    // Re-inviting the same address replaces its link and needs no extra seat.
+    const renewed = await invite('a5@team.vn');
+    expect(renewed.statusCode).toBe(201);
+    // Revoking a waiting invitation frees its seat.
+    await call(lan.h, 'POST', `/invitations/${second.invitation.id}/revoke`);
+    expect((await invite('c5@team.vn')).statusCode).toBe(201);
+    expect(first.invitation.id).not.toBe(tokenOf(renewed).invitation.id);
+
+    // One seat left (plan shrinks to 3 with the owner and A in): C and D race for it.
+    expect(
+      (await call(a.auth, 'POST', '/invitation-links/accept', { token: tokenOf(renewed).token }))
+        .statusCode,
+    ).toBe(200);
+    await setSeats(lan.ownWorkspace, 5);
+    const cLink = tokenOf(await invite('c5@team.vn')).token;
+    const dLink = tokenOf(await invite('d5@team.vn')).token;
+    await setSeats(lan.ownWorkspace, 3);
+    const [rc, rd] = await Promise.all([
+      call(c.auth, 'POST', '/invitation-links/accept', { token: cLink }),
+      call(d.auth, 'POST', '/invitation-links/accept', { token: dLink }),
+    ]);
+    expect([rc.statusCode, rd.statusCode].sort()).toEqual([200, 402]);
+    const members = MemberList.parse((await call(lan.h, 'GET', '/members')).json());
+    expect(members.seats.used).toBe(3);
+
+    // The refused joiner keeps a working link: once a seat opens it succeeds.
+    await setSeats(lan.ownWorkspace, 4);
+    const loser = rc.statusCode === 402 ? { u: c, token: cLink } : { u: d, token: dLink };
+    expect(
+      (await call(loser.u.auth, 'POST', '/invitation-links/accept', { token: loser.token }))
+        .statusCode,
+    ).toBe(200);
+  });
+
+  it('resends a link (the old one dies) and records who did what in the audit trail (ADM-01, T-054)', async () => {
+    const lan = await user('lan6@team.vn', 'Chủ shop');
+    const mai = await user('mai6@team.vn', 'Sales Mai');
+    const inv = CreatedInvitation.parse(
+      (await call(lan.h, 'POST', '/invitations', { email: 'mai6@team.vn', role: 'sales' })).json(),
+    );
+    const resent = CreatedInvitation.parse(
+      (await call(lan.h, 'POST', `/invitations/${inv.invitation.id}/resend`)).json(),
+    );
+    expect(resent.token).not.toBe(inv.token);
+    expect(resent.invitation.email).toBe('mai6@team.vn');
+    expect(
+      (await call(mai.auth, 'POST', '/invitation-links/accept', { token: inv.token })).statusCode,
+    ).toBe(409);
+    expect(
+      (await call(mai.auth, 'POST', '/invitation-links/accept', { token: resent.token }))
+        .statusCode,
+    ).toBe(200);
+    // An accepted invitation cannot be resent.
+    expect(
+      (await call(lan.h, 'POST', `/invitations/${resent.invitation.id}/resend`)).statusCode,
+    ).toBe(409);
+
+    await call(lan.h, 'PATCH', `/members/${mai.userId}`, { role: 'care' });
+    const trail = AuditList.parse((await call(lan.h, 'GET', '/audit-events')).json());
+    expect(trail.data.map((e) => e.action)).toEqual([
+      'member.role_changed',
+      'member.joined',
+      'member.invitation_resent',
+      'member.invited',
+    ]);
+    const changed = trail.data[0];
+    expect(changed).toMatchObject({
+      actorName: 'Chủ shop',
+      targetId: mai.userId,
+      data: { role: { from: 'sales', to: 'care' } },
+    });
+    // No emails or tokens in the trail.
+    expect(JSON.stringify(trail)).not.toContain('mai6@team.vn');
+    expect(JSON.stringify(trail)).not.toContain(inv.token);
+    // Filters and who may read.
+    const onlyMembers = AuditList.parse(
+      (await call(lan.h, 'GET', '/audit-events?action=member.role_changed')).json(),
+    );
+    expect(onlyMembers.data).toHaveLength(1);
+    const page = AuditList.parse((await call(lan.h, 'GET', '/audit-events?limit=2')).json());
+    expect(page.data).toHaveLength(2);
+    expect(page.next).not.toBeNull();
+    const rest = AuditList.parse(
+      (
+        await call(
+          lan.h,
+          'GET',
+          `/audit-events?limit=50&before=${encodeURIComponent(page.next?.before ?? '')}&beforeId=${page.next?.beforeId}`,
+        )
+      ).json(),
+    );
+    expect(rest.data.length + 2).toBe(trail.data.length);
+    expect((await call(mai.in(lan.ownWorkspace), 'GET', '/audit-events')).statusCode).toBe(403);
+    // Another shop sees none of it.
+    const other = await user('other6@team.vn', 'Shop khác');
+    expect(AuditList.parse((await call(other.h, 'GET', '/audit-events')).json()).data).toEqual([]);
+  });
+
+  it('removing a member with customers needs an explicit hand-over and previews it first (ADM-01)', async () => {
+    const lan = await user('lan7@team.vn', 'Chủ shop');
+    const binh = await user('binh7@team.vn', 'Sales Bình');
+    const chi = await user('chi7@team.vn', 'Sales Chi');
+    const an = await user('an7@team.vn', 'Phân tích An');
+    await join(lan, binh, 'binh7@team.vn', 'sales');
+    await join(lan, chi, 'chi7@team.vn', 'sales');
+    await join(lan, an, 'an7@team.vn', 'analyst');
+    const make = async (name: string, extra: object) =>
+      ContactDto.parse((await call(lan.h, 'POST', '/contacts', { name, ...extra })).json());
+    const c1 = await make('Khách 1', { salesUserId: binh.userId });
+    const c2 = await make('Khách 2', { salesUserId: binh.userId, careUserId: binh.userId });
+    await make('Khách 3', { salesUserId: chi.userId });
+
+    const preview = RemovalPreview.parse(
+      (await call(lan.h, 'GET', `/members/${binh.userId}/removal-preview`)).json(),
+    );
+    expect(preview).toEqual({ sales: 2, care: 1, requiresReassignment: true });
+    // Silently dropping the customers is not an option.
+    const bare = await call(lan.h, 'POST', `/members/${binh.userId}/remove`, {});
+    expect(bare.statusCode).toBe(400);
+    expect(bare.json()).toMatchObject({
+      error: { details: { reassignmentRequired: true, sales: 2, care: 1 } },
+    });
+    // An analyst cannot take customers over; neither can the leaver themselves.
+    const bad = { reassign: { mode: 'transfer', toUserId: an.userId } };
+    expect((await call(lan.h, 'POST', `/members/${binh.userId}/remove`, bad)).statusCode).toBe(400);
+    expect(
+      (
+        await call(lan.h, 'POST', `/members/${binh.userId}/remove`, {
+          reassign: { mode: 'transfer', toUserId: binh.userId },
+        })
+      ).statusCode,
+    ).toBe(400);
+    expect(
+      (await call(binh.in(lan.ownWorkspace), 'GET', `/members/${chi.userId}/removal-preview`))
+        .statusCode,
+    ).toBe(403);
+
+    const done = await call(lan.h, 'POST', `/members/${binh.userId}/remove`, {
+      reassign: { mode: 'transfer', toUserId: chi.userId },
+    });
+    expect(done.statusCode, done.body).toBe(200);
+    const moved = ContactDto.parse((await call(lan.h, 'GET', `/contacts/${c2.id}`)).json());
+    expect(moved).toMatchObject({ salesUserId: chi.userId, careUserId: chi.userId });
+    const hist = ContactHistoryList.parse(
+      (await call(lan.h, 'GET', `/contacts/${c1.id}/history?type=contact.assigned`)).json(),
+    );
+    expect(hist.data[0]).toMatchObject({
+      changes: { salesUserId: { from: binh.userId, to: chi.userId } },
+    });
+    expect(
+      await owner.db
+        .select()
+        .from(schema.outboxEvents)
+        .where(eq(schema.outboxEvents.type, 'crm.contact.assigned.v1'))
+        .then((r) => r.length),
+    ).toBeGreaterThanOrEqual(3);
+
+    // Nobody takes them: unassigned, ready to be picked up.
+    const dan = await user('dan7@team.vn', 'Sales Dân');
+    await join(lan, dan, 'dan7@team.vn', 'sales');
+    const mine = await make('Khách của Dân', { salesUserId: dan.userId });
+    await call(lan.h, 'POST', `/members/${dan.userId}/remove`, { reassign: { mode: 'unassign' } });
+    expect(
+      ContactDto.parse((await call(lan.h, 'GET', `/contacts/${mine.id}`)).json()).salesUserId,
+    ).toBeNull();
+    // A member with no customers needs no hand-over.
+    const eva = await user('eva7@team.vn', 'Sales Eva');
+    await join(lan, eva, 'eva7@team.vn', 'sales');
+    expect((await call(lan.h, 'POST', `/members/${eva.userId}/remove`, {})).statusCode).toBe(200);
+  });
+
+  it('a downgrade takes effect on the very next request', async () => {
+    const lan = await user('lan8@team.vn', 'Chủ shop');
+    const adm = await user('adm8@team.vn', 'Quản lý');
+    await join(lan, adm, 'adm8@team.vn', 'admin');
+    const asAdm = adm.in(lan.ownWorkspace);
+    expect((await call(asAdm, 'POST', '/crm/sources', { name: 'Nguồn mới' })).statusCode).toBe(201);
+    await call(lan.h, 'PATCH', `/members/${adm.userId}`, { role: 'analyst' });
+    expect((await call(asAdm, 'POST', '/crm/sources', { name: 'Nguồn nữa' })).statusCode).toBe(403);
+    expect((await call(asAdm, 'GET', '/audit-events')).statusCode).toBe(403);
+    await call(lan.h, 'POST', `/members/${adm.userId}/remove`, {});
+    expect(
+      (await call(asAdm, 'GET', '/contacts/00000000-0000-4000-8000-000000000000')).statusCode,
+    ).toBe(404);
+  });
+
+  it('shows what the plan allows and honours overrides and plan changes (T-053)', async () => {
+    const lan = await user('lan9@team.vn', 'Chủ shop');
+    await owner.db
+      .delete(schema.workspaceEntitlementOverrides)
+      .where(eq(schema.workspaceEntitlementOverrides.workspaceId, lan.ownWorkspace));
+    const free = EntitlementsDto.parse((await call(lan.h, 'GET', '/billing/entitlements')).json());
+    expect(free).toMatchObject({ plan: { code: 'free' }, status: 'active', aiModels: ['smart'] });
+    expect(free.limits['members.max']).toBe(1);
+    expect(free.features['feature.lazada']).toBe(false);
+
+    await owner.db.insert(schema.subscriptions).values({
+      workspaceId: lan.ownWorkspace,
+      planCode: 'sales_neo',
+      planVersion: 1,
+      periodMonths: 3,
+    });
+    const neo = EntitlementsDto.parse((await call(lan.h, 'GET', '/billing/entitlements')).json());
+    expect(neo.plan.code).toBe('sales_neo');
+    expect(neo.limits['contacts.max']).toBeNull(); // unlimited
+    expect(neo.aiModels).toEqual(['smart', 'pro', 'neo']);
+    await setSeats(lan.ownWorkspace, 99);
+    expect(
+      EntitlementsDto.parse((await call(lan.h, 'GET', '/billing/entitlements')).json()).limits[
+        'members.max'
+      ],
+    ).toBe(99);
+    // Entitlements are per workspace.
+    const other = await user('other9@team.vn', 'Shop khác');
+    expect(
+      EntitlementsDto.parse((await call(other.h, 'GET', '/billing/entitlements')).json()).plan.code,
+    ).toBe('free');
   });
 });

@@ -1,3 +1,5 @@
+import { execFileSync } from 'node:child_process';
+
 import {
   type APIRequestContext,
   type Browser,
@@ -76,6 +78,27 @@ test.afterAll(async () => {
   await ownerApi?.dispose();
 });
 
+test('on the free plan the single seat is taken: inviting shows the quota gate, an upgrade opens it', async () => {
+  await ownerPage.goto('/app/members');
+  await expect(ownerPage.getByTestId('seat-meter')).toContainText('Thành viên 1/1');
+  await ownerPage.getByRole('button', { name: 'Mời thành viên' }).click();
+  await expect(
+    ownerPage.getByRole('dialog').getByText('Đã dùng hết số thành viên của gói'),
+  ).toBeVisible();
+  await ownerPage.getByRole('button', { name: 'Đã hiểu' }).click();
+
+  // The operator puts the shop on a paid plan (until payment approval exists, T-059).
+  execFileSync(
+    'pnpm',
+    ['--dir', '../backend', 'workspace-plan', 'set', ownerEmail, 'sales_smart', '3'],
+    {
+      stdio: 'pipe',
+    },
+  );
+  await ownerPage.reload();
+  await expect(ownerPage.getByTestId('seat-meter')).toContainText('Thành viên 1/5');
+});
+
 test('the owner invites a Sales member and gets a link to share', async () => {
   await ownerPage.goto('/app/members');
   await expect(
@@ -145,4 +168,23 @@ test('new customers from Facebook go to the Sales member, who sees only theirs',
   await expect(rows.filter({ hasText: 'Khách của chủ' })).toHaveCount(1); // unassigned: can be picked up
   await expect(rows.filter({ hasText: 'Khách riêng của chủ' })).toHaveCount(0);
   await expect(rows.filter({ hasText: 'Khách Facebook mới' })).toContainText('Sales Mai');
+});
+
+test('removing a member who owns customers asks where they go, then leaves them unassigned', async () => {
+  await ownerPage.goto('/app/members');
+  await ownerPage.getByRole('button', { name: 'Xoá khỏi shop: Sales Mai' }).click();
+  const dialog = ownerPage.getByRole('dialog');
+  await expect(dialog.getByText(/đang phụ trách 1 khách \(Sales\)/)).toBeVisible();
+  // Nothing chosen yet: removal is not possible.
+  await expect(dialog.getByRole('button', { name: 'Xoá thành viên' })).toBeDisabled();
+  await dialog.getByRole('radio', { name: /Bỏ phụ trách/ }).click();
+  await dialog.getByRole('button', { name: 'Xoá thành viên' }).click();
+  await expect(ownerPage.getByText('Đã xoá thành viên')).toBeVisible();
+
+  const found = await json<{ data: Array<{ name: string; salesUserId: string | null }> }>(
+    await ownerApi.post('/api/v1/contacts/query', { data: { q: 'Khách Facebook mới' } }),
+  );
+  expect(found.data[0]).toMatchObject({ name: 'Khách Facebook mới', salesUserId: null });
+  await ownerPage.reload();
+  await expect(ownerPage.getByRole('row').filter({ hasText: 'Sales Mai' })).toContainText('Đã rời');
 });

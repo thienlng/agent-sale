@@ -17,4 +17,10 @@ export interface MemberRepository {
   find(workspaceId: WorkspaceId, userId: UserId): Promise<Membership | null>;
   /** Writes role and status (and the removal time when removed). */
   update(membership: Membership): Promise<void>;
+  /**
+   * Serialises seat decisions of one workspace until the transaction ends, so two
+   * joins racing for the last seat cannot both succeed.
+   */
+  lockSeats(workspaceId: WorkspaceId): Promise<void>;
+  countActive(workspaceId: WorkspaceId): Promise<number>;
 }

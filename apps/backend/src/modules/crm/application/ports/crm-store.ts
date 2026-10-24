@@ -152,6 +152,14 @@ export interface CrmTx {
     find(id: string, opts?: { forUpdate?: boolean }): Promise<ContactRecord | null>;
     findByRequestId(requestId: string): Promise<ContactRecord | null>;
     query(q: ContactQuery): Promise<{ rows: ContactRecord[]; total: number }>;
+    countOwnedBy(userId: string): Promise<{ sales: number; care: number }>;
+    /** Moves the owner slot of every customer owned by `from`; returns the ids moved. */
+    reassignOwner(
+      role: 'sales' | 'care',
+      from: string,
+      to: string | null,
+      at: Date,
+    ): Promise<string[]>;
   };
   notes: {
     list(contactId: string): Promise<NoteRecord[]>;

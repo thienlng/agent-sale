@@ -36,6 +36,8 @@ export const CAPABILITIES = [
   'contacts.assign',
   /** Make a saved view visible to the whole shop. */
   'views.share',
+  /** Read the audit trail of workspace and security changes. */
+  'audit.view',
 ] as const;
 export const Capability = z.enum(CAPABILITIES);
 export type Capability = z.infer<typeof Capability>;
@@ -74,7 +76,39 @@ export const MemberDto = z.object({
   isYou: z.boolean(),
 });
 export type MemberDto = z.infer<typeof MemberDto>;
-export const MemberList = z.object({ data: z.array(MemberDto) });
+/** Seats of the plan: active members, invitations still waiting, and the limit (`null` = unlimited). */
+export const SeatUsage = z.object({
+  used: z.number().int(),
+  pending: z.number().int(),
+  limit: z.number().int().nullable(),
+});
+export type SeatUsage = z.infer<typeof SeatUsage>;
+
+export const MemberList = z.object({ data: z.array(MemberDto), seats: SeatUsage });
+export type MemberList = z.infer<typeof MemberList>;
+
+/** What removing a member does to the customers they own (shown before confirming). */
+export const RemovalPreview = z.object({
+  sales: z.number().int(),
+  care: z.number().int(),
+  /** True when they own customers: the removal must say where those go. */
+  requiresReassignment: z.boolean(),
+});
+export type RemovalPreview = z.infer<typeof RemovalPreview>;
+
+/** Where the removed member's customers go: to another member, or to nobody (unassigned). */
+export const RemoveMemberRequest = z
+  .object({
+    reassign: z
+      .discriminatedUnion('mode', [
+        z.object({ mode: z.literal('unassign') }),
+        z.object({ mode: z.literal('transfer'), toUserId: z.uuid() }),
+      ])
+      .optional(),
+  })
+  // No body at all means "no hand-over given".
+  .default({});
+export type RemoveMemberRequest = z.input<typeof RemoveMemberRequest>;
 
 export const ChangeMemberRoleRequest = z.object({ role: AssignableRole });
 export type ChangeMemberRoleRequest = z.infer<typeof ChangeMemberRoleRequest>;

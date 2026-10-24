@@ -10,6 +10,8 @@ import {
   InvitationPreview,
   MemberDto,
   MemberList,
+  RemovalPreview,
+  RemoveMemberRequest,
 } from './access.schema.js';
 
 const scoped = { tag: 'workspace', auth: true, workspaceScoped: true } as const;
@@ -31,10 +33,18 @@ export const accessRoutes = defineRoutes([
     responses: { 200: MemberDto },
   },
   {
+    method: 'get',
+    path: '/members/{userId}/removal-preview',
+    summary: 'What removing a member does to the customers they own',
+    ...scoped,
+    responses: { 200: RemovalPreview },
+  },
+  {
     method: 'post',
     path: '/members/{userId}/remove',
-    summary: 'Remove a member (their work stays)',
+    summary: 'Remove a member (their work stays; customers go where the request says)',
     ...scoped,
+    body: RemoveMemberRequest,
     responses: { 200: MemberDto },
   },
   {
@@ -51,6 +61,13 @@ export const accessRoutes = defineRoutes([
     ...scoped,
     body: CreateInvitationRequest,
     responses: { 201: CreatedInvitation },
+  },
+  {
+    method: 'post',
+    path: '/invitations/{invitationId}/resend',
+    summary: 'New link for the same email and role (the old one stops working)',
+    ...scoped,
+    responses: { 200: CreatedInvitation },
   },
   {
     method: 'post',
