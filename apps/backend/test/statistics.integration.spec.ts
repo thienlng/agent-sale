@@ -120,7 +120,6 @@ describe('statistics', () => {
         'tags.net',
         'tags.current',
         'statuses.changed',
-        'statuses.current',
       ],
       origins: ['manual', 'rule'],
     });
@@ -143,10 +142,18 @@ describe('statistics', () => {
       removed: 1,
       net: 1,
     });
-    // Statuses: one per customer, so the rows add up to the card.
-    expect(card(all, 'statuses.current')).toBe(4);
-    expect(all.breakdowns.statuses.reduce((n, r) => n + r.count, 0)).toBe(4);
-    expect(all.breakdowns.statuses.find((r) => r.statusId === status)?.count).toBe(1);
+    // Statuses: one per customer, so the rows add up to the card. (No origin applies to a snapshot.)
+    const statusRes = await ask(lan, base({ metrics: ['statuses.current'] }));
+    expect(card(statusRes, 'statuses.current')).toBe(4);
+    expect(statusRes.breakdowns.statuses.reduce((n, r) => n + r.count, 0)).toBe(4);
+    expect(statusRes.breakdowns.statuses.find((r) => r.statusId === status)?.count).toBe(1);
+    expect(
+      await issues(
+        lan,
+        '/analytics/query',
+        base({ metrics: ['statuses.current'], origins: ['manual'] }),
+      ),
+    ).toEqual(['origin_not_allowed:statuses.current']);
     // The series covers every local day, zero-filled, and sums to the card.
     expect(all.series).toHaveLength(3);
     expect(all.series.reduce((n, p) => n + (p.values['customers.new'] ?? 0), 0)).toBe(4);
@@ -451,5 +458,36 @@ describe('statistics', () => {
     for (const r of [tags, tags2]) expect(card(r, 'tags.assigned')).toBe(1);
     expect(card(tags, 'tags.current')).toBe(1);
     expect(card(tags3, 'tags.current')).toBe(1);
+  });
+
+  it('a watermark chosen by the caller cannot widen what an own-scope viewer may see', async () => {
+    const lan = await t.user('lan7@st.vn', 'Chủ shop');
+    const binh = await t.user('binh7@st.vn', 'Sales Bình');
+    await allowSeats(lan.ownWorkspace, 10);
+    await join(lan, binh, 'sales');
+    const mine = member(binh, lan.ownWorkspace);
+
+    await contact(lan, { name: 'Khách trống' });
+    const secret = await contact(lan, { name: 'Khách của Lan' });
+    // Nobody owns "Khách của Lan" at this watermark…
+    const before = await ask(lan, base({ origins: ['manual'] }));
+    // …then it is given to Lan, so Bình may no longer see it.
+    const moved = await t.call(lan.h, 'PATCH', `/contacts/${secret.id}`, {
+      salesUserId: lan.userId,
+      expectedVersion: 1,
+    });
+    expect(moved.statusCode, moved.body).toBe(200);
+
+    const now = await drill(mine, {
+      query: base({ origins: ['manual'] }),
+      metric: 'customers.new',
+    });
+    expect(now.rows.map((r) => r.contactName)).toEqual(['Khách trống']);
+    // Naming the older watermark does not bring it back, in the rows, the names or the card.
+    const stale = base({ origins: ['manual'], watermark: before.meta.watermarkId });
+    const frozen = await drill(mine, { query: stale, metric: 'customers.new' });
+    expect(frozen.rows.map((r) => r.contactName)).toEqual(['Khách trống']);
+    expect(frozen.total).toBe(1);
+    expect(card(await ask(mine, stale), 'customers.new')).toBe(1);
   });
 });

@@ -121,6 +121,8 @@ export function StatisticsPage({
       return { kind: 'unavailable' };
     }
     const q = byGroup[groupOf(m)];
+    // The previous filters' answer stays around while the next loads: it is not this one's result.
+    if (q.isPlaceholderData) return { kind: 'loading' };
     const result = q.data?.cards.find((c) => c.key === m);
     if (result) return { kind: 'result', result };
     return q.isError ? { kind: 'error' } : { kind: 'loading' };
@@ -134,7 +136,8 @@ export function StatisticsPage({
         : group === 'tagStatus'
           ? queries.tagStatus
           : queries.conversations;
-    const answered = byGroup[group].data;
+    // A drilldown reads the data of the card that was clicked, never a stale placeholder.
+    const answered = byGroup[group].isPlaceholderData ? undefined : byGroup[group].data;
     setDrill({
       metric,
       dimension,
@@ -177,6 +180,8 @@ export function StatisticsPage({
     onlyChannel &&
     people.data?.cards.some((c) => c.key === 'customers.new' && c.state === 'ok' && c.value === 0);
   const lag = Math.max(0, ...answers.map((a) => a.meta.lagSeconds));
+  // Answers of the previous filters are on screen until the new ones arrive: shown dimmed, not clickable.
+  const busy = [people, tagStatus, conversations].some((q) => q.isPlaceholderData);
 
   return (
     <section className="flex flex-col gap-5">
@@ -244,15 +249,22 @@ export function StatisticsPage({
         </section>
       ))}
 
-      {chartMetrics.length ? <DailyChart series={merged} metrics={chartMetrics} /> : null}
+      <div
+        className={
+          busy ? 'pointer-events-none flex flex-col gap-5 opacity-50' : 'flex flex-col gap-5'
+        }
+        aria-busy={busy}
+      >
+        {chartMetrics.length ? <DailyChart series={merged} metrics={chartMetrics} /> : null}
 
-      <Breakdowns
-        tagStatus={tagStatus.data}
-        people={people.data}
-        conversations={conversations.data}
-        names={names}
-        onOpen={open}
-      />
+        <Breakdowns
+          tagStatus={tagStatus.data}
+          people={people.data}
+          conversations={conversations.data}
+          names={names}
+          onOpen={open}
+        />
+      </div>
 
       {meta ? (
         <footer className="flex flex-col gap-1 text-sm text-muted-foreground">

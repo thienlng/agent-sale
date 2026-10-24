@@ -11,10 +11,6 @@ export class UnavailableProjectionStore implements ProjectionStore {
   async health() {
     return { watermarkId: 0, watermarkAt: null, lagSeconds: 0 };
   }
-  async readWorkspace() {
-    return [];
-  }
-  async deleteFacts() {}
 }
 
 export class UnavailableFactStore implements FactStore {

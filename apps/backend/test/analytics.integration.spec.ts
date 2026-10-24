@@ -244,4 +244,75 @@ describe('analytics projection', () => {
     });
     expect(crossTenant).toEqual([]);
   });
+
+  it('does not lose an event whose transaction commits after a higher id (xid and id orders differ)', async () => {
+    const lan = await t.user('lan9@an.vn', 'Chủ shop');
+    await projector.catchUp();
+    const event = (n: string) => ({
+      workspaceId: lan.ownWorkspace,
+      type: 'conversation.message.received.v1',
+      aggregateType: 'conversation',
+      aggregateId: crypto.randomUUID(),
+      payload: { messageId: n, type: 'message', firstMessage: false },
+    });
+    const gate = () => {
+      let open!: () => void;
+      const p = new Promise<void>((r) => (open = r));
+      return { p, open };
+    };
+    const t1HasXid = gate();
+    const t2Inserted = gate();
+    const t2Finish = gate();
+
+    // T1 gets the lower xid, T2 the higher; T2 inserts first (lower id) and stays open; T1 inserts
+    // after (higher id) and commits first. A reader that trusted "the highest id seen" would move
+    // past T2's row and never project it.
+    const tx1 = t.owner.db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_current_xact_id()`);
+      t1HasXid.open();
+      await t2Inserted.p;
+      await tx.insert(schema.outboxEvents).values(event('late-low-xid'));
+    });
+    await t1HasXid.p;
+    const tx2 = t.owner.db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_current_xact_id()`);
+      await tx.insert(schema.outboxEvents).values(event('early-high-xid'));
+      t2Inserted.open();
+      await t2Finish.p;
+    });
+    await t2Inserted.p;
+    await tx1;
+
+    // Only T1's row is settled; T2 is still running.
+    expect(await projector.tick()).toBe(1);
+    expect(await facts(lan.ownWorkspace)).toHaveLength(1);
+    t2Finish.open();
+    await tx2;
+    // T2's row has the LOWER id, and is picked up now: nothing was skipped.
+    expect(await projector.tick()).toBe(1);
+    expect(await facts(lan.ownWorkspace)).toHaveLength(2);
+    expect(await projector.tick()).toBe(0);
+  });
+
+  it('a rebuild dead-letters what it cannot read, like the live projection', async () => {
+    const lan = await t.user('lan10@an.vn', 'Chủ shop');
+    await t.call(lan.h, 'POST', '/contacts', { name: 'Khách R' });
+    const [bad] = await t.owner.db
+      .insert(schema.outboxEvents)
+      .values({
+        workspaceId: lan.ownWorkspace,
+        type: 'crm.tag.removed.v1',
+        aggregateType: 'contact',
+        aggregateId: crypto.randomUUID(),
+        payload: { assignmentId: 'nope' },
+      })
+      .returning({ id: schema.outboxEvents.id });
+    const result = await projector.rebuild(lan.ownWorkspace as WorkspaceId);
+    expect(result.facts).toBeGreaterThan(0);
+    const dead = await t.owner.db
+      .select()
+      .from(schema.analyticsDeadLetters)
+      .where(eq(schema.analyticsDeadLetters.outboxId, bad?.id ?? 0));
+    expect(dead).toHaveLength(1);
+  });
 });

@@ -42,10 +42,14 @@ export const analyticsFacts = pgTable(
   ],
 );
 
-/** GLOBAL (app_system only): where the projector stopped, per consumer. */
+/**
+ * GLOBAL (app_system only): where the projector stopped, per consumer. `horizon` is a transaction
+ * horizon (xid8): every transaction below it had finished when the projector last read, so every
+ * outbox row it wrote has been projected.
+ */
 export const analyticsCheckpoints = pgTable('analytics_checkpoints', {
   consumer: text('consumer').primaryKey(),
-  lastOutboxId: bigint('last_outbox_id', { mode: 'number' }).notNull().default(0),
+  horizon: bigint('horizon', { mode: 'number' }).notNull().default(0),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

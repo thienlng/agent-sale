@@ -200,7 +200,9 @@ export class ConversationFacadeImpl implements ConversationFacade {
         // Statistics: where and when it happened, and whether it opened the conversation.
         channelId,
         occurredAt: event.occurredAt.toISOString(),
-        firstMessage: !existing,
+        // The customer's first message opens it, even when staff wrote first (an echo creates the row with no inbound yet).
+        firstMessage:
+          event.type !== 'echo' && (!existing || Date.parse(existing.lastInboundAt) <= 0),
       });
       return c;
     });

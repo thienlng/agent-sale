@@ -1,11 +1,13 @@
 import { METRIC_DEFINITIONS } from '@agent-sales/contracts';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { login } from '@/lib/session';
 import { renderWithRouter } from '@/testing/render';
 
+import type { FiltersSearch } from '../lib/filters';
 import { StatisticsPage } from './statistics-page';
 
 const WS = '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d01';
@@ -293,5 +295,44 @@ describe('StatisticsPage', () => {
     await show('sales', { scope: 'own' });
     expect(await screen.findByText(/Chỉ gồm khách bạn phụ trách/)).toBeInTheDocument();
     expect(screen.queryByText('Nhân viên Sales')).toBeNull();
+  });
+
+  it("does not present the previous filters' numbers as the new ones while they load", async () => {
+    install('owner');
+    await login({ email: 'lan@shop.vn', password: 'x' });
+    const inner = globalThis.fetch;
+    // The page sends three queries; every one of them is held.
+    const releases: Array<() => void> = [];
+    let hold = false;
+    vi.stubGlobal('fetch', async (input: string, init?: RequestInit) => {
+      if (hold && String(input).endsWith('/analytics/query')) {
+        await new Promise<void>((r) => releases.push(r));
+      }
+      return inner(input, init);
+    });
+    function Harness() {
+      const [search, setSearch] = useState<FiltersSearch>({});
+      return <StatisticsPage search={search} onSearch={setSearch} />;
+    }
+    renderWithRouter(() => <Harness />);
+
+    const customers = () =>
+      screen
+        .getByRole('heading', { name: 'Khách hàng mới' })
+        .closest('div[class*="rounded-lg"]') as HTMLElement;
+    await screen.findByRole('heading', { name: 'Khách hàng mới' });
+    expect(await within(customers()).findByText('3')).toBeInTheDocument();
+
+    hold = true;
+    await userEvent.click(screen.getByRole('button', { name: '30 ngày' }));
+    // The old answer is still cached, but it is for other dates: no number is shown for the new range.
+    await waitFor(() => expect(within(customers()).queryByText('3')).toBeNull());
+    expect(within(customers()).queryByText('0')).toBeNull();
+    // And nothing can be opened from it.
+    expect(screen.queryByRole('button', { name: /Chi tiết: Khách hàng mới/ })).toBeNull();
+
+    hold = false;
+    for (const release of releases) release();
+    expect(await within(customers()).findByText('3')).toBeInTheDocument();
   });
 });

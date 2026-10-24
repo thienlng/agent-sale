@@ -178,7 +178,8 @@ export const METRIC_DEFINITIONS: readonly MetricDefinition[] = [
     grain: 'contact',
     timestamp: 'as_of',
     distinctKey: 'contact',
-    origins: { allowed: ['manual', 'rule'], default: ['manual', 'rule'] },
+    // The status a customer has now does not depend on who set it: no origin filter applies.
+    origins: { allowed: [], default: [] },
     attribution: 'owner_at_as_of',
     filters: { sales: true, page: false },
     additiveAcrossBreakdown: true,

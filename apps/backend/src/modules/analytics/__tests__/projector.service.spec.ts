@@ -22,36 +22,46 @@ const created = (id: number, workspaceId: string | null = WS): OutboxRow => ({
   },
   createdAt: new Date('2026-10-24T08:00:00.000Z'),
 });
+const broken = (id: number): OutboxRow => ({
+  ...created(id),
+  type: 'crm.tag.assigned.v1',
+  payload: { broken: true },
+});
 
 class Fakes implements ProjectionStore, FactStore {
-  checkpoint = 0;
+  /** Everything up to this id is projected (the real store keeps a transaction horizon). */
+  position = 0;
   outbox: OutboxRow[] = [];
   deadLetters: number[] = [];
   appended: FactDraft[] = [];
   busy = false;
   failAppend = false;
+  failReplace = false;
+  /** Called once per lease taken (to observe waiting). */
+  leases = 0;
 
   async withLease<T>(fn: (l: ProjectionLease) => Promise<T | null>): Promise<T | null> {
     if (this.busy) return null;
+    this.leases++;
+    const window = this.outbox.filter((r) => r.id > this.position);
     return fn({
-      checkpoint: async () => this.checkpoint,
-      readBatch: async (after, limit) => this.outbox.filter((r) => r.id > after).slice(0, limit),
-      commit: async (id) => {
-        this.checkpoint = id;
+      readBatch: async (after, limit) => window.filter((r) => r.id > after).slice(0, limit),
+      commit: async () => {
+        this.position = window.reduce((max, r) => Math.max(max, r.id), this.position);
       },
       deadLetter: async (row) => {
         this.deadLetters.push(row.id);
       },
+      readWorkspace: async (ws, after, limit) =>
+        this.outbox.filter((r) => r.workspaceId === ws && r.id > after).slice(0, limit),
+      replaceFacts: async (ws, facts) => {
+        if (this.failReplace) throw new Error('db down');
+        this.appended = [...this.appended.filter((f) => f.workspaceId !== ws), ...facts];
+      },
     });
   }
   async health() {
-    return { watermarkId: this.checkpoint, watermarkAt: null, lagSeconds: 0 };
-  }
-  async readWorkspace(_ws: WorkspaceId, after: number, limit: number) {
-    return this.outbox.filter((r) => r.workspaceId === WS && r.id > after).slice(0, limit);
-  }
-  async deleteFacts() {
-    this.appended = [];
+    return { watermarkId: this.appended.length, watermarkAt: null, lagSeconds: 0 };
   }
   async append(_ws: WorkspaceId, facts: readonly FactDraft[]) {
     if (this.failAppend) throw new Error('db down');
@@ -69,12 +79,12 @@ const setup = () => {
 };
 
 describe('ProjectorService', () => {
-  it('projects pending events in order and moves the checkpoint', async () => {
+  it('projects the pending events and moves the position', async () => {
     const { fakes, projector } = setup();
     fakes.outbox = [created(1), created(2), created(3)];
     expect(await projector.tick()).toBe(3);
     expect(fakes.appended.map((f) => f.outboxId)).toEqual([1, 2, 3]);
-    expect(fakes.checkpoint).toBe(3);
+    expect(fakes.position).toBe(3);
     expect(await projector.tick()).toBe(0);
   });
 
@@ -82,33 +92,29 @@ describe('ProjectorService', () => {
     const { fakes, projector } = setup();
     fakes.outbox = [created(1), created(2)];
     await projector.tick();
-    fakes.checkpoint = 0;
+    fakes.position = 0;
     await projector.tick();
     expect(fakes.appended).toHaveLength(2);
   });
 
   it('dead-letters a payload it cannot read and keeps going', async () => {
     const { fakes, projector } = setup();
-    fakes.outbox = [
-      created(1),
-      { ...created(2), type: 'crm.tag.assigned.v1', payload: { broken: true } },
-      created(3),
-    ];
+    fakes.outbox = [created(1), broken(2), created(3)];
     await projector.tick();
     expect(fakes.deadLetters).toEqual([2]);
     expect(fakes.appended.map((f) => f.outboxId)).toEqual([1, 3]);
-    expect(fakes.checkpoint).toBe(3);
+    expect(fakes.position).toBe(3);
   });
 
-  it('a database failure leaves the checkpoint where it was, so the batch is retried', async () => {
+  it('a database failure leaves the position where it was, so the pass is retried', async () => {
     const { fakes, projector } = setup();
     fakes.outbox = [created(1)];
     fakes.failAppend = true;
     await expect(projector.tick()).rejects.toThrow('db down');
-    expect(fakes.checkpoint).toBe(0);
+    expect(fakes.position).toBe(0);
     fakes.failAppend = false;
     expect(await projector.tick()).toBe(1);
-    expect(fakes.checkpoint).toBe(1);
+    expect(fakes.position).toBe(1);
   });
 
   it('does nothing while another projector holds the lease', async () => {
@@ -124,7 +130,14 @@ describe('ProjectorService', () => {
     fakes.outbox = [created(1, null), created(2)];
     await projector.tick();
     expect(fakes.appended.map((f) => f.outboxId)).toEqual([2]);
-    expect(fakes.checkpoint).toBe(2);
+    expect(fakes.position).toBe(2);
+  });
+
+  it('one pass drains a window larger than a page', async () => {
+    const { fakes, projector } = setup();
+    fakes.outbox = Array.from({ length: 1200 }, (_, i) => created(i + 1));
+    expect(await projector.tick()).toBe(1200);
+    expect(fakes.position).toBe(1200);
   });
 
   it('catchUp waits for a busy projector instead of reading around it', async () => {
@@ -135,32 +148,48 @@ describe('ProjectorService', () => {
       fakes.busy = false;
     }, 60);
     await projector.catchUp();
-    // It returned only after the other projector was done and the event was projected.
-    expect(fakes.checkpoint).toBe(1);
+    // It returned only after the other projector was done, and ran its own pass.
+    expect(fakes.position).toBe(1);
   });
 
   it('catchUp gives up after the wait and leaves the lag to be reported', async () => {
     const { fakes, projector } = setup();
     fakes.outbox = [created(1)];
     fakes.busy = true;
-    await projector.catchUp(10, 60);
-    expect(fakes.checkpoint).toBe(0);
+    await projector.catchUp(60);
+    expect(fakes.position).toBe(0);
   });
+});
 
-  it('catchUp drains more than one batch', async () => {
-    const { fakes, projector } = setup();
-    fakes.outbox = Array.from({ length: 1200 }, (_, i) => created(i + 1));
-    await projector.catchUp();
-    expect(fakes.checkpoint).toBe(1200);
-  });
-
-  it('rebuild forgets the workspace facts and replays them to the same result', async () => {
+describe('ProjectorService.rebuild', () => {
+  it('forgets the workspace facts and replays them to the same result', async () => {
     const { fakes, projector } = setup();
     fakes.outbox = [created(1), created(2)];
     await projector.tick();
     const before = JSON.stringify(fakes.appended);
-    const result = await projector.rebuild(WS as WorkspaceId);
-    expect(result).toEqual({ events: 2, facts: 2 });
+    expect(await projector.rebuild(WS as WorkspaceId)).toEqual({ events: 2, facts: 2 });
     expect(JSON.stringify(fakes.appended)).toBe(before);
+  });
+
+  it('is all or nothing: a failure keeps the facts it had', async () => {
+    const { fakes, projector } = setup();
+    fakes.outbox = [created(1), created(2)];
+    await projector.tick();
+    fakes.failReplace = true;
+    await expect(projector.rebuild(WS as WorkspaceId)).rejects.toThrow('db down');
+    expect(fakes.appended).toHaveLength(2);
+  });
+
+  it('dead-letters events it cannot read, like the live projection does', async () => {
+    const { fakes, projector } = setup();
+    fakes.outbox = [created(1), broken(2)];
+    expect(await projector.rebuild(WS as WorkspaceId)).toEqual({ events: 2, facts: 1 });
+    expect(fakes.deadLetters).toEqual([2]);
+  });
+
+  it('refuses to run, rather than read around the projector, when it stays busy', async () => {
+    const { fakes, projector } = setup();
+    fakes.busy = true;
+    await expect(projector.rebuild(WS as WorkspaceId, 150)).rejects.toThrow('busy');
   });
 });

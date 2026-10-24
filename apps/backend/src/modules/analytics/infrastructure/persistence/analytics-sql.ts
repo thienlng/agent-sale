@@ -35,13 +35,24 @@ function inList(col: SQL, values: readonly string[], cast: string): SQL {
   )})`;
 }
 
-/** Who owned the customer (`role`) at the time `at`, from the ownership facts up to the watermark. */
-function ownerAt(ctx: QueryContext, role: 'sales' | 'care', alias: string, at: SQL): SQL {
+/**
+ * Who owned the customer (`role`) at the time `at`, from the ownership facts. Attribution is frozen at
+ * the watermark with the rest of the numbers; the scope of a viewer is not (`frozen: false`): what a
+ * member may see is decided by who owns a customer now, whatever watermark a request names.
+ */
+function ownerAt(
+  ctx: QueryContext,
+  role: 'sales' | 'care',
+  alias: string,
+  at: SQL,
+  frozen = true,
+): SQL {
   const a = sql.raw(alias);
+  const bound = frozen ? sql`and o.id <= ${ctx.watermark}` : sql``;
   return sql`(select o.subject_id from analytics_facts o
     where o.workspace_id = ${a}.workspace_id and o.contact_id = ${a}.contact_id
       and o.kind = 'assignment.changed' and o.role = ${role}
-      and o.occurred_at <= ${at} and o.outbox_id <= ${ctx.watermark}
+      and o.occurred_at <= ${at} ${bound}
     order by o.occurred_at desc, o.outbox_id desc limit 1)`;
 }
 
@@ -49,13 +60,13 @@ function ownerAt(ctx: QueryContext, role: 'sales' | 'care', alias: string, at: S
 function scope(ctx: QueryContext, alias: string): SQL {
   if (!ctx.ownOnly) return sql``;
   const now = ts(ctx.generatedAt);
-  const sales = ownerAt(ctx, 'sales', alias, now);
-  const care = ownerAt(ctx, 'care', alias, now);
+  const sales = ownerAt(ctx, 'sales', alias, now, false);
+  const care = ownerAt(ctx, 'care', alias, now, false);
   return sql`and ((${sales} is null and ${care} is null) or ${sales} = ${ctx.ownOnly}::uuid or ${care} = ${ctx.ownOnly}::uuid)`;
 }
 
 const common = (ctx: QueryContext) =>
-  sql`f.workspace_id = ${ctx.workspaceId}::uuid and f.outbox_id <= ${ctx.watermark}`;
+  sql`f.workspace_id = ${ctx.workspaceId}::uuid and f.id <= ${ctx.watermark}`;
 
 /** The relation of units a metric counts. Throws for a derived metric (it has no units of its own). */
 export function unitsSql(ctx: QueryContext, metric: MetricKey): SQL {
@@ -73,7 +84,7 @@ export function unitsSql(ctx: QueryContext, metric: MetricKey): SQL {
         and f.occurred_at <= ${asOf}
         and not exists (select 1 from analytics_facts r
           where r.workspace_id = f.workspace_id and r.kind = 'tag.removed' and r.ref_id = f.ref_id
-            and r.occurred_at <= ${asOf} and r.outbox_id <= ${ctx.watermark})
+            and r.occurred_at <= ${asOf} and r.id <= ${ctx.watermark})
         ${scope(ctx, 'f')}`;
   }
 
@@ -84,7 +95,7 @@ export function unitsSql(ctx: QueryContext, metric: MetricKey): SQL {
         (select s.subject_id from analytics_facts s
           where s.workspace_id = f.workspace_id and s.contact_id = f.contact_id
             and s.kind in ('status.initial', 'status.changed')
-            and s.occurred_at <= ${asOf} and s.outbox_id <= ${ctx.watermark}
+            and s.occurred_at <= ${asOf} and s.id <= ${ctx.watermark}
           order by s.occurred_at desc, s.outbox_id desc limit 1) as subject_id,
         ${ownerAt(ctx, 'sales', 'f', asOf)} as sales_user_id
       from analytics_facts f
