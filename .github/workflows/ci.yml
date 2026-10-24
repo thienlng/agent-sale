@@ -84,6 +84,48 @@ jobs:
       - name: Lighthouse CI on /login
         run: pnpm dlx @lhci/cli@0.15.1 autorun
 
+  web-live:
+    name: web (live-backend e2e)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Orders through the real API and Postgres (T-027, #23); the mocked smoke stays in `web`.
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: razpi
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      # Throwaway CI database credentials, not secrets.
+      DATABASE_OWNER_URL: postgres://postgres:postgres@localhost:5432/razpi
+      DATABASE_URL: postgres://razpi_tenant:razpi_tenant_ci@localhost:5432/razpi
+      DATABASE_SYSTEM_URL: postgres://razpi_system:razpi_system_ci@localhost:5432/razpi
+      NODE_ENV: development
+      LOG_LEVEL: warn
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Build backend and web
+        run: pnpm turbo build --filter=@agent-sales/backend --filter=@agent-sales/web
+      - name: Migrate (with login roles)
+        run: pnpm --filter @agent-sales/db exec tsx src/cli/migrate.ts --dev-roles
+      - name: Playwright browser
+        run: pnpm exec playwright install --with-deps chromium
+        working-directory: apps/web
+      - name: Live-backend e2e
+        run: pnpm test:e2e:live
+        working-directory: apps/web
+
   integration:
     name: integration
     runs-on: ubuntu-latest
