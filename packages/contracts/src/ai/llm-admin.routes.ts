@@ -1,6 +1,7 @@
 import { defineRoutes } from '../common/routes.js';
 import {
   CreateLlmProviderRequest,
+  HermesLoginStatus,
   LlmProviderDto,
   LlmProviderList,
   LlmTierRouteDto,
@@ -55,6 +56,30 @@ export const llmAdminRoutes = defineRoutes([
     auth: true,
     body: TestLlmProviderRequest,
     responses: { 200: TestLlmProviderResponse },
+  },
+  {
+    method: 'get',
+    path: '/admin/llm/providers/{providerId}/hermes-login',
+    summary: 'ChatGPT sign-in state of a Hermes provider',
+    tag: 'admin',
+    auth: true,
+    responses: { 200: HermesLoginStatus },
+  },
+  {
+    method: 'post',
+    path: '/admin/llm/providers/{providerId}/hermes-login',
+    summary: 'Start the ChatGPT device-code sign-in of a Hermes provider',
+    tag: 'admin',
+    auth: true,
+    responses: { 200: HermesLoginStatus },
+  },
+  {
+    method: 'delete',
+    path: '/admin/llm/providers/{providerId}/hermes-login',
+    summary: 'Sign a Hermes provider out of ChatGPT',
+    tag: 'admin',
+    auth: true,
+    responses: { 200: HermesLoginStatus },
   },
   {
     method: 'get',

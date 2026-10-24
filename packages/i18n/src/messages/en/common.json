@@ -253,7 +253,35 @@
     "tierSaved": "{{tier}} plan saved",
     "save": "Save server",
     "cancel": "Cancel",
-    "baseUrlDropsKey": "Changing the API URL removes the stored key. Enter the key again for the new URL."
+    "baseUrlDropsKey": "Changing the API URL removes the stored key. Enter the key again for the new URL.",
+    "hermes": {
+      "title": "ChatGPT account",
+      "login": "Sign in to ChatGPT",
+      "retry": "Try signing in again",
+      "restart": "Cancel and get a new code",
+      "signedOutHint": "Hermes is not signed in to ChatGPT, so it cannot answer yet. Click below, enter the code on the OpenAI page, then come back here.",
+      "codeLabel": "Sign-in code",
+      "copy": "Copy code",
+      "copied": "Code copied",
+      "openLogin": "Open the OpenAI sign-in page",
+      "pendingHint": "Enter the code above, then come back here — this page updates by itself.",
+      "expiresIn": "Code expires in {{time}}",
+      "expired": "The code has expired — get a new one.",
+      "signedIn": "Signed in to ChatGPT",
+      "signedInHint": "Press “Test” on this server to try a real answer.",
+      "logout": "Sign out",
+      "logoutConfirm": "Sign Hermes out of ChatGPT? Bots using Hermes stop answering until you sign in again.",
+      "unreachable": "Cannot reach the Hermes bridge",
+      "unreachableHint": "Check that the bridge is running (cd services/hermes && python bridge.py, see services/hermes/README.md) and that this server's API address and key are correct.",
+      "recheck": "Check again",
+      "failures": {
+        "device_code_timeout": "The code expired before you confirmed it. Get a new code.",
+        "rate_limited": "OpenAI is limiting sign-in attempts. Wait a few minutes and retry.",
+        "login_failed": "Sign-in did not succeed. Please try again.",
+        "bridge_key_rejected": "The Hermes bridge rejected this server's key. Re-enter the key under Edit."
+      },
+      "terms": "The ChatGPT subscription sign-in is for this deployment only and is subject to OpenAI's plan terms. You are responsible for appropriate use."
+    }
   },
   "errors": {
     "notFoundTitle": "Page not found",

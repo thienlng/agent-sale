@@ -60,6 +60,9 @@ function factory(
       if (!p) throw new Error(`no stub for ${c.name}`);
       return p;
     },
+    hermesLogin: () => {
+      throw new Error('not used');
+    },
     developmentFallback: () => (dev ? { provider: dev, model: 'echo' } : null),
   };
 }

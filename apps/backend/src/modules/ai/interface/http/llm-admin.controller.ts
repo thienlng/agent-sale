@@ -1,5 +1,6 @@
 import {
   CreateLlmProviderRequest,
+  type HermesLoginStatus,
   type LlmProviderDto,
   type LlmTierRouteDto,
   PutLlmTierRouteRequest,
@@ -68,6 +69,23 @@ export class LlmAdminController {
     @Body(new ZodValidationPipe(TestLlmProviderRequest)) body: TestLlmProviderRequest,
   ): Promise<TestLlmProviderResponse> {
     return this.admin.testProvider(id, body.model);
+  }
+
+  @Get('providers/:providerId/hermes-login')
+  hermesLoginStatus(@Param('providerId') id: string): Promise<HermesLoginStatus> {
+    return this.admin.hermesLogin(id, 'status');
+  }
+
+  @Post('providers/:providerId/hermes-login')
+  @HttpCode(200)
+  hermesLoginStart(@Param('providerId') id: string): Promise<HermesLoginStatus> {
+    return this.admin.hermesLogin(id, 'start');
+  }
+
+  @Delete('providers/:providerId/hermes-login')
+  @HttpCode(200)
+  hermesLoginLogout(@Param('providerId') id: string): Promise<HermesLoginStatus> {
+    return this.admin.hermesLogin(id, 'logout');
   }
 
   @Get('tiers')
