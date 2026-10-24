@@ -9,6 +9,7 @@ import type {
   PendingMetaEvent,
 } from '../../application/ports/channel-store.js';
 import { ChannelError } from '../../domain/channel.errors.js';
+import { MAX_EVENT_ATTEMPTS } from '../../api/channel.facade.js';
 const c = schema.channelConnections,
   f = schema.channelOauthFlows,
   e = schema.channelWebhookEvents;
@@ -152,7 +153,7 @@ export class DrizzleChannelStore implements ChannelStore {
           and(
             sql`${e.processedAt} is null`,
             sql`(${e.leaseUntil} is null or ${e.leaseUntil}<now())`,
-            sql`${e.attempts}<3`,
+            sql`${e.attempts}<${MAX_EVENT_ATTEMPTS}`,
             sql`${e.createdAt} < now() - interval '2 seconds'`,
           ),
         )
@@ -176,6 +177,7 @@ export class DrizzleChannelStore implements ChannelStore {
           claimToken,
           workspaceId: row.workspaceId as WorkspaceId,
           connectionId: row.connectionId,
+          attempt: row.attempts + 1,
           event: { ...event, occurredAt: new Date(event.occurredAt) },
         });
       }
@@ -205,6 +207,14 @@ export class DrizzleChannelStore implements ChannelStore {
         .update(e)
         .set({ processedAt: new Date(), leaseUntil: null })
         .where(and(eq(e.id, id), claimToken ? eq(e.claimToken, claimToken) : undefined));
+    });
+  }
+  async releaseEvent(id: string, claimToken: string, retryInMs: number) {
+    await withSystem(this.system, async (tx) => {
+      await tx
+        .update(e)
+        .set({ leaseUntil: new Date(Date.now() + retryInMs) })
+        .where(and(eq(e.id, id), eq(e.claimToken, claimToken), sql`${e.processedAt} is null`));
     });
   }
 }
@@ -240,6 +250,9 @@ export class UnavailableChannelStore implements ChannelStore {
     return Promise.resolve(false);
   }
   completeEvent(): Promise<void> {
+    return this.fail();
+  }
+  releaseEvent(): Promise<void> {
     return this.fail();
   }
 }

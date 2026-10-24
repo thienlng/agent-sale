@@ -86,5 +86,15 @@
   "selectAccounts": "Select the accounts to connect. Access tokens remain on the server.",
   "consentHint": "Messaging access requires the correct Meta application permissions and, for public customers, App Review.",
   "noMessage": "No text content",
-  "refresh": "Refresh"
+  "refresh": "Refresh",
+  "attachment": {
+    "add": "Attach",
+    "library": "Bot image library",
+    "noBot": "Bind a bot to this channel to use its image library.",
+    "emptyLibrary": "The image library is empty.",
+    "url": "HTTPS file link",
+    "send": "Send file",
+    "image": "Attached image",
+    "file": "Attached file"
+  }
 }

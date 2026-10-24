@@ -1,0 +1,127 @@
+import type { NormalizedEvent } from '@agent-sales/channels';
+import { workspaceId } from '@agent-sales/shared';
+import { describe, expect, it, vi } from 'vitest';
+import type { AiFacade } from '../../ai/api/index.js';
+import type { BotFacade, BotView } from '../../bot/api/index.js';
+import type { ChannelFacade, PendingMetaEvent } from '../../channel/api/index.js';
+import { ConversationFacadeImpl } from '../application/conversation.facade.impl.js';
+import { MetaInboxProcessor } from '../application/jobs/meta-inbox.processor.js';
+import { MemoryConversationStore } from './factories/memory-conversation-store.js';
+
+const ws = workspaceId('018d0000-0000-7000-8000-000000000001');
+const channelId = '018d0000-0000-7000-8000-000000000003';
+const botId = '018d0000-0000-7000-8000-000000000004';
+let seq = 0;
+function job(
+  id: string,
+  type: 'message' | 'echo',
+  text: string,
+  at: number,
+  attempt = 1,
+): PendingMetaEvent {
+  const event: NormalizedEvent = {
+    kind: 'facebook',
+    assetExternalId: 'page',
+    externalEventId: id,
+    externalMessageId: id,
+    senderExternalId: 'customer',
+    type,
+    occurredAt: new Date(at),
+    text,
+    raw: {},
+  };
+  return {
+    id: `job-${++seq}`,
+    claimToken: 't',
+    workspaceId: ws,
+    connectionId: channelId,
+    attempt,
+    event,
+  };
+}
+function setup() {
+  const bot = { id: botId, isActive: true, silenceOnExternalReply: true } as BotView;
+  let sent = 0;
+  const channels = {
+    getConnection: vi.fn(async () => ({
+      id: channelId,
+      provider: 'facebook' as const,
+      externalId: 'page',
+      name: 'Page',
+      status: 'connected' as const,
+      botId,
+      expiresAt: null,
+      createdAt: new Date().toISOString(),
+    })),
+    deliver: vi.fn(async () => ({
+      externalId: `sent${++sent}`,
+      status: 'sent' as const,
+      failureCode: null,
+    })),
+    claimEvents: vi.fn(async () => [] as PendingMetaEvent[]),
+    renewEvent: async () => true,
+    completeEvent: vi.fn(async () => undefined),
+    releaseEvent: vi.fn(async () => undefined),
+  } as unknown as ChannelFacade & { claimEvents: ReturnType<typeof vi.fn> };
+  const bots: BotFacade = { getBot: async () => bot };
+  const inbox = new ConversationFacadeImpl(new MemoryConversationStore(), channels, bots);
+  const ai = {
+    reply: vi.fn(async (_ws: unknown, _bot: unknown, req: { messages: { content: string }[] }) => ({
+      reply: `re: ${req.messages.at(-1)?.content}`,
+      outcome: 'answered',
+    })),
+  } as unknown as AiFacade & { reply: ReturnType<typeof vi.fn> };
+  return { channels, ai, inbox, processor: new MetaInboxProcessor(channels, inbox, ai, bots) };
+}
+
+describe('MetaInboxProcessor', () => {
+  it('answers a message that arrived while the previous reply was being generated', async () => {
+    const { channels, ai, processor } = setup();
+    const t0 = Date.now();
+    vi.mocked(channels.claimEvents).mockResolvedValueOnce([job('m1', 'message', 'first', t0)]);
+    await processor.tick();
+    expect(channels.deliver).toHaveBeenCalledTimes(1);
+    // m2 was sent before our reply's echo but is only claimed now, together with that echo.
+    vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+      job('m2', 'message', 'second', t0 + 1000),
+      job('sent1', 'echo', 're: first', t0 + 2000),
+    ]);
+    await processor.tick();
+    expect(channels.deliver).toHaveBeenCalledTimes(2);
+    expect(ai.reply).toHaveBeenLastCalledWith(
+      ws,
+      botId,
+      expect.objectContaining({
+        messages: expect.arrayContaining([{ role: 'customer', content: 'second' }]),
+      }),
+      expect.anything(),
+    );
+  });
+  it('still answers the text of a burst that ends with an attachment-only message', async () => {
+    const { channels, processor } = setup();
+    const t0 = Date.now();
+    vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+      job('a1', 'message', 'is this in stock?', t0),
+      job('a2', 'message', '', t0 + 500),
+    ]);
+    await processor.tick();
+    expect(channels.deliver).toHaveBeenCalledTimes(1);
+  });
+  it('hands the conversation to staff when the final retry fails', async () => {
+    const { channels, ai, inbox, processor } = setup();
+    vi.mocked(ai.reply).mockRejectedValue(new Error('busy'));
+    vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+      job('r1', 'message', 'hi', Date.now(), 1),
+    ]);
+    await processor.tick();
+    const [c] = (await inbox.list(ws, { limit: 10 } as never)).data;
+    expect(c?.mode).toBe('bot');
+    expect(channels.releaseEvent).toHaveBeenCalledWith(expect.any(String), 't', 20_000);
+    vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+      job('r1', 'message', 'hi', Date.now(), 3),
+    ]);
+    await processor.tick();
+    expect((await inbox.get(ws, c!.id)).conversation.mode).toBe('human');
+    expect(channels.completeEvent).toHaveBeenCalled();
+  });
+});

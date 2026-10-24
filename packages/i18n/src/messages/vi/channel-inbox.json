@@ -86,5 +86,15 @@
   "selectAccounts": "Chọn tài khoản cần kết nối. Access token được giữ an toàn trên máy chủ.",
   "consentHint": "Nhắn tin cần quyền ứng dụng Meta phù hợp và App Review để hỗ trợ khách hàng công khai.",
   "noMessage": "Không có nội dung văn bản",
-  "refresh": "Làm mới"
+  "refresh": "Làm mới",
+  "attachment": {
+    "add": "Đính kèm",
+    "library": "Thư viện ảnh của bot",
+    "noBot": "Gắn bot cho kênh để dùng thư viện ảnh.",
+    "emptyLibrary": "Thư viện ảnh trống.",
+    "url": "Liên kết tệp HTTPS",
+    "send": "Gửi tệp",
+    "image": "Ảnh đính kèm",
+    "file": "Tệp đính kèm"
+  }
 }

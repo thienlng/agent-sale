@@ -50,6 +50,19 @@ export function useQuickReplies(botId: string | null) {
     enabled: Boolean(ws && botId),
   });
 }
+/** The bot's image library (training media with an HTTPS URL), offered as attachments. */
+export function useMediaLibrary(botId: string | null) {
+  const ws = useWorkspaceId();
+  return useQuery({
+    queryKey: ['inbox-media', ws, botId],
+    queryFn: async () =>
+      (await api(`/bots/${botId}/training-items`, TrainingItemList)).data.filter(
+        (item): item is typeof item & { mediaUrl: string } =>
+          item.kind === 'media' && Boolean(item.mediaUrl),
+      ),
+    enabled: Boolean(ws && botId),
+  });
+}
 export function useInboxActions(id: string | null) {
   const ws = useWorkspaceId();
   const qc = useQueryClient();

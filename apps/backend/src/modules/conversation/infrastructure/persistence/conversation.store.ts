@@ -104,6 +104,12 @@ export class DrizzleConversationStore implements ConversationStore {
             })
             .onConflictDoUpdate({ target: m.id, set: { data }, setWhere: eq(m.workspaceId, ws) });
         },
+        async updateMessage(data) {
+          await tx
+            .update(m)
+            .set({ data })
+            .where(and(eq(m.workspaceId, ws), eq(m.id, data.id)));
+        },
         async audit(id, type, payload) {
           await writeOutbox(tx, {
             workspaceId: ws,

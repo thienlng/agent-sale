@@ -69,6 +69,7 @@ beforeEach(() => {
     claimEvents: async () => [],
     renewEvent: async () => true,
     completeEvent: async () => undefined,
+    releaseEvent: async () => undefined,
   };
   const bots: BotFacade = { getBot: async () => bot };
   service = new ConversationFacadeImpl(store, channels, bots);
@@ -190,5 +191,54 @@ describe('ConversationFacade tenant and delivery contract', () => {
     });
     expect((await service.receive(ws, channelId, event('sent1', 'echo'))).mode).toBe('bot');
     expect((await service.get(ws, c.id)).messages).toHaveLength(2);
+  });
+  it('matches the echo of an uncertain bot send instead of treating it as a staff reply', async () => {
+    vi.mocked(channels.deliver).mockResolvedValue({
+      externalId: null,
+      status: 'unknown',
+      failureCode: 'delivery_unknown',
+    });
+    const c = await service.receive(ws, channelId, event());
+    await service.commitBotReply(ws, c.id, {
+      revision: c.revision,
+      text: 'Hello',
+      idempotencyKey: 'bot:in1',
+    });
+    expect((await service.receive(ws, channelId, event('late-echo', 'echo'))).mode).toBe('bot');
+    const { messages } = await service.get(ws, c.id);
+    expect(messages).toHaveLength(2);
+    expect(messages.find((m) => m.direction === 'outbound')).toMatchObject({
+      status: 'sent',
+      externalId: 'late-echo',
+    });
+  });
+  it('does not open the 24-hour window when an echo creates the conversation', async () => {
+    const c = await service.receive(ws, channelId, event('echo-first', 'echo'));
+    await expect(
+      service.send(ws, c.id, { text: 'hi', idempotencyKey: newId() }, actor),
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
+    expect(channels.deliver).not.toHaveBeenCalled();
+  });
+  it('sends an attachment by URL and rejects text plus attachment in one message', async () => {
+    const c = await service.receive(ws, channelId, event());
+    const attachment = { type: 'image' as const, url: 'https://cdn.example/p.jpg' };
+    const sent = await service.send(
+      ws,
+      c.id,
+      { text: '', attachment, idempotencyKey: newId() },
+      actor,
+    );
+    expect(sent).toMatchObject({ status: 'sent', attachments: [attachment] });
+    expect(channels.deliver).toHaveBeenCalledWith(
+      ws,
+      channelId,
+      'customer',
+      { text: '', attachment },
+      expect.any(String),
+    );
+    expect((await service.get(ws, c.id)).conversation.lastMessage).toBe('[image]');
+    expect(() =>
+      service.send(ws, c.id, { text: 'both', attachment, idempotencyKey: newId() }, actor),
+    ).toThrow();
   });
 });

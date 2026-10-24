@@ -48,7 +48,10 @@ export class LiveMetaGateway implements MetaGateway {
       );
   }
   private callback(p: MetaProvider): string {
-    return `${this.env.META_APP_ORIGIN}/api/v1/channels/oauth/${p}/callback`;
+    const template = this.env.META_OAUTH_REDIRECT_URI;
+    return template
+      ? template.replaceAll('{provider}', p)
+      : `${this.env.META_APP_ORIGIN}/api/v1/channels/oauth/${p}/callback`;
   }
   authorize(p: MetaProvider, state: string): string {
     this.ready(p);

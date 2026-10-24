@@ -9,6 +9,8 @@ export interface ConversationTx {
   messages(id: string): Promise<InboxMessageDto[]>;
   findMessage(conversationId: string, key: string): Promise<InboxMessageDto | null>;
   saveMessage(message: InboxMessageDto, key: string): Promise<void>;
+  /** Replaces the stored body of an existing message, keeping its idempotency key. */
+  updateMessage(message: InboxMessageDto): Promise<void>;
   audit(id: string, type: string, payload: Record<string, unknown>): Promise<void>;
 }
 export interface ConversationStore {

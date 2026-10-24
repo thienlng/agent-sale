@@ -11,7 +11,7 @@ import { z } from 'zod';
 import { getEnv } from '../../../common/config.js';
 import { SECRET_BOX, type SecretBox } from '../../../common/security/secret-box.js';
 import { BOT_FACADE, type BotFacade } from '../../bot/api/index.js';
-import type { ChannelFacade } from '../api/channel.facade.js';
+import type { ChannelFacade, OutboundInboxMessage } from '../api/channel.facade.js';
 import { ChannelError } from '../domain/channel.errors.js';
 import { CHANNEL_STORE, type ChannelStore, type ConnectionRecord } from './ports/channel-store.js';
 import { META_GATEWAY, type MetaGateway } from './ports/meta-gateway.js';
@@ -136,7 +136,13 @@ export class ChannelFacadeImpl implements ChannelFacade {
     if (!c) throw new ChannelError('NOT_FOUND', 'Connection not found');
     return publicConnection(c);
   }
-  async deliver(ws: WorkspaceId, id: string, recipient: string, text: string, key: string) {
+  async deliver(
+    ws: WorkspaceId,
+    id: string,
+    recipient: string,
+    message: OutboundInboxMessage,
+    key: string,
+  ) {
     const c = await this.store.get(ws, id);
     if (!c || c.status !== 'connected' || (c.expiresAt && Date.parse(c.expiresAt) <= Date.now()))
       return { externalId: null, status: 'failed' as const, failureCode: 'reauth_required' };
@@ -144,7 +150,7 @@ export class ChannelFacadeImpl implements ChannelFacade {
       const result = await new MetaAdapter(c.provider, getEnv().META_GRAPH_VERSION).send(
         { externalId: c.externalId, token: this.box.open(c.tokenSealed) },
         recipient,
-        { text },
+        message.attachment ? { attachments: [message.attachment] } : { text: message.text },
         { idempotencyKey: key },
       );
       return { externalId: result.externalMessageId, status: 'sent' as const, failureCode: null };
@@ -169,5 +175,8 @@ export class ChannelFacadeImpl implements ChannelFacade {
   }
   completeEvent(id: string, claimToken?: string) {
     return this.store.completeEvent(id, claimToken);
+  }
+  releaseEvent(id: string, claimToken: string, retryInMs: number) {
+    return this.store.releaseEvent(id, claimToken, retryInMs);
   }
 }

@@ -154,6 +154,18 @@ describe('ai on Postgres', () => {
       });
       expect(created.statusCode).toBe(201);
       const provider = LlmProviderDto.parse(created.json());
+      const hermes = await inject({
+        method: 'POST',
+        url: '/api/v1/admin/llm/providers',
+        headers: h,
+        payload: {
+          name: 'hermes',
+          kind: 'hermes',
+          baseUrl: 'http://127.0.0.1:8788',
+          apiKey: 'bridge-key-at-least-thirty-two-chars',
+        },
+      });
+      expect(hermes.statusCode).toBe(201);
 
       const put = await inject({
         method: 'PUT',

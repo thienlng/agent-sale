@@ -9,7 +9,11 @@ import {
 import { newId, type WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable } from '@nestjs/common';
 import { BOT_FACADE, type BotFacade, type BotView } from '../../bot/api/index.js';
-import { CHANNEL_FACADE, type ChannelFacade } from '../../channel/api/index.js';
+import {
+  CHANNEL_FACADE,
+  type ChannelFacade,
+  type OutboundInboxMessage,
+} from '../../channel/api/index.js';
 import type { ConversationFacade } from '../api/conversation.facade.js';
 import { ConversationError } from '../domain/conversation.errors.js';
 import {
@@ -18,6 +22,10 @@ import {
   type ConversationTx,
 } from './ports/conversation-store.js';
 const now = () => new Date().toISOString();
+/** List preview: the text, or a neutral marker the UI localizes (e.g. "[image]"). */
+function preview(text: string, attachments: readonly { type: string }[]): string {
+  return text || (attachments[0] ? `[${attachments[0].type}]` : '');
+}
 async function requireConversation(tx: ConversationTx, id: string): Promise<ConversationDto> {
   const c = await tx.find(id);
   if (!c) throw new ConversationError('NOT_FOUND', 'Conversation not found');
@@ -110,23 +118,39 @@ export class ConversationFacadeImpl implements ConversationFacade {
         note: '',
         revision: 0,
         lastMessage: '',
-        lastInboundAt: event.occurredAt.toISOString(),
+        // An echo cannot open the 24-hour window: only a customer message does.
+        lastInboundAt:
+          event.type === 'echo' ? new Date(0).toISOString() : event.occurredAt.toISOString(),
         updatedAt: now(),
       };
       if (await tx.findMessage(c.id, event.externalEventId)) return c;
       if (event.type === 'echo') {
         // Echoes can be our own sends; only an unmatched external message means an outside staff reply.
-        const own = (await tx.messages(c.id)).some(
-          (m) => m.direction === 'outbound' && m.externalId === event.externalMessageId,
+        const outbound = (await tx.messages(c.id)).filter((m) => m.direction === 'outbound');
+        if (outbound.some((m) => m.externalId === event.externalMessageId)) return c;
+        // A send that timed out may still have been delivered: its echo has no known id yet.
+        const uncertain = outbound.find(
+          (m) =>
+            !m.externalId &&
+            (m.status === 'unknown' || m.status === 'pending') &&
+            m.text === (event.text ?? '').slice(0, 2000) &&
+            m.attachments.length === (event.attachments?.length ?? 0),
         );
-        if (own) return c;
+        if (uncertain) {
+          await tx.updateMessage({
+            ...uncertain,
+            status: 'sent',
+            externalId: event.externalMessageId ?? event.externalEventId,
+          });
+          return c;
+        }
         c = {
           ...c,
           ...(bot?.silenceOnExternalReply !== false
             ? { mode: 'human' as const, autoResumeAt: this.resumeAt(bot) }
             : {}),
           revision: c.revision + 1,
-          lastMessage: event.text ?? '',
+          lastMessage: preview(event.text ?? '', event.attachments ?? []),
           updatedAt: now(),
         };
       } else {
@@ -140,7 +164,7 @@ export class ConversationFacadeImpl implements ConversationFacade {
             : {}),
           status: 'open',
           revision: c.revision + 1,
-          lastMessage: event.text ?? '',
+          lastMessage: preview(event.text ?? '', event.attachments ?? []),
           lastInboundAt: new Date(
             Math.max(Date.parse(c.lastInboundAt), event.occurredAt.getTime()),
           ).toISOString(),
@@ -155,6 +179,7 @@ export class ConversationFacadeImpl implements ConversationFacade {
           direction: event.type === 'echo' ? 'outbound' : 'inbound',
           sender: event.type === 'echo' ? 'human' : 'customer',
           text: (event.text ?? '').slice(0, 2000),
+          attachments: event.attachments ?? [],
           status: event.type === 'echo' ? 'sent' : 'received',
           externalId: event.externalMessageId ?? event.externalEventId,
           failureCode: null,
@@ -181,7 +206,13 @@ export class ConversationFacadeImpl implements ConversationFacade {
     actorId: string,
   ): Promise<InboxMessageDto> {
     const body = SendInboxMessageRequest.parse(input);
-    return this.reserveAndDeliver(ws, id, body, actorId, null).then((m) => {
+    return this.reserveAndDeliver(
+      ws,
+      id,
+      { text: body.text, attachment: body.attachment, idempotencyKey: body.idempotencyKey },
+      actorId,
+      null,
+    ).then((m) => {
       if (!m) throw new ConversationError('CONFLICT', 'Conversation control changed');
       return m;
     });
@@ -217,23 +248,29 @@ export class ConversationFacadeImpl implements ConversationFacade {
   private async reserveAndDeliver(
     ws: WorkspaceId,
     id: string,
-    input: { text: string; idempotencyKey: string },
+    input: OutboundInboxMessage & { idempotencyKey: string },
     actorId: string | null,
     expectedRevision: number | null,
   ): Promise<InboxMessageDto | null> {
+    // Cross-module reads open their own transactions; resolve them first so we never hold
+    // a pooled connection while waiting for another one (pool exhaustion under concurrent sends).
+    const channelId = await this.store.run(
+      ws,
+      async (tx) => (await requireConversation(tx, id)).channelId,
+    );
+    const bot = await this.channelBot(ws, channelId);
     const reservation = await this.store.run(ws, async (tx) => {
       const c = await requireConversation(tx, id);
       const prior = await tx.findMessage(id, input.idempotencyKey);
       if (prior) {
-        if (prior.text !== input.text)
+        if (prior.text !== input.text || prior.attachments[0]?.url !== input.attachment?.url)
           throw new ConversationError(
             'CONFLICT',
             'Idempotency key was already used for another reply',
           );
-        return { message: prior, deliver: false, revision: c.revision };
+        return { message: prior, deliver: false, revision: c.revision, customerId: c.customerId };
       }
-      if (expectedRevision !== null && !(await this.channelBot(ws, c.channelId))?.isActive)
-        return null;
+      if (expectedRevision !== null && !bot?.isActive) return null;
       if (
         expectedRevision !== null &&
         (c.mode !== 'bot' || c.revision !== expectedRevision || c.status !== 'open')
@@ -244,7 +281,6 @@ export class ConversationFacadeImpl implements ConversationFacade {
         Date.parse(c.lastInboundAt) > Date.now() + 300000
       )
         throw new ConversationError('CONFLICT', 'The 24-hour messaging window is closed');
-      const bot = actorId ? await this.channelBot(ws, c.channelId) : null;
       const updated = {
         ...c,
         mode: actorId ? ('human' as const) : c.mode,
@@ -259,6 +295,7 @@ export class ConversationFacadeImpl implements ConversationFacade {
         direction: 'outbound',
         sender: actorId ? 'human' : 'bot',
         text: input.text,
+        attachments: input.attachment ? [input.attachment] : [],
         status: 'pending',
         externalId: null,
         failureCode: null,
@@ -272,33 +309,39 @@ export class ConversationFacadeImpl implements ConversationFacade {
         actorId,
         revision: updated.revision,
       });
-      return { message, deliver: true, revision: updated.revision };
+      return { message, deliver: true, revision: updated.revision, customerId: c.customerId };
     });
     if (!reservation || !reservation.deliver) return reservation?.message ?? null;
-    // The committed reservation survives a crash. Never retry pending or unknown sends automatically.
-    return this.store.run(ws, async (tx) => {
-      const c = await requireConversation(tx, id);
-      const m = reservation.message;
-      if (
-        expectedRevision !== null &&
-        (c.mode !== 'bot' ||
-          c.revision !== reservation.revision ||
-          !(await this.channelBot(ws, c.channelId))?.isActive)
-      ) {
+    const m = reservation.message;
+    if (expectedRevision !== null) {
+      // Last control check before the provider call: a takeover since reservation wins.
+      const stale = await this.store.run(ws, async (tx) => {
+        const c = await requireConversation(tx, id);
+        if (c.mode === 'bot' && c.revision === reservation.revision) return null;
         const failed = { ...m, status: 'failed' as const, failureCode: 'control_changed' };
         await tx.saveMessage(failed, input.idempotencyKey);
         return failed;
-      }
-      const result = await this.channels.deliver(
-        ws,
-        c.channelId,
-        c.customerId,
-        input.text,
-        input.idempotencyKey,
-      );
+      });
+      if (stale) return stale;
+    }
+    // The committed reservation survives a crash. Never retry pending or unknown sends automatically.
+    // The provider call runs outside any transaction so a slow Meta response holds no connection or lock.
+    const result = await this.channels.deliver(
+      ws,
+      channelId,
+      reservation.customerId,
+      { text: input.text, attachment: input.attachment },
+      input.idempotencyKey,
+    );
+    return this.store.run(ws, async (tx) => {
+      const c = await requireConversation(tx, id);
       const completed = { ...m, ...result };
       await tx.saveMessage(completed, input.idempotencyKey);
-      await tx.save({ ...c, lastMessage: input.text, updatedAt: now() });
+      await tx.save({
+        ...c,
+        lastMessage: preview(input.text, completed.attachments),
+        updatedAt: now(),
+      });
       await tx.audit(id, 'conversation.reply.completed.v1', {
         messageId: m.id,
         status: result.status,

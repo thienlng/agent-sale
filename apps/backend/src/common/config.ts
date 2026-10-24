@@ -23,6 +23,14 @@ export const EnvSchema = z
     INSTAGRAM_APP_SECRET: z.string().optional(),
     META_WEBHOOK_VERIFY_TOKEN: z.string().optional(),
     META_APP_ORIGIN: z.string().url().optional(),
+    /**
+     * Exact OAuth redirect URI registered on the Meta app, with `{provider}` placeholder.
+     * Defaults to `${META_APP_ORIGIN}/api/v1/channels/oauth/{provider}/callback`.
+     */
+    META_OAUTH_REDIRECT_URI: z
+      .string()
+      .regex(/^https:\/\/\S+\{provider\}\S*$/)
+      .optional(),
     APP_VERSION: z.string().default('0.0.0-dev'),
     JWT_PRIVATE_KEY: z.string().optional(),
     JWT_PUBLIC_KEY: z.string().optional(),

@@ -17,12 +17,20 @@ export const ConversationDto = z.object({
   updatedAt: z.iso.datetime(),
 });
 export type ConversationDto = z.infer<typeof ConversationDto>;
+const HttpsUrl = z.url({ protocol: /^https$/ }).max(2000);
+/** Meta delivers one attachment per message; text and attachment are sent as separate messages. */
+export const InboxAttachment = z.object({
+  type: z.enum(['image', 'video', 'audio', 'file', 'sticker']),
+  url: HttpsUrl,
+});
+export type InboxAttachment = z.infer<typeof InboxAttachment>;
 export const InboxMessageDto = z.object({
   id: z.uuid(),
   conversationId: z.uuid(),
   direction: z.enum(['inbound', 'outbound']),
   sender: z.enum(['customer', 'human', 'bot']),
   text: z.string(),
+  attachments: z.array(InboxAttachment).max(10).default([]),
   status: z.enum(['received', 'pending', 'sent', 'failed', 'unknown']),
   failureCode: z.string().nullable(),
   externalId: z.string().nullable(),
@@ -43,10 +51,18 @@ export const ConversationDetailDto = z.object({
   messages: z.array(InboxMessageDto),
 });
 export type ConversationDetailDto = z.infer<typeof ConversationDetailDto>;
-export const SendInboxMessageRequest = z.object({
-  text: z.string().trim().min(1).max(2000),
-  idempotencyKey: z.uuid(),
-});
+export const SendInboxMessageRequest = z
+  .object({
+    text: z.string().trim().max(2000).default(''),
+    attachment: z
+      .object({ type: z.enum(['image', 'video', 'audio', 'file']), url: HttpsUrl })
+      .optional(),
+    idempotencyKey: z.uuid(),
+  })
+  .refine((b) => b.text.length > 0 !== Boolean(b.attachment), {
+    message: 'Send either text or one attachment',
+    path: ['text'],
+  });
 export type SendInboxMessageRequest = z.infer<typeof SendInboxMessageRequest>;
 export const UpdateConversationRequest = z.object({
   mode: z.enum(['human', 'bot']).optional(),

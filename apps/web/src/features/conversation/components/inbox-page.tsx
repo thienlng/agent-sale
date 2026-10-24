@@ -1,4 +1,8 @@
-import type { ConversationDto, MetaProvider } from '@agent-sales/contracts';
+import type {
+  ConversationDto,
+  MetaProvider,
+  SendInboxMessageRequest,
+} from '@agent-sales/contracts';
 import { Link } from '@tanstack/react-router';
 import {
   ArrowDownWideNarrow,
@@ -34,6 +38,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import { AttachmentPicker, MessageAttachments } from './message-attachments';
 import {
   useConversation,
   useInbox,
@@ -42,6 +47,14 @@ import {
   useQuickReplies,
 } from '../api/inbox';
 const nameOf = (c: ConversationDto) => c.customerName;
+/** The API stores "[image]"-style markers for media-only messages; show them localized. */
+function previewText(text: string, tr: (key: string) => string) {
+  if (!text) return tr('noMessage');
+  const media = /^\[(image|video|audio|file|sticker)\]$/.exec(text)?.[1];
+  return media
+    ? tr(media === 'image' || media === 'sticker' ? 'attachment.image' : 'attachment.file')
+    : text;
+}
 export function InboxPage() {
   const { t, i18n } = useTranslation();
   const tr = (key: string) => t(`channelInbox.${key}`);
@@ -171,7 +184,7 @@ export function InboxPage() {
                         </span>
                       </span>
                       <span className="mt-1 block truncate text-xs text-muted-foreground">
-                        {c.lastMessage || tr('noMessage')}
+                        {previewText(c.lastMessage, tr)}
                       </span>
                       <span className="mt-2 flex items-center gap-1.5 text-[10px] text-muted-foreground">
                         {c.mode === 'bot' ? (
@@ -292,6 +305,21 @@ function ConversationView({
       const result = await actions.send.mutateAsync(body);
       setDraft('');
       lastAttempt.current = null;
+      if (result.status === 'unknown' || result.status === 'pending')
+        toast.warning(tr('pendingHint'));
+      else if (result.status === 'failed') toast.error(tr('messageFailed'));
+    } catch {
+      toast.error(tr('messageError'));
+    }
+  }
+  async function sendAttachment(attachment: NonNullable<SendInboxMessageRequest['attachment']>) {
+    if (actions.send.isPending || windowClosed) return;
+    try {
+      const result = await actions.send.mutateAsync({
+        text: '',
+        attachment,
+        idempotencyKey: crypto.randomUUID(),
+      });
       if (result.status === 'unknown' || result.status === 'pending')
         toast.warning(tr('pendingHint'));
       else if (result.status === 'failed') toast.error(tr('messageFailed'));
@@ -456,7 +484,8 @@ function ConversationView({
                     : 'rounded-bl-sm border bg-background',
                 )}
               >
-                {m.text || tr('noMessage')}
+                <MessageAttachments items={m.attachments} />
+                {m.text || (m.attachments.length ? null : tr('noMessage'))}
               </div>
               <span className="mt-1 text-[10px] text-muted-foreground">
                 {stamp(m.createdAt)}
@@ -515,42 +544,49 @@ function ConversationView({
               className="min-h-20 resize-none border-0 bg-transparent shadow-none focus-visible:ring-0"
             />
             <div className="flex items-center justify-between gap-2">
-              <Popover open={quickOpen} onOpenChange={setQuickOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="ghost" size="sm" disabled={!botId}>
-                    <Zap className="size-4" />
-                    {tr('quickReplies')}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="start" className="max-h-72 overflow-y-auto p-2">
-                  {quick.isPending ? (
-                    <p className="p-3 text-xs text-muted-foreground">{tr('loading')}</p>
-                  ) : quick.isError ? (
-                    <p role="alert" className="p-3 text-xs text-destructive">
-                      {tr('loadError')}
-                    </p>
-                  ) : quick.data?.length ? (
-                    quick.data.map((item) => (
-                      <button
-                        type="button"
-                        key={item.id}
-                        className="block w-full rounded-lg p-3 text-left hover:bg-muted"
-                        onClick={() => {
-                          setDraft(item.content.slice(0, 2000));
-                          setQuickOpen(false);
-                        }}
-                      >
-                        <span className="block text-sm font-medium">{item.title}</span>
-                        <span className="mt-1 block line-clamp-2 text-xs text-muted-foreground">
-                          {item.content}
-                        </span>
-                      </button>
-                    ))
-                  ) : (
-                    <p className="p-3 text-xs text-muted-foreground">{tr('noQuickReplies')}</p>
-                  )}
-                </PopoverContent>
-              </Popover>
+              <div className="flex items-center gap-1">
+                <AttachmentPicker
+                  botId={botId}
+                  disabled={actions.send.isPending || windowClosed}
+                  onPick={(attachment) => void sendAttachment(attachment)}
+                />
+                <Popover open={quickOpen} onOpenChange={setQuickOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="sm" disabled={!botId}>
+                      <Zap className="size-4" />
+                      {tr('quickReplies')}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="max-h-72 overflow-y-auto p-2">
+                    {quick.isPending ? (
+                      <p className="p-3 text-xs text-muted-foreground">{tr('loading')}</p>
+                    ) : quick.isError ? (
+                      <p role="alert" className="p-3 text-xs text-destructive">
+                        {tr('loadError')}
+                      </p>
+                    ) : quick.data?.length ? (
+                      quick.data.map((item) => (
+                        <button
+                          type="button"
+                          key={item.id}
+                          className="block w-full rounded-lg p-3 text-left hover:bg-muted"
+                          onClick={() => {
+                            setDraft(item.content.slice(0, 2000));
+                            setQuickOpen(false);
+                          }}
+                        >
+                          <span className="block text-sm font-medium">{item.title}</span>
+                          <span className="mt-1 block line-clamp-2 text-xs text-muted-foreground">
+                            {item.content}
+                          </span>
+                        </button>
+                      ))
+                    ) : (
+                      <p className="p-3 text-xs text-muted-foreground">{tr('noQuickReplies')}</p>
+                    )}
+                  </PopoverContent>
+                </Popover>
+              </div>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] text-muted-foreground">{draft.length}/2000</span>
                 <Button

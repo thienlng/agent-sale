@@ -100,8 +100,8 @@ export class ChannelController {
       type: 'razpi:oauth:complete',
       state,
       ...(discoveryId ? { discoveryId } : { error }),
-    }).replace(/</g, '\u003c');
-    const target = JSON.stringify(origin).replace(/</g, '\u003c');
+    }).replace(/</g, '\\u003c');
+    const target = JSON.stringify(origin).replace(/</g, '\\u003c');
     reply
       .header('Cross-Origin-Opener-Policy', 'unsafe-none')
       .header('Cache-Control', 'no-store')

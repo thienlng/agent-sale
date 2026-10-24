@@ -37,6 +37,11 @@ export class MemoryConversationStore implements ConversationStore {
         saveMessage: async (m, key) => {
           messages.set(`${ws}/${m.conversationId}/${key}`, structuredClone(m));
         },
+        updateMessage: async (m) => {
+          for (const [key, stored] of messages)
+            if (key.startsWith(`${ws}/`) && stored.id === m.id)
+              messages.set(key, structuredClone(m));
+        },
         audit: async (id, type, payload) => {
           events.push({ id, type, payload });
         },

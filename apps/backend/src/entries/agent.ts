@@ -26,7 +26,7 @@ const timer = setInterval(() => {
       running = false;
     });
 }, 1000);
-timer.unref();
 for (const signal of ['SIGINT', 'SIGTERM'] as const)
+  // The interval keeps this worker alive; clearing it lets the process drain and exit.
   process.once(signal, () => clearInterval(timer));
 logger.info('agent runtime started with durable Meta inbox processing');

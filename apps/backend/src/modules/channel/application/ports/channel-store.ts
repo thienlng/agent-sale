@@ -27,6 +27,7 @@ export interface PendingMetaEvent {
   workspaceId: WorkspaceId;
   connectionId: string;
   event: NormalizedEvent;
+  attempt: number;
 }
 export interface ChannelStore {
   list(ws: WorkspaceId): Promise<ConnectionRecord[]>;
@@ -52,5 +53,7 @@ export interface ChannelStore {
   claimEvents(limit: number): Promise<PendingMetaEvent[]>;
   renewEvent(id: string, claimToken: string): Promise<boolean>;
   completeEvent(id: string, claimToken?: string): Promise<void>;
+  /** Ends a failed attempt early so the next claim can retry after `retryInMs` instead of the full lease. */
+  releaseEvent(id: string, claimToken: string, retryInMs: number): Promise<void>;
 }
 export const CHANNEL_STORE = Symbol('CHANNEL_STORE');

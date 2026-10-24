@@ -2,7 +2,7 @@
 id: T-023
 title: Implement Preny bot training and Meta inbox with an isolated Hermes runtime
 type: feature
-status: in-progress
+status: review
 priority: P0
 owner: agent:codex
 branch: feat/T-023-training-meta-inbox
@@ -24,12 +24,12 @@ Out of scope: billing/payment implementation, new CRM/commerce domains, rewritin
 
 ## Acceptance criteria
 
-- [ ] Bot training navigation, FAQ/scenarios/settings and playground are usable with persistent data.
-- [ ] Facebook/Instagram connection and inbox use workspace-scoped APIs and expose actionable unconfigured states.
-- [ ] Message send/webhook processing enforce validation, idempotency and human takeover.
-- [ ] Hermes remains a private, replaceable runtime; no copied real tokens or customer logs.
-- [ ] Other channels have informational UI without fake live connections.
-- [ ] Relevant behavior/tenant tests and pnpm check pass; browser QA and independent review findings recorded.
+- [x] Bot training navigation, FAQ/scenarios/settings and playground are usable with persistent data.
+- [x] Facebook/Instagram connection and inbox use workspace-scoped APIs and expose actionable unconfigured states.
+- [x] Message send/webhook processing enforce validation, idempotency and human takeover.
+- [x] Hermes remains a private, replaceable runtime; no copied real tokens or customer logs.
+- [x] Other channels have informational UI without fake live connections.
+- [x] Relevant behavior/tenant tests and pnpm check pass; browser QA and independent review findings recorded.
 
 ## Plan
 
@@ -45,6 +45,8 @@ Out of scope: billing/payment implementation, new CRM/commerce domains, rewritin
 - 2026-10-24: Scope and Hermes decision approved in chat. Owner authorized autonomous execution for two hours. Baseline pnpm check passed during onboarding. Existing source connector contains OAuth but no inbox; commercial subscription eligibility remains a provider constraint.
 
 - 2026-10-24: Codex session hit its limit mid-integration. Resumed by Claude Code: fixed lint (type import, unused Badge), missing webhook `@agent-sales/db` install, exactOptionalPropertyTypes in S3 media storage, invalid LOG_LEVEL in meta-inbox HTTP test; recreated the local dev DB because 0005 was edited after being applied (500 on training-items until 0008 ran); marked inbox/channels nav items as ready. pnpm lint/arch/typecheck/test/build green (backend 290 tests, Hermes bridge 8 unittest). Owner asked to skip pixel-parity screenshot QA; acceptance is code/logic only.
+
+- 2026-10-24: Fresh-context review found 6 issues; all fixed with regression tests: unanswered message arriving during generation (storage-order staleness via UUIDv7, burst picks newest customer text); DB pool deadlock (provider call and cross-module reads moved outside transactions); echo of an uncertain send treated as staff reply; dead events dropped silently (now 20s/60s backoff then handover to staff); no-op `\u003c` escape in OAuth callback page; echo opening the 24h window. Added inbox attachments (receive/display, send one HTTPS attachment from the bot image library or a link). Live stack checks found and fixed: agent process exited immediately (`timer.unref()`), missing migration for the `hermes` provider kind (0009), `[object Object]` warnings. Added `META_OAUTH_REDIRECT_URI` and `scripts/dev-tunnel-proxy.mjs`; registered Meta app webhooks (page, instagram) on the owner's tunnel; end-to-end through the tunnel: signed webhook 200, bad signature 401, duplicate ignored, AI failure → handover after 84s, staff send reaches Meta and reports `auth_expired` for a synthetic token. Outstanding owner actions: Hermes ChatGPT login (`hermes model` in the private home) and real Facebook/Instagram OAuth consent. Flaky identity test recorded as T-024.
 
 ## Links
 

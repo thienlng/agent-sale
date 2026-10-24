@@ -85,4 +85,37 @@ describe('Meta signed messaging adapter', () => {
       server.send({ externalId: 'page', token: 't' }, 'u', { text: 'Hi' }, { idempotencyKey: 'k' }),
     ).rejects.toBeInstanceOf(MetaRequestError);
   });
+  it('keeps HTTPS media attachments and sends one attachment by URL', async () => {
+    const a = new MetaAdapter('facebook');
+    const body = payload();
+    Object.assign(body.entry[0]!.messaging[0]!.message, {
+      text: undefined,
+      attachments: [
+        { type: 'image', payload: { url: 'https://cdn.example/a.jpg' } },
+        { type: 'image', payload: { url: 'https://cdn.example/s.png', sticker_id: 369 } },
+        { type: 'file', payload: { url: 'http://insecure.example/x.pdf' } },
+        { type: 'fallback', payload: { url: 'https://example.com' } },
+      ],
+    });
+    expect(a.parseWebhook(body)[0]).toMatchObject({
+      text: '',
+      attachments: [
+        { type: 'image', url: 'https://cdn.example/a.jpg' },
+        { type: 'sticker', url: 'https://cdn.example/s.png' },
+      ],
+    });
+    const transport = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ message_id: 'm.1' }));
+    await new MetaAdapter('facebook', 'v24.0', transport).send(
+      { externalId: 'page', token: 't' },
+      'u',
+      { attachments: [{ type: 'image', url: 'https://cdn.example/a.jpg' }] },
+      { idempotencyKey: 'k' },
+    );
+    expect(JSON.parse(String(transport.mock.calls[0]?.[1]?.body)).message).toEqual({
+      attachment: {
+        type: 'image',
+        payload: { url: 'https://cdn.example/a.jpg', is_reusable: true },
+      },
+    });
+  });
 });

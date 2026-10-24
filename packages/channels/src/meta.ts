@@ -55,6 +55,7 @@ export class MetaAdapter implements ChannelAdapter {
           senderExternalId: peer,
           occurredAt: new Date(timestamp),
           text: typeof message.text === 'string' ? message.text : '',
+          attachments: attachments(message.attachments),
           raw: item,
         });
       }
@@ -77,7 +78,7 @@ export class MetaAdapter implements ChannelAdapter {
           headers: { Authorization: `Bearer ${asset.token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
             recipient: { id: to },
-            message: { text: message.text },
+            message: outbound(message),
             ...(this.kind === 'facebook' ? { messaging_type: 'RESPONSE' } : {}),
           }),
           signal: AbortSignal.timeout(15000),
@@ -104,7 +105,7 @@ export class MetaAdapter implements ChannelAdapter {
     return { externalMessageId: data.message_id };
   }
   capabilities() {
-    return { richCards: false, quickReplies: false, media: false, replyWindowHours: 24 };
+    return { richCards: false, quickReplies: false, media: true, replyWindowHours: 24 };
   }
   mapError(error: unknown): ConnectorError {
     return {
@@ -115,6 +116,30 @@ export class MetaAdapter implements ChannelAdapter {
       retryable: false,
     };
   }
+}
+type InboundAttachment = NonNullable<NormalizedEvent['attachments']>[number];
+const ATTACHMENT_TYPES = new Set(['image', 'video', 'audio', 'file']);
+/** Keeps only HTTPS media; Meta CDN links expire, so they are display hints, not archives. */
+function attachments(value: unknown): InboundAttachment[] {
+  const result: InboundAttachment[] = [];
+  for (const item of array(value).slice(0, 10)) {
+    const a = record(item),
+      payload = record(a.payload);
+    const url = payload.url;
+    if (typeof url !== 'string' || !url.startsWith('https://') || url.length > 2000) continue;
+    const type = payload.sticker_id !== undefined ? 'sticker' : a.type;
+    if (type !== 'sticker' && !(typeof type === 'string' && ATTACHMENT_TYPES.has(type))) continue;
+    result.push({ type: type as InboundAttachment['type'], url });
+  }
+  return result;
+}
+/** Meta accepts either text or a single attachment in one message. */
+function outbound(message: OutboundMessage): Record<string, unknown> {
+  const attachment = message.attachments?.[0];
+  if (!attachment) return { text: message.text };
+  return {
+    attachment: { type: attachment.type, payload: { url: attachment.url, is_reusable: true } },
+  };
 }
 function record(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)

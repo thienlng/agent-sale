@@ -46,6 +46,6 @@ Interfaces: authenticated POST /v1/reply with bounded explicit context; reply an
 
 Files: integration wiring, docs and task tracking; tests colocated with modified behavior.
 - [x] Run pnpm check and focused browser QA.
-- [ ] Review complete diff in fresh context against scope and invariants.
-- [ ] Fix important findings and rerun covering checks.
-- [ ] Record concrete evidence and outstanding live-account acceptance.
+- [x] Review complete diff in fresh context against scope and invariants.
+- [x] Fix important findings and rerun covering checks.
+- [x] Record concrete evidence and outstanding live-account acceptance.

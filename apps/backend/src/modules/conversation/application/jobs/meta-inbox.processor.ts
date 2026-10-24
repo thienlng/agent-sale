@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   CHANNEL_FACADE,
+  MAX_EVENT_ATTEMPTS,
   type ChannelFacade,
   type PendingMetaEvent,
 } from '../../../channel/api/index.js';
@@ -19,39 +20,58 @@ export class MetaInboxProcessor {
   ) {}
   async tick(): Promise<void> {
     const jobs = await this.channels.claimEvents(25);
-    const groups = new Map<string, PendingMetaEvent[]>();
+    const groups = new Map<string, { conversationId: string; jobs: PendingMetaEvent[] }>();
     // Persist every receipt first: a burst produces one coherent context, and external staff echoes pause it.
     for (const job of jobs) {
       try {
         const c = await this.inbox.receive(job.workspaceId, job.connectionId, job.event);
         const key = `${job.workspaceId}/${c.id}`;
-        const group = groups.get(key) ?? [];
-        group.push(job);
+        const group = groups.get(key) ?? { conversationId: c.id, jobs: [] };
+        group.jobs.push(job);
         groups.set(key, group);
       } catch {
         this.failed(job);
+        await this.retrySoon(job);
       }
     }
-    for (const group of groups.values()) {
+    for (const { conversationId, jobs: group } of groups.values()) {
       group.sort((a, b) => a.event.occurredAt.getTime() - b.event.occurredAt.getTime());
-      const latest = group.at(-1);
+      // Answer the newest customer text: a trailing echo or attachment-only event must not swallow it.
+      const latest =
+        group.findLast((j) => j.event.type === 'message' && j.event.text?.trim()) ?? group.at(-1);
       if (!latest) continue;
-      for (const job of group.slice(0, -1))
-        await this.channels.completeEvent(job.id, job.claimToken);
+      for (const job of group)
+        if (job !== latest) await this.channels.completeEvent(job.id, job.claimToken);
       if (!(await this.channels.renewEvent(latest.id, latest.claimToken))) continue;
       try {
         await this.process(latest);
         await this.channels.completeEvent(latest.id, latest.claimToken);
       } catch {
         this.failed(latest);
+        if (latest.attempt >= MAX_EVENT_ATTEMPTS) await this.handOver(latest, conversationId);
+        else await this.retrySoon(latest);
       }
+    }
+  }
+  /** The last retry failed: give the customer a human instead of silently dropping the message. */
+  private async handOver(job: PendingMetaEvent, conversationId: string): Promise<void> {
+    try {
+      await this.inbox.update(job.workspaceId, conversationId, { mode: 'human' }, 'system');
+      await this.channels.completeEvent(job.id, job.claimToken);
+    } catch {
+      this.logger.error(`Meta inbox handover after final retry failed for event ${job.id}`);
     }
   }
   private failed(job: PendingMetaEvent): void {
     this.logger.warn(
-      { eventId: job.id },
-      'Meta inbox processing failed; lease will expire before bounded retry',
+      `Meta inbox event ${job.id} failed (attempt ${job.attempt}/${MAX_EVENT_ATTEMPTS})`,
     );
+  }
+  /** Short backoff (20s, then 60s) so a customer reaches a human within minutes, not lease windows. */
+  private async retrySoon(job: PendingMetaEvent): Promise<void> {
+    await this.channels
+      .releaseEvent(job.id, job.claimToken, job.attempt <= 1 ? 20_000 : 60_000)
+      .catch(() => undefined);
   }
   async process(job: PendingMetaEvent): Promise<void> {
     const c = await this.inbox.receive(job.workspaceId, job.connectionId, job.event);
@@ -62,16 +82,23 @@ export class MetaInboxProcessor {
     const bot = await this.bots.getBot(job.workspaceId, channel.botId);
     if (!bot.isActive) return;
     const context = await this.inbox.getReplyContext(job.workspaceId, c.id);
-    // An older event cannot trigger a reply after a newer inbound or an already reserved outbound.
-    const latest = context.messages.at(-1);
+    // Ids are UUIDv7, so they order messages by when we stored them rather than by Meta timestamps.
+    // An inbound stored after our last reply is still unanswered, even if the customer sent it earlier.
+    const stored = [...context.messages]
+      .filter((m) => m.status !== 'failed')
+      .sort((a, b) => (a.id < b.id ? -1 : 1));
+    const latestText = stored.findLast((m) => m.direction === 'inbound' && m.text.trim());
     if (
-      !latest ||
-      latest.externalId !== job.event.externalMessageId ||
-      latest.direction !== 'inbound'
+      stored.at(-1)?.direction !== 'inbound' ||
+      latestText?.externalId !== job.event.externalMessageId
     )
       return;
     if (context.conversation.mode !== 'bot' || context.conversation.status !== 'open') return;
     const messages = context.messages
+      // Media-only turns stay in context as a marker so the model knows the customer sent something.
+      .map((m) =>
+        m.text.trim() || !m.attachments[0] ? m : { ...m, text: `[${m.attachments[0].type}]` },
+      )
       .filter((m) => m.text.trim() && (m.direction === 'inbound' || m.status === 'sent'))
       .slice(-20)
       .map((m) => ({
