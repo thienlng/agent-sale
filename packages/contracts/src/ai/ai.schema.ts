@@ -6,6 +6,17 @@ export const PlaygroundMessage = z.object({
 });
 export type PlaygroundMessage = z.infer<typeof PlaygroundMessage>;
 
+/** A customer image attached to the last customer message (Hermes provider only; max 3 x 3 MB). */
+export const PlaygroundImage = z.object({
+  mimeType: z.enum(['image/jpeg', 'image/png', 'image/webp']),
+  base64: z
+    .string()
+    .min(8)
+    .max(4_000_008)
+    .regex(/^[A-Za-z0-9+/]+={0,2}$/),
+});
+export type PlaygroundImage = z.infer<typeof PlaygroundImage>;
+
 /** The test conversation so far; the last message is the customer's turn to answer. */
 export const PlaygroundRequest = z.object({
   messages: z
@@ -15,6 +26,7 @@ export const PlaygroundRequest = z.object({
     .refine((m) => m.at(-1)?.role === 'customer', {
       message: 'the last message must come from the customer',
     }),
+  images: z.array(PlaygroundImage).max(3).optional(),
 });
 export type PlaygroundRequest = z.infer<typeof PlaygroundRequest>;
 

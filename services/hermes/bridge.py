@@ -1,5 +1,7 @@
 """Private HTTP boundary for Hermes. This process has no platform database or send access."""
 
+import base64
+import binascii
 import hmac
 import json
 import logging
@@ -12,13 +14,50 @@ from uuid import UUID
 from login import ChatGptLogin, LoginError
 from runtime import HermesRuntime, RuntimeUnavailable
 
-MAX_BODY = 256_000
+MAX_BODY = 256_000  # text-only requests, and the non-image part of an image request
+MAX_IMAGES = 3
+MAX_IMAGE_BYTES = 3_000_000  # decoded, per image
+MAX_IMAGES_TOTAL_BYTES = 6_000_000  # decoded, all images of one request
+# base64 inflates by 4/3; the slack covers the JSON around it.
+MAX_IMAGE_BODY = MAX_BODY + MAX_IMAGES_TOTAL_BYTES * 4 // 3 + 4_096
+IMAGE_MAGIC = {
+    "image/jpeg": lambda b: b.startswith(b"\xff\xd8\xff"),
+    "image/png": lambda b: b.startswith(b"\x89PNG\r\n\x1a\n"),
+    "image/webp": lambda b: len(b) > 12 and b[:4] == b"RIFF" and b[8:12] == b"WEBP",
+}
+
+
+def validate_images(images):
+    """Customer images for the last user message. The bridge never fetches URLs; it only decodes.
+
+    Returns the list unchanged after checking count, mime allowlist, strict base64, size caps and
+    that the bytes really start like the declared type. Any violation raises ValueError (HTTP 400).
+    """
+    if not isinstance(images, list) or not 1 <= len(images) <= MAX_IMAGES:
+        raise ValueError("invalid images")
+    total = 0
+    for image in images:
+        if (not isinstance(image, dict) or set(image) != {"mimeType", "base64"}
+                or image["mimeType"] not in IMAGE_MAGIC or not isinstance(image["base64"], str)
+                or not image["base64"] or len(image["base64"]) > MAX_IMAGE_BYTES * 4 // 3 + 8):
+            raise ValueError("invalid image")
+        try:
+            raw = base64.b64decode(image["base64"], validate=True)
+        except (binascii.Error, ValueError):
+            raise ValueError("invalid image encoding") from None
+        if not raw or len(raw) > MAX_IMAGE_BYTES or not IMAGE_MAGIC[image["mimeType"]](raw):
+            raise ValueError("invalid image content")
+        total += len(raw)
+        if total > MAX_IMAGES_TOTAL_BYTES:
+            raise ValueError("images too large")
+    return images
 
 
 def validate_request(value):
     if not isinstance(value, dict) or value.get("version") != 1:
         raise ValueError("invalid version")
-    allowed = {"version", "requestId", "workspaceId", "model", "effort", "messages", "maxOutputTokens", "responseSchema"}
+    allowed = {"version", "requestId", "workspaceId", "model", "effort", "messages", "maxOutputTokens", "responseSchema",
+               "images"}
     if set(value) - allowed:
         raise ValueError("unknown request fields")
     for field in ("requestId", "workspaceId"):
@@ -44,6 +83,8 @@ def validate_request(value):
         raise ValueError("last turn must be user")
     if value.get("responseSchema") is not None and not isinstance(value["responseSchema"], dict):
         raise ValueError("invalid response schema")
+    if value.get("images") is not None:
+        validate_images(value["images"])
     return value
 
 
@@ -120,10 +161,16 @@ def make_server(host, port, key, runtime, login=None):
                 return self.send_json(415, {"error": "JSON_REQUIRED"})
             try:
                 length = int(self.headers.get("Content-Length", "0"))
-                if not 0 < length <= MAX_BODY or self.headers.get("Transfer-Encoding"):
+                if not 0 < length <= MAX_IMAGE_BODY or self.headers.get("Transfer-Encoding"):
                     return self.send_json(413, {"error": "BODY_LIMIT"})
-                self.connection.settimeout(10)
-                request = validate_request(json.loads(self.rfile.read(length)))
+                # Only a body beyond the text cap can be an image request; it gets a longer read.
+                self.connection.settimeout(10 if length <= MAX_BODY else 30)
+                raw = self.rfile.read(length)
+                request = validate_request(json.loads(raw))
+                if length > MAX_BODY:
+                    image_chars = sum(len(i["base64"]) for i in request.get("images") or [])
+                    if length - image_chars > MAX_BODY:
+                        return self.send_json(413, {"error": "BODY_LIMIT"})
             except (ValueError, TypeError, KeyError, OSError):
                 return self.send_json(400, {"error": "INVALID_REQUEST"})
             if not gate.acquire(blocking=False):

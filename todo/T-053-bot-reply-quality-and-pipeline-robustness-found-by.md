@@ -71,6 +71,10 @@ found are fixed with regression tests.
 - 2026-10-24 — QA round 4 prompt WARNs (`sales-agent@4`, uncommitted):
   - Merged multi-question turn: the prompt now says to answer each question the blocks can answer, the "unknown" fallback is only for when none can be answered, and a missing part is acknowledged briefly. Replies state only facts present in the blocks (no inferred eligibility/promotions). Filler openers ("em xin trả lời:") are discouraged without quoting them (quoting the phrase made the model copy it). Unit assertions in `playground.spec.ts`.
   - Live (playground, synthetic bot): 6 merged-turn runs (both orders) and 3 order questions all answered every question, no fallback; ship x3, warranty x3, price-after-size, injection refusal (fallback), apology handoff, wholesale phone request and callback-number handoff behaved as expected. Residual: warranty replies sometimes add a verb like "em xác nhận/em tư vấn" (cosmetic); "hết hàng" appears because the seeded variants have no stock.
+- 2026-10-24 — vision built (owner decision: ChatGPT plan is testing only; images may go to OpenAI in dev; gated by `BOT_IMAGE_VISION`, default on outside production):
+  - Gate: live smoke test through Hermes `AIAgent` with a synthetic PNG ("RAPIZ 123" + red rectangle): gpt-6.1-sol, gpt-5.6-luna, gpt-6-luna all read it; `_model_supports_vision` is already true, no config change needed.
+  - Bridge: optional `images` (caps, magic bytes, strict base64, `VISION_UNSUPPORTED` 503), larger body only for image requests. ai-core: `GenerateRequest.images`, Hermes serializes, other providers throw. Prompt `sales-agent@5` (image rule). Playground request accepts `images` (max 3). `SafeImageFetcher` (Meta CDN allowlist, DNS-pinned public IP, no redirects, 5 s, 3 MB, magic bytes; `BOT_IMAGE_EXTRA_HOSTS` dev/test). Processor fetches the newest 3 images, image-only turns go to the model, text-only retry if the image call fails.
+  - Tests: Python 37, ai-core, backend processor/fetcher/playground specs.
 
 ## Links
 

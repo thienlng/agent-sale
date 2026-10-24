@@ -1,3 +1,4 @@
+import type { ImageInput } from '@agent-sales/ai-core';
 import type { NormalizedEvent } from '@agent-sales/channels';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
@@ -14,7 +15,10 @@ import {
   withinReplySchedule,
 } from '../../../bot/api/index.js';
 import { CONVERSATION_FACADE, type ConversationFacade } from '../../api/conversation.facade.js';
+import { BOT_IMAGE_VISION, IMAGE_FETCHER, type ImageFetcher } from '../ports/image-fetcher.js';
 import { toReplyTurns } from './reply-turns.js';
+
+const MAX_VISION_IMAGES = 3;
 
 const isCustomerContent = (e: NormalizedEvent): boolean =>
   e.type === 'message' && Boolean(e.text?.trim() || e.attachments?.length);
@@ -37,6 +41,8 @@ export class MetaInboxProcessor {
     @Inject(CONVERSATION_FACADE) private readonly inbox: ConversationFacade,
     @Inject(AI_FACADE) private readonly ai: AiFacade,
     @Inject(BOT_FACADE) private readonly bots: BotFacade,
+    @Inject(IMAGE_FETCHER) private readonly images: ImageFetcher,
+    @Inject(BOT_IMAGE_VISION) private readonly vision: boolean,
   ) {}
   async tick(): Promise<void> {
     const dead = await this.channels.deadLetterExhaustedEvents();
@@ -139,8 +145,10 @@ export class MetaInboxProcessor {
     const key = `bot:${job.event.externalEventId}`;
     const lastReply = stored.findLastIndex((m) => m.direction === 'outbound');
     const pending = stored.slice(lastReply + 1);
-    if (!pending.some((m) => m.direction === 'inbound' && m.text.trim())) {
-      // Only media after the last reply: the model cannot see it, so staff take over.
+    const hasText = pending.some((m) => m.direction === 'inbound' && m.text.trim());
+    const fetched = await this.fetchImages(pending);
+    if (!hasText && !fetched.images.length) {
+      // Only media the model cannot see (vision off, or nothing could be fetched): staff take over.
       const result = await this.inbox.commitBotReply(job.workspaceId, c.id, {
         revision: context.revision,
         text: handoffText(bot),
@@ -151,13 +159,24 @@ export class MetaInboxProcessor {
       return;
     }
     // One customer turn per burst: every question after the last reply reaches the model together.
-    const messages = toReplyTurns(stored);
-    const response = await this.ai.reply(
-      job.workspaceId,
-      channel.botId,
-      { messages },
-      { conversationId: c.id, isTest: false },
-    );
+    const botId = channel.botId;
+    const ask = (images: ImageInput[], seen: ReadonlySet<string>) =>
+      this.ai.reply(
+        job.workspaceId,
+        botId,
+        { messages: toReplyTurns(stored, seen), ...(images.length ? { images } : {}) },
+        { conversationId: c.id, isTest: false },
+      );
+    let response;
+    try {
+      response = await ask(fetched.images, fetched.seen);
+    } catch (error) {
+      // A provider without vision (or a busy bridge) must not lose the text of the turn.
+      if (!fetched.images.length) throw error;
+      this.logger.warn(`Meta inbox event ${job.id}: reply with images failed, retrying text-only`);
+      if (!hasText) throw error;
+      response = await ask([], new Set());
+    }
     const result = await this.inbox.commitBotReply(job.workspaceId, c.id, {
       revision: context.revision,
       text: response.reply.slice(0, 2000),
@@ -165,6 +184,38 @@ export class MetaInboxProcessor {
     });
     if (result && response.outcome === 'handoff')
       await this.inbox.update(job.workspaceId, c.id, { mode: 'human' }, c.assigneeId ?? 'system');
+  }
+
+  /**
+   * The newest image attachments of the pending customer turn (max 3), downloaded for the model.
+   * Never throws: any failure leaves the image out and the turn degrades to the text-only note.
+   */
+  private async fetchImages(
+    pending: readonly {
+      direction: string;
+      attachments: readonly { type: string; url: string }[];
+    }[],
+  ): Promise<{ images: ImageInput[]; seen: Set<string> }> {
+    const result = { images: [] as ImageInput[], seen: new Set<string>() };
+    if (!this.vision) return result;
+    const urls = pending
+      .filter((m) => m.direction === 'inbound')
+      .flatMap((m) => m.attachments.filter((a) => a.type === 'image').map((a) => a.url))
+      .reverse()
+      .slice(0, MAX_VISION_IMAGES);
+    const downloads = await Promise.all(
+      urls.map((url) => this.images.fetch(url).catch(() => null)),
+    );
+    let total = 0;
+    downloads.forEach((image, i) => {
+      const url = urls[i];
+      const size = image ? Math.floor((image.base64.length * 3) / 4) : 0;
+      if (!image || !url || total + size > 6_000_000) return;
+      total += size;
+      result.images.push(image);
+      result.seen.add(url);
+    });
+    return result;
   }
 
   /** A customer message with nothing to answer is never silent: the reason is logged. */

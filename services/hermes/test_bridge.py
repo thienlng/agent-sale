@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 import tempfile
@@ -11,7 +12,7 @@ from urllib.request import Request, urlopen
 from unittest.mock import patch
 from uuid import uuid4
 
-from bridge import make_server, validate_request
+from bridge import MAX_BODY, make_server, validate_images, validate_request
 from runtime import CODEX_URL, HermesRuntime, RuntimeUnavailable
 
 
@@ -21,6 +22,15 @@ def payload():
             "messages": [{"role": "system", "content": "trusted frame"},
                          {"role": "user", "content": "untrusted question"}],
             "responseSchema": {"type": "object"}}
+
+
+PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 32
+WEBP = b"RIFF\x00\x00\x00\x00WEBP" + b"\x00" * 16
+
+
+def image(raw=PNG, mime="image/png"):
+    return {"mimeType": mime, "base64": base64.b64encode(raw).decode()}
 
 
 class FakeRuntime:
@@ -44,6 +54,14 @@ class FakeAgent:
 
     def close(self):
         self.closed = True
+
+
+class VisionAgent(FakeAgent):
+    instances = []
+    vision = True
+
+    def _model_supports_vision(self):
+        return self.vision
 
 
 class BridgeTests(unittest.TestCase):
@@ -156,6 +174,106 @@ class BridgeTests(unittest.TestCase):
             self.assertEqual(persisted["providers"]["openai-codex"]["tokens"]["refresh_token"], "new-private-refresh")
             self.assertEqual(auth.stat().st_mode & 0o777, 0o600)
             self.assertEqual(FakeAgent.instances[-1].kwargs["api_key"], "new-private-access")
+
+
+class ImageValidationTests(unittest.TestCase):
+    def test_accepts_allowed_types_with_matching_magic_bytes(self):
+        images = [image(PNG), image(JPEG, "image/jpeg"), image(WEBP, "image/webp")]
+        self.assertEqual(validate_request({**payload(), "images": images})["images"], images)
+
+    def test_rejects_bad_images(self):
+        big = b"\x89PNG\r\n\x1a\n" + b"\x00" * 3_000_000
+        cases = {
+            "too many": [image()] * 4,
+            "empty list": [],
+            "not a list": "x",
+            "gif": [image(b"GIF89a....", "image/gif")],
+            "mime mismatch": [image(PNG, "image/jpeg")],
+            "not an image": [image(b"hello world")],
+            "bad base64": [{"mimeType": "image/png", "base64": "not base64!!"}],
+            "url instead of bytes": [{"mimeType": "image/png", "url": "https://x.test/a.png"}],
+            "extra key": [{**image(), "url": "https://x.test/a.png"}],
+            "one over 3 MB": [image(big)],
+            "over 6 MB total": [image(b"\x89PNG\r\n\x1a\n" + b"\x00" * 2_500_000)] * 3,
+        }
+        for name, images in cases.items():
+            with self.subTest(name), self.assertRaises(ValueError):
+                validate_images(images)
+
+    def test_runtime_attaches_images_to_the_last_user_message_only(self):
+        with tempfile.TemporaryDirectory() as temporary, patch.dict(os.environ, {}, clear=True):
+            runtime = HermesRuntime(Path(temporary) / "private", "openai-codex", VisionAgent,
+                                    lambda: {"api_key": "test", "base_url": CODEX_URL})
+            auth = Path(temporary) / "private" / "auth.json"
+            auth.write_text(json.dumps({"providers": {"openai-codex": {"tokens": {
+                "access_token": "test-only", "refresh_token": "test-only"}}}}))
+            auth.chmod(0o600)
+            request = {**payload(), "images": [image()]}
+            request["messages"] = [{"role": "user", "content": "earlier"}, {"role": "assistant", "content": "ok"},
+                                   {"role": "user", "content": "what is this?"}]
+            runtime.generate(request)
+            message, kwargs = VisionAgent.instances[-1].call
+            self.assertEqual(message[0], {"type": "text", "text": "what is this?"})
+            self.assertEqual(message[1]["type"], "image_url")
+            self.assertTrue(message[1]["image_url"]["url"].startswith("data:image/png;base64,"))
+            self.assertEqual(kwargs["conversation_history"][0], {"role": "user", "content": "earlier"})
+            # No images: the message stays a plain string.
+            runtime.generate(payload())
+            self.assertEqual(VisionAgent.instances[-1].call[0], "untrusted question")
+
+    def test_fails_closed_when_the_model_cannot_take_images(self):
+        class TextOnlyAgent(VisionAgent):
+            vision = False
+
+        class UnawareAgent(FakeAgent):
+            pass
+
+        for agent_class in (TextOnlyAgent, UnawareAgent):
+            with self.subTest(agent_class.__name__), tempfile.TemporaryDirectory() as temporary, \
+                    patch.dict(os.environ, {}, clear=True):
+                runtime = HermesRuntime(Path(temporary) / "private", "openai-codex", agent_class,
+                                        lambda: {"api_key": "test", "base_url": CODEX_URL})
+                auth = Path(temporary) / "private" / "auth.json"
+                auth.write_text(json.dumps({"providers": {"openai-codex": {"tokens": {
+                    "access_token": "test-only", "refresh_token": "test-only"}}}}))
+                auth.chmod(0o600)
+                with self.assertRaises(RuntimeUnavailable) as error:
+                    runtime.generate({**payload(), "images": [image()]})
+                self.assertEqual(error.exception.code, "VISION_UNSUPPORTED")
+                self.assertFalse(hasattr(agent_class.instances[-1], "call"))
+                self.assertTrue(agent_class.instances[-1].closed)
+
+    def test_http_allows_a_large_body_only_for_images(self):
+        class Vision:
+            def generate(self, request):
+                return {"version": 1, "text": str(len(request.get("images") or [])), "model": "m",
+                        "usage": {"inputTokens": 1, "outputTokens": 1, "cachedInputTokens": 0}}
+
+        key = "k" * 32
+        server = make_server("127.0.0.1", 0, key, Vision())
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        url = f"http://127.0.0.1:{server.server_port}/v1/generate"
+        headers = {"Content-Type": "application/json", "Authorization": "Bearer " + key}
+        big = b"\x89PNG\r\n\x1a\n" + b"\x01" * 2_000_000
+        try:
+            with urlopen(Request(url, data=json.dumps({**payload(), "images": [image(big)]}).encode(),
+                                 headers=headers), timeout=10) as response:
+                self.assertEqual(json.load(response)["text"], "1")
+            padded = payload()
+            padded["messages"][1]["content"] = "x" * 80_000
+            padded["messages"].insert(1, {"role": "assistant", "content": "y" * 80_000})
+            padded["messages"].insert(1, {"role": "user", "content": "z" * 80_000})
+            padded["messages"].insert(1, {"role": "assistant", "content": "w" * 80_000})
+            for body in (padded, {**padded, "images": [image()]}):
+                with self.assertRaises(HTTPError) as error:
+                    urlopen(Request(url, data=json.dumps(body).encode(), headers=headers), timeout=10)
+                self.assertEqual(error.exception.code, 413)
+            self.assertGreater(len(json.dumps(padded)), MAX_BODY)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
 
 
 class WarmUpTests(unittest.TestCase):

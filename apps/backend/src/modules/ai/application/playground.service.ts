@@ -16,7 +16,7 @@ import { AI_RUN_REPOSITORY, type AiRunRepository } from '../domain/ports/ai-run.
 import { decide } from './decide-reply.js';
 import { LlmRuntime } from './llm-runtime.js';
 
-const PROMPT = { name: 'sales-agent', version: 4 } as const;
+const PROMPT = { name: 'sales-agent', version: 5 } as const;
 const PROMPT_VERSION = `${PROMPT.name}@${PROMPT.version}`;
 const MAX_SOURCES = 5;
 
@@ -132,6 +132,9 @@ export class PlaygroundService implements AiFacade {
       ],
       responseFormat: ModelReply,
       maxOutputTokens: 2_000,
+      // Only the Hermes provider accepts images; any other provider throws, so a customer image
+      // is never silently dropped (the caller decides how to degrade).
+      ...(input.images?.length ? { images: input.images } : {}),
     };
     let res = await this.llm.generate(request);
     let output = parseModelReply(res.text);

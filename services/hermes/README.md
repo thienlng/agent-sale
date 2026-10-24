@@ -39,6 +39,8 @@ For an explicitly chosen OpenRouter deployment, set `RAPIZ_HERMES_PROVIDER=openr
 
 Each turn creates a fresh AIAgent with memory, context files, background review, trajectories and provider fallback disabled. It exposes no tools; the instantiated tool list is checked before inference. Knowledge and scenario context come from NestJS. Booking villa tools, database access, arbitrary callbacks and delivery are deliberately absent. New tools must use server-bound identities and a reviewed allowlist.
 
+**Images (T-053, testing only).** `POST /v1/generate` also accepts `images: [{mimeType, base64}]` on the last user message: max 3, each at most 3 MB decoded (6 MB total), `image/jpeg|png|webp`, strict base64 and magic bytes; the bridge never fetches URLs. Body cap 256 KB for text, larger only when images are present (30 s read timeout). The images go to the model provider, so the ChatGPT-plan login is for testing only. A model that Hermes does not know to support vision fails the turn with `503 VISION_UNSUPPORTED`; images are never dropped silently. Verified live 2026-10-24 with gpt-6.1-sol, gpt-5.6-luna and gpt-6-luna.
+
 Hermes enforces its configured 50-second run budget and iteration limit; the TypeScript caller also has a transport timeout. Subscription transports may not support a hard output-token cap. The bridge is single-flight; use bounded platform worker concurrency rather than opening it publicly. Production deployment needs service supervision and private network access, plus capacity testing.
 
 ## Verify

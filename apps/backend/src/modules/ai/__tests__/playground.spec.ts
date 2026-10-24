@@ -1,4 +1,9 @@
-import { FakeLlmProvider, type GenerateRequest, type LlmProvider } from '@agent-sales/ai-core';
+import {
+  FakeLlmProvider,
+  type GenerateRequest,
+  type LlmProvider,
+  OpenAiCompatibleProvider,
+} from '@agent-sales/ai-core';
 import { newId, workspaceId } from '@agent-sales/shared';
 import { describe, expect, it } from 'vitest';
 
@@ -120,7 +125,7 @@ describe('PlaygroundService', () => {
         workspaceId: ws,
         isTest: true,
         outcome: 'answered',
-        promptVersion: 'sales-agent@4',
+        promptVersion: 'sales-agent@5',
       }),
     ]);
   });
@@ -406,6 +411,41 @@ describe('sales-agent prompt and handoff reply', () => {
     expect(system).toContain('use outcome "handoff" and let "reply" confirm it');
     expect(system).toContain('language other than Vietnamese');
     expect(system).not.toMatch(/\{\{[^}]+\}\}/);
+  });
+
+  it('passes customer images to the provider and tells the model how to use them', async () => {
+    const { fake, svc } = build({ outcome: 'answer', reply: 'Dạ', sources: [] });
+    const images = [{ mimeType: 'image/png' as const, base64: 'iVBORw0KGgo=' }];
+    await svc.playground(ws, botId, { ...ask('giá bao nhiêu?'), images });
+    expect(fake.calls[0]?.images).toEqual(images);
+    const system = String(fake.calls[0]?.messages[0]?.content);
+    expect(system).toContain(
+      'Never read or invent a price, stock level, policy or promotion from an image',
+    );
+    expect(system).toContain('ask a clarifying question');
+    await svc.playground(ws, botId, ask('hi'));
+    expect(fake.calls[1]).not.toHaveProperty('images');
+  });
+
+  it('fails clearly when the resolved provider cannot take images', async () => {
+    const text = new OpenAiCompatibleProvider({
+      name: 'dev-fake',
+      baseURL: 'http://127.0.0.1:1/v1',
+      apiKey: 'k',
+    });
+    const svc = new PlaygroundService(
+      { getBot: async () => bot } as BotFacade,
+      { searchFaqs: async () => [] } as unknown as KnowledgeFacade,
+      { getById: async () => ({ name: 'Shop Lan' }) } as unknown as WorkspaceFacade,
+      new LlmRuntime(new InMemoryLlmConfigRepository(), factory(text)),
+      new InMemoryAiRunRepository(),
+    );
+    await expect(
+      svc.playground(ws, botId, {
+        ...ask('x'),
+        images: [{ mimeType: 'image/png', base64: 'iVBORw0KGgo=' }],
+      }),
+    ).rejects.toBeInstanceOf(AiProviderFailedError);
   });
 
   it('shows the "when" line of each situation to the model', async () => {

@@ -54,6 +54,18 @@ export const EnvSchema = z
      * ChatGPT-plan eligibility for a hosted product is an open owner decision).
      */
     HERMES_SUBSCRIPTION_LOGIN: z.enum(['true', 'false']).optional(),
+    /**
+     * Customer-image vision for the bot (T-053). On by default outside production; in production
+     * it stays off unless set to `true` (images go to the model provider; the ChatGPT-plan login
+     * behind Hermes is for testing only).
+     */
+    BOT_IMAGE_VISION: z.enum(['true', 'false']).optional(),
+    /**
+     * Comma-separated extra hosts the customer-image fetcher may reach (dev/test only, ignored in
+     * production). They are exempt from the private-address block and may use plain http, so
+     * tests can serve images from a loopback server.
+     */
+    BOT_IMAGE_EXTRA_HOSTS: z.string().max(1000).optional(),
     S3_ENDPOINT: z.url().optional(),
     S3_BUCKET: z.string().min(1).optional(),
     S3_PUBLIC_URL: z.url({ protocol: /^https$/ }).optional(),
@@ -72,6 +84,21 @@ export function hermesSubscriptionLoginEnabled(
 ): boolean {
   if (env.HERMES_SUBSCRIPTION_LOGIN) return env.HERMES_SUBSCRIPTION_LOGIN === 'true';
   return env.NODE_ENV !== 'production';
+}
+
+/** Whether the bot may look at customer images in this environment. */
+export function botImageVisionEnabled(env: Pick<Env, 'NODE_ENV' | 'BOT_IMAGE_VISION'>): boolean {
+  if (env.BOT_IMAGE_VISION) return env.BOT_IMAGE_VISION === 'true';
+  return env.NODE_ENV !== 'production';
+}
+
+/** Extra image hosts for tests; always empty in production. */
+export function botImageExtraHosts(env: Pick<Env, 'NODE_ENV' | 'BOT_IMAGE_EXTRA_HOSTS'>): string[] {
+  if (env.NODE_ENV === 'production') return [];
+  return (env.BOT_IMAGE_EXTRA_HOSTS ?? '')
+    .split(',')
+    .map((h) => h.trim().toLowerCase())
+    .filter(Boolean);
 }
 
 /** Parses and validates an environment source. Throws with every issue listed. */

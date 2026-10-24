@@ -22,6 +22,13 @@ The initial Meta agent worker consumes a durable PostgreSQL ingress queue with l
 - **Logout is local only.** Hermes uses no documented OpenAI token-revocation endpoint, so logout deletes `auth.json` and does not revoke the refresh token at OpenAI; the UI says so.
 - **Production gate:** the subscription sign-in is controlled by `HERMES_SUBSCRIPTION_LOGIN` (backend env). Default: on outside production, off in production unless set to `true`. When off, `GET .../hermes-login` returns `{state:"disabled"}` and `POST`/`DELETE` return 403 `FORBIDDEN`. Whether a ChatGPT plan may back a hosted product is an open owner decision (B3); the gate stays until it is recorded here.
 
+### Amendment (T-053): customer images, ChatGPT plan for testing only
+
+- **Owner decision (2026-10-24):** the ChatGPT-plan login is for **testing only**, never production. Images may therefore reach OpenAI through hermes-runtime in development.
+- **Contract:** `POST /v1/generate` accepts an optional top-level `images: [{mimeType, base64}]`, attached to the last user message only. At most 3 images, each at most 3 MB decoded, 6 MB in total; `image/jpeg|png|webp` only, strict `base64.b64decode(validate=True)` and magic-byte check. The bridge never fetches URLs. The text cap stays 256 KB; only requests that carry images may be larger (read timeout 30 s instead of 10 s). If the model cannot take images (`_model_supports_vision` is not true) the bridge fails closed with `503 VISION_UNSUPPORTED` instead of dropping them.
+- **Verified 2026-10-24 (live, synthetic image):** gpt-6.1-sol, gpt-5.6-luna and gpt-6-luna read text and colours from a PNG through the ChatGPT Codex backend; Hermes reports vision support for them without extra config.
+- **Flag:** `BOT_IMAGE_VISION` (backend env): on outside production, off in production unless `true`. `BOT_IMAGE_EXTRA_HOSTS` is a dev/test-only extra host list for the image fetcher, ignored in production.
+
 ## Options considered
 
 1. Port the full Hermes runtime to TypeScript: rejected for this milestone because it increases compatibility and OAuth regression risk before inbox delivery is verified.

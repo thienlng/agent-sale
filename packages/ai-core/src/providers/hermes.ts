@@ -21,6 +21,8 @@ const BridgeReply = z.object({
  */
 export const HERMES_MIN_TIMEOUT_MS = 70_000;
 
+const MAX_IMAGE_BODY_BYTES = 256_000 + Math.floor((6_000_000 * 4) / 3) + 4_096;
+
 /** Hermes owns inference; platform authorization, retrieval and delivery stay in NestJS. */
 export class HermesProvider implements LlmProvider {
   readonly name: string;
@@ -50,6 +52,7 @@ export class HermesProvider implements LlmProvider {
   async generate(request: GenerateRequest, target: ModelTarget): Promise<GenerateResponse> {
     if (request.tools?.length) throw new Error('Hermes bridge tools are not enabled');
     const started = performance.now();
+    const images = request.images?.length ? request.images : undefined;
     const body = JSON.stringify({
       version: 1,
       requestId: randomUUID(),
@@ -59,8 +62,15 @@ export class HermesProvider implements LlmProvider {
       messages: request.messages,
       maxOutputTokens: request.maxOutputTokens ?? 2000,
       responseSchema: request.responseFormat ? z.toJSONSchema(request.responseFormat) : null,
+      ...(images ? { images } : {}),
     });
-    if (Buffer.byteLength(body) > 256_000) throw new Error('Hermes context exceeds bridge limit');
+    // The text cap stays; an image request may add the base64 bytes (mirrors the bridge's MAX_IMAGE_BODY).
+    const imageChars = images?.reduce((sum, image) => sum + image.base64.length, 0) ?? 0;
+    if (
+      Buffer.byteLength(body) - imageChars > 256_000 ||
+      Buffer.byteLength(body) > MAX_IMAGE_BODY_BYTES
+    )
+      throw new Error('Hermes context exceeds bridge limit');
     let response: Response;
     try {
       response = await this.#fetch(this.#endpoint, {

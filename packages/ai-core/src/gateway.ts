@@ -23,6 +23,12 @@ export interface ToolCall {
   input: unknown;
 }
 
+/** A customer image for the last user message. Only the Hermes provider can take images. */
+export interface ImageInput {
+  mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
+  base64: string;
+}
+
 export interface GenerateRequest {
   workspaceId: WorkspaceId;
   tier: ModelTier;
@@ -36,6 +42,8 @@ export interface GenerateRequest {
    * Providers enforce it where they can; callers still parse the text.
    */
   responseFormat?: z.ZodType;
+  /** Images attached to the last user message (max 3). Providers without vision must throw. */
+  images?: ImageInput[];
 }
 
 /** `inputTokens` excludes cache reads, which are counted in `cachedInputTokens`. */

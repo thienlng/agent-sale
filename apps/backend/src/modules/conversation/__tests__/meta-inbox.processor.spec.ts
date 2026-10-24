@@ -6,6 +6,7 @@ import type { BotFacade, BotView } from '../../bot/api/index.js';
 import type { ChannelFacade, PendingMetaEvent } from '../../channel/api/index.js';
 import { ConversationFacadeImpl } from '../application/conversation.facade.impl.js';
 import { MetaInboxProcessor } from '../application/jobs/meta-inbox.processor.js';
+import type { ImageFetcher } from '../application/ports/image-fetcher.js';
 import { MemoryConversationStore } from './factories/memory-conversation-store.js';
 
 const ws = workspaceId('018d0000-0000-7000-8000-000000000001');
@@ -41,7 +42,7 @@ function job(
     event,
   };
 }
-function setup() {
+function setup(options: { vision?: boolean; fetch?: ImageFetcher['fetch'] } = {}) {
   const bot = {
     id: botId,
     isActive: true,
@@ -88,7 +89,14 @@ function setup() {
     channels,
     ai,
     inbox,
-    processor: new MetaInboxProcessor(channels, inbox, ai, bots),
+    processor: new MetaInboxProcessor(
+      channels,
+      inbox,
+      ai,
+      bots,
+      { fetch: options.fetch ?? (async () => null) },
+      options.vision ?? false,
+    ),
   };
 }
 
@@ -325,6 +333,65 @@ describe('MetaInboxProcessor', () => {
     const [c] = (await inbox.list(ws, { limit: 10 } as never)).data;
     expect(c?.mode).toBe('human');
     expect(channels.completeEvent).toHaveBeenCalled();
+  });
+  describe('vision', () => {
+    const png = { mimeType: 'image/png' as const, base64: 'iVBORw0KGgo=' };
+    const imageJob = (text: string, urls: string[] = ['https://cdn.example/a.jpg']) =>
+      job(
+        'v1',
+        'message',
+        text,
+        Date.now(),
+        1,
+        urls.map((url) => ({ type: 'image' as const, url })),
+      );
+    it('sends an image-only turn to the model with the image attached', async () => {
+      const fetch = vi.fn(async () => png);
+      const { channels, ai, inbox, processor } = setup({ vision: true, fetch });
+      vi.mocked(channels.claimEvents).mockResolvedValueOnce([imageJob('')]);
+      await processor.tick();
+      expect(ai.reply).toHaveBeenCalledTimes(1);
+      const input = ai.reply.mock.calls[0]?.[2];
+      expect(input.images).toEqual([png]);
+      const note = input.messages.at(-1).content;
+      expect(note).toContain('ảnh được đính kèm cho bạn xem');
+      expect(note).not.toContain('không xem được');
+      const [c] = (await inbox.list(ws, { limit: 10 } as never)).data;
+      expect(c?.mode).toBe('bot');
+    });
+    it('attaches the newest three images with the text', async () => {
+      const fetch = vi.fn(async () => png);
+      const { channels, ai, processor } = setup({ vision: true, fetch });
+      const urls = [1, 2, 3, 4].map((n) => `https://cdn.example/${n}.jpg`);
+      vi.mocked(channels.claimEvents).mockResolvedValueOnce([imageJob('đôi này giá sao?', urls)]);
+      await processor.tick();
+      expect(fetch.mock.calls.map((c) => (c as unknown[])[0])).toEqual(urls.slice(1).reverse());
+      expect(ai.reply.mock.calls[0]?.[2].images).toHaveLength(3);
+      const note = ai.reply.mock.calls[0]?.[2].messages.at(-1).content;
+      expect(note).toContain('3 ảnh được đính kèm'.replace('3 ảnh được', '3 ảnh — ảnh được'));
+      expect(note).toContain('1 ảnh — bạn không xem được');
+    });
+    it('keeps the handoff shortcut when the fetch fails or vision is off', async () => {
+      for (const options of [{ vision: true }, { vision: false, fetch: async () => png }]) {
+        const { channels, ai, inbox, processor } = setup(options);
+        vi.mocked(channels.claimEvents).mockResolvedValueOnce([imageJob('')]);
+        await processor.tick();
+        expect(ai.reply).not.toHaveBeenCalled();
+        const [c] = (await inbox.list(ws, { limit: 10 } as never)).data;
+        expect(c?.mode).toBe('human');
+      }
+    });
+    it('falls back to the text-only turn when the reply with images fails', async () => {
+      const { channels, ai, processor } = setup({ vision: true, fetch: async () => png });
+      ai.reply.mockRejectedValueOnce(new Error('no vision'));
+      vi.mocked(channels.claimEvents).mockResolvedValueOnce([imageJob('giá bao nhiêu?')]);
+      await processor.tick();
+      expect(ai.reply).toHaveBeenCalledTimes(2);
+      const retry = ai.reply.mock.calls[1]?.[2];
+      expect(retry).not.toHaveProperty('images');
+      expect(retry.messages.at(-1).content).toContain('không xem được');
+      expect(channels.deliver).toHaveBeenCalledTimes(1);
+    });
   });
   it('tells the model when a text message came with an image', async () => {
     const { channels, ai, processor } = setup();

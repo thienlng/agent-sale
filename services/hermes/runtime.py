@@ -179,7 +179,19 @@ tools:
             # Keep Hermes' operator scaffold and local identity out of customer-facing prompts.
             agent._build_system_prompt = lambda system_message=None: system
             agent._cached_system_prompt_static = system
-            result = agent.run_conversation(messages[-1]["content"], conversation_history=history,
+            user_message = messages[-1]["content"]
+            images = request.get("images")
+            if images:
+                # Hermes silently strips image parts for a model it does not know to be vision
+                # capable; refuse instead of answering as if the customer had sent no picture.
+                supports = getattr(agent, "_model_supports_vision", None)
+                if not callable(supports) or supports() is not True:
+                    raise RuntimeUnavailable("VISION_UNSUPPORTED")
+                user_message = [{"type": "text", "text": user_message}] + [
+                    {"type": "image_url",
+                     "image_url": {"url": f"data:{image['mimeType']};base64,{image['base64']}"}}
+                    for image in images]
+            result = agent.run_conversation(user_message, conversation_history=history,
                                             task_id="rapiz-" + request["requestId"])
             if (not isinstance(result, dict) or result.get("failed") or not result.get("completed", True)
                     or not isinstance(result.get("final_response"), str) or not result["final_response"].strip()):

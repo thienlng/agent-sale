@@ -132,7 +132,7 @@ Adding a module: `pnpm gen module <name>` → fill `MODULE.md` → add its row t
 ```mermaid
 flowchart LR
   AG[agent / api playground<br/>NestJS] -->|ai-core gateway| HP[HermesProvider<br/>packages/ai-core]
-  HP -->|POST /v1/generate<br/>bearer bridge key, ≤256 KB| HR[hermes-runtime<br/>services/hermes]
+  HP -->|POST /v1/generate<br/>bearer bridge key, ≤256 KB text (+ up to 3 images via `images`, see ADR-010)| HR[hermes-runtime<br/>services/hermes]
   HR --> M[(model provider<br/>ChatGPT/Codex or OpenRouter)]
   AG --> PG[(PostgreSQL)]
   HR -. no access .-> PG
