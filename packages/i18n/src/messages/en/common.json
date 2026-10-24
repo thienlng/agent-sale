@@ -199,7 +199,8 @@
     "kind": "Type",
     "kinds": {
       "anthropic": "Anthropic (Claude)",
-      "openai_compatible": "OpenAI-compatible (OpenAI, vLLM, Ollama…)"
+      "openai_compatible": "OpenAI-compatible (OpenAI, vLLM, Ollama…)",
+      "hermes": "Hermes (private AI runtime)"
     },
     "baseUrl": "API URL",
     "baseUrlHint": "e.g. http://vllm:8000/v1. Leave empty for Anthropic's default.",

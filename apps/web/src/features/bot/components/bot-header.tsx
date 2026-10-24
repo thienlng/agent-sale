@@ -9,19 +9,13 @@ import { errorMessage } from '@/lib/errors';
 
 import { useUpdateBot } from '../api/bots';
 
-const TABS = [
-  { to: '/app/bots/$botId', key: 'bots.tabs.overview', exact: true },
-  { to: '/app/bots/$botId/knowledge', key: 'bots.tabs.knowledge', exact: false },
-  { to: '/app/bots/$botId/settings', key: 'bots.tabs.settings', exact: false },
-] as const;
-
 /** Bot space header: back, name, on/off switch (optimistic) and the section tabs. */
 export function BotHeader({ bot }: { bot: BotDto }) {
   const { t } = useTranslation();
   const update = useUpdateBot(bot.id);
 
   return (
-    <header className="border-b bg-background px-6 pt-4">
+    <header className="border-b bg-background px-4 py-4 md:px-6">
       <Link
         to="/app/bots"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
@@ -50,19 +44,6 @@ export function BotHeader({ bot }: { bot: BotDto }) {
           />
         </label>
       </div>
-      <nav className="mt-3 -mb-px flex gap-5" aria-label={bot.name}>
-        {TABS.map((tab) => (
-          <Link
-            key={tab.to}
-            to={tab.to}
-            params={{ botId: bot.id }}
-            activeOptions={{ exact: tab.exact }}
-            className="border-b-2 border-transparent pb-2.5 text-base text-muted-foreground transition-colors hover:text-foreground data-[status=active]:border-primary data-[status=active]:font-medium data-[status=active]:text-foreground"
-          >
-            {t(tab.key)}
-          </Link>
-        ))}
-      </nav>
     </header>
   );
 }

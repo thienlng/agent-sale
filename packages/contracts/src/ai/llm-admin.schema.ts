@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { ModelTier } from '../bot/bot.schema.js';
 
-export const LlmProviderKind = z.enum(['anthropic', 'openai_compatible']);
+export const LlmProviderKind = z.enum(['anthropic', 'openai_compatible', 'hermes']);
 export type LlmProviderKind = z.infer<typeof LlmProviderKind>;
 
 export const LlmEffort = z.enum(['low', 'medium', 'high']);
@@ -47,9 +47,13 @@ export const CreateLlmProviderRequest = z
     options: LlmProviderOptions.partial().optional(),
     isEnabled: z.boolean().optional(),
   })
-  .refine((p) => p.kind !== 'openai_compatible' || !!p.baseUrl, {
-    message: 'baseUrl is required for openai_compatible providers',
+  .refine((p) => !['openai_compatible', 'hermes'].includes(p.kind) || !!p.baseUrl, {
+    message: 'baseUrl is required for openai_compatible and hermes providers',
     path: ['baseUrl'],
+  })
+  .refine((p) => p.kind !== 'hermes' || (p.apiKey?.length ?? 0) >= 32, {
+    message: 'Hermes requires a private bridge key of at least 32 characters',
+    path: ['apiKey'],
   });
 export type CreateLlmProviderRequest = z.infer<typeof CreateLlmProviderRequest>;
 

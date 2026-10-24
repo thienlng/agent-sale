@@ -18,3 +18,5 @@
 **Do not:** let knowledge depend on bot; call LLMs here (that is the `ai` module).
 
 **Test:** `pnpm --filter @agent-sales/backend test -- bot`
+
+**Training workspace:** exposes workspace-scoped training-material CRUD/history through `TRAINING_FACADE` after verifying bot ownership. See `docs/training-workspace.md`.

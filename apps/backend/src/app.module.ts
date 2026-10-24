@@ -1,3 +1,5 @@
+import { ChannelModule } from './modules/channel/channel.module.js';
+import { ConversationModule } from './modules/conversation/conversation.module.js';
 import { Module } from '@nestjs/common';
 
 import { DbModule } from './common/db/db.module.js';
@@ -21,6 +23,8 @@ import { WorkspaceModule } from './modules/workspace/workspace.module.js';
     BotModule,
     AiModule,
     CommerceModule,
+    ChannelModule,
+    ConversationModule,
   ],
 })
 export class AppModule {}

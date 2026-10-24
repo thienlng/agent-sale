@@ -28,6 +28,7 @@ import { errorMessage } from '@/lib/errors';
 import { placeholderLabel } from '@/lib/placeholders';
 
 import { useDeleteFaq, useFaqs } from '../api/faqs';
+import { FaqTransfer } from './faq-transfer';
 import { FaqDialog } from './faq-dialog';
 
 const PLACEHOLDER = /(\{\{\s*[a-z][a-z0-9_.]*\s*\}\})/g;
@@ -55,6 +56,7 @@ function AnswerText({ text }: { text: string }) {
 
 export function FaqList({ botId }: { botId: string }) {
   const { t } = useTranslation();
+  const { t: training } = useTranslation('training');
   const faqs = useFaqs(botId);
   const remove = useDeleteFaq(botId);
   const [query, setQuery] = useState('');
@@ -82,10 +84,13 @@ export function FaqList({ botId }: { botId: string }) {
           <h2 className="text-xl font-semibold tracking-tight">{t('faq.title')}</h2>
           <p className="mt-1 text-muted-foreground">{t('faq.subtitle')}</p>
         </div>
-        <Button size="lg" onClick={() => open(null)}>
-          <Plus />
-          {t('faq.add')}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <FaqTransfer botId={botId} faqs={faqs.data} />
+          <Button size="lg" onClick={() => open(null)}>
+            <Plus />
+            {t('faq.add')}
+          </Button>
+        </div>
       </header>
 
       {faqs.data?.length ? (
@@ -113,6 +118,13 @@ export function FaqList({ botId }: { botId: string }) {
             {[0, 1, 2, 3].map((i) => (
               <Skeleton key={i} className="h-20 rounded-xl" />
             ))}
+          </div>
+        ) : faqs.isError ? (
+          <div role="alert" className="rounded-xl border p-6">
+            <p>{training('error')}</p>
+            <Button className="mt-3" variant="outline" onClick={() => void faqs.refetch()}>
+              {training('retry')}
+            </Button>
           </div>
         ) : !faqs.data?.length ? (
           <div className="flex flex-col items-center rounded-xl border border-dashed px-6 py-14 text-center">

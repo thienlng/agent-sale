@@ -3,6 +3,7 @@ import {
   type BotReadiness,
   CreateBotRequest,
   CreateFaqRequest,
+  ImportFaqsRequest,
   type FaqDto,
   type FaqListResponse,
   UpdateBotRequest,
@@ -73,6 +74,16 @@ export class BotController {
     @Param('botId') botId: string,
   ): Promise<FaqListResponse> {
     return { data: await this.bots.listFaqs(ws, botId) };
+  }
+
+  @Post(':botId/faqs/import')
+  @HttpCode(201)
+  async importFaqs(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Param('botId') botId: string,
+    @Body(new ZodValidationPipe(ImportFaqsRequest)) input: ImportFaqsRequest,
+  ): Promise<FaqListResponse> {
+    return { data: await this.bots.importFaqs(ws, botId, input) };
   }
 
   @Post(':botId/faqs')

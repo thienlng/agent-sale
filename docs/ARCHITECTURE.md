@@ -121,3 +121,7 @@ Adding a module: `pnpm gen module <name>` → fill `MODULE.md` → add its row t
 | `entries/realtime.ts` | SSE + websocket-only Socket.IO, Redis pub/sub | — |
 
 `apps/webhook` is separate on purpose (no Nest, no business logic, p99 ≤ 500 ms).
+
+## 7. Inherited Hermes runtime (T-023)
+
+`services/hermes` is a private Python inference adapter (ADR-010). It has no platform database or delivery access. `packages/ai-core` owns the only HTTP client, selected explicitly by the admin-managed `hermes` provider kind. NestJS remains responsible for tenant authorization, retrieval, grounding and message control. See `services/hermes/README.md` for separate private credentials and deployment constraints.

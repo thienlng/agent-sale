@@ -36,7 +36,13 @@ import { Route as AppProductsIndexRouteImport } from './routes/app/products/inde
 import { Route as AppProductsProductIdRouteImport } from './routes/app/products/$productId'
 import { Route as AppProductsNewRouteImport } from './routes/app/products/new'
 import { Route as AppBotsBotIdIndexRouteImport } from './routes/app/bots/$botId/index'
+import { Route as AppBotsBotIdHistoryRouteImport } from './routes/app/bots/$botId/history'
+import { Route as AppBotsBotIdInstructionsRouteImport } from './routes/app/bots/$botId/instructions'
+import { Route as AppBotsBotIdIntegrationsRouteImport } from './routes/app/bots/$botId/integrations'
 import { Route as AppBotsBotIdKnowledgeRouteImport } from './routes/app/bots/$botId/knowledge'
+import { Route as AppBotsBotIdMediaRouteImport } from './routes/app/bots/$botId/media'
+import { Route as AppBotsBotIdProductsRouteImport } from './routes/app/bots/$botId/products'
+import { Route as AppBotsBotIdQuickRepliesRouteImport } from './routes/app/bots/$botId/quick-replies'
 import { Route as AppBotsBotIdSettingsRouteImport } from './routes/app/bots/$botId/settings'
 
 const IndexRoute = IndexRouteImport.update({
@@ -176,11 +182,44 @@ const AppBotsBotIdIndexRoute = AppBotsBotIdIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppBotsBotIdRoute,
 } as any)
+const AppBotsBotIdHistoryRoute = AppBotsBotIdHistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
+  getParentRoute: () => AppBotsBotIdRoute,
+} as any)
+const AppBotsBotIdInstructionsRoute =
+  AppBotsBotIdInstructionsRouteImport.update({
+    id: '/instructions',
+    path: '/instructions',
+    getParentRoute: () => AppBotsBotIdRoute,
+  } as any)
+const AppBotsBotIdIntegrationsRoute =
+  AppBotsBotIdIntegrationsRouteImport.update({
+    id: '/integrations',
+    path: '/integrations',
+    getParentRoute: () => AppBotsBotIdRoute,
+  } as any)
 const AppBotsBotIdKnowledgeRoute = AppBotsBotIdKnowledgeRouteImport.update({
   id: '/knowledge',
   path: '/knowledge',
   getParentRoute: () => AppBotsBotIdRoute,
 } as any)
+const AppBotsBotIdMediaRoute = AppBotsBotIdMediaRouteImport.update({
+  id: '/media',
+  path: '/media',
+  getParentRoute: () => AppBotsBotIdRoute,
+} as any)
+const AppBotsBotIdProductsRoute = AppBotsBotIdProductsRouteImport.update({
+  id: '/products',
+  path: '/products',
+  getParentRoute: () => AppBotsBotIdRoute,
+} as any)
+const AppBotsBotIdQuickRepliesRoute =
+  AppBotsBotIdQuickRepliesRouteImport.update({
+    id: '/quick-replies',
+    path: '/quick-replies',
+    getParentRoute: () => AppBotsBotIdRoute,
+  } as any)
 const AppBotsBotIdSettingsRoute = AppBotsBotIdSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -214,7 +253,13 @@ export interface FileRoutesByFullPath {
   '/app/order-settings/': typeof AppOrderSettingsIndexRoute
   '/app/orders/': typeof AppOrdersIndexRoute
   '/app/products/': typeof AppProductsIndexRoute
+  '/app/bots/$botId/history': typeof AppBotsBotIdHistoryRoute
+  '/app/bots/$botId/instructions': typeof AppBotsBotIdInstructionsRoute
+  '/app/bots/$botId/integrations': typeof AppBotsBotIdIntegrationsRoute
   '/app/bots/$botId/knowledge': typeof AppBotsBotIdKnowledgeRoute
+  '/app/bots/$botId/media': typeof AppBotsBotIdMediaRoute
+  '/app/bots/$botId/products': typeof AppBotsBotIdProductsRoute
+  '/app/bots/$botId/quick-replies': typeof AppBotsBotIdQuickRepliesRoute
   '/app/bots/$botId/settings': typeof AppBotsBotIdSettingsRoute
   '/app/bots/$botId/': typeof AppBotsBotIdIndexRoute
 }
@@ -241,7 +286,13 @@ export interface FileRoutesByTo {
   '/app/order-settings': typeof AppOrderSettingsIndexRoute
   '/app/orders': typeof AppOrdersIndexRoute
   '/app/products': typeof AppProductsIndexRoute
+  '/app/bots/$botId/history': typeof AppBotsBotIdHistoryRoute
+  '/app/bots/$botId/instructions': typeof AppBotsBotIdInstructionsRoute
+  '/app/bots/$botId/integrations': typeof AppBotsBotIdIntegrationsRoute
   '/app/bots/$botId/knowledge': typeof AppBotsBotIdKnowledgeRoute
+  '/app/bots/$botId/media': typeof AppBotsBotIdMediaRoute
+  '/app/bots/$botId/products': typeof AppBotsBotIdProductsRoute
+  '/app/bots/$botId/quick-replies': typeof AppBotsBotIdQuickRepliesRoute
   '/app/bots/$botId/settings': typeof AppBotsBotIdSettingsRoute
   '/app/bots/$botId': typeof AppBotsBotIdIndexRoute
 }
@@ -273,7 +324,13 @@ export interface FileRoutesById {
   '/app/order-settings/': typeof AppOrderSettingsIndexRoute
   '/app/orders/': typeof AppOrdersIndexRoute
   '/app/products/': typeof AppProductsIndexRoute
+  '/app/bots/$botId/history': typeof AppBotsBotIdHistoryRoute
+  '/app/bots/$botId/instructions': typeof AppBotsBotIdInstructionsRoute
+  '/app/bots/$botId/integrations': typeof AppBotsBotIdIntegrationsRoute
   '/app/bots/$botId/knowledge': typeof AppBotsBotIdKnowledgeRoute
+  '/app/bots/$botId/media': typeof AppBotsBotIdMediaRoute
+  '/app/bots/$botId/products': typeof AppBotsBotIdProductsRoute
+  '/app/bots/$botId/quick-replies': typeof AppBotsBotIdQuickRepliesRoute
   '/app/bots/$botId/settings': typeof AppBotsBotIdSettingsRoute
   '/app/bots/$botId/': typeof AppBotsBotIdIndexRoute
 }
@@ -306,7 +363,13 @@ export interface FileRouteTypes {
     | '/app/order-settings/'
     | '/app/orders/'
     | '/app/products/'
+    | '/app/bots/$botId/history'
+    | '/app/bots/$botId/instructions'
+    | '/app/bots/$botId/integrations'
     | '/app/bots/$botId/knowledge'
+    | '/app/bots/$botId/media'
+    | '/app/bots/$botId/products'
+    | '/app/bots/$botId/quick-replies'
     | '/app/bots/$botId/settings'
     | '/app/bots/$botId/'
   fileRoutesByTo: FileRoutesByTo
@@ -333,7 +396,13 @@ export interface FileRouteTypes {
     | '/app/order-settings'
     | '/app/orders'
     | '/app/products'
+    | '/app/bots/$botId/history'
+    | '/app/bots/$botId/instructions'
+    | '/app/bots/$botId/integrations'
     | '/app/bots/$botId/knowledge'
+    | '/app/bots/$botId/media'
+    | '/app/bots/$botId/products'
+    | '/app/bots/$botId/quick-replies'
     | '/app/bots/$botId/settings'
     | '/app/bots/$botId'
   id:
@@ -364,7 +433,13 @@ export interface FileRouteTypes {
     | '/app/order-settings/'
     | '/app/orders/'
     | '/app/products/'
+    | '/app/bots/$botId/history'
+    | '/app/bots/$botId/instructions'
+    | '/app/bots/$botId/integrations'
     | '/app/bots/$botId/knowledge'
+    | '/app/bots/$botId/media'
+    | '/app/bots/$botId/products'
+    | '/app/bots/$botId/quick-replies'
     | '/app/bots/$botId/settings'
     | '/app/bots/$botId/'
   fileRoutesById: FileRoutesById
@@ -568,11 +643,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppBotsBotIdIndexRouteImport
       parentRoute: typeof AppBotsBotIdRoute
     }
+    '/app/bots/$botId/history': {
+      id: '/app/bots/$botId/history'
+      path: '/history'
+      fullPath: '/app/bots/$botId/history'
+      preLoaderRoute: typeof AppBotsBotIdHistoryRouteImport
+      parentRoute: typeof AppBotsBotIdRoute
+    }
+    '/app/bots/$botId/instructions': {
+      id: '/app/bots/$botId/instructions'
+      path: '/instructions'
+      fullPath: '/app/bots/$botId/instructions'
+      preLoaderRoute: typeof AppBotsBotIdInstructionsRouteImport
+      parentRoute: typeof AppBotsBotIdRoute
+    }
+    '/app/bots/$botId/integrations': {
+      id: '/app/bots/$botId/integrations'
+      path: '/integrations'
+      fullPath: '/app/bots/$botId/integrations'
+      preLoaderRoute: typeof AppBotsBotIdIntegrationsRouteImport
+      parentRoute: typeof AppBotsBotIdRoute
+    }
     '/app/bots/$botId/knowledge': {
       id: '/app/bots/$botId/knowledge'
       path: '/knowledge'
       fullPath: '/app/bots/$botId/knowledge'
       preLoaderRoute: typeof AppBotsBotIdKnowledgeRouteImport
+      parentRoute: typeof AppBotsBotIdRoute
+    }
+    '/app/bots/$botId/media': {
+      id: '/app/bots/$botId/media'
+      path: '/media'
+      fullPath: '/app/bots/$botId/media'
+      preLoaderRoute: typeof AppBotsBotIdMediaRouteImport
+      parentRoute: typeof AppBotsBotIdRoute
+    }
+    '/app/bots/$botId/products': {
+      id: '/app/bots/$botId/products'
+      path: '/products'
+      fullPath: '/app/bots/$botId/products'
+      preLoaderRoute: typeof AppBotsBotIdProductsRouteImport
+      parentRoute: typeof AppBotsBotIdRoute
+    }
+    '/app/bots/$botId/quick-replies': {
+      id: '/app/bots/$botId/quick-replies'
+      path: '/quick-replies'
+      fullPath: '/app/bots/$botId/quick-replies'
+      preLoaderRoute: typeof AppBotsBotIdQuickRepliesRouteImport
       parentRoute: typeof AppBotsBotIdRoute
     }
     '/app/bots/$botId/settings': {
@@ -613,13 +730,25 @@ const AppOrderSettingsRouteWithChildren =
   AppOrderSettingsRoute._addFileChildren(AppOrderSettingsRouteChildren)
 
 interface AppBotsBotIdRouteChildren {
+  AppBotsBotIdHistoryRoute: typeof AppBotsBotIdHistoryRoute
+  AppBotsBotIdInstructionsRoute: typeof AppBotsBotIdInstructionsRoute
+  AppBotsBotIdIntegrationsRoute: typeof AppBotsBotIdIntegrationsRoute
   AppBotsBotIdKnowledgeRoute: typeof AppBotsBotIdKnowledgeRoute
+  AppBotsBotIdMediaRoute: typeof AppBotsBotIdMediaRoute
+  AppBotsBotIdProductsRoute: typeof AppBotsBotIdProductsRoute
+  AppBotsBotIdQuickRepliesRoute: typeof AppBotsBotIdQuickRepliesRoute
   AppBotsBotIdSettingsRoute: typeof AppBotsBotIdSettingsRoute
   AppBotsBotIdIndexRoute: typeof AppBotsBotIdIndexRoute
 }
 
 const AppBotsBotIdRouteChildren: AppBotsBotIdRouteChildren = {
+  AppBotsBotIdHistoryRoute: AppBotsBotIdHistoryRoute,
+  AppBotsBotIdInstructionsRoute: AppBotsBotIdInstructionsRoute,
+  AppBotsBotIdIntegrationsRoute: AppBotsBotIdIntegrationsRoute,
   AppBotsBotIdKnowledgeRoute: AppBotsBotIdKnowledgeRoute,
+  AppBotsBotIdMediaRoute: AppBotsBotIdMediaRoute,
+  AppBotsBotIdProductsRoute: AppBotsBotIdProductsRoute,
+  AppBotsBotIdQuickRepliesRoute: AppBotsBotIdQuickRepliesRoute,
   AppBotsBotIdSettingsRoute: AppBotsBotIdSettingsRoute,
   AppBotsBotIdIndexRoute: AppBotsBotIdIndexRoute,
 }

@@ -46,7 +46,10 @@ export class Bot {
   }
 
   static rehydrate(props: BotProps): Bot {
-    return new Bot(props);
+    return new Bot({
+      ...props,
+      settings: { ...defaultSettings(props.industry), ...props.settings },
+    });
   }
 
   rename(name: string): void {

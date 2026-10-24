@@ -1,5 +1,6 @@
 import {
   AnthropicProvider,
+  HermesProvider,
   type LlmProvider,
   OpenAiCompatibleProvider,
 } from '@agent-sales/ai-core';
@@ -25,6 +26,8 @@ export class SdkLlmProviderFactory implements LlmProviderFactory {
       ...(config.baseUrl ? { baseURL: config.baseUrl } : {}),
       timeoutMs: config.options.timeoutMs,
     };
+    if (config.kind === 'hermes')
+      return new HermesProvider({ ...common, name: config.name, baseURL: config.baseUrl ?? '' });
     if (config.kind === 'anthropic') return new AnthropicProvider({ ...common, name: config.name });
     return new OpenAiCompatibleProvider({
       ...common,

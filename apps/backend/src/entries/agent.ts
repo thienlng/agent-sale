@@ -1,23 +1,32 @@
 import 'reflect-metadata';
-
 import { Module } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-
 import { configureEnv } from '../common/config.js';
+import { DbModule } from '../common/db/db.module.js';
 import { createLogger, PinoNestLogger } from '../common/logger.js';
-
-/**
- * Agent entry: the ONLY process that calls LLM providers (via @agent-sales/ai-core).
- * Consumes the `conversation` and `conversation:priority` queues; the `ai`
- * module's application/jobs are registered here (T-007 onward).
- */
-@Module({ imports: [] })
+import { ConversationModule } from '../modules/conversation/conversation.module.js';
+import { CONVERSATION_RUNNER, type ConversationRunner } from '../modules/conversation/api/index.js';
+@Module({ imports: [DbModule, ConversationModule] })
 class AgentModule {}
-
 const env = configureEnv();
 const logger = createLogger(env.LOG_LEVEL);
 const ctx = await NestFactory.createApplicationContext(AgentModule, {
   logger: new PinoNestLogger(logger),
 });
 ctx.enableShutdownHooks();
-logger.info('agent runtime started (no processors registered yet)');
+const processor = ctx.get<ConversationRunner>(CONVERSATION_RUNNER);
+let running = false;
+const timer = setInterval(() => {
+  if (running) return;
+  running = true;
+  void processor
+    .tick()
+    .catch(() => logger.error('Inbox queue claim failed'))
+    .finally(() => {
+      running = false;
+    });
+}, 1000);
+timer.unref();
+for (const signal of ['SIGINT', 'SIGTERM'] as const)
+  process.once(signal, () => clearInterval(timer));
+logger.info('agent runtime started with durable Meta inbox processing');

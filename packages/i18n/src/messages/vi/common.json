@@ -199,7 +199,8 @@
     "kind": "Loại",
     "kinds": {
       "anthropic": "Anthropic (Claude)",
-      "openai_compatible": "Tương thích OpenAI (OpenAI, vLLM, Ollama…)"
+      "openai_compatible": "Tương thích OpenAI (OpenAI, vLLM, Ollama…)",
+      "hermes": "Hermes (core AI riêng)"
     },
     "baseUrl": "Địa chỉ API",
     "baseUrlHint": "Ví dụ: http://vllm:8000/v1. Để trống với Anthropic để dùng địa chỉ mặc định.",

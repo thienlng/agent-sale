@@ -24,6 +24,9 @@ export const BotSettings = z.object({
   selfPronoun: z.string().trim().min(1).max(20),
   customerPronoun: z.string().trim().min(1).max(20),
   useCustomerName: z.boolean(),
+  autoResumeAfterManual: z.boolean().default(true),
+  humanTakeoverMinutes: z.number().int().min(1).max(1440).default(5),
+  silenceOnExternalReply: z.boolean().default(true),
   fallbackMessage: z.string().trim().max(1000),
   handoffMessage: z.string().trim().max(1000),
   creativity: z.enum(['strict', 'balanced', 'creative']),
@@ -54,7 +57,18 @@ export type CreateBotRequest = z.infer<typeof CreateBotRequest>;
 export const UpdateBotRequest = z.object({
   name: z.string().trim().min(1).max(80).optional(),
   isActive: z.boolean().optional(),
-  settings: BotSettings.partial().optional(),
+  settings: BotSettings.omit({
+    autoResumeAfterManual: true,
+    humanTakeoverMinutes: true,
+    silenceOnExternalReply: true,
+  })
+    .partial()
+    .extend({
+      autoResumeAfterManual: z.boolean().optional(),
+      humanTakeoverMinutes: z.number().int().min(1).max(1440).optional(),
+      silenceOnExternalReply: z.boolean().optional(),
+    })
+    .optional(),
 });
 export type UpdateBotRequest = z.infer<typeof UpdateBotRequest>;
 

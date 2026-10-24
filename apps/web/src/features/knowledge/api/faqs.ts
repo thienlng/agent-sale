@@ -1,5 +1,6 @@
 import {
   type CreateFaqRequest,
+  type ImportFaqsRequest,
   FaqDto,
   FaqListResponse,
   type UpdateFaqRequest,
@@ -29,6 +30,7 @@ function useFaqMutation<TInput>(botId: string, run: (input: TInput) => Promise<u
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: queryKeys.faqs(ws, botId) });
       void qc.invalidateQueries({ queryKey: queryKeys.readiness(ws, botId) });
+      void qc.invalidateQueries({ queryKey: ['training', ws, botId, 'history'] });
     },
   });
 }
@@ -65,6 +67,13 @@ export function useDeleteFaq(botId: string) {
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: key });
       void qc.invalidateQueries({ queryKey: queryKeys.readiness(ws, botId) });
+      void qc.invalidateQueries({ queryKey: ['training', ws, botId, 'history'] });
     },
   });
+}
+
+export function useImportFaqs(botId: string) {
+  return useFaqMutation(botId, (body: ImportFaqsRequest) =>
+    api(`/bots/${botId}/faqs/import`, FaqListResponse, { method: 'POST', body }),
+  );
 }

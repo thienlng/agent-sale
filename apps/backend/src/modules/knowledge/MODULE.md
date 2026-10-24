@@ -1,10 +1,12 @@
 # knowledge
 
-**Purpose:** the facts a bot may state — FAQ question/answer pairs now; documents, URLs and embeddings later (docs/06 §2, §4).
+**Purpose:** the facts a bot may state — FAQ question/answer pairs, situation instructions, quick replies and media references; documents and embeddings later (docs/06 §2, §4).
 
-**Owned tables:** `knowledge_items` (tenant, forced RLS — migration 0002; schema in `packages/db/src/schema/knowledge.ts`).
+**Owned tables:** `training_items`, `training_history` (migration 0006) and `knowledge_items` (tenant, forced RLS — migration 0002; schema in `packages/db/src/schema/knowledge.ts`).
 
 **Public API (`api/`):** `KNOWLEDGE_FACADE` → `listFaqs`, `createFaq`, `updateFaq`, `deleteFaq`, `seedFaqs`, `searchFaqs` (returns `FaqHit` with a 0..1 score). No HTTP of its own: the `bot` module serves `/bots/{botId}/faqs` after checking the bot belongs to the workspace.
+
+**Training API:** `TRAINING_FACADE` → `list`, `create`, `update`, `delete`, `history`. The bot controller checks ownership before serving `/bots/{botId}/training-items` and `/training-history`. Material changes and history commit atomically; media are HTTPS reference metadata only. See `docs/training-workspace.md`.
 
 **Events consumed:** none.
 

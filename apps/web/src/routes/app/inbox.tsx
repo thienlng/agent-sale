@@ -1,7 +1,3 @@
 import { createFileRoute } from '@tanstack/react-router';
-
-import { ComingSoon } from '@/components/coming-soon';
-
-export const Route = createFileRoute('/app/inbox')({
-  component: () => <ComingSoon titleKey="nav.inbox" />,
-});
+import { InboxPage } from '@/features/conversation/components/inbox-page';
+export const Route = createFileRoute('/app/inbox')({ component: InboxPage });

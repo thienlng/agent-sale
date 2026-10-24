@@ -2,6 +2,12 @@ import { z } from 'zod';
 
 import { defineRoutes } from '../common/routes.js';
 import {
+  ImportFaqsRequest,
+  CreateTrainingItemRequest,
+  TrainingItemDto,
+  TrainingItemList,
+  TrainingHistoryList,
+  UpdateTrainingItemRequest,
   CreateFaqRequest,
   FaqDto,
   FaqListResponse,
@@ -12,6 +18,63 @@ import { BotDto, BotReadiness, CreateBotRequest, UpdateBotRequest } from './bot.
 const BotList = z.object({ data: z.array(BotDto) });
 
 export const botRoutes = defineRoutes([
+  {
+    method: 'post',
+    path: '/bots/{botId}/faqs/import',
+    summary: 'Atomically import up to 100 FAQ rows',
+    tag: 'knowledge',
+    auth: true,
+    workspaceScoped: true,
+    body: ImportFaqsRequest,
+    responses: { 201: FaqListResponse },
+  },
+  {
+    method: 'get',
+    path: '/bots/{botId}/training-items',
+    summary: 'Training scenarios, quick replies and media references',
+    tag: 'knowledge',
+    auth: true,
+    workspaceScoped: true,
+    responses: { 200: TrainingItemList },
+  },
+  {
+    method: 'post',
+    path: '/bots/{botId}/training-items',
+    summary: 'Create training material',
+    tag: 'knowledge',
+    auth: true,
+    workspaceScoped: true,
+    body: CreateTrainingItemRequest,
+    responses: { 201: TrainingItemDto },
+  },
+  {
+    method: 'patch',
+    path: '/bots/{botId}/training-items/{itemId}',
+    summary: 'Update training material',
+    tag: 'knowledge',
+    auth: true,
+    workspaceScoped: true,
+    body: UpdateTrainingItemRequest,
+    responses: { 200: TrainingItemDto },
+  },
+  {
+    method: 'delete',
+    path: '/bots/{botId}/training-items/{itemId}',
+    summary: 'Delete training material',
+    tag: 'knowledge',
+    auth: true,
+    workspaceScoped: true,
+    responses: { 204: null },
+  },
+  {
+    method: 'get',
+    path: '/bots/{botId}/training-history',
+    summary: 'Latest 100 training material changes',
+    tag: 'knowledge',
+    auth: true,
+    workspaceScoped: true,
+    responses: { 200: TrainingHistoryList },
+  },
   {
     method: 'get',
     path: '/bots',

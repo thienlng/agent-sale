@@ -4,14 +4,21 @@ import {
   BotSettings,
   type CreateBotRequest,
   type CreateFaqRequest,
+  type ImportFaqsRequest,
   type FaqDto,
   type UpdateBotRequest,
   type UpdateFaqRequest,
 } from '@agent-sales/contracts';
 import { fillPlaceholders, isUuid, type WorkspaceId } from '@agent-sales/shared';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 
-import { type FaqView, KNOWLEDGE_FACADE, type KnowledgeFacade } from '../../knowledge/api/index.js';
+import {
+  type FaqView,
+  KNOWLEDGE_FACADE,
+  type KnowledgeFacade,
+  TRAINING_FACADE,
+  type TrainingFacade,
+} from '../../knowledge/api/index.js';
 import type { BotFacade, BotView } from '../api/bot.facade.js';
 import { Bot } from '../domain/bot.js';
 import type { BotSettingsData } from '../domain/bot-settings.js';
@@ -63,6 +70,7 @@ export class BotService implements BotFacade {
   constructor(
     @Inject(BOT_UOW) private readonly uow: BotUnitOfWork,
     @Inject(KNOWLEDGE_FACADE) private readonly knowledge: KnowledgeFacade,
+    @Inject(TRAINING_FACADE) @Optional() private readonly training?: TrainingFacade,
   ) {}
 
   private async load(ws: WorkspaceId, botId: string): Promise<Bot> {
@@ -89,7 +97,7 @@ export class BotService implements BotFacade {
 
   async update(ws: WorkspaceId, botId: string, change: UpdateBotRequest): Promise<BotDto> {
     if (!isUuid(botId)) throw new BotNotFoundError(botId);
-    return this.uow.run(ws, async ({ bots }) => {
+    const updated = await this.uow.run(ws, async ({ bots }) => {
       const bot = await bots.findById(botId);
       if (!bot) throw new BotNotFoundError(botId);
       if (change.name !== undefined) bot.rename(change.name);
@@ -101,6 +109,14 @@ export class BotService implements BotFacade {
       await bots.save(bot);
       return toBotDto(bot);
     });
+    if (Object.keys(change).length)
+      await this.training?.recordChange(ws, botId, {
+        itemId: botId,
+        title: updated.name,
+        kind: 'settings',
+        action: 'updated',
+      });
+    return updated;
   }
 
   async readiness(ws: WorkspaceId, botId: string): Promise<BotReadiness> {
@@ -118,9 +134,32 @@ export class BotService implements BotFacade {
     return (await this.knowledge.listFaqs(ws, botId)).map((f) => toFaqDto(bot, f));
   }
 
+  async importFaqs(ws: WorkspaceId, botId: string, input: ImportFaqsRequest): Promise<FaqDto[]> {
+    const bot = await this.load(ws, botId);
+    const imported = await this.knowledge.importFaqs(ws, botId, input.items);
+    await this.training?.recordChanges(
+      ws,
+      botId,
+      imported.map((faq) => ({
+        itemId: faq.id,
+        title: faq.question,
+        kind: 'faq' as const,
+        action: 'created' as const,
+      })),
+    );
+    return imported.map((faq) => toFaqDto(bot, faq));
+  }
+
   async createFaq(ws: WorkspaceId, botId: string, input: CreateFaqRequest): Promise<FaqDto> {
     const bot = await this.load(ws, botId);
-    return toFaqDto(bot, await this.knowledge.createFaq(ws, botId, input));
+    const faq = await this.knowledge.createFaq(ws, botId, input);
+    await this.training?.recordChange(ws, botId, {
+      itemId: faq.id,
+      title: faq.question,
+      kind: 'faq',
+      action: 'created',
+    });
+    return toFaqDto(bot, faq);
   }
 
   async updateFaq(
@@ -130,12 +169,26 @@ export class BotService implements BotFacade {
     change: UpdateFaqRequest,
   ): Promise<FaqDto> {
     const bot = await this.load(ws, botId);
-    return toFaqDto(bot, await this.knowledge.updateFaq(ws, botId, faqId, change));
+    const faq = await this.knowledge.updateFaq(ws, botId, faqId, change);
+    await this.training?.recordChange(ws, botId, {
+      itemId: faq.id,
+      title: faq.question,
+      kind: 'faq',
+      action: 'updated',
+    });
+    return toFaqDto(bot, faq);
   }
 
   async deleteFaq(ws: WorkspaceId, botId: string, faqId: string): Promise<void> {
     await this.load(ws, botId);
+    const faq = (await this.knowledge.listFaqs(ws, botId)).find((item) => item.id === faqId);
     await this.knowledge.deleteFaq(ws, botId, faqId);
+    await this.training?.recordChange(ws, botId, {
+      itemId: faqId,
+      title: faq?.question ?? 'FAQ',
+      kind: 'faq',
+      action: 'deleted',
+    });
   }
 
   /** BotFacade: everything the AI needs, with placeholders already filled in the greeting. */

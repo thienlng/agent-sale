@@ -7,11 +7,13 @@ import { BOT_FACADE } from './api/bot.facade.js';
 import { BotService } from './application/bot.service.js';
 import { BOT_UOW } from './application/ports/bot-unit-of-work.js';
 import { DrizzleBotUnitOfWork, InMemoryBotUnitOfWork } from './infrastructure/bot.persistence.js';
+import { TrainingController } from './interface/http/training.controller.js';
 import { BotController } from './interface/http/bot.controller.js';
+import { MediaController } from './interface/http/media.controller.js';
 
 @Module({
   imports: [KnowledgeModule],
-  controllers: [BotController],
+  controllers: [BotController, TrainingController, MediaController],
   providers: [
     BotService,
     {

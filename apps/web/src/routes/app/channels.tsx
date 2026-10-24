@@ -1,7 +1,3 @@
 import { createFileRoute } from '@tanstack/react-router';
-
-import { ComingSoon } from '@/components/coming-soon';
-
-export const Route = createFileRoute('/app/channels')({
-  component: () => <ComingSoon titleKey="nav.channels" />,
-});
+import { ChannelPage } from '@/features/channel/components/channel-page';
+export const Route = createFileRoute('/app/channels')({ component: ChannelPage });

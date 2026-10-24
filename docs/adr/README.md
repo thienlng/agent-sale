@@ -13,3 +13,4 @@ Each ADR: Context → Decision → Consequences. Status: `Proposed` → `Accepte
 | [007](ADR-007-auth.md) | Build auth in-house | Proposed |
 | [008](ADR-008-credit-ledger.md) | Immutable ledger, milli-credit unit | Proposed |
 | [009](ADR-009-tech-stack-for-speed-and-scale.md) | Stack for perceived speed and ~1,000-tenant scale: Vite SPA + Astro + NestJS/Fastify; supersedes the Next.js dashboard choice | Proposed |
+| [010](ADR-010-isolated-hermes-runtime.md) | Isolated inherited Hermes runtime and first Meta ingress queue adapter | Proposed |

@@ -44,6 +44,8 @@ Out of scope: billing/payment implementation, new CRM/commerce domains, rewritin
 
 - 2026-10-24: Scope and Hermes decision approved in chat. Owner authorized autonomous execution for two hours. Baseline pnpm check passed during onboarding. Existing source connector contains OAuth but no inbox; commercial subscription eligibility remains a provider constraint.
 
+- 2026-10-24: Codex session hit its limit mid-integration. Resumed by Claude Code: fixed lint (type import, unused Badge), missing webhook `@agent-sales/db` install, exactOptionalPropertyTypes in S3 media storage, invalid LOG_LEVEL in meta-inbox HTTP test; recreated the local dev DB because 0005 was edited after being applied (500 on training-items until 0008 ran); marked inbox/channels nav items as ready. pnpm lint/arch/typecheck/test/build green (backend 290 tests, Hermes bridge 8 unittest). Owner asked to skip pixel-parity screenshot QA; acceptance is code/logic only.
+
 ## Links
 
 - docs/ARCHITECTURE.md

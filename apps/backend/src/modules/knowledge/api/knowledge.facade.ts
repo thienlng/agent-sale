@@ -19,6 +19,11 @@ export interface FaqHit extends FaqView {
  * for checking that `botId` belongs to the workspace before calling.
  */
 export interface KnowledgeFacade {
+  importFaqs(
+    workspaceId: WorkspaceId,
+    botId: string,
+    items: Array<{ question: string; answer: string }>,
+  ): Promise<FaqView[]>;
   listFaqs(workspaceId: WorkspaceId, botId: string): Promise<FaqView[]>;
   createFaq(
     workspaceId: WorkspaceId,

@@ -13,6 +13,9 @@ export interface BotSettingsData {
   selfPronoun: string;
   customerPronoun: string;
   useCustomerName: boolean;
+  autoResumeAfterManual: boolean;
+  humanTakeoverMinutes: number;
+  silenceOnExternalReply: boolean;
   fallbackMessage: string;
   handoffMessage: string;
   creativity: 'strict' | 'balanced' | 'creative';

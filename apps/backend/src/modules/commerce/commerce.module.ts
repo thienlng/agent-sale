@@ -5,6 +5,7 @@ import { DB_TENANT } from '../../common/db/db.module.js';
 import { IdentityModule } from '../identity/identity.module.js';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
 import { COMMERCE_FACADE } from './api/commerce.facade.js';
+import { CATALOG_FACADE } from './api/catalog.facade.js';
 import { CatalogService } from './application/catalog.service.js';
 import { OrderService } from './application/order.service.js';
 import { COMMERCE_STORE } from './application/ports/commerce-store.js';
@@ -27,7 +28,8 @@ import { OrdersController } from './interface/http/orders.controller.js';
     CatalogService,
     OrderService,
     { provide: COMMERCE_FACADE, useExisting: OrderService },
+    { provide: CATALOG_FACADE, useExisting: CatalogService },
   ],
-  exports: [COMMERCE_FACADE],
+  exports: [COMMERCE_FACADE, CATALOG_FACADE],
 })
 export class CommerceModule {}

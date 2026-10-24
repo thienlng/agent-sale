@@ -3,6 +3,7 @@ import { type FormEvent, type ReactNode, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
+import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -53,6 +54,7 @@ function Row({
  */
 export function BotSettingsForm({ bot }: { bot: BotDto }) {
   const { t } = useTranslation();
+  const { t: training } = useTranslation('training');
   const update = useUpdateBot(bot.id);
   const readiness = useReadiness(bot.id);
   const initial: Draft = useMemo(() => ({ name: bot.name, settings: bot.settings }), [bot]);
@@ -191,6 +193,43 @@ export function BotSettingsForm({ bot }: { bot: BotDto }) {
           {choice('modelTier', ['basic', 'smart', 'pro', 'neo'])}
           {choice('language', ['vi', 'en'])}
         </div>
+      </section>
+
+      <section className="space-y-5">
+        <h2 className="text-lg font-semibold">{training('handoverTitle')}</h2>
+        {(['autoResumeAfterManual', 'silenceOnExternalReply'] as const).map((key) => (
+          <div key={key} className="flex items-start justify-between gap-4 rounded-lg border p-4">
+            <div className="space-y-1">
+              <Label htmlFor={`setting-${key}`}>{training(key)}</Label>
+              <p className="text-sm text-muted-foreground">
+                {training(key === 'autoResumeAfterManual' ? 'autoResumeHint' : 'silenceHint')}
+              </p>
+            </div>
+            <Switch
+              id={`setting-${key}`}
+              checked={draft.settings[key]}
+              onCheckedChange={(value) =>
+                setDraft((state) => ({ ...state, settings: { ...state.settings, [key]: value } }))
+              }
+            />
+          </div>
+        ))}
+        <Row id="setting-humanTakeoverMinutes" label={training('humanTakeoverMinutes')}>
+          <Input
+            id="setting-humanTakeoverMinutes"
+            type="number"
+            min={1}
+            max={1440}
+            required
+            value={draft.settings.humanTakeoverMinutes}
+            onChange={(event) =>
+              setDraft((state) => ({
+                ...state,
+                settings: { ...state.settings, humanTakeoverMinutes: Number(event.target.value) },
+              }))
+            }
+          />
+        </Row>
       </section>
 
       {dirty ? (

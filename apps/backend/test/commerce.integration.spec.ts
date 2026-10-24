@@ -120,6 +120,44 @@ const stockOf = async (h: Record<string, string>, productId: string, variantId: 
 };
 
 describe('commerce on Postgres', () => {
+  it('persists product-specific bot guidance and visibility without copying the catalog', async () => {
+    const headers = await owner('training-catalog@example.test');
+    const response = await call(headers, 'POST', '/products', {
+      code: 'TRAINING-1',
+      name: 'Training product',
+      botInstructions: 'Ask about the preferred size.',
+      visibleToBot: false,
+      variants: [{ sku: 'TRAINING-SKU', price: 120000 }],
+    });
+    expect(response.statusCode).toBe(201);
+    const product = ProductDto.parse(response.json());
+    expect(product).toMatchObject({
+      botInstructions: 'Ask about the preferred size.',
+      visibleToBot: false,
+    });
+    const read = ProductDto.parse((await call(headers, 'GET', `/products/${product.id}`)).json());
+    expect(read.botInstructions).toBe(product.botInstructions);
+    const updated = await call(headers, 'PUT', `/products/${product.id}`, {
+      code: product.code,
+      name: product.name,
+      botInstructions: 'Explain the warranty.',
+      visibleToBot: true,
+      variants: product.variants.map((variant) => ({
+        id: variant.id,
+        sku: variant.sku,
+        name: variant.name,
+        price: variant.price,
+        cost: variant.cost,
+        weightGram: variant.weightGram,
+      })),
+    });
+    expect(updated.statusCode).toBe(200);
+    expect(ProductDto.parse(updated.json())).toMatchObject({
+      botInstructions: 'Explain the warranty.',
+      visibleToBot: true,
+    });
+  });
+
   it('runs an order through reservation, shipping, a refused cancel and a return', async () => {
     const h = await owner('lifecycle@shop.vn');
     const { warehouse, product, l } = await setup(h);

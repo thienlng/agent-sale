@@ -12,6 +12,17 @@ export const EnvSchema = z
     DATABASE_URL: z.string().url().optional(),
     DATABASE_SYSTEM_URL: z.string().url().optional(),
     REDIS_URL: z.string().url().optional(),
+    META_APP_ID: z.string().optional(),
+    META_APP_SECRET: z.string().optional(),
+    META_LOGIN_CONFIG_ID: z.string().optional(),
+    META_GRAPH_VERSION: z
+      .string()
+      .regex(/^v\d+\.\d+$/)
+      .default('v24.0'),
+    INSTAGRAM_APP_ID: z.string().optional(),
+    INSTAGRAM_APP_SECRET: z.string().optional(),
+    META_WEBHOOK_VERIFY_TOKEN: z.string().optional(),
+    META_APP_ORIGIN: z.string().url().optional(),
     APP_VERSION: z.string().default('0.0.0-dev'),
     JWT_PRIVATE_KEY: z.string().optional(),
     JWT_PUBLIC_KEY: z.string().optional(),
@@ -29,6 +40,11 @@ export const EnvSchema = z
      * a fixed insecure key.
      */
     SECRETS_ENCRYPTION_KEY: z.string().optional(),
+    S3_ENDPOINT: z.url().optional(),
+    S3_BUCKET: z.string().min(1).optional(),
+    S3_PUBLIC_URL: z.url({ protocol: /^https$/ }).optional(),
+    S3_ACCESS_KEY: z.string().optional(),
+    S3_SECRET_KEY: z.string().optional(),
   })
   .refine((env) => env.NODE_ENV !== 'production' || !!env.SECRETS_ENCRYPTION_KEY, {
     message: 'SECRETS_ENCRYPTION_KEY is required in production',

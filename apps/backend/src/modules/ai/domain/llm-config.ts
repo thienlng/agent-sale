@@ -1,6 +1,6 @@
 /** Platform-wide LLM configuration (global, managed by platform admins). Plain data. */
 
-export type LlmProviderKind = 'anthropic' | 'openai_compatible';
+export type LlmProviderKind = 'anthropic' | 'openai_compatible' | 'hermes';
 export type LlmEffort = 'low' | 'medium' | 'high';
 export type Tier = 'basic' | 'smart' | 'pro' | 'neo';
 export const TIERS: readonly Tier[] = ['basic', 'smart', 'pro', 'neo'];

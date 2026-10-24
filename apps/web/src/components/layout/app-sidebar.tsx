@@ -48,8 +48,8 @@ interface NavItem {
 /** P0 items of docs/03 §2; the ones not built yet say so instead of pretending. */
 const WORK: readonly NavItem[] = [
   { to: '/app/bots', key: 'nav.bots', icon: Bot, ready: true },
-  { to: '/app/inbox', key: 'nav.inbox', icon: MessagesSquare },
-  { to: '/app/channels', key: 'nav.channels', icon: Cable },
+  { to: '/app/inbox', key: 'nav.inbox', icon: MessagesSquare, ready: true },
+  { to: '/app/channels', key: 'nav.channels', icon: Cable, ready: true },
   { to: '/app/contacts', key: 'nav.contacts', icon: Users },
   { to: '/app/analytics', key: 'nav.analytics', icon: BarChart3 },
   { to: '/app/settings', key: 'nav.settings', icon: Settings },

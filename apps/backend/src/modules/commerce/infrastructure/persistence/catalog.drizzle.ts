@@ -116,6 +116,7 @@ export function catalogTx(
                 category: rec.category,
                 status: rec.status,
                 visibleToBot: rec.visibleToBot,
+                botInstructions: rec.botInstructions,
                 searchText: rec.searchText,
                 updatedAt: rec.updatedAt,
               },

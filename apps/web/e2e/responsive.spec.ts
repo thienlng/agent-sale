@@ -9,7 +9,7 @@ import { BOT_ID, mockApi, ORDER_ID, PRODUCT_ID } from './support/mock-api';
  */
 const PAGES = [
   ['bots', '/app/bots', 'Bot của bạn'],
-  ['bot overview', `/app/bots/${BOT_ID}`, 'Chuẩn bị cho bot'],
+  ['bot overview', `/app/bots/${BOT_ID}`, 'Chuẩn bị cho Bot sẵn sàng bán hàng'],
   ['faq', `/app/bots/${BOT_ID}/knowledge`, 'Câu hỏi thường gặp'],
   ['bot settings', `/app/bots/${BOT_ID}/settings`, 'Thông tin cửa hàng'],
   ['admin llm', '/admin/llm', 'Mô hình AI'],
