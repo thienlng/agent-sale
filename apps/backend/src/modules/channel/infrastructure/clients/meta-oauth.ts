@@ -26,13 +26,9 @@ const endpoint = (url: string): string => {
 };
 const first = (v: Record<string, unknown>): Record<string, unknown> =>
   Array.isArray(v.data) ? rec(v.data[0]) : v;
+/** What messaging needs: list Pages, send messages, subscribe the Page to webhooks. */
 const scopes = {
-  facebook: [
-    'pages_show_list',
-    'pages_read_engagement',
-    'pages_messaging',
-    'pages_manage_metadata',
-  ],
+  facebook: ['pages_show_list', 'pages_messaging', 'pages_manage_metadata'],
   instagram: ['instagram_business_basic', 'instagram_business_manage_messages'],
 };
 export class LiveMetaGateway implements MetaGateway {

@@ -69,12 +69,8 @@ function graph(routes: Record<string, unknown>, seen: string[] = []) {
 const grants = (...names: string[]) => ({
   data: names.map((permission) => ({ permission, status: 'granted' })),
 });
-const ALL = [
-  'pages_show_list',
-  'pages_read_engagement',
-  'pages_messaging',
-  'pages_manage_metadata',
-];
+// The owner's login configuration grants exactly these (no pages_read_engagement).
+const ALL = ['pages_show_list', 'pages_messaging', 'pages_manage_metadata'];
 const pages = {
   data: [
     { id: 'p1', name: 'Page One', access_token: 'page-token-1' },
@@ -98,7 +94,7 @@ describe('LiveMetaGateway.exchange (Facebook)', () => {
   it('names the permissions the login configuration did not grant', async () => {
     const { transport } = graph({
       '/oauth/access_token': { access_token: 'user-token' },
-      '/me/permissions': grants('pages_show_list', 'pages_read_engagement'),
+      '/me/permissions': grants('pages_show_list'),
     });
     await expect(new LiveMetaGateway(env, transport).exchange('facebook', 'code')).rejects.toThrow(
       /pages_messaging, pages_manage_metadata/,
