@@ -4,7 +4,9 @@ import {
   ANALYTICS_DEFINITION_VERSION,
   type AnalyticsQuery,
   definitionOf,
+  effectiveOrigins,
   METRIC_DEFINITIONS,
+  lockedMetrics,
   METRIC_KEYS,
   MetricDefinition,
   ratio,
@@ -78,11 +80,33 @@ describe('validateAnalyticsQuery', () => {
     expect(codes({ metrics: ['comments.received'] })).toEqual(['metric_unavailable']);
   });
 
-  it('rejects origins a metric cannot have', () => {
+  it('refuses an origin filter only for a metric none of its origins can apply to', () => {
     expect(codes({ metrics: ['tags.assigned'], origins: ['channel'] })).toEqual([
       'origin_not_allowed',
     ]);
     expect(codes({ metrics: ['customers.new'], origins: ['manual', 'channel'] })).toEqual([]);
+    // Mixed metrics: the filter applies to each as far as it can.
+    expect(codes({ metrics: ['customers.new', 'tags.assigned'], origins: ['manual'] })).toEqual([]);
+  });
+
+  it('works out the origins a metric really uses', () => {
+    const customers = definitionOf('customers.new');
+    expect(effectiveOrigins(customers, undefined)).toEqual(['channel']);
+    expect(effectiveOrigins(customers, ['manual', 'rule'])).toEqual(['manual']);
+    expect(effectiveOrigins(definitionOf('tags.assigned'), ['channel'])).toEqual([]);
+  });
+
+  it('reports a metric as locked only when its entitlement is off', () => {
+    const defs = METRIC_DEFINITIONS.map((d) =>
+      d.key === 'statuses.current' ? { ...d, entitlement: 'analytics.statuses' } : d,
+    );
+    const keys = ['customers.new', 'statuses.current'] as const;
+    expect(lockedMetrics(keys, { 'analytics.statuses': false }, defs)).toEqual([
+      'statuses.current',
+    ]);
+    expect(lockedMetrics(keys, {}, defs)).toEqual(['statuses.current']);
+    expect(lockedMetrics(keys, { 'analytics.statuses': true }, defs)).toEqual([]);
+    expect(lockedMetrics(keys, {})).toEqual([]);
   });
 
   it('rejects filters a metric cannot honour, naming the metric and filter', () => {

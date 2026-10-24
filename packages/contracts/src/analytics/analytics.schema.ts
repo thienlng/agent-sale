@@ -269,6 +269,11 @@ export const AnalyticsQuery = z.object({
   asOf: z.iso.datetime().optional(),
   salesIds: z.array(z.uuid()).max(50).optional(),
   pageIds: z.array(z.uuid()).max(50).optional(),
+  /**
+   * Freezes the data a number is computed from (the projection watermark of an earlier answer),
+   * so a drilldown can reproduce exactly what its card counted.
+   */
+  watermark: z.number().int().nonnegative().optional(),
 });
 export type AnalyticsQuery = z.infer<typeof AnalyticsQuery>;
 
@@ -279,7 +284,9 @@ export type QueryIssueCode =
   | 'scope_not_supported'
   | 'range_invalid'
   | 'range_too_long'
-  | 'as_of_in_future';
+  | 'as_of_in_future'
+  | 'not_drillable'
+  | 'metric_locked';
 
 export interface QueryIssue {
   code: QueryIssueCode;
@@ -315,10 +322,10 @@ export function validateAnalyticsQuery(q: AnalyticsQuery, now: Date): QueryIssue
       issues.push({ code: 'metric_unavailable', metric: key });
       continue;
     }
-    for (const origin of q.origins ?? []) {
-      if (!d.origins.allowed.includes(origin)) {
-        issues.push({ code: 'origin_not_allowed', metric: key, detail: { origin } });
-      }
+    // A query-wide origin filter applies to each metric as far as the metric supports it; only a
+    // metric none of the requested origins can apply to is refused (it would silently count nothing).
+    if (q.origins && !q.origins.some((o) => d.origins.allowed.includes(o))) {
+      issues.push({ code: 'origin_not_allowed', metric: key, detail: { origins: q.origins } });
     }
     if (q.salesIds?.length && !d.filters.sales) {
       issues.push({ code: 'scope_not_supported', metric: key, detail: { filter: 'sales' } });
@@ -330,6 +337,24 @@ export function validateAnalyticsQuery(q: AnalyticsQuery, now: Date): QueryIssue
   return issues;
 }
 
+/** Effective origins of a metric: the requested ones it supports, else its default. */
+export function effectiveOrigins(d: MetricDefinition, requested: readonly Origin[] | undefined) {
+  if (!requested) return d.origins.default;
+  return requested.filter((o) => d.origins.allowed.includes(o));
+}
+
+/** Metrics the shop's entitlements do not include: reported as locked, never as 0. */
+export function lockedMetrics(
+  keys: readonly MetricKey[],
+  entitlements: Record<string, unknown>,
+  definitions: readonly MetricDefinition[] = METRIC_DEFINITIONS,
+): MetricKey[] {
+  return keys.filter((k) => {
+    const needed = definitions.find((d) => d.key === k)?.entitlement;
+    return needed !== null && needed !== undefined && !entitlements[needed];
+  });
+}
+
 /**
  * A ratio with an undefined denominator is `null`, never a fabricated 0%.
  * Any ratio metric added later must go through this.
@@ -337,3 +362,110 @@ export function validateAnalyticsQuery(q: AnalyticsQuery, now: Date): QueryIssue
 export function ratio(numerator: number, denominator: number): number | null {
   return denominator === 0 ? null : numerator / denominator;
 }
+
+// ─── results ──────────────────────────────────────────────────────────────────
+
+/** `ok` has a value; `locked` means the plan does not include it. A failed query is an HTTP error, never a card. */
+export const MetricResult = z.discriminatedUnion('state', [
+  z.object({ key: MetricKey, state: z.literal('ok'), value: z.number().int() }),
+  z.object({ key: MetricKey, state: z.literal('locked') }),
+]);
+export type MetricResult = z.infer<typeof MetricResult>;
+
+const Values = z.partialRecord(MetricKey, z.number().int());
+
+export const SeriesPoint = z.object({ date: LocalDate, values: Values });
+export type SeriesPoint = z.infer<typeof SeriesPoint>;
+
+export const AnalyticsMeta = z.object({
+  definitionVersion: z.number().int().positive(),
+  timezone: z.string(),
+  /** The local days asked for and the half-open UTC interval they were converted to. */
+  range: z.object({
+    from: LocalDate,
+    to: LocalDate,
+    fromUtc: z.iso.datetime(),
+    toUtc: z.iso.datetime(),
+  }),
+  asOf: z.iso.datetime(),
+  generatedAt: z.iso.datetime(),
+  /** Reuse as `watermark` to see the same data again (drilldown). */
+  watermarkId: z.number().int().nonnegative(),
+  watermarkAt: z.iso.datetime().nullable(),
+  /** How long the oldest event not yet projected has been waiting (0 = up to date). */
+  lagSeconds: z.number().int().nonnegative(),
+  /** Customer metrics only count customers this viewer may see. */
+  scope: z.enum(['all', 'own']),
+});
+export type AnalyticsMeta = z.infer<typeof AnalyticsMeta>;
+
+export const AnalyticsResponse = z.object({
+  meta: AnalyticsMeta,
+  cards: z.array(MetricResult),
+  /** One point per local day of the range, zero-filled; event metrics only. */
+  series: z.array(SeriesPoint),
+  breakdowns: z.object({
+    /** Tag events in the range, most added first. */
+    tags: z.array(
+      z.object({
+        tagId: z.uuid(),
+        assigned: z.number().int(),
+        removed: z.number().int(),
+        net: z.number().int(),
+      }),
+    ),
+    /** Assignments active at `asOf`. A customer with two tags is in two rows: do not sum them. */
+    currentTags: z.array(z.object({ tagId: z.uuid(), count: z.number().int() })),
+    /** Customers per status at `asOf` (`null` = no status). One status per customer, so rows sum to the total. */
+    statuses: z.array(z.object({ statusId: z.uuid().nullable(), count: z.number().int() })),
+    /** Event metrics by the salesperson who owned the customer when it happened (`null` = nobody). */
+    bySales: z.array(z.object({ salesUserId: z.uuid().nullable(), values: Values })),
+    byPage: z.array(z.object({ channelId: z.uuid().nullable(), values: Values })),
+  }),
+  /** Distinct totals for metrics whose breakdown rows overlap (e.g. customers with at least one tag). */
+  distinctTotals: Values,
+});
+export type AnalyticsResponse = z.infer<typeof AnalyticsResponse>;
+
+// ─── drilldown ────────────────────────────────────────────────────────────────
+
+/** Narrows a drilldown to one row of a breakdown or one day; `null` means "none" (unassigned, no status). */
+export const DrilldownDimension = z.object({
+  salesUserId: z.uuid().nullable().optional(),
+  tagId: z.uuid().optional(),
+  statusId: z.uuid().nullable().optional(),
+  channelId: z.uuid().nullable().optional(),
+  date: LocalDate.optional(),
+});
+export type DrilldownDimension = z.infer<typeof DrilldownDimension>;
+
+export const DrilldownRequest = z.object({
+  query: AnalyticsQuery,
+  metric: MetricKey,
+  dimension: DrilldownDimension.default({}),
+  cursor: z.string().max(100).optional(),
+  limit: z.number().int().min(1).max(100).default(50),
+});
+export type DrilldownRequest = z.input<typeof DrilldownRequest>;
+
+export const DrilldownRow = z.object({
+  at: z.iso.datetime(),
+  contactId: z.uuid().nullable(),
+  contactName: z.string().nullable(),
+  conversationId: z.uuid().nullable(),
+  channelId: z.uuid().nullable(),
+  tagId: z.uuid().nullable(),
+  statusId: z.uuid().nullable(),
+  salesUserId: z.uuid().nullable(),
+});
+export type DrilldownRow = z.infer<typeof DrilldownRow>;
+
+export const DrilldownResponse = z.object({
+  meta: AnalyticsMeta,
+  metric: MetricKey,
+  /** Exactly what the card counts for the same filters and watermark. */
+  total: z.number().int().nonnegative(),
+  rows: z.array(DrilldownRow),
+  nextCursor: z.string().nullable(),
+});
+export type DrilldownResponse = z.infer<typeof DrilldownResponse>;

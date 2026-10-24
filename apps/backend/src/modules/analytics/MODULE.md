@@ -6,7 +6,7 @@
 
 **Public API (`api/`):**
 
-- `ANALYTICS_FACADE` → `definitions()` (the versioned metric table). HTTP: `GET /analytics/definitions` (capability `analytics.view`).
+- `ANALYTICS_FACADE` → `definitions()` (the versioned metric table). HTTP (capability `analytics.view`): `GET /analytics/definitions`, `POST /analytics/query`, `POST /analytics/drilldown`.
 - `ANALYTICS_RUNNER` → `tick()`: projects one batch of outbox events into facts (run by the `worker` entry every 2 s; queries also catch up before answering).
 - Events: none published. CLI: `analytics-rebuild <workspace-id>`.
 
@@ -20,6 +20,11 @@
 - One fact per (workspace, outbox event, kind): replays and duplicates never double count. Facts hold ids and times only. Late events are bucketed by when they happened.
 - The projector is sequential by outbox id under an advisory lease and never passes an id whose transaction may still commit; unparseable events are dead-lettered, database errors are retried.
 - Temporal state (tag active between add and remove, status and owner at a time) is derived from facts at query time, so arrival order cannot corrupt it.
+
+- A card and its drilldown are computed from the same units at the same watermark; scope (owns it, or nobody does) is applied inside the SQL, so aggregates, rows and names agree.
+- A query waits for the projector before reading (`catchUp`), so what was committed before the call is included; the answer reports `lagSeconds` when the projection is behind.
+
+**Depends on:** `workspace` (time zone), `billing` (entitlements → locked metrics) and `crm` (`contactNames` for drilldown rows) facades.
 
 **Do not:** read other modules' tables or call their facades to compute numbers (use the projection); store names, phone numbers or message text in facts; put HTTP/Drizzle types in `domain/`.
 
