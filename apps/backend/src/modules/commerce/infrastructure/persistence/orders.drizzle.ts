@@ -1,4 +1,16 @@
-import { and, asc, desc, eq, inArray, isNull, schema, sql, type TenantTx } from '@agent-sales/db';
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  notInArray,
+  schema,
+  sql,
+  type TenantTx,
+} from '@agent-sales/db';
 import type { WorkspaceId } from '@agent-sales/shared';
 
 import type {
@@ -101,6 +113,10 @@ export function ordersTx(ws: WorkspaceId, tx: TenantTx): Pick<CommerceTx, 'order
         const { id: _id, ...row } = orderRow(ws, rec);
         await tx.update(o).set(row).where(eq(o.id, rec.id));
       },
+      async replaceItems(orderId, items) {
+        await tx.delete(oi).where(eq(oi.orderId, orderId));
+        await tx.insert(oi).values(items.map((i) => ({ ...i, workspaceId: ws, orderId })));
+      },
       async addHistory(workspaceId, orderId, entry) {
         await tx.insert(h).values({ id: crypto.randomUUID(), workspaceId, orderId, ...entry });
       },
@@ -111,15 +127,23 @@ export function ordersTx(ws: WorkspaceId, tx: TenantTx): Pick<CommerceTx, 'order
           f.source ? eq(o.source, f.source) : undefined,
           f.from ? sql`${o.placedAt} >= ${f.from.toISOString()}` : undefined,
           f.to ? sql`${o.placedAt} < ${f.to.toISOString()}` : undefined,
+          f.createdBy ? eq(o.createdByUserId, f.createdBy) : undefined,
+          f.carrier ? eq(o.carrier, f.carrier) : undefined,
         );
-        const where = and(base, f.status ? eq(o.status, f.status) : undefined);
+        // Status is the only filter the per-status counts ignore (they label the choices).
+        const statusFilter = f.statuses?.length
+          ? f.statusMode === 'exclude'
+            ? notInArray(o.status, f.statuses)
+            : inArray(o.status, f.statuses)
+          : undefined;
+        const where = and(base, statusFilter);
         const order = {
           placed_desc: [desc(o.placedAt), desc(o.code)],
           placed_asc: [asc(o.placedAt), asc(o.code)],
           total_desc: [desc(o.total), desc(o.placedAt)],
           total_asc: [asc(o.total), desc(o.placedAt)],
         }[f.sort];
-        const [rows, countRows, [totals]] = await Promise.all([
+        const [rows, countRows, [totals], creators, carriers] = await Promise.all([
           tx
             .select()
             .from(o)
@@ -138,10 +162,26 @@ export function ordersTx(ws: WorkspaceId, tx: TenantTx): Pick<CommerceTx, 'order
               itemQty: sql<number>`coalesce(sum(${o.itemQty}), 0)`,
               shippingFeeCharged: sql<number>`coalesce(sum(${o.shippingFeeCharged}), 0)`,
               cod: sql<number>`coalesce(sum(${o.codAmount}), 0)`,
+              gross: sql<number>`coalesce(sum(${o.subtotal} + ${o.shippingFeeCharged} + ${o.surcharge}), 0)`,
               total: sql<number>`coalesce(sum(${o.total}), 0)`,
             })
             .from(o)
             .where(where),
+          tx
+            .selectDistinctOn([o.createdByUserId], {
+              id: o.createdByUserId,
+              name: o.createdByName,
+            })
+            .from(o)
+            .where(and(isNull(o.deletedAt), isNotNull(o.createdByUserId)))
+            .orderBy(o.createdByUserId, desc(o.createdAt))
+            .limit(100),
+          tx
+            .selectDistinct({ carrier: o.carrier })
+            .from(o)
+            .where(and(isNull(o.deletedAt), isNotNull(o.carrier)))
+            .orderBy(o.carrier)
+            .limit(100),
         ]);
         const ids = rows.map((r) => r.id);
         const items = ids.length
@@ -178,7 +218,14 @@ export function ordersTx(ws: WorkspaceId, tx: TenantTx): Pick<CommerceTx, 'order
             itemQty: n(totals?.itemQty),
             shippingFeeCharged: n(totals?.shippingFeeCharged),
             cod: n(totals?.cod),
+            gross: n(totals?.gross),
             total: n(totals?.total),
+          },
+          facets: {
+            creators: creators
+              .flatMap((c) => (c.id ? [{ id: c.id, name: c.name ?? '' }] : []))
+              .sort((a, b) => a.name.localeCompare(b.name, 'vi')),
+            carriers: carriers.flatMap((c) => (c.carrier ? [c.carrier] : [])),
           },
         };
       },
@@ -269,17 +316,29 @@ export function ordersTx(ws: WorkspaceId, tx: TenantTx): Pick<CommerceTx, 'order
       async get() {
         const [r] = await tx.select().from(schema.orderSettings).limit(1);
         return r
-          ? { extraStatuses: r.extraStatuses, requireNoteStatuses: r.requireNoteStatuses }
+          ? {
+              extraStatuses: r.extraStatuses,
+              requireNoteStatuses: r.requireNoteStatuses,
+              policies: r.policies,
+              version: r.version,
+            }
           : null;
       },
-      async put(workspaceId, s) {
-        await tx
-          .insert(schema.orderSettings)
-          .values({ workspaceId, ...s })
+      async put(workspaceId, { version, ...s }) {
+        const t = schema.orderSettings;
+        // Insert the first save, or update only the version the caller loaded.
+        const [r] = await tx
+          .insert(t)
+          .values({ workspaceId, ...s, version: 1 })
           .onConflictDoUpdate({
-            target: schema.orderSettings.workspaceId,
-            set: { ...s, updatedAt: new Date() },
-          });
+            target: t.workspaceId,
+            set: { ...s, version: sql`${t.version} + 1`, updatedAt: new Date() },
+            setWhere: eq(t.version, version),
+          })
+          .returning({ version: t.version });
+        // A first insert must also have been expected as "never saved".
+        if (!r || (r.version === 1 && version !== 0)) return null;
+        return r.version;
       },
     },
   };

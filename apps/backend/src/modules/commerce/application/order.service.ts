@@ -1,19 +1,21 @@
+import type { OrderListQuery as OrderListSchema } from '@agent-sales/contracts';
 import {
   type ChangeOrderStatusRequest,
   CLOSED_ORDER_STATUSES,
   CreateOrderRequest as CreateOrderSchema,
   type CreateOrderRequest,
-  OPTIONAL_ORDER_STATUSES,
+  FULFILMENT_ORDER_STATUSES,
   type OrderDto,
-  type OrderListQuery,
-  OrderListQuery as OrderListSchema,
   type OrderListResponse,
   type OrderOverviewResponse,
   type OrderSettingsDto,
+  OrderSettingsDto as OrderSettingsSchema,
+  UpdateOrderRequest as UpdateOrderSchema,
   type UpdateOrderRequest,
 } from '@agent-sales/contracts';
 import { foldVietnamese, isUuid, newId, userId, type WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable } from '@nestjs/common';
+import type { z } from 'zod';
 
 import type { CommerceFacade } from '../api/commerce.facade.js';
 import { IDENTITY_FACADE, type IdentityFacade } from '../../identity/api/index.js';
@@ -21,30 +23,41 @@ import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/inde
 import {
   DuplicateOrderRequestError,
   NoWarehouseError,
+  OrderDiscountError,
+  OrderItemsLockedError,
   OrderNotFoundError,
   OrderNoteRequiredError,
-  StatusDisabledError,
-  VariantNotFoundError,
+  StaleSettingsError,
   WarehouseNotFoundError,
 } from '../domain/commerce.errors.js';
 import { datesBetween, localDate, nextDate, startOfLocalDay } from '../domain/local-time.js';
 import { computeAmounts } from '@agent-sales/shared';
-import { type OrderStatus, stockTransition } from '../domain/order-stock.js';
-import { orderSearchText, stockChanges, toOrderDto, toSummary } from './order.mappers.js';
+import { stockTransition } from '../domain/order-stock.js';
+import {
+  assertPolicy,
+  assertStatusAllowed,
+  loadSettings,
+  normalizeSettings,
+  orderLines,
+  peopleOf,
+} from './order-rules.js';
+import {
+  amountFields,
+  orderSearchText,
+  reservationChanges,
+  stockChanges,
+  toOrderDto,
+  toSummary,
+} from './order.mappers.js';
 import {
   COMMERCE_STORE,
   type CommerceStore,
   type CommerceTx,
-  type OrderItemRecord,
   type OrderRecord,
 } from './ports/commerce-store.js';
 
 const CLOSED: ReadonlySet<string> = new Set(CLOSED_ORDER_STATUSES);
-const OPTIONAL: ReadonlySet<string> = new Set(OPTIONAL_ORDER_STATUSES);
-const DEFAULT_SETTINGS: OrderSettingsDto = {
-  extraStatuses: ['awaiting_print', 'printed'],
-  requireNoteStatuses: [],
-};
+const FULFILMENT: ReadonlySet<string> = new Set(FULFILMENT_ORDER_STATUSES);
 
 /** Orders: creation with stock reservation, status flow, edits, list, overview (ORD-03/04/05/11). */
 @Injectable()
@@ -86,8 +99,9 @@ export class OrderService implements CommerceFacade {
         const first = await tx.orders.findByRequestId(input.clientRequestId);
         if (first) return this.#dto(tx, first);
       }
-      const settings = await this.#settings(tx);
-      this.#assertStatusAllowed(settings, input.status);
+      const settings = await loadSettings(tx);
+      assertStatusAllowed(settings, input.status);
+      assertPolicy(settings, input.source, input, input.status);
       const warehouse = isUuid(input.warehouseId)
         ? await tx.warehouses.find(input.warehouseId)
         : null;
@@ -97,33 +111,7 @@ export class OrderService implements CommerceFacade {
           : new NoWarehouseError();
       }
 
-      const variantIds = [...new Set(input.items.map((i) => i.variantId))];
-      const variants = new Map(
-        (await tx.products.variantsByIds(variantIds))
-          // Archived variants and products no longer on sale cannot be ordered.
-          .filter((v) => !v.archived && v.productActive)
-          .map((v) => [v.id, v]),
-      );
-      const missing = variantIds.filter((id) => !variants.has(id));
-      if (missing.length) throw new VariantNotFoundError(missing);
-
-      const items: OrderItemRecord[] = input.items.map((i, position) => {
-        const v = variants.get(i.variantId);
-        if (!v) throw new VariantNotFoundError([i.variantId]);
-        const unitPrice = i.unitPrice ?? v.price;
-        return {
-          id: newId(),
-          variantId: v.id,
-          productName: v.productName,
-          variantName: v.name,
-          sku: v.sku,
-          qty: i.qty,
-          unitPrice,
-          unitCost: v.cost,
-          lineTotal: unitPrice * i.qty,
-          position,
-        };
-      });
+      const items = await orderLines(tx, input.items);
       const amounts = computeAmounts({
         items: items.map((i) => ({ qty: i.qty, unitPrice: i.unitPrice, unitCost: i.unitCost })),
         discountType: input.discountType,
@@ -148,21 +136,7 @@ export class OrderService implements CommerceFacade {
         customer: input.customer,
         recipient: input.recipient,
         expectedDeliveryAt: input.expectedDeliveryAt ? new Date(input.expectedDeliveryAt) : null,
-        itemQty: amounts.itemQty,
-        subtotal: amounts.subtotal,
-        discountType: amounts.discountType,
-        discountValue: amounts.discountValue,
-        discountAmount: amounts.discountAmount,
-        shippingFee: amounts.shippingFee,
-        shippingFeeCharged: amounts.shippingFeeCharged,
-        freeShipping: amounts.freeShipping,
-        surcharge: amounts.surcharge,
-        transferAmount: amounts.transferAmount,
-        total: amounts.total,
-        paid: amounts.paid,
-        remaining: amounts.remaining,
-        codAmount: amounts.cod,
-        costTotal: amounts.costTotal,
+        ...amountFields(amounts),
         carrier: input.carrier || null,
         trackingCode: input.trackingCode || null,
         noteInternal: input.noteInternal,
@@ -200,11 +174,27 @@ export class OrderService implements CommerceFacade {
     return this.store.run(ws, async (tx) => this.#dto(tx, await this.#order(tx, id)));
   }
 
-  /** Edits that keep the items; payment and shipping changes recompute the amounts. */
-  update(ws: WorkspaceId, id: string, change: UpdateOrderRequest): Promise<OrderDto> {
+  /**
+   * Edits an order and recomputes its amounts. New lines (`items`) are accepted only
+   * while the order holds its goods; the reservation moves by the difference, and
+   * lines kept from before keep their price snapshot unless a new price is given.
+   */
+  update(
+    ws: WorkspaceId,
+    id: string,
+    raw: UpdateOrderRequest,
+    actorUserId: string | null = null,
+  ): Promise<OrderDto> {
+    const change = UpdateOrderSchema.parse(raw);
     return this.store.run(ws, async (tx) => {
+      // Locked: concurrent edits and status changes of one order run one after the other.
       const o = await this.#order(tx, id, { forUpdate: true });
-      const items = await tx.orders.itemsOf(o.id);
+      const current = await tx.orders.itemsOf(o.id);
+      let items = current;
+      if (change.items) {
+        if (o.stockState !== 'reserved') throw new OrderItemsLockedError(o.stockState);
+        items = await orderLines(tx, change.items, current);
+      }
       const next: OrderRecord = {
         ...o,
         ...(change.customer ? { customer: change.customer } : {}),
@@ -222,25 +212,31 @@ export class OrderService implements CommerceFacade {
         ...(change.notePrint !== undefined ? { notePrint: change.notePrint } : {}),
         updatedAt: new Date(),
       };
+      if (change.customer || change.recipient) {
+        // The edited people must still satisfy the policy of the stage the order is in.
+        assertPolicy(await loadSettings(tx), o.source, peopleOf(next), o.status);
+      }
+      const discountType = change.discountType ?? o.discountType;
+      const discountValue = change.discountValue ?? o.discountValue;
+      if (discountType === 'percent' && discountValue > 100) {
+        throw new OrderDiscountError();
+      }
       const amounts = computeAmounts({
         items: items.map((i) => ({ qty: i.qty, unitPrice: i.unitPrice, unitCost: i.unitCost })),
-        discountType: o.discountType,
-        discountValue: o.discountValue,
+        discountType,
+        discountValue,
         shippingFee: change.shippingFee ?? o.shippingFee,
-        shippingFeeCharged: o.shippingFeeCharged,
-        freeShipping: o.freeShipping,
-        surcharge: o.surcharge,
+        shippingFeeCharged: change.shippingFeeCharged ?? o.shippingFeeCharged,
+        freeShipping: change.freeShipping ?? o.freeShipping,
+        surcharge: change.surcharge ?? o.surcharge,
         transferAmount: change.transferAmount ?? o.transferAmount,
       });
-      Object.assign(next, {
-        shippingFee: amounts.shippingFee,
-        transferAmount: amounts.transferAmount,
-        total: amounts.total,
-        paid: amounts.paid,
-        remaining: amounts.remaining,
-        codAmount: amounts.cod,
-      });
+      Object.assign(next, amountFields(amounts));
       next.searchText = orderSearchText(next);
+      if (change.items) {
+        await tx.inventory.apply(ws, reservationChanges(o, current, items, actorUserId));
+        await tx.orders.replaceItems(o.id, items);
+      }
       await tx.orders.update(next);
       return this.#dto(tx, next);
     });
@@ -257,10 +253,14 @@ export class OrderService implements CommerceFacade {
       // Locked: two people changing the same order cannot both move its stock.
       const o = await this.#order(tx, id, { forUpdate: true });
       if (o.status === input.status) return this.#dto(tx, o);
-      const settings = await this.#settings(tx);
-      this.#assertStatusAllowed(settings, input.status);
+      const settings = await loadSettings(tx);
+      assertStatusAllowed(settings, input.status);
       if (settings.requireNoteStatuses.includes(input.status) && !input.note?.trim()) {
         throw new OrderNoteRequiredError(input.status);
+      }
+      if (!FULFILMENT.has(o.status)) {
+        // Entering fulfilment: the source's confirmation fields must be filled by now.
+        assertPolicy(settings, o.source, peopleOf(o), input.status);
       }
 
       const stock = stockTransition(o.stockState, input.status);
@@ -289,12 +289,15 @@ export class OrderService implements CommerceFacade {
     });
   }
 
-  async list(ws: WorkspaceId, raw: OrderListQuery): Promise<OrderListResponse> {
-    const q = OrderListSchema.parse(raw);
+  /** Takes the query as the controller's validation pipe parsed it. */
+  async list(ws: WorkspaceId, q: z.output<typeof OrderListSchema>): Promise<OrderListResponse> {
     const tz = await this.#timezone(ws);
     return this.store.run(ws, async (tx) => {
       const result = await tx.orders.list({
-        status: q.status,
+        statuses: q.status,
+        statusMode: q.statusMode,
+        createdBy: q.createdBy,
+        carrier: q.carrier,
         q: q.q ? foldVietnamese(q.q) : undefined,
         source: q.source,
         from: q.from ? startOfLocalDay(q.from, tz) : undefined,
@@ -310,6 +313,7 @@ export class OrderService implements CommerceFacade {
         pageSize: q.pageSize,
         counts: result.counts,
         totals: result.totals,
+        facets: result.facets,
       };
     });
   }
@@ -372,17 +376,17 @@ export class OrderService implements CommerceFacade {
   }
 
   getSettings(ws: WorkspaceId): Promise<OrderSettingsDto> {
-    return this.store.run(ws, (tx) => this.#settings(tx));
+    return this.store.run(ws, (tx) => loadSettings(tx));
   }
 
-  putSettings(ws: WorkspaceId, s: OrderSettingsDto): Promise<OrderSettingsDto> {
+  /** Refused with CONFLICT when the settings changed since `s.version` was loaded. */
+  putSettings(ws: WorkspaceId, raw: OrderSettingsDto): Promise<OrderSettingsDto> {
+    const s = OrderSettingsSchema.parse(raw);
     return this.store.run(ws, async (tx) => {
-      const clean: OrderSettingsDto = {
-        extraStatuses: [...new Set(s.extraStatuses)],
-        requireNoteStatuses: [...new Set(s.requireNoteStatuses)],
-      };
-      await tx.settings.put(ws, clean);
-      return clean;
+      const clean = normalizeSettings(s);
+      const version = await tx.settings.put(ws, { ...clean, version: s.version });
+      if (version === null) throw new StaleSettingsError();
+      return { ...clean, version };
     });
   }
 
@@ -390,17 +394,6 @@ export class OrderService implements CommerceFacade {
 
   async #timezone(ws: WorkspaceId): Promise<string> {
     return (await this.workspaces.getById(ws)).timezone || 'Asia/Ho_Chi_Minh';
-  }
-
-  async #settings(tx: CommerceTx): Promise<OrderSettingsDto> {
-    const s = await tx.settings.get();
-    return s ? (s as OrderSettingsDto) : DEFAULT_SETTINGS;
-  }
-
-  #assertStatusAllowed(settings: OrderSettingsDto, status: OrderStatus): void {
-    if (OPTIONAL.has(status) && !(settings.extraStatuses as string[]).includes(status)) {
-      throw new StatusDisabledError(status);
-    }
   }
 
   async #order(tx: CommerceTx, id: string, opts?: { forUpdate: boolean }): Promise<OrderRecord> {

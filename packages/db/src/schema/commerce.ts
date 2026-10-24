@@ -230,6 +230,12 @@ export const orderSettings = pgTable(
       .references(() => workspaces.id),
     extraStatuses: text('extra_statuses').array().notNull().default([]),
     requireNoteStatuses: text('require_note_statuses').array().notNull().default([]),
+    /** Per-source field policies (0005); missing sources use the contract defaults. */
+    policies: jsonb('policies')
+      .notNull()
+      .default([])
+      .$type<Array<{ source: string; create: string[]; confirm: string[] }>>(),
+    version: integer('version').notNull().default(0),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
   () => [...tenantPolicies('order_settings')],

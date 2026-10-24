@@ -5,7 +5,8 @@
  *   discount_amount = percent ? round(subtotal × value / 100) : min(value, subtotal)
  *   after_discount  = subtotal − discount_amount
  *   charged         = free_shipping ? 0 : shipping_fee_charged
- *   total           = after_discount + charged + surcharge      ("Tiền cần thu")
+ *   gross           = subtotal + charged + surcharge            ("Tổng số tiền", before discount)
+ *   total           = gross − discount_amount                   ("Tiền cần thu")
  *   paid            = transfer_amount
  *   remaining       = total − paid                              ("Còn thiếu"; < 0 = overpaid)
  *   cod             = max(remaining, 0)
@@ -35,6 +36,7 @@ export interface Amounts {
   shippingFeeCharged: number;
   freeShipping: boolean;
   surcharge: number;
+  gross: number;
   total: number;
   transferAmount: number;
   paid: number;
@@ -53,7 +55,8 @@ export function computeAmounts(input: AmountInput): Amounts {
       : Math.min(input.discountValue, subtotal);
   const afterDiscount = subtotal - discountAmount;
   const shippingFeeCharged = input.freeShipping ? 0 : input.shippingFeeCharged;
-  const total = afterDiscount + shippingFeeCharged + input.surcharge;
+  const gross = subtotal + shippingFeeCharged + input.surcharge;
+  const total = gross - discountAmount;
   const paid = input.transferAmount;
   const remaining = total - paid;
   return {
@@ -67,6 +70,7 @@ export function computeAmounts(input: AmountInput): Amounts {
     shippingFeeCharged,
     freeShipping: input.freeShipping,
     surcharge: input.surcharge,
+    gross,
     total,
     transferAmount: input.transferAmount,
     paid,
