@@ -267,7 +267,18 @@
     "tierSaved": "Đã lưu gói {{tier}}",
     "save": "Lưu máy chủ",
     "cancel": "Hủy",
-    "baseUrlDropsKey": "Đổi địa chỉ API sẽ xóa key đã lưu. Nhập lại key cho địa chỉ mới."
+    "baseUrlDropsKey": "Đổi địa chỉ API sẽ xóa key đã lưu. Nhập lại key cho địa chỉ mới.",
+    "checkConnection": "Kiểm tra kết nối",
+    "checking": "Đang kiểm tra…",
+    "checkHint": "Thử với thông tin đang nhập, chưa cần lưu.",
+    "checkOk_other": "Kết nối được sau {{ms}} ms · có {{count}} mô hình",
+    "fetchModels": "Chọn từ danh sách mô hình của máy chủ",
+    "fetchingModels": "Đang lấy danh sách mô hình…",
+    "filterModels": "Lọc trong {{count}} mô hình",
+    "noModels": "Không có mô hình phù hợp.",
+    "retry": "Thử lại",
+    "showKey": "Hiện key",
+    "hideKey": "Ẩn key"
   },
   "errors": {
     "notFoundTitle": "Không tìm thấy trang",

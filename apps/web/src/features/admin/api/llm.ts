@@ -1,5 +1,7 @@
 import {
   type CreateLlmProviderRequest,
+  type DiscoverLlmModelsRequest,
+  DiscoverLlmModelsResponse,
   LlmProviderDto,
   LlmProviderList,
   LlmTierRouteDto,
@@ -68,6 +70,18 @@ export function useTestProvider() {
         ...global,
         method: 'POST',
         body: { model },
+      }),
+  });
+}
+
+/** Checks the connection and lists models; works on a draft that is not saved yet. */
+export function useDiscoverModels() {
+  return useMutation({
+    mutationFn: (input: DiscoverLlmModelsRequest) =>
+      api('/admin/llm/providers/models', DiscoverLlmModelsResponse, {
+        ...global,
+        method: 'POST',
+        body: input,
       }),
   });
 }

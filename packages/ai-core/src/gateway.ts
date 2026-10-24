@@ -71,6 +71,8 @@ export interface ModelTarget {
 export interface LlmProvider {
   readonly name: string;
   generate(request: GenerateRequest, target: ModelTarget): Promise<GenerateResponse>;
+  /** Model ids the server offers; absent when the provider has no listing endpoint. */
+  listModels?(): Promise<string[]>;
 }
 
 export interface TierPolicy extends ModelTarget {

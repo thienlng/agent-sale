@@ -22,6 +22,8 @@ const SERVER_FALLBACK_MODELS = new Set([
 ]);
 const SERVER_FALLBACK_BETA = 'server-side-fallback-2026-07-01';
 
+const MAX_LISTED_MODELS = 500;
+
 export interface AnthropicProviderOptions {
   /** Registry name used by tier policies; defaults to "anthropic". */
   name?: string;
@@ -99,6 +101,15 @@ export class AnthropicProvider implements LlmProvider {
       model: response.model,
       latencyMs: Math.round(performance.now() - started),
     };
+  }
+
+  async listModels(): Promise<string[]> {
+    const ids: string[] = [];
+    for await (const model of this.#client.models.list({ limit: 100 })) {
+      ids.push(model.id);
+      if (ids.length >= MAX_LISTED_MODELS) break;
+    }
+    return ids;
   }
 }
 

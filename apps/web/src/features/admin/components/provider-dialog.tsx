@@ -1,4 +1,5 @@
 import type { LlmProviderDto, LlmProviderKind, LlmProviderOptions } from '@agent-sales/contracts';
+import { Eye, EyeOff, Plug } from 'lucide-react';
 import { type FormEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -24,7 +25,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { errorMessage } from '@/lib/errors';
 
-import { useSaveProvider } from '../api/llm';
+import { useDiscoverModels, useSaveProvider } from '../api/llm';
 
 const NAME = /^[a-z][a-z0-9-]{1,39}$/;
 
@@ -40,11 +41,13 @@ export function ProviderDialog({
 }) {
   const { t } = useTranslation();
   const save = useSaveProvider();
+  const check = useDiscoverModels();
   const [name, setName] = useState('');
   const [kind, setKind] = useState<LlmProviderKind>('openai_compatible');
   const [baseUrl, setBaseUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [removeKey, setRemoveKey] = useState(false);
+  const [showKey, setShowKey] = useState(false);
   const [options, setOptions] = useState<LlmProviderOptions>({
     structuredOutput: 'json_schema',
     sendReasoningEffort: false,
@@ -59,6 +62,7 @@ export function ProviderDialog({
     setBaseUrl(provider?.baseUrl ?? '');
     setApiKey('');
     setRemoveKey(false);
+    setShowKey(false);
     setOptions(
       provider?.options ?? {
         structuredOutput: 'json_schema',
@@ -67,12 +71,22 @@ export function ProviderDialog({
       },
     );
     setIsEnabled(provider?.isEnabled ?? true);
+    check.reset();
   }, [open, provider]);
 
   const nameError = !provider && name && !NAME.test(name) ? t('errors.invalidName') : null;
   const urlError = baseUrl && !/^https?:\/\/\S+$/.test(baseUrl) ? t('errors.invalidUrl') : null;
   const needsUrl = (kind === 'openai_compatible' || kind === 'hermes') && !baseUrl;
   const valid = (provider || NAME.test(name)) && !urlError && !needsUrl;
+
+  function checkConnection() {
+    check.mutate({
+      ...(provider ? { providerId: provider.id } : {}),
+      kind: provider?.kind ?? kind,
+      baseUrl: baseUrl || null,
+      ...(apiKey && !removeKey ? { apiKey } : {}),
+    });
+  }
 
   function submit(e: FormEvent) {
     e.preventDefault();
@@ -189,18 +203,34 @@ export function ProviderDialog({
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="p-key">{t('admin.apiKey')}</Label>
-            <Input
-              id="p-key"
-              type="password"
-              autoComplete="off"
-              value={apiKey}
-              disabled={removeKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder={
-                provider?.apiKeyHint ? t('admin.apiKeyKeep', { hint: provider.apiKeyHint }) : ''
-              }
-              className="h-10"
-            />
+            <div className="flex gap-1">
+              <Input
+                id="p-key"
+                type={showKey ? 'text' : 'password'}
+                autoComplete="off"
+                spellCheck={false}
+                value={apiKey}
+                disabled={removeKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder={
+                  provider?.apiKeyHint ? t('admin.apiKeyKeep', { hint: provider.apiKeyHint }) : ''
+                }
+                className="h-10 min-w-0 font-mono"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="size-10 shrink-0"
+                disabled={removeKey}
+                aria-pressed={showKey}
+                aria-label={showKey ? t('admin.hideKey') : t('admin.showKey')}
+                title={showKey ? t('admin.hideKey') : t('admin.showKey')}
+                onClick={() => setShowKey((v) => !v)}
+              >
+                {showKey ? <EyeOff /> : <Eye />}
+              </Button>
+            </div>
             {provider?.hasApiKey && !apiKey && (baseUrl || null) !== provider.baseUrl ? (
               <p className="text-sm text-warning">{t('admin.baseUrlDropsKey')}</p>
             ) : null}
@@ -271,6 +301,43 @@ export function ProviderDialog({
             <Switch checked={isEnabled} onCheckedChange={setIsEnabled} />
             {isEnabled ? t('admin.enabled') : t('admin.disabled')}
           </label>
+
+          {kind !== 'hermes' ? (
+            <div className="flex flex-col gap-2 rounded-lg border bg-muted/40 p-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={Boolean(urlError) || needsUrl || check.isPending}
+                  onClick={checkConnection}
+                >
+                  <Plug />
+                  {check.isPending ? t('admin.checking') : t('admin.checkConnection')}
+                </Button>
+                <span className="text-sm text-muted-foreground">{t('admin.checkHint')}</span>
+              </div>
+              {check.data ? (
+                <p
+                  role="status"
+                  className={
+                    check.data.ok ? 'text-sm text-success' : 'text-sm break-words text-destructive'
+                  }
+                >
+                  {check.data.ok
+                    ? t('admin.checkOk', {
+                        count: check.data.models.length,
+                        ms: check.data.latencyMs,
+                      })
+                    : t('admin.testFail', { error: check.data.error })}
+                </p>
+              ) : check.isError ? (
+                <p role="status" className="text-sm text-destructive">
+                  {errorMessage(t, check.error)}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
