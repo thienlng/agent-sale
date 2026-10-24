@@ -14,6 +14,12 @@ const BridgeReply = z.object({
   }),
 });
 
+/**
+ * The bridge may run a turn for its 50 s budget plus a 15 s token refresh. Aborting earlier frees
+ * nothing on the bridge: it keeps its single slot busy and answers the next caller with 429.
+ */
+export const HERMES_MIN_TIMEOUT_MS = 70_000;
+
 /** Hermes owns inference; platform authorization, retrieval and delivery stay in NestJS. */
 export class HermesProvider implements LlmProvider {
   readonly name: string;
@@ -44,7 +50,8 @@ export class HermesProvider implements LlmProvider {
     this.#endpoint = `${url.toString().replace(/\/$/, '')}/v1/generate`;
     this.#key = options.apiKey;
     this.#fetch = options.fetch ?? fetch;
-    this.#timeout = options.timeoutMs ?? 60_000;
+    // The admin form's generic 20 s default must not undercut the bridge's own budget.
+    this.#timeout = Math.max(options.timeoutMs ?? HERMES_MIN_TIMEOUT_MS, HERMES_MIN_TIMEOUT_MS);
   }
 
   async generate(request: GenerateRequest, target: ModelTarget): Promise<GenerateResponse> {

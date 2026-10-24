@@ -79,7 +79,7 @@ Tenancy: every repository method and every query takes a `WorkspaceId`; persiste
 |---|---|---|
 | 0 — leaf consumers | `audit`, `notification` | Only consume events; everyone may emit to them |
 | 1 — platform | `identity`, `workspace`, `billing` | Entitlements/quota are a `billing` facade |
-| 2 — capabilities | `bot`, `knowledge`, `channel`, `ai`, `crm`, `commerce` | `ai` depends on `knowledge`, `bot`; `commerce` on `crm` |
+| 2 — capabilities | `bot`, `knowledge`, `channel`, `ai`, `crm`, `commerce` | `ai` depends on `knowledge`, `bot`, `commerce` (bot product grounding); `channel` on `bot`; `commerce` on `crm` |
 | 3 — flows | `conversation`, `shipping`, `marketing`, `automation`, `support`, `affiliate` | Orchestrate tier 1–2 facades |
 | 4 — read models | `analytics` | Consumes events only; owns rollup tables |
 
@@ -146,8 +146,9 @@ flowchart LR
 | Owns | Inference only. NestJS keeps workspace authorization, retrieval, grounding, conversation state, human takeover and outbound delivery. |
 | Must not | Read or write the platform database, Redis or object storage; send channel messages; run tools, shell or memory; log message content; return credentials or provider error text. |
 | Network | Binds to `127.0.0.1` (or a private network address in deployment); never exposed through the load balancer. |
-| Capacity | Single-flight: one active turn, `429` while busy, 50 s run budget. Callers bound their concurrency; scale by running more instances behind a private address, not by raising the limit. |
-| Credentials | Its own private `HERMES_HOME` (`RAPIZ_HERMES_HOME`) and bridge key; never shared with another process or project. |
+| Capacity | Single-flight: one active turn, `429` while busy, 50 s run budget (+ up to 15 s token refresh). `HermesProvider` therefore never times out below 70 s (`HERMES_MIN_TIMEOUT_MS`). Callers bound their concurrency. To scale, run more instances, **each with its own `HERMES_HOME` and its own login** — instances sharing one refresh token invalidate each other. |
+| Credentials | One private `HERMES_HOME` (`RAPIZ_HERMES_HOME`, mode 700) and one bridge key per instance; never shared with another instance, process or project. |
+| Version | The Hermes package version is not pinned yet; until T-050 lands, the bridge is dev/staging only. |
 | Tests | `python3 -m unittest discover -s services/hermes -p 'test_*.py'` (CI job `hermes`) + `packages/ai-core` provider tests. No real model calls. |
 
 Replacing Hermes with a TypeScript provider must not change any module, contract or UI: only the provider kind behind the tier route changes. Setup and limits: `services/hermes/README.md`.

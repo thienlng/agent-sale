@@ -4,7 +4,7 @@ This private Python process adapts the existing Hermes AIAgent used by booking-a
 
 ## Start
 
-Use Python 3.11–3.13 with Hermes installed. The existing development checkout provides a compatible environment at `/home/kenknight/Workspace/NetClaw_1.1.0/booking-agent/.venv/bin/python`; no source files or credentials are copied from that project.
+Use Python 3.11–3.13 with Hermes installed in a virtual environment of your own. The runtime calls Hermes internals (`run_budget_seconds`, `load_soul_identity`, `skip_background_review`, the system-prompt hooks in `runtime.py`), so a different Hermes version can fail every turn with `502 RUNTIME_FAILED`. **The verified version is not pinned yet (T-050): treat the bridge as dev/staging only until it is.** No source files or credentials are copied from booking-agent.
 
 ```bash
 cd services/hermes
@@ -14,6 +14,8 @@ cd services/hermes
 # RAPIZ_HERMES_PROVIDER defaults to openai-codex; openrouter requires explicit selection.
 python bridge.py
 ```
+
+Run **one bridge per `HERMES_HOME`**: each instance needs its own private home and its own login, because two processes rotating the same refresh token log each other out. The platform's `HermesProvider` waits at least 70 s per turn (50 s run budget + 15 s refresh), so a slow turn is never abandoned while it still holds the single slot.
 
 The server binds only to `127.0.0.1:8788`. `HERMES_BRIDGE_PORT` changes the port. `GET /health` proves the process is up, not model access. In the platform admin LLM settings, add a **Hermes** provider with base URL `http://127.0.0.1:8788`, the bridge secret in the write-only API-key field, and a tier route with an explicitly permitted model. The bridge key is not a model API key. Missing or failed Hermes never silently switches to paid API usage; any tier fallback is an explicit platform-admin configuration.
 

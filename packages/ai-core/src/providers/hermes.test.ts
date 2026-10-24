@@ -2,7 +2,7 @@ import { workspaceId } from '@agent-sales/shared';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
-import { HermesProvider } from './hermes.js';
+import { HERMES_MIN_TIMEOUT_MS, HermesProvider } from './hermes.js';
 
 const request = {
   workspaceId: workspaceId('0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d10'),
@@ -45,6 +45,27 @@ describe('HermesProvider', () => {
       model: 'configured-model',
       responseSchema: { type: 'object' },
     });
+  });
+
+  it('never times out before the bridge run budget, even with a shorter configured timeout', async () => {
+    const timeout = vi.spyOn(AbortSignal, 'timeout');
+    const ok = new Response(
+      JSON.stringify({
+        version: 1,
+        text: 'ok',
+        model: 'm',
+        usage: { inputTokens: 1, outputTokens: 1, cachedInputTokens: 0 },
+      }),
+    );
+    const provider = new HermesProvider({
+      baseURL: 'http://127.0.0.1:8788',
+      apiKey: 'k',
+      timeoutMs: 20_000,
+      fetch: async () => ok,
+    });
+    await provider.generate(request, { model: 'm' });
+    expect(timeout).toHaveBeenCalledWith(HERMES_MIN_TIMEOUT_MS);
+    timeout.mockRestore();
   });
 
   it('does not expose provider response bodies or credentials on bridge failures', async () => {
