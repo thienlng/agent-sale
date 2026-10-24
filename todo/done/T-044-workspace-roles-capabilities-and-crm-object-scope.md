@@ -23,7 +23,7 @@ What a member can do follows their role, on the server and in the UI.
 
 ## Scope
 
-- Roles owner/admin/sales/care/analyst; `ROLE_CAPABILITIES` in contracts shared by server and web; `@RequireCapability()` checked by the auth guard (403); legacy role names mapped in migration 0007.
+- Roles owner/admin/sales/care/analyst; `ROLE_CAPABILITIES` in contracts shared by server and web; `@RequireCapability()` checked by the auth guard (403); legacy role names mapped in migration 0014.
 - Routes annotated across bots, catalog, orders, order settings, CRM settings, customers and views.
 - Customer scope: Sales/CSKH see their own and unassigned customers (404 otherwise); owner changes need `contacts.assign` except claiming an empty slot; sharing views needs `views.share`.
 - Web: `useCan`, hidden settings links and add buttons, read-only customer drawer, owner pickers limited to yourself without assign.

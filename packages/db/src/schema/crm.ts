@@ -182,7 +182,7 @@ export const savedViews = pgTable(
   () => [...tenantPolicies('saved_views')],
 );
 
-/** Per-source auto-assignment of new customers to Sales (0007). */
+/** Per-source auto-assignment of new customers to Sales (0014). */
 export const crmAssignmentPolicies = pgTable(
   'crm_assignment_policies',
   {

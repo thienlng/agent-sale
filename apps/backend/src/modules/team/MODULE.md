@@ -2,7 +2,7 @@
 
 **Purpose:** members and invitation links of a workspace (docs/02 SET-01): who is in the shop, with which role, and how new people join.
 
-**Owned tables:** `invitations` (tenant, forced RLS — migration 0007; schema in `packages/db/src/schema/workspace.ts`). Member rows stay owned by `workspace`; this module changes them only through `WorkspaceFacade` (`listMembers`, `joinMember`, `changeMemberRole`, `removeMember`).
+**Owned tables:** `invitations` (tenant, forced RLS — migration 0014; schema in `packages/db/src/schema/workspace.ts`). Member rows stay owned by `workspace`; this module changes them only through `WorkspaceFacade` (`listMembers`, `joinMember`, `changeMemberRole`, `removeMember`).
 
 **Public API (`api/`):** `TEAM_FACADE` → `listMembers(workspaceId, actor)` (members with names and emails). HTTP: `/members`, `/members/{userId}` (role), `/members/{userId}/remove`, `/invitations`, `/invitations/{id}/revoke` (workspace-scoped, `members.manage`), `/invitation-links/{token}` and `/invitation-links/accept` (signed in, not workspace-scoped).
 

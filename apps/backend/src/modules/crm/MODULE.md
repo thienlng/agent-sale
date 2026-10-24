@@ -2,7 +2,7 @@
 
 **Purpose:** the shop's customers — profiles with notes and an audit history, customer sources and pipeline statuses, Sales/CSKH ownership, tag definitions with attribute schemas and their assignments, typed filters and saved views (docs/02 CRM-01..CRM-10; GitHub epic #25, issues #26–#29).
 
-**Owned tables:** `contacts`, `contact_notes`, `contact_history`, `crm_sources`, `crm_statuses`, `crm_tags`, `crm_tag_assignments`, `saved_views`, `crm_assignment_policies` (tenant, forced RLS — migrations 0006, 0007; schema in `packages/db/src/schema/crm.ts`).
+**Owned tables:** `contacts`, `contact_notes`, `contact_history`, `crm_sources`, `crm_statuses`, `crm_tags`, `crm_tag_assignments`, `saved_views`, `crm_assignment_policies` (tenant, forced RLS — migrations 0006, 0014; schema in `packages/db/src/schema/crm.ts`).
 
 **Public API (`api/`):**
 

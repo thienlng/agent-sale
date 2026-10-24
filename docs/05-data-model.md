@@ -54,7 +54,7 @@ invitations(id, workspace_id, email, role_id, token_hash, expires_at, accepted_a
 assignment_rules(id, workspace_id, mode: off|by_channel|by_ratio|by_ratio_daily, config JSONB, only_online BOOL)
 ```
 
-**Implemented (M3b, migration 0007):** `members.role` is `owner | admin | sales | care | analyst` (a text column; capabilities per role live in `ROLE_CAPABILITIES` in contracts — custom roles and the `roles` table come with SET-03), `members.status` is `active | removed` with `removed_at`, unique per workspace and user. `invitations(id, workspace_id, email, role, token_hash UNIQUE, invited_by_user_id, invited_by_name, expires_at, accepted_at, accepted_by_user_id, revoked_at, created_at)` stores only a SHA-256 of the link secret; it is owned by the `team` module.
+**Implemented (M3b, migration 0014):** `members.role` is `owner | admin | sales | care | analyst` (a text column; capabilities per role live in `ROLE_CAPABILITIES` in contracts — custom roles and the `roles` table come with SET-03), `members.status` is `active | removed` with `removed_at`, unique per workspace and user. `invitations(id, workspace_id, email, role, token_hash UNIQUE, invited_by_user_id, invited_by_name, expires_at, accepted_at, accepted_by_user_id, revoked_at, created_at)` stores only a SHA-256 of the link secret; it is owned by the `team` module.
 
 ## 3. Bot & knowledge
 

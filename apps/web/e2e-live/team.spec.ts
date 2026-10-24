@@ -15,8 +15,8 @@ import {
 
 const password = 'live e2e password 2026';
 const stamp = `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
-const ownerEmail = `team-owner-${stamp}@e2e.razpi.test`;
-const salesEmail = `team-sales-${stamp}@e2e.razpi.test`;
+const ownerEmail = `team-owner-${stamp}@e2e.rapiz.test`;
+const salesEmail = `team-sales-${stamp}@e2e.rapiz.test`;
 
 let ownerApi: APIRequestContext;
 let ownerPage: Page;

@@ -1,4 +1,4 @@
--- 0007_team_access: invitation links, member removal and roles, and per-source
+-- 0014_team_access: invitation links, member removal and roles, and per-source
 -- auto-assignment policies for new customers (docs/02 SET-01, SET-02; T-043, T-044, T-033).
 
 -- Roles become owner | admin | sales | care | analyst; older names map to the least

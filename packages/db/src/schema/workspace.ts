@@ -68,7 +68,7 @@ export const members = pgTable(
   ],
 );
 
-/** Invitation links (0007): only the hash of the link secret is stored. */
+/** Invitation links (0014): only the hash of the link secret is stored. */
 export const invitations = pgTable(
   'invitations',
   {

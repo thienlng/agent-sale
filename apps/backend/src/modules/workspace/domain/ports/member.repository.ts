@@ -1,6 +1,6 @@
 import type { UserId, WorkspaceId } from '@agent-sales/shared';
 
-/** Mirrors WORKSPACE_ROLES in contracts (migration 0007 mapped the older names). */
+/** Mirrors WORKSPACE_ROLES in contracts (migration 0014 mapped the older names). */
 export type MemberRole = 'owner' | 'admin' | 'sales' | 'care' | 'analyst';
 
 export interface Membership {

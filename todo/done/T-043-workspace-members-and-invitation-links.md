@@ -23,7 +23,7 @@ Owners and admins invite people by email and role, manage roles and remove membe
 
 ## Scope
 
-- New `team` module (invitations table, migration 0007); member changes through new `WorkspaceFacade` methods (`listMembers`, `joinMember`, `changeMemberRole`, `removeMember`); `IdentityFacade.profile`.
+- New `team` module (invitations table, migration 0014); member changes through new `WorkspaceFacade` methods (`listMembers`, `joinMember`, `changeMemberRole`, `removeMember`); `IdentityFacade.profile`.
 - Invitation links: 32-byte secret returned once, SHA-256 stored, 7 days, email must match the signed-in user, re-invite revokes the pending one.
 - Web: Members & access page, invite dialog with a copyable link, `/join` page (sign in or sign up with redirect back; signup prefills the email from the link).
 
