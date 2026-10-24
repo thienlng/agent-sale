@@ -4,6 +4,8 @@ import type { WorkspaceId } from '@agent-sales/shared';
 import type { AuditFilter, AuditStore } from '../../application/ports/audit-store.js';
 
 const e = schema.auditEvents;
+/** The cursor travels as a JS Date (ms), so order and compare at ms: no row falls between two pages. */
+const at = sql`date_trunc('milliseconds', ${e.createdAt})`;
 const likePrefix = (p: string) => `${p.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 
 /** Reads the audit trail under tenant RLS (the table is append-only for the app role). */
@@ -25,11 +27,11 @@ export class DrizzleAuditStore implements AuditStore {
             f.from ? sql`${e.createdAt} >= ${f.from.toISOString()}` : undefined,
             f.to ? sql`${e.createdAt} < ${f.to.toISOString()}` : undefined,
             f.before
-              ? sql`(${e.createdAt}, ${e.id}) < (${f.before.at.toISOString()}::timestamptz, ${f.before.id}::uuid)`
+              ? sql`(${at}, ${e.id}) < (${f.before.at.toISOString()}::timestamptz, ${f.before.id}::uuid)`
               : undefined,
           ),
         )
-        .orderBy(desc(e.createdAt), desc(e.id))
+        .orderBy(sql`${at} desc`, desc(e.id))
         .limit(f.limit);
       return rows.map((r) => ({
         id: r.id,

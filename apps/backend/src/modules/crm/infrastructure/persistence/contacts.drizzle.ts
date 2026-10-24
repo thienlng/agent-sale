@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNull, schema, sql, type TenantTx } from '@agent-sales/db';
+import { and, asc, desc, eq, schema, sql, type TenantTx } from '@agent-sales/db';
 import type { WorkspaceId } from '@agent-sales/shared';
 
 import type {
@@ -90,8 +90,7 @@ export function contactsTx(
             sales: sql<number>`count(*) filter (where ${c.salesUserId} = ${userId})`,
             care: sql<number>`count(*) filter (where ${c.careUserId} = ${userId})`,
           })
-          .from(c)
-          .where(and(isNull(c.archivedAt)));
+          .from(c);
         return { sales: Number(r?.sales ?? 0), care: Number(r?.care ?? 0) };
       },
       async reassignOwner(role, from, to, at) {

@@ -117,4 +117,22 @@ describe('two-factor', () => {
     }
     expect(last).toBe(429);
   });
+
+  it('guessing codes does not get a fresh budget by changing address', async () => {
+    const chi = await t.user('chi@mfa.vn', 'Chi MFA');
+    const setup = MfaSetup.parse(
+      (await t.call(chi.auth, 'POST', '/auth/mfa/setup', { password: chi.password })).json(),
+    );
+    await t.call(chi.auth, 'POST', '/auth/mfa/enable', {
+      code: totpAt(setup.secret, stepAt(Date.now())),
+    });
+    const statuses: number[] = [];
+    for (let i = 0; i < 14; i++) {
+      statuses.push((await login(chi.email, chi.password, '222222', `10.9.1.${i + 1}`)).statusCode);
+    }
+    expect(statuses).toContain(429);
+    // Even the right code is refused while the budget is spent.
+    const right = totpAt(setup.secret, stepAt(Date.now()) + 1);
+    expect((await login(chi.email, chi.password, right, '10.9.1.200')).statusCode).toBe(429);
+  });
 });

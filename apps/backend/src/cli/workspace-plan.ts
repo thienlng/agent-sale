@@ -55,6 +55,11 @@ try {
         return;
       }
       const period = months ? Number(months) : null;
+      if (period !== null && ![1, 3, 6, 12].includes(period)) {
+        console.error('months must be 1, 3, 6 or 12');
+        process.exitCode = 1;
+        return;
+      }
       const end = period ? new Date(new Date().setMonth(new Date().getMonth() + period)) : null;
       await tx
         .insert(schema.subscriptions)

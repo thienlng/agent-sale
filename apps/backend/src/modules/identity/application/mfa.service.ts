@@ -104,7 +104,11 @@ export class MfaService {
   async verifyLogin(userId: UserId, code: string): Promise<boolean> {
     const row = await this.repo.find(userId);
     if (!row?.enabledAt) return true;
-    return this.accepts(row, code);
+    // Per user, not per address: rotating IPs must not give a fresh budget of code guesses.
+    await this.throttle(userId);
+    if (!(await this.accepts(row, code))) return false;
+    await this.limiter.reset(`mfa:${userId}`);
+    return true;
   }
 
   /** Operator reset (lost phone and recovery codes). */

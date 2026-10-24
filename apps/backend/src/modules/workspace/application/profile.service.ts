@@ -13,6 +13,7 @@ import type { ProfilePatch, WorkspaceProfile } from '../domain/ports/profile.rep
 import {
   LogoNotFoundError,
   LogoRejectedError,
+  WorkspaceNotFoundError,
   ProfileStaleError,
 } from '../domain/workspace.errors.js';
 import type { Actor } from './ports/audit-writer.js';
@@ -112,7 +113,8 @@ export class ProfileService {
   async removeLogo(ws: WorkspaceId, actor: Actor): Promise<WorkspaceProfileDto> {
     return this.uow.run(ws, async ({ profiles, audit }) => {
       const before = await profiles.get(ws, { forUpdate: true });
-      if (!before?.logoAssetId) return toProfileDto(before ?? ({} as WorkspaceProfile));
+      if (!before) throw new WorkspaceNotFoundError(ws);
+      if (!before.logoAssetId) return toProfileDto(before);
       const after = await profiles.clearLogo(ws, actor.userId);
       await audit.record(ws, actor, {
         action: 'workspace.logo_removed',

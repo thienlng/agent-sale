@@ -156,6 +156,14 @@ export class TeamService implements TeamFacade {
       await this.crm.reassignContacts(ws, { from: target, to, actor: who });
     }
     await this.workspaces.removeMember(ws, userId(target), who);
+    // A customer assigned to them between the handover and the removal (auto-assignment) is moved too.
+    if (reassign) {
+      await this.crm.reassignContacts(ws, {
+        from: target,
+        to: reassign.mode === 'transfer' ? reassign.toUserId : null,
+        actor: who,
+      });
+    }
     return this.#member(ws, target, actor);
   }
 

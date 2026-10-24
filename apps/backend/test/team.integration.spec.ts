@@ -14,7 +14,15 @@ import {
   MemberList,
   RemovalPreview,
 } from '@agent-sales/contracts';
-import { createDb, ensureLoginRoles, eq, migrate, schema, withCredentials } from '@agent-sales/db';
+import {
+  createDb,
+  ensureLoginRoles,
+  eq,
+  migrate,
+  schema,
+  sql,
+  withCredentials,
+} from '@agent-sales/db';
 import { startTestPostgres, type TestPostgres } from '@agent-sales/testing';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -758,5 +766,55 @@ describe('team and access on Postgres', () => {
     expect(
       EntitlementsDto.parse((await call(other.h, 'GET', '/billing/entitlements')).json()).plan.code,
     ).toBe('free');
+  });
+
+  it('archived customers count for the hand-over too, and move with the rest', async () => {
+    const lan = await user('lan18@team.vn', 'Chủ shop');
+    const binh = await user('binh18@team.vn', 'Sales Bình');
+    await join(lan, binh, 'binh18@team.vn', 'sales');
+    const made = ContactDto.parse(
+      (
+        await call(lan.h, 'POST', '/contacts', { name: 'Khách cũ', salesUserId: binh.userId })
+      ).json(),
+    );
+    await owner.db
+      .update(schema.contacts)
+      .set({ archivedAt: new Date() })
+      .where(eq(schema.contacts.id, made.id));
+    const preview = RemovalPreview.parse(
+      (await call(lan.h, 'GET', `/members/${binh.userId}/removal-preview`)).json(),
+    );
+    expect(preview).toMatchObject({ sales: 1, requiresReassignment: true });
+    const out = await call(lan.h, 'POST', `/members/${binh.userId}/remove`, {
+      reassign: { mode: 'unassign' },
+    });
+    expect(out.statusCode, out.body).toBe(200);
+    const [row] = await owner.db
+      .select({ sales: schema.contacts.salesUserId })
+      .from(schema.contacts)
+      .where(eq(schema.contacts.id, made.id));
+    expect(row?.sales).toBeNull();
+  });
+
+  it('a workspace can read its plan rows but never write them (tenant role is read-only)', async () => {
+    const lan = await user('lan19@team.vn', 'Chủ shop');
+    await setSeats(lan.ownWorkspace, 3);
+    const attempt = (stmt: ReturnType<typeof sql>) =>
+      owner.db.transaction(async (tx) => {
+        await tx.execute(sql`set local role app_tenant`);
+        await tx.execute(sql`select set_config('app.workspace_id', ${lan.ownWorkspace}, true)`);
+        await tx.execute(stmt);
+      });
+    await expect(
+      attempt(
+        sql`insert into workspace_entitlement_overrides (workspace_id, key, value) values (${lan.ownWorkspace}, 'members.max', '999'::jsonb)`,
+      ),
+    ).rejects.toThrow();
+    await expect(
+      attempt(sql`update workspace_entitlement_overrides set value = '999'::jsonb`),
+    ).rejects.toThrow();
+    await expect(
+      attempt(sql`select * from workspace_entitlement_overrides`),
+    ).resolves.toBeUndefined();
   });
 });

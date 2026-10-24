@@ -71,7 +71,7 @@ Default roles (custom roles can be created on Pro+ plans):
 
 ## 7. Audit log
 
-`audit_events (id, workspace_id, actor_type, actor_id, action, target_type, target_id, ip, user_agent, before JSONB, after JSONB, created_at)` — append-only (no UPDATE/DELETE privileges granted to the app role), retained ≥ 1 year.
+`audit_events (id, workspace_id, actor_user_id, actor_name, action, target_type, target_id, data JSONB, created_at)` (built, T-054; `data` holds `{ field: { from, to } }` and context. `ip`, `user_agent` and account-level events such as 2FA changes are not recorded yet) — append-only (no UPDATE/DELETE privileges granted to the app role), retained ≥ 1 year.
 
 Mandatory events: login/2FA, permission changes/inviting/removing members, connecting/disconnecting channels, editing bot configuration, data export, deleting/merging contacts, editing order prices, creating/sending campaigns, manual wallet top-ups/deductions, admin impersonation.
 
