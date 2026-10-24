@@ -21,6 +21,7 @@ Milestone **M2-bot-playground** — branch `feat/T-015-m2-bot-playground`: T-015
 - [ ] T-011 Add Claude Code hooks: eslint --fix after edits and pnpm check on stop — @unassigned · [details](todo/T-011-add-claude-code-hooks-eslint-fix-after-edits-and-p.md)
 - [ ] T-020 Orders follow-ups: Excel import, product images, 2-level address picker, carriers and printing, multi-tab drafts — @unassigned · [details](todo/T-020-orders-follow-ups-excel-import-product-images-2-le.md)
 - [ ] T-021 Fix the root pnpm gen script (turbo gen needs --args) — @unassigned · [details](todo/T-021-fix-the-root-pnpm-gen-script-turbo-gen-needs-args.md)
+- [ ] T-024 Fix flaky tampered access-token test in identity auth flow — @unassigned · [details](todo/T-024-fix-flaky-tampered-access-token-test-in-identity-a.md)
 
 ## Blocked
 
