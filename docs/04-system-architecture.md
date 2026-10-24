@@ -52,6 +52,10 @@ flowchart TB
     WIDX[knowledge-indexer<br/>parse file, chunk, embed]
   end
 
+  subgraph Private["Private network (no ingress)"]
+    HERMES[hermes-runtime<br/>Python inference sidecar, optional LLM provider — ADR-010]
+  end
+
   subgraph Data
     PG[(PostgreSQL 16<br/>+ pgvector + pg_trgm + unaccent)]
     REDIS[(Redis 7<br/>queue, cache, pub/sub, rate limit, lock)]
@@ -80,6 +84,8 @@ flowchart TB
   API --> PG & REDIS & S3
   REDIS --> WCONV & WOUT & WJOB & WSCHED & WIDX
   WCONV --> LLM
+  WCONV -- ai-core HermesProvider --> HERMES
+  HERMES --> LLM
   WCONV --> PG
   WOUT --> META & ZALO & TIKTOK & LAZ & MAIL
   WJOB --> CARRIER & GSHEET & META & ZALO
@@ -97,6 +103,7 @@ flowchart TB
 | Dashboard | **Vite + React 19 SPA**: TanStack Router (preloading), TanStack Query, TanStack Table + Virtual, **Tailwind v4 + shadcn/ui**, `motion`, `cmdk`, React Hook Form + Zod, i18next; static files on CDN (ADR-009) | Instant client-side navigation, optimistic UI, heavy data tables (CRM/orders); no SEO needed; cheapest layer to scale | Next.js App Router (previous choice, superseded by ADR-009) |
 | Marketing site | **Astro** (static, islands) + content collections; same design tokens | Fastest public pages for Vietnamese SEO, industry-specific content, blog, case studies (Preny has ~140 content URLs) | Next.js SSG + headless CMS |
 | Backend API | **NestJS** (Fastify adapter), **Drizzle ORM**, Zod DTOs (`nestjs-zod`) | Modules + guards give agent-written code a fixed structure; Fastify for speed. Rules to limit framework magic: no request-scoped providers, no circular module imports (lint), thin handlers, framework-free domain services | Plain Fastify/Hono + explicit modules (considered; revisit if NestJS friction shows in T-003) |
+| Inference sidecar (optional) | **`hermes-runtime`** (`services/hermes`, Python): private HTTP bridge reached only through `packages/ai-core`'s `HermesProvider`, selected per tier in the admin LLM config (ADR-010) | Reuse the existing Hermes agent core without porting it; platform logic stays in NestJS | A TypeScript provider (planned replacement; no module changes needed) |
 | Webhook ingress | Thin **Fastify** app (no NestJS): verify → persist → enqueue | p95 ≤ 200 ms / p99 ≤ 500 ms ack; isolated from API deploys | — |
 | Realtime | **SSE** (server→client: inbox updates, agent streaming) fed by Redis pub/sub, resumable via `Last-Event-ID`; a small websocket-only **Socket.IO** surface for typing/presence (Redis adapter, no sticky sessions); separate `realtime` deployment | Stateless scaling, survives deploys and Cloudflare idle cut-offs (heartbeat 30 s) | Ably / Cloudflare Durable Objects if connections outgrow a small Node tier |
 | Queue | **BullMQ** on Redis + our own tenant-fairness layer (`packages/queue`: Redis token bucket per workspace/channel, tier queues) | Delayed jobs, retry/backoff, repeatable jobs. Per-group limits are BullMQ Pro only (ADR-003) | Trigger.dev / Temporal for durable multi-step workflows (decision gate at Beta); Kafka at > a few thousand msg/s |

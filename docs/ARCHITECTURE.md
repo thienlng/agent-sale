@@ -12,6 +12,8 @@ apps/
   webhook/        Thin Fastify app (no NestJS): verify → persist → enqueue. Never business logic.
   web/            Vite + React 19 SPA (dashboard). features/<module> mirrors backend module names.
   admin/ site/ widget/   (later) back-office SPA · Astro marketing site · Preact chat widget
+services/
+  hermes/         `hermes-runtime`: private Python inference sidecar (ADR-010). Not a pnpm workspace; stdlib-tested in CI. See §7.
 packages/
   shared/         Shared kernel: value objects (Money, phone), Result/error codes, ids, DomainEvent base. No I/O, no framework.
   contracts/      Zod schemas + TS types for HTTP DTOs and integration events, per module. The ONLY backend-side thing `web` imports.
@@ -119,9 +121,33 @@ Adding a module: `pnpm gen module <name>` → fill `MODULE.md` → add its row t
 | `entries/worker.ts` | modules' `application/jobs` for `WORKER_QUEUES` | outbound, campaign, workflow, indexer, scheduler |
 | `entries/agent.ts` | `ai` + its dependencies; the only process that calls LLMs for conversations (exception: the request/response dashboard playground and the admin connection test run in `api`) | conversation (+ priority) |
 | `entries/realtime.ts` | SSE + websocket-only Socket.IO, Redis pub/sub | — |
+| `services/hermes` (`hermes-runtime`) | Python HTTP bridge on a private address; no platform modules, no DB | — (called synchronously by `packages/ai-core`, see §7) |
 
 `apps/webhook` is separate on purpose (no Nest, no business logic, p99 ≤ 500 ms).
 
-## 7. Inherited Hermes runtime (T-045)
+## 7. `hermes-runtime` (ADR-010)
 
-`services/hermes` is a private Python inference adapter (ADR-010). It has no platform database or delivery access. `packages/ai-core` owns the only HTTP client, selected explicitly by the admin-managed `hermes` provider kind. NestJS remains responsible for tenant authorization, retrieval, grounding and message control. See `services/hermes/README.md` for separate private credentials and deployment constraints.
+`services/hermes` is the only non-TypeScript runtime. It is an **optional LLM provider**, not a platform service: it turns an explicit request into model text and knows nothing about tenants, bots, conversations or channels.
+
+```mermaid
+flowchart LR
+  AG[agent / api playground<br/>NestJS] -->|ai-core gateway| HP[HermesProvider<br/>packages/ai-core]
+  HP -->|POST /v1/generate<br/>bearer bridge key, ≤256 KB| HR[hermes-runtime<br/>services/hermes]
+  HR --> M[(model provider<br/>ChatGPT/Codex or OpenRouter)]
+  AG --> PG[(PostgreSQL)]
+  HR -. no access .-> PG
+```
+
+| Aspect | Rule |
+|---|---|
+| Selection | Only through the admin-managed LLM config: provider kind `hermes` + an explicit tier route (DB, sealed by `SecretBox`). Never via `.env`, never an implicit fallback. |
+| Caller | Only `HermesProvider` in `packages/ai-core` talks to it. No module, app or script calls the bridge directly. |
+| Contract | `POST /v1/generate`, version `1` (request/workspace UUIDs, model, bounded messages, output budget, optional JSON schema) → `{ version, text, model, usage }`, validated with Zod on the TypeScript side. Changing it is a contract change: bump the version and keep the provider tolerant. |
+| Owns | Inference only. NestJS keeps workspace authorization, retrieval, grounding, conversation state, human takeover and outbound delivery. |
+| Must not | Read or write the platform database, Redis or object storage; send channel messages; run tools, shell or memory; log message content; return credentials or provider error text. |
+| Network | Binds to `127.0.0.1` (or a private network address in deployment); never exposed through the load balancer. |
+| Capacity | Single-flight: one active turn, `429` while busy, 50 s run budget. Callers bound their concurrency; scale by running more instances behind a private address, not by raising the limit. |
+| Credentials | Its own private `HERMES_HOME` (`RAPIZ_HERMES_HOME`) and bridge key; never shared with another process or project. |
+| Tests | `python3 -m unittest discover -s services/hermes -p 'test_*.py'` (CI job `hermes`) + `packages/ai-core` provider tests. No real model calls. |
+
+Replacing Hermes with a TypeScript provider must not change any module, contract or UI: only the provider kind behind the tier route changes. Setup and limits: `services/hermes/README.md`.

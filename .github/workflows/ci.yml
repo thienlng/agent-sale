@@ -55,6 +55,20 @@ jobs:
         if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
         run: pnpm commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
 
+  hermes:
+    name: hermes-runtime (python unittest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Test
+        run: python -I -m unittest discover -s services/hermes -p 'test_*.py' -v
+
   web:
     name: web (e2e smoke + Lighthouse)
     runs-on: ubuntu-latest
