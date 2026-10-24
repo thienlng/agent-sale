@@ -26,3 +26,28 @@ html[data-navbar-style='sticky'] .chat-dock {
     --dock-gap: 1rem;
   }
 }
+
+/* "Bot is typing" dots: a slow wave, not a bounce. Still for reduced motion. */
+@keyframes typing-dot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+
+.typing-dot {
+  animation: typing-dot 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .typing-dot {
+    animation: none;
+    opacity: 0.7;
+  }
+}

@@ -265,8 +265,8 @@ export function TestChat({
                   {[0, 1, 2].map((i) => (
                     <span
                       key={i}
-                      className="size-1.5 animate-bounce rounded-full bg-primary"
-                      style={{ animationDelay: `${i * 120}ms` }}
+                      className="typing-dot size-1.5 rounded-full bg-primary"
+                      style={{ animationDelay: `${i * 200}ms` }}
                     />
                   ))}
                 </div>
