@@ -50,7 +50,6 @@ const WORK: readonly NavItem[] = [
   { to: '/app/bots', key: 'nav.bots', icon: Bot, ready: true },
   { to: '/app/inbox', key: 'nav.inbox', icon: MessagesSquare },
   { to: '/app/channels', key: 'nav.channels', icon: Cable },
-  { to: '/app/contacts', key: 'nav.contacts', icon: Users },
   { to: '/app/analytics', key: 'nav.analytics', icon: BarChart3 },
   { to: '/app/settings', key: 'nav.settings', icon: Settings },
 ];
@@ -65,29 +64,50 @@ const ORDERS: readonly NavItem[] = [
 ];
 const ORDER_PATHS = /^\/app\/(orders|products|order-settings)(\/|$)/;
 
-function OrdersNav() {
+/** The customers area (docs/03 §2 "Khách hàng"). */
+const CONTACTS: readonly NavItem[] = [
+  { to: '/app/contacts', key: 'nav.contactsList', icon: Users },
+  { to: '/app/crm-settings', key: 'nav.crmSettings', icon: Settings },
+];
+const CONTACT_PATHS = /^\/app\/(contacts|crm-settings)(\/|$)/;
+
+/** A sidebar entry with sub-pages that opens while you are inside it. */
+function SectionNav({
+  label,
+  icon: Icon,
+  items,
+  paths,
+  exact,
+}: {
+  label: string;
+  icon: LucideIcon;
+  items: readonly NavItem[];
+  paths: RegExp;
+  /** Sub-pages that must not light up on their children. */
+  exact?: string;
+}) {
   const { t } = useTranslation();
   const { isMobile, setOpenMobile } = useSidebar();
-  const inside = useRouterState({ select: (s) => ORDER_PATHS.test(s.location.pathname) });
+  const inside = useRouterState({ select: (s) => paths.test(s.location.pathname) });
   return (
     <Collapsible asChild defaultOpen={inside} className="group/collapsible">
       <SidebarMenuItem>
         <CollapsibleTrigger asChild>
-          <SidebarMenuButton tooltip={t('nav.orders')} isActive={inside}>
-            <ShoppingBag />
-            <span>{t('nav.orders')}</span>
+          <SidebarMenuButton tooltip={t(label)} isActive={inside}>
+            <Icon />
+            <span>{t(label)}</span>
             <ChevronRight className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-90" />
           </SidebarMenuButton>
         </CollapsibleTrigger>
         <CollapsibleContent>
           <SidebarMenuSub>
-            {ORDERS.map(({ to, key }) => (
+            {items.map(({ to, key }) => (
               <SidebarMenuSubItem key={to}>
                 <SidebarMenuSubButton asChild>
                   <Link
                     to={to}
                     // The list must not light up on /app/orders/new or /overview.
-                    activeOptions={{ exact: to === '/app/orders', includeSearch: false }}
+                    activeOptions={{ exact: to === exact, includeSearch: false }}
                     activeProps={{ 'data-active': true }}
                     onClick={() => isMobile && setOpenMobile(false)}
                   >
@@ -170,7 +190,14 @@ export function AppSidebar() {
         {/* `contents` keeps the sidebar's own layout while exposing a navigation landmark. */}
         <nav aria-label={t('nav.mainLabel')} className="contents">
           <NavGroup label={t('nav.groupWork')} items={WORK}>
-            <OrdersNav />
+            <SectionNav label="nav.contacts" icon={Users} items={CONTACTS} paths={CONTACT_PATHS} />
+            <SectionNav
+              label="nav.orders"
+              icon={ShoppingBag}
+              items={ORDERS}
+              paths={ORDER_PATHS}
+              exact="/app/orders"
+            />
           </NavGroup>
           {session?.user.isPlatformAdmin ? (
             <NavGroup label={t('nav.admin')} items={PLATFORM} />

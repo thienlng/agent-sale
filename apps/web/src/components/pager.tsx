@@ -10,8 +10,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-import type { OrdersSearch } from './orders-search';
-
 const PAGE_SIZES = [20, 50, 100] as const;
 
 /** Page numbers to show: first, last, current ± 1, with gaps as null. */
@@ -21,17 +19,20 @@ function pageList(page: number, pages: number): Array<number | null> {
   return sorted.flatMap((p, i) => (i > 0 && p - (sorted[i - 1] ?? p) > 1 ? [null, p] : [p]));
 }
 
-/** Range info, page size and numbered pages. */
+/** Range info, page size and numbered pages (order list, customer list). */
 export function Pager({
   page,
   pageSize,
   total,
   onChange,
+  pageInfoKey = 'orders.pageInfo',
 }: {
   page: number;
   pageSize: number;
   total: number;
-  onChange: (patch: Partial<OrdersSearch>) => void;
+  onChange: (patch: { page?: number; pageSize?: number }) => void;
+  /** i18n key of "from–to / total <things>". */
+  pageInfoKey?: string;
 }) {
   const { t } = useTranslation();
   const pages = Math.max(1, Math.ceil(total / pageSize));
@@ -39,7 +40,7 @@ export function Pager({
     <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
       <div className="flex items-center gap-2 text-muted-foreground">
         <span>
-          {t('orders.pageInfo', {
+          {t(pageInfoKey, {
             from: (page - 1) * pageSize + 1,
             to: Math.min(page * pageSize, total),
             total,

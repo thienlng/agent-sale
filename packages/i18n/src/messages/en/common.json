@@ -27,7 +27,9 @@
     "ordersOverview": "Overview",
     "ordersList": "Order list",
     "ordersNew": "New order",
-    "orderSettings": "Setup"
+    "orderSettings": "Setup",
+    "contactsList": "Customer list",
+    "crmSettings": "Customer settings"
   },
   "auth": {
     "login": "Log in",
@@ -691,5 +693,252 @@
         "recipientAddress": "Delivery address"
       }
     }
+  },
+  "crm": {
+    "title": "Customers",
+    "summary": "{{count}} customers",
+    "add": "Add customer",
+    "search": "Search by name, phone or email",
+    "empty": "No customers match the filter.",
+    "emptyStart": "No customers yet. Add the first one to get started.",
+    "unavailable": "The database is not connected, so customers are not available yet.",
+    "noName": "(no name)",
+    "stale": "Someone else just edited this customer. The latest version is loaded; check it and save again.",
+    "col": {
+      "name": "Customer",
+      "phone": "Phone",
+      "email": "Email",
+      "source": "Source",
+      "status": "Status",
+      "sales": "Sales",
+      "care": "Customer care",
+      "tags": "Tags",
+      "adRef": "Ad reference",
+      "profileNote": "Note",
+      "address": "Address",
+      "createdAt": "Created",
+      "updatedAt": "Updated",
+      "birthday": "Birthday",
+      "gender": "Gender"
+    },
+    "columns": {
+      "title": "Visible columns",
+      "up": "Up",
+      "down": "Down",
+      "reset": "Default columns"
+    },
+    "sort": {
+      "label": "Sort",
+      "createdAt_desc": "Newest first",
+      "createdAt_asc": "Oldest first",
+      "updatedAt_desc": "Recently updated",
+      "name_asc": "Name A→Z",
+      "name_desc": "Name Z→A"
+    },
+    "filter": {
+      "button": "Filter",
+      "title": "Customer filter",
+      "matchAll": "Match all",
+      "matchAny": "Match any",
+      "addRule": "Add condition",
+      "removeRule": "Remove condition",
+      "duplicates": "Only customers sharing a phone number",
+      "apply": "Apply",
+      "clear": "Clear filter",
+      "saveView": "Save as view",
+      "value": "Value",
+      "from": "From",
+      "to": "To",
+      "choose": "Choose…",
+      "chosen": "{{count}} chosen",
+      "active": "{{count}} conditions",
+      "invalid": "A condition is missing its value",
+      "op": {
+        "contains": "contains",
+        "not_contains": "does not contain",
+        "eq": "is",
+        "neq": "is not",
+        "is_set": "is set",
+        "is_empty": "is empty",
+        "in": "is any of",
+        "not_in": "is none of",
+        "has_any": "has tag",
+        "has_none": "does not have tag",
+        "before": "before",
+        "after": "after",
+        "between": "between"
+      },
+      "field": {
+        "tagId": "Tag"
+      },
+      "fieldLabel": "Field",
+      "operator": "Operator"
+    },
+    "views": {
+      "label": "View",
+      "all": "All customers",
+      "mine": "Mine",
+      "shared": "Shared",
+      "save": "Save view",
+      "name": "View name",
+      "visibility": "Who can see it",
+      "private": "Only me",
+      "sharedOption": "Whole shop",
+      "saved": "View {{name}} saved",
+      "update": "Update this view",
+      "updated": "View updated",
+      "delete": "Delete view",
+      "deleted": "View deleted",
+      "by": "by {{name}}"
+    },
+    "create": {
+      "title": "Add customer",
+      "hint": "Give at least a name, a phone number or an email.",
+      "submit": "Add",
+      "created": "Customer added"
+    },
+    "field": {
+      "name": "Full name",
+      "phone": "Phone number",
+      "email": "Email",
+      "birthday": "Birthday",
+      "gender": "Gender",
+      "address": "Address",
+      "ward": "Ward",
+      "province": "Province / city",
+      "source": "Customer source",
+      "status": "Status",
+      "sales": "Sales owner",
+      "care": "Customer care owner",
+      "adRef": "Ad reference",
+      "profileNote": "Profile note",
+      "profileNoteHint": "A fixed note on the profile, up to 500 characters (not a conversation note).",
+      "none": "None",
+      "genders": {
+        "male": "Male",
+        "female": "Female",
+        "other": "Other"
+      }
+    },
+    "detail": {
+      "tabs": {
+        "overview": "Overview",
+        "details": "Details",
+        "history": "History",
+        "files": "Files"
+      },
+      "pipeline": "Status",
+      "statusChanged": "Moved to {{status}}",
+      "notes": "Internal notes",
+      "notePlaceholder": "A note for your team (the customer never sees it)…",
+      "addNote": "Add note",
+      "noteAdded": "Note added",
+      "noNotes": "No notes yet.",
+      "edited": "edited",
+      "editNote": "Edit",
+      "saveNote": "Save",
+      "cancel": "Cancel",
+      "tasks": "Tasks",
+      "tasksSoon": "Reminders and tasks come in a later release.",
+      "save": "Save changes",
+      "saved": "Customer saved",
+      "tags": "Tags",
+      "addTag": "Add tag",
+      "tagAdded": "Tag added",
+      "tagRemoved": "Tag removed",
+      "removeTag": "Remove tag {{name}}",
+      "tagValues": "Details for tag {{name}}",
+      "saveTag": "Save",
+      "noTags": "No tags yet.",
+      "filesSoon": "Customer files come once storage (S3) is enabled.",
+      "createdBy": "Created {{at}}",
+      "close": "Close"
+    },
+    "history": {
+      "allTypes": "All changes",
+      "newest": "Newest first",
+      "oldest": "Oldest first",
+      "empty": "No changes yet.",
+      "type": {
+        "contact.created": "Customer created",
+        "contact.updated": "Details edited",
+        "contact.status_changed": "Status changed",
+        "contact.assigned": "Owner changed",
+        "note.added": "Note added",
+        "note.edited": "Note edited",
+        "tag.added": "Tag added",
+        "tag.updated": "Tag details edited",
+        "tag.removed": "Tag removed"
+      },
+      "empty_value": "empty"
+    },
+    "settings": {
+      "title": "Customer settings",
+      "tabs": {
+        "statuses": "Statuses",
+        "sources": "Customer sources",
+        "tags": "Tags"
+      },
+      "statusesHint": "The steps of customer care, in order. A customer's status never changes their orders.",
+      "sourcesHint": "Where customers come from.",
+      "add": "Add",
+      "newName": "New name",
+      "archive": "Archive",
+      "restore": "Restore",
+      "archived": "Archived",
+      "archivedHint": "Archived: still shown on existing customers but cannot be chosen again.",
+      "moveUp": "Up",
+      "moveDown": "Down",
+      "saved": "Saved",
+      "default": "Default",
+      "color": "Color"
+    },
+    "tags": {
+      "create": "Create tag",
+      "edit": "Edit tag",
+      "name": "Tag name",
+      "type": "Tag type",
+      "description": "Description",
+      "fields": "Fields",
+      "fieldsCount": "{{count}} fields",
+      "active": "In use",
+      "createdBy": "Created by",
+      "system": "System",
+      "types": {
+        "classification": "Classification",
+        "attribute": "Attribute",
+        "work": "Work"
+      },
+      "typeHint": {
+        "classification": "A label to group customers (VIP, Wholesale…).",
+        "attribute": "A label with details to fill in when it is added (e.g. Event: name, date).",
+        "work": "Something to do for the customer; reminders come later."
+      },
+      "addField": "Add field",
+      "fieldLabel": "Field name",
+      "fieldKey": "Key",
+      "fieldType": "Type",
+      "required": "Required",
+      "options": "Choices (one per line)",
+      "fieldTypes": {
+        "text": "Text",
+        "number": "Number",
+        "date": "Date",
+        "select": "List",
+        "boolean": "Yes / no"
+      },
+      "archiveField": "Archive field",
+      "keyLocked": "Key and type of a field in use cannot change.",
+      "saved": "Tag saved",
+      "created": "Tag {{name}} created",
+      "search": "Search tags",
+      "yes": "Yes",
+      "no": "No"
+    },
+    "errors": {
+      "fieldsInvalid": "Check: {{fields}}",
+      "notMember": "This person is no longer a member of the shop."
+    },
+    "pageInfo": "{{from}}–{{to}} of {{total}} customers"
   }
 }
