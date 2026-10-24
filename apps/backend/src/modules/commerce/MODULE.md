@@ -9,7 +9,7 @@
 **Events consumed:** none. Uses the `identity` facade (name snapshots) and the `workspace` facade (time zone).
 
 **Invariants:**
-- Money is integer VND; amounts follow docs/05 §6 exactly (`domain/order-amounts.ts`, unit-tested). Items are immutable after creation; edits recompute payment/shipping amounts only.
+- Money is integer VND; amounts follow docs/05 §6 exactly (`computeAmounts` in `packages/shared`, shared with the order form; unit-tested). Items are immutable after creation; edits recompute payment/shipping amounts only.
 - Stock follows the order (`domain/order-stock.ts`): a live order holds its goods (`reserved`), the first shipped status (delivering, delivered, delivery failed, returning) takes them out, `cancelled` gives held goods back, goods already out can only come back as `returned`. Every change writes `inventory_movements`.
 - Order codes are `DH` + 6 digits, incrementing per workspace (`order_counters`, row-locked by the upsert).
 - Optional statuses (awaiting print, printed) can only be used when switched on in order settings; statuses listed as "require note" reject a change without a note.

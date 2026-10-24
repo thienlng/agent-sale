@@ -61,15 +61,12 @@ test('sidebar navigation is client-side (no page reload)', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Bot của bạn' })).toBeVisible();
 
   const nav = page.getByRole('navigation', { name: 'Điều hướng chính' });
-  for (const label of [
-    'Đào tạo Bot',
-    'Tin nhắn đa kênh',
-    'Tích hợp nền tảng',
-    'Khách hàng',
-    'Đơn hàng',
-  ]) {
+  for (const label of ['Đào tạo Bot', 'Tin nhắn đa kênh', 'Tích hợp nền tảng', 'Khách hàng']) {
     await expect(nav.getByRole('link', { name: new RegExp(label) })).toBeVisible();
   }
+  // Orders is a group: its button opens the sub-pages.
+  await nav.getByRole('button', { name: 'Đơn hàng' }).click();
+  await expect(nav.getByRole('link', { name: 'Danh sách đơn' })).toBeVisible();
 
   await page.evaluate(() => {
     (window as unknown as { __marker: boolean }).__marker = true;

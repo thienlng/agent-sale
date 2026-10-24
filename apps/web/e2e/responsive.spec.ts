@@ -1,6 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
 
-import { BOT_ID, mockApi } from './support/mock-api';
+import { BOT_ID, mockApi, ORDER_ID, PRODUCT_ID } from './support/mock-api';
 
 /**
  * Layout guard: every dashboard page, at phone to wide-desktop widths and in
@@ -13,6 +13,14 @@ const PAGES = [
   ['faq', `/app/bots/${BOT_ID}/knowledge`, 'Câu hỏi thường gặp'],
   ['bot settings', `/app/bots/${BOT_ID}/settings`, 'Thông tin cửa hàng'],
   ['admin llm', '/admin/llm', 'Mô hình AI'],
+  ['orders', '/app/orders', 'Danh sách đơn hàng'],
+  ['order detail', `/app/orders/${ORDER_ID}`, 'DH000123'],
+  ['new order', '/app/orders/new', 'Tạo đơn hàng mới'],
+  ['overview', '/app/orders/overview', 'Tổng quan đơn hàng'],
+  ['products', '/app/products', 'Sản phẩm'],
+  ['product', `/app/products/${PRODUCT_ID}`, 'Sửa sản phẩm'],
+  ['status settings', '/app/order-settings/statuses', 'Thiết lập đơn hàng'],
+  ['warehouses', '/app/order-settings/warehouses', 'Thiết lập đơn hàng'],
 ] as const;
 
 const VIEWPORTS = [

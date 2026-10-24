@@ -24,6 +24,9 @@ export default defineConfig({
   ],
   resolve: { alias: { '@': path.resolve(import.meta.dirname, 'src') } },
   server: { port: 5173, proxy: { '/api': 'http://localhost:3000' } },
+  // Pre-bundle libraries that lazy routes pull in, so the dev server never re-optimizes
+  // mid-session (which briefly loads two copies of React and forces a reload).
+  optimizeDeps: { include: ['recharts', 'react-day-picker', 'cmdk', 'radix-ui'] },
   build: {
     sourcemap: true,
     // Budget: shell ≤ 250 KB gzip (docs/16 §1); Vite warns above this uncompressed size.

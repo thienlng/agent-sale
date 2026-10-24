@@ -21,6 +21,8 @@ const SECTION: Record<string, string> = {
   channels: 'nav.channels',
   contacts: 'nav.contacts',
   orders: 'nav.orders',
+  products: 'nav.products',
+  'order-settings': 'nav.orderSettings',
   analytics: 'nav.analytics',
   settings: 'nav.settings',
   llm: 'nav.adminLlm',

@@ -1,8 +1,9 @@
-import { Link } from '@tanstack/react-router';
+import { Link, useRouterState } from '@tanstack/react-router';
 import {
   BarChart3,
   Bot,
   Cable,
+  ChevronRight,
   type LucideIcon,
   MessagesSquare,
   Settings,
@@ -10,9 +11,11 @@ import {
   ShoppingBag,
   Users,
 } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Logo } from '@/components/logo';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Sidebar,
   SidebarContent,
@@ -24,6 +27,9 @@ import {
   SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarRail,
   useSidebar,
 } from '@/components/ui/sidebar';
@@ -45,16 +51,71 @@ const WORK: readonly NavItem[] = [
   { to: '/app/inbox', key: 'nav.inbox', icon: MessagesSquare },
   { to: '/app/channels', key: 'nav.channels', icon: Cable },
   { to: '/app/contacts', key: 'nav.contacts', icon: Users },
-  { to: '/app/orders', key: 'nav.orders', icon: ShoppingBag },
   { to: '/app/analytics', key: 'nav.analytics', icon: BarChart3 },
   { to: '/app/settings', key: 'nav.settings', icon: Settings },
 ];
+
+/** The orders area (docs/03 §2 "Đơn hàng"): one entry with sub-pages. */
+const ORDERS: readonly NavItem[] = [
+  { to: '/app/orders/overview', key: 'nav.ordersOverview', icon: BarChart3 },
+  { to: '/app/orders', key: 'nav.ordersList', icon: ShoppingBag },
+  { to: '/app/orders/new', key: 'nav.ordersNew', icon: ShoppingBag },
+  { to: '/app/products', key: 'nav.products', icon: ShoppingBag },
+  { to: '/app/order-settings', key: 'nav.orderSettings', icon: Settings },
+];
+const ORDER_PATHS = /^\/app\/(orders|products|order-settings)(\/|$)/;
+
+function OrdersNav() {
+  const { t } = useTranslation();
+  const { isMobile, setOpenMobile } = useSidebar();
+  const inside = useRouterState({ select: (s) => ORDER_PATHS.test(s.location.pathname) });
+  return (
+    <Collapsible asChild defaultOpen={inside} className="group/collapsible">
+      <SidebarMenuItem>
+        <CollapsibleTrigger asChild>
+          <SidebarMenuButton tooltip={t('nav.orders')} isActive={inside}>
+            <ShoppingBag />
+            <span>{t('nav.orders')}</span>
+            <ChevronRight className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-90" />
+          </SidebarMenuButton>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <SidebarMenuSub>
+            {ORDERS.map(({ to, key }) => (
+              <SidebarMenuSubItem key={to}>
+                <SidebarMenuSubButton asChild>
+                  <Link
+                    to={to}
+                    // The list must not light up on /app/orders/new or /overview.
+                    activeOptions={{ exact: to === '/app/orders' }}
+                    activeProps={{ 'data-active': true }}
+                    onClick={() => isMobile && setOpenMobile(false)}
+                  >
+                    <span>{t(key)}</span>
+                  </Link>
+                </SidebarMenuSubButton>
+              </SidebarMenuSubItem>
+            ))}
+          </SidebarMenuSub>
+        </CollapsibleContent>
+      </SidebarMenuItem>
+    </Collapsible>
+  );
+}
 
 const PLATFORM: readonly NavItem[] = [
   { to: '/admin/llm', key: 'nav.adminLlm', icon: ShieldCheck, ready: true },
 ];
 
-function NavGroup({ label, items }: { label: string; items: readonly NavItem[] }) {
+function NavGroup({
+  label,
+  items,
+  children,
+}: {
+  label: string;
+  items: readonly NavItem[];
+  children?: ReactNode;
+}) {
   const { t } = useTranslation();
   const { isMobile, setOpenMobile } = useSidebar();
   return (
@@ -80,6 +141,7 @@ function NavGroup({ label, items }: { label: string; items: readonly NavItem[] }
             ) : null}
           </SidebarMenuItem>
         ))}
+        {children}
       </SidebarMenu>
     </SidebarGroup>
   );
@@ -107,7 +169,9 @@ export function AppSidebar() {
       <SidebarContent>
         {/* `contents` keeps the sidebar's own layout while exposing a navigation landmark. */}
         <nav aria-label={t('nav.mainLabel')} className="contents">
-          <NavGroup label={t('nav.groupWork')} items={WORK} />
+          <NavGroup label={t('nav.groupWork')} items={WORK}>
+            <OrdersNav />
+          </NavGroup>
           {session?.user.isPlatformAdmin ? (
             <NavGroup label={t('nav.admin')} items={PLATFORM} />
           ) : null}

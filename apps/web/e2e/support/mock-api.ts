@@ -123,6 +123,183 @@ export async function mockApi(page: Page) {
           ],
         }),
       );
+    const commerce = commerceRoute(path);
+    if (commerce !== undefined) return route.fulfill(json(commerce));
     return route.fulfill(json({ error: { code: 'NOT_FOUND', message: 'not mocked' } }, 404));
   });
+}
+
+// ─── commerce fixtures (long Vietnamese content, large amounts) ───────────────
+
+export const ORDER_ID = '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d60';
+export const PRODUCT_ID = '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d70';
+const WAREHOUSE_ID = '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d80';
+const warehouse = {
+  id: WAREHOUSE_ID,
+  name: `Kho tổng ${LONG}`,
+  phone: '0901234567',
+  province: 'Thành phố Hồ Chí Minh',
+  ward: 'Phường Bến Nghé',
+  addressDetail: LONG,
+  isDefault: true,
+};
+const variant = (i: number) => ({
+  id: `0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d7${i}`,
+  sku: `SKU-RAT-DAI-${'X'.repeat(20)}-${i}`,
+  name: `Màu xanh ngọc bích / Size XXXL / ${i}`,
+  price: 123_456_789,
+  cost: 99_000_000,
+  weightGram: 1200,
+  stock: [{ warehouseId: WAREHOUSE_ID, onHand: 12_345, reserved: 345, available: 12_000 }],
+});
+const product = {
+  id: PRODUCT_ID,
+  code: 'SP-0001-RAT-DAI',
+  name: LONG,
+  description: LONG,
+  category: 'Thời trang công sở',
+  status: 'active',
+  visibleToBot: true,
+  variants: [variant(1), variant(2)],
+  priceMin: 123_456_789,
+  priceMax: 123_456_789,
+  available: 24_000,
+  createdAt: now,
+  updatedAt: now,
+};
+const amounts = {
+  itemQty: 12,
+  subtotal: 1_481_481_468,
+  discountType: 'percent',
+  discountValue: 10,
+  discountAmount: 148_148_147,
+  afterDiscount: 1_333_333_321,
+  shippingFee: 35_000,
+  shippingFeeCharged: 30_000,
+  freeShipping: false,
+  surcharge: 10_000,
+  total: 1_333_373_321,
+  transferAmount: 500_000_000,
+  paid: 500_000_000,
+  remaining: 833_373_321,
+  cod: 833_373_321,
+};
+const summary = {
+  id: ORDER_ID,
+  code: 'DH000123',
+  status: 'awaiting_handover',
+  source: 'facebook',
+  customer: { name: user.name, phone: '0912 345 678' },
+  recipient: {
+    name: user.name,
+    phone: '0912 345 678',
+    address: LONG,
+    ward: 'Phường Bến Nghé',
+    province: 'TP. Hồ Chí Minh',
+  },
+  carrier: 'Giao Hàng Tiết Kiệm',
+  trackingCode: 'GHTK-1234567890-ABCDEFGH',
+  noteInternal: LONG,
+  amounts,
+  itemsPreview: [
+    { name: `${LONG} – Màu xanh ngọc bích / Size XXXL`, qty: 6 },
+    { name: LONG, qty: 6 },
+  ],
+  createdByName: user.name,
+  placedAt: now,
+};
+const order = {
+  ...summary,
+  warehouseId: WAREHOUSE_ID,
+  warehouseName: warehouse.name,
+  expectedDeliveryAt: now,
+  notePrint: LONG,
+  items: [1, 2].map((i) => ({
+    id: `0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d9${i}`,
+    variantId: variant(i).id,
+    productName: LONG,
+    variantName: variant(i).name,
+    sku: variant(i).sku,
+    qty: 6,
+    unitPrice: 123_456_789,
+    lineTotal: 740_740_734,
+  })),
+  history: [
+    { fromStatus: null, toStatus: 'new', note: null, actorName: user.name, at: now },
+    { fromStatus: 'new', toStatus: 'awaiting_handover', note: LONG, actorName: user.name, at: now },
+  ],
+  stockState: 'reserved',
+  createdAt: now,
+  updatedAt: now,
+};
+const series = Array.from({ length: 31 }, (_, i) => ({
+  date: `2026-10-${String(i + 1).padStart(2, '0')}`,
+  sales: 98_765_432_1 * (i % 5),
+  revenue: 87_654_321 * (i % 4),
+  profit: 12_345_678 * (i % 3),
+  closedOrders: i,
+  productQty: i * 3,
+}));
+
+/** Response for a commerce path, or undefined when the path is not a commerce endpoint. */
+function commerceRoute(path: string): unknown {
+  if (path === '/warehouses')
+    return {
+      data: [warehouse, { ...warehouse, id: `${WAREHOUSE_ID.slice(0, -1)}1`, isDefault: false }],
+    };
+  if (path === '/products')
+    return {
+      data: [product, product].map((p, i) => ({ ...p, id: `${PRODUCT_ID.slice(0, -1)}${i}` })),
+      total: 45,
+      page: 1,
+      pageSize: 20,
+    };
+  if (path === `/products/${PRODUCT_ID}`) return product;
+  if (path === '/product-variants') return { data: [] };
+  if (path === '/orders')
+    return {
+      data: [summary, { ...summary, id: `${ORDER_ID.slice(0, -1)}1`, status: 'cancelled' }],
+      total: 87,
+      page: 1,
+      pageSize: 20,
+      counts: { all: 87, new: 12, awaiting_handover: 9_999, cancelled: 3 },
+      totals: {
+        itemQty: 123_456,
+        shippingFeeCharged: 98_765_432,
+        cod: 9_876_543_210,
+        total: 98_765_432_109,
+      },
+    };
+  if (path === `/orders/${ORDER_ID}`) return order;
+  if (path === '/orders/overview')
+    return {
+      from: '2026-10-01',
+      to: '2026-10-31',
+      timezone: 'Asia/Ho_Chi_Minh',
+      kpis: {
+        sales: 98_765_432_109,
+        revenue: 87_654_321_098,
+        profit: -1_234_567_890,
+        closedOrders: 12_345,
+        avgOrderValue: 7_100_000,
+        productQty: 456_789,
+        avgProductsPerOrder: 37.1,
+        avgProfitPerOrder: -100_000,
+      },
+      closed: { amount: 87_654_321_098, productQty: 456_789 },
+      returned: { amount: 1_234_567_890, productQty: 1_234 },
+      series,
+      today: {
+        revenue: 1_234_567_890,
+        closedOrders: 123,
+        created: 456,
+        cancelled: 7,
+        productQty: 890,
+        byHour: Array.from({ length: 24 }, (_, hour) => ({ hour, revenue: hour * 12_345_678 })),
+      },
+      generatedAt: now,
+    };
+  if (path === '/order-settings')
+    return { extraStatuses: ['awaiting_print', 'printed'], requireNoteStatuses: ['cancelled'] };
+  return undefined;
 }

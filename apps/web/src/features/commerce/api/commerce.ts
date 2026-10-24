@@ -1,0 +1,211 @@
+import {
+  type AdjustStockRequest,
+  type ChangeOrderStatusRequest,
+  type CreateOrderRequest,
+  OrderDto,
+  type OrderListQuery,
+  OrderListResponse,
+  OrderOverviewResponse,
+  OrderSettingsDto,
+  ProductDto,
+  ProductListResponse,
+  type UpdateOrderRequest,
+  type UpsertProductRequest,
+  type UpsertWarehouseRequest,
+  VariantSearchResponse,
+  WarehouseDto,
+  WarehouseList,
+} from '@agent-sales/contracts';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { z } from 'zod';
+
+import { api } from '@/lib/api-client';
+import { queryKeys } from '@/lib/query-keys';
+import { withQuery } from '@/lib/url';
+import { useWorkspaceId } from '@/lib/use-workspace';
+
+// ─── Warehouses ───────────────────────────────────────────────────────────────
+
+export function useWarehouses() {
+  const ws = useWorkspaceId();
+  return useQuery({
+    queryKey: queryKeys.warehouses(ws),
+    queryFn: async () => (await api('/warehouses', WarehouseList)).data,
+    enabled: Boolean(ws),
+  });
+}
+
+export function useSaveWarehouse() {
+  const ws = useWorkspaceId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id?: string; body: UpsertWarehouseRequest }) =>
+      id
+        ? api(`/warehouses/${id}`, WarehouseDto, { method: 'PATCH', body })
+        : api('/warehouses', WarehouseDto, { method: 'POST', body }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.warehouses(ws) }),
+  });
+}
+
+export function useDeleteWarehouse() {
+  const ws = useWorkspaceId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api(`/warehouses/${id}`, z.null(), { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.warehouses(ws) }),
+  });
+}
+
+// ─── Products ─────────────────────────────────────────────────────────────────
+
+export function useProducts(query: { q?: string; status: 'active' | 'archived'; page: number }) {
+  const ws = useWorkspaceId();
+  return useQuery({
+    queryKey: [...queryKeys.products(ws), query],
+    queryFn: () => api(withQuery('/products', { ...query, pageSize: 20 }), ProductListResponse),
+    placeholderData: keepPreviousData,
+    enabled: Boolean(ws),
+  });
+}
+
+export function useProduct(id: string | undefined) {
+  const ws = useWorkspaceId();
+  return useQuery({
+    queryKey: queryKeys.product(ws, id ?? ''),
+    queryFn: () => api(`/products/${id}`, ProductDto),
+    enabled: Boolean(ws && id),
+  });
+}
+
+export function useSaveProduct() {
+  const ws = useWorkspaceId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id?: string; body: UpsertProductRequest }) =>
+      id
+        ? api(`/products/${id}`, ProductDto, { method: 'PUT', body })
+        : api('/products', ProductDto, { method: 'POST', body }),
+    onSuccess: (p) => {
+      qc.setQueryData(queryKeys.product(ws, p.id), p);
+      void qc.invalidateQueries({ queryKey: queryKeys.products(ws) });
+      void qc.invalidateQueries({ queryKey: queryKeys.variants(ws) });
+    },
+  });
+}
+
+export function useAdjustStock(productId: string) {
+  const ws = useWorkspaceId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: AdjustStockRequest) =>
+      api(`/products/${productId}/stock`, ProductDto, { method: 'POST', body }),
+    onSuccess: (p) => {
+      qc.setQueryData(queryKeys.product(ws, p.id), p);
+      void qc.invalidateQueries({ queryKey: queryKeys.products(ws) });
+      void qc.invalidateQueries({ queryKey: queryKeys.variants(ws) });
+    },
+  });
+}
+
+export function useVariantSearch(query: { q: string; warehouseId: string; inStock: boolean }) {
+  const ws = useWorkspaceId();
+  return useQuery({
+    queryKey: [...queryKeys.variants(ws), query],
+    queryFn: async () =>
+      (await api(withQuery('/product-variants', query), VariantSearchResponse)).data,
+    placeholderData: keepPreviousData,
+    enabled: Boolean(ws && query.warehouseId),
+    staleTime: 10_000,
+  });
+}
+
+// ─── Orders ───────────────────────────────────────────────────────────────────
+
+export function useOrders(query: OrderListQuery) {
+  const ws = useWorkspaceId();
+  return useQuery({
+    queryKey: [...queryKeys.orders(ws), 'list', query],
+    queryFn: () => api(withQuery('/orders', query), OrderListResponse),
+    placeholderData: keepPreviousData,
+    enabled: Boolean(ws),
+  });
+}
+
+export function useOrder(id: string) {
+  const ws = useWorkspaceId();
+  return useQuery({
+    queryKey: queryKeys.order(ws, id),
+    queryFn: () => api(`/orders/${id}`, OrderDto),
+    enabled: Boolean(ws),
+  });
+}
+
+export function useOrderOverview(range: { from: string; to: string }) {
+  const ws = useWorkspaceId();
+  return useQuery({
+    queryKey: [...queryKeys.orders(ws), 'overview', range],
+    queryFn: () => api(withQuery('/orders/overview', range), OrderOverviewResponse),
+    placeholderData: keepPreviousData,
+    enabled: Boolean(ws),
+  });
+}
+
+/** Any order change refreshes lists, the overview and stock figures. */
+function useOrderChanged() {
+  const ws = useWorkspaceId();
+  const qc = useQueryClient();
+  return (order: OrderDto) => {
+    qc.setQueryData(queryKeys.order(ws, order.id), order);
+    void qc.invalidateQueries({ queryKey: queryKeys.orders(ws) });
+    void qc.invalidateQueries({ queryKey: queryKeys.products(ws) });
+    void qc.invalidateQueries({ queryKey: queryKeys.variants(ws) });
+  };
+}
+
+export function useCreateOrder() {
+  const changed = useOrderChanged();
+  return useMutation({
+    mutationFn: (body: CreateOrderRequest) => api('/orders', OrderDto, { method: 'POST', body }),
+    onSuccess: changed,
+  });
+}
+
+export function useUpdateOrder(id: string) {
+  const changed = useOrderChanged();
+  return useMutation({
+    mutationFn: (body: UpdateOrderRequest) =>
+      api(`/orders/${id}`, OrderDto, { method: 'PATCH', body }),
+    onSuccess: changed,
+  });
+}
+
+export function useChangeOrderStatus(id: string) {
+  const changed = useOrderChanged();
+  return useMutation({
+    mutationFn: (body: ChangeOrderStatusRequest) =>
+      api(`/orders/${id}/status`, OrderDto, { method: 'POST', body }),
+    onSuccess: changed,
+  });
+}
+
+// ─── Settings ─────────────────────────────────────────────────────────────────
+
+export function useOrderSettings() {
+  const ws = useWorkspaceId();
+  return useQuery({
+    queryKey: queryKeys.orderSettings(ws),
+    queryFn: () => api('/order-settings', OrderSettingsDto),
+    enabled: Boolean(ws),
+    staleTime: 60_000,
+  });
+}
+
+export function useSaveOrderSettings() {
+  const ws = useWorkspaceId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: OrderSettingsDto) =>
+      api('/order-settings', OrderSettingsDto, { method: 'PUT', body }),
+    onSuccess: (s) => qc.setQueryData(queryKeys.orderSettings(ws), s),
+  });
+}

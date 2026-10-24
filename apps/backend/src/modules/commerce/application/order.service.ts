@@ -27,7 +27,7 @@ import {
   WarehouseNotFoundError,
 } from '../domain/commerce.errors.js';
 import { datesBetween, localDate, nextDate, startOfLocalDay } from '../domain/local-time.js';
-import { computeAmounts } from '../domain/order-amounts.js';
+import { computeAmounts } from '@agent-sales/shared';
 import { type OrderStatus, stockTransition } from '../domain/order-stock.js';
 import { orderSearchText, stockChanges, toOrderDto, toSummary } from './order.mappers.js';
 import {

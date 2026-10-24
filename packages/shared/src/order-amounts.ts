@@ -10,6 +10,8 @@
  *   remaining       = total − paid                              ("Còn thiếu"; < 0 = overpaid)
  *   cod             = max(remaining, 0)
  *   profit          = subtotal − cost − discount_amount − (shipping_fee − charged)
+ *
+ * Shared so the order form shows exactly what the server will store.
  */
 export interface AmountInput {
   items: ReadonlyArray<{ qty: number; unitPrice: number; unitCost: number }>;
