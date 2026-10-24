@@ -3,6 +3,7 @@
 Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/`. Create tasks with `pnpm todo:new "Title"`. Order within a section = priority. Humans reorder; agents only move their own task between sections.
 
 ## In progress
+- [ ] T-065 Admin LLM: check connection and fetch model list from the provider dialog — @agent:claude · [details](todo/T-065-admin-llm-check-connection-and-fetch-model-list-fr.md)
 
 ## Next
 
@@ -36,6 +37,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [ ] T-061 Affiliate onboarding, referral reporting and commissions (ADM-07) — @unassigned · [details](todo/T-061-affiliate-onboarding-referral-reporting-and-commis.md)
 - [ ] T-062 Support tickets with department routing and attachments (ADM-08) — @unassigned · [details](todo/T-062-support-tickets-with-department-routing-and-attach.md)
 - [ ] T-063 Advanced Google connector and capability-aware settings navigation (ADM-09) — @unassigned · [details](todo/T-063-advanced-google-connector-and-capability-aware-set.md)
+- [ ] T-066 Fix flaky MetaInboxProcessor test: reply arriving while the previous one is generated — @unassigned · [details](todo/T-066-fix-flaky-metainboxprocessor-test-reply-arriving-w.md)
 
 ## Blocked
 

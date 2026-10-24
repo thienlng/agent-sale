@@ -267,7 +267,17 @@
     "tierSaved": "{{tier}} plan saved",
     "save": "Save server",
     "cancel": "Cancel",
-    "baseUrlDropsKey": "Changing the API URL removes the stored key. Enter the key again for the new URL."
+    "baseUrlDropsKey": "Changing the API URL removes the stored key. Enter the key again for the new URL.",
+    "checkConnection": "Check connection",
+    "checking": "Checking…",
+    "checkHint": "Tries these settings without saving.",
+    "checkOk_one": "Connected in {{ms}} ms · {{count}} model available",
+    "checkOk_other": "Connected in {{ms}} ms · {{count}} models available",
+    "fetchModels": "Pick from the server's models",
+    "fetchingModels": "Fetching models…",
+    "filterModels": "Filter {{count}} models",
+    "noModels": "No models match.",
+    "retry": "Try again"
   },
   "errors": {
     "notFoundTitle": "Page not found",

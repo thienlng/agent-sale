@@ -1,5 +1,7 @@
 import {
   CreateLlmProviderRequest,
+  DiscoverLlmModelsRequest,
+  type DiscoverLlmModelsResponse,
   type LlmProviderDto,
   type LlmTierRouteDto,
   PutLlmTierRouteRequest,
@@ -45,6 +47,14 @@ export class LlmAdminController {
     @Body(new ZodValidationPipe(CreateLlmProviderRequest)) body: CreateLlmProviderRequest,
   ): Promise<LlmProviderDto> {
     return this.admin.createProvider(body);
+  }
+
+  @Post('providers/models')
+  @HttpCode(200)
+  discoverModels(
+    @Body(new ZodValidationPipe(DiscoverLlmModelsRequest)) body: DiscoverLlmModelsRequest,
+  ): Promise<DiscoverLlmModelsResponse> {
+    return this.admin.discoverModels(body);
   }
 
   @Patch('providers/:providerId')

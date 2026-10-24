@@ -116,4 +116,19 @@ describe('AnthropicProvider', () => {
       ),
     ).rejects.toThrow('system messages must come first');
   });
+
+  it('lists model ids', async () => {
+    const client = {
+      models: {
+        list: async function* () {
+          yield { id: 'claude-sonnet-5-5' };
+          yield { id: 'claude-haiku-5-5' };
+        },
+      },
+    } as unknown as Anthropic;
+    expect(await new AnthropicProvider({ client }).listModels()).toEqual([
+      'claude-sonnet-5-5',
+      'claude-haiku-5-5',
+    ]);
+  });
 });
