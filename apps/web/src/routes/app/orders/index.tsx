@@ -6,7 +6,14 @@ import { OrdersList } from '@/features/commerce/components/orders-list';
 
 /** Filters live in the URL; anything malformed falls back to "no filter". */
 const Search = z.object({
-  status: OrderStatus.optional().catch(undefined),
+  // One status (older links, `?status=confirmed`) or several.
+  status: z
+    .union([OrderStatus.transform((s) => [s]), z.array(OrderStatus).max(20)])
+    .optional()
+    .catch(undefined),
+  statusMode: z.enum(['include', 'exclude']).optional().catch(undefined),
+  createdBy: z.uuid().optional().catch(undefined),
+  carrier: z.string().max(60).optional().catch(undefined),
   q: z.string().max(100).optional().catch(undefined),
   source: OrderSource.optional().catch(undefined),
   from: z.iso.date().optional().catch(undefined),

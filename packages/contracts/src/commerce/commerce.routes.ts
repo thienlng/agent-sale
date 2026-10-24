@@ -6,9 +6,6 @@ import {
   OrderDto,
   OrderListQuery,
   OrderListResponse,
-  OrderOverviewQuery,
-  OrderOverviewResponse,
-  OrderSettingsDto,
   ProductDto,
   ProductListQuery,
   ProductListResponse,
@@ -20,6 +17,8 @@ import {
   WarehouseDto,
   WarehouseList,
 } from './commerce.schema.js';
+import { OrderOverviewQuery, OrderOverviewResponse } from './order-overview.schema.js';
+import { OrderSettingsDto } from './order-settings.schema.js';
 
 const scoped = { auth: true, workspaceScoped: true } as const;
 const route = <T extends Omit<RouteContract, 'auth' | 'workspaceScoped'>>(r: T) => ({

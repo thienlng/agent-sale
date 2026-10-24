@@ -13,6 +13,8 @@ export * from './ai/llm-admin.schema.js';
 export * from './ai/llm-admin.routes.js';
 export * from './bot/bot.schema.js';
 export * from './commerce/commerce.schema.js';
+export * from './commerce/order-overview.schema.js';
+export * from './commerce/order-settings.schema.js';
 export * from './commerce/commerce.routes.js';
 export * from './bot/bot.routes.js';
 export * from './knowledge/knowledge.schema.js';

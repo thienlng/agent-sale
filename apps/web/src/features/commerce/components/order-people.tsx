@@ -1,4 +1,4 @@
-import { OrderSource, type OrderStatus } from '@agent-sales/contracts';
+import { type OrderPolicyField, OrderSource, type OrderStatus } from '@agent-sales/contracts';
 import { useTranslation } from 'react-i18next';
 
 import { MoneyInput } from '@/components/money-input';
@@ -31,17 +31,33 @@ export interface PeopleState {
 const PHONE = '\\+?[0-9 .\\-]{8,15}';
 const grid = 'grid gap-4 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2';
 
-/** The right-hand column of the order form: details, customer, delivery, shipping. */
+/**
+ * The right-hand column of the order form: details, customer, delivery, shipping.
+ * `required` comes from the selected source's policy; `missing` marks the fields the
+ * server reported as missing.
+ */
 export function OrderPeoplePanels({
   value,
   onChange,
   statuses,
+  required,
+  missing,
 }: {
   value: PeopleState;
   onChange: (next: PeopleState) => void;
   statuses: readonly OrderStatus[];
+  required: ReadonlySet<OrderPolicyField>;
+  missing: ReadonlySet<OrderPolicyField>;
 }) {
   const { t } = useTranslation();
+  // With "same as customer" the recipient's phone is the customer's.
+  const customerPhone =
+    required.has('customerPhone') || (value.sameAsCustomer && required.has('recipientPhone'));
+  const customerPhoneMissing =
+    missing.has('customerPhone') || (value.sameAsCustomer && missing.has('recipientPhone'));
+  const err = (on: boolean) => (on ? t('errors.required') : undefined);
+  const a11y = (id: string, on: boolean) =>
+    on ? { 'aria-invalid': true, 'aria-describedby': `${id}-error` } : {};
   const set = (patch: Partial<PeopleState>) => onChange({ ...value, ...patch });
   const setCustomer = (patch: Partial<PeopleState['customer']>) =>
     set({ customer: { ...value.customer, ...patch } });
@@ -104,10 +120,16 @@ export function OrderPeoplePanels({
               onChange={(e) => setCustomer({ name: e.target.value })}
             />
           </Field>
-          <Field id="of-c-phone" label={t('orderForm.phone')}>
+          <Field
+            id="of-c-phone"
+            label={t('orderForm.phone')}
+            required={customerPhone}
+            error={err(customerPhoneMissing)}
+          >
             <Input
               id="of-c-phone"
-              required
+              required={customerPhone}
+              {...a11y('of-c-phone', customerPhoneMissing)}
               type="tel"
               inputMode="tel"
               pattern={PHONE}
@@ -116,9 +138,16 @@ export function OrderPeoplePanels({
               onChange={(e) => setCustomer({ phone: e.target.value })}
             />
           </Field>
-          <Field id="of-c-email" label={t('orderForm.email')}>
+          <Field
+            id="of-c-email"
+            label={t('orderForm.email')}
+            required={required.has('customerEmail')}
+            error={err(missing.has('customerEmail'))}
+          >
             <Input
               id="of-c-email"
+              required={required.has('customerEmail')}
+              {...a11y('of-c-email', missing.has('customerEmail'))}
               type="email"
               autoComplete="off"
               value={value.customer.email}
@@ -148,10 +177,16 @@ export function OrderPeoplePanels({
                   onChange={(e) => setRecipient({ name: e.target.value })}
                 />
               </Field>
-              <Field id="of-r-phone" label={t('orderForm.phone')}>
+              <Field
+                id="of-r-phone"
+                label={t('orderForm.phone')}
+                required={required.has('recipientPhone')}
+                error={err(missing.has('recipientPhone'))}
+              >
                 <Input
                   id="of-r-phone"
-                  required
+                  required={required.has('recipientPhone')}
+                  {...a11y('of-r-phone', missing.has('recipientPhone'))}
                   type="tel"
                   pattern={PHONE}
                   value={value.recipient.phone}
@@ -160,10 +195,16 @@ export function OrderPeoplePanels({
               </Field>
             </div>
           ) : null}
-          <Field id="of-r-address" label={t('orderForm.address')}>
+          <Field
+            id="of-r-address"
+            label={t('orderForm.address')}
+            required={required.has('recipientAddress')}
+            error={err(missing.has('recipientAddress'))}
+          >
             <Input
               id="of-r-address"
-              required
+              required={required.has('recipientAddress')}
+              {...a11y('of-r-address', missing.has('recipientAddress'))}
               maxLength={300}
               value={value.recipient.address}
               onChange={(e) => setRecipient({ address: e.target.value })}

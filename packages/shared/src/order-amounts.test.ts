@@ -31,6 +31,27 @@ describe('computeAmounts (docs/05 formulas)', () => {
     });
   });
 
+  it('keeps the gross total (before discount) apart from the amount due (#22)', () => {
+    const a = computeAmounts({
+      items: [{ qty: 2, unitPrice: 125_000, unitCost: 0 }],
+      discountType: 'amount',
+      discountValue: 20_000,
+      shippingFee: 30_000,
+      shippingFeeCharged: 30_000,
+      freeShipping: false,
+      surcharge: 5_000,
+      transferAmount: 100_000,
+    });
+    expect(a).toMatchObject({
+      subtotal: 250_000,
+      gross: 285_000,
+      discountAmount: 20_000,
+      total: 265_000,
+      paid: 100_000,
+      cod: 165_000,
+    });
+  });
+
   it('applies a percentage discount with rounding, and caps both kinds', () => {
     expect(
       computeAmounts({ ...base, discountType: 'percent', discountValue: 15 }).discountAmount,

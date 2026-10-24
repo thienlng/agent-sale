@@ -74,10 +74,11 @@ export class OrdersController {
   @Patch('orders/:orderId')
   update(
     @CurrentWorkspace() ws: WorkspaceId,
+    @CurrentUser() user: AuthState,
     @Param('orderId') id: string,
     @Body(new ZodValidationPipe(UpdateOrderRequest)) body: UpdateOrderRequest,
   ): Promise<OrderDto> {
-    return this.orders.update(ws, id, body);
+    return this.orders.update(ws, id, body, user.userId);
   }
 
   @Post('orders/:orderId/status')

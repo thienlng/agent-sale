@@ -5,21 +5,23 @@ import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { errorMessage } from '@/lib/errors';
 import { cn } from '@/lib/utils';
 
-import { useOrderSettings, useSaveOrderSettings } from '../api/commerce';
+import { settingsErrorMessage, useOrderSettings, useSaveOrderSettings } from '../api/commerce';
 
-function Chips<T extends string>({
+export function Chips<T extends string>({
   options,
   selected,
   onToggle,
   label,
+  prefix = 'status',
 }: {
   options: readonly T[];
   selected: ReadonlySet<string>;
   onToggle: (value: T) => void;
   label: string;
+  /** i18n key prefix of the option names. */
+  prefix?: string;
 }) {
   const { t } = useTranslation();
   return (
@@ -39,7 +41,7 @@ function Chips<T extends string>({
                 : 'hover:bg-muted',
             )}
           >
-            {t(`status.${s}`)}
+            {t(`${prefix}.${s}`)}
           </button>
         );
       })}
@@ -84,7 +86,7 @@ export function OrderStatusSettings() {
       <section>
         <h2 className="font-semibold">{t('orderSettings.requireNote')}</h2>
         <p className="mt-1 mb-3 text-sm text-muted-foreground">
-          {t('orderSettings.requireNoteHint')}
+          {t('orderSettings.requireNoteHint')} {t('orderSettings.requireNoteAll')}
         </p>
         <Chips
           label={t('orderSettings.requireNote')}
@@ -99,12 +101,13 @@ export function OrderStatusSettings() {
           onClick={() =>
             save.mutate(
               {
+                ...settings.data,
                 extraStatuses: [...extra] as Array<(typeof OPTIONAL_ORDER_STATUSES)[number]>,
                 requireNoteStatuses: [...requireNote] as OrderStatus[],
               },
               {
                 onSuccess: () => toast.success(t('orderSettings.saved')),
-                onError: (err) => toast.error(errorMessage(t, err)),
+                onError: (err) => toast.error(settingsErrorMessage(t, err)),
               },
             )
           }

@@ -382,7 +382,7 @@
       "phone": "SĐT",
       "address": "Địa chỉ nhận",
       "products": "Sản phẩm",
-      "total": "Tổng tiền",
+      "total": "Tiền cần thu",
       "cod": "Còn thu (COD)",
       "source": "Nguồn",
       "createdBy": "Người tạo",
@@ -393,14 +393,16 @@
       "subtotal": "Tiền hàng",
       "shipping": "Phí VC thu khách",
       "paid": "Đã thanh toán",
-      "note": "Ghi chú"
+      "note": "Ghi chú",
+      "gross": "Tổng số tiền"
     },
     "footer": {
       "qty": "SL sản phẩm",
       "shipping": "Phí VC thu khách",
       "cod": "COD",
-      "total": "Tổng tiền",
-      "label": "Tổng"
+      "total": "Tiền cần thu",
+      "label": "Tổng",
+      "gross": "Tổng số tiền"
     },
     "empty": "Chưa có đơn hàng nào phù hợp với bộ lọc.",
     "emptyStart": "Chưa có đơn hàng nào. Tạo đơn đầu tiên để bắt đầu theo dõi doanh thu.",
@@ -420,7 +422,16 @@
       "exporting": "Đang xuất…",
       "exported": "Đã xuất {{count}} đơn",
       "remove": "Bỏ lọc {{name}}",
-      "clear": "Xoá bộ lọc"
+      "clear": "Xoá bộ lọc",
+      "statusCount": "{{count}} trạng thái",
+      "excluding": "Trừ {{name}}",
+      "exclude": "Loại trừ các trạng thái đã chọn",
+      "clearStatuses": "Bỏ chọn trạng thái",
+      "creator": "Người tạo",
+      "allCreators": "Mọi người tạo",
+      "carrier": "ĐVVC",
+      "allCarriers": "Mọi ĐVVC",
+      "more": "Lọc thêm"
     },
     "bulk": {
       "selected": "Đã chọn {{count}} đơn",
@@ -504,7 +515,10 @@
     "needItems": "Thêm ít nhất một sản phẩm",
     "needWarehouse": "Tạo kho hàng trước khi tạo đơn.",
     "goWarehouses": "Đến trang kho hàng",
-    "overStock": "Vượt tồn kho (còn {{count}})"
+    "overStock": "Vượt tồn kho (còn {{count}})",
+    "gross": "Tổng số tiền",
+    "requiredBySource": "Bắt buộc với nguồn này",
+    "fieldsRequired": "Cần nhập: {{fields}}"
   },
   "orderDetail": {
     "back": "Danh sách đơn",
@@ -534,7 +548,12 @@
     "cancel": "Huỷ",
     "transferEdit": "Đã chuyển khoản",
     "carrierFee": "Phí trả ĐVVC",
-    "notFound": "Không tìm thấy đơn hàng này."
+    "notFound": "Không tìm thấy đơn hàng này.",
+    "editItems": "Sửa sản phẩm",
+    "itemsLocked": "Hàng đã rời kho hoặc đơn đã huỷ/hoàn: không sửa được sản phẩm nữa.",
+    "itemsSaved": "Đã cập nhật sản phẩm của đơn",
+    "conflict": "Không thực hiện được: đơn hàng không còn ở trạng thái cho phép thao tác này. Tải lại trang và thử lại.",
+    "peopleSaved": "Đã cập nhật khách hàng & nhận hàng"
   },
   "overview": {
     "title": "Tổng quan đơn hàng",
@@ -646,13 +665,31 @@
     "title": "Thiết lập đơn hàng",
     "tabs": {
       "statuses": "Trạng thái đơn hàng",
-      "warehouses": "Kho hàng"
+      "warehouses": "Kho hàng",
+      "sources": "Theo nguồn đơn"
     },
     "extra": "Trạng thái bổ sung",
     "extraHint": "Bật để dùng thêm các bước này trong quy trình xử lý đơn.",
     "requireNote": "Trạng thái cần nhập ghi chú khi cập nhật",
     "requireNoteHint": "Nhân viên phải ghi lý do khi chuyển đơn sang các trạng thái này.",
     "save": "Cập nhật",
-    "saved": "Đã cập nhật thiết lập"
+    "saved": "Đã cập nhật thiết lập",
+    "requireNoteAll": "Áp dụng cho mọi nguồn đơn.",
+    "stale": "Thiết lập vừa được người khác thay đổi. Đã tải bản mới nhất, hãy kiểm tra rồi lưu lại.",
+    "policy": {
+      "source": "Nguồn đơn",
+      "hint": "Mỗi nguồn có yêu cầu riêng; thay đổi ở đây chỉ áp dụng cho nguồn đang chọn.",
+      "create": "Bắt buộc khi tạo đơn",
+      "createHint": "Không lưu được đơn nếu thiếu các thông tin này.",
+      "confirm": "Bắt buộc trước khi xác nhận và giao hàng",
+      "confirmHint": "Đơn nháp được lưu khi còn thiếu, nhưng không chuyển sang Đã xác nhận hoặc các bước giao hàng cho tới khi đủ.",
+      "default": "Đang dùng mặc định",
+      "fields": {
+        "customerPhone": "SĐT khách hàng",
+        "customerEmail": "Email khách hàng",
+        "recipientPhone": "SĐT người nhận",
+        "recipientAddress": "Địa chỉ nhận hàng"
+      }
+    }
   }
 }

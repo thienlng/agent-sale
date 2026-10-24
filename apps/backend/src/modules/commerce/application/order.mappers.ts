@@ -1,5 +1,5 @@
 import type { OrderDto, OrderSummaryDto } from '@agent-sales/contracts';
-import { foldVietnamese } from '@agent-sales/shared';
+import { type Amounts, foldVietnamese } from '@agent-sales/shared';
 
 import type { StockAction } from '../domain/order-stock.js';
 import type {
@@ -69,6 +69,54 @@ export function stockChanges(
   );
 }
 
+/**
+ * Reservation moves for edited lines of an order that holds its goods: per variant,
+ * reserve what was added and release what was removed (net of both).
+ */
+export function reservationChanges(
+  order: Pick<OrderRecord, 'id' | 'warehouseId'>,
+  before: Array<Pick<OrderItemRecord, 'variantId' | 'qty'>>,
+  after: Array<Pick<OrderItemRecord, 'variantId' | 'qty'>>,
+  actorUserId: string | null,
+): StockChange[] {
+  const delta = new Map<string, number>();
+  for (const i of before) delta.set(i.variantId, (delta.get(i.variantId) ?? 0) - i.qty);
+  for (const i of after) delta.set(i.variantId, (delta.get(i.variantId) ?? 0) + i.qty);
+  return [...delta]
+    .filter(([, d]) => d !== 0)
+    .map(([variantId, d]) => ({
+      variantId,
+      warehouseId: order.warehouseId,
+      onHandDelta: 0,
+      reservedDelta: d,
+      reason: d > 0 ? ('reserve' as const) : ('release' as const),
+      refType: 'order' as const,
+      refId: order.id,
+      actorUserId,
+    }));
+}
+
+/** The stored amount columns of an order, from the shared formulas. */
+export function amountFields(a: Amounts) {
+  return {
+    itemQty: a.itemQty,
+    subtotal: a.subtotal,
+    discountType: a.discountType,
+    discountValue: a.discountValue,
+    discountAmount: a.discountAmount,
+    shippingFee: a.shippingFee,
+    shippingFeeCharged: a.shippingFeeCharged,
+    freeShipping: a.freeShipping,
+    surcharge: a.surcharge,
+    transferAmount: a.transferAmount,
+    total: a.total,
+    paid: a.paid,
+    remaining: a.remaining,
+    codAmount: a.cod,
+    costTotal: a.costTotal,
+  } satisfies Partial<OrderRecord>;
+}
+
 function amountsOf(o: OrderRecord) {
   return {
     itemQty: o.itemQty,
@@ -81,6 +129,7 @@ function amountsOf(o: OrderRecord) {
     shippingFeeCharged: o.shippingFeeCharged,
     freeShipping: o.freeShipping,
     surcharge: o.surcharge,
+    gross: o.subtotal + o.shippingFeeCharged + o.surcharge,
     total: o.total,
     transferAmount: o.transferAmount,
     paid: o.paid,

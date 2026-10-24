@@ -35,10 +35,16 @@ import { type OrderColumn, useVisibleOrderColumns } from './order-columns';
 import { OrderStatusBadge } from './order-status-badge';
 import { OrdersBulkBar } from './orders-bulk-bar';
 import { Pager } from './orders-pager';
-import type { OrdersSearch } from './orders-search';
+import { type OrdersSearch, toOrderQuery } from './orders-search';
 import { OrdersToolbar } from './orders-toolbar';
 
-type Totals = { itemQty: number; shippingFeeCharged: number; cod: number; total: number };
+type Totals = {
+  itemQty: number;
+  shippingFeeCharged: number;
+  cod: number;
+  gross: number;
+  total: number;
+};
 
 /** Footer value under a column: totals over every matching order, not only this page. */
 function footerCell(col: OrderColumn, totals: Totals) {
@@ -49,6 +55,8 @@ function footerCell(col: OrderColumn, totals: Totals) {
       return formatVnd(totals.shippingFeeCharged);
     case 'cod':
       return formatVnd(totals.cod);
+    case 'gross':
+      return formatVnd(totals.gross);
     case 'total':
       return formatVnd(totals.total);
     default:
@@ -137,7 +145,7 @@ export function OrdersList({
   const columns = useVisibleOrderColumns();
   const page = search.page ?? 1;
   const pageSize = search.pageSize ?? 20;
-  const orders = useOrders({ ...search, page, pageSize });
+  const orders = useOrders(toOrderQuery({ ...search, page, pageSize }));
   const [selected, setSelected] = useState<string[]>([]);
   const [exporting, setExporting] = useState(false);
 
@@ -158,7 +166,7 @@ export function OrdersList({
     setExporting(true);
     try {
       const { page: _page, pageSize: _size, ...filter } = search;
-      const all = await fetchAllOrders(filter);
+      const all = await fetchAllOrders(toOrderQuery(filter));
       downloadOrdersCsv(all, columns, t);
       toast.success(t('orders.filters.exported', { count: all.length }));
     } catch (err) {
@@ -197,6 +205,7 @@ export function OrdersList({
         onChange={change}
         statuses={statuses}
         counts={data?.counts ?? {}}
+        facets={data?.facets}
         onExport={() => void exportCsv()}
         exporting={exporting}
       />

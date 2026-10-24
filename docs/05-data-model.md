@@ -184,7 +184,8 @@ admin_units(code, name, level: province|ward, parent_code, valid_from, valid_to)
 subtotal          = Σ line_total
 discount_amount   = discount_type == 'percent' ? round(subtotal × value / 100) : value
 after_discount    = subtotal − discount_amount
-total             = after_discount + shipping_fee_charged + surcharge     -- "Tổng số tiền" (Total amount) / "Tiền cần thu" (Amount to collect)
+gross             = subtotal + shipping_fee_charged + surcharge           -- "Tổng số tiền" (Gross total, before discount)
+total             = gross − discount_amount                               -- "Tiền cần thu" (Amount due)
 paid              = transfer_amount (+ other payments)
 remaining         = total − paid                                          -- "Còn thiếu" (Outstanding)
 cod_amount        = max(remaining, 0)
@@ -193,6 +194,10 @@ profit (statistics) = Σ(unit_price − cost) × qty − discount_amount − (sh
 ```
 
 **Implemented (M2, migration 0004):** money columns are `bigint` VND; `orders.stock_state` (`reserved | shipped | released | returned`) records where the goods are, and every inventory change appends to `inventory_movements` (rules in `apps/backend/src/modules/commerce/MODULE.md`). Order codes come from `order_counters` (`DH000001`…). `orders.search_text` and `products.search_text` hold folded text (trigram-indexed) for accent-insensitive search. Names of who created/changed an order are snapshotted (`created_by_name`, `order_status_history.actor_name`). Not yet: `admin_units` (addresses are free text), carriers/shipments, `shipping_settings`, sources as entities (`orders.source` is an enum).
+
+`gross` is not stored: the API derives it (`amounts.gross`, list footer `totals.gross`) so the list, detail, export and footer never reuse one ambiguous "total" for both meanings (#22).
+
+**Order settings (implemented, migration 0005):** one row per workspace with `extra_statuses`, `require_note_statuses` (every source), `policies JSONB` — per order source, the fields required to save an order (`create`) and before it enters a fulfilment status (`confirm`: `FULFILMENT_ORDER_STATUSES` = closed statuses + delivery failed + returning) — and `version INT` for optimistic concurrency (a save carrying an older version is refused with 409). Fields a policy can require: customer phone/email, recipient phone, delivery address. Sources without a stored policy use `defaultOrderPolicy` (hotline: no fields to save a draft, delivery details to confirm; in-store: nothing; others: delivery details for both). The planned per-source row (`source_id`) and `require_confirm`/Sheets/chat-order settings are not implemented yet.
 
 **Overview definitions (ORD-11)**, per local day in the workspace time zone: sales = Σ total of orders not cancelled; closed orders = statuses confirmed → delivered (`CLOSED_ORDER_STATUSES`); revenue = Σ total of closed orders; profit = Σ profit of closed orders; returned = orders returning/returned.
 

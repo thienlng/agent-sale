@@ -96,3 +96,48 @@ export class DuplicateOrderRequestError extends DomainError {
     super('This order was already submitted');
   }
 }
+
+/** The order's source policy requires fields the order leaves blank. */
+export class OrderFieldsRequiredError extends DomainError {
+  readonly code = 'VALIDATION_FAILED';
+  constructor(stage: 'create' | 'confirm', source: string, fields: string[]) {
+    super(
+      stage === 'create'
+        ? 'Fill in the fields this source requires to save an order'
+        : 'Fill in the fields this source requires before the order is fulfilled',
+      { stage, source, fields },
+    );
+  }
+}
+
+/** Lines can change only while the order holds its goods (not once shipped, cancelled or returned). */
+export class OrderItemsLockedError extends DomainError {
+  readonly code = 'CONFLICT';
+  constructor(stockState: string) {
+    super('Products can only be changed while the order is still in the warehouse', {
+      stockState,
+    });
+  }
+}
+
+/** Order settings were saved by someone else since they were loaded. */
+export class StaleSettingsError extends DomainError {
+  readonly code = 'CONFLICT';
+  constructor() {
+    super('Order settings were changed by someone else; reload and try again');
+  }
+}
+
+export class OrderDiscountError extends DomainError {
+  readonly code = 'VALIDATION_FAILED';
+  constructor() {
+    super('A percentage discount is at most 100');
+  }
+}
+
+export class ShippingFeeRequiredError extends DomainError {
+  readonly code = 'VALIDATION_FAILED';
+  constructor() {
+    super('Send shippingFeeCharged when turning free shipping off');
+  }
+}
