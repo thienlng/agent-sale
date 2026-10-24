@@ -107,3 +107,14 @@ export const TestLlmProviderResponse = z.object({
   error: z.string().nullable(),
 });
 export type TestLlmProviderResponse = z.infer<typeof TestLlmProviderResponse>;
+
+/** ChatGPT sign-in state of a Hermes runtime. `unreachable` = the bridge did not answer. */
+export const HermesLoginStatus = z.object({
+  state: z.enum(['signed_out', 'pending', 'signed_in', 'failed', 'unreachable']),
+  verificationUrl: z.string().optional(),
+  userCode: z.string().optional(),
+  expiresAt: z.string().optional(),
+  /** Machine reason when `failed`, e.g. device_code_timeout, rate_limited, login_failed. */
+  code: z.string().optional(),
+});
+export type HermesLoginStatus = z.infer<typeof HermesLoginStatus>;
