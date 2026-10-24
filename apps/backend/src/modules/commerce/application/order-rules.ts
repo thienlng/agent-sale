@@ -69,10 +69,16 @@ export function assertPolicy(
   source: string,
   people: OrderPeople,
   status: OrderStatus,
+  only?: 'confirm',
 ): void {
   const policy =
     settings.policies.find((p) => p.source === source) ??
     defaultOrderPolicy(source as OrderSourcePolicy['source']);
+  if (only === 'confirm') {
+    const missing = missingFields(people, policy.confirm);
+    if (missing.length) throw new OrderFieldsRequiredError('confirm', source, missing);
+    return;
+  }
   const forCreate = missingFields(people, policy.create);
   if (forCreate.length) throw new OrderFieldsRequiredError('create', source, forCreate);
   if (!FULFILMENT.has(status)) return;

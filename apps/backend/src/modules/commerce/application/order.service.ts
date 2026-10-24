@@ -27,6 +27,7 @@ import {
   OrderItemsLockedError,
   OrderNotFoundError,
   OrderNoteRequiredError,
+  ShippingFeeRequiredError,
   StaleSettingsError,
   WarehouseNotFoundError,
 } from '../domain/commerce.errors.js';
@@ -197,8 +198,10 @@ export class OrderService implements CommerceFacade {
       }
       const next: OrderRecord = {
         ...o,
-        ...(change.customer ? { customer: change.customer } : {}),
-        ...(change.recipient ? { recipient: change.recipient } : {}),
+        // Merged, so fields the caller does not send (e.g. gender) are kept;
+        // a blank value sent explicitly removes the field.
+        ...(change.customer ? { customer: { ...o.customer, ...change.customer } } : {}),
+        ...(change.recipient ? { recipient: { ...o.recipient, ...change.recipient } } : {}),
         ...(change.expectedDeliveryAt !== undefined
           ? {
               expectedDeliveryAt: change.expectedDeliveryAt
@@ -215,6 +218,14 @@ export class OrderService implements CommerceFacade {
       if (change.customer || change.recipient) {
         // The edited people must still satisfy the policy of the stage the order is in.
         assertPolicy(await loadSettings(tx), o.source, peopleOf(next), o.status);
+      }
+      if (
+        o.freeShipping &&
+        change.freeShipping === false &&
+        change.shippingFeeCharged === undefined
+      ) {
+        // The stored fee is 0 while shipping is free; the customer's fee must be given again.
+        throw new ShippingFeeRequiredError();
       }
       const discountType = change.discountType ?? o.discountType;
       const discountValue = change.discountValue ?? o.discountValue;
@@ -258,9 +269,11 @@ export class OrderService implements CommerceFacade {
       if (settings.requireNoteStatuses.includes(input.status) && !input.note?.trim()) {
         throw new OrderNoteRequiredError(input.status);
       }
-      if (!FULFILMENT.has(o.status)) {
+      if (FULFILMENT.has(input.status) && !FULFILMENT.has(o.status)) {
         // Entering fulfilment: the source's confirmation fields must be filled by now.
-        assertPolicy(settings, o.source, peopleOf(o), input.status);
+        // Other moves (cancel, return, back to draft) never depend on the policy, so a
+        // policy tightened after the order was saved cannot trap its stock.
+        assertPolicy(settings, o.source, peopleOf(o), input.status, 'confirm');
       }
 
       const stock = stockTransition(o.stockState, input.status);

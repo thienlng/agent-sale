@@ -569,4 +569,61 @@ describe('commerce on Postgres', () => {
     expect((await ids(`createdBy=${crypto.randomUUID()}`)).total).toBe(0);
     expect((await call(h, 'GET', '/orders?status=bogus')).statusCode).toBe(400);
   });
+
+  it('keeps drafts movable when a policy tightens, keeps unsent fields, and asks for the fee when free shipping ends', async () => {
+    const h = await owner('review-fixes@shop.vn');
+    const { warehouse, product, l } = await setup(h);
+    const draft = OrderDto.parse(
+      (
+        await call(h, 'POST', '/orders', {
+          ...orderBody(warehouse.id, [{ variantId: l.id, qty: 2 }]),
+          source: 'hotline',
+          customer: { name: 'Khách gọi', phone: '', gender: 'female' },
+          recipient: { name: 'Khách gọi', phone: '', address: '' },
+          freeShipping: true,
+        })
+      ).json(),
+    );
+
+    // The shop now wants a phone to save hotline orders; the old draft can still be cancelled.
+    const settings = OrderSettingsDto.parse((await call(h, 'GET', '/order-settings')).json());
+    await call(h, 'PUT', '/order-settings', {
+      ...settings,
+      policies: settings.policies.map((p) =>
+        p.source === 'hotline' ? { ...p, create: ['recipientPhone'] } : p,
+      ),
+    });
+    const cancelled = await call(h, 'POST', `/orders/${draft.id}/status`, { status: 'cancelled' });
+    expect(cancelled.statusCode).toBe(200);
+    expect(await stockOf(h, product.id, l.id)).toMatchObject({ reserved: 0 });
+
+    // Editing the people keeps what was not sent (gender).
+    const edited = OrderDto.parse(
+      (
+        await call(h, 'PATCH', `/orders/${draft.id}`, {
+          customer: { name: 'Khách gọi', phone: '0901111222' },
+          recipient: { name: 'Khách gọi', phone: '0901111222', address: '1 Lý Thái Tổ' },
+        })
+      ).json(),
+    );
+    expect(edited.customer).toMatchObject({ phone: '0901111222', gender: 'female' });
+
+    // Free shipping off without the customer's fee is refused; with it, the total follows.
+    const revived = OrderDto.parse(
+      (await call(h, 'POST', `/orders/${draft.id}/status`, { status: 'new' })).json(),
+    );
+    expect(revived.amounts.shippingFeeCharged).toBe(0);
+    expect(
+      (await call(h, 'PATCH', `/orders/${draft.id}`, { freeShipping: false })).statusCode,
+    ).toBe(400);
+    const charged = OrderDto.parse(
+      (
+        await call(h, 'PATCH', `/orders/${draft.id}`, {
+          freeShipping: false,
+          shippingFeeCharged: 30_000,
+        })
+      ).json(),
+    );
+    expect(charged.amounts).toMatchObject({ shippingFeeCharged: 30_000, total: 330_000 });
+  });
 });

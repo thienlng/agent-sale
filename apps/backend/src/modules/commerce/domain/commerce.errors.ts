@@ -134,3 +134,10 @@ export class OrderDiscountError extends DomainError {
     super('A percentage discount is at most 100');
   }
 }
+
+export class ShippingFeeRequiredError extends DomainError {
+  readonly code = 'VALIDATION_FAILED';
+  constructor() {
+    super('Send shippingFeeCharged when turning free shipping off');
+  }
+}
