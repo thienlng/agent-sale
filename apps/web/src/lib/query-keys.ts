@@ -25,6 +25,10 @@ export const queryKeys = {
   members: (ws: string) => ['ws', ws, 'members'] as const,
   invitations: (ws: string) => ['ws', ws, 'invitations'] as const,
   assignmentPolicies: (ws: string) => ['ws', ws, 'crm', 'assignment-policies'] as const,
+  mfa: ['me', 'mfa'] as const,
+  profile: (ws: string) => ['ws', ws, 'profile'] as const,
+  logo: (ws: string, version: string | null) => ['ws', ws, 'logo', version] as const,
+  audit: (ws: string) => ['ws', ws, 'audit'] as const,
   llmProviders: ['admin', 'llm', 'providers'] as const,
   llmTiers: ['admin', 'llm', 'tiers'] as const,
 };

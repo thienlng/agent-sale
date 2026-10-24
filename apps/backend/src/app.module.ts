@@ -4,6 +4,8 @@ import { Module } from '@nestjs/common';
 
 import { DbModule } from './common/db/db.module.js';
 import { AiModule } from './modules/ai/ai.module.js';
+import { AuditModule } from './modules/audit/audit.module.js';
+import { BillingModule } from './modules/billing/billing.module.js';
 import { CommerceModule } from './modules/commerce/commerce.module.js';
 import { CrmModule } from './modules/crm/crm.module.js';
 import { TeamModule } from './modules/team/team.module.js';
@@ -29,6 +31,8 @@ import { WorkspaceModule } from './modules/workspace/workspace.module.js';
     ConversationModule,
     CrmModule,
     TeamModule,
+    BillingModule,
+    AuditModule,
   ],
 })
 export class AppModule {}
