@@ -1173,5 +1173,171 @@
       "enabledToast": "Đã bật xác minh 2 bước",
       "disabledToast": "Đã tắt xác minh 2 bước"
     }
+  },
+  "analytics": {
+    "title": "Thống kê",
+    "subtitle": "Số liệu khách hàng, nhãn, trạng thái và hội thoại. Mỗi con số có định nghĩa rõ ràng — bấm vào dấu (i) để xem.",
+    "filters": {
+      "from": "Từ ngày",
+      "to": "Đến ngày",
+      "origin": "Nguồn khách",
+      "sales": "Nhân viên Sales",
+      "page": "Trang / kênh",
+      "preset7": "7 ngày",
+      "preset30": "30 ngày",
+      "thisMonth": "Tháng này",
+      "allSales": "Tất cả nhân viên",
+      "allPages": "Tất cả trang",
+      "noSales": "Chưa có nhân viên Sales nào",
+      "noPages": "Chưa kết nối trang nào",
+      "connectPages": "Kết nối trang",
+      "salesNote": "Bộ lọc nhân viên áp dụng cho số liệu khách hàng, nhãn và trạng thái; không áp dụng cho hội thoại.",
+      "pageNote": "Bộ lọc trang chỉ áp dụng cho số liệu hội thoại.",
+      "rangeInvalid": "Ngày bắt đầu phải trước ngày kết thúc.",
+      "rangeTooLong": "Chọn tối đa 366 ngày.",
+      "selected": "{{count}} đã chọn"
+    },
+    "origins": {
+      "channel": "Kênh chat",
+      "manual": "Nhập tay",
+      "import": "Nhập file",
+      "rule": "Tự động"
+    },
+    "groups": {
+      "activity": "Khách hàng",
+      "tags": "Nhãn",
+      "statuses": "Trạng thái",
+      "conversations": "Hội thoại"
+    },
+    "metrics": {
+      "customers.new": {
+        "name": "Khách hàng mới",
+        "help": "Số khách hàng được tạo trong khoảng ngày (giờ của cửa hàng). Mỗi khách chỉ đếm một lần."
+      },
+      "phones.captured": {
+        "name": "Số điện thoại thu được",
+        "help": "Số khách lần đầu có số điện thoại trong khoảng ngày."
+      },
+      "tags.assigned": {
+        "name": "Nhãn được gắn",
+        "help": "Số lần gắn nhãn trong khoảng ngày. Mỗi lần gắn tính một lần."
+      },
+      "tags.removed": {
+        "name": "Nhãn bị gỡ",
+        "help": "Số lần gỡ nhãn trong khoảng ngày."
+      },
+      "tags.net": {
+        "name": "Nhãn ròng",
+        "help": "Số lần gắn trừ số lần gỡ trong cùng khoảng ngày."
+      },
+      "tags.current": {
+        "name": "Khách đang có nhãn",
+        "help": "Số khách đang có ít nhất một nhãn tại thời điểm xem. Khách có nhiều nhãn chỉ tính một lần."
+      },
+      "statuses.changed": {
+        "name": "Lượt đổi trạng thái",
+        "help": "Số lần đổi trạng thái khách trong khoảng ngày. Trạng thái lúc tạo không tính là đổi."
+      },
+      "statuses.current": {
+        "name": "Khách theo trạng thái",
+        "help": "Tổng số khách tại thời điểm xem, chia theo trạng thái hiện tại."
+      },
+      "conversations.opened": {
+        "name": "Hội thoại mới",
+        "help": "Số hội thoại được mở bởi tin nhắn đầu tiên của khách."
+      },
+      "messages.inbound": {
+        "name": "Tin nhắn khách gửi",
+        "help": "Số tin nhắn khách gửi đến."
+      },
+      "messages.outbound": {
+        "name": "Tin nhắn shop gửi",
+        "help": "Số tin nhắn nhân viên và bot đã gửi thành công."
+      },
+      "comments.received": {
+        "name": "Bình luận",
+        "help": "Số bình luận trên trang."
+      }
+    },
+    "definition": {
+      "title": "Định nghĩa",
+      "kind": {
+        "event": "Đếm sự kiện: số lần xảy ra trong khoảng ngày.",
+        "snapshot": "Ảnh chụp: trạng thái tại thời điểm xem, không phụ thuộc khoảng ngày.",
+        "derived": "Tính từ các số liệu khác."
+      },
+      "origins": "Nguồn: {{list}}",
+      "attribution": {
+        "sales_at_event": "Theo Sales phụ trách lúc sự kiện xảy ra.",
+        "owner_at_as_of": "Theo Sales phụ trách tại thời điểm xem.",
+        "none": "Không gắn với nhân viên."
+      },
+      "version": "Phiên bản định nghĩa {{version}}"
+    },
+    "states": {
+      "loading": "Đang tải số liệu…",
+      "errorTitle": "Không tải được số liệu",
+      "errorBody": "Số liệu chưa thể tính lúc này. Đây không phải là 0 — hãy thử lại.",
+      "retry": "Thử lại",
+      "locked": "Gói hiện tại chưa gồm số liệu này",
+      "unavailable": "Chưa có nguồn dữ liệu",
+      "unavailableHint": "Hệ thống chưa nhận bình luận từ trang nên chưa thể thống kê.",
+      "noData": "Chưa có dữ liệu trong khoảng này",
+      "noChannelCustomers": "Chưa có khách nào từ kênh chat. Chọn thêm “Nhập tay” để xem khách tạo trong CRM.",
+      "forbidden": "Bạn không có quyền xem thống kê."
+    },
+    "freshness": {
+      "updated": "Cập nhật lúc {{time}}",
+      "lag": "Dữ liệu đang chậm khoảng {{seconds}} giây so với hệ thống.",
+      "scopeOwn": "Chỉ gồm khách bạn phụ trách và khách chưa có người phụ trách.",
+      "timezone": "Múi giờ {{tz}}"
+    },
+    "chart": {
+      "title": "Theo ngày",
+      "metric": "Số liệu",
+      "empty": "Không có số liệu theo ngày để vẽ."
+    },
+    "breakdowns": {
+      "topTags": "Nhãn trong khoảng ngày",
+      "currentTags": "Nhãn đang gắn",
+      "currentTagsNote": "Một khách có nhiều nhãn nằm ở nhiều dòng, nên các dòng không cộng lại thành tổng. Tổng thực: {{count}} khách.",
+      "statuses": "Khách theo trạng thái",
+      "noStatus": "Chưa có trạng thái",
+      "bySales": "Theo nhân viên Sales",
+      "byPage": "Theo trang",
+      "unassigned": "Chưa phân công",
+      "unknownPage": "Không rõ trang",
+      "assigned": "Gắn",
+      "removed": "Gỡ",
+      "net": "Ròng",
+      "customers": "Khách",
+      "count": "Số lượng",
+      "unknownTag": "Nhãn đã xoá",
+      "unknownStatus": "Trạng thái đã xoá",
+      "unknownMember": "Nhân viên cũ"
+    },
+    "drilldown": {
+      "title": "Chi tiết: {{metric}}",
+      "total": "{{count}} mục — bằng đúng số trên thẻ",
+      "empty": "Không có mục nào.",
+      "more": "Xem thêm",
+      "time": "Thời gian",
+      "customer": "Khách hàng",
+      "noName": "(chưa đặt tên)",
+      "conversation": "Hội thoại",
+      "page": "Trang",
+      "narrowed": "Đang lọc theo một dòng của bảng"
+    },
+    "issues": {
+      "version_mismatch": "Phiên bản định nghĩa đã đổi. Tải lại trang.",
+      "metric_unavailable": "Số liệu này chưa có nguồn dữ liệu.",
+      "origin_not_allowed": "Nguồn đã chọn không áp dụng cho số liệu này.",
+      "scope_not_supported": "Bộ lọc này không áp dụng cho số liệu đã chọn.",
+      "range_invalid": "Khoảng ngày không hợp lệ.",
+      "range_too_long": "Khoảng ngày quá dài.",
+      "as_of_in_future": "Thời điểm xem không thể ở tương lai.",
+      "not_drillable": "Số liệu này tính từ số liệu khác nên không có chi tiết.",
+      "metric_locked": "Gói hiện tại chưa gồm số liệu này."
+    }
   }
 }

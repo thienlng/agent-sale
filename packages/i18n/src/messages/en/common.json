@@ -1173,5 +1173,171 @@
       "enabledToast": "Two-step verification is on",
       "disabledToast": "Two-step verification is off"
     }
+  },
+  "analytics": {
+    "title": "Statistics",
+    "subtitle": "Customers, tags, statuses and conversations. Every number has a written definition — press (i) to read it.",
+    "filters": {
+      "from": "From",
+      "to": "To",
+      "origin": "Customer source",
+      "sales": "Salesperson",
+      "page": "Page / channel",
+      "preset7": "7 days",
+      "preset30": "30 days",
+      "thisMonth": "This month",
+      "allSales": "All salespeople",
+      "allPages": "All pages",
+      "noSales": "There are no Sales members yet",
+      "noPages": "No page is connected",
+      "connectPages": "Connect a page",
+      "salesNote": "The salesperson filter applies to customer, tag and status numbers, not to conversations.",
+      "pageNote": "The page filter only applies to conversation numbers.",
+      "rangeInvalid": "The start date must not be after the end date.",
+      "rangeTooLong": "Pick at most 366 days.",
+      "selected": "{{count}} selected"
+    },
+    "origins": {
+      "channel": "Chat channel",
+      "manual": "Entered by hand",
+      "import": "Imported",
+      "rule": "Automatic"
+    },
+    "groups": {
+      "activity": "Customers",
+      "tags": "Tags",
+      "statuses": "Statuses",
+      "conversations": "Conversations"
+    },
+    "metrics": {
+      "customers.new": {
+        "name": "New customers",
+        "help": "Customers created in the date range (shop time). Each customer is counted once."
+      },
+      "phones.captured": {
+        "name": "Phone numbers captured",
+        "help": "Customers who got a phone number for the first time in the range."
+      },
+      "tags.assigned": {
+        "name": "Tags added",
+        "help": "Times a tag was added in the range. Every addition counts."
+      },
+      "tags.removed": {
+        "name": "Tags removed",
+        "help": "Times a tag was removed in the range."
+      },
+      "tags.net": {
+        "name": "Net tags",
+        "help": "Tags added minus tags removed in the same range."
+      },
+      "tags.current": {
+        "name": "Customers with a tag",
+        "help": "Customers that have at least one tag right now. A customer with several tags counts once."
+      },
+      "statuses.changed": {
+        "name": "Status changes",
+        "help": "Times a customer's status changed in the range. The status a customer starts with is not a change."
+      },
+      "statuses.current": {
+        "name": "Customers by status",
+        "help": "All customers right now, split by their current status."
+      },
+      "conversations.opened": {
+        "name": "New conversations",
+        "help": "Conversations opened by a customer's first message."
+      },
+      "messages.inbound": {
+        "name": "Customer messages",
+        "help": "Messages customers sent."
+      },
+      "messages.outbound": {
+        "name": "Shop messages",
+        "help": "Messages staff and the bot sent successfully."
+      },
+      "comments.received": {
+        "name": "Comments",
+        "help": "Comments on the page."
+      }
+    },
+    "definition": {
+      "title": "Definition",
+      "kind": {
+        "event": "Event count: how many times it happened in the range.",
+        "snapshot": "Snapshot: the state at the time of viewing, whatever the range.",
+        "derived": "Computed from other numbers."
+      },
+      "origins": "Source: {{list}}",
+      "attribution": {
+        "sales_at_event": "By the salesperson in charge when it happened.",
+        "owner_at_as_of": "By the salesperson in charge at the time of viewing.",
+        "none": "Not tied to a staff member."
+      },
+      "version": "Definition version {{version}}"
+    },
+    "states": {
+      "loading": "Loading numbers…",
+      "errorTitle": "The numbers could not be loaded",
+      "errorBody": "They cannot be computed right now. This is not 0 — try again.",
+      "retry": "Try again",
+      "locked": "Your plan does not include this number",
+      "unavailable": "No data source yet",
+      "unavailableHint": "Page comments are not received yet, so they cannot be counted.",
+      "noData": "No data in this range",
+      "noChannelCustomers": "No customer has come from a chat channel yet. Also select “Entered by hand” to see customers created in the CRM.",
+      "forbidden": "You are not allowed to see statistics."
+    },
+    "freshness": {
+      "updated": "Updated at {{time}}",
+      "lag": "Data is about {{seconds}} seconds behind the system.",
+      "scopeOwn": "Only customers you own and customers nobody owns.",
+      "timezone": "Time zone {{tz}}"
+    },
+    "chart": {
+      "title": "By day",
+      "metric": "Number",
+      "empty": "There are no daily numbers to draw."
+    },
+    "breakdowns": {
+      "topTags": "Tags in the range",
+      "currentTags": "Tags currently on customers",
+      "currentTagsNote": "A customer with several tags is in several rows, so the rows do not add up to the total. Real total: {{count}} customers.",
+      "statuses": "Customers by status",
+      "noStatus": "No status",
+      "bySales": "By salesperson",
+      "byPage": "By page",
+      "unassigned": "Unassigned",
+      "unknownPage": "Unknown page",
+      "assigned": "Added",
+      "removed": "Removed",
+      "net": "Net",
+      "customers": "Customers",
+      "count": "Count",
+      "unknownTag": "Deleted tag",
+      "unknownStatus": "Deleted status",
+      "unknownMember": "Former member"
+    },
+    "drilldown": {
+      "title": "Detail: {{metric}}",
+      "total": "{{count}} items — exactly the number on the card",
+      "empty": "There is nothing here.",
+      "more": "Show more",
+      "time": "Time",
+      "customer": "Customer",
+      "noName": "(no name)",
+      "conversation": "Conversation",
+      "page": "Page",
+      "narrowed": "Filtered to one row of the table"
+    },
+    "issues": {
+      "version_mismatch": "The definitions changed. Reload the page.",
+      "metric_unavailable": "This number has no data source yet.",
+      "origin_not_allowed": "The selected source does not apply to this number.",
+      "scope_not_supported": "This filter does not apply to the selected number.",
+      "range_invalid": "The date range is not valid.",
+      "range_too_long": "The date range is too long.",
+      "as_of_in_future": "The time to view cannot be in the future.",
+      "not_drillable": "This number is computed from others, so it has no detail.",
+      "metric_locked": "Your plan does not include this number."
+    }
   }
 }

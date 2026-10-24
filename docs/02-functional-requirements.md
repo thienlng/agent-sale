@@ -167,7 +167,7 @@ The Preny inbox layout could not be captured → we design it on the standard 3-
 
 | ID | Feature | Priority |
 |---|---|---|
-| ANA-01 | Conversation analytics: filter by salesperson, by page, date range; tabs Pages / Interactions / Tags / Current tags / Statuses; total converted interactions, new customers, phone numbers collected; total tags added/removed, conversations, comments, new messages; top tags | P1 |
+| ANA-01 | (built, M4b: `/app/analytics` — cards, daily chart, tag/status/salesperson/page tables, drilldown; definitions in docs/analytics.md) Conversation analytics: filter by salesperson, by page, date range; tabs Pages / Interactions / Tags / Current tags / Statuses; total converted interactions, new customers, phone numbers collected; total tags added/removed, conversations, comments, new messages; top tags | P1 |
 | ANA-02 | Bot performance: self-resolution rate, handoff rate, response time p50/p95, unanswered questions, credits used per bot | P1 [+] |
 | ANA-03 | Staff performance: first response time, number of conversations, closed orders | P2 |
 | ANA-04 | Funnel: Conversation → has phone number → order → successfully delivered order, by source/ad ID | P2 [+] |

@@ -13,6 +13,11 @@ export class OwnershipService {
   }
 
   /** Moves a member's customers to someone else (or nobody), leaving a trail per customer. */
+  /** Names for customers the caller already may see (statistics drilldown). */
+  namesOf(ws: WorkspaceId, ids: readonly string[]) {
+    return this.store.run(ws, (tx) => tx.contacts.namesOf(ids));
+  }
+
   reassignContacts(
     ws: WorkspaceId,
     input: { from: string; to: string | null; actor: { userId: string; name: string | null } },

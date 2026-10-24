@@ -197,6 +197,12 @@ export class ConversationFacadeImpl implements ConversationFacade {
         messageId: event.externalEventId,
         type: event.type,
         revision: c.revision,
+        // Statistics: where and when it happened, and whether it opened the conversation.
+        channelId,
+        occurredAt: event.occurredAt.toISOString(),
+        // The customer's first message opens it, even when staff wrote first (an echo creates the row with no inbound yet).
+        firstMessage:
+          event.type !== 'echo' && (!existing || Date.parse(existing.lastInboundAt) <= 0),
       });
       return c;
     });
@@ -352,6 +358,9 @@ export class ConversationFacadeImpl implements ConversationFacade {
         messageId: m.id,
         status: result.status,
         failureCode: result.failureCode,
+        channelId,
+        sender: m.sender,
+        occurredAt: now(),
       });
       return completed;
     });

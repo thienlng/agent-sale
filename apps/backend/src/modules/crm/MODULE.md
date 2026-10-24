@@ -8,7 +8,7 @@
 
 - `CRM_FACADE` → `getContact(workspaceId, contactId)`, `ownedContactCounts(workspaceId, userId)` and `reassignContacts(workspaceId, from, to | null, actor)` (used by `team` when a member is removed; history entries are written per customer).
 - HTTP (workspace-scoped): `/contacts`, `/contacts/query`, `/contacts/{id}` (+ `/notes`, `/history`, `/tags`), `/tag-assignments/{id}` (+ `/remove`), `/crm/sources`, `/crm/statuses` (+ `/order`), `/crm/tags`, `/crm/assignees`, `/saved-views`. Contracts: `packages/contracts/src/crm/`.
-- Events (outbox, same transaction as the change): `crm.contact.created.v1`, `crm.contact.updated.v1`, `crm.contact.status_changed.v1`, `crm.contact.assigned.v1`, `crm.tag.assigned.v1`, `crm.tag.removed.v1`.
+- Events (outbox, same transaction as the change): `crm.contact.created.v1`, `crm.contact.updated.v1`, `crm.contact.status_changed.v1`, `crm.contact.assigned.v1`, `crm.tag.assigned.v1`, `crm.tag.removed.v1`. Statistics (analytics module) rely on them: `crm.contact.created.v1` carries `origin` and `phoneCaptured`, `crm.contact.updated.v1` carries `phoneCaptured`, and every owner a customer starts with is a `crm.contact.assigned.v1` (not only auto-assigned ones).
 
 **Events consumed:** none yet. Uses the `identity` facade (actor names) and the `workspace` facade (members for assignment, time zone for date filters).
 

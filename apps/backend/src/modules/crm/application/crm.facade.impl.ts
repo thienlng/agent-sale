@@ -22,6 +22,10 @@ export class CrmFacadeImpl implements CrmFacade {
     return this.ownership.ownedContactCounts(ws, userId);
   }
 
+  contactNames(ws: WorkspaceId, ids: readonly string[]) {
+    return this.ownership.namesOf(ws, ids);
+  }
+
   reassignContacts(ws: WorkspaceId, input: Parameters<OwnershipService['reassignContacts']>[1]) {
     return this.ownership.reassignContacts(ws, input);
   }

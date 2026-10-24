@@ -153,6 +153,8 @@ export interface CrmTx {
     findByRequestId(requestId: string): Promise<ContactRecord | null>;
     query(q: ContactQuery): Promise<{ rows: ContactRecord[]; total: number }>;
     countOwnedBy(userId: string): Promise<{ sales: number; care: number }>;
+    /** Display names by id (statistics drilldown); unknown ids are absent. */
+    namesOf(ids: readonly string[]): Promise<Map<string, string | null>>;
     /** Moves the owner slot of every customer owned by `from`; returns the ids moved. */
     reassignOwner(
       role: 'sales' | 'care',

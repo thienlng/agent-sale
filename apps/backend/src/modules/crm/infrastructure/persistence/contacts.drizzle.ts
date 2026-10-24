@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, schema, sql, type TenantTx } from '@agent-sales/db';
+import { and, asc, desc, eq, inArray, schema, sql, type TenantTx } from '@agent-sales/db';
 import type { WorkspaceId } from '@agent-sales/shared';
 
 import type {
@@ -92,6 +92,14 @@ export function contactsTx(
           })
           .from(c);
         return { sales: Number(r?.sales ?? 0), care: Number(r?.care ?? 0) };
+      },
+      async namesOf(ids) {
+        if (!ids.length) return new Map();
+        const rows = await tx
+          .select({ id: c.id, name: c.name })
+          .from(c)
+          .where(inArray(c.id, [...ids]));
+        return new Map(rows.map((r) => [r.id, r.name]));
       },
       async reassignOwner(role, from, to, at) {
         const column = role === 'sales' ? c.salesUserId : c.careUserId;

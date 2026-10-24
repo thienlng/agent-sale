@@ -38,6 +38,8 @@ export const CAPABILITIES = [
   'views.share',
   /** Read the audit trail of workspace and security changes. */
   'audit.view',
+  /** Statistics: your own customers' numbers (every customer's with `contacts.view_all`). */
+  'analytics.view',
 ] as const;
 export const Capability = z.enum(CAPABILITIES);
 export type Capability = z.infer<typeof Capability>;
@@ -48,6 +50,7 @@ const WORKER: readonly Capability[] = [
   'orders.manage',
   'contacts.view',
   'contacts.edit',
+  'analytics.view',
 ];
 
 /** What each role may do. A role not listed here (legacy data) may do nothing. */
@@ -56,7 +59,7 @@ export const ROLE_CAPABILITIES: Record<WorkspaceRole, readonly Capability[]> = {
   admin: ALL,
   sales: WORKER,
   care: WORKER,
-  analyst: ['orders.view', 'contacts.view', 'contacts.view_all'],
+  analyst: ['orders.view', 'contacts.view', 'contacts.view_all', 'analytics.view'],
 };
 
 export function roleCan(role: string | null | undefined, capability: Capability): boolean {

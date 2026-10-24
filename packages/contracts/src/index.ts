@@ -2,6 +2,7 @@ import { channelRoutes } from './channel/channel.routes.js';
 import { conversationRoutes } from './conversation/conversation.routes.js';
 // Public surface of @agent-sales/contracts. Add one export line per module file.
 import { aiRoutes } from './ai/ai.routes.js';
+import { analyticsRoutes } from './analytics/analytics.routes.js';
 import { auditRoutes } from './audit/audit.routes.js';
 import { billingRoutes } from './billing/billing.routes.js';
 import { llmAdminRoutes } from './ai/llm-admin.routes.js';
@@ -18,6 +19,8 @@ export * from './ai/ai.schema.js';
 export * from './ai/ai.routes.js';
 export * from './ai/llm-admin.schema.js';
 export * from './ai/llm-admin.routes.js';
+export * from './analytics/analytics.schema.js';
+export * from './analytics/analytics.routes.js';
 export * from './audit/audit.schema.js';
 export * from './audit/audit.routes.js';
 export * from './billing/billing.schema.js';
@@ -59,6 +62,7 @@ export const allRoutes = [
   ...accessRoutes,
   ...profileRoutes,
   ...billingRoutes,
+  ...analyticsRoutes,
   ...auditRoutes,
   ...botRoutes,
   ...aiRoutes,
@@ -73,5 +77,6 @@ export * from './knowledge/media.routes.js';
 export * from './channel/channel.schema.js';
 export * from './channel/channel.routes.js';
 export * from './conversation/conversation.schema.js';
+export * from './conversation/conversation.events.js';
 export * from './conversation/conversation.routes.js';
 import { mediaRoutes } from './knowledge/media.routes.js';

@@ -10,6 +10,11 @@ export interface CrmFacade {
     workspaceId: WorkspaceId,
     userId: string,
   ): Promise<{ sales: number; care: number }>;
+  /** Display names of customers by id; unknown ids are absent. Callers filter by visibility first. */
+  contactNames(
+    workspaceId: WorkspaceId,
+    ids: readonly string[],
+  ): Promise<Map<string, string | null>>;
   /**
    * Moves every customer owned by `from` to `to` (`null` = unassigned), one history
    * entry and one event per customer. Returns how many moved per role.
