@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import {
   bigint,
   bigserial,
@@ -12,7 +13,7 @@ import {
 import { tenantPolicies, workspaces } from './workspace.js';
 
 /**
- * Tenant table (migration 0020): one row per (outbox event, fact kind), derived by the analytics
+ * Tenant table (migration 0021): one row per (outbox event, fact kind), derived by the analytics
  * projector. Ids and times only: no names, phone numbers or message text.
  */
 export const analyticsFacts = pgTable(
@@ -36,8 +37,15 @@ export const analyticsFacts = pgTable(
     role: text('role'),
   },
   (t) => [
-    unique('analytics_facts_event_unique').on(t.workspaceId, t.outboxId, t.kind),
+    // Names as Postgres gave them in migration 0021.
+    unique('analytics_facts_workspace_id_outbox_id_kind_key').on(t.workspaceId, t.outboxId, t.kind),
     index('analytics_facts_kind_time_idx').on(t.workspaceId, t.kind, t.occurredAt),
+    index('analytics_facts_contact_idx')
+      .on(t.workspaceId, t.contactId, t.kind, t.occurredAt.desc())
+      .where(sql`${t.contactId} is not null`),
+    index('analytics_facts_ref_idx')
+      .on(t.workspaceId, t.refId)
+      .where(sql`${t.refId} is not null`),
     ...tenantPolicies('analytics_facts'),
   ],
 );

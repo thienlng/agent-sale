@@ -2,7 +2,7 @@
 
 **Purpose:** statistics on customers, tags, statuses and conversations: versioned metric definitions, an event-fed projection, and queries with drilldown (ANA-01..03; docs/analytics.md).
 
-**Owned tables:** `analytics_facts` (tenant, forced RLS, append-only for the app role), `analytics_checkpoints` (the horizon) and `analytics_dead_letters` (global, app_system only) — migrations 0020, 0021; schema in `packages/db/src/schema/analytics.ts`.
+**Owned tables:** `analytics_facts` (tenant, forced RLS, append-only for the app role), `analytics_checkpoints` (the horizon) and `analytics_dead_letters` (global, app_system only) — migrations 0021, 0022; schema in `packages/db/src/schema/analytics.ts`.
 
 **Public API (`api/`):**
 
@@ -18,7 +18,7 @@
 - Event metrics and snapshots are never mixed; a ratio with a zero denominator is `null`; a metric without a data source is an error, never a 0.
 - Dates are local inclusive days converted to half-open UTC instants.
 - One fact per (workspace, outbox event, kind): replays and duplicates never double count. Facts hold ids and times only. Late events are bucketed by when they happened.
-- The projector keeps a transaction horizon, not an outbox id: a pass reads the rows of the transactions that finished since the last horizon, under an advisory lease, so a row that commits after a higher id is never skipped. Unparseable events are dead-lettered, database errors are retried; a rebuild replaces a workspace's facts in one transaction.
+- The projector keeps a transaction horizon, not an outbox id: a pass reads the rows of the transactions that finished since the last horizon, under an advisory lease, so a row that commits after a higher id is never skipped. The window is read by the indexed 64-bit `outbox_events.tx_id` (0022). Customers from before M4b get their starting owners and status as outbox events (0023). Unparseable events are dead-lettered, database errors are retried; a rebuild replaces a workspace's facts in one transaction.
 - Temporal state (tag active between add and remove, status and owner at a time) is derived from facts at query time, so arrival order cannot corrupt it.
 
 - A card and its drilldown are computed from the same units at the same watermark; scope (owns it, or nobody does) is applied inside the SQL, so aggregates, rows and names agree.

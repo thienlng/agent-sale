@@ -1,7 +1,7 @@
 ---
 id: T-039
 title: Analytics metric definitions and attribution
-status: review
+status: done
 type: feature              # feature | bug | chore | spike | docs
 priority: P1
 owner: @agent:claude
@@ -9,7 +9,7 @@ feature_ids: [ANA-*]
 created: 2026-10-24
 updated: 2026-10-24
 branch: feat/T-039-m4b-statistics
-pr:
+pr: 54
 parent: T-029
 ---
 

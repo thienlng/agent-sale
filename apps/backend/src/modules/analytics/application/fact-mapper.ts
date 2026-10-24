@@ -71,6 +71,8 @@ function fromCrm(row: OutboxRow, c: Common): FactDraft[] {
           fromSubjectId: e.fromUserId,
         }),
       ];
+    case 'crm.contact.initial_status.v1':
+      return [fact('status.initial', { subjectId: e.statusId })];
     case 'crm.tag.assigned.v1':
       return [fact('tag.assigned', { subjectId: e.tagId, refId: e.assignmentId })];
     case 'crm.tag.removed.v1':

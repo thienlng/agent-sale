@@ -181,6 +181,24 @@ describe('analytics projection', () => {
     expect(caught.lagSeconds).toBe(0);
   });
 
+  it('a rebuild reaches events of any age, and an old event does not count as lag', async () => {
+    const lan = await t.user('lan11@an.vn', 'Chủ shop');
+    await projector.catchUp();
+    // Written by the oldest transaction there can be: a 32-bit `xmin` window could not tell it
+    // apart from the future once the instance had run 2^31 transactions; a 64-bit id always can.
+    await t.owner.db.insert(schema.outboxEvents).values({
+      workspaceId: lan.ownWorkspace,
+      type: 'conversation.message.received.v1',
+      aggregateType: 'conversation',
+      aggregateId: crypto.randomUUID(),
+      payload: { messageId: 'ancient', type: 'message', firstMessage: false },
+      txId: '3',
+    });
+    expect((await projector.health()).lagSeconds).toBe(0);
+    await projector.rebuild(lan.ownWorkspace as WorkspaceId);
+    expect(await kinds(lan.ownWorkspace)).toContain('message.inbound');
+  });
+
   it('never skips an event whose transaction is still open when a higher id is already visible', async () => {
     const lan = await t.user('lan7@an.vn', 'Chủ shop');
     await projector.catchUp();

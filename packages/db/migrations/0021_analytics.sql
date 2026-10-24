@@ -1,4 +1,4 @@
--- 0020_analytics: event-fed statistics projection (T-040, docs/analytics.md).
+-- 0021_analytics: event-fed statistics projection (T-040, docs/analytics.md).
 -- Facts are derived from outbox_events by the analytics projector and can be rebuilt from them.
 -- One row per (outbox event, fact kind): replays and retries cannot double count.
 

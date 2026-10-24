@@ -4,8 +4,6 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
-Milestone **M4b-statistics** — branch `feat/T-039-m4b-statistics`: T-039, T-040, T-041 implemented, PR in review (#35, #36, #37; epic #25 stays open for T-042).
-
 ## Next
 
 - [ ] T-045 Email verification at signup (ACC-01) and verified-email invitations — @unassigned · [details](todo/T-045-email-verification-at-signup-acc-01-and-verified-e.md)
@@ -47,6 +45,7 @@ Milestone **M4b-statistics** — branch `feat/T-039-m4b-statistics`: T-039, T-04
 
 - [x] T-041 Statistics dashboard, breakdowns and drilldowns — @agent:claude · [details](todo/done/T-041-statistics-dashboard-breakdowns-and-drilldowns.md) · #54
 - [x] T-040 Analytics events, temporal state and rebuildable projections — @agent:claude · [details](todo/done/T-040-analytics-events-temporal-state-and-rebuildable-pr.md) · #54
+- [x] T-039 Analytics metric definitions and attribution — @agent:claude · [details](todo/done/T-039-analytics-metric-definitions-and-attribution.md) · #54
 - [x] T-064 Fix the M4a review findings: sessions on 2FA changes, owner removal, seat backfill, audit grants — @agent:claude · [details](todo/done/T-064-fix-the-m4a-review-findings.md) · #55
 - [x] T-057 Account two-factor authentication with TOTP and recovery codes (ADM-04) — @agent:claude · [details](todo/done/T-057-account-two-factor-authentication-with-totp-and-re.md) · #53
 - [x] T-056 Workspace business profile and private logo (ADM-02) — @agent:claude · [details](todo/done/T-056-workspace-business-profile-and-private-logo-adm-02.md) · #53
@@ -54,4 +53,3 @@ Milestone **M4b-statistics** — branch `feat/T-039-m4b-statistics`: T-039, T-04
 - [x] T-054 Audit trail for workspace and security changes — @agent:claude · [details](todo/done/T-054-audit-trail-for-workspace-and-security-changes.md) · #53
 - [x] T-053 Billing foundation: plans, subscriptions and entitlements — @agent:claude · [details](todo/done/T-053-billing-foundation-plans-subscriptions-and-entitle.md) · #53
 - [x] T-044 Workspace roles, capabilities and CRM object scope — @agent:claude · [details](todo/done/T-044-workspace-roles-capabilities-and-crm-object-scope.md) · #41
-- [x] T-043 Workspace members and invitation links — @agent:claude · [details](todo/done/T-043-workspace-members-and-invitation-links.md) · #41

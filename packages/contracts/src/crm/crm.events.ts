@@ -42,6 +42,16 @@ export const ContactAssignedV1 = z.object({
   fromUserId: z.uuid().nullable(),
   toUserId: z.uuid().nullable(),
 });
+/**
+ * The status a customer started with, for customers created before `crm.contact.created.v1` carried
+ * it. Written once by migration 0023, never by the application: the `from` side of the customer's
+ * earliest status change, or the current status when it never changed.
+ */
+export const ContactInitialStatusV1 = z.object({
+  type: z.literal('crm.contact.initial_status.v1'),
+  ...base,
+  statusId: z.uuid(),
+});
 export const TagAssignedV1 = z.object({
   type: z.literal('crm.tag.assigned.v1'),
   ...base,
@@ -62,6 +72,7 @@ export const CrmEvents = z.discriminatedUnion('type', [
   ContactUpdatedV1,
   ContactStatusChangedV1,
   ContactAssignedV1,
+  ContactInitialStatusV1,
   TagAssignedV1,
   TagRemovedV1,
 ]);

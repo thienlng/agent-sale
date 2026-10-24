@@ -66,6 +66,18 @@ describe('mapOutboxEvent — customers', () => {
     expect(facts[1]).toMatchObject({ subjectId: TAG, fromSubjectId: null });
   });
 
+  it('a starting status written by the upgrade (0023) is a starting status, not a change', () => {
+    const facts = mapOutboxEvent(
+      row('crm.contact.initial_status.v1', crm({ statusId: TAG }, null)),
+    );
+    expect(facts).toHaveLength(1);
+    expect(facts[0]).toMatchObject({
+      kind: 'status.initial',
+      subjectId: TAG,
+      occurredAt: new Date(AT),
+    });
+  });
+
   it('an edit only matters when it stored a first phone number', () => {
     expect(mapOutboxEvent(row('crm.contact.updated.v1', crm({ fields: ['name'] })))).toEqual([]);
     const [f] = mapOutboxEvent(
