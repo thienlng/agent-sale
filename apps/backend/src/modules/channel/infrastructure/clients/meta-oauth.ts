@@ -1,9 +1,11 @@
+import { Logger } from '@nestjs/common';
 import { z } from 'zod';
 import type { MetaProvider } from '@agent-sales/contracts';
 import { getEnv, type Env } from '../../../../common/config.js';
 import type { GrantedAccount } from '../../application/ports/channel-store.js';
 import type { MetaGateway } from '../../application/ports/meta-gateway.js';
 import { ChannelError } from '../../domain/channel.errors.js';
+const log = new Logger('MetaOAuth');
 const Json = z.record(z.string(), z.unknown());
 const Account = z.object({
   externalId: z.string().min(1),
@@ -13,6 +15,15 @@ const Account = z.object({
 });
 const str = (v: unknown): string => (typeof v === 'string' ? v : '');
 const rec = (v: unknown): Record<string, unknown> => Json.parse(v);
+/** `host/path` of a URL, without the query that may hold secrets. */
+const endpoint = (url: string): string => {
+  try {
+    const u = new URL(url);
+    return `${u.host}${u.pathname}`;
+  } catch {
+    return 'unknown';
+  }
+};
 const first = (v: Record<string, unknown>): Record<string, unknown> =>
   Array.isArray(v.data) ? rec(v.data[0]) : v;
 const scopes = {
@@ -88,15 +99,23 @@ export class LiveMetaGateway implements MetaGateway {
         signal: AbortSignal.timeout(20000),
         redirect: 'error',
       });
-    } catch {
+    } catch (cause) {
+      log.warn(`Meta request to ${endpoint(url)} failed: ${(cause as Error).message}`);
       throw new ChannelError('UNAVAILABLE', 'Meta did not respond; reconnect and try again');
     }
     const body = Json.safeParse(await response.json().catch(() => null));
-    if (!response.ok || !body.success || body.data.error)
+    if (!response.ok || !body.success || body.data.error) {
+      // Only Meta's error fields and the path: URLs carry client secrets and codes in the query.
+      const err = body.success ? Json.safeParse(body.data.error) : null;
+      const f = err?.success ? err.data : {};
+      log.warn(
+        `Meta rejected ${endpoint(url)} (HTTP ${response.status}): code=${str(f.code)} subcode=${str(f.error_subcode)} message=${str(f.message)} trace=${str(f.fbtrace_id)}`,
+      );
       throw new ChannelError(
         'UNAVAILABLE',
         'Meta rejected the request; check granted messaging permissions and application configuration',
       );
+    }
     return body.data;
   }
   async exchange(p: MetaProvider, code: string): Promise<GrantedAccount[]> {
@@ -149,8 +168,14 @@ export class LiveMetaGateway implements MetaGateway {
     const token = await this.request(
       `${base}/oauth/access_token?${new URLSearchParams({ client_id: e.META_APP_ID ?? '', client_secret: e.META_APP_SECRET ?? '', redirect_uri: this.callback(p), code })}`,
     );
+    // Page tokens inherit the user token's lifetime; a long-lived one keeps them from expiring in ~1 hour.
+    const userToken = await this.request(
+      `${base}/oauth/access_token?${new URLSearchParams({ grant_type: 'fb_exchange_token', client_id: e.META_APP_ID ?? '', client_secret: e.META_APP_SECRET ?? '', fb_exchange_token: str(token.access_token) })}`,
+    )
+      .then((r) => str(r.access_token) || str(token.access_token))
+      .catch(() => str(token.access_token));
     const granted = await this.request(`${base}/me/permissions`, {
-      headers: { Authorization: `Bearer ${str(token.access_token)}` },
+      headers: { Authorization: `Bearer ${userToken}` },
     });
     const allowed = Array.isArray(granted.data)
       ? granted.data
@@ -158,25 +183,28 @@ export class LiveMetaGateway implements MetaGateway {
           .filter((r) => r.status === 'granted')
           .map((r) => r.permission)
       : [];
-    if (scopes.facebook.some((s) => !allowed.includes(s)))
+    const missing = scopes.facebook.filter((s) => !allowed.includes(s));
+    if (missing.length)
       throw new ChannelError(
         'VALIDATION_FAILED',
-        'Facebook messaging and page management permissions must be granted',
+        `Facebook permissions not granted: ${missing.join(', ')}; enable them in the Facebook Login for Business configuration`,
       );
     const accounts: GrantedAccount[] = [];
     let after = '';
     for (let page = 0; page < 20; page++) {
       const data = await this.request(
         `${base}/me/accounts?${new URLSearchParams({ fields: 'id,name,access_token', limit: '100', ...(after ? { after } : {}) })}`,
-        { headers: { Authorization: `Bearer ${str(token.access_token)}` } },
+        { headers: { Authorization: `Bearer ${userToken}` } },
       );
       for (const value of Array.isArray(data.data) ? data.data : []) {
         const a = rec(value);
         if (!str(a.access_token)) continue;
+        // One page whose token cannot be inspected must not discard the others.
         const debug = await this.request(
           `${base}/debug_token?${new URLSearchParams({ input_token: str(a.access_token) })}`,
           { headers: { Authorization: `Bearer ${e.META_APP_ID}|${e.META_APP_SECRET}` } },
-        );
+        ).catch(() => null);
+        if (!debug) continue;
         const d = rec(debug.data);
         if (d.is_valid !== true) continue;
         const deadlines = [d.expires_at, d.data_access_expires_at].filter(

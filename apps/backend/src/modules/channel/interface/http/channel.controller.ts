@@ -1,7 +1,19 @@
 import { randomBytes } from 'node:crypto';
 import { MetaProvider, SelectChannelRequest, UpdateChannelRequest } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
-import { Body, Controller, Get, Inject, Param, Patch, Post, Query, Req, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Inject,
+  Logger,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+  Res,
+} from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { getEnv } from '../../../../common/config.js';
@@ -15,8 +27,16 @@ import {
 import { ZodValidationPipe } from '../../../../common/http/zod-validation.pipe.js';
 import { ChannelFacadeImpl } from '../../application/channel.facade.impl.js';
 const idPipe = new ZodValidationPipe(z.uuid());
+/** The browser only sends the OAuth cookie to the path Meta redirects to, which may be a legacy one. */
+function callbackPath(provider: MetaProvider): string {
+  const configured = getEnv().META_OAUTH_REDIRECT_URI;
+  return configured
+    ? new URL(configured.replaceAll('{provider}', provider)).pathname
+    : `/api/v1/channels/oauth/${provider}/callback`;
+}
 @Controller('channels')
 export class ChannelController {
+  private readonly log = new Logger(ChannelController.name);
   constructor(@Inject(ChannelFacadeImpl) private readonly channels: ChannelFacadeImpl) {}
   @WorkspaceScoped()
   @Get()
@@ -37,7 +57,7 @@ export class ChannelController {
       httpOnly: true,
       secure: true,
       sameSite: 'lax',
-      path: `/api/v1/channels/oauth/${provider}/callback`,
+      path: callbackPath(provider),
       maxAge: 600,
     });
     return result;
@@ -88,11 +108,13 @@ export class ChannelController {
         req.cookies[`meta_oauth_${state}`] ?? '',
         query['code'] ?? null,
       );
-    } catch {
+    } catch (cause) {
       error = 'authorization_failed';
+      // The reason is a code or Meta error text, never a token; the popup only shows a generic error.
+      this.log.warn(`OAuth callback failed for ${provider}: ${(cause as Error).message}`);
     }
     reply.clearCookie(`meta_oauth_${state}`, {
-      path: `/api/v1/channels/oauth/${provider}/callback`,
+      path: callbackPath(provider),
     });
     const nonce = randomBytes(16).toString('base64');
     const origin = getEnv().META_APP_ORIGIN ?? '';
@@ -111,7 +133,7 @@ export class ChannelController {
       )
       .type('text/html')
       .send(
-        `<!doctype html><html><meta charset="utf-8"><title>Rapiz</title><body><script nonce="${nonce}">const message=${payload};if(window.opener)window.opener.postMessage(message,${target});const channel=new BroadcastChannel('razpi-meta-oauth');channel.postMessage(message);setTimeout(()=>{channel.close();window.close()},300);</script></body></html>`,
+        `<!doctype html><html><meta charset="utf-8"><title>Rapiz</title><body><script nonce="${nonce}">const message=${payload};try{if(window.opener)window.opener.postMessage(message,${target})}catch(e){}const channel=new BroadcastChannel('razpi-meta-oauth');channel.postMessage(message);setTimeout(()=>{channel.close();window.close()},300);</script></body></html>`,
       );
   }
 }

@@ -32,6 +32,8 @@ On failure an event is retried after 20 s and 60 s; after the third attempt the 
 - **Bot → Tích hợp** (`/app/bots/{botId}/integrations`): only pages bound to that bot. "Chỉnh sửa" chooses which workspace pages the bot answers; "Hủy kích hoạt" unbinds them (`botId: null`). Pages connected from here are bound to the bot right after selection.
 - **Tin nhắn đa kênh** (`/app/inbox`): conversation list with channel filter (Messenger, Instagram), search and newest/oldest sort; thread with takeover controls and attachments.
 
+**Permissions.** When `META_LOGIN_CONFIG_ID` is set, the Facebook Login for Business configuration decides the permissions (the app does not send `scope`, or Meta answers "Invalid Scopes"). The configuration must include `pages_show_list`, `pages_read_engagement`, `pages_messaging` and `pages_manage_metadata`; a missing one fails the connection and the API log names it. Meta's own error code, subcode and `fbtrace_id` are logged for every rejected Graph call. The Facebook user token is exchanged for a long-lived one before the Page tokens are read, so Pages do not need reconnecting after about an hour.
+
 Register webhooks on the Meta app for object `page` → `${META_APP_ORIGIN}/webhooks/facebook` and object `instagram` → `${META_APP_ORIGIN}/webhooks/instagram`. While the Meta app is in development mode, only people with a role on the app (administrator, developer or tester) can connect and message. Anyone else — or everyone, when Meta has restricted the app (for example an overdue Data Use Checkup or missing privacy policy URL) — sees Facebook's "App not active" page in the login popup; fix it in the Meta App Dashboard, not in code.
 
 ## Local live testing
