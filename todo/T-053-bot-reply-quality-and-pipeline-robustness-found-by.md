@@ -1,7 +1,7 @@
 ---
 id: T-053
 title: Bot reply quality and pipeline robustness found by scenario QA
-status: in-progress            # backlog | next | in-progress | blocked | review | done | cancelled
+status: review                 # backlog | next | in-progress | blocked | review | done | cancelled
 type: feature              # feature | bug | chore | spike | docs
 priority: P1               # P0 | P1 | P2 | P3
 owner: @agent:claude-code     # @github-handle or @agent:<tool>
@@ -35,10 +35,10 @@ found are fixed with regression tests.
 
 ## Acceptance criteria
 
-- [ ] Scenario suite (15 scenarios) PASS or documented WARN
-- [ ] Each fixed defect has a regression test
-- [ ] Tests added/updated and `pnpm check` green
-- [ ] Docs updated (or "no docs impact" stated)
+- [x] Scenario suite (15 scenarios) PASS or documented WARN
+- [x] Each fixed defect has a regression test
+- [x] Tests added/updated and `pnpm check` green
+- [x] Docs updated (or "no docs impact" stated)
 
 ## Plan
 
@@ -89,6 +89,10 @@ found are fixed with regression tests.
   Send: (7) "cho xem ảnh giày Oxford" → text + the product's images in order, keys `bot:<eventId>:img<n>`; (8) price question without a picture request → no images; (9) product without images → text only; (10) item not in the catalog → no images; (11) replay of the same webhook → no duplicate image messages; (12) 24h window closed → text only; (13) image delivery failure (fake token) → text kept, mode stays `bot`, failed image message visible in the inbox; (14) model returns an invented id → dropped.
   Not verifiable without real Meta: actual rendering of sent images in Messenger/Instagram and Meta's real CDN URLs/hosts (allowlist is from docs, not re-verified live).
 - 2026-10-24 — test chat images (web only, uncommitted): the bot "Đoạn chat thử nghiệm" panel can attach up to 3 JPEG/PNG/WebP images (each at most 3 MB, checked client side; picker, paste and drop), shows removable thumbnails, sends `images: [{mimeType, base64}]` for the last customer message only (earlier turns never resend), keeps sent thumbnails in the bubble via object URLs (revoked on reset/unmount), and renders `PlaygroundResponse.images` under the bot bubble (lazy, no-referrer, opens in a new tab, label link when broken). An image error from a provider without vision shows a friendly message. Split into `test-chat-composer/-images/-outcome.tsx` and `hooks/use-image-attachments.ts`; 8 new tests.
+
+- 2026-10-24 — QA rounds: text 1–4 (bursts, handoff, greeting, repeats), images round 5 found the Node 24 DNS-lookup defect that made every customer image download fail (fixed with a host-name test, d81a0f7), round 6 passed on the unmodified code path (vision, bot-sent pictures, closed window, no-picture product). Also fixed on the owner's report: inbox page stretching to the thread length (`flex-1` overrode the fixed height; e2e at 1280/900/480 px), image library titles truncated.
+- 2026-10-24 — verified on the real stack with a demo bot ("Demo - Cửa hàng giày", 2 folders / 5 images, 3 products with pictures, stock, FAQs, one scenario): all image-library operations through the UI (create/rename/open folder, add image by https link, reject http, rename image, move between folders, delete image, delete folder, search, A–Z sort) and the test chat both ways (asks for pictures → 3 product pictures / a library picture; a product without pictures → "chưa có ảnh" + description; customer shoe photo → recognises the product and gives the catalog price). Not verifiable without real Meta: rendering of sent images in Messenger/Instagram, real CDN hosts, uploading a file (needs S3).
+- Owner decisions recorded: the ChatGPT-plan login is for testing only (never production). Open: whether existing bots keep their stored fallback text; Anthropic/OpenAI-compatible providers ignore images by design.
 
 ## Links
 
