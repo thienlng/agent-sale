@@ -1,6 +1,8 @@
 import { defaultOrderPolicy, OrderSource } from '@agent-sales/contracts';
 import type { Page } from '@playwright/test';
 
+import { crmRoute } from './mock-crm';
+
 /** Deliberately long Vietnamese content: layout must wrap or truncate, never overflow. */
 export const LONG =
   'Cửa hàng thời trang công sở cao cấp chuyên áo sơ mi, quần âu và phụ kiện cho dân văn phòng tại Thành phố Hồ Chí Minh';
@@ -124,6 +126,8 @@ export async function mockApi(page: Page) {
           ],
         }),
       );
+    const crm = crmRoute(path);
+    if (crm !== undefined) return route.fulfill(json(crm));
     const commerce = commerceRoute(path);
     if (commerce !== undefined) return route.fulfill(json(commerce));
     return route.fulfill(json({ error: { code: 'NOT_FOUND', message: 'not mocked' } }, 404));
