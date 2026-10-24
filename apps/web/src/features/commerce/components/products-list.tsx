@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/table';
 import { formatNumber, formatVnd } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { useCan } from '@/lib/permissions';
 
 import { useProducts } from '../api/commerce';
 
@@ -23,6 +24,7 @@ import { useProducts } from '../api/commerce';
 export function ProductsList() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const canAdd = useCan('catalog.manage');
   const [text, setText] = useState('');
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<'active' | 'archived'>('active');
@@ -42,12 +44,14 @@ export function ProductsList() {
     <section className="flex flex-col gap-5">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">{t('products.title')}</h1>
-        <Button size="lg" asChild>
-          <Link to="/app/products/new">
-            <Plus />
-            {t('products.add')}
-          </Link>
-        </Button>
+        {canAdd ? (
+          <Button size="lg" asChild>
+            <Link to="/app/products/new">
+              <Plus />
+              {t('products.add')}
+            </Link>
+          </Button>
+        ) : null}
       </header>
 
       <div className="flex flex-wrap items-center gap-2">

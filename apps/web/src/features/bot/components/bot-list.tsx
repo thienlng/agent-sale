@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useCan } from '@/lib/permissions';
 
 import { useBots } from '../api/bots';
 import { CreateBotDialog } from './create-bot-dialog';
@@ -15,6 +16,7 @@ export function BotList() {
   const { t, i18n } = useTranslation();
   const bots = useBots();
   const [creating, setCreating] = useState(false);
+  const canManage = useCan('bots.manage');
   const date = new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium' });
 
   return (
@@ -24,10 +26,12 @@ export function BotList() {
           <h1 className="text-2xl font-semibold tracking-tight">{t('bots.title')}</h1>
           <p className="mt-1 text-muted-foreground">{t('bots.subtitle')}</p>
         </div>
-        <Button size="lg" onClick={() => setCreating(true)}>
-          <Plus />
-          {t('bots.create')}
-        </Button>
+        {canManage ? (
+          <Button size="lg" onClick={() => setCreating(true)}>
+            <Plus />
+            {t('bots.create')}
+          </Button>
+        ) : null}
       </header>
 
       <div className="mt-8">
@@ -75,10 +79,12 @@ export function BotList() {
             </span>
             <h2 className="mt-4 text-lg font-semibold">{t('bots.emptyTitle')}</h2>
             <p className="mt-1 max-w-sm text-muted-foreground">{t('bots.emptyBody')}</p>
-            <Button size="lg" className="mt-6" onClick={() => setCreating(true)}>
-              <Plus />
-              {t('bots.create')}
-            </Button>
+            {canManage ? (
+              <Button size="lg" className="mt-6" onClick={() => setCreating(true)}>
+                <Plus />
+                {t('bots.create')}
+              </Button>
+            ) : null}
           </div>
         )}
       </div>

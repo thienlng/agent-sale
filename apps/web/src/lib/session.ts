@@ -111,6 +111,24 @@ export async function signup(input: Omit<SignupRequest, 'client'>): Promise<Sess
   return load(auth);
 }
 
+/**
+ * Reloads memberships (e.g. after joining a workspace through an invitation)
+ * and, when given, switches to that workspace.
+ */
+export async function reloadSession(workspaceId?: string): Promise<Session | null> {
+  const current = getSession();
+  if (!current) return null;
+  const boot = await api('/bootstrap', BootstrapResponse, { workspaceScoped: false });
+  const target = boot.memberships.find((m) => m.workspaceId === workspaceId)?.workspaceId;
+  const next = {
+    user: boot.user,
+    memberships: boot.memberships,
+    workspaceId: target ?? current.workspaceId ?? boot.memberships[0]?.workspaceId ?? null,
+  };
+  set(next);
+  return next;
+}
+
 export async function logout(): Promise<void> {
   try {
     await api('/auth/logout', z.null(), { method: 'POST', workspaceScoped: false });

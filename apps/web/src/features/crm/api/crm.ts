@@ -1,5 +1,8 @@
 import {
+  AssignmentPolicyDto,
+  AssignmentPolicyList,
   type AssignTagRequest,
+  type PutAssignmentPolicyRequest,
   ContactDto,
   type ContactHistoryType,
   ContactHistoryList,
@@ -282,4 +285,29 @@ export function useViewMutations() {
       onSuccess: refresh,
     }),
   };
+}
+
+// ─── Auto-assignment by source (T-033) ────────────────────────────────────────
+
+export function useAssignmentPolicies() {
+  const ws = useWorkspaceId();
+  return useQuery({
+    queryKey: queryKeys.assignmentPolicies(ws),
+    queryFn: async () => (await api('/crm/assignment-policies', AssignmentPolicyList)).data,
+    enabled: Boolean(ws),
+  });
+}
+
+export function usePutAssignmentPolicy() {
+  const ws = useWorkspaceId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { sourceId: string; body: PutAssignmentPolicyRequest }) =>
+      api(`/crm/assignment-policies/${v.sourceId}`, AssignmentPolicyDto, {
+        method: 'PUT',
+        body: v.body,
+      }),
+    // Also after a 409, so the next save starts from the latest version.
+    onSettled: () => qc.invalidateQueries({ queryKey: queryKeys.assignmentPolicies(ws) }),
+  });
 }

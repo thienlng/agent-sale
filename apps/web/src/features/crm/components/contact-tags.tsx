@@ -151,7 +151,15 @@ function valueText(tag: TagDto, a: TagAssignmentDto, t: (k: string) => string): 
 }
 
 /** Tags on a customer: chips with values, add from a searchable list, remove. */
-export function ContactTags({ contact, lookups }: { contact: ContactDto; lookups: CrmLookups }) {
+export function ContactTags({
+  contact,
+  lookups,
+  readOnly = false,
+}: {
+  contact: ContactDto;
+  lookups: CrmLookups;
+  readOnly?: boolean;
+}) {
   const { t } = useTranslation();
   const { assign, update, remove } = useTagMutations(contact.id);
   const [open, setOpen] = useState(false);
@@ -180,41 +188,43 @@ export function ContactTags({ contact, lookups }: { contact: ContactDto; lookups
     <section className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-medium">{t('crm.detail.tags')}</h3>
-        <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm">
-              <Plus />
-              {t('crm.detail.addTag')}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent align="end" className="w-64 p-0">
-            <Command>
-              <CommandInput placeholder={t('crm.tags.search')} />
-              <CommandList>
-                <CommandEmpty>—</CommandEmpty>
-                <CommandGroup>
-                  {choices.map((tag) => (
-                    <CommandItem
-                      key={tag.id}
-                      value={`${tag.name} ${tag.id}`}
-                      onSelect={() => add(tag)}
-                    >
-                      <span
-                        className="size-2 rounded-full"
-                        style={{ backgroundColor: tag.color }}
-                        aria-hidden
-                      />
-                      <span className="truncate">{tag.name}</span>
-                      <span className="ml-auto text-xs text-muted-foreground">
-                        {t(`crm.tags.types.${tag.type}`)}
-                      </span>
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
+        {readOnly ? null : (
+          <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Plus />
+                {t('crm.detail.addTag')}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-64 p-0">
+              <Command>
+                <CommandInput placeholder={t('crm.tags.search')} />
+                <CommandList>
+                  <CommandEmpty>—</CommandEmpty>
+                  <CommandGroup>
+                    {choices.map((tag) => (
+                      <CommandItem
+                        key={tag.id}
+                        value={`${tag.name} ${tag.id}`}
+                        onSelect={() => add(tag)}
+                      >
+                        <span
+                          className="size-2 rounded-full"
+                          style={{ backgroundColor: tag.color }}
+                          aria-hidden
+                        />
+                        <span className="truncate">{tag.name}</span>
+                        <span className="ml-auto text-xs text-muted-foreground">
+                          {t(`crm.tags.types.${tag.type}`)}
+                        </span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+        )}
       </div>
       {contact.tags.length ? (
         <ul className="flex flex-col gap-1.5">
@@ -227,7 +237,7 @@ export function ContactTags({ contact, lookups }: { contact: ContactDto; lookups
                 <button
                   type="button"
                   className="flex min-w-0 flex-1 items-center gap-2 text-left disabled:cursor-default"
-                  disabled={!tag.fields.length}
+                  disabled={readOnly || !tag.fields.length}
                   onClick={() => setEditing({ tag, assignment: a })}
                 >
                   <TagChip name={tag.name} color={tag.color} />
@@ -238,6 +248,7 @@ export function ContactTags({ contact, lookups }: { contact: ContactDto; lookups
                 <Button
                   variant="ghost"
                   size="icon-sm"
+                  className={readOnly ? 'hidden' : undefined}
                   aria-label={t('crm.detail.removeTag', { name: tag.name })}
                   disabled={remove.isPending}
                   onClick={() =>

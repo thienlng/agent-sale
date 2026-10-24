@@ -22,6 +22,9 @@ export const queryKeys = {
   crmTags: (ws: string) => ['ws', ws, 'crm', 'tags'] as const,
   crmAssignees: (ws: string) => ['ws', ws, 'crm', 'assignees'] as const,
   savedViews: (ws: string) => ['ws', ws, 'saved-views'] as const,
+  members: (ws: string) => ['ws', ws, 'members'] as const,
+  invitations: (ws: string) => ['ws', ws, 'invitations'] as const,
+  assignmentPolicies: (ws: string) => ['ws', ws, 'crm', 'assignment-policies'] as const,
   llmProviders: ['admin', 'llm', 'providers'] as const,
   llmTiers: ['admin', 'llm', 'tiers'] as const,
 };

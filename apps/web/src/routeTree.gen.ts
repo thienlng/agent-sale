@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AppRouteImport } from './routes/app'
+import { Route as JoinRouteImport } from './routes/join'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
@@ -22,11 +23,13 @@ import { Route as AppChannelsRouteImport } from './routes/app/channels'
 import { Route as AppContactsRouteImport } from './routes/app/contacts'
 import { Route as AppCrmSettingsRouteImport } from './routes/app/crm-settings'
 import { Route as AppInboxRouteImport } from './routes/app/inbox'
+import { Route as AppMembersRouteImport } from './routes/app/members'
 import { Route as AppOrderSettingsRouteImport } from './routes/app/order-settings'
 import { Route as AppSettingsRouteImport } from './routes/app/settings'
 import { Route as AppBotsIndexRouteImport } from './routes/app/bots/index'
 import { Route as AppBotsBotIdRouteImport } from './routes/app/bots/$botId'
 import { Route as AppCrmSettingsIndexRouteImport } from './routes/app/crm-settings/index'
+import { Route as AppCrmSettingsDistributionRouteImport } from './routes/app/crm-settings/distribution'
 import { Route as AppCrmSettingsSourcesRouteImport } from './routes/app/crm-settings/sources'
 import { Route as AppCrmSettingsStatusesRouteImport } from './routes/app/crm-settings/statuses'
 import { Route as AppCrmSettingsTagsRouteImport } from './routes/app/crm-settings/tags'
@@ -65,6 +68,11 @@ const AdminRoute = AdminRouteImport.update({
 const AppRoute = AppRouteImport.update({
   id: '/app',
   path: '/app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JoinRoute = JoinRouteImport.update({
+  id: '/join',
+  path: '/join',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -117,6 +125,11 @@ const AppInboxRoute = AppInboxRouteImport.update({
   path: '/inbox',
   getParentRoute: () => AppRoute,
 } as any)
+const AppMembersRoute = AppMembersRouteImport.update({
+  id: '/members',
+  path: '/members',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppOrderSettingsRoute = AppOrderSettingsRouteImport.update({
   id: '/order-settings',
   path: '/order-settings',
@@ -142,6 +155,12 @@ const AppCrmSettingsIndexRoute = AppCrmSettingsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppCrmSettingsRoute,
 } as any)
+const AppCrmSettingsDistributionRoute =
+  AppCrmSettingsDistributionRouteImport.update({
+    id: '/distribution',
+    path: '/distribution',
+    getParentRoute: () => AppCrmSettingsRoute,
+  } as any)
 const AppCrmSettingsSourcesRoute = AppCrmSettingsSourcesRouteImport.update({
   id: '/sources',
   path: '/sources',
@@ -272,6 +291,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/app': typeof AppRouteWithChildren
+  '/join': typeof JoinRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/admin/llm': typeof AdminLlmRoute
@@ -280,11 +300,13 @@ export interface FileRoutesByFullPath {
   '/app/contacts': typeof AppContactsRoute
   '/app/crm-settings': typeof AppCrmSettingsRouteWithChildren
   '/app/inbox': typeof AppInboxRoute
+  '/app/members': typeof AppMembersRoute
   '/app/order-settings': typeof AppOrderSettingsRouteWithChildren
   '/app/settings': typeof AppSettingsRoute
   '/admin/': typeof AdminIndexRoute
   '/app/': typeof AppIndexRoute
   '/app/bots/$botId': typeof AppBotsBotIdRouteWithChildren
+  '/app/crm-settings/distribution': typeof AppCrmSettingsDistributionRoute
   '/app/crm-settings/sources': typeof AppCrmSettingsSourcesRoute
   '/app/crm-settings/statuses': typeof AppCrmSettingsStatusesRoute
   '/app/crm-settings/tags': typeof AppCrmSettingsTagsRoute
@@ -314,6 +336,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/join': typeof JoinRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/admin/llm': typeof AdminLlmRoute
@@ -321,9 +344,11 @@ export interface FileRoutesByTo {
   '/app/channels': typeof AppChannelsRoute
   '/app/contacts': typeof AppContactsRoute
   '/app/inbox': typeof AppInboxRoute
+  '/app/members': typeof AppMembersRoute
   '/app/settings': typeof AppSettingsRoute
   '/admin': typeof AdminIndexRoute
   '/app': typeof AppIndexRoute
+  '/app/crm-settings/distribution': typeof AppCrmSettingsDistributionRoute
   '/app/crm-settings/sources': typeof AppCrmSettingsSourcesRoute
   '/app/crm-settings/statuses': typeof AppCrmSettingsStatusesRoute
   '/app/crm-settings/tags': typeof AppCrmSettingsTagsRoute
@@ -356,6 +381,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/app': typeof AppRouteWithChildren
+  '/join': typeof JoinRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/admin/llm': typeof AdminLlmRoute
@@ -364,11 +390,13 @@ export interface FileRoutesById {
   '/app/contacts': typeof AppContactsRoute
   '/app/crm-settings': typeof AppCrmSettingsRouteWithChildren
   '/app/inbox': typeof AppInboxRoute
+  '/app/members': typeof AppMembersRoute
   '/app/order-settings': typeof AppOrderSettingsRouteWithChildren
   '/app/settings': typeof AppSettingsRoute
   '/admin/': typeof AdminIndexRoute
   '/app/': typeof AppIndexRoute
   '/app/bots/$botId': typeof AppBotsBotIdRouteWithChildren
+  '/app/crm-settings/distribution': typeof AppCrmSettingsDistributionRoute
   '/app/crm-settings/sources': typeof AppCrmSettingsSourcesRoute
   '/app/crm-settings/statuses': typeof AppCrmSettingsStatusesRoute
   '/app/crm-settings/tags': typeof AppCrmSettingsTagsRoute
@@ -402,6 +430,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/app'
+    | '/join'
     | '/login'
     | '/signup'
     | '/admin/llm'
@@ -410,11 +439,13 @@ export interface FileRouteTypes {
     | '/app/contacts'
     | '/app/crm-settings'
     | '/app/inbox'
+    | '/app/members'
     | '/app/order-settings'
     | '/app/settings'
     | '/admin/'
     | '/app/'
     | '/app/bots/$botId'
+    | '/app/crm-settings/distribution'
     | '/app/crm-settings/sources'
     | '/app/crm-settings/statuses'
     | '/app/crm-settings/tags'
@@ -444,6 +475,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/join'
     | '/login'
     | '/signup'
     | '/admin/llm'
@@ -451,9 +483,11 @@ export interface FileRouteTypes {
     | '/app/channels'
     | '/app/contacts'
     | '/app/inbox'
+    | '/app/members'
     | '/app/settings'
     | '/admin'
     | '/app'
+    | '/app/crm-settings/distribution'
     | '/app/crm-settings/sources'
     | '/app/crm-settings/statuses'
     | '/app/crm-settings/tags'
@@ -485,6 +519,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/app'
+    | '/join'
     | '/login'
     | '/signup'
     | '/admin/llm'
@@ -493,11 +528,13 @@ export interface FileRouteTypes {
     | '/app/contacts'
     | '/app/crm-settings'
     | '/app/inbox'
+    | '/app/members'
     | '/app/order-settings'
     | '/app/settings'
     | '/admin/'
     | '/app/'
     | '/app/bots/$botId'
+    | '/app/crm-settings/distribution'
     | '/app/crm-settings/sources'
     | '/app/crm-settings/statuses'
     | '/app/crm-settings/tags'
@@ -530,6 +567,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRouteWithChildren
   AppRoute: typeof AppRouteWithChildren
+  JoinRoute: typeof JoinRoute
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
 }
@@ -555,6 +593,13 @@ declare module '@tanstack/react-router' {
       path: '/app'
       fullPath: '/app'
       preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/join': {
+      id: '/join'
+      path: '/join'
+      fullPath: '/join'
+      preLoaderRoute: typeof JoinRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -627,6 +672,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppInboxRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/members': {
+      id: '/app/members'
+      path: '/members'
+      fullPath: '/app/members'
+      preLoaderRoute: typeof AppMembersRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/order-settings': {
       id: '/app/order-settings'
       path: '/order-settings'
@@ -660,6 +712,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/app/crm-settings/'
       preLoaderRoute: typeof AppCrmSettingsIndexRouteImport
+      parentRoute: typeof AppCrmSettingsRoute
+    }
+    '/app/crm-settings/distribution': {
+      id: '/app/crm-settings/distribution'
+      path: '/distribution'
+      fullPath: '/app/crm-settings/distribution'
+      preLoaderRoute: typeof AppCrmSettingsDistributionRouteImport
       parentRoute: typeof AppCrmSettingsRoute
     }
     '/app/crm-settings/sources': {
@@ -846,6 +905,7 @@ const AdminRouteChildren: AdminRouteChildren = {
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 interface AppCrmSettingsRouteChildren {
+  AppCrmSettingsDistributionRoute: typeof AppCrmSettingsDistributionRoute
   AppCrmSettingsSourcesRoute: typeof AppCrmSettingsSourcesRoute
   AppCrmSettingsStatusesRoute: typeof AppCrmSettingsStatusesRoute
   AppCrmSettingsTagsRoute: typeof AppCrmSettingsTagsRoute
@@ -853,6 +913,7 @@ interface AppCrmSettingsRouteChildren {
 }
 
 const AppCrmSettingsRouteChildren: AppCrmSettingsRouteChildren = {
+  AppCrmSettingsDistributionRoute: AppCrmSettingsDistributionRoute,
   AppCrmSettingsSourcesRoute: AppCrmSettingsSourcesRoute,
   AppCrmSettingsStatusesRoute: AppCrmSettingsStatusesRoute,
   AppCrmSettingsTagsRoute: AppCrmSettingsTagsRoute,
@@ -916,6 +977,7 @@ interface AppRouteChildren {
   AppContactsRoute: typeof AppContactsRoute
   AppCrmSettingsRoute: typeof AppCrmSettingsRouteWithChildren
   AppInboxRoute: typeof AppInboxRoute
+  AppMembersRoute: typeof AppMembersRoute
   AppOrderSettingsRoute: typeof AppOrderSettingsRouteWithChildren
   AppSettingsRoute: typeof AppSettingsRoute
   AppIndexRoute: typeof AppIndexRoute
@@ -936,6 +998,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppContactsRoute: AppContactsRoute,
   AppCrmSettingsRoute: AppCrmSettingsRouteWithChildren,
   AppInboxRoute: AppInboxRoute,
+  AppMembersRoute: AppMembersRoute,
   AppOrderSettingsRoute: AppOrderSettingsRouteWithChildren,
   AppSettingsRoute: AppSettingsRoute,
   AppIndexRoute: AppIndexRoute,
@@ -956,6 +1019,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
   AppRoute: AppRouteWithChildren,
+  JoinRoute: JoinRoute,
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
 }
