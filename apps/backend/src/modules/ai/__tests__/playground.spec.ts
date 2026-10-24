@@ -120,7 +120,7 @@ describe('PlaygroundService', () => {
         workspaceId: ws,
         isTest: true,
         outcome: 'answered',
-        promptVersion: 'sales-agent@3',
+        promptVersion: 'sales-agent@4',
       }),
     ]);
   });
@@ -317,5 +317,86 @@ describe('channel metering and training context evals', () => {
     expect(result.outcome).toBe('answered');
     expect(fake.calls[0]?.messages.at(-1)?.content).toContain('50.000 VND');
     expect(fake.calls[0]?.messages.at(-1)?.content).not.toContain('Private shortcut');
+  });
+});
+
+describe('sales-agent prompt and handoff reply', () => {
+  const trainingWith = (items: object[]) =>
+    ({ list: async () => items }) as unknown as TrainingFacade;
+  const build = (reply: object, items: object[] = []) => {
+    const fake = provider('dev-fake', reply);
+    const svc = new PlaygroundService(
+      { getBot: async () => bot } as BotFacade,
+      { searchFaqs: async () => [] } as unknown as KnowledgeFacade,
+      { getById: async () => ({ name: 'Shop Lan' }) } as unknown as WorkspaceFacade,
+      new LlmRuntime(new InMemoryLlmConfigRepository(), factory(fake)),
+      new InMemoryAiRunRepository(),
+      trainingWith(items),
+    );
+    return { fake, svc };
+  };
+
+  it('puts situation handling before the handoff rule and keeps the style rules', async () => {
+    const { fake, svc } = build({ outcome: 'answer', reply: 'Dạ', sources: [] });
+    await svc.playground(ws, botId, ask('hi'));
+    const system = String(fake.calls[0]?.messages[0]?.content);
+    expect(system.indexOf('<shop_situations> are the owner')).toBeGreaterThan(-1);
+    expect(system.indexOf('follow it')).toBeLessThan(system.indexOf('"handoff" only when'));
+    expect(system).toContain('Never call yourself "shop"');
+    expect(system).toContain('Greet only in your first reply');
+    expect(system).toContain('repeat it back');
+    expect(system).toContain('language other than Vietnamese');
+    expect(system).not.toMatch(/\{\{[^}]+\}\}/);
+  });
+
+  it('shows the "when" line of each situation to the model', async () => {
+    const { fake, svc } = build({ outcome: 'answer', reply: 'Dạ', sources: [] }, [
+      {
+        kind: 'scenario',
+        title: 'Giá sỉ',
+        trigger: 'Khách hỏi giá sỉ',
+        content: 'Xin số điện thoại.',
+      },
+    ]);
+    await svc.playground(ws, botId, ask('giá sỉ'));
+    expect(fake.calls[0]?.messages.at(-1)?.content).toContain('Khi: Khách hỏi giá sỉ');
+  });
+
+  it('puts a brief model acknowledgement before the shop handoff message', async () => {
+    const { svc } = build({
+      outcome: 'handoff',
+      reply: 'Em xin lỗi anh/chị về trải nghiệm này ạ.',
+      sources: [],
+    });
+    const res = await svc.playground(ws, botId, ask('dịch vụ tệ quá'));
+    expect(res).toMatchObject({
+      outcome: 'handoff',
+      reply: `Em xin lỗi anh/chị về trải nghiệm này ạ. ${bot.handoffMessage}`,
+    });
+  });
+
+  it('repeats a phone number the customer gave, but drops an invented figure', async () => {
+    const ok = build({ outcome: 'handoff', reply: 'Em đã ghi nhận số 0912345678 ạ.', sources: [] });
+    const a = await ok.svc.playground(ws, botId, ask('gọi lại số 0912345678 nhé'));
+    expect(a.reply).toBe(`Em đã ghi nhận số 0912345678 ạ. ${bot.handoffMessage}`);
+
+    const bad = build({
+      outcome: 'handoff',
+      reply: 'Em xin lỗi, em giảm 20% cho anh ạ.',
+      sources: [],
+    });
+    const b = await bad.svc.playground(ws, botId, ask('tệ quá'));
+    expect(b.reply).toBe(bot.handoffMessage);
+  });
+
+  it('sends only the shop handoff message when the model adds nothing', async () => {
+    const { svc } = build({ outcome: 'handoff', reply: '', sources: [] });
+    expect((await svc.playground(ws, botId, ask('gặp người thật'))).reply).toBe(bot.handoffMessage);
+  });
+
+  it('keeps the English fallback pronouns and never leaks model text on fallback', async () => {
+    const { svc } = build({ outcome: 'unknown', reply: 'Chắc 500k ạ', sources: [] });
+    const res = await svc.playground(ws, botId, ask('Hi, how much?'));
+    expect(res).toMatchObject({ outcome: 'fallback', reply: bot.fallbackMessage });
   });
 });

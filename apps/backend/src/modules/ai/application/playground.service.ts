@@ -21,9 +21,10 @@ import {
 import { AI_RUN_REPOSITORY, type AiRunRepository } from '../domain/ports/ai-run.repository.js';
 import { LlmRuntime } from './llm-runtime.js';
 
-const PROMPT = { name: 'sales-agent', version: 3 } as const;
+const PROMPT = { name: 'sales-agent', version: 4 } as const;
 const PROMPT_VERSION = `${PROMPT.name}@${PROMPT.version}`;
 const MAX_SOURCES = 5;
+const MAX_HANDOFF_LEAD = 200;
 
 /** What the model must return (structured output); validated again here. */
 export const ModelReply = z.object({
@@ -103,7 +104,11 @@ export class PlaygroundService implements AiFacade {
           .slice(0, 20)
       : [];
     const guidance = scenarios
-      .map((item) => `${item.title}\n${item.content}`)
+      .map((item) =>
+        [item.title, item.trigger ? `Khi: ${item.trigger}` : '', item.content]
+          .filter(Boolean)
+          .join('\n'),
+      )
       .join('\n\n')
       .slice(0, 20_000);
     const products = this.catalog ? await this.catalog.getBotProducts(ws, query, 5) : [];
@@ -223,16 +228,21 @@ function decide(
   customerTexts: string[],
   guidance: string,
 ): Decision {
-  // Fallback and handoff never send model text: an empty setting uses the built-in message.
+  // Fallback never sends model text and handoff only a vetted lead-in: an empty setting uses the built-in message.
   const fallback = (guardrail: string | null): Decision => ({
     outcome: 'fallback',
     reply: bot.fallbackMessage.trim() || defaultFallbackMessage(bot),
     guardrail,
     used: new Set(),
   });
-  const handoff = (guardrail: string | null): Decision => ({
+  // The shop's own hand-over message always goes out. The model may add one brief sentence
+  // before it (an apology, a confirmed phone number); it is dropped when it is long or
+  // carries a figure that is neither grounded nor given by the customer.
+  const handoff = (guardrail: string | null, lead = ''): Decision => ({
     outcome: 'handoff',
-    reply: bot.handoffMessage.trim() || defaultHandoffMessage(bot),
+    reply: [lead, bot.handoffMessage.trim() || defaultHandoffMessage(bot)]
+      .filter(Boolean)
+      .join(' '),
     guardrail,
     used: new Set(),
   });
@@ -245,9 +255,6 @@ function decide(
   } catch {
     return fallback('invalid_output');
   }
-  if (parsed.outcome === 'handoff') return handoff(null);
-  if (parsed.outcome === 'unknown' || !parsed.reply.trim()) return fallback(null);
-
   const trusted = [
     ...sources.flatMap((s) => [s.question, s.answer]),
     bot.mission,
@@ -255,6 +262,14 @@ function decide(
     guidance,
     ...Object.values(bot.placeholders),
   ];
+  if (parsed.outcome === 'handoff') {
+    const lead = parsed.reply.trim();
+    const safe =
+      lead.length <= MAX_HANDOFF_LEAD && !ungroundedFigures(lead, trusted, customerTexts).length;
+    return handoff(null, safe ? lead : '');
+  }
+  if (parsed.outcome === 'unknown' || !parsed.reply.trim()) return fallback(null);
+
   const ungrounded = ungroundedFigures(parsed.reply, trusted, customerTexts);
   if (ungrounded.length) return fallback(`ungrounded_figure:${ungrounded.join(',')}`);
 

@@ -48,6 +48,19 @@ found are fixed with regression tests.
 
 - 2026-10-24 — created; commits stay local on the T-052 branch until the owner asks to split and push.
 
+- 2026-10-24 — vision / bot-sent images spike (read-only), findings:
+  - Vision: Hermes can send `input_image` parts (`codex_responses_adapter.py`), but only if the model is known
+    to support vision; otherwise it silently drops images. Whether the ChatGPT-plan Codex backend accepts images
+    for gpt-6.x / gpt-5.6-* is NOT verified — a live smoke test with a synthetic image is the gate. Design: optional
+    `images: [{mimeType, base64}]` on the bridge request (caps 3 images / 3 MB, fail closed with VISION_UNSUPPORTED),
+    NestJS fetches Meta CDN images (fbcdn/cdninstagram allowlist, size cap, no redirects, never logged or stored),
+    workspace toggle default off. Effort M-L. Owner decisions: customer photos go to OpenAI (privacy/disclosure),
+    ChatGPT-plan terms for a hosted bot, cost/latency.
+  - Bot-sent images: product image field (preferably a reference to a `media` library item), model returns
+    `imageIds` from a server-built allowlist (max 3, never URLs), one outbound message per image after the text with
+    idempotency keys `bot:<eventId>:img<n>`, image failure never fails or hands off the text reply. Effort M.
+  - Recommended order: bot-sent images first (no new data to OpenAI), then vision after the smoke test and the owner's decision.
+
 ## Links
 
 - Related tasks: T-045, T-052

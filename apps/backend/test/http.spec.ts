@@ -452,7 +452,8 @@ describe('HTTP: AI playground', () => {
       (await ask(a, h, bot.id, 'cho mình gặp nhân viên')).json(),
     );
     expect(human.outcome).toBe('handoff');
-    expect(human.reply).toBe(bot.settings.handoffMessage);
+    // A handoff may open with one short vetted sentence, but always ends with the bot's own message.
+    expect(human.reply.endsWith(bot.settings.handoffMessage)).toBe(true);
   });
 
   it('validates the conversation and hides bots of other workspaces', async () => {

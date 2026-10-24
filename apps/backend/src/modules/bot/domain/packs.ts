@@ -143,7 +143,7 @@ export function defaultSettings(industry: IndustryKey): BotSettingsData {
     autoResumeAfterManual: true,
     humanTakeoverMinutes: 5,
     silenceOnExternalReply: true,
-    fallbackMessage: 'Dạ, em chưa có thông tin này, em sẽ chuyển nhân viên hỗ trợ anh/chị ngay ạ.',
+    fallbackMessage: 'Dạ, em chưa có thông tin này, em sẽ kiểm tra lại và báo anh/chị ngay ạ.',
     handoffMessage: 'Dạ, em đã chuyển cho nhân viên, anh/chị đợi một chút ạ.',
     creativity: 'balanced',
     modelTier: 'smart',
