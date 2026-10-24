@@ -97,6 +97,13 @@ describe('SafeImageFetcher', () => {
     const result = await new SafeImageFetcher(['127.0.0.1']).fetch(`${base}/ok.png`);
     expect(result).toEqual({ mimeType: 'image/png', base64: PNG.toString('base64') });
   });
+  it('resolves a host name through its own DNS check (Node asks for all addresses)', async () => {
+    const port = (server.address() as AddressInfo).port;
+    const result = await new SafeImageFetcher(['localhost']).fetch(
+      `http://localhost:${port}/ok.png`,
+    );
+    expect(result).toEqual({ mimeType: 'image/png', base64: PNG.toString('base64') });
+  });
   it('refuses loopback and unlisted hosts without extra hosts, and plain http', async () => {
     const fetcher = new SafeImageFetcher();
     expect(await fetcher.fetch(`${base}/ok.png`)).toBeNull();

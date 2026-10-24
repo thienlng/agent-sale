@@ -111,6 +111,12 @@ describe('bot-sent images', () => {
     expect(sent).not.toContain('img.example.com');
   });
 
+  it('tells the model what to say when a known product has no picture', async () => {
+    const { fake, ask } = build(answer());
+    await ask('cho xem ảnh giày da Oxford');
+    const sent = JSON.stringify((fake.calls[0] as GenerateRequest).messages);
+    expect(sent).toContain('no picture yet');
+  });
   it('drops an invented or foreign id', async () => {
     const { ask } = build(answer(['p:other:0', 'm:nope', 'p:oxford:0']));
     expect((await ask('cho xem ảnh giày')).images).toEqual([

@@ -642,4 +642,14 @@ describe('MetaInboxProcessor', () => {
       expect(channels.deliver).toHaveBeenCalledTimes(1);
     });
   });
+  it('leaves an event older than the 24-hour window to staff without calling the AI', async () => {
+    const { channels, ai, processor } = setup();
+    vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+      job('late-1', 'message', 'hello', Date.now() - 26 * 3_600_000),
+    ]);
+    await processor.tick();
+    expect(ai.reply).not.toHaveBeenCalled();
+    expect(channels.deliver).not.toHaveBeenCalled();
+    expect(channels.completeEvent).toHaveBeenCalled();
+  });
 });

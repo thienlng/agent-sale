@@ -33,6 +33,8 @@ function handoffText(bot: BotView): string {
   );
 }
 
+const MESSAGING_WINDOW_MS = 24 * 3_600_000;
+
 /** Invoked exclusively by the agent entry; API never starts background inference. */
 @Injectable()
 export class MetaInboxProcessor {
@@ -124,6 +126,10 @@ export class MetaInboxProcessor {
       return this.skip(job, 'no bot or connection not connected');
     const bot = await this.bots.getBot(job.workspaceId, channel.botId);
     if (!bot.isActive) return this.skip(job, 'bot inactive');
+    // Meta only lets us answer within 24 h of the customer's message; a late event (an outage, a
+    // long retry) is left for staff instead of spending an AI call on a reply that cannot be sent.
+    if (Date.now() - job.event.occurredAt.getTime() >= MESSAGING_WINDOW_MS)
+      return this.skip(job, 'messaging window closed');
     // Outside the bot's reply hours the message stays in the inbox for staff.
     if (bot.replySchedule && !withinReplySchedule(bot.replySchedule, new Date()))
       return this.skip(job, 'outside reply hours');

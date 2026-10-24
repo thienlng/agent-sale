@@ -112,16 +112,22 @@ export class SafeImageFetcher implements ImageFetcher {
         req.destroy();
         resolve(value);
       };
+      // Node (24+) calls `lookup` with `{ all: true }` and expects a list; older callers expect one.
       const lookup = ((
         name: string,
-        _options: unknown,
-        callback: (err: Error | null, address: string, family: number) => void,
+        options: { all?: boolean } | undefined,
+        callback: (
+          err: Error | null,
+          address: string | { address: string; family: number }[],
+          family?: number,
+        ) => void,
       ) => {
         dns.lookup(name, { all: true }, (err, addresses) => {
           const first = addresses?.[0];
           // Every answer must be public: a mixed answer could be a rebinding attempt.
           if (err || !first || (!extra && addresses.some((a) => isPrivateAddress(a.address))))
             return callback(err ?? new Error('blocked address'), '', 4);
+          if (options?.all) return callback(null, addresses);
           callback(null, first.address, first.family);
         });
       }) as unknown as https.RequestOptions['lookup'];
