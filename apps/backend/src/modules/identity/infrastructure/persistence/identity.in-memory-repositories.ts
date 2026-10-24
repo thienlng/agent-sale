@@ -59,6 +59,12 @@ export class InMemorySessionRepository implements SessionRepository {
     for (const s of this.rows.values())
       if (s.familyId === familyId && !s.revokedAt) s.revokedAt = at;
   }
+
+  async revokeOtherFamilies(userId: UserId, keepSessionId: string, at: Date): Promise<void> {
+    const keep = this.rows.get(keepSessionId)?.familyId;
+    for (const s of this.rows.values())
+      if (s.userId === userId && s.familyId !== keep && !s.revokedAt) s.revokedAt = at;
+  }
 }
 
 export class InMemoryMfaRepository implements MfaRepository {

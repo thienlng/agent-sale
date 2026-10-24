@@ -56,6 +56,7 @@ async function setup() {
     hasher,
     new InMemoryAttemptLimiter(20, 60_000),
     SecretBox.insecureDevelopmentBox(),
+    sessions,
   );
   return {
     mfa,
@@ -151,10 +152,14 @@ describe('auth flow (in-memory)', () => {
       const s = await setup();
       const issued = await s.signup.execute(input, meta);
       const userId = issued.user.id as never;
+      const sessionId = currentSession(s);
       const { secret } = await s.mfa.beginSetup(userId, input.password);
-      const recovery = await s.mfa.enable(userId, totpAt(secret, stepAt(Date.now())));
-      return { ...s, userId, secret, recovery };
+      const recovery = await s.mfa.enable(userId, totpAt(secret, stepAt(Date.now())), sessionId);
+      return { ...s, userId, sessionId, secret, recovery };
     }
+    /** The one session signup started. */
+    const currentSession = (s: { sessionRepo: InMemorySessionRepository }) =>
+      ([...s.sessionRepo.rows.values()][0] as { id: string }).id;
     const creds = { email: input.email, password: input.password, client: 'web' as const };
 
     it('asks for a code, accepts a good one once, and refuses a replay', async () => {
@@ -184,15 +189,29 @@ describe('auth flow (in-memory)', () => {
     it('turning it off needs the password and a valid code', async () => {
       const s = await enrolled();
       const code = s.recovery[1] as string;
-      await expect(s.mfa.disable(s.userId, 'wrong password', code)).rejects.toBeInstanceOf(
-        MfaReauthError,
-      );
-      await expect(s.mfa.disable(s.userId, input.password, '000000')).rejects.toBeInstanceOf(
-        MfaReauthError,
-      );
-      await s.mfa.disable(s.userId, input.password, code);
+      await expect(
+        s.mfa.disable(s.userId, 'wrong password', code, s.sessionId),
+      ).rejects.toBeInstanceOf(MfaReauthError);
+      await expect(
+        s.mfa.disable(s.userId, input.password, '000000', s.sessionId),
+      ).rejects.toBeInstanceOf(MfaReauthError);
+      await s.mfa.disable(s.userId, input.password, code, s.sessionId);
       expect(await s.mfa.status(s.userId)).toEqual({ enabled: false, recoveryCodesLeft: 0 });
       await expect(s.login.execute(creds, meta)).resolves.toBeDefined();
+    });
+
+    it('turning it on signs out every other session but keeps the current one', async () => {
+      const s = await setup();
+      const mine = await s.signup.execute(input, meta);
+      const sessionId = currentSession(s);
+      const other = await s.login.execute(creds, meta);
+      const userId = mine.user.id as never;
+      const { secret } = await s.mfa.beginSetup(userId, input.password);
+      await s.mfa.enable(userId, totpAt(secret, stepAt(Date.now())), sessionId);
+      await expect(s.refresh.execute(other.refreshToken, meta)).rejects.toBeInstanceOf(
+        SessionInvalidError,
+      );
+      await expect(s.refresh.execute(mine.refreshToken, meta)).resolves.toBeDefined();
     });
 
     it('a pending setup does not gate login until confirmed', async () => {

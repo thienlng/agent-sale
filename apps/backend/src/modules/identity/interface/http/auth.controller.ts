@@ -128,7 +128,7 @@ export class AuthController {
     @CurrentUser() user: AuthState,
     @Body(new ZodValidationPipe(MfaEnableRequest)) body: MfaEnableRequest,
   ): Promise<RecoveryCodes> {
-    return { recoveryCodes: await this.mfa.enable(user.userId, body.code) };
+    return { recoveryCodes: await this.mfa.enable(user.userId, body.code, user.sessionId) };
   }
 
   @Post('auth/mfa/disable')
@@ -137,7 +137,7 @@ export class AuthController {
     @CurrentUser() user: AuthState,
     @Body(new ZodValidationPipe(MfaReauthRequest)) body: MfaReauthRequest,
   ): Promise<void> {
-    await this.mfa.disable(user.userId, body.password, body.code);
+    await this.mfa.disable(user.userId, body.password, body.code, user.sessionId);
   }
 
   @Post('auth/mfa/recovery-codes')
@@ -147,7 +147,12 @@ export class AuthController {
     @Body(new ZodValidationPipe(MfaReauthRequest)) body: MfaReauthRequest,
   ): Promise<RecoveryCodes> {
     return {
-      recoveryCodes: await this.mfa.regenerateRecoveryCodes(user.userId, body.password, body.code),
+      recoveryCodes: await this.mfa.regenerateRecoveryCodes(
+        user.userId,
+        body.password,
+        body.code,
+        user.sessionId,
+      ),
     };
   }
 

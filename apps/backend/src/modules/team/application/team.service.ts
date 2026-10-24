@@ -33,6 +33,7 @@ import {
   InvitationEmailMismatchError,
   InvitationNotFoundError,
   InvitationUnusableError,
+  OwnerNotManageableError,
   ReassignmentRequiredError,
   SeatLimitReachedError,
 } from '../domain/team.errors.js';
@@ -186,7 +187,9 @@ export class TeamService implements TeamFacade {
   }
 
   async revoke(ws: WorkspaceId, id: string, actor: Actor): Promise<InvitationDto> {
-    const r = isUuid(id)
+    const pending = isUuid(id) ? await this.invitations.find(ws, id) : null;
+    if (pending?.role === 'admin' && actor.role !== 'owner') throw new AdminOnlyByOwnerError();
+    const r = pending
       ? await this.invitations.revoke(ws, id, {
           actorUserId: actor.userId,
           actorName: await this.identity.displayName(userId(actor.userId)),
@@ -317,17 +320,22 @@ export class TeamService implements TeamFacade {
     if (!may) throw new InvitationUnusableError('inviter_changed');
   }
 
-  /** Admins cannot touch admins (or make someone admin); only the owner can. */
+  /**
+   * Nobody can remove or re-role the owner; admins cannot touch admins (or make
+   * someone admin), only the owner can. Runs before any side effect: a removal
+   * moves customers before it ends the membership.
+   */
   async #assertManages(
     ws: WorkspaceId,
     target: string,
     newRole: AssignableRole | undefined,
     actor: Actor,
   ): Promise<void> {
-    if (actor.role === 'owner') return;
     const current = (await this.workspaces.listMembers(ws, { includeRemoved: true })).find(
       (m) => m.userId === target,
     );
+    if (current?.role === 'owner') throw new OwnerNotManageableError();
+    if (actor.role === 'owner') return;
     if (current?.role === 'admin' || newRole === 'admin') throw new AdminOnlyByOwnerError();
   }
 

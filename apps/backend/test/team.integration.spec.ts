@@ -269,6 +269,27 @@ describe('team and access on Postgres', () => {
     expect(
       (await call(asAdmin, 'PATCH', `/members/${sale.userId}`, { role: 'admin' })).statusCode,
     ).toBe(403);
+    // Removing the owner fails before anything moves: their customers stay theirs.
+    const kept = ContactDto.parse(
+      (
+        await call(lan.h, 'POST', '/contacts', { name: 'Khách chủ', salesUserId: lan.userId })
+      ).json(),
+    );
+    for (const h of [asAdmin, lan.h]) {
+      const out = await call(h, 'POST', `/members/${lan.userId}/remove`, {
+        reassign: { mode: 'unassign' },
+      });
+      expect(out.statusCode, out.body).toBe(409);
+    }
+    expect(
+      ContactDto.parse((await call(lan.h, 'GET', `/contacts/${kept.id}`)).json()).salesUserId,
+    ).toBe(lan.userId);
+    // An admin cannot revoke the owner's admin invitation either.
+    const ownerInv = CreatedInvitation.parse(
+      (await call(lan.h, 'POST', '/invitations', { email: 'y2@team.vn', role: 'admin' })).json(),
+    );
+    const revoke = `/invitations/${ownerInv.invitation.id}/revoke`;
+    expect((await call(asAdmin, 'POST', revoke)).statusCode).toBe(403);
     // Links of a removed admin stop working.
     const pending = CreatedInvitation.parse(
       (

@@ -1,4 +1,4 @@
-import { MfaSetup, MfaStatus, RecoveryCodes } from '@agent-sales/contracts';
+import { AuthResponse, MfaSetup, MfaStatus, RecoveryCodes } from '@agent-sales/contracts';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { stepAt, totpAt } from '../src/modules/identity/domain/totp.js';
@@ -101,6 +101,43 @@ describe('two-factor', () => {
     });
     expect(off.statusCode, off.body).toBe(204);
     expect((await login(lan.email, lan.password)).statusCode).toBe(200);
+  });
+
+  it('turning it on signs out the other devices, not this one (T-064)', async () => {
+    const dao = await t.user('dao@mfa.vn', 'Dao MFA');
+    const device = async (ip: string) => {
+      const res = await t.app
+        .getHttpAdapter()
+        .getInstance()
+        .inject({
+          method: 'POST',
+          url: '/api/v1/auth/login',
+          remoteAddress: ip,
+          payload: { email: dao.email, password: dao.password, client: 'native' },
+        });
+      return AuthResponse.parse(res.json());
+    };
+    const refresh = (refreshToken: string) =>
+      t.app
+        .getHttpAdapter()
+        .getInstance()
+        .inject({
+          method: 'POST',
+          url: '/api/v1/auth/refresh',
+          payload: { client: 'native', refreshToken },
+        });
+    const here = await device('10.9.2.1');
+    const there = await device('10.9.2.2');
+    const auth = { authorization: `Bearer ${here.accessToken}` };
+    const setup = MfaSetup.parse(
+      (await t.call(auth, 'POST', '/auth/mfa/setup', { password: dao.password })).json(),
+    );
+    const on = await t.call(auth, 'POST', '/auth/mfa/enable', {
+      code: totpAt(setup.secret, stepAt(Date.now())),
+    });
+    expect(on.statusCode, on.body).toBe(200);
+    expect((await refresh(there.refreshToken ?? '')).statusCode).toBe(401);
+    expect((await refresh(here.refreshToken ?? '')).statusCode).toBe(200);
   });
 
   it('login attempts are rate limited per address and email', async () => {

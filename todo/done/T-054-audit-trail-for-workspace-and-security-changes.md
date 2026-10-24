@@ -1,7 +1,7 @@
 ---
 id: T-054
 title: Audit trail for workspace and security changes
-status: review
+status: done
 type: feature
 priority: P1
 owner: @agent:claude
@@ -9,7 +9,7 @@ feature_ids: [ADM-01, ADM-02]
 created: 2026-10-24
 updated: 2026-10-24
 branch: feat/T-053-m4a-admin-foundation
-pr:
+pr: 53
 parent:
 ---
 
