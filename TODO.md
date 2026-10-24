@@ -4,7 +4,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
-(none)
+Orders parity fixes from the testing agent's issues #16–#23 — branch `feat/T-023-orders-parity-fixes`: T-023, T-024, T-025, T-026, T-027 done; PR open for review.
 
 ## Next
 
@@ -19,6 +19,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [ ] T-011 Add Claude Code hooks: eslint --fix after edits and pnpm check on stop — @unassigned · [details](todo/T-011-add-claude-code-hooks-eslint-fix-after-edits-and-p.md)
 - [ ] T-020 Orders follow-ups: Excel import, product images, 2-level address picker, carriers and printing, multi-tab drafts — @unassigned · [details](todo/T-020-orders-follow-ups-excel-import-product-images-2-le.md)
 - [ ] T-021 Fix the root pnpm gen script (turbo gen needs --args) — @unassigned · [details](todo/T-021-fix-the-root-pnpm-gen-script-turbo-gen-needs-args.md)
+- [ ] T-028 Structured product variants, dimensions and negative-stock policy — @unassigned · [details](todo/T-028-structured-product-variants-dimensions-and-negativ.md)
 
 ## Blocked
 
@@ -26,17 +27,13 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## Done (last 10 — older ones live in todo/done/)
 
+- [x] T-027 Live-backend commerce E2E regression suite — @agent:claude · [details](todo/done/T-027-live-backend-commerce-e2e-regression-suite.md) · orders parity PR
+- [x] T-026 Separate gross total from amount due on orders — @agent:claude · [details](todo/done/T-026-separate-gross-total-from-amount-due-on-orders.md) · orders parity PR
+- [x] T-025 Order list multi-status include/exclude, creator and carrier filters — @agent:claude · [details](todo/done/T-025-order-list-multi-status-include-exclude-creator-an.md) · orders parity PR
+- [x] T-024 Source-scoped order field policies for creation and confirmation — @agent:claude · [details](todo/done/T-024-source-scoped-order-field-policies-for-creation-an.md) · orders parity PR
+- [x] T-023 Edit items and quantities on existing orders — @agent:claude · [details](todo/done/T-023-edit-items-and-quantities-on-existing-orders.md) · orders parity PR
 - [x] T-022 Use setup-node v7 in the web CI job too — @agent:claude · [details](todo/done/T-022-use-setup-node-v7-in-the-web-ci-job-too.md)
 - [x] T-019 Orders and products web: overview, order list, create order, detail, products, warehouses, settings — @agent:claude · [details](todo/done/T-019-orders-and-products-web-overview-order-list-create.md) · #13
 - [x] T-018 Commerce backend: products, variants, warehouses, inventory, orders, statuses, overview — @agent:claude · [details](todo/done/T-018-commerce-backend-products-variants-warehouses-inve.md) · #13
 - [x] T-017 Dashboard layout system: shadcn sidebar, user UI preferences, responsive guard — @agent:claude · [details](todo/done/T-017-dashboard-layout-system-shadcn-sidebar-user-ui-pre.md) · #13
 - [x] T-005 Web dashboard: auth, bots, FAQ, settings, test chat, admin LLM settings — @agent:claude · [details](todo/done/T-005-scaffold-web.md) · #13
-- [x] T-016 AI playground, LLM providers (Anthropic + OpenAI-compatible) and admin-managed tier routing — @agent:claude · [details](todo/done/T-016-ai-playground-llm-providers-faq-retrieval-grounded.md) · #13
-- [x] T-015 Bot and knowledge modules — @agent:claude · [details](todo/done/T-015-bot-and-knowledge-modules-bots-settings-faq-indust.md) · #13
-- [x] T-014 Authentication and workspace onboarding — @agent:claude · [details](todo/done/T-014-authentication-and-workspace-onboarding-signup-log.md) · M1-foundation PR
-- [x] T-003 Complete the backend runtime: OpenAPI, request tracing, readiness, metrics — @agent:claude · [details](todo/done/T-003-scaffold-api.md) · M1-foundation PR
-- [x] T-004 Wire the database: local infra, migration runner, RLS integration tests, Drizzle repositories — @agent:claude · [details](todo/done/T-004-packages-db.md) · M1-foundation PR
-- [x] T-012 Record brand Razpi, white-orange theme and single maintainer — @agent:claude · [details](todo/done/T-012-record-brand-razpi-white-orange-theme-and-single-m.md)
-- [x] T-010 Scaffold codebase skeleton and architecture conventions — @agent:claude · [details](todo/done/T-010-scaffold-codebase-skeleton-and-architecture-conven.md) · PR #10 (squashed into #9)
-- [x] T-009 Decide performance-oriented tech stack (ADR-009) — @agent:claude · [details](todo/done/T-009-decide-performance-oriented-tech-stack-adr-009.md) · PR #9
-- [x] T-001 Repository foundation: agent rules, skills, tooling, CI — initial commit
