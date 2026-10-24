@@ -2,6 +2,7 @@ import {
   CreateLlmProviderRequest,
   type HermesLoginStatus,
   type LlmProviderDto,
+  type LlmProviderModelList,
   type LlmTierRouteDto,
   PutLlmTierRouteRequest,
   TestLlmProviderRequest,
@@ -69,6 +70,11 @@ export class LlmAdminController {
     @Body(new ZodValidationPipe(TestLlmProviderRequest)) body: TestLlmProviderRequest,
   ): Promise<TestLlmProviderResponse> {
     return this.admin.testProvider(id, body.model);
+  }
+
+  @Get('providers/:providerId/models')
+  providerModels(@Param('providerId') id: string): Promise<LlmProviderModelList> {
+    return this.admin.listModels(id);
   }
 
   @Get('providers/:providerId/hermes-login')

@@ -11,6 +11,7 @@ import {
   FaqListResponse,
   HermesLoginStatus,
   LlmProviderDto,
+  LlmProviderModelList,
   LlmTierRouteList,
   PlaygroundResponse,
   TestLlmProviderResponse,
@@ -614,6 +615,33 @@ describe('HTTP: platform admin — LLM configuration', () => {
     expect(status.state).toBe('unreachable');
     const out = await inject(a, { method: 'DELETE', url: url(hermes.id), headers: h });
     expect(out.statusCode).toBe(200);
+  });
+
+  it('provider model list is admin-only, 404 for unknown ids and degrades to unavailable', async () => {
+    const a = await app();
+    const h = await admin(a);
+    const { token } = await signup(a, `owner-${Math.random()}@shop.vn`);
+    const created = LlmProviderDto.parse(
+      (
+        await inject(a, {
+          method: 'POST',
+          url: '/api/v1/admin/llm/providers',
+          headers: h,
+          payload: { name: 'down', kind: 'openai_compatible', baseUrl: 'http://127.0.0.1:9/v1' },
+        })
+      ).json(),
+    );
+    const url = (id: string) => `/api/v1/admin/llm/providers/${id}/models`;
+    const forbidden = await inject(a, {
+      method: 'GET',
+      url: url(created.id),
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(forbidden.statusCode).toBe(404);
+    expect((await inject(a, { method: 'GET', url: url('nope'), headers: h })).statusCode).toBe(404);
+    const res = await inject(a, { method: 'GET', url: url(created.id), headers: h });
+    expect(res.statusCode).toBe(200);
+    expect(LlmProviderModelList.parse(res.json())).toEqual({ data: [], state: 'unavailable' });
   });
 
   it('a tier routed to an unreachable server: test reports it, the playground answers 503', async () => {

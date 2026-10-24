@@ -3,6 +3,7 @@ import {
   HermesLoginStatus,
   LlmProviderDto,
   LlmProviderList,
+  LlmProviderModelList,
   LlmTierRouteDto,
   LlmTierRouteList,
   type PutLlmTierRouteRequest,
@@ -109,4 +110,15 @@ export function useHermesLoginAction(providerId: string) {
       onSuccess: set,
     }),
   };
+}
+
+/** Short model list of a provider (5-minute cache; `refetch` bypasses nothing but re-asks the API). */
+export function useProviderModels(providerId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.providerModels(providerId ?? ''),
+    queryFn: () => api(`/admin/llm/providers/${providerId}/models`, LlmProviderModelList, global),
+    enabled: Boolean(providerId),
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
 }

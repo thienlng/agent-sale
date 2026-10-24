@@ -281,6 +281,12 @@
         "bridge_key_rejected": "The Hermes bridge rejected this server's key. Re-enter the key under Edit."
       },
       "terms": "The ChatGPT subscription sign-in is for this deployment only and is subject to OpenAI's plan terms. You are responsible for appropriate use."
+    },
+    "models": {
+      "choose": "Choose a model",
+      "refresh": "Refresh model list",
+      "authRequired": "Sign in to ChatGPT to load the model list",
+      "manual": "Couldn't load the model list; type a model name."
     }
   },
   "errors": {

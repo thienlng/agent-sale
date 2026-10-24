@@ -118,3 +118,10 @@ export const HermesLoginStatus = z.object({
   code: z.string().optional(),
 });
 export type HermesLoginStatus = z.infer<typeof HermesLoginStatus>;
+
+/** Models a provider offers (at most 30). `state` lets the UI degrade instead of failing. */
+export const LlmProviderModelList = z.object({
+  data: z.array(z.object({ id: z.string() })).max(30),
+  state: z.enum(['ok', 'auth_required', 'unavailable']),
+});
+export type LlmProviderModelList = z.infer<typeof LlmProviderModelList>;

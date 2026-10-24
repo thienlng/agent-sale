@@ -5,7 +5,6 @@ import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -17,6 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { errorMessage } from '@/lib/errors';
 
 import { useLlmProviders, useLlmTiers, useSaveTier } from '../api/llm';
+import { ModelPicker } from './model-picker';
 
 const TIERS: readonly ModelTier[] = ['basic', 'smart', 'pro', 'neo'];
 const NONE = '__none';
@@ -74,14 +74,13 @@ function TargetFields({
             ))}
           </SelectContent>
         </Select>
-        <Input
+        <ModelPicker
           id={`${idPrefix}-model`}
-          aria-label={`${label}: ${t('admin.model')}`}
-          placeholder={t('admin.model')}
+          providerId={value?.providerId ?? null}
+          label={`${label}: ${t('admin.model')}`}
           disabled={!value}
           value={value?.model ?? ''}
-          onChange={(e) => value && onChange({ ...value, model: e.target.value })}
-          className="font-mono text-sm"
+          onChange={(model) => value && onChange({ ...value, model })}
         />
         <Select
           disabled={!value}

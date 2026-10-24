@@ -4,6 +4,7 @@ import {
   HermesLoginStatus,
   LlmProviderDto,
   LlmProviderList,
+  LlmProviderModelList,
   LlmTierRouteDto,
   LlmTierRouteList,
   PutLlmTierRouteRequest,
@@ -56,6 +57,14 @@ export const llmAdminRoutes = defineRoutes([
     auth: true,
     body: TestLlmProviderRequest,
     responses: { 200: TestLlmProviderResponse },
+  },
+  {
+    method: 'get',
+    path: '/admin/llm/providers/{providerId}/models',
+    summary: 'Models offered by a provider (short list; never fails, reports a state)',
+    tag: 'admin',
+    auth: true,
+    responses: { 200: LlmProviderModelList },
   },
   {
     method: 'get',

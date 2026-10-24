@@ -3,6 +3,7 @@ import type {
   CreateLlmProviderRequest,
   HermesLoginStatus,
   LlmModelTarget,
+  LlmProviderModelList,
   LlmProviderDto,
   LlmTierRouteDto,
   PutLlmTierRouteRequest,
@@ -198,6 +199,13 @@ export class LlmAdminService {
       // Invalid stored URL or missing key.
       throw new InvalidLlmConfigError('The Hermes provider needs a valid base URL and API key');
     }
+  }
+
+  /** Short model list of a provider; failures degrade to a `state`, never an error. */
+  async listModels(id: string): Promise<LlmProviderModelList> {
+    const config = await this.#provider(id);
+    const res = await this.factory.listModels(config);
+    return { data: res.models.slice(0, 30), state: res.state };
   }
 
   async listRoutes(): Promise<LlmTierRouteDto[]> {

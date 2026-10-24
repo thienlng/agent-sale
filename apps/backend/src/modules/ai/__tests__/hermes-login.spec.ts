@@ -18,6 +18,7 @@ async function setup(transport: typeof fetch) {
   const real = new SdkLlmProviderFactory(secrets, false);
   const factory: LlmProviderFactory = {
     create: (c) => real.create(c),
+    listModels: (c) => real.listModels(c),
     developmentFallback: () => null,
     hermesLogin: (c) => {
       const inner = real.hermesLogin(c);

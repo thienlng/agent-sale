@@ -63,6 +63,7 @@ function factory(
     hermesLogin: () => {
       throw new Error('not used');
     },
+    listModels: () => Promise.resolve({ models: [], state: 'unavailable' }),
     developmentFallback: () => (dev ? { provider: dev, model: 'echo' } : null),
   };
 }

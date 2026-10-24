@@ -281,6 +281,12 @@
         "bridge_key_rejected": "Hermes bridge từ chối key của máy chủ này. Nhập lại key trong phần Sửa."
       },
       "terms": "Đăng nhập bằng gói ChatGPT chỉ dùng cho hệ thống này và tuân theo điều khoản gói của OpenAI. Bạn tự chịu trách nhiệm về việc sử dụng phù hợp."
+    },
+    "models": {
+      "choose": "Chọn mô hình",
+      "refresh": "Làm mới danh sách mô hình",
+      "authRequired": "Đăng nhập ChatGPT để lấy danh sách mô hình",
+      "manual": "Không lấy được danh sách mô hình, hãy nhập tên mô hình."
     }
   },
   "errors": {

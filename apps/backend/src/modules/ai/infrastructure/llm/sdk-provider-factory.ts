@@ -3,7 +3,9 @@ import {
   HermesLoginClient,
   HermesProvider,
   type LlmProvider,
+  listProviderModels,
   OpenAiCompatibleProvider,
+  type ProviderModelList,
 } from '@agent-sales/ai-core';
 
 import type { SecretBox } from '../../../../common/security/secret-box.js';
@@ -43,6 +45,20 @@ export class SdkLlmProviderFactory implements LlmProviderFactory {
     return new HermesLoginClient({
       baseURL: config.baseUrl ?? '',
       ...(config.apiKeyCipher ? { apiKey: this.secrets.open(config.apiKeyCipher) } : {}),
+    });
+  }
+
+  listModels(config: LlmProviderConfig): Promise<ProviderModelList> {
+    let apiKey: string | undefined;
+    try {
+      apiKey = config.apiKeyCipher ? this.secrets.open(config.apiKeyCipher) : undefined;
+    } catch {
+      return Promise.resolve({ models: [], state: 'unavailable' });
+    }
+    return listProviderModels({
+      kind: config.kind,
+      baseURL: config.baseUrl ?? undefined,
+      apiKey,
     });
   }
 
