@@ -13,6 +13,7 @@
 - Access token: EdDSA JWT, 15 min, claims `sub` (user) + `sid` (session). Refresh token: 32 random bytes, stored only as sha256, 30 days, rotated on every use; presenting a retired token revokes the whole family.
 - Web clients get the refresh token only as an HttpOnly cookie scoped to `/api/v1/auth`; cookie refresh checks `Origin` against `APP_ORIGINS`. Native clients use the body (`client: native`).
 - A workspace the user is not a member of answers 404, never 403.
+- Platform admin (`users.is_platform_admin`) is set only by the CLI (`pnpm --filter @agent-sales/backend platform-admin grant|revoke <email>`), exposed read-only as `UserDto.isPlatformAdmin`, and re-checked in the database on every `@PlatformAdmin()` request (non-admins get 404).
 
 **Do not:** read `users`/`sessions` with the tenant connection; log tokens or passwords; add a second global guard.
 

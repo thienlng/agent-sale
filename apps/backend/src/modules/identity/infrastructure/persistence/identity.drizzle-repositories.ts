@@ -18,6 +18,7 @@ function toUser(row: UserRow): User {
     emailVerifiedAt: row.emailVerifiedAt,
     locale: row.locale,
     timezone: row.timezone,
+    isPlatformAdmin: row.isPlatformAdmin,
     createdAt: row.createdAt,
   });
 }
@@ -66,6 +67,17 @@ export class DrizzleUserRepository implements UserRepository {
       if (code === '23505') throw new EmailTakenError();
       throw e;
     }
+  }
+
+  setPlatformAdmin(email: string, value: boolean): Promise<boolean> {
+    return withSystem(this.systemDb, async (tx) => {
+      const rows = await tx
+        .update(schema.users)
+        .set({ isPlatformAdmin: value, updatedAt: new Date() })
+        .where(sql`lower(${schema.users.email}) = ${email.toLowerCase()}`)
+        .returning({ id: schema.users.id });
+      return rows.length === 1;
+    });
   }
 }
 

@@ -22,9 +22,9 @@
     "test": "vitest run",
     "lint": "eslint .",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx src/cli/migrate.ts",
+    "db:migrate": "tsx --env-file-if-exists=../../.env src/cli/migrate.ts",
     "db:studio": "drizzle-kit studio",
-    "db:migrate:dev": "tsx src/cli/migrate.ts --dev-roles",
+    "db:migrate:dev": "tsx --env-file-if-exists=../../.env src/cli/migrate.ts --dev-roles",
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {

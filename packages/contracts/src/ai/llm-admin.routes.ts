@@ -1,0 +1,76 @@
+import { defineRoutes } from '../common/routes.js';
+import {
+  CreateLlmProviderRequest,
+  LlmProviderDto,
+  LlmProviderList,
+  LlmTierRouteDto,
+  LlmTierRouteList,
+  PutLlmTierRouteRequest,
+  TestLlmProviderRequest,
+  TestLlmProviderResponse,
+  UpdateLlmProviderRequest,
+} from './llm-admin.schema.js';
+
+/** Platform back-office: LLM providers and tier routing. Platform admins only (others get 404). */
+export const llmAdminRoutes = defineRoutes([
+  {
+    method: 'get',
+    path: '/admin/llm/providers',
+    summary: 'LLM providers',
+    tag: 'admin',
+    auth: true,
+    responses: { 200: LlmProviderList },
+  },
+  {
+    method: 'post',
+    path: '/admin/llm/providers',
+    summary: 'Add an LLM provider (Anthropic or any OpenAI-compatible server)',
+    tag: 'admin',
+    auth: true,
+    body: CreateLlmProviderRequest,
+    responses: { 201: LlmProviderDto },
+  },
+  {
+    method: 'patch',
+    path: '/admin/llm/providers/{providerId}',
+    summary: 'Update base URL, API key, options or enabled flag',
+    tag: 'admin',
+    auth: true,
+    body: UpdateLlmProviderRequest,
+    responses: { 200: LlmProviderDto },
+  },
+  {
+    method: 'delete',
+    path: '/admin/llm/providers/{providerId}',
+    summary: 'Delete a provider that no tier uses',
+    tag: 'admin',
+    auth: true,
+    responses: { 204: null },
+  },
+  {
+    method: 'post',
+    path: '/admin/llm/providers/{providerId}/test',
+    summary: 'Send a tiny prompt to check the connection and model name',
+    tag: 'admin',
+    auth: true,
+    body: TestLlmProviderRequest,
+    responses: { 200: TestLlmProviderResponse },
+  },
+  {
+    method: 'get',
+    path: '/admin/llm/tiers',
+    summary: 'Model routing per commercial tier',
+    tag: 'admin',
+    auth: true,
+    responses: { 200: LlmTierRouteList },
+  },
+  {
+    method: 'put',
+    path: '/admin/llm/tiers/{tier}',
+    summary: 'Set the primary and fallback model of a tier (takes effect within seconds)',
+    tag: 'admin',
+    auth: true,
+    body: PutLlmTierRouteRequest,
+    responses: { 200: LlmTierRouteDto },
+  },
+]);

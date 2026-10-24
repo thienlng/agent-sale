@@ -1,33 +1,185 @@
-/* Razpi design tokens — white base, orange primary (owner decision 2026-10-23).
-   docs/16 §1, docs/03 §6. Imported once by each app's global CSS. */
-@theme {
-  --color-background: oklch(100% 0 0);
-  --color-foreground: oklch(20% 0.02 50);
-  --color-primary: oklch(68% 0.19 45);
-  --color-primary-foreground: oklch(99% 0 0);
-  --color-secondary: oklch(97% 0.02 70);
-  --color-secondary-foreground: oklch(30% 0.06 45);
-  --color-accent: oklch(95% 0.04 60);
-  --color-accent-foreground: oklch(35% 0.12 45);
-  --color-destructive: oklch(58% 0.22 27);
-  --color-muted: oklch(97% 0.01 70);
-  --color-muted-foreground: oklch(50% 0.02 50);
-  --color-border: oklch(91% 0.02 60);
-  --color-ring: oklch(68% 0.19 45);
-  --radius: 0.5rem;
-  --font-sans: 'Inter', system-ui, sans-serif;
+/* Razpi design tokens — white base, saturated Razpi orange (owner decision 2026-10-23).
+   Variable names follow shadcn/ui so its components pick the brand up unchanged; the extra
+   tokens (success, warning, bubbles, primary-soft) are Razpi's own. One type family,
+   Be Vietnam Pro (drawn for Vietnamese diacritics), self-hosted by each app.
+   docs/16 §1, docs/03 §6. Imported once by each app's global CSS, after tailwindcss. */
+
+:root {
+  --radius: 0.625rem;
+
+  --background: #ffffff;
+  --foreground: #231c18;
+  --card: #ffffff;
+  --card-foreground: #231c18;
+  --popover: #ffffff;
+  --popover-foreground: #231c18;
+
+  --primary: #f26b1d;
+  /* Ink, not white, on orange: white on #f26b1d is 3.05:1 (fails WCAG AA), ink is ~5.5:1. */
+  --primary-foreground: #1f1612;
+  --primary-strong: #d9560b;
+  --primary-soft: #fff2e9;
+
+  --secondary: #f7f4f2;
+  --secondary-foreground: #3a302a;
+  --muted: #f7f4f2;
+  --muted-foreground: #706761;
+  --accent: #fff2e9;
+  --accent-foreground: #9c3f06;
+
+  --destructive: #d23b2f;
+  --destructive-soft: #fdecea;
+  --success: #1e9e5a;
+  --success-soft: #e8f6ee;
+  --warning: #b7791f;
+  --warning-soft: #fdf4e3;
+
+  --border: #ece6e1;
+  --input: #e3dcd6;
+  --ring: #f26b1d;
+
+  --sidebar: #fbf9f8;
+  --sidebar-foreground: #3a302a;
+  --sidebar-primary: #f26b1d;
+  --sidebar-primary-foreground: #1f1612;
+  --sidebar-accent: #fff2e9;
+  --sidebar-accent-foreground: #9c3f06;
+  --sidebar-border: #ece6e1;
+  --sidebar-ring: #f26b1d;
+
+  --chart-1: #f26b1d;
+  --chart-2: #1e9e5a;
+  --chart-3: #3b82c4;
+  --chart-4: #b7791f;
+  --chart-5: #8a5cc2;
+
+  /* Chat bubbles: the customer side mirrors Messenger/Zalo greys, the bot side is Razpi. */
+  --bubble-customer: #f1edea;
+  --bubble-bot: #f26b1d;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    --color-background: oklch(16% 0.01 260);
-    --color-foreground: oklch(96% 0 0);
-    --color-secondary: oklch(24% 0.01 260);
-    --color-secondary-foreground: oklch(96% 0 0);
-    --color-accent: oklch(28% 0.02 262);
-    --color-accent-foreground: oklch(96% 0 0);
-    --color-muted: oklch(24% 0.01 260);
-    --color-muted-foreground: oklch(70% 0.02 260);
-    --color-border: oklch(30% 0.01 260);
+.dark {
+  --background: #17130f;
+  --foreground: #f4efeb;
+  --card: #1e1915;
+  --card-foreground: #f4efeb;
+  --popover: #1e1915;
+  --popover-foreground: #f4efeb;
+  --primary-soft: #3a2213;
+  --secondary: #26201b;
+  --secondary-foreground: #f4efeb;
+  --muted: #26201b;
+  --muted-foreground: #b2a69e;
+  --accent: #3a2213;
+  --accent-foreground: #ffc49e;
+  --destructive-soft: #3a1714;
+  --success-soft: #13301f;
+  --warning-soft: #33280f;
+  --border: #322a24;
+  --input: #3a3029;
+  --sidebar: #1b1612;
+  --sidebar-foreground: #e9e1db;
+  --sidebar-accent: #3a2213;
+  --sidebar-accent-foreground: #ffc49e;
+  --sidebar-border: #322a24;
+  --bubble-customer: #2a231e;
+}
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: 'Be Vietnam Pro', system-ui, sans-serif;
+  --font-heading: var(--font-sans);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-strong: var(--primary-strong);
+  --color-primary-soft: var(--primary-soft);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-soft: var(--destructive-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-bubble-customer: var(--bubble-customer);
+  --color-bubble-bot: var(--bubble-bot);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1.1rem;
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 0.875rem;
+  --text-base--line-height: 1.4rem;
+  --text-lg: 1rem;
+  --text-lg--line-height: 1.5rem;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.75rem;
+  --text-2xl: 1.75rem;
+  --text-2xl--line-height: 2.15rem;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans antialiased;
+  }
+  body {
+    @apply bg-background text-base text-foreground;
+  }
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+@keyframes bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }

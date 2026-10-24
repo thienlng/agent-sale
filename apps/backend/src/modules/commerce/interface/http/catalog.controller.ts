@@ -1,0 +1,127 @@
+import {
+  AdjustStockRequest,
+  type ProductDto,
+  ProductListQuery,
+  type ProductListResponse,
+  UpsertProductRequest,
+  UpsertWarehouseRequest,
+  type VariantOption,
+  VariantSearchQuery,
+  type WarehouseDto,
+} from '@agent-sales/contracts';
+import type { WorkspaceId } from '@agent-sales/shared';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Inject,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Query,
+} from '@nestjs/common';
+import type { z } from 'zod';
+
+import {
+  type AuthState,
+  CurrentUser,
+  CurrentWorkspace,
+  WorkspaceScoped,
+} from '../../../../common/http/auth-context.js';
+import { ZodValidationPipe } from '../../../../common/http/zod-validation.pipe.js';
+import { CatalogService } from '../../application/catalog.service.js';
+
+/** Thin controller: warehouses, products and the variant picker. */
+@WorkspaceScoped()
+@Controller()
+export class CatalogController {
+  constructor(@Inject(CatalogService) private readonly catalog: CatalogService) {}
+
+  @Get('warehouses')
+  async warehouses(@CurrentWorkspace() ws: WorkspaceId): Promise<{ data: WarehouseDto[] }> {
+    return { data: await this.catalog.listWarehouses(ws) };
+  }
+
+  @Post('warehouses')
+  @HttpCode(201)
+  createWarehouse(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Body(new ZodValidationPipe(UpsertWarehouseRequest)) body: UpsertWarehouseRequest,
+  ): Promise<WarehouseDto> {
+    return this.catalog.createWarehouse(ws, body);
+  }
+
+  @Patch('warehouses/:warehouseId')
+  updateWarehouse(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Param('warehouseId') id: string,
+    @Body(new ZodValidationPipe(UpsertWarehouseRequest)) body: UpsertWarehouseRequest,
+  ): Promise<WarehouseDto> {
+    return this.catalog.updateWarehouse(ws, id, body);
+  }
+
+  @Delete('warehouses/:warehouseId')
+  @HttpCode(204)
+  deleteWarehouse(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Param('warehouseId') id: string,
+  ): Promise<void> {
+    return this.catalog.deleteWarehouse(ws, id);
+  }
+
+  @Get('products')
+  products(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Query(new ZodValidationPipe(ProductListQuery)) query: z.infer<typeof ProductListQuery>,
+  ): Promise<ProductListResponse> {
+    return this.catalog.listProducts(ws, query);
+  }
+
+  @Post('products')
+  @HttpCode(201)
+  createProduct(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Body(new ZodValidationPipe(UpsertProductRequest)) body: UpsertProductRequest,
+  ): Promise<ProductDto> {
+    return this.catalog.createProduct(ws, body);
+  }
+
+  @Get('products/:productId')
+  product(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Param('productId') id: string,
+  ): Promise<ProductDto> {
+    return this.catalog.getProduct(ws, id);
+  }
+
+  @Put('products/:productId')
+  updateProduct(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Param('productId') id: string,
+    @Body(new ZodValidationPipe(UpsertProductRequest)) body: UpsertProductRequest,
+  ): Promise<ProductDto> {
+    return this.catalog.updateProduct(ws, id, body);
+  }
+
+  @Post('products/:productId/stock')
+  @HttpCode(200)
+  adjustStock(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @CurrentUser() user: AuthState,
+    @Param('productId') id: string,
+    @Body(new ZodValidationPipe(AdjustStockRequest)) body: AdjustStockRequest,
+  ): Promise<ProductDto> {
+    return this.catalog.adjustStock(ws, id, body, user.userId);
+  }
+
+  @Get('product-variants')
+  async variants(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Query(new ZodValidationPipe(VariantSearchQuery)) query: z.infer<typeof VariantSearchQuery>,
+  ): Promise<{ data: VariantOption[] }> {
+    return { data: await this.catalog.searchVariants(ws, query) };
+  }
+}

@@ -1,0 +1,87 @@
+/* Theme presets chosen in the layout controls (data-theme-preset on <html>). "razpi" is the
+   default palette in tokens.css; the others only swap the brand hue. Text on --primary is
+   checked for WCAG AA (≥ 4.5:1) in light and dark. */
+
+[data-theme-preset='ocean'] {
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --primary-strong: #1d4ed8;
+  --primary-soft: #eef4ff;
+  --accent: #eef4ff;
+  --accent-foreground: #1e40af;
+  --ring: #2563eb;
+  --sidebar-primary: #2563eb;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #eef4ff;
+  --sidebar-accent-foreground: #1e40af;
+  --sidebar-ring: #2563eb;
+  --bubble-bot: #2563eb;
+  --chart-1: #2563eb;
+}
+
+[data-theme-preset='forest'] {
+  --primary: #15803d;
+  --primary-foreground: #ffffff;
+  --primary-strong: #166534;
+  --primary-soft: #ecfdf3;
+  --accent: #ecfdf3;
+  --accent-foreground: #14532d;
+  --ring: #15803d;
+  --sidebar-primary: #15803d;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #ecfdf3;
+  --sidebar-accent-foreground: #14532d;
+  --sidebar-ring: #15803d;
+  --bubble-bot: #15803d;
+  --chart-1: #15803d;
+}
+
+[data-theme-preset='graphite'] {
+  --primary: #27272a;
+  --primary-foreground: #ffffff;
+  --primary-strong: #18181b;
+  --primary-soft: #f4f4f5;
+  --accent: #f4f4f5;
+  --accent-foreground: #18181b;
+  --ring: #52525b;
+  --sidebar-primary: #27272a;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f4f4f5;
+  --sidebar-accent-foreground: #18181b;
+  --sidebar-ring: #52525b;
+  --bubble-bot: #27272a;
+  --chart-1: #27272a;
+}
+
+.dark[data-theme-preset='ocean'] {
+  --primary-soft: #172554;
+  --accent: #172554;
+  --accent-foreground: #bfdbfe;
+  --sidebar-accent: #172554;
+  --sidebar-accent-foreground: #bfdbfe;
+}
+
+.dark[data-theme-preset='forest'] {
+  --primary-soft: #052e16;
+  --accent: #052e16;
+  --accent-foreground: #bbf7d0;
+  --sidebar-accent: #052e16;
+  --sidebar-accent-foreground: #bbf7d0;
+}
+
+/* Dark graphite inverts the brand: a light primary on the dark background. */
+.dark[data-theme-preset='graphite'] {
+  --primary: #e4e4e7;
+  --primary-foreground: #18181b;
+  --primary-strong: #ffffff;
+  --primary-soft: #27272a;
+  --accent: #27272a;
+  --accent-foreground: #f4f4f5;
+  --ring: #a1a1aa;
+  --sidebar-primary: #e4e4e7;
+  --sidebar-primary-foreground: #18181b;
+  --sidebar-accent: #27272a;
+  --sidebar-accent-foreground: #f4f4f5;
+  --bubble-bot: #3f3f46;
+  --chart-1: #e4e4e7;
+}

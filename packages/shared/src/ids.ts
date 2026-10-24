@@ -12,6 +12,11 @@ export type UserId = Brand<string, 'UserId'>;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+/** True for a canonical UUID string (versions 1–8). Use before passing path params to the DB. */
+export function isUuid(value: string): boolean {
+  return UUID_RE.test(value);
+}
+
 function assertUuid(value: string, label: string): void {
   if (!UUID_RE.test(value)) {
     throw new TypeError(`${label} must be a UUID, got "${value}"`);

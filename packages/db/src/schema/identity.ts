@@ -1,4 +1,4 @@
-import { index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { boolean, index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 /** GLOBAL table (no workspace_id, no RLS). Only app_system may access it (migration 0001). */
 export const users = pgTable('users', {
@@ -11,6 +11,7 @@ export const users = pgTable('users', {
   name: text('name').notNull(),
   timezone: text('timezone').notNull().default('Asia/Ho_Chi_Minh'),
   locale: text('locale').notNull().default('vi'),
+  isPlatformAdmin: boolean('is_platform_admin').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

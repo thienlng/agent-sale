@@ -11,6 +11,8 @@ export interface UserProps {
   emailVerifiedAt: Date | null;
   locale: string;
   timezone: string;
+  /** Operator of the platform itself (back-office, LLM config); never set through the API. */
+  isPlatformAdmin: boolean;
   createdAt: Date;
 }
 
@@ -63,6 +65,7 @@ export class User {
       emailVerifiedAt: null,
       locale: 'vi',
       timezone: 'Asia/Ho_Chi_Minh',
+      isPlatformAdmin: false,
       createdAt: new Date(),
     });
   }
@@ -73,6 +76,10 @@ export class User {
 
   get id(): UserId {
     return this.props.id;
+  }
+
+  get isPlatformAdmin(): boolean {
+    return this.props.isPlatformAdmin;
   }
 
   get passwordHash(): string {

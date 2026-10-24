@@ -22,6 +22,7 @@ import {
   PASSWORD_HASHER,
   type PasswordHasher,
 } from '../ports/security.js';
+import type { IdentityFacade } from '../../api/identity.facade.js';
 import { type ClientMeta, type IssuedSession, SessionService, toUserDto } from '../sessions.js';
 
 /**
@@ -104,7 +105,7 @@ export class RefreshHandler {
 }
 
 @Injectable()
-export class AccountQueries {
+export class AccountQueries implements IdentityFacade {
   constructor(
     @Inject(USER_REPOSITORY) private readonly users: UserRepository,
     @Inject(WORKSPACE_FACADE) private readonly workspaces: WorkspaceFacade,
@@ -114,6 +115,15 @@ export class AccountQueries {
     const user = await this.users.findById(userId);
     if (!user) throw new SessionInvalidError('user_gone');
     return toUserDto(user);
+  }
+
+  async displayName(userId: UserId): Promise<string | null> {
+    return (await this.users.findById(userId))?.snapshot().name ?? null;
+  }
+
+  /** Read on every admin request (not from the token) so revoking takes effect immediately. */
+  async isPlatformAdmin(userId: UserId): Promise<boolean> {
+    return (await this.users.findById(userId))?.isPlatformAdmin ?? false;
   }
 
   async bootstrap(userId: UserId): Promise<BootstrapResponse> {

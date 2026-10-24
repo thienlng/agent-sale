@@ -3,7 +3,7 @@ import type { UserId } from '@agent-sales/shared';
 import { EmailTakenError } from '../../domain/identity.errors.js';
 import type { SessionRecord, SessionRepository } from '../../domain/ports/session.repository.js';
 import type { UserRepository } from '../../domain/ports/user.repository.js';
-import type { User } from '../../domain/user.js';
+import { User } from '../../domain/user.js';
 
 /** DB-less adapters (unit tests, quick local runs). Same semantics as the Drizzle ones. */
 export class InMemoryUserRepository implements UserRepository {
@@ -21,6 +21,13 @@ export class InMemoryUserRepository implements UserRepository {
   async insert(user: User): Promise<void> {
     if (await this.findByEmail(user.snapshot().email)) throw new EmailTakenError();
     this.#byId.set(user.id, user);
+  }
+
+  async setPlatformAdmin(email: string, value: boolean): Promise<boolean> {
+    const user = await this.findByEmail(email);
+    if (!user) return false;
+    this.#byId.set(user.id, User.rehydrate({ ...user.snapshot(), isPlatformAdmin: value }));
+    return true;
   }
 }
 

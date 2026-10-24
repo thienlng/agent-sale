@@ -187,6 +187,11 @@ export default tseslint.config(
     },
   },
   {
+    // shadcn/ui components are vendored by its CLI (`shadcn add`); keep them as generated.
+    files: ['apps/*/src/components/ui/**'],
+    rules: { 'max-lines': 'off' },
+  },
+  {
     files: ['**/*.{js,mjs,cjs}', 'turbo/generators/**'],
     rules: { 'no-console': 'off' },
   },

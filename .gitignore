@@ -26,3 +26,8 @@ coverage/
 .claude/settings.local.json
 .codex/sessions/
 .opencode/
+
+# web test artefacts
+.lighthouseci/
+playwright-report/
+test-results/

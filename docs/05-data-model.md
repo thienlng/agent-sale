@@ -192,6 +192,10 @@ free_shipping     ⇒ shipping_fee_charged = 0 (shop absorbs shipping_fee)
 profit (statistics) = Σ(unit_price − cost) × qty − discount_amount − (shipping_fee − shipping_fee_charged)
 ```
 
+**Implemented (M2, migration 0004):** money columns are `bigint` VND; `orders.stock_state` (`reserved | shipped | released | returned`) records where the goods are, and every inventory change appends to `inventory_movements` (rules in `apps/backend/src/modules/commerce/MODULE.md`). Order codes come from `order_counters` (`DH000001`…). `orders.search_text` and `products.search_text` hold folded text (trigram-indexed) for accent-insensitive search. Names of who created/changed an order are snapshotted (`created_by_name`, `order_status_history.actor_name`). Not yet: `admin_units` (addresses are free text), carriers/shipments, `shipping_settings`, sources as entities (`orders.source` is an enum).
+
+**Overview definitions (ORD-11)**, per local day in the workspace time zone: sales = Σ total of orders not cancelled; closed orders = statuses confirmed → delivered (`CLOSED_ORDER_STATUSES`); revenue = Σ total of closed orders; profit = Σ profit of closed orders; returned = orders returning/returned.
+
 ## 7. Marketing & automation
 
 ```sql
@@ -246,6 +250,12 @@ notifications(id, workspace_id, user_id, type, title, body, link, read_at, creat
 audit_events(id, workspace_id, actor_type, actor_id, action, target_type, target_id, ip, ua, before, after, created_at)
 outbox_events(id, aggregate, aggregate_id, type, payload, created_at, published_at)   -- outbox pattern
 feature_flags(key, workspace_id NULL, value JSONB)
+
+-- Platform configuration (GLOBAL, app_system only, edited by platform admins — users.is_platform_admin)
+llm_providers(id, name UNIQUE, kind: anthropic|openai_compatible, base_url, api_key_cipher /* AES-256-GCM */,
+              api_key_hint, options JSONB /* structuredOutput, sendReasoningEffort, timeoutMs */, is_enabled)
+llm_tier_routes(tier PK: basic|smart|pro|neo, provider_id, model, effort, fallback_provider_id, fallback_model,
+                fallback_effort, updated_by, updated_at)
 ```
 
 ## 8b. Vertical objects and tenant extensibility

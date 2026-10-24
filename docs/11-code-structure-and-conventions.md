@@ -19,7 +19,7 @@ agent-sale-src/
 │   ├── queue/             # queue catalogue, TenantJob, jobId(), tenant fairness token buckets
 │   ├── ai-core/           # LLM gateway, providers (fake for tests), prompt registry (prompts/<name>@<v>.md)
 │   ├── channels/          # ChannelAdapter contract + registry; one adapter per platform
-│   ├── ui/                # design tokens + primitives (shadcn-style)
+│   ├── ui/                # design tokens; shadcn/ui components live in each app (src/components/ui)
 │   ├── i18n/              # message catalogs vi/en
 │   └── testing/           # factories, tenant helpers, cross-tenant assertions (test-only)
 ├── turbo/generators/      # `pnpm gen module|feature` templates

@@ -2,7 +2,17 @@ import tailwindcss from '@tailwindcss/vite';
 import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
+
+import { bootScript } from './src/lib/preferences/registry';
+
+/** Applies stored UI preferences in <head>, before the first paint (no theme/layout flash). */
+function preferencesBoot(): Plugin {
+  return {
+    name: 'razpi-preferences-boot',
+    transformIndexHtml: () => [{ tag: 'script', children: bootScript(), injectTo: 'head' }],
+  };
+}
 
 export default defineConfig({
   plugins: [
@@ -10,9 +20,13 @@ export default defineConfig({
     tanstackRouter({ target: 'react', autoCodeSplitting: true, routesDirectory: './src/routes' }),
     react(),
     tailwindcss(),
+    preferencesBoot(),
   ],
   resolve: { alias: { '@': path.resolve(import.meta.dirname, 'src') } },
   server: { port: 5173, proxy: { '/api': 'http://localhost:3000' } },
+  // Pre-bundle libraries that lazy routes pull in, so the dev server never re-optimizes
+  // mid-session (which briefly loads two copies of React and forces a reload).
+  optimizeDeps: { include: ['recharts', 'react-day-picker', 'cmdk', 'radix-ui'] },
   build: {
     sourcemap: true,
     // Budget: shell ≤ 250 KB gzip (docs/16 §1); Vite warns above this uncompressed size.

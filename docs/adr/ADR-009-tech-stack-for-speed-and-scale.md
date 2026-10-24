@@ -83,3 +83,10 @@ Still open (cheap, tracked as tasks): feature-flag evaluation semantics (kill sw
 - Sticky sessions required at the load balancer for Socket.IO.
 - Go/Bun stay out until a measured bottleneck justifies them; the modular monolith makes extracting `webhook`/`worker` possible later without a rewrite.
 - Horizontal scale and per-tenant/vertical extensibility follow `docs/17-multi-tenancy-and-verticals.md`: stateless services, tenant-keyed data/queues/caches/storage, a workspace→database router in `packages/db` from the first migration, and declarative vertical packs instead of per-industry code.
+
+## Implementation notes (M2, 2026-10-24)
+
+- shadcn/ui is installed with its CLI in `apps/web` (Radix base, `components.json`); components are owned code in `apps/web/src/components/ui`, themed only through `packages/ui/tokens.css`. The chat panel uses shadcn's `message-scroller` / `message` / `bubble` (the AI Elements chat building blocks), without the `ai` SDK.
+- The platform back-office pages (`/admin/llm`) live in `apps/web` behind `isPlatformAdmin` until `apps/admin` is created; the API already separates them (`/admin/*`, 404 for non-admins).
+- Forms are small controlled forms validated with the shared Zod contracts; `react-hook-form` is deferred until a form needs field arrays or complex validation.
+- Measured on `/login` (Lighthouse mobile, production build): performance 90, accessibility 100, best practices 100; initial JS+CSS 183 KB gzip.

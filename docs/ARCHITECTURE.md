@@ -19,7 +19,7 @@ packages/
   queue/          BullMQ wrappers: queue names, job contracts, tenant fairness (token buckets), idempotent job ids.
   ai-core/        LLM gateway (providers, fake provider for tests), prompt registry (`prompts/<name>@<version>.md`), tools/retrieval/guardrail interfaces, metering.
   channels/       ChannelAdapter interface + NormalizedEvent types; one adapter per platform.
-  ui/             Design tokens + primitives (shadcn-style) shared by web/admin/widget.
+  ui/             Design tokens (shadcn variable names, Razpi palette). shadcn/ui components live in each app's src/components/ui.
   i18n/           Message catalogs (vi, en).
   testing/        Factories, tenant helpers, cross-tenant assertions. Test-only.
 turbo/generators/ `pnpm gen module|use-case|feature` templates — the only sanctioned way to create a module.
@@ -97,6 +97,8 @@ testing/        render helpers, msw handlers, factories
 
 Rules: `shared → features → routes/app`; features never import each other (compose in routes); no `index.ts` barrels; one API client (`lib/api-client.ts`, raw `fetch` is lint-banned outside it); no business logic in components (hooks/stores); every user-facing string from `packages/i18n`.
 
+Layout rules (T-017): build UI from shadcn/ui components in `components/ui` (add new ones with `pnpm --filter @agent-sales/web exec shadcn add <name>`, never hand-roll an equivalent); the dashboard shell (`components/app-shell.tsx`, shadcn `Sidebar`) owns page padding and content width, so pages set neither (full-bleed pages put `data-content-padding="false"` on their root); colours only through tokens (`packages/ui/tokens.css`, `presets.css`), never hex values in components; any layout change must keep `e2e/responsive.spec.ts` green (no horizontal overflow at 375–1920 px in every layout preference).
+
 ## 5. Mechanical enforcement (all run in `pnpm check`)
 
 | Check | Tool | What it catches |
@@ -115,7 +117,7 @@ Adding a module: `pnpm gen module <name>` → fill `MODULE.md` → add its row t
 |---|---|---|
 | `entries/api.ts` | HTTP (Fastify) + all modules' `interface/http` | — |
 | `entries/worker.ts` | modules' `application/jobs` for `WORKER_QUEUES` | outbound, campaign, workflow, indexer, scheduler |
-| `entries/agent.ts` | `ai` + its dependencies; the only process that calls LLMs | conversation (+ priority) |
+| `entries/agent.ts` | `ai` + its dependencies; the only process that calls LLMs for conversations (exception: the request/response dashboard playground and the admin connection test run in `api`) | conversation (+ priority) |
 | `entries/realtime.ts` | SSE + websocket-only Socket.IO, Redis pub/sub | — |
 
 `apps/webhook` is separate on purpose (no Nest, no business logic, p99 ≤ 500 ms).
