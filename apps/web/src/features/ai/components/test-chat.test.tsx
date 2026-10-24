@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -12,6 +12,7 @@ const reply = {
   reply: 'Dạ shop ở 12 Lê Lợi ạ',
   outcome: 'answered',
   guardrail: null,
+  images: [],
   sources: [
     {
       faqId: '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d13',
@@ -34,6 +35,8 @@ beforeAll(() => {
     disconnect() {}
   } as unknown as typeof ResizeObserver;
   Element.prototype.scrollTo ??= () => {};
+  URL.createObjectURL ??= () => `blob:test/${Math.random()}`;
+  URL.revokeObjectURL ??= () => {};
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -94,5 +97,123 @@ describe('TestChat', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Làm mới đoạn chat' }));
     expect(screen.queryByText('Dạ shop ở 12 Lê Lợi ạ')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Giờ mở cửa?' })).toBeInTheDocument();
+  });
+
+  describe('images', () => {
+    const png = (name = 'a.png', type = 'image/png', size = 4) =>
+      new File([new Uint8Array(size)], name, { type });
+    const setup = (body: unknown = reply) => {
+      const { fetchStub, calls } = stubFetch({
+        [`POST /bots/${botId}/playground`]: { status: 200, body },
+      });
+      vi.stubGlobal('fetch', fetchStub);
+      renderWithProviders(<TestChat botId={botId} greeting="" />);
+      return { calls, input: screen.getByTestId('test-chat-file') };
+    };
+
+    it('sends an attached image as base64 with its thumbnail kept in the bubble', async () => {
+      const { calls, input } = setup();
+      await userEvent.upload(input, png());
+      expect(screen.getByAltText('Ảnh đính kèm')).toBeInTheDocument();
+      await userEvent.type(
+        screen.getByLabelText('Nhập tin nhắn của bạn'),
+        'giay nay gia sao{Enter}',
+      );
+      expect(await screen.findByText('Dạ shop ở 12 Lê Lợi ạ')).toBeInTheDocument();
+      expect(calls[0]?.body).toEqual({
+        messages: [{ role: 'customer', content: 'giay nay gia sao' }],
+        images: [{ mimeType: 'image/png', base64: 'AAAAAA==' }],
+      });
+      expect(screen.getAllByAltText('Ảnh đính kèm')).toHaveLength(1);
+    });
+
+    it('sends an image-only message and does not resend it on the next turn', async () => {
+      const { calls, input } = setup();
+      await userEvent.upload(input, png());
+      await userEvent.click(screen.getByRole('button', { name: 'Gửi' }));
+      await screen.findByText('Dạ shop ở 12 Lê Lợi ạ');
+      await userEvent.type(screen.getByLabelText('Nhập tin nhắn của bạn'), 'cam on{Enter}');
+      await waitFor(() => expect(calls).toHaveLength(2));
+      expect(calls[0]?.body).toHaveProperty('images');
+      expect(calls[1]?.body).not.toHaveProperty('images');
+    });
+
+    it('sends no images field for a text-only message', async () => {
+      const { calls } = setup();
+      await userEvent.type(screen.getByLabelText('Nhập tin nhắn của bạn'), 'xin chao{Enter}');
+      await screen.findByText('Dạ shop ở 12 Lê Lợi ạ');
+      expect(calls[0]?.body).not.toHaveProperty('images');
+    });
+
+    it('lets the owner remove a pending image', async () => {
+      const { input } = setup();
+      await userEvent.upload(input, png());
+      await userEvent.click(screen.getByRole('button', { name: 'Bỏ ảnh này' }));
+      expect(screen.queryByAltText('Ảnh đính kèm')).not.toBeInTheDocument();
+    });
+
+    it('rejects more than 3 images, oversized files and other types', async () => {
+      const { input } = setup();
+      await userEvent.upload(input, [png('1.png'), png('2.png'), png('3.png')]);
+      await userEvent.upload(input, png('4.png'));
+      expect(screen.getByRole('alert')).toHaveTextContent('tối đa 3 ảnh');
+      expect(screen.getAllByAltText('Ảnh đính kèm')).toHaveLength(3);
+
+      await userEvent.click(screen.getAllByRole('button', { name: 'Bỏ ảnh này' })[0]!);
+      fireEvent.change(input, {
+        target: { files: [png('big.png', 'image/png', 3 * 1024 * 1024 + 1)] },
+      });
+      expect(screen.getByRole('alert')).toHaveTextContent('tối đa 3 MB');
+      fireEvent.change(input, { target: { files: [png('x.gif', 'image/gif')] } });
+      expect(screen.getByRole('alert')).toHaveTextContent('JPEG, PNG hoặc WebP');
+      expect(screen.getAllByAltText('Ảnh đính kèm')).toHaveLength(2);
+    });
+
+    it('renders the pictures the bot sends and falls back to the label when broken', async () => {
+      setup({
+        ...reply,
+        images: [{ url: 'https://cdn.shop.vn/giay.jpg', label: 'Giày Oxford' }],
+      });
+      await userEvent.type(screen.getByLabelText('Nhập tin nhắn của bạn'), 'cho xem anh{Enter}');
+      const img = await screen.findByAltText('Giày Oxford');
+      const link = img.closest('a');
+      expect(link).toHaveAttribute('href', 'https://cdn.shop.vn/giay.jpg');
+      expect(link).toHaveAttribute('target', '_blank');
+      expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+      expect(img).toHaveAttribute('loading', 'lazy');
+      expect(img).toHaveAttribute('referrerpolicy', 'no-referrer');
+      fireEvent.error(img);
+      expect(screen.getByRole('link', { name: 'Giày Oxford' })).toBeInTheDocument();
+    });
+
+    it('clears images and revokes object URLs on reset', async () => {
+      const revoke = vi.spyOn(URL, 'revokeObjectURL');
+      const { input } = setup();
+      await userEvent.upload(input, png());
+      await userEvent.click(screen.getByRole('button', { name: 'Gửi' }));
+      await screen.findByText('Dạ shop ở 12 Lê Lợi ạ');
+      await userEvent.click(screen.getByRole('button', { name: 'Làm mới đoạn chat' }));
+      expect(screen.queryByAltText('Ảnh đính kèm')).not.toBeInTheDocument();
+      expect(revoke).toHaveBeenCalled();
+      expect(
+        screen.getByText('Bạn có thể gửi ảnh để thử bot nhận diện sản phẩm'),
+      ).toBeInTheDocument();
+    });
+
+    it('explains an image error from a provider without vision', async () => {
+      const { fetchStub } = stubFetch({
+        [`POST /bots/${botId}/playground`]: {
+          status: 500,
+          body: {
+            error: { code: 'INTERNAL', message: 'anthropic provider: images are not supported' },
+          },
+        },
+      });
+      vi.stubGlobal('fetch', fetchStub);
+      renderWithProviders(<TestChat botId={botId} greeting="" />);
+      await userEvent.upload(screen.getByTestId('test-chat-file'), png());
+      await userEvent.click(screen.getByRole('button', { name: 'Gửi' }));
+      expect(await screen.findByText(/chưa đọc được ảnh/)).toBeInTheDocument();
+    });
   });
 });

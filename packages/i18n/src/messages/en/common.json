@@ -190,6 +190,18 @@
     "hide": "Hide test chat",
     "show": "Test chat",
     "error": "The bot couldn't reply: {{message}}",
+    "attachImage": "Attach image",
+    "removeImage": "Remove this image",
+    "imageAttached": "Attached image",
+    "imageHint": "You can send a picture to test how the bot recognises products",
+    "imageError": {
+      "tooMany": "You can send at most {{max}} images per message.",
+      "tooBig": "Each image must be 3 MB or smaller.",
+      "badType": "Only JPEG, PNG or WebP images are accepted."
+    },
+    "imagesUnsupported": "The current AI model can't read images. Try a text message, or ask the platform admin to enable image recognition.",
+    "imageOnly": "(Image)",
+    "imageRead": "Couldn't read the image, please try again.",
     "unavailable": "No AI model is configured for this plan. Contact the platform admin."
   },
   "admin": {

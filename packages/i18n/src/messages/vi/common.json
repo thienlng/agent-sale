@@ -190,6 +190,18 @@
     "hide": "Ẩn chat thử",
     "show": "Chat thử",
     "error": "Bot chưa trả lời được: {{message}}",
+    "attachImage": "Đính kèm ảnh",
+    "removeImage": "Bỏ ảnh này",
+    "imageAttached": "Ảnh đính kèm",
+    "imageHint": "Bạn có thể gửi ảnh để thử bot nhận diện sản phẩm",
+    "imageError": {
+      "tooMany": "Chỉ gửi được tối đa {{max}} ảnh mỗi tin nhắn.",
+      "tooBig": "Mỗi ảnh tối đa 3 MB.",
+      "badType": "Chỉ nhận ảnh JPEG, PNG hoặc WebP."
+    },
+    "imagesUnsupported": "Mô hình AI hiện tại chưa đọc được ảnh. Hãy thử gửi tin nhắn chữ, hoặc liên hệ quản trị hệ thống để bật nhận diện ảnh.",
+    "imageOnly": "(Ảnh)",
+    "imageRead": "Không đọc được ảnh, vui lòng thử lại.",
     "unavailable": "Chưa cấu hình mô hình AI cho gói này. Liên hệ quản trị hệ thống."
   },
   "admin": {
