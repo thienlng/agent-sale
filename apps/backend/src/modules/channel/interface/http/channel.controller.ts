@@ -119,7 +119,7 @@ export class ChannelController {
     const nonce = randomBytes(16).toString('base64');
     const origin = getEnv().META_APP_ORIGIN ?? '';
     const payload = JSON.stringify({
-      type: 'razpi:oauth:complete',
+      type: 'rapiz:oauth:complete',
       state,
       ...(discoveryId ? { discoveryId } : { error }),
     }).replace(/</g, '\\u003c');
@@ -133,7 +133,7 @@ export class ChannelController {
       )
       .type('text/html')
       .send(
-        `<!doctype html><html><meta charset="utf-8"><title>Rapiz</title><body><script nonce="${nonce}">const message=${payload};try{if(window.opener)window.opener.postMessage(message,${target})}catch(e){}const channel=new BroadcastChannel('razpi-meta-oauth');channel.postMessage(message);setTimeout(()=>{channel.close();window.close()},300);</script></body></html>`,
+        `<!doctype html><html><meta charset="utf-8"><title>Rapiz</title><body><script nonce="${nonce}">const message=${payload};try{if(window.opener)window.opener.postMessage(message,${target})}catch(e){}const channel=new BroadcastChannel('rapiz-meta-oauth');channel.postMessage(message);setTimeout(()=>{channel.close();window.close()},300);</script></body></html>`,
       );
   }
 }

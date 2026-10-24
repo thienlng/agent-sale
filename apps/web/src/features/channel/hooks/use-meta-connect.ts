@@ -41,11 +41,11 @@ export function useMetaConnect(onComplete: (id: string) => void) {
     let expected = '';
     let disposed = false;
     const channel =
-      typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel('razpi-meta-oauth');
+      typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel('rapiz-meta-oauth');
     const finish = (value: unknown) => {
       if (!value || typeof value !== 'object') return;
       const m = value as Record<string, unknown>;
-      if (m['type'] !== 'razpi:oauth:complete' || !expected || m['state'] !== expected) return;
+      if (m['type'] !== 'rapiz:oauth:complete' || !expected || m['state'] !== expected) return;
       if (typeof m['discoveryId'] === 'string' && /^[a-f0-9-]{36}$/.test(m['discoveryId'])) {
         const id = m['discoveryId'];
         cleanup.current?.();

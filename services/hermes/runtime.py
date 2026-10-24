@@ -39,7 +39,7 @@ class HermesRuntime:
         config = self.home / "config.yaml"
         if config.is_symlink():
             raise ValueError("private config cannot be a symlink")
-        config.write_text("""# Generated private Razpi runtime settings.
+        config.write_text("""# Generated private Rapiz runtime settings.
 agent:
   task_completion_guidance: false
   environment_probe: false
@@ -57,7 +57,7 @@ tools:
 
     def _credentials(self):
         if self.provider == "openrouter":
-            key = os.environ.get("RAZPI_OPENROUTER_API_KEY")
+            key = os.environ.get("RAPIZ_OPENROUTER_API_KEY")
             if not key:
                 raise RuntimeUnavailable("MODEL_AUTH_REQUIRED")
             return {"provider": "openrouter", "base_url": "https://openrouter.ai/api/v1", "api_key": key}
@@ -119,7 +119,7 @@ tools:
         agent = agent_class(
             **credentials, model=request["model"], max_iterations=3,
             max_tokens=request.get("maxOutputTokens", 2000),
-            enabled_toolsets=[], quiet_mode=True, platform="razpi",
+            enabled_toolsets=[], quiet_mode=True, platform="rapiz",
             skip_memory=True, skip_context_files=True, load_soul_identity=False,
             skip_background_review=True, save_trajectories=False, fallback_model=None,
             reasoning_config={"effort": request["effort"]} if request.get("effort") else None,
@@ -132,7 +132,7 @@ tools:
             agent._build_system_prompt = lambda system_message=None: system
             agent._cached_system_prompt_static = system
             result = agent.run_conversation(messages[-1]["content"], conversation_history=history,
-                                            task_id="razpi-" + request["requestId"])
+                                            task_id="rapiz-" + request["requestId"])
             if (not isinstance(result, dict) or result.get("failed") or not result.get("completed", True)
                     or not isinstance(result.get("final_response"), str) or not result["final_response"].strip()):
                 raise RuntimeUnavailable("MODEL_REPLY_FAILED")

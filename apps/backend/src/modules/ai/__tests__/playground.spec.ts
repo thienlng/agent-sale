@@ -19,7 +19,7 @@ const botId = newId();
 
 const bot: BotView = {
   id: botId,
-  name: 'Razpi Bot',
+  name: 'Rapiz Bot',
   industry: 'retail',
   isActive: true,
   mission: 'Bán áo thun',

@@ -109,10 +109,10 @@ def make_server(host, port, key, runtime):
 def main():
     logging.disable(logging.INFO)
     key = os.environ.get("HERMES_BRIDGE_KEY", "")
-    home = Path(os.environ.get("RAZPI_HERMES_HOME", "var/hermes-home"))
-    runtime = HermesRuntime(home, os.environ.get("RAZPI_HERMES_PROVIDER", "openai-codex"))
+    home = Path(os.environ.get("RAPIZ_HERMES_HOME", "var/hermes-home"))
+    runtime = HermesRuntime(home, os.environ.get("RAPIZ_HERMES_PROVIDER", "openai-codex"))
     server = make_server("127.0.0.1", int(os.environ.get("HERMES_BRIDGE_PORT", "8788")), key, runtime)
-    print("Razpi Hermes bridge listening on loopback", flush=True)
+    print("Rapiz Hermes bridge listening on loopback", flush=True)
     server.serve_forever()
 
 

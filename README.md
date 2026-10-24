@@ -1,4 +1,4 @@
-# Razpi (agent-sales)
+# Rapiz (agent-sales)
 
 Source code of an **AI Sales Agent platform for Vietnamese SMEs**: a multichannel AI sales bot (Facebook, Instagram, Zalo, TikTok, website) with a team inbox, mini CRM, orders & shipping, remarketing, workflows, credit-based billing and affiliates. Functional reference: Preny; the design and improvements are documented in [`docs/`](docs/README.md).
 

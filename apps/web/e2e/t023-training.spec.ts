@@ -7,7 +7,7 @@ import { BOT_ID, mockApi } from './support/mock-api';
 /** Stateful fake transport verifies the actual forms and query invalidation without provider calls. */
 async function trainingApi(page: Page) {
   await mockApi(page);
-  await page.addInitScript(() => localStorage.setItem('razpi.locale', 'en'));
+  await page.addInitScript(() => localStorage.setItem('rapiz.locale', 'en'));
   const items: TrainingItemDto[] = [];
   const history: TrainingHistoryDto[] = [];
   await page.route('**/api/v1/bots/*/training-**', async (route) => {

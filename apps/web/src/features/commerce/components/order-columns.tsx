@@ -192,7 +192,7 @@ export const ORDER_COLUMNS: readonly OrderColumn[] = [
 
 // ─── Column choice, remembered per browser ────────────────────────────────────
 
-const KEY = 'razpi.orders.columns';
+const KEY = 'rapiz.orders.columns';
 const listeners = new Set<() => void>();
 
 function read(): ReadonlySet<string> {

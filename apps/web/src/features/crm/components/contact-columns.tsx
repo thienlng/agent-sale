@@ -126,7 +126,7 @@ export const CONTACT_COLUMNS: readonly ContactColumn[] = [
   },
 ];
 
-const KEY = 'razpi.crm.columns';
+const KEY = 'rapiz.crm.columns';
 const DEFAULT_IDS = CONTACT_COLUMNS.filter((c) => c.defaultVisible).map((c) => c.id);
 const listeners = new Set<() => void>();
 let cached: { raw: string | null; ids: string[] } | null = null;

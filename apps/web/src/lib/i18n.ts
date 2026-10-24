@@ -4,7 +4,7 @@ import { initReactI18next } from 'react-i18next';
 
 import { storage } from './storage';
 
-const LOCALE_KEY = 'razpi.locale';
+const LOCALE_KEY = 'rapiz.locale';
 
 function initialLocale(): Locale {
   const saved = storage.get(LOCALE_KEY);

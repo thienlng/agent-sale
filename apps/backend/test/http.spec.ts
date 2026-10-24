@@ -70,7 +70,7 @@ async function signup(a: NestFastifyApplication, email = signupBody.email) {
   });
   expect(res.statusCode).toBe(201);
   const body = AuthResponse.parse(res.json());
-  const cookie = res.cookies.find((c) => c.name === 'razpi_rt');
+  const cookie = res.cookies.find((c) => c.name === 'rapiz_rt');
   return { token: body.accessToken, cookie, body };
 }
 
@@ -192,17 +192,17 @@ describe('HTTP: auth and tenancy', () => {
       url: '/api/v1/auth/refresh',
       payload: {},
       headers: { origin: 'http://localhost:5173' },
-      cookies: { razpi_rt: cookie?.value ?? '' },
+      cookies: { rapiz_rt: cookie?.value ?? '' },
     });
     expect(ok.statusCode).toBe(200);
-    expect(ok.cookies.find((c) => c.name === 'razpi_rt')?.value).not.toBe(cookie?.value);
+    expect(ok.cookies.find((c) => c.name === 'rapiz_rt')?.value).not.toBe(cookie?.value);
 
     const evil = await inject(a, {
       method: 'POST',
       url: '/api/v1/auth/refresh',
       payload: {},
       headers: { origin: 'https://evil.example' },
-      cookies: { razpi_rt: cookie?.value ?? '' },
+      cookies: { rapiz_rt: cookie?.value ?? '' },
     });
     expect(evil.statusCode).toBe(403);
   });
@@ -237,7 +237,7 @@ describe('HTTP: auth and tenancy', () => {
       method: 'POST',
       url: '/api/v1/auth/refresh',
       payload: {},
-      cookies: { razpi_rt: cookie?.value ?? '' },
+      cookies: { rapiz_rt: cookie?.value ?? '' },
     });
     expect(again.statusCode).toBe(401);
   });
@@ -268,7 +268,7 @@ describe('HTTP: bots and FAQs', () => {
       method: 'POST',
       url: '/api/v1/bots',
       headers: h,
-      payload: { name: 'Razpi Bot', industry: 'retail' },
+      payload: { name: 'Rapiz Bot', industry: 'retail' },
     });
     expect(created.statusCode).toBe(201);
     const bot = BotDto.parse(created.json());
@@ -391,7 +391,7 @@ describe('HTTP: AI playground', () => {
           method: 'POST',
           url: '/api/v1/bots',
           headers: h,
-          payload: { name: 'Razpi Bot', industry: 'other' },
+          payload: { name: 'Rapiz Bot', industry: 'other' },
         })
       ).json(),
     );
@@ -463,7 +463,7 @@ describe('HTTP: AI playground', () => {
 
 describe('HTTP: platform admin — LLM configuration', () => {
   async function admin(a: NestFastifyApplication) {
-    const email = `admin-${Math.random()}@razpi.vn`;
+    const email = `admin-${Math.random()}@rapiz.vn`;
     const { token } = await signup(a, email);
     await a.get<UserRepository>(USER_REPOSITORY).setPlatformAdmin(email, true);
     return { authorization: `Bearer ${token}` };

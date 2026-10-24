@@ -306,7 +306,7 @@
     "toggleTheme": "Chuyển sáng / tối",
     "theme_preset": {
       "label": "Bảng màu",
-      "razpi": "Rapiz",
+      "rapiz": "Rapiz",
       "ocean": "Biển",
       "forest": "Rừng",
       "graphite": "Than chì"

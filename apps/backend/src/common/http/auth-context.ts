@@ -21,9 +21,9 @@ declare module 'fastify' {
   }
 }
 
-export const IS_PUBLIC = 'razpi:isPublic';
-export const IS_WORKSPACE_SCOPED = 'razpi:isWorkspaceScoped';
-export const IS_PLATFORM_ADMIN = 'razpi:isPlatformAdmin';
+export const IS_PUBLIC = 'rapiz:isPublic';
+export const IS_WORKSPACE_SCOPED = 'rapiz:isWorkspaceScoped';
+export const IS_PLATFORM_ADMIN = 'rapiz:isPlatformAdmin';
 
 /** Route needs no authentication (health, signup, login, refresh). */
 export const Public = () => SetMetadata(IS_PUBLIC, true);

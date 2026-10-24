@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { allRoutes, buildOpenApiDocument } from '../index.js';
 
 describe('buildOpenApiDocument', () => {
-  const doc = buildOpenApiDocument(allRoutes, { title: 'Razpi API', version: 'test' }) as {
+  const doc = buildOpenApiDocument(allRoutes, { title: 'Rapiz API', version: 'test' }) as {
     openapi: string;
     paths: Record<string, Record<string, Record<string, unknown>>>;
   };

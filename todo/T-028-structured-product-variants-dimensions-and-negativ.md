@@ -30,7 +30,7 @@ Structured variants and an explicit inventory policy without breaking order snap
 
 ## Out of scope
 
-- Product knowledge visibility for the bot (intentional Razpi difference, not a bug).
+- Product knowledge visibility for the bot (intentional Rapiz difference, not a bug).
 
 ## Acceptance criteria
 

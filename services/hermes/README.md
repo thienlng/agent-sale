@@ -10,8 +10,8 @@ Use Python 3.11–3.13 with Hermes installed. The existing development checkout 
 cd services/hermes
 # Set HERMES_BRIDGE_KEY to an independently generated secret of 32+ characters.
 # Keep it in a private environment file or secret manager, never in source control.
-# RAZPI_HERMES_HOME defaults to ./var/hermes-home, a private directory with mode 700.
-# RAZPI_HERMES_PROVIDER defaults to openai-codex; openrouter requires explicit selection.
+# RAPIZ_HERMES_HOME defaults to ./var/hermes-home, a private directory with mode 700.
+# RAPIZ_HERMES_PROVIDER defaults to openai-codex; openrouter requires explicit selection.
 python bridge.py
 ```
 
@@ -19,11 +19,11 @@ The server binds only to `127.0.0.1:8788`. `HERMES_BRIDGE_PORT` changes the port
 
 ## Separate ChatGPT login
 
-Set the exact same private `HERMES_HOME` used by `RAZPI_HERMES_HOME` when running the installed `hermes model` command; choose OpenAI Codex/ChatGPT and complete a separate login. The runtime requires a private singleton `auth.json`, mode 600, in that home. Only that private file is refreshed atomically; the higher-level Hermes resolver is intentionally bypassed because it may recover an operator CLI session. It refuses missing/unsafe credentials before invoking the Hermes pure OAuth refresh helper. Do not copy the active Booking or Codex CLI session: rotating the same refresh token from multiple processes can invalidate it. Signing in does not add quota.
+Set the exact same private `HERMES_HOME` used by `RAPIZ_HERMES_HOME` when running the installed `hermes model` command; choose OpenAI Codex/ChatGPT and complete a separate login. The runtime requires a private singleton `auth.json`, mode 600, in that home. Only that private file is refreshed atomically; the higher-level Hermes resolver is intentionally bypassed because it may recover an operator CLI session. It refuses missing/unsafe credentials before invoking the Hermes pure OAuth refresh helper. Do not copy the active Booking or Codex CLI session: rotating the same refresh token from multiple processes can invalidate it. Signing in does not add quota.
 
 The inherited Codex transport is isolated for compatibility with the existing runtime. Successful local authentication is not production acceptance or proof of commercial eligibility. The official [ChatGPT plan usage documentation](https://developers.openai.com/siwc/token-sharing-open-source) distinguishes local/open-source integrations from paid/hosted applications, which require the appropriate registration/access. Checked 2026-10-24. No automatic login, consent or paid provider fallback occurs in customer turns.
 
-For an explicitly chosen OpenRouter deployment, set `RAZPI_HERMES_PROVIDER=openrouter` and `RAZPI_OPENROUTER_API_KEY` privately. This does not enable a fallback from subscription authentication.
+For an explicitly chosen OpenRouter deployment, set `RAPIZ_HERMES_PROVIDER=openrouter` and `RAPIZ_OPENROUTER_API_KEY` privately. This does not enable a fallback from subscription authentication.
 
 ## Contract and controls
 

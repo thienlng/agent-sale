@@ -16,14 +16,14 @@ export const PG_IMAGE = 'pgvector/pgvector:pg16';
 
 export async function startTestPostgres(): Promise<TestPostgres> {
   const container: StartedPostgreSqlContainer = await new PostgreSqlContainer(PG_IMAGE)
-    .withDatabase('razpi_test')
+    .withDatabase('rapiz_test')
     .withUsername('owner')
     .withPassword('owner')
     .start();
   return {
     ownerUrl: container.getConnectionUri(),
-    tenantLogin: { user: 'razpi_tenant', password: 'tenant_test' },
-    systemLogin: { user: 'razpi_system', password: 'system_test' },
+    tenantLogin: { user: 'rapiz_tenant', password: 'tenant_test' },
+    systemLogin: { user: 'rapiz_system', password: 'system_test' },
     stop: async () => {
       await container.stop();
     },

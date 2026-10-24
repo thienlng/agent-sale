@@ -27,7 +27,7 @@ async function loggedOut(page: Page) {
 
 /** Logged-in owner with one workspace and no bots yet (session hint + refresh cookie). */
 async function loggedIn(page: Page) {
-  await page.addInitScript(() => localStorage.setItem('razpi.session', '1'));
+  await page.addInitScript(() => localStorage.setItem('rapiz.session', '1'));
   await page.route('**/api/v1/auth/refresh', (r) =>
     r.fulfill(json({ accessToken: 'token', expiresIn: 900, user })),
   );
@@ -44,7 +44,7 @@ test('login renders in Vietnamese and in English', async ({ page }) => {
   await page.goto('/login');
   await expect(page.getByRole('heading', { name: 'Đăng nhập vào Rapiz' })).toBeVisible();
 
-  await page.evaluate(() => localStorage.setItem('razpi.locale', 'en'));
+  await page.evaluate(() => localStorage.setItem('rapiz.locale', 'en'));
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Log in to Rapiz' })).toBeVisible();
 });

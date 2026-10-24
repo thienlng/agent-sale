@@ -306,7 +306,7 @@
     "toggleTheme": "Switch light / dark",
     "theme_preset": {
       "label": "Colour",
-      "razpi": "Rapiz",
+      "rapiz": "Rapiz",
       "ocean": "Ocean",
       "forest": "Forest",
       "graphite": "Graphite"

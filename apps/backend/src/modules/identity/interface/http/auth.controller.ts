@@ -21,7 +21,7 @@ import {
 import { type ClientMeta, type IssuedSession, SessionService } from '../../application/sessions.js';
 import { AUTH_HTTP_OPTIONS, type AuthHttpOptions } from './auth-http.options.js';
 
-export const REFRESH_COOKIE = 'razpi_rt';
+export const REFRESH_COOKIE = 'rapiz_rt';
 const COOKIE_PATH = '/api/v1/auth';
 
 /**

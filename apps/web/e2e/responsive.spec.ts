@@ -86,7 +86,7 @@ test('every layout preference combination fits, expanded and collapsed', async (
   await mockApi(page);
   for (const prefs of COMBOS) {
     await page.addInitScript((p) => {
-      for (const [k, v] of Object.entries(p)) localStorage.setItem(`razpi.pref.${k}`, v);
+      for (const [k, v] of Object.entries(p)) localStorage.setItem(`rapiz.pref.${k}`, v);
     }, prefs);
     await page.goto(`/app/bots/${BOT_ID}/knowledge`);
     await expect(page.locator('html')).toHaveAttribute(

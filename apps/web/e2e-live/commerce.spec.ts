@@ -13,7 +13,7 @@ import {
  */
 
 const password = 'live e2e password 2026';
-const email = `live-${Date.now()}-${Math.round(Math.random() * 1e6)}@e2e.razpi.test`;
+const email = `live-${Date.now()}-${Math.round(Math.random() * 1e6)}@e2e.rapiz.test`;
 const PRODUCT = `Áo thun E2E ${Date.now()}`;
 
 let api: APIRequestContext;

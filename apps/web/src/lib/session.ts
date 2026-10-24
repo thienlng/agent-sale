@@ -28,9 +28,9 @@ export interface Session {
   workspaceId: string | null;
 }
 
-const WORKSPACE_KEY = 'razpi.workspace';
+const WORKSPACE_KEY = 'rapiz.workspace';
 /** Set while this browser holds a session, so a first visit to /login makes no refresh call. */
-const SESSION_HINT_KEY = 'razpi.session';
+const SESSION_HINT_KEY = 'rapiz.session';
 
 let session: Session | null = null;
 let restoring: Promise<Session | null> | null = null;

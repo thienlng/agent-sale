@@ -27,13 +27,13 @@ describe('Bot aggregate', () => {
 
   it('merges placeholder values key by key; an empty value removes the key', () => {
     const bot = Bot.create({ workspaceId: ws, name: 'b', industry: 'retail' });
-    bot.updateSettings({ placeholders: { 'store.name': 'Razpi Shop', 'store.hours': '8h-21h' } });
+    bot.updateSettings({ placeholders: { 'store.name': 'Rapiz Shop', 'store.hours': '8h-21h' } });
     bot.updateSettings({
       placeholders: { 'store.hours': '' },
       greeting: 'Xin chào {{store.name}}',
     });
     const s = bot.snapshot().settings;
-    expect(s.placeholders).toEqual({ 'store.name': 'Razpi Shop' });
+    expect(s.placeholders).toEqual({ 'store.name': 'Rapiz Shop' });
     expect(s.greeting).toBe('Xin chào {{store.name}}');
   });
 

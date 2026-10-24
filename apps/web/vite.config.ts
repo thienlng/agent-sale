@@ -9,7 +9,7 @@ import { bootScript } from './src/lib/preferences/registry';
 /** Applies stored UI preferences in <head>, before the first paint (no theme/layout flash). */
 function preferencesBoot(): Plugin {
   return {
-    name: 'razpi-preferences-boot',
+    name: 'rapiz-preferences-boot',
     transformIndexHtml: () => [{ tag: 'script', children: bootScript(), injectTo: 'head' }],
   };
 }

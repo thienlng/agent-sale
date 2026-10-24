@@ -139,11 +139,11 @@ describe('ai on Postgres', () => {
   });
 
   it('stores providers with an encrypted key and routes tiers, as the system role only', async () => {
-    const { token } = await signup('root@razpi.vn');
+    const { token } = await signup('root@rapiz.vn');
     const system = createDb({ url: systemUrl, max: 1 });
     try {
       expect(
-        await new DrizzleUserRepository(system.db).setPlatformAdmin('root@razpi.vn', true),
+        await new DrizzleUserRepository(system.db).setPlatformAdmin('root@rapiz.vn', true),
       ).toBe(true);
       const h = { authorization: `Bearer ${token}` };
       const created = await inject({
