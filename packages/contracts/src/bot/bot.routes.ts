@@ -69,11 +69,20 @@ export const botRoutes = defineRoutes([
   {
     method: 'get',
     path: '/bots/{botId}/training-history',
-    summary: 'Latest 100 training material changes',
+    summary: 'Latest 200 training changes (materials, FAQs, settings) with actor and fields',
     tag: 'knowledge',
     auth: true,
     workspaceScoped: true,
     responses: { 200: TrainingHistoryList },
+  },
+  {
+    method: 'post',
+    path: '/bots/{botId}/training-history/{historyId}/restore',
+    summary: 'Put back the state before a restorable history entry',
+    tag: 'knowledge',
+    auth: true,
+    workspaceScoped: true,
+    responses: { 204: null },
   },
   {
     method: 'get',

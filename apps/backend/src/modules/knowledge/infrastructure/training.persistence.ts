@@ -2,6 +2,7 @@ import { and, type Database, desc, eq, schema, type TenantTx, withTenant } from 
 import { TrainingHistoryDto, TrainingItemDto } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
 import type {
+  TrainingHistoryRecord,
   TrainingRepository,
   TrainingUnitOfWork,
 } from '../application/ports/training-unit-of-work.js';
@@ -14,6 +15,13 @@ function itemDto(row: typeof items.$inferSelect): TrainingItemDto {
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   });
+}
+function historyRecord(row: typeof history.$inferSelect): TrainingHistoryRecord {
+  const { restorable: _derived, ...dto } = TrainingHistoryDto.parse({
+    ...row,
+    createdAt: row.createdAt.toISOString(),
+  });
+  return { ...dto, snapshot: row.snapshot ? TrainingItemDto.parse(row.snapshot) : null };
 }
 class DrizzleTrainingRepository implements TrainingRepository {
   constructor(
@@ -56,6 +64,7 @@ class DrizzleTrainingRepository implements TrainingRepository {
           trigger: item.trigger,
           notes: item.notes ?? '',
           mediaUrl: item.mediaUrl,
+          folderId: item.folderId,
           updatedAt: row.updatedAt,
         },
       });
@@ -65,20 +74,28 @@ class DrizzleTrainingRepository implements TrainingRepository {
       .delete(items)
       .where(and(eq(items.workspaceId, this.ws), eq(items.botId, botId), eq(items.id, itemId)));
   }
-  async record(event: TrainingHistoryDto): Promise<void> {
+  async record(event: TrainingHistoryRecord): Promise<void> {
     await this.tx
       .insert(history)
       .values({ ...event, workspaceId: this.ws, createdAt: new Date(event.createdAt) });
   }
-  async history(botId: string): Promise<TrainingHistoryDto[]> {
+  async history(botId: string): Promise<TrainingHistoryRecord[]> {
     return (
       await this.tx
         .select()
         .from(history)
         .where(and(eq(history.workspaceId, this.ws), eq(history.botId, botId)))
         .orderBy(desc(history.createdAt), desc(history.id))
-        .limit(100)
-    ).map((row) => TrainingHistoryDto.parse({ ...row, createdAt: row.createdAt.toISOString() }));
+        .limit(200)
+    ).map(historyRecord);
+  }
+  async findHistory(botId: string, id: string): Promise<TrainingHistoryRecord | null> {
+    const [row] = await this.tx
+      .select()
+      .from(history)
+      .where(and(eq(history.workspaceId, this.ws), eq(history.botId, botId), eq(history.id, id)))
+      .limit(1);
+    return row ? historyRecord(row) : null;
   }
 }
 export class DrizzleTrainingUnitOfWork implements TrainingUnitOfWork {
@@ -91,7 +108,7 @@ export class InMemoryTrainingUnitOfWork implements TrainingUnitOfWork {
   private readonly pending = new Map<string, Promise<void>>();
   private readonly partitions = new Map<
     string,
-    { items: Map<string, TrainingItemDto>; history: TrainingHistoryDto[] }
+    { items: Map<string, TrainingItemDto>; history: TrainingHistoryRecord[] }
   >();
   async run<T>(ws: WorkspaceId, fn: (repository: TrainingRepository) => Promise<T>): Promise<T> {
     const previous = this.pending.get(ws) ?? Promise.resolve();
@@ -123,12 +140,17 @@ export class InMemoryTrainingUnitOfWork implements TrainingUnitOfWork {
         },
         delete: async (_botId, id) => {
           draft.items.delete(id);
+          // Mirrors the folder_id foreign key (on delete cascade).
+          for (const item of draft.items.values())
+            if (item.folderId === id) draft.items.delete(item.id);
         },
         record: async (event) => {
           draft.history.unshift(event);
         },
         history: async (botId) =>
-          draft.history.filter((entry) => entry.botId === botId).slice(0, 100),
+          draft.history.filter((entry) => entry.botId === botId).slice(0, 200),
+        findHistory: async (botId, id) =>
+          draft.history.find((entry) => entry.botId === botId && entry.id === id) ?? null,
       });
       this.partitions.set(ws, draft);
       return result;

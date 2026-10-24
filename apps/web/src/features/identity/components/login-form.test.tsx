@@ -11,7 +11,7 @@ afterEach(() => vi.unstubAllGlobals());
 describe('LoginForm', () => {
   it('renders in Vietnamese by default', async () => {
     renderWithRouter(() => <LoginForm onSuccess={() => {}} />);
-    expect(await screen.findByRole('heading', { name: 'Đăng nhập vào Razpi' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Đăng nhập vào Rapiz' })).toBeInTheDocument();
     expect(screen.getByLabelText('Mật khẩu')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Đăng ký' })).toHaveAttribute('href', '/signup');
   });

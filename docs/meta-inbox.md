@@ -9,6 +9,8 @@ Implements CHAT-01 for Facebook Pages and Instagram professional accounts. Other
 3. **Process.** The `agent` entry claims events every second with a lease, persists every receipt, groups a burst per conversation and asks the AI module for one reply to the newest customer text. Attachment-only turns reach the model as `[image]`-style markers.
 4. **Deliver.** The reply is reserved (idempotency key `bot:<event id>`), re-checked against takeover and sent outside any database transaction. Staff sends use the same path and pause the bot.
 
+Before generating, the processor checks the bot is active and inside its reply hours (`replySchedule`, Vietnam time); otherwise the message just waits in the inbox for staff.
+
 On failure an event is retried after 20 s and 60 s; after the third attempt the conversation switches to `human` so staff see it.
 
 ## Configuration
@@ -24,7 +26,13 @@ On failure an event is retried after 20 s and 60 s; after the third attempt the 
 | `SECRETS_ENCRYPTION_KEY` | 32-byte base64 key sealing page tokens |
 | `APP_ORIGINS` | Must include `META_APP_ORIGIN` for cookie refresh |
 
-Register webhooks on the Meta app for object `page` → `${META_APP_ORIGIN}/webhooks/facebook` and object `instagram` → `${META_APP_ORIGIN}/webhooks/instagram`. While the Meta app is in development mode, only people with a role on the app can connect and message.
+## Screens
+
+- **Tích hợp nền tảng** (`/app/channels`): platform list (all, waiting for a bot, Facebook, Instagram; Zalo, Lazada and TikTok marked as coming soon) and the page list with search, select all, assign bot ("Chỉnh sửa"), deactivate ("Hủy kích hoạt" disconnects) and connect. Message sync is not supported and the button is disabled.
+- **Bot → Tích hợp** (`/app/bots/{botId}/integrations`): only pages bound to that bot. "Chỉnh sửa" chooses which workspace pages the bot answers; "Hủy kích hoạt" unbinds them (`botId: null`). Pages connected from here are bound to the bot right after selection.
+- **Tin nhắn đa kênh** (`/app/inbox`): conversation list with channel filter (Messenger, Instagram), search and newest/oldest sort; thread with takeover controls and attachments.
+
+Register webhooks on the Meta app for object `page` → `${META_APP_ORIGIN}/webhooks/facebook` and object `instagram` → `${META_APP_ORIGIN}/webhooks/instagram`. While the Meta app is in development mode, only people with a role on the app (administrator, developer or tester) can connect and message. Anyone else — or everyone, when Meta has restricted the app (for example an overdue Data Use Checkup or missing privacy policy URL) — sees Facebook's "App not active" page in the login popup; fix it in the Meta App Dashboard, not in code.
 
 ## Local live testing
 

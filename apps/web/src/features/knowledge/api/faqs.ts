@@ -77,3 +77,15 @@ export function useImportFaqs(botId: string) {
     api(`/bots/${botId}/faqs/import`, FaqListResponse, { method: 'POST', body }),
   );
 }
+
+/** Bulk delete of the selected rows; resolves once every request settled. */
+export function useDeleteFaqs(botId: string) {
+  return useFaqMutation(botId, async (faqIds: string[]) => {
+    const results = await Promise.allSettled(
+      faqIds.map((id) => api(`/bots/${botId}/faqs/${id}`, z.null(), { method: 'DELETE' })),
+    );
+    const failed = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
+    if (failed) throw failed.reason;
+    return results.length;
+  });
+}

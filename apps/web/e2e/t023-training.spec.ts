@@ -34,7 +34,12 @@ async function trainingApi(page: Page) {
         title: item.title,
         kind: item.kind,
         action: 'created',
-        createdAt: now,
+        actor: 'Synthetic Owner',
+        changes: [],
+        // Like the API: restoring a creation deletes the item.
+        restorable: true,
+        // Now, so the entry falls inside the history page's default date range.
+        createdAt: new Date().toISOString(),
       });
       return json(item, 201);
     }
@@ -45,6 +50,10 @@ async function trainingApi(page: Page) {
     if (request.method() === 'PATCH') {
       const changed = { ...current, ...request.postDataJSON() } as TrainingItemDto;
       items[index] = changed;
+      const fields = ['title', 'content', 'trigger', 'notes', 'mediaUrl', 'folderId'] as const;
+      const changes = fields
+        .filter((field) => (current[field] ?? null) !== (changed[field] ?? null))
+        .map((field) => ({ field, before: current[field] ?? null, after: changed[field] ?? null }));
       history.unshift({
         id: randomUUID(),
         botId: BOT_ID,
@@ -52,7 +61,11 @@ async function trainingApi(page: Page) {
         title: changed.title,
         kind: current.kind,
         action: 'updated',
-        createdAt: current.createdAt,
+        actor: 'Synthetic Owner',
+        changes,
+        restorable: true,
+        // Now, so the entry falls inside the history page's default date range.
+        createdAt: new Date().toISOString(),
       });
       return json(changed);
     }
@@ -65,7 +78,11 @@ async function trainingApi(page: Page) {
         title: current.title,
         kind: current.kind,
         action: 'deleted',
-        createdAt: current.createdAt,
+        actor: 'Synthetic Owner',
+        changes: [],
+        restorable: true,
+        // Now, so the entry falls inside the history page's default date range.
+        createdAt: new Date().toISOString(),
       });
       return route.fulfill({ status: 204 });
     }
@@ -74,38 +91,61 @@ async function trainingApi(page: Page) {
   return { items, history };
 }
 
-async function addItem(page: Page, title: string, content: string) {
-  await page.getByRole('button', { name: 'Add item', exact: true }).first().click();
-  await page.getByLabel('Title', { exact: true }).fill(title);
-  await page.getByLabel('Content / handling instructions').fill(content);
+async function addInstruction(page: Page, title: string, content: string) {
+  await page.getByRole('button', { name: 'Add instruction', exact: true }).first().click();
+  const dialog = page.getByRole('dialog', { name: 'Add item' });
+  await dialog.getByLabel('Title', { exact: true }).fill(title);
+  await dialog.getByLabel('Content / handling instructions').fill(content);
+  return dialog;
 }
 
 test('instructions support create, edit, reload, delete and an accurate history', async ({
   page,
 }) => {
-  await trainingApi(page);
+  const state = await trainingApi(page);
   await page.goto(`/app/bots/${BOT_ID}/instructions`);
   await expect(
     page.getByRole('heading', { name: 'Situation-handling instructions' }),
   ).toBeVisible();
-  await addItem(page, 'Synthetic return instructions', 'Ask for the synthetic order code.');
-  await page.getByLabel('Situation or shortcut').fill('return request');
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByText('No instructions yet')).toBeVisible();
+  const dialog = await addInstruction(
+    page,
+    'Synthetic return instructions',
+    'Ask for the synthetic order code.',
+  );
+  await dialog.getByLabel('Situation or shortcut').fill('return request');
+  await dialog.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Synthetic return instructions' })).toBeVisible();
+  expect(state.items).toMatchObject([{ kind: 'scenario', trigger: 'return request' }]);
   await page.getByRole('button', { name: 'Edit item', exact: true }).click();
-  await page.getByLabel('Title', { exact: true }).fill('Synthetic updated instructions');
+  await page
+    .getByRole('dialog', { name: 'Edit item' })
+    .getByLabel('Title', { exact: true })
+    .fill('Synthetic updated instructions');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Synthetic updated instructions' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Synthetic return instructions' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Delete', exact: true }).click();
   await page.getByRole('alertdialog').getByRole('button', { name: 'Delete', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'No items yet' })).toBeVisible();
+  await expect(page.getByText('No instructions yet')).toBeVisible();
+  expect(state.items).toHaveLength(0);
   await page.goto(`/app/bots/${BOT_ID}/history`);
-  await expect(page.getByText('Instruction · Created', { exact: true })).toBeVisible();
-  await expect(page.getByText('Instruction · Updated', { exact: true })).toBeVisible();
-  await expect(page.getByText('Instruction · Deleted', { exact: true })).toBeVisible();
+  await page.getByRole('tab', { name: 'Training data' }).click();
+  const entries = page.getByRole('listitem').filter({ hasText: 'Synthetic Owner' });
+  await expect(entries).toHaveText([
+    /Synthetic Owner deleted instruction Synthetic updated instructions/,
+    /Synthetic Owner edited instruction Synthetic updated instructions/,
+    /Synthetic Owner added instruction Synthetic return instructions/,
+  ]);
+  // The edit lists exactly the changed field, before → after, and can be restored.
+  await expect(entries.nth(1).getByRole('listitem')).toHaveText([
+    'Changed Title Synthetic return instructions → Synthetic updated instructions',
+  ]);
+  await expect(entries.nth(1).getByRole('button', { name: 'Restore' })).toBeVisible();
+  await expect(entries.nth(2).getByRole('button', { name: 'Restore' })).toBeVisible();
 });
 
 test('quick replies are separate from instructions and media rejects insecure links', async ({
@@ -113,27 +153,56 @@ test('quick replies are separate from instructions and media rejects insecure li
 }) => {
   const state = await trainingApi(page);
   await page.goto(`/app/bots/${BOT_ID}/quick-replies`);
-  await addItem(page, 'Synthetic team reply', 'Thanks for contacting the synthetic shop.');
-  await page.getByLabel('Situation or shortcut').fill('/thanks');
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Synthetic team reply' })).toBeVisible();
+  await page.getByRole('button', { name: 'Add new', exact: true }).click();
+  const reply = page.getByRole('dialog', { name: 'Add quick reply' });
+  await reply.getByLabel('Shortcut', { exact: true }).fill('/thanks');
+  await reply
+    .getByLabel('Content', { exact: true })
+    .fill('Thanks for contacting the synthetic shop.');
+  await reply.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByRole('cell', { name: '/thanks', exact: true })).toBeVisible();
+  await expect(page.getByText('Thanks for contacting the synthetic shop.')).toBeVisible();
+  expect(state.items).toMatchObject([{ kind: 'quick_reply', trigger: 'thanks' }]);
   await page.goto(`/app/bots/${BOT_ID}/instructions`);
-  await expect(page.getByRole('heading', { name: 'No items yet' })).toBeVisible();
+  await expect(page.getByText('No instructions yet')).toBeVisible();
+  await expect(page.getByText('/thanks')).toHaveCount(0);
+
+  // Media lives in folders: create one, open it, then add an image by link.
   await page.goto(`/app/bots/${BOT_ID}/media`);
-  await addItem(page, 'Synthetic media', 'Synthetic product reference.');
-  await page.getByLabel('HTTPS media URL').fill('http://example.test/synthetic.png');
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(
-    page.getByText('Please fill in a title and content, and use a valid HTTPS media link.'),
-  ).toBeVisible();
-  expect(state.items).toHaveLength(1);
-  await page.getByLabel('HTTPS media URL').fill('https://example.test/synthetic.png');
-  await page.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Synthetic media' })).toBeVisible();
+  await page.getByRole('button', { name: 'Add folder', exact: true }).click();
+  await page.getByRole('dialog').getByLabel('Folder name').fill('Synthetic products');
+  await page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  const folder = state.items.find((item) => item.kind === 'media_folder');
+  expect(folder).toMatchObject({ title: 'Synthetic products' });
+  await page.getByRole('button', { name: 'Synthetic products 0 images', exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`folder=${folder!.id}`));
+  await page.getByRole('button', { name: 'Add image', exact: true }).first().click();
+  const image = page.getByRole('dialog', { name: 'Add image' });
+  await image.getByRole('tab', { name: 'HTTPS link' }).click();
+  await image.getByLabel('Image name').fill('Synthetic media');
+  await image.getByLabel(/^Description/).fill('Synthetic product reference.');
+  await image.getByLabel('HTTPS image link').fill('http://example.test/synthetic.png');
+  await expect(image.getByText('The image link must start with https://')).toBeVisible();
+  await expect(image.getByLabel('HTTPS image link')).toHaveAttribute('aria-invalid', 'true');
+  await expect(image.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+  expect(state.items).toHaveLength(2);
+  await image.getByLabel('HTTPS image link').fill('https://example.test/synthetic.png');
+  await expect(image.getByText('The image link must start with https://')).toHaveCount(0);
+  await image.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  expect(state.items.find((item) => item.kind === 'media')).toMatchObject({
+    title: 'Synthetic media',
+    content: 'Synthetic product reference.',
+    mediaUrl: 'https://example.test/synthetic.png',
+    folderId: folder!.id,
+  });
   await page.reload();
-  await expect(
-    page.getByRole('link', { name: 'https://example.test/synthetic.png' }),
-  ).toHaveAttribute('href', 'https://example.test/synthetic.png');
+  await expect(page.getByRole('link', { name: 'Synthetic media' })).toHaveAttribute(
+    'href',
+    'https://example.test/synthetic.png',
+  );
 });
 
 test('new training screens fit a phone and recover from a load error', async ({ page }) => {
@@ -145,7 +214,7 @@ test('new training screens fit a phone and recover from a load error', async ({ 
     ['instructions', 'Situation-handling instructions'],
     ['quick-replies', 'Quick replies'],
     ['media', 'Image library'],
-    ['history', 'Training edit history'],
+    ['history', 'Edit history'],
   ] as const) {
     await page.goto(`/app/bots/${BOT_ID}/${path}`);
     await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
@@ -163,11 +232,10 @@ test('new training screens fit a phone and recover from a load error', async ({ 
     }),
   );
   await page.goto(`/app/bots/${BOT_ID}/instructions`);
-  await expect(
-    page.getByRole('alert').getByText('Unable to load training materials.'),
-  ).toBeVisible();
+  await expect(page.getByRole('alert').getByText('Could not load the data.')).toBeVisible();
   await page.unroute('**/training-items');
-  await page.getByRole('button', { name: 'Try again' }).click();
-  await expect(page.getByRole('heading', { name: 'No items yet' })).toBeVisible();
+  await page.getByRole('button', { name: 'Retry' }).click();
+  await expect(page.getByText('No instructions yet')).toBeVisible();
+  await expect(page.getByRole('alert').getByText('Could not load the data.')).toHaveCount(0);
   expect(errors).toEqual([]);
 });

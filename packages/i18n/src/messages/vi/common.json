@@ -1,11 +1,12 @@
 {
   "app": {
-    "name": "Razpi"
+    "name": "Rapiz"
   },
   "nav": {
     "bots": "Đào tạo Bot",
     "inbox": "Tin nhắn đa kênh",
     "channels": "Tích hợp nền tảng",
+    "multichannel": "Chat đa kênh",
     "contacts": "Khách hàng",
     "segments": "Tệp khách hàng",
     "campaigns": "Remarketing",
@@ -39,9 +40,9 @@
     "workspaceName": "Tên cửa hàng / doanh nghiệp",
     "industry": "Lĩnh vực kinh doanh",
     "passwordHint": "Tối thiểu 8 ký tự",
-    "loginTitle": "Đăng nhập vào Razpi",
+    "loginTitle": "Đăng nhập vào Rapiz",
     "loginSubtitle": "Tiếp tục quản lý bot bán hàng của bạn.",
-    "signupTitle": "Tạo tài khoản Razpi",
+    "signupTitle": "Tạo tài khoản Rapiz",
     "signupSubtitle": "Bot bán hàng đầu tiên sẵn sàng sau vài phút.",
     "noAccount": "Chưa có tài khoản?",
     "haveAccount": "Đã có tài khoản?",
@@ -77,7 +78,7 @@
     "subtitle": "Mỗi bot trả lời khách thay bạn trên các kênh chat.",
     "create": "Tạo bot",
     "createTitle": "Tạo bot mới",
-    "createHint": "Razpi tạo sẵn câu hỏi thường gặp theo lĩnh vực; bạn chỉ cần điền thông tin cửa hàng.",
+    "createHint": "Rapiz tạo sẵn câu hỏi thường gặp theo lĩnh vực; bạn chỉ cần điền thông tin cửa hàng.",
     "name": "Tên bot",
     "namePlaceholder": "Ví dụ: Trợ lý Shop Lan",
     "creating": "Đang tạo…",
@@ -303,7 +304,7 @@
     "toggleTheme": "Chuyển sáng / tối",
     "theme_preset": {
       "label": "Bảng màu",
-      "razpi": "Razpi",
+      "razpi": "Rapiz",
       "ocean": "Biển",
       "forest": "Rừng",
       "graphite": "Than chì"

@@ -148,6 +148,8 @@ export function defaultSettings(industry: IndustryKey): BotSettingsData {
     creativity: 'balanced',
     modelTier: 'smart',
     language: 'vi',
+    themeColor: '#FF6600',
+    replySchedule: { mode: 'always', start: '08:00', end: '22:00' },
     placeholders: {},
   };
 }

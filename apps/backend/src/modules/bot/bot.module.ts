@@ -2,6 +2,7 @@ import type { Database } from '@agent-sales/db';
 import { Module } from '@nestjs/common';
 
 import { DB_TENANT } from '../../common/db/db.module.js';
+import { IdentityModule } from '../identity/identity.module.js';
 import { KnowledgeModule } from '../knowledge/knowledge.module.js';
 import { BOT_FACADE } from './api/bot.facade.js';
 import { BotService } from './application/bot.service.js';
@@ -12,7 +13,7 @@ import { BotController } from './interface/http/bot.controller.js';
 import { MediaController } from './interface/http/media.controller.js';
 
 @Module({
-  imports: [KnowledgeModule],
+  imports: [KnowledgeModule, IdentityModule],
   controllers: [BotController, TrainingController, MediaController],
   providers: [
     BotService,

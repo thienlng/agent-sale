@@ -41,6 +41,6 @@ export class HealthController {
 
   @Get('openapi.json')
   openapi(): Record<string, unknown> {
-    return buildOpenApiDocument(allRoutes, { title: 'Razpi API', version });
+    return buildOpenApiDocument(allRoutes, { title: 'Rapiz API', version });
   }
 }

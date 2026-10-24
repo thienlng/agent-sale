@@ -1,6 +1,8 @@
 import {
   type CreateTrainingItemRequest,
   TrainingItemDto,
+  type UpdateTrainingItemRequest,
+  type UploadBotImageRequest,
   TrainingItemList,
   TrainingHistoryList,
 } from '@agent-sales/contracts';
@@ -39,7 +41,9 @@ export function useSaveTrainingItem(botId: string) {
               trigger: input.trigger,
               notes: input.notes,
               mediaUrl: input.mediaUrl,
-            },
+              // Only media items live in folders; other kinds never send it.
+              ...(input.kind === 'media' ? { folderId: input.folderId } : {}),
+            } satisfies UpdateTrainingItemRequest,
           })
         : api(`/bots/${botId}/training-items`, TrainingItemDto, { method: 'POST', body: input }),
     onSuccess: () => {
@@ -53,6 +57,19 @@ export function useDeleteTrainingItem(botId: string) {
   return useMutation({
     mutationFn: (id: string) =>
       api(`/bots/${botId}/training-items/${id}`, z.null(), { method: 'DELETE' }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ['training', ws, botId] });
+    },
+  });
+}
+
+/** Uploads a PNG/JPEG/WebP image to the bot's library (kind `media`). */
+export function useUploadBotImage(botId: string) {
+  const ws = useWorkspaceId();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: UploadBotImageRequest) =>
+      api(`/bots/${botId}/media-upload`, TrainingItemDto, { method: 'POST', body }),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ['training', ws, botId] });
     },

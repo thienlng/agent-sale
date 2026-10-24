@@ -1,8 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { TrainingItems } from '@/features/knowledge/components/training-items';
+
+import { QuickReplyList } from '@/features/knowledge/components/quick-reply-list';
+
 export const Route = createFileRoute('/app/bots/$botId/quick-replies')({
-  component: function TrainingSection() {
+  component: function QuickRepliesPage() {
     const { botId } = Route.useParams();
-    return <TrainingItems botId={botId} kind="quick_reply" />;
+    return <QuickReplyList botId={botId} />;
   },
 });

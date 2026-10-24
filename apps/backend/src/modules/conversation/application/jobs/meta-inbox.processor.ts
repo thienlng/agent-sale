@@ -6,7 +6,7 @@ import {
   type PendingMetaEvent,
 } from '../../../channel/api/index.js';
 import { AI_FACADE, type AiFacade } from '../../../ai/api/index.js';
-import { BOT_FACADE, type BotFacade } from '../../../bot/api/index.js';
+import { BOT_FACADE, type BotFacade, withinReplySchedule } from '../../../bot/api/index.js';
 import { CONVERSATION_FACADE, type ConversationFacade } from '../../api/conversation.facade.js';
 /** Invoked exclusively by the agent entry; API never starts background inference. */
 @Injectable()
@@ -81,6 +81,8 @@ export class MetaInboxProcessor {
     if (!channel.botId) return;
     const bot = await this.bots.getBot(job.workspaceId, channel.botId);
     if (!bot.isActive) return;
+    // Outside the bot's reply hours the message stays in the inbox for staff.
+    if (bot.replySchedule && !withinReplySchedule(bot.replySchedule, new Date())) return;
     const context = await this.inbox.getReplyContext(job.workspaceId, c.id);
     // Ids are UUIDv7, so they order messages by when we stored them rather than by Meta timestamps.
     // An inbound stored after our last reply is still unanswered, even if the customer sent it earlier.

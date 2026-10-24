@@ -18,20 +18,27 @@ export class MediaFacadeImpl implements MediaFacade {
     ws: WorkspaceId,
     botId: string,
     input: UploadBotImageRequest,
+    actor = '',
   ): Promise<TrainingItemDto> {
     const bytes = decodeImage(input.base64, input.mimeType);
     const extension = input.mimeType === 'image/jpeg' ? 'jpg' : input.mimeType.slice(6);
     const key = `workspaces/${ws}/bots/${botId}/${newId()}.${extension}`;
     const url = await this.storage.put(key, bytes, input.mimeType);
     try {
-      return await this.training.create(ws, botId, {
-        kind: 'media',
-        title: input.title,
-        content: '',
-        trigger: '',
-        notes: '',
-        mediaUrl: url,
-      });
+      return await this.training.create(
+        ws,
+        botId,
+        {
+          kind: 'media',
+          title: input.title,
+          content: '',
+          trigger: '',
+          notes: '',
+          mediaUrl: url,
+          folderId: input.folderId,
+        },
+        actor,
+      );
     } catch (error) {
       // A failed metadata write must not leave a newly uploaded object behind.
       await this.storage.remove(key).catch(() => undefined);

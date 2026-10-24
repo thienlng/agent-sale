@@ -18,6 +18,7 @@ export interface BotView {
   autoResumeAfterManual?: boolean;
   humanTakeoverMinutes?: number;
   silenceOnExternalReply?: boolean;
+  replySchedule?: { mode: 'always' | 'custom'; start: string; end: string };
   placeholders: Readonly<Record<string, string>>;
 }
 

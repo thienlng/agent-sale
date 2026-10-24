@@ -3,8 +3,7 @@ import {
   type TrainingItemDto,
   type TrainingKind,
 } from '@agent-sales/contracts';
-import { foldVietnamese } from '@agent-sales/shared';
-import { FileText, Image, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -24,8 +23,10 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { errorMessage } from '@/lib/errors';
-import { TrainingTable } from './training-table';
 import { useDeleteTrainingItem, useSaveTrainingItem, useTrainingItems } from '../api/training';
+import { matchesText } from '../utils/table-data';
+import { DataEmptyState, DataError, DataPageHeader, DataSearch, tableFrame } from './data-page';
+import { TrainingTable } from './training-table';
 
 function TrainingItemEditor({
   botId,
@@ -148,13 +149,14 @@ function TrainingItemEditor({
   );
 }
 
+/** Scenario ("Hướng dẫn") and legacy quick-reply list: page header, search, table. */
 export function TrainingItems({
   botId,
   kind,
   introduction,
 }: {
   botId: string;
-  kind: TrainingKind;
+  kind: 'scenario' | 'quick_reply';
   introduction?: ReactNode;
 }) {
   const { t } = useTranslation('training');
@@ -166,64 +168,47 @@ export function TrainingItems({
   const [deleting, setDeleting] = useState<TrainingItemDto | null>(null);
   const all = (items.data ?? []).filter((item) => item.kind === kind);
   const visible = all.filter((item) =>
-    foldVietnamese(`${item.title} ${item.content} ${item.trigger}`).includes(
-      foldVietnamese(search),
-    ),
+    matchesText(`${item.title} ${item.content} ${item.trigger}`, search),
   );
-  const title =
-    kind === 'scenario' ? 'scenarioTitle' : kind === 'quick_reply' ? 'quickTitle' : 'mediaTitle';
-  const subtitle =
-    kind === 'scenario'
-      ? 'scenarioSubtitle'
-      : kind === 'quick_reply'
-        ? 'quickSubtitle'
-        : 'mediaSubtitle';
+  const scenario = kind === 'scenario';
   return (
-    <section className="min-w-0 space-y-5">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <h2 className="text-xl font-semibold tracking-tight">{t(title)}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{t(subtitle)}</p>
-        </div>
-        <Button onClick={() => setEditor({ item: null })}>
-          <Plus />
-          {t('add')}
-        </Button>
-      </header>
+    <section className="flex min-w-0 flex-col gap-5">
+      <DataPageHeader
+        title={scenario ? t('data.instructions.title') : t('quickTitle')}
+        subtitle={scenario ? t('data.instructions.subtitle') : t('quickSubtitle')}
+      />
       {introduction}
-      <div className="relative">
-        <Search aria-hidden className="absolute top-3 left-3 size-4 text-muted-foreground" />
-        <Input
-          type="search"
+      <div className="flex flex-wrap items-center gap-2">
+        <DataSearch
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={t('search')}
-          aria-label={t('search')}
-          className="pl-9"
+          onChange={setSearch}
+          placeholder={scenario ? t('data.instructions.search') : t('search')}
         />
+        <Button className="ml-auto h-9" onClick={() => setEditor({ item: null })}>
+          <Plus />
+          {scenario ? t('data.instructions.add') : t('add')}
+        </Button>
       </div>
       {items.isPending ? (
-        <Skeleton className="h-52 w-full" />
+        <Skeleton className="h-52 w-full rounded-xl" />
       ) : items.isError ? (
-        <div role="alert" className="rounded-xl border p-6">
-          <p>{t('error')}</p>
-          <Button variant="outline" className="mt-3" onClick={() => void items.refetch()}>
-            {t('retry')}
-          </Button>
-        </div>
-      ) : !all.length ? (
-        <div className="rounded-xl border border-dashed px-4 py-14 text-center">
-          <FileText className="mx-auto size-8 text-primary" aria-hidden />
-          <h3 className="mt-3 font-semibold">{t('empty')}</h3>
-          <p className="mt-1 text-sm text-muted-foreground">{t('emptyBody')}</p>
-          <Button variant="outline" className="mt-4" onClick={() => setEditor({ item: null })}>
-            <Plus />
-            {t('add')}
-          </Button>
-        </div>
+        <DataError onRetry={() => void items.refetch()} />
       ) : !visible.length ? (
-        <p className="py-8 text-center text-muted-foreground">{t('noResults')}</p>
-      ) : kind !== 'media' ? (
+        <div className={tableFrame}>
+          <DataEmptyState
+            message={
+              all.length ? t('noResults') : scenario ? t('data.instructions.empty') : t('empty')
+            }
+          >
+            {all.length ? null : (
+              <Button variant="outline" onClick={() => setEditor({ item: null })}>
+                <Plus />
+                {scenario ? t('data.instructions.add') : t('add')}
+              </Button>
+            )}
+          </DataEmptyState>
+        </div>
+      ) : (
         <TrainingTable
           key={search}
           items={visible}
@@ -231,55 +216,7 @@ export function TrainingItems({
           onEdit={(item) => setEditor({ item })}
           onDelete={setDeleting}
         />
-      ) : (
-        <ul className="divide-y rounded-xl border">
-          {visible.map((item) => (
-            <li key={item.id} className="flex min-w-0 items-start gap-2 p-4">
-              <div className="min-w-0 flex-1">
-                {kind === 'media' ? (
-                  <Image className="mb-2 size-5 text-primary" aria-hidden />
-                ) : null}
-                <h3 className="break-words font-medium">{item.title}</h3>
-                {item.trigger ? (
-                  <p className="mt-1 break-words text-sm text-primary">{item.trigger}</p>
-                ) : null}
-                <p className="mt-1 line-clamp-3 break-words whitespace-pre-wrap text-sm text-muted-foreground">
-                  {item.content}
-                </p>
-                {item.mediaUrl ? (
-                  <a
-                    className="mt-2 block truncate text-sm text-primary underline"
-                    href={item.mediaUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    {item.mediaUrl}
-                  </a>
-                ) : null}
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label={t('edit')}
-                onClick={() => setEditor({ item })}
-              >
-                <Pencil />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label={t('delete')}
-                onClick={() => setDeleting(item)}
-              >
-                <Trash2 />
-              </Button>
-            </li>
-          ))}
-        </ul>
       )}
-      {items.data ? (
-        <p className="text-sm text-muted-foreground">{t('total', { count: all.length })}</p>
-      ) : null}
       <Dialog
         open={editor !== null}
         onOpenChange={(open) => {

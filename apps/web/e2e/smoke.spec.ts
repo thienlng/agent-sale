@@ -42,11 +42,11 @@ async function loggedIn(page: Page) {
 test('login renders in Vietnamese and in English', async ({ page }) => {
   await loggedOut(page);
   await page.goto('/login');
-  await expect(page.getByRole('heading', { name: 'Đăng nhập vào Razpi' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Đăng nhập vào Rapiz' })).toBeVisible();
 
   await page.evaluate(() => localStorage.setItem('razpi.locale', 'en'));
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Log in to Razpi' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Log in to Rapiz' })).toBeVisible();
 });
 
 test('the dashboard requires a session', async ({ page }) => {

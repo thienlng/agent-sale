@@ -9,5 +9,7 @@ export const UploadBotImageRequest = z.object({
     .min(1)
     .max(1_398_104)
     .regex(/^[A-Za-z0-9+/]+={0,2}$/),
+  /** Optional `media_folder` item to put the image in. */
+  folderId: z.uuid().nullable().default(null),
 });
 export type UploadBotImageRequest = z.infer<typeof UploadBotImageRequest>;

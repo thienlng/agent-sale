@@ -22,7 +22,13 @@ import {
   Post,
 } from '@nestjs/common';
 
-import { CurrentWorkspace, WorkspaceScoped } from '../../../../common/http/auth-context.js';
+import {
+  type AuthState,
+  CurrentUser,
+  CurrentWorkspace,
+  WorkspaceScoped,
+} from '../../../../common/http/auth-context.js';
+import { IDENTITY_FACADE, type IdentityFacade } from '../../../identity/api/index.js';
 import { ZodValidationPipe } from '../../../../common/http/zod-validation.pipe.js';
 import { BotService } from '../../application/bot.service.js';
 
@@ -30,7 +36,15 @@ import { BotService } from '../../application/bot.service.js';
 @WorkspaceScoped()
 @Controller('bots')
 export class BotController {
-  constructor(@Inject(BotService) private readonly bots: BotService) {}
+  constructor(
+    @Inject(BotService) private readonly bots: BotService,
+    @Inject(IDENTITY_FACADE) private readonly identity: IdentityFacade,
+  ) {}
+
+  /** Display name recorded in the training history. */
+  private async actor(user: AuthState): Promise<string> {
+    return (await this.identity.displayName(user.userId)) ?? '';
+  }
 
   @Get()
   async list(@CurrentWorkspace() ws: WorkspaceId): Promise<{ data: BotDto[] }> {
@@ -52,12 +66,13 @@ export class BotController {
   }
 
   @Patch(':botId')
-  update(
+  async update(
     @CurrentWorkspace() ws: WorkspaceId,
+    @CurrentUser() user: AuthState,
     @Param('botId') botId: string,
     @Body(new ZodValidationPipe(UpdateBotRequest)) body: UpdateBotRequest,
   ): Promise<BotDto> {
-    return this.bots.update(ws, botId, body);
+    return this.bots.update(ws, botId, body, await this.actor(user));
   }
 
   @Get(':botId/readiness')
@@ -80,39 +95,43 @@ export class BotController {
   @HttpCode(201)
   async importFaqs(
     @CurrentWorkspace() ws: WorkspaceId,
+    @CurrentUser() user: AuthState,
     @Param('botId') botId: string,
     @Body(new ZodValidationPipe(ImportFaqsRequest)) input: ImportFaqsRequest,
   ): Promise<FaqListResponse> {
-    return { data: await this.bots.importFaqs(ws, botId, input) };
+    return { data: await this.bots.importFaqs(ws, botId, input, await this.actor(user)) };
   }
 
   @Post(':botId/faqs')
   @HttpCode(201)
-  createFaq(
+  async createFaq(
     @CurrentWorkspace() ws: WorkspaceId,
+    @CurrentUser() user: AuthState,
     @Param('botId') botId: string,
     @Body(new ZodValidationPipe(CreateFaqRequest)) body: CreateFaqRequest,
   ): Promise<FaqDto> {
-    return this.bots.createFaq(ws, botId, body);
+    return this.bots.createFaq(ws, botId, body, await this.actor(user));
   }
 
   @Patch(':botId/faqs/:faqId')
-  updateFaq(
+  async updateFaq(
     @CurrentWorkspace() ws: WorkspaceId,
+    @CurrentUser() user: AuthState,
     @Param('botId') botId: string,
     @Param('faqId') faqId: string,
     @Body(new ZodValidationPipe(UpdateFaqRequest)) body: UpdateFaqRequest,
   ): Promise<FaqDto> {
-    return this.bots.updateFaq(ws, botId, faqId, body);
+    return this.bots.updateFaq(ws, botId, faqId, body, await this.actor(user));
   }
 
   @Delete(':botId/faqs/:faqId')
   @HttpCode(204)
-  deleteFaq(
+  async deleteFaq(
     @CurrentWorkspace() ws: WorkspaceId,
+    @CurrentUser() user: AuthState,
     @Param('botId') botId: string,
     @Param('faqId') faqId: string,
   ): Promise<void> {
-    return this.bots.deleteFaq(ws, botId, faqId);
+    return this.bots.deleteFaq(ws, botId, faqId, await this.actor(user));
   }
 }

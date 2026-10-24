@@ -24,8 +24,8 @@ export type UpdateFaqRequest = z.infer<typeof UpdateFaqRequest>;
 export const FaqListResponse = z.object({ data: z.array(FaqDto) });
 export type FaqListResponse = z.infer<typeof FaqListResponse>;
 
-/** Instruction scenarios, reusable replies and media references; no binary uploads. */
-export const TrainingKind = z.enum(['scenario', 'quick_reply', 'media']);
+/** Instruction scenarios, reusable replies, media references and the folders that group media. */
+export const TrainingKind = z.enum(['scenario', 'quick_reply', 'media', 'media_folder']);
 export type TrainingKind = z.infer<typeof TrainingKind>;
 export const CreateTrainingItemRequest = z.object({
   kind: TrainingKind,
@@ -39,6 +39,8 @@ export const CreateTrainingItemRequest = z.object({
     .refine((url) => url.startsWith('https://'), 'HTTPS is required')
     .nullable()
     .default(null),
+  /** Media only: the `media_folder` item that holds it. */
+  folderId: z.uuid().nullable().default(null),
 });
 export type CreateTrainingItemRequest = z.infer<typeof CreateTrainingItemRequest>;
 export const UpdateTrainingItemRequest = z
@@ -53,6 +55,7 @@ export const UpdateTrainingItemRequest = z
       .refine((url) => url.startsWith('https://'), 'HTTPS is required')
       .nullable()
       .optional(),
+    folderId: z.uuid().nullable().optional(),
   })
   .refine((value) => Object.keys(value).length > 0, 'At least one change is required');
 export type UpdateTrainingItemRequest = z.infer<typeof UpdateTrainingItemRequest>;
@@ -64,13 +67,25 @@ export const TrainingItemDto = CreateTrainingItemRequest.extend({
 });
 export type TrainingItemDto = z.infer<typeof TrainingItemDto>;
 export const TrainingItemList = z.object({ data: z.array(TrainingItemDto) });
+/** One changed field of a history entry; values are the JSON stored before and after. */
+export const TrainingChange = z.object({
+  field: z.string(),
+  before: z.unknown(),
+  after: z.unknown(),
+});
+export type TrainingChange = z.infer<typeof TrainingChange>;
 export const TrainingHistoryDto = z.object({
   id: z.uuid(),
   botId: z.uuid(),
   itemId: z.uuid(),
   title: z.string(),
-  kind: z.enum(['scenario', 'quick_reply', 'media', 'faq', 'settings']),
+  kind: z.enum(['scenario', 'quick_reply', 'media', 'media_folder', 'faq', 'settings']),
   action: z.enum(['created', 'updated', 'deleted']),
+  /** Display name of the member who made the change, snapshotted at the time ('' = system). */
+  actor: z.string().default(''),
+  changes: z.array(TrainingChange).default([]),
+  /** True when POST …/restore can put back the state before this change. */
+  restorable: z.boolean().default(false),
   createdAt: z.iso.datetime(),
 });
 export type TrainingHistoryDto = z.infer<typeof TrainingHistoryDto>;

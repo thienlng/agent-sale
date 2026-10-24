@@ -36,6 +36,7 @@ import { Route as AppProductsIndexRouteImport } from './routes/app/products/inde
 import { Route as AppProductsProductIdRouteImport } from './routes/app/products/$productId'
 import { Route as AppProductsNewRouteImport } from './routes/app/products/new'
 import { Route as AppBotsBotIdIndexRouteImport } from './routes/app/bots/$botId/index'
+import { Route as AppBotsBotIdAdsToolRouteImport } from './routes/app/bots/$botId/ads-tool'
 import { Route as AppBotsBotIdHistoryRouteImport } from './routes/app/bots/$botId/history'
 import { Route as AppBotsBotIdInstructionsRouteImport } from './routes/app/bots/$botId/instructions'
 import { Route as AppBotsBotIdIntegrationsRouteImport } from './routes/app/bots/$botId/integrations'
@@ -182,6 +183,11 @@ const AppBotsBotIdIndexRoute = AppBotsBotIdIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppBotsBotIdRoute,
 } as any)
+const AppBotsBotIdAdsToolRoute = AppBotsBotIdAdsToolRouteImport.update({
+  id: '/ads-tool',
+  path: '/ads-tool',
+  getParentRoute: () => AppBotsBotIdRoute,
+} as any)
 const AppBotsBotIdHistoryRoute = AppBotsBotIdHistoryRouteImport.update({
   id: '/history',
   path: '/history',
@@ -253,6 +259,7 @@ export interface FileRoutesByFullPath {
   '/app/order-settings/': typeof AppOrderSettingsIndexRoute
   '/app/orders/': typeof AppOrdersIndexRoute
   '/app/products/': typeof AppProductsIndexRoute
+  '/app/bots/$botId/ads-tool': typeof AppBotsBotIdAdsToolRoute
   '/app/bots/$botId/history': typeof AppBotsBotIdHistoryRoute
   '/app/bots/$botId/instructions': typeof AppBotsBotIdInstructionsRoute
   '/app/bots/$botId/integrations': typeof AppBotsBotIdIntegrationsRoute
@@ -286,6 +293,7 @@ export interface FileRoutesByTo {
   '/app/order-settings': typeof AppOrderSettingsIndexRoute
   '/app/orders': typeof AppOrdersIndexRoute
   '/app/products': typeof AppProductsIndexRoute
+  '/app/bots/$botId/ads-tool': typeof AppBotsBotIdAdsToolRoute
   '/app/bots/$botId/history': typeof AppBotsBotIdHistoryRoute
   '/app/bots/$botId/instructions': typeof AppBotsBotIdInstructionsRoute
   '/app/bots/$botId/integrations': typeof AppBotsBotIdIntegrationsRoute
@@ -324,6 +332,7 @@ export interface FileRoutesById {
   '/app/order-settings/': typeof AppOrderSettingsIndexRoute
   '/app/orders/': typeof AppOrdersIndexRoute
   '/app/products/': typeof AppProductsIndexRoute
+  '/app/bots/$botId/ads-tool': typeof AppBotsBotIdAdsToolRoute
   '/app/bots/$botId/history': typeof AppBotsBotIdHistoryRoute
   '/app/bots/$botId/instructions': typeof AppBotsBotIdInstructionsRoute
   '/app/bots/$botId/integrations': typeof AppBotsBotIdIntegrationsRoute
@@ -363,6 +372,7 @@ export interface FileRouteTypes {
     | '/app/order-settings/'
     | '/app/orders/'
     | '/app/products/'
+    | '/app/bots/$botId/ads-tool'
     | '/app/bots/$botId/history'
     | '/app/bots/$botId/instructions'
     | '/app/bots/$botId/integrations'
@@ -396,6 +406,7 @@ export interface FileRouteTypes {
     | '/app/order-settings'
     | '/app/orders'
     | '/app/products'
+    | '/app/bots/$botId/ads-tool'
     | '/app/bots/$botId/history'
     | '/app/bots/$botId/instructions'
     | '/app/bots/$botId/integrations'
@@ -433,6 +444,7 @@ export interface FileRouteTypes {
     | '/app/order-settings/'
     | '/app/orders/'
     | '/app/products/'
+    | '/app/bots/$botId/ads-tool'
     | '/app/bots/$botId/history'
     | '/app/bots/$botId/instructions'
     | '/app/bots/$botId/integrations'
@@ -643,6 +655,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppBotsBotIdIndexRouteImport
       parentRoute: typeof AppBotsBotIdRoute
     }
+    '/app/bots/$botId/ads-tool': {
+      id: '/app/bots/$botId/ads-tool'
+      path: '/ads-tool'
+      fullPath: '/app/bots/$botId/ads-tool'
+      preLoaderRoute: typeof AppBotsBotIdAdsToolRouteImport
+      parentRoute: typeof AppBotsBotIdRoute
+    }
     '/app/bots/$botId/history': {
       id: '/app/bots/$botId/history'
       path: '/history'
@@ -730,6 +749,7 @@ const AppOrderSettingsRouteWithChildren =
   AppOrderSettingsRoute._addFileChildren(AppOrderSettingsRouteChildren)
 
 interface AppBotsBotIdRouteChildren {
+  AppBotsBotIdAdsToolRoute: typeof AppBotsBotIdAdsToolRoute
   AppBotsBotIdHistoryRoute: typeof AppBotsBotIdHistoryRoute
   AppBotsBotIdInstructionsRoute: typeof AppBotsBotIdInstructionsRoute
   AppBotsBotIdIntegrationsRoute: typeof AppBotsBotIdIntegrationsRoute
@@ -742,6 +762,7 @@ interface AppBotsBotIdRouteChildren {
 }
 
 const AppBotsBotIdRouteChildren: AppBotsBotIdRouteChildren = {
+  AppBotsBotIdAdsToolRoute: AppBotsBotIdAdsToolRoute,
   AppBotsBotIdHistoryRoute: AppBotsBotIdHistoryRoute,
   AppBotsBotIdInstructionsRoute: AppBotsBotIdInstructionsRoute,
   AppBotsBotIdIntegrationsRoute: AppBotsBotIdIntegrationsRoute,

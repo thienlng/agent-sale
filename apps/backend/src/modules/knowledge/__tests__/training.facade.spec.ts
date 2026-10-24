@@ -12,6 +12,7 @@ const input = {
   content: 'Ask for the city first.',
   trigger: 'Delivery',
   mediaUrl: null,
+  folderId: null,
 };
 
 describe('Training materials', () => {
@@ -73,5 +74,57 @@ describe('Training materials', () => {
       }),
     ).rejects.toThrow('rollback');
     expect(await facade.list(ws, bot)).toHaveLength(2);
+  });
+
+  it('keeps media in folders of the same bot and deletes them with their folder', async () => {
+    const facade = new TrainingFacadeImpl(new InMemoryTrainingUnitOfWork());
+    const folder = await facade.create(ws, bot, { ...input, kind: 'media_folder', title: 'Shoes' });
+    const photo = await facade.create(ws, bot, {
+      ...input,
+      kind: 'media',
+      mediaUrl: 'https://example.test/a.png',
+      folderId: folder.id,
+    });
+    await expect(facade.create(ws, bot, { ...input, folderId: folder.id })).rejects.toMatchObject({
+      code: 'VALIDATION_FAILED',
+    });
+    await expect(
+      facade.create(ws, bot, { ...input, kind: 'media', folderId: photo.id }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await facade.delete(ws, bot, folder.id, 'Ken');
+    expect(await facade.list(ws, bot)).toEqual([]);
+    const [folderEntry, photoEntry] = await facade.history(ws, bot);
+    expect(folderEntry).toMatchObject({ itemId: folder.id, action: 'deleted', actor: 'Ken' });
+    expect(photoEntry).toMatchObject({ itemId: photo.id, action: 'deleted', restorable: true });
+    // The folder is gone, so the restored photo comes back outside any folder.
+    await facade.restoreItem(ws, bot, photoEntry!.id, 'Ken');
+    expect(await facade.list(ws, bot)).toMatchObject([{ id: photo.id, folderId: null }]);
+  });
+
+  it('records changed fields and restores the state before an edit or a creation', async () => {
+    const facade = new TrainingFacadeImpl(new InMemoryTrainingUnitOfWork());
+    const item = await facade.create(ws, bot, input, 'Ken');
+    await facade.update(ws, bot, item.id, { title: 'Delivery policy' }, 'An');
+    const [edit, creation] = await facade.history(ws, bot);
+    expect(edit).toMatchObject({
+      actor: 'An',
+      restorable: true,
+      changes: [{ field: 'title', before: 'Delivery question', after: 'Delivery policy' }],
+    });
+    await facade.restoreItem(ws, bot, edit!.id, 'Ken');
+    expect((await facade.list(ws, bot))[0]?.title).toBe('Delivery question');
+    await facade.restoreItem(ws, bot, creation!.id, 'Ken');
+    expect(await facade.list(ws, bot)).toEqual([]);
+    await facade.recordChange(ws, bot, {
+      itemId: newId(),
+      title: 'FAQ',
+      kind: 'faq',
+      action: 'deleted',
+    });
+    const [faq] = await facade.history(ws, bot);
+    expect(faq?.restorable).toBe(false);
+    await expect(facade.restoreItem(ws, bot, faq!.id)).rejects.toMatchObject({
+      code: 'VALIDATION_FAILED',
+    });
   });
 });

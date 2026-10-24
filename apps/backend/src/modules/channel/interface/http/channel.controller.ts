@@ -111,7 +111,7 @@ export class ChannelController {
       )
       .type('text/html')
       .send(
-        `<!doctype html><html><meta charset="utf-8"><title>Razpi</title><body><script nonce="${nonce}">const message=${payload};if(window.opener)window.opener.postMessage(message,${target});const channel=new BroadcastChannel('razpi-meta-oauth');channel.postMessage(message);setTimeout(()=>{channel.close();window.close()},300);</script></body></html>`,
+        `<!doctype html><html><meta charset="utf-8"><title>Rapiz</title><body><script nonce="${nonce}">const message=${payload};if(window.opener)window.opener.postMessage(message,${target});const channel=new BroadcastChannel('razpi-meta-oauth');channel.postMessage(message);setTimeout(()=>{channel.close();window.close()},300);</script></body></html>`,
       );
   }
 }

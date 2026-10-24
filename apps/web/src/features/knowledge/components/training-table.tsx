@@ -1,15 +1,8 @@
 import type { TrainingItemDto } from '@agent-sales/contracts';
-import { ChevronLeft, ChevronRight, Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -18,6 +11,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
+
+import { paginate } from '../utils/table-data';
+import { DataPagination, tableFrame, tableHeadRow } from './data-page';
 
 export function TrainingTable({
   items,
@@ -33,15 +30,13 @@ export function TrainingTable({
   const { t, i18n } = useTranslation('training');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const pages = Math.max(1, Math.ceil(items.length / pageSize));
-  const currentPage = Math.min(page, pages);
-  const visible = items.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const current = paginate(items, page, pageSize);
   return (
-    <div className="min-w-0 space-y-3">
-      <div className="overflow-hidden rounded-lg border">
+    <div className="flex min-w-0 flex-col gap-3">
+      <div className={cn(tableFrame, 'overflow-x-auto')}>
         <Table className="min-w-[440px]">
-          <TableHeader className="bg-muted">
-            <TableRow>
+          <TableHeader>
+            <TableRow className={tableHeadRow}>
               <TableHead className="w-12 text-center">{t('number')}</TableHead>
               <TableHead>{t(kind === 'scenario' ? 'situation' : 'shortcut')}</TableHead>
               {kind === 'quick_reply' ? <TableHead>{t('lastUpdated')}</TableHead> : null}
@@ -49,10 +44,10 @@ export function TrainingTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {visible.map((item, index) => (
-              <TableRow key={item.id} className="odd:bg-muted/30">
+            {current.items.map((item, index) => (
+              <TableRow key={item.id}>
                 <TableCell className="text-center text-xs text-muted-foreground">
-                  {(currentPage - 1) * pageSize + index + 1}
+                  {current.offset + index + 1}
                 </TableCell>
                 <TableCell className="max-w-sm whitespace-normal">
                   <button
@@ -99,47 +94,19 @@ export function TrainingTable({
           </TableBody>
         </Table>
       </div>
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <span className="mr-auto text-xs text-muted-foreground">
-          {t('page', { page: currentPage, pages })}
-        </span>
-        <Select
-          value={String(pageSize)}
-          onValueChange={(value) => {
-            setPageSize(Number(value));
-            setPage(1);
-          }}
-        >
-          <SelectTrigger aria-label={t('pageSize')} className="w-20">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {[10, 20, 50].map((size) => (
-              <SelectItem key={size} value={String(size)}>
-                {size}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label={t('previous')}
-          disabled={currentPage <= 1}
-          onClick={() => setPage(currentPage - 1)}
-        >
-          <ChevronLeft />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label={t('next')}
-          disabled={currentPage >= pages}
-          onClick={() => setPage(currentPage + 1)}
-        >
-          <ChevronRight />
-        </Button>
-      </div>
+      <DataPagination
+        total={t(kind === 'scenario' ? 'data.instructions.total' : 'total', {
+          count: items.length,
+        })}
+        page={current.page}
+        pages={current.pages}
+        pageSize={pageSize}
+        onPage={setPage}
+        onPageSize={(size) => {
+          setPageSize(size);
+          setPage(1);
+        }}
+      />
     </div>
   );
 }

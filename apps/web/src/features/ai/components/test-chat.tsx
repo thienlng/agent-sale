@@ -89,19 +89,22 @@ function Outcome({ result }: { result: PlaygroundResponse }) {
 export function TestChat({
   botId,
   greeting,
+  suggestions = [],
   onHide,
 }: {
   botId: string;
   greeting: string;
+  /** Questions offered as one-click starters while the chat is empty (the bot's first FAQs). */
+  suggestions?: readonly string[];
   /** Shown as a close button when the panel is docked. */
   onHide?: () => void;
 }) {
   const { t } = useTranslation();
+  const { t: training } = useTranslation('training');
   const playground = usePlayground(botId);
   const seq = useRef(0);
   const [turns, setTurns] = useState<Turn[]>([]);
   const [draft, setDraft] = useState('');
-  const suggestions = t('playground.suggestions', { returnObjects: true }) as unknown as string[];
 
   function send(text: string) {
     const content = text.trim();
@@ -150,24 +153,24 @@ export function TestChat({
 
   return (
     <section
-      aria-label={t('playground.title')}
+      aria-label={training('space.chat.title')}
       className="flex h-full min-h-0 flex-col bg-background"
     >
-      <header className="flex items-start gap-1 border-b px-4 py-3">
-        <div className="mr-auto">
-          <h2 className="font-semibold">{t('playground.title')}</h2>
-          <p className="text-sm text-muted-foreground">{t('playground.subtitle')}</p>
-        </div>
+      <header className="flex items-start gap-2 px-4 pt-4 pb-3">
         <Button
-          variant="ghost"
+          variant="outline"
           size="icon-sm"
           onClick={() => setTurns([])}
           disabled={!turns.length || playground.isPending}
-          aria-label={t('playground.reset')}
-          title={t('playground.reset')}
+          aria-label={training('space.chat.reset')}
+          title={training('space.chat.reset')}
         >
           <RotateCcw />
         </Button>
+        <div className="min-w-0 flex-1 text-center">
+          <h2 className="text-lg font-semibold text-primary">{training('space.chat.title')}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{training('space.chat.subtitle')}</p>
+        </div>
         {onHide ? (
           <Button
             variant="ghost"
@@ -196,21 +199,21 @@ export function TestChat({
                   </MessageContent>
                 </Message>
               ) : null}
-              {!turns.length ? (
+              {!turns.length && suggestions.length ? (
                 <div className="mt-auto flex flex-col gap-2 pt-6">
-                  <p className="text-sm text-muted-foreground">{t('playground.empty')}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {suggestions.map((s) => (
-                      <button
-                        key={s}
-                        type="button"
-                        onClick={() => send(s)}
-                        className="rounded-full border px-3 py-1.5 text-sm transition-colors hover:border-primary hover:bg-primary-soft focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
-                      >
-                        {s}
-                      </button>
-                    ))}
-                  </div>
+                  <p className="text-center text-sm text-muted-foreground">
+                    {training('space.chat.suggestionsTitle')}
+                  </p>
+                  {suggestions.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => send(s)}
+                      className="truncate rounded-lg border border-primary/60 bg-primary-soft/50 px-3 py-2 text-left text-sm text-primary transition-colors hover:bg-primary-soft focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
+                    >
+                      {s}
+                    </button>
+                  ))}
                 </div>
               ) : null}
               {turns.map((turn) => (
@@ -282,8 +285,8 @@ export function TestChat({
             onKeyDown={onKeyDown}
             rows={1}
             maxLength={2000}
-            placeholder={t('playground.placeholder')}
-            aria-label={t('playground.placeholder')}
+            placeholder={training('space.chat.placeholder')}
+            aria-label={training('space.chat.placeholder')}
             className="max-h-32 min-h-9 resize-none border-0 bg-transparent px-0 py-2 text-base shadow-none focus-visible:ring-0 dark:bg-transparent"
           />
           <Button

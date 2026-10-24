@@ -4,6 +4,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
+- [ ] T-025 Rebuild bot training and multichannel UI to match Preny screens — @agent:claude-code (review) · [details](todo/T-025-rebuild-bot-training-and-multichannel-ui-to-match-.md)
 - [ ] T-023 Implement Preny bot training and Meta inbox with an isolated Hermes runtime — @agent:codex · [details](todo/T-023-implement-preny-bot-training-and-meta-inbox-with-a.md)
 
 Milestone **M2-bot-playground** — branch `feat/T-015-m2-bot-playground`: T-015, T-016, T-005, T-017, T-018, T-019 done; PR #13 open for review.

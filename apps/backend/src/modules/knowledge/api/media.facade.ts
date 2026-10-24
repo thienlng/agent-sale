@@ -7,6 +7,7 @@ export interface MediaFacade {
     workspaceId: WorkspaceId,
     botId: string,
     input: UploadBotImageRequest,
+    actor?: string,
   ): Promise<TrainingItemDto>;
 }
 export const MEDIA_FACADE = Symbol('MEDIA_FACADE');

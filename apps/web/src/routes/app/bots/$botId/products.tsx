@@ -1,16 +1,26 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
-import { ProductsList } from '@/features/commerce/components/products-list';
+
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { BotProductsTable } from '@/features/commerce/components/bot-products-table';
+import { DataPageHeader } from '@/features/knowledge/components/data-page';
+
 export const Route = createFileRoute('/app/bots/$botId/products')({
   component: function ProductsPage() {
     const { t } = useTranslation('training');
     return (
-      <div className="min-w-0 space-y-4">
-        <p className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">
-          {t('catalogShared')}
-        </p>
-        <ProductsList />
-      </div>
+      <section className="flex min-w-0 flex-col gap-4">
+        <DataPageHeader title={t('data.products.title')} subtitle={t('data.products.subtitle')} />
+        <Tabs value="products">
+          <TabsList variant="line" className="w-full justify-start border-b">
+            <TabsTrigger value="products" className="flex-none px-4">
+              {t('data.products.tab')}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <p className="text-xs text-muted-foreground">{t('data.products.shared')}</p>
+        <BotProductsTable />
+      </section>
     );
   },
 });

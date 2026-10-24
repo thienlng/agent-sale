@@ -71,7 +71,13 @@ function setup() {
       outcome: 'answered',
     })),
   } as unknown as AiFacade & { reply: ReturnType<typeof vi.fn> };
-  return { channels, ai, inbox, processor: new MetaInboxProcessor(channels, inbox, ai, bots) };
+  return {
+    bot,
+    channels,
+    ai,
+    inbox,
+    processor: new MetaInboxProcessor(channels, inbox, ai, bots),
+  };
 }
 
 describe('MetaInboxProcessor', () => {
@@ -123,5 +129,27 @@ describe('MetaInboxProcessor', () => {
     await processor.tick();
     expect((await inbox.get(ws, c!.id)).conversation.mode).toBe('human');
     expect(channels.completeEvent).toHaveBeenCalled();
+  });
+  it('leaves messages outside the reply hours to staff', async () => {
+    const { bot, channels, ai, processor } = setup();
+    bot.replySchedule = { mode: 'custom', start: '08:00', end: '17:00' };
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(new Date('2026-10-24T12:00:00Z')); // 19:00 in Vietnam
+      vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+        job('late', 'message', 'still open?', Date.now()),
+      ]);
+      await processor.tick();
+      expect(ai.reply).not.toHaveBeenCalled();
+      expect(channels.completeEvent).toHaveBeenCalled();
+      vi.setSystemTime(new Date('2026-10-25T02:00:00Z')); // 09:00 in Vietnam
+      vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+        job('morning', 'message', 'hello', Date.now()),
+      ]);
+      await processor.tick();
+      expect(channels.deliver).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

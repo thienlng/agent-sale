@@ -39,16 +39,63 @@ export function useDiscovery(id: string | null) {
     retry: false,
   });
 }
-export function useSelectAccounts() {
+export interface SelectAccountsResult {
+  connections: ChannelConnectionDto[];
+  /** Pages that were connected but could not be bound to the requested bot. */
+  bindFailed: number;
+}
+/**
+ * Saves the pages chosen in the discovery dialog. With `bindBotId` (bot integrations screen)
+ * each newly connected page is bound to that bot right after, so the bot answers it at once.
+ */
+export function useSelectAccounts(bindBotId?: string) {
   const ws = useWorkspaceId();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, externalIds }: { id: string; externalIds: string[] }) =>
-      api(`/channels/discoveries/${id}/select`, z.object({ data: z.array(ChannelConnectionDto) }), {
-        method: 'POST',
-        body: { externalIds },
-      }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['channels', ws] }),
+    mutationFn: async ({
+      id,
+      externalIds,
+    }: {
+      id: string;
+      externalIds: string[];
+    }): Promise<SelectAccountsResult> => {
+      const { data } = await api(
+        `/channels/discoveries/${id}/select`,
+        z.object({ data: z.array(ChannelConnectionDto) }),
+        { method: 'POST', body: { externalIds } },
+      );
+      if (!bindBotId) return { connections: data, bindFailed: 0 };
+      const targets = data.filter((c) => c.status === 'connected' && c.botId !== bindBotId);
+      const results = await Promise.allSettled(
+        targets.map((c) =>
+          api(`/channels/${c.id}`, ChannelConnectionDto, {
+            method: 'PATCH',
+            body: { botId: bindBotId } satisfies UpdateChannelRequest,
+          }),
+        ),
+      );
+      return {
+        connections: data,
+        bindFailed: results.filter((r) => r.status === 'rejected').length,
+      };
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['channels', ws] }),
+  });
+}
+/** Applies one change to several pages; resolves with the number of failed updates. */
+export function useBulkUpdateChannels() {
+  const ws = useWorkspaceId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (changes: { id: string; body: UpdateChannelRequest }[]) => {
+      const results = await Promise.allSettled(
+        changes.map(({ id, body }) =>
+          api(`/channels/${id}`, ChannelConnectionDto, { method: 'PATCH', body }),
+        ),
+      );
+      return results.filter((r) => r.status === 'rejected').length;
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['channels', ws] }),
   });
 }
 export function useUpdateChannel() {
