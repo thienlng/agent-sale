@@ -224,6 +224,68 @@ describe('MetaInboxProcessor', () => {
       { role: 'customer', content: 'Phí ship bao nhiêu?' },
     ]);
   });
+  it.each(['failed', 'pending', 'unknown'] as const)(
+    'does not re-answer a customer message whose reply attempt ended %s',
+    async (status) => {
+      const { channels, ai, processor } = setup();
+      const t0 = Date.now();
+      vi.mocked(channels.deliver).mockResolvedValueOnce({
+        externalId: null,
+        status,
+        failureCode: status === 'failed' ? 'token' : null,
+      } as never);
+      vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+        job('f1', 'message', 'Giày da Oxford giá bao nhiêu?', t0),
+      ]);
+      await processor.tick();
+      vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+        job('f2', 'message', 'Bảo hành bao lâu?', t0 + 5000),
+      ]);
+      await processor.tick();
+      expect(ai.reply).toHaveBeenCalledTimes(2);
+      const turns = ai.reply.mock.calls[1]?.[2].messages;
+      // The attempted text is never shown as an assistant turn, yet it bounds the merged turn.
+      expect(turns).toEqual([
+        { role: 'customer', content: 'Giày da Oxford giá bao nhiêu?' },
+        { role: 'customer', content: 'Bảo hành bao lâu?' },
+      ]);
+    },
+  );
+  it('keeps a sent reply as the boundary after a failed one', async () => {
+    const { channels, ai, processor } = setup();
+    const t0 = Date.now();
+    vi.mocked(channels.deliver).mockResolvedValueOnce({
+      externalId: null,
+      status: 'failed',
+      failureCode: 'token',
+    } as never);
+    for (const [i, text] of ['one', 'two', 'three'].entries()) {
+      vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+        job(`g${i}`, 'message', text, t0 + i * 5000),
+      ]);
+      await processor.tick();
+    }
+    expect(ai.reply.mock.calls[2]?.[2].messages).toEqual([
+      { role: 'customer', content: 'one' },
+      { role: 'customer', content: 'two' },
+      { role: 'bot', content: 're: two' },
+      { role: 'customer', content: 'three' },
+    ]);
+  });
+  it('does not answer or send twice when the event whose reply failed is retried', async () => {
+    const { channels, ai, processor } = setup();
+    vi.mocked(channels.deliver).mockResolvedValueOnce({
+      externalId: null,
+      status: 'failed',
+      failureCode: 'token',
+    } as never);
+    const first = job('r1', 'message', 'Bảo hành bao lâu?', Date.now());
+    vi.mocked(channels.claimEvents).mockResolvedValueOnce([first]);
+    await processor.tick();
+    await processor.process({ ...first, attempt: 2 });
+    expect(ai.reply).toHaveBeenCalledTimes(1);
+    expect(channels.deliver).toHaveBeenCalledTimes(1);
+  });
   it('answers all earlier text when the newest event of the burst is an image, with no extra handoff', async () => {
     const { channels, ai, inbox, processor } = setup();
     const t0 = Date.now();

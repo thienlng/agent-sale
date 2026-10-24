@@ -57,6 +57,20 @@ describe('ungroundedFigures', () => {
     expect(ungroundedFigures('Dạ giá 350 triệu ạ', ['giá 350k, size 42'])).toEqual(['350 trieu']);
   });
 
+  it('accepts the phone number the customer gave however it is spelled', () => {
+    for (const given of ['0912345678', '0912 345 678', '091 234 5678', '0912-345-678'])
+      for (const echoed of ['0912345678', '0912 345 678', '091.234.5678'])
+        expect(
+          ungroundedFigures(`Em ghi nhận số ${echoed} ạ`, trusted, [`gọi lại số ${given}`]),
+        ).toEqual([]);
+  });
+
+  it('still rejects a phone number the customer did not give', () => {
+    expect(ungroundedFigures('Em gọi số 0987654321 ạ', trusted, ['gọi số 0912345678'])).toEqual([
+      '0987654321',
+    ]);
+  });
+
   it('replies without figures are always grounded', () => {
     expect(ungroundedFigures('Dạ em chào anh/chị ạ', [])).toEqual([]);
   });

@@ -146,7 +146,7 @@ describe('PlaygroundService', () => {
     const a = service(new LlmRuntime(new InMemoryLlmConfigRepository(), factory(garbage)));
     expect(await a.svc.playground(ws, botId, ask('hi'))).toMatchObject({
       outcome: 'fallback',
-      guardrail: 'invalid_output',
+      guardrail: 'invalid_output:not_json',
     });
 
     const refusal = new FakeLlmProvider('dev-fake', () => ({ text: '', stopReason: 'refusal' }));
@@ -155,6 +155,55 @@ describe('PlaygroundService', () => {
       outcome: 'handoff',
       reply: bot.handoffMessage,
     });
+  });
+});
+
+describe('PlaygroundService invalid model output', () => {
+  const valid = {
+    outcome: 'answer',
+    reply: 'Dạ áo thun giá 350k ạ',
+    sources: ['kb:1'],
+  };
+  function scripted(...texts: string[]) {
+    let i = 0;
+    const fake = new FakeLlmProvider('dev-fake', () => ({
+      text: texts[Math.min(i++, texts.length - 1)] ?? '',
+    }));
+    const built = service(new LlmRuntime(new InMemoryLlmConfigRepository(), factory(fake)));
+    return { fake, ...built };
+  }
+
+  it('retries once and answers when the second output is valid', async () => {
+    const { fake, svc, runs } = scripted('Xin lỗi, đây là câu trả lời', JSON.stringify(valid));
+    const res = await svc.playground(ws, botId, ask('ao thun bao nhieu'));
+    expect(res).toMatchObject({ outcome: 'answered', guardrail: null });
+    expect(fake.calls).toHaveLength(2);
+    expect(runs.runs).toHaveLength(1);
+  });
+
+  it('falls back after two invalid outputs and records the rejection category only', async () => {
+    const { fake, svc, runs } = scripted('plain text one', '{"outcome":"answer","reply":"x"}');
+    const res = await svc.playground(ws, botId, ask('ao thun bao nhieu'));
+    expect(res).toMatchObject({
+      outcome: 'fallback',
+      reply: bot.fallbackMessage,
+      guardrail: 'invalid_output:schema',
+    });
+    expect(fake.calls).toHaveLength(2);
+    expect(JSON.stringify(runs.runs)).not.toContain('plain text one');
+  });
+
+  it('does not retry a valid output that is merely ungrounded', async () => {
+    const { fake, svc } = scripted(JSON.stringify({ ...valid, reply: 'Dạ giá 299k ạ' }));
+    const res = await svc.playground(ws, botId, ask('ao thun bao nhieu'));
+    expect(res.guardrail).toBe('ungrounded_figure:299k');
+    expect(fake.calls).toHaveLength(1);
+  });
+
+  it('accepts JSON wrapped in a code fence on the first try', async () => {
+    const { fake, svc } = scripted('```json\n' + JSON.stringify(valid) + '\n```');
+    expect((await svc.playground(ws, botId, ask('ao thun bao nhieu'))).outcome).toBe('answered');
+    expect(fake.calls).toHaveLength(1);
   });
 });
 
@@ -177,7 +226,7 @@ describe('PlaygroundService fallback and handoff text', () => {
     expect(res.outcome).toBe('fallback');
     expect(res.reply).not.toContain('500k');
     expect(res.reply).toBe(
-      'Dạ, em chưa có thông tin này, em sẽ kiểm tra lại và báo anh/chị ngay ạ.',
+      'Dạ, em chưa có thông tin này ạ. Anh/chị nhắn rõ hơn hoặc để lại số điện thoại để nhân viên hỗ trợ giúp mình nhé.',
     );
   });
 
@@ -343,11 +392,11 @@ describe('sales-agent prompt and handoff reply', () => {
     expect(system.indexOf('<shop_situations> are the owner')).toBeGreaterThan(-1);
     expect(system.indexOf('follow it')).toBeLessThan(system.indexOf('"handoff" only when'));
     expect(system).toContain('Never call yourself "shop"');
-    expect(system).toContain('Greet only when there is no earlier assistant message');
+    expect(system).toContain('Greet only when the conversation is a single <customer> block');
     expect(system).toContain('never start with a greeting');
-    expect(system).toContain('Answer every question in the customer');
+    expect(system).toContain('Answer every question in the last <customer> block');
     expect(system).toContain('Promise no follow-up');
-    expect(system).toContain('repeat it back');
+    expect(system).toContain('use outcome "handoff" and let "reply" confirm it');
     expect(system).toContain('language other than Vietnamese');
     expect(system).not.toMatch(/\{\{[^}]+\}\}/);
   });

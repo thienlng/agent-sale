@@ -123,9 +123,9 @@ export class MetaInboxProcessor {
     const context = await this.inbox.getReplyContext(job.workspaceId, c.id);
     // Ids are monotonic (see nextMessageId), so they order messages by when we stored them rather
     // than by Meta timestamps or the store's createdAt order. This is the single notion of "arrival".
-    const stored = [...context.messages]
-      .filter((m) => m.status !== 'failed')
-      .sort((a, b) => (a.id < b.id ? -1 : 1));
+    // Outbound messages of every status stay: a failed, pending or unknown reply is still an
+    // attempt to answer, so it bounds the customer turn and stops a retry from answering twice.
+    const stored = [...context.messages].sort((a, b) => (a.id < b.id ? -1 : 1));
     const newest = stored.findLast(
       (m) => m.direction === 'inbound' && (m.text.trim() || m.attachments.length),
     );
@@ -133,7 +133,7 @@ export class MetaInboxProcessor {
       stored.at(-1)?.direction !== 'inbound' ||
       newest?.externalId !== (job.event.externalMessageId ?? job.event.externalEventId)
     )
-      return this.skip(job, 'a newer message will answer for this one');
+      return this.skip(job, 'already answered or attempted, or a newer message will answer');
     if (context.conversation.mode !== 'bot' || context.conversation.status !== 'open')
       return this.skip(job, 'conversation control changed');
     const key = `bot:${job.event.externalEventId}`;

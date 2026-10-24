@@ -1,8 +1,7 @@
 import { type ChatMessage, PROMPTS_DIR, PromptRegistry } from '@agent-sales/ai-core';
-import type { AiOutcome, PlaygroundRequest, PlaygroundResponse } from '@agent-sales/contracts';
+import type { PlaygroundRequest, PlaygroundResponse } from '@agent-sales/contracts';
 import { newId, type WorkspaceId } from '@agent-sales/shared';
-import { Inject, Injectable, Optional } from '@nestjs/common';
-import { z } from 'zod';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
 import { recordAiRun } from '../../../common/metrics.js';
 import { BOT_FACADE, type BotFacade, type BotView } from '../../bot/api/index.js';
@@ -11,40 +10,21 @@ import { KNOWLEDGE_FACADE, type KnowledgeFacade } from '../../knowledge/api/inde
 import { TRAINING_FACADE, type TrainingFacade } from '../../knowledge/api/index.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
 import type { AiFacade } from '../api/ai.facade.js';
-import { defaultFallbackMessage, defaultHandoffMessage } from '../domain/default-messages.js';
-import {
-  knowledgeBlock,
-  type KnowledgeSource,
-  toSources,
-  ungroundedFigures,
-} from '../domain/grounding.js';
+import { knowledgeBlock, type KnowledgeSource, toSources } from '../domain/grounding.js';
+import { ModelReply, parseModelReply } from '../domain/model-reply.js';
 import { AI_RUN_REPOSITORY, type AiRunRepository } from '../domain/ports/ai-run.repository.js';
+import { decide } from './decide-reply.js';
 import { LlmRuntime } from './llm-runtime.js';
 
 const PROMPT = { name: 'sales-agent', version: 4 } as const;
 const PROMPT_VERSION = `${PROMPT.name}@${PROMPT.version}`;
 const MAX_SOURCES = 5;
-const MAX_HANDOFF_LEAD = 200;
-
-/** What the model must return (structured output); validated again here. */
-export const ModelReply = z.object({
-  outcome: z.enum(['answer', 'unknown', 'handoff']),
-  reply: z.string(),
-  sources: z.array(z.string()),
-});
 
 const STYLE: Record<BotView['creativity'], string> = {
   strict: 'Stay close to the wording of the knowledge entries.',
   balanced: 'Rephrase the knowledge naturally, keeping every fact exact.',
   creative: 'Be lively and persuasive, but every fact must still come from the knowledge.',
 };
-
-interface Decision {
-  outcome: AiOutcome;
-  reply: string;
-  guardrail: string | null;
-  used: ReadonlySet<string>;
-}
 
 /**
  * The bot's reply pipeline, single turn, for the dashboard playground:
@@ -56,6 +36,7 @@ interface Decision {
 @Injectable()
 export class PlaygroundService implements AiFacade {
   readonly #prompts = new PromptRegistry(PROMPTS_DIR);
+  readonly #logger = new Logger(PlaygroundService.name);
 
   constructor(
     @Inject(BOT_FACADE) private readonly bots: BotFacade,
@@ -142,15 +123,35 @@ export class PlaygroundService implements AiFacade {
       'bot.mission': bot.mission || '(not described yet)',
     });
 
-    const res = await this.llm.generate({
+    const request = {
       workspaceId: ws,
       tier: bot.modelTier,
-      messages: [{ role: 'system', content: system }, ...conversation(input, sources, contextData)],
+      messages: [
+        { role: 'system' as const, content: system },
+        ...conversation(input, sources, contextData),
+      ],
       responseFormat: ModelReply,
       maxOutputTokens: 2_000,
-    });
+    };
+    let res = await this.llm.generate(request);
+    let output = parseModelReply(res.text);
+    // One malformed output is usually a one-off: retry once before giving up on the question.
+    if (!output.ok && res.stopReason === 'end') {
+      this.#logger.warn(`AI output rejected (${output.reason}), retrying once`);
+      const retry = await this.llm.generate(request);
+      res = {
+        ...retry,
+        latencyMs: res.latencyMs + retry.latencyMs,
+        usage: {
+          inputTokens: res.usage.inputTokens + retry.usage.inputTokens,
+          outputTokens: res.usage.outputTokens + retry.usage.outputTokens,
+          cachedInputTokens: res.usage.cachedInputTokens + retry.usage.cachedInputTokens,
+        },
+      };
+      output = parseModelReply(retry.text);
+    }
 
-    const decision = decide(res.stopReason, res.text, bot, sources, customerTexts, contextData);
+    const decision = decide(res.stopReason, output, bot, sources, customerTexts, contextData);
     const run = {
       id: newId(),
       botId,
@@ -218,66 +219,4 @@ function conversation(
           : customer,
     };
   });
-}
-
-function decide(
-  stopReason: string,
-  text: string,
-  bot: BotView,
-  sources: KnowledgeSource[],
-  customerTexts: string[],
-  guidance: string,
-): Decision {
-  // Fallback never sends model text and handoff only a vetted lead-in: an empty setting uses the built-in message.
-  const fallback = (guardrail: string | null): Decision => ({
-    outcome: 'fallback',
-    reply: bot.fallbackMessage.trim() || defaultFallbackMessage(bot),
-    guardrail,
-    used: new Set(),
-  });
-  // The shop's own hand-over message always goes out. The model may add one brief sentence
-  // before it (an apology, a confirmed phone number); it is dropped when it is long or
-  // carries a figure that is neither grounded nor given by the customer.
-  const handoff = (guardrail: string | null, lead = ''): Decision => ({
-    outcome: 'handoff',
-    reply: [lead, bot.handoffMessage.trim() || defaultHandoffMessage(bot)]
-      .filter(Boolean)
-      .join(' '),
-    guardrail,
-    used: new Set(),
-  });
-  if (stopReason === 'refusal') return handoff('provider_refusal');
-  if (stopReason === 'max_tokens') return fallback('output_truncated');
-
-  let parsed: z.infer<typeof ModelReply>;
-  try {
-    parsed = ModelReply.parse(JSON.parse(text));
-  } catch {
-    return fallback('invalid_output');
-  }
-  const trusted = [
-    ...sources.flatMap((s) => [s.question, s.answer]),
-    bot.mission,
-    bot.greeting,
-    guidance,
-    ...Object.values(bot.placeholders),
-  ];
-  if (parsed.outcome === 'handoff') {
-    const lead = parsed.reply.trim();
-    const safe =
-      lead.length <= MAX_HANDOFF_LEAD && !ungroundedFigures(lead, trusted, customerTexts).length;
-    return handoff(null, safe ? lead : '');
-  }
-  if (parsed.outcome === 'unknown' || !parsed.reply.trim()) return fallback(null);
-
-  const ungrounded = ungroundedFigures(parsed.reply, trusted, customerTexts);
-  if (ungrounded.length) return fallback(`ungrounded_figure:${ungrounded.join(',')}`);
-
-  const known = new Set(sources.map((s) => s.key));
-  return {
-    outcome: 'answered',
-    reply: parsed.reply.trim(),
-    guardrail: null,
-    used: new Set(parsed.sources.filter((k) => known.has(k))),
-  };
 }
