@@ -4,7 +4,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
-Milestone **M2-bot-playground** — branch `feat/T-015-m2-bot-playground`: T-015, T-016, T-005, T-017, T-018, T-019 done; PR #13 open for review.
+(none)
 
 ## Next
 
@@ -26,12 +26,13 @@ Milestone **M2-bot-playground** — branch `feat/T-015-m2-bot-playground`: T-015
 
 ## Done (last 10 — older ones live in todo/done/)
 
-- [x] T-019 Orders and products web: overview, order list, create order, detail, products, warehouses, settings — @agent:claude · [details](todo/done/T-019-orders-and-products-web-overview-order-list-create.md) · M2 PR
-- [x] T-018 Commerce backend: products, variants, warehouses, inventory, orders, statuses, overview — @agent:claude · [details](todo/done/T-018-commerce-backend-products-variants-warehouses-inve.md) · M2 PR
-- [x] T-017 Dashboard layout system: shadcn sidebar, user UI preferences, responsive guard — @agent:claude · [details](todo/done/T-017-dashboard-layout-system-shadcn-sidebar-user-ui-pre.md) · M2 PR
-- [x] T-005 Web dashboard: auth, bots, FAQ, settings, test chat, admin LLM settings — @agent:claude · [details](todo/done/T-005-scaffold-web.md) · M2 PR
-- [x] T-016 AI playground, LLM providers (Anthropic + OpenAI-compatible) and admin-managed tier routing — @agent:claude · [details](todo/done/T-016-ai-playground-llm-providers-faq-retrieval-grounded.md) · M2 PR
-- [x] T-015 Bot and knowledge modules — @agent:claude · [details](todo/done/T-015-bot-and-knowledge-modules-bots-settings-faq-indust.md) · M2 PR
+- [x] T-022 Use setup-node v7 in the web CI job too — @agent:claude · [details](todo/done/T-022-use-setup-node-v7-in-the-web-ci-job-too.md)
+- [x] T-019 Orders and products web: overview, order list, create order, detail, products, warehouses, settings — @agent:claude · [details](todo/done/T-019-orders-and-products-web-overview-order-list-create.md) · #13
+- [x] T-018 Commerce backend: products, variants, warehouses, inventory, orders, statuses, overview — @agent:claude · [details](todo/done/T-018-commerce-backend-products-variants-warehouses-inve.md) · #13
+- [x] T-017 Dashboard layout system: shadcn sidebar, user UI preferences, responsive guard — @agent:claude · [details](todo/done/T-017-dashboard-layout-system-shadcn-sidebar-user-ui-pre.md) · #13
+- [x] T-005 Web dashboard: auth, bots, FAQ, settings, test chat, admin LLM settings — @agent:claude · [details](todo/done/T-005-scaffold-web.md) · #13
+- [x] T-016 AI playground, LLM providers (Anthropic + OpenAI-compatible) and admin-managed tier routing — @agent:claude · [details](todo/done/T-016-ai-playground-llm-providers-faq-retrieval-grounded.md) · #13
+- [x] T-015 Bot and knowledge modules — @agent:claude · [details](todo/done/T-015-bot-and-knowledge-modules-bots-settings-faq-indust.md) · #13
 - [x] T-014 Authentication and workspace onboarding — @agent:claude · [details](todo/done/T-014-authentication-and-workspace-onboarding-signup-log.md) · M1-foundation PR
 - [x] T-003 Complete the backend runtime: OpenAPI, request tracing, readiness, metrics — @agent:claude · [details](todo/done/T-003-scaffold-api.md) · M1-foundation PR
 - [x] T-004 Wire the database: local infra, migration runner, RLS integration tests, Drizzle repositories — @agent:claude · [details](todo/done/T-004-packages-db.md) · M1-foundation PR
