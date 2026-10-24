@@ -6,14 +6,13 @@ terminal. Tokens are written only to this runtime's private ``auth.json`` (mode 
 leave this module through the HTTP API. No login happens during customer turns.
 """
 
-import json
-import os
 import sys
-import tempfile
 import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+
+from authstore import AuthStore
 
 ISSUER = "https://auth.openai.com"
 CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann"  # public Codex CLI OAuth client id used by Hermes
@@ -37,6 +36,7 @@ def _http_client():
 class ChatGptLogin:
     def __init__(self, home, client_factory=None, clock=time.monotonic):
         self.home = Path(home)
+        self.store = AuthStore(self.home)
         self._client_factory = client_factory or _http_client
         self._clock = clock
         self._lock = threading.Lock()
@@ -46,14 +46,7 @@ class ChatGptLogin:
     # -- state -------------------------------------------------------------------------
 
     def _signed_in(self):
-        auth = self.home / "auth.json"
-        try:
-            if auth.is_symlink() or auth.stat().st_mode & 0o077:
-                return False
-            tokens = json.loads(auth.read_text(encoding="utf-8-sig"))["providers"]["openai-codex"]["tokens"]
-            return all(isinstance(tokens.get(k), str) and tokens[k].strip() for k in ("access_token", "refresh_token"))
-        except (OSError, ValueError, TypeError, KeyError):
-            return False
+        return self.store.read() is not None
 
     def status(self):
         """Current state; while pending this also asks OpenAI (at most once per interval)."""
@@ -86,18 +79,22 @@ class ChatGptLogin:
 
     def start(self):
         with self._lock:
-            if not (self._pending and self._clock() < self._pending["deadline"]):
+            reuse = bool(self._pending and self._clock() < self._pending["deadline"])
+            if not reuse:
                 self._pending, self._failed = None, None
-                self._request_code()
+        if not reuse:
+            pending = self._request_code()  # network I/O outside the lock
+            with self._lock:
+                if not (self._pending and self._clock() < self._pending["deadline"]):
+                    self._pending = pending  # else a concurrent start won; keep its code
         return self.status()
 
     def logout(self):
+        """Local sign-out: OpenAI offers no documented token-revocation endpoint to this runtime."""
         with self._lock:
             self._pending, self._failed = None, None
-            try:
-                (self.home / "auth.json").unlink()
-            except FileNotFoundError:
-                pass
+            with self.store.lock():
+                self.store.delete()
         return {"state": "signed_out"}
 
     # -- OpenAI steps -----------------------------------------------------------------
@@ -124,8 +121,8 @@ class ChatGptLogin:
         if not isinstance(user_code, str) or not isinstance(device_auth_id, str) or not user_code:
             raise LoginError("login_failed")
         now = self._clock()
-        self._pending = {"device_auth_id": device_auth_id, "user_code": user_code, "interval": interval,
-                         "deadline": now + MAX_WAIT_SECONDS, "next_poll": now + interval}
+        return {"device_auth_id": device_auth_id, "user_code": user_code, "interval": interval,
+                "deadline": now + MAX_WAIT_SECONDS, "next_poll": now + interval}
 
     def _poll(self, job):
         """One check with OpenAI: ("wait",), ("fail", code) or ("done", access, refresh). Never raises."""
@@ -173,13 +170,5 @@ class ChatGptLogin:
             "base_url": CODEX_URL,
             "last_refresh": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "auth_mode": "chatgpt", "source": "device-code"}}}
-        descriptor, name = tempfile.mkstemp(prefix="auth-", dir=self.home)  # mkstemp creates mode 600
-        try:
-            with os.fdopen(descriptor, "w", encoding="utf-8") as output:
-                json.dump(state, output)
-                output.flush()
-                os.fsync(output.fileno())
-            os.replace(name, self.home / "auth.json")
-        finally:
-            if os.path.exists(name):
-                os.unlink(name)
+        with self.store.lock():
+            self.store.write(state)

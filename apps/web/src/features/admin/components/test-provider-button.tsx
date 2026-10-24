@@ -2,16 +2,19 @@ import type { LlmProviderDto } from '@agent-sales/contracts';
 import { Plug } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { errorMessage } from '@/lib/errors';
 
 import { useLlmTiers, useProviderModels, useTestProvider } from '../api/llm';
 import { ModelPicker } from './model-picker';
 
-function TestForm({ provider }: { provider: LlmProviderDto }) {
+type TestMutation = ReturnType<typeof useTestProvider>;
+
+function TestForm({ provider, test }: { provider: LlmProviderDto; test: TestMutation }) {
   const { t } = useTranslation();
-  const test = useTestProvider();
   const models = useProviderModels(provider.id);
   const tiers = useLlmTiers();
   const [picked, setPicked] = useState<string | null>(null);
@@ -24,7 +27,29 @@ function TestForm({ provider }: { provider: LlmProviderDto }) {
 
   function submit(e: FormEvent) {
     e.preventDefault();
-    if (model) test.mutate({ id: provider.id, model });
+    if (!model) return;
+    test.mutate(
+      { id: provider.id, model },
+      {
+        onSuccess: (res) =>
+          res.ok
+            ? toast.success(resultText(res))
+            : toast.error(t('admin.testFail', { error: res.error })),
+        onError: (err) => toast.error(errorMessage(t, err)),
+      },
+    );
+  }
+
+  function resultText(res: { model: string | null; latencyMs: number }) {
+    return t('admin.testOk', {
+      model: res.model ?? model,
+      seconds: (res.latencyMs / 1000).toFixed(1),
+    });
+  }
+
+  function pick(next: string) {
+    setPicked(next);
+    test.reset(); // a result belongs to the model it was run with
   }
 
   return (
@@ -39,7 +64,7 @@ function TestForm({ provider }: { provider: LlmProviderDto }) {
             providerId={provider.id}
             label={t('admin.testModel')}
             value={model}
-            onChange={setPicked}
+            onChange={pick}
           />
         </div>
         <Button type="submit" disabled={!model || test.isPending}>
@@ -51,18 +76,23 @@ function TestForm({ provider }: { provider: LlmProviderDto }) {
           role="status"
           className={test.data.ok ? 'text-sm text-success' : 'text-sm break-words text-destructive'}
         >
-          {test.data.ok
-            ? t('admin.testOk', { model: test.data.model, ms: test.data.latencyMs })
-            : t('admin.testFail', { error: test.data.error })}
+          {test.data.ok ? '✓ ' : ''}
+          {test.data.ok ? resultText(test.data) : t('admin.testFail', { error: test.data.error })}
+        </p>
+      ) : test.isError ? (
+        <p role="status" className="text-sm break-words text-destructive">
+          {errorMessage(t, test.error)}
         </p>
       ) : null}
     </form>
   );
 }
 
-/** Sends a tiny prompt with the stored key; the result shows inline. */
+/** Sends a tiny prompt with the stored key; the result stays inline in the popover (and toasts). */
 export function TestProviderButton({ provider }: { provider: LlmProviderDto }) {
   const { t } = useTranslation();
+  // Owned here, not in the popover, so the last result is still there when it is reopened.
+  const test = useTestProvider();
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -72,7 +102,7 @@ export function TestProviderButton({ provider }: { provider: LlmProviderDto }) {
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-96">
-        <TestForm provider={provider} />
+        <TestForm provider={provider} test={test} />
       </PopoverContent>
     </Popover>
   );

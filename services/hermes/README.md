@@ -21,7 +21,9 @@ The server binds only to `127.0.0.1:8788`. `HERMES_BRIDGE_PORT` changes the port
 
 ## Sign in from the Admin page
 
-A platform admin signs the runtime in to ChatGPT from **Admin → LLM** (the Hermes provider's "Tài khoản ChatGPT" panel): the button starts OpenAI's device-code flow, the page shows a code and a link, and the admin approves it in another tab. The bridge (`login.py`) polls OpenAI no faster than its interval, gives up after 15 minutes and writes the private `auth.json` (mode 600) itself. Endpoints, all requiring the bridge bearer key and never returning tokens: `GET /v1/auth/status`, `POST /v1/auth/start`, `POST /v1/auth/logout`. Nothing signs in during customer turns. The terminal method below still works.
+A platform admin signs the runtime in to ChatGPT from **Admin → LLM** (the Hermes provider's "Tài khoản ChatGPT" panel): the button starts OpenAI's device-code flow, the page shows a code and a link, and the admin approves it in another tab. The bridge (`login.py`) polls OpenAI no faster than its interval, gives up after 15 minutes and writes the private `auth.json` (mode 600) itself. Endpoints, all requiring the bridge bearer key and never returning tokens: `GET /v1/auth/status`, `POST /v1/auth/start`, `POST /v1/auth/logout` (the two POSTs must have no body, else 400), plus `GET /v1/models` (the plan's model list for the Admin model picker). The bridge only redeems the approved code while something polls `status`, so the admin must keep the Admin page open until sign-in completes. Nothing signs in during customer turns.
+
+`auth.json` has one owner: sign-in, token refresh and logout all lock `<HERMES_HOME>/.auth.lock` (`authstore.py`, `flock`, mode 600) for their read-modify-write and never hold it during network calls. A refresh whose stored refresh token changed or vanished (logout or new sign-in in the meantime) is discarded and the turn fails with `MODEL_AUTH_REQUIRED`. **Logout is local only**: Hermes has no documented OpenAI revocation endpoint, so it deletes `auth.json` but does not revoke the token at OpenAI; revoke it in the ChatGPT account settings if needed. The backend exposes the panel only outside production unless `HERMES_SUBSCRIPTION_LOGIN=true` (eligibility of ChatGPT plans for a hosted product is pending an owner decision). The terminal method below still works.
 
 ## Separate ChatGPT login (terminal)
 
@@ -42,7 +44,7 @@ Hermes enforces its configured 50-second run budget and iteration limit; the Typ
 ## Verify
 
 ```bash
-python3 -m unittest discover -s services/hermes -p 'test_*.py' -v
+python3 -m unittest discover -s services/hermes -p 'test_*.py' -v   # includes the auth.json race tests
 pnpm --filter @agent-sales/ai-core test
 ```
 

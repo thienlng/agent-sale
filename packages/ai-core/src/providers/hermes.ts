@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 
+import { parseBridgeBaseUrl } from './bridge-url.js';
 import type { GenerateRequest, GenerateResponse, LlmProvider, ModelTarget } from '../gateway.js';
 
 const BridgeReply = z.object({
@@ -35,19 +36,11 @@ export class HermesProvider implements LlmProvider {
     timeoutMs?: number;
     fetch?: typeof fetch;
   }) {
-    const url = new URL(options.baseURL);
-    if (
-      !['http:', 'https:'].includes(url.protocol) ||
-      url.username ||
-      url.password ||
-      url.search ||
-      url.hash
-    ) {
-      throw new Error('Invalid Hermes bridge URL');
-    }
+    const base = parseBridgeBaseUrl(options.baseURL);
+    if (!base) throw new Error('Invalid Hermes bridge URL');
     if (!options.apiKey?.trim()) throw new Error('Hermes bridge key is required');
     this.name = options.name ?? 'hermes';
-    this.#endpoint = `${url.toString().replace(/\/$/, '')}/v1/generate`;
+    this.#endpoint = `${base}/v1/generate`;
     this.#key = options.apiKey;
     this.#fetch = options.fetch ?? fetch;
     // The admin form's generic 20 s default must not undercut the bridge's own budget.

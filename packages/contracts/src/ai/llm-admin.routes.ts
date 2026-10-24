@@ -77,7 +77,7 @@ export const llmAdminRoutes = defineRoutes([
   {
     method: 'post',
     path: '/admin/llm/providers/{providerId}/hermes-login',
-    summary: 'Start the ChatGPT device-code sign-in of a Hermes provider',
+    summary: 'Start the ChatGPT device-code sign-in of a Hermes provider (403 when disabled)',
     tag: 'admin',
     auth: true,
     responses: { 200: HermesLoginStatus },
@@ -85,7 +85,7 @@ export const llmAdminRoutes = defineRoutes([
   {
     method: 'delete',
     path: '/admin/llm/providers/{providerId}/hermes-login',
-    summary: 'Sign a Hermes provider out of ChatGPT',
+    summary: 'Sign a Hermes provider out of ChatGPT (local only; 403 when disabled)',
     tag: 'admin',
     auth: true,
     responses: { 200: HermesLoginStatus },

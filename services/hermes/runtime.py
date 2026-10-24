@@ -4,8 +4,9 @@ import json
 import logging
 import os
 import sys
-import tempfile
 from pathlib import Path
+
+from authstore import AuthStore
 
 CODEX_URL = "https://chatgpt.com/backend-api/codex"
 
@@ -17,7 +18,8 @@ class RuntimeUnavailable(Exception):
 
 
 class HermesRuntime:
-    def __init__(self, home, provider, agent_class=None, credential_resolver=None, model_lister=None):
+    def __init__(self, home, provider, agent_class=None, credential_resolver=None, model_lister=None,
+                 token_refresher=None, expiry_check=None):
         raw_home = Path(home).expanduser()
         if raw_home.is_symlink():
             raise ValueError("private Hermes home cannot be a symlink")
@@ -30,9 +32,12 @@ class HermesRuntime:
         self.agent_class = agent_class
         self.credential_resolver = credential_resolver
         self.model_lister = model_lister
+        self.token_refresher = token_refresher  # (access, refresh) -> {access_token, refresh_token}
+        self.expiry_check = expiry_check  # (access_token) -> bool; injected by tests
         self.home.mkdir(parents=True, exist_ok=True, mode=0o700)
         if self.home.stat().st_mode & 0o077:
             raise ValueError("private Hermes home permissions must be 700")
+        self.store = AuthStore(self.home)
         current = os.environ.get("HERMES_HOME")
         if "hermes_constants" in sys.modules and current != str(self.home):
             raise ValueError("Hermes already imported with another home")
@@ -64,35 +69,15 @@ tools:
             return {"provider": "openrouter", "base_url": "https://openrouter.ai/api/v1", "api_key": key}
         if os.environ.get("HERMES_CODEX_BASE_URL", CODEX_URL).rstrip("/") != CODEX_URL:
             raise RuntimeUnavailable("MODEL_ENDPOINT_REJECTED")
-        auth = self.home / "auth.json"
-        try:
-            if auth.is_symlink() or auth.stat().st_mode & 0o077:
-                raise ValueError("private auth permissions")
-            state = json.loads(auth.read_text(encoding="utf-8-sig"))
-            tokens = state["providers"]["openai-codex"]["tokens"]
-            if not all(isinstance(tokens.get(k), str) and tokens[k].strip() for k in ("access_token", "refresh_token")):
-                raise ValueError("missing tokens")
-        except (OSError, ValueError, TypeError, KeyError):
-            raise RuntimeUnavailable("MODEL_AUTH_REQUIRED") from None
+        with self.store.lock():
+            state = self.store.read()
+        if state is None:
+            raise RuntimeUnavailable("MODEL_AUTH_REQUIRED")
+        tokens = dict(self.store.tokens(state))
         try:
             resolver = self.credential_resolver
             if resolver is None:
-                # The higher-level resolver can recover the operator's global CLI
-                # session. Use Hermes' pure refresh helper on this private store only.
-                from hermes_cli.auth import _codex_access_token_is_expiring, refresh_codex_oauth_pure
-                if _codex_access_token_is_expiring(tokens["access_token"], 60):
-                    refreshed = refresh_codex_oauth_pure(tokens["access_token"], tokens["refresh_token"], timeout_seconds=15)
-                    tokens.update({"access_token": refreshed["access_token"], "refresh_token": refreshed["refresh_token"]})
-                    descriptor, name = tempfile.mkstemp(prefix="auth-", dir=self.home)
-                    try:
-                        with os.fdopen(descriptor, "w", encoding="utf-8") as output:
-                            json.dump(state, output)
-                            output.flush()
-                            os.fsync(output.fileno())
-                        os.replace(name, auth)
-                    finally:
-                        if os.path.exists(name):
-                            os.unlink(name)
+                tokens = self._fresh_tokens(tokens)
                 value = {"api_key": tokens["access_token"], "base_url": CODEX_URL}
             else:
                 value = resolver()
@@ -101,6 +86,33 @@ tools:
             return {"provider": "openai-codex", "api_mode": "codex_responses", "base_url": CODEX_URL, "api_key": value["api_key"]}
         except Exception:
             raise RuntimeUnavailable("MODEL_AUTH_REQUIRED") from None
+
+    def _fresh_tokens(self, tokens):
+        """Refresh an expiring access token. The auth lock is held only for the file access.
+
+        Read under the lock (done by the caller), refresh at OpenAI outside it, then re-lock and
+        write only if auth.json still holds the refresh token we used. A logout (file gone) or a
+        new sign-in (different refresh token) in the meantime wins: the refreshed pair is dropped.
+        """
+        check, refresh = self.expiry_check, self.token_refresher
+        if check is None or refresh is None:
+            # The higher-level resolver can recover the operator's global CLI session.
+            # Use Hermes' pure refresh helper on this private store only.
+            from hermes_cli.auth import _codex_access_token_is_expiring, refresh_codex_oauth_pure
+            check = check or (lambda token: _codex_access_token_is_expiring(token, 60))
+            refresh = refresh or (lambda access, refresh_token: refresh_codex_oauth_pure(
+                access, refresh_token, timeout_seconds=15))
+        if not check(tokens["access_token"]):
+            return tokens
+        refreshed = refresh(tokens["access_token"], tokens["refresh_token"])
+        new = {"access_token": refreshed["access_token"], "refresh_token": refreshed["refresh_token"]}
+        with self.store.lock():
+            current = self.store.read()
+            if current is None or self.store.tokens(current)["refresh_token"] != tokens["refresh_token"]:
+                raise RuntimeUnavailable("MODEL_AUTH_REQUIRED")
+            self.store.tokens(current).update(new)
+            self.store.write(current)
+        return new
 
     def warm_up(self):
         """Imports the heavy Hermes modules so the first customer turn is not the slow one."""

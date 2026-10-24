@@ -25,6 +25,23 @@ function setup(routes: Parameters<typeof stubFetch>[0]) {
 }
 
 describe('HermesLoginPanel', () => {
+  it('disabled: shows a note instead of the sign-in button', async () => {
+    setup({ [`GET ${path}`]: { status: 200, body: { state: 'disabled' } } });
+    expect(await screen.findByText(/đang tắt trong môi trường này/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Đăng nhập ChatGPT' })).not.toBeInTheDocument();
+  });
+
+  it('pending: tells the admin to keep the page open', async () => {
+    setup({ [`GET ${path}`]: { status: 200, body: pending } });
+    expect(await screen.findByText(/giữ trang này mở/)).toBeInTheDocument();
+  });
+
+  it('logout confirmation says the sign-out is local only', async () => {
+    setup({ [`GET ${path}`]: { status: 200, body: { state: 'signed_in' } } });
+    await userEvent.click(await screen.findByRole('button', { name: 'Đăng xuất' }));
+    expect(await screen.findByText(/chỉ xóa phiên đăng nhập trên máy này/)).toBeInTheDocument();
+  });
+
   it('signed out: explains and starts the device-code login', async () => {
     const { calls } = setup({
       [`GET ${path}`]: { status: 200, body: { state: 'signed_out' } },

@@ -1,6 +1,7 @@
 import { HermesLoginClient } from '@agent-sales/ai-core';
 import { describe, expect, it, vi } from 'vitest';
 
+import { hermesSubscriptionLoginEnabled } from '../../../common/config.js';
 import { SecretBox } from '../../../common/security/secret-box.js';
 import { LlmAdminService } from '../application/llm-admin.service.js';
 import { LlmRuntime } from '../application/llm-runtime.js';
@@ -12,7 +13,7 @@ const KEY = 'k'.repeat(40);
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
-async function setup(transport: typeof fetch) {
+async function setup(transport: typeof fetch, subscriptionLogin = true) {
   const secrets = SecretBox.insecureDevelopmentBox();
   const config = new InMemoryLlmConfigRepository();
   const real = new SdkLlmProviderFactory(secrets, false);
@@ -27,7 +28,13 @@ async function setup(transport: typeof fetch) {
       return new HermesLoginClient({ baseURL: c.baseUrl ?? '', apiKey: KEY, fetch: transport });
     },
   };
-  const svc = new LlmAdminService(config, factory, secrets, new LlmRuntime(config, factory));
+  const svc = new LlmAdminService(
+    config,
+    factory,
+    secrets,
+    new LlmRuntime(config, factory),
+    subscriptionLogin,
+  );
   const hermes = await svc.createProvider({
     name: 'hermes',
     kind: 'hermes',
@@ -83,5 +90,31 @@ describe('LlmAdminService.hermesLogin', () => {
       state: 'failed',
       code: 'bridge_key_rejected',
     });
+  });
+});
+
+describe('Hermes subscription login gate (HERMES_SUBSCRIPTION_LOGIN)', () => {
+  it('reports disabled, refuses start/logout and never calls the bridge when off', async () => {
+    const transport = vi.fn();
+    const { svc, hermes } = await setup(transport, false);
+    expect(await svc.hermesLogin(hermes.id, 'status')).toEqual({ state: 'disabled' });
+    await expect(svc.hermesLogin(hermes.id, 'start')).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    await expect(svc.hermesLogin(hermes.id, 'logout')).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+    expect(transport).not.toHaveBeenCalled();
+  });
+
+  it('is on outside production and off in production unless explicitly enabled', () => {
+    const on = (NODE_ENV: 'development' | 'test' | 'production', flag?: 'true' | 'false') =>
+      hermesSubscriptionLoginEnabled({
+        NODE_ENV,
+        ...(flag ? { HERMES_SUBSCRIPTION_LOGIN: flag } : {}),
+      });
+    expect(on('development')).toBe(true);
+    expect(on('test')).toBe(true);
+    expect(on('production')).toBe(false);
+    expect(on('production', 'true')).toBe(true);
+    expect(on('development', 'false')).toBe(false);
   });
 });

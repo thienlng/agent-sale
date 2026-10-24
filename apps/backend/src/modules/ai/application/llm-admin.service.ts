@@ -15,6 +15,7 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import { SECRET_BOX, type SecretBox } from '../../../common/security/secret-box.js';
 import {
+  HermesLoginDisabledError,
   HermesLoginRateLimitedError,
   HermesLoginUnavailableError,
   InvalidLlmConfigError,
@@ -39,6 +40,9 @@ import {
 } from '../domain/ports/llm-config.repository.js';
 import { LlmRuntime } from './llm-runtime.js';
 import { LLM_PROVIDER_FACTORY, type LlmProviderFactory } from './ports/llm-provider-factory.js';
+
+/** Whether the Hermes ChatGPT sign-in is available (config `HERMES_SUBSCRIPTION_LOGIN`). */
+export const HERMES_SUBSCRIPTION_LOGIN = Symbol('HERMES_SUBSCRIPTION_LOGIN');
 
 /** Placeholder workspace for admin connection tests; the providers never see it. */
 const PLATFORM_TEST_WORKSPACE = workspaceId('00000000-0000-7000-8000-000000000000');
@@ -93,6 +97,7 @@ export class LlmAdminService {
     @Inject(LLM_PROVIDER_FACTORY) private readonly factory: LlmProviderFactory,
     @Inject(SECRET_BOX) private readonly secrets: SecretBox,
     @Inject(LlmRuntime) private readonly runtime: LlmRuntime,
+    @Inject(HERMES_SUBSCRIPTION_LOGIN) private readonly subscriptionLogin: boolean,
   ) {}
 
   async listProviders(): Promise<LlmProviderDto[]> {
@@ -186,6 +191,10 @@ export class LlmAdminService {
   async hermesLogin(id: string, action: 'status' | 'start' | 'logout'): Promise<HermesLoginStatus> {
     const config = await this.#provider(id);
     if (config.kind !== 'hermes') throw new NotHermesProviderError(id);
+    if (!this.subscriptionLogin) {
+      if (action === 'status') return { state: 'disabled' };
+      throw new HermesLoginDisabledError();
+    }
     try {
       return await this.factory.hermesLogin(config)[action]();
     } catch (error) {

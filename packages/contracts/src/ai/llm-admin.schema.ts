@@ -108,9 +108,12 @@ export const TestLlmProviderResponse = z.object({
 });
 export type TestLlmProviderResponse = z.infer<typeof TestLlmProviderResponse>;
 
-/** ChatGPT sign-in state of a Hermes runtime. `unreachable` = the bridge did not answer. */
+/**
+ * ChatGPT sign-in state of a Hermes runtime. `unreachable` = the bridge did not answer;
+ * `disabled` = the subscription sign-in is switched off in this environment (production gate).
+ */
 export const HermesLoginStatus = z.object({
-  state: z.enum(['signed_out', 'pending', 'signed_in', 'failed', 'unreachable']),
+  state: z.enum(['signed_out', 'pending', 'signed_in', 'failed', 'unreachable', 'disabled']),
   verificationUrl: z.string().optional(),
   userCode: z.string().optional(),
   expiresAt: z.string().optional(),

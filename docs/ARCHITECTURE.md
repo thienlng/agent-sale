@@ -141,12 +141,13 @@ flowchart LR
 | Aspect | Rule |
 |---|---|
 | Selection | Only through the admin-managed LLM config: provider kind `hermes` + an explicit tier route (DB, sealed by `SecretBox`). Never via `.env`, never an implicit fallback. |
-| Caller | Only `HermesProvider` in `packages/ai-core` talks to it. No module, app or script calls the bridge directly. |
-| Contract | `POST /v1/generate`, version `1` (request/workspace UUIDs, model, bounded messages, output budget, optional JSON schema) → `{ version, text, model, usage }`, validated with Zod on the TypeScript side. Changing it is a contract change: bump the version and keep the provider tolerant. |
-| Owns | Inference only. NestJS keeps workspace authorization, retrieval, grounding, conversation state, human takeover and outbound delivery. |
+| Caller | Only `packages/ai-core` talks to it: `HermesProvider` (generate), `HermesLoginClient` (sign-in) and `listProviderModels` (model list), reached from the `ai` module's platform-admin service. No other module, app or script calls the bridge directly. |
+| Contract | `POST /v1/generate`, version `1` (request/workspace UUIDs, model, bounded messages, output budget, optional JSON schema) → `{ version, text, model, usage }`, validated with Zod on the TypeScript side. Admin endpoints (bearer key, no tokens in replies): `GET /v1/models`, `GET /v1/auth/status`, `POST /v1/auth/start`, `POST /v1/auth/logout` (no body). Changing it is a contract change: bump the version and keep the provider tolerant. |
+| Owns | Inference only, plus its own private `auth.json` (sign-in, refresh and logout serialized by one `flock` on `<HERMES_HOME>/.auth.lock`; logout is local only). NestJS keeps workspace authorization, retrieval, grounding, conversation state, human takeover and outbound delivery. |
 | Must not | Read or write the platform database, Redis or object storage; send channel messages; run tools, shell or memory; log message content; return credentials or provider error text. |
 | Network | Binds to `127.0.0.1` (or a private network address in deployment); never exposed through the load balancer. |
 | Capacity | Single-flight: one active turn, `429` while busy, 50 s run budget (+ up to 15 s token refresh). `HermesProvider` therefore never times out below 70 s (`HERMES_MIN_TIMEOUT_MS`). Callers bound their concurrency. To scale, run more instances, **each with its own `HERMES_HOME` and its own login** — instances sharing one refresh token invalidate each other. |
+| Gate | The ChatGPT-plan sign-in from Admin → LLM is on outside production and off in production unless `HERMES_SUBSCRIPTION_LOGIN=true` (owner decision on plan eligibility pending, ADR-010). |
 | Credentials | One private `HERMES_HOME` (`RAPIZ_HERMES_HOME`, mode 700) and one bridge key per instance; never shared with another instance, process or project. |
 | Version | The Hermes package version is not pinned yet; until T-050 lands, the bridge is dev/staging only. |
 | Tests | `python3 -m unittest discover -s services/hermes -p 'test_*.py'` (CI job `hermes`) + `packages/ai-core` provider tests. No real model calls. |

@@ -129,6 +129,8 @@ export function HermesLoginPanel({ providerId }: { providerId: string }) {
     body = <p className="text-sm text-destructive">{errorMessage(t, status.error)}</p>;
   else if (status.data?.state === 'pending')
     body = <PendingView status={status.data} busy={busy} onRestart={begin} />;
+  else if (state === 'disabled')
+    body = <p className="text-sm text-muted-foreground">{t('admin.hermes.disabled')}</p>;
   else if (state === 'signed_in')
     body = (
       <div className="flex flex-col gap-3">
@@ -187,7 +189,9 @@ export function HermesLoginPanel({ providerId }: { providerId: string }) {
     >
       <h3 className="font-semibold">{t('admin.hermes.title')}</h3>
       {body}
-      <p className="text-xs text-muted-foreground">{t('admin.hermes.terms')}</p>
+      {state === 'disabled' ? null : (
+        <p className="text-xs text-muted-foreground">{t('admin.hermes.terms')}</p>
+      )}
       <AlertDialog open={confirmLogout} onOpenChange={setConfirmLogout}>
         <AlertDialogContent>
           <AlertDialogHeader>

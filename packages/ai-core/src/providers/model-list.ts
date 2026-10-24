@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { parseBridgeBaseUrl } from './bridge-url.js';
+
 const MAX_BODY_BYTES = 256_000;
 export const MAX_LISTED_MODELS = 30;
 
@@ -21,24 +23,6 @@ const UNAVAILABLE: ProviderModelList = { models: [], state: 'unavailable' };
 
 const BridgeModels = z.object({ models: z.array(z.object({ id: z.string().min(1).max(200) })) });
 const OpenAiModels = z.object({ data: z.array(z.object({ id: z.string().min(1).max(200) })) });
-
-function safeBase(raw: string | undefined): string | null {
-  if (!raw) return null;
-  try {
-    const url = new URL(raw);
-    if (
-      !['http:', 'https:'].includes(url.protocol) ||
-      url.username ||
-      url.password ||
-      url.search ||
-      url.hash
-    )
-      return null;
-    return url.toString().replace(/\/$/, '');
-  } catch {
-    return null;
-  }
-}
 
 function cap(ids: { id: string }[]): { id: string }[] {
   const seen = new Set<string>();
@@ -62,8 +46,8 @@ export async function listProviderModels(
 ): Promise<ProviderModelList> {
   const base =
     options.kind === 'anthropic'
-      ? safeBase(options.baseURL ?? 'https://api.anthropic.com')
-      : safeBase(options.baseURL);
+      ? parseBridgeBaseUrl(options.baseURL ?? 'https://api.anthropic.com')
+      : parseBridgeBaseUrl(options.baseURL);
   if (!base) return UNAVAILABLE;
   const key = options.apiKey?.trim();
   if (options.kind !== 'openai_compatible' && !key) return UNAVAILABLE;

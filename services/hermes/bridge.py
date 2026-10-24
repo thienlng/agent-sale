@@ -76,12 +76,14 @@ def make_server(host, port, key, runtime, login=None):
             self.send_json(401, {"error": "UNAUTHORIZED"})
             return False
 
-        def auth_route(self, action):
+        def auth_route(self, action, bodyless=False):
             """Admin-driven ChatGPT sign-in; the response never contains tokens."""
             if login is None:
                 return self.send_json(404, {"error": "NOT_FOUND"})
             if not self.authorized():
                 return
+            if bodyless and (self.headers.get("Transfer-Encoding") or self.headers.get("Content-Length", "0").strip() != "0"):
+                return self.send_json(400, {"error": "INVALID_REQUEST"})
             try:
                 self.send_json(200, action())
             except LoginError as error:
@@ -107,9 +109,9 @@ def make_server(host, port, key, runtime, login=None):
 
         def do_POST(self):
             if self.path == "/v1/auth/start":
-                return self.auth_route(lambda: login.start())
+                return self.auth_route(lambda: login.start(), bodyless=True)
             if self.path == "/v1/auth/logout":
-                return self.auth_route(lambda: login.logout())
+                return self.auth_route(lambda: login.logout(), bodyless=True)
             if self.path != "/v1/generate":
                 return self.send_json(404, {"error": "NOT_FOUND"})
             if not self.authorized():

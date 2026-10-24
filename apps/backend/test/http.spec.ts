@@ -16,11 +16,16 @@ import {
   PlaygroundResponse,
   TestLlmProviderResponse,
 } from '@agent-sales/contracts';
+import { HermesLoginClient } from '@agent-sales/ai-core';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
 import { createHttpApp } from '../src/bootstrap.js';
+import {
+  LLM_PROVIDER_FACTORY,
+  type LlmProviderFactory,
+} from '../src/modules/ai/application/ports/llm-provider-factory.js';
 import {
   USER_REPOSITORY,
   type UserRepository,
@@ -30,8 +35,12 @@ import {
 let current: NestFastifyApplication | undefined;
 const registered: Array<{ method: string; url: string }> = [];
 
-async function app(): Promise<NestFastifyApplication> {
-  const booted = await createHttpApp(AppModule, { NODE_ENV: 'test', LOG_LEVEL: 'error' });
+async function app(extraEnv: NodeJS.ProcessEnv = {}): Promise<NestFastifyApplication> {
+  const booted = await createHttpApp(AppModule, {
+    NODE_ENV: 'test',
+    LOG_LEVEL: 'error',
+    ...extraEnv,
+  });
   registered.length = 0;
   booted.app
     .getHttpAdapter()
@@ -463,6 +472,24 @@ describe('HTTP: AI playground', () => {
   });
 });
 
+/** No test talks to a real network: every provider built by the factory is a fake that refuses. */
+function stubLlmNetwork(a: NestFastifyApplication): void {
+  const factory = a.get<LlmProviderFactory>(LLM_PROVIDER_FACTORY);
+  vi.spyOn(factory, 'create').mockImplementation((config) => ({
+    name: config.name,
+    generate: () => Promise.reject(new Error('connection refused')),
+  }));
+  vi.spyOn(factory, 'listModels').mockResolvedValue({ models: [], state: 'unavailable' });
+  vi.spyOn(factory, 'hermesLogin').mockImplementation(
+    (config) =>
+      new HermesLoginClient({
+        baseURL: config.baseUrl ?? '',
+        apiKey: 'b'.repeat(40),
+        fetch: () => Promise.reject(new Error('connection refused')),
+      }),
+  );
+}
+
 describe('HTTP: platform admin — LLM configuration', () => {
   async function admin(a: NestFastifyApplication) {
     const email = `admin-${Math.random()}@rapiz.vn`;
@@ -494,7 +521,7 @@ describe('HTTP: platform admin — LLM configuration', () => {
       payload: {
         name: 'selfhost',
         kind: 'openai_compatible',
-        baseUrl: 'http://127.0.0.1:9/v1',
+        baseUrl: 'http://llm.test/v1',
         apiKey: 'sk-local-secret-9876',
       },
     });
@@ -572,8 +599,59 @@ describe('HTTP: platform admin — LLM configuration', () => {
     expect(badTier.statusCode).toBe(400);
   });
 
+  it('Hermes sign-in and model-list routes reject anonymous callers (401) and non-admins (404)', async () => {
+    const a = await app();
+    const { token } = await signup(a, `owner-${Math.random()}@shop.vn`);
+    const base = '/api/v1/admin/llm/providers/00000000-0000-7000-8000-000000000001';
+    const routes: Array<[InjectOpts['method'], string]> = [
+      ['GET', `${base}/hermes-login`],
+      ['POST', `${base}/hermes-login`],
+      ['DELETE', `${base}/hermes-login`],
+      ['GET', `${base}/models`],
+    ];
+    for (const [method, url] of routes) {
+      expect((await inject(a, { method, url })).statusCode, `${method} ${url} anonymous`).toBe(401);
+      const asOwner = await inject(a, {
+        method,
+        url,
+        headers: { authorization: `Bearer ${token}` },
+      });
+      expect(asOwner.statusCode, `${method} ${url} non-admin`).toBe(404);
+    }
+  });
+
+  it('Hermes sign-in is reported disabled and refused (403) when the gate is off', async () => {
+    const a = await app({ HERMES_SUBSCRIPTION_LOGIN: 'false' });
+    stubLlmNetwork(a);
+    const h = await admin(a);
+    const hermes = LlmProviderDto.parse(
+      (
+        await inject(a, {
+          method: 'POST',
+          url: '/api/v1/admin/llm/providers',
+          headers: h,
+          payload: {
+            name: 'hermes',
+            kind: 'hermes',
+            baseUrl: 'http://bridge.test',
+            apiKey: 'b'.repeat(40),
+          },
+        })
+      ).json(),
+    );
+    const url = `/api/v1/admin/llm/providers/${hermes.id}/hermes-login`;
+    const status = await inject(a, { method: 'GET', url, headers: h });
+    expect(HermesLoginStatus.parse(status.json()).state).toBe('disabled');
+    for (const method of ['POST', 'DELETE'] as const) {
+      const res = await inject(a, { method, url, headers: h });
+      expect(res.statusCode).toBe(403);
+      expect(res.json().error.code).toBe('FORBIDDEN');
+    }
+  });
+
   it('Hermes sign-in routes are admin-only and only for hermes providers', async () => {
     const a = await app();
+    stubLlmNetwork(a);
     const h = await admin(a);
     const { token } = await signup(a, `owner-${Math.random()}@shop.vn`);
     const make = async (payload: Record<string, unknown>) =>
@@ -591,7 +669,7 @@ describe('HTTP: platform admin — LLM configuration', () => {
     const hermes = await make({
       name: 'hermes',
       kind: 'hermes',
-      baseUrl: 'http://127.0.0.1:9',
+      baseUrl: 'http://bridge.test',
       apiKey: 'b'.repeat(40),
     });
     const url = (id: string) => `/api/v1/admin/llm/providers/${id}/hermes-login`;
@@ -608,7 +686,7 @@ describe('HTTP: platform admin — LLM configuration', () => {
     const missing = await inject(a, { method: 'POST', url: url('nope'), headers: h });
     expect(missing.statusCode).toBe(404);
 
-    // Nothing listens on port 9: the bridge is reported unreachable, not an error.
+    // The fake transport refuses every connection: the bridge is reported unreachable, not an error.
     const status = HermesLoginStatus.parse(
       (await inject(a, { method: 'GET', url: url(hermes.id), headers: h })).json(),
     );
@@ -619,6 +697,7 @@ describe('HTTP: platform admin — LLM configuration', () => {
 
   it('provider model list is admin-only, 404 for unknown ids and degrades to unavailable', async () => {
     const a = await app();
+    stubLlmNetwork(a);
     const h = await admin(a);
     const { token } = await signup(a, `owner-${Math.random()}@shop.vn`);
     const created = LlmProviderDto.parse(
@@ -627,7 +706,7 @@ describe('HTTP: platform admin — LLM configuration', () => {
           method: 'POST',
           url: '/api/v1/admin/llm/providers',
           headers: h,
-          payload: { name: 'down', kind: 'openai_compatible', baseUrl: 'http://127.0.0.1:9/v1' },
+          payload: { name: 'down', kind: 'openai_compatible', baseUrl: 'http://llm.test/v1' },
         })
       ).json(),
     );
@@ -646,6 +725,7 @@ describe('HTTP: platform admin — LLM configuration', () => {
 
   it('a tier routed to an unreachable server: test reports it, the playground answers 503', async () => {
     const a = await app();
+    stubLlmNetwork(a);
     const h = await admin(a);
     const provider = LlmProviderDto.parse(
       (
@@ -656,7 +736,7 @@ describe('HTTP: platform admin — LLM configuration', () => {
           payload: {
             name: 'down',
             kind: 'openai_compatible',
-            baseUrl: 'http://127.0.0.1:9/v1',
+            baseUrl: 'http://llm.test/v1',
             options: { timeoutMs: 2000 },
           },
         })

@@ -1,7 +1,7 @@
 import type { LlmProviderDto } from '@agent-sales/contracts';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { renderWithProviders, stubFetch } from '@/testing/render';
 
@@ -14,6 +14,13 @@ const models = {
   data: [{ id: 'gpt-6.1-sol' }, { id: 'gpt-6-sol' }],
 };
 const target = (model: string) => ({ providerId: id, model, effort: null });
+
+beforeAll(() => {
+  // jsdom lacks the pointer APIs Radix Select relies on.
+  Element.prototype.hasPointerCapture ??= () => false;
+  Element.prototype.releasePointerCapture ??= () => undefined;
+  Element.prototype.scrollIntoView ??= () => undefined;
+});
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -59,5 +66,43 @@ describe('TestProviderButton', () => {
         /^gpt-6-sol$/,
       ),
     );
+  });
+
+  it('keeps the result inline in seconds, survives closing the popover and clears on model change', async () => {
+    await open([]);
+    await screen.findByRole('combobox', { name: 'Mô hình để kiểm tra' });
+    await userEvent.click(
+      screen.getAllByRole('button', { name: 'Kiểm tra' }).at(-1) as HTMLElement,
+    );
+    expect(await screen.findByText('✓ Kết nối được x sau 0.0 giây')).toBeInTheDocument();
+
+    // Close and reopen: the last result is still shown.
+    await userEvent.keyboard('{Escape}');
+    await userEvent.click(screen.getByRole('button', { name: 'Kiểm tra' }));
+    expect(await screen.findByText('✓ Kết nối được x sau 0.0 giây')).toBeInTheDocument();
+
+    // Picking another model clears it.
+    await userEvent.click(screen.getByRole('combobox', { name: 'Mô hình để kiểm tra' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'gpt-6-sol' }));
+    await vi.waitFor(() => expect(screen.queryByText(/Kết nối được/)).not.toBeInTheDocument());
+  });
+
+  it('shows a failed test inline with the localized prefix', async () => {
+    const stub = stubFetch({
+      [`GET /admin/llm/providers/${id}/models`]: { status: 200, body: models },
+      'GET /admin/llm/tiers': { status: 200, body: { data: [] } },
+      [`POST /admin/llm/providers/${id}/test`]: {
+        status: 200,
+        body: { ok: false, latencyMs: 900, model: null, error: 'connection refused' },
+      },
+    });
+    vi.stubGlobal('fetch', stub.fetchStub);
+    renderWithProviders(<TestProviderButton provider={provider} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Kiểm tra' }));
+    await screen.findByRole('combobox', { name: 'Mô hình để kiểm tra' });
+    await userEvent.click(
+      screen.getAllByRole('button', { name: 'Kiểm tra' }).at(-1) as HTMLElement,
+    );
+    expect(await screen.findByText('Không kết nối được: connection refused')).toBeInTheDocument();
   });
 });

@@ -33,6 +33,14 @@ export class NotHermesProviderError extends DomainError {
   }
 }
 
+/** The subscription sign-in is switched off in this environment (production gate, T-052). */
+export class HermesLoginDisabledError extends DomainError {
+  readonly code = 'FORBIDDEN';
+  constructor() {
+    super('ChatGPT sign-in is disabled in this environment');
+  }
+}
+
 /** The bridge refused or could not serve a sign-in request. */
 export class HermesLoginUnavailableError extends DomainError {
   readonly code = 'UNAVAILABLE';

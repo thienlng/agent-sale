@@ -48,6 +48,12 @@ export const EnvSchema = z
      * a fixed insecure key.
      */
     SECRETS_ENCRYPTION_KEY: z.string().optional(),
+    /**
+     * ChatGPT-subscription sign-in of the Hermes runtime from Admin → LLM (T-052). Enabled by
+     * default outside production; in production it stays off unless set to `true` (the
+     * ChatGPT-plan eligibility for a hosted product is an open owner decision).
+     */
+    HERMES_SUBSCRIPTION_LOGIN: z.enum(['true', 'false']).optional(),
     S3_ENDPOINT: z.url().optional(),
     S3_BUCKET: z.string().min(1).optional(),
     S3_PUBLIC_URL: z.url({ protocol: /^https$/ }).optional(),
@@ -59,6 +65,14 @@ export const EnvSchema = z
     path: ['SECRETS_ENCRYPTION_KEY'],
   });
 export type Env = z.infer<typeof EnvSchema>;
+
+/** Whether the Hermes subscription sign-in is available in this environment. */
+export function hermesSubscriptionLoginEnabled(
+  env: Pick<Env, 'NODE_ENV' | 'HERMES_SUBSCRIPTION_LOGIN'>,
+): boolean {
+  if (env.HERMES_SUBSCRIPTION_LOGIN) return env.HERMES_SUBSCRIPTION_LOGIN === 'true';
+  return env.NODE_ENV !== 'production';
+}
 
 /** Parses and validates an environment source. Throws with every issue listed. */
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {

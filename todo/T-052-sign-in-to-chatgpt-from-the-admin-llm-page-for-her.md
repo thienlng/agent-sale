@@ -35,17 +35,22 @@ An admin can sign hermes-runtime in and out of ChatGPT from the dashboard, safel
 
 ## Acceptance criteria
 
-- [ ] Logout during a concurrent refresh stays logged out (test with an injected refresh)
-- [ ] ADR-010 / ARCHITECTURE §7 / Rule 05 match the code
+- [x] Logout during a concurrent refresh stays logged out (test with an injected refresh)
+- [x] ADR-010 / ARCHITECTURE §7 / Rule 05 match the code
 - [ ] Owner decision on B3 recorded in this file's Log
-- [ ] Tests added/updated and `pnpm check` green
-- [ ] Docs updated (or "no docs impact" stated)
+- [x] Tests added/updated and `pnpm check` green
+- [x] Docs updated (or "no docs impact" stated)
 
 ## Plan
 
 Written by the implementer before coding (see `start-task` skill). Steps, files, tests, migration/docs/i18n impact, risks.
 
-1. …
+1. B1: `services/hermes/authstore.py` (one `flock` on `.auth.lock`, atomic write) used by `login.py` (sign-in write, logout) and `runtime.py` (read under lock, refresh outside, re-lock, compare refresh token, write; discard + `MODEL_AUTH_REQUIRED` otherwise). Tests with injected refresh in `test_authstore.py`.
+2. Logout revocation: no OpenAI revoke endpoint found in Hermes, so logout stays local only; stated in README, docs and the web confirm dialog (vi+en).
+3. Nits: `start()` requests the code outside `_lock`; auth POSTs reject any body (400); panel tells the admin to keep the page open; 401/404 tests for the hermes-login and models routes; `http.spec.ts` no longer opens real sockets (fake provider factory); one shared `parseBridgeBaseUrl` in `packages/ai-core`.
+4. B3 gate: `HERMES_SUBSCRIPTION_LOGIN` (default on outside production, off in production unless `true`); contract state `disabled`; POST/DELETE 403; panel note.
+5. B2 docs: ADR-010 amendment, ARCHITECTURE §7, Rule 05, services/hermes/README, docs/06 §10, ai MODULE.md.
+6. UX: Test-provider popover keeps the result inline (seconds), toasts too, clears on model change.
 
 ## Log
 
@@ -53,6 +58,11 @@ Dated entries, newest last. Decisions, blockers, questions, what was verified an
 
 - 2026-10-24 — created by the maintainer when splitting commit `2896628` out of PR #40; code kept on `feat/T-052-hermes-chatgpt-admin-login`.
 - 2026-10-24 — PR #40 merged; branch rebased onto `main`, draft PR opened for the team to continue.
+
+- 2026-10-24 — implemented review items B1, B2, B3 gate, nits and the test-provider UX fix (see Plan). No real OpenAI sign-in was performed; all tests use fakes.
+- 2026-10-24 — **B3 owner decision on ChatGPT-plan eligibility for a hosted product is still pending.** Until it is recorded here and in ADR-010, the gate is in place: sign-in is disabled in production (`HERMES_SUBSCRIPTION_LOGIN` unset or `false`) and enabled elsewhere. T-050 (pinned Hermes version) is still a prerequisite.
+- 2026-10-24 — logout revocation: searched the Hermes sources for a documented OpenAI token revoke endpoint; none found, so logout is local only and the README, docs and the confirm dialog say so.
+- 2026-10-24 — the former per-file URL checks never restricted hosts (only scheme, credentials, query, fragment), so the shared `parseBridgeBaseUrl` keeps exactly that behaviour; a loopback/private-host policy was not added because it would change existing behaviour for configured bridge hosts. Open for the maintainer if a host policy is wanted.
 
 ## Links
 

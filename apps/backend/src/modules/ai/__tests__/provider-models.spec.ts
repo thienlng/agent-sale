@@ -16,7 +16,7 @@ async function setup(response: Response | Error) {
   const secrets = SecretBox.insecureDevelopmentBox();
   const config = new InMemoryLlmConfigRepository();
   const factory: LlmProviderFactory = new SdkLlmProviderFactory(secrets, false);
-  const svc = new LlmAdminService(config, factory, secrets, new LlmRuntime(config, factory));
+  const svc = new LlmAdminService(config, factory, secrets, new LlmRuntime(config, factory), true);
   const stub = vi
     .fn()
     .mockImplementation(() =>

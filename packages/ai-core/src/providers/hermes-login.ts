@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { parseBridgeBaseUrl } from './bridge-url.js';
+
 const MAX_BODY_BYTES = 16_000;
 
 export const HermesLoginStatus = z.object({
@@ -40,18 +42,10 @@ export class HermesLoginClient {
     timeoutMs?: number;
     fetch?: typeof fetch;
   }) {
-    const url = new URL(options.baseURL);
-    if (
-      !['http:', 'https:'].includes(url.protocol) ||
-      url.username ||
-      url.password ||
-      url.search ||
-      url.hash
-    ) {
-      throw new Error('Invalid Hermes bridge URL');
-    }
+    const base = parseBridgeBaseUrl(options.baseURL);
+    if (!base) throw new Error('Invalid Hermes bridge URL');
     if (!options.apiKey?.trim()) throw new Error('Hermes bridge key is required');
-    this.#base = url.toString().replace(/\/$/, '');
+    this.#base = base;
     this.#key = options.apiKey;
     this.#fetch = options.fetch ?? fetch;
     this.#timeout = options.timeoutMs ?? 10_000;

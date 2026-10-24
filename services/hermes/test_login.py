@@ -194,6 +194,20 @@ class RobustnessTests(unittest.TestCase):
         self.assertEqual(login.status()["state"], "pending")
         self.assertFalse((self.home / "auth.json").exists())
 
+    def test_start_does_not_hold_the_state_lock_during_the_network_call(self):
+        class Probe(FakeOpenAI):
+            def post(inner, url, **kwargs):
+                if url.endswith("/usercode"):
+                    inner.free = login._lock.acquire(blocking=False)
+                    if inner.free:
+                        login._lock.release()
+                return super().post(url, **kwargs)
+
+        openai = Probe()
+        login, _ = make_login(openai, self.home)
+        login.start()
+        self.assertTrue(openai.free)
+
     def test_logout_during_a_poll_is_not_overwritten(self):
         ok = FakeResponse(200, {"authorization_code": "c", "code_verifier": "v"})
         login, clock = make_login(FakeOpenAI(polls=[ok], token=FakeResponse(
@@ -228,11 +242,11 @@ class HttpTests(unittest.TestCase):
         self.server.server_close()
         self.dir.cleanup()
 
-    def call(self, method, path, key=None):
+    def call(self, method, path, key=None, body=None):
         headers = {"Authorization": f"Bearer {key}"} if key else {}
         try:
-            with urlopen(Request(self.base + path, method=method, headers=headers,
-                                 data=b"" if method == "POST" else None)) as response:
+            data = body if body is not None else (b"" if method == "POST" else None)
+            with urlopen(Request(self.base + path, method=method, headers=headers, data=data)) as response:
                 return response.status, json.loads(response.read())
         except HTTPError as error:
             return error.code, json.loads(error.read())
@@ -242,6 +256,13 @@ class HttpTests(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertEqual(self.call(method, path)[0], 401)
                 self.assertEqual(self.call(method, path, "wrong" * 8)[0], 401)
+
+    def test_auth_posts_reject_a_non_empty_body(self):
+        for path in ("/v1/auth/start", "/v1/auth/logout"):
+            with self.subTest(path=path):
+                self.assertEqual(self.call("POST", path, self.KEY, body=b"{}")[0], 400)
+                self.assertEqual(self.call("POST", path, self.KEY, body=b"x" * 10)[1], {"error": "INVALID_REQUEST"})
+                self.assertEqual(self.call("POST", path, None, body=b"{}")[0], 401)
 
     def test_start_then_status_then_logout(self):
         status, body = self.call("POST", "/v1/auth/start", self.KEY)
