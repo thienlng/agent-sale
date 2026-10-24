@@ -92,6 +92,15 @@ def make_server(host, port, key, runtime, login=None):
         def do_GET(self):
             if self.path == "/v1/auth/status":
                 return self.auth_route(lambda: login.status())
+            if self.path == "/v1/models":
+                if not self.authorized():
+                    return
+                try:
+                    return self.send_json(200, {"version": 1, "models": [{"id": m} for m in runtime.models()]})
+                except RuntimeUnavailable as error:
+                    return self.send_json(503, {"error": error.code})
+                except Exception:
+                    return self.send_json(502, {"error": "RUNTIME_FAILED"})
             if self.path != "/health":
                 return self.send_json(404, {"error": "NOT_FOUND"})
             self.send_json(200, {"status": "up", "runtime": "hermes", "version": 1})
@@ -139,6 +148,7 @@ def main():
     runtime = HermesRuntime(home, os.environ.get("RAPIZ_HERMES_PROVIDER", "openai-codex"))
     server = make_server("127.0.0.1", int(os.environ.get("HERMES_BRIDGE_PORT", "8788")), key, runtime,
                          ChatGptLogin(runtime.home) if runtime.provider == "openai-codex" else None)
+    threading.Thread(target=runtime.warm_up, daemon=True).start()
     print("Rapiz Hermes bridge listening on loopback", flush=True)
     server.serve_forever()
 

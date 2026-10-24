@@ -158,5 +158,51 @@ class BridgeTests(unittest.TestCase):
             self.assertEqual(FakeAgent.instances[-1].kwargs["api_key"], "new-private-access")
 
 
+class WarmUpTests(unittest.TestCase):
+    def test_warm_up_never_raises_without_hermes_installed(self):
+        with tempfile.TemporaryDirectory() as home:
+            os.chmod(home, 0o700)
+            with patch.dict(sys.modules, {"run_agent": None}):
+                HermesRuntime(home, "openai-codex").warm_up()
+
+
+class ModelListTests(unittest.TestCase):
+    def runtime(self, ids, home, token="access"):
+        auth = Path(home) / "auth.json"
+        auth.write_text(json.dumps({"providers": {"openai-codex": {"tokens": {
+            "access_token": token, "refresh_token": "refresh"}}}}))
+        auth.chmod(0o600)
+        seen = []
+
+        def lister(value):
+            seen.append(value)
+            return ids
+
+        runtime = HermesRuntime(home, "openai-codex", credential_resolver=lambda: {"api_key": token, "base_url": CODEX_URL},
+                                model_lister=lister)
+        return runtime, seen
+
+    def test_lists_base_models_without_long_context_aliases(self):
+        with tempfile.TemporaryDirectory() as home:
+            os.chmod(home, 0o700)
+            runtime, seen = self.runtime(["gpt-5.6-sol", "gpt-5.6-sol-900k", "gpt-5.5", "gpt-5.5", " "], home)
+            self.assertEqual(runtime.models(), ["gpt-5.6-sol", "gpt-5.5"])
+            self.assertEqual(seen, ["access"])
+
+    def test_requires_a_sign_in_and_hides_lister_failures(self):
+        with tempfile.TemporaryDirectory() as home:
+            os.chmod(home, 0o700)
+            signed_out = HermesRuntime(home, "openai-codex", model_lister=lambda _t: ["x"])
+            with self.assertRaises(RuntimeUnavailable) as error:
+                signed_out.models()
+            self.assertEqual(error.exception.code, "MODEL_AUTH_REQUIRED")
+            runtime, _ = self.runtime([], home)
+            runtime.model_lister = lambda _t: (_ for _ in ()).throw(RuntimeError("secret detail"))
+            with self.assertRaises(RuntimeUnavailable) as error:
+                runtime.models()
+            self.assertEqual(error.exception.code, "MODEL_LIST_FAILED")
+            self.assertNotIn("secret", str(error.exception))
+
+
 if __name__ == "__main__":
     unittest.main()

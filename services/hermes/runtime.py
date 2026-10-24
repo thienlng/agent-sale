@@ -17,7 +17,7 @@ class RuntimeUnavailable(Exception):
 
 
 class HermesRuntime:
-    def __init__(self, home, provider, agent_class=None, credential_resolver=None):
+    def __init__(self, home, provider, agent_class=None, credential_resolver=None, model_lister=None):
         raw_home = Path(home).expanduser()
         if raw_home.is_symlink():
             raise ValueError("private Hermes home cannot be a symlink")
@@ -29,6 +29,7 @@ class HermesRuntime:
         self.provider = provider
         self.agent_class = agent_class
         self.credential_resolver = credential_resolver
+        self.model_lister = model_lister
         self.home.mkdir(parents=True, exist_ok=True, mode=0o700)
         if self.home.stat().st_mode & 0o077:
             raise ValueError("private Hermes home permissions must be 700")
@@ -100,6 +101,41 @@ tools:
             return {"provider": "openai-codex", "api_mode": "codex_responses", "base_url": CODEX_URL, "api_key": value["api_key"]}
         except Exception:
             raise RuntimeUnavailable("MODEL_AUTH_REQUIRED") from None
+
+    def warm_up(self):
+        """Imports the heavy Hermes modules so the first customer turn is not the slow one."""
+        try:
+            import run_agent  # noqa: F401
+            import hermes_cli.auth  # noqa: F401
+        except Exception:
+            pass  # a missing install is reported by generate() with its own error code
+
+    def models(self):
+        """Model ids the signed-in ChatGPT plan can use, best first (live catalog, curated fallback).
+
+        The ``-900k`` entries are Hermes-side long-context aliases of a base model, so they are
+        dropped to keep the picker short.
+        """
+        if self.provider != "openai-codex":
+            return []
+        token = self._credentials()["api_key"]
+        lister = self.model_lister
+        if lister is None:
+            try:
+                from hermes_cli.codex_models import get_codex_model_ids as lister
+            except ImportError:
+                raise RuntimeUnavailable("HERMES_NOT_INSTALLED") from None
+        try:
+            ids = lister(token)
+        except Exception:
+            raise RuntimeUnavailable("MODEL_LIST_FAILED") from None
+        seen, result = set(), []
+        for model_id in ids:
+            if isinstance(model_id, str) and model_id.strip() and not model_id.endswith("-900k") \
+                    and model_id not in seen:
+                seen.add(model_id)
+                result.append(model_id.strip())
+        return result
 
     def generate(self, request):
         credentials = self._credentials()
