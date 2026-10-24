@@ -21,7 +21,7 @@
 - Facts in a reply must come from the retrieved sources: FAQs with unfilled placeholders are never sent; a figure whose amount (unit included) is not in the sources or bot settings turns the reply into the fallback message. Customer text vouches only for non-money figures.
 - Fallback replies are never model text: the bot's message, or a built-in one when it is empty. A handoff reply is the bot's handoff message, optionally preceded by one short model sentence (apology, phone confirmation; <= 200 chars, no ungrounded figure).
 - `outcome: fallback` means "no grounded answer" and does not switch the conversation to human mode; only `handoff` does (the caller acts on it). Default fallback wording must not promise a hand-over.
-- Situations (`<shop_situations>`, incl. their "Khi" trigger) take priority over the generic handoff rule in the prompt (`sales-agent@4`).
+- Situations (`<shop_situations>`, incl. their "Khi" trigger) take priority over the generic handoff rule in the prompt (`sales-agent@4`). The same prompt makes the bot answer every question of the latest customer turn in one reply, never greet when an earlier assistant message exists, and, for a foreign-language customer, promise no follow-up (the conversation stays in bot mode).
 - A provider that cannot be built (bad key, wrong `SECRETS_ENCRYPTION_KEY`) is skipped and logged; its routes run on their fallback.
 - Every LLM turn writes one `ai_runs` row (playground: `is_test = true`).
 

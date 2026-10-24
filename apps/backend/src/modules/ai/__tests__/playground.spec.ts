@@ -343,7 +343,10 @@ describe('sales-agent prompt and handoff reply', () => {
     expect(system.indexOf('<shop_situations> are the owner')).toBeGreaterThan(-1);
     expect(system.indexOf('follow it')).toBeLessThan(system.indexOf('"handoff" only when'));
     expect(system).toContain('Never call yourself "shop"');
-    expect(system).toContain('Greet only in your first reply');
+    expect(system).toContain('Greet only when there is no earlier assistant message');
+    expect(system).toContain('never start with a greeting');
+    expect(system).toContain('Answer every question in the customer');
+    expect(system).toContain('Promise no follow-up');
     expect(system).toContain('repeat it back');
     expect(system).toContain('language other than Vietnamese');
     expect(system).not.toMatch(/\{\{[^}]+\}\}/);

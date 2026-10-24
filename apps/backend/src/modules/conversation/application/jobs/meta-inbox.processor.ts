@@ -14,6 +14,8 @@ import {
   withinReplySchedule,
 } from '../../../bot/api/index.js';
 import { CONVERSATION_FACADE, type ConversationFacade } from '../../api/conversation.facade.js';
+import { toReplyTurns } from './reply-turns.js';
+
 const isCustomerContent = (e: NormalizedEvent): boolean =>
   e.type === 'message' && Boolean(e.text?.trim() || e.attachments?.length);
 
@@ -24,18 +26,6 @@ function handoffText(bot: BotView): string {
       ? "I've passed your conversation to our staff. They'll reply shortly."
       : `Dạ, ${bot.selfPronoun} đã chuyển cho nhân viên hỗ trợ, ${bot.customerPronoun} đợi một chút ạ.`)
   );
-}
-
-/** The model cannot open media, so the customer turn says so instead of silently dropping it. */
-function withAttachmentNote(text: string, attachments: readonly { type: string }[]): string {
-  if (!attachments.length) return text;
-  const images = attachments.filter((a) => a.type === 'image').length;
-  const others = attachments.length - images;
-  const notes = [images && `${images} ảnh`, others && `${others} tệp đính kèm`].filter(Boolean);
-  const hint = images
-    ? 'bạn không xem được hình ảnh, hãy nói rõ và nhờ khách mô tả hoặc nhân viên sẽ xem'
-    : 'bạn không mở được tệp, hãy nói rõ và nhờ khách mô tả hoặc nhân viên sẽ xem';
-  return `${text}\n[Khách đã gửi kèm ${notes.join(' và ')} — ${hint}]`.trim();
 }
 
 /** Invoked exclusively by the agent entry; API never starts background inference. */
@@ -160,14 +150,8 @@ export class MetaInboxProcessor {
         await this.inbox.update(job.workspaceId, c.id, { mode: 'human' }, c.assigneeId ?? 'system');
       return;
     }
-    const messages = stored
-      .filter((m) => m.direction === 'inbound' || m.status === 'sent')
-      .map((m) => ({
-        role: m.sender === 'customer' ? ('customer' as const) : ('bot' as const),
-        content: withAttachmentNote(m.text, m.attachments).slice(0, 2000),
-      }))
-      .filter((m) => m.content.trim())
-      .slice(-20);
+    // One customer turn per burst: every question after the last reply reaches the model together.
+    const messages = toReplyTurns(stored);
     const response = await this.ai.reply(
       job.workspaceId,
       channel.botId,

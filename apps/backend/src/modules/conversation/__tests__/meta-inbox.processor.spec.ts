@@ -137,9 +137,10 @@ describe('MetaInboxProcessor', () => {
     ]);
     await processor.tick();
     expect(channels.deliver).toHaveBeenCalledTimes(1);
-    expect(ai.reply.mock.calls[0]?.[2].messages.map((m: { content: string }) => m.content)).toEqual(
-      ['Shop ơi', 'mua giày', 'size 41 giá bao nhiêu'],
-    );
+    expect(ai.reply).toHaveBeenCalledTimes(1);
+    expect(ai.reply.mock.calls[0]?.[2].messages).toEqual([
+      { role: 'customer', content: 'Shop ơi\nmua giày\nsize 41 giá bao nhiêu' },
+    ]);
   });
   it('orders messages received within the same millisecond by arrival', async () => {
     const { channels, ai, processor } = setup();
@@ -152,7 +153,7 @@ describe('MetaInboxProcessor', () => {
       );
       await processor.tick();
       expect(channels.deliver).toHaveBeenCalledTimes(1);
-      expect(ai.reply.mock.calls[0]?.[2].messages.at(-1).content).toBe('f');
+      expect(ai.reply.mock.calls[0]?.[2].messages.at(-1).content).toBe('a\nb\nc\nd\ne\nf');
     } finally {
       vi.useRealTimers();
     }
@@ -175,9 +176,72 @@ describe('MetaInboxProcessor', () => {
     expect(ai.reply.mock.calls[1]?.[2].messages).toEqual([
       { role: 'customer', content: 'Chào shop' },
       { role: 'bot', content: 're: Chào shop' },
-      { role: 'customer', content: 'mình muốn mua giày da' },
-      { role: 'customer', content: 'Oxford size 41 giá bao nhiêu?' },
+      { role: 'customer', content: 'mình muốn mua giày da\nOxford size 41 giá bao nhiêu?' },
     ]);
+  });
+  it('gives the model every question of a parallel burst as one customer turn, answered once', async () => {
+    const { channels, ai, inbox, processor } = setup();
+    const t0 = Date.now();
+    vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+      job('p1', 'message', 'Chào shop', t0),
+      job('p2', 'message', 'Giày da Oxford giá bao nhiêu?', t0 + 300),
+      job('p3', 'message', 'Phí ship bao nhiêu?', t0 + 1500),
+    ]);
+    await processor.tick();
+    expect(ai.reply).toHaveBeenCalledTimes(1);
+    expect(channels.deliver).toHaveBeenCalledTimes(1);
+    const turns = ai.reply.mock.calls[0]?.[2].messages;
+    expect(turns).toHaveLength(1);
+    for (const q of ['Chào shop', 'Giày da Oxford giá bao nhiêu?', 'Phí ship bao nhiêu?'])
+      expect(turns[0].content).toContain(q);
+    expect(turns[0].content.indexOf('Oxford')).toBeLessThan(turns[0].content.indexOf('ship'));
+    // Every claimed event is completed exactly once; none is left to be answered again.
+    expect(channels.completeEvent).toHaveBeenCalledTimes(3);
+    const [c] = (await inbox.list(ws, { limit: 10 } as never)).data;
+    const outbound = (await inbox.get(ws, c!.id)).messages.filter(
+      (m) => m.direction === 'outbound',
+    );
+    expect(outbound).toHaveLength(1);
+  });
+  it('keeps the earlier question when the burst straddles a claim tick', async () => {
+    const { channels, ai, processor } = setup();
+    const t0 = Date.now();
+    vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+      job('s1', 'message', 'Giày da Oxford giá bao nhiêu?', t0),
+    ]);
+    await processor.tick();
+    vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+      job('s2', 'message', 'Phí ship bao nhiêu?', t0 + 1200),
+      job('sent1', 'echo', 're: Giày da Oxford giá bao nhiêu?', t0 + 1300),
+    ]);
+    await processor.tick();
+    expect(ai.reply).toHaveBeenCalledTimes(2);
+    expect(channels.deliver).toHaveBeenCalledTimes(2);
+    expect(ai.reply.mock.calls[0]?.[2].messages.at(-1).content).toContain('Oxford');
+    expect(ai.reply.mock.calls[1]?.[2].messages).toEqual([
+      { role: 'customer', content: 'Giày da Oxford giá bao nhiêu?' },
+      { role: 'bot', content: 're: Giày da Oxford giá bao nhiêu?' },
+      { role: 'customer', content: 'Phí ship bao nhiêu?' },
+    ]);
+  });
+  it('answers all earlier text when the newest event of the burst is an image, with no extra handoff', async () => {
+    const { channels, ai, inbox, processor } = setup();
+    const t0 = Date.now();
+    vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+      job('i1', 'message', 'Giày da Oxford giá bao nhiêu?', t0),
+      job('i2', 'message', 'Phí ship bao nhiêu?', t0 + 600),
+      job('i3', 'message', '', t0 + 1200, 1, [{ type: 'image', url: 'https://cdn.example/a.jpg' }]),
+    ]);
+    await processor.tick();
+    expect(ai.reply).toHaveBeenCalledTimes(1);
+    expect(channels.deliver).toHaveBeenCalledTimes(1);
+    const turns = ai.reply.mock.calls[0]?.[2].messages;
+    expect(turns).toHaveLength(1);
+    expect(turns[0].content).toContain('Oxford');
+    expect(turns[0].content).toContain('ship');
+    expect(turns[0].content.match(/Khách đã gửi kèm 1 ảnh/g)).toHaveLength(1);
+    const [c] = (await inbox.list(ws, { limit: 10 } as never)).data;
+    expect(c?.mode).toBe('bot');
   });
   it('hands an attachment-only message to staff with the handoff message', async () => {
     const { channels, ai, inbox, processor } = setup();
@@ -226,8 +290,9 @@ describe('MetaInboxProcessor', () => {
     const contents = ai.reply.mock.calls[0]?.[2].messages.map(
       (m: { content: string }) => m.content,
     );
-    expect(contents[0]).toBe('giày này còn không?');
-    expect(contents[1]).toContain('Khách đã gửi kèm 1 ảnh');
+    expect(contents).toHaveLength(1);
+    expect(contents[0]).toContain('giày này còn không?');
+    expect(contents[0]).toContain('Khách đã gửi kèm 1 ảnh');
   });
   it('hands the conversation to staff when the final retry fails', async () => {
     const { channels, ai, inbox, processor } = setup();
