@@ -168,6 +168,7 @@ export const orders = pgTable(
     notePrint: text('note_print').notNull().default(''),
     createdByUserId: uuid('created_by_user_id'),
     createdByName: text('created_by_name'),
+    clientRequestId: uuid('client_request_id'),
     createdByKind: text('created_by_kind').notNull().default('agent'),
     placedAt: ts('placed_at').notNull(),
     confirmedAt: ts('confirmed_at'),

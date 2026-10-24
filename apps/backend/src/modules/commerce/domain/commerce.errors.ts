@@ -88,3 +88,11 @@ export class CommerceUnavailableError extends DomainError {
     super('Orders and products need a database (DATABASE_URL is not configured)');
   }
 }
+
+/** The same order draft was submitted twice at once; the caller returns the first order. */
+export class DuplicateOrderRequestError extends DomainError {
+  readonly code = 'CONFLICT';
+  constructor() {
+    super('This order was already submitted');
+  }
+}

@@ -7,7 +7,19 @@ import type {
   StockRecord,
 } from '../../application/ports/commerce-store.js';
 import { DuplicateCodeError } from '../../domain/commerce.errors.js';
-import { inv, n, p, pgCode, toProduct, toVariant, toWarehouse, o, v, w } from './commerce.rows.js';
+import {
+  contains,
+  inv,
+  n,
+  p,
+  pgCode,
+  toProduct,
+  toVariant,
+  toWarehouse,
+  o,
+  v,
+  w,
+} from './commerce.rows.js';
 
 /** Warehouses, products/variants and inventory inside one tenant transaction. */
 export function catalogTx(
@@ -76,10 +88,7 @@ export function catalogTx(
 
     products: {
       async list({ q, status, offset, limit }) {
-        const where = and(
-          eq(p.status, status),
-          q ? sql`${p.searchText} like ${`%${q}%`}` : undefined,
-        );
+        const where = and(eq(p.status, status), q ? contains(p.searchText, q) : undefined);
         const [rows, [count]] = await Promise.all([
           tx.select().from(p).where(where).orderBy(desc(p.updatedAt)).offset(offset).limit(limit),
           tx
@@ -170,7 +179,7 @@ export function catalogTx(
       async variantsByIds(ids) {
         if (!ids.length) return [];
         const rows = await tx
-          .select({ variant: v, productName: p.name, productCode: p.code })
+          .select({ variant: v, productName: p.name, productCode: p.code, productStatus: p.status })
           .from(v)
           .innerJoin(p, eq(p.id, v.productId))
           .where(inArray(v.id, ids));
@@ -178,6 +187,7 @@ export function catalogTx(
           ...toVariant(r.variant),
           productName: r.productName,
           productCode: r.productCode,
+          productActive: r.productStatus === 'active',
         }));
       },
       async searchVariants({ q, warehouseId, inStock, limit }) {
@@ -197,7 +207,7 @@ export function catalogTx(
             and(
               isNull(v.archivedAt),
               eq(p.status, 'active'),
-              q ? sql`${p.searchText} like ${`%${q}%`}` : undefined,
+              q ? contains(p.searchText, q) : undefined,
               inStock ? sql`${available} > 0` : undefined,
             ),
           )
@@ -214,6 +224,21 @@ export function catalogTx(
     },
 
     inventory: {
+      async lockStock(variantId, warehouseId) {
+        const [r] = await tx
+          .select()
+          .from(inv)
+          .where(and(eq(inv.variantId, variantId), eq(inv.warehouseId, warehouseId)))
+          .for('update');
+        return r
+          ? {
+              variantId: r.variantId,
+              warehouseId: r.warehouseId,
+              onHand: r.onHand,
+              reserved: r.reserved,
+            }
+          : null;
+      },
       async stockOf(variantIds) {
         if (!variantIds.length) return [];
         const rows = await tx.select().from(inv).where(inArray(inv.variantId, variantIds));
@@ -251,13 +276,17 @@ export function catalogTx(
               variantId: t.variantId,
               warehouseId: t.warehouseId,
               onHand: t.onHand,
+              // Postgres checks CHECK constraints on the proposed insert row even when the
+              // conflict branch runs, so this value must be valid; the update below is not clamped.
               reserved: Math.max(t.reserved, 0),
             })
             .onConflictDoUpdate({
               target: [inv.variantId, inv.warehouseId],
               set: {
                 onHand: sql`${inv.onHand} + ${t.onHand}`,
-                reserved: sql`greatest(${inv.reserved} + ${t.reserved}, 0)`,
+                // No clamping: order rows are locked while stock moves, so a negative hold
+                // can only be a bug, and the CHECK constraint should make it fail loudly.
+                reserved: sql`${inv.reserved} + ${t.reserved}`,
                 updatedAt: new Date(),
               },
             });

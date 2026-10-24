@@ -120,6 +120,8 @@ create table if not exists orders (
   created_by_user_id uuid,
   -- name snapshot: users is a global table the tenant role cannot read
   created_by_name text,
+  -- set by the client per order draft; a retried create returns the first order (no duplicates)
+  client_request_id uuid,
   created_by_kind text not null default 'agent' check (created_by_kind in ('agent', 'bot', 'import', 'api')),
   placed_at timestamptz not null,
   confirmed_at timestamptz,
@@ -130,6 +132,7 @@ create table if not exists orders (
   deleted_at timestamptz
 );
 create unique index if not exists orders_code_unique on orders (workspace_id, code);
+create unique index if not exists orders_client_request_unique on orders (workspace_id, client_request_id) where client_request_id is not null;
 create index if not exists orders_placed_idx on orders (workspace_id, placed_at desc) where deleted_at is null;
 create index if not exists orders_status_idx on orders (workspace_id, status, placed_at desc) where deleted_at is null;
 create index if not exists orders_search_trgm on orders using gin (search_text gin_trgm_ops);

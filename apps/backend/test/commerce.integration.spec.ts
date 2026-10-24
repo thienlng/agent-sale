@@ -277,4 +277,75 @@ describe('commerce on Postgres', () => {
     });
     expect(ok.statusCode).toBe(200);
   });
+
+  it('serialises concurrent status changes: stock moves exactly once', async () => {
+    const h = await owner('race@shop.vn');
+    const { warehouse, product, l } = await setup(h);
+    const o = OrderDto.parse(
+      (
+        await call(h, 'POST', '/orders', orderBody(warehouse.id, [{ variantId: l.id, qty: 2 }]))
+      ).json(),
+    );
+    const results = await Promise.all(
+      Array.from({ length: 5 }, () =>
+        call(h, 'POST', `/orders/${o.id}/status`, { status: 'delivering' }),
+      ),
+    );
+    expect(results.every((r) => r.statusCode === 200)).toBe(true);
+    expect(await stockOf(h, product.id, l.id)).toMatchObject({ onHand: 8, reserved: 0 });
+    const detail = OrderDto.parse((await call(h, 'GET', `/orders/${o.id}`)).json());
+    expect(detail.history.map((x) => x.toStatus)).toEqual(['new', 'delivering']);
+  });
+
+  it('creates one order per draft, even when it is submitted twice at once', async () => {
+    const h = await owner('idem@shop.vn');
+    const { warehouse, product, l } = await setup(h);
+    const body = {
+      ...orderBody(warehouse.id, [{ variantId: l.id, qty: 1 }]),
+      clientRequestId: crypto.randomUUID(),
+    };
+    const [a, b] = await Promise.all([
+      call(h, 'POST', '/orders', body),
+      call(h, 'POST', '/orders', body),
+    ]);
+    const again = await call(h, 'POST', '/orders', body);
+    const ids = [a, b, again].map((r) => (r.json() as { id: string }).id);
+    expect(new Set(ids).size).toBe(1);
+    const list = OrderListResponse.parse((await call(h, 'GET', '/orders')).json());
+    expect(list.total).toBe(1);
+    expect(await stockOf(h, product.id, l.id)).toMatchObject({ reserved: 1 });
+  });
+
+  it('treats % and _ in searches literally, refuses archived products and over-long ranges', async () => {
+    const h = await owner('edge@shop.vn');
+    const { warehouse, product, l } = await setup(h);
+    await call(h, 'POST', '/orders', orderBody(warehouse.id, [{ variantId: l.id, qty: 1 }]));
+    expect(OrderListResponse.parse((await call(h, 'GET', '/orders?q=%25')).json()).total).toBe(0);
+    expect(OrderListResponse.parse((await call(h, 'GET', '/orders?q=_')).json()).total).toBe(0);
+
+    const archived = await call(h, 'PUT', `/products/${product.id}`, {
+      code: product.code,
+      name: product.name,
+      status: 'archived',
+      variants: product.variants.map((v) => ({
+        id: v.id,
+        sku: v.sku,
+        name: v.name,
+        price: v.price,
+        cost: v.cost,
+      })),
+    });
+    expect(archived.statusCode).toBe(200);
+    const refused = await call(
+      h,
+      'POST',
+      '/orders',
+      orderBody(warehouse.id, [{ variantId: l.id, qty: 1 }]),
+    );
+    expect(refused.statusCode).toBe(400);
+
+    expect(
+      (await call(h, 'GET', '/orders/overview?from=2024-01-01&to=2026-01-01')).statusCode,
+    ).toBe(400);
+  });
 });

@@ -17,6 +17,8 @@ Milestone **M2-bot-playground** — branch `feat/T-015-m2-bot-playground`: T-015
 - [ ] T-007 Add packages/ai-core LLM gateway skeleton with eval runner — @unassigned · [details](todo/T-007-ai-core-skeleton.md)
 - [ ] T-008 Add deploy workflows (dev/staging) and environment docs — @unassigned · [details](todo/T-008-deploy-workflows.md)
 - [ ] T-011 Add Claude Code hooks: eslint --fix after edits and pnpm check on stop — @unassigned · [details](todo/T-011-add-claude-code-hooks-eslint-fix-after-edits-and-p.md)
+- [ ] T-020 Orders follow-ups: Excel import, product images, 2-level address picker, carriers and printing, multi-tab drafts — @unassigned · [details](todo/T-020-orders-follow-ups-excel-import-product-images-2-le.md)
+- [ ] T-021 Fix the root pnpm gen script (turbo gen needs --args) — @unassigned · [details](todo/T-021-fix-the-root-pnpm-gen-script-turbo-gen-needs-args.md)
 
 ## Blocked
 

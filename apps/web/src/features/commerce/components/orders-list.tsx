@@ -1,7 +1,7 @@
 import { OrderSource, type OrderStatus } from '@agent-sales/contracts';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { ChevronLeft, ChevronRight, PackageOpen, Plus, Search } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { DateRangePicker } from '@/components/date-range-picker';
@@ -60,11 +60,22 @@ export function OrdersList({
   const page = search.page ?? 1;
   const orders = useOrders({ ...search, page, pageSize: 20 });
   const [text, setText] = useState(search.q ?? '');
+  // Follow the URL when it changes from outside (sidebar link, back button).
+  const pushed = useRef(search.q ?? '');
+  useEffect(() => {
+    if ((search.q ?? '') !== pushed.current) {
+      pushed.current = search.q ?? '';
+      setText(search.q ?? '');
+    }
+  }, [search.q]);
 
   // Search as you type, without a request per keystroke.
   useEffect(() => {
     const id = setTimeout(() => {
-      if ((search.q ?? '') !== text) onSearch({ ...search, q: text || undefined, page: 1 });
+      if ((search.q ?? '') !== text) {
+        pushed.current = text;
+        onSearch({ ...search, q: text || undefined, page: 1 });
+      }
     }, 300);
     return () => clearTimeout(id);
   }, [text, search, onSearch]);

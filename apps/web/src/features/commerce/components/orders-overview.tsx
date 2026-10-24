@@ -73,6 +73,15 @@ export function OrdersOverview() {
         </div>
       </header>
 
+      {overview.isError ? (
+        <p
+          role="alert"
+          className="rounded-lg bg-destructive-soft px-3 py-2 text-sm text-destructive"
+        >
+          {t('overview.rangeTooLong')}
+        </p>
+      ) : null}
+
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {KPIS.map((k) => {
           const selectable = Boolean(k.series);

@@ -464,7 +464,8 @@
     "created": "Order {{code}} created",
     "needItems": "Add at least one product",
     "needWarehouse": "Create a warehouse before creating orders.",
-    "goWarehouses": "Go to warehouses"
+    "goWarehouses": "Go to warehouses",
+    "overStock": "More than in stock ({{count}} left)"
   },
   "orderDetail": {
     "back": "Orders",
@@ -531,7 +532,8 @@
     "todayQty": "Goods sold",
     "byHour": "Revenue by hour",
     "chartHint": "Pick a figure to chart it by day.",
-    "empty": "No orders in this period."
+    "empty": "No orders in this period.",
+    "rangeTooLong": "Could not load the figures. Pick a period of at most 366 days and try again."
   },
   "products": {
     "title": "Products",

@@ -19,6 +19,7 @@ import type { CommerceFacade } from '../api/commerce.facade.js';
 import { IDENTITY_FACADE, type IdentityFacade } from '../../identity/api/index.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
 import {
+  DuplicateOrderRequestError,
   NoWarehouseError,
   OrderNotFoundError,
   OrderNoteRequiredError,
@@ -54,10 +55,37 @@ export class OrderService implements CommerceFacade {
     @Inject(WORKSPACE_FACADE) private readonly workspaces: WorkspaceFacade,
   ) {}
 
+  /**
+   * Idempotent per `clientRequestId`: a retried or double-submitted draft returns
+   * the order created the first time instead of a second one.
+   */
   async create(ws: WorkspaceId, raw: CreateOrderRequest, actorUserId: string): Promise<OrderDto> {
     const input = CreateOrderSchema.parse(raw);
+    try {
+      return await this.#create(ws, input, actorUserId);
+    } catch (error) {
+      // Two identical drafts raced past the lookup; the loser returns the winner's order.
+      if (!(error instanceof DuplicateOrderRequestError) || !input.clientRequestId) throw error;
+      const requestId = input.clientRequestId;
+      return this.store.run(ws, async (tx) => {
+        const first = await tx.orders.findByRequestId(requestId);
+        if (!first) throw error;
+        return this.#dto(tx, first);
+      });
+    }
+  }
+
+  async #create(
+    ws: WorkspaceId,
+    input: ReturnType<typeof CreateOrderSchema.parse>,
+    actorUserId: string,
+  ): Promise<OrderDto> {
     const actorName = await this.identity.displayName(userId(actorUserId));
     return this.store.run(ws, async (tx) => {
+      if (input.clientRequestId) {
+        const first = await tx.orders.findByRequestId(input.clientRequestId);
+        if (first) return this.#dto(tx, first);
+      }
       const settings = await this.#settings(tx);
       this.#assertStatusAllowed(settings, input.status);
       const warehouse = isUuid(input.warehouseId)
@@ -72,7 +100,8 @@ export class OrderService implements CommerceFacade {
       const variantIds = [...new Set(input.items.map((i) => i.variantId))];
       const variants = new Map(
         (await tx.products.variantsByIds(variantIds))
-          .filter((v) => !v.archived)
+          // Archived variants and products no longer on sale cannot be ordered.
+          .filter((v) => !v.archived && v.productActive)
           .map((v) => [v.id, v]),
       );
       const missing = variantIds.filter((id) => !variants.has(id));
@@ -140,6 +169,7 @@ export class OrderService implements CommerceFacade {
         notePrint: input.notePrint,
         createdByUserId: actorUserId,
         createdByName: actorName,
+        clientRequestId: input.clientRequestId ?? null,
         placedAt: input.placedAt ? new Date(input.placedAt) : now,
         confirmedAt: CLOSED.has(input.status) ? now : null,
         cancelledAt: input.status === 'cancelled' ? now : null,
@@ -173,7 +203,7 @@ export class OrderService implements CommerceFacade {
   /** Edits that keep the items; payment and shipping changes recompute the amounts. */
   update(ws: WorkspaceId, id: string, change: UpdateOrderRequest): Promise<OrderDto> {
     return this.store.run(ws, async (tx) => {
-      const o = await this.#order(tx, id);
+      const o = await this.#order(tx, id, { forUpdate: true });
       const items = await tx.orders.itemsOf(o.id);
       const next: OrderRecord = {
         ...o,
@@ -224,7 +254,8 @@ export class OrderService implements CommerceFacade {
   ): Promise<OrderDto> {
     const actorName = await this.identity.displayName(userId(actorUserId));
     return this.store.run(ws, async (tx) => {
-      const o = await this.#order(tx, id);
+      // Locked: two people changing the same order cannot both move its stock.
+      const o = await this.#order(tx, id, { forUpdate: true });
       if (o.status === input.status) return this.#dto(tx, o);
       const settings = await this.#settings(tx);
       this.#assertStatusAllowed(settings, input.status);
@@ -372,8 +403,8 @@ export class OrderService implements CommerceFacade {
     }
   }
 
-  async #order(tx: CommerceTx, id: string): Promise<OrderRecord> {
-    const o = isUuid(id) ? await tx.orders.find(id) : null;
+  async #order(tx: CommerceTx, id: string, opts?: { forUpdate: boolean }): Promise<OrderRecord> {
+    const o = isUuid(id) ? await tx.orders.find(id, opts) : null;
     if (!o) throw new OrderNotFoundError(id);
     return o;
   }

@@ -464,7 +464,8 @@
     "created": "Đã tạo đơn {{code}}",
     "needItems": "Thêm ít nhất một sản phẩm",
     "needWarehouse": "Tạo kho hàng trước khi tạo đơn.",
-    "goWarehouses": "Đến trang kho hàng"
+    "goWarehouses": "Đến trang kho hàng",
+    "overStock": "Vượt tồn kho (còn {{count}})"
   },
   "orderDetail": {
     "back": "Danh sách đơn",
@@ -531,7 +532,8 @@
     "todayQty": "Hàng bán ra",
     "byHour": "Doanh thu theo giờ",
     "chartHint": "Chọn một chỉ số để xem biểu đồ theo ngày.",
-    "empty": "Chưa có đơn trong khoảng thời gian này."
+    "empty": "Chưa có đơn trong khoảng thời gian này.",
+    "rangeTooLong": "Không tải được số liệu. Chọn khoảng thời gian tối đa 366 ngày rồi thử lại."
   },
   "products": {
     "title": "Sản phẩm",

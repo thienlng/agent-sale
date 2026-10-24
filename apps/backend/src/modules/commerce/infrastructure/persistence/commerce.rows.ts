@@ -20,6 +20,12 @@ export const h = schema.orderStatusHistory;
 
 export const pgCode = (e: unknown): string | undefined =>
   (e as { cause?: { code?: string }; code?: string }).cause?.code ?? (e as { code?: string }).code;
+/** `column LIKE %q%` with the user's text taken literally (\\, % and _ escaped). */
+export function contains(column: unknown, q: string) {
+  const literal = q.replace(/[\\%_]/g, (c) => `\\${c}`);
+  return sql`${column} like ${`%${literal}%`} escape '\\'`;
+}
+
 export const n = (x: unknown): number => Number(x ?? 0);
 const closedList = sql.join(
   CLOSED_ORDER_STATUSES.map((s) => sql`${s}`),
@@ -101,6 +107,7 @@ export function toOrder(r: typeof o.$inferSelect): OrderRecord {
     notePrint: r.notePrint,
     createdByUserId: r.createdByUserId,
     createdByName: r.createdByName,
+    clientRequestId: r.clientRequestId,
     placedAt: r.placedAt,
     confirmedAt: r.confirmedAt,
     cancelledAt: r.cancelledAt,

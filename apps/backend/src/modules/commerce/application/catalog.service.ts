@@ -275,9 +275,8 @@ export class CatalogService {
       );
       if (!variant) throw new ProductNotFoundError(input.variantId);
       await this.#warehouse(tx, input.warehouseId);
-      const current = (await tx.inventory.stockOf([variant.id])).find(
-        (s) => s.warehouseId === input.warehouseId,
-      );
+      // Locked so an order shipping at the same moment cannot skew the counted value.
+      const current = await tx.inventory.lockStock(variant.id, input.warehouseId);
       const delta = input.onHand - (current?.onHand ?? 0);
       if (delta !== 0) {
         await tx.inventory.apply(ws, [

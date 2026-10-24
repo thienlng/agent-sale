@@ -33,6 +33,10 @@ export function OrderForm() {
   const { statuses } = useOrderStatuses();
   const create = useCreateOrder();
   const formRef = useRef<HTMLFormElement>(null);
+  // One id per draft: the server returns the same order if this draft is sent twice.
+  const [clientRequestId] = useState(() => crypto.randomUUID());
+  // Set synchronously so a second F2/click before React re-renders cannot submit again.
+  const pendingRef = useRef(false);
 
   const [warehouseId, setWarehouseId] = useState('');
   const [lines, setLines] = useState<Line[]>([]);
@@ -84,6 +88,7 @@ export function OrderForm() {
 
   const submit = (e?: FormEvent) => {
     e?.preventDefault();
+    if (pendingRef.current) return;
     if (!lines.length) {
       toast.error(t('orderForm.needItems'));
       return;
@@ -124,13 +129,18 @@ export function OrderForm() {
       ...(p.trackingCode ? { trackingCode: p.trackingCode } : {}),
       noteInternal,
       notePrint,
+      clientRequestId,
     };
+    pendingRef.current = true;
     create.mutate(body, {
       onSuccess: (o) => {
         toast.success(t('orderForm.created', { code: o.code }));
         void navigate({ to: '/app/orders/$orderId', params: { orderId: o.id } });
       },
-      onError: (err) => toast.error(errorMessage(t, err)),
+      onError: (err) => {
+        pendingRef.current = false;
+        toast.error(errorMessage(t, err));
+      },
     });
   };
 
@@ -140,7 +150,7 @@ export function OrderForm() {
   submitRef.current = submit;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'F2') {
+      if (e.key === 'F2' && !e.repeat) {
         e.preventDefault();
         submitRef.current();
       }

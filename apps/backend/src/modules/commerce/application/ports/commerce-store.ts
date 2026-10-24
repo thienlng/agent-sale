@@ -102,6 +102,7 @@ export interface OrderRecord {
   notePrint: string;
   createdByUserId: string | null;
   createdByName: string | null;
+  clientRequestId: string | null;
   placedAt: Date;
   confirmedAt: Date | null;
   cancelledAt: Date | null;
@@ -192,7 +193,9 @@ export interface CommerceTx {
     archiveVariants(ids: string[]): Promise<void>;
     variantsByIds(
       ids: string[],
-    ): Promise<Array<VariantRecord & { productName: string; productCode: string }>>;
+    ): Promise<
+      Array<VariantRecord & { productName: string; productCode: string; productActive: boolean }>
+    >;
     searchVariants(filter: {
       q?: string | undefined;
       warehouseId: string;
@@ -211,13 +214,16 @@ export interface CommerceTx {
   };
   inventory: {
     stockOf(variantIds: string[]): Promise<StockRecord[]>;
+    /** Reads one stock row and locks it until the transaction ends (stock-takes). */
+    lockStock(variantId: string, warehouseId: string): Promise<StockRecord | null>;
     /** Applies the deltas and appends one movement per change. */
     apply(workspaceId: WorkspaceId, changes: StockChange[]): Promise<void>;
   };
   orders: {
     nextCode(workspaceId: WorkspaceId): Promise<string>;
     insert(o: OrderRecord, items: OrderItemRecord[]): Promise<void>;
-    find(id: string): Promise<OrderRecord | null>;
+    find(id: string, opts?: { forUpdate?: boolean }): Promise<OrderRecord | null>;
+    findByRequestId(requestId: string): Promise<OrderRecord | null>;
     itemsOf(orderId: string): Promise<OrderItemRecord[]>;
     historyOf(orderId: string): Promise<HistoryRecord[]>;
     update(o: OrderRecord): Promise<void>;

@@ -141,6 +141,12 @@ export function OrderLines({
             <div className="truncate text-xs text-muted-foreground">
               {[l.variant.variantName, l.variant.sku].filter(Boolean).join(' · ')}
             </div>
+            {/* Overselling is allowed (pre-orders, untracked stock) but never silent. */}
+            {l.qty > l.variant.available ? (
+              <div className="text-xs text-warning">
+                {t('orderForm.overStock', { count: Math.max(l.variant.available, 0) })}
+              </div>
+            ) : null}
           </div>
           <div className="flex items-center gap-1">
             <Button

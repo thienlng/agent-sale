@@ -279,6 +279,8 @@ export const CreateOrderRequest = z
     trackingCode: z.string().trim().max(60).optional(),
     noteInternal: z.string().trim().max(2000).default(''),
     notePrint: z.string().trim().max(2000).default(''),
+    /** One per order draft: sending the same id again returns the order created the first time. */
+    clientRequestId: z.uuid().optional(),
   })
   .refine((o) => o.discountType !== 'percent' || o.discountValue <= 100, {
     message: 'a percentage discount is at most 100',
@@ -417,7 +419,13 @@ export type OrderSettingsDto = z.infer<typeof OrderSettingsDto>;
 
 // ─── Overview (ORD-11) ────────────────────────────────────────────────────────
 
-export const OrderOverviewQuery = z.object({ from: z.iso.date(), to: z.iso.date() });
+/** At most 366 days: the daily series and the KPIs summed from it cover the whole range. */
+export const OrderOverviewQuery = z
+  .object({ from: z.iso.date(), to: z.iso.date() })
+  .refine((r) => Math.abs(Date.parse(r.to) - Date.parse(r.from)) <= 365 * 86_400_000, {
+    message: 'the range can be at most 366 days',
+    path: ['to'],
+  });
 
 const Kpis = z.object({
   /** "Doanh số": Σ total of every order except cancelled ones. */

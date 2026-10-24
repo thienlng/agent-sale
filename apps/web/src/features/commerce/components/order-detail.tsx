@@ -73,7 +73,7 @@ function StatusChanger({ order }: { order: OrderDto }) {
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {statuses.map((s) => (
+          {(statuses.includes(order.status) ? statuses : [order.status, ...statuses]).map((s) => (
             <SelectItem key={s} value={s}>
               {t(`status.${s}`)}
             </SelectItem>
@@ -135,7 +135,15 @@ function EditablePanel({ order }: { order: OrderDto }) {
       <Panel
         title={`${t('orderDetail.shipping')} · ${t('orderDetail.notes')}`}
         action={
-          <Button variant="ghost" size="sm" onClick={() => setEditing(true)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              // Start from the latest saved values (the order may have changed meanwhile).
+              reset();
+              setEditing(true);
+            }}
+          >
             <Pencil />
             {t('orderDetail.edit')}
           </Button>
@@ -363,7 +371,7 @@ export function OrderDetail({ orderId }: { orderId: string }) {
             </div>
           </Panel>
 
-          <EditablePanel key={order.updatedAt} order={order} />
+          <EditablePanel key={order.id} order={order} />
         </div>
 
         <div className="flex min-w-0 flex-col gap-5">

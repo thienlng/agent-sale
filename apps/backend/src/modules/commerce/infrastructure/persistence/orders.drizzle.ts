@@ -10,7 +10,19 @@ import type {
   OverviewAggregates,
 } from '../../application/ports/commerce-store.js';
 import type { OrderStatus } from '../../domain/order-stock.js';
-import { h, isClosed, n, o, oi, orderRow, profitExpr, toOrder } from './commerce.rows.js';
+import { DuplicateOrderRequestError } from '../../domain/commerce.errors.js';
+import {
+  contains,
+  h,
+  isClosed,
+  n,
+  o,
+  oi,
+  orderRow,
+  pgCode,
+  profitExpr,
+  toOrder,
+} from './commerce.rows.js';
 
 /** Orders, their history and settings inside one tenant transaction. */
 export function ordersTx(ws: WorkspaceId, tx: TenantTx): Pick<CommerceTx, 'orders' | 'settings'> {
@@ -28,15 +40,27 @@ export function ordersTx(ws: WorkspaceId, tx: TenantTx): Pick<CommerceTx, 'order
         return `DH${String(r?.value ?? 1).padStart(6, '0')}`;
       },
       async insert(rec, items) {
-        await tx.insert(o).values(orderRow(ws, rec));
+        try {
+          await tx.insert(o).values(orderRow(ws, rec));
+        } catch (e) {
+          if (pgCode(e) === '23505' && rec.clientRequestId) throw new DuplicateOrderRequestError();
+          throw e;
+        }
         await tx.insert(oi).values(items.map((i) => ({ ...i, workspaceId: ws, orderId: rec.id })));
       },
-      async find(id) {
-        const [r] = await tx
+      async find(id, opts) {
+        const q = tx
           .select()
           .from(o)
           .where(and(eq(o.id, id), isNull(o.deletedAt)))
           .limit(1);
+        // forUpdate: the row stays locked until the transaction ends, so concurrent
+        // edits and status changes of one order run one after the other.
+        const [r] = opts?.forUpdate ? await q.for('update') : await q;
+        return r ? toOrder(r) : null;
+      },
+      async findByRequestId(requestId) {
+        const [r] = await tx.select().from(o).where(eq(o.clientRequestId, requestId)).limit(1);
         return r ? toOrder(r) : null;
       },
       async itemsOf(orderId) {
@@ -83,7 +107,7 @@ export function ordersTx(ws: WorkspaceId, tx: TenantTx): Pick<CommerceTx, 'order
       async list(f: OrderListFilter): Promise<OrderListResult> {
         const base = and(
           isNull(o.deletedAt),
-          f.q ? sql`${o.searchText} like ${`%${f.q}%`}` : undefined,
+          f.q ? contains(o.searchText, f.q) : undefined,
           f.source ? eq(o.source, f.source) : undefined,
           f.from ? sql`${o.placedAt} >= ${f.from.toISOString()}` : undefined,
           f.to ? sql`${o.placedAt} < ${f.to.toISOString()}` : undefined,
