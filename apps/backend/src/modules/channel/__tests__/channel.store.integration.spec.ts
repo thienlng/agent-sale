@@ -1,0 +1,217 @@
+import {
+  createDb,
+  ensureLoginRoles,
+  eq,
+  migrate,
+  schema,
+  sql,
+  withCredentials,
+  withSystem,
+  withTenant,
+  type Database,
+} from '@agent-sales/db';
+import { newId, userId, workspaceId, type WorkspaceId } from '@agent-sales/shared';
+import { startTestPostgres, type TestPostgres } from '@agent-sales/testing';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
+import { MAX_EVENT_ATTEMPTS } from '../api/channel.facade.js';
+import type { ConnectionRecord } from '../application/ports/channel-store.js';
+import { DrizzleChannelStore } from '../infrastructure/persistence/channel.store.js';
+
+/** The channel store's SQL on a real Postgres: OAuth discovery, page ownership, the inbox queue. */
+let pg: TestPostgres;
+const handles: { close: () => Promise<void> }[] = [];
+let owner: Database;
+let store: DrizzleChannelStore;
+let rival: DrizzleChannelStore;
+let a: WorkspaceId;
+let b: WorkspaceId;
+const users: Record<string, string> = {};
+
+function open(url: string, max: number): Database {
+  const h = createDb({ url, max });
+  handles.push(h);
+  return h.db;
+}
+
+beforeAll(async () => {
+  pg = await startTestPostgres();
+  await migrate(pg.ownerUrl);
+  await ensureLoginRoles(pg.ownerUrl, { tenant: pg.tenantLogin, system: pg.systemLogin });
+  const tenantUrl = withCredentials(pg.ownerUrl, pg.tenantLogin.user, pg.tenantLogin.password);
+  const systemUrl = withCredentials(pg.ownerUrl, pg.systemLogin.user, pg.systemLogin.password);
+  owner = open(pg.ownerUrl, 1);
+  // Two stores with their own pools stand in for two agent processes claiming concurrently.
+  store = new DrizzleChannelStore(open(tenantUrl, 2), open(systemUrl, 2));
+  rival = new DrizzleChannelStore(open(tenantUrl, 1), open(systemUrl, 1));
+  a = workspaceId(newId());
+  b = workspaceId(newId());
+  const tenant = open(tenantUrl, 1);
+  const system = open(systemUrl, 1);
+  for (const ws of [a, b]) {
+    const id = userId(newId());
+    users[ws] = id;
+    await withSystem(system, (tx) =>
+      tx.insert(schema.users).values({ id, email: `${id}@example.test`, name: 'Owner' }),
+    );
+    await withTenant(tenant, ws, (tx) =>
+      tx.insert(schema.workspaces).values({
+        id: ws,
+        workspaceId: ws,
+        name: 'Shop',
+        industry: 'retail',
+        ownerUserId: id,
+      }),
+    );
+  }
+});
+
+afterAll(async () => {
+  for (const h of handles) await h.close();
+  await pg?.stop();
+});
+
+function account(ws: WorkspaceId, externalId: string): ConnectionRecord {
+  return {
+    id: newId(),
+    workspaceId: ws,
+    provider: 'facebook',
+    externalId,
+    name: `Page ${externalId}`,
+    status: 'connected',
+    botId: null,
+    tokenSealed: 'sealed-page-token',
+    expiresAt: null,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+async function discovery(ws: WorkspaceId): Promise<string> {
+  const id = newId();
+  await store.createFlow({
+    id,
+    workspaceId: ws,
+    userId: users[ws] ?? '',
+    provider: 'facebook',
+    stateHash: newId(),
+    browserHash: newId(),
+    accountsSealed: 'sealed-tokens-of-every-granted-page',
+    expiresAt: new Date(Date.now() + 600_000),
+  });
+  return id;
+}
+
+async function connect(ws: WorkspaceId, externalId: string): Promise<ConnectionRecord> {
+  const [c] = await store.select(ws, users[ws] ?? '', await discovery(ws), [
+    account(ws, externalId),
+  ]);
+  if (!c) throw new Error('connect failed');
+  return c;
+}
+
+async function enqueue(ws: WorkspaceId, connectionId: string, n: number): Promise<string[]> {
+  const ids = Array.from({ length: n }, () => newId());
+  await owner.insert(schema.channelWebhookEvents).values(
+    ids.map((id) => ({
+      id,
+      workspaceId: ws,
+      connectionId,
+      externalId: id,
+      payload: { kind: 'facebook', occurredAt: new Date().toISOString() },
+      // The claim skips events younger than 2 s so a burst can group.
+      createdAt: new Date(Date.now() - 10_000),
+    })),
+  );
+  return ids;
+}
+
+const event = async (id: string) =>
+  (
+    await owner
+      .select()
+      .from(schema.channelWebhookEvents)
+      .where(eq(schema.channelWebhookEvents.id, id))
+  )[0];
+
+describe('OAuth discovery and page ownership', () => {
+  it('drops every sealed page token once the user picks pages, and is single-use', async () => {
+    const flowId = await discovery(a);
+    await store.select(a, users[a] ?? '', flowId, [account(a, 'page-1')]);
+    const [flow] = await owner
+      .select()
+      .from(schema.channelOauthFlows)
+      .where(eq(schema.channelOauthFlows.id, flowId));
+    expect(flow?.accountsSealed).toBeNull();
+    expect(flow?.consumedAt).not.toBeNull();
+    await expect(
+      store.select(a, users[a] ?? '', flowId, [account(a, 'page-1b')]),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+
+  it('refuses a page that is connected to another workspace', async () => {
+    await connect(a, 'page-shared');
+    await expect(connect(b, 'page-shared')).rejects.toMatchObject({ code: 'CONFLICT' });
+  });
+
+  it('hides connections from another tenant', async () => {
+    const c = await connect(a, 'page-private');
+    expect(await store.get(b, c.id)).toBeNull();
+    expect((await store.list(b)).map((x) => x.id)).not.toContain(c.id);
+    expect(await store.update(b, c.id, { status: 'disconnected' })).toBeNull();
+  });
+});
+
+describe('Inbox queue', () => {
+  it('never hands the same event to two concurrent claimers', async () => {
+    const c = await connect(a, 'page-queue');
+    const ids = await enqueue(a, c.id, 6);
+    const [x, y] = await Promise.all([store.claimEvents(4), rival.claimEvents(4)]);
+    const claimed = [...(x ?? []), ...(y ?? [])].map((j) => j.id).filter((id) => ids.includes(id));
+    expect(new Set(claimed).size).toBe(claimed.length);
+    expect(claimed.sort()).toEqual([...ids].sort());
+    for (const j of [...(x ?? []), ...(y ?? [])]) await store.completeEvent(j.id, j.claimToken);
+  });
+
+  it('fences a stale claim token and still renews an expired lease nobody re-claimed', async () => {
+    const c = await connect(a, 'page-fence');
+    const [id] = await enqueue(a, c.id, 1);
+    const [first] = await store.claimEvents(10);
+    expect(first?.id).toBe(id);
+    // The lease ran out during a long tick, but nobody else claimed it: renewing is safe.
+    await owner.execute(
+      sql`update channel_webhook_events set lease_until = now() - interval '1 second' where id = ${id}`,
+    );
+    expect(await store.renewEvent(first!.id, first!.claimToken)).toBe(true);
+    // Released and re-claimed by another worker: the old token loses every write.
+    await store.releaseEvent(first!.id, first!.claimToken, 0);
+    await owner.execute(
+      sql`update channel_webhook_events set lease_until = now() - interval '1 second' where id = ${id}`,
+    );
+    const [second] = await rival.claimEvents(10);
+    expect(second?.id).toBe(id);
+    expect(await store.renewEvent(first!.id, first!.claimToken)).toBe(false);
+    await store.completeEvent(first!.id, first!.claimToken);
+    expect((await event(id!))?.processedAt).toBeNull();
+    await rival.completeEvent(second!.id, second!.claimToken);
+    expect((await event(id!))?.processedAt).not.toBeNull();
+  });
+
+  it('dead-letters failed and exhausted events so they leave the queue with their payload', async () => {
+    const c = await connect(a, 'page-dead');
+    const [failed, crashed] = await enqueue(a, c.id, 2);
+    const jobs = await store.claimEvents(10);
+    const job = jobs.find((j) => j.id === failed);
+    await store.deadLetterEvent(job!.id, job!.claimToken);
+    const row = await event(failed!);
+    expect(row?.failedAt).not.toBeNull();
+    expect(row?.processedAt).not.toBeNull();
+    expect(row?.payload).toBeTruthy();
+    // A worker died during the last attempt: the sweep dead-letters it once the lease is over.
+    await owner.execute(
+      sql`update channel_webhook_events set attempts = ${MAX_EVENT_ATTEMPTS}, lease_until = now() - interval '1 second' where id = ${crashed}`,
+    );
+    expect(await store.deadLetterExhaustedEvents()).toContain(crashed);
+    expect((await event(crashed!))?.failedAt).not.toBeNull();
+    expect((await store.claimEvents(10)).map((j) => j.id)).not.toContain(crashed);
+  });
+});
