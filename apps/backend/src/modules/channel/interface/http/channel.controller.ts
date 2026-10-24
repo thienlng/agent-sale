@@ -18,11 +18,12 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { getEnv } from '../../../../common/config.js';
 import {
+  type AuthState,
   CurrentUser,
   CurrentWorkspace,
   Public,
+  RequireCapability,
   WorkspaceScoped,
-  type AuthState,
 } from '../../../../common/http/auth-context.js';
 import { ZodValidationPipe } from '../../../../common/http/zod-validation.pipe.js';
 import { ChannelFacadeImpl } from '../../application/channel.facade.impl.js';
@@ -43,6 +44,7 @@ export class ChannelController {
   list(@CurrentWorkspace() ws: WorkspaceId) {
     return this.channels.list(ws);
   }
+  @RequireCapability('settings.manage')
   @WorkspaceScoped()
   @Post(':provider/connect')
   async connect(
@@ -71,6 +73,7 @@ export class ChannelController {
   ) {
     return this.channels.discovery(ws, user.userId, id);
   }
+  @RequireCapability('settings.manage')
   @WorkspaceScoped()
   @Post('discoveries/:id/select')
   select(
@@ -81,6 +84,7 @@ export class ChannelController {
   ) {
     return this.channels.select(ws, user.userId, id, body.externalIds);
   }
+  @RequireCapability('settings.manage')
   @WorkspaceScoped()
   @Patch(':id')
   update(

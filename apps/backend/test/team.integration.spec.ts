@@ -284,6 +284,34 @@ describe('team and access on Postgres', () => {
     expect((await call(asBinh, 'GET', '/orders')).statusCode).toBe(200);
     expect((await call(asAn, 'POST', '/contacts', { name: 'x' })).statusCode).toBe(403);
     expect((await call(asAn, 'POST', '/orders', {})).statusCode).toBe(403);
+    // Bot training, page connections and the inbox (added by the Meta inbox milestone).
+    const someId = '018d0000-0000-7000-8000-0000000000aa';
+    expect(
+      (
+        await call(asBinh, 'POST', `/bots/${someId}/training-items`, {
+          kind: 'scenario',
+          title: 'x',
+          content: 'x',
+        })
+      ).statusCode,
+    ).toBe(403);
+    expect(
+      (await call(asBinh, 'POST', `/bots/${someId}/training-history/${someId}/restore`)).statusCode,
+    ).toBe(403);
+    expect((await call(asBinh, 'POST', '/channels/facebook/connect', {})).statusCode).toBe(403);
+    expect((await call(asBinh, 'PATCH', `/channels/${someId}`, { botId: null })).statusCode).toBe(
+      403,
+    );
+    expect(
+      (await call(asAn, 'POST', `/conversations/${someId}/messages`, { text: 'hi' })).statusCode,
+    ).toBe(403);
+    expect((await call(asAn, 'PATCH', `/conversations/${someId}`, { note: 'x' })).statusCode).toBe(
+      403,
+    );
+    // Sales may work the inbox: the capability passes and the unknown conversation is a 404.
+    expect(
+      (await call(asBinh, 'PATCH', `/conversations/${someId}`, { note: 'x' })).statusCode,
+    ).toBe(404);
     expect(
       (
         await call(asBinh, 'POST', '/saved-views', {

@@ -7,6 +7,7 @@ import {
   type AuthState,
   CurrentUser,
   CurrentWorkspace,
+  RequireCapability,
   WorkspaceScoped,
 } from '../../../../common/http/auth-context.js';
 import { IDENTITY_FACADE, type IdentityFacade } from '../../../identity/api/index.js';
@@ -23,6 +24,7 @@ export class MediaController {
     @Inject(IDENTITY_FACADE) private readonly identity: IdentityFacade,
   ) {}
 
+  @RequireCapability('bots.manage')
   @Post(':botId/media-upload')
   @HttpCode(201)
   @RouteConfig({ bodyLimit: 2_097_152 })
