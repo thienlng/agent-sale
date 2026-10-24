@@ -4,6 +4,7 @@ import { Module } from '@nestjs/common';
 
 import { DbModule } from './common/db/db.module.js';
 import { AiModule } from './modules/ai/ai.module.js';
+import { AnalyticsModule } from './modules/analytics/analytics.module.js';
 import { AuditModule } from './modules/audit/audit.module.js';
 import { BillingModule } from './modules/billing/billing.module.js';
 import { CommerceModule } from './modules/commerce/commerce.module.js';
@@ -32,6 +33,7 @@ import { WorkspaceModule } from './modules/workspace/workspace.module.js';
     CrmModule,
     TeamModule,
     BillingModule,
+    AnalyticsModule,
     AuditModule,
   ],
 })
