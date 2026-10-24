@@ -276,7 +276,9 @@
     "fetchingModels": "Đang lấy danh sách mô hình…",
     "filterModels": "Lọc trong {{count}} mô hình",
     "noModels": "Không có mô hình phù hợp.",
-    "retry": "Thử lại"
+    "retry": "Thử lại",
+    "showKey": "Hiện key",
+    "hideKey": "Ẩn key"
   },
   "errors": {
     "notFoundTitle": "Không tìm thấy trang",

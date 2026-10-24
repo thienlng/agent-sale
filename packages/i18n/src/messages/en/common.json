@@ -277,7 +277,9 @@
     "fetchingModels": "Fetching models…",
     "filterModels": "Filter {{count}} models",
     "noModels": "No models match.",
-    "retry": "Try again"
+    "retry": "Try again",
+    "showKey": "Show key",
+    "hideKey": "Hide key"
   },
   "errors": {
     "notFoundTitle": "Page not found",

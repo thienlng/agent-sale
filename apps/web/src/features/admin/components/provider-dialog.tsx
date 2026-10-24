@@ -1,5 +1,5 @@
 import type { LlmProviderDto, LlmProviderKind, LlmProviderOptions } from '@agent-sales/contracts';
-import { Plug } from 'lucide-react';
+import { Eye, EyeOff, Plug } from 'lucide-react';
 import { type FormEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -47,6 +47,7 @@ export function ProviderDialog({
   const [baseUrl, setBaseUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [removeKey, setRemoveKey] = useState(false);
+  const [showKey, setShowKey] = useState(false);
   const [options, setOptions] = useState<LlmProviderOptions>({
     structuredOutput: 'json_schema',
     sendReasoningEffort: false,
@@ -61,6 +62,7 @@ export function ProviderDialog({
     setBaseUrl(provider?.baseUrl ?? '');
     setApiKey('');
     setRemoveKey(false);
+    setShowKey(false);
     setOptions(
       provider?.options ?? {
         structuredOutput: 'json_schema',
@@ -201,18 +203,34 @@ export function ProviderDialog({
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="p-key">{t('admin.apiKey')}</Label>
-            <Input
-              id="p-key"
-              type="password"
-              autoComplete="off"
-              value={apiKey}
-              disabled={removeKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder={
-                provider?.apiKeyHint ? t('admin.apiKeyKeep', { hint: provider.apiKeyHint }) : ''
-              }
-              className="h-10"
-            />
+            <div className="flex gap-1">
+              <Input
+                id="p-key"
+                type={showKey ? 'text' : 'password'}
+                autoComplete="off"
+                spellCheck={false}
+                value={apiKey}
+                disabled={removeKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder={
+                  provider?.apiKeyHint ? t('admin.apiKeyKeep', { hint: provider.apiKeyHint }) : ''
+                }
+                className="h-10 min-w-0 font-mono"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="size-10 shrink-0"
+                disabled={removeKey}
+                aria-pressed={showKey}
+                aria-label={showKey ? t('admin.hideKey') : t('admin.showKey')}
+                title={showKey ? t('admin.hideKey') : t('admin.showKey')}
+                onClick={() => setShowKey((v) => !v)}
+              >
+                {showKey ? <EyeOff /> : <Eye />}
+              </Button>
+            </div>
             {provider?.hasApiKey && !apiKey && (baseUrl || null) !== provider.baseUrl ? (
               <p className="text-sm text-warning">{t('admin.baseUrlDropsKey')}</p>
             ) : null}
