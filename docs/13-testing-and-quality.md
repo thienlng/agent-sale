@@ -8,6 +8,8 @@
 | Integration | Vitest + Testcontainers (Postgres+pgvector, Redis) | API + DB + queue; RLS; idempotency | Every endpoint has happy-path + permission + cross-tenant tests |
 | Contract | Real webhook fixtures (record/replay) | Channel, carrier, payment adapters | Every event type has a fixture |
 | E2E | Playwright | P0 flow: sign up → create bot → FAQ → test chat → connect widget → customer sends a message → bot replies → agent takes over → create order → pay for plan | Run on staging for every release |
+| E2E (mocked API) | Playwright, `apps/web/e2e` (`pnpm test:e2e`) | Rendering, navigation, responsive layout; the API is mocked per test, so it proves no persistence | Every PR (CI `web`) |
+| E2E (live backend) | Playwright, `apps/web/e2e-live` (`pnpm test:e2e:live`) | Real API + Postgres behind the built app: orders (stock, snapshot prices, payments, line edits, double submit, source field policies) and customers (create, profile edits, notes, tags, filters — BA cases C01–C11). Each run signs up a new shop (isolated, no cleanup) | Every PR (CI `web-live`) |
 | AI eval | Dedicated runner (`evals/`) | Answer quality & tool calls | See §2 |
 | Load | k6 | Webhook ingest, realtime inbox, campaign sending | NFR [02 §15](02-functional-requirements.md) |
 | Security | Semgrep, gitleaks, Trivy, ZAP baseline, pentest | | No High/Critical |

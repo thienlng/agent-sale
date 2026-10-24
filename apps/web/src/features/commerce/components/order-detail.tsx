@@ -20,12 +20,14 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { ApiClientError } from '@/lib/api-client';
-import { errorMessage } from '@/lib/errors';
 import { formatDateTime, formatVnd } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 import { useChangeOrderStatus, useOrder, useUpdateOrder } from '../api/commerce';
+import { orderErrorMessage } from '../hooks/order-errors';
 import { useOrderStatuses } from '../hooks/use-order-statuses';
+import { OrderItemsEditor } from './order-items-editor';
+import { OrderPeoplePanel } from './order-people-editor';
 import { OrderStatusBadge } from './order-status-badge';
 
 function Panel({
@@ -98,7 +100,7 @@ function StatusChanger({ order }: { order: OrderDto }) {
                 setNote('');
                 toast.success(t('orderDetail.statusChanged', { status: t(`status.${status}`) }));
               },
-              onError: (err) => toast.error(errorMessage(t, err)),
+              onError: (err) => toast.error(orderErrorMessage(t, err)),
             },
           )
         }
@@ -246,7 +248,7 @@ function EditablePanel({ order }: { order: OrderDto }) {
                   toast.success(t('orderDetail.saved'));
                   setEditing(false);
                 },
-                onError: (err) => toast.error(errorMessage(t, err)),
+                onError: (err) => toast.error(orderErrorMessage(t, err)),
               },
             )
           }
@@ -261,6 +263,7 @@ function EditablePanel({ order }: { order: OrderDto }) {
 export function OrderDetail({ orderId }: { orderId: string }) {
   const { t } = useTranslation();
   const query = useOrder(orderId);
+  const [editingItems, setEditingItems] = useState(false);
   if (query.error instanceof ApiClientError && query.error.status === 404) return <NotFound />;
   const order = query.data;
   if (!order) {
@@ -297,79 +300,70 @@ export function OrderDetail({ orderId }: { orderId: string }) {
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <div className="flex min-w-0 flex-col gap-5">
-          <Panel title={t('orderDetail.items')}>
-            <ul className="divide-y">
-              {order.items.map((i) => (
-                <li key={i.id} className="flex flex-wrap items-center gap-3 py-2.5">
-                  <div className="min-w-0 flex-1 basis-48">
-                    <div className="truncate font-medium">{i.productName}</div>
-                    <div className="truncate text-xs text-muted-foreground">
-                      {[i.variantName, i.sku].filter(Boolean).join(' · ')}
-                    </div>
-                  </div>
-                  <div className="text-sm text-muted-foreground tabular-nums">
-                    {i.qty} × {formatVnd(i.unitPrice)}
-                  </div>
-                  <div className="w-28 text-right font-medium tabular-nums">
-                    {formatVnd(i.lineTotal)}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </Panel>
-
-          <Panel title={t('orderDetail.amounts')}>
-            <dl className="flex flex-col gap-2 text-sm">
-              <Row label={t('orderForm.subtotal')} value={formatVnd(a.subtotal)} />
-              <Row
-                label={`${t('orderForm.discount')}${a.discountType === 'percent' ? ` (${a.discountValue}%)` : ''}`}
-                value={formatVnd(a.discountAmount ? -a.discountAmount : 0)}
-              />
-              <Row
-                label={t('orderForm.shippingCharged')}
-                value={
-                  a.freeShipping ? t('orderForm.freeShipping') : formatVnd(a.shippingFeeCharged)
+          {editingItems && order.stockState === 'reserved' ? (
+            <OrderItemsEditor order={order} onDone={() => setEditingItems(false)} />
+          ) : (
+            <>
+              <Panel
+                title={t('orderDetail.items')}
+                action={
+                  order.stockState === 'reserved' ? (
+                    <Button variant="ghost" size="sm" onClick={() => setEditingItems(true)}>
+                      <Pencil />
+                      {t('orderDetail.editItems')}
+                    </Button>
+                  ) : null
                 }
-              />
-              <Row label={t('orderForm.surcharge')} value={formatVnd(a.surcharge)} />
-              <div className="my-1 border-t" />
-              <Row strong label={t('orderForm.total')} value={formatVnd(a.total)} />
-              <Row label={t('orderForm.paid')} value={formatVnd(a.paid)} />
-              <Row
-                strong
-                label={a.remaining < 0 ? t('orderForm.overpaid') : t('orderForm.cod')}
-                value={formatVnd(Math.abs(a.remaining))}
-              />
-            </dl>
-          </Panel>
+              >
+                <ul className="divide-y">
+                  {order.items.map((i) => (
+                    <li key={i.id} className="flex flex-wrap items-center gap-3 py-2.5">
+                      <div className="min-w-0 flex-1 basis-48">
+                        <div className="truncate font-medium">{i.productName}</div>
+                        <div className="truncate text-xs text-muted-foreground">
+                          {[i.variantName, i.sku].filter(Boolean).join(' · ')}
+                        </div>
+                      </div>
+                      <div className="text-sm text-muted-foreground tabular-nums">
+                        {i.qty} × {formatVnd(i.unitPrice)}
+                      </div>
+                      <div className="w-28 text-right font-medium tabular-nums">
+                        {formatVnd(i.lineTotal)}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </Panel>
 
-          <Panel title={t('orderDetail.people')}>
-            <div className="grid gap-4 text-sm md:grid-cols-2">
-              <div>
-                <div className="text-muted-foreground">{t('orderForm.customer')}</div>
-                <div className="mt-1 font-medium">{order.customer.name}</div>
-                <div className="tabular-nums">{order.customer.phone}</div>
-                {order.customer.email ? (
-                  <div className="text-muted-foreground">{order.customer.email}</div>
-                ) : null}
-              </div>
-              <div>
-                <div className="text-muted-foreground">{t('orderForm.recipient')}</div>
-                <div className="mt-1 font-medium">{order.recipient.name}</div>
-                <div className="tabular-nums">{order.recipient.phone}</div>
-                <div className="mt-1">
-                  {[order.recipient.address, order.recipient.ward, order.recipient.province]
-                    .filter(Boolean)
-                    .join(', ')}
-                </div>
-                {order.expectedDeliveryAt ? (
-                  <div className="mt-1 text-muted-foreground">
-                    {t('orderForm.expectedDelivery')}: {formatDateTime(order.expectedDeliveryAt)}
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </Panel>
+              <Panel title={t('orderDetail.amounts')}>
+                <dl className="flex flex-col gap-2 text-sm">
+                  <Row label={t('orderForm.subtotal')} value={formatVnd(a.subtotal)} />
+                  <Row
+                    label={t('orderForm.shippingCharged')}
+                    value={
+                      a.freeShipping ? t('orderForm.freeShipping') : formatVnd(a.shippingFeeCharged)
+                    }
+                  />
+                  <Row label={t('orderForm.surcharge')} value={formatVnd(a.surcharge)} />
+                  <Row label={t('orderForm.gross')} value={formatVnd(a.gross)} />
+                  <Row
+                    label={`${t('orderForm.discount')}${a.discountType === 'percent' ? ` (${a.discountValue}%)` : ''}`}
+                    value={formatVnd(a.discountAmount ? -a.discountAmount : 0)}
+                  />
+                  <div className="my-1 border-t" />
+                  <Row strong label={t('orderForm.total')} value={formatVnd(a.total)} />
+                  <Row label={t('orderForm.paid')} value={formatVnd(a.paid)} />
+                  <Row
+                    strong
+                    label={a.remaining < 0 ? t('orderForm.overpaid') : t('orderForm.cod')}
+                    value={formatVnd(Math.abs(a.remaining))}
+                  />
+                </dl>
+              </Panel>
+            </>
+          )}
+
+          <OrderPeoplePanel key={order.id} order={order} />
 
           <EditablePanel key={order.id} order={order} />
         </div>

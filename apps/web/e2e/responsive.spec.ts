@@ -1,6 +1,7 @@
 import { expect, type Page, test } from '@playwright/test';
 
 import { BOT_ID, mockApi, ORDER_ID, PRODUCT_ID } from './support/mock-api';
+import { CONTACT_ID } from './support/mock-crm';
 
 /**
  * Layout guard: every dashboard page, at phone to wide-desktop widths and in
@@ -20,7 +21,17 @@ const PAGES = [
   ['products', '/app/products', 'Sản phẩm'],
   ['product', `/app/products/${PRODUCT_ID}`, 'Sửa sản phẩm'],
   ['status settings', '/app/order-settings/statuses', 'Thiết lập đơn hàng'],
+  ['source policies', '/app/order-settings/sources', 'Thiết lập đơn hàng'],
   ['warehouses', '/app/order-settings/warehouses', 'Thiết lập đơn hàng'],
+  ['contacts', '/app/contacts', 'Khách hàng'],
+  [
+    'contact drawer',
+    `/app/contacts?contact=${CONTACT_ID}`,
+    'Nguyễn Thị Thanh Hương Lan Anh Phương Thảo Ngọc Bích',
+  ],
+  ['crm statuses', '/app/crm-settings/statuses', 'Cài đặt khách hàng'],
+  ['crm sources', '/app/crm-settings/sources', 'Cài đặt khách hàng'],
+  ['crm tags', '/app/crm-settings/tags', 'Cài đặt khách hàng'],
 ] as const;
 
 const VIEWPORTS = [

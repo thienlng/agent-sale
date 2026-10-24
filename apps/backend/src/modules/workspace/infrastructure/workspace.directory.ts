@@ -1,7 +1,7 @@
 import { and, type Database, eq, isNull, schema, withSystem } from '@agent-sales/db';
-import { type UserId, workspaceId, type WorkspaceId } from '@agent-sales/shared';
+import { type UserId, userId, workspaceId, type WorkspaceId } from '@agent-sales/shared';
 
-import type { WorkspaceMembership } from '../api/workspace.facade.js';
+import type { WorkspaceMember, WorkspaceMembership } from '../api/workspace.facade.js';
 import type { WorkspaceDirectory } from '../application/ports/workspace-directory.js';
 import type { InMemoryWorkspaceUnitOfWork } from './workspace.unit-of-work.js';
 
@@ -16,6 +16,17 @@ export class DrizzleWorkspaceDirectory implements WorkspaceDirectory {
 
   listMemberships(user: UserId): Promise<WorkspaceMembership[]> {
     return this.query(user);
+  }
+
+  listMembers(ws: WorkspaceId): Promise<WorkspaceMember[]> {
+    return withSystem(this.systemDb, async (tx) => {
+      const rows = await tx
+        .select({ userId: schema.members.userId, role: schema.members.role })
+        .from(schema.members)
+        .where(and(eq(schema.members.workspaceId, ws), eq(schema.members.status, 'active')))
+        .orderBy(schema.members.createdAt);
+      return rows.map((r) => ({ userId: userId(r.userId), role: r.role }));
+    });
   }
 
   private query(user: UserId, ws?: WorkspaceId): Promise<WorkspaceMembership[]> {
@@ -47,6 +58,12 @@ export class InMemoryWorkspaceDirectory implements WorkspaceDirectory {
 
   async findMembership(ws: WorkspaceId, user: UserId): Promise<WorkspaceMembership | null> {
     return (await this.listMemberships(user)).find((m) => m.workspaceId === ws) ?? null;
+  }
+
+  async listMembers(ws: WorkspaceId): Promise<WorkspaceMember[]> {
+    return this.store.members.rows
+      .filter((m) => m.workspaceId === ws && m.status === 'active')
+      .map((m) => ({ userId: m.userId, role: m.role }));
   }
 
   async listMemberships(user: UserId): Promise<WorkspaceMembership[]> {

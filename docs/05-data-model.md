@@ -145,6 +145,8 @@ crm_rule_runs(id, workspace_id, rule_key, conversation_id, contact_id, result, c
 import_jobs(id, workspace_id, kind, file_key, mapping JSONB, status, total, ok, failed, error_file_key)
 ```
 
+**Implemented (M3a, migration 0006):** `contacts` (name / phone + `phone_normalized` E.164 / email + `email_normalized`, birthday, gender, address, ward, province, `phone_provided_at`, `address_provided_at`, `source_id`, `first_source_id`, `status_id`, `sales_user_id`, `care_user_id`, `ad_ref`, `profile_note` ≤ 500, folded `search_text` with a trigram index, `client_request_id`, `version`, `archived_at`), `contact_notes` (with `version`, `edited_at`), `contact_history` (append-only: type, `changes` field → {from,to}, `data`, actor), `crm_sources` and `crm_statuses` (stable ids, `key` for built-in defaults, `position`, `archived_at`), `crm_tags` (`type` classification | attribute | work, `fields` JSON schema, `schema_version`, `is_system`, `version`, `archived_at`), `crm_tag_assignments` (`scope` contact | conversation, `entity_id`, `values`, `schema_version`, removal fields; a partial unique index keeps one active classification/attribute assignment per entity) and `saved_views` (owner, private | shared, versioned filter AST, sort, columns). Owners are user ids (`users` is global). Differences from the sketch above: one `owner_member_id` became separate Sales and CSKH users; `tags.type` values are classification/attribute/work; `contact_tags` became `crm_tag_assignments` with a scope; `contact_events` became `contact_history`; segments, tasks, files, rules and imports are not built yet.
+
 ## 6. Commerce & shipping
 
 ```sql
@@ -184,7 +186,8 @@ admin_units(code, name, level: province|ward, parent_code, valid_from, valid_to)
 subtotal          = Σ line_total
 discount_amount   = discount_type == 'percent' ? round(subtotal × value / 100) : value
 after_discount    = subtotal − discount_amount
-total             = after_discount + shipping_fee_charged + surcharge     -- "Tổng số tiền" (Total amount) / "Tiền cần thu" (Amount to collect)
+gross             = subtotal + shipping_fee_charged + surcharge           -- "Tổng số tiền" (Gross total, before discount)
+total             = gross − discount_amount                               -- "Tiền cần thu" (Amount due)
 paid              = transfer_amount (+ other payments)
 remaining         = total − paid                                          -- "Còn thiếu" (Outstanding)
 cod_amount        = max(remaining, 0)
@@ -193,6 +196,10 @@ profit (statistics) = Σ(unit_price − cost) × qty − discount_amount − (sh
 ```
 
 **Implemented (M2, migration 0004):** money columns are `bigint` VND; `orders.stock_state` (`reserved | shipped | released | returned`) records where the goods are, and every inventory change appends to `inventory_movements` (rules in `apps/backend/src/modules/commerce/MODULE.md`). Order codes come from `order_counters` (`DH000001`…). `orders.search_text` and `products.search_text` hold folded text (trigram-indexed) for accent-insensitive search. Names of who created/changed an order are snapshotted (`created_by_name`, `order_status_history.actor_name`). Not yet: `admin_units` (addresses are free text), carriers/shipments, `shipping_settings`, sources as entities (`orders.source` is an enum).
+
+`gross` is not stored: the API derives it (`amounts.gross`, list footer `totals.gross`) so the list, detail, export and footer never reuse one ambiguous "total" for both meanings (#22).
+
+**Order settings (implemented, migration 0005):** one row per workspace with `extra_statuses`, `require_note_statuses` (every source), `policies JSONB` — per order source, the fields required to save an order (`create`) and before it enters a fulfilment status (`confirm`: `FULFILMENT_ORDER_STATUSES` = closed statuses + delivery failed + returning) — and `version INT` for optimistic concurrency (a save carrying an older version is refused with 409). Fields a policy can require: customer phone/email, recipient phone, delivery address. Sources without a stored policy use `defaultOrderPolicy` (hotline: no fields to save a draft, delivery details to confirm; in-store: nothing; others: delivery details for both). The planned per-source row (`source_id`) and `require_confirm`/Sheets/chat-order settings are not implemented yet.
 
 **Overview definitions (ORD-11)**, per local day in the workspace time zone: sales = Σ total of orders not cancelled; closed orders = statuses confirmed → delivered (`CLOSED_ORDER_STATUSES`); revenue = Σ total of closed orders; profit = Σ profit of closed orders; returned = orders returning/returned.
 

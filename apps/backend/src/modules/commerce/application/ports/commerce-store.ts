@@ -122,7 +122,11 @@ export interface HistoryRecord {
 }
 
 export interface OrderListFilter {
-  status?: OrderStatus | undefined;
+  statuses?: OrderStatus[] | undefined;
+  /** `exclude`: status NOT IN `statuses`. */
+  statusMode: 'include' | 'exclude';
+  createdBy?: string | undefined;
+  carrier?: string | undefined;
   /** Folded search text. */
   q?: string | undefined;
   source?: string | undefined;
@@ -138,7 +142,27 @@ export interface OrderListResult {
   rows: Array<OrderRecord & { itemsPreview: Array<{ name: string; qty: number }> }>;
   total: number;
   counts: Record<string, number>;
-  totals: { itemQty: number; shippingFeeCharged: number; cod: number; total: number };
+  totals: {
+    itemQty: number;
+    shippingFeeCharged: number;
+    cod: number;
+    gross: number;
+    total: number;
+  };
+  facets: { creators: Array<{ id: string; name: string }>; carriers: string[] };
+}
+
+export interface SourcePolicyRecord {
+  source: string;
+  create: string[];
+  confirm: string[];
+}
+
+export interface OrderSettingsRecord {
+  extraStatuses: string[];
+  requireNoteStatuses: string[];
+  policies: SourcePolicyRecord[];
+  version: number;
 }
 
 /** Aggregates for the overview, bucketed in the workspace time zone. */
@@ -228,6 +252,8 @@ export interface CommerceTx {
     itemsOf(orderId: string): Promise<OrderItemRecord[]>;
     historyOf(orderId: string): Promise<HistoryRecord[]>;
     update(o: OrderRecord): Promise<void>;
+    /** Replaces every line of an order. */
+    replaceItems(orderId: string, items: OrderItemRecord[]): Promise<void>;
     addHistory(workspaceId: WorkspaceId, orderId: string, h: HistoryRecord): Promise<void>;
     list(filter: OrderListFilter): Promise<OrderListResult>;
     overview(range: {
@@ -239,11 +265,12 @@ export interface CommerceTx {
     }): Promise<OverviewAggregates>;
   };
   settings: {
-    get(): Promise<{ extraStatuses: string[]; requireNoteStatuses: string[] } | null>;
-    put(
-      workspaceId: WorkspaceId,
-      s: { extraStatuses: string[]; requireNoteStatuses: string[] },
-    ): Promise<void>;
+    get(): Promise<OrderSettingsRecord | null>;
+    /**
+     * Saves when the stored version is still `s.version` (0 = never saved) and
+     * returns the new version; returns null when someone saved in between.
+     */
+    put(workspaceId: WorkspaceId, s: OrderSettingsRecord): Promise<number | null>;
   };
 }
 

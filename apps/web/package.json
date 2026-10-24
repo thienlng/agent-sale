@@ -12,7 +12,8 @@
     "test": "vitest run",
     "lint": "eslint .",
     "test:e2e": "playwright test",
-    "size": "node scripts/check-bundle-size.mjs"
+    "size": "node scripts/check-bundle-size.mjs",
+    "test:e2e:live": "playwright test --config playwright.live.config.ts"
   },
   "dependencies": {
     "@agent-sales/contracts": "workspace:*",

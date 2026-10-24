@@ -219,10 +219,16 @@ export const VariantSearchResponse = z.object({ data: z.array(VariantOption) });
 
 // ─── Orders (ORD-03, ORD-04) ──────────────────────────────────────────────────
 
-const Phone = z
-  .string()
-  .trim()
-  .regex(/^\+?[0-9 .-]{8,15}$/, 'invalid phone number');
+/** A blank value means "not given"; whether it may be blank is the source's field policy. */
+const blankToUndefined = <T extends z.ZodType>(schema: T) =>
+  schema.optional().or(z.literal('').transform(() => undefined));
+
+const Phone = blankToUndefined(
+  z
+    .string()
+    .trim()
+    .regex(/^\+?[0-9 .-]{8,15}$/, 'invalid phone number'),
+);
 
 export const OrderCustomer = z.object({
   name: z.string().trim().min(1).max(120),
@@ -239,13 +245,20 @@ export type OrderCustomer = z.infer<typeof OrderCustomer>;
 export const OrderRecipient = z.object({
   name: z.string().trim().min(1).max(120),
   phone: Phone,
-  address: z.string().trim().min(1).max(300),
+  address: blankToUndefined(z.string().trim().max(300)),
   province: z.string().trim().max(120).optional(),
   ward: z.string().trim().max(120).optional(),
 });
 export type OrderRecipient = z.infer<typeof OrderRecipient>;
 
 export const DiscountType = z.enum(['amount', 'percent']);
+
+const OrderLineInput = z.object({
+  variantId: z.uuid(),
+  qty: z.number().int().min(1).max(10_000),
+  /** Overrides the variant price for this order; defaults to it (or to the line's price when editing). */
+  unitPrice: Money.optional(),
+});
 
 export const CreateOrderRequest = z
   .object({
@@ -257,17 +270,7 @@ export const CreateOrderRequest = z
     /** Defaults to the customer (same person, address required). */
     recipient: OrderRecipient,
     expectedDeliveryAt: z.iso.datetime().optional(),
-    items: z
-      .array(
-        z.object({
-          variantId: z.uuid(),
-          qty: z.number().int().min(1).max(10_000),
-          /** Overrides the variant price for this order; defaults to it. */
-          unitPrice: Money.optional(),
-        }),
-      )
-      .min(1)
-      .max(200),
+    items: z.array(OrderLineInput).min(1).max(200),
     discountType: DiscountType.default('amount'),
     discountValue: Money.default(0),
     /** What the carrier charges the shop. */
@@ -290,8 +293,18 @@ export const CreateOrderRequest = z
   });
 export type CreateOrderRequest = z.input<typeof CreateOrderRequest>;
 
-/** Edits that keep the items: people, shipping, payment received, notes. */
+/**
+ * Edits of an existing order. Every field is optional; amounts are recomputed.
+ * `items` replaces the lines and is accepted only while the order holds its goods
+ * (stock state `reserved`); stock reservations move by the difference.
+ */
 export const UpdateOrderRequest = z.object({
+  items: z.array(OrderLineInput).min(1).max(200).optional(),
+  discountType: DiscountType.optional(),
+  discountValue: Money.optional(),
+  shippingFeeCharged: Money.optional(),
+  freeShipping: z.boolean().optional(),
+  surcharge: Money.optional(),
   customer: OrderCustomer.optional(),
   recipient: OrderRecipient.optional(),
   expectedDeliveryAt: z.iso.datetime().nullable().optional(),
@@ -302,7 +315,7 @@ export const UpdateOrderRequest = z.object({
   noteInternal: z.string().trim().max(2000).optional(),
   notePrint: z.string().trim().max(2000).optional(),
 });
-export type UpdateOrderRequest = z.infer<typeof UpdateOrderRequest>;
+export type UpdateOrderRequest = z.input<typeof UpdateOrderRequest>;
 
 export const ChangeOrderStatusRequest = z.object({
   status: OrderStatus,
@@ -321,7 +334,9 @@ export const OrderAmounts = z.object({
   shippingFeeCharged: Money,
   freeShipping: z.boolean(),
   surcharge: Money,
-  /** "Tổng số tiền" / "Tiền cần thu". */
+  /** "Tổng số tiền": goods + shipping charged + surcharge, before the discount. */
+  gross: Money,
+  /** "Tiền cần thu": gross − discount. */
   total: Money,
   transferAmount: Money,
   paid: Money,
@@ -381,8 +396,20 @@ export const OrderDto = OrderSummaryDto.extend({
 });
 export type OrderDto = z.infer<typeof OrderDto>;
 
+/** `status=a,b`: a comma-separated list (one query parameter keeps URLs and caches simple). */
+const StatusList = z
+  .string()
+  .trim()
+  .transform((v) => v.split(',').filter(Boolean))
+  .pipe(z.array(OrderStatus).max(OrderStatus.options.length));
+
 export const OrderListQuery = z.object({
-  status: OrderStatus.optional(),
+  status: StatusList.optional(),
+  /** `exclude`: every order whose status is NOT in `status`. */
+  statusMode: z.enum(['include', 'exclude']).default('include'),
+  createdBy: z.uuid().optional(),
+  /** Exact carrier name as entered on the order. */
+  carrier: z.string().trim().min(1).max(60).optional(),
   /** Order code, tracking code, customer/recipient name, phone, address, notes (accent-insensitive). */
   q: z.string().trim().max(100).optional(),
   source: OrderSource.optional(),
@@ -407,67 +434,13 @@ export const OrderListResponse = z.object({
     itemQty: z.number().int(),
     shippingFeeCharged: Money,
     cod: Money,
+    gross: Money,
     total: Money,
+  }),
+  /** Values the creator and carrier filters can take (over every order of the workspace). */
+  facets: z.object({
+    creators: z.array(z.object({ id: z.uuid(), name: z.string() })),
+    carriers: z.array(z.string()),
   }),
 });
 export type OrderListResponse = z.infer<typeof OrderListResponse>;
-
-export const OrderSettingsDto = z.object({
-  extraStatuses: z.array(z.enum(OPTIONAL_ORDER_STATUSES)),
-  /** Changing an order into one of these requires a note. */
-  requireNoteStatuses: z.array(OrderStatus),
-});
-export type OrderSettingsDto = z.infer<typeof OrderSettingsDto>;
-
-// ─── Overview (ORD-11) ────────────────────────────────────────────────────────
-
-/** At most 366 days: the daily series and the KPIs summed from it cover the whole range. */
-export const OrderOverviewQuery = z
-  .object({ from: z.iso.date(), to: z.iso.date() })
-  .refine((r) => Math.abs(Date.parse(r.to) - Date.parse(r.from)) <= 365 * 86_400_000, {
-    message: 'the range can be at most 366 days',
-    path: ['to'],
-  });
-
-const Kpis = z.object({
-  /** "Doanh số": Σ total of every order except cancelled ones. */
-  sales: Money,
-  /** "Doanh thu": Σ total of closed orders. */
-  revenue: Money,
-  /** Σ over closed orders of (goods − cost − discount − shipping the shop absorbed); may be negative. */
-  profit: z.number().int(),
-  closedOrders: z.number().int(),
-  avgOrderValue: Money,
-  productQty: z.number().int(),
-  avgProductsPerOrder: z.number(),
-  avgProfitPerOrder: z.number().int(),
-});
-
-export const OrderOverviewResponse = z.object({
-  from: z.iso.date(),
-  to: z.iso.date(),
-  timezone: z.string(),
-  kpis: Kpis,
-  closed: z.object({ amount: Money, productQty: z.number().int() }),
-  returned: z.object({ amount: Money, productQty: z.number().int() }),
-  series: z.array(
-    z.object({
-      date: z.iso.date(),
-      sales: Money,
-      revenue: Money,
-      profit: z.number().int(),
-      closedOrders: z.number().int(),
-      productQty: z.number().int(),
-    }),
-  ),
-  today: z.object({
-    revenue: Money,
-    closedOrders: z.number().int(),
-    created: z.number().int(),
-    cancelled: z.number().int(),
-    productQty: z.number().int(),
-    byHour: z.array(z.object({ hour: z.number().int(), revenue: Money })),
-  }),
-  generatedAt: z.iso.datetime(),
-});
-export type OrderOverviewResponse = z.infer<typeof OrderOverviewResponse>;

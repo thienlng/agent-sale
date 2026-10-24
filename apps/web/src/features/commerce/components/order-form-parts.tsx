@@ -21,11 +21,37 @@ export function Panel({
   );
 }
 
-export function Field({ id, label, children }: { id: string; label: string; children: ReactNode }) {
+export function Field({
+  id,
+  label,
+  required,
+  error,
+  children,
+}: {
+  id: string;
+  label: string;
+  /** Shows a required marker (the input carries `required` itself). */
+  required?: boolean;
+  /** Shown under the input; the input should point at it with aria-describedby. */
+  error?: string | undefined;
+  children: ReactNode;
+}) {
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
-      <Label htmlFor={id}>{label}</Label>
+      <Label htmlFor={id}>
+        {label}
+        {required ? (
+          <span className="text-destructive" aria-hidden>
+            *
+          </span>
+        ) : null}
+      </Label>
       {children}
+      {error ? (
+        <p id={`${id}-error`} className="text-xs text-destructive">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

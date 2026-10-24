@@ -122,7 +122,11 @@ describe('auth flow (in-memory)', () => {
   it('access tokens are rejected when tampered with', async () => {
     const s = await setup();
     const { accessToken } = await s.signup.execute(input, meta);
-    const tampered = accessToken.slice(0, -2) + (accessToken.endsWith('A') ? 'BB' : 'AA');
+    // Change a character inside the signature: the last base64url character carries
+    // padding bits the decoder ignores, so editing only that one is not always a change.
+    const at = accessToken.length - 10;
+    const tampered =
+      accessToken.slice(0, at) + (accessToken[at] === 'A' ? 'B' : 'A') + accessToken.slice(at + 1);
     expect(await s.tokens.verify(tampered)).toBeNull();
   });
 });

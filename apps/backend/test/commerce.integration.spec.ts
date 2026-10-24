@@ -4,6 +4,7 @@ import {
   OrderDto,
   OrderListResponse,
   OrderOverviewResponse,
+  OrderSettingsDto,
   ProductDto,
   VariantSearchResponse,
   WarehouseDto,
@@ -47,11 +48,14 @@ const call = (h: Record<string, string>, method: Method, url: string, payload?: 
     .getInstance()
     .inject({ method, url: `/api/v1${url}`, headers: h, ...(payload ? { payload } : {}) });
 
+let signups = 0;
 async function owner(email: string) {
   const inject = app.getHttpAdapter().getInstance().inject.bind(app.getHttpAdapter().getInstance());
   const signup = await inject({
     method: 'POST',
     url: '/api/v1/auth/signup',
+    // A different client address per shop: signup is rate-limited per address.
+    remoteAddress: `10.0.0.${++signups}`,
     payload: {
       name: 'Chủ shop Lan',
       email,
@@ -301,6 +305,8 @@ describe('commerce on Postgres', () => {
     const put = await call(h, 'PUT', '/order-settings', {
       extraStatuses: [],
       requireNoteStatuses: ['cancelled'],
+      policies: [],
+      version: 0,
     });
     expect(put.statusCode).toBe(200);
     expect(
@@ -385,5 +391,277 @@ describe('commerce on Postgres', () => {
     expect(
       (await call(h, 'GET', '/orders/overview?from=2024-01-01&to=2026-01-01')).statusCode,
     ).toBe(400);
+  });
+
+  it('edits the lines of a held order: stock moves by the difference, snapshots stay (#16)', async () => {
+    const h = await owner('edit-lines@shop.vn');
+    const other = await owner('edit-lines-other@shop.vn');
+    const { warehouse, product, l, m } = await setup(h);
+    const o = OrderDto.parse(
+      (
+        await call(h, 'POST', '/orders', orderBody(warehouse.id, [{ variantId: l.id, qty: 2 }]))
+      ).json(),
+    );
+    expect(await stockOf(h, product.id, l.id)).toMatchObject({ reserved: 2, available: 8 });
+
+    // The catalog price changes after the order was placed.
+    await call(h, 'PUT', `/products/${product.id}`, {
+      code: product.code,
+      name: product.name,
+      variants: product.variants.map((v) => ({
+        id: v.id,
+        sku: v.sku,
+        name: v.name,
+        price: v.price + 50_000,
+        cost: v.cost,
+      })),
+    });
+
+    const three = await call(h, 'PATCH', `/orders/${o.id}`, {
+      items: [{ variantId: l.id, qty: 3 }],
+    });
+    expect(three.statusCode).toBe(200);
+    const edited = OrderDto.parse(three.json());
+    expect(edited.items).toMatchObject([{ variantId: l.id, qty: 3, unitPrice: 150_000 }]);
+    expect(edited.amounts).toMatchObject({ itemQty: 3, subtotal: 450_000, total: 480_000 });
+    expect(await stockOf(h, product.id, l.id)).toMatchObject({
+      onHand: 10,
+      reserved: 3,
+      available: 7,
+    });
+    const list = OrderListResponse.parse((await call(h, 'GET', '/orders')).json());
+    expect(list.total).toBe(1);
+
+    // Swap lines: l goes down to 1, m is new and takes today's catalog price.
+    const swapped = OrderDto.parse(
+      (
+        await call(h, 'PATCH', `/orders/${o.id}`, {
+          items: [
+            { variantId: l.id, qty: 1 },
+            { variantId: m.id, qty: 2 },
+          ],
+          discountValue: 10_000,
+        })
+      ).json(),
+    );
+    expect(swapped.items.map((i) => [i.sku, i.qty, i.unitPrice])).toEqual([
+      ['AT01-L', 1, 150_000],
+      ['AT01-M', 2, 190_000],
+    ]);
+    expect(swapped.amounts).toMatchObject({ subtotal: 530_000, discountAmount: 10_000 });
+    expect(await stockOf(h, product.id, l.id)).toMatchObject({ reserved: 1 });
+    expect(await stockOf(h, product.id, m.id)).toMatchObject({ reserved: 2 });
+
+    // Another shop cannot touch it.
+    const foreign = await call(other, 'PATCH', `/orders/${o.id}`, {
+      items: [{ variantId: l.id, qty: 9 }],
+    });
+    expect(foreign.statusCode).toBe(404);
+
+    // Once shipped, lines are locked and nothing changes.
+    await call(h, 'POST', `/orders/${o.id}/status`, { status: 'delivering' });
+    const locked = await call(h, 'PATCH', `/orders/${o.id}`, {
+      items: [{ variantId: l.id, qty: 5 }],
+      noteInternal: 'should not be saved',
+    });
+    expect(locked.statusCode).toBe(409);
+    const after = OrderDto.parse((await call(h, 'GET', `/orders/${o.id}`)).json());
+    expect(after.items.map((i) => i.qty)).toEqual([1, 2]);
+    expect(after.noteInternal).not.toBe('should not be saved');
+    expect(await stockOf(h, product.id, l.id)).toMatchObject({ onHand: 9, reserved: 0 });
+    expect(await stockOf(h, product.id, m.id)).toMatchObject({ onHand: 8, reserved: 0 });
+  });
+
+  it('serialises concurrent line edits: the reservation matches the final lines', async () => {
+    const h = await owner('edit-race@shop.vn');
+    const { warehouse, product, l } = await setup(h);
+    const o = OrderDto.parse(
+      (
+        await call(h, 'POST', '/orders', orderBody(warehouse.id, [{ variantId: l.id, qty: 1 }]))
+      ).json(),
+    );
+    await Promise.all(
+      [2, 3, 4, 5, 6].map((qty) =>
+        call(h, 'PATCH', `/orders/${o.id}`, { items: [{ variantId: l.id, qty }] }),
+      ),
+    );
+    const final = OrderDto.parse((await call(h, 'GET', `/orders/${o.id}`)).json());
+    expect(await stockOf(h, product.id, l.id)).toMatchObject({ reserved: final.items[0]?.qty });
+  });
+
+  it('applies each source its own field policy, with versioned settings (#17, #18)', async () => {
+    const h = await owner('policy@shop.vn');
+    const { warehouse, l } = await setup(h);
+    const initial = OrderSettingsDto.parse((await call(h, 'GET', '/order-settings')).json());
+    expect(initial.version).toBe(0);
+    expect(initial.policies).toHaveLength(9);
+    expect(initial.policies.find((p) => p.source === 'hotline')).toEqual({
+      source: 'hotline',
+      create: [],
+      confirm: ['recipientPhone', 'recipientAddress'],
+    });
+
+    const draft = (source: string, status = 'new') => ({
+      ...orderBody(warehouse.id, [{ variantId: l.id, qty: 1 }]),
+      source,
+      status,
+      customer: { name: 'Khách gọi điện', phone: '' },
+      recipient: { name: 'Khách gọi điện', phone: '', address: '' },
+    });
+
+    // Hotline: a draft without phone or address is fine…
+    const hotline = await call(h, 'POST', '/orders', draft('hotline'));
+    expect(hotline.statusCode).toBe(201);
+    const hotlineOrder = OrderDto.parse(hotline.json());
+    expect(hotlineOrder.customer.phone).toBeUndefined();
+    // …but it cannot be confirmed until the delivery details are there.
+    const early = await call(h, 'POST', `/orders/${hotlineOrder.id}/status`, {
+      status: 'confirmed',
+    });
+    expect(early.statusCode).toBe(400);
+    expect(early.json()).toMatchObject({
+      error: {
+        details: {
+          stage: 'confirm',
+          source: 'hotline',
+          fields: ['recipientPhone', 'recipientAddress'],
+        },
+      },
+    });
+    await call(h, 'PATCH', `/orders/${hotlineOrder.id}`, {
+      recipient: { name: 'Khách gọi điện', phone: '0987654321', address: '5 Hai Bà Trưng' },
+    });
+    const confirmed = await call(h, 'POST', `/orders/${hotlineOrder.id}/status`, {
+      status: 'confirmed',
+    });
+    expect(confirmed.statusCode).toBe(200);
+    // A confirmed order cannot lose its delivery details again.
+    const blanked = await call(h, 'PATCH', `/orders/${hotlineOrder.id}`, {
+      recipient: { name: 'Khách gọi điện', phone: '', address: '' },
+    });
+    expect(blanked.statusCode).toBe(400);
+
+    // Facebook keeps the stricter default for new orders.
+    const facebook = await call(h, 'POST', '/orders', draft('facebook'));
+    expect(facebook.statusCode).toBe(400);
+    expect(facebook.json()).toMatchObject({ error: { details: { stage: 'create' } } });
+
+    // Relaxing hotline confirmation leaves facebook as it was.
+    const saved = await call(h, 'PUT', '/order-settings', {
+      ...initial,
+      policies: initial.policies.map((p) => (p.source === 'hotline' ? { ...p, confirm: [] } : p)),
+    });
+    expect(saved.statusCode).toBe(200);
+    expect(OrderSettingsDto.parse(saved.json()).version).toBe(1);
+    expect((await call(h, 'POST', '/orders', draft('hotline', 'confirmed'))).statusCode).toBe(201);
+    expect((await call(h, 'POST', '/orders', draft('facebook'))).statusCode).toBe(400);
+
+    // A save based on the old version is refused instead of overwriting the newer one.
+    const stale = await call(h, 'PUT', '/order-settings', { ...initial, extraStatuses: [] });
+    expect(stale.statusCode).toBe(409);
+    const now = OrderSettingsDto.parse((await call(h, 'GET', '/order-settings')).json());
+    expect(now.version).toBe(1);
+    expect(now.extraStatuses).toEqual(initial.extraStatuses);
+  });
+
+  it('filters by several statuses, by exclusion, creator and carrier; totals split gross from due (#19, #22)', async () => {
+    const h = await owner('filters@shop.vn');
+    const { warehouse, l, m } = await setup(h);
+    const create = async (body: object) =>
+      OrderDto.parse((await call(h, 'POST', '/orders', body)).json());
+    const a = await create({
+      ...orderBody(warehouse.id, [{ variantId: l.id, qty: 2 }]),
+      carrier: 'GHN',
+      surcharge: 5_000,
+      discountValue: 20_000,
+    });
+    const b = await create({
+      ...orderBody(warehouse.id, [{ variantId: m.id, qty: 1 }]),
+      carrier: 'GHTK',
+    });
+    const c = await create(orderBody(warehouse.id, [{ variantId: m.id, qty: 1 }]));
+    await call(h, 'POST', `/orders/${a.id}/status`, { status: 'confirmed' });
+    await call(h, 'POST', `/orders/${b.id}/status`, { status: 'cancelled' });
+
+    // 2 × 150k + 30k shipping + 5k surcharge = 335k gross; minus 20k discount = 315k due.
+    expect(a.amounts).toMatchObject({ gross: 335_000, total: 315_000 });
+
+    const ids = async (query: string) =>
+      OrderListResponse.parse((await call(h, 'GET', `/orders?${query}`)).json());
+    const both = await ids('status=confirmed,cancelled');
+    expect(both.data.map((o) => o.id).sort()).toEqual([a.id, b.id].sort());
+    expect(both.totals).toMatchObject({ gross: 335_000 + 170_000, total: 315_000 + 170_000 });
+    expect(both.counts).toMatchObject({ all: 3, new: 1, confirmed: 1, cancelled: 1 });
+
+    const notCancelled = await ids('status=cancelled&statusMode=exclude');
+    expect(notCancelled.data.map((o) => o.id).sort()).toEqual([a.id, c.id].sort());
+
+    const ghn = await ids('carrier=GHN');
+    expect(ghn.data.map((o) => o.id)).toEqual([a.id]);
+    expect(ghn.facets.carriers).toEqual(['GHN', 'GHTK']);
+
+    const creator = ghn.facets.creators[0];
+    expect(ghn.facets.creators).toHaveLength(1);
+    expect(creator?.name).toBe('Chủ shop Lan');
+    expect((await ids(`createdBy=${creator?.id}`)).total).toBe(3);
+    expect((await ids(`createdBy=${crypto.randomUUID()}`)).total).toBe(0);
+    expect((await call(h, 'GET', '/orders?status=bogus')).statusCode).toBe(400);
+  });
+
+  it('keeps drafts movable when a policy tightens, keeps unsent fields, and asks for the fee when free shipping ends', async () => {
+    const h = await owner('review-fixes@shop.vn');
+    const { warehouse, product, l } = await setup(h);
+    const draft = OrderDto.parse(
+      (
+        await call(h, 'POST', '/orders', {
+          ...orderBody(warehouse.id, [{ variantId: l.id, qty: 2 }]),
+          source: 'hotline',
+          customer: { name: 'Khách gọi', phone: '', gender: 'female' },
+          recipient: { name: 'Khách gọi', phone: '', address: '' },
+          freeShipping: true,
+        })
+      ).json(),
+    );
+
+    // The shop now wants a phone to save hotline orders; the old draft can still be cancelled.
+    const settings = OrderSettingsDto.parse((await call(h, 'GET', '/order-settings')).json());
+    await call(h, 'PUT', '/order-settings', {
+      ...settings,
+      policies: settings.policies.map((p) =>
+        p.source === 'hotline' ? { ...p, create: ['recipientPhone'] } : p,
+      ),
+    });
+    const cancelled = await call(h, 'POST', `/orders/${draft.id}/status`, { status: 'cancelled' });
+    expect(cancelled.statusCode).toBe(200);
+    expect(await stockOf(h, product.id, l.id)).toMatchObject({ reserved: 0 });
+
+    // Editing the people keeps what was not sent (gender).
+    const edited = OrderDto.parse(
+      (
+        await call(h, 'PATCH', `/orders/${draft.id}`, {
+          customer: { name: 'Khách gọi', phone: '0901111222' },
+          recipient: { name: 'Khách gọi', phone: '0901111222', address: '1 Lý Thái Tổ' },
+        })
+      ).json(),
+    );
+    expect(edited.customer).toMatchObject({ phone: '0901111222', gender: 'female' });
+
+    // Free shipping off without the customer's fee is refused; with it, the total follows.
+    const revived = OrderDto.parse(
+      (await call(h, 'POST', `/orders/${draft.id}/status`, { status: 'new' })).json(),
+    );
+    expect(revived.amounts.shippingFeeCharged).toBe(0);
+    expect(
+      (await call(h, 'PATCH', `/orders/${draft.id}`, { freeShipping: false })).statusCode,
+    ).toBe(400);
+    const charged = OrderDto.parse(
+      (
+        await call(h, 'PATCH', `/orders/${draft.id}`, {
+          freeShipping: false,
+          shippingFeeCharged: 30_000,
+        })
+      ).json(),
+    );
+    expect(charged.amounts).toMatchObject({ shippingFeeCharged: 30_000, total: 330_000 });
   });
 });

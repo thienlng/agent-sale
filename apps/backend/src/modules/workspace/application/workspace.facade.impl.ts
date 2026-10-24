@@ -2,7 +2,11 @@ import type { WorkspaceDto } from '@agent-sales/contracts';
 import type { UserId, WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
-import type { WorkspaceFacade, WorkspaceMembership } from '../api/workspace.facade.js';
+import type {
+  WorkspaceFacade,
+  WorkspaceMember,
+  WorkspaceMembership,
+} from '../api/workspace.facade.js';
 import { CreateWorkspaceHandler } from './commands/create-workspace/create-workspace.handler.js';
 import { WORKSPACE_DIRECTORY, type WorkspaceDirectory } from './ports/workspace-directory.js';
 import { GetWorkspaceHandler } from './queries/get-workspace/get-workspace.handler.js';
@@ -35,5 +39,9 @@ export class WorkspaceFacadeImpl implements WorkspaceFacade {
 
   listMemberships(userId: UserId): Promise<WorkspaceMembership[]> {
     return this.directory.listMemberships(userId);
+  }
+
+  listMembers(workspaceId: WorkspaceId): Promise<WorkspaceMember[]> {
+    return this.directory.listMembers(workspaceId);
   }
 }
