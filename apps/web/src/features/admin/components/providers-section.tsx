@@ -28,7 +28,6 @@ import { ApiClientError } from '@/lib/api-client';
 import { errorMessage } from '@/lib/errors';
 
 import { useDeleteProvider, useLlmProviders, useTestProvider } from '../api/llm';
-import { HermesLoginPanel } from './hermes-login-panel';
 import { ProviderDialog } from './provider-dialog';
 
 /** Sends a tiny prompt with the stored key; the result shows inline. */
@@ -158,11 +157,6 @@ export function ProvidersSection() {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-                {p.kind === 'hermes' ? (
-                  <div className="basis-full">
-                    <HermesLoginPanel providerId={p.id} />
-                  </div>
-                ) : null}
               </li>
             ))}
           </ul>

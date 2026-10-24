@@ -1,7 +1,5 @@
-import { HermesLoginError } from '@agent-sales/ai-core';
 import type {
   CreateLlmProviderRequest,
-  HermesLoginStatus,
   LlmModelTarget,
   LlmProviderDto,
   LlmTierRouteDto,
@@ -14,12 +12,9 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import { SECRET_BOX, type SecretBox } from '../../../common/security/secret-box.js';
 import {
-  HermesLoginRateLimitedError,
-  HermesLoginUnavailableError,
   InvalidLlmConfigError,
   LlmProviderInUseError,
   LlmProviderNotFoundError,
-  NotHermesProviderError,
 } from '../domain/ai.errors.js';
 import {
   apiKeyHint,
@@ -178,25 +173,6 @@ export class LlmAdminService {
         model: null,
         error: message.slice(0, 500),
       };
-    }
-  }
-
-  /** ChatGPT sign-in of a Hermes runtime: `status`, `start` (device code) or `logout`. */
-  async hermesLogin(id: string, action: 'status' | 'start' | 'logout'): Promise<HermesLoginStatus> {
-    const config = await this.#provider(id);
-    if (config.kind !== 'hermes') throw new NotHermesProviderError(id);
-    try {
-      return await this.factory.hermesLogin(config)[action]();
-    } catch (error) {
-      if (error instanceof HermesLoginError) {
-        if (error.reason === 'rate_limited') throw new HermesLoginRateLimitedError();
-        // The bridge rejected our key: a configuration problem the admin can see and fix.
-        if (error.reason === 'unauthorized')
-          return { state: 'failed', code: 'bridge_key_rejected' };
-        throw new HermesLoginUnavailableError(error.reason);
-      }
-      // Invalid stored URL or missing key.
-      throw new InvalidLlmConfigError('The Hermes provider needs a valid base URL and API key');
     }
   }
 

@@ -9,7 +9,6 @@ import {
   BotReadiness,
   FaqDto,
   FaqListResponse,
-  HermesLoginStatus,
   LlmProviderDto,
   LlmTierRouteList,
   PlaygroundResponse,
@@ -569,51 +568,6 @@ describe('HTTP: platform admin — LLM configuration', () => {
       payload: { primary: { providerId: provider.id, model: 'm', effort: null }, fallback: null },
     });
     expect(badTier.statusCode).toBe(400);
-  });
-
-  it('Hermes sign-in routes are admin-only and only for hermes providers', async () => {
-    const a = await app();
-    const h = await admin(a);
-    const { token } = await signup(a, `owner-${Math.random()}@shop.vn`);
-    const make = async (payload: Record<string, unknown>) =>
-      LlmProviderDto.parse(
-        (
-          await inject(a, {
-            method: 'POST',
-            url: '/api/v1/admin/llm/providers',
-            headers: h,
-            payload,
-          })
-        ).json(),
-      );
-    const claude = await make({ name: 'claude', kind: 'anthropic' });
-    const hermes = await make({
-      name: 'hermes',
-      kind: 'hermes',
-      baseUrl: 'http://127.0.0.1:9',
-      apiKey: 'b'.repeat(40),
-    });
-    const url = (id: string) => `/api/v1/admin/llm/providers/${id}/hermes-login`;
-
-    const forbidden = await inject(a, {
-      method: 'GET',
-      url: url(hermes.id),
-      headers: { authorization: `Bearer ${token}` },
-    });
-    expect(forbidden.statusCode).toBe(404);
-
-    const wrongKind = await inject(a, { method: 'GET', url: url(claude.id), headers: h });
-    expect(wrongKind.statusCode).toBe(400);
-    const missing = await inject(a, { method: 'POST', url: url('nope'), headers: h });
-    expect(missing.statusCode).toBe(404);
-
-    // Nothing listens on port 9: the bridge is reported unreachable, not an error.
-    const status = HermesLoginStatus.parse(
-      (await inject(a, { method: 'GET', url: url(hermes.id), headers: h })).json(),
-    );
-    expect(status.state).toBe('unreachable');
-    const out = await inject(a, { method: 'DELETE', url: url(hermes.id), headers: h });
-    expect(out.statusCode).toBe(200);
   });
 
   it('a tier routed to an unreachable server: test reports it, the playground answers 503', async () => {

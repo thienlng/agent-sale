@@ -253,35 +253,7 @@
     "tierSaved": "Đã lưu gói {{tier}}",
     "save": "Lưu máy chủ",
     "cancel": "Hủy",
-    "baseUrlDropsKey": "Đổi địa chỉ API sẽ xóa key đã lưu. Nhập lại key cho địa chỉ mới.",
-    "hermes": {
-      "title": "Tài khoản ChatGPT",
-      "login": "Đăng nhập ChatGPT",
-      "retry": "Thử đăng nhập lại",
-      "restart": "Hủy và lấy mã mới",
-      "signedOutHint": "Hermes chưa đăng nhập ChatGPT nên chưa trả lời được. Bấm nút bên dưới, nhập mã trên trang OpenAI rồi quay lại đây.",
-      "codeLabel": "Mã đăng nhập",
-      "copy": "Sao chép mã",
-      "copied": "Đã sao chép mã",
-      "openLogin": "Mở trang đăng nhập OpenAI",
-      "pendingHint": "Nhập mã trên rồi quay lại đây — trang sẽ tự cập nhật.",
-      "expiresIn": "Mã hết hạn sau {{time}}",
-      "expired": "Mã đã hết hạn — hãy lấy mã mới.",
-      "signedIn": "Đã đăng nhập ChatGPT",
-      "signedInHint": "Bấm “Kiểm tra” ở máy chủ này để thử một câu trả lời thật.",
-      "logout": "Đăng xuất",
-      "logoutConfirm": "Đăng xuất ChatGPT khỏi Hermes? Bot dùng Hermes sẽ ngừng trả lời cho đến khi đăng nhập lại.",
-      "unreachable": "Không kết nối được tới Hermes bridge",
-      "unreachableHint": "Kiểm tra bridge đã chạy chưa (cd services/hermes && python bridge.py, xem services/hermes/README.md) và địa chỉ API, key của máy chủ này.",
-      "recheck": "Kiểm tra lại",
-      "failures": {
-        "device_code_timeout": "Mã đã hết hạn trước khi bạn xác nhận. Hãy lấy mã mới.",
-        "rate_limited": "OpenAI đang giới hạn số lần thử. Đợi vài phút rồi thử lại.",
-        "login_failed": "Đăng nhập không thành công. Hãy thử lại.",
-        "bridge_key_rejected": "Hermes bridge từ chối key của máy chủ này. Nhập lại key trong phần Sửa."
-      },
-      "terms": "Đăng nhập bằng gói ChatGPT chỉ dùng cho hệ thống này và tuân theo điều khoản gói của OpenAI. Bạn tự chịu trách nhiệm về việc sử dụng phù hợp."
-    }
+    "baseUrlDropsKey": "Đổi địa chỉ API sẽ xóa key đã lưu. Nhập lại key cho địa chỉ mới."
   },
   "errors": {
     "notFoundTitle": "Không tìm thấy trang",

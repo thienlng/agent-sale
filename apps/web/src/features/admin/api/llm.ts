@@ -1,6 +1,5 @@
 import {
   type CreateLlmProviderRequest,
-  HermesLoginStatus,
   LlmProviderDto,
   LlmProviderList,
   LlmTierRouteDto,
@@ -80,33 +79,4 @@ export function useSaveTier() {
       api(`/admin/llm/tiers/${tier}`, LlmTierRouteDto, { ...global, method: 'PUT', body: route }),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.llmTiers }),
   });
-}
-
-const loginPath = (id: string) => `/admin/llm/providers/${id}/hermes-login`;
-
-/** ChatGPT sign-in state; polls every 3 s only while a device-code login is pending. */
-export function useHermesLogin(providerId: string) {
-  return useQuery({
-    queryKey: queryKeys.hermesLogin(providerId),
-    queryFn: () => api(loginPath(providerId), HermesLoginStatus, global),
-    refetchInterval: (query) => (query.state.data?.state === 'pending' ? 3_000 : false),
-  });
-}
-
-export function useHermesLoginAction(providerId: string) {
-  const qc = useQueryClient();
-  const set = (status: HermesLoginStatus) =>
-    qc.setQueryData(queryKeys.hermesLogin(providerId), status);
-  return {
-    start: useMutation({
-      mutationFn: () =>
-        api(loginPath(providerId), HermesLoginStatus, { ...global, method: 'POST' }),
-      onSuccess: set,
-    }),
-    logout: useMutation({
-      mutationFn: () =>
-        api(loginPath(providerId), HermesLoginStatus, { ...global, method: 'DELETE' }),
-      onSuccess: set,
-    }),
-  };
 }

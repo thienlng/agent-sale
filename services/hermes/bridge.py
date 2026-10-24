@@ -9,7 +9,6 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from uuid import UUID
 
-from login import ChatGptLogin, LoginError
 from runtime import HermesRuntime, RuntimeUnavailable
 
 MAX_BODY = 256_000
@@ -47,7 +46,7 @@ def validate_request(value):
     return value
 
 
-def make_server(host, port, key, runtime, login=None):
+def make_server(host, port, key, runtime):
     if len(key) < 32:
         raise ValueError("HERMES_BRIDGE_KEY must contain at least 32 characters")
     gate = threading.BoundedSemaphore(1)
@@ -69,42 +68,17 @@ def make_server(host, port, key, runtime, login=None):
             except (BrokenPipeError, ConnectionResetError):
                 return
 
-        def authorized(self):
-            authorization = self.headers.get("Authorization", "")
-            if hmac.compare_digest(authorization.encode(), ("Bearer " + key).encode()):
-                return True
-            self.send_json(401, {"error": "UNAUTHORIZED"})
-            return False
-
-        def auth_route(self, action):
-            """Admin-driven ChatGPT sign-in; the response never contains tokens."""
-            if login is None:
-                return self.send_json(404, {"error": "NOT_FOUND"})
-            if not self.authorized():
-                return
-            try:
-                self.send_json(200, action())
-            except LoginError as error:
-                self.send_json(429 if error.code == "rate_limited" else 503, {"error": error.code})
-            except Exception:
-                self.send_json(503, {"error": "login_failed"})
-
         def do_GET(self):
-            if self.path == "/v1/auth/status":
-                return self.auth_route(lambda: login.status())
             if self.path != "/health":
                 return self.send_json(404, {"error": "NOT_FOUND"})
             self.send_json(200, {"status": "up", "runtime": "hermes", "version": 1})
 
         def do_POST(self):
-            if self.path == "/v1/auth/start":
-                return self.auth_route(lambda: login.start())
-            if self.path == "/v1/auth/logout":
-                return self.auth_route(lambda: login.logout())
             if self.path != "/v1/generate":
                 return self.send_json(404, {"error": "NOT_FOUND"})
-            if not self.authorized():
-                return
+            authorization = self.headers.get("Authorization", "")
+            if not hmac.compare_digest(authorization.encode(), ("Bearer " + key).encode()):
+                return self.send_json(401, {"error": "UNAUTHORIZED"})
             if self.headers.get("Content-Type", "").split(";")[0] != "application/json":
                 return self.send_json(415, {"error": "JSON_REQUIRED"})
             try:
@@ -137,8 +111,7 @@ def main():
     key = os.environ.get("HERMES_BRIDGE_KEY", "")
     home = Path(os.environ.get("RAPIZ_HERMES_HOME", "var/hermes-home"))
     runtime = HermesRuntime(home, os.environ.get("RAPIZ_HERMES_PROVIDER", "openai-codex"))
-    server = make_server("127.0.0.1", int(os.environ.get("HERMES_BRIDGE_PORT", "8788")), key, runtime,
-                         ChatGptLogin(runtime.home) if runtime.provider == "openai-codex" else None)
+    server = make_server("127.0.0.1", int(os.environ.get("HERMES_BRIDGE_PORT", "8788")), key, runtime)
     print("Rapiz Hermes bridge listening on loopback", flush=True)
     server.serve_forever()
 

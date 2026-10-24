@@ -19,11 +19,7 @@ Run **one bridge per `HERMES_HOME`**: each instance needs its own private home a
 
 The server binds only to `127.0.0.1:8788`. `HERMES_BRIDGE_PORT` changes the port. `GET /health` proves the process is up, not model access. In the platform admin LLM settings, add a **Hermes** provider with base URL `http://127.0.0.1:8788`, the bridge secret in the write-only API-key field, and a tier route with an explicitly permitted model. The bridge key is not a model API key. Missing or failed Hermes never silently switches to paid API usage; any tier fallback is an explicit platform-admin configuration.
 
-## Sign in from the Admin page
-
-A platform admin signs the runtime in to ChatGPT from **Admin → LLM** (the Hermes provider's "Tài khoản ChatGPT" panel): the button starts OpenAI's device-code flow, the page shows a code and a link, and the admin approves it in another tab. The bridge (`login.py`) polls OpenAI no faster than its interval, gives up after 15 minutes and writes the private `auth.json` (mode 600) itself. Endpoints, all requiring the bridge bearer key and never returning tokens: `GET /v1/auth/status`, `POST /v1/auth/start`, `POST /v1/auth/logout`. Nothing signs in during customer turns. The terminal method below still works.
-
-## Separate ChatGPT login (terminal)
+## Separate ChatGPT login
 
 Set the exact same private `HERMES_HOME` used by `RAPIZ_HERMES_HOME` when running the installed `hermes model` command; choose OpenAI Codex/ChatGPT and complete a separate login. The runtime requires a private singleton `auth.json`, mode 600, in that home. Only that private file is refreshed atomically; the higher-level Hermes resolver is intentionally bypassed because it may recover an operator CLI session. It refuses missing/unsafe credentials before invoking the Hermes pure OAuth refresh helper. Do not copy the active Booking or Codex CLI session: rotating the same refresh token from multiple processes can invalidate it. Signing in does not add quota.
 

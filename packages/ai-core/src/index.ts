@@ -4,4 +4,3 @@ export * from './providers/fake.js';
 export * from './providers/anthropic.js';
 export * from './providers/openai-compatible.js';
 export * from './providers/hermes.js';
-export * from './providers/hermes-login.js';

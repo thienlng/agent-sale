@@ -1,6 +1,5 @@
 import {
   AnthropicProvider,
-  HermesLoginClient,
   HermesProvider,
   type LlmProvider,
   OpenAiCompatibleProvider,
@@ -36,13 +35,6 @@ export class SdkLlmProviderFactory implements LlmProviderFactory {
       baseURL: config.baseUrl ?? '',
       structuredOutput: config.options.structuredOutput,
       sendReasoningEffort: config.options.sendReasoningEffort,
-    });
-  }
-
-  hermesLogin(config: LlmProviderConfig): HermesLoginClient {
-    return new HermesLoginClient({
-      baseURL: config.baseUrl ?? '',
-      ...(config.apiKeyCipher ? { apiKey: this.secrets.open(config.apiKeyCipher) } : {}),
     });
   }
 

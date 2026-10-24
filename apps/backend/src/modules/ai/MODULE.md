@@ -7,7 +7,7 @@
 **Public API (`api/`):**
 
 - `AI_FACADE` → `AiFacade.playground(workspaceId, botId, input)` — one grounded test reply.
-- HTTP: `POST /bots/{botId}/playground` (workspace-scoped); `/admin/llm/providers…` (incl. `GET|POST|DELETE /admin/llm/providers/{id}/hermes-login`: ChatGPT device-code sign-in of a `hermes` provider, proxied to the bridge's `/v1/auth/*`; bridge down = `{state:"unreachable"}`) and `/admin/llm/tiers…` (`@PlatformAdmin()`). Contracts: `packages/contracts/src/ai/`.
+- HTTP: `POST /bots/{botId}/playground` (workspace-scoped); `/admin/llm/providers…` and `/admin/llm/tiers…` (`@PlatformAdmin()`). Contracts: `packages/contracts/src/ai/`.
 - Events: none yet.
 
 **Events consumed:** none. Uses the `bot`, `knowledge` and `workspace` facades.

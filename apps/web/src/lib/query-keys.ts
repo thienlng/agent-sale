@@ -23,6 +23,5 @@ export const queryKeys = {
   crmAssignees: (ws: string) => ['ws', ws, 'crm', 'assignees'] as const,
   savedViews: (ws: string) => ['ws', ws, 'saved-views'] as const,
   llmProviders: ['admin', 'llm', 'providers'] as const,
-  hermesLogin: (providerId: string) => ['admin', 'llm', 'hermes-login', providerId] as const,
   llmTiers: ['admin', 'llm', 'tiers'] as const,
 };
