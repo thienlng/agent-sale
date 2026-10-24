@@ -1,4 +1,4 @@
-import type { CreateOrderRequest, VariantOption } from '@agent-sales/contracts';
+import type { CreateOrderRequest, OrderPolicyField, VariantOption } from '@agent-sales/contracts';
 import { computeAmounts } from '@agent-sales/shared';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
@@ -15,11 +15,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { errorMessage } from '@/lib/errors';
 import { formatVnd } from '@/lib/format';
 
 import { useCreateOrder, useWarehouses } from '../api/commerce';
-import { useOrderStatuses } from '../hooks/use-order-statuses';
+import { missingFieldsOf, orderErrorMessage } from '../hooks/order-errors';
+import { useOrderStatuses, useRequiredOrderFields } from '../hooks/use-order-statuses';
 import { Field, nowLocal, Panel } from './order-form-parts';
 import { type Line, OrderLines, ProductPicker } from './order-lines';
 import { PaymentPanel, type PaymentState } from './order-payment';
@@ -60,6 +60,10 @@ export function OrderForm() {
     trackingCode: '',
     shippingFee: 0,
   }));
+  const required = useRequiredOrderFields(people.source, people.status);
+  // Fields the server said are missing; cleared as soon as the details change.
+  const [missing, setMissing] = useState<ReadonlySet<OrderPolicyField>>(new Set());
+  useEffect(() => setMissing(new Set()), [people]);
   const [noteInternal, setNoteInternal] = useState('');
   const [notePrint, setNotePrint] = useState('');
 
@@ -139,7 +143,8 @@ export function OrderForm() {
       },
       onError: (err) => {
         pendingRef.current = false;
-        toast.error(errorMessage(t, err));
+        setMissing(new Set(missingFieldsOf(err)));
+        toast.error(orderErrorMessage(t, err));
       },
     });
   };
@@ -224,7 +229,13 @@ export function OrderForm() {
         </div>
 
         <div className="flex min-w-0 flex-col gap-5">
-          <OrderPeoplePanels value={people} onChange={setPeople} statuses={statuses} />
+          <OrderPeoplePanels
+            value={people}
+            onChange={setPeople}
+            statuses={statuses}
+            required={required}
+            missing={missing}
+          />
         </div>
       </div>
 

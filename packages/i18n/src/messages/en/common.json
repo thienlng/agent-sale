@@ -382,7 +382,7 @@
       "phone": "Phone",
       "address": "Delivery address",
       "products": "Products",
-      "total": "Total",
+      "total": "Amount due",
       "cod": "To collect (COD)",
       "source": "Source",
       "createdBy": "Created by",
@@ -393,14 +393,16 @@
       "subtotal": "Goods",
       "shipping": "Shipping charged",
       "paid": "Paid",
-      "note": "Note"
+      "note": "Note",
+      "gross": "Gross total"
     },
     "footer": {
       "qty": "Product qty",
       "shipping": "Shipping charged",
       "cod": "COD",
-      "total": "Total",
-      "label": "Total"
+      "total": "Amount due",
+      "label": "Total",
+      "gross": "Gross total"
     },
     "empty": "No orders match the filters.",
     "emptyStart": "No orders yet. Create the first one to start tracking sales.",
@@ -420,7 +422,16 @@
       "exporting": "Exporting…",
       "exported": "Exported {{count}} orders",
       "remove": "Remove filter {{name}}",
-      "clear": "Clear filters"
+      "clear": "Clear filters",
+      "statusCount": "{{count}} statuses",
+      "excluding": "Except {{name}}",
+      "exclude": "Exclude the chosen statuses",
+      "clearStatuses": "Clear statuses",
+      "creator": "Created by",
+      "allCreators": "Anyone",
+      "carrier": "Carrier",
+      "allCarriers": "Any carrier",
+      "more": "More filters"
     },
     "bulk": {
       "selected": "{{count}} orders selected",
@@ -504,7 +515,10 @@
     "needItems": "Add at least one product",
     "needWarehouse": "Create a warehouse before creating orders.",
     "goWarehouses": "Go to warehouses",
-    "overStock": "More than in stock ({{count}} left)"
+    "overStock": "More than in stock ({{count}} left)",
+    "gross": "Gross total",
+    "requiredBySource": "Required for this source",
+    "fieldsRequired": "Fill in: {{fields}}"
   },
   "orderDetail": {
     "back": "Orders",
@@ -534,7 +548,12 @@
     "cancel": "Cancel",
     "transferEdit": "Bank transfer received",
     "carrierFee": "Carrier fee",
-    "notFound": "This order does not exist."
+    "notFound": "This order does not exist.",
+    "editItems": "Edit products",
+    "itemsLocked": "The goods have left the warehouse or the order was cancelled/returned: products can no longer change.",
+    "itemsSaved": "Order products updated",
+    "conflict": "Not possible: the order is no longer in a state that allows this. Reload and try again.",
+    "peopleSaved": "Customer and delivery details updated"
   },
   "overview": {
     "title": "Order overview",
@@ -646,13 +665,31 @@
     "title": "Order setup",
     "tabs": {
       "statuses": "Order statuses",
-      "warehouses": "Warehouses"
+      "warehouses": "Warehouses",
+      "sources": "By order source"
     },
     "extra": "Additional statuses",
     "extraHint": "Turn these on to add the steps to your order flow.",
     "requireNote": "Statuses that need a note",
     "requireNoteHint": "Staff must give a reason when moving an order into these statuses.",
     "save": "Update",
-    "saved": "Settings updated"
+    "saved": "Settings updated",
+    "requireNoteAll": "Applies to every order source.",
+    "stale": "Someone else just changed these settings. The latest version is loaded; check it and save again.",
+    "policy": {
+      "source": "Order source",
+      "hint": "Each source has its own requirements; changes here apply only to the selected source.",
+      "create": "Required to save an order",
+      "createHint": "An order cannot be saved without these.",
+      "confirm": "Required before confirming and shipping",
+      "confirmHint": "A draft can be saved without them, but cannot move to Confirmed or any shipping step until they are filled in.",
+      "default": "Using the default",
+      "fields": {
+        "customerPhone": "Customer phone",
+        "customerEmail": "Customer email",
+        "recipientPhone": "Recipient phone",
+        "recipientAddress": "Delivery address"
+      }
+    }
   }
 }

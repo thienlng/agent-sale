@@ -64,8 +64,8 @@ export const ORDER_COLUMNS: readonly OrderColumn[] = [
     id: 'phone',
     header: 'orders.col.phone',
     defaultVisible: false,
-    cell: (o) => <span className="tabular-nums">{o.recipient.phone}</span>,
-    csv: (o) => o.recipient.phone,
+    cell: (o) => <span className="tabular-nums">{o.recipient.phone ?? '—'}</span>,
+    csv: (o) => o.recipient.phone ?? '',
   },
   {
     id: 'address',
@@ -113,6 +113,14 @@ export const ORDER_COLUMNS: readonly OrderColumn[] = [
     defaultVisible: false,
     cell: (o) => formatVnd(o.amounts.shippingFeeCharged),
     csv: (o) => o.amounts.shippingFeeCharged,
+  },
+  {
+    id: 'gross',
+    header: 'orders.col.gross',
+    align: 'right',
+    defaultVisible: false,
+    cell: (o) => formatVnd(o.amounts.gross),
+    csv: (o) => o.amounts.gross,
   },
   {
     id: 'total',

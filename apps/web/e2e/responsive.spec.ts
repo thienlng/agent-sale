@@ -20,6 +20,7 @@ const PAGES = [
   ['products', '/app/products', 'Sản phẩm'],
   ['product', `/app/products/${PRODUCT_ID}`, 'Sửa sản phẩm'],
   ['status settings', '/app/order-settings/statuses', 'Thiết lập đơn hàng'],
+  ['source policies', '/app/order-settings/sources', 'Thiết lập đơn hàng'],
   ['warehouses', '/app/order-settings/warehouses', 'Thiết lập đơn hàng'],
 ] as const;
 

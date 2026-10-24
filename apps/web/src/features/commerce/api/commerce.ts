@@ -19,7 +19,10 @@ import {
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 
-import { api } from '@/lib/api-client';
+import type { TFunction } from 'i18next';
+
+import { api, ApiClientError } from '@/lib/api-client';
+import { errorMessage } from '@/lib/errors';
 import { queryKeys } from '@/lib/query-keys';
 import { withQuery } from '@/lib/url';
 import { useWorkspaceId } from '@/lib/use-workspace';
@@ -200,6 +203,10 @@ export function useOrderSettings() {
   });
 }
 
+/**
+ * Saves the whole settings object with the version it was loaded at. A CONFLICT
+ * means someone saved in between: the latest settings are fetched again.
+ */
 export function useSaveOrderSettings() {
   const ws = useWorkspaceId();
   const qc = useQueryClient();
@@ -207,7 +214,19 @@ export function useSaveOrderSettings() {
     mutationFn: (body: OrderSettingsDto) =>
       api('/order-settings', OrderSettingsDto, { method: 'PUT', body }),
     onSuccess: (s) => qc.setQueryData(queryKeys.orderSettings(ws), s),
+    onError: (err) => {
+      if (err instanceof ApiClientError && err.code === 'CONFLICT') {
+        void qc.invalidateQueries({ queryKey: queryKeys.orderSettings(ws) });
+      }
+    },
   });
+}
+
+/** The toast for a failed settings save (stale version or anything else). */
+export function settingsErrorMessage(t: TFunction, err: unknown): string {
+  return err instanceof ApiClientError && err.code === 'CONFLICT'
+    ? t('orderSettings.stale')
+    : errorMessage(t, err);
 }
 
 /**

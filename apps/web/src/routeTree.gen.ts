@@ -26,6 +26,7 @@ import { Route as AppSettingsRouteImport } from './routes/app/settings'
 import { Route as AppBotsIndexRouteImport } from './routes/app/bots/index'
 import { Route as AppBotsBotIdRouteImport } from './routes/app/bots/$botId'
 import { Route as AppOrderSettingsIndexRouteImport } from './routes/app/order-settings/index'
+import { Route as AppOrderSettingsSourcesRouteImport } from './routes/app/order-settings/sources'
 import { Route as AppOrderSettingsStatusesRouteImport } from './routes/app/order-settings/statuses'
 import { Route as AppOrderSettingsWarehousesRouteImport } from './routes/app/order-settings/warehouses'
 import { Route as AppOrdersIndexRouteImport } from './routes/app/orders/index'
@@ -124,6 +125,11 @@ const AppOrderSettingsIndexRoute = AppOrderSettingsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppOrderSettingsRoute,
 } as any)
+const AppOrderSettingsSourcesRoute = AppOrderSettingsSourcesRouteImport.update({
+  id: '/sources',
+  path: '/sources',
+  getParentRoute: () => AppOrderSettingsRoute,
+} as any)
 const AppOrderSettingsStatusesRoute =
   AppOrderSettingsStatusesRouteImport.update({
     id: '/statuses',
@@ -203,6 +209,7 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AdminIndexRoute
   '/app/': typeof AppIndexRoute
   '/app/bots/$botId': typeof AppBotsBotIdRouteWithChildren
+  '/app/order-settings/sources': typeof AppOrderSettingsSourcesRoute
   '/app/order-settings/statuses': typeof AppOrderSettingsStatusesRoute
   '/app/order-settings/warehouses': typeof AppOrderSettingsWarehousesRoute
   '/app/orders/$orderId': typeof AppOrdersOrderIdRoute
@@ -230,6 +237,7 @@ export interface FileRoutesByTo {
   '/app/settings': typeof AppSettingsRoute
   '/admin': typeof AdminIndexRoute
   '/app': typeof AppIndexRoute
+  '/app/order-settings/sources': typeof AppOrderSettingsSourcesRoute
   '/app/order-settings/statuses': typeof AppOrderSettingsStatusesRoute
   '/app/order-settings/warehouses': typeof AppOrderSettingsWarehousesRoute
   '/app/orders/$orderId': typeof AppOrdersOrderIdRoute
@@ -262,6 +270,7 @@ export interface FileRoutesById {
   '/admin/': typeof AdminIndexRoute
   '/app/': typeof AppIndexRoute
   '/app/bots/$botId': typeof AppBotsBotIdRouteWithChildren
+  '/app/order-settings/sources': typeof AppOrderSettingsSourcesRoute
   '/app/order-settings/statuses': typeof AppOrderSettingsStatusesRoute
   '/app/order-settings/warehouses': typeof AppOrderSettingsWarehousesRoute
   '/app/orders/$orderId': typeof AppOrdersOrderIdRoute
@@ -295,6 +304,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/app/'
     | '/app/bots/$botId'
+    | '/app/order-settings/sources'
     | '/app/order-settings/statuses'
     | '/app/order-settings/warehouses'
     | '/app/orders/$orderId'
@@ -322,6 +332,7 @@ export interface FileRouteTypes {
     | '/app/settings'
     | '/admin'
     | '/app'
+    | '/app/order-settings/sources'
     | '/app/order-settings/statuses'
     | '/app/order-settings/warehouses'
     | '/app/orders/$orderId'
@@ -353,6 +364,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/app/'
     | '/app/bots/$botId'
+    | '/app/order-settings/sources'
     | '/app/order-settings/statuses'
     | '/app/order-settings/warehouses'
     | '/app/orders/$orderId'
@@ -498,6 +510,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppOrderSettingsIndexRouteImport
       parentRoute: typeof AppOrderSettingsRoute
     }
+    '/app/order-settings/sources': {
+      id: '/app/order-settings/sources'
+      path: '/sources'
+      fullPath: '/app/order-settings/sources'
+      preLoaderRoute: typeof AppOrderSettingsSourcesRouteImport
+      parentRoute: typeof AppOrderSettingsRoute
+    }
     '/app/order-settings/statuses': {
       id: '/app/order-settings/statuses'
       path: '/statuses'
@@ -598,12 +617,14 @@ const AdminRouteChildren: AdminRouteChildren = {
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 interface AppOrderSettingsRouteChildren {
+  AppOrderSettingsSourcesRoute: typeof AppOrderSettingsSourcesRoute
   AppOrderSettingsStatusesRoute: typeof AppOrderSettingsStatusesRoute
   AppOrderSettingsWarehousesRoute: typeof AppOrderSettingsWarehousesRoute
   AppOrderSettingsIndexRoute: typeof AppOrderSettingsIndexRoute
 }
 
 const AppOrderSettingsRouteChildren: AppOrderSettingsRouteChildren = {
+  AppOrderSettingsSourcesRoute: AppOrderSettingsSourcesRoute,
   AppOrderSettingsStatusesRoute: AppOrderSettingsStatusesRoute,
   AppOrderSettingsWarehousesRoute: AppOrderSettingsWarehousesRoute,
   AppOrderSettingsIndexRoute: AppOrderSettingsIndexRoute,

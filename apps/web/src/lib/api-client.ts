@@ -30,6 +30,8 @@ export class ApiClientError extends Error {
     readonly code: string,
     message: string,
     readonly traceId?: string,
+    /** Machine-readable specifics (e.g. which fields are missing). */
+    readonly details?: Record<string, unknown>,
   ) {
     super(message);
     this.name = 'ApiClientError';
@@ -53,7 +55,7 @@ async function toError(res: Response): Promise<ApiClientError> {
   const parsed = ErrorResponse.safeParse(json);
   if (!parsed.success) return new ApiClientError(res.status, 'INTERNAL', res.statusText);
   const e = parsed.data.error;
-  return new ApiClientError(res.status, e.code, e.message, e.traceId);
+  return new ApiClientError(res.status, e.code, e.message, e.traceId, e.details);
 }
 
 let refreshing: Promise<AuthResponse | null> | null = null;

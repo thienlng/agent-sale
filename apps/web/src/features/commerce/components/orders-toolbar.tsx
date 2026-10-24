@@ -1,7 +1,8 @@
-import { OrderSource, type OrderStatus } from '@agent-sales/contracts';
-import { ChevronDown, Columns3, Download, Search, X } from 'lucide-react';
+import { type OrderListResponse, OrderSource, type OrderStatus } from '@agent-sales/contracts';
+import { ChevronDown, Columns3, Download, ListFilter, Search, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 
 import { DateRangePicker } from '@/components/date-range-picker';
 import { Button } from '@/components/ui/button';
@@ -14,6 +15,9 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
@@ -39,12 +43,28 @@ import type { OrdersSearch } from './orders-search';
 const ALL = '__all';
 const SORTS = ['placed_desc', 'placed_asc', 'total_desc', 'total_asc'] as const;
 
-/** Search, filters (status with counts, source, dates), sort, columns and export, in one row. */
+/** "Mọi trạng thái", one status, or "n trạng thái"; prefixed with "Trừ" when excluding. */
+function statusLabel(t: TFunction, search: OrdersSearch): string | null {
+  const chosen = search.status ?? [];
+  if (!chosen.length) return null;
+  const name =
+    chosen.length === 1
+      ? t(`status.${chosen[0]}`)
+      : t('orders.filters.statusCount', { count: chosen.length });
+  return search.statusMode === 'exclude' ? t('orders.filters.excluding', { name }) : name;
+}
+
+/**
+ * Search, filters (statuses with counts and exclusion, source, dates, creator,
+ * carrier), sort, columns and export. Within a filter the choices are OR-ed;
+ * different filters are AND-ed.
+ */
 export function OrdersToolbar({
   search,
   onChange,
   statuses,
   counts,
+  facets,
   onExport,
   exporting,
 }: {
@@ -52,10 +72,17 @@ export function OrdersToolbar({
   onChange: (patch: Partial<OrdersSearch>) => void;
   statuses: readonly OrderStatus[];
   counts: Record<string, number>;
+  facets: OrderListResponse['facets'] | undefined;
   onExport: () => void;
   exporting: boolean;
 }) {
   const { t } = useTranslation();
+  const chosen = new Set<string>(search.status ?? []);
+  const toggleStatus = (s: OrderStatus) => {
+    const next = chosen.has(s) ? [...chosen].filter((x) => x !== s) : [...chosen, s];
+    onChange({ status: next.length ? (next as OrderStatus[]) : undefined });
+  };
+  const creatorName = facets?.creators.find((c) => c.id === search.createdBy)?.name;
   const visible = new Set(useVisibleOrderColumns().map((c) => c.id));
   const [text, setText] = useState(search.q ?? '');
 
@@ -79,11 +106,24 @@ export function OrdersToolbar({
   }, [text, search.q, onChange]);
 
   const chips: Array<{ key: string; label: string; clear: Partial<OrdersSearch> }> = [];
-  if (search.status)
+  const status = statusLabel(t, search);
+  if (status)
     chips.push({
       key: 'status',
-      label: t(`status.${search.status}`),
-      clear: { status: undefined },
+      label: status,
+      clear: { status: undefined, statusMode: undefined },
+    });
+  if (search.createdBy)
+    chips.push({
+      key: 'createdBy',
+      label: `${t('orders.filters.creator')}: ${creatorName ?? '…'}`,
+      clear: { createdBy: undefined },
+    });
+  if (search.carrier)
+    chips.push({
+      key: 'carrier',
+      label: `${t('orders.filters.carrier')}: ${search.carrier}`,
+      clear: { carrier: undefined },
     });
   if (search.source)
     chips.push({
@@ -122,40 +162,48 @@ export function OrdersToolbar({
           <DropdownMenuTrigger asChild>
             <Button variant="outline" className="h-9 justify-between gap-2 font-normal">
               <span className="text-muted-foreground">{t('orders.filters.status')}:</span>
-              <span className="font-medium">
-                {search.status ? t(`status.${search.status}`) : t('orders.filters.allStatuses')}
-              </span>
+              <span className="font-medium">{status ?? t('orders.filters.allStatuses')}</span>
               <ChevronDown className="text-muted-foreground" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-64">
-            <DropdownMenuRadioGroup
-              value={search.status ?? ALL}
-              onValueChange={(v) =>
-                onChange({ status: v === ALL ? undefined : (v as OrderStatus) })
-              }
+            <DropdownMenuItem
+              disabled={!chosen.size}
+              onSelect={() => onChange({ status: undefined, statusMode: undefined })}
             >
-              <DropdownMenuRadioItem value={ALL}>
-                {t('orders.filters.allStatuses')}
-                <span className="ml-auto text-muted-foreground tabular-nums">
-                  {formatNumber(counts['all'] ?? 0)}
+              {t('orders.filters.allStatuses')}
+              <span className="ml-auto text-muted-foreground tabular-nums">
+                {formatNumber(counts['all'] ?? 0)}
+              </span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            {statuses.map((s) => (
+              <DropdownMenuCheckboxItem
+                key={s}
+                checked={chosen.has(s)}
+                // Stay open: several statuses are usually picked in a row.
+                onSelect={(e) => e.preventDefault()}
+                onCheckedChange={() => toggleStatus(s)}
+              >
+                {t(`status.${s}`)}
+                <span
+                  className={cn(
+                    'ml-auto tabular-nums',
+                    counts[s] ? 'font-medium' : 'text-muted-foreground',
+                  )}
+                >
+                  {formatNumber(counts[s] ?? 0)}
                 </span>
-              </DropdownMenuRadioItem>
-              <DropdownMenuSeparator />
-              {statuses.map((s) => (
-                <DropdownMenuRadioItem key={s} value={s}>
-                  {t(`status.${s}`)}
-                  <span
-                    className={cn(
-                      'ml-auto tabular-nums',
-                      counts[s] ? 'font-medium' : 'text-muted-foreground',
-                    )}
-                  >
-                    {formatNumber(counts[s] ?? 0)}
-                  </span>
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
+              </DropdownMenuCheckboxItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuCheckboxItem
+              checked={search.statusMode === 'exclude'}
+              onSelect={(e) => e.preventDefault()}
+              onCheckedChange={(c) => onChange({ statusMode: c ? 'exclude' : undefined })}
+            >
+              {t('orders.filters.exclude')}
+            </DropdownMenuCheckboxItem>
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -182,6 +230,58 @@ export function OrdersToolbar({
           value={search.from && search.to ? { from: search.from, to: search.to } : null}
           onChange={(r) => onChange({ from: r?.from, to: r?.to })}
         />
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="h-9 gap-2 font-normal">
+              <ListFilter className="text-muted-foreground" />
+              {t('orders.filters.more')}
+              {search.createdBy || search.carrier ? (
+                <span className="rounded-full bg-primary px-1.5 text-xs text-primary-foreground tabular-nums">
+                  {Number(Boolean(search.createdBy)) + Number(Boolean(search.carrier))}
+                </span>
+              ) : null}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-56">
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>{t('orders.filters.creator')}</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="max-h-80 w-56 overflow-y-auto">
+                <DropdownMenuRadioGroup
+                  value={search.createdBy ?? ALL}
+                  onValueChange={(v) => onChange({ createdBy: v === ALL ? undefined : v })}
+                >
+                  <DropdownMenuRadioItem value={ALL}>
+                    {t('orders.filters.allCreators')}
+                  </DropdownMenuRadioItem>
+                  {(facets?.creators ?? []).map((c) => (
+                    <DropdownMenuRadioItem key={c.id} value={c.id}>
+                      <span className="truncate">{c.name}</span>
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>{t('orders.filters.carrier')}</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="max-h-80 w-56 overflow-y-auto">
+                <DropdownMenuRadioGroup
+                  value={search.carrier ?? ALL}
+                  onValueChange={(v) => onChange({ carrier: v === ALL ? undefined : v })}
+                >
+                  <DropdownMenuRadioItem value={ALL}>
+                    {t('orders.filters.allCarriers')}
+                  </DropdownMenuRadioItem>
+                  {(facets?.carriers ?? []).map((c) => (
+                    <DropdownMenuRadioItem key={c} value={c}>
+                      <span className="truncate">{c}</span>
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <Select
           value={search.sort ?? 'placed_desc'}
@@ -266,6 +366,9 @@ export function OrdersToolbar({
             onClick={() =>
               onChange({
                 status: undefined,
+                statusMode: undefined,
+                createdBy: undefined,
+                carrier: undefined,
                 source: undefined,
                 from: undefined,
                 to: undefined,

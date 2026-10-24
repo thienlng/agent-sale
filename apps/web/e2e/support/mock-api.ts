@@ -1,3 +1,4 @@
+import { defaultOrderPolicy, OrderSource } from '@agent-sales/contracts';
 import type { Page } from '@playwright/test';
 
 /** Deliberately long Vietnamese content: layout must wrap or truncate, never overflow. */
@@ -178,6 +179,7 @@ const amounts = {
   shippingFeeCharged: 30_000,
   freeShipping: false,
   surcharge: 10_000,
+  gross: 1_481_521_468,
   total: 1_333_373_321,
   transferAmount: 500_000_000,
   paid: 500_000_000,
@@ -267,7 +269,12 @@ function commerceRoute(path: string): unknown {
         itemQty: 123_456,
         shippingFeeCharged: 98_765_432,
         cod: 9_876_543_210,
+        gross: 99_765_432_109,
         total: 98_765_432_109,
+      },
+      facets: {
+        creators: [{ id: user.id, name: user.name }],
+        carriers: ['Giao Hàng Nhanh', 'Viettel Post'],
       },
     };
   if (path === `/orders/${ORDER_ID}`) return order;
@@ -300,6 +307,11 @@ function commerceRoute(path: string): unknown {
       generatedAt: now,
     };
   if (path === '/order-settings')
-    return { extraStatuses: ['awaiting_print', 'printed'], requireNoteStatuses: ['cancelled'] };
+    return {
+      extraStatuses: ['awaiting_print', 'printed'],
+      requireNoteStatuses: ['cancelled'],
+      policies: OrderSource.options.map(defaultOrderPolicy),
+      version: 3,
+    };
   return undefined;
 }

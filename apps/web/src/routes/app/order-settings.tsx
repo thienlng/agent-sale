@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 const TABS = [
   { to: '/app/order-settings/statuses', key: 'orderSettings.tabs.statuses' },
+  { to: '/app/order-settings/sources', key: 'orderSettings.tabs.sources' },
   { to: '/app/order-settings/warehouses', key: 'orderSettings.tabs.warehouses' },
 ] as const;
 
