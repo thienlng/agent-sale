@@ -62,6 +62,8 @@ function setup() {
     renewEvent: async () => true,
     completeEvent: vi.fn(async () => undefined),
     releaseEvent: vi.fn(async () => undefined),
+    deadLetterEvent: vi.fn(async () => undefined),
+    deadLetterExhaustedEvents: vi.fn(async () => [] as string[]),
   } as unknown as ChannelFacade & { claimEvents: ReturnType<typeof vi.fn> };
   const bots: BotFacade = { getBot: async () => bot };
   const inbox = new ConversationFacadeImpl(new MemoryConversationStore(), channels, bots);
@@ -128,6 +130,48 @@ describe('MetaInboxProcessor', () => {
     ]);
     await processor.tick();
     expect((await inbox.get(ws, c!.id)).conversation.mode).toBe('human');
+    expect(channels.completeEvent).toHaveBeenCalled();
+  });
+  it('dead-letters an event that cannot even be stored after the final attempt', async () => {
+    const { channels, processor } = setup();
+    vi.mocked(channels.getConnection).mockRejectedValue(new Error('db down'));
+    vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+      job('d1', 'message', 'hi', Date.now(), 1),
+    ]);
+    await processor.tick();
+    expect(channels.releaseEvent).toHaveBeenCalledWith(expect.any(String), 't', 20_000);
+    expect(channels.deadLetterEvent).not.toHaveBeenCalled();
+    vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+      job('d1', 'message', 'hi', Date.now(), 3),
+    ]);
+    await processor.tick();
+    expect(channels.deadLetterEvent).toHaveBeenCalledWith(expect.any(String), 't');
+    expect(channels.releaseEvent).toHaveBeenCalledTimes(1);
+  });
+  it('sweeps exhausted events into the dead letter before claiming new ones', async () => {
+    const { channels, processor } = setup();
+    await processor.tick();
+    expect(channels.deadLetterExhaustedEvents).toHaveBeenCalledTimes(1);
+  });
+  it('stores messages for staff but does not reply while the connection awaits re-auth', async () => {
+    const { channels, ai, inbox, processor } = setup();
+    vi.mocked(channels.getConnection).mockResolvedValue({
+      id: channelId,
+      provider: 'facebook',
+      externalId: 'page',
+      name: 'Page',
+      status: 'reauth_required',
+      botId,
+      expiresAt: null,
+      createdAt: new Date().toISOString(),
+    });
+    vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+      job('ra', 'message', 'hello?', Date.now()),
+    ]);
+    await processor.tick();
+    const [c] = (await inbox.list(ws, { limit: 10 } as never)).data;
+    expect((await inbox.get(ws, c!.id)).messages.map((m) => m.text)).toEqual(['hello?']);
+    expect(ai.reply).not.toHaveBeenCalled();
     expect(channels.completeEvent).toHaveBeenCalled();
   });
   it('leaves messages outside the reply hours to staff', async () => {

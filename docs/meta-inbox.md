@@ -11,7 +11,7 @@ Implements CHAT-01 for Facebook Pages and Instagram professional accounts. Other
 
 Before generating, the processor checks the bot is active and inside its reply hours (`replySchedule`, Vietnam time); otherwise the message just waits in the inbox for staff.
 
-On failure an event is retried after 20 s and 60 s; after the third attempt the conversation switches to `human` so staff see it.
+On failure an event is retried after 20 s and 60 s; after the third attempt the conversation switches to `human` so staff see it. An event that cannot even be stored in a conversation after its last attempt (or whose worker died) is **dead-lettered**: `processed_at` and `failed_at` are set, the payload is kept for replay, and the agent logs an error (UI for dead letters: T-049). While a page awaits re-auth (`reauth_required`), inbound messages are still stored for staff; the bot does not reply until the page is reconnected.
 
 ## Configuration
 

@@ -47,12 +47,28 @@ function harness(valid = true) {
     },
     queue: { enqueue: async (_k, id) => void enqueued.push(id) },
     secrets: { website: 's' },
+    verifyToken: 'verify-me',
     logLevel: 'silent',
   });
   return { app, enqueued };
 }
 
 describe('webhook ingress', () => {
+  it('answers the subscription handshake only with the right verify token', async () => {
+    const { app } = harness();
+    const get = (token: string, challenge = '12345') =>
+      app.inject({
+        method: 'GET',
+        url: `/webhooks/website?hub.mode=subscribe&hub.verify_token=${token}&hub.challenge=${challenge}`,
+      });
+    const ok = await get('verify-me');
+    expect(ok.statusCode).toBe(200);
+    expect(ok.body).toBe('12345');
+    expect((await get('wrong')).statusCode).toBe(403);
+    expect((await get('verify-m')).statusCode).toBe(403);
+    expect((await get('verify-me', '<script>')).statusCode).toBe(400);
+  });
+
   it('stores and enqueues a new event once, acks duplicates with 200', async () => {
     const { app, enqueued } = harness();
     const first = await app.inject({

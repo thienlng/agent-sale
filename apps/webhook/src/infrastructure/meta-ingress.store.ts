@@ -1,6 +1,6 @@
 import { newId } from '@agent-sales/shared';
 import type { ChannelKind, NormalizedEvent } from '@agent-sales/channels';
-import { and, eq, schema, withSystem, type Database } from '@agent-sales/db';
+import { and, eq, inArray, schema, withSystem, type Database } from '@agent-sales/db';
 import type { IngressStore } from '../server.js';
 /** Verified provider asset identity is resolved using the restricted system DB role. */
 export class MetaIngressStore implements IngressStore {
@@ -20,7 +20,8 @@ export class MetaIngressStore implements IngressStore {
           and(
             eq(schema.channelConnections.provider, kind),
             eq(schema.channelConnections.externalId, event.assetExternalId),
-            eq(schema.channelConnections.status, 'connected'),
+            // Keep ingesting while a token awaits re-auth so no customer message is lost.
+            inArray(schema.channelConnections.status, ['connected', 'reauth_required']),
           ),
         );
       if (!connection) return false;

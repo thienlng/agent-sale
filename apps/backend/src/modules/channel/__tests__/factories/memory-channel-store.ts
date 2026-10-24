@@ -74,5 +74,9 @@ export class MemoryChannelStore implements ChannelStore {
     return true;
   }
   async completeEvent() {}
+  async deadLetterEvent() {}
+  async deadLetterExhaustedEvents() {
+    return [];
+  }
   async releaseEvent() {}
 }

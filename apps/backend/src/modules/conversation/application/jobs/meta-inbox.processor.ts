@@ -19,6 +19,11 @@ export class MetaInboxProcessor {
     @Inject(BOT_FACADE) private readonly bots: BotFacade,
   ) {}
   async tick(): Promise<void> {
+    const dead = await this.channels.deadLetterExhaustedEvents();
+    if (dead.length)
+      this.logger.error(
+        `Meta inbox dead-lettered ${dead.length} exhausted event(s): ${dead.join(', ')}`,
+      );
     const jobs = await this.channels.claimEvents(25);
     const groups = new Map<string, { conversationId: string; jobs: PendingMetaEvent[] }>();
     // Persist every receipt first: a burst produces one coherent context, and external staff echoes pause it.
@@ -31,7 +36,10 @@ export class MetaInboxProcessor {
         groups.set(key, group);
       } catch {
         this.failed(job);
-        await this.retrySoon(job);
+        // Not even stored in a conversation, so there is nobody to hand over to: keep it as a
+        // dead letter (payload preserved) instead of leaving it unclaimable forever.
+        if (job.attempt >= MAX_EVENT_ATTEMPTS) await this.deadLetter(job);
+        else await this.retrySoon(job);
       }
     }
     for (const { conversationId, jobs: group } of groups.values()) {
@@ -60,7 +68,12 @@ export class MetaInboxProcessor {
       await this.channels.completeEvent(job.id, job.claimToken);
     } catch {
       this.logger.error(`Meta inbox handover after final retry failed for event ${job.id}`);
+      await this.deadLetter(job);
     }
+  }
+  private async deadLetter(job: PendingMetaEvent): Promise<void> {
+    this.logger.error(`Meta inbox event ${job.id} dead-lettered after ${job.attempt} attempts`);
+    await this.channels.deadLetterEvent(job.id, job.claimToken).catch(() => undefined);
   }
   private failed(job: PendingMetaEvent): void {
     this.logger.warn(
@@ -78,7 +91,8 @@ export class MetaInboxProcessor {
     if (job.event.type !== 'message' || !job.event.text || c.mode !== 'bot' || c.status !== 'open')
       return;
     const channel = await this.channels.getConnection(job.workspaceId, job.connectionId);
-    if (!channel.botId) return;
+    // Re-auth pending: the message is stored for staff, but the bot cannot send.
+    if (!channel.botId || channel.status !== 'connected') return;
     const bot = await this.bots.getBot(job.workspaceId, channel.botId);
     if (!bot.isActive) return;
     // Outside the bot's reply hours the message stays in the inbox for staff.

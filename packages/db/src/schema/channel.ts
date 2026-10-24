@@ -62,6 +62,8 @@ export const channelWebhookEvents = pgTable(
     payload: jsonb('payload').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     processedAt: timestamp('processed_at', { withTimezone: true }),
+    /** Dead letter (0013): attempts exhausted without delivery to the inbox; set with processedAt. */
+    failedAt: timestamp('failed_at', { withTimezone: true }),
     leaseUntil: timestamp('lease_until', { withTimezone: true }),
     claimToken: uuid('claim_token'),
     attempts: integer('attempts').notNull().default(0),

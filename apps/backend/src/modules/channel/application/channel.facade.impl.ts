@@ -173,8 +173,14 @@ export class ChannelFacadeImpl implements ChannelFacade {
   renewEvent(id: string, claimToken: string) {
     return this.store.renewEvent(id, claimToken);
   }
-  completeEvent(id: string, claimToken?: string) {
+  completeEvent(id: string, claimToken: string) {
     return this.store.completeEvent(id, claimToken);
+  }
+  deadLetterEvent(id: string, claimToken: string) {
+    return this.store.deadLetterEvent(id, claimToken);
+  }
+  deadLetterExhaustedEvents() {
+    return this.store.deadLetterExhaustedEvents();
   }
   releaseEvent(id: string, claimToken: string, retryInMs: number) {
     return this.store.releaseEvent(id, claimToken, retryInMs);

@@ -60,17 +60,22 @@ export class ConversationFacadeImpl implements ConversationFacade {
       messages: await tx.messages(id),
     }));
   }
-  update(ws: WorkspaceId, id: string, input: UpdateConversationRequest, actorId: string) {
+  async update(ws: WorkspaceId, id: string, input: UpdateConversationRequest, actorId: string) {
+    if (input.mode === 'bot') {
+      // Resolve the cross-module read before opening the write transaction (see reserveAndDeliver).
+      const channelId = await this.store.run(
+        ws,
+        async (tx) => (await requireConversation(tx, id)).channelId,
+      );
+      const bot = await this.channelBot(ws, channelId);
+      if (!bot?.isActive)
+        throw new ConversationError(
+          'CONFLICT',
+          'Bind an active bot to this channel before enabling automatic replies',
+        );
+    }
     return this.store.run(ws, async (tx) => {
       const c = await requireConversation(tx, id);
-      if (input.mode === 'bot') {
-        const bot = await this.channelBot(ws, c.channelId);
-        if (!bot?.isActive)
-          throw new ConversationError(
-            'CONFLICT',
-            'Bind an active bot to this channel before enabling automatic replies',
-          );
-      }
       const updated = {
         ...c,
         ...(input.mode ? { mode: input.mode, autoResumeAt: null } : {}),
@@ -95,8 +100,9 @@ export class ConversationFacadeImpl implements ConversationFacade {
   }
   async receive(ws: WorkspaceId, channelId: string, event: NormalizedEvent) {
     const channel = await this.channels.getConnection(ws, channelId);
+    // A connection waiting for re-auth still records inbound messages; only sending is blocked.
     if (
-      channel.status !== 'connected' ||
+      channel.status === 'disconnected' ||
       channel.provider !== event.kind ||
       channel.externalId !== event.assetExternalId
     )

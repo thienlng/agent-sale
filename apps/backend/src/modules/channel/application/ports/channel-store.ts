@@ -52,7 +52,11 @@ export interface ChannelStore {
   ): Promise<ConnectionRecord[]>;
   claimEvents(limit: number): Promise<PendingMetaEvent[]>;
   renewEvent(id: string, claimToken: string): Promise<boolean>;
-  completeEvent(id: string, claimToken?: string): Promise<void>;
+  completeEvent(id: string, claimToken: string): Promise<void>;
+  /** Terminal failure: keeps the payload for replay and stops further claims. */
+  deadLetterEvent(id: string, claimToken: string): Promise<void>;
+  /** Dead-letters events whose last attempt ended without completion (e.g. a crashed worker). */
+  deadLetterExhaustedEvents(): Promise<string[]>;
   /** Ends a failed attempt early so the next claim can retry after `retryInMs` instead of the full lease. */
   releaseEvent(id: string, claimToken: string, retryInMs: number): Promise<void>;
 }

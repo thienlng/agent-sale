@@ -70,6 +70,8 @@ beforeEach(() => {
     renewEvent: async () => true,
     completeEvent: async () => undefined,
     releaseEvent: async () => undefined,
+    deadLetterEvent: async () => undefined,
+    deadLetterExhaustedEvents: async () => [],
   };
   const bots: BotFacade = { getBot: async () => bot };
   service = new ConversationFacadeImpl(store, channels, bots);
@@ -88,6 +90,22 @@ describe('ConversationFacade tenant and delivery contract', () => {
       service.send(other, c.id, { text: 'steal', idempotencyKey: newId() }, actor),
     ).rejects.toMatchObject({ code: 'NOT_FOUND' });
     expect(channels.deliver).not.toHaveBeenCalled();
+  });
+  it('keeps recording inbound messages while the connection awaits re-auth, not after disconnect', async () => {
+    const base = await channels.getConnection(ws, channelId);
+    vi.mocked(channels.getConnection).mockResolvedValueOnce({
+      ...base,
+      status: 'reauth_required' as const,
+    });
+    const c = await service.receive(ws, channelId, event());
+    expect((await service.get(ws, c.id)).messages).toHaveLength(1);
+    vi.mocked(channels.getConnection).mockResolvedValueOnce({
+      ...base,
+      status: 'disconnected' as const,
+    });
+    await expect(service.receive(ws, channelId, event('in2'))).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    });
   });
   it('sends once, atomically pauses the bot and keeps the same result on a repeated request', async () => {
     const c = await service.receive(ws, channelId, event());

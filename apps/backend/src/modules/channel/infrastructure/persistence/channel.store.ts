@@ -105,7 +105,9 @@ export class DrizzleChannelStore implements ChannelStore {
     return withTenant(this.db, ws, async (tx) => {
       const [d] = await tx
         .update(f)
-        .set({ consumedAt: new Date() })
+        // The discovery held tokens for every granted page; drop them once the choice is made
+        // so pages the user did not connect leave no credentials behind.
+        .set({ consumedAt: new Date(), accountsSealed: null })
         .where(
           and(
             eq(f.workspaceId, ws),
@@ -192,8 +194,9 @@ export class DrizzleChannelStore implements ChannelStore {
         .where(
           and(
             eq(e.id, id),
+            // The claim token fences ownership: a lease that ran out during a long tick may still
+            // be renewed as long as nobody re-claimed the event (which rotates the token).
             eq(e.claimToken, claimToken),
-            sql`${e.leaseUntil}>now()`,
             sql`${e.processedAt} is null`,
           ),
         )
@@ -201,12 +204,38 @@ export class DrizzleChannelStore implements ChannelStore {
       return rows.length > 0;
     });
   }
-  async completeEvent(id: string, claimToken?: string) {
+  async completeEvent(id: string, claimToken: string) {
     await withSystem(this.system, async (tx) => {
       await tx
         .update(e)
         .set({ processedAt: new Date(), leaseUntil: null })
-        .where(and(eq(e.id, id), claimToken ? eq(e.claimToken, claimToken) : undefined));
+        .where(and(eq(e.id, id), eq(e.claimToken, claimToken)));
+    });
+  }
+  async deadLetterEvent(id: string, claimToken: string) {
+    await withSystem(this.system, async (tx) => {
+      const at = new Date();
+      await tx
+        .update(e)
+        .set({ processedAt: at, failedAt: at, leaseUntil: null })
+        .where(and(eq(e.id, id), eq(e.claimToken, claimToken), sql`${e.processedAt} is null`));
+    });
+  }
+  async deadLetterExhaustedEvents() {
+    return withSystem(this.system, async (tx) => {
+      const at = new Date();
+      const rows = await tx
+        .update(e)
+        .set({ processedAt: at, failedAt: at, leaseUntil: null })
+        .where(
+          and(
+            sql`${e.processedAt} is null`,
+            sql`${e.attempts}>=${MAX_EVENT_ATTEMPTS}`,
+            sql`(${e.leaseUntil} is null or ${e.leaseUntil}<now())`,
+          ),
+        )
+        .returning({ id: e.id });
+      return rows.map((r) => r.id);
     });
   }
   async releaseEvent(id: string, claimToken: string, retryInMs: number) {
@@ -251,6 +280,12 @@ export class UnavailableChannelStore implements ChannelStore {
   }
   completeEvent(): Promise<void> {
     return this.fail();
+  }
+  deadLetterEvent(): Promise<void> {
+    return this.fail();
+  }
+  deadLetterExhaustedEvents(): Promise<string[]> {
+    return Promise.resolve([]);
   }
   releaseEvent(): Promise<void> {
     return this.fail();

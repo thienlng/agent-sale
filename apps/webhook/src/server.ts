@@ -1,3 +1,5 @@
+import { createHash, timingSafeEqual } from 'node:crypto';
+
 import type { ChannelKind, ChannelRegistry, NormalizedEvent } from '@agent-sales/channels';
 import Fastify, { type FastifyInstance } from 'fastify';
 
@@ -54,7 +56,7 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
     if (
       !deps.verifyToken ||
       req.query['hub.mode'] !== 'subscribe' ||
-      req.query['hub.verify_token'] !== deps.verifyToken
+      !sameSecret(req.query['hub.verify_token'] ?? '', deps.verifyToken)
     )
       return reply.code(403).send({ error: 'verification failed' });
     const challenge = req.query['hub.challenge'];
@@ -92,4 +94,10 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
   );
 
   return app;
+}
+
+/** Constant-time comparison; hashing first gives equal-length inputs for `timingSafeEqual`. */
+function sameSecret(given: string, expected: string): boolean {
+  const digest = (v: string) => createHash('sha256').update(v).digest();
+  return timingSafeEqual(digest(given), digest(expected));
 }
