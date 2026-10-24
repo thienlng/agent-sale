@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { DbModule } from './common/db/db.module.js';
 import { AiModule } from './modules/ai/ai.module.js';
 import { CommerceModule } from './modules/commerce/commerce.module.js';
+import { CrmModule } from './modules/crm/crm.module.js';
 import { BotModule } from './modules/bot/bot.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { IdentityModule } from './modules/identity/identity.module.js';
@@ -21,6 +22,7 @@ import { WorkspaceModule } from './modules/workspace/workspace.module.js';
     BotModule,
     AiModule,
     CommerceModule,
+    CrmModule,
   ],
 })
 export class AppModule {}

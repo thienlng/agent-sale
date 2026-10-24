@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatVnPhone, maskPhone, normalizeVnPhone } from './phone.js';
+import {
+  formatVnPhone,
+  maskPhone,
+  normalizeAnyPhone,
+  normalizeEmail,
+  normalizeVnPhone,
+} from './phone.js';
 
 describe('normalizeVnPhone', () => {
   it.each([
@@ -35,5 +41,23 @@ describe('formatVnPhone', () => {
 describe('maskPhone', () => {
   it('hides the middle digits', () => {
     expect(maskPhone('+84912345678')).toBe('+84912***678');
+  });
+});
+
+describe('normalizeAnyPhone', () => {
+  it('normalizes Vietnamese mobiles like normalizeVnPhone', () => {
+    expect(normalizeAnyPhone('0912 345 678')).toBe('+84912345678');
+    expect(normalizeAnyPhone('84912345678')).toBe('+84912345678');
+  });
+  it('keeps foreign numbers written with a country code', () => {
+    expect(normalizeAnyPhone('+1 (555) 123-4567')).toBe('+15551234567');
+  });
+  it('rejects text and numbers without a usable form', () => {
+    expect(normalizeAnyPhone('abc')).toBeNull();
+    expect(normalizeAnyPhone('0123456789')).toBeNull();
+    expect(normalizeAnyPhone('+12')).toBeNull();
+  });
+  it('lower-cases emails', () => {
+    expect(normalizeEmail('  Lan@Shop.VN ')).toBe('lan@shop.vn');
   });
 });

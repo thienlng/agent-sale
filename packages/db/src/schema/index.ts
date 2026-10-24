@@ -6,3 +6,4 @@ export * from './bot.js';
 export * from './knowledge.js';
 export * from './ai.js';
 export * from './commerce.js';
+export * from './crm.js';

@@ -9,6 +9,7 @@
 **Events consumed:** none. Uses the `workspace` facade (create first workspace at signup, membership lookups).
 
 **Invariants:**
+
 - Passwords: Argon2id; 8–128 chars; not common; not equal to email/name. Unknown email and wrong password give the same error and cost the same time.
 - Access token: EdDSA JWT, 15 min, claims `sub` (user) + `sid` (session). Refresh token: 32 random bytes, stored only as sha256, 30 days, rotated on every use; presenting a retired token revokes the whole family.
 - Web clients get the refresh token only as an HttpOnly cookie scoped to `/api/v1/auth`; cookie refresh checks `Origin` against `APP_ORIGINS`. Native clients use the body (`client: native`).

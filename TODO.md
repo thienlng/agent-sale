@@ -4,7 +4,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
-Orders parity fixes from the testing agent's issues #16–#23 — branch `feat/T-023-orders-parity-fixes`: T-023, T-024, T-025, T-026, T-027 done; PR open for review.
+Milestone **M3a-crm-core** (epic #25) — branch `feat/T-029-m3a-crm-core`: T-029, T-030, T-031, T-032 done; PR open for review. The rest of the epic is in the backlog (T-033..T-042).
 
 ## Next
 
@@ -20,6 +20,16 @@ Orders parity fixes from the testing agent's issues #16–#23 — branch `feat/T
 - [ ] T-020 Orders follow-ups: Excel import, product images, 2-level address picker, carriers and printing, multi-tab drafts — @unassigned · [details](todo/T-020-orders-follow-ups-excel-import-product-images-2-le.md)
 - [ ] T-021 Fix the root pnpm gen script (turbo gen needs --args) — @unassigned · [details](todo/T-021-fix-the-root-pnpm-gen-script-turbo-gen-needs-args.md)
 - [ ] T-028 Structured product variants, dimensions and negative-stock policy — @unassigned · [details](todo/T-028-structured-product-variants-dimensions-and-negativ.md)
+- [ ] T-033 CRM auto-assignment distribution policies for Sales and CSKH — @unassigned · [details](todo/T-033-crm-auto-assignment-distribution-policies-for-sale.md)
+- [ ] T-034 CRM tasks, reminders and recurring follow-ups — @unassigned · [details](todo/T-034-crm-tasks-reminders-and-recurring-follow-ups.md)
+- [ ] T-035 CRM versioned custom contact fields — @unassigned · [details](todo/T-035-crm-versioned-custom-contact-fields.md)
+- [ ] T-036 CRM customer import preview, deduplication and merges — @unassigned · [details](todo/T-036-crm-customer-import-preview-deduplication-and-merg.md)
+- [ ] T-037 CRM customer files, scoped exports and archive/restore — @unassigned · [details](todo/T-037-crm-customer-files-scoped-exports-and-archive-rest.md)
+- [ ] T-038 CRM conversation-driven rules and historical sync — @unassigned · [details](todo/T-038-crm-conversation-driven-rules-and-historical-sync.md)
+- [ ] T-039 Analytics metric definitions and attribution — @unassigned · [details](todo/T-039-analytics-metric-definitions-and-attribution.md)
+- [ ] T-040 Analytics events, temporal state and rebuildable projections — @unassigned · [details](todo/T-040-analytics-events-temporal-state-and-rebuildable-pr.md)
+- [ ] T-041 Statistics dashboard, breakdowns and drilldowns — @unassigned · [details](todo/T-041-statistics-dashboard-breakdowns-and-drilldowns.md)
+- [ ] T-042 CRM and statistics permissions, entitlements and acceptance suite — @unassigned · [details](todo/T-042-crm-and-statistics-permissions-entitlements-and-ac.md)
 
 ## Blocked
 
@@ -27,13 +37,13 @@ Orders parity fixes from the testing agent's issues #16–#23 — branch `feat/T
 
 ## Done (last 10 — older ones live in todo/done/)
 
-- [x] T-027 Live-backend commerce E2E regression suite — @agent:claude · [details](todo/done/T-027-live-backend-commerce-e2e-regression-suite.md) · orders parity PR
-- [x] T-026 Separate gross total from amount due on orders — @agent:claude · [details](todo/done/T-026-separate-gross-total-from-amount-due-on-orders.md) · orders parity PR
-- [x] T-025 Order list multi-status include/exclude, creator and carrier filters — @agent:claude · [details](todo/done/T-025-order-list-multi-status-include-exclude-creator-an.md) · orders parity PR
-- [x] T-024 Source-scoped order field policies for creation and confirmation — @agent:claude · [details](todo/done/T-024-source-scoped-order-field-policies-for-creation-an.md) · orders parity PR
-- [x] T-023 Edit items and quantities on existing orders — @agent:claude · [details](todo/done/T-023-edit-items-and-quantities-on-existing-orders.md) · orders parity PR
+- [x] T-032 CRM classification and attribute tags with assignments — @agent:claude · [details](todo/done/T-032-crm-classification-and-attribute-tags-with-assignm.md) · M3a PR
+- [x] T-031 CRM sources, pipeline statuses and Sales/CSKH assignment — @agent:claude · [details](todo/done/T-031-crm-sources-pipeline-statuses-and-sales-cskh-assig.md) · M3a PR
+- [x] T-030 CRM typed contact filters, table preferences and saved views — @agent:claude · [details](todo/done/T-030-crm-typed-contact-filters-table-preferences-and-sa.md) · M3a PR
+- [x] T-029 CRM contact workspace: profile, notes and audit history — @agent:claude · [details](todo/done/T-029-crm-contact-workspace-profile-notes-and-audit-hist.md) · M3a PR
+- [x] T-027 Live-backend commerce E2E regression suite — @agent:claude · [details](todo/done/T-027-live-backend-commerce-e2e-regression-suite.md) · #24
+- [x] T-026 Separate gross total from amount due on orders — @agent:claude · [details](todo/done/T-026-separate-gross-total-from-amount-due-on-orders.md) · #24
+- [x] T-025 Order list multi-status include/exclude, creator and carrier filters — @agent:claude · [details](todo/done/T-025-order-list-multi-status-include-exclude-creator-an.md) · #24
+- [x] T-024 Source-scoped order field policies for creation and confirmation — @agent:claude · [details](todo/done/T-024-source-scoped-order-field-policies-for-creation-an.md) · #24
+- [x] T-023 Edit items and quantities on existing orders — @agent:claude · [details](todo/done/T-023-edit-items-and-quantities-on-existing-orders.md) · #24
 - [x] T-022 Use setup-node v7 in the web CI job too — @agent:claude · [details](todo/done/T-022-use-setup-node-v7-in-the-web-ci-job-too.md)
-- [x] T-019 Orders and products web: overview, order list, create order, detail, products, warehouses, settings — @agent:claude · [details](todo/done/T-019-orders-and-products-web-overview-order-list-create.md) · #13
-- [x] T-018 Commerce backend: products, variants, warehouses, inventory, orders, statuses, overview — @agent:claude · [details](todo/done/T-018-commerce-backend-products-variants-warehouses-inve.md) · #13
-- [x] T-017 Dashboard layout system: shadcn sidebar, user UI preferences, responsive guard — @agent:claude · [details](todo/done/T-017-dashboard-layout-system-shadcn-sidebar-user-ui-pre.md) · #13
-- [x] T-005 Web dashboard: auth, bots, FAQ, settings, test chat, admin LLM settings — @agent:claude · [details](todo/done/T-005-scaffold-web.md) · #13

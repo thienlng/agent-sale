@@ -37,3 +37,24 @@ export function formatVnPhone(e164: string): string {
 export function maskPhone(e164: string): string {
   return e164.length < 7 ? '***' : `${e164.slice(0, 6)}***${e164.slice(-3)}`;
 }
+
+/**
+ * Normalizes any usable phone input to E.164: Vietnamese mobiles via
+ * normalizeVnPhone, other numbers written with a `+` country code as `+digits`
+ * (8–15 digits). Returns null for anything else (e.g. a Vietnamese landline
+ * without `+84`, or text). Used for customer identity and duplicate detection.
+ */
+export function normalizeAnyPhone(input: string): string | null {
+  const vn = normalizeVnPhone(input);
+  if (vn) return vn;
+  const trimmed = input.trim();
+  const digits = trimmed.replace(/\D/g, '');
+  return /^\+|^\(\+/.test(trimmed) && digits.length >= 8 && digits.length <= 15
+    ? `+${digits}`
+    : null;
+}
+
+/** Lower-cased, trimmed email for identity and duplicate checks. */
+export function normalizeEmail(input: string): string {
+  return input.trim().toLowerCase();
+}

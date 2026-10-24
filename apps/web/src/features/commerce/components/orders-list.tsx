@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
+import { Pager } from '@/components/pager';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -34,7 +35,6 @@ import { useOrderStatuses } from '../hooks/use-order-statuses';
 import { type OrderColumn, useVisibleOrderColumns } from './order-columns';
 import { OrderStatusBadge } from './order-status-badge';
 import { OrdersBulkBar } from './orders-bulk-bar';
-import { Pager } from './orders-pager';
 import { type OrdersSearch, toOrderQuery } from './orders-search';
 import { OrdersToolbar } from './orders-toolbar';
 

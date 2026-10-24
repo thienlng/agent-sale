@@ -27,7 +27,9 @@
     "ordersOverview": "Tổng quan",
     "ordersList": "Danh sách đơn",
     "ordersNew": "Tạo đơn",
-    "orderSettings": "Thiết lập"
+    "orderSettings": "Thiết lập",
+    "contactsList": "Danh sách khách hàng",
+    "crmSettings": "Cài đặt khách hàng"
   },
   "auth": {
     "login": "Đăng nhập",
@@ -691,5 +693,252 @@
         "recipientAddress": "Địa chỉ nhận hàng"
       }
     }
+  },
+  "crm": {
+    "title": "Khách hàng",
+    "summary": "{{count}} khách hàng",
+    "add": "Thêm khách hàng",
+    "search": "Tìm theo tên, số điện thoại hoặc email",
+    "empty": "Không có khách hàng nào khớp bộ lọc.",
+    "emptyStart": "Chưa có khách hàng. Thêm khách hàng đầu tiên để bắt đầu.",
+    "unavailable": "Chưa kết nối cơ sở dữ liệu nên chưa dùng được khách hàng.",
+    "noName": "(chưa có tên)",
+    "stale": "Khách hàng này vừa được người khác sửa. Đã tải bản mới nhất, hãy kiểm tra rồi lưu lại.",
+    "col": {
+      "name": "Khách hàng",
+      "phone": "Số điện thoại",
+      "email": "Email",
+      "source": "Nguồn",
+      "status": "Trạng thái",
+      "sales": "Sales",
+      "care": "CSKH",
+      "tags": "Tag",
+      "adRef": "Mã quảng cáo",
+      "profileNote": "Ghi chú",
+      "address": "Địa chỉ",
+      "createdAt": "Tạo lúc",
+      "updatedAt": "Cập nhật lúc",
+      "birthday": "Ngày sinh",
+      "gender": "Giới tính"
+    },
+    "columns": {
+      "title": "Cột hiển thị",
+      "up": "Lên",
+      "down": "Xuống",
+      "reset": "Cột mặc định"
+    },
+    "sort": {
+      "label": "Sắp xếp",
+      "createdAt_desc": "Mới tạo trước",
+      "createdAt_asc": "Cũ trước",
+      "updatedAt_desc": "Mới cập nhật",
+      "name_asc": "Tên A→Z",
+      "name_desc": "Tên Z→A"
+    },
+    "filter": {
+      "button": "Lọc",
+      "title": "Bộ lọc khách hàng",
+      "matchAll": "Thoả tất cả",
+      "matchAny": "Thoả một trong",
+      "addRule": "Thêm điều kiện",
+      "removeRule": "Bỏ điều kiện",
+      "duplicates": "Chỉ khách trùng số điện thoại",
+      "apply": "Áp dụng",
+      "clear": "Xoá bộ lọc",
+      "saveView": "Lưu thành view",
+      "value": "Giá trị",
+      "from": "Từ",
+      "to": "Đến",
+      "choose": "Chọn…",
+      "chosen": "{{count}} đã chọn",
+      "active": "{{count}} điều kiện",
+      "invalid": "Điều kiện chưa đủ giá trị",
+      "op": {
+        "contains": "chứa",
+        "not_contains": "không chứa",
+        "eq": "bằng",
+        "neq": "khác",
+        "is_set": "có giá trị",
+        "is_empty": "trống",
+        "in": "là một trong",
+        "not_in": "không là",
+        "has_any": "có tag",
+        "has_none": "không có tag",
+        "before": "trước ngày",
+        "after": "sau ngày",
+        "between": "trong khoảng"
+      },
+      "field": {
+        "tagId": "Tag"
+      },
+      "fieldLabel": "Trường",
+      "operator": "Phép so sánh"
+    },
+    "views": {
+      "label": "View",
+      "all": "Tất cả khách hàng",
+      "mine": "Của tôi",
+      "shared": "Dùng chung",
+      "save": "Lưu view",
+      "name": "Tên view",
+      "visibility": "Ai xem được",
+      "private": "Chỉ mình tôi",
+      "sharedOption": "Cả shop",
+      "saved": "Đã lưu view {{name}}",
+      "update": "Cập nhật view này",
+      "updated": "Đã cập nhật view",
+      "delete": "Xoá view",
+      "deleted": "Đã xoá view",
+      "by": "của {{name}}"
+    },
+    "create": {
+      "title": "Thêm khách hàng",
+      "hint": "Cần ít nhất tên, số điện thoại hoặc email.",
+      "submit": "Thêm",
+      "created": "Đã thêm khách hàng"
+    },
+    "field": {
+      "name": "Họ và tên",
+      "phone": "Số điện thoại",
+      "email": "Email",
+      "birthday": "Ngày sinh",
+      "gender": "Giới tính",
+      "address": "Địa chỉ",
+      "ward": "Phường / xã",
+      "province": "Tỉnh / thành phố",
+      "source": "Nguồn khách hàng",
+      "status": "Trạng thái",
+      "sales": "Sales phụ trách",
+      "care": "CSKH phụ trách",
+      "adRef": "Mã quảng cáo",
+      "profileNote": "Ghi chú hồ sơ",
+      "profileNoteHint": "Ghi chú cố định trên hồ sơ, tối đa 500 ký tự (khác ghi chú trao đổi).",
+      "none": "Chưa chọn",
+      "genders": {
+        "male": "Nam",
+        "female": "Nữ",
+        "other": "Khác"
+      }
+    },
+    "detail": {
+      "tabs": {
+        "overview": "Tổng quan",
+        "details": "Chi tiết",
+        "history": "Lịch sử",
+        "files": "Files"
+      },
+      "pipeline": "Trạng thái",
+      "statusChanged": "Đã chuyển sang {{status}}",
+      "notes": "Trao đổi nội bộ",
+      "notePlaceholder": "Ghi chú cho đồng đội (khách không nhìn thấy)…",
+      "addNote": "Thêm ghi chú",
+      "noteAdded": "Đã thêm ghi chú",
+      "noNotes": "Chưa có ghi chú.",
+      "edited": "đã sửa",
+      "editNote": "Sửa",
+      "saveNote": "Lưu",
+      "cancel": "Huỷ",
+      "tasks": "Công việc",
+      "tasksSoon": "Nhắc lịch và công việc sẽ có ở bản sau.",
+      "save": "Lưu thay đổi",
+      "saved": "Đã lưu khách hàng",
+      "tags": "Tag",
+      "addTag": "Gắn tag",
+      "tagAdded": "Đã gắn tag",
+      "tagRemoved": "Đã gỡ tag",
+      "removeTag": "Gỡ tag {{name}}",
+      "tagValues": "Thông tin của tag {{name}}",
+      "saveTag": "Lưu",
+      "noTags": "Chưa gắn tag nào.",
+      "filesSoon": "Lưu file của khách hàng sẽ có khi bật kho lưu trữ (S3).",
+      "createdBy": "Tạo lúc {{at}}",
+      "close": "Đóng"
+    },
+    "history": {
+      "allTypes": "Mọi thay đổi",
+      "newest": "Mới nhất trước",
+      "oldest": "Cũ nhất trước",
+      "empty": "Chưa có thay đổi.",
+      "type": {
+        "contact.created": "Tạo khách hàng",
+        "contact.updated": "Sửa thông tin",
+        "contact.status_changed": "Đổi trạng thái",
+        "contact.assigned": "Đổi người phụ trách",
+        "note.added": "Thêm ghi chú",
+        "note.edited": "Sửa ghi chú",
+        "tag.added": "Gắn tag",
+        "tag.updated": "Sửa thông tin tag",
+        "tag.removed": "Gỡ tag"
+      },
+      "empty_value": "trống"
+    },
+    "settings": {
+      "title": "Cài đặt khách hàng",
+      "tabs": {
+        "statuses": "Trạng thái",
+        "sources": "Nguồn khách hàng",
+        "tags": "Tag"
+      },
+      "statusesHint": "Các bước chăm sóc khách hàng, theo thứ tự. Trạng thái khách hàng không ảnh hưởng đơn hàng.",
+      "sourcesHint": "Khách hàng đến từ đâu.",
+      "add": "Thêm",
+      "newName": "Tên mới",
+      "archive": "Lưu trữ",
+      "restore": "Dùng lại",
+      "archived": "Đã lưu trữ",
+      "archivedHint": "Đã lưu trữ: vẫn hiển thị trên khách hàng cũ nhưng không chọn mới được.",
+      "moveUp": "Lên",
+      "moveDown": "Xuống",
+      "saved": "Đã lưu",
+      "default": "Mặc định",
+      "color": "Màu"
+    },
+    "tags": {
+      "create": "Tạo tag",
+      "edit": "Sửa tag",
+      "name": "Tên tag",
+      "type": "Loại tag",
+      "description": "Mô tả",
+      "fields": "Trường thông tin",
+      "fieldsCount": "{{count}} trường",
+      "active": "Đang gắn",
+      "createdBy": "Người tạo",
+      "system": "Hệ thống",
+      "types": {
+        "classification": "Phân loại",
+        "attribute": "Thuộc tính",
+        "work": "Công việc"
+      },
+      "typeHint": {
+        "classification": "Nhãn để phân loại khách (VIP, Khách sỉ…).",
+        "attribute": "Nhãn kèm thông tin cần điền khi gắn (vd. Sự kiện: tên, ngày).",
+        "work": "Việc cần làm với khách; nhắc lịch sẽ có ở bản sau."
+      },
+      "addField": "Thêm trường",
+      "fieldLabel": "Tên trường",
+      "fieldKey": "Mã",
+      "fieldType": "Kiểu",
+      "required": "Bắt buộc",
+      "options": "Lựa chọn (mỗi dòng một lựa chọn)",
+      "fieldTypes": {
+        "text": "Chữ",
+        "number": "Số",
+        "date": "Ngày",
+        "select": "Danh sách",
+        "boolean": "Có / không"
+      },
+      "archiveField": "Lưu trữ trường",
+      "keyLocked": "Mã và kiểu của trường đã dùng không đổi được.",
+      "saved": "Đã lưu tag",
+      "created": "Đã tạo tag {{name}}",
+      "search": "Tìm tag",
+      "yes": "Có",
+      "no": "Không"
+    },
+    "errors": {
+      "fieldsInvalid": "Kiểm tra lại: {{fields}}",
+      "notMember": "Người này không còn là thành viên của shop."
+    },
+    "pageInfo": "{{from}}–{{to}} / {{total}} khách hàng"
   }
 }

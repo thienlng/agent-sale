@@ -9,6 +9,7 @@
 **Events consumed:** none.
 
 **Invariants:**
+
 - Question 3–500 chars, answer 1–4000 chars (trimmed).
 - `search_text` = folded (lowercase, no diacritics, đ→d) question + answer, recomputed on every save; trigram-indexed. Customers typing without accents still match.
 - `searchFaqs` drops hits below `MIN_SCORE` (0.15) so the AI is never handed irrelevant "sources".
