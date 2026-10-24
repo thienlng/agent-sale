@@ -6,7 +6,7 @@
 
 **Public API (`api/`):**
 
-- `CONVERSATION_FACADE` → `list`, `get`, `update`, `send`, `receive`, `getReplyContext`, `commitBotReply`
+- `CONVERSATION_FACADE` → `list`, `get`, `update`, `send`, `receive`, `getReplyContext`, `commitBotReply`, `commitBotImage`
 - `CONVERSATION_RUNNER` (`MetaInboxProcessor.tick`) — run only by the `agent` entry.
 - HTTP: `/conversations`, `/conversations/{id}`, `/conversations/{id}/messages`.
 
@@ -18,6 +18,7 @@
 - Message ids are monotonic UUIDv7 (`nextMessageId`), so "newest" and "already answered" are decided by storage order, not by Meta timestamps or `createdAt` (which is the Meta time for inbound).
 - Customer images: with `BOT_IMAGE_VISION` on, the newest 3 image attachments of the pending turn are fetched by the SSRF-safe `SafeImageFetcher` (Meta CDN allowlist, `BOT_IMAGE_EXTRA_HOSTS` for tests, never logged or stored) and sent with the turn; failures degrade to the text-only note/handoff below.
 - Media the model cannot see: a text message with attachments carries an explicit note in the customer turn; media-only unanswered content gets the bot's `handoffMessage` once and the conversation switches to `human`.
+- Bot pictures: after the text reply is committed, the processor sends each `images` entry of the AI answer (max 3) through `commitBotImage` (attachment `image`, empty text, key `bot:<event id>:img<n>`), sequentially. It needs only that the bot still holds the conversation (no revision check: the text reply already bumped it) and the open 24-hour window. A failure is a failed/unknown outbound message, never an event failure, retry or handoff; a null result (takeover, bot off) or a closed window stops the remaining pictures.
 - A staff send or an unmatched Meta echo pauses the bot (`mode: human`, optional auto-resume per bot settings). A bot reply is dropped if control or revision changed after generation.
 - The echo of an uncertain (`unknown`/`pending`) send is matched by text and attachment count, not treated as a staff reply.
 - Only a customer message opens the 24-hour window. A message is either text or one HTTPS attachment.

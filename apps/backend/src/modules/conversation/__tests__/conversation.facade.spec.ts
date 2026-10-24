@@ -171,6 +171,52 @@ describe('ConversationFacade tenant and delivery contract', () => {
     ).toBeNull();
     expect(channels.deliver).not.toHaveBeenCalled();
   });
+  it('sends a bot image as an image attachment, once per key, only while the bot holds control', async () => {
+    const c = await service.receive(ws, channelId, event());
+    const reply = await service.commitBotReply(ws, c.id, {
+      revision: c.revision,
+      text: 'Here',
+      idempotencyKey: 'bot:in1',
+    });
+    expect(reply?.status).toBe('sent');
+    const input = { url: 'https://img.example.com/a.jpg', idempotencyKey: 'bot:in1:img1' };
+    const first = await service.commitBotImage(ws, c.id, input);
+    const again = await service.commitBotImage(ws, c.id, input);
+    expect(first).toMatchObject({
+      direction: 'outbound',
+      sender: 'bot',
+      text: '',
+      attachments: [{ type: 'image', url: input.url }],
+    });
+    expect(again).toEqual(first);
+    expect(channels.deliver).toHaveBeenCalledTimes(2);
+    expect(channels.deliver).toHaveBeenLastCalledWith(
+      ws,
+      channelId,
+      'customer',
+      { text: '', attachment: { type: 'image', url: input.url } },
+      'bot:in1:img1',
+    );
+    await expect(
+      service.commitBotImage(ws, c.id, { ...input, url: 'https://img.example.com/b.jpg' }),
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
+    await service.update(ws, c.id, { mode: 'human' }, actor);
+    expect(
+      await service.commitBotImage(ws, c.id, { url: input.url, idempotencyKey: 'bot:in1:img2' }),
+    ).toBeNull();
+    expect(channels.deliver).toHaveBeenCalledTimes(2);
+  });
+  it('rejects a bot image that is not https or when the 24-hour window is closed', async () => {
+    const c = await service.receive(ws, channelId, event());
+    await expect(
+      service.commitBotImage(ws, c.id, { url: 'http://x.example/a.jpg', idempotencyKey: 'k1' }),
+    ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+    vi.advanceTimersByTime(86400000);
+    await expect(
+      service.commitBotImage(ws, c.id, { url: 'https://x.example/a.jpg', idempotencyKey: 'k2' }),
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
+    expect(channels.deliver).not.toHaveBeenCalled();
+  });
   it('rejects a closed 24-hour window without calling the provider', async () => {
     const c = await service.receive(ws, channelId, event());
     vi.advanceTimersByTime(86400000);

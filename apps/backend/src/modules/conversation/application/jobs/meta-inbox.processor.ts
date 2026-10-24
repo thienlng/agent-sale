@@ -19,6 +19,7 @@ import { BOT_IMAGE_VISION, IMAGE_FETCHER, type ImageFetcher } from '../ports/ima
 import { toReplyTurns } from './reply-turns.js';
 
 const MAX_VISION_IMAGES = 3;
+const MAX_BOT_IMAGES = 3;
 
 const isCustomerContent = (e: NormalizedEvent): boolean =>
   e.type === 'message' && Boolean(e.text?.trim() || e.attachments?.length);
@@ -184,6 +185,38 @@ export class MetaInboxProcessor {
     });
     if (result && response.outcome === 'handoff')
       await this.inbox.update(job.workspaceId, c.id, { mode: 'human' }, c.assigneeId ?? 'system');
+    if (result && response.outcome === 'answered')
+      await this.sendImages(job, c.id, response.images ?? []);
+  }
+
+  /**
+   * Pictures that follow a committed text reply, one outbound message each, sequentially. They
+   * are best effort: a failure is recorded on its own message and never fails the event, hands
+   * over or retries, and a closed 24-hour window or a takeover simply leaves the text alone.
+   */
+  private async sendImages(
+    job: PendingMetaEvent,
+    conversationId: string,
+    images: readonly { url: string }[],
+  ): Promise<void> {
+    for (const [index, image] of images.slice(0, MAX_BOT_IMAGES).entries()) {
+      try {
+        const sent = await this.inbox.commitBotImage(job.workspaceId, conversationId, {
+          url: image.url,
+          idempotencyKey: `bot:${job.event.externalEventId}:img${index + 1}`,
+        });
+        // Null: a human took over (or the bot was switched off) since the text went out.
+        if (!sent) {
+          this.logger.log(
+            `Meta inbox event ${job.id}: images skipped, the bot no longer holds the conversation`,
+          );
+          return;
+        }
+      } catch {
+        this.logger.warn(`Meta inbox event ${job.id}: image ${index + 1} not sent`);
+        return;
+      }
+    }
   }
 
   /**

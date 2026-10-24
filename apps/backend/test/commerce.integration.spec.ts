@@ -162,6 +162,38 @@ describe('commerce on Postgres', () => {
     });
   });
 
+  it('stores up to five https product images and refuses anything else', async () => {
+    const headers = await owner('product-images@example.test');
+    const body = {
+      code: 'IMG-1',
+      name: 'Image product',
+      variants: [{ sku: 'IMG-SKU', price: 90000 }],
+    };
+    const urls = ['https://cdn.example.com/a.jpg', 'https://cdn.example.com/b.jpg'];
+    const created = await call(headers, 'POST', '/products', { ...body, imageUrls: urls });
+    expect(created.statusCode).toBe(201);
+    const product = ProductDto.parse(created.json());
+    expect(product.imageUrls).toEqual(urls);
+    expect(
+      ProductDto.parse((await call(headers, 'GET', `/products/${product.id}`)).json()).imageUrls,
+    ).toEqual(urls);
+    const update = (imageUrls: string[]) =>
+      call(headers, 'PUT', `/products/${product.id}`, {
+        ...body,
+        imageUrls,
+        variants: product.variants.map((v) => ({ id: v.id, sku: v.sku, price: v.price })),
+      });
+    expect(ProductDto.parse((await update(urls.slice(0, 1))).json()).imageUrls).toEqual(
+      urls.slice(0, 1),
+    );
+    expect((await update(['http://cdn.example.com/a.jpg'])).statusCode).toBe(400);
+    expect(
+      (await update(Array.from({ length: 6 }, (_, i) => `https://cdn.example.com/${i}.jpg`)))
+        .statusCode,
+    ).toBe(400);
+    expect(ProductDto.parse((await update([])).json()).imageUrls).toEqual([]);
+  });
+
   it('runs an order through reservation, shipping, a refused cancel and a return', async () => {
     const h = await owner('lifecycle@shop.vn');
     const { warehouse, product, l } = await setup(h);

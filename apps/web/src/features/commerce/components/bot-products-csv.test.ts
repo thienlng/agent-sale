@@ -12,6 +12,7 @@ const product = (patch: Partial<ProductDto>): ProductDto => ({
   status: 'active',
   visibleToBot: true,
   botInstructions: '',
+  imageUrls: [],
   variants: [],
   priceMin: 150000,
   priceMax: 180000,

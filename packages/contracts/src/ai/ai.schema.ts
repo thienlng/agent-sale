@@ -45,6 +45,10 @@ export const PlaygroundSource = z.object({
   used: z.boolean(),
 });
 
+/** A stored picture the bot sends after its text (an allowlisted https URL, never model text). */
+export const BotReplyImage = z.object({ url: z.url().max(2000), label: z.string() });
+export type BotReplyImage = z.infer<typeof BotReplyImage>;
+
 export const PlaygroundResponse = z.object({
   runId: z.uuid(),
   reply: z.string(),
@@ -52,6 +56,8 @@ export const PlaygroundResponse = z.object({
   /** Why a reply was replaced, e.g. a number that is not in the sources. */
   guardrail: z.string().nullable(),
   sources: z.array(PlaygroundSource),
+  /** Pictures to send after the text (max 3); empty unless the customer asked to see one. */
+  images: z.array(BotReplyImage).max(3).default([]),
   usage: z.object({
     inputTokens: z.number().int(),
     outputTokens: z.number().int(),

@@ -4,7 +4,7 @@ The bot workspace follows the Preny layout (T-047): a training menu (home, produ
 
 The home page is a four-step checklist in this order: connect a platform, products, situation instructions, FAQs. A newly created bot opens on its integrations page, because a bot without a channel cannot answer anyone.
 
-Products reuse the workspace's operational commerce catalog, including its `visibleToBot` flag and optional `botInstructions` guidance (up to 4000 characters). They are not copied into a separate bot catalog. Integrations list the pages bound to the bot; connecting a page from there binds it to the bot (see `meta-inbox.md`). FAQ and settings retain their existing APIs.
+Products reuse the workspace's operational commerce catalog, including its `visibleToBot` flag and optional `botInstructions` guidance (up to 4000 characters) and up to 5 `imageUrls` (https links, 2000 characters each; migration `0014_product_images.sql`, column `products.image_urls jsonb not null default '[]'` with a CHECK that it is an array of at most 5) that the bot may send when a customer asks to see the product (see `06-ai-engine.md`, bot-sent pictures; edited in the product form under "Ảnh sản phẩm"). They are not copied into a separate bot catalog. Integrations list the pages bound to the bot; connecting a page from there binds it to the bot (see `meta-inbox.md`). FAQ and settings retain their existing APIs.
 
 ## Training materials
 

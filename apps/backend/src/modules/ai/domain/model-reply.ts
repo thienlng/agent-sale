@@ -5,6 +5,8 @@ export const ModelReply = z.object({
   outcome: z.enum(['answer', 'unknown', 'handoff']),
   reply: z.string(),
   sources: z.array(z.string()),
+  /** Ids from the "Images you may send" list; the server validates them (max 3 are sent). */
+  imageIds: z.array(z.string()).default([]),
 });
 export type ModelReply = z.infer<typeof ModelReply>;
 

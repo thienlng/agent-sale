@@ -117,6 +117,7 @@ export function catalogTx(
                 status: rec.status,
                 visibleToBot: rec.visibleToBot,
                 botInstructions: rec.botInstructions,
+                imageUrls: rec.imageUrls,
                 searchText: rec.searchText,
                 updatedAt: rec.updatedAt,
               },

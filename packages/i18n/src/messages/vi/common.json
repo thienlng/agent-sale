@@ -669,7 +669,17 @@
       "save": "Lưu sản phẩm",
       "saving": "Đang lưu…",
       "saved": "Đã lưu sản phẩm",
-      "created": "Đã tạo sản phẩm"
+      "created": "Đã tạo sản phẩm",
+      "images": "Ảnh sản phẩm",
+      "imagesHint": "Tối đa {{max}} ảnh (liên kết HTTPS). Bot sẽ gửi các ảnh này khi khách muốn xem hình sản phẩm.",
+      "imageUrl": "Liên kết ảnh (https://…)",
+      "addImage": "Thêm ảnh",
+      "removeImage": "Bỏ ảnh {{n}}",
+      "imageAlt": "Ảnh sản phẩm {{n}}",
+      "imageCount": "{{n}}/{{max}} ảnh",
+      "imageInvalid": "Chỉ nhận liên kết HTTPS hợp lệ, tối đa 2000 ký tự.",
+      "imageDuplicate": "Ảnh này đã có trong danh sách.",
+      "imageLimit": "Đã đủ {{max}} ảnh."
     },
     "stock": {
       "title": "Tồn kho",

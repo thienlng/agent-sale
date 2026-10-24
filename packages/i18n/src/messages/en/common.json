@@ -669,7 +669,17 @@
       "save": "Save product",
       "saving": "Saving…",
       "saved": "Product saved",
-      "created": "Product created"
+      "created": "Product created",
+      "images": "Product images",
+      "imagesHint": "Up to {{max}} images (HTTPS links). The bot sends these when a customer asks to see the product.",
+      "imageUrl": "Image link (https://…)",
+      "addImage": "Add image",
+      "removeImage": "Remove image {{n}}",
+      "imageAlt": "Product image {{n}}",
+      "imageCount": "{{n}}/{{max}} images",
+      "imageInvalid": "Only valid HTTPS links up to 2000 characters are accepted.",
+      "imageDuplicate": "This image is already in the list.",
+      "imageLimit": "All {{max}} images are used."
     },
     "stock": {
       "title": "Stock",

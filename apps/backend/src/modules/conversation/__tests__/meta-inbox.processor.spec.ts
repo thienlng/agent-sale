@@ -504,4 +504,142 @@ describe('MetaInboxProcessor', () => {
       vi.useRealTimers();
     }
   });
+
+  describe('bot-sent images', () => {
+    const pics = [
+      { url: 'https://img.example.com/1.jpg', label: 'one' },
+      { url: 'https://img.example.com/2.jpg', label: 'two' },
+      { url: 'https://img.example.com/3.jpg', label: 'three' },
+      { url: 'https://img.example.com/4.jpg', label: 'four' },
+    ];
+    const withImages = (images: typeof pics) => ({
+      reply: 'Here they are',
+      outcome: 'answered',
+      images,
+    });
+    const outbound = async (
+      inbox: ConversationFacadeImpl,
+      ws_: typeof ws,
+    ): Promise<{ text: string; url?: string | undefined; status: string; sender: string }[]> => {
+      const [c] = (await inbox.list(ws_, { limit: 10 } as never)).data;
+      return (await inbox.get(ws_, c!.id)).messages
+        .filter((m) => m.direction === 'outbound')
+        .map((m) => ({
+          text: m.text,
+          url: m.attachments[0]?.url,
+          status: m.status,
+          sender: m.sender,
+        }));
+    };
+
+    it('sends the text, then one image message per picture in order with stable keys', async () => {
+      const { channels, ai, inbox, processor } = setup();
+      ai.reply.mockResolvedValueOnce(withImages(pics.slice(0, 2)));
+      vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+        job('p1', 'message', 'show me the shoes', Date.now()),
+      ]);
+      await processor.tick();
+      const calls = vi.mocked(channels.deliver).mock.calls;
+      expect(calls.map((call) => call[4])).toEqual(['bot:p1', 'bot:p1:img1', 'bot:p1:img2']);
+      expect(calls[0]?.[3]).toEqual({ text: 'Here they are', attachment: undefined });
+      expect(calls[1]?.[3]).toEqual({
+        text: '',
+        attachment: { type: 'image', url: pics[0]?.url },
+      });
+      expect(calls[2]?.[3]).toMatchObject({ attachment: { type: 'image', url: pics[1]?.url } });
+      expect(await outbound(inbox, ws)).toEqual([
+        { text: 'Here they are', status: 'sent', sender: 'bot' },
+        { text: '', url: pics[0]?.url, status: 'sent', sender: 'bot' },
+        { text: '', url: pics[1]?.url, status: 'sent', sender: 'bot' },
+      ]);
+    });
+
+    it('caps the pictures at three even if the answer carries more', async () => {
+      const { channels, ai, processor } = setup();
+      ai.reply.mockResolvedValueOnce(withImages(pics));
+      vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+        job('p2', 'message', 'photos please', Date.now()),
+      ]);
+      await processor.tick();
+      expect(channels.deliver).toHaveBeenCalledTimes(4);
+    });
+
+    it('sends no image messages when the answer has none', async () => {
+      const { channels, processor } = setup();
+      vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+        job('p3', 'message', 'how much?', Date.now()),
+      ]);
+      await processor.tick();
+      expect(channels.deliver).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps the text and the bot mode when an image fails, and records the failure', async () => {
+      const { channels, ai, inbox, processor } = setup();
+      ai.reply.mockResolvedValueOnce(withImages(pics.slice(0, 2)));
+      vi.mocked(channels.deliver)
+        .mockResolvedValueOnce({ externalId: 'ok', status: 'sent', failureCode: null })
+        .mockResolvedValueOnce({ externalId: null, status: 'failed', failureCode: 'bad_media' })
+        .mockResolvedValueOnce({ externalId: 'ok2', status: 'sent', failureCode: null });
+      vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+        job('p4', 'message', 'show me', Date.now()),
+      ]);
+      await processor.tick();
+      expect((await outbound(inbox, ws)).map((m) => m.status)).toEqual(['sent', 'failed', 'sent']);
+      const [c] = (await inbox.list(ws, { limit: 10 } as never)).data;
+      expect(c?.mode).toBe('bot');
+      expect(channels.completeEvent).toHaveBeenCalledTimes(1);
+      expect(channels.releaseEvent).not.toHaveBeenCalled();
+      expect(channels.deadLetterEvent).not.toHaveBeenCalled();
+    });
+
+    it('never fails the event when sending an image throws', async () => {
+      const { channels, ai, inbox, processor } = setup();
+      ai.reply.mockResolvedValueOnce(withImages(pics.slice(0, 2)));
+      vi.spyOn(inbox, 'commitBotImage').mockRejectedValue(new Error('boom'));
+      vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+        job('p5', 'message', 'show me', Date.now()),
+      ]);
+      await processor.tick();
+      expect(channels.deliver).toHaveBeenCalledTimes(1);
+      expect(channels.releaseEvent).not.toHaveBeenCalled();
+      expect(channels.completeEvent).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not duplicate images when the same event is processed again', async () => {
+      const { channels, ai, inbox, processor } = setup();
+      ai.reply.mockResolvedValue(withImages(pics.slice(0, 2)));
+      const again = job('p6', 'message', 'show me', Date.now());
+      vi.mocked(channels.claimEvents).mockResolvedValueOnce([again]);
+      await processor.tick();
+      vi.mocked(channels.claimEvents).mockResolvedValueOnce([{ ...again, attempt: 2 }]);
+      await processor.tick();
+      expect(channels.deliver).toHaveBeenCalledTimes(3);
+      expect(await outbound(inbox, ws)).toHaveLength(3);
+    });
+
+    it('sends no image after a human took over', async () => {
+      const { channels, ai, inbox, processor } = setup();
+      ai.reply.mockResolvedValueOnce(withImages(pics.slice(0, 2)));
+      vi.mocked(channels.deliver).mockImplementationOnce(async () => {
+        const [c] = (await inbox.list(ws, { limit: 10 } as never)).data;
+        await inbox.update(ws, c!.id, { mode: 'human' }, '018d0000-0000-7000-8000-000000000005');
+        return { externalId: 'ok', status: 'sent', failureCode: null };
+      });
+      vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+        job('p7', 'message', 'show me', Date.now()),
+      ]);
+      await processor.tick();
+      expect(channels.deliver).toHaveBeenCalledTimes(1);
+    });
+
+    it('sends no image with a handoff answer', async () => {
+      const { channels, ai, processor } = setup();
+      ai.reply.mockResolvedValueOnce({ ...withImages(pics), outcome: 'handoff' });
+      vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+        job('p8', 'message', 'a person please', Date.now()),
+      ]);
+      await processor.tick();
+      expect(channels.deliver).toHaveBeenCalledTimes(1);
+    });
+  });
 });

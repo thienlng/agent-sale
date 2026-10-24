@@ -33,6 +33,16 @@ export interface ConversationFacade {
     id: string,
     input: { revision: number; text: string; idempotencyKey: string },
   ): Promise<InboxMessageDto | null>;
+  /**
+   * One picture after a committed bot reply (attachment `image`, https URL). Same delivery path,
+   * idempotency and 24-hour window as the text; null when a human took over meanwhile. A failed
+   * send is stored as a failed outbound message and returned, never thrown.
+   */
+  commitBotImage(
+    ws: WorkspaceId,
+    id: string,
+    input: { url: string; idempotencyKey: string },
+  ): Promise<InboxMessageDto | null>;
 }
 export const CONVERSATION_FACADE = Symbol('CONVERSATION_FACADE');
 /** Agent entry capability; never started by the HTTP process. */

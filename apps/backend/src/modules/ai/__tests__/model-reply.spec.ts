@@ -2,11 +2,17 @@ import { describe, expect, it } from 'vitest';
 
 import { parseModelReply } from '../domain/model-reply.js';
 
-const valid = { outcome: 'answer', reply: 'Dạ ạ', sources: ['kb:1'] };
+const valid = { outcome: 'answer', reply: 'Dạ ạ', sources: ['kb:1'], imageIds: [] };
 
 describe('parseModelReply', () => {
   it('parses a plain JSON object', () => {
     expect(parseModelReply(JSON.stringify(valid))).toEqual({ ok: true, value: valid });
+  });
+  it('defaults imageIds to an empty list and keeps the ones given', () => {
+    const { imageIds: _omitted, ...bare } = valid;
+    expect(parseModelReply(JSON.stringify(bare))).toEqual({ ok: true, value: valid });
+    const withIds = { ...valid, imageIds: ['p:a:0'] };
+    expect(parseModelReply(JSON.stringify(withIds))).toEqual({ ok: true, value: withIds });
   });
   it('tolerates a code fence and prose around the object', () => {
     const json = JSON.stringify(valid);

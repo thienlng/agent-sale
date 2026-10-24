@@ -242,6 +242,27 @@ export class ConversationFacadeImpl implements ConversationFacade {
       input.revision,
     );
   }
+  async commitBotImage(
+    ws: WorkspaceId,
+    id: string,
+    input: { url: string; idempotencyKey: string },
+  ): Promise<InboxMessageDto | null> {
+    if (!input.url.startsWith('https://') || input.url.length > 2000)
+      throw new ConversationError('VALIDATION_FAILED', 'Image URL must be an https URL');
+    // The text reply of the same turn already moved the revision on, so a follow-up only requires
+    // that the bot still holds the conversation (a takeover in between wins).
+    return this.reserveAndDeliver(
+      ws,
+      id,
+      {
+        text: '',
+        attachment: { type: 'image', url: input.url },
+        idempotencyKey: input.idempotencyKey,
+      },
+      null,
+      'follow-up',
+    );
+  }
   private async channelBot(ws: WorkspaceId, channelId: string): Promise<BotView | null> {
     const channel = await this.channels.getConnection(ws, channelId);
     if (channel.status !== 'connected' || !channel.botId) return null;
@@ -257,7 +278,7 @@ export class ConversationFacadeImpl implements ConversationFacade {
     id: string,
     input: OutboundInboxMessage & { idempotencyKey: string },
     actorId: string | null,
-    expectedRevision: number | null,
+    expectedRevision: number | 'follow-up' | null,
   ): Promise<InboxMessageDto | null> {
     // Cross-module reads open their own transactions; resolve them first so we never hold
     // a pooled connection while waiting for another one (pool exhaustion under concurrent sends).
@@ -280,7 +301,9 @@ export class ConversationFacadeImpl implements ConversationFacade {
       if (expectedRevision !== null && !bot?.isActive) return null;
       if (
         expectedRevision !== null &&
-        (c.mode !== 'bot' || c.revision !== expectedRevision || c.status !== 'open')
+        (c.mode !== 'bot' ||
+          (expectedRevision !== 'follow-up' && c.revision !== expectedRevision) ||
+          c.status !== 'open')
       )
         return null;
       if (

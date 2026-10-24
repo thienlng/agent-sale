@@ -10,13 +10,20 @@ import { KNOWLEDGE_FACADE, type KnowledgeFacade } from '../../knowledge/api/inde
 import { TRAINING_FACADE, type TrainingFacade } from '../../knowledge/api/index.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
 import type { AiFacade } from '../api/ai.facade.js';
+import {
+  buildAllowlist,
+  imagesBlock,
+  libraryImages,
+  productImages,
+  resolveImageIds,
+} from '../domain/image-allowlist.js';
 import { knowledgeBlock, type KnowledgeSource, toSources } from '../domain/grounding.js';
 import { ModelReply, parseModelReply } from '../domain/model-reply.js';
 import { AI_RUN_REPOSITORY, type AiRunRepository } from '../domain/ports/ai-run.repository.js';
 import { decide } from './decide-reply.js';
 import { LlmRuntime } from './llm-runtime.js';
 
-const PROMPT = { name: 'sales-agent', version: 5 } as const;
+const PROMPT = { name: 'sales-agent', version: 6 } as const;
 const PROMPT_VERSION = `${PROMPT.name}@${PROMPT.version}`;
 const MAX_SOURCES = 5;
 
@@ -84,6 +91,9 @@ export class PlaygroundService implements AiFacade {
           .filter((item) => item.kind === 'scenario')
           .slice(0, 20)
       : [];
+    const media = this.training
+      ? (await this.training.list(ws, botId)).filter((item) => item.kind === 'media')
+      : [];
     const guidance = scenarios
       .map((item) =>
         [item.title, item.trigger ? `Khi: ${item.trigger}` : '', item.content]
@@ -93,6 +103,8 @@ export class PlaygroundService implements AiFacade {
       .join('\n\n')
       .slice(0, 20_000);
     const products = this.catalog ? await this.catalog.getBotProducts(ws, query, 5) : [];
+    // The pictures the bot may send this turn. The model only gets ids and labels, never URLs.
+    const allowed = buildAllowlist(productImages(products), libraryImages(media, query));
     const productContext = products.map((product) => ({
       id: product.id,
       code: product.code,
@@ -128,7 +140,7 @@ export class PlaygroundService implements AiFacade {
       tier: bot.modelTier,
       messages: [
         { role: 'system' as const, content: system },
-        ...conversation(input, sources, contextData),
+        ...conversation(input, sources, contextData, imagesBlock(allowed)),
       ],
       responseFormat: ModelReply,
       maxOutputTokens: 2_000,
@@ -180,6 +192,12 @@ export class PlaygroundService implements AiFacade {
     await this.runs.record(ws, run);
     recordAiRun(run);
 
+    // Pictures follow only a grounded answer, and only ids from this turn's allowlist.
+    const images =
+      decision.outcome === 'answered' && output.ok
+        ? resolveImageIds(output.value.imageIds, allowed)
+        : [];
+
     return {
       runId: run.id,
       reply: decision.reply,
@@ -191,6 +209,7 @@ export class PlaygroundService implements AiFacade {
         score: s.score,
         used: decision.used.has(s.key),
       })),
+      images,
       usage: res.usage,
       provider: res.provider,
       model: res.model,
@@ -208,6 +227,7 @@ function conversation(
   input: PlaygroundRequest,
   sources: KnowledgeSource[],
   guidance: string,
+  images: string,
 ): ChatMessage[] {
   const firstCustomer = input.messages.findIndex((m) => m.role === 'customer');
   const turns = input.messages.slice(firstCustomer);
@@ -218,7 +238,7 @@ function conversation(
       role: 'user',
       content:
         i === turns.length - 1
-          ? `${knowledgeBlock(sources)}\n\n<shop_situations>\n${guidance}\n</shop_situations>\n\n${customer}`
+          ? `${knowledgeBlock(sources)}\n\n<shop_situations>\n${guidance}\n</shop_situations>\n\n${images ? `${images}\n\n` : ''}${customer}`
           : customer,
     };
   });

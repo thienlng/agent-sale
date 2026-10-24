@@ -34,6 +34,7 @@ export interface ProductRecord {
   status: 'active' | 'archived';
   visibleToBot: boolean;
   botInstructions: string;
+  imageUrls: string[];
   searchText: string;
   createdAt: Date;
   updatedAt: Date;
