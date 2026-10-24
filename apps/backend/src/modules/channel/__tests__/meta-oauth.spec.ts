@@ -29,3 +29,28 @@ describe('LiveMetaGateway redirect URI', () => {
     );
   });
 });
+
+describe('LiveMetaGateway permissions', () => {
+  it('requests scopes explicitly without a login configuration', () => {
+    const url = new URL(new LiveMetaGateway(env).authorize('facebook', 'state'));
+    expect(url.searchParams.get('scope')).toContain('pages_messaging');
+    expect(url.searchParams.has('config_id')).toBe(false);
+  });
+  it('leaves permissions to the login configuration, or Meta rejects the scopes', () => {
+    const gateway = new LiveMetaGateway({ ...env, META_LOGIN_CONFIG_ID: '99' });
+    const url = new URL(gateway.authorize('facebook', 'state'));
+    expect(url.searchParams.get('config_id')).toBe('99');
+    expect(url.searchParams.has('scope')).toBe(false);
+  });
+  it('still requests Instagram scopes next to the shared configuration id', () => {
+    const gateway = new LiveMetaGateway({
+      ...env,
+      INSTAGRAM_APP_ID: '2',
+      INSTAGRAM_APP_SECRET: 's',
+      META_LOGIN_CONFIG_ID: '99',
+    });
+    expect(new URL(gateway.authorize('instagram', 'state')).searchParams.get('scope')).toContain(
+      'instagram',
+    );
+  });
+});

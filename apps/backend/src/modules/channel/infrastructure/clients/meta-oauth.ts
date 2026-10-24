@@ -66,11 +66,13 @@ export class LiveMetaGateway implements MetaGateway {
       redirect_uri: this.callback(p),
       response_type: 'code',
       state,
-      scope: scopes[p].join(','),
+      ...(p === 'instagram' || !e.META_LOGIN_CONFIG_ID ? { scope: scopes[p].join(',') } : {}),
       ...(p === 'instagram'
         ? { enable_fb_login: 'false', force_reauth: 'true' }
         : {
             display: 'popup',
+            // A Facebook Login for Business configuration owns its permissions: sending `scope`
+            // as well makes Meta reject the dialog with "Invalid Scopes".
             ...(e.META_LOGIN_CONFIG_ID
               ? { config_id: e.META_LOGIN_CONFIG_ID, override_default_response_type: 'true' }
               : {}),
