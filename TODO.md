@@ -46,7 +46,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## Done (last 10 — older ones live in todo/done/)
 
-- [x] T-064 Fix the M4a review findings: sessions on 2FA changes, owner removal, seat backfill, audit grants — @agent:claude · [details](todo/done/T-064-fix-the-m4a-review-findings.md) · #PR
+- [x] T-064 Fix the M4a review findings: sessions on 2FA changes, owner removal, seat backfill, audit grants — @agent:claude · [details](todo/done/T-064-fix-the-m4a-review-findings.md) · #55
 - [x] T-057 Account two-factor authentication with TOTP and recovery codes (ADM-04) — @agent:claude · [details](todo/done/T-057-account-two-factor-authentication-with-totp-and-re.md) · #53
 - [x] T-056 Workspace business profile and private logo (ADM-02) — @agent:claude · [details](todo/done/T-056-workspace-business-profile-and-private-logo-adm-02.md) · #53
 - [x] T-055 Workspace members: seat limits, resend and reassignment on removal (ADM-01) — @agent:claude · [details](todo/done/T-055-workspace-members-seat-limits-resend-and-reassignm.md) · #53
