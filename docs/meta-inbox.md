@@ -54,6 +54,16 @@ cloudflared tunnel --url http://127.0.0.1:4000                # set META_APP_ORI
 
 Open the app through the tunnel URL (not `localhost`) so the OAuth popup can return its result.
 
+## Trying the bot end to end on a fresh checkout
+
+1. `cp .env.example .env`, fill the Meta variables above, `SECRETS_ENCRYPTION_KEY` and `HERMES_BRIDGE_KEY` (32+ characters). Database and role names are `rapiz` / `rapiz_tenant` / `rapiz_system`; a database created before the Rapiz rename must be recreated, then `pnpm db:migrate:dev`.
+2. Start the API, agent and webhook ingress as in "Local live testing", plus the Hermes bridge (`services/hermes/README.md`).
+3. Sign up in the web app, then make that user a platform admin: `pnpm --filter @agent-sales/backend platform-admin grant <email>`.
+4. Admin → LLM: add a `hermes` provider (base URL `http://127.0.0.1:8788`, key = `HERMES_BRIDGE_KEY`), press "Đăng nhập ChatGPT" and approve the code, choose a model from the list in each plan's route, and press "Kiểm tra".
+5. Create a bot (fill the mission, products, FAQs, situation instructions), connect a Page on Tích hợp, bind it to the bot and turn the bot on. Send a message from an account that has a role on the Meta app.
+
+Images: customers' pictures are read by the model when `BOT_IMAGE_VISION` is on (default outside production), and the bot sends product pictures (up to five https URLs per product) when asked. The ChatGPT-plan sign-in is for testing only and is off in production.
+
 ## Limits
 
 - Outbound attachments are sent by HTTPS URL (bot image library, a product's `imageUrls` or a pasted link); there is no file upload to Meta. Product pictures are plain https links entered in the product form (max 5, 2000 characters each); there is no upload or reference to the image library yet.
