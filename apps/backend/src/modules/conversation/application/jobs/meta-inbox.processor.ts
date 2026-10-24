@@ -15,11 +15,17 @@ import {
   withinReplySchedule,
 } from '../../../bot/api/index.js';
 import { CONVERSATION_FACADE, type ConversationFacade } from '../../api/conversation.facade.js';
+import type { ConversationDto, InboxMessageDto } from '@agent-sales/contracts';
 import { BOT_IMAGE_VISION, IMAGE_FETCHER, type ImageFetcher } from '../ports/image-fetcher.js';
+import { splitReply } from '../../domain/reply-split.js';
 import { toReplyTurns } from './reply-turns.js';
 
 const MAX_VISION_IMAGES = 3;
 const MAX_BOT_IMAGES = 3;
+/** Meta shows "typing…" for about 20 s; refresh it while the model is still working. */
+const TYPING_REFRESH_MS = 10_000;
+/** An answer is dropped for newer customer messages at most this often per event (no starvation). */
+const MAX_SUPERSEDES = 2;
 
 const isCustomerContent = (e: NormalizedEvent): boolean =>
   e.type === 'message' && Boolean(e.text?.trim() || e.attachments?.length);
@@ -39,6 +45,7 @@ const MESSAGING_WINDOW_MS = 24 * 3_600_000;
 @Injectable()
 export class MetaInboxProcessor {
   private readonly logger = new Logger(MetaInboxProcessor.name);
+  private readonly superseded = new Map<string, number>();
   constructor(
     @Inject(CHANNEL_FACADE) private readonly channels: ChannelFacade,
     @Inject(CONVERSATION_FACADE) private readonly inbox: ConversationFacade,
@@ -81,9 +88,14 @@ export class MetaInboxProcessor {
         if (job !== latest) await this.channels.completeEvent(job.id, job.claimToken);
       if (!(await this.channels.renewEvent(latest.id, latest.claimToken))) continue;
       try {
-        await this.process(latest);
-        await this.channels.completeEvent(latest.id, latest.claimToken);
+        if ((await this.process(latest)) === 'requeue')
+          await this.channels.requeueEvent(latest.id, latest.claimToken);
+        else {
+          this.superseded.delete(latest.id);
+          await this.channels.completeEvent(latest.id, latest.claimToken);
+        }
       } catch {
+        this.superseded.delete(latest.id);
         this.failed(latest);
         if (latest.attempt >= MAX_EVENT_ATTEMPTS) await this.handOver(latest, conversationId);
         else await this.retrySoon(latest);
@@ -115,7 +127,7 @@ export class MetaInboxProcessor {
       .releaseEvent(job.id, job.claimToken, job.attempt <= 1 ? 20_000 : 60_000)
       .catch(() => undefined);
   }
-  async process(job: PendingMetaEvent): Promise<void> {
+  async process(job: PendingMetaEvent): Promise<'requeue' | void> {
     const c = await this.inbox.receive(job.workspaceId, job.connectionId, job.event);
     if (job.event.type !== 'message' || !isCustomerContent(job.event))
       return this.skip(job, 'not a customer message');
@@ -150,6 +162,42 @@ export class MetaInboxProcessor {
     if (context.conversation.mode !== 'bot' || context.conversation.status !== 'open')
       return this.skip(job, 'conversation control changed');
     const key = `bot:${job.event.externalEventId}`;
+    const stopTyping = this.showTyping(job);
+    try {
+      return await this.answer(job, c, channel.botId, bot, context, stored, key);
+    } finally {
+      stopTyping();
+    }
+  }
+
+  /** "Seen", then "typing…" until the answer is out: the customer sees the bot at work at once. */
+  private showTyping(job: PendingMetaEvent): () => void {
+    const { workspaceId: ws, connectionId } = job;
+    const to = job.event.senderExternalId;
+    let stopped = false;
+    const typing = () =>
+      stopped ? Promise.resolve() : this.channels.presence(ws, connectionId, to, 'typing_on');
+    void this.channels
+      .presence(ws, connectionId, to, 'mark_seen')
+      .then(typing)
+      .catch(() => undefined);
+    const timer = setInterval(() => void typing().catch(() => undefined), TYPING_REFRESH_MS);
+    return () => {
+      // A slow "seen" must not be followed by a "typing…" after the answer is already out.
+      stopped = true;
+      clearInterval(timer);
+    };
+  }
+
+  private async answer(
+    job: PendingMetaEvent,
+    c: ConversationDto,
+    botId: string,
+    bot: BotView,
+    context: Awaited<ReturnType<ConversationFacade['getReplyContext']>>,
+    stored: InboxMessageDto[],
+    key: string,
+  ): Promise<'requeue' | void> {
     const lastReply = stored.findLastIndex((m) => m.direction === 'outbound');
     const pending = stored.slice(lastReply + 1);
     const hasText = pending.some((m) => m.direction === 'inbound' && m.text.trim());
@@ -166,7 +214,6 @@ export class MetaInboxProcessor {
       return;
     }
     // One customer turn per burst: every question after the last reply reaches the model together.
-    const botId = channel.botId;
     const ask = (images: ImageInput[], seen: ReadonlySet<string>) =>
       this.ai.reply(
         job.workspaceId,
@@ -184,44 +231,77 @@ export class MetaInboxProcessor {
       if (!hasText) throw error;
       response = await ask([], new Set());
     }
-    const result = await this.inbox.commitBotReply(job.workspaceId, c.id, {
+    // The customer wrote again while the model was thinking: this answer is already stale. Hand the
+    // event back so the next claim answers the whole burst once, instead of two answers in a row.
+    if (await this.hasNewerMessage(job)) {
+      const times = this.superseded.get(job.id) ?? 0;
+      if (times < MAX_SUPERSEDES) {
+        this.superseded.set(job.id, times + 1);
+        this.logger.log(
+          `Meta inbox event ${job.id}: newer message arrived, answering them together`,
+        );
+        return 'requeue';
+      }
+    }
+    this.superseded.delete(job.id);
+    const bubbles = splitReply(response.reply.slice(0, 2000));
+    let result = await this.inbox.commitBotReply(job.workspaceId, c.id, {
       revision: context.revision,
-      text: response.reply.slice(0, 2000),
+      text: bubbles[0] ?? response.reply,
       idempotencyKey: key,
     });
+    // Later bubbles stop at the first one that is not delivered, or when the customer wrote again
+    // (the rest of this answer would be out of date), or when a human took over.
+    for (const [index, text] of bubbles.slice(1).entries()) {
+      if (result?.status !== 'sent' || (await this.hasNewerMessage(job))) break;
+      void this.channels
+        .presence(job.workspaceId, job.connectionId, job.event.senderExternalId, 'typing_on')
+        .catch(() => undefined);
+      result = await this.inbox.commitBotFollowUp(job.workspaceId, c.id, {
+        text,
+        idempotencyKey: `${key}:t${index + 2}`,
+      });
+    }
+    if (result && result.status !== 'sent')
+      this.logger.warn(
+        `Meta inbox event ${job.id}: a bubble was not delivered (${result.status}), the answer is incomplete`,
+      );
     if (result && response.outcome === 'handoff')
       await this.inbox.update(job.workspaceId, c.id, { mode: 'human' }, c.assigneeId ?? 'system');
-    if (result && response.outcome === 'answered')
+    if (result?.status === 'sent' && response.outcome === 'answered')
       await this.sendImages(job, c.id, response.images ?? []);
   }
 
+  private hasNewerMessage(job: PendingMetaEvent): Promise<boolean> {
+    return this.channels
+      .hasNewerCustomerEvent(job.connectionId, job.event.senderExternalId, job.id)
+      .catch(() => false);
+  }
+
   /**
-   * Pictures that follow a committed text reply, one outbound message each, sequentially. They
-   * are best effort: a failure is recorded on its own message and never fails the event, hands
-   * over or retries, and a closed 24-hour window or a takeover simply leaves the text alone.
+   * The pictures that follow a committed text reply, as ONE album message (a single picture stays
+   * a plain image). Best effort: a failure is recorded on the message and never fails the event,
+   * hands over or retries, and a closed 24-hour window or a takeover simply leaves the text alone.
    */
   private async sendImages(
     job: PendingMetaEvent,
     conversationId: string,
     images: readonly { url: string }[],
   ): Promise<void> {
-    for (const [index, image] of images.slice(0, MAX_BOT_IMAGES).entries()) {
-      try {
-        const sent = await this.inbox.commitBotImage(job.workspaceId, conversationId, {
-          url: image.url,
-          idempotencyKey: `bot:${job.event.externalEventId}:img${index + 1}`,
-        });
-        // Null: a human took over (or the bot was switched off) since the text went out.
-        if (!sent) {
-          this.logger.log(
-            `Meta inbox event ${job.id}: images skipped, the bot no longer holds the conversation`,
-          );
-          return;
-        }
-      } catch {
-        this.logger.warn(`Meta inbox event ${job.id}: image ${index + 1} not sent`);
-        return;
-      }
+    const urls = [...new Set(images.map((i) => i.url))].slice(0, MAX_BOT_IMAGES);
+    if (!urls.length || (await this.hasNewerMessage(job))) return;
+    try {
+      const sent = await this.inbox.commitBotImages(job.workspaceId, conversationId, {
+        urls,
+        idempotencyKey: `bot:${job.event.externalEventId}:img`,
+      });
+      // Null: a human took over (or the bot was switched off) since the text went out.
+      if (!sent)
+        this.logger.log(
+          `Meta inbox event ${job.id}: images skipped, the bot no longer holds the conversation`,
+        );
+    } catch {
+      this.logger.warn(`Meta inbox event ${job.id}: images not sent`);
     }
   }
 

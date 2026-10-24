@@ -10,6 +10,9 @@ import type {
 } from '../../application/ports/channel-store.js';
 import { ChannelError } from '../../domain/channel.errors.js';
 import { MAX_EVENT_ATTEMPTS } from '../../api/channel.facade.js';
+/** A customer's messages are answered together once they pause this long (or after the max wait). */
+export const EVENT_QUIET_MS = 700;
+export const EVENT_MAX_WAIT_MS = 4000;
 const c = schema.channelConnections,
   f = schema.channelOauthFlows,
   e = schema.channelWebhookEvents;
@@ -156,7 +159,14 @@ export class DrizzleChannelStore implements ChannelStore {
             sql`${e.processedAt} is null`,
             sql`(${e.leaseUntil} is null or ${e.leaseUntil}<now())`,
             sql`${e.attempts}<${MAX_EVENT_ATTEMPTS}`,
-            sql`${e.createdAt} < now() - interval '2 seconds'`,
+            // Wait for a quiet moment (the customer stopped typing) so a burst becomes one turn, but
+            // never longer than the maximum wait for the oldest message of the burst.
+            sql`(${e.createdAt} < now() - ${`${EVENT_MAX_WAIT_MS} milliseconds`}::interval or not exists (
+              select 1 from channel_webhook_events n
+              where n.connection_id = ${e.connectionId} and n.processed_at is null
+                and n.payload->>'type' = 'message'
+                and n.payload->>'senderExternalId' = ${e.payload}->>'senderExternalId'
+                and n.created_at >= now() - ${`${EVENT_QUIET_MS} milliseconds`}::interval))`,
           ),
         )
         .orderBy(e.createdAt)
@@ -246,6 +256,32 @@ export class DrizzleChannelStore implements ChannelStore {
         .where(and(eq(e.id, id), eq(e.claimToken, claimToken), sql`${e.processedAt} is null`));
     });
   }
+  async requeueEvent(id: string, claimToken: string) {
+    await withSystem(this.system, async (tx) => {
+      await tx
+        .update(e)
+        .set({ leaseUntil: null, attempts: sql`greatest(${e.attempts} - 1, 0)` })
+        .where(and(eq(e.id, id), eq(e.claimToken, claimToken), sql`${e.processedAt} is null`));
+    });
+  }
+  hasNewerCustomerEvent(connectionId: string, senderExternalId: string, afterEventId: string) {
+    return withSystem(this.system, async (tx) => {
+      const rows = await tx
+        .select({ id: e.id })
+        .from(e)
+        .where(
+          and(
+            eq(e.connectionId, connectionId),
+            sql`${e.processedAt} is null`,
+            sql`${e.id} > ${afterEventId}`,
+            sql`${e.payload}->>'type' = 'message'`,
+            sql`${e.payload}->>'senderExternalId' = ${senderExternalId}`,
+          ),
+        )
+        .limit(1);
+      return rows.length > 0;
+    });
+  }
 }
 export class UnavailableChannelStore implements ChannelStore {
   private fail(): never {
@@ -289,5 +325,11 @@ export class UnavailableChannelStore implements ChannelStore {
   }
   releaseEvent(): Promise<void> {
     return this.fail();
+  }
+  requeueEvent(): Promise<void> {
+    return this.fail();
+  }
+  hasNewerCustomerEvent(): Promise<boolean> {
+    return Promise.resolve(false);
   }
 }

@@ -216,7 +216,11 @@ export class ConversationFacadeImpl implements ConversationFacade {
     return this.reserveAndDeliver(
       ws,
       id,
-      { text: body.text, attachment: body.attachment, idempotencyKey: body.idempotencyKey },
+      {
+        text: body.text,
+        attachments: body.attachment ? [body.attachment] : [],
+        idempotencyKey: body.idempotencyKey,
+      },
       actorId,
       null,
     ).then((m) => {
@@ -242,13 +246,36 @@ export class ConversationFacadeImpl implements ConversationFacade {
       input.revision,
     );
   }
-  async commitBotImage(
+  commitBotFollowUp(
     ws: WorkspaceId,
     id: string,
-    input: { url: string; idempotencyKey: string },
+    input: { text: string; idempotencyKey: string },
   ): Promise<InboxMessageDto | null> {
-    if (!input.url.startsWith('https://') || input.url.length > 2000)
-      throw new ConversationError('VALIDATION_FAILED', 'Image URL must be an https URL');
+    if (!input.text.trim() || input.text.length > 2000)
+      throw new ConversationError(
+        'VALIDATION_FAILED',
+        'Reply must contain at most 2000 characters',
+      );
+    // Later bubbles of the same answer only need the bot to still hold the conversation.
+    return this.reserveAndDeliver(
+      ws,
+      id,
+      { text: input.text, idempotencyKey: input.idempotencyKey },
+      null,
+      'follow-up',
+    );
+  }
+  async commitBotImages(
+    ws: WorkspaceId,
+    id: string,
+    input: { urls: readonly string[]; idempotencyKey: string },
+  ): Promise<InboxMessageDto | null> {
+    if (
+      !input.urls.length ||
+      input.urls.length > 10 ||
+      input.urls.some((url) => !url.startsWith('https://') || url.length > 2000)
+    )
+      throw new ConversationError('VALIDATION_FAILED', 'Image URLs must be 1-10 https URLs');
     // The text reply of the same turn already moved the revision on, so a follow-up only requires
     // that the bot still holds the conversation (a takeover in between wins).
     return this.reserveAndDeliver(
@@ -256,7 +283,7 @@ export class ConversationFacadeImpl implements ConversationFacade {
       id,
       {
         text: '',
-        attachment: { type: 'image', url: input.url },
+        attachments: input.urls.map((url) => ({ type: 'image' as const, url })),
         idempotencyKey: input.idempotencyKey,
       },
       null,
@@ -291,7 +318,11 @@ export class ConversationFacadeImpl implements ConversationFacade {
       const c = await requireConversation(tx, id);
       const prior = await tx.findMessage(id, input.idempotencyKey);
       if (prior) {
-        if (prior.text !== input.text || prior.attachments[0]?.url !== input.attachment?.url)
+        if (
+          prior.text !== input.text ||
+          prior.attachments.map((a) => a.url).join('\n') !==
+            (input.attachments ?? []).map((a) => a.url).join('\n')
+        )
           throw new ConversationError(
             'CONFLICT',
             'Idempotency key was already used for another reply',
@@ -325,7 +356,7 @@ export class ConversationFacadeImpl implements ConversationFacade {
         direction: 'outbound',
         sender: actorId ? 'human' : 'bot',
         text: input.text,
-        attachments: input.attachment ? [input.attachment] : [],
+        attachments: [...(input.attachments ?? [])],
         status: 'pending',
         externalId: null,
         failureCode: null,
@@ -360,7 +391,7 @@ export class ConversationFacadeImpl implements ConversationFacade {
       ws,
       channelId,
       reservation.customerId,
-      { text: input.text, attachment: input.attachment },
+      { text: input.text, attachments: input.attachments },
       input.idempotencyKey,
     );
     return this.store.run(ws, async (tx) => {

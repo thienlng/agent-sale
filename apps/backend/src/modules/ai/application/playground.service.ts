@@ -27,7 +27,7 @@ import { LlmRuntime } from './llm-runtime.js';
 const JSON_REMINDER = 'Reply with the JSON object only, as described above.';
 const FORMAT_REMINDER =
   'Reminder: your previous reply was not a JSON object. Reply again with only the JSON object described above, even for a general question.';
-const PROMPT = { name: 'sales-agent', version: 6 } as const;
+const PROMPT = { name: 'sales-agent', version: 7 } as const;
 const PROMPT_VERSION = `${PROMPT.name}@${PROMPT.version}`;
 const MAX_SOURCES = 5;
 

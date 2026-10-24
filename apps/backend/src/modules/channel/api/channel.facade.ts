@@ -11,10 +11,11 @@ export interface PendingMetaEvent {
   attempt: number;
 }
 export const MAX_EVENT_ATTEMPTS = 3;
-/** Either text or a single attachment, mirroring what Meta accepts per message. */
+type OutboundAttachment = { type: 'image' | 'video' | 'audio' | 'file'; url: string };
+/** Either text or attachments (one, or several delivered as one album), as Meta accepts per message. */
 export interface OutboundInboxMessage {
   text: string;
-  attachment?: { type: 'image' | 'video' | 'audio' | 'file'; url: string } | undefined;
+  attachments?: readonly OutboundAttachment[] | undefined;
 }
 export interface ChannelFacade {
   getConnection(ws: WorkspaceId, id: string): Promise<ChannelConnectionDto>;
@@ -29,6 +30,13 @@ export interface ChannelFacade {
     status: 'sent' | 'failed' | 'unknown';
     failureCode: string | null;
   }>;
+  /** Best-effort "seen" / "typing…" bubble for the customer; never throws. */
+  presence(
+    ws: WorkspaceId,
+    id: string,
+    recipient: string,
+    action: 'mark_seen' | 'typing_on',
+  ): Promise<void>;
   claimEvents(limit: number): Promise<PendingMetaEvent[]>;
   renewEvent(id: string, claimToken: string): Promise<boolean>;
   completeEvent(id: string, claimToken: string): Promise<void>;
@@ -38,5 +46,13 @@ export interface ChannelFacade {
   deadLetterExhaustedEvents(): Promise<string[]>;
   /** Ends a failed attempt early so the next claim can retry after `retryInMs` instead of the full lease. */
   releaseEvent(id: string, claimToken: string, retryInMs: number): Promise<void>;
+  /** Hands the event back without spending an attempt, to be answered together with newer messages. */
+  requeueEvent(id: string, claimToken: string): Promise<void>;
+  /** Whether the same customer wrote again after this event (its answer would already be stale). */
+  hasNewerCustomerEvent(
+    connectionId: string,
+    senderExternalId: string,
+    afterEventId: string,
+  ): Promise<boolean>;
 }
 export const CHANNEL_FACADE = Symbol('CHANNEL_FACADE');

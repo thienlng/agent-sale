@@ -59,5 +59,13 @@ export interface ChannelStore {
   deadLetterExhaustedEvents(): Promise<string[]>;
   /** Ends a failed attempt early so the next claim can retry after `retryInMs` instead of the full lease. */
   releaseEvent(id: string, claimToken: string, retryInMs: number): Promise<void>;
+  /** Gives the event back untouched (no attempt consumed) so the next claim can merge it with newer ones. */
+  requeueEvent(id: string, claimToken: string): Promise<void>;
+  /** True when the same customer sent another unprocessed message after the event `afterEventId`. */
+  hasNewerCustomerEvent(
+    connectionId: string,
+    senderExternalId: string,
+    afterEventId: string,
+  ): Promise<boolean>;
 }
 export const CHANNEL_STORE = Symbol('CHANNEL_STORE');

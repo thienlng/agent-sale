@@ -104,6 +104,32 @@ export class MetaAdapter implements ChannelAdapter {
     if (typeof data.message_id !== 'string') throw new MetaRequestError('delivery_unknown', true);
     return { externalMessageId: data.message_id };
   }
+  /**
+   * "Seen" and "typing…" bubbles. Cosmetic: never retried, and any failure is swallowed because the
+   * reply itself must not depend on it.
+   */
+  async sendAction(
+    asset: { externalId: string; token: string },
+    to: string,
+    action: 'mark_seen' | 'typing_on',
+  ): Promise<boolean> {
+    const host = this.kind === 'instagram' ? 'graph.instagram.com' : 'graph.facebook.com';
+    try {
+      const res = await this.transport(
+        `https://${host}/${this.version}/${encodeURIComponent(asset.externalId)}/messages`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${asset.token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ recipient: { id: to }, sender_action: action }),
+          signal: AbortSignal.timeout(3000),
+          redirect: 'error',
+        },
+      );
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
   capabilities() {
     return { richCards: false, quickReplies: false, media: true, replyWindowHours: 24 };
   }
@@ -133,13 +159,13 @@ function attachments(value: unknown): InboundAttachment[] {
   }
   return result;
 }
-/** Meta accepts either text or a single attachment in one message. */
+/** Meta takes either text or attachments in one message; several attachments arrive as one album. */
 function outbound(message: OutboundMessage): Record<string, unknown> {
-  const attachment = message.attachments?.[0];
-  if (!attachment) return { text: message.text };
-  return {
-    attachment: { type: attachment.type, payload: { url: attachment.url, is_reusable: true } },
-  };
+  const items = (message.attachments ?? [])
+    .slice(0, 10)
+    .map((a) => ({ type: a.type, payload: { url: a.url, is_reusable: true } }));
+  if (!items.length) return { text: message.text };
+  return items.length === 1 ? { attachment: items[0] } : { attachments: items };
 }
 function record(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)

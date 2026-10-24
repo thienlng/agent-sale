@@ -72,6 +72,9 @@ beforeEach(() => {
     releaseEvent: async () => undefined,
     deadLetterEvent: async () => undefined,
     deadLetterExhaustedEvents: async () => [],
+    presence: async () => undefined,
+    requeueEvent: async () => undefined,
+    hasNewerCustomerEvent: async () => false,
   };
   const bots: BotFacade = { getBot: async () => bot };
   service = new ConversationFacadeImpl(store, channels, bots);
@@ -179,14 +182,14 @@ describe('ConversationFacade tenant and delivery contract', () => {
       idempotencyKey: 'bot:in1',
     });
     expect(reply?.status).toBe('sent');
-    const input = { url: 'https://img.example.com/a.jpg', idempotencyKey: 'bot:in1:img1' };
-    const first = await service.commitBotImage(ws, c.id, input);
-    const again = await service.commitBotImage(ws, c.id, input);
+    const input = { urls: ['https://img.example.com/a.jpg'], idempotencyKey: 'bot:in1:img1' };
+    const first = await service.commitBotImages(ws, c.id, input);
+    const again = await service.commitBotImages(ws, c.id, input);
     expect(first).toMatchObject({
       direction: 'outbound',
       sender: 'bot',
       text: '',
-      attachments: [{ type: 'image', url: input.url }],
+      attachments: [{ type: 'image', url: input.urls[0] }],
     });
     expect(again).toEqual(first);
     expect(channels.deliver).toHaveBeenCalledTimes(2);
@@ -194,26 +197,29 @@ describe('ConversationFacade tenant and delivery contract', () => {
       ws,
       channelId,
       'customer',
-      { text: '', attachment: { type: 'image', url: input.url } },
+      { text: '', attachments: [{ type: 'image', url: input.urls[0] }] },
       'bot:in1:img1',
     );
     await expect(
-      service.commitBotImage(ws, c.id, { ...input, url: 'https://img.example.com/b.jpg' }),
+      service.commitBotImages(ws, c.id, { ...input, urls: ['https://img.example.com/b.jpg'] }),
     ).rejects.toMatchObject({ code: 'CONFLICT' });
     await service.update(ws, c.id, { mode: 'human' }, actor);
     expect(
-      await service.commitBotImage(ws, c.id, { url: input.url, idempotencyKey: 'bot:in1:img2' }),
+      await service.commitBotImages(ws, c.id, { urls: input.urls, idempotencyKey: 'bot:in1:img2' }),
     ).toBeNull();
     expect(channels.deliver).toHaveBeenCalledTimes(2);
   });
   it('rejects a bot image that is not https or when the 24-hour window is closed', async () => {
     const c = await service.receive(ws, channelId, event());
     await expect(
-      service.commitBotImage(ws, c.id, { url: 'http://x.example/a.jpg', idempotencyKey: 'k1' }),
+      service.commitBotImages(ws, c.id, { urls: ['http://x.example/a.jpg'], idempotencyKey: 'k1' }),
     ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
     vi.advanceTimersByTime(86400000);
     await expect(
-      service.commitBotImage(ws, c.id, { url: 'https://x.example/a.jpg', idempotencyKey: 'k2' }),
+      service.commitBotImages(ws, c.id, {
+        urls: ['https://x.example/a.jpg'],
+        idempotencyKey: 'k2',
+      }),
     ).rejects.toMatchObject({ code: 'CONFLICT' });
     expect(channels.deliver).not.toHaveBeenCalled();
   });
@@ -297,7 +303,7 @@ describe('ConversationFacade tenant and delivery contract', () => {
       ws,
       channelId,
       'customer',
-      { text: '', attachment },
+      { text: '', attachments: [attachment] },
       expect.any(String),
     );
     expect((await service.get(ws, c.id)).conversation.lastMessage).toBe('[image]');

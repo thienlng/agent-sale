@@ -118,4 +118,38 @@ describe('Meta signed messaging adapter', () => {
       },
     });
   });
+  it('sends several images as one album message', async () => {
+    const transport = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ message_id: 'm.2' }));
+    await new MetaAdapter('facebook', 'v24.0', transport).send(
+      { externalId: 'page', token: 't' },
+      'u',
+      {
+        attachments: [
+          { type: 'image', url: 'https://cdn.example/1.jpg' },
+          { type: 'image', url: 'https://cdn.example/2.jpg' },
+        ],
+      },
+      { idempotencyKey: 'k' },
+    );
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(String(transport.mock.calls[0]?.[1]?.body)).message).toEqual({
+      attachments: [
+        { type: 'image', payload: { url: 'https://cdn.example/1.jpg', is_reusable: true } },
+        { type: 'image', payload: { url: 'https://cdn.example/2.jpg', is_reusable: true } },
+      ],
+    });
+  });
+  it('sends seen and typing actions and swallows failures', async () => {
+    const transport = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ recipient_id: 'u' }));
+    const adapter = new MetaAdapter('facebook', 'v24.0', transport);
+    expect(await adapter.sendAction({ externalId: 'page', token: 't' }, 'u', 'typing_on')).toBe(
+      true,
+    );
+    expect(JSON.parse(String(transport.mock.calls[0]?.[1]?.body))).toEqual({
+      recipient: { id: 'u' },
+      sender_action: 'typing_on',
+    });
+    const down = new MetaAdapter('facebook', 'v24.0', vi.fn<typeof fetch>().mockRejectedValue(1));
+    expect(await down.sendAction({ externalId: 'page', token: 't' }, 'u', 'mark_seen')).toBe(false);
+  });
 });

@@ -125,7 +125,7 @@ describe('PlaygroundService', () => {
         workspaceId: ws,
         isTest: true,
         outcome: 'answered',
-        promptVersion: 'sales-agent@6',
+        promptVersion: 'sales-agent@7',
       }),
     ]);
   });

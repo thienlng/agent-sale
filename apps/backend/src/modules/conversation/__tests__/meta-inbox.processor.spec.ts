@@ -75,12 +75,19 @@ function setup(options: { vision?: boolean; fetch?: ImageFetcher['fetch'] } = {}
     releaseEvent: vi.fn(async () => undefined),
     deadLetterEvent: vi.fn(async () => undefined),
     deadLetterExhaustedEvents: vi.fn(async () => [] as string[]),
+    presence: vi.fn(async () => undefined),
+    requeueEvent: vi.fn(async () => undefined),
+    hasNewerCustomerEvent: vi.fn(async () => false),
   } as unknown as ChannelFacade & { claimEvents: ReturnType<typeof vi.fn> };
   const bots: BotFacade = { getBot: async () => bot };
   const inbox = new ConversationFacadeImpl(new MemoryConversationStore(), channels, bots);
   const ai = {
     reply: vi.fn(async (_ws: unknown, _bot: unknown, req: { messages: { content: string }[] }) => ({
-      reply: `re: ${req.messages.at(-1)?.content}`,
+      // One line, no sentence ends: the answer stays one bubble unless a test asks otherwise.
+      reply: `re: ${req.messages
+        .at(-1)
+        ?.content.replace(/\s*\n+\s*/g, ' / ')
+        .replace(/([.!?;…]) /g, '$1\u200b')}`,
       outcome: 'answered',
     })),
   } as unknown as AiFacade & { reply: ReturnType<typeof vi.fn> };
@@ -532,7 +539,7 @@ describe('MetaInboxProcessor', () => {
         }));
     };
 
-    it('sends the text, then one image message per picture in order with stable keys', async () => {
+    it('sends the text, then ONE album message with every picture, with stable keys', async () => {
       const { channels, ai, inbox, processor } = setup();
       ai.reply.mockResolvedValueOnce(withImages(pics.slice(0, 2)));
       vi.mocked(channels.claimEvents).mockResolvedValueOnce([
@@ -540,28 +547,30 @@ describe('MetaInboxProcessor', () => {
       ]);
       await processor.tick();
       const calls = vi.mocked(channels.deliver).mock.calls;
-      expect(calls.map((call) => call[4])).toEqual(['bot:p1', 'bot:p1:img1', 'bot:p1:img2']);
-      expect(calls[0]?.[3]).toEqual({ text: 'Here they are', attachment: undefined });
+      expect(calls.map((call) => call[4])).toEqual(['bot:p1', 'bot:p1:img']);
+      expect(calls[0]?.[3]).toEqual({ text: 'Here they are', attachments: undefined });
       expect(calls[1]?.[3]).toEqual({
         text: '',
-        attachment: { type: 'image', url: pics[0]?.url },
+        attachments: [
+          { type: 'image', url: pics[0]?.url },
+          { type: 'image', url: pics[1]?.url },
+        ],
       });
-      expect(calls[2]?.[3]).toMatchObject({ attachment: { type: 'image', url: pics[1]?.url } });
       expect(await outbound(inbox, ws)).toEqual([
         { text: 'Here they are', status: 'sent', sender: 'bot' },
         { text: '', url: pics[0]?.url, status: 'sent', sender: 'bot' },
-        { text: '', url: pics[1]?.url, status: 'sent', sender: 'bot' },
       ]);
     });
 
-    it('caps the pictures at three even if the answer carries more', async () => {
+    it('caps the album at three pictures even if the answer carries more', async () => {
       const { channels, ai, processor } = setup();
       ai.reply.mockResolvedValueOnce(withImages(pics));
       vi.mocked(channels.claimEvents).mockResolvedValueOnce([
         job('p2', 'message', 'photos please', Date.now()),
       ]);
       await processor.tick();
-      expect(channels.deliver).toHaveBeenCalledTimes(4);
+      expect(channels.deliver).toHaveBeenCalledTimes(2);
+      expect(vi.mocked(channels.deliver).mock.calls[1]?.[3].attachments).toHaveLength(3);
     });
 
     it('sends no image messages when the answer has none', async () => {
@@ -578,13 +587,12 @@ describe('MetaInboxProcessor', () => {
       ai.reply.mockResolvedValueOnce(withImages(pics.slice(0, 2)));
       vi.mocked(channels.deliver)
         .mockResolvedValueOnce({ externalId: 'ok', status: 'sent', failureCode: null })
-        .mockResolvedValueOnce({ externalId: null, status: 'failed', failureCode: 'bad_media' })
-        .mockResolvedValueOnce({ externalId: 'ok2', status: 'sent', failureCode: null });
+        .mockResolvedValueOnce({ externalId: null, status: 'failed', failureCode: 'bad_media' });
       vi.mocked(channels.claimEvents).mockResolvedValueOnce([
         job('p4', 'message', 'show me', Date.now()),
       ]);
       await processor.tick();
-      expect((await outbound(inbox, ws)).map((m) => m.status)).toEqual(['sent', 'failed', 'sent']);
+      expect((await outbound(inbox, ws)).map((m) => m.status)).toEqual(['sent', 'failed']);
       const [c] = (await inbox.list(ws, { limit: 10 } as never)).data;
       expect(c?.mode).toBe('bot');
       expect(channels.completeEvent).toHaveBeenCalledTimes(1);
@@ -595,7 +603,7 @@ describe('MetaInboxProcessor', () => {
     it('never fails the event when sending an image throws', async () => {
       const { channels, ai, inbox, processor } = setup();
       ai.reply.mockResolvedValueOnce(withImages(pics.slice(0, 2)));
-      vi.spyOn(inbox, 'commitBotImage').mockRejectedValue(new Error('boom'));
+      vi.spyOn(inbox, 'commitBotImages').mockRejectedValue(new Error('boom'));
       vi.mocked(channels.claimEvents).mockResolvedValueOnce([
         job('p5', 'message', 'show me', Date.now()),
       ]);
@@ -613,8 +621,8 @@ describe('MetaInboxProcessor', () => {
       await processor.tick();
       vi.mocked(channels.claimEvents).mockResolvedValueOnce([{ ...again, attempt: 2 }]);
       await processor.tick();
-      expect(channels.deliver).toHaveBeenCalledTimes(3);
-      expect(await outbound(inbox, ws)).toHaveLength(3);
+      expect(channels.deliver).toHaveBeenCalledTimes(2);
+      expect(await outbound(inbox, ws)).toHaveLength(2);
     });
 
     it('sends no image after a human took over', async () => {
@@ -639,6 +647,79 @@ describe('MetaInboxProcessor', () => {
         job('p8', 'message', 'a person please', Date.now()),
       ]);
       await processor.tick();
+      expect(channels.deliver).toHaveBeenCalledTimes(1);
+    });
+  });
+  describe('chat feel', () => {
+    it('shows seen then typing as soon as the bot starts working', async () => {
+      const { channels, processor } = setup();
+      vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+        job('t1', 'message', 'hi', Date.now()),
+      ]);
+      await processor.tick();
+      expect(
+        vi
+          .mocked(channels.presence)
+          .mock.calls.slice(0, 2)
+          .map((c) => c[3]),
+      ).toEqual(['mark_seen', 'typing_on']);
+    });
+
+    it('splits a long answer into short bubbles with stable keys and in order', async () => {
+      const { channels, ai, inbox, processor } = setup();
+      ai.reply.mockResolvedValueOnce({
+        reply: 'Dạ em chào anh ạ. Shop có giày Oxford!\nAnh cần size nào?',
+        outcome: 'answered',
+      });
+      vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+        job('s1', 'message', 'hi', Date.now()),
+      ]);
+      await processor.tick();
+      const calls = vi.mocked(channels.deliver).mock.calls;
+      expect(calls.map((c) => c[3].text)).toEqual([
+        'Dạ em chào anh ạ.',
+        'Shop có giày Oxford!',
+        'Anh cần size nào?',
+      ]);
+      expect(calls.map((c) => c[4])).toEqual(['bot:s1', 'bot:s1:t2', 'bot:s1:t3']);
+      expect((await inbox.list(ws, { limit: 10 } as never)).data[0]?.mode).toBe('bot');
+    });
+
+    it('stops the remaining bubbles when the customer writes again', async () => {
+      const { channels, ai, processor } = setup();
+      ai.reply.mockResolvedValueOnce({ reply: 'Một ý. Hai ý. Ba ý.', outcome: 'answered' });
+      vi.mocked(channels.hasNewerCustomerEvent)
+        .mockResolvedValueOnce(false) // after the model
+        .mockResolvedValue(true); // before bubble 2
+      vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+        job('s2', 'message', 'hi', Date.now()),
+      ]);
+      await processor.tick();
+      expect(channels.deliver).toHaveBeenCalledTimes(1);
+    });
+
+    it('drops a stale answer and requeues the event when the customer wrote during generation', async () => {
+      const { channels, ai, processor } = setup();
+      vi.mocked(channels.hasNewerCustomerEvent).mockResolvedValueOnce(true);
+      vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+        job('r1', 'message', 'hi', Date.now()),
+      ]);
+      await processor.tick();
+      expect(ai.reply).toHaveBeenCalledTimes(1);
+      expect(channels.deliver).not.toHaveBeenCalled();
+      expect(channels.requeueEvent).toHaveBeenCalledTimes(1);
+      expect(channels.completeEvent).not.toHaveBeenCalled();
+    });
+
+    it('answers anyway after the event was superseded twice (no starvation)', async () => {
+      const { channels, processor } = setup();
+      vi.mocked(channels.hasNewerCustomerEvent).mockResolvedValue(true);
+      const again = job('r2', 'message', 'hi', Date.now());
+      for (const attempt of [1, 2, 3]) {
+        vi.mocked(channels.claimEvents).mockResolvedValueOnce([{ ...again, attempt }]);
+        await processor.tick();
+      }
+      expect(channels.requeueEvent).toHaveBeenCalledTimes(2);
       expect(channels.deliver).toHaveBeenCalledTimes(1);
     });
   });

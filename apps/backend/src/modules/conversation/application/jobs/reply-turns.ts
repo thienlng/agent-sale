@@ -13,8 +13,13 @@ export function withAttachmentNote(
   text: string,
   attachments: readonly { type: string; url?: string }[],
   seen: ReadonlySet<string> = new Set(),
+  answered = false,
 ): string {
   if (!attachments.length) return text;
+  // Pictures from an earlier, already answered turn are history: the bot did get to look at them
+  // then, so it must not claim it cannot see images.
+  if (answered && attachments.every((a) => a.type === 'image'))
+    return `${text}\n[Khách đã gửi kèm ${attachments.length} ảnh ở lượt trước]`.trim();
   const isSeen = (a: { type: string; url?: string }) =>
     a.type === 'image' && a.url !== undefined && seen.has(a.url);
   const visible = attachments.filter(isSeen).length;
@@ -53,17 +58,25 @@ export function toReplyTurns(
 ): ReplyTurn[] {
   const turns: ReplyTurn[] = [];
   let attempted = false;
-  for (const m of stored) {
+  const lastOutbound = stored.findLastIndex((m) => m.direction === 'outbound');
+  for (const [index, m] of stored.entries()) {
     if (m.direction === 'outbound') {
       attempted = true;
       if (m.status !== 'sent') continue;
     }
-    const content = withAttachmentNote(m.text, m.attachments, seen).slice(0, MAX_TURN_CHARS);
+    const content = withAttachmentNote(
+      m.text,
+      m.attachments,
+      seen,
+      m.direction === 'inbound' && index < lastOutbound,
+    ).slice(0, MAX_TURN_CHARS);
     if (!content.trim()) continue;
     const role = m.sender === 'customer' ? 'customer' : 'bot';
     const prev = turns.at(-1);
+    // Customer bursts are one turn; so are the bubbles of one bot answer (sent as separate messages).
     if (role === 'customer' && prev?.role === 'customer' && !attempted)
       prev.content += `\n${content}`;
+    else if (role === 'bot' && prev?.role === 'bot') prev.content += `\n${content}`;
     else turns.push({ role, content });
     attempted = false;
   }
