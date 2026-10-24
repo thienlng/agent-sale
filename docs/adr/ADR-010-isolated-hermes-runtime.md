@@ -6,7 +6,7 @@
 
 ## Context
 
-T-023 requires bot training and Facebook/Instagram chat within a short delivery window. The owner explicitly chose to retain the existing Python/Hermes core from booking-agent and postpone a TypeScript conversion. The platform remains a TypeScript/NestJS modular monolith; its existing tenant, retrieval, grounding and delivery invariants must continue to hold.
+T-045 requires bot training and Facebook/Instagram chat within a short delivery window. The owner explicitly chose to retain the existing Python/Hermes core from booking-agent and postpone a TypeScript conversion. The platform remains a TypeScript/NestJS modular monolith; its existing tenant, retrieval, grounding and delivery invariants must continue to hold.
 
 ## Decision
 

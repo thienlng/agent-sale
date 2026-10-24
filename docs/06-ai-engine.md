@@ -164,6 +164,6 @@ Gateway (`packages/ai-core`):
 - Detect bot-to-bot loops (two bots replying to each other) → stop.
 - When the wallet/quota is exhausted: no AI replies, push a handoff + notify the shop owner (Preny: the sandbox still replies when the wallet is 0 — we define it clearly: **test chat does not debit the wallet but has its own daily cap**).
 
-## 10. Optional inherited Hermes runtime (T-023)
+## 10. Optional inherited Hermes runtime (T-045)
 
 The `hermes` provider kind runs the same grounded pipeline through a private Python/Hermes bridge. Scenario training material is bounded and passed as shop context alongside retrieved FAQs; quick replies and media metadata are not model instructions. Channel calls use `AiFacade.reply` with a real conversation id and `isTest=false`; playground calls remain uncharged test runs. Hermes does not own tenant or delivery decisions. Setup, separate authentication, unsupported tools and quota/eligibility limitations: [runtime README](../services/hermes/README.md), [ADR-010](adr/ADR-010-isolated-hermes-runtime.md). Existing provider routes are preserved until an administrator explicitly selects Hermes.

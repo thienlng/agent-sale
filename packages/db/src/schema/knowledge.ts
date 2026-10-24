@@ -53,7 +53,7 @@ export const trainingItems = pgTable(
     trigger: text('trigger').notNull().default(''),
     notes: text('notes').notNull().default(''),
     mediaUrl: text('media_url'),
-    /** Media only: the `media_folder` training item that holds it (migration 0010). */
+    /** Media only: the `media_folder` training item that holds it (migration 0012). */
     folderId: uuid('folder_id').references((): AnyPgColumn => trainingItems.id, {
       onDelete: 'cascade',
     }),

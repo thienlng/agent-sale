@@ -2,7 +2,7 @@
 
 **Purpose:** Connects Facebook Pages and Instagram professional accounts to a workspace (Meta OAuth, sealed page tokens, bot binding) and delivers outbound messages through the Meta adapter.
 
-**Owned tables:** `channel_connections`, `channel_oauth_flows`, `channel_webhook_events` (schema in `packages/db/src/schema/channel.ts`, migrations 0005/0007).
+**Owned tables:** `channel_connections`, `channel_oauth_flows`, `channel_webhook_events` (schema in `packages/db/src/schema/channel.ts`, migrations 0007/0009).
 
 **Public API (`api/`):**
 

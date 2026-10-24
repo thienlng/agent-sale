@@ -2,7 +2,7 @@
 
 **Purpose:** The multichannel inbox: conversations and messages per customer, staff sends, human takeover and the bot reply pipeline for Meta events.
 
-**Owned tables:** `conversations`, `conversation_messages` (schema in `packages/db/src/schema/conversation.ts`, migration 0005).
+**Owned tables:** `conversations`, `conversation_messages` (schema in `packages/db/src/schema/conversation.ts`, migration 0007).
 
 **Public API (`api/`):**
 - `CONVERSATION_FACADE` → `list`, `get`, `update`, `send`, `receive`, `getReplyContext`, `commitBotReply`

@@ -1,5 +1,5 @@
 ---
-id: T-024
+id: T-046
 title: Fix flaky tampered access-token test in identity auth flow
 status: backlog            # backlog | next | in-progress | blocked | review | done | cancelled
 type: bug                  # feature | bug | chore | spike | docs
@@ -15,7 +15,7 @@ parent:                    # T-xxx if this is a sub-task
 
 ## Context
 
-`apps/backend/src/modules/identity/__tests__/auth.flow.spec.ts` ("access tokens are rejected when tampered with") fails about 1 run in 5. It replaces the last two characters of the token with `AA`/`BB`; the last base64url character of the signature carries padding bits, so e.g. `…AB` → `…AA` can decode to the same signature bytes and the token still verifies. Found while running `pnpm check` for T-023.
+`apps/backend/src/modules/identity/__tests__/auth.flow.spec.ts` ("access tokens are rejected when tampered with") fails about 1 run in 5. It replaces the last two characters of the token with `AA`/`BB`; the last base64url character of the signature carries padding bits, so e.g. `…AB` → `…AA` can decode to the same signature bytes and the token still verifies. Found while running `pnpm check` for T-045.
 
 ## Goal
 

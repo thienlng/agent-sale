@@ -4,8 +4,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
-- [ ] T-025 Rebuild bot training and multichannel UI to match Preny screens — @agent:claude-code (review) · [details](todo/T-025-rebuild-bot-training-and-multichannel-ui-to-match-.md)
-- [ ] T-023 Implement Preny bot training and Meta inbox with an isolated Hermes runtime — @agent:codex · [details](todo/T-023-implement-preny-bot-training-and-meta-inbox-with-a.md)
+(none)
 
 ## Next
 
@@ -31,7 +30,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [ ] T-040 Analytics events, temporal state and rebuildable projections — @unassigned · [details](todo/T-040-analytics-events-temporal-state-and-rebuildable-pr.md)
 - [ ] T-041 Statistics dashboard, breakdowns and drilldowns — @unassigned · [details](todo/T-041-statistics-dashboard-breakdowns-and-drilldowns.md)
 - [ ] T-042 CRM and statistics permissions, entitlements and acceptance suite — @unassigned · [details](todo/T-042-crm-and-statistics-permissions-entitlements-and-ac.md)
-- [ ] T-024 Fix flaky tampered access-token test in identity auth flow — @unassigned · [details](todo/T-024-fix-flaky-tampered-access-token-test-in-identity-a.md)
+- [ ] T-046 Fix flaky tampered access-token test in identity auth flow — @unassigned · [details](todo/T-046-fix-flaky-tampered-access-token-test-in-identity-a.md)
 
 ## Blocked
 
@@ -39,13 +38,13 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## Done (last 10 — older ones live in todo/done/)
 
-- [x] T-032 CRM classification and attribute tags with assignments — @agent:claude · [details](todo/done/T-032-crm-classification-and-attribute-tags-with-assignm.md) · M3a PR
-- [x] T-031 CRM sources, pipeline statuses and Sales/CSKH assignment — @agent:claude · [details](todo/done/T-031-crm-sources-pipeline-statuses-and-sales-cskh-assig.md) · M3a PR
-- [x] T-030 CRM typed contact filters, table preferences and saved views — @agent:claude · [details](todo/done/T-030-crm-typed-contact-filters-table-preferences-and-sa.md) · M3a PR
-- [x] T-029 CRM contact workspace: profile, notes and audit history — @agent:claude · [details](todo/done/T-029-crm-contact-workspace-profile-notes-and-audit-hist.md) · M3a PR
+- [x] T-047 Rebuild bot training and multichannel UI to match Preny screens — @agent:claude-code · [details](todo/done/T-047-rebuild-bot-training-and-multichannel-ui-to-match-.md) · #40
+- [x] T-045 Implement Preny bot training and Meta inbox with an isolated Hermes runtime — @agent:codex · [details](todo/done/T-045-implement-preny-bot-training-and-meta-inbox-with-a.md) · #40
+- [x] T-032 CRM classification and attribute tags with assignments — @agent:claude · [details](todo/done/T-032-crm-classification-and-attribute-tags-with-assignm.md) · #39
+- [x] T-031 CRM sources, pipeline statuses and Sales/CSKH assignment — @agent:claude · [details](todo/done/T-031-crm-sources-pipeline-statuses-and-sales-cskh-assig.md) · #39
+- [x] T-030 CRM typed contact filters, table preferences and saved views — @agent:claude · [details](todo/done/T-030-crm-typed-contact-filters-table-preferences-and-sa.md) · #39
+- [x] T-029 CRM contact workspace: profile, notes and audit history — @agent:claude · [details](todo/done/T-029-crm-contact-workspace-profile-notes-and-audit-hist.md) · #39
 - [x] T-027 Live-backend commerce E2E regression suite — @agent:claude · [details](todo/done/T-027-live-backend-commerce-e2e-regression-suite.md) · #24
 - [x] T-026 Separate gross total from amount due on orders — @agent:claude · [details](todo/done/T-026-separate-gross-total-from-amount-due-on-orders.md) · #24
 - [x] T-025 Order list multi-status include/exclude, creator and carrier filters — @agent:claude · [details](todo/done/T-025-order-list-multi-status-include-exclude-creator-an.md) · #24
 - [x] T-024 Source-scoped order field policies for creation and confirmation — @agent:claude · [details](todo/done/T-024-source-scoped-order-field-policies-for-creation-an.md) · #24
-- [x] T-023 Edit items and quantities on existing orders — @agent:claude · [details](todo/done/T-023-edit-items-and-quantities-on-existing-orders.md) · #24
-- [x] T-022 Use setup-node v7 in the web CI job too — @agent:claude · [details](todo/done/T-022-use-setup-node-v7-in-the-web-ci-job-too.md)

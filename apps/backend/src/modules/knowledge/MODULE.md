@@ -2,7 +2,7 @@
 
 **Purpose:** the facts a bot may state — FAQ question/answer pairs, situation instructions, quick replies and media references; documents and embeddings later (docs/06 §2, §4).
 
-**Owned tables:** `training_items`, `training_history` (migrations 0006, 0010) and `knowledge_items` (tenant, forced RLS — migration 0002; schema in `packages/db/src/schema/knowledge.ts`).
+**Owned tables:** `training_items`, `training_history` (migrations 0008, 0012) and `knowledge_items` (tenant, forced RLS — migration 0002; schema in `packages/db/src/schema/knowledge.ts`).
 
 **Public API (`api/`):** `KNOWLEDGE_FACADE` → `listFaqs`, `createFaq`, `updateFaq`, `deleteFaq`, `seedFaqs`, `searchFaqs` (returns `FaqHit` with a 0..1 score). No HTTP of its own: the `bot` module serves `/bots/{botId}/faqs` after checking the bot belongs to the workspace.
 

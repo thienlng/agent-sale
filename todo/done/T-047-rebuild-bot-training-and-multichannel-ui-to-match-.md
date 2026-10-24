@@ -1,7 +1,7 @@
 ---
-id: T-025
+id: T-047
 title: Rebuild bot training and multichannel UI to match Preny screens
-status: review                 # backlog | next | in-progress | blocked | review | done | cancelled
+status: done                 # backlog | next | in-progress | blocked | review | done | cancelled
 type: feature              # feature | bug | chore | spike | docs
 priority: P1               # P0 | P1 | P2 | P3
 owner: @agent:claude-code     # @github-handle or @agent:<tool>
@@ -9,13 +9,13 @@ feature_ids: []            # e.g. [BOT-07, CRM-11] from docs/02-functional-requi
 created: 2026-10-24
 updated: 2026-10-24
 branch: feat/T-023-training-meta-inbox
-pr:
-parent: T-023
+pr: 40
+parent: T-045
 ---
 
 ## Context
 
-The owner reviewed T-023 and supplied the Preny screens to follow (local folder
+The owner reviewed T-045 and supplied the Preny screens to follow (local folder
 `preny_images/`, one PNG per screen: bot home, products, instructions, information/FAQ,
 integrations, image library, bot setup, quick replies, edit history, Facebook ads tool,
 multichannel inbox, platform integrations, sidebar). Pixel parity is not required; layout,
@@ -38,7 +38,7 @@ working APIs (no decorative controls).
 - Backend: `themeColor` and `replySchedule` settings (reply hours enforced by the Meta
   processor, Vietnam time); `media_folder` training kind + `folder_id`; history `actor`,
   `changes`, `snapshot` and `POST /bots/{botId}/training-history/{historyId}/restore`
-  (migration 0010).
+  (migration 0012).
 
 ## Out of scope
 
@@ -57,10 +57,10 @@ working APIs (no decorative controls).
 
 ## Plan
 
-1. Contracts + migration 0010 + knowledge/bot backend (done first, tested).
+1. Contracts + migration 0012 + knowledge/bot backend (done first, tested).
 2. Web in three disjoint slices: bot space shell/home/setup/history/ads tool; data pages
    (products, FAQ, quick replies, library, instructions); channels/inbox/sidebar.
-3. Docs, `pnpm check`, commit on the T-023 branch.
+3. Docs, `pnpm check`, commit on the T-045 branch.
 
 ## Log
 
@@ -80,4 +80,4 @@ working APIs (no decorative controls).
 ## Links
 
 - Docs: docs/training-workspace.md, docs/meta-inbox.md
-- Related tasks: T-023
+- Related tasks: T-045

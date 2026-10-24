@@ -1,4 +1,4 @@
--- T-025: media folders and restorable training history. Additive; existing rows keep their meaning.
+-- T-047: media folders and restorable training history. Additive; existing rows keep their meaning.
 alter table training_items drop constraint if exists training_items_kind_check;
 alter table training_items
   add constraint training_items_kind_check check (kind in ('scenario', 'quick_reply', 'media', 'media_folder'));
