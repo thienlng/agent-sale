@@ -4,7 +4,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
-- [ ] T-052 Sign in to ChatGPT from the Admin LLM page for hermes-runtime — @mrkenknight · [details](todo/T-052-sign-in-to-chatgpt-from-the-admin-llm-page-for-her.md) · draft PR
+- [ ] T-052 Sign in to ChatGPT from the Admin LLM page for hermes-runtime — @mrkenknight · [details](todo/T-052-sign-in-to-chatgpt-from-the-admin-llm-page-for-her.md) · #42 (draft)
 
 ## Next
 

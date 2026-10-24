@@ -9,7 +9,7 @@ feature_ids: []            # e.g. [BOT-07, CRM-11] from docs/02-functional-requi
 created: 2026-10-24
 updated: 2026-10-24
 branch: feat/T-052-hermes-chatgpt-admin-login
-pr:
+pr: 42
 parent: T-045
 ---
 
