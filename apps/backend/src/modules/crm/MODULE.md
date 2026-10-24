@@ -2,7 +2,7 @@
 
 **Purpose:** the shop's customers — profiles with notes and an audit history, customer sources and pipeline statuses, Sales/CSKH ownership, tag definitions with attribute schemas and their assignments, typed filters and saved views (docs/02 CRM-01..CRM-10; GitHub epic #25, issues #26–#29).
 
-**Owned tables:** `contacts`, `contact_notes`, `contact_history`, `crm_sources`, `crm_statuses`, `crm_tags`, `crm_tag_assignments`, `saved_views` (tenant, forced RLS — migration 0006; schema in `packages/db/src/schema/crm.ts`).
+**Owned tables:** `contacts`, `contact_notes`, `contact_history`, `crm_sources`, `crm_statuses`, `crm_tags`, `crm_tag_assignments`, `saved_views`, `crm_assignment_policies` (tenant, forced RLS — migrations 0006, 0007; schema in `packages/db/src/schema/crm.ts`).
 
 **Public API (`api/`):**
 
@@ -24,8 +24,10 @@
 - One SQL compiler (`contact-filter.sql.ts`) builds the WHERE for rows and the total. Null rule: a customer without a value matches `is_empty` and the negative operators (`neq`, `not_contains`, `not_in`, `has_none`), never a positive one. Duplicate-phone grouping uses the normalized phone and ignores empty phones. Unsupported operators/values answer 400.
 - Private saved views exist only for their owner (404 for others); shared views are readable by every member and changeable only by the owner (403).
 - Creating a contact is idempotent per `clientRequestId`, also under a race.
+- **Access (T-044):** routes need a capability of the member's role (`@RequireCapability`, `ROLE_CAPABILITIES` in contracts). Without `contacts.view_all` (Sales, CSKH) a member sees only customers they own as Sales or CSKH and unassigned ones; anything else is 404 (list, detail, notes, history, tags). Changing Sales/CSKH needs `contacts.assign`, except claiming an empty slot for yourself. Sharing a view needs `views.share`.
+- **Auto-assignment (T-033):** a new customer with a source and no Sales owner goes to that source's enabled policy: weighted round robin over active members, cursor on the policy row (`crm_assignment_policies`, locked while picking, so concurrent creates never share a slot). Removed members are skipped. The history entry carries `autoAssigned: true` and a `crm.contact.assigned.v1` event is written. "By page" and "ratio by day" modes need channels and come later.
 
-**Not yet (later tasks):** tasks/reminders (CRM-05), custom fields, import/merge, files/export/archive, conversation rules, auto-distribution policies, per-role permissions and object scope (every member can use the CRM today), analytics projections.
+**Not yet (later tasks):** tasks/reminders (CRM-05), custom fields, import/merge, files/export/archive, conversation rules, distribution by page or by day, custom roles, analytics projections.
 
 **Do not:** read other modules' tables; put HTTP/Drizzle types in `domain/`; call LLMs outside `ai-core`; send customer messages from CRM actions.
 

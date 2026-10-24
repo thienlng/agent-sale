@@ -7,6 +7,7 @@ import { WorkspaceModule } from '../workspace/workspace.module.js';
 import { CRM_FACADE } from './api/crm.facade.js';
 import { ContactService } from './application/contact.service.js';
 import { CrmSettingsService } from './application/crm-settings.service.js';
+import { DistributionService } from './application/distribution.service.js';
 import { CRM_STORE } from './application/ports/crm-store.js';
 import { SavedViewService } from './application/saved-view.service.js';
 import { TagAssignmentService } from './application/tag-assignment.service.js';
@@ -28,6 +29,7 @@ import { CrmSettingsController } from './interface/http/crm-settings.controller.
     },
     ContactService,
     CrmSettingsService,
+    DistributionService,
     TagAssignmentService,
     SavedViewService,
     { provide: CRM_FACADE, useExisting: ContactService },

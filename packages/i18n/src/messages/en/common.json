@@ -30,7 +30,8 @@
     "ordersNew": "New order",
     "orderSettings": "Setup",
     "contactsList": "Customer list",
-    "crmSettings": "Customer settings"
+    "crmSettings": "Customer settings",
+    "members": "Members"
   },
   "auth": {
     "login": "Log in",
@@ -268,7 +269,8 @@
     "invalidUrl": "Invalid URL (needs http:// or https://)",
     "invalidName": "Lowercase letters, digits and dashes only (2–40 characters)",
     "conflict": "This name is already used",
-    "inUse": "A plan uses this server. Move the plan to another server first."
+    "inUse": "A plan uses this server. Move the plan to another server first.",
+    "forbidden": "Your role cannot do this."
   },
   "common": {
     "loading": "Loading…",
@@ -879,7 +881,8 @@
       "tabs": {
         "statuses": "Statuses",
         "sources": "Customer sources",
-        "tags": "Tags"
+        "tags": "Tags",
+        "distribution": "Distribution"
       },
       "statusesHint": "The steps of customer care, in order. A customer's status never changes their orders.",
       "sourcesHint": "Where customers come from.",
@@ -941,6 +944,86 @@
       "fieldsInvalid": "Check: {{fields}}",
       "notMember": "This person is no longer a member of the shop."
     },
-    "pageInfo": "{{from}}–{{to}} of {{total}} customers"
+    "pageInfo": "{{from}}–{{to}} of {{total}} customers",
+    "distribution": {
+      "hint": "New customers from a source go to the Sales members below in turn, by their share. Customers created with a Sales owner keep it.",
+      "enabled": "Distribute this source",
+      "members": "Sales receiving customers",
+      "weight": "Share",
+      "save": "Save",
+      "saved": "Distribution saved",
+      "off": "Off",
+      "on": "On",
+      "noMembers": "No members yet. Invite Sales on the Members page.",
+      "share": "{{percent}}%"
+    }
+  },
+  "team": {
+    "title": "Members & access",
+    "members": "Members",
+    "invitations": "Invitations",
+    "invite": "Invite a member",
+    "inviteHint": "Send the link to the person by chat or email. It works for 7 days and only for the invited email.",
+    "email": "Email of the person",
+    "role": "Role",
+    "send": "Create invitation link",
+    "link": "Invitation link",
+    "copy": "Copy link",
+    "copied": "Invitation link copied",
+    "linkOnce": "The link is shown only once. Copy it before closing.",
+    "done": "Done",
+    "col": {
+      "name": "Name",
+      "email": "Email",
+      "role": "Role",
+      "status": "Status",
+      "joined": "Joined",
+      "expires": "Expires",
+      "invitedBy": "Invited by"
+    },
+    "you": "You",
+    "roles": {
+      "owner": "Owner",
+      "admin": "Admin",
+      "sales": "Sales",
+      "care": "Customer care",
+      "analyst": "Analyst"
+    },
+    "roleHints": {
+      "admin": "Manages everything except the owner.",
+      "sales": "Sells: sees their own and unassigned customers, creates orders.",
+      "care": "Customer care: like Sales, for the customers they look after.",
+      "analyst": "Read-only access to customers and orders."
+    },
+    "memberStatus": {
+      "active": "Active",
+      "removed": "Left"
+    },
+    "inviteStatus": {
+      "pending": "Pending",
+      "accepted": "Accepted",
+      "revoked": "Revoked",
+      "expired": "Expired"
+    },
+    "remove": "Remove from shop",
+    "removeConfirm": "Remove {{name}} from the shop? They lose access at once; their customers and orders stay.",
+    "removed": "Member removed",
+    "roleChanged": "Role changed",
+    "revoke": "Revoke",
+    "revoked": "Invitation revoked",
+    "noInvitations": "No invitations yet.",
+    "cancel": "Cancel",
+    "join": {
+      "title": "Invitation to join a shop",
+      "intro": "You are invited to {{workspace}} as {{role}}.",
+      "accept": "Join",
+      "accepted": "You joined {{workspace}}",
+      "wrongEmail": "This invitation was sent to {{email}}. Sign in with that email to join.",
+      "unusable": "This invitation can no longer be used ({{status}}). Ask for a new link.",
+      "notFound": "Invitation not found. The link may be wrong or replaced by a newer one.",
+      "loginFirst": "Sign in or create an account with the invited email to join.",
+      "login": "Sign in",
+      "signup": "Create account"
+    }
   }
 }

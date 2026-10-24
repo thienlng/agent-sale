@@ -26,6 +26,7 @@ import {
   type AuthState,
   CurrentUser,
   CurrentWorkspace,
+  RequireCapability,
   WorkspaceScoped,
 } from '../../../../common/http/auth-context.js';
 import { IDENTITY_FACADE, type IdentityFacade } from '../../../identity/api/index.js';
@@ -51,6 +52,7 @@ export class BotController {
     return { data: await this.bots.list(ws) };
   }
 
+  @RequireCapability('bots.manage')
   @Post()
   @HttpCode(201)
   create(
@@ -65,6 +67,7 @@ export class BotController {
     return this.bots.get(ws, botId);
   }
 
+  @RequireCapability('bots.manage')
   @Patch(':botId')
   async update(
     @CurrentWorkspace() ws: WorkspaceId,
@@ -91,6 +94,7 @@ export class BotController {
     return { data: await this.bots.listFaqs(ws, botId) };
   }
 
+  @RequireCapability('bots.manage')
   @Post(':botId/faqs/import')
   @HttpCode(201)
   async importFaqs(
@@ -102,6 +106,7 @@ export class BotController {
     return { data: await this.bots.importFaqs(ws, botId, input, await this.actor(user)) };
   }
 
+  @RequireCapability('bots.manage')
   @Post(':botId/faqs')
   @HttpCode(201)
   async createFaq(
@@ -113,6 +118,7 @@ export class BotController {
     return this.bots.createFaq(ws, botId, body, await this.actor(user));
   }
 
+  @RequireCapability('bots.manage')
   @Patch(':botId/faqs/:faqId')
   async updateFaq(
     @CurrentWorkspace() ws: WorkspaceId,
@@ -124,6 +130,7 @@ export class BotController {
     return this.bots.updateFaq(ws, botId, faqId, body, await this.actor(user));
   }
 
+  @RequireCapability('bots.manage')
   @Delete(':botId/faqs/:faqId')
   @HttpCode(204)
   async deleteFaq(

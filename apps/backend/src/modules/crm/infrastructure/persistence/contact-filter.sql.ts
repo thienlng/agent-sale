@@ -152,8 +152,14 @@ export function compileContactWhere(input: {
   q?: string | undefined;
   filter: ContactFilter;
   timezone: string;
+  ownerScope?: string | null | undefined;
 }): SQL {
   const parts: SQL[] = [sql`${c.archivedAt} is null`];
+  if (input.ownerScope) {
+    const me = input.ownerScope;
+    parts.push(sql`(${c.salesUserId} = ${me} or ${c.careUserId} = ${me}
+      or (${c.salesUserId} is null and ${c.careUserId} is null))`);
+  }
   if (input.q) parts.push(sql`${c.searchText} like ${likeAny(input.q)} escape '\\'`);
   const rules = input.filter.rules.map((r) => compileRule(r, input.timezone));
   if (rules.length) {

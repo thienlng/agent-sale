@@ -30,7 +30,8 @@
     "ordersNew": "Tạo đơn",
     "orderSettings": "Thiết lập",
     "contactsList": "Danh sách khách hàng",
-    "crmSettings": "Cài đặt khách hàng"
+    "crmSettings": "Cài đặt khách hàng",
+    "members": "Thành viên"
   },
   "auth": {
     "login": "Đăng nhập",
@@ -268,7 +269,8 @@
     "invalidUrl": "Địa chỉ không hợp lệ (cần http:// hoặc https://)",
     "invalidName": "Chỉ dùng chữ thường, số và dấu gạch ngang (2–40 ký tự)",
     "conflict": "Tên này đã được dùng",
-    "inUse": "Máy chủ đang được một gói sử dụng. Đổi gói sang máy chủ khác trước."
+    "inUse": "Máy chủ đang được một gói sử dụng. Đổi gói sang máy chủ khác trước.",
+    "forbidden": "Vai trò của bạn không làm được việc này."
   },
   "common": {
     "loading": "Đang tải…",
@@ -879,7 +881,8 @@
       "tabs": {
         "statuses": "Trạng thái",
         "sources": "Nguồn khách hàng",
-        "tags": "Tag"
+        "tags": "Tag",
+        "distribution": "Phân chia khách"
       },
       "statusesHint": "Các bước chăm sóc khách hàng, theo thứ tự. Trạng thái khách hàng không ảnh hưởng đơn hàng.",
       "sourcesHint": "Khách hàng đến từ đâu.",
@@ -941,6 +944,86 @@
       "fieldsInvalid": "Kiểm tra lại: {{fields}}",
       "notMember": "Người này không còn là thành viên của shop."
     },
-    "pageInfo": "{{from}}–{{to}} / {{total}} khách hàng"
+    "pageInfo": "{{from}}–{{to}} / {{total}} khách hàng",
+    "distribution": {
+      "hint": "Khách mới từ một nguồn sẽ được giao lần lượt cho các Sales dưới đây, theo tỉ lệ. Khách đã có Sales khi tạo thì giữ nguyên.",
+      "enabled": "Bật phân chia cho nguồn này",
+      "members": "Sales nhận khách",
+      "weight": "Tỉ lệ",
+      "save": "Lưu",
+      "saved": "Đã lưu cách phân chia",
+      "off": "Tắt",
+      "on": "Đang bật",
+      "noMembers": "Chưa có thành viên. Mời Sales ở trang Thành viên.",
+      "share": "{{percent}}%"
+    }
+  },
+  "team": {
+    "title": "Thành viên & quyền truy cập",
+    "members": "Thành viên",
+    "invitations": "Lời mời",
+    "invite": "Mời thành viên",
+    "inviteHint": "Gửi link cho người được mời qua Zalo, Messenger hoặc email. Link dùng được 7 ngày và chỉ cho đúng email đã mời.",
+    "email": "Email người được mời",
+    "role": "Vai trò",
+    "send": "Tạo link mời",
+    "link": "Link mời",
+    "copy": "Sao chép link",
+    "copied": "Đã sao chép link mời",
+    "linkOnce": "Link chỉ hiện một lần. Hãy sao chép trước khi đóng.",
+    "done": "Xong",
+    "col": {
+      "name": "Tên",
+      "email": "Email",
+      "role": "Vai trò",
+      "status": "Trạng thái",
+      "joined": "Tham gia",
+      "expires": "Hết hạn",
+      "invitedBy": "Người mời"
+    },
+    "you": "Bạn",
+    "roles": {
+      "owner": "Chủ sở hữu",
+      "admin": "Quản trị",
+      "sales": "Sales",
+      "care": "CSKH",
+      "analyst": "Phân tích"
+    },
+    "roleHints": {
+      "admin": "Quản lý mọi thứ, trừ chủ sở hữu.",
+      "sales": "Bán hàng: thấy khách của mình và khách chưa ai nhận, tạo đơn.",
+      "care": "Chăm sóc khách: như Sales, theo khách mình phụ trách.",
+      "analyst": "Chỉ xem khách hàng và đơn hàng."
+    },
+    "memberStatus": {
+      "active": "Hoạt động",
+      "removed": "Đã rời"
+    },
+    "inviteStatus": {
+      "pending": "Đang chờ",
+      "accepted": "Đã nhận",
+      "revoked": "Đã thu hồi",
+      "expired": "Hết hạn"
+    },
+    "remove": "Xoá khỏi shop",
+    "removeConfirm": "Xoá {{name}} khỏi shop? Người này mất quyền truy cập ngay; khách và đơn họ đã làm vẫn giữ nguyên.",
+    "removed": "Đã xoá thành viên",
+    "roleChanged": "Đã đổi vai trò",
+    "revoke": "Thu hồi",
+    "revoked": "Đã thu hồi lời mời",
+    "noInvitations": "Chưa có lời mời nào.",
+    "cancel": "Huỷ",
+    "join": {
+      "title": "Lời mời tham gia shop",
+      "intro": "Bạn được mời vào {{workspace}} với vai trò {{role}}.",
+      "accept": "Tham gia",
+      "accepted": "Đã tham gia {{workspace}}",
+      "wrongEmail": "Lời mời này gửi tới {{email}}. Hãy đăng nhập bằng email đó để tham gia.",
+      "unusable": "Lời mời này không còn dùng được ({{status}}). Hãy xin người mời gửi link mới.",
+      "notFound": "Không tìm thấy lời mời. Link có thể sai hoặc đã bị thay bằng link mới.",
+      "loginFirst": "Đăng nhập hoặc tạo tài khoản bằng email được mời để tham gia.",
+      "login": "Đăng nhập",
+      "signup": "Tạo tài khoản"
+    }
   }
 }

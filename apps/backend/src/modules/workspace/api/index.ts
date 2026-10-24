@@ -1,6 +1,7 @@
 export {
   WORKSPACE_FACADE,
   type WorkspaceFacade,
+  type GivenRole,
   type WorkspaceMember,
   type WorkspaceMembership,
 } from './workspace.facade.js';

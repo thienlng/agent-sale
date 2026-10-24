@@ -2,6 +2,7 @@ import {
   CreateCrmOptionRequest,
   CreateSavedViewRequest,
   CreateTagRequest,
+  PutAssignmentPolicyRequest,
   ReorderCrmOptionsRequest,
   UpdateCrmOptionRequest,
   UpdateSavedViewRequest,
@@ -25,10 +26,12 @@ import {
   type AuthState,
   CurrentUser,
   CurrentWorkspace,
+  RequireCapability,
   WorkspaceScoped,
 } from '../../../../common/http/auth-context.js';
 import { ZodValidationPipe } from '../../../../common/http/zod-validation.pipe.js';
 import { CrmSettingsService } from '../../application/crm-settings.service.js';
+import { DistributionService } from '../../application/distribution.service.js';
 import { SavedViewService } from '../../application/saved-view.service.js';
 
 /** Thin controller: sources, statuses, tags, assignees and saved views. */
@@ -38,9 +41,11 @@ export class CrmSettingsController {
   constructor(
     @Inject(CrmSettingsService) private readonly settings: CrmSettingsService,
     @Inject(SavedViewService) private readonly views: SavedViewService,
+    @Inject(DistributionService) private readonly distribution: DistributionService,
   ) {}
 
   // `/order` is declared before `/:optionId` so it is never taken for an id.
+  @RequireCapability('settings.manage')
   @Put('crm/sources/order')
   async reorderSources(
     @CurrentWorkspace() ws: WorkspaceId,
@@ -49,6 +54,7 @@ export class CrmSettingsController {
     return { data: await this.settings.reorder(ws, 'source', body) };
   }
 
+  @RequireCapability('settings.manage')
   @Put('crm/statuses/order')
   async reorderStatuses(
     @CurrentWorkspace() ws: WorkspaceId,
@@ -62,6 +68,7 @@ export class CrmSettingsController {
     return { data: await this.settings.listOptions(ws, 'source') };
   }
 
+  @RequireCapability('settings.manage')
   @Post('crm/sources')
   @HttpCode(201)
   createSource(
@@ -71,6 +78,7 @@ export class CrmSettingsController {
     return this.settings.createOption(ws, 'source', body);
   }
 
+  @RequireCapability('settings.manage')
   @Patch('crm/sources/:optionId')
   updateSource(
     @CurrentWorkspace() ws: WorkspaceId,
@@ -85,6 +93,7 @@ export class CrmSettingsController {
     return { data: await this.settings.listOptions(ws, 'status') };
   }
 
+  @RequireCapability('settings.manage')
   @Post('crm/statuses')
   @HttpCode(201)
   createStatus(
@@ -94,6 +103,7 @@ export class CrmSettingsController {
     return this.settings.createOption(ws, 'status', body);
   }
 
+  @RequireCapability('settings.manage')
   @Patch('crm/statuses/:optionId')
   updateStatus(
     @CurrentWorkspace() ws: WorkspaceId,
@@ -108,6 +118,7 @@ export class CrmSettingsController {
     return { data: await this.settings.listTags(ws) };
   }
 
+  @RequireCapability('settings.manage')
   @Post('crm/tags')
   @HttpCode(201)
   createTag(
@@ -118,6 +129,7 @@ export class CrmSettingsController {
     return this.settings.createTag(ws, body, user.userId);
   }
 
+  @RequireCapability('settings.manage')
   @Patch('crm/tags/:tagId')
   updateTag(
     @CurrentWorkspace() ws: WorkspaceId,
@@ -127,16 +139,33 @@ export class CrmSettingsController {
     return this.settings.updateTag(ws, id, body);
   }
 
+  @Get('crm/assignment-policies')
+  async policies(@CurrentWorkspace() ws: WorkspaceId) {
+    return { data: await this.distribution.list(ws) };
+  }
+
+  @RequireCapability('settings.manage')
+  @Put('crm/assignment-policies/:sourceId')
+  putPolicy(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Param('sourceId') sourceId: string,
+    @Body(new ZodValidationPipe(PutAssignmentPolicyRequest)) body: unknown,
+  ) {
+    return this.distribution.put(ws, sourceId, body);
+  }
+
   @Get('crm/assignees')
   async assignees(@CurrentWorkspace() ws: WorkspaceId) {
     return { data: await this.settings.assignees(ws) };
   }
 
+  @RequireCapability('contacts.view')
   @Get('saved-views')
   async savedViews(@CurrentWorkspace() ws: WorkspaceId, @CurrentUser() user: AuthState) {
     return { data: await this.views.list(ws, user.userId) };
   }
 
+  @RequireCapability('contacts.view')
   @Post('saved-views')
   @HttpCode(201)
   createView(
@@ -144,9 +173,10 @@ export class CrmSettingsController {
     @CurrentUser() user: AuthState,
     @Body(new ZodValidationPipe(CreateSavedViewRequest)) body: unknown,
   ) {
-    return this.views.create(ws, body, user.userId);
+    return this.views.create(ws, body, user.userId, user.role);
   }
 
+  @RequireCapability('contacts.view')
   @Patch('saved-views/:viewId')
   updateView(
     @CurrentWorkspace() ws: WorkspaceId,
@@ -154,9 +184,10 @@ export class CrmSettingsController {
     @Param('viewId') id: string,
     @Body(new ZodValidationPipe(UpdateSavedViewRequest)) body: unknown,
   ) {
-    return this.views.update(ws, id, body, user.userId);
+    return this.views.update(ws, id, body, user.userId, user.role);
   }
 
+  @RequireCapability('contacts.view')
   @Delete('saved-views/:viewId')
   @HttpCode(204)
   deleteView(

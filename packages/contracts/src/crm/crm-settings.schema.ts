@@ -180,3 +180,38 @@ export const CrmAssigneeList = z.object({
   data: z.array(z.object({ userId: z.uuid(), name: z.string(), role: z.string() })),
 });
 export type CrmAssigneeList = z.infer<typeof CrmAssigneeList>;
+
+// ─── Auto-assignment by source (SET-02 "phân chia khách hàng", T-033) ─────────
+
+/**
+ * New customers from a source go to the Sales members listed here, in
+ * proportion to their weights (weighted round robin). A customer created with
+ * a Sales owner, or from a source without an enabled policy, is not touched.
+ */
+export const AssignmentPolicyDto = z.object({
+  sourceId: z.uuid(),
+  enabled: z.boolean(),
+  candidates: z.array(z.object({ userId: z.uuid(), weight: z.number().int().min(1).max(10) })),
+  /** 0 = never saved. */
+  version: z.number().int().min(0),
+});
+export type AssignmentPolicyDto = z.infer<typeof AssignmentPolicyDto>;
+export const AssignmentPolicyList = z.object({ data: z.array(AssignmentPolicyDto) });
+
+export const PutAssignmentPolicyRequest = z
+  .object({
+    enabled: z.boolean(),
+    candidates: z
+      .array(z.object({ userId: z.uuid(), weight: z.number().int().min(1).max(10) }))
+      .max(50),
+    expectedVersion: z.number().int().min(0),
+  })
+  .refine((p) => new Set(p.candidates.map((c) => c.userId)).size === p.candidates.length, {
+    message: 'each member at most once',
+    path: ['candidates'],
+  })
+  .refine((p) => !p.enabled || p.candidates.length > 0, {
+    message: 'an enabled policy needs at least one member',
+    path: ['candidates'],
+  });
+export type PutAssignmentPolicyRequest = z.input<typeof PutAssignmentPolicyRequest>;
