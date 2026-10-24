@@ -144,21 +144,27 @@ export class ContactService {
         now,
         autoSales ? { autoAssigned: true } : {},
       );
-      if (autoSales) {
+      // Every owner a customer starts with is an ownership event (statistics attribute by the owner at the time).
+      for (const [role, owner] of [
+        ['sales', contact.salesUserId],
+        ['care', contact.careUserId],
+      ] as const) {
+        if (!owner) continue;
         await tx.outbox(ws, {
           type: 'crm.contact.assigned.v1',
           aggregateId: contact.id,
-          payload: event(ws, contact.id, actor, now, {
-            role: 'sales',
-            fromUserId: null,
-            toUserId: autoSales,
-          }),
+          payload: event(ws, contact.id, actor, now, { role, fromUserId: null, toUserId: owner }),
         });
       }
       await tx.outbox(ws, {
         type: 'crm.contact.created.v1',
         aggregateId: contact.id,
-        payload: event(ws, contact.id, actor, now, { sourceId: contact.sourceId }),
+        payload: event(ws, contact.id, actor, now, {
+          sourceId: contact.sourceId,
+          // The CRM form is the only way to create a customer today; channel and import come later.
+          origin: 'manual',
+          phoneCaptured: contact.phoneProvidedAt !== null,
+        }),
       });
       return this.#dto(tx, contact);
     });
@@ -208,7 +214,10 @@ export class ContactService {
         await tx.outbox(ws, {
           type: 'crm.contact.updated.v1',
           aggregateId: id,
-          payload: event(ws, id, actor, now, { fields: Object.keys(rest) }),
+          payload: event(ws, id, actor, now, {
+            fields: Object.keys(rest),
+            phoneCaptured: before.phoneProvidedAt === null && next.phoneProvidedAt !== null,
+          }),
         });
       }
       if (status['statusId']) {

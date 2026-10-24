@@ -77,5 +77,6 @@ export * from './knowledge/media.routes.js';
 export * from './channel/channel.schema.js';
 export * from './channel/channel.routes.js';
 export * from './conversation/conversation.schema.js';
+export * from './conversation/conversation.events.js';
 export * from './conversation/conversation.routes.js';
 import { mediaRoutes } from './knowledge/media.routes.js';

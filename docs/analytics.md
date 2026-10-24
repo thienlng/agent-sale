@@ -43,3 +43,17 @@ The definitions above are the proposal the dashboard is built on. Before the das
 3. **`asOf` snapshots** for the shop's current tags and statuses: defaults to now; historical `asOf` is supported only from the first day the projection ran.
 4. **Attribution** at event time (proposed) vs the current owner.
 5. A **page** filter for customers needs customers linked to the page/channel they came from (not yet stored).
+
+## 4. The projection (T-040)
+
+Statistics read `analytics_facts`, never the CRM or inbox tables. Facts are derived from the transactional outbox and can be rebuilt from it.
+
+- **Source.** `crm.*` events (customers, owners, statuses, tags) and the inbox's `conversation.message.received.v1` / `conversation.reply.completed.v1`. Payload additions are optional fields on the existing `v1` events (`origin`, `phoneCaptured`, `channelId`, `occurredAt`, `firstMessage`, `sender`); events written before them parse with defaults (origin `manual`, time = outbox time, no channel).
+- **One fact per (event, kind).** `unique (workspace, outbox id, kind)` makes duplicates, retries and replays no-ops. Facts hold ids and times only.
+- **Event time.** `occurred_at` is when it happened; `received_at` is when the outbox recorded it. Buckets and snapshots use `occurred_at`, so a late event lands in its original local day.
+- **Temporal state is derived, not stored.** A tag assignment is active between its `tag.assigned` and `tag.removed` facts (same assignment id); a customer's status at `asOf` is the latest `status.changed` at or before it; the owner at any time is the latest `assignment.changed` for that role at or before it. Out-of-order arrival cannot corrupt history because nothing is mutated in place. If volume demands it, intervals or daily rollups can be materialised later behind the same queries.
+- **Ordering.** The projector reads the outbox by id under an advisory lease, and only rows no still-open transaction can precede (`xmin` below the snapshot horizon), so a slow transaction never makes it skip a lower id. A long-running transaction elsewhere in the database delays projection; that shows up as lag, not as missing data.
+- **Failure handling.** A payload that cannot be parsed goes to `analytics_dead_letters` and the projection moves on; a database error stops the batch and it is retried (checkpoint unchanged).
+- **Freshness.** `ProjectorService.tick()` runs every 2 s in the `worker` entry; queries also catch up on whatever is pending before answering, so a single-node setup works without a worker. Responses carry `generatedAt`, the projection watermark and the lag in seconds.
+- **Rebuild.** `pnpm --filter @agent-sales/backend analytics-rebuild <workspace-id>` forgets the workspace's facts and replays its events. It only reads the outbox and writes facts: nothing is sent to customers or channels. A golden test checks the rebuilt facts equal the original ones.
+- **Not covered yet.** Customers are not linked to the page/channel they came from, so customer metrics have no page filter; page comments have no source; the outbox is never pruned, so a rebuild can always replay from the start.

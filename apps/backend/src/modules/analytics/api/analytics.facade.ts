@@ -7,3 +7,10 @@ export interface AnalyticsFacade {
 }
 
 export const ANALYTICS_FACADE = Symbol('ANALYTICS_FACADE');
+
+/** Background projection of the outbox into statistics facts; run by the `worker` entry. */
+export interface AnalyticsRunner {
+  /** Consumes one batch of pending events; resolves to how many it consumed. */
+  tick(): Promise<number>;
+}
+export const ANALYTICS_RUNNER = Symbol('ANALYTICS_RUNNER');

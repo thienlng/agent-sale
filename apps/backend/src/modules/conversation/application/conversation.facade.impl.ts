@@ -197,6 +197,10 @@ export class ConversationFacadeImpl implements ConversationFacade {
         messageId: event.externalEventId,
         type: event.type,
         revision: c.revision,
+        // Statistics: where and when it happened, and whether it opened the conversation.
+        channelId,
+        occurredAt: event.occurredAt.toISOString(),
+        firstMessage: !existing,
       });
       return c;
     });
@@ -352,6 +356,9 @@ export class ConversationFacadeImpl implements ConversationFacade {
         messageId: m.id,
         status: result.status,
         failureCode: result.failureCode,
+        channelId,
+        sender: m.sender,
+        occurredAt: now(),
       });
       return completed;
     });

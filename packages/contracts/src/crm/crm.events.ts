@@ -15,11 +15,17 @@ export const ContactCreatedV1 = z.object({
   type: z.literal('crm.contact.created.v1'),
   ...base,
   sourceId: z.uuid().nullable(),
+  /** Where the customer came from; events written before this field existed were all manual. */
+  origin: z.enum(['channel', 'manual', 'import']).default('manual'),
+  /** The customer was created with a phone number. */
+  phoneCaptured: z.boolean().default(false),
 });
 export const ContactUpdatedV1 = z.object({
   type: z.literal('crm.contact.updated.v1'),
   ...base,
   fields: z.array(z.string()),
+  /** This edit stored a phone number on a customer that had none. */
+  phoneCaptured: z.boolean().default(false),
 });
 export const ContactStatusChangedV1 = z.object({
   type: z.literal('crm.contact.status_changed.v1'),

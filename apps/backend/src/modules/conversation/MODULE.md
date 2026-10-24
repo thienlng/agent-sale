@@ -10,6 +10,8 @@
 - `CONVERSATION_RUNNER` (`MetaInboxProcessor.tick`) — run only by the `agent` entry.
 - HTTP: `/conversations`, `/conversations/{id}`, `/conversations/{id}/messages`.
 
+**Events published (outbox):** `conversation.message.received.v1` (+ `channelId`, `occurredAt`, `firstMessage`), `conversation.reply.reserved.v1`, `conversation.reply.completed.v1` (+ `channelId`, `sender`, `occurredAt`), `conversation.control.updated.v1` — statistics read the first and third.
+
 **Events consumed:** none (claims `channel_webhook_events` through the channel facade).
 
 **Invariants:**
