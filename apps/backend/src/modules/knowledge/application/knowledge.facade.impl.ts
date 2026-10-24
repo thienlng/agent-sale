@@ -29,6 +29,20 @@ function view(faq: Faq): FaqView {
 export class KnowledgeFacadeImpl implements KnowledgeFacade {
   constructor(@Inject(KNOWLEDGE_UOW) private readonly uow: KnowledgeUnitOfWork) {}
 
+  importFaqs(
+    ws: WorkspaceId,
+    botId: string,
+    items: Array<{ question: string; answer: string }>,
+  ): Promise<FaqView[]> {
+    return this.uow.run(ws, async ({ faqs }) => {
+      const created = items.map((item) =>
+        Faq.create({ workspaceId: ws, botId, ...item, source: 'import' }),
+      );
+      await faqs.saveMany(created);
+      return created.map(view);
+    });
+  }
+
   listFaqs(ws: WorkspaceId, botId: string): Promise<FaqView[]> {
     return this.uow.run(ws, async ({ faqs }) => (await faqs.listByBot(botId)).map(view));
   }

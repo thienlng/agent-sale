@@ -48,7 +48,7 @@ export function CreateBotDialog({
         onSuccess: (bot) => {
           toast.success(t('bots.created'));
           onOpenChange(false);
-          void navigate({ to: '/app/bots/$botId', params: { botId: bot.id } });
+          void navigate({ to: '/app/bots/$botId/integrations', params: { botId: bot.id } });
         },
         onError: (err) => toast.error(errorMessage(t, err)),
       },

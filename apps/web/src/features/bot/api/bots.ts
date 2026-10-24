@@ -84,6 +84,7 @@ export function useUpdateBot(botId: string) {
         list?.map((b) => (b.id === bot.id ? bot : b)),
       );
       void qc.invalidateQueries({ queryKey: queryKeys.readiness(ws, botId) });
+      void qc.invalidateQueries({ queryKey: ['training', ws, botId, 'history'] });
     },
   });
 }

@@ -136,12 +136,14 @@ function StockEditor({ product }: { product: ProductDto }) {
 /** Create or edit a product with its variants (ORD-01). */
 export function ProductForm({ product }: { product?: ProductDto }) {
   const { t } = useTranslation();
+  const { t: training } = useTranslation('training');
   const navigate = useNavigate();
   const save = useSaveProduct();
   const [code, setCode] = useState(product?.code ?? '');
   const [name, setName] = useState(product?.name ?? '');
   const [description, setDescription] = useState(product?.description ?? '');
   const [category, setCategory] = useState(product?.category ?? '');
+  const [botInstructions, setBotInstructions] = useState(product?.botInstructions ?? '');
   const [visibleToBot, setVisibleToBot] = useState(product?.visibleToBot ?? true);
   const [archived, setArchived] = useState(product?.status === 'archived');
   const [variants, setVariants] = useState<VariantDraft[]>(
@@ -166,6 +168,7 @@ export function ProductForm({ product }: { product?: ProductDto }) {
       description,
       category: category.trim() || null,
       visibleToBot,
+      botInstructions,
       status: archived ? 'archived' : 'active',
       variants: variants.map((v) => ({
         ...(v.id ? { id: v.id } : {}),
@@ -249,6 +252,17 @@ export function ProductForm({ product }: { product?: ProductDto }) {
                 {t('products.form.archived')}
               </label>
             ) : null}
+          </div>
+          <div className="flex flex-col gap-1.5 md:col-span-2">
+            <Label htmlFor="pf-bot-instructions">{training('productInstructions')}</Label>
+            <Textarea
+              id="pf-bot-instructions"
+              maxLength={4000}
+              rows={3}
+              value={botInstructions}
+              onChange={(event) => setBotInstructions(event.target.value)}
+            />
+            <p className="text-sm text-muted-foreground">{training('productInstructionsHint')}</p>
           </div>
           <div className="flex flex-col gap-1.5 md:col-span-2">
             <Label htmlFor="pf-description">{t('products.form.description')}</Label>

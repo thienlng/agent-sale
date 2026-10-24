@@ -13,7 +13,7 @@ import {
  */
 
 const password = 'live e2e password 2026';
-const email = `crm-${Date.now()}-${Math.round(Math.random() * 1e6)}@e2e.razpi.test`;
+const email = `crm-${Date.now()}-${Math.round(Math.random() * 1e6)}@e2e.rapiz.test`;
 const NAME = `BA CRM ${Date.now()} KHONG LIEN HE`;
 
 let api: APIRequestContext;

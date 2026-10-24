@@ -11,7 +11,7 @@ import {
   ShoppingBag,
   Users,
 } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Logo } from '@/components/logo';
@@ -46,13 +46,63 @@ interface NavItem {
 }
 
 /** P0 items of docs/03 §2; the ones not built yet say so instead of pretending. */
+const BOTS: readonly NavItem[] = [{ to: '/app/bots', key: 'nav.bots', icon: Bot, ready: true }];
 const WORK: readonly NavItem[] = [
-  { to: '/app/bots', key: 'nav.bots', icon: Bot, ready: true },
-  { to: '/app/inbox', key: 'nav.inbox', icon: MessagesSquare },
-  { to: '/app/channels', key: 'nav.channels', icon: Cable },
   { to: '/app/analytics', key: 'nav.analytics', icon: BarChart3 },
   { to: '/app/settings', key: 'nav.settings', icon: Settings },
 ];
+
+/** "Chat đa kênh" (Preny): the inbox and the platform integrations under one entry. */
+const MULTICHANNEL: readonly NavItem[] = [
+  { to: '/app/inbox', key: 'nav.inbox', icon: MessagesSquare, ready: true },
+  { to: '/app/channels', key: 'nav.channels', icon: Cable, ready: true },
+];
+const MULTICHANNEL_PATHS = /^\/app\/(inbox|channels)(\/|$)/;
+
+function MultichannelNav() {
+  const { t } = useTranslation();
+  const { isMobile, setOpenMobile } = useSidebar();
+  const inside = useRouterState({
+    select: (s) => MULTICHANNEL_PATHS.test(s.location.pathname),
+  });
+  // Starts open so both pages stay one click away; re-opens whenever the user is inside.
+  const [open, setOpen] = useState(true);
+  const [wasInside, setWasInside] = useState(inside);
+  if (inside !== wasInside) {
+    setWasInside(inside);
+    if (inside) setOpen(true);
+  }
+  return (
+    <Collapsible asChild open={open} onOpenChange={setOpen} className="group/collapsible">
+      <SidebarMenuItem>
+        <CollapsibleTrigger asChild>
+          <SidebarMenuButton tooltip={t('nav.multichannel')} isActive={inside && !open}>
+            <MessagesSquare />
+            <span>{t('nav.multichannel')}</span>
+            <ChevronRight className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-90" />
+          </SidebarMenuButton>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <SidebarMenuSub>
+            {MULTICHANNEL.map(({ to, key }) => (
+              <SidebarMenuSubItem key={to}>
+                <SidebarMenuSubButton asChild>
+                  <Link
+                    to={to}
+                    activeProps={{ 'data-active': true }}
+                    onClick={() => isMobile && setOpenMobile(false)}
+                  >
+                    <span>{t(key)}</span>
+                  </Link>
+                </SidebarMenuSubButton>
+              </SidebarMenuSubItem>
+            ))}
+          </SidebarMenuSub>
+        </CollapsibleContent>
+      </SidebarMenuItem>
+    </Collapsible>
+  );
+}
 
 /** The orders area (docs/03 §2 "Đơn hàng"): one entry with sub-pages. */
 const ORDERS: readonly NavItem[] = [
@@ -136,34 +186,42 @@ function NavGroup({
   items: readonly NavItem[];
   children?: ReactNode;
 }) {
-  const { t } = useTranslation();
-  const { isMobile, setOpenMobile } = useSidebar();
   return (
     <SidebarGroup>
       <SidebarGroupLabel>{label}</SidebarGroupLabel>
       <SidebarMenu>
-        {items.map(({ to, key, icon: Icon, ready }) => (
-          <SidebarMenuItem key={to}>
-            <SidebarMenuButton asChild tooltip={t(key)}>
-              <Link
-                to={to}
-                onClick={() => isMobile && setOpenMobile(false)}
-                activeProps={{ 'data-active': true }}
-              >
-                <Icon />
-                <span>{t(key)}</span>
-              </Link>
-            </SidebarMenuButton>
-            {!ready ? (
-              <SidebarMenuBadge className="font-normal text-muted-foreground">
-                {t('nav.comingSoon')}
-              </SidebarMenuBadge>
-            ) : null}
-          </SidebarMenuItem>
-        ))}
+        <NavItems items={items} />
         {children}
       </SidebarMenu>
     </SidebarGroup>
+  );
+}
+
+function NavItems({ items }: { items: readonly NavItem[] }) {
+  const { t } = useTranslation();
+  const { isMobile, setOpenMobile } = useSidebar();
+  return (
+    <>
+      {items.map(({ to, key, icon: Icon, ready }) => (
+        <SidebarMenuItem key={to}>
+          <SidebarMenuButton asChild tooltip={t(key)}>
+            <Link
+              to={to}
+              onClick={() => isMobile && setOpenMobile(false)}
+              activeProps={{ 'data-active': true }}
+            >
+              <Icon />
+              <span>{t(key)}</span>
+            </Link>
+          </SidebarMenuButton>
+          {!ready ? (
+            <SidebarMenuBadge className="font-normal text-muted-foreground">
+              {t('nav.comingSoon')}
+            </SidebarMenuBadge>
+          ) : null}
+        </SidebarMenuItem>
+      ))}
+    </>
   );
 }
 
@@ -189,7 +247,8 @@ export function AppSidebar() {
       <SidebarContent>
         {/* `contents` keeps the sidebar's own layout while exposing a navigation landmark. */}
         <nav aria-label={t('nav.mainLabel')} className="contents">
-          <NavGroup label={t('nav.groupWork')} items={WORK}>
+          <NavGroup label={t('nav.groupWork')} items={BOTS}>
+            <MultichannelNav />
             <SectionNav label="nav.contacts" icon={Users} items={CONTACTS} paths={CONTACT_PATHS} />
             <SectionNav
               label="nav.orders"
@@ -198,6 +257,7 @@ export function AppSidebar() {
               paths={ORDER_PATHS}
               exact="/app/orders"
             />
+            <NavItems items={WORK} />
           </NavGroup>
           {session?.user.isPlatformAdmin ? (
             <NavGroup label={t('nav.admin')} items={PLATFORM} />

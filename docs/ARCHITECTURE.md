@@ -12,6 +12,8 @@ apps/
   webhook/        Thin Fastify app (no NestJS): verify → persist → enqueue. Never business logic.
   web/            Vite + React 19 SPA (dashboard). features/<module> mirrors backend module names.
   admin/ site/ widget/   (later) back-office SPA · Astro marketing site · Preact chat widget
+services/
+  hermes/         `hermes-runtime`: private Python inference sidecar (ADR-010). Not a pnpm workspace; stdlib-tested in CI. See §7.
 packages/
   shared/         Shared kernel: value objects (Money, phone), Result/error codes, ids, DomainEvent base. No I/O, no framework.
   contracts/      Zod schemas + TS types for HTTP DTOs and integration events, per module. The ONLY backend-side thing `web` imports.
@@ -19,7 +21,7 @@ packages/
   queue/          BullMQ wrappers: queue names, job contracts, tenant fairness (token buckets), idempotent job ids.
   ai-core/        LLM gateway (providers, fake provider for tests), prompt registry (`prompts/<name>@<version>.md`), tools/retrieval/guardrail interfaces, metering.
   channels/       ChannelAdapter interface + NormalizedEvent types; one adapter per platform.
-  ui/             Design tokens (shadcn variable names, Razpi palette). shadcn/ui components live in each app's src/components/ui.
+  ui/             Design tokens (shadcn variable names, Rapiz palette). shadcn/ui components live in each app's src/components/ui.
   i18n/           Message catalogs (vi, en).
   testing/        Factories, tenant helpers, cross-tenant assertions. Test-only.
 turbo/generators/ `pnpm gen module|use-case|feature` templates — the only sanctioned way to create a module.
@@ -77,7 +79,7 @@ Tenancy: every repository method and every query takes a `WorkspaceId`; persiste
 |---|---|---|
 | 0 — leaf consumers | `audit`, `notification` | Only consume events; everyone may emit to them |
 | 1 — platform | `identity`, `workspace`, `billing` | Entitlements/quota are a `billing` facade |
-| 2 — capabilities | `bot`, `knowledge`, `channel`, `ai`, `crm`, `commerce` | `ai` depends on `knowledge`, `bot`; `commerce` on `crm` |
+| 2 — capabilities | `bot`, `knowledge`, `channel`, `ai`, `crm`, `commerce` | `ai` depends on `knowledge`, `bot`, `commerce` (bot product grounding); `channel` on `bot`; `commerce` on `crm` |
 | 3 — flows | `conversation`, `shipping`, `marketing`, `automation`, `support`, `affiliate` | Orchestrate tier 1–2 facades |
 | 4 — read models | `analytics` | Consumes events only; owns rollup tables |
 
@@ -119,5 +121,34 @@ Adding a module: `pnpm gen module <name>` → fill `MODULE.md` → add its row t
 | `entries/worker.ts` | modules' `application/jobs` for `WORKER_QUEUES` | outbound, campaign, workflow, indexer, scheduler |
 | `entries/agent.ts` | `ai` + its dependencies; the only process that calls LLMs for conversations (exception: the request/response dashboard playground and the admin connection test run in `api`) | conversation (+ priority) |
 | `entries/realtime.ts` | SSE + websocket-only Socket.IO, Redis pub/sub | — |
+| `services/hermes` (`hermes-runtime`) | Python HTTP bridge on a private address; no platform modules, no DB | — (called synchronously by `packages/ai-core`, see §7) |
 
 `apps/webhook` is separate on purpose (no Nest, no business logic, p99 ≤ 500 ms).
+
+## 7. `hermes-runtime` (ADR-010)
+
+`services/hermes` is the only non-TypeScript runtime. It is an **optional LLM provider**, not a platform service: it turns an explicit request into model text and knows nothing about tenants, bots, conversations or channels.
+
+```mermaid
+flowchart LR
+  AG[agent / api playground<br/>NestJS] -->|ai-core gateway| HP[HermesProvider<br/>packages/ai-core]
+  HP -->|POST /v1/generate<br/>bearer bridge key, ≤256 KB| HR[hermes-runtime<br/>services/hermes]
+  HR --> M[(model provider<br/>ChatGPT/Codex or OpenRouter)]
+  AG --> PG[(PostgreSQL)]
+  HR -. no access .-> PG
+```
+
+| Aspect | Rule |
+|---|---|
+| Selection | Only through the admin-managed LLM config: provider kind `hermes` + an explicit tier route (DB, sealed by `SecretBox`). Never via `.env`, never an implicit fallback. |
+| Caller | Only `HermesProvider` in `packages/ai-core` talks to it. No module, app or script calls the bridge directly. |
+| Contract | `POST /v1/generate`, version `1` (request/workspace UUIDs, model, bounded messages, output budget, optional JSON schema) → `{ version, text, model, usage }`, validated with Zod on the TypeScript side. Changing it is a contract change: bump the version and keep the provider tolerant. |
+| Owns | Inference only. NestJS keeps workspace authorization, retrieval, grounding, conversation state, human takeover and outbound delivery. |
+| Must not | Read or write the platform database, Redis or object storage; send channel messages; run tools, shell or memory; log message content; return credentials or provider error text. |
+| Network | Binds to `127.0.0.1` (or a private network address in deployment); never exposed through the load balancer. |
+| Capacity | Single-flight: one active turn, `429` while busy, 50 s run budget (+ up to 15 s token refresh). `HermesProvider` therefore never times out below 70 s (`HERMES_MIN_TIMEOUT_MS`). Callers bound their concurrency. To scale, run more instances, **each with its own `HERMES_HOME` and its own login** — instances sharing one refresh token invalidate each other. |
+| Credentials | One private `HERMES_HOME` (`RAPIZ_HERMES_HOME`, mode 700) and one bridge key per instance; never shared with another instance, process or project. |
+| Version | The Hermes package version is not pinned yet; until T-050 lands, the bridge is dev/staging only. |
+| Tests | `python3 -m unittest discover -s services/hermes -p 'test_*.py'` (CI job `hermes`) + `packages/ai-core` provider tests. No real model calls. |
+
+Replacing Hermes with a TypeScript provider must not change any module, contract or UI: only the provider kind behind the tier route changes. Setup and limits: `services/hermes/README.md`.

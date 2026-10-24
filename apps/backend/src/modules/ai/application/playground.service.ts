@@ -1,12 +1,14 @@
 import { type ChatMessage, PROMPTS_DIR, PromptRegistry } from '@agent-sales/ai-core';
 import type { AiOutcome, PlaygroundRequest, PlaygroundResponse } from '@agent-sales/contracts';
 import { newId, type WorkspaceId } from '@agent-sales/shared';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { z } from 'zod';
 
 import { recordAiRun } from '../../../common/metrics.js';
 import { BOT_FACADE, type BotFacade, type BotView } from '../../bot/api/index.js';
+import { CATALOG_FACADE, type CatalogFacade } from '../../commerce/api/index.js';
 import { KNOWLEDGE_FACADE, type KnowledgeFacade } from '../../knowledge/api/index.js';
+import { TRAINING_FACADE, type TrainingFacade } from '../../knowledge/api/index.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
 import type { AiFacade } from '../api/ai.facade.js';
 import { defaultFallbackMessage, defaultHandoffMessage } from '../domain/default-messages.js';
@@ -19,7 +21,7 @@ import {
 import { AI_RUN_REPOSITORY, type AiRunRepository } from '../domain/ports/ai-run.repository.js';
 import { LlmRuntime } from './llm-runtime.js';
 
-const PROMPT = { name: 'sales-agent', version: 2 } as const;
+const PROMPT = { name: 'sales-agent', version: 3 } as const;
 const PROMPT_VERSION = `${PROMPT.name}@${PROMPT.version}`;
 const MAX_SOURCES = 5;
 
@@ -60,12 +62,32 @@ export class PlaygroundService implements AiFacade {
     @Inject(WORKSPACE_FACADE) private readonly workspaces: WorkspaceFacade,
     @Inject(LlmRuntime) private readonly llm: LlmRuntime,
     @Inject(AI_RUN_REPOSITORY) private readonly runs: AiRunRepository,
+    @Inject(TRAINING_FACADE) @Optional() private readonly training?: TrainingFacade,
+    @Inject(CATALOG_FACADE) @Optional() private readonly catalog?: CatalogFacade,
   ) {}
 
   async playground(
     ws: WorkspaceId,
     botId: string,
     input: PlaygroundRequest,
+  ): Promise<PlaygroundResponse> {
+    return this.generateReply(ws, botId, input, { conversationId: null, isTest: true });
+  }
+
+  async reply(
+    ws: WorkspaceId,
+    botId: string,
+    input: PlaygroundRequest,
+    context: { conversationId: string; isTest: boolean },
+  ): Promise<PlaygroundResponse> {
+    return this.generateReply(ws, botId, input, context);
+  }
+
+  private async generateReply(
+    ws: WorkspaceId,
+    botId: string,
+    input: PlaygroundRequest,
+    context: { conversationId: string | null; isTest: boolean },
   ): Promise<PlaygroundResponse> {
     const bot = await this.bots.getBot(ws, botId);
     const workspace = await this.workspaces.getById(ws);
@@ -75,6 +97,35 @@ export class PlaygroundService implements AiFacade {
     const query = customerTexts.slice(-2).join('\n');
     const hits = await this.knowledge.searchFaqs(ws, botId, query, MAX_SOURCES);
     const sources = toSources(hits, bot.placeholders);
+    const scenarios = this.training
+      ? (await this.training.list(ws, botId))
+          .filter((item) => item.kind === 'scenario')
+          .slice(0, 20)
+      : [];
+    const guidance = scenarios
+      .map((item) => `${item.title}\n${item.content}`)
+      .join('\n\n')
+      .slice(0, 20_000);
+    const products = this.catalog ? await this.catalog.getBotProducts(ws, query, 5) : [];
+    const productContext = products.map((product) => ({
+      id: product.id,
+      code: product.code,
+      name: product.name,
+      description: product.description,
+      instructions: product.botInstructions,
+      variants: product.variants.map((variant) => ({
+        sku: variant.sku,
+        name: variant.name,
+        priceVnd: variant.price,
+        available: variant.stock.reduce((sum, stock) => sum + stock.available, 0),
+      })),
+    }));
+    const contextData = [
+      guidance,
+      products.length ? `<catalog>\n${JSON.stringify(productContext)}\n</catalog>` : '',
+    ]
+      .filter(Boolean)
+      .join('\n\n');
 
     const system = this.#prompts.render(await this.#prompts.load(PROMPT), {
       'bot.name': bot.name,
@@ -89,16 +140,16 @@ export class PlaygroundService implements AiFacade {
     const res = await this.llm.generate({
       workspaceId: ws,
       tier: bot.modelTier,
-      messages: [{ role: 'system', content: system }, ...conversation(input, sources)],
+      messages: [{ role: 'system', content: system }, ...conversation(input, sources, contextData)],
       responseFormat: ModelReply,
       maxOutputTokens: 2_000,
     });
 
-    const decision = decide(res.stopReason, res.text, bot, sources, customerTexts);
+    const decision = decide(res.stopReason, res.text, bot, sources, customerTexts, contextData);
     const run = {
       id: newId(),
       botId,
-      conversationId: null,
+      conversationId: context.conversationId,
       tier: bot.modelTier,
       provider: res.provider,
       model: res.model,
@@ -114,7 +165,7 @@ export class PlaygroundService implements AiFacade {
       })),
       outcome: decision.outcome,
       guardrail: decision.guardrail,
-      isTest: true,
+      isTest: context.isTest,
       createdAt: new Date(),
     };
     await this.runs.record(ws, run);
@@ -144,7 +195,11 @@ export class PlaygroundService implements AiFacade {
  * knowledge block rides on the last customer turn so the cached prefix
  * (system prompt + earlier turns) stays stable.
  */
-function conversation(input: PlaygroundRequest, sources: KnowledgeSource[]): ChatMessage[] {
+function conversation(
+  input: PlaygroundRequest,
+  sources: KnowledgeSource[],
+  guidance: string,
+): ChatMessage[] {
   const firstCustomer = input.messages.findIndex((m) => m.role === 'customer');
   const turns = input.messages.slice(firstCustomer);
   return turns.map((m, i): ChatMessage => {
@@ -152,7 +207,10 @@ function conversation(input: PlaygroundRequest, sources: KnowledgeSource[]): Cha
     const customer = `<customer>\n${m.content}\n</customer>`;
     return {
       role: 'user',
-      content: i === turns.length - 1 ? `${knowledgeBlock(sources)}\n\n${customer}` : customer,
+      content:
+        i === turns.length - 1
+          ? `${knowledgeBlock(sources)}\n\n<shop_situations>\n${guidance}\n</shop_situations>\n\n${customer}`
+          : customer,
     };
   });
 }
@@ -163,6 +221,7 @@ function decide(
   bot: BotView,
   sources: KnowledgeSource[],
   customerTexts: string[],
+  guidance: string,
 ): Decision {
   // Fallback and handoff never send model text: an empty setting uses the built-in message.
   const fallback = (guardrail: string | null): Decision => ({
@@ -193,6 +252,7 @@ function decide(
     ...sources.flatMap((s) => [s.question, s.answer]),
     bot.mission,
     bot.greeting,
+    guidance,
     ...Object.values(bot.placeholders),
   ];
   const ungrounded = ungroundedFigures(parsed.reply, trusted, customerTexts);

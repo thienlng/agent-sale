@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Logo } from '@/components/logo';
 
 /**
- * Two halves: the form, and the one thing Razpi does — a customer typing the
+ * Two halves: the form, and the one thing Rapiz does — a customer typing the
  * way real customers type, and the bot answering from the shop's own data.
  */
 export function AuthLayout({ children }: { children: ReactNode }) {

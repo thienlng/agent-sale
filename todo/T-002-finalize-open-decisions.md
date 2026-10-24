@@ -32,7 +32,7 @@ Every row in `docs/14-open-decisions.md` has a recorded answer; ADR-006 (hosting
 
 ## Acceptance criteria
 
-- [x] Product/brand name chosen: **Razpi** (white/orange identity). Domain still open.
+- [x] Product/brand name chosen: **Rapiz** (white/orange identity; was Razpi until 2026-10-24). Domain still open.
 - [ ] Data-center location chosen (hosting model decided: self-hosted only — ADR-006).
 - [x] Team: one human maintainer (`thienlng`) + coding agents. Roadmap re-estimate pending.
 - [ ] MVP channel priority confirmed (default: Facebook Messenger + Zalo OA + website widget).
@@ -46,6 +46,7 @@ Human-only. Record answers directly in `docs/14-open-decisions.md`, then unblock
 
 - 2026-10-23 — created; blocked on human decision.
 - 2026-10-23 — decided: brand Razpi (white/orange), single maintainer, self-hosted only. Open: domain, data-center location, MVP channels, Meta/Zalo registration.
+- 2026-10-24 — brand renamed Razpi → Rapiz by the owner (PR #40).
 
 ## Links
 

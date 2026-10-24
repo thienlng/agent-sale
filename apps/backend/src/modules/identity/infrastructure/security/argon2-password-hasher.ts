@@ -21,7 +21,7 @@ export class Argon2PasswordHasher implements PasswordHasher {
   }
 
   async dummyVerify(password: string): Promise<void> {
-    this.#dummyHash ??= hash('razpi-timing-equalizer', OPTIONS);
+    this.#dummyHash ??= hash('rapiz-timing-equalizer', OPTIONS);
     await this.verify(await this.#dummyHash, password);
   }
 }

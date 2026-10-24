@@ -61,11 +61,21 @@ export function useDeleteWarehouse() {
 
 // ─── Products ─────────────────────────────────────────────────────────────────
 
-export function useProducts(query: { q?: string; status: 'active' | 'archived'; page: number }) {
+export function useProducts(query: {
+  q?: string;
+  status: 'active' | 'archived';
+  page: number;
+  /** Defaults to 20 (the catalog screen); the bot products table lets the user pick. */
+  pageSize?: number;
+}) {
   const ws = useWorkspaceId();
   return useQuery({
     queryKey: [...queryKeys.products(ws), query],
-    queryFn: () => api(withQuery('/products', { ...query, pageSize: 20 }), ProductListResponse),
+    queryFn: () =>
+      api(
+        withQuery('/products', { ...query, pageSize: query.pageSize ?? 20 }),
+        ProductListResponse,
+      ),
     placeholderData: keepPreviousData,
     enabled: Boolean(ws),
   });

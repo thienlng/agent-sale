@@ -17,6 +17,13 @@ export const Industry = z.enum([
 ]);
 export type Industry = z.infer<typeof Industry>;
 
+const ClockTime = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+/** Daily reply window in Vietnam time (Asia/Ho_Chi_Minh); `end` before `start` spans midnight. */
+export const ReplySchedule = z
+  .object({ mode: z.enum(['always', 'custom']), start: ClockTime, end: ClockTime })
+  .refine((v) => v.mode === 'always' || v.start !== v.end, 'start and end must differ');
+export type ReplySchedule = z.infer<typeof ReplySchedule>;
+
 /** Bot behaviour settings (docs/06 §6). Every field has a default so partial updates are safe. */
 export const BotSettings = z.object({
   mission: z.string().trim().max(4000),
@@ -24,11 +31,21 @@ export const BotSettings = z.object({
   selfPronoun: z.string().trim().min(1).max(20),
   customerPronoun: z.string().trim().min(1).max(20),
   useCustomerName: z.boolean(),
+  autoResumeAfterManual: z.boolean().default(true),
+  humanTakeoverMinutes: z.number().int().min(1).max(1440).default(5),
+  silenceOnExternalReply: z.boolean().default(true),
   fallbackMessage: z.string().trim().max(1000),
   handoffMessage: z.string().trim().max(1000),
   creativity: z.enum(['strict', 'balanced', 'creative']),
   modelTier: ModelTier,
   language: z.enum(['vi', 'en']),
+  /** Brand colour of the bot avatar and the future website widget. */
+  themeColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .default('#FF6600'),
+  /** When the bot answers channel messages; outside the window conversations wait for staff. */
+  replySchedule: ReplySchedule.default({ mode: 'always', start: '08:00', end: '22:00' }),
   /** Values for `{{placeholders}}` used by seeded knowledge, e.g. { "store.address": "12 Lê Lợi" }. */
   placeholders: z.record(z.string().regex(/^[a-z][a-z0-9_.]*$/), z.string().trim().max(500)),
 });
@@ -54,7 +71,26 @@ export type CreateBotRequest = z.infer<typeof CreateBotRequest>;
 export const UpdateBotRequest = z.object({
   name: z.string().trim().min(1).max(80).optional(),
   isActive: z.boolean().optional(),
-  settings: BotSettings.partial().optional(),
+  settings: BotSettings.omit({
+    autoResumeAfterManual: true,
+    humanTakeoverMinutes: true,
+    silenceOnExternalReply: true,
+    themeColor: true,
+    replySchedule: true,
+  })
+    .partial()
+    // Defaulted fields are re-added without defaults, or a partial update would reset them.
+    .extend({
+      themeColor: z
+        .string()
+        .regex(/^#[0-9a-fA-F]{6}$/)
+        .optional(),
+      replySchedule: ReplySchedule.optional(),
+      autoResumeAfterManual: z.boolean().optional(),
+      humanTakeoverMinutes: z.number().int().min(1).max(1440).optional(),
+      silenceOnExternalReply: z.boolean().optional(),
+    })
+    .optional(),
 });
 export type UpdateBotRequest = z.infer<typeof UpdateBotRequest>;
 

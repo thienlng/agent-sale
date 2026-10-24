@@ -70,7 +70,7 @@ const json = (body: unknown, status = 200) => ({
 
 /** A logged-in platform admin with one bot full of long content. */
 export async function mockApi(page: Page) {
-  await page.addInitScript(() => localStorage.setItem('razpi.session', '1'));
+  await page.addInitScript(() => localStorage.setItem('rapiz.session', '1'));
   await page.route('**/api/v1/**', (route) => {
     const path = new URL(route.request().url()).pathname.replace('/api/v1', '');
     if (path === '/auth/refresh')

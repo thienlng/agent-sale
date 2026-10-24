@@ -1,3 +1,5 @@
+import { channelRoutes } from './channel/channel.routes.js';
+import { conversationRoutes } from './conversation/conversation.routes.js';
 // Public surface of @agent-sales/contracts. Add one export line per module file.
 import { aiRoutes } from './ai/ai.routes.js';
 import { llmAdminRoutes } from './ai/llm-admin.routes.js';
@@ -37,6 +39,9 @@ export * from './workspace/workspace.routes.js';
 
 /** Every HTTP route of /api/v1. Append each module's routes here. */
 export const allRoutes = [
+  ...mediaRoutes,
+  ...channelRoutes,
+  ...conversationRoutes,
   ...healthRoutes,
   ...identityRoutes,
   ...workspaceRoutes,
@@ -46,3 +51,12 @@ export const allRoutes = [
   ...commerceRoutes,
   ...crmRoutes,
 ] as const;
+
+export * from './knowledge/media.schema.js';
+export * from './knowledge/media.routes.js';
+
+export * from './channel/channel.schema.js';
+export * from './channel/channel.routes.js';
+export * from './conversation/conversation.schema.js';
+export * from './conversation/conversation.routes.js';
+import { mediaRoutes } from './knowledge/media.routes.js';

@@ -71,7 +71,7 @@ export function ProviderDialog({
 
   const nameError = !provider && name && !NAME.test(name) ? t('errors.invalidName') : null;
   const urlError = baseUrl && !/^https?:\/\/\S+$/.test(baseUrl) ? t('errors.invalidUrl') : null;
-  const needsUrl = kind === 'openai_compatible' && !baseUrl;
+  const needsUrl = (kind === 'openai_compatible' || kind === 'hermes') && !baseUrl;
   const valid = (provider || NAME.test(name)) && !urlError && !needsUrl;
 
   function submit(e: FormEvent) {
@@ -155,6 +155,7 @@ export function ProviderDialog({
                       {t('admin.kinds.openai_compatible')}
                     </SelectItem>
                     <SelectItem value="anthropic">{t('admin.kinds.anthropic')}</SelectItem>
+                    <SelectItem value="hermes">{t('admin.kinds.hermes')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -168,7 +169,11 @@ export function ProviderDialog({
               value={baseUrl}
               onChange={(e) => setBaseUrl(e.target.value.trim())}
               placeholder={
-                kind === 'openai_compatible' ? 'http://vllm:8000/v1' : 'https://api.anthropic.com'
+                kind === 'hermes'
+                  ? 'http://127.0.0.1:8788'
+                  : kind === 'openai_compatible'
+                    ? 'http://vllm:8000/v1'
+                    : 'https://api.anthropic.com'
               }
               aria-invalid={Boolean(urlError)}
               aria-describedby="p-url-hint"

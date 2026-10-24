@@ -124,6 +124,7 @@ export const ProductDto = z.object({
   category: z.string().nullable(),
   status: z.enum(['active', 'archived']),
   visibleToBot: z.boolean(),
+  botInstructions: z.string().default(''),
   variants: z.array(ProductVariantDto),
   priceMin: Money,
   priceMax: Money,
@@ -159,6 +160,7 @@ export const UpsertProductRequest = z
     description: z.string().trim().max(5000).default(''),
     category: optionalText(120),
     visibleToBot: z.boolean().default(true),
+    botInstructions: z.string().trim().max(4000).default(''),
     status: z.enum(['active', 'archived']).default('active'),
     variants: z.array(ProductVariantInput).min(1).max(100),
   })

@@ -18,6 +18,7 @@ import {
   ProductNotFoundError,
   WarehouseInUseError,
   WarehouseNotFoundError,
+  CommerceUnavailableError,
 } from '../domain/commerce.errors.js';
 import {
   COMMERCE_STORE,
@@ -64,6 +65,7 @@ function toProductDto(
     category: p.category,
     status: p.status,
     visibleToBot: p.visibleToBot,
+    botInstructions: p.botInstructions,
     variants: dtoVariants,
     priceMin: prices.length ? Math.min(...prices) : 0,
     priceMax: prices.length ? Math.max(...prices) : 0,
@@ -85,6 +87,51 @@ function productSearchText(
 @Injectable()
 export class CatalogService {
   constructor(@Inject(COMMERCE_STORE) private readonly store: CommerceStore) {}
+
+  async getBotProducts(ws: WorkspaceId, query: string, limit: number): Promise<ProductDto[]> {
+    const cap = Math.max(1, Math.min(limit, 20));
+    const noise = new Set([
+      'gia',
+      'bao',
+      'nhieu',
+      'khong',
+      'cho',
+      'minh',
+      'toi',
+      'ban',
+      'cua',
+      'hang',
+      'con',
+      'co',
+      'muon',
+      'mua',
+    ]);
+    const words = foldVietnamese(query)
+      .split(/\s+/)
+      .filter((word) => word.length >= 3 && !noise.has(word));
+    const searches = [...new Set([query.trim(), ...words])].filter(Boolean).slice(0, 5);
+    if (!searches.length) return [];
+    let matches: ProductListResponse[];
+    try {
+      matches = await Promise.all(
+        searches.map((q) => this.listProducts(ws, { q, status: 'active', page: 1, pageSize: cap })),
+      );
+    } catch (error) {
+      // DB-less playgrounds still answer FAQs; real persistence failures must surface.
+      if (error instanceof CommerceUnavailableError) return [];
+      throw error;
+    }
+    const unique = new Map(
+      matches
+        .flatMap((result) => result.data)
+        .filter((product) => product.visibleToBot)
+        .map((product) => [product.id, product]),
+    );
+    const score = (product: ProductDto) =>
+      words.filter((word) => foldVietnamese(`${product.name} ${product.code}`).includes(word))
+        .length;
+    return [...unique.values()].sort((a, b) => score(b) - score(a)).slice(0, cap);
+  }
 
   // ─── Warehouses ───────────────────────────────────────────────────────────
 
@@ -194,6 +241,7 @@ export class CatalogService {
         category: input.category ?? null,
         status: input.status,
         visibleToBot: input.visibleToBot,
+        botInstructions: input.botInstructions,
         searchText: productSearchText(input, input.variants),
         createdAt: now,
         updatedAt: now,
@@ -254,6 +302,7 @@ export class CatalogService {
         category: input.category ?? null,
         status: input.status,
         visibleToBot: input.visibleToBot,
+        botInstructions: input.botInstructions,
         searchText: productSearchText(input, input.variants),
         updatedAt: new Date(),
       });

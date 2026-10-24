@@ -24,7 +24,7 @@ export class SecretBox {
 
   /** Deterministic key for development and tests only — never for real secrets. */
   static insecureDevelopmentBox(): SecretBox {
-    return new SecretBox(createHash('sha256').update('razpi-insecure-development-key').digest());
+    return new SecretBox(createHash('sha256').update('rapiz-insecure-development-key').digest());
   }
 
   seal(plaintext: string): string {

@@ -45,10 +45,7 @@ describe('TestChat', () => {
     vi.stubGlobal('fetch', fetchStub);
     renderWithProviders(<TestChat botId={botId} greeting="Dạ Shop Lan xin chào ạ!" />);
 
-    await userEvent.type(
-      screen.getByLabelText('Nhập tin nhắn như một khách hàng…'),
-      'shop o dau vay{Enter}',
-    );
+    await userEvent.type(screen.getByLabelText('Nhập tin nhắn của bạn'), 'shop o dau vay{Enter}');
 
     expect(await screen.findByText('Dạ shop ở 12 Lê Lợi ạ')).toBeInTheDocument();
     expect(screen.getByText('Trả lời từ FAQ: Cửa hàng ở đâu?')).toBeInTheDocument();
@@ -70,10 +67,32 @@ describe('TestChat', () => {
       },
     });
     vi.stubGlobal('fetch', fetchStub);
-    renderWithProviders(<TestChat botId={botId} greeting="" />);
-    await userEvent.click(screen.getByRole('button', { name: 'phi ship bao nhieu' }));
+    renderWithProviders(
+      <TestChat botId={botId} greeting="" suggestions={['Phí ship bao nhiêu?']} />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Phí ship bao nhiêu?' }));
     expect(
       await screen.findByText('Chưa cấu hình mô hình AI cho gói này. Liên hệ quản trị hệ thống.'),
     ).toBeInTheDocument();
+  });
+
+  it('offers the FAQ starters only while empty and resets the conversation', async () => {
+    const { fetchStub } = stubFetch({
+      [`POST /bots/${botId}/playground`]: { status: 200, body: reply },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithProviders(
+      <TestChat botId={botId} greeting="" suggestions={['Cửa hàng ở đâu?', 'Giờ mở cửa?']} />,
+    );
+    expect(
+      screen.getByText('Xem cách Bot phản hồi những câu hỏi thường gặp này'),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Cửa hàng ở đâu?' }));
+    expect(await screen.findByText('Dạ shop ở 12 Lê Lợi ạ')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Giờ mở cửa?' })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Làm mới đoạn chat' }));
+    expect(screen.queryByText('Dạ shop ở 12 Lê Lợi ạ')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Giờ mở cửa?' })).toBeInTheDocument();
   });
 });

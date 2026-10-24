@@ -34,6 +34,8 @@ Input source: `../../preny/preny-research/` (Preny research dossier dated 23/10/
 | — | [Preny industry verticals](reference/preny-verticals.md) | Reference | 17 verticals, how (little) the product differs per industry, gaps we exploit |
 | — | [Stack review 2026-10-23](reference/2026-10-23-stack-review.md) | Reference | Independent adversarial review of ADR-009 (17 findings) that drove the revisions |
 | — | [Best practices 2026-10-23](reference/2026-10-23-best-practices.md) | Reference | Survey of current production practices (multi-tenancy, queues, LLM agents, frontend, realtime, backend, agent-operated repos) |
+| — | [Training workspace](training-workspace.md) | Implementation | Bot training materials, history and handover settings (T-045) |
+| — | [Meta inbox](meta-inbox.md) | Implementation | Facebook/Instagram connection, webhook processing, takeover, attachments and live testing (T-045) |
 
 ## One-page summary
 

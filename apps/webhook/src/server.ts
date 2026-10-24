@@ -1,4 +1,6 @@
-import type { ChannelKind, ChannelRegistry } from '@agent-sales/channels';
+import { createHash, timingSafeEqual } from 'node:crypto';
+
+import type { ChannelKind, ChannelRegistry, NormalizedEvent } from '@agent-sales/channels';
 import Fastify, { type FastifyInstance } from 'fastify';
 
 /**
@@ -7,7 +9,12 @@ import Fastify, { type FastifyInstance } from 'fastify';
  */
 export interface IngressStore {
   /** Returns false when the (kind, externalEventId) pair was already stored. */
-  storeOnce(kind: ChannelKind, externalEventId: string, raw: unknown): Promise<boolean>;
+  storeOnce(
+    kind: ChannelKind,
+    externalEventId: string,
+    raw: unknown,
+    event?: NormalizedEvent,
+  ): Promise<boolean>;
 }
 export interface IngressQueue {
   enqueue(kind: ChannelKind, externalEventId: string): Promise<void>;
@@ -20,6 +27,7 @@ export interface ServerDeps {
   /** Secret per channel kind for signature verification (from channel config in production). */
   secrets: Partial<Record<ChannelKind, string>>;
   logLevel?: string;
+  verifyToken?: string;
 }
 
 const KINDS: ChannelKind[] = [
@@ -44,6 +52,19 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
     }
   });
 
+  app.get<{ Querystring: Record<string, string> }>('/webhooks/:kind', async (req, reply) => {
+    if (
+      !deps.verifyToken ||
+      req.query['hub.mode'] !== 'subscribe' ||
+      !sameSecret(req.query['hub.verify_token'] ?? '', deps.verifyToken)
+    )
+      return reply.code(403).send({ error: 'verification failed' });
+    const challenge = req.query['hub.challenge'];
+    if (!challenge || !/^[0-9]{1,100}$/.test(challenge))
+      return reply.code(400).send({ error: 'invalid challenge' });
+    return reply.type('text/plain').send(challenge);
+  });
+
   app.get('/health', async () => ({ status: 'ok' }));
 
   app.post<{ Params: { kind: string }; Body: { raw: string; json: unknown } }>(
@@ -62,7 +83,7 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
       const events = adapter.parseWebhook(req.body.json);
       let stored = 0;
       for (const ev of events) {
-        if (await deps.store.storeOnce(kind, ev.externalEventId, ev.raw)) {
+        if (await deps.store.storeOnce(kind, ev.externalEventId, ev.raw, ev)) {
           await deps.queue.enqueue(kind, ev.externalEventId);
           stored += 1;
         }
@@ -73,4 +94,10 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
   );
 
   return app;
+}
+
+/** Constant-time comparison; hashing first gives equal-length inputs for `timingSafeEqual`. */
+function sameSecret(given: string, expected: string): boolean {
+  const digest = (v: string) => createHash('sha256').update(v).digest();
+  return timingSafeEqual(digest(given), digest(expected));
 }

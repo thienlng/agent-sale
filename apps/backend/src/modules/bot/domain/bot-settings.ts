@@ -13,10 +13,22 @@ export interface BotSettingsData {
   selfPronoun: string;
   customerPronoun: string;
   useCustomerName: boolean;
+  autoResumeAfterManual: boolean;
+  humanTakeoverMinutes: number;
+  silenceOnExternalReply: boolean;
   fallbackMessage: string;
   handoffMessage: string;
   creativity: 'strict' | 'balanced' | 'creative';
   modelTier: ModelTier;
   language: 'vi' | 'en';
+  themeColor: string;
+  replySchedule: ReplySchedule;
   placeholders: Record<string, string>;
+}
+
+/** Daily reply window in Vietnam time; `end` before `start` spans midnight. */
+export interface ReplySchedule {
+  mode: 'always' | 'custom';
+  start: string;
+  end: string;
 }

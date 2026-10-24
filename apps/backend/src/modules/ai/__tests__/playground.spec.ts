@@ -3,6 +3,7 @@ import { newId, workspaceId } from '@agent-sales/shared';
 import { describe, expect, it } from 'vitest';
 
 import type { BotFacade, BotView } from '../../bot/api/index.js';
+import type { TrainingFacade } from '../../knowledge/api/index.js';
 import type { FaqHit, KnowledgeFacade } from '../../knowledge/api/index.js';
 import type { WorkspaceFacade } from '../../workspace/api/index.js';
 import { LlmRuntime } from '../application/llm-runtime.js';
@@ -18,7 +19,7 @@ const botId = newId();
 
 const bot: BotView = {
   id: botId,
-  name: 'Razpi Bot',
+  name: 'Rapiz Bot',
   industry: 'retail',
   isActive: true,
   mission: 'Bán áo thun',
@@ -115,7 +116,7 @@ describe('PlaygroundService', () => {
         workspaceId: ws,
         isTest: true,
         outcome: 'answered',
-        promptVersion: 'sales-agent@2',
+        promptVersion: 'sales-agent@3',
       }),
     ]);
   });
@@ -271,5 +272,46 @@ describe('LlmRuntime', () => {
   it('refuses unconfigured tiers when there is no development fallback (production)', async () => {
     const runtime = new LlmRuntime(new InMemoryLlmConfigRepository(), factory(null));
     await expect(runtime.generate(req)).rejects.toBeInstanceOf(AiNotConfiguredError);
+  });
+});
+
+describe('channel metering and training context evals', () => {
+  it('records real conversation replies separately from playground runs', async () => {
+    const fake = provider('dev-fake', { outcome: 'answer', reply: 'Hello', sources: [] });
+    const { svc, runs } = service(new LlmRuntime(new InMemoryLlmConfigRepository(), factory(fake)));
+    const conversationId = newId();
+    await svc.reply(ws, botId, ask('hello'), { conversationId, isTest: false });
+    expect(runs.runs[0]).toMatchObject({ conversationId, isTest: false, workspaceId: ws });
+  });
+
+  it('passes only scenario material and grounds its business figures', async () => {
+    const fake = provider('dev-fake', {
+      outcome: 'answer',
+      reply: 'Delivery costs 50k',
+      sources: [],
+    });
+    const runs = new InMemoryAiRunRepository();
+    const training = {
+      list: async () => [
+        { kind: 'scenario', title: 'Delivery', content: 'Delivery costs 50.000 VND.' },
+        {
+          kind: 'quick_reply',
+          title: 'Private shortcut',
+          content: 'Do not include this staff shortcut.',
+        },
+      ],
+    } as unknown as TrainingFacade;
+    const svc = new PlaygroundService(
+      { getBot: async () => bot } as BotFacade,
+      { searchFaqs: async () => [] } as unknown as KnowledgeFacade,
+      { getById: async () => ({ name: 'Shop Lan' }) } as unknown as WorkspaceFacade,
+      new LlmRuntime(new InMemoryLlmConfigRepository(), factory(fake)),
+      runs,
+      training,
+    );
+    const result = await svc.playground(ws, botId, ask('delivery fee'));
+    expect(result.outcome).toBe('answered');
+    expect(fake.calls[0]?.messages.at(-1)?.content).toContain('50.000 VND');
+    expect(fake.calls[0]?.messages.at(-1)?.content).not.toContain('Private shortcut');
   });
 });

@@ -140,11 +140,16 @@ export function defaultSettings(industry: IndustryKey): BotSettingsData {
     selfPronoun: 'em',
     customerPronoun: 'anh/chị',
     useCustomerName: true,
+    autoResumeAfterManual: true,
+    humanTakeoverMinutes: 5,
+    silenceOnExternalReply: true,
     fallbackMessage: 'Dạ, em chưa có thông tin này, em sẽ chuyển nhân viên hỗ trợ anh/chị ngay ạ.',
     handoffMessage: 'Dạ, em đã chuyển cho nhân viên, anh/chị đợi một chút ạ.',
     creativity: 'balanced',
     modelTier: 'smart',
     language: 'vi',
+    themeColor: '#FF6600',
+    replySchedule: { mode: 'always', start: '08:00', end: '22:00' },
     placeholders: {},
   };
 }

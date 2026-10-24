@@ -12,8 +12,8 @@ export const PREFERENCES = {
     attribute: 'data-theme-mode',
   },
   theme_preset: {
-    values: ['razpi', 'ocean', 'forest', 'graphite'],
-    defaultValue: 'razpi',
+    values: ['rapiz', 'ocean', 'forest', 'graphite'],
+    defaultValue: 'rapiz',
     attribute: 'data-theme-preset',
   },
   sidebar_variant: {
@@ -46,11 +46,11 @@ export type PreferenceValues = {
 export const PREFERENCE_KEYS = Object.keys(PREFERENCES) as PreferenceKey[];
 
 /** localStorage key of a preference. */
-export const storageKey = (key: PreferenceKey) => `razpi.pref.${key}`;
+export const storageKey = (key: PreferenceKey) => `rapiz.pref.${key}`;
 
 /** Swatch shown next to each preset in the picker (its light-mode primary). */
 export const PRESET_SWATCH: Record<PreferenceValues['theme_preset'], string> = {
-  razpi: '#f26b1d',
+  rapiz: '#f26b1d',
   ocean: '#2563eb',
   forest: '#15803d',
   graphite: '#27272a',
@@ -64,7 +64,7 @@ export const PRESET_SWATCH: Record<PreferenceValues['theme_preset'], string> = {
 export function bootScript(): string {
   const registry = JSON.stringify(PREFERENCES);
   return `(function(){try{var R=${registry},d=document.documentElement,v={};
-for(var k in R){var x=null;try{x=localStorage.getItem('razpi.pref.'+k)}catch(e){}
+for(var k in R){var x=null;try{x=localStorage.getItem('rapiz.pref.'+k)}catch(e){}
 v[k]=R[k].values.indexOf(x)>=0?x:R[k].defaultValue;d.setAttribute(R[k].attribute,v[k]);}
 var dark=v.theme_mode==='dark'||(v.theme_mode==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);
 d.classList.toggle('dark',dark);d.style.colorScheme=dark?'dark':'light';}catch(e){}})();`;

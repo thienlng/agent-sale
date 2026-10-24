@@ -132,8 +132,8 @@ export class LlmAdminService {
     }
     if (change.options) next.options = mergeOptions(current.options, change.options);
     if (change.isEnabled !== undefined) next.isEnabled = change.isEnabled;
-    if (next.kind === 'openai_compatible' && !next.baseUrl) {
-      throw new InvalidLlmConfigError('baseUrl is required for openai_compatible providers');
+    if (['openai_compatible', 'hermes'].includes(next.kind) && !next.baseUrl) {
+      throw new InvalidLlmConfigError('baseUrl is required for this provider');
     }
     await this.config.saveProvider(next);
     this.runtime.invalidate();

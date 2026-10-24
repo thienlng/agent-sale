@@ -55,6 +55,20 @@ jobs:
         if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
         run: pnpm commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
 
+  hermes:
+    name: hermes-runtime (python unittest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Test
+        run: python -I -m unittest discover -s services/hermes -p 'test_*.py' -v
+
   web:
     name: web (e2e smoke + Lighthouse)
     runs-on: ubuntu-latest
@@ -95,15 +109,15 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: razpi
+          POSTGRES_DB: rapiz
         ports: ['5432:5432']
         options: >-
           --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 20
     env:
       # Throwaway CI database credentials, not secrets.
-      DATABASE_OWNER_URL: postgres://postgres:postgres@localhost:5432/razpi
-      DATABASE_URL: postgres://razpi_tenant:razpi_tenant_ci@localhost:5432/razpi
-      DATABASE_SYSTEM_URL: postgres://razpi_system:razpi_system_ci@localhost:5432/razpi
+      DATABASE_OWNER_URL: postgres://postgres:postgres@localhost:5432/rapiz
+      DATABASE_URL: postgres://rapiz_tenant:rapiz_tenant_ci@localhost:5432/rapiz
+      DATABASE_SYSTEM_URL: postgres://rapiz_system:rapiz_system_ci@localhost:5432/rapiz
       NODE_ENV: development
       LOG_LEVEL: warn
     steps:

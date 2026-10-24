@@ -51,6 +51,7 @@ export const products = pgTable(
     category: text('category'),
     status: text('status').notNull().default('active'),
     visibleToBot: boolean('visible_to_bot').notNull().default(true),
+    botInstructions: text('bot_instructions').notNull().default(''),
     searchText: text('search_text').notNull(),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),

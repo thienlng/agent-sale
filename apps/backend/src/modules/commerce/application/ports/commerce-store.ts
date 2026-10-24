@@ -33,6 +33,7 @@ export interface ProductRecord {
   category: string | null;
   status: 'active' | 'archived';
   visibleToBot: boolean;
+  botInstructions: string;
   searchText: string;
   createdAt: Date;
   updatedAt: Date;

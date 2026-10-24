@@ -6,4 +6,6 @@ export * from './bot.js';
 export * from './knowledge.js';
 export * from './ai.js';
 export * from './commerce.js';
+export * from './channel.js';
+export * from './conversation.js';
 export * from './crm.js';

@@ -32,7 +32,7 @@ export interface NormalizedEvent {
 
 export interface OutboundMessage {
   text?: string;
-  attachments?: Array<{ type: 'image' | 'video' | 'file'; url: string }>;
+  attachments?: Array<{ type: 'image' | 'video' | 'audio' | 'file'; url: string }>;
   /** Rich content rendered per channel capability (product card, album…). */
   rich?: { kind: 'product_card' | 'album' | 'quick_replies'; data: unknown };
 }

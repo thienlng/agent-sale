@@ -15,6 +15,10 @@ export interface BotView {
   creativity: 'strict' | 'balanced' | 'creative';
   modelTier: 'basic' | 'smart' | 'pro' | 'neo';
   language: 'vi' | 'en';
+  autoResumeAfterManual?: boolean;
+  humanTakeoverMinutes?: number;
+  silenceOnExternalReply?: boolean;
+  replySchedule?: { mode: 'always' | 'custom'; start: string; end: string };
   placeholders: Readonly<Record<string, string>>;
 }
 

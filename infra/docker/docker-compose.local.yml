@@ -1,7 +1,7 @@
 # Local development services (self-hosted stack, ADR-006). Not for production.
 # Usage: docker compose -f infra/docker/docker-compose.local.yml up -d
 #        pnpm db:migrate
-name: razpi-local
+name: rapiz-local
 
 services:
   postgres:
@@ -9,11 +9,11 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: razpi
+      POSTGRES_DB: rapiz
     ports: ['5433:5432'] # 5433 avoids clashing with a host Postgres
     volumes: [pgdata:/var/lib/postgresql/data]
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U postgres -d razpi']
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d rapiz']
       interval: 2s
       timeout: 3s
       retries: 30

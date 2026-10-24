@@ -10,10 +10,12 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
     "@agent-sales/channels": "workspace:*",
+    "@agent-sales/db": "workspace:*",
     "@agent-sales/queue": "workspace:*",
     "@agent-sales/shared": "workspace:*",
     "fastify": "^5.0.0",
@@ -21,6 +23,7 @@
     "zod": "^4.1.0"
   },
   "devDependencies": {
+    "@agent-sales/testing": "workspace:*",
     "@types/node": "^24.0.0",
     "tsx": "^4.20.0",
     "typescript": "^5.8.3",

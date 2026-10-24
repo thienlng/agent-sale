@@ -13,7 +13,7 @@ const HANDOFF = /nhan vien|nguoi that|human|staff/;
 export function groundedFakeProvider(): FakeLlmProvider {
   return new FakeLlmProvider(DEV_FAKE_PROVIDER, (req: GenerateRequest) => {
     const last = req.messages.at(-1)?.content ?? '';
-    const customer = last
+    const customer = (/<customer>\n([\s\S]*?)\n<\/customer>\s*$/.exec(last)?.[1] ?? last)
       .normalize('NFD')
       .replace(/\p{Diacritic}/gu, '')
       .replace(/đ/gi, 'd')

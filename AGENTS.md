@@ -48,6 +48,7 @@ apps/backend/        ← NestJS modular monolith; entries api | worker | agent |
 apps/webhook/        ← thin Fastify ingress (no business logic)
 apps/web/            ← Vite + React SPA; features/<module> mirrors backend modules
 apps/{admin,site,widget,mobile}/ ← later
+services/hermes/     ← hermes-runtime: private Python inference sidecar behind packages/ai-core (ADR-010)
 packages/            ← shared (kernel) · contracts (Zod DTOs/events) · db · queue · ai-core · channels · ui · i18n · testing
 turbo/generators/    ← `pnpm gen module <name>` / `pnpm gen feature <name>` — the only way to create a module
 docs/ARCHITECTURE.md ← where code goes and which imports are allowed (enforced by `pnpm arch` + ESLint + tests)
@@ -69,7 +70,7 @@ bash scripts/verify-setup.sh   # verify your local environment and the agent set
 
 ## 5. Tech stack (decided — see `docs/adr/`)
 
-TypeScript everywhere · pnpm workspaces + Turborepo · **Vite + React SPA** (TanStack Router/Query/Table, Tailwind v4, shadcn/ui) for dashboard and admin · **Astro** for the marketing site · Preact widget · **NestJS on Fastify** modular monolith (`api`, `webhook`, `agent`, `worker` processes) · PostgreSQL 16 + pgvector (Drizzle ORM, PgBouncer) · Redis + BullMQ · S3-compatible object storage · multi-provider LLM gateway (`packages/ai-core`) · Vitest, Playwright · OpenTelemetry, Sentry, Langfuse. Performance budgets are binding: `docs/16-performance-and-scale.md`.
+TypeScript everywhere · pnpm workspaces + Turborepo · **Vite + React SPA** (TanStack Router/Query/Table, Tailwind v4, shadcn/ui) for dashboard and admin · **Astro** for the marketing site · Preact widget · **NestJS on Fastify** modular monolith (`api`, `webhook`, `agent`, `worker` processes) · optional Python **`hermes-runtime`** inference sidecar (ADR-010) · PostgreSQL 16 + pgvector (Drizzle ORM, PgBouncer) · Redis + BullMQ · S3-compatible object storage · multi-provider LLM gateway (`packages/ai-core`) · Vitest, Playwright · OpenTelemetry, Sentry, Langfuse. Performance budgets are binding: `docs/16-performance-and-scale.md`.
 
 ## 6. Who reviews
 

@@ -1,4 +1,12 @@
-import { index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import {
+  type AnyPgColumn,
+  index,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+} from 'drizzle-orm/pg-core';
 
 import { bots } from './bot.js';
 import { tenantPolicies, workspaces } from './workspace.js';
@@ -25,5 +33,60 @@ export const knowledgeItems = pgTable(
   (t) => [
     index('knowledge_items_bot_idx').on(t.workspaceId, t.botId),
     ...tenantPolicies('knowledge_items'),
+  ],
+);
+
+/** Additive training materials, separate from searchable FAQ entries. */
+export const trainingItems = pgTable(
+  'training_items',
+  {
+    id: uuid('id').primaryKey(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    botId: uuid('bot_id')
+      .notNull()
+      .references(() => bots.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    title: text('title').notNull(),
+    content: text('content').notNull(),
+    trigger: text('trigger').notNull().default(''),
+    notes: text('notes').notNull().default(''),
+    mediaUrl: text('media_url'),
+    /** Media only: the `media_folder` training item that holds it (migration 0012). */
+    folderId: uuid('folder_id').references((): AnyPgColumn => trainingItems.id, {
+      onDelete: 'cascade',
+    }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('training_items_bot_idx').on(t.workspaceId, t.botId),
+    ...tenantPolicies('training_items'),
+  ],
+);
+export const trainingHistory = pgTable(
+  'training_history',
+  {
+    id: uuid('id').primaryKey(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    botId: uuid('bot_id')
+      .notNull()
+      .references(() => bots.id, { onDelete: 'cascade' }),
+    itemId: uuid('item_id').notNull(),
+    title: text('title').notNull(),
+    kind: text('kind').notNull(),
+    action: text('action').notNull(),
+    actor: text('actor').notNull().default(''),
+    changes: jsonb('changes').notNull().default([]),
+    /** The training item before the change; null for settings, FAQs and creations. */
+    snapshot: jsonb('snapshot'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('training_history_bot_idx').on(t.workspaceId, t.botId, t.createdAt),
+    ...tenantPolicies('training_history'),
   ],
 );

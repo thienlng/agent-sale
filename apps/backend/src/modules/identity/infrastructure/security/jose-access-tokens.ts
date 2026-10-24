@@ -12,8 +12,8 @@ import {
 import type { AccessClaims, AccessTokens } from '../../application/ports/security.js';
 
 export const ACCESS_TTL_SECONDS = 15 * 60;
-const ISSUER = 'razpi';
-const AUDIENCE = 'razpi-api';
+const ISSUER = 'rapiz';
+const AUDIENCE = 'rapiz-api';
 
 /** EdDSA-signed JWT access tokens (ADR-007). Keys rotate via `kid`. */
 export class JoseAccessTokens implements AccessTokens {

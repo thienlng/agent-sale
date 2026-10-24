@@ -1,11 +1,12 @@
 {
   "app": {
-    "name": "Razpi"
+    "name": "Rapiz"
   },
   "nav": {
     "bots": "Bot training",
     "inbox": "Inbox",
     "channels": "Integrations",
+    "multichannel": "Multichannel chat",
     "contacts": "Customers",
     "segments": "Customer lists",
     "campaigns": "Remarketing",
@@ -41,9 +42,9 @@
     "workspaceName": "Store or business name",
     "industry": "Industry",
     "passwordHint": "At least 8 characters",
-    "loginTitle": "Log in to Razpi",
+    "loginTitle": "Log in to Rapiz",
     "loginSubtitle": "Pick up where your sales bots left off.",
-    "signupTitle": "Create your Razpi account",
+    "signupTitle": "Create your Rapiz account",
     "signupSubtitle": "Your first sales bot is ready in a few minutes.",
     "noAccount": "No account yet?",
     "haveAccount": "Already have an account?",
@@ -79,7 +80,7 @@
     "subtitle": "Each bot answers customers for you on your chat channels.",
     "create": "Create bot",
     "createTitle": "Create a bot",
-    "createHint": "Razpi adds common questions for your industry; you only fill in your store details.",
+    "createHint": "Rapiz adds common questions for your industry; you only fill in your store details.",
     "name": "Bot name",
     "namePlaceholder": "e.g. Lan's shop assistant",
     "creating": "Creating…",
@@ -201,7 +202,8 @@
     "kind": "Type",
     "kinds": {
       "anthropic": "Anthropic (Claude)",
-      "openai_compatible": "OpenAI-compatible (OpenAI, vLLM, Ollama…)"
+      "openai_compatible": "OpenAI-compatible (OpenAI, vLLM, Ollama…)",
+      "hermes": "Hermes (private AI runtime)"
     },
     "baseUrl": "API URL",
     "baseUrlHint": "e.g. http://vllm:8000/v1. Leave empty for Anthropic's default.",
@@ -304,7 +306,7 @@
     "toggleTheme": "Switch light / dark",
     "theme_preset": {
       "label": "Colour",
-      "razpi": "Razpi",
+      "rapiz": "Rapiz",
       "ocean": "Ocean",
       "forest": "Forest",
       "graphite": "Graphite"

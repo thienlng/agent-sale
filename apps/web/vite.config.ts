@@ -9,7 +9,7 @@ import { bootScript } from './src/lib/preferences/registry';
 /** Applies stored UI preferences in <head>, before the first paint (no theme/layout flash). */
 function preferencesBoot(): Plugin {
   return {
-    name: 'razpi-preferences-boot',
+    name: 'rapiz-preferences-boot',
     transformIndexHtml: () => [{ tag: 'script', children: bootScript(), injectTo: 'head' }],
   };
 }
@@ -23,7 +23,7 @@ export default defineConfig({
     preferencesBoot(),
   ],
   resolve: { alias: { '@': path.resolve(import.meta.dirname, 'src') } },
-  server: { port: 5173, proxy: { '/api': 'http://localhost:3000' } },
+  server: { port: 5173, proxy: { '/api': 'http://127.0.0.1:3000' } },
   // Pre-bundle libraries that lazy routes pull in, so the dev server never re-optimizes
   // mid-session (which briefly loads two copies of React and forces a reload).
   optimizeDeps: { include: ['recharts', 'react-day-picker', 'cmdk', 'radix-ui'] },

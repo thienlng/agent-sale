@@ -1,62 +1,29 @@
-import type { BotDto, BotSettings } from '@agent-sales/contracts';
-import { type FormEvent, type ReactNode, useMemo, useState } from 'react';
+import type { BotDto } from '@agent-sales/contracts';
+import { type FormEvent, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { errorMessage } from '@/lib/errors';
 
 import { useReadiness, useUpdateBot } from '../api/bots';
-import { placeholderLabel } from '@/lib/placeholders';
-
-type TextKey =
-  'mission' | 'greeting' | 'selfPronoun' | 'customerPronoun' | 'fallbackMessage' | 'handoffMessage';
-type Draft = { name: string; settings: BotSettings };
-
-function Row({
-  id,
-  label,
-  hint,
-  children,
-}: {
-  id: string;
-  label: string;
-  hint?: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-2">
-      <Label htmlFor={id}>{label}</Label>
-      {children}
-      {hint ? (
-        <p id={`${id}-hint`} className="text-sm text-muted-foreground">
-          {hint}
-        </p>
-      ) : null}
-    </div>
-  );
-}
+import { changedFields, type SettingsDraft, settingsProblems } from '../utils/settings-draft';
+import { BotSettingsAdvanced } from './bot-settings-advanced';
+import { BotSettingsBasic } from './bot-settings-basic';
 
 /**
- * Store details first (they unblock template answers), then how the bot
- * talks. Only changed fields are sent; the save bar appears when dirty.
+ * "Thiết lập Bot": basic identity and behaviour on the first tab, the bot's
+ * conversation details on the second. Only changed fields are sent; the save
+ * bar appears when the draft differs from the saved bot.
  */
 export function BotSettingsForm({ bot }: { bot: BotDto }) {
   const { t } = useTranslation();
+  const { t: training } = useTranslation('training');
   const update = useUpdateBot(bot.id);
   const readiness = useReadiness(bot.id);
-  const initial: Draft = useMemo(() => ({ name: bot.name, settings: bot.settings }), [bot]);
-  const [draft, setDraft] = useState<Draft>(initial);
+  const initial: SettingsDraft = useMemo(() => ({ name: bot.name, settings: bot.settings }), [bot]);
+  const [draft, setDraft] = useState<SettingsDraft>(initial);
 
   const placeholderKeys = useMemo(
     () =>
@@ -69,31 +36,17 @@ export function BotSettingsForm({ bot }: { bot: BotDto }) {
     [readiness.data, bot.settings.placeholders],
   );
 
-  const changed = useMemo(() => {
-    const settings: Partial<BotSettings> = {};
-    for (const key of Object.keys(draft.settings) as Array<keyof BotSettings>) {
-      if (JSON.stringify(draft.settings[key]) !== JSON.stringify(initial.settings[key])) {
-        Object.assign(settings, { [key]: draft.settings[key] });
-      }
-    }
-    return {
-      ...(draft.name !== initial.name ? { name: draft.name } : {}),
-      ...(Object.keys(settings).length ? { settings } : {}),
-    };
-  }, [draft, initial]);
+  const changed = useMemo(() => changedFields(draft, initial), [draft, initial]);
+  const problems = useMemo(() => settingsProblems(draft), [draft]);
   const dirty = Object.keys(changed).length > 0;
-
-  const setText = (key: TextKey, value: string) =>
-    setDraft((d) => ({ ...d, settings: { ...d.settings, [key]: value } }));
-  const setPlaceholder = (key: string, value: string) =>
-    setDraft((d) => ({
-      ...d,
-      settings: { ...d.settings, placeholders: { ...d.settings.placeholders, [key]: value } },
-    }));
 
   function submit(e: FormEvent) {
     e.preventDefault();
     if (!dirty) return;
+    if (problems.length) {
+      toast.error(training('space.settings.fixErrors'));
+      return;
+    }
     update.mutate(changed, {
       onSuccess: (saved) => {
         setDraft({ name: saved.name, settings: saved.settings });
@@ -103,95 +56,29 @@ export function BotSettingsForm({ bot }: { bot: BotDto }) {
     });
   }
 
-  const text = (key: TextKey, opts: { multiline?: boolean; hint?: string } = {}) => {
-    const id = `setting-${key}`;
-    const props = {
-      id,
-      value: draft.settings[key],
-      onChange: (e: { target: { value: string } }) => setText(key, e.target.value),
-      ...(opts.hint ? { 'aria-describedby': `${id}-hint` } : {}),
-    };
-    return (
-      <Row id={id} label={t(`settings.${key}`)} {...(opts.hint ? { hint: opts.hint } : {})}>
-        {opts.multiline ? <Textarea rows={3} {...props} /> : <Input className="h-10" {...props} />}
-      </Row>
-    );
-  };
-
-  const choice = <K extends 'creativity' | 'modelTier' | 'language'>(
-    key: K,
-    options: readonly BotSettings[K][],
-  ) => (
-    <Row id={`setting-${key}`} label={t(`settings.${key}`)}>
-      <Select
-        value={draft.settings[key]}
-        onValueChange={(v) => setDraft((d) => ({ ...d, settings: { ...d.settings, [key]: v } }))}
-      >
-        <SelectTrigger id={`setting-${key}`} className="h-10 w-full">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {options.map((o) => (
-            <SelectItem key={o} value={o}>
-              {t(`settings.${key}Options.${o}`)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </Row>
-  );
-
   return (
-    <form onSubmit={submit} className="mx-auto flex w-full max-w-2xl flex-col gap-10 pb-24">
-      {placeholderKeys.length ? (
-        <section>
-          <h2 className="text-lg font-semibold">{t('settings.storeInfo')}</h2>
-          <p className="mt-1 text-muted-foreground">{t('settings.storeInfoHint')}</p>
-          <div className="mt-5 grid gap-5 sm:grid-cols-2">
-            {placeholderKeys.map((key) => {
-              const id = `placeholder-${key}`;
-              const empty = !draft.settings.placeholders[key]?.trim();
-              return (
-                <Row key={key} id={id} label={placeholderLabel(t, key)}>
-                  <Input
-                    id={id}
-                    className="h-10 data-[empty=true]:border-warning/60 data-[empty=true]:bg-warning-soft/40"
-                    data-empty={empty}
-                    value={draft.settings.placeholders[key] ?? ''}
-                    onChange={(e) => setPlaceholder(key, e.target.value)}
-                  />
-                </Row>
-              );
-            })}
-          </div>
-        </section>
-      ) : null}
+    <form onSubmit={submit} className="mx-auto flex w-full max-w-3xl flex-col gap-6 pb-24">
+      <header>
+        <h1 className="text-lg font-semibold">{training('space.settings.title')}</h1>
+        <p className="text-sm text-muted-foreground">{training('space.settings.subtitle')}</p>
+      </header>
 
-      <section className="flex flex-col gap-5">
-        <h2 className="text-lg font-semibold">{t('settings.behaviour')}</h2>
-        <Row id="setting-name" label={t('settings.name')}>
-          <Input
-            id="setting-name"
-            className="h-10"
-            maxLength={80}
-            value={draft.name}
-            onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
-          />
-        </Row>
-        {text('mission', { multiline: true, hint: t('settings.missionHint') })}
-        {text('greeting', { multiline: true })}
-        <div className="grid gap-5 sm:grid-cols-2">
-          {text('selfPronoun')}
-          {text('customerPronoun')}
-        </div>
-        {text('fallbackMessage', { multiline: true, hint: t('settings.fallbackHint') })}
-        {text('handoffMessage', { multiline: true })}
-        <div className="grid gap-5 sm:grid-cols-3">
-          {choice('creativity', ['strict', 'balanced', 'creative'])}
-          {choice('modelTier', ['basic', 'smart', 'pro', 'neo'])}
-          {choice('language', ['vi', 'en'])}
-        </div>
-      </section>
+      <Tabs defaultValue="basic" className="gap-6">
+        <TabsList variant="line" className="w-full justify-start border-b">
+          <TabsTrigger value="basic" className="flex-none px-1 data-active:text-primary">
+            {training('space.settings.basic')}
+          </TabsTrigger>
+          <TabsTrigger value="advanced" className="flex-none px-1 data-active:text-primary">
+            {training('space.settings.advanced')}
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="basic">
+          <BotSettingsBasic draft={draft} problems={problems} update={setDraft} />
+        </TabsContent>
+        <TabsContent value="advanced">
+          <BotSettingsAdvanced draft={draft} placeholderKeys={placeholderKeys} update={setDraft} />
+        </TabsContent>
+      </Tabs>
 
       {dirty ? (
         <div className="sticky bottom-4 z-10 flex items-center justify-between gap-4 rounded-xl border bg-background/95 px-4 py-3 shadow-lg backdrop-blur animate-in fade-in slide-in-from-bottom-2">
