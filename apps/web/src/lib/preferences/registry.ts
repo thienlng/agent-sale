@@ -8,7 +8,7 @@
 export const PREFERENCES = {
   theme_mode: {
     values: ['light', 'dark', 'system'],
-    defaultValue: 'system',
+    defaultValue: 'light',
     attribute: 'data-theme-mode',
   },
   theme_preset: {
