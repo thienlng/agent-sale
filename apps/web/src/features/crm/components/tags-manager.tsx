@@ -1,4 +1,3 @@
-import type { TagDto } from '@agent-sales/contracts';
 import { Archive, ArchiveRestore, Pencil, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -25,7 +24,8 @@ export function TagsManager() {
   const { t } = useTranslation();
   const tags = useCrmTags();
   const { update } = useTagDefinitionMutations();
-  const [editing, setEditing] = useState<TagDto | 'new' | null>(null);
+  // An id, so the open dialog always sees the latest version of the tag.
+  const [editing, setEditing] = useState<string | 'new' | null>(null);
   if (!tags.data) return <Skeleton className="h-64 rounded-xl" />;
   return (
     <div className="flex flex-col gap-4">
@@ -78,7 +78,7 @@ export function TagsManager() {
                       variant="ghost"
                       size="icon-sm"
                       aria-label={`${t('crm.tags.edit')}: ${tag.name}`}
-                      onClick={() => setEditing(tag)}
+                      onClick={() => setEditing(tag.id)}
                     >
                       <Pencil />
                     </Button>
@@ -106,7 +106,10 @@ export function TagsManager() {
         </Table>
       </div>
       {editing ? (
-        <TagDialog tag={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />
+        <TagDialog
+          tag={editing === 'new' ? null : (tags.data.find((x) => x.id === editing) ?? null)}
+          onClose={() => setEditing(null)}
+        />
       ) : null}
     </div>
   );

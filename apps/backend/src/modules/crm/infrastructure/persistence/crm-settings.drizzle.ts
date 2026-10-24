@@ -127,10 +127,12 @@ export function crmSettingsTx(
             // Spelled out with an alias: inside a select list Drizzle leaves columns
             // unqualified, which would compare the assignment with itself.
             activeCount: sql<number>`(select count(*) from crm_tag_assignments ta
+              join contacts ct on ct.id = ta.entity_id and ct.archived_at is null
               where ta.tag_id = crm_tags.id and ta.removed_at is null and ta.scope = 'contact')`,
           })
           .from(t)
-          .orderBy(asc(t.archivedAt), asc(t.createdAt));
+          // Active tags first (NULL archived_at), then archived ones.
+          .orderBy(sql`${t.archivedAt} asc nulls first`, asc(t.createdAt));
         return rows.map((r) => ({ ...toTag(r.tag), activeCount: Number(r.activeCount) }));
       },
       async find(id, opts) {

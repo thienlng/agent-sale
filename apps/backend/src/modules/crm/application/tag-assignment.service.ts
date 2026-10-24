@@ -51,7 +51,8 @@ export class TagAssignmentService {
     const actorName = await this.identity.displayName(userId(actor));
     return this.store.run(ws, async (tx) => {
       await this.#contact(tx, contactId);
-      const tag = await tx.tags.find(input.tagId);
+      // Locked: an archive or a field change cannot slip in between validation and insert.
+      const tag = await tx.tags.find(input.tagId, { forUpdate: true });
       if (!tag) throw new TagNotFoundError(input.tagId);
       if (tag.archivedAt) throw new ArchivedChoiceError('tag', tag.id);
       if (tag.type !== 'work') {
@@ -81,6 +82,8 @@ export class TagAssignmentService {
         // Lost a race with an identical request: return the winner.
         const winner = await tx.assignments.findActive(tag.id, 'contact', contactId);
         if (winner) return { created: false, assignment: toAssignmentDto(winner) };
+        // The winner was removed in between: nothing was stored, so record nothing.
+        throw new StaleVersionError('tag', tag.version);
       }
       await this.#history(tx, contactId, 'tag.added', actor, actorName, now, {
         tagId: tag.id,

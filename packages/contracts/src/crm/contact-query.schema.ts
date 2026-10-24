@@ -73,7 +73,7 @@ export const ContactFilterRule = z
         : ['in', 'not_in', 'has_any', 'has_none'].includes(r.op)
           ? Array.isArray(v) && v.length > 0
           : kind === 'date'
-            ? typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)
+            ? z.iso.date().safeParse(v).success
             : typeof v === 'string' && v.trim() !== '';
     if (!ok) ctx.addIssue({ code: 'custom', path: ['value'], message: 'missing or invalid value' });
   });

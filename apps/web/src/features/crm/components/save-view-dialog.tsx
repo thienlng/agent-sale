@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,13 @@ export function SaveViewDialog({
   const { t } = useTranslation();
   const [name, setName] = useState('');
   const [visibility, setVisibility] = useState<'private' | 'shared'>('private');
+  // Every save starts blank.
+  useEffect(() => {
+    if (open) {
+      setName('');
+      setVisibility('private');
+    }
+  }, [open]);
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (name.trim()) onSave({ name: name.trim(), visibility });

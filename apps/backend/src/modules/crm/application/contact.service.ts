@@ -136,15 +136,17 @@ export class ContactService implements CrmFacade {
    */
   async update(ws: WorkspaceId, id: string, raw: unknown, actor: string): Promise<ContactDto> {
     const { expectedVersion, ...fields } = UpdateContactRequest.parse(raw);
-    const [actorName] = await Promise.all([
-      this.identity.displayName(userId(actor)),
-      assertAssignable(this.workspaces, ws, fields),
-    ]);
+    const actorName = await this.identity.displayName(userId(actor));
     return this.store.run(ws, async (tx) => {
       const before = await this.#contact(tx, id, { forUpdate: true });
       if (before.version !== expectedVersion) {
         throw new StaleVersionError('contact', before.version);
       }
+      // Only a newly chosen owner must be a member: re-sending the current one is fine.
+      await assertAssignable(this.workspaces, ws, {
+        salesUserId: fields.salesUserId !== before.salesUserId ? fields.salesUserId : undefined,
+        careUserId: fields.careUserId !== before.careUserId ? fields.careUserId : undefined,
+      });
       await assertChoosable(tx, fields, before);
       const now = new Date();
       const after = applyFields(before, fields, now);

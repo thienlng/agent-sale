@@ -326,6 +326,19 @@ describe('crm on Postgres', () => {
         .statusCode,
     ).toBe(200);
 
+    // A Sales owner who left stays on the customer; re-sending them unchanged is accepted.
+    await owner.db
+      .update(schema.members)
+      .set({ status: 'removed' })
+      .where(eq(schema.members.userId, seller.userId));
+    const current = ContactDto.parse((await call(a.h, 'GET', `/contacts/${c.id}`)).json());
+    const resent = await call(a.h, 'PATCH', `/contacts/${c.id}`, {
+      salesUserId: seller.userId,
+      profileNote: 'Vẫn giữ Sales cũ',
+      expectedVersion: current.version,
+    });
+    expect(resent.statusCode, resent.body).toBe(200);
+
     // Reorder: every status exactly once.
     const reversed = statuses.map((s) => s.id).reverse();
     const reordered = await call(a.h, 'PUT', '/crm/statuses/order', { ids: reversed });
@@ -448,6 +461,19 @@ describe('crm on Postgres', () => {
       (await call(a.h, 'PATCH', `/crm/tags/${order.id}`, { fields: [], expectedVersion: 2 }))
         .statusCode,
     ).toBe(400);
+    // Renaming with the same fields (as the edit dialog sends them) keeps the schema version.
+    const tagList = (await call(a.h, 'GET', '/crm/tags')).json() as { data: TagDto[] };
+    const current = tagList.data.find((x) => x.id === order.id);
+    const renamed = await call(a.h, 'PATCH', `/crm/tags/${order.id}`, {
+      name: 'Đơn sỉ lớn',
+      fields: current?.fields,
+      expectedVersion: current?.version,
+    });
+    expect(TagDto.parse(renamed.json())).toMatchObject({
+      name: 'Đơn sỉ lớn',
+      schemaVersion: 2,
+      version: 3,
+    });
     const kept = await call(a.h, 'PATCH', `/tag-assignments/${filled.id}`, {
       values: { qty: 12, tier: 'b' },
       expectedVersion: 1,
@@ -471,6 +497,8 @@ describe('crm on Postgres', () => {
     expect(
       (await call(a.h, 'POST', `/contacts/${other.id}/tags`, { tagId: label.id })).statusCode,
     ).toBe(400);
+    const listed = ((await call(a.h, 'GET', '/crm/tags')).json() as { data: TagDto[] }).data;
+    expect(listed.at(-1)?.id).toBe(label.id);
     const all = (await call(a.h, 'GET', `/contacts/${c.id}/tags`)).json() as {
       data: TagAssignmentDto[];
     };
@@ -562,6 +590,8 @@ describe('crm on Postgres', () => {
         })
       ).statusCode,
     ).toBe(400);
+    const badDate = { rules: [{ field: 'createdAt', op: 'before', value: '2024-02-30' }] };
+    expect((await call(a.h, 'POST', '/contacts/query', { filter: badDate })).statusCode).toBe(400);
 
     // Pages and the total come from the same query; the id breaks ties.
     const page1 = await query(a.h, { pageSize: 3, sort: [{ field: 'name', dir: 'asc' }] });

@@ -168,7 +168,8 @@ export function useTagMutations(contactId: string) {
           method: 'PATCH',
           body: { values: v.values, expectedVersion: v.expectedVersion },
         }),
-      onSuccess: refresh,
+      // Also after a 409: the next try must use the latest version.
+      onSettled: refresh,
     }),
     remove: useMutation({
       mutationFn: (id: string) =>

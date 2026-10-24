@@ -42,6 +42,15 @@ function assertFieldEvolution(before: readonly TagField[], after: readonly TagFi
   }
 }
 
+/** JSON with sorted object keys: stored jsonb reorders keys, so plain JSON.stringify differs. */
+function canonical(value: unknown): string {
+  return JSON.stringify(value, (_k, v: unknown) =>
+    v && typeof v === 'object' && !Array.isArray(v)
+      ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a.localeCompare(b)))
+      : v,
+  );
+}
+
 /** Customer sources, pipeline statuses, tag definitions and assignees (CRM-03, CRM-04). */
 @Injectable()
 export class CrmSettingsService {
@@ -164,7 +173,7 @@ export class CrmSettingsService {
       if (!tag) throw new TagNotFoundError(id);
       if (tag.version !== input.expectedVersion) throw new StaleVersionError('tag', tag.version);
       const fieldsChanged =
-        input.fields !== undefined && JSON.stringify(input.fields) !== JSON.stringify(tag.fields);
+        input.fields !== undefined && canonical(input.fields) !== canonical(tag.fields);
       if (fieldsChanged && input.fields) assertFieldEvolution(tag.fields, input.fields);
       const next = {
         ...tag,

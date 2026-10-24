@@ -25,6 +25,8 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 
+import { ApiClientError } from '@/lib/api-client';
+
 import { useTagDefinitionMutations } from '../api/crm';
 import { crmErrorMessage } from '../hooks/crm-errors';
 
@@ -242,7 +244,11 @@ export function TagDialog({ tag, onClose }: { tag: TagDto | null; onClose: () =>
         archived: f.archived,
       };
     });
-    const fail = (err: unknown) => toast.error(crmErrorMessage(t, err));
+    const fail = (err: unknown) => {
+      toast.error(crmErrorMessage(t, err));
+      // Someone else changed the tag: reopen to start from the latest version.
+      if (err instanceof ApiClientError && err.code === 'CONFLICT' && tag) onClose();
+    };
     if (tag) {
       update.mutate(
         {
