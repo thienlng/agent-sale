@@ -31,6 +31,10 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [ ] T-041 Statistics dashboard, breakdowns and drilldowns — @unassigned · [details](todo/T-041-statistics-dashboard-breakdowns-and-drilldowns.md)
 - [ ] T-042 CRM and statistics permissions, entitlements and acceptance suite — @unassigned · [details](todo/T-042-crm-and-statistics-permissions-entitlements-and-ac.md)
 - [ ] T-046 Fix flaky tampered access-token test in identity auth flow — @unassigned · [details](todo/T-046-fix-flaky-tampered-access-token-test-in-identity-a.md)
+- [ ] T-048 Narrow app_system inbox uses to SECURITY DEFINER functions — @unassigned · [details](todo/T-048-narrow-app-system-inbox-uses-to-security-definer-f.md)
+- [ ] T-049 Inbox dead letters in the UI, OAuth flow purge and page release on disconnect — @unassigned · [details](todo/T-049-inbox-dead-letters-in-the-ui-oauth-flow-purge-and-.md)
+- [ ] T-050 Pin the Hermes version and run a live hermes-runtime acceptance probe — @unassigned · [details](todo/T-050-pin-the-hermes-version-and-run-a-live-hermes-runti.md)
+- [ ] T-051 Move Meta inbox and training docs into the docs structure — @unassigned · [details](todo/T-051-move-meta-inbox-and-training-docs-into-the-docs-st.md)
 
 ## Blocked
 
