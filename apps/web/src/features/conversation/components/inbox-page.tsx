@@ -30,7 +30,9 @@ export function InboxPage() {
   return (
     <section
       data-content-padding="false"
-      className="flex min-h-[calc(100svh-3.25rem)] w-full min-w-0 flex-1 overflow-hidden bg-background lg:h-[calc(100svh-3.25rem)]"
+      // Fixed to the viewport (minus the top bar) at every width: `flex-1` would override the height and
+      // let a long thread stretch the whole page.
+      className="flex h-[calc(100svh-3.25rem)] w-full min-w-0 overflow-hidden bg-background"
     >
       <ConversationList
         state={state}
