@@ -148,7 +148,7 @@ export function FolderView({
         </Button>
       </div>
       {folder.images.length ? (
-        <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
+        <ul className="grid grid-cols-2 gap-4 sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))]">
           {folder.images.map((image) => (
             <ImageCard
               key={image.id}

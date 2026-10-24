@@ -46,7 +46,7 @@ export function FolderCard({
           <Icon className="size-4.5 text-primary" aria-hidden />
         </span>
         <span className="min-w-0 pr-8">
-          <span className="block truncate font-semibold">{name}</span>
+          <span className="block line-clamp-2 break-words font-semibold">{name}</span>
           <span className="block text-sm text-muted-foreground">
             {t('data.media.imageCount', { count: folder.images.length })}
           </span>
@@ -113,7 +113,10 @@ export function ImageCard({
         ) : null}
       </a>
       <div className="flex items-center gap-1 p-2 pl-3">
-        <p className="min-w-0 flex-1 truncate text-sm font-medium" title={image.title}>
+        <p
+          className="min-w-0 flex-1 line-clamp-2 break-words text-sm font-medium"
+          title={image.title}
+        >
           {image.title}
         </p>
         <DropdownMenu>
