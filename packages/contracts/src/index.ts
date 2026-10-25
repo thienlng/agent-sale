@@ -1,6 +1,7 @@
 import { channelRoutes } from './channel/channel.routes.js';
 import { conversationRoutes } from './conversation/conversation.routes.js';
 // Public surface of @agent-sales/contracts. Add one export line per module file.
+import { actionRoutes } from './action/action.routes.js';
 import { aiRoutes } from './ai/ai.routes.js';
 import { llmAdminRoutes } from './ai/llm-admin.routes.js';
 import { botRoutes } from './bot/bot.routes.js';
@@ -10,6 +11,8 @@ import { healthRoutes } from './health/health.routes.js';
 import { identityRoutes } from './identity/identity.routes.js';
 import { workspaceRoutes } from './workspace/workspace.routes.js';
 
+export * from './action/index.js';
+export * from './action/action.routes.js';
 export * from './ai/ai.schema.js';
 export * from './ai/ai.routes.js';
 export * from './ai/llm-admin.schema.js';
@@ -46,6 +49,7 @@ export const allRoutes = [
   ...identityRoutes,
   ...workspaceRoutes,
   ...botRoutes,
+  ...actionRoutes,
   ...aiRoutes,
   ...llmAdminRoutes,
   ...commerceRoutes,

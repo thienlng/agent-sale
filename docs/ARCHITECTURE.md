@@ -79,7 +79,7 @@ Tenancy: every repository method and every query takes a `WorkspaceId`; persiste
 |---|---|---|
 | 0 — leaf consumers | `audit`, `notification` | Only consume events; everyone may emit to them |
 | 1 — platform | `identity`, `workspace`, `billing` | Entitlements/quota are a `billing` facade |
-| 2 — capabilities | `bot`, `knowledge`, `channel`, `ai`, `crm`, `commerce` | `ai` depends on `knowledge`, `bot`, `commerce` (bot product grounding); `channel` on `bot`; `commerce` on `crm` |
+| 2 — capabilities | `bot`, `knowledge`, `action`, `channel`, `ai`, `crm`, `commerce` | `ai` depends on `knowledge`, `bot`, `action`, `commerce` (bot product grounding); `bot` serves `/bots/{botId}/actions` through `action`; `channel` on `bot`; `commerce` on `crm` |
 | 3 — flows | `conversation`, `shipping`, `marketing`, `automation`, `support`, `affiliate` | Orchestrate tier 1–2 facades |
 | 4 — read models | `analytics` | Consumes events only; owns rollup tables |
 
