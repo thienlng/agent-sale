@@ -93,7 +93,8 @@ function InboxWorkspace({
       window.requestAnimationFrame(() => searchRef.current?.focus());
     },
   });
-  const botId = channels.data?.data.find((c) => c.id === selected?.channelId)?.botId ?? null;
+  const channel = channels.data?.data.find((c) => c.id === selected?.channelId);
+  const botId = channel?.botId ?? null;
   return (
     <section
       data-content-padding="false"
@@ -126,6 +127,7 @@ function InboxWorkspace({
           id={selected.id}
           onBack={() => setSelected(null)}
           botId={botId}
+          channel={channel ? { name: channel.name, externalId: channel.externalId } : undefined}
           renderSalesPanel={renderSalesPanel}
           renderComposerTools={renderComposerTools}
         />

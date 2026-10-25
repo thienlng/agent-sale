@@ -16,3 +16,11 @@ window.matchMedia ??= ((query: string) => ({
   removeListener: () => {},
   dispatchEvent: () => false,
 })) as typeof window.matchMedia;
+
+// cmdk (Command) measures its list with ResizeObserver and scrolls the active item into view.
+globalThis.ResizeObserver ??= class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+Element.prototype.scrollIntoView ??= () => {};

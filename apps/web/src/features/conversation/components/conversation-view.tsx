@@ -1,16 +1,5 @@
 import type { InboxConversation, InboxUpdateBody } from '../lib/inbox-v2-types';
-import {
-  ArrowLeft,
-  Bot,
-  CircleAlert,
-  Loader2,
-  UserRound,
-  CheckCheck,
-  Search,
-  X,
-  PanelRightClose,
-  PanelRightOpen,
-} from 'lucide-react';
+import { ArrowLeft, CircleAlert, Loader2, X } from 'lucide-react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { ApiClientError } from '@/lib/api-client';
@@ -18,8 +7,10 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { useConversation, useInboxActions } from '../api/inbox';
-import { CustomerAvatar } from './customer-avatar';
+import { useConversation, useInboxActions, useInboxBot, useInboxMembers } from '../api/inbox';
+import { useSession } from '@/lib/session';
+import { useReadOnOpen } from '../hooks/use-read-on-open';
+import { ConversationHeader, type HeaderChannel } from './conversation-header';
 import { CustomerPanel } from './customer-panel';
 import { MessageComposer } from './message-composer';
 import { MessageThread } from './message-thread';
@@ -30,12 +21,14 @@ export function ConversationView({
   id,
   onBack,
   botId,
+  channel,
   renderSalesPanel,
   renderComposerTools,
 }: {
   id: string;
   onBack: () => void;
   botId: string | null;
+  channel?: HeaderChannel | undefined;
   renderSalesPanel?: ((conversation: InboxConversation) => ReactNode) | undefined;
   renderComposerTools?:
     | ((conversation: InboxConversation, insertText: (text: string) => void) => ReactNode)
@@ -46,11 +39,15 @@ export function ConversationView({
     t(`channelInbox.${key}`, options ?? {});
   const detail = useConversation(id);
   const { update } = useInboxActions(id);
+  const bot = useInboxBot(botId);
+  const members = useInboxMembers();
+  const userId = useSession()?.user.id ?? '';
   const [details, setDetails] = useState(
     () =>
       typeof window.matchMedia === 'function' && window.matchMedia('(min-width:1280px)').matches,
   );
   const c = detail.data?.conversation;
+  const read = useReadOnOpen(id, c);
   const root = useRef<HTMLDivElement>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -107,84 +104,28 @@ export function ConversationView({
   return (
     <div ref={root} className="flex min-h-0 min-w-0 flex-1">
       <div className={cn('flex min-w-0 flex-1 flex-col', details && 'hidden xl:flex')}>
-        <header className="flex min-h-20 flex-wrap items-center gap-3 border-b px-4 py-3">
-          <Button
-            size="icon"
-            variant="ghost"
-            className="md:hidden"
-            aria-label={tr('back')}
-            onClick={onBack}
-          >
-            <ArrowLeft />
-          </Button>
-          <CustomerAvatar conversation={c} />
-          <div className="min-w-0 flex-1">
-            <h2 className="truncate font-semibold">{c.customerName}</h2>
-            <span className="text-xs text-muted-foreground">
-              {c.provider === 'facebook' ? 'Facebook Messenger' : 'Instagram'}
-              {' · '}
-              {tr(c.status)}
-            </span>
-          </div>
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            aria-label={tr('sales.searchThread')}
-            onClick={() => setSearchOpen((open) => !open)}
-          >
-            <Search />
-          </Button>
-          <Button
-            size="icon-sm"
-            variant={c.status === 'resolved' ? 'secondary' : 'ghost'}
-            aria-label={tr(c.status === 'resolved' ? 'sales.reopen' : 'sales.resolve')}
-            title={`${tr(c.status === 'resolved' ? 'sales.reopen' : 'sales.resolve')} (E)`}
-            aria-keyshortcuts="E"
-            disabled={update.isPending}
-            onClick={() => void change({ status: c.status === 'resolved' ? 'open' : 'resolved' })}
-          >
-            <CheckCheck />
-          </Button>
-          <Button
-            size="sm"
-            variant={c.mode === 'bot' ? 'secondary' : 'outline'}
-            disabled={update.isPending || (c.mode === 'human' && !botId)}
-            onClick={() => void change({ mode: c.mode === 'bot' ? 'human' : 'bot' })}
-          >
-            {c.mode === 'bot' ? <Bot /> : <UserRound />}
-            {tr(c.mode === 'bot' ? 'takeOver' : 'resumeBot')}
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            aria-expanded={details}
-            onClick={() => setDetails((open) => !open)}
-          >
-            {details ? <PanelRightClose /> : <PanelRightOpen />}
-            {tr(details ? 'sales.collapsePanel' : 'details')}
-          </Button>
-        </header>
-        <div
-          role="status"
-          className="flex shrink-0 items-center gap-2 border-b bg-muted/30 px-4 py-2 text-xs text-muted-foreground"
-        >
-          {c.mode === 'bot' ? (
-            <Bot className="size-3.5 text-primary" />
-          ) : (
-            <UserRound className="size-3.5" />
-          )}
-          {tr(c.mode === 'bot' ? 'sales.aiActive' : 'sales.staffActive')}
-          {c.mode === 'human' && c.autoResumeAt ? (
-            <span>
-              {tr(Date.parse(c.autoResumeAt) > clock ? 'sales.resumeAt' : 'sales.resumeNext', {
-                time: new Date(c.autoResumeAt).toLocaleTimeString(undefined, {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                }),
-              })}
-            </span>
-          ) : null}
-        </div>
+        <ConversationHeader
+          conversation={c}
+          channel={channel}
+          botAvailable={Boolean(botId) && bot.data?.isActive !== false}
+          takeoverMinutes={bot.data?.takeoverMinutes}
+          members={members.data ?? []}
+          membersLoading={members.isPending}
+          userId={userId}
+          busy={update.isPending}
+          now={clock}
+          detailsOpen={details}
+          onToggleDetails={() => setDetails((open) => !open)}
+          onBack={onBack}
+          onToggleSearch={() => setSearchOpen((open) => !open)}
+          onChange={(body) => void change(body)}
+          onMarkUnread={() => {
+            void read
+              .markUnread()
+              .then(() => toast.success(tr('v2.header.marked')))
+              .catch(() => toast.error(tr('loadError')));
+          }}
+        />
         {searchOpen ? (
           <div className="flex shrink-0 items-center gap-2 border-b px-4 py-2">
             <Input
