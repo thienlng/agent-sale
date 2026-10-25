@@ -5,6 +5,7 @@ import {
   ConversationDetailDto,
   InboxMessageDto,
   SendInboxMessageRequest,
+  AddConversationNoteRequest,
   UpdateConversationRequest,
   ConversationDto,
 } from './conversation.schema.js';
@@ -40,5 +41,27 @@ export const conversationRoutes = defineRoutes([
     summary: 'Send a reply and pause automation',
     body: SendInboxMessageRequest,
     responses: { 201: InboxMessageDto },
+  },
+  {
+    ...scoped,
+    method: 'post',
+    path: '/conversations/{id}/read',
+    summary: 'Mark read for the whole shop (unread count 0, records who)',
+    responses: { 200: ConversationDto },
+  },
+  {
+    ...scoped,
+    method: 'post',
+    path: '/conversations/{id}/unread',
+    summary: 'Mark unread again (unread count at least 1)',
+    responses: { 200: ConversationDto },
+  },
+  {
+    ...scoped,
+    method: 'post',
+    path: '/conversations/{id}/notes',
+    summary: 'Add an internal note to the timeline',
+    body: AddConversationNoteRequest,
+    responses: { 201: ConversationDto },
   },
 ]);

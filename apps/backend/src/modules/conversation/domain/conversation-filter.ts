@@ -1,0 +1,95 @@
+import type { ConversationCounts, ConversationTab, ConversationView } from '@agent-sales/contracts';
+
+/**
+ * Filter the store applies. The SQL adapter and the in-memory test adapter both implement
+ * these semantics; `matchesFilter` is the reference the integration test compares against.
+ */
+export interface ConversationFilter {
+  tab: ConversationTab;
+  /** A member id, or `none` for unassigned. */
+  assignee?: string | undefined;
+  channelId?: string | undefined;
+  hasPhone?: boolean | undefined;
+  waiting?: 'any' | 'longest' | 'readNotReplied' | undefined;
+  status?: 'open' | 'resolved' | undefined;
+  mode?: 'human' | 'bot' | undefined;
+  provider?: 'facebook' | 'instagram' | undefined;
+  q?: string | undefined;
+  sort: 'recent' | 'waitingLongest';
+  /** Only these conversations (tag filters); `undefined` means no restriction. */
+  idsIn?: readonly string[] | undefined;
+  /** Never these conversations (tag filters). */
+  idsNotIn?: readonly string[] | undefined;
+  limit: number;
+}
+
+export interface ConversationPage {
+  data: ConversationView[];
+  counts: ConversationCounts;
+}
+
+/** Every condition except the tab, so the counts stay comparable across tabs. */
+export function matchesFilter(c: ConversationView, f: ConversationFilter): boolean {
+  if (f.provider && c.provider !== f.provider) return false;
+  if (f.status && c.status !== f.status) return false;
+  if (f.mode && c.mode !== f.mode) return false;
+  if (f.channelId && c.channelId !== f.channelId) return false;
+  if (f.assignee === 'none' ? c.assigneeId !== null : f.assignee && c.assigneeId !== f.assignee)
+    return false;
+  if (f.hasPhone !== undefined && (c.customerPhone !== null) !== f.hasPhone) return false;
+  if (f.waiting) {
+    if (c.awaitingSince === null) return false;
+    if (f.waiting === 'readNotReplied' && c.unreadCount > 0) return false;
+  }
+  if (f.idsIn && !f.idsIn.includes(c.id)) return false;
+  if (f.idsNotIn?.includes(c.id)) return false;
+  if (f.q) {
+    const haystack = `${c.customerName} ${c.customerId} ${c.customerPhone ?? ''} ${c.lastMessage}`;
+    if (!haystack.toLowerCase().includes(f.q.toLowerCase())) return false;
+  }
+  return true;
+}
+
+export function matchesTab(c: ConversationView, tab: ConversationTab): boolean {
+  return tab === 'unread' ? c.unreadCount > 0 : tab === 'waiting' ? c.awaitingSince !== null : true;
+}
+
+/** `waiting: longest` implies the longest-wait ordering. */
+export function effectiveSort(f: Pick<ConversationFilter, 'sort' | 'waiting'>) {
+  return f.waiting === 'longest' ? 'waitingLongest' : f.sort;
+}
+
+export function compareConversations(
+  sort: 'recent' | 'waitingLongest',
+): (a: ConversationView, b: ConversationView) => number {
+  const recent = (a: ConversationView, b: ConversationView) =>
+    b.updatedAt.localeCompare(a.updatedAt) || (a.id < b.id ? 1 : -1);
+  if (sort === 'recent') return recent;
+  return (a, b) => {
+    if (a.awaitingSince !== b.awaitingSince) {
+      if (a.awaitingSince === null) return 1;
+      if (b.awaitingSince === null) return -1;
+      return a.awaitingSince.localeCompare(b.awaitingSince);
+    }
+    return recent(a, b);
+  };
+}
+
+/** Reference implementation over a full list (in-memory adapter and tests). */
+export function filterConversations(
+  all: readonly ConversationView[],
+  f: ConversationFilter,
+): ConversationPage {
+  const base = all.filter((c) => matchesFilter(c, f));
+  return {
+    counts: {
+      all: base.length,
+      unread: base.filter((c) => matchesTab(c, 'unread')).length,
+      waiting: base.filter((c) => matchesTab(c, 'waiting')).length,
+    },
+    data: base
+      .filter((c) => matchesTab(c, f.tab))
+      .sort(compareConversations(effectiveSort(f)))
+      .slice(0, f.limit),
+  };
+}

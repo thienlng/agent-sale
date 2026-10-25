@@ -6,6 +6,7 @@ import type { BotFacade, BotView } from '../../bot/api/index.js';
 import type { ChannelFacade, PendingMetaEvent } from '../../channel/api/index.js';
 import { ConversationFacadeImpl } from '../application/conversation.facade.impl.js';
 import { MetaInboxProcessor } from '../application/jobs/meta-inbox.processor.js';
+import { fakeIdentity, fakeTeam } from './fakes.js';
 import { MemoryConversationStore } from './factories/memory-conversation-store.js';
 
 const ws = workspaceId('018d0000-0000-7000-8000-000000000001');
@@ -66,7 +67,13 @@ function setup() {
     deadLetterExhaustedEvents: vi.fn(async () => [] as string[]),
   } as unknown as ChannelFacade & { claimEvents: ReturnType<typeof vi.fn> };
   const bots: BotFacade = { getBot: async () => bot };
-  const inbox = new ConversationFacadeImpl(new MemoryConversationStore(), channels, bots);
+  const inbox = new ConversationFacadeImpl(
+    new MemoryConversationStore(),
+    channels,
+    bots,
+    fakeTeam(),
+    fakeIdentity(),
+  );
   const ai = {
     reply: vi.fn(async (_ws: unknown, _bot: unknown, req: { messages: { content: string }[] }) => ({
       reply: `re: ${req.messages.at(-1)?.content}`,

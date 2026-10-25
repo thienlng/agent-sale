@@ -51,6 +51,22 @@ cloudflared tunnel --url http://127.0.0.1:4000                # set META_APP_ORI
 
 Open the app through the tunnel URL (not `localhost`) so the OAuth popup can return its result.
 
+## Inbox v2 data and API (T-073)
+
+Design: `docs/superpowers/specs/2026-10-25-inbox-v2-design.md`. A conversation is still one `data jsonb` document, plus index columns derived from it on every save (migration `0024_inbox_v2.sql`): `unread_count`, `awaiting_since`, `last_read_at`, `assignee_id`, `mode`, `status`, `customer_phone`, `created_at`. The list filters, counts and sorts in SQL on those columns.
+
+| Field | Meaning |
+|---|---|
+| `unreadCount`, `lastReadAt`, `lastReadBy` | Read state **shared by the whole shop**. A customer message adds one; `POST /conversations/{id}/read` clears it and records who; `POST /conversations/{id}/unread` sets it to at least 1 and forgets the reader. Neither bumps `revision` or `updatedAt`, so a pending bot reply stays valid and the list does not reorder. |
+| `awaitingSince`, `lastMessageSender` | "Customer is waiting": set by a customer message while null (to the message time), cleared by any outbound message (staff in the app, staff on the page, or the bot). A reply that fails to send restores it. |
+| `customerPhone` | Last Vietnamese mobile number found in a customer message (`0xxxxxxxxx`, `+84…`, `84…`; spaces, dots and dashes tolerated; landlines ignored). |
+| `notes[]` | Internal notes timeline (author, time, text; at most 200, oldest dropped). `POST /conversations/{id}/notes`. The legacy `note` string is migrated as the first entry and mirrors the newest note. |
+| `assigneeId` | `PATCH /conversations/{id}` accepts any active member (checked through `TeamFacade`) or `null`; `assignToMe` still works. |
+
+`GET /conversations` query: `tab` (`all|unread|waiting`), `assignee` (`me|none|<uuid>`), `channelId`, `hasPhone`, `waiting` (`any|longest|readNotReplied`), `status`, `mode`, `provider`, `q` (name, phone, customer id, last message), `sort` (`recent|waitingLongest`), `limit`. The response carries `counts: { all, unread, waiting }` computed with every filter except `tab`.
+
+Backfill of existing rows: columns come from the document; `awaiting_since` is the first customer message after the last outbound one for open conversations whose newest message is the customer's; `unread_count` starts at 0 (no history of who read what); `customer_phone` starts empty and fills from new messages.
+
 ## Limits
 
 - Outbound attachments are sent by HTTPS URL (bot image library or a pasted link); there is no file upload to Meta.

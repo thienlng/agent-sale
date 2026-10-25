@@ -1,8 +1,8 @@
 import type { NormalizedEvent } from '@agent-sales/channels';
 import {
   SendInboxMessageRequest,
-  type ConversationDto,
   type ConversationListQuery,
+  type ConversationView,
   type InboxMessageDto,
   type UpdateConversationRequest,
 } from '@agent-sales/contracts';
@@ -14,8 +14,14 @@ import {
   type ChannelFacade,
   type OutboundInboxMessage,
 } from '../../channel/api/index.js';
+import { IDENTITY_FACADE, type IdentityFacade } from '../../identity/api/index.js';
+import { TEAM_FACADE, type TeamFacade } from '../../team/api/index.js';
 import type { ConversationFacade } from '../api/conversation.facade.js';
 import { ConversationError } from '../domain/conversation.errors.js';
+import type { ConversationFilter } from '../domain/conversation-filter.js';
+import { detectVietnamesePhone } from '../domain/phone.js';
+import { applyControlUpdate, newConversation } from '../domain/conversation-state.js';
+import { addNote, markRead, markUnread } from './inbox-state.js';
 import {
   CONVERSATION_STORE,
   type ConversationStore,
@@ -26,7 +32,7 @@ const now = () => new Date().toISOString();
 function preview(text: string, attachments: readonly { type: string }[]): string {
   return text || (attachments[0] ? `[${attachments[0].type}]` : '');
 }
-async function requireConversation(tx: ConversationTx, id: string): Promise<ConversationDto> {
+async function requireConversation(tx: ConversationTx, id: string): Promise<ConversationView> {
   const c = await tx.find(id);
   if (!c) throw new ConversationError('NOT_FOUND', 'Conversation not found');
   return c;
@@ -37,22 +43,26 @@ export class ConversationFacadeImpl implements ConversationFacade {
     @Inject(CONVERSATION_STORE) private readonly store: ConversationStore,
     @Inject(CHANNEL_FACADE) private readonly channels: ChannelFacade,
     @Inject(BOT_FACADE) private readonly bots: BotFacade,
+    @Inject(TEAM_FACADE) private readonly team: TeamFacade,
+    @Inject(IDENTITY_FACADE) private readonly identity: IdentityFacade,
   ) {}
-  async list(ws: WorkspaceId, q: ConversationListQuery) {
-    return this.store.run(ws, async (tx) => ({
-      data: (await tx.list())
-        .filter(
-          (c) =>
-            (!q.provider || c.provider === q.provider) &&
-            (!q.status || c.status === q.status) &&
-            (!q.mode || c.mode === q.mode) &&
-            (!q.q ||
-              `${c.customerName} ${c.customerId} ${c.lastMessage}`
-                .toLowerCase()
-                .includes(q.q.toLowerCase())),
-        )
-        .slice(0, q.limit),
-    }));
+  async list(ws: WorkspaceId, q: ConversationListQuery, viewerId?: string) {
+    if (q.assignee === 'me' && !viewerId)
+      throw new ConversationError('VALIDATION_FAILED', 'assignee=me needs a signed-in user');
+    const filter: ConversationFilter = {
+      tab: q.tab ?? 'all',
+      assignee: q.assignee === 'me' ? viewerId : q.assignee,
+      channelId: q.channelId,
+      hasPhone: q.hasPhone,
+      waiting: q.waiting,
+      status: q.status,
+      mode: q.mode,
+      provider: q.provider,
+      q: q.q,
+      sort: q.sort ?? 'recent',
+      limit: q.limit,
+    };
+    return this.store.run(ws, (tx) => tx.query(filter));
   }
   get(ws: WorkspaceId, id: string) {
     return this.store.run(ws, async (tx) => ({
@@ -61,6 +71,8 @@ export class ConversationFacadeImpl implements ConversationFacade {
     }));
   }
   async update(ws: WorkspaceId, id: string, input: UpdateConversationRequest, actorId: string) {
+    // Cross-module read first, never inside the write transaction.
+    if (input.assigneeId) await this.assertAssignable(ws, input.assigneeId, actorId);
     if (input.mode === 'bot') {
       // Resolve the cross-module read before opening the write transaction (see reserveAndDeliver).
       const channelId = await this.store.run(
@@ -78,23 +90,7 @@ export class ConversationFacadeImpl implements ConversationFacade {
       const c = await requireConversation(tx, id);
       if (input.expectedRevision !== undefined && input.expectedRevision !== c.revision)
         throw new ConversationError('CONFLICT', 'Conversation changed; reload before saving');
-      const updated = {
-        ...c,
-        ...(input.mode ? { mode: input.mode, autoResumeAt: null } : {}),
-        ...(input.status ? { status: input.status } : {}),
-        ...(input.note !== undefined ? { note: input.note } : {}),
-        ...(input.followUpAt !== undefined ? { followUpAt: input.followUpAt } : {}),
-        ...(input.followUpNote !== undefined
-          ? { followUpNote: input.followUpNote }
-          : input.followUpAt === null
-            ? { followUpNote: '' }
-            : {}),
-        ...(input.assignToMe !== undefined
-          ? { assigneeId: input.assignToMe ? actorId : null }
-          : {}),
-        revision: c.revision + 1,
-        updatedAt: now(),
-      };
+      const updated = applyControlUpdate(c, input, actorId, now());
       await tx.save(updated);
       await tx.audit(id, 'conversation.control.updated.v1', {
         actorId,
@@ -106,6 +102,23 @@ export class ConversationFacadeImpl implements ConversationFacade {
       });
       return updated;
     });
+  }
+  markRead(ws: WorkspaceId, id: string, actorId: string): Promise<ConversationView> {
+    return markRead(this.store, this.identity, ws, id, actorId);
+  }
+  markUnread(ws: WorkspaceId, id: string): Promise<ConversationView> {
+    return markUnread(this.store, ws, id);
+  }
+  addNote(ws: WorkspaceId, id: string, text: string, actorId: string): Promise<ConversationView> {
+    return addNote(this.store, this.identity, ws, id, text, actorId);
+  }
+  private async assertAssignable(ws: WorkspaceId, memberId: string, actorId: string) {
+    const members = await this.team.listMembers(ws, { userId: actorId, role: undefined });
+    if (!members.some((m) => m.userId === memberId && m.status === 'active'))
+      throw new ConversationError(
+        'VALIDATION_FAILED',
+        'Assignee must be an active member of this workspace',
+      );
   }
   async receive(ws: WorkspaceId, channelId: string, event: NormalizedEvent) {
     const channel = await this.channels.getConnection(ws, channelId);
@@ -120,24 +133,18 @@ export class ConversationFacadeImpl implements ConversationFacade {
     return this.store.run(ws, async (tx) => {
       await tx.lockPeer(channelId, event.senderExternalId);
       const existing = await tx.findPeer(channelId, event.senderExternalId);
-      let c: ConversationDto = existing ?? {
-        id: newId(),
-        channelId,
-        provider: channel.provider,
-        customerId: event.senderExternalId,
-        customerName: event.senderExternalId,
-        mode: bot?.isActive ? 'bot' : 'human',
-        autoResumeAt: null,
-        status: 'open',
-        assigneeId: null,
-        note: '',
-        revision: 0,
-        lastMessage: '',
-        // An echo cannot open the 24-hour window: only a customer message does.
-        lastInboundAt:
-          event.type === 'echo' ? new Date(0).toISOString() : event.occurredAt.toISOString(),
-        updatedAt: now(),
-      };
+      let c: ConversationView =
+        existing ??
+        newConversation({
+          id: newId(),
+          channelId,
+          provider: channel.provider,
+          customerId: event.senderExternalId,
+          mode: bot?.isActive ? 'bot' : 'human',
+          echo: event.type === 'echo',
+          occurredAt: event.occurredAt,
+          at: now(),
+        });
       if (await tx.findMessage(c.id, event.externalEventId)) return c;
       if (event.type === 'echo') {
         // Echoes can be our own sends; only an unmatched external message means an outside staff reply.
@@ -164,6 +171,9 @@ export class ConversationFacadeImpl implements ConversationFacade {
           ...(bot?.silenceOnExternalReply !== false
             ? { mode: 'human' as const, autoResumeAt: this.resumeAt(bot) }
             : {}),
+          // Staff answered from outside the app: nobody is waiting any more.
+          awaitingSince: null,
+          lastMessageSender: 'human' as const,
           revision: c.revision + 1,
           lastMessage: preview(event.text ?? '', event.attachments ?? []),
           updatedAt: now(),
@@ -178,6 +188,10 @@ export class ConversationFacadeImpl implements ConversationFacade {
             ? { mode: 'bot' as const, autoResumeAt: null }
             : {}),
           status: 'open',
+          unreadCount: c.unreadCount + 1,
+          awaitingSince: c.awaitingSince ?? event.occurredAt.toISOString(),
+          lastMessageSender: 'customer' as const,
+          customerPhone: detectVietnamesePhone(event.text ?? '') ?? c.customerPhone,
           revision: c.revision + 1,
           lastMessage: preview(event.text ?? '', event.attachments ?? []),
           lastInboundAt: new Date(
@@ -289,7 +303,13 @@ export class ConversationFacadeImpl implements ConversationFacade {
             'CONFLICT',
             'Idempotency key was already used for another reply',
           );
-        return { message: prior, deliver: false, revision: c.revision, customerId: c.customerId };
+        return {
+          message: prior,
+          deliver: false,
+          revision: c.revision,
+          customerId: c.customerId,
+          awaitingBefore: c.awaitingSince,
+        };
       }
       if (expectedRevision !== null && !bot?.isActive) return null;
       if (
@@ -308,6 +328,9 @@ export class ConversationFacadeImpl implements ConversationFacade {
         ...(actorId ? { autoResumeAt: this.resumeAt(bot) } : {}),
         revision: c.revision + 1,
         assigneeId: actorId ?? c.assigneeId,
+        // Any reply, human or bot, answers the customer.
+        awaitingSince: null,
+        lastMessageSender: actorId ? ('human' as const) : ('bot' as const),
         updatedAt: now(),
       };
       const message: InboxMessageDto = {
@@ -330,7 +353,13 @@ export class ConversationFacadeImpl implements ConversationFacade {
         actorId,
         revision: updated.revision,
       });
-      return { message, deliver: true, revision: updated.revision, customerId: c.customerId };
+      return {
+        message,
+        deliver: true,
+        revision: updated.revision,
+        customerId: c.customerId,
+        awaitingBefore: c.awaitingSince,
+      };
     });
     if (!reservation || !reservation.deliver) return reservation?.message ?? null;
     const m = reservation.message;
@@ -361,6 +390,12 @@ export class ConversationFacadeImpl implements ConversationFacade {
       await tx.save({
         ...c,
         lastMessage: preview(input.text, completed.attachments),
+        // A reply that never left means the customer is still waiting (unless they wrote again).
+        ...(result.status === 'failed' &&
+        c.awaitingSince === null &&
+        c.lastMessageSender === m.sender
+          ? { awaitingSince: reservation.awaitingBefore }
+          : {}),
         updatedAt: now(),
       });
       await tx.audit(id, 'conversation.reply.completed.v1', {

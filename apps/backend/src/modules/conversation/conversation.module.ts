@@ -4,6 +4,8 @@ import { DB_TENANT } from '../../common/db/db.module.js';
 import { ChannelModule } from '../channel/channel.module.js';
 import { AiModule } from '../ai/ai.module.js';
 import { BotModule } from '../bot/bot.module.js';
+import { IdentityModule } from '../identity/identity.module.js';
+import { TeamModule } from '../team/team.module.js';
 import { CONVERSATION_FACADE, CONVERSATION_RUNNER } from './api/conversation.facade.js';
 import { ConversationFacadeImpl } from './application/conversation.facade.impl.js';
 import { CONVERSATION_STORE } from './application/ports/conversation-store.js';
@@ -14,7 +16,7 @@ import {
 } from './infrastructure/persistence/conversation.store.js';
 import { ConversationController } from './interface/http/conversation.controller.js';
 @Module({
-  imports: [ChannelModule, AiModule, BotModule],
+  imports: [ChannelModule, AiModule, BotModule, IdentityModule, TeamModule],
   controllers: [ConversationController],
   providers: [
     {

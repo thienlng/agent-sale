@@ -1,11 +1,14 @@
-import type { ConversationDto, InboxMessageDto } from '@agent-sales/contracts';
+import type { ConversationView, InboxMessageDto } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
+import type { ConversationFilter, ConversationPage } from '../../domain/conversation-filter.js';
 export interface ConversationTx {
   lockPeer(channelId: string, customerId: string): Promise<void>;
-  find(id: string): Promise<ConversationDto | null>;
-  findPeer(channelId: string, customerId: string): Promise<ConversationDto | null>;
-  list(): Promise<ConversationDto[]>;
-  save(conversation: ConversationDto): Promise<void>;
+  find(id: string): Promise<ConversationView | null>;
+  findPeer(channelId: string, customerId: string): Promise<ConversationView | null>;
+  /** Filters, counts and sorts in the store (SQL), newest activity first by default. */
+  query(filter: ConversationFilter): Promise<ConversationPage>;
+  /** Writes the document and the derived index columns together. */
+  save(conversation: ConversationView): Promise<void>;
   messages(id: string): Promise<InboxMessageDto[]>;
   findMessage(conversationId: string, key: string): Promise<InboxMessageDto | null>;
   saveMessage(message: InboxMessageDto, key: string): Promise<void>;

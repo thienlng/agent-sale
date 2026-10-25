@@ -4,6 +4,7 @@ import type { ChannelFacade } from '../../channel/api/index.js';
 import type { BotFacade, BotView } from '../../bot/api/index.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ConversationFacadeImpl } from '../application/conversation.facade.impl.js';
+import { fakeIdentity, fakeTeam } from './fakes.js';
 import { MemoryConversationStore } from './factories/memory-conversation-store.js';
 const ws = workspaceId('018d0000-0000-7000-8000-000000000001'),
   other = workspaceId('018d0000-0000-7000-8000-000000000002');
@@ -74,7 +75,7 @@ beforeEach(() => {
     deadLetterExhaustedEvents: async () => [],
   };
   const bots: BotFacade = { getBot: async () => bot };
-  service = new ConversationFacadeImpl(store, channels, bots);
+  service = new ConversationFacadeImpl(store, channels, bots, fakeTeam(), fakeIdentity());
 });
 afterEach(() => vi.useRealTimers());
 describe('ConversationFacade tenant and delivery contract', () => {
