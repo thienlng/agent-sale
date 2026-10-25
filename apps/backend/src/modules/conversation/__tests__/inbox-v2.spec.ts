@@ -76,6 +76,10 @@ beforeEach(() => {
       status: 'sent' as const,
       failureCode: null,
     })),
+    fetchCustomerProfile: vi.fn(async () => ({
+      name: 'Nguyễn Thu Hà',
+      avatarUrl: 'https://cdn.example/ha.jpg',
+    })),
   } as unknown as ChannelFacade;
   const bots: BotFacade = { getBot: async () => bot };
   service = new ConversationFacadeImpl(
@@ -343,5 +347,60 @@ describe('list filters and counts', () => {
     await expect(service.list(ws, { limit: 50, assignee: 'me' })).rejects.toMatchObject({
       code: 'VALIDATION_FAILED',
     });
+  });
+});
+
+describe('customer profile', () => {
+  it('stores the name and avatar from Meta without touching revision or order', async () => {
+    const c = await service.receive(ws, channelId, event('m1'));
+    expect(c.customerName).toBe('customer');
+    await service.refreshCustomerProfile(ws, c.id);
+    const after = (await service.get(ws, c.id)).conversation;
+    expect(after).toMatchObject({
+      customerName: 'Nguyễn Thu Hà',
+      customerAvatarUrl: 'https://cdn.example/ha.jpg',
+      profileFetchedAt: '2026-10-24T05:00:00.000Z',
+    });
+    expect(channels.fetchCustomerProfile).toHaveBeenCalledWith(ws, channelId, 'customer');
+    expect(after.revision).toBe(c.revision);
+    expect(after.updatedAt).toBe(c.updatedAt);
+  });
+
+  it('keeps the raw id and tries again only after a day when Meta has nothing', async () => {
+    vi.mocked(channels.fetchCustomerProfile).mockResolvedValue(null);
+    const c = await service.receive(ws, channelId, event('m1'));
+    await service.refreshCustomerProfile(ws, c.id);
+    await service.refreshCustomerProfile(ws, c.id);
+    expect(channels.fetchCustomerProfile).toHaveBeenCalledTimes(1);
+    expect((await service.get(ws, c.id)).conversation.customerName).toBe('customer');
+    vi.setSystemTime(new Date('2026-10-25T05:00:01Z'));
+    await service.refreshCustomerProfile(ws, c.id);
+    expect(channels.fetchCustomerProfile).toHaveBeenCalledTimes(2);
+  });
+
+  it('ignores a failing lookup instead of throwing', async () => {
+    vi.mocked(channels.fetchCustomerProfile).mockRejectedValue(new Error('boom'));
+    const c = await service.receive(ws, channelId, event('m1'));
+    await expect(service.refreshCustomerProfile(ws, c.id)).resolves.toBeUndefined();
+    expect((await service.get(ws, c.id)).conversation.customerName).toBe('customer');
+  });
+
+  it('does not overwrite a name with an empty profile or lose the avatar', async () => {
+    const c = await service.receive(ws, channelId, event('m1'));
+    await service.refreshCustomerProfile(ws, c.id);
+    vi.mocked(channels.fetchCustomerProfile).mockResolvedValue({ name: null, avatarUrl: null });
+    vi.setSystemTime(new Date('2026-10-26T05:00:00Z'));
+    await service.refreshCustomerProfile(ws, c.id);
+    expect((await service.get(ws, c.id)).conversation).toMatchObject({
+      customerName: 'Nguyễn Thu Hà',
+      customerAvatarUrl: 'https://cdn.example/ha.jpg',
+    });
+  });
+
+  it('knows nothing of conversations in another workspace', async () => {
+    const c = await service.receive(ws, channelId, event('m1'));
+    const other = workspaceId('018d0000-0000-7000-8000-000000000002');
+    await service.refreshCustomerProfile(other, c.id);
+    expect(channels.fetchCustomerProfile).not.toHaveBeenCalled();
   });
 });

@@ -31,6 +31,11 @@ export interface ConversationFacade {
   markRead(ws: WorkspaceId, id: string, actorId: string): Promise<ConversationView>;
   markUnread(ws: WorkspaceId, id: string): Promise<ConversationView>;
   addNote(ws: WorkspaceId, id: string, text: string, actorId: string): Promise<ConversationView>;
+  /**
+   * Best-effort name and avatar lookup after a customer message; at most one Meta call per
+   * conversation per day. Never throws.
+   */
+  refreshCustomerProfile(ws: WorkspaceId, id: string): Promise<void>;
   receive(ws: WorkspaceId, channelId: string, event: NormalizedEvent): Promise<ConversationView>;
   getReplyContext(
     ws: WorkspaceId,

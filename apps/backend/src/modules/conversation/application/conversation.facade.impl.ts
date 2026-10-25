@@ -21,6 +21,7 @@ import { ConversationError } from '../domain/conversation.errors.js';
 import type { ConversationFilter } from '../domain/conversation-filter.js';
 import { detectVietnamesePhone } from '../domain/phone.js';
 import { applyControlUpdate, newConversation } from '../domain/conversation-state.js';
+import { refreshCustomerProfile } from './customer-profile.js';
 import { addNote, markRead, markUnread } from './inbox-state.js';
 import {
   CONVERSATION_STORE,
@@ -111,6 +112,9 @@ export class ConversationFacadeImpl implements ConversationFacade {
   }
   addNote(ws: WorkspaceId, id: string, text: string, actorId: string): Promise<ConversationView> {
     return addNote(this.store, this.identity, ws, id, text, actorId);
+  }
+  refreshCustomerProfile(ws: WorkspaceId, id: string): Promise<void> {
+    return refreshCustomerProfile(this.store, this.channels, ws, id);
   }
   private async assertAssignable(ws: WorkspaceId, memberId: string, actorId: string) {
     const members = await this.team.listMembers(ws, { userId: actorId, role: undefined });

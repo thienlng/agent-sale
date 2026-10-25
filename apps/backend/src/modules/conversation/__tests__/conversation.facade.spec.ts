@@ -67,6 +67,7 @@ beforeEach(() => {
       status: 'sent' as const,
       failureCode: null,
     })),
+    fetchCustomerProfile: async () => null,
     claimEvents: async () => [],
     renewEvent: async () => true,
     completeEvent: async () => undefined,

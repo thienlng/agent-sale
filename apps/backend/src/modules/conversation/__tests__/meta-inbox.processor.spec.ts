@@ -59,6 +59,7 @@ function setup() {
       status: 'sent' as const,
       failureCode: null,
     })),
+    fetchCustomerProfile: vi.fn(async () => ({ name: 'Trần Minh', avatarUrl: null })),
     claimEvents: vi.fn(async () => [] as PendingMetaEvent[]),
     renewEvent: async () => true,
     completeEvent: vi.fn(async () => undefined),
@@ -202,5 +203,27 @@ describe('MetaInboxProcessor', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+  it('looks the customer up after a message, not after a staff echo', async () => {
+    const { channels, inbox, processor } = setup();
+    const t0 = Date.now();
+    vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+      job('p1', 'message', 'hello', t0),
+      job('p-echo', 'echo', 'staff reply', t0 + 10),
+    ]);
+    await processor.tick();
+    await vi.waitFor(() => expect(channels.fetchCustomerProfile).toHaveBeenCalledTimes(1));
+    const conversation = (await inbox.list(ws, { limit: 10 })).data[0];
+    expect(conversation?.customerName).toBe('Trần Minh');
+  });
+  it('still answers when the profile lookup fails', async () => {
+    const { channels, processor } = setup();
+    vi.mocked(channels.fetchCustomerProfile).mockRejectedValue(new Error('graph down'));
+    vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+      job('p2', 'message', 'hello', Date.now()),
+    ]);
+    await processor.tick();
+    expect(channels.deliver).toHaveBeenCalledTimes(1);
+    expect(channels.completeEvent).toHaveBeenCalled();
   });
 });

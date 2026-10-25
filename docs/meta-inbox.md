@@ -67,8 +67,12 @@ Design: `docs/superpowers/specs/2026-10-25-inbox-v2-design.md`. A conversation i
 
 Backfill of existing rows: columns come from the document; `awaiting_since` is the first customer message after the last outbound one for open conversations whose newest message is the customer's; `unread_count` starts at 0 (no history of who read what); `customer_phone` starts empty and fills from new messages.
 
+### Customer profile lookup
+
+After a customer message the agent asks the channel module for the customer's name and picture (`ChannelFacade.fetchCustomerProfile`; the page token never leaves the channel module). Messenger: `GET graph.facebook.com/{version}/{psid}?fields=first_name,last_name,profile_pic`; Instagram: `GET graph.instagram.com/{version}/{igsid}?fields=name,username,profile_pic`, both with the token in the `Authorization` header (Meta Graph API, User Profile API for Messenger / Instagram messaging; endpoints taken from the Meta developer docs, not re-verified against a live page on 2026-10-25). The call runs after the message is stored and is not awaited by the reply pipeline. The attempt is stamped in `profileFetchedAt` before the call, so a missing permission or a customer Meta refuses to describe costs at most one request a day; a success is refreshed daily as well because Meta picture URLs expire. Failures are ignored and never logged with the customer id. The conversation's `revision` and `updatedAt` do not change.
+
 ## Limits
 
 - Outbound attachments are sent by HTTPS URL (bot image library or a pasted link); there is no file upload to Meta.
 - Meta CDN attachment URLs expire; the inbox shows them as received and falls back to a link.
-- Customer names are Meta-scoped ids until profile lookup is added.
+- A customer's name and picture come from a best-effort profile lookup (below); until it succeeds, `customerName` is the Meta-scoped id and the UI shows a masked label.
