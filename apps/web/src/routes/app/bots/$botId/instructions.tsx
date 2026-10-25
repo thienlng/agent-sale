@@ -1,15 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { InstructionCards } from '@/features/bot/components/instruction-cards';
-import { TrainingItems } from '@/features/knowledge/components/training-items';
+import { IntroductionRows } from '@/features/bot/components/instruction-cards';
+import { RulesList } from '@/features/knowledge/components/rules-list';
 export const Route = createFileRoute('/app/bots/$botId/instructions')({
   component: function TrainingSection() {
     const { botId } = Route.useParams();
-    return (
-      <TrainingItems
-        botId={botId}
-        kind="scenario"
-        introduction={<InstructionCards botId={botId} />}
-      />
-    );
+    return <RulesList botId={botId} introduction={<IntroductionRows botId={botId} />} />;
   },
 });

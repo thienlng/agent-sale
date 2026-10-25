@@ -2,6 +2,7 @@ import {
   CreateTrainingItemRequest,
   type TrainingItemDto,
   type TrainingKind,
+  type TrainingSection,
 } from '@agent-sales/contracts';
 import { Plus } from 'lucide-react';
 import { useState, type FormEvent, type ReactNode } from 'react';
@@ -20,6 +21,13 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { errorMessage } from '@/lib/errors';
@@ -28,7 +36,7 @@ import { matchesText } from '../utils/table-data';
 import { DataEmptyState, DataError, DataPageHeader, DataSearch, tableFrame } from './data-page';
 import { TrainingTable } from './training-table';
 
-function TrainingItemEditor({
+export function TrainingItemEditor({
   botId,
   kind,
   item,
@@ -47,6 +55,7 @@ function TrainingItemEditor({
   const [content, setContent] = useState(item?.content ?? '');
   const [trigger, setTrigger] = useState(item?.trigger ?? '');
   const [mediaUrl, setMediaUrl] = useState(item?.mediaUrl ?? '');
+  const [section, setSection] = useState<TrainingSection>(item?.section ?? 'general');
   function submit(event: FormEvent) {
     event.preventDefault();
     const parsed = CreateTrainingItemRequest.safeParse({
@@ -56,6 +65,8 @@ function TrainingItemEditor({
       content,
       trigger,
       mediaUrl: mediaUrl.trim() || null,
+      section,
+      enabled: item?.enabled ?? true,
     });
     if (!parsed.success) {
       toast.error(t('invalid'));
@@ -110,6 +121,20 @@ function TrainingItemEditor({
             required
           />
         </div>
+        {kind === 'scenario' ? (
+          <div className="space-y-2">
+            <Label htmlFor="training-section">{t('rules.section')}</Label>
+            <Select value={section} onValueChange={(v) => setSection(v as TrainingSection)}>
+              <SelectTrigger id="training-section" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="general">{t('rules.sections.general')}</SelectItem>
+                <SelectItem value="after_order">{t('rules.sections.after_order')}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        ) : null}
         {kind === 'scenario' ? (
           <div className="space-y-2">
             <Label htmlFor="training-notes">{t('notes')}</Label>

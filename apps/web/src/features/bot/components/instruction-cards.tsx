@@ -1,4 +1,4 @@
-import { Bot, MessageCircle, Pencil, Smile } from 'lucide-react';
+import { Bot, MessageCircle, Pencil } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -67,47 +67,34 @@ function InstructionEditor({
   );
 }
 
-export function InstructionCards({ botId }: { botId: string }) {
+/** The "Giới thiệu" rows: the bot's mission and greeting, each editable in a dialog. */
+export function IntroductionRows({ botId }: { botId: string }) {
   const { t } = useTranslation('training');
   const bot = useBot(botId);
   const [editing, setEditing] = useState<'mission' | 'greeting' | null>(null);
-  if (!bot.data) return <Skeleton className="h-36" />;
+  if (!bot.data) return <Skeleton className="h-24" />;
+  const rows = [
+    { field: 'mission', icon: Bot, title: t('missionTitle'), edit: t('editMission') },
+    { field: 'greeting', icon: MessageCircle, title: t('greetingTitle'), edit: t('editGreeting') },
+  ] as const;
   return (
     <>
-      <div className="grid gap-3 md:grid-cols-3">
-        <article className="flex flex-col rounded-xl border border-primary bg-primary-soft/20 p-4">
-          <Bot className="size-5 text-primary" aria-hidden />
-          <h3 className="mt-2 text-sm font-semibold text-primary">{t('missionTitle')}</h3>
-          <p className="mt-1 mb-3 flex-1 text-sm text-muted-foreground">
-            {t('missionDescription')}
-          </p>
-          <Button size="sm" onClick={() => setEditing('mission')}>
-            <Pencil />
-            {t('editMission')}
-          </Button>
-        </article>
-        <article className="flex flex-col rounded-xl border bg-card p-4">
-          <MessageCircle className="size-5 text-primary" aria-hidden />
-          <h3 className="mt-2 text-sm font-semibold text-primary">{t('greetingTitle')}</h3>
-          <p className="mt-1 mb-3 flex-1 text-sm text-muted-foreground">
-            {t('greetingDescription')}
-          </p>
-          <Button variant="outline" size="sm" onClick={() => setEditing('greeting')}>
-            <Pencil />
-            {t('editGreeting')}
-          </Button>
-        </article>
-        <article className="flex flex-col rounded-xl border bg-card p-4">
-          <Smile className="size-5 text-muted-foreground" aria-hidden />
-          <h3 className="mt-2 text-sm font-semibold">{t('reactionTitle')}</h3>
-          <p className="mt-1 mb-3 flex-1 text-sm text-muted-foreground">
-            {t('reactionDescription')}
-          </p>
-          <Button variant="outline" size="sm" disabled>
-            {t('reactionUnavailable')}
-          </Button>
-        </article>
-      </div>
+      <ul>
+        {rows.map(({ field, icon: Icon, title, edit }) => (
+          <li key={field} className="flex items-start gap-3 border-b px-3 py-3 last:border-b-0">
+            <Icon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+            <div className="min-w-0 flex-1">
+              <h3 className="text-sm font-medium">{title}</h3>
+              <p className="mt-1 line-clamp-3 text-xs break-words whitespace-pre-wrap text-muted-foreground">
+                {bot.data.settings[field]}
+              </p>
+            </div>
+            <Button variant="ghost" size="icon" aria-label={edit} onClick={() => setEditing(field)}>
+              <Pencil />
+            </Button>
+          </li>
+        ))}
+      </ul>
       <Dialog
         open={editing !== null}
         onOpenChange={(open) => {
