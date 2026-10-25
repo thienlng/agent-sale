@@ -40,6 +40,7 @@ vi.mock('./conversation-list', () => ({
     <div>
       <output aria-label="Now">{now}</output>
       <output aria-label="Counts">{`${counts.all}/${counts.unread}/${counts.waiting}`}</output>
+      <button onClick={() => onState({ q: 'lan' })}>Type</button>
       <button onClick={() => onState({ tab: 'unread', tagsAny: ['tag-a'], assignee: 'me' })}>
         Filter
       </button>
@@ -99,5 +100,22 @@ describe('inbox page', () => {
     expect(screen.getByLabelText('Now')).toHaveTextContent(String(start + 60000));
     view.unmount();
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('asks the server once typing pauses, not on every keystroke', () => {
+    vi.useFakeTimers();
+    render(<InboxPage />);
+    act(() => {
+      fireEvent.click(screen.getByRole('button', { name: 'Type' }));
+    });
+    expect(fixtures.queries.every((q) => q.q === undefined)).toBe(true);
+    act(() => {
+      vi.advanceTimersByTime(249);
+    });
+    expect(fixtures.queries.every((q) => q.q === undefined)).toBe(true);
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(fixtures.queries.at(-1)).toMatchObject({ q: 'lan' });
   });
 });

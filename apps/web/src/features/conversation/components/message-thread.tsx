@@ -1,4 +1,4 @@
-import type { InboxMessageDto } from '@agent-sales/contracts';
+import type { InboxMessage } from '../lib/inbox-v2-types';
 import { ArrowDown, Bot, CheckCheck, CircleAlert, Loader2 } from 'lucide-react';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -10,10 +10,13 @@ import { MessageAttachments } from './message-attachments';
 export function MessageThread({
   messages,
   newAfter = null,
+  newUnread = 0,
 }: {
-  messages: readonly InboxMessageDto[];
+  messages: readonly InboxMessage[];
   /** Read time when the conversation was opened; the first later customer message starts "Tin mới". */
   newAfter?: string | null;
+  /** Never read (after "mark unread"): the divider goes before the last N customer messages. */
+  newUnread?: number;
 }) {
   const { t, i18n } = useTranslation();
   const tr = (key: string) => t(`channelInbox.${key}`);
@@ -33,11 +36,12 @@ export function MessageThread({
     setReadingHistory(false);
     setSeenLatest(latestId);
   }
+  const inbound = messages.filter((m) => m.direction === 'inbound');
   const dividerId = newAfter
-    ? (messages.find(
-        (m) => m.direction === 'inbound' && Date.parse(m.createdAt) > Date.parse(newAfter),
-      )?.id ?? null)
-    : null;
+    ? (inbound.find((m) => Date.parse(m.createdAt) > Date.parse(newAfter))?.id ?? null)
+    : newUnread > 0
+      ? (inbound.slice(-newUnread)[0]?.id ?? null)
+      : null;
   const stamp = (value: string) =>
     new Intl.DateTimeFormat(i18n.language, {
       month: 'short',
@@ -97,7 +101,7 @@ export function MessageThread({
               <span className="mt-1 text-[10px] text-muted-foreground">
                 {stamp(m.createdAt)}
                 {m.direction === 'outbound'
-                  ? ` · ${tr(m.sender === 'bot' ? 'botSent' : 'humanSent')}`
+                  ? ` · ${m.sender === 'bot' ? tr('botSent') : (m.senderName?.trim() ?? '') || tr('humanSent')}`
                   : ''}
               </span>
               {m.direction === 'outbound' ? (

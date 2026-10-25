@@ -18,6 +18,8 @@ function renderMenu(props: Props = {}) {
     <ReplyModeMenu
       mode="bot"
       autoResumeAt={null}
+      takeover={null}
+      isMine
       botAvailable
       takeoverMinutes={5}
       disabled={false}
@@ -84,7 +86,7 @@ describe('reply mode menu', () => {
         name: new RegExp(`${P}optionBot$|${P}optionBot${P}`),
       }),
     );
-    expect(onChange).toHaveBeenCalledWith('bot');
+    expect(onChange).toHaveBeenCalledWith({ mode: 'bot' });
   });
 
   it('takes over from the bot', async () => {
@@ -94,7 +96,7 @@ describe('reply mode menu', () => {
     await user.click(
       await screen.findByRole('menuitemradio', { name: new RegExp(`${P}optionPermanent`) }),
     );
-    expect(onChange).toHaveBeenCalledWith('human');
+    expect(onChange).toHaveBeenCalledWith({ mode: 'human', takeover: 'permanent' });
   });
 
   it('disables the bot options with a reason when the channel has no active bot', async () => {
@@ -113,5 +115,50 @@ describe('reply mode menu', () => {
   it('is locked while a change is saving', () => {
     renderMenu({ disabled: true });
     expect(screen.getByRole('button')).toBeDisabled();
+  });
+
+  it('sends different requests for a temporary and a permanent takeover', async () => {
+    const user = userEvent.setup();
+    const onChange = renderMenu();
+    await user.click(screen.getByRole('button'));
+    await user.click(
+      await screen.findByRole('menuitemradio', { name: new RegExp(`${P}optionTemp`) }),
+    );
+    await user.click(screen.getByRole('button'));
+    await user.click(
+      await screen.findByRole('menuitemradio', { name: new RegExp(`${P}optionPermanent`) }),
+    );
+    expect(onChange).toHaveBeenNthCalledWith(1, { mode: 'human', takeover: 'temporary' });
+    expect(onChange).toHaveBeenNthCalledWith(2, { mode: 'human', takeover: 'permanent' });
+    expect(onChange.mock.calls[0]?.[0]).not.toEqual(onChange.mock.calls[1]?.[0]);
+  });
+
+  it('switches from a permanent to a temporary takeover', async () => {
+    const user = userEvent.setup();
+    const onChange = renderMenu({ mode: 'human', takeover: 'permanent' });
+    await user.click(screen.getByRole('button'));
+    const options = await screen.findAllByRole('menuitemradio');
+    expect(options[2]).toHaveAttribute('aria-checked', 'true');
+    await user.click(options[1] as HTMLElement);
+    expect(onChange).toHaveBeenCalledWith({ mode: 'human', takeover: 'temporary' });
+  });
+
+  it('reads the current state from takeover before autoResumeAt', () => {
+    renderMenu({ mode: 'human', takeover: 'permanent', autoResumeAt: '2999-01-01T00:00:00.000Z' });
+    expect(screen.getByRole('button', { name: `${P}label: ${P}human` })).toBeInTheDocument();
+  });
+
+  it('only says "you" took over when the user is the assignee', () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] });
+    vi.setSystemTime('2026-10-25T10:00:00.000Z');
+    renderMenu({
+      mode: 'human',
+      takeover: 'temporary',
+      autoResumeAt: '2026-10-25T10:01:00.000Z',
+      isMine: false,
+    });
+    expect(
+      screen.getByRole('button', { name: `${P}label: ${P}takeoverOther 1:00` }),
+    ).toBeInTheDocument();
   });
 });

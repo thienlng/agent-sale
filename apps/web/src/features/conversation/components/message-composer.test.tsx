@@ -19,7 +19,6 @@ vi.mock('../api/inbox', () => ({
       { id: 'ship', title: 'Shipping', content: 'Free ship over 500k' },
     ],
   }),
-  useConversation: () => ({ data: { conversation: { note: 'Existing note', revision: 7 } } }),
 }));
 vi.mock('./message-attachments', () => ({
   AttachmentPicker: ({ onPick }: { onPick: (a: { type: 'image'; url: string }) => void }) => (
@@ -221,67 +220,6 @@ describe('MessageComposer', () => {
     expect(mocks.send.mock.calls[1]?.[0]).toEqual(mocks.send.mock.calls[0]?.[0]);
   });
 
-  it('allows internal notes with version checks even when customer replies are restricted', async () => {
-    const user = userEvent.setup();
-    mocks.update.mockResolvedValue({ note: 'Existing note\n\nCall tomorrow', revision: 8 });
-    render(<MessageComposer id="internal-note" botId="bot" windowClosed />);
-    await user.click(screen.getByRole('button', { name: 'channelInbox.sales.internalNote' }));
-    await user.type(screen.getByRole('textbox'), 'Call tomorrow');
-    await user.click(screen.getByRole('button', { name: 'channelInbox.sales.saveInternalNote' }));
-    await waitFor(() =>
-      expect(mocks.update).toHaveBeenCalledWith({
-        note: 'Existing note\n\nCall tomorrow',
-        expectedRevision: 7,
-      }),
-    );
-    expect(mocks.send).not.toHaveBeenCalled();
-  });
-
-  it('clears a remounted private note when its earlier save completes without appending it twice', async () => {
-    const user = userEvent.setup();
-    let finish: ((value: { note: string; revision: number }) => void) | undefined;
-    mocks.update.mockImplementation(
-      () =>
-        new Promise<{ note: string; revision: number }>((resolve) => {
-          finish = resolve;
-        }),
-    );
-    const first = render(
-      <MessageComposer id="note-save-remount" botId="bot" windowClosed={false} />,
-    );
-    await user.click(screen.getByRole('button', { name: 'channelInbox.sales.internalNote' }));
-    await user.type(screen.getByRole('textbox'), 'Follow up tomorrow');
-    await user.click(screen.getByRole('button', { name: 'channelInbox.sales.saveInternalNote' }));
-    expect(mocks.update).toHaveBeenCalledTimes(1);
-    first.unmount();
-
-    render(<MessageComposer id="note-save-remount" botId="bot" windowClosed={false} />);
-    await user.click(screen.getByRole('button', { name: 'channelInbox.sales.internalNote' }));
-    expect(screen.getByRole('textbox')).toHaveValue('Follow up tomorrow');
-    finish?.({ note: 'Existing note\n\nFollow up tomorrow', revision: 8 });
-    await waitFor(() => expect(screen.getByRole('textbox')).toHaveValue(''));
-    const save = screen.getByRole('button', { name: 'channelInbox.sales.saveInternalNote' });
-    expect(save).toBeDisabled();
-    await user.click(save);
-    expect(mocks.update).toHaveBeenCalledTimes(1);
-    expect(mocks.update).toHaveBeenCalledWith({
-      note: 'Existing note\n\nFollow up tomorrow',
-      expectedRevision: 7,
-    });
-    expect(mocks.send).not.toHaveBeenCalled();
-  });
-
-  it('keeps private note text when another operator changed the shared note', async () => {
-    const user = userEvent.setup();
-    mocks.update.mockRejectedValue(new Error('CONFLICT'));
-    render(<MessageComposer id="note-conflict" botId="bot" windowClosed={false} />);
-    await user.click(screen.getByRole('button', { name: 'channelInbox.sales.internalNote' }));
-    const editor = screen.getByRole('textbox');
-    fireEvent.change(editor, { target: { value: 'My note' } });
-    await user.click(screen.getByRole('button', { name: 'channelInbox.sales.saveInternalNote' }));
-    expect(editor).toHaveValue('My note');
-  });
-
   it('opens quick replies when the draft starts with "/" and filters by the text after it', async () => {
     const user = userEvent.setup();
     render(<MessageComposer id="slash-filter" botId="bot" windowClosed={false} />);
@@ -325,5 +263,32 @@ describe('MessageComposer', () => {
     render(<MessageComposer id="slash-nobot" botId={null} windowClosed={false} />);
     await user.type(screen.getByRole('textbox'), '/');
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+  });
+
+  it('sends the literal text when no quick reply matches the typed /word', async () => {
+    const user = userEvent.setup();
+    mocks.send.mockResolvedValue({ status: 'sent' });
+    render(<MessageComposer id="slash-literal" botId="bot" windowClosed={false} />);
+    await user.type(screen.getByRole('textbox'), '/zzz{Enter}');
+    await waitFor(() => expect(mocks.send).toHaveBeenCalled());
+    expect(mocks.send.mock.calls[0]?.[0]).toMatchObject({ text: '/zzz' });
+  });
+
+  it('hints at the / shortcut when the empty composer is focused', async () => {
+    const user = userEvent.setup();
+    render(<MessageComposer id="slash-hint" botId="bot" windowClosed={false} />);
+    const editor = screen.getByRole('textbox');
+    expect(editor).toHaveAttribute('placeholder', 'channelInbox.composer');
+    await user.click(editor);
+    expect(editor).toHaveAttribute('placeholder', 'channelInbox.v2.slash.hint');
+  });
+
+  it('is only the textarea row: no mode tabs and no hint paragraphs', () => {
+    render(<MessageComposer id="light" botId="bot" windowClosed={false} />);
+    expect(
+      screen.queryByRole('button', { name: 'channelInbox.sales.internalNote' }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('channelInbox.sendHint')).not.toBeInTheDocument();
+    expect(screen.queryByText('channelInbox.sales.draftInTab')).not.toBeInTheDocument();
   });
 });

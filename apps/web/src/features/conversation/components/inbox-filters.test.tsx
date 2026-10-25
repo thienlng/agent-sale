@@ -170,4 +170,36 @@ describe('inbox filter chips', () => {
     render(<Harness />);
     expect(screen.queryByRole('list')).not.toBeInTheDocument();
   });
+
+  it('never keeps one tag in both "has" and "exclude"', async () => {
+    const user = userEvent.setup();
+    const spy = vi.fn();
+    render(<Harness spy={spy} initial={{ tagsExclude: ['tag-vip'], tagsAll: ['tag-price'] }} />);
+    await user.click(screen.getByRole('button', { name: /filterActive/ }));
+    await user.click(screen.getByRole('checkbox', { name: 'VIP' }));
+    expect(spy).toHaveBeenLastCalledWith(
+      expect.objectContaining({ tagsAny: ['tag-vip'], tagsExclude: [] }),
+    );
+    await user.click(screen.getByRole('radio', { name: 'channelInbox.v2.filter.tagsExclude' }));
+    await user.click(screen.getByRole('checkbox', { name: 'VIP' }));
+    expect(spy).toHaveBeenLastCalledWith(
+      expect.objectContaining({ tagsAny: [], tagsAll: ['tag-price'], tagsExclude: ['tag-vip'] }),
+    );
+    await user.click(screen.getByRole('checkbox', { name: 'Hỏi giá' }));
+    expect(spy).toHaveBeenLastCalledWith(
+      expect.objectContaining({ tagsAll: [], tagsExclude: ['tag-vip', 'tag-price'] }),
+    );
+  });
+
+  it('offers only the longest-waiting and read-not-replied options besides "all"', async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    await user.click(screen.getByRole('button', { name: 'channelInbox.v2.list.filter' }));
+    await user.click(screen.getByRole('tab', { name: 'channelInbox.v2.filter.groups.waiting' }));
+    expect(screen.getAllByRole('radio').map((r) => r.textContent)).toEqual([
+      'channelInbox.v2.filter.waiting.off',
+      'channelInbox.v2.filter.waiting.longest',
+      'channelInbox.v2.filter.waiting.readNotReplied',
+    ]);
+  });
 });

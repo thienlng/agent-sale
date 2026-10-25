@@ -66,7 +66,7 @@ describe('conversation header', () => {
     );
   });
 
-  it('shows who saw the conversation and when', () => {
+  it('shows who else saw the conversation and when', () => {
     renderHeader({
       lastReadAt: new Date(2026, 9, 25, 14, 5).toISOString(),
       lastReadBy: { userId: 'user-lan', name: 'Lan' },
@@ -74,9 +74,22 @@ describe('conversation header', () => {
     expect(screen.getByText(`${V}seenBy Lan 14:05`)).toBeInTheDocument();
   });
 
-  it('says nobody has seen it in the brand colour', () => {
-    renderHeader();
+  it('shows nothing when the viewer read it last and nothing is new', () => {
+    renderHeader({
+      lastReadAt: new Date(2026, 9, 25, 14, 5).toISOString(),
+      lastReadBy: { userId: 'user-me', name: 'Minh' },
+    });
+    expect(screen.queryByText(/seenBy|unseen/)).not.toBeInTheDocument();
+  });
+
+  it('flags new messages nobody has seen in the brand colour', () => {
+    renderHeader({
+      unreadCount: 2,
+      lastReadAt: new Date(2026, 9, 25, 14, 5).toISOString(),
+      lastReadBy: { userId: 'user-lan', name: 'Lan' },
+    });
     expect(screen.getByText(`${V}unseen`).className).toContain('text-primary');
+    expect(screen.queryByText(/seenBy/)).not.toBeInTheDocument();
   });
 
   it('marks the conversation done and reopens it', async () => {

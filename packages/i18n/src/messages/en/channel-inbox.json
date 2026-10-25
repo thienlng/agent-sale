@@ -392,9 +392,9 @@
       "actionError": "Could not update the conversation. Try again."
     },
     "header": {
-      "seenBy": "Seen by {{name}} · {{time}}",
+      "seenBy": "{{name}} saw this · {{time}}",
       "seen": "Seen · {{time}}",
-      "unseen": "Nobody has seen this",
+      "unseen": "New messages nobody has seen",
       "via": "{{provider}} · {{page}}",
       "more": "More options",
       "markUnread": "Mark as unread",
@@ -411,11 +411,12 @@
         "optionBotHint": "The bot answers the customer as soon as a new message arrives.",
         "optionTemp": "Take over temporarily",
         "optionTempHint": "You reply; the bot resumes after {{minutes}} minutes if you send nothing more.",
-        "optionTempHintNoBot": "You reply; the bot resumes after a while if you send nothing more.",
+        "optionTempHintNoBot": "You reply; the bot resumes after the time set in the bot settings.",
         "optionPermanent": "Take over for good",
         "optionPermanentHint": "The bot no longer replies in this conversation.",
         "noBot": "This page has no active bot.",
-        "current": "Current"
+        "current": "Current",
+        "takeoverOther": "Staff is replying · bot resumes in {{time}}"
       },
       "assignee": {
         "none": "Unassigned",
@@ -438,12 +439,13 @@
       "addLabel": "Add a tag (T)",
       "search": "Search tags…",
       "empty": "No matching tag",
-      "none": "The tag library is empty. Create tags under Customers.",
+      "none": "The tag library is empty.",
       "expand": "Show all tags",
       "collapse": "Collapse tag list",
       "remove": "Remove tag {{name}}",
       "attach": "Add tag {{name}}",
-      "error": "Could not update tags. Try again."
+      "error": "Could not update tags. Try again.",
+      "create": "Create tags in CRM settings"
     },
     "slash": {
       "hint": "Type / to insert a quick reply",

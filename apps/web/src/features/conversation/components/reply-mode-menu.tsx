@@ -14,14 +14,30 @@ import { resumeCountdown } from '../lib/inbox-list';
 type Option = 'bot' | 'temp' | 'permanent';
 
 /** Who answers: bot, a person for a while (bot resumes), or a person for good. */
-export function currentReplyOption(mode: 'bot' | 'human', autoResumeAt: string | null): Option {
+export function currentReplyOption(
+  mode: 'bot' | 'human',
+  takeover: 'temporary' | 'permanent' | null,
+  autoResumeAt: string | null,
+): Option {
   if (mode === 'bot') return 'bot';
+  if (takeover) return takeover === 'temporary' ? 'temp' : 'permanent';
   return autoResumeAt ? 'temp' : 'permanent';
 }
+
+/** The request body for an option: the two takeovers differ in `takeover`. */
+export function replyOptionBody(option: Option): ReplyModeChange {
+  if (option === 'bot') return { mode: 'bot' };
+  return { mode: 'human', takeover: option === 'temp' ? 'temporary' : 'permanent' };
+}
+
+export type ReplyModeChange =
+  { mode: 'bot' } | { mode: 'human'; takeover: 'temporary' | 'permanent' };
 
 export function ReplyModeMenu({
   mode,
   autoResumeAt,
+  takeover,
+  isMine,
   botAvailable,
   takeoverMinutes,
   disabled,
@@ -29,11 +45,14 @@ export function ReplyModeMenu({
 }: {
   mode: 'bot' | 'human';
   autoResumeAt: string | null;
+  takeover: 'temporary' | 'permanent' | null;
+  /** The current user is the assignee: only then the label says "you" took over. */
+  isMine: boolean;
   /** False when the channel has no active bot. */
   botAvailable: boolean;
   takeoverMinutes: number | undefined;
   disabled: boolean;
-  onChange: (mode: 'bot' | 'human') => void;
+  onChange: (change: ReplyModeChange) => void;
 }) {
   const { t } = useTranslation();
   const tr = (key: string, options?: Record<string, unknown>) =>
@@ -46,10 +65,14 @@ export function ReplyModeMenu({
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, [counting, autoResumeAt]);
-  const countdown = mode === 'human' ? resumeCountdown(autoResumeAt, now) : null;
-  const current = currentReplyOption(mode, autoResumeAt);
+  const current = currentReplyOption(mode, takeover, autoResumeAt);
+  const countdown = current === 'temp' ? resumeCountdown(autoResumeAt, now) : null;
   const label =
-    mode === 'bot' ? tr('bot') : countdown ? tr('takeover', { time: countdown }) : tr('human');
+    mode === 'bot'
+      ? tr('bot')
+      : countdown
+        ? tr(isMine ? 'takeover' : 'takeoverOther', { time: countdown })
+        : tr('human');
   const noBot = !botAvailable;
   return (
     <DropdownMenu>
@@ -71,7 +94,7 @@ export function ReplyModeMenu({
           value={current}
           onValueChange={(value) => {
             if (value === current) return;
-            onChange(value === 'bot' ? 'bot' : 'human');
+            onChange(replyOptionBody(value as Option));
           }}
         >
           <ModeItem

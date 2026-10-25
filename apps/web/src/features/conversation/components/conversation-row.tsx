@@ -123,7 +123,7 @@ export function ConversationRow({
               <CheckCheck className="size-3.5 shrink-0 text-success" aria-label={tr('resolved')} />
             ) : null}
             <time
-              className="ml-auto shrink-0 text-[11px] text-muted-foreground transition-opacity group-focus-within:opacity-0 group-hover:opacity-0"
+              className="ml-auto shrink-0 text-[11px] text-muted-foreground transition-[margin] group-focus-within:mr-6 group-hover:mr-6 pointer-coarse:mr-6"
               dateTime={c.updatedAt}
             >
               {formatRowTime(c.updatedAt, now)}
@@ -176,7 +176,7 @@ export function ConversationRow({
             ) : null}
             {c.mode === 'bot' ? (
               <Bot
-                className="size-3 shrink-0 text-muted-foreground"
+                className="size-3 shrink-0 text-primary"
                 role="img"
                 aria-label={v2('row.modeBot')}
               />
@@ -196,7 +196,7 @@ export function ConversationRow({
             variant="ghost"
             size="icon-sm"
             aria-label={v2('row.menu')}
-            className="absolute top-1.5 right-1.5 size-6 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100"
+            className="absolute top-1.5 right-1.5 size-6 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100 pointer-coarse:opacity-100"
           >
             <MoreHorizontal className="size-4" />
           </Button>

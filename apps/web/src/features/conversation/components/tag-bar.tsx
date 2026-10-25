@@ -1,4 +1,5 @@
 import { Check, ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
+import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import {
@@ -50,6 +51,7 @@ export function TagBar({
   onAttach,
   onRemove,
   readOnly = false,
+  busy = false,
 }: {
   tags: readonly InboxTagChip[];
   library: readonly LibraryTag[];
@@ -61,6 +63,8 @@ export function TagBar({
   onRemove: (tag: InboxTagChip & { assignmentId: string }) => void;
   /** Without permission to edit, tags are shown but cannot change. */
   readOnly?: boolean;
+  /** A tag change is in flight: the picker items wait for it. */
+  busy?: boolean;
 }) {
   const { t } = useTranslation();
   const tr = (key: string, options?: Record<string, unknown>) =>
@@ -135,7 +139,18 @@ export function TagBar({
               <Command>
                 <CommandInput placeholder={tr('search')} />
                 <CommandList>
-                  <CommandEmpty>{library.length ? tr('empty') : tr('none')}</CommandEmpty>
+                  <CommandEmpty>
+                    {library.length ? (
+                      tr('empty')
+                    ) : (
+                      <>
+                        {tr('none')}{' '}
+                        <Link to="/app/crm-settings/tags" className="text-primary hover:underline">
+                          {tr('create')}
+                        </Link>
+                      </>
+                    )}
+                  </CommandEmpty>
                   <CommandGroup>
                     {library.map((tag) => {
                       const current = applied(tag.id);
@@ -143,6 +158,7 @@ export function TagBar({
                         <CommandItem
                           key={tag.id}
                           value={`${tag.name} ${tag.id}`}
+                          disabled={busy}
                           data-checked={current ? 'true' : undefined}
                           onSelect={() => {
                             if (!current) onAttach(tag);

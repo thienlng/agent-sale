@@ -8,7 +8,6 @@ export interface ComposerDraft {
   failedAttempt?: boolean;
   attachmentAttempt?: SendInboxMessageRequest | null;
   attachmentFailedAttempt?: boolean;
-  noteBase?: { note: string; revision: number };
 }
 
 // Drafts stay in this tab's memory only, never in persistent browser storage.

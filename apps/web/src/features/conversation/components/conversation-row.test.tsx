@@ -166,4 +166,26 @@ describe('conversation row', () => {
     await user.keyboard('{Enter}');
     expect(a.onAssign).toHaveBeenCalledWith(base.id, 'user-me');
   });
+
+  it('keeps the time visible and makes the menu reachable on touch screens', () => {
+    renderRow();
+    const time = screen.getByText(/^\d\d:\d\d$/);
+    expect(time.className).not.toContain('opacity-0');
+    expect(time.className).toContain('pointer-coarse:mr-6');
+    expect(screen.getByRole('button', { name: 'channelInbox.v2.row.menu' }).className).toContain(
+      'pointer-coarse:opacity-100',
+    );
+  });
+
+  it('tells the bot and a person apart by colour', () => {
+    const { unmount } = renderRow({ mode: 'bot' });
+    expect(
+      screen.getByRole('img', { name: 'channelInbox.v2.row.modeBot' }).getAttribute('class'),
+    ).toContain('text-primary');
+    unmount();
+    renderRow({ mode: 'human' });
+    expect(
+      screen.getByRole('img', { name: 'channelInbox.v2.row.modeHuman' }).getAttribute('class'),
+    ).toContain('text-muted-foreground');
+  });
 });

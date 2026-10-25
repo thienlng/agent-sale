@@ -114,9 +114,17 @@ export function InboxFilterPopover({
 
   function toggleTag(id: string) {
     const current = state[tagMode];
+    const adding = !current.includes(id);
+    // A tag cannot be both wanted and excluded: choosing it on one side clears the other.
+    const conflicts: TagMode[] =
+      tagMode === 'tagsExclude' ? ['tagsAny', 'tagsAll'] : ['tagsExclude'];
+    const cleared = Object.fromEntries(
+      conflicts.map((m) => [m, adding ? state[m].filter((x) => x !== id) : state[m]]),
+    );
     onState({
       untagged: false,
-      [tagMode]: current.includes(id) ? current.filter((x) => x !== id) : [...current, id],
+      ...cleared,
+      [tagMode]: adding ? [...current, id] : current.filter((x) => x !== id),
     });
   }
 
@@ -214,7 +222,7 @@ export function InboxFilterPopover({
               </div>
             ) : null}
             {group === 'waiting'
-              ? (['off', 'any', 'longest', 'readNotReplied'] as const).map((w) => (
+              ? (['off', 'longest', 'readNotReplied'] as const).map((w) => (
                   <Option
                     key={w}
                     selected={state.waiting === w}

@@ -102,24 +102,26 @@ export function ConversationHeader({
             {channel?.name ? v2('via', { provider, page: channel.name }) : provider}
           </span>
         </h2>
-        {seenAt ? (
+        {c.unreadCount > 0 ? (
+          <p className="truncate text-xs font-medium text-primary">{v2('unseen')}</p>
+        ) : seenAt && c.lastReadBy?.userId !== userId ? (
           <p className="truncate text-xs text-muted-foreground">
             {c.lastReadBy?.name
               ? v2('seenBy', { name: c.lastReadBy.name, time: seenAt })
               : v2('seen', { time: seenAt })}
           </p>
-        ) : (
-          <p className="truncate text-xs font-medium text-primary">{v2('unseen')}</p>
-        )}
+        ) : null}
       </div>
       <div className="flex min-w-0 flex-wrap items-center gap-1.5">
         <ReplyModeMenu
           mode={c.mode}
           autoResumeAt={c.autoResumeAt}
+          takeover={c.takeover}
+          isMine={c.assigneeId === userId}
           botAvailable={botAvailable}
           takeoverMinutes={takeoverMinutes}
           disabled={busy}
-          onChange={(mode) => onChange({ mode })}
+          onChange={(change) => onChange(change)}
         />
         <AssigneeMenu
           assigneeId={c.assigneeId}

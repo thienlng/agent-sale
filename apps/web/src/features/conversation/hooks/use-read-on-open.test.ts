@@ -1,6 +1,6 @@
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useReadOnOpen } from './use-read-on-open';
+import { markUnreadGuarded, useReadOnOpen } from './use-read-on-open';
 
 const mocks = vi.hoisted(() => ({
   markRead: vi.fn(),
@@ -70,5 +70,38 @@ describe('read on open', () => {
     expect(mocks.markRead).not.toHaveBeenCalled();
     rerender({ unreadCount: 2, lastReadAt: null });
     expect(mocks.markRead).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not undo a mark-unread made from the list row on the open conversation', async () => {
+    const { rerender } = renderHook((c: Read) => useReadOnOpen('c-row', c), { initialProps: read });
+    await markUnreadGuarded('c-row', mocks.markUnread);
+    rerender({ unreadCount: 1, lastReadAt: null });
+    expect(mocks.markRead).not.toHaveBeenCalled();
+    rerender({ unreadCount: 2, lastReadAt: null });
+    expect(mocks.markRead).toHaveBeenCalledTimes(1);
+  });
+
+  it('releases the guard when the mark-unread request fails', async () => {
+    const { rerender } = renderHook((c: Read) => useReadOnOpen('c-fail', c), {
+      initialProps: read,
+    });
+    await expect(
+      markUnreadGuarded('c-fail', () => Promise.reject(new Error('403'))),
+    ).rejects.toThrow();
+    rerender({ unreadCount: 2, lastReadAt: read.lastReadAt });
+    expect(mocks.markRead).toHaveBeenCalledTimes(1);
+  });
+
+  it('waits for the tab to be visible, then marks read', () => {
+    const state = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+    renderHook(() => useReadOnOpen('c-hidden', unread));
+    expect(mocks.markRead).not.toHaveBeenCalled();
+    state.mockReturnValue('visible');
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    expect(mocks.markRead).toHaveBeenCalledTimes(1);
+    expect(mocks.markRead).toHaveBeenCalledWith('c-hidden');
+    state.mockRestore();
   });
 });

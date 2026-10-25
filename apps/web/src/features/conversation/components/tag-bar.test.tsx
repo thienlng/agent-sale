@@ -10,6 +10,12 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
+    <a href={to}>{children}</a>
+  ),
+}));
+
 const T = 'channelInbox.v2.tagBar.';
 const library: LibraryTag[] = [
   { id: 'a', name: 'Hỏi giá', color: '#2563eb', activeCount: 3 },
@@ -124,5 +130,19 @@ describe('tag bar', () => {
     expect(screen.queryByRole('button', { name: `${T}remove Đã cọc` })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: `${T}attach VIP` })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: `${T}addLabel` })).not.toBeInTheDocument();
+  });
+
+  it('disables the picker items while a tag change is in flight', async () => {
+    setup({ pickerOpen: true, busy: true });
+    for (const option of await screen.findAllByRole('option'))
+      expect(option).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('links to the CRM tag settings when the library is empty', async () => {
+    setup({ pickerOpen: true, library: [], tags: [] });
+    expect(await screen.findByRole('link', { name: `${T}create` })).toHaveAttribute(
+      'href',
+      '/app/crm-settings/tags',
+    );
   });
 });

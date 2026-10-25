@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { useSession } from '@/lib/session';
 import { useWorkspaceId } from '@/lib/use-workspace';
+import { useDebouncedValue } from '../hooks/use-debounced-value';
+import { markUnreadGuarded } from '../hooks/use-read-on-open';
 import { useInboxShortcuts } from '../hooks/use-inbox-shortcuts';
 import {
   useAssignConversation,
@@ -67,14 +69,16 @@ function InboxWorkspace({
   const assign = useAssignConversation();
   const fail = () => toast.error(t('channelInbox.v2.row.actionError'));
   const actions = {
-    onMarkUnread: (id: string) => markUnread.mutate(id, { onError: fail }),
+    onMarkUnread: (id: string) => void markUnreadGuarded(id, markUnread.mutateAsync).catch(fail),
     onMarkRead: (id: string) => markRead.mutate(id, { onError: fail }),
     onAssign: (id: string, assigneeId: string | null) =>
       assign.mutate({ id, assigneeId }, { onError: fail }),
   };
   const [selected, setSelected] = useState<{ id: string; channelId: string } | null>(null);
   const [state, setState] = useState<ListState>(DEFAULT_LIST_STATE);
-  const inbox = useInbox(toListQuery(state));
+  // The server is asked once typing pauses; the other filters apply at once.
+  const debouncedQ = useDebouncedValue(state.q, 250);
+  const inbox = useInbox(toListQuery({ ...state, q: debouncedQ }));
   const channels = useInboxChannels();
   const tags = useInboxTags();
   const members = useInboxMembers();

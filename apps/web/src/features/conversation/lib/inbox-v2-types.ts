@@ -29,6 +29,8 @@ export const InboxNote = z.object({
 export type InboxNote = z.infer<typeof InboxNote>;
 
 export const InboxConversationDto = ConversationDto.extend({
+  /** How a human took over: `temporary` resumes the bot at `autoResumeAt`, `permanent` never does. */
+  takeover: z.enum(['temporary', 'permanent']).nullable().default(null),
   customerAvatarUrl: z.string().nullable().default(null),
   unreadCount: z.number().int().default(0),
   lastReadAt: z.string().nullable().default(null),
@@ -44,6 +46,12 @@ export const InboxConversationDto = ConversationDto.extend({
   createdAt: z.string().optional(),
 });
 export type InboxConversation = z.infer<typeof InboxConversationDto>;
+
+/** A message; `senderName` is the staff member who sent a human reply, when the API knows. */
+export const InboxMessage = InboxMessageDto.extend({
+  senderName: z.string().nullable().optional(),
+});
+export type InboxMessage = z.infer<typeof InboxMessage>;
 
 export const InboxCounts = z.object({
   all: z.number().int().default(0),
@@ -61,7 +69,7 @@ export type InboxListResponse = z.infer<typeof InboxListResponse>;
 
 export const InboxDetailResponse = z.object({
   conversation: InboxConversationDto,
-  messages: z.array(InboxMessageDto),
+  messages: z.array(InboxMessage),
 });
 export type InboxDetailResponse = z.infer<typeof InboxDetailResponse>;
 
@@ -90,4 +98,6 @@ export interface InboxListQuery {
 /** PATCH /conversations/{id}: the current request plus the assignee (uuid or null). */
 export type InboxUpdateBody = UpdateConversationRequest & {
   assigneeId?: string | null | undefined;
+  /** Only valid with `mode: 'human'`. */
+  takeover?: 'temporary' | 'permanent';
 };

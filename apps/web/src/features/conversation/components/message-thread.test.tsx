@@ -99,4 +99,36 @@ describe('MessageThread', () => {
     );
     expect(screen.getAllByText('channelInbox.v2.thread.bot')).toHaveLength(1);
   });
+
+  it('places the divider before the last N customer messages when the conversation was marked unread', () => {
+    const inbound = (id: string, minute: number) => ({
+      ...message(id),
+      createdAt: `2026-10-25T10:0${minute}:00.000Z`,
+    });
+    render(
+      <MessageThread
+        newUnread={2}
+        messages={[
+          inbound('a', 1),
+          { ...inbound('mine', 2), direction: 'outbound', sender: 'human' },
+          inbound('b', 3),
+          inbound('c', 4),
+        ]}
+      />,
+    );
+    expect(screen.getByRole('separator').nextElementSibling).toHaveTextContent('b');
+  });
+
+  it('shows the staff name on human replies and falls back to the generic label', () => {
+    const human = (id: string, senderName?: string | null) => ({
+      ...message(id),
+      direction: 'outbound' as const,
+      sender: 'human' as const,
+      status: 'sent' as const,
+      senderName,
+    });
+    render(<MessageThread messages={[human('one', 'Lan'), human('two'), human('three', ' ')]} />);
+    expect(screen.getByText(/· Lan$/)).toBeInTheDocument();
+    expect(screen.getAllByText(/· channelInbox\.humanSent$/)).toHaveLength(2);
+  });
 });

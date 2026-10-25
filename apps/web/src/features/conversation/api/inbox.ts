@@ -8,7 +8,7 @@ import {
   TrainingItemList,
   type SendInboxMessageRequest,
 } from '@agent-sales/contracts';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import { api } from '@/lib/api-client';
 import { queryKeys } from '@/lib/query-keys';
@@ -33,6 +33,8 @@ export function useInbox(query: InboxListQuery) {
     queryKey: ['inbox', ws, query],
     queryFn: () => api(withQuery('/conversations', query), InboxListResponse),
     enabled: Boolean(ws),
+    // Typing or switching filters keeps the current rows and counts until the new ones arrive.
+    placeholderData: keepPreviousData,
     refetchInterval: 5000,
   });
 }
@@ -169,7 +171,11 @@ export function useAssignConversation() {
         method: 'PATCH',
         body: { assigneeId: v.assigneeId },
       }),
-    onSettled: () => qc.invalidateQueries({ queryKey: ['inbox', ws] }),
+    onSettled: () =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: ['inbox', ws] }),
+        qc.invalidateQueries({ queryKey: ['conversation', ws] }),
+      ]),
   });
 }
 
@@ -237,7 +243,10 @@ export function useConversationTagActions(id: string) {
   ) => {
     if (context?.previous) qc.setQueryData(key, context.previous);
   };
+  // Same scope: attaches and removals run one after another, so their rollbacks cannot clash.
+  const scope = { id: `conversation-tags:${id}` };
   const attach = useMutation({
+    scope,
     mutationFn: (tag: { id: string; name: string; color: string }) =>
       api(`/conversations/${id}/tags`, z.unknown(), { method: 'POST', body: { tagId: tag.id } }),
     onMutate: (tag) =>
@@ -250,6 +259,7 @@ export function useConversationTagActions(id: string) {
     onSettled: refresh,
   });
   const remove = useMutation({
+    scope,
     mutationFn: (tag: { id: string; assignmentId: string }) =>
       api(`/tag-assignments/${tag.assignmentId}/remove`, TagAssignmentDto, {
         method: 'POST',

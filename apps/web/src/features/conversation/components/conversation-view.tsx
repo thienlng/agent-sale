@@ -88,8 +88,16 @@ export function ConversationView({
     }
   }
   // The "Tin mới" divider marks what was unread when the conversation opened, not after it is read.
-  const [openedRead, setOpenedRead] = useState<{ at: string | null } | null>(null);
-  if (c && !openedRead) setOpenedRead({ at: c.lastReadAt });
+  const [openedRead, setOpenedRead] = useState<{
+    at: string | null;
+    unread: number;
+  } | null>(null);
+  if (c && !openedRead) setOpenedRead({ at: c.lastReadAt, unread: c.unreadCount });
+  // After "mark unread" nobody has read it: the divider goes before the unread customer messages.
+  const neverRead = c?.lastReadAt === null && (c?.unreadCount ?? 0) > 0;
+  const divider = neverRead
+    ? { at: null, unread: c?.unreadCount ?? 0 }
+    : (openedRead ?? { at: null, unread: 0 });
   function markUnread() {
     void read
       .markUnread()
@@ -105,7 +113,7 @@ export function ConversationView({
       if (c) void change({ status: c.status === 'resolved' ? 'open' : 'resolved' });
     },
     onOpenTags: canEdit ? () => setPickerOpen(true) : undefined,
-    onMarkUnread: canEdit ? markUnread : undefined,
+    onMarkUnread: canEdit && !read.pending ? markUnread : undefined,
   });
   if (detail.isPending)
     return (
@@ -184,7 +192,8 @@ export function ConversationView({
           </p>
         ) : null}
         <MessageThread
-          newAfter={openedRead?.at ?? null}
+          newAfter={divider.at}
+          newUnread={divider.unread}
           messages={
             search
               ? detail.data.messages.filter((message) =>
@@ -201,6 +210,7 @@ export function ConversationView({
           pickerOpen={pickerOpen}
           onPickerOpenChange={setPickerOpen}
           readOnly={!canEdit}
+          busy={tagActions.attach.isPending || tagActions.remove.isPending}
           onAttach={(tag) => tagActions.attach.mutate(tag, { onError: tagError })}
           onRemove={(tag) => tagActions.remove.mutate(tag, { onError: tagError })}
         />

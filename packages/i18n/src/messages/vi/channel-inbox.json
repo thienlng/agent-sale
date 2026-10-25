@@ -392,9 +392,9 @@
       "actionError": "Không cập nhật được hội thoại. Thử lại."
     },
     "header": {
-      "seenBy": "Đã xem bởi {{name}} · {{time}}",
+      "seenBy": "{{name}} đã xem · {{time}}",
       "seen": "Đã xem · {{time}}",
-      "unseen": "Chưa ai xem",
+      "unseen": "Có tin mới chưa ai xem",
       "via": "{{provider}} · {{page}}",
       "more": "Thêm tùy chọn",
       "markUnread": "Đánh dấu chưa đọc",
@@ -411,11 +411,12 @@
         "optionBotHint": "Bot trả lời khách ngay khi có tin nhắn mới.",
         "optionTemp": "Tiếp quản tạm thời",
         "optionTempHint": "Bạn trả lời, bot tự bật lại sau {{minutes}} phút nếu bạn không nhắn thêm.",
-        "optionTempHintNoBot": "Bạn trả lời, bot tự bật lại sau một thời gian nếu bạn không nhắn thêm.",
+        "optionTempHintNoBot": "Bạn trả lời, bot tự bật lại sau thời gian đặt trong cài đặt bot.",
         "optionPermanent": "Tiếp quản hẳn",
         "optionPermanentHint": "Bot không trả lời hội thoại này nữa.",
         "noBot": "Trang này chưa có bot đang hoạt động.",
-        "current": "Đang chọn"
+        "current": "Đang chọn",
+        "takeoverOther": "Nhân viên đang trả lời · bot bật lại sau {{time}}"
       },
       "assignee": {
         "none": "Chưa giao",
@@ -438,12 +439,13 @@
       "addLabel": "Thêm tag (T)",
       "search": "Tìm tag…",
       "empty": "Không có tag phù hợp",
-      "none": "Thư viện chưa có tag nào. Tạo tag ở mục Khách hàng.",
+      "none": "Thư viện chưa có tag nào.",
       "expand": "Hiện tất cả tag",
       "collapse": "Thu gọn danh sách tag",
       "remove": "Gỡ tag {{name}}",
       "attach": "Gắn tag {{name}}",
-      "error": "Không cập nhật được tag. Thử lại."
+      "error": "Không cập nhật được tag. Thử lại.",
+      "create": "Tạo tag trong cài đặt CRM"
     },
     "slash": {
       "hint": "Gõ / để chèn câu trả lời nhanh",
