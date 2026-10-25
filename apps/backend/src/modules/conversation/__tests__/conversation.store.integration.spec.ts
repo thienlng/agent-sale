@@ -242,4 +242,34 @@ describe('DrizzleConversationStore inbox v2 query', () => {
     expect(row?.lastReadAt?.toISOString() ?? null).toBe(view.lastReadAt);
     expect(row?.createdAt.toISOString()).toBe(view.createdAt);
   });
+
+  it('applies huge tag id lists as one array parameter each', async () => {
+    await seed();
+    const everything = (await store.run(a, (tx) => tx.query(base))).data;
+    const many = Array.from({ length: 70_000 }, () => newId());
+    const notIn = await store.run(a, (tx) =>
+      tx.query({ ...base, idsNotIn: [...many, everything[0]!.id] }),
+    );
+    expect(notIn.data.map((c) => c.id)).not.toContain(everything[0]!.id);
+    expect(notIn.counts.all).toBe(everything.length - 1);
+    const only = await store.run(a, (tx) =>
+      tx.query({ ...base, idsIn: [...many, everything[1]!.id] }),
+    );
+    expect(only.data.map((c) => c.id)).toEqual([everything[1]!.id]);
+  });
+
+  it('does not count a resolved conversation as waiting until it is reopened', async () => {
+    const [id] = await seed();
+    const waiting = () => store.run(a, (tx) => tx.query({ ...base, tab: 'waiting' }));
+    await service.update(a, id!, { status: 'open' }, staff);
+    const before = await waiting();
+    await service.update(a, id!, { status: 'resolved' }, staff);
+    const during = await waiting();
+    expect(during.data.map((c) => c.id)).not.toContain(id);
+    expect(during.counts.waiting).toBe(
+      before.counts.waiting - (before.data.some((c) => c.id === id) ? 1 : 0),
+    );
+    await service.update(a, id!, { status: 'open' }, staff);
+    expect((await waiting()).counts).toEqual(before.counts);
+  });
 });

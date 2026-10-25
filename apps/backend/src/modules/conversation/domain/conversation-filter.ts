@@ -63,7 +63,7 @@ export function matchesFilter(c: ConversationView, f: ConversationFilter): boole
     return false;
   if (f.hasPhone !== undefined && (c.customerPhone !== null) !== f.hasPhone) return false;
   if (f.waiting) {
-    if (c.awaitingSince === null) return false;
+    if (!isWaiting(c)) return false;
     if (f.waiting === 'readNotReplied' && c.unreadCount > 0) return false;
   }
   if (f.idsIn && !f.idsIn.includes(c.id)) return false;
@@ -75,8 +75,13 @@ export function matchesFilter(c: ConversationView, f: ConversationFilter): boole
   return true;
 }
 
+/** Someone is waiting for a reply. `awaitingSince` survives "resolved", so reopening restores it. */
+export function isWaiting(c: Pick<ConversationView, 'awaitingSince' | 'status'>): boolean {
+  return c.awaitingSince !== null && c.status === 'open';
+}
+
 export function matchesTab(c: ConversationView, tab: ConversationTab): boolean {
-  return tab === 'unread' ? c.unreadCount > 0 : tab === 'waiting' ? c.awaitingSince !== null : true;
+  return tab === 'unread' ? c.unreadCount > 0 : tab === 'waiting' ? isWaiting(c) : true;
 }
 
 /** `waiting: longest` implies the longest-wait ordering. */
@@ -91,10 +96,11 @@ export function compareConversations(
     b.updatedAt.localeCompare(a.updatedAt) || (a.id < b.id ? 1 : -1);
   if (sort === 'recent') return recent;
   return (a, b) => {
-    if (a.awaitingSince !== b.awaitingSince) {
-      if (a.awaitingSince === null) return 1;
-      if (b.awaitingSince === null) return -1;
-      return a.awaitingSince.localeCompare(b.awaitingSince);
+    const [wa, wb] = [isWaiting(a) ? a.awaitingSince : null, isWaiting(b) ? b.awaitingSince : null];
+    if (wa !== wb) {
+      if (wa === null) return 1;
+      if (wb === null) return -1;
+      return wa.localeCompare(wb);
     }
     return recent(a, b);
   };

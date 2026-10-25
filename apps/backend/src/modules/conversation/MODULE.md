@@ -24,7 +24,7 @@
 - Failed processing retries after 20 s, then 60 s; after the last attempt the conversation is handed to staff.
 
 - Read state is shared by the shop and never bumps `revision` or `updatedAt`. `awaitingSince` is set by a customer message and cleared by any outbound one (human, bot or staff echo).
-- The agent entry calls `refreshCustomerProfile` (not awaited) after each customer message; it stamps `profileFetchedAt` first, so Meta is asked at most once a day per conversation, and never throws.
+- The agent entry calls `refreshCustomerProfile` (not awaited) after each customer message; it stamps `profileFetchedAt` first, so Meta is asked at most once a day after a success and every 15 minutes after a failure, and it never throws.
 - Tag chips are filled from `CrmFacade` on list, detail and mutation responses and are never stored; tag filters ask crm for id sets (`idsIn`/`idsNotIn`) that the SQL query applies.
 - Assignees are validated through `TeamFacade` (active members only), names come from `IdentityFacade`.
 

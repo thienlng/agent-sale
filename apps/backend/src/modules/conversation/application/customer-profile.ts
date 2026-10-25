@@ -3,10 +3,12 @@ import type { ChannelFacade } from '../../channel/api/index.js';
 import type { ConversationStore } from './ports/conversation-store.js';
 
 const RETRY_AFTER_MS = 24 * 3600 * 1000;
+/** A failed lookup (network, 5xx, timeout, refusal) is retried sooner than a success. */
+const RETRY_AFTER_FAILURE_MS = 15 * 60 * 1000;
 
 /**
- * Asks Meta for the customer's name and picture. The attempt is stamped before the call result is
- * known, so a failing profile costs one Meta request a day, not one per message. Meta picture URLs
+ * Asks Meta for the customer's name and picture. The attempt is stamped before the call, so concurrent
+ * messages share one request; a failure is retried after 15 minutes, a success after a day. Meta picture URLs
  * expire, which is why a successful profile is refreshed daily too.
  */
 export async function refreshCustomerProfile(
@@ -39,8 +41,19 @@ async function lookup(
     return { channelId: c.channelId, customerId: c.customerId };
   });
   if (!target) return;
-  const profile = await channels.fetchCustomerProfile(ws, target.channelId, target.customerId);
-  if (!profile || (!profile.name && !profile.avatarUrl)) return;
+  const profile = await channels
+    .fetchCustomerProfile(ws, target.channelId, target.customerId)
+    .catch(() => null);
+  if (!profile) {
+    // Backdate the stamp so the next message retries after 15 minutes, not a day.
+    const stamp = new Date(Date.now() - RETRY_AFTER_MS + RETRY_AFTER_FAILURE_MS).toISOString();
+    await store.run(ws, async (tx) => {
+      const c = await tx.find(id);
+      if (c) await tx.save({ ...c, profileFetchedAt: stamp });
+    });
+    return;
+  }
+  if (!profile.name && !profile.avatarUrl) return;
   await store.run(ws, async (tx) => {
     // Re-read: the customer may have written (or staff acted) while Meta was answering.
     const c = await tx.find(id);

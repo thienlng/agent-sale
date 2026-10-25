@@ -6,7 +6,7 @@ import {
   type InboxMessageDto,
   type UpdateConversationRequest,
 } from '@agent-sales/contracts';
-import { newId, type WorkspaceId } from '@agent-sales/shared';
+import { isUuid, newId, userId, type WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable } from '@nestjs/common';
 import { BOT_FACADE, type BotFacade, type BotView } from '../../bot/api/index.js';
 import {
@@ -20,7 +20,7 @@ import { TEAM_FACADE, type TeamFacade } from '../../team/api/index.js';
 import type { ConversationFacade } from '../api/conversation.facade.js';
 import { ConversationError } from '../domain/conversation.errors.js';
 import { toListFilter } from '../domain/conversation-filter.js';
-import { detectVietnamesePhone } from '../domain/phone.js';
+import { detectVietnamesePhone, normalizeVietnamesePhone } from '../domain/phone.js';
 import { applyControlUpdate, newConversation, preview } from '../domain/conversation-state.js';
 import { attachTags, tagConditions } from './conversation-tags.js';
 import { refreshCustomerProfile } from './customer-profile.js';
@@ -79,6 +79,12 @@ export class ConversationFacadeImpl implements ConversationFacade {
   async update(ws: WorkspaceId, id: string, input: UpdateConversationRequest, actorId: string) {
     // Cross-module read first, never inside the write transaction.
     if (input.assigneeId) await assertAssignable(this.team, ws, input.assigneeId, actorId);
+    const phone = input.customerPhone ? normalizeVietnamesePhone(input.customerPhone) : null;
+    if (input.customerPhone && !phone)
+      throw new ConversationError('VALIDATION_FAILED', 'Enter a Vietnamese mobile number');
+    const noteText = input.note?.trim() ?? '';
+    const author =
+      noteText && isUuid(actorId) ? await this.identity.displayName(userId(actorId)) : null;
     if (input.mode === 'bot') {
       // Resolve the cross-module read before opening the write transaction (see reserveAndDeliver).
       const channelId = await this.store.run(
@@ -96,7 +102,19 @@ export class ConversationFacadeImpl implements ConversationFacade {
       const c = await requireConversation(tx, id);
       if (input.expectedRevision !== undefined && input.expectedRevision !== c.revision)
         throw new ConversationError('CONFLICT', 'Conversation changed; reload before saving');
-      const updated = applyControlUpdate(c, input, actorId, now());
+      // A changed legacy note also lands in the timeline, so the two never drift apart.
+      const noteEntry =
+        noteText && noteText !== c.note
+          ? {
+              id: newId(),
+              authorId: isUuid(actorId) ? actorId : null,
+              authorName: author ?? '',
+              text: noteText,
+              createdAt: now(),
+            }
+          : undefined;
+      const patch = input.customerPhone === undefined ? input : { ...input, customerPhone: phone };
+      const updated = applyControlUpdate(c, patch, actorId, now(), noteEntry);
       await tx.save(updated);
       await tx.audit(id, 'conversation.control.updated.v1', {
         actorId,
@@ -193,7 +211,8 @@ export class ConversationFacadeImpl implements ConversationFacade {
           unreadCount: c.unreadCount + 1,
           awaitingSince: c.awaitingSince ?? event.occurredAt.toISOString(),
           lastMessageSender: 'customer' as const,
-          customerPhone: detectVietnamesePhone(event.text ?? '') ?? c.customerPhone,
+          // The first number stays; staff correct it with PATCH customerPhone.
+          customerPhone: c.customerPhone ?? detectVietnamesePhone(event.text ?? ''),
           revision: c.revision + 1,
           lastMessage: preview(event.text ?? '', event.attachments ?? []),
           lastInboundAt: new Date(

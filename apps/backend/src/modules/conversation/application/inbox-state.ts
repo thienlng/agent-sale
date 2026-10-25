@@ -1,8 +1,9 @@
-import { MAX_CONVERSATION_NOTES, type ConversationView } from '@agent-sales/contracts';
+import type { ConversationView } from '@agent-sales/contracts';
 import { newId, userId, type WorkspaceId } from '@agent-sales/shared';
 import type { IdentityFacade } from '../../identity/api/index.js';
 import type { TeamFacade } from '../../team/api/index.js';
 import { ConversationError } from '../domain/conversation.errors.js';
+import { withNote } from '../domain/conversation-state.js';
 import type { ConversationStore } from './ports/conversation-store.js';
 
 // Read state and notes are shop-level annotations, not control changes: none of them bumps
@@ -65,21 +66,15 @@ export async function addNote(
   if (!body || body.length > 10000)
     throw new ConversationError('VALIDATION_FAILED', 'A note holds 1 to 10000 characters');
   const authorName = (await identity.displayName(userId(actorId))) ?? '';
-  return load(store, ws, id, (c) => ({
-    ...c,
-    // `note` mirrors the newest entry for callers that still read the legacy field.
-    note: body,
-    notes: [
-      ...c.notes,
-      {
-        id: newId(),
-        authorId: actorId,
-        authorName,
-        text: body,
-        createdAt: new Date().toISOString(),
-      },
-    ].slice(-MAX_CONVERSATION_NOTES),
-  }));
+  return load(store, ws, id, (c) =>
+    withNote(c, {
+      id: newId(),
+      authorId: actorId,
+      authorName,
+      text: body,
+      createdAt: new Date().toISOString(),
+    }),
+  );
 }
 
 /** Only an active member of the workspace can be given a conversation. */

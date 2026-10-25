@@ -169,7 +169,15 @@ export const UpdateConversationRequest = z.object({
   assignToMe: z.boolean().optional(),
   /** Any active member of the workspace, or `null` to unassign. Wins over `assignToMe`. */
   assigneeId: z.uuid().nullable().optional(),
+  /**
+   * Legacy single note. A non-empty value is also appended to the `notes` timeline (author = the
+   * caller) unless it equals the current `note`; an empty value only clears the legacy field and
+   * never deletes timeline entries. `POST /conversations/{id}/notes` mirrors the newest entry
+   * into `note`, so the two paths never lose data.
+   */
   note: z.string().max(10000).optional(),
+  /** Staff correction of the detected phone: a Vietnamese mobile number, or `null` to clear. */
+  customerPhone: z.string().trim().max(30).nullable().optional(),
 });
 export type UpdateConversationRequest = z.infer<typeof UpdateConversationRequest>;
 

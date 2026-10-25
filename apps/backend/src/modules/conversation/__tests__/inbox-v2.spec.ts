@@ -194,19 +194,19 @@ describe('waiting state', () => {
 });
 
 describe('customer phone', () => {
-  it('captures the latest Vietnamese number from customer text only', async () => {
+  it('captures the first Vietnamese number from customer text only and keeps it', async () => {
     const first = await service.receive(ws, channelId, event('m1', { text: 'sdt 0912 345 678' }));
     expect(first.customerPhone).toBe('0912345678');
     const kept = await service.receive(ws, channelId, event('m2', { text: 'cảm ơn shop' }));
     expect(kept.customerPhone).toBe('0912345678');
     const newer = await service.receive(ws, channelId, event('m3', { text: '+84 388 111 222' }));
-    expect(newer.customerPhone).toBe('0388111222');
+    expect(newer.customerPhone).toBe('0912345678');
     const echo = await service.receive(
       ws,
       channelId,
       event('e1', { type: 'echo', text: '0977111222' }),
     );
-    expect(echo.customerPhone).toBe('0388111222');
+    expect(echo.customerPhone).toBe('0912345678');
   });
 });
 
@@ -292,12 +292,13 @@ describe('list filters and counts', () => {
   it('splits the tabs and counts them with every filter except the tab', async () => {
     const { a, b, c, d } = await seed();
     const all = await service.list(ws, { limit: 50 }, lan);
-    expect(all.counts).toEqual({ all: 4, unread: 3, waiting: 3 });
+    expect(all.counts).toEqual({ all: 4, unread: 3, waiting: 2 });
     expect(ids(all).sort()).toEqual([a.id, b.id, c.id, d.id].sort());
     const unread = await service.list(ws, { limit: 50, tab: 'unread' }, lan);
     expect(ids(unread).sort()).toEqual([a.id, c.id, d.id].sort());
     const waiting = await service.list(ws, { limit: 50, tab: 'waiting' }, lan);
-    expect(ids(waiting).sort()).toEqual([a.id, b.id, d.id].sort());
+    // d is resolved: it keeps awaitingSince but is not waiting.
+    expect(ids(waiting).sort()).toEqual([a.id, b.id].sort());
     // Counts ignore the tab but obey the other filters.
     expect(unread.counts).toEqual(all.counts);
     const open = await service.list(ws, { limit: 50, status: 'open', tab: 'waiting' }, lan);
@@ -315,7 +316,7 @@ describe('list filters and counts', () => {
     expect(await q({ hasPhone: true })).toEqual([a.id]);
     expect((await q({ hasPhone: false })).sort()).toEqual([b.id, c.id, d.id].sort());
     expect(await q({ waiting: 'readNotReplied' })).toEqual([b.id]);
-    expect((await q({ waiting: 'any' })).sort()).toEqual([a.id, b.id, d.id].sort());
+    expect((await q({ waiting: 'any' })).sort()).toEqual([a.id, b.id].sort());
     expect(await q({ q: '0912' })).toEqual([a.id]);
     expect(await q({ q: 'PRICE' })).toEqual([b.id]);
     expect((await q({ mode: 'bot' })).length).toBeGreaterThan(0);
@@ -324,13 +325,13 @@ describe('list filters and counts', () => {
   it('sorts the longest wait first, for the sort option and for waiting=longest', async () => {
     const { a, b, c, d } = await seed();
     const longest = ids(await service.list(ws, { limit: 50, sort: 'waitingLongest' }, lan));
-    // b started waiting at 04:00, a at 05:00, d at 05:00 (later insert), c is not waiting.
-    expect(longest.slice(0, 2)).toEqual([b.id, expect.any(String)]);
-    expect(longest.at(-1)).toBe(c.id);
+    // b started waiting at 04:00, a at 05:00; c is answered and d is resolved.
+    expect(longest.slice(0, 2)).toEqual([b.id, a.id]);
     const viaWaiting = ids(await service.list(ws, { limit: 50, waiting: 'longest' }, lan));
     expect(viaWaiting[0]).toBe(b.id);
     expect(viaWaiting).not.toContain(c.id);
-    expect([a.id, d.id]).toContain(viaWaiting[1]);
+    expect(viaWaiting).toEqual([b.id, a.id]);
+    expect(d.id).toBeDefined();
   });
 
   it('orders by recent activity by default and honours the limit', async () => {
@@ -369,14 +370,26 @@ describe('customer profile', () => {
     expect(after.updatedAt).toBe(c.updatedAt);
   });
 
-  it('keeps the raw id and tries again only after a day when Meta has nothing', async () => {
+  it('retries a failed lookup after 15 minutes, not a day', async () => {
     vi.mocked(channels.fetchCustomerProfile).mockResolvedValue(null);
     const c = await service.receive(ws, channelId, event('m1'));
     await service.refreshCustomerProfile(ws, c.id);
+    vi.advanceTimersByTime(10 * 60000);
     await service.refreshCustomerProfile(ws, c.id);
     expect(channels.fetchCustomerProfile).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(6 * 60000);
+    await service.refreshCustomerProfile(ws, c.id);
+    expect(channels.fetchCustomerProfile).toHaveBeenCalledTimes(2);
     expect((await service.get(ws, c.id)).conversation.customerName).toBe('customer');
-    vi.setSystemTime(new Date('2026-10-25T05:00:01Z'));
+  });
+
+  it('waits a day after a success', async () => {
+    const c = await service.receive(ws, channelId, event('m1'));
+    await service.refreshCustomerProfile(ws, c.id);
+    vi.advanceTimersByTime(23 * 3600000);
+    await service.refreshCustomerProfile(ws, c.id);
+    expect(channels.fetchCustomerProfile).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(2 * 3600000);
     await service.refreshCustomerProfile(ws, c.id);
     expect(channels.fetchCustomerProfile).toHaveBeenCalledTimes(2);
   });
@@ -480,5 +493,67 @@ describe('tag library outage', () => {
     expect((await service.list(ws, { limit: 50 }, lan)).data.map((r) => r.id)).toEqual([c.id]);
     expect((await service.get(ws, c.id)).conversation.tags).toEqual([]);
     await expect(service.list(ws, { limit: 50, untagged: true }, lan)).rejects.toThrow('crm down');
+  });
+});
+
+describe('resolved conversations', () => {
+  it('leave the waiting tab, counts and filters, and return when reopened', async () => {
+    const a = await service.receive(ws, channelId, event('a1', { senderExternalId: 'a' }));
+    const b = await service.receive(ws, channelId, event('b1', { senderExternalId: 'b' }));
+    const waiting = async (query: object = {}) => service.list(ws, { limit: 50, ...query }, lan);
+    expect((await waiting()).counts.waiting).toBe(2);
+
+    const resolved = await service.update(ws, a.id, { status: 'resolved' }, lan);
+    expect(resolved.awaitingSince).not.toBeNull();
+    const after = await waiting({ tab: 'waiting' });
+    expect(after.data.map((c) => c.id)).toEqual([b.id]);
+    expect(after.counts).toEqual({ all: 2, unread: 2, waiting: 1 });
+    for (const w of ['any', 'longest', 'readNotReplied'] as const) {
+      await service.markRead(ws, b.id, lan);
+      expect((await waiting({ waiting: w })).data.map((c) => c.id)).not.toContain(a.id);
+    }
+    const ordered = await waiting({ sort: 'waitingLongest' });
+    expect(ordered.data.map((c) => c.id)).toEqual([b.id, a.id]);
+
+    await service.update(ws, a.id, { status: 'open' }, lan);
+    expect((await waiting({ tab: 'waiting' })).data.map((c) => c.id).sort()).toEqual(
+      [a.id, b.id].sort(),
+    );
+    expect((await waiting()).counts.waiting).toBe(2);
+  });
+});
+
+describe('legacy note and timeline', () => {
+  it('appends a changed PATCH note to the timeline and keeps both consistent', async () => {
+    const c = await service.receive(ws, channelId, event('m1'));
+    const first = await service.update(ws, c.id, { note: ' Gọi lại chiều ' }, lan);
+    expect(first.note).toBe('Gọi lại chiều');
+    expect(first.notes).toEqual([
+      expect.objectContaining({ authorId: lan, authorName: 'Lan', text: 'Gọi lại chiều' }),
+    ]);
+    // Saving the same text again adds nothing; the timeline entry from the other path stays.
+    expect((await service.update(ws, c.id, { note: 'Gọi lại chiều' }, lan)).notes).toHaveLength(1);
+    const viaTimeline = await service.addNote(ws, c.id, 'Đã gọi', minh);
+    expect(viaTimeline.note).toBe('Đã gọi');
+    expect(viaTimeline.notes).toHaveLength(2);
+    // Clearing the legacy field never deletes timeline entries.
+    const cleared = await service.update(ws, c.id, { note: '' }, lan);
+    expect(cleared.note).toBe('');
+    expect(cleared.notes).toHaveLength(2);
+  });
+});
+
+describe('customer phone correction', () => {
+  it('lets staff set, normalise and clear the phone, and rejects anything else', async () => {
+    const c = await service.receive(ws, channelId, event('m1', { text: 'sdt 0912345678' }));
+    const set = await service.update(ws, c.id, { customerPhone: '+84 388 111 222' }, lan);
+    expect(set.customerPhone).toBe('0388111222');
+    // A later customer message does not overwrite the corrected number.
+    const again = await service.receive(ws, channelId, event('m2', { text: '0977 111 222' }));
+    expect(again.customerPhone).toBe('0388111222');
+    await expect(
+      service.update(ws, c.id, { customerPhone: 'not a phone' }, lan),
+    ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+    expect((await service.update(ws, c.id, { customerPhone: null }, lan)).customerPhone).toBeNull();
   });
 });

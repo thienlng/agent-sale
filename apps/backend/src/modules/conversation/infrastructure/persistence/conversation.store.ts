@@ -2,10 +2,8 @@ import {
   and,
   desc,
   eq,
-  inArray,
   isNotNull,
   isNull,
-  notInArray,
   schema,
   sql,
   withTenant,
@@ -32,6 +30,10 @@ type Row = typeof c.$inferSelect;
 const toView = (r: Row): ConversationView =>
   ConversationDto.parse({ ...r.data, createdAt: r.data.createdAt ?? r.createdAt.toISOString() });
 const likePattern = (q: string): string => `%${q.replace(/[\\%_]/g, '\\$&')}%`;
+/** Open and waiting; a resolved conversation keeps `awaiting_since` but is not waiting. */
+const waitingNow = sql`(${c.awaitingSince} is not null and ${c.status} = 'open')`;
+/** One array parameter instead of one per id (Postgres allows 65535 parameters per statement). */
+const uuidArray = (ids: readonly string[]) => sql`${`{${ids.join(',')}}`}::uuid[]`;
 const date = (iso: string | null): Date | null => (iso ? new Date(iso) : null);
 /** Every condition except the tab; counts use exactly these. */
 function baseConditions(ws: WorkspaceId, f: ConversationFilter): SQL[] {
@@ -45,11 +47,11 @@ function baseConditions(ws: WorkspaceId, f: ConversationFilter): SQL[] {
   if (f.hasPhone !== undefined)
     where.push(f.hasPhone ? isNotNull(c.customerPhone) : isNull(c.customerPhone));
   if (f.waiting) {
-    where.push(isNotNull(c.awaitingSince));
+    where.push(waitingNow);
     if (f.waiting === 'readNotReplied') where.push(eq(c.unreadCount, 0));
   }
-  if (f.idsIn) where.push(f.idsIn.length ? inArray(c.id, [...f.idsIn]) : sql`false`);
-  if (f.idsNotIn?.length) where.push(notInArray(c.id, [...f.idsNotIn]));
+  if (f.idsIn) where.push(sql`${c.id} = any(${uuidArray(f.idsIn)})`);
+  if (f.idsNotIn?.length) where.push(sql`${c.id} <> all(${uuidArray(f.idsNotIn)})`);
   if (f.q) {
     const pattern = likePattern(f.q);
     where.push(
@@ -103,11 +105,15 @@ export class DrizzleConversationStore implements ConversationStore {
             f.tab === 'unread'
               ? [sql`${c.unreadCount} > 0`]
               : f.tab === 'waiting'
-                ? [isNotNull(c.awaitingSince)]
+                ? [waitingNow]
                 : [];
           const order =
             effectiveSort(f) === 'waitingLongest'
-              ? [sql`${c.awaitingSince} asc nulls last`, desc(c.updatedAt), desc(c.id)]
+              ? [
+                  sql`(case when ${c.status} = 'open' then ${c.awaitingSince} end) asc nulls last`,
+                  desc(c.updatedAt),
+                  desc(c.id),
+                ]
               : [desc(c.updatedAt), desc(c.id)];
           const [rows, [counts]] = await Promise.all([
             tx
@@ -120,7 +126,7 @@ export class DrizzleConversationStore implements ConversationStore {
               .select({
                 all: sql<number>`count(*)::int`,
                 unread: sql<number>`(count(*) filter (where ${c.unreadCount} > 0))::int`,
-                waiting: sql<number>`(count(*) filter (where ${c.awaitingSince} is not null))::int`,
+                waiting: sql<number>`(count(*) filter (where ${waitingNow}))::int`,
               })
               .from(c)
               .where(and(...base)),

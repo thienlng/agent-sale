@@ -33,6 +33,7 @@ const waiting = newId(); // the customer wrote last, after an earlier staff repl
 const answered = newId(); // the shop wrote last
 const resolved = newId(); // the customer wrote last but it is resolved
 const bare = newId(); // no messages at all, carries a legacy note
+const malformed = newId(); // hand-edited document with values that do not cast
 
 const doc = (id: string, over: Record<string, unknown>) => ({
   id,
@@ -96,6 +97,15 @@ beforeAll(async () => {
   await message(resolved, 'inbound', 'customer', '2026-10-20T08:00:00Z');
 
   await conversation(bare, doc(bare, { note: 'Call back tomorrow' }));
+  await conversation(
+    malformed,
+    doc(malformed, {
+      assigneeId: 'not-a-uuid',
+      lastReadAt: 'yesterday-ish',
+      unreadCount: 'many',
+      awaitingSince: 'soon',
+    }),
+  );
 
   await migrate(pg.ownerUrl);
 });
@@ -177,5 +187,29 @@ describe('inbox v2 backfill (0024)', () => {
       sql.raw(await readFile(path.join(MIGRATIONS_DIR, '0024_inbox_v2.sql'), 'utf8')),
     );
     expect((await row(answered)).data.notes).toEqual(before);
+  });
+
+  it('turns malformed document values into null/0 instead of failing the migration', async () => {
+    expect(await row(malformed)).toMatchObject({
+      assignee_id: null,
+      unread_count: 0,
+      awaiting_since: null,
+      status: 'open',
+    });
+  });
+
+  it('keeps unread and waiting values that later activity wrote when applied again', async () => {
+    await db.db.execute(
+      sql`update conversations set data = data || ${JSON.stringify({
+        unreadCount: 4,
+        awaitingSince: '2026-10-21T01:02:03.000Z',
+      })}::jsonb where id = ${answered}`,
+    );
+    await db.db.execute(
+      sql.raw(await readFile(path.join(MIGRATIONS_DIR, '0024_inbox_v2.sql'), 'utf8')),
+    );
+    const r = await row(answered);
+    expect(r.unread_count).toBe(4);
+    expect(iso(r.awaiting_since)).toBe('2026-10-21T01:02:03.000Z');
   });
 });

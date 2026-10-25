@@ -1,4 +1,9 @@
-import type { ConversationView, UpdateConversationRequest } from '@agent-sales/contracts';
+import {
+  MAX_CONVERSATION_NOTES,
+  type ConversationNote,
+  type ConversationView,
+  type UpdateConversationRequest,
+} from '@agent-sales/contracts';
 
 /** List preview: the text, or a neutral marker the UI localizes (e.g. "[image]"). */
 export function preview(text: string, attachments: readonly { type: string }[]): string {
@@ -46,18 +51,27 @@ export function newConversation(input: {
   };
 }
 
+/** Appends to the timeline (oldest dropped past the cap); `note` mirrors the newest entry. */
+export function withNote(c: ConversationView, entry: ConversationNote): ConversationView {
+  return { ...c, note: entry.text, notes: [...c.notes, entry].slice(-MAX_CONVERSATION_NOTES) };
+}
+
 /** Staff control changes; every one is a new revision so pending bot replies are dropped. */
 export function applyControlUpdate(
   c: ConversationView,
   input: UpdateConversationRequest,
   actorId: string,
   at: string,
+  /** Timeline entry for a changed legacy `note` (built by the caller, which knows the author). */
+  noteEntry?: ConversationNote,
 ): ConversationView {
+  const base = noteEntry ? withNote(c, noteEntry) : c;
   return {
-    ...c,
+    ...base,
     ...(input.mode ? { mode: input.mode, autoResumeAt: null } : {}),
     ...(input.status ? { status: input.status } : {}),
-    ...(input.note !== undefined ? { note: input.note } : {}),
+    ...(input.note !== undefined && !noteEntry ? { note: input.note } : {}),
+    ...(input.customerPhone !== undefined ? { customerPhone: input.customerPhone } : {}),
     ...(input.followUpAt !== undefined ? { followUpAt: input.followUpAt } : {}),
     ...(input.followUpNote !== undefined
       ? { followUpNote: input.followUpNote }
