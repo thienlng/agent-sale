@@ -459,7 +459,7 @@
       "noteAdd": "Viết ghi chú cho ca sau… (Enter để lưu)",
       "noteEmpty": "Chưa có ghi chú",
       "noteError": "Không lưu được ghi chú. Thử lại.",
-      "noteAuthor": "Nhân viên",
+      "noteAuthor": "Không rõ người viết",
       "legacyNote": "Ghi chú cũ",
       "orders": "Đơn hàng",
       "createOrder": "Tạo đơn",

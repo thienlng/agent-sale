@@ -459,7 +459,7 @@
       "noteAdd": "Write a note for the next shift… (Enter to save)",
       "noteEmpty": "No notes yet",
       "noteError": "Could not save the note. Try again.",
-      "noteAuthor": "Staff",
+      "noteAuthor": "Unknown author",
       "legacyNote": "Earlier note",
       "orders": "Orders",
       "createOrder": "Create order",

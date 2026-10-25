@@ -228,15 +228,7 @@ export function ConversationView({
           <ArrowLeft />
           {tr('back')}
         </Button>
-        {renderSalesPanel ? (
-          renderSalesPanel(c)
-        ) : (
-          <CustomerPanel
-            conversation={c}
-            busy={update.isPending}
-            onChange={(body) => void change(body)}
-          />
-        )}
+        {renderSalesPanel ? renderSalesPanel(c) : <CustomerPanel conversation={c} />}
       </aside>
     </div>
   );
