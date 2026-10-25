@@ -67,6 +67,8 @@ Design: `docs/superpowers/specs/2026-10-25-inbox-v2-design.md`. A conversation i
 
 Deploys of migration 0024 and the new store must be atomic: code from before it writes only `data`, which would leave the columns (and so the list, tabs and counts) stale. The migration is re-runnable (values the document already carries are kept, malformed ones become null/0). Backfill of existing rows: columns come from the document; `awaiting_since` is the first customer message after the last outbound one for open conversations whose newest message is the customer's; `unread_count` starts at 0 (no history of who read what); `customer_phone` starts empty and fills from new messages.
 
+**Takeover and sender name.** `PATCH { mode: 'human', takeover: 'temporary' | 'permanent' }` (`takeover` only with `mode: 'human'`). `temporary` resumes the bot after the bot's `humanTakeoverMinutes` when the channel has an active bot that resumes after manual replies; `permanent` (or no `takeover`) never resumes, and staff replies or Page echoes on it do not start the timer. A staff reply or echo while the bot answers is an implicit `temporary` takeover. `mode: 'bot'` clears it (`takeover: null`). Messages sent by staff from the inbox carry `senderName` (their display name); bot, customer and echo messages carry `null`.
+
 ### Conversation tags and tag filters
 
 Conversations use the CRM tag library (`crm_tags`) and `crm_tag_assignments` with `scope = 'conversation'`, owned by the crm module.

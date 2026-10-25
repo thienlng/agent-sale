@@ -85,14 +85,17 @@ export class ConversationFacadeImpl implements ConversationFacade {
     const noteText = input.note?.trim() ?? '';
     const author =
       noteText && isUuid(actorId) ? await this.identity.displayName(userId(actorId)) : null;
-    if (input.mode === 'bot') {
+    let resumeAt: string | null = null;
+    if (input.mode === 'bot' || input.takeover === 'temporary') {
       // Resolve the cross-module read before opening the write transaction (see reserveAndDeliver).
       const channelId = await this.store.run(
         ws,
         async (tx) => (await requireConversation(tx, id)).channelId,
       );
       const bot = await this.channelBot(ws, channelId);
-      if (!bot?.isActive)
+      // Auto-resume only makes sense with an active bot that is set to resume.
+      if (bot?.isActive) resumeAt = this.resumeAt(bot);
+      if (input.mode === 'bot' && !bot?.isActive)
         throw new ConversationError(
           'CONFLICT',
           'Bind an active bot to this channel before enabling automatic replies',
@@ -114,7 +117,7 @@ export class ConversationFacadeImpl implements ConversationFacade {
             }
           : undefined;
       const patch = input.customerPhone === undefined ? input : { ...input, customerPhone: phone };
-      const updated = applyControlUpdate(c, patch, actorId, now(), noteEntry);
+      const updated = applyControlUpdate(c, patch, actorId, now(), noteEntry, resumeAt);
       await tx.save(updated);
       await tx.audit(id, 'conversation.control.updated.v1', {
         actorId,
@@ -188,9 +191,7 @@ export class ConversationFacadeImpl implements ConversationFacade {
         }
         c = {
           ...c,
-          ...(bot?.silenceOnExternalReply !== false
-            ? { mode: 'human' as const, autoResumeAt: this.resumeAt(bot) }
-            : {}),
+          ...(bot?.silenceOnExternalReply !== false ? this.humanPause(c, bot) : {}),
           // Staff answered from outside the app: nobody is waiting any more.
           awaitingSince: null,
           lastMessageSender: 'human' as const,
@@ -205,7 +206,7 @@ export class ConversationFacadeImpl implements ConversationFacade {
           c.autoResumeAt &&
           Date.parse(c.autoResumeAt) <= Date.now() &&
           bot?.isActive
-            ? { mode: 'bot' as const, autoResumeAt: null }
+            ? { mode: 'bot' as const, autoResumeAt: null, takeover: null }
             : {}),
           status: 'open',
           unreadCount: c.unreadCount + 1,
@@ -228,6 +229,7 @@ export class ConversationFacadeImpl implements ConversationFacade {
           conversationId: c.id,
           direction: event.type === 'echo' ? 'outbound' : 'inbound',
           sender: event.type === 'echo' ? 'human' : 'customer',
+          senderName: null,
           text: (event.text ?? '').slice(0, 2000),
           attachments: event.attachments ?? [],
           status: event.type === 'echo' ? 'sent' : 'received',
@@ -296,6 +298,15 @@ export class ConversationFacadeImpl implements ConversationFacade {
     if (channel.status !== 'connected' || !channel.botId) return null;
     return this.bots.getBot(ws, channel.botId);
   }
+  /** A staff reply or Page echo pauses the bot; an explicit permanent takeover stays permanent. */
+  private humanPause(c: ConversationView, bot: BotView | null) {
+    const permanent = c.mode === 'human' && c.takeover === 'permanent';
+    return {
+      mode: 'human' as const,
+      autoResumeAt: permanent ? null : this.resumeAt(bot),
+      takeover: permanent ? ('permanent' as const) : ('temporary' as const),
+    };
+  }
   private resumeAt(bot: BotView | null): string | null {
     return bot && bot.autoResumeAfterManual !== false
       ? new Date(Date.now() + (bot.humanTakeoverMinutes ?? 5) * 60000).toISOString()
@@ -315,6 +326,8 @@ export class ConversationFacadeImpl implements ConversationFacade {
       async (tx) => (await requireConversation(tx, id)).channelId,
     );
     const bot = await this.channelBot(ws, channelId);
+    const senderName =
+      actorId && isUuid(actorId) ? await this.identity.displayName(userId(actorId)) : null;
     const reservation = await this.store.run(ws, async (tx) => {
       const c = await requireConversation(tx, id);
       const prior = await tx.findMessage(id, input.idempotencyKey);
@@ -346,7 +359,7 @@ export class ConversationFacadeImpl implements ConversationFacade {
       const updated = {
         ...c,
         mode: actorId ? ('human' as const) : c.mode,
-        ...(actorId ? { autoResumeAt: this.resumeAt(bot) } : {}),
+        ...(actorId ? this.humanPause(c, bot) : {}),
         revision: c.revision + 1,
         assigneeId: actorId ?? c.assigneeId,
         // Any reply, human or bot, answers the customer.
@@ -359,6 +372,7 @@ export class ConversationFacadeImpl implements ConversationFacade {
         conversationId: id,
         direction: 'outbound',
         sender: actorId ? 'human' : 'bot',
+        senderName: actorId ? senderName : null,
         text: input.text,
         attachments: input.attachment ? [input.attachment] : [],
         status: 'pending',

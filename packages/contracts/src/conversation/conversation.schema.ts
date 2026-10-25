@@ -33,6 +33,11 @@ export const ConversationDto = z.object({
   profileFetchedAt: z.iso.datetime().nullable().default(null),
   mode: z.enum(['human', 'bot']),
   autoResumeAt: z.iso.datetime().nullable().default(null),
+  /**
+   * How staff took over: `temporary` resumes the bot at `autoResumeAt`, `permanent` never does.
+   * `null` while the bot answers. An implicit takeover (staff reply or Page echo) is `temporary`.
+   */
+  takeover: z.enum(['temporary', 'permanent']).nullable().default(null),
   status: z.enum(['open', 'resolved']),
   assigneeId: z.uuid().nullable(),
   /** Legacy single note, kept readable; `notes` is the timeline. */
@@ -76,6 +81,8 @@ export const InboxMessageDto = z.object({
   conversationId: z.uuid(),
   direction: z.enum(['inbound', 'outbound']),
   sender: z.enum(['customer', 'human', 'bot']),
+  /** Display name of the staff member who sent it from the inbox; null for bot, customer and Page echoes. */
+  senderName: z.string().max(200).nullable().optional(),
   text: z.string(),
   attachments: z.array(InboxAttachment).max(10).default([]),
   status: z.enum(['received', 'pending', 'sent', 'failed', 'unknown']),
@@ -160,25 +167,32 @@ export const SendInboxMessageRequest = z
     path: ['text'],
   });
 export type SendInboxMessageRequest = z.infer<typeof SendInboxMessageRequest>;
-export const UpdateConversationRequest = z.object({
-  expectedRevision: z.number().int().min(0).optional(),
-  followUpAt: z.iso.datetime().nullable().optional(),
-  followUpNote: z.string().trim().max(500).optional(),
-  mode: z.enum(['human', 'bot']).optional(),
-  status: z.enum(['open', 'resolved']).optional(),
-  assignToMe: z.boolean().optional(),
-  /** Any active member of the workspace, or `null` to unassign. Wins over `assignToMe`. */
-  assigneeId: z.uuid().nullable().optional(),
-  /**
-   * Legacy single note. A non-empty value is also appended to the `notes` timeline (author = the
-   * caller) unless it equals the current `note`; an empty value only clears the legacy field and
-   * never deletes timeline entries. `POST /conversations/{id}/notes` mirrors the newest entry
-   * into `note`, so the two paths never lose data.
-   */
-  note: z.string().max(10000).optional(),
-  /** Staff correction of the detected phone: a Vietnamese mobile number, or `null` to clear. */
-  customerPhone: z.string().trim().max(30).nullable().optional(),
-});
+export const UpdateConversationRequest = z
+  .object({
+    expectedRevision: z.number().int().min(0).optional(),
+    followUpAt: z.iso.datetime().nullable().optional(),
+    followUpNote: z.string().trim().max(500).optional(),
+    mode: z.enum(['human', 'bot']).optional(),
+    /** Only with `mode: 'human'`. `temporary` resumes the bot after the bot's takeover minutes. */
+    takeover: z.enum(['temporary', 'permanent']).optional(),
+    status: z.enum(['open', 'resolved']).optional(),
+    assignToMe: z.boolean().optional(),
+    /** Any active member of the workspace, or `null` to unassign. Wins over `assignToMe`. */
+    assigneeId: z.uuid().nullable().optional(),
+    /**
+     * Legacy single note. A non-empty value is also appended to the `notes` timeline (author = the
+     * caller) unless it equals the current `note`; an empty value only clears the legacy field and
+     * never deletes timeline entries. `POST /conversations/{id}/notes` mirrors the newest entry
+     * into `note`, so the two paths never lose data.
+     */
+    note: z.string().max(10000).optional(),
+    /** Staff correction of the detected phone: a Vietnamese mobile number, or `null` to clear. */
+    customerPhone: z.string().trim().max(30).nullable().optional(),
+  })
+  .refine((b) => b.takeover === undefined || b.mode === 'human', {
+    message: 'takeover needs mode "human"',
+    path: ['takeover'],
+  });
 export type UpdateConversationRequest = z.infer<typeof UpdateConversationRequest>;
 
 export const AddConversationNoteRequest = z.object({

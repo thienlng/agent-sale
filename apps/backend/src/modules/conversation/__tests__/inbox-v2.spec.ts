@@ -1,4 +1,5 @@
 import type { NormalizedEvent } from '@agent-sales/channels';
+import { UpdateConversationRequest } from '@agent-sales/contracts';
 import { newId, workspaceId } from '@agent-sales/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BotFacade, BotView } from '../../bot/api/index.js';
@@ -555,5 +556,104 @@ describe('customer phone correction', () => {
       service.update(ws, c.id, { customerPhone: 'not a phone' }, lan),
     ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
     expect((await service.update(ws, c.id, { customerPhone: null }, lan)).customerPhone).toBeNull();
+  });
+});
+
+describe('takeover', () => {
+  const fiveMinutes = '2026-10-24T05:05:00.000Z';
+
+  it('resumes the bot after the takeover minutes for a temporary takeover', async () => {
+    const c = await service.receive(ws, channelId, event('m1'));
+    const u = await service.update(ws, c.id, { mode: 'human', takeover: 'temporary' }, lan);
+    expect(u).toMatchObject({ mode: 'human', takeover: 'temporary', autoResumeAt: fiveMinutes });
+  });
+
+  it.each([
+    ['the bot does not resume after manual replies', () => (bot.autoResumeAfterManual = false)],
+    ['the bot is inactive', () => (bot.isActive = false)],
+  ])('has no resume time when %s', async (_name, arrange) => {
+    const c = await service.receive(ws, channelId, event('m1'));
+    arrange();
+    const u = await service.update(ws, c.id, { mode: 'human', takeover: 'temporary' }, lan);
+    expect(u).toMatchObject({ takeover: 'temporary', autoResumeAt: null });
+  });
+
+  it('never resumes after a permanent or unspecified takeover, even when staff reply', async () => {
+    const c = await service.receive(ws, channelId, event('m1'));
+    for (const input of [
+      { mode: 'human' as const, takeover: 'permanent' as const },
+      { mode: 'human' as const },
+    ]) {
+      const u = await service.update(ws, c.id, input, lan);
+      expect(u).toMatchObject({ takeover: 'permanent', autoResumeAt: null });
+      await service.send(ws, c.id, { text: 'hi', idempotencyKey: newId() }, lan);
+      expect((await service.get(ws, c.id)).conversation).toMatchObject({
+        mode: 'human',
+        takeover: 'permanent',
+        autoResumeAt: null,
+      });
+    }
+    // An echo from the Page inbox does not start the timer either.
+    const echoed = await service.receive(ws, channelId, event('e1', { type: 'echo' }));
+    expect(echoed).toMatchObject({ takeover: 'permanent', autoResumeAt: null });
+  });
+
+  it('treats an implicit takeover as temporary', async () => {
+    const c = await service.receive(ws, channelId, event('m1'));
+    await service.send(ws, c.id, { text: 'hi', idempotencyKey: newId() }, lan);
+    expect((await service.get(ws, c.id)).conversation).toMatchObject({
+      takeover: 'temporary',
+      autoResumeAt: fiveMinutes,
+    });
+    await service.update(ws, c.id, { mode: 'bot' }, lan);
+    const echoed = await service.receive(ws, channelId, event('e1', { type: 'echo' }));
+    expect(echoed).toMatchObject({
+      mode: 'human',
+      takeover: 'temporary',
+      autoResumeAt: fiveMinutes,
+    });
+  });
+
+  it('clears the takeover when switching back to the bot', async () => {
+    const c = await service.receive(ws, channelId, event('m1'));
+    await service.update(ws, c.id, { mode: 'human', takeover: 'permanent' }, lan);
+    expect(await service.update(ws, c.id, { mode: 'bot' }, lan)).toMatchObject({
+      mode: 'bot',
+      takeover: null,
+      autoResumeAt: null,
+    });
+  });
+
+  it('is only valid together with mode human', () => {
+    expect(UpdateConversationRequest.safeParse({ takeover: 'temporary' }).success).toBe(false);
+    expect(
+      UpdateConversationRequest.safeParse({ mode: 'bot', takeover: 'permanent' }).success,
+    ).toBe(false);
+    expect(
+      UpdateConversationRequest.safeParse({ mode: 'human', takeover: 'permanent' }).success,
+    ).toBe(true);
+  });
+});
+
+describe('sender name', () => {
+  it('records the staff display name on human messages only', async () => {
+    const c = await service.receive(ws, channelId, event('m1'));
+    const human = await service.send(ws, c.id, { text: 'Chào chị', idempotencyKey: newId() }, lan);
+    expect(human.senderName).toBe('Lan');
+    await service.update(ws, c.id, { mode: 'bot' }, lan);
+    const bot = await service.commitBotReply(ws, c.id, {
+      revision: (await service.getReplyContext(ws, c.id)).revision,
+      text: 'Bot',
+      idempotencyKey: 'bot:m1',
+    });
+    expect(bot?.senderName).toBeNull();
+    await service.receive(ws, channelId, event('e1', { type: 'echo' }));
+    const { messages } = await service.get(ws, c.id);
+    expect(messages.map((m) => [m.sender, m.senderName])).toEqual([
+      ['customer', null],
+      ['human', 'Lan'],
+      ['bot', null],
+      ['human', null],
+    ]);
   });
 });

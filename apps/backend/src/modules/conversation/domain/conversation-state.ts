@@ -32,6 +32,7 @@ export function newConversation(input: {
     profileFetchedAt: null,
     mode: input.mode,
     autoResumeAt: null,
+    takeover: null,
     status: 'open',
     assigneeId: null,
     note: '',
@@ -64,11 +65,18 @@ export function applyControlUpdate(
   at: string,
   /** Timeline entry for a changed legacy `note` (built by the caller, which knows the author). */
   noteEntry?: ConversationNote,
+  /** When the bot resumes for a temporary takeover (null: never); computed by the caller. */
+  resumeAt: string | null = null,
 ): ConversationView {
   const base = noteEntry ? withNote(c, noteEntry) : c;
   return {
     ...base,
-    ...(input.mode ? { mode: input.mode, autoResumeAt: null } : {}),
+    ...(input.mode === 'bot' ? { mode: 'bot' as const, autoResumeAt: null, takeover: null } : {}),
+    ...(input.mode === 'human'
+      ? input.takeover === 'temporary'
+        ? { mode: 'human' as const, autoResumeAt: resumeAt, takeover: 'temporary' as const }
+        : { mode: 'human' as const, autoResumeAt: null, takeover: 'permanent' as const }
+      : {}),
     ...(input.status ? { status: input.status } : {}),
     ...(input.note !== undefined && !noteEntry ? { note: input.note } : {}),
     ...(input.customerPhone !== undefined ? { customerPhone: input.customerPhone } : {}),
