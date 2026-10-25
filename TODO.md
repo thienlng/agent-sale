@@ -4,7 +4,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
-- [ ] T-068 Redesign the sales inbox workspace — @agent:codex · [details](todo/T-068-redesign-the-sales-inbox-workspace.md)
+- [ ] T-068 Redesign the sales inbox workspace — @agent:codex · [details](todo/T-068-redesign-the-sales-inbox-workspace.md) · PR #59
 - [ ] T-067 Stop auto-collapsing the app sidebar inside the bot space — @agent:claude · [details](todo/T-067-stop-auto-collapsing-the-app-sidebar-inside-the-bo.md)
 - [ ] T-065 Admin LLM: check connection and fetch model list from the provider dialog — @agent:claude · [details](todo/T-065-admin-llm-check-connection-and-fetch-model-list-fr.md)
 

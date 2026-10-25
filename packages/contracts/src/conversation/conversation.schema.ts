@@ -65,6 +65,7 @@ export const SendInboxMessageRequest = z
   });
 export type SendInboxMessageRequest = z.infer<typeof SendInboxMessageRequest>;
 export const UpdateConversationRequest = z.object({
+  expectedRevision: z.number().int().min(0).optional(),
   mode: z.enum(['human', 'bot']).optional(),
   status: z.enum(['open', 'resolved']).optional(),
   assignToMe: z.boolean().optional(),

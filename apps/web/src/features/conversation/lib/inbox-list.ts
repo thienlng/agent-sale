@@ -48,3 +48,38 @@ export function previewText(text: string, tr: (key: string) => string): string {
     ? tr(media === 'image' || media === 'sticker' ? 'attachment.image' : 'attachment.file')
     : text;
 }
+
+export type SalesQueue = 'all' | 'human' | 'mine' | 'unassigned' | 'bot';
+export const SALES_QUEUES: readonly SalesQueue[] = ['all', 'human', 'mine', 'unassigned', 'bot'];
+
+/** Queue membership uses persisted state, never guesses whether the last message was answered. */
+export function filterSalesQueue(
+  items: readonly ConversationDto[],
+  queue: SalesQueue,
+  userId: string | undefined,
+): ConversationDto[] {
+  return items.filter((item) => {
+    if (queue === 'human') return item.mode === 'human';
+    if (queue === 'bot') return item.mode === 'bot';
+    if (queue === 'unassigned') return item.assigneeId === null;
+    if (queue === 'mine') return Boolean(userId) && item.assigneeId === userId;
+    return true;
+  });
+}
+
+export function filterInbox(
+  items: readonly ConversationDto[],
+  filters: {
+    provider: MetaProvider | 'all';
+    channelId: string;
+    status: 'all' | 'open' | 'resolved';
+    mode: 'all' | 'bot' | 'human';
+  },
+): ConversationDto[] {
+  return filterByProvider(items, filters.provider).filter(
+    (item) =>
+      (filters.channelId === 'all' || item.channelId === filters.channelId) &&
+      (filters.status === 'all' || item.status === filters.status) &&
+      (filters.mode === 'all' || item.mode === filters.mode),
+  );
+}

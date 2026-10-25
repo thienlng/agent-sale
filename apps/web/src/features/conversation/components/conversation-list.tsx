@@ -1,12 +1,19 @@
-import type { ConversationDto, MetaProvider } from '@agent-sales/contracts';
+import type { ChannelConnectionDto, ConversationDto, MetaProvider } from '@agent-sales/contracts';
 import { Link } from '@tanstack/react-router';
 import { ArrowUpDown, CircleAlert, MessageCircle, RefreshCw, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import type { SortOrder } from '../lib/inbox-list';
+import { SALES_QUEUES, type SalesQueue, type SortOrder } from '../lib/inbox-list';
 import { ChannelFilter } from './channel-filter';
 import { ConversationRow } from './conversation-row';
 import { ListFilters, type ModeFilter, type StatusFilter } from './list-filters';
@@ -17,6 +24,8 @@ export interface ListState {
   status: StatusFilter;
   mode: ModeFilter;
   order: SortOrder;
+  queue: SalesQueue;
+  channelId: string;
 }
 
 /** Left column of the inbox: "Chat" header, channel filter, search, sort and conversations. */
@@ -24,6 +33,9 @@ export function ConversationList({
   state,
   onState,
   items,
+  channels,
+  queueCounts,
+  loadedCount,
   pending,
   error,
   fetching,
@@ -36,6 +48,9 @@ export function ConversationList({
   state: ListState;
   onState: (patch: Partial<ListState>) => void;
   items: readonly ConversationDto[];
+  channels: readonly ChannelConnectionDto[];
+  queueCounts: Record<string, number>;
+  loadedCount: number;
   pending: boolean;
   error: boolean;
   fetching: boolean;
@@ -49,19 +64,50 @@ export function ConversationList({
   const tr = (key: string, options?: Record<string, unknown>) =>
     t(`channelInbox.${key}`, options ?? {});
   const orderLabel = tr(state.order === 'newest' ? 'inbox.sortNewest' : 'inbox.sortOldest');
-  const filtered = Boolean(state.q || state.provider !== 'all' || state.mode !== 'all');
+  const filtered = Boolean(
+    state.q ||
+    state.provider !== 'all' ||
+    state.mode !== 'all' ||
+    state.channelId !== 'all' ||
+    state.queue !== 'all' ||
+    state.status !== 'open',
+  );
   return (
     <aside
       className={cn(
-        'flex w-full shrink-0 flex-col border-r bg-background md:w-80',
+        'flex min-h-0 w-full shrink-0 flex-col border-r bg-background md:w-72 2xl:w-80',
         hidden ? 'hidden md:flex' : 'flex',
       )}
     >
       <div className="space-y-3 border-b p-4">
         <h1 className="sr-only">{tr('inbox.pageTitle')}</h1>
         <div className="flex items-center justify-between gap-2">
-          <h2 className="text-xl font-semibold">{tr('inbox.title')}</h2>
-          <ChannelFilter value={state.provider} onChange={(provider) => onState({ provider })} />
+          <h2 className="text-xl font-semibold tracking-tight">{tr('inbox.title')}</h2>
+          <ChannelFilter
+            value={state.provider}
+            onChange={(provider) => onState({ provider, channelId: 'all' })}
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-1.5" role="group" aria-label={tr('sales.queues')}>
+          {SALES_QUEUES.map((queue) => (
+            <Button
+              key={queue}
+              variant={state.queue === queue ? 'secondary' : 'ghost'}
+              size="sm"
+              className={cn(
+                'justify-between px-2.5 text-xs',
+                queue === 'all' && 'col-span-2',
+                state.queue === queue && 'text-primary',
+              )}
+              aria-pressed={state.queue === queue}
+              onClick={() => onState({ queue })}
+            >
+              <span>{tr(`sales.queue.${queue}`)}</span>
+              <span className="rounded-md bg-muted px-1.5 py-0.5 tabular-nums text-muted-foreground">
+                {pending || error ? '—' : queueCounts[queue]}
+              </span>
+            </Button>
+          ))}
         </div>
         <div className="relative">
           <Search className="absolute top-2.5 left-3 size-4 text-muted-foreground" aria-hidden />
@@ -74,6 +120,21 @@ export function ConversationList({
             className="pl-9"
           />
         </div>
+        <Select value={state.channelId} onValueChange={(channelId) => onState({ channelId })}>
+          <SelectTrigger className="w-full text-xs" aria-label={tr('sales.pageFilter')}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{tr('sales.allPages')}</SelectItem>
+            {channels
+              .filter((channel) => state.provider === 'all' || channel.provider === state.provider)
+              .map((channel) => (
+                <SelectItem key={channel.id} value={channel.id}>
+                  {channel.name}
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
         <div className="flex items-center justify-between">
           <Button
             variant="ghost"
@@ -98,7 +159,28 @@ export function ConversationList({
           </div>
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex items-center justify-between gap-2 border-b bg-muted/20 px-4 py-2 text-[11px] text-muted-foreground">
+        <span>{tr('sales.loadedScope', { count: loadedCount })}</span>
+        {filtered ? (
+          <button
+            type="button"
+            className="shrink-0 font-medium text-primary hover:underline"
+            onClick={() =>
+              onState({
+                q: '',
+                provider: 'all',
+                channelId: 'all',
+                status: 'open',
+                mode: 'all',
+                queue: 'all',
+              })
+            }
+          >
+            {tr('sales.clearFilters')}
+          </button>
+        ) : null}
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto">
         {pending ? (
           <div className="space-y-3 p-4">
             {[0, 1, 2, 3].map((n) => (
@@ -121,6 +203,7 @@ export function ConversationList({
                 conversation={c}
                 active={selected === c.id}
                 onSelect={() => onSelect(c.id)}
+                channelName={channels.find((channel) => channel.id === c.channelId)?.name}
               />
             ))}
           </ul>

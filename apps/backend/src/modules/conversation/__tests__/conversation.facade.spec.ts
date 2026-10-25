@@ -78,6 +78,33 @@ beforeEach(() => {
 });
 afterEach(() => vi.useRealTimers());
 describe('ConversationFacade tenant and delivery contract', () => {
+  it('rejects stale edits without overwriting notes or reassignment', async () => {
+    const c = await service.receive(ws, channelId, event());
+    const first = await service.update(
+      ws,
+      c.id,
+      { note: 'First sale', expectedRevision: c.revision },
+      actor,
+    );
+    await expect(
+      service.update(ws, c.id, { note: 'Stale sale', expectedRevision: c.revision }, actor),
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
+    expect((await service.get(ws, c.id)).conversation.note).toBe('First sale');
+    const claimed = await service.update(
+      ws,
+      c.id,
+      { assignToMe: true, expectedRevision: first.revision },
+      actor,
+    );
+    await expect(
+      service.update(ws, c.id, { assignToMe: true, expectedRevision: first.revision }, newId()),
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
+    expect((await service.get(ws, c.id)).conversation.assigneeId).toBe(claimed.assigneeId);
+    await expect(
+      service.update(other, c.id, { expectedRevision: first.revision }, actor),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+
   it('deduplicates inbound messages and hides conversations from another tenant', async () => {
     const c = await service.receive(ws, channelId, event());
     await service.receive(ws, channelId, event());

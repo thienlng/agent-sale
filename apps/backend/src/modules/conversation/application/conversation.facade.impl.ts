@@ -76,6 +76,8 @@ export class ConversationFacadeImpl implements ConversationFacade {
     }
     return this.store.run(ws, async (tx) => {
       const c = await requireConversation(tx, id);
+      if (input.expectedRevision !== undefined && input.expectedRevision !== c.revision)
+        throw new ConversationError('CONFLICT', 'Conversation changed; reload before saving');
       const updated = {
         ...c,
         ...(input.mode ? { mode: input.mode, autoResumeAt: null } : {}),

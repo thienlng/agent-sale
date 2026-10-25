@@ -1,6 +1,6 @@
 import type { ConversationDto, UpdateConversationRequest } from '@agent-sales/contracts';
 import { UsersRound } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { CustomerAvatar } from './customer-avatar';
+import { useSession } from '@/lib/session';
 
 /** Customer details, status, assignment and internal notes. */
 export function CustomerPanel({
@@ -26,27 +26,25 @@ export function CustomerPanel({
 }) {
   const { t } = useTranslation();
   const tr = (key: string) => t(`channelInbox.${key}`);
-  const [note, setNote] = useState<string | null>(null);
+  const [draft, setDraft] = useState<{ text: string; revision: number } | null>(null);
+  const session = useSession();
+  const mine = c.assigneeId === session?.user.id;
+  const note = draft?.text;
+  useEffect(() => {
+    if (draft && draft.text === c.note && draft.revision !== c.revision) setDraft(null);
+  }, [c.note, c.revision, draft]);
   return (
     <>
-      <div className="border-b p-5">
-        <div className="flex items-center gap-3">
-          <CustomerAvatar conversation={c} />
-          <div className="min-w-0">
-            <h2 className="truncate font-semibold">{c.customerName}</h2>
-            <p className="mt-1 text-xs text-muted-foreground">{tr('customer')}</p>
-          </div>
-        </div>
-      </div>
       <div className="space-y-5 p-5">
         <div>
           <Label className="text-xs text-muted-foreground">{tr('channel')}</Label>
           <p className="mt-1 text-sm">{c.provider === 'facebook' ? 'Facebook' : 'Instagram'}</p>
         </div>
-        <div>
-          <Label className="text-xs text-muted-foreground">{tr('customerId')}</Label>
+        <details className="text-xs text-muted-foreground">
+          <summary className="cursor-pointer">{tr('customerId')}</summary>
+          <Label className="sr-only">{tr('customerId')}</Label>
           <p className="mt-1 break-all text-sm">{c.customerId}</p>
-        </div>
+        </details>
         <div>
           <Label className="mb-2">{tr('status')}</Label>
           <Select
@@ -72,10 +70,10 @@ export function CustomerPanel({
             className="mt-3 w-full"
             size="sm"
             variant="outline"
-            disabled={busy}
-            onClick={() => onChange({ assignToMe: !c.assigneeId })}
+            disabled={busy || Boolean(c.assigneeId && !mine)}
+            onClick={() => onChange({ assignToMe: !mine, expectedRevision: c.revision })}
           >
-            {tr(c.assigneeId ? 'unassign' : 'claim')}
+            {tr(mine ? 'unassign' : c.assigneeId ? 'assigned' : 'claim')}
           </Button>
         </div>
         <div className="space-y-2">
@@ -84,18 +82,38 @@ export function CustomerPanel({
             id={`note-${c.id}`}
             value={note ?? c.note}
             placeholder={tr('notesPlaceholder')}
-            onChange={(event) => setNote(event.target.value)}
+            onChange={(event) =>
+              setDraft({ text: event.target.value, revision: draft?.revision ?? c.revision })
+            }
             className="min-h-28 resize-y"
             maxLength={10000}
           />
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={busy || note === null || note === c.note}
-            onClick={() => onChange({ note: note ?? c.note })}
-          >
-            {tr('saveNotes')}
-          </Button>
+          {draft && draft.revision !== c.revision && draft.text !== c.note ? (
+            <p role="status" className="text-xs text-warning">
+              {tr('sales.noteChanged')}
+            </p>
+          ) : null}
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              disabled={!draft}
+              onClick={() => setDraft(null)}
+            >
+              {tr('sales.resetNote')}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy || note === undefined || note === c.note}
+              onClick={() =>
+                onChange({ note: note ?? c.note, expectedRevision: draft?.revision ?? c.revision })
+              }
+            >
+              {tr('saveNotes')}
+            </Button>
+          </div>
         </div>
       </div>
     </>

@@ -74,7 +74,7 @@ export function useInboxActions(id: string | null) {
   const update = useMutation({
     mutationFn: (body: UpdateConversationRequest) =>
       api(`/conversations/${id}`, ConversationDto, { method: 'PATCH', body }),
-    onSuccess: refresh,
+    onSettled: refresh,
   });
   const send = useMutation({
     mutationFn: (body: SendInboxMessageRequest) =>

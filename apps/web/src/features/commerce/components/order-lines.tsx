@@ -31,8 +31,10 @@ export interface Line {
 export function ProductPicker({
   warehouseId,
   onPick,
+  compact = false,
 }: {
   warehouseId: string;
+  compact?: boolean;
   onPick: (v: VariantOption) => void;
 }) {
   const { t } = useTranslation();
@@ -47,7 +49,7 @@ export function ProductPicker({
   const results = useVariantSearch({ q: debounced, warehouseId, inStock });
 
   return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+    <div className={cn('flex min-w-0 flex-col gap-2', !compact && 'sm:flex-row sm:items-center')}>
       <Popover open={open} onOpenChange={setOpen}>
         <Command shouldFilter={false} className="flex-1 overflow-visible rounded-lg border">
           <PopoverAnchor asChild>
@@ -67,6 +69,7 @@ export function ProductPicker({
             align="start"
             className="w-(--radix-popover-trigger-width) min-w-72 p-0"
             onOpenAutoFocus={(e) => e.preventDefault()}
+            onCloseAutoFocus={(e) => e.preventDefault()}
           >
             <CommandList>
               <CommandEmpty>{t('orderForm.noProducts')}</CommandEmpty>

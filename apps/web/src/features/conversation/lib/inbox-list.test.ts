@@ -1,6 +1,13 @@
 import type { ConversationDto } from '@agent-sales/contracts';
 import { describe, expect, it } from 'vitest';
-import { filterByProvider, formatDay, previewText, sortConversations } from './inbox-list';
+import {
+  filterByProvider,
+  filterInbox,
+  filterSalesQueue,
+  formatDay,
+  previewText,
+  sortConversations,
+} from './inbox-list';
 
 function conv(id: string, updatedAt: string, provider: 'facebook' | 'instagram'): ConversationDto {
   return {
@@ -45,5 +52,42 @@ describe('inbox list', () => {
     expect(previewText('[file]', tr)).toBe('t:attachment.file');
     expect(previewText('', tr)).toBe('t:noMessage');
     expect(previewText('hello', tr)).toBe('hello');
+  });
+});
+
+describe('sales queues', () => {
+  const human = { ...a, mode: 'human' as const, assigneeId: 'sale-a' };
+  const other = { ...b, assigneeId: 'sale-b', status: 'resolved' as const };
+  const unassigned = { ...c, channelId: 'page-b' };
+
+  it('separates ownership from AI mode and requires an identity for mine', () => {
+    const items = [human, other, unassigned];
+    expect(filterSalesQueue(items, 'mine', 'sale-a')).toEqual([human]);
+    expect(filterSalesQueue(items, 'mine', undefined)).toEqual([]);
+    expect(filterSalesQueue(items, 'unassigned', 'sale-a')).toEqual([unassigned]);
+    expect(filterSalesQueue(items, 'human', 'sale-a')).toEqual([human]);
+    expect(filterSalesQueue(items, 'bot', 'sale-a')).toEqual([other, unassigned]);
+    expect(filterSalesQueue(items, 'all', 'sale-a')).toEqual(items);
+  });
+
+  it('applies page, status, mode and provider together before computing queues', () => {
+    const items = [human, other, unassigned];
+    expect(
+      filterInbox(items, { provider: 'all', channelId: 'all', status: 'open', mode: 'all' }),
+    ).toEqual([human, unassigned]);
+    expect(
+      filterInbox(items, { provider: 'facebook', channelId: 'page-b', status: 'all', mode: 'bot' }),
+    ).toEqual([unassigned]);
+    expect(
+      filterInbox(items, {
+        provider: 'instagram',
+        channelId: 'page-b',
+        status: 'all',
+        mode: 'all',
+      }),
+    ).toEqual([]);
+    expect(
+      filterInbox(items, { provider: 'all', channelId: 'all', status: 'resolved', mode: 'all' }),
+    ).toEqual([other]);
   });
 });
