@@ -90,6 +90,7 @@ A compact inbox where a sales rep sees at a glance who is waiting, who the custo
 Dated entries, newest last. Decisions, blockers, questions, what was verified and how.
 
 - 2026-10-25 — created. Design approved in chat ("okk làm hết đi"). The owner chose shared (per-shop) unread.
+- 2026-10-25 — backend steps 1-3 done in three commits (conversation core + migration 0024, Meta profile lookup, CRM conversation tags). Decisions: new DTO fields keep `.default()` at runtime but `ConversationDto` is the `z.input` type (optional new fields, so the web compiles unchanged) and `ConversationView` is the strict `z.output` type; read/unread/notes never bump `revision` or `updatedAt`; conversation tags publish no `crm.tag.*` event; tag routes live in the conversation controller (it owns the existence check) and call `CrmFacade`. Verified: unit tests, Postgres integration tests (migration backfill, SQL query vs reference, HTTP inbox v2 flow).
 
 ## Links
 
