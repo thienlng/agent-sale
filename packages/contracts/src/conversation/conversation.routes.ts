@@ -6,6 +6,9 @@ import {
   InboxMessageDto,
   SendInboxMessageRequest,
   AddConversationNoteRequest,
+  AssignConversationTagRequest,
+  ConversationTagAssignmentDto,
+  ConversationTagAssignmentList,
   UpdateConversationRequest,
   ConversationDto,
 } from './conversation.schema.js';
@@ -63,5 +66,20 @@ export const conversationRoutes = defineRoutes([
     summary: 'Add an internal note to the timeline',
     body: AddConversationNoteRequest,
     responses: { 201: ConversationDto },
+  },
+  {
+    ...scoped,
+    method: 'get',
+    path: '/conversations/{id}/tags',
+    summary: 'Active tags of a conversation',
+    responses: { 200: ConversationTagAssignmentList },
+  },
+  {
+    ...scoped,
+    method: 'post',
+    path: '/conversations/{id}/tags',
+    summary: 'Tag a conversation (idempotent per tag; remove with /tag-assignments/{id}/remove)',
+    body: AssignConversationTagRequest,
+    responses: { 200: ConversationTagAssignmentDto, 201: ConversationTagAssignmentDto },
   },
 ]);

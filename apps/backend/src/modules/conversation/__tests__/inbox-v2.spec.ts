@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BotFacade, BotView } from '../../bot/api/index.js';
 import type { ChannelFacade } from '../../channel/api/index.js';
 import { ConversationFacadeImpl } from '../application/conversation.facade.impl.js';
-import { fakeIdentity, fakeTeam } from './fakes.js';
+import { fakeCrm, fakeIdentity, fakeTeam } from './fakes.js';
 import { MemoryConversationStore } from './factories/memory-conversation-store.js';
 
 const ws = workspaceId('018d0000-0000-7000-8000-000000000001');
@@ -18,6 +18,7 @@ const channelId = '018d0000-0000-7000-8000-000000000003',
 let service: ConversationFacadeImpl;
 let channels: ChannelFacade;
 let bot: BotView;
+let crm: ReturnType<typeof fakeCrm>;
 
 function event(
   id: string,
@@ -82,6 +83,7 @@ beforeEach(() => {
     })),
   } as unknown as ChannelFacade;
   const bots: BotFacade = { getBot: async () => bot };
+  crm = fakeCrm();
   service = new ConversationFacadeImpl(
     new MemoryConversationStore(),
     channels,
@@ -92,6 +94,7 @@ beforeEach(() => {
       { userId: removed, status: 'removed' },
     ]),
     fakeIdentity({ [lan]: 'Lan', [minh]: 'Minh' }),
+    crm as never,
   );
 });
 afterEach(() => vi.useRealTimers());
@@ -402,5 +405,80 @@ describe('customer profile', () => {
     const other = workspaceId('018d0000-0000-7000-8000-000000000002');
     await service.refreshCustomerProfile(other, c.id);
     expect(channels.fetchCustomerProfile).not.toHaveBeenCalled();
+  });
+});
+
+describe('tags', () => {
+  const chip = { id: '018d0000-0000-7000-8000-0000000000a1', name: 'Chốt đơn', color: '#ff6a00' };
+
+  it('puts the tag chips of the library on list rows, detail and updates', async () => {
+    const c = await service.receive(ws, channelId, event('m1'));
+    const plain = await service.receive(ws, channelId, event('m2', { senderExternalId: 'other' }));
+    crm.conversationTags.mockResolvedValue(new Map([[c.id, [chip]]]));
+    const rows = (await service.list(ws, { limit: 50 }, lan)).data;
+    expect(rows.find((r) => r.id === c.id)?.tags).toEqual([chip]);
+    expect(rows.find((r) => r.id === plain.id)?.tags).toEqual([]);
+    expect((await service.get(ws, c.id)).conversation.tags).toEqual([chip]);
+    expect((await service.markRead(ws, c.id, lan)).tags).toEqual([chip]);
+    expect((await service.update(ws, c.id, { note: 'n' }, lan)).tags).toEqual([chip]);
+  });
+
+  it('never stores the chips with the conversation', async () => {
+    const c = await service.receive(ws, channelId, event('m1'));
+    crm.conversationTags.mockResolvedValue(new Map([[c.id, [chip]]]));
+    await service.markRead(ws, c.id, lan);
+    expect((await service.getReplyContext(ws, c.id)).conversation.tags).toEqual([]);
+  });
+
+  it('hands the tag conditions to the library and applies the answer to list and counts', async () => {
+    const a = await service.receive(ws, channelId, event('m1', { senderExternalId: 'a' }));
+    const b = await service.receive(ws, channelId, event('m2', { senderExternalId: 'b' }));
+    const c = await service.receive(ws, channelId, event('m3', { senderExternalId: 'c' }));
+    const tagA = '018d0000-0000-7000-8000-0000000000a2';
+    crm.conversationIdsByTags.mockResolvedValue({ include: [a.id, b.id], exclude: [b.id] });
+    const page = await service.list(ws, { limit: 50, tagsAny: [tagA], untagged: false }, lan);
+    expect(crm.conversationIdsByTags).toHaveBeenCalledWith(ws, {
+      any: [tagA],
+      all: undefined,
+      exclude: undefined,
+      untagged: false,
+    });
+    expect(page.data.map((r) => r.id)).toEqual([a.id]);
+    expect(page.counts.all).toBe(1);
+    // An empty answer means nobody matches, not "no filter".
+    crm.conversationIdsByTags.mockResolvedValue({ include: [], exclude: [] });
+    expect((await service.list(ws, { limit: 50, tagsAll: [tagA] }, lan)).data).toEqual([]);
+    expect(c.id).toBeDefined();
+  });
+
+  it('does not call the library when the list has no tag condition', async () => {
+    await service.receive(ws, channelId, event('m1'));
+    await service.list(ws, { limit: 50 }, lan);
+    expect(crm.conversationIdsByTags).not.toHaveBeenCalled();
+  });
+
+  it('checks the conversation exists in this workspace before reading or assigning tags', async () => {
+    const c = await service.receive(ws, channelId, event('m1'));
+    const other = workspaceId('018d0000-0000-7000-8000-000000000002');
+    await expect(service.listTags(other, c.id)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await expect(service.addTag(ws, newId(), { tagId: chip.id }, lan)).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    });
+    expect(crm.assignConversationTag).not.toHaveBeenCalled();
+    await service.addTag(ws, c.id, { tagId: chip.id }, lan);
+    expect(crm.assignConversationTag).toHaveBeenCalledWith(ws, c.id, { tagId: chip.id }, lan);
+    await service.listTags(ws, c.id);
+    expect(crm.listConversationTags).toHaveBeenCalledWith(ws, c.id);
+  });
+});
+
+describe('tag library outage', () => {
+  it('still loads conversations without chips, but fails a tag filter instead of guessing', async () => {
+    const c = await service.receive(ws, channelId, event('m1'));
+    crm.conversationTags.mockRejectedValue(new Error('crm down'));
+    crm.conversationIdsByTags.mockRejectedValue(new Error('crm down'));
+    expect((await service.list(ws, { limit: 50 }, lan)).data.map((r) => r.id)).toEqual([c.id]);
+    expect((await service.get(ws, c.id)).conversation.tags).toEqual([]);
+    await expect(service.list(ws, { limit: 50, untagged: true }, lan)).rejects.toThrow('crm down');
   });
 });

@@ -27,3 +27,22 @@ export function fakeIdentity(names: Record<string, string> = {}) {
     profile: vi.fn(async () => null),
   };
 }
+
+/**
+ * Fake tag library: chips per conversation and canned filter answers, so the conversation
+ * module's use of the crm facade can be checked without the crm module.
+ */
+export function fakeCrm(
+  chips: Record<string, { id: string; name: string; color: string }[]> = {},
+  match: { include: string[] | null; exclude: string[] } = { include: null, exclude: [] },
+) {
+  return {
+    conversationTags: vi.fn(
+      async (_ws: unknown, ids: readonly string[]) =>
+        new Map(ids.flatMap((id) => (chips[id] ? [[id, chips[id]] as const] : []))),
+    ),
+    conversationIdsByTags: vi.fn(async () => match),
+    listConversationTags: vi.fn(async () => []),
+    assignConversationTag: vi.fn(async () => ({ created: true, assignment: {} })),
+  };
+}

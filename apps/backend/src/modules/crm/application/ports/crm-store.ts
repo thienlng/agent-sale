@@ -100,6 +100,14 @@ export interface AssignmentRecord {
   version: number;
 }
 
+/** One active tag on one entity, with what a chip needs. */
+export interface TaggedEntity {
+  entityId: string;
+  tagId: string;
+  tagName: string;
+  tagColor: string;
+}
+
 export interface ViewRecord {
   id: string;
   ownerUserId: string;
@@ -229,6 +237,14 @@ export interface CrmTx {
       entityId: string,
     ): Promise<AssignmentRecord | null>;
     find(id: string, opts?: { forUpdate?: boolean }): Promise<AssignmentRecord | null>;
+    /**
+     * Active assignments of non-archived tags with the tag's chip, oldest first. Narrowed by
+     * entity ids and/or tag ids; with neither, every active assignment of the scope.
+     */
+    activePairs(
+      scope: 'contact' | 'conversation',
+      filter: { entityIds?: readonly string[]; tagIds?: readonly string[] },
+    ): Promise<TaggedEntity[]>;
     /** Returns false when an active one already exists (unique per tag and entity). */
     insert(workspaceId: WorkspaceId, a: AssignmentRecord): Promise<boolean>;
     update(a: AssignmentRecord): Promise<void>;

@@ -1,6 +1,7 @@
 import type {
   ConversationCounts,
   ConversationDetailDto,
+  ConversationTagAssignmentDto,
   ConversationView,
   ConversationListQuery,
   InboxMessageDto,
@@ -28,6 +29,14 @@ export interface ConversationFacade {
     input: UpdateConversationRequest,
     actorId: string,
   ): Promise<ConversationView>;
+  /** Active tags of a conversation (the tag library belongs to crm). */
+  listTags(ws: WorkspaceId, id: string): Promise<ConversationTagAssignmentDto[]>;
+  addTag(
+    ws: WorkspaceId,
+    id: string,
+    input: unknown,
+    actorId: string,
+  ): Promise<{ created: boolean; assignment: ConversationTagAssignmentDto }>;
   markRead(ws: WorkspaceId, id: string, actorId: string): Promise<ConversationView>;
   markUnread(ws: WorkspaceId, id: string): Promise<ConversationView>;
   addNote(ws: WorkspaceId, id: string, text: string, actorId: string): Promise<ConversationView>;

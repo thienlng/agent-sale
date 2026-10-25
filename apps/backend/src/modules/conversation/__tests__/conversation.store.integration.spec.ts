@@ -19,7 +19,7 @@ import type { ChannelFacade } from '../../channel/api/index.js';
 import { ConversationFacadeImpl } from '../application/conversation.facade.impl.js';
 import { filterConversations, type ConversationFilter } from '../domain/conversation-filter.js';
 import { DrizzleConversationStore } from '../infrastructure/persistence/conversation.store.js';
-import { fakeIdentity, fakeTeam } from './fakes.js';
+import { fakeCrm, fakeIdentity, fakeTeam } from './fakes.js';
 
 /** The conversation store's SQL on a real Postgres, driven through the facade. */
 let pg: TestPostgres;
@@ -109,7 +109,14 @@ beforeAll(async () => {
   const bots: BotFacade = { getBot: async () => ({}) as BotView };
   store = new DrizzleConversationStore(tenant);
   tenantDb = tenant;
-  service = new ConversationFacadeImpl(store, channels, bots, fakeTeam(), fakeIdentity());
+  service = new ConversationFacadeImpl(
+    store,
+    channels,
+    bots,
+    fakeTeam(),
+    fakeIdentity(),
+    fakeCrm() as never,
+  );
 });
 
 afterAll(async () => {

@@ -1,4 +1,10 @@
-import type { ConversationCounts, ConversationTab, ConversationView } from '@agent-sales/contracts';
+import type {
+  ConversationCounts,
+  ConversationListQuery,
+  ConversationTab,
+  ConversationView,
+} from '@agent-sales/contracts';
+import { ConversationError } from './conversation.errors.js';
 
 /**
  * Filter the store applies. The SQL adapter and the in-memory test adapter both implement
@@ -21,6 +27,25 @@ export interface ConversationFilter {
   /** Never these conversations (tag filters). */
   idsNotIn?: readonly string[] | undefined;
   limit: number;
+}
+
+/** The store filter for a request; `assignee=me` is the viewer. Tag conditions are added by the caller. */
+export function toListFilter(q: ConversationListQuery, viewerId?: string): ConversationFilter {
+  if (q.assignee === 'me' && !viewerId)
+    throw new ConversationError('VALIDATION_FAILED', 'assignee=me needs a signed-in user');
+  return {
+    tab: q.tab ?? 'all',
+    assignee: q.assignee === 'me' ? viewerId : q.assignee,
+    channelId: q.channelId,
+    hasPhone: q.hasPhone,
+    waiting: q.waiting,
+    status: q.status,
+    mode: q.mode,
+    provider: q.provider,
+    q: q.q,
+    sort: q.sort ?? 'recent',
+    limit: q.limit,
+  };
 }
 
 export interface ConversationPage {

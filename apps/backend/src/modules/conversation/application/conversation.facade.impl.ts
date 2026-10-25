@@ -14,25 +14,23 @@ import {
   type ChannelFacade,
   type OutboundInboxMessage,
 } from '../../channel/api/index.js';
+import { CRM_FACADE, type CrmFacade } from '../../crm/api/index.js';
 import { IDENTITY_FACADE, type IdentityFacade } from '../../identity/api/index.js';
 import { TEAM_FACADE, type TeamFacade } from '../../team/api/index.js';
 import type { ConversationFacade } from '../api/conversation.facade.js';
 import { ConversationError } from '../domain/conversation.errors.js';
-import type { ConversationFilter } from '../domain/conversation-filter.js';
+import { toListFilter } from '../domain/conversation-filter.js';
 import { detectVietnamesePhone } from '../domain/phone.js';
-import { applyControlUpdate, newConversation } from '../domain/conversation-state.js';
+import { applyControlUpdate, newConversation, preview } from '../domain/conversation-state.js';
+import { attachTags, tagConditions } from './conversation-tags.js';
 import { refreshCustomerProfile } from './customer-profile.js';
-import { addNote, markRead, markUnread } from './inbox-state.js';
+import { addNote, assertAssignable, markRead, markUnread } from './inbox-state.js';
 import {
   CONVERSATION_STORE,
   type ConversationStore,
   type ConversationTx,
 } from './ports/conversation-store.js';
 const now = () => new Date().toISOString();
-/** List preview: the text, or a neutral marker the UI localizes (e.g. "[image]"). */
-function preview(text: string, attachments: readonly { type: string }[]): string {
-  return text || (attachments[0] ? `[${attachments[0].type}]` : '');
-}
 async function requireConversation(tx: ConversationTx, id: string): Promise<ConversationView> {
   const c = await tx.find(id);
   if (!c) throw new ConversationError('NOT_FOUND', 'Conversation not found');
@@ -46,34 +44,41 @@ export class ConversationFacadeImpl implements ConversationFacade {
     @Inject(BOT_FACADE) private readonly bots: BotFacade,
     @Inject(TEAM_FACADE) private readonly team: TeamFacade,
     @Inject(IDENTITY_FACADE) private readonly identity: IdentityFacade,
+    @Inject(CRM_FACADE) private readonly crm: CrmFacade,
   ) {}
   async list(ws: WorkspaceId, q: ConversationListQuery, viewerId?: string) {
-    if (q.assignee === 'me' && !viewerId)
-      throw new ConversationError('VALIDATION_FAILED', 'assignee=me needs a signed-in user');
-    const filter: ConversationFilter = {
-      tab: q.tab ?? 'all',
-      assignee: q.assignee === 'me' ? viewerId : q.assignee,
-      channelId: q.channelId,
-      hasPhone: q.hasPhone,
-      waiting: q.waiting,
-      status: q.status,
-      mode: q.mode,
-      provider: q.provider,
-      q: q.q,
-      sort: q.sort ?? 'recent',
-      limit: q.limit,
+    const filter = {
+      ...toListFilter(q, viewerId),
+      ...(await tagConditions(this.crm, ws, q)),
     };
-    return this.store.run(ws, (tx) => tx.query(filter));
+    const page = await this.store.run(ws, (tx) => tx.query(filter));
+    return { data: await attachTags(this.crm, ws, page.data), counts: page.counts };
   }
-  get(ws: WorkspaceId, id: string) {
+  async get(ws: WorkspaceId, id: string) {
+    const detail = await this.load(ws, id);
+    const [conversation] = await attachTags(this.crm, ws, [detail.conversation]);
+    return { ...detail, conversation: conversation ?? detail.conversation };
+  }
+  private load(ws: WorkspaceId, id: string) {
     return this.store.run(ws, async (tx) => ({
       conversation: await requireConversation(tx, id),
       messages: await tx.messages(id),
     }));
   }
+  private async tagged(ws: WorkspaceId, c: ConversationView): Promise<ConversationView> {
+    return (await attachTags(this.crm, ws, [c]))[0] ?? c;
+  }
+  async listTags(ws: WorkspaceId, id: string) {
+    await this.load(ws, id);
+    return this.crm.listConversationTags(ws, id);
+  }
+  async addTag(ws: WorkspaceId, id: string, input: unknown, actorId: string) {
+    await this.load(ws, id);
+    return this.crm.assignConversationTag(ws, id, input, actorId);
+  }
   async update(ws: WorkspaceId, id: string, input: UpdateConversationRequest, actorId: string) {
     // Cross-module read first, never inside the write transaction.
-    if (input.assigneeId) await this.assertAssignable(ws, input.assigneeId, actorId);
+    if (input.assigneeId) await assertAssignable(this.team, ws, input.assigneeId, actorId);
     if (input.mode === 'bot') {
       // Resolve the cross-module read before opening the write transaction (see reserveAndDeliver).
       const channelId = await this.store.run(
@@ -87,7 +92,7 @@ export class ConversationFacadeImpl implements ConversationFacade {
           'Bind an active bot to this channel before enabling automatic replies',
         );
     }
-    return this.store.run(ws, async (tx) => {
+    const saved = await this.store.run(ws, async (tx) => {
       const c = await requireConversation(tx, id);
       if (input.expectedRevision !== undefined && input.expectedRevision !== c.revision)
         throw new ConversationError('CONFLICT', 'Conversation changed; reload before saving');
@@ -103,26 +108,19 @@ export class ConversationFacadeImpl implements ConversationFacade {
       });
       return updated;
     });
+    return this.tagged(ws, saved);
   }
-  markRead(ws: WorkspaceId, id: string, actorId: string): Promise<ConversationView> {
-    return markRead(this.store, this.identity, ws, id, actorId);
+  async markRead(ws: WorkspaceId, id: string, actorId: string): Promise<ConversationView> {
+    return this.tagged(ws, await markRead(this.store, this.identity, ws, id, actorId));
   }
-  markUnread(ws: WorkspaceId, id: string): Promise<ConversationView> {
-    return markUnread(this.store, ws, id);
+  async markUnread(ws: WorkspaceId, id: string): Promise<ConversationView> {
+    return this.tagged(ws, await markUnread(this.store, ws, id));
   }
-  addNote(ws: WorkspaceId, id: string, text: string, actorId: string): Promise<ConversationView> {
-    return addNote(this.store, this.identity, ws, id, text, actorId);
+  async addNote(ws: WorkspaceId, id: string, text: string, actorId: string) {
+    return this.tagged(ws, await addNote(this.store, this.identity, ws, id, text, actorId));
   }
   refreshCustomerProfile(ws: WorkspaceId, id: string): Promise<void> {
     return refreshCustomerProfile(this.store, this.channels, ws, id);
-  }
-  private async assertAssignable(ws: WorkspaceId, memberId: string, actorId: string) {
-    const members = await this.team.listMembers(ws, { userId: actorId, role: undefined });
-    if (!members.some((m) => m.userId === memberId && m.status === 'active'))
-      throw new ConversationError(
-        'VALIDATION_FAILED',
-        'Assignee must be an active member of this workspace',
-      );
   }
   async receive(ws: WorkspaceId, channelId: string, event: NormalizedEvent) {
     const channel = await this.channels.getConnection(ws, channelId);
@@ -235,7 +233,7 @@ export class ConversationFacadeImpl implements ConversationFacade {
     });
   }
   async getReplyContext(ws: WorkspaceId, id: string) {
-    const detail = await this.get(ws, id);
+    const detail = await this.load(ws, id);
     return { ...detail, revision: detail.conversation.revision };
   }
   send(

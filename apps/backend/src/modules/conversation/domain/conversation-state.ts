@@ -1,5 +1,10 @@
 import type { ConversationView, UpdateConversationRequest } from '@agent-sales/contracts';
 
+/** List preview: the text, or a neutral marker the UI localizes (e.g. "[image]"). */
+export function preview(text: string, attachments: readonly { type: string }[]): string {
+  return text || (attachments[0] ? `[${attachments[0].type}]` : '');
+}
+
 /** A conversation opened by its first event; an echo (staff wrote first) does not open the 24-hour window. */
 export function newConversation(input: {
   id: string;

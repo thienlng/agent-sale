@@ -67,9 +67,21 @@ Design: `docs/superpowers/specs/2026-10-25-inbox-v2-design.md`. A conversation i
 
 Backfill of existing rows: columns come from the document; `awaiting_since` is the first customer message after the last outbound one for open conversations whose newest message is the customer's; `unread_count` starts at 0 (no history of who read what); `customer_phone` starts empty and fills from new messages.
 
+### Conversation tags and tag filters
+
+Conversations use the CRM tag library (`crm_tags`) and `crm_tag_assignments` with `scope = 'conversation'`, owned by the crm module.
+
+| Route | Notes |
+|---|---|
+| `GET /conversations/{id}/tags` | Active tags, each with its chip (`tag: { id, name, color }`). |
+| `POST /conversations/{id}/tags` `{ tagId, values? }` | 201 when added, 200 when already there. Needs `contacts.edit`. |
+| `POST /tag-assignments/{id}/remove` | The existing route; idempotent. |
+
+List rows and detail carry `tags: [{ id, name, color }]` (oldest assignment first, archived tags hidden). The list accepts `tagsAny`, `tagsAll`, `tagsExclude` (comma-separated or repeated uuids) and `untagged=true`; the conversation module asks `CrmFacade.conversationIdsByTags` for id sets and applies them in its own SQL, so the counts follow the tag filters. Conversation tags publish no `crm.tag.*` event and never count as customer tags.
+
 ### Customer profile lookup
 
-After a customer message the agent asks the channel module for the customer's name and picture (`ChannelFacade.fetchCustomerProfile`; the page token never leaves the channel module). Messenger: `GET graph.facebook.com/{version}/{psid}?fields=first_name,last_name,profile_pic`; Instagram: `GET graph.instagram.com/{version}/{igsid}?fields=name,username,profile_pic`, both with the token in the `Authorization` header (Meta Graph API, User Profile API for Messenger / Instagram messaging; endpoints taken from the Meta developer docs, not re-verified against a live page on 2026-10-25). The call runs after the message is stored and is not awaited by the reply pipeline. The attempt is stamped in `profileFetchedAt` before the call, so a missing permission or a customer Meta refuses to describe costs at most one request a day; a success is refreshed daily as well because Meta picture URLs expire. Failures are ignored and never logged with the customer id. The conversation's `revision` and `updatedAt` do not change.
+After a customer message the agent asks the channel module for the customer's name and picture (`ChannelFacade.fetchCustomerProfile`; the page token never leaves the channel module). Messenger: `GET graph.facebook.com/{version}/{psid}?fields=first_name,last_name,profile_pic`; Instagram: `GET graph.instagram.com/{version}/{igsid}?fields=name,username,profile_pic`, both with the token in the `Authorization` header (official docs: [Messenger user profile API](https://developers.facebook.com/docs/messenger-platform/identity/user-profile) and [Instagram messaging user profile](https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/messaging-api); written from the docs on 2026-10-25, not yet run against a live page). The call runs after the message is stored and is not awaited by the reply pipeline. The attempt is stamped in `profileFetchedAt` before the call, so a missing permission or a customer Meta refuses to describe costs at most one request a day; a success is refreshed daily as well because Meta picture URLs expire. Failures are ignored and never logged with the customer id. The conversation's `revision` and `updatedAt` do not change.
 
 ## Limits
 

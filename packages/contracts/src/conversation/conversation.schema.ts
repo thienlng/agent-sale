@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { MetaProvider } from '../channel/channel.schema.js';
+import { AssignTagRequest, TagAssignmentDto } from '../crm/crm-settings.schema.js';
 /** One entry of the conversation's internal notes timeline (never shown to the customer). */
 export const ConversationNote = z.object({
   id: z.uuid(),
@@ -83,6 +84,18 @@ export const InboxMessageDto = z.object({
   createdAt: z.iso.datetime(),
 });
 export type InboxMessageDto = z.infer<typeof InboxMessageDto>;
+/** Uuid lists arrive in a query string as `a,b,c` (or as repeated parameters). */
+const queryUuids = z.preprocess(
+  (v) =>
+    typeof v === 'string'
+      ? v
+          .split(',')
+          .map((id) => id.trim())
+          .filter(Boolean)
+      : v,
+  z.array(z.uuid()).max(50).optional(),
+);
+
 /** Query-string booleans arrive as text. */
 const queryBool = z.preprocess(
   (v) => (v === 'true' ? true : v === 'false' ? false : v),
@@ -105,6 +118,14 @@ export const ConversationListQuery = z.object({
   hasPhone: queryBool,
   /** `any`: customer unanswered; `longest`: same, longest wait first; `readNotReplied`: opened but unanswered. */
   waiting: z.enum(['any', 'longest', 'readNotReplied']).optional(),
+  /** Tags from the crm library: has any of these. */
+  tagsAny: queryUuids,
+  /** Has all of these. */
+  tagsAll: queryUuids,
+  /** Has none of these. */
+  tagsExclude: queryUuids,
+  /** Has no tag at all. */
+  untagged: queryBool,
   sort: z.enum(['recent', 'waitingLongest']).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
 });
@@ -156,3 +177,11 @@ export const AddConversationNoteRequest = z.object({
   text: z.string().trim().min(1).max(10000),
 });
 export type AddConversationNoteRequest = z.infer<typeof AddConversationNoteRequest>;
+
+/** A tag assignment of a conversation, with the chip to draw. Removal uses `/tag-assignments/{id}/remove`. */
+export const ConversationTagAssignmentDto = TagAssignmentDto.extend({ tag: ConversationTagChip });
+export type ConversationTagAssignmentDto = z.infer<typeof ConversationTagAssignmentDto>;
+export const ConversationTagAssignmentList = z.object({
+  data: z.array(ConversationTagAssignmentDto),
+});
+export { AssignTagRequest as AssignConversationTagRequest };

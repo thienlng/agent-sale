@@ -1,6 +1,7 @@
 import { MAX_CONVERSATION_NOTES, type ConversationView } from '@agent-sales/contracts';
 import { newId, userId, type WorkspaceId } from '@agent-sales/shared';
 import type { IdentityFacade } from '../../identity/api/index.js';
+import type { TeamFacade } from '../../team/api/index.js';
 import { ConversationError } from '../domain/conversation.errors.js';
 import type { ConversationStore } from './ports/conversation-store.js';
 
@@ -79,4 +80,19 @@ export async function addNote(
       },
     ].slice(-MAX_CONVERSATION_NOTES),
   }));
+}
+
+/** Only an active member of the workspace can be given a conversation. */
+export async function assertAssignable(
+  team: TeamFacade,
+  ws: WorkspaceId,
+  memberId: string,
+  actorId: string,
+): Promise<void> {
+  const members = await team.listMembers(ws, { userId: actorId, role: undefined });
+  if (!members.some((m) => m.userId === memberId && m.status === 'active'))
+    throw new ConversationError(
+      'VALIDATION_FAILED',
+      'Assignee must be an active member of this workspace',
+    );
 }
