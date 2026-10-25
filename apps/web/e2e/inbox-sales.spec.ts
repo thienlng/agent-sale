@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { mockApi, ORDER_ID, PRODUCT_ID } from './support/mock-api';
+import { BOT_ID, mockApi, ORDER_ID, PRODUCT_ID } from './support/mock-api';
 import { CONTACT_ID } from './support/mock-crm';
 
 const id = (n: number) => `0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9f${String(n).padStart(2, '0')}`;
@@ -89,7 +89,7 @@ async function inboxApi(page: Page) {
             externalId: 'page',
             name: 'Thời trang Nhà Mây',
             status: 'connected',
-            botId: null,
+            botId: BOT_ID,
             expiresAt: null,
             createdAt: fixedNow,
           },
