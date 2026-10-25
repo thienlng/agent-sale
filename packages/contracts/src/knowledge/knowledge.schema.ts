@@ -27,6 +27,8 @@ export type FaqListResponse = z.infer<typeof FaqListResponse>;
 /** Instruction scenarios, reusable replies, media references and the folders that group media. */
 export const TrainingKind = z.enum(['scenario', 'quick_reply', 'media', 'media_folder']);
 export type TrainingKind = z.infer<typeof TrainingKind>;
+export const TrainingSection = z.enum(['general', 'after_order']);
+export type TrainingSection = z.infer<typeof TrainingSection>;
 export const CreateTrainingItemRequest = z.object({
   kind: TrainingKind,
   title: z.string().trim().min(1).max(2000),
@@ -41,6 +43,10 @@ export const CreateTrainingItemRequest = z.object({
     .default(null),
   /** Media only: the `media_folder` item that holds it. */
   folderId: z.uuid().nullable().default(null),
+  /** Scenarios only: a disabled rule stays saved but is not given to the model (T-070). */
+  enabled: z.boolean().default(true),
+  /** Scenarios only: `after_order` rules apply once an order or booking has just been made. */
+  section: TrainingSection.default('general'),
 });
 export type CreateTrainingItemRequest = z.infer<typeof CreateTrainingItemRequest>;
 export const UpdateTrainingItemRequest = z
@@ -56,6 +62,8 @@ export const UpdateTrainingItemRequest = z
       .nullable()
       .optional(),
     folderId: z.uuid().nullable().optional(),
+    enabled: z.boolean().optional(),
+    section: TrainingSection.optional(),
   })
   .refine((value) => Object.keys(value).length > 0, 'At least one change is required');
 export type UpdateTrainingItemRequest = z.infer<typeof UpdateTrainingItemRequest>;
