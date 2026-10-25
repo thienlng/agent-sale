@@ -23,11 +23,30 @@ async function inboxApi(page: Page) {
     lastMessage: 'Áo này còn size M không shop?',
     lastInboundAt: fixedNow,
     updatedAt: fixedNow,
+    notes: [] as Array<Record<string, unknown>>,
   }));
   await page.route('**/api/v1/conversations**', async (route) => {
     const path = new URL(route.request().url()).pathname;
     const conversation = conversations.find((item) => path.endsWith(item.id));
-    if (path.endsWith('/conversations')) return route.fulfill({ json: { data: conversations } });
+    if (path.endsWith('/conversations'))
+      return route.fulfill({
+        json: {
+          data: conversations,
+          counts: { all: conversations.length, unread: 0, waiting: 0 },
+        },
+      });
+    if (path.endsWith('/notes') && route.request().method() === 'POST') {
+      const owner = conversations.find((item) => path.includes(item.id));
+      const note = {
+        id: id(90 + (owner?.notes.length ?? 0)),
+        authorId: null,
+        authorName: 'Bạn',
+        text: route.request().postDataJSON().text,
+        createdAt: fixedNow,
+      };
+      owner?.notes.push(note);
+      return route.fulfill({ json: note });
+    }
     if (!conversation) return route.fallback();
     if (route.request().method() === 'PATCH') {
       const body = route.request().postDataJSON();
@@ -101,7 +120,7 @@ async function inboxApi(page: Page) {
 }
 async function openCustomer(page: Page, index: 0 | 1 = 0) {
   await page.getByRole('button', { name: new RegExp(names[index] ?? '') }).click();
-  await expect(page.getByRole('heading', { name: names[index], exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: new RegExp(names[index] ?? '') })).toBeVisible();
 }
 async function openPanel(page: Page) {
   const details = page.getByRole('button', { name: 'Chi tiết', exact: true });
@@ -122,12 +141,12 @@ for (const width of [375, 1280, 1440]) {
       ),
     ).toBeLessThanOrEqual(0);
     await openPanel(page);
-    await page.getByRole('tab', { name: 'Tạo đơn', exact: true }).click();
+    await page.getByRole('button', { name: 'Tạo đơn', exact: true }).click();
     await page.getByPlaceholder('Tìm sản phẩm theo tên hoặc mã').fill('linen');
     await page.getByRole('option', { name: /Áo sơ mi linen/ }).click();
     await expect(
       page
-        .getByRole('tabpanel', { name: 'Tạo đơn', exact: true })
+        .getByRole('region', { name: 'Đơn hàng', exact: true })
         .getByText('Áo sơ mi linen dáng rộng', { exact: true }),
     ).toBeVisible();
     expect(
@@ -137,7 +156,7 @@ for (const width of [375, 1280, 1440]) {
     ).toBeLessThanOrEqual(0);
     const aside = page
       .locator('aside')
-      .filter({ has: page.getByRole('tab', { name: 'Tạo đơn', exact: true }) });
+      .filter({ has: page.getByRole('region', { name: 'Đơn hàng', exact: true }) });
     await page.screenshot({ path: `/tmp/t068-inbox-order-${width}.png`, fullPage: true });
     expect(
       await page.evaluate(() => document.documentElement.scrollHeight - innerHeight),
@@ -166,7 +185,7 @@ for (const width of [375, 1280, 1440]) {
   });
 }
 
-test('draft survives switching customers and internal notes save twice', async ({ page }) => {
+test('draft survives switching customers and notes are added to the timeline', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await inboxApi(page);
   await page.goto('/app/inbox');
@@ -178,17 +197,17 @@ test('draft survives switching customers and internal notes save twice', async (
   await openCustomer(page);
   await expect(composer).toHaveValue('Em đang kiểm tra tồn kho cho chị');
   await page.getByRole('button', { name: 'Thu gọn thông tin', exact: true }).click();
-  await expect(page.getByRole('tab', { name: 'Khách hàng', exact: true })).toBeHidden();
+  await expect(page.getByRole('region', { name: 'Khách hàng', exact: true })).toBeHidden();
   await page.getByRole('button', { name: 'Chi tiết', exact: true }).click();
-  await expect(page.getByRole('tab', { name: 'Khách hàng', exact: true })).toBeVisible();
-  const note = page.locator('textarea[id^="note-"]');
-  await note.fill('Khách cần size M');
-  await page.getByRole('button', { name: 'Lưu ghi chú', exact: true }).click();
-  await expect(note).toHaveValue('Khách cần size M');
-  await expect(page.getByRole('button', { name: 'Lưu ghi chú', exact: true })).toBeDisabled();
-  await note.fill('Khách cần size M, giao thứ bảy');
-  await page.getByRole('button', { name: 'Lưu ghi chú', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Lưu ghi chú', exact: true })).toBeDisabled();
+  await expect(page.getByRole('region', { name: 'Khách hàng', exact: true })).toBeVisible();
+  const notes = page.getByRole('region', { name: 'Ghi chú', exact: true });
+  await notes.getByRole('textbox').fill('Khách cần size M');
+  await notes.getByRole('textbox').press('Enter');
+  await expect(notes.getByText('Khách cần size M', { exact: true })).toBeVisible();
+  await expect(notes.getByRole('textbox')).toHaveValue('');
+  await notes.getByRole('textbox').fill('Giao thứ bảy');
+  await notes.getByRole('textbox').press('Enter');
+  await expect(notes.getByRole('listitem').first()).toContainText('Giao thứ bảy');
   await page.screenshot({ path: '/tmp/t068-inbox-customer.png', fullPage: true });
   await test
     .info()
@@ -200,16 +219,16 @@ test('order draft fields survive switching conversations', async ({ page }) => {
   await inboxApi(page);
   await page.goto('/app/inbox');
   await openCustomer(page);
-  await page.getByRole('tab', { name: 'Tạo đơn', exact: true }).click();
+  await page.getByRole('button', { name: 'Tạo đơn', exact: true }).click();
   await page.getByPlaceholder('Tìm sản phẩm theo tên hoặc mã').fill('linen');
   await page.getByRole('option', { name: /Áo sơ mi linen/ }).click();
   await page.locator('#of-c-phone').fill('0912345678');
   await openCustomer(page, 1);
   await openCustomer(page);
-  await page.getByRole('tab', { name: 'Tạo đơn', exact: true }).click();
+  await page.getByRole('button', { name: 'Tạo đơn', exact: true }).click();
   await expect(
     page
-      .getByRole('tabpanel', { name: 'Tạo đơn', exact: true })
+      .getByRole('region', { name: 'Đơn hàng', exact: true })
       .getByText('Áo sơ mi linen dáng rộng', { exact: true }),
   ).toBeVisible();
   await expect(page.locator('#of-c-phone')).toHaveValue('0912345678');
@@ -248,7 +267,7 @@ test('creates an order without leaving chat and records completion after switchi
     await route.fulfill({ json: { ...order, code: 'DH-INBOX-001' } });
   });
   await openCustomer(page);
-  await page.getByRole('tab', { name: 'Tạo đơn', exact: true }).click();
+  await page.getByRole('button', { name: 'Tạo đơn', exact: true }).click();
   await page.getByPlaceholder('Tìm sản phẩm theo tên hoặc mã').fill('linen');
   await page.getByRole('option', { name: /Áo sơ mi linen/ }).click();
   await page.locator('#of-c-phone').fill('0912345678');
@@ -259,24 +278,24 @@ test('creates an order without leaving chat and records completion after switchi
   finish();
   await expect(page.getByText('Đã tạo đơn DH-INBOX-001').first()).toBeVisible();
   await openCustomer(page);
-  await page.getByRole('tab', { name: 'Tạo đơn', exact: true }).click();
+  await page.getByRole('button', { name: 'Tạo đơn', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Tạo đơn khác', exact: true })).toBeVisible();
   expect(page.url()).toContain('/app/inbox');
   expect(requests).toBe(1);
 });
 
-test('follow-up survives reload and enters the due queue until cleared', async ({ page }) => {
+test('follow-up survives reload and shows one line again once cleared', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await inboxApi(page);
   await page.goto('/app/inbox');
   await openCustomer(page);
+  await page.getByRole('button', { name: /Hẹn chăm sóc lại/ }).click();
   await page.getByRole('button', { name: 'Đặt lịch', exact: true }).click();
   await page.getByLabel('Thời gian chăm sóc', { exact: true }).fill('2026-10-24T09:00');
   await page.getByLabel('Việc cần làm', { exact: true }).fill('Gọi lại về size M');
   await page.getByRole('button', { name: 'Lưu lịch', exact: true }).click();
   await expect(page.getByText('Gọi lại về size M', { exact: true })).toBeVisible();
   await page.reload();
-  await page.getByRole('button', { name: /^Đến hẹn/ }).click();
   await openCustomer(page);
   await expect(page.getByText('Gọi lại về size M', { exact: true })).toBeVisible();
   await page.screenshot({ path: '/tmp/t070-follow-up.png', fullPage: true });
@@ -285,7 +304,6 @@ test('follow-up survives reload and enters the due queue until cleared', async (
     .attach('follow-up-due', { path: '/tmp/t070-follow-up.png', contentType: 'image/png' });
   await page.getByRole('button', { name: 'Xóa lịch', exact: true }).click();
   await expect(page.getByText('Chưa đặt lịch chăm sóc', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: /^Đến hẹn/ })).toHaveText('Đến hẹn0');
 });
 
 test('device saved views restore filters without retaining customer search text', async ({
@@ -294,7 +312,10 @@ test('device saved views restore filters without retaining customer search text'
   await page.setViewportSize({ width: 1440, height: 900 });
   await inboxApi(page);
   await page.goto('/app/inbox');
-  await page.getByRole('button', { name: /^Nhân viên xử lý/ }).click();
+  await page.getByRole('button', { name: 'Lọc', exact: true }).click();
+  await page.getByRole('tab', { name: 'Ai đang trả lời', exact: true }).click();
+  await page.getByRole('radio', { name: 'Người', exact: true }).click();
+  await page.keyboard.press('Escape');
   await page.locator('input[type=search]').fill('Nguyễn');
   await page.getByRole('button', { name: 'Bộ lọc đã lưu', exact: true }).click();
   await page.getByLabel('Tên bộ lọc', { exact: true }).fill('Cần chăm sóc');
@@ -307,10 +328,9 @@ test('device saved views restore filters without retaining customer search text'
   await page.reload();
   await page.getByRole('button', { name: 'Bộ lọc đã lưu', exact: true }).click();
   await page.getByRole('button', { name: 'Cần chăm sóc', exact: true }).click();
-  await expect(page.getByRole('button', { name: /^Nhân viên xử lý/ })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
+  await expect(
+    page.getByRole('button', { name: 'Bỏ lọc Người trả lời', exact: true }),
+  ).toBeVisible();
   await expect(page.locator('input[type=search]')).toHaveValue('');
   await page.getByRole('button', { name: 'Bộ lọc đã lưu', exact: true }).click();
   await page.getByRole('button', { name: 'Xóa Cần chăm sóc', exact: true }).click();
@@ -340,13 +360,13 @@ test('product sharing prepares a draft and keyboard shortcuts respect the editor
   expect(sends).toBe(0);
   await composer.focus();
   await page.keyboard.press('j');
-  await expect(page.getByRole('heading', { name: names[0], exact: true })).toBeVisible();
-  await page.getByRole('heading', { name: names[0], exact: true }).click();
+  await expect(page.getByRole('heading', { name: new RegExp(names[0]) })).toBeVisible();
+  await page.getByRole('heading', { name: new RegExp(names[0]) }).click();
   await page.keyboard.press('j');
-  await expect(page.getByRole('heading', { name: names[1], exact: true })).toBeVisible();
-  await page.getByRole('heading', { name: names[1], exact: true }).click();
+  await expect(page.getByRole('heading', { name: new RegExp(names[1]) })).toBeVisible();
+  await page.getByRole('heading', { name: new RegExp(names[1]) }).click();
   await page.keyboard.press('e');
-  await expect(page.getByRole('button', { name: 'Mở lại hội thoại', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Mở lại', exact: true })).toBeVisible();
   await page.keyboard.press('/');
   await expect(page.locator('input[type=search]')).toBeFocused();
 });
@@ -382,4 +402,26 @@ test('selected CRM profile can change status and open tag controls directly', as
   expect(expectedVersion).toBe(originalVersion);
   await page.getByRole('button', { name: 'Gắn tag', exact: true }).click();
   await expect(page.getByPlaceholder('Tìm tag', { exact: true })).toBeVisible();
+});
+
+test('reply mode sends different requests for temporary and permanent takeover', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await inboxApi(page);
+  const bodies: Array<Record<string, unknown>> = [];
+  page.on('request', (request) => {
+    if (request.method() === 'PATCH' && request.url().includes('/conversations/'))
+      bodies.push(request.postDataJSON());
+  });
+  await page.goto('/app/inbox');
+  await openCustomer(page);
+  await page.getByRole('button', { name: /Chế độ trả lời/ }).click();
+  await page.getByRole('menuitemradio', { name: /Tiếp quản tạm thời/ }).click();
+  await expect.poll(() => bodies.length).toBe(1);
+  expect(bodies[0]).toMatchObject({ mode: 'human', takeover: 'temporary' });
+  await page.getByRole('button', { name: /Chế độ trả lời/ }).click();
+  await page.getByRole('menuitemradio', { name: /Tiếp quản hẳn/ }).click();
+  await expect.poll(() => bodies.length).toBe(2);
+  expect(bodies[1]).toMatchObject({ mode: 'human', takeover: 'permanent' });
 });

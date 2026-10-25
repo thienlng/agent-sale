@@ -1,16 +1,5 @@
-import type { ConversationDto, UpdateConversationRequest } from '@agent-sales/contracts';
-import {
-  ArrowLeft,
-  Bot,
-  CircleAlert,
-  Loader2,
-  UserRound,
-  CheckCheck,
-  Search,
-  X,
-  PanelRightClose,
-  PanelRightOpen,
-} from 'lucide-react';
+import type { InboxConversation, InboxUpdateBody } from '../lib/inbox-v2-types';
+import { ArrowLeft, CircleAlert, Loader2, X } from 'lucide-react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { ApiClientError } from '@/lib/api-client';
@@ -18,11 +7,24 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { useConversation, useInboxActions } from '../api/inbox';
-import { CustomerAvatar } from './customer-avatar';
+import {
+  useConversation,
+  useConversationTagActions,
+  useConversationTags,
+  useInboxActions,
+  useInboxBot,
+  useInboxMembers,
+  useInboxTags,
+} from '../api/inbox';
+import { useSession } from '@/lib/session';
+import { useCan } from '@/lib/permissions';
+import { useReadOnOpen } from '../hooks/use-read-on-open';
+import { ConversationHeader, type HeaderChannel } from './conversation-header';
 import { CustomerPanel } from './customer-panel';
 import { MessageComposer } from './message-composer';
 import { MessageThread } from './message-thread';
+import { useTagBarExpanded } from '../hooks/use-tag-bar-expanded';
+import { TagBar } from './tag-bar';
 import { useConversationShortcuts } from '../hooks/use-conversation-shortcuts';
 
 /** An open conversation: header with takeover, thread, composer and customer panel. */
@@ -30,26 +32,40 @@ export function ConversationView({
   id,
   onBack,
   botId,
+  channel,
   renderSalesPanel,
   renderComposerTools,
 }: {
   id: string;
   onBack: () => void;
   botId: string | null;
-  renderSalesPanel?: ((conversation: ConversationDto) => ReactNode) | undefined;
+  channel?: HeaderChannel | undefined;
+  renderSalesPanel?: ((conversation: InboxConversation) => ReactNode) | undefined;
   renderComposerTools?:
-    ((conversation: ConversationDto, insertText: (text: string) => void) => ReactNode) | undefined;
+    | ((conversation: InboxConversation, insertText: (text: string) => void) => ReactNode)
+    | undefined;
 }) {
   const { t } = useTranslation();
   const tr = (key: string, options?: Record<string, unknown>) =>
     t(`channelInbox.${key}`, options ?? {});
   const detail = useConversation(id);
   const { update } = useInboxActions(id);
+  const bot = useInboxBot(botId);
+  const members = useInboxMembers();
+  const session = useSession();
+  const userId = session?.user.id ?? '';
+  const library = useInboxTags();
+  const tagActions = useConversationTagActions(id);
+  const convTags = useConversationTags(id);
+  const [tagsExpanded, setTagsExpanded] = useTagBarExpanded(session?.workspaceId ?? '', userId);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [details, setDetails] = useState(
     () =>
       typeof window.matchMedia === 'function' && window.matchMedia('(min-width:1280px)').matches,
   );
   const c = detail.data?.conversation;
+  const canEdit = useCan('contacts.edit');
+  const read = useReadOnOpen(id, canEdit ? c : undefined);
   const root = useRef<HTMLDivElement>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -59,7 +75,7 @@ export function ConversationView({
     return () => clearInterval(timer);
   }, []);
 
-  async function change(body: UpdateConversationRequest) {
+  async function change(body: InboxUpdateBody) {
     try {
       await update.mutateAsync({ expectedRevision: c?.revision, ...body });
       toast.success(tr('updated'));
@@ -71,6 +87,24 @@ export function ConversationView({
       );
     }
   }
+  // The "Tin mới" divider marks what was unread when the conversation opened, not after it is read.
+  const [openedRead, setOpenedRead] = useState<{
+    at: string | null;
+    unread: number;
+  } | null>(null);
+  if (c && !openedRead) setOpenedRead({ at: c.lastReadAt, unread: c.unreadCount });
+  // After "mark unread" nobody has read it: the divider goes before the unread customer messages.
+  const neverRead = c?.lastReadAt === null && (c?.unreadCount ?? 0) > 0;
+  const divider = neverRead
+    ? { at: null, unread: c?.unreadCount ?? 0 }
+    : (openedRead ?? { at: null, unread: 0 });
+  function markUnread() {
+    void read
+      .markUnread()
+      .then(() => toast.success(tr('v2.header.marked')))
+      .catch(() => toast.error(tr('loadError')));
+  }
+  const tagError = () => toast.error(tr('v2.tagBar.error'));
   useConversationShortcuts({
     root,
     enabled: Boolean(c),
@@ -78,6 +112,8 @@ export function ConversationView({
     onToggleResolved: () => {
       if (c) void change({ status: c.status === 'resolved' ? 'open' : 'resolved' });
     },
+    onOpenTags: canEdit ? () => setPickerOpen(true) : undefined,
+    onMarkUnread: canEdit && !read.pending ? markUnread : undefined,
   });
   if (detail.isPending)
     return (
@@ -106,84 +142,24 @@ export function ConversationView({
   return (
     <div ref={root} className="flex min-h-0 min-w-0 flex-1">
       <div className={cn('flex min-w-0 flex-1 flex-col', details && 'hidden xl:flex')}>
-        <header className="flex min-h-20 flex-wrap items-center gap-3 border-b px-4 py-3">
-          <Button
-            size="icon"
-            variant="ghost"
-            className="md:hidden"
-            aria-label={tr('back')}
-            onClick={onBack}
-          >
-            <ArrowLeft />
-          </Button>
-          <CustomerAvatar conversation={c} />
-          <div className="min-w-0 flex-1">
-            <h2 className="truncate font-semibold">{c.customerName}</h2>
-            <span className="text-xs text-muted-foreground">
-              {c.provider === 'facebook' ? 'Facebook Messenger' : 'Instagram'}
-              {' · '}
-              {tr(c.status)}
-            </span>
-          </div>
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            aria-label={tr('sales.searchThread')}
-            onClick={() => setSearchOpen((open) => !open)}
-          >
-            <Search />
-          </Button>
-          <Button
-            size="icon-sm"
-            variant={c.status === 'resolved' ? 'secondary' : 'ghost'}
-            aria-label={tr(c.status === 'resolved' ? 'sales.reopen' : 'sales.resolve')}
-            title={`${tr(c.status === 'resolved' ? 'sales.reopen' : 'sales.resolve')} (E)`}
-            aria-keyshortcuts="E"
-            disabled={update.isPending}
-            onClick={() => void change({ status: c.status === 'resolved' ? 'open' : 'resolved' })}
-          >
-            <CheckCheck />
-          </Button>
-          <Button
-            size="sm"
-            variant={c.mode === 'bot' ? 'secondary' : 'outline'}
-            disabled={update.isPending || (c.mode === 'human' && !botId)}
-            onClick={() => void change({ mode: c.mode === 'bot' ? 'human' : 'bot' })}
-          >
-            {c.mode === 'bot' ? <Bot /> : <UserRound />}
-            {tr(c.mode === 'bot' ? 'takeOver' : 'resumeBot')}
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            aria-expanded={details}
-            onClick={() => setDetails((open) => !open)}
-          >
-            {details ? <PanelRightClose /> : <PanelRightOpen />}
-            {tr(details ? 'sales.collapsePanel' : 'details')}
-          </Button>
-        </header>
-        <div
-          role="status"
-          className="flex shrink-0 items-center gap-2 border-b bg-muted/30 px-4 py-2 text-xs text-muted-foreground"
-        >
-          {c.mode === 'bot' ? (
-            <Bot className="size-3.5 text-primary" />
-          ) : (
-            <UserRound className="size-3.5" />
-          )}
-          {tr(c.mode === 'bot' ? 'sales.aiActive' : 'sales.staffActive')}
-          {c.mode === 'human' && c.autoResumeAt ? (
-            <span>
-              {tr(Date.parse(c.autoResumeAt) > clock ? 'sales.resumeAt' : 'sales.resumeNext', {
-                time: new Date(c.autoResumeAt).toLocaleTimeString(undefined, {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                }),
-              })}
-            </span>
-          ) : null}
-        </div>
+        <ConversationHeader
+          conversation={c}
+          channel={channel}
+          botAvailable={Boolean(botId) && bot.data?.isActive !== false}
+          takeoverMinutes={bot.data?.takeoverMinutes}
+          members={members.data ?? []}
+          membersLoading={members.isPending}
+          userId={userId}
+          busy={update.isPending}
+          now={clock}
+          detailsOpen={details}
+          onToggleDetails={() => setDetails((open) => !open)}
+          onBack={onBack}
+          onToggleSearch={() => setSearchOpen((open) => !open)}
+          onChange={(body) => void change(body)}
+          onMarkUnread={markUnread}
+          canEdit={canEdit}
+        />
         {searchOpen ? (
           <div className="flex shrink-0 items-center gap-2 border-b px-4 py-2">
             <Input
@@ -216,6 +192,8 @@ export function ConversationView({
           </p>
         ) : null}
         <MessageThread
+          newAfter={divider.at}
+          newUnread={divider.unread}
           messages={
             search
               ? detail.data.messages.filter((message) =>
@@ -223,6 +201,18 @@ export function ConversationView({
                 )
               : detail.data.messages
           }
+        />
+        <TagBar
+          tags={convTags.data ?? c.tags}
+          library={library.data ?? []}
+          expanded={tagsExpanded}
+          onExpandedChange={setTagsExpanded}
+          pickerOpen={pickerOpen}
+          onPickerOpenChange={setPickerOpen}
+          readOnly={!canEdit}
+          busy={tagActions.attach.isPending || tagActions.remove.isPending}
+          onAttach={(tag) => tagActions.attach.mutate(tag, { onError: tagError })}
+          onRemove={(tag) => tagActions.remove.mutate(tag, { onError: tagError })}
         />
         <MessageComposer
           id={id}
@@ -248,15 +238,7 @@ export function ConversationView({
           <ArrowLeft />
           {tr('back')}
         </Button>
-        {renderSalesPanel ? (
-          renderSalesPanel(c)
-        ) : (
-          <CustomerPanel
-            conversation={c}
-            busy={update.isPending}
-            onChange={(body) => void change(body)}
-          />
-        )}
+        {renderSalesPanel ? renderSalesPanel(c) : <CustomerPanel conversation={c} />}
       </aside>
     </div>
   );

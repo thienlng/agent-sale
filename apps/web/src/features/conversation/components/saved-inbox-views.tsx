@@ -27,9 +27,8 @@ export function SavedInboxViews({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm" className="w-full justify-start text-xs">
+        <Button variant="outline" size="icon-sm" aria-label={tr('title')} title={tr('title')}>
           <BookmarkPlus />
-          {tr('title')}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-72 space-y-3">

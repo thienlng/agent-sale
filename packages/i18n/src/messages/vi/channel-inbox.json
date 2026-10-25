@@ -280,7 +280,194 @@
       "save": "Lưu bộ lọc hiện tại",
       "limit": "Tối đa 5 bộ lọc. Xóa một bộ lọc để lưu bộ lọc khác."
     },
-    "shortcutsHint": "J/K: đổi khách · /: tìm · R: soạn · E: xử lý",
+    "shortcutsHint": "J/K: đổi khách · /: tìm · R: soạn · E: xong · T: tag · U: chưa đọc",
     "customerStage": "Trạng thái khách hàng"
+  },
+  "v2": {
+    "list": {
+      "search": "Tìm tên, số điện thoại, tin nhắn…",
+      "filter": "Lọc",
+      "filterActive": "Lọc, đang bật {{count}} bộ lọc",
+      "tabsLabel": "Nhóm hội thoại",
+      "tabs": {
+        "all": "Tất cả",
+        "unread": "Chưa đọc",
+        "waiting": "Chờ rep"
+      },
+      "chipsLabel": "Bộ lọc đang bật",
+      "removeChip": "Bỏ lọc {{label}}",
+      "clearAll": "Xóa lọc",
+      "emptyUnread": "Không còn hội thoại chưa đọc",
+      "emptyWaiting": "Không có khách nào đang chờ trả lời"
+    },
+    "filter": {
+      "groupsLabel": "Nhóm bộ lọc",
+      "groups": {
+        "tags": "Tag",
+        "waiting": "Trạng thái trả lời",
+        "mode": "Ai đang trả lời",
+        "assignee": "Người phụ trách",
+        "channel": "Kênh",
+        "phone": "Số điện thoại",
+        "status": "Trạng thái"
+      },
+      "tagsAny": "Có một trong",
+      "tagsAll": "Có tất cả",
+      "tagsExclude": "Loại trừ",
+      "untagged": "Không gắn tag",
+      "noTags": "Chưa có tag nào",
+      "waiting": {
+        "off": "Tất cả",
+        "any": "Chờ rep",
+        "longest": "Đợi lâu nhất",
+        "readNotReplied": "Đã đọc nhưng chưa rep"
+      },
+      "mode": {
+        "all": "Tất cả",
+        "bot": "Bot",
+        "human": "Người"
+      },
+      "assignee": {
+        "all": "Tất cả",
+        "me": "Của tôi",
+        "none": "Chưa giao"
+      },
+      "channel": {
+        "all": "Tất cả kênh",
+        "facebook": "Facebook",
+        "instagram": "Instagram",
+        "pages": "Trang / tài khoản"
+      },
+      "phone": {
+        "all": "Tất cả",
+        "yes": "Đã có số",
+        "no": "Chưa có số"
+      },
+      "status": {
+        "open": "Đang mở",
+        "resolved": "Đã xong",
+        "all": "Tất cả"
+      },
+      "reset": "Đặt lại bộ lọc"
+    },
+    "chip": {
+      "tagsAny": "Có: {{name}}",
+      "tagsAll": "Đủ: {{name}}",
+      "tagsExclude": "Không: {{name}}",
+      "mode": {
+        "bot": "Bot trả lời",
+        "human": "Người trả lời"
+      },
+      "assignee": {
+        "me": "Của tôi",
+        "none": "Chưa giao"
+      },
+      "phone": {
+        "yes": "Đã có số",
+        "no": "Chưa có số"
+      },
+      "unknown": "Không rõ"
+    },
+    "row": {
+      "guest": "Khách {{provider}} ·{{last4}}",
+      "unreadBadge": "{{count}} tin chưa đọc",
+      "waited": "Đã chờ {{time}}",
+      "wait": {
+        "m": "{{n}}p",
+        "h": "{{n}}g",
+        "d": "{{n}}ng"
+      },
+      "humanPrefix": "↩ ",
+      "botPrefix": "Bot: ",
+      "phone": "Đã có số điện thoại",
+      "modeBot": "Bot đang trả lời",
+      "modeHuman": "Người đang trả lời",
+      "assignedTo": "Phụ trách: {{name}}",
+      "menu": "Tùy chọn hội thoại",
+      "markUnread": "Đánh dấu chưa đọc",
+      "markRead": "Đánh dấu đã đọc",
+      "assign": "Giao cho…",
+      "assignMe": "Giao cho tôi",
+      "unassign": "Bỏ giao",
+      "actionError": "Không cập nhật được hội thoại. Thử lại."
+    },
+    "header": {
+      "seenBy": "{{name}} đã xem · {{time}}",
+      "seen": "Đã xem · {{time}}",
+      "unseen": "Có tin mới chưa ai xem",
+      "via": "{{provider}} · {{page}}",
+      "more": "Thêm tùy chọn",
+      "markUnread": "Đánh dấu chưa đọc",
+      "openOn": "Mở trên {{provider}}",
+      "marked": "Đã đánh dấu chưa đọc",
+      "resolve": "Xong",
+      "reopen": "Mở lại",
+      "replyMode": {
+        "label": "Chế độ trả lời",
+        "bot": "Bot đang trả lời",
+        "takeover": "Bạn đang tiếp quản · bot bật lại sau {{time}}",
+        "human": "Người trả lời (bot tắt)",
+        "optionBot": "Bot tự trả lời",
+        "optionBotHint": "Bot trả lời khách ngay khi có tin nhắn mới.",
+        "optionTemp": "Tiếp quản tạm thời",
+        "optionTempHint": "Bạn trả lời, bot tự bật lại sau {{minutes}} phút nếu bạn không nhắn thêm.",
+        "optionTempHintNoBot": "Bạn trả lời, bot tự bật lại sau thời gian đặt trong cài đặt bot.",
+        "optionPermanent": "Tiếp quản hẳn",
+        "optionPermanentHint": "Bot không trả lời hội thoại này nữa.",
+        "noBot": "Trang này chưa có bot đang hoạt động.",
+        "current": "Đang chọn",
+        "takeoverOther": "Nhân viên đang trả lời · bot bật lại sau {{time}}"
+      },
+      "assignee": {
+        "none": "Chưa giao",
+        "label": "Người phụ trách: {{name}}",
+        "search": "Tìm nhân viên…",
+        "me": "Giao cho tôi",
+        "unassign": "Bỏ giao",
+        "empty": "Không tìm thấy nhân viên",
+        "you": "Bạn",
+        "loading": "Đang tải danh sách…"
+      }
+    },
+    "thread": {
+      "newDivider": "Tin mới",
+      "bot": "Bot"
+    },
+    "tagBar": {
+      "label": "Tag của hội thoại",
+      "add": "Tag",
+      "addLabel": "Thêm tag (T)",
+      "search": "Tìm tag…",
+      "empty": "Không có tag phù hợp",
+      "none": "Thư viện chưa có tag nào.",
+      "expand": "Hiện tất cả tag",
+      "collapse": "Thu gọn danh sách tag",
+      "remove": "Gỡ tag {{name}}",
+      "attach": "Gắn tag {{name}}",
+      "error": "Không cập nhật được tag. Thử lại.",
+      "create": "Tạo tag trong cài đặt CRM"
+    },
+    "slash": {
+      "hint": "Gõ / để chèn câu trả lời nhanh",
+      "empty": "Không có câu trả lời nhanh phù hợp",
+      "label": "Câu trả lời nhanh"
+    },
+    "panel": {
+      "toggle": "Thu gọn hoặc mở {{title}}",
+      "customer": "Khách hàng",
+      "phone": "Số điện thoại",
+      "noPhone": "Chưa có số điện thoại",
+      "notes": "Ghi chú",
+      "noteAdd": "Viết ghi chú cho ca sau… (Enter để lưu)",
+      "noteEmpty": "Chưa có ghi chú",
+      "noteError": "Không lưu được ghi chú. Thử lại.",
+      "noteAuthor": "Không rõ người viết",
+      "legacyNote": "Ghi chú cũ",
+      "orders": "Đơn hàng",
+      "createOrder": "Tạo đơn",
+      "followUp": "Hẹn chăm sóc lại",
+      "followUpNone": "Chưa đặt lịch",
+      "followUpSet": "Đặt lịch"
+    }
   }
 }

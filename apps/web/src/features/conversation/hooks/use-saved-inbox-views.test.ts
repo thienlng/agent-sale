@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { ListState } from '../lib/inbox-list';
+import { DEFAULT_LIST_STATE, type ListState } from '../lib/inbox-list';
 import {
   inboxViewFilters,
   parseSavedInboxViews,
@@ -9,13 +9,10 @@ import {
 } from './use-saved-inbox-views';
 
 const filters: ListState = {
+  ...DEFAULT_LIST_STATE,
   q: 'private customer phone',
-  provider: 'all',
-  channelId: 'all',
-  status: 'open',
-  mode: 'all',
-  order: 'newest',
-  queue: 'due',
+  waiting: 'longest',
+  tagsAny: ['tag-a'],
 };
 const view = { id: '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d01', name: 'Follow-ups', filters };
 afterEach(() => {
@@ -27,14 +24,15 @@ describe('saved inbox views', () => {
   it('strips search text and unsupported fields before persisting or restoring filters', () => {
     expect(inboxViewFilters(filters)).not.toHaveProperty('q');
     const parsed = parseSavedInboxViews(JSON.stringify([view]));
-    expect(parsed[0]?.filters.queue).toBe('due');
+    expect(parsed[0]?.filters.waiting).toBe('longest');
+    expect(parsed[0]?.filters.tagsAny).toEqual(['tag-a']);
     expect(parsed[0]?.filters).not.toHaveProperty('q');
   });
   it('rejects corrupt, oversized or unsupported saved settings', () => {
     expect(parseSavedInboxViews('{')).toEqual([]);
     expect(
       parseSavedInboxViews(
-        JSON.stringify([{ ...view, filters: { ...filters, queue: 'unsupported' } }]),
+        JSON.stringify([{ ...view, filters: { ...filters, mode: 'unsupported' } }]),
       ),
     ).toEqual([]);
     const many = Array.from({ length: 7 }, (_, i) => ({
@@ -43,6 +41,12 @@ describe('saved inbox views', () => {
     }));
     expect(parseSavedInboxViews(JSON.stringify(many))).toHaveLength(5);
     expect(parseSavedInboxViews(JSON.stringify([view, view]))).toHaveLength(1);
+  });
+  it('loads views saved by the previous version with default values for the new filters', () => {
+    const legacy = { id: view.id, name: 'Old', filters: { provider: 'facebook', status: 'all' } };
+    const [loaded] = parseSavedInboxViews(JSON.stringify([legacy]));
+    expect(loaded?.filters).toMatchObject({ provider: 'facebook', status: 'all', tab: 'all' });
+    expect(loaded?.filters.tagsAny).toEqual([]);
   });
   it('keeps valid entries when another one is corrupt', () => {
     const bad = { ...view, id: '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d02', name: '' };
@@ -63,7 +67,7 @@ describe('saved inbox views', () => {
       'private customer phone',
     );
     const restored = renderHook(() => useSavedInboxViews('workspace-a', 'sale-a'));
-    expect(restored.result.current.views[0]?.filters.queue).toBe('due');
+    expect(restored.result.current.views[0]?.filters.waiting).toBe('longest');
     expect(
       renderHook(() => useSavedInboxViews('workspace-a', 'sale-b')).result.current.views,
     ).toEqual([]);

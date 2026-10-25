@@ -8,7 +8,6 @@ export interface ComposerDraft {
   failedAttempt?: boolean;
   attachmentAttempt?: SendInboxMessageRequest | null;
   attachmentFailedAttempt?: boolean;
-  noteBase?: { note: string; revision: number };
 }
 
 // Drafts stay in this tab's memory only, never in persistent browser storage.
@@ -49,4 +48,22 @@ export function insertQuickReply(
   const next = text.slice(0, start) + content + text.slice(end);
   if (next.length > 2000) return null;
   return { text: next, cursor: start + content.length };
+}
+
+/** Quick replies matching "/query" typed at the start of the draft; null when the menu is closed. */
+export function slashQuery(draft: string): string | null {
+  const match = /^\/(\S*)$/.exec(draft);
+  return match ? (match[1] ?? '') : null;
+}
+
+export function filterSlashReplies<T extends { title: string; content: string }>(
+  items: readonly T[],
+  query: string,
+): T[] {
+  const needle = query.toLocaleLowerCase();
+  return items.filter(
+    (item) =>
+      item.title.toLocaleLowerCase().includes(needle) ||
+      item.content.toLocaleLowerCase().includes(needle),
+  );
 }

@@ -1,6 +1,6 @@
-import type { ContactDto, ConversationDto, OrderDto } from '@agent-sales/contracts';
+import type { ContactDto, OrderDto } from '@agent-sales/contracts';
 import { Link } from '@tanstack/react-router';
-import { Check, Copy, Maximize2, Package, Search, ShoppingBag, UserRound } from 'lucide-react';
+import { ArrowLeft, Check, Copy, Maximize2, Plus, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -14,17 +14,17 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import type { InboxOrderContext } from '@/features/commerce/hooks/inbox-order-draft';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { OrderForm } from '@/features/commerce/components/order-form';
 import { OrderStatusBadge } from '@/features/commerce/components/order-status-badge';
-import { useInboxActions } from '@/features/conversation/api/inbox';
-import { CustomerPanel } from '@/features/conversation/components/customer-panel';
+import { CustomerSummary, FollowUpBlock } from '@/features/conversation/components/customer-panel';
+import { NotesBlock } from '@/features/conversation/components/notes-block';
+import { PanelBlock } from '@/features/conversation/components/panel-block';
+import type { InboxConversation } from '@/features/conversation/lib/inbox-v2-types';
 import { useContact, useContacts } from '@/features/crm/api/crm';
 import { ContactSheet } from '@/features/crm/components/contact-sheet';
 import { useCrmLookups } from '@/features/crm/hooks/use-crm-lookups';
 import { formatVnd } from '@/lib/format';
 import { useCan } from '@/lib/permissions';
-import { useSession } from '@/lib/session';
 import { InboxContactControls } from './inbox-contact-controls';
 
 export interface InboxCustomerContext {
@@ -33,30 +33,29 @@ export interface InboxCustomerContext {
   created?: OrderDto | undefined;
 }
 
-/** Compose separate domain features at the route boundary, with explicit CRM selection. */
+/**
+ * Right panel, composed here because it spans domain features: customer (with the linked CRM
+ * contact and stage), notes timeline, orders and the follow-up reminder.
+ */
 export function InboxSalesPanel({
   conversation: c,
   value,
   onChange,
   onOrderCreated,
 }: {
-  conversation: ConversationDto;
+  conversation: InboxConversation;
   value: InboxCustomerContext;
   onChange: (value: InboxCustomerContext) => void;
   onOrderCreated: (order: OrderDto) => void;
 }) {
   const { t } = useTranslation();
   const tr = (key: string) => t(`channelInbox.sales.${key}`);
-  const [tab, setTab] = useState('customer');
   const [profile, setProfile] = useState<string>();
   const [generation, setGeneration] = useState(0);
+  const [creating, setCreating] = useState(false);
   const created = value.created;
   const lookups = useCrmLookups();
-  const { update } = useInboxActions(c.id);
-  const session = useSession();
-  const mine = c.assigneeId === session?.user.id;
   const canCreate = useCan('orders.manage');
-  const owner = lookups.member(c.assigneeId) ?? (mine ? session?.user.name : undefined);
   const selectedContact = useContact(value.contact?.id);
   const contact = selectedContact.data;
   async function copy(text: string) {
@@ -67,28 +66,12 @@ export function InboxSalesPanel({
       toast.error(tr('copyError'));
     }
   }
+  const orderCount = value.orders.length;
   return (
-    <Tabs value={tab} onValueChange={setTab} className="min-w-0 gap-0">
-      <div className="sticky top-0 z-10 border-b bg-background p-3">
-        <TabsList className="w-full">
-          <TabsTrigger value="customer" className="flex-1">
-            <UserRound className="size-4" />
-            {tr('customerTab')}
-          </TabsTrigger>
-          <TabsTrigger value="order" className="flex-1">
-            <ShoppingBag className="size-4" />
-            {tr('orderTab')}
-          </TabsTrigger>
-        </TabsList>
-      </div>
-      <TabsContent value="customer" className="mt-0">
-        <div className="space-y-4 border-b p-4">
-          <div className="flex items-center justify-between gap-2 text-sm">
-            <span className="text-muted-foreground">{tr('owner')}</span>
-            <span className="truncate font-medium">
-              {owner ?? t(`channelInbox.${c.assigneeId ? 'assigned' : 'unassigned'}`)}
-            </span>
-          </div>
+    <div className="min-w-0">
+      <PanelBlock title={t('channelInbox.v2.panel.customer')}>
+        <div className="space-y-4">
+          <CustomerSummary conversation={c} />
           {value.contact && !contact ? (
             <div role="status" className="space-y-2 rounded-xl border p-3 text-sm">
               <p>
@@ -116,7 +99,7 @@ export function InboxSalesPanel({
                 </div>
                 <Check className="size-4 shrink-0 text-success" />
               </div>
-              {contact.phone ? (
+              {contact.phone && contact.phone !== c.customerPhone ? (
                 <div className="flex items-center justify-between gap-2 text-sm">
                   <a href={`tel:${contact.phone}`} className="hover:underline">
                     {contact.phone}
@@ -156,84 +139,92 @@ export function InboxSalesPanel({
           ) : (
             <ContactSearch onSelect={(contact) => onChange({ ...value, contact })} />
           )}
-          <Button className="w-full" variant="outline" onClick={() => setTab('order')}>
-            <ShoppingBag />
-            {tr('orderTab')}
-          </Button>
         </div>
-        <CustomerPanel
-          conversation={c}
-          busy={update.isPending}
-          onChange={(body) =>
-            update.mutate(
-              { expectedRevision: c.revision, ...body },
-              { onError: () => toast.error(tr('conflict')) },
-            )
-          }
-        />
-        <section className="space-y-3 border-t p-4">
-          <h3 className="flex items-center gap-2 text-sm font-semibold">
-            <Package className="size-4" />
-            {tr('sessionOrders')}
-          </h3>
-          {value.orders.length ? (
-            value.orders.map((order) => (
-              <Link
-                key={order.id}
-                to="/app/orders/$orderId"
-                params={{ orderId: order.id }}
-                className="block space-y-2 rounded-xl border p-3 hover:bg-muted/40"
-              >
-                <div className="flex justify-between gap-2 text-sm">
-                  <span className="font-medium">{order.code}</span>
-                  <span>{formatVnd(order.amounts.total)}</span>
-                </div>
-                <OrderStatusBadge status={order.status} />
-              </Link>
-            ))
-          ) : (
-            <p className="text-xs text-muted-foreground">{tr('noSessionOrders')}</p>
-          )}
-        </section>
-        <ContactSheet contactId={profile} onClose={() => setProfile(undefined)} lookups={lookups} />
-      </TabsContent>
-      <TabsContent value="order" className="m-0 p-3">
-        {value.contact && !contact ? (
-          <p role="status" className="p-4 text-sm">
-            {t(selectedContact.isError ? 'channelInbox.loadError' : 'channelInbox.loading')}
-          </p>
-        ) : !canCreate ? (
-          <p role="status" className="rounded-lg bg-muted p-4 text-sm">
-            {tr('orderPermission')}
-          </p>
-        ) : created ? (
-          <div className="space-y-4 rounded-xl border p-4">
-            <Check className="size-8 text-success" />
-            <p className="font-semibold">{t('orderForm.created', { code: created.code })}</p>
-            <Button asChild variant="outline" className="w-full">
-              <Link to="/app/orders/$orderId" params={{ orderId: created.id }}>
-                {tr('openOrder')}
-              </Link>
+      </PanelBlock>
+      <NotesBlock conversation={c} />
+      <PanelBlock
+        title={t('channelInbox.v2.panel.orders')}
+        summary={orderCount ? String(orderCount) : undefined}
+      >
+        {creating ? (
+          <div className="space-y-3">
+            <Button variant="ghost" size="sm" className="-ml-2" onClick={() => setCreating(false)}>
+              <ArrowLeft />
+              {t('channelInbox.back')}
             </Button>
-            <Button
-              className="w-full"
-              onClick={() => {
-                onChange({ ...value, created: undefined });
-                setGeneration((n) => n + 1);
-              }}
-            >
-              {tr('anotherOrder')}
-            </Button>
+            {value.contact && !contact ? (
+              <p role="status" className="p-2 text-sm">
+                {t(selectedContact.isError ? 'channelInbox.loadError' : 'channelInbox.loading')}
+              </p>
+            ) : !canCreate ? (
+              <p role="status" className="rounded-lg bg-muted p-4 text-sm">
+                {tr('orderPermission')}
+              </p>
+            ) : created ? (
+              <div className="space-y-3 rounded-xl border p-4">
+                <Check className="size-8 text-success" />
+                <p className="font-semibold">{t('orderForm.created', { code: created.code })}</p>
+                <Button asChild variant="outline" className="w-full">
+                  <Link to="/app/orders/$orderId" params={{ orderId: created.id }}>
+                    {tr('openOrder')}
+                  </Link>
+                </Button>
+                <Button
+                  className="w-full"
+                  onClick={() => {
+                    onChange({ ...value, created: undefined });
+                    setGeneration((n) => n + 1);
+                  }}
+                >
+                  {tr('anotherOrder')}
+                </Button>
+              </div>
+            ) : (
+              <InboxOrderComposer
+                key={`${c.id}:${generation}`}
+                context={{
+                  draftKey: c.id,
+                  customerName: c.customerName,
+                  source: c.provider,
+                  contact,
+                }}
+                onCreated={onOrderCreated}
+              />
+            )}
           </div>
         ) : (
-          <InboxOrderComposer
-            key={`${c.id}:${generation}`}
-            context={{ draftKey: c.id, customerName: c.customerName, source: c.provider, contact }}
-            onCreated={onOrderCreated}
-          />
+          <div className="space-y-2">
+            {value.orders.length ? (
+              value.orders.map((order) => (
+                <Link
+                  key={order.id}
+                  to="/app/orders/$orderId"
+                  params={{ orderId: order.id }}
+                  className="flex items-center justify-between gap-2 rounded-lg border p-2 text-sm hover:bg-muted/40"
+                >
+                  <span className="font-medium">{order.code}</span>
+                  <OrderStatusBadge status={order.status} />
+                  <span>{formatVnd(order.amounts.total)}</span>
+                </Link>
+              ))
+            ) : (
+              <p className="text-xs text-muted-foreground">{tr('noSessionOrders')}</p>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() => setCreating(true)}
+            >
+              <Plus />
+              {t('channelInbox.v2.panel.createOrder')}
+            </Button>
+          </div>
         )}
-      </TabsContent>
-    </Tabs>
+      </PanelBlock>
+      <FollowUpBlock conversation={c} />
+      <ContactSheet contactId={profile} onClose={() => setProfile(undefined)} lookups={lookups} />
+    </div>
   );
 }
 
