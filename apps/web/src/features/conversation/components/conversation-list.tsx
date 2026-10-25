@@ -1,4 +1,5 @@
-import type { ChannelConnectionDto, ConversationDto, MetaProvider } from '@agent-sales/contracts';
+import type { ChannelConnectionDto, ConversationDto } from '@agent-sales/contracts';
+import type { RefObject } from 'react';
 import { Link } from '@tanstack/react-router';
 import { ArrowUpDown, CircleAlert, MessageCircle, RefreshCw, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -13,24 +14,18 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { SALES_QUEUES, type SalesQueue, type SortOrder } from '../lib/inbox-list';
+import { SALES_QUEUES, type ListState } from '../lib/inbox-list';
+import { SavedInboxViews } from './saved-inbox-views';
 import { ChannelFilter } from './channel-filter';
 import { ConversationRow } from './conversation-row';
-import { ListFilters, type ModeFilter, type StatusFilter } from './list-filters';
-
-export interface ListState {
-  q: string;
-  provider: MetaProvider | 'all';
-  status: StatusFilter;
-  mode: ModeFilter;
-  order: SortOrder;
-  queue: SalesQueue;
-  channelId: string;
-}
+import { ListFilters } from './list-filters';
 
 /** Left column of the inbox: "Chat" header, channel filter, search, sort and conversations. */
 export function ConversationList({
   state,
+  searchRef,
+  workspaceId,
+  userId,
   onState,
   items,
   channels,
@@ -46,6 +41,9 @@ export function ConversationList({
   hidden,
 }: {
   state: ListState;
+  searchRef: RefObject<HTMLInputElement | null>;
+  workspaceId: string;
+  userId: string;
   onState: (patch: Partial<ListState>) => void;
   items: readonly ConversationDto[];
   channels: readonly ChannelConnectionDto[];
@@ -96,7 +94,6 @@ export function ConversationList({
               size="sm"
               className={cn(
                 'justify-between px-2.5 text-xs',
-                queue === 'all' && 'col-span-2',
                 state.queue === queue && 'text-primary',
               )}
               aria-pressed={state.queue === queue}
@@ -112,6 +109,7 @@ export function ConversationList({
         <div className="relative">
           <Search className="absolute top-2.5 left-3 size-4 text-muted-foreground" aria-hidden />
           <Input
+            ref={searchRef}
             type="search"
             aria-label={tr('inbox.searchPlaceholder')}
             placeholder={tr('inbox.searchPlaceholder')}
@@ -135,6 +133,12 @@ export function ConversationList({
               ))}
           </SelectContent>
         </Select>
+        <SavedInboxViews
+          workspaceId={workspaceId}
+          userId={userId}
+          state={state}
+          onApply={onState}
+        />
         <div className="flex items-center justify-between">
           <Button
             variant="ghost"
@@ -222,6 +226,9 @@ export function ConversationList({
           </div>
         )}
       </div>
+      <p className="hidden shrink-0 border-t px-3 py-2 text-[10px] text-muted-foreground md:block">
+        {tr('sales.shortcutsHint')}
+      </p>
     </aside>
   );
 }

@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useSession } from '@/lib/session';
+import { FollowUpEditor } from './follow-up-editor';
 
 /** Customer details, status, assignment and internal notes. */
 export function CustomerPanel({
@@ -36,6 +37,7 @@ export function CustomerPanel({
   return (
     <>
       <div className="space-y-5 p-5">
+        <FollowUpEditor conversation={c} />
         <div>
           <Label className="text-xs text-muted-foreground">{tr('channel')}</Label>
           <p className="mt-1 text-sm">{c.provider === 'facebook' ? 'Facebook' : 'Instagram'}</p>

@@ -1,6 +1,6 @@
 import type { SendInboxMessageRequest } from '@agent-sales/contracts';
 import { FileText, Loader2, Send, X, Zap } from 'lucide-react';
-import { useRef, useState, useSyncExternalStore } from 'react';
+import { type ReactNode, useRef, useState, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,7 @@ export function MessageComposer(props: {
   id: string;
   botId: string | null;
   windowClosed: boolean;
+  renderTools?: ((insertText: (text: string) => void) => ReactNode) | undefined;
 }) {
   const session = useSession();
   const scope = draftKey(session?.user.id ?? '', session?.workspaceId ?? '', props.id);
@@ -35,11 +36,13 @@ function ScopedComposer({
   botId,
   windowClosed,
   scope,
+  renderTools,
 }: {
   id: string;
   botId: string | null;
   windowClosed: boolean;
   scope: string;
+  renderTools?: ((insertText: (text: string) => void) => ReactNode) | undefined;
 }) {
   const { t } = useTranslation();
   const tr = (key: string) => t(`channelInbox.${key}`);
@@ -55,6 +58,9 @@ function ScopedComposer({
   const textarea = useRef<HTMLTextAreaElement>(null);
   const selection = useRef({ start: draft.length, end: draft.length });
   const [delivery, setDelivery] = useState<string | null>(null);
+  function rememberSelection(editor: HTMLTextAreaElement) {
+    selection.current = { start: editor.selectionStart, end: editor.selectionEnd };
+  }
   function save(patch: Partial<ComposerDraft>) {
     const next = { ...readDraft(scope), ...patch };
     writeDraft(scope, next);
@@ -64,6 +70,29 @@ function ScopedComposer({
     setDelivery(null);
   }
   const [quickOpen, setQuickOpen] = useState(false);
+  function insertText(content: string) {
+    if (sender.isPending) {
+      toast.info(tr('sending'));
+      return;
+    }
+    const current = readDraft(scope).text;
+    const inserted = insertQuickReply(
+      current,
+      content,
+      selection.current.start,
+      selection.current.end,
+    );
+    if (!inserted) {
+      toast.error(tr('sales.replyTooLong'));
+      return;
+    }
+    setDraft(inserted.text);
+    selection.current = { start: inserted.cursor, end: inserted.cursor };
+    requestAnimationFrame(() => {
+      textarea.current?.focus();
+      textarea.current?.setSelectionRange(inserted.cursor, inserted.cursor);
+    });
+  }
 
   function report(status: string) {
     if (status === 'unknown' || status === 'pending') toast.warning(tr('pendingHint'));
@@ -127,7 +156,7 @@ function ScopedComposer({
     }
   }
   return (
-    <div className="shrink-0 border-t bg-background p-3 sm:p-4">
+    <div data-inbox-composer className="shrink-0 border-t bg-background p-3 sm:p-4">
       <div className="mb-2 flex items-center justify-between text-xs">
         <div className="flex gap-1" role="group" aria-label={tr('sales.composerMode')}>
           <Button
@@ -220,18 +249,17 @@ function ScopedComposer({
           <div className="rounded-xl border bg-muted/20 p-2">
             <Textarea
               ref={textarea}
-              onSelect={(event) => {
-                selection.current = {
-                  start: event.currentTarget.selectionStart,
-                  end: event.currentTarget.selectionEnd,
-                };
-              }}
+              onSelect={(event) => rememberSelection(event.currentTarget)}
+              onBlur={(event) => rememberSelection(event.currentTarget)}
               aria-label={tr('composer')}
               placeholder={tr('composer')}
               maxLength={2000}
               value={draft}
               disabled={sender.isPending}
-              onChange={(event) => setDraft(event.target.value)}
+              onChange={(event) => {
+                rememberSelection(event.currentTarget);
+                setDraft(event.currentTarget.value);
+              }}
               onKeyDown={(event) => {
                 if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
                   event.preventDefault();
@@ -240,8 +268,8 @@ function ScopedComposer({
               }}
               className="min-h-20 resize-none border-0 bg-transparent shadow-none focus-visible:ring-0"
             />
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex min-w-0 flex-wrap items-center gap-1">
                 <AttachmentPicker
                   botId={botId}
                   disabled={sender.isPending || windowClosed}
@@ -270,22 +298,8 @@ function ScopedComposer({
                           key={item.id}
                           className="block w-full rounded-lg p-3 text-left hover:bg-muted"
                           onClick={() => {
-                            const inserted = insertQuickReply(
-                              draft,
-                              item.content,
-                              selection.current.start,
-                              selection.current.end,
-                            );
-                            if (!inserted) {
-                              toast.error(tr('sales.replyTooLong'));
-                              return;
-                            }
-                            setDraft(inserted.text);
+                            insertText(item.content);
                             setQuickOpen(false);
-                            requestAnimationFrame(() => {
-                              textarea.current?.focus();
-                              textarea.current?.setSelectionRange(inserted.cursor, inserted.cursor);
-                            });
                           }}
                         >
                           <span className="block text-sm font-medium">{item.title}</span>
@@ -299,8 +313,11 @@ function ScopedComposer({
                     )}
                   </PopoverContent>
                 </Popover>
+                <fieldset disabled={sender.isPending} className="contents">
+                  {renderTools?.(insertText)}
+                </fieldset>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="ml-auto flex shrink-0 items-center gap-2">
                 <span className="text-[10px] text-muted-foreground">{draft.length}/2000</span>
                 <Button
                   size="sm"

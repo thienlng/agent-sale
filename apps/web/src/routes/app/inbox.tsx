@@ -2,6 +2,7 @@ import type { ConversationDto } from '@agent-sales/contracts';
 import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
 import { InboxPage } from '@/features/conversation/components/inbox-page';
+import { ProductShare } from '@/features/commerce/components/product-share';
 import { useSession } from '@/lib/session';
 import { InboxSalesPanel, type InboxCustomerContext } from './-components/inbox-sales-panel';
 
@@ -14,6 +15,7 @@ function SalesInbox() {
   const [contexts, setContexts] = useState<Record<string, InboxCustomerContext>>({});
   return (
     <InboxPage
+      renderComposerTools={(_conversation, insertText) => <ProductShare onInsert={insertText} />}
       renderSalesPanel={(conversation: ConversationDto) => (
         <InboxSalesPanel
           key={conversation.id}

@@ -49,7 +49,7 @@ Deliver a convenient sales workspace with actionable queues, reliable conversati
 
 ## Log
 
-- 2026-10-25 — Final local verification for T-068/T-069 passed: full pnpm check (705 tests, all gates/builds), 12 production browser regressions, 11 team PostgreSQL integration tests and independent QA approval. PR #59 contains review screenshots. CI is tracked on the PR.
+- 2026-10-25 — Final local verification for T-068/T-071 passed: full pnpm check (705 tests, all gates/builds), 12 production browser regressions, 11 team PostgreSQL integration tests and independent QA approval. PR #59 contains review screenshots. CI is tracked on the PR.
 
 - 2026-10-25 — Production browser run passed all 12 tests: six sales inbox flows plus the existing responsive suite at 375/768/1280/1920 pixels and every layout preference combination. Synthetic review screenshots are in docs/reference/inbox-redesign/.
 - 2026-10-25 — PR #59 opened as draft. CI secret scan flagged a synthetic UUID under an idempotencyKey fixture; replaced it with a generated UUID and cleaned the isolated, unreviewed draft commit rather than weakening the scanner.

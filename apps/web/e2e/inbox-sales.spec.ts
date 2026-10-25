@@ -1,5 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
 import { mockApi, ORDER_ID, PRODUCT_ID } from './support/mock-api';
+import { CONTACT_ID } from './support/mock-crm';
 
 const id = (n: number) => `0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9f${String(n).padStart(2, '0')}`;
 const names = ['Nguyễn Minh Anh', 'Trần Hoàng Nam'] as const;
@@ -115,6 +116,11 @@ for (const width of [375, 1280, 1440]) {
     await inboxApi(page);
     await page.goto('/app/inbox');
     await openCustomer(page);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      ),
+    ).toBeLessThanOrEqual(0);
     await openPanel(page);
     await page.getByRole('tab', { name: 'Tạo đơn', exact: true }).click();
     await page.getByPlaceholder('Tìm sản phẩm theo tên hoặc mã').fill('linen');
@@ -257,4 +263,123 @@ test('creates an order without leaving chat and records completion after switchi
   await expect(page.getByRole('button', { name: 'Tạo đơn khác', exact: true })).toBeVisible();
   expect(page.url()).toContain('/app/inbox');
   expect(requests).toBe(1);
+});
+
+test('follow-up survives reload and enters the due queue until cleared', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await inboxApi(page);
+  await page.goto('/app/inbox');
+  await openCustomer(page);
+  await page.getByRole('button', { name: 'Đặt lịch', exact: true }).click();
+  await page.getByLabel('Thời gian chăm sóc', { exact: true }).fill('2026-10-24T09:00');
+  await page.getByLabel('Việc cần làm', { exact: true }).fill('Gọi lại về size M');
+  await page.getByRole('button', { name: 'Lưu lịch', exact: true }).click();
+  await expect(page.getByText('Gọi lại về size M', { exact: true })).toBeVisible();
+  await page.reload();
+  await page.getByRole('button', { name: /^Đến hẹn/ }).click();
+  await openCustomer(page);
+  await expect(page.getByText('Gọi lại về size M', { exact: true })).toBeVisible();
+  await page.screenshot({ path: '/tmp/t070-follow-up.png', fullPage: true });
+  await test
+    .info()
+    .attach('follow-up-due', { path: '/tmp/t070-follow-up.png', contentType: 'image/png' });
+  await page.getByRole('button', { name: 'Xóa lịch', exact: true }).click();
+  await expect(page.getByText('Chưa đặt lịch chăm sóc', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Đến hẹn/ })).toHaveText('Đến hẹn0');
+});
+
+test('device saved views restore filters without retaining customer search text', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await inboxApi(page);
+  await page.goto('/app/inbox');
+  await page.getByRole('button', { name: /^Nhân viên xử lý/ }).click();
+  await page.locator('input[type=search]').fill('Nguyễn');
+  await page.getByRole('button', { name: 'Bộ lọc đã lưu', exact: true }).click();
+  await page.getByLabel('Tên bộ lọc', { exact: true }).fill('Cần chăm sóc');
+  await page.getByRole('button', { name: 'Lưu bộ lọc hiện tại', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Cần chăm sóc', exact: true })).toBeVisible();
+  await page.screenshot({ path: '/tmp/t070-saved-views.png', fullPage: true });
+  await test
+    .info()
+    .attach('saved-views', { path: '/tmp/t070-saved-views.png', contentType: 'image/png' });
+  await page.reload();
+  await page.getByRole('button', { name: 'Bộ lọc đã lưu', exact: true }).click();
+  await page.getByRole('button', { name: 'Cần chăm sóc', exact: true }).click();
+  await expect(page.getByRole('button', { name: /^Nhân viên xử lý/ })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await expect(page.locator('input[type=search]')).toHaveValue('');
+  await page.getByRole('button', { name: 'Bộ lọc đã lưu', exact: true }).click();
+  await page.getByRole('button', { name: 'Xóa Cần chăm sóc', exact: true }).click();
+  await expect(page.getByText('Chưa có bộ lọc đã lưu.', { exact: true })).toBeVisible();
+});
+
+test('product sharing prepares a draft and keyboard shortcuts respect the editor', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await inboxApi(page);
+  let sends = 0;
+  page.on('request', (request) => {
+    if (request.method() === 'POST' && request.url().includes('/messages')) sends += 1;
+  });
+  await page.goto('/app/inbox');
+  await openCustomer(page);
+  await page.keyboard.press('r');
+  const composer = page.getByRole('textbox', { name: 'Soạn tin nhắn…', exact: true });
+  await expect(composer).toBeFocused();
+  await composer.fill('Chị xem mẫu này: ');
+  await page.getByRole('button', { name: 'Sản phẩm', exact: true }).click();
+  await page.getByPlaceholder('Tìm sản phẩm theo tên hoặc mã').fill('linen');
+  await page.getByRole('option', { name: /Áo sơ mi linen/ }).click();
+  await expect(composer).toHaveValue(/Chị xem mẫu này: Áo sơ mi linen dáng rộng · Trắng \/ M/);
+  await expect(composer).toHaveValue(/250.000/);
+  expect(sends).toBe(0);
+  await composer.focus();
+  await page.keyboard.press('j');
+  await expect(page.getByRole('heading', { name: names[0], exact: true })).toBeVisible();
+  await page.getByRole('heading', { name: names[0], exact: true }).click();
+  await page.keyboard.press('j');
+  await expect(page.getByRole('heading', { name: names[1], exact: true })).toBeVisible();
+  await page.getByRole('heading', { name: names[1], exact: true }).click();
+  await page.keyboard.press('e');
+  await expect(page.getByRole('button', { name: 'Mở lại hội thoại', exact: true })).toBeVisible();
+  await page.keyboard.press('/');
+  await expect(page.locator('input[type=search]')).toBeFocused();
+});
+
+test('selected CRM profile can change status and open tag controls directly', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await inboxApi(page);
+  await page.goto('/app/inbox');
+  const contact = await page.evaluate(
+    async (contactId) => (await fetch(`/api/v1/contacts/${contactId}`)).json(),
+    CONTACT_ID,
+  );
+  let expectedVersion: number | undefined;
+  await page.route(`**/api/v1/contacts/${CONTACT_ID}`, async (route) => {
+    if (route.request().method() === 'PATCH') {
+      const body = route.request().postDataJSON();
+      expectedVersion = body.expectedVersion;
+      Object.assign(contact, body, { version: contact.version + 1 });
+    }
+    await route.fulfill({ json: contact });
+  });
+  await openCustomer(page);
+  await page.getByLabel('Tìm hồ sơ CRM', { exact: true }).fill('0912');
+  await page
+    .getByRole('button', { name: /Nguyễn Thị Thanh Hương Lan Anh Phương Thảo Ngọc Bích/ })
+    .first()
+    .click();
+  await expect(page.getByText('Trạng thái khách hàng', { exact: true })).toBeVisible();
+  const originalVersion = contact.version;
+  await page.locator(`#inbox-contact-status-${CONTACT_ID}`).click();
+  await page.getByRole('option', { name: 'Trial', exact: true }).click();
+  await expect(page.locator(`#inbox-contact-status-${CONTACT_ID}`)).toContainText('Trial');
+  expect(expectedVersion).toBe(originalVersion);
+  await page.getByRole('button', { name: 'Gắn tag', exact: true }).click();
+  await expect(page.getByPlaceholder('Tìm tag', { exact: true })).toBeVisible();
 });

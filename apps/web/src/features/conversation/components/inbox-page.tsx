@@ -1,28 +1,55 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { ConversationDto } from '@agent-sales/contracts';
 import { useSession } from '@/lib/session';
 import { useWorkspaceId } from '@/lib/use-workspace';
+import { useInboxShortcuts } from '../hooks/use-inbox-shortcuts';
 import { useInbox, useInboxChannels } from '../api/inbox';
-import { filterInbox, filterSalesQueue, SALES_QUEUES, sortConversations } from '../lib/inbox-list';
-import { ConversationList, type ListState } from './conversation-list';
+import {
+  filterInbox,
+  filterSalesQueue,
+  SALES_QUEUES,
+  sortConversations,
+  type ListState,
+} from '../lib/inbox-list';
+import { ConversationList } from './conversation-list';
 import { ConversationView } from './conversation-view';
 import { InboxEmptyState } from './inbox-empty-state';
 
 export function InboxPage({
   renderSalesPanel,
+  renderComposerTools,
 }: {
   renderSalesPanel?: ((conversation: ConversationDto) => ReactNode) | undefined;
+  renderComposerTools?:
+    ((conversation: ConversationDto, insertText: (text: string) => void) => ReactNode) | undefined;
 }) {
   const workspaceId = useWorkspaceId();
-  return <InboxWorkspace key={workspaceId} renderSalesPanel={renderSalesPanel} />;
+  const userId = useSession()?.user.id ?? '';
+  return (
+    <InboxWorkspace
+      key={`${workspaceId}:${userId}`}
+      renderSalesPanel={renderSalesPanel}
+      renderComposerTools={renderComposerTools}
+    />
+  );
 }
 
 function InboxWorkspace({
   renderSalesPanel,
+  renderComposerTools,
 }: {
   renderSalesPanel?: ((conversation: ConversationDto) => ReactNode) | undefined;
+  renderComposerTools?:
+    ((conversation: ConversationDto, insertText: (text: string) => void) => ReactNode) | undefined;
 }) {
   const userId = useSession()?.user.id;
+  const workspaceId = useWorkspaceId();
+  const searchRef = useRef<HTMLInputElement>(null);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60000);
+    return () => window.clearInterval(timer);
+  }, []);
   const [selected, setSelected] = useState<{ id: string; channelId: string } | null>(null);
   const [state, setState] = useState<ListState>({
     q: '',
@@ -37,10 +64,26 @@ function InboxWorkspace({
   const inbox = useInbox({ q: state.q, limit: 100 });
   const channels = useInboxChannels();
   const filtered = filterInbox(inbox.data?.data ?? [], state);
-  const items = sortConversations(filterSalesQueue(filtered, state.queue, userId), state.order);
-  const queueCounts = Object.fromEntries(
-    SALES_QUEUES.map((queue) => [queue, filterSalesQueue(filtered, queue, userId).length]),
+  const items = sortConversations(
+    filterSalesQueue(filtered, state.queue, userId, now),
+    state.order,
   );
+  const queueCounts = Object.fromEntries(
+    SALES_QUEUES.map((queue) => [queue, filterSalesQueue(filtered, queue, userId, now).length]),
+  );
+  function selectConversation(id: string) {
+    const item = items.find((conversation) => conversation.id === id);
+    if (item) setSelected({ id, channelId: item.channelId });
+  }
+  useInboxShortcuts({
+    ids: items.map((conversation) => conversation.id),
+    selected: selected?.id ?? null,
+    onSelect: selectConversation,
+    onSearch: () => {
+      if (window.matchMedia('(max-width: 767px)').matches) setSelected(null);
+      window.requestAnimationFrame(() => searchRef.current?.focus());
+    },
+  });
   const botId = channels.data?.data.find((c) => c.id === selected?.channelId)?.botId ?? null;
   return (
     <section
@@ -49,6 +92,9 @@ function InboxWorkspace({
     >
       <ConversationList
         state={state}
+        searchRef={searchRef}
+        workspaceId={workspaceId}
+        userId={userId ?? ''}
         onState={(patch) => setState((prev) => ({ ...prev, ...patch }))}
         items={items}
         channels={channels.data?.data ?? []}
@@ -60,10 +106,7 @@ function InboxWorkspace({
         onRefetch={() => void inbox.refetch()}
         hasChannel={Boolean(channels.data?.data.some((c) => c.status === 'connected'))}
         selected={selected?.id ?? null}
-        onSelect={(id) => {
-          const item = items.find((c) => c.id === id);
-          if (item) setSelected({ id, channelId: item.channelId });
-        }}
+        onSelect={selectConversation}
         hidden={Boolean(selected)}
       />
       {selected ? (
@@ -73,6 +116,7 @@ function InboxWorkspace({
           onBack={() => setSelected(null)}
           botId={botId}
           renderSalesPanel={renderSalesPanel}
+          renderComposerTools={renderComposerTools}
         />
       ) : (
         <InboxEmptyState />

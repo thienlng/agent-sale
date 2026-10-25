@@ -241,12 +241,46 @@
       "human": "Staff handling",
       "mine": "Assigned to me",
       "unassigned": "Unassigned",
-      "bot": "AI handling"
+      "bot": "AI handling",
+      "due": "Follow-ups due"
     },
     "existingOrderDraftHint": "An existing draft keeps its original customer details. Review the customer fields before creating the order; selecting another CRM profile does not overwrite this draft.",
     "retrySend": "Retry send",
     "expandOrder": "Expand order details",
     "orderDetails": "Order details",
-    "collapsePanel": "Hide customer panel"
+    "collapsePanel": "Hide customer panel",
+    "shareProduct": "Product",
+    "shareProductHint": "Pick a variant to insert its catalog name and price. Review the message before sending.",
+    "productMessage": "{{name}}{{variant}}\nPrice: {{price}}",
+    "followUpTitle": "Follow-up",
+    "followUpDue": "Due",
+    "followUpPrivate": "Staff only. Appears in the due queue; no automatic notification.",
+    "followUpEmpty": "No follow-up scheduled",
+    "followUpTimezone": "Device timezone",
+    "followUpAt": "Follow-up time",
+    "followUpNote": "What to do",
+    "followUpInvalid": "Choose a valid time in your device timezone.",
+    "followUpSaved": "Follow-up saved",
+    "followUpCleared": "Follow-up cleared",
+    "followUpSaveError": "Could not save. Your draft is safe; check for changes and retry.",
+    "followUpChanged": "The conversation changed. Check the saved follow-up above before applying your draft.",
+    "followUpKeepDraft": "Use latest revision, keep draft",
+    "followUpCancel": "Cancel edit",
+    "followUpSave": "Save follow-up",
+    "followUpEdit": "Edit follow-up",
+    "followUpAdd": "Schedule follow-up",
+    "followUpClear": "Clear follow-up",
+    "views": {
+      "title": "Saved views",
+      "deviceHint": "Saved on this device for your account and workspace. Search text is not saved.",
+      "storageError": "Could not access device storage. Try saving again.",
+      "delete": "Delete {{name}}",
+      "empty": "No saved views yet.",
+      "name": "View name",
+      "save": "Save current filters",
+      "limit": "Maximum 5 views. Delete one to save another."
+    },
+    "shortcutsHint": "J/K: switch · /: search · R: compose · E: resolve",
+    "customerStage": "Customer status"
   }
 }

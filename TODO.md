@@ -4,6 +4,8 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
+- [ ] T-072 Complete inbox follow-ups saved views and sales shortcuts — @agent:codex · [details](todo/T-072-complete-inbox-follow-ups-saved-views-and-sales-sh.md) · PR #59
+
 
 - [ ] T-067 Stop auto-collapsing the app sidebar inside the bot space — @agent:claude · [details](todo/T-067-stop-auto-collapsing-the-app-sidebar-inside-the-bo.md)
 - [ ] T-065 Admin LLM: check connection and fetch model list from the provider dialog — @agent:claude · [details](todo/T-065-admin-llm-check-connection-and-fetch-model-list-fr.md)
@@ -49,7 +51,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 ## Done (last 10 — older ones live in todo/done/)
 
 - [x] T-068 Redesign the sales inbox workspace — @agent:codex · [details](todo/done/T-068-redesign-the-sales-inbox-workspace.md) · PR #59
-- [x] T-069 Make team assignment history integration coverage deterministic — @agent:codex · [details](todo/done/T-069-make-team-assignment-history-integration-coverage-.md)
+- [x] T-071 Make team assignment history integration coverage deterministic — @agent:codex · [details](todo/done/T-071-make-team-assignment-history-integration-coverage-.md)
 - [x] T-041 Statistics dashboard, breakdowns and drilldowns — @agent:claude · [details](todo/done/T-041-statistics-dashboard-breakdowns-and-drilldowns.md) · #54
 - [x] T-040 Analytics events, temporal state and rebuildable projections — @agent:claude · [details](todo/done/T-040-analytics-events-temporal-state-and-rebuildable-pr.md) · #54
 - [x] T-039 Analytics metric definitions and attribution — @agent:claude · [details](todo/done/T-039-analytics-metric-definitions-and-attribution.md) · #54

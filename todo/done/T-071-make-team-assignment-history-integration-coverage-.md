@@ -1,5 +1,5 @@
 ---
-id: T-069
+id: T-071
 title: Make team assignment history integration coverage deterministic
 status: done
 type: bug

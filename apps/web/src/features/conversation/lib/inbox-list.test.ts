@@ -91,3 +91,22 @@ describe('sales queues', () => {
     ).toEqual([other]);
   });
 });
+
+describe('due follow-ups', () => {
+  const now = Date.parse('2026-10-25T10:00:00.000Z');
+  it('includes only open conversations at or after their follow-up time', () => {
+    const due = { ...a, followUpAt: '2026-10-25T09:59:00.000Z' };
+    const exact = { ...b, followUpAt: '2026-10-25T10:00:00.000Z' };
+    const future = { ...c, followUpAt: '2026-10-25T10:00:01.000Z' };
+    const closed = { ...due, status: 'resolved' as const };
+    expect(
+      filterSalesQueue(
+        [due, exact, future, closed, a, { ...a, followUpAt: 'invalid' }],
+        'due',
+        undefined,
+        now,
+      ),
+    ).toEqual([due, exact]);
+    expect(filterSalesQueue([future], 'due', undefined, now + 1000)).toEqual([future]);
+  });
+});

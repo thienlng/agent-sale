@@ -11,6 +11,8 @@ export const ConversationDto = z.object({
   status: z.enum(['open', 'resolved']),
   assigneeId: z.uuid().nullable(),
   note: z.string(),
+  followUpAt: z.iso.datetime().nullable().optional(),
+  followUpNote: z.string().max(500).optional(),
   revision: z.number().int(),
   lastMessage: z.string(),
   lastInboundAt: z.iso.datetime(),
@@ -66,6 +68,8 @@ export const SendInboxMessageRequest = z
 export type SendInboxMessageRequest = z.infer<typeof SendInboxMessageRequest>;
 export const UpdateConversationRequest = z.object({
   expectedRevision: z.number().int().min(0).optional(),
+  followUpAt: z.iso.datetime().nullable().optional(),
+  followUpNote: z.string().trim().max(500).optional(),
   mode: z.enum(['human', 'bot']).optional(),
   status: z.enum(['open', 'resolved']).optional(),
   assignToMe: z.boolean().optional(),

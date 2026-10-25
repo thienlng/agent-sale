@@ -72,9 +72,17 @@ export function ProductPicker({
             onCloseAutoFocus={(e) => e.preventDefault()}
           >
             <CommandList>
-              <CommandEmpty>{t('orderForm.noProducts')}</CommandEmpty>
+              <CommandEmpty>
+                {t(
+                  results.isFetching
+                    ? 'channelInbox.loading'
+                    : results.isError
+                      ? 'channelInbox.loadError'
+                      : 'orderForm.noProducts',
+                )}
+              </CommandEmpty>
               <CommandGroup>
-                {(results.data ?? []).map((v) => (
+                {(results.isPlaceholderData ? [] : (results.data ?? [])).map((v) => (
                   <CommandItem
                     key={v.variantId}
                     value={v.variantId}
@@ -105,6 +113,11 @@ export function ProductPicker({
                 ))}
               </CommandGroup>
             </CommandList>
+            {results.isError ? (
+              <Button type="button" variant="ghost" onClick={() => void results.refetch()}>
+                {t('channelInbox.retry')}
+              </Button>
+            ) : null}
           </PopoverContent>
         </Command>
       </Popover>

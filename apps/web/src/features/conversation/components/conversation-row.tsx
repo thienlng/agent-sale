@@ -1,5 +1,6 @@
 import type { ConversationDto } from '@agent-sales/contracts';
 import { Bot, CheckCheck, UserRound } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { formatDay, previewText } from '../lib/inbox-list';
@@ -16,11 +17,16 @@ export function ConversationRow({
   onSelect: () => void;
   channelName?: string | undefined;
 }) {
+  const rowRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (active) rowRef.current?.scrollIntoView?.({ block: 'nearest' });
+  }, [active]);
   const { t } = useTranslation();
   const tr = (key: string) => t(`channelInbox.${key}`);
   return (
     <li>
       <button
+        ref={rowRef}
         type="button"
         onClick={onSelect}
         aria-current={active ? 'true' : undefined}

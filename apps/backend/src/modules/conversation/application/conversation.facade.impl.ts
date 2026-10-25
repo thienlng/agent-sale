@@ -83,6 +83,12 @@ export class ConversationFacadeImpl implements ConversationFacade {
         ...(input.mode ? { mode: input.mode, autoResumeAt: null } : {}),
         ...(input.status ? { status: input.status } : {}),
         ...(input.note !== undefined ? { note: input.note } : {}),
+        ...(input.followUpAt !== undefined ? { followUpAt: input.followUpAt } : {}),
+        ...(input.followUpNote !== undefined
+          ? { followUpNote: input.followUpNote }
+          : input.followUpAt === null
+            ? { followUpNote: '' }
+            : {}),
         ...(input.assignToMe !== undefined
           ? { assigneeId: input.assignToMe ? actorId : null }
           : {}),
@@ -96,6 +102,7 @@ export class ConversationFacadeImpl implements ConversationFacade {
         status: updated.status,
         assigneeId: updated.assigneeId,
         revision: updated.revision,
+        followUpAt: updated.followUpAt ?? null,
       });
       return updated;
     });

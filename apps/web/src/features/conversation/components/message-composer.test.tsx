@@ -92,6 +92,81 @@ describe('MessageComposer', () => {
     await waitFor(() => expect(screen.getByRole('textbox')).toHaveValue('New draft'));
   });
 
+  it('lets an external product tool insert text at the caret without sending or replacing the draft', async () => {
+    const user = userEvent.setup();
+    render(
+      <MessageComposer
+        id="external-product-insert"
+        botId="bot"
+        windowClosed={false}
+        renderTools={(insertText) => (
+          <button onClick={() => insertText('Oxford / M — 500,000 VND')}>Share product</button>
+        )}
+      />,
+    );
+    const editor = screen.getByRole('textbox') as HTMLTextAreaElement;
+    await user.type(editor, 'Hello , thanks');
+    editor.setSelectionRange(6, 6);
+    fireEvent.select(editor);
+    await user.click(screen.getByRole('button', { name: 'Share product' }));
+    expect(editor).toHaveValue('Hello Oxford / M — 500,000 VND, thanks');
+    expect(mocks.send).not.toHaveBeenCalled();
+  });
+
+  it('inserts after filled text when the editor did not emit a selection event before opening a tool', async () => {
+    const user = userEvent.setup();
+    render(
+      <MessageComposer
+        id="filled-product-insert"
+        botId="bot"
+        windowClosed={false}
+        renderTools={(insertText) => (
+          <button onClick={() => insertText('Oxford / M')}>Share filled product</button>
+        )}
+      />,
+    );
+    const editor = screen.getByRole('textbox') as HTMLTextAreaElement;
+    editor.focus();
+    fireEvent.change(editor, { target: { value: 'Please see: ' } });
+    // Filling text can update the DOM caret without dispatching a select event.
+    editor.setSelectionRange(editor.value.length, editor.value.length);
+    await user.click(screen.getByRole('button', { name: 'Share filled product' }));
+    expect(editor).toHaveValue('Please see: Oxford / M');
+    expect(mocks.send).not.toHaveBeenCalled();
+  });
+
+  it('captures a moved caret on blur before opening quick replies without a select event', async () => {
+    const user = userEvent.setup();
+    render(<MessageComposer id="blur-quick-insert" botId="bot" windowClosed={false} />);
+    const editor = screen.getByRole('textbox') as HTMLTextAreaElement;
+    editor.focus();
+    fireEvent.change(editor, { target: { value: 'Hello , thanks' } });
+    editor.setSelectionRange(6, 6);
+    fireEvent.blur(editor);
+    await user.click(screen.getByRole('button', { name: 'channelInbox.quickReplies' }));
+    await user.click(await screen.findByText('Size guide'));
+    expect(editor).toHaveValue('Hello Size M, thanks');
+    expect(mocks.send).not.toHaveBeenCalled();
+  });
+
+  it('refuses an external tool insertion exceeding the channel draft limit', async () => {
+    const user = userEvent.setup();
+    render(
+      <MessageComposer
+        id="external-product-too-long"
+        botId="bot"
+        windowClosed={false}
+        renderTools={(insertText) => (
+          <button onClick={() => insertText('x'.repeat(2001))}>Share long product</button>
+        )}
+      />,
+    );
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Keep this draft' } });
+    await user.click(screen.getByRole('button', { name: 'Share long product' }));
+    expect(screen.getByRole('textbox')).toHaveValue('Keep this draft');
+    expect(mocks.send).not.toHaveBeenCalled();
+  });
+
   it('stages an attachment until the operator explicitly sends it', async () => {
     const user = userEvent.setup();
     mocks.send.mockResolvedValue({ status: 'sent' });

@@ -78,6 +78,62 @@ beforeEach(() => {
 });
 afterEach(() => vi.useRealTimers());
 describe('ConversationFacade tenant and delivery contract', () => {
+  it('persists and clears a private follow-up with revision and tenant checks', async () => {
+    const c = await service.receive(ws, channelId, event());
+    const scheduled = await service.update(
+      ws,
+      c.id,
+      {
+        followUpAt: '2026-10-25T08:00:00Z',
+        followUpNote: 'Call about size M',
+        expectedRevision: c.revision,
+      },
+      actor,
+    );
+    expect((await service.get(ws, c.id)).conversation).toMatchObject({
+      followUpAt: '2026-10-25T08:00:00Z',
+      followUpNote: 'Call about size M',
+    });
+    await expect(
+      service.update(ws, c.id, { followUpAt: null, expectedRevision: c.revision }, actor),
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
+    await expect(
+      service.update(
+        other,
+        c.id,
+        { followUpAt: null, expectedRevision: scheduled.revision },
+        actor,
+      ),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await service.update(
+      ws,
+      c.id,
+      { followUpAt: null, followUpNote: '', expectedRevision: scheduled.revision },
+      actor,
+    );
+    expect((await service.get(ws, c.id)).conversation).toMatchObject({
+      followUpAt: null,
+      followUpNote: '',
+    });
+    expect(JSON.stringify(store.events)).not.toContain('Call about size M');
+    // Clearing only the time must not leave an orphan private note.
+    const again = await service.update(
+      ws,
+      c.id,
+      {
+        followUpAt: '2026-10-26T08:00:00Z',
+        followUpNote: 'Second',
+        expectedRevision: 0 + (await service.get(ws, c.id)).conversation.revision,
+      },
+      actor,
+    );
+    await service.update(ws, c.id, { followUpAt: null, expectedRevision: again.revision }, actor);
+    expect((await service.get(ws, c.id)).conversation).toMatchObject({
+      followUpAt: null,
+      followUpNote: '',
+    });
+  });
+
   it('rejects stale edits without overwriting notes or reassignment', async () => {
     const c = await service.receive(ws, channelId, event());
     const first = await service.update(

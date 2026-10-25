@@ -11,7 +11,7 @@ import {
   PanelRightClose,
   PanelRightOpen,
 } from 'lucide-react';
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { ApiClientError } from '@/lib/api-client';
 import { useTranslation } from 'react-i18next';
@@ -23,6 +23,7 @@ import { CustomerAvatar } from './customer-avatar';
 import { CustomerPanel } from './customer-panel';
 import { MessageComposer } from './message-composer';
 import { MessageThread } from './message-thread';
+import { useConversationShortcuts } from '../hooks/use-conversation-shortcuts';
 
 /** An open conversation: header with takeover, thread, composer and customer panel. */
 export function ConversationView({
@@ -30,11 +31,14 @@ export function ConversationView({
   onBack,
   botId,
   renderSalesPanel,
+  renderComposerTools,
 }: {
   id: string;
   onBack: () => void;
   botId: string | null;
   renderSalesPanel?: ((conversation: ConversationDto) => ReactNode) | undefined;
+  renderComposerTools?:
+    ((conversation: ConversationDto, insertText: (text: string) => void) => ReactNode) | undefined;
 }) {
   const { t } = useTranslation();
   const tr = (key: string, options?: Record<string, unknown>) =>
@@ -46,6 +50,7 @@ export function ConversationView({
       typeof window.matchMedia === 'function' && window.matchMedia('(min-width:1280px)').matches,
   );
   const c = detail.data?.conversation;
+  const root = useRef<HTMLDivElement>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [clock, setClock] = useState(() => Date.now());
@@ -66,6 +71,14 @@ export function ConversationView({
       );
     }
   }
+  useConversationShortcuts({
+    root,
+    enabled: Boolean(c),
+    busy: update.isPending,
+    onToggleResolved: () => {
+      if (c) void change({ status: c.status === 'resolved' ? 'open' : 'resolved' });
+    },
+  });
   if (detail.isPending)
     return (
       <div role="status" className="flex flex-1 items-center justify-center">
@@ -91,7 +104,7 @@ export function ConversationView({
     );
   const windowClosed = clock - Date.parse(c.lastInboundAt) >= 86400000;
   return (
-    <div className="flex min-h-0 min-w-0 flex-1">
+    <div ref={root} className="flex min-h-0 min-w-0 flex-1">
       <div className={cn('flex min-w-0 flex-1 flex-col', details && 'hidden xl:flex')}>
         <header className="flex min-h-20 flex-wrap items-center gap-3 border-b px-4 py-3">
           <Button
@@ -124,6 +137,8 @@ export function ConversationView({
             size="icon-sm"
             variant={c.status === 'resolved' ? 'secondary' : 'ghost'}
             aria-label={tr(c.status === 'resolved' ? 'sales.reopen' : 'sales.resolve')}
+            title={`${tr(c.status === 'resolved' ? 'sales.reopen' : 'sales.resolve')} (E)`}
+            aria-keyshortcuts="E"
             disabled={update.isPending}
             onClick={() => void change({ status: c.status === 'resolved' ? 'open' : 'resolved' })}
           >
@@ -209,7 +224,14 @@ export function ConversationView({
               : detail.data.messages
           }
         />
-        <MessageComposer id={id} botId={botId} windowClosed={windowClosed} />
+        <MessageComposer
+          id={id}
+          botId={botId}
+          windowClosed={windowClosed}
+          renderTools={
+            renderComposerTools ? (insertText) => renderComposerTools(c, insertText) : undefined
+          }
+        />
       </div>
       <aside
         className={cn(

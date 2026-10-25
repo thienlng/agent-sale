@@ -21,11 +21,11 @@ import { useInboxActions } from '@/features/conversation/api/inbox';
 import { CustomerPanel } from '@/features/conversation/components/customer-panel';
 import { useContact, useContacts } from '@/features/crm/api/crm';
 import { ContactSheet } from '@/features/crm/components/contact-sheet';
-import { OptionBadge, TagChips } from '@/features/crm/components/crm-badges';
 import { useCrmLookups } from '@/features/crm/hooks/use-crm-lookups';
 import { formatVnd } from '@/lib/format';
 import { useCan } from '@/lib/permissions';
 import { useSession } from '@/lib/session';
+import { InboxContactControls } from './inbox-contact-controls';
 
 export interface InboxCustomerContext {
   contact?: ContactDto | undefined;
@@ -136,10 +136,7 @@ export function InboxSalesPanel({
                   {[contact.address, contact.ward, contact.province].filter(Boolean).join(', ')}
                 </p>
               ) : null}
-              <div className="text-sm">
-                <OptionBadge option={lookups.status(contact.statusId)} />
-              </div>
-              <TagChips assignments={contact.tags} lookups={lookups} />
+              <InboxContactControls contact={contact} lookups={lookups} />
               {contact.profileNote ? (
                 <p className="break-words rounded-lg bg-muted p-2 text-xs">{contact.profileNote}</p>
               ) : null}

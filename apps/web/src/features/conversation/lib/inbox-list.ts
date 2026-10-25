@@ -2,6 +2,16 @@ import type { ConversationDto, MetaProvider } from '@agent-sales/contracts';
 
 export type SortOrder = 'newest' | 'oldest';
 
+export interface ListState {
+  q: string;
+  provider: MetaProvider | 'all';
+  status: 'open' | 'resolved' | 'all';
+  mode: 'bot' | 'human' | 'all';
+  order: SortOrder;
+  queue: SalesQueue;
+  channelId: string;
+}
+
 /** Channel filter entries; the ones without a provider are listed as coming soon. */
 export type ChannelFilterKey = MetaProvider | 'zalo' | 'website' | 'lazada' | 'tiktok';
 export const CHANNEL_FILTERS: readonly { key: ChannelFilterKey; available: boolean }[] = [
@@ -49,16 +59,30 @@ export function previewText(text: string, tr: (key: string) => string): string {
     : text;
 }
 
-export type SalesQueue = 'all' | 'human' | 'mine' | 'unassigned' | 'bot';
-export const SALES_QUEUES: readonly SalesQueue[] = ['all', 'human', 'mine', 'unassigned', 'bot'];
+export type SalesQueue = 'all' | 'human' | 'mine' | 'unassigned' | 'bot' | 'due';
+export const SALES_QUEUES: readonly SalesQueue[] = [
+  'all',
+  'human',
+  'mine',
+  'unassigned',
+  'bot',
+  'due',
+];
 
 /** Queue membership uses persisted state, never guesses whether the last message was answered. */
 export function filterSalesQueue(
   items: readonly ConversationDto[],
   queue: SalesQueue,
   userId: string | undefined,
+  now = Date.now(),
 ): ConversationDto[] {
   return items.filter((item) => {
+    if (queue === 'due')
+      return (
+        item.status === 'open' &&
+        Boolean(item.followUpAt) &&
+        Date.parse(item.followUpAt ?? '') <= now
+      );
     if (queue === 'human') return item.mode === 'human';
     if (queue === 'bot') return item.mode === 'bot';
     if (queue === 'unassigned') return item.assigneeId === null;

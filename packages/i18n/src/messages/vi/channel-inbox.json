@@ -241,12 +241,46 @@
       "human": "Nhân viên xử lý",
       "mine": "Của tôi",
       "unassigned": "Chưa phân công",
-      "bot": "AI xử lý"
+      "bot": "AI xử lý",
+      "due": "Đến hẹn"
     },
     "existingOrderDraftHint": "Đơn nháp cũ giữ nguyên thông tin khách đã nhập. Kiểm tra mục khách hàng trước khi tạo đơn; chọn hồ sơ CRM khác không ghi đè đơn nháp này.",
     "retrySend": "Gửi lại",
     "expandOrder": "Mở rộng chi tiết đơn",
     "orderDetails": "Chi tiết đơn hàng",
-    "collapsePanel": "Thu gọn thông tin"
+    "collapsePanel": "Thu gọn thông tin",
+    "shareProduct": "Sản phẩm",
+    "shareProductHint": "Chọn biến thể để chèn tên và giá trong danh mục. Kiểm tra nội dung trước khi gửi.",
+    "productMessage": "{{name}}{{variant}}\nGiá: {{price}}",
+    "followUpTitle": "Nhắc chăm sóc",
+    "followUpDue": "Đến hẹn",
+    "followUpPrivate": "Chỉ nhân viên thấy. Hiển thị trong hàng đợi đến hẹn; không gửi thông báo tự động.",
+    "followUpEmpty": "Chưa đặt lịch chăm sóc",
+    "followUpTimezone": "Múi giờ thiết bị",
+    "followUpAt": "Thời gian chăm sóc",
+    "followUpNote": "Việc cần làm",
+    "followUpInvalid": "Chọn thời gian hợp lệ trong múi giờ thiết bị.",
+    "followUpSaved": "Đã lưu lịch chăm sóc",
+    "followUpCleared": "Đã xóa lịch chăm sóc",
+    "followUpSaveError": "Chưa lưu được. Bản nháp vẫn còn; kiểm tra thay đổi và thử lại.",
+    "followUpChanged": "Hội thoại đã thay đổi. Lịch đã lưu hiển thị phía trên; kiểm tra trước khi dùng bản nháp.",
+    "followUpKeepDraft": "Dùng phiên bản mới, giữ nháp",
+    "followUpCancel": "Hủy chỉnh sửa",
+    "followUpSave": "Lưu lịch",
+    "followUpEdit": "Sửa lịch",
+    "followUpAdd": "Đặt lịch",
+    "followUpClear": "Xóa lịch",
+    "views": {
+      "title": "Bộ lọc đã lưu",
+      "deviceHint": "Lưu trên thiết bị này theo tài khoản và workspace. Không lưu nội dung tìm kiếm.",
+      "storageError": "Không truy cập được bộ nhớ thiết bị. Hãy thử lưu lại.",
+      "delete": "Xóa {{name}}",
+      "empty": "Chưa có bộ lọc đã lưu.",
+      "name": "Tên bộ lọc",
+      "save": "Lưu bộ lọc hiện tại",
+      "limit": "Tối đa 5 bộ lọc. Xóa một bộ lọc để lưu bộ lọc khác."
+    },
+    "shortcutsHint": "J/K: đổi khách · /: tìm · R: soạn · E: xử lý",
+    "customerStage": "Trạng thái khách hàng"
   }
 }
