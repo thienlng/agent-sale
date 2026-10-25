@@ -122,3 +122,8 @@ interface ChannelAdapter {
 | Week 1 | Create the Meta App and Zalo App, apply for Business Verification, prepare Privacy Policy/ToS/Data deletion URL (required by Meta) |
 | In parallel | Write adapters + a **real webhook fixture** set (record/replay) to test without real channels |
 | Before go-live | Pass Meta App Review; run a 72h soak test on an internal page; per-connector error monitoring |
+
+
+## Implemented Facebook comment automation (T-069)
+
+Page feed comments have a dedicated flow for post-aware public/private replies, per-post exclusions and explicit keyword moderation. They are not Messenger messages and do not open a messaging window. Configuration, permission expansion, API endpoints, lifecycle behavior and live verification limits: [Facebook comments](integrations/facebook-comments.md).

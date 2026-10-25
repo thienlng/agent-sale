@@ -6,3 +6,5 @@ export {
   type PendingMetaEvent,
 } from './channel.facade.js';
 export * from './channel.events.js';
+
+export { FANPAGE_FACADE, type FanpageFacade } from './fanpage.facade.js';

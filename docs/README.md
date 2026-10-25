@@ -45,6 +45,8 @@ Input source: `../../preny/preny-research/` (Preny research dossier dated 23/10/
 - **Plan:** Phase 0 (2 weeks) → MVP (10 weeks, alpha with 5–10 shops) → Beta (8 weeks, 30–50 paying shops) → GA (8 weeks of hardening) ≈ 7 months with a team of 9–10 people.
 - **Immediate actions:** finalize the [open decisions](14-open-decisions.md), submit Meta Business Verification/App Review + Zalo app, interview shops, scaffold the repo.
 
+- [Facebook post/comment automation](integrations/facebook-comments.md) — T-069 configuration, source context, moderation policy, delivery guarantees and provider verification limits.
+
 ## Documentation conventions
 
 - Living documents: update them in the same PR when behavior/architecture changes.

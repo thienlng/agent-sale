@@ -1,4 +1,10 @@
-import { type ChannelAdapter, ChannelRegistry } from '@agent-sales/channels';
+import { createHmac } from 'node:crypto';
+import {
+  MetaAdapter,
+  type NormalizedEvent,
+  type ChannelAdapter,
+  ChannelRegistry,
+} from '@agent-sales/channels';
 import { describe, expect, it } from 'vitest';
 
 import { buildServer } from './server.js';
@@ -97,5 +103,70 @@ describe('webhook ingress', () => {
       (await app.inject({ method: 'POST', url: '/webhooks/nope', payload: { id: 'x' } }))
         .statusCode,
     ).toBe(404);
+  });
+});
+
+describe('signed Facebook comment ingress', () => {
+  it('stores a signed comment with post provenance exactly once and rejects tampering', async () => {
+    const seen = new Set<string>(),
+      stored: NormalizedEvent[] = [];
+    const app = buildServer({
+      registry: new ChannelRegistry().register(new MetaAdapter('facebook')),
+      secrets: { facebook: 'test-secret' },
+      logLevel: 'silent',
+      store: {
+        storeOnce: async (_kind, id, _raw, event) => {
+          if (seen.has(id)) return false;
+          seen.add(id);
+          if (event) stored.push(event);
+          return true;
+        },
+      },
+      queue: { enqueue: async () => undefined },
+    });
+    const body = JSON.stringify({
+      object: 'page',
+      entry: [
+        {
+          id: '123',
+          time: 1800000000,
+          changes: [
+            {
+              field: 'feed',
+              value: {
+                item: 'comment',
+                verb: 'add',
+                post_id: '123_10',
+                comment_id: '10_20',
+                parent_id: '123_10',
+                from: { id: '999' },
+                message: 'How much?',
+              },
+            },
+          ],
+        },
+      ],
+    });
+    const signature = 'sha256=' + createHmac('sha256', 'test-secret').update(body).digest('hex');
+    try {
+      const send = (payload: string) =>
+        app.inject({
+          method: 'POST',
+          url: '/webhooks/facebook',
+          headers: { 'content-type': 'application/json', 'x-hub-signature-256': signature },
+          payload,
+        });
+      expect((await send(body)).json()).toEqual({ received: 1, stored: 1 });
+      expect((await send(body)).json()).toEqual({ received: 1, stored: 0 });
+      expect((await send(body.replace('How much?', 'Tampered'))).statusCode).toBe(401);
+      expect(stored).toEqual([
+        expect.objectContaining({
+          type: 'comment',
+          comment: { postId: '123_10', commentId: '10_20', parentId: null, operation: 'add' },
+        }),
+      ]);
+    } finally {
+      await app.close();
+    }
   });
 });

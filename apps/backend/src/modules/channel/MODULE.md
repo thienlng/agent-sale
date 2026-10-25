@@ -2,10 +2,11 @@
 
 **Purpose:** Connects Facebook Pages and Instagram professional accounts to a workspace (Meta OAuth, sealed page tokens, bot binding) and delivers outbound messages through the Meta adapter.
 
-**Owned tables:** `channel_connections`, `channel_oauth_flows`, `channel_webhook_events` (schema in `packages/db/src/schema/channel.ts`, migrations 0007/0009/0013).
+**Owned tables:** `fanpage_settings`, `fanpage_comments` (migration 0024), `channel_connections`, `channel_oauth_flows`, `channel_webhook_events` (schema in `packages/db/src/schema/channel.ts`, migrations 0007/0009/0013).
 
 **Public API (`api/`):**
 
+- `FANPAGE_FACADE` → settings/posts/comments, verified post context, private-reply provenance, staff reply observation and durable actions (T-069).
 - `CHANNEL_FACADE` → `getConnection`, `deliver(ws, id, recipient, { text | attachment }, key)`, `claimEvents`, `renewEvent`, `releaseEvent`, `completeEvent`, `deadLetterEvent`, `deadLetterExhaustedEvents`
 - `MAX_EVENT_ATTEMPTS` (3): the store stops claiming an event after this many attempts; an event that ends without completion is dead-lettered (`processed_at` + `failed_at`, payload kept).
 - HTTP: `/channels`, `/channels/{provider}/connect`, `/channels/discoveries/{id}[/select]`, `/channels/{id}`, `/channels/oauth/{provider}/callback`.
@@ -16,6 +17,8 @@
 
 - OAuth state is bound to workspace, provider and user, and is single-use; discovery results are bound the same way.
 - Page tokens are sealed with `SECRETS_ENCRYPTION_KEY` and never leave the module. Choosing pages clears the discovery's sealed tokens (`accounts_sealed = null`).
+- Fanpage comments never open the Messenger window; private targets use comment ids and provenance is scoped to the page/workspace.
+- Fanpage actions reserve under a comment lock before I/O; unknown/pending sends are never blindly retried.
 - Every queue write after a claim is fenced by its claim token; a lease that expired may be renewed only while the token is unchanged.
 - `reauth_required` connections keep ingesting and storing inbound events; only sending is blocked.
 - A send never retries automatically: provider timeouts/5xx are `unknown`, explicit rejections are `failed`; `auth_expired` marks the connection `reauth_required`.

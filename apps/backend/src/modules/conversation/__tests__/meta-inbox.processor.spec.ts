@@ -1,3 +1,4 @@
+import type { FanpageCommentProcessor } from '../application/jobs/fanpage-comment.processor.js';
 import type { NormalizedEvent } from '@agent-sales/channels';
 import { workspaceId } from '@agent-sales/shared';
 import { describe, expect, it, vi } from 'vitest';
@@ -42,7 +43,13 @@ function job(
     event,
   };
 }
-function setup(options: { vision?: boolean; fetch?: ImageFetcher['fetch'] } = {}) {
+function setup(
+  options: {
+    vision?: boolean;
+    fetch?: ImageFetcher['fetch'];
+    comments?: FanpageCommentProcessor;
+  } = {},
+) {
   const bot = {
     id: botId,
     isActive: true,
@@ -103,6 +110,7 @@ function setup(options: { vision?: boolean; fetch?: ImageFetcher['fetch'] } = {}
       bots,
       { fetch: options.fetch ?? (async () => null) },
       options.vision ?? false,
+      options.comments,
     ),
   };
 }
@@ -733,4 +741,28 @@ describe('MetaInboxProcessor', () => {
     expect(channels.deliver).not.toHaveBeenCalled();
     expect(channels.completeEvent).toHaveBeenCalled();
   });
+});
+
+describe('Messenger private-reply provenance', () => {
+  it.each(['ambiguous', 'unavailable'] as const)(
+    'hands off %s provenance instead of guessing from the catalog',
+    async (status) => {
+      const comments = {
+        privateContext: vi.fn(async () => ({ status, context: null })),
+      } as unknown as FanpageCommentProcessor;
+      const { processor, ai, channels, inbox } = setup({ comments });
+      const j = job('followup', 'message', 'How much is this?', Date.now());
+      await processor.process(j);
+      expect(ai.reply).not.toHaveBeenCalled();
+      expect(channels.deliver).toHaveBeenCalledWith(
+        ws,
+        channelId,
+        'customer',
+        expect.objectContaining({ text: 'Staff will help you' }),
+        expect.any(String),
+      );
+      const c = await inbox.receive(ws, channelId, j.event);
+      expect(c.mode).toBe('human');
+    },
+  );
 });

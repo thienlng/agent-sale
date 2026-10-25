@@ -175,3 +175,8 @@ Gateway (`packages/ai-core`):
 ## 10. Optional inherited Hermes runtime (T-045)
 
 The `hermes` provider kind runs the same grounded pipeline through a private Python/Hermes bridge. Scenario training material is bounded and passed as shop context alongside retrieved FAQs; quick replies and media metadata are not model instructions. Channel calls use `AiFacade.reply` with a real conversation id and `isTest=false`; playground calls remain uncharged test runs. Hermes does not own tenant or delivery decisions. Setup, separate authentication, unsupported tools and quota/eligibility limitations: [runtime README](../services/hermes/README.md), [ADR-010](adr/ADR-010-isolated-hermes-runtime.md). Existing provider routes are preserved until an administrator explicitly selects Hermes. Platform admins can sign the runtime in to ChatGPT and pick a model from the plan's list in Admin → LLM (`/v1/auth/*`, `/v1/models`); the sign-in is disabled in production unless `HERMES_SUBSCRIPTION_LOGIN=true`, and logout is local only (no OpenAI revocation).
+
+
+## Originating fanpage post context (T-069)
+
+`sales-agent@7 + fanpage-context@1` accepts bounded, structured originating-post context from the channel facade. Post text and media descriptions enrich retrieval and numerical grounding; parent comments are untrusted context and cannot authorize prices. Changed/unavailable source context and ambiguous comment-to-private-reply provenance stop automatic answering. Media descriptions are not visual inspection. See [Facebook comments](integrations/facebook-comments.md) for the exact flow, limits and deterministic fixture evals.

@@ -8,7 +8,7 @@ export interface AiFacade {
     workspaceId: WorkspaceId,
     botId: string,
     input: PlaygroundRequest,
-    context: { conversationId: string; isTest: boolean },
+    context: { conversationId: string | null; isTest: boolean },
   ): Promise<PlaygroundResponse>;
   /** One grounded test reply for a bot; metered in ai_runs with is_test = true. */
   playground(
