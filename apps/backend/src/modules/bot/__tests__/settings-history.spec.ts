@@ -1,5 +1,5 @@
 import { newId, workspaceId } from '@agent-sales/shared';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { Test } from '@nestjs/testing';
 
@@ -17,6 +17,23 @@ async function setup() {
     bots: moduleRef.get(BotService),
   };
 }
+
+describe('Bot creation starter rules', () => {
+  it('seeds the starter pack without per-rule history entries', async () => {
+    const { training, bots } = await setup();
+    const bot = await bots.create(ws, { name: 'Shop', industry: 'retail' });
+    expect((await training.list(ws, bot.id)).length).toBeGreaterThan(0);
+    expect(await training.history(ws, bot.id)).toEqual([]);
+  });
+
+  it('still creates the bot when seeding the starter rules fails', async () => {
+    const { training, bots } = await setup();
+    vi.spyOn(training, 'seedStarterRules').mockRejectedValueOnce(new Error('db down'));
+    const bot = await bots.create(ws, { name: 'Shop', industry: 'retail' });
+    expect((await bots.get(ws, bot.id)).name).toBe('Shop');
+    expect(await training.list(ws, bot.id)).toEqual([]);
+  });
+});
 
 describe('Bot settings history', () => {
   it('records who changed which fields and restores the previous values', async () => {

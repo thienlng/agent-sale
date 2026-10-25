@@ -75,6 +75,8 @@ const LABELLED_FIELDS = new Set([
   'notes',
   'mediaUrl',
   'folderId',
+  'enabled',
+  'section',
   'question',
   'answer',
 ]);
@@ -89,12 +91,14 @@ const BOOLEAN_FIELDS = new Set([
   'useCustomerName',
   'autoResumeAfterManual',
   'silenceOnExternalReply',
+  'enabled',
 ]);
 /** Fields whose values are option ids, with the i18n key prefix of their labels. */
 const OPTION_FIELDS: Record<string, string> = {
   modelTier: 'space.settings.modelOptions',
   language: 'space.settings.languageOptions',
   creativity: 'common:settings.creativityOptions',
+  section: 'space.history.sections',
 };
 const MAX_TEXT = 80;
 

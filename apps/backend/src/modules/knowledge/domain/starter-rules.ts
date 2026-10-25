@@ -10,7 +10,9 @@ import type { CreateTrainingItemRequest } from '@agent-sales/contracts';
  * grounding, so an example like "99k" would vouch for an invented 99k price.
  *
  * Deliberately absent: any rule that creates an order without the customer's confirmation or that
- * skips asking for the customer's name. Policy claims stay conditional ("nếu cửa hàng hỗ trợ").
+ * skips asking for the customer's name, any shop policy claim (COD, inspection: the payment rule
+ * only defers to the shop data), and a language rule (the prompt follows the bot and customer
+ * language).
  */
 type StarterRule = Pick<CreateTrainingItemRequest, 'title' | 'trigger' | 'content' | 'section'>;
 
@@ -53,20 +55,14 @@ export const STARTER_RULES: readonly StarterRule[] = [
     title: 'Không bảo khách chờ',
     trigger: 'Mọi câu trả lời',
     content:
-      'Không nói khách chờ hoặc hẹn trả lời sau. Trả lời ngay bằng thông tin hiện có của cửa hàng.',
+      'Không nói khách chờ hoặc hẹn trả lời sau, trừ khi chuyển cuộc trò chuyện cho nhân viên. Trả lời ngay bằng thông tin hiện có của cửa hàng.',
     section: 'general',
   },
   {
     title: 'Khách hỏi về thanh toán',
     trigger: 'Khách hỏi cách thanh toán hoặc có phải trả trước không',
     content:
-      'Nếu cửa hàng hỗ trợ thì khách thanh toán khi nhận hàng (COD) và được kiểm tra hàng trước khi trả tiền. Nếu dữ liệu cửa hàng không nói rõ thì không tự khẳng định.',
-    section: 'general',
-  },
-  {
-    title: 'Chỉ trả lời tiếng Việt',
-    trigger: 'Mọi câu trả lời',
-    content: 'Chỉ trả lời bằng tiếng Việt.',
+      'Khi khách hỏi về thanh toán, chỉ trả lời theo thông tin cửa hàng đã cung cấp trong dữ liệu; nếu chưa có thông tin, nói em chưa rõ và mời khách để lại số điện thoại để nhân viên hỗ trợ.',
     section: 'general',
   },
   {

@@ -39,4 +39,41 @@ describe('situationsText', () => {
     expect(text).toContain('R19 body');
     expect(text).not.toContain('R20 body');
   });
+
+  it('applies the cap to the oldest rules first, whatever order the list arrives in', () => {
+    const items = Array.from({ length: 22 }, (_, i) =>
+      rule(`R${i}`, { createdAt: `2026-01-01T00:00:${String(i).padStart(2, '0')}Z` }),
+    ).reverse();
+    const text = situationsText(items);
+    expect(text).toContain('R0 body');
+    expect(text).toContain('R19 body');
+    expect(text).not.toContain('R20 body');
+    expect(text.indexOf('R0 body')).toBeLessThan(text.indexOf('R1 body'));
+  });
+
+  it('cuts each long rule fairly and keeps both headers and every rule', () => {
+    const long = (title: string, extra: object = {}) => ({
+      title,
+      content: `${title}-${'x'.repeat(5_000)}`,
+      ...extra,
+    });
+    const items = [
+      ...Array.from({ length: 19 }, (_, i) => long(`G${i}`)),
+      long('Thanks', { section: 'after_order' }),
+    ];
+    const text = situationsText(items);
+    expect(text.length).toBeLessThanOrEqual(20_000);
+    expect(text).toContain('## General rules');
+    expect(text).toContain('## After an order');
+    for (const i of [0, 9, 18]) expect(text).toContain(`G${i}\nG${i}-`);
+    expect(text).toContain('Thanks\nThanks-');
+    expect(text.slice(text.indexOf('## After an order'))).toContain('Thanks-xxx');
+  });
+
+  it('keeps short rules whole when only some are long', () => {
+    const items = [rule('Short'), { title: 'Long', content: 'y'.repeat(30_000) }];
+    const text = situationsText(items);
+    expect(text.length).toBeLessThanOrEqual(20_000);
+    expect(text).toContain('Short\nShort body');
+  });
 });

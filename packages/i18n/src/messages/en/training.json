@@ -142,9 +142,15 @@
         "trigger": "Situation / shortcut",
         "notes": "Notes",
         "mediaUrl": "Image link",
+        "enabled": "Rule enabled",
+        "section": "Rule group",
         "folderId": "Folder",
         "question": "Question",
         "answer": "Answer"
+      },
+      "sections": {
+        "general": "General rules",
+        "after_order": "After an order"
       }
     },
     "ads": {
@@ -456,6 +462,7 @@
     "groupSystem": "System",
     "groupEmpty": "No rules in this group yet",
     "systemHint": "Fixed platform principles that cannot be edited or switched off.",
+    "enabledCount": "{{count}}/{{max}} enabled",
     "locked": "Locked",
     "section": "Rule group",
     "toggle": "Turn on rule “{{title}}”",

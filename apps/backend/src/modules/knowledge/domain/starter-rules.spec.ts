@@ -23,7 +23,19 @@ describe('starter rules', () => {
       .join('\n')
       .toLowerCase();
     expect(text).not.toMatch(/không (cần )?(hỏi|xin) tên|bỏ qua tên|tự (động )?(tạo|lên) đơn/);
-    expect(text).toContain('nếu cửa hàng hỗ trợ');
+  });
+
+  it('states no shop policy and has no language rule', () => {
+    const text = STARTER_RULES.map((r) => `${r.title} ${r.trigger} ${r.content}`).join('\n');
+    expect(text).not.toMatch(/COD|kiểm tra hàng/i);
+    expect(text).not.toMatch(/Chỉ trả lời bằng tiếng Việt/);
+    const payment = STARTER_RULES.find((r) => r.title === 'Khách hỏi về thanh toán');
+    expect(payment?.content).toContain('chỉ trả lời theo thông tin cửa hàng đã cung cấp');
+  });
+
+  it('allows waiting only when the conversation is handed to staff', () => {
+    const rule = STARTER_RULES.find((r) => r.title === 'Không bảo khách chờ');
+    expect(rule?.content).toContain('trừ khi chuyển cuộc trò chuyện cho nhân viên');
   });
 
   it('puts no sample price in rule text, because rule text vouches for figures in replies', () => {

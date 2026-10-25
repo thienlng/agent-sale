@@ -94,10 +94,39 @@ describe('instruction rules on Postgres', () => {
     expect(response.statusCode).toBe(201);
     expect(TrainingItemList.parse(response.json()).data).toEqual([]);
     expect(await training.list(ws, botId)).toHaveLength(STARTER_RULES.length);
+    // Bot creation seeds silently; the explicit route had nothing left to add.
     const history = await training.history(ws, botId);
-    expect(history.filter((h) => h.kind === 'scenario' && h.action === 'created')).toHaveLength(
-      STARTER_RULES.length,
+    expect(history.filter((h) => h.kind === 'scenario' && h.action === 'created')).toHaveLength(0);
+  });
+
+  it('records one history entry per rule when the route adds them', async () => {
+    const { ws, botId, headers } = await newBot('rules-route@shop.vn');
+    const training = app.get<TrainingFacade>(TRAINING_FACADE);
+    for (const item of await training.list(ws, botId)) await training.delete(ws, botId, item.id);
+    const response = await http().inject({
+      method: 'POST',
+      url: `/api/v1/bots/${botId}/training-items/starter-rules`,
+      headers,
+    });
+    expect(TrainingItemList.parse(response.json()).data).toHaveLength(STARTER_RULES.length);
+    const created = (await training.history(ws, botId)).filter(
+      (h) => h.kind === 'scenario' && h.action === 'created',
     );
+    expect(created).toHaveLength(STARTER_RULES.length);
+  });
+
+  it('adds each starter rule exactly once when two seeds run concurrently', async () => {
+    const { ws, botId } = await newBot('rules-race@shop.vn');
+    const training = app.get<TrainingFacade>(TRAINING_FACADE);
+    for (const item of await training.list(ws, botId)) await training.delete(ws, botId, item.id);
+    const results = await Promise.all([
+      training.seedStarterRules(ws, botId),
+      training.seedStarterRules(ws, botId),
+    ]);
+    expect(results.flat()).toHaveLength(STARTER_RULES.length);
+    const titles = (await training.list(ws, botId)).map((i) => i.title);
+    expect(titles).toHaveLength(STARTER_RULES.length);
+    expect(new Set(titles).size).toBe(STARTER_RULES.length);
   });
 
   it('persists enabled and section on update, shows them in history and restores them', async () => {

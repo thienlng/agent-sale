@@ -142,9 +142,15 @@
         "trigger": "Tình huống / phím tắt",
         "notes": "Ghi chú",
         "mediaUrl": "Liên kết ảnh",
+        "enabled": "Bật quy tắc",
+        "section": "Nhóm quy tắc",
         "folderId": "Thư mục",
         "question": "Câu hỏi",
         "answer": "Câu trả lời"
+      },
+      "sections": {
+        "general": "Quy tắc chung",
+        "after_order": "Sau khi chốt đơn"
       }
     },
     "ads": {
@@ -456,6 +462,7 @@
     "groupSystem": "Hệ thống",
     "groupEmpty": "Chưa có quy tắc trong nhóm này",
     "systemHint": "Các nguyên tắc cố định của nền tảng, không thể sửa hay tắt.",
+    "enabledCount": "{{count}}/{{max}} đang bật",
     "locked": "Đã khóa",
     "section": "Nhóm quy tắc",
     "toggle": "Bật quy tắc “{{title}}”",

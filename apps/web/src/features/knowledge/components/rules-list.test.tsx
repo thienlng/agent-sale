@@ -119,6 +119,55 @@ describe('RulesList', () => {
     });
   });
 
+  it('disables the copy buttons while a save is pending', async () => {
+    n = 0;
+    const r = rule({ title: 'Original' });
+    const stub = stubFetch({
+      [list]: { status: 200, body: { data: [r] } },
+      [`POST /bots/${BOT}/training-items`]: { status: 201, body: rule() },
+    });
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vi.stubGlobal('fetch', async (input: string, init: RequestInit = {}) => {
+      if (init.method === 'POST') await gate;
+      return stub.fetchStub(input, init);
+    });
+    render(<RulesList botId={BOT} />);
+    const button = await screen.findByRole('button', { name: 'Nhân bản' }, { timeout: 10_000 });
+    await userEvent.click(button);
+    await waitFor(() => expect(button).toBeDisabled());
+    await userEvent.click(button);
+    release();
+    await waitFor(() => expect(button).toBeEnabled());
+    expect(stub.calls.filter((c) => c.key.startsWith('POST'))).toHaveLength(1);
+  });
+
+  const many = (count: number, disabled: number) =>
+    Array.from({ length: count }, (_, i) =>
+      rule({
+        enabled: i >= disabled,
+        createdAt: `2026-10-01T00:00:${String(i).padStart(2, '0')}.000Z`,
+        updatedAt: `2026-10-01T00:00:${String(i).padStart(2, '0')}.000Z`,
+      }),
+    );
+
+  it('hides the enabled-rule counter below 15 enabled rules', async () => {
+    n = 0;
+    await setup(many(16, 2));
+    await screen.findByText('Rule 1', {}, { timeout: 10_000 });
+    expect(screen.queryByTestId('rules-counter')).toBeNull();
+  }, 20_000);
+
+  it('shows how many of the 20 rules are enabled from 15 on', async () => {
+    n = 0;
+    await setup(many(17, 1));
+    expect(await screen.findByTestId('rules-counter', {}, { timeout: 10_000 })).toHaveTextContent(
+      '16/20 đang bật',
+    );
+  }, 20_000);
+
   it('creates a rule in the chosen section', async () => {
     n = 0;
     const { calls } = await setup([], {
@@ -156,7 +205,7 @@ describe('RulesList', () => {
   it('shows the locked system group without any action buttons', async () => {
     n = 0;
     await setup([rule()]);
-    await screen.findByText('Rule 1');
+    await screen.findByText('Rule 1', {}, { timeout: 10_000 });
     const system = screen.getByTestId('system-rules');
     expect(within(system).getAllByRole('listitem')).toHaveLength(5);
     expect(within(system).queryAllByRole('button')).toHaveLength(0);

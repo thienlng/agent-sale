@@ -1,4 +1,13 @@
-import { and, type Database, desc, eq, schema, type TenantTx, withTenant } from '@agent-sales/db';
+import {
+  and,
+  type Database,
+  desc,
+  eq,
+  schema,
+  sql,
+  type TenantTx,
+  withTenant,
+} from '@agent-sales/db';
 import { TrainingHistoryDto, TrainingItemDto } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
 import type {
@@ -37,6 +46,21 @@ class DrizzleTrainingRepository implements TrainingRepository {
         .orderBy(desc(items.updatedAt), desc(items.id))
         .limit(500)
     ).map(itemDto);
+  }
+  async scenarioTitles(botId: string): Promise<string[]> {
+    return (
+      await this.tx
+        .select({ title: items.title })
+        .from(items)
+        .where(
+          and(eq(items.workspaceId, this.ws), eq(items.botId, botId), eq(items.kind, 'scenario')),
+        )
+    ).map((row) => row.title);
+  }
+  async lockBot(botId: string): Promise<void> {
+    await this.tx.execute(
+      sql`select pg_advisory_xact_lock(hashtextextended(${`training-seed/${this.ws}/${botId}`},0))`,
+    );
   }
   async find(botId: string, itemId: string): Promise<TrainingItemDto | null> {
     const [row] = await this.tx
@@ -133,6 +157,12 @@ export class InMemoryTrainingUnitOfWork implements TrainingUnitOfWork {
             .filter((item) => item.botId === botId)
             .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || b.id.localeCompare(a.id))
             .slice(0, 500),
+        scenarioTitles: async (botId) =>
+          [...draft.items.values()]
+            .filter((item) => item.botId === botId && item.kind === 'scenario')
+            .map((item) => item.title),
+        // The in-memory unit of work already runs one transaction at a time per workspace.
+        lockBot: async () => undefined,
         find: async (botId, id) => {
           const item = draft.items.get(id);
           return item?.botId === botId ? item : null;

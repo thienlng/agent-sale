@@ -61,6 +61,7 @@ function RuleRow({
   number,
   busy,
   onToggle,
+  copyBusy,
   onCopy,
   onEdit,
   onDelete,
@@ -68,6 +69,7 @@ function RuleRow({
   item: TrainingItemDto;
   number: number;
   busy: boolean;
+  copyBusy: boolean;
   onToggle: (enabled: boolean) => void;
   onCopy: () => void;
   onEdit: () => void;
@@ -109,7 +111,13 @@ function RuleRow({
           onCheckedChange={onToggle}
           className="mr-1"
         />
-        <Button variant="ghost" size="icon" aria-label={t('rules.copy')} onClick={onCopy}>
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label={t('rules.copy')}
+          disabled={copyBusy}
+          onClick={onCopy}
+        >
           <Copy />
         </Button>
         <Button variant="ghost" size="icon" aria-label={t('edit')} onClick={onEdit}>
@@ -122,6 +130,11 @@ function RuleRow({
     </li>
   );
 }
+
+/** The model gets at most this many enabled rules (backend MAX_SITUATIONS). */
+const MAX_ENABLED_RULES = 20;
+/** The counter appears once the owner is this close to the cap. */
+const COUNTER_FROM = 15;
 
 const byCreation = (a: TrainingItemDto, b: TrainingItemDto) =>
   a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id);
@@ -144,6 +157,7 @@ export function RulesList({ botId, introduction }: { botId: string; introduction
   const onError = (error: unknown) => toast.error(errorMessage(common, error));
 
   function copy(item: TrainingItemDto) {
+    if (save.isPending) return;
     save.mutate(
       {
         kind: 'scenario',
@@ -188,6 +202,7 @@ export function RulesList({ botId, introduction }: { botId: string; introduction
                 item={item}
                 number={number}
                 busy={toggle.isPending && toggle.variables?.id === item.id}
+                copyBusy={save.isPending}
                 onToggle={(enabled) => toggle.mutate({ id: item.id, enabled }, { onError })}
                 onCopy={() => copy(item)}
                 onEdit={() => setEditor({ item })}
@@ -204,6 +219,8 @@ export function RulesList({ botId, introduction }: { botId: string; introduction
     );
   }
 
+  const enabledCount = rules.filter((r) => r.enabled).length;
+
   const noMatches =
     searching && !rules.some((r) => matchesText(`${r.title} ${r.content} ${r.trigger}`, search));
 
@@ -212,7 +229,18 @@ export function RulesList({ botId, introduction }: { botId: string; introduction
       <DataPageHeader title={t('rules.title')} subtitle={t('rules.subtitle')} />
       <div className="flex flex-wrap items-center gap-2">
         <DataSearch value={search} onChange={setSearch} placeholder={t('rules.search')} />
-        <div className="ml-auto flex flex-wrap gap-2">
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          {enabledCount >= COUNTER_FROM ? (
+            <span
+              data-testid="rules-counter"
+              className={cn(
+                'text-xs text-muted-foreground',
+                enabledCount > MAX_ENABLED_RULES && 'font-medium text-destructive',
+              )}
+            >
+              {t('rules.enabledCount', { count: enabledCount, max: MAX_ENABLED_RULES })}
+            </span>
+          ) : null}
           <Button
             variant="outline"
             className="h-9"

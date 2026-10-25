@@ -173,4 +173,33 @@ describe('Training materials', () => {
     expect(await facade.seedStarterRules(ws, newId())).toHaveLength(first.length);
     expect(await facade.list(other, bot)).toEqual([]);
   });
+
+  it('records no history when asked not to (bot creation seeds silently)', async () => {
+    const facade = new TrainingFacadeImpl(new InMemoryTrainingUnitOfWork());
+    const created = await facade.seedStarterRules(ws, bot, '', { recordHistory: false });
+    expect(created).toHaveLength(STARTER_RULES.length);
+    expect(await facade.history(ws, bot)).toEqual([]);
+    expect(await facade.seedStarterRules(ws, bot)).toEqual([]);
+  });
+
+  it('does not duplicate rules when seeds run concurrently', async () => {
+    const facade = new TrainingFacadeImpl(new InMemoryTrainingUnitOfWork());
+    const results = await Promise.all([
+      facade.seedStarterRules(ws, bot),
+      facade.seedStarterRules(ws, bot),
+    ]);
+    expect(results.flat()).toHaveLength(STARTER_RULES.length);
+    expect(await facade.list(ws, bot)).toHaveLength(STARTER_RULES.length);
+  });
+
+  it('sees every existing scenario title, not only the 500 newest', async () => {
+    const facade = new TrainingFacadeImpl(new InMemoryTrainingUnitOfWork());
+    const starter = STARTER_RULES[0]!;
+    await facade.create(ws, bot, { ...input, title: starter.title });
+    for (let i = 0; i < 500; i++) await facade.create(ws, bot, { ...input, title: `Rule ${i}` });
+    expect(await facade.list(ws, bot)).toHaveLength(500);
+    const created = await facade.seedStarterRules(ws, bot);
+    expect(created.map((c) => c.title)).not.toContain(starter.title);
+    expect(created).toHaveLength(STARTER_RULES.length - 1);
+  });
 });

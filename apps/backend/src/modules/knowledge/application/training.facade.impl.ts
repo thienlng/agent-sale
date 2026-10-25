@@ -157,11 +157,15 @@ export class TrainingFacadeImpl implements TrainingFacade {
     });
   }
   /** Adds the starter rules whose exact title the bot does not have yet; returns the new ones. */
-  seedStarterRules(ws: WorkspaceId, botId: string, actor = ''): Promise<TrainingItemDto[]> {
+  seedStarterRules(
+    ws: WorkspaceId,
+    botId: string,
+    actor = '',
+    options: { recordHistory?: boolean } = {},
+  ): Promise<TrainingItemDto[]> {
     return this.uow.run(ws, async (repo) => {
-      const titles = new Set(
-        (await repo.list(botId)).filter((i) => i.kind === 'scenario').map((i) => i.title),
-      );
+      await repo.lockBot(botId);
+      const titles = new Set(await repo.scenarioTitles(botId));
       const created: TrainingItemDto[] = [];
       for (const request of starterRuleRequests()) {
         if (titles.has(request.title)) continue;
@@ -175,7 +179,7 @@ export class TrainingFacadeImpl implements TrainingFacade {
           updatedAt: now,
         };
         await repo.save(item);
-        await repo.record(event(item, 'created', actor, null));
+        if (options.recordHistory !== false) await repo.record(event(item, 'created', actor, null));
         created.push(item);
       }
       return created;
