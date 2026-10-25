@@ -57,4 +57,46 @@ describe('MessageThread', () => {
     );
     expect(log.scrollTop).toBe(1000);
   });
+
+  it('puts a "Tin mới" divider before the first customer message after the last read time', () => {
+    const at = (id: string, createdAt: string, extra: Partial<InboxMessageDto> = {}) => ({
+      ...message(id),
+      createdAt,
+      ...extra,
+    });
+    render(
+      <MessageThread
+        newAfter="2026-10-25T10:00:00.000Z"
+        messages={[
+          at('old', '2026-10-25T09:00:00.000Z'),
+          at('reply', '2026-10-25T10:05:00.000Z', { direction: 'outbound', sender: 'human' }),
+          at('new-1', '2026-10-25T10:10:00.000Z'),
+          at('new-2', '2026-10-25T10:11:00.000Z'),
+        ]}
+      />,
+    );
+    const separators = screen.getAllByRole('separator');
+    expect(separators).toHaveLength(1);
+    expect(separators[0]).toHaveTextContent('channelInbox.v2.thread.newDivider');
+    expect(separators[0]?.nextElementSibling).toHaveTextContent('new-1');
+  });
+
+  it('shows no divider when nothing arrived after the last read', () => {
+    render(<MessageThread newAfter="2026-10-26T00:00:00.000Z" messages={[message('a')]} />);
+    expect(screen.queryByRole('separator')).not.toBeInTheDocument();
+    render(<MessageThread messages={[message('b')]} />);
+    expect(screen.queryByRole('separator')).not.toBeInTheDocument();
+  });
+
+  it('labels bot messages "Bot"', () => {
+    render(
+      <MessageThread
+        messages={[
+          { ...message('bot-1'), direction: 'outbound', sender: 'bot', status: 'sent' },
+          { ...message('human-1'), direction: 'outbound', sender: 'human', status: 'sent' },
+        ]}
+      />,
+    );
+    expect(screen.getAllByText('channelInbox.v2.thread.bot')).toHaveLength(1);
+  });
 });

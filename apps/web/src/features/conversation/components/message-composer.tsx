@@ -9,14 +9,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { useSession } from '@/lib/session';
 import {
   draftKey,
+  filterSlashReplies,
   insertQuickReply,
   readDraft,
+  slashQuery,
   subscribeDraft,
   writeDraft,
   type ComposerDraft,
 } from '../lib/composer-draft';
 import { useConversation, useInboxActions, useQuickReplies } from '../api/inbox';
 import { AttachmentPicker } from './message-attachments';
+import { SlashReplies } from './slash-replies';
 import { InternalNoteComposer } from './internal-note-composer';
 
 /** Text composer with attachments and quick replies; retries reuse the idempotency key. */
@@ -70,6 +73,24 @@ function ScopedComposer({
     setDelivery(null);
   }
   const [quickOpen, setQuickOpen] = useState(false);
+  const [slashIndex, setSlashIndex] = useState(0);
+  const [slashDismissed, setSlashDismissed] = useState<string | null>(null);
+  const query = botId ? slashQuery(draft) : null;
+  const slashMatches = query !== null ? filterSlashReplies(quick.data ?? [], query) : [];
+  const slashOpen = query !== null && slashDismissed !== draft;
+  const slashActive = Math.min(slashIndex, Math.max(slashMatches.length - 1, 0));
+  function pickSlash(content: string) {
+    const inserted = insertQuickReply('', content, 0, 0);
+    if (!inserted) {
+      toast.error(tr('sales.replyTooLong'));
+      return;
+    }
+    setDraft(inserted.text);
+    selection.current = { start: inserted.cursor, end: inserted.cursor };
+    requestAnimationFrame(() =>
+      textarea.current?.setSelectionRange(inserted.cursor, inserted.cursor),
+    );
+  }
   function insertText(content: string) {
     if (sender.isPending) {
       toast.info(tr('sending'));
@@ -246,7 +267,14 @@ function ScopedComposer({
               </Button>
             </div>
           ) : null}
-          <div className="rounded-xl border bg-muted/20 p-2">
+          <div className="relative rounded-xl border bg-muted/20 p-2">
+            {slashOpen ? (
+              <SlashReplies
+                items={slashMatches}
+                active={slashActive}
+                onPick={(item) => pickSlash(item.content)}
+              />
+            ) : null}
             <Textarea
               ref={textarea}
               onSelect={(event) => rememberSelection(event.currentTarget)}
@@ -259,8 +287,35 @@ function ScopedComposer({
               onChange={(event) => {
                 rememberSelection(event.currentTarget);
                 setDraft(event.currentTarget.value);
+                setSlashIndex(0);
               }}
+              aria-autocomplete="list"
+              aria-expanded={slashOpen}
+              aria-controls={slashOpen ? 'slash-replies' : undefined}
               onKeyDown={(event) => {
+                if (slashOpen && !event.nativeEvent.isComposing) {
+                  if (event.key === 'Escape') {
+                    event.preventDefault();
+                    setSlashDismissed(draft);
+                    return;
+                  }
+                  if (slashMatches.length) {
+                    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                      event.preventDefault();
+                      const step = event.key === 'ArrowDown' ? 1 : -1;
+                      setSlashIndex(
+                        (slashActive + step + slashMatches.length) % slashMatches.length,
+                      );
+                      return;
+                    }
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                      event.preventDefault();
+                      const item = slashMatches[slashActive];
+                      if (item) pickSlash(item.content);
+                      return;
+                    }
+                  }
+                }
                 if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
                   event.preventDefault();
                   void send();

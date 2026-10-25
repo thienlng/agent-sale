@@ -13,7 +13,12 @@ vi.mock('../api/inbox', () => ({
     send: { mutateAsync: mocks.send, isPending: false, isError: false },
     update: { mutateAsync: mocks.update, isPending: false },
   }),
-  useQuickReplies: () => ({ data: [{ id: 'quick', title: 'Size guide', content: 'Size M' }] }),
+  useQuickReplies: () => ({
+    data: [
+      { id: 'quick', title: 'Size guide', content: 'Size M' },
+      { id: 'ship', title: 'Shipping', content: 'Free ship over 500k' },
+    ],
+  }),
   useConversation: () => ({ data: { conversation: { note: 'Existing note', revision: 7 } } }),
 }));
 vi.mock('./message-attachments', () => ({
@@ -275,5 +280,50 @@ describe('MessageComposer', () => {
     fireEvent.change(editor, { target: { value: 'My note' } });
     await user.click(screen.getByRole('button', { name: 'channelInbox.sales.saveInternalNote' }));
     expect(editor).toHaveValue('My note');
+  });
+
+  it('opens quick replies when the draft starts with "/" and filters by the text after it', async () => {
+    const user = userEvent.setup();
+    render(<MessageComposer id="slash-filter" botId="bot" windowClosed={false} />);
+    const editor = screen.getByRole('textbox');
+    await user.type(editor, '/');
+    expect(screen.getAllByRole('option')).toHaveLength(2);
+    await user.type(editor, 'ship');
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual([
+      'ShippingFree ship over 500k',
+    ]);
+    await user.clear(editor);
+    await user.type(editor, 'hello /');
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+  });
+
+  it('inserts the highlighted quick reply on Enter instead of sending', async () => {
+    const user = userEvent.setup();
+    render(<MessageComposer id="slash-enter" botId="bot" windowClosed={false} />);
+    const editor = screen.getByRole('textbox');
+    await user.type(editor, '/');
+    await user.keyboard('{ArrowDown}{Enter}');
+    expect(editor).toHaveValue('Free ship over 500k');
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(mocks.send).not.toHaveBeenCalled();
+  });
+
+  it('inserts a quick reply on click and closes the list on Escape', async () => {
+    const user = userEvent.setup();
+    render(<MessageComposer id="slash-click" botId="bot" windowClosed={false} />);
+    const editor = screen.getByRole('textbox');
+    await user.type(editor, '/');
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    await user.type(editor, 's');
+    await user.click(screen.getByRole('option', { name: /Size guide/ }));
+    expect(editor).toHaveValue('Size M');
+  });
+
+  it('does not open quick replies for a page without a bot', async () => {
+    const user = userEvent.setup();
+    render(<MessageComposer id="slash-nobot" botId={null} windowClosed={false} />);
+    await user.type(screen.getByRole('textbox'), '/');
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
   });
 });

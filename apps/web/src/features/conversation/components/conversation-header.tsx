@@ -54,6 +54,7 @@ export function ConversationHeader({
   onToggleSearch,
   onChange,
   onMarkUnread,
+  canEdit = true,
 }: {
   conversation: InboxConversation;
   channel: HeaderChannel | undefined;
@@ -70,6 +71,8 @@ export function ConversationHeader({
   onToggleSearch: () => void;
   onChange: (body: InboxUpdateBody) => void;
   onMarkUnread: () => void;
+  /** Marking unread needs permission to edit contacts. */
+  canEdit?: boolean;
 }) {
   const { t } = useTranslation();
   const tr = (key: string, options?: Record<string, unknown>) =>
@@ -144,7 +147,9 @@ export function ConversationHeader({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuItem onSelect={onMarkUnread}>{v2('markUnread')}</DropdownMenuItem>
+            {canEdit ? (
+              <DropdownMenuItem onSelect={onMarkUnread}>{v2('markUnread')}</DropdownMenuItem>
+            ) : null}
             <DropdownMenuItem onSelect={onToggleSearch}>
               <Search />
               {tr('sales.searchThread')}

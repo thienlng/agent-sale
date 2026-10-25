@@ -19,6 +19,7 @@ import {
   InboxDetailResponse,
   InboxListResponse,
   InboxNote,
+  type InboxTagChip,
   type InboxListQuery,
   type InboxUpdateBody,
 } from '../lib/inbox-v2-types';
@@ -186,27 +187,76 @@ export function useAddNote(id: string) {
   });
 }
 
+const ConversationTagList = z.object({
+  data: z.array(
+    z.object({
+      id: z.string(),
+      tag: z.object({ id: z.string(), name: z.string(), color: z.string() }),
+    }),
+  ),
+});
+
+/** Tags of one conversation with their assignment ids (the list rows carry no assignment id). */
+export function useConversationTags(id: string) {
+  const ws = useWorkspaceId();
+  return useQuery({
+    queryKey: ['conversation-tags', ws, id],
+    queryFn: async (): Promise<InboxTagChip[]> =>
+      (await api(`/conversations/${id}/tags`, ConversationTagList)).data.map((a) => ({
+        ...a.tag,
+        assignmentId: a.id,
+      })),
+    enabled: Boolean(ws && id),
+    refetchInterval: 10000,
+  });
+}
+
 /** Conversation tags: attach through the conversation route, remove through the assignment. */
 export function useConversationTagActions(id: string) {
   const ws = useWorkspaceId();
   const qc = useQueryClient();
+  const key = ['conversation-tags', ws, id];
   const refresh = () =>
     Promise.all([
+      qc.invalidateQueries({ queryKey: key }),
       qc.invalidateQueries({ queryKey: ['conversation', ws, id] }),
       qc.invalidateQueries({ queryKey: ['inbox', ws] }),
       qc.invalidateQueries({ queryKey: queryKeys.crmTags(ws) }),
     ]);
+  /** One click should feel instant: patch the cached tags, roll back on error. */
+  async function patchTags(edit: (tags: InboxTagChip[]) => InboxTagChip[]) {
+    await qc.cancelQueries({ queryKey: key });
+    const previous = qc.getQueryData<InboxTagChip[]>(key);
+    if (previous) qc.setQueryData<InboxTagChip[]>(key, edit(previous));
+    return { previous };
+  }
+  const rollback = (
+    _error: unknown,
+    _vars: unknown,
+    context: { previous: InboxTagChip[] | undefined } | undefined,
+  ) => {
+    if (context?.previous) qc.setQueryData(key, context.previous);
+  };
   const attach = useMutation({
-    mutationFn: (tagId: string) =>
-      api(`/conversations/${id}/tags`, TagAssignmentDto, { method: 'POST', body: { tagId } }),
+    mutationFn: (tag: { id: string; name: string; color: string }) =>
+      api(`/conversations/${id}/tags`, z.unknown(), { method: 'POST', body: { tagId: tag.id } }),
+    onMutate: (tag) =>
+      patchTags((tags) =>
+        tags.some((t) => t.id === tag.id)
+          ? tags
+          : [...tags, { id: tag.id, name: tag.name, color: tag.color }],
+      ),
+    onError: rollback,
     onSettled: refresh,
   });
   const remove = useMutation({
-    mutationFn: (assignmentId: string) =>
-      api(`/tag-assignments/${assignmentId}/remove`, TagAssignmentDto, {
+    mutationFn: (tag: { id: string; assignmentId: string }) =>
+      api(`/tag-assignments/${tag.assignmentId}/remove`, TagAssignmentDto, {
         method: 'POST',
         body: {},
       }),
+    onMutate: (tag) => patchTags((tags) => tags.filter((t) => t.id !== tag.id)),
+    onError: rollback,
     onSettled: refresh,
   });
   return { attach, remove };

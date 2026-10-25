@@ -50,3 +50,21 @@ export function insertQuickReply(
   if (next.length > 2000) return null;
   return { text: next, cursor: start + content.length };
 }
+
+/** Quick replies matching "/query" typed at the start of the draft; null when the menu is closed. */
+export function slashQuery(draft: string): string | null {
+  const match = /^\/(\S*)$/.exec(draft);
+  return match ? (match[1] ?? '') : null;
+}
+
+export function filterSlashReplies<T extends { title: string; content: string }>(
+  items: readonly T[],
+  query: string,
+): T[] {
+  const needle = query.toLocaleLowerCase();
+  return items.filter(
+    (item) =>
+      item.title.toLocaleLowerCase().includes(needle) ||
+      item.content.toLocaleLowerCase().includes(needle),
+  );
+}

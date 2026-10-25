@@ -7,13 +7,24 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { useConversation, useInboxActions, useInboxBot, useInboxMembers } from '../api/inbox';
+import {
+  useConversation,
+  useConversationTagActions,
+  useConversationTags,
+  useInboxActions,
+  useInboxBot,
+  useInboxMembers,
+  useInboxTags,
+} from '../api/inbox';
 import { useSession } from '@/lib/session';
+import { useCan } from '@/lib/permissions';
 import { useReadOnOpen } from '../hooks/use-read-on-open';
 import { ConversationHeader, type HeaderChannel } from './conversation-header';
 import { CustomerPanel } from './customer-panel';
 import { MessageComposer } from './message-composer';
 import { MessageThread } from './message-thread';
+import { useTagBarExpanded } from '../hooks/use-tag-bar-expanded';
+import { TagBar } from './tag-bar';
 import { useConversationShortcuts } from '../hooks/use-conversation-shortcuts';
 
 /** An open conversation: header with takeover, thread, composer and customer panel. */
@@ -41,13 +52,20 @@ export function ConversationView({
   const { update } = useInboxActions(id);
   const bot = useInboxBot(botId);
   const members = useInboxMembers();
-  const userId = useSession()?.user.id ?? '';
+  const session = useSession();
+  const userId = session?.user.id ?? '';
+  const library = useInboxTags();
+  const tagActions = useConversationTagActions(id);
+  const convTags = useConversationTags(id);
+  const [tagsExpanded, setTagsExpanded] = useTagBarExpanded(session?.workspaceId ?? '', userId);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [details, setDetails] = useState(
     () =>
       typeof window.matchMedia === 'function' && window.matchMedia('(min-width:1280px)').matches,
   );
   const c = detail.data?.conversation;
-  const read = useReadOnOpen(id, c);
+  const canEdit = useCan('contacts.edit');
+  const read = useReadOnOpen(id, canEdit ? c : undefined);
   const root = useRef<HTMLDivElement>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -69,6 +87,16 @@ export function ConversationView({
       );
     }
   }
+  // The "Tin mới" divider marks what was unread when the conversation opened, not after it is read.
+  const [openedRead, setOpenedRead] = useState<{ at: string | null } | null>(null);
+  if (c && !openedRead) setOpenedRead({ at: c.lastReadAt });
+  function markUnread() {
+    void read
+      .markUnread()
+      .then(() => toast.success(tr('v2.header.marked')))
+      .catch(() => toast.error(tr('loadError')));
+  }
+  const tagError = () => toast.error(tr('v2.tagBar.error'));
   useConversationShortcuts({
     root,
     enabled: Boolean(c),
@@ -76,6 +104,8 @@ export function ConversationView({
     onToggleResolved: () => {
       if (c) void change({ status: c.status === 'resolved' ? 'open' : 'resolved' });
     },
+    onOpenTags: canEdit ? () => setPickerOpen(true) : undefined,
+    onMarkUnread: canEdit ? markUnread : undefined,
   });
   if (detail.isPending)
     return (
@@ -119,12 +149,8 @@ export function ConversationView({
           onBack={onBack}
           onToggleSearch={() => setSearchOpen((open) => !open)}
           onChange={(body) => void change(body)}
-          onMarkUnread={() => {
-            void read
-              .markUnread()
-              .then(() => toast.success(tr('v2.header.marked')))
-              .catch(() => toast.error(tr('loadError')));
-          }}
+          onMarkUnread={markUnread}
+          canEdit={canEdit}
         />
         {searchOpen ? (
           <div className="flex shrink-0 items-center gap-2 border-b px-4 py-2">
@@ -158,6 +184,7 @@ export function ConversationView({
           </p>
         ) : null}
         <MessageThread
+          newAfter={openedRead?.at ?? null}
           messages={
             search
               ? detail.data.messages.filter((message) =>
@@ -165,6 +192,17 @@ export function ConversationView({
                 )
               : detail.data.messages
           }
+        />
+        <TagBar
+          tags={convTags.data ?? c.tags}
+          library={library.data ?? []}
+          expanded={tagsExpanded}
+          onExpandedChange={setTagsExpanded}
+          pickerOpen={pickerOpen}
+          onPickerOpenChange={setPickerOpen}
+          readOnly={!canEdit}
+          onAttach={(tag) => tagActions.attach.mutate(tag, { onError: tagError })}
+          onRemove={(tag) => tagActions.remove.mutate(tag, { onError: tagError })}
         />
         <MessageComposer
           id={id}

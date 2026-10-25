@@ -7,13 +7,24 @@ function Harness({
   toggle,
   busy = false,
   hidden = false,
+  tags,
+  unread,
 }: {
   toggle: () => void;
   busy?: boolean;
   hidden?: boolean;
+  tags?: () => void;
+  unread?: () => void;
 }) {
   const root = useRef<HTMLDivElement>(null);
-  useConversationShortcuts({ root, enabled: true, busy, onToggleResolved: toggle });
+  useConversationShortcuts({
+    root,
+    enabled: true,
+    busy,
+    onToggleResolved: toggle,
+    onOpenTags: tags,
+    onMarkUnread: unread,
+  });
   return (
     <div ref={root}>
       <input aria-label="Search" />
@@ -55,5 +66,22 @@ describe('conversation keyboard shortcuts', () => {
     render(<Harness toggle={vi.fn()} hidden />);
     fireEvent.keyDown(document.body, { key: 'r' });
     expect(screen.getByLabelText('Active composer')).not.toHaveFocus();
+  });
+
+  it('uses T for the tag picker and U for mark unread, but not while typing or busy', () => {
+    const tags = vi.fn();
+    const unread = vi.fn();
+    const view = render(<Harness toggle={vi.fn()} tags={tags} unread={unread} />);
+    fireEvent.keyDown(document.body, { key: 't' });
+    fireEvent.keyDown(document.body, { key: 'u' });
+    expect(tags).toHaveBeenCalledTimes(1);
+    expect(unread).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(screen.getByLabelText('Search'), { key: 't' });
+    fireEvent.keyDown(screen.getByLabelText('Active composer'), { key: 'u' });
+    expect(tags).toHaveBeenCalledTimes(1);
+    expect(unread).toHaveBeenCalledTimes(1);
+    view.rerender(<Harness toggle={vi.fn()} tags={tags} unread={unread} busy />);
+    fireEvent.keyDown(document.body, { key: 'u' });
+    expect(unread).toHaveBeenCalledTimes(1);
   });
 });
