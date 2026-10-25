@@ -31,6 +31,8 @@ import {
   type ConversationTx,
 } from './ports/conversation-store.js';
 const now = () => new Date().toISOString();
+/** Unnamed customers looked up per list request (see `backfillProfiles`). */
+const PROFILE_BACKFILL_PER_LIST = 10;
 async function requireConversation(tx: ConversationTx, id: string): Promise<ConversationView> {
   const c = await tx.find(id);
   if (!c) throw new ConversationError('NOT_FOUND', 'Conversation not found');
@@ -52,7 +54,23 @@ export class ConversationFacadeImpl implements ConversationFacade {
       ...(await tagConditions(this.crm, ws, q)),
     };
     const page = await this.store.run(ws, (tx) => tx.query(filter));
+    this.backfillProfiles(ws, page.data);
     return { data: await attachTags(this.crm, ws, page.data), counts: page.counts };
+  }
+  /**
+   * Conversations that started before profile lookups existed only learn the customer's name on
+   * their next message. Looking up the unnamed rows a rep is looking at fixes the visible list
+   * without a migration job; `refreshCustomerProfile` throttles per conversation and never throws.
+   */
+  private backfillProfiles(ws: WorkspaceId, rows: readonly ConversationView[]) {
+    const unnamed = rows
+      .filter((c) => !c.customerName.trim() || c.customerName === c.customerId)
+      .slice(0, PROFILE_BACKFILL_PER_LIST);
+    if (!unnamed.length) return;
+    void (async () => {
+      // One at a time: a list refresh must not burst requests at Meta.
+      for (const c of unnamed) await refreshCustomerProfile(this.store, this.channels, ws, c.id);
+    })();
   }
   async get(ws: WorkspaceId, id: string) {
     const detail = await this.load(ws, id);

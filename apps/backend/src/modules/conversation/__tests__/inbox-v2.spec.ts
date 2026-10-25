@@ -395,6 +395,19 @@ describe('customer profile', () => {
     expect(channels.fetchCustomerProfile).toHaveBeenCalledTimes(2);
   });
 
+  it('looks up unnamed customers shown in the list, and only those', async () => {
+    const unnamed = await service.receive(ws, channelId, event('m1'));
+    const named = await service.receive(ws, channelId, event('m2', { senderExternalId: 'other' }));
+    await service.refreshCustomerProfile(ws, named.id);
+    vi.mocked(channels.fetchCustomerProfile).mockClear();
+    await service.list(ws, { limit: 50 }, lan);
+    await vi.waitFor(() => expect(channels.fetchCustomerProfile).toHaveBeenCalledTimes(1));
+    expect(channels.fetchCustomerProfile).toHaveBeenCalledWith(ws, channelId, 'customer');
+    await vi.waitFor(async () =>
+      expect((await service.get(ws, unnamed.id)).conversation.customerName).toBe('Nguyễn Thu Hà'),
+    );
+  });
+
   it('ignores a failing lookup instead of throwing', async () => {
     vi.mocked(channels.fetchCustomerProfile).mockRejectedValue(new Error('boom'));
     const c = await service.receive(ws, channelId, event('m1'));
