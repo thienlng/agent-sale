@@ -218,7 +218,7 @@ export class MetaInboxProcessor {
         job.workspaceId,
         botId,
         { messages: toReplyTurns(stored, seen), ...(images.length ? { images } : {}) },
-        { conversationId: c.id, isTest: false },
+        { conversationId: c.id, isTest: false, eventId: job.event.externalEventId },
       );
     let response;
     try {

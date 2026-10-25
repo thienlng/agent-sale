@@ -2,11 +2,22 @@ import { z } from 'zod';
 
 /** What the model must return (structured output); validated again after parsing. */
 export const ModelReply = z.object({
-  outcome: z.enum(['answer', 'unknown', 'handoff']),
+  outcome: z.enum([
+    'answer',
+    'unknown',
+    'handoff',
+    'call_action',
+    'confirm_action',
+    'cancel_action',
+  ]),
   reply: z.string(),
   sources: z.array(z.string()),
   /** Ids from the "Images you may send" list; the server validates them (max 3 are sent). */
   imageIds: z.array(z.string()).default([]),
+  /** `call_action` only: an id from the `<actions>` list; the server validates it. */
+  actionId: z.string().optional(),
+  /** `call_action` only: argument values (the runner validates them against the declared params). */
+  args: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
 });
 export type ModelReply = z.infer<typeof ModelReply>;
 

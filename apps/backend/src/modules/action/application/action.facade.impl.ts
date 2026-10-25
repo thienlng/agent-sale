@@ -40,7 +40,7 @@ export class ActionFacadeImpl implements ActionFacade {
   constructor(
     @Inject(ACTION_UOW) private readonly uow: ActionUnitOfWork,
     @Inject(SECRET_BOX) private readonly secrets: SecretBox,
-    @Optional() @Inject(SAFE_HTTP) safeHttp?: SafeHttp,
+    @Inject(SAFE_HTTP) @Optional() safeHttp?: SafeHttp,
   ) {
     this.runner = new ActionRunner(safeHttp ?? createSafeHttp(), secrets);
   }
