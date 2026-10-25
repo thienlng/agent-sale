@@ -4,7 +4,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
-- [ ] T-068 Redesign the sales inbox workspace — @agent:codex · [details](todo/T-068-redesign-the-sales-inbox-workspace.md) · PR #59
+
 - [ ] T-067 Stop auto-collapsing the app sidebar inside the bot space — @agent:claude · [details](todo/T-067-stop-auto-collapsing-the-app-sidebar-inside-the-bo.md)
 - [ ] T-065 Admin LLM: check connection and fetch model list from the provider dialog — @agent:claude · [details](todo/T-065-admin-llm-check-connection-and-fetch-model-list-fr.md)
 
@@ -48,6 +48,8 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## Done (last 10 — older ones live in todo/done/)
 
+- [x] T-068 Redesign the sales inbox workspace — @agent:codex · [details](todo/done/T-068-redesign-the-sales-inbox-workspace.md) · PR #59
+- [x] T-069 Make team assignment history integration coverage deterministic — @agent:codex · [details](todo/done/T-069-make-team-assignment-history-integration-coverage-.md)
 - [x] T-041 Statistics dashboard, breakdowns and drilldowns — @agent:claude · [details](todo/done/T-041-statistics-dashboard-breakdowns-and-drilldowns.md) · #54
 - [x] T-040 Analytics events, temporal state and rebuildable projections — @agent:claude · [details](todo/done/T-040-analytics-events-temporal-state-and-rebuildable-pr.md) · #54
 - [x] T-039 Analytics metric definitions and attribution — @agent:claude · [details](todo/done/T-039-analytics-metric-definitions-and-attribution.md) · #54
@@ -56,5 +58,3 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [x] T-056 Workspace business profile and private logo (ADM-02) — @agent:claude · [details](todo/done/T-056-workspace-business-profile-and-private-logo-adm-02.md) · #53
 - [x] T-055 Workspace members: seat limits, resend and reassignment on removal (ADM-01) — @agent:claude · [details](todo/done/T-055-workspace-members-seat-limits-resend-and-reassignm.md) · #53
 - [x] T-054 Audit trail for workspace and security changes — @agent:claude · [details](todo/done/T-054-audit-trail-for-workspace-and-security-changes.md) · #53
-- [x] T-053 Billing foundation: plans, subscriptions and entitlements — @agent:claude · [details](todo/done/T-053-billing-foundation-plans-subscriptions-and-entitle.md) · #53
-- [x] T-044 Workspace roles, capabilities and CRM object scope — @agent:claude · [details](todo/done/T-044-workspace-roles-capabilities-and-crm-object-scope.md) · #41
