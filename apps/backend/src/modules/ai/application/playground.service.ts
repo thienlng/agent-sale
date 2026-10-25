@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto';
-
 import {
   type ChatMessage,
   type GenerateRequest,
@@ -12,7 +10,12 @@ import { newId, type WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
 import { recordAiRun } from '../../../common/metrics.js';
-import { ACTION_FACADE, type ActionFacade, type BotActionView } from '../../action/api/index.js';
+import {
+  ACTION_FACADE,
+  type ActionFacade,
+  type BotActionView,
+  type PendingAction,
+} from '../../action/api/index.js';
 import { BOT_FACADE, type BotFacade, type BotView } from '../../bot/api/index.js';
 import { CATALOG_FACADE, type CatalogFacade } from '../../commerce/api/index.js';
 import { KNOWLEDGE_FACADE, type KnowledgeFacade } from '../../knowledge/api/index.js';
@@ -34,7 +37,13 @@ import {
   salvageProse,
 } from '../domain/model-reply.js';
 import { AI_RUN_REPOSITORY, type AiRunRepository } from '../domain/ports/ai-run.repository.js';
-import { type ActionCall, playgroundConversationId, runActionLoop } from './action-loop.js';
+import {
+  type ActionCall,
+  idempotencyKey,
+  playgroundConversationId,
+  runActionLoop,
+  safeJson,
+} from './action-loop.js';
 import { decide, fallbackDecision } from './decide-reply.js';
 import { LlmRuntime } from './llm-runtime.js';
 
@@ -87,7 +96,7 @@ export class PlaygroundService implements AiFacade {
     ws: WorkspaceId,
     botId: string,
     input: PlaygroundRequest,
-    context: { conversationId: string; isTest: boolean; eventId?: string },
+    context: { conversationId: string; isTest: boolean },
   ): Promise<PlaygroundResponse> {
     return this.generateReply(ws, botId, input, context);
   }
@@ -96,7 +105,7 @@ export class PlaygroundService implements AiFacade {
     ws: WorkspaceId,
     botId: string,
     input: PlaygroundRequest,
-    context: { conversationId: string | null; isTest: boolean; eventId?: string },
+    context: { conversationId: string | null; isTest: boolean },
   ): Promise<PlaygroundResponse> {
     const bot = await this.bots.getBot(ws, botId);
     const workspace = await this.workspaces.getById(ws);
@@ -216,13 +225,9 @@ export class PlaygroundService implements AiFacade {
     let calls: ActionCall[] = [];
     let actionResults: string[] = [];
     let readback: string[] = [];
+    let askedConfirmation = false;
     let forced: { guardrail: string | null } | null = null;
     if (this.actions && actionViews.length) {
-      const lastCustomer = customerTexts.at(-1) ?? '';
-      const turnHash = createHash('sha256')
-        .update(`${input.messages.length}\n${lastCustomer}`)
-        .digest('hex')
-        .slice(0, 16);
       let current = last;
       const loop = await runActionLoop({
         facade: this.actions,
@@ -233,12 +238,8 @@ export class PlaygroundService implements AiFacade {
         actions: actionViews,
         first: { text: last.res.text, output: last.output },
         reminder: JSON_REMINDER,
-        keyFor: (actionId, n) =>
-          `${
-            context.eventId
-              ? `bot:${context.eventId}:${actionId}`
-              : `conv:${actionConversationId}:${actionId}:${turnHash}`
-          }${n ? `:${n + 1}` : ''}`,
+        customerTexts,
+        keyFor: (actionId, args) => idempotencyKey(actionConversationId, actionId, args),
         ask: async (followUp) => {
           current = await complete(followUp);
           return { text: current.res.text, output: current.output };
@@ -249,6 +250,7 @@ export class PlaygroundService implements AiFacade {
       else {
         actionResults = loop.results;
         readback = loop.readback;
+        askedConfirmation = loop.askedConfirmation;
         // A confirmation question or a cancel answers with the model's own reply, not a new turn.
         last = { res: current.res, output: loop.turn.output };
       }
@@ -275,6 +277,10 @@ export class PlaygroundService implements AiFacade {
           contextData,
           actionResults,
         );
+    // A question the guardrails replaced never reached the customer: their "ok" must not confirm it.
+    if (this.actions && askedConfirmation && decision.outcome !== 'answered') {
+      await this.actions.clearPending(ws, actionConversationId);
+    }
     const run = {
       id: newId(),
       botId,
@@ -365,10 +371,7 @@ export class PlaygroundService implements AiFacade {
 }
 
 /** The `<actions>` list (never a URL, header or secret) and the call awaiting confirmation. */
-function actionsBlock(
-  actions: readonly BotActionView[],
-  pending: { actionId: string; args: Record<string, string | number | boolean> } | null,
-): string {
+function actionsBlock(actions: readonly BotActionView[], pending: PendingAction | null): string {
   const list = actions.map((a) => ({
     id: a.id,
     name: a.name,
@@ -390,7 +393,12 @@ function actionsBlock(
   const waiting = pending ? actions.find((a) => a.id === pending.actionId) : undefined;
   if (pending && waiting) {
     blocks.push(
-      `<pending_action>\n${JSON.stringify({ actionId: waiting.id, name: waiting.name, args: pending.args })}\n</pending_action>`,
+      `<pending_action>\n${safeJson({
+        actionId: waiting.id,
+        name: waiting.name,
+        args: pending.args,
+        askedMinutesAgo: Math.max(0, Math.floor((Date.now() - pending.askedAt.getTime()) / 60_000)),
+      })}\n</pending_action>`,
     );
   }
   return blocks.join('\n\n');

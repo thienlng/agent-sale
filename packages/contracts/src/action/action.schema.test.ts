@@ -79,6 +79,56 @@ describe('ActionInput', () => {
   });
 });
 
+describe('ActionInput header and body rules', () => {
+  const p = valid.params[0];
+  const header = (name: string) => ({
+    name,
+    type: 'string',
+    location: 'header',
+    required: false,
+    description: 'x',
+  });
+  const withParams = (params: unknown[], extra: object = {}) =>
+    ActionInput.safeParse({ ...valid, params: [p, ...params], ...extra });
+
+  it('rejects header params named like reserved headers', () => {
+    for (const name of [
+      'Host',
+      'authorization',
+      'Cookie',
+      'Content-Length',
+      'content-type',
+      'Idempotency-Key',
+      'Accept',
+      'Proxy-Authorization',
+      'Sec-Fetch-Mode',
+    ])
+      expect(withParams([header(name)]).success, name).toBe(false);
+    expect(withParams([header('X-Customer')]).success).toBe(true);
+  });
+
+  it('rejects a header param that equals the api_key header name, ignoring case', () => {
+    const auth = { kind: 'api_key', headerName: 'X-Api-Key' };
+    expect(withParams([header('x-api-key')], { auth }).success).toBe(false);
+    expect(withParams([header('X-Other')], { auth }).success).toBe(true);
+  });
+
+  it('rejects body params on GET but not on POST', () => {
+    const body = { ...header('note'), location: 'body' };
+    expect(withParams([body]).success).toBe(false);
+    expect(withParams([body], { method: 'POST' }).success).toBe(true);
+  });
+
+  it('rejects duplicate param names that differ only by case', () => {
+    expect(
+      withParams([
+        { ...header('Q1'), location: 'query' },
+        { ...header('q1'), location: 'query' },
+      ]).success,
+    ).toBe(false);
+  });
+});
+
 describe('other action schemas', () => {
   it('lets an update patch be partial', () => {
     expect(UpdateActionRequest.parse({ enabled: false })).toEqual({ enabled: false });

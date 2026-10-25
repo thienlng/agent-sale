@@ -101,6 +101,8 @@
     "https": "A valid HTTPS URL is required",
     "placeholder": "{{name}} needs a Path parameter with the same name",
     "duplicate": "Duplicate parameter name",
+    "reservedHeader": "This header is set by the system or by authentication",
+    "bodyOnGet": "Body parameters need a method other than GET",
     "paramName": "Start with a letter; letters, digits, _ and - only",
     "headerName": "Invalid header name",
     "tooLong": "Too long",

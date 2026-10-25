@@ -143,4 +143,18 @@ export class DrizzleActionRepository implements ActionRepository {
       .delete(p)
       .where(and(eq(p.workspaceId, this.ws), eq(p.conversationId, conversationId)));
   }
+
+  async consumePending(conversationId: string, now: Date): Promise<PendingRecord | null> {
+    const p = schema.actionPending;
+    // DELETE ... RETURNING: concurrent consumers cannot both receive the row.
+    const [row] = await this.tx
+      .delete(p)
+      .where(and(eq(p.workspaceId, this.ws), eq(p.conversationId, conversationId)))
+      .returning();
+    if (!row || row.expiresAt <= now) return null;
+    const args = z
+      .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
+      .parse(row.args);
+    return { actionId: row.actionId, args, expiresAt: row.expiresAt };
+  }
 }

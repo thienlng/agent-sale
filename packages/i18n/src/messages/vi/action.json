@@ -101,6 +101,8 @@
     "https": "Cần một đường dẫn HTTPS hợp lệ",
     "placeholder": "{{name}} cần một tham số vị trí Đường dẫn cùng tên",
     "duplicate": "Tên tham số bị trùng",
+    "reservedHeader": "Header này do hệ thống hoặc phần xác thực đặt",
+    "bodyOnGet": "Tham số body cần phương thức khác GET",
     "paramName": "Bắt đầu bằng chữ cái; chỉ gồm chữ, số, _ và -",
     "headerName": "Tên header không hợp lệ",
     "tooLong": "Quá dài",

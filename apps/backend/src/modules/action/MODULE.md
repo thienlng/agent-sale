@@ -4,7 +4,7 @@
 
 **Owned tables:** `bot_actions`, `action_runs`, `action_pending` (migration 0015; tenant, forced RLS; schema in `packages/db/src/schema/action.ts`).
 
-**Public API (`api/`):** `ACTION_FACADE` → `list`, `get`, `create`, `update`, `remove`, `test`, `listForBot` (enabled actions shaped for the prompt), `invoke`, `getPending`, `setPending`, `clearPending`. No HTTP of its own: the `bot` module serves `/bots/{botId}/actions` (+ `/{id}/test`) after checking the bot belongs to the workspace. 
+**Public API (`api/`):** `ACTION_FACADE` → `list`, `get`, `create`, `update`, `remove`, `test`, `listForBot` (enabled actions shaped for the prompt), `invoke`, `getPending`, `setPending`, `clearPending`, `consumePending` (atomic take for confirmations). No HTTP of its own: the `bot` module serves `/bots/{botId}/actions` (+ `/{id}/test`) after checking the bot belongs to the workspace.
 
 **Executor (T-055 task 3):** `application/action-runner.ts` validates args, builds the request (`domain/build-request.ts`), calls `domain/safe-http.ts` and trims the response to the declared fields of the matching status (`domain/trim-response.ts`; an undeclared status is `bad_status`). `invoke` returns `not_found` (unknown or other bot's action) / `disabled` before any call, else an `ActionOutcome`; every executed call is one `action_runs` row (`test` = `is_test`, works on disabled actions). The pending confirmation (`setPending`/`getPending`/`clearPending`) is one row per conversation with a 10 min TTL; a set replaces, expired reads as null. `ACTION_DEV_ALLOW_HTTP_HOSTS` (dev only, ignored in production) lets QA hit a plain-http fake shop.
 

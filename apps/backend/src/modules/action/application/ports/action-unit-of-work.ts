@@ -36,6 +36,8 @@ export interface ActionRepository {
   /** One pending call per conversation: replaces any existing one. */
   savePending(conversationId: string, pending: PendingRecord): Promise<void>;
   clearPending(conversationId: string): Promise<void>;
+  /** Atomically deletes and returns the pending call (null when none or expired): one winner. */
+  consumePending(conversationId: string, now: Date): Promise<PendingRecord | null>;
 }
 
 export interface ActionUnitOfWork {

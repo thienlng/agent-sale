@@ -21,6 +21,7 @@ import {
   ACTION_UOW,
   type ActionRecord,
   type ActionUnitOfWork,
+  type PendingRecord,
 } from './ports/action-unit-of-work.js';
 
 function toDto({ authSecretEnc, ...rest }: ActionRecord): ActionDto {
@@ -33,6 +34,11 @@ type Args = Record<string, string | number | boolean>;
 
 /** A confirmation older than this is dropped: the customer's "yes" no longer refers to it. */
 export const PENDING_TTL_MS = 10 * 60 * 1000;
+
+const withAskedAt = (p: PendingRecord): PendingAction => ({
+  ...p,
+  askedAt: new Date(p.expiresAt.getTime() - PENDING_TTL_MS),
+});
 
 /** CRUD over the stored actions, the safe executor (invoke/test) and the pending-confirmation store. */
 @Injectable()
@@ -169,7 +175,16 @@ export class ActionFacadeImpl implements ActionFacade {
 
   async getPending(ws: WorkspaceId, conversationId: string): Promise<PendingAction | null> {
     if (!isUuid(conversationId)) return null;
-    return this.uow.run(ws, (repo) => repo.findPending(conversationId, new Date()));
+    const pending = await this.uow.run(ws, (repo) => repo.findPending(conversationId, new Date()));
+    return pending && withAskedAt(pending);
+  }
+
+  async consumePending(ws: WorkspaceId, conversationId: string): Promise<PendingAction | null> {
+    if (!isUuid(conversationId)) return null;
+    const pending = await this.uow.run(ws, (repo) =>
+      repo.consumePending(conversationId, new Date()),
+    );
+    return pending && withAskedAt(pending);
   }
 
   async setPending(

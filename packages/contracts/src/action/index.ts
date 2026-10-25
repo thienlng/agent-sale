@@ -41,17 +41,51 @@ export type ActionMethod = z.infer<typeof ActionMethod>;
 
 const PLACEHOLDER = /\{([^{}]+)\}/g;
 
+const RESERVED_HEADERS = new Set([
+  'host',
+  'authorization',
+  'cookie',
+  'content-length',
+  'content-type',
+  'idempotency-key',
+  'accept',
+]);
+const RESERVED_HEADER_PREFIXES = ['proxy-', 'sec-'];
+
 /** Rules that need several fields at once; the facade re-applies them to the merged result of a patch. */
-function checkAction(a: { url: string; params: ActionParam[] }, ctx: z.RefinementCtx): void {
+/** Rules that need several fields at once; the facade re-applies them to the merged result of a patch. */
+function checkAction(
+  a: { url: string; method: string; params: ActionParam[]; auth: ActionAuth },
+  ctx: z.RefinementCtx,
+): void {
   const names = new Set<string>();
+  const authHeader = a.auth.kind === 'api_key' ? a.auth.headerName.toLowerCase() : null;
   for (const [i, p] of a.params.entries()) {
-    if (names.has(p.name))
+    const lower = p.name.toLowerCase();
+    if (names.has(lower))
       ctx.addIssue({
         code: 'custom',
         path: ['params', i, 'name'],
         message: 'Duplicate param name',
       });
-    names.add(p.name);
+    names.add(lower);
+    if (
+      p.location === 'header' &&
+      (RESERVED_HEADERS.has(lower) ||
+        RESERVED_HEADER_PREFIXES.some((prefix) => lower.startsWith(prefix)) ||
+        lower === authHeader)
+    )
+      ctx.addIssue({
+        code: 'custom',
+        path: ['params', i, 'name'],
+        message: 'Reserved header name',
+      });
+    if (p.location === 'body' && a.method === 'GET')
+      ctx.addIssue({
+        code: 'custom',
+        path: ['params', i, 'location'],
+        message: 'Body params are not allowed on GET',
+      });
   }
   const pathParams = new Set(a.params.filter((p) => p.location === 'path').map((p) => p.name));
   for (const [, name] of a.url.matchAll(PLACEHOLDER))

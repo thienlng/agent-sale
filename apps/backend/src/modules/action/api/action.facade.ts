@@ -27,6 +27,8 @@ export interface PendingAction {
   actionId: string;
   args: Record<string, string | number | boolean>;
   expiresAt: Date;
+  /** When the customer was asked; the model uses the age to doubt a stale "ok". */
+  askedAt: Date;
 }
 
 /**
@@ -72,6 +74,8 @@ export interface ActionFacade {
     pending: { actionId: string; args: Record<string, string | number | boolean> },
   ): Promise<void>;
   clearPending(ws: WorkspaceId, conversationId: string): Promise<void>;
+  /** Atomic take: returns the pending call and removes it, so only one caller can run it. */
+  consumePending(ws: WorkspaceId, conversationId: string): Promise<PendingAction | null>;
 }
 
 export const ACTION_FACADE = Symbol('ACTION_FACADE');

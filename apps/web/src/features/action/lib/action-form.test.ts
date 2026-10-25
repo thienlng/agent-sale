@@ -52,6 +52,36 @@ describe('validateForm', () => {
     expect(errors['params.1.name']?.key).toBe('duplicate');
   });
 
+  it('flags duplicate names that differ only by case', () => {
+    const p = { ...emptyParam(), name: 'Q', description: 'x' };
+    const errors = validateForm(valid({ params: [p, { ...p, key: 'o', name: 'q' }] }));
+    expect(errors['params.1.name']?.key).toBe('duplicate');
+  });
+
+  it('flags reserved and auth-colliding header params', () => {
+    const header = (name: string) => ({
+      ...emptyParam(),
+      name,
+      location: 'header' as const,
+      description: 'x',
+    });
+    expect(validateForm(valid({ params: [header('Host')] }))['params.0.name']?.key).toBe(
+      'reservedHeader',
+    );
+    const auth = valid({
+      authKind: 'api_key',
+      headerName: 'X-Api-Key',
+      params: [header('x-api-key')],
+    });
+    expect(validateForm(auth)['params.0.name']?.key).toBe('reservedHeader');
+  });
+
+  it('flags a body param on GET', () => {
+    const body = { ...emptyParam(), name: 'note', location: 'body' as const, description: 'x' };
+    expect(validateForm(valid({ params: [body] }))['params.0.location']?.key).toBe('bodyOnGet');
+    expect(validateForm(valid({ method: 'POST', params: [body] }))).toEqual({});
+  });
+
   it('flags an invalid param name and a missing param description', () => {
     const errors = validateForm(valid({ params: [{ ...emptyParam(), name: '1bad' }] }));
     expect(errors['params.0.name']?.key).toBe('paramName');

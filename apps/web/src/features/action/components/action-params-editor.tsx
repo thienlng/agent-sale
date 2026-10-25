@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 import { emptyParam, type FieldError, type ParamRow } from '../lib/action-form';
-import { Field, OptionSelect, useErrorText } from './action-fields';
+import { Field, FieldMessage, OptionSelect, useErrorText } from './action-fields';
 
 const TYPES = ['string', 'number', 'boolean'] as const;
 const LOCATIONS = ['path', 'query', 'header', 'body'] as const;
@@ -70,6 +70,9 @@ export function ParamsEditor({
                     options={LOCATIONS.map((v) => ({ value: v, label: t(`form.locations.${v}`) }))}
                     onChange={(location) => update(i, { location })}
                   />
+                  <FieldMessage id={`param-loc-${row.key}-error`}>
+                    {errorText(`params.${i}.location`)}
+                  </FieldMessage>
                 </div>
               </div>
               <Field

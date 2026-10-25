@@ -1,7 +1,7 @@
 import type { ActionInput } from '@agent-sales/contracts';
 import { newId, workspaceId } from '@agent-sales/shared';
 import { Test } from '@nestjs/testing';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { SecretBox } from '../../../common/security/secret-box.js';
 import { ActionModule } from '../action.module.js';
@@ -134,5 +134,48 @@ describe('ActionFacade CRUD', () => {
       statusCode: null,
     });
     await expect(facade.test(ws, botId, newId(), {})).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+});
+
+describe('ActionFacade pending confirmation', () => {
+  const conv = newId();
+
+  async function withPending() {
+    const { facade } = setup();
+    const action = await facade.create(ws, botId, input());
+    await facade.setPending(ws, conv, { actionId: action.id, args: { code: 'A1' } });
+    return { facade, action };
+  }
+
+  it('consumes the pending call exactly once', async () => {
+    const { facade, action } = await withPending();
+    expect(await facade.consumePending(ws, conv)).toMatchObject({
+      actionId: action.id,
+      args: { code: 'A1' },
+    });
+    expect(await facade.consumePending(ws, conv)).toBeNull();
+    expect(await facade.getPending(ws, conv)).toBeNull();
+  });
+
+  it('hands the pending call to only one of two concurrent consumers', async () => {
+    const { facade } = await withPending();
+    const results = await Promise.all([
+      facade.consumePending(ws, conv),
+      facade.consumePending(ws, conv),
+      facade.consumePending(ws, conv),
+    ]);
+    expect(results.filter(Boolean)).toHaveLength(1);
+  });
+
+  it('does not consume an expired pending call and tells when it was asked', async () => {
+    const { facade } = await withPending();
+    const asked = (await facade.getPending(ws, conv))?.askedAt;
+    expect(Date.now() - (asked?.getTime() ?? 0)).toBeLessThan(5_000);
+    vi.useFakeTimers({ now: Date.now() + 11 * 60_000, toFake: ['Date'] });
+    try {
+      expect(await facade.consumePending(ws, conv)).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

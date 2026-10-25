@@ -202,6 +202,23 @@ describe('forced RLS on the three action tables', () => {
   });
 });
 
+describe('pending confirmation atomicity on Postgres', () => {
+  it('lets only one of several concurrent consumers take the pending call', async () => {
+    const action = await facade.create(a, botA, input);
+    const conv = newId();
+    await facade.setPending(a, conv, { actionId: action.id, args: { code: '1' } });
+    const taken = await Promise.all(
+      Array.from({ length: 5 }, () => facade.consumePending(a, conv)),
+    );
+    expect(taken.filter(Boolean)).toHaveLength(1);
+    expect(taken.find(Boolean)).toMatchObject({ args: { code: '1' } });
+    expect(await facade.getPending(a, conv)).toBeNull();
+    await facade.setPending(a, conv, { actionId: action.id, args: {} });
+    expect(await facade.consumePending(b, conv)).toBeNull();
+    expect(await facade.getPending(a, conv)).not.toBeNull();
+  });
+});
+
 describe('runner persistence on Postgres', () => {
   const withResponse = {
     ...input,

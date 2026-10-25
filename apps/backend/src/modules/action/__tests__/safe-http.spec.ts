@@ -264,6 +264,75 @@ describe('createSafeHttp (injected resolver/transport)', () => {
     expect(aborted).toBe(true);
   });
 
+  it('falls through to the next validated address on a connect failure, IPv4 first', async () => {
+    const tried: string[] = [];
+    const transport: SafeHttpTransport = async (r) => {
+      tried.push(r.address);
+      if (r.address !== '93.184.216.35') throw new SafeHttpTransportError('connect');
+      return { status: 200, body: '{"a":1}' };
+    };
+    const http = createSafeHttp({
+      resolve: async () => ['2606:2800:220:1::1', '93.184.216.34', '93.184.216.35'],
+      transport,
+    });
+    await expect(http(req('https://shop.example.com/x'))).resolves.toEqual({
+      ok: true,
+      status: 200,
+      json: { a: 1 },
+    });
+    expect(tried).toEqual(['93.184.216.34', '93.184.216.35']);
+  });
+
+  it('reports network (not connect) when every address fails to connect', async () => {
+    const transport = vi.fn<SafeHttpTransport>(async () => {
+      throw new SafeHttpTransportError('connect');
+    });
+    const http = createSafeHttp({
+      resolve: async () => ['93.184.216.34', '93.184.216.35'],
+      transport,
+    });
+    expect(await http(req('https://shop.example.com/x'))).toEqual({
+      ok: false,
+      errorCode: 'network',
+    });
+    expect(transport).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not try another address after a failure past the connect (no duplicate write)', async () => {
+    const transport = vi.fn<SafeHttpTransport>(async () => {
+      throw new SafeHttpTransportError('network');
+    });
+    const http = createSafeHttp({
+      resolve: async () => ['93.184.216.34', '93.184.216.35'],
+      transport,
+    });
+    await http(req('https://shop.example.com/x', { method: 'POST', body: '{}' }));
+    expect(transport).toHaveBeenCalledTimes(1);
+  });
+
+  it('never connects when any address is blocked, even if the first is public', async () => {
+    const transport = okTransport();
+    const http = createSafeHttp({
+      resolve: async () => ['93.184.216.34', '10.0.0.1'],
+      transport,
+    });
+    expect(await http(req('https://shop.example.com/x'))).toEqual({
+      ok: false,
+      errorCode: 'blocked_host',
+    });
+    expect(transport).not.toHaveBeenCalled();
+  });
+
+  it('includes the DNS lookup in the 8 second timeout', async () => {
+    vi.useFakeTimers();
+    const transport = okTransport();
+    const http = createSafeHttp({ resolve: () => new Promise<string[]>(() => {}), transport });
+    const pending = http(req('https://shop.example.com/x'));
+    await vi.advanceTimersByTimeAsync(8_000);
+    expect(await pending).toEqual({ ok: false, errorCode: 'timeout' });
+    expect(transport).not.toHaveBeenCalled();
+  });
+
   it('passes method, headers and body to the transport untouched', async () => {
     const transport = okTransport();
     const http = createSafeHttp({ resolve: async () => ['93.184.216.34'], transport });

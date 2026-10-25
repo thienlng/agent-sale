@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import type { ChatMessage } from '@agent-sales/ai-core';
 import type { WorkspaceId } from '@agent-sales/shared';
 
-import type { ActionFacade, BotActionView } from '../../action/api/index.js';
+import type { ActionFacade, BotActionView, PendingAction } from '../../action/api/index.js';
 import type { ModelReply, ParsedModelReply } from '../domain/model-reply.js';
 
 /** Executions per customer turn (a 4th requested call ends in the fallback). */
@@ -31,6 +31,8 @@ export type ActionLoopResult =
       results: string[];
       /** Values the customer agreed to read back in a confirmation question: vouch for figures. */
       readback: string[];
+      /** A confirmation question was stored this turn: it must reach the customer or be dropped. */
+      askedConfirmation: boolean;
       calls: ActionCall[];
     }
   | { kind: 'fallback'; guardrail: string | null; calls: ActionCall[] };
@@ -49,8 +51,47 @@ export interface ActionLoopInput {
   ask(followUp: ChatMessage[]): Promise<ModelTurn>;
   /** Last user message of a follow-up: reminds the model of the output format. */
   reminder: string;
-  /** Idempotency key of a call to `actionId`; `n` counts earlier calls of it in this turn. */
-  keyFor(actionId: string, n: number): string;
+  /** What the customer wrote this turn: the only text (besides trusted results) that vouches for an argument. */
+  customerTexts: readonly string[];
+  /** Idempotency key of a call: stable for the same logical write (see `idempotencyKey`). */
+  keyFor(actionId: string, args: ActionArgs): string;
+}
+
+type ActionArgs = Record<string, string | number | boolean>;
+
+/** Same write inside the same 10 minute bucket is the same logical write, whichever event retries it. */
+const IDEMPOTENCY_BUCKET_MS = 10 * 60 * 1000;
+
+/**
+ * Key of a write: conversation + action + hash of the canonical (sorted) args + 10 minute bucket.
+ * Independent of the channel event, so a requeued or superseded event answering the same burst
+ * sends the same key and the remote API can drop the duplicate.
+ */
+export function idempotencyKey(
+  conversationId: string,
+  actionId: string,
+  args: ActionArgs,
+  now: number = Date.now(),
+): string {
+  const canonical = JSON.stringify(Object.entries(args).sort(([a], [b]) => (a < b ? -1 : 1)));
+  const hash = createHash('sha256').update(canonical).digest('hex').slice(0, 32);
+  return `act:${conversationId}:${actionId}:${hash}:${Math.floor(now / IDEMPOTENCY_BUCKET_MS)}`;
+}
+
+/** Errors worth a retry by the customer: the write may well not have happened. */
+const TRANSIENT_ERRORS = new Set(['timeout', 'network']);
+
+const escapeRegExp = (v: string): string => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** Values of `args` that appear as a whole token in `texts` (the customer's words or trusted results). */
+function vouchedValues(args: ActionArgs, texts: readonly string[]): string[] {
+  return Object.values(args)
+    .map(String)
+    .filter((value) =>
+      texts.some((t) =>
+        new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegExp(value)}(?![\\p{L}\\p{N}])`, 'iu').test(t),
+      ),
+    );
 }
 
 const ACTION_OUTCOMES = new Set(['call_action', 'confirm_action', 'cancel_action']);
@@ -63,7 +104,7 @@ export function playgroundConversationId(botId: string): string {
 }
 
 /** JSON for the model that cannot close the `<action_result>` tag early. */
-function safeJson(value: unknown): string {
+export function safeJson(value: unknown): string {
   return (JSON.stringify(value) ?? 'null').replaceAll('<', '\\u003c');
 }
 
@@ -83,7 +124,6 @@ export async function runActionLoop(input: ActionLoopInput): Promise<ActionLoopR
   const calls: ActionCall[] = [];
   const results: string[] = [];
   const followUp: ChatMessage[] = [];
-  const executedCount = new Map<string, number>();
   const fallback = (guardrail: string | null): ActionLoopResult => ({
     kind: 'fallback',
     guardrail,
@@ -94,7 +134,7 @@ export async function runActionLoop(input: ActionLoopInput): Promise<ActionLoopR
 
   for (;;) {
     if (!turn.output.ok || !ACTION_OUTCOMES.has(turn.output.value.outcome)) {
-      return { kind: 'turn', turn, results, readback: [], calls };
+      return { kind: 'turn', turn, results, readback: [], askedConfirmation: false, calls };
     }
     const reply = turn.output.value;
 
@@ -105,22 +145,23 @@ export async function runActionLoop(input: ActionLoopInput): Promise<ActionLoopR
         turn: { ...turn, output: asAnswer(reply) },
         results,
         readback: [],
+        askedConfirmation: false,
         calls,
       };
     }
 
     let action: BotActionView | undefined;
+    let pending: PendingAction | null = null;
     let args: Record<string, string | number | boolean>;
     const confirmed = reply.outcome === 'confirm_action';
     if (confirmed) {
       // Never the model's arguments: only what was stored when the customer was asked.
-      const pending = await facade.getPending(ws, conversationId);
+      if (executed >= MAX_ACTION_ROUNDS) return fallback('action_loop_limit');
+      // Atomic take BEFORE the call: of two concurrent confirmations only one gets the stored write.
+      pending = await facade.consumePending(ws, conversationId);
       if (!pending) return fallback(null);
-      action = input.actions.find((a) => a.id === pending.actionId);
-      if (!action) {
-        await facade.clearPending(ws, conversationId);
-        return fallback(null);
-      }
+      action = input.actions.find((a) => a.id === pending?.actionId);
+      if (!action) return fallback(null);
       args = pending.args;
     } else {
       action = input.actions.find((a) => a.id === reply.actionId);
@@ -133,7 +174,8 @@ export async function runActionLoop(input: ActionLoopInput): Promise<ActionLoopR
           kind: 'turn',
           turn: { ...turn, output: asAnswer(reply) },
           results,
-          readback: Object.values(args).map(String),
+          readback: vouchedValues(args, [...input.customerTexts, ...results]),
+          askedConfirmation: true,
           calls,
         };
       }
@@ -141,16 +183,17 @@ export async function runActionLoop(input: ActionLoopInput): Promise<ActionLoopR
 
     if (executed >= MAX_ACTION_ROUNDS) return fallback('action_loop_limit');
     executed += 1;
-    const n = executedCount.get(action.id) ?? 0;
-    executedCount.set(action.id, n + 1);
     const outcome = await facade.invoke(ws, botId, {
       actionId: action.id,
       args,
       conversationId,
-      idempotencyKey: input.keyFor(action.id, n),
+      idempotencyKey: input.keyFor(action.id, args),
       isTest: input.isTest,
     });
-    if (confirmed) await facade.clearPending(ws, conversationId);
+    // The write may not have happened: let the customer say "ok" again instead of losing the call.
+    if (pending && !outcome.ok && TRANSIENT_ERRORS.has(outcome.errorCode)) {
+      await facade.setPending(ws, conversationId, { actionId: pending.actionId, args });
+    }
 
     calls.push({
       name: action.name,

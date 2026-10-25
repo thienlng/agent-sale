@@ -45,7 +45,8 @@ export type SafeHttpTransport = (
 
 export class SafeHttpTransportError extends Error {
   constructor(
-    readonly code: 'timeout' | 'too_large' | 'network',
+    /** `connect`: failed before any byte was sent, so another address may be tried safely. */
+    readonly code: 'timeout' | 'too_large' | 'network' | 'connect',
     message?: string,
   ) {
     super(message ?? code);
@@ -133,8 +134,20 @@ export const nodeTransport: SafeHttpTransport = (r) =>
       res.on('error', () => finish(() => reject(new SafeHttpTransportError('network'))));
       res.on('aborted', () => finish(() => reject(new SafeHttpTransportError('network'))));
     });
+    let connected = false;
+    req.on('socket', (socket) => {
+      socket.once('connect', () => {
+        connected = true;
+      });
+    });
     req.on('error', () =>
-      finish(() => reject(new SafeHttpTransportError(r.signal.aborted ? 'timeout' : 'network'))),
+      finish(() =>
+        reject(
+          new SafeHttpTransportError(
+            r.signal.aborted ? 'timeout' : connected ? 'network' : 'connect',
+          ),
+        ),
+      ),
     );
     if (r.body !== undefined) req.write(r.body);
     req.end();
@@ -167,23 +180,6 @@ export function createSafeHttp(
       return { ok: false, errorCode: 'blocked_host' };
     }
 
-    // WHATWG URL already normalises decimal/hex/octal/short IPv4 hosts to dotted form,
-    // so an IP literal here is checked directly and never sent to the resolver.
-    let addresses: string[];
-    if (isIP(host) !== 0) {
-      addresses = [host];
-    } else {
-      try {
-        addresses = await resolve(host);
-      } catch {
-        return { ok: false, errorCode: 'network' };
-      }
-      if (addresses.length === 0) return { ok: false, errorCode: 'network' };
-    }
-    if (!allowlisted && !addresses.every(isPublicAddress)) {
-      return { ok: false, errorCode: 'blocked_host' };
-    }
-
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<never>((_res, rej) => {
@@ -193,24 +189,57 @@ export function createSafeHttp(
         controller.abort();
       }, timeoutMs);
     });
+    // The DNS lookup and every connection attempt share the one timeout.
+    const attempt = async (): Promise<SafeHttpResult> => {
+      // WHATWG URL already normalises decimal/hex/octal/short IPv4 hosts to dotted form,
+      // so an IP literal here is checked directly and never sent to the resolver.
+      let addresses: string[];
+      if (isIP(host) !== 0) {
+        addresses = [host];
+      } else {
+        try {
+          addresses = await resolve(host);
+        } catch {
+          return { ok: false, errorCode: 'network' };
+        }
+        if (addresses.length === 0) return { ok: false, errorCode: 'network' };
+      }
+      if (!allowlisted && !addresses.every(isPublicAddress)) {
+        return { ok: false, errorCode: 'blocked_host' };
+      }
+      // IPv4 first (stable): many shops publish an AAAA record the server cannot reach.
+      const ordered = [
+        ...addresses.filter((a) => isIP(a) !== 6),
+        ...addresses.filter((a) => isIP(a) === 6),
+      ];
+      for (const [i, address] of ordered.entries()) {
+        try {
+          const response = await transport({
+            url,
+            address,
+            method: input.method,
+            headers: input.headers,
+            ...(input.body !== undefined ? { body: input.body } : {}),
+            maxBytes,
+            signal: controller.signal,
+          });
+          return interpret(response, maxBytes);
+        } catch (err) {
+          const code = err instanceof SafeHttpTransportError ? err.code : 'network';
+          // Only a connect-level failure (nothing sent yet) moves on; every address was validated.
+          if (code === 'connect' && i < ordered.length - 1) continue;
+          return { ok: false, errorCode: code === 'connect' ? 'network' : code };
+        }
+      }
+      return { ok: false, errorCode: 'network' };
+    };
     try {
-      const response = await Promise.race([
-        transport({
-          url,
-          address: addresses[0] as string,
-          method: input.method,
-          headers: input.headers,
-          ...(input.body !== undefined ? { body: input.body } : {}),
-          maxBytes,
-          signal: controller.signal,
-        }),
-        timeout,
-      ]);
-      return interpret(response, maxBytes);
+      return await Promise.race([attempt(), timeout]);
     } catch (err) {
       return {
         ok: false,
-        errorCode: err instanceof SafeHttpTransportError ? err.code : 'network',
+        errorCode:
+          err instanceof SafeHttpTransportError && err.code !== 'connect' ? err.code : 'network',
       };
     } finally {
       clearTimeout(timer);

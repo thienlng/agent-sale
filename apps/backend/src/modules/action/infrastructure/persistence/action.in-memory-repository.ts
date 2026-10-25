@@ -63,4 +63,10 @@ class InMemoryActionRepository implements ActionRepository {
   async clearPending(conversationId: string): Promise<void> {
     this.pending.delete(conversationId);
   }
+  async consumePending(conversationId: string, now: Date): Promise<PendingRecord | null> {
+    // No await between read and delete: single winner under concurrency.
+    const p = this.pending.get(conversationId);
+    this.pending.delete(conversationId);
+    return p && p.expiresAt > now ? structuredClone(p) : null;
+  }
 }

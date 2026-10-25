@@ -22,17 +22,17 @@ Design record: `docs/superpowers/specs/2026-10-25-bot-api-actions-design.md`. Mo
 2. Model output outcomes: `answer | unknown | handoff | call_action | confirm_action | cancel_action` (`sales-agent@8`).
 3. `call_action` for a read action → validate args against the declared params → `invoke` → the result goes back as `<action_result>{ok,statusCode,data}</action_result>` (`<` escaped, so injected text cannot close the tag; figures inside count as grounded) → model answers. At most 3 executions per customer turn, then the fallback (`action_loop_limit`).
 4. `call_action` for a confirm-required action stores one pending call per conversation (10 min TTL) and sends the model's question to the customer. Nothing runs yet.
-5. `confirm_action` executes the **stored** arguments, never model-supplied ones, then clears the pending call. `cancel_action` clears it. A confirm with nothing pending falls back.
+5. `confirm_action` takes the pending call atomically (`consumePending`: delete-returning, so of two concurrent confirmations only one runs the write), then executes the **stored** arguments, never model-supplied ones. If the call fails with a transient error (`timeout`, `network`) the pending call is put back so the customer can say "ok" again. The `<pending_action>` block carries `askedMinutesAgo`; the prompt tells the model to doubt an old pending call and re-ask. A confirmation question replaced by a guardrail fallback is dropped (the customer never saw it). `cancel_action` clears it. A confirm with nothing pending falls back.
 6. Unknown, disabled or foreign action ids fall back like `unknown`.
 
 Tokens of all rounds are summed into one `ai_runs` row (one billed AI message). `PlaygroundResponse.actions` lists `{name, ok, statusCode}` for the test-chat chips.
 
 ## Executor safety (`domain/safe-http.ts`, `ip-guard.ts`)
 
-- DNS is resolved first; every address must be public (no loopback, RFC1918, CGNAT, link-local incl. 169.254.169.254, multicast, ULA, mapped/embedded IPv4). The socket connects to the validated IP, so DNS rebinding cannot swap it. Redirects are never followed. Userinfo in the URL is rejected.
-- 8 s timeout, 256 KB response cap, JSON only.
-- Args: types checked (string→number/boolean coerced only), unknown keys dropped, strings ≤ 500 chars, path values URL-encoded (`''`, `.`, `..` rejected), header params restricted and never `Host/Authorization/Cookie/Content-Length`.
-- Write methods send `Idempotency-Key: bot:<eventId>:<actionId>` (`conv:<conversationId>:<actionId>:<hash>` without an event id), so requeued or retried events do not repeat a write.
+- The DNS lookup, and every connection attempt, share the one 8 s timeout. DNS is resolved first; every address must be public (no loopback, RFC1918, CGNAT, link-local incl. 169.254.169.254, multicast, ULA, mapped/embedded IPv4). The socket connects to a validated IP (IPv4 first; the next validated address is tried only after a connect-level failure, before any byte is sent), so DNS rebinding cannot swap it. Redirects are never followed. Userinfo in the URL is rejected.
+- 256 KB response cap, JSON only.
+- Args: types checked (string→number/boolean coerced only), unknown keys dropped, strings ≤ 500 chars, path values URL-encoded (`''`, `.`, `..` rejected), header params restricted and never `Host/Authorization/Cookie/Content-Length`. At save time the contract also rejects: header params named like reserved headers (`host`, `authorization`, `cookie`, `content-length`, `content-type`, `idempotency-key`, `accept`, `proxy-*`, `sec-*`) or like the API-key header, body params on GET, and param names that differ only by case. Only argument values that the customer wrote (or that a trusted result contains) vouch for figures in a confirmation question.
+- Write methods send `Idempotency-Key: act:<conversationId>:<actionId>:<sha256(sorted args)[:32]>:<10-minute bucket>`. The channel event id is deliberately not part of it: a superseded or requeued event whose burst is answered later sends the same key, so the remote API can drop the duplicate. A write repeated with identical args inside the same 10-minute bucket is the same logical write.
 - Responses are trimmed to the declared fields (strings ≤ 500 chars, arrays ≤ 10, depth ≤ 3).
 - `action_runs` keeps status, latency and an error category only — no arguments, no bodies (PII).
 - `ACTION_DEV_ALLOW_HTTP_HOSTS` lets QA reach a plain-http fake shop outside production; it is ignored in production.

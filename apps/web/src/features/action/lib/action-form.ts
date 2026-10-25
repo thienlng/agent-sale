@@ -141,6 +141,8 @@ export type ErrorKey =
   | 'https'
   | 'placeholder'
   | 'duplicate'
+  | 'reservedHeader'
+  | 'bodyOnGet'
   | 'paramName'
   | 'headerName'
   | 'tooLong'
@@ -157,6 +159,8 @@ function classify(issue: { code: string; path: PropertyKey[]; message: string })
   const last = path.at(-1);
   if (issue.code === 'custom' && issue.message === 'Duplicate param name')
     return { key: 'duplicate' };
+  if (issue.message === 'Reserved header name') return { key: 'reservedHeader' };
+  if (issue.message === 'Body params are not allowed on GET') return { key: 'bodyOnGet' };
   const placeholder = /^\{(.*)\} needs a path param/.exec(issue.message);
   if (placeholder) return { key: 'placeholder', vars: { name: `{${placeholder[1]}}` } };
   if (last === 'url') return { key: issue.message.includes('HTTPS') ? 'https' : 'tooLong' };
