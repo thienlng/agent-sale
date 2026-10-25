@@ -11,6 +11,7 @@ import {
   Megaphone,
   Package,
   Settings,
+  Zap,
   type LucideIcon,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -27,6 +28,7 @@ type Target =
   | '/app/bots/$botId/instructions'
   | '/app/bots/$botId/knowledge'
   | '/app/bots/$botId/integrations'
+  | '/app/bots/$botId/actions'
   | '/app/bots/$botId/media'
   | '/app/bots/$botId/settings'
   | '/app/bots/$botId/quick-replies'
@@ -45,6 +47,7 @@ const MAIN: Item[] = [
   { to: '/app/bots/$botId/instructions', key: 'instructions', icon: BookOpen },
   { to: '/app/bots/$botId/knowledge', key: 'information', icon: Info },
   { to: '/app/bots/$botId/integrations', key: 'integrations', icon: Code },
+  { to: '/app/bots/$botId/actions', key: 'actions', icon: Zap },
   { to: '/app/bots/$botId/media', key: 'media', icon: Image },
 ];
 const SETTINGS: Item[] = [

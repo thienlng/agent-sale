@@ -9,6 +9,8 @@ export const queryKeys = {
   readiness: (workspaceId: string, botId: string) =>
     ['ws', workspaceId, 'bots', botId, 'readiness'] as const,
   faqs: (workspaceId: string, botId: string) => ['ws', workspaceId, 'bots', botId, 'faqs'] as const,
+  actions: (workspaceId: string, botId: string) =>
+    ['ws', workspaceId, 'bots', botId, 'actions'] as const,
   warehouses: (ws: string) => ['ws', ws, 'warehouses'] as const,
   products: (ws: string) => ['ws', ws, 'products'] as const,
   product: (ws: string, id: string) => ['ws', ws, 'products', id] as const,
