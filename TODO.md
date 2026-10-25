@@ -4,6 +4,8 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
+- [ ] T-070 Instruction rules v2: toggles, sections, starter pack and visible system rules — @agent:claude · [details](todo/T-070-instruction-rules-v2-toggles-sections-starter-pack.md)
+
 - [ ] T-055 Bot API actions: let the bot call shop APIs (Bizfly-style integrations) — @agent:claude · [details](todo/T-055-bot-api-actions-let-the-bot-call-shop-apis-bizfly-.md)
 
 - [ ] T-052 Sign in to ChatGPT from the Admin LLM page for hermes-runtime — @mrkenknight · [details](todo/T-052-sign-in-to-chatgpt-from-the-admin-llm-page-for-her.md) · #42 (draft)
