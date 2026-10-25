@@ -48,6 +48,15 @@ export const botRoutes = defineRoutes([
     responses: { 201: TrainingItemDto },
   },
   {
+    method: 'post',
+    path: '/bots/{botId}/training-items/starter-rules',
+    summary: 'Add the Vietnamese starter rules the bot is missing; returns the created items',
+    tag: 'knowledge',
+    auth: true,
+    workspaceScoped: true,
+    responses: { 201: TrainingItemList },
+  },
+  {
     method: 'patch',
     path: '/bots/{botId}/training-items/{itemId}',
     summary: 'Update training material',

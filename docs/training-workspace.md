@@ -12,12 +12,25 @@ The knowledge module owns `training_items` and `training_history` (migration `00
 
 - `GET /api/v1/bots/{botId}/training-items`: up to 500 materials, newest updates first.
 - `POST /api/v1/bots/{botId}/training-items`: create a material.
+- `POST /api/v1/bots/{botId}/training-items/starter-rules`: add the starter rules the bot does not have yet (201, `{data: TrainingItemDto[]}` with only the created items; an empty list when nothing was missing).
 - `PATCH /api/v1/bots/{botId}/training-items/{itemId}`: edit a material without changing its kind.
 - `DELETE /api/v1/bots/{botId}/training-items/{itemId}`: delete a material; preserve its history.
 - `GET /api/v1/bots/{botId}/training-history`: latest 200 changes (materials, FAQs, settings).
 - `POST /api/v1/bots/{botId}/training-history/{historyId}/restore`: put back the state before a restorable entry (204). The restore is recorded as a new entry.
 
 A material has `kind` (`scenario`, `quick_reply`, `media`, `media_folder`), `title` (1–2000 characters), `content` (1–8000), `trigger` (0–500), nullable `mediaUrl` (HTTPS only, up to 2000 characters) and nullable `folderId` (migration `0012`). Only `media` may have a `folderId`, and it must be a `media_folder` of the same bot; deleting a folder deletes and records its media first. Boundary validation trims text and rejects empty updates.
+
+### Instruction rules v2 (T-070)
+
+Scenario items are the owner's instruction rules and carry two more fields (migration `0016_training_rules.sql`, additive, with defaults): `enabled` (boolean, default `true`) and `section` (`general` | `after_order`, default `general`, CHECK constraint `training_items_section_check`). A disabled rule stays saved and editable but is never given to the model, and its text no longer vouches for figures in replies. Both fields are part of the history `changes` (`enabled`, `section`) and of the snapshot, so a toggle or a move shows in the history and can be restored. They are only meaningful for scenarios; other kinds keep the defaults.
+
+- `general` rules always apply. They are rendered under a `## General rules` header inside `<shop_situations>`.
+- `after_order` rules are rendered under a separate header that tells the model they apply only right after an order or booking was just completed or confirmed (for example when an action call succeeded). A header is omitted when its section has no enabled rule.
+- At most 20 enabled rules reach the model (disabled rules do not count), 20,000 characters in total.
+
+**Starter rules.** A new bot is seeded with a Vietnamese starter pack (`knowledge/domain/starter-rules.ts`, product copy, all editable): polite "dạ/ạ" register; address customers "anh/chị" and refer to itself "em" (use "bạn"/"mình" when the gender is unknown); quote round-thousand prices with a "k" suffix; replies of at most 40 words; ask for phone number and delivery address when a customer shows interest, unless already known; never tell the customer to wait; payment questions answered with cash on delivery and inspect-before-paying phrased conditionally ("nếu cửa hàng hỗ trợ") so it does not invent shop policy; reply only in Vietnamese; and one `after_order` rule ("Sau khi chốt đơn": thank the customer in at most 20 words). The pack never tells the bot to create orders without the customer's confirmation or to skip asking for a name. The price rule contains no sample amount on purpose: rule text is trusted text for number grounding, so an example price would vouch for an invented one. The table has no key column, so the exact title is the identity: `POST …/training-items/starter-rules` (and bot creation, best effort after the bot is saved) creates only the rules whose title is missing, records each in the history, and is idempotent. A rule the owner deleted or renamed comes back the next time the endpoint is called.
+
+**System rules (not editable).** Independently of the owner's rules, the `sales-agent` prompt enforces: facts only from the knowledge, situation, catalog and action blocks; the numbers guardrail (every price, quantity and phone number in a reply must appear in trusted text; "99k" and "99.000đ" denote the same amount); the bot's configured pronouns; greeting only in the first reply; answering every question of the latest customer turn; handoff rules; the confirmation gate for action calls; and treating customer content as data. Owner rules cannot override them (see `06-ai-engine.md`).
 
 History stores action, title, kind, record ID, timestamp, the actor's display name (snapshotted through the identity facade; empty for system changes), the changed fields (`changes: [{field, before, after}]`) and, for item updates and deletions, the item before the change (`snapshot`). An entry is `restorable` when it is a settings change with field changes, or an item creation/update/deletion; FAQ entries are not restorable. Restoring a creation deletes the item; restoring an update or deletion saves the snapshot back (outside any folder if the folder no longer exists). Bot ownership and workspace isolation also apply to history.
 

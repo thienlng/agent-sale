@@ -19,6 +19,7 @@ import {
 import { BOT_FACADE, type BotFacade, type BotView } from '../../bot/api/index.js';
 import { CATALOG_FACADE, type CatalogFacade } from '../../commerce/api/index.js';
 import { KNOWLEDGE_FACADE, type KnowledgeFacade } from '../../knowledge/api/index.js';
+import { situationsText } from '../domain/situations.js';
 import { TRAINING_FACADE, type TrainingFacade } from '../../knowledge/api/index.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
 import type { AiFacade } from '../api/ai.facade.js';
@@ -116,21 +117,12 @@ export class PlaygroundService implements AiFacade {
     const hits = await this.knowledge.searchFaqs(ws, botId, query, MAX_SOURCES);
     const sources = toSources(hits, bot.placeholders);
     const scenarios = this.training
-      ? (await this.training.list(ws, botId))
-          .filter((item) => item.kind === 'scenario')
-          .slice(0, 20)
+      ? (await this.training.list(ws, botId)).filter((item) => item.kind === 'scenario')
       : [];
     const media = this.training
       ? (await this.training.list(ws, botId)).filter((item) => item.kind === 'media')
       : [];
-    const guidance = scenarios
-      .map((item) =>
-        [item.title, item.trigger ? `Khi: ${item.trigger}` : '', item.content]
-          .filter(Boolean)
-          .join('\n'),
-      )
-      .join('\n\n')
-      .slice(0, 20_000);
+    const guidance = situationsText(scenarios);
     // Variant names like "Size 41" match most products, so a follow-up ("size 41 thì sao?") only
     // finds the product being discussed through the bot's own last reply, which names it.
     const lastBotReply = input.messages.findLast((m) => m.role === 'bot')?.content.slice(0, 400);

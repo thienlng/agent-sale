@@ -1,5 +1,6 @@
 import { newId, workspaceId } from '@agent-sales/shared';
 import { describe, expect, it } from 'vitest';
+import { STARTER_RULES } from '../domain/starter-rules.js';
 import { TrainingFacadeImpl } from '../application/training.facade.impl.js';
 import { InMemoryTrainingUnitOfWork } from '../infrastructure/training.persistence.js';
 
@@ -13,6 +14,8 @@ const input = {
   trigger: 'Delivery',
   mediaUrl: null,
   folderId: null,
+  enabled: true,
+  section: 'general' as const,
 };
 
 describe('Training materials', () => {
@@ -126,5 +129,48 @@ describe('Training materials', () => {
     await expect(facade.restoreItem(ws, bot, faq!.id)).rejects.toMatchObject({
       code: 'VALIDATION_FAILED',
     });
+  });
+
+  it('stores enabled and section, and shows a toggle and a move in the history', async () => {
+    const facade = new TrainingFacadeImpl(new InMemoryTrainingUnitOfWork());
+    const item = await facade.create(ws, bot, { ...input, section: 'after_order' });
+    expect(item).toMatchObject({ enabled: true, section: 'after_order' });
+    const off = await facade.update(ws, bot, item.id, { enabled: false });
+    expect(off).toMatchObject({ enabled: false, section: 'after_order', content: input.content });
+    await facade.update(ws, bot, item.id, { section: 'general' });
+    const [moved, toggled] = await facade.history(ws, bot);
+    expect(toggled?.changes).toEqual([{ field: 'enabled', before: true, after: false }]);
+    expect(moved?.changes).toEqual([{ field: 'section', before: 'after_order', after: 'general' }]);
+    expect((await facade.list(ws, bot))[0]).toMatchObject({ enabled: false, section: 'general' });
+  });
+
+  it('restores enabled and section from a history snapshot', async () => {
+    const facade = new TrainingFacadeImpl(new InMemoryTrainingUnitOfWork());
+    const item = await facade.create(ws, bot, { ...input, section: 'after_order' });
+    await facade.update(ws, bot, item.id, { enabled: false, section: 'general' });
+    const [entry] = await facade.history(ws, bot);
+    await facade.restoreItem(ws, bot, entry?.id ?? '');
+    expect((await facade.list(ws, bot))[0]).toMatchObject({
+      enabled: true,
+      section: 'after_order',
+    });
+  });
+
+  it('seeds the starter rules once, records them and adds only missing titles', async () => {
+    const facade = new TrainingFacadeImpl(new InMemoryTrainingUnitOfWork());
+    const first = await facade.seedStarterRules(ws, bot);
+    expect(first.length).toBe(STARTER_RULES.length);
+    expect(first.every((i) => i.kind === 'scenario' && i.enabled)).toBe(true);
+    expect(first.filter((i) => i.section === 'after_order')).toHaveLength(1);
+    expect(await facade.history(ws, bot)).toHaveLength(first.length);
+    expect(await facade.seedStarterRules(ws, bot)).toEqual([]);
+    const removed = first.find((i) => i.title === 'Trả lời ngắn gọn');
+    await facade.delete(ws, bot, removed?.id ?? '');
+    expect((await facade.seedStarterRules(ws, bot)).map((i) => i.title)).toEqual([
+      'Trả lời ngắn gọn',
+    ]);
+    expect(await facade.list(ws, bot)).toHaveLength(first.length);
+    expect(await facade.seedStarterRules(ws, newId())).toHaveLength(first.length);
+    expect(await facade.list(other, bot)).toEqual([]);
   });
 });

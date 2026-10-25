@@ -495,6 +495,35 @@ describe('sales-agent prompt and handoff reply', () => {
     expect(fake.calls[0]?.messages.at(-1)?.content).toContain('Khi: Khách hỏi giá sỉ');
   });
 
+  it('gives the model only enabled rules, grouped by section', async () => {
+    const { fake, svc } = build({ outcome: 'answer', reply: 'Dạ', sources: [] }, [
+      { kind: 'scenario', title: 'Chào hỏi', content: 'Chào ngắn gọn.', enabled: true },
+      { kind: 'scenario', title: 'Rule tắt', content: 'Never shown.', enabled: false },
+      {
+        kind: 'scenario',
+        title: 'Sau khi chốt đơn',
+        content: 'Cảm ơn khách.',
+        section: 'after_order',
+        enabled: true,
+      },
+    ]);
+    await svc.playground(ws, botId, ask('hi'));
+    const user = String(fake.calls[0]?.messages.at(-1)?.content);
+    expect(user).not.toContain('Rule tắt');
+    expect(user).not.toContain('Never shown');
+    expect(user.indexOf('## General rules')).toBeLessThan(user.indexOf('Chào ngắn gọn.'));
+    expect(user.indexOf('Chào ngắn gọn.')).toBeLessThan(user.indexOf('## After an order'));
+    expect(user.indexOf('## After an order')).toBeLessThan(user.indexOf('Cảm ơn khách.'));
+    expect(user).toContain('right after an order or booking was just completed or confirmed');
+  });
+
+  it('does not let a disabled rule vouch for a figure in the reply', async () => {
+    const { svc } = build({ outcome: 'answer', reply: 'Phí ship 30k ạ', sources: [] }, [
+      { kind: 'scenario', title: 'Ship', content: 'Ship 30k.', enabled: false },
+    ]);
+    expect((await svc.playground(ws, botId, ask('ship bao nhiêu'))).outcome).not.toBe('answered');
+  });
+
   it('puts a brief model acknowledgement before the shop handoff message', async () => {
     const { svc } = build({
       outcome: 'handoff',

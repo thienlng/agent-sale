@@ -7,6 +7,7 @@ import type {
 } from '@agent-sales/contracts';
 import { DomainError, isUuid, newId, type WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable } from '@nestjs/common';
+import { starterRuleRequests } from '../domain/starter-rules.js';
 import type { ExternalTrainingChange, TrainingFacade } from '../api/training.facade.js';
 import {
   TRAINING_UOW,
@@ -26,7 +27,16 @@ function missing(what?: string): never {
   throw notFound(what);
 }
 
-const ITEM_FIELDS = ['title', 'content', 'trigger', 'notes', 'mediaUrl', 'folderId'] as const;
+const ITEM_FIELDS = [
+  'title',
+  'content',
+  'trigger',
+  'notes',
+  'mediaUrl',
+  'folderId',
+  'enabled',
+  'section',
+] as const;
 function diff(before: TrainingItemDto, after: TrainingItemDto): TrainingChange[] {
   return ITEM_FIELDS.filter((f) => (before[f] ?? null) !== (after[f] ?? null)).map((field) => ({
     field,
@@ -136,12 +146,39 @@ export class TrainingFacadeImpl implements TrainingFacade {
         notes: input.notes ?? current.notes ?? '',
         mediaUrl: input.mediaUrl === undefined ? current.mediaUrl : input.mediaUrl,
         folderId: input.folderId === undefined ? current.folderId : input.folderId,
+        enabled: input.enabled ?? current.enabled,
+        section: input.section ?? current.section,
         updatedAt: new Date().toISOString(),
       };
       await this.checkFolder(repo, botId, item.kind, item);
       await repo.save(item);
       await repo.record(event(item, 'updated', actor, current, diff(current, item)));
       return item;
+    });
+  }
+  /** Adds the starter rules whose exact title the bot does not have yet; returns the new ones. */
+  seedStarterRules(ws: WorkspaceId, botId: string, actor = ''): Promise<TrainingItemDto[]> {
+    return this.uow.run(ws, async (repo) => {
+      const titles = new Set(
+        (await repo.list(botId)).filter((i) => i.kind === 'scenario').map((i) => i.title),
+      );
+      const created: TrainingItemDto[] = [];
+      for (const request of starterRuleRequests()) {
+        if (titles.has(request.title)) continue;
+        const now = new Date().toISOString();
+        const item: TrainingItemDto = {
+          ...request,
+          notes: '',
+          id: newId(),
+          botId,
+          createdAt: now,
+          updatedAt: now,
+        };
+        await repo.save(item);
+        await repo.record(event(item, 'created', actor, null));
+        created.push(item);
+      }
+      return created;
     });
   }
   delete(ws: WorkspaceId, botId: string, itemId: string, actor = ''): Promise<void> {

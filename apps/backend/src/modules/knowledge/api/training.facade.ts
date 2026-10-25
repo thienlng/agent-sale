@@ -35,6 +35,11 @@ export interface TrainingFacade {
     input: UpdateTrainingItemRequest,
     actor?: string,
   ): Promise<TrainingItemDto>;
+  /**
+   * Creates the Vietnamese starter rules (domain/starter-rules.ts) whose exact title the bot does
+   * not have yet and records them in the history. Idempotent; returns only the created items.
+   */
+  seedStarterRules(ws: WorkspaceId, botId: string, actor?: string): Promise<TrainingItemDto[]>;
   /** Deleting a media folder deletes (and records) the media inside it first. */
   delete(ws: WorkspaceId, botId: string, itemId: string, actor?: string): Promise<void>;
   recordChanges(

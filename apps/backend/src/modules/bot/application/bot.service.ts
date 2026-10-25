@@ -114,6 +114,7 @@ export class BotService implements BotFacade {
     const bot = Bot.create({ workspaceId: ws, name: input.name, industry: input.industry });
     await this.uow.run(ws, ({ bots }) => bots.save(bot));
     await this.knowledge.seedFaqs(ws, bot.id, packFor(input.industry).faqs);
+    await this.training?.seedStarterRules(ws, bot.id);
     return toBotDto(bot);
   }
 

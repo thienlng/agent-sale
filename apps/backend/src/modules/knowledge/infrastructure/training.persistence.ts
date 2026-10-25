@@ -65,6 +65,8 @@ class DrizzleTrainingRepository implements TrainingRepository {
           notes: item.notes ?? '',
           mediaUrl: item.mediaUrl,
           folderId: item.folderId,
+          enabled: item.enabled,
+          section: item.section,
           updatedAt: row.updatedAt,
         },
       });

@@ -25,7 +25,8 @@ describe('Bot settings history', () => {
     await bots.update(ws, bot.id, { isActive: true, settings: { modelTier: 'pro' } }, 'Ken');
     // An update that changes nothing is not recorded.
     await bots.update(ws, bot.id, { settings: { modelTier: 'pro' } }, 'Ken');
-    const [entry, ...rest] = await training.history(ws, bot.id);
+    const settings = (await training.history(ws, bot.id)).filter((e) => e.kind === 'settings');
+    const [entry, ...rest] = settings;
     expect(rest).toEqual([]);
     expect(entry).toMatchObject({ kind: 'settings', actor: 'Ken', restorable: true });
     expect(entry?.changes).toEqual([
@@ -45,6 +46,7 @@ describe('Bot settings history', () => {
     const bot = await bots.create(ws, { name: 'Shop', industry: 'retail' });
     await bots.update(ws, bot.id, { settings: { placeholders: { 'store.name': 'Giày Ken' } } });
     const [entry] = await training.history(ws, bot.id);
+    expect(entry?.kind).toBe('settings');
     await bots.restoreHistory(ws, bot.id, entry!.id);
     expect((await bots.get(ws, bot.id)).settings.placeholders).toEqual({});
   });
