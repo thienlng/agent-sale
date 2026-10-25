@@ -185,16 +185,14 @@ export class FanpageFacadeImpl implements FanpageFacade {
     let allowed = true;
     if (input.automatic) {
       const bot = connection.botId ? await this.bots.getBot(ws, connection.botId) : null;
+      const botReady = Boolean(
+        bot?.isActive && (!bot.replySchedule || withinReplySchedule(bot.replySchedule, new Date())),
+      );
       allowed =
-        Boolean(
-          bot?.isActive &&
-          (!bot.replySchedule || withinReplySchedule(bot.replySchedule, new Date())),
-        ) &&
-        (input.kind === 'public_reply'
-          ? settings.publicReplies
-          : input.kind === 'private_reply'
-            ? settings.privateReplies
-            : settings.hideComments);
+        input.kind === 'hide'
+          ? settings.hideComments && connection.status === 'connected'
+          : botReady &&
+            (input.kind === 'public_reply' ? settings.publicReplies : settings.privateReplies);
     }
     const current = await this.store.change(ws, id, commentId, (c) => ({
       comment: null,
@@ -208,13 +206,19 @@ export class FanpageFacadeImpl implements FanpageFacade {
       await this.review(ws, id, commentId, current.version);
       return null;
     }
+    // Resolve the page token before reserving: a disconnected page must not burn the single send.
+    const asset = await this.asset(ws, id);
     const action = await this.store.change(ws, id, commentId, (c) => {
       if (!c) throw new ChannelError('NOT_FOUND', 'Comment not found');
       // One private reply per comment, even when a manual request uses a new idempotency key.
+      // A call that was rejected or cancelled before anything was sent may be retried.
       const existing = c.actions.find(
         (a) =>
           a.id === input.key ||
-          ((input.automatic || input.kind === 'private_reply') && a.kind === input.kind),
+          ((input.automatic || input.kind === 'private_reply') &&
+            a.kind === input.kind &&
+            a.status !== 'failed' &&
+            a.status !== 'cancelled'),
       );
       if (existing) return { comment: null, result: null };
       if (
@@ -257,7 +261,6 @@ export class FanpageFacadeImpl implements FanpageFacade {
     });
     if (!action) return null;
     try {
-      const asset = await this.asset(ws, id);
       if (input.automatic) {
         const latest = await this.connection(ws, id),
           preferences = await this.settings(ws, id);
@@ -276,9 +279,10 @@ export class FanpageFacadeImpl implements FanpageFacade {
           c.version !== input.version ||
           !enabled ||
           preferences.excludedPostIds.includes(c.postId) ||
-          !bot?.isActive ||
-          (input.expectedBotId !== undefined && latest.botId !== input.expectedBotId) ||
-          (bot.replySchedule && !withinReplySchedule(bot.replySchedule, new Date())) ||
+          (input.kind !== 'hide' &&
+            (!bot?.isActive ||
+              (input.expectedBotId !== undefined && latest.botId !== input.expectedBotId) ||
+              (bot.replySchedule && !withinReplySchedule(bot.replySchedule, new Date())))) ||
           (await this.store.interrupted(ws, id, c))
         ) {
           action.status = 'cancelled';

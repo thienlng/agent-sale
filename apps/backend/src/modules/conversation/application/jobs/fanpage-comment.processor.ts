@@ -28,6 +28,8 @@ export class FanpageCommentProcessor {
     return this.pages.privateContext(ws, id, recipientId);
   }
   async failed(job: PendingMetaEvent): Promise<void> {
+    const page = await this.channels.getConnection(job.workspaceId, job.connectionId);
+    if (job.event.senderExternalId === page.externalId) return;
     const comment = await this.pages.receive(job.workspaceId, job.connectionId, job.event);
     await this.pages.review(job.workspaceId, job.connectionId, comment.commentId, comment.version);
   }
@@ -39,14 +41,13 @@ export class FanpageCommentProcessor {
       return;
     }
     const comment = await this.pages.receive(ws, id, event);
-    if (comment.deleted || event.comment?.operation !== 'add' || comment.needsReview) return;
+    const operation = event.comment?.operation;
+    if (comment.deleted || (operation !== 'add' && operation !== 'edited')) return;
     const connection = await this.channels.getConnection(ws, id);
-    if (connection.status !== 'connected' || !connection.botId) return;
-    const bot = await this.bots.getBot(ws, connection.botId);
-    if (!bot.isActive || (bot.replySchedule && !withinReplySchedule(bot.replySchedule, new Date())))
-      return;
+    if (connection.status !== 'connected') return;
     const settings = await this.pages.settings(ws, id);
     if (settings.excludedPostIds.includes(comment.postId)) return;
+    // Hiding by keyword protects the page whether or not a bot is bound or within its schedule.
     const keyword = settings.hideComments
       ? settings.hideKeywords.find((k) => foldVietnamese(comment.text).includes(foldVietnamese(k)))
       : undefined;
@@ -58,11 +59,15 @@ export class FanpageCommentProcessor {
         key: newId(),
         version: comment.version,
         automatic: true,
-        expectedBotId: connection.botId,
       });
       await this.pages.review(ws, id, comment.commentId, comment.version);
       return;
     }
+    // Replies only answer new comments, never edits.
+    if (operation !== 'add' || comment.needsReview || !connection.botId) return;
+    const bot = await this.bots.getBot(ws, connection.botId);
+    if (!bot.isActive || (bot.replySchedule && !withinReplySchedule(bot.replySchedule, new Date())))
+      return;
     if (!settings.publicReplies && !settings.privateReplies) return;
     const context = await this.pages.context(ws, id, comment.commentId, comment.version);
     if (

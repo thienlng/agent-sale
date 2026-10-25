@@ -151,6 +151,27 @@ describe('Fanpage safety and action lifecycle', () => {
     expect(fetch).toHaveBeenCalledTimes(1);
     expect((await svc.comments(ws, id))[0]?.needsReview).toBe(true);
   });
+  it('allows retrying a public reply that Meta explicitly rejected', async () => {
+    const { svc, event, fetch } = setup();
+    const c = await svc.receive(ws, id, event);
+    const base = fetch.getMockImplementation()!;
+    fetch.mockImplementationOnce(
+      async () =>
+        new Response(JSON.stringify({ error: { code: 100, message: 'rejected' } }), {
+          status: 400,
+        }),
+    );
+    const input = (key: string) => ({
+      kind: 'public_reply' as const,
+      text: 'Hi',
+      key,
+      reason: 'staff',
+      automatic: false,
+    });
+    expect(await svc.act(ws, id, c.commentId, input(newId()))).toMatchObject({ status: 'failed' });
+    fetch.mockImplementation(base);
+    expect(await svc.act(ws, id, c.commentId, input(newId()))).toMatchObject({ status: 'sent' });
+  });
   it('honors independent settings, post exclusions, bot deactivation and manual override', async () => {
     const { svc, event, fetch, bot } = setup();
     const c = await svc.receive(ws, id, event);

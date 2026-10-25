@@ -190,7 +190,7 @@
     "publicReplies": "Tự động trả lời bình luận công khai",
     "privateReplies": "Tự động nhắn tin riêng cho người bình luận",
     "hideComments": "Tự động ẩn bình luận khớp từ khóa đã cấu hình",
-    "keywords": "Từ khóa cần ẩn (mỗi dòng một từ, ít nhất 2 ký tự)",
+    "keywords": "Từ khóa cần ẩn (mỗi dòng một từ, ít nhất 3 ký tự)",
     "moderationHelp": "Chỉ ẩn khi khớp từ khóa rõ ràng. Các phản ánh khác vẫn hiển thị để nhân viên kiểm tra. Bình luận không bị xóa và có thể hiện lại bên dưới.",
     "save": "Lưu thiết lập và lựa chọn bài viết",
     "saved": "Đã lưu",

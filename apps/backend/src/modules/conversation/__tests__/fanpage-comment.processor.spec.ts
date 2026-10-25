@@ -153,6 +153,61 @@ describe('Post-aware comment processing', () => {
     expect(ai.reply).not.toHaveBeenCalled();
     expect(pages.review).toHaveBeenCalled();
   });
+  it('hides keyword matches even when no bot is bound or the bot is inactive', async () => {
+    const { processor, pages, ai, job, settings, comment, channels, bots } = setup();
+    settings.hideComments = true;
+    settings.hideKeywords = ['spam link'];
+    comment.text = 'spam link here';
+    channels.getConnection.mockResolvedValue({
+      provider: 'facebook',
+      externalId: '123',
+      status: 'connected',
+      botId: null as unknown as string,
+    });
+    await processor.process(job);
+    expect(pages.act).toHaveBeenCalledWith(
+      ws,
+      id,
+      '10_20',
+      expect.objectContaining({ kind: 'hide', automatic: true }),
+    );
+    pages.act.mockClear();
+    channels.getConnection.mockResolvedValue({
+      provider: 'facebook',
+      externalId: '123',
+      status: 'connected',
+      botId: 'bot',
+    });
+    bots.getBot.mockResolvedValue({ isActive: false });
+    await processor.process(job);
+    expect(pages.act).toHaveBeenCalledTimes(1);
+    expect(ai.reply).not.toHaveBeenCalled();
+  });
+  it('moderates an edited comment by keyword but never replies to it', async () => {
+    const { processor, pages, ai, job, settings, comment } = setup();
+    settings.hideComments = true;
+    settings.hideKeywords = ['spam link'];
+    comment.text = 'spam link here';
+    job.event.comment!.operation = 'edited';
+    await processor.process(job);
+    expect(pages.act).toHaveBeenCalledWith(
+      ws,
+      id,
+      '10_20',
+      expect.objectContaining({ kind: 'hide' }),
+    );
+    pages.act.mockClear();
+    comment.text = 'How much?';
+    await processor.process(job);
+    expect(pages.act).not.toHaveBeenCalled();
+    expect(ai.reply).not.toHaveBeenCalled();
+  });
+  it('does not record a failed event authored by the page itself', async () => {
+    const { processor, pages, job } = setup();
+    job.event.senderExternalId = '123';
+    await processor.failed(job);
+    expect(pages.receive).not.toHaveBeenCalled();
+  });
   it('honors excluded posts and never answers edited/deleted comments or staff replies', async () => {
     const { processor, pages, ai, job, settings } = setup();
     settings.excludedPostIds = ['123_10'];

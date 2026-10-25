@@ -190,7 +190,7 @@
     "publicReplies": "Automatically reply to comments publicly",
     "privateReplies": "Automatically send a private reply to commenters",
     "hideComments": "Automatically hide comments matching configured keywords",
-    "keywords": "Hide keywords (one per line, at least 2 characters)",
+    "keywords": "Hide keywords (one per line, at least 3 characters)",
     "moderationHelp": "Only explicit keyword matches are hidden. Other complaints remain visible for staff review. Hidden comments are not deleted; you can unhide them below.",
     "save": "Save settings and post exclusions",
     "saved": "Saved",

@@ -7,7 +7,7 @@ export const FanpageSettings = z.object({
   publicReplies: z.boolean().default(false),
   privateReplies: z.boolean().default(false),
   hideComments: z.boolean().default(false),
-  hideKeywords: z.array(z.string().trim().min(2).max(80)).max(50).default([]),
+  hideKeywords: z.array(z.string().trim().min(3).max(80)).max(50).default([]),
   excludedPostIds: z.array(FacebookId).max(500).default([]),
 });
 export type FanpageSettings = z.infer<typeof FanpageSettings>;
