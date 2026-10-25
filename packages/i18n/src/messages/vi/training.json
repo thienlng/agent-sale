@@ -99,11 +99,15 @@
       },
       "sections": {
         "settings": "Cài đặt bot",
-        "scenario": "hướng dẫn",
+        "scenario": "quy tắc",
         "quickReply": "tin nhắn nhanh",
         "media": "hình ảnh",
         "mediaFolder": "thư mục ảnh",
         "faq": "câu hỏi"
+      },
+      "ruleSections": {
+        "general": "Quy tắc chung",
+        "after_order": "Sau khi chốt đơn"
       },
       "editVerb": "Chỉnh sửa",
       "on": "bật",
@@ -147,10 +151,6 @@
         "folderId": "Thư mục",
         "question": "Câu hỏi",
         "answer": "Câu trả lời"
-      },
-      "sections": {
-        "general": "Quy tắc chung",
-        "after_order": "Sau khi chốt đơn"
       }
     },
     "ads": {

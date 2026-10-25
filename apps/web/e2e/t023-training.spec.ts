@@ -92,22 +92,23 @@ async function trainingApi(page: Page) {
 }
 
 async function addInstruction(page: Page, title: string, content: string) {
-  await page.getByRole('button', { name: 'Add instruction', exact: true }).first().click();
+  await page.getByRole('button', { name: 'Add rule', exact: true }).first().click();
   const dialog = page.getByRole('dialog', { name: 'Add item' });
   await dialog.getByLabel('Title', { exact: true }).fill(title);
   await dialog.getByLabel('Content / handling instructions').fill(content);
   return dialog;
 }
 
+/** Empty state of the rules page (T-070 replaced the instruction list with grouped rules). */
+const NO_RULES = 'No rules yet. Add a rule or use the starter set.';
+
 test('instructions support create, edit, reload, delete and an accurate history', async ({
   page,
 }) => {
   const state = await trainingApi(page);
   await page.goto(`/app/bots/${BOT_ID}/instructions`);
-  await expect(
-    page.getByRole('heading', { name: 'Situation-handling instructions' }),
-  ).toBeVisible();
-  await expect(page.getByText('No instructions yet')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Bot rules' })).toBeVisible();
+  await expect(page.getByText(NO_RULES)).toBeVisible();
   const dialog = await addInstruction(
     page,
     'Synthetic return instructions',
@@ -130,15 +131,15 @@ test('instructions support create, edit, reload, delete and an accurate history'
   await expect(page.getByRole('heading', { name: 'Synthetic return instructions' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Delete', exact: true }).click();
   await page.getByRole('alertdialog').getByRole('button', { name: 'Delete', exact: true }).click();
-  await expect(page.getByText('No instructions yet')).toBeVisible();
+  await expect(page.getByText(NO_RULES)).toBeVisible();
   expect(state.items).toHaveLength(0);
   await page.goto(`/app/bots/${BOT_ID}/history`);
   await page.getByRole('tab', { name: 'Training data' }).click();
   const entries = page.getByRole('listitem').filter({ hasText: 'Synthetic Owner' });
   await expect(entries).toHaveText([
-    /Synthetic Owner deleted instruction Synthetic updated instructions/,
-    /Synthetic Owner edited instruction Synthetic updated instructions/,
-    /Synthetic Owner added instruction Synthetic return instructions/,
+    /Synthetic Owner deleted rule Synthetic updated instructions/,
+    /Synthetic Owner edited rule Synthetic updated instructions/,
+    /Synthetic Owner added rule Synthetic return instructions/,
   ]);
   // The edit lists exactly the changed field, before → after, and can be restored.
   await expect(entries.nth(1).getByRole('listitem')).toHaveText([
@@ -165,7 +166,7 @@ test('quick replies are separate from instructions and media rejects insecure li
   await expect(page.getByText('Thanks for contacting the synthetic shop.')).toBeVisible();
   expect(state.items).toMatchObject([{ kind: 'quick_reply', trigger: 'thanks' }]);
   await page.goto(`/app/bots/${BOT_ID}/instructions`);
-  await expect(page.getByText('No instructions yet')).toBeVisible();
+  await expect(page.getByText(NO_RULES)).toBeVisible();
   await expect(page.getByText('/thanks')).toHaveCount(0);
 
   // Media lives in folders: create one, open it, then add an image by link.
@@ -211,7 +212,7 @@ test('new training screens fit a phone and recover from a load error', async ({ 
   await trainingApi(page);
   await page.setViewportSize({ width: 375, height: 812 });
   for (const [path, heading] of [
-    ['instructions', 'Situation-handling instructions'],
+    ['instructions', 'Bot rules'],
     ['quick-replies', 'Quick replies'],
     ['media', 'Image library'],
     ['history', 'Edit history'],
@@ -235,7 +236,7 @@ test('new training screens fit a phone and recover from a load error', async ({ 
   await expect(page.getByRole('alert').getByText('Could not load the data.')).toBeVisible();
   await page.unroute('**/training-items');
   await page.getByRole('button', { name: 'Retry' }).click();
-  await expect(page.getByText('No instructions yet')).toBeVisible();
+  await expect(page.getByText(NO_RULES)).toBeVisible();
   await expect(page.getByRole('alert').getByText('Could not load the data.')).toHaveCount(0);
   expect(errors).toEqual([]);
 });

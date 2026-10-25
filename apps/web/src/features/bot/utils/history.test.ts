@@ -90,7 +90,7 @@ describe('describeValue', () => {
     expect(describeValue('enabled', false)).toEqual({ type: 'onOff', on: false });
     expect(describeValue('section', 'after_order')).toEqual({
       type: 'option',
-      key: 'space.history.sections.after_order',
+      key: 'space.history.ruleSections.after_order',
     });
     expect(describeValue('mission', null)).toEqual({ type: 'empty' });
     expect(describeValue('placeholders', { 'store.address': '12 Lê Lợi' })).toEqual({

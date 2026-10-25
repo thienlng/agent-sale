@@ -99,11 +99,15 @@
       },
       "sections": {
         "settings": "bot settings",
-        "scenario": "instruction",
+        "scenario": "rule",
         "quickReply": "quick reply",
         "media": "image",
         "mediaFolder": "image folder",
         "faq": "question"
+      },
+      "ruleSections": {
+        "general": "General rules",
+        "after_order": "After an order"
       },
       "editVerb": "Changed",
       "on": "on",
@@ -147,10 +151,6 @@
         "folderId": "Folder",
         "question": "Question",
         "answer": "Answer"
-      },
-      "sections": {
-        "general": "General rules",
-        "after_order": "After an order"
       }
     },
     "ads": {

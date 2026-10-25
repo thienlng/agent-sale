@@ -98,7 +98,7 @@ const OPTION_FIELDS: Record<string, string> = {
   modelTier: 'space.settings.modelOptions',
   language: 'space.settings.languageOptions',
   creativity: 'common:settings.creativityOptions',
-  section: 'space.history.sections',
+  section: 'space.history.ruleSections',
 };
 const MAX_TEXT = 80;
 
