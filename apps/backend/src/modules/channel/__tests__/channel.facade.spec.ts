@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { workspaceId } from '@agent-sales/shared';
 import { SecretBox } from '../../../common/security/secret-box.js';
 import { ChannelModule } from '../channel.module.js';
+import { BotLifecycle } from '../../bot/api/index.js';
 import { CHANNEL_FACADE } from '../api/index.js';
 import { ChannelFacadeImpl } from '../application/channel.facade.impl.js';
 import type { MetaGateway } from '../application/ports/meta-gateway.js';
@@ -94,5 +95,38 @@ describe('ChannelFacade OAuth contract', () => {
     await expect(service.callback('facebook', next.state, 'browser', 'code')).rejects.toMatchObject(
       { code: 'NOT_FOUND' },
     );
+  });
+});
+describe('ChannelFacade bot unbinding (T-074)', () => {
+  const record = (id: string, workspace: typeof ws, botId: string | null) => ({
+    id,
+    workspaceId: workspace,
+    provider: 'facebook' as const,
+    externalId: id,
+    name: id,
+    status: 'connected' as const,
+    botId,
+    tokenSealed: 'sealed',
+    expiresAt: null,
+    createdAt: new Date().toISOString(),
+  });
+  it('detaches the bot from its pages only, in the same workspace, when the bot is deleted', async () => {
+    const store = new MemoryChannelStore();
+    const lifecycle = new BotLifecycle();
+    const service = new ChannelFacadeImpl(
+      store,
+      { configured: () => true, authorize: () => '', exchange: async () => [], subscribe: vi.fn() },
+      SecretBox.insecureDevelopmentBox(),
+      { getBot: vi.fn() },
+      lifecycle,
+    );
+    service.onModuleInit();
+    store.records.set('a', record('a', ws, 'bot-1'));
+    store.records.set('b', record('b', ws, 'bot-2'));
+    store.records.set('c', record('c', other, 'bot-1'));
+    await lifecycle.beforeDelete(ws, 'bot-1');
+    expect(store.records.get('a')?.botId).toBeNull();
+    expect(store.records.get('b')?.botId).toBe('bot-2');
+    expect(store.records.get('c')?.botId).toBe('bot-1');
   });
 });

@@ -29,6 +29,8 @@ export interface ChannelFacade {
     status: 'sent' | 'failed' | 'unknown';
     failureCode: string | null;
   }>;
+  /** Detaches a bot from every page that uses it, so conversations there fall back to staff. */
+  unbindBot(ws: WorkspaceId, botId: string): Promise<number>;
   claimEvents(limit: number): Promise<PendingMetaEvent[]>;
   renewEvent(id: string, claimToken: string): Promise<boolean>;
   completeEvent(id: string, claimToken: string): Promise<void>;

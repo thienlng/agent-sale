@@ -357,6 +357,37 @@ describe('HTTP: bots and FAQs', () => {
     expect(foreignFaqs.statusCode).toBe(404);
   });
 
+  it('deletes a bot softly: 204, then 404 everywhere and gone from the list', async () => {
+    const a = await app();
+    const h = await owner(a);
+    const bot = BotDto.parse(
+      (
+        await inject(a, {
+          method: 'POST',
+          url: '/api/v1/bots',
+          headers: h,
+          payload: { name: 'Bot xoa', industry: 'retail' },
+        })
+      ).json(),
+    );
+    const other = await owner(a);
+    const foreign = await inject(a, {
+      method: 'DELETE',
+      url: `/api/v1/bots/${bot.id}`,
+      headers: other,
+    });
+    expect(foreign.statusCode).toBe(404);
+    const del = await inject(a, { method: 'DELETE', url: `/api/v1/bots/${bot.id}`, headers: h });
+    expect(del.statusCode).toBe(204);
+    for (const url of [`/api/v1/bots/${bot.id}`, `/api/v1/bots/${bot.id}/faqs`]) {
+      expect((await inject(a, { method: 'GET', url, headers: h })).statusCode).toBe(404);
+    }
+    const again = await inject(a, { method: 'DELETE', url: `/api/v1/bots/${bot.id}`, headers: h });
+    expect(again.statusCode).toBe(404);
+    const list = (await inject(a, { method: 'GET', url: '/api/v1/bots', headers: h })).json();
+    expect(list.data).toEqual([]);
+  });
+
   it('rejects settings that break the contract after merge', async () => {
     const a = await app();
     const h = await owner(a);

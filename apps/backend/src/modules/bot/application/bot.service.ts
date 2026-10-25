@@ -20,6 +20,7 @@ import {
   TRAINING_FACADE,
   type TrainingFacade,
 } from '../../knowledge/api/index.js';
+import { BOT_LIFECYCLE, type BotLifecycle } from '../api/bot-lifecycle.js';
 import type { BotFacade, BotView } from '../api/bot.facade.js';
 import { Bot } from '../domain/bot.js';
 import type { BotSettingsData } from '../domain/bot-settings.js';
@@ -97,6 +98,7 @@ export class BotService implements BotFacade {
     @Inject(BOT_UOW) private readonly uow: BotUnitOfWork,
     @Inject(KNOWLEDGE_FACADE) private readonly knowledge: KnowledgeFacade,
     @Inject(TRAINING_FACADE) @Optional() private readonly training?: TrainingFacade,
+    @Inject(BOT_LIFECYCLE) @Optional() private readonly lifecycle?: BotLifecycle,
   ) {}
 
   private async load(ws: WorkspaceId, botId: string): Promise<Bot> {
@@ -115,6 +117,27 @@ export class BotService implements BotFacade {
     await this.uow.run(ws, ({ bots }) => bots.save(bot));
     await this.knowledge.seedFaqs(ws, bot.id, packFor(input.industry).faqs);
     return toBotDto(bot);
+  }
+
+  /**
+   * Soft delete: history, conversations and training rows stay, but the bot is gone
+   * from every read (404). Dependents (channel pages) are unbound first.
+   */
+  async remove(
+    ws: WorkspaceId,
+    botId: string,
+    actor: { userId: string | null; name: string } = { userId: null, name: '' },
+  ): Promise<void> {
+    const bot = await this.load(ws, botId);
+    await this.lifecycle?.beforeDelete(ws, botId);
+    const deleted = await this.uow.run(ws, ({ bots }) =>
+      bots.softDelete(botId, {
+        actorUserId: actor.userId,
+        actorName: actor.name,
+        botName: bot.snapshot().name,
+      }),
+    );
+    if (!deleted) throw new BotNotFoundError(botId);
   }
 
   async get(ws: WorkspaceId, botId: string): Promise<BotDto> {

@@ -78,6 +78,17 @@ export class BotController {
     return this.bots.update(ws, botId, body, await this.actor(user));
   }
 
+  @RequireCapability('bots.manage')
+  @Delete(':botId')
+  @HttpCode(204)
+  async remove(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @CurrentUser() user: AuthState,
+    @Param('botId') botId: string,
+  ): Promise<void> {
+    return this.bots.remove(ws, botId, { userId: user.userId, name: await this.actor(user) });
+  }
+
   @Get(':botId/readiness')
   readiness(
     @CurrentWorkspace() ws: WorkspaceId,

@@ -1,6 +1,7 @@
 import {
   BotDto,
   BotReadiness,
+  ChannelListResponse,
   type CreateBotRequest,
   type UpdateBotRequest,
 } from '@agent-sales/contracts';
@@ -86,5 +87,32 @@ export function useUpdateBot(botId: string) {
       void qc.invalidateQueries({ queryKey: queryKeys.readiness(ws, botId) });
       void qc.invalidateQueries({ queryKey: ['training', ws, botId, 'history'] });
     },
+  });
+}
+
+/** Soft delete. Drops the bot from the cached list and refreshes pages that may have pointed at it. */
+export function useDeleteBot() {
+  const ws = useWorkspaceId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (botId: string) => api(`/bots/${botId}`, z.null(), { method: 'DELETE' }),
+    onSuccess: (_void, botId) => {
+      qc.setQueryData<BotDto[]>(queryKeys.bots(ws), (list) => list?.filter((b) => b.id !== botId));
+      qc.removeQueries({ queryKey: queryKeys.bot(ws, botId) });
+      void qc.invalidateQueries({ queryKey: queryKeys.bots(ws) });
+      void qc.invalidateQueries({ queryKey: ['channels', ws] });
+      void qc.invalidateQueries({ queryKey: ['bots', ws] });
+    },
+  });
+}
+
+/** Ids of bots that at least one connected page replies with (the delete dialog warns about them). */
+export function useBotsInUse(enabled: boolean) {
+  const ws = useWorkspaceId();
+  return useQuery({
+    queryKey: ['channels', ws],
+    queryFn: () => api('/channels', ChannelListResponse),
+    enabled: Boolean(ws) && enabled,
+    select: (r) => new Set(r.data.filter((c) => c.botId).map((c) => c.botId as string)),
   });
 }
