@@ -73,12 +73,13 @@ export function useDeleteAction(botId: string) {
   });
 }
 
-export function useTestAction(botId: string, actionId: string) {
+/** Calls the API with the form as typed (saved or not); nothing is stored. */
+export function useTestDraft(botId: string, actionId: string | undefined) {
   return useMutation({
-    mutationFn: (args: ActionArgs) =>
-      api(`/bots/${botId}/actions/${actionId}/test`, ActionTestResult, {
+    mutationFn: (input: { action: ActionInput; args: ActionArgs }) =>
+      api(`/bots/${botId}/actions/test`, ActionTestResult, {
         method: 'POST',
-        body: { args },
+        body: { ...input, ...(actionId && { actionId }) },
       }),
   });
 }

@@ -144,6 +144,42 @@ export class ActionFacadeImpl implements ActionFacade {
         };
   }
 
+  /** Runs the draft as typed; unlike `test` it records no run (the action may not exist yet). */
+  async testDraft(
+    ws: WorkspaceId,
+    botId: string,
+    draft: { action: ActionInput; actionId?: string; args: Args },
+  ): Promise<ActionTestResult> {
+    const { authSecret, ...fields } = this.validate(draft.action);
+    let authSecretEnc = this.seal(fields.auth.kind, authSecret);
+    if (authSecretEnc === null && fields.auth.kind !== 'none' && authSecret === undefined) {
+      const stored =
+        draft.actionId && isUuid(draft.actionId)
+          ? await this.uow.run(ws, (repo) => repo.find(botId, draft.actionId as string))
+          : null;
+      authSecretEnc = stored?.authSecretEnc ?? null;
+    }
+    const now = new Date().toISOString();
+    const record: ActionRecord = {
+      ...fields,
+      id: newId(),
+      botId,
+      authSecretEnc,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const { outcome, latencyMs } = await this.runner.run(record, draft.args, `test:${newId()}`);
+    return outcome.ok
+      ? { ok: true, statusCode: outcome.statusCode, data: outcome.data, errorCode: null, latencyMs }
+      : {
+          ok: false,
+          statusCode: outcome.statusCode ?? null,
+          data: null,
+          errorCode: outcome.errorCode,
+          latencyMs,
+        };
+  }
+
   listForBot(ws: WorkspaceId, botId: string): Promise<BotActionView[]> {
     return this.uow.run(ws, async (repo) =>
       (await repo.list(botId))

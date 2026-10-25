@@ -75,7 +75,7 @@
       "body": "Body"
     },
     "responses": "Responses",
-    "responsesHint": "Only declared fields are handed to the bot.",
+    "responsesHint": "Only declared fields are handed to the bot. For fields inside a list or object use a path, e.g. items.code.",
     "addResponse": "Add response",
     "removeResponse": "Remove response {{n}}",
     "statusCode": "Status code",
@@ -111,8 +111,7 @@
   },
   "test": {
     "title": "Try it",
-    "hint": "Calls the real API using the saved version of the action.",
-    "saveFirst": "Save the action before trying it.",
+    "hint": "Calls the real API with what you have typed, no need to save first.",
     "noParams": "This action has no parameters.",
     "run": "Try it",
     "running": "Calling…",

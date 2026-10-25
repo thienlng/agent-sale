@@ -75,7 +75,7 @@
       "body": "Body"
     },
     "responses": "Phản hồi",
-    "responsesHint": "Chỉ các trường được khai báo mới được đưa cho bot.",
+    "responsesHint": "Chỉ các trường được khai báo mới được đưa cho bot. Trường nằm trong danh sách hoặc đối tượng thì viết theo đường dẫn, ví dụ items.code.",
     "addResponse": "Thêm phản hồi",
     "removeResponse": "Xóa phản hồi {{n}}",
     "statusCode": "Mã trạng thái",
@@ -111,8 +111,7 @@
   },
   "test": {
     "title": "Thử gọi",
-    "hint": "Gọi API thật bằng bản đã lưu của hành động.",
-    "saveFirst": "Lưu hành động trước khi thử gọi.",
+    "hint": "Gọi API thật bằng nội dung đang nhập, chưa cần lưu.",
     "noParams": "Hành động này không có tham số.",
     "run": "Thử gọi",
     "running": "Đang gọi…",

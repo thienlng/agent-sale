@@ -14,7 +14,18 @@ export const ActionParam = z.object({
 export type ActionParam = z.infer<typeof ActionParam>;
 
 export const ActionResponseField = z.object({
-  name: z.string().min(1).max(60),
+  /** A key, or a dotted path (`items.code`) into lists and objects. */
+  name: z
+    .string()
+    .min(1)
+    .max(60)
+    .refine(
+      (n) =>
+        n
+          .split('.')
+          .every((s) => s !== '' && s !== '__proto__' && s !== 'constructor' && s !== 'prototype'),
+      'Invalid field path',
+    ),
   type: z.enum(['string', 'number', 'boolean', 'object', 'array']),
   description: z.string().min(1).max(300),
 });
@@ -147,6 +158,17 @@ export type ActionArgs = z.infer<typeof ActionArgs>;
 
 export const ActionTestRequest = z.object({ args: ActionArgs });
 export type ActionTestRequest = z.infer<typeof ActionTestRequest>;
+
+/**
+ * "Thử gọi" on an unsaved or edited form: the draft itself is executed, so the owner can iterate
+ * before saving. `actionId` (when editing) lets a blank `authSecret` fall back to the stored one.
+ */
+export const ActionDraftTestRequest = z.object({
+  action: ActionInput,
+  actionId: z.uuid().optional(),
+  args: ActionArgs,
+});
+export type ActionDraftTestRequest = z.infer<typeof ActionDraftTestRequest>;
 
 export const ActionErrorCode = z.enum([
   'timeout',

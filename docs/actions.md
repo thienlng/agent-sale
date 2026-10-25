@@ -11,7 +11,7 @@ Design record: `docs/superpowers/specs/2026-10-25-bot-api-actions-design.md`. Mo
 | `name`, `description` | The model reads the description to decide when to call ("Tra trạng thái đơn theo mã đơn"). |
 | `url`, `method` | HTTPS only. `{param}` placeholders must each match a `path` parameter. GET/POST/PUT/PATCH/DELETE. |
 | `params[]` | `name`, `type` (string/number/boolean), `location` (path/query/header/body), `required`, `description`. |
-| `responses[]` | `statusCode` + declared `fields`. Only these fields ever reach the model; an undeclared status is an error. |
+| `responses[]` | `statusCode` + declared `fields`. Only these fields ever reach the model; an undeclared status is an error. A field inside a list or object is declared by path: `items.code` keeps `code` of every element of `items` (first 10) and drops its siblings. |
 | `auth` | none, API key header (header name + secret) or Bearer (secret). Secrets are sealed with `SecretBox`, write-only in the API (`hasSecret`), never sent to the model, never logged. |
 | `requiresConfirm` | Default on for non-GET. The bot reads the parameters back and the customer must agree first. |
 | `enabled` | Disabled actions are not offered to the model. |
@@ -39,7 +39,9 @@ Tokens of all rounds are summed into one `ai_runs` row (one billed AI message). 
 
 ## Testing an action
 
-`POST /bots/{botId}/actions/{id}/test` with sample `args` runs the real executor (also for a disabled action) and returns `{ok, statusCode, data, errorCode, latencyMs}`; the form's **Thử gọi** panel uses it. Test runs are `is_test`.
+`POST /bots/{botId}/actions/{id}/test` with sample `args` runs the real executor on the **saved** action (also when disabled) and returns `{ok, statusCode, data, errorCode, latencyMs}`; test runs are `is_test`.
+
+`POST /bots/{botId}/actions/test` with `{action, actionId?, args}` runs the form **as typed**, saved or not; the **Thử gọi** panel uses it, so the owner can iterate before saving. It stores nothing and records no run. A blank secret falls back to the stored secret of `actionId` (same bot only), so editing never forces retyping it.
 
 ## Known limits (v1)
 

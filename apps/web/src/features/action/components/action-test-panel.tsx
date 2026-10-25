@@ -1,13 +1,13 @@
-import type { ActionTestResult } from '@agent-sales/contracts';
+import type { ActionInput, ActionTestResult } from '@agent-sales/contracts';
 import { CircleAlert, CircleCheck, Play } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-import { useTestAction } from '../api/actions';
+import { useTestDraft } from '../api/actions';
 import { buildArgs, type ParamRow } from '../lib/action-form';
 import { OptionSelect } from './action-fields';
 
@@ -55,20 +55,30 @@ function Result({ result }: { result: ActionTestResult }) {
   );
 }
 
-/** "Thử gọi": sample inputs generated from the parameters, one real call, then the outcome. */
+/**
+ * "Thử gọi": sample inputs generated from the parameters, one real call with the form as it is
+ * now (saved or not), then the outcome. `buildDraft` returns null when the form is invalid.
+ */
 export function ActionTestPanel({
   botId,
   actionId,
   params,
+  buildDraft,
+  draftKey,
 }: {
   botId: string;
-  /** Absent while the action is not saved yet: the call uses the stored version. */
+  /** Present when editing: lets a blank secret fall back to the stored one. */
   actionId: string | undefined;
   params: ParamRow[];
+  buildDraft: () => ActionInput | null;
+  /** Changes whenever the form does, so an outdated result is not shown beside new input. */
+  draftKey: string;
 }) {
   const { t } = useTranslation('action');
-  const test = useTestAction(botId, actionId ?? '');
+  const test = useTestDraft(botId, actionId);
   const [values, setValues] = useState<Record<string, string>>({});
+  const { reset } = test;
+  useEffect(() => reset(), [draftKey, reset]);
   const named = params.filter((p) => p.name.trim() !== '');
 
   return (
@@ -77,59 +87,58 @@ export function ActionTestPanel({
         <h2 id="action-test" className="text-sm font-semibold">
           {t('test.title')}
         </h2>
-        <p className="text-xs text-muted-foreground">
-          {actionId ? t('test.hint') : t('test.saveFirst')}
-        </p>
+        <p className="text-xs text-muted-foreground">{t('test.hint')}</p>
       </div>
-      {actionId ? (
-        <>
-          {named.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t('test.noParams')}</p>
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {named.map((p) => (
-                <div key={p.key} className="flex flex-col gap-1.5">
-                  <Label htmlFor={`test-${p.key}`}>{p.name}</Label>
-                  {p.type === 'boolean' ? (
-                    <OptionSelect
-                      label={p.name}
-                      value={(values[p.name] || 'true') as 'true' | 'false'}
-                      options={[
-                        { value: 'true', label: t('test.yes') },
-                        { value: 'false', label: t('test.no') },
-                      ]}
-                      onChange={(v) => setValues({ ...values, [p.name]: v })}
-                    />
-                  ) : (
-                    <Input
-                      id={`test-${p.key}`}
-                      inputMode={p.type === 'number' ? 'decimal' : 'text'}
-                      value={values[p.name] ?? ''}
-                      onChange={(e) => setValues({ ...values, [p.name]: e.target.value })}
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-          <Button
-            type="button"
-            variant="outline"
-            className="self-start"
-            disabled={test.isPending}
-            onClick={() => test.mutate(buildArgs(named, values))}
-          >
-            <Play />
-            {test.isPending ? t('test.running') : t('test.run')}
-          </Button>
-          {test.isError ? (
-            <p role="alert" className="text-sm text-destructive">
-              {t('test.requestFailed')}
-            </p>
-          ) : null}
-          {test.data ? <Result result={test.data} /> : null}
-        </>
-      ) : null}
+      <>
+        {named.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t('test.noParams')}</p>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {named.map((p) => (
+              <div key={p.key} className="flex flex-col gap-1.5">
+                <Label htmlFor={`test-${p.key}`}>{p.name}</Label>
+                {p.type === 'boolean' ? (
+                  <OptionSelect
+                    label={p.name}
+                    value={(values[p.name] || 'true') as 'true' | 'false'}
+                    options={[
+                      { value: 'true', label: t('test.yes') },
+                      { value: 'false', label: t('test.no') },
+                    ]}
+                    onChange={(v) => setValues({ ...values, [p.name]: v })}
+                  />
+                ) : (
+                  <Input
+                    id={`test-${p.key}`}
+                    inputMode={p.type === 'number' ? 'decimal' : 'text'}
+                    value={values[p.name] ?? ''}
+                    onChange={(e) => setValues({ ...values, [p.name]: e.target.value })}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+        <Button
+          type="button"
+          variant="outline"
+          className="self-start"
+          disabled={test.isPending}
+          onClick={() => {
+            const action = buildDraft();
+            if (action) test.mutate({ action, args: buildArgs(named, values) });
+          }}
+        >
+          <Play />
+          {test.isPending ? t('test.running') : t('test.run')}
+        </Button>
+        {test.isError ? (
+          <p role="alert" className="text-sm text-destructive">
+            {t('test.requestFailed')}
+          </p>
+        ) : null}
+        {test.data ? <Result result={test.data} /> : null}
+      </>
     </section>
   );
 }

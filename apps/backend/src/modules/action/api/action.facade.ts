@@ -54,6 +54,19 @@ export interface ActionFacade {
     id: string,
     args: Record<string, string | number | boolean>,
   ): Promise<ActionTestResult>;
+  /**
+   * Executes an unsaved draft once. Nothing is stored or recorded. A blank `authSecret` falls back
+   * to the stored secret of `actionId` (editing), so the owner need not retype it to test.
+   */
+  testDraft(
+    ws: WorkspaceId,
+    botId: string,
+    draft: {
+      action: ActionInput;
+      actionId?: string;
+      args: Record<string, string | number | boolean>;
+    },
+  ): Promise<ActionTestResult>;
   /** Enabled actions only, shaped for the prompt. */
   listForBot(ws: WorkspaceId, botId: string): Promise<BotActionView[]>;
   invoke(

@@ -1,5 +1,6 @@
 import { defineRoutes } from '../common/routes.js';
 import {
+  ActionDraftTestRequest,
   ActionDto,
   ActionInput,
   ActionListResponse,
@@ -25,6 +26,14 @@ export const actionRoutes = defineRoutes([
     summary: 'Create an API action',
     body: ActionInput,
     responses: { 201: ActionDto },
+  },
+  {
+    ...base,
+    method: 'post',
+    path: '/bots/{botId}/actions/test',
+    summary: 'Call the API once using the unsaved form (nothing is stored or recorded)',
+    body: ActionDraftTestRequest,
+    responses: { 200: ActionTestResult },
   },
   {
     ...base,

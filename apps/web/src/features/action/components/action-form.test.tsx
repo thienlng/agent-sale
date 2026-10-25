@@ -42,6 +42,30 @@ async function fillBasics() {
 }
 
 describe('ActionFormView', () => {
+  it('tries the unsaved form: invalid shows errors without a call, valid sends the draft', async () => {
+    const { fetchStub, calls } = stubFetch({
+      [`POST /bots/${BOT_ID}/actions/test`]: {
+        status: 200,
+        body: { ok: true, statusCode: 200, data: { total: 2 }, errorCode: null, latencyMs: 5 },
+      },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    await renderForm();
+    const tryIt = () => screen.getAllByRole('button', { name: 'Thử gọi' }).at(-1)!;
+    await userEvent.click(tryIt());
+    expect((await screen.findAllByText('Bắt buộc')).length).toBeGreaterThanOrEqual(2);
+    expect(calls).toHaveLength(0);
+    await fillBasics();
+    await userEvent.click(tryIt());
+    expect(await screen.findByText('Thành công')).toBeInTheDocument();
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.body).toMatchObject({
+      action: { name: 'Tra cứu đơn', url: 'https://shop.vn/orders' },
+      args: {},
+    });
+    expect(calls[0]?.body).not.toHaveProperty('actionId');
+  });
+
   it('shows required-field errors and does not call the API', async () => {
     const { fetchStub, calls } = stubFetch({});
     vi.stubGlobal('fetch', fetchStub);

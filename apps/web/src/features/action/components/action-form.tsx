@@ -1,4 +1,4 @@
-import type { ActionDto, ActionMethod } from '@agent-sales/contracts';
+import type { ActionDto, ActionInput, ActionMethod } from '@agent-sales/contracts';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { type FormEvent, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -100,6 +100,12 @@ export function ActionFormView({ botId, action }: { botId: string; action?: Acti
 
   function changeMethod(method: ActionMethod) {
     set(confirmTouched.current ? { method } : { method, requiresConfirm: confirmDefault(method) });
+  }
+
+  /** The form as the API would receive it, or null (with errors shown) while it is invalid. */
+  function buildDraft(): ActionInput | null {
+    setSubmitted(true);
+    return Object.keys(validateForm(form)).length > 0 ? null : (toInput(form) as ActionInput);
   }
 
   function submit(event: FormEvent) {
@@ -208,7 +214,13 @@ export function ActionFormView({ botId, action }: { botId: string; action?: Acti
         </div>
       </div>
 
-      <ActionTestPanel botId={botId} actionId={action?.id} params={form.params} />
+      <ActionTestPanel
+        botId={botId}
+        actionId={action?.id}
+        params={form.params}
+        buildDraft={buildDraft}
+        draftKey={JSON.stringify(form)}
+      />
 
       <div className="flex justify-end gap-2">
         <Button asChild variant="outline">

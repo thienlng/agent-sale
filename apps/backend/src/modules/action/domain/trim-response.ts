@@ -39,19 +39,71 @@ function matches(type: ActionResponseField['type'], v: unknown): boolean {
   return typeof v === type;
 }
 
-function pick(record: Record<string, unknown>, fields: ActionResponseField[]) {
-  const out: Record<string, unknown> = {};
+interface FieldNode {
+  type?: ActionResponseField['type'];
+  children: Map<string, FieldNode>;
+}
+
+/** `items.code` declares `code` inside every element of `items`; `items` itself then stays a container. */
+function buildTree(fields: ActionResponseField[]): Map<string, FieldNode> {
+  const root = new Map<string, FieldNode>();
   for (const field of fields) {
-    if (FORBIDDEN_KEYS.has(field.name) || !Object.hasOwn(record, field.name)) continue;
-    const v = record[field.name];
-    if (matches(field.type, v)) out[field.name] = limit(v, 1);
+    const path = field.name.split('.');
+    if (path.length > MAX_DEPTH || path.some((s) => s === '' || FORBIDDEN_KEYS.has(s))) continue;
+    let level = root;
+    path.forEach((segment, i) => {
+      const node: FieldNode = level.get(segment) ?? { children: new Map() };
+      if (i === path.length - 1) node.type = field.type;
+      level.set(segment, node);
+      level = node.children;
+    });
+  }
+  return root;
+}
+
+function pick(record: Record<string, unknown>, nodes: Map<string, FieldNode>, depth: number) {
+  const out: Record<string, unknown> = {};
+  for (const [name, node] of nodes) {
+    if (!Object.hasOwn(record, name)) continue;
+    const v = record[name];
+    if (node.children.size === 0) {
+      if (node.type && matches(node.type, v)) out[name] = limit(v, depth);
+    } else if (Array.isArray(v) && (!node.type || node.type === 'array')) {
+      out[name] = v
+        .slice(0, MAX_ITEMS)
+        .flatMap((row) => (isRecord(row) ? [pick(row, node.children, depth + 1)] : []));
+    } else if (isRecord(v) && (!node.type || node.type === 'object')) {
+      out[name] = pick(v, node.children, depth + 1);
+    }
+  }
+  return out;
+}
+
+/** Top-level rows; a field whose literal key contains a dot (declared before paths existed) still matches. */
+function pickRow(
+  record: Record<string, unknown>,
+  tree: Map<string, FieldNode>,
+  fields: ActionResponseField[],
+) {
+  const out = pick(record, tree, 1);
+  for (const field of fields) {
+    if (
+      field.name.includes('.') &&
+      !FORBIDDEN_KEYS.has(field.name) &&
+      Object.hasOwn(record, field.name) &&
+      matches(field.type, record[field.name])
+    )
+      out[field.name] = limit(record[field.name], 1);
   }
   return out;
 }
 
 export function trimResponse(json: unknown, fields: ActionResponseField[]): unknown {
+  const tree = buildTree(fields);
   if (Array.isArray(json)) {
-    return json.slice(0, MAX_ITEMS).map((row) => (isRecord(row) ? pick(row, fields) : null));
+    return json
+      .slice(0, MAX_ITEMS)
+      .map((row) => (isRecord(row) ? pickRow(row, tree, fields) : null));
   }
-  return isRecord(json) ? pick(json, fields) : null;
+  return isRecord(json) ? pickRow(json, tree, fields) : null;
 }

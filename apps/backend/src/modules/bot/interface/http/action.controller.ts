@@ -1,4 +1,5 @@
 import {
+  ActionDraftTestRequest,
   ActionInput,
   ActionTestRequest,
   UpdateActionRequest,
@@ -50,6 +51,22 @@ export class ActionController {
   ): Promise<ActionDto> {
     await this.bots.getBot(ws, botId);
     return this.actions.create(ws, botId, input);
+  }
+
+  /** Declared before `:actionId` routes; runs the unsaved form, stores nothing. */
+  @Post('test')
+  @HttpCode(200)
+  async testDraft(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Param('botId') botId: string,
+    @Body(new ZodValidationPipe(ActionDraftTestRequest)) input: ActionDraftTestRequest,
+  ): Promise<ActionTestResult> {
+    await this.bots.getBot(ws, botId);
+    return this.actions.testDraft(ws, botId, {
+      action: input.action,
+      args: input.args,
+      ...(input.actionId && { actionId: input.actionId }),
+    });
   }
 
   @Get(':actionId')

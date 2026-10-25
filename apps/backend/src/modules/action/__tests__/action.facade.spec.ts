@@ -137,6 +137,94 @@ describe('ActionFacade CRUD', () => {
   });
 });
 
+describe('ActionFacade testDraft', () => {
+  const okHttp = (json: unknown) =>
+    vi.fn(async (_req: unknown) => ({ ok: true as const, status: 200, json }));
+
+  function withHttp(http: ReturnType<typeof okHttp>) {
+    const uow = new InMemoryActionUnitOfWork();
+    return { facade: new ActionFacadeImpl(uow, box, http), uow };
+  }
+
+  it('runs an unsaved draft, trims nested fields and stores nothing', async () => {
+    const http = okHttp({ total: 1, items: [{ code: 'BK1', phone: '0901' }] });
+    const { facade, uow } = withHttp(http);
+    const draft = input({
+      auth: { kind: 'none' },
+      authSecret: undefined,
+      responses: [
+        {
+          statusCode: 200,
+          fields: [
+            { name: 'total', type: 'number', description: 'n' },
+            { name: 'items', type: 'array', description: 'rows' },
+            { name: 'items.code', type: 'string', description: 'code' },
+          ],
+        },
+      ],
+    });
+    const result = await facade.testDraft(ws, botId, { action: draft, args: { code: 'A1' } });
+    expect(result).toMatchObject({
+      ok: true,
+      statusCode: 200,
+      data: { total: 1, items: [{ code: 'BK1' }] },
+    });
+    expect(await facade.list(ws, botId)).toEqual([]);
+    expect(await uow.run(ws, (r) => r.list(botId))).toEqual([]);
+  });
+
+  it('uses the secret typed in the draft', async () => {
+    const http = okHttp({ status: 'ok' });
+    const { facade } = withHttp(http);
+    await facade.testDraft(ws, botId, {
+      action: input({ authSecret: 'typed-key' }),
+      args: { code: 'A' },
+    });
+    expect(JSON.stringify(http.mock.calls[0])).toContain('typed-key');
+  });
+
+  it('falls back to the stored secret of the edited action when none is typed', async () => {
+    const http = okHttp({ status: 'ok' });
+    const { facade } = withHttp(http);
+    const saved = await facade.create(ws, botId, input());
+    await facade.testDraft(ws, botId, {
+      action: input({ authSecret: undefined }),
+      actionId: saved.id,
+      args: { code: 'A' },
+    });
+    expect(JSON.stringify(http.mock.calls[0])).toContain('super-secret-key');
+  });
+
+  it('sends no secret when the draft has none and no action is being edited', async () => {
+    const http = okHttp({ status: 'ok' });
+    const { facade } = withHttp(http);
+    await facade.testDraft(ws, botId, {
+      action: input({ authSecret: undefined }),
+      args: { code: 'A' },
+    });
+    expect(JSON.stringify(http.mock.calls[0])).not.toContain('super-secret-key');
+  });
+
+  it('does not borrow the stored secret of an action in another bot', async () => {
+    const http = okHttp({ status: 'ok' });
+    const { facade } = withHttp(http);
+    const saved = await facade.create(ws, newId(), input());
+    await facade.testDraft(ws, botId, {
+      action: input({ authSecret: undefined }),
+      actionId: saved.id,
+      args: { code: 'A' },
+    });
+    expect(JSON.stringify(http.mock.calls[0])).not.toContain('super-secret-key');
+  });
+
+  it('rejects an invalid draft', async () => {
+    const { facade } = withHttp(okHttp({}));
+    await expect(
+      facade.testDraft(ws, botId, { action: input({ url: 'http://x.test' }), args: {} }),
+    ).rejects.toMatchObject({ code: expect.any(String) });
+  });
+});
+
 describe('ActionFacade pending confirmation', () => {
   const conv = newId();
 

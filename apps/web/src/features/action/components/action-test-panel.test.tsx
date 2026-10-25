@@ -4,6 +4,8 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { renderWithProviders, stubFetch } from '@/testing/render';
 
+import type { ActionInput } from '@agent-sales/contracts';
+
 import { emptyParam, type ParamRow } from '../lib/action-form';
 import { ActionTestPanel } from './action-test-panel';
 import { BOT_ID } from './fixtures';
@@ -26,13 +28,35 @@ const params: ParamRow[] = [
   { ...emptyParam(), name: 'orderId', location: 'path' },
   { ...emptyParam(), name: 'qty', type: 'number', required: false },
 ];
-const route = `POST /bots/${BOT_ID}/actions/${ACTION_ID}/test`;
+const route = `POST /bots/${BOT_ID}/actions/test`;
+const draft = { name: 'draft' } as ActionInput;
+const panel = (over: {
+  actionId?: string;
+  params?: ParamRow[];
+  build?: () => ActionInput | null;
+  key?: string;
+}) => (
+  <ActionTestPanel
+    botId={BOT_ID}
+    actionId={over.actionId}
+    params={over.params ?? []}
+    buildDraft={over.build ?? (() => draft)}
+    draftKey={over.key ?? 'k'}
+  />
+);
 
 describe('ActionTestPanel', () => {
-  it('asks to save first when the action does not exist yet', () => {
-    renderWithProviders(<ActionTestPanel botId={BOT_ID} actionId={undefined} params={params} />);
-    expect(screen.getByText('Lưu hành động trước khi thử gọi.')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Thử gọi' })).not.toBeInTheDocument();
+  it('is usable before the action is saved', () => {
+    renderWithProviders(panel({ params }));
+    expect(screen.getByRole('button', { name: 'Thử gọi' })).toBeEnabled();
+  });
+
+  it('does not call when the form is invalid', async () => {
+    const { fetchStub, calls } = stubFetch({});
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithProviders(panel({ build: () => null }));
+    await userEvent.click(screen.getByRole('button', { name: 'Thử gọi' }));
+    expect(calls).toHaveLength(0);
   });
 
   it('sends typed sample args and renders status, latency and data', async () => {
@@ -49,7 +73,7 @@ describe('ActionTestPanel', () => {
       },
     });
     vi.stubGlobal('fetch', fetchStub);
-    renderWithProviders(<ActionTestPanel botId={BOT_ID} actionId={ACTION_ID} params={params} />);
+    renderWithProviders(panel({ actionId: ACTION_ID, params }));
     await userEvent.type(screen.getByLabelText('orderId'), 'A1');
     await userEvent.type(screen.getByLabelText('qty'), '2');
     await userEvent.click(screen.getByRole('button', { name: 'Thử gọi' }));
@@ -57,7 +81,11 @@ describe('ActionTestPanel', () => {
     expect(screen.getByText('200')).toBeInTheDocument();
     expect(screen.getByText('120 ms')).toBeInTheDocument();
     expect(screen.getByText(/"status": "shipped"/)).toBeInTheDocument();
-    expect(calls[0]?.body).toEqual({ args: { orderId: 'A1', qty: 2 } });
+    expect(calls[0]?.body).toEqual({
+      action: draft,
+      actionId: ACTION_ID,
+      args: { orderId: 'A1', qty: 2 },
+    });
   });
 
   it('renders a failed call with a localized reason', async () => {
@@ -68,7 +96,7 @@ describe('ActionTestPanel', () => {
       },
     });
     vi.stubGlobal('fetch', fetchStub);
-    renderWithProviders(<ActionTestPanel botId={BOT_ID} actionId={ACTION_ID} params={[]} />);
+    renderWithProviders(panel({ actionId: ACTION_ID }));
     await userEvent.click(screen.getByRole('button', { name: 'Thử gọi' }));
     expect(await screen.findByText('Thất bại')).toBeInTheDocument();
     expect(screen.getByText('Địa chỉ không được phép gọi')).toBeInTheDocument();
@@ -79,10 +107,25 @@ describe('ActionTestPanel', () => {
       [route]: { status: 500, body: { code: 'INTERNAL', message: 'boom' } },
     });
     vi.stubGlobal('fetch', fetchStub);
-    renderWithProviders(<ActionTestPanel botId={BOT_ID} actionId={ACTION_ID} params={[]} />);
+    renderWithProviders(panel({ actionId: ACTION_ID }));
     await userEvent.click(screen.getByRole('button', { name: 'Thử gọi' }));
     await waitFor(() =>
       expect(screen.getByText('Không gọi được. Thử lại sau.')).toBeInTheDocument(),
     );
+  });
+
+  it('clears an outdated result when the form changes', async () => {
+    const { fetchStub } = stubFetch({
+      [route]: {
+        status: 200,
+        body: { ok: true, statusCode: 200, data: { a: 1 }, errorCode: null, latencyMs: 1 },
+      },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    const view = renderWithProviders(panel({ key: 'one' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Thử gọi' }));
+    expect(await screen.findByText('Thành công')).toBeInTheDocument();
+    view.rerender(panel({ key: 'two' }));
+    await waitFor(() => expect(screen.queryByText('Thành công')).not.toBeInTheDocument());
   });
 });
