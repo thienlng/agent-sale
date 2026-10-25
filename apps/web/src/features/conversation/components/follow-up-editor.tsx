@@ -19,7 +19,11 @@ import {
 } from '../lib/follow-up-draft';
 
 /** A staff-only follow-up stored on the conversation; it does not schedule notifications. */
-export function FollowUpEditor({ conversation: c }: { conversation: ConversationDto }) {
+export function FollowUpEditor({
+  conversation: c,
+}: {
+  conversation: Pick<ConversationDto, 'id' | 'revision' | 'status' | 'followUpAt' | 'followUpNote'>;
+}) {
   const { t, i18n } = useTranslation();
   const tr = (key: string) => t(`channelInbox.sales.${key}`);
   const session = useSession();
