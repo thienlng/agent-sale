@@ -85,6 +85,15 @@ quick_replies(id, workspace_id, shortcut, content, media_asset_ids UUID[], creat
 bot_audit(id, bot_id, workspace_id, actor_id, category, action, diff JSONB, created_at)
 ```
 
+Bot API actions (T-055, migration 0015; tenant tables with forced RLS):
+
+```sql
+bot_actions(id, workspace_id, bot_id, name, description, url, method, params JSONB, responses JSONB,
+            auth_kind: none|api_key|bearer, auth_header_name, auth_secret_enc, requires_confirm, enabled, created_at, updated_at)
+action_runs(id, workspace_id, action_id, conversation_id, status_code, ok, latency_ms, error_code, is_test, created_at)  -- no args/bodies (PII)
+action_pending(conversation_id PK, workspace_id, action_id, args JSONB, expires_at)                                       -- one pending confirmation per conversation, 10 min TTL
+```
+
 ## 4. Channels & conversations
 
 ```sql
