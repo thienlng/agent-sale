@@ -1,16 +1,16 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import type { ConversationDto } from '@agent-sales/contracts';
+import { useRef, useState, type ReactNode } from 'react';
 import { useSession } from '@/lib/session';
 import { useWorkspaceId } from '@/lib/use-workspace';
 import { useInboxShortcuts } from '../hooks/use-inbox-shortcuts';
-import { useInbox, useInboxChannels } from '../api/inbox';
+import { useInbox, useInboxChannels, useInboxMembers, useInboxTags } from '../api/inbox';
 import {
-  filterInbox,
-  filterSalesQueue,
-  SALES_QUEUES,
-  sortConversations,
+  DEFAULT_LIST_STATE,
+  guardList,
+  tabCounts,
+  toListQuery,
   type ListState,
 } from '../lib/inbox-list';
+import type { InboxConversation } from '../lib/inbox-v2-types';
 import { ConversationList } from './conversation-list';
 import { ConversationView } from './conversation-view';
 import { InboxEmptyState } from './inbox-empty-state';
@@ -19,9 +19,10 @@ export function InboxPage({
   renderSalesPanel,
   renderComposerTools,
 }: {
-  renderSalesPanel?: ((conversation: ConversationDto) => ReactNode) | undefined;
+  renderSalesPanel?: ((conversation: InboxConversation) => ReactNode) | undefined;
   renderComposerTools?:
-    ((conversation: ConversationDto, insertText: (text: string) => void) => ReactNode) | undefined;
+    | ((conversation: InboxConversation, insertText: (text: string) => void) => ReactNode)
+    | undefined;
 }) {
   const workspaceId = useWorkspaceId();
   const userId = useSession()?.user.id ?? '';
@@ -38,39 +39,22 @@ function InboxWorkspace({
   renderSalesPanel,
   renderComposerTools,
 }: {
-  renderSalesPanel?: ((conversation: ConversationDto) => ReactNode) | undefined;
+  renderSalesPanel?: ((conversation: InboxConversation) => ReactNode) | undefined;
   renderComposerTools?:
-    ((conversation: ConversationDto, insertText: (text: string) => void) => ReactNode) | undefined;
+    | ((conversation: InboxConversation, insertText: (text: string) => void) => ReactNode)
+    | undefined;
 }) {
   const userId = useSession()?.user.id;
   const workspaceId = useWorkspaceId();
   const searchRef = useRef<HTMLInputElement>(null);
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 60000);
-    return () => window.clearInterval(timer);
-  }, []);
   const [selected, setSelected] = useState<{ id: string; channelId: string } | null>(null);
-  const [state, setState] = useState<ListState>({
-    q: '',
-    provider: 'all',
-    channelId: 'all',
-    status: 'open',
-    mode: 'all',
-    order: 'newest',
-    queue: 'all',
-  });
-  // Fetch a bounded shared set so queue counts remain comparable when switching queues.
-  const inbox = useInbox({ q: state.q, limit: 100 });
+  const [state, setState] = useState<ListState>(DEFAULT_LIST_STATE);
+  const inbox = useInbox(toListQuery(state));
   const channels = useInboxChannels();
-  const filtered = filterInbox(inbox.data?.data ?? [], state);
-  const items = sortConversations(
-    filterSalesQueue(filtered, state.queue, userId, now),
-    state.order,
-  );
-  const queueCounts = Object.fromEntries(
-    SALES_QUEUES.map((queue) => [queue, filterSalesQueue(filtered, queue, userId, now).length]),
-  );
+  const tags = useInboxTags();
+  const members = useInboxMembers();
+  const items = guardList(inbox.data?.data ?? [], state, userId);
+  const counts = tabCounts(inbox.data?.data ?? [], inbox.data?.counts);
   function selectConversation(id: string) {
     const item = items.find((conversation) => conversation.id === id);
     if (item) setSelected({ id, channelId: item.channelId });
@@ -98,11 +82,11 @@ function InboxWorkspace({
         onState={(patch) => setState((prev) => ({ ...prev, ...patch }))}
         items={items}
         channels={channels.data?.data ?? []}
-        queueCounts={queueCounts}
-        loadedCount={inbox.data?.data.length ?? 0}
+        tags={tags.data ?? []}
+        members={members.data ?? []}
+        counts={counts}
         pending={inbox.isPending}
         error={inbox.isError}
-        fetching={inbox.isFetching}
         onRefetch={() => void inbox.refetch()}
         hasChannel={Boolean(channels.data?.data.some((c) => c.status === 'connected'))}
         selected={selected?.id ?? null}

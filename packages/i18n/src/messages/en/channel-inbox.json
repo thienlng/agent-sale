@@ -280,7 +280,192 @@
       "save": "Save current filters",
       "limit": "Maximum 5 views. Delete one to save another."
     },
-    "shortcutsHint": "J/K: switch · /: search · R: compose · E: resolve",
+    "shortcutsHint": "J/K: switch · /: search · R: compose · E: done · T: tag · U: unread",
     "customerStage": "Customer status"
+  },
+  "v2": {
+    "list": {
+      "search": "Search name, phone, message…",
+      "filter": "Filter",
+      "filterActive": "Filter, {{count}} active",
+      "tabsLabel": "Conversation groups",
+      "tabs": {
+        "all": "All",
+        "unread": "Unread",
+        "waiting": "Waiting"
+      },
+      "chipsLabel": "Active filters",
+      "removeChip": "Remove filter {{label}}",
+      "clearAll": "Clear filters",
+      "emptyUnread": "No unread conversations left",
+      "emptyWaiting": "No customer is waiting for a reply"
+    },
+    "filter": {
+      "groupsLabel": "Filter groups",
+      "groups": {
+        "tags": "Tag",
+        "waiting": "Reply status",
+        "mode": "Who is replying",
+        "assignee": "Assignee",
+        "channel": "Channel",
+        "phone": "Phone number",
+        "status": "Status"
+      },
+      "tagsAny": "Has any of",
+      "tagsAll": "Has all of",
+      "tagsExclude": "Exclude",
+      "untagged": "No tag",
+      "noTags": "No tags yet",
+      "waiting": {
+        "off": "All",
+        "any": "Waiting for reply",
+        "longest": "Waiting longest",
+        "readNotReplied": "Read, not replied"
+      },
+      "mode": {
+        "all": "All",
+        "bot": "Bot",
+        "human": "Person"
+      },
+      "assignee": {
+        "all": "All",
+        "me": "Mine",
+        "none": "Unassigned"
+      },
+      "channel": {
+        "all": "All channels",
+        "facebook": "Facebook",
+        "instagram": "Instagram",
+        "pages": "Pages / accounts"
+      },
+      "phone": {
+        "all": "All",
+        "yes": "Has phone",
+        "no": "No phone"
+      },
+      "status": {
+        "open": "Open",
+        "resolved": "Done",
+        "all": "All"
+      },
+      "reset": "Reset filters"
+    },
+    "chip": {
+      "tagsAny": "Has: {{name}}",
+      "tagsAll": "All: {{name}}",
+      "tagsExclude": "Not: {{name}}",
+      "mode": {
+        "bot": "Bot replying",
+        "human": "Person replying"
+      },
+      "assignee": {
+        "me": "Mine",
+        "none": "Unassigned"
+      },
+      "phone": {
+        "yes": "Has phone",
+        "no": "No phone"
+      },
+      "unknown": "Unknown"
+    },
+    "row": {
+      "guest": "{{provider}} customer ·{{last4}}",
+      "unreadBadge": "{{count}} unread messages",
+      "waited": "Waiting {{time}}",
+      "wait": {
+        "m": "{{n}}m",
+        "h": "{{n}}h",
+        "d": "{{n}}d"
+      },
+      "humanPrefix": "↩ ",
+      "botPrefix": "Bot: ",
+      "phone": "Phone number captured",
+      "modeBot": "Bot is replying",
+      "modeHuman": "A person is replying",
+      "assignedTo": "Assigned to {{name}}",
+      "menu": "Conversation options",
+      "markUnread": "Mark as unread",
+      "markRead": "Mark as read",
+      "assign": "Assign to…",
+      "assignMe": "Assign to me",
+      "unassign": "Unassign",
+      "actionError": "Could not update the conversation. Try again."
+    },
+    "header": {
+      "seenBy": "Seen by {{name}} · {{time}}",
+      "seen": "Seen · {{time}}",
+      "unseen": "Nobody has seen this",
+      "via": "{{provider}} · {{page}}",
+      "more": "More options",
+      "markUnread": "Mark as unread",
+      "openOn": "Open on {{provider}}",
+      "marked": "Marked as unread",
+      "resolve": "Done",
+      "reopen": "Reopen",
+      "replyMode": {
+        "label": "Reply mode",
+        "bot": "Bot is replying",
+        "takeover": "You took over · bot resumes in {{time}}",
+        "human": "A person replies (bot off)",
+        "optionBot": "Bot replies automatically",
+        "optionBotHint": "The bot answers the customer as soon as a new message arrives.",
+        "optionTemp": "Take over temporarily",
+        "optionTempHint": "You reply; the bot resumes after {{minutes}} minutes if you send nothing more.",
+        "optionTempHintNoBot": "You reply; the bot resumes after a while if you send nothing more.",
+        "optionPermanent": "Take over for good",
+        "optionPermanentHint": "The bot no longer replies in this conversation.",
+        "noBot": "This page has no active bot.",
+        "current": "Current"
+      },
+      "assignee": {
+        "none": "Unassigned",
+        "label": "Assignee: {{name}}",
+        "search": "Search members…",
+        "me": "Assign to me",
+        "unassign": "Unassign",
+        "empty": "No member found",
+        "you": "You",
+        "loading": "Loading members…"
+      }
+    },
+    "thread": {
+      "newDivider": "New messages",
+      "bot": "Bot"
+    },
+    "tagBar": {
+      "label": "Conversation tags",
+      "add": "Tag",
+      "addLabel": "Add a tag (T)",
+      "search": "Search tags…",
+      "empty": "No matching tag",
+      "none": "The tag library is empty. Create tags under Customers.",
+      "expand": "Show all tags",
+      "collapse": "Collapse tag list",
+      "remove": "Remove tag {{name}}",
+      "attach": "Add tag {{name}}",
+      "error": "Could not update tags. Try again."
+    },
+    "slash": {
+      "hint": "Type / to insert a quick reply",
+      "empty": "No matching quick reply",
+      "label": "Quick replies"
+    },
+    "panel": {
+      "toggle": "Collapse or expand {{title}}",
+      "customer": "Customer",
+      "phone": "Phone",
+      "noPhone": "No phone number yet",
+      "notes": "Notes",
+      "noteAdd": "Write a note for the next shift… (Enter to save)",
+      "noteEmpty": "No notes yet",
+      "noteError": "Could not save the note. Try again.",
+      "noteAuthor": "Staff",
+      "legacyNote": "Earlier note",
+      "orders": "Orders",
+      "createOrder": "Create order",
+      "followUp": "Follow-up",
+      "followUpNone": "No follow-up scheduled",
+      "followUpSet": "Schedule"
+    }
   }
 }

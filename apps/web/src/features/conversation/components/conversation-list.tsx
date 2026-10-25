@@ -1,26 +1,22 @@
-import type { ChannelConnectionDto, ConversationDto } from '@agent-sales/contracts';
+import type { ChannelConnectionDto } from '@agent-sales/contracts';
 import type { RefObject } from 'react';
 import { Link } from '@tanstack/react-router';
-import { ArrowUpDown, CircleAlert, MessageCircle, RefreshCw, Search } from 'lucide-react';
+import { CircleAlert, MessageCircle, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { SALES_QUEUES, type ListState } from '../lib/inbox-list';
-import { SavedInboxViews } from './saved-inbox-views';
-import { ChannelFilter } from './channel-filter';
+import { DEFAULT_LIST_STATE, filterChips, isFiltered, type ListState } from '../lib/inbox-list';
+import type { InboxConversation, InboxCounts, InboxTab } from '../lib/inbox-v2-types';
 import { ConversationRow } from './conversation-row';
-import { ListFilters } from './list-filters';
+import { InboxFilterChips } from './inbox-filter-chips';
+import { InboxFilterPopover, type FilterMember, type FilterTag } from './inbox-filter-popover';
+import { SavedInboxViews } from './saved-inbox-views';
 
-/** Left column of the inbox: "Chat" header, channel filter, search, sort and conversations. */
+const TABS: readonly InboxTab[] = ['all', 'unread', 'waiting'];
+
+/** Left column of the inbox: search, filter, tabs with counts, chips and conversations. */
 export function ConversationList({
   state,
   searchRef,
@@ -29,11 +25,11 @@ export function ConversationList({
   onState,
   items,
   channels,
-  queueCounts,
-  loadedCount,
+  tags,
+  members,
+  counts,
   pending,
   error,
-  fetching,
   onRefetch,
   hasChannel,
   selected,
@@ -45,13 +41,13 @@ export function ConversationList({
   workspaceId: string;
   userId: string;
   onState: (patch: Partial<ListState>) => void;
-  items: readonly ConversationDto[];
+  items: readonly InboxConversation[];
   channels: readonly ChannelConnectionDto[];
-  queueCounts: Record<string, number>;
-  loadedCount: number;
+  tags: readonly FilterTag[];
+  members: readonly FilterMember[];
+  counts: InboxCounts;
   pending: boolean;
   error: boolean;
-  fetching: boolean;
   onRefetch: () => void;
   hasChannel: boolean;
   selected: string | null;
@@ -61,128 +57,80 @@ export function ConversationList({
   const { t } = useTranslation();
   const tr = (key: string, options?: Record<string, unknown>) =>
     t(`channelInbox.${key}`, options ?? {});
-  const orderLabel = tr(state.order === 'newest' ? 'inbox.sortNewest' : 'inbox.sortOldest');
-  const filtered = Boolean(
-    state.q ||
-    state.provider !== 'all' ||
-    state.mode !== 'all' ||
-    state.channelId !== 'all' ||
-    state.queue !== 'all' ||
-    state.status !== 'open',
-  );
+  const filtered = isFiltered(state);
+  const emptyKey =
+    state.tab === 'unread' && !filterChips(state).length && !state.q
+      ? 'v2.list.emptyUnread'
+      : state.tab === 'waiting' && !filterChips(state).length && !state.q
+        ? 'v2.list.emptyWaiting'
+        : filtered
+          ? 'emptyFilter'
+          : 'emptyInbox';
   return (
     <aside
       className={cn(
-        'flex min-h-0 w-full shrink-0 flex-col border-r bg-background md:w-72 2xl:w-80',
+        'flex min-h-0 w-full shrink-0 flex-col border-r bg-background md:w-80 2xl:w-96',
         hidden ? 'hidden md:flex' : 'flex',
       )}
     >
-      <div className="space-y-3 border-b p-4">
+      <div className="space-y-2 border-b p-3">
         <h1 className="sr-only">{tr('inbox.pageTitle')}</h1>
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="text-xl font-semibold tracking-tight">{tr('inbox.title')}</h2>
-          <ChannelFilter
-            value={state.provider}
-            onChange={(provider) => onState({ provider, channelId: 'all' })}
+        <div className="flex items-center gap-1.5">
+          <div className="relative min-w-0 flex-1">
+            <Search className="absolute top-2 left-2.5 size-4 text-muted-foreground" aria-hidden />
+            <Input
+              ref={searchRef}
+              type="search"
+              aria-label={tr('v2.list.search')}
+              placeholder={tr('v2.list.search')}
+              value={state.q}
+              onChange={(event) => onState({ q: event.target.value })}
+              className="h-8 pl-8"
+            />
+          </div>
+          <SavedInboxViews
+            workspaceId={workspaceId}
+            userId={userId}
+            state={state}
+            onApply={onState}
+          />
+          <InboxFilterPopover
+            state={state}
+            onState={onState}
+            tags={tags}
+            members={members}
+            channels={channels}
           />
         </div>
-        <div className="grid grid-cols-2 gap-1.5" role="group" aria-label={tr('sales.queues')}>
-          {SALES_QUEUES.map((queue) => (
-            <Button
-              key={queue}
-              variant={state.queue === queue ? 'secondary' : 'ghost'}
-              size="sm"
+        <div
+          role="tablist"
+          aria-label={tr('v2.list.tabsLabel')}
+          className="flex items-center gap-1 text-xs"
+        >
+          {TABS.map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              role="tab"
+              aria-selected={state.tab === tab}
+              onClick={() => onState({ tab })}
               className={cn(
-                'justify-between px-2.5 text-xs',
-                state.queue === queue && 'text-primary',
+                'flex items-center gap-1.5 rounded-md px-2 py-1 font-medium text-muted-foreground hover:bg-muted',
+                state.tab === tab && 'bg-primary-soft text-primary',
               )}
-              aria-pressed={state.queue === queue}
-              onClick={() => onState({ queue })}
             >
-              <span>{tr(`sales.queue.${queue}`)}</span>
-              <span className="rounded-md bg-muted px-1.5 py-0.5 tabular-nums text-muted-foreground">
-                {pending || error ? '—' : queueCounts[queue]}
-              </span>
-            </Button>
+              {tr(`v2.list.tabs.${tab}`)}
+              <span className="tabular-nums">{pending || error ? '—' : counts[tab]}</span>
+            </button>
           ))}
         </div>
-        <div className="relative">
-          <Search className="absolute top-2.5 left-3 size-4 text-muted-foreground" aria-hidden />
-          <Input
-            ref={searchRef}
-            type="search"
-            aria-label={tr('inbox.searchPlaceholder')}
-            placeholder={tr('inbox.searchPlaceholder')}
-            value={state.q}
-            onChange={(event) => onState({ q: event.target.value })}
-            className="pl-9"
-          />
-        </div>
-        <Select value={state.channelId} onValueChange={(channelId) => onState({ channelId })}>
-          <SelectTrigger className="w-full text-xs" aria-label={tr('sales.pageFilter')}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{tr('sales.allPages')}</SelectItem>
-            {channels
-              .filter((channel) => state.provider === 'all' || channel.provider === state.provider)
-              .map((channel) => (
-                <SelectItem key={channel.id} value={channel.id}>
-                  {channel.name}
-                </SelectItem>
-              ))}
-          </SelectContent>
-        </Select>
-        <SavedInboxViews
-          workspaceId={workspaceId}
-          userId={userId}
+        <InboxFilterChips
           state={state}
-          onApply={onState}
+          onState={onState}
+          tags={tags}
+          members={members}
+          channels={channels.map((c) => ({ id: c.id, name: c.name, provider: c.provider }))}
         />
-        <div className="flex items-center justify-between">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="-ml-2"
-            aria-label={tr('inbox.sortLabel', { order: orderLabel })}
-            onClick={() => onState({ order: state.order === 'newest' ? 'oldest' : 'newest' })}
-          >
-            {orderLabel}
-            <ArrowUpDown />
-          </Button>
-          <div className="flex items-center">
-            <ListFilters
-              status={state.status}
-              mode={state.mode}
-              onStatus={(status) => onState({ status })}
-              onMode={(mode) => onState({ mode })}
-            />
-            <Button variant="ghost" size="icon" aria-label={tr('refresh')} onClick={onRefetch}>
-              <RefreshCw className={fetching ? 'animate-spin' : ''} />
-            </Button>
-          </div>
-        </div>
-      </div>
-      <div className="flex items-center justify-between gap-2 border-b bg-muted/20 px-4 py-2 text-[11px] text-muted-foreground">
-        <span>{tr('sales.loadedScope', { count: loadedCount })}</span>
-        {filtered ? (
-          <button
-            type="button"
-            className="shrink-0 font-medium text-primary hover:underline"
-            onClick={() =>
-              onState({
-                q: '',
-                provider: 'all',
-                channelId: 'all',
-                status: 'open',
-                mode: 'all',
-                queue: 'all',
-              })
-            }
-          >
-            {tr('sales.clearFilters')}
-          </button>
-        ) : null}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
         {pending ? (
@@ -214,10 +162,22 @@ export function ConversationList({
         ) : (
           <div className="flex flex-col items-center px-5 py-12 text-center">
             <MessageCircle className="mb-3 size-9 text-muted-foreground" aria-hidden />
-            <h3 className="text-sm font-semibold">{tr(filtered ? 'emptyFilter' : 'emptyInbox')}</h3>
-            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-              {tr('emptyInboxBody')}
-            </p>
+            <h3 className="text-sm font-semibold">{tr(emptyKey)}</h3>
+            {emptyKey === 'emptyInbox' ? (
+              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                {tr('emptyInboxBody')}
+              </p>
+            ) : null}
+            {filtered ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4"
+                onClick={() => onState({ ...DEFAULT_LIST_STATE })}
+              >
+                {tr('v2.list.clearAll')}
+              </Button>
+            ) : null}
             {!hasChannel ? (
               <Button variant="outline" className="mt-4" asChild>
                 <Link to="/app/channels">{tr('connect')}</Link>

@@ -3,13 +3,21 @@ import { z } from 'zod';
 import type { ListState } from '../lib/inbox-list';
 
 export const MAX_SAVED_INBOX_VIEWS = 5;
+const ids = z.array(z.string().min(1).max(100)).max(50).default([]);
+/** Every field has a default so views saved by earlier versions still load. */
 const SavedFilters = z.object({
-  provider: z.enum(['all', 'facebook', 'instagram']),
-  channelId: z.string().min(1).max(100),
-  status: z.enum(['all', 'open', 'resolved']),
-  mode: z.enum(['all', 'human', 'bot']),
-  order: z.enum(['newest', 'oldest']),
-  queue: z.enum(['all', 'human', 'mine', 'unassigned', 'bot', 'due']),
+  tab: z.enum(['all', 'unread', 'waiting']).default('all'),
+  tagsAny: ids,
+  tagsAll: ids,
+  tagsExclude: ids,
+  untagged: z.boolean().default(false),
+  waiting: z.enum(['off', 'any', 'longest', 'readNotReplied']).default('off'),
+  mode: z.enum(['all', 'human', 'bot']).default('all'),
+  assignee: z.string().min(1).max(100).default('all'),
+  provider: z.enum(['all', 'facebook', 'instagram']).default('all'),
+  channelId: z.string().min(1).max(100).default('all'),
+  hasPhone: z.enum(['all', 'yes', 'no']).default('all'),
+  status: z.enum(['all', 'open', 'resolved']).default('open'),
 });
 const SavedView = z.object({
   id: z.uuid(),

@@ -1,6 +1,8 @@
-import type { ConversationDto, MetaProvider } from '@agent-sales/contracts';
-import type { SVGProps } from 'react';
+import type { MetaProvider } from '@agent-sales/contracts';
+import { type ReactNode, type SVGProps, useState } from 'react';
 import { cn } from '@/lib/utils';
+import { customerInitial } from '../lib/inbox-list';
+import type { InboxConversation } from '../lib/inbox-v2-types';
 
 type IconProps = SVGProps<SVGSVGElement>;
 
@@ -39,14 +41,46 @@ export function ProviderMark({
   return <Mark className={cn('size-4', className)} />;
 }
 
-/** Customer initial with the channel badge at the bottom-left, as in the reference inbox. */
-export function CustomerAvatar({ conversation: c }: { conversation: ConversationDto }) {
+const SIZES = { md: 'size-10 text-sm', sm: 'size-8 text-xs' } as const;
+
+/** Meta profile photo, or the customer's initial, with the channel badge at the bottom-left. */
+export function CustomerAvatar({
+  conversation: c,
+  name,
+  size = 'md',
+  children,
+}: {
+  conversation: Pick<InboxConversation, 'customerName' | 'provider' | 'customerAvatarUrl'>;
+  /** Display name for the initial; defaults to the stored customer name. */
+  name?: string;
+  size?: keyof typeof SIZES;
+  /** Extra badges (e.g. the unread count) positioned by the caller. */
+  children?: ReactNode;
+}) {
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const url = c.customerAvatarUrl && c.customerAvatarUrl !== failedUrl ? c.customerAvatarUrl : null;
   return (
-    <span className="relative grid size-10 shrink-0 place-items-center rounded-full bg-primary-soft text-sm font-semibold text-primary">
-      {(c.customerName.trim().charAt(0) || '?').toUpperCase()}
-      <span className="absolute -bottom-0.5 -left-0.5 grid size-4.5 place-items-center rounded-full border-2 border-background bg-primary text-primary-foreground">
+    <span
+      className={cn(
+        'relative grid shrink-0 place-items-center rounded-full bg-primary-soft font-semibold text-primary',
+        SIZES[size],
+      )}
+    >
+      {url ? (
+        <img
+          src={url}
+          alt=""
+          referrerPolicy="no-referrer"
+          className="size-full rounded-full object-cover"
+          onError={() => setFailedUrl(url)}
+        />
+      ) : (
+        customerInitial(name ?? c.customerName)
+      )}
+      <span className="absolute -bottom-0.5 -left-0.5 grid size-4 place-items-center rounded-full border-2 border-background bg-primary text-primary-foreground">
         <ProviderMark provider={c.provider} className="size-2.5" />
       </span>
+      {children}
     </span>
   );
 }

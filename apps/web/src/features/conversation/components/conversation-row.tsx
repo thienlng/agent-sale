@@ -1,4 +1,4 @@
-import type { ConversationDto } from '@agent-sales/contracts';
+import type { InboxConversation } from '../lib/inbox-v2-types';
 import { Bot, CheckCheck, UserRound } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -12,7 +12,7 @@ export function ConversationRow({
   onSelect,
   channelName,
 }: {
-  conversation: ConversationDto;
+  conversation: InboxConversation;
   active: boolean;
   onSelect: () => void;
   channelName?: string | undefined;

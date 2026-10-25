@@ -1,4 +1,4 @@
-import type { ConversationDto, UpdateConversationRequest } from '@agent-sales/contracts';
+import type { InboxConversation, InboxUpdateBody } from '../lib/inbox-v2-types';
 import {
   ArrowLeft,
   Bot,
@@ -36,9 +36,10 @@ export function ConversationView({
   id: string;
   onBack: () => void;
   botId: string | null;
-  renderSalesPanel?: ((conversation: ConversationDto) => ReactNode) | undefined;
+  renderSalesPanel?: ((conversation: InboxConversation) => ReactNode) | undefined;
   renderComposerTools?:
-    ((conversation: ConversationDto, insertText: (text: string) => void) => ReactNode) | undefined;
+    | ((conversation: InboxConversation, insertText: (text: string) => void) => ReactNode)
+    | undefined;
 }) {
   const { t } = useTranslation();
   const tr = (key: string, options?: Record<string, unknown>) =>
@@ -59,7 +60,7 @@ export function ConversationView({
     return () => clearInterval(timer);
   }, []);
 
-  async function change(body: UpdateConversationRequest) {
+  async function change(body: InboxUpdateBody) {
     try {
       await update.mutateAsync({ expectedRevision: c?.revision, ...body });
       toast.success(tr('updated'));
