@@ -1,7 +1,7 @@
 ---
 id: T-074
 title: Delete a bot and open its settings from the bot list
-status: in-progress            # backlog | next | in-progress | blocked | review | done | cancelled
+status: review            # backlog | next | in-progress | blocked | review | done | cancelled
 type: feature              # feature | bug | chore | spike | docs
 priority: P1               # P0 | P1 | P2 | P3
 owner: '@agent:claude'     # @github-handle or @agent:<tool>
@@ -9,7 +9,7 @@ feature_ids: []            # e.g. [BOT-07, CRM-11] from docs/02-functional-requi
 created: 2026-10-25
 updated: 2026-10-25
 branch: feat/T-074-bot-delete-and-settings
-pr:
+pr: '#61'
 parent:                    # T-xxx if this is a sub-task
 ---
 
