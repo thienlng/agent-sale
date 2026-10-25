@@ -56,6 +56,7 @@ Let sales staff schedule a conversation follow-up, reuse filters and compose pro
 - 2026-10-25 — Stopped at the owner's explicit request for handoff to Claude. See docs/runbooks/inbox-agent-handoff-2026-10-25.md for exact state, pending verification and task ID collisions. No further implementation/publishing after this request.
 
 - 2026-10-25 — Claude continued. Task IDs renumbered to avoid collisions with other worktrees (this task was T-070, the CI blocker fix is now T-071). Fixed the caret bug (composer remembers selection on change/blur/select) and a test fixture that picked an archived CRM status. Production Playwright inbox + responsive: 16/16. Fresh-context QA review found no blockers; fixed: one corrupt saved view no longer discards the others, randomUUID failure on insecure contexts is handled, clearing followUpAt on the server also clears the private note. Documented, not changed: an inbound customer message bumps the revision so an open follow-up draft shows the conflict banner (no data loss); ProductShare has no permission gate (shows an error/retry state if the catalog is unreadable); `/` shortcut ignores Shift (AZERTY).
+- 2026-10-25 — T-073 replaced the separate "Đến hẹn" queue with the Tất cả / Chưa đọc / Chờ rep tabs; follow-ups keep working from the right panel ("Hẹn chăm sóc lại").
 
 ## Links
 
