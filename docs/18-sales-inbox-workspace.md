@@ -49,3 +49,5 @@ Generated from synthetic API fixtures in the production browser suite, not real 
 - [Desktop order panel](reference/inbox-redesign/desktop-order.png)
 - [Mobile order panel](reference/inbox-redesign/mobile-order.png)
 - [Expanded order details](reference/inbox-redesign/expanded-order.png)
+- [Follow-up editor](reference/inbox-redesign/follow-up.png)
+- [Saved views](reference/inbox-redesign/saved-views.png)
