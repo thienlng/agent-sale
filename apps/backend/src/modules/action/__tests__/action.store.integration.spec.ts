@@ -1,5 +1,6 @@
 import {
   createDb,
+  eq,
   ensureLoginRoles,
   migrate,
   schema,
@@ -64,7 +65,11 @@ beforeAll(async () => {
   owner = open(pg.ownerUrl);
   tenant = open(tenantUrl, 2);
   const system = open(systemUrl);
-  facade = new ActionFacadeImpl(new DrizzleActionUnitOfWork(tenant), box);
+  facade = new ActionFacadeImpl(new DrizzleActionUnitOfWork(tenant), box, async () => ({
+    ok: true,
+    status: 200,
+    json: { status: 'paid', secret: 'x' },
+  }));
   a = workspaceId(newId());
   b = workspaceId(newId());
   for (const [ws, bot] of [
@@ -194,5 +199,72 @@ describe('forced RLS on the three action tables', () => {
     await facade.remove(a, botA, action.id);
     const left = await owner.select().from(schema.actionPending);
     expect(left.filter((p) => p.actionId === action.id)).toEqual([]);
+  });
+});
+
+describe('runner persistence on Postgres', () => {
+  const withResponse = {
+    ...input,
+    responses: [
+      { statusCode: 200, fields: [{ name: 'status', type: 'string' as const, description: 's' }] },
+    ],
+  };
+
+  it('records runs without args or body and hides them from other tenants', async () => {
+    const action = await facade.create(a, botA, withResponse);
+    const conversationId = newId();
+    const out = await facade.invoke(a, botA, {
+      actionId: action.id,
+      args: { code: 'SECRET-CODE' },
+      conversationId,
+      idempotencyKey: 'k',
+      isTest: false,
+    });
+    expect(out).toEqual({ ok: true, statusCode: 200, data: { status: 'paid' } });
+    const test = await facade.test(a, botA, action.id, { code: 'T1' });
+    expect(test.ok).toBe(true);
+    const rows = (await owner.select().from(schema.actionRuns)).filter(
+      (r) => r.actionId === action.id,
+    );
+    expect(rows).toHaveLength(2);
+    expect(rows.map((r) => r.isTest).sort()).toEqual([false, true]);
+    expect(JSON.stringify(rows)).not.toMatch(/SECRET-CODE|T1|paid|tenant-a-token/);
+    await withTenant(tenant, b, async (tx) => {
+      expect(await tx.select().from(schema.actionRuns)).toEqual([]);
+    });
+    // Another workspace and another bot cannot execute it.
+    expect(
+      await facade.invoke(b, botB, {
+        actionId: action.id,
+        args: { code: 'x' },
+        conversationId: null,
+        idempotencyKey: 'k',
+        isTest: false,
+      }),
+    ).toEqual({ ok: false, errorCode: 'not_found' });
+  });
+
+  it('keeps one pending call per conversation, expires it and isolates tenants', async () => {
+    const action = await facade.create(a, botA, withResponse);
+    const conv = newId();
+    await facade.setPending(a, conv, { actionId: action.id, args: { code: '1' } });
+    await facade.setPending(a, conv, { actionId: action.id, args: { code: '2' } });
+    expect(await facade.getPending(a, conv)).toMatchObject({ args: { code: '2' } });
+    expect(await facade.getPending(b, conv)).toBeNull();
+    await expect(
+      facade.setPending(b, conv, { actionId: action.id, args: {} }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await withTenant(tenant, a, (tx) =>
+      tx
+        .update(schema.actionPending)
+        .set({ expiresAt: new Date(Date.now() - 1000) })
+        .where(eq(schema.actionPending.conversationId, conv)),
+    );
+    expect(await facade.getPending(a, conv)).toBeNull();
+    await facade.setPending(a, conv, { actionId: action.id, args: {} });
+    await facade.clearPending(b, conv);
+    expect(await facade.getPending(a, conv)).not.toBeNull();
+    await facade.clearPending(a, conv);
+    expect(await facade.getPending(a, conv)).toBeNull();
   });
 });

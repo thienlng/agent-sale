@@ -6,6 +6,8 @@ import { z } from 'zod';
 import type {
   ActionRecord,
   ActionRepository,
+  ActionRunRecord,
+  PendingRecord,
 } from '../../application/ports/action-unit-of-work.js';
 
 const t = schema.botActions;
@@ -94,5 +96,51 @@ export class DrizzleActionRepository implements ActionRepository {
       .where(and(eq(t.workspaceId, this.ws), eq(t.botId, botId), eq(t.id, id)))
       .returning({ id: t.id });
     return rows.length === 1;
+  }
+
+  async exists(id: string): Promise<boolean> {
+    const rows = await this.tx
+      .select({ id: t.id })
+      .from(t)
+      .where(and(eq(t.workspaceId, this.ws), eq(t.id, id)))
+      .limit(1);
+    return rows.length === 1;
+  }
+
+  async recordRun(run: ActionRunRecord): Promise<void> {
+    await this.tx.insert(schema.actionRuns).values({ ...run, workspaceId: this.ws });
+  }
+
+  async findPending(conversationId: string, now: Date): Promise<PendingRecord | null> {
+    const p = schema.actionPending;
+    const [row] = await this.tx
+      .select()
+      .from(p)
+      .where(and(eq(p.workspaceId, this.ws), eq(p.conversationId, conversationId)))
+      .limit(1);
+    if (!row || row.expiresAt <= now) return null;
+    const args = z
+      .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
+      .parse(row.args);
+    return { actionId: row.actionId, args, expiresAt: row.expiresAt };
+  }
+
+  async savePending(conversationId: string, pending: PendingRecord): Promise<void> {
+    const values = {
+      actionId: pending.actionId,
+      args: pending.args,
+      expiresAt: pending.expiresAt,
+    };
+    await this.tx
+      .insert(schema.actionPending)
+      .values({ ...values, conversationId, workspaceId: this.ws })
+      .onConflictDoUpdate({ target: schema.actionPending.conversationId, set: values });
+  }
+
+  async clearPending(conversationId: string): Promise<void> {
+    const p = schema.actionPending;
+    await this.tx
+      .delete(p)
+      .where(and(eq(p.workspaceId, this.ws), eq(p.conversationId, conversationId)));
   }
 }

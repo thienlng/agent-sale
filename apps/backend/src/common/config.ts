@@ -66,6 +66,11 @@ export const EnvSchema = z
      * tests can serve images from a loopback server.
      */
     BOT_IMAGE_EXTRA_HOSTS: z.string().max(1000).optional(),
+    /**
+     * Dev/QA only: comma-separated hosts the action executor may call over plain http without
+     * the public-address check (for example a local fake shop). Ignored in production.
+     */
+    ACTION_DEV_ALLOW_HTTP_HOSTS: z.string().max(1000).optional(),
     S3_ENDPOINT: z.url().optional(),
     S3_BUCKET: z.string().min(1).optional(),
     S3_PUBLIC_URL: z.url({ protocol: /^https$/ }).optional(),
@@ -96,6 +101,17 @@ export function botImageVisionEnabled(env: Pick<Env, 'NODE_ENV' | 'BOT_IMAGE_VIS
 export function botImageExtraHosts(env: Pick<Env, 'NODE_ENV' | 'BOT_IMAGE_EXTRA_HOSTS'>): string[] {
   if (env.NODE_ENV === 'production') return [];
   return (env.BOT_IMAGE_EXTRA_HOSTS ?? '')
+    .split(',')
+    .map((h) => h.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+/** Hosts the action executor may call over plain http; always empty in production. */
+export function actionDevAllowHttpHosts(
+  env: Pick<Env, 'NODE_ENV' | 'ACTION_DEV_ALLOW_HTTP_HOSTS'>,
+): string[] {
+  if (env.NODE_ENV === 'production') return [];
+  return (env.ACTION_DEV_ALLOW_HTTP_HOSTS ?? '')
     .split(',')
     .map((h) => h.trim().toLowerCase())
     .filter(Boolean);

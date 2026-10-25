@@ -1,12 +1,13 @@
 import type { Database } from '@agent-sales/db';
 import { Module } from '@nestjs/common';
 
-import { getEnv } from '../../common/config.js';
+import { actionDevAllowHttpHosts, getEnv } from '../../common/config.js';
 import { DB_TENANT } from '../../common/db/db.module.js';
 import { SECRET_BOX, SecretBox } from '../../common/security/secret-box.js';
 import { ACTION_FACADE } from './api/action.facade.js';
-import { ActionFacadeImpl } from './application/action.facade.impl.js';
+import { ActionFacadeImpl, SAFE_HTTP } from './application/action.facade.impl.js';
 import { ACTION_UOW } from './application/ports/action-unit-of-work.js';
+import { createSafeHttp } from './domain/safe-http.js';
 import { DrizzleActionUnitOfWork } from './infrastructure/action.unit-of-work.js';
 import { InMemoryActionUnitOfWork } from './infrastructure/persistence/action.in-memory-repository.js';
 
@@ -25,6 +26,10 @@ import { InMemoryActionUnitOfWork } from './infrastructure/persistence/action.in
         getEnv().SECRETS_ENCRYPTION_KEY
           ? SecretBox.fromBase64(getEnv().SECRETS_ENCRYPTION_KEY ?? '')
           : SecretBox.insecureDevelopmentBox(),
+    },
+    {
+      provide: SAFE_HTTP,
+      useFactory: () => createSafeHttp({ allowHttpHosts: actionDevAllowHttpHosts(getEnv()) }),
     },
     { provide: ACTION_FACADE, useClass: ActionFacadeImpl },
   ],
