@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { DEFAULT_LIST_STATE, filterChips, isFiltered, type ListState } from '../lib/inbox-list';
 import type { InboxConversation, InboxCounts, InboxTab } from '../lib/inbox-v2-types';
-import { ConversationRow } from './conversation-row';
+import { ConversationRow, type RowActions } from './conversation-row';
 import { InboxFilterChips } from './inbox-filter-chips';
 import { InboxFilterPopover, type FilterMember, type FilterTag } from './inbox-filter-popover';
 import { SavedInboxViews } from './saved-inbox-views';
@@ -35,6 +35,8 @@ export function ConversationList({
   selected,
   onSelect,
   hidden,
+  now,
+  actions,
 }: {
   state: ListState;
   searchRef: RefObject<HTMLInputElement | null>;
@@ -53,6 +55,8 @@ export function ConversationList({
   selected: string | null;
   onSelect: (id: string) => void;
   hidden: boolean;
+  now: number;
+  actions: RowActions;
 }) {
   const { t } = useTranslation();
   const tr = (key: string, options?: Record<string, unknown>) =>
@@ -156,6 +160,10 @@ export function ConversationList({
                 active={selected === c.id}
                 onSelect={() => onSelect(c.id)}
                 channelName={channels.find((channel) => channel.id === c.channelId)?.name}
+                now={now}
+                members={members}
+                userId={userId}
+                actions={actions}
               />
             ))}
           </ul>

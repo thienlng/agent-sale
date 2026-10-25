@@ -1,8 +1,17 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { useSession } from '@/lib/session';
 import { useWorkspaceId } from '@/lib/use-workspace';
 import { useInboxShortcuts } from '../hooks/use-inbox-shortcuts';
-import { useInbox, useInboxChannels, useInboxMembers, useInboxTags } from '../api/inbox';
+import {
+  useAssignConversation,
+  useInbox,
+  useInboxChannels,
+  useInboxMembers,
+  useInboxTags,
+  useReadState,
+} from '../api/inbox';
 import {
   DEFAULT_LIST_STATE,
   guardList,
@@ -47,6 +56,22 @@ function InboxWorkspace({
   const userId = useSession()?.user.id;
   const workspaceId = useWorkspaceId();
   const searchRef = useRef<HTMLInputElement>(null);
+  const { t } = useTranslation();
+  // Wait times and row times advance without a network update.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const { markRead, markUnread } = useReadState();
+  const assign = useAssignConversation();
+  const fail = () => toast.error(t('channelInbox.v2.row.actionError'));
+  const actions = {
+    onMarkUnread: (id: string) => markUnread.mutate(id, { onError: fail }),
+    onMarkRead: (id: string) => markRead.mutate(id, { onError: fail }),
+    onAssign: (id: string, assigneeId: string | null) =>
+      assign.mutate({ id, assigneeId }, { onError: fail }),
+  };
   const [selected, setSelected] = useState<{ id: string; channelId: string } | null>(null);
   const [state, setState] = useState<ListState>(DEFAULT_LIST_STATE);
   const inbox = useInbox(toListQuery(state));
@@ -92,6 +117,8 @@ function InboxWorkspace({
         selected={selected?.id ?? null}
         onSelect={selectConversation}
         hidden={Boolean(selected)}
+        now={now}
+        actions={actions}
       />
       {selected ? (
         <ConversationView

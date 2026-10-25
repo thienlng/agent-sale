@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { InboxCounts, InboxListQuery } from '../lib/inbox-v2-types';
 import type { ListState } from '../lib/inbox-list';
 import { InboxPage } from './inbox-page';
@@ -24,16 +24,21 @@ vi.mock('../api/inbox', () => ({
   useInboxChannels: () => ({ data: { data: [] } }),
   useInboxTags: () => ({ data: [] }),
   useInboxMembers: () => ({ data: [] }),
+  useReadState: () => ({ markRead: { mutate: vi.fn() }, markUnread: { mutate: vi.fn() } }),
+  useAssignConversation: () => ({ mutate: vi.fn() }),
 }));
 vi.mock('./conversation-list', () => ({
   ConversationList: ({
     counts,
+    now,
     onState,
   }: {
     counts: InboxCounts;
+    now: number;
     onState: (patch: Partial<ListState>) => void;
   }) => (
     <div>
+      <output aria-label="Now">{now}</output>
       <output aria-label="Counts">{`${counts.all}/${counts.unread}/${counts.waiting}`}</output>
       <button onClick={() => onState({ tab: 'unread', tagsAny: ['tag-a'], assignee: 'me' })}>
         Filter
@@ -44,6 +49,9 @@ vi.mock('./conversation-list', () => ({
 vi.mock('./inbox-empty-state', () => ({ InboxEmptyState: () => null }));
 vi.mock('./conversation-view', () => ({ ConversationView: () => null }));
 
+afterEach(() => {
+  vi.useRealTimers();
+});
 beforeEach(() => {
   fixtures.counts = undefined;
   fixtures.queries = [];
@@ -73,5 +81,23 @@ describe('inbox page', () => {
       tagsAny: 'tag-a',
       status: 'open',
     });
+  });
+
+  it('advances the clock every minute so wait times refresh without a network update', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime('2026-10-25T10:00:00.000Z');
+    const view = render(<InboxPage />);
+    const start = Date.parse('2026-10-25T10:00:00.000Z');
+    expect(screen.getByLabelText('Now')).toHaveTextContent(String(start));
+    act(() => {
+      vi.advanceTimersByTime(59999);
+    });
+    expect(screen.getByLabelText('Now')).toHaveTextContent(String(start));
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(screen.getByLabelText('Now')).toHaveTextContent(String(start + 60000));
+    view.unmount();
+    expect(vi.getTimerCount()).toBe(0);
   });
 });
