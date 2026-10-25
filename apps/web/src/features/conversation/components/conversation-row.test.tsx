@@ -63,6 +63,11 @@ describe('conversation row', () => {
     expect(screen.getByRole('img', { name: 'channelInbox.v2.row.modeBot' })).toBeInTheDocument();
   });
 
+  it('labels the channel instead of printing the page name', () => {
+    renderRow({ tags: [], provider: 'instagram' });
+    expect(screen.getByText('Instagram')).toBeInTheDocument();
+  });
+
   it('never shows the raw channel id as the name', () => {
     renderRow({ customerName: '2398471234821' });
     expect(screen.getByText('channelInbox.v2.row.guest Facebook 4821')).toBeInTheDocument();
@@ -151,8 +156,12 @@ describe('conversation row', () => {
   it('offers mark read for an unread conversation and opens on right click', async () => {
     const user = userEvent.setup();
     const { actions: a } = renderRow({ unreadCount: 3 });
-    fireEvent.contextMenu(screen.getByRole('listitem'));
-    await user.click(await screen.findByRole('menuitem', { name: 'channelInbox.v2.row.markRead' }));
+    // Right click opens the menu at the pointer (a context menu, not the "⋯" dropdown), so the
+    // button release does not land on an item and nothing is chosen until the rep clicks.
+    fireEvent.contextMenu(within(screen.getByRole('listitem')).getAllByRole('button')[0]!);
+    const item = await screen.findByRole('menuitem', { name: 'channelInbox.v2.row.markRead' });
+    expect(a.onMarkRead).not.toHaveBeenCalled();
+    await user.click(item);
     expect(a.onMarkRead).toHaveBeenCalledWith(base.id);
   });
 

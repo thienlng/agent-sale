@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { DEFAULT_LIST_STATE, filterChips, isFiltered, type ListState } from '../lib/inbox-list';
 import type { InboxConversation, InboxCounts, InboxTab } from '../lib/inbox-v2-types';
+import { ChannelFilter } from './channel-filter';
 import { ConversationRow, type RowActions } from './conversation-row';
 import { InboxFilterChips } from './inbox-filter-chips';
 import { InboxFilterPopover, type FilterMember, type FilterTag } from './inbox-filter-popover';
@@ -127,6 +128,7 @@ export function ConversationList({
               <span className="tabular-nums">{pending || error ? '—' : counts[tab]}</span>
             </button>
           ))}
+          <ChannelFilter state={state} onState={onState} channels={channels} />
         </div>
         <InboxFilterChips
           state={state}
