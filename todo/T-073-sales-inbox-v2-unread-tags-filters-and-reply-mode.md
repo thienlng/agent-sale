@@ -54,14 +54,14 @@ A compact inbox where a sales rep sees at a glance who is waiting, who the custo
 
 ## Acceptance criteria
 
-- [ ] List rows show the customer name (or "Khách Facebook ·1234"), channel, unread count, wait time, up to 3 tags + "+N", phone icon, assignee and reply mode.
-- [ ] Tabs Tất cả / Chưa đọc / Chờ rep show server counts. Opening a conversation marks it read for the whole shop, and "Đánh dấu chưa đọc" brings it back.
-- [ ] The header shows "Đã xem bởi X · time". The reply-mode dropdown lists all three modes with explanations, and the assignee dropdown assigns any member.
-- [ ] The filter popover supports tags has-any/has-all/exclude/untagged, waiting kinds, mode, assignee, channel, phone and status. Active filters show as one line of chips.
-- [ ] The tag bar attaches and removes conversation tags in one click, and the picker searches all tags.
-- [ ] The right panel shows only customer, notes timeline, orders and follow-up.
-- [ ] Tests added/updated and `pnpm check` green
-- [ ] Docs updated (`docs/` inbox section, `apps/web` README screenshots if present)
+- [x] List rows show the customer name (or "Khách Facebook ·1234"), channel, unread count, wait time, up to 3 tags + "+N", phone icon, assignee and reply mode.
+- [x] Tabs Tất cả / Chưa đọc / Chờ rep show server counts. Opening a conversation marks it read for the whole shop, and "Đánh dấu chưa đọc" brings it back.
+- [x] The header shows "Đã xem bởi X · time". The reply-mode dropdown lists all three modes with explanations, and the assignee dropdown assigns any member.
+- [x] The filter popover supports tags has-any/has-all/exclude/untagged, waiting kinds, mode, assignee, channel, phone and status. Active filters show as one line of chips.
+- [x] The tag bar attaches and removes conversation tags in one click, and the picker searches all tags.
+- [x] The right panel shows only customer, notes timeline, orders and follow-up.
+- [x] Tests added/updated and `pnpm check` green
+- [x] Docs updated (`docs/` inbox section, `apps/web` README screenshots if present)
 
 ## Plan
 
@@ -91,6 +91,9 @@ Dated entries, newest last. Decisions, blockers, questions, what was verified an
 
 - 2026-10-25 — created. Design approved in chat ("okk làm hết đi"). The owner chose shared (per-shop) unread.
 - 2026-10-25 — backend steps 1-3 done in three commits (conversation core + migration 0024, Meta profile lookup, CRM conversation tags). Decisions: new DTO fields keep `.default()` at runtime but `ConversationDto` is the `z.input` type (optional new fields, so the web compiles unchanged) and `ConversationView` is the strict `z.output` type; read/unread/notes never bump `revision` or `updatedAt`; conversation tags publish no `crm.tag.*` event; tag routes live in the conversation controller (it owns the existence check) and call `CrmFacade`. Verified: unit tests, Postgres integration tests (migration backfill, SQL query vs reference, HTTP inbox v2 flow).
+- 2026-10-25 — QA review (independent agent) of the backend: no blocker, 3 major + 7 minor. Fixed: resolved conversations leave the waiting tab, phone regex rejects dates/prices/long runs, first phone kept and editable, tag filters use one array parameter, migration re-runnable and cast-safe, 15-min retry after a failed profile lookup, legacy note kept in the timeline. Added explicit `takeover: temporary|permanent` and `senderName` on staff messages.
+- 2026-10-25 — web built in a parallel worktree (`tmp/T-073-web`), QA review (role-played sales rep): 1 blocker (temporary and permanent takeover sent the same request) + 8 major, all fixed (read guard on mark-unread, debounced search with kept data, touch row menu, one notes timeline, lighter composer, "Đã xem" only for another reader, divider after mark-unread, staff name on messages). Merged into this branch.
+- 2026-10-25 — verified: `pnpm check` green (initial gzip 248.6 KB / 250 KB); inbox e2e 11/11 against the preview build (fixed the mock channel to have a bot). `responsive.spec.ts` fails at 768/1280/1920 px on the base commit a89fa56 as well (heading "Nhật ký thay đổi"), so it is pre-existing and not caused by T-073. Meta profile endpoints follow the docs; not yet run against a live Page. Known gaps: no cursor pagination (limit 100), filter state lives in saved views (localStorage) not the URL, the follow-up "due" queue was replaced by the tabs (follow-ups stay in the right panel).
 
 ## Links
 
