@@ -238,14 +238,15 @@ describe('runner persistence on Postgres', () => {
       isTest: false,
     });
     expect(out).toEqual({ ok: true, statusCode: 200, data: { status: 'paid' } });
-    const test = await facade.test(a, botA, action.id, { code: 'T1' });
+    const test = await facade.test(a, botA, action.id, { code: 'SAMPLE-ARG' });
     expect(test.ok).toBe(true);
     const rows = (await owner.select().from(schema.actionRuns)).filter(
       (r) => r.actionId === action.id,
     );
     expect(rows).toHaveLength(2);
     expect(rows.map((r) => r.isTest).sort()).toEqual([false, true]);
-    expect(JSON.stringify(rows)).not.toMatch(/SECRET-CODE|T1|paid|tenant-a-token/);
+    // Markers must not occur by chance in ids or timestamps (an earlier "T1" matched "T15:…").
+    expect(JSON.stringify(rows)).not.toMatch(/SECRET-CODE|SAMPLE-ARG|paid|tenant-a-token/);
     await withTenant(tenant, b, async (tx) => {
       expect(await tx.select().from(schema.actionRuns)).toEqual([]);
     });
