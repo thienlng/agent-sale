@@ -4,12 +4,12 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
-- [ ] T-076 Reduce integration initial bundle below 250 KB — @agent:codex · [details](todo/T-076-reduce-integration-initial-bundle-below-250-kb.md)
-- [ ] T-082 Unify channel assignment and bulk bot filters — @agent:codex · [details](todo/T-082-unify-channel-assignment-and-bulk-bot-filters.md)
-- [ ] T-083 Move fanpage management into the bot workspace navigation — @agent:codex · [details](todo/T-083-move-fanpage-management-into-the-bot-workspace-nav.md)
-- [ ] T-084 Expose bot switches and advanced settings consistently — @agent:codex · [details](todo/T-084-expose-bot-switches-and-advanced-settings-consiste.md)
-- [ ] T-085 Separate bot training facts from behavioral instructions — @agent:codex · [details](todo/T-085-separate-bot-training-facts-from-behavioral-instru.md)
-- [ ] T-090 Diagnose and fix failed inbox tag updates — @agent:codex · [details](todo/T-090-diagnose-and-fix-failed-inbox-tag-updates.md)
+- [ ] T-076 Reduce integration initial bundle below 250 KB — @agent:codex · [details](todo/T-076-reduce-integration-initial-bundle-below-250-kb.md) · PR #64
+- [ ] T-082 Unify channel assignment and bulk bot filters — @agent:codex · [details](todo/T-082-unify-channel-assignment-and-bulk-bot-filters.md) · PR #64
+- [ ] T-083 Move fanpage management into the bot workspace navigation — @agent:codex · [details](todo/T-083-move-fanpage-management-into-the-bot-workspace-nav.md) · PR #64
+- [ ] T-084 Expose bot switches and advanced settings consistently — @agent:codex · [details](todo/T-084-expose-bot-switches-and-advanced-settings-consiste.md) · PR #64
+- [ ] T-085 Separate bot training facts from behavioral instructions — @agent:codex · [details](todo/T-085-separate-bot-training-facts-from-behavioral-instru.md) · PR #64
+- [ ] T-090 Diagnose and fix failed inbox tag updates — @agent:codex · [details](todo/T-090-diagnose-and-fix-failed-inbox-tag-updates.md) · PR #64
 
 ## Next
 

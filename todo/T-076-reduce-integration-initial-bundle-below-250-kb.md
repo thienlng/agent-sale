@@ -8,7 +8,7 @@ owner: "@agent:codex"
 created: 2026-10-26
 updated: 2026-10-26
 branch: feat/T-090-lane-b-review
-pr:
+pr: 64
 ---
 
 ## Context
