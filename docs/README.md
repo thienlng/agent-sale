@@ -37,6 +37,7 @@ Input source: `../../preny/preny-research/` (Preny research dossier dated 23/10/
 | — | [Training workspace](training-workspace.md) | Implementation | Bot training materials, history and handover settings (T-045) |
 | — | [Bot API actions](actions.md) | Implementation | Shop-declared HTTP actions the bot can call, confirmation gate, SSRF-safe executor (T-055) |
 | — | [Meta inbox](meta-inbox.md) | Implementation | Facebook/Instagram connection, webhook processing, takeover, attachments and live testing (T-045) |
+| — | [Sales inbox workspace](18-sales-inbox-workspace.md) | Implementation | Sales queues, composer drafts, explicit CRM selection and order creation alongside chat (T-068) |
 
 ## One-page summary
 

@@ -10,7 +10,7 @@ import type { WorkspaceMember, WorkspaceMembership } from '../../api/workspace.f
 export interface WorkspaceDirectory {
   findMembership(workspaceId: WorkspaceId, userId: UserId): Promise<WorkspaceMembership | null>;
   listMemberships(userId: UserId): Promise<WorkspaceMembership[]>;
-  listMembers(workspaceId: WorkspaceId): Promise<WorkspaceMember[]>;
+  listMembers(workspaceId: WorkspaceId, includeRemoved: boolean): Promise<WorkspaceMember[]>;
 }
 
 export const WORKSPACE_DIRECTORY = Symbol('WORKSPACE_DIRECTORY');

@@ -195,6 +195,25 @@ export function crmSettingsTx(
         const [r] = opts?.forUpdate ? await q.for('update') : await q;
         return r ? toAssignment(r) : null;
       },
+      async activePairs(scope, filter) {
+        if (filter.entityIds && !filter.entityIds.length) return [];
+        if (filter.tagIds && !filter.tagIds.length) return [];
+        const rows = await tx
+          .select({ entityId: a.entityId, tagId: a.tagId, tagName: t.name, tagColor: t.color })
+          .from(a)
+          .innerJoin(t, eq(t.id, a.tagId))
+          .where(
+            and(
+              eq(a.scope, scope),
+              isNull(a.removedAt),
+              isNull(t.archivedAt),
+              filter.entityIds ? inArray(a.entityId, [...filter.entityIds]) : undefined,
+              filter.tagIds ? inArray(a.tagId, [...filter.tagIds]) : undefined,
+            ),
+          )
+          .orderBy(asc(a.assignedAt), asc(a.id));
+        return rows;
+      },
       async insert(workspaceId, rec) {
         // A savepoint, so a lost race (unique violation) leaves the transaction usable.
         try {

@@ -40,13 +40,28 @@ export class ApiClientError extends Error {
 
 type Method = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
 
-async function send(path: string, method: Method, body: unknown, scoped: boolean) {
-  const headers: Record<string, string> = { Accept: 'application/json' };
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
+/** A raw (non-JSON) request body, e.g. an image file. */
+export interface RawBody {
+  data: Blob;
+  contentType: string;
+}
+
+async function send(
+  path: string,
+  method: Method,
+  body: unknown,
+  scoped: boolean,
+  raw?: RawBody,
+  accept = 'application/json',
+) {
+  const headers: Record<string, string> = { Accept: accept };
+  if (raw) headers['Content-Type'] = raw.contentType;
+  else if (body !== undefined) headers['Content-Type'] = 'application/json';
   if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
   if (scoped && workspaceId) headers['X-Workspace-Id'] = workspaceId;
   const init: RequestInit = { method, headers, credentials: 'include' };
-  if (body !== undefined) init.body = JSON.stringify(body);
+  if (raw) init.body = raw.data;
+  else if (body !== undefined) init.body = JSON.stringify(body);
   return fetch(`/api/v1${path}`, init);
 }
 
@@ -78,22 +93,51 @@ export function refreshSession(): Promise<AuthResponse | null> {
   return refreshing;
 }
 
-export async function api<T>(
+/** Sends a request; one silent refresh and retry on 401 (not for /auth/*). */
+async function request(
   path: string,
-  schema: z.ZodType<T>,
-  init: { method?: Method; body?: unknown; workspaceScoped?: boolean } = {},
-): Promise<T> {
-  const method = init.method ?? 'GET';
-  const scoped = init.workspaceScoped ?? true;
-  let res = await send(path, method, init.body, scoped);
+  method: Method,
+  body: unknown,
+  scoped: boolean,
+  raw?: RawBody,
+  accept?: string,
+): Promise<Response> {
+  let res = await send(path, method, body, scoped, raw, accept);
   if (res.status === 401 && !path.startsWith('/auth/')) {
     if (await refreshSession()) {
-      res = await send(path, method, init.body, scoped);
+      res = await send(path, method, body, scoped, raw, accept);
     } else {
       accessToken = null;
       onSessionExpired();
     }
   }
+  return res;
+}
+
+export async function api<T>(
+  path: string,
+  schema: z.ZodType<T>,
+  init: { method?: Method; body?: unknown; raw?: RawBody; workspaceScoped?: boolean } = {},
+): Promise<T> {
+  const res = await request(
+    path,
+    init.method ?? 'GET',
+    init.body,
+    init.workspaceScoped ?? true,
+    init.raw,
+  );
   if (!res.ok) throw await toError(res);
   return schema.parse(res.status === 204 ? null : await res.json());
+}
+
+/**
+ * A binary response (e.g. the logo) as a Blob. Images cannot be loaded with an
+ * `<img src>` here because the access token lives in memory, not in a cookie.
+ * Resolves null when the resource does not exist.
+ */
+export async function apiBlob(path: string): Promise<Blob | null> {
+  const res = await request(path, 'GET', undefined, true, undefined, '*/*');
+  if (res.status === 404) return null;
+  if (!res.ok) throw await toError(res);
+  return res.blob();
 }

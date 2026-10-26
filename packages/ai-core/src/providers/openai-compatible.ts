@@ -16,6 +16,8 @@ import type {
  */
 export type StructuredOutputMode = 'json_schema' | 'json_object' | 'none';
 
+const MAX_LISTED_MODELS = 500;
+
 export interface OpenAiCompatibleProviderOptions {
   /** Registry name used by tier policies, e.g. "openai" or "selfhost". */
   name?: string;
@@ -86,6 +88,15 @@ export class OpenAiCompatibleProvider implements LlmProvider {
       model: response.model || target.model,
       latencyMs: Math.round(performance.now() - started),
     };
+  }
+
+  async listModels(): Promise<string[]> {
+    const ids: string[] = [];
+    for await (const model of this.#client.models.list()) {
+      ids.push(model.id);
+      if (ids.length >= MAX_LISTED_MODELS) break;
+    }
+    return ids.sort();
   }
 
   #responseFormat(

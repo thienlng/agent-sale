@@ -4,15 +4,17 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
+- [ ] T-073 Sales inbox v2 unread tags filters and reply mode — @agent:claude · [details](todo/T-073-sales-inbox-v2-unread-tags-filters-and-reply-mode.md) · PR #59
+- [ ] T-072 Complete inbox follow-ups saved views and sales shortcuts — @agent:codex · [details](todo/T-072-complete-inbox-follow-ups-saved-views-and-sales-sh.md) · PR #59
 - [ ] T-070 Instruction rules v2: toggles, sections, starter pack and visible system rules — @agent:claude · [details](todo/T-070-instruction-rules-v2-toggles-sections-starter-pack.md)
-
 - [ ] T-055 Bot API actions: let the bot call shop APIs (Bizfly-style integrations) — @agent:claude · [details](todo/T-055-bot-api-actions-let-the-bot-call-shop-apis-bizfly-.md)
-
 - [ ] T-052 Sign in to ChatGPT from the Admin LLM page for hermes-runtime — @mrkenknight · [details](todo/T-052-sign-in-to-chatgpt-from-the-admin-llm-page-for-her.md) · #42 (draft)
+- [ ] T-067 Stop auto-collapsing the app sidebar inside the bot space — @agent:claude · [details](todo/T-067-stop-auto-collapsing-the-app-sidebar-inside-the-bo.md)
+- [ ] T-065 Admin LLM: check connection and fetch model list from the provider dialog — @agent:claude · [details](todo/T-065-admin-llm-check-connection-and-fetch-model-list-fr.md)
 
 ## Next
 
-(none)
+- [ ] T-045 Email verification at signup (ACC-01) and verified-email invitations — @unassigned · [details](todo/T-045-email-verification-at-signup-acc-01-and-verified-e.md)
 
 ## Backlog
 
@@ -24,15 +26,11 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [ ] T-020 Orders follow-ups: Excel import, product images, 2-level address picker, carriers and printing, multi-tab drafts — @unassigned · [details](todo/T-020-orders-follow-ups-excel-import-product-images-2-le.md)
 - [ ] T-021 Fix the root pnpm gen script (turbo gen needs --args) — @unassigned · [details](todo/T-021-fix-the-root-pnpm-gen-script-turbo-gen-needs-args.md)
 - [ ] T-028 Structured product variants, dimensions and negative-stock policy — @unassigned · [details](todo/T-028-structured-product-variants-dimensions-and-negativ.md)
-- [ ] T-033 CRM auto-assignment distribution policies for Sales and CSKH — @unassigned · [details](todo/T-033-crm-auto-assignment-distribution-policies-for-sale.md)
 - [ ] T-034 CRM tasks, reminders and recurring follow-ups — @unassigned · [details](todo/T-034-crm-tasks-reminders-and-recurring-follow-ups.md)
 - [ ] T-035 CRM versioned custom contact fields — @unassigned · [details](todo/T-035-crm-versioned-custom-contact-fields.md)
 - [ ] T-036 CRM customer import preview, deduplication and merges — @unassigned · [details](todo/T-036-crm-customer-import-preview-deduplication-and-merg.md)
 - [ ] T-037 CRM customer files, scoped exports and archive/restore — @unassigned · [details](todo/T-037-crm-customer-files-scoped-exports-and-archive-rest.md)
 - [ ] T-038 CRM conversation-driven rules and historical sync — @unassigned · [details](todo/T-038-crm-conversation-driven-rules-and-historical-sync.md)
-- [ ] T-039 Analytics metric definitions and attribution — @unassigned · [details](todo/T-039-analytics-metric-definitions-and-attribution.md)
-- [ ] T-040 Analytics events, temporal state and rebuildable projections — @unassigned · [details](todo/T-040-analytics-events-temporal-state-and-rebuildable-pr.md)
-- [ ] T-041 Statistics dashboard, breakdowns and drilldowns — @unassigned · [details](todo/T-041-statistics-dashboard-breakdowns-and-drilldowns.md)
 - [ ] T-042 CRM and statistics permissions, entitlements and acceptance suite — @unassigned · [details](todo/T-042-crm-and-statistics-permissions-entitlements-and-ac.md)
 - [ ] T-046 Fix flaky tampered access-token test in identity auth flow — @unassigned · [details](todo/T-046-fix-flaky-tampered-access-token-test-in-identity-a.md)
 - [ ] T-048 Narrow app_system inbox uses to SECURITY DEFINER functions — @unassigned · [details](todo/T-048-narrow-app-system-inbox-uses-to-security-definer-f.md)
@@ -40,6 +38,13 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [ ] T-050 Pin the Hermes version and run a live hermes-runtime acceptance probe — @unassigned · [details](todo/T-050-pin-the-hermes-version-and-run-a-live-hermes-runti.md)
 - [ ] T-051 Move Meta inbox and training docs into the docs structure — @unassigned · [details](todo/T-051-move-meta-inbox-and-training-docs-into-the-docs-st.md)
 - [ ] T-053 Bot reply quality and pipeline robustness found by scenario QA — @unassigned · [details](todo/T-053-bot-reply-quality-and-pipeline-robustness-found-by.md)
+- [ ] T-058 Notification preferences and reminder offsets (ADM-03) — @unassigned · [details](todo/T-058-notification-preferences-and-reminder-offsets-adm-.md)
+- [ ] T-059 Plan purchase history, invoices and payment approval states (ADM-05) — @unassigned · [details](todo/T-059-plan-purchase-history-invoices-and-payment-approva.md)
+- [ ] T-060 AI and ZBS credit wallets, ledgers and vouchers (ADM-06) — @unassigned · [details](todo/T-060-ai-and-zbs-credit-wallets-ledgers-and-vouchers-adm.md)
+- [ ] T-061 Affiliate onboarding, referral reporting and commissions (ADM-07) — @unassigned · [details](todo/T-061-affiliate-onboarding-referral-reporting-and-commis.md)
+- [ ] T-062 Support tickets with department routing and attachments (ADM-08) — @unassigned · [details](todo/T-062-support-tickets-with-department-routing-and-attach.md)
+- [ ] T-063 Advanced Google connector and capability-aware settings navigation (ADM-09) — @unassigned · [details](todo/T-063-advanced-google-connector-and-capability-aware-set.md)
+- [ ] T-066 Fix flaky MetaInboxProcessor test: reply arriving while the previous one is generated — @unassigned · [details](todo/T-066-fix-flaky-metainboxprocessor-test-reply-arriving-w.md)
 
 ## Blocked
 
@@ -47,13 +52,13 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## Done (last 10 — older ones live in todo/done/)
 
-- [x] T-047 Rebuild bot training and multichannel UI to match Preny screens — @agent:claude-code · [details](todo/done/T-047-rebuild-bot-training-and-multichannel-ui-to-match-.md) · #40
-- [x] T-045 Implement Preny bot training and Meta inbox with an isolated Hermes runtime — @agent:codex · [details](todo/done/T-045-implement-preny-bot-training-and-meta-inbox-with-a.md) · #40
-- [x] T-032 CRM classification and attribute tags with assignments — @agent:claude · [details](todo/done/T-032-crm-classification-and-attribute-tags-with-assignm.md) · #39
-- [x] T-031 CRM sources, pipeline statuses and Sales/CSKH assignment — @agent:claude · [details](todo/done/T-031-crm-sources-pipeline-statuses-and-sales-cskh-assig.md) · #39
-- [x] T-030 CRM typed contact filters, table preferences and saved views — @agent:claude · [details](todo/done/T-030-crm-typed-contact-filters-table-preferences-and-sa.md) · #39
-- [x] T-029 CRM contact workspace: profile, notes and audit history — @agent:claude · [details](todo/done/T-029-crm-contact-workspace-profile-notes-and-audit-hist.md) · #39
-- [x] T-027 Live-backend commerce E2E regression suite — @agent:claude · [details](todo/done/T-027-live-backend-commerce-e2e-regression-suite.md) · #24
-- [x] T-026 Separate gross total from amount due on orders — @agent:claude · [details](todo/done/T-026-separate-gross-total-from-amount-due-on-orders.md) · #24
-- [x] T-025 Order list multi-status include/exclude, creator and carrier filters — @agent:claude · [details](todo/done/T-025-order-list-multi-status-include-exclude-creator-an.md) · #24
-- [x] T-024 Source-scoped order field policies for creation and confirmation — @agent:claude · [details](todo/done/T-024-source-scoped-order-field-policies-for-creation-an.md) · #24
+- [x] T-068 Redesign the sales inbox workspace — @agent:codex · [details](todo/done/T-068-redesign-the-sales-inbox-workspace.md) · PR #59
+- [x] T-071 Make team assignment history integration coverage deterministic — @agent:codex · [details](todo/done/T-071-make-team-assignment-history-integration-coverage-.md)
+- [x] T-041 Statistics dashboard, breakdowns and drilldowns — @agent:claude · [details](todo/done/T-041-statistics-dashboard-breakdowns-and-drilldowns.md) · #54
+- [x] T-040 Analytics events, temporal state and rebuildable projections — @agent:claude · [details](todo/done/T-040-analytics-events-temporal-state-and-rebuildable-pr.md) · #54
+- [x] T-039 Analytics metric definitions and attribution — @agent:claude · [details](todo/done/T-039-analytics-metric-definitions-and-attribution.md) · #54
+- [x] T-064 Fix the M4a review findings: sessions on 2FA changes, owner removal, seat backfill, audit grants — @agent:claude · [details](todo/done/T-064-fix-the-m4a-review-findings.md) · #55
+- [x] T-057 Account two-factor authentication with TOTP and recovery codes (ADM-04) — @agent:claude · [details](todo/done/T-057-account-two-factor-authentication-with-totp-and-re.md) · #53
+- [x] T-056 Workspace business profile and private logo (ADM-02) — @agent:claude · [details](todo/done/T-056-workspace-business-profile-and-private-logo-adm-02.md) · #53
+- [x] T-055 Workspace members: seat limits, resend and reassignment on removal (ADM-01) — @agent:claude · [details](todo/done/T-055-workspace-members-seat-limits-resend-and-reassignm.md) · #53
+- [x] T-054 Audit trail for workspace and security changes — @agent:claude · [details](todo/done/T-054-audit-trail-for-workspace-and-security-changes.md) · #53

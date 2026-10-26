@@ -100,6 +100,14 @@ export interface AssignmentRecord {
   version: number;
 }
 
+/** One active tag on one entity, with what a chip needs. */
+export interface TaggedEntity {
+  entityId: string;
+  tagId: string;
+  tagName: string;
+  tagColor: string;
+}
+
 export interface ViewRecord {
   id: string;
   ownerUserId: string;
@@ -121,8 +129,19 @@ export interface ContactQuery {
   sort: ContactSort;
   /** For local-day date rules (created/updated on a day). */
   timezone: string;
+  /** Only customers this user owns (Sales or CSKH) or nobody owns; null = all. */
+  ownerScope: string | null;
   offset: number;
   limit: number;
+}
+
+export interface PolicyRecord {
+  sourceId: string;
+  enabled: boolean;
+  candidates: Array<{ userId: string; weight: number }>;
+  /** Customers handed out so far (drives the round robin). */
+  cursor: number;
+  version: number;
 }
 
 /** An integration event for the outbox (written in the same transaction as the change). */
@@ -141,6 +160,16 @@ export interface CrmTx {
     find(id: string, opts?: { forUpdate?: boolean }): Promise<ContactRecord | null>;
     findByRequestId(requestId: string): Promise<ContactRecord | null>;
     query(q: ContactQuery): Promise<{ rows: ContactRecord[]; total: number }>;
+    countOwnedBy(userId: string): Promise<{ sales: number; care: number }>;
+    /** Display names by id (statistics drilldown); unknown ids are absent. */
+    namesOf(ids: readonly string[]): Promise<Map<string, string | null>>;
+    /** Moves the owner slot of every customer owned by `from`; returns the ids moved. */
+    reassignOwner(
+      role: 'sales' | 'care',
+      from: string,
+      to: string | null,
+      at: Date,
+    ): Promise<string[]>;
   };
   notes: {
     list(contactId: string): Promise<NoteRecord[]>;
@@ -208,6 +237,14 @@ export interface CrmTx {
       entityId: string,
     ): Promise<AssignmentRecord | null>;
     find(id: string, opts?: { forUpdate?: boolean }): Promise<AssignmentRecord | null>;
+    /**
+     * Active assignments of non-archived tags with the tag's chip, oldest first. Narrowed by
+     * entity ids and/or tag ids; with neither, every active assignment of the scope.
+     */
+    activePairs(
+      scope: 'contact' | 'conversation',
+      filter: { entityIds?: readonly string[]; tagIds?: readonly string[] },
+    ): Promise<TaggedEntity[]>;
     /** Returns false when an active one already exists (unique per tag and entity). */
     insert(workspaceId: WorkspaceId, a: AssignmentRecord): Promise<boolean>;
     update(a: AssignmentRecord): Promise<void>;
@@ -219,6 +256,17 @@ export interface CrmTx {
     insert(workspaceId: WorkspaceId, v: ViewRecord): Promise<void>;
     update(v: ViewRecord): Promise<void>;
     delete(id: string): Promise<void>;
+  };
+  policies: {
+    list(): Promise<PolicyRecord[]>;
+    find(sourceId: string, opts?: { forUpdate?: boolean }): Promise<PolicyRecord | null>;
+    /** Saves when the stored version is `expectedVersion` (0 = none yet); the new version or null. */
+    save(
+      p: Pick<PolicyRecord, 'sourceId' | 'enabled' | 'candidates'>,
+      expectedVersion: number,
+    ): Promise<number | null>;
+    /** One more customer handed out. */
+    advance(sourceId: string): Promise<void>;
   };
   outbox(workspaceId: WorkspaceId, e: CrmOutboxEvent): Promise<void>;
 }

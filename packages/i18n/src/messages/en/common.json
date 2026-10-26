@@ -30,7 +30,9 @@
     "ordersNew": "New order",
     "orderSettings": "Setup",
     "contactsList": "Customer list",
-    "crmSettings": "Customer settings"
+    "crmSettings": "Customer settings",
+    "members": "Members",
+    "settingsHome": "Settings"
   },
   "auth": {
     "login": "Log in",
@@ -62,6 +64,18 @@
       "bot": "Dạ áo thun trắng size L còn hàng ạ, giá 189.000đ. Anh/chị muốn em lên đơn luôn không ạ?",
       "source": "Answered from FAQ: T-shirt price",
       "caption": "Customers type without accents and abbreviate. The bot still answers with the exact price you taught it."
+    },
+    "mfa": {
+      "title": "Two-step verification",
+      "subtitle": "Enter the 6-digit code from your authenticator app.",
+      "code": "Verification code",
+      "useRecovery": "Use a recovery code",
+      "useApp": "Use an app code",
+      "recoveryLabel": "Recovery code",
+      "recoveryHint": "Each recovery code works only once.",
+      "verify": "Verify",
+      "back": "Back",
+      "invalid": "That code is wrong or already used. Try a fresh one."
     }
   },
   "industries": {
@@ -300,7 +314,19 @@
       "refresh": "Refresh model list",
       "authRequired": "Sign in to ChatGPT to load the model list",
       "manual": "Couldn't load the model list; type a model name."
-    }
+    },
+    "checkConnection": "Check connection",
+    "checking": "Checking…",
+    "checkHint": "Tries these settings without saving.",
+    "checkOk_one": "Connected in {{ms}} ms · {{count}} model available",
+    "checkOk_other": "Connected in {{ms}} ms · {{count}} models available",
+    "fetchModels": "Pick from the server's models",
+    "fetchingModels": "Fetching models…",
+    "filterModels": "Filter {{count}} models",
+    "noModels": "No models match.",
+    "retry": "Try again",
+    "showKey": "Show key",
+    "hideKey": "Hide key"
   },
   "errors": {
     "notFoundTitle": "Page not found",
@@ -315,7 +341,9 @@
     "invalidUrl": "Invalid URL (needs http:// or https://)",
     "invalidName": "Lowercase letters, digits and dashes only (2–40 characters)",
     "conflict": "This name is already used",
-    "inUse": "A plan uses this server. Move the plan to another server first."
+    "inUse": "A plan uses this server. Move the plan to another server first.",
+    "forbidden": "Your role cannot do this.",
+    "quotaExceeded": "The plan has no room left for this. Free some up or upgrade the plan."
   },
   "common": {
     "loading": "Loading…",
@@ -936,7 +964,8 @@
       "tabs": {
         "statuses": "Statuses",
         "sources": "Customer sources",
-        "tags": "Tags"
+        "tags": "Tags",
+        "distribution": "Distribution"
       },
       "statusesHint": "The steps of customer care, in order. A customer's status never changes their orders.",
       "sourcesHint": "Where customers come from.",
@@ -998,6 +1027,386 @@
       "fieldsInvalid": "Check: {{fields}}",
       "notMember": "This person is no longer a member of the shop."
     },
-    "pageInfo": "{{from}}–{{to}} of {{total}} customers"
+    "pageInfo": "{{from}}–{{to}} of {{total}} customers",
+    "distribution": {
+      "hint": "New customers from a source go to the Sales members below in turn, by their share. Customers created with a Sales owner keep it.",
+      "enabled": "Distribute this source",
+      "members": "Sales receiving customers",
+      "weight": "Share",
+      "save": "Save",
+      "saved": "Distribution saved",
+      "off": "Off",
+      "on": "On",
+      "noMembers": "No members yet. Invite Sales on the Members page.",
+      "share": "{{percent}}%"
+    }
+  },
+  "team": {
+    "title": "Members & access",
+    "members": "Members",
+    "invitations": "Invitations",
+    "invite": "Invite a member",
+    "inviteHint": "Send the link to the person by chat or email. It works for 7 days and only for the invited email.",
+    "email": "Email of the person",
+    "role": "Role",
+    "send": "Create invitation link",
+    "link": "Invitation link",
+    "copy": "Copy link",
+    "copied": "Invitation link copied",
+    "linkOnce": "The link is shown only once. Copy it before closing.",
+    "done": "Done",
+    "col": {
+      "name": "Name",
+      "email": "Email",
+      "role": "Role",
+      "status": "Status",
+      "joined": "Joined",
+      "expires": "Expires",
+      "invitedBy": "Invited by"
+    },
+    "you": "You",
+    "roles": {
+      "owner": "Owner",
+      "admin": "Admin",
+      "sales": "Sales",
+      "care": "Customer care",
+      "analyst": "Analyst"
+    },
+    "roleHints": {
+      "admin": "Manages everything except the owner.",
+      "sales": "Sells: sees their own and unassigned customers, creates orders.",
+      "care": "Customer care: like Sales, for the customers they look after.",
+      "analyst": "Read-only access to customers and orders."
+    },
+    "memberStatus": {
+      "active": "Active",
+      "removed": "Left"
+    },
+    "inviteStatus": {
+      "pending": "Pending",
+      "accepted": "Accepted",
+      "revoked": "Revoked",
+      "expired": "Expired"
+    },
+    "remove": "Remove from shop",
+    "removeConfirm": "Remove {{name}} from the shop? They lose access at once; their customers and orders stay.",
+    "removed": "Member removed",
+    "roleChanged": "Role changed",
+    "revoke": "Revoke",
+    "revoked": "Invitation revoked",
+    "noInvitations": "No invitations yet.",
+    "cancel": "Cancel",
+    "join": {
+      "title": "Invitation to join a shop",
+      "intro": "You are invited to {{workspace}} as {{role}}.",
+      "accept": "Join",
+      "accepted": "You joined {{workspace}}",
+      "wrongEmail": "This invitation was sent to {{email}}. Sign in with that email to join.",
+      "unusable": "This invitation can no longer be used ({{status}}). Ask for a new link.",
+      "notFound": "Invitation not found. The link may be wrong or replaced by a newer one.",
+      "loginFirst": "Sign in or create an account with the invited email to join.",
+      "login": "Sign in",
+      "signup": "Create account"
+    },
+    "seats": "Members {{used}}/{{limit}}",
+    "seatsUnlimited": "{{used}} members",
+    "seatsPending": "{{count}} waiting invitations hold a seat",
+    "quota": {
+      "title": "All member seats of the plan are used",
+      "body": "Your plan allows {{limit}} members, counting waiting invitations ({{members}} members + {{pending}} invitations). Revoke an invitation, remove a member or upgrade the plan to invite more.",
+      "close": "Got it"
+    },
+    "resend": "Resend",
+    "resent": "A new link was created; the old one no longer works",
+    "resendTitle": "New invitation link",
+    "removeDialog": {
+      "title": "Remove {{name}} from the shop?",
+      "body": "They lose access at once. The customers, orders and notes they made stay.",
+      "owns": "{{name}} owns {{sales}} customers (Sales) and {{care}} customers (CSKH). Choose who takes over; each customer's history records it.",
+      "transfer": "Hand over to another member",
+      "unassign": "Leave unassigned (customers become unowned)",
+      "pick": "Choose a member",
+      "loading": "Checking the customers this member owns…",
+      "confirm": "Remove member"
+    },
+    "audit": {
+      "title": "Change log",
+      "empty": "No changes yet.",
+      "more": "Show more",
+      "all": "All",
+      "actor": "By",
+      "system": "System",
+      "actions": {
+        "member.invited": "Member invited",
+        "member.invitation_resent": "Invitation resent",
+        "member.invitation_revoked": "Invitation revoked",
+        "member.joined": "Member joined",
+        "member.role_changed": "Role changed",
+        "member.removed": "Member removed",
+        "workspace.profile_updated": "Shop profile updated",
+        "workspace.logo_changed": "Logo changed",
+        "workspace.logo_removed": "Logo removed",
+        "billing.plan_set": "Plan changed",
+        "security.mfa_enabled": "Two-factor enabled",
+        "security.mfa_disabled": "Two-factor disabled",
+        "security.recovery_codes_regenerated": "Recovery codes regenerated"
+      },
+      "areas": {
+        "member": "Members",
+        "workspace": "Shop profile",
+        "security": "Security",
+        "billing": "Plan and billing"
+      }
+    }
+  },
+  "wsettings": {
+    "title": "Settings",
+    "tabs": {
+      "profile": "Shop profile",
+      "security": "Security",
+      "audit": "Change log"
+    },
+    "profile": {
+      "title": "Shop information",
+      "hint": "The shop's business details. Separate from your own login account and from invoicing details.",
+      "name": "Shop name",
+      "companyName": "Company name",
+      "businessServices": "Business field / services",
+      "productDescription": "Product and service description",
+      "save": "Save changes",
+      "saved": "Shop information saved",
+      "reset": "Undo",
+      "dirty": "Unsaved changes",
+      "readOnly": "You can only view this. The owner or an admin can edit it.",
+      "stale": "Someone else just changed the shop information. The latest version is loaded; check it and save again.",
+      "leave": "You have unsaved changes. Leaving this page discards them.",
+      "stay": "Stay",
+      "leaveConfirm": "Leave page"
+    },
+    "logo": {
+      "title": "Logo",
+      "rules": "PNG or JPG, square, up to 1 MB. 720 × 720 px recommended (128 to 2048 px accepted).",
+      "alt": "Shop logo",
+      "none": "No logo yet",
+      "upload": "Choose image",
+      "change": "Change logo",
+      "remove": "Remove logo",
+      "uploaded": "Logo updated",
+      "removed": "Logo removed",
+      "uploading": "Uploading…",
+      "errors": {
+        "too_large": "The image is over 1 MB. Compress it or pick a smaller one.",
+        "not_an_image": "This file is not a valid PNG or JPG image.",
+        "corrupt": "The image could not be read (damaged or cut off). Export it again and retry.",
+        "not_square": "The image must be square (it is {{width}} × {{height}} px).",
+        "too_small": "The image is too small (at least 128 × 128 px).",
+        "too_big": "The image is too large (at most 2048 × 2048 px).",
+        "type": "Only PNG or JPG images are accepted."
+      }
+    },
+    "security": {
+      "title": "Two-step verification",
+      "hint": "An extra layer of protection: besides your password, signing in needs a code from an authenticator app (Google Authenticator, Authy, 1Password…).",
+      "off": "Off",
+      "on": "On",
+      "recoveryLeft": "{{count}} recovery codes left",
+      "enable": "Turn on two-step verification",
+      "disable": "Turn off two-step verification",
+      "newCodes": "Generate new recovery codes",
+      "password": "Current password",
+      "code": "Verification code",
+      "codeOrRecovery": "Verification or recovery code",
+      "continue": "Continue",
+      "confirm": "Confirm",
+      "cancel": "Cancel",
+      "step1": "1. Confirm your password",
+      "step2": "2. Scan the QR code with your authenticator app",
+      "step3": "3. Enter the 6-digit code the app shows",
+      "manual": "Can't scan? Enter this key in the app:",
+      "copy": "Copy",
+      "copied": "Copied",
+      "qrAlt": "QR code to add this account to an authenticator app",
+      "codesTitle": "Save your recovery codes",
+      "codesHint": "Each code works once if you lose your phone. They are shown only here, only now — keep them somewhere safe.",
+      "codesDone": "I saved the codes",
+      "downloadCodes": "Download",
+      "disableTitle": "Turn off two-step verification?",
+      "disableHint": "Your account will be protected by your password alone.",
+      "newCodesTitle": "Generate new recovery codes?",
+      "newCodesHint": "The old codes will stop working.",
+      "errors": {
+        "invalid_password": "Wrong password.",
+        "invalid_code": "Wrong code. Try a fresh one from the app.",
+        "already_enabled": "Two-step verification is already on."
+      },
+      "enabledToast": "Two-step verification is on",
+      "disabledToast": "Two-step verification is off"
+    }
+  },
+  "analytics": {
+    "title": "Statistics",
+    "subtitle": "Customers, tags, statuses and conversations. Every number has a written definition — press (i) to read it.",
+    "filters": {
+      "from": "From",
+      "to": "To",
+      "origin": "Customer source",
+      "sales": "Salesperson",
+      "page": "Page / channel",
+      "preset7": "7 days",
+      "preset30": "30 days",
+      "thisMonth": "This month",
+      "allSales": "All salespeople",
+      "allPages": "All pages",
+      "noSales": "There are no Sales members yet",
+      "noPages": "No page is connected",
+      "connectPages": "Connect a page",
+      "salesNote": "The salesperson filter applies to customer, tag and status numbers, not to conversations.",
+      "pageNote": "The page filter only applies to conversation numbers.",
+      "rangeInvalid": "The start date must not be after the end date.",
+      "rangeTooLong": "Pick at most 366 days.",
+      "selected": "{{count}} selected"
+    },
+    "origins": {
+      "channel": "Chat channel",
+      "manual": "Entered by hand",
+      "import": "Imported",
+      "rule": "Automatic"
+    },
+    "groups": {
+      "activity": "Customers",
+      "tags": "Tags",
+      "statuses": "Statuses",
+      "conversations": "Conversations"
+    },
+    "metrics": {
+      "customers.new": {
+        "name": "New customers",
+        "help": "Customers created in the date range (shop time). Each customer is counted once."
+      },
+      "phones.captured": {
+        "name": "Phone numbers captured",
+        "help": "Customers who got a phone number for the first time in the range."
+      },
+      "tags.assigned": {
+        "name": "Tags added",
+        "help": "Times a tag was added in the range. Every addition counts."
+      },
+      "tags.removed": {
+        "name": "Tags removed",
+        "help": "Times a tag was removed in the range."
+      },
+      "tags.net": {
+        "name": "Net tags",
+        "help": "Tags added minus tags removed in the same range."
+      },
+      "tags.current": {
+        "name": "Customers with a tag",
+        "help": "Customers that have at least one tag right now. A customer with several tags counts once."
+      },
+      "statuses.changed": {
+        "name": "Status changes",
+        "help": "Times a customer's status changed in the range. The status a customer starts with is not a change."
+      },
+      "statuses.current": {
+        "name": "Customers by status",
+        "help": "All customers right now, split by their current status."
+      },
+      "conversations.opened": {
+        "name": "New conversations",
+        "help": "Conversations opened by a customer's first message."
+      },
+      "messages.inbound": {
+        "name": "Customer messages",
+        "help": "Messages customers sent."
+      },
+      "messages.outbound": {
+        "name": "Shop messages",
+        "help": "Messages staff and the bot sent successfully."
+      },
+      "comments.received": {
+        "name": "Comments",
+        "help": "Comments on the page."
+      }
+    },
+    "definition": {
+      "title": "Definition",
+      "kind": {
+        "event": "Event count: how many times it happened in the range.",
+        "snapshot": "Snapshot: the state at the time of viewing, whatever the range.",
+        "derived": "Computed from other numbers."
+      },
+      "origins": "Source: {{list}}",
+      "attribution": {
+        "sales_at_event": "By the salesperson in charge when it happened.",
+        "owner_at_as_of": "By the salesperson in charge at the time of viewing.",
+        "none": "Not tied to a staff member."
+      },
+      "version": "Definition version {{version}}"
+    },
+    "states": {
+      "loading": "Loading numbers…",
+      "errorTitle": "The numbers could not be loaded",
+      "errorBody": "They cannot be computed right now. This is not 0 — try again.",
+      "retry": "Try again",
+      "locked": "Your plan does not include this number",
+      "unavailable": "No data source yet",
+      "unavailableHint": "Page comments are not received yet, so they cannot be counted.",
+      "noData": "No data in this range",
+      "noChannelCustomers": "No customer has come from a chat channel yet. Also select “Entered by hand” to see customers created in the CRM.",
+      "forbidden": "You are not allowed to see statistics."
+    },
+    "freshness": {
+      "updated": "Updated at {{time}}",
+      "lag": "Data is about {{seconds}} seconds behind the system.",
+      "scopeOwn": "Only customers you own and customers nobody owns.",
+      "timezone": "Time zone {{tz}}"
+    },
+    "chart": {
+      "title": "By day",
+      "metric": "Number",
+      "empty": "There are no daily numbers to draw."
+    },
+    "breakdowns": {
+      "topTags": "Tags in the range",
+      "currentTags": "Tags currently on customers",
+      "currentTagsNote": "A customer with several tags is in several rows, so the rows do not add up to the total. Real total: {{count}} customers.",
+      "statuses": "Customers by status",
+      "noStatus": "No status",
+      "bySales": "By salesperson",
+      "byPage": "By page",
+      "unassigned": "Unassigned",
+      "unknownPage": "Unknown page",
+      "assigned": "Added",
+      "removed": "Removed",
+      "net": "Net",
+      "customers": "Customers",
+      "count": "Count",
+      "unknownTag": "Deleted tag",
+      "unknownStatus": "Deleted status",
+      "unknownMember": "Former member"
+    },
+    "drilldown": {
+      "title": "Detail: {{metric}}",
+      "total": "{{count}} items — exactly the number on the card",
+      "empty": "There is nothing here.",
+      "more": "Show more",
+      "time": "Time",
+      "customer": "Customer",
+      "noName": "(no name)",
+      "conversation": "Conversation",
+      "page": "Page",
+      "narrowed": "Filtered to one row of the table"
+    },
+    "issues": {
+      "version_mismatch": "The definitions changed. Reload the page.",
+      "metric_unavailable": "This number has no data source yet.",
+      "origin_not_allowed": "The selected source does not apply to this number.",
+      "scope_not_supported": "This filter does not apply to the selected number.",
+      "range_invalid": "The date range is not valid.",
+      "range_too_long": "The date range is too long.",
+      "as_of_in_future": "The time to view cannot be in the future.",
+      "not_drillable": "This number is computed from others, so it has no detail.",
+      "metric_locked": "Your plan does not include this number."
+    }
   }
 }

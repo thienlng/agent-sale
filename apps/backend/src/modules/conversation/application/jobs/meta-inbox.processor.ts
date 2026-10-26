@@ -66,6 +66,9 @@ export class MetaInboxProcessor {
     for (const job of jobs) {
       try {
         const c = await this.inbox.receive(job.workspaceId, job.connectionId, job.event);
+        // Fire and forget: a slow or failing Meta profile call must not delay a reply.
+        if (job.event.type === 'message')
+          void this.inbox.refreshCustomerProfile(job.workspaceId, c.id);
         const key = `${job.workspaceId}/${c.id}`;
         const group = groups.get(key) ?? { conversationId: c.id, jobs: [] };
         group.jobs.push(job);

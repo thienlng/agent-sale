@@ -128,7 +128,7 @@ export function AttachmentPicker({
           />
           <Button type="submit" size="sm" className="w-full" disabled={!valid}>
             <ImagePlus className="size-4" />
-            {tr('send')}
+            {t('channelInbox.sales.selectAttachment')}
           </Button>
         </form>
       </PopoverContent>

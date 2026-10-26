@@ -30,7 +30,9 @@
     "ordersNew": "Tạo đơn",
     "orderSettings": "Thiết lập",
     "contactsList": "Danh sách khách hàng",
-    "crmSettings": "Cài đặt khách hàng"
+    "crmSettings": "Cài đặt khách hàng",
+    "members": "Thành viên",
+    "settingsHome": "Cài đặt"
   },
   "auth": {
     "login": "Đăng nhập",
@@ -62,6 +64,18 @@
       "bot": "Dạ áo thun trắng size L còn hàng ạ, giá 189.000đ. Anh/chị muốn em lên đơn luôn không ạ?",
       "source": "Trả lời từ FAQ: Giá áo thun",
       "caption": "Khách gõ không dấu, viết tắt. Bot vẫn trả lời đúng giá, đúng nguồn bạn đã dạy."
+    },
+    "mfa": {
+      "title": "Xác minh 2 bước",
+      "subtitle": "Nhập mã 6 số từ ứng dụng xác thực của bạn.",
+      "code": "Mã xác minh",
+      "useRecovery": "Dùng mã khôi phục",
+      "useApp": "Dùng mã từ ứng dụng",
+      "recoveryLabel": "Mã khôi phục",
+      "recoveryHint": "Mỗi mã khôi phục chỉ dùng được một lần.",
+      "verify": "Xác minh",
+      "back": "Quay lại",
+      "invalid": "Mã không đúng hoặc đã dùng. Thử mã mới."
     }
   },
   "industries": {
@@ -300,7 +314,18 @@
       "refresh": "Làm mới danh sách mô hình",
       "authRequired": "Đăng nhập ChatGPT để lấy danh sách mô hình",
       "manual": "Không lấy được danh sách mô hình, hãy nhập tên mô hình."
-    }
+    },
+    "checkConnection": "Kiểm tra kết nối",
+    "checking": "Đang kiểm tra…",
+    "checkHint": "Thử với thông tin đang nhập, chưa cần lưu.",
+    "checkOk_other": "Kết nối được sau {{ms}} ms · có {{count}} mô hình",
+    "fetchModels": "Chọn từ danh sách mô hình của máy chủ",
+    "fetchingModels": "Đang lấy danh sách mô hình…",
+    "filterModels": "Lọc trong {{count}} mô hình",
+    "noModels": "Không có mô hình phù hợp.",
+    "retry": "Thử lại",
+    "showKey": "Hiện key",
+    "hideKey": "Ẩn key"
   },
   "errors": {
     "notFoundTitle": "Không tìm thấy trang",
@@ -315,7 +340,9 @@
     "invalidUrl": "Địa chỉ không hợp lệ (cần http:// hoặc https://)",
     "invalidName": "Chỉ dùng chữ thường, số và dấu gạch ngang (2–40 ký tự)",
     "conflict": "Tên này đã được dùng",
-    "inUse": "Máy chủ đang được một gói sử dụng. Đổi gói sang máy chủ khác trước."
+    "inUse": "Máy chủ đang được một gói sử dụng. Đổi gói sang máy chủ khác trước.",
+    "forbidden": "Vai trò của bạn không làm được việc này.",
+    "quotaExceeded": "Gói hiện tại đã hết hạn mức này. Hãy giải phóng chỗ hoặc nâng cấp gói."
   },
   "common": {
     "loading": "Đang tải…",
@@ -936,7 +963,8 @@
       "tabs": {
         "statuses": "Trạng thái",
         "sources": "Nguồn khách hàng",
-        "tags": "Tag"
+        "tags": "Tag",
+        "distribution": "Phân chia khách"
       },
       "statusesHint": "Các bước chăm sóc khách hàng, theo thứ tự. Trạng thái khách hàng không ảnh hưởng đơn hàng.",
       "sourcesHint": "Khách hàng đến từ đâu.",
@@ -998,6 +1026,386 @@
       "fieldsInvalid": "Kiểm tra lại: {{fields}}",
       "notMember": "Người này không còn là thành viên của shop."
     },
-    "pageInfo": "{{from}}–{{to}} / {{total}} khách hàng"
+    "pageInfo": "{{from}}–{{to}} / {{total}} khách hàng",
+    "distribution": {
+      "hint": "Khách mới từ một nguồn sẽ được giao lần lượt cho các Sales dưới đây, theo tỉ lệ. Khách đã có Sales khi tạo thì giữ nguyên.",
+      "enabled": "Bật phân chia cho nguồn này",
+      "members": "Sales nhận khách",
+      "weight": "Tỉ lệ",
+      "save": "Lưu",
+      "saved": "Đã lưu cách phân chia",
+      "off": "Tắt",
+      "on": "Đang bật",
+      "noMembers": "Chưa có thành viên. Mời Sales ở trang Thành viên.",
+      "share": "{{percent}}%"
+    }
+  },
+  "team": {
+    "title": "Thành viên & quyền truy cập",
+    "members": "Thành viên",
+    "invitations": "Lời mời",
+    "invite": "Mời thành viên",
+    "inviteHint": "Gửi link cho người được mời qua Zalo, Messenger hoặc email. Link dùng được 7 ngày và chỉ cho đúng email đã mời.",
+    "email": "Email người được mời",
+    "role": "Vai trò",
+    "send": "Tạo link mời",
+    "link": "Link mời",
+    "copy": "Sao chép link",
+    "copied": "Đã sao chép link mời",
+    "linkOnce": "Link chỉ hiện một lần. Hãy sao chép trước khi đóng.",
+    "done": "Xong",
+    "col": {
+      "name": "Tên",
+      "email": "Email",
+      "role": "Vai trò",
+      "status": "Trạng thái",
+      "joined": "Tham gia",
+      "expires": "Hết hạn",
+      "invitedBy": "Người mời"
+    },
+    "you": "Bạn",
+    "roles": {
+      "owner": "Chủ sở hữu",
+      "admin": "Quản trị",
+      "sales": "Sales",
+      "care": "CSKH",
+      "analyst": "Phân tích"
+    },
+    "roleHints": {
+      "admin": "Quản lý mọi thứ, trừ chủ sở hữu.",
+      "sales": "Bán hàng: thấy khách của mình và khách chưa ai nhận, tạo đơn.",
+      "care": "Chăm sóc khách: như Sales, theo khách mình phụ trách.",
+      "analyst": "Chỉ xem khách hàng và đơn hàng."
+    },
+    "memberStatus": {
+      "active": "Hoạt động",
+      "removed": "Đã rời"
+    },
+    "inviteStatus": {
+      "pending": "Đang chờ",
+      "accepted": "Đã nhận",
+      "revoked": "Đã thu hồi",
+      "expired": "Hết hạn"
+    },
+    "remove": "Xoá khỏi shop",
+    "removeConfirm": "Xoá {{name}} khỏi shop? Người này mất quyền truy cập ngay; khách và đơn họ đã làm vẫn giữ nguyên.",
+    "removed": "Đã xoá thành viên",
+    "roleChanged": "Đã đổi vai trò",
+    "revoke": "Thu hồi",
+    "revoked": "Đã thu hồi lời mời",
+    "noInvitations": "Chưa có lời mời nào.",
+    "cancel": "Huỷ",
+    "join": {
+      "title": "Lời mời tham gia shop",
+      "intro": "Bạn được mời vào {{workspace}} với vai trò {{role}}.",
+      "accept": "Tham gia",
+      "accepted": "Đã tham gia {{workspace}}",
+      "wrongEmail": "Lời mời này gửi tới {{email}}. Hãy đăng nhập bằng email đó để tham gia.",
+      "unusable": "Lời mời này không còn dùng được ({{status}}). Hãy xin người mời gửi link mới.",
+      "notFound": "Không tìm thấy lời mời. Link có thể sai hoặc đã bị thay bằng link mới.",
+      "loginFirst": "Đăng nhập hoặc tạo tài khoản bằng email được mời để tham gia.",
+      "login": "Đăng nhập",
+      "signup": "Tạo tài khoản"
+    },
+    "seats": "Thành viên {{used}}/{{limit}}",
+    "seatsUnlimited": "{{used}} thành viên",
+    "seatsPending": "{{count}} lời mời đang chờ giữ chỗ",
+    "quota": {
+      "title": "Đã dùng hết số thành viên của gói",
+      "body": "Gói hiện tại cho phép {{limit}} thành viên, tính cả lời mời đang chờ ({{members}} thành viên + {{pending}} lời mời). Thu hồi một lời mời, xoá một thành viên hoặc nâng cấp gói để mời thêm.",
+      "close": "Đã hiểu"
+    },
+    "resend": "Gửi lại",
+    "resent": "Đã tạo link mới; link cũ không dùng được nữa",
+    "resendTitle": "Link mời mới",
+    "removeDialog": {
+      "title": "Xoá {{name}} khỏi shop?",
+      "body": "Người này mất quyền truy cập ngay. Khách, đơn và ghi chú họ đã làm vẫn được giữ.",
+      "owns": "{{name}} đang phụ trách {{sales}} khách (Sales) và {{care}} khách (CSKH). Chọn người tiếp nhận; việc này được ghi lại trong lịch sử từng khách.",
+      "transfer": "Chuyển cho thành viên khác",
+      "unassign": "Bỏ phụ trách (khách thành chưa ai nhận)",
+      "pick": "Chọn thành viên",
+      "loading": "Đang kiểm tra khách do người này phụ trách…",
+      "confirm": "Xoá thành viên"
+    },
+    "audit": {
+      "title": "Nhật ký thay đổi",
+      "empty": "Chưa có thay đổi nào.",
+      "more": "Xem thêm",
+      "all": "Tất cả",
+      "actor": "Người thực hiện",
+      "system": "Hệ thống",
+      "actions": {
+        "member.invited": "Mời thành viên",
+        "member.invitation_resent": "Gửi lại lời mời",
+        "member.invitation_revoked": "Thu hồi lời mời",
+        "member.joined": "Thành viên tham gia",
+        "member.role_changed": "Đổi vai trò",
+        "member.removed": "Xoá thành viên",
+        "workspace.profile_updated": "Cập nhật hồ sơ shop",
+        "workspace.logo_changed": "Đổi logo",
+        "workspace.logo_removed": "Gỡ logo",
+        "billing.plan_set": "Đổi gói",
+        "security.mfa_enabled": "Bật xác thực 2 bước",
+        "security.mfa_disabled": "Tắt xác thực 2 bước",
+        "security.recovery_codes_regenerated": "Tạo lại mã khôi phục"
+      },
+      "areas": {
+        "member": "Thành viên",
+        "workspace": "Hồ sơ shop",
+        "security": "Bảo mật",
+        "billing": "Gói và thanh toán"
+      }
+    }
+  },
+  "wsettings": {
+    "title": "Cài đặt",
+    "tabs": {
+      "profile": "Hồ sơ shop",
+      "security": "Bảo mật",
+      "audit": "Nhật ký"
+    },
+    "profile": {
+      "title": "Thông tin shop",
+      "hint": "Thông tin kinh doanh của shop. Khác với tài khoản đăng nhập của bạn và thông tin xuất hoá đơn.",
+      "name": "Tên shop",
+      "companyName": "Tên công ty",
+      "businessServices": "Lĩnh vực / dịch vụ kinh doanh",
+      "productDescription": "Mô tả sản phẩm, dịch vụ",
+      "save": "Lưu thay đổi",
+      "saved": "Đã lưu thông tin shop",
+      "reset": "Hoàn tác",
+      "dirty": "Có thay đổi chưa lưu",
+      "readOnly": "Bạn chỉ xem được thông tin này. Chủ shop hoặc quản trị mới sửa được.",
+      "stale": "Thông tin shop vừa được người khác sửa. Đã tải bản mới nhất, hãy kiểm tra rồi lưu lại.",
+      "leave": "Có thay đổi chưa lưu. Rời trang sẽ mất các thay đổi này.",
+      "stay": "Ở lại",
+      "leaveConfirm": "Rời trang"
+    },
+    "logo": {
+      "title": "Logo",
+      "rules": "PNG hoặc JPG, hình vuông, tối đa 1 MB. Khuyến nghị 720 × 720 px (cho phép từ 128 đến 2048 px).",
+      "alt": "Logo của shop",
+      "none": "Chưa có logo",
+      "upload": "Chọn ảnh",
+      "change": "Đổi logo",
+      "remove": "Gỡ logo",
+      "uploaded": "Đã cập nhật logo",
+      "removed": "Đã gỡ logo",
+      "uploading": "Đang tải lên…",
+      "errors": {
+        "too_large": "Ảnh lớn hơn 1 MB. Hãy nén hoặc chọn ảnh nhỏ hơn.",
+        "not_an_image": "Tệp này không phải ảnh PNG hoặc JPG hợp lệ.",
+        "corrupt": "Không đọc được ảnh (tệp hỏng hoặc bị cắt). Hãy xuất lại rồi thử lại.",
+        "not_square": "Ảnh phải là hình vuông (hiện là {{width}} × {{height}} px).",
+        "too_small": "Ảnh quá nhỏ (từ 128 × 128 px trở lên).",
+        "too_big": "Ảnh quá lớn (tối đa 2048 × 2048 px).",
+        "type": "Chỉ nhận ảnh PNG hoặc JPG."
+      }
+    },
+    "security": {
+      "title": "Xác minh 2 bước",
+      "hint": "Thêm một lớp bảo vệ: ngoài mật khẩu, đăng nhập cần mã từ ứng dụng xác thực (Google Authenticator, Authy, 1Password…).",
+      "off": "Đang tắt",
+      "on": "Đang bật",
+      "recoveryLeft": "Còn {{count}} mã khôi phục",
+      "enable": "Bật xác minh 2 bước",
+      "disable": "Tắt xác minh 2 bước",
+      "newCodes": "Tạo mã khôi phục mới",
+      "password": "Mật khẩu hiện tại",
+      "code": "Mã xác minh",
+      "codeOrRecovery": "Mã xác minh hoặc mã khôi phục",
+      "continue": "Tiếp tục",
+      "confirm": "Xác nhận",
+      "cancel": "Huỷ",
+      "step1": "1. Xác nhận mật khẩu",
+      "step2": "2. Quét mã QR bằng ứng dụng xác thực",
+      "step3": "3. Nhập mã 6 số hiện trên ứng dụng",
+      "manual": "Không quét được? Nhập khóa này vào ứng dụng:",
+      "copy": "Sao chép",
+      "copied": "Đã sao chép",
+      "qrAlt": "Mã QR để thêm tài khoản vào ứng dụng xác thực",
+      "codesTitle": "Lưu các mã khôi phục",
+      "codesHint": "Mỗi mã dùng được một lần khi mất điện thoại. Chúng chỉ hiện ở đây một lần — hãy lưu ở nơi an toàn.",
+      "codesDone": "Tôi đã lưu các mã",
+      "downloadCodes": "Tải về",
+      "disableTitle": "Tắt xác minh 2 bước?",
+      "disableHint": "Tài khoản chỉ còn được bảo vệ bằng mật khẩu.",
+      "newCodesTitle": "Tạo mã khôi phục mới?",
+      "newCodesHint": "Các mã cũ sẽ không còn dùng được.",
+      "errors": {
+        "invalid_password": "Mật khẩu không đúng.",
+        "invalid_code": "Mã không đúng. Thử mã mới trên ứng dụng.",
+        "already_enabled": "Xác minh 2 bước đã bật."
+      },
+      "enabledToast": "Đã bật xác minh 2 bước",
+      "disabledToast": "Đã tắt xác minh 2 bước"
+    }
+  },
+  "analytics": {
+    "title": "Thống kê",
+    "subtitle": "Số liệu khách hàng, nhãn, trạng thái và hội thoại. Mỗi con số có định nghĩa rõ ràng — bấm vào dấu (i) để xem.",
+    "filters": {
+      "from": "Từ ngày",
+      "to": "Đến ngày",
+      "origin": "Nguồn khách",
+      "sales": "Nhân viên Sales",
+      "page": "Trang / kênh",
+      "preset7": "7 ngày",
+      "preset30": "30 ngày",
+      "thisMonth": "Tháng này",
+      "allSales": "Tất cả nhân viên",
+      "allPages": "Tất cả trang",
+      "noSales": "Chưa có nhân viên Sales nào",
+      "noPages": "Chưa kết nối trang nào",
+      "connectPages": "Kết nối trang",
+      "salesNote": "Bộ lọc nhân viên áp dụng cho số liệu khách hàng, nhãn và trạng thái; không áp dụng cho hội thoại.",
+      "pageNote": "Bộ lọc trang chỉ áp dụng cho số liệu hội thoại.",
+      "rangeInvalid": "Ngày bắt đầu phải trước ngày kết thúc.",
+      "rangeTooLong": "Chọn tối đa 366 ngày.",
+      "selected": "{{count}} đã chọn"
+    },
+    "origins": {
+      "channel": "Kênh chat",
+      "manual": "Nhập tay",
+      "import": "Nhập file",
+      "rule": "Tự động"
+    },
+    "groups": {
+      "activity": "Khách hàng",
+      "tags": "Nhãn",
+      "statuses": "Trạng thái",
+      "conversations": "Hội thoại"
+    },
+    "metrics": {
+      "customers.new": {
+        "name": "Khách hàng mới",
+        "help": "Số khách hàng được tạo trong khoảng ngày (giờ của cửa hàng). Mỗi khách chỉ đếm một lần."
+      },
+      "phones.captured": {
+        "name": "Số điện thoại thu được",
+        "help": "Số khách lần đầu có số điện thoại trong khoảng ngày."
+      },
+      "tags.assigned": {
+        "name": "Nhãn được gắn",
+        "help": "Số lần gắn nhãn trong khoảng ngày. Mỗi lần gắn tính một lần."
+      },
+      "tags.removed": {
+        "name": "Nhãn bị gỡ",
+        "help": "Số lần gỡ nhãn trong khoảng ngày."
+      },
+      "tags.net": {
+        "name": "Nhãn ròng",
+        "help": "Số lần gắn trừ số lần gỡ trong cùng khoảng ngày."
+      },
+      "tags.current": {
+        "name": "Khách đang có nhãn",
+        "help": "Số khách đang có ít nhất một nhãn tại thời điểm xem. Khách có nhiều nhãn chỉ tính một lần."
+      },
+      "statuses.changed": {
+        "name": "Lượt đổi trạng thái",
+        "help": "Số lần đổi trạng thái khách trong khoảng ngày. Trạng thái lúc tạo không tính là đổi."
+      },
+      "statuses.current": {
+        "name": "Khách theo trạng thái",
+        "help": "Tổng số khách tại thời điểm xem, chia theo trạng thái hiện tại."
+      },
+      "conversations.opened": {
+        "name": "Hội thoại mới",
+        "help": "Số hội thoại được mở bởi tin nhắn đầu tiên của khách."
+      },
+      "messages.inbound": {
+        "name": "Tin nhắn khách gửi",
+        "help": "Số tin nhắn khách gửi đến."
+      },
+      "messages.outbound": {
+        "name": "Tin nhắn shop gửi",
+        "help": "Số tin nhắn nhân viên và bot đã gửi thành công."
+      },
+      "comments.received": {
+        "name": "Bình luận",
+        "help": "Số bình luận trên trang."
+      }
+    },
+    "definition": {
+      "title": "Định nghĩa",
+      "kind": {
+        "event": "Đếm sự kiện: số lần xảy ra trong khoảng ngày.",
+        "snapshot": "Ảnh chụp: trạng thái tại thời điểm xem, không phụ thuộc khoảng ngày.",
+        "derived": "Tính từ các số liệu khác."
+      },
+      "origins": "Nguồn: {{list}}",
+      "attribution": {
+        "sales_at_event": "Theo Sales phụ trách lúc sự kiện xảy ra.",
+        "owner_at_as_of": "Theo Sales phụ trách tại thời điểm xem.",
+        "none": "Không gắn với nhân viên."
+      },
+      "version": "Phiên bản định nghĩa {{version}}"
+    },
+    "states": {
+      "loading": "Đang tải số liệu…",
+      "errorTitle": "Không tải được số liệu",
+      "errorBody": "Số liệu chưa thể tính lúc này. Đây không phải là 0 — hãy thử lại.",
+      "retry": "Thử lại",
+      "locked": "Gói hiện tại chưa gồm số liệu này",
+      "unavailable": "Chưa có nguồn dữ liệu",
+      "unavailableHint": "Hệ thống chưa nhận bình luận từ trang nên chưa thể thống kê.",
+      "noData": "Chưa có dữ liệu trong khoảng này",
+      "noChannelCustomers": "Chưa có khách nào từ kênh chat. Chọn thêm “Nhập tay” để xem khách tạo trong CRM.",
+      "forbidden": "Bạn không có quyền xem thống kê."
+    },
+    "freshness": {
+      "updated": "Cập nhật lúc {{time}}",
+      "lag": "Dữ liệu đang chậm khoảng {{seconds}} giây so với hệ thống.",
+      "scopeOwn": "Chỉ gồm khách bạn phụ trách và khách chưa có người phụ trách.",
+      "timezone": "Múi giờ {{tz}}"
+    },
+    "chart": {
+      "title": "Theo ngày",
+      "metric": "Số liệu",
+      "empty": "Không có số liệu theo ngày để vẽ."
+    },
+    "breakdowns": {
+      "topTags": "Nhãn trong khoảng ngày",
+      "currentTags": "Nhãn đang gắn",
+      "currentTagsNote": "Một khách có nhiều nhãn nằm ở nhiều dòng, nên các dòng không cộng lại thành tổng. Tổng thực: {{count}} khách.",
+      "statuses": "Khách theo trạng thái",
+      "noStatus": "Chưa có trạng thái",
+      "bySales": "Theo nhân viên Sales",
+      "byPage": "Theo trang",
+      "unassigned": "Chưa phân công",
+      "unknownPage": "Không rõ trang",
+      "assigned": "Gắn",
+      "removed": "Gỡ",
+      "net": "Ròng",
+      "customers": "Khách",
+      "count": "Số lượng",
+      "unknownTag": "Nhãn đã xoá",
+      "unknownStatus": "Trạng thái đã xoá",
+      "unknownMember": "Nhân viên cũ"
+    },
+    "drilldown": {
+      "title": "Chi tiết: {{metric}}",
+      "total": "{{count}} mục — bằng đúng số trên thẻ",
+      "empty": "Không có mục nào.",
+      "more": "Xem thêm",
+      "time": "Thời gian",
+      "customer": "Khách hàng",
+      "noName": "(chưa đặt tên)",
+      "conversation": "Hội thoại",
+      "page": "Trang",
+      "narrowed": "Đang lọc theo một dòng của bảng"
+    },
+    "issues": {
+      "version_mismatch": "Phiên bản định nghĩa đã đổi. Tải lại trang.",
+      "metric_unavailable": "Số liệu này chưa có nguồn dữ liệu.",
+      "origin_not_allowed": "Nguồn đã chọn không áp dụng cho số liệu này.",
+      "scope_not_supported": "Bộ lọc này không áp dụng cho số liệu đã chọn.",
+      "range_invalid": "Khoảng ngày không hợp lệ.",
+      "range_too_long": "Khoảng ngày quá dài.",
+      "as_of_in_future": "Thời điểm xem không thể ở tương lai.",
+      "not_drillable": "Số liệu này tính từ số liệu khác nên không có chi tiết.",
+      "metric_locked": "Gói hiện tại chưa gồm số liệu này."
+    }
   }
 }

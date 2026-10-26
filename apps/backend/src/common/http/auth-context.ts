@@ -1,3 +1,4 @@
+import type { Capability } from '@agent-sales/contracts';
 import { createParamDecorator, type ExecutionContext, SetMetadata } from '@nestjs/common';
 import type { UserId, WorkspaceId } from '@agent-sales/shared';
 import type { FastifyRequest } from 'fastify';
@@ -12,6 +13,13 @@ import { ApiError } from './api-error.js';
 export interface AuthState {
   userId: UserId;
   sessionId: string;
+  /** The member's role in the workspace of a @WorkspaceScoped() route. */
+  role?: string | undefined;
+  /**
+   * The user's display name, looked up on first call only (reads never pay for it).
+   * Mutations use it to stamp audit events without importing the identity module.
+   */
+  displayName?: (() => Promise<string | null>) | undefined;
 }
 
 declare module 'fastify' {
@@ -24,6 +32,7 @@ declare module 'fastify' {
 export const IS_PUBLIC = 'rapiz:isPublic';
 export const IS_WORKSPACE_SCOPED = 'rapiz:isWorkspaceScoped';
 export const IS_PLATFORM_ADMIN = 'rapiz:isPlatformAdmin';
+export const REQUIRED_CAPABILITY = 'rapiz:requiredCapability';
 
 /** Route needs no authentication (health, signup, login, refresh). */
 export const Public = () => SetMetadata(IS_PUBLIC, true);
@@ -40,6 +49,14 @@ export const WorkspaceScoped = () => SetMetadata(IS_WORKSPACE_SCOPED, true);
  * platform admin. Anyone else gets 404 so the admin surface is not discoverable.
  */
 export const PlatformAdmin = () => SetMetadata(IS_PLATFORM_ADMIN, true);
+
+/**
+ * Workspace route that needs a capability of the member's role
+ * (`ROLE_CAPABILITIES` in contracts). A member without it gets 403: they know
+ * the workspace, just not this action.
+ */
+export const RequireCapability = (capability: Capability) =>
+  SetMetadata(REQUIRED_CAPABILITY, capability);
 
 export const CurrentUser = createParamDecorator((_d: unknown, ctx: ExecutionContext): AuthState => {
   const req = ctx.switchToHttp().getRequest<FastifyRequest>();

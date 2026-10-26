@@ -128,3 +128,29 @@ export const LlmProviderModelList = z.object({
   state: z.enum(['ok', 'auth_required', 'unavailable']),
 });
 export type LlmProviderModelList = z.infer<typeof LlmProviderModelList>;
+
+/**
+ * Connection check and model discovery for a provider that may not be saved yet. With `providerId`
+ * the stored settings are the base; the stored key is reused only while `baseUrl` is unchanged.
+ */
+export const DiscoverLlmModelsRequest = z
+  .object({
+    providerId: z.uuid().optional(),
+    kind: LlmProviderKind.optional(),
+    baseUrl: BaseUrl.nullable().optional(),
+    apiKey: z.string().trim().min(1).max(500).optional(),
+  })
+  .refine((r) => r.providerId || r.kind, {
+    message: 'providerId or kind is required',
+    path: ['kind'],
+  });
+export type DiscoverLlmModelsRequest = z.infer<typeof DiscoverLlmModelsRequest>;
+
+export const DiscoverLlmModelsResponse = z.object({
+  ok: z.boolean(),
+  latencyMs: z.number().int(),
+  models: z.array(z.string()),
+  /** Provider error message when `ok` is false (never contains the API key). */
+  error: z.string().nullable(),
+});
+export type DiscoverLlmModelsResponse = z.infer<typeof DiscoverLlmModelsResponse>;

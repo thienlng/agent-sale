@@ -15,11 +15,19 @@ export const ContactCreatedV1 = z.object({
   type: z.literal('crm.contact.created.v1'),
   ...base,
   sourceId: z.uuid().nullable(),
+  /** Where the customer came from; events written before this field existed were all manual. */
+  origin: z.enum(['channel', 'manual', 'import']).default('manual'),
+  /** The customer was created with a phone number. */
+  phoneCaptured: z.boolean().default(false),
+  /** The status the customer started with (statuses are otherwise only known from changes). */
+  statusId: z.uuid().nullable().default(null),
 });
 export const ContactUpdatedV1 = z.object({
   type: z.literal('crm.contact.updated.v1'),
   ...base,
   fields: z.array(z.string()),
+  /** This edit stored a phone number on a customer that had none. */
+  phoneCaptured: z.boolean().default(false),
 });
 export const ContactStatusChangedV1 = z.object({
   type: z.literal('crm.contact.status_changed.v1'),
@@ -33,6 +41,16 @@ export const ContactAssignedV1 = z.object({
   role: z.enum(['sales', 'care']),
   fromUserId: z.uuid().nullable(),
   toUserId: z.uuid().nullable(),
+});
+/**
+ * The status a customer started with, for customers created before `crm.contact.created.v1` carried
+ * it. Written once by migration 0023, never by the application: the `from` side of the customer's
+ * earliest status change, or the current status when it never changed.
+ */
+export const ContactInitialStatusV1 = z.object({
+  type: z.literal('crm.contact.initial_status.v1'),
+  ...base,
+  statusId: z.uuid(),
 });
 export const TagAssignedV1 = z.object({
   type: z.literal('crm.tag.assigned.v1'),
@@ -54,6 +72,7 @@ export const CrmEvents = z.discriminatedUnion('type', [
   ContactUpdatedV1,
   ContactStatusChangedV1,
   ContactAssignedV1,
+  ContactInitialStatusV1,
   TagAssignedV1,
   TagRemovedV1,
 ]);

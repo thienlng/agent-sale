@@ -153,3 +153,68 @@ describe('Meta signed messaging adapter', () => {
     expect(await down.sendAction({ externalId: 'page', token: 't' }, 'u', 'mark_seen')).toBe(false);
   });
 });
+
+describe('MetaAdapter.fetchProfile', () => {
+  it('reads a Messenger profile with the page token in a header, not the URL', async () => {
+    const transport = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json({
+        first_name: 'Hà',
+        last_name: 'Nguyễn',
+        profile_pic: 'https://cdn.example/p.jpg',
+      }),
+    );
+    const profile = await new MetaAdapter('facebook', 'v24.0', transport).fetchProfile(
+      { token: 'secret-token' },
+      '123',
+    );
+    expect(profile).toEqual({ name: 'Hà Nguyễn', avatarUrl: 'https://cdn.example/p.jpg' });
+    const [url, init] = transport.mock.calls[0] ?? [];
+    expect(url).toBe(
+      'https://graph.facebook.com/v24.0/123?fields=first_name,last_name,profile_pic',
+    );
+    expect(String(url)).not.toContain('secret-token');
+    expect(init?.headers).toEqual({ Authorization: 'Bearer secret-token' });
+  });
+
+  it('reads an Instagram profile and falls back from name to username', async () => {
+    const transport = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json({ name: 'Lan Shop', username: 'lan' }))
+      .mockResolvedValueOnce(
+        Response.json({ username: 'lan_shop', profile_pic: 'http://insecure/p.jpg' }),
+      );
+    const a = new MetaAdapter('instagram', 'v24.0', transport);
+    expect(await a.fetchProfile({ token: 't' }, 'ig1')).toEqual({
+      name: 'Lan Shop',
+      avatarUrl: null,
+    });
+    expect(await a.fetchProfile({ token: 't' }, 'ig2')).toEqual({
+      name: 'lan_shop',
+      avatarUrl: null,
+    });
+    expect(transport.mock.calls[0]?.[0]).toBe(
+      'https://graph.instagram.com/v24.0/ig1?fields=name,username,profile_pic',
+    );
+  });
+
+  it('throws a typed error when Meta refuses or is unreachable', async () => {
+    const refused = new MetaAdapter(
+      'facebook',
+      'v24.0',
+      vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(Response.json({ error: { code: 190 } }, { status: 400 })),
+    );
+    await expect(refused.fetchProfile({ token: 't' }, '1')).rejects.toMatchObject({
+      code: 'auth_expired',
+    });
+    const down = new MetaAdapter(
+      'facebook',
+      'v24.0',
+      vi.fn<typeof fetch>().mockRejectedValue(new Error('offline')),
+    );
+    await expect(down.fetchProfile({ token: 't' }, '1')).rejects.toMatchObject({
+      code: 'profile_unavailable',
+    });
+  });
+});

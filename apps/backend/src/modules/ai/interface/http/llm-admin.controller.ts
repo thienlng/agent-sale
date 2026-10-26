@@ -1,6 +1,8 @@
 import {
   CreateLlmProviderRequest,
   type HermesLoginStatus,
+  DiscoverLlmModelsRequest,
+  type DiscoverLlmModelsResponse,
   type LlmProviderDto,
   type LlmProviderModelList,
   type LlmTierRouteDto,
@@ -47,6 +49,14 @@ export class LlmAdminController {
     @Body(new ZodValidationPipe(CreateLlmProviderRequest)) body: CreateLlmProviderRequest,
   ): Promise<LlmProviderDto> {
     return this.admin.createProvider(body);
+  }
+
+  @Post('providers/models')
+  @HttpCode(200)
+  discoverModels(
+    @Body(new ZodValidationPipe(DiscoverLlmModelsRequest)) body: DiscoverLlmModelsRequest,
+  ): Promise<DiscoverLlmModelsResponse> {
+    return this.admin.discoverModels(body);
   }
 
   @Patch('providers/:providerId')

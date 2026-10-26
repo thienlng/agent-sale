@@ -25,6 +25,17 @@ export class InMemoryMemberRepository implements MemberRepository {
     this.rows.push(membership);
   }
 
+  async lockSeats(): Promise<void> {}
+
+  async countActive(workspaceId: WorkspaceId): Promise<number> {
+    return this.rows.filter((m) => m.workspaceId === workspaceId && m.status === 'active').length;
+  }
+
+  async update(membership: Membership): Promise<void> {
+    const i = this.rows.findIndex((m) => m.id === membership.id);
+    if (i >= 0) this.rows[i] = membership;
+  }
+
   async find(workspaceId: WorkspaceId, userId: UserId): Promise<Membership | null> {
     return this.rows.find((m) => m.workspaceId === workspaceId && m.userId === userId) ?? null;
   }

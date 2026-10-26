@@ -15,6 +15,11 @@ export class MetaRequestError extends Error {
     super('Meta request failed');
   }
 }
+/** What Meta tells us about a customer who wrote to the page. */
+export interface CustomerProfile {
+  name: string | null;
+  avatarUrl: string | null;
+}
 /** No automatic retries: a network failure after a POST has an uncertain delivery outcome. */
 export class MetaAdapter implements ChannelAdapter {
   constructor(
@@ -129,6 +134,45 @@ export class MetaAdapter implements ChannelAdapter {
     } catch {
       return false;
     }
+  }
+  /**
+   * Name and picture of a customer (Messenger PSID or Instagram-scoped id). Read-only and safe to
+   * retry; throws `MetaRequestError` when Meta refuses (the profile is a nicety, never required).
+   * Messenger: first_name, last_name, profile_pic. Instagram: name, username, profile_pic.
+   */
+  async fetchProfile(asset: { token: string }, customerId: string): Promise<CustomerProfile> {
+    const instagram = this.kind === 'instagram';
+    const host = instagram ? 'graph.instagram.com' : 'graph.facebook.com';
+    const fields = instagram ? 'name,username,profile_pic' : 'first_name,last_name,profile_pic';
+    let res: Response;
+    try {
+      res = await this.transport(
+        `https://${host}/${this.version}/${encodeURIComponent(customerId)}?fields=${fields}`,
+        {
+          headers: { Authorization: `Bearer ${asset.token}` },
+          signal: AbortSignal.timeout(10000),
+          redirect: 'error',
+        },
+      );
+    } catch {
+      throw new MetaRequestError('profile_unavailable', true);
+    }
+    const data = record(await res.json().catch(() => null));
+    if (!res.ok || data.error) {
+      throw new MetaRequestError(
+        record(data.error).code === 190 ? 'auth_expired' : 'profile_unavailable',
+        res.status >= 500,
+      );
+    }
+    const text = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
+    const name = instagram
+      ? text(data.name) || text(data.username)
+      : [text(data.first_name), text(data.last_name)].filter(Boolean).join(' ');
+    const pic = text(data.profile_pic);
+    return {
+      name: name.slice(0, 200) || null,
+      avatarUrl: pic.startsWith('https://') && pic.length <= 2000 ? pic : null,
+    };
   }
   capabilities() {
     return { richCards: false, quickReplies: false, media: true, replyWindowHours: 24 };

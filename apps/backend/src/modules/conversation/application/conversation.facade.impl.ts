@@ -1,12 +1,12 @@
 import type { NormalizedEvent } from '@agent-sales/channels';
 import {
   SendInboxMessageRequest,
-  type ConversationDto,
   type ConversationListQuery,
+  type ConversationView,
   type InboxMessageDto,
   type UpdateConversationRequest,
 } from '@agent-sales/contracts';
-import { newId, type WorkspaceId } from '@agent-sales/shared';
+import { isUuid, newId, userId, type WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable } from '@nestjs/common';
 import { BOT_FACADE, type BotFacade, type BotView } from '../../bot/api/index.js';
 import {
@@ -14,20 +14,27 @@ import {
   type ChannelFacade,
   type OutboundInboxMessage,
 } from '../../channel/api/index.js';
+import { CRM_FACADE, type CrmFacade } from '../../crm/api/index.js';
+import { IDENTITY_FACADE, type IdentityFacade } from '../../identity/api/index.js';
+import { TEAM_FACADE, type TeamFacade } from '../../team/api/index.js';
 import type { ConversationFacade } from '../api/conversation.facade.js';
 import { ConversationError } from '../domain/conversation.errors.js';
 import { nextMessageId } from '../domain/message-id.js';
+import { toListFilter } from '../domain/conversation-filter.js';
+import { detectVietnamesePhone, normalizeVietnamesePhone } from '../domain/phone.js';
+import { applyControlUpdate, newConversation, preview } from '../domain/conversation-state.js';
+import { attachTags, tagConditions } from './conversation-tags.js';
+import { refreshCustomerProfile } from './customer-profile.js';
+import { addNote, assertAssignable, markRead, markUnread } from './inbox-state.js';
 import {
   CONVERSATION_STORE,
   type ConversationStore,
   type ConversationTx,
 } from './ports/conversation-store.js';
 const now = () => new Date().toISOString();
-/** List preview: the text, or a neutral marker the UI localizes (e.g. "[image]"). */
-function preview(text: string, attachments: readonly { type: string }[]): string {
-  return text || (attachments[0] ? `[${attachments[0].type}]` : '');
-}
-async function requireConversation(tx: ConversationTx, id: string): Promise<ConversationDto> {
+/** Unnamed customers looked up per list request (see `backfillProfiles`). */
+const PROFILE_BACKFILL_PER_LIST = 10;
+async function requireConversation(tx: ConversationTx, id: string): Promise<ConversationView> {
   const c = await tx.find(id);
   if (!c) throw new ConversationError('NOT_FOUND', 'Conversation not found');
   return c;
@@ -38,24 +45,40 @@ export class ConversationFacadeImpl implements ConversationFacade {
     @Inject(CONVERSATION_STORE) private readonly store: ConversationStore,
     @Inject(CHANNEL_FACADE) private readonly channels: ChannelFacade,
     @Inject(BOT_FACADE) private readonly bots: BotFacade,
+    @Inject(TEAM_FACADE) private readonly team: TeamFacade,
+    @Inject(IDENTITY_FACADE) private readonly identity: IdentityFacade,
+    @Inject(CRM_FACADE) private readonly crm: CrmFacade,
   ) {}
-  async list(ws: WorkspaceId, q: ConversationListQuery) {
-    return this.store.run(ws, async (tx) => ({
-      data: (await tx.list())
-        .filter(
-          (c) =>
-            (!q.provider || c.provider === q.provider) &&
-            (!q.status || c.status === q.status) &&
-            (!q.mode || c.mode === q.mode) &&
-            (!q.q ||
-              `${c.customerName} ${c.customerId} ${c.lastMessage}`
-                .toLowerCase()
-                .includes(q.q.toLowerCase())),
-        )
-        .slice(0, q.limit),
-    }));
+  async list(ws: WorkspaceId, q: ConversationListQuery, viewerId?: string) {
+    const filter = {
+      ...toListFilter(q, viewerId),
+      ...(await tagConditions(this.crm, ws, q)),
+    };
+    const page = await this.store.run(ws, (tx) => tx.query(filter));
+    this.backfillProfiles(ws, page.data);
+    return { data: await attachTags(this.crm, ws, page.data), counts: page.counts };
   }
-  get(ws: WorkspaceId, id: string) {
+  /**
+   * Conversations that started before profile lookups existed only learn the customer's name on
+   * their next message. Looking up the unnamed rows a rep is looking at fixes the visible list
+   * without a migration job; `refreshCustomerProfile` throttles per conversation and never throws.
+   */
+  private backfillProfiles(ws: WorkspaceId, rows: readonly ConversationView[]) {
+    const unnamed = rows
+      .filter((c) => !c.customerName.trim() || c.customerName === c.customerId)
+      .slice(0, PROFILE_BACKFILL_PER_LIST);
+    if (!unnamed.length) return;
+    void (async () => {
+      // One at a time: a list refresh must not burst requests at Meta.
+      for (const c of unnamed) await refreshCustomerProfile(this.store, this.channels, ws, c.id);
+    })();
+  }
+  async get(ws: WorkspaceId, id: string) {
+    const detail = await this.load(ws, id);
+    const [conversation] = await attachTags(this.crm, ws, [detail.conversation]);
+    return { ...detail, conversation: conversation ?? detail.conversation };
+  }
+  private load(ws: WorkspaceId, id: string) {
     return this.store.run(ws, async (tx) => ({
       conversation: await requireConversation(tx, id),
       messages: await tx.messages(id),
@@ -66,7 +89,7 @@ export class ConversationFacadeImpl implements ConversationFacade {
    * Unlike a manual takeover it comes back to the bot by itself after the bot's takeover window
    * (the next customer message after it), unless the bot is set to never resume automatically.
    */
-  async handOff(ws: WorkspaceId, id: string, actorId: string): Promise<ConversationDto> {
+  async handOff(ws: WorkspaceId, id: string, actorId: string): Promise<ConversationView> {
     const channelId = await this.store.run(
       ws,
       async (tx) => (await requireConversation(tx, id)).channelId,
@@ -77,6 +100,7 @@ export class ConversationFacadeImpl implements ConversationFacade {
       const updated = {
         ...c,
         mode: 'human' as const,
+        takeover: 'temporary' as const,
         autoResumeAt: this.resumeAt(bot),
         revision: c.revision + 1,
         updatedAt: now(),
@@ -92,33 +116,59 @@ export class ConversationFacadeImpl implements ConversationFacade {
       return updated;
     });
   }
+  private async tagged(ws: WorkspaceId, c: ConversationView): Promise<ConversationView> {
+    return (await attachTags(this.crm, ws, [c]))[0] ?? c;
+  }
+  async listTags(ws: WorkspaceId, id: string) {
+    await this.load(ws, id);
+    return this.crm.listConversationTags(ws, id);
+  }
+  async addTag(ws: WorkspaceId, id: string, input: unknown, actorId: string) {
+    await this.load(ws, id);
+    return this.crm.assignConversationTag(ws, id, input, actorId);
+  }
   async update(ws: WorkspaceId, id: string, input: UpdateConversationRequest, actorId: string) {
-    if (input.mode === 'bot') {
+    // Cross-module read first, never inside the write transaction.
+    if (input.assigneeId) await assertAssignable(this.team, ws, input.assigneeId, actorId);
+    const phone = input.customerPhone ? normalizeVietnamesePhone(input.customerPhone) : null;
+    if (input.customerPhone && !phone)
+      throw new ConversationError('VALIDATION_FAILED', 'Enter a Vietnamese mobile number');
+    const noteText = input.note?.trim() ?? '';
+    const author =
+      noteText && isUuid(actorId) ? await this.identity.displayName(userId(actorId)) : null;
+    let resumeAt: string | null = null;
+    if (input.mode === 'bot' || input.takeover === 'temporary') {
       // Resolve the cross-module read before opening the write transaction (see reserveAndDeliver).
       const channelId = await this.store.run(
         ws,
         async (tx) => (await requireConversation(tx, id)).channelId,
       );
       const bot = await this.channelBot(ws, channelId);
-      if (!bot?.isActive)
+      // Auto-resume only makes sense with an active bot that is set to resume.
+      if (bot?.isActive) resumeAt = this.resumeAt(bot);
+      if (input.mode === 'bot' && !bot?.isActive)
         throw new ConversationError(
           'CONFLICT',
           'Bind an active bot to this channel before enabling automatic replies',
         );
     }
-    return this.store.run(ws, async (tx) => {
+    const saved = await this.store.run(ws, async (tx) => {
       const c = await requireConversation(tx, id);
-      const updated = {
-        ...c,
-        ...(input.mode ? { mode: input.mode, autoResumeAt: null } : {}),
-        ...(input.status ? { status: input.status } : {}),
-        ...(input.note !== undefined ? { note: input.note } : {}),
-        ...(input.assignToMe !== undefined
-          ? { assigneeId: input.assignToMe ? actorId : null }
-          : {}),
-        revision: c.revision + 1,
-        updatedAt: now(),
-      };
+      if (input.expectedRevision !== undefined && input.expectedRevision !== c.revision)
+        throw new ConversationError('CONFLICT', 'Conversation changed; reload before saving');
+      // A changed legacy note also lands in the timeline, so the two never drift apart.
+      const noteEntry =
+        noteText && noteText !== c.note
+          ? {
+              id: newId(),
+              authorId: isUuid(actorId) ? actorId : null,
+              authorName: author ?? '',
+              text: noteText,
+              createdAt: now(),
+            }
+          : undefined;
+      const patch = input.customerPhone === undefined ? input : { ...input, customerPhone: phone };
+      const updated = applyControlUpdate(c, patch, actorId, now(), noteEntry, resumeAt);
       await tx.save(updated);
       await tx.audit(id, 'conversation.control.updated.v1', {
         actorId,
@@ -126,9 +176,23 @@ export class ConversationFacadeImpl implements ConversationFacade {
         status: updated.status,
         assigneeId: updated.assigneeId,
         revision: updated.revision,
+        followUpAt: updated.followUpAt ?? null,
       });
       return updated;
     });
+    return this.tagged(ws, saved);
+  }
+  async markRead(ws: WorkspaceId, id: string, actorId: string): Promise<ConversationView> {
+    return this.tagged(ws, await markRead(this.store, this.identity, ws, id, actorId));
+  }
+  async markUnread(ws: WorkspaceId, id: string): Promise<ConversationView> {
+    return this.tagged(ws, await markUnread(this.store, ws, id));
+  }
+  async addNote(ws: WorkspaceId, id: string, text: string, actorId: string) {
+    return this.tagged(ws, await addNote(this.store, this.identity, ws, id, text, actorId));
+  }
+  refreshCustomerProfile(ws: WorkspaceId, id: string): Promise<void> {
+    return refreshCustomerProfile(this.store, this.channels, ws, id);
   }
   async receive(ws: WorkspaceId, channelId: string, event: NormalizedEvent) {
     const channel = await this.channels.getConnection(ws, channelId);
@@ -143,24 +207,18 @@ export class ConversationFacadeImpl implements ConversationFacade {
     return this.store.run(ws, async (tx) => {
       await tx.lockPeer(channelId, event.senderExternalId);
       const existing = await tx.findPeer(channelId, event.senderExternalId);
-      let c: ConversationDto = existing ?? {
-        id: newId(),
-        channelId,
-        provider: channel.provider,
-        customerId: event.senderExternalId,
-        customerName: event.senderExternalId,
-        mode: bot?.isActive ? 'bot' : 'human',
-        autoResumeAt: null,
-        status: 'open',
-        assigneeId: null,
-        note: '',
-        revision: 0,
-        lastMessage: '',
-        // An echo cannot open the 24-hour window: only a customer message does.
-        lastInboundAt:
-          event.type === 'echo' ? new Date(0).toISOString() : event.occurredAt.toISOString(),
-        updatedAt: now(),
-      };
+      let c: ConversationView =
+        existing ??
+        newConversation({
+          id: newId(),
+          channelId,
+          provider: channel.provider,
+          customerId: event.senderExternalId,
+          mode: bot?.isActive ? 'bot' : 'human',
+          echo: event.type === 'echo',
+          occurredAt: event.occurredAt,
+          at: now(),
+        });
       if (await tx.findMessage(c.id, event.externalEventId)) return c;
       if (event.type === 'echo') {
         // Echoes can be our own sends; only an unmatched external message means an outside staff reply.
@@ -184,9 +242,10 @@ export class ConversationFacadeImpl implements ConversationFacade {
         }
         c = {
           ...c,
-          ...(bot?.silenceOnExternalReply !== false
-            ? { mode: 'human' as const, autoResumeAt: this.resumeAt(bot) }
-            : {}),
+          ...(bot?.silenceOnExternalReply !== false ? this.humanPause(c, bot) : {}),
+          // Staff answered from outside the app: nobody is waiting any more.
+          awaitingSince: null,
+          lastMessageSender: 'human' as const,
           revision: c.revision + 1,
           lastMessage: preview(event.text ?? '', event.attachments ?? []),
           updatedAt: now(),
@@ -198,9 +257,14 @@ export class ConversationFacadeImpl implements ConversationFacade {
           c.autoResumeAt &&
           Date.parse(c.autoResumeAt) <= Date.now() &&
           bot?.isActive
-            ? { mode: 'bot' as const, autoResumeAt: null }
+            ? { mode: 'bot' as const, autoResumeAt: null, takeover: null }
             : {}),
           status: 'open',
+          unreadCount: c.unreadCount + 1,
+          awaitingSince: c.awaitingSince ?? event.occurredAt.toISOString(),
+          lastMessageSender: 'customer' as const,
+          // The first number stays; staff correct it with PATCH customerPhone.
+          customerPhone: c.customerPhone ?? detectVietnamesePhone(event.text ?? ''),
           revision: c.revision + 1,
           lastMessage: preview(event.text ?? '', event.attachments ?? []),
           lastInboundAt: new Date(
@@ -216,6 +280,7 @@ export class ConversationFacadeImpl implements ConversationFacade {
           conversationId: c.id,
           direction: event.type === 'echo' ? 'outbound' : 'inbound',
           sender: event.type === 'echo' ? 'human' : 'customer',
+          senderName: null,
           text: (event.text ?? '').slice(0, 2000),
           attachments: event.attachments ?? [],
           status: event.type === 'echo' ? 'sent' : 'received',
@@ -229,12 +294,18 @@ export class ConversationFacadeImpl implements ConversationFacade {
         messageId: event.externalEventId,
         type: event.type,
         revision: c.revision,
+        // Statistics: where and when it happened, and whether it opened the conversation.
+        channelId,
+        occurredAt: event.occurredAt.toISOString(),
+        // The customer's first message opens it, even when staff wrote first (an echo creates the row with no inbound yet).
+        firstMessage:
+          event.type !== 'echo' && (!existing || Date.parse(existing.lastInboundAt) <= 0),
       });
       return c;
     });
   }
   async getReplyContext(ws: WorkspaceId, id: string) {
-    const detail = await this.get(ws, id);
+    const detail = await this.load(ws, id);
     return { ...detail, revision: detail.conversation.revision };
   }
   send(
@@ -326,6 +397,15 @@ export class ConversationFacadeImpl implements ConversationFacade {
     if (channel.status !== 'connected' || !channel.botId) return null;
     return this.bots.getBot(ws, channel.botId);
   }
+  /** A staff reply or Page echo pauses the bot; an explicit permanent takeover stays permanent. */
+  private humanPause(c: ConversationView, bot: BotView | null) {
+    const permanent = c.mode === 'human' && c.takeover === 'permanent';
+    return {
+      mode: 'human' as const,
+      autoResumeAt: permanent ? null : this.resumeAt(bot),
+      takeover: permanent ? ('permanent' as const) : ('temporary' as const),
+    };
+  }
   private resumeAt(bot: BotView | null): string | null {
     return bot && bot.autoResumeAfterManual !== false
       ? new Date(Date.now() + (bot.humanTakeoverMinutes ?? 5) * 60000).toISOString()
@@ -345,6 +425,8 @@ export class ConversationFacadeImpl implements ConversationFacade {
       async (tx) => (await requireConversation(tx, id)).channelId,
     );
     const bot = await this.channelBot(ws, channelId);
+    const senderName =
+      actorId && isUuid(actorId) ? await this.identity.displayName(userId(actorId)) : null;
     const reservation = await this.store.run(ws, async (tx) => {
       const c = await requireConversation(tx, id);
       const prior = await tx.findMessage(id, input.idempotencyKey);
@@ -358,7 +440,13 @@ export class ConversationFacadeImpl implements ConversationFacade {
             'CONFLICT',
             'Idempotency key was already used for another reply',
           );
-        return { message: prior, deliver: false, revision: c.revision, customerId: c.customerId };
+        return {
+          message: prior,
+          deliver: false,
+          revision: c.revision,
+          customerId: c.customerId,
+          awaitingBefore: c.awaitingSince,
+        };
       }
       if (expectedRevision !== null && !bot?.isActive) return null;
       if (
@@ -376,9 +464,12 @@ export class ConversationFacadeImpl implements ConversationFacade {
       const updated = {
         ...c,
         mode: actorId ? ('human' as const) : c.mode,
-        ...(actorId ? { autoResumeAt: this.resumeAt(bot) } : {}),
+        ...(actorId ? this.humanPause(c, bot) : {}),
         revision: c.revision + 1,
         assigneeId: actorId ?? c.assigneeId,
+        // Any reply, human or bot, answers the customer.
+        awaitingSince: null,
+        lastMessageSender: actorId ? ('human' as const) : ('bot' as const),
         updatedAt: now(),
       };
       const message: InboxMessageDto = {
@@ -386,6 +477,7 @@ export class ConversationFacadeImpl implements ConversationFacade {
         conversationId: id,
         direction: 'outbound',
         sender: actorId ? 'human' : 'bot',
+        senderName: actorId ? senderName : null,
         text: input.text,
         attachments: [...(input.attachments ?? [])],
         status: 'pending',
@@ -401,7 +493,13 @@ export class ConversationFacadeImpl implements ConversationFacade {
         actorId,
         revision: updated.revision,
       });
-      return { message, deliver: true, revision: updated.revision, customerId: c.customerId };
+      return {
+        message,
+        deliver: true,
+        revision: updated.revision,
+        customerId: c.customerId,
+        awaitingBefore: c.awaitingSince,
+      };
     });
     if (!reservation || !reservation.deliver) return reservation?.message ?? null;
     const m = reservation.message;
@@ -432,12 +530,21 @@ export class ConversationFacadeImpl implements ConversationFacade {
       await tx.save({
         ...c,
         lastMessage: preview(input.text, completed.attachments),
+        // A reply that never left means the customer is still waiting (unless they wrote again).
+        ...(result.status === 'failed' &&
+        c.awaitingSince === null &&
+        c.lastMessageSender === m.sender
+          ? { awaitingSince: reservation.awaitingBefore }
+          : {}),
         updatedAt: now(),
       });
       await tx.audit(id, 'conversation.reply.completed.v1', {
         messageId: m.id,
         status: result.status,
         failureCode: result.failureCode,
+        channelId,
+        sender: m.sender,
+        occurredAt: now(),
       });
       return completed;
     });

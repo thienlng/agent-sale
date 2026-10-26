@@ -1,4 +1,15 @@
-import { date, integer, jsonb, pgTable, text, timestamp, uuid, boolean } from 'drizzle-orm/pg-core';
+import {
+  bigint,
+  boolean,
+  date,
+  integer,
+  jsonb,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  uuid,
+} from 'drizzle-orm/pg-core';
 
 import { tenantPolicies, workspaces } from './workspace.js';
 
@@ -169,4 +180,27 @@ export const savedViews = pgTable(
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
   () => [...tenantPolicies('saved_views')],
+);
+
+/** Per-source auto-assignment of new customers to Sales (0014). */
+export const crmAssignmentPolicies = pgTable(
+  'crm_assignment_policies',
+  {
+    workspaceId: workspaceRef(),
+    sourceId: uuid('source_id')
+      .notNull()
+      .references(() => crmSources.id),
+    enabled: boolean('enabled').notNull().default(false),
+    candidates: jsonb('candidates')
+      .notNull()
+      .default([])
+      .$type<Array<{ userId: string; weight: number }>>(),
+    cursor: bigint('cursor', { mode: 'number' }).notNull().default(0),
+    version: integer('version').notNull().default(1),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.workspaceId, t.sourceId] }),
+    ...tenantPolicies('crm_assignment_policies'),
+  ],
 );

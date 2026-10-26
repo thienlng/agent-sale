@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { formatDateTime } from '@/lib/format';
+import { useCan } from '@/lib/permissions';
 import { cn } from '@/lib/utils';
 
 import { useAddNote, useEditNote, useNotes, useUpdateContact } from '../api/crm';
@@ -17,6 +18,7 @@ import type { CrmLookups } from '../hooks/use-crm-lookups';
 function PipelineStrip({ contact, lookups }: { contact: ContactDto; lookups: CrmLookups }) {
   const { t } = useTranslation();
   const update = useUpdateContact(contact.id);
+  const readOnly = !useCan('contacts.edit');
   const steps = lookups.statuses.filter((s) => !s.archived || s.id === contact.statusId);
   const current = steps.findIndex((s) => s.id === contact.statusId);
   return (
@@ -30,7 +32,7 @@ function PipelineStrip({ contact, lookups }: { contact: ContactDto; lookups: Crm
               <button
                 type="button"
                 aria-pressed={on}
-                disabled={update.isPending || on}
+                disabled={readOnly || update.isPending || on}
                 onClick={() =>
                   update.mutate(
                     { statusId: s.id, expectedVersion: contact.version },
@@ -78,6 +80,7 @@ function NoteItem({
   const { t } = useTranslation();
   const edit = useEditNote(contactId);
   const [draft, setDraft] = useState<string | null>(null);
+  const canEdit = useCan('contacts.edit');
   return (
     <li className="rounded-lg border p-3">
       <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
@@ -86,7 +89,7 @@ function NoteItem({
           <span className="tabular-nums">{formatDateTime(note.createdAt)}</span>
           {note.editedAt ? ` · ${t('crm.detail.edited')}` : ''}
         </span>
-        {draft === null ? (
+        {draft === null && canEdit ? (
           <Button
             variant="ghost"
             size="icon-sm"
@@ -146,6 +149,7 @@ export function ContactOverviewTab({
   const notes = useNotes(contact.id);
   const add = useAddNote(contact.id);
   const [body, setBody] = useState('');
+  const readOnly = !useCan('contacts.edit');
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!body.trim()) return;
@@ -162,7 +166,7 @@ export function ContactOverviewTab({
       <PipelineStrip contact={contact} lookups={lookups} />
       <section className="flex flex-col gap-2">
         <h3 className="text-sm font-medium">{t('crm.detail.notes')}</h3>
-        <form onSubmit={submit} className="flex flex-col gap-2">
+        <form onSubmit={submit} className={readOnly ? 'hidden' : 'flex flex-col gap-2'}>
           <Textarea
             rows={3}
             maxLength={5000}

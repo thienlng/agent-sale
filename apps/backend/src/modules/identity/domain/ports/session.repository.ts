@@ -24,6 +24,8 @@ export interface SessionRepository {
   markRotated(id: string, at: Date): Promise<boolean>;
   revoke(id: string, at: Date): Promise<void>;
   revokeFamily(familyId: string, at: Date): Promise<void>;
+  /** Revokes every active session of the user outside the family of `keepSessionId`. */
+  revokeOtherFamilies(userId: UserId, keepSessionId: string, at: Date): Promise<void>;
 }
 
 export const SESSION_REPOSITORY = Symbol('SESSION_REPOSITORY');

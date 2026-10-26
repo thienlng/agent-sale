@@ -28,6 +28,7 @@ import { ApiClientError } from '@/lib/api-client';
 import { errorMessage } from '@/lib/errors';
 import { formatDateTime, formatNumber, formatVnd } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { useCan } from '@/lib/permissions';
 
 import { fetchAllOrders, useOrders } from '../api/commerce';
 import { downloadOrdersCsv } from '../hooks/export-orders';
@@ -141,6 +142,7 @@ export function OrdersList({
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const canAdd = useCan('orders.manage');
   const { statuses, requireNote } = useOrderStatuses();
   const columns = useVisibleOrderColumns();
   const page = search.page ?? 1;
@@ -192,12 +194,14 @@ export function OrdersList({
             </p>
           ) : null}
         </div>
-        <Button size="lg" asChild>
-          <Link to="/app/orders/new">
-            <Plus />
-            {t('orders.add')}
-          </Link>
-        </Button>
+        {canAdd ? (
+          <Button size="lg" asChild>
+            <Link to="/app/orders/new">
+              <Plus />
+              {t('orders.add')}
+            </Link>
+          </Button>
+        ) : null}
       </header>
 
       <OrdersToolbar

@@ -1,4 +1,4 @@
-import { and, eq, schema, type TenantTx } from '@agent-sales/db';
+import { and, eq, schema, sql, type TenantTx } from '@agent-sales/db';
 import { userId, workspaceId, type UserId, type WorkspaceId } from '@agent-sales/shared';
 
 import type { MemberRepository, Membership } from '../../domain/ports/member.repository.js';
@@ -68,6 +68,29 @@ export class DrizzleMemberRepository implements MemberRepository {
       role: m.role,
       status: m.status,
     });
+  }
+
+  async lockSeats(ws: WorkspaceId): Promise<void> {
+    await this.tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${ws}::text, 7))`);
+  }
+
+  async countActive(ws: WorkspaceId): Promise<number> {
+    const [r] = await this.tx
+      .select({ n: sql<number>`count(*)` })
+      .from(schema.members)
+      .where(and(eq(schema.members.workspaceId, ws), eq(schema.members.status, 'active')));
+    return Number(r?.n ?? 0);
+  }
+
+  async update(m: Membership): Promise<void> {
+    await this.tx
+      .update(schema.members)
+      .set({
+        role: m.role,
+        status: m.status,
+        removedAt: m.status === 'removed' ? new Date() : null,
+      })
+      .where(eq(schema.members.id, m.id));
   }
 
   async find(ws: WorkspaceId, user: UserId): Promise<Membership | null> {

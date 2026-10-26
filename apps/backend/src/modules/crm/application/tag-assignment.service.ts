@@ -17,11 +17,12 @@ import {
   TagValuesInvalidError,
 } from '../domain/crm.errors.js';
 import { validateTagValues } from '../domain/tag-values.js';
+import { canSee, type Viewer } from './crm-rules.js';
 import { toAssignmentDto } from './crm.mappers.js';
 import { CRM_STORE, type AssignmentRecord, type CrmStore, type CrmTx } from './ports/crm-store.js';
 
 /**
- * Tags on customers (CRM-04). Classification and attribute tags are active at
+ * Tags on customers (CRM-04); `remove` also serves conversation tags (see ConversationTagsService). Classification and attribute tags are active at
  * most once per customer, so a retried "add" returns the existing assignment
  * and a retried "remove" is a no-op: neither writes a second event. Values are
  * validated on the server against the tag's fields.
@@ -33,9 +34,9 @@ export class TagAssignmentService {
     @Inject(IDENTITY_FACADE) private readonly identity: IdentityFacade,
   ) {}
 
-  list(ws: WorkspaceId, contactId: string): Promise<TagAssignmentDto[]> {
+  list(ws: WorkspaceId, contactId: string, viewer?: Viewer): Promise<TagAssignmentDto[]> {
     return this.store.run(ws, async (tx) => {
-      await this.#contact(tx, contactId);
+      await this.#contact(tx, contactId, viewer);
       return (await tx.assignments.listFor('contact', [contactId], true)).map(toAssignmentDto);
     });
   }
@@ -45,12 +46,13 @@ export class TagAssignmentService {
     ws: WorkspaceId,
     contactId: string,
     raw: unknown,
-    actor: string,
+    viewer: Viewer,
   ): Promise<{ created: boolean; assignment: TagAssignmentDto }> {
     const input = AssignTagRequest.parse(raw);
+    const actor = viewer.userId;
     const actorName = await this.identity.displayName(userId(actor));
     return this.store.run(ws, async (tx) => {
-      await this.#contact(tx, contactId);
+      await this.#contact(tx, contactId, viewer);
       // Locked: an archive or a field change cannot slip in between validation and insert.
       const tag = await tx.tags.find(input.tagId, { forUpdate: true });
       if (!tag) throw new TagNotFoundError(input.tagId);
@@ -112,12 +114,14 @@ export class TagAssignmentService {
     ws: WorkspaceId,
     assignmentId: string,
     raw: unknown,
-    actor: string,
+    viewer: Viewer,
   ): Promise<TagAssignmentDto> {
+    const actor = viewer.userId;
     const input = UpdateTagAssignmentRequest.parse(raw);
     const actorName = await this.identity.displayName(userId(actor));
     return this.store.run(ws, async (tx) => {
       const a = await this.#assignment(tx, assignmentId, true);
+      await this.#contact(tx, a.entityId, viewer);
       if (a.removedAt) throw new TagAssignmentNotFoundError(assignmentId);
       if (a.version !== input.expectedVersion) throw new StaleVersionError('tag', a.version);
       const tag = await tx.tags.find(a.tagId);
@@ -146,12 +150,15 @@ export class TagAssignmentService {
     ws: WorkspaceId,
     assignmentId: string,
     raw: unknown,
-    actor: string,
+    viewer: Viewer,
   ): Promise<TagAssignmentDto> {
+    const actor = viewer.userId;
     const { reason } = RemoveTagAssignmentRequest.parse(raw);
     const actorName = await this.identity.displayName(userId(actor));
     return this.store.run(ws, async (tx) => {
-      const a = await this.#assignment(tx, assignmentId, true);
+      const a = await this.#assignment(tx, assignmentId, true, ['contact', 'conversation']);
+      const forConversation = a.scope === 'conversation';
+      if (!forConversation) await this.#contact(tx, a.entityId, viewer);
       if (a.removedAt) return toAssignmentDto(a);
       const now = new Date();
       const next = {
@@ -162,6 +169,8 @@ export class TagAssignmentService {
         version: a.version + 1,
       };
       await tx.assignments.update(next);
+      // A conversation tag has no customer history and publishes no event.
+      if (forConversation) return toAssignmentDto(next);
       const tag = await tx.tags.find(a.tagId);
       await this.#history(tx, a.entityId, 'tag.removed', actor, actorName, now, {
         tagId: a.tagId,
@@ -186,13 +195,20 @@ export class TagAssignmentService {
     });
   }
 
-  async #contact(tx: CrmTx, id: string): Promise<void> {
-    if (!isUuid(id) || !(await tx.contacts.find(id))) throw new ContactNotFoundError(id);
+  /** Customers outside the viewer's scope do not exist for them. */
+  async #contact(tx: CrmTx, id: string, viewer?: Viewer): Promise<void> {
+    const c = isUuid(id) ? await tx.contacts.find(id) : null;
+    if (!c || !canSee(c, viewer)) throw new ContactNotFoundError(id);
   }
 
-  async #assignment(tx: CrmTx, id: string, forUpdate: boolean): Promise<AssignmentRecord> {
+  async #assignment(
+    tx: CrmTx,
+    id: string,
+    forUpdate: boolean,
+    scopes: readonly AssignmentRecord['scope'][] = ['contact'],
+  ): Promise<AssignmentRecord> {
     const a = isUuid(id) ? await tx.assignments.find(id, { forUpdate }) : null;
-    if (!a || a.scope !== 'contact') throw new TagAssignmentNotFoundError(id);
+    if (!a || !scopes.includes(a.scope)) throw new TagAssignmentNotFoundError(id);
     return a;
   }
 

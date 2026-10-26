@@ -2,6 +2,8 @@ import { defaultOrderPolicy, OrderSource } from '@agent-sales/contracts';
 import type { Page } from '@playwright/test';
 
 import { crmRoute } from './mock-crm';
+import { analyticsRoute } from './mock-analytics';
+import { settingsRoute } from './mock-settings';
 
 /** Deliberately long Vietnamese content: layout must wrap or truncate, never overflow. */
 export const LONG =
@@ -126,6 +128,13 @@ export async function mockApi(page: Page) {
           ],
         }),
       );
+    const analyticsMock = analyticsRoute(
+      path,
+      route.request().postDataJSON() as Record<string, unknown> | null,
+    );
+    if (analyticsMock !== undefined) return route.fulfill(json(analyticsMock));
+    const settingsMock = settingsRoute(path);
+    if (settingsMock !== undefined) return route.fulfill(json(settingsMock));
     const crm = crmRoute(path);
     if (crm !== undefined) return route.fulfill(json(crm));
     const commerce = commerceRoute(path);

@@ -18,7 +18,14 @@ import { signup } from '@/lib/session';
 
 import { FormError } from './form-error';
 
-export function SignupForm({ onSuccess }: { onSuccess: () => void }) {
+/** `defaultEmail`: prefilled when the visitor came from an invitation link. */
+export function SignupForm({
+  onSuccess,
+  defaultEmail,
+}: {
+  onSuccess: () => void;
+  defaultEmail?: string | undefined;
+}) {
   const { t } = useTranslation();
   const [industry, setIndustry] = useState<Industry>('retail');
   const [pending, setPending] = useState(false);
@@ -76,6 +83,7 @@ export function SignupForm({ onSuccess }: { onSuccess: () => void }) {
           type="email"
           autoComplete="email"
           required
+          defaultValue={defaultEmail}
           className="h-10"
         />
       </div>

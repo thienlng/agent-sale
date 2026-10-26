@@ -114,4 +114,17 @@ describe('OpenAiCompatibleProvider', () => {
     expect(r2.stopReason).toBe('refusal');
     expect(r2.text).toBe('');
   });
+
+  it('lists model ids sorted, across pages', async () => {
+    const client = {
+      models: {
+        list: async function* () {
+          yield { id: 'qwen3-32b' };
+          yield { id: 'llama-3.3-70b' };
+        },
+      },
+    } as unknown as OpenAI;
+    const provider = new OpenAiCompatibleProvider({ baseURL: 'x', client });
+    expect(await provider.listModels()).toEqual(['llama-3.3-70b', 'qwen3-32b']);
+  });
 });

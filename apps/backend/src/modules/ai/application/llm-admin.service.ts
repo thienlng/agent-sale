@@ -2,6 +2,8 @@ import { HermesLoginError } from '@agent-sales/ai-core';
 import type {
   CreateLlmProviderRequest,
   HermesLoginStatus,
+  DiscoverLlmModelsRequest,
+  DiscoverLlmModelsResponse,
   LlmModelTarget,
   LlmProviderModelList,
   LlmProviderDto,
@@ -215,6 +217,61 @@ export class LlmAdminService {
     const config = await this.#provider(id);
     const res = await this.factory.listModels(config);
     return { data: res.models.slice(0, 30), state: res.state };
+  }
+
+  /**
+   * Lists the models a server offers, which doubles as the connection check: it needs no model id.
+   * Works on unsaved settings; a stored key is reused only while the host is unchanged.
+   */
+  async discoverModels(input: DiscoverLlmModelsRequest): Promise<DiscoverLlmModelsResponse> {
+    const stored = input.providerId ? await this.#provider(input.providerId) : null;
+    const kind = input.kind ?? stored?.kind;
+    if (!kind) throw new InvalidLlmConfigError('kind is required');
+    const baseUrl = input.baseUrl !== undefined ? input.baseUrl : (stored?.baseUrl ?? null);
+    if (['openai_compatible', 'hermes'].includes(kind) && !baseUrl) {
+      throw new InvalidLlmConfigError('baseUrl is required for this provider');
+    }
+    const keepStoredKey = !input.apiKey && stored && baseUrl === stored.baseUrl;
+    const apiKeyCipher = input.apiKey
+      ? this.secrets.seal(input.apiKey)
+      : keepStoredKey
+        ? stored.apiKeyCipher
+        : null;
+    const now = new Date();
+    const config: LlmProviderConfig = {
+      id: stored?.id ?? newId(),
+      name: stored?.name ?? 'draft',
+      kind,
+      baseUrl,
+      apiKeyCipher,
+      apiKeyHint: null,
+      options: stored?.options ?? DEFAULT_PROVIDER_OPTIONS,
+      isEnabled: true,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const started = performance.now();
+    try {
+      const provider = this.factory.create(config);
+      if (!provider.listModels) {
+        return {
+          ok: false,
+          latencyMs: 0,
+          models: [],
+          error: 'This server type cannot list its models; type the model id instead.',
+        };
+      }
+      const models = await provider.listModels();
+      return { ok: true, latencyMs: Math.round(performance.now() - started), models, error: null };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return {
+        ok: false,
+        latencyMs: Math.round(performance.now() - started),
+        models: [],
+        error: message.slice(0, 500),
+      };
+    }
   }
 
   async listRoutes(): Promise<LlmTierRouteDto[]> {
