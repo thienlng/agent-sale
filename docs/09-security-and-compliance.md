@@ -12,7 +12,7 @@ The product processes end-customer messages (containing phone numbers, addresses
 - Sign-up: full name, email, phone number, password (as in Preny) → email verification (OTP/link); **phone number verification via OTP** (Zalo ZNS OTP or SMS) before using campaign-sending features (Preny also gates email campaigns behind phone number verification — anti-spam).
 - Passwords: Argon2id; minimum length policy ≥ 8; optional breach check (HIBP k-anonymity).
 - Google OAuth login.
-- TOTP 2FA (+ recovery codes); 2FA required for the Owner on paid plans (recommended).
+- TOTP 2FA (+ recovery codes) — implemented (T-057, ADM-04): see `apps/backend/src/modules/identity/MODULE.md`. 2FA required for the Owner on paid plans is still a recommendation, not enforced. Turning 2FA on or off, or regenerating recovery codes, revokes every other refresh-token family of the user (T-064), so a session stolen before the change does not outlive it.
 - Tokens: 15-minute access JWT (signed with EdDSA/RS256, with `kid` for rotation), opaque refresh token stored hashed in the DB, **rotation + reuse detection** → revoke the whole chain.
 - **Where tokens live (SPA):** the access token only in memory (never `localStorage`/`sessionStorage`); the refresh token in an `HttpOnly; Secure; SameSite=Lax` cookie scoped to `api.<domain>/api/v1/auth/refresh`, with an `Origin` check on that endpoint. On boot the SPA calls `/auth/refresh` (cookie) then `/bootstrap` (session + workspace + entitlements + flags) before first paint. Native/mobile clients send `client=native` and receive the refresh token in the response body (secure storage on device). Strict CSP (no `unsafe-inline`), sanitized rendering of all message content and attachments. Bearer tokens are used for every API call by every client, so SSE/WebSocket/mobile share one auth path (RFC 10017 ranks a BFF/session cookie first; this hybrid keeps the long-lived credential out of JavaScript while preserving API parity).
 - Session management: device list, remote logout, log out everywhere on password change.
@@ -57,6 +57,7 @@ Default roles (custom roles can be created on Pro+ plans):
 - Meta/Zalo/TikTok/carrier tokens: **envelope encryption** (AES-256-GCM data key, master key in KMS/Vault); never logged; only connectors can read them.
 - Application secrets in Vault/KMS/Secret Manager, never in the repo or committed env files.
 - Secrets that admins enter in the product (LLM provider API keys today, channel tokens later) are sealed with AES-256-GCM (`SecretBox`, `v1.` format leaves room for key rotation) using `SECRETS_ENCRYPTION_KEY`, which lives outside the database; required in production. APIs never return them — only a 4-character hint.
+- Shop-declared API actions (T-055): the API key/Bearer secret is sealed with `SecretBox`, write-only (`hasSecret`), never sent to the model or written to logs/`action_runs`. Outbound calls go through an SSRF-safe executor (public addresses only, pinned IP, no redirects, 8 s / 256 KB limits) — see [actions.md](actions.md).
 - Platform admin (`users.is_platform_admin`) is granted only from the CLI (`pnpm --filter @agent-sales/backend platform-admin grant <email>`), checked against the database on every admin request, and admin routes answer 404 to everyone else.
 - Webhooks: verify signatures 100% of the time; reject replays older than 5 minutes when a timestamp is present.
 
@@ -71,7 +72,7 @@ Default roles (custom roles can be created on Pro+ plans):
 
 ## 7. Audit log
 
-`audit_events (id, workspace_id, actor_type, actor_id, action, target_type, target_id, ip, user_agent, before JSONB, after JSONB, created_at)` — append-only (no UPDATE/DELETE privileges granted to the app role), retained ≥ 1 year.
+`audit_events (id, workspace_id, actor_user_id, actor_name, action, target_type, target_id, data JSONB, created_at)` (built, T-054; `data` holds `{ field: { from, to } }` and context. `ip`, `user_agent` and account-level events such as 2FA changes are not recorded yet) — append-only (no UPDATE/DELETE privileges for either application role, `app_tenant` or `app_system`; migration 0020), retained ≥ 1 year.
 
 Mandatory events: login/2FA, permission changes/inviting/removing members, connecting/disconnecting channels, editing bot configuration, data export, deleting/merging contacts, editing order prices, creating/sending campaigns, manual wallet top-ups/deductions, admin impersonation.
 

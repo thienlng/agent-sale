@@ -9,6 +9,8 @@ export const queryKeys = {
   readiness: (workspaceId: string, botId: string) =>
     ['ws', workspaceId, 'bots', botId, 'readiness'] as const,
   faqs: (workspaceId: string, botId: string) => ['ws', workspaceId, 'bots', botId, 'faqs'] as const,
+  actions: (workspaceId: string, botId: string) =>
+    ['ws', workspaceId, 'bots', botId, 'actions'] as const,
   warehouses: (ws: string) => ['ws', ws, 'warehouses'] as const,
   products: (ws: string) => ['ws', ws, 'products'] as const,
   product: (ws: string, id: string) => ['ws', ws, 'products', id] as const,
@@ -22,6 +24,13 @@ export const queryKeys = {
   crmTags: (ws: string) => ['ws', ws, 'crm', 'tags'] as const,
   crmAssignees: (ws: string) => ['ws', ws, 'crm', 'assignees'] as const,
   savedViews: (ws: string) => ['ws', ws, 'saved-views'] as const,
+  members: (ws: string) => ['ws', ws, 'members'] as const,
+  invitations: (ws: string) => ['ws', ws, 'invitations'] as const,
+  assignmentPolicies: (ws: string) => ['ws', ws, 'crm', 'assignment-policies'] as const,
+  mfa: ['me', 'mfa'] as const,
+  profile: (ws: string) => ['ws', ws, 'profile'] as const,
+  logo: (ws: string, version: string | null) => ['ws', ws, 'logo', version] as const,
+  audit: (ws: string) => ['ws', ws, 'audit'] as const,
   llmProviders: ['admin', 'llm', 'providers'] as const,
   hermesLogin: (providerId: string) => ['admin', 'llm', 'hermes-login', providerId] as const,
   providerModels: (providerId: string) => ['admin', 'llm', 'models', providerId] as const,

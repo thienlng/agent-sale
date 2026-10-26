@@ -36,6 +36,8 @@ export class MediaFacadeImpl implements MediaFacade {
           notes: '',
           mediaUrl: url,
           folderId: input.folderId,
+          enabled: true,
+          section: 'general',
         },
         actor,
       );

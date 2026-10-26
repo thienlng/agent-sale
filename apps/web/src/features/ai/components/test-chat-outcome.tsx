@@ -1,5 +1,5 @@
 import type { PlaygroundResponse } from '@agent-sales/contracts';
-import { BadgeCheck, CircleHelp, Headset, ShieldAlert } from 'lucide-react';
+import { BadgeCheck, CircleHelp, Headset, ShieldAlert, TriangleAlert, Zap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { cn } from '@/lib/utils';
@@ -38,6 +38,24 @@ export function Outcome({ result }: { result: PlaygroundResponse }) {
           {t('playground.handoff')}
         </span>
       ) : null}
+      {result.actions?.map((a, i) => (
+        <span
+          key={`${a.name}-${i}`}
+          className={cn(
+            chip,
+            a.ok ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning',
+          )}
+        >
+          {a.ok ? (
+            <Zap className="size-3.5 shrink-0" aria-hidden />
+          ) : (
+            <TriangleAlert className="size-3.5 shrink-0" aria-hidden />
+          )}
+          <span className="truncate">
+            {t(a.ok ? 'chat.called' : 'chat.failed', { ns: 'action', name: a.name })}
+          </span>
+        </span>
+      ))}
       <span className="text-xs text-muted-foreground">
         {t('playground.meta', {
           model: result.model,

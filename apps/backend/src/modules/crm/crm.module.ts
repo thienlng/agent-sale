@@ -5,8 +5,12 @@ import { DB_TENANT } from '../../common/db/db.module.js';
 import { IdentityModule } from '../identity/identity.module.js';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
 import { CRM_FACADE } from './api/crm.facade.js';
+import { ConversationTagsService } from './application/conversation-tags.service.js';
 import { ContactService } from './application/contact.service.js';
+import { CrmFacadeImpl } from './application/crm.facade.impl.js';
+import { OwnershipService } from './application/ownership.service.js';
 import { CrmSettingsService } from './application/crm-settings.service.js';
+import { DistributionService } from './application/distribution.service.js';
 import { CRM_STORE } from './application/ports/crm-store.js';
 import { SavedViewService } from './application/saved-view.service.js';
 import { TagAssignmentService } from './application/tag-assignment.service.js';
@@ -28,9 +32,12 @@ import { CrmSettingsController } from './interface/http/crm-settings.controller.
     },
     ContactService,
     CrmSettingsService,
+    DistributionService,
     TagAssignmentService,
+    ConversationTagsService,
     SavedViewService,
-    { provide: CRM_FACADE, useExisting: ContactService },
+    OwnershipService,
+    { provide: CRM_FACADE, useClass: CrmFacadeImpl },
   ],
   exports: [CRM_FACADE],
 })

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { SecretBox } from '../../../common/security/secret-box.js';
+
 import type { WorkspaceFacade } from '../../workspace/api/index.js';
 import {
   LoginHandler,
@@ -7,15 +9,21 @@ import {
   SignupHandler,
 } from '../application/commands/auth.handlers.js';
 import type { PasswordHasher } from '../application/ports/security.js';
+import { MfaService } from '../application/mfa.service.js';
 import { SessionService } from '../application/sessions.js';
 import {
   EmailTakenError,
   InvalidCredentialsError,
+  MfaCodeInvalidError,
+  MfaReauthError,
+  MfaRequiredError,
   SessionInvalidError,
   TooManyAttemptsError,
   WeakPasswordError,
 } from '../domain/identity.errors.js';
+import { totpAt, stepAt } from '../domain/totp.js';
 import {
+  InMemoryMfaRepository,
   InMemorySessionRepository,
   InMemoryUserRepository,
 } from '../infrastructure/persistence/identity.in-memory-repositories.js';
@@ -42,13 +50,22 @@ async function setup() {
     },
   } as unknown as WorkspaceFacade;
   const limiter = new InMemoryAttemptLimiter(3, 60_000);
+  const mfa = new MfaService(
+    new InMemoryMfaRepository(),
+    users,
+    hasher,
+    new InMemoryAttemptLimiter(20, 60_000),
+    SecretBox.insecureDevelopmentBox(),
+    sessions,
+  );
   return {
+    mfa,
     users,
     sessionRepo,
     tokens,
     created,
     signup: new SignupHandler(users, hasher, limiter, workspaces, sessions),
-    login: new LoginHandler(users, hasher, limiter, sessions),
+    login: new LoginHandler(users, hasher, limiter, sessions, mfa),
     refresh: new RefreshHandler(users, sessions),
   };
 }
@@ -128,5 +145,80 @@ describe('auth flow (in-memory)', () => {
     const tampered =
       accessToken.slice(0, at) + (accessToken[at] === 'A' ? 'B' : 'A') + accessToken.slice(at + 1);
     expect(await s.tokens.verify(tampered)).toBeNull();
+  });
+
+  describe('two-factor', () => {
+    async function enrolled() {
+      const s = await setup();
+      const issued = await s.signup.execute(input, meta);
+      const userId = issued.user.id as never;
+      const sessionId = currentSession(s);
+      const { secret } = await s.mfa.beginSetup(userId, input.password);
+      const recovery = await s.mfa.enable(userId, totpAt(secret, stepAt(Date.now())), sessionId);
+      return { ...s, userId, sessionId, secret, recovery };
+    }
+    /** The one session signup started. */
+    const currentSession = (s: { sessionRepo: InMemorySessionRepository }) =>
+      ([...s.sessionRepo.rows.values()][0] as { id: string }).id;
+    const creds = { email: input.email, password: input.password, client: 'web' as const };
+
+    it('asks for a code, accepts a good one once, and refuses a replay', async () => {
+      const s = await enrolled();
+      await expect(s.login.execute(creds, meta)).rejects.toBeInstanceOf(MfaRequiredError);
+      await expect(s.login.execute({ ...creds, code: '000000' }, meta)).rejects.toBeInstanceOf(
+        MfaCodeInvalidError,
+      );
+      // The setup code already used the current step; the next step is still inside the window.
+      const next = totpAt(s.secret, stepAt(Date.now()) + 1);
+      await expect(s.login.execute({ ...creds, code: next }, meta)).resolves.toBeDefined();
+      await expect(s.login.execute({ ...creds, code: next }, meta)).rejects.toBeInstanceOf(
+        MfaCodeInvalidError,
+      );
+    });
+
+    it('recovery codes work once each', async () => {
+      const s = await enrolled();
+      const code = s.recovery[0] as string;
+      await expect(s.login.execute({ ...creds, code }, meta)).resolves.toBeDefined();
+      await expect(s.login.execute({ ...creds, code }, meta)).rejects.toBeInstanceOf(
+        MfaCodeInvalidError,
+      );
+      expect((await s.mfa.status(s.userId)).recoveryCodesLeft).toBe(s.recovery.length - 1);
+    });
+
+    it('turning it off needs the password and a valid code', async () => {
+      const s = await enrolled();
+      const code = s.recovery[1] as string;
+      await expect(
+        s.mfa.disable(s.userId, 'wrong password', code, s.sessionId),
+      ).rejects.toBeInstanceOf(MfaReauthError);
+      await expect(
+        s.mfa.disable(s.userId, input.password, '000000', s.sessionId),
+      ).rejects.toBeInstanceOf(MfaReauthError);
+      await s.mfa.disable(s.userId, input.password, code, s.sessionId);
+      expect(await s.mfa.status(s.userId)).toEqual({ enabled: false, recoveryCodesLeft: 0 });
+      await expect(s.login.execute(creds, meta)).resolves.toBeDefined();
+    });
+
+    it('turning it on signs out every other session but keeps the current one', async () => {
+      const s = await setup();
+      const mine = await s.signup.execute(input, meta);
+      const sessionId = currentSession(s);
+      const other = await s.login.execute(creds, meta);
+      const userId = mine.user.id as never;
+      const { secret } = await s.mfa.beginSetup(userId, input.password);
+      await s.mfa.enable(userId, totpAt(secret, stepAt(Date.now())), sessionId);
+      await expect(s.refresh.execute(other.refreshToken, meta)).rejects.toBeInstanceOf(
+        SessionInvalidError,
+      );
+      await expect(s.refresh.execute(mine.refreshToken, meta)).resolves.toBeDefined();
+    });
+
+    it('a pending setup does not gate login until confirmed', async () => {
+      const s = await setup();
+      const issued = await s.signup.execute(input, meta);
+      await s.mfa.beginSetup(issued.user.id as never, input.password);
+      await expect(s.login.execute(creds, meta)).resolves.toBeDefined();
+    });
   });
 });

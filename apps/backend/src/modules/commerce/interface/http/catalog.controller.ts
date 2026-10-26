@@ -29,6 +29,7 @@ import {
   type AuthState,
   CurrentUser,
   CurrentWorkspace,
+  RequireCapability,
   WorkspaceScoped,
 } from '../../../../common/http/auth-context.js';
 import { ZodValidationPipe } from '../../../../common/http/zod-validation.pipe.js';
@@ -45,6 +46,7 @@ export class CatalogController {
     return { data: await this.catalog.listWarehouses(ws) };
   }
 
+  @RequireCapability('catalog.manage')
   @Post('warehouses')
   @HttpCode(201)
   createWarehouse(
@@ -54,6 +56,7 @@ export class CatalogController {
     return this.catalog.createWarehouse(ws, body);
   }
 
+  @RequireCapability('catalog.manage')
   @Patch('warehouses/:warehouseId')
   updateWarehouse(
     @CurrentWorkspace() ws: WorkspaceId,
@@ -63,6 +66,7 @@ export class CatalogController {
     return this.catalog.updateWarehouse(ws, id, body);
   }
 
+  @RequireCapability('catalog.manage')
   @Delete('warehouses/:warehouseId')
   @HttpCode(204)
   deleteWarehouse(
@@ -80,6 +84,7 @@ export class CatalogController {
     return this.catalog.listProducts(ws, query);
   }
 
+  @RequireCapability('catalog.manage')
   @Post('products')
   @HttpCode(201)
   createProduct(
@@ -97,6 +102,7 @@ export class CatalogController {
     return this.catalog.getProduct(ws, id);
   }
 
+  @RequireCapability('catalog.manage')
   @Put('products/:productId')
   updateProduct(
     @CurrentWorkspace() ws: WorkspaceId,
@@ -106,6 +112,7 @@ export class CatalogController {
     return this.catalog.updateProduct(ws, id, body);
   }
 
+  @RequireCapability('catalog.manage')
   @Post('products/:productId/stock')
   @HttpCode(200)
   adjustStock(

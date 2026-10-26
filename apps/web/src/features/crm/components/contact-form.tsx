@@ -12,6 +12,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { useCan } from '@/lib/permissions';
+import { useSession } from '@/lib/session';
 
 import type { CrmLookups } from '../hooks/use-crm-lookups';
 
@@ -154,7 +156,13 @@ export function ContactFields({
       />
     </div>
   );
-  const members = lookups.assignees.map((m) => ({ id: m.userId, label: m.name }));
+  // Without the assign capability you may only take an empty slot yourself.
+  const canAssign = useCan('contacts.assign');
+  const me = useSession()?.user.id;
+  const owners = (current: string) =>
+    lookups.assignees
+      .filter((m) => canAssign || m.userId === me || m.userId === current)
+      .map((m) => ({ id: m.userId, label: m.name }));
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
@@ -201,14 +209,14 @@ export function ContactFields({
         id={`${idPrefix}-sales`}
         label={t('crm.field.sales')}
         value={value.salesUserId}
-        options={members}
+        options={owners(value.salesUserId)}
         onChange={(salesUserId) => set({ salesUserId })}
       />
       <OptionSelect
         id={`${idPrefix}-care`}
         label={t('crm.field.care')}
         value={value.careUserId}
-        options={members}
+        options={owners(value.careUserId)}
         onChange={(careUserId) => set({ careUserId })}
       />
       <div className="flex flex-col gap-1.5 sm:col-span-2">

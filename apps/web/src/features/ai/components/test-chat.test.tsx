@@ -216,4 +216,24 @@ describe('TestChat', () => {
       expect(await screen.findByText(/chưa đọc được ảnh/)).toBeInTheDocument();
     });
   });
+
+  it('shows a chip per API action the bot called', async () => {
+    const { fetchStub } = stubFetch({
+      [`POST /bots/${botId}/playground`]: {
+        status: 200,
+        body: {
+          ...reply,
+          actions: [
+            { name: 'Tra cứu đơn', ok: true, statusCode: 200 },
+            { name: 'Đặt lịch', ok: false, statusCode: null },
+          ],
+        },
+      },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithProviders(<TestChat botId={botId} greeting="Xin chào" />);
+    await userEvent.type(screen.getByLabelText('Nhập tin nhắn của bạn'), 'don cua toi{Enter}');
+    expect(await screen.findByText('Đã gọi API: Tra cứu đơn')).toBeInTheDocument();
+    expect(screen.getByText('Gọi API lỗi: Đặt lịch')).toBeInTheDocument();
+  });
 });

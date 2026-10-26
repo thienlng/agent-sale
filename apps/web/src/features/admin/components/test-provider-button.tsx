@@ -9,7 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { errorMessage } from '@/lib/errors';
 
 import { useLlmTiers, useProviderModels, useTestProvider } from '../api/llm';
-import { ModelPicker } from './model-picker';
+import { ProviderModelPicker } from './provider-model-picker';
 
 type TestMutation = ReturnType<typeof useTestProvider>;
 
@@ -59,7 +59,7 @@ function TestForm({ provider, test }: { provider: LlmProviderDto; test: TestMuta
       </label>
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
-          <ModelPicker
+          <ProviderModelPicker
             id={`test-${provider.id}`}
             providerId={provider.id}
             label={t('admin.testModel')}

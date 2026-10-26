@@ -76,11 +76,11 @@ function TargetFields({
         </Select>
         <ModelPicker
           id={`${idPrefix}-model`}
-          providerId={value?.providerId ?? null}
           label={`${label}: ${t('admin.model')}`}
-          disabled={!value}
+          providerId={value?.providerId}
           value={value?.model ?? ''}
           onChange={(model) => value && onChange({ ...value, model })}
+          canList={providers.find((p) => p.id === value?.providerId)?.kind !== 'hermes'}
         />
         <Select
           disabled={!value}

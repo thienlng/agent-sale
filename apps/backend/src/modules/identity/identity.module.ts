@@ -4,6 +4,7 @@ import { APP_GUARD } from '@nestjs/core';
 
 import { DB_SYSTEM } from '../../common/db/db.module.js';
 import { getEnv } from '../../common/config.js';
+import { SECRET_BOX, SecretBox } from '../../common/security/secret-box.js';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
 import { IDENTITY_FACADE } from './api/identity.facade.js';
 import {
@@ -13,14 +14,18 @@ import {
   SignupHandler,
 } from './application/commands/auth.handlers.js';
 import { ACCESS_TOKENS, ATTEMPT_LIMITER, PASSWORD_HASHER } from './application/ports/security.js';
+import { MfaService } from './application/mfa.service.js';
 import { SessionService } from './application/sessions.js';
+import { MFA_REPOSITORY } from './domain/ports/mfa.repository.js';
 import { SESSION_REPOSITORY } from './domain/ports/session.repository.js';
 import { USER_REPOSITORY } from './domain/ports/user.repository.js';
 import {
+  DrizzleMfaRepository,
   DrizzleSessionRepository,
   DrizzleUserRepository,
 } from './infrastructure/persistence/identity.drizzle-repositories.js';
 import {
+  InMemoryMfaRepository,
   InMemorySessionRepository,
   InMemoryUserRepository,
 } from './infrastructure/persistence/identity.in-memory-repositories.js';
@@ -40,6 +45,7 @@ import { AuthGuard } from './interface/http/auth.guard.js';
   controllers: [AuthController],
   providers: [
     SessionService,
+    MfaService,
     SignupHandler,
     LoginHandler,
     RefreshHandler,
@@ -55,6 +61,19 @@ import { AuthGuard } from './interface/http/auth.guard.js';
       inject: [{ token: DB_SYSTEM, optional: true }],
       useFactory: (db: Database | null | undefined) =>
         db ? new DrizzleSessionRepository(db) : new InMemorySessionRepository(),
+    },
+    {
+      provide: MFA_REPOSITORY,
+      inject: [{ token: DB_SYSTEM, optional: true }],
+      useFactory: (db: Database | null | undefined) =>
+        db ? new DrizzleMfaRepository(db) : new InMemoryMfaRepository(),
+    },
+    {
+      provide: SECRET_BOX,
+      useFactory: () => {
+        const key = getEnv().SECRETS_ENCRYPTION_KEY;
+        return key ? SecretBox.fromBase64(key) : SecretBox.insecureDevelopmentBox();
+      },
     },
     { provide: PASSWORD_HASHER, useFactory: () => new Argon2PasswordHasher() },
     { provide: ATTEMPT_LIMITER, useFactory: () => new InMemoryAttemptLimiter() },

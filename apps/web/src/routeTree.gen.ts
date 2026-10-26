@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AppRouteImport } from './routes/app'
+import { Route as JoinRouteImport } from './routes/join'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
@@ -22,11 +23,13 @@ import { Route as AppChannelsRouteImport } from './routes/app/channels'
 import { Route as AppContactsRouteImport } from './routes/app/contacts'
 import { Route as AppCrmSettingsRouteImport } from './routes/app/crm-settings'
 import { Route as AppInboxRouteImport } from './routes/app/inbox'
+import { Route as AppMembersRouteImport } from './routes/app/members'
 import { Route as AppOrderSettingsRouteImport } from './routes/app/order-settings'
 import { Route as AppSettingsRouteImport } from './routes/app/settings'
 import { Route as AppBotsIndexRouteImport } from './routes/app/bots/index'
 import { Route as AppBotsBotIdRouteImport } from './routes/app/bots/$botId'
 import { Route as AppCrmSettingsIndexRouteImport } from './routes/app/crm-settings/index'
+import { Route as AppCrmSettingsDistributionRouteImport } from './routes/app/crm-settings/distribution'
 import { Route as AppCrmSettingsSourcesRouteImport } from './routes/app/crm-settings/sources'
 import { Route as AppCrmSettingsStatusesRouteImport } from './routes/app/crm-settings/statuses'
 import { Route as AppCrmSettingsTagsRouteImport } from './routes/app/crm-settings/tags'
@@ -41,6 +44,10 @@ import { Route as AppOrdersOverviewRouteImport } from './routes/app/orders/overv
 import { Route as AppProductsIndexRouteImport } from './routes/app/products/index'
 import { Route as AppProductsProductIdRouteImport } from './routes/app/products/$productId'
 import { Route as AppProductsNewRouteImport } from './routes/app/products/new'
+import { Route as AppSettingsIndexRouteImport } from './routes/app/settings/index'
+import { Route as AppSettingsAuditRouteImport } from './routes/app/settings/audit'
+import { Route as AppSettingsProfileRouteImport } from './routes/app/settings/profile'
+import { Route as AppSettingsSecurityRouteImport } from './routes/app/settings/security'
 import { Route as AppBotsBotIdIndexRouteImport } from './routes/app/bots/$botId/index'
 import { Route as AppBotsBotIdAdsToolRouteImport } from './routes/app/bots/$botId/ads-tool'
 import { Route as AppBotsBotIdHistoryRouteImport } from './routes/app/bots/$botId/history'
@@ -51,6 +58,9 @@ import { Route as AppBotsBotIdMediaRouteImport } from './routes/app/bots/$botId/
 import { Route as AppBotsBotIdProductsRouteImport } from './routes/app/bots/$botId/products'
 import { Route as AppBotsBotIdQuickRepliesRouteImport } from './routes/app/bots/$botId/quick-replies'
 import { Route as AppBotsBotIdSettingsRouteImport } from './routes/app/bots/$botId/settings'
+import { Route as AppBotsBotIdActionsIndexRouteImport } from './routes/app/bots/$botId/actions.index'
+import { Route as AppBotsBotIdActionsActionIdRouteImport } from './routes/app/bots/$botId/actions.$actionId'
+import { Route as AppBotsBotIdActionsNewRouteImport } from './routes/app/bots/$botId/actions.new'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -65,6 +75,11 @@ const AdminRoute = AdminRouteImport.update({
 const AppRoute = AppRouteImport.update({
   id: '/app',
   path: '/app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JoinRoute = JoinRouteImport.update({
+  id: '/join',
+  path: '/join',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -117,6 +132,11 @@ const AppInboxRoute = AppInboxRouteImport.update({
   path: '/inbox',
   getParentRoute: () => AppRoute,
 } as any)
+const AppMembersRoute = AppMembersRouteImport.update({
+  id: '/members',
+  path: '/members',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppOrderSettingsRoute = AppOrderSettingsRouteImport.update({
   id: '/order-settings',
   path: '/order-settings',
@@ -142,6 +162,12 @@ const AppCrmSettingsIndexRoute = AppCrmSettingsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppCrmSettingsRoute,
 } as any)
+const AppCrmSettingsDistributionRoute =
+  AppCrmSettingsDistributionRouteImport.update({
+    id: '/distribution',
+    path: '/distribution',
+    getParentRoute: () => AppCrmSettingsRoute,
+  } as any)
 const AppCrmSettingsSourcesRoute = AppCrmSettingsSourcesRouteImport.update({
   id: '/sources',
   path: '/sources',
@@ -214,6 +240,26 @@ const AppProductsNewRoute = AppProductsNewRouteImport.update({
   path: '/products/new',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
+const AppSettingsAuditRoute = AppSettingsAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
+const AppSettingsProfileRoute = AppSettingsProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
+const AppSettingsSecurityRoute = AppSettingsSecurityRouteImport.update({
+  id: '/security',
+  path: '/security',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
 const AppBotsBotIdIndexRoute = AppBotsBotIdIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -267,11 +313,29 @@ const AppBotsBotIdSettingsRoute = AppBotsBotIdSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AppBotsBotIdRoute,
 } as any)
+const AppBotsBotIdActionsIndexRoute =
+  AppBotsBotIdActionsIndexRouteImport.update({
+    id: '/actions/',
+    path: '/actions/',
+    getParentRoute: () => AppBotsBotIdRoute,
+  } as any)
+const AppBotsBotIdActionsActionIdRoute =
+  AppBotsBotIdActionsActionIdRouteImport.update({
+    id: '/actions/$actionId',
+    path: '/actions/$actionId',
+    getParentRoute: () => AppBotsBotIdRoute,
+  } as any)
+const AppBotsBotIdActionsNewRoute = AppBotsBotIdActionsNewRouteImport.update({
+  id: '/actions/new',
+  path: '/actions/new',
+  getParentRoute: () => AppBotsBotIdRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/app': typeof AppRouteWithChildren
+  '/join': typeof JoinRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/admin/llm': typeof AdminLlmRoute
@@ -280,11 +344,13 @@ export interface FileRoutesByFullPath {
   '/app/contacts': typeof AppContactsRoute
   '/app/crm-settings': typeof AppCrmSettingsRouteWithChildren
   '/app/inbox': typeof AppInboxRoute
+  '/app/members': typeof AppMembersRoute
   '/app/order-settings': typeof AppOrderSettingsRouteWithChildren
-  '/app/settings': typeof AppSettingsRoute
+  '/app/settings': typeof AppSettingsRouteWithChildren
   '/admin/': typeof AdminIndexRoute
   '/app/': typeof AppIndexRoute
   '/app/bots/$botId': typeof AppBotsBotIdRouteWithChildren
+  '/app/crm-settings/distribution': typeof AppCrmSettingsDistributionRoute
   '/app/crm-settings/sources': typeof AppCrmSettingsSourcesRoute
   '/app/crm-settings/statuses': typeof AppCrmSettingsStatusesRoute
   '/app/crm-settings/tags': typeof AppCrmSettingsTagsRoute
@@ -296,11 +362,15 @@ export interface FileRoutesByFullPath {
   '/app/orders/overview': typeof AppOrdersOverviewRoute
   '/app/products/$productId': typeof AppProductsProductIdRoute
   '/app/products/new': typeof AppProductsNewRoute
+  '/app/settings/audit': typeof AppSettingsAuditRoute
+  '/app/settings/profile': typeof AppSettingsProfileRoute
+  '/app/settings/security': typeof AppSettingsSecurityRoute
   '/app/bots/': typeof AppBotsIndexRoute
   '/app/crm-settings/': typeof AppCrmSettingsIndexRoute
   '/app/order-settings/': typeof AppOrderSettingsIndexRoute
   '/app/orders/': typeof AppOrdersIndexRoute
   '/app/products/': typeof AppProductsIndexRoute
+  '/app/settings/': typeof AppSettingsIndexRoute
   '/app/bots/$botId/ads-tool': typeof AppBotsBotIdAdsToolRoute
   '/app/bots/$botId/history': typeof AppBotsBotIdHistoryRoute
   '/app/bots/$botId/instructions': typeof AppBotsBotIdInstructionsRoute
@@ -311,9 +381,13 @@ export interface FileRoutesByFullPath {
   '/app/bots/$botId/quick-replies': typeof AppBotsBotIdQuickRepliesRoute
   '/app/bots/$botId/settings': typeof AppBotsBotIdSettingsRoute
   '/app/bots/$botId/': typeof AppBotsBotIdIndexRoute
+  '/app/bots/$botId/actions/$actionId': typeof AppBotsBotIdActionsActionIdRoute
+  '/app/bots/$botId/actions/new': typeof AppBotsBotIdActionsNewRoute
+  '/app/bots/$botId/actions/': typeof AppBotsBotIdActionsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/join': typeof JoinRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/admin/llm': typeof AdminLlmRoute
@@ -321,9 +395,10 @@ export interface FileRoutesByTo {
   '/app/channels': typeof AppChannelsRoute
   '/app/contacts': typeof AppContactsRoute
   '/app/inbox': typeof AppInboxRoute
-  '/app/settings': typeof AppSettingsRoute
+  '/app/members': typeof AppMembersRoute
   '/admin': typeof AdminIndexRoute
   '/app': typeof AppIndexRoute
+  '/app/crm-settings/distribution': typeof AppCrmSettingsDistributionRoute
   '/app/crm-settings/sources': typeof AppCrmSettingsSourcesRoute
   '/app/crm-settings/statuses': typeof AppCrmSettingsStatusesRoute
   '/app/crm-settings/tags': typeof AppCrmSettingsTagsRoute
@@ -335,11 +410,15 @@ export interface FileRoutesByTo {
   '/app/orders/overview': typeof AppOrdersOverviewRoute
   '/app/products/$productId': typeof AppProductsProductIdRoute
   '/app/products/new': typeof AppProductsNewRoute
+  '/app/settings/audit': typeof AppSettingsAuditRoute
+  '/app/settings/profile': typeof AppSettingsProfileRoute
+  '/app/settings/security': typeof AppSettingsSecurityRoute
   '/app/bots': typeof AppBotsIndexRoute
   '/app/crm-settings': typeof AppCrmSettingsIndexRoute
   '/app/order-settings': typeof AppOrderSettingsIndexRoute
   '/app/orders': typeof AppOrdersIndexRoute
   '/app/products': typeof AppProductsIndexRoute
+  '/app/settings': typeof AppSettingsIndexRoute
   '/app/bots/$botId/ads-tool': typeof AppBotsBotIdAdsToolRoute
   '/app/bots/$botId/history': typeof AppBotsBotIdHistoryRoute
   '/app/bots/$botId/instructions': typeof AppBotsBotIdInstructionsRoute
@@ -350,12 +429,16 @@ export interface FileRoutesByTo {
   '/app/bots/$botId/quick-replies': typeof AppBotsBotIdQuickRepliesRoute
   '/app/bots/$botId/settings': typeof AppBotsBotIdSettingsRoute
   '/app/bots/$botId': typeof AppBotsBotIdIndexRoute
+  '/app/bots/$botId/actions/$actionId': typeof AppBotsBotIdActionsActionIdRoute
+  '/app/bots/$botId/actions/new': typeof AppBotsBotIdActionsNewRoute
+  '/app/bots/$botId/actions': typeof AppBotsBotIdActionsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/app': typeof AppRouteWithChildren
+  '/join': typeof JoinRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/admin/llm': typeof AdminLlmRoute
@@ -364,11 +447,13 @@ export interface FileRoutesById {
   '/app/contacts': typeof AppContactsRoute
   '/app/crm-settings': typeof AppCrmSettingsRouteWithChildren
   '/app/inbox': typeof AppInboxRoute
+  '/app/members': typeof AppMembersRoute
   '/app/order-settings': typeof AppOrderSettingsRouteWithChildren
-  '/app/settings': typeof AppSettingsRoute
+  '/app/settings': typeof AppSettingsRouteWithChildren
   '/admin/': typeof AdminIndexRoute
   '/app/': typeof AppIndexRoute
   '/app/bots/$botId': typeof AppBotsBotIdRouteWithChildren
+  '/app/crm-settings/distribution': typeof AppCrmSettingsDistributionRoute
   '/app/crm-settings/sources': typeof AppCrmSettingsSourcesRoute
   '/app/crm-settings/statuses': typeof AppCrmSettingsStatusesRoute
   '/app/crm-settings/tags': typeof AppCrmSettingsTagsRoute
@@ -380,11 +465,15 @@ export interface FileRoutesById {
   '/app/orders/overview': typeof AppOrdersOverviewRoute
   '/app/products/$productId': typeof AppProductsProductIdRoute
   '/app/products/new': typeof AppProductsNewRoute
+  '/app/settings/audit': typeof AppSettingsAuditRoute
+  '/app/settings/profile': typeof AppSettingsProfileRoute
+  '/app/settings/security': typeof AppSettingsSecurityRoute
   '/app/bots/': typeof AppBotsIndexRoute
   '/app/crm-settings/': typeof AppCrmSettingsIndexRoute
   '/app/order-settings/': typeof AppOrderSettingsIndexRoute
   '/app/orders/': typeof AppOrdersIndexRoute
   '/app/products/': typeof AppProductsIndexRoute
+  '/app/settings/': typeof AppSettingsIndexRoute
   '/app/bots/$botId/ads-tool': typeof AppBotsBotIdAdsToolRoute
   '/app/bots/$botId/history': typeof AppBotsBotIdHistoryRoute
   '/app/bots/$botId/instructions': typeof AppBotsBotIdInstructionsRoute
@@ -395,6 +484,9 @@ export interface FileRoutesById {
   '/app/bots/$botId/quick-replies': typeof AppBotsBotIdQuickRepliesRoute
   '/app/bots/$botId/settings': typeof AppBotsBotIdSettingsRoute
   '/app/bots/$botId/': typeof AppBotsBotIdIndexRoute
+  '/app/bots/$botId/actions/$actionId': typeof AppBotsBotIdActionsActionIdRoute
+  '/app/bots/$botId/actions/new': typeof AppBotsBotIdActionsNewRoute
+  '/app/bots/$botId/actions/': typeof AppBotsBotIdActionsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -402,6 +494,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/app'
+    | '/join'
     | '/login'
     | '/signup'
     | '/admin/llm'
@@ -410,11 +503,13 @@ export interface FileRouteTypes {
     | '/app/contacts'
     | '/app/crm-settings'
     | '/app/inbox'
+    | '/app/members'
     | '/app/order-settings'
     | '/app/settings'
     | '/admin/'
     | '/app/'
     | '/app/bots/$botId'
+    | '/app/crm-settings/distribution'
     | '/app/crm-settings/sources'
     | '/app/crm-settings/statuses'
     | '/app/crm-settings/tags'
@@ -426,11 +521,15 @@ export interface FileRouteTypes {
     | '/app/orders/overview'
     | '/app/products/$productId'
     | '/app/products/new'
+    | '/app/settings/audit'
+    | '/app/settings/profile'
+    | '/app/settings/security'
     | '/app/bots/'
     | '/app/crm-settings/'
     | '/app/order-settings/'
     | '/app/orders/'
     | '/app/products/'
+    | '/app/settings/'
     | '/app/bots/$botId/ads-tool'
     | '/app/bots/$botId/history'
     | '/app/bots/$botId/instructions'
@@ -441,9 +540,13 @@ export interface FileRouteTypes {
     | '/app/bots/$botId/quick-replies'
     | '/app/bots/$botId/settings'
     | '/app/bots/$botId/'
+    | '/app/bots/$botId/actions/$actionId'
+    | '/app/bots/$botId/actions/new'
+    | '/app/bots/$botId/actions/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/join'
     | '/login'
     | '/signup'
     | '/admin/llm'
@@ -451,9 +554,10 @@ export interface FileRouteTypes {
     | '/app/channels'
     | '/app/contacts'
     | '/app/inbox'
-    | '/app/settings'
+    | '/app/members'
     | '/admin'
     | '/app'
+    | '/app/crm-settings/distribution'
     | '/app/crm-settings/sources'
     | '/app/crm-settings/statuses'
     | '/app/crm-settings/tags'
@@ -465,11 +569,15 @@ export interface FileRouteTypes {
     | '/app/orders/overview'
     | '/app/products/$productId'
     | '/app/products/new'
+    | '/app/settings/audit'
+    | '/app/settings/profile'
+    | '/app/settings/security'
     | '/app/bots'
     | '/app/crm-settings'
     | '/app/order-settings'
     | '/app/orders'
     | '/app/products'
+    | '/app/settings'
     | '/app/bots/$botId/ads-tool'
     | '/app/bots/$botId/history'
     | '/app/bots/$botId/instructions'
@@ -480,11 +588,15 @@ export interface FileRouteTypes {
     | '/app/bots/$botId/quick-replies'
     | '/app/bots/$botId/settings'
     | '/app/bots/$botId'
+    | '/app/bots/$botId/actions/$actionId'
+    | '/app/bots/$botId/actions/new'
+    | '/app/bots/$botId/actions'
   id:
     | '__root__'
     | '/'
     | '/admin'
     | '/app'
+    | '/join'
     | '/login'
     | '/signup'
     | '/admin/llm'
@@ -493,11 +605,13 @@ export interface FileRouteTypes {
     | '/app/contacts'
     | '/app/crm-settings'
     | '/app/inbox'
+    | '/app/members'
     | '/app/order-settings'
     | '/app/settings'
     | '/admin/'
     | '/app/'
     | '/app/bots/$botId'
+    | '/app/crm-settings/distribution'
     | '/app/crm-settings/sources'
     | '/app/crm-settings/statuses'
     | '/app/crm-settings/tags'
@@ -509,11 +623,15 @@ export interface FileRouteTypes {
     | '/app/orders/overview'
     | '/app/products/$productId'
     | '/app/products/new'
+    | '/app/settings/audit'
+    | '/app/settings/profile'
+    | '/app/settings/security'
     | '/app/bots/'
     | '/app/crm-settings/'
     | '/app/order-settings/'
     | '/app/orders/'
     | '/app/products/'
+    | '/app/settings/'
     | '/app/bots/$botId/ads-tool'
     | '/app/bots/$botId/history'
     | '/app/bots/$botId/instructions'
@@ -524,12 +642,16 @@ export interface FileRouteTypes {
     | '/app/bots/$botId/quick-replies'
     | '/app/bots/$botId/settings'
     | '/app/bots/$botId/'
+    | '/app/bots/$botId/actions/$actionId'
+    | '/app/bots/$botId/actions/new'
+    | '/app/bots/$botId/actions/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRouteWithChildren
   AppRoute: typeof AppRouteWithChildren
+  JoinRoute: typeof JoinRoute
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
 }
@@ -555,6 +677,13 @@ declare module '@tanstack/react-router' {
       path: '/app'
       fullPath: '/app'
       preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/join': {
+      id: '/join'
+      path: '/join'
+      fullPath: '/join'
+      preLoaderRoute: typeof JoinRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -627,6 +756,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppInboxRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/members': {
+      id: '/app/members'
+      path: '/members'
+      fullPath: '/app/members'
+      preLoaderRoute: typeof AppMembersRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/order-settings': {
       id: '/app/order-settings'
       path: '/order-settings'
@@ -660,6 +796,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/app/crm-settings/'
       preLoaderRoute: typeof AppCrmSettingsIndexRouteImport
+      parentRoute: typeof AppCrmSettingsRoute
+    }
+    '/app/crm-settings/distribution': {
+      id: '/app/crm-settings/distribution'
+      path: '/distribution'
+      fullPath: '/app/crm-settings/distribution'
+      preLoaderRoute: typeof AppCrmSettingsDistributionRouteImport
       parentRoute: typeof AppCrmSettingsRoute
     }
     '/app/crm-settings/sources': {
@@ -760,6 +903,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppProductsNewRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/settings/': {
+      id: '/app/settings/'
+      path: '/'
+      fullPath: '/app/settings/'
+      preLoaderRoute: typeof AppSettingsIndexRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
+    '/app/settings/audit': {
+      id: '/app/settings/audit'
+      path: '/audit'
+      fullPath: '/app/settings/audit'
+      preLoaderRoute: typeof AppSettingsAuditRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
+    '/app/settings/profile': {
+      id: '/app/settings/profile'
+      path: '/profile'
+      fullPath: '/app/settings/profile'
+      preLoaderRoute: typeof AppSettingsProfileRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
+    '/app/settings/security': {
+      id: '/app/settings/security'
+      path: '/security'
+      fullPath: '/app/settings/security'
+      preLoaderRoute: typeof AppSettingsSecurityRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
     '/app/bots/$botId/': {
       id: '/app/bots/$botId/'
       path: '/'
@@ -830,6 +1001,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppBotsBotIdSettingsRouteImport
       parentRoute: typeof AppBotsBotIdRoute
     }
+    '/app/bots/$botId/actions/': {
+      id: '/app/bots/$botId/actions/'
+      path: '/actions'
+      fullPath: '/app/bots/$botId/actions/'
+      preLoaderRoute: typeof AppBotsBotIdActionsIndexRouteImport
+      parentRoute: typeof AppBotsBotIdRoute
+    }
+    '/app/bots/$botId/actions/$actionId': {
+      id: '/app/bots/$botId/actions/$actionId'
+      path: '/actions/$actionId'
+      fullPath: '/app/bots/$botId/actions/$actionId'
+      preLoaderRoute: typeof AppBotsBotIdActionsActionIdRouteImport
+      parentRoute: typeof AppBotsBotIdRoute
+    }
+    '/app/bots/$botId/actions/new': {
+      id: '/app/bots/$botId/actions/new'
+      path: '/actions/new'
+      fullPath: '/app/bots/$botId/actions/new'
+      preLoaderRoute: typeof AppBotsBotIdActionsNewRouteImport
+      parentRoute: typeof AppBotsBotIdRoute
+    }
   }
 }
 
@@ -846,6 +1038,7 @@ const AdminRouteChildren: AdminRouteChildren = {
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 interface AppCrmSettingsRouteChildren {
+  AppCrmSettingsDistributionRoute: typeof AppCrmSettingsDistributionRoute
   AppCrmSettingsSourcesRoute: typeof AppCrmSettingsSourcesRoute
   AppCrmSettingsStatusesRoute: typeof AppCrmSettingsStatusesRoute
   AppCrmSettingsTagsRoute: typeof AppCrmSettingsTagsRoute
@@ -853,6 +1046,7 @@ interface AppCrmSettingsRouteChildren {
 }
 
 const AppCrmSettingsRouteChildren: AppCrmSettingsRouteChildren = {
+  AppCrmSettingsDistributionRoute: AppCrmSettingsDistributionRoute,
   AppCrmSettingsSourcesRoute: AppCrmSettingsSourcesRoute,
   AppCrmSettingsStatusesRoute: AppCrmSettingsStatusesRoute,
   AppCrmSettingsTagsRoute: AppCrmSettingsTagsRoute,
@@ -880,6 +1074,24 @@ const AppOrderSettingsRouteChildren: AppOrderSettingsRouteChildren = {
 const AppOrderSettingsRouteWithChildren =
   AppOrderSettingsRoute._addFileChildren(AppOrderSettingsRouteChildren)
 
+interface AppSettingsRouteChildren {
+  AppSettingsAuditRoute: typeof AppSettingsAuditRoute
+  AppSettingsProfileRoute: typeof AppSettingsProfileRoute
+  AppSettingsSecurityRoute: typeof AppSettingsSecurityRoute
+  AppSettingsIndexRoute: typeof AppSettingsIndexRoute
+}
+
+const AppSettingsRouteChildren: AppSettingsRouteChildren = {
+  AppSettingsAuditRoute: AppSettingsAuditRoute,
+  AppSettingsProfileRoute: AppSettingsProfileRoute,
+  AppSettingsSecurityRoute: AppSettingsSecurityRoute,
+  AppSettingsIndexRoute: AppSettingsIndexRoute,
+}
+
+const AppSettingsRouteWithChildren = AppSettingsRoute._addFileChildren(
+  AppSettingsRouteChildren,
+)
+
 interface AppBotsBotIdRouteChildren {
   AppBotsBotIdAdsToolRoute: typeof AppBotsBotIdAdsToolRoute
   AppBotsBotIdHistoryRoute: typeof AppBotsBotIdHistoryRoute
@@ -891,6 +1103,9 @@ interface AppBotsBotIdRouteChildren {
   AppBotsBotIdQuickRepliesRoute: typeof AppBotsBotIdQuickRepliesRoute
   AppBotsBotIdSettingsRoute: typeof AppBotsBotIdSettingsRoute
   AppBotsBotIdIndexRoute: typeof AppBotsBotIdIndexRoute
+  AppBotsBotIdActionsActionIdRoute: typeof AppBotsBotIdActionsActionIdRoute
+  AppBotsBotIdActionsNewRoute: typeof AppBotsBotIdActionsNewRoute
+  AppBotsBotIdActionsIndexRoute: typeof AppBotsBotIdActionsIndexRoute
 }
 
 const AppBotsBotIdRouteChildren: AppBotsBotIdRouteChildren = {
@@ -904,6 +1119,9 @@ const AppBotsBotIdRouteChildren: AppBotsBotIdRouteChildren = {
   AppBotsBotIdQuickRepliesRoute: AppBotsBotIdQuickRepliesRoute,
   AppBotsBotIdSettingsRoute: AppBotsBotIdSettingsRoute,
   AppBotsBotIdIndexRoute: AppBotsBotIdIndexRoute,
+  AppBotsBotIdActionsActionIdRoute: AppBotsBotIdActionsActionIdRoute,
+  AppBotsBotIdActionsNewRoute: AppBotsBotIdActionsNewRoute,
+  AppBotsBotIdActionsIndexRoute: AppBotsBotIdActionsIndexRoute,
 }
 
 const AppBotsBotIdRouteWithChildren = AppBotsBotIdRoute._addFileChildren(
@@ -916,8 +1134,9 @@ interface AppRouteChildren {
   AppContactsRoute: typeof AppContactsRoute
   AppCrmSettingsRoute: typeof AppCrmSettingsRouteWithChildren
   AppInboxRoute: typeof AppInboxRoute
+  AppMembersRoute: typeof AppMembersRoute
   AppOrderSettingsRoute: typeof AppOrderSettingsRouteWithChildren
-  AppSettingsRoute: typeof AppSettingsRoute
+  AppSettingsRoute: typeof AppSettingsRouteWithChildren
   AppIndexRoute: typeof AppIndexRoute
   AppBotsBotIdRoute: typeof AppBotsBotIdRouteWithChildren
   AppOrdersOrderIdRoute: typeof AppOrdersOrderIdRoute
@@ -936,8 +1155,9 @@ const AppRouteChildren: AppRouteChildren = {
   AppContactsRoute: AppContactsRoute,
   AppCrmSettingsRoute: AppCrmSettingsRouteWithChildren,
   AppInboxRoute: AppInboxRoute,
+  AppMembersRoute: AppMembersRoute,
   AppOrderSettingsRoute: AppOrderSettingsRouteWithChildren,
-  AppSettingsRoute: AppSettingsRoute,
+  AppSettingsRoute: AppSettingsRouteWithChildren,
   AppIndexRoute: AppIndexRoute,
   AppBotsBotIdRoute: AppBotsBotIdRouteWithChildren,
   AppOrdersOrderIdRoute: AppOrdersOrderIdRoute,
@@ -956,6 +1176,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
   AppRoute: AppRouteWithChildren,
+  JoinRoute: JoinRoute,
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
 }

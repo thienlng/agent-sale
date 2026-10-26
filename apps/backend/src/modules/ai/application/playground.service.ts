@@ -1,12 +1,25 @@
-import { type ChatMessage, PROMPTS_DIR, PromptRegistry } from '@agent-sales/ai-core';
+import {
+  type ChatMessage,
+  type GenerateRequest,
+  type GenerateResponse,
+  PROMPTS_DIR,
+  PromptRegistry,
+} from '@agent-sales/ai-core';
 import type { PlaygroundRequest, PlaygroundResponse } from '@agent-sales/contracts';
 import { newId, type WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
 import { recordAiRun } from '../../../common/metrics.js';
+import {
+  ACTION_FACADE,
+  type ActionFacade,
+  type BotActionView,
+  type PendingAction,
+} from '../../action/api/index.js';
 import { BOT_FACADE, type BotFacade, type BotView } from '../../bot/api/index.js';
 import { CATALOG_FACADE, type CatalogFacade } from '../../commerce/api/index.js';
 import { KNOWLEDGE_FACADE, type KnowledgeFacade } from '../../knowledge/api/index.js';
+import { situationsText } from '../domain/situations.js';
 import { TRAINING_FACADE, type TrainingFacade } from '../../knowledge/api/index.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
 import type { AiFacade } from '../api/ai.facade.js';
@@ -18,16 +31,28 @@ import {
   resolveImageIds,
 } from '../domain/image-allowlist.js';
 import { knowledgeBlock, type KnowledgeSource, toSources } from '../domain/grounding.js';
-import { ModelReply, parseModelReply, salvageProse } from '../domain/model-reply.js';
+import {
+  ModelReply,
+  type ParsedModelReply,
+  parseModelReply,
+  salvageProse,
+} from '../domain/model-reply.js';
 import { AI_RUN_REPOSITORY, type AiRunRepository } from '../domain/ports/ai-run.repository.js';
-import { decide } from './decide-reply.js';
+import {
+  type ActionCall,
+  idempotencyKey,
+  playgroundConversationId,
+  runActionLoop,
+  safeJson,
+} from './action-loop.js';
+import { decide, fallbackDecision } from './decide-reply.js';
 import { LlmRuntime } from './llm-runtime.js';
 
 /** Last thing the model reads: general questions ("what do you sell?") tempt it into plain prose. */
 const JSON_REMINDER = 'Reply with the JSON object only, as described above.';
 const FORMAT_REMINDER =
   'Reminder: your previous reply was not a JSON object. Reply again with only the JSON object described above, even for a general question.';
-const PROMPT = { name: 'sales-agent', version: 7 } as const;
+const PROMPT = { name: 'sales-agent', version: 8 } as const;
 const POST_PROMPT = { name: 'fanpage-context', version: 1 } as const;
 const PROMPT_VERSION = `${PROMPT.name}@${PROMPT.version}`;
 const MAX_SOURCES = 5;
@@ -58,6 +83,7 @@ export class PlaygroundService implements AiFacade {
     @Inject(AI_RUN_REPOSITORY) private readonly runs: AiRunRepository,
     @Inject(TRAINING_FACADE) @Optional() private readonly training?: TrainingFacade,
     @Inject(CATALOG_FACADE) @Optional() private readonly catalog?: CatalogFacade,
+    @Inject(ACTION_FACADE) @Optional() private readonly actions?: ActionFacade,
   ) {}
 
   async playground(
@@ -95,21 +121,12 @@ export class PlaygroundService implements AiFacade {
     const hits = await this.knowledge.searchFaqs(ws, botId, query, MAX_SOURCES);
     const sources = toSources(hits, bot.placeholders);
     const scenarios = this.training
-      ? (await this.training.list(ws, botId))
-          .filter((item) => item.kind === 'scenario')
-          .slice(0, 20)
+      ? (await this.training.list(ws, botId)).filter((item) => item.kind === 'scenario')
       : [];
     const media = this.training
       ? (await this.training.list(ws, botId)).filter((item) => item.kind === 'media')
       : [];
-    const guidance = scenarios
-      .map((item) =>
-        [item.title, item.trigger ? `Khi: ${item.trigger}` : '', item.content]
-          .filter(Boolean)
-          .join('\n'),
-      )
-      .join('\n\n')
-      .slice(0, 20_000);
+    const guidance = situationsText(scenarios);
     // Variant names like "Size 41" match most products, so a follow-up ("size 41 thì sao?") only
     // finds the product being discussed through the bot's own last reply, which names it.
     const lastBotReply = input.messages.findLast((m) => m.role === 'bot')?.content.slice(0, 400);
@@ -151,6 +168,23 @@ export class PlaygroundService implements AiFacade {
     ]
       .filter(Boolean)
       .join('\n\n');
+    // Figures the reply may state: the shop's own post, guidance and catalog. The parent comment is
+    // the customer's words, so a price in it is context, never a grounded source.
+    const groundingData = [
+      post ? JSON.stringify({ text: post.text, media: post.media }) : '',
+      guidance,
+      JSON.stringify(overviewContext),
+      JSON.stringify(productContext),
+    ].join('\n');
+
+    // The playground has no conversation: a stable id per bot lets confirmations work in the test chat.
+    const actionConversationId = context.conversationId ?? playgroundConversationId(botId);
+    const actionViews = this.actions ? await this.actions.listForBot(ws, botId) : [];
+    const pendingAction =
+      this.actions && actionViews.length
+        ? await this.actions.getPending(ws, actionConversationId)
+        : null;
+    const actionsBlockText = actionViews.length ? actionsBlock(actionViews, pendingAction) : '';
 
     const postRules = post ? await this.#prompts.load(POST_PROMPT) : '';
     const template = [await this.#prompts.load(PROMPT), postRules].filter(Boolean).join('\n\n');
@@ -170,7 +204,12 @@ export class PlaygroundService implements AiFacade {
       tier: bot.modelTier,
       messages: [
         { role: 'system' as const, content: system },
-        ...conversation(input, sources, contextData, imagesBlock(allowed)),
+        ...conversation(
+          input,
+          sources,
+          contextData,
+          [imagesBlock(allowed), actionsBlockText].filter(Boolean).join('\n\n'),
+        ),
       ],
       responseFormat: ModelReply,
       maxOutputTokens: 2_000,
@@ -178,50 +217,79 @@ export class PlaygroundService implements AiFacade {
       // is never silently dropped (the caller decides how to degrade).
       ...(input.images?.length ? { images: input.images } : {}),
     };
-    let res = await this.llm.generate(request);
-    let output = parseModelReply(res.text);
-    // One malformed output is usually a one-off: retry once before giving up on the question.
-    if (!output.ok && res.stopReason === 'end') {
-      this.#logger.warn(`AI output rejected (${output.reason}), retrying once`);
-      // The second attempt reminds the model of the output format (the first reply was prose).
-      const [system, ...rest] = request.messages;
-      const retry = await this.llm.generate({
+    // Tokens and latency add up over every model call of the turn: one ai_run per customer turn.
+    const total = { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, latencyMs: 0 };
+    const complete = async (followUp: ChatMessage[]) => {
+      const turn = await this.completeTurn({
         ...request,
-        messages: system
-          ? [{ ...system, content: `${system.content}\n\n${FORMAT_REMINDER}` }, ...rest]
-          : request.messages,
+        messages: [...request.messages, ...followUp],
       });
-      res = {
-        ...retry,
-        latencyMs: res.latencyMs + retry.latencyMs,
-        usage: {
-          inputTokens: res.usage.inputTokens + retry.usage.inputTokens,
-          outputTokens: res.usage.outputTokens + retry.usage.outputTokens,
-          cachedInputTokens: res.usage.cachedInputTokens + retry.usage.cachedInputTokens,
+      total.inputTokens += turn.res.usage.inputTokens;
+      total.outputTokens += turn.res.usage.outputTokens;
+      total.cachedInputTokens += turn.res.usage.cachedInputTokens;
+      total.latencyMs += turn.res.latencyMs;
+      return turn;
+    };
+    let last = await complete([]);
+    let calls: ActionCall[] = [];
+    let actionResults: string[] = [];
+    let readback: string[] = [];
+    let askedConfirmation = false;
+    let forced: { guardrail: string | null } | null = null;
+    if (this.actions && actionViews.length) {
+      let current = last;
+      const loop = await runActionLoop({
+        facade: this.actions,
+        ws,
+        botId,
+        conversationId: actionConversationId,
+        isTest: context.isTest,
+        actions: actionViews,
+        first: { text: last.res.text, output: last.output },
+        reminder: JSON_REMINDER,
+        customerTexts,
+        keyFor: (actionId, args) => idempotencyKey(actionConversationId, actionId, args),
+        ask: async (followUp) => {
+          current = await complete(followUp);
+          return { text: current.res.text, output: current.output };
         },
-      };
-      output = parseModelReply(retry.text);
-      // Still prose after the reminder: keep a short, grounded, non-leaking answer rather than
-      // telling the customer "I have no information" about something the model did answer.
-      if (!output.ok && output.reason === 'not_json' && retry.stopReason === 'end') {
-        const salvaged = salvageProse(retry.text, system?.content ?? '');
-        if (salvaged) output = { ok: true, value: salvaged };
+      });
+      calls = loop.calls;
+      if (loop.kind === 'fallback') forced = { guardrail: loop.guardrail };
+      else {
+        actionResults = loop.results;
+        readback = loop.readback;
+        askedConfirmation = loop.askedConfirmation;
+        // A confirmation question or a cancel answers with the model's own reply, not a new turn.
+        last = { res: current.res, output: loop.turn.output };
       }
     }
+    const res: GenerateResponse = {
+      ...last.res,
+      latencyMs: total.latencyMs,
+      usage: {
+        inputTokens: total.inputTokens,
+        outputTokens: total.outputTokens,
+        cachedInputTokens: total.cachedInputTokens,
+      },
+    };
+    const output = last.output;
 
-    const decision = decide(
-      res.stopReason,
-      output,
-      bot,
-      sources,
-      customerTexts,
-      [
-        guidance,
-        JSON.stringify(overviewContext),
-        JSON.stringify(productContext),
-        post ? JSON.stringify({ text: post.text, media: post.media }) : '',
-      ].join('\n'),
-    );
+    const decision = forced
+      ? fallbackDecision(bot, forced.guardrail)
+      : decide(
+          res.stopReason,
+          output,
+          bot,
+          sources,
+          [...customerTexts, ...readback],
+          groundingData,
+          actionResults,
+        );
+    // A question the guardrails replaced never reached the customer: their "ok" must not confirm it.
+    if (this.actions && askedConfirmation && decision.outcome !== 'answered') {
+      await this.actions.clearPending(ws, actionConversationId);
+    }
     const run = {
       id: newId(),
       botId,
@@ -271,8 +339,80 @@ export class PlaygroundService implements AiFacade {
       provider: res.provider,
       model: res.model,
       latencyMs: res.latencyMs,
+      ...(calls.length ? { actions: calls } : {}),
     };
   }
+
+  /** One model call with the format retry and the prose salvage of the original single-turn pipeline. */
+  private async completeTurn(
+    request: GenerateRequest,
+  ): Promise<{ res: GenerateResponse; output: ParsedModelReply }> {
+    let res = await this.llm.generate(request);
+    let output = parseModelReply(res.text);
+    // One malformed output is usually a one-off: retry once before giving up on the question.
+    if (!output.ok && res.stopReason === 'end') {
+      this.#logger.warn(`AI output rejected (${output.reason}), retrying once`);
+      // The second attempt reminds the model of the output format (the first reply was prose).
+      const [system, ...rest] = request.messages;
+      const retry = await this.llm.generate({
+        ...request,
+        messages: system
+          ? [{ ...system, content: `${system.content}\n\n${FORMAT_REMINDER}` }, ...rest]
+          : request.messages,
+      });
+      res = {
+        ...retry,
+        latencyMs: res.latencyMs + retry.latencyMs,
+        usage: {
+          inputTokens: res.usage.inputTokens + retry.usage.inputTokens,
+          outputTokens: res.usage.outputTokens + retry.usage.outputTokens,
+          cachedInputTokens: res.usage.cachedInputTokens + retry.usage.cachedInputTokens,
+        },
+      };
+      output = parseModelReply(retry.text);
+      // Still prose after the reminder: keep a short, grounded, non-leaking answer rather than
+      // telling the customer "I have no information" about something the model did answer.
+      if (!output.ok && output.reason === 'not_json' && retry.stopReason === 'end') {
+        const salvaged = salvageProse(retry.text, system?.content ?? '');
+        if (salvaged) output = { ok: true, value: salvaged };
+      }
+    }
+    return { res, output };
+  }
+}
+
+/** The `<actions>` list (never a URL, header or secret) and the call awaiting confirmation. */
+function actionsBlock(actions: readonly BotActionView[], pending: PendingAction | null): string {
+  const list = actions.map((a) => ({
+    id: a.id,
+    name: a.name,
+    description: a.description,
+    confirm: a.requiresConfirm ? 'yes' : 'no',
+    params: a.params.map((p) => ({
+      name: p.name,
+      type: p.type,
+      required: p.required,
+      description: p.description,
+    })),
+    responseFields: a.responseFields.map((f) => ({
+      name: f.name,
+      type: f.type,
+      description: f.description,
+    })),
+  }));
+  const blocks = [`<actions>\n${JSON.stringify(list)}\n</actions>`];
+  const waiting = pending ? actions.find((a) => a.id === pending.actionId) : undefined;
+  if (pending && waiting) {
+    blocks.push(
+      `<pending_action>\n${safeJson({
+        actionId: waiting.id,
+        name: waiting.name,
+        args: pending.args,
+        askedMinutesAgo: Math.max(0, Math.floor((Date.now() - pending.askedAt.getTime()) / 60_000)),
+      })}\n</pending_action>`,
+    );
+  }
+  return blocks.join('\n\n');
 }
 
 /**

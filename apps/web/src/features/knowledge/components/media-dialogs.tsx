@@ -32,6 +32,8 @@ export function itemInput(
     trigger: item.trigger,
     mediaUrl: item.mediaUrl,
     folderId: item.folderId,
+    enabled: item.enabled,
+    section: item.section,
     ...patch,
   };
 }

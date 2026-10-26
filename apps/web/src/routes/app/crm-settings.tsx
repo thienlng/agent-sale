@@ -5,6 +5,7 @@ const TABS = [
   { to: '/app/crm-settings/statuses', key: 'crm.settings.tabs.statuses' },
   { to: '/app/crm-settings/sources', key: 'crm.settings.tabs.sources' },
   { to: '/app/crm-settings/tags', key: 'crm.settings.tabs.tags' },
+  { to: '/app/crm-settings/distribution', key: 'crm.settings.tabs.distribution' },
 ] as const;
 
 export const Route = createFileRoute('/app/crm-settings')({

@@ -20,6 +20,7 @@ import {
   type AuthState,
   CurrentUser,
   CurrentWorkspace,
+  RequireCapability,
   WorkspaceScoped,
 } from '../../../../common/http/auth-context.js';
 import { IDENTITY_FACADE, type IdentityFacade } from '../../../identity/api/index.js';
@@ -49,6 +50,7 @@ export class TrainingController {
     await this.bots.getBot(ws, botId);
     return { data: await this.training.list(ws, botId) };
   }
+  @RequireCapability('bots.manage')
   @Post('training-items')
   @HttpCode(201)
   async create(
@@ -60,6 +62,19 @@ export class TrainingController {
     await this.bots.getBot(ws, botId);
     return this.training.create(ws, botId, input, await this.actor(user));
   }
+  /** Adds the starter rules the bot does not have yet (idempotent); returns the created ones. */
+  @RequireCapability('bots.manage')
+  @Post('training-items/starter-rules')
+  @HttpCode(201)
+  async seedStarterRules(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @CurrentUser() user: AuthState,
+    @Param('botId') botId: string,
+  ): Promise<{ data: TrainingItemDto[] }> {
+    await this.bots.getBot(ws, botId);
+    return { data: await this.training.seedStarterRules(ws, botId, await this.actor(user)) };
+  }
+  @RequireCapability('bots.manage')
   @Patch('training-items/:itemId')
   async update(
     @CurrentWorkspace() ws: WorkspaceId,
@@ -71,6 +86,7 @@ export class TrainingController {
     await this.bots.getBot(ws, botId);
     return this.training.update(ws, botId, itemId, input, await this.actor(user));
   }
+  @RequireCapability('bots.manage')
   @Delete('training-items/:itemId')
   @HttpCode(204)
   async delete(
@@ -90,6 +106,7 @@ export class TrainingController {
     await this.bots.getBot(ws, botId);
     return { data: await this.training.history(ws, botId) };
   }
+  @RequireCapability('bots.manage')
   @Post('training-history/:historyId/restore')
   @HttpCode(204)
   async restore(

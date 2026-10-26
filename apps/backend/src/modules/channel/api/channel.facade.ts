@@ -17,6 +17,11 @@ export interface OutboundInboxMessage {
   text: string;
   attachments?: readonly OutboundAttachment[] | undefined;
 }
+/** What Meta knows about a customer; either part can be missing. */
+export interface CustomerProfile {
+  name: string | null;
+  avatarUrl: string | null;
+}
 export interface ChannelFacade {
   getConnection(ws: WorkspaceId, id: string): Promise<ChannelConnectionDto>;
   deliver(
@@ -37,6 +42,17 @@ export interface ChannelFacade {
     recipient: string,
     action: 'mark_seen' | 'typing_on',
   ): Promise<void>;
+  /**
+   * Best-effort name and picture of a customer of this page (Messenger PSID or Instagram-scoped
+   * id), read with the page token. Resolves `null` on any failure; the token never leaves the module.
+   */
+  fetchCustomerProfile(
+    ws: WorkspaceId,
+    channelId: string,
+    customerExternalId: string,
+  ): Promise<CustomerProfile | null>;
+  /** Detaches a bot from every page that uses it, so conversations there fall back to staff. */
+  unbindBot(ws: WorkspaceId, botId: string): Promise<number>;
   claimEvents(limit: number): Promise<PendingMetaEvent[]>;
   renewEvent(id: string, claimToken: string): Promise<boolean>;
   completeEvent(id: string, claimToken: string): Promise<void>;

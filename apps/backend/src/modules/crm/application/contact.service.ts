@@ -15,7 +15,6 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import { IDENTITY_FACADE, type IdentityFacade } from '../../identity/api/index.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
-import type { CrmFacade } from '../api/crm.facade.js';
 import {
   ContactNotFoundError,
   DuplicateContactRequestError,
@@ -24,7 +23,17 @@ import {
 } from '../domain/crm.errors.js';
 import { toContactDto, toHistoryDto, toNoteDto } from './crm.mappers.js';
 import { applyFields } from './contact-fields.js';
-import { assertAssignable, assertChoosable, diff, startOfLocalDay } from './crm-rules.js';
+import { DistributionService } from './distribution.service.js';
+import {
+  assertAssignable,
+  assertChoosable,
+  assertMayAssign,
+  canSee,
+  diff,
+  scopeOf,
+  startOfLocalDay,
+  type Viewer,
+} from './crm-rules.js';
 import { CRM_STORE, type ContactRecord, type CrmStore, type CrmTx } from './ports/crm-store.js';
 
 /** Fields whose change is reported as its own history type and event. */
@@ -33,42 +42,44 @@ const ASSIGNMENT_FIELDS = ['salesUserId', 'careUserId'] as const;
 
 /** Customers: profile, notes and the audit history (CRM-01). */
 @Injectable()
-export class ContactService implements CrmFacade {
+export class ContactService {
   constructor(
     @Inject(CRM_STORE) private readonly store: CrmStore,
     @Inject(IDENTITY_FACADE) private readonly identity: IdentityFacade,
     @Inject(WORKSPACE_FACADE) private readonly workspaces: WorkspaceFacade,
+    @Inject(DistributionService) private readonly distribution: DistributionService,
   ) {}
 
-  getContact(ws: WorkspaceId, id: string): Promise<ContactDto> {
-    return this.get(ws, id);
-  }
-
-  get(ws: WorkspaceId, id: string): Promise<ContactDto> {
-    return this.store.run(ws, async (tx) => this.#dto(tx, await this.#contact(tx, id)));
+  /** Without a viewer (other modules) every customer is visible. */
+  get(ws: WorkspaceId, id: string, viewer?: Viewer): Promise<ContactDto> {
+    return this.store.run(ws, async (tx) =>
+      this.#dto(tx, await this.#contact(tx, id, undefined, viewer)),
+    );
   }
 
   /**
    * Idempotent per `clientRequestId`: a retried create returns the first contact,
    * also when two identical requests race (the loser returns the winner).
    */
-  async create(ws: WorkspaceId, raw: unknown, actor: string): Promise<ContactDto> {
+  async create(ws: WorkspaceId, raw: unknown, viewer: Viewer): Promise<ContactDto> {
     try {
-      return await this.#create(ws, raw, actor);
+      return await this.#create(ws, raw, viewer);
     } catch (error) {
       const requestId = CreateContactRequest.parse(raw).clientRequestId;
       if (!(error instanceof DuplicateContactRequestError) || !requestId) throw error;
       return this.store.run(ws, async (tx) => {
         const first = await tx.contacts.findByRequestId(requestId);
-        if (!first) throw error;
+        if (!first || !canSee(first, viewer)) throw error;
         return this.#dto(tx, first);
       });
     }
   }
 
-  async #create(ws: WorkspaceId, raw: unknown, actor: string): Promise<ContactDto> {
+  async #create(ws: WorkspaceId, raw: unknown, viewer: Viewer): Promise<ContactDto> {
+    const actor = viewer.userId;
     const input = CreateContactRequest.parse(raw);
     const { clientRequestId, ...fields } = input;
+    assertMayAssign(viewer, {}, fields);
     const [actorName] = await Promise.all([
       this.identity.displayName(userId(actor)),
       assertAssignable(this.workspaces, ws, fields),
@@ -76,9 +87,21 @@ export class ContactService implements CrmFacade {
     return this.store.run(ws, async (tx) => {
       if (clientRequestId) {
         const first = await tx.contacts.findByRequestId(clientRequestId);
-        if (first) return this.#dto(tx, first);
+        if (first && canSee(first, viewer)) return this.#dto(tx, first);
       }
       await assertChoosable(tx, fields, {});
+      // A scoped creator (Sales, CSKH) owns what they create, so they keep seeing it.
+      const me = scopeOf(viewer);
+      if (me && !fields.salesUserId && !fields.careUserId) {
+        if (viewer.role === 'care') fields.careUserId = me;
+        else fields.salesUserId = me;
+      }
+      // No Sales given: the source's auto-assignment policy may pick one (T-033).
+      const autoSales =
+        !fields.salesUserId && fields.sourceId
+          ? await this.distribution.pick(tx, ws, fields.sourceId)
+          : null;
+      if (autoSales) fields.salesUserId = autoSales;
       const now = new Date();
       const empty: ContactRecord = {
         id: newId(),
@@ -119,11 +142,30 @@ export class ContactService implements CrmFacade {
         actor,
         actorName,
         now,
+        autoSales ? { autoAssigned: true } : {},
       );
+      // Every owner a customer starts with is an ownership event (statistics attribute by the owner at the time).
+      for (const [role, owner] of [
+        ['sales', contact.salesUserId],
+        ['care', contact.careUserId],
+      ] as const) {
+        if (!owner) continue;
+        await tx.outbox(ws, {
+          type: 'crm.contact.assigned.v1',
+          aggregateId: contact.id,
+          payload: event(ws, contact.id, actor, now, { role, fromUserId: null, toUserId: owner }),
+        });
+      }
       await tx.outbox(ws, {
         type: 'crm.contact.created.v1',
         aggregateId: contact.id,
-        payload: event(ws, contact.id, actor, now, { sourceId: contact.sourceId }),
+        payload: event(ws, contact.id, actor, now, {
+          sourceId: contact.sourceId,
+          // The CRM form is the only way to create a customer today; channel and import come later.
+          origin: 'manual',
+          phoneCaptured: contact.phoneProvidedAt !== null,
+          statusId: contact.statusId,
+        }),
       });
       return this.#dto(tx, contact);
     });
@@ -134,11 +176,13 @@ export class ContactService implements CrmFacade {
    * stale edit answers CONFLICT and changes nothing. Status and assignment
    * changes get their own history entries and events.
    */
-  async update(ws: WorkspaceId, id: string, raw: unknown, actor: string): Promise<ContactDto> {
+  async update(ws: WorkspaceId, id: string, raw: unknown, viewer: Viewer): Promise<ContactDto> {
+    const actor = viewer.userId;
     const { expectedVersion, ...fields } = UpdateContactRequest.parse(raw);
     const actorName = await this.identity.displayName(userId(actor));
     return this.store.run(ws, async (tx) => {
-      const before = await this.#contact(tx, id, { forUpdate: true });
+      const before = await this.#contact(tx, id, { forUpdate: true }, viewer);
+      assertMayAssign(viewer, before, fields);
       if (before.version !== expectedVersion) {
         throw new StaleVersionError('contact', before.version);
       }
@@ -171,7 +215,10 @@ export class ContactService implements CrmFacade {
         await tx.outbox(ws, {
           type: 'crm.contact.updated.v1',
           aggregateId: id,
-          payload: event(ws, id, actor, now, { fields: Object.keys(rest) }),
+          payload: event(ws, id, actor, now, {
+            fields: Object.keys(rest),
+            phoneCaptured: before.phoneProvidedAt === null && next.phoneProvidedAt !== null,
+          }),
         });
       }
       if (status['statusId']) {
@@ -207,7 +254,7 @@ export class ContactService implements CrmFacade {
     });
   }
 
-  async query(ws: WorkspaceId, raw: unknown): Promise<ContactListResponse> {
+  async query(ws: WorkspaceId, raw: unknown, viewer?: Viewer): Promise<ContactListResponse> {
     const q = ContactQueryRequest.parse(raw);
     const timezone = (await this.workspaces.getById(ws)).timezone || 'Asia/Ho_Chi_Minh';
     return this.store.run(ws, async (tx) => {
@@ -216,6 +263,7 @@ export class ContactService implements CrmFacade {
         filter: q.filter,
         sort: q.sort,
         timezone,
+        ownerScope: scopeOf(viewer),
         offset: (q.page - 1) * q.pageSize,
         limit: q.pageSize,
       });
@@ -240,19 +288,20 @@ export class ContactService implements CrmFacade {
 
   // ─── notes ────────────────────────────────────────────────────────────────
 
-  listNotes(ws: WorkspaceId, contactId: string): Promise<ContactNoteDto[]> {
+  listNotes(ws: WorkspaceId, contactId: string, viewer?: Viewer): Promise<ContactNoteDto[]> {
     return this.store.run(ws, async (tx) => {
-      await this.#contact(tx, contactId);
+      await this.#contact(tx, contactId, undefined, viewer);
       return (await tx.notes.list(contactId)).map(toNoteDto);
     });
   }
 
   /** Internal note on the timeline; never sends anything to the customer. */
-  async addNote(ws: WorkspaceId, contactId: string, raw: unknown, actor: string) {
+  async addNote(ws: WorkspaceId, contactId: string, raw: unknown, viewer: Viewer) {
+    const actor = viewer.userId;
     const { body } = CreateContactNoteRequest.parse(raw);
     const actorName = await this.identity.displayName(userId(actor));
     return this.store.run(ws, async (tx) => {
-      const contact = await this.#contact(tx, contactId);
+      const contact = await this.#contact(tx, contactId, undefined, viewer);
       const now = new Date();
       const note = {
         id: newId(),
@@ -278,12 +327,13 @@ export class ContactService implements CrmFacade {
     contactId: string,
     noteId: string,
     raw: unknown,
-    actor: string,
+    viewer: Viewer,
   ): Promise<ContactNoteDto> {
+    const actor = viewer.userId;
     const { body, expectedVersion } = UpdateContactNoteRequest.parse(raw);
     const actorName = await this.identity.displayName(userId(actor));
     return this.store.run(ws, async (tx) => {
-      const contact = await this.#contact(tx, contactId);
+      const contact = await this.#contact(tx, contactId, undefined, viewer);
       const note = isUuid(noteId) ? await tx.notes.find(noteId, { forUpdate: true }) : null;
       if (!note || note.contactId !== contactId) throw new NoteNotFoundError(noteId);
       if (note.version !== expectedVersion) throw new StaleVersionError('note', note.version);
@@ -307,11 +357,16 @@ export class ContactService implements CrmFacade {
     });
   }
 
-  async history(ws: WorkspaceId, contactId: string, raw: unknown): Promise<ContactHistoryEntry[]> {
+  async history(
+    ws: WorkspaceId,
+    contactId: string,
+    raw: unknown,
+    viewer?: Viewer,
+  ): Promise<ContactHistoryEntry[]> {
     const q = ContactHistoryQuery.parse(raw);
     const timezone = (await this.workspaces.getById(ws)).timezone || 'Asia/Ho_Chi_Minh';
     return this.store.run(ws, async (tx) => {
-      await this.#contact(tx, contactId);
+      await this.#contact(tx, contactId, undefined, viewer);
       const rows = await tx.history.list(contactId, {
         type: q.type,
         from: q.from ? startOfLocalDay(q.from, timezone, 0) : undefined,
@@ -325,9 +380,15 @@ export class ContactService implements CrmFacade {
 
   // ─── helpers ──────────────────────────────────────────────────────────────
 
-  async #contact(tx: CrmTx, id: string, opts?: { forUpdate: boolean }): Promise<ContactRecord> {
+  /** A customer outside the viewer's scope does not exist for them (404). */
+  async #contact(
+    tx: CrmTx,
+    id: string,
+    opts?: { forUpdate: boolean },
+    viewer?: Viewer,
+  ): Promise<ContactRecord> {
     const c = isUuid(id) ? await tx.contacts.find(id, opts) : null;
-    if (!c) throw new ContactNotFoundError(id);
+    if (!c || !canSee(c, viewer)) throw new ContactNotFoundError(id);
     return c;
   }
 

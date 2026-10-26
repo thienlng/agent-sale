@@ -8,6 +8,10 @@ export type TrainingHistoryRecord = Omit<TrainingHistoryDto, 'restorable'> & {
 
 export interface TrainingRepository {
   list(botId: string): Promise<TrainingItemDto[]>;
+  /** Every scenario title of the bot (no 500-row cap), for idempotent seeding. */
+  scenarioTitles(botId: string): Promise<string[]>;
+  /** Serializes concurrent writers of one bot until the transaction ends (advisory lock). */
+  lockBot(botId: string): Promise<void>;
   find(botId: string, itemId: string): Promise<TrainingItemDto | null>;
   save(item: TrainingItemDto): Promise<void>;
   delete(botId: string, itemId: string): Promise<void>;

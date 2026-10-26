@@ -14,6 +14,15 @@ export interface Decision {
   used: ReadonlySet<string>;
 }
 
+export function fallbackDecision(bot: BotView, guardrail: string | null): Decision {
+  return {
+    outcome: 'fallback',
+    reply: bot.fallbackMessage.trim() || defaultFallbackMessage(bot),
+    guardrail,
+    used: new Set(),
+  };
+}
+
 /** Turns a model output into the reply that may be sent, applying every guardrail. */
 export function decide(
   stopReason: string,
@@ -22,14 +31,11 @@ export function decide(
   sources: KnowledgeSource[],
   customerTexts: string[],
   guidance: string,
+  /** `data` of the action results of this turn (JSON text): figures in them are grounded. */
+  actionResults: readonly string[] = [],
 ): Decision {
   // Fallback never sends model text and handoff only a vetted lead-in: an empty setting uses the built-in message.
-  const fallback = (guardrail: string | null): Decision => ({
-    outcome: 'fallback',
-    reply: bot.fallbackMessage.trim() || defaultFallbackMessage(bot),
-    guardrail,
-    used: new Set(),
-  });
+  const fallback = (guardrail: string | null): Decision => fallbackDecision(bot, guardrail);
   // The shop's own hand-over message always goes out. The model may add one brief sentence
   // before it (an apology, a confirmed phone number); it is dropped when it is long or
   // carries a figure that is neither grounded nor given by the customer.
@@ -51,6 +57,7 @@ export function decide(
     bot.mission,
     bot.greeting,
     guidance,
+    ...actionResults,
     ...Object.values(bot.placeholders),
   ];
   if (parsed.outcome === 'handoff') {
@@ -59,7 +66,15 @@ export function decide(
       lead.length <= MAX_HANDOFF_LEAD && !ungroundedFigures(lead, trusted, customerTexts).length;
     return handoff(null, safe ? lead : '');
   }
-  if (parsed.outcome === 'unknown' || !parsed.reply.trim()) return fallback(null);
+  // An action outcome that reaches this point was not resolved by the action loop: never send it.
+  if (
+    parsed.outcome === 'unknown' ||
+    parsed.outcome === 'call_action' ||
+    parsed.outcome === 'confirm_action' ||
+    parsed.outcome === 'cancel_action' ||
+    !parsed.reply.trim()
+  )
+    return fallback(null);
 
   const ungrounded = ungroundedFigures(parsed.reply, trusted, customerTexts);
   if (ungrounded.length) return fallback(`ungrounded_figure:${ungrounded.join(',')}`);

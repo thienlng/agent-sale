@@ -2,6 +2,7 @@ import {
   CreateSavedViewRequest,
   type SavedViewDto,
   UpdateSavedViewRequest,
+  roleCan,
 } from '@agent-sales/contracts';
 import { isUuid, newId, userId, type WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable } from '@nestjs/common';
@@ -9,6 +10,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { IDENTITY_FACADE, type IdentityFacade } from '../../identity/api/index.js';
 import {
   SavedViewNotFoundError,
+  ShareNotAllowedError,
   StaleVersionError,
   ViewNotOwnedError,
 } from '../domain/crm.errors.js';
@@ -33,8 +35,11 @@ export class SavedViewService {
     );
   }
 
-  async create(ws: WorkspaceId, raw: unknown, actor: string): Promise<SavedViewDto> {
+  async create(ws: WorkspaceId, raw: unknown, actor: string, role?: string): Promise<SavedViewDto> {
     const input = CreateSavedViewRequest.parse(raw);
+    if (input.visibility === 'shared' && !roleCan(role, 'views.share')) {
+      throw new ShareNotAllowedError();
+    }
     const ownerName = await this.identity.displayName(userId(actor));
     return this.store.run(ws, async (tx) => {
       const view: ViewRecord = {
@@ -50,8 +55,17 @@ export class SavedViewService {
     });
   }
 
-  update(ws: WorkspaceId, id: string, raw: unknown, actor: string): Promise<SavedViewDto> {
+  update(
+    ws: WorkspaceId,
+    id: string,
+    raw: unknown,
+    actor: string,
+    role?: string,
+  ): Promise<SavedViewDto> {
     const { expectedVersion, ...patch } = UpdateSavedViewRequest.parse(raw);
+    if (patch.visibility === 'shared' && !roleCan(role, 'views.share')) {
+      throw new ShareNotAllowedError();
+    }
     return this.store.run(ws, async (tx) => {
       const view = await this.#owned(tx, id, actor);
       if (view.version !== expectedVersion) throw new StaleVersionError('view', view.version);

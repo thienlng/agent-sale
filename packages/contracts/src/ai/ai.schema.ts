@@ -68,5 +68,9 @@ export const PlaygroundResponse = z.object({
   provider: z.string(),
   model: z.string(),
   latencyMs: z.number().int(),
+  /** API actions the bot called while answering (name only, never arguments or data). */
+  actions: z
+    .array(z.object({ name: z.string(), ok: z.boolean(), statusCode: z.number().int().nullable() }))
+    .optional(),
 });
 export type PlaygroundResponse = z.infer<typeof PlaygroundResponse>;

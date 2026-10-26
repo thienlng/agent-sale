@@ -75,3 +75,19 @@ describe('ungroundedFigures', () => {
     expect(ungroundedFigures('Dạ em chào anh/chị ạ', [])).toEqual([]);
   });
 });
+
+describe('ungroundedFigures: the "k" price form', () => {
+  it('accepts "99k" when the source says 99.000đ, and the reverse', () => {
+    expect(ungroundedFigures('Giá 99k ạ', ['Áo thun giá 99.000đ'])).toEqual([]);
+    expect(ungroundedFigures('Giá 99.000đ ạ', ['Áo thun giá 99k'])).toEqual([]);
+  });
+
+  it('accepts "99k" when the source says 99k', () => {
+    expect(ungroundedFigures('Giá 99k ạ', ['Áo thun giá 99k'])).toEqual([]);
+  });
+
+  it('rejects "99k" when no source has 99.000 or 99k, even if the customer wrote it', () => {
+    expect(ungroundedFigures('Giá 99k ạ', ['Áo thun giá 120.000đ'])).toEqual(['99k']);
+    expect(ungroundedFigures('Giá 99k ạ', [], ['giá 99k đúng không'])).toEqual(['99k']);
+  });
+});

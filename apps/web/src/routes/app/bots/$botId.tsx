@@ -11,14 +11,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { TestChat } from '@/features/ai/components/test-chat';
 import { useBot } from '@/features/bot/api/bots';
 import { TrainingNav } from '@/features/bot/components/training-nav';
-import { useCollapsedAppSidebar } from '@/features/bot/hooks/use-collapsed-app-sidebar';
 import { useFaqs } from '@/features/knowledge/api/faqs';
 import { ApiClientError } from '@/lib/api-client';
 
 /**
  * Bot space: its own training menu on the left, the section in the middle and
- * the test chat docked on the right (docs/03 §3). The app sidebar shrinks to
- * its icon rail meanwhile.
+ * the test chat docked on the right (docs/03 §3). The app sidebar keeps the
+ * state the user chose.
  */
 export const Route = createFileRoute('/app/bots/$botId')({
   component: BotSpace,
@@ -30,7 +29,6 @@ function BotSpace() {
   const { botId } = Route.useParams();
   const bot = useBot(botId);
   const faqs = useFaqs(botId);
-  useCollapsedAppSidebar();
   const [chatOpen, setChatOpen] = useState(true);
   const [mobileChat, setMobileChat] = useState(false);
 

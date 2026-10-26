@@ -70,8 +70,42 @@ Open the app through the tunnel URL (not `localhost`) so the OAuth popup can ret
 
 Images: customers' pictures are read by the model when `BOT_IMAGE_VISION` is on (default outside production), and the bot sends product pictures (up to five https URLs per product) when asked. The ChatGPT-plan sign-in is for testing only and is off in production.
 
+## Inbox v2 data and API (T-073)
+
+Design: `docs/superpowers/specs/2026-10-25-inbox-v2-design.md`. A conversation is still one `data jsonb` document, plus index columns derived from it on every save (migration `0024_inbox_v2.sql`): `unread_count`, `awaiting_since`, `last_read_at`, `assignee_id`, `mode`, `status`, `customer_phone`, `created_at`. The list filters, counts and sorts in SQL on those columns.
+
+| Field | Meaning |
+|---|---|
+| `unreadCount`, `lastReadAt`, `lastReadBy` | Read state **shared by the whole shop**. A customer message adds one; `POST /conversations/{id}/read` clears it and records who; `POST /conversations/{id}/unread` sets it to at least 1 and forgets the reader. Neither bumps `revision` or `updatedAt`, so a pending bot reply stays valid and the list does not reorder. |
+| `awaitingSince`, `lastMessageSender` | "Customer is waiting": set by a customer message while null (to the message time), cleared by any outbound message (staff in the app, staff on the page, or the bot). A reply that fails to send restores it. The waiting tab, `counts.waiting`, the `waiting=*` filters and `sort=waitingLongest` count only **open** conversations; a resolved one keeps `awaitingSince` and returns when reopened. |
+| `customerPhone` | First Vietnamese mobile number found in a customer message (`0xxxxxxxxx`, `+84…`, `84…`; one consistent separator style of space, dot or dash; landlines, dates, prices and order codes ignored). Later messages never overwrite it; staff correct it with `PATCH { customerPhone }` (a phone string, validated and normalised, or `null`). |
+| `notes[]` | Internal notes timeline (author, time, text; at most 200, oldest dropped). `POST /conversations/{id}/notes`. The legacy `note` string is migrated as the first entry and mirrors the newest note; `PATCH { note }` with a changed non-empty text also appends a timeline entry, and an empty `note` only clears the legacy field. |
+| `assigneeId` | `PATCH /conversations/{id}` accepts any active member (checked through `TeamFacade`) or `null`; `assignToMe` still works. |
+
+`GET /conversations` query: `tab` (`all|unread|waiting`), `assignee` (`me|none|<uuid>`), `channelId`, `hasPhone`, `waiting` (`any|longest|readNotReplied`), `status`, `mode`, `provider`, `q` (name, phone, customer id, last message), `sort` (`recent|waitingLongest`), `limit`. The response carries `counts: { all, unread, waiting }` computed with every filter except `tab`.
+
+Deploys of migration 0024 and the new store must be atomic: code from before it writes only `data`, which would leave the columns (and so the list, tabs and counts) stale. The migration is re-runnable (values the document already carries are kept, malformed ones become null/0). Backfill of existing rows: columns come from the document; `awaiting_since` is the first customer message after the last outbound one for open conversations whose newest message is the customer's; `unread_count` starts at 0 (no history of who read what); `customer_phone` starts empty and fills from new messages.
+
+**Takeover and sender name.** `PATCH { mode: 'human', takeover: 'temporary' | 'permanent' }` (`takeover` only with `mode: 'human'`). `temporary` resumes the bot after the bot's `humanTakeoverMinutes` when the channel has an active bot that resumes after manual replies; `permanent` (or no `takeover`) never resumes, and staff replies or Page echoes on it do not start the timer. A staff reply or echo while the bot answers is an implicit `temporary` takeover. `mode: 'bot'` clears it (`takeover: null`). Messages sent by staff from the inbox carry `senderName` (their display name); bot, customer and echo messages carry `null`.
+
+### Conversation tags and tag filters
+
+Conversations use the CRM tag library (`crm_tags`) and `crm_tag_assignments` with `scope = 'conversation'`, owned by the crm module.
+
+| Route | Notes |
+|---|---|
+| `GET /conversations/{id}/tags` | Active tags, each with its chip (`tag: { id, name, color }`). |
+| `POST /conversations/{id}/tags` `{ tagId, values? }` | 201 when added, 200 when already there. Needs `contacts.edit`. |
+| `POST /tag-assignments/{id}/remove` | The existing route; idempotent. |
+
+List rows and detail carry `tags: [{ id, name, color }]` (oldest assignment first, archived tags hidden). The list accepts `tagsAny`, `tagsAll`, `tagsExclude` (comma-separated or repeated uuids) and `untagged=true`; the conversation module asks `CrmFacade.conversationIdsByTags` for id sets and applies them in its own SQL, so the counts follow the tag filters. Conversation tags publish no `crm.tag.*` event and never count as customer tags.
+
+### Customer profile lookup
+
+After a customer message the agent asks the channel module for the customer's name and picture (`ChannelFacade.fetchCustomerProfile`; the page token never leaves the channel module). Messenger: `GET graph.facebook.com/{version}/{psid}?fields=first_name,last_name,profile_pic`; Instagram: `GET graph.instagram.com/{version}/{igsid}?fields=name,username,profile_pic`, both with the token in the `Authorization` header (official docs: [Messenger user profile API](https://developers.facebook.com/docs/messenger-platform/identity/user-profile) and [Instagram messaging user profile](https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/messaging-api); written from the docs on 2026-10-25, not yet run against a live page). The call runs after the message is stored and is not awaited by the reply pipeline. The attempt is stamped in `profileFetchedAt` before the call; a failed lookup (network, 5xx, timeout, refusal) is retried after 15 minutes, a success after a day; a success is refreshed daily as well because Meta picture URLs expire. Failures are ignored and never logged with the customer id. The conversation's `revision` and `updatedAt` do not change.
+
 ## Limits
 
 - Outbound attachments are sent by HTTPS URL (bot image library, a product's `imageUrls` or a pasted link); there is no file upload to Meta. Product pictures are plain https links entered in the product form (max 5, 2000 characters each); there is no upload or reference to the image library yet.
 - Meta CDN attachment URLs expire; the inbox shows them as received and falls back to a link.
-- Customer names are Meta-scoped ids until profile lookup is added.
+- A customer's name and picture come from a best-effort profile lookup (below); until it succeeds, `customerName` is the Meta-scoped id and the UI shows a masked label.

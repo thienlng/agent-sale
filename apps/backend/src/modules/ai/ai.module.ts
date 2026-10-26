@@ -4,6 +4,7 @@ import { Module } from '@nestjs/common';
 import { getEnv, hermesSubscriptionLoginEnabled } from '../../common/config.js';
 import { DB_SYSTEM, DB_TENANT } from '../../common/db/db.module.js';
 import { SECRET_BOX, SecretBox } from '../../common/security/secret-box.js';
+import { ActionModule } from '../action/action.module.js';
 import { BotModule } from '../bot/bot.module.js';
 import { CommerceModule } from '../commerce/commerce.module.js';
 import { KnowledgeModule } from '../knowledge/knowledge.module.js';
@@ -27,7 +28,7 @@ import { LlmAdminController } from './interface/http/llm-admin.controller.js';
 
 /** LLM configuration (platform admin), runtime gateway, playground and ai_runs metering. */
 @Module({
-  imports: [BotModule, KnowledgeModule, WorkspaceModule, CommerceModule],
+  imports: [ActionModule, BotModule, KnowledgeModule, WorkspaceModule, CommerceModule],
   controllers: [AiController, LlmAdminController],
   providers: [
     {

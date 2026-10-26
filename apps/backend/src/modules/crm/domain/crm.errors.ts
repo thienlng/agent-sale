@@ -120,3 +120,19 @@ export class DuplicateContactRequestError extends DomainError {
     super('This customer was already submitted');
   }
 }
+
+/** Changing a customer's Sales/CSKH needs the assign capability (claiming an empty slot does not). */
+export class AssignmentNotAllowedError extends DomainError {
+  readonly code = 'FORBIDDEN';
+  constructor(field: string) {
+    super('Your role cannot change who owns this customer', { field });
+  }
+}
+
+/** Making a view visible to the whole shop needs the share capability. */
+export class ShareNotAllowedError extends DomainError {
+  readonly code = 'FORBIDDEN';
+  constructor() {
+    super('Your role cannot share views with the whole shop');
+  }
+}

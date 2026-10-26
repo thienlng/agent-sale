@@ -12,6 +12,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { useCan } from '@/lib/permissions';
 
 /** Name and visibility of a new saved view. */
 export function SaveViewDialog({
@@ -26,6 +27,7 @@ export function SaveViewDialog({
   pending: boolean;
 }) {
   const { t } = useTranslation();
+  const canShare = useCan('views.share');
   const [name, setName] = useState('');
   const [visibility, setVisibility] = useState<'private' | 'shared'>('private');
   // Every save starts blank.
@@ -63,7 +65,7 @@ export function SaveViewDialog({
               value={visibility}
               onValueChange={(v) => setVisibility(v as 'private' | 'shared')}
             >
-              {(['private', 'shared'] as const).map((v) => (
+              {(canShare ? (['private', 'shared'] as const) : (['private'] as const)).map((v) => (
                 <div key={v} className="flex items-center gap-2">
                   <RadioGroupItem id={`sv-${v}`} value={v} />
                   <Label htmlFor={`sv-${v}`} className="font-normal">

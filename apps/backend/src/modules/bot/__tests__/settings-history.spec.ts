@@ -1,5 +1,5 @@
 import { newId, workspaceId } from '@agent-sales/shared';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { Test } from '@nestjs/testing';
 
@@ -18,6 +18,23 @@ async function setup() {
   };
 }
 
+describe('Bot creation starter rules', () => {
+  it('seeds the starter pack without per-rule history entries', async () => {
+    const { training, bots } = await setup();
+    const bot = await bots.create(ws, { name: 'Shop', industry: 'retail' });
+    expect((await training.list(ws, bot.id)).length).toBeGreaterThan(0);
+    expect(await training.history(ws, bot.id)).toEqual([]);
+  });
+
+  it('still creates the bot when seeding the starter rules fails', async () => {
+    const { training, bots } = await setup();
+    vi.spyOn(training, 'seedStarterRules').mockRejectedValueOnce(new Error('db down'));
+    const bot = await bots.create(ws, { name: 'Shop', industry: 'retail' });
+    expect((await bots.get(ws, bot.id)).name).toBe('Shop');
+    expect(await training.list(ws, bot.id)).toEqual([]);
+  });
+});
+
 describe('Bot settings history', () => {
   it('records who changed which fields and restores the previous values', async () => {
     const { training, bots } = await setup();
@@ -25,7 +42,8 @@ describe('Bot settings history', () => {
     await bots.update(ws, bot.id, { isActive: true, settings: { modelTier: 'pro' } }, 'Ken');
     // An update that changes nothing is not recorded.
     await bots.update(ws, bot.id, { settings: { modelTier: 'pro' } }, 'Ken');
-    const [entry, ...rest] = await training.history(ws, bot.id);
+    const settings = (await training.history(ws, bot.id)).filter((e) => e.kind === 'settings');
+    const [entry, ...rest] = settings;
     expect(rest).toEqual([]);
     expect(entry).toMatchObject({ kind: 'settings', actor: 'Ken', restorable: true });
     expect(entry?.changes).toEqual([
@@ -45,6 +63,7 @@ describe('Bot settings history', () => {
     const bot = await bots.create(ws, { name: 'Shop', industry: 'retail' });
     await bots.update(ws, bot.id, { settings: { placeholders: { 'store.name': 'Giày Ken' } } });
     const [entry] = await training.history(ws, bot.id);
+    expect(entry?.kind).toBe('settings');
     await bots.restoreHistory(ws, bot.id, entry!.id);
     expect((await bots.get(ws, bot.id)).settings.placeholders).toEqual({});
   });

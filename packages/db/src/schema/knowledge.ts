@@ -1,5 +1,6 @@
 import {
   type AnyPgColumn,
+  boolean,
   index,
   jsonb,
   pgTable,
@@ -57,6 +58,10 @@ export const trainingItems = pgTable(
     folderId: uuid('folder_id').references((): AnyPgColumn => trainingItems.id, {
       onDelete: 'cascade',
     }),
+    /** Scenarios only: a disabled rule is kept but not given to the model (migration 0016). */
+    enabled: boolean('enabled').notNull().default(true),
+    /** Scenarios only: `general` | `after_order` (migration 0016). */
+    section: text('section').notNull().default('general'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

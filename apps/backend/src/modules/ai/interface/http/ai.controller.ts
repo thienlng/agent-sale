@@ -2,7 +2,11 @@ import { PlaygroundRequest, type PlaygroundResponse } from '@agent-sales/contrac
 import type { WorkspaceId } from '@agent-sales/shared';
 import { Body, Controller, HttpCode, Inject, Param, Post } from '@nestjs/common';
 
-import { CurrentWorkspace, WorkspaceScoped } from '../../../../common/http/auth-context.js';
+import {
+  CurrentWorkspace,
+  RequireCapability,
+  WorkspaceScoped,
+} from '../../../../common/http/auth-context.js';
 import { ZodValidationPipe } from '../../../../common/http/zod-validation.pipe.js';
 import { AI_FACADE, type AiFacade } from '../../api/ai.facade.js';
 
@@ -12,6 +16,7 @@ import { AI_FACADE, type AiFacade } from '../../api/ai.facade.js';
 export class AiController {
   constructor(@Inject(AI_FACADE) private readonly ai: AiFacade) {}
 
+  @RequireCapability('bots.manage')
   @Post(':botId/playground')
   @HttpCode(200)
   playground(

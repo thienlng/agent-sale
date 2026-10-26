@@ -167,7 +167,7 @@ The Preny inbox layout could not be captured → we design it on the standard 3-
 
 | ID | Feature | Priority |
 |---|---|---|
-| ANA-01 | Conversation analytics: filter by salesperson, by page, date range; tabs Pages / Interactions / Tags / Current tags / Statuses; total converted interactions, new customers, phone numbers collected; total tags added/removed, conversations, comments, new messages; top tags | P1 |
+| ANA-01 | (built, M4b: `/app/analytics` — cards, daily chart, tag/status/salesperson/page tables, drilldown; definitions in docs/analytics.md) Conversation analytics: filter by salesperson, by page, date range; tabs Pages / Interactions / Tags / Current tags / Statuses; total converted interactions, new customers, phone numbers collected; total tags added/removed, conversations, comments, new messages; top tags | P1 |
 | ANA-02 | Bot performance: self-resolution rate, handoff rate, response time p50/p95, unanswered questions, credits used per bot | P1 [+] |
 | ANA-03 | Staff performance: first response time, number of conversations, closed orders | P2 |
 | ANA-04 | Funnel: Conversation → has phone number → order → successfully delivered order, by source/ad ID | P2 [+] |
@@ -176,15 +176,15 @@ The Preny inbox layout could not be captured → we design it on the standard 3-
 
 | ID | Feature | Priority |
 |---|---|---|
-| SET-01 | Members: list (Name, Role, Phone number, Email, Status), invite by email, member quota | P0 |
-| SET-02 | Access permissions: roles + permissions; customer distribution mode (Off / by page / by ratio / ratio by day) | P0 |
+| SET-01 | Members: list (Name, Role, Phone number, Email, Status), invite by email, member quota | P0 — built (M3b, M4a): list, roles, remove (customers handed over), invitation links shared by the owner, resend, seat limit from the plan; email sending later |
+| SET-02 | Access permissions: roles + permissions; customer distribution mode (Off / by page / by ratio / ratio by day) | P0 — built (M3b): 5 fixed roles with capabilities, Sales/CSKH customer scope, distribution Off / by ratio per source; by page and by day later |
 | SET-03 | Custom roles | P2 |
-| SET-04 | General settings (sub-nav): Notifications, Customer sources, Sync, Automation, Statuses, Advanced connections (Google Email; SMS/ZNS coming soon), Workspace information | P0–P1 |
+| SET-04 | General settings (sub-nav): Notifications, Customer sources, Sync, Automation, Statuses, Advanced connections (Google Email; SMS/ZNS coming soon), Workspace information | P0–P1 — Workspace information built (M4a): shop profile and private logo |
 | SET-05 | Notifications: on/off, up to 5 reminder offsets before an event (default 0', 2h, 24h); channels: in-app, email, push | P0 |
-| SET-06 | Security settings: 2FA | P1 |
+| SET-06 | Security settings: 2FA | P1 — built (M4a): TOTP with recovery codes, QR setup, login code step; enforcement for paid Owners later |
 | SET-07 | Tag settings (list / quick tags / create tag) | P0 |
 | SET-08 | Support tickets: create (title, department, description, ≤5 images × 2MB), track, discuss | P1 |
-| SET-09 | Audit log viewable by Owner/Admin | P1 [+] |
+| SET-09 | Audit log viewable by Owner/Admin | P1 [+] — built (M4a): members, invitations, roles, shop profile and logo |
 | SET-10 | Export all workspace data; delete workspace | P1 [+] |
 
 ## 11. Billing (`BIL`) — details in [08](08-billing-quota-credit.md)

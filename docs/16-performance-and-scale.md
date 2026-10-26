@@ -6,7 +6,7 @@
 
 | Metric | Budget | How it is measured |
 |---|---|---|
-| Initial JS (app shell, gzip) | ≤ 250 KB; each route chunk ≤ 100 KB (charts, `motion`, extra i18n namespaces lazy-loaded; realtime via SSE/`ws`, not `socket.io-client`, in the shell) | `size-limit` in CI (fails at > 5 % over budget) |
+| Initial JS (app shell, gzip) | ≤ 250 KB; each route chunk ≤ 100 KB (charts, `motion`, extra i18n namespaces lazy-loaded — only the Vietnamese catalog is bundled, English loads on first switch via `@agent-sales/i18n/en`; realtime via SSE/`ws`, not `socket.io-client`, in the shell) | `size-limit` in CI (fails at > 5 % over budget) |
 | First load on 4G, mid-range laptop | LCP ≤ 2.5 s, INP ≤ 200 ms, CLS ≤ 0.1 at p75 (Core Web Vitals); static shell with skeleton + inline critical CSS; one `/bootstrap` call (session, workspace, entitlements, flags) after cookie refresh, no auth flash | Lighthouse CI on `/login` and an authenticated `/app/inbox` run (staging); RUM `web-vitals` in production |
 | Route navigation | ≤ 100 ms to render skeleton; ≤ 300 ms p75 to data (cached/prefetched) | TanStack Router preload on hover/intent; Query cache |
 | User action feedback | ≤ 100 ms visual response for every click/keypress | Optimistic updates; never block on the network for local state |

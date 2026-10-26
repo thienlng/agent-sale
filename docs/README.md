@@ -35,7 +35,9 @@ Input source: `../../preny/preny-research/` (Preny research dossier dated 23/10/
 | — | [Stack review 2026-10-23](reference/2026-10-23-stack-review.md) | Reference | Independent adversarial review of ADR-009 (17 findings) that drove the revisions |
 | — | [Best practices 2026-10-23](reference/2026-10-23-best-practices.md) | Reference | Survey of current production practices (multi-tenancy, queues, LLM agents, frontend, realtime, backend, agent-operated repos) |
 | — | [Training workspace](training-workspace.md) | Implementation | Bot training materials, history and handover settings (T-045) |
+| — | [Bot API actions](actions.md) | Implementation | Shop-declared HTTP actions the bot can call, confirmation gate, SSRF-safe executor (T-055) |
 | — | [Meta inbox](meta-inbox.md) | Implementation | Facebook/Instagram connection, webhook processing, takeover, attachments and live testing (T-045) |
+| — | [Sales inbox workspace](18-sales-inbox-workspace.md) | Implementation | Sales queues, composer drafts, explicit CRM selection and order creation alongside chat (T-068) |
 
 ## One-page summary
 

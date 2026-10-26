@@ -6,6 +6,8 @@ import { ApiClientError } from './api-client';
 export function errorMessage(t: TFunction, error: unknown): string {
   if (error instanceof ApiClientError) {
     if (error.code === 'CONFLICT') return t('errors.conflict');
+    if (error.code === 'FORBIDDEN') return t('errors.forbidden');
+    if (error.code === 'QUOTA_EXCEEDED') return t('errors.quotaExceeded');
     if (error.status >= 500 || error.code === 'INTERNAL') return t('auth.errors.generic');
     return error.message;
   }

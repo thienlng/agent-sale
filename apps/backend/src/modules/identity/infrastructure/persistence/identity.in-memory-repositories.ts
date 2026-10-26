@@ -1,6 +1,7 @@
 import type { UserId } from '@agent-sales/shared';
 
 import { EmailTakenError } from '../../domain/identity.errors.js';
+import type { MfaRecord, MfaRepository } from '../../domain/ports/mfa.repository.js';
 import type { SessionRecord, SessionRepository } from '../../domain/ports/session.repository.js';
 import type { UserRepository } from '../../domain/ports/user.repository.js';
 import { User } from '../../domain/user.js';
@@ -57,5 +58,61 @@ export class InMemorySessionRepository implements SessionRepository {
   async revokeFamily(familyId: string, at: Date): Promise<void> {
     for (const s of this.rows.values())
       if (s.familyId === familyId && !s.revokedAt) s.revokedAt = at;
+  }
+
+  async revokeOtherFamilies(userId: UserId, keepSessionId: string, at: Date): Promise<void> {
+    const keep = this.rows.get(keepSessionId)?.familyId;
+    for (const s of this.rows.values())
+      if (s.userId === userId && s.familyId !== keep && !s.revokedAt) s.revokedAt = at;
+  }
+}
+
+export class InMemoryMfaRepository implements MfaRepository {
+  readonly rows = new Map<string, MfaRecord>();
+
+  async find(userId: UserId): Promise<MfaRecord | null> {
+    return this.rows.get(userId) ?? null;
+  }
+
+  async savePending(userId: UserId, secretSealed: string): Promise<boolean> {
+    if (this.rows.get(userId)?.enabledAt) return false;
+    this.rows.set(userId, {
+      userId,
+      secretSealed,
+      enabledAt: null,
+      lastUsedStep: 0,
+      recoveryHashes: [],
+    });
+    return true;
+  }
+
+  async enable(userId: UserId, step: number, recoveryHashes: string[]): Promise<boolean> {
+    const row = this.rows.get(userId);
+    if (!row || row.enabledAt) return false;
+    this.rows.set(userId, { ...row, enabledAt: new Date(), lastUsedStep: step, recoveryHashes });
+    return true;
+  }
+
+  async advanceStep(userId: UserId, step: number): Promise<boolean> {
+    const row = this.rows.get(userId);
+    if (!row || row.lastUsedStep >= step) return false;
+    row.lastUsedStep = step;
+    return true;
+  }
+
+  async consumeRecovery(userId: UserId, hash: string): Promise<boolean> {
+    const row = this.rows.get(userId);
+    if (!row?.enabledAt || !row.recoveryHashes.includes(hash)) return false;
+    row.recoveryHashes = row.recoveryHashes.filter((h) => h !== hash);
+    return true;
+  }
+
+  async replaceRecovery(userId: UserId, hashes: string[]): Promise<void> {
+    const row = this.rows.get(userId);
+    if (row) row.recoveryHashes = hashes;
+  }
+
+  async remove(userId: UserId): Promise<boolean> {
+    return this.rows.delete(userId);
   }
 }

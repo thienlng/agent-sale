@@ -48,6 +48,15 @@ export const botRoutes = defineRoutes([
     responses: { 201: TrainingItemDto },
   },
   {
+    method: 'post',
+    path: '/bots/{botId}/training-items/starter-rules',
+    summary: 'Add the Vietnamese starter rules the bot is missing; returns the created items',
+    tag: 'knowledge',
+    auth: true,
+    workspaceScoped: true,
+    responses: { 201: TrainingItemList },
+  },
+  {
     method: 'patch',
     path: '/bots/{botId}/training-items/{itemId}',
     summary: 'Update training material',
@@ -121,6 +130,16 @@ export const botRoutes = defineRoutes([
     workspaceScoped: true,
     body: UpdateBotRequest,
     responses: { 200: BotDto },
+  },
+  {
+    method: 'delete',
+    path: '/bots/{botId}',
+    summary:
+      'Soft-delete a bot (bots.manage): it disappears from every read and its pages are unbound',
+    tag: 'bot',
+    auth: true,
+    workspaceScoped: true,
+    responses: { 204: null },
   },
   {
     method: 'get',

@@ -2,6 +2,12 @@ import {
   type AuthResponse,
   type BootstrapResponse,
   LoginRequest,
+  MfaEnableRequest,
+  type MfaSetup,
+  MfaReauthRequest,
+  MfaSetupRequest,
+  type MfaStatus,
+  type RecoveryCodes,
   RefreshRequest,
   SignupRequest,
   type UserDto,
@@ -18,6 +24,7 @@ import {
   RefreshHandler,
   SignupHandler,
 } from '../../application/commands/auth.handlers.js';
+import { MfaService } from '../../application/mfa.service.js';
 import { type ClientMeta, type IssuedSession, SessionService } from '../../application/sessions.js';
 import { AUTH_HTTP_OPTIONS, type AuthHttpOptions } from './auth-http.options.js';
 
@@ -37,6 +44,7 @@ export class AuthController {
     @Inject(RefreshHandler) private readonly refreshHandler: RefreshHandler,
     @Inject(SessionService) private readonly sessions: SessionService,
     @Inject(AccountQueries) private readonly account: AccountQueries,
+    @Inject(MfaService) private readonly mfa: MfaService,
     @Inject(AUTH_HTTP_OPTIONS) private readonly options: AuthHttpOptions,
   ) {}
 
@@ -98,6 +106,54 @@ export class AuthController {
   @Get('bootstrap')
   bootstrap(@CurrentUser() user: AuthState): Promise<BootstrapResponse> {
     return this.account.bootstrap(user.userId);
+  }
+
+  @Get('auth/mfa')
+  mfaStatus(@CurrentUser() user: AuthState): Promise<MfaStatus> {
+    return this.mfa.status(user.userId);
+  }
+
+  @Post('auth/mfa/setup')
+  @HttpCode(200)
+  mfaSetup(
+    @CurrentUser() user: AuthState,
+    @Body(new ZodValidationPipe(MfaSetupRequest)) body: MfaSetupRequest,
+  ): Promise<MfaSetup> {
+    return this.mfa.beginSetup(user.userId, body.password);
+  }
+
+  @Post('auth/mfa/enable')
+  @HttpCode(200)
+  async mfaEnable(
+    @CurrentUser() user: AuthState,
+    @Body(new ZodValidationPipe(MfaEnableRequest)) body: MfaEnableRequest,
+  ): Promise<RecoveryCodes> {
+    return { recoveryCodes: await this.mfa.enable(user.userId, body.code, user.sessionId) };
+  }
+
+  @Post('auth/mfa/disable')
+  @HttpCode(204)
+  async mfaDisable(
+    @CurrentUser() user: AuthState,
+    @Body(new ZodValidationPipe(MfaReauthRequest)) body: MfaReauthRequest,
+  ): Promise<void> {
+    await this.mfa.disable(user.userId, body.password, body.code, user.sessionId);
+  }
+
+  @Post('auth/mfa/recovery-codes')
+  @HttpCode(200)
+  async mfaRecoveryCodes(
+    @CurrentUser() user: AuthState,
+    @Body(new ZodValidationPipe(MfaReauthRequest)) body: MfaReauthRequest,
+  ): Promise<RecoveryCodes> {
+    return {
+      recoveryCodes: await this.mfa.regenerateRecoveryCodes(
+        user.userId,
+        body.password,
+        body.code,
+        user.sessionId,
+      ),
+    };
   }
 
   private respond(

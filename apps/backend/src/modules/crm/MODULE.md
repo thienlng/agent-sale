@@ -2,13 +2,13 @@
 
 **Purpose:** the shop's customers — profiles with notes and an audit history, customer sources and pipeline statuses, Sales/CSKH ownership, tag definitions with attribute schemas and their assignments, typed filters and saved views (docs/02 CRM-01..CRM-10; GitHub epic #25, issues #26–#29).
 
-**Owned tables:** `contacts`, `contact_notes`, `contact_history`, `crm_sources`, `crm_statuses`, `crm_tags`, `crm_tag_assignments`, `saved_views` (tenant, forced RLS — migration 0006; schema in `packages/db/src/schema/crm.ts`).
+**Owned tables:** `contacts`, `contact_notes`, `contact_history`, `crm_sources`, `crm_statuses`, `crm_tags`, `crm_tag_assignments`, `saved_views`, `crm_assignment_policies` (tenant, forced RLS — migrations 0006, 0014; schema in `packages/db/src/schema/crm.ts`).
 
 **Public API (`api/`):**
 
-- `CRM_FACADE` → `getContact(workspaceId, contactId)`.
+- `CRM_FACADE` → `getContact(workspaceId, contactId)`, `ownedContactCounts(workspaceId, userId)` and `reassignContacts(workspaceId, from, to | null, actor)` (used by `team` when a member is removed; history entries are written per customer), and for the inbox: `conversationTags(ws, ids)` (tag chips for list rows), `conversationIdsByTags(ws, { any, all, exclude, untagged })` (id sets the inbox applies to its own query), `listConversationTags` and `assignConversationTag` (the conversation module checks the conversation exists and exposes `/conversations/{id}/tags`).
 - HTTP (workspace-scoped): `/contacts`, `/contacts/query`, `/contacts/{id}` (+ `/notes`, `/history`, `/tags`), `/tag-assignments/{id}` (+ `/remove`), `/crm/sources`, `/crm/statuses` (+ `/order`), `/crm/tags`, `/crm/assignees`, `/saved-views`. Contracts: `packages/contracts/src/crm/`.
-- Events (outbox, same transaction as the change): `crm.contact.created.v1`, `crm.contact.updated.v1`, `crm.contact.status_changed.v1`, `crm.contact.assigned.v1`, `crm.tag.assigned.v1`, `crm.tag.removed.v1`.
+- Events (outbox, same transaction as the change): `crm.contact.created.v1`, `crm.contact.updated.v1`, `crm.contact.status_changed.v1`, `crm.contact.assigned.v1`, `crm.tag.assigned.v1`, `crm.tag.removed.v1`. Statistics (analytics module) rely on them: `crm.contact.created.v1` carries `origin` and `phoneCaptured`, `crm.contact.updated.v1` carries `phoneCaptured`, and every owner a customer starts with is a `crm.contact.assigned.v1` (not only auto-assigned ones).
 
 **Events consumed:** none yet. Uses the `identity` facade (actor names) and the `workspace` facade (members for assignment, time zone for date filters).
 
@@ -20,12 +20,14 @@
 - Sources, statuses and tags have stable ids and are archived, never deleted: archived ones stay on existing customers and in history but cannot be newly chosen. Defaults (7 sources, 8 statuses, 3 system tags) are seeded on first use by `key`.
 - A customer's status never changes orders (orders have their own status; nothing in this module reads or writes them).
 - Sales and CSKH are separate fields; both must be active workspace members when assigned.
-- Classification and attribute tags are active at most once per customer (partial unique index): a retried add returns the existing assignment (200) and a retried remove is a no-op, so neither writes a second event. Work tags may repeat. Attribute values are validated on the server against the tag's fields; fields keep key and type forever and options are archived, never removed, so old values stay readable. Assignments record the schema version they were filled with. Contact and conversation scopes are distinct (`scope`).
+- Classification and attribute tags are active at most once per customer (partial unique index): a retried add returns the existing assignment (200) and a retried remove is a no-op, so neither writes a second event. Work tags may repeat. Attribute values are validated on the server against the tag's fields; fields keep key and type forever and options are archived, never removed, so old values stay readable. Assignments record the schema version they were filled with. Contact and conversation scopes are distinct (`scope`). Conversation tags (inbox v2) use the same library and table with `scope = 'conversation'`; they write no customer history and publish no event, `activeCount` counts customers only, archived tags are hidden from chips and from the `untagged` filter, and removal goes through the shared `/tag-assignments/{id}/remove` route (editing values stays customer-only).
 - One SQL compiler (`contact-filter.sql.ts`) builds the WHERE for rows and the total. Null rule: a customer without a value matches `is_empty` and the negative operators (`neq`, `not_contains`, `not_in`, `has_none`), never a positive one. Duplicate-phone grouping uses the normalized phone and ignores empty phones. Unsupported operators/values answer 400.
 - Private saved views exist only for their owner (404 for others); shared views are readable by every member and changeable only by the owner (403).
 - Creating a contact is idempotent per `clientRequestId`, also under a race.
+- **Access (T-044):** routes need a capability of the member's role (`@RequireCapability`, `ROLE_CAPABILITIES` in contracts). Without `contacts.view_all` (Sales, CSKH) a member sees only customers they own as Sales or CSKH and unassigned ones; anything else is 404 (list, detail, notes, history, tags). Changing Sales/CSKH needs `contacts.assign`, except claiming an empty slot for yourself. Sharing a view needs `views.share`.
+- **Auto-assignment (T-033):** a new customer with a source and no Sales owner goes to that source's enabled policy: weighted round robin over active members, cursor on the policy row (`crm_assignment_policies`, locked while picking, so concurrent creates never share a slot). Only owners, admins and sales can be candidates; removed members are skipped. A Sales/CSKH member who creates a customer without an owner becomes its owner (so it stays visible to them). The history entry carries `autoAssigned: true` and a `crm.contact.assigned.v1` event is written. "By page" and "ratio by day" modes need channels and come later.
 
-**Not yet (later tasks):** tasks/reminders (CRM-05), custom fields, import/merge, files/export/archive, conversation rules, auto-distribution policies, per-role permissions and object scope (every member can use the CRM today), analytics projections.
+**Not yet (later tasks):** tasks/reminders (CRM-05), custom fields, import/merge, files/export/archive, conversation rules, distribution by page or by day, custom roles, analytics projections.
 
 **Do not:** read other modules' tables; put HTTP/Drizzle types in `domain/`; call LLMs outside `ai-core`; send customer messages from CRM actions.
 

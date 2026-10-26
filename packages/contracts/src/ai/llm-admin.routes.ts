@@ -2,6 +2,8 @@ import { defineRoutes } from '../common/routes.js';
 import {
   CreateLlmProviderRequest,
   HermesLoginStatus,
+  DiscoverLlmModelsRequest,
+  DiscoverLlmModelsResponse,
   LlmProviderDto,
   LlmProviderList,
   LlmProviderModelList,
@@ -48,6 +50,15 @@ export const llmAdminRoutes = defineRoutes([
     tag: 'admin',
     auth: true,
     responses: { 204: null },
+  },
+  {
+    method: 'post',
+    path: '/admin/llm/providers/models',
+    summary: 'Check a connection and list its models, for saved or unsaved settings',
+    tag: 'admin',
+    auth: true,
+    body: DiscoverLlmModelsRequest,
+    responses: { 200: DiscoverLlmModelsResponse },
   },
   {
     method: 'post',

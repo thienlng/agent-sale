@@ -1,6 +1,8 @@
-import type { ConversationDto, MetaProvider } from '@agent-sales/contracts';
-import type { SVGProps } from 'react';
+import type { MetaProvider } from '@agent-sales/contracts';
+import { type ReactNode, type SVGProps, useState } from 'react';
 import { cn } from '@/lib/utils';
+import { customerInitial } from '../lib/inbox-list';
+import type { InboxConversation } from '../lib/inbox-v2-types';
 
 type IconProps = SVGProps<SVGSVGElement>;
 
@@ -39,14 +41,83 @@ export function ProviderMark({
   return <Mark className={cn('size-4', className)} />;
 }
 
-/** Customer initial with the channel badge at the bottom-left, as in the reference inbox. */
-export function CustomerAvatar({ conversation: c }: { conversation: ConversationDto }) {
+/** Brand colour and short label per channel, so a rep tells Messenger from Instagram at a glance. */
+const CHANNEL_STYLE: Record<MetaProvider, { label: string; className: string }> = {
+  facebook: { label: 'Messenger', className: 'bg-[#0866ff] text-white' },
+  instagram: {
+    label: 'Instagram',
+    className: 'bg-gradient-to-tr from-[#f58529] via-[#dd2a7b] to-[#8134af] text-white',
+  },
+};
+
+/** Small coloured pill naming the channel; the page name is in the tooltip. */
+export function ChannelBadge({
+  provider,
+  title,
+}: {
+  provider: MetaProvider;
+  title?: string | undefined;
+}) {
+  const style = CHANNEL_STYLE[provider];
   return (
-    <span className="relative grid size-10 shrink-0 place-items-center rounded-full bg-primary-soft text-sm font-semibold text-primary">
-      {(c.customerName.trim().charAt(0) || '?').toUpperCase()}
-      <span className="absolute -bottom-0.5 -left-0.5 grid size-4.5 place-items-center rounded-full border-2 border-background bg-primary text-primary-foreground">
+    <span
+      title={title ? `${style.label} · ${title}` : style.label}
+      className={cn(
+        'inline-flex shrink-0 items-center gap-0.5 rounded px-1 py-px text-[10px] leading-3.5 font-semibold',
+        style.className,
+      )}
+    >
+      <ProviderMark provider={provider} className="size-2.5" />
+      {style.label}
+    </span>
+  );
+}
+
+const SIZES = { md: 'size-10 text-sm', sm: 'size-8 text-xs' } as const;
+
+/** Meta profile photo, or the customer's initial, with the channel badge at the bottom-left. */
+export function CustomerAvatar({
+  conversation: c,
+  name,
+  size = 'md',
+  children,
+}: {
+  conversation: Pick<InboxConversation, 'customerName' | 'provider' | 'customerAvatarUrl'>;
+  /** Display name for the initial; defaults to the stored customer name. */
+  name?: string;
+  size?: keyof typeof SIZES;
+  /** Extra badges (e.g. the unread count) positioned by the caller. */
+  children?: ReactNode;
+}) {
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const url = c.customerAvatarUrl && c.customerAvatarUrl !== failedUrl ? c.customerAvatarUrl : null;
+  return (
+    <span
+      className={cn(
+        'relative grid shrink-0 place-items-center rounded-full bg-primary-soft font-semibold text-primary',
+        SIZES[size],
+      )}
+    >
+      {url ? (
+        <img
+          src={url}
+          alt=""
+          referrerPolicy="no-referrer"
+          className="size-full rounded-full object-cover"
+          onError={() => setFailedUrl(url)}
+        />
+      ) : (
+        customerInitial(name ?? c.customerName)
+      )}
+      <span
+        className={cn(
+          'absolute -bottom-0.5 -left-0.5 grid size-4 place-items-center rounded-full border-2 border-background',
+          CHANNEL_STYLE[c.provider].className,
+        )}
+      >
         <ProviderMark provider={c.provider} className="size-2.5" />
       </span>
+      {children}
     </span>
   );
 }

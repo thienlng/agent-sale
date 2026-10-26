@@ -18,14 +18,29 @@ export class DrizzleWorkspaceDirectory implements WorkspaceDirectory {
     return this.query(user);
   }
 
-  listMembers(ws: WorkspaceId): Promise<WorkspaceMember[]> {
+  listMembers(ws: WorkspaceId, includeRemoved: boolean): Promise<WorkspaceMember[]> {
     return withSystem(this.systemDb, async (tx) => {
       const rows = await tx
-        .select({ userId: schema.members.userId, role: schema.members.role })
+        .select({
+          userId: schema.members.userId,
+          role: schema.members.role,
+          status: schema.members.status,
+          joinedAt: schema.members.createdAt,
+        })
         .from(schema.members)
-        .where(and(eq(schema.members.workspaceId, ws), eq(schema.members.status, 'active')))
+        .where(
+          and(
+            eq(schema.members.workspaceId, ws),
+            includeRemoved ? undefined : eq(schema.members.status, 'active'),
+          ),
+        )
         .orderBy(schema.members.createdAt);
-      return rows.map((r) => ({ userId: userId(r.userId), role: r.role }));
+      return rows.map((r) => ({
+        userId: userId(r.userId),
+        role: r.role,
+        status: r.status === 'active' ? ('active' as const) : ('removed' as const),
+        joinedAt: r.joinedAt,
+      }));
     });
   }
 
@@ -60,10 +75,10 @@ export class InMemoryWorkspaceDirectory implements WorkspaceDirectory {
     return (await this.listMemberships(user)).find((m) => m.workspaceId === ws) ?? null;
   }
 
-  async listMembers(ws: WorkspaceId): Promise<WorkspaceMember[]> {
+  async listMembers(ws: WorkspaceId, includeRemoved: boolean): Promise<WorkspaceMember[]> {
     return this.store.members.rows
-      .filter((m) => m.workspaceId === ws && m.status === 'active')
-      .map((m) => ({ userId: m.userId, role: m.role }));
+      .filter((m) => m.workspaceId === ws && (includeRemoved || m.status === 'active'))
+      .map((m) => ({ userId: m.userId, role: m.role, status: m.status, joinedAt: new Date(0) }));
   }
 
   async listMemberships(user: UserId): Promise<WorkspaceMembership[]> {

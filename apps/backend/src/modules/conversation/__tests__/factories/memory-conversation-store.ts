@@ -1,12 +1,13 @@
-import type { ConversationDto, InboxMessageDto } from '@agent-sales/contracts';
+import type { ConversationView, InboxMessageDto } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
 import type {
   ConversationStore,
   ConversationTx,
 } from '../../application/ports/conversation-store.js';
+import { filterConversations } from '../../domain/conversation-filter.js';
 /** Serialized test UoW with rollback; deliberately not used as a production fallback. */
 export class MemoryConversationStore implements ConversationStore {
-  private rows = new Map<string, ConversationDto>();
+  private rows = new Map<string, ConversationView>();
   private messagesByKey = new Map<string, InboxMessageDto>();
   private tail: Promise<unknown> = Promise.resolve();
   readonly events: unknown[] = [];
@@ -23,8 +24,11 @@ export class MemoryConversationStore implements ConversationStore {
             ([key, c]) =>
               key.startsWith(`${ws}/`) && c.channelId === channel && c.customerId === customer,
           )?.[1] ?? null,
-        list: async () =>
-          [...rows.entries()].filter(([key]) => key.startsWith(`${ws}/`)).map(([, c]) => c),
+        query: async (filter) =>
+          filterConversations(
+            [...rows.entries()].filter(([key]) => key.startsWith(`${ws}/`)).map(([, c]) => c),
+            filter,
+          ),
         save: async (c) => {
           rows.set(`${ws}/${c.id}`, structuredClone(c));
         },
