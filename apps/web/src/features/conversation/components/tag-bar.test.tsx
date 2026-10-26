@@ -146,3 +146,16 @@ describe('tag bar', () => {
     );
   });
 });
+
+it('blocks quick attach and remove while a mutation is pending', async () => {
+  const { onAttach, onRemove } = setup({ busy: true });
+  const user = userEvent.setup();
+  const attach = screen.getByRole('button', { name: `${T}attach VIP` });
+  const remove = screen.getByRole('button', { name: `${T}remove Đã cọc` });
+  expect(attach).toBeDisabled();
+  expect(remove).toBeDisabled();
+  await user.click(attach);
+  await user.click(remove);
+  expect(onAttach).not.toHaveBeenCalled();
+  expect(onRemove).not.toHaveBeenCalled();
+});

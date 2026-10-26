@@ -68,3 +68,6 @@ The user explicitly authorized autonomous lane B implementation while away, so n
 - [Architecture](../docs/ARCHITECTURE.md)
 - [Tenancy and verticals](../docs/17-multi-tenancy-and-verticals.md)
 - [Billing design](../docs/08-billing-quota-credit.md)
+
+- 2026-10-26 — Independent QA reproduced the contract mismatch read-only: Event requires event_name and Ticket requires subject; the inbox sent only tagId. VIP has no required fields and validates without values. No live customer records were changed.
+- 2026-10-26 — Added a shared tag-values editor (extracted from CRM), conversation-scoped dialog lifecycle, values payload support and disabled busy quick actions. Targeted hook/tag-bar tests: 15 passed; attribute form tests: 4 passed. Further independent acceptance and full gate pending.

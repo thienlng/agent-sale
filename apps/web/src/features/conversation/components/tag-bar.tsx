@@ -91,6 +91,7 @@ export function TagBar({
                 <button
                   type="button"
                   aria-label={tr('remove', { name: tag.name })}
+                  disabled={busy}
                   className="grid size-4 place-items-center rounded-sm hover:bg-foreground/10"
                   onClick={() => onRemove({ ...tag, assignmentId: tag.assignmentId as string })}
                 >
@@ -105,6 +106,7 @@ export function TagBar({
             <button
               type="button"
               aria-label={tr('attach', { name: tag.name })}
+              disabled={busy}
               onClick={() => onAttach(tag)}
               className="inline-flex h-6 max-w-full items-center gap-1 rounded-md border border-dashed px-1.5 text-xs text-muted-foreground hover:border-primary/50 hover:text-foreground"
             >

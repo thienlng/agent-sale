@@ -7,6 +7,7 @@ import {
   TagList,
   TrainingItemList,
   type SendInboxMessageRequest,
+  type TagValues,
 } from '@agent-sales/contracts';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
@@ -247,8 +248,11 @@ export function useConversationTagActions(id: string) {
   const scope = { id: `conversation-tags:${id}` };
   const attach = useMutation({
     scope,
-    mutationFn: (tag: { id: string; name: string; color: string }) =>
-      api(`/conversations/${id}/tags`, z.unknown(), { method: 'POST', body: { tagId: tag.id } }),
+    mutationFn: (tag: { id: string; name: string; color: string; values?: TagValues }) =>
+      api(`/conversations/${id}/tags`, z.unknown(), {
+        method: 'POST',
+        body: { tagId: tag.id, ...(tag.values ? { values: tag.values } : {}) },
+      }),
     onMutate: (tag) =>
       patchTags((tags) =>
         tags.some((t) => t.id === tag.id)

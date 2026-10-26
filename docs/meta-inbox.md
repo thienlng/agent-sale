@@ -109,3 +109,7 @@ After a customer message the agent asks the channel module for the customer's na
 - Outbound attachments are sent by HTTPS URL (bot image library, a product's `imageUrls` or a pasted link); there is no file upload to Meta. Product pictures are plain https links entered in the product form (max 5, 2000 characters each); there is no upload or reference to the image library yet.
 - Meta CDN attachment URLs expire; the inbox shows them as received and falls back to a link.
 - A customer's name and picture come from a best-effort profile lookup (below); until it succeeds, `customerName` is the Meta-scoped id and the UI shows a masked label.
+
+## Inbox tag values (T-090)
+
+Tags use the Customer settings library and conversation-scoped CRM assignments. Tags without active fields attach in one click; tags with active fields open the same values editor used by CRM. Required fields must be filled before assignment; numeric zero and boolean false are valid values. Archived fields are not requested. Failed saves keep the form and entered values available for retry; leaving the conversation discards an unfinished form. Quick attach/remove actions wait for an in-flight mutation. These changes do not merge customer tags with conversation tags or alter tag ownership.
