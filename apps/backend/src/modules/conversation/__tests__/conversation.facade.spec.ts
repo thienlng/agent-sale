@@ -74,6 +74,7 @@ beforeEach(() => {
     releaseEvent: async () => undefined,
     deadLetterEvent: async () => undefined,
     deadLetterExhaustedEvents: async () => [],
+    unbindBot: async () => 0,
   };
   const bots: BotFacade = { getBot: async () => bot };
   service = new ConversationFacadeImpl(

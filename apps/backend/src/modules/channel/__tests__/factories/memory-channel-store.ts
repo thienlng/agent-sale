@@ -23,6 +23,15 @@ export class MemoryChannelStore implements ChannelStore {
     this.records.set(id, changed);
     return changed;
   }
+  async unbindBot(ws: WorkspaceId, botId: string) {
+    let n = 0;
+    for (const [id, c] of this.records)
+      if (c.workspaceId === ws && c.botId === botId) {
+        this.records.set(id, { ...c, botId: null });
+        n += 1;
+      }
+    return n;
+  }
   async createFlow(f: OAuthFlow) {
     this.flows.set(f.id, structuredClone(f));
   }

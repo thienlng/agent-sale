@@ -37,6 +37,8 @@ export interface ChannelStore {
     id: string,
     patch: { botId?: string | null; status?: ChannelConnectionDto['status'] },
   ): Promise<ConnectionRecord | null>;
+  /** Clears the bot binding of every connection pointing at `botId`; returns how many changed. */
+  unbindBot(ws: WorkspaceId, botId: string): Promise<number>;
   createFlow(flow: OAuthFlow): Promise<void>;
   consumeState(
     provider: MetaProvider,

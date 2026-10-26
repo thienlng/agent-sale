@@ -61,6 +61,16 @@ export class DrizzleChannelStore implements ChannelStore {
       return r ? connection(r) : null;
     });
   }
+  unbindBot(ws: WorkspaceId, botId: string) {
+    return withTenant(this.db, ws, async (tx) => {
+      const rows = await tx
+        .update(c)
+        .set({ botId: null })
+        .where(and(eq(c.workspaceId, ws), eq(c.botId, botId)))
+        .returning({ id: c.id });
+      return rows.length;
+    });
+  }
   async createFlow(rec: OAuthFlow) {
     await withTenant(this.db, rec.workspaceId, async (tx) => {
       await tx.insert(f).values(rec);
@@ -259,6 +269,9 @@ export class UnavailableChannelStore implements ChannelStore {
   }
   update(): Promise<null> {
     return this.fail();
+  }
+  unbindBot(): Promise<number> {
+    return Promise.resolve(0);
   }
   createFlow(): Promise<void> {
     return this.fail();

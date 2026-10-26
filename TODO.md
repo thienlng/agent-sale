@@ -4,10 +4,9 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
+- [ ] T-074 Delete a bot and open its settings from the bot list — @agent:claude · [details](todo/T-074-delete-a-bot-and-open-its-settings-from-the-bot-li.md) · PR #61
 - [ ] T-073 Sales inbox v2 unread tags filters and reply mode — @agent:claude · [details](todo/T-073-sales-inbox-v2-unread-tags-filters-and-reply-mode.md) · PR #59
 - [ ] T-072 Complete inbox follow-ups saved views and sales shortcuts — @agent:codex · [details](todo/T-072-complete-inbox-follow-ups-saved-views-and-sales-sh.md) · PR #59
-
-
 - [ ] T-067 Stop auto-collapsing the app sidebar inside the bot space — @agent:claude · [details](todo/T-067-stop-auto-collapsing-the-app-sidebar-inside-the-bo.md)
 - [ ] T-065 Admin LLM: check connection and fetch model list from the provider dialog — @agent:claude · [details](todo/T-065-admin-llm-check-connection-and-fetch-model-list-fr.md)
 

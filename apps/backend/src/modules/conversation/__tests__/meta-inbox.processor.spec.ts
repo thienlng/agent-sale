@@ -66,6 +66,7 @@ function setup() {
     releaseEvent: vi.fn(async () => undefined),
     deadLetterEvent: vi.fn(async () => undefined),
     deadLetterExhaustedEvents: vi.fn(async () => [] as string[]),
+    unbindBot: vi.fn(async () => 0),
   } as unknown as ChannelFacade & { claimEvents: ReturnType<typeof vi.fn> };
   const bots: BotFacade = { getBot: async () => bot };
   const inbox = new ConversationFacadeImpl(

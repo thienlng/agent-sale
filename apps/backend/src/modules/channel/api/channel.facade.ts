@@ -34,6 +34,8 @@ export interface ChannelFacade {
     status: 'sent' | 'failed' | 'unknown';
     failureCode: string | null;
   }>;
+  /** Detaches a bot from every page that uses it, so conversations there fall back to staff. */
+  unbindBot(ws: WorkspaceId, botId: string): Promise<number>;
   /**
    * Best-effort name and picture of a customer of this page (Messenger PSID or Instagram-scoped
    * id), read with the page token. Resolves `null` on any failure; the token never leaves the module.
