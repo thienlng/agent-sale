@@ -1,6 +1,8 @@
 import type {
+  ConversationCounts,
   ConversationDetailDto,
-  ConversationDto,
+  ConversationTagAssignmentDto,
+  ConversationView,
   ConversationListQuery,
   InboxMessageDto,
   SendInboxMessageRequest,
@@ -9,7 +11,11 @@ import type {
 import type { NormalizedEvent } from '@agent-sales/channels';
 import type { WorkspaceId } from '@agent-sales/shared';
 export interface ConversationFacade {
-  list(ws: WorkspaceId, query: ConversationListQuery): Promise<{ data: ConversationDto[] }>;
+  list(
+    ws: WorkspaceId,
+    query: ConversationListQuery,
+    viewerId?: string,
+  ): Promise<{ data: ConversationView[]; counts: ConversationCounts }>;
   get(ws: WorkspaceId, id: string): Promise<ConversationDetailDto>;
   send(
     ws: WorkspaceId,
@@ -22,8 +28,24 @@ export interface ConversationFacade {
     id: string,
     input: UpdateConversationRequest,
     actorId: string,
-  ): Promise<ConversationDto>;
-  receive(ws: WorkspaceId, channelId: string, event: NormalizedEvent): Promise<ConversationDto>;
+  ): Promise<ConversationView>;
+  /** Active tags of a conversation (the tag library belongs to crm). */
+  listTags(ws: WorkspaceId, id: string): Promise<ConversationTagAssignmentDto[]>;
+  addTag(
+    ws: WorkspaceId,
+    id: string,
+    input: unknown,
+    actorId: string,
+  ): Promise<{ created: boolean; assignment: ConversationTagAssignmentDto }>;
+  markRead(ws: WorkspaceId, id: string, actorId: string): Promise<ConversationView>;
+  markUnread(ws: WorkspaceId, id: string): Promise<ConversationView>;
+  addNote(ws: WorkspaceId, id: string, text: string, actorId: string): Promise<ConversationView>;
+  /**
+   * Best-effort name and avatar lookup after a customer message; at most one Meta call per
+   * conversation per day. Never throws.
+   */
+  refreshCustomerProfile(ws: WorkspaceId, id: string): Promise<void>;
+  receive(ws: WorkspaceId, channelId: string, event: NormalizedEvent): Promise<ConversationView>;
   getReplyContext(
     ws: WorkspaceId,
     id: string,

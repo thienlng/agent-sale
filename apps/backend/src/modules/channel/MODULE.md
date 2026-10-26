@@ -6,7 +6,8 @@
 
 **Public API (`api/`):**
 
-- `CHANNEL_FACADE` → `getConnection`, `deliver(ws, id, recipient, { text | attachment }, key)`, `unbindBot(ws, botId)` (clears `bot_id` of every page using the bot; called when the bot is deleted), `claimEvents`, `renewEvent`, `releaseEvent`, `completeEvent`, `deadLetterEvent`, `deadLetterExhaustedEvents`
+- `CHANNEL_FACADE` → `getConnection`, `deliver(ws, id, recipient, { text | attachment }, key)`, `fetchCustomerProfile(ws, id, customerExternalId)` (name and avatar via the page token, `null` on any failure), `claimEvents`, `renewEvent`, `releaseEvent`, `completeEvent`, `deadLetterEvent`, `deadLetterExhaustedEvents`
+- `unbindBot(ws, botId)` (T-074): clears `bot_id` of every page using a deleted bot; registered on the bot module's `BOT_LIFECYCLE` hook.
 - `MAX_EVENT_ATTEMPTS` (3): the store stops claiming an event after this many attempts; an event that ends without completion is dead-lettered (`processed_at` + `failed_at`, payload kept).
 - HTTP: `/channels`, `/channels/{provider}/connect`, `/channels/discoveries/{id}[/select]`, `/channels/{id}`, `/channels/oauth/{provider}/callback`.
 

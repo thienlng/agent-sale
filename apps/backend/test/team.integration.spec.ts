@@ -523,11 +523,17 @@ describe('team and access on Postgres', () => {
     });
     expect(ContactDto.parse(own.json()).salesUserId).toBe(chi.userId);
 
+    const transferred = created
+      .map((response) => ContactDto.parse(response.json()))
+      .find((contact) => contact.salesUserId === chi.userId);
+    if (!transferred) throw new Error('Expected a contact assigned to the member being removed');
+
     // A removed member is skipped.
     // (Chi owns customers, so their hand-over has to be named.)
-    await call(lan.h, 'POST', `/members/${chi.userId}/remove`, {
+    const removed = await call(lan.h, 'POST', `/members/${chi.userId}/remove`, {
       reassign: { mode: 'transfer', toUserId: binh.userId },
     });
+    expect(removed.statusCode).toBe(200);
     const after = await Promise.all(
       Array.from({ length: 3 }, (_, i) =>
         call(lan.h, 'POST', '/contacts', { name: `Sau ${i}`, sourceId: facebook?.id }),
@@ -538,15 +544,22 @@ describe('team and access on Postgres', () => {
       binh.userId,
       binh.userId,
     ]);
-    const history = (
-      await call(lan.h, 'GET', `/contacts/${ContactDto.parse(created[0]?.json()).id}/history`)
-    ).json() as {
-      data: Array<{ type: string; data: Record<string, unknown> }>;
-    };
-    expect(history.data[0]).toMatchObject({
-      type: 'contact.created',
-      data: { autoAssigned: true },
-    });
+    const history = ContactHistoryList.parse(
+      (await call(lan.h, 'GET', `/contacts/${transferred.id}/history`)).json(),
+    );
+    expect(history.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'contact.created',
+          data: expect.objectContaining({ autoAssigned: true }),
+        }),
+        expect.objectContaining({
+          type: 'contact.assigned',
+          data: expect.objectContaining({ reason: 'member_removed' }),
+          changes: { salesUserId: { from: chi.userId, to: binh.userId } },
+        }),
+      ]),
+    );
   });
 
   it('keeps seats: waiting invitations reserve them and the last seat goes to one joiner (ADM-01)', async () => {

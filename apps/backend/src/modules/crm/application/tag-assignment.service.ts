@@ -22,7 +22,7 @@ import { toAssignmentDto } from './crm.mappers.js';
 import { CRM_STORE, type AssignmentRecord, type CrmStore, type CrmTx } from './ports/crm-store.js';
 
 /**
- * Tags on customers (CRM-04). Classification and attribute tags are active at
+ * Tags on customers (CRM-04); `remove` also serves conversation tags (see ConversationTagsService). Classification and attribute tags are active at
  * most once per customer, so a retried "add" returns the existing assignment
  * and a retried "remove" is a no-op: neither writes a second event. Values are
  * validated on the server against the tag's fields.
@@ -156,8 +156,9 @@ export class TagAssignmentService {
     const { reason } = RemoveTagAssignmentRequest.parse(raw);
     const actorName = await this.identity.displayName(userId(actor));
     return this.store.run(ws, async (tx) => {
-      const a = await this.#assignment(tx, assignmentId, true);
-      await this.#contact(tx, a.entityId, viewer);
+      const a = await this.#assignment(tx, assignmentId, true, ['contact', 'conversation']);
+      const forConversation = a.scope === 'conversation';
+      if (!forConversation) await this.#contact(tx, a.entityId, viewer);
       if (a.removedAt) return toAssignmentDto(a);
       const now = new Date();
       const next = {
@@ -168,6 +169,8 @@ export class TagAssignmentService {
         version: a.version + 1,
       };
       await tx.assignments.update(next);
+      // A conversation tag has no customer history and publishes no event.
+      if (forConversation) return toAssignmentDto(next);
       const tag = await tx.tags.find(a.tagId);
       await this.#history(tx, a.entityId, 'tag.removed', actor, actorName, now, {
         tagId: a.tagId,
@@ -198,9 +201,14 @@ export class TagAssignmentService {
     if (!c || !canSee(c, viewer)) throw new ContactNotFoundError(id);
   }
 
-  async #assignment(tx: CrmTx, id: string, forUpdate: boolean): Promise<AssignmentRecord> {
+  async #assignment(
+    tx: CrmTx,
+    id: string,
+    forUpdate: boolean,
+    scopes: readonly AssignmentRecord['scope'][] = ['contact'],
+  ): Promise<AssignmentRecord> {
     const a = isUuid(id) ? await tx.assignments.find(id, { forUpdate }) : null;
-    if (!a || a.scope !== 'contact') throw new TagAssignmentNotFoundError(id);
+    if (!a || !scopes.includes(a.scope)) throw new TagAssignmentNotFoundError(id);
     return a;
   }
 

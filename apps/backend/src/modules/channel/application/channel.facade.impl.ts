@@ -6,7 +6,7 @@ import {
   type UpdateChannelRequest,
 } from '@agent-sales/contracts';
 import { newId, type WorkspaceId } from '@agent-sales/shared';
-import { Inject, Injectable, type OnModuleInit, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, type OnModuleInit, Optional } from '@nestjs/common';
 import { z } from 'zod';
 import { getEnv } from '../../../common/config.js';
 import { SECRET_BOX, type SecretBox } from '../../../common/security/secret-box.js';
@@ -31,8 +31,11 @@ const GrantedAccounts = z.array(
 export const hash = (v: string): string => createHash('sha256').update(v).digest('hex');
 const publicConnection = (c: ConnectionRecord): ChannelConnectionDto =>
   ChannelConnectionDto.parse(c);
+const log = new Logger('ChannelFacade');
 @Injectable()
 export class ChannelFacadeImpl implements ChannelFacade, OnModuleInit {
+  /** HTTP client for Meta profile reads; tests replace it with a fake. */
+  transport: typeof fetch = fetch;
   constructor(
     @Inject(CHANNEL_STORE) private readonly store: ChannelStore,
     @Inject(META_GATEWAY) private readonly gateway: MetaGateway,
@@ -179,6 +182,24 @@ export class ChannelFacadeImpl implements ChannelFacade, OnModuleInit {
             : ('unknown' as const),
         failureCode: code,
       };
+    }
+  }
+  async fetchCustomerProfile(ws: WorkspaceId, id: string, customerExternalId: string) {
+    const c = await this.store.get(ws, id);
+    if (!c || c.status !== 'connected' || (c.expiresAt && Date.parse(c.expiresAt) <= Date.now()))
+      return null;
+    try {
+      return await new MetaAdapter(
+        c.provider,
+        getEnv().META_GRAPH_VERSION,
+        this.transport,
+      ).fetchProfile({ token: this.box.open(c.tokenSealed) }, customerExternalId);
+    } catch (error) {
+      // Only the failure code: the customer id and the token are never logged.
+      log.warn(
+        `Customer profile lookup failed (${error instanceof MetaRequestError ? error.code : 'unexpected'})`,
+      );
+      return null;
     }
   }
   claimEvents(limit: number) {

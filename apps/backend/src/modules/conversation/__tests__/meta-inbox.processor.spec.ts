@@ -6,6 +6,7 @@ import type { BotFacade, BotView } from '../../bot/api/index.js';
 import type { ChannelFacade, PendingMetaEvent } from '../../channel/api/index.js';
 import { ConversationFacadeImpl } from '../application/conversation.facade.impl.js';
 import { MetaInboxProcessor } from '../application/jobs/meta-inbox.processor.js';
+import { fakeCrm, fakeIdentity, fakeTeam } from './fakes.js';
 import { MemoryConversationStore } from './factories/memory-conversation-store.js';
 
 const ws = workspaceId('018d0000-0000-7000-8000-000000000001');
@@ -58,6 +59,7 @@ function setup() {
       status: 'sent' as const,
       failureCode: null,
     })),
+    fetchCustomerProfile: vi.fn(async () => ({ name: 'Trần Minh', avatarUrl: null })),
     claimEvents: vi.fn(async () => [] as PendingMetaEvent[]),
     renewEvent: async () => true,
     completeEvent: vi.fn(async () => undefined),
@@ -67,7 +69,14 @@ function setup() {
     unbindBot: vi.fn(async () => 0),
   } as unknown as ChannelFacade & { claimEvents: ReturnType<typeof vi.fn> };
   const bots: BotFacade = { getBot: async () => bot };
-  const inbox = new ConversationFacadeImpl(new MemoryConversationStore(), channels, bots);
+  const inbox = new ConversationFacadeImpl(
+    new MemoryConversationStore(),
+    channels,
+    bots,
+    fakeTeam(),
+    fakeIdentity(),
+    fakeCrm() as never,
+  );
   const ai = {
     reply: vi.fn(async (_ws: unknown, _bot: unknown, req: { messages: { content: string }[] }) => ({
       reply: `re: ${req.messages.at(-1)?.content}`,
@@ -196,5 +205,27 @@ describe('MetaInboxProcessor', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+  it('looks the customer up after a message, not after a staff echo', async () => {
+    const { channels, inbox, processor } = setup();
+    const t0 = Date.now();
+    vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+      job('p1', 'message', 'hello', t0),
+      job('p-echo', 'echo', 'staff reply', t0 + 10),
+    ]);
+    await processor.tick();
+    await vi.waitFor(() => expect(channels.fetchCustomerProfile).toHaveBeenCalledTimes(1));
+    const conversation = (await inbox.list(ws, { limit: 10 })).data[0];
+    expect(conversation?.customerName).toBe('Trần Minh');
+  });
+  it('still answers when the profile lookup fails', async () => {
+    const { channels, processor } = setup();
+    vi.mocked(channels.fetchCustomerProfile).mockRejectedValue(new Error('graph down'));
+    vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+      job('p2', 'message', 'hello', Date.now()),
+    ]);
+    await processor.tick();
+    expect(channels.deliver).toHaveBeenCalledTimes(1);
+    expect(channels.completeEvent).toHaveBeenCalled();
   });
 });
