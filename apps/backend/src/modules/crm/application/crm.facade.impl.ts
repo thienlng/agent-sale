@@ -2,7 +2,8 @@ import type { ContactDto } from '@agent-sales/contracts';
 import { Inject, Injectable } from '@nestjs/common';
 import type { WorkspaceId } from '@agent-sales/shared';
 
-import type { CrmFacade } from '../api/crm.facade.js';
+import type { CrmFacade, ConversationTagFilter } from '../api/crm.facade.js';
+import { ConversationTagsService } from './conversation-tags.service.js';
 import { ContactService } from './contact.service.js';
 import { OwnershipService } from './ownership.service.js';
 
@@ -12,6 +13,8 @@ export class CrmFacadeImpl implements CrmFacade {
   constructor(
     @Inject(ContactService) private readonly contacts: ContactService,
     @Inject(OwnershipService) private readonly ownership: OwnershipService,
+    @Inject(ConversationTagsService)
+    private readonly conversationTagsService: ConversationTagsService,
   ) {}
 
   getContact(ws: WorkspaceId, id: string): Promise<ContactDto> {
@@ -28,5 +31,21 @@ export class CrmFacadeImpl implements CrmFacade {
 
   reassignContacts(ws: WorkspaceId, input: Parameters<OwnershipService['reassignContacts']>[1]) {
     return this.ownership.reassignContacts(ws, input);
+  }
+
+  conversationTags(ws: WorkspaceId, ids: readonly string[]) {
+    return this.conversationTagsService.chips(ws, ids);
+  }
+
+  conversationIdsByTags(ws: WorkspaceId, filter: ConversationTagFilter) {
+    return this.conversationTagsService.idsByTags(ws, filter);
+  }
+
+  listConversationTags(ws: WorkspaceId, conversationId: string) {
+    return this.conversationTagsService.list(ws, conversationId);
+  }
+
+  assignConversationTag(ws: WorkspaceId, conversationId: string, input: unknown, actor: string) {
+    return this.conversationTagsService.assign(ws, conversationId, input, actor);
   }
 }

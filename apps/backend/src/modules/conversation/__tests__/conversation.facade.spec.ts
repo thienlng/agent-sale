@@ -4,6 +4,7 @@ import type { ChannelFacade } from '../../channel/api/index.js';
 import type { BotFacade, BotView } from '../../bot/api/index.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ConversationFacadeImpl } from '../application/conversation.facade.impl.js';
+import { fakeCrm, fakeIdentity, fakeTeam } from './fakes.js';
 import { MemoryConversationStore } from './factories/memory-conversation-store.js';
 const ws = workspaceId('018d0000-0000-7000-8000-000000000001'),
   other = workspaceId('018d0000-0000-7000-8000-000000000002');
@@ -66,6 +67,7 @@ beforeEach(() => {
       status: 'sent' as const,
       failureCode: null,
     })),
+    fetchCustomerProfile: async () => null,
     claimEvents: async () => [],
     renewEvent: async () => true,
     completeEvent: async () => undefined,
@@ -74,10 +76,100 @@ beforeEach(() => {
     deadLetterExhaustedEvents: async () => [],
   };
   const bots: BotFacade = { getBot: async () => bot };
-  service = new ConversationFacadeImpl(store, channels, bots);
+  service = new ConversationFacadeImpl(
+    store,
+    channels,
+    bots,
+    fakeTeam(),
+    fakeIdentity(),
+    fakeCrm() as never,
+  );
 });
 afterEach(() => vi.useRealTimers());
 describe('ConversationFacade tenant and delivery contract', () => {
+  it('persists and clears a private follow-up with revision and tenant checks', async () => {
+    const c = await service.receive(ws, channelId, event());
+    const scheduled = await service.update(
+      ws,
+      c.id,
+      {
+        followUpAt: '2026-10-25T08:00:00Z',
+        followUpNote: 'Call about size M',
+        expectedRevision: c.revision,
+      },
+      actor,
+    );
+    expect((await service.get(ws, c.id)).conversation).toMatchObject({
+      followUpAt: '2026-10-25T08:00:00Z',
+      followUpNote: 'Call about size M',
+    });
+    await expect(
+      service.update(ws, c.id, { followUpAt: null, expectedRevision: c.revision }, actor),
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
+    await expect(
+      service.update(
+        other,
+        c.id,
+        { followUpAt: null, expectedRevision: scheduled.revision },
+        actor,
+      ),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await service.update(
+      ws,
+      c.id,
+      { followUpAt: null, followUpNote: '', expectedRevision: scheduled.revision },
+      actor,
+    );
+    expect((await service.get(ws, c.id)).conversation).toMatchObject({
+      followUpAt: null,
+      followUpNote: '',
+    });
+    expect(JSON.stringify(store.events)).not.toContain('Call about size M');
+    // Clearing only the time must not leave an orphan private note.
+    const again = await service.update(
+      ws,
+      c.id,
+      {
+        followUpAt: '2026-10-26T08:00:00Z',
+        followUpNote: 'Second',
+        expectedRevision: 0 + (await service.get(ws, c.id)).conversation.revision,
+      },
+      actor,
+    );
+    await service.update(ws, c.id, { followUpAt: null, expectedRevision: again.revision }, actor);
+    expect((await service.get(ws, c.id)).conversation).toMatchObject({
+      followUpAt: null,
+      followUpNote: '',
+    });
+  });
+
+  it('rejects stale edits without overwriting notes or reassignment', async () => {
+    const c = await service.receive(ws, channelId, event());
+    const first = await service.update(
+      ws,
+      c.id,
+      { note: 'First sale', expectedRevision: c.revision },
+      actor,
+    );
+    await expect(
+      service.update(ws, c.id, { note: 'Stale sale', expectedRevision: c.revision }, actor),
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
+    expect((await service.get(ws, c.id)).conversation.note).toBe('First sale');
+    const claimed = await service.update(
+      ws,
+      c.id,
+      { assignToMe: true, expectedRevision: first.revision },
+      actor,
+    );
+    await expect(
+      service.update(ws, c.id, { assignToMe: true, expectedRevision: first.revision }, newId()),
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
+    expect((await service.get(ws, c.id)).conversation.assigneeId).toBe(claimed.assigneeId);
+    await expect(
+      service.update(other, c.id, { expectedRevision: first.revision }, actor),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+
   it('deduplicates inbound messages and hides conversations from another tenant', async () => {
     const c = await service.receive(ws, channelId, event());
     await service.receive(ws, channelId, event());

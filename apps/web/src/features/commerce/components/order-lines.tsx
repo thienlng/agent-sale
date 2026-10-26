@@ -31,8 +31,10 @@ export interface Line {
 export function ProductPicker({
   warehouseId,
   onPick,
+  compact = false,
 }: {
   warehouseId: string;
+  compact?: boolean;
   onPick: (v: VariantOption) => void;
 }) {
   const { t } = useTranslation();
@@ -47,7 +49,7 @@ export function ProductPicker({
   const results = useVariantSearch({ q: debounced, warehouseId, inStock });
 
   return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+    <div className={cn('flex min-w-0 flex-col gap-2', !compact && 'sm:flex-row sm:items-center')}>
       <Popover open={open} onOpenChange={setOpen}>
         <Command shouldFilter={false} className="flex-1 overflow-visible rounded-lg border">
           <PopoverAnchor asChild>
@@ -67,11 +69,20 @@ export function ProductPicker({
             align="start"
             className="w-(--radix-popover-trigger-width) min-w-72 p-0"
             onOpenAutoFocus={(e) => e.preventDefault()}
+            onCloseAutoFocus={(e) => e.preventDefault()}
           >
             <CommandList>
-              <CommandEmpty>{t('orderForm.noProducts')}</CommandEmpty>
+              <CommandEmpty>
+                {t(
+                  results.isFetching
+                    ? 'channelInbox.loading'
+                    : results.isError
+                      ? 'channelInbox.loadError'
+                      : 'orderForm.noProducts',
+                )}
+              </CommandEmpty>
               <CommandGroup>
-                {(results.data ?? []).map((v) => (
+                {(results.isPlaceholderData ? [] : (results.data ?? [])).map((v) => (
                   <CommandItem
                     key={v.variantId}
                     value={v.variantId}
@@ -102,6 +113,11 @@ export function ProductPicker({
                 ))}
               </CommandGroup>
             </CommandList>
+            {results.isError ? (
+              <Button type="button" variant="ghost" onClick={() => void results.refetch()}>
+                {t('channelInbox.retry')}
+              </Button>
+            ) : null}
           </PopoverContent>
         </Command>
       </Popover>

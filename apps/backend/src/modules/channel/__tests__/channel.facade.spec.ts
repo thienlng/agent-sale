@@ -96,3 +96,50 @@ describe('ChannelFacade OAuth contract', () => {
     );
   });
 });
+describe('ChannelFacade.fetchCustomerProfile', () => {
+  async function connected() {
+    const ctx = setup();
+    const { state } = await ctx.service.connect(ws, user, 'facebook', 'browser');
+    const discovery = await ctx.service.callback('facebook', state, 'browser', 'code');
+    const [connection] = (await ctx.service.select(ws, user, discovery, ['page'])).data;
+    return { ...ctx, id: connection?.id ?? '' };
+  }
+  it('reads the profile with the page token and never exposes the token', async () => {
+    const { service, id } = await connected();
+    const fake = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json({
+        first_name: 'Ha',
+        last_name: 'Nguyen',
+        profile_pic: 'https://cdn.example/p.jpg',
+      }),
+    );
+    service.transport = fake;
+    expect(await service.fetchCustomerProfile(ws, id, 'psid-1')).toEqual({
+      name: 'Ha Nguyen',
+      avatarUrl: 'https://cdn.example/p.jpg',
+    });
+    const [url, init] = fake.mock.calls[0] ?? [];
+    expect(String(url)).toContain('/psid-1?fields=first_name,last_name,profile_pic');
+    expect(String(url)).not.toContain('sensitive-token');
+    expect(init?.headers).toEqual({ Authorization: 'Bearer sensitive-token' });
+  });
+  it('resolves null when Meta refuses, is unreachable or the page is not connected', async () => {
+    const { service, id } = await connected();
+    service.transport = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json({ error: { code: 100 } }, { status: 400 }))
+      .mockRejectedValueOnce(new Error('offline'));
+    expect(await service.fetchCustomerProfile(ws, id, 'psid-1')).toBeNull();
+    expect(await service.fetchCustomerProfile(ws, id, 'psid-1')).toBeNull();
+    await service.update(ws, id, { disconnect: true });
+    service.transport = vi.fn<typeof fetch>();
+    expect(await service.fetchCustomerProfile(ws, id, 'psid-1')).toBeNull();
+    expect(service.transport).not.toHaveBeenCalled();
+  });
+  it('does not read profiles of another workspace page', async () => {
+    const { service, id } = await connected();
+    service.transport = vi.fn<typeof fetch>();
+    expect(await service.fetchCustomerProfile(other, id, 'psid-1')).toBeNull();
+    expect(service.transport).not.toHaveBeenCalled();
+  });
+});

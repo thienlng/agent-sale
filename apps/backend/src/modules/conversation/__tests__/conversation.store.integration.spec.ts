@@ -3,6 +3,7 @@ import {
   createDb,
   ensureLoginRoles,
   migrate,
+  eq,
   schema,
   withCredentials,
   withSystem,
@@ -16,7 +17,9 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { BotFacade, BotView } from '../../bot/api/index.js';
 import type { ChannelFacade } from '../../channel/api/index.js';
 import { ConversationFacadeImpl } from '../application/conversation.facade.impl.js';
+import { filterConversations, type ConversationFilter } from '../domain/conversation-filter.js';
 import { DrizzleConversationStore } from '../infrastructure/persistence/conversation.store.js';
+import { fakeCrm, fakeIdentity, fakeTeam } from './fakes.js';
 
 /** The conversation store's SQL on a real Postgres, driven through the facade. */
 let pg: TestPostgres;
@@ -25,6 +28,8 @@ let a: WorkspaceId;
 let b: WorkspaceId;
 const channelId = newId();
 let service: ConversationFacadeImpl;
+let store: DrizzleConversationStore;
+let tenantDb: Database;
 let channels: ChannelFacade;
 
 function open(url: string, max: number): Database {
@@ -33,7 +38,7 @@ function open(url: string, max: number): Database {
   return h.db;
 }
 
-function event(id: string, sender = 'customer-1'): NormalizedEvent {
+function event(id: string, sender = 'customer-1', text = `hello ${id}`): NormalizedEvent {
   return {
     kind: 'facebook',
     assetExternalId: 'page',
@@ -42,7 +47,7 @@ function event(id: string, sender = 'customer-1'): NormalizedEvent {
     senderExternalId: sender,
     type: 'message',
     occurredAt: new Date(),
-    text: `hello ${id}`,
+    text,
     raw: {},
   };
 }
@@ -102,7 +107,16 @@ beforeAll(async () => {
     })),
   } as unknown as ChannelFacade;
   const bots: BotFacade = { getBot: async () => ({}) as BotView };
-  service = new ConversationFacadeImpl(new DrizzleConversationStore(tenant), channels, bots);
+  store = new DrizzleConversationStore(tenant);
+  tenantDb = tenant;
+  service = new ConversationFacadeImpl(
+    store,
+    channels,
+    bots,
+    fakeTeam(),
+    fakeIdentity(),
+    fakeCrm() as never,
+  );
 });
 
 afterAll(async () => {
@@ -138,5 +152,124 @@ describe('DrizzleConversationStore', () => {
     expect(channels.deliver).toHaveBeenCalledTimes(1);
     const outbound = (await service.get(a, c.id)).messages.filter((m) => m.direction !== 'inbound');
     expect(outbound).toHaveLength(1);
+  });
+});
+
+/** SQL filtering, counting and sorting must agree with the reference the unit tests exercise. */
+describe('DrizzleConversationStore inbox v2 query', () => {
+  const staff = newId();
+  const base: ConversationFilter = { tab: 'all', sort: 'recent', limit: 100 };
+
+  async function seed() {
+    const customers = ['q-1', 'q-2', 'q-3', 'q-4', 'q-5'];
+    const made = [];
+    for (const [i, id] of customers.entries()) {
+      made.push(
+        await service.receive(
+          a,
+          channelId,
+          event(`qe-${id}`, id, i === 0 ? 'call 0912 345 678, 100% sure_' : `hi ${id}`),
+        ),
+      );
+    }
+    const [c0, c1, c2, c3] = made;
+    await service.markRead(a, c0!.id, staff);
+    await service.send(a, c1!.id, { text: 'ok', idempotencyKey: newId() }, staff);
+    await service.update(a, c2!.id, { status: 'resolved' }, staff);
+    await service.update(a, c3!.id, { assigneeId: null, mode: 'human' }, staff);
+    return made.map((c) => c.id);
+  }
+
+  it('matches the reference for every filter combination and keeps counts tab-independent', async () => {
+    await seed();
+    const everything = (await store.run(a, (tx) => tx.query(base))).data;
+    const filters: Partial<ConversationFilter>[] = [
+      {},
+      { tab: 'unread' },
+      { tab: 'waiting' },
+      { status: 'open' },
+      { status: 'resolved', tab: 'unread' },
+      { mode: 'human' },
+      { provider: 'facebook' },
+      { assignee: 'none' },
+      { assignee: staff },
+      { channelId },
+      { channelId: newId() },
+      { hasPhone: true },
+      { hasPhone: false, tab: 'waiting' },
+      { waiting: 'any' },
+      { waiting: 'readNotReplied' },
+      { waiting: 'longest' },
+      { sort: 'waitingLongest' },
+      { q: '0912' },
+      { q: '100%' },
+      { q: 'sure_' },
+      { q: 'HI Q-3' },
+      { limit: 2 },
+      { idsIn: [everything[0]!.id, everything[1]!.id] },
+      { idsIn: [] },
+      { idsNotIn: [everything[0]!.id] },
+      { idsIn: everything.map((c) => c.id), idsNotIn: [everything[1]!.id], tab: 'unread' },
+    ];
+    for (const f of filters) {
+      const filter = { ...base, ...f };
+      const sql = await store.run(a, (tx) => tx.query(filter));
+      const ref = filterConversations(everything, filter);
+      expect(
+        sql.data.map((c) => c.id),
+        JSON.stringify(f),
+      ).toEqual(ref.data.map((c) => c.id));
+      expect(sql.counts, JSON.stringify(f)).toEqual(ref.counts);
+    }
+  });
+
+  it('keeps the index columns in step with the document on every save', async () => {
+    const [id] = await seed();
+    await service.addNote(a, id!, 'note', staff);
+    await service.update(a, id!, { assigneeId: null }, staff);
+    const view = (await service.get(a, id!)).conversation;
+    const [row] = await withTenant(tenantDb, a, (tx) =>
+      tx.select().from(schema.conversations).where(eq(schema.conversations.id, id!)),
+    );
+    expect(row).toMatchObject({
+      unreadCount: view.unreadCount,
+      assigneeId: view.assigneeId,
+      mode: view.mode,
+      status: view.status,
+      customerPhone: view.customerPhone,
+    });
+    expect(row?.awaitingSince?.toISOString() ?? null).toBe(view.awaitingSince);
+    expect(row?.lastReadAt?.toISOString() ?? null).toBe(view.lastReadAt);
+    expect(row?.createdAt.toISOString()).toBe(view.createdAt);
+  });
+
+  it('applies huge tag id lists as one array parameter each', async () => {
+    await seed();
+    const everything = (await store.run(a, (tx) => tx.query(base))).data;
+    const many = Array.from({ length: 70_000 }, () => newId());
+    const notIn = await store.run(a, (tx) =>
+      tx.query({ ...base, idsNotIn: [...many, everything[0]!.id] }),
+    );
+    expect(notIn.data.map((c) => c.id)).not.toContain(everything[0]!.id);
+    expect(notIn.counts.all).toBe(everything.length - 1);
+    const only = await store.run(a, (tx) =>
+      tx.query({ ...base, idsIn: [...many, everything[1]!.id] }),
+    );
+    expect(only.data.map((c) => c.id)).toEqual([everything[1]!.id]);
+  });
+
+  it('does not count a resolved conversation as waiting until it is reopened', async () => {
+    const [id] = await seed();
+    const waiting = () => store.run(a, (tx) => tx.query({ ...base, tab: 'waiting' }));
+    await service.update(a, id!, { status: 'open' }, staff);
+    const before = await waiting();
+    await service.update(a, id!, { status: 'resolved' }, staff);
+    const during = await waiting();
+    expect(during.data.map((c) => c.id)).not.toContain(id);
+    expect(during.counts.waiting).toBe(
+      before.counts.waiting - (before.data.some((c) => c.id === id) ? 1 : 0),
+    );
+    await service.update(a, id!, { status: 'open' }, staff);
+    expect((await waiting()).counts).toEqual(before.counts);
   });
 });
