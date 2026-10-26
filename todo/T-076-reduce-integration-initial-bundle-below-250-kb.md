@@ -1,7 +1,7 @@
 ---
 id: T-076
 title: Reduce integration initial bundle below 250 KB
-status: in-progress
+status: review
 type: chore
 priority: P1
 owner: "@agent:codex"
@@ -25,8 +25,8 @@ Inspect initial imports and code splitting in the integration web app. Preserve 
 
 ## Acceptance criteria
 
-- [ ] Initial web bundle is at most 250 KB gzip.
-- [ ] pnpm check and relevant browser smoke tests pass.
+- [x] Initial web bundle is at most 250 KB gzip.
+- [x] pnpm check and relevant browser smoke tests pass.
 
 ## Plan
 
@@ -44,3 +44,5 @@ Inspect initial imports and code splitting in the integration web app. Preserve 
 - [Cofounder review plan](../docs/handoffs/2026-10-26-cofounder-review-plan.md)
 
 - 2026-10-26 — The lane B build measured 257.6 KB before the dependency change and 246.7 KB after it. Full checks and browser recovery acceptance pending.
+
+- 2026-10-26 — Ready for human review: full pnpm check passed (frontend 367, backend 973 tests), independent code QA approved and fresh-context browser QA accepted the implemented workflows. See docs/handoffs/2026-10-26-lane-b-qa.md for exact commands, evidence and mocked-API limits.

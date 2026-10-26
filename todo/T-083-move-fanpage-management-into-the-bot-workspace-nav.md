@@ -1,7 +1,7 @@
 ---
 id: T-083
 title: Move fanpage management into the bot workspace navigation
-status: in-progress
+status: review
 type: feature
 priority: P1
 owner: "@agent:codex"
@@ -35,14 +35,14 @@ Move fanpage management into the bot workspace navigation.
 
 ## Acceptance criteria
 
-- [ ] Users can reach bot fanpages from bot management and global integrations from the outer menu without duplicate destinations.
-- [ ] Existing bookmarks resolve to the correct page; no bot or channel data is deleted by navigation changes.
-- [ ] Add/update meaningful regression coverage, permission and scope checks where applicable; `pnpm check` passes before implementation is complete.
-- [ ] Update impacted docs and vi/en product strings; include migration and operational notes where applicable.
+- [x] Users can reach bot fanpages from bot management and global integrations from the outer menu without duplicate destinations.
+- [x] Existing bookmarks resolve to the correct page; no bot or channel data is deleted by navigation changes.
+- [x] Add/update meaningful regression coverage, permission and scope checks where applicable; `pnpm check` passes before implementation is complete.
+- [x] Update impacted docs and vi/en product strings; include migration and operational notes where applicable.
 
 ## Estimate and proposed assignment
 
-- Proposed lane: B. A = user; B = cofounder. These are planning labels, not committed GitHub assignments.
+- Proposed lane: B. A = cofounder; B = user with Codex (updated user assignment). These are planning labels, not committed GitHub assignments.
 - Base estimate: 2 person-days including implementation, self-review and task verification. One person-day is approximately six focused engineering hours.
 - Uncertainty: approximately -30% / +40%; reassess after T-077. No claim that runtime failures have been reproduced during planning.
 - Dependencies: T-077, T-082
@@ -66,3 +66,7 @@ Autonomous implementation authorized by the user on 2026-10-26. Account/business
 - [Architecture](../docs/ARCHITECTURE.md)
 - [Tenancy and verticals](../docs/17-multi-tenancy-and-verticals.md)
 - [Billing design](../docs/08-billing-quota-credit.md)
+
+- 2026-10-26 — Reused the existing bot integration URL as Pages and channels, linked to the global inventory and moved that inventory outside the multichannel submenu. Both old URLs remain valid and no data was removed. Independent QA reviewed the navigation; browser traversal passed.
+
+- 2026-10-26 — Ready for human review: full pnpm check passed (frontend 367, backend 973 tests), independent code QA approved and fresh-context browser QA accepted the implemented workflows. See docs/handoffs/2026-10-26-lane-b-qa.md for exact commands, evidence and mocked-API limits.

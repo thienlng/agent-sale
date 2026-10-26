@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { ChannelConnectionDto } from '@agent-sales/contracts';
 import { act, renderHook, screen, waitFor, within } from '@testing-library/react';
@@ -349,4 +350,26 @@ it('keeps only failed pages selected and retries them without repeating successe
   await waitFor(() => expect(updated).toHaveLength(3));
   expect(updated.filter((id) => id === mine.id)).toHaveLength(1);
   expect(updated.filter((id) => id === other.id)).toHaveLength(2);
+});
+
+it('refreshes setup readiness and inbox after discovery connects and binds a page', async () => {
+  const discovery = '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9f00';
+  vi.stubGlobal(
+    'fetch',
+    stubFetch({
+      [`POST /channels/discoveries/${discovery}/select`]: { status: 200, body: { data: [free] } },
+      [`PATCH /channels/${free.id}`]: { status: 200, body: { ...free, botId: BOT_A } },
+    }).fetchStub,
+  );
+  const { result } = renderHook(
+    () => ({ select: useSelectAccounts(BOT_A), client: useQueryClient() }),
+    { wrapper: Providers },
+  );
+  const invalidated = vi.spyOn(result.current.client, 'invalidateQueries');
+  await act(async () => {
+    await result.current.select.mutateAsync({ id: discovery, externalIds: [free.externalId] });
+  });
+  expect(invalidated).toHaveBeenCalledWith({ queryKey: ['channels', 'ws-1'] });
+  expect(invalidated).toHaveBeenCalledWith({ queryKey: ['inbox', 'ws-1'] });
+  expect(invalidated).toHaveBeenCalledWith({ queryKey: ['ws', 'ws-1', 'bots'] });
 });

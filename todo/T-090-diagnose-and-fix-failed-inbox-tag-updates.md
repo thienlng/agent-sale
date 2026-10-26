@@ -1,7 +1,7 @@
 ---
 id: T-090
 title: Diagnose and fix failed inbox tag updates
-status: in-progress
+status: review
 type: bug
 priority: P1
 owner: "@agent:codex"
@@ -35,15 +35,15 @@ Diagnose and fix failed inbox tag updates.
 
 ## Acceptance criteria
 
-- [ ] Adding and removing a valid authorized tag succeeds and persists after reload; the same sequence no longer shows the reported error.
-- [ ] On validation, permission or network failure the UI retains accurate state and gives an actionable localized error.
-- [ ] Record the verified root cause and reproduction; if not reproducible, report evidence rather than marking the screenshot resolved.
-- [ ] Add/update meaningful regression coverage, permission and scope checks where applicable; `pnpm check` passes before implementation is complete.
-- [ ] Update impacted docs and vi/en product strings; include migration and operational notes where applicable.
+- [x] Adding and removing a valid authorized tag succeeds and persists after reload; the same sequence no longer shows the reported error.
+- [x] On validation, permission or network failure the UI retains accurate state and gives an actionable localized error.
+- [x] Record the verified root cause and reproduction; if not reproducible, report evidence rather than marking the screenshot resolved.
+- [x] Add/update meaningful regression coverage, permission and scope checks where applicable; `pnpm check` passes before implementation is complete.
+- [x] Update impacted docs and vi/en product strings; include migration and operational notes where applicable.
 
 ## Estimate and proposed assignment
 
-- Proposed lane: B. A = user; B = cofounder. These are planning labels, not committed GitHub assignments.
+- Proposed lane: B. A = cofounder; B = user with Codex (updated user assignment). These are planning labels, not committed GitHub assignments.
 - Base estimate: 1 person-days including implementation, self-review and task verification. One person-day is approximately six focused engineering hours.
 - Uncertainty: approximately -30% / +40%; reassess after T-077. No claim that runtime failures have been reproduced during planning.
 - Dependencies: None; start independently.
@@ -71,3 +71,5 @@ The user explicitly authorized autonomous lane B implementation while away, so n
 
 - 2026-10-26 — Independent QA reproduced the contract mismatch read-only: Event requires event_name and Ticket requires subject; the inbox sent only tagId. VIP has no required fields and validates without values. No live customer records were changed.
 - 2026-10-26 — Added a shared tag-values editor (extracted from CRM), conversation-scoped dialog lifecycle, values payload support and disabled busy quick actions. Targeted hook/tag-bar tests: 15 passed; attribute form tests: 4 passed. Further independent acceptance and full gate pending.
+
+- 2026-10-26 — Ready for human review: full pnpm check passed (frontend 367, backend 973 tests), independent code QA approved and fresh-context browser QA accepted the implemented workflows. See docs/handoffs/2026-10-26-lane-b-qa.md for exact commands, evidence and mocked-API limits.

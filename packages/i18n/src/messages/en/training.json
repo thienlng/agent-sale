@@ -344,7 +344,7 @@
       "colCode": "Product code"
     },
     "faq": {
-      "title": "Your information",
+      "title": "Business information",
       "subtitle": "Manage the business information the Bot uses to answer customers",
       "search": "Search by question",
       "add": "Add question",

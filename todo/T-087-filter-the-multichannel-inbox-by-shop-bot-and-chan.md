@@ -43,7 +43,7 @@ Filter the multichannel inbox by shop bot and channel scope.
 
 ## Estimate and proposed assignment
 
-- Proposed lane: B. A = user; B = cofounder. These are planning labels, not committed GitHub assignments.
+- Proposed lane: B. A = cofounder; B = user with Codex (updated user assignment). These are planning labels, not committed GitHub assignments.
 - Base estimate: 3 person-days including implementation, self-review and task verification. One person-day is approximately six focused engineering hours.
 - Uncertainty: approximately -30% / +40%; reassess after T-077. No claim that runtime failures have been reproduced during planning.
 - Dependencies: T-078, T-080, T-082
@@ -63,3 +63,5 @@ To be filled by the implementer before coding. Scope and acceptance above are th
 - [Architecture](../docs/ARCHITECTURE.md)
 - [Tenancy and verticals](../docs/17-multi-tenancy-and-verticals.md)
 - [Billing design](../docs/08-billing-quota-credit.md)
+
+- 2026-10-26 — Lane B triage: Server-side shop filtering and historical attribution require the shop/contracts work in T-077/T-078/T-080. Existing channel filters are preserved; UI-only filtering is not substituted for authorized server scope.

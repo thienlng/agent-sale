@@ -43,7 +43,7 @@ Redesign portfolio and business statistics entry screens.
 
 ## Estimate and proposed assignment
 
-- Proposed lane: B. A = user; B = cofounder. These are planning labels, not committed GitHub assignments.
+- Proposed lane: B. A = cofounder; B = user with Codex (updated user assignment). These are planning labels, not committed GitHub assignments.
 - Base estimate: 4 person-days including implementation, self-review and task verification. One person-day is approximately six focused engineering hours.
 - Uncertainty: approximately -30% / +40%; reassess after T-077. No claim that runtime failures have been reproduced during planning.
 - Dependencies: T-077, T-078, T-079
@@ -63,3 +63,5 @@ To be filled by the implementer before coding. Scope and acceptance above are th
 - [Architecture](../docs/ARCHITECTURE.md)
 - [Tenancy and verticals](../docs/17-multi-tenancy-and-verticals.md)
 - [Billing design](../docs/08-billing-quota-credit.md)
+
+- 2026-10-26 — Lane B triage: The all-business portfolio requires account/business authorization and aggregation from T-077/T-078/T-079. Existing business analytics is preserved; no cross-business mock dashboard was shipped.

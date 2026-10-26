@@ -75,4 +75,4 @@ RED metrics per endpoint and per queue; p95 dashboards per tenant tier; Web Vita
 
 ## Root recovery dependency budget (T-076)
 
-Always-loaded route recovery controls use native links/buttons with design tokens rather than pulling the shared Button, Slot and class-merging helpers into the initial graph. Not-found navigation, reload recovery, keyboard interaction and localized labels remain available. The 250 KB gzip entry budget is unchanged; the reviewed lane B build measured 246.7 KB, down from 257.6 KB before this change.
+Always-loaded route recovery controls use native links/buttons with design tokens rather than pulling the shared Button, Slot and class-merging helpers into the initial graph. Not-found navigation, reload recovery, keyboard interaction and localized labels remain available. The 250 KB gzip entry budget is unchanged; the integration-based snapshot measured 246.7 KB, down from 257.6 KB before this change. After rebasing onto main (which also loads English catalogs on demand), the final lane B build measured 223.2 KB.

@@ -55,7 +55,7 @@ These are assumptions for estimation, not settled requirements. Text clarificati
 
 ## Task breakdown and equal allocation
 
-A is proposed for the user; B for the cofounder. Swap the entire lanes if preferred. No GitHub owner has been assigned without confirmed handles.
+Initial proposal: A for the user and B for the cofounder. Assignment update on 2026-10-26: the user assigned A to the cofounder and B to the user with Codex. Effort totals are unchanged. No cofounder GitHub handle has been guessed. See the lane B QA handoff for delivered work and remaining dependencies.
 
 One person-day is approximately six focused engineering hours, including implementation, self-review and task-specific regression checks. These are engineering estimates, not a quote or a promise of elapsed delivery time. Base total: **56 person-days: A 28, B 28**. Allow approximately -30%/+40% (about 39–79 person-days), with the greatest uncertainty in ownership migration and metering. No blanket AI speed multiplier is applied. Shared task T-094 is counted once at four days, two per person.
 

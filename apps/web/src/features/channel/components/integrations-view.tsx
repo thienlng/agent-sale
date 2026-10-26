@@ -108,8 +108,8 @@ export function IntegrationsView({ mode }: { mode: IntegrationsMode }) {
         <strong className="font-semibold text-primary">{ti('feedbackEmphasis')}</strong>
       </p>
       <ConnectNotices integrations={integrations} />
-      <div className="grid overflow-hidden rounded-xl border md:grid-cols-[15rem_minmax(0,1fr)]">
-        <div className="border-b p-2 md:border-r md:border-b-0 md:p-0 md:py-2">
+      <div className="grid grid-cols-1 overflow-hidden rounded-xl border md:grid-cols-[15rem_minmax(0,1fr)]">
+        <div className="min-w-0 border-b p-2 md:border-r md:border-b-0 md:p-0 md:py-2">
           <PlatformList
             platforms={bot ? BOT_PLATFORMS : WORKSPACE_PLATFORMS}
             value={category}

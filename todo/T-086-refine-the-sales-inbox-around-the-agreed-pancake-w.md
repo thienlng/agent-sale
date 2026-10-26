@@ -43,7 +43,7 @@ Refine the sales inbox around the agreed Pancake workflow.
 
 ## Estimate and proposed assignment
 
-- Proposed lane: B. A = user; B = cofounder. These are planning labels, not committed GitHub assignments.
+- Proposed lane: B. A = cofounder; B = user with Codex (updated user assignment). These are planning labels, not committed GitHub assignments.
 - Base estimate: 4 person-days including implementation, self-review and task verification. One person-day is approximately six focused engineering hours.
 - Uncertainty: approximately -30% / +40%; reassess after T-077. No claim that runtime failures have been reproduced during planning.
 - Dependencies: T-077
@@ -63,3 +63,5 @@ To be filled by the implementer before coding. Scope and acceptance above are th
 - [Architecture](../docs/ARCHITECTURE.md)
 - [Tenancy and verticals](../docs/17-multi-tenancy-and-verticals.md)
 - [Billing design](../docs/08-billing-quota-credit.md)
+
+- 2026-10-26 — Lane B triage: The running T-068 inbox already supplies the reviewed multi-pane structure. This pass fixes concrete tag failures and keeps its working layout; a complete Pancake-style visual/workflow redesign is larger than the requested simple independent fixes and remains open for an agreed target. No full product parity is claimed.

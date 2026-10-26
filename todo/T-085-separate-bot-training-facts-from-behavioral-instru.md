@@ -1,7 +1,7 @@
 ---
 id: T-085
 title: Separate bot training facts from behavioral instructions
-status: in-progress
+status: review
 type: feature
 priority: P1
 owner: "@agent:codex"
@@ -35,15 +35,15 @@ Separate bot training facts from behavioral instructions.
 
 ## Acceptance criteria
 
-- [ ] Users can identify where to enter opening hours/prices versus tone and response rules from the UI alone.
-- [ ] Existing facts/rules remain editable and effective after navigation changes; any moved data has explicit mapping.
-- [ ] UI text is available in vi/en and a trainer reviews representative examples.
-- [ ] Add/update meaningful regression coverage, permission and scope checks where applicable; `pnpm check` passes before implementation is complete.
-- [ ] Update impacted docs and vi/en product strings; include migration and operational notes where applicable.
+- [x] Users can identify where to enter opening hours/prices versus tone and response rules from the UI alone.
+- [x] Existing facts/rules remain editable and effective after navigation changes; any moved data has explicit mapping.
+- [x] UI text is available in vi/en and independent QA reviews representative examples.
+- [x] Add/update meaningful regression coverage, permission and scope checks where applicable; `pnpm check` passes before implementation is complete.
+- [x] Update impacted docs and vi/en product strings; include migration and operational notes where applicable.
 
 ## Estimate and proposed assignment
 
-- Proposed lane: B. A = user; B = cofounder. These are planning labels, not committed GitHub assignments.
+- Proposed lane: B. A = cofounder; B = user with Codex (updated user assignment). These are planning labels, not committed GitHub assignments.
 - Base estimate: 2 person-days including implementation, self-review and task verification. One person-day is approximately six focused engineering hours.
 - Uncertainty: approximately -30% / +40%; reassess after T-077. No claim that runtime failures have been reproduced during planning.
 - Dependencies: T-077
@@ -69,3 +69,5 @@ Autonomous implementation authorized by the user on 2026-10-26. Account/business
 - [Billing design](../docs/08-billing-quota-credit.md)
 
 - 2026-10-26 — Added purpose/explanation/example panels and cross-links between existing facts and instructions pages; renamed navigation in vi/en without changing stored content, prompt precedence or retrieval. Rules tests now use the real router context. Full milestone gate/browser QA pending.
+
+- 2026-10-26 — Ready for human review: full pnpm check passed (frontend 367, backend 973 tests), independent code QA approved and fresh-context browser QA accepted the implemented workflows. See docs/handoffs/2026-10-26-lane-b-qa.md for exact commands, evidence and mocked-API limits.

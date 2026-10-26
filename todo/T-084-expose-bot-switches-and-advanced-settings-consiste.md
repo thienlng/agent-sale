@@ -1,7 +1,7 @@
 ---
 id: T-084
 title: Expose bot switches and advanced settings consistently
-status: in-progress
+status: review
 type: feature
 priority: P1
 owner: "@agent:codex"
@@ -35,15 +35,15 @@ Expose bot switches and advanced settings consistently.
 
 ## Acceptance criteria
 
-- [ ] Switch state persists across reload and both screens agree; failed saves restore the prior UI state.
-- [ ] Turning a bot off prevents subsequent AI replies without unassigning its channels; human inbox messaging remains usable.
-- [ ] Advanced controls correspond to documented API/runtime behavior and permissions.
-- [ ] Add/update meaningful regression coverage, permission and scope checks where applicable; `pnpm check` passes before implementation is complete.
-- [ ] Update impacted docs and vi/en product strings; include migration and operational notes where applicable.
+- [x] Switch state persists across reload and both screens agree; failed saves restore the prior UI state.
+- [x] Turning a bot off prevents subsequent AI replies without unassigning its channels; human inbox messaging remains usable.
+- [x] Advanced controls correspond to documented API/runtime behavior and permissions.
+- [x] Add/update meaningful regression coverage, permission and scope checks where applicable; `pnpm check` passes before implementation is complete.
+- [x] Update impacted docs and vi/en product strings; include migration and operational notes where applicable.
 
 ## Estimate and proposed assignment
 
-- Proposed lane: B. A = user; B = cofounder. These are planning labels, not committed GitHub assignments.
+- Proposed lane: B. A = cofounder; B = user with Codex (updated user assignment). These are planning labels, not committed GitHub assignments.
 - Base estimate: 2 person-days including implementation, self-review and task verification. One person-day is approximately six focused engineering hours.
 - Uncertainty: approximately -30% / +40%; reassess after T-077. No claim that runtime failures have been reproduced during planning.
 - Dependencies: T-077, T-078
@@ -69,3 +69,5 @@ Autonomous implementation authorized by the user on 2026-10-26. Account/business
 - [Billing design](../docs/08-billing-quota-credit.md)
 
 - 2026-10-26 — Reused the existing training switch on the bot list, added named controls and pending/permission guards, synchronized list/detail rollback and refreshed the derived inbox availability cache. Existing basic/advanced settings are retained. Bot-list regressions pass (8 tests). Full milestone gate/browser QA pending.
+
+- 2026-10-26 — Ready for human review: full pnpm check passed (frontend 367, backend 973 tests), independent code QA approved and fresh-context browser QA accepted the implemented workflows. See docs/handoffs/2026-10-26-lane-b-qa.md for exact commands, evidence and mocked-API limits.

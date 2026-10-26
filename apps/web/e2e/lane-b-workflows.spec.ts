@@ -172,3 +172,49 @@ test('root not-found recovery remains keyboard accessible', async ({ page }) => 
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/\/app\/bots$/);
 });
+
+test('integration controls stay inside the mobile panel instead of being clipped', async ({
+  page,
+}) => {
+  await mockApi(page);
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.route('**/api/v1/channels', (route) =>
+    route.fulfill({
+      json: {
+        data: [
+          {
+            id: id(2),
+            provider: 'facebook',
+            externalId: 'synthetic-page',
+            name: 'Trang kiểm thử',
+            status: 'connected',
+            botId: BOT_ID,
+            expiresAt: null,
+            createdAt: now,
+          },
+        ],
+        providers: [
+          { provider: 'facebook', configured: true },
+          { provider: 'instagram', configured: true },
+        ],
+      },
+    }),
+  );
+  await page.goto('/app/channels');
+  await expect(
+    page.getByRole('checkbox', { name: 'Chọn Trang kiểm thử', exact: true }),
+  ).toBeVisible();
+  const controls = [
+    page.getByRole('searchbox', { name: 'Tìm theo tên hoặc ID page...' }),
+    page.getByRole('button', { name: 'Gán bot', exact: true }),
+    page.getByRole('button', { name: 'Hủy gán bot', exact: true }),
+    page.getByLabel('Lọc theo bot'),
+  ];
+  for (const control of controls) {
+    const box = await control.boundingBox();
+    if (!box) throw new Error('The mobile control must have measurable bounds');
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(375);
+  }
+  await page.screenshot({ path: '/tmp/lane-b-integrations-mobile-fixed.png', fullPage: true });
+});

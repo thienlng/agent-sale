@@ -179,3 +179,29 @@ describe('direct bot activation', () => {
     expect(screen.queryByRole('switch')).not.toBeInTheDocument();
   });
 });
+
+it('keeps the direct switch pending and prevents duplicate requests', async () => {
+  const stub = stubFetch(routes());
+  let finish: (value: Response) => void = () => {};
+  let calls = 0;
+  vi.stubGlobal('fetch', (input: string, init: RequestInit = {}) => {
+    if (init.method === 'PATCH') {
+      calls++;
+      return new Promise<Response>((resolve) => {
+        finish = resolve;
+      });
+    }
+    return stub.fetchStub(input, init);
+  });
+  renderWithRouter(() => <BotList />);
+  const user = userEvent.setup();
+  const control = await screen.findByRole('switch', { name: 'Bật hoặc tắt bot Bot rảnh' });
+  await user.click(control);
+  await waitFor(() => expect(control).toBeDisabled());
+  expect(control).toBeChecked();
+  await user.click(control);
+  expect(calls).toBe(1);
+  finish(new Response(JSON.stringify(bot(ID_IDLE, 'Bot rảnh', true)), { status: 200 }));
+  await waitFor(() => expect(control).not.toBeDisabled());
+  expect(control).toBeChecked();
+});
