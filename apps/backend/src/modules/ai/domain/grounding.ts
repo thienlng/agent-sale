@@ -62,9 +62,14 @@ interface Figure {
   money: boolean;
 }
 
+// A phone number written with spaces, dots or dashes ("091 234 5678"); its separators are removed
+// so it reads as one figure, the same however the customer or the reply spells it.
+const PHONE = /(?<!\d)0\d{1,3}(?:[\s.-]?\d{3}){1,2}[\s.-]?\d{3,4}(?!\d)/g;
+
 function figures(text: string): Figure[] {
   const out: Figure[] = [];
-  for (const m of foldVietnamese(text).matchAll(NUMBER)) {
+  const compact = foldVietnamese(text).replace(PHONE, (m) => m.replace(/[\s.-]/g, ''));
+  for (const m of compact.matchAll(NUMBER)) {
     const base = Number((m[1] ?? '').replace(/[.,\s]/g, ''));
     const unit = m[2] ? (MULTIPLIERS[m[2]] ?? 1) : 1;
     out.push({ raw: m[0].trim(), value: base * unit, money: Boolean(m[2] ?? m[3]) });

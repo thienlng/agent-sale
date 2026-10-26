@@ -20,10 +20,14 @@ function setup(provider: LlmProvider) {
       return provider;
     },
     developmentFallback: () => null,
+    hermesLogin: () => {
+      throw new Error('not used in these tests');
+    },
+    listModels: () => Promise.reject(new Error('not used in these tests')),
   };
   const config = new InMemoryLlmConfigRepository();
   const runtime = new LlmRuntime(config, factory);
-  return { admin: new LlmAdminService(config, factory, secrets, runtime), config, created };
+  return { admin: new LlmAdminService(config, factory, secrets, runtime, true), config, created };
 }
 
 function listing(models: string[] | Error): LlmProvider {

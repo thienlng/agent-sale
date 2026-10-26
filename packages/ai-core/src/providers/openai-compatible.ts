@@ -61,6 +61,7 @@ export class OpenAiCompatibleProvider implements LlmProvider {
   }
 
   async generate(request: GenerateRequest, target: ModelTarget): Promise<GenerateResponse> {
+    if (request.images?.length) throw new Error(`${this.name} provider: images are not supported`);
     if (request.tools?.length) throw new Error(`${this.name} provider: tools are not wired yet`);
     const started = performance.now();
     const response = await this.#client.chat.completions.create({

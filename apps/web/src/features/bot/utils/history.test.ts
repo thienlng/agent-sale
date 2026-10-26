@@ -85,6 +85,13 @@ describe('describeValue', () => {
       start: '22:00',
       end: '06:00',
     });
+    expect(fieldLabelKey('enabled')).toBe('space.history.fields.enabled');
+    expect(fieldLabelKey('section')).toBe('space.history.fields.section');
+    expect(describeValue('enabled', false)).toEqual({ type: 'onOff', on: false });
+    expect(describeValue('section', 'after_order')).toEqual({
+      type: 'option',
+      key: 'space.history.ruleSections.after_order',
+    });
     expect(describeValue('mission', null)).toEqual({ type: 'empty' });
     expect(describeValue('placeholders', { 'store.address': '12 Lê Lợi' })).toEqual({
       type: 'text',

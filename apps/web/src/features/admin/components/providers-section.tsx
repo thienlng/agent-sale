@@ -1,6 +1,6 @@
 import type { LlmProviderDto } from '@agent-sales/contracts';
-import { KeyRound, MoreHorizontal, Pencil, Plug, Plus, Server, Trash2 } from 'lucide-react';
-import { type FormEvent, useState } from 'react';
+import { KeyRound, MoreHorizontal, Pencil, Plus, Server, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
@@ -21,68 +21,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Input } from '@/components/ui/input';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ApiClientError } from '@/lib/api-client';
 import { errorMessage } from '@/lib/errors';
 
-import { useDeleteProvider, useLlmProviders, useTestProvider } from '../api/llm';
+import { useDeleteProvider, useLlmProviders } from '../api/llm';
+import { HermesLoginPanel } from './hermes-login-panel';
 import { ProviderDialog } from './provider-dialog';
-
-/** Sends a tiny prompt with the stored key; the result shows inline. */
-function TestButton({ provider }: { provider: LlmProviderDto }) {
-  const { t } = useTranslation();
-  const test = useTestProvider();
-  const [model, setModel] = useState('');
-
-  function submit(e: FormEvent) {
-    e.preventDefault();
-    if (model.trim()) test.mutate({ id: provider.id, model: model.trim() });
-  }
-
-  return (
-    <Popover onOpenChange={(o) => !o && test.reset()}>
-      <PopoverTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Plug />
-          {t('admin.test')}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-80">
-        <form onSubmit={submit} className="flex flex-col gap-3">
-          <label className="text-sm font-medium" htmlFor={`test-${provider.id}`}>
-            {t('admin.testModel')}
-          </label>
-          <div className="flex gap-2">
-            <Input
-              id={`test-${provider.id}`}
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              placeholder={provider.kind === 'anthropic' ? 'claude-haiku-5-5' : 'qwen3-32b'}
-              className="font-mono text-sm"
-            />
-            <Button type="submit" disabled={!model.trim() || test.isPending}>
-              {t('admin.test')}
-            </Button>
-          </div>
-          {test.data ? (
-            <p
-              role="status"
-              className={
-                test.data.ok ? 'text-sm text-success' : 'text-sm break-words text-destructive'
-              }
-            >
-              {test.data.ok
-                ? t('admin.testOk', { model: test.data.model, ms: test.data.latencyMs })
-                : t('admin.testFail', { error: test.data.error })}
-            </p>
-          ) : null}
-        </form>
-      </PopoverContent>
-    </Popover>
-  );
-}
+import { TestProviderButton } from './test-provider-button';
 
 export function ProvidersSection() {
   const { t } = useTranslation();
@@ -139,7 +85,7 @@ export function ProvidersSection() {
                   <KeyRound className="size-4" aria-hidden />
                   {p.hasApiKey ? t('admin.keySet', { hint: p.apiKeyHint ?? '' }) : t('admin.noKey')}
                 </span>
-                <TestButton provider={p} />
+                <TestProviderButton provider={p} />
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon" aria-label={t('admin.edit')}>
@@ -157,6 +103,11 @@ export function ProvidersSection() {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
+                {p.kind === 'hermes' ? (
+                  <div className="basis-full">
+                    <HermesLoginPanel providerId={p.id} />
+                  </div>
+                ) : null}
               </li>
             ))}
           </ul>

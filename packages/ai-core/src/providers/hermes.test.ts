@@ -106,3 +106,54 @@ describe('HermesProvider', () => {
     ).toThrow('Invalid Hermes bridge URL');
   });
 });
+
+describe('HermesProvider images', () => {
+  const ok = () =>
+    new Response(
+      JSON.stringify({
+        version: 1,
+        text: 'ok',
+        model: 'm',
+        usage: { inputTokens: 1, outputTokens: 1, cachedInputTokens: 0 },
+      }),
+    );
+  const png = { mimeType: 'image/png' as const, base64: 'iVBORw0KGgo=' };
+
+  it('serializes images and omits the field without them', async () => {
+    const transport = vi.fn().mockImplementation(async () => ok());
+    const provider = new HermesProvider({
+      baseURL: 'http://127.0.0.1:8788',
+      apiKey: 'private-bridge-key',
+      fetch: transport,
+    });
+    await provider.generate({ ...request, images: [png] }, { model: 'm' });
+    await provider.generate(request, { model: 'm' });
+    const withImages = JSON.parse(String((transport.mock.calls[0]?.[1] as RequestInit).body));
+    const without = JSON.parse(String((transport.mock.calls[1]?.[1] as RequestInit).body));
+    expect(withImages.images).toEqual([png]);
+    expect(without).not.toHaveProperty('images');
+  });
+
+  it('keeps the text cap but allows image bytes beyond it', async () => {
+    const transport = vi.fn().mockImplementation(async () => ok());
+    const provider = new HermesProvider({
+      baseURL: 'http://127.0.0.1:8788',
+      apiKey: 'private-bridge-key',
+      fetch: transport,
+    });
+    const big = { mimeType: 'image/png' as const, base64: 'A'.repeat(1_000_000) };
+    await expect(
+      provider.generate({ ...request, images: [big] }, { model: 'm' }),
+    ).resolves.toMatchObject({ text: 'ok' });
+    const longText = {
+      ...request,
+      messages: [{ role: 'user' as const, content: 'x'.repeat(260_000) }],
+    };
+    await expect(provider.generate({ ...longText, images: [big] }, { model: 'm' })).rejects.toThrow(
+      'exceeds bridge limit',
+    );
+    await expect(provider.generate(longText, { model: 'm' })).rejects.toThrow(
+      'exceeds bridge limit',
+    );
+  });
+});

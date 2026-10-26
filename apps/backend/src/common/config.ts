@@ -48,6 +48,29 @@ export const EnvSchema = z
      * a fixed insecure key.
      */
     SECRETS_ENCRYPTION_KEY: z.string().optional(),
+    /**
+     * ChatGPT-subscription sign-in of the Hermes runtime from Admin → LLM (T-052). Enabled by
+     * default outside production; in production it stays off unless set to `true` (the
+     * ChatGPT-plan eligibility for a hosted product is an open owner decision).
+     */
+    HERMES_SUBSCRIPTION_LOGIN: z.enum(['true', 'false']).optional(),
+    /**
+     * Customer-image vision for the bot (T-053). On by default outside production; in production
+     * it stays off unless set to `true` (images go to the model provider; the ChatGPT-plan login
+     * behind Hermes is for testing only).
+     */
+    BOT_IMAGE_VISION: z.enum(['true', 'false']).optional(),
+    /**
+     * Comma-separated extra hosts the customer-image fetcher may reach (dev/test only, ignored in
+     * production). They are exempt from the private-address block and may use plain http, so
+     * tests can serve images from a loopback server.
+     */
+    BOT_IMAGE_EXTRA_HOSTS: z.string().max(1000).optional(),
+    /**
+     * Dev/QA only: comma-separated hosts the action executor may call over plain http without
+     * the public-address check (for example a local fake shop). Ignored in production.
+     */
+    ACTION_DEV_ALLOW_HTTP_HOSTS: z.string().max(1000).optional(),
     S3_ENDPOINT: z.url().optional(),
     S3_BUCKET: z.string().min(1).optional(),
     S3_PUBLIC_URL: z.url({ protocol: /^https$/ }).optional(),
@@ -59,6 +82,40 @@ export const EnvSchema = z
     path: ['SECRETS_ENCRYPTION_KEY'],
   });
 export type Env = z.infer<typeof EnvSchema>;
+
+/** Whether the Hermes subscription sign-in is available in this environment. */
+export function hermesSubscriptionLoginEnabled(
+  env: Pick<Env, 'NODE_ENV' | 'HERMES_SUBSCRIPTION_LOGIN'>,
+): boolean {
+  if (env.HERMES_SUBSCRIPTION_LOGIN) return env.HERMES_SUBSCRIPTION_LOGIN === 'true';
+  return env.NODE_ENV !== 'production';
+}
+
+/** Whether the bot may look at customer images in this environment. */
+export function botImageVisionEnabled(env: Pick<Env, 'NODE_ENV' | 'BOT_IMAGE_VISION'>): boolean {
+  if (env.BOT_IMAGE_VISION) return env.BOT_IMAGE_VISION === 'true';
+  return env.NODE_ENV !== 'production';
+}
+
+/** Extra image hosts for tests; always empty in production. */
+export function botImageExtraHosts(env: Pick<Env, 'NODE_ENV' | 'BOT_IMAGE_EXTRA_HOSTS'>): string[] {
+  if (env.NODE_ENV === 'production') return [];
+  return (env.BOT_IMAGE_EXTRA_HOSTS ?? '')
+    .split(',')
+    .map((h) => h.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+/** Hosts the action executor may call over plain http; always empty in production. */
+export function actionDevAllowHttpHosts(
+  env: Pick<Env, 'NODE_ENV' | 'ACTION_DEV_ALLOW_HTTP_HOSTS'>,
+): string[] {
+  if (env.NODE_ENV === 'production') return [];
+  return (env.ACTION_DEV_ALLOW_HTTP_HOSTS ?? '')
+    .split(',')
+    .map((h) => h.trim().toLowerCase())
+    .filter(Boolean);
+}
 
 /** Parses and validates an environment source. Throws with every issue listed. */
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {

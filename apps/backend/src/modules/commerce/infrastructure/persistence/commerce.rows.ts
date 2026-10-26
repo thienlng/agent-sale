@@ -56,6 +56,7 @@ export function toProduct(r: typeof p.$inferSelect): ProductRecord {
     status: r.status as ProductRecord['status'],
     visibleToBot: r.visibleToBot,
     botInstructions: r.botInstructions,
+    imageUrls: r.imageUrls,
     searchText: r.searchText,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,

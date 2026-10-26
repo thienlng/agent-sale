@@ -45,6 +45,8 @@ export interface ConversationFacade {
    * conversation per day. Never throws.
    */
   refreshCustomerProfile(ws: WorkspaceId, id: string): Promise<void>;
+  /** Bot-initiated hand-over to staff; resumes the bot automatically after the takeover window. */
+  handOff(ws: WorkspaceId, id: string, actorId: string): Promise<ConversationView>;
   receive(ws: WorkspaceId, channelId: string, event: NormalizedEvent): Promise<ConversationView>;
   getReplyContext(
     ws: WorkspaceId,
@@ -54,6 +56,22 @@ export interface ConversationFacade {
     ws: WorkspaceId,
     id: string,
     input: { revision: number; text: string; idempotencyKey: string },
+  ): Promise<InboxMessageDto | null>;
+  /** A further bubble of an answer whose first bubble was committed (same rules, no revision check). */
+  commitBotFollowUp(
+    ws: WorkspaceId,
+    id: string,
+    input: { text: string; idempotencyKey: string },
+  ): Promise<InboxMessageDto | null>;
+  /**
+   * The pictures of a bot reply as ONE message (several images arrive as a single album; https
+   * URLs). Same delivery path, idempotency and 24-hour window as the text; null when a human took
+   * over meanwhile. A failed send is stored as a failed outbound message and returned, never thrown.
+   */
+  commitBotImages(
+    ws: WorkspaceId,
+    id: string,
+    input: { urls: readonly string[]; idempotencyKey: string },
   ): Promise<InboxMessageDto | null>;
 }
 export const CONVERSATION_FACADE = Symbol('CONVERSATION_FACADE');

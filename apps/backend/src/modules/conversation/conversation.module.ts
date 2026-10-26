@@ -10,6 +10,9 @@ import { TeamModule } from '../team/team.module.js';
 import { CONVERSATION_FACADE, CONVERSATION_RUNNER } from './api/conversation.facade.js';
 import { ConversationFacadeImpl } from './application/conversation.facade.impl.js';
 import { CONVERSATION_STORE } from './application/ports/conversation-store.js';
+import { BOT_IMAGE_VISION, IMAGE_FETCHER } from './application/ports/image-fetcher.js';
+import { botImageExtraHosts, botImageVisionEnabled, getEnv } from '../../common/config.js';
+import { SafeImageFetcher } from './infrastructure/media/safe-image-fetcher.js';
 import { MetaInboxProcessor } from './application/jobs/meta-inbox.processor.js';
 import {
   DrizzleConversationStore,
@@ -28,6 +31,11 @@ import { ConversationController } from './interface/http/conversation.controller
     },
     ConversationFacadeImpl,
     { provide: CONVERSATION_FACADE, useExisting: ConversationFacadeImpl },
+    {
+      provide: IMAGE_FETCHER,
+      useFactory: () => new SafeImageFetcher(botImageExtraHosts(getEnv())),
+    },
+    { provide: BOT_IMAGE_VISION, useFactory: () => botImageVisionEnabled(getEnv()) },
     MetaInboxProcessor,
     { provide: CONVERSATION_RUNNER, useExisting: MetaInboxProcessor },
   ],

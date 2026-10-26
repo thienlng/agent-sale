@@ -25,6 +25,37 @@ export class LlmProviderInUseError extends DomainError {
   }
 }
 
+/** The Hermes sign-in endpoints only apply to providers of kind `hermes`. */
+export class NotHermesProviderError extends DomainError {
+  readonly code = 'VALIDATION_FAILED';
+  constructor(id: string) {
+    super('This provider is not a Hermes runtime', { id });
+  }
+}
+
+/** The subscription sign-in is switched off in this environment (production gate, T-052). */
+export class HermesLoginDisabledError extends DomainError {
+  readonly code = 'FORBIDDEN';
+  constructor() {
+    super('ChatGPT sign-in is disabled in this environment');
+  }
+}
+
+/** The bridge refused or could not serve a sign-in request. */
+export class HermesLoginUnavailableError extends DomainError {
+  readonly code = 'UNAVAILABLE';
+  constructor(reason: string) {
+    super('The Hermes bridge could not handle the sign-in request', { reason });
+  }
+}
+
+export class HermesLoginRateLimitedError extends DomainError {
+  readonly code = 'RATE_LIMITED';
+  constructor() {
+    super('The Hermes bridge is rate limiting sign-in attempts');
+  }
+}
+
 /** No enabled route serves the bot's tier (production only; development uses a fake model). */
 export class AiNotConfiguredError extends DomainError {
   readonly code = 'AI_UNAVAILABLE';

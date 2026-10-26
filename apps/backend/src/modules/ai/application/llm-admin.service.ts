@@ -1,8 +1,11 @@
+import { HermesLoginError } from '@agent-sales/ai-core';
 import type {
   CreateLlmProviderRequest,
+  HermesLoginStatus,
   DiscoverLlmModelsRequest,
   DiscoverLlmModelsResponse,
   LlmModelTarget,
+  LlmProviderModelList,
   LlmProviderDto,
   LlmTierRouteDto,
   PutLlmTierRouteRequest,
@@ -14,9 +17,13 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import { SECRET_BOX, type SecretBox } from '../../../common/security/secret-box.js';
 import {
+  HermesLoginDisabledError,
+  HermesLoginRateLimitedError,
+  HermesLoginUnavailableError,
   InvalidLlmConfigError,
   LlmProviderInUseError,
   LlmProviderNotFoundError,
+  NotHermesProviderError,
 } from '../domain/ai.errors.js';
 import {
   apiKeyHint,
@@ -35,6 +42,9 @@ import {
 } from '../domain/ports/llm-config.repository.js';
 import { LlmRuntime } from './llm-runtime.js';
 import { LLM_PROVIDER_FACTORY, type LlmProviderFactory } from './ports/llm-provider-factory.js';
+
+/** Whether the Hermes ChatGPT sign-in is available (config `HERMES_SUBSCRIPTION_LOGIN`). */
+export const HERMES_SUBSCRIPTION_LOGIN = Symbol('HERMES_SUBSCRIPTION_LOGIN');
 
 /** Placeholder workspace for admin connection tests; the providers never see it. */
 const PLATFORM_TEST_WORKSPACE = workspaceId('00000000-0000-7000-8000-000000000000');
@@ -89,6 +99,7 @@ export class LlmAdminService {
     @Inject(LLM_PROVIDER_FACTORY) private readonly factory: LlmProviderFactory,
     @Inject(SECRET_BOX) private readonly secrets: SecretBox,
     @Inject(LlmRuntime) private readonly runtime: LlmRuntime,
+    @Inject(HERMES_SUBSCRIPTION_LOGIN) private readonly subscriptionLogin: boolean,
   ) {}
 
   async listProviders(): Promise<LlmProviderDto[]> {
@@ -176,6 +187,36 @@ export class LlmAdminService {
         error: message.slice(0, 500),
       };
     }
+  }
+
+  /** ChatGPT sign-in of a Hermes runtime: `status`, `start` (device code) or `logout`. */
+  async hermesLogin(id: string, action: 'status' | 'start' | 'logout'): Promise<HermesLoginStatus> {
+    const config = await this.#provider(id);
+    if (config.kind !== 'hermes') throw new NotHermesProviderError(id);
+    if (!this.subscriptionLogin) {
+      if (action === 'status') return { state: 'disabled' };
+      throw new HermesLoginDisabledError();
+    }
+    try {
+      return await this.factory.hermesLogin(config)[action]();
+    } catch (error) {
+      if (error instanceof HermesLoginError) {
+        if (error.reason === 'rate_limited') throw new HermesLoginRateLimitedError();
+        // The bridge rejected our key: a configuration problem the admin can see and fix.
+        if (error.reason === 'unauthorized')
+          return { state: 'failed', code: 'bridge_key_rejected' };
+        throw new HermesLoginUnavailableError(error.reason);
+      }
+      // Invalid stored URL or missing key.
+      throw new InvalidLlmConfigError('The Hermes provider needs a valid base URL and API key');
+    }
+  }
+
+  /** Short model list of a provider; failures degrade to a `state`, never an error. */
+  async listModels(id: string): Promise<LlmProviderModelList> {
+    const config = await this.#provider(id);
+    const res = await this.factory.listModels(config);
+    return { data: res.models.slice(0, 30), state: res.state };
   }
 
   /**

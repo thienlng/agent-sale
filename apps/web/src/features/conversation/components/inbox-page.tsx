@@ -102,6 +102,8 @@ function InboxWorkspace({
   return (
     <section
       data-content-padding="false"
+      // Fixed to the viewport (minus the top bar) at every width: `flex-1` would override the height and
+      // let a long thread stretch the whole page.
       className="flex h-[calc(100svh-3.25rem)] w-full min-w-0 overflow-hidden bg-background"
     >
       <ConversationList

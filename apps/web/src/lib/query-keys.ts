@@ -9,6 +9,8 @@ export const queryKeys = {
   readiness: (workspaceId: string, botId: string) =>
     ['ws', workspaceId, 'bots', botId, 'readiness'] as const,
   faqs: (workspaceId: string, botId: string) => ['ws', workspaceId, 'bots', botId, 'faqs'] as const,
+  actions: (workspaceId: string, botId: string) =>
+    ['ws', workspaceId, 'bots', botId, 'actions'] as const,
   warehouses: (ws: string) => ['ws', ws, 'warehouses'] as const,
   products: (ws: string) => ['ws', ws, 'products'] as const,
   product: (ws: string, id: string) => ['ws', ws, 'products', id] as const,
@@ -30,5 +32,7 @@ export const queryKeys = {
   logo: (ws: string, version: string | null) => ['ws', ws, 'logo', version] as const,
   audit: (ws: string) => ['ws', ws, 'audit'] as const,
   llmProviders: ['admin', 'llm', 'providers'] as const,
+  hermesLogin: (providerId: string) => ['admin', 'llm', 'hermes-login', providerId] as const,
+  providerModels: (providerId: string) => ['admin', 'llm', 'models', providerId] as const,
   llmTiers: ['admin', 'llm', 'tiers'] as const,
 };

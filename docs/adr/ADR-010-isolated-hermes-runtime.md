@@ -14,6 +14,21 @@ Add a private Python/Hermes runtime service, named **`hermes-runtime`** (`servic
 
 The initial Meta agent worker consumes a durable PostgreSQL ingress queue with leases and idempotent receipts. This bounded first slice avoids a non-transactional persist/enqueue gap while the shared BullMQ dispatch infrastructure is incomplete; its public facade remains independent of transport. This is a temporary queue adapter choice, not a reversal of the platform BullMQ target.
 
+### Amendment (T-052): admin ChatGPT sign-in, model list, shared auth lock
+
+- **Bridge endpoints** beyond `POST /v1/generate` (all bearer-authenticated, never returning tokens): `GET /v1/models` (model ids the signed-in plan can use), `GET /v1/auth/status`, `POST /v1/auth/start`, `POST /v1/auth/logout`. The two auth POSTs reject any request body (400).
+- **Callers in `packages/ai-core`:** `HermesProvider` (generate), `HermesLoginClient` (`/v1/auth/*`) and `listProviderModels` (`/v1/models`). All validate the bridge URL through one helper (`parseBridgeBaseUrl`). NestJS reaches them only through `LlmAdminService` (platform-admin routes `/admin/llm/providers/{id}/hermes-login` and `/models`); no other module or app calls the bridge.
+- **`auth.json` ownership:** the bridge process alone reads and writes `<HERMES_HOME>/auth.json`. Sign-in completion (`login.py`), logout and the runtime's token refresh (`runtime.py`) all go through `services/hermes/authstore.py`, which takes one inter-process `flock` on `<HERMES_HOME>/.auth.lock` (mode 600) around every read-modify-write. The lock is never held during network I/O: a refresh reads under the lock, calls OpenAI outside it, then re-locks and writes only if the stored refresh token is still the one it used. A logout or new sign-in in the meantime wins and the turn fails with `MODEL_AUTH_REQUIRED`.
+- **Logout is local only.** Hermes uses no documented OpenAI token-revocation endpoint, so logout deletes `auth.json` and does not revoke the refresh token at OpenAI; the UI says so.
+- **Production gate:** the subscription sign-in is controlled by `HERMES_SUBSCRIPTION_LOGIN` (backend env). Default: on outside production, off in production unless set to `true`. When off, `GET .../hermes-login` returns `{state:"disabled"}` and `POST`/`DELETE` return 403 `FORBIDDEN`. Whether a ChatGPT plan may back a hosted product is an open owner decision (B3); the gate stays until it is recorded here.
+
+### Amendment (T-053): customer images, ChatGPT plan for testing only
+
+- **Owner decision (2026-10-24):** the ChatGPT-plan login is for **testing only**, never production. Images may therefore reach OpenAI through hermes-runtime in development.
+- **Contract:** `POST /v1/generate` accepts an optional top-level `images: [{mimeType, base64}]`, attached to the last user message only. At most 3 images, each at most 3 MB decoded, 6 MB in total; `image/jpeg|png|webp` only, strict `base64.b64decode(validate=True)` and magic-byte check. The bridge never fetches URLs. The text cap stays 256 KB; only requests that carry images may be larger (read timeout 30 s instead of 10 s). If the model cannot take images (`_model_supports_vision` is not true) the bridge fails closed with `503 VISION_UNSUPPORTED` instead of dropping them.
+- **Verified 2026-10-24 (live, synthetic image):** gpt-6.1-sol, gpt-5.6-luna and gpt-6-luna read text and colours from a PNG through the ChatGPT Codex backend; Hermes reports vision support for them without extra config.
+- **Flag:** `BOT_IMAGE_VISION` (backend env): on outside production, off in production unless `true`. `BOT_IMAGE_EXTRA_HOSTS` is a dev/test-only extra host list for the image fetcher, ignored in production.
+
 ## Options considered
 
 1. Port the full Hermes runtime to TypeScript: rejected for this milestone because it increases compatibility and OAuth regression risk before inbox delivery is verified.

@@ -15,6 +15,7 @@ import { errorMessage } from '@/lib/errors';
 import { formatNumber } from '@/lib/format';
 
 import { useAdjustStock, useSaveProduct, useWarehouses } from '../api/commerce';
+import { ProductImagesEditor } from './product-images-editor';
 
 interface VariantDraft {
   key: string;
@@ -145,6 +146,7 @@ export function ProductForm({ product }: { product?: ProductDto }) {
   const [category, setCategory] = useState(product?.category ?? '');
   const [botInstructions, setBotInstructions] = useState(product?.botInstructions ?? '');
   const [visibleToBot, setVisibleToBot] = useState(product?.visibleToBot ?? true);
+  const [imageUrls, setImageUrls] = useState<string[]>(product?.imageUrls ?? []);
   const [archived, setArchived] = useState(product?.status === 'archived');
   const [variants, setVariants] = useState<VariantDraft[]>(
     product?.variants.map((v) => ({
@@ -169,6 +171,7 @@ export function ProductForm({ product }: { product?: ProductDto }) {
       category: category.trim() || null,
       visibleToBot,
       botInstructions,
+      imageUrls,
       status: archived ? 'archived' : 'active',
       variants: variants.map((v) => ({
         ...(v.id ? { id: v.id } : {}),
@@ -275,6 +278,8 @@ export function ProductForm({ product }: { product?: ProductDto }) {
             />
           </div>
         </section>
+
+        <ProductImagesEditor value={imageUrls} onChange={setImageUrls} />
 
         <section className="rounded-xl border bg-card p-4 md:p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">

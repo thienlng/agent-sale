@@ -88,4 +88,8 @@ export class MemoryChannelStore implements ChannelStore {
     return [];
   }
   async releaseEvent() {}
+  async requeueEvent() {}
+  async hasNewerCustomerEvent() {
+    return false;
+  }
 }

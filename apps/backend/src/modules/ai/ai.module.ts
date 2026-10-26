@@ -1,15 +1,16 @@
 import type { Database } from '@agent-sales/db';
 import { Module } from '@nestjs/common';
 
-import { getEnv } from '../../common/config.js';
+import { getEnv, hermesSubscriptionLoginEnabled } from '../../common/config.js';
 import { DB_SYSTEM, DB_TENANT } from '../../common/db/db.module.js';
 import { SECRET_BOX, SecretBox } from '../../common/security/secret-box.js';
+import { ActionModule } from '../action/action.module.js';
 import { BotModule } from '../bot/bot.module.js';
 import { CommerceModule } from '../commerce/commerce.module.js';
 import { KnowledgeModule } from '../knowledge/knowledge.module.js';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
 import { AI_FACADE } from './api/ai.facade.js';
-import { LlmAdminService } from './application/llm-admin.service.js';
+import { HERMES_SUBSCRIPTION_LOGIN, LlmAdminService } from './application/llm-admin.service.js';
 import { LlmRuntime } from './application/llm-runtime.js';
 import { PlaygroundService } from './application/playground.service.js';
 import { LLM_PROVIDER_FACTORY } from './application/ports/llm-provider-factory.js';
@@ -27,7 +28,7 @@ import { LlmAdminController } from './interface/http/llm-admin.controller.js';
 
 /** LLM configuration (platform admin), runtime gateway, playground and ai_runs metering. */
 @Module({
-  imports: [BotModule, KnowledgeModule, WorkspaceModule, CommerceModule],
+  imports: [ActionModule, BotModule, KnowledgeModule, WorkspaceModule, CommerceModule],
   controllers: [AiController, LlmAdminController],
   providers: [
     {
@@ -54,6 +55,10 @@ import { LlmAdminController } from './interface/http/llm-admin.controller.js';
       inject: [SECRET_BOX],
       useFactory: (secrets: SecretBox) =>
         new SdkLlmProviderFactory(secrets, getEnv().NODE_ENV === 'production'),
+    },
+    {
+      provide: HERMES_SUBSCRIPTION_LOGIN,
+      useFactory: () => hermesSubscriptionLoginEnabled(getEnv()),
     },
     LlmRuntime,
     LlmAdminService,

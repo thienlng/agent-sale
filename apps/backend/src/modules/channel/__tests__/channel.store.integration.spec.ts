@@ -196,6 +196,57 @@ describe('Inbox queue', () => {
     expect((await event(id!))?.processedAt).not.toBeNull();
   });
 
+  async function message(connectionId: string, sender: string, ageMs: number): Promise<string> {
+    const id = newId();
+    await owner.insert(schema.channelWebhookEvents).values({
+      id,
+      workspaceId: a,
+      connectionId,
+      externalId: id,
+      payload: { kind: 'facebook', type: 'message', senderExternalId: sender },
+      createdAt: new Date(Date.now() - ageMs),
+    });
+    return id;
+  }
+
+  it('waits for a quiet moment so a burst is answered together, but never past the max wait', async () => {
+    const c = await connect(a, 'page-quiet');
+    const first = await message(c.id, 'cust-1', 1500);
+    const second = await message(c.id, 'cust-1', 100); // still typing: holds the whole burst
+    const other = await message(c.id, 'cust-2', 1500); // another customer is not held back
+    const claimed = (await store.claimEvents(10)).map((j) => j.id);
+    expect(claimed).toContain(other);
+    expect(claimed).not.toContain(first);
+    expect(claimed).not.toContain(second);
+    // Once the burst has been quiet long enough, both go out in the same claim.
+    await owner.execute(
+      sql`update channel_webhook_events set created_at = now() - interval '2 seconds' where id in (${first}, ${second})`,
+    );
+    const later = (await store.claimEvents(10)).map((j) => j.id);
+    expect(later).toEqual(expect.arrayContaining([first, second]));
+  });
+
+  it('claims the oldest message of a burst after the max wait even if the customer keeps typing', async () => {
+    const c = await connect(a, 'page-maxwait');
+    const old = await message(c.id, 'cust-3', 5000);
+    await message(c.id, 'cust-3', 50);
+    expect((await store.claimEvents(10)).map((j) => j.id)).toContain(old);
+  });
+
+  it('sees newer unprocessed customer messages and requeues without spending an attempt', async () => {
+    const c = await connect(a, 'page-newer');
+    const first = await message(c.id, 'cust-4', 10_000);
+    const [job] = (await store.claimEvents(10)).filter((j) => j.id === first);
+    expect(job?.attempt).toBe(1);
+    expect(await store.hasNewerCustomerEvent(c.id, 'cust-4', first)).toBe(false);
+    await message(c.id, 'cust-4', 0);
+    expect(await store.hasNewerCustomerEvent(c.id, 'cust-4', first)).toBe(true);
+    expect(await store.hasNewerCustomerEvent(c.id, 'cust-5', first)).toBe(false);
+    await store.requeueEvent(first, job!.claimToken);
+    expect((await event(first))?.attempts).toBe(0);
+    expect((await event(first))?.leaseUntil).toBeNull();
+  });
+
   it('dead-letters failed and exhausted events so they leave the queue with their payload', async () => {
     const c = await connect(a, 'page-dead');
     const [failed, crashed] = await enqueue(a, c.id, 2);

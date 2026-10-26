@@ -167,7 +167,9 @@ export class ChannelFacadeImpl implements ChannelFacade, OnModuleInit {
       const result = await new MetaAdapter(c.provider, getEnv().META_GRAPH_VERSION).send(
         { externalId: c.externalId, token: this.box.open(c.tokenSealed) },
         recipient,
-        message.attachment ? { attachments: [message.attachment] } : { text: message.text },
+        message.attachments?.length
+          ? { attachments: [...message.attachments] }
+          : { text: message.text },
         { idempotencyKey: key },
       );
       return { externalId: result.externalMessageId, status: 'sent' as const, failureCode: null };
@@ -182,6 +184,24 @@ export class ChannelFacadeImpl implements ChannelFacade, OnModuleInit {
             : ('unknown' as const),
         failureCode: code,
       };
+    }
+  }
+  async presence(
+    ws: WorkspaceId,
+    id: string,
+    recipient: string,
+    action: 'mark_seen' | 'typing_on',
+  ): Promise<void> {
+    try {
+      const c = await this.store.get(ws, id);
+      if (!c || c.status !== 'connected') return;
+      await new MetaAdapter(c.provider, getEnv().META_GRAPH_VERSION).sendAction(
+        { externalId: c.externalId, token: this.box.open(c.tokenSealed) },
+        recipient,
+        action,
+      );
+    } catch {
+      // cosmetic only
     }
   }
   async fetchCustomerProfile(ws: WorkspaceId, id: string, customerExternalId: string) {
@@ -219,5 +239,11 @@ export class ChannelFacadeImpl implements ChannelFacade, OnModuleInit {
   }
   releaseEvent(id: string, claimToken: string, retryInMs: number) {
     return this.store.releaseEvent(id, claimToken, retryInMs);
+  }
+  requeueEvent(id: string, claimToken: string) {
+    return this.store.requeueEvent(id, claimToken);
+  }
+  hasNewerCustomerEvent(connectionId: string, senderExternalId: string, afterEventId: string) {
+    return this.store.hasNewerCustomerEvent(connectionId, senderExternalId, afterEventId);
   }
 }

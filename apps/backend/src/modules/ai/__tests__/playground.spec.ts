@@ -1,4 +1,9 @@
-import { FakeLlmProvider, type GenerateRequest, type LlmProvider } from '@agent-sales/ai-core';
+import {
+  FakeLlmProvider,
+  type GenerateRequest,
+  type LlmProvider,
+  OpenAiCompatibleProvider,
+} from '@agent-sales/ai-core';
 import { newId, workspaceId } from '@agent-sales/shared';
 import { describe, expect, it } from 'vitest';
 
@@ -60,14 +65,18 @@ function factory(
       if (!p) throw new Error(`no stub for ${c.name}`);
       return p;
     },
+    hermesLogin: () => {
+      throw new Error('not used');
+    },
+    listModels: () => Promise.resolve({ models: [], state: 'unavailable' }),
     developmentFallback: () => (dev ? { provider: dev, model: 'echo' } : null),
   };
 }
 
-function service(llm: LlmRuntime) {
+function service(llm: LlmRuntime, botView: typeof bot = bot) {
   const runs = new InMemoryAiRunRepository();
   const svc = new PlaygroundService(
-    { getBot: async () => bot } as BotFacade,
+    { getBot: async () => botView } as BotFacade,
     { searchFaqs: async () => [hit] } as unknown as KnowledgeFacade,
     { getById: async () => ({ name: 'Shop Lan' }) } as unknown as WorkspaceFacade,
     llm,
@@ -116,9 +125,21 @@ describe('PlaygroundService', () => {
         workspaceId: ws,
         isTest: true,
         outcome: 'answered',
-        promptVersion: 'sales-agent@3',
+        promptVersion: 'sales-agent@8',
       }),
     ]);
+  });
+
+  it('introduces the shop by the store name setting, not the workspace name', async () => {
+    const fake = provider('dev-fake', { outcome: 'answer', reply: 'Dạ ạ', sources: [] });
+    const named = { ...bot, placeholders: { ...bot.placeholders, 'store.name': 'TinyMind Store' } };
+    const { svc } = service(
+      new LlmRuntime(new InMemoryLlmConfigRepository(), factory(fake)),
+      named,
+    );
+    await svc.playground(ws, botId, ask('hi'));
+    const system = JSON.stringify((fake.calls[0] as { messages: unknown[] }).messages[0]);
+    expect(system).toContain('TinyMind Store');
   });
 
   it('replaces a reply whose price is not in the sources with the fallback message', async () => {
@@ -138,11 +159,11 @@ describe('PlaygroundService', () => {
   });
 
   it('treats unparseable output and provider refusals safely', async () => {
-    const garbage = new FakeLlmProvider('dev-fake', () => ({ text: 'not json' }));
+    const garbage = new FakeLlmProvider('dev-fake', () => ({ text: '{"outcome": broken' }));
     const a = service(new LlmRuntime(new InMemoryLlmConfigRepository(), factory(garbage)));
     expect(await a.svc.playground(ws, botId, ask('hi'))).toMatchObject({
       outcome: 'fallback',
-      guardrail: 'invalid_output',
+      guardrail: 'invalid_output:not_json',
     });
 
     const refusal = new FakeLlmProvider('dev-fake', () => ({ text: '', stopReason: 'refusal' }));
@@ -151,6 +172,77 @@ describe('PlaygroundService', () => {
       outcome: 'handoff',
       reply: bot.handoffMessage,
     });
+  });
+});
+
+describe('PlaygroundService invalid model output', () => {
+  const valid = {
+    outcome: 'answer',
+    reply: 'Dạ áo thun giá 350k ạ',
+    sources: ['kb:1'],
+  };
+  function scripted(...texts: string[]) {
+    let i = 0;
+    const fake = new FakeLlmProvider('dev-fake', () => ({
+      text: texts[Math.min(i++, texts.length - 1)] ?? '',
+    }));
+    const built = service(new LlmRuntime(new InMemoryLlmConfigRepository(), factory(fake)));
+    return { fake, ...built };
+  }
+
+  it('retries once and answers when the second output is valid', async () => {
+    const { fake, svc, runs } = scripted('Xin lỗi, đây là câu trả lời', JSON.stringify(valid));
+    const res = await svc.playground(ws, botId, ask('ao thun bao nhieu'));
+    expect(res).toMatchObject({ outcome: 'answered', guardrail: null });
+    expect(fake.calls).toHaveLength(2);
+    expect(runs.runs).toHaveLength(1);
+  });
+
+  it('reminds the model of the JSON format on the retry only', async () => {
+    const { fake, svc } = scripted('Xin lỗi, đây là câu trả lời', JSON.stringify(valid));
+    await svc.playground(ws, botId, ask('ao thun bao nhieu'));
+    const first = JSON.stringify((fake.calls[0] as { messages: unknown[] }).messages);
+    const second = JSON.stringify((fake.calls[1] as { messages: unknown[] }).messages);
+    expect(first).not.toContain('previous reply was not a JSON object');
+    expect(second).toContain('previous reply was not a JSON object');
+  });
+
+  it('falls back after two invalid outputs and records the rejection category only', async () => {
+    const { fake, svc, runs } = scripted('plain text one', '{"outcome":"answer","reply":"x"}');
+    const res = await svc.playground(ws, botId, ask('ao thun bao nhieu'));
+    expect(res).toMatchObject({
+      outcome: 'fallback',
+      reply: bot.fallbackMessage,
+      guardrail: 'invalid_output:schema',
+    });
+    expect(fake.calls).toHaveLength(2);
+    expect(JSON.stringify(runs.runs)).not.toContain('plain text one');
+  });
+
+  it('keeps a plain-prose answer after the retry, but the number guard still applies', async () => {
+    const kept = scripted('Dạ cửa hàng có áo thun ạ.', 'Dạ cửa hàng có áo thun và áo sơ mi ạ.');
+    const res = await kept.svc.playground(ws, botId, ask('shop có mẫu nào'));
+    expect(res).toMatchObject({
+      outcome: 'answered',
+      reply: 'Dạ cửa hàng có áo thun và áo sơ mi ạ.',
+    });
+    const priced = scripted('Dạ giá 299k ạ.', 'Dạ giá 299k ạ.');
+    expect((await priced.svc.playground(ws, botId, ask('ao thun bao nhieu'))).outcome).toBe(
+      'fallback',
+    );
+  });
+
+  it('does not retry a valid output that is merely ungrounded', async () => {
+    const { fake, svc } = scripted(JSON.stringify({ ...valid, reply: 'Dạ giá 299k ạ' }));
+    const res = await svc.playground(ws, botId, ask('ao thun bao nhieu'));
+    expect(res.guardrail).toBe('ungrounded_figure:299k');
+    expect(fake.calls).toHaveLength(1);
+  });
+
+  it('accepts JSON wrapped in a code fence on the first try', async () => {
+    const { fake, svc } = scripted('```json\n' + JSON.stringify(valid) + '\n```');
+    expect((await svc.playground(ws, botId, ask('ao thun bao nhieu'))).outcome).toBe('answered');
+    expect(fake.calls).toHaveLength(1);
   });
 });
 
@@ -173,7 +265,7 @@ describe('PlaygroundService fallback and handoff text', () => {
     expect(res.outcome).toBe('fallback');
     expect(res.reply).not.toContain('500k');
     expect(res.reply).toBe(
-      'Dạ, em chưa có thông tin này, em sẽ kiểm tra lại và báo anh/chị ngay ạ.',
+      'Dạ, em chưa có thông tin này ạ. Anh/chị nhắn rõ hơn hoặc để lại số điện thoại để nhân viên hỗ trợ giúp mình nhé.',
     );
   });
 
@@ -313,5 +405,160 @@ describe('channel metering and training context evals', () => {
     expect(result.outcome).toBe('answered');
     expect(fake.calls[0]?.messages.at(-1)?.content).toContain('50.000 VND');
     expect(fake.calls[0]?.messages.at(-1)?.content).not.toContain('Private shortcut');
+  });
+});
+
+describe('sales-agent prompt and handoff reply', () => {
+  const trainingWith = (items: object[]) =>
+    ({ list: async () => items }) as unknown as TrainingFacade;
+  const build = (reply: object, items: object[] = []) => {
+    const fake = provider('dev-fake', reply);
+    const svc = new PlaygroundService(
+      { getBot: async () => bot } as BotFacade,
+      { searchFaqs: async () => [] } as unknown as KnowledgeFacade,
+      { getById: async () => ({ name: 'Shop Lan' }) } as unknown as WorkspaceFacade,
+      new LlmRuntime(new InMemoryLlmConfigRepository(), factory(fake)),
+      new InMemoryAiRunRepository(),
+      trainingWith(items),
+    );
+    return { fake, svc };
+  };
+
+  it('puts situation handling before the handoff rule and keeps the style rules', async () => {
+    const { fake, svc } = build({ outcome: 'answer', reply: 'Dạ', sources: [] });
+    await svc.playground(ws, botId, ask('hi'));
+    const system = String(fake.calls[0]?.messages[0]?.content);
+    expect(system.indexOf('<shop_situations> are the owner')).toBeGreaterThan(-1);
+    expect(system.indexOf('follow it')).toBeLessThan(system.indexOf('"handoff" only when'));
+    expect(system).toContain('Never call yourself "shop"');
+    expect(system).toContain('Greet only when the conversation is a single <customer> block');
+    expect(system).toContain('never start with a greeting');
+    expect(system).toContain('Answer every question in the last <customer> block');
+    expect(system).toContain('Promise no follow-up');
+    expect(system).toContain(
+      'Answer each question the blocks can answer, even when another one cannot',
+    );
+    expect(system).toContain('the "unknown" fallback is only for when none can be answered');
+    expect(system).toContain('State only facts that appear in the blocks');
+    expect(system).toContain('Never add inferred conclusions');
+    expect(system).toContain('never announce that you are about to answer');
+    expect(system).toContain('use outcome "handoff" and let "reply" confirm it');
+    expect(system).toContain('language other than Vietnamese');
+    expect(system).not.toMatch(/\{\{[^}]+\}\}/);
+  });
+
+  it('passes customer images to the provider and tells the model how to use them', async () => {
+    const { fake, svc } = build({ outcome: 'answer', reply: 'Dạ', sources: [] });
+    const images = [{ mimeType: 'image/png' as const, base64: 'iVBORw0KGgo=' }];
+    await svc.playground(ws, botId, { ...ask('giá bao nhiêu?'), images });
+    expect(fake.calls[0]?.images).toEqual(images);
+    const system = String(fake.calls[0]?.messages[0]?.content);
+    expect(system).toContain(
+      'Never read or invent a price, stock level, policy or promotion from an image',
+    );
+    expect(system).toContain('ask a clarifying question');
+    await svc.playground(ws, botId, ask('hi'));
+    expect(fake.calls[1]).not.toHaveProperty('images');
+  });
+
+  it('fails clearly when the resolved provider cannot take images', async () => {
+    const text = new OpenAiCompatibleProvider({
+      name: 'dev-fake',
+      baseURL: 'http://127.0.0.1:1/v1',
+      apiKey: 'k',
+    });
+    const svc = new PlaygroundService(
+      { getBot: async () => bot } as BotFacade,
+      { searchFaqs: async () => [] } as unknown as KnowledgeFacade,
+      { getById: async () => ({ name: 'Shop Lan' }) } as unknown as WorkspaceFacade,
+      new LlmRuntime(new InMemoryLlmConfigRepository(), factory(text)),
+      new InMemoryAiRunRepository(),
+    );
+    await expect(
+      svc.playground(ws, botId, {
+        ...ask('x'),
+        images: [{ mimeType: 'image/png', base64: 'iVBORw0KGgo=' }],
+      }),
+    ).rejects.toBeInstanceOf(AiProviderFailedError);
+  });
+
+  it('shows the "when" line of each situation to the model', async () => {
+    const { fake, svc } = build({ outcome: 'answer', reply: 'Dạ', sources: [] }, [
+      {
+        kind: 'scenario',
+        title: 'Giá sỉ',
+        trigger: 'Khách hỏi giá sỉ',
+        content: 'Xin số điện thoại.',
+      },
+    ]);
+    await svc.playground(ws, botId, ask('giá sỉ'));
+    expect(fake.calls[0]?.messages.at(-1)?.content).toContain('Khi: Khách hỏi giá sỉ');
+  });
+
+  it('gives the model only enabled rules, grouped by section', async () => {
+    const { fake, svc } = build({ outcome: 'answer', reply: 'Dạ', sources: [] }, [
+      { kind: 'scenario', title: 'Chào hỏi', content: 'Chào ngắn gọn.', enabled: true },
+      { kind: 'scenario', title: 'Rule tắt', content: 'Never shown.', enabled: false },
+      {
+        kind: 'scenario',
+        title: 'Sau khi chốt đơn',
+        content: 'Cảm ơn khách.',
+        section: 'after_order',
+        enabled: true,
+      },
+    ]);
+    await svc.playground(ws, botId, ask('hi'));
+    const user = String(fake.calls[0]?.messages.at(-1)?.content);
+    expect(user).not.toContain('Rule tắt');
+    expect(user).not.toContain('Never shown');
+    expect(user.indexOf('## General rules')).toBeLessThan(user.indexOf('Chào ngắn gọn.'));
+    expect(user.indexOf('Chào ngắn gọn.')).toBeLessThan(user.indexOf('## After an order'));
+    expect(user.indexOf('## After an order')).toBeLessThan(user.indexOf('Cảm ơn khách.'));
+    expect(user).toContain('right after an order or booking was just completed or confirmed');
+  });
+
+  it('does not let a disabled rule vouch for a figure in the reply', async () => {
+    const { svc } = build({ outcome: 'answer', reply: 'Phí ship 30k ạ', sources: [] }, [
+      { kind: 'scenario', title: 'Ship', content: 'Ship 30k.', enabled: false },
+    ]);
+    expect((await svc.playground(ws, botId, ask('ship bao nhiêu'))).outcome).not.toBe('answered');
+  });
+
+  it('puts a brief model acknowledgement before the shop handoff message', async () => {
+    const { svc } = build({
+      outcome: 'handoff',
+      reply: 'Em xin lỗi anh/chị về trải nghiệm này ạ.',
+      sources: [],
+    });
+    const res = await svc.playground(ws, botId, ask('dịch vụ tệ quá'));
+    expect(res).toMatchObject({
+      outcome: 'handoff',
+      reply: `Em xin lỗi anh/chị về trải nghiệm này ạ. ${bot.handoffMessage}`,
+    });
+  });
+
+  it('repeats a phone number the customer gave, but drops an invented figure', async () => {
+    const ok = build({ outcome: 'handoff', reply: 'Em đã ghi nhận số 0912345678 ạ.', sources: [] });
+    const a = await ok.svc.playground(ws, botId, ask('gọi lại số 0912345678 nhé'));
+    expect(a.reply).toBe(`Em đã ghi nhận số 0912345678 ạ. ${bot.handoffMessage}`);
+
+    const bad = build({
+      outcome: 'handoff',
+      reply: 'Em xin lỗi, em giảm 20% cho anh ạ.',
+      sources: [],
+    });
+    const b = await bad.svc.playground(ws, botId, ask('tệ quá'));
+    expect(b.reply).toBe(bot.handoffMessage);
+  });
+
+  it('sends only the shop handoff message when the model adds nothing', async () => {
+    const { svc } = build({ outcome: 'handoff', reply: '', sources: [] });
+    expect((await svc.playground(ws, botId, ask('gặp người thật'))).reply).toBe(bot.handoffMessage);
+  });
+
+  it('keeps the English fallback pronouns and never leaks model text on fallback', async () => {
+    const { svc } = build({ outcome: 'unknown', reply: 'Chắc 500k ạ', sources: [] });
+    const res = await svc.playground(ws, botId, ask('Hi, how much?'));
+    expect(res).toMatchObject({ outcome: 'fallback', reply: bot.fallbackMessage });
   });
 });

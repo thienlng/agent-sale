@@ -58,6 +58,9 @@ import { Route as AppBotsBotIdMediaRouteImport } from './routes/app/bots/$botId/
 import { Route as AppBotsBotIdProductsRouteImport } from './routes/app/bots/$botId/products'
 import { Route as AppBotsBotIdQuickRepliesRouteImport } from './routes/app/bots/$botId/quick-replies'
 import { Route as AppBotsBotIdSettingsRouteImport } from './routes/app/bots/$botId/settings'
+import { Route as AppBotsBotIdActionsIndexRouteImport } from './routes/app/bots/$botId/actions.index'
+import { Route as AppBotsBotIdActionsActionIdRouteImport } from './routes/app/bots/$botId/actions.$actionId'
+import { Route as AppBotsBotIdActionsNewRouteImport } from './routes/app/bots/$botId/actions.new'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -310,6 +313,23 @@ const AppBotsBotIdSettingsRoute = AppBotsBotIdSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AppBotsBotIdRoute,
 } as any)
+const AppBotsBotIdActionsIndexRoute =
+  AppBotsBotIdActionsIndexRouteImport.update({
+    id: '/actions/',
+    path: '/actions/',
+    getParentRoute: () => AppBotsBotIdRoute,
+  } as any)
+const AppBotsBotIdActionsActionIdRoute =
+  AppBotsBotIdActionsActionIdRouteImport.update({
+    id: '/actions/$actionId',
+    path: '/actions/$actionId',
+    getParentRoute: () => AppBotsBotIdRoute,
+  } as any)
+const AppBotsBotIdActionsNewRoute = AppBotsBotIdActionsNewRouteImport.update({
+  id: '/actions/new',
+  path: '/actions/new',
+  getParentRoute: () => AppBotsBotIdRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -361,6 +381,9 @@ export interface FileRoutesByFullPath {
   '/app/bots/$botId/quick-replies': typeof AppBotsBotIdQuickRepliesRoute
   '/app/bots/$botId/settings': typeof AppBotsBotIdSettingsRoute
   '/app/bots/$botId/': typeof AppBotsBotIdIndexRoute
+  '/app/bots/$botId/actions/$actionId': typeof AppBotsBotIdActionsActionIdRoute
+  '/app/bots/$botId/actions/new': typeof AppBotsBotIdActionsNewRoute
+  '/app/bots/$botId/actions/': typeof AppBotsBotIdActionsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -406,6 +429,9 @@ export interface FileRoutesByTo {
   '/app/bots/$botId/quick-replies': typeof AppBotsBotIdQuickRepliesRoute
   '/app/bots/$botId/settings': typeof AppBotsBotIdSettingsRoute
   '/app/bots/$botId': typeof AppBotsBotIdIndexRoute
+  '/app/bots/$botId/actions/$actionId': typeof AppBotsBotIdActionsActionIdRoute
+  '/app/bots/$botId/actions/new': typeof AppBotsBotIdActionsNewRoute
+  '/app/bots/$botId/actions': typeof AppBotsBotIdActionsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -458,6 +484,9 @@ export interface FileRoutesById {
   '/app/bots/$botId/quick-replies': typeof AppBotsBotIdQuickRepliesRoute
   '/app/bots/$botId/settings': typeof AppBotsBotIdSettingsRoute
   '/app/bots/$botId/': typeof AppBotsBotIdIndexRoute
+  '/app/bots/$botId/actions/$actionId': typeof AppBotsBotIdActionsActionIdRoute
+  '/app/bots/$botId/actions/new': typeof AppBotsBotIdActionsNewRoute
+  '/app/bots/$botId/actions/': typeof AppBotsBotIdActionsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -511,6 +540,9 @@ export interface FileRouteTypes {
     | '/app/bots/$botId/quick-replies'
     | '/app/bots/$botId/settings'
     | '/app/bots/$botId/'
+    | '/app/bots/$botId/actions/$actionId'
+    | '/app/bots/$botId/actions/new'
+    | '/app/bots/$botId/actions/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -556,6 +588,9 @@ export interface FileRouteTypes {
     | '/app/bots/$botId/quick-replies'
     | '/app/bots/$botId/settings'
     | '/app/bots/$botId'
+    | '/app/bots/$botId/actions/$actionId'
+    | '/app/bots/$botId/actions/new'
+    | '/app/bots/$botId/actions'
   id:
     | '__root__'
     | '/'
@@ -607,6 +642,9 @@ export interface FileRouteTypes {
     | '/app/bots/$botId/quick-replies'
     | '/app/bots/$botId/settings'
     | '/app/bots/$botId/'
+    | '/app/bots/$botId/actions/$actionId'
+    | '/app/bots/$botId/actions/new'
+    | '/app/bots/$botId/actions/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -963,6 +1001,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppBotsBotIdSettingsRouteImport
       parentRoute: typeof AppBotsBotIdRoute
     }
+    '/app/bots/$botId/actions/': {
+      id: '/app/bots/$botId/actions/'
+      path: '/actions'
+      fullPath: '/app/bots/$botId/actions/'
+      preLoaderRoute: typeof AppBotsBotIdActionsIndexRouteImport
+      parentRoute: typeof AppBotsBotIdRoute
+    }
+    '/app/bots/$botId/actions/$actionId': {
+      id: '/app/bots/$botId/actions/$actionId'
+      path: '/actions/$actionId'
+      fullPath: '/app/bots/$botId/actions/$actionId'
+      preLoaderRoute: typeof AppBotsBotIdActionsActionIdRouteImport
+      parentRoute: typeof AppBotsBotIdRoute
+    }
+    '/app/bots/$botId/actions/new': {
+      id: '/app/bots/$botId/actions/new'
+      path: '/actions/new'
+      fullPath: '/app/bots/$botId/actions/new'
+      preLoaderRoute: typeof AppBotsBotIdActionsNewRouteImport
+      parentRoute: typeof AppBotsBotIdRoute
+    }
   }
 }
 
@@ -1044,6 +1103,9 @@ interface AppBotsBotIdRouteChildren {
   AppBotsBotIdQuickRepliesRoute: typeof AppBotsBotIdQuickRepliesRoute
   AppBotsBotIdSettingsRoute: typeof AppBotsBotIdSettingsRoute
   AppBotsBotIdIndexRoute: typeof AppBotsBotIdIndexRoute
+  AppBotsBotIdActionsActionIdRoute: typeof AppBotsBotIdActionsActionIdRoute
+  AppBotsBotIdActionsNewRoute: typeof AppBotsBotIdActionsNewRoute
+  AppBotsBotIdActionsIndexRoute: typeof AppBotsBotIdActionsIndexRoute
 }
 
 const AppBotsBotIdRouteChildren: AppBotsBotIdRouteChildren = {
@@ -1057,6 +1119,9 @@ const AppBotsBotIdRouteChildren: AppBotsBotIdRouteChildren = {
   AppBotsBotIdQuickRepliesRoute: AppBotsBotIdQuickRepliesRoute,
   AppBotsBotIdSettingsRoute: AppBotsBotIdSettingsRoute,
   AppBotsBotIdIndexRoute: AppBotsBotIdIndexRoute,
+  AppBotsBotIdActionsActionIdRoute: AppBotsBotIdActionsActionIdRoute,
+  AppBotsBotIdActionsNewRoute: AppBotsBotIdActionsNewRoute,
+  AppBotsBotIdActionsIndexRoute: AppBotsBotIdActionsIndexRoute,
 }
 
 const AppBotsBotIdRouteWithChildren = AppBotsBotIdRoute._addFileChildren(

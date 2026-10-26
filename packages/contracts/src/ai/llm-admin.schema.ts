@@ -109,6 +109,27 @@ export const TestLlmProviderResponse = z.object({
 export type TestLlmProviderResponse = z.infer<typeof TestLlmProviderResponse>;
 
 /**
+ * ChatGPT sign-in state of a Hermes runtime. `unreachable` = the bridge did not answer;
+ * `disabled` = the subscription sign-in is switched off in this environment (production gate).
+ */
+export const HermesLoginStatus = z.object({
+  state: z.enum(['signed_out', 'pending', 'signed_in', 'failed', 'unreachable', 'disabled']),
+  verificationUrl: z.string().optional(),
+  userCode: z.string().optional(),
+  expiresAt: z.string().optional(),
+  /** Machine reason when `failed`, e.g. device_code_timeout, rate_limited, login_failed. */
+  code: z.string().optional(),
+});
+export type HermesLoginStatus = z.infer<typeof HermesLoginStatus>;
+
+/** Models a provider offers (at most 30). `state` lets the UI degrade instead of failing. */
+export const LlmProviderModelList = z.object({
+  data: z.array(z.object({ id: z.string() })).max(30),
+  state: z.enum(['ok', 'auth_required', 'unavailable']),
+});
+export type LlmProviderModelList = z.infer<typeof LlmProviderModelList>;
+
+/**
  * Connection check and model discovery for a provider that may not be saved yet. With `providerId`
  * the stored settings are the base; the stored key is reused only while `baseUrl` is unchanged.
  */

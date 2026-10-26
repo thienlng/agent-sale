@@ -1,14 +1,6 @@
 import type { PlaygroundResponse } from '@agent-sales/contracts';
-import {
-  BadgeCheck,
-  CircleHelp,
-  Headset,
-  PanelRightClose,
-  RotateCcw,
-  SendHorizontal,
-  ShieldAlert,
-} from 'lucide-react';
-import { type FormEvent, type KeyboardEvent, useRef, useState } from 'react';
+import { PanelRightClose, RotateCcw } from 'lucide-react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Bubble, BubbleContent } from '@/components/ui/bubble';
@@ -22,64 +14,23 @@ import {
   MessageScrollerProvider,
   MessageScrollerViewport,
 } from '@/components/ui/message-scroller';
-import { Textarea } from '@/components/ui/textarea';
 import { ApiClientError } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 
 import { usePlayground } from '../api/playground';
+import { toPlaygroundImages, useImageAttachments } from '../hooks/use-image-attachments';
+import { TestChatComposer } from './test-chat-composer';
+import { Outcome } from './test-chat-outcome';
+import { AttachmentThumbs, BotImages } from './test-chat-images';
 
 interface Turn {
   id: number;
   role: 'customer' | 'bot';
   content: string;
   result?: PlaygroundResponse;
+  /** Object URLs of the pictures the customer sent with this turn. */
+  images?: { id: number; url: string }[];
   error?: boolean;
-}
-
-/** What happened to a bot turn, shown under its bubble like a delivery receipt. */
-function Outcome({ result }: { result: PlaygroundResponse }) {
-  const { t } = useTranslation();
-  const used = result.sources.filter((s) => s.used);
-  const chip =
-    'inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium';
-  return (
-    <div className="flex flex-col items-start gap-1.5">
-      {result.outcome === 'answered'
-        ? used.map((s) => (
-            <span key={s.faqId} className={cn(chip, 'bg-success-soft text-success')}>
-              <BadgeCheck className="size-3.5 shrink-0" aria-hidden />
-              <span className="truncate">{t('playground.source', { question: s.question })}</span>
-            </span>
-          ))
-        : null}
-      {result.outcome === 'fallback' ? (
-        <span className={cn(chip, 'bg-warning-soft text-warning')}>
-          {result.guardrail?.startsWith('ungrounded') ? (
-            <ShieldAlert className="size-3.5 shrink-0" aria-hidden />
-          ) : (
-            <CircleHelp className="size-3.5 shrink-0" aria-hidden />
-          )}
-          {result.guardrail?.startsWith('ungrounded')
-            ? t('playground.guardrail')
-            : t('playground.fallback')}
-        </span>
-      ) : null}
-      {result.outcome === 'handoff' ? (
-        <span className={cn(chip, 'bg-secondary text-secondary-foreground')}>
-          <Headset className="size-3.5 shrink-0" aria-hidden />
-          {t('playground.handoff')}
-        </span>
-      ) : null}
-      <span className="text-xs text-muted-foreground">
-        {t('playground.meta', {
-          model: result.model,
-          tokens:
-            result.usage.inputTokens + result.usage.cachedInputTokens + result.usage.outputTokens,
-          seconds: (result.latencyMs / 1000).toFixed(1),
-        })}
-      </span>
-    </div>
-  );
 }
 
 /**
@@ -105,51 +56,80 @@ export function TestChat({
   const seq = useRef(0);
   const [turns, setTurns] = useState<Turn[]>([]);
   const [draft, setDraft] = useState('');
+  const [reading, setReading] = useState(false);
+  const attachments = useImageAttachments();
+  const busy = playground.isPending || reading;
 
-  function send(text: string) {
+  function fail(err: Error, withImages: boolean) {
+    const imageIssue =
+      withImages && err instanceof ApiClientError && /image|vision/i.test(err.message);
+    setTurns((all) => [
+      ...all,
+      {
+        id: ++seq.current,
+        role: 'bot',
+        error: true,
+        content: imageIssue
+          ? t('playground.imagesUnsupported')
+          : err instanceof ApiClientError && err.code === 'AI_UNAVAILABLE'
+            ? t('playground.unavailable')
+            : t('playground.error', { message: err.message }),
+      },
+    ]);
+  }
+
+  async function send(text: string) {
     const content = text.trim();
-    if (!content || playground.isPending) return;
-    const history: Turn[] = [...turns, { id: ++seq.current, role: 'customer', content }];
+    const pending = attachments.items;
+    if ((!content && !pending.length) || busy) return;
+    setReading(true);
+    let images;
+    try {
+      images = pending.length ? await toPlaygroundImages(pending) : undefined;
+    } catch {
+      setReading(false);
+      setTurns((all) => [
+        ...all,
+        { id: ++seq.current, role: 'bot', error: true, content: t('playground.imageRead') },
+      ]);
+      return;
+    }
+    setReading(false);
+    const sent = attachments.take();
+    const history: Turn[] = [
+      ...turns,
+      {
+        id: ++seq.current,
+        role: 'customer',
+        content,
+        ...(sent.length ? { images: sent.map(({ id, url }) => ({ id, url })) } : {}),
+      },
+    ];
     setTurns(history);
     setDraft('');
     const messages = [
       ...(greeting ? [{ role: 'bot' as const, content: greeting }] : []),
       ...history
-        .filter((h) => !h.error && h.content.trim())
-        .map((h) => ({ role: h.role, content: h.content })),
+        .filter((h) => !h.error && (h.content.trim() || h.images?.length))
+        .map((h) => ({ role: h.role, content: h.content.trim() || t('playground.imageOnly') })),
     ];
-    playground.mutate(messages, {
-      onSuccess: (result) =>
-        setTurns((all) => [
-          ...all,
-          { id: ++seq.current, role: 'bot', content: result.reply, result },
-        ]),
-      onError: (err) =>
-        setTurns((all) => [
-          ...all,
-          {
-            id: ++seq.current,
-            role: 'bot',
-            error: true,
-            content:
-              err instanceof ApiClientError && err.code === 'AI_UNAVAILABLE'
-                ? t('playground.unavailable')
-                : t('playground.error', { message: err.message }),
-          },
-        ]),
-    });
+    playground.mutate(
+      { messages, images },
+      {
+        onSuccess: (result) =>
+          setTurns((all) => [
+            ...all,
+            { id: ++seq.current, role: 'bot', content: result.reply, result },
+          ]),
+        onError: (err) => fail(err, !!images),
+      },
+    );
   }
 
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    send(draft);
-  };
-  const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-      e.preventDefault();
-      send(draft);
-    }
-  };
+  function reset() {
+    attachments.discardAll();
+    setTurns([]);
+  }
 
   return (
     <section
@@ -160,8 +140,8 @@ export function TestChat({
         <Button
           variant="outline"
           size="icon-sm"
-          onClick={() => setTurns([])}
-          disabled={!turns.length || playground.isPending}
+          onClick={reset}
+          disabled={!turns.length || busy}
           aria-label={training('space.chat.reset')}
           title={training('space.chat.reset')}
         >
@@ -199,6 +179,11 @@ export function TestChat({
                   </MessageContent>
                 </Message>
               ) : null}
+              {!turns.length ? (
+                <p className="text-center text-xs text-muted-foreground">
+                  {t('playground.imageHint')}
+                </p>
+              ) : null}
               {!turns.length && suggestions.length ? (
                 <div className="mt-auto flex flex-col gap-2 pt-6">
                   <p className="text-center text-sm text-muted-foreground">
@@ -208,7 +193,7 @@ export function TestChat({
                     <button
                       key={s}
                       type="button"
-                      onClick={() => send(s)}
+                      onClick={() => void send(s)}
                       className="truncate rounded-lg border border-primary/60 bg-primary-soft/50 px-3 py-2 text-left text-sm text-primary transition-colors hover:bg-primary-soft focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
                     >
                       {s}
@@ -244,9 +229,19 @@ export function TestChat({
                             turn.role === 'customer' ? 'rounded-br-md' : 'rounded-bl-md',
                           )}
                         >
+                          {turn.images?.length ? (
+                            <span className="mb-1 block">
+                              <AttachmentThumbs items={turn.images} />
+                            </span>
+                          ) : null}
                           {turn.content}
                         </BubbleContent>
                       </Bubble>
+                      {turn.result?.images.length ? (
+                        <div className="mt-1.5">
+                          <BotImages images={turn.result.images} />
+                        </div>
+                      ) : null}
                       {turn.result ? (
                         <MessageFooter>
                           <Outcome result={turn.result} />
@@ -256,7 +251,7 @@ export function TestChat({
                   </Message>
                 </MessageScrollerItem>
               ))}
-              {playground.isPending ? (
+              {busy ? (
                 <div
                   role="status"
                   aria-label={t('playground.thinking')}
@@ -277,29 +272,16 @@ export function TestChat({
         </MessageScroller>
       </MessageScrollerProvider>
 
-      <form onSubmit={submit} className="border-t p-3">
-        <div className="flex items-end gap-2 rounded-2xl border bg-background p-1.5 pl-3 focus-within:border-primary focus-within:ring-3 focus-within:ring-primary/15">
-          <Textarea
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={onKeyDown}
-            rows={1}
-            maxLength={2000}
-            placeholder={training('space.chat.placeholder')}
-            aria-label={training('space.chat.placeholder')}
-            className="max-h-32 min-h-9 resize-none border-0 bg-transparent px-0 py-2 text-base shadow-none focus-visible:ring-0 dark:bg-transparent"
-          />
-          <Button
-            type="submit"
-            size="icon-lg"
-            className="rounded-xl"
-            disabled={!draft.trim() || playground.isPending}
-            aria-label={t('playground.send')}
-          >
-            <SendHorizontal />
-          </Button>
-        </div>
-      </form>
+      <TestChatComposer
+        draft={draft}
+        onDraft={setDraft}
+        attachments={attachments.items}
+        attachError={attachments.error}
+        onAddFiles={attachments.add}
+        onRemoveFile={attachments.remove}
+        onSend={() => void send(draft)}
+        busy={busy}
+      />
     </section>
   );
 }

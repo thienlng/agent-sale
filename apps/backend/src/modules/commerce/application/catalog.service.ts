@@ -14,6 +14,7 @@ import {
 import { foldVietnamese, isUuid, newId, type WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
+import { botProductSearches } from '../domain/bot-product-search.js';
 import {
   ProductNotFoundError,
   WarehouseInUseError,
@@ -66,6 +67,7 @@ function toProductDto(
     status: p.status,
     visibleToBot: p.visibleToBot,
     botInstructions: p.botInstructions,
+    imageUrls: p.imageUrls,
     variants: dtoVariants,
     priceMin: prices.length ? Math.min(...prices) : 0,
     priceMax: prices.length ? Math.max(...prices) : 0,
@@ -90,26 +92,7 @@ export class CatalogService {
 
   async getBotProducts(ws: WorkspaceId, query: string, limit: number): Promise<ProductDto[]> {
     const cap = Math.max(1, Math.min(limit, 20));
-    const noise = new Set([
-      'gia',
-      'bao',
-      'nhieu',
-      'khong',
-      'cho',
-      'minh',
-      'toi',
-      'ban',
-      'cua',
-      'hang',
-      'con',
-      'co',
-      'muon',
-      'mua',
-    ]);
-    const words = foldVietnamese(query)
-      .split(/\s+/)
-      .filter((word) => word.length >= 3 && !noise.has(word));
-    const searches = [...new Set([query.trim(), ...words])].filter(Boolean).slice(0, 5);
+    const { searches, words } = botProductSearches(query);
     if (!searches.length) return [];
     let matches: ProductListResponse[];
     try {
@@ -131,6 +114,17 @@ export class CatalogService {
       words.filter((word) => foldVietnamese(`${product.name} ${product.code}`).includes(word))
         .length;
     return [...unique.values()].sort((a, b) => score(b) - score(a)).slice(0, cap);
+  }
+
+  async listBotCatalog(ws: WorkspaceId, limit: number): Promise<ProductDto[]> {
+    const cap = Math.max(1, Math.min(limit, 30));
+    try {
+      const page = await this.listProducts(ws, { status: 'active', page: 1, pageSize: cap });
+      return page.data.filter((product) => product.visibleToBot);
+    } catch (error) {
+      if (error instanceof CommerceUnavailableError) return [];
+      throw error;
+    }
   }
 
   // ─── Warehouses ───────────────────────────────────────────────────────────
@@ -242,6 +236,7 @@ export class CatalogService {
         status: input.status,
         visibleToBot: input.visibleToBot,
         botInstructions: input.botInstructions,
+        imageUrls: input.imageUrls,
         searchText: productSearchText(input, input.variants),
         createdAt: now,
         updatedAt: now,
@@ -303,6 +298,7 @@ export class CatalogService {
         status: input.status,
         visibleToBot: input.visibleToBot,
         botInstructions: input.botInstructions,
+        imageUrls: input.imageUrls,
         searchText: productSearchText(input, input.variants),
         updatedAt: new Date(),
       });

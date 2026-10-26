@@ -116,6 +116,21 @@ export const ProductVariantDto = z.object({
 });
 export type ProductVariantDto = z.infer<typeof ProductVariantDto>;
 
+/** Customer-facing product pictures: public HTTPS URLs only (the bot sends them in chats). */
+export const MAX_PRODUCT_IMAGES = 5;
+export const ProductImageUrl = z
+  .string()
+  .trim()
+  .max(2000)
+  .refine((value) => {
+    try {
+      return new URL(value).protocol === 'https:';
+    } catch {
+      return false;
+    }
+  }, 'must be an https URL');
+export const ProductImageUrls = z.array(ProductImageUrl).max(MAX_PRODUCT_IMAGES);
+
 export const ProductDto = z.object({
   id: z.uuid(),
   code: z.string(),
@@ -125,6 +140,8 @@ export const ProductDto = z.object({
   status: z.enum(['active', 'archived']),
   visibleToBot: z.boolean(),
   botInstructions: z.string().default(''),
+  /** Up to 5 https URLs the bot may send to customers who ask to see the product. */
+  imageUrls: ProductImageUrls.default([]),
   variants: z.array(ProductVariantDto),
   priceMin: Money,
   priceMax: Money,
@@ -161,6 +178,7 @@ export const UpsertProductRequest = z
     category: optionalText(120),
     visibleToBot: z.boolean().default(true),
     botInstructions: z.string().trim().max(4000).default(''),
+    imageUrls: ProductImageUrls.default([]),
     status: z.enum(['active', 'archived']).default('active'),
     variants: z.array(ProductVariantInput).min(1).max(100),
   })

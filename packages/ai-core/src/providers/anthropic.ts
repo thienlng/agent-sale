@@ -60,6 +60,7 @@ export class AnthropicProvider implements LlmProvider {
   }
 
   async generate(request: GenerateRequest, target: ModelTarget): Promise<GenerateResponse> {
+    if (request.images?.length) throw new Error('anthropic provider: images are not supported');
     if (request.tools?.length) throw new Error('anthropic provider: tools are not wired yet');
     const { system, messages } = toAnthropicMessages(request);
     const started = performance.now();

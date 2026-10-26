@@ -8,3 +8,5 @@ pnpm-lock.yaml
 .husky
 **/routeTree.gen.ts
 **/*.hbs
+# Private runtime state (credentials) is never formatted or committed.
+services/hermes/var

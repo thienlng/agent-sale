@@ -57,7 +57,37 @@ describe('ungroundedFigures', () => {
     expect(ungroundedFigures('Dạ giá 350 triệu ạ', ['giá 350k, size 42'])).toEqual(['350 trieu']);
   });
 
+  it('accepts the phone number the customer gave however it is spelled', () => {
+    for (const given of ['0912345678', '0912 345 678', '091 234 5678', '0912-345-678'])
+      for (const echoed of ['0912345678', '0912 345 678', '091.234.5678'])
+        expect(
+          ungroundedFigures(`Em ghi nhận số ${echoed} ạ`, trusted, [`gọi lại số ${given}`]),
+        ).toEqual([]);
+  });
+
+  it('still rejects a phone number the customer did not give', () => {
+    expect(ungroundedFigures('Em gọi số 0987654321 ạ', trusted, ['gọi số 0912345678'])).toEqual([
+      '0987654321',
+    ]);
+  });
+
   it('replies without figures are always grounded', () => {
     expect(ungroundedFigures('Dạ em chào anh/chị ạ', [])).toEqual([]);
+  });
+});
+
+describe('ungroundedFigures: the "k" price form', () => {
+  it('accepts "99k" when the source says 99.000đ, and the reverse', () => {
+    expect(ungroundedFigures('Giá 99k ạ', ['Áo thun giá 99.000đ'])).toEqual([]);
+    expect(ungroundedFigures('Giá 99.000đ ạ', ['Áo thun giá 99k'])).toEqual([]);
+  });
+
+  it('accepts "99k" when the source says 99k', () => {
+    expect(ungroundedFigures('Giá 99k ạ', ['Áo thun giá 99k'])).toEqual([]);
+  });
+
+  it('rejects "99k" when no source has 99.000 or 99k, even if the customer wrote it', () => {
+    expect(ungroundedFigures('Giá 99k ạ', ['Áo thun giá 120.000đ'])).toEqual(['99k']);
+    expect(ungroundedFigures('Giá 99k ạ', [], ['giá 99k đúng không'])).toEqual(['99k']);
   });
 });

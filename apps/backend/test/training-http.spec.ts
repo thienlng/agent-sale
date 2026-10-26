@@ -9,6 +9,7 @@ import {
 } from '@agent-sales/contracts';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { afterEach, describe, expect, it } from 'vitest';
+import { STARTER_RULES } from '../src/modules/knowledge/domain/starter-rules.js';
 import { AppModule } from '../src/app.module.js';
 import { createHttpApp } from '../src/bootstrap.js';
 
@@ -86,7 +87,7 @@ describe('HTTP: bot training', () => {
     const item = TrainingItemDto.parse(created.json());
     expect(
       TrainingItemList.parse((await http.inject({ method: 'GET', url, headers })).json()).data,
-    ).toHaveLength(1);
+    ).toHaveLength(STARTER_RULES.length + 1); // a new bot starts with the starter pack
     expect(
       (await http.inject({ method: 'PATCH', url: `${url}/${item.id}`, headers, payload: {} }))
         .statusCode,
@@ -133,7 +134,11 @@ describe('HTTP: bot training', () => {
     const history = TrainingHistoryList.parse(
       (await http.inject({ method: 'GET', url: historyUrl, headers })).json(),
     );
-    expect(history.data.map((entry) => entry.action)).toEqual(['deleted', 'updated', 'created']);
+    expect(history.data.slice(0, 3).map((entry) => entry.action)).toEqual([
+      'deleted',
+      'updated',
+      'created',
+    ]);
     const updatedBot = await http.inject({
       method: 'PATCH',
       url: `/api/v1/bots/${bot.id}`,
@@ -233,5 +238,73 @@ describe('HTTP: bot training', () => {
     expect(
       (await http.inject({ method: 'DELETE', url: `${url}/${item.id}`, headers })).statusCode,
     ).toBe(404);
+  });
+});
+
+describe('HTTP: starter rules', () => {
+  it('seeds idempotently, hides the bot from other workspaces and needs authentication', async () => {
+    const http = await setup();
+    const signup = async (email: string) => {
+      const auth = AuthResponse.parse(
+        (
+          await http.inject({
+            method: 'POST',
+            url: '/api/v1/auth/signup',
+            payload: {
+              name: 'Starter Owner',
+              email,
+              password: 'correct horse battery',
+              workspaceName: 'Starter Shop',
+              industry: 'retail',
+            },
+          })
+        ).json(),
+      );
+      const bootstrap = BootstrapResponse.parse(
+        (
+          await http.inject({
+            method: 'GET',
+            url: '/api/v1/bootstrap',
+            headers: { authorization: `Bearer ${auth.accessToken}` },
+          })
+        ).json(),
+      );
+      return {
+        authorization: `Bearer ${auth.accessToken}`,
+        'x-workspace-id': bootstrap.memberships[0]?.workspaceId ?? '',
+      };
+    };
+    const headers = await signup('starter@example.test');
+    const other = await signup('other-starter@example.test');
+    const bot = BotDto.parse(
+      (
+        await http.inject({
+          method: 'POST',
+          url: '/api/v1/bots',
+          headers,
+          payload: { name: 'Starter Bot', industry: 'retail' },
+        })
+      ).json(),
+    );
+    const items = `/api/v1/bots/${bot.id}/training-items`;
+    const url = `${items}/starter-rules`;
+    expect((await http.inject({ method: 'POST', url })).statusCode).toBe(401);
+    expect((await http.inject({ method: 'POST', url, headers: other })).statusCode).toBe(404);
+
+    const list = async () =>
+      TrainingItemList.parse((await http.inject({ method: 'GET', url: items, headers })).json());
+    const seeded = await list();
+    expect(seeded.data).toHaveLength(STARTER_RULES.length);
+    expect(seeded.data.every((i) => i.enabled)).toBe(true);
+    // Nothing is missing, so nothing is created.
+    const again = await http.inject({ method: 'POST', url, headers });
+    expect(again.statusCode).toBe(201);
+    expect(TrainingItemList.parse(again.json()).data).toEqual([]);
+
+    const gone = seeded.data.find((i) => i.section === 'after_order');
+    await http.inject({ method: 'DELETE', url: `${items}/${gone?.id}`, headers });
+    const restored = await http.inject({ method: 'POST', url, headers });
+    expect(TrainingItemList.parse(restored.json()).data.map((i) => i.title)).toEqual([gone?.title]);
+    expect((await list()).data).toHaveLength(STARTER_RULES.length);
   });
 });

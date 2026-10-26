@@ -1,9 +1,11 @@
 import {
   type CreateLlmProviderRequest,
+  HermesLoginStatus,
   type DiscoverLlmModelsRequest,
   DiscoverLlmModelsResponse,
   LlmProviderDto,
   LlmProviderList,
+  LlmProviderModelList,
   LlmTierRouteDto,
   LlmTierRouteList,
   type PutLlmTierRouteRequest,
@@ -92,5 +94,45 @@ export function useSaveTier() {
     mutationFn: ({ tier, route }: { tier: string; route: PutLlmTierRouteRequest }) =>
       api(`/admin/llm/tiers/${tier}`, LlmTierRouteDto, { ...global, method: 'PUT', body: route }),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.llmTiers }),
+  });
+}
+
+const loginPath = (id: string) => `/admin/llm/providers/${id}/hermes-login`;
+
+/** ChatGPT sign-in state; polls every 3 s only while a device-code login is pending. */
+export function useHermesLogin(providerId: string) {
+  return useQuery({
+    queryKey: queryKeys.hermesLogin(providerId),
+    queryFn: () => api(loginPath(providerId), HermesLoginStatus, global),
+    refetchInterval: (query) => (query.state.data?.state === 'pending' ? 3_000 : false),
+  });
+}
+
+export function useHermesLoginAction(providerId: string) {
+  const qc = useQueryClient();
+  const set = (status: HermesLoginStatus) =>
+    qc.setQueryData(queryKeys.hermesLogin(providerId), status);
+  return {
+    start: useMutation({
+      mutationFn: () =>
+        api(loginPath(providerId), HermesLoginStatus, { ...global, method: 'POST' }),
+      onSuccess: set,
+    }),
+    logout: useMutation({
+      mutationFn: () =>
+        api(loginPath(providerId), HermesLoginStatus, { ...global, method: 'DELETE' }),
+      onSuccess: set,
+    }),
+  };
+}
+
+/** Short model list of a provider (5-minute cache; `refetch` bypasses nothing but re-asks the API). */
+export function useProviderModels(providerId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.providerModels(providerId ?? ''),
+    queryFn: () => api(`/admin/llm/providers/${providerId}/models`, LlmProviderModelList, global),
+    enabled: Boolean(providerId),
+    staleTime: 5 * 60_000,
+    retry: false,
   });
 }

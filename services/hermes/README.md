@@ -19,7 +19,13 @@ Run **one bridge per `HERMES_HOME`**: each instance needs its own private home a
 
 The server binds only to `127.0.0.1:8788`. `HERMES_BRIDGE_PORT` changes the port. `GET /health` proves the process is up, not model access. In the platform admin LLM settings, add a **Hermes** provider with base URL `http://127.0.0.1:8788`, the bridge secret in the write-only API-key field, and a tier route with an explicitly permitted model. The bridge key is not a model API key. Missing or failed Hermes never silently switches to paid API usage; any tier fallback is an explicit platform-admin configuration.
 
-## Separate ChatGPT login
+## Sign in from the Admin page
+
+A platform admin signs the runtime in to ChatGPT from **Admin → LLM** (the Hermes provider's "Tài khoản ChatGPT" panel): the button starts OpenAI's device-code flow, the page shows a code and a link, and the admin approves it in another tab. The bridge (`login.py`) polls OpenAI no faster than its interval, gives up after 15 minutes and writes the private `auth.json` (mode 600) itself. Endpoints, all requiring the bridge bearer key and never returning tokens: `GET /v1/auth/status`, `POST /v1/auth/start`, `POST /v1/auth/logout` (the two POSTs must have no body, else 400), plus `GET /v1/models` (the plan's model list for the Admin model picker). The bridge only redeems the approved code while something polls `status`, so the admin must keep the Admin page open until sign-in completes. Nothing signs in during customer turns.
+
+`auth.json` has one owner: sign-in, token refresh and logout all lock `<HERMES_HOME>/.auth.lock` (`authstore.py`, `flock`, mode 600) for their read-modify-write and never hold it during network calls. A refresh whose stored refresh token changed or vanished (logout or new sign-in in the meantime) is discarded and the turn fails with `MODEL_AUTH_REQUIRED`. **Logout is local only**: Hermes has no documented OpenAI revocation endpoint, so it deletes `auth.json` but does not revoke the token at OpenAI; revoke it in the ChatGPT account settings if needed. The backend exposes the panel only outside production unless `HERMES_SUBSCRIPTION_LOGIN=true` (eligibility of ChatGPT plans for a hosted product is pending an owner decision). The terminal method below still works.
+
+## Separate ChatGPT login (terminal)
 
 Set the exact same private `HERMES_HOME` used by `RAPIZ_HERMES_HOME` when running the installed `hermes model` command; choose OpenAI Codex/ChatGPT and complete a separate login. The runtime requires a private singleton `auth.json`, mode 600, in that home. Only that private file is refreshed atomically; the higher-level Hermes resolver is intentionally bypassed because it may recover an operator CLI session. It refuses missing/unsafe credentials before invoking the Hermes pure OAuth refresh helper. Do not copy the active Booking or Codex CLI session: rotating the same refresh token from multiple processes can invalidate it. Signing in does not add quota.
 
@@ -33,12 +39,14 @@ For an explicitly chosen OpenRouter deployment, set `RAPIZ_HERMES_PROVIDER=openr
 
 Each turn creates a fresh AIAgent with memory, context files, background review, trajectories and provider fallback disabled. It exposes no tools; the instantiated tool list is checked before inference. Knowledge and scenario context come from NestJS. Booking villa tools, database access, arbitrary callbacks and delivery are deliberately absent. New tools must use server-bound identities and a reviewed allowlist.
 
+**Images (T-053, testing only).** `POST /v1/generate` also accepts `images: [{mimeType, base64}]` on the last user message: max 3, each at most 3 MB decoded (6 MB total), `image/jpeg|png|webp`, strict base64 and magic bytes; the bridge never fetches URLs. Body cap 256 KB for text, larger only when images are present (30 s read timeout). The images go to the model provider, so the ChatGPT-plan login is for testing only. A model that Hermes does not know to support vision fails the turn with `503 VISION_UNSUPPORTED`; images are never dropped silently. Verified live 2026-10-24 with gpt-6.1-sol, gpt-5.6-luna and gpt-6-luna.
+
 Hermes enforces its configured 50-second run budget and iteration limit; the TypeScript caller also has a transport timeout. Subscription transports may not support a hard output-token cap. The bridge is single-flight; use bounded platform worker concurrency rather than opening it publicly. Production deployment needs service supervision and private network access, plus capacity testing.
 
 ## Verify
 
 ```bash
-python3 -m unittest discover -s services/hermes -p 'test_*.py' -v
+python3 -m unittest discover -s services/hermes -p 'test_*.py' -v   # includes the auth.json race tests
 pnpm --filter @agent-sales/ai-core test
 ```
 

@@ -19,6 +19,7 @@ import { IDENTITY_FACADE, type IdentityFacade } from '../../identity/api/index.j
 import { TEAM_FACADE, type TeamFacade } from '../../team/api/index.js';
 import type { ConversationFacade } from '../api/conversation.facade.js';
 import { ConversationError } from '../domain/conversation.errors.js';
+import { nextMessageId } from '../domain/message-id.js';
 import { toListFilter } from '../domain/conversation-filter.js';
 import { detectVietnamesePhone, normalizeVietnamesePhone } from '../domain/phone.js';
 import { applyControlUpdate, newConversation, preview } from '../domain/conversation-state.js';
@@ -82,6 +83,38 @@ export class ConversationFacadeImpl implements ConversationFacade {
       conversation: await requireConversation(tx, id),
       messages: await tx.messages(id),
     }));
+  }
+  /**
+   * The bot passes the conversation to staff (upset customer, a phone number, unreadable media).
+   * Unlike a manual takeover it comes back to the bot by itself after the bot's takeover window
+   * (the next customer message after it), unless the bot is set to never resume automatically.
+   */
+  async handOff(ws: WorkspaceId, id: string, actorId: string): Promise<ConversationView> {
+    const channelId = await this.store.run(
+      ws,
+      async (tx) => (await requireConversation(tx, id)).channelId,
+    );
+    const bot = await this.channelBot(ws, channelId);
+    return this.store.run(ws, async (tx) => {
+      const c = await requireConversation(tx, id);
+      const updated = {
+        ...c,
+        mode: 'human' as const,
+        takeover: 'temporary' as const,
+        autoResumeAt: this.resumeAt(bot),
+        revision: c.revision + 1,
+        updatedAt: now(),
+      };
+      await tx.save(updated);
+      await tx.audit(id, 'conversation.control.updated.v1', {
+        actorId,
+        mode: updated.mode,
+        status: updated.status,
+        assigneeId: updated.assigneeId,
+        revision: updated.revision,
+      });
+      return updated;
+    });
   }
   private async tagged(ws: WorkspaceId, c: ConversationView): Promise<ConversationView> {
     return (await attachTags(this.crm, ws, [c]))[0] ?? c;
@@ -243,7 +276,7 @@ export class ConversationFacadeImpl implements ConversationFacade {
       await tx.save(c);
       await tx.saveMessage(
         {
-          id: newId(),
+          id: nextMessageId(),
           conversationId: c.id,
           direction: event.type === 'echo' ? 'outbound' : 'inbound',
           sender: event.type === 'echo' ? 'human' : 'customer',
@@ -285,7 +318,11 @@ export class ConversationFacadeImpl implements ConversationFacade {
     return this.reserveAndDeliver(
       ws,
       id,
-      { text: body.text, attachment: body.attachment, idempotencyKey: body.idempotencyKey },
+      {
+        text: body.text,
+        attachments: body.attachment ? [body.attachment] : [],
+        idempotencyKey: body.idempotencyKey,
+      },
       actorId,
       null,
     ).then((m) => {
@@ -309,6 +346,50 @@ export class ConversationFacadeImpl implements ConversationFacade {
       { text: input.text, idempotencyKey: input.idempotencyKey },
       null,
       input.revision,
+    );
+  }
+  commitBotFollowUp(
+    ws: WorkspaceId,
+    id: string,
+    input: { text: string; idempotencyKey: string },
+  ): Promise<InboxMessageDto | null> {
+    if (!input.text.trim() || input.text.length > 2000)
+      throw new ConversationError(
+        'VALIDATION_FAILED',
+        'Reply must contain at most 2000 characters',
+      );
+    // Later bubbles of the same answer only need the bot to still hold the conversation.
+    return this.reserveAndDeliver(
+      ws,
+      id,
+      { text: input.text, idempotencyKey: input.idempotencyKey },
+      null,
+      'follow-up',
+    );
+  }
+  async commitBotImages(
+    ws: WorkspaceId,
+    id: string,
+    input: { urls: readonly string[]; idempotencyKey: string },
+  ): Promise<InboxMessageDto | null> {
+    if (
+      !input.urls.length ||
+      input.urls.length > 10 ||
+      input.urls.some((url) => !url.startsWith('https://') || url.length > 2000)
+    )
+      throw new ConversationError('VALIDATION_FAILED', 'Image URLs must be 1-10 https URLs');
+    // The text reply of the same turn already moved the revision on, so a follow-up only requires
+    // that the bot still holds the conversation (a takeover in between wins).
+    return this.reserveAndDeliver(
+      ws,
+      id,
+      {
+        text: '',
+        attachments: input.urls.map((url) => ({ type: 'image' as const, url })),
+        idempotencyKey: input.idempotencyKey,
+      },
+      null,
+      'follow-up',
     );
   }
   private async channelBot(ws: WorkspaceId, channelId: string): Promise<BotView | null> {
@@ -335,7 +416,7 @@ export class ConversationFacadeImpl implements ConversationFacade {
     id: string,
     input: OutboundInboxMessage & { idempotencyKey: string },
     actorId: string | null,
-    expectedRevision: number | null,
+    expectedRevision: number | 'follow-up' | null,
   ): Promise<InboxMessageDto | null> {
     // Cross-module reads open their own transactions; resolve them first so we never hold
     // a pooled connection while waiting for another one (pool exhaustion under concurrent sends).
@@ -350,7 +431,11 @@ export class ConversationFacadeImpl implements ConversationFacade {
       const c = await requireConversation(tx, id);
       const prior = await tx.findMessage(id, input.idempotencyKey);
       if (prior) {
-        if (prior.text !== input.text || prior.attachments[0]?.url !== input.attachment?.url)
+        if (
+          prior.text !== input.text ||
+          prior.attachments.map((a) => a.url).join('\n') !==
+            (input.attachments ?? []).map((a) => a.url).join('\n')
+        )
           throw new ConversationError(
             'CONFLICT',
             'Idempotency key was already used for another reply',
@@ -366,7 +451,9 @@ export class ConversationFacadeImpl implements ConversationFacade {
       if (expectedRevision !== null && !bot?.isActive) return null;
       if (
         expectedRevision !== null &&
-        (c.mode !== 'bot' || c.revision !== expectedRevision || c.status !== 'open')
+        (c.mode !== 'bot' ||
+          (expectedRevision !== 'follow-up' && c.revision !== expectedRevision) ||
+          c.status !== 'open')
       )
         return null;
       if (
@@ -386,13 +473,13 @@ export class ConversationFacadeImpl implements ConversationFacade {
         updatedAt: now(),
       };
       const message: InboxMessageDto = {
-        id: newId(),
+        id: nextMessageId(),
         conversationId: id,
         direction: 'outbound',
         sender: actorId ? 'human' : 'bot',
         senderName: actorId ? senderName : null,
         text: input.text,
-        attachments: input.attachment ? [input.attachment] : [],
+        attachments: [...(input.attachments ?? [])],
         status: 'pending',
         externalId: null,
         failureCode: null,
@@ -433,7 +520,7 @@ export class ConversationFacadeImpl implements ConversationFacade {
       ws,
       channelId,
       reservation.customerId,
-      { text: input.text, attachment: input.attachment },
+      { text: input.text, attachments: input.attachments },
       input.idempotencyKey,
     );
     return this.store.run(ws, async (tx) => {
