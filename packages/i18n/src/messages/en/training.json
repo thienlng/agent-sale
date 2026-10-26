@@ -5,9 +5,9 @@
       "development": "Development",
       "home": "Home",
       "products": "Products",
-      "instructions": "Instructions",
-      "information": "Information",
-      "integrations": "Integrations",
+      "instructions": "Response instructions",
+      "information": "Business information",
+      "integrations": "Pages and channels",
       "actions": "API actions",
       "media": "Image library",
       "settings": "Settings",
@@ -480,6 +480,20 @@
     "sections": {
       "general": "General rules",
       "after_order": "After the order is placed"
+    }
+  },
+  "purpose": {
+    "facts": {
+      "title": "What should the bot know?",
+      "body": "Save factual business knowledge as questions and answers for the bot to consult.",
+      "example": "For example: store address, opening hours, shipping and return policies.",
+      "link": "Set response instructions"
+    },
+    "instructions": {
+      "title": "How should the bot respond?",
+      "body": "Define tone, sales guidance and rules for handling situations. Factual business knowledge is managed separately.",
+      "example": "For example: keep answers concise, ask about needs first, hand over to staff when needed.",
+      "link": "Add business information"
     }
   }
 }

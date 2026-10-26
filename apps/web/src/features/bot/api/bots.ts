@@ -61,29 +61,49 @@ export function useUpdateBot(botId: string) {
   const ws = useWorkspaceId();
   const qc = useQueryClient();
   const key = queryKeys.bot(ws, botId);
+  const listKey = queryKeys.bots(ws);
   return useMutation({
+    mutationKey: ['update-bot', ws, botId],
+    scope: { id: `update-bot:${ws}:${botId}` },
     mutationFn: (change: UpdateBotRequest) =>
       api(`/bots/${botId}`, BotDto, { method: 'PATCH', body: change }),
     onMutate: async (change) => {
-      await qc.cancelQueries({ queryKey: key });
-      const previous = qc.getQueryData<BotDto>(key);
+      await Promise.all([
+        qc.cancelQueries({ queryKey: key }),
+        qc.cancelQueries({ queryKey: listKey, exact: true }),
+      ]);
+      const previous =
+        qc.getQueryData<BotDto>(key) ??
+        qc.getQueryData<BotDto[]>(listKey)?.find((bot) => bot.id === botId);
       if (previous) {
-        qc.setQueryData<BotDto>(key, {
+        const optimistic = {
           ...previous,
           ...(change.name !== undefined ? { name: change.name } : {}),
           ...(change.isActive !== undefined ? { isActive: change.isActive } : {}),
-        });
+        };
+        qc.setQueryData<BotDto>(key, optimistic);
+        qc.setQueryData<BotDto[]>(listKey, (list) =>
+          list?.map((bot) => (bot.id === botId ? optimistic : bot)),
+        );
       }
       return { previous };
     },
     onError: (_e, _c, ctx) => {
-      if (ctx?.previous) qc.setQueryData(key, ctx.previous);
+      const previous = ctx?.previous;
+      if (previous) {
+        qc.setQueryData(key, previous);
+        qc.setQueryData<BotDto[]>(listKey, (list) =>
+          list?.map((bot) => (bot.id === botId ? previous : bot)),
+        );
+      }
     },
     onSuccess: (bot) => {
       qc.setQueryData(key, bot);
       qc.setQueryData<BotDto[]>(queryKeys.bots(ws), (list) =>
         list?.map((b) => (b.id === bot.id ? bot : b)),
       );
+      void qc.invalidateQueries({ queryKey: ['bots', ws] });
+      void qc.invalidateQueries({ queryKey: [...key, 'inbox'] });
       void qc.invalidateQueries({ queryKey: queryKeys.readiness(ws, botId) });
       void qc.invalidateQueries({ queryKey: ['training', ws, botId, 'history'] });
     },

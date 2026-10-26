@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { renderWithProviders as render, stubFetch } from '@/testing/render';
+import { renderWithRouter, stubFetch } from '@/testing/render';
 
 import { RulesList } from './rules-list';
 
@@ -47,7 +47,7 @@ async function setup(
 ) {
   const stub = stubFetch({ [list]: { status: 200, body: { data } }, ...extra });
   vi.stubGlobal('fetch', stub.fetchStub);
-  render(<RulesList botId={BOT} introduction={<p>intro-row</p>} />);
+  renderWithRouter(() => <RulesList botId={BOT} introduction={<p>intro-row</p>} />);
   await screen.findByRole('heading', { name: 'Quy tắc cho Bot' }, { timeout: 10_000 });
   return stub;
 }
@@ -134,7 +134,7 @@ describe('RulesList', () => {
       if (init.method === 'POST') await gate;
       return stub.fetchStub(input, init);
     });
-    render(<RulesList botId={BOT} />);
+    renderWithRouter(() => <RulesList botId={BOT} />);
     const button = await screen.findByRole('button', { name: 'Nhân bản' }, { timeout: 10_000 });
     await userEvent.click(button);
     await waitFor(() => expect(button).toBeDisabled());
@@ -221,7 +221,7 @@ describe('RulesList', () => {
       [`POST /bots/${BOT}/training-items/starter-rules`]: { status: 201, body: { data: created } },
     });
     vi.stubGlobal('fetch', stub.fetchStub);
-    render(<RulesList botId={BOT} />);
+    renderWithRouter(() => <RulesList botId={BOT} />);
     await userEvent.click(
       await screen.findByRole('button', { name: 'Thêm bộ quy tắc mẫu' }, { timeout: 10_000 }),
     );

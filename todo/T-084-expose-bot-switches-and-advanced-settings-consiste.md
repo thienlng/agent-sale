@@ -1,14 +1,14 @@
 ---
 id: T-084
 title: Expose bot switches and advanced settings consistently
-status: backlog
+status: in-progress
 type: feature
 priority: P1
-owner:
+owner: "@agent:codex"
 feature_ids: []
 created: 2026-10-26
 updated: 2026-10-26
-branch:
+branch: feat/T-090-lane-b-review
 pr:
 parent:
 ---
@@ -51,7 +51,11 @@ Expose bot switches and advanced settings consistently.
 
 ## Plan
 
-To be filled by the implementer before coding. Scope and acceptance above are the planning contract.
+1. Add a direct bot-list switch using the existing training switch and persisted bot update API. Reuse the existing basic/advanced settings tabs rather than inventing controls.
+2. Make list/detail optimistic state and rollback consistent, disable duplicate or unauthorized updates, and cover success/failure/permission states.
+3. Verify current runtime shutdown checks with existing backend regressions, run UI/browser tests and obtain agent QA review. No schema/API or prompt changes.
+
+Autonomous implementation authorized by the user on 2026-10-26. Account/business/shop contracts remain lane A responsibilities.
 
 ## Log
 
@@ -63,3 +67,5 @@ To be filled by the implementer before coding. Scope and acceptance above are th
 - [Architecture](../docs/ARCHITECTURE.md)
 - [Tenancy and verticals](../docs/17-multi-tenancy-and-verticals.md)
 - [Billing design](../docs/08-billing-quota-credit.md)
+
+- 2026-10-26 — Reused the existing training switch on the bot list, added named controls and pending/permission guards, synchronized list/detail rollback and refreshed the derived inbox availability cache. Existing basic/advanced settings are retained. Bot-list regressions pass (8 tests). Full milestone gate/browser QA pending.

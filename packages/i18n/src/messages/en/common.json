@@ -126,7 +126,8 @@
       "kept": "Training data is kept for history, but the bot can no longer be opened."
     },
     "deleteConfirmLabel": "Type the bot name to confirm: {{name}}",
-    "deleteConfirmMismatch": "The name does not match"
+    "deleteConfirmMismatch": "The name does not match",
+    "toggleNamedLabel": "Turn bot {{name}} on or off"
   },
   "readiness": {
     "title": "Get the bot ready",

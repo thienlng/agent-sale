@@ -5,9 +5,9 @@
       "development": "Development",
       "home": "Trang chủ",
       "products": "Sản phẩm",
-      "instructions": "Hướng dẫn",
-      "information": "Thông tin",
-      "integrations": "Tích hợp",
+      "instructions": "Hướng dẫn trả lời",
+      "information": "Thông tin doanh nghiệp",
+      "integrations": "Fanpage và kênh",
       "actions": "Hành động API",
       "media": "Thư viện ảnh",
       "settings": "Cài đặt",
@@ -480,6 +480,20 @@
     "sections": {
       "general": "Quy tắc chung",
       "after_order": "Sau khi chốt đơn"
+    }
+  },
+  "purpose": {
+    "facts": {
+      "title": "Bot cần biết thông tin gì?",
+      "body": "Lưu dữ kiện về doanh nghiệp dưới dạng câu hỏi và câu trả lời để bot tra cứu khi tư vấn.",
+      "example": "Ví dụ: địa chỉ cửa hàng, giờ mở cửa, chính sách giao hàng và đổi trả.",
+      "link": "Thiết lập cách bot trả lời"
+    },
+    "instructions": {
+      "title": "Bot cần trả lời như thế nào?",
+      "body": "Đặt quy tắc về cách xưng hô, tư vấn và xử lý tình huống. Thông tin thực tế về doanh nghiệp được quản lý riêng.",
+      "example": "Ví dụ: trả lời ngắn gọn, hỏi nhu cầu trước khi tư vấn, chuyển nhân viên khi cần.",
+      "link": "Bổ sung thông tin doanh nghiệp"
     }
   }
 }

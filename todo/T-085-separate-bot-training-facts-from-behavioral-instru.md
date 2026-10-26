@@ -1,14 +1,14 @@
 ---
 id: T-085
 title: Separate bot training facts from behavioral instructions
-status: backlog
+status: in-progress
 type: feature
 priority: P1
-owner:
+owner: "@agent:codex"
 feature_ids: []
 created: 2026-10-26
 updated: 2026-10-26
-branch:
+branch: feat/T-090-lane-b-review
 pr:
 parent:
 ---
@@ -51,7 +51,11 @@ Separate bot training facts from behavioral instructions.
 
 ## Plan
 
-To be filled by the implementer before coding. Scope and acceptance above are the planning contract.
+1. Explain factual business information versus behavioral instructions with examples and links between the existing pages. Preserve T-070 rules and all stored data.
+2. Make navigation and page headings unambiguous in vi/en, update training docs and validate links through browser regression.
+3. Run existing training/rules tests and independent QA acceptance. No prompt, retrieval or migration changes.
+
+Autonomous implementation authorized by the user on 2026-10-26. Account/business/shop contracts remain lane A responsibilities.
 
 ## Log
 
@@ -63,3 +67,5 @@ To be filled by the implementer before coding. Scope and acceptance above are th
 - [Architecture](../docs/ARCHITECTURE.md)
 - [Tenancy and verticals](../docs/17-multi-tenancy-and-verticals.md)
 - [Billing design](../docs/08-billing-quota-credit.md)
+
+- 2026-10-26 — Added purpose/explanation/example panels and cross-links between existing facts and instructions pages; renamed navigation in vi/en without changing stored content, prompt precedence or retrieval. Rules tests now use the real router context. Full milestone gate/browser QA pending.
