@@ -9,7 +9,7 @@ const LABEL: Record<MetaProvider, string> = { facebook: 'Facebook', instagram: '
 /** "Kết nối Facebook/Instagram" buttons; disabled with the setup hint when not configured. */
 export function ConnectButtons({
   providers,
-  integrations: { channels, connect, configured },
+  integrations: { channels, connect, configured, canManage },
 }: {
   providers: readonly MetaProvider[];
   integrations: Integrations;
@@ -23,7 +23,7 @@ export function ConnectButtons({
         {providers.map((provider) => (
           <Button
             key={provider}
-            disabled={loading || !configured(provider) || connect.pending}
+            disabled={!canManage || loading || !configured(provider) || connect.pending}
             onClick={() => connect.connect(provider)}
           >
             <Plus className="size-4" />

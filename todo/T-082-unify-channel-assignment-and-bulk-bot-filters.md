@@ -1,14 +1,14 @@
 ---
 id: T-082
 title: Unify channel assignment and bulk bot filters
-status: backlog
+status: in-progress
 type: bug
 priority: P1
-owner:
+owner: "@agent:codex"
 feature_ids: []
 created: 2026-10-26
 updated: 2026-10-26
-branch:
+branch: feat/T-090-lane-b-review
 pr:
 parent:
 ---
@@ -52,7 +52,11 @@ Unify channel assignment and bulk bot filters.
 
 ## Plan
 
-To be filled by the implementer before coding. Scope and acceptance above are the planning contract.
+1. Implement the dependency-free channel/bot assignment slice against existing contracts: explicit assignment wording, bot/unassigned filters, synchronized caches and non-destructive unassignment.
+2. Confirm page reassignment, preserve failed rows for retry, and cover bulk assignment, unassignment, filters and cross-screen refresh.
+3. Do not invent shop IDs: shop filtering/validation waits for lane A T-077/T-078/T-080, so the parent task remains partial until those contracts are available.
+
+Autonomous implementation authorized by the user on 2026-10-26. Account/business/shop contracts remain lane A responsibilities.
 
 ## Log
 

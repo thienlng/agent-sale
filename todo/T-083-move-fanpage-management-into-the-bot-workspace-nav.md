@@ -1,14 +1,14 @@
 ---
 id: T-083
 title: Move fanpage management into the bot workspace navigation
-status: backlog
+status: in-progress
 type: feature
 priority: P1
-owner:
+owner: "@agent:codex"
 feature_ids: []
 created: 2026-10-26
 updated: 2026-10-26
-branch:
+branch: feat/T-090-lane-b-review
 pr:
 parent:
 ---
@@ -50,7 +50,11 @@ Move fanpage management into the bot workspace navigation.
 
 ## Plan
 
-To be filled by the implementer before coding. Scope and acceptance above are the planning contract.
+1. Reuse the existing bot integrations route as the clearly named fanpage/channel manager, with a link to the global inventory.
+2. Move global platform integrations out of the multichannel submenu, keeping a single global destination and preserving both existing URLs. No connection data is removed and no invented legacy route needs a redirect.
+3. Verify navigation and page selection in browser, check mobile layout and i18n labels. This navigation slice uses existing workspace/bot scope; shop constraints remain under T-082/lane A.
+
+Autonomous implementation authorized by the user on 2026-10-26. Account/business/shop contracts remain lane A responsibilities.
 
 ## Log
 

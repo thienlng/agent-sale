@@ -10,7 +10,7 @@ export interface PlatformEntry {
   disabled?: boolean;
 }
 
-/** Workspace screen: "Chờ kích hoạt" lists connected pages that no bot answers yet. */
+/** Workspace inventory includes a category for pages with no assigned bot. */
 export const WORKSPACE_PLATFORMS: readonly PlatformEntry[] = [
   { key: 'all' },
   { key: 'pending' },
@@ -46,16 +46,19 @@ export interface ConnectionFilter {
   query: string;
   /** Bot mode: only pages bound to this bot. */
   botId?: string;
+  /** Inventory assignment filter, independent of provider connectivity. */
+  assignedBotId?: string | null;
 }
 
 export function filterConnections(
   connections: readonly ChannelConnectionDto[],
-  { category, query, botId }: ConnectionFilter,
+  { category, query, botId, assignedBotId }: ConnectionFilter,
 ): ChannelConnectionDto[] {
   const q = query.trim().toLowerCase();
   return connections.filter((c) => {
     if (botId !== undefined && c.botId !== botId) return false;
-    if (category === 'pending' && !(c.status === 'connected' && c.botId === null)) return false;
+    if (assignedBotId !== undefined && c.botId !== assignedBotId) return false;
+    if (category === 'pending' && c.botId !== null) return false;
     if (isMetaProvider(category) && c.provider !== category) return false;
     if (isComingSoon(category)) return false;
     if (!q) return true;

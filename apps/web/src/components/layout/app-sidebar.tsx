@@ -55,12 +55,14 @@ const WORK: readonly NavItem[] = [
   { to: '/app/settings', key: 'nav.settings', icon: Settings, ready: true },
 ];
 
-/** "Chat đa kênh" (Preny): the inbox and the platform integrations under one entry. */
+/** Multichannel messaging stays separate from the global platform inventory. */
 const MULTICHANNEL: readonly NavItem[] = [
   { to: '/app/inbox', key: 'nav.inbox', icon: MessagesSquare, ready: true },
+];
+const INTEGRATIONS: readonly NavItem[] = [
   { to: '/app/channels', key: 'nav.channels', icon: Cable, ready: true },
 ];
-const MULTICHANNEL_PATHS = /^\/app\/(inbox|channels)(\/|$)/;
+const MULTICHANNEL_PATHS = /^\/app\/inbox(\/|$)/;
 
 function MultichannelNav() {
   const { t } = useTranslation();
@@ -253,6 +255,7 @@ export function AppSidebar() {
         <nav aria-label={t('nav.mainLabel')} className="contents">
           <NavGroup label={t('nav.groupWork')} items={BOTS}>
             <MultichannelNav />
+            <NavItems items={INTEGRATIONS} />
             <SectionNav
               label="nav.contacts"
               icon={Users}

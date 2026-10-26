@@ -1,4 +1,5 @@
-import { Search, Settings2, Unplug } from 'lucide-react';
+import type { BotDto } from '@agent-sales/contracts';
+import { Search, Bot, Unplug } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -18,8 +19,18 @@ export function PageListToolbar({
   onToggleAll,
   onEdit,
   onDeactivate,
+  bots,
+  assignment,
+  onAssignmentChange,
+  readOnly,
+  canUnassign,
 }: {
   bot: boolean;
+  bots: readonly BotDto[];
+  assignment: string;
+  onAssignmentChange: (value: string) => void;
+  readOnly: boolean;
+  canUnassign: boolean;
   query: string;
   onQueryChange: (value: string) => void;
   selectedCount: number;
@@ -41,6 +52,7 @@ export function PageListToolbar({
           <Search className="absolute top-2.5 left-3 size-4 text-muted-foreground" aria-hidden />
           <Input
             type="search"
+            disabled={busy}
             aria-label={ti('searchPlaceholder')}
             placeholder={ti('searchPlaceholder')}
             value={query}
@@ -49,19 +61,39 @@ export function PageListToolbar({
           />
         </div>
       </div>
+      {!bot ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <Label htmlFor="integration-bot-filter">{ti('filterBot')}</Label>
+          <select
+            id="integration-bot-filter"
+            className="h-9 min-w-0 max-w-full rounded-md border bg-background px-3 text-sm"
+            value={assignment}
+            disabled={busy}
+            onChange={(e) => onAssignmentChange(e.target.value)}
+          >
+            <option value="all">{ti('allBots')}</option>
+            <option value="unassigned">{ti('noBot')}</option>
+            {bots.map((entry) => (
+              <option key={entry.id} value={entry.id}>
+                {entry.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Label className="flex cursor-pointer items-center gap-2 text-sm font-normal">
           <Checkbox
             checked={all ? true : selectedCount > 0 ? 'indeterminate' : false}
-            disabled={!totalCount}
+            disabled={!totalCount || busy || readOnly}
             onCheckedChange={(value) => onToggleAll(value === true)}
           />
           {ti('selectAll')}
         </Label>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" disabled={!editEnabled || busy} onClick={onEdit}>
-            {ti('edit')}
-            <Settings2 />
+            {ti(bot ? 'choosePages' : 'edit')}
+            <Bot />
           </Button>
           {!bot ? (
             <TooltipProvider>
@@ -78,7 +110,11 @@ export function PageListToolbar({
               </Tooltip>
             </TooltipProvider>
           ) : null}
-          <Button variant="outline" disabled={!selectedCount || busy} onClick={onDeactivate}>
+          <Button
+            variant="outline"
+            disabled={!canUnassign || busy || readOnly}
+            onClick={onDeactivate}
+          >
             <Unplug />
             {ti('deactivate')}
           </Button>

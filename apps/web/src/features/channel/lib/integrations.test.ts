@@ -29,8 +29,8 @@ describe('filterConnections', () => {
   it('"Tất cả" lists every page', () => {
     expect(filterConnections(all, { category: 'all', query: '' })).toEqual(all);
   });
-  it('"Chờ kích hoạt" lists connected pages without a bot only', () => {
-    expect(filterConnections(all, { category: 'pending', query: '' })).toEqual([fbFree]);
+  it('"Chờ kích hoạt" lists unassigned pages regardless of connectivity', () => {
+    expect(filterConnections(all, { category: 'pending', query: '' })).toEqual([fbFree, fbLost]);
   });
   it('filters by provider and hides coming-soon platforms', () => {
     expect(filterConnections(all, { category: 'instagram', query: '' })).toEqual([igBotB]);
@@ -66,4 +66,17 @@ describe('formatting', () => {
     expect(initials('shop')).toBe('SH');
     expect(initials('  ')).toBe('?');
   });
+});
+
+it('filters all pages by assigned bot or explicitly unassigned, independently of connection state', () => {
+  expect(filterConnections(all, { category: 'all', query: '', assignedBotId: BOT_A })).toEqual([
+    fbBotA,
+  ]);
+  expect(filterConnections(all, { category: 'all', query: '', assignedBotId: null })).toEqual([
+    fbFree,
+    fbLost,
+  ]);
+  expect(
+    filterConnections(all, { category: 'instagram', query: '', assignedBotId: BOT_A }),
+  ).toEqual([]);
 });

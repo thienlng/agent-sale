@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router';
 import type { ChannelConnectionDto } from '@agent-sales/contracts';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -31,15 +32,21 @@ export function IntegrationsView({ mode }: { mode: IntegrationsMode }) {
     t(`channelInbox.integrations.${key}`, options ?? {});
   const bot = mode.kind === 'bot';
   const integrations = useIntegrations(mode);
-  const { channels, bots, connect, configured, botName, apply, applying, discovery } = integrations;
+  const { channels, bots, canManage, connect, configured, botName, apply, applying, discovery } =
+    integrations;
   const [category, setCategory] = useState<PlatformKey>('all');
   const [query, setQuery] = useState('');
+  const [assignment, setAssignment] = useState('all');
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [dialog, setDialog] = useState<'edit' | 'deactivate' | null>(null);
 
   const all = channels.data?.data ?? EMPTY;
   const scope = bot ? { botId: mode.botId } : {};
-  const visible = filterConnections(all, { category, query, ...scope });
+  const assignmentFilter =
+    !bot && assignment !== 'all'
+      ? { assignedBotId: assignment === 'unassigned' ? null : assignment }
+      : {};
+  const visible = filterConnections(all, { category, query, ...scope, ...assignmentFilter });
   const owned = bot ? filterConnections(all, { category: 'all', query: '', ...scope }) : all;
   const picked = visible.filter((c) => selected.has(c.id));
 
@@ -51,20 +58,14 @@ export function IntegrationsView({ mode }: { mode: IntegrationsMode }) {
       return next;
     });
   async function run(changes: Parameters<typeof apply>[0]) {
-    const ok = await apply(changes);
-    if (ok) {
-      setSelected(new Set());
+    const failed = await apply(changes);
+    setSelected(new Set(failed));
+    if (!failed.length) {
       setDialog(null);
     }
   }
   const deactivate = () =>
-    run(
-      bot
-        ? picked.map((c) => ({ id: c.id, body: { botId: null } }))
-        : picked
-            .filter((c) => c.status === 'connected')
-            .map((c) => ({ id: c.id, body: { disconnect: true as const } })),
-    );
+    run(picked.filter((c) => c.botId !== null).map((c) => ({ id: c.id, body: { botId: null } })));
   const assign = (botId: string | null) =>
     run(picked.filter((c) => c.status === 'connected').map((c) => ({ id: c.id, body: { botId } })));
   const savePlan = (plan: BotPagesPlan) =>
@@ -89,10 +90,18 @@ export function IntegrationsView({ mode }: { mode: IntegrationsMode }) {
   return (
     <section className="w-full space-y-5">
       <header>
-        <h1 className="text-xl font-semibold tracking-tight">{ti('title')}</h1>
+        <h1 className="text-xl font-semibold tracking-tight">{ti(bot ? 'botTitle' : 'title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {ti(bot ? 'botSubtitle' : 'workspaceSubtitle')}
         </p>
+        {bot ? (
+          <Link
+            to="/app/channels"
+            className="mt-2 inline-flex text-sm font-medium text-primary hover:underline"
+          >
+            {ti('openInventory')}
+          </Link>
+        ) : null}
       </header>
       <p className="rounded-lg bg-muted/60 px-4 py-3 text-sm">
         {ti('feedbackPrefix')}{' '}
@@ -114,10 +123,26 @@ export function IntegrationsView({ mode }: { mode: IntegrationsMode }) {
           <PageListToolbar
             bot={bot}
             query={query}
-            onQueryChange={setQuery}
+            onQueryChange={(value) => {
+              setQuery(value);
+              setSelected(new Set());
+            }}
+            bots={bots.data ?? []}
+            assignment={assignment}
+            onAssignmentChange={(value) => {
+              setAssignment(value);
+              setSelected(new Set());
+            }}
+            readOnly={!canManage}
+            canUnassign={picked.some((c) => c.botId !== null)}
             selectedCount={picked.length}
             totalCount={visible.length}
-            editEnabled={bot ? !channels.isPending && !channels.isError : picked.length > 0}
+            editEnabled={
+              canManage &&
+              (bot
+                ? !channels.isPending && !channels.isError
+                : picked.some((c) => c.status === 'connected'))
+            }
             busy={applying}
             onToggleAll={(on) => setSelected(new Set(on ? visible.map((c) => c.id) : []))}
             onEdit={() => setDialog('edit')}
@@ -135,10 +160,11 @@ export function IntegrationsView({ mode }: { mode: IntegrationsMode }) {
                   key={c.id}
                   connection={c}
                   checked={selected.has(c.id)}
+                  disabled={!canManage || applying}
                   onCheckedChange={(on) => toggle(c.id, on)}
                   botName={botName(c.botId)}
                   showBot={!bot}
-                  canReconnect={configured(c.provider) && !connect.pending}
+                  canReconnect={canManage && configured(c.provider) && !connect.pending}
                   onReconnect={() => connect.connect(c.provider)}
                 />
               ))}
@@ -175,7 +201,8 @@ export function IntegrationsView({ mode }: { mode: IntegrationsMode }) {
       {dialog === 'edit' && !bot ? (
         <AssignBotDialog
           open
-          count={picked.length}
+          count={picked.filter((c) => c.status === 'connected').length}
+          assignedBotIds={picked.filter((c) => c.status === 'connected').map((c) => c.botId)}
           bots={bots.data ?? []}
           initialBotId={picked.length === 1 ? (picked[0]?.botId ?? null) : null}
           saving={applying}
@@ -186,8 +213,8 @@ export function IntegrationsView({ mode }: { mode: IntegrationsMode }) {
       <ConfirmDialog
         open={dialog === 'deactivate'}
         destructive
-        title={ti('deactivateTitle', { count: picked.length })}
-        body={ti(bot ? 'botDeactivateBody' : 'deactivateBody')}
+        title={ti('deactivateTitle', { count: picked.filter((c) => c.botId !== null).length })}
+        body={ti('botDeactivateBody')}
         confirm={ti('deactivate')}
         onCancel={() => setDialog(null)}
         onConfirm={() => void deactivate()}

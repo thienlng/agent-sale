@@ -1,6 +1,7 @@
 import type { MetaProvider, UpdateChannelRequest } from '@agent-sales/contracts';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useCan } from '@/lib/permissions';
 import { toast } from 'sonner';
 import {
   useBulkUpdateChannels,
@@ -19,6 +20,7 @@ export function useIntegrations(mode: IntegrationsMode) {
   const tr = (key: string, options?: Record<string, unknown>) =>
     t(`channelInbox.${key}`, options ?? {});
   const channels = useChannels();
+  const canManage = useCan('settings.manage');
   const bots = useChannelBots();
   const bulk = useBulkUpdateChannels();
   const [discoveryId, setDiscoveryId] = useState<string | null>(null);
@@ -32,15 +34,16 @@ export function useIntegrations(mode: IntegrationsMode) {
 
   /** Applies the changes; resolves true when every page was updated. */
   async function apply(changes: { id: string; body: UpdateChannelRequest }[]) {
-    if (!changes.length) return true;
+    if (!changes.length) return [];
+    if (!canManage) return changes.map((change) => change.id);
     try {
       const failed = await bulk.mutateAsync(changes);
-      if (failed) toast.error(tr('integrations.partialError'));
+      if (failed.length) toast.error(tr('integrations.partialError'));
       else toast.success(tr('updated'));
-      return failed === 0;
+      return failed;
     } catch {
       toast.error(tr('loadError'));
-      return false;
+      return changes.map((change) => change.id);
     }
   }
 
@@ -58,6 +61,7 @@ export function useIntegrations(mode: IntegrationsMode) {
 
   return {
     channels,
+    canManage,
     bots,
     connect,
     configured,
