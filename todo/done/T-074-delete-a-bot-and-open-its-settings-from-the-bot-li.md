@@ -1,13 +1,13 @@
 ---
 id: T-074
 title: Delete a bot and open its settings from the bot list
-status: review            # backlog | next | in-progress | blocked | review | done | cancelled
+status: done            # backlog | next | in-progress | blocked | review | done | cancelled
 type: feature              # feature | bug | chore | spike | docs
 priority: P1               # P0 | P1 | P2 | P3
 owner: '@agent:claude'     # @github-handle or @agent:<tool>
 feature_ids: []            # e.g. [BOT-07, CRM-11] from docs/02-functional-requirements.md
 created: 2026-10-25
-updated: 2026-10-25
+updated: 2026-10-26
 branch: feat/T-074-bot-delete-and-settings
 pr: '#61'
 parent:                    # T-xxx if this is a sub-task
@@ -56,6 +56,8 @@ Dated entries, newest last. Decisions, blockers, questions, what was verified an
 - 2026-10-25 — created (script allocated T-068; renamed to T-074).
 - 2026-10-25 — decisions: `channel` sits above `bot` in the module graph, so bot cannot call ChannelFacade; added `BOT_LIFECYCLE` hook (channel registers `unbindBot`, run before the soft delete). Audit via `writeAudit` (`bot.deleted`) in the delete transaction. The delete UI lives on the bot list only, so no "navigate away" is needed.
 - 2026-10-25 — verified: `pnpm check` green (lint, arch, typecheck, tests, build, bundle 242.7/250 KB); backend unit + HTTP tests; Postgres integration test (403 for sales, 404 cross-tenant/after delete, channel unbound, audit row) run with `vitest.integration.config.ts`; web tests in `bot-list.test.tsx`.
+
+- 2026-10-26 — merged into main with PR #61.
 
 ## Links
 

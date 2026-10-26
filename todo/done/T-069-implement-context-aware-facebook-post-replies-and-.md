@@ -1,15 +1,15 @@
 ---
 id: T-069
 title: Implement context-aware Facebook post replies and comment automation
-status: review                 # backlog | next | in-progress | blocked | review | done | cancelled
+status: done                 # backlog | next | in-progress | blocked | review | done | cancelled
 type: feature              # feature | bug | chore | spike | docs
 priority: P1               # P0 | P1 | P2 | P3
 owner: "@agent:codex, @agent:claude"
 feature_ids: [CHN-08]
 created: 2026-10-25
-updated: 2026-10-25
+updated: 2026-10-26
 branch: feat/T-069-fanpage-comments
-pr:
+pr: '#60'
 parent:                    # T-xxx if this is a sub-task
 ---
 
@@ -77,6 +77,8 @@ Dated entries, newest last. Decisions, blockers, questions, what was verified an
 - 2026-10-25 — Static audit traced OAuth subscription, webhook parsing, outbound adapter, conversation grouping and AI input. Existing concurrent T-054/T-055 changes were left intact. No live Meta calls or real comment actions were performed.
 
 - 2026-10-25 — Owner requested a written handoff for Claude. Implementation remains uncommitted in the isolated worktree. Final gate passed lint/arch/typecheck and all 501 backend tests but failed on an existing integrations-view web test timeout (103 web tests passed); production build/E2E remain. All six PostgreSQL integration tests passed. Fresh-context review reported no remaining blockers, conditional on green checks. See the handoff for exact continuation commands and provider limitations.
+
+- 2026-10-26 — merged into main with PR #60.
 
 ## Links
 

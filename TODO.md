@@ -4,16 +4,6 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
-- [ ] T-074 Delete a bot and open its settings from the bot list — @agent:claude · [details](todo/T-074-delete-a-bot-and-open-its-settings-from-the-bot-li.md) · PR #61
-- [ ] T-073 Sales inbox v2 unread tags filters and reply mode — @agent:claude · [details](todo/T-073-sales-inbox-v2-unread-tags-filters-and-reply-mode.md) · PR #59
-- [ ] T-072 Complete inbox follow-ups saved views and sales shortcuts — @agent:codex · [details](todo/T-072-complete-inbox-follow-ups-saved-views-and-sales-sh.md) · PR #59
-- [ ] T-070 Instruction rules v2: toggles, sections, starter pack and visible system rules — @agent:claude · [details](todo/T-070-instruction-rules-v2-toggles-sections-starter-pack.md)
-- [ ] T-055 Bot API actions: let the bot call shop APIs (Bizfly-style integrations) — @agent:claude · [details](todo/T-055-bot-api-actions-let-the-bot-call-shop-apis-bizfly-.md)
-- [ ] T-069 Implement context-aware Facebook post replies and comment automation — @agent:codex, @agent:claude · [details](todo/T-069-implement-context-aware-facebook-post-replies-and-.md)
-- [ ] T-052 Sign in to ChatGPT from the Admin LLM page for hermes-runtime — @mrkenknight · [details](todo/T-052-sign-in-to-chatgpt-from-the-admin-llm-page-for-her.md) · #42 (draft)
-- [ ] T-067 Stop auto-collapsing the app sidebar inside the bot space — @agent:claude · [details](todo/T-067-stop-auto-collapsing-the-app-sidebar-inside-the-bo.md)
-- [ ] T-065 Admin LLM: check connection and fetch model list from the provider dialog — @agent:claude · [details](todo/T-065-admin-llm-check-connection-and-fetch-model-list-fr.md)
-
 ## Next
 
 - [ ] T-045 Email verification at signup (ACC-01) and verified-email invitations — @unassigned · [details](todo/T-045-email-verification-at-signup-acc-01-and-verified-e.md)
@@ -39,7 +29,6 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [ ] T-049 Inbox dead letters in the UI, OAuth flow purge and page release on disconnect — @unassigned · [details](todo/T-049-inbox-dead-letters-in-the-ui-oauth-flow-purge-and-.md)
 - [ ] T-050 Pin the Hermes version and run a live hermes-runtime acceptance probe — @unassigned · [details](todo/T-050-pin-the-hermes-version-and-run-a-live-hermes-runti.md)
 - [ ] T-051 Move Meta inbox and training docs into the docs structure — @unassigned · [details](todo/T-051-move-meta-inbox-and-training-docs-into-the-docs-st.md)
-- [ ] T-053 Bot reply quality and pipeline robustness found by scenario QA — @unassigned · [details](todo/T-053-bot-reply-quality-and-pipeline-robustness-found-by.md)
 - [ ] T-058 Notification preferences and reminder offsets (ADM-03) — @unassigned · [details](todo/T-058-notification-preferences-and-reminder-offsets-adm-.md)
 - [ ] T-059 Plan purchase history, invoices and payment approval states (ADM-05) — @unassigned · [details](todo/T-059-plan-purchase-history-invoices-and-payment-approva.md)
 - [ ] T-060 AI and ZBS credit wallets, ledgers and vouchers (ADM-06) — @unassigned · [details](todo/T-060-ai-and-zbs-credit-wallets-ledgers-and-vouchers-adm.md)
@@ -54,13 +43,13 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## Done (last 10 — older ones live in todo/done/)
 
-- [x] T-068 Redesign the sales inbox workspace — @agent:codex · [details](todo/done/T-068-redesign-the-sales-inbox-workspace.md) · PR #59
-- [x] T-071 Make team assignment history integration coverage deterministic — @agent:codex · [details](todo/done/T-071-make-team-assignment-history-integration-coverage-.md)
-- [x] T-041 Statistics dashboard, breakdowns and drilldowns — @agent:claude · [details](todo/done/T-041-statistics-dashboard-breakdowns-and-drilldowns.md) · #54
-- [x] T-040 Analytics events, temporal state and rebuildable projections — @agent:claude · [details](todo/done/T-040-analytics-events-temporal-state-and-rebuildable-pr.md) · #54
-- [x] T-039 Analytics metric definitions and attribution — @agent:claude · [details](todo/done/T-039-analytics-metric-definitions-and-attribution.md) · #54
-- [x] T-064 Fix the M4a review findings: sessions on 2FA changes, owner removal, seat backfill, audit grants — @agent:claude · [details](todo/done/T-064-fix-the-m4a-review-findings.md) · #55
-- [x] T-057 Account two-factor authentication with TOTP and recovery codes (ADM-04) — @agent:claude · [details](todo/done/T-057-account-two-factor-authentication-with-totp-and-re.md) · #53
-- [x] T-056 Workspace business profile and private logo (ADM-02) — @agent:claude · [details](todo/done/T-056-workspace-business-profile-and-private-logo-adm-02.md) · #53
-- [x] T-055 Workspace members: seat limits, resend and reassignment on removal (ADM-01) — @agent:claude · [details](todo/done/T-055-workspace-members-seat-limits-resend-and-reassignm.md) · #53
-- [x] T-054 Audit trail for workspace and security changes — @agent:claude · [details](todo/done/T-054-audit-trail-for-workspace-and-security-changes.md) · #53
+- [x] T-074 Delete a bot and open its settings from the bot list — @agent:claude · [details](todo/done/T-074-delete-a-bot-and-open-its-settings-from-the-bot-li.md) · PR #61
+- [x] T-073 Sales inbox v2 unread tags filters and reply mode — @agent:claude · [details](todo/done/T-073-sales-inbox-v2-unread-tags-filters-and-reply-mode.md) · PR #59
+- [x] T-072 Complete inbox follow-ups saved views and sales shortcuts — @agent:codex · [details](todo/done/T-072-complete-inbox-follow-ups-saved-views-and-sales-sh.md) · PR #59
+- [x] T-069 Implement context-aware Facebook post replies and comment automation — @agent:codex, @agent:claude · [details](todo/done/T-069-implement-context-aware-facebook-post-replies-and-.md) · PR #60
+- [x] T-070 Instruction rules v2: toggles, sections, starter pack and visible system rules — @agent:claude · [details](todo/done/T-070-instruction-rules-v2-toggles-sections-starter-pack.md) · PR #58
+- [x] T-055 Bot API actions: let the bot call shop APIs (Bizfly-style integrations) — @agent:claude · [details](todo/done/T-055-bot-api-actions-let-the-bot-call-shop-apis-bizfly-.md) · PR #58
+- [x] T-053 Bot reply quality and pipeline robustness found by scenario QA — @unassigned · [details](todo/done/T-053-bot-reply-quality-and-pipeline-robustness-found-by.md) · PR #58
+- [x] T-052 Sign in to ChatGPT from the Admin LLM page for hermes-runtime — @mrkenknight · [details](todo/done/T-052-sign-in-to-chatgpt-from-the-admin-llm-page-for-her.md) · #42 (draft) · PR #58
+- [x] T-067 Stop auto-collapsing the app sidebar inside the bot space — @agent:claude · [details](todo/done/T-067-stop-auto-collapsing-the-app-sidebar-inside-the-bo.md) · PR #56
+- [x] T-065 Admin LLM: check connection and fetch model list from the provider dialog — @agent:claude · [details](todo/done/T-065-admin-llm-check-connection-and-fetch-model-list-fr.md) · PR #56

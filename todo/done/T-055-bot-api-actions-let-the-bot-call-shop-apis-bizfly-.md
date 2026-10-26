@@ -1,15 +1,15 @@
 ---
 id: T-055
 title: Bot API actions: let the bot call shop APIs (Bizfly-style integrations)
-status: review            # backlog | next | in-progress | blocked | review | done | cancelled
+status: done            # backlog | next | in-progress | blocked | review | done | cancelled
 type: feature              # feature | bug | chore | spike | docs
 priority: P1               # P0 | P1 | P2 | P3
 owner: '@agent:claude'                   # @github-handle or @agent:<tool>
 feature_ids: []            # e.g. [BOT-07, CRM-11] from docs/02-functional-requirements.md
 created: 2026-10-25
-updated: 2026-10-25
+updated: 2026-10-26
 branch: feat/T-055-bot-api-actions
-pr:
+pr: '#58'
 parent:                    # T-xxx if this is a sub-task
 ---
 
@@ -50,6 +50,8 @@ See the plan document above (6 tasks: contracts/DB/CRUD, safe executor, runner, 
 - 2026-10-25 — real-stack QA (fake shop, dev DB migration 0015, api+agent restarted with `ACTION_DEV_ALLOW_HTTP_HOSTS=127.0.0.1`): lookup, missing param, booking confirm/yes/no in playground, slow/redirect/huge/blocked hosts, injection, API key, secret audit, "Thử gọi" and a channel lookup via the real webhook PASSED. NOT RUN: channel confirm yes/no and the no-actions control (Hermes ChatGPT usage limit, HTTP 429). Not verified: live Facebook Page, web UI in a real browser.
 - 2026-10-25 — owner feedback fixes: "Thử gọi" now runs the form as typed (new `POST /bots/{botId}/actions/test`, nothing stored; a blank secret falls back to the stored one of the edited action) so no save is needed first; declared response fields accept dotted paths (`items.code`) into lists/objects, so list responses are no longer reduced to their top-level fields. Independent QA review: no blockers; fixed literal-dot keys, parent type mismatch, depth cap, empty/unsafe path rejection in the contract, stale result after editing. Not done: rate limit on the draft route. `pnpm check` green.
 - Known: the contract requires https, so a plain-http fake shop needs `bot_actions.url` rewritten in the dev DB (QA workaround); playground action runs are `is_test`.
+
+- 2026-10-26 — merged into main with PR #58.
 
 ## Links
 

@@ -1,15 +1,15 @@
 ---
 id: T-052
 title: Sign in to ChatGPT from the Admin LLM page for hermes-runtime
-status: in-progress            # backlog | next | in-progress | blocked | review | done | cancelled
+status: done            # backlog | next | in-progress | blocked | review | done | cancelled
 type: feature              # feature | bug | chore | spike | docs
 priority: P2
 owner: @mrkenknight
 feature_ids: []            # e.g. [BOT-07, CRM-11] from docs/02-functional-requirements.md
 created: 2026-10-24
-updated: 2026-10-24
+updated: 2026-10-26
 branch: feat/T-052-hermes-chatgpt-admin-login
-pr: 42
+pr: '#58'
 parent: T-045
 ---
 
@@ -63,6 +63,8 @@ Dated entries, newest last. Decisions, blockers, questions, what was verified an
 - 2026-10-24 — **B3 owner decision on ChatGPT-plan eligibility for a hosted product is still pending.** Until it is recorded here and in ADR-010, the gate is in place: sign-in is disabled in production (`HERMES_SUBSCRIPTION_LOGIN` unset or `false`) and enabled elsewhere. T-050 (pinned Hermes version) is still a prerequisite.
 - 2026-10-24 — logout revocation: searched the Hermes sources for a documented OpenAI token revoke endpoint; none found, so logout is local only and the README, docs and the confirm dialog say so.
 - 2026-10-24 — the former per-file URL checks never restricted hosts (only scheme, credentials, query, fragment), so the shared `parseBridgeBaseUrl` keeps exactly that behaviour; a loopback/private-host policy was not added because it would change existing behaviour for configured bridge hosts. Open for the maintainer if a host policy is wanted.
+
+- 2026-10-26 — merged into main with PR #58.
 
 ## Links
 
