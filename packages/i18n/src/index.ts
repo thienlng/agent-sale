@@ -1,20 +1,10 @@
-import actionEn from './messages/en/action.json' with { type: 'json' };
-import actionVi from './messages/vi/action.json' with { type: 'json' };
-import channelInboxEn from './messages/en/channel-inbox.json' with { type: 'json' };
-import channelInboxVi from './messages/vi/channel-inbox.json' with { type: 'json' };
-import en from './messages/en/common.json' with { type: 'json' };
+import { en } from './en.js';
 import vi from './messages/vi/common.json' with { type: 'json' };
+import { vi as viCatalog } from './vi.js';
 
-import trainingEn from './messages/en/training.json' with { type: 'json' };
-import trainingVi from './messages/vi/training.json' with { type: 'json' };
+export { defaultLocale, type Locale, locales } from './locales.js';
 
-export const locales = ['vi', 'en'] as const;
-export type Locale = (typeof locales)[number];
-export const defaultLocale: Locale = 'vi';
-
-export const resources = {
-  vi: { common: { ...vi, channelInbox: channelInboxVi }, training: trainingVi, action: actionVi },
-  en: { common: { ...en, channelInbox: channelInboxEn }, training: trainingEn, action: actionEn },
-} as const;
+/** Both catalogs. The web app imports `./vi` and `./en` separately to keep English lazy. */
+export const resources = { vi: viCatalog, en } as const;
 
 export type CommonMessages = typeof vi;

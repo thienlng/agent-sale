@@ -10,6 +10,18 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./locales": {
+      "types": "./dist/locales.d.ts",
+      "import": "./dist/locales.js"
+    },
+    "./vi": {
+      "types": "./dist/vi.d.ts",
+      "import": "./dist/vi.js"
+    },
+    "./en": {
+      "types": "./dist/en.d.ts",
+      "import": "./dist/en.js"
     }
   },
   "files": [
