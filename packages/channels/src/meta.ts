@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import { parseFeedComments } from './meta-comments.js';
 import type {
   ChannelAdapter,
   ConnectorError,
@@ -65,7 +66,7 @@ export class MetaAdapter implements ChannelAdapter {
         });
       }
     }
-    return events;
+    return this.kind === 'facebook' ? [...events, ...parseFeedComments(body)] : events;
   }
   async send(
     asset: { externalId: string; token: string },

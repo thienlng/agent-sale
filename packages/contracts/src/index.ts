@@ -84,3 +84,5 @@ export * from './conversation/conversation.schema.js';
 export * from './conversation/conversation.events.js';
 export * from './conversation/conversation.routes.js';
 import { mediaRoutes } from './knowledge/media.routes.js';
+
+export * from './channel/fanpage.schema.js';

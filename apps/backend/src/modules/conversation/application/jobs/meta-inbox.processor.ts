@@ -1,6 +1,7 @@
 import type { ImageInput } from '@agent-sales/ai-core';
 import type { NormalizedEvent } from '@agent-sales/channels';
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { FanpageCommentProcessor } from './fanpage-comment.processor.js';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import {
   CHANNEL_FACADE,
   MAX_EVENT_ATTEMPTS,
@@ -53,6 +54,9 @@ export class MetaInboxProcessor {
     @Inject(BOT_FACADE) private readonly bots: BotFacade,
     @Inject(IMAGE_FETCHER) private readonly images: ImageFetcher,
     @Inject(BOT_IMAGE_VISION) private readonly vision: boolean,
+    @Inject(FanpageCommentProcessor)
+    @Optional()
+    private readonly comments?: FanpageCommentProcessor,
   ) {}
   async tick(): Promise<void> {
     const dead = await this.channels.deadLetterExhaustedEvents();
@@ -64,6 +68,21 @@ export class MetaInboxProcessor {
     const groups = new Map<string, { conversationId: string; jobs: PendingMetaEvent[] }>();
     // Persist every receipt first: a burst produces one coherent context, and external staff echoes pause it.
     for (const job of jobs) {
+      if (job.event.type === 'comment') {
+        try {
+          if (!this.comments) throw new Error('Comment processor unavailable');
+          if (!(await this.channels.renewEvent(job.id, job.claimToken))) continue;
+          await this.comments.process(job);
+          await this.channels.completeEvent(job.id, job.claimToken);
+        } catch {
+          this.failed(job);
+          if (job.attempt >= MAX_EVENT_ATTEMPTS) {
+            await this.comments?.failed(job).catch(() => undefined);
+            await this.deadLetter(job);
+          } else await this.retrySoon(job);
+        }
+        continue;
+      }
       try {
         const c = await this.inbox.receive(job.workspaceId, job.connectionId, job.event);
         // Fire and forget: a slow or failing Meta profile call must not delay a reply.
@@ -216,11 +235,30 @@ export class MetaInboxProcessor {
       return;
     }
     // One customer turn per burst: every question after the last reply reaches the model together.
+    const provenance = await this.comments?.privateContext(
+      job.workspaceId,
+      job.connectionId,
+      job.event.senderExternalId,
+    );
+    if (provenance && (provenance.status === 'ambiguous' || provenance.status === 'unavailable')) {
+      const result = await this.inbox.commitBotReply(job.workspaceId, c.id, {
+        revision: context.revision,
+        text: handoffText(bot),
+        idempotencyKey: key,
+      });
+      if (result) await this.inbox.handOff(job.workspaceId, c.id, c.assigneeId ?? 'system');
+      return;
+    }
+    const postContext = provenance?.context;
     const ask = (images: ImageInput[], seen: ReadonlySet<string>) =>
       this.ai.reply(
         job.workspaceId,
         botId,
-        { messages: toReplyTurns(stored, seen), ...(images.length ? { images } : {}) },
+        {
+          messages: toReplyTurns(stored, seen),
+          ...(images.length ? { images } : {}),
+          ...(postContext ? { postContext } : {}),
+        },
         { conversationId: c.id, isTest: false },
       );
     let response;

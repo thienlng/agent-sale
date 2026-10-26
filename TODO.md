@@ -9,6 +9,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [ ] T-072 Complete inbox follow-ups saved views and sales shortcuts — @agent:codex · [details](todo/T-072-complete-inbox-follow-ups-saved-views-and-sales-sh.md) · PR #59
 - [ ] T-070 Instruction rules v2: toggles, sections, starter pack and visible system rules — @agent:claude · [details](todo/T-070-instruction-rules-v2-toggles-sections-starter-pack.md)
 - [ ] T-055 Bot API actions: let the bot call shop APIs (Bizfly-style integrations) — @agent:claude · [details](todo/T-055-bot-api-actions-let-the-bot-call-shop-apis-bizfly-.md)
+- [ ] T-069 Implement context-aware Facebook post replies and comment automation — @agent:codex, @agent:claude · [details](todo/T-069-implement-context-aware-facebook-post-replies-and-.md)
 - [ ] T-052 Sign in to ChatGPT from the Admin LLM page for hermes-runtime — @mrkenknight · [details](todo/T-052-sign-in-to-chatgpt-from-the-admin-llm-page-for-her.md) · #42 (draft)
 - [ ] T-067 Stop auto-collapsing the app sidebar inside the bot space — @agent:claude · [details](todo/T-067-stop-auto-collapsing-the-app-sidebar-inside-the-bo.md)
 - [ ] T-065 Admin LLM: check connection and fetch model list from the provider dialog — @agent:claude · [details](todo/T-065-admin-llm-check-connection-and-fetch-model-list-fr.md)

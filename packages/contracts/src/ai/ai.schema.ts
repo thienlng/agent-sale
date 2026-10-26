@@ -1,3 +1,4 @@
+import { FanpageContext } from '../channel/fanpage.schema.js';
 import { z } from 'zod';
 
 export const PlaygroundMessage = z.object({
@@ -27,6 +28,7 @@ export const PlaygroundRequest = z.object({
       message: 'the last message must come from the customer',
     }),
   images: z.array(PlaygroundImage).max(3).optional(),
+  postContext: FanpageContext.optional(),
 });
 export type PlaygroundRequest = z.infer<typeof PlaygroundRequest>;
 

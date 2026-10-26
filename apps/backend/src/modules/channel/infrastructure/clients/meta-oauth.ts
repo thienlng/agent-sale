@@ -28,7 +28,14 @@ const first = (v: Record<string, unknown>): Record<string, unknown> =>
   Array.isArray(v.data) ? rec(v.data[0]) : v;
 /** What messaging needs: list Pages, send messages, subscribe the Page to webhooks. */
 const scopes = {
-  facebook: ['pages_show_list', 'pages_messaging', 'pages_manage_metadata'],
+  facebook: [
+    'pages_show_list',
+    'pages_messaging',
+    'pages_manage_metadata',
+    'pages_read_engagement',
+    'pages_read_user_content',
+    'pages_manage_engagement',
+  ],
   instagram: ['instagram_business_basic', 'instagram_business_manage_messages'],
 };
 export class LiveMetaGateway implements MetaGateway {
@@ -179,7 +186,7 @@ export class LiveMetaGateway implements MetaGateway {
           .filter((r) => r.status === 'granted')
           .map((r) => r.permission)
       : [];
-    const missing = scopes.facebook.filter((s) => !allowed.includes(s));
+    const missing = scopes.facebook.slice(0, 3).filter((s) => !allowed.includes(s));
     if (missing.length)
       throw new ChannelError(
         'VALIDATION_FAILED',
@@ -237,7 +244,7 @@ export class LiveMetaGateway implements MetaGateway {
         },
         body: new URLSearchParams({
           subscribed_fields:
-            p === 'instagram' ? 'messages' : 'messages,messaging_postbacks,message_echoes',
+            p === 'instagram' ? 'messages' : 'messages,messaging_postbacks,message_echoes,feed',
         }),
       },
     );

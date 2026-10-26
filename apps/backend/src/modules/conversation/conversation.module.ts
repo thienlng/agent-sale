@@ -1,3 +1,4 @@
+import { FanpageCommentProcessor } from './application/jobs/fanpage-comment.processor.js';
 import { Module } from '@nestjs/common';
 import type { Database } from '@agent-sales/db';
 import { DB_TENANT } from '../../common/db/db.module.js';
@@ -36,6 +37,7 @@ import { ConversationController } from './interface/http/conversation.controller
       useFactory: () => new SafeImageFetcher(botImageExtraHosts(getEnv())),
     },
     { provide: BOT_IMAGE_VISION, useFactory: () => botImageVisionEnabled(getEnv()) },
+    FanpageCommentProcessor,
     MetaInboxProcessor,
     { provide: CONVERSATION_RUNNER, useExisting: MetaInboxProcessor },
   ],

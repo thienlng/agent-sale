@@ -28,6 +28,12 @@ export interface NormalizedEvent {
   attachments?: Array<{ type: 'image' | 'video' | 'file' | 'audio' | 'sticker'; url: string }>;
   /** Raw payload kept for investigation (retention 30 days). */
   raw: unknown;
+  comment?: {
+    postId: string;
+    commentId: string;
+    parentId: string | null;
+    operation: 'add' | 'edited' | 'remove';
+  };
 }
 
 export interface OutboundMessage {

@@ -53,6 +53,7 @@ const JSON_REMINDER = 'Reply with the JSON object only, as described above.';
 const FORMAT_REMINDER =
   'Reminder: your previous reply was not a JSON object. Reply again with only the JSON object described above, even for a general question.';
 const PROMPT = { name: 'sales-agent', version: 8 } as const;
+const POST_PROMPT = { name: 'fanpage-context', version: 1 } as const;
 const PROMPT_VERSION = `${PROMPT.name}@${PROMPT.version}`;
 const MAX_SOURCES = 5;
 
@@ -97,7 +98,7 @@ export class PlaygroundService implements AiFacade {
     ws: WorkspaceId,
     botId: string,
     input: PlaygroundRequest,
-    context: { conversationId: string; isTest: boolean },
+    context: { conversationId: string | null; isTest: boolean },
   ): Promise<PlaygroundResponse> {
     return this.generateReply(ws, botId, input, context);
   }
@@ -113,7 +114,10 @@ export class PlaygroundService implements AiFacade {
     const customerTexts = input.messages.filter((m) => m.role === 'customer').map((m) => m.content);
 
     // The last two customer messages: short follow-ups ("còn size 42 ko") need the earlier one.
-    const query = customerTexts.slice(-2).join('\n');
+    const post = input.postContext;
+    const query = [post?.text.slice(0, 2000), ...customerTexts.slice(-2)]
+      .filter(Boolean)
+      .join('\n');
     const hits = await this.knowledge.searchFaqs(ws, botId, query, MAX_SOURCES);
     const sources = toSources(hits, bot.placeholders);
     const scenarios = this.training
@@ -153,6 +157,9 @@ export class PlaygroundService implements AiFacade {
       inStock: product.available > 0,
     }));
     const contextData = [
+      post
+        ? `<originating_post>\n${JSON.stringify({ text: post.text, media: post.media, parentText: post.parentText }).replace(/</g, '\\u003c').replace(/>/g, '\\u003e')}\n</originating_post>`
+        : '',
       guidance,
       overview.length
         ? `<catalog_overview>\n${JSON.stringify(overviewContext)}\n</catalog_overview>`
@@ -161,6 +168,14 @@ export class PlaygroundService implements AiFacade {
     ]
       .filter(Boolean)
       .join('\n\n');
+    // Figures the reply may state: the shop's own post, guidance and catalog. The parent comment is
+    // the customer's words, so a price in it is context, never a grounded source.
+    const groundingData = [
+      post ? JSON.stringify({ text: post.text, media: post.media }) : '',
+      guidance,
+      JSON.stringify(overviewContext),
+      JSON.stringify(productContext),
+    ].join('\n');
 
     // The playground has no conversation: a stable id per bot lets confirmations work in the test chat.
     const actionConversationId = context.conversationId ?? playgroundConversationId(botId);
@@ -171,7 +186,9 @@ export class PlaygroundService implements AiFacade {
         : null;
     const actionsBlockText = actionViews.length ? actionsBlock(actionViews, pendingAction) : '';
 
-    const system = this.#prompts.render(await this.#prompts.load(PROMPT), {
+    const postRules = post ? await this.#prompts.load(POST_PROMPT) : '';
+    const template = [await this.#prompts.load(PROMPT), postRules].filter(Boolean).join('\n\n');
+    const system = this.#prompts.render(template, {
       'bot.name': bot.name,
       // The shop's own name (a bot setting) beats the account's workspace name.
       'workspace.name': bot.placeholders['store.name'] || workspace.name,
@@ -266,7 +283,7 @@ export class PlaygroundService implements AiFacade {
           bot,
           sources,
           [...customerTexts, ...readback],
-          contextData,
+          groundingData,
           actionResults,
         );
     // A question the guardrails replaced never reached the customer: their "ok" must not confirm it.
@@ -280,7 +297,9 @@ export class PlaygroundService implements AiFacade {
       tier: bot.modelTier,
       provider: res.provider,
       model: res.model,
-      promptVersion: PROMPT_VERSION,
+      promptVersion: post
+        ? `${PROMPT_VERSION}+${POST_PROMPT.name}@${POST_PROMPT.version}`
+        : PROMPT_VERSION,
       inputTokens: res.usage.inputTokens,
       outputTokens: res.usage.outputTokens,
       cachedTokens: res.usage.cachedInputTokens,

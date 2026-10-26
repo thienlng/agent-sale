@@ -1,3 +1,5 @@
+import { FANPAGE_FACADE, type FanpageFacade } from '../src/modules/channel/api/fanpage.facade.js';
+import { FanpageSettings } from '@agent-sales/contracts';
 import {
   allRoutes,
   AuthResponse,
@@ -819,4 +821,78 @@ describe('HTTP: platform admin — LLM configuration', () => {
     expect(res.statusCode).toBe(503);
     expect(res.json().error.code).toBe('AI_UNAVAILABLE');
   }, 20_000);
+});
+
+describe('HTTP: fanpage comments', () => {
+  const id = '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d01';
+  const endpoints = [
+    { method: 'GET' as const, path: 'settings' },
+    { method: 'PATCH' as const, path: 'settings', payload: { publicReplies: true } },
+    { method: 'GET' as const, path: 'posts' },
+    { method: 'GET' as const, path: 'comments' },
+    {
+      method: 'POST' as const,
+      path: 'comments/10_20/actions',
+      payload: { kind: 'hide', requestId: id },
+    },
+  ];
+  it('protects every endpoint, validates mutations and rejects another workspace', async () => {
+    const a = await app(),
+      owner = await signup(a),
+      other = await signup(a, 'other@example.test');
+    const own = await bootstrap(a, owner.token),
+      foreign = await bootstrap(a, other.token);
+    const pages = a.get<FanpageFacade>(FANPAGE_FACADE);
+    const settings = vi.spyOn(pages, 'settings').mockResolvedValue(FanpageSettings.parse({}));
+    vi.spyOn(pages, 'saveSettings').mockResolvedValue(
+      FanpageSettings.parse({ publicReplies: true }),
+    );
+    vi.spyOn(pages, 'posts').mockResolvedValue([]);
+    vi.spyOn(pages, 'comments').mockResolvedValue([]);
+    vi.spyOn(pages, 'act').mockResolvedValue(null);
+    const headers = {
+      authorization: `Bearer ${owner.token}`,
+      'x-workspace-id': own.memberships[0]?.workspaceId ?? '',
+    };
+    for (const e of endpoints) {
+      const opts = {
+        method: e.method,
+        url: `/api/v1/channels/${id}/fanpage/${e.path}`,
+        ...('payload' in e ? { payload: e.payload } : {}),
+      };
+      expect((await inject(a, opts)).statusCode).toBe(401);
+      expect(
+        (
+          await inject(a, {
+            ...opts,
+            headers: { ...headers, 'x-workspace-id': foreign.memberships[0]?.workspaceId ?? '' },
+          })
+        ).statusCode,
+      ).toBe(404);
+      expect((await inject(a, { ...opts, headers })).statusCode).toBe(
+        e.method === 'POST' ? 201 : 200,
+      );
+    }
+    expect(settings).toHaveBeenCalled();
+    expect(
+      (
+        await inject(a, {
+          method: 'PATCH',
+          url: `/api/v1/channels/${id}/fanpage/settings`,
+          headers,
+          payload: { publicReplies: 'yes' },
+        })
+      ).statusCode,
+    ).toBe(400);
+    expect(
+      (
+        await inject(a, {
+          method: 'POST',
+          url: `/api/v1/channels/${id}/fanpage/comments/10_20/actions`,
+          headers,
+          payload: { kind: 'public_reply', text: '', requestId: id },
+        })
+      ).statusCode,
+    ).toBe(400);
+  });
 });
