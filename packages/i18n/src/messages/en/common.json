@@ -113,7 +113,20 @@
     "toggleLabel": "Turn the bot on or off",
     "turnedOn": "Bot turned on",
     "turnedOff": "Bot turned off",
-    "notFound": "This bot does not exist in your store."
+    "notFound": "This bot does not exist in your store.",
+    "settings": "Settings",
+    "delete": "Delete bot",
+    "deleting": "Deleting…",
+    "deleted": "Deleted bot “{{name}}”",
+    "deleteTitle": "Delete bot “{{name}}”?",
+    "deleteIntro": "You will not be able to open this bot again.",
+    "deleteEffects": {
+      "stops": "The bot stops replying to customers immediately.",
+      "pages": "Pages connected to this bot switch to staff replies.",
+      "kept": "Training data is kept for history, but the bot can no longer be opened."
+    },
+    "deleteConfirmLabel": "Type the bot name to confirm: {{name}}",
+    "deleteConfirmMismatch": "The name does not match"
   },
   "readiness": {
     "title": "Get the bot ready",

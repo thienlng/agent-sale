@@ -132,6 +132,16 @@ export const botRoutes = defineRoutes([
     responses: { 200: BotDto },
   },
   {
+    method: 'delete',
+    path: '/bots/{botId}',
+    summary:
+      'Soft-delete a bot (bots.manage): it disappears from every read and its pages are unbound',
+    tag: 'bot',
+    auth: true,
+    workspaceScoped: true,
+    responses: { 204: null },
+  },
+  {
     method: 'get',
     path: '/bots/{botId}/readiness',
     summary: 'Onboarding checklist and missing placeholders',

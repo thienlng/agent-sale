@@ -4,6 +4,7 @@ import {
   AuditList,
   AuthResponse,
   BootstrapResponse,
+  BotDto,
   ContactDto,
   ContactHistoryList,
   ContactListResponse,
@@ -850,5 +851,55 @@ describe('team and access on Postgres', () => {
     await expect(
       attempt(sql`select * from workspace_entitlement_overrides`),
     ).resolves.toBeUndefined();
+  });
+
+  it('deleting a bot needs bots.manage, hides it everywhere, unbinds pages and is audited (T-074)', async () => {
+    const lan = await user('lan-del@team.vn', 'Chủ shop Lan');
+    const binh = await user('binh-del@team.vn', 'Sales Bình');
+    const stranger = await user('stranger-del@team.vn', 'Người lạ');
+    await join(lan, binh, 'binh-del@team.vn', 'sales');
+    const asBinh = binh.in(lan.ownWorkspace);
+
+    const created = await call(lan.h, 'POST', '/bots', { name: 'Bot Lan', industry: 'retail' });
+    const bot = BotDto.parse(created.json());
+    const connectionId = '018f0000-0000-7000-8000-00000000d074';
+    await owner.db.insert(schema.channelConnections).values({
+      id: connectionId,
+      workspaceId: lan.ownWorkspace,
+      provider: 'facebook',
+      externalId: 'page-t074',
+      name: 'Trang Lan',
+      status: 'connected',
+      botId: bot.id,
+      tokenSealed: 'sealed',
+    });
+
+    // Sales may read bots but not delete them; another workspace sees a 404.
+    expect((await call(asBinh, 'DELETE', `/bots/${bot.id}`)).statusCode).toBe(403);
+    expect((await call(stranger.h, 'DELETE', `/bots/${bot.id}`)).statusCode).toBe(404);
+    expect((await call(lan.h, 'GET', `/bots/${bot.id}`)).statusCode).toBe(200);
+
+    expect((await call(lan.h, 'DELETE', `/bots/${bot.id}`)).statusCode).toBe(204);
+    expect((await call(lan.h, 'GET', `/bots/${bot.id}`)).statusCode).toBe(404);
+    expect((await call(lan.h, 'GET', `/bots/${bot.id}/faqs`)).statusCode).toBe(404);
+    expect((await call(lan.h, 'GET', `/bots/${bot.id}/readiness`)).statusCode).toBe(404);
+    expect((await call(lan.h, 'DELETE', `/bots/${bot.id}`)).statusCode).toBe(404);
+    const list = (await call(lan.h, 'GET', '/bots')).json() as { data: Array<{ id: string }> };
+    expect(list.data.some((b) => b.id === bot.id)).toBe(false);
+
+    // The row is kept (soft delete), switched off, and the page no longer points at it.
+    const [row] = await owner.db.select().from(schema.bots).where(eq(schema.bots.id, bot.id));
+    expect(row?.deletedAt).not.toBeNull();
+    expect(row?.isActive).toBe(false);
+    const [conn] = await owner.db
+      .select()
+      .from(schema.channelConnections)
+      .where(eq(schema.channelConnections.id, connectionId));
+    expect(conn?.botId).toBeNull();
+    const audit = AuditList.parse(
+      (await call(lan.h, 'GET', '/audit-events?action=bot.deleted')).json(),
+    );
+    expect(audit.data).toHaveLength(1);
+    expect(audit.data[0]).toMatchObject({ action: 'bot.deleted', targetId: bot.id });
   });
 });

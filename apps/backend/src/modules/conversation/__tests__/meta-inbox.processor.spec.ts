@@ -80,6 +80,7 @@ function setup(options: { vision?: boolean; fetch?: ImageFetcher['fetch'] } = {}
     presence: vi.fn(async () => undefined),
     requeueEvent: vi.fn(async () => undefined),
     hasNewerCustomerEvent: vi.fn(async () => false),
+    unbindBot: vi.fn(async () => 0),
   } as unknown as ChannelFacade & { claimEvents: ReturnType<typeof vi.fn> };
   const bots: BotFacade = { getBot: async () => bot };
   const inbox = new ConversationFacadeImpl(

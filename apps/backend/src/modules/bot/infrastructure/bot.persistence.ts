@@ -1,10 +1,19 @@
-import { type Database, eq, isNull, schema, type TenantTx, withTenant } from '@agent-sales/db';
+import {
+  and,
+  type Database,
+  eq,
+  isNull,
+  schema,
+  type TenantTx,
+  withTenant,
+  writeAudit,
+} from '@agent-sales/db';
 import { workspaceId, type WorkspaceId } from '@agent-sales/shared';
 
 import type { BotTxContext, BotUnitOfWork } from '../application/ports/bot-unit-of-work.js';
 import { Bot } from '../domain/bot.js';
 import type { BotSettingsData, IndustryKey } from '../domain/bot-settings.js';
-import type { BotRepository } from '../domain/ports/bot.repository.js';
+import type { BotDeletionAudit, BotRepository } from '../domain/ports/bot.repository.js';
 
 type Row = typeof schema.bots.$inferSelect;
 const t = schema.bots;
@@ -34,6 +43,26 @@ export class DrizzleBotRepository implements BotRepository {
   async findById(id: string): Promise<Bot | null> {
     const [r] = await this.tx.select().from(t).where(eq(t.id, id)).limit(1);
     return r && !r.deletedAt ? toBot(r) : null;
+  }
+
+  async softDelete(id: string, audit: BotDeletionAudit): Promise<boolean> {
+    const rows = await this.tx
+      .update(t)
+      .set({ deletedAt: new Date(), isActive: false, updatedAt: new Date() })
+      .where(and(eq(t.id, id), isNull(t.deletedAt)))
+      .returning({ workspaceId: t.workspaceId });
+    const row = rows[0];
+    if (!row) return false;
+    await writeAudit(this.tx, {
+      workspaceId: workspaceId(row.workspaceId),
+      actorUserId: audit.actorUserId,
+      actorName: audit.actorName,
+      action: 'bot.deleted',
+      targetType: 'bot',
+      targetId: id,
+      data: { name: audit.botName },
+    });
+    return true;
   }
 
   async save(bot: Bot): Promise<void> {
@@ -87,6 +116,12 @@ export class InMemoryBotUnitOfWork implements BotUnitOfWork {
         },
         save: async (b) => {
           rows.set(b.id, b);
+        },
+        softDelete: async (id) => {
+          const b = rows.get(id);
+          if (!b || !mine(b)) return false;
+          rows.delete(id);
+          return true;
         },
       },
     });

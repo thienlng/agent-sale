@@ -4,6 +4,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
+- [ ] T-074 Delete a bot and open its settings from the bot list — @agent:claude · [details](todo/T-074-delete-a-bot-and-open-its-settings-from-the-bot-li.md) · PR #61
 - [ ] T-073 Sales inbox v2 unread tags filters and reply mode — @agent:claude · [details](todo/T-073-sales-inbox-v2-unread-tags-filters-and-reply-mode.md) · PR #59
 - [ ] T-072 Complete inbox follow-ups saved views and sales shortcuts — @agent:codex · [details](todo/T-072-complete-inbox-follow-ups-saved-views-and-sales-sh.md) · PR #59
 - [ ] T-070 Instruction rules v2: toggles, sections, starter pack and visible system rules — @agent:claude · [details](todo/T-070-instruction-rules-v2-toggles-sections-starter-pack.md)

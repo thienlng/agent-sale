@@ -113,7 +113,20 @@
     "toggleLabel": "Bật hoặc tắt bot",
     "turnedOn": "Đã bật bot",
     "turnedOff": "Đã tắt bot",
-    "notFound": "Không tìm thấy bot này trong cửa hàng của bạn."
+    "notFound": "Không tìm thấy bot này trong cửa hàng của bạn.",
+    "settings": "Cài đặt",
+    "delete": "Xóa bot",
+    "deleting": "Đang xóa…",
+    "deleted": "Đã xóa bot “{{name}}”",
+    "deleteTitle": "Xóa bot “{{name}}”?",
+    "deleteIntro": "Bạn sẽ không thể mở lại bot này.",
+    "deleteEffects": {
+      "stops": "Bot ngừng trả lời khách ngay lập tức.",
+      "pages": "Các trang đang kết nối với bot chuyển sang nhân viên trả lời.",
+      "kept": "Dữ liệu đã huấn luyện được giữ lại để tra cứu lịch sử, nhưng bot không thể mở lại."
+    },
+    "deleteConfirmLabel": "Gõ tên bot để xác nhận: {{name}}",
+    "deleteConfirmMismatch": "Tên chưa khớp"
   },
   "readiness": {
     "title": "Chuẩn bị cho bot",

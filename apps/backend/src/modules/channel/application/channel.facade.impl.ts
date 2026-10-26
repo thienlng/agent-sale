@@ -6,11 +6,16 @@ import {
   type UpdateChannelRequest,
 } from '@agent-sales/contracts';
 import { newId, type WorkspaceId } from '@agent-sales/shared';
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, type OnModuleInit, Optional } from '@nestjs/common';
 import { z } from 'zod';
 import { getEnv } from '../../../common/config.js';
 import { SECRET_BOX, type SecretBox } from '../../../common/security/secret-box.js';
-import { BOT_FACADE, type BotFacade } from '../../bot/api/index.js';
+import {
+  BOT_FACADE,
+  BOT_LIFECYCLE,
+  type BotFacade,
+  type BotLifecycle,
+} from '../../bot/api/index.js';
 import type { ChannelFacade, OutboundInboxMessage } from '../api/channel.facade.js';
 import { ChannelError } from '../domain/channel.errors.js';
 import { CHANNEL_STORE, type ChannelStore, type ConnectionRecord } from './ports/channel-store.js';
@@ -28,7 +33,7 @@ const publicConnection = (c: ConnectionRecord): ChannelConnectionDto =>
   ChannelConnectionDto.parse(c);
 const log = new Logger('ChannelFacade');
 @Injectable()
-export class ChannelFacadeImpl implements ChannelFacade {
+export class ChannelFacadeImpl implements ChannelFacade, OnModuleInit {
   /** HTTP client for Meta profile reads; tests replace it with a fake. */
   transport: typeof fetch = fetch;
   constructor(
@@ -36,7 +41,16 @@ export class ChannelFacadeImpl implements ChannelFacade {
     @Inject(META_GATEWAY) private readonly gateway: MetaGateway,
     @Inject(SECRET_BOX) private readonly box: SecretBox,
     @Inject(BOT_FACADE) private readonly bots: BotFacade,
+    @Inject(BOT_LIFECYCLE) @Optional() private readonly lifecycle?: BotLifecycle,
   ) {}
+  onModuleInit(): void {
+    this.lifecycle?.onDeleted(async (ws, botId) => {
+      await this.unbindBot(ws, botId);
+    });
+  }
+  unbindBot(ws: WorkspaceId, botId: string): Promise<number> {
+    return this.store.unbindBot(ws, botId);
+  }
   async list(ws: WorkspaceId) {
     return {
       data: (await this.store.list(ws)).map(publicConnection),

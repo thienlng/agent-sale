@@ -77,6 +77,7 @@ beforeEach(() => {
     presence: async () => undefined,
     requeueEvent: async () => undefined,
     hasNewerCustomerEvent: async () => false,
+    unbindBot: async () => 0,
   };
   const bots: BotFacade = { getBot: async () => bot };
   service = new ConversationFacadeImpl(

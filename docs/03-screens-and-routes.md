@@ -15,7 +15,7 @@
 
 | Group | Item | Preny route | Our route | Feature | Priority |
 |---|---|---|---|---|---|
-| Đào tạo Bot (Bot training) | Bot list | `/quan-ly/bot` | `/app/bots` | BOT-01/02 | P0 |
+| Đào tạo Bot (Bot training) | Bot list (create, settings shortcut, delete with confirmation) | `/quan-ly/bot` | `/app/bots` | BOT-01/02 | P0 |
 | Chat đa kênh (Omnichannel chat) | Omnichannel messages | `/quan-ly/tin-nhan` | `/app/inbox` | INB-* | P0 |
 | | Platform integrations | `/quan-ly/tich-hop-nen-tang/{tab}` | `/app/channels/{all\|pending\|facebook\|instagram\|zalo\|lazada\|tiktok}` | CHN-01..03 | P0 |
 | AI Mini CRM | Customer list | `/quan-ly/khach-hang` | `/app/contacts` | CRM-01..04 | P0 |
