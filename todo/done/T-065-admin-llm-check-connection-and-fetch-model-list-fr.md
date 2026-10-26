@@ -1,15 +1,15 @@
 ---
 id: T-065
 title: Admin LLM: check connection and fetch model list from the provider dialog
-status: in-progress            # backlog | next | in-progress | blocked | review | done | cancelled
+status: done            # backlog | next | in-progress | blocked | review | done | cancelled
 type: feature              # feature | bug | chore | spike | docs
 priority: P1               # P0 | P1 | P2 | P3
 owner: @agent:claude
 feature_ids: []            # e.g. [BOT-07, CRM-11] from docs/02-functional-requirements.md
 created: 2026-10-24
-updated: 2026-10-24
+updated: 2026-10-26
 branch: feat/T-065-admin-llm-discover-models
-pr:
+pr: '#56'
 parent:                    # T-xxx if this is a sub-task
 ---
 
@@ -48,6 +48,8 @@ An admin can check a provider's connection from the add/edit dialog before savin
 ## Log
 
 - 2026-10-24 — created from maintainer feedback; implemented. Hermes has no listing endpoint, so the button is hidden for it.
+
+- 2026-10-26 — merged into main with PR #56.
 
 ## Links
 

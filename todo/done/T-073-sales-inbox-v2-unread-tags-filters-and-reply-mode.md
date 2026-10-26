@@ -1,13 +1,13 @@
 ---
 id: T-073
 title: Sales inbox v2 unread tags filters and reply mode
-status: review        # backlog | next | in-progress | blocked | review | done | cancelled
+status: done        # backlog | next | in-progress | blocked | review | done | cancelled
 type: feature              # feature | bug | chore | spike | docs
 priority: P1               # P0 | P1 | P2 | P3
 owner: '@agent:claude'     # @github-handle or @agent:<tool>
 feature_ids: []            # e.g. [BOT-07, CRM-11] from docs/02-functional-requirements.md
 created: 2026-10-25
-updated: 2026-10-25
+updated: 2026-10-26
 branch: feat/T-068-sales-inbox
 pr: '#59'
 parent:                    # T-xxx if this is a sub-task
@@ -95,6 +95,8 @@ Dated entries, newest last. Decisions, blockers, questions, what was verified an
 - 2026-10-25 — web built in a parallel worktree (`tmp/T-073-web`), QA review (role-played sales rep): 1 blocker (temporary and permanent takeover sent the same request) + 8 major, all fixed (read guard on mark-unread, debounced search with kept data, touch row menu, one notes timeline, lighter composer, "Đã xem" only for another reader, divider after mark-unread, staff name on messages). Merged into this branch.
 - 2026-10-25 — verified: `pnpm check` green (initial gzip 248.6 KB / 250 KB); inbox e2e 11/11 against the preview build (fixed the mock channel to have a bot). `responsive.spec.ts` fails at 768/1280/1920 px on the base commit a89fa56 as well (heading "Nhật ký thay đổi"), so it is pre-existing and not caused by T-073. Meta profile endpoints follow the docs; not yet run against a live Page. Known gaps: no cursor pagination (limit 100), filter state lives in saved views (localStorage) not the URL, the follow-up "due" queue was replaced by the tabs (follow-ups stay in the right panel).
 - 2026-10-25 — owner test round 2 fixed: right-click opened the row menu under the pointer and selected an item on release (now a context menu at the pointer); the page name showed where a channel label belongs (now a Messenger / Instagram label); the channel filter is back next to the tabs; unnamed customers from before the profile lookup are looked up when the list shows them. Status → review (PR #59).
+
+- 2026-10-26 — merged into main with PR #59.
 
 ## Links
 

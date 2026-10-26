@@ -1,15 +1,15 @@
 ---
 id: T-070
 title: Instruction rules v2: toggles, sections, starter pack and visible system rules
-status: review            # backlog | next | in-progress | blocked | review | done | cancelled
+status: done            # backlog | next | in-progress | blocked | review | done | cancelled
 type: feature              # feature | bug | chore | spike | docs
 priority: P1               # P0 | P1 | P2 | P3
 owner:                     # @github-handle or @agent:<tool>
 feature_ids: []            # e.g. [BOT-07, CRM-11] from docs/02-functional-requirements.md
 created: 2026-10-25
-updated: 2026-10-25
+updated: 2026-10-26
 branch:
-pr:
+pr: '#58'
 parent:                    # T-xxx if this is a sub-task
 ---
 
@@ -45,6 +45,8 @@ Contracts + migration first, then backend and web in parallel, then independent 
 
 - 2026-10-25 — implemented (contracts/migration, backend, web); review found 2 major starter-content issues and minor ones, all fixed except the onboarding-step semantics (intentionally unchanged).
 - 2026-10-25 — real-stack QA PASS: migration, starter pack on a new bot, idempotency, cross-workspace 404, toggle/section history + restore, prompt text with/without a rule, grounding "k" form offline, web page (groups, toggle, copy, search, locked group). NOT RUN: model-dependent checks (Hermes 503). Known: empty-body POST with a JSON content-type returns 500 instead of 4xx (Fastify parser; the web client is unaffected).
+
+- 2026-10-26 — merged into main with PR #58.
 
 ## Links
 

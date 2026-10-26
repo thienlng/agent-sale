@@ -1,15 +1,15 @@
 ---
 id: T-053
 title: Bot reply quality and pipeline robustness found by scenario QA
-status: review                 # backlog | next | in-progress | blocked | review | done | cancelled
+status: done                 # backlog | next | in-progress | blocked | review | done | cancelled
 type: feature              # feature | bug | chore | spike | docs
 priority: P1               # P0 | P1 | P2 | P3
 owner: @agent:claude-code     # @github-handle or @agent:<tool>
 feature_ids: []            # e.g. [BOT-07, CRM-11] from docs/02-functional-requirements.md
 created: 2026-10-24
-updated: 2026-10-24
+updated: 2026-10-26
 branch:
-pr:
+pr: '#58'
 parent: T-045
 ---
 
@@ -95,6 +95,8 @@ found are fixed with regression tests.
 - Owner decisions recorded: the ChatGPT-plan login is for testing only (never production). Open: whether existing bots keep their stored fallback text; Anthropic/OpenAI-compatible providers ignore images by design.
 
 - 2026-10-24 — seeded the owner's real bot `sale_tinymind` (TinyMind shoe shop): mission/greeting/placeholders, 13 FAQs, 9 products with per-size variants and stock (illustrations generated locally and served from `apps/web/public/demo-assets/` through the dev tunnel, git-excluded), a size chart + policy image in the library, 5 situations, 4 quick replies; the three DEMO-* products were archived. Chatting with it through the playground found three real defects, fixed here: (1) a follow-up like "size 41?" lost the product being discussed because variant names ("Size 41") match most products — the catalog search now also uses the bot's last reply; (2) general questions ("what do you sell?", "something under 500k") had no catalog to read — added a compact `<catalog_overview>` block and `listBotCatalog`; (3) such answers were often plain prose and fell back with `invalid_output:not_json` — the retry now carries a format reminder, the prompt ends with a JSON-only reminder, and a short prose answer is kept only if it has no braces, ≤700 chars, passes the number guard and repeats no 8-word run of the instructions. Also: the bot introduces the shop by the `store.name` setting, and never repeats a price/budget the customer wrote. Measured on the real bot: 17–18 of 18 broad questions answered (was ~14), 10/10 on a previously failing question, injection checks still refused. Demo asset URLs embed the tunnel host: if the tunnel URL changes they must be re-seeded.
+
+- 2026-10-26 — merged into main with PR #58.
 
 ## Links
 

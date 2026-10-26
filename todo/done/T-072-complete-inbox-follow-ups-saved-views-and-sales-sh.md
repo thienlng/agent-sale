@@ -1,15 +1,15 @@
 ---
 id: T-072
 title: Complete inbox follow-ups saved views and sales shortcuts
-status: review
+status: done
 type: feature
 priority: P1
 owner: "@agent:codex, @agent:claude"
 feature_ids: [CHAT-01]
 created: 2026-10-25
-updated: 2026-10-25
+updated: 2026-10-26
 branch: feat/T-068-sales-inbox
-pr: 59
+pr: '#59'
 parent: T-068
 ---
 
@@ -57,6 +57,8 @@ Let sales staff schedule a conversation follow-up, reuse filters and compose pro
 
 - 2026-10-25 — Claude continued. Task IDs renumbered to avoid collisions with other worktrees (this task was T-070, the CI blocker fix is now T-071). Fixed the caret bug (composer remembers selection on change/blur/select) and a test fixture that picked an archived CRM status. Production Playwright inbox + responsive: 16/16. Fresh-context QA review found no blockers; fixed: one corrupt saved view no longer discards the others, randomUUID failure on insecure contexts is handled, clearing followUpAt on the server also clears the private note. Documented, not changed: an inbound customer message bumps the revision so an open follow-up draft shows the conflict banner (no data loss); ProductShare has no permission gate (shows an error/retry state if the catalog is unreadable); `/` shortcut ignores Shift (AZERTY).
 - 2026-10-25 — T-073 replaced the separate "Đến hẹn" queue with the Tất cả / Chưa đọc / Chờ rep tabs; follow-ups keep working from the right panel ("Hẹn chăm sóc lại").
+
+- 2026-10-26 — merged into main with PR #59.
 
 ## Links
 
