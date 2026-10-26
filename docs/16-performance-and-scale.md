@@ -72,3 +72,7 @@ Capacity tests before GA (see `docs/13`): sustained 100 msg/s for 1 h with norma
 ## 4. What we measure in production
 
 RED metrics per endpoint and per queue; p95 dashboards per tenant tier; Web Vitals from real users (`web-vitals` → analytics); bundle size trend per release; DB slow-query log (> 100 ms) reviewed weekly; cost per tenant (AI, infra).
+
+## Root recovery dependency budget (T-076)
+
+Always-loaded route recovery controls use native links/buttons with design tokens rather than pulling the shared Button, Slot and class-merging helpers into the initial graph. Not-found navigation, reload recovery, keyboard interaction and localized labels remain available. The 250 KB gzip entry budget is unchanged; the reviewed lane B build measured 246.7 KB, down from 257.6 KB before this change.

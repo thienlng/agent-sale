@@ -1,13 +1,13 @@
 ---
 id: T-076
 title: Reduce integration initial bundle below 250 KB
-status: backlog
+status: in-progress
 type: chore
 priority: P1
-owner: "@unassigned"
+owner: "@agent:codex"
 created: 2026-10-26
 updated: 2026-10-26
-branch:
+branch: feat/T-090-lane-b-review
 pr:
 ---
 
@@ -30,11 +30,17 @@ Inspect initial imports and code splitting in the integration web app. Preserve 
 
 ## Plan
 
+1. Measure built entry assets against the unchanged 250 KB gzip gate.
+2. Remove shared Button/Slot/style-helper fan-out from always-loaded root recovery controls, preserving native keyboard behavior and tokens.
+3. Verify the budget, browser not-found recovery and full pnpm check. No root tooling or budget changes.
+
 ## Log
 
 - 2026-10-26: Created from actual integration check output recorded in /tmp/t075-fraunces-check-rerun.log.
 
 ## Links
 
-- docs/16-performance-and-scale.md
-- todo/T-075-apply-fraunces-across-the-running-application.md
+- [Performance budget](../docs/16-performance-and-scale.md)
+- [Cofounder review plan](../docs/handoffs/2026-10-26-cofounder-review-plan.md)
+
+- 2026-10-26 — The lane B build measured 257.6 KB before the dependency change and 246.7 KB after it. Full checks and browser recovery acceptance pending.
