@@ -285,6 +285,7 @@ export function ConversationView({
         windowClosed={windowClosed}
         locked={folder !== null || !canEdit}
         channelLabel={CHANNEL_LABEL[c.provider]}
+        channelId={c.channelId}
         renderTools={
           renderComposerTools ? (insertText) => renderComposerTools(c, insertText) : undefined
         }

@@ -4,7 +4,6 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
-- [ ] T-107 Persist inbox text drafts and personal Enter preference — @agent:codex · [details](todo/T-107-persist-inbox-text-drafts-and-personal-enter-prefe.md)
 
 - [ ] T-081 Redesign portfolio and business statistics entry screens — @agent:codex · [details](todo/T-081-redesign-portfolio-and-business-statistics-entry-s.md) · PR #70 · partial: shop data awaits lane A
 - [ ] T-076 Reduce integration initial bundle below 250 KB — @agent:codex · [details](todo/T-076-reduce-integration-initial-bundle-below-250-kb.md) · PR #64
@@ -67,6 +66,8 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## Done (last 10 — older ones live in todo/done/)
 
+- [x] T-107 Persist inbox text drafts and personal Enter preference — @agent:codex · [details](todo/done/T-107-persist-inbox-text-drafts-and-personal-enter-prefe.md)
+
 - [x] T-105 Allow agents to push and merge to main with owner approval — @agent:claude · [details](todo/done/T-105-allow-agents-to-push-and-merge-to-main-with-owner-.md) · merged to main
 - [x] T-096 Rebuild the inbox core around the Meta Business Suite layout — @agent:claude · [details](todo/done/T-096-rebuild-the-inbox-core-around-the-meta-business-su.md) · merged to main
 - [x] T-095 Write Meta Business Suite inbox functional specification — @agent:codex · [details](todo/done/T-095-write-meta-business-suite-inbox-functional-specifi.md) · merged to main
@@ -76,4 +77,3 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [x] T-101 Embeddable website chat widget — @agent:claude · [details](todo/done/T-101-embeddable-website-chat-widget.md) · merged to main
 - [x] T-100 Webchat public API, visitors and rate limits — @agent:claude · [details](todo/done/T-100-webchat-public-api-visitors-and-rate-limits.md) · merged to main
 - [x] T-099 Website connections: settings, site key and management API — @agent:claude · [details](todo/done/T-099-website-connections-settings-site-key-and-manageme.md) · merged to main
-- [x] T-098 Generalize the inbox pipeline by channel capabilities — @agent:claude · [details](todo/done/T-098-generalize-the-inbox-pipeline-by-channel-capabilit.md) · merged to main

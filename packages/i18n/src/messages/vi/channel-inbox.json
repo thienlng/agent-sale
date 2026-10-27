@@ -750,5 +750,16 @@
       "noImages": "Chưa có ảnh",
       "loadedOnly": "Ảnh trong các tin đã tải gần nhất."
     }
+  },
+  "composeContinuity": {
+    "settings": "Tùy chọn soạn tin",
+    "enterToSend": "Enter để gửi",
+    "enterHint": "Enter để gửi. Shift+Enter để xuống dòng.",
+    "newlineHint": "Enter để xuống dòng. Bấm Gửi để gửi tin nhắn.",
+    "draftNotice": "Bản nháp văn bản được giữ trên thiết bị này tối đa 7 ngày và xóa khi đăng xuất. Tệp đính kèm và ghi chú nội bộ không được giữ sau khi tải lại.",
+    "storageUnavailable": "Trình duyệt chưa lưu được bản nháp. Giữ tab này mở để giữ nội dung.",
+    "conflict": "Bản nháp đã thay đổi ở tab khác. Chọn nội dung muốn giữ trước khi gửi.",
+    "useLatest": "Dùng bản nháp mới",
+    "keepMine": "Giữ nội dung này"
   }
 }

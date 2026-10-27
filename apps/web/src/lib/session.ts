@@ -17,6 +17,7 @@ import {
   setWorkspaceId,
 } from './api-client';
 import { storage } from './storage';
+import { clearPrivateBrowserState, PRIVATE_GENERATION_KEY } from './private-browser-state';
 
 /**
  * Who is logged in and which workspace they act on. Kept outside React so
@@ -36,12 +37,15 @@ let session: Session | null = null;
 let restoring: Promise<Session | null> | null = null;
 const listeners = new Set<() => void>();
 
-function set(next: Session | null): void {
+function set(next: Session | null, rotatePrivateState = true): void {
+  const previous = session;
   session = next;
+  if (!next || (previous && previous.user.id !== next.user.id))
+    clearPrivateBrowserState(rotatePrivateState);
   setWorkspaceId(next?.workspaceId ?? null);
   if (next?.workspaceId) storage.set(WORKSPACE_KEY, next.workspaceId);
   if (next) storage.set(SESSION_HINT_KEY, '1');
-  else storage.remove(SESSION_HINT_KEY);
+  else if (rotatePrivateState) storage.remove(SESSION_HINT_KEY);
   listeners.forEach((l) => l());
 }
 
@@ -147,9 +151,23 @@ export async function logout(): Promise<void> {
 }
 
 /** Called by the API client when a refresh fails: drop the session and go to /login. */
-export function onSessionExpired(handler: () => void): void {
-  setSessionExpiredHandler(() => {
-    set(null);
-    handler();
-  });
+let expiredHandler: (() => void) | undefined;
+function expireSession(rotate = true): void {
+  setAccessToken(null);
+  set(null, rotate);
+  expiredHandler?.();
 }
+export function onSessionExpired(handler: () => void): void {
+  expiredHandler = handler;
+  setSessionExpiredHandler(() => expireSession());
+}
+
+// A second tab must leave its authenticated view, not retain an unusable composer.
+window.addEventListener('storage', (event) => {
+  if (
+    (event.key === SESSION_HINT_KEY && event.newValue === null) ||
+    (event.key === PRIVATE_GENERATION_KEY && event.newValue !== event.oldValue) ||
+    event.key === null
+  )
+    expireSession(false);
+});

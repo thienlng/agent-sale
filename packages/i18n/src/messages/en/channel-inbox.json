@@ -750,5 +750,16 @@
       "noImages": "No photos yet",
       "loadedOnly": "Photos from the most recently loaded messages."
     }
+  },
+  "composeContinuity": {
+    "settings": "Compose options",
+    "enterToSend": "Enter to send",
+    "enterHint": "Enter sends. Shift+Enter adds a new line.",
+    "newlineHint": "Enter adds a new line. Use Send to send your message.",
+    "draftNotice": "Text drafts stay on this device for up to 7 days. Signing out clears them. Attachments and internal notes are not saved after reload.",
+    "storageUnavailable": "Your browser could not save this draft. Keep this tab open to retain your text.",
+    "conflict": "This draft changed in another tab. Choose which text to keep before sending.",
+    "useLatest": "Use latest draft",
+    "keepMine": "Keep this text"
   }
 }

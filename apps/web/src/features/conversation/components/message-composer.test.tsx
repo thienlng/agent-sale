@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiClientError } from '@/lib/api-client';
 import { MessageComposer } from './message-composer';
+import { setEnterToSend } from '../lib/composer-preferences';
 
 const mocks = vi.hoisted(() => ({
   send: vi.fn(),
@@ -41,6 +42,7 @@ vi.mock('./message-attachments', () => ({
 }));
 
 beforeEach(() => {
+  setEnterToSend('sale', true);
   mocks.send.mockReset();
   mocks.update.mockReset();
   mocks.invalidate.mockReset();
@@ -48,6 +50,45 @@ beforeEach(() => {
 });
 
 describe('MessageComposer', () => {
+  it('lets the user choose newline on Enter without affecting explicit Send', async () => {
+    const user = userEvent.setup();
+    mocks.send.mockResolvedValue({ status: 'sent' });
+    render(<MessageComposer id="newline-setting" botId="bot" windowClosed={false} />);
+    await user.click(
+      screen.getByRole('button', { name: 'channelInbox.composeContinuity.settings' }),
+    );
+    await user.click(
+      screen.getByRole('switch', { name: 'channelInbox.composeContinuity.enterToSend' }),
+    );
+    await user.keyboard('{Escape}');
+    await user.type(screen.getByRole('textbox'), 'Line one{Enter}Line two');
+    expect(screen.getByRole('textbox')).toHaveValue('Line one\nLine two');
+    expect(mocks.send).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'channelInbox.send' }));
+    expect(mocks.send).toHaveBeenCalledWith(
+      expect.objectContaining({ text: 'Line one\nLine two' }),
+    );
+  });
+
+  it('does not repopulate drafts when an old send resolves after session cleanup', async () => {
+    const user = userEvent.setup();
+    let finish: ((value: { status: string }) => void) | undefined;
+    mocks.send.mockImplementation(
+      () =>
+        new Promise<{ status: string }>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    render(<MessageComposer id="logout-request" botId="bot" windowClosed={false} />);
+    await user.type(screen.getByRole('textbox'), 'Old session');
+    await user.click(screen.getByRole('button', { name: 'channelInbox.send' }));
+    const { clearPrivateBrowserState } = await import('@/lib/private-browser-state');
+    clearPrivateBrowserState();
+    finish?.({ status: 'failed' });
+    await waitFor(() => expect(screen.getByRole('textbox')).toHaveValue(''));
+    expect(Object.keys(localStorage).filter((key) => key.startsWith('rapiz.private.'))).toEqual([]);
+  });
+
   it('keeps each customer draft when switching conversations', async () => {
     const user = userEvent.setup();
     const view = render(<MessageComposer id="draft-first" botId="bot" windowClosed={false} />);

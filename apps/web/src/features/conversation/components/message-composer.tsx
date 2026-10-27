@@ -7,9 +7,14 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ApiClientError } from '@/lib/api-client';
 import { useSession } from '@/lib/session';
+import { privateStateVersion } from '@/lib/private-browser-state';
 import { useQueryClient } from '@tanstack/react-query';
 import {
+  canSendDraft,
+  draftRequestKey,
+  resolveDraftConflict,
   draftKey,
+  draftStorageUnavailable,
   filterSlashReplies,
   insertQuickReply,
   readDraft,
@@ -23,6 +28,8 @@ import { EmojiPicker } from './emoji-picker';
 import { AttachmentPicker } from './message-attachments';
 import { QuickRepliesMenu } from './quick-replies-menu';
 import { SlashReplies } from './slash-replies';
+import { ComposerPreferences } from './composer-preferences';
+import { useEnterToSend } from '../lib/composer-preferences';
 
 /** Text composer with attachments and quick replies; retries reuse the idempotency key. */
 export function MessageComposer(props: {
@@ -33,10 +40,16 @@ export function MessageComposer(props: {
   locked?: boolean | undefined;
   /** "Messenger" / "Instagram" for the placeholder. */
   channelLabel?: string | undefined;
+  channelId?: string | undefined;
   renderTools?: ((insertText: (text: string) => void) => ReactNode) | undefined;
 }) {
   const session = useSession();
-  const scope = draftKey(session?.user.id ?? '', session?.workspaceId ?? '', props.id);
+  const scope = draftKey(
+    session?.user.id ?? '',
+    session?.workspaceId ?? '',
+    props.id,
+    props.channelId,
+  );
   return <ScopedComposer key={scope} {...props} scope={scope} />;
 }
 
@@ -54,9 +67,13 @@ function ScopedComposer({
   windowClosed: boolean;
   locked?: boolean | undefined;
   channelLabel?: string | undefined;
+  channelId?: string | undefined;
   scope: string;
   renderTools?: ((insertText: (text: string) => void) => ReactNode) | undefined;
 }) {
+  const userId = useSession()?.user.id ?? '';
+  const enterToSend = useEnterToSend(userId);
+  const [version] = useState(privateStateVersion);
   const { t } = useTranslation();
   const tr = (key: string) => t(`channelInbox.${key}`);
   const { send: sender } = useInboxActions(id);
@@ -78,7 +95,7 @@ function ScopedComposer({
   }
   function save(patch: Partial<ComposerDraft>) {
     const next = { ...readDraft(scope), ...patch };
-    writeDraft(scope, next);
+    writeDraft(scope, next, version);
   }
   function setDraft(text: string) {
     save({ text, attempt: null, failedAttempt: false });
@@ -132,23 +149,29 @@ function ScopedComposer({
   }
   async function send() {
     const text = draft.trim();
-    if (!text || sender.isPending || windowClosed) return;
+    if (!text || sender.isPending || windowClosed || !canSendDraft(scope, version)) return;
     const previous = readDraft(scope).attempt;
     const body =
       previous?.text === text && !previous.attachment && !saved.failedAttempt
         ? previous
-        : { text, idempotencyKey: crypto.randomUUID() };
+        : {
+            text,
+            idempotencyKey: saved.failedAttempt ? crypto.randomUUID() : draftRequestKey(scope),
+          };
     save({ attempt: body, failedAttempt: false });
+    if (readDraft(scope).conflict) return;
     setDelivery(null);
     try {
       const result = await sender.mutateAsync(body);
       if (
         result.status !== 'failed' &&
+        !readDraft(scope).conflict &&
         readDraft(scope).attempt?.idempotencyKey === body.idempotencyKey
       )
         save({ text: '', attempt: null });
       if (
         result.status === 'failed' &&
+        !readDraft(scope).conflict &&
         readDraft(scope).attempt?.idempotencyKey === body.idempotencyKey
       )
         save({ failedAttempt: true });
@@ -169,7 +192,7 @@ function ScopedComposer({
   }
   /** Meta's thumbs-up: a real message, offered only while the draft is empty. */
   async function sendLike() {
-    if (sender.isPending || windowClosed || draft.trim()) return;
+    if (sender.isPending || windowClosed || draft.trim() || !canSendDraft(scope, version)) return;
     try {
       const result = await sender.mutateAsync({ text: '👍', idempotencyKey: crypto.randomUUID() });
       setDelivery(result.status);
@@ -179,7 +202,7 @@ function ScopedComposer({
     }
   }
   async function sendAttachment(attachment: NonNullable<SendInboxMessageRequest['attachment']>) {
-    if (sender.isPending || windowClosed) return;
+    if (sender.isPending || windowClosed || !canSendDraft(scope, version)) return;
     try {
       const previous = readDraft(scope).attachmentAttempt;
       const body =
@@ -193,11 +216,13 @@ function ScopedComposer({
       const result = await sender.mutateAsync(body);
       if (
         result.status !== 'failed' &&
+        !readDraft(scope).conflict &&
         readDraft(scope).attachmentAttempt?.idempotencyKey === body.idempotencyKey
       )
         save({ attachment: null, attachmentAttempt: null, attachmentFailedAttempt: false });
       if (
         result.status === 'failed' &&
+        !readDraft(scope).conflict &&
         readDraft(scope).attachmentAttempt?.idempotencyKey === body.idempotencyKey
       )
         save({ attachmentFailedAttempt: true });
@@ -210,6 +235,32 @@ function ScopedComposer({
   return (
     <div data-inbox-composer className="shrink-0 bg-background px-3 pt-1 pb-3 sm:px-4">
       <>
+        {saved.conflict ? (
+          <div role="status" className="mb-2 space-y-2 rounded-lg border p-2 text-sm">
+            <p>{t('channelInbox.composeContinuity.conflict')}</p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => resolveDraftConflict(scope, false, version)}
+              >
+                {t('channelInbox.composeContinuity.useLatest')}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => resolveDraftConflict(scope, true, version)}
+              >
+                {t('channelInbox.composeContinuity.keepMine')}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+        {draft && draftStorageUnavailable(scope) ? (
+          <p role="status" className="mb-2 text-xs text-muted-foreground">
+            {t('channelInbox.composeContinuity.storageUnavailable')}
+          </p>
+        ) : null}
         {closedWindow && !locked ? (
           <p role="status" className="mb-3 rounded-lg bg-muted p-3 text-xs text-muted-foreground">
             {tr('windowClosed')}
@@ -244,7 +295,7 @@ function ScopedComposer({
             <span className="min-w-0 flex-1 truncate text-xs">{tr('sales.attachmentReady')}</span>
             <Button
               size="sm"
-              disabled={sender.isPending || windowClosed}
+              disabled={sender.isPending || windowClosed || Boolean(saved.conflict)}
               onClick={() => {
                 if (saved.attachment) void sendAttachment(saved.attachment);
               }}
@@ -304,7 +355,7 @@ function ScopedComposer({
             aria-expanded={slashOpen}
             aria-controls={slashOpen ? 'slash-replies' : undefined}
             onKeyDown={(event) => {
-              if (slashOpen && !event.nativeEvent.isComposing) {
+              if (slashOpen && !event.nativeEvent.isComposing && event.keyCode !== 229) {
                 if (event.key === 'Escape') {
                   event.preventDefault();
                   setSlashDismissed(draft);
@@ -325,7 +376,13 @@ function ScopedComposer({
                   }
                 }
               }
-              if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+              if (
+                enterToSend &&
+                event.key === 'Enter' &&
+                !event.shiftKey &&
+                !event.nativeEvent.isComposing &&
+                event.keyCode !== 229
+              ) {
                 event.preventDefault();
                 void send();
               }
@@ -337,9 +394,10 @@ function ScopedComposer({
               {draft.length > 1500 ? `${draft.length}/2000` : null}
             </span>
             <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-0.5">
+              <ComposerPreferences userId={userId} enterToSend={enterToSend} />
               <AttachmentPicker
                 botId={botId}
-                disabled={sender.isPending || windowClosed}
+                disabled={sender.isPending || windowClosed || Boolean(saved.conflict)}
                 onPick={(attachment) =>
                   save({ attachment, attachmentAttempt: null, attachmentFailedAttempt: false })
                 }
@@ -356,7 +414,7 @@ function ScopedComposer({
                   className="text-primary"
                   aria-label={t('channelInbox.meta.composer.like')}
                   title={t('channelInbox.meta.composer.like')}
-                  disabled={sender.isPending || windowClosed}
+                  disabled={sender.isPending || windowClosed || Boolean(saved.conflict)}
                   onClick={() => void sendLike()}
                 >
                   {sender.isPending ? <Loader2 className="animate-spin" /> : <ThumbsUp />}
@@ -364,11 +422,15 @@ function ScopedComposer({
               ) : (
                 <Button
                   size="sm"
-                  title={tr('sendHint')}
+                  title={t(
+                    `channelInbox.composeContinuity.${enterToSend ? 'enterHint' : 'newlineHint'}`,
+                  )}
                   aria-label={tr(
                     sender.isPending ? 'sending' : saved.failedAttempt ? 'sales.retrySend' : 'send',
                   )}
-                  disabled={!draft.trim() || sender.isPending || windowClosed}
+                  disabled={
+                    !draft.trim() || sender.isPending || windowClosed || Boolean(saved.conflict)
+                  }
                   onClick={() => void send()}
                 >
                   {sender.isPending ? <Loader2 className="animate-spin" /> : <Send />}
