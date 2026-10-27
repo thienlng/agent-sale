@@ -3,7 +3,7 @@
 # Requires: gh CLI authenticated with admin rights on the repo, and a plan that supports
 # branch protection on this repo (public repo, or GitHub Pro/Team for a private one).
 # On GitHub Free with a private repo the API answers 403 "Upgrade to GitHub Pro…";
-# until then the pre-push hook and .github/workflows/main-guard.yml are the controls.
+# until then the pre-push hook (no force push, no deleting main) is the only control.
 # Usage: bash scripts/github-branch-protection.sh <owner>/<repo>
 set -euo pipefail
 REPO="${1:?usage: $0 <owner>/<repo>}"

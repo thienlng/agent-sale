@@ -80,7 +80,7 @@ Reject patterns to watch for in agent PRs: silently widened scope, tests that as
 
 | Day | thienlng | second maintainer (when present) | Agents |
 |---|---|---|---|
-| 1 | Answer `docs/14-open-decisions.md` (T-002); invite the second maintainer; decide on GitHub Pro (branch protection for the private repo — until then the `pre-push` hook + `Main guard` workflow are the controls) | Clone, `bash scripts/verify-setup.sh`, review this framework, propose rule changes via PR | — |
+| 1 | Answer `docs/14-open-decisions.md` (T-002); invite the second maintainer; decide on GitHub Pro (branch protection for the private repo — until then the `pre-push` hook refuses force pushes and deleting `main`) | Clone, `bash scripts/verify-setup.sh`, review this framework, propose rule changes via PR | — |
 | 2–3 | Start Meta Business Verification + Zalo developer app; brand/domain | Review and merge T-003/T-004 plans | T-003 (api skeleton), T-004 (db) plan-first, then implement |
 | 4–7 | Interview 5 shops; collect real questions for evals | Review PRs; set up GitHub Environments/secrets for T-008 | T-005 (web shell), T-006 (test harness) |
 | 8–10 | Groom MVP sprint 1 tasks from `docs/12-roadmap-and-plan.md` §4 | T-007 review (ai-core), T-008 | T-007, T-008 |

@@ -39,3 +39,4 @@ Rules and agent settings no longer forbid agents from pushing or merging to `mai
 
 - 2026-10-27 — created and done. The edits had been staged in the primary checkout earlier; the owner chose "push to main" for them during the branch and worktree cleanup.
 - 2026-10-27 — Owner asked to let agents push `main` too: the pre-push hook now allows fast-forward pushes and only refuses force pushes and deleting `main`; rule 02 and CONTRIBUTING updated. The `Main guard` workflow (.github) is unchanged.
+- 2026-10-27 — Owner asked to drop the `Main guard` workflow too: `.github/workflows/main-guard.yml` removed and its mentions updated.
