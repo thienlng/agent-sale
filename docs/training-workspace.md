@@ -39,3 +39,11 @@ Instruction scenarios provide guidance for bot generation through the knowledge 
 Bot settings include `themeColor` (`#RRGGBB`, default `#FF6600`) and `replySchedule` (`{mode: always|custom, start, end}` in `HH:MM`, Vietnam time, `[start, end)`, `end < start` spans midnight). Outside the reply hours the Meta inbox processor stores the message without answering, so staff handle it. Bot settings also include `autoResumeAfterManual` (default true), `humanTakeoverMinutes` (1–1440, default 5), and `silenceOnExternalReply` (default true). Old JSON settings receive these defaults on rehydration; partial updates never re-apply defaults to fields the client did not send. Partial updates leave unrelated handover values unchanged. The conversation module enforces these values on staff sends and Meta echoes.
 
 The HTTP contract lives in `packages/contracts/src/bot/bot.routes.ts`; request/response schemas live in `packages/contracts/src/knowledge/knowledge.schema.ts`. Vietnamese and English labels are isolated in the `training` i18n namespace.
+
+## Factual knowledge and response instructions (T-085)
+
+The bot menu names the two destinations explicitly: Business information contains factual question/answer knowledge (address, opening hours, shipping/return policies); Response instructions contains tone and behavioral rules (how to ask questions, advise and hand off). Both pages show purpose, examples and a link to the other destination. Existing knowledge, rules, priority and retrieval behavior are unchanged. Products and media retain their existing dedicated pages.
+
+## Direct activation controls (T-084)
+
+The bot list and bot training menu use the same named on/off switch. Users need bots.manage; pending changes disable the switch. List/detail caches update together and revert when the API rejects a save. Switching off keeps page assignments intact and uses the existing runtime stop checks. Existing basic and advanced settings remain under Bot settings.

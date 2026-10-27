@@ -7,15 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import {
-  useConversation,
-  useConversationTagActions,
-  useConversationTags,
-  useInboxActions,
-  useInboxBot,
-  useInboxMembers,
-  useInboxTags,
-} from '../api/inbox';
+import { useConversation, useInboxActions, useInboxBot, useInboxMembers } from '../api/inbox';
 import { useSession } from '@/lib/session';
 import { useCan } from '@/lib/permissions';
 import { useReadOnOpen } from '../hooks/use-read-on-open';
@@ -24,7 +16,7 @@ import { CustomerPanel } from './customer-panel';
 import { MessageComposer } from './message-composer';
 import { MessageThread } from './message-thread';
 import { useTagBarExpanded } from '../hooks/use-tag-bar-expanded';
-import { TagBar } from './tag-bar';
+import { ConversationTagBar } from './conversation-tag-bar';
 import { useConversationShortcuts } from '../hooks/use-conversation-shortcuts';
 
 /** An open conversation: header with takeover, thread, composer and customer panel. */
@@ -54,9 +46,6 @@ export function ConversationView({
   const members = useInboxMembers();
   const session = useSession();
   const userId = session?.user.id ?? '';
-  const library = useInboxTags();
-  const tagActions = useConversationTagActions(id);
-  const convTags = useConversationTags(id);
   const [tagsExpanded, setTagsExpanded] = useTagBarExpanded(session?.workspaceId ?? '', userId);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [details, setDetails] = useState(
@@ -104,7 +93,6 @@ export function ConversationView({
       .then(() => toast.success(tr('v2.header.marked')))
       .catch(() => toast.error(tr('loadError')));
   }
-  const tagError = () => toast.error(tr('v2.tagBar.error'));
   useConversationShortcuts({
     root,
     enabled: Boolean(c),
@@ -202,17 +190,14 @@ export function ConversationView({
               : detail.data.messages
           }
         />
-        <TagBar
-          tags={convTags.data ?? c.tags}
-          library={library.data ?? []}
+        <ConversationTagBar
+          id={id}
+          fallbackTags={c.tags}
           expanded={tagsExpanded}
           onExpandedChange={setTagsExpanded}
           pickerOpen={pickerOpen}
           onPickerOpenChange={setPickerOpen}
           readOnly={!canEdit}
-          busy={tagActions.attach.isPending || tagActions.remove.isPending}
-          onAttach={(tag) => tagActions.attach.mutate(tag, { onError: tagError })}
-          onRemove={(tag) => tagActions.remove.mutate(tag, { onError: tagError })}
         />
         <MessageComposer
           id={id}

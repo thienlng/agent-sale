@@ -48,8 +48,10 @@ export function ConnectionCard({
   showBot,
   canReconnect,
   onReconnect,
+  disabled = false,
 }: {
   connection: ChannelConnectionDto;
+  disabled?: boolean;
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
   botName: string | null;
@@ -70,6 +72,7 @@ export function ConnectionCard({
       <Checkbox
         className="mt-4"
         checked={checked}
+        disabled={disabled}
         onCheckedChange={(value) => onCheckedChange(value === true)}
         aria-label={ti('selectPage', { name: c.name })}
       />

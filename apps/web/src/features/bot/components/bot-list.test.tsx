@@ -137,3 +137,71 @@ describe('BotList actions', () => {
     expect(screen.queryByRole('button', { name: 'Xóa bot' })).toBeNull();
   });
 });
+
+describe('direct bot activation', () => {
+  it('toggles a bot from the list without navigating', async () => {
+    const stub = stubFetch(
+      routes({ [`PATCH /bots/${ID_IDLE}`]: { status: 200, body: bot(ID_IDLE, 'Bot rảnh', true) } }),
+    );
+    vi.stubGlobal('fetch', stub.fetchStub);
+    renderWithRouter(() => <BotList />);
+    const control = await screen.findByRole('switch', { name: 'Bật hoặc tắt bot Bot rảnh' });
+    expect(control).not.toBeChecked();
+    await userEvent.setup().click(control);
+    await waitFor(() => expect(control).toBeChecked());
+    expect(stub.calls.find((call) => call.key === `PATCH /bots/${ID_IDLE}`)?.body).toEqual({
+      isActive: true,
+    });
+  });
+  it('restores the saved state when the update fails', async () => {
+    vi.stubGlobal(
+      'fetch',
+      stubFetch(
+        routes({
+          [`PATCH /bots/${ID_IDLE}`]: {
+            status: 500,
+            body: { code: 'INTERNAL', message: 'Unavailable' },
+          },
+        }),
+      ).fetchStub,
+    );
+    renderWithRouter(() => <BotList />);
+    const control = await screen.findByRole('switch', { name: 'Bật hoặc tắt bot Bot rảnh' });
+    await userEvent.setup().click(control);
+    await waitFor(() => expect(control).not.toBeDisabled());
+    expect(control).not.toBeChecked();
+  });
+  it('does not expose a list switch to users without bot management permission', async () => {
+    can.value = false;
+    vi.stubGlobal('fetch', stubFetch(routes()).fetchStub);
+    renderWithRouter(() => <BotList />);
+    await screen.findByText('Bot Lan');
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument();
+  });
+});
+
+it('keeps the direct switch pending and prevents duplicate requests', async () => {
+  const stub = stubFetch(routes());
+  let finish: (value: Response) => void = () => {};
+  let calls = 0;
+  vi.stubGlobal('fetch', (input: string, init: RequestInit = {}) => {
+    if (init.method === 'PATCH') {
+      calls++;
+      return new Promise<Response>((resolve) => {
+        finish = resolve;
+      });
+    }
+    return stub.fetchStub(input, init);
+  });
+  renderWithRouter(() => <BotList />);
+  const user = userEvent.setup();
+  const control = await screen.findByRole('switch', { name: 'Bật hoặc tắt bot Bot rảnh' });
+  await user.click(control);
+  await waitFor(() => expect(control).toBeDisabled());
+  expect(control).toBeChecked();
+  await user.click(control);
+  expect(calls).toBe(1);
+  finish(new Response(JSON.stringify(bot(ID_IDLE, 'Bot rảnh', true)), { status: 200 }));
+  await waitFor(() => expect(control).not.toBeDisabled());
+  expect(control).toBeChecked();
+});

@@ -7,10 +7,20 @@ import {
   type MetaProvider,
   type UpdateChannelRequest,
 } from '@agent-sales/contracts';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
+import { queryKeys } from '@/lib/query-keys';
 import { api } from '@/lib/api-client';
 import { useWorkspaceId } from '@/lib/use-workspace';
+/** Every assignment path refreshes the global list, bot setup/readiness and inbox context. */
+function invalidateConnectionViews(qc: QueryClient, ws: string) {
+  return Promise.all([
+    qc.invalidateQueries({ queryKey: ['channels', ws] }),
+    qc.invalidateQueries({ queryKey: ['inbox', ws] }),
+    qc.invalidateQueries({ queryKey: queryKeys.bots(ws) }),
+  ]);
+}
+
 export function useChannels() {
   const ws = useWorkspaceId();
   return useQuery({
@@ -22,7 +32,7 @@ export function useChannels() {
 export function useChannelBots() {
   const ws = useWorkspaceId();
   return useQuery({
-    queryKey: ['bots', ws],
+    queryKey: queryKeys.bots(ws),
     queryFn: async () => (await api('/bots', z.object({ data: z.array(BotDto) }))).data,
     enabled: Boolean(ws),
   });
@@ -79,10 +89,10 @@ export function useSelectAccounts(bindBotId?: string) {
         bindFailed: results.filter((r) => r.status === 'rejected').length,
       };
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: ['channels', ws] }),
+    onSettled: () => invalidateConnectionViews(qc, ws),
   });
 }
-/** Applies one change to several pages; resolves with the number of failed updates. */
+/** Applies changes and returns only the failed page ids, so retries do not repeat successes. */
 export function useBulkUpdateChannels() {
   const ws = useWorkspaceId();
   const qc = useQueryClient();
@@ -93,9 +103,11 @@ export function useBulkUpdateChannels() {
           api(`/channels/${id}`, ChannelConnectionDto, { method: 'PATCH', body }),
         ),
       );
-      return results.filter((r) => r.status === 'rejected').length;
+      return changes
+        .filter((_change, index) => results[index]?.status === 'rejected')
+        .map((change) => change.id);
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: ['channels', ws] }),
+    onSettled: () => invalidateConnectionViews(qc, ws),
   });
 }
 export function useUpdateChannel() {
@@ -104,6 +116,6 @@ export function useUpdateChannel() {
   return useMutation({
     mutationFn: ({ id, body }: { id: string; body: UpdateChannelRequest }) =>
       api(`/channels/${id}`, ChannelConnectionDto, { method: 'PATCH', body }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['channels', ws] }),
+    onSuccess: () => invalidateConnectionViews(qc, ws),
   });
 }

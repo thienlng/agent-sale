@@ -75,6 +75,7 @@ export function BotPagesDialog({
                     <Label className="flex cursor-pointer items-center gap-3 rounded-lg border p-3">
                       <Checkbox
                         checked={checked.has(c.id)}
+                        disabled={saving}
                         onCheckedChange={(value) => toggle(c.id, value === true)}
                       />
                       <ProviderGlyph provider={c.provider} />

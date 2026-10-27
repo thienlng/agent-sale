@@ -126,7 +126,8 @@
       "kept": "Dữ liệu đã huấn luyện được giữ lại để tra cứu lịch sử, nhưng bot không thể mở lại."
     },
     "deleteConfirmLabel": "Gõ tên bot để xác nhận: {{name}}",
-    "deleteConfirmMismatch": "Tên chưa khớp"
+    "deleteConfirmMismatch": "Tên chưa khớp",
+    "toggleNamedLabel": "Bật hoặc tắt bot {{name}}"
   },
   "readiness": {
     "title": "Chuẩn bị cho bot",

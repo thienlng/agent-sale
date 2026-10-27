@@ -11,6 +11,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useCan } from '@/lib/permissions';
 
 import { useBots } from '../api/bots';
+import { BotActiveSwitch } from './bot-active-switch';
 import { CreateBotDialog } from './create-bot-dialog';
 import { DeleteBotDialog } from './delete-bot-dialog';
 
@@ -74,7 +75,8 @@ export function BotList() {
                     </Badge>
                   </Link>
                   {canManage ? (
-                    <div className="flex shrink-0 items-center gap-1 pr-3">
+                    <div className="flex shrink-0 items-center gap-2 pr-3">
+                      <BotActiveSwitch bot={bot} />
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button asChild variant="ghost" size="icon">

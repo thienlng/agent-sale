@@ -1,8 +1,11 @@
 import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 
-import { Button } from '@/components/ui/button';
 import { ApiClientError } from '@/lib/api-client';
+
+// Root fallbacks load before every route: native controls keep optional button/Slot/style helpers out of the entry graph.
+const actionClass =
+  'mt-2 inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
 
 export function NotFound() {
   const { t } = useTranslation();
@@ -11,9 +14,9 @@ export function NotFound() {
       <p className="text-5xl font-semibold text-primary">404</p>
       <h1 className="text-xl font-semibold">{t('errors.notFoundTitle')}</h1>
       <p className="max-w-sm text-muted-foreground">{t('errors.notFoundBody')}</p>
-      <Button asChild className="mt-2">
-        <Link to="/app/bots">{t('errors.home')}</Link>
-      </Button>
+      <Link className={actionClass} to="/app/bots">
+        {t('errors.home')}
+      </Link>
     </div>
   );
 }
@@ -29,9 +32,9 @@ export function RouteError({ error }: { error: unknown }) {
     >
       <h1 className="text-xl font-semibold">{t('errors.crashTitle')}</h1>
       <p className="max-w-md text-muted-foreground">{t('errors.crashBody', { traceId })}</p>
-      <Button className="mt-2" onClick={() => window.location.reload()}>
+      <button type="button" className={actionClass} onClick={() => window.location.reload()}>
         {t('errors.reload')}
-      </Button>
+      </button>
     </div>
   );
 }

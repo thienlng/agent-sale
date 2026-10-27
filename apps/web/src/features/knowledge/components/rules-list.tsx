@@ -1,3 +1,4 @@
+import { TrainingPurpose } from './training-purpose';
 import type { TrainingItemDto, TrainingSection } from '@agent-sales/contracts';
 import { Copy, Lock, Pencil, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
@@ -227,6 +228,7 @@ export function RulesList({ botId, introduction }: { botId: string; introduction
   return (
     <section className="flex min-w-0 flex-col gap-5">
       <DataPageHeader title={t('rules.title')} subtitle={t('rules.subtitle')} />
+      <TrainingPurpose botId={botId} kind="instructions" />
       <div className="flex flex-wrap items-center gap-2">
         <DataSearch value={search} onChange={setSearch} placeholder={t('rules.search')} />
         <div className="ml-auto flex flex-wrap items-center gap-2">

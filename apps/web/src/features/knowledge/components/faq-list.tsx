@@ -1,3 +1,4 @@
+import { TrainingPurpose } from './training-purpose';
 import type { FaqDto } from '@agent-sales/contracts';
 import { Download, Trash2 } from 'lucide-react';
 import { useDeferredValue, useMemo, useState } from 'react';
@@ -88,6 +89,7 @@ export function FaqList({ botId }: { botId: string }) {
   return (
     <section className="flex min-w-0 flex-col gap-5">
       <DataPageHeader title={t('data.faq.title')} subtitle={t('data.faq.subtitle')} />
+      <TrainingPurpose botId={botId} kind="facts" />
       <div className="flex flex-wrap items-center gap-2">
         <DataSearch
           value={query}

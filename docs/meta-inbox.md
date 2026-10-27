@@ -37,7 +37,7 @@ On failure an event is retried after 20 s and 60 s; after the third attempt the 
 
 ## Screens
 
-- **Tích hợp nền tảng** (`/app/channels`): platform list (all, waiting for a bot, Facebook, Instagram; Zalo, Lazada and TikTok marked as coming soon) and the page list with search, select all, assign bot ("Chỉnh sửa"), deactivate ("Hủy kích hoạt" disconnects) and connect. Message sync is not supported and the button is disabled.
+- **Tích hợp nền tảng** (`/app/channels`): platform list (all, waiting for a bot, Facebook, Instagram; Zalo, Lazada and TikTok marked as coming soon) and the page list with search, select all, explicit bulk bot assignment, bot/unassigned filtering and confirmed unassignment (which preserves provider connectivity) and connect. Message sync is not supported and the button is disabled.
 - **Bot → Tích hợp** (`/app/bots/{botId}/integrations`): only pages bound to that bot. "Chỉnh sửa" chooses which workspace pages the bot answers; "Hủy kích hoạt" unbinds them (`botId: null`). Pages connected from here are bound to the bot right after selection.
 - **Tin nhắn đa kênh** (`/app/inbox`): conversation list with channel filter (Messenger, Instagram), search and newest/oldest sort; thread with takeover controls and attachments.
 
@@ -109,3 +109,13 @@ After a customer message the agent asks the channel module for the customer's na
 - Outbound attachments are sent by HTTPS URL (bot image library, a product's `imageUrls` or a pasted link); there is no file upload to Meta. Product pictures are plain https links entered in the product form (max 5, 2000 characters each); there is no upload or reference to the image library yet.
 - Meta CDN attachment URLs expire; the inbox shows them as received and falls back to a link.
 - A customer's name and picture come from a best-effort profile lookup (below); until it succeeds, `customerName` is the Meta-scoped id and the UI shows a masked label.
+
+## Inbox tag values (T-090)
+
+Tags use the Customer settings library and conversation-scoped CRM assignments. Tags without active fields attach in one click; tags with active fields open the same values editor used by CRM. Required fields must be filled before assignment; numeric zero and boolean false are valid values. Archived fields are not requested. Failed saves keep the form and entered values available for retry; leaving the conversation discards an unfinished form. Quick attach/remove actions wait for an in-flight mutation. These changes do not merge customer tags with conversation tags or alter tag ownership.
+
+## Page assignment and navigation (T-082, T-083)
+
+Global platform integrations is a single top-level navigation destination at `/app/channels`. Each bot retains `/app/bots/:botId/integrations`, named Pages and channels, with a link back to the inventory. Select eligible pages and choose an actual bot before saving; moving pages away from another bot requires confirmation. Unassign bot clears only botId and keeps the connection and message history. Connectivity and bot assignment are independent labels and filters. Failed bulk rows remain selected for retry; successful rows are not replayed. Discovery selection, bulk assignment and single updates refresh channel, bot-readiness and inbox queries. The available providers remain unchanged.
+
+This slice uses existing workspace/bot contracts. Shop fields, shop eligibility and cross-shop filters remain pending lane A's approved hierarchy (T-077/T-078/T-080); T-082 is not complete until that integration is accepted.

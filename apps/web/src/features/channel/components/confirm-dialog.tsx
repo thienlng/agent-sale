@@ -10,7 +10,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-/** Confirmation shared by "Hủy kích hoạt" (disconnect) and the bot-move confirmation. */
+/** Confirmation shared by bot unassignment and moving pages to another bot. */
 export function ConfirmDialog({
   open,
   title,

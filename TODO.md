@@ -4,6 +4,13 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
+- [ ] T-076 Reduce integration initial bundle below 250 KB — @agent:codex · [details](todo/T-076-reduce-integration-initial-bundle-below-250-kb.md) · PR #64
+- [ ] T-082 Unify channel assignment and bulk bot filters — @agent:codex · [details](todo/T-082-unify-channel-assignment-and-bulk-bot-filters.md) · PR #64
+- [ ] T-083 Move fanpage management into the bot workspace navigation — @agent:codex · [details](todo/T-083-move-fanpage-management-into-the-bot-workspace-nav.md) · PR #64
+- [ ] T-084 Expose bot switches and advanced settings consistently — @agent:codex · [details](todo/T-084-expose-bot-switches-and-advanced-settings-consiste.md) · PR #64
+- [ ] T-085 Separate bot training facts from behavioral instructions — @agent:codex · [details](todo/T-085-separate-bot-training-facts-from-behavioral-instru.md) · PR #64
+- [ ] T-090 Diagnose and fix failed inbox tag updates — @agent:codex · [details](todo/T-090-diagnose-and-fix-failed-inbox-tag-updates.md) · PR #64
+
 ## Next
 
 - [ ] T-045 Email verification at signup (ACC-01) and verified-email invitations — @unassigned · [details](todo/T-045-email-verification-at-signup-acc-01-and-verified-e.md)
@@ -36,6 +43,19 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [ ] T-062 Support tickets with department routing and attachments (ADM-08) — @unassigned · [details](todo/T-062-support-tickets-with-department-routing-and-attach.md)
 - [ ] T-063 Advanced Google connector and capability-aware settings navigation (ADM-09) — @unassigned · [details](todo/T-063-advanced-google-connector-and-capability-aware-set.md)
 - [ ] T-066 Fix flaky MetaInboxProcessor test: reply arriving while the previous one is generated — @unassigned · [details](todo/T-066-fix-flaky-metainboxprocessor-test-reply-arriving-w.md)
+- [ ] T-077 Define account business shop ownership and migration contracts — @unassigned · [details](todo/T-077-define-account-business-shop-ownership-and-migrati.md)
+- [ ] T-078 Add account business and shop persistence with safe backfills — @unassigned · [details](todo/T-078-add-account-business-and-shop-persistence-with-saf.md)
+- [ ] T-079 Add business selection and switching across sessions — @unassigned · [details](todo/T-079-add-business-selection-and-switching-across-sessio.md)
+- [ ] T-080 Manage shops and their catalog and bot associations — @unassigned · [details](todo/T-080-manage-shops-and-their-catalog-and-bot-association.md)
+- [ ] T-081 Redesign portfolio and business statistics entry screens — @unassigned · [details](todo/T-081-redesign-portfolio-and-business-statistics-entry-s.md)
+- [ ] T-086 Refine the sales inbox around the agreed Pancake workflow — @unassigned · [details](todo/T-086-refine-the-sales-inbox-around-the-agreed-pancake-w.md)
+- [ ] T-087 Filter the multichannel inbox by shop bot and channel scope — @unassigned · [details](todo/T-087-filter-the-multichannel-inbox-by-shop-bot-and-chan.md)
+- [ ] T-088 Link CRM customers to business shop bot and conversations — @unassigned · [details](todo/T-088-link-crm-customers-to-business-shop-bot-and-conver.md)
+- [ ] T-089 Centralize customer tags and statuses in customer settings — @unassigned · [details](todo/T-089-centralize-customer-tags-and-statuses-in-customer-.md)
+- [ ] T-091 Move subscription and message quota ownership to the account — @unassigned · [details](todo/T-091-move-subscription-and-message-quota-ownership-to-t.md)
+- [ ] T-092 Add account-level plans and aggregated usage settings — @unassigned · [details](todo/T-092-add-account-level-plans-and-aggregated-usage-setti.md)
+- [ ] T-093 Scope business settings and bot defaults to the selected industry — @unassigned · [details](todo/T-093-scope-business-settings-and-bot-defaults-to-the-se.md)
+- [ ] T-094 Validate the cross-business review milestone end to end — @unassigned · [details](todo/T-094-validate-the-cross-business-review-milestone-end-t.md)
 
 ## Blocked
 
