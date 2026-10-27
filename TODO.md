@@ -59,6 +59,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [ ] T-092 Add account-level plans and aggregated usage settings — @unassigned · [details](todo/T-092-add-account-level-plans-and-aggregated-usage-setti.md)
 - [ ] T-093 Scope business settings and bot defaults to the selected industry — @unassigned · [details](todo/T-093-scope-business-settings-and-bot-defaults-to-the-se.md)
 - [ ] T-094 Validate the cross-business review milestone end to end — @unassigned · [details](todo/T-094-validate-the-cross-business-review-milestone-end-t.md)
+- [ ] T-108 Require settings.manage to change fanpage comment automation settings — @unassigned · [details](todo/T-108-require-settings-manage-to-change-fanpage-comment-.md)
 
 ## Blocked
 
