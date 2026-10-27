@@ -1,4 +1,5 @@
 import type {
+  ChannelProvider,
   ConversationCounts,
   ConversationListQuery,
   ConversationTab,
@@ -19,7 +20,7 @@ export interface ConversationFilter {
   waiting?: 'any' | 'longest' | 'readNotReplied' | undefined;
   status?: 'open' | 'resolved' | undefined;
   mode?: 'human' | 'bot' | undefined;
-  provider?: 'facebook' | 'instagram' | undefined;
+  provider?: ChannelProvider | undefined;
   q?: string | undefined;
   sort: 'recent' | 'waitingLongest';
   /** Only these conversations (tag filters); `undefined` means no restriction. */

@@ -1,5 +1,5 @@
 import type { ImageInput } from '@agent-sales/ai-core';
-import type { NormalizedEvent } from '@agent-sales/channels';
+import { type NormalizedEvent, withinReplyWindow } from '@agent-sales/channels';
 import { FanpageCommentProcessor } from './fanpage-comment.processor.js';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import {
@@ -39,8 +39,6 @@ function handoffText(bot: BotView): string {
       : `Dạ, ${bot.selfPronoun} đã chuyển cho nhân viên hỗ trợ, ${bot.customerPronoun} đợi một chút ạ.`)
   );
 }
-
-const MESSAGING_WINDOW_MS = 24 * 3_600_000;
 
 /** Invoked exclusively by the agent entry; API never starts background inference. */
 @Injectable()
@@ -162,7 +160,7 @@ export class MetaInboxProcessor {
     if (!bot.isActive) return this.skip(job, 'bot inactive');
     // Meta only lets us answer within 24 h of the customer's message; a late event (an outage, a
     // long retry) is left for staff instead of spending an AI call on a reply that cannot be sent.
-    if (Date.now() - job.event.occurredAt.getTime() >= MESSAGING_WINDOW_MS)
+    if (!withinReplyWindow(job.event.kind, job.event.occurredAt))
       return this.skip(job, 'messaging window closed');
     // Outside the bot's reply hours the message stays in the inbox for staff.
     if (bot.replySchedule && !withinReplySchedule(bot.replySchedule, new Date()))
@@ -258,6 +256,7 @@ export class MetaInboxProcessor {
           messages: toReplyTurns(stored, seen),
           ...(images.length ? { images } : {}),
           ...(postContext ? { postContext } : {}),
+          ...(context.conversation.lead ? { phoneKnown: true } : {}),
         },
         { conversationId: c.id, isTest: false },
       );

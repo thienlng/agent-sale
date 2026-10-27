@@ -1,4 +1,4 @@
-import { type Database, withTenant } from '@agent-sales/db';
+import { type Database, sql, withTenant } from '@agent-sales/db';
 import type { WorkspaceId } from '@agent-sales/shared';
 
 import type { CrmStore, CrmTx } from '../../application/ports/crm-store.js';
@@ -16,6 +16,11 @@ export class DrizzleCrmStore implements CrmStore {
         ...contactsTx(workspaceId, tx),
         ...crmSettingsTx(workspaceId, tx),
         ...policiesTx(workspaceId, tx),
+        async lock(key: string) {
+          await tx.execute(
+            sql`select pg_advisory_xact_lock(hashtextextended(${`crm/${workspaceId}/${key}`},0))`,
+          );
+        },
       } satisfies CrmTx),
     );
   }

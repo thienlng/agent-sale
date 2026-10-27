@@ -1,7 +1,9 @@
 import {
   and,
   desc,
+  asc,
   eq,
+  gt,
   isNotNull,
   isNull,
   schema,
@@ -172,6 +174,31 @@ export class DrizzleConversationStore implements ConversationStore {
           )
             .map((r) => InboxMessageDto.parse(r.data))
             .reverse();
+        },
+        async peerMessagesAfter(channelId, customerId, after, limit) {
+          const [conv] = await tx
+            .select({ id: c.id })
+            .from(c)
+            .where(
+              and(eq(c.workspaceId, ws), eq(c.channelId, channelId), eq(c.customerId, customerId)),
+            );
+          if (!conv) return { conversationId: null, messages: [] };
+          const rows = await tx
+            .select()
+            .from(m)
+            .where(
+              and(
+                eq(m.workspaceId, ws),
+                eq(m.conversationId, conv.id),
+                ...(after ? [gt(m.id, after)] : []),
+              ),
+            )
+            .orderBy(asc(m.id))
+            .limit(limit);
+          return {
+            conversationId: conv.id,
+            messages: rows.map((r) => InboxMessageDto.parse(r.data)),
+          };
         },
         async findMessage(id, key) {
           const [r] = await tx

@@ -34,7 +34,12 @@ import { ConversationController } from './interface/http/conversation.controller
     { provide: CONVERSATION_FACADE, useExisting: ConversationFacadeImpl },
     {
       provide: IMAGE_FETCHER,
-      useFactory: () => new SafeImageFetcher(botImageExtraHosts(getEnv())),
+      useFactory: () => {
+        const env = getEnv();
+        // Website chat visitors upload to our public bucket; the bot may look at those pictures.
+        const upload = env.S3_PUBLIC_URL ? [new URL(env.S3_PUBLIC_URL).hostname] : [];
+        return new SafeImageFetcher(botImageExtraHosts(env), upload);
+      },
     },
     { provide: BOT_IMAGE_VISION, useFactory: () => botImageVisionEnabled(getEnv()) },
     FanpageCommentProcessor,

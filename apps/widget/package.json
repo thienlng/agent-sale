@@ -1,0 +1,25 @@
+{
+  "name": "@agent-sales/widget",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Embeddable website chat widget: one ES2017 script, Shadow DOM, polling (ADR-011)",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs && pnpm run syntax && pnpm run size",
+    "size": "node scripts/size.mjs",
+    "syntax": "es-check es2017 dist/widget.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@agent-sales/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "es-check": "^9.0.0",
+    "jsdom": "^27.0.0",
+    "typescript": "^5.8.3",
+    "vitest": "^5.0.5"
+  }
+}

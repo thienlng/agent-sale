@@ -15,6 +15,7 @@ import {
   SelectChannelRequest,
   UpdateChannelRequest,
 } from './channel.schema.js';
+import { CreateWebsiteRequest, UpdateWebsiteRequest } from './website.schema.js';
 const scoped = { auth: true, workspaceScoped: true, tag: 'channel' } as const;
 export const channelRoutes = defineRoutes([
   {
@@ -89,6 +90,22 @@ export const channelRoutes = defineRoutes([
     path: '/channels/{id}',
     summary: 'Bind a bot or disconnect',
     body: UpdateChannelRequest,
+    responses: { 200: ChannelConnectionDto },
+  },
+  {
+    ...scoped,
+    method: 'post',
+    path: '/channels/website',
+    summary: 'Create a website chat connection',
+    body: CreateWebsiteRequest,
+    responses: { 201: ChannelConnectionDto },
+  },
+  {
+    ...scoped,
+    method: 'patch',
+    path: '/channels/{id}/website',
+    summary: 'Update website widget settings, name or enabled state',
+    body: UpdateWebsiteRequest,
     responses: { 200: ChannelConnectionDto },
   },
   {

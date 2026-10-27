@@ -37,6 +37,22 @@ export class MemoryConversationStore implements ConversationStore {
             .filter(([key]) => key.startsWith(`${ws}/${id}/`))
             .map(([, m]) => m)
             .sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+        peerMessagesAfter: async (channel, customer, after, limit) => {
+          const conv = [...rows.entries()].find(
+            ([key, c]) =>
+              key.startsWith(`${ws}/`) && c.channelId === channel && c.customerId === customer,
+          )?.[1];
+          if (!conv) return { conversationId: null, messages: [] };
+          return {
+            conversationId: conv.id,
+            messages: [...messages.entries()]
+              .filter(([key]) => key.startsWith(`${ws}/${conv.id}/`))
+              .map(([, m]) => m)
+              .filter((m) => !after || m.id > after)
+              .sort((a, b) => (a.id < b.id ? -1 : 1))
+              .slice(0, limit),
+          };
+        },
         findMessage: async (id, key) => messages.get(`${ws}/${id}/${key}`) ?? null,
         saveMessage: async (m, key) => {
           messages.set(`${ws}/${m.conversationId}/${key}`, structuredClone(m));

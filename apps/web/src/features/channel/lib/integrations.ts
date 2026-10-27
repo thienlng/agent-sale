@@ -19,6 +19,7 @@ export const WORKSPACE_PLATFORMS: readonly PlatformEntry[] = [
   { key: 'zalo' },
   { key: 'lazada', disabled: true },
   { key: 'tiktok' },
+  { key: 'website' },
 ];
 
 /** Bot screen: every page shown already belongs to the bot, so there is no pending entry. */
@@ -29,7 +30,7 @@ export const BOT_PLATFORMS: readonly PlatformEntry[] = [
   { key: 'zalo' },
   { key: 'lazada', disabled: true },
   { key: 'tiktok' },
-  { key: 'website', disabled: true },
+  { key: 'website' },
 ];
 
 export function isMetaProvider(key: PlatformKey): key is MetaProvider {
@@ -38,7 +39,7 @@ export function isMetaProvider(key: PlatformKey): key is MetaProvider {
 
 /** Platforms we list but cannot connect yet. */
 export function isComingSoon(key: PlatformKey): boolean {
-  return key === 'zalo' || key === 'lazada' || key === 'tiktok' || key === 'website';
+  return key === 'zalo' || key === 'lazada' || key === 'tiktok';
 }
 
 export interface ConnectionFilter {
@@ -59,7 +60,9 @@ export function filterConnections(
     if (botId !== undefined && c.botId !== botId) return false;
     if (assignedBotId !== undefined && c.botId !== assignedBotId) return false;
     if (category === 'pending' && c.botId !== null) return false;
-    if (isMetaProvider(category) && c.provider !== category) return false;
+    if ((isMetaProvider(category) || category === 'website') && c.provider !== category) {
+      return false;
+    }
     if (isComingSoon(category)) return false;
     if (!q) return true;
     return c.name.toLowerCase().includes(q) || c.externalId.toLowerCase().includes(q);

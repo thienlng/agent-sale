@@ -1,4 +1,4 @@
-import type { NormalizedEvent } from '@agent-sales/channels';
+import { type NormalizedEvent, withinReplyWindow } from '@agent-sales/channels';
 import {
   SendInboxMessageRequest,
   type ConversationListQuery,
@@ -32,6 +32,12 @@ import {
   type ConversationTx,
 } from './ports/conversation-store.js';
 const now = () => new Date().toISOString();
+/** A website visitor has no profile to look up: "Khách website" + the last 4 characters of the visitor id. */
+function named(provider: string, customerId: string, c: ConversationView): ConversationView {
+  return provider === 'website'
+    ? { ...c, customerName: `Khách website ${customerId.slice(-4)}` }
+    : c;
+}
 /** Unnamed customers looked up per list request (see `backfillProfiles`). */
 const PROFILE_BACKFILL_PER_LIST = 10;
 async function requireConversation(tx: ConversationTx, id: string): Promise<ConversationView> {
@@ -182,6 +188,27 @@ export class ConversationFacadeImpl implements ConversationFacade {
     });
     return this.tagged(ws, saved);
   }
+  async linkLead(
+    ws: WorkspaceId,
+    id: string,
+    lead: { contactId: string; phoneE164: string; capturedAt: string },
+  ): Promise<void> {
+    await this.store.run(ws, async (tx) => {
+      const c = await requireConversation(tx, id);
+      if (c.lead?.contactId === lead.contactId && c.lead.phone === lead.phoneE164) return;
+      // A lead is a shop-level annotation like read state: no revision or updatedAt change.
+      await tx.save({
+        ...c,
+        lead: {
+          contactId: lead.contactId,
+          phone: lead.phoneE164,
+          capturedAt: lead.capturedAt,
+          seenAt: null,
+        },
+      });
+    });
+  }
+
   async markRead(ws: WorkspaceId, id: string, actorId: string): Promise<ConversationView> {
     return this.tagged(ws, await markRead(this.store, this.identity, ws, id, actorId));
   }
@@ -193,6 +220,42 @@ export class ConversationFacadeImpl implements ConversationFacade {
   }
   refreshCustomerProfile(ws: WorkspaceId, id: string): Promise<void> {
     return refreshCustomerProfile(this.store, this.channels, ws, id);
+  }
+  async listForVisitor(
+    ws: WorkspaceId,
+    channelId: string,
+    customerId: string,
+    afterMessageId: string | null,
+    limit = 50,
+  ) {
+    const size = Math.min(Math.max(limit, 1), 100);
+    const visible = (m: InboxMessageDto) => m.direction === 'inbound' || m.status === 'sent';
+    // Hidden rows (failed, unknown) are skipped; keep reading past them so a run of them cannot stall the cursor.
+    let cursor = afterMessageId;
+    let conversationId: string | null = null;
+    let shown: InboxMessageDto[] = [];
+    for (let round = 0; round < 5 && !shown.length; round++) {
+      const page = await this.store.run(ws, (tx) =>
+        tx.peerMessagesAfter(channelId, customerId, cursor, size),
+      );
+      conversationId = page.conversationId;
+      shown = page.messages.filter(visible);
+      const last = page.messages.at(-1);
+      if (!last || page.messages.length < size) break;
+      cursor = last.id;
+    }
+    const page = { conversationId };
+    const messages = shown.map((m) => ({
+      id: m.id,
+      role: m.direction === 'inbound' ? ('customer' as const) : ('agent' as const),
+      text: m.text,
+      imageUrl: m.attachments.find((a) => a.type === 'image')?.url ?? null,
+      // The widget's own id: stored as the message's external id (the queue event id is namespaced).
+      clientMessageId:
+        m.direction === 'inbound' && m.externalId && isUuid(m.externalId) ? m.externalId : null,
+      at: m.createdAt,
+    }));
+    return { conversationId: page.conversationId, messages };
   }
   async receive(ws: WorkspaceId, channelId: string, event: NormalizedEvent) {
     const channel = await this.channels.getConnection(ws, channelId);
@@ -209,16 +272,20 @@ export class ConversationFacadeImpl implements ConversationFacade {
       const existing = await tx.findPeer(channelId, event.senderExternalId);
       let c: ConversationView =
         existing ??
-        newConversation({
-          id: newId(),
-          channelId,
-          provider: channel.provider,
-          customerId: event.senderExternalId,
-          mode: bot?.isActive ? 'bot' : 'human',
-          echo: event.type === 'echo',
-          occurredAt: event.occurredAt,
-          at: now(),
-        });
+        named(
+          channel.provider,
+          event.senderExternalId,
+          newConversation({
+            id: newId(),
+            channelId,
+            provider: channel.provider,
+            customerId: event.senderExternalId,
+            mode: bot?.isActive ? 'bot' : 'human',
+            echo: event.type === 'echo',
+            occurredAt: event.occurredAt,
+            at: now(),
+          }),
+        );
       if (await tx.findMessage(c.id, event.externalEventId)) return c;
       if (event.type === 'echo') {
         // Echoes can be our own sends; only an unmatched external message means an outside staff reply.
@@ -457,7 +524,7 @@ export class ConversationFacadeImpl implements ConversationFacade {
       )
         return null;
       if (
-        Date.now() - Date.parse(c.lastInboundAt) >= 86400000 ||
+        !withinReplyWindow(c.provider, new Date(c.lastInboundAt)) ||
         Date.parse(c.lastInboundAt) > Date.now() + 300000
       )
         throw new ConversationError('CONFLICT', 'The 24-hour messaging window is closed');

@@ -29,6 +29,7 @@ import {
   URGENT_WAIT_MINUTES,
   waitMinutes,
 } from '../lib/inbox-list';
+import { hasNewLead } from '../lib/lead-alerts';
 import type { InboxConversation } from '../lib/inbox-v2-types';
 import { ChannelBadge, CustomerAvatar } from './customer-avatar';
 import type { FilterMember } from './inbox-filter-popover';
@@ -124,6 +125,14 @@ export function ConversationRow({
                 <span className={cn('truncate text-sm', unread ? 'font-bold' : 'font-medium')}>
                   {name}
                 </span>
+                {hasNewLead(c) ? (
+                  <span
+                    title={v2('row.newLeadLabel')}
+                    className="shrink-0 rounded-full bg-primary px-1.5 py-px text-[10px] leading-4 font-semibold text-primary-foreground"
+                  >
+                    {v2('row.newLead')}
+                  </span>
+                ) : null}
                 {c.status === 'resolved' ? (
                   <CheckCheck
                     className="size-3.5 shrink-0 text-success"

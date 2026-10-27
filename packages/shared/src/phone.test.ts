@@ -4,7 +4,9 @@ import {
   formatVnPhone,
   maskPhone,
   normalizeAnyPhone,
+  findVnPhone,
   normalizeEmail,
+  normalizeLeadPhone,
   normalizeVnPhone,
 } from './phone.js';
 
@@ -60,4 +62,60 @@ describe('normalizeAnyPhone', () => {
   it('lower-cases emails', () => {
     expect(normalizeEmail('  Lan@Shop.VN ')).toBe('lan@shop.vn');
   });
+});
+
+describe('normalizeVnPhone legacy prefixes', () => {
+  it.each([
+    ['01681234567', '+84381234567'],
+    ['0169 123 4567', '+84391234567'],
+    ['01201234567', '+84701234567'],
+    ['01881234567', '+84581234567'],
+  ])('maps %s to %s', (input, expected) => {
+    expect(normalizeVnPhone(input)).toBe(expected);
+  });
+});
+
+describe('normalizeLeadPhone', () => {
+  it.each([
+    ['0912345679', '+84912345679'],
+    ['01681234567', '+84381234567'],
+  ])('accepts %s', (input, expected) => {
+    expect(normalizeLeadPhone(input)).toBe(expected);
+  });
+
+  it.each([
+    '0987654321',
+    '0123456789',
+    '0909090909',
+    '0912345678',
+    '0000000000',
+    '1234567890',
+    '+84 987 654 321',
+  ])('rejects placeholder %s', (input) => {
+    expect(normalizeLeadPhone(input)).toBeNull();
+  });
+});
+
+describe('findVnPhone', () => {
+  it.each([
+    ['em sdt 0912 345 679 nhé', '+84912345679'],
+    ['gọi +84 38 123 4567 giúp', '+84381234567'],
+    ['84381234567', '+84381234567'],
+    ['01681234567', '+84381234567'],
+    ['gọi 0901.234.568', '+84901234568'],
+    ['sdt: 090-123-4568.', '+84901234568'],
+    ['0987654321 rồi 0912345679', '+84912345679'],
+    ['mua 2 0912345679', '+84912345679'],
+    ['2 0901234568', '+84901234568'],
+    ['0901 234 568 3 cái', '+84901234568'],
+  ])('finds the number in %s', (input, expected) => {
+    expect(findVnPhone(input)).toBe(expected);
+  });
+
+  it.each(['abc', '', '02838123456', 'mã đơn 123456', 'giá 0987654321', 'số 09123456789012'])(
+    'finds nothing in %s',
+    (input) => {
+      expect(findVnPhone(input)).toBeNull();
+    },
+  );
 });

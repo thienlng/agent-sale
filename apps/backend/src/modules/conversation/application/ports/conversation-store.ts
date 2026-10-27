@@ -10,6 +10,16 @@ export interface ConversationTx {
   /** Writes the document and the derived index columns together. */
   save(conversation: ConversationView): Promise<void>;
   messages(id: string): Promise<InboxMessageDto[]>;
+  /**
+   * Read-only (no row lock) page of a peer's messages ordered by id ascending, strictly after the
+   * cursor; `conversationId` is null when the peer has no conversation yet.
+   */
+  peerMessagesAfter(
+    channelId: string,
+    customerId: string,
+    afterMessageId: string | null,
+    limit: number,
+  ): Promise<{ conversationId: string | null; messages: InboxMessageDto[] }>;
   findMessage(conversationId: string, key: string): Promise<InboxMessageDto | null>;
   saveMessage(message: InboxMessageDto, key: string): Promise<void>;
   /** Replaces the stored body of an existing message, keeping its idempotency key. */

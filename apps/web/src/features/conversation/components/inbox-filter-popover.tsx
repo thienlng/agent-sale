@@ -1,3 +1,4 @@
+import type { ChannelProvider } from '@agent-sales/contracts';
 import { Check, SlidersHorizontal } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -27,7 +28,7 @@ export interface FilterMember {
 export interface FilterChannel {
   id: string;
   name: string;
-  provider: 'facebook' | 'instagram';
+  provider: ChannelProvider;
 }
 
 type Group = 'tags' | 'waiting' | 'mode' | 'assignee' | 'channel' | 'phone' | 'status';

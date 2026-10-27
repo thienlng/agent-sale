@@ -12,6 +12,7 @@ import {
 } from '@agent-sales/contracts';
 import { foldVietnamese, isUuid, newId, userId, type WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable } from '@nestjs/common';
+import type { z } from 'zod';
 
 import { IDENTITY_FACADE, type IdentityFacade } from '../../identity/api/index.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
@@ -21,6 +22,7 @@ import {
   NoteNotFoundError,
   StaleVersionError,
 } from '../domain/crm.errors.js';
+import { DEFAULT_SOURCES } from '../domain/crm-defaults.js';
 import { toContactDto, toHistoryDto, toNoteDto } from './crm.mappers.js';
 import { applyFields } from './contact-fields.js';
 import { DistributionService } from './distribution.service.js';
@@ -103,34 +105,7 @@ export class ContactService {
           : null;
       if (autoSales) fields.salesUserId = autoSales;
       const now = new Date();
-      const empty: ContactRecord = {
-        id: newId(),
-        name: null,
-        phone: null,
-        phoneNormalized: null,
-        email: null,
-        emailNormalized: null,
-        birthday: null,
-        gender: null,
-        address: null,
-        province: null,
-        ward: null,
-        phoneProvidedAt: null,
-        addressProvidedAt: null,
-        sourceId: null,
-        firstSourceId: null,
-        statusId: null,
-        salesUserId: null,
-        careUserId: null,
-        adRef: null,
-        profileNote: '',
-        searchText: '',
-        clientRequestId: clientRequestId ?? null,
-        version: 1,
-        createdByUserId: actor,
-        createdAt: now,
-        updatedAt: now,
-      };
+      const empty = emptyContact(actor, now, clientRequestId);
       const contact = applyFields(empty, fields, now);
       await tx.contacts.insert(contact);
       await this.#record(
@@ -168,6 +143,93 @@ export class ContactService {
         }),
       });
       return this.#dto(tx, contact);
+    });
+  }
+
+  /**
+   * Lead capture from a channel (no staff actor): one customer per phone. The per-phone advisory
+   * lock makes two concurrent captures of the same number serialize, so the second finds the first.
+   */
+  async upsertLead(
+    ws: WorkspaceId,
+    input: { phoneE164: string; sourceKey: string; displayName: string; firstUrl: string | null },
+  ): Promise<{ contactId: string; created: boolean }> {
+    return this.store.run(ws, async (tx) => {
+      await tx.lock(`phone/${input.phoneE164}`);
+      const now = new Date();
+      const found = await tx.contacts.findByPhone(input.phoneE164);
+      if (found) {
+        // Repeated or racing captures from the same page leave one entry.
+        const marker = input.firstUrl ?? input.sourceKey;
+        const earlier = await tx.history.list(found.id, {
+          type: 'contact.updated',
+          order: 'desc',
+          limit: 100,
+        });
+        const recorded = earlier.some(
+          (h) =>
+            (h.changes['lead'] as { to?: unknown } | undefined)?.to === marker &&
+            h.data['channel'] === input.sourceKey,
+        );
+        if (!recorded)
+          await this.#record(
+            tx,
+            ws,
+            found,
+            'contact.updated',
+            { lead: { from: null, to: marker } },
+            null,
+            null,
+            now,
+            { channel: input.sourceKey },
+          );
+        return { contactId: found.id, created: false };
+      }
+      await tx.options.ensureDefaults(ws, 'source', DEFAULT_SOURCES);
+      const source = (await tx.options.list('source')).find((o) => o.key === input.sourceKey);
+      const fields: Partial<z.output<typeof UpdateContactRequest>> = {
+        name: input.displayName,
+        phone: input.phoneE164,
+        ...(source ? { sourceId: source.id } : {}),
+      };
+      const autoSales = source ? await this.distribution.pick(tx, ws, source.id) : null;
+      if (autoSales) fields.salesUserId = autoSales;
+      const empty = emptyContact(null, now);
+      const contact = applyFields(empty, fields, now);
+      await tx.contacts.insert(contact);
+      await this.#record(
+        tx,
+        ws,
+        contact,
+        'contact.created',
+        diff(empty, contact),
+        null,
+        null,
+        now,
+        { channel: input.sourceKey, ...(autoSales ? { autoAssigned: true } : {}) },
+      );
+      if (autoSales) {
+        await tx.outbox(ws, {
+          type: 'crm.contact.assigned.v1',
+          aggregateId: contact.id,
+          payload: event(ws, contact.id, null, now, {
+            role: 'sales',
+            fromUserId: null,
+            toUserId: autoSales,
+          }),
+        });
+      }
+      await tx.outbox(ws, {
+        type: 'crm.contact.created.v1',
+        aggregateId: contact.id,
+        payload: event(ws, contact.id, null, now, {
+          sourceId: contact.sourceId,
+          origin: 'channel',
+          phoneCaptured: true,
+          statusId: null,
+        }),
+      });
+      return { contactId: contact.id, created: true };
     });
   }
 
@@ -433,5 +495,40 @@ function event(
     actorUserId: actor,
     occurredAt: at.toISOString(),
     ...extra,
+  };
+}
+
+function emptyContact(
+  createdBy: string | null,
+  now: Date,
+  clientRequestId?: string | null,
+): ContactRecord {
+  return {
+    id: newId(),
+    name: null,
+    phone: null,
+    phoneNormalized: null,
+    email: null,
+    emailNormalized: null,
+    birthday: null,
+    gender: null,
+    address: null,
+    province: null,
+    ward: null,
+    phoneProvidedAt: null,
+    addressProvidedAt: null,
+    sourceId: null,
+    firstSourceId: null,
+    statusId: null,
+    salesUserId: null,
+    careUserId: null,
+    adRef: null,
+    profileNote: '',
+    searchText: '',
+    clientRequestId: clientRequestId ?? null,
+    version: 1,
+    createdByUserId: createdBy,
+    createdAt: now,
+    updatedAt: now,
   };
 }

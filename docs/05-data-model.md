@@ -102,6 +102,7 @@ action_pending(conversation_id PK, workspace_id, action_id, args JSONB, expires_
 channel_connections(id, workspace_id, kind, external_id, name, avatar_url, bot_id NULL,
                     status: pending|active|inactive|error|revoked, health JSONB,   -- last_error, last_ok_at
                     token_enc BYTEA, token_expires_at, refresh_token_enc, scopes TEXT[], meta JSONB,
+                    settings JSONB NULL,     -- website provider only (0025): WebsiteSettings (domains, color, position, texts)
                     connected_by, connected_at, UNIQUE(kind, external_id, workspace_id))
 inbound_events(id, workspace_id NULL, channel_kind, external_event_id, received_at, payload JSONB,
                status: received|processed|ignored|failed, error, UNIQUE(channel_kind, external_event_id))

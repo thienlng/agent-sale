@@ -79,8 +79,14 @@ const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
  */
 export class SafeImageFetcher implements ImageFetcher {
   readonly #extra: ReadonlySet<string>;
-  constructor(extraHosts: readonly string[] = []) {
+  readonly #public: ReadonlySet<string>;
+  /**
+   * `publicHosts` extends the allowlist with our own public upload host (website chat images);
+   * unlike `extraHosts` it keeps every protection: https only and no private addresses.
+   */
+  constructor(extraHosts: readonly string[] = [], publicHosts: readonly string[] = []) {
     this.#extra = new Set(extraHosts.map((h) => h.toLowerCase()));
+    this.#public = new Set(publicHosts.map((h) => h.toLowerCase()));
   }
 
   async fetch(rawUrl: string): Promise<ImageInput | null> {
@@ -94,7 +100,7 @@ export class SafeImageFetcher implements ImageFetcher {
     const extra = this.#extra.has(host);
     if (url.username || url.password) return null;
     if (url.protocol !== 'https:' && !(extra && url.protocol === 'http:')) return null;
-    if (!extra && (!hostAllowed(host) || isIP(host))) return null;
+    if (!extra && ((!hostAllowed(host) && !this.#public.has(host)) || isIP(host))) return null;
     try {
       return await this.#download(url, host, extra);
     } catch {

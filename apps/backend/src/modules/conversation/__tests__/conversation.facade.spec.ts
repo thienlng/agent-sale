@@ -78,7 +78,7 @@ beforeEach(() => {
     requeueEvent: async () => undefined,
     hasNewerCustomerEvent: async () => false,
     unbindBot: async () => 0,
-  };
+  } as unknown as ChannelFacade;
   const bots: BotFacade = { getBot: async () => bot };
   service = new ConversationFacadeImpl(
     store,
@@ -324,6 +324,16 @@ describe('ConversationFacade tenant and delivery contract', () => {
     ).rejects.toMatchObject({ code: 'CONFLICT' });
     expect(channels.deliver).not.toHaveBeenCalled();
   });
+  it('lets staff answer a website visitor 48 hours later (no reply window)', async () => {
+    const base = await channels.getConnection(ws, channelId);
+    vi.mocked(channels.getConnection).mockResolvedValue({ ...base, provider: 'website' });
+    const c = await service.receive(ws, channelId, { ...event(), kind: 'website' });
+    vi.advanceTimersByTime(48 * 3_600_000);
+    await expect(
+      service.send(ws, c.id, { text: 'welcome back', idempotencyKey: newId() }, actor),
+    ).resolves.toBeDefined();
+    expect(channels.deliver).toHaveBeenCalledTimes(1);
+  });
   it('auto-resumes on the next inbound only after the configured human pause', async () => {
     const c = await service.receive(ws, channelId, event());
     await service.send(ws, c.id, { text: 'human', idempotencyKey: newId() }, actor);
@@ -418,5 +428,90 @@ describe('ConversationFacade tenant and delivery contract', () => {
     expect(() =>
       service.send(ws, c.id, { text: 'both', attachment, idempotencyKey: newId() }, actor),
     ).toThrow();
+  });
+});
+describe('ConversationFacade website visitors (T-100)', () => {
+  const visitor = '018d0000-0000-7000-8000-00000000abcd';
+  const website = () =>
+    vi.mocked(channels.getConnection).mockResolvedValue({
+      id: channelId,
+      provider: 'website' as const,
+      externalId: 'wk_site',
+      name: 'Site',
+      status: 'connected' as const,
+      botId,
+      expiresAt: null,
+      createdAt: new Date().toISOString(),
+    } as never);
+  const visitorEvent = (id: string, text: string): NormalizedEvent => ({
+    kind: 'website',
+    assetExternalId: 'wk_site',
+    externalEventId: id,
+    externalMessageId: id,
+    senderExternalId: visitor,
+    type: 'message',
+    occurredAt: new Date(),
+    text,
+    raw: null,
+  });
+  it('names a visitor conversation and keeps provider website', async () => {
+    website();
+    const c = await service.receive(ws, channelId, visitorEvent(newId(), 'Xin chào'));
+    expect(c).toMatchObject({ provider: 'website', customerName: 'Khách website abcd' });
+  });
+  it('lists only what the visitor may see, ascending, with an exclusive cursor', async () => {
+    website();
+    const first = newId();
+    const c = await service.receive(ws, channelId, visitorEvent(first, 'Một'));
+    await service.addNote(ws, c.id, 'internal secret', actor);
+    await service.send(ws, c.id, { text: 'Staff reply', idempotencyKey: newId() }, actor);
+    vi.mocked(channels.deliver).mockResolvedValueOnce({
+      externalId: null,
+      status: 'failed',
+      failureCode: 'x',
+    });
+    await service.send(ws, c.id, { text: 'Never delivered', idempotencyKey: newId() }, actor);
+    const second = newId();
+    await service.receive(ws, channelId, visitorEvent(second, 'Hai'));
+    const all = await service.listForVisitor(ws, channelId, visitor, null);
+    expect(all.conversationId).toBe(c.id);
+    expect(all.messages.map((m) => [m.role, m.text, m.clientMessageId])).toEqual([
+      ['customer', 'Một', first],
+      ['agent', 'Staff reply', null],
+      ['customer', 'Hai', second],
+    ]);
+    expect(JSON.stringify(all)).not.toContain('internal secret');
+    const after = await service.listForVisitor(ws, channelId, visitor, all.messages[1]?.id ?? null);
+    expect(after.messages.map((m) => m.text)).toEqual(['Hai']);
+    expect(await service.listForVisitor(ws, channelId, 'nobody', null)).toEqual({
+      conversationId: null,
+      messages: [],
+    });
+  });
+  it('does not stall the cursor behind a long run of hidden messages', async () => {
+    website();
+    const c = await service.receive(ws, channelId, visitorEvent(newId(), 'Một'));
+    vi.mocked(channels.deliver).mockResolvedValue({
+      externalId: null,
+      status: 'failed',
+      failureCode: 'x',
+    });
+    for (let i = 0; i < 6; i++)
+      await service.send(ws, c.id, { text: `lost ${i}`, idempotencyKey: newId() }, actor);
+    vi.mocked(channels.deliver).mockResolvedValue({
+      externalId: 's',
+      status: 'sent',
+      failureCode: null,
+    });
+    await service.send(ws, c.id, { text: 'visible', idempotencyKey: newId() }, actor);
+    const first = await service.listForVisitor(ws, channelId, visitor, null, 1);
+    const next = await service.listForVisitor(
+      ws,
+      channelId,
+      visitor,
+      first.messages[0]?.id ?? null,
+      2,
+    );
+    expect(next.messages.map((m) => m.text)).toEqual(['visible']);
   });
 });

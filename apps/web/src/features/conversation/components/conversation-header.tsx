@@ -30,7 +30,7 @@ export interface HeaderChannel {
 
 /** Meta Business Suite inbox of the page; there is no stable per-thread link. */
 export function externalInboxUrl(
-  provider: 'facebook' | 'instagram',
+  provider: 'facebook' | 'instagram' | 'website',
   channel: HeaderChannel | undefined,
 ): string | null {
   if (provider !== 'facebook' || !channel?.externalId) return null;
@@ -79,7 +79,7 @@ export function ConversationHeader({
     t(`channelInbox.${key}`, options ?? {});
   const v2 = (key: string, options?: Record<string, unknown>) => tr(`v2.header.${key}`, options);
   const name = customerDisplayName(c, (provider, last4) => tr('v2.row.guest', { provider, last4 }));
-  const provider = c.provider === 'facebook' ? 'Facebook' : 'Instagram';
+  const provider = { facebook: 'Facebook', instagram: 'Instagram', website: 'Website' }[c.provider];
   const resolved = c.status === 'resolved';
   const link = externalInboxUrl(c.provider, channel);
   const seenAt = c.lastReadAt ? formatRowTime(c.lastReadAt, now) : null;

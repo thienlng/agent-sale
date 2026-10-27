@@ -1,14 +1,19 @@
 import { z } from 'zod';
+import { WebsiteSettings } from './website.schema.js';
 export const MetaProvider = z.enum(['facebook', 'instagram']);
 export type MetaProvider = z.infer<typeof MetaProvider>;
+export const ChannelProvider = z.enum(['facebook', 'instagram', 'website']);
+export type ChannelProvider = z.infer<typeof ChannelProvider>;
 export const ChannelConnectionDto = z.object({
   id: z.uuid(),
-  provider: MetaProvider,
+  provider: ChannelProvider,
   externalId: z.string(),
   name: z.string(),
-  status: z.enum(['connected', 'reauth_required', 'disconnected']),
+  status: z.enum(['connected', 'disabled', 'reauth_required', 'disconnected']),
   botId: z.uuid().nullable(),
   expiresAt: z.iso.datetime().nullable(),
+  /** Widget settings; only website connections have them. */
+  settings: WebsiteSettings.nullable().optional(),
   createdAt: z.iso.datetime(),
 });
 export type ChannelConnectionDto = z.infer<typeof ChannelConnectionDto>;

@@ -19,14 +19,17 @@ export function IntegrationsEmpty({
   const ti = (key: string, options?: Record<string, unknown>) =>
     t(`channelInbox.integrations.${key}`, options ?? {});
   const Icon = kind === 'comingSoon' ? Hourglass : kind === 'noMatch' ? SearchX : Cable;
-  const title =
-    kind === 'comingSoon'
+  const site = platform === 'website' && kind === 'empty';
+  const title = site
+    ? ti('website.emptyTitle')
+    : kind === 'comingSoon'
       ? ti('comingSoonTitle', { platform: ti(`platforms.${platform}`) })
       : kind === 'noMatch'
         ? ti('noMatch')
         : ti(bot ? 'botEmptyTitle' : 'emptyTitle');
-  const body =
-    kind === 'comingSoon'
+  const body = site
+    ? ti('website.emptyBody')
+    : kind === 'comingSoon'
       ? ti('comingSoonBody')
       : kind === 'empty'
         ? ti(bot ? 'botEmptyBody' : 'emptyBody')

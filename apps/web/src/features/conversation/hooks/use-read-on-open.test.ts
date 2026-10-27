@@ -104,4 +104,16 @@ describe('read on open', () => {
     expect(mocks.markRead).toHaveBeenCalledWith('c-hidden');
     state.mockRestore();
   });
+
+  it('marks a read conversation when a new lead appears on it, once', () => {
+    type WithLead = Read & { lead: { seenAt: string | null } | null };
+    const lead = { seenAt: null };
+    const { rerender } = renderHook((c: WithLead) => useReadOnOpen('c1', c as never), {
+      initialProps: { ...read, lead: null } as WithLead,
+    });
+    expect(mocks.markRead).not.toHaveBeenCalled();
+    rerender({ ...read, lead });
+    rerender({ ...read, lead });
+    expect(mocks.markRead).toHaveBeenCalledTimes(1);
+  });
 });

@@ -1,9 +1,12 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { MetaAdapter, MetaRequestError } from '@agent-sales/channels';
+import { MetaAdapter, MetaRequestError, type NormalizedEvent } from '@agent-sales/channels';
 import {
   ChannelConnectionDto,
+  type CreateWebsiteRequest,
   type MetaProvider,
   type UpdateChannelRequest,
+  type UpdateWebsiteRequest,
+  WebsiteSettings,
 } from '@agent-sales/contracts';
 import { newId, type WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable, Logger, type OnModuleInit, Optional } from '@nestjs/common';
@@ -16,8 +19,9 @@ import {
   type BotFacade,
   type BotLifecycle,
 } from '../../bot/api/index.js';
-import type { ChannelFacade, OutboundInboxMessage } from '../api/channel.facade.js';
+import type { ChannelFacade, OutboundInboxMessage, WebsiteSite } from '../api/channel.facade.js';
 import { ChannelError } from '../domain/channel.errors.js';
+import { hostAllowed, newSiteKey, signVisitor, verifyVisitor } from '../domain/website-key.js';
 import { CHANNEL_STORE, type ChannelStore, type ConnectionRecord } from './ports/channel-store.js';
 import { META_GATEWAY, type MetaGateway } from './ports/meta-gateway.js';
 const GrantedAccounts = z.array(
@@ -32,6 +36,8 @@ export const hash = (v: string): string => createHash('sha256').update(v).digest
 const publicConnection = (c: ConnectionRecord): ChannelConnectionDto =>
   ChannelConnectionDto.parse(c);
 const log = new Logger('ChannelFacade');
+/** Opened visitor-signing secrets are cached per process, bounded so a long-lived API cannot grow. */
+const SECRET_CACHE_MAX = 1000;
 @Injectable()
 export class ChannelFacadeImpl implements ChannelFacade, OnModuleInit {
   /** HTTP client for Meta profile reads; tests replace it with a fake. */
@@ -47,6 +53,100 @@ export class ChannelFacadeImpl implements ChannelFacade, OnModuleInit {
     this.lifecycle?.onDeleted(async (ws, botId) => {
       await this.unbindBot(ws, botId);
     });
+  }
+  private readonly secrets = new Map<string, Buffer>();
+  private secretOf(connectionId: string, tokenSealed: string): Buffer {
+    const cached = this.secrets.get(connectionId);
+    if (cached) return cached;
+    const secret = Buffer.from(this.box.open(tokenSealed), 'base64');
+    if (this.secrets.size >= SECRET_CACHE_MAX) {
+      const oldest = this.secrets.keys().next().value;
+      if (oldest !== undefined) this.secrets.delete(oldest);
+    }
+    this.secrets.set(connectionId, secret);
+    return secret;
+  }
+  async createWebsite(ws: WorkspaceId, input: CreateWebsiteRequest) {
+    if (input.botId) await this.bots.getBot(ws, input.botId);
+    const record = await this.store.create({
+      id: newId(),
+      workspaceId: ws,
+      provider: 'website',
+      externalId: newSiteKey(),
+      name: input.name,
+      status: 'connected',
+      botId: input.botId ?? null,
+      // Signs visitor tokens; it never leaves the module.
+      tokenSealed: this.box.seal(randomBytes(32).toString('base64')),
+      expiresAt: null,
+      settings: WebsiteSettings.parse({ domains: input.domains }),
+      createdAt: new Date().toISOString(),
+    });
+    return publicConnection(record);
+  }
+  async updateWebsite(ws: WorkspaceId, id: string, input: UpdateWebsiteRequest) {
+    const current = await this.store.get(ws, id);
+    if (current?.provider !== 'website')
+      throw new ChannelError('NOT_FOUND', 'Connection not found');
+    const { name, enabled, ...changes } = input;
+    const defined = Object.fromEntries(Object.entries(changes).filter(([, v]) => v !== undefined));
+    const settings = WebsiteSettings.parse({ ...current.settings, ...defined });
+    // Only on/off moves a site between 'disabled' and 'connected'; any other status is left alone.
+    const status =
+      enabled === true && current.status === 'disabled'
+        ? ('connected' as const)
+        : enabled === false && current.status === 'connected'
+          ? ('disabled' as const)
+          : undefined;
+    const updated = await this.store.update(ws, id, {
+      settings,
+      ...(name !== undefined ? { name } : {}),
+      ...(status ? { status } : {}),
+    });
+    if (!updated) throw new ChannelError('NOT_FOUND', 'Connection not found');
+    return publicConnection(updated);
+  }
+  async resolveWebsite(siteKey: string): Promise<WebsiteSite | null> {
+    const c = await this.store.findWebsite(siteKey);
+    // Unusable stored settings: unknown to the public API, so no origin can ever pass.
+    if (!c?.settings) return null;
+    // Warm the signing-secret cache so polling needs no further query (the secret stays here).
+    this.secretOf(c.id, c.tokenSealed);
+    return {
+      workspaceId: c.workspaceId,
+      connectionId: c.id,
+      siteKey: c.externalId,
+      name: c.name,
+      status: c.status,
+      botId: c.botId,
+      settings: c.settings,
+    };
+  }
+  isOriginAllowed(site: WebsiteSite, origin: string | undefined): boolean {
+    return hostAllowed(origin, site.settings.domains);
+  }
+  private async secretFor(site: WebsiteSite): Promise<Buffer | null> {
+    const cached = this.secrets.get(site.connectionId);
+    if (cached) return cached;
+    const c = await this.store.get(site.workspaceId, site.connectionId);
+    return c?.provider === 'website' ? this.secretOf(c.id, c.tokenSealed) : null;
+  }
+  async signVisitorToken(site: WebsiteSite, visitorId: string) {
+    const secret = await this.secretFor(site);
+    if (!secret) throw new ChannelError('NOT_FOUND', 'Connection not found');
+    return signVisitor(secret, visitorId);
+  }
+  async verifyVisitorToken(site: WebsiteSite, token: string) {
+    const secret = await this.secretFor(site);
+    return secret ? verifyVisitor(secret, token) : null;
+  }
+  async enqueueWebsiteEvent(site: WebsiteSite, event: NormalizedEvent) {
+    const c = await this.store.get(site.workspaceId, site.connectionId);
+    if (c?.provider !== 'website') return false;
+    return this.store.enqueueEvent(c, event);
+  }
+  hasPendingCustomerEvent(connectionId: string, senderExternalId: string) {
+    return this.store.hasPendingCustomerEvent(connectionId, senderExternalId);
   }
   unbindBot(ws: WorkspaceId, botId: string): Promise<number> {
     return this.store.unbindBot(ws, botId);
@@ -133,6 +233,7 @@ export class ChannelFacadeImpl implements ChannelFacade, OnModuleInit {
       botId: null,
       tokenSealed: this.box.seal(a.token),
       expiresAt: a.expiresAt,
+      settings: null,
       createdAt: new Date().toISOString(),
     }));
     return { data: (await this.store.select(ws, userId, id, records)).map(publicConnection) };
@@ -161,6 +262,11 @@ export class ChannelFacadeImpl implements ChannelFacade, OnModuleInit {
     key: string,
   ) {
     const c = await this.store.get(ws, id);
+    // A website visitor reads the reply by polling; there is no platform to call.
+    if (c?.provider === 'website')
+      return c.status === 'connected'
+        ? { externalId: null, status: 'sent' as const, failureCode: null }
+        : { externalId: null, status: 'failed' as const, failureCode: 'site_disabled' };
     if (!c || c.status !== 'connected' || (c.expiresAt && Date.parse(c.expiresAt) <= Date.now()))
       return { externalId: null, status: 'failed' as const, failureCode: 'reauth_required' };
     try {
@@ -194,7 +300,7 @@ export class ChannelFacadeImpl implements ChannelFacade, OnModuleInit {
   ): Promise<void> {
     try {
       const c = await this.store.get(ws, id);
-      if (!c || c.status !== 'connected') return;
+      if (!c || c.status !== 'connected' || c.provider === 'website') return;
       await new MetaAdapter(c.provider, getEnv().META_GRAPH_VERSION).sendAction(
         { externalId: c.externalId, token: this.box.open(c.tokenSealed) },
         recipient,
@@ -206,7 +312,12 @@ export class ChannelFacadeImpl implements ChannelFacade, OnModuleInit {
   }
   async fetchCustomerProfile(ws: WorkspaceId, id: string, customerExternalId: string) {
     const c = await this.store.get(ws, id);
-    if (!c || c.status !== 'connected' || (c.expiresAt && Date.parse(c.expiresAt) <= Date.now()))
+    if (
+      !c ||
+      c.provider === 'website' ||
+      c.status !== 'connected' ||
+      (c.expiresAt && Date.parse(c.expiresAt) <= Date.now())
+    )
       return null;
     try {
       return await new MetaAdapter(

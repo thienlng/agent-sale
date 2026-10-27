@@ -84,6 +84,15 @@ export function contactsTx(
         const [r] = await tx.select().from(c).where(eq(c.clientRequestId, requestId)).limit(1);
         return r ? toContact(r) : null;
       },
+      async findByPhone(phoneNormalized) {
+        const [r] = await tx
+          .select()
+          .from(c)
+          .where(eq(c.phoneNormalized, phoneNormalized))
+          .orderBy(asc(c.createdAt), asc(c.id))
+          .limit(1);
+        return r ? toContact(r) : null;
+      },
       async countOwnedBy(userId) {
         const [r] = await tx
           .select({

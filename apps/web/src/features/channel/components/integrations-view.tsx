@@ -2,8 +2,11 @@ import { Link } from '@tanstack/react-router';
 import type { ChannelConnectionDto } from '@agent-sales/contracts';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Plus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { type IntegrationsMode, useIntegrations } from '../hooks/use-integrations';
+import { useWebsiteActions } from '../hooks/use-website-actions';
 import {
   BOT_PLATFORMS,
   type BotPagesPlan,
@@ -18,6 +21,10 @@ import { BotPagesDialog } from './bot-pages-dialog';
 import { ConfirmDialog } from './confirm-dialog';
 import { ConnectButtons, ConnectNotices } from './connect-controls';
 import { ConnectionCard } from './connection-card';
+import { WebsiteCard } from './website-card';
+import { WebsiteCreateDialog } from './website-create-dialog';
+import { WebsiteInstallDialog } from './website-install-dialog';
+import { WebsiteSettingsPanel } from './website-settings-panel';
 import { DiscoveryDialog } from './discovery-dialog';
 import { IntegrationsEmpty } from './integrations-empty';
 import { PageListToolbar } from './page-list-toolbar';
@@ -39,6 +46,10 @@ export function IntegrationsView({ mode }: { mode: IntegrationsMode }) {
   const [assignment, setAssignment] = useState('all');
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [dialog, setDialog] = useState<'edit' | 'deactivate' | null>(null);
+  const websites = useWebsiteActions();
+  const [site, setSite] = useState<
+    { kind: 'create' } | { kind: 'install' | 'settings' | 'disconnect'; id: string } | null
+  >(null);
 
   const all = channels.data?.data ?? EMPTY;
   const scope = bot ? { botId: mode.botId } : {};
@@ -78,9 +89,19 @@ export function IntegrationsView({ mode }: { mode: IntegrationsMode }) {
   const connectProviders = isMetaProvider(category)
     ? [category]
     : (['facebook', 'instagram'] as const);
+  const websiteTab = category === 'website';
   const showConnectHeader = isMetaProvider(category) && visible.length > 0;
+  const addWebsite = canManage ? (
+    <Button onClick={() => setSite({ kind: 'create' })}>
+      <Plus />
+      {ti('website.add')}
+    </Button>
+  ) : null;
+  const siteTarget = site && site.kind !== 'create' ? all.find((c) => c.id === site.id) : undefined;
   const base = bot ? owned : all;
-  const providerEmpty = isMetaProvider(category) && !base.some((c) => c.provider === category);
+  const providerEmpty =
+    (isMetaProvider(category) || category === 'website') &&
+    !base.some((c) => c.provider === category);
   const emptyKind = isComingSoon(category)
     ? 'comingSoon'
     : !base.length || (providerEmpty && !query)
@@ -151,27 +172,53 @@ export function IntegrationsView({ mode }: { mode: IntegrationsMode }) {
           {showConnectHeader ? (
             <ConnectButtons providers={connectProviders} integrations={integrations} />
           ) : null}
+          {websiteTab && visible.length > 0 ? addWebsite : null}
           {channels.isPending ? (
             <Skeleton className="h-28 w-full" />
           ) : visible.length ? (
             <ul className="grid gap-3 xl:grid-cols-2">
-              {visible.map((c) => (
-                <ConnectionCard
-                  key={c.id}
-                  connection={c}
-                  checked={selected.has(c.id)}
-                  disabled={!canManage || applying}
-                  onCheckedChange={(on) => toggle(c.id, on)}
-                  botName={botName(c.botId)}
-                  showBot={!bot}
-                  canReconnect={canManage && configured(c.provider) && !connect.pending}
-                  onReconnect={() => connect.connect(c.provider)}
-                />
-              ))}
+              {visible.map((c) => {
+                if (c.provider === 'website') {
+                  return (
+                    <WebsiteCard
+                      key={c.id}
+                      connection={c}
+                      checked={selected.has(c.id)}
+                      selectionDisabled={!canManage || applying}
+                      onCheckedChange={(on) => toggle(c.id, on)}
+                      botName={botName(c.botId)}
+                      showBot={!bot}
+                      canManage={canManage}
+                      busy={websites.busy}
+                      onInstall={() => setSite({ kind: 'install', id: c.id })}
+                      onSettings={() => setSite({ kind: 'settings', id: c.id })}
+                      onToggle={(enabled) =>
+                        void websites.updateSite(c.id, { enabled }, t('channelInbox.updated'))
+                      }
+                      onDisconnect={() => setSite({ kind: 'disconnect', id: c.id })}
+                    />
+                  );
+                }
+                const provider = c.provider;
+                return (
+                  <ConnectionCard
+                    key={c.id}
+                    connection={c}
+                    checked={selected.has(c.id)}
+                    disabled={!canManage || applying}
+                    onCheckedChange={(on) => toggle(c.id, on)}
+                    botName={botName(c.botId)}
+                    showBot={!bot}
+                    canReconnect={canManage && configured(provider) && !connect.pending}
+                    onReconnect={() => connect.connect(provider)}
+                  />
+                );
+              })}
             </ul>
           ) : !channels.isError ? (
             <IntegrationsEmpty kind={emptyKind} platform={category} bot={bot}>
-              {emptyKind === 'empty' ? (
+              {emptyKind === 'empty' && websiteTab ? addWebsite : null}
+              {emptyKind === 'empty' && !websiteTab ? (
                 <ConnectButtons providers={connectProviders} integrations={integrations} />
               ) : null}
             </IntegrationsEmpty>
@@ -210,6 +257,48 @@ export function IntegrationsView({ mode }: { mode: IntegrationsMode }) {
           onSave={(botId) => void assign(botId)}
         />
       ) : null}
+      {site?.kind === 'create' ? (
+        <WebsiteCreateDialog
+          bots={bots.data ?? []}
+          defaultBotId={bot ? mode.botId : undefined}
+          saving={websites.creating}
+          onClose={() => setSite(null)}
+          onSubmit={(body) =>
+            void websites.createSite(body).then((created) => {
+              if (created) setSite({ kind: 'install', id: created.id });
+            })
+          }
+        />
+      ) : null}
+      {site?.kind === 'install' && siteTarget ? (
+        <WebsiteInstallDialog
+          name={siteTarget.name}
+          siteKey={siteTarget.externalId}
+          onClose={() => setSite(null)}
+        />
+      ) : null}
+      {site?.kind === 'settings' && siteTarget ? (
+        <WebsiteSettingsPanel
+          connection={siteTarget}
+          saving={websites.updating}
+          onClose={() => setSite(null)}
+          onSave={(body) =>
+            void websites.updateSite(siteTarget.id, body).then((ok) => ok && setSite(null))
+          }
+        />
+      ) : null}
+      <ConfirmDialog
+        open={site?.kind === 'disconnect'}
+        destructive
+        title={ti('website.disconnectTitle')}
+        body={ti('website.disconnectBody')}
+        confirm={ti('website.disconnect')}
+        onCancel={() => setSite(null)}
+        onConfirm={() => {
+          const id = siteTarget?.id;
+          if (id) void websites.disconnectSite(id).then((ok) => ok && setSite(null));
+        }}
+      />
       <ConfirmDialog
         open={dialog === 'deactivate'}
         destructive

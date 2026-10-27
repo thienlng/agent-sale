@@ -134,6 +134,7 @@
     "status": {
       "connected": "Connected",
       "disconnected": "Disconnected",
+      "disabled": "Disabled",
       "reauth_required": "Expired"
     },
     "emptyTitle": "No pages yet",
@@ -162,7 +163,133 @@
     "allBots": "All bots",
     "chooseBot": "Choose an answering bot",
     "botTitle": "Manage pages and channels",
-    "openInventory": "View all pages and bots"
+    "openInventory": "View all pages and bots",
+    "website": {
+      "add": "Add website",
+      "createTitle": "Add website",
+      "createBody": "Enter the website name and domains. After creating it you get an embed code to paste into the site.",
+      "name": "Website name",
+      "namePlaceholder": "e.g. Lan Flower Shop",
+      "nameRequired": "Enter a website name.",
+      "domains": "Domains",
+      "domainsPlaceholder": "shop.vn, www.shop.vn",
+      "domainsHint": "One domain per line or separated by commas. Hostnames only, for example shop.vn.",
+      "domainsInvalid": "Invalid domains: {{list}}. Do not include https://, a path or a port.",
+      "domainsRequired": "Enter at least one domain (up to 10).",
+      "bot": "Answering bot",
+      "noBotOption": "No bot yet",
+      "create": "Create website",
+      "created": "Website created. Paste the embed code into your site to get started.",
+      "createFailed": "Could not create the website. Please try again.",
+      "running": "Running",
+      "off": "Off",
+      "domainsLine": "Domains: {{list}}",
+      "copyCode": "Copy embed code",
+      "copied": "Copied",
+      "copyFailed": "Could not copy. Select and copy it manually.",
+      "installGuide": "Install guide",
+      "settingsAction": "Settings",
+      "toggleLabel": "Turn chat on or off for {{name}}",
+      "disconnect": "Remove connection",
+      "disconnectTitle": "Remove this website connection?",
+      "disconnectBody": "The chat window stops appearing on this website. Conversation history is kept.",
+      "updateFailed": "Could not update the website. Please try again.",
+      "installTitle": "Install chat on {{name}}",
+      "installBody": "Paste this code into every page that should show the chat window, right before the </body> tag.",
+      "embedLabel": "Embed code",
+      "settingsTitle": "Settings for {{name}}",
+      "settingsSaved": "Website settings saved.",
+      "fieldInvalid": "This value is not valid.",
+      "fields": {
+        "name": "Website name",
+        "domains": "Allowed domains",
+        "color": "Brand colour",
+        "position": "Chat window position",
+        "positionRight": "Right corner",
+        "positionLeft": "Left corner",
+        "agentName": "Agent name",
+        "avatarUrl": "Avatar image (https)",
+        "greeting": "Greeting",
+        "phonePrompt": "Phone number request",
+        "phoneChipText": "Phone button label",
+        "requirePhoneAfter": "Require a phone number after (messages, 0 = optional)"
+      },
+      "preview": {
+        "label": "Preview",
+        "note": "Illustration of the current, unsaved settings.",
+        "input": "Type a message...",
+        "open": "Open chat window"
+      },
+      "guide": {
+        "title": "Install on your platform",
+        "html": {
+          "name": "HTML",
+          "steps": [
+            "Open your site's HTML file.",
+            "Paste the embed code right before the </body> tag.",
+            "Save, reload the page and check the chat window in the corner."
+          ]
+        },
+        "wordpress": {
+          "name": "WordPress",
+          "steps": [
+            "Install a code-injection plugin such as WPCode (or open Appearance > Theme file editor).",
+            "Paste the embed code into the Footer, before </body>.",
+            "Save and reload the page to check."
+          ]
+        },
+        "ladipage": {
+          "name": "LadiPage",
+          "steps": [
+            "Open the page in LadiPage and go to Settings > Custom code.",
+            "Paste the embed code into the BODY box (end of page), before </body>.",
+            "Publish the page again."
+          ]
+        },
+        "haravan": {
+          "name": "Haravan",
+          "steps": [
+            "Go to Website > Themes > Edit code.",
+            "Open theme.liquid and paste the embed code before </body>.",
+            "Save and reload the store."
+          ]
+        },
+        "sapo": {
+          "name": "Sapo",
+          "steps": [
+            "Go to Website > Themes > Edit code.",
+            "Open theme.liquid and paste the embed code before </body>.",
+            "Save and reload the website."
+          ]
+        },
+        "shopify": {
+          "name": "Shopify",
+          "steps": [
+            "Go to Online Store > Themes > Edit code.",
+            "Open theme.liquid and paste the embed code before </body>.",
+            "Save and reload the store."
+          ]
+        },
+        "wix": {
+          "name": "Wix",
+          "steps": [
+            "Go to Settings > Custom Code > Add Code (needs a paid plan with a connected domain).",
+            "Paste the embed code, choose Body - end and apply to All pages.",
+            "Click Apply, then Publish."
+          ]
+        },
+        "gtm": {
+          "name": "Google Tag Manager",
+          "steps": [
+            "Create a new tag of type Custom HTML.",
+            "Paste the embed code as the tag content and pick the All Pages trigger.",
+            "Click Submit, then Publish the container."
+          ]
+        }
+      },
+      "emptyTitle": "No websites yet",
+      "emptyBody": "Add a website so visitors can chat with your bot right on your site."
+    }
   },
   "inbox": {
     "pageTitle": "Multichannel inbox",
@@ -395,7 +522,9 @@
       "assign": "Assign to…",
       "assignMe": "Assign to me",
       "unassign": "Unassign",
-      "actionError": "Could not update the conversation. Try again."
+      "actionError": "Could not update the conversation. Try again.",
+      "newLead": "New number",
+      "newLeadLabel": "The visitor just left a phone number"
     },
     "header": {
       "seenBy": "{{name}} saw this · {{time}}",
@@ -474,6 +603,22 @@
       "followUp": "Follow-up",
       "followUpNone": "No follow-up scheduled",
       "followUpSet": "Schedule"
+    },
+    "notifications": {
+      "enable": "Enable notifications",
+      "enableHint": "Get a browser notification when a visitor leaves a phone number",
+      "leadTitle": "New phone number",
+      "leadBody": "{{name}} · {{phone}}"
+    },
+    "visitor": {
+      "title": "Website visitor",
+      "firstPage": "First page",
+      "currentPage": "Current page",
+      "referrer": "Referrer",
+      "direct": "Direct visit",
+      "phone": "Phone number",
+      "noPhone": "No number left yet",
+      "loadError": "Could not load the visitor details."
     }
   },
   "fanpage": {

@@ -6,6 +6,7 @@ import {
   TagAssignmentDto,
   TagList,
   TrainingItemList,
+  WebsiteVisitorDto,
   type SendInboxMessageRequest,
   type TagValues,
 } from '@agent-sales/contracts';
@@ -54,6 +55,17 @@ export function useConversation(id: string | null) {
     queryFn: () => api(`/conversations/${id}`, InboxDetailResponse),
     enabled: Boolean(ws && id),
     refetchInterval: 3000,
+  });
+}
+/** Where a website visitor came from and what they are looking at (website conversations only). */
+export function useWebsiteVisitor(conversationId: string, enabled: boolean) {
+  const ws = useWorkspaceId();
+  return useQuery({
+    queryKey: ['website-visitor', ws, conversationId],
+    queryFn: () => api(`/webchat/conversations/${conversationId}/visitor`, WebsiteVisitorDto),
+    enabled: Boolean(ws && enabled),
+    // The page the visitor is on changes while they browse.
+    refetchInterval: 15000,
   });
 }
 export function useQuickReplies(botId: string | null) {

@@ -3,6 +3,7 @@ import 'reflect-metadata';
 import { randomUUID } from 'node:crypto';
 
 import fastifyCookie from '@fastify/cookie';
+import fastifyMultipart from '@fastify/multipart';
 import { type INestApplication, RequestMethod, type Type } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
@@ -10,6 +11,7 @@ import type { RawRequestDefaultExpression } from 'fastify';
 import type { Logger } from 'pino';
 
 import { configureEnv, type Env } from './common/config.js';
+import { API_PREFIX } from './common/http/api-prefix.js';
 import { HttpExceptionFilter } from './common/http/http-exception.filter.js';
 import { installHttpObservability } from './common/http/observability.js';
 import { createLogger, PinoNestLogger } from './common/logger.js';
@@ -43,6 +45,10 @@ export async function createHttpApp(
     bufferLogs: true,
   });
   await app.register(fastifyCookie);
+  // Parsed only where a handler calls `req.file()` (the widget's image upload); no other route reads multipart.
+  await app.register(fastifyMultipart, {
+    limits: { fileSize: 5 * 1024 * 1024, files: 1, fields: 0 },
+  });
   // Logo uploads are raw image bodies, read as a Buffer for these two types only. The limit is a little
   // above the 1 MiB rule so an oversized file gets the precise error from the service, not a bare 413.
   adapter
@@ -54,7 +60,7 @@ export async function createHttpApp(
         done(null, body);
       },
     );
-  app.setGlobalPrefix('api/v1', { exclude: [{ path: 'metrics', method: RequestMethod.GET }] });
+  app.setGlobalPrefix(API_PREFIX, { exclude: [{ path: 'metrics', method: RequestMethod.GET }] });
   app.useGlobalFilters(new HttpExceptionFilter(logger));
   app.enableShutdownHooks();
   return { app, env, logger };

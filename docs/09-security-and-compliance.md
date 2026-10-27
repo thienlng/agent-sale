@@ -61,10 +61,21 @@ Default roles (custom roles can be created on Pro+ plans):
 - Platform admin (`users.is_platform_admin`) is granted only from the CLI (`pnpm --filter @agent-sales/backend platform-admin grant <email>`), checked against the database on every admin request, and admin routes answer 404 to everyone else.
 - Webhooks: verify signatures 100% of the time; reject replays older than 5 minutes when a timestamp is present.
 
+### Website chat widget (T-100)
+
+- **Public, unauthenticated surface.** The site key (`wk_…`) is an identifier, not a secret. Access is gated by (1) the site being `connected`, (2) the browser `Origin` matching a configured domain (exact or subdomain; `Origin` is forgeable outside browsers, so it stops other sites from embedding a stolen key but is not an abuse control), (3) per-visitor, per-address and per-site rate limits. Unknown key, disabled site and wrong origin are indistinguishable (`404 NOT_FOUND`), so keys cannot be probed.
+- **Visitor token.** `v1.<visitorId>.<base64url HMAC-SHA256(site secret, visitorId)>`; the per-site 32-byte secret is sealed with `SECRETS_ENCRYPTION_KEY`, cached opened in process (bounded) and never leaves the `channel` module. Verification is constant-time and needs no database read. The widget keeps it in `localStorage`; clearing storage starts a new visitor.
+- **Client address.** Per-address limits read the request IP, which is only trustworthy because the API runs Fastify with `trustProxy: true` behind a proxy/load balancer that overwrites `X-Forwarded-For`; without such a proxy a caller could choose its own address. The in-memory limiter is per API instance (N replicas allow N times the limits) until the Redis adapter exists. Only a site lookup that misses the 5 s cache (a DB query) is charged to the address (300 per 10 minutes), so polling or config calls answered from the cache never starve visitors sharing one address.
+- **No IP or user agent is stored.** Addresses are hashed with a per-process secret and a daily salt and used only as in-memory rate-limit keys.
+- **Rate limits (deviation: in memory, not Redis).** `RATE_LIMITER` is a port with a fixed-window in-process implementation (bounded to 50 000 keys, periodic sweep). Limits: visitor 5 messages per 5 s and 60 per hour, 10 uploads per hour; address 300 uncached site lookups per 10 minutes (answered 429 without querying), and per site and address 120 messages and 2 400 polls per 10 minutes, 60 uploads per hour; site 120 new visitors per minute. With several API replicas the effective limit is per replica; swap in a Redis adapter behind the port when the API scales out. Exceeded: `429` + `Retry-After`.
+- **CORS.** The caller's own origin is echoed on every public response (including the uniform 404, so the widget can read it and stop rendering), `Vary: Origin`, no credentials, never `*`. Preflight is answered only for an allowed origin of a live site. Dashboard routes are unchanged (no global CORS).
+- **Uploads.** One image (`jpeg|png|webp|gif`; without a visitor token the upload starts the visitor like a first message, under the same new-visitor limits) judged by magic bytes only, at most 5 MB, stored as `webchat/<workspace>/<connection>/<uuid>.<ext>` in the public bucket (`S3_PUBLIC_URL`); no object storage means `503 UNAVAILABLE`. A message may only attach a URL under that visitor site's own prefix. The bot's image fetcher allows our upload host (https, no private addresses).
+- **Visibility.** The visitor sees their messages and sent bot/staff messages only: never notes, failed or unknown messages, and staff appear under the site's agent name.
+
 ## 6. Application protection
 
 - OWASP ASVS L2 as the checklist; SAST (Semgrep/CodeQL), dependency scanning (Dependabot/Renovate + `pnpm audit`), container scanning (Trivy), secret scanning (gitleaks) in CI.
-- Strict CSP for the dashboard; widget runs in a sandboxed iframe; CORS by allowlist.
+- Strict CSP for the dashboard; the widget is a Shadow DOM script (ADR-011), and CORS works by the site-domain allowlist.
 - Uploads: check the real MIME type, size limits (ticket images 2MB×5 as in Preny; imports 50MB), malware scanning (ClamAV) for document files, strip EXIF.
 - SSRF protection for the knowledge URL crawling feature (block internal IPs, metadata endpoints).
 - WAF + rate limiting at the edge; DDoS protection.

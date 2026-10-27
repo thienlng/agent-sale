@@ -177,3 +177,87 @@ describe('ChannelFacade.fetchCustomerProfile', () => {
     expect(service.transport).not.toHaveBeenCalled();
   });
 });
+describe('ChannelFacade website channel (T-098)', () => {
+  const site = (status: 'connected' | 'disabled') => ({
+    id: 'w',
+    workspaceId: ws,
+    provider: 'website' as const,
+    externalId: 'site-key',
+    name: 'Shop site',
+    status,
+    settings: null,
+    botId: null,
+    tokenSealed: '',
+    expiresAt: null,
+    createdAt: new Date().toISOString(),
+  });
+  it('delivers without a network call and never builds a Meta adapter', async () => {
+    const { service, store } = setup();
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const transport = vi.fn();
+    service.transport = transport as never;
+    store.records.set('w', site('connected'));
+    expect(await service.deliver(ws, 'w', 'visitor', { text: 'hi' }, 'k1')).toEqual({
+      externalId: null,
+      status: 'sent',
+      failureCode: null,
+    });
+    await service.presence(ws, 'w', 'visitor', 'typing_on');
+    expect(await service.fetchCustomerProfile(ws, 'w', 'visitor')).toBeNull();
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(transport).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
+  it('fails delivery to a site that is not connected', async () => {
+    const { service, store } = setup();
+    store.records.set('w', site('disabled'));
+    expect(await service.deliver(ws, 'w', 'visitor', { text: 'hi' }, 'k1')).toEqual({
+      externalId: null,
+      status: 'failed',
+      failureCode: 'site_disabled',
+    });
+  });
+});
+function patch(store: MemoryChannelStore, id: string, changes: Record<string, unknown>) {
+  const record = store.records.get(id);
+  if (record) store.records.set(id, { ...record, ...changes });
+}
+describe('ChannelFacade website lifecycle (T-100)', () => {
+  it('enabled toggles only disabled <-> connected and leaves other statuses alone', async () => {
+    const { service, store } = setup();
+    const { id } = await service.createWebsite(ws, { name: 'Site', domains: ['shop.test'] });
+    const status = async (enabled: boolean) =>
+      (await service.updateWebsite(ws, id, { enabled })).status;
+    expect(await status(false)).toBe('disabled');
+    expect(await status(true)).toBe('connected');
+    for (const kept of ['disconnected', 'reauth_required'] as const) {
+      patch(store, id, { status: kept });
+      expect(await status(true)).toBe(kept);
+      expect(await status(false)).toBe(kept);
+    }
+  });
+  it('does not resolve a site whose stored settings are unusable (no localhost fallback)', async () => {
+    const { service, store } = setup();
+    const { id, externalId } = await service.createWebsite(ws, {
+      name: 'Site',
+      domains: ['shop.test'],
+    });
+    expect(await service.resolveWebsite(externalId)).not.toBeNull();
+    patch(store, id, { settings: null });
+    expect(await service.resolveWebsite(externalId)).toBeNull();
+  });
+  it('signs and verifies visitor tokens from the cache warmed by resolveWebsite', async () => {
+    const { service, store } = setup();
+    const { externalId } = await service.createWebsite(ws, {
+      name: 'Site',
+      domains: ['shop.test'],
+    });
+    const site = await service.resolveWebsite(externalId);
+    if (!site) throw new Error('site missing');
+    const reads = vi.spyOn(store, 'get');
+    const visitor = '018d0000-0000-7000-8000-0000000000aa';
+    const token = await service.signVisitorToken(site, visitor);
+    expect(await service.verifyVisitorToken(site, token)).toBe(visitor);
+    expect(reads).not.toHaveBeenCalled();
+  });
+});

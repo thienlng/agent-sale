@@ -114,9 +114,10 @@ export function ProviderGlyph({
   provider,
   className,
 }: {
-  provider: 'facebook' | 'instagram';
+  provider: 'facebook' | 'instagram' | 'website';
   className?: string;
 }) {
-  const Mark = provider === 'facebook' ? FacebookMark : InstagramMark;
+  const Mark =
+    provider === 'facebook' ? FacebookMark : provider === 'website' ? Globe : InstagramMark;
   return <Mark className={cn('size-4 text-primary', className)} />;
 }

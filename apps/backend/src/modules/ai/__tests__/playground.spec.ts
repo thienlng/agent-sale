@@ -603,4 +603,22 @@ describe('Originating-post grounding evals', () => {
     expect(res.outcome).toBe('fallback');
     expect(res.guardrail).toContain('ungrounded_figure');
   });
+
+  describe('phone already known', () => {
+    it('adds one system line only when the conversation has a lead', async () => {
+      const line = 'The customer already left their phone number; do not ask for it again.';
+      const fake = provider('dev-fake', { outcome: 'answer', reply: 'Dạ ạ.', sources: [] });
+      const { svc } = service(new LlmRuntime(new InMemoryLlmConfigRepository(), factory(fake)));
+      await svc.reply(ws, botId, ask('Xin chào'), { conversationId: null, isTest: false });
+      await svc.reply(
+        ws,
+        botId,
+        { ...ask('Xin chào'), phoneKnown: true },
+        { conversationId: null, isTest: false },
+      );
+      const [plain, known] = fake.calls as GenerateRequest[];
+      expect(plain?.messages[0]?.content).not.toContain(line);
+      expect(known?.messages[0]?.content.endsWith(line)).toBe(true);
+    });
+  });
 });

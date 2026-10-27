@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { MetaProvider } from '../channel/channel.schema.js';
+import { ChannelProvider } from '../channel/channel.schema.js';
 import { AssignTagRequest, TagAssignmentDto } from '../crm/crm-settings.schema.js';
 /** One entry of the conversation's internal notes timeline (never shown to the customer). */
 export const ConversationNote = z.object({
@@ -21,10 +21,23 @@ export const ConversationTagChip = z.object({
 });
 export type ConversationTagChip = z.infer<typeof ConversationTagChip>;
 
+/**
+ * A website visitor who left a phone number (a new lead). `seenAt` is set when staff first open
+ * the conversation after the number arrived: "Số mới" shows while it is null.
+ */
+export const ConversationLead = z.object({
+  contactId: z.uuid(),
+  /** E.164. */
+  phone: z.string().max(20),
+  capturedAt: z.iso.datetime(),
+  seenAt: z.iso.datetime().nullable(),
+});
+export type ConversationLead = z.infer<typeof ConversationLead>;
+
 export const ConversationDto = z.object({
   id: z.uuid(),
   channelId: z.uuid(),
-  provider: MetaProvider,
+  provider: ChannelProvider,
   customerId: z.string(),
   customerName: z.string(),
   /** Profile picture from Meta; `null` until the profile was fetched (or when Meta refused it). */
@@ -52,6 +65,7 @@ export const ConversationDto = z.object({
   lastMessageSender: z.enum(['customer', 'human', 'bot']).default('customer'),
   /** Last Vietnamese phone number found in a customer message, as `0xxxxxxxxx`. */
   customerPhone: z.string().max(20).nullable().default(null),
+  lead: ConversationLead.nullable().default(null),
   /** Filled on list and detail reads from the crm tag library; never stored. */
   tags: z.array(ConversationTagChip).default([]),
   followUpAt: z.iso.datetime().nullable().optional(),
@@ -113,7 +127,7 @@ export const ConversationTab = z.enum(['all', 'unread', 'waiting']);
 export type ConversationTab = z.infer<typeof ConversationTab>;
 
 export const ConversationListQuery = z.object({
-  provider: MetaProvider.optional(),
+  provider: ChannelProvider.optional(),
   status: z.enum(['open', 'resolved']).optional(),
   mode: z.enum(['human', 'bot']).optional(),
   q: z.string().max(200).optional(),

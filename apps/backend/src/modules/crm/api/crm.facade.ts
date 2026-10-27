@@ -46,6 +46,22 @@ export interface CrmFacade {
   ): Promise<{ sales: number; care: number }>;
 
   /**
+   * A website visitor left a phone number: finds the customer by the E.164 phone, or creates
+   * one (named `displayName`, source = the built-in source with `sourceKey`). An existing
+   * customer keeps its first source and gets a history entry. Safe under retries and races:
+   * concurrent calls for the same phone end with one customer.
+   */
+  upsertLeadByPhone(
+    workspaceId: WorkspaceId,
+    input: {
+      phoneE164: string;
+      sourceKey: 'website';
+      displayName: string;
+      firstUrl: string | null;
+    },
+  ): Promise<{ contactId: string; created: boolean }>;
+
+  /**
    * Tag chips of conversations for list rows (active, non-archived tags, oldest first);
    * conversations without tags are absent from the map.
    */

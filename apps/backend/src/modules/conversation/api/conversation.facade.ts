@@ -5,6 +5,7 @@ import type {
   ConversationView,
   ConversationListQuery,
   InboxMessageDto,
+  WidgetMessageDto,
   SendInboxMessageRequest,
   UpdateConversationRequest,
 } from '@agent-sales/contracts';
@@ -38,6 +39,15 @@ export interface ConversationFacade {
     actorId: string,
   ): Promise<{ created: boolean; assignment: ConversationTagAssignmentDto }>;
   markRead(ws: WorkspaceId, id: string, actorId: string): Promise<ConversationView>;
+  /**
+   * A website visitor left a phone number: sets `lead` (unseen) on the conversation. Idempotent
+   * for the same contact and phone; a different contact replaces the lead. Throws NOT_FOUND.
+   */
+  linkLead(
+    ws: WorkspaceId,
+    id: string,
+    lead: { contactId: string; phoneE164: string; capturedAt: string },
+  ): Promise<void>;
   markUnread(ws: WorkspaceId, id: string): Promise<ConversationView>;
   addNote(ws: WorkspaceId, id: string, text: string, actorId: string): Promise<ConversationView>;
   /**
@@ -48,6 +58,18 @@ export interface ConversationFacade {
   /** Bot-initiated hand-over to staff; resumes the bot automatically after the takeover window. */
   handOff(ws: WorkspaceId, id: string, actorId: string): Promise<ConversationView>;
   receive(ws: WorkspaceId, channelId: string, event: NormalizedEvent): Promise<ConversationView>;
+  /**
+   * What a website visitor may see of their own conversation: their messages and the bot/staff
+   * messages that were sent (never notes, failed or unknown messages, nor staff identities), as
+   * widget messages ordered by id ascending. `afterMessageId` is an exclusive cursor.
+   */
+  listForVisitor(
+    ws: WorkspaceId,
+    channelId: string,
+    customerId: string,
+    afterMessageId: string | null,
+    limit?: number,
+  ): Promise<{ conversationId: string | null; messages: WidgetMessageDto[] }>;
   getReplyContext(
     ws: WorkspaceId,
     id: string,

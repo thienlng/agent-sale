@@ -23,6 +23,38 @@ export class MemoryChannelStore implements ChannelStore {
     this.records.set(id, changed);
     return changed;
   }
+  async create(record: ConnectionRecord) {
+    this.records.set(record.id, record);
+    return record;
+  }
+  async findWebsite(siteKey: string) {
+    return (
+      [...this.records.values()].find(
+        (c) => c.provider === 'website' && c.externalId === siteKey,
+      ) ?? null
+    );
+  }
+  readonly events: Array<{ connectionId: string; externalEventId: string; sender: string }> = [];
+  async enqueueEvent(
+    record: ConnectionRecord,
+    event: { externalEventId: string; senderExternalId: string },
+  ) {
+    if (
+      this.events.some(
+        (e) => e.connectionId === record.id && e.externalEventId === event.externalEventId,
+      )
+    )
+      return false;
+    this.events.push({
+      connectionId: record.id,
+      externalEventId: event.externalEventId,
+      sender: event.senderExternalId,
+    });
+    return true;
+  }
+  async hasPendingCustomerEvent(connectionId: string, sender: string) {
+    return this.events.some((e) => e.connectionId === connectionId && e.sender === sender);
+  }
   async unbindBot(ws: WorkspaceId, botId: string) {
     let n = 0;
     for (const [id, c] of this.records)

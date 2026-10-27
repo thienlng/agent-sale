@@ -10,6 +10,8 @@ pnpm --filter @agent-sales/web test:e2e   # Playwright smoke tests on the produc
 pnpm --filter @agent-sales/web exec shadcn add <component>   # add a shadcn/ui component to src/components/ui
 ```
 
+Environment: `VITE_WIDGET_URL` (optional) is the public URL of the chat widget bundle shown in the website embed code (`src/lib/env.ts`). Defaults: `http://localhost:5174/widget.js` in dev, `https://widget.rapiz.vn/v1/widget.js` in production builds.
+
 Layout and rules: `docs/ARCHITECTURE.md` §4 — `features/<module>` mirrors backend modules and never imports another feature (compose in `routes/`); `lib/api-client.ts` is the only `fetch`; no barrels; strings from `@agent-sales/i18n`. Budgets: `docs/16` §1.
 
 - `src/components/ui/` — shadcn/ui components, owned code. Restyle through tokens, not by forking variants per page. The chat panel uses shadcn's `message-scroller`, `message`, `bubble`.

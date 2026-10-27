@@ -88,7 +88,7 @@ Dedicated layout: back button, bot name, **bot on/off switch**, left menu, **tes
 | Channel OAuth callback | `/oauth/{provider}/callback` |
 | Payment: VNPAY result | `/billing/return` |
 | Affiliate landing | `/affiliates?ref={code}` |
-| Chat widget | `widget.<domain>/v1/…` (iframe) |
+| Chat widget | Script `widget.<domain>/v1/widget.js?key=wk_…` (Shadow DOM, no iframe); it calls the public API under `/api/v1/webchat/v1/sites/{key}` (ADR-011) |
 | Back-office | `admin.<domain>` (separate app, internal SSO, IP allowlist) |
 
 ## 5. Inbox wireframe (our design — the Preny inbox could not be captured)

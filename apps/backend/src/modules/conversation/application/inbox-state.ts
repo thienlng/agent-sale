@@ -33,11 +33,14 @@ export async function markRead(
   actorId: string,
 ): Promise<ConversationView> {
   const name = (await identity.displayName(userId(actorId))) ?? '';
+  const at = new Date().toISOString();
   return load(store, ws, id, (c) => ({
     ...c,
     unreadCount: 0,
-    lastReadAt: new Date().toISOString(),
+    lastReadAt: at,
     lastReadBy: { userId: actorId, name },
+    // The "new lead" flag goes away the first time staff open the conversation.
+    ...(c.lead && !c.lead.seenAt ? { lead: { ...c.lead, seenAt: at } } : {}),
   }));
 }
 

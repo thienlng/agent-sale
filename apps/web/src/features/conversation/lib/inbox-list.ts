@@ -1,4 +1,4 @@
-import type { MetaProvider } from '@agent-sales/contracts';
+import type { ChannelProvider } from '@agent-sales/contracts';
 import type {
   InboxConversation,
   InboxCounts,
@@ -23,7 +23,7 @@ export interface ListState {
   mode: ModeFilter;
   /** `all`, `me`, `none` or a member id. */
   assignee: string;
-  provider: MetaProvider | 'all';
+  provider: ChannelProvider | 'all';
   /** `all` or a connected page / account id. */
   channelId: string;
   hasPhone: PhoneFilter;
@@ -171,9 +171,10 @@ export function tabCounts(
   );
 }
 
-const PROVIDER_LABEL: Record<MetaProvider, string> = {
+const PROVIDER_LABEL: Record<ChannelProvider, string> = {
   facebook: 'Facebook',
   instagram: 'Instagram',
+  website: 'Website',
 };
 
 /** The raw channel id is not a name: show "Khách Facebook ·1234" until Meta tells us the name. */

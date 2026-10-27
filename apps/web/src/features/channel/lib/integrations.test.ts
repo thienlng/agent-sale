@@ -1,6 +1,14 @@
 import type { ChannelConnectionDto } from '@agent-sales/contracts';
 import { describe, expect, it } from 'vitest';
-import { filterConnections, formatDay, initials, planBotPages } from './integrations';
+import {
+  BOT_PLATFORMS,
+  filterConnections,
+  formatDay,
+  initials,
+  isComingSoon,
+  planBotPages,
+  WORKSPACE_PLATFORMS,
+} from './integrations';
 
 const BOT_A = '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d01';
 const BOT_B = '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d02';
@@ -79,4 +87,20 @@ it('filters all pages by assigned bot or explicitly unassigned, independently of
   expect(
     filterConnections(all, { category: 'instagram', query: '', assignedBotId: BOT_A }),
   ).toEqual([]);
+});
+
+describe('website platform', () => {
+  const site = page({ provider: 'website', externalId: 'wk_abc', name: 'Shop web' });
+  it('is listed and enabled on both screens and no longer coming soon', () => {
+    for (const list of [WORKSPACE_PLATFORMS, BOT_PLATFORMS]) {
+      expect(list.find((p) => p.key === 'website')).toEqual({ key: 'website' });
+    }
+    expect(isComingSoon('website')).toBe(false);
+  });
+  it('filters websites by provider and keeps them out of Facebook', () => {
+    const mixed = [fbFree, site];
+    expect(filterConnections(mixed, { category: 'website', query: '' })).toEqual([site]);
+    expect(filterConnections(mixed, { category: 'facebook', query: '' })).toEqual([fbFree]);
+    expect(filterConnections(mixed, { category: 'all', query: 'wk_' })).toEqual([site]);
+  });
 });

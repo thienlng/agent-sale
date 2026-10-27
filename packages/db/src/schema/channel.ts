@@ -22,6 +22,8 @@ export const channelConnections = pgTable(
     status: text('status').notNull().default('connected'),
     botId: uuid('bot_id'),
     tokenSealed: text('token_sealed').notNull(),
+    /** Provider-specific settings (0025): the widget configuration of a website connection. */
+    settings: jsonb('settings'),
     expiresAt: timestamp('expires_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },

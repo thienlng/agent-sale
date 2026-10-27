@@ -81,7 +81,7 @@ export interface InboxListQuery {
   tab?: InboxTab;
   assignee?: string;
   channelId?: string;
-  provider?: 'facebook' | 'instagram';
+  provider?: 'facebook' | 'instagram' | 'website';
   hasPhone?: boolean;
   waiting?: WaitingFilter;
   status?: 'open' | 'resolved';

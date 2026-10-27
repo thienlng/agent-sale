@@ -1,4 +1,5 @@
-import type { MetaProvider } from '@agent-sales/contracts';
+import type { ChannelProvider } from '@agent-sales/contracts';
+import { Globe } from 'lucide-react';
 import { type ReactNode, type SVGProps, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { customerInitial } from '../lib/inbox-list';
@@ -34,16 +35,18 @@ export function ProviderMark({
   provider,
   className,
 }: {
-  provider: MetaProvider;
+  provider: ChannelProvider;
   className?: string;
 }) {
-  const Mark = provider === 'facebook' ? MessengerMark : InstagramMark;
+  const Mark =
+    provider === 'facebook' ? MessengerMark : provider === 'website' ? Globe : InstagramMark;
   return <Mark className={cn('size-4', className)} />;
 }
 
 /** Brand colour and short label per channel, so a rep tells Messenger from Instagram at a glance. */
-const CHANNEL_STYLE: Record<MetaProvider, { label: string; className: string }> = {
+const CHANNEL_STYLE: Record<ChannelProvider, { label: string; className: string }> = {
   facebook: { label: 'Messenger', className: 'bg-[#0866ff] text-white' },
+  website: { label: 'Website', className: 'bg-primary text-primary-foreground' },
   instagram: {
     label: 'Instagram',
     className: 'bg-gradient-to-tr from-[#f58529] via-[#dd2a7b] to-[#8134af] text-white',
@@ -55,7 +58,7 @@ export function ChannelBadge({
   provider,
   title,
 }: {
-  provider: MetaProvider;
+  provider: ChannelProvider;
   title?: string | undefined;
 }) {
   const style = CHANNEL_STYLE[provider];

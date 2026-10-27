@@ -63,13 +63,13 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## Done (last 10 — older ones live in todo/done/)
 
+- [x] T-104 Website chat end-to-end tests and docs pass — @agent:claude · [details](todo/done/T-104-website-chat-end-to-end-tests-and-docs-pass.md) · merged to main
+- [x] T-103 Dashboard: website channel management and install guide — @agent:claude · [details](todo/done/T-103-dashboard-website-channel-management-and-install-g.md) · merged to main
+- [x] T-102 Website lead capture into the CRM and inbox — @agent:claude · [details](todo/done/T-102-website-lead-capture-into-the-crm-and-inbox.md) · merged to main
+- [x] T-101 Embeddable website chat widget — @agent:claude · [details](todo/done/T-101-embeddable-website-chat-widget.md) · merged to main
+- [x] T-100 Webchat public API, visitors and rate limits — @agent:claude · [details](todo/done/T-100-webchat-public-api-visitors-and-rate-limits.md) · merged to main
+- [x] T-099 Website connections: settings, site key and management API — @agent:claude · [details](todo/done/T-099-website-connections-settings-site-key-and-manageme.md) · merged to main
+- [x] T-098 Generalize the inbox pipeline by channel capabilities — @agent:claude · [details](todo/done/T-098-generalize-the-inbox-pipeline-by-channel-capabilit.md) · merged to main
+- [x] T-097 Website chat: tasks, ADR and channel docs — @agent:claude · [details](todo/done/T-097-website-chat-tasks-adr-and-channel-docs.md) · merged to main
 - [x] T-074 Delete a bot and open its settings from the bot list — @agent:claude · [details](todo/done/T-074-delete-a-bot-and-open-its-settings-from-the-bot-li.md) · PR #61
 - [x] T-073 Sales inbox v2 unread tags filters and reply mode — @agent:claude · [details](todo/done/T-073-sales-inbox-v2-unread-tags-filters-and-reply-mode.md) · PR #59
-- [x] T-072 Complete inbox follow-ups saved views and sales shortcuts — @agent:codex · [details](todo/done/T-072-complete-inbox-follow-ups-saved-views-and-sales-sh.md) · PR #59
-- [x] T-069 Implement context-aware Facebook post replies and comment automation — @agent:codex, @agent:claude · [details](todo/done/T-069-implement-context-aware-facebook-post-replies-and-.md) · PR #60
-- [x] T-070 Instruction rules v2: toggles, sections, starter pack and visible system rules — @agent:claude · [details](todo/done/T-070-instruction-rules-v2-toggles-sections-starter-pack.md) · PR #58
-- [x] T-055 Bot API actions: let the bot call shop APIs (Bizfly-style integrations) — @agent:claude · [details](todo/done/T-055-bot-api-actions-let-the-bot-call-shop-apis-bizfly-.md) · PR #58
-- [x] T-053 Bot reply quality and pipeline robustness found by scenario QA — @unassigned · [details](todo/done/T-053-bot-reply-quality-and-pipeline-robustness-found-by.md) · PR #58
-- [x] T-052 Sign in to ChatGPT from the Admin LLM page for hermes-runtime — @mrkenknight · [details](todo/done/T-052-sign-in-to-chatgpt-from-the-admin-llm-page-for-her.md) · #42 (draft) · PR #58
-- [x] T-067 Stop auto-collapsing the app sidebar inside the bot space — @agent:claude · [details](todo/done/T-067-stop-auto-collapsing-the-app-sidebar-inside-the-bo.md) · PR #56
-- [x] T-065 Admin LLM: check connection and fetch model list from the provider dialog — @agent:claude · [details](todo/done/T-065-admin-llm-check-connection-and-fetch-model-list-fr.md) · PR #56

@@ -1,5 +1,11 @@
 import { randomBytes } from 'node:crypto';
-import { MetaProvider, SelectChannelRequest, UpdateChannelRequest } from '@agent-sales/contracts';
+import {
+  CreateWebsiteRequest,
+  MetaProvider,
+  SelectChannelRequest,
+  UpdateChannelRequest,
+  UpdateWebsiteRequest,
+} from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
 import {
   Body,
@@ -83,6 +89,25 @@ export class ChannelController {
     @Body(new ZodValidationPipe(SelectChannelRequest)) body: z.infer<typeof SelectChannelRequest>,
   ) {
     return this.channels.select(ws, user.userId, id, body.externalIds);
+  }
+  @RequireCapability('settings.manage')
+  @WorkspaceScoped()
+  @Post('website')
+  createWebsite(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Body(new ZodValidationPipe(CreateWebsiteRequest)) body: CreateWebsiteRequest,
+  ) {
+    return this.channels.createWebsite(ws, body);
+  }
+  @RequireCapability('settings.manage')
+  @WorkspaceScoped()
+  @Patch(':id/website')
+  updateWebsite(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Param('id', idPipe) id: string,
+    @Body(new ZodValidationPipe(UpdateWebsiteRequest)) body: UpdateWebsiteRequest,
+  ) {
+    return this.channels.updateWebsite(ws, id, body);
   }
   @RequireCapability('settings.manage')
   @WorkspaceScoped()

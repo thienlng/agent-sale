@@ -37,7 +37,10 @@ function useVisible(): boolean {
  */
 export function useReadOnOpen(
   id: string,
-  conversation: Pick<InboxConversation, 'unreadCount' | 'lastReadAt'> | undefined,
+  conversation:
+    | (Pick<InboxConversation, 'unreadCount' | 'lastReadAt'> &
+        Partial<Pick<InboxConversation, 'lead'>>)
+    | undefined,
 ): { markUnread: () => Promise<void>; pending: boolean } {
   const { markRead, markUnread } = useReadState();
   // Highest unread count already handled for this open; -1 until the first look.
@@ -46,9 +49,17 @@ export function useReadOnOpen(
   const unreadCount = conversation?.unreadCount;
   const lastReadAt = conversation?.lastReadAt ?? null;
   const loaded = conversation !== undefined;
+  // A phone number can arrive on a conversation that is already read (the visitor used the chip).
+  const leadUnseen = Boolean(conversation?.lead && !conversation.lead.seenAt);
+  const leadHandled = useRef(false);
   const mark = markRead.mutate;
   useEffect(() => {
     if (!loaded || unreadCount === undefined || !visible) return;
+    if (!leadUnseen) leadHandled.current = false;
+    if (leadUnseen && !leadHandled.current && !explicitUnread.has(id)) {
+      leadHandled.current = true;
+      mark(id);
+    }
     if (explicitUnread.has(id)) {
       // Wait until the explicit unread shows up, then treat it as handled.
       if (unreadCount > 0) {
@@ -66,7 +77,7 @@ export function useReadOnOpen(
       // Best effort: an older API has no read route, and the list still works.
       mark(id);
     }
-  }, [id, loaded, unreadCount, lastReadAt, mark, visible]);
+  }, [id, loaded, unreadCount, lastReadAt, leadUnseen, mark, visible]);
   return {
     markUnread: () => markUnreadGuarded(id, markUnread.mutateAsync),
     pending: markUnread.isPending,

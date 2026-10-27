@@ -6,6 +6,7 @@ import { useWorkspaceId } from '@/lib/use-workspace';
 import { useDebouncedValue } from '../hooks/use-debounced-value';
 import { markUnreadGuarded } from '../hooks/use-read-on-open';
 import { useInboxShortcuts } from '../hooks/use-inbox-shortcuts';
+import { useLeadAlerts } from '../hooks/use-lead-alerts';
 import {
   useAssignConversation,
   useInbox,
@@ -78,7 +79,10 @@ function InboxWorkspace({
   const [state, setState] = useState<ListState>(DEFAULT_LIST_STATE);
   // The server is asked once typing pauses; the other filters apply at once.
   const debouncedQ = useDebouncedValue(state.q, 250);
-  const inbox = useInbox(toListQuery({ ...state, q: debouncedQ }));
+  const listQuery = toListQuery({ ...state, q: debouncedQ });
+  const inbox = useInbox(listQuery);
+  // While the previous rows are kept for a new query they are not that query's rows: wait for them.
+  useLeadAlerts(inbox.isPlaceholderData ? undefined : inbox.data?.data, JSON.stringify(listQuery));
   const channels = useInboxChannels();
   const tags = useInboxTags();
   const members = useInboxMembers();

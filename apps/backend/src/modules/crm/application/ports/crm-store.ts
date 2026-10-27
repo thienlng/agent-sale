@@ -159,6 +159,8 @@ export interface CrmTx {
     update(c: ContactRecord, expectedVersion: number): Promise<boolean>;
     find(id: string, opts?: { forUpdate?: boolean }): Promise<ContactRecord | null>;
     findByRequestId(requestId: string): Promise<ContactRecord | null>;
+    /** Oldest customer with this E.164 phone, or null. */
+    findByPhone(phoneNormalized: string): Promise<ContactRecord | null>;
     query(q: ContactQuery): Promise<{ rows: ContactRecord[]; total: number }>;
     countOwnedBy(userId: string): Promise<{ sales: number; care: number }>;
     /** Display names by id (statistics drilldown); unknown ids are absent. */
@@ -268,6 +270,8 @@ export interface CrmTx {
     /** One more customer handed out. */
     advance(sourceId: string): Promise<void>;
   };
+  /** Serializes concurrent transactions on the same key until this one ends (advisory lock). */
+  lock(key: string): Promise<void>;
   outbox(workspaceId: WorkspaceId, e: CrmOutboxEvent): Promise<void>;
 }
 

@@ -1,4 +1,9 @@
-import type { ChannelConnectionDto } from '@agent-sales/contracts';
+import type {
+  ChannelConnectionDto,
+  CreateWebsiteRequest,
+  UpdateWebsiteRequest,
+  WebsiteSettings,
+} from '@agent-sales/contracts';
 import type { NormalizedEvent } from '@agent-sales/channels';
 import type { WorkspaceId } from '@agent-sales/shared';
 export interface PendingMetaEvent {
@@ -22,7 +27,33 @@ export interface CustomerProfile {
   name: string | null;
   avatarUrl: string | null;
 }
+/** A website connection as the public widget API sees it; the signing secret stays in the module. */
+export interface WebsiteSite {
+  workspaceId: WorkspaceId;
+  connectionId: string;
+  siteKey: string;
+  name: string;
+  status: 'connected' | 'disabled' | 'disconnected' | 'reauth_required';
+  botId: string | null;
+  settings: WebsiteSettings;
+}
 export interface ChannelFacade {
+  createWebsite(ws: WorkspaceId, input: CreateWebsiteRequest): Promise<ChannelConnectionDto>;
+  updateWebsite(
+    ws: WorkspaceId,
+    id: string,
+    input: UpdateWebsiteRequest,
+  ): Promise<ChannelConnectionDto>;
+  /** Public lookup by site key (system role). Null when unknown. */
+  resolveWebsite(siteKey: string): Promise<WebsiteSite | null>;
+  /** Whether a browser `Origin` belongs to one of the site's domains (exact host or subdomain). */
+  isOriginAllowed(site: WebsiteSite, origin: string | undefined): boolean;
+  signVisitorToken(site: WebsiteSite, visitorId: string): Promise<string>;
+  verifyVisitorToken(site: WebsiteSite, token: string): Promise<string | null>;
+  /** Writes a website customer event into channel_webhook_events; false when it already exists. */
+  enqueueWebsiteEvent(site: WebsiteSite, event: NormalizedEvent): Promise<boolean>;
+  /** True while the visitor has an unprocessed message event (drives the widget's typing dots). */
+  hasPendingCustomerEvent(connectionId: string, senderExternalId: string): Promise<boolean>;
   getConnection(ws: WorkspaceId, id: string): Promise<ChannelConnectionDto>;
   deliver(
     ws: WorkspaceId,

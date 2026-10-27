@@ -117,6 +117,29 @@ describe('read state', () => {
     expect(read.updatedAt).toBe(c.updatedAt);
   });
 
+  it('links a lead, keeps it idempotent and stamps seenAt when staff read it', async () => {
+    const c = await service.receive(ws, channelId, event('m1'));
+    const lead = {
+      contactId: newId(),
+      phoneE164: '+84912345679',
+      capturedAt: '2026-10-24T05:01:00.000Z',
+    };
+    await service.linkLead(ws, c.id, lead);
+    await service.linkLead(ws, c.id, lead);
+    expect((await service.get(ws, c.id)).conversation.lead).toEqual({
+      contactId: lead.contactId,
+      phone: '+84912345679',
+      capturedAt: lead.capturedAt,
+      seenAt: null,
+    });
+    vi.setSystemTime(new Date('2026-10-24T05:10:00Z'));
+    const read = await service.markRead(ws, c.id, lan);
+    expect(read.lead?.seenAt).toBe('2026-10-24T05:10:00.000Z');
+    vi.setSystemTime(new Date('2026-10-24T05:20:00Z'));
+    expect((await service.markRead(ws, c.id, lan)).lead?.seenAt).toBe('2026-10-24T05:10:00.000Z');
+    await expect(service.linkLead(ws, newId(), lead)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+
   it('marks unread with at least one message and forgets who read it', async () => {
     const c = await service.receive(ws, channelId, event('m1'));
     await service.markRead(ws, c.id, lan);

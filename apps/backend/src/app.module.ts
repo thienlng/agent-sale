@@ -14,6 +14,7 @@ import { TeamModule } from './modules/team/team.module.js';
 import { BotModule } from './modules/bot/bot.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { IdentityModule } from './modules/identity/identity.module.js';
+import { WebchatModule } from './modules/webchat/webchat.module.js';
 import { WorkspaceModule } from './modules/workspace/workspace.module.js';
 
 /**
@@ -32,6 +33,7 @@ import { WorkspaceModule } from './modules/workspace/workspace.module.js';
     CommerceModule,
     ChannelModule,
     ConversationModule,
+    WebchatModule,
     CrmModule,
     TeamModule,
     BillingModule,

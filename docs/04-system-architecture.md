@@ -131,6 +131,7 @@ flowchart TB
 | `knowledge` | FAQ, documents, situation guides (scripts), bot products, media albums, quick replies, indexing | knowledge_items, knowledge_chunks, bot_products, media_albums, media_assets, quick_replies |
 | `channel` | Channel connections (FB page, IG, Zalo OA, TikTok, Lazada, website widget), tokens, webhooks, status | channel_connections, channel_tokens, inbound_events |
 | `conversation` | Conversations, messages, bot ON/OFF status, assignment, handoff, history sync | conversations, messages, conversation_assignments, handoffs |
+| `webchat` | Website chat: public widget API (`/api/v1/webchat/v1/sites/{key}`: config, messages, uploads, phone), visitors, origin check, rate limits, visitor details for the inbox. Messages enter the same inbox queue as Facebook (`channel.enqueueWebsiteEvent`) | webchat_visitors |
 | `ai` | Reply orchestrator, tool calling, guardrails, AI tagging, phone number (SĐT)/address extraction, metering | ai_runs, ai_tool_calls |
 | `crm` | Customers, multi-channel identity, sources, statuses, tags, customer lists (segments), notes, tasks/reminders, files, timeline, CRM automation rules, import/export | contacts, contact_identities, sources, pipeline_statuses, tags, segments, notes, tasks, crm_rules |
 | `commerce` | Operational catalog, variants, inventory, orders, fulfillment status, orders from chat, order settings, Google Sheet sync | products, product_variants, warehouses, inventory, orders, order_items, order_settings |
@@ -143,6 +144,8 @@ flowchart TB
 | `affiliate` | Terms, referral links, referred customers, commissions, withdrawals, bank accounts | affiliate_accounts, referral_links, referrals, commissions, payouts |
 | `admin` (back-office) | Internal administration: tenants, plans, bank-transfer payment approval, support, feature flags, audited impersonation | — |
 | `audit` | Immutable activity log | audit_events |
+
+**Public widget surface (T-100).** `webchat` is the only module with unauthenticated routes beyond auth: `GET /webchat/v1/sites/{key}` (public look, never domains or bot id), `POST …/messages` (202, creates the visitor on the first message and returns its token), `GET …/messages?after=` (poll: messages, `botTyping`, `phoneCaptured`, `phoneRequired`), `POST …/uploads` (multipart field `file`, image only, 5 MB, public S3 URL), `POST …/phone` (501 until lead capture). Every call resolves the site by key and checks the browser `Origin` against the site's domains; anything else is a uniform `404 {error:"NOT_FOUND"}`. Replies use the small `{error: CODE}` body and CORS headers echoing the caller's origin (never `*`); an `onRequest` hook answers `OPTIONS` for this prefix only. Authed staff route: `GET /webchat/conversations/{conversationId}/visitor`. Tier 3 (flows): `webchat` uses the `channel`, `conversation` and `bot` facades only.
 
 Inter-module communication: synchronous in-process service interface calls + **domain events** (outbox pattern → BullMQ) for side effects (e.g. `message.received` → CRM rule, workflow trigger, analytics).
 

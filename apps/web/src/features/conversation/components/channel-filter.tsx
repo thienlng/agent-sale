@@ -1,4 +1,4 @@
-import type { ChannelConnectionDto, MetaProvider } from '@agent-sales/contracts';
+import type { ChannelConnectionDto, ChannelProvider, MetaProvider } from '@agent-sales/contracts';
 import { ChevronDown, Inbox } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
@@ -47,7 +47,7 @@ export function ChannelFilter({
           className={cn('ml-auto h-7 max-w-36 px-2 text-xs', active && 'text-primary')}
         >
           {page || state.provider !== 'all' ? (
-            <ProviderMark provider={page?.provider ?? (state.provider as MetaProvider)} />
+            <ProviderMark provider={page?.provider ?? (state.provider as ChannelProvider)} />
           ) : null}
           <span className="truncate">{label}</span>
           <ChevronDown />

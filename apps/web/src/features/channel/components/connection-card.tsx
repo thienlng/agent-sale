@@ -11,6 +11,7 @@ import { ProviderGlyph } from './platform-icon';
 
 const STATUS_CLASS: Record<ChannelConnectionDto['status'], string> = {
   connected: 'border-success/40 bg-success-soft text-success',
+  disabled: 'border-border bg-muted text-muted-foreground',
   disconnected: 'border-destructive/30 bg-destructive-soft text-destructive',
   reauth_required: 'border-warning/40 bg-warning-soft text-warning',
 };

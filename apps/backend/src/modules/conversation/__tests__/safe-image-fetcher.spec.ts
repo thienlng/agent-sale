@@ -124,3 +124,12 @@ describe('SafeImageFetcher', () => {
     expect(Date.now() - started).toBeLessThan(7_000);
   }, 10_000);
 });
+describe('SafeImageFetcher public upload hosts (T-100)', () => {
+  it('allows a configured public host only over https and never an IP literal', async () => {
+    const fetcher = new SafeImageFetcher([], ['cdn.rapiz.test']);
+    expect(await fetcher.fetch('http://cdn.rapiz.test/a.png')).toBeNull();
+    expect(
+      await new SafeImageFetcher([], ['127.0.0.1']).fetch('https://127.0.0.1/a.png'),
+    ).toBeNull();
+  });
+});

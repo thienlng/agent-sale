@@ -1,4 +1,4 @@
-import type { ChannelConnectionDto, MetaProvider } from '@agent-sales/contracts';
+import type { ChannelConnectionDto, MetaProvider, WebsiteSettings } from '@agent-sales/contracts';
 import type { NormalizedEvent } from '@agent-sales/channels';
 import type { WorkspaceId } from '@agent-sales/shared';
 export interface GrantedAccount {
@@ -35,8 +35,21 @@ export interface ChannelStore {
   update(
     ws: WorkspaceId,
     id: string,
-    patch: { botId?: string | null; status?: ChannelConnectionDto['status'] },
+    patch: {
+      botId?: string | null;
+      status?: ChannelConnectionDto['status'];
+      name?: string;
+      settings?: WebsiteSettings;
+    },
   ): Promise<ConnectionRecord | null>;
+  /** Inserts a new connection (website connections are created here, Meta ones through `select`). */
+  create(record: ConnectionRecord): Promise<ConnectionRecord>;
+  /** Cross-tenant lookup of a website connection by its public site key. */
+  findWebsite(siteKey: string): Promise<ConnectionRecord | null>;
+  /** Stores a customer event once per (connection, externalEventId); false when it already exists. */
+  enqueueEvent(record: ConnectionRecord, event: NormalizedEvent): Promise<boolean>;
+  /** True while the sender has an unprocessed message event on this connection. */
+  hasPendingCustomerEvent(connectionId: string, senderExternalId: string): Promise<boolean>;
   /** Clears the bot binding of every connection pointing at `botId`; returns how many changed. */
   unbindBot(ws: WorkspaceId, botId: string): Promise<number>;
   createFlow(flow: OAuthFlow): Promise<void>;

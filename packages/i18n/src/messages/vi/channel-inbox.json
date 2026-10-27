@@ -134,6 +134,7 @@
     "status": {
       "connected": "Đã kết nối",
       "disconnected": "Mất kết nối",
+      "disabled": "Đang tắt",
       "reauth_required": "Hết hạn"
     },
     "emptyTitle": "Chưa có trang nào",
@@ -162,7 +163,133 @@
     "allBots": "Tất cả bot",
     "chooseBot": "Chọn bot trả lời",
     "botTitle": "Quản lý fanpage và kênh",
-    "openInventory": "Xem tất cả trang và bot"
+    "openInventory": "Xem tất cả trang và bot",
+    "website": {
+      "add": "Thêm website",
+      "createTitle": "Thêm website",
+      "createBody": "Nhập tên và tên miền của website. Sau khi tạo, bạn nhận mã nhúng để dán vào trang.",
+      "name": "Tên website",
+      "namePlaceholder": "Ví dụ: Cửa hàng hoa Lan",
+      "nameRequired": "Nhập tên website.",
+      "domains": "Tên miền",
+      "domainsPlaceholder": "shop.vn, www.shop.vn",
+      "domainsHint": "Mỗi tên miền một dòng hoặc cách nhau bằng dấu phẩy. Chỉ nhập tên miền, ví dụ shop.vn.",
+      "domainsInvalid": "Tên miền không hợp lệ: {{list}}. Không nhập https://, đường dẫn hay cổng.",
+      "domainsRequired": "Nhập ít nhất một tên miền (tối đa 10).",
+      "bot": "Bot trả lời",
+      "noBotOption": "Chưa gán bot",
+      "create": "Tạo website",
+      "created": "Đã tạo website. Dán mã nhúng vào trang để bắt đầu.",
+      "createFailed": "Chưa tạo được website. Vui lòng thử lại.",
+      "running": "Đang chạy",
+      "off": "Đang tắt",
+      "domainsLine": "Tên miền: {{list}}",
+      "copyCode": "Sao chép mã nhúng",
+      "copied": "Đã chép",
+      "copyFailed": "Không sao chép được. Hãy chọn và chép thủ công.",
+      "installGuide": "Hướng dẫn cài đặt",
+      "settingsAction": "Cài đặt",
+      "toggleLabel": "Bật hoặc tắt chat trên {{name}}",
+      "disconnect": "Xóa kết nối",
+      "disconnectTitle": "Xóa kết nối website?",
+      "disconnectBody": "Khung chat sẽ ngừng hiển thị trên website này. Lịch sử hội thoại được giữ lại.",
+      "updateFailed": "Chưa cập nhật được website. Vui lòng thử lại.",
+      "installTitle": "Cài đặt chat cho {{name}}",
+      "installBody": "Dán mã này vào mọi trang bạn muốn hiện khung chat, ngay trước thẻ </body>.",
+      "embedLabel": "Mã nhúng",
+      "settingsTitle": "Cài đặt {{name}}",
+      "settingsSaved": "Đã lưu cài đặt website.",
+      "fieldInvalid": "Giá trị chưa hợp lệ.",
+      "fields": {
+        "name": "Tên website",
+        "domains": "Tên miền được phép",
+        "color": "Màu chủ đạo",
+        "position": "Vị trí khung chat",
+        "positionRight": "Góc phải",
+        "positionLeft": "Góc trái",
+        "agentName": "Tên tư vấn viên",
+        "avatarUrl": "Ảnh đại diện (https)",
+        "greeting": "Lời chào",
+        "phonePrompt": "Lời nhắn xin số điện thoại",
+        "phoneChipText": "Nút gửi số điện thoại",
+        "requirePhoneAfter": "Bắt buộc để lại số sau (tin nhắn, 0 = không bắt buộc)"
+      },
+      "preview": {
+        "label": "Xem trước",
+        "note": "Minh họa theo cài đặt hiện tại, chưa lưu.",
+        "input": "Nhập tin nhắn...",
+        "open": "Mở khung chat"
+      },
+      "guide": {
+        "title": "Cài đặt trên nền tảng của bạn",
+        "html": {
+          "name": "HTML",
+          "steps": [
+            "Mở tệp HTML của trang web.",
+            "Dán mã nhúng ngay trước thẻ </body>.",
+            "Lưu, tải lại trang và kiểm tra khung chat ở góc màn hình."
+          ]
+        },
+        "wordpress": {
+          "name": "WordPress",
+          "steps": [
+            "Cài plugin chèn mã như WPCode (hoặc mở Giao diện > Trình chỉnh sửa tệp giao diện).",
+            "Dán mã nhúng vào phần Footer, trước thẻ </body>.",
+            "Lưu và tải lại trang để kiểm tra."
+          ]
+        },
+        "ladipage": {
+          "name": "LadiPage",
+          "steps": [
+            "Mở trang trong LadiPage, vào Cài đặt > Mã tùy chỉnh.",
+            "Dán mã nhúng vào ô BODY (cuối trang), trước thẻ </body>.",
+            "Xuất bản lại trang."
+          ]
+        },
+        "haravan": {
+          "name": "Haravan",
+          "steps": [
+            "Vào Website > Giao diện > Chỉnh sửa mã nguồn.",
+            "Mở tệp theme.liquid và dán mã nhúng trước thẻ </body>.",
+            "Lưu và tải lại cửa hàng."
+          ]
+        },
+        "sapo": {
+          "name": "Sapo",
+          "steps": [
+            "Vào Website > Giao diện > Chỉnh sửa mã nguồn.",
+            "Mở tệp theme.liquid và dán mã nhúng trước thẻ </body>.",
+            "Lưu và tải lại website."
+          ]
+        },
+        "shopify": {
+          "name": "Shopify",
+          "steps": [
+            "Vào Online Store > Themes > Edit code.",
+            "Mở tệp theme.liquid và dán mã nhúng trước thẻ </body>.",
+            "Lưu và tải lại cửa hàng."
+          ]
+        },
+        "wix": {
+          "name": "Wix",
+          "steps": [
+            "Vào Settings > Custom Code > Add Code (cần gói trả phí kết nối tên miền).",
+            "Dán mã nhúng, chọn vị trí Body - end và áp dụng cho All pages.",
+            "Bấm Apply rồi Publish."
+          ]
+        },
+        "gtm": {
+          "name": "Google Tag Manager",
+          "steps": [
+            "Tạo thẻ mới (New Tag), loại Custom HTML.",
+            "Dán mã nhúng vào nội dung thẻ, chọn trigger All Pages.",
+            "Bấm Submit rồi Publish container."
+          ]
+        }
+      },
+      "emptyTitle": "Chưa có website nào",
+      "emptyBody": "Thêm website để khách chat với bot ngay trên trang của bạn."
+    }
   },
   "inbox": {
     "pageTitle": "Tin nhắn đa kênh",
@@ -395,7 +522,9 @@
       "assign": "Giao cho…",
       "assignMe": "Giao cho tôi",
       "unassign": "Bỏ giao",
-      "actionError": "Không cập nhật được hội thoại. Thử lại."
+      "actionError": "Không cập nhật được hội thoại. Thử lại.",
+      "newLead": "Số mới",
+      "newLeadLabel": "Khách vừa để lại số điện thoại"
     },
     "header": {
       "seenBy": "{{name}} đã xem · {{time}}",
@@ -474,6 +603,22 @@
       "followUp": "Hẹn chăm sóc lại",
       "followUpNone": "Chưa đặt lịch",
       "followUpSet": "Đặt lịch"
+    },
+    "notifications": {
+      "enable": "Bật thông báo",
+      "enableHint": "Nhận thông báo trên trình duyệt khi có khách để lại số điện thoại",
+      "leadTitle": "Có số điện thoại mới",
+      "leadBody": "{{name}} · {{phone}}"
+    },
+    "visitor": {
+      "title": "Khách truy cập website",
+      "firstPage": "Trang đầu tiên",
+      "currentPage": "Trang đang xem",
+      "referrer": "Nguồn truy cập",
+      "direct": "Truy cập trực tiếp",
+      "phone": "Số điện thoại",
+      "noPhone": "Chưa để lại số",
+      "loadError": "Không tải được thông tin khách truy cập."
     }
   },
   "fanpage": {

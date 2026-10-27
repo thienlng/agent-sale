@@ -15,6 +15,7 @@ import { ConversationHeader, type HeaderChannel } from './conversation-header';
 import { CustomerPanel } from './customer-panel';
 import { MessageComposer } from './message-composer';
 import { MessageThread } from './message-thread';
+import { WebsiteVisitorBlock } from './website-visitor-block';
 import { useTagBarExpanded } from '../hooks/use-tag-bar-expanded';
 import { ConversationTagBar } from './conversation-tag-bar';
 import { useConversationShortcuts } from '../hooks/use-conversation-shortcuts';
@@ -223,6 +224,7 @@ export function ConversationView({
           <ArrowLeft />
           {tr('back')}
         </Button>
+        {c.provider === 'website' ? <WebsiteVisitorBlock conversationId={c.id} /> : null}
         {renderSalesPanel ? renderSalesPanel(c) : <CustomerPanel conversation={c} />}
       </aside>
     </div>

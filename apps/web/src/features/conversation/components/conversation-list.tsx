@@ -11,6 +11,7 @@ import { DEFAULT_LIST_STATE, filterChips, isFiltered, type ListState } from '../
 import type { InboxConversation, InboxCounts, InboxTab } from '../lib/inbox-v2-types';
 import { ChannelFilter } from './channel-filter';
 import { ConversationRow, type RowActions } from './conversation-row';
+import { EnableNotificationsButton } from './enable-notifications-button';
 import { InboxFilterChips } from './inbox-filter-chips';
 import { InboxFilterPopover, type FilterMember, type FilterTag } from './inbox-filter-popover';
 import { SavedInboxViews } from './saved-inbox-views';
@@ -80,6 +81,7 @@ export function ConversationList({
     >
       <div className="space-y-2 border-b p-3">
         <h1 className="sr-only">{tr('inbox.pageTitle')}</h1>
+        <EnableNotificationsButton />
         <div className="flex items-center gap-1.5">
           <div className="relative min-w-0 flex-1">
             <Search className="absolute top-2 left-2.5 size-4 text-muted-foreground" aria-hidden />

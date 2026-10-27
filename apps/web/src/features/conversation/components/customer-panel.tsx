@@ -18,7 +18,8 @@ export function CustomerSummary({ conversation: c }: { conversation: InboxConver
   const channels = useInboxChannels();
   const page = channels.data?.data.find((channel) => channel.id === c.channelId)?.name;
   const name = customerDisplayName(c, (provider, last4) => tr('v2.row.guest', { provider, last4 }));
-  const provider = c.provider === 'facebook' ? 'Facebook' : 'Instagram';
+  const provider =
+    c.provider === 'facebook' ? 'Facebook' : c.provider === 'website' ? 'Website' : 'Instagram';
   async function copy(text: string) {
     try {
       await navigator.clipboard.writeText(text);

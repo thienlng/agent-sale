@@ -43,6 +43,7 @@ export function newConversation(input: {
     awaitingSince: null,
     lastMessageSender: input.echo ? 'human' : 'customer',
     customerPhone: null,
+    lead: null,
     tags: [],
     revision: 0,
     lastMessage: '',

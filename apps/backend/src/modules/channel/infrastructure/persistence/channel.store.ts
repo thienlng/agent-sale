@@ -1,6 +1,6 @@
 import { and, desc, eq, schema, sql, withSystem, withTenant, type Database } from '@agent-sales/db';
 import { newId, type WorkspaceId } from '@agent-sales/shared';
-import type { MetaProvider } from '@agent-sales/contracts';
+import type { ChannelProvider, MetaProvider } from '@agent-sales/contracts';
 import type { NormalizedEvent } from '@agent-sales/channels';
 import type {
   ChannelStore,
@@ -10,6 +10,12 @@ import type {
 } from '../../application/ports/channel-store.js';
 import { ChannelError } from '../../domain/channel.errors.js';
 import { MAX_EVENT_ATTEMPTS } from '../../api/channel.facade.js';
+import {
+  enqueueWebsiteEvent,
+  findWebsiteRecord,
+  hasPendingMessage,
+  readSettings,
+} from './website.store.js';
 /** A customer's messages are answered together once they pause this long (or after the max wait). */
 export const EVENT_QUIET_MS = 700;
 export const EVENT_MAX_WAIT_MS = 4000;
@@ -20,13 +26,14 @@ function connection(r: typeof c.$inferSelect): ConnectionRecord {
   return {
     id: r.id,
     workspaceId: r.workspaceId as WorkspaceId,
-    provider: r.provider as MetaProvider,
+    provider: r.provider as ChannelProvider,
     externalId: r.externalId,
     name: r.name,
     status: r.status as ConnectionRecord['status'],
     botId: r.botId,
     tokenSealed: r.tokenSealed,
     expiresAt: r.expiresAt?.toISOString() ?? null,
+    settings: r.provider === 'website' ? readSettings(r.settings) : null,
     createdAt: r.createdAt.toISOString(),
   };
 }
@@ -63,6 +70,29 @@ export class DrizzleChannelStore implements ChannelStore {
         .returning();
       return r ? connection(r) : null;
     });
+  }
+  create(rec: ConnectionRecord) {
+    return withTenant(this.db, rec.workspaceId, async (tx) => {
+      const [r] = await tx
+        .insert(c)
+        .values({
+          ...rec,
+          expiresAt: rec.expiresAt ? new Date(rec.expiresAt) : null,
+          createdAt: new Date(rec.createdAt),
+        })
+        .returning();
+      if (!r) throw new ChannelError('CONFLICT', 'Connection was not created');
+      return connection(r);
+    });
+  }
+  findWebsite(siteKey: string) {
+    return findWebsiteRecord(this.system, siteKey);
+  }
+  enqueueEvent(rec: ConnectionRecord, event: NormalizedEvent) {
+    return enqueueWebsiteEvent(this.system, rec, event);
+  }
+  hasPendingCustomerEvent(connectionId: string, senderExternalId: string) {
+    return hasPendingMessage(this.system, connectionId, senderExternalId);
   }
   unbindBot(ws: WorkspaceId, botId: string) {
     return withTenant(this.db, ws, async (tx) => {
@@ -305,6 +335,18 @@ export class UnavailableChannelStore implements ChannelStore {
   }
   update(): Promise<null> {
     return this.fail();
+  }
+  create(): Promise<ConnectionRecord> {
+    return this.fail();
+  }
+  findWebsite(): Promise<null> {
+    return Promise.resolve(null);
+  }
+  enqueueEvent(): Promise<boolean> {
+    return this.fail();
+  }
+  hasPendingCustomerEvent(): Promise<boolean> {
+    return Promise.resolve(false);
   }
   unbindBot(): Promise<number> {
     return Promise.resolve(0);

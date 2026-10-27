@@ -14,6 +14,7 @@ import { healthRoutes } from './health/health.routes.js';
 import { identityRoutes } from './identity/identity.routes.js';
 import { accessRoutes } from './workspace/access.routes.js';
 import { profileRoutes } from './workspace/profile.routes.js';
+import { webchatRoutes } from './webchat/webchat.routes.js';
 import { workspaceRoutes } from './workspace/workspace.routes.js';
 
 export * from './action/index.js';
@@ -40,6 +41,8 @@ export * from './crm/crm.events.js';
 export * from './crm/crm.routes.js';
 export * from './bot/bot.routes.js';
 export * from './knowledge/knowledge.schema.js';
+export * from './webchat/webchat.schema.js';
+export * from './webchat/webchat.routes.js';
 export * from './common/errors.js';
 export * from './common/pagination.js';
 export * from './common/routes.js';
@@ -73,6 +76,7 @@ export const allRoutes = [
   ...llmAdminRoutes,
   ...commerceRoutes,
   ...crmRoutes,
+  ...webchatRoutes,
 ] as const;
 
 export * from './knowledge/media.schema.js';
@@ -86,3 +90,4 @@ export * from './conversation/conversation.routes.js';
 import { mediaRoutes } from './knowledge/media.routes.js';
 
 export * from './channel/fanpage.schema.js';
+export * from './channel/website.schema.js';

@@ -63,6 +63,10 @@ const STYLE: Record<BotView['creativity'], string> = {
   creative: 'Be lively and persuasive, but every fact must still come from the knowledge.',
 };
 
+/** Added to the system prompt once a website visitor has left a phone number. */
+export const PHONE_KNOWN_LINE =
+  'The customer already left their phone number; do not ask for it again.';
+
 /**
  * The bot's reply pipeline, single turn, for the dashboard playground:
  * retrieve FAQs → grounded LLM call (structured output) → guardrails
@@ -203,7 +207,10 @@ export class PlaygroundService implements AiFacade {
       workspaceId: ws,
       tier: bot.modelTier,
       messages: [
-        { role: 'system' as const, content: system },
+        {
+          role: 'system' as const,
+          content: input.phoneKnown ? `${system}\n\n${PHONE_KNOWN_LINE}` : system,
+        },
         ...conversation(
           input,
           sources,

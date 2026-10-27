@@ -4,6 +4,7 @@ export {
   type ChannelFacade,
   type OutboundInboxMessage,
   type PendingMetaEvent,
+  type WebsiteSite,
 } from './channel.facade.js';
 export * from './channel.events.js';
 

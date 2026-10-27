@@ -6,7 +6,7 @@
 
 **Public API (`api/`):**
 
-- `CONVERSATION_FACADE` → `list(ws, query, viewerId)` (filters, tabs, counts), `get`, `update` (incl. `assigneeId`), `markRead`, `markUnread`, `addNote`, `refreshCustomerProfile`, `listTags`, `addTag`, `send`, `receive`, `getReplyContext`, `commitBotReply`, `handOff`, `commitBotImage`
+- `CONVERSATION_FACADE` → `list(ws, query, viewerId)` (filters, tabs, counts), `get`, `update` (incl. `assigneeId`), `markRead`, `markUnread`, `linkLead`, `addNote`, `refreshCustomerProfile`, `listTags`, `addTag`, `send`, `receive`, `getReplyContext`, `commitBotReply`, `handOff`, `commitBotImage`
 - `CONVERSATION_RUNNER` (`MetaInboxProcessor.tick`) — run only by the `agent` entry.
 - HTTP: `/conversations`, `/conversations/{id}`, `/conversations/{id}/messages`, `/conversations/{id}/read`, `/conversations/{id}/unread`, `/conversations/{id}/notes`, `/conversations/{id}/tags` (GET, POST; the tag library is crm's, removal via crm's `/tag-assignments/{id}/remove`).
 
@@ -28,6 +28,7 @@
 
 - Read state is shared by the shop and never bumps `revision` or `updatedAt`. `awaitingSince` is set by a customer message and cleared by any outbound one (human, bot or staff echo).
 - The agent entry calls `refreshCustomerProfile` (not awaited) after each customer message; it stamps `profileFetchedAt` first, so Meta is asked at most once a day after a success and every 15 minutes after a failure, and it never throws.
+- **Website lead (T-102):** `linkLead(ws, id, { contactId, phoneE164, capturedAt })` (called by webchat) stores `lead` `{ contactId, phone, capturedAt, seenAt: null }` in the conversation document; it is idempotent for the same contact and phone and, like read state, never bumps `revision` or `updatedAt`. `markRead` sets `lead.seenAt` the first time staff open the conversation (the inbox "Số mới" badge is `lead && !lead.seenAt`). When `lead` is set the bot's reply request carries `phoneKnown`, and the AI prompt gets one extra system line telling it not to ask for the phone number again.
 - Tag chips are filled from `CrmFacade` on list, detail and mutation responses and are never stored; tag filters ask crm for id sets (`idsIn`/`idsNotIn`) that the SQL query applies.
 - Assignees are validated through `TeamFacade` (active members only), names come from `IdentityFacade`.
 

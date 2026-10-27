@@ -4,8 +4,10 @@ import {
   ChannelListResponse,
   ConnectChannelResponse,
   DiscoveryDto,
+  type CreateWebsiteRequest,
   type MetaProvider,
   type UpdateChannelRequest,
+  type UpdateWebsiteRequest,
 } from '@agent-sales/contracts';
 import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
@@ -116,6 +118,26 @@ export function useUpdateChannel() {
   return useMutation({
     mutationFn: ({ id, body }: { id: string; body: UpdateChannelRequest }) =>
       api(`/channels/${id}`, ChannelConnectionDto, { method: 'PATCH', body }),
+    onSuccess: () => invalidateConnectionViews(qc, ws),
+  });
+}
+
+export function useCreateWebsite() {
+  const ws = useWorkspaceId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CreateWebsiteRequest) =>
+      api('/channels/website', ChannelConnectionDto, { method: 'POST', body }),
+    onSuccess: () => invalidateConnectionViews(qc, ws),
+  });
+}
+/** Partial update: send only the fields that changed (settings, name, enabled). */
+export function useUpdateWebsite() {
+  const ws = useWorkspaceId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: UpdateWebsiteRequest }) =>
+      api(`/channels/${id}/website`, ChannelConnectionDto, { method: 'PATCH', body }),
     onSuccess: () => invalidateConnectionViews(qc, ws),
   });
 }

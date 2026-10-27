@@ -13,3 +13,4 @@ export * from './action.js';
 export * from './analytics.js';
 export * from './billing.js';
 export * from './audit.js';
+export * from './webchat.js';

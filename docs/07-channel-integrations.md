@@ -83,12 +83,20 @@ interface ChannelAdapter {
 
 ## 5. Website widget (ours)
 
-- Embed script `<script src="https://widget.domain/v1/loader.js" data-bot="pk_xxx" async>`; a small loader (< 15KB gzip) loads an iframe bundle (Preact) to isolate CSS.
-- Also supports a direct iframe mode (Preny's guide offers iframe or body injection).
-- Visitor id stored in localStorage + first-party cookie; WebSocket/SSE connection; long-polling fallback.
-- **Domain allowlist** per bot; the public key is not a secret; rate limit per IP + visitor; captcha on suspected spam.
-- Customization: color, avatar, greeting, position, pre-chat phone number form (optional), operating hours.
-- Cookie consent: display a link to the shop's privacy policy.
+Decision record: [ADR-011](adr/ADR-011-website-widget-shadow-dom-and-polling.md). Design: `docs/superpowers/specs/2026-10-27-website-chat-channel-design.md`. A website is a `channel_connections` row (`provider: 'website'`, bound to a bot) and reuses the inbox pipeline like a Facebook Page.
+
+- **Embed snippet:** `<script src="https://widget.rapiz.vn/v1/widget.js?key=wk_XXXXXXXXXXXXXXXXXXXXXX" async></script>` (host decided at deploy time). `wk_` + 22 base62 characters is the public site key, not a secret.
+- **Isolation:** a single script renders into a Shadow DOM root (no iframe). Plain TypeScript, ES2017 output, at most 20 KB gzip, enforced in CI.
+- **Transport:** polling on the `api` entry: 3 s while open and awaiting a reply, 4 s open, 20 s closed, paused while the page is hidden, backoff to 60 s on errors; no polling before the first message. SSE on the `realtime` entry comes later.
+- **Visitor identity:** an HMAC-SHA256 signed token (`v1.<visitorId>.<signature>`) created on the first message, kept in `localStorage`, sent as `Authorization: Visitor <token>`. No raw IP or user agent is stored.
+- **Public API:** `/api/v1/webchat/v1/sites/{key}` (config), `/messages` (send, poll), `/uploads` (without a visitor token it starts the visitor like the first message and answers `visitorToken`; the optional query parameters `firstUrl`, `referrer`, `pageUrl`, `pageTitle` fill the visitor row), `/phone`; unauthenticated, identified by the site key and the visitor token. Site lookups are cached for 5 s (misses too), so a disabled site or a changed domain list takes effect within 5 s.
+- **Domain allowlist:** the request `Origin` must match a hostname in the site's `domains` (1-10, subdomains included). Unknown key, disabled site or origin mismatch returns 404 and the widget does not render. The caller's origin is echoed on every public response, including that 404, so the widget can read the status and stop; preflight passes only for an allowed origin of a live site.
+- **Rate limits:** per visitor (burst 5 then 1 message/s, 60 messages/h, 10 uploads/h), per hashed IP (300 site lookups that miss the 5 s cache per 10 min, answered 429 without a DB query, so polls served from the cache are not counted; per site 120 messages and 2,400 polls per 10 min; 60 uploads and 30 phone submissions per hour), per site (120 new visitors/min), messages at most 2,000 characters. In-memory behind a `RateLimiter` port, so limits are per API instance; a shared store comes later (see docs/09). Exceeded returns 429 with `Retry-After`.
+- **Disconnecting:** a website disconnected via `PATCH /channels/{id}` cannot be re-enabled with `enabled:true`; create a new website instead.
+- **Settings (`WebsiteSettings`):** `domains`, `color`, `position` (left/right), `agentName`, `avatarUrl`, `greeting`, `phonePrompt`, `phoneChipText`, `requirePhoneAfter` (when a visitor without a phone has sent this many messages, the poll answer carries `phoneRequired: true` and the widget shows the phone form instead of the composer and sends are refused with `409 PHONE_REQUIRED` until a number is given; 0 = never).
+- **Queue ids:** a visitor message enters `channel_webhook_events` with the external event id `<visitorId>:<clientMessageId>`, so a retry of the same message is accepted without a second row and another visitor reusing a client id cannot suppress it.
+- **Lead capture:** a phone number (chip, typed in chat, or required mode) upserts a CRM contact with source `website` and links it to the conversation. Placeholder numbers (`0987654321`, `0912345678`, …) are rejected for leads (`normalizeLeadPhone`); the inbox flags a new lead with "Số mới" until staff open the conversation, and the dashboard can show a browser notification while it is open.
+- **Not in this slice:** captcha/proof-of-work, proactive invites, attribution, operating hours, cookie-consent link, SSE, Web Push (later specs).
 
 ## 6. TikTok, Lazada (P2)
 

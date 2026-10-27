@@ -3,3 +3,5 @@ export * from './registry.js';
 export * from './meta.js';
 
 export { FacebookPostsAdapter, type FacebookPost, type FacebookThread } from './facebook-posts.js';
+export * from './capabilities.js';
+export * from './website.js';

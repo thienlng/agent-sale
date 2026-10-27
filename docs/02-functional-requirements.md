@@ -64,7 +64,7 @@ Technical details: [07](07-channel-integrations.md).
 | CHN-02 | Connect Facebook pages via OAuth (select multiple pages) | P0 | Pages over quota → go to "Chờ kích hoạt" (Pending activation) |
 | CHN-03 | Bulk activate/deactivate pages, edit, sync old messages (choose a cut-off point) | P0 | |
 | CHN-04 | Attach a page to a bot ("Chọn từ trang có sẵn" (Choose from existing pages)); 1 page ↔ 1 bot | P0 | |
-| CHN-05 | Website widget: embed code, customization, domain allowlist | P0 | Locked by plan (entitlement) |
+| CHN-05 | Website widget: embed code, customization, domain allowlist | P0 | Implemented (T-097..T-104): website channels in the dashboard, embeddable widget, domain allowlist, phone lead capture; the plan entitlement lock is not implemented yet |
 | CHN-06 | Zalo OA (OAuth, display OA plan requirements) | P0 | |
 | CHN-07 | Instagram DM | P1 | |
 | CHN-08 | Reply to FB/IG comments + send a private message on comment; **Posts** screen to enable/disable per post | P1 | |

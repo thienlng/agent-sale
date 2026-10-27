@@ -29,6 +29,8 @@ export const PlaygroundRequest = z.object({
     }),
   images: z.array(PlaygroundImage).max(3).optional(),
   postContext: FanpageContext.optional(),
+  /** The customer already left a phone number: the bot must not ask for it again. */
+  phoneKnown: z.boolean().optional(),
 });
 export type PlaygroundRequest = z.infer<typeof PlaygroundRequest>;
 

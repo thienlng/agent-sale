@@ -197,4 +197,23 @@ describe('conversation row', () => {
       screen.getByRole('img', { name: 'channelInbox.v2.row.modeHuman' }).getAttribute('class'),
     ).toContain('text-muted-foreground');
   });
+
+  it('badges a conversation whose visitor just left a phone number, until staff have seen it', () => {
+    const lead = {
+      contactId: '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d99',
+      phone: '+84912345679',
+      capturedAt: '2026-10-25T10:20:00.000Z',
+      seenAt: null,
+    };
+    const first = renderRow({ lead });
+    expect(screen.getByText('channelInbox.v2.row.newLead')).toBeInTheDocument();
+    first.unmount();
+    renderRow({ lead: { ...lead, seenAt: '2026-10-25T10:25:00.000Z' } });
+    expect(screen.queryByText('channelInbox.v2.row.newLead')).not.toBeInTheDocument();
+  });
+
+  it('shows no lead badge without a lead', () => {
+    renderRow();
+    expect(screen.queryByText('channelInbox.v2.row.newLead')).not.toBeInTheDocument();
+  });
 });

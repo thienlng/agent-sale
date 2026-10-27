@@ -33,6 +33,10 @@ export class CrmFacadeImpl implements CrmFacade {
     return this.ownership.reassignContacts(ws, input);
   }
 
+  upsertLeadByPhone(ws: WorkspaceId, input: Parameters<ContactService['upsertLead']>[1]) {
+    return this.contacts.upsertLead(ws, input);
+  }
+
   conversationTags(ws: WorkspaceId, ids: readonly string[]) {
     return this.conversationTagsService.chips(ws, ids);
   }
