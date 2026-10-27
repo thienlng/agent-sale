@@ -74,4 +74,4 @@ TypeScript everywhere · pnpm workspaces + Turborepo · **Vite + React SPA** (Ta
 
 ## 6. Who reviews
 
-Human maintainer: `thienlng` (see `.github/CODEOWNERS`). Every PR needs the maintainer's approval, preceded by a fresh-context agent review (`review-pr` skill) on non-trivial PRs. Agents never merge their own PRs and never push directly to `main`.
+Human maintainer: `thienlng` (see `.github/CODEOWNERS`). Every PR needs the maintainer's approval, preceded by a fresh-context agent review (`review-pr` skill) on non-trivial PRs.

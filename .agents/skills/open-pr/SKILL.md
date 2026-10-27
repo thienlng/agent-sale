@@ -39,4 +39,4 @@ Mark the PR ready for review only when everything above holds; otherwise keep it
 ## After opening
 
 - Watch CI; fix failures with new commits (no force-push after review started).
-- Answer every review comment. Do not merge; a human will.
+- Answer every review comment.

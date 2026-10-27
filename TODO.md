@@ -63,6 +63,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## Done (last 10 — older ones live in todo/done/)
 
+- [x] T-105 Allow agents to push and merge to main with owner approval — @agent:claude · [details](todo/done/T-105-allow-agents-to-push-and-merge-to-main-with-owner-.md) · merged to main
 - [x] T-096 Rebuild the inbox core around the Meta Business Suite layout — @agent:claude · [details](todo/done/T-096-rebuild-the-inbox-core-around-the-meta-business-su.md) · merged to main
 - [x] T-095 Write Meta Business Suite inbox functional specification — @agent:codex · [details](todo/done/T-095-write-meta-business-suite-inbox-functional-specifi.md) · merged to main
 - [x] T-104 Website chat end-to-end tests and docs pass — @agent:claude · [details](todo/done/T-104-website-chat-end-to-end-tests-and-docs-pass.md) · merged to main
@@ -72,4 +73,3 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [x] T-100 Webchat public API, visitors and rate limits — @agent:claude · [details](todo/done/T-100-webchat-public-api-visitors-and-rate-limits.md) · merged to main
 - [x] T-099 Website connections: settings, site key and management API — @agent:claude · [details](todo/done/T-099-website-connections-settings-site-key-and-manageme.md) · merged to main
 - [x] T-098 Generalize the inbox pipeline by channel capabilities — @agent:claude · [details](todo/done/T-098-generalize-the-inbox-pipeline-by-channel-capabilit.md) · merged to main
-- [x] T-097 Website chat: tasks, ADR and channel docs — @agent:claude · [details](todo/done/T-097-website-chat-tasks-adr-and-channel-docs.md) · merged to main

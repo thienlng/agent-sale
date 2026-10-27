@@ -35,8 +35,7 @@ Refs: T-012
 - A PR is ready for review only when: `pnpm check` passes locally, CI is green, the task file is updated, docs are updated, and the PR description lists how you verified the change.
 - Draft PRs are encouraged early for visibility, but mark them ready only when the above holds.
 - Respond to every review comment (fix, or explain why not). Push follow-up commits; do not force-push after review has started unless the reviewer asks.
-- Merge strategy: **squash merge** by a human. The squash commit message is the PR title + body.
-- Agents never merge, never approve, never push to `main`, never edit branch protection.
+- Merge strategy: **squash merge**. The squash commit message is the PR title + body.
 
 ## Dependabot PRs
 
