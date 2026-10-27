@@ -38,6 +38,7 @@ import { useCan } from '@/lib/permissions';
 import { usePreferences } from '@/lib/preferences/preferences';
 import { useSession } from '@/lib/session';
 
+import { BusinessSelector } from './business-selector';
 import { NavUser } from './nav-user';
 
 interface NavItem {
@@ -48,9 +49,11 @@ interface NavItem {
 }
 
 /** P0 items of docs/03 §2; the ones not built yet say so instead of pretending. */
+const HOME: readonly NavItem[] = [
+  { to: '/app/analytics', key: 'nav.analytics', icon: BarChart3, ready: true },
+];
 const BOTS: readonly NavItem[] = [{ to: '/app/bots', key: 'nav.bots', icon: Bot, ready: true }];
 const WORK: readonly NavItem[] = [
-  { to: '/app/analytics', key: 'nav.analytics', icon: BarChart3, ready: true },
   { to: '/app/members', key: 'nav.members', icon: UsersRound, ready: true },
   { to: '/app/settings', key: 'nav.settings', icon: Settings, ready: true },
 ];
@@ -242,18 +245,20 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild size="lg" tooltip={t('app.name')}>
-              <Link to="/app/bots">
+              <Link to="/app/overview">
                 <Logo className="group-data-[collapsible=icon]:hidden" />
                 <Logo markOnly className="hidden group-data-[collapsible=icon]:inline-flex" />
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
+        <BusinessSelector />
       </SidebarHeader>
       <SidebarContent>
         {/* `contents` keeps the sidebar's own layout while exposing a navigation landmark. */}
         <nav aria-label={t('nav.mainLabel')} className="contents">
-          <NavGroup label={t('nav.groupWork')} items={BOTS}>
+          <NavGroup label={t('nav.groupWork')} items={HOME}>
+            <NavItems items={BOTS} />
             <MultichannelNav />
             <NavItems items={INTEGRATIONS} />
             <SectionNav

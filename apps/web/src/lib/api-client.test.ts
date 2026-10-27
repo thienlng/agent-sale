@@ -96,3 +96,36 @@ describe('api()', () => {
     expect(error).toMatchObject({ status: 503, code: 'AI_UNAVAILABLE', traceId: 'req-1' });
   });
 });
+
+describe('tenant context across portfolio reads and retries', () => {
+  it('pins the original workspace through token refresh when the selection changes', async () => {
+    const seen: string[] = [];
+    let first = true;
+    vi.stubGlobal('fetch', async (input: string, init?: RequestInit) => {
+      if (input.endsWith('/auth/refresh')) {
+        setWorkspaceId('business-b');
+        return new Response(JSON.stringify(refreshed));
+      }
+      seen.push((init?.headers as Record<string, string>)['X-Workspace-Id'] ?? '');
+      if (first) {
+        first = false;
+        return new Response('{}', { status: 401 });
+      }
+      return new Response(JSON.stringify({ ok: true }));
+    });
+    setWorkspaceId('business-a');
+    await api('/analytics/query', z.object({ ok: z.boolean() }));
+    expect(seen).toEqual(['business-a', 'business-a']);
+  });
+
+  it('reads another business explicitly without changing the active workspace', async () => {
+    const { fetchStub, calls } = stubFetch({
+      'GET /analytics/definitions': { status: 200, body: {} },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    setWorkspaceId('business-a');
+    await api('/analytics/definitions', z.object({}), { workspaceId: 'business-b' });
+    await api('/analytics/definitions', z.object({}));
+    expect(calls.map((c) => c.headers['X-Workspace-Id'])).toEqual(['business-b', 'business-a']);
+  });
+});

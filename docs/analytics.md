@@ -72,3 +72,16 @@ Statistics read `analytics_facts`, never the CRM or inbox tables. Facts are deri
 - **Stale answers.** After a filter change the previous answer stays in memory but is not shown as a result: cards show loading, the chart and tables are dimmed and not clickable, and a drilldown never takes its watermark from them.
 - **Dashboard** (`/app/analytics`). Filters in the URL (ids only): date range with presets, customer source, salesperson, page. The page asks in three groups because each metric only accepts the filters its definition supports: customers (source + salesperson), tags and statuses (salesperson), conversations (page). The UI defaults to all customer sources so a CRM-only shop sees data; the API default for `customers.new` stays channel-only. Each card has a definition popover; clicking a card or a breakdown row opens the drilldown.
 - **Still open** (T-042): the acceptance suite of the BA cases, plan entitlements for premium statistics, role/source/page scoping beyond owner scope, CSV export.
+
+
+## Business home and portfolio (T-081)
+
+The authenticated root and normal login/signup fallback open `/app/analytics`, the selected business home. Explicit post-login deep links remain supported. Statistics is the first sidebar entry. The Rapiz logo opens `/app/overview`; it does not change the selected business. Other module navigation stays intact.
+
+Business selection lives only in an anchored sidebar picker, not in the account dropdown. It uses authorized workspace memberships from bootstrap. A switch navigates to statistics before changing the tenant, honoring existing route blockers. It is disabled during active mutations; prior tenant queries are canceled/removed and route-local content remounts under the new business. API requests capture their tenant before their first await and retain it through token refresh; portfolio reads specify a tenant per request and never temporarily change the global selection.
+
+The home emphasizes four existing metrics and an area chart. All existing definitions, arbitrary date ranges, source/Sales filter semantics, breakdowns and watermark-bound drilldowns remain available through progressive disclosure. Loading, locked, unavailable and failed states stay distinct from zero.
+
+The portfolio reads at most three businesses concurrently, with separate people (all supported customer origins) and conversation requests. Its cache includes the authenticated user and current memberships. It preserves each member's permission scope and shows an incomplete total when any business fails, is forbidden, has locked cards, or uses an incompatible timezone. It labels customer counts as records across businesses, not deduplicated people. The oldest reported update and maximum projection lag are disclosed.
+
+Current persistence has no first-class shops or commercial account parent. This increment does not invent those records or call channels shops. The portfolio therefore shows real authorized-business rows and an explicit unavailable-shop message. Shop breakdown and the final account ownership mapping remain dependent on T-077/T-078/T-079/T-080. Existing RLS, membership checks, billing ownership and backend endpoints are unchanged.
