@@ -4,10 +4,10 @@ title: Add account-level plans and aggregated usage settings
 status: backlog
 type: feature
 priority: P1
-owner:
+owner: "@agent:claude"
 feature_ids: []
 created: 2026-10-26
-updated: 2026-10-26
+updated: 2026-10-27
 branch:
 pr:
 parent:
@@ -65,3 +65,5 @@ To be filled by the implementer before coding. Scope and acceptance above are th
 - [Billing design](../docs/08-billing-quota-credit.md)
 
 - 2026-10-26 — Lane B triage: Account-level plans/usage depend on T-079/T-091 account ownership and quota APIs. Current workspace billing is preserved; no invented aggregate counters were added.
+
+- 2026-10-27 — Lane B owner set to @agent:claude by the user.

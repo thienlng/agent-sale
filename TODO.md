@@ -5,16 +5,15 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 ## In progress
 
 - [ ] T-081 Redesign portfolio and business statistics entry screens — @agent:codex · [details](todo/T-081-redesign-portfolio-and-business-statistics-entry-s.md) · PR #70 · partial: shop data awaits lane A
-- [ ] T-076 Reduce integration initial bundle below 250 KB — @agent:codex · [details](todo/T-076-reduce-integration-initial-bundle-below-250-kb.md) · PR #64
-- [ ] T-082 Unify channel assignment and bulk bot filters — @agent:codex · [details](todo/T-082-unify-channel-assignment-and-bulk-bot-filters.md) · PR #64
-- [ ] T-083 Move fanpage management into the bot workspace navigation — @agent:codex · [details](todo/T-083-move-fanpage-management-into-the-bot-workspace-nav.md) · PR #64
-- [ ] T-084 Expose bot switches and advanced settings consistently — @agent:codex · [details](todo/T-084-expose-bot-switches-and-advanced-settings-consiste.md) · PR #64
-- [ ] T-085 Separate bot training facts from behavioral instructions — @agent:codex · [details](todo/T-085-separate-bot-training-facts-from-behavioral-instru.md) · PR #64
-- [ ] T-090 Diagnose and fix failed inbox tag updates — @agent:codex · [details](todo/T-090-diagnose-and-fix-failed-inbox-tag-updates.md) · PR #64
 
 ## Next
 
 - [ ] T-045 Email verification at signup (ACC-01) and verified-email invitations — @unassigned · [details](todo/T-045-email-verification-at-signup-acc-01-and-verified-e.md)
+- [ ] T-112 Move product management to its own top-level navigation group — @agent:claude · [details](todo/T-112-move-product-management-to-its-own-top-level-navig.md)
+- [ ] T-114 Clean up bot navigation: hide the image library and rename channel integrations — @agent:claude · [details](todo/T-114-clean-up-bot-navigation-hide-the-image-library-and.md)
+- [ ] T-113 Show per-bot statistics on the bot training home — @agent:claude · [details](todo/T-113-show-per-bot-statistics-on-the-bot-training-home.md)
+- [ ] T-086 Refine the sales inbox around the agreed Pancake workflow — @agent:claude · [details](todo/T-086-refine-the-sales-inbox-around-the-agreed-pancake-w.md)
+- [ ] T-115 Redesign the appearance preferences panel — @agent:claude · [details](todo/T-115-redesign-the-appearance-preferences-panel.md)
 
 ## Backlog
 
@@ -48,28 +47,29 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [ ] T-078 Add account business and shop persistence with safe backfills — @unassigned · [details](todo/T-078-add-account-business-and-shop-persistence-with-saf.md)
 - [ ] T-079 Add business selection and switching across sessions — @unassigned · [details](todo/T-079-add-business-selection-and-switching-across-sessio.md)
 - [ ] T-080 Manage shops and their catalog and bot associations — @unassigned · [details](todo/T-080-manage-shops-and-their-catalog-and-bot-association.md)
-- [ ] T-086 Refine the sales inbox around the agreed Pancake workflow — @unassigned · [details](todo/T-086-refine-the-sales-inbox-around-the-agreed-pancake-w.md)
-- [ ] T-087 Filter the multichannel inbox by shop bot and channel scope — @unassigned · [details](todo/T-087-filter-the-multichannel-inbox-by-shop-bot-and-chan.md)
+- [ ] T-087 Filter the multichannel inbox by shop bot and channel scope — @agent:claude · [details](todo/T-087-filter-the-multichannel-inbox-by-shop-bot-and-chan.md)
 - [ ] T-088 Link CRM customers to business shop bot and conversations — @unassigned · [details](todo/T-088-link-crm-customers-to-business-shop-bot-and-conver.md)
 - [ ] T-089 Centralize customer tags and statuses in customer settings — @unassigned · [details](todo/T-089-centralize-customer-tags-and-statuses-in-customer-.md)
 - [ ] T-091 Move subscription and message quota ownership to the account — @unassigned · [details](todo/T-091-move-subscription-and-message-quota-ownership-to-t.md)
-- [ ] T-092 Add account-level plans and aggregated usage settings — @unassigned · [details](todo/T-092-add-account-level-plans-and-aggregated-usage-setti.md)
-- [ ] T-093 Scope business settings and bot defaults to the selected industry — @unassigned · [details](todo/T-093-scope-business-settings-and-bot-defaults-to-the-se.md)
+- [ ] T-092 Add account-level plans and aggregated usage settings — @agent:claude · [details](todo/T-092-add-account-level-plans-and-aggregated-usage-setti.md)
+- [ ] T-093 Scope business settings and bot defaults to the selected industry — @agent:claude · [details](todo/T-093-scope-business-settings-and-bot-defaults-to-the-se.md)
 - [ ] T-094 Validate the cross-business review milestone end to end — @unassigned · [details](todo/T-094-validate-the-cross-business-review-milestone-end-t.md)
 
 ## Blocked
 
 - [ ] T-002 Finalize open decisions (domain, data-center location, MVP channels) — @thienlng · blocked: human decision · [details](todo/T-002-finalize-open-decisions.md)
+- [ ] T-082 Unify channel assignment and bulk bot filters — @agent:claude · [details](todo/T-082-unify-channel-assignment-and-bulk-bot-filters.md) · blocked: shop scope needs lane A T-077/T-078/T-080 · PR #64
+- [ ] T-116 Select bot products from the shared catalog and sync new ones back — @agent:claude · [details](todo/T-116-select-bot-products-from-the-shared-catalog-and-sy.md) · blocked: needs lane A T-077/T-080 product scoping
 
 ## Done (last 10 — older ones live in todo/done/)
 
+- [x] T-090 Diagnose and fix failed inbox tag updates — @agent:codex · [details](todo/done/T-090-diagnose-and-fix-failed-inbox-tag-updates.md) · PR #64 (landed as 1b983a7)
+- [x] T-085 Separate bot training facts from behavioral instructions — @agent:codex · [details](todo/done/T-085-separate-bot-training-facts-from-behavioral-instru.md) · PR #64 (landed as 1b983a7)
+- [x] T-084 Expose bot switches and advanced settings consistently — @agent:codex · [details](todo/done/T-084-expose-bot-switches-and-advanced-settings-consiste.md) · PR #64 (landed as 1b983a7)
+- [x] T-083 Move fanpage management into the bot workspace navigation — @agent:codex · [details](todo/done/T-083-move-fanpage-management-into-the-bot-workspace-nav.md) · PR #64 (landed as 1b983a7)
+- [x] T-076 Reduce integration initial bundle below 250 KB — @agent:codex · [details](todo/done/T-076-reduce-integration-initial-bundle-below-250-kb.md) · PR #64 (landed as 1b983a7)
 - [x] T-105 Allow agents to push and merge to main with owner approval — @agent:claude · [details](todo/done/T-105-allow-agents-to-push-and-merge-to-main-with-owner-.md) · merged to main
 - [x] T-096 Rebuild the inbox core around the Meta Business Suite layout — @agent:claude · [details](todo/done/T-096-rebuild-the-inbox-core-around-the-meta-business-su.md) · merged to main
 - [x] T-095 Write Meta Business Suite inbox functional specification — @agent:codex · [details](todo/done/T-095-write-meta-business-suite-inbox-functional-specifi.md) · merged to main
 - [x] T-104 Website chat end-to-end tests and docs pass — @agent:claude · [details](todo/done/T-104-website-chat-end-to-end-tests-and-docs-pass.md) · merged to main
 - [x] T-103 Dashboard: website channel management and install guide — @agent:claude · [details](todo/done/T-103-dashboard-website-channel-management-and-install-g.md) · merged to main
-- [x] T-102 Website lead capture into the CRM and inbox — @agent:claude · [details](todo/done/T-102-website-lead-capture-into-the-crm-and-inbox.md) · merged to main
-- [x] T-101 Embeddable website chat widget — @agent:claude · [details](todo/done/T-101-embeddable-website-chat-widget.md) · merged to main
-- [x] T-100 Webchat public API, visitors and rate limits — @agent:claude · [details](todo/done/T-100-webchat-public-api-visitors-and-rate-limits.md) · merged to main
-- [x] T-099 Website connections: settings, site key and management API — @agent:claude · [details](todo/done/T-099-website-connections-settings-site-key-and-manageme.md) · merged to main
-- [x] T-098 Generalize the inbox pipeline by channel capabilities — @agent:claude · [details](todo/done/T-098-generalize-the-inbox-pipeline-by-channel-capabilit.md) · merged to main

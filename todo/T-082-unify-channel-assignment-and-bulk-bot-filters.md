@@ -1,13 +1,13 @@
 ---
 id: T-082
 title: Unify channel assignment and bulk bot filters
-status: in-progress
+status: blocked
 type: bug
 priority: P1
-owner: "@agent:codex"
+owner: "@agent:claude"
 feature_ids: []
 created: 2026-10-26
-updated: 2026-10-26
+updated: 2026-10-27
 branch: feat/T-090-lane-b-review
 pr: 64
 parent:
@@ -72,3 +72,5 @@ Autonomous implementation authorized by the user on 2026-10-26. Account/business
 - 2026-10-26 — Implemented the existing-contract assignment slice: actual bot selection, reassignment confirmation, non-destructive unassignment, consistent bot/unassigned filters, busy/permission guards, canonical bot cache and shared discovery/bulk/single invalidation. Stateful regression verifies partial-failure retries only failed rows. Shop eligibility/filtering remains pending T-077/T-078/T-080; do not close this parent task.
 
 - 2026-10-26 — Independent browser QA found mobile integration controls clipped inside an implicit minimum-width grid column despite no document overflow. Bounded the mobile grid column and platform pane; added direct control-bounds regression plus global/bot integration routes to the responsive matrix.
+
+- 2026-10-27 — Lane B handed to @agent:claude. The existing-contract slice landed on main in 1b983a7. Remaining shop eligibility/filtering is blocked on lane A T-077/T-078/T-080.

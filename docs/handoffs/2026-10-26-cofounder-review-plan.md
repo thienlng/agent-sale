@@ -67,14 +67,14 @@ One person-day is approximately six focused engineering hours, including impleme
 | [T-080](../../todo/T-080-manage-shops-and-their-catalog-and-bot-association.md) | Manage shops and their catalog and bot associations | A | 3 | T-077, T-078 |
 | [T-081](../../todo/T-081-redesign-portfolio-and-business-statistics-entry-s.md) | Redesign portfolio and business statistics entry screens | B | 4 | T-077, T-078, T-079 |
 | [T-082](../../todo/T-082-unify-channel-assignment-and-bulk-bot-filters.md) | Unify channel assignment and bulk bot filters | B | 3 | T-077, T-078, T-080 |
-| [T-083](../../todo/T-083-move-fanpage-management-into-the-bot-workspace-nav.md) | Move fanpage management into the bot workspace navigation | B | 2 | T-077, T-082 |
-| [T-084](../../todo/T-084-expose-bot-switches-and-advanced-settings-consiste.md) | Expose bot switches and advanced settings consistently | B | 2 | T-077, T-078 |
-| [T-085](../../todo/T-085-separate-bot-training-facts-from-behavioral-instru.md) | Separate bot training facts from behavioral instructions | B | 2 | T-077 |
+| [T-083](../../todo/done/T-083-move-fanpage-management-into-the-bot-workspace-nav.md) | Move fanpage management into the bot workspace navigation | B | 2 | T-077, T-082 |
+| [T-084](../../todo/done/T-084-expose-bot-switches-and-advanced-settings-consiste.md) | Expose bot switches and advanced settings consistently | B | 2 | T-077, T-078 |
+| [T-085](../../todo/done/T-085-separate-bot-training-facts-from-behavioral-instru.md) | Separate bot training facts from behavioral instructions | B | 2 | T-077 |
 | [T-086](../../todo/T-086-refine-the-sales-inbox-around-the-agreed-pancake-w.md) | Refine the sales inbox around the agreed Pancake workflow | B | 4 | T-077 |
 | [T-087](../../todo/T-087-filter-the-multichannel-inbox-by-shop-bot-and-chan.md) | Filter the multichannel inbox by shop bot and channel scope | B | 3 | T-078, T-080, T-082 |
 | [T-088](../../todo/T-088-link-crm-customers-to-business-shop-bot-and-conver.md) | Link CRM customers to business shop bot and conversations | A | 4 | T-077, T-078, T-080 |
 | [T-089](../../todo/T-089-centralize-customer-tags-and-statuses-in-customer-.md) | Centralize customer tags and statuses in customer settings | A | 2 | T-077, T-078 |
-| [T-090](../../todo/T-090-diagnose-and-fix-failed-inbox-tag-updates.md) | Diagnose and fix failed inbox tag updates | B | 1 | None |
+| [T-090](../../todo/done/T-090-diagnose-and-fix-failed-inbox-tag-updates.md) | Diagnose and fix failed inbox tag updates | B | 1 | None |
 | [T-091](../../todo/T-091-move-subscription-and-message-quota-ownership-to-t.md) | Move subscription and message quota ownership to the account | A | 6 | T-077, T-078 |
 | [T-092](../../todo/T-092-add-account-level-plans-and-aggregated-usage-setti.md) | Add account-level plans and aggregated usage settings | B | 3 | T-079, T-091 |
 | [T-093](../../todo/T-093-scope-business-settings-and-bot-defaults-to-the-se.md) | Scope business settings and bot defaults to the selected industry | B | 2 | T-077, T-078, T-079 |

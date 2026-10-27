@@ -4,10 +4,10 @@ title: Scope business settings and bot defaults to the selected industry
 status: backlog
 type: feature
 priority: P1
-owner:
+owner: "@agent:claude"
 feature_ids: []
 created: 2026-10-26
-updated: 2026-10-26
+updated: 2026-10-27
 branch:
 pr:
 parent:
@@ -65,3 +65,5 @@ To be filled by the implementer before coding. Scope and acceptance above are th
 - [Billing design](../docs/08-billing-quota-credit.md)
 
 - 2026-10-26 — Lane B triage: Industry-scoped settings and defaults depend on the approved business context and industry-change policy in T-077/T-078/T-079. Existing settings remain intact.
+
+- 2026-10-27 — Lane B owner set to @agent:claude by the user.

@@ -1,13 +1,13 @@
 ---
 id: T-084
 title: Expose bot switches and advanced settings consistently
-status: review
+status: done
 type: feature
 priority: P1
 owner: "@agent:codex"
 feature_ids: []
 created: 2026-10-26
-updated: 2026-10-26
+updated: 2026-10-27
 branch: feat/T-090-lane-b-review
 pr: 64
 parent:
@@ -63,11 +63,13 @@ Autonomous implementation authorized by the user on 2026-10-26. Account/business
 
 ## Links
 
-- [Review milestone handoff](../docs/handoffs/2026-10-26-cofounder-review-plan.md)
-- [Architecture](../docs/ARCHITECTURE.md)
-- [Tenancy and verticals](../docs/17-multi-tenancy-and-verticals.md)
-- [Billing design](../docs/08-billing-quota-credit.md)
+- [Review milestone handoff](../../docs/handoffs/2026-10-26-cofounder-review-plan.md)
+- [Architecture](../../docs/ARCHITECTURE.md)
+- [Tenancy and verticals](../../docs/17-multi-tenancy-and-verticals.md)
+- [Billing design](../../docs/08-billing-quota-credit.md)
 
 - 2026-10-26 — Reused the existing training switch on the bot list, added named controls and pending/permission guards, synchronized list/detail rollback and refreshed the derived inbox availability cache. Existing basic/advanced settings are retained. Bot-list regressions pass (8 tests). Full milestone gate/browser QA pending.
 
 - 2026-10-26 — Ready for human review: full pnpm check passed (frontend 367, backend 973 tests), independent code QA approved and fresh-context browser QA accepted the implemented workflows. See docs/handoffs/2026-10-26-lane-b-qa.md for exact commands, evidence and mocked-API limits.
+
+- 2026-10-27 — Closed by lane B (@agent:claude): all acceptance criteria were checked and the change landed on main in 1b983a7 (reviewed in PR #64, pushed to main without a squash merge).
