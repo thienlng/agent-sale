@@ -8,8 +8,8 @@ owner: "@agent:codex"
 feature_ids: []
 created: 2026-10-26
 updated: 2026-10-27
-branch: feat/T-081-overview-design
-pr: 69
+branch: feat/T-081-statistics-main
+pr: 70
 parent:
 ---
 
@@ -105,3 +105,5 @@ Design-only iteration authorized on 2026-10-27:
 - 2026-10-27 — pnpm check passed on the implementation (log /tmp/t081-full-check-final.log); initial bundle 224.7 KB gzip against 250 KB budget. Actual serving checkout was updated via a checked, scoped frontend patch; three live-dev browser scenarios passed with mocked APIs. Existing dirty typography and unrelated feature work were preserved. The complete T-081 task remains in progress for shop contracts.
 
 - 2026-10-27 — PR #69 opened as a stacked review on PR #64. Production responsive checks passed: 28 existing routes at 375/768/1280/1920px plus every expanded/collapsed layout preference. Tracing was disabled only for the clean rerun after local disk exhaustion; assertions and timeouts were unchanged. Regression fixtures now exercise long exact metrics (98,765,432 per business and 197,530,864 aggregate).
+
+- 2026-10-27 — User explicitly requested landing the reviewed work on main. PR #64 was squash-merged first. PR #69 then had a history conflict, so it was closed in favor of clean main-based PR #70 without force-pushing. Cherry-picked tree 4633818 exactly matches reviewed tree 6521c97 (tree d663ed3d725bda25b24db3a0f80d8c71394b6354); only branch/PR tracking is updated afterward. No implementation change.

@@ -86,3 +86,7 @@ Current persistence has neither first-class shops nor the proposed commercial ac
 - Production responsive gate: all six original tests passed, covering 28 routes at 375/768/1280/1920px and all layout preference combinations. Prior failures included local ENOSPC and concurrent rebuild contention; the clean rerun kept every assertion and timeout and disabled only trace recording.
 - Three selected workflows passed against the actual serving checkout on port 5173, with mocked APIs. The development UI is updated without backend mutations or unrelated feature changes.
 - PR #69 is stacked on PR #64. Parent T-081 remains in progress for real shop attribution; the implementation explicitly reports missing shop data.
+
+## Main landing
+
+The user explicitly requested merging the reviewed work. Parent PR #64 was squash-merged to main as 1b983a7. To avoid force-pushing the reviewed #69 branch after the resulting history conflict, the same three T-081 commits were cherry-picked onto the new main-based branch and opened as replacement PR #70. Before tracking edits, both trees were exactly d663ed3d725bda25b24db3a0f80d8c71394b6354. The app implementation remains unchanged; the replacement CI validates the clean history before merge.

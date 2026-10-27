@@ -4,7 +4,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
-- [ ] T-081 Redesign portfolio and business statistics entry screens — @agent:codex · [details](todo/T-081-redesign-portfolio-and-business-statistics-entry-s.md) · PR #69 · partial: shop data awaits lane A
+- [ ] T-081 Redesign portfolio and business statistics entry screens — @agent:codex · [details](todo/T-081-redesign-portfolio-and-business-statistics-entry-s.md) · PR #70 · partial: shop data awaits lane A
 - [ ] T-076 Reduce integration initial bundle below 250 KB — @agent:codex · [details](todo/T-076-reduce-integration-initial-bundle-below-250-kb.md) · PR #64
 - [ ] T-082 Unify channel assignment and bulk bot filters — @agent:codex · [details](todo/T-082-unify-channel-assignment-and-bulk-bot-filters.md) · PR #64
 - [ ] T-083 Move fanpage management into the bot workspace navigation — @agent:codex · [details](todo/T-083-move-fanpage-management-into-the-bot-workspace-nav.md) · PR #64
