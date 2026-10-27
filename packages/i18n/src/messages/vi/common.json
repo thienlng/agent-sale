@@ -1420,6 +1420,40 @@
       "as_of_in_future": "Thời điểm xem không thể ở tương lai.",
       "not_drillable": "Số liệu này tính từ số liệu khác nên không có chi tiết.",
       "metric_locked": "Gói hiện tại chưa gồm số liệu này."
+    },
+    "overview": {
+      "primary": "Chỉ số chính",
+      "details": "Phân tích chi tiết",
+      "dateRange": "Khoảng thời gian",
+      "customDates": "Chọn ngày",
+      "moreFilters": "Lọc thêm",
+      "clearFilters": "Xóa bộ lọc",
+      "sourceNote": "Nguồn khách chỉ lọc khách hàng mới và số điện thoại thu thập.",
+      "activeFilters": "Nguồn: {{sources}} · Sales: {{sales}}. Không áp dụng cho hội thoại.",
+      "title": "Tổng quan",
+      "subtitle": "Các business bạn có quyền xem",
+      "businesses": "Theo business",
+      "open": "Xem thống kê",
+      "loading": "Đang tải số liệu…",
+      "incomplete": "Chưa đủ số liệu để tính tổng. Kiểm tra các business bên dưới.",
+      "noBusinesses": "Bạn chưa có business để xem thống kê.",
+      "noPermission": "Bạn chưa có quyền xem thống kê business này.",
+      "recordsNote": "Khách được tính riêng trong từng business, không phải số người duy nhất toàn tài khoản.",
+      "scopeOwn": "Chỉ gồm khách bạn phụ trách và khách chưa có người phụ trách.",
+      "shopPending": "Thống kê theo shop chưa có dữ liệu.",
+      "retry": "Thử lại",
+      "allBusiness": "Tất cả business"
     }
+  },
+  "business": {
+    "choose": "Chọn business",
+    "current": "Đang quản lý",
+    "none": "Chưa chọn business",
+    "search": "Tìm business",
+    "noResults": "Không tìm thấy business.",
+    "switching": "Đang chuyển business…",
+    "waitForSave": "Đợi lưu xong để chuyển business.",
+    "switchError": "Không thể chuyển business. Thử lại.",
+    "account": "Tài khoản cá nhân"
   }
 }

@@ -1,7 +1,7 @@
 import type { AnalyticsResponse, MetricKey } from '@agent-sales/contracts';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 
 import {
   type ChartConfig,
@@ -9,6 +9,9 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from '@/components/ui/chart';
+import { usePages } from '../api/analytics';
+import { MultiSelect } from './multi-select';
+
 import { Label } from '@/components/ui/label';
 import { formatDate, formatNumber } from '@/lib/format';
 
@@ -16,11 +19,16 @@ import { formatDate, formatNumber } from '@/lib/format';
 export function DailyChart({
   series,
   metrics,
+  pages,
+  onPagesChange,
 }: {
   series: AnalyticsResponse['series'];
   metrics: readonly MetricKey[];
+  pages?: string[];
+  onPagesChange?: (pages: string[]) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const channels = usePages(Boolean(onPagesChange));
   const [chosen, setChosen] = useState<MetricKey | undefined>(undefined);
   const metric = chosen && metrics.includes(chosen) ? chosen : metrics[0];
   if (!metric) return null;
@@ -50,8 +58,25 @@ export function DailyChart({
           </select>
         </div>
       </div>
+      {onPagesChange ? (
+        <div className="mt-3 flex flex-wrap items-start justify-between gap-2">
+          <MultiSelect
+            label={t('analytics.filters.page')}
+            allLabel={t('analytics.filters.allPages')}
+            emptyLabel={t('analytics.filters.noPages')}
+            options={(channels.data ?? [])
+              .filter((p) => p.status !== 'disconnected')
+              .map((p) => ({ value: p.id, label: p.name }))}
+            value={pages ?? []}
+            onChange={onPagesChange}
+          />
+          <p className="max-w-md text-xs text-muted-foreground">
+            {t('analytics.filters.pageNote')}
+          </p>
+        </div>
+      ) : null}
       <ChartContainer config={config} className="mt-4 aspect-auto h-64 w-full">
-        <BarChart data={data} margin={{ left: 4, right: 4 }}>
+        <AreaChart data={data} margin={{ left: 4, right: 4 }}>
           <CartesianGrid vertical={false} />
           <XAxis
             dataKey="date"
@@ -64,9 +89,14 @@ export function DailyChart({
           <YAxis
             tickLine={false}
             axisLine={false}
-            width={40}
+            width={64}
             allowDecimals={false}
-            tickFormatter={(v: number) => formatNumber(v)}
+            tickFormatter={(v: number) =>
+              new Intl.NumberFormat(i18n.language, {
+                notation: 'compact',
+                maximumFractionDigits: 1,
+              }).format(v)
+            }
           />
           <ChartTooltip
             content={
@@ -76,8 +106,16 @@ export function DailyChart({
               />
             }
           />
-          <Bar dataKey="value" fill="var(--color-value)" radius={4} />
-        </BarChart>
+          <Area
+            type="linear"
+            dataKey="value"
+            stroke="var(--color-value)"
+            strokeWidth={2}
+            fill="var(--color-value)"
+            fillOpacity={0.12}
+            isAnimationActive={false}
+          />
+        </AreaChart>
       </ChartContainer>
     </section>
   );

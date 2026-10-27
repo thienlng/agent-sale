@@ -1,0 +1,1899 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Rapiz · Thiết kế thống kê</title>
+    <style>
+      :root {
+        --bg: #fff;
+        --ink: #2b211b;
+        --muted: #706761;
+        --line: #ece6e1;
+        --soft: #fbf9f8;
+        --accent: #f26b1d;
+        --tint: #fff2e9;
+        --accent-ink: #9c3f06;
+        --green: #176f42;
+        --radius: 12px;
+        --side: 228px;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--soft);
+        color: var(--ink);
+        font:
+          16px/1.5 'Be Vietnam Pro',
+          system-ui,
+          sans-serif;
+      }
+      button,
+      input,
+      select {
+        font: inherit;
+      }
+      button,
+      a,
+      summary {
+        touch-action: manipulation;
+      }
+      button,
+      a {
+        cursor: pointer;
+      }
+      button {
+        color: inherit;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      button:disabled {
+        cursor: default;
+      }
+      button:focus-visible,
+      a:focus-visible,
+      summary:focus-visible,
+      select:focus-visible,
+      input:focus-visible {
+        outline: 3px solid var(--accent-ink);
+        outline-offset: 3px;
+      }
+      button {
+        border: 0;
+        background: transparent;
+      }
+      svg.icon {
+        width: 20px;
+        height: 20px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.7;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        flex-shrink: 0;
+      }
+      h1,
+      h2,
+      p {
+        margin: 0;
+      }
+      h1 {
+        font-size: 28px;
+        line-height: 1.25;
+        letter-spacing: -0.8px;
+      }
+      h2 {
+        font-size: 17px;
+        letter-spacing: -0.25px;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .small {
+        font-size: 13px;
+      }
+      .label {
+        font-size: 13px;
+        font-weight: 650;
+      }
+      .chevron {
+        width: 16px !important;
+      }
+      .prototype {
+        min-height: 36px;
+        background: var(--ink);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        font-size: 13px;
+        padding: 5px 16px;
+        flex-wrap: wrap;
+      }
+      .prototype button {
+        color: #ffccab;
+        text-decoration: underline;
+        min-height: 28px;
+      }
+      .app {
+        display: grid;
+        grid-template-columns: var(--side) minmax(0, 1fr);
+        min-height: calc(100dvh - 36px);
+      }
+      aside {
+        background: var(--soft);
+        border-right: 1px solid var(--line);
+        display: flex;
+        flex-direction: column;
+        padding: 12px;
+        gap: 16px;
+        min-width: 0;
+      }
+      .brand {
+        height: 48px;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        font-size: 22px;
+        font-weight: 750;
+        padding: 0 12px;
+      }
+      .brand img {
+        width: 28px;
+        height: 28px;
+      }
+      .workspace {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: white;
+        display: flex;
+        align-items: center;
+        text-align: left;
+        width: 100%;
+        padding: 10px;
+        gap: 8px;
+        min-height: 64px;
+      }
+      .workspace .name {
+        display: block;
+        font-weight: 650;
+        font-size: 14px;
+        max-width: 145px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .workspace .small {
+        font-size: 12px;
+      }
+      .workspace .icon {
+        margin-left: auto;
+      }
+      nav {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .navrow {
+        display: flex;
+        align-items: center;
+        border-radius: 8px;
+      }
+      .navrow.active {
+        background: var(--tint);
+        color: var(--accent-ink);
+      }
+      .navrow:hover {
+        background: var(--tint);
+      }
+      .navmain {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        min-height: 44px;
+        font-size: 15px;
+        text-align: left;
+        flex: 1;
+        white-space: nowrap;
+      }
+      .navrow.active .navmain {
+        font-weight: 650;
+      }
+      .navexpand {
+        min-width: 36px;
+        min-height: 44px;
+        display: grid;
+        place-items: center;
+      }
+      .subnav {
+        padding-left: 40px;
+        display: grid;
+      }
+      .subnav[hidden] {
+        display: none;
+      }
+      .subnav button {
+        font-size: 13px;
+        text-align: left;
+        min-height: 40px;
+      }
+      .navbottom {
+        margin-top: 0;
+        padding-top: 24px;
+      }
+      .account {
+        margin-top: auto;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 56px;
+        border-top: 1px solid var(--line);
+        padding-top: 12px;
+        text-align: left;
+      }
+      .avatar {
+        display: grid;
+        place-items: center;
+        background: #eee6df;
+        border-radius: 9px;
+        width: 34px;
+        height: 34px;
+        font-size: 13px;
+        font-weight: 700;
+      }
+      .account .chevron {
+        margin-left: auto;
+      }
+      main {
+        min-width: 0;
+        background: var(--bg);
+      }
+      .topbar {
+        min-height: 56px;
+        border-bottom: 1px solid var(--line);
+        padding: 6px 24px;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+      .topbar .current {
+        font-size: 14px;
+        min-width: 0;
+      }
+      .topbar .current strong {
+        font-weight: 600;
+      }
+      .topbar .tools {
+        margin-left: auto;
+        display: flex;
+        gap: 6px;
+      }
+      .iconbtn {
+        display: grid;
+        place-items: center;
+        min-width: 44px;
+        min-height: 44px;
+        border-radius: 8px;
+      }
+      .iconbtn:hover {
+        background: var(--soft);
+      }
+      .body {
+        padding: 26px 28px;
+        max-width: 1560px;
+        margin: auto;
+      }
+      .titleline {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+      .titleline p {
+        margin-top: 6px;
+        font-size: 14px;
+      }
+      .date {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .segmented {
+        display: flex;
+        padding: 3px;
+        background: var(--soft);
+        border: 1px solid var(--line);
+        border-radius: 9px;
+      }
+      .segmented button {
+        padding: 7px 12px;
+        min-height: 38px;
+        border-radius: 6px;
+        font-size: 13px;
+        white-space: nowrap;
+      }
+      .segmented button[aria-pressed='true'] {
+        background: white;
+        box-shadow: 0 1px 4px #2b211b18;
+        font-weight: 650;
+      }
+      .scopes {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin: 22px 0;
+      }
+      .chip {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        min-height: 44px;
+        padding: 8px 14px;
+        font-size: 14px;
+      }
+      .chip[aria-pressed='true'] {
+        background: var(--tint);
+        border-color: #efb18a;
+        color: var(--accent-ink);
+        font-weight: 650;
+      }
+      .chip:hover {
+        background: var(--soft);
+      }
+      .kpis {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        overflow: hidden;
+      }
+      .kpi {
+        position: relative;
+        padding: 18px 20px;
+        text-align: left;
+        min-width: 0;
+        border-right: 1px solid var(--line);
+      }
+      .kpi:last-child {
+        border: 0;
+      }
+      .kpi:hover {
+        background: var(--soft);
+      }
+      .kpi .klabel {
+        color: var(--muted);
+        font-size: 14px;
+        display: block;
+      }
+      .kpi strong {
+        display: block;
+        font-size: 32px;
+        letter-spacing: -1px;
+        line-height: 1.3;
+        margin: 8px 0;
+      }
+      .kpi .trend {
+        color: var(--green);
+        font-size: 12px;
+      }
+      .kpi .arrow {
+        position: absolute;
+        right: 18px;
+        top: 20px;
+        color: var(--muted);
+        width: 14px;
+      }
+      .middle {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 18px;
+        margin-top: 20px;
+      }
+      .panel {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        min-width: 0;
+        background: white;
+      }
+      .panelhead {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 18px 20px;
+        flex-wrap: wrap;
+      }
+      .panelhead p {
+        margin-top: 4px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .chart {
+        padding: 0 20px 14px;
+      }
+      .chart svg {
+        width: 100%;
+        height: 185px;
+        display: block;
+        overflow: visible;
+      }
+      .chart text {
+        fill: var(--muted);
+        font: 12px system-ui;
+      }
+      .chart .grid {
+        stroke: var(--line);
+        stroke-dasharray: 4 4;
+      }
+      .chart .line {
+        stroke: var(--accent);
+        stroke-width: 3;
+        fill: none;
+        stroke-linejoin: round;
+        stroke-linecap: round;
+      }
+      .chart .area {
+        fill: url(#fade);
+      }
+      .chartfooter {
+        display: flex;
+        gap: 16px;
+        justify-content: space-between;
+        color: var(--muted);
+        font-size: 12px;
+        padding: 0 4px;
+        flex-wrap: wrap;
+      }
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 100%;
+        background: var(--accent);
+        display: inline-block;
+        margin-right: 6px;
+      }
+      .quicklinks {
+        padding: 0 14px 12px;
+      }
+      .quicklinks button {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+        min-height: 62px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        padding: 10px 4px;
+        font-size: 14px;
+      }
+      .quicklinks button:last-child {
+        border: 0;
+      }
+      .quicklinks .icon {
+        color: var(--accent-ink);
+      }
+      .quicklinks .go {
+        margin-left: auto;
+        width: 16px;
+        color: var(--muted);
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 8px 12px;
+        min-height: 44px;
+        font-size: 13px;
+        background: white;
+      }
+      .btn:hover {
+        background: var(--soft);
+      }
+      .btn.primary {
+        background: var(--accent);
+        color: #1f1612;
+        border-color: var(--accent);
+        font-weight: 650;
+      }
+      .tablepanel {
+        margin-top: 20px;
+        overflow: hidden;
+      }
+      .businessrows {
+        padding: 0 20px 6px;
+      }
+      .businesshead,
+      .businessrow {
+        display: grid;
+        grid-template-columns: minmax(170px, 1.7fr) repeat(3, minmax(72px, 0.7fr)) 120px;
+        align-items: center;
+        column-gap: 12px;
+      }
+      .businesshead {
+        font-size: 12px;
+        color: var(--muted);
+        padding: 8px 0 12px;
+        border-bottom: 1px solid var(--line);
+      }
+      .businessrow {
+        min-height: 78px;
+        border-bottom: 1px solid var(--line);
+        font-size: 14px;
+      }
+      .businessrow:last-child {
+        border: 0;
+      }
+      .bizname {
+        text-align: left;
+        padding: 10px 0;
+        min-height: 44px;
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        min-width: 0;
+      }
+      .initial {
+        width: 38px;
+        height: 38px;
+        display: grid;
+        place-items: center;
+        background: var(--tint);
+        border-radius: 10px;
+        color: var(--accent-ink);
+        font-size: 13px;
+        font-weight: 700;
+        flex-shrink: 0;
+      }
+      .bizname strong {
+        display: block;
+        font-size: 14px;
+      }
+      .bizname .muted {
+        font-size: 12px;
+      }
+      .bizname:hover strong {
+        text-decoration: underline;
+      }
+      .businessrow .num {
+        font-variant-numeric: tabular-nums;
+      }
+      .tablehint {
+        padding: 0 20px 14px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .details {
+        margin-top: 20px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 0 18px;
+      }
+      .details summary {
+        cursor: pointer;
+        min-height: 54px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 14px;
+        font-weight: 600;
+        list-style: none;
+      }
+      .details summary::after {
+        content: '+';
+        margin-left: auto;
+        font-size: 20px;
+        color: var(--muted);
+      }
+      .details[open] summary::after {
+        content: '−';
+      }
+      .detailgrid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        padding-bottom: 18px;
+      }
+      .detailgrid div {
+        background: var(--soft);
+        padding: 12px;
+        border-radius: 8px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .detailgrid strong {
+        display: block;
+        font-size: 22px;
+        color: var(--ink);
+        margin-top: 4px;
+      }
+      .metadata {
+        display: flex;
+        gap: 12px;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        color: var(--muted);
+        font-size: 12px;
+        margin-top: 18px;
+      }
+      .metadata button {
+        font-size: 12px;
+        color: var(--accent-ink);
+        text-decoration: underline;
+      }
+      .filter {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+      }
+      .filter select {
+        max-width: 190px;
+        min-height: 40px;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: white;
+        font-size: 13px;
+        padding: 6px;
+        color: var(--ink);
+      }
+      dialog {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        box-shadow: 0 24px 90px #2b211b26;
+        color: var(--ink);
+        background: white;
+        padding: 0;
+        max-width: 560px;
+        width: calc(100% - 32px);
+      }
+      dialog::backdrop {
+        background: #21160f55;
+      }
+      .dialoghead {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        border-bottom: 1px solid var(--line);
+        padding: 16px 20px;
+      }
+      .dialogbody {
+        padding: 20px;
+        max-height: 70dvh;
+        overflow: auto;
+      }
+      .dialogbody p {
+        margin-bottom: 14px;
+        font-size: 14px;
+      }
+      .dialogbody ul {
+        padding-left: 20px;
+        font-size: 14px;
+      }
+      .dialogbody li {
+        margin-bottom: 12px;
+      }
+      .pick {
+        width: 100%;
+        min-height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        text-align: left;
+        border-bottom: 1px solid var(--line);
+        font-size: 15px;
+      }
+      .pick small {
+        display: block;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .note {
+        padding: 12px;
+        background: var(--soft);
+        border-radius: 8px;
+        font-size: 13px !important;
+        color: var(--muted);
+      }
+      .metricrow {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px 0;
+        border-bottom: 1px solid var(--line);
+        font-size: 14px;
+      }
+      .mobileonly {
+        display: none;
+      }
+      .navscrim {
+        display: none;
+      }
+      @media (min-width: 701px) {
+        .collapsed {
+          --side: 76px;
+        }
+        .collapsed aside .navmain span,
+        .collapsed aside .workspace,
+        .collapsed aside .brand span,
+        .collapsed aside .navexpand,
+        .collapsed aside .navbottom .accountname,
+        .collapsed aside .subnav,
+        .collapsed aside .account > .chevron {
+          display: none;
+        }
+        .collapsed .brand {
+          justify-content: center;
+          padding: 0;
+        }
+        .collapsed .navmain {
+          justify-content: center;
+          padding: 12px;
+        }
+        .collapsed .account {
+          justify-content: center;
+        }
+        .collapsed aside {
+          gap: 16px;
+        }
+      }
+      @media (min-width: 1700px) {
+        .body {
+          padding-top: 32px;
+        }
+      }
+      @media (max-width: 1200px) {
+        .middle {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .shortcuts {
+          display: none;
+        }
+        .kpi {
+          padding: 16px;
+        }
+        .body {
+          padding: 24px;
+        }
+        .businesshead,
+        .businessrow {
+          grid-template-columns: minmax(145px, 1.5fr) repeat(3, minmax(60px, 0.7fr)) 104px;
+        }
+        .businessrows {
+          padding-left: 16px;
+          padding-right: 16px;
+        }
+      }
+      @media (max-width: 960px) {
+        :root {
+          --side: 212px;
+        }
+        .body {
+          padding: 20px;
+        }
+        .kpis {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .kpi:nth-child(2) {
+          border-right: 0;
+        }
+        .kpi:nth-child(-n + 2) {
+          border-bottom: 1px solid var(--line);
+        }
+        .detailgrid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .businesshead,
+        .businessrow {
+          grid-template-columns: minmax(130px, 1fr) 70px 95px;
+        }
+        .businesshead .optional,
+        .businessrow .optional {
+          display: none;
+        }
+        .topbar {
+          padding: 6px 16px;
+        }
+        .date {
+          gap: 4px;
+        }
+      }
+      @media (max-width: 700px) {
+        .prototype {
+          font-size: 11px;
+          gap: 6px;
+          padding: 5px 8px;
+        }
+        .prototype button {
+          font-size: 11px;
+        }
+        .app,
+        .collapsed .app {
+          display: block;
+          min-height: 100dvh;
+        }
+        .mobileonly {
+          display: grid;
+        }
+        aside {
+          display: none;
+        }
+        .navopen aside {
+          display: flex;
+          position: fixed;
+          left: 0;
+          top: 0;
+          bottom: 0;
+          width: 260px;
+          z-index: 25;
+          box-shadow: 8px 0 30px #0002;
+        }
+        .navopen .navscrim {
+          display: block;
+          position: fixed;
+          inset: 0;
+          background: #21160f55;
+          z-index: 24;
+        }
+        .navopen .navmain span,
+        .navopen .workspace,
+        .navopen .brand span,
+        .navopen .navexpand,
+        .navopen .navbottom .accountname {
+          display: revert;
+        }
+        .topbar {
+          padding: 4px 10px;
+          min-height: 56px;
+        }
+        .topbar .current {
+          font-size: 12px;
+        }
+        .topbar .current strong {
+          display: block;
+          font-size: 13px;
+        }
+        .desktoponly {
+          display: none !important;
+        }
+        .body {
+          padding: 20px 16px;
+        }
+        .titleline {
+          gap: 16px;
+        }
+        .titleline h1 {
+          font-size: 25px;
+        }
+        .titleline p {
+          font-size: 13px;
+        }
+        .date {
+          width: 100%;
+          justify-content: space-between;
+        }
+        .segmented {
+          flex: 1;
+        }
+        .segmented button {
+          flex: 1;
+          min-height: 38px;
+          padding: 6px 9px;
+        }
+        .scopes {
+          margin: 18px 0;
+          gap: 6px;
+        }
+        .chip {
+          font-size: 12px;
+          min-height: 44px;
+          padding: 8px 10px;
+        }
+        .kpi {
+          padding: 14px;
+        }
+        .kpi strong {
+          font-size: 28px;
+        }
+        .kpi .klabel {
+          font-size: 12px;
+        }
+        .kpi .trend {
+          font-size: 11px;
+        }
+        .kpi .arrow {
+          right: 12px;
+          top: 16px;
+        }
+        .panelhead {
+          padding: 16px;
+        }
+        .panelhead h2 {
+          font-size: 16px;
+        }
+        .chart {
+          padding: 0 12px 14px;
+        }
+        .chart svg {
+          height: 185px;
+        }
+        .businesshead {
+          display: none;
+        }
+        .businessrows {
+          padding: 0 14px;
+        }
+        .businessrow {
+          grid-template-columns: minmax(0, 1fr) auto;
+          padding: 10px 0;
+          gap: 4px 12px;
+        }
+        .businessrow .num {
+          grid-row: 2;
+          font-size: 13px;
+          padding-left: 50px;
+        }
+        .businessrow .num::before {
+          content: 'Hội thoại: ';
+          color: var(--muted);
+        }
+        .businessrow .btn {
+          grid-column: 2;
+          grid-row: 1 / 3;
+          font-size: 12px;
+          padding: 8px;
+        }
+        .bizname {
+          padding: 0;
+          gap: 12px;
+        }
+        .initial {
+          width: 36px;
+          height: 36px;
+        }
+        .bizname strong {
+          font-size: 13px;
+        }
+        .tablehint {
+          padding: 8px 14px 14px;
+          font-size: 11px;
+        }
+        .tablepanel .panelhead {
+          gap: 6px;
+        }
+        .metadata {
+          font-size: 11px;
+          gap: 8px;
+        }
+        .filter {
+          width: 100%;
+          justify-content: space-between;
+        }
+        .filter select {
+          max-width: 210px;
+        }
+        .details {
+          margin-top: 16px;
+        }
+        .details summary {
+          font-size: 13px;
+        }
+        .dialoghead {
+          padding: 12px 16px;
+        }
+        .dialogbody {
+          padding: 16px;
+        }
+        .workspace .name {
+          max-width: 175px;
+        }
+        .navopen .navmain {
+          justify-content: flex-start;
+        }
+        .navopen .brand {
+          justify-content: flex-start;
+        }
+        .navopen .account {
+          justify-content: flex-start;
+        }
+        .navbottom {
+          padding-top: 8px;
+        }
+      }
+      @media (prefers-reduced-motion: no-preference) {
+        button,
+        a {
+          transition:
+            background-color 0.16s,
+            color 0.16s;
+        }
+        dialog[open] {
+          animation: appear 0.15s ease-out;
+        }
+        @keyframes appear {
+          from {
+            opacity: 0;
+            transform: translateY(5px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      }
+
+      @media (max-width: 700px) {
+        .navopen aside {
+          overflow-y: auto;
+          min-height: 0;
+          height: 100dvh;
+        }
+        .navopen aside > * {
+          flex-shrink: 0;
+        }
+      }
+      #context-popover {
+        position: fixed;
+        inset: auto;
+        margin: 0;
+        padding: 8px;
+        background: var(--bg);
+        color: var(--ink);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        box-shadow: 0 12px 40px #2b211b26;
+        width: 304px;
+        max-width: calc(100vw - 24px);
+        max-height: calc(100dvh - 24px);
+        overflow-y: auto;
+        z-index: 50;
+      }
+      #context-popover::backdrop {
+        background: transparent;
+      }
+      .context-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0 4px 8px;
+        border-bottom: 1px solid var(--line);
+        font-size: 14px;
+      }
+      #context-popover .pick {
+        border-radius: 7px;
+        border: 0;
+        padding: 8px;
+        gap: 12px;
+        min-height: 52px;
+        font-size: 14px;
+      }
+      #context-popover .pick:hover {
+        background: var(--tint);
+      }
+      #context-popover .pick[aria-current='true'] {
+        color: var(--accent-ink);
+        background: var(--tint);
+      }
+      #context-popover .section-label {
+        font-size: 12px;
+        color: var(--muted);
+        padding: 12px 8px 4px;
+        margin: 0;
+      }
+      #context-popover input {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        min-height: 44px;
+        padding: 8px;
+        margin: 8px 0;
+      }
+      @media (max-width: 700px) {
+        .details summary .muted {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <svg style="display: none" aria-hidden="true">
+      <defs>
+        <symbol id="i-chart" viewBox="0 0 24 24">
+          <path d="M4 3v17h17M8 15V9m5 6V5m5 10v-4" />
+        </symbol>
+        <symbol id="i-chat" viewBox="0 0 24 24">
+          <path d="M21 11a8 8 0 0 1-8 8H6l-4 3V11a9 9 0 0 1 18-3" />
+          <path d="M7 9h9M7 13h6" />
+        </symbol>
+        <symbol id="i-users" viewBox="0 0 24 24">
+          <circle cx="9" cy="8" r="3" />
+          <path d="M3 20v-3a6 6 0 0 1 12 0v3M16 4a3 3 0 0 1 0 6m2 4a5 5 0 0 1 3 5" />
+        </symbol>
+        <symbol id="i-bag" viewBox="0 0 24 24">
+          <path d="M4 7h16l1 14H3L4 7Z" />
+          <path d="M8 9V6a4 4 0 0 1 8 0v3" />
+        </symbol>
+        <symbol id="i-bot" viewBox="0 0 24 24">
+          <rect x="4" y="7" width="16" height="13" rx="3" />
+          <path d="M12 3v4M1 12v4m22-4v4M8 12v3m8-3v3" />
+        </symbol>
+        <symbol id="i-cable" viewBox="0 0 24 24">
+          <path d="M7 3v4m4-4v4M5 7h8v3a4 4 0 0 1-8 0V7Zm4 7v3a4 4 0 0 0 8 0v-3m-2-4h4v4h-4z" />
+        </symbol>
+        <symbol id="i-settings" viewBox="0 0 24 24">
+          <path d="m9 3-1 3-3 1 1 3-2 2 2 2-1 3 3 1 1 3h6l1-3 3-1-1-3 2-2-2-2 1-3-3-1-1-3Z" />
+          <circle cx="12" cy="12" r="3" />
+        </symbol>
+        <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m8 10 4 4 4-4" /></symbol>
+        <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12h16m-6-6 6 6-6 6" /></symbol>
+        <symbol id="i-panel" viewBox="0 0 24 24">
+          <rect x="3" y="4" width="18" height="16" rx="2" />
+          <path d="M9 4v16m-3-12h0m0 4h0" />
+        </symbol>
+        <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6" /></symbol>
+        <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16" /></symbol>
+      </defs>
+    </svg>
+    <div class="prototype">
+      <span>BẢN THIẾT KẾ · PHẦN 1 · Dữ liệu minh họa</span
+      ><button onclick="showNotes()">Xem thay đổi</button>
+    </div>
+    <div class="app">
+      <button class="navscrim" aria-label="Đóng menu" onclick="toggleMobile(false)"></button>
+      <aside id="navigation">
+        <a
+          class="brand"
+          href="#all"
+          aria-label="Rapiz — thống kê tất cả shop"
+          onclick="setScope('all')"
+          ><img src="./logo.png" alt="" /><span>Rapiz</span></a
+        >
+        <button
+          class="workspace"
+          onclick="showBusinesses(this)"
+          aria-expanded="false"
+          aria-controls="context-popover"
+          aria-label="Chuyển business"
+        >
+          <span
+            ><span class="small muted">Đang làm việc</span
+            ><span class="name" id="working-business">Mộc Studio</span></span
+          ><svg class="icon chevron"><use href="#i-chevron" /></svg>
+        </button>
+        <nav aria-label="Điều hướng chính">
+          <div class="navrow active">
+            <button class="navmain" onclick="setScope(working)">
+              <svg class="icon"><use href="#i-chart" /></svg><span>Thống kê</span>
+            </button>
+          </div>
+          <div class="navrow">
+            <button class="navmain" onclick="showDestination('Đào tạo Bot')">
+              <svg class="icon"><use href="#i-bot" /></svg><span>Đào tạo Bot</span>
+            </button>
+          </div>
+          <div class="navrow">
+            <button
+              class="navmain"
+              aria-expanded="true"
+              aria-controls="multichannel-sub"
+              onclick="expandNav(this, 'multichannel-sub')"
+            >
+              <svg class="icon"><use href="#i-chat" /></svg><span>Chat đa kênh</span
+              ><svg class="icon chevron" style="margin-left: auto"><use href="#i-chevron" /></svg>
+            </button>
+          </div>
+          <div class="subnav" id="multichannel-sub">
+            <button onclick="showDestination('Tin nhắn đa kênh')">Tin nhắn đa kênh</button>
+          </div>
+          <div class="navrow">
+            <button class="navmain" onclick="showDestination('Tích hợp nền tảng')">
+              <svg class="icon"><use href="#i-cable" /></svg><span>Tích hợp nền tảng</span>
+            </button>
+          </div>
+          <div class="navrow">
+            <button
+              class="navmain"
+              aria-expanded="false"
+              aria-controls="customer-sub"
+              onclick="expandNav(this, 'customer-sub')"
+            >
+              <svg class="icon"><use href="#i-users" /></svg><span>Khách hàng</span
+              ><svg class="icon chevron" style="margin-left: auto"><use href="#i-chevron" /></svg>
+            </button>
+          </div>
+          <div class="subnav" id="customer-sub" hidden>
+            <button onclick="showDestination('Danh sách khách hàng')">Danh sách khách hàng</button
+            ><button onclick="showDestination('Cài đặt khách hàng')">Cài đặt khách hàng</button>
+          </div>
+          <div class="navrow">
+            <button
+              class="navmain"
+              aria-expanded="false"
+              aria-controls="order-sub"
+              onclick="expandNav(this, 'order-sub')"
+            >
+              <svg class="icon"><use href="#i-bag" /></svg><span>Đơn hàng</span
+              ><svg class="icon chevron" style="margin-left: auto"><use href="#i-chevron" /></svg>
+            </button>
+          </div>
+          <div class="subnav" id="order-sub" hidden>
+            <button onclick="showDestination('Tổng quan đơn hàng')">Tổng quan đơn hàng</button
+            ><button onclick="showDestination('Danh sách đơn hàng')">Danh sách đơn hàng</button
+            ><button onclick="showDestination('Tạo đơn hàng')">Tạo đơn hàng</button
+            ><button onclick="showDestination('Sản phẩm')">Sản phẩm</button
+            ><button onclick="showDestination('Cài đặt đơn hàng')">Cài đặt đơn hàng</button>
+          </div>
+        </nav>
+        <div class="navbottom">
+          <nav aria-label="Quản trị business">
+            <div class="navrow">
+              <button class="navmain" onclick="showDestination('Thành viên')">
+                <svg class="icon"><use href="#i-users" /></svg><span>Thành viên</span>
+              </button>
+            </div>
+            <div class="navrow">
+              <button class="navmain" onclick="showDestination('Cài đặt')">
+                <svg class="icon"><use href="#i-settings" /></svg><span>Cài đặt</span>
+              </button>
+            </div>
+          </nav>
+        </div>
+        <button
+          class="account"
+          onclick="showAccount(this)"
+          aria-expanded="false"
+          aria-controls="context-popover"
+          aria-label="Tài khoản Demo"
+        >
+          <span class="avatar">DM</span
+          ><span class="accountname"
+            ><strong class="label">Tài khoản Demo</strong
+            ><span class="small muted" style="display: block">Gói & sử dụng</span></span
+          ><svg class="icon chevron"><use href="#i-chevron" /></svg>
+        </button>
+      </aside>
+      <main>
+        <header class="topbar">
+          <button
+            class="iconbtn desktoponly"
+            onclick="toggleCollapse()"
+            aria-label="Thu gọn hoặc mở rộng thanh điều hướng"
+            aria-expanded="true"
+            id="collapse"
+          >
+            <svg class="icon"><use href="#i-panel" /></svg></button
+          ><button
+            class="iconbtn mobileonly"
+            onclick="toggleMobile(true)"
+            aria-label="Mở menu"
+            aria-expanded="false"
+            id="mobile-menu"
+          >
+            <svg class="icon"><use href="#i-menu" /></svg></button
+          ><button
+            class="current"
+            onclick="showBusinesses(this)"
+            aria-expanded="false"
+            aria-controls="context-popover"
+            aria-label="Đổi business đang làm việc"
+          >
+            <span class="muted">Đang làm việc: </span
+            ><strong id="header-business">Mộc Studio</strong>
+          </button>
+          <div class="tools">
+            <button class="btn desktoponly" onclick="showNotes()">Ghi chú thiết kế</button>
+          </div>
+        </header>
+        <div class="body">
+          <div class="titleline">
+            <div>
+              <h1>Thống kê</h1>
+              <p class="muted" id="scope-subtitle">Tất cả shop · 4 shop trong 2 business</p>
+            </div>
+            <div class="date">
+              <div class="segmented" aria-label="Khoảng thời gian">
+                <button data-period="7" aria-pressed="true" onclick="setPeriod(7)">
+                  7 ngày qua</button
+                ><button data-period="30" aria-pressed="false" onclick="setPeriod(30)">
+                  30 ngày qua</button
+                ><button id="custom-range" onclick="showDateRange()">Chọn ngày</button>
+              </div>
+            </div>
+          </div>
+          <div class="scopes" role="group" aria-label="Phạm vi thống kê">
+            <button class="chip" data-scope="all" aria-pressed="true" onclick="setScope('all')">
+              Tất cả shop</button
+            ><button class="chip" data-scope="moc" aria-pressed="false" onclick="setScope('moc')">
+              Mộc Studio</button
+            ><button class="chip" data-scope="an" aria-pressed="false" onclick="setScope('an')">
+              An Nhiên Hotel</button
+            ><button class="chip" id="more-filters" onclick="showFilters()" hidden>Lọc thêm</button>
+          </div>
+          <p id="filter-summary" class="note" hidden></p>
+          <section class="kpis" aria-label="Chỉ số chính" id="kpis"></section>
+          <div class="middle">
+            <section class="panel">
+              <div class="panelhead">
+                <div>
+                  <h2>Hội thoại theo thời gian</h2>
+                  <p id="chart-range"></p>
+                </div>
+                <label class="filter" id="page-filter" hidden
+                  >Trang / kênh
+                  <select id="page" onchange="renderChart()">
+                    <option value="all">Tất cả trang</option>
+                    <option value="page">Trang chính</option>
+                  </select></label
+                >
+              </div>
+              <div class="chart">
+                <svg viewBox="0 0 660 185" role="img" aria-labelledby="chart-label">
+                  <title id="chart-label">Số hội thoại mới theo ngày, dữ liệu minh họa</title>
+                  <defs>
+                    <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0" stop-color="#f26b1d" stop-opacity=".18" />
+                      <stop offset="1" stop-color="#f26b1d" stop-opacity="0" />
+                    </linearGradient>
+                  </defs>
+                  <g id="chart-content"></g>
+                </svg>
+                <div class="chartfooter">
+                  <span><span class="dot"></span>Hội thoại mới</span
+                  ><span id="chart-note">Cùng khoảng thời gian với các chỉ số phía trên</span>
+                </div>
+              </div>
+            </section>
+          </div>
+          <section class="panel tablepanel">
+            <div class="panelhead">
+              <div>
+                <h2 id="table-title">Theo business</h2>
+                <p id="table-description">
+                  Bấm tên để xem thống kê · Mở tin nhắn trực tiếp ở mỗi dòng
+                </p>
+              </div>
+            </div>
+            <div class="businessrows">
+              <div class="businesshead">
+                <span id="dimension-label">Business</span><span>Hội thoại</span
+                ><span class="optional">Tin nhắn đến</span><span class="optional">Business</span
+                ><span></span>
+              </div>
+              <div id="business-rows"></div>
+            </div>
+            <p class="tablehint" id="table-note">
+              Khách được tính riêng trong từng business; không phải số người duy nhất toàn tài
+              khoản.
+            </p>
+          </section>
+          <details class="details">
+            <summary>
+              Phân tích chi tiết <span class="muted small">· khách hàng, tag & hội thoại</span>
+            </summary>
+            <div class="detailgrid" id="detail-grid"></div>
+            <p class="small muted" style="padding-bottom: 16px">
+              Số hiện có là ảnh chụp cuối kỳ; số thay đổi là hoạt động phát sinh trong kỳ.
+            </p>
+          </details>
+          <footer class="metadata">
+            <span id="data-freshness">Minh họa · Múi giờ Việt Nam · Không kết nối dữ liệu thật</span
+            ><button onclick="showDefinitions()">Cách tính các chỉ số</button>
+          </footer>
+        </div>
+      </main>
+    </div>
+    <div
+      id="context-popover"
+      popover="manual"
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby="context-title"
+    >
+      <div class="context-head">
+        <strong id="context-title"></strong
+        ><button class="iconbtn" aria-label="Đóng menu tài khoản" onclick="closeContext(true)">
+          <svg class="icon"><use href="#i-close" /></svg>
+        </button>
+      </div>
+      <div id="context-content"></div>
+    </div>
+    <dialog id="modal" aria-labelledby="modal-title">
+      <div class="dialoghead">
+        <h2 id="modal-title"></h2>
+        <button class="iconbtn" aria-label="Đóng" onclick="closeDialog()">
+          <svg class="icon"><use href="#i-close" /></svg>
+        </button>
+      </div>
+      <div class="dialogbody" id="modal-body"></div>
+    </dialog>
+    <script>
+      'use strict';
+      const businesses = {
+        moc: {
+          name: 'Mộc Studio',
+          industry: 'Bán lẻ / thời trang',
+          initial: 'MS',
+          metrics: [682, 238, 96, 1204],
+          pages: ['Mộc Studio · Facebook', 'Mộc Studio · Instagram'],
+          shops: ['Mộc Studio · Quận 1', 'Mộc Studio · Thủ Đức'],
+          series: [64, 88, 72, 116, 93, 108, 141],
+        },
+        an: {
+          name: 'An Nhiên Hotel',
+          industry: 'Khách sạn',
+          initial: 'AN',
+          metrics: [402, 146, 58, 796],
+          pages: ['An Nhiên · Facebook', 'An Nhiên · Instagram'],
+          shops: ['An Nhiên · Đà Lạt', 'An Nhiên · Nha Trang'],
+          series: [39, 48, 46, 61, 55, 67, 86],
+        },
+      };
+      let scope = 'moc',
+        working = 'moc',
+        period = 7,
+        returnFocus = null;
+      let origin = 'all',
+        sales = 'all',
+        rangeFrom = '2026-10-20',
+        rangeTo = '2026-10-26';
+      const modal = document.getElementById('modal');
+      const fmt = (n) => new Intl.NumberFormat('vi-VN').format(n);
+      const names = ['Hội thoại mới', 'Khách hàng mới', 'SĐT thu thập', 'Tin nhắn đến'];
+      const factor = () => (period === 7 ? 1 : period === 30 ? 4 : period / 7);
+      const salesFactor = () => (sales === 'all' ? 1 : 0.6);
+      const sourceFactor = () =>
+        origin === 'all' ? 1 : origin === 'channel' ? 0.5 : origin === 'manual' ? 0.3 : 0.2;
+      const metricValue = (b, i) =>
+        Math.round(
+          b.metrics[i] * factor() * (i === 1 || i === 2 ? salesFactor() * sourceFactor() : 1),
+        );
+      function totals() {
+        return (scope === 'all' ? Object.values(businesses) : [businesses[scope]]).reduce(
+          (sum, b) => sum.map((n, i) => n + metricValue(b, i)),
+          [0, 0, 0, 0],
+        );
+      }
+      function setScope(next) {
+        if (next !== 'all' && !businesses[next]) return;
+        if (next !== scope) {
+          origin = 'all';
+          sales = 'all';
+        }
+        scope = next;
+        if (next !== 'all') {
+          working = next;
+          localStorage.setItem('rapiz.design.T081.business', working);
+        }
+        document.getElementById('page').value = 'all';
+        render();
+        toggleMobile(false);
+        history.replaceState(null, '', '#' + scope);
+      }
+      function setPeriod(next) {
+        period = next;
+        rangeTo = '2026-10-26';
+        rangeFrom = next === 7 ? '2026-10-20' : '2026-09-27';
+        render();
+      }
+      function render() {
+        document
+          .querySelectorAll('[data-scope]')
+          .forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.scope === scope)));
+        document
+          .querySelectorAll('[data-period]')
+          .forEach((b) =>
+            b.setAttribute('aria-pressed', String(Number(b.dataset.period) === period)),
+          );
+        document.getElementById('working-business').textContent = businesses[working].name;
+        document.getElementById('header-business').textContent = businesses[working].name;
+        document.getElementById('scope-subtitle').textContent =
+          scope === 'all'
+            ? 'Tất cả shop · 4 shop trong 2 business'
+            : businesses[scope].name + ' · ' + businesses[scope].industry;
+        document.getElementById('kpis').innerHTML = totals()
+          .map(
+            (n, i) =>
+              `<button class="kpi" onclick="showMetric(${i})" aria-label="${names[i]}: ${fmt(n)}, xem chi tiết"><span class="klabel">${scope === 'all' && i === 1 ? 'Hồ sơ khách mới' : names[i]}</span><svg class="icon arrow"><use href="#i-arrow"/></svg><strong>${fmt(n)}</strong><span class="trend">+${[12, 8, 6, 15][i]}% so với kỳ trước</span></button>`,
+          )
+          .join('');
+        document.getElementById('page-filter').hidden = scope === 'all';
+        document.getElementById('more-filters').hidden = scope === 'all';
+        const filtered = origin !== 'all' || sales !== 'all';
+        const summary = document.getElementById('filter-summary');
+        summary.hidden = !filtered;
+        summary.textContent =
+          'Đang lọc: nguồn ' +
+          { all: 'tất cả', channel: 'kênh chat', manual: 'nhập tay', import: 'nhập file' }[origin] +
+          ' · Sales: ' +
+          (sales === 'all' ? 'tất cả' : 'nhân viên Demo') +
+          '. Nguồn áp dụng cho khách hàng và SĐT; Sales áp dụng thêm cho tag/trạng thái. Hội thoại không đổi.';
+        document.getElementById('custom-range').textContent =
+          period === 7 || period === 30
+            ? 'Chọn ngày'
+            : rangeFrom.slice(5).split('-').reverse().join('/') +
+              '–' +
+              rangeTo.slice(5).split('-').reverse().join('/');
+        document.getElementById('table-title').textContent =
+          scope === 'all' ? 'Tất cả shop' : 'Các shop trong business';
+        document.getElementById('dimension-label').textContent = 'Shop';
+        document.getElementById('table-description').textContent =
+          scope === 'all'
+            ? 'Tổng hợp tất cả shop thuộc các business bạn có quyền xem'
+            : 'Thống kê của các shop thuộc ' + businesses[scope].name;
+        document.getElementById('table-note').textContent =
+          'Khách hàng và SĐT được thống kê ở cấp business; không cộng lặp khách qua các shop. Dữ liệu shop trong bản mẫu là minh họa.';
+        const rows = (scope === 'all' ? Object.entries(businesses) : [[scope, businesses[scope]]])
+          .flatMap(([key, b]) =>
+            b.shops.map((name, i) => {
+              const total = metricValue(b, 0),
+                incoming = metricValue(b, 3);
+              const conversations =
+                i === 0 ? Math.round(total * 0.65) : total - Math.round(total * 0.65);
+              const inbound =
+                i === 0 ? Math.round(incoming * 0.65) : incoming - Math.round(incoming * 0.65);
+              return `<div class="businessrow"><button class="bizname" onclick="showShop('${key}',${i})"><span class="initial">${b.initial}</span><span><strong>${name}</strong><span class="muted">${b.industry}</span></span></button><span class="num">${fmt(conversations)}</span><span class="optional">${fmt(inbound)}</span><span class="optional">${b.name}</span><button class="btn" aria-label="Xem thống kê ${name}" onclick="showShop('${key}',${i})">Chi tiết <svg class="icon" style="width:14px"><use href="#i-arrow"/></svg></button></div>`;
+            }),
+          )
+          .join('');
+        document.getElementById('business-rows').innerHTML = rows;
+        document.getElementById('detail-grid').innerHTML = [
+          'Gắn tag trong kỳ',
+          'Gỡ tag trong kỳ',
+          'Thay đổi tag ròng',
+          'Khách đang có tag cuối kỳ',
+          'Đổi trạng thái trong kỳ',
+          'Khách theo trạng thái cuối kỳ',
+          'Tin nhắn gửi đi',
+          'Bình luận',
+        ]
+          .map(
+            (label, i) =>
+              `<div>${label}<strong>${i === 7 ? 'Chưa có nguồn' : fmt(Math.round([164, 21, 143, 628, 81, 346, 1120][i] * (scope === 'all' ? 2 : 1) * (i === 3 || i === 5 ? 1 : factor()) * (i < 6 ? salesFactor() : 1)))}</strong></div>`,
+          )
+          .join('');
+        renderChart();
+      }
+      function dateAt(index) {
+        const date = new Date(rangeFrom + 'T00:00:00Z');
+        date.setUTCDate(date.getUTCDate() + index);
+        return date.toISOString().slice(0, 10);
+      }
+      function renderChart() {
+        const page = document.getElementById('page').value;
+        const base =
+          scope === 'all'
+            ? businesses.moc.series.map((n, i) => n + businesses.an.series[i])
+            : businesses[scope].series;
+        const total = totals()[0];
+        const target = page === 'page' ? Math.round(total * 0.65) : total;
+        const weights = Array.from({ length: period }, (_, i) => base[i % 7]);
+        const weightSum = weights.reduce((a, b) => a + b, 0);
+        let remaining = target;
+        const daily = weights.map((w, i) => {
+          const n = i === period - 1 ? remaining : Math.floor((target * w) / weightSum);
+          remaining -= n;
+          return n;
+        });
+        const width = Math.max(260, document.querySelector('.chart').clientWidth - 40);
+        document.querySelector('.chart svg').setAttribute('viewBox', `0 0 ${width} 185`);
+        const right = width - 16;
+        const max = Math.max(10, Math.ceil(Math.max(...daily) / 50) * 50);
+        const points = daily.map(
+          (n, i) => `${38 + (i * (right - 38)) / Math.max(1, period - 1)},${145 - (n / max) * 120}`,
+        );
+        let html = '';
+        for (let i = 0; i < 4; i++) {
+          const y = 25 + i * 40;
+          html += `<line class="grid" x1="38" y1="${y}" x2="${right}" y2="${y}"/><text x="4" y="${y + 4}">${fmt(Math.round(max * (1 - i / 3)))}</text>`;
+        }
+        html += `<path class="area" d="M38,145 L${points.join(' L')} L${right},145Z"/><polyline class="line" points="${points.join(' ')}"/>`;
+        const ticks = Math.min(width < 420 ? 4 : 7, period);
+        const labels = new Set(
+          Array.from({ length: ticks }, (_, i) =>
+            Math.round((i * (period - 1)) / Math.max(1, ticks - 1)),
+          ),
+        );
+        points.forEach((p, i) => {
+          const d = dateAt(i);
+          html += `<circle cx="${p.split(',')[0]}" cy="${p.split(',')[1]}" r="${period > 10 ? 2 : 4}" fill="white" stroke="#f26b1d" stroke-width="2"><title>${d}: ${daily[i]} hội thoại</title></circle>`;
+          if (labels.has(i))
+            html += `<text x="${p.split(',')[0]}" y="176" text-anchor="middle">${d.slice(8)}/${d.slice(5, 7)}</text>`;
+        });
+        document.getElementById('chart-content').innerHTML = html;
+        document.getElementById('chart-range').textContent = rangeFrom + ' – ' + rangeTo;
+        document.getElementById('chart-note').textContent =
+          page === 'page'
+            ? 'Đang lọc trang chính · Chỉ biểu đồ hội thoại thay đổi'
+            : 'Cùng khoảng thời gian với các chỉ số phía trên';
+        document.getElementById('chart-label').textContent =
+          fmt(target) + ' hội thoại mới từ ' + rangeFrom + ' đến ' + rangeTo + '; dữ liệu minh họa';
+      }
+
+      function show(title, html) {
+        returnFocus = document.activeElement;
+        document.getElementById('modal-title').textContent = title;
+        document.getElementById('modal-body').innerHTML = html;
+        if (!modal.open) modal.showModal();
+      }
+      function closeDialog() {
+        modal.close();
+      }
+      modal.addEventListener('close', () => {
+        if (returnFocus && returnFocus.isConnected) returnFocus.focus();
+      });
+      function showDateRange() {
+        show(
+          'Chọn khoảng ngày',
+          `<form id="date-form"><label style="display:grid;gap:6px;margin-bottom:14px">Từ ngày<input type="date" id="date-from" required value="${rangeFrom}" max="2026-10-26" style="min-height:44px"></label><label style="display:grid;gap:6px;margin-bottom:14px">Đến ngày<input type="date" id="date-to" required value="${rangeTo}" max="2026-10-26" style="min-height:44px"></label><p id="date-error" role="alert" style="color:#a52d23"></p><button class="btn primary" type="submit">Áp dụng</button><button class="btn" type="button" onclick="setMonth()" style="margin-left:8px">Tháng này</button></form>`,
+        );
+        document.getElementById('date-form').onsubmit = (e) => {
+          e.preventDefault();
+          const from = document.getElementById('date-from').value,
+            to = document.getElementById('date-to').value;
+          const length = Math.round((Date.parse(to) - Date.parse(from)) / 86400000) + 1;
+          if (length < 1 || length > 366) {
+            document.getElementById('date-error').textContent =
+              'Chọn ngày kết thúc sau ngày bắt đầu, tối đa 366 ngày.';
+            return;
+          }
+          rangeFrom = from;
+          rangeTo = to;
+          period = length;
+          render();
+          closeDialog();
+        };
+      }
+      function setMonth() {
+        rangeFrom = '2026-10-01';
+        rangeTo = '2026-10-26';
+        period = 26;
+        render();
+        closeDialog();
+      }
+      function showFilters() {
+        show(
+          'Lọc thêm',
+          `<form id="extra-form"><label style="display:grid;gap:6px;margin-bottom:14px">Nguồn khách<select id="origin-input" style="min-height:44px"><option value="all">Tất cả nguồn</option><option value="channel">Kênh chat</option><option value="manual">Nhập tay</option><option value="import">Nhập file</option></select></label><label style="display:grid;gap:6px;margin-bottom:14px">Nhân viên Sales<select id="sales-input" style="min-height:44px"><option value="all">Tất cả nhân viên</option><option value="demo">Nhân viên Demo</option></select></label><p class="note">Nguồn lọc khách hàng và SĐT. Sales lọc khách hàng, SĐT, tag và trạng thái. Cả hai không lọc hội thoại. Dữ liệu minh họa.</p><button class="btn primary" type="submit">Áp dụng</button><button class="btn" type="button" onclick="origin='all';sales='all';render();closeDialog()" style="margin-left:8px">Xóa bộ lọc</button></form>`,
+        );
+        document.getElementById('origin-input').value = origin;
+        document.getElementById('sales-input').value = sales;
+        document.getElementById('extra-form').onsubmit = (e) => {
+          e.preventDefault();
+          origin = document.getElementById('origin-input').value;
+          sales = document.getElementById('sales-input').value;
+          render();
+          closeDialog();
+        };
+      }
+      const contextPopover = document.getElementById('context-popover');
+      let contextAnchor = null;
+      function businessOptions() {
+        return Object.entries(businesses)
+          .map(
+            ([key, b]) =>
+              `<button class="pick business-option" data-business-name="${b.name.toLowerCase()}" aria-current="${key === working}" onclick="chooseBusiness('${key}')"><span>${b.name}<small>${b.industry}</small></span><span>${key === working ? 'Đang chọn' : '→'}</span></button>`,
+          )
+          .join('');
+      }
+      function positionContext() {
+        if (!contextPopover.matches(':popover-open') || !contextAnchor) return;
+        const rect = contextAnchor.getBoundingClientRect();
+        const width = contextPopover.offsetWidth,
+          height = contextPopover.offsetHeight;
+        const left = Math.min(Math.max(12, rect.left), innerWidth - width - 12);
+        const below = innerHeight - rect.bottom - 12;
+        const top = below >= height ? rect.bottom + 6 : Math.max(12, rect.top - height - 6);
+        contextPopover.style.left = left + 'px';
+        contextPopover.style.top = top + 'px';
+      }
+      function openContext(anchor, title, content) {
+        if (contextPopover.matches(':popover-open')) {
+          const same = anchor === contextAnchor;
+          closeContext(false);
+          if (same) return;
+        }
+        contextAnchor = anchor;
+        document.getElementById('context-title').textContent = title;
+        document.getElementById('context-content').innerHTML = content;
+        contextPopover.showPopover();
+        anchor.setAttribute('aria-expanded', 'true');
+        positionContext();
+        const first = contextPopover.querySelector('input,button');
+        if (first) first.focus();
+      }
+      function closeContext(restore) {
+        if (contextPopover.matches(':popover-open')) contextPopover.hidePopover();
+        if (contextAnchor) {
+          contextAnchor.setAttribute('aria-expanded', 'false');
+          if (restore && contextAnchor.isConnected) contextAnchor.focus();
+        }
+      }
+      contextPopover.addEventListener('toggle', () => {
+        document
+          .querySelectorAll('[aria-controls="context-popover"]')
+          .forEach((button) =>
+            button.setAttribute(
+              'aria-expanded',
+              String(contextPopover.matches(':popover-open') && button === contextAnchor),
+            ),
+          );
+      });
+      document.addEventListener('pointerdown', (event) => {
+        if (
+          contextPopover.matches(':popover-open') &&
+          !contextPopover.contains(event.target) &&
+          !event.target.closest('[aria-controls="context-popover"]')
+        )
+          closeContext(false);
+      });
+      document.addEventListener('focusin', (event) => {
+        if (
+          contextPopover.matches(':popover-open') &&
+          !contextPopover.contains(event.target) &&
+          !event.target.closest('[aria-controls="context-popover"]')
+        )
+          closeContext(false);
+      });
+      function chooseBusiness(key) {
+        closeContext(false);
+        if (modal.open) modal.close();
+        setScope(key);
+        if (innerWidth <= 700) document.getElementById('mobile-menu').focus();
+        else if (contextAnchor && contextAnchor.isConnected) contextAnchor.focus();
+      }
+      function showBusinesses(anchor) {
+        openContext(
+          anchor,
+          'Chọn business',
+          `<label class="small" for="business-search">Tìm business</label><input id="business-search" type="search" placeholder="Tên business" oninput="filterBusinesses(this.value)">${businessOptions()}<p id="no-business" class="note" hidden>Không tìm thấy business.</p>`,
+        );
+      }
+      function filterBusinesses(value) {
+        const query = value.trim().toLowerCase();
+        let matches = 0;
+        contextPopover.querySelectorAll('.business-option').forEach((button) => {
+          button.hidden = !button.dataset.businessName.includes(query);
+          if (!button.hidden) matches++;
+        });
+        document.getElementById('no-business').hidden = matches > 0;
+        positionContext();
+      }
+      function showAccount(anchor) {
+        openContext(
+          anchor,
+          'Tài khoản Demo',
+          `<div style="border-top:1px solid var(--line);margin-top:8px;padding-top:8px"><button class="pick" onclick="closeContext(false);showDestination('Gói & sử dụng')">Gói & sử dụng <span>→</span></button></div>`,
+        );
+      }
+      function showShop(key, index) {
+        show(
+          businesses[key].shops[index],
+          `<p>${businesses[key].name} · Shop ${index + 1}</p><p class="note">Vùng xem chi tiết thống kê shop. Dữ liệu minh họa, chờ hợp đồng dữ liệu shop từ phần A. Không thay đổi business đang chọn trên sidebar.</p><div class="metricrow"><span>Hội thoại mới</span><strong>${fmt(index === 0 ? Math.round(metricValue(businesses[key], 0) * 0.65) : metricValue(businesses[key], 0) - Math.round(metricValue(businesses[key], 0) * 0.65))}</strong></div>`,
+        );
+      }
+      function showMetric(i) {
+        const values = totals();
+        const label = scope === 'all' && i === 1 ? 'Hồ sơ khách mới' : names[i];
+        show(
+          label,
+          `<p>${scope === 'all' ? 'Tất cả shop' : businesses[scope].name} · ${period} ngày qua</p><p style="font-size:32px;font-weight:700">${fmt(values[i])}</p>` +
+            (scope === 'all'
+              ? Object.entries(businesses)
+                  .map(
+                    ([key, b]) =>
+                      `<button class="pick" onclick="setScope('${key}');showMetric(${i})"><span>${b.name}</span><strong>${fmt(metricValue(b, i))} →</strong></button>`,
+                  )
+                  .join('')
+              : `<div class="metricrow"><span>Chi tiết dữ liệu</span><strong>${fmt(values[i])} bản ghi</strong></div><p class="note" style="margin-top:16px">Khi triển khai: giữ drawer chi tiết đang có, cùng bộ lọc và mốc dữ liệu với chỉ số vừa bấm. Bản mẫu chưa mô phỏng danh sách bản ghi.</p>`) +
+            `<p class="note" style="margin-top:16px">${i === 1 ? 'Khách mới = hồ sơ khách được tạo trong kỳ, không phải mọi khách đã nhắn tin.' : i === 2 ? 'Số điện thoại thu thập theo định nghĩa thống kê hiện tại; không phải số khách có số điện thoại.' : i === 0 ? 'Hội thoại mở trong kỳ; không phải tổng tin nhắn.' : 'Tin nhắn khách gửi đến trong kỳ; không phải lượt AI tính phí.'}</p>`,
+        );
+      }
+      function showDestination(name, key = working, pageIndex = null) {
+        if (key !== working || scope === 'all') {
+          working = key;
+          render();
+        }
+        const context = name === 'Gói & sử dụng' ? 'Tài khoản Demo' : businesses[key].name;
+        show(
+          name,
+          `<p><strong>${context}</strong>${pageIndex !== null ? ' · ' + businesses[key].pages[pageIndex] : ''}</p><p class="note">Đây là điểm đến mô phỏng để kiểm tra số thao tác. Giữ nguyên màn ${name.toLowerCase()} đang có; phần này chỉ minh họa phạm vi dữ liệu, không thiết kế lại màn đó và không thay đổi dữ liệu thật.</p><p>Khi triển khai: ${pageIndex !== null ? 'mở đúng hộp thư với trang đã chọn.' : name === 'Gói & sử dụng' ? 'mở cài đặt gói của tài khoản, dùng chung cho các business.' : 'mở màn hiện tại trong business đang chọn.'}</p>`,
+        );
+        toggleMobile(false);
+      }
+      function showNotes() {
+        show(
+          'Phần 1 · Thống kê',
+          `<ul><li><strong>Phạm vi:</strong> chỉ thiết kế thống kê và điểm chọn business/account; giữ cấu trúc Chat đa kênh, Khách hàng, Đơn hàng và các màn hiện có.</li><li><strong>Business trên sidebar:</strong> chọn business nào thì mọi mục bên dưới dùng business đó. Thống kê đứng đầu và là trang chủ mặc định.</li><li><strong>Logo Rapiz:</strong> xem thống kê tất cả shop của các business có quyền truy cập. Giữ business đang làm việc hiển thị rõ.</li><li><strong>Account:</strong> xổ dropdown ngay cạnh account, không mở popup giữa màn hình. Chọn business chỉ ở đầu sidebar; menu account không có danh sách business.</li><li><strong>Bản mẫu:</strong> dữ liệu giả lập; chưa thay đổi giao diện hay dữ liệu app thật.</li></ul>`,
+        );
+      }
+      function showDefinitions() {
+        show(
+          'Cách tính các chỉ số',
+          `<p>Bản mẫu dùng các chỉ số đã có: hội thoại mở, khách mới, số điện thoại thu thập, tin nhắn đến; giữ các chỉ số tag và trạng thái ở phần chi tiết.</p><ul><li>Phạm vi business và thời gian áp dụng cho các chỉ số tương ứng.</li><li>Bộ lọc trang chỉ thuộc phần hội thoại; không giả định lọc được khách hàng theo trang.</li><li>Khách ở hai business được tính thành hai hồ sơ. Tổng toàn tài khoản không khẳng định là số người duy nhất.</li><li>Tag/trạng thái hiện có cuối kỳ khác với số lượt thay đổi trong kỳ.</li><li>Bình luận chưa có nguồn: hiển thị trạng thái thiếu dữ liệu, không hiển thị 0.</li></ul><p class="note">Khi nối API: giữ quyền xem số liệu, mốc dữ liệu và trạng thái cập nhật/chậm dữ liệu đang có trong app.</p>`,
+        );
+      }
+      function expandNav(button, id) {
+        const target = document.getElementById(id);
+        target.hidden = !target.hidden;
+        button.setAttribute('aria-expanded', String(!target.hidden));
+      }
+      function toggleCollapse() {
+        document.body.classList.toggle('collapsed');
+        document
+          .getElementById('collapse')
+          .setAttribute('aria-expanded', String(!document.body.classList.contains('collapsed')));
+      }
+      function toggleMobile(open) {
+        if (!open) closeContext(false);
+        document.body.classList.toggle('navopen', open);
+        document.querySelector('main').inert = open;
+        document.querySelector('.prototype').inert = open;
+        document.getElementById('mobile-menu').setAttribute('aria-expanded', String(open));
+        if (open) document.querySelector('aside .brand').focus();
+      }
+      document.addEventListener('keydown', (e) => {
+        if (
+          e.key === 'Tab' &&
+          !modal.open &&
+          !contextPopover.matches(':popover-open') &&
+          document.body.classList.contains('navopen')
+        ) {
+          const items = Array.from(document.querySelectorAll('aside button,aside a')).filter(
+            (el) => el.getClientRects().length,
+          );
+          const first = items[0],
+            last = items[items.length - 1];
+          if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+        if (e.key === 'Escape' && contextPopover.matches(':popover-open')) {
+          e.preventDefault();
+          e.stopPropagation();
+          closeContext(true);
+          return;
+        }
+        if (e.key === 'Escape' && !modal.open && document.body.classList.contains('navopen')) {
+          toggleMobile(false);
+          document.getElementById('mobile-menu').focus();
+        }
+      });
+      document.querySelectorAll('.navmain').forEach((b) => {
+        b.setAttribute('aria-label', b.textContent.trim());
+        b.title = b.textContent.trim();
+      });
+      window.addEventListener('resize', () => {
+        if (innerWidth > 700 && document.body.classList.contains('navopen')) toggleMobile(false);
+        renderChart();
+        positionContext();
+      });
+      window.addEventListener('scroll', positionContext, { passive: true });
+      const savedBusiness = localStorage.getItem('rapiz.design.T081.business');
+      if (businesses[savedBusiness]) {
+        working = savedBusiness;
+        scope = savedBusiness;
+      }
+      const initial = location.hash.slice(1);
+      if (initial === 'all' || businesses[initial]) scope = initial;
+      if (businesses[scope]) working = scope;
+      render();
+    </script>
+  </body>
+</html>

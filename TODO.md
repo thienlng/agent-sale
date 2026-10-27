@@ -4,6 +4,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
+- [ ] T-081 Redesign portfolio and business statistics entry screens — @agent:codex · [details](todo/T-081-redesign-portfolio-and-business-statistics-entry-s.md) · PR #70 · partial: shop data awaits lane A
 - [ ] T-076 Reduce integration initial bundle below 250 KB — @agent:codex · [details](todo/T-076-reduce-integration-initial-bundle-below-250-kb.md) · PR #64
 - [ ] T-082 Unify channel assignment and bulk bot filters — @agent:codex · [details](todo/T-082-unify-channel-assignment-and-bulk-bot-filters.md) · PR #64
 - [ ] T-083 Move fanpage management into the bot workspace navigation — @agent:codex · [details](todo/T-083-move-fanpage-management-into-the-bot-workspace-nav.md) · PR #64
@@ -47,7 +48,6 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [ ] T-078 Add account business and shop persistence with safe backfills — @unassigned · [details](todo/T-078-add-account-business-and-shop-persistence-with-saf.md)
 - [ ] T-079 Add business selection and switching across sessions — @unassigned · [details](todo/T-079-add-business-selection-and-switching-across-sessio.md)
 - [ ] T-080 Manage shops and their catalog and bot associations — @unassigned · [details](todo/T-080-manage-shops-and-their-catalog-and-bot-association.md)
-- [ ] T-081 Redesign portfolio and business statistics entry screens — @unassigned · [details](todo/T-081-redesign-portfolio-and-business-statistics-entry-s.md)
 - [ ] T-086 Refine the sales inbox around the agreed Pancake workflow — @unassigned · [details](todo/T-086-refine-the-sales-inbox-around-the-agreed-pancake-w.md)
 - [ ] T-087 Filter the multichannel inbox by shop bot and channel scope — @unassigned · [details](todo/T-087-filter-the-multichannel-inbox-by-shop-bot-and-chan.md)
 - [ ] T-088 Link CRM customers to business shop bot and conversations — @unassigned · [details](todo/T-088-link-crm-customers-to-business-shop-bot-and-conver.md)

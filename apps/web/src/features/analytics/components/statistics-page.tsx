@@ -7,6 +7,9 @@ import type {
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { useSession } from '@/lib/session';
+
 import { Button } from '@/components/ui/button';
 import { ApiClientError } from '@/lib/api-client';
 import { formatDateTime } from '@/lib/format';
@@ -35,24 +38,29 @@ import { FilterBar } from './filter-bar';
 import { type CardState, MetricCard } from './metric-card';
 
 const SECTIONS: ReadonlyArray<{ key: string; metrics: readonly MetricKey[] }> = [
-  { key: 'activity', metrics: ['customers.new', 'phones.captured'] },
   { key: 'tags', metrics: ['tags.assigned', 'tags.removed', 'tags.net', 'tags.current'] },
   { key: 'statuses', metrics: ['statuses.changed', 'statuses.current'] },
   {
     key: 'conversations',
-    metrics: ['conversations.opened', 'messages.inbound', 'messages.outbound', 'comments.received'],
+    metrics: ['messages.outbound', 'comments.received'],
   },
 ];
 /** Derived numbers are computed from others and have no rows of their own. */
 const NOT_DRILLABLE: readonly MetricKey[] = ['tags.net'];
+const PRIMARY_METRICS: readonly MetricKey[] = [
+  'conversations.opened',
+  'customers.new',
+  'phones.captured',
+  'messages.inbound',
+];
 const EVENT_METRICS: readonly MetricKey[] = [
+  'conversations.opened',
   'customers.new',
   'phones.captured',
   'tags.assigned',
   'tags.removed',
   'tags.net',
   'statuses.changed',
-  'conversations.opened',
   'messages.inbound',
   'messages.outbound',
 ];
@@ -65,6 +73,8 @@ export function StatisticsPage({
   onSearch: (next: FiltersSearch) => void;
 }) {
   const { t } = useTranslation();
+  const session = useSession();
+  const business = session?.memberships.find((m) => m.workspaceId === session.workspaceId);
   const allowed = useCan('analytics.view');
   const canPickSales = useCan('contacts.view_all');
   const filters = resolveFilters(search);
@@ -187,7 +197,7 @@ export function StatisticsPage({
     <section className="flex flex-col gap-5">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">{t('analytics.title')}</h1>
-        <p className="mt-1.5 max-w-3xl text-muted-foreground">{t('analytics.subtitle')}</p>
+        <p className="mt-1.5 text-sm text-muted-foreground">{business?.workspaceName}</p>
       </div>
 
       <FilterBar
@@ -228,43 +238,71 @@ export function StatisticsPage({
         </p>
       ) : null}
 
-      {SECTIONS.map((s) => (
-        <section
-          key={s.key}
-          className="flex flex-col gap-3"
-          aria-label={t(`analytics.groups.${s.key}`)}
-        >
-          <h2 className="text-lg font-semibold">{t(`analytics.groups.${s.key}`)}</h2>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {s.metrics.map((m) => (
-              <MetricCard
-                key={m}
-                metric={m}
-                state={stateOf(m)}
-                definition={defOf(m)}
-                onOpen={NOT_DRILLABLE.includes(m) ? undefined : () => open(m, {}, null)}
-              />
-            ))}
-          </div>
-        </section>
-      ))}
-
-      <div
-        className={
-          busy ? 'pointer-events-none flex flex-col gap-5 opacity-50' : 'flex flex-col gap-5'
-        }
-        aria-busy={busy}
+      <section
+        aria-label={t('analytics.overview.primary')}
+        className="grid grid-cols-2 gap-3 xl:grid-cols-4"
       >
-        {chartMetrics.length ? <DailyChart series={merged} metrics={chartMetrics} /> : null}
+        {PRIMARY_METRICS.map((m) => (
+          <MetricCard
+            key={m}
+            metric={m}
+            state={stateOf(m)}
+            definition={defOf(m)}
+            onOpen={() => open(m, {}, null)}
+          />
+        ))}
+      </section>
 
-        <Breakdowns
-          tagStatus={tagStatus.data}
-          people={people.data}
-          conversations={conversations.data}
-          names={names}
-          onOpen={open}
-        />
+      <div className={busy ? 'pointer-events-none opacity-50' : undefined} aria-busy={busy}>
+        {chartMetrics.length ? (
+          <DailyChart
+            series={merged}
+            metrics={chartMetrics}
+            pages={filters.pages}
+            onPagesChange={(pages) => onSearch(toSearch({ ...filters, pages }))}
+          />
+        ) : null}
       </div>
+
+      <Collapsible className="rounded-lg border" defaultOpen={false}>
+        <CollapsibleTrigger className="flex min-h-14 w-full items-center justify-between gap-3 px-4 py-3 text-left font-medium hover:bg-muted/40">
+          {t('analytics.overview.details')}
+          <span aria-hidden className="text-muted-foreground">
+            +
+          </span>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-5 border-t p-4">
+          {SECTIONS.map((section) => (
+            <section
+              key={section.key}
+              className="space-y-3"
+              aria-label={t(`analytics.groups.${section.key}`)}
+            >
+              <h2 className="font-semibold">{t(`analytics.groups.${section.key}`)}</h2>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {section.metrics.map((m) => (
+                  <MetricCard
+                    key={m}
+                    metric={m}
+                    state={stateOf(m)}
+                    definition={defOf(m)}
+                    onOpen={NOT_DRILLABLE.includes(m) ? undefined : () => open(m, {}, null)}
+                  />
+                ))}
+              </div>
+            </section>
+          ))}
+          <div className={busy ? 'pointer-events-none opacity-50' : undefined} aria-busy={busy}>
+            <Breakdowns
+              tagStatus={tagStatus.data}
+              people={people.data}
+              conversations={conversations.data}
+              names={names}
+              onOpen={open}
+            />
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
 
       {meta ? (
         <footer className="flex flex-col gap-1 text-sm text-muted-foreground">

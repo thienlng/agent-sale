@@ -6,6 +6,8 @@ import { Separator } from '@/components/ui/separator';
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { TooltipProvider } from '@/components/ui/tooltip';
 
+import { useSession } from '@/lib/session';
+
 import { AppSidebar } from './layout/app-sidebar';
 import { LayoutControls, ThemeToggle } from './layout/layout-controls';
 
@@ -37,6 +39,7 @@ const SECTION: Record<string, string> = {
  */
 export function AppShell({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
+  const session = useSession();
   const segment = useRouterState({
     select: (s) => s.location.pathname.split('/').filter(Boolean)[1] ?? '',
   });
@@ -69,7 +72,12 @@ export function AppShell({ children }: { children: ReactNode }) {
           </header>
           <div className="flex min-w-0 flex-1 flex-col p-4 md:p-6 has-data-[content-padding=false]:p-0 md:has-data-[content-padding=false]:p-0">
             <div className="flex w-full min-w-0 flex-1 flex-col [html[data-content-layout=centered]_&]:mx-auto [html[data-content-layout=centered]_&]:max-w-screen-xl has-data-[content-padding=false]:max-w-none!">
-              {children}
+              <div
+                key={`${session?.user.id}:${session?.workspaceId}`}
+                className="flex min-w-0 flex-1 flex-col"
+              >
+                {children}
+              </div>
             </div>
           </div>
         </SidebarInset>
