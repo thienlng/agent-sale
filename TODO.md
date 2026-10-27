@@ -4,6 +4,8 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
+- [ ] T-107 Persist inbox text drafts and personal Enter preference — @agent:codex · [details](todo/T-107-persist-inbox-text-drafts-and-personal-enter-prefe.md)
+
 - [ ] T-081 Redesign portfolio and business statistics entry screens — @agent:codex · [details](todo/T-081-redesign-portfolio-and-business-statistics-entry-s.md) · PR #70 · partial: shop data awaits lane A
 - [ ] T-076 Reduce integration initial bundle below 250 KB — @agent:codex · [details](todo/T-076-reduce-integration-initial-bundle-below-250-kb.md) · PR #64
 - [ ] T-082 Unify channel assignment and bulk bot filters — @agent:codex · [details](todo/T-082-unify-channel-assignment-and-bulk-bot-filters.md) · PR #64
@@ -13,6 +15,8 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [ ] T-090 Diagnose and fix failed inbox tag updates — @agent:codex · [details](todo/T-090-diagnose-and-fix-failed-inbox-tag-updates.md) · PR #64
 
 ## Next
+
+- [ ] T-106 Bring Facebook comment threads into the inbox — @agent:claude · [details](todo/T-106-bring-facebook-comment-threads-into-the-inbox.md)
 
 - [ ] T-045 Email verification at signup (ACC-01) and verified-email invitations — @unassigned · [details](todo/T-045-email-verification-at-signup-acc-01-and-verified-e.md)
 

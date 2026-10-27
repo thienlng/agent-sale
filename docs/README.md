@@ -44,6 +44,8 @@ Input source: `../../preny/preny-research/` (Preny research dossier dated 23/10/
 - [Meta-style Inbox BA specification (Vietnamese business material)](business/rapiz-inbox-meta-ba.vi.md) — T-095 observed interface, proposed rules, workflows, acceptance and unverified capability inventory.
 - [English research and implementation handoff](handoffs/2026-10-27-meta-inbox-spec.md) — current baseline, scope boundaries and evidence limits. This is a review draft, not shipped feature documentation.
 
+- [Facebook comments inside Inbox — Claude handoff](handoffs/T-106-facebook-comments-inbox.md) — approved T-106 slice, pagination requirements and parallel boundaries with T-107.
+
 ## One-page summary
 
 - **Product:** multichannel AI sales bot (FB, IG, Zalo, TikTok, Lazada, website) + inbox for sales staff + Mini CRM + orders/shipping + remarketing (ZBS, FMM, email) + follow-up workflows + plans/credit wallet + affiliate.
