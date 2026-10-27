@@ -57,6 +57,16 @@ export function markUnread(
   }));
 }
 
+/** The star (follow / priority) is an annotation too: a queued bot reply stays valid. */
+export function setStarred(
+  store: ConversationStore,
+  ws: WorkspaceId,
+  id: string,
+  starred: boolean,
+): Promise<ConversationView> {
+  return load(store, ws, id, (c) => ({ ...c, starred }));
+}
+
 export async function addNote(
   store: ConversationStore,
   identity: IdentityFacade,

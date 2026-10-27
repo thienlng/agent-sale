@@ -34,6 +34,9 @@ export const ConversationLead = z.object({
 });
 export type ConversationLead = z.infer<typeof ConversationLead>;
 
+export const ConversationStatus = z.enum(['open', 'resolved', 'spam']);
+export type ConversationStatus = z.infer<typeof ConversationStatus>;
+
 export const ConversationDto = z.object({
   id: z.uuid(),
   channelId: z.uuid(),
@@ -51,7 +54,13 @@ export const ConversationDto = z.object({
    * `null` while the bot answers. An implicit takeover (staff reply or Page echo) is `temporary`.
    */
   takeover: z.enum(['temporary', 'permanent']).nullable().default(null),
-  status: z.enum(['open', 'resolved']),
+  /**
+   * Work folder. `resolved` (Done) reopens on the next customer message; `spam` keeps receiving but
+   * never reopens by itself. Only `open` conversations take replies (staff or bot).
+   */
+  status: ConversationStatus,
+  /** Followed / priority (the star); independent of read state and folder. */
+  starred: z.boolean().default(false),
   assigneeId: z.uuid().nullable(),
   /** Legacy single note, kept readable; `notes` is the timeline. */
   note: z.string(),
@@ -128,9 +137,13 @@ export type ConversationTab = z.infer<typeof ConversationTab>;
 
 export const ConversationListQuery = z.object({
   provider: ChannelProvider.optional(),
-  status: z.enum(['open', 'resolved']).optional(),
+  status: ConversationStatus.optional(),
   mode: z.enum(['human', 'bot']).optional(),
   q: z.string().max(200).optional(),
+  /** Only starred (followed / priority) conversations. */
+  starred: queryBool,
+  /** Only conversations with a follow-up reminder set ("Trao đổi thêm"). */
+  followUp: queryBool,
   /** `unread` and `waiting` narrow the list (default `all`); counts always ignore the tab. */
   tab: ConversationTab.optional(),
   /** `me` is the caller, `none` is unassigned, otherwise a member id. */
@@ -189,7 +202,8 @@ export const UpdateConversationRequest = z
     mode: z.enum(['human', 'bot']).optional(),
     /** Only with `mode: 'human'`. `temporary` resumes the bot after the bot's takeover minutes. */
     takeover: z.enum(['temporary', 'permanent']).optional(),
-    status: z.enum(['open', 'resolved']).optional(),
+    status: ConversationStatus.optional(),
+    starred: z.boolean().optional(),
     assignToMe: z.boolean().optional(),
     /** Any active member of the workspace, or `null` to unassign. Wins over `assignToMe`. */
     assigneeId: z.uuid().nullable().optional(),
@@ -221,3 +235,44 @@ export const ConversationTagAssignmentList = z.object({
   data: z.array(ConversationTagAssignmentDto),
 });
 export { AssignTagRequest as AssignConversationTagRequest };
+
+/** Actions staff can run on several conversations at once (the list's "Manage" mode). */
+export const BulkConversationAction = z.enum([
+  'resolve',
+  'reopen',
+  'spam',
+  'star',
+  'unstar',
+  'read',
+  'unread',
+  'assign',
+  'clearFollowUp',
+]);
+export type BulkConversationAction = z.infer<typeof BulkConversationAction>;
+export const MAX_BULK_CONVERSATIONS = 100;
+export const BulkConversationRequest = z
+  .object({
+    action: BulkConversationAction,
+    ids: z.array(z.uuid()).min(1).max(MAX_BULK_CONVERSATIONS),
+    /** Only for `assign`: a member id, or `null` to unassign. */
+    assigneeId: z.uuid().nullable().optional(),
+  })
+  .refine((b) => (b.action === 'assign') === (b.assigneeId !== undefined), {
+    message: 'assigneeId is required for assign and not allowed otherwise',
+    path: ['assigneeId'],
+  });
+export type BulkConversationRequest = z.infer<typeof BulkConversationRequest>;
+/** One result per requested id, in request order; a failure never undoes the others. */
+export const BulkConversationResult = z.object({
+  id: z.uuid(),
+  ok: z.boolean(),
+  /** Error code when `ok` is false (e.g. `NOT_FOUND`, `CONFLICT`). */
+  code: z.string().nullable(),
+});
+export type BulkConversationResult = z.infer<typeof BulkConversationResult>;
+export const BulkConversationResponse = z.object({
+  data: z.array(BulkConversationResult),
+  succeeded: z.number().int(),
+  failed: z.number().int(),
+});
+export type BulkConversationResponse = z.infer<typeof BulkConversationResponse>;

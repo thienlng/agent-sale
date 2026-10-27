@@ -76,19 +76,27 @@ export function ChannelBadge({
   );
 }
 
-const SIZES = { md: 'size-10 text-sm', sm: 'size-8 text-xs' } as const;
+const SIZES = {
+  lg: 'size-12 text-base',
+  md: 'size-10 text-sm',
+  sm: 'size-8 text-xs',
+  xs: 'size-7 text-[11px]',
+} as const;
 
 /** Meta profile photo, or the customer's initial, with the channel badge at the bottom-left. */
 export function CustomerAvatar({
   conversation: c,
   name,
   size = 'md',
+  badge = true,
   children,
 }: {
   conversation: Pick<InboxConversation, 'customerName' | 'provider' | 'customerAvatarUrl'>;
   /** Display name for the initial; defaults to the stored customer name. */
   name?: string;
   size?: keyof typeof SIZES;
+  /** The channel mark at the bottom-left; off inside a thread where the channel is known. */
+  badge?: boolean;
   /** Extra badges (e.g. the unread count) positioned by the caller. */
   children?: ReactNode;
 }) {
@@ -112,14 +120,16 @@ export function CustomerAvatar({
       ) : (
         customerInitial(name ?? c.customerName)
       )}
-      <span
-        className={cn(
-          'absolute -bottom-0.5 -left-0.5 grid size-4 place-items-center rounded-full border-2 border-background',
-          CHANNEL_STYLE[c.provider].className,
-        )}
-      >
-        <ProviderMark provider={c.provider} className="size-2.5" />
-      </span>
+      {badge ? (
+        <span
+          className={cn(
+            'absolute -bottom-0.5 -left-0.5 grid size-4 place-items-center rounded-full border-2 border-background',
+            CHANNEL_STYLE[c.provider].className,
+          )}
+        >
+          <ProviderMark provider={c.provider} className="size-2.5" />
+        </span>
+      ) : null}
       {children}
     </span>
   );

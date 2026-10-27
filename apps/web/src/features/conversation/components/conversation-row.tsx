@@ -1,4 +1,14 @@
-import { Bot, CheckCheck, Clock, MoreHorizontal, Phone, UserRound } from 'lucide-react';
+import {
+  Bot,
+  Check,
+  CheckCheck,
+  Clock,
+  MoreHorizontal,
+  OctagonAlert,
+  Phone,
+  Star,
+  UserRound,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
@@ -54,10 +64,13 @@ export function ConversationRow({
   members,
   userId,
   actions,
+  selection,
 }: {
   conversation: InboxConversation;
   active: boolean;
   onSelect: () => void;
+  /** "Quản lý" mode: a click ticks the row instead of opening it. */
+  selection?: { checked: boolean; onToggle: () => void } | undefined;
   channelName?: string | undefined;
   now: number;
   members: readonly FilterMember[];
@@ -76,7 +89,8 @@ export function ConversationRow({
   const name = customerDisplayName(c, (provider, last4) => v2('row.guest', { provider, last4 }));
   const unread = c.unreadCount > 0;
   const assignee = c.assigneeId ? members.find((m) => m.userId === c.assigneeId) : undefined;
-  const minutes = waitMinutes(c.awaitingSince, now);
+  // Done and Spam keep `awaitingSince` for a reopen, but nobody is waiting there.
+  const minutes = c.status === 'open' ? waitMinutes(c.awaitingSince, now) : null;
   const wait = minutes === null ? null : compactWait(minutes);
   const urgent = minutes !== null && minutes > URGENT_WAIT_MINUTES;
   const prefix =
@@ -92,13 +106,27 @@ export function ConversationRow({
           <button
             ref={rowRef}
             type="button"
-            onClick={onSelect}
-            aria-current={active ? 'true' : undefined}
+            onClick={selection ? selection.onToggle : onSelect}
+            aria-current={active && !selection ? 'true' : undefined}
+            aria-pressed={selection ? selection.checked : undefined}
             className={cn(
-              'flex w-full items-start gap-2.5 px-3 py-2 text-left transition-colors hover:bg-muted/50',
-              active && 'bg-primary-soft/60 shadow-[inset_3px_0_0_var(--primary)]',
+              'flex w-full items-start gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-muted/60',
+              active && !selection && 'bg-muted shadow-[inset_-3px_0_0_var(--primary)]',
+              selection?.checked && 'bg-primary-soft/50',
             )}
           >
+            {selection ? (
+              // Visual only: the row button itself is the toggle (a nested button is invalid HTML).
+              <span
+                aria-hidden
+                className={cn(
+                  'mt-3 grid size-4 shrink-0 place-items-center rounded-[4px] border shadow-xs',
+                  selection.checked && 'border-primary bg-primary text-primary-foreground',
+                )}
+              >
+                {selection.checked ? <Check className="size-3.5" /> : null}
+              </span>
+            ) : null}
             <CustomerAvatar conversation={c} name={name}>
               {unread ? (
                 <span
@@ -137,6 +165,18 @@ export function ConversationRow({
                   <CheckCheck
                     className="size-3.5 shrink-0 text-success"
                     aria-label={tr('resolved')}
+                  />
+                ) : c.status === 'spam' ? (
+                  <OctagonAlert
+                    className="size-3.5 shrink-0 text-destructive"
+                    aria-label={t('channelInbox.meta.folder.spam')}
+                  />
+                ) : null}
+                {c.starred ? (
+                  <Star
+                    className="size-3.5 shrink-0 fill-amber-400 text-amber-500"
+                    role="img"
+                    aria-label={t('channelInbox.meta.starred')}
                   />
                 ) : null}
                 <time
@@ -221,28 +261,30 @@ export function ConversationRow({
           />
         </ContextMenuContent>
       </ContextMenu>
-      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={v2('row.menu')}
-            className="absolute top-1.5 right-1.5 size-6 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100 pointer-coarse:opacity-100"
-          >
-            <MoreHorizontal className="size-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
-          <RowMenuItems
-            kit={DROPDOWN_KIT}
-            conversation={c}
-            unread={unread}
-            members={members}
-            userId={userId}
-            actions={actions}
-          />
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {selection ? null : (
+        <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={v2('row.menu')}
+              className="absolute top-1.5 right-1.5 size-6 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100 pointer-coarse:opacity-100"
+            >
+              <MoreHorizontal className="size-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <RowMenuItems
+              kit={DROPDOWN_KIT}
+              conversation={c}
+              unread={unread}
+              members={members}
+              userId={userId}
+              actions={actions}
+            />
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
     </li>
   );
 }

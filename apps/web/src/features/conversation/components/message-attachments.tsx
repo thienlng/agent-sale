@@ -71,12 +71,17 @@ export function AttachmentPicker({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm" disabled={disabled} aria-label={tr('add')}>
-          <Paperclip className="size-4" />
-          <span className="hidden sm:inline">{tr('add')}</span>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          disabled={disabled}
+          aria-label={tr('add')}
+          title={tr('add')}
+        >
+          <Paperclip />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-80 space-y-3 p-3">
+      <PopoverContent align="end" className="w-80 space-y-3 p-3">
         <p className="text-xs font-medium">{tr('library')}</p>
         {!botId ? (
           <p className="text-xs text-muted-foreground">{tr('noBot')}</p>

@@ -1,7 +1,7 @@
 ---
 id: T-095
 title: Write Meta Business Suite inbox functional specification
-status: in-progress
+status: done
 type: docs
 priority: P1
 owner: '@agent:codex'
@@ -64,15 +64,16 @@ Deliver a clear, testable business specification of the Meta-style inbox, with a
 - 2026-10-27 — Independent same-model QA requested changes on lifecycle/send suppression, note scope, count semantics and ID collisions. All four were corrected. Re-review approved the BA draft for product-owner review with no blocking findings in that scope; conditional capabilities remain discovery gates. Formatting and local links passed; repository gate completed successfully.
 
 - 2026-10-27 — pnpm check passed (lint, architecture, typecheck, tests and build; cached tasks reused where applicable). Existing max-lines warning in conversation.facade.impl.ts remains unchanged. Final artifact-local links resolve; git diff --check passed. Inventory has 108 namespaced requirement IDs and 20 acceptance scenarios. Deliverables remain a product-owner review draft on the docs branch; no application implementation, commit, push or merge is claimed.
+- 2026-10-27 — (@agent:claude) Shipped to `main` together with T-096 (owner-approved direct push); status done.
 
 ## Links
 
-- [Business specification](../docs/business/rapiz-inbox-meta-ba.vi.md)
-- [English implementation handoff](../docs/handoffs/2026-10-27-meta-inbox-spec.md)
-- [Original refinement task](T-086-refine-the-sales-inbox-around-the-agreed-pancake-w.md)
-- [Current Meta inbox](../docs/meta-inbox.md)
-- [Sales inbox workspace](../docs/18-sales-inbox-workspace.md)
+- [Business specification](../../docs/business/rapiz-inbox-meta-ba.vi.md)
+- [English implementation handoff](../../docs/handoffs/2026-10-27-meta-inbox-spec.md)
+- [Original refinement task](../T-086-refine-the-sales-inbox-around-the-agreed-pancake-w.md)
+- [Current Meta inbox](../../docs/meta-inbox.md)
+- [Sales inbox workspace](../../docs/18-sales-inbox-workspace.md)
 
-- [Independent QA record](../docs/handoffs/2026-10-27-meta-inbox-spec-qa.md)
+- [Independent QA record](../../docs/handoffs/2026-10-27-meta-inbox-spec-qa.md)
 
 - 2026-10-27 — (@agent:claude) The owner asked to carry these spec files unchanged into branch `feat/T-096-meta-inbox-core` so the implementation PR ships with its requirements. Committed there as a separate T-095 commit.

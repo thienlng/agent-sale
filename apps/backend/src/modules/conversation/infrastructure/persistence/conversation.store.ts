@@ -42,6 +42,15 @@ function baseConditions(ws: WorkspaceId, f: ConversationFilter): SQL[] {
   const where: SQL[] = [eq(c.workspaceId, ws)];
   if (f.provider) where.push(sql`${c.data}->>'provider' = ${f.provider}`);
   if (f.status) where.push(eq(c.status, f.status));
+  // Document fields without an index column: the other conditions narrow the rows first.
+  if (f.starred !== undefined)
+    where.push(sql`coalesce((${c.data}->>'starred')::boolean, false) = ${f.starred}`);
+  if (f.followUp !== undefined)
+    where.push(
+      f.followUp
+        ? sql`${c.data}->>'followUpAt' is not null`
+        : sql`${c.data}->>'followUpAt' is null`,
+    );
   if (f.mode) where.push(eq(c.mode, f.mode));
   if (f.channelId) where.push(eq(c.channelId, f.channelId));
   if (f.assignee === 'none') where.push(isNull(c.assigneeId));

@@ -28,10 +28,12 @@ export function NotesBlock({ conversation: c }: { conversation: InboxConversatio
   async function submit() {
     const body = text.trim();
     if (!body || add.isPending) return;
+    // Cleared at once so a second Enter cannot save the same note twice; restored on failure.
+    setText('');
     try {
       await add.mutateAsync(body);
-      setText('');
     } catch {
+      setText((current) => current || body);
       toast.error(tr('noteError'));
     }
   }

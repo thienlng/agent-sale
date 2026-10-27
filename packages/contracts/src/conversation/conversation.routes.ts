@@ -11,6 +11,8 @@ import {
   ConversationTagAssignmentList,
   UpdateConversationRequest,
   ConversationDto,
+  BulkConversationRequest,
+  BulkConversationResponse,
 } from './conversation.schema.js';
 const scoped = { auth: true, workspaceScoped: true, tag: 'conversation' } as const;
 export const conversationRoutes = defineRoutes([
@@ -21,6 +23,14 @@ export const conversationRoutes = defineRoutes([
     summary: 'Workspace inbox',
     query: ConversationListQuery,
     responses: { 200: ConversationListResponse },
+  },
+  {
+    ...scoped,
+    method: 'post',
+    path: '/conversations/bulk',
+    summary: 'Run one action on several conversations; per-conversation results',
+    body: BulkConversationRequest,
+    responses: { 200: BulkConversationResponse },
   },
   {
     ...scoped,

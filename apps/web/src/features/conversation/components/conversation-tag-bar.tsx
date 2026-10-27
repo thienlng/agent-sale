@@ -16,6 +16,7 @@ type Props = {
   pickerOpen: boolean;
   onPickerOpenChange: (open: boolean) => void;
   readOnly: boolean;
+  layout?: 'bar' | 'panel';
 };
 
 /** A conversation change discards an unfinished tag form before another customer's thread renders. */

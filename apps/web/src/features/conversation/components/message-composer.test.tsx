@@ -1,9 +1,21 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ApiClientError } from '@/lib/api-client';
 import { MessageComposer } from './message-composer';
 
-const mocks = vi.hoisted(() => ({ send: vi.fn(), update: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  send: vi.fn(),
+  update: vi.fn(),
+  invalidate: vi.fn(),
+  toastError: vi.fn(),
+}));
+vi.mock('@tanstack/react-query', () => ({
+  useQueryClient: () => ({ invalidateQueries: mocks.invalidate }),
+}));
+vi.mock('sonner', () => ({
+  toast: { error: mocks.toastError, success: vi.fn(), info: vi.fn(), warning: vi.fn() },
+}));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 vi.mock('@/lib/session', () => ({
   useSession: () => ({ user: { id: 'sale' }, workspaceId: 'workspace' }),
@@ -31,6 +43,8 @@ vi.mock('./message-attachments', () => ({
 beforeEach(() => {
   mocks.send.mockReset();
   mocks.update.mockReset();
+  mocks.invalidate.mockReset();
+  mocks.toastError.mockReset();
 });
 
 describe('MessageComposer', () => {
@@ -290,5 +304,78 @@ describe('MessageComposer', () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByText('channelInbox.sendHint')).not.toBeInTheDocument();
     expect(screen.queryByText('channelInbox.sales.draftInTab')).not.toBeInTheDocument();
+  });
+
+  it("offers Meta's thumbs-up only while the draft is empty, and it is a real send", async () => {
+    const user = userEvent.setup();
+    mocks.send.mockResolvedValue({ status: 'sent' });
+    render(<MessageComposer id="like" botId="bot" windowClosed={false} />);
+    await user.click(screen.getByRole('button', { name: 'channelInbox.meta.composer.like' }));
+    expect(mocks.send).toHaveBeenCalledWith(
+      expect.objectContaining({ text: '👍', idempotencyKey: expect.any(String) }),
+    );
+    await user.type(screen.getByRole('textbox'), 'Draft');
+    expect(
+      screen.queryByRole('button', { name: 'channelInbox.meta.composer.like' }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'channelInbox.send' })).toBeEnabled();
+  });
+
+  it('keeps the draft editable but sends nothing while the conversation is in Done or Spam', async () => {
+    const user = userEvent.setup();
+    render(<MessageComposer id="locked" botId="bot" windowClosed={false} locked />);
+    expect(screen.getByRole('button', { name: 'channelInbox.meta.composer.like' })).toBeDisabled();
+    await user.type(screen.getByRole('textbox'), 'Later{Enter}');
+    expect(screen.getByRole('textbox')).toHaveValue('Later');
+    expect(screen.getByRole('button', { name: 'channelInbox.send' })).toBeDisabled();
+    expect(mocks.send).not.toHaveBeenCalled();
+  });
+
+  it('inserts an emoji at the caret without sending', async () => {
+    const user = userEvent.setup();
+    render(<MessageComposer id="emoji" botId="bot" windowClosed={false} />);
+    await user.type(screen.getByRole('textbox'), 'Hi');
+    await user.click(screen.getByRole('button', { name: 'channelInbox.meta.composer.emoji' }));
+    await user.click(await screen.findByRole('button', { name: '😍' }));
+    expect(screen.getByRole('textbox')).toHaveValue('Hi😍');
+    expect(mocks.send).not.toHaveBeenCalled();
+  });
+
+  it('names the channel in the placeholder', () => {
+    render(
+      <MessageComposer
+        id="placeholder"
+        botId="bot"
+        windowClosed={false}
+        channelLabel="Messenger"
+      />,
+    );
+    expect(screen.getByRole('textbox')).toHaveAttribute(
+      'placeholder',
+      'channelInbox.meta.composer.replyIn',
+    );
+  });
+
+  it('explains a send refused because the conversation left the queue, and reloads it', async () => {
+    const user = userEvent.setup();
+    mocks.send.mockRejectedValue(new ApiClientError(409, 'CONFLICT', 'Reopen first'));
+    render(<MessageComposer id="moved" botId="bot" windowClosed={false} />);
+    await user.type(screen.getByRole('textbox'), 'Hello{Enter}');
+    await waitFor(() =>
+      expect(mocks.toastError).toHaveBeenCalledWith('channelInbox.meta.composer.notSent'),
+    );
+    expect(mocks.invalidate).toHaveBeenCalled();
+    expect(screen.getByRole('textbox')).toHaveValue('Hello');
+  });
+
+  it('says a refused send was a permission problem', async () => {
+    const user = userEvent.setup();
+    mocks.send.mockRejectedValue(new ApiClientError(403, 'FORBIDDEN', 'No access'));
+    render(<MessageComposer id="forbidden" botId="bot" windowClosed={false} />);
+    await user.type(screen.getByRole('textbox'), 'Hello{Enter}');
+    await waitFor(() =>
+      expect(mocks.toastError).toHaveBeenCalledWith('channelInbox.meta.locked.readOnly'),
+    );
+    expect(screen.getByRole('textbox')).toHaveValue('Hello');
   });
 });

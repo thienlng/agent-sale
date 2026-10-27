@@ -560,6 +560,179 @@ describe('resolved conversations', () => {
   });
 });
 
+describe('work folders (Done and Spam)', () => {
+  const ids = (r: { data: { id: string }[] }) => r.data.map((c) => c.id);
+  it('reopens Done on a customer message but keeps Spam out of the queue', async () => {
+    const a = await service.receive(ws, channelId, event('a1', { senderExternalId: 'a' }));
+    const b = await service.receive(ws, channelId, event('b1', { senderExternalId: 'b' }));
+    await service.update(ws, a.id, { status: 'resolved' }, lan);
+    await service.update(ws, b.id, { status: 'spam' }, lan);
+    expect(ids(await service.list(ws, { limit: 50, status: 'open' }, lan))).toEqual([]);
+    expect(ids(await service.list(ws, { limit: 50, status: 'spam' }, lan))).toEqual([b.id]);
+
+    const reopened = await service.receive(ws, channelId, event('a2', { senderExternalId: 'a' }));
+    const stillSpam = await service.receive(ws, channelId, event('b2', { senderExternalId: 'b' }));
+    expect(reopened.status).toBe('open');
+    expect(stillSpam).toMatchObject({ status: 'spam', unreadCount: 2 });
+    const queue = await service.list(ws, { limit: 50, status: 'open' }, lan);
+    expect(ids(queue)).toEqual([a.id]);
+    // Spam never counts as waiting, even with an unanswered message.
+    expect((await service.list(ws, { limit: 50, status: 'spam' }, lan)).counts.waiting).toBe(0);
+
+    const restored = await service.update(ws, b.id, { status: 'open' }, lan);
+    expect(restored.status).toBe('open');
+    expect(channels.deliver).not.toHaveBeenCalled();
+  });
+
+  it('makes staff reopen Done or Spam before replying, and the bot never answers there', async () => {
+    const c = await service.receive(ws, channelId, event('m1'));
+    for (const status of ['resolved', 'spam'] as const) {
+      await service.update(ws, c.id, { status }, lan);
+      await expect(
+        service.send(ws, c.id, { text: 'Hi', idempotencyKey: newId() }, lan),
+      ).rejects.toMatchObject({ code: 'CONFLICT' });
+      const fresh = (await service.get(ws, c.id)).conversation;
+      expect(
+        await service.commitBotReply(ws, c.id, {
+          revision: fresh.revision,
+          text: 'Bot',
+          idempotencyKey: newId(),
+        }),
+      ).toBeNull();
+    }
+    expect(channels.deliver).not.toHaveBeenCalled();
+    await service.update(ws, c.id, { status: 'open' }, lan);
+    await expect(
+      service.send(ws, c.id, { text: 'Hi', idempotencyKey: newId() }, lan),
+    ).resolves.toMatchObject({ status: 'sent' });
+  });
+});
+
+describe('list order', () => {
+  it('keeps a row in place when staff assign, file or take over; only messages move it', async () => {
+    const c = await service.receive(ws, channelId, event('m1'));
+    vi.setSystemTime(new Date('2026-10-24T06:00:00Z'));
+    await service.update(ws, c.id, { assigneeId: lan }, lan);
+    await service.update(ws, c.id, { status: 'resolved' }, lan);
+    await service.update(ws, c.id, { status: 'open', mode: 'human' }, lan);
+    await service.handOff(ws, c.id, 'bot');
+    const after = (await service.get(ws, c.id)).conversation;
+    expect(after.updatedAt).toBe(c.updatedAt);
+    expect(after.revision).toBeGreaterThan(c.revision);
+    const moved = await service.receive(ws, channelId, event('m2', {}, '2026-10-24T06:00:00Z'));
+    expect(moved.updatedAt).toBe('2026-10-24T06:00:00.000Z');
+  });
+});
+
+describe('star and follow-up filters', () => {
+  it('stars without touching read state or folder, and filters on both', async () => {
+    const a = await service.receive(ws, channelId, event('a1', { senderExternalId: 'a' }));
+    const b = await service.receive(ws, channelId, event('b1', { senderExternalId: 'b' }));
+    expect(a.starred).toBe(false);
+    const starred = await service.update(ws, a.id, { starred: true }, lan);
+    expect(starred).toMatchObject({ starred: true, unreadCount: 1, status: 'open' });
+    // An annotation, not a control change: a queued bot reply stays valid and the order stays.
+    expect(starred.revision).toBe(a.revision);
+    expect(starred.updatedAt).toBe(a.updatedAt);
+    await service.update(ws, b.id, { followUpAt: '2026-10-25T02:00:00.000Z' }, lan);
+    const list = async (query: object) =>
+      (await service.list(ws, { limit: 50, ...query }, lan)).data.map((c) => c.id);
+    expect(await list({ starred: true })).toEqual([a.id]);
+    expect(await list({ starred: false })).toEqual([b.id]);
+    expect(await list({ followUp: true })).toEqual([b.id]);
+    expect(await list({ followUp: false })).toEqual([a.id]);
+    expect((await service.update(ws, a.id, { starred: false }, lan)).starred).toBe(false);
+  });
+});
+
+describe('bulk actions', () => {
+  it('applies the action to each id and reports failures without undoing the others', async () => {
+    const a = await service.receive(ws, channelId, event('a1', { senderExternalId: 'a' }));
+    const b = await service.receive(ws, channelId, event('b1', { senderExternalId: 'b' }));
+    const missing = newId();
+    const result = await service.bulk(ws, { action: 'resolve', ids: [a.id, missing, b.id] }, lan);
+    expect(result).toEqual({
+      data: [
+        { id: a.id, ok: true, code: null },
+        { id: missing, ok: false, code: 'NOT_FOUND' },
+        { id: b.id, ok: true, code: null },
+      ],
+      succeeded: 2,
+      failed: 1,
+    });
+    for (const id of [a.id, b.id])
+      expect((await service.get(ws, id)).conversation.status).toBe('resolved');
+  });
+
+  it('runs every action through the single-conversation rules', async () => {
+    const a = await service.receive(ws, channelId, event('a1', { senderExternalId: 'a' }));
+    const run = async (action: string, extra: object = {}) =>
+      (await service.bulk(ws, { action, ids: [a.id], ...extra } as never, lan)).succeeded;
+    const now = async () => (await service.get(ws, a.id)).conversation;
+    expect(await run('star')).toBe(1);
+    expect((await now()).starred).toBe(true);
+    expect(await run('unstar')).toBe(1);
+    expect((await now()).starred).toBe(false);
+    expect(await run('read')).toBe(1);
+    expect((await now()).unreadCount).toBe(0);
+    expect(await run('unread')).toBe(1);
+    expect((await now()).unreadCount).toBe(1);
+    expect(await run('assign', { assigneeId: minh })).toBe(1);
+    expect((await now()).assigneeId).toBe(minh);
+    expect(await run('assign', { assigneeId: null })).toBe(1);
+    expect((await now()).assigneeId).toBeNull();
+    await service.update(ws, a.id, { followUpAt: '2026-10-25T02:00:00.000Z' }, lan);
+    expect(await run('clearFollowUp')).toBe(1);
+    expect((await now()).followUpAt).toBeNull();
+    expect(await run('spam')).toBe(1);
+    expect((await now()).status).toBe('spam');
+    expect(await run('reopen')).toBe(1);
+    expect((await now()).status).toBe('open');
+    expect(channels.deliver).not.toHaveBeenCalled();
+  });
+
+  it('keeps a queued bot reply valid when starring in bulk', async () => {
+    const a = await service.receive(ws, channelId, event('a1'));
+    await service.bulk(ws, { action: 'star', ids: [a.id] }, lan);
+    const reply = await service.commitBotReply(ws, a.id, {
+      revision: a.revision,
+      text: 'Bot',
+      idempotencyKey: newId(),
+    });
+    expect(reply).toMatchObject({ status: 'sent' });
+  });
+
+  it('reports an unexpected failure per id instead of failing the whole call', async () => {
+    const a = await service.receive(ws, channelId, event('a1', { senderExternalId: 'a' }));
+    const b = await service.receive(ws, channelId, event('b1', { senderExternalId: 'b' }));
+    const control = vi.spyOn(service as never, 'control') as unknown as {
+      mockRejectedValueOnce: (e: unknown) => void;
+    };
+    control.mockRejectedValueOnce(new Error('database went away'));
+    const result = await service.bulk(ws, { action: 'resolve', ids: [a.id, b.id] }, lan);
+    expect(result.data).toEqual([
+      { id: a.id, ok: false, code: 'INTERNAL' },
+      { id: b.id, ok: true, code: null },
+    ]);
+  });
+
+  it('rejects an assignee outside the workspace before touching anything', async () => {
+    const a = await service.receive(ws, channelId, event('a1'));
+    await expect(
+      service.bulk(ws, { action: 'assign', ids: [a.id], assigneeId: removed }, lan),
+    ).rejects.toBeDefined();
+    expect((await service.get(ws, a.id)).conversation.assigneeId).toBeNull();
+  });
+
+  it('treats conversations of another workspace as not found', async () => {
+    const a = await service.receive(ws, channelId, event('a1'));
+    const other = workspaceId('018d0000-0000-7000-8000-000000000002');
+    const result = await service.bulk(other, { action: 'spam', ids: [a.id] }, lan);
+    expect(result.data).toEqual([{ id: a.id, ok: false, code: 'NOT_FOUND' }]);
+    expect((await service.get(ws, a.id)).conversation.status).toBe('open');
+  });
+});
+
 describe('legacy note and timeline', () => {
   it('appends a changed PATCH note to the timeline and keeps both consistent', async () => {
     const c = await service.receive(ws, channelId, event('m1'));

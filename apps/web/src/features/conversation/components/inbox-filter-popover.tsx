@@ -7,6 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils';
 import {
   activeFilterCount,
+  advancedPart,
   DEFAULT_LIST_STATE,
   type ListState,
   type ModeFilter,
@@ -31,15 +32,15 @@ export interface FilterChannel {
   provider: ChannelProvider;
 }
 
-type Group = 'tags' | 'waiting' | 'mode' | 'assignee' | 'channel' | 'phone' | 'status';
+type Group = 'tags' | 'assignee' | 'status' | 'waiting' | 'mode' | 'channel' | 'phone';
 const GROUPS: readonly Group[] = [
   'tags',
+  'assignee',
+  'status',
   'waiting',
   'mode',
-  'assignee',
   'channel',
   'phone',
-  'status',
 ];
 type TagMode = 'tagsAny' | 'tagsAll' | 'tagsExclude';
 const TAG_MODES: readonly TagMode[] = ['tagsAny', 'tagsAll', 'tagsExclude'];
@@ -55,7 +56,7 @@ function groupActive(group: Group, s: ListState): boolean {
     case 'assignee':
       return s.assignee !== 'all';
     case 'channel':
-      return s.provider !== 'all' || s.channelId !== 'all';
+      return s.channelId !== 'all';
     case 'phone':
       return s.hasPhone !== 'all';
     case 'status':
@@ -91,7 +92,11 @@ function Option({
   );
 }
 
-/** One "Lọc" button; a two-column popover: filter groups on the left, their options on the right. */
+/**
+ * Meta's advanced filter: groups on the left, options on the right. Choices are a draft until
+ * "Áp dụng"; "Xóa tất cả" resets the draft and closing discards it. The channel tab, search,
+ * queue tab and quick filters live outside and are never touched here.
+ */
 export function InboxFilterPopover({
   state,
   onState,
@@ -108,21 +113,28 @@ export function InboxFilterPopover({
   const { t } = useTranslation();
   const tr = (key: string, options?: Record<string, unknown>) =>
     t(`channelInbox.v2.filter.${key}`, options ?? {});
+  const [open, setOpen] = useState(false);
   const [group, setGroup] = useState<Group>('tags');
   const [tagMode, setTagMode] = useState<TagMode>('tagsAny');
+  const [draft, setDraft] = useState(state);
   const count = activeFilterCount(state);
   const filterLabel = t('channelInbox.v2.list.filter');
+  const patch = (next: Partial<ListState>) => setDraft((previous) => ({ ...previous, ...next }));
+  function openChange(next: boolean) {
+    if (next) setDraft(state);
+    setOpen(next);
+  }
 
   function toggleTag(id: string) {
-    const current = state[tagMode];
+    const current = draft[tagMode];
     const adding = !current.includes(id);
     // A tag cannot be both wanted and excluded: choosing it on one side clears the other.
     const conflicts: TagMode[] =
       tagMode === 'tagsExclude' ? ['tagsAny', 'tagsAll'] : ['tagsExclude'];
     const cleared = Object.fromEntries(
-      conflicts.map((m) => [m, adding ? state[m].filter((x) => x !== id) : state[m]]),
+      conflicts.map((m) => [m, adding ? draft[m].filter((x) => x !== id) : draft[m]]),
     );
-    onState({
+    patch({
       untagged: false,
       ...cleared,
       [tagMode]: adding ? [...current, id] : current.filter((x) => x !== id),
@@ -130,18 +142,18 @@ export function InboxFilterPopover({
   }
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={openChange}>
       <PopoverTrigger asChild>
         <Button
-          variant="outline"
-          size="sm"
+          variant="ghost"
+          size="icon-sm"
           aria-label={count ? t('channelInbox.v2.list.filterActive', { count }) : filterLabel}
-          className={cn('shrink-0', count > 0 && 'border-primary/50 text-primary')}
+          title={filterLabel}
+          className={cn('relative shrink-0', count > 0 && 'text-primary')}
         >
           <SlidersHorizontal />
-          {filterLabel}
           {count > 0 ? (
-            <span className="grid min-w-4 place-items-center rounded-full bg-primary px-1 text-[10px] leading-4 font-semibold text-primary-foreground">
+            <span className="absolute -top-1 -right-1 grid min-w-4 place-items-center rounded-full bg-primary px-1 text-[10px] leading-4 font-semibold text-primary-foreground">
               {count}
             </span>
           ) : null}
@@ -168,7 +180,7 @@ export function InboxFilterPopover({
                 )}
               >
                 {tr(`groups.${g}`)}
-                {groupActive(g, state) ? (
+                {groupActive(g, draft) ? (
                   <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-primary" />
                 ) : null}
               </button>
@@ -196,11 +208,11 @@ export function InboxFilterPopover({
                 </div>
                 <Option
                   kind="checkbox"
-                  selected={state.untagged}
+                  selected={draft.untagged}
                   onSelect={() =>
-                    onState({
-                      untagged: !state.untagged,
-                      ...(state.untagged ? {} : { tagsAny: [], tagsAll: [], tagsExclude: [] }),
+                    patch({
+                      untagged: !draft.untagged,
+                      ...(draft.untagged ? {} : { tagsAny: [], tagsAll: [], tagsExclude: [] }),
                     })
                   }
                 >
@@ -211,7 +223,7 @@ export function InboxFilterPopover({
                     <Option
                       key={tag.id}
                       kind="checkbox"
-                      selected={state[tagMode].includes(tag.id)}
+                      selected={draft[tagMode].includes(tag.id)}
                       onSelect={() => toggleTag(tag.id)}
                     >
                       <TagChip name={tag.name} color={tag.color} />
@@ -226,8 +238,8 @@ export function InboxFilterPopover({
               ? (['off', 'longest', 'readNotReplied'] as const).map((w) => (
                   <Option
                     key={w}
-                    selected={state.waiting === w}
-                    onSelect={() => onState({ waiting: w as WaitingFilter | 'off' })}
+                    selected={draft.waiting === w}
+                    onSelect={() => patch({ waiting: w as WaitingFilter | 'off' })}
                   >
                     {tr(`waiting.${w}`)}
                   </Option>
@@ -237,8 +249,8 @@ export function InboxFilterPopover({
               ? (['all', 'bot', 'human'] as const).map((m) => (
                   <Option
                     key={m}
-                    selected={state.mode === m}
-                    onSelect={() => onState({ mode: m as ModeFilter })}
+                    selected={draft.mode === m}
+                    onSelect={() => patch({ mode: m as ModeFilter })}
                   >
                     {tr(`mode.${m}`)}
                   </Option>
@@ -249,8 +261,8 @@ export function InboxFilterPopover({
                 {(['all', 'me', 'none'] as const).map((a) => (
                   <Option
                     key={a}
-                    selected={state.assignee === a}
-                    onSelect={() => onState({ assignee: a })}
+                    selected={draft.assignee === a}
+                    onSelect={() => patch({ assignee: a })}
                   >
                     {tr(`assignee.${a}`)}
                   </Option>
@@ -258,8 +270,8 @@ export function InboxFilterPopover({
                 {members.map((member) => (
                   <Option
                     key={member.userId}
-                    selected={state.assignee === member.userId}
-                    onSelect={() => onState({ assignee: member.userId })}
+                    selected={draft.assignee === member.userId}
+                    onSelect={() => patch({ assignee: member.userId })}
                   >
                     <span className="truncate">{member.name}</span>
                   </Option>
@@ -269,30 +281,16 @@ export function InboxFilterPopover({
             {group === 'channel' ? (
               <>
                 <Option
-                  selected={state.provider === 'all' && state.channelId === 'all'}
-                  onSelect={() => onState({ provider: 'all', channelId: 'all' })}
+                  selected={draft.channelId === 'all'}
+                  onSelect={() => patch({ channelId: 'all' })}
                 >
-                  {tr('channel.all')}
+                  {tr('channel.allPages')}
                 </Option>
-                {(['facebook', 'instagram'] as const).map((p) => (
-                  <Option
-                    key={p}
-                    selected={state.provider === p && state.channelId === 'all'}
-                    onSelect={() => onState({ provider: p, channelId: 'all' })}
-                  >
-                    {tr(`channel.${p}`)}
-                  </Option>
-                ))}
-                {channels.length ? (
-                  <p className="px-2 pt-2 pb-1 text-[11px] font-medium text-muted-foreground">
-                    {tr('channel.pages')}
-                  </p>
-                ) : null}
                 {channels.map((channel) => (
                   <Option
                     key={channel.id}
-                    selected={state.channelId === channel.id}
-                    onSelect={() => onState({ provider: 'all', channelId: channel.id })}
+                    selected={draft.channelId === channel.id}
+                    onSelect={() => patch({ channelId: channel.id })}
                   >
                     <span className="truncate">{channel.name}</span>
                   </Option>
@@ -303,19 +301,19 @@ export function InboxFilterPopover({
               ? (['all', 'yes', 'no'] as const).map((p) => (
                   <Option
                     key={p}
-                    selected={state.hasPhone === p}
-                    onSelect={() => onState({ hasPhone: p as PhoneFilter })}
+                    selected={draft.hasPhone === p}
+                    onSelect={() => patch({ hasPhone: p as PhoneFilter })}
                   >
                     {tr(`phone.${p}`)}
                   </Option>
                 ))
               : null}
             {group === 'status'
-              ? (['open', 'resolved', 'all'] as const).map((s) => (
+              ? (['open', 'resolved', 'spam', 'all'] as const).map((s) => (
                   <Option
                     key={s}
-                    selected={state.status === s}
-                    onSelect={() => onState({ status: s as StatusFilter })}
+                    selected={draft.status === s}
+                    onSelect={() => patch({ status: s as StatusFilter })}
                   >
                     {tr(`status.${s}`)}
                   </Option>
@@ -323,23 +321,30 @@ export function InboxFilterPopover({
               : null}
           </div>
         </div>
-        {count > 0 ? (
-          <div className="flex justify-end border-t p-1.5">
+        <div className="flex items-center justify-between gap-2 border-t p-1.5">
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={activeFilterCount(draft) === 0}
+            onClick={() => patch(advancedPart(DEFAULT_LIST_STATE))}
+          >
+            {tr('reset')}
+          </Button>
+          <div className="flex gap-1.5">
+            <Button variant="outline" size="sm" onClick={() => openChange(false)}>
+              {tr('close')}
+            </Button>
             <Button
-              variant="ghost"
               size="sm"
-              onClick={() =>
-                onState({
-                  ...DEFAULT_LIST_STATE,
-                  q: state.q,
-                  tab: state.tab,
-                })
-              }
+              onClick={() => {
+                onState(advancedPart(draft));
+                setOpen(false);
+              }}
             >
-              {tr('reset')}
+              {tr('apply')}
             </Button>
           </div>
-        ) : null}
+        </div>
       </PopoverContent>
     </Popover>
   );

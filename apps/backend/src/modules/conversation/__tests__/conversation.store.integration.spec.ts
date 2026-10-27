@@ -172,11 +172,18 @@ describe('DrizzleConversationStore inbox v2 query', () => {
         ),
       );
     }
-    const [c0, c1, c2, c3] = made;
+    const [c0, c1, c2, c3, c4] = made;
     await service.markRead(a, c0!.id, staff);
     await service.send(a, c1!.id, { text: 'ok', idempotencyKey: newId() }, staff);
     await service.update(a, c2!.id, { status: 'resolved' }, staff);
     await service.update(a, c3!.id, { assigneeId: null, mode: 'human' }, staff);
+    await service.update(a, c3!.id, { status: 'spam' }, staff);
+    await service.update(
+      a,
+      c4!.id,
+      { starred: true, followUpAt: '2030-01-01T02:00:00.000Z' },
+      staff,
+    );
     return made.map((c) => c.id);
   }
 
@@ -189,6 +196,12 @@ describe('DrizzleConversationStore inbox v2 query', () => {
       { tab: 'waiting' },
       { status: 'open' },
       { status: 'resolved', tab: 'unread' },
+      { status: 'spam' },
+      { status: 'spam', tab: 'waiting' },
+      { starred: true },
+      { starred: false, tab: 'unread' },
+      { followUp: true },
+      { followUp: false, status: 'open' },
       { mode: 'human' },
       { provider: 'facebook' },
       { assignee: 'none' },
@@ -271,5 +284,16 @@ describe('DrizzleConversationStore inbox v2 query', () => {
     );
     await service.update(a, id!, { status: 'open' }, staff);
     expect((await waiting()).counts).toEqual(before.counts);
+  });
+
+  it('runs bulk actions only on conversations of the calling workspace', async () => {
+    const ids = await seed();
+    const result = await service.bulk(b, { action: 'star', ids }, staff);
+    expect(result.succeeded).toBe(0);
+    expect(result.data.every((r) => r.code === 'NOT_FOUND')).toBe(true);
+    const own = await service.bulk(a, { action: 'star', ids: [ids[0]!] }, staff);
+    expect(own.succeeded).toBe(1);
+    expect((await service.get(a, ids[0]!)).conversation.starred).toBe(true);
+    await service.bulk(a, { action: 'unstar', ids: [ids[0]!] }, staff);
   });
 });

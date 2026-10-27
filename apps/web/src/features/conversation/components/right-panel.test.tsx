@@ -93,6 +93,24 @@ describe('notes block', () => {
     expect(field).toHaveValue('Quan trọng');
   });
 
+  it('clears the field while saving so a second Enter cannot save the note twice', async () => {
+    const user = userEvent.setup();
+    let finish: () => void = () => {};
+    mocks.addNote.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    render(<NotesBlock conversation={conv()} />);
+    const field = screen.getByRole('textbox');
+    await user.type(field, 'Giao thứ bảy{Enter}');
+    expect(field).toHaveValue('');
+    await user.type(field, '{Enter}');
+    expect(mocks.addNote).toHaveBeenCalledTimes(1);
+    finish();
+  });
+
   it('falls back to the old single note when there is no timeline yet', () => {
     render(<NotesBlock conversation={conv({ note: 'Khách quen' })} />);
     expect(screen.getByText('Khách quen')).toBeInTheDocument();
@@ -135,13 +153,25 @@ describe('customer panel', () => {
 
   it('collapses blocks, keeps follow-up to one line while empty and opens it for a set reminder', async () => {
     const user = userEvent.setup();
-    const { unmount } = render(<CustomerPanel conversation={conv()} />);
+    const slots = { tags: <p>tags slot</p>, media: <p>media slot</p> };
+    const { unmount } = render(<CustomerPanel conversation={conv()} slots={slots} />);
     expect(screen.getByText('channelInbox.v2.panel.followUpNone')).toBeInTheDocument();
     expect(screen.queryByText('follow-up editor')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /toggle channelInbox.v2.panel.customer/ }));
+    // Meta's order: about, labels, notes, follow-up, shared photos.
+    const text = document.body.textContent ?? '';
+    expect(text.indexOf('tags slot')).toBeLessThan(text.indexOf('channelInbox.v2.panel.notes'));
+    expect(text.indexOf('channelInbox.v2.panel.followUp')).toBeLessThan(text.indexOf('media slot'));
+    // The profile header above names the customer; "about" does not repeat it.
     expect(screen.queryByText('Nguyễn Thu Hà')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /toggle channelInbox.meta.panel.about/ }));
+    expect(screen.queryByText('channelInbox.v2.panel.noPhone')).not.toBeInTheDocument();
     unmount();
-    render(<CustomerPanel conversation={conv({ followUpAt: '2026-10-26T09:00:00.000Z' })} />);
+    render(
+      <CustomerPanel
+        conversation={conv({ followUpAt: '2026-10-26T09:00:00.000Z' })}
+        slots={slots}
+      />,
+    );
     expect(screen.getByText('follow-up editor')).toBeInTheDocument();
   });
 });

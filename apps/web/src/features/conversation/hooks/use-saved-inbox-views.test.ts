@@ -47,6 +47,12 @@ describe('saved inbox views', () => {
     const [loaded] = parseSavedInboxViews(JSON.stringify([legacy]));
     expect(loaded?.filters).toMatchObject({ provider: 'facebook', status: 'all', tab: 'all' });
     expect(loaded?.filters.tagsAny).toEqual([]);
+    expect(loaded?.filters).toMatchObject({ starred: false, followUp: false });
+    const spam = { ...legacy, filters: { status: 'spam', starred: true } };
+    expect(parseSavedInboxViews(JSON.stringify([spam]))[0]?.filters).toMatchObject({
+      status: 'spam',
+      starred: true,
+    });
   });
   it('keeps valid entries when another one is corrupt', () => {
     const bad = { ...view, id: '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d02', name: '' };

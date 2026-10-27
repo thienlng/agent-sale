@@ -1,5 +1,6 @@
-import type { InboxMessage } from '../lib/inbox-v2-types';
-import { ArrowDown, Bot, CheckCheck, CircleAlert, Loader2 } from 'lucide-react';
+import type { InboxConversation, InboxMessage } from '../lib/inbox-v2-types';
+import { CustomerAvatar } from './customer-avatar';
+import { ArrowDown, Bot, CircleAlert, Loader2 } from 'lucide-react';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
@@ -11,8 +12,11 @@ export function MessageThread({
   messages,
   newAfter = null,
   newUnread = 0,
+  customer,
 }: {
   messages: readonly InboxMessage[];
+  /** The customer's avatar beside their last bubble of a run, as in Messenger. */
+  customer?: { conversation: InboxConversation; name: string } | undefined;
   /** Read time when the conversation was opened; the first later customer message starts "Tin mới". */
   newAfter?: string | null;
   /** Never read (after "mark unread"): the divider goes before the last N customer messages. */
@@ -43,12 +47,27 @@ export function MessageThread({
       ? (inbound.slice(-newUnread)[0]?.id ?? null)
       : null;
   const stamp = (value: string) =>
-    new Intl.DateTimeFormat(i18n.language, {
-      month: 'short',
-      day: 'numeric',
+    new Intl.DateTimeFormat(i18n.language, { hour: '2-digit', minute: '2-digit' }).format(
+      new Date(value),
+    );
+  // Messenger-style centred time between runs: weekday within a week, else the date.
+  const gapLabel = (value: string) => {
+    const at = new Date(value);
+    const recent = Date.now() - at.getTime() < 6 * 86400000;
+    return new Intl.DateTimeFormat(i18n.language, {
+      ...(recent ? { weekday: 'short' } : { day: 'numeric', month: 'numeric', year: 'numeric' }),
       hour: '2-digit',
       minute: '2-digit',
-    }).format(new Date(value));
+    }).format(at);
+  };
+  const sameRun = (a: InboxMessage | undefined, b: InboxMessage | undefined) =>
+    Boolean(
+      a &&
+      b &&
+      a.direction === b.direction &&
+      a.sender === b.sender &&
+      (a.senderName ?? null) === (b.senderName ?? null),
+    );
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       <div
@@ -61,69 +80,95 @@ export function MessageThread({
         }}
         role="log"
         aria-label={tr('inboxTitle')}
-        className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain bg-muted/20 p-4 sm:p-6"
+        className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain bg-background p-4 sm:px-6"
       >
-        {messages.map((m) => (
-          <Fragment key={m.id}>
-            {m.id === dividerId ? (
-              <div
-                role="separator"
-                className="flex items-center gap-2 text-[11px] font-medium text-primary"
-              >
-                <span className="h-px flex-1 bg-primary/40" />
-                {t('channelInbox.v2.thread.newDivider')}
-                <span className="h-px flex-1 bg-primary/40" />
-              </div>
-            ) : null}
-            <div
-              className={cn(
-                'flex max-w-[88%] flex-col',
-                m.direction === 'outbound' ? 'self-end items-end' : 'self-start items-start',
-              )}
-            >
-              {m.sender === 'bot' ? (
-                <span className="mb-0.5 inline-flex items-center gap-1 text-[10px] font-semibold text-primary">
-                  <Bot className="size-3" aria-hidden />
-                  {t('channelInbox.v2.thread.bot')}
-                </span>
+        {messages.map((m, index) => {
+          const previous = messages[index - 1];
+          const next = messages[index + 1];
+          const gap =
+            !previous || Date.parse(m.createdAt) - Date.parse(previous.createdAt) >= 30 * 60000;
+          const firstOfRun = gap || !sameRun(previous, m);
+          const lastOfRun =
+            !sameRun(m, next) ||
+            (next !== undefined &&
+              Date.parse(next.createdAt) - Date.parse(m.createdAt) >= 30 * 60000);
+          const inbound = m.direction === 'inbound';
+          return (
+            <Fragment key={m.id}>
+              {gap ? (
+                <p className="py-2 text-center text-[11px] text-muted-foreground">
+                  {gapLabel(m.createdAt)}
+                </p>
+              ) : null}
+              {m.id === dividerId ? (
+                <div
+                  role="separator"
+                  className="flex items-center gap-2 text-[11px] font-medium text-primary"
+                >
+                  <span className="h-px flex-1 bg-primary/40" />
+                  {t('channelInbox.v2.thread.newDivider')}
+                  <span className="h-px flex-1 bg-primary/40" />
+                </div>
               ) : null}
               <div
                 className={cn(
-                  'rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap break-words',
-                  m.direction === 'outbound'
-                    ? 'rounded-br-sm bg-primary-soft text-foreground'
-                    : 'rounded-bl-sm border bg-background',
+                  'flex max-w-[78%] flex-col',
+                  inbound ? 'relative self-start items-start pl-9' : 'self-end items-end',
+                  firstOfRun && index > 0 && 'mt-2',
                 )}
               >
-                <MessageAttachments items={m.attachments} />
-                {m.text || (m.attachments.length ? null : tr('noMessage'))}
-              </div>
-              <span className="mt-1 text-[10px] text-muted-foreground">
-                {stamp(m.createdAt)}
-                {m.direction === 'outbound'
-                  ? ` · ${m.sender === 'bot' ? tr('botSent') : (m.senderName?.trim() ?? '') || tr('humanSent')}`
-                  : ''}
-              </span>
-              {m.direction === 'outbound' ? (
-                <span
+                {inbound && customer && lastOfRun ? (
+                  <span className="absolute bottom-0 left-0">
+                    <CustomerAvatar
+                      conversation={customer.conversation}
+                      name={customer.name}
+                      size="xs"
+                      badge={false}
+                    />
+                  </span>
+                ) : null}
+                {m.sender === 'bot' && firstOfRun ? (
+                  <span className="mb-0.5 inline-flex items-center gap-1 text-[10px] font-semibold text-primary">
+                    <Bot className="size-3" aria-hidden />
+                    {t('channelInbox.v2.thread.bot')}
+                  </span>
+                ) : null}
+                <div
+                  title={stamp(m.createdAt)}
                   className={cn(
-                    'mt-0.5 flex items-center gap-1 text-[10px]',
-                    m.status === 'failed' ? 'text-destructive' : 'text-muted-foreground',
+                    'rounded-[18px] px-3.5 py-2 text-[15px] leading-snug whitespace-pre-wrap break-words',
+                    inbound ? 'bg-muted text-foreground' : 'bg-primary text-primary-foreground',
+                    m.status === 'failed' && 'opacity-70',
                   )}
                 >
-                  {m.status === 'sent' ? (
-                    <CheckCheck className="size-3" />
-                  ) : m.status === 'pending' ? (
-                    <Loader2 className="size-3 animate-spin" />
-                  ) : (
-                    <CircleAlert className="size-3" />
-                  )}
-                  {tr(m.status)}
-                </span>
-              ) : null}
-            </div>
-          </Fragment>
-        ))}
+                  <MessageAttachments items={m.attachments} />
+                  {m.text || (m.attachments.length ? null : tr('noMessage'))}
+                </div>
+                {!inbound && (lastOfRun || m.status !== 'sent') ? (
+                  <span className="mt-0.5 text-[10px] text-muted-foreground">
+                    {stamp(m.createdAt)}
+                    {` · ${m.sender === 'bot' ? tr('botSent') : (m.senderName?.trim() ?? '') || tr('humanSent')}`}
+                  </span>
+                ) : null}
+                {!inbound && m.status !== 'sent' ? (
+                  <span
+                    className={cn(
+                      'mt-0.5 flex items-center gap-1 text-[10px]',
+                      m.status === 'failed' ? 'text-destructive' : 'text-muted-foreground',
+                    )}
+                  >
+                    {m.status === 'pending' ? (
+                      <Loader2 className="size-3 animate-spin" />
+                    ) : (
+                      <CircleAlert className="size-3" />
+                    )}
+                    {tr(m.status)}
+                  </span>
+                ) : null}
+              </div>
+            </Fragment>
+          );
+        })}
       </div>
       {readingHistory && latestId !== seenLatest ? (
         <Button

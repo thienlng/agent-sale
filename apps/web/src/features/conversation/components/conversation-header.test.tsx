@@ -31,8 +31,13 @@ const V = 'channelInbox.v2.header.';
 
 function renderHeader(
   patch: Partial<InboxConversation> = {},
-  channel = { name: 'Shop Hoa', externalId: '777' },
+  channel: { name: string; externalId: string } | { canEdit: boolean } = {
+    name: 'Shop Hoa',
+    externalId: '777',
+  },
 ) {
+  const canEdit = 'canEdit' in channel ? channel.canEdit : true;
+  const page = 'canEdit' in channel ? { name: 'Shop Hoa', externalId: '777' } : channel;
   const handlers = {
     onChange: vi.fn(),
     onMarkUnread: vi.fn(),
@@ -43,7 +48,8 @@ function renderHeader(
   render(
     <ConversationHeader
       conversation={{ ...base, ...patch }}
-      channel={channel}
+      channel={page}
+      canEdit={canEdit}
       botAvailable
       takeoverMinutes={5}
       members={[{ userId: 'user-lan', name: 'Lan' }]}
@@ -114,11 +120,10 @@ describe('conversation header', () => {
     expect(h.onChange).toHaveBeenCalledWith({ assigneeId: 'user-lan' });
   });
 
-  it('marks unread and searches from the more menu', async () => {
+  it('marks unread from its icon and searches from the more menu', async () => {
     const user = userEvent.setup();
     const h = renderHeader();
-    await user.click(screen.getByRole('button', { name: `${V}more` }));
-    await user.click(await screen.findByRole('menuitem', { name: `${V}markUnread` }));
+    await user.click(screen.getByRole('button', { name: `${V}markUnread` }));
     expect(h.onMarkUnread).toHaveBeenCalled();
     await user.click(screen.getByRole('button', { name: `${V}more` }));
     await user.click(
@@ -143,7 +148,38 @@ describe('conversation header', () => {
     const user = userEvent.setup();
     renderHeader({ provider: 'instagram' });
     await user.click(screen.getByRole('button', { name: `${V}more` }));
-    await screen.findByRole('menuitem', { name: `${V}markUnread` });
+    await screen.findByRole('menuitem', { name: 'channelInbox.sales.searchThread' });
     expect(screen.queryByRole('menuitem', { name: /openOn/ })).not.toBeInTheDocument();
+  });
+
+  it('moves to Spam and back, as a pressed toggle', async () => {
+    const user = userEvent.setup();
+    const h = renderHeader();
+    const spam = screen.getByRole('button', { name: 'channelInbox.meta.header.spam' });
+    expect(spam).toHaveAttribute('aria-pressed', 'false');
+    await user.click(spam);
+    expect(h.onChange).toHaveBeenCalledWith({ status: 'spam' });
+  });
+
+  it('restores a spam conversation to the inbox', async () => {
+    const user = userEvent.setup();
+    const h = renderHeader({ status: 'spam' });
+    const restore = screen.getByRole('button', { name: 'channelInbox.meta.header.notSpam' });
+    expect(restore).toHaveAttribute('aria-pressed', 'true');
+    await user.click(restore);
+    expect(h.onChange).toHaveBeenCalledWith({ status: 'open' });
+  });
+
+  it('stars and unstars without touching the folder', async () => {
+    const user = userEvent.setup();
+    const h = renderHeader();
+    await user.click(screen.getByRole('button', { name: 'channelInbox.meta.header.star' }));
+    expect(h.onChange).toHaveBeenCalledWith({ starred: true });
+  });
+
+  it('disables every control change without permission to edit', () => {
+    renderHeader({}, { canEdit: false });
+    for (const name of [`${V}markUnread`, `${V}resolve`, 'channelInbox.meta.header.spam'])
+      expect(screen.getByRole('button', { name })).toBeDisabled();
   });
 });

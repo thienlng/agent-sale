@@ -84,7 +84,9 @@ export interface InboxListQuery {
   provider?: 'facebook' | 'instagram' | 'website';
   hasPhone?: boolean;
   waiting?: WaitingFilter;
-  status?: 'open' | 'resolved';
+  status?: 'open' | 'resolved' | 'spam';
+  starred?: boolean;
+  followUp?: boolean;
   mode?: 'bot' | 'human';
   q?: string;
   sort?: 'recent' | 'waitingLongest';

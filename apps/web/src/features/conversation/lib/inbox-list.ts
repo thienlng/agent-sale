@@ -7,7 +7,8 @@ import type {
   WaitingFilter,
 } from './inbox-v2-types';
 
-export type StatusFilter = 'open' | 'resolved' | 'all';
+/** Work folder: the queue (`open`), Done (`resolved`), Spam, or every folder. */
+export type StatusFilter = 'open' | 'resolved' | 'spam' | 'all';
 export type ModeFilter = 'bot' | 'human' | 'all';
 export type PhoneFilter = 'all' | 'yes' | 'no';
 
@@ -28,6 +29,10 @@ export interface ListState {
   channelId: string;
   hasPhone: PhoneFilter;
   status: StatusFilter;
+  /** Quick filter "Ưu tiên": starred conversations only. */
+  starred: boolean;
+  /** Quick filter "Trao đổi thêm": a follow-up reminder is set. */
+  followUp: boolean;
 }
 
 export const DEFAULT_LIST_STATE: ListState = {
@@ -44,7 +49,27 @@ export const DEFAULT_LIST_STATE: ListState = {
   channelId: 'all',
   hasPhone: 'all',
   status: 'open',
+  starred: false,
+  followUp: false,
 };
+
+/** A saved view written before a field existed still applies with that field's default. */
+export function withDefaults(state: Partial<ListState>): ListState {
+  return { ...DEFAULT_LIST_STATE, ...state };
+}
+
+/** The advanced-filter fields (everything except search, queue tab, channel tab and quick filters). */
+export function advancedPart(state: ListState): Partial<ListState> {
+  const {
+    q: _q,
+    tab: _tab,
+    provider: _provider,
+    starred: _starred,
+    followUp: _followUp,
+    ...rest
+  } = state;
+  return rest;
+}
 
 /** Number of filter groups that differ from the default (the search box and tabs do not count). */
 export function activeFilterCount(state: ListState): number {
@@ -54,15 +79,22 @@ export function activeFilterCount(state: ListState): number {
     state.waiting !== 'off',
     state.mode !== 'all',
     state.assignee !== 'all',
-    state.provider !== 'all' || state.channelId !== 'all',
+    // The provider is the channel tab, not an advanced filter.
+    state.channelId !== 'all',
     state.hasPhone !== 'all',
     state.status !== DEFAULT_LIST_STATE.status,
   ].filter(Boolean).length;
 }
 
-/** True when anything, including search text and tab, differs from the default. */
+/** True when anything, including search text, tab and quick filters, differs from the default. */
 export function isFiltered(state: ListState): boolean {
-  return activeFilterCount(state) > 0 || state.q !== '' || state.tab !== 'all';
+  return (
+    activeFilterCount(state) > 0 ||
+    state.q !== '' ||
+    state.tab !== 'all' ||
+    state.starred ||
+    state.followUp
+  );
 }
 
 export type FilterChip =
@@ -81,12 +113,10 @@ export function filterChips(state: ListState): FilterChip[] {
   if (state.mode !== 'all') chips.push({ id: 'mode', kind: 'mode' });
   if (state.assignee !== 'all')
     chips.push({ id: 'assignee', kind: 'assignee', value: state.assignee });
-  if (state.provider !== 'all')
-    chips.push({ id: 'provider', kind: 'provider', value: state.provider });
   if (state.channelId !== 'all')
     chips.push({ id: 'channelId', kind: 'channelId', value: state.channelId });
   if (state.hasPhone !== 'all') chips.push({ id: 'hasPhone', kind: 'hasPhone' });
-  if (state.status !== DEFAULT_LIST_STATE.status) chips.push({ id: 'status', kind: 'status' });
+  // The folder has its own "Đang xem: …" line, so it gets no chip.
   return chips;
 }
 
@@ -132,6 +162,8 @@ export function toListQuery(state: ListState, limit = 100): InboxListQuery {
   if (state.tagsAll.length) query.tagsAll = state.tagsAll.join(',');
   if (state.tagsExclude.length) query.tagsExclude = state.tagsExclude.join(',');
   if (state.untagged) query.untagged = true;
+  if (state.starred) query.starred = true;
+  if (state.followUp) query.followUp = true;
   return query;
 }
 
@@ -147,6 +179,8 @@ export function guardList(
   return items.filter(
     (item) =>
       (state.status === 'all' || item.status === state.status) &&
+      (!state.starred || item.starred) &&
+      (!state.followUp || Boolean(item.followUpAt)) &&
       (state.mode === 'all' || item.mode === state.mode) &&
       (state.provider === 'all' || item.provider === state.provider) &&
       (state.channelId === 'all' || item.channelId === state.channelId) &&

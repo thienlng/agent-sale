@@ -2,7 +2,23 @@
 
 The inbox at `/app/inbox` keeps the conversation visible alongside customer context and commerce order creation. The route composes the conversation, CRM and commerce features; features do not import one another.
 
+## Meta-style layout (T-096)
+
+Since T-096 the inbox follows the Meta Business Suite inbox ([BA specification](business/rapiz-inbox-meta-ba.vi.md)), in Rapiz colours:
+
+- **Frame.** Title row with a link to messaging statistics; one card with the channel tabs over the conversation list and the thread; the customer panel as a second card beside it (collapsible; on narrow screens list → thread → panel, each with back navigation). The panel is portalled into a page-owned region so opening a conversation never remounts the list or loses its scroll position.
+- **Channel tabs.** All messages, Messenger, Instagram and Website (the website chat channel, T-097..T-104) filter by provider (a page filter of the other provider is dropped). "Facebook comments" explains that comments are handled on the Page's posts-and-comments screen and links there; WhatsApp and Instagram comments are shown as not supported, not as empty lists.
+- **List.** Search plus "Quản lý" (bulk mode). Quick filters apply at once and show their state: unread and awaiting reply (server counts, mutually exclusive queue tabs), priority (star) and follow-up. The advanced filter (tags, assignee, folder, waiting kind, reply mode, page, phone) edits a draft: "Áp dụng" applies it, "Xóa tất cả" resets the draft, closing discards it; search, tabs and quick filters are never touched by it. Viewing Done or Spam shows a "Đang xem" line with a way back.
+- **Bulk mode.** Rows get tick boxes and a click ticks instead of opening. "Select all" covers the rows on screen only. Actions: done/reopen, priority, read/unread, spam, assign, remove follow-up. A partial failure reports both counts and keeps only the failed rows selected so "retry" repeats just those. Any change of search, tab or filter clears the selection with a notice.
+- **Thread header.** Customer, page and Meta's "Chỉ định cuộc trò chuyện này" assignee menu; reply mode; icon actions with tooltips for spam, priority, mark unread and done (`E`); more (search in thread, open on Facebook); panel toggle.
+- **Thread and composer.** Messenger-style bubbles (outbound in the brand colour, customer avatar on the last bubble of a run, centred time between runs over 30 minutes). Sender and delivery state stay visible on outbound messages. The composer names the channel ("Trả lời trong Messenger…") and has attach, quick replies, emoji, product sharing and send. While the draft is empty the send button is Meta's 👍, which sends a real 👍 message. In Done or Spam the draft stays editable but nothing can be sent; a banner offers "Mở lại". Without `contacts.edit` (for example the analyst role) the composer says the conversation is view-only and every control is disabled; a refused send says it was a permission problem.
+- **Customer panel.** Profile header, then About (phone, CRM profile link), Labels (conversation tags from Customer settings, "Quản lý nhãn" link), Notes, Orders, Follow-up, Shared photos (pictures in the loaded messages only, labelled as such).
+
+Not in this slice (spec §16 decision gates): comment threads inside the inbox, automation, inbox settings, calls/payments, real delete/block/report, lead stage/quality and ad-reply filters, commerce markers, availability/tasks/notifications, direct file upload, shop/bot filters (T-087).
+
 ## Queues and filters
+
+> The sections below describe the T-068 workspace; where they disagree with the T-096 layout above, the layout above is current.
 
 The left column provides all conversations, staff handling, assigned to me, unassigned, AI handling and follow-ups due queues. A follow-up is due only when its saved UTC timestamp has passed and the conversation is open; the due count refreshes at least once per minute. This queue shares the latest-100-result limit and is not a comprehensive reminder scheduler. Counts refer to the latest loaded results (at most 100), not workspace totals. Page/account, provider, status and reply mode filters apply before queue counts. The staff queue describes ownership mode: it does not claim that the latest message is unanswered. The API currently does not expose unread state or the last sender in the list DTO.
 

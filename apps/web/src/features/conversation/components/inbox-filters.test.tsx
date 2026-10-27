@@ -61,27 +61,32 @@ describe('inbox filter popover', () => {
     expect(button).toHaveTextContent('2');
   });
 
-  it('lists the groups on the left and the options of the chosen group on the right', async () => {
+  it('lists the groups on the left and keeps choices as a draft until "apply"', async () => {
     const user = userEvent.setup();
-    render(<Harness />);
+    const spy = vi.fn();
+    render(<Harness spy={spy} />);
     await user.click(screen.getByRole('button', { name: 'channelInbox.v2.list.filter' }));
     const groups = within(
       screen.getByRole('tablist', { name: 'channelInbox.v2.filter.groupsLabel' }),
     );
     expect(groups.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
       'channelInbox.v2.filter.groups.tags',
+      'channelInbox.v2.filter.groups.assignee',
+      'channelInbox.v2.filter.groups.status',
       'channelInbox.v2.filter.groups.waiting',
       'channelInbox.v2.filter.groups.mode',
-      'channelInbox.v2.filter.groups.assignee',
       'channelInbox.v2.filter.groups.channel',
       'channelInbox.v2.filter.groups.phone',
-      'channelInbox.v2.filter.groups.status',
     ]);
     await user.click(groups.getByRole('tab', { name: 'channelInbox.v2.filter.groups.waiting' }));
     await user.click(screen.getByRole('radio', { name: 'channelInbox.v2.filter.waiting.longest' }));
     expect(
       screen.getByRole('radio', { name: 'channelInbox.v2.filter.waiting.longest' }),
     ).toHaveAttribute('aria-checked', 'true');
+    // Nothing changed in the list yet.
+    expect(spy).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'channelInbox.v2.filter.apply' }));
+    expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ waiting: 'longest' }));
     expect(
       screen.getByRole('button', {
         name: 'channelInbox.v2.list.removeChip channelInbox.v2.filter.waiting.longest',
@@ -89,25 +94,46 @@ describe('inbox filter popover', () => {
     ).toBeInTheDocument();
   });
 
-  it('filters tags as has-any, has-all, exclude or untagged', async () => {
+  it('discards the draft when closed without applying', async () => {
     const user = userEvent.setup();
     const spy = vi.fn();
     render(<Harness spy={spy} />);
     await user.click(screen.getByRole('button', { name: 'channelInbox.v2.list.filter' }));
     await user.click(screen.getByRole('checkbox', { name: 'VIP' }));
+    await user.click(screen.getByRole('button', { name: 'channelInbox.v2.filter.close' }));
+    expect(spy).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'channelInbox.v2.list.filter' }));
+    expect(screen.getByRole('checkbox', { name: 'VIP' })).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('filters tags as has-any, has-all, exclude or untagged', async () => {
+    const user = userEvent.setup();
+    const spy = vi.fn();
+    render(<Harness spy={spy} />);
+    const apply = () =>
+      user.click(screen.getByRole('button', { name: 'channelInbox.v2.filter.apply' }));
+    const reopen = () =>
+      user.click(screen.getByRole('button', { name: /channelInbox\.v2\.list\.filter/ }));
+    await reopen();
+    await user.click(screen.getByRole('checkbox', { name: 'VIP' }));
+    await apply();
     expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ tagsAny: ['tag-vip'] }));
+    await reopen();
     await user.click(screen.getByRole('radio', { name: 'channelInbox.v2.filter.tagsExclude' }));
     await user.click(screen.getByRole('checkbox', { name: 'Hỏi giá' }));
+    await apply();
     expect(spy).toHaveBeenLastCalledWith(
       expect.objectContaining({ tagsAny: ['tag-vip'], tagsExclude: ['tag-price'] }),
     );
+    await reopen();
     await user.click(screen.getByRole('checkbox', { name: 'channelInbox.v2.filter.untagged' }));
+    await apply();
     expect(spy).toHaveBeenLastCalledWith(
       expect.objectContaining({ untagged: true, tagsAny: [], tagsAll: [], tagsExclude: [] }),
     );
   });
 
-  it('picks assignee, channel, phone and status', async () => {
+  it('picks assignee, folder, channel and phone and applies them together', async () => {
     const user = userEvent.setup();
     const spy = vi.fn();
     render(<Harness spy={spy} />);
@@ -116,25 +142,46 @@ describe('inbox filter popover', () => {
       user.click(screen.getByRole('tab', { name: `channelInbox.v2.filter.groups.${group}` }));
     await open('assignee');
     await user.click(screen.getByRole('radio', { name: 'Lan' }));
-    expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ assignee: 'user-lan' }));
     await open('channel');
     await user.click(screen.getByRole('radio', { name: 'Shop Hoa' }));
-    expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ channelId: 'page-1' }));
     await open('phone');
     await user.click(screen.getByRole('radio', { name: 'channelInbox.v2.filter.phone.yes' }));
-    expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ hasPhone: 'yes' }));
     await open('status');
-    await user.click(screen.getByRole('radio', { name: 'channelInbox.v2.filter.status.resolved' }));
-    expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ status: 'resolved' }));
+    expect(screen.getAllByRole('radio').map((radio) => radio.textContent)).toEqual([
+      'channelInbox.v2.filter.status.open',
+      'channelInbox.v2.filter.status.resolved',
+      'channelInbox.v2.filter.status.spam',
+      'channelInbox.v2.filter.status.all',
+    ]);
+    await user.click(screen.getByRole('radio', { name: 'channelInbox.v2.filter.status.spam' }));
+    expect(spy).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'channelInbox.v2.filter.apply' }));
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        assignee: 'user-lan',
+        channelId: 'page-1',
+        hasPhone: 'yes',
+        status: 'spam',
+      }),
+    );
   });
 
-  it('resets every filter but keeps the search text and tab', async () => {
+  it('clears every advanced filter but keeps search, queue tab, channel tab and quick filters', async () => {
     const user = userEvent.setup();
     const spy = vi.fn();
-    render(<Harness initial={{ q: 'lan', tab: 'unread', mode: 'bot' }} spy={spy} />);
+    const initial = {
+      q: 'lan',
+      tab: 'unread' as const,
+      provider: 'facebook' as const,
+      starred: true,
+      mode: 'bot' as const,
+    };
+    render(<Harness initial={initial} spy={spy} />);
     await user.click(screen.getByRole('button', { name: /filterActive/ }));
     await user.click(screen.getByRole('button', { name: 'channelInbox.v2.filter.reset' }));
-    expect(spy).toHaveBeenLastCalledWith({ ...DEFAULT_LIST_STATE, q: 'lan', tab: 'unread' });
+    await user.click(screen.getByRole('button', { name: 'channelInbox.v2.filter.apply' }));
+    expect(spy).toHaveBeenLastCalledWith({ ...DEFAULT_LIST_STATE, ...initial, mode: 'all' });
   });
 });
 
@@ -175,17 +222,26 @@ describe('inbox filter chips', () => {
     const user = userEvent.setup();
     const spy = vi.fn();
     render(<Harness spy={spy} initial={{ tagsExclude: ['tag-vip'], tagsAll: ['tag-price'] }} />);
-    await user.click(screen.getByRole('button', { name: /filterActive/ }));
+    const reopen = () => user.click(screen.getByRole('button', { name: /filterActive/ }));
+    const apply = () =>
+      user.click(screen.getByRole('button', { name: 'channelInbox.v2.filter.apply' }));
+    await reopen();
     await user.click(screen.getByRole('checkbox', { name: 'VIP' }));
+    await apply();
     expect(spy).toHaveBeenLastCalledWith(
       expect.objectContaining({ tagsAny: ['tag-vip'], tagsExclude: [] }),
     );
+    await reopen();
     await user.click(screen.getByRole('radio', { name: 'channelInbox.v2.filter.tagsExclude' }));
     await user.click(screen.getByRole('checkbox', { name: 'VIP' }));
+    await apply();
     expect(spy).toHaveBeenLastCalledWith(
       expect.objectContaining({ tagsAny: [], tagsAll: ['tag-price'], tagsExclude: ['tag-vip'] }),
     );
+    await reopen();
+    await user.click(screen.getByRole('radio', { name: 'channelInbox.v2.filter.tagsExclude' }));
     await user.click(screen.getByRole('checkbox', { name: 'Hỏi giá' }));
+    await apply();
     expect(spy).toHaveBeenLastCalledWith(
       expect.objectContaining({ tagsAll: [], tagsExclude: ['tag-vip', 'tag-price'] }),
     );

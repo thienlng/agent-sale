@@ -54,6 +54,16 @@ function renderList(props: Partial<React.ComponentProps<typeof ConversationList>
       hidden={false}
       now={Date.parse('2026-10-25T10:30:00.000Z')}
       actions={{ onMarkUnread: vi.fn(), onMarkRead: vi.fn(), onAssign: vi.fn() }}
+      managing={false}
+      onManage={vi.fn()}
+      selection={{
+        ids: new Set(),
+        busy: false,
+        onToggle: vi.fn(),
+        onSelectAll: vi.fn(),
+        onRun: vi.fn(),
+        onCancel: vi.fn(),
+      }}
       {...props}
     />,
   );
@@ -61,17 +71,61 @@ function renderList(props: Partial<React.ComponentProps<typeof ConversationList>
 }
 
 describe('conversation list', () => {
-  it('shows the three tabs with the server counts and switches between them', () => {
-    const { onState } = renderList();
-    const tabs = screen.getAllByRole('tab').filter((tab) => /tabs\./.test(tab.textContent ?? ''));
-    expect(tabs.map((tab) => tab.textContent)).toEqual([
-      'channelInbox.v2.list.tabs.all128',
-      'channelInbox.v2.list.tabs.unread12',
-      'channelInbox.v2.list.tabs.waiting5',
+  it('shows Meta quick filters with server counts; they apply at once and toggle off', () => {
+    const { onState, rerender } = renderList();
+    const group = screen.getByRole('group', { name: 'channelInbox.meta.quick.label' });
+    const quick = Array.from(group.querySelectorAll('button'));
+    expect(quick.map((button) => button.textContent)).toEqual([
+      'channelInbox.meta.quick.unread12',
+      'channelInbox.meta.quick.waiting5',
+      'channelInbox.meta.quick.starred',
+      'channelInbox.meta.quick.followUp',
     ]);
-    expect(tabs[0]).toHaveAttribute('aria-selected', 'true');
-    fireEvent.click(tabs[2] as HTMLElement);
+    expect(quick.every((button) => button.getAttribute('aria-pressed') === 'false')).toBe(true);
+    fireEvent.click(quick[1] as HTMLElement);
     expect(onState).toHaveBeenCalledWith({ tab: 'waiting' });
+    fireEvent.click(quick[2] as HTMLElement);
+    expect(onState).toHaveBeenCalledWith({ starred: true });
+    fireEvent.click(quick[3] as HTMLElement);
+    expect(onState).toHaveBeenCalledWith({ followUp: true });
+    rerender(<div />);
+    renderList({ state: { ...DEFAULT_LIST_STATE, tab: 'waiting', starred: true } });
+    const pressed = screen
+      .getAllByRole('group', { name: 'channelInbox.meta.quick.label' })
+      .at(-1)
+      ?.querySelectorAll('[aria-pressed="true"]');
+    expect(pressed).toHaveLength(2);
+  });
+
+  it('names the folder being viewed and leads back to the inbox', () => {
+    const { onState } = renderList({ state: { ...DEFAULT_LIST_STATE, status: 'spam' } });
+    expect(
+      screen.getByText('channelInbox.meta.folder.viewing channelInbox.meta.folder.spam'),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'channelInbox.meta.folder.back' }));
+    expect(onState).toHaveBeenCalledWith({ status: 'open' });
+  });
+
+  it('ticks rows instead of opening them in manage mode', () => {
+    const onSelect = vi.fn();
+    const onToggle = vi.fn();
+    renderList({
+      onSelect,
+      managing: true,
+      selection: {
+        ids: new Set([conversation.id]),
+        busy: false,
+        onToggle,
+        onSelectAll: vi.fn(),
+        onRun: vi.fn(),
+        onCancel: vi.fn(),
+      },
+    });
+    expect(screen.getByRole('toolbar', { name: 'channelInbox.meta.bulk.label' })).toBeVisible();
+    expect(screen.getByText('channelInbox.meta.bulk.selected 1')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Còn hàng không chị'));
+    expect(onToggle).toHaveBeenCalledWith(conversation.id);
+    expect(onSelect).not.toHaveBeenCalled();
   });
 
   it('searches through the single search box', () => {
@@ -100,12 +154,21 @@ describe('conversation list', () => {
     });
     expect(screen.getByText('channelInbox.v2.list.emptyUnread')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'channelInbox.v2.list.clearAll' }));
-    expect(onState).toHaveBeenCalledWith(DEFAULT_LIST_STATE);
+    expect(onState).toHaveBeenCalledWith({ ...DEFAULT_LIST_STATE, provider: 'all' });
     rerender(<div />);
   });
 
-  it('shows dashes instead of counts while loading', () => {
+  it('shows no counts while loading', () => {
     renderList({ pending: true, items: [] });
-    expect(screen.getAllByText('—')).toHaveLength(3);
+    const group = screen.getByRole('group', { name: 'channelInbox.meta.quick.label' });
+    expect(group.textContent).not.toMatch(/\d/);
+  });
+
+  it('announces the count of the selected queue, never a stale one', () => {
+    const { rerender } = renderList({ state: { ...DEFAULT_LIST_STATE, tab: 'unread' } });
+    expect(screen.getByText('channelInbox.meta.total 12')).toBeInTheDocument();
+    rerender(<div />);
+    renderList({ refreshing: true });
+    expect(screen.queryByText(/channelInbox\.meta\.total/)).not.toBeInTheDocument();
   });
 });

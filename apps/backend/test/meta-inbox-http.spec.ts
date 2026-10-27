@@ -241,6 +241,18 @@ describe('HTTP: Meta connections and inbox', () => {
         })
       ).statusCode,
     ).toBe(200);
+    // Done is a folder: staff reopen it before replying.
+    const blocked = await http.inject({
+      method: 'POST',
+      url: `${url}/messages`,
+      headers: owner,
+      payload: { text: 'Reply', idempotencyKey: newId() },
+    });
+    expect(blocked.statusCode).toBe(409);
+    expect(
+      (await http.inject({ method: 'PATCH', url, headers: owner, payload: { status: 'open' } }))
+        .statusCode,
+    ).toBe(200);
     const sent = await http.inject({
       method: 'POST',
       url: `${url}/messages`,
@@ -259,9 +271,17 @@ describe('HTTP: Meta connections and inbox', () => {
     expect(detail.conversation).toMatchObject({
       note: 'Follow up',
       mode: 'human',
-      status: 'resolved',
+      status: 'open',
     });
     expect(detail.messages).toHaveLength(2);
+    const bulk = (headers: Record<string, string>, payload: object) =>
+      http.inject({ method: 'POST', url: '/api/v1/conversations/bulk', headers, payload });
+    expect((await bulk(owner, { action: 'assign', ids: [c.id] })).statusCode).toBe(400);
+    const foreign = await bulk(other, { action: 'spam', ids: [c.id] });
+    expect(foreign.statusCode).toBe(200);
+    expect(foreign.json()).toMatchObject({ succeeded: 0, failed: 1 });
+    const starred = await bulk(owner, { action: 'star', ids: [c.id] });
+    expect(starred.json()).toMatchObject({ succeeded: 1, failed: 0 });
     expect(
       (await http.inject({ method: 'GET', url: '/api/v1/conversations?limit=0', headers: owner }))
         .statusCode,

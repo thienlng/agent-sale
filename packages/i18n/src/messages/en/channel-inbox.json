@@ -469,7 +469,8 @@
         "all": "All channels",
         "facebook": "Facebook",
         "instagram": "Instagram",
-        "pages": "Pages / accounts"
+        "pages": "Pages / accounts",
+        "allPages": "All pages"
       },
       "phone": {
         "all": "All",
@@ -479,9 +480,12 @@
       "status": {
         "open": "Open",
         "resolved": "Done",
-        "all": "All"
+        "all": "All",
+        "spam": "Spam"
       },
-      "reset": "Reset filters"
+      "reset": "Clear all",
+      "close": "Close",
+      "apply": "Apply"
     },
     "chip": {
       "tagsAny": "Has: {{name}}",
@@ -561,7 +565,9 @@
         "unassign": "Unassign",
         "empty": "No member found",
         "you": "You",
-        "loading": "Loading members…"
+        "loading": "Loading members…",
+        "assignThis": "Assign this conversation",
+        "assignedTo": "Assigned to {{name}}"
       }
     },
     "thread": {
@@ -659,5 +665,90 @@
     "keywordReason": "Matched keyword: {{keyword}}",
     "manualReason": "Staff action",
     "groundedReason": "Reply grounded in the source post"
+  },
+  "meta": {
+    "title": "Inbox",
+    "insights": "Messaging insights",
+    "manage": "Manage",
+    "starred": "Priority",
+    "total": "{{count}} matching conversations",
+    "tabs": {
+      "label": "Channels",
+      "all": "All messages",
+      "facebook": "Messenger",
+      "instagram": "Instagram",
+      "website": "Website",
+      "fbComments": "Facebook comments",
+      "whatsapp": "WhatsApp",
+      "igComments": "Instagram comments",
+      "unsupported": "Not supported in Rapiz yet"
+    },
+    "comments": {
+      "title": "Facebook comments are handled on the Posts & comments screen",
+      "body": "Rapiz does not bring comments into the inbox yet. Review new comments, reply publicly or privately, or hide them on the Page management screen.",
+      "open": "Open comments"
+    },
+    "quick": {
+      "label": "Quick filters",
+      "unread": "Unread",
+      "waiting": "Awaiting reply",
+      "starred": "Priority",
+      "followUp": "Follow up"
+    },
+    "folder": {
+      "open": "Open",
+      "resolved": "Done",
+      "spam": "Spam",
+      "all": "All folders",
+      "viewing": "Viewing: {{folder}}",
+      "back": "Back to inbox"
+    },
+    "bulk": {
+      "label": "Bulk actions",
+      "selectVisible": "Select the {{count}} visible conversations",
+      "selected": "{{count}} selected",
+      "more": "More actions",
+      "cancel": "Leave manage mode",
+      "resolve": "Move to Done",
+      "reopen": "Reopen",
+      "spam": "Move to Spam",
+      "star": "Mark as priority",
+      "unstar": "Remove priority",
+      "read": "Mark as read",
+      "unread": "Mark as unread",
+      "assign": "Assign",
+      "clearFollowUp": "Remove follow up",
+      "done": "Updated {{count}} conversations",
+      "partial": "{{ok}} succeeded, {{failed}} failed",
+      "retry": "Retry failed",
+      "cleared": "Selection cleared because the list changed"
+    },
+    "header": {
+      "spam": "Move to Spam",
+      "notSpam": "Not spam (back to inbox)",
+      "star": "Mark as priority",
+      "unstar": "Remove priority"
+    },
+    "locked": {
+      "resolved": "This conversation is in Done. Reopen it to reply.",
+      "spam": "This conversation is in Spam. Move it back to the inbox to reply.",
+      "reopen": "Reopen",
+      "readOnly": "You can only view this conversation; replying and changes need edit access."
+    },
+    "composer": {
+      "replyIn": "Reply in {{channel}}…",
+      "emoji": "Emoji",
+      "like": "Send 👍",
+      "notSent": "Not sent: the conversation just changed (Done/Spam) or its messaging window closed. Reloaded the conversation."
+    },
+    "panel": {
+      "label": "Customer details",
+      "about": "About",
+      "tags": "Labels",
+      "manageTags": "Manage labels",
+      "sharedImages": "Shared photos",
+      "noImages": "No photos yet",
+      "loadedOnly": "Photos from the most recently loaded messages."
+    }
   }
 }

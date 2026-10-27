@@ -2,6 +2,7 @@ import type {
   ChannelProvider,
   ConversationCounts,
   ConversationListQuery,
+  ConversationStatus,
   ConversationTab,
   ConversationView,
 } from '@agent-sales/contracts';
@@ -18,7 +19,10 @@ export interface ConversationFilter {
   channelId?: string | undefined;
   hasPhone?: boolean | undefined;
   waiting?: 'any' | 'longest' | 'readNotReplied' | undefined;
-  status?: 'open' | 'resolved' | undefined;
+  status?: ConversationStatus | undefined;
+  starred?: boolean | undefined;
+  /** `true`: a follow-up reminder is set; `false`: none is. */
+  followUp?: boolean | undefined;
   mode?: 'human' | 'bot' | undefined;
   provider?: ChannelProvider | undefined;
   q?: string | undefined;
@@ -41,6 +45,8 @@ export function toListFilter(q: ConversationListQuery, viewerId?: string): Conve
     hasPhone: q.hasPhone,
     waiting: q.waiting,
     status: q.status,
+    starred: q.starred,
+    followUp: q.followUp,
     mode: q.mode,
     provider: q.provider,
     q: q.q,
@@ -58,6 +64,8 @@ export interface ConversationPage {
 export function matchesFilter(c: ConversationView, f: ConversationFilter): boolean {
   if (f.provider && c.provider !== f.provider) return false;
   if (f.status && c.status !== f.status) return false;
+  if (f.starred !== undefined && c.starred !== f.starred) return false;
+  if (f.followUp !== undefined && Boolean(c.followUpAt) !== f.followUp) return false;
   if (f.mode && c.mode !== f.mode) return false;
   if (f.channelId && c.channelId !== f.channelId) return false;
   if (f.assignee === 'none' ? c.assigneeId !== null : f.assignee && c.assigneeId !== f.assignee)

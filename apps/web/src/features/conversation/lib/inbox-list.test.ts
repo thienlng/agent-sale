@@ -15,6 +15,8 @@ import {
   tabCounts,
   toListQuery,
   waitMinutes,
+  withDefaults,
+  advancedPart,
   type ListState,
 } from './inbox-list';
 import { InboxConversationDto, InboxListResponse, type InboxConversation } from './inbox-v2-types';
@@ -111,7 +113,8 @@ describe('filters', () => {
   it('lists one chip per active value and removes exactly that value', () => {
     const s = state({ tagsAny: ['a', 'b'], mode: 'bot', status: 'resolved' });
     const chips = filterChips(s);
-    expect(chips.map((c) => c.id)).toEqual(['tagsAny:a', 'tagsAny:b', 'mode', 'status']);
+    // The folder is named by its own "viewing" line, not a chip.
+    expect(chips.map((c) => c.id)).toEqual(['tagsAny:a', 'tagsAny:b', 'mode']);
     const first = chips[0];
     if (!first) throw new Error('missing chip');
     expect(removeChip(s, first)).toEqual({ tagsAny: ['b'] });
@@ -184,5 +187,53 @@ describe('row helpers', () => {
     expect(previewText('[file]', tr)).toBe('t:attachment.file');
     expect(previewText('', tr)).toBe('t:noMessage');
     expect(previewText('hello', tr)).toBe('hello');
+  });
+
+  it('sends the quick filters and the Spam folder, and keeps the channel tab out of the filter count', () => {
+    const state = { ...DEFAULT_LIST_STATE, starred: true, followUp: true, status: 'spam' as const };
+    expect(toListQuery(state)).toMatchObject({ starred: true, followUp: true, status: 'spam' });
+    expect(toListQuery(DEFAULT_LIST_STATE)).not.toHaveProperty('starred');
+    expect(activeFilterCount({ ...DEFAULT_LIST_STATE, provider: 'facebook', starred: true })).toBe(
+      0,
+    );
+    expect(isFiltered({ ...DEFAULT_LIST_STATE, followUp: true })).toBe(true);
+    expect(filterChips({ ...DEFAULT_LIST_STATE, provider: 'instagram' })).toEqual([]);
+  });
+
+  it('separates advanced fields from search, tabs and quick filters, and fills old saved views', () => {
+    const part = advancedPart({ ...DEFAULT_LIST_STATE, q: 'x', starred: true, mode: 'bot' });
+    expect(part).not.toHaveProperty('q');
+    expect(part).not.toHaveProperty('starred');
+    expect(part).not.toHaveProperty('provider');
+    expect(part).toMatchObject({ mode: 'bot' });
+    expect(withDefaults({ mode: 'bot' })).toEqual({ ...DEFAULT_LIST_STATE, mode: 'bot' });
+  });
+
+  it('re-applies star, follow-up and folder to stale rows', () => {
+    const row = (over: Partial<InboxConversation>) =>
+      InboxConversationDto.parse({
+        id: '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d00',
+        channelId: '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d01',
+        provider: 'facebook',
+        customerId: 'p',
+        customerName: 'A',
+        mode: 'bot',
+        status: 'open',
+        assigneeId: null,
+        note: '',
+        revision: 1,
+        lastMessage: '',
+        lastInboundAt: '2026-10-25T10:00:00.000Z',
+        updatedAt: '2026-10-25T10:00:00.000Z',
+        ...over,
+      });
+    const rows = [
+      row({ starred: true }),
+      row({ status: 'spam' }),
+      row({ followUpAt: '2026-10-26T00:00:00.000Z' }),
+    ];
+    expect(guardList(rows, { ...DEFAULT_LIST_STATE, starred: true }, 'me')).toHaveLength(1);
+    expect(guardList(rows, { ...DEFAULT_LIST_STATE, followUp: true }, 'me')).toHaveLength(1);
+    expect(guardList(rows, { ...DEFAULT_LIST_STATE, status: 'spam' }, 'me')).toHaveLength(1);
   });
 });

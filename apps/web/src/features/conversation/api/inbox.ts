@@ -1,5 +1,7 @@
 import {
   BotDto,
+  BulkConversationResponse,
+  type BulkConversationRequest,
   ChannelListResponse,
   InboxMessageDto,
   MemberList,
@@ -184,6 +186,21 @@ export function useAssignConversation() {
         method: 'PATCH',
         body: { assigneeId: v.assigneeId },
       }),
+    onSettled: () =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: ['inbox', ws] }),
+        qc.invalidateQueries({ queryKey: ['conversation', ws] }),
+      ]),
+  });
+}
+
+/** One action on the selected conversations; the response tells which ids failed. */
+export function useBulkConversations() {
+  const ws = useWorkspaceId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: BulkConversationRequest) =>
+      api('/conversations/bulk', BulkConversationResponse, { method: 'POST', body }),
     onSettled: () =>
       Promise.all([
         qc.invalidateQueries({ queryKey: ['inbox', ws] }),

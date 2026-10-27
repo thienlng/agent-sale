@@ -469,7 +469,8 @@
         "all": "Tất cả kênh",
         "facebook": "Facebook",
         "instagram": "Instagram",
-        "pages": "Trang / tài khoản"
+        "pages": "Trang / tài khoản",
+        "allPages": "Tất cả trang"
       },
       "phone": {
         "all": "Tất cả",
@@ -479,9 +480,12 @@
       "status": {
         "open": "Đang mở",
         "resolved": "Đã xong",
-        "all": "Tất cả"
+        "all": "Tất cả",
+        "spam": "Spam"
       },
-      "reset": "Đặt lại bộ lọc"
+      "reset": "Xóa tất cả",
+      "close": "Đóng",
+      "apply": "Áp dụng"
     },
     "chip": {
       "tagsAny": "Có: {{name}}",
@@ -561,7 +565,9 @@
         "unassign": "Bỏ giao",
         "empty": "Không tìm thấy nhân viên",
         "you": "Bạn",
-        "loading": "Đang tải danh sách…"
+        "loading": "Đang tải danh sách…",
+        "assignThis": "Chỉ định cuộc trò chuyện này",
+        "assignedTo": "Đã giao cho {{name}}"
       }
     },
     "thread": {
@@ -659,5 +665,90 @@
     "keywordReason": "Khớp từ khóa: {{keyword}}",
     "manualReason": "Nhân viên thực hiện",
     "groundedReason": "Trả lời dựa trên bài viết gốc"
+  },
+  "meta": {
+    "title": "Hộp thư",
+    "insights": "Thống kê tin nhắn",
+    "manage": "Quản lý",
+    "starred": "Ưu tiên",
+    "total": "{{count}} hội thoại phù hợp",
+    "tabs": {
+      "label": "Kênh",
+      "all": "Tất cả tin nhắn",
+      "facebook": "Messenger",
+      "instagram": "Instagram",
+      "website": "Website",
+      "fbComments": "Bình luận trên Facebook",
+      "whatsapp": "WhatsApp",
+      "igComments": "Bình luận trên Instagram",
+      "unsupported": "Chưa hỗ trợ trong Rapiz"
+    },
+    "comments": {
+      "title": "Bình luận Facebook được xử lý ở màn Bài viết & bình luận",
+      "body": "Rapiz chưa đưa bình luận vào hộp thư. Xem bình luận mới, trả lời công khai, nhắn riêng hoặc ẩn bình luận ở màn quản lý Trang.",
+      "open": "Mở màn bình luận"
+    },
+    "quick": {
+      "label": "Lọc nhanh",
+      "unread": "Chưa đọc",
+      "waiting": "Chờ trả lời",
+      "starred": "Ưu tiên",
+      "followUp": "Trao đổi thêm"
+    },
+    "folder": {
+      "open": "Đang xử lý",
+      "resolved": "Xong",
+      "spam": "Spam",
+      "all": "Tất cả thư mục",
+      "viewing": "Đang xem: {{folder}}",
+      "back": "Về hộp thư"
+    },
+    "bulk": {
+      "label": "Thao tác hàng loạt",
+      "selectVisible": "Chọn {{count}} hội thoại đang hiển thị",
+      "selected": "Đã chọn {{count}}",
+      "more": "Thao tác khác",
+      "cancel": "Thoát chế độ quản lý",
+      "resolve": "Chuyển sang Xong",
+      "reopen": "Mở lại",
+      "spam": "Chuyển vào Spam",
+      "star": "Đánh dấu ưu tiên",
+      "unstar": "Bỏ ưu tiên",
+      "read": "Đánh dấu đã đọc",
+      "unread": "Đánh dấu chưa đọc",
+      "assign": "Phân công",
+      "clearFollowUp": "Gỡ trao đổi thêm",
+      "done": "Đã cập nhật {{count}} hội thoại",
+      "partial": "{{ok}} thành công, {{failed}} lỗi",
+      "retry": "Thử lại mục lỗi",
+      "cleared": "Đã bỏ chọn vì danh sách thay đổi"
+    },
+    "header": {
+      "spam": "Chuyển vào Spam",
+      "notSpam": "Không phải spam (về hộp thư)",
+      "star": "Đánh dấu ưu tiên",
+      "unstar": "Bỏ ưu tiên"
+    },
+    "locked": {
+      "resolved": "Hội thoại đã ở mục Xong. Mở lại để trả lời.",
+      "spam": "Hội thoại đang ở Spam. Đưa về hộp thư để trả lời.",
+      "reopen": "Mở lại",
+      "readOnly": "Bạn chỉ có quyền xem hội thoại này, không thể trả lời hay thay đổi."
+    },
+    "composer": {
+      "replyIn": "Trả lời trong {{channel}}…",
+      "emoji": "Biểu tượng cảm xúc",
+      "like": "Gửi 👍",
+      "notSent": "Chưa gửi: hội thoại vừa đổi trạng thái (Xong/Spam) hoặc đã hết thời hạn nhắn tin. Đã tải lại hội thoại."
+    },
+    "panel": {
+      "label": "Thông tin khách hàng",
+      "about": "Giới thiệu",
+      "tags": "Nhãn",
+      "manageTags": "Quản lý nhãn",
+      "sharedImages": "Ảnh được chia sẻ",
+      "noImages": "Chưa có ảnh",
+      "loadedOnly": "Ảnh trong các tin đã tải gần nhất."
+    }
   }
 }

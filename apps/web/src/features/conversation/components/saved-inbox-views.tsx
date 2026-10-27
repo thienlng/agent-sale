@@ -27,7 +27,7 @@ export function SavedInboxViews({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="icon-sm" aria-label={tr('title')} title={tr('title')}>
+        <Button variant="ghost" size="icon-sm" aria-label={tr('title')} title={tr('title')}>
           <BookmarkPlus />
         </Button>
       </PopoverTrigger>

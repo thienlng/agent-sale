@@ -1,13 +1,15 @@
 import { type NormalizedEvent, withinReplyWindow } from '@agent-sales/channels';
 import {
   SendInboxMessageRequest,
+  type BulkConversationRequest,
+  type BulkConversationResponse,
   type ConversationListQuery,
   type ConversationView,
   type InboxMessageDto,
   type UpdateConversationRequest,
 } from '@agent-sales/contracts';
 import { isUuid, newId, userId, type WorkspaceId } from '@agent-sales/shared';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { BOT_FACADE, type BotFacade, type BotView } from '../../bot/api/index.js';
 import {
   CHANNEL_FACADE,
@@ -25,7 +27,7 @@ import { detectVietnamesePhone, normalizeVietnamesePhone } from '../domain/phone
 import { applyControlUpdate, newConversation, preview } from '../domain/conversation-state.js';
 import { attachTags, tagConditions } from './conversation-tags.js';
 import { refreshCustomerProfile } from './customer-profile.js';
-import { addNote, assertAssignable, markRead, markUnread } from './inbox-state.js';
+import { addNote, assertAssignable, markRead, markUnread, setStarred } from './inbox-state.js';
 import {
   CONVERSATION_STORE,
   type ConversationStore,
@@ -38,6 +40,7 @@ function named(provider: string, customerId: string, c: ConversationView): Conve
     ? { ...c, customerName: `Khách website ${customerId.slice(-4)}` }
     : c;
 }
+const log = new Logger('ConversationFacade');
 /** Unnamed customers looked up per list request (see `backfillProfiles`). */
 const PROFILE_BACKFILL_PER_LIST = 10;
 async function requireConversation(tx: ConversationTx, id: string): Promise<ConversationView> {
@@ -108,8 +111,8 @@ export class ConversationFacadeImpl implements ConversationFacade {
         mode: 'human' as const,
         takeover: 'temporary' as const,
         autoResumeAt: this.resumeAt(bot),
+        // A control change: new revision, same place in the list.
         revision: c.revision + 1,
-        updatedAt: now(),
       };
       await tx.save(updated);
       await tx.audit(id, 'conversation.control.updated.v1', {
@@ -136,6 +139,65 @@ export class ConversationFacadeImpl implements ConversationFacade {
   async update(ws: WorkspaceId, id: string, input: UpdateConversationRequest, actorId: string) {
     // Cross-module read first, never inside the write transaction.
     if (input.assigneeId) await assertAssignable(this.team, ws, input.assigneeId, actorId);
+    // A star alone is not a control change: no revision bump (bot fencing), no reordering.
+    const { expectedRevision: _revision, starred, ...rest } = input;
+    if (starred !== undefined && Object.values(rest).every((v) => v === undefined))
+      return this.tagged(ws, await setStarred(this.store, ws, id, starred));
+    return this.tagged(ws, await this.control(ws, id, input, actorId));
+  }
+  /**
+   * One action on several conversations. Each runs in its own transaction with the same checks as
+   * the single-conversation endpoints, so one failure (missing, changed) never undoes the others;
+   * the caller retries only the failed ids.
+   */
+  async bulk(
+    ws: WorkspaceId,
+    input: BulkConversationRequest,
+    actorId: string,
+  ): Promise<BulkConversationResponse> {
+    if (input.assigneeId) await assertAssignable(this.team, ws, input.assigneeId, actorId);
+    const patch: Partial<Record<BulkConversationRequest['action'], UpdateConversationRequest>> = {
+      resolve: { status: 'resolved' },
+      reopen: { status: 'open' },
+      spam: { status: 'spam' },
+      assign: { assigneeId: input.assigneeId ?? null },
+      clearFollowUp: { followUpAt: null },
+    };
+    const data: BulkConversationResponse['data'] = [];
+    for (const id of new Set(input.ids)) {
+      try {
+        const body = patch[input.action];
+        if (body) await this.control(ws, id, body, actorId);
+        else if (input.action === 'star' || input.action === 'unstar')
+          await setStarred(this.store, ws, id, input.action === 'star');
+        else if (input.action === 'read')
+          await markRead(this.store, this.identity, ws, id, actorId);
+        else await markUnread(this.store, ws, id);
+        data.push({ id, ok: true, code: null });
+      } catch (error) {
+        // Earlier ids are already committed, so even an unexpected failure is reported per id.
+        if (!(error instanceof ConversationError))
+          log.error(
+            `Bulk ${input.action} failed for conversation ${id}`,
+            error instanceof Error ? error.stack : String(error),
+          );
+        data.push({
+          id,
+          ok: false,
+          code: error instanceof ConversationError ? error.code : 'INTERNAL',
+        });
+      }
+    }
+    const succeeded = data.filter((r) => r.ok).length;
+    return { data, succeeded, failed: data.length - succeeded };
+  }
+  /** A staff control change; the assignee was validated by the caller. */
+  private async control(
+    ws: WorkspaceId,
+    id: string,
+    input: UpdateConversationRequest,
+    actorId: string,
+  ): Promise<ConversationView> {
     const phone = input.customerPhone ? normalizeVietnamesePhone(input.customerPhone) : null;
     if (input.customerPhone && !phone)
       throw new ConversationError('VALIDATION_FAILED', 'Enter a Vietnamese mobile number');
@@ -158,7 +220,7 @@ export class ConversationFacadeImpl implements ConversationFacade {
           'Bind an active bot to this channel before enabling automatic replies',
         );
     }
-    const saved = await this.store.run(ws, async (tx) => {
+    return this.store.run(ws, async (tx) => {
       const c = await requireConversation(tx, id);
       if (input.expectedRevision !== undefined && input.expectedRevision !== c.revision)
         throw new ConversationError('CONFLICT', 'Conversation changed; reload before saving');
@@ -174,19 +236,19 @@ export class ConversationFacadeImpl implements ConversationFacade {
             }
           : undefined;
       const patch = input.customerPhone === undefined ? input : { ...input, customerPhone: phone };
-      const updated = applyControlUpdate(c, patch, actorId, now(), noteEntry, resumeAt);
+      const updated = applyControlUpdate(c, patch, actorId, noteEntry, resumeAt);
       await tx.save(updated);
       await tx.audit(id, 'conversation.control.updated.v1', {
         actorId,
         mode: updated.mode,
         status: updated.status,
         assigneeId: updated.assigneeId,
+        starred: updated.starred,
         revision: updated.revision,
         followUpAt: updated.followUpAt ?? null,
       });
       return updated;
     });
-    return this.tagged(ws, saved);
   }
   async linkLead(
     ws: WorkspaceId,
@@ -326,7 +388,8 @@ export class ConversationFacadeImpl implements ConversationFacade {
           bot?.isActive
             ? { mode: 'bot' as const, autoResumeAt: null, takeover: null }
             : {}),
-          status: 'open',
+          // A customer message reopens Done; Spam keeps it out of the queue until staff restore it.
+          status: c.status === 'spam' ? 'spam' : 'open',
           unreadCount: c.unreadCount + 1,
           awaitingSince: c.awaitingSince ?? event.occurredAt.toISOString(),
           lastMessageSender: 'customer' as const,
@@ -515,6 +578,9 @@ export class ConversationFacadeImpl implements ConversationFacade {
           awaitingBefore: c.awaitingSince,
         };
       }
+      // Staff reopen Done or Spam before replying, so nothing is sent from a folder by mistake.
+      if (actorId && c.status !== 'open')
+        throw new ConversationError('CONFLICT', 'Reopen the conversation before replying');
       if (expectedRevision !== null && !bot?.isActive) return null;
       if (
         expectedRevision !== null &&

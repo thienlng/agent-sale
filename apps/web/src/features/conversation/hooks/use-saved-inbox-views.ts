@@ -17,7 +17,9 @@ const SavedFilters = z.object({
   provider: z.enum(['all', 'facebook', 'instagram']).default('all'),
   channelId: z.string().min(1).max(100).default('all'),
   hasPhone: z.enum(['all', 'yes', 'no']).default('all'),
-  status: z.enum(['all', 'open', 'resolved']).default('open'),
+  status: z.enum(['all', 'open', 'resolved', 'spam']).default('open'),
+  starred: z.boolean().default(false),
+  followUp: z.boolean().default(false),
 });
 const SavedView = z.object({
   id: z.uuid(),

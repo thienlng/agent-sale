@@ -196,10 +196,14 @@ test('draft survives switching customers and notes are added to the timeline', a
   await expect(composer).toHaveValue('');
   await openCustomer(page);
   await expect(composer).toHaveValue('Em đang kiểm tra tồn kho cho chị');
-  await page.getByRole('button', { name: 'Thu gọn thông tin', exact: true }).click();
-  await expect(page.getByRole('region', { name: 'Khách hàng', exact: true })).toBeHidden();
+  // The thread header toggle (the panel has its own collapse arrow too).
+  await page
+    .locator('header')
+    .getByRole('button', { name: 'Thu gọn thông tin', exact: true })
+    .click();
+  await expect(page.getByRole('region', { name: 'Giới thiệu', exact: true })).toBeHidden();
   await page.getByRole('button', { name: 'Chi tiết', exact: true }).click();
-  await expect(page.getByRole('region', { name: 'Khách hàng', exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Giới thiệu', exact: true })).toBeVisible();
   const notes = page.getByRole('region', { name: 'Ghi chú', exact: true });
   await notes.getByRole('textbox').fill('Khách cần size M');
   await notes.getByRole('textbox').press('Enter');
@@ -315,7 +319,8 @@ test('device saved views restore filters without retaining customer search text'
   await page.getByRole('button', { name: 'Lọc', exact: true }).click();
   await page.getByRole('tab', { name: 'Ai đang trả lời', exact: true }).click();
   await page.getByRole('radio', { name: 'Người', exact: true }).click();
-  await page.keyboard.press('Escape');
+  // The advanced filter is a draft until applied.
+  await page.getByRole('button', { name: 'Áp dụng', exact: true }).click();
   await page.locator('input[type=search]').fill('Nguyễn');
   await page.getByRole('button', { name: 'Bộ lọc đã lưu', exact: true }).click();
   await page.getByLabel('Tên bộ lọc', { exact: true }).fill('Cần chăm sóc');
@@ -366,7 +371,13 @@ test('product sharing prepares a draft and keyboard shortcuts respect the editor
   await expect(page.getByRole('heading', { name: new RegExp(names[1]) })).toBeVisible();
   await page.getByRole('heading', { name: new RegExp(names[1]) }).click();
   await page.keyboard.press('e');
-  await expect(page.getByRole('button', { name: 'Mở lại', exact: true })).toBeVisible();
+  // Done: the header action turns into "reopen" and the composer offers it too.
+  await expect(
+    page.locator('header').getByRole('button', { name: 'Mở lại', exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Mở lại để trả lời' }).getByRole('button'),
+  ).toBeVisible();
   await page.keyboard.press('/');
   await expect(page.locator('input[type=search]')).toBeFocused();
 });

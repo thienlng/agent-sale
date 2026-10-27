@@ -1,12 +1,13 @@
 import type { SendInboxMessageRequest } from '@agent-sales/contracts';
-import { FileText, Loader2, Send, X, Zap } from 'lucide-react';
+import { FileText, Loader2, Send, ThumbsUp, X } from 'lucide-react';
 import { type ReactNode, useRef, useState, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
+import { ApiClientError } from '@/lib/api-client';
 import { useSession } from '@/lib/session';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   draftKey,
   filterSlashReplies,
@@ -18,7 +19,9 @@ import {
   type ComposerDraft,
 } from '../lib/composer-draft';
 import { useInboxActions, useQuickReplies } from '../api/inbox';
+import { EmojiPicker } from './emoji-picker';
 import { AttachmentPicker } from './message-attachments';
+import { QuickRepliesMenu } from './quick-replies-menu';
 import { SlashReplies } from './slash-replies';
 
 /** Text composer with attachments and quick replies; retries reuse the idempotency key. */
@@ -26,6 +29,10 @@ export function MessageComposer(props: {
   id: string;
   botId: string | null;
   windowClosed: boolean;
+  /** Done or Spam: staff reopen before replying; the draft stays editable. */
+  locked?: boolean | undefined;
+  /** "Messenger" / "Instagram" for the placeholder. */
+  channelLabel?: string | undefined;
   renderTools?: ((insertText: (text: string) => void) => ReactNode) | undefined;
 }) {
   const session = useSession();
@@ -36,19 +43,26 @@ export function MessageComposer(props: {
 function ScopedComposer({
   id,
   botId,
-  windowClosed,
+  windowClosed: closedWindow,
+  locked = false,
+  channelLabel,
   scope,
   renderTools,
 }: {
   id: string;
   botId: string | null;
   windowClosed: boolean;
+  locked?: boolean | undefined;
+  channelLabel?: string | undefined;
   scope: string;
   renderTools?: ((insertText: (text: string) => void) => ReactNode) | undefined;
 }) {
   const { t } = useTranslation();
   const tr = (key: string) => t(`channelInbox.${key}`);
   const { send: sender } = useInboxActions(id);
+  const qc = useQueryClient();
+  // Nothing may leave while the window is closed or the conversation sits in Done / Spam.
+  const windowClosed = closedWindow || locked;
   const quick = useQuickReplies(botId);
   const [focused, setFocused] = useState(false);
   const saved = useSyncExternalStore(
@@ -70,7 +84,6 @@ function ScopedComposer({
     save({ text, attempt: null, failedAttempt: false });
     setDelivery(null);
   }
-  const [quickOpen, setQuickOpen] = useState(false);
   const [slashIndex, setSlashIndex] = useState(0);
   const [slashDismissed, setSlashDismissed] = useState<string | null>(null);
   const query = botId ? slashQuery(draft) : null;
@@ -141,8 +154,28 @@ function ScopedComposer({
         save({ failedAttempt: true });
       setDelivery(result.status);
       report(result.status);
-    } catch {
-      toast.error(tr('messageError'));
+    } catch (error) {
+      failSend(error);
+    }
+  }
+  /** A 409 means the conversation moved to Done/Spam (or the window closed) meanwhile: say so and reload it. */
+  function failSend(error: unknown) {
+    if (error instanceof ApiClientError && error.code === 'FORBIDDEN')
+      toast.error(t('channelInbox.meta.locked.readOnly'));
+    else if (error instanceof ApiClientError && error.code === 'CONFLICT') {
+      toast.error(t('channelInbox.meta.composer.notSent'));
+      void qc.invalidateQueries({ queryKey: ['conversation'] });
+    } else toast.error(tr('messageError'));
+  }
+  /** Meta's thumbs-up: a real message, offered only while the draft is empty. */
+  async function sendLike() {
+    if (sender.isPending || windowClosed || draft.trim()) return;
+    try {
+      const result = await sender.mutateAsync({ text: '👍', idempotencyKey: crypto.randomUUID() });
+      setDelivery(result.status);
+      report(result.status);
+    } catch (error) {
+      failSend(error);
     }
   }
   async function sendAttachment(attachment: NonNullable<SendInboxMessageRequest['attachment']>) {
@@ -170,14 +203,14 @@ function ScopedComposer({
         save({ attachmentFailedAttempt: true });
       setDelivery(result.status);
       report(result.status);
-    } catch {
-      toast.error(tr('messageError'));
+    } catch (error) {
+      failSend(error);
     }
   }
   return (
-    <div data-inbox-composer className="shrink-0 border-t bg-background p-3 sm:p-4">
+    <div data-inbox-composer className="shrink-0 bg-background px-3 pt-1 pb-3 sm:px-4">
       <>
-        {windowClosed ? (
+        {closedWindow && !locked ? (
           <p role="status" className="mb-3 rounded-lg bg-muted p-3 text-xs text-muted-foreground">
             {tr('windowClosed')}
           </p>
@@ -235,7 +268,7 @@ function ScopedComposer({
             </Button>
           </div>
         ) : null}
-        <div className="relative rounded-xl border bg-muted/20 p-2">
+        <div className="relative rounded-xl border bg-background p-2 focus-within:border-primary/50">
           {slashOpen ? (
             <SlashReplies
               items={slashMatches}
@@ -251,7 +284,13 @@ function ScopedComposer({
               setFocused(false);
             }}
             aria-label={tr('composer')}
-            placeholder={focused && !draft ? tr('v2.slash.hint') : tr('composer')}
+            placeholder={
+              focused && !draft
+                ? tr('v2.slash.hint')
+                : channelLabel
+                  ? t('channelInbox.meta.composer.replyIn', { channel: channelLabel })
+                  : tr('composer')
+            }
             onFocus={() => setFocused(true)}
             maxLength={2000}
             value={draft}
@@ -291,10 +330,13 @@ function ScopedComposer({
                 void send();
               }
             }}
-            className="min-h-20 resize-none border-0 bg-transparent shadow-none focus-visible:ring-0"
+            className="max-h-48 min-h-14 resize-none border-0 bg-transparent px-1 text-[15px] shadow-none focus-visible:ring-0"
           />
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex min-w-0 flex-wrap items-center gap-1">
+            <span className="pl-1 text-[10px] text-muted-foreground tabular-nums">
+              {draft.length > 1500 ? `${draft.length}/2000` : null}
+            </span>
+            <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-0.5">
               <AttachmentPicker
                 botId={botId}
                 disabled={sender.isPending || windowClosed}
@@ -302,64 +344,45 @@ function ScopedComposer({
                   save({ attachment, attachmentAttempt: null, attachmentFailedAttempt: false })
                 }
               />
-              <Popover open={quickOpen} onOpenChange={setQuickOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="ghost" size="sm" disabled={!botId}>
-                    <Zap className="size-4" />
-                    {tr('quickReplies')}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="start" className="max-h-72 overflow-y-auto p-2">
-                  {quick.isPending ? (
-                    <p className="p-3 text-xs text-muted-foreground">{tr('loading')}</p>
-                  ) : quick.isError ? (
-                    <p role="alert" className="p-3 text-xs text-destructive">
-                      {tr('loadError')}
-                    </p>
-                  ) : quick.data?.length ? (
-                    quick.data.map((item) => (
-                      <button
-                        type="button"
-                        key={item.id}
-                        className="block w-full rounded-lg p-3 text-left hover:bg-muted"
-                        onClick={() => {
-                          insertText(item.content);
-                          setQuickOpen(false);
-                        }}
-                      >
-                        <span className="block text-sm font-medium">{item.title}</span>
-                        <span className="mt-1 block line-clamp-2 text-xs text-muted-foreground">
-                          {item.content}
-                        </span>
-                      </button>
-                    ))
-                  ) : (
-                    <p className="p-3 text-xs text-muted-foreground">{tr('noQuickReplies')}</p>
-                  )}
-                </PopoverContent>
-              </Popover>
+              <QuickRepliesMenu quick={quick} disabled={!botId} onPick={insertText} />
+              <EmojiPicker disabled={sender.isPending} onPick={insertText} />
               <fieldset disabled={sender.isPending} className="contents">
                 {renderTools?.(insertText)}
               </fieldset>
-            </div>
-            <div className="ml-auto flex shrink-0 items-center gap-2">
-              <span className="text-[10px] text-muted-foreground">{draft.length}/2000</span>
-              <Button
-                size="sm"
-                title={tr('sendHint')}
-                aria-label={tr(
-                  sender.isPending ? 'sending' : saved.failedAttempt ? 'sales.retrySend' : 'send',
-                )}
-                disabled={!draft.trim() || sender.isPending || windowClosed}
-                onClick={() => void send()}
-              >
-                {sender.isPending ? <Loader2 className="animate-spin" /> : <Send />}
-                <span className="hidden sm:inline">
-                  {tr(
+              {!draft.trim() && !saved.failedAttempt ? (
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  className="text-primary"
+                  aria-label={t('channelInbox.meta.composer.like')}
+                  title={t('channelInbox.meta.composer.like')}
+                  disabled={sender.isPending || windowClosed}
+                  onClick={() => void sendLike()}
+                >
+                  {sender.isPending ? <Loader2 className="animate-spin" /> : <ThumbsUp />}
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  title={tr('sendHint')}
+                  aria-label={tr(
                     sender.isPending ? 'sending' : saved.failedAttempt ? 'sales.retrySend' : 'send',
                   )}
-                </span>
-              </Button>
+                  disabled={!draft.trim() || sender.isPending || windowClosed}
+                  onClick={() => void send()}
+                >
+                  {sender.isPending ? <Loader2 className="animate-spin" /> : <Send />}
+                  <span className="hidden sm:inline">
+                    {tr(
+                      sender.isPending
+                        ? 'sending'
+                        : saved.failedAttempt
+                          ? 'sales.retrySend'
+                          : 'send',
+                    )}
+                  </span>
+                </Button>
+              )}
             </div>
           </div>
         </div>

@@ -4,7 +4,6 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
-- [ ] T-095 Write Meta Business Suite inbox functional specification — @agent:codex · [details](todo/T-095-write-meta-business-suite-inbox-functional-specifi.md)
 - [ ] T-081 Redesign portfolio and business statistics entry screens — @agent:codex · [details](todo/T-081-redesign-portfolio-and-business-statistics-entry-s.md) · PR #70 · partial: shop data awaits lane A
 - [ ] T-076 Reduce integration initial bundle below 250 KB — @agent:codex · [details](todo/T-076-reduce-integration-initial-bundle-below-250-kb.md) · PR #64
 - [ ] T-082 Unify channel assignment and bulk bot filters — @agent:codex · [details](todo/T-082-unify-channel-assignment-and-bulk-bot-filters.md) · PR #64
@@ -64,6 +63,8 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## Done (last 10 — older ones live in todo/done/)
 
+- [x] T-096 Rebuild the inbox core around the Meta Business Suite layout — @agent:claude · [details](todo/done/T-096-rebuild-the-inbox-core-around-the-meta-business-su.md) · merged to main
+- [x] T-095 Write Meta Business Suite inbox functional specification — @agent:codex · [details](todo/done/T-095-write-meta-business-suite-inbox-functional-specifi.md) · merged to main
 - [x] T-104 Website chat end-to-end tests and docs pass — @agent:claude · [details](todo/done/T-104-website-chat-end-to-end-tests-and-docs-pass.md) · merged to main
 - [x] T-103 Dashboard: website channel management and install guide — @agent:claude · [details](todo/done/T-103-dashboard-website-channel-management-and-install-g.md) · merged to main
 - [x] T-102 Website lead capture into the CRM and inbox — @agent:claude · [details](todo/done/T-102-website-lead-capture-into-the-crm-and-inbox.md) · merged to main
@@ -72,5 +73,3 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [x] T-099 Website connections: settings, site key and management API — @agent:claude · [details](todo/done/T-099-website-connections-settings-site-key-and-manageme.md) · merged to main
 - [x] T-098 Generalize the inbox pipeline by channel capabilities — @agent:claude · [details](todo/done/T-098-generalize-the-inbox-pipeline-by-channel-capabilit.md) · merged to main
 - [x] T-097 Website chat: tasks, ADR and channel docs — @agent:claude · [details](todo/done/T-097-website-chat-tasks-adr-and-channel-docs.md) · merged to main
-- [x] T-074 Delete a bot and open its settings from the bot list — @agent:claude · [details](todo/done/T-074-delete-a-bot-and-open-its-settings-from-the-bot-li.md) · PR #61
-- [x] T-073 Sales inbox v2 unread tags filters and reply mode — @agent:claude · [details](todo/done/T-073-sales-inbox-v2-unread-tags-filters-and-reply-mode.md) · PR #59

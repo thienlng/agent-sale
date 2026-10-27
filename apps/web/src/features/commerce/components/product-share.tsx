@@ -23,13 +23,18 @@ export function ProductShare({ onInsert }: { onInsert: (text: string) => void })
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button type="button" variant="ghost" size="sm">
-          <Package className="size-4" />
-          {t('channelInbox.sales.shareProduct')}
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label={t('channelInbox.sales.shareProduct')}
+          title={t('channelInbox.sales.shareProduct')}
+        >
+          <Package />
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        align="start"
+        align="end"
         className="w-80 max-w-[calc(100vw-2rem)] space-y-3"
         onCloseAutoFocus={(event) => event.preventDefault()}
       >

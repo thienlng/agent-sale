@@ -52,6 +52,7 @@ export function TagBar({
   onRemove,
   readOnly = false,
   busy = false,
+  layout = 'bar',
 }: {
   tags: readonly InboxTagChip[];
   library: readonly LibraryTag[];
@@ -65,7 +66,10 @@ export function TagBar({
   readOnly?: boolean;
   /** A tag change is in flight: the picker items wait for it. */
   busy?: boolean;
+  /** `panel`: Meta's "Nhãn" section of the customer panel — every tag shown, picker below. */
+  layout?: 'bar' | 'panel';
 }) {
+  const panel = layout === 'panel';
   const { t } = useTranslation();
   const tr = (key: string, options?: Record<string, unknown>) =>
     t(`channelInbox.v2.tagBar.${key}`, options ?? {});
@@ -75,13 +79,16 @@ export function TagBar({
     <div
       role="group"
       aria-label={tr('label')}
-      className="flex shrink-0 items-start gap-1.5 border-t bg-background px-3 py-1.5"
+      className={cn(
+        'flex shrink-0 gap-1.5 bg-background',
+        panel ? 'flex-col items-stretch' : 'items-start border-t px-3 py-1.5',
+      )}
     >
       <ul
         className={cn(
           'flex min-w-0 flex-1 flex-wrap items-center gap-1 overflow-hidden',
           // Collapsed: a single row; whatever does not fit is clipped, the picker lists all tags.
-          !expanded && 'max-h-6',
+          !expanded && !panel && 'max-h-6',
         )}
       >
         {tags.map((tag) => (
@@ -127,9 +134,11 @@ export function TagBar({
           <Popover open={pickerOpen} onOpenChange={onPickerOpenChange}>
             <PopoverTrigger asChild>
               <Button
-                variant="ghost"
+                variant={panel ? 'outline' : 'ghost'}
                 size="sm"
-                className="h-6 px-1.5 text-xs"
+                className={cn(
+                  panel ? 'w-full justify-start text-muted-foreground' : 'h-6 px-1.5 text-xs',
+                )}
                 aria-label={tr('addLabel')}
                 aria-keyshortcuts="T"
               >
@@ -137,7 +146,11 @@ export function TagBar({
                 {tr('add')}
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="end" side="top" className="w-64 p-0">
+            <PopoverContent
+              align={panel ? 'start' : 'end'}
+              side={panel ? 'bottom' : 'top'}
+              className="w-64 p-0"
+            >
               <Command>
                 <CommandInput placeholder={tr('search')} />
                 <CommandList>
@@ -179,16 +192,18 @@ export function TagBar({
             </PopoverContent>
           </Popover>
         )}
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="size-6"
-          aria-expanded={expanded}
-          aria-label={tr(expanded ? 'collapse' : 'expand')}
-          onClick={() => onExpandedChange(!expanded)}
-        >
-          {expanded ? <ChevronUp /> : <ChevronDown />}
-        </Button>
+        {panel ? null : (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="size-6"
+            aria-expanded={expanded}
+            aria-label={tr(expanded ? 'collapse' : 'expand')}
+            onClick={() => onExpandedChange(!expanded)}
+          >
+            {expanded ? <ChevronUp /> : <ChevronDown />}
+          </Button>
+        )}
       </div>
     </div>
   );

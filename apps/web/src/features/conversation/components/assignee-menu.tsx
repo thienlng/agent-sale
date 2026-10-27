@@ -22,6 +22,7 @@ export function AssigneeMenu({
   userId,
   disabled,
   onAssign,
+  variant = 'button',
 }: {
   assigneeId: string | null;
   members: readonly FilterMember[];
@@ -29,6 +30,8 @@ export function AssigneeMenu({
   userId: string;
   disabled: boolean;
   onAssign: (assigneeId: string | null) => void;
+  /** `link`: Meta's subtitle under the customer name ("Chỉ định cuộc trò chuyện này ▾"). */
+  variant?: 'button' | 'link';
 }) {
   const { t } = useTranslation();
   const tr = (key: string, options?: Record<string, unknown>) =>
@@ -43,28 +46,42 @@ export function AssigneeMenu({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={disabled}
-          aria-label={tr('label', { name: label })}
-          className="max-w-44 min-w-0"
-        >
-          {current ? (
-            <span
-              aria-hidden
-              className="grid size-4 shrink-0 place-items-center rounded-full bg-primary-soft text-[9px] font-semibold text-primary"
-            >
-              {(Array.from(current.name.trim())[0] ?? '?').toUpperCase()}
+        {variant === 'link' ? (
+          <button
+            type="button"
+            disabled={disabled}
+            aria-label={tr('label', { name: label })}
+            className="flex max-w-full min-w-0 items-center gap-1 rounded text-xs text-muted-foreground hover:text-foreground disabled:opacity-60"
+          >
+            <span className="truncate">
+              {assigneeId ? tr('assignedTo', { name: label }) : tr('assignThis')}
             </span>
-          ) : (
-            <UserRound />
-          )}
-          <span className="truncate">{label}</span>
-          <ChevronDown className="opacity-60" />
-        </Button>
+            <ChevronDown className="size-3.5 shrink-0" aria-hidden />
+          </button>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={disabled}
+            aria-label={tr('label', { name: label })}
+            className="max-w-44 min-w-0"
+          >
+            {current ? (
+              <span
+                aria-hidden
+                className="grid size-4 shrink-0 place-items-center rounded-full bg-primary-soft text-[9px] font-semibold text-primary"
+              >
+                {(Array.from(current.name.trim())[0] ?? '?').toUpperCase()}
+              </span>
+            ) : (
+              <UserRound />
+            )}
+            <span className="truncate">{label}</span>
+            <ChevronDown className="opacity-60" />
+          </Button>
+        )}
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-64 p-0">
+      <PopoverContent align={variant === 'link' ? 'start' : 'end'} className="w-64 p-0">
         <Command>
           <CommandInput placeholder={tr('search')} />
           <CommandList>

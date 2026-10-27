@@ -34,6 +34,7 @@ export function newConversation(input: {
     autoResumeAt: null,
     takeover: null,
     status: 'open',
+    starred: false,
     assigneeId: null,
     note: '',
     notes: [],
@@ -63,7 +64,6 @@ export function applyControlUpdate(
   c: ConversationView,
   input: UpdateConversationRequest,
   actorId: string,
-  at: string,
   /** Timeline entry for a changed legacy `note` (built by the caller, which knows the author). */
   noteEntry?: ConversationNote,
   /** When the bot resumes for a temporary takeover (null: never); computed by the caller. */
@@ -79,6 +79,7 @@ export function applyControlUpdate(
         : { mode: 'human' as const, autoResumeAt: null, takeover: 'permanent' as const }
       : {}),
     ...(input.status ? { status: input.status } : {}),
+    ...(input.starred !== undefined ? { starred: input.starred } : {}),
     ...(input.note !== undefined && !noteEntry ? { note: input.note } : {}),
     ...(input.customerPhone !== undefined ? { customerPhone: input.customerPhone } : {}),
     ...(input.followUpAt !== undefined ? { followUpAt: input.followUpAt } : {}),
@@ -93,7 +94,8 @@ export function applyControlUpdate(
       : input.assignToMe !== undefined
         ? { assigneeId: input.assignToMe ? actorId : null }
         : {}),
+    // A new revision drops pending bot replies. `updatedAt` stays: the list is ordered by
+    // conversation activity, and assigning, starring or filing must not move a row (INB-LST-04).
     revision: c.revision + 1,
-    updatedAt: at,
   };
 }

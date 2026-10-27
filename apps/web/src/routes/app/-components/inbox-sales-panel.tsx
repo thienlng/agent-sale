@@ -19,6 +19,7 @@ import { OrderStatusBadge } from '@/features/commerce/components/order-status-ba
 import { CustomerSummary, FollowUpBlock } from '@/features/conversation/components/customer-panel';
 import { NotesBlock } from '@/features/conversation/components/notes-block';
 import { PanelBlock } from '@/features/conversation/components/panel-block';
+import type { PanelSlots } from '@/features/conversation/components/conversation-view';
 import type { InboxConversation } from '@/features/conversation/lib/inbox-v2-types';
 import { useContact, useContacts } from '@/features/crm/api/crm';
 import { ContactSheet } from '@/features/crm/components/contact-sheet';
@@ -34,16 +35,19 @@ export interface InboxCustomerContext {
 }
 
 /**
- * Right panel, composed here because it spans domain features: customer (with the linked CRM
- * contact and stage), notes timeline, orders and the follow-up reminder.
+ * Right panel, composed here because it spans domain features, in Meta's order: about (phone and
+ * the linked CRM contact with its stage), tags, notes, orders, follow-up, shared images.
  */
 export function InboxSalesPanel({
   conversation: c,
+  slots,
   value,
   onChange,
   onOrderCreated,
 }: {
   conversation: InboxConversation;
+  /** Tags and shared images, owned by the conversation feature. */
+  slots: PanelSlots;
   value: InboxCustomerContext;
   onChange: (value: InboxCustomerContext) => void;
   onOrderCreated: (order: OrderDto) => void;
@@ -69,9 +73,9 @@ export function InboxSalesPanel({
   const orderCount = value.orders.length;
   return (
     <div className="min-w-0">
-      <PanelBlock title={t('channelInbox.v2.panel.customer')}>
+      <PanelBlock title={t('channelInbox.meta.panel.about')}>
         <div className="space-y-4">
-          <CustomerSummary conversation={c} />
+          <CustomerSummary conversation={c} showIdentity={false} />
           {value.contact && !contact ? (
             <div role="status" className="space-y-2 rounded-xl border p-3 text-sm">
               <p>
@@ -141,6 +145,7 @@ export function InboxSalesPanel({
           )}
         </div>
       </PanelBlock>
+      {slots.tags}
       <NotesBlock conversation={c} />
       <PanelBlock
         title={t('channelInbox.v2.panel.orders')}
@@ -223,6 +228,7 @@ export function InboxSalesPanel({
         )}
       </PanelBlock>
       <FollowUpBlock conversation={c} />
+      {slots.media}
       <ContactSheet contactId={profile} onClose={() => setProfile(undefined)} lookups={lookups} />
     </div>
   );

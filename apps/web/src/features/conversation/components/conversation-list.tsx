@@ -1,24 +1,62 @@
 import type { ChannelConnectionDto } from '@agent-sales/contracts';
 import type { RefObject } from 'react';
 import { Link } from '@tanstack/react-router';
-import { CircleAlert, MessageCircle, Search } from 'lucide-react';
+import { CircleAlert, Layers, MessageCircle, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { DEFAULT_LIST_STATE, filterChips, isFiltered, type ListState } from '../lib/inbox-list';
-import type { InboxConversation, InboxCounts, InboxTab } from '../lib/inbox-v2-types';
-import { ChannelFilter } from './channel-filter';
+import type { InboxConversation, InboxCounts } from '../lib/inbox-v2-types';
+import { BulkBar, type BulkRun } from './bulk-bar';
 import { ConversationRow, type RowActions } from './conversation-row';
 import { EnableNotificationsButton } from './enable-notifications-button';
 import { InboxFilterChips } from './inbox-filter-chips';
 import { InboxFilterPopover, type FilterMember, type FilterTag } from './inbox-filter-popover';
 import { SavedInboxViews } from './saved-inbox-views';
 
-const TABS: readonly InboxTab[] = ['all', 'unread', 'waiting'];
+/** "Quản lý" mode state, owned by the page so a filter change can clear it. */
+export interface ListSelection {
+  ids: ReadonlySet<string>;
+  busy: boolean;
+  onToggle: (id: string) => void;
+  onSelectAll: (all: boolean) => void;
+  onRun: (run: BulkRun) => void;
+  onCancel: () => void;
+}
 
-/** Left column of the inbox: search, filter, tabs with counts, chips and conversations. */
+/** One quick filter of Meta's row: applies at once, pressed while on. */
+function QuickFilter({
+  pressed,
+  onClick,
+  label,
+  count,
+}: {
+  pressed: boolean;
+  onClick: () => void;
+  label: string;
+  count?: number | undefined;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={pressed}
+      onClick={onClick}
+      className={cn(
+        'flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[13px] whitespace-nowrap text-foreground/80 hover:bg-muted',
+        pressed && 'bg-primary-soft font-medium text-primary hover:bg-primary-soft',
+      )}
+    >
+      {label}
+      {count !== undefined ? (
+        <span className="text-xs text-muted-foreground tabular-nums">{count}</span>
+      ) : null}
+    </button>
+  );
+}
+
+/** Left column: search and "Quản lý", quick filters, active filter chips, conversations. */
 export function ConversationList({
   state,
   searchRef,
@@ -39,6 +77,10 @@ export function ConversationList({
   hidden,
   now,
   actions,
+  managing,
+  onManage,
+  selection,
+  refreshing = false,
 }: {
   state: ListState;
   searchRef: RefObject<HTMLInputElement | null>;
@@ -59,30 +101,42 @@ export function ConversationList({
   hidden: boolean;
   now: number;
   actions: RowActions;
+  managing: boolean;
+  onManage: () => void;
+  selection: ListSelection;
+  /** Previous rows shown while new filters load: their counts would be wrong to announce. */
+  refreshing?: boolean;
 }) {
   const { t } = useTranslation();
   const tr = (key: string, options?: Record<string, unknown>) =>
     t(`channelInbox.${key}`, options ?? {});
+  const meta = (key: string, options?: Record<string, unknown>) =>
+    t(`channelInbox.meta.${key}`, options ?? {});
   const filtered = isFiltered(state);
+  const quiet = !filterChips(state).length && !state.q && !state.starred && !state.followUp;
   const emptyKey =
-    state.tab === 'unread' && !filterChips(state).length && !state.q
+    state.tab === 'unread' && quiet
       ? 'v2.list.emptyUnread'
-      : state.tab === 'waiting' && !filterChips(state).length && !state.q
+      : state.tab === 'waiting' && quiet
         ? 'v2.list.emptyWaiting'
         : filtered
           ? 'emptyFilter'
           : 'emptyInbox';
+  const count = (n: number) => (pending || error ? undefined : n);
+  const pageChannels = channels.filter(
+    (channel) => state.provider === 'all' || channel.provider === state.provider,
+  );
   return (
     <aside
       className={cn(
-        'flex min-h-0 w-full shrink-0 flex-col border-r bg-background md:w-80 2xl:w-96',
+        'flex min-h-0 w-full shrink-0 flex-col border-r bg-background md:w-[340px] 2xl:w-96',
         hidden ? 'hidden md:flex' : 'flex',
       )}
     >
-      <div className="space-y-2 border-b p-3">
+      <div className="space-y-2 p-3 pb-2">
         <h1 className="sr-only">{tr('inbox.pageTitle')}</h1>
         <EnableNotificationsButton />
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <div className="relative min-w-0 flex-1">
             <Search className="absolute top-2 left-2.5 size-4 text-muted-foreground" aria-hidden />
             <Input
@@ -93,6 +147,45 @@ export function ConversationList({
               value={state.q}
               onChange={(event) => onState({ q: event.target.value })}
               className="h-8 pl-8"
+            />
+          </div>
+          <Button
+            variant={managing ? 'secondary' : 'outline'}
+            size="sm"
+            aria-pressed={managing}
+            onClick={onManage}
+          >
+            <Layers />
+            {meta('manage')}
+          </Button>
+        </div>
+        <div className="flex items-start gap-1">
+          <div
+            role="group"
+            aria-label={meta('quick.label')}
+            className="flex min-w-0 flex-1 flex-wrap items-center gap-0.5"
+          >
+            <QuickFilter
+              pressed={state.tab === 'unread'}
+              onClick={() => onState({ tab: state.tab === 'unread' ? 'all' : 'unread' })}
+              label={meta('quick.unread')}
+              count={count(counts.unread)}
+            />
+            <QuickFilter
+              pressed={state.tab === 'waiting'}
+              onClick={() => onState({ tab: state.tab === 'waiting' ? 'all' : 'waiting' })}
+              label={meta('quick.waiting')}
+              count={count(counts.waiting)}
+            />
+            <QuickFilter
+              pressed={state.starred}
+              onClick={() => onState({ starred: !state.starred })}
+              label={meta('quick.starred')}
+            />
+            <QuickFilter
+              pressed={state.followUp}
+              onClick={() => onState({ followUp: !state.followUp })}
+              label={meta('quick.followUp')}
             />
           </div>
           <SavedInboxViews
@@ -106,32 +199,24 @@ export function ConversationList({
             onState={onState}
             tags={tags}
             members={members}
-            channels={channels}
+            channels={pageChannels}
           />
         </div>
-        <div
-          role="tablist"
-          aria-label={tr('v2.list.tabsLabel')}
-          className="flex items-center gap-1 text-xs"
-        >
-          {TABS.map((tab) => (
+        {state.status !== 'open' ? (
+          <p
+            role="status"
+            className="flex items-center justify-between gap-2 rounded-md bg-muted px-2 py-1 text-xs"
+          >
+            <span>{meta('folder.viewing', { folder: meta(`folder.${state.status}`) })}</span>
             <button
-              key={tab}
               type="button"
-              role="tab"
-              aria-selected={state.tab === tab}
-              onClick={() => onState({ tab })}
-              className={cn(
-                'flex items-center gap-1.5 rounded-md px-2 py-1 font-medium text-muted-foreground hover:bg-muted',
-                state.tab === tab && 'bg-primary-soft text-primary',
-              )}
+              className="font-medium text-primary hover:underline"
+              onClick={() => onState({ status: 'open' })}
             >
-              {tr(`v2.list.tabs.${tab}`)}
-              <span className="tabular-nums">{pending || error ? '—' : counts[tab]}</span>
+              {meta('folder.back')}
             </button>
-          ))}
-          <ChannelFilter state={state} onState={onState} channels={channels} />
-        </div>
+          </p>
+        ) : null}
         <InboxFilterChips
           state={state}
           onState={onState}
@@ -139,8 +224,33 @@ export function ConversationList({
           members={members}
           channels={channels.map((c) => ({ id: c.id, name: c.name, provider: c.provider }))}
         />
+        {!pending && !error && !refreshing ? (
+          <p className="sr-only" aria-live="polite">
+            {meta('total', {
+              count:
+                state.tab === 'unread'
+                  ? counts.unread
+                  : state.tab === 'waiting'
+                    ? counts.waiting
+                    : counts.all,
+            })}
+          </p>
+        ) : null}
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      {managing ? (
+        <BulkBar
+          visible={items.length}
+          selected={selection.ids.size}
+          folder={state.status}
+          members={members}
+          userId={userId}
+          busy={selection.busy}
+          onSelectAll={selection.onSelectAll}
+          onRun={selection.onRun}
+          onCancel={selection.onCancel}
+        />
+      ) : null}
+      <div className="min-h-0 flex-1 overflow-y-auto border-t">
         {pending ? (
           <div className="space-y-3 p-4">
             {[0, 1, 2, 3].map((n) => (
@@ -156,7 +266,7 @@ export function ConversationList({
             </Button>
           </div>
         ) : items.length ? (
-          <ul className="divide-y">
+          <ul>
             {items.map((c) => (
               <ConversationRow
                 key={c.id}
@@ -168,6 +278,11 @@ export function ConversationList({
                 members={members}
                 userId={userId}
                 actions={actions}
+                selection={
+                  managing
+                    ? { checked: selection.ids.has(c.id), onToggle: () => selection.onToggle(c.id) }
+                    : undefined
+                }
               />
             ))}
           </ul>
@@ -185,7 +300,8 @@ export function ConversationList({
                 variant="outline"
                 size="sm"
                 className="mt-4"
-                onClick={() => onState({ ...DEFAULT_LIST_STATE })}
+                // Clearing filters keeps the channel tab: it is navigation, not a filter.
+                onClick={() => onState({ ...DEFAULT_LIST_STATE, provider: state.provider })}
               >
                 {tr('v2.list.clearAll')}
               </Button>

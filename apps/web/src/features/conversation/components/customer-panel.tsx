@@ -1,4 +1,5 @@
 import { Copy } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -11,7 +12,14 @@ import { NotesBlock } from './notes-block';
 import { PanelBlock } from './panel-block';
 
 /** Avatar, name, channel and page, and the phone number with copy. */
-export function CustomerSummary({ conversation: c }: { conversation: InboxConversation }) {
+export function CustomerSummary({
+  conversation: c,
+  showIdentity = true,
+}: {
+  conversation: InboxConversation;
+  /** Off below the panel's profile header, which already shows who it is. */
+  showIdentity?: boolean;
+}) {
   const { t } = useTranslation();
   const tr = (key: string, options?: Record<string, unknown>) =>
     t(`channelInbox.${key}`, options ?? {});
@@ -30,15 +38,17 @@ export function CustomerSummary({ conversation: c }: { conversation: InboxConver
   }
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-3">
-        <CustomerAvatar conversation={c} name={name} />
-        <div className="min-w-0">
-          <p className="truncate font-semibold">{name}</p>
-          <p className="truncate text-xs text-muted-foreground">
-            {page ? tr('v2.header.via', { provider, page }) : provider}
-          </p>
+      {showIdentity ? (
+        <div className="flex items-center gap-3">
+          <CustomerAvatar conversation={c} name={name} />
+          <div className="min-w-0">
+            <p className="truncate font-semibold">{name}</p>
+            <p className="truncate text-xs text-muted-foreground">
+              {page ? tr('v2.header.via', { provider, page }) : provider}
+            </p>
+          </div>
         </div>
-      </div>
+      ) : null}
       <div className="flex items-center justify-between gap-2 text-sm">
         {c.customerPhone ? (
           <>
@@ -76,16 +86,24 @@ export function FollowUpBlock({ conversation: c }: { conversation: InboxConversa
   );
 }
 
-/** Default right panel when the route composes no sales panel: customer, notes, follow-up. */
-export function CustomerPanel({ conversation: c }: { conversation: InboxConversation }) {
+/** Default right panel when the route composes no sales panel, in Meta's section order. */
+export function CustomerPanel({
+  conversation: c,
+  slots,
+}: {
+  conversation: InboxConversation;
+  slots: { tags: ReactNode; media: ReactNode };
+}) {
   const { t } = useTranslation();
   return (
     <div>
-      <PanelBlock title={t('channelInbox.v2.panel.customer')}>
-        <CustomerSummary conversation={c} />
+      <PanelBlock title={t('channelInbox.meta.panel.about')}>
+        <CustomerSummary conversation={c} showIdentity={false} />
       </PanelBlock>
+      {slots.tags}
       <NotesBlock conversation={c} />
       <FollowUpBlock conversation={c} />
+      {slots.media}
     </div>
   );
 }

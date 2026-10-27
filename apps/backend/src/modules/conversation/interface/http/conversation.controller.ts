@@ -1,6 +1,7 @@
 import {
   AddConversationNoteRequest,
   AssignConversationTagRequest,
+  BulkConversationRequest,
   ConversationListQuery,
   SendInboxMessageRequest,
   UpdateConversationRequest,
@@ -40,6 +41,17 @@ export class ConversationController {
     @Query(new ZodValidationPipe(ConversationListQuery)) query: ConversationListQuery,
   ) {
     return this.inbox.list(ws, query, user.userId);
+  }
+  /** Always 200: per-conversation results tell which ids failed. */
+  @RequireCapability('contacts.edit')
+  @Post('bulk')
+  @HttpCode(200)
+  bulk(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @CurrentUser() user: AuthState,
+    @Body(new ZodValidationPipe(BulkConversationRequest)) input: BulkConversationRequest,
+  ) {
+    return this.inbox.bulk(ws, input, user.userId);
   }
   @Get(':id') get(@CurrentWorkspace() ws: WorkspaceId, @Param('id', idPipe) id: string) {
     return this.inbox.get(ws, id);
