@@ -91,3 +91,15 @@ Design-only iteration authorized on 2026-10-27:
 - 2026-10-27 — Iteration 2: user approved statistics direction, limited scope to statistics/context controls, required existing multichannel navigation, selected-business home, all-shop logo aggregation, and anchored account dropdown. Updated isolated prototype only; seven author browser scenarios passed and same-model independent QA approved 51 assertions, including corrected short-drawer and resize regressions. Production acceptance remains open.
 
 - 2026-10-27 — User requested real-project implementation and removed business options from the account dropdown. Business selection lives only in the sidebar. Existing membership and analytics APIs permit a real business dashboard/portfolio read; shop aggregation awaits lane A.
+
+## Verified implementation increment
+
+- [x] Selected-business statistics is the first navigation item and authenticated home.
+- [x] The sole business selector is anchored in the sidebar; account dropdown has no business options.
+- [x] Switching respects existing unsaved-profile guards, blocks during mutations, evicts the full read cache and remounts route state.
+- [x] Business home uses four existing KPIs, compact dates, progressive filters, area chart and original drilldowns/definitions.
+- [x] Logo opens real authorized-business aggregates with separate tenant headers, bounded fan-out, partial-error and permission-scope disclosures.
+- [x] Same-model functional/visual QA: 23 unit tests and 8 browser scenarios passed; fresh-context code audit found no unresolved blocker after the cache-cleanup correction.
+- [ ] Full all-shop portfolio and shop breakdown: awaiting lane A persistence/attribution; no channels renamed as shops or synthetic statistics shipped.
+
+- 2026-10-27 — pnpm check passed on the implementation (log /tmp/t081-full-check-final.log); initial bundle 224.7 KB gzip against 250 KB budget. Actual serving checkout was updated via a checked, scoped frontend patch; three live-dev browser scenarios passed with mocked APIs. Existing dirty typography and unrelated feature work were preserved. The complete T-081 task remains in progress for shop contracts.

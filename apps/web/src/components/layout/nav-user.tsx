@@ -36,7 +36,6 @@ export function NavUser() {
   const { isMobile } = useSidebar();
   if (!session) return null;
   const { user } = session;
-  const workspace = session.memberships.find((m) => m.workspaceId === session.workspaceId);
   const initials = user.name
     .split(/\s+/)
     .slice(-2)
@@ -57,14 +56,14 @@ export function NavUser() {
               <span className="grid min-w-0 flex-1 text-left leading-tight">
                 <span className="truncate text-sm font-medium">{user.name}</span>
                 <span className="truncate text-xs text-muted-foreground">
-                  {workspace?.workspaceName}
+                  {t('business.account')}
                 </span>
               </span>
               <ChevronsUpDown className="ml-auto size-4" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            side={isMobile ? 'bottom' : 'right'}
+            side={isMobile ? 'top' : 'right'}
             align="end"
             sideOffset={4}
             className="w-60"

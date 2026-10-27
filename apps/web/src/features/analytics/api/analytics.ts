@@ -29,7 +29,13 @@ export function useStatistics(group: string, query: AnalyticsQuery | null) {
   const ws = useWorkspaceId();
   return useQuery({
     queryKey: ['ws', ws, 'analytics', 'query', group, query],
-    queryFn: () => api('/analytics/query', AnalyticsResponse, { method: 'POST', body: query }),
+    queryFn: ({ signal }) =>
+      api('/analytics/query', AnalyticsResponse, {
+        method: 'POST',
+        body: query,
+        workspaceId: ws,
+        signal,
+      }),
     enabled: Boolean(ws && query),
     placeholderData: keepPreviousData,
     staleTime: 15_000,
@@ -63,12 +69,12 @@ export function useAssignees() {
   });
 }
 
-export function usePages() {
+export function usePages(enabled = true) {
   const ws = useWorkspaceId();
   return useQuery({
     queryKey: ['ws', ws, 'analytics', 'pages'],
     queryFn: async () => (await api('/channels', ChannelListResponse)).data,
-    enabled: Boolean(ws),
+    enabled: Boolean(ws) && enabled,
   });
 }
 

@@ -1421,6 +1421,40 @@
       "as_of_in_future": "The time to view cannot be in the future.",
       "not_drillable": "This number is computed from others, so it has no detail.",
       "metric_locked": "Your plan does not include this number."
+    },
+    "overview": {
+      "primary": "Key metrics",
+      "details": "Detailed analysis",
+      "dateRange": "Date range",
+      "customDates": "Choose dates",
+      "moreFilters": "More filters",
+      "clearFilters": "Clear filters",
+      "sourceNote": "Customer source only filters new customers and captured phone numbers.",
+      "activeFilters": "Sources: {{sources}} · Sales: {{sales}}. Does not filter conversations.",
+      "title": "Overview",
+      "subtitle": "Businesses you are authorized to view",
+      "businesses": "By business",
+      "open": "View statistics",
+      "loading": "Loading statistics…",
+      "incomplete": "Some statistics are unavailable. Check the businesses below before reading a total.",
+      "noBusinesses": "You have no businesses to view yet.",
+      "noPermission": "You do not have permission to view statistics for this business.",
+      "recordsNote": "Customer records are counted separately per business, not as unique people across the account.",
+      "scopeOwn": "Only customers you own and customers nobody owns.",
+      "shopPending": "Shop statistics are not available yet.",
+      "retry": "Retry",
+      "allBusiness": "All businesses"
     }
+  },
+  "business": {
+    "choose": "Choose business",
+    "current": "Managing",
+    "none": "No business selected",
+    "search": "Find a business",
+    "noResults": "No businesses found.",
+    "switching": "Switching business…",
+    "waitForSave": "Wait for the current save before switching business.",
+    "switchError": "Could not switch business. Try again.",
+    "account": "Personal account"
   }
 }

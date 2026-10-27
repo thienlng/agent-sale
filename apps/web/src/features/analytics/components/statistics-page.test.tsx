@@ -192,6 +192,15 @@ beforeEach(() => vi.useRealTimers());
 afterEach(() => vi.unstubAllGlobals());
 
 describe('StatisticsPage', () => {
+  it('shows four primary metrics before progressively disclosing the existing analysis', async () => {
+    await show();
+    const primary = await screen.findByRole('region', { name: 'Chỉ số chính' });
+    expect(within(primary).getAllByRole('heading')).toHaveLength(4);
+    expect(screen.queryByRole('heading', { name: 'Nhãn được gắn' })).toBeNull();
+    await userEvent.click(await screen.findByRole('button', { name: /Phân tích chi tiết/ }));
+    expect(await screen.findByRole('heading', { name: 'Nhãn được gắn' })).toBeInTheDocument();
+  });
+
   it('shows every number from three queries, each asked only for the filters it supports', async () => {
     await show();
     expect(await screen.findByRole('heading', { name: 'Khách hàng mới' })).toBeInTheDocument();
@@ -217,6 +226,7 @@ describe('StatisticsPage', () => {
 
   it('a metric without a data source says so, instead of showing 0', async () => {
     await show();
+    await userEvent.click(await screen.findByRole('button', { name: /Phân tích chi tiết/ }));
     await screen.findByRole('heading', { name: 'Bình luận' });
     expect(screen.getByText('Chưa có nguồn dữ liệu')).toBeInTheDocument();
     // It is never asked for.
@@ -229,6 +239,7 @@ describe('StatisticsPage', () => {
     await show('owner', {
       overrides: { 'statuses.current': { key: 'statuses.current', state: 'locked' } },
     });
+    await userEvent.click(await screen.findByRole('button', { name: /Phân tích chi tiết/ }));
     expect(await screen.findByText('Gói hiện tại chưa gồm số liệu này')).toBeInTheDocument();
   });
 
@@ -269,6 +280,7 @@ describe('StatisticsPage', () => {
 
   it('a row of the tag table opens its own drilldown, narrowed to that tag', async () => {
     await show();
+    await userEvent.click(await screen.findByRole('button', { name: /Phân tích chi tiết/ }));
     // The tag is in both tables (events in the range, and tags now on customers): the first is the events one.
     const rows = await screen.findAllByRole('button', { name: 'VIP' }, { timeout: 4000 });
     expect(rows).toHaveLength(2);
@@ -294,6 +306,7 @@ describe('StatisticsPage', () => {
   it('a salesperson sees their own scope and no salesperson picker', async () => {
     await show('sales', { scope: 'own' });
     expect(await screen.findByText(/Chỉ gồm khách bạn phụ trách/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Lọc thêm' }));
     expect(screen.queryByText('Nhân viên Sales')).toBeNull();
   });
 

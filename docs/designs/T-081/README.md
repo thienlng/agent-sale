@@ -6,7 +6,7 @@ Status: proposed design, 2026-10-27. Tracked by T-081. This is a standalone synt
 
 One account can contain several businesses, and a business can contain several shops. The business selected at the top of the sidebar controls every business-scoped item beneath it. Statistics is the first item and the business's default home. Clicking the Rapiz logo shows aggregate statistics for all authorized shops across businesses. This portfolio view does not erase the working business named in the sidebar/header.
 
-Clicking the account opens a nonmodal dropdown next to that account control, never a centered dialog. The dropdown lists businesses directly and includes account-level plan/usage access. The sidebar business selector also opens beside its trigger, with search. Selecting a business updates the business home immediately in this prototype; the final deep-module switching contract belongs to T-079. Account plan/usage remains account-scoped.
+Clicking the account opens a nonmodal dropdown next to that account control, never a centered dialog. The latest user correction removes business options from the account dropdown. Business selection exists only in the sidebar; the account dropdown contains account controls. The sidebar business selector also opens beside its trigger, with search. Selecting a business updates the business home immediately in this prototype; the final deep-module switching contract belongs to T-079. Account plan/usage remains account-scoped.
 
 ## Scope correction from iteration 1
 
@@ -51,3 +51,7 @@ The isolated preview is copied into the development app's `public/design-review/
 - [Account dropdown](overview-account-menu.png)
 - [All shops](overview-all-shops.png)
 - [Mobile](overview-mobile.png)
+
+## Actual implementation status
+
+The user authorized implementation after reviewing this prototype. The actual app uses tenant-scoped analytics and a sidebar membership selector; no synthetic statistics are copied into production. Until lane A supplies shop persistence/attribution, the logo overview reports authorized businesses and explicitly states that shop statistics are unavailable. The full all-shop acceptance remains open.

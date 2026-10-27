@@ -83,7 +83,15 @@ export function MetricCard({
     ) : state.kind === 'unavailable' ? (
       <p className="mt-3 text-sm text-muted-foreground">{t('analytics.states.unavailable')}</p>
     ) : ok ? (
-      <p className="mt-2 text-3xl font-semibold tabular-nums">{formatNumber(ok.value)}</p>
+      <p
+        data-metric-value
+        className={cn(
+          'mt-2 break-all font-semibold leading-tight tabular-nums',
+          formatNumber(ok.value).length > 7 ? 'text-[clamp(1.125rem,10cqi,1.875rem)]' : 'text-3xl',
+        )}
+      >
+        {formatNumber(ok.value)}
+      </p>
     ) : (
       <p className="mt-3 flex items-center gap-1.5 text-sm text-muted-foreground">
         <Lock className="size-4 shrink-0" aria-hidden />
@@ -92,8 +100,9 @@ export function MetricCard({
     );
   return (
     <div
+      data-metric-card
       className={cn(
-        'flex min-w-0 flex-col rounded-lg border p-4',
+        '@container flex min-w-0 flex-col rounded-lg border p-4',
         onOpen && ok && 'transition-colors hover:bg-muted/40',
       )}
     >

@@ -129,6 +129,14 @@ export async function reloadSession(workspaceId?: string): Promise<Session | nul
   return next;
 }
 
+/** Select only an already-authorized business; the server still checks every tenant request. */
+export function selectWorkspace(workspaceId: string): boolean {
+  const current = getSession();
+  if (!current?.memberships.some((member) => member.workspaceId === workspaceId)) return false;
+  set({ ...current, workspaceId });
+  return true;
+}
+
 export async function logout(): Promise<void> {
   try {
     await api('/auth/logout', z.null(), { method: 'POST', workspaceScoped: false });

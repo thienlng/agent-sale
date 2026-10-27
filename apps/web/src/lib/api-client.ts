@@ -50,16 +50,22 @@ async function send(
   path: string,
   method: Method,
   body: unknown,
-  scoped: boolean,
+  scope: string | null,
   raw?: RawBody,
   accept = 'application/json',
+  signal?: AbortSignal,
 ) {
   const headers: Record<string, string> = { Accept: accept };
   if (raw) headers['Content-Type'] = raw.contentType;
   else if (body !== undefined) headers['Content-Type'] = 'application/json';
   if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
-  if (scoped && workspaceId) headers['X-Workspace-Id'] = workspaceId;
-  const init: RequestInit = { method, headers, credentials: 'include' };
+  if (scope) headers['X-Workspace-Id'] = scope;
+  const init: RequestInit = {
+    method,
+    headers,
+    credentials: 'include',
+    ...(signal ? { signal } : {}),
+  };
   if (raw) init.body = raw.data;
   else if (body !== undefined) init.body = JSON.stringify(body);
   return fetch(`/api/v1${path}`, init);
@@ -79,7 +85,7 @@ let refreshing: Promise<AuthResponse | null> | null = null;
 export function refreshSession(): Promise<AuthResponse | null> {
   refreshing ??= (async () => {
     try {
-      const res = await send('/auth/refresh', 'POST', { client: 'web' }, false);
+      const res = await send('/auth/refresh', 'POST', { client: 'web' }, null);
       if (!res.ok) return null;
       const auth = AuthResponse.parse(await res.json());
       accessToken = auth.accessToken;
@@ -101,11 +107,15 @@ async function request(
   scoped: boolean,
   raw?: RawBody,
   accept?: string,
+  requestedWorkspaceId?: string,
+  signal?: AbortSignal,
 ): Promise<Response> {
-  let res = await send(path, method, body, scoped, raw, accept);
+  // A token refresh must never retarget an in-flight request after a business switch.
+  const scope = scoped ? (requestedWorkspaceId ?? workspaceId) : null;
+  let res = await send(path, method, body, scope, raw, accept, signal);
   if (res.status === 401 && !path.startsWith('/auth/')) {
     if (await refreshSession()) {
-      res = await send(path, method, body, scoped, raw, accept);
+      res = await send(path, method, body, scope, raw, accept, signal);
     } else {
       accessToken = null;
       onSessionExpired();
@@ -117,7 +127,14 @@ async function request(
 export async function api<T>(
   path: string,
   schema: z.ZodType<T>,
-  init: { method?: Method; body?: unknown; raw?: RawBody; workspaceScoped?: boolean } = {},
+  init: {
+    method?: Method;
+    body?: unknown;
+    raw?: RawBody;
+    workspaceScoped?: boolean;
+    workspaceId?: string;
+    signal?: AbortSignal;
+  } = {},
 ): Promise<T> {
   const res = await request(
     path,
@@ -125,6 +142,9 @@ export async function api<T>(
     init.body,
     init.workspaceScoped ?? true,
     init.raw,
+    undefined,
+    init.workspaceId,
+    init.signal,
   );
   if (!res.ok) throw await toError(res);
   return schema.parse(res.status === 204 ? null : await res.json());
