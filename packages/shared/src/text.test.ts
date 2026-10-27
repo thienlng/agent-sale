@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { fillPlaceholders, foldVietnamese, placeholdersIn } from './text.js';
+import { exposesContactDetails, fillPlaceholders, foldVietnamese, placeholdersIn } from './text.js';
 
 describe('foldVietnamese', () => {
   it('removes diacritics, maps đ, lowercases and collapses spaces', () => {
@@ -20,5 +20,13 @@ describe('placeholders', () => {
     expect(fillPlaceholders(text, { 'store.address': '12 Lê Lợi', 'store.hours': '' })).toBe(
       'Địa chỉ: 12 Lê Lợi. Giờ mở cửa: {{ store.hours }}. Lại 12 Lê Lợi',
     );
+  });
+});
+
+describe('exposesContactDetails', () => {
+  it('flags phone numbers and emails, not prices or plain text', () => {
+    expect(exposesContactDetails('Gọi 0912 345 678 nhé')).toBe(true);
+    expect(exposesContactDetails('Mail lan@shop.vn')).toBe(true);
+    expect(exposesContactDetails('Áo 250k, inbox shop nhé')).toBe(false);
   });
 });

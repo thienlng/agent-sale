@@ -830,6 +830,10 @@ describe('HTTP: fanpage comments', () => {
     { method: 'PATCH' as const, path: 'settings', payload: { publicReplies: true } },
     { method: 'GET' as const, path: 'posts' },
     { method: 'GET' as const, path: 'comments' },
+    { method: 'GET' as const, path: 'comments?limit=20&q=gia' },
+    { method: 'GET' as const, path: 'comments/10_20' },
+    { method: 'GET' as const, path: 'comments/10_20/source' },
+    { method: 'GET' as const, path: 'comment-posts' },
     {
       method: 'POST' as const,
       path: 'comments/10_20/actions',
@@ -848,7 +852,27 @@ describe('HTTP: fanpage comments', () => {
       FanpageSettings.parse({ publicReplies: true }),
     );
     vi.spyOn(pages, 'posts').mockResolvedValue([]);
-    vi.spyOn(pages, 'comments').mockResolvedValue([]);
+    vi.spyOn(pages, 'comments').mockResolvedValue({ data: [], nextCursor: null });
+    vi.spyOn(pages, 'commentPosts').mockResolvedValue([]);
+    vi.spyOn(pages, 'source').mockResolvedValue({ status: 'unavailable', reason: 'reconnect' });
+    vi.spyOn(pages, 'comment').mockResolvedValue({
+      data: {
+        id,
+        connectionId: id,
+        postId: '1_2',
+        commentId: '10_20',
+        parentId: null,
+        authorId: '9',
+        text: 'Hi',
+        occurredAt: new Date().toISOString(),
+        version: 'v',
+        deleted: false,
+        needsReview: false,
+        context: null,
+        actions: [],
+      },
+      parent: null,
+    });
     vi.spyOn(pages, 'act').mockResolvedValue(null);
     const headers = {
       authorization: `Bearer ${owner.token}`,
@@ -891,6 +915,26 @@ describe('HTTP: fanpage comments', () => {
           url: `/api/v1/channels/${id}/fanpage/comments/10_20/actions`,
           headers,
           payload: { kind: 'public_reply', text: '', requestId: id },
+        })
+      ).statusCode,
+    ).toBe(400);
+    for (const query of ['limit=0', 'limit=51', 'postId=abc', `q=${'x'.repeat(201)}`])
+      expect(
+        (
+          await inject(a, {
+            method: 'GET',
+            url: `/api/v1/channels/${id}/fanpage/comments?${query}`,
+            headers,
+          })
+        ).statusCode,
+        query,
+      ).toBe(400);
+    expect(
+      (
+        await inject(a, {
+          method: 'GET',
+          url: `/api/v1/channels/${id}/fanpage/comments/not-an-id`,
+          headers,
         })
       ).statusCode,
     ).toBe(400);

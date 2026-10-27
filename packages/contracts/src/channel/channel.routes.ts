@@ -1,9 +1,13 @@
 import {
   FanpageSettings,
   FanpagePost,
-  FanpageComment,
   FanpageAction,
   FanpageManualAction,
+  FanpageCommentListQuery,
+  FanpageCommentPage,
+  FanpageCommentDetail,
+  FanpageCommentSource,
+  FanpageCommentPost,
 } from './fanpage.schema.js';
 import { z } from 'zod';
 import { defineRoutes } from '../common/routes.js';
@@ -44,8 +48,30 @@ export const channelRoutes = defineRoutes([
     ...scoped,
     method: 'get',
     path: '/channels/{id}/fanpage/comments',
-    summary: 'Latest 100 received comments and action outcomes',
-    responses: { 200: z.object({ data: z.array(FanpageComment) }) },
+    summary: 'Stored received comments: newest 100, or cursor pages filtered by post/text',
+    query: FanpageCommentListQuery,
+    responses: { 200: FanpageCommentPage },
+  },
+  {
+    ...scoped,
+    method: 'get',
+    path: '/channels/{id}/fanpage/comments/{commentId}',
+    summary: 'One stored comment and its stored parent, read without side effects',
+    responses: { 200: FanpageCommentDetail },
+  },
+  {
+    ...scoped,
+    method: 'get',
+    path: '/channels/{id}/fanpage/comments/{commentId}/source',
+    summary: 'Fresh read-only Facebook lookup of the comment post and thread',
+    responses: { 200: FanpageCommentSource },
+  },
+  {
+    ...scoped,
+    method: 'get',
+    path: '/channels/{id}/fanpage/comment-posts',
+    summary: 'Posts known from stored comments',
+    responses: { 200: z.object({ data: z.array(FanpageCommentPost) }) },
   },
   {
     ...scoped,

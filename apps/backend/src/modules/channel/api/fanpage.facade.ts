@@ -5,6 +5,11 @@ import type {
   FanpageContext,
   FanpageActionKind,
   FanpageAction,
+  FanpageCommentListQuery,
+  FanpageCommentPage,
+  FanpageCommentDetail,
+  FanpageCommentSource,
+  FanpageCommentPost,
 } from '@agent-sales/contracts';
 import type { NormalizedEvent } from '@agent-sales/channels';
 import type { WorkspaceId } from '@agent-sales/shared';
@@ -25,7 +30,17 @@ export interface FanpageFacade {
     settings: FanpageSettings,
   ): Promise<FanpageSettings>;
   posts(ws: WorkspaceId, connectionId: string): Promise<FanpagePost[]>;
-  comments(ws: WorkspaceId, connectionId: string): Promise<FanpageComment[]>;
+  /** Stored received comments; no query keeps the original newest-100 answer. */
+  comments(
+    ws: WorkspaceId,
+    connectionId: string,
+    query?: FanpageCommentListQuery,
+  ): Promise<FanpageCommentPage>;
+  /** One stored comment, read without any side effect on automation or ordering. */
+  comment(ws: WorkspaceId, connectionId: string, commentId: string): Promise<FanpageCommentDetail>;
+  /** Fresh Facebook read of the comment's post/thread; stores nothing. */
+  source(ws: WorkspaceId, connectionId: string, commentId: string): Promise<FanpageCommentSource>;
+  commentPosts(ws: WorkspaceId, connectionId: string): Promise<FanpageCommentPost[]>;
   receive(ws: WorkspaceId, connectionId: string, event: NormalizedEvent): Promise<FanpageComment>;
   context(
     ws: WorkspaceId,
@@ -47,6 +62,8 @@ export interface FanpageFacade {
       automatic: boolean;
       actorId?: string;
       expectedBotId?: string;
+      /** Manual public replies only: staff confirmed posting a phone number or email. */
+      confirmPublicContact?: boolean;
     },
   ): Promise<FanpageAction | null>;
 }

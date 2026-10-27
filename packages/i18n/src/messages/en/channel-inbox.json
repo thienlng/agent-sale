@@ -750,5 +750,151 @@
       "noImages": "No photos yet",
       "loadedOnly": "Photos from the most recently loaded messages."
     }
+  },
+  "commentsWorkspace": {
+    "loadingPages": "Loading Facebook Pages…",
+    "pagesError": "Couldn't load your Pages. Comments are not shown yet.",
+    "retry": "Retry",
+    "noPageTitle": "No Facebook Page connected",
+    "noPageBody": "Connect a Page to receive and answer comments right in Inbox.",
+    "connectPage": "Open Channels",
+    "page": "Page",
+    "choosePage": "Choose a Page…",
+    "choosePageTitle": "Choose a Page to see its comments",
+    "postFallback": "Post #{{id}}",
+    "reconnect": "{{page}} needs to be reconnected. Received comments stay visible, but you can't reply or hide yet.",
+    "openChannels": "Reconnect",
+    "search": "Search received comments",
+    "post": "Filter by post",
+    "allPosts": "All posts",
+    "scope": "Only comments Rapiz received from this Page, not the full history on Facebook.",
+    "selectTitle": "Select a comment",
+    "selectBody": "See the original post, the comment being answered and recorded actions.",
+    "loading": "Loading…",
+    "listError": "Couldn't load comments. This doesn't mean the Page has none.",
+    "refreshError": "Couldn't refresh; showing what was loaded before.",
+    "noMatchTitle": "No matching comments",
+    "noMatchBody": "No received comment matches this filter or search.",
+    "emptyTitle": "No comments received yet",
+    "emptyBody": "New comments on the Page's posts appear here.",
+    "listLabel": "Facebook comments",
+    "loadMore": "Load older comments",
+    "loadingMore": "Loading more…",
+    "end": "All received comments are shown.",
+    "author": "Facebook user {{id}}",
+    "noText": "No text (image, sticker or attachment)",
+    "deleted": "Deleted",
+    "review": "Needs review",
+    "visibility": {
+      "hidden": "Hidden",
+      "uncertain": "Hide state unknown"
+    },
+    "kind": {
+      "public_reply": "Public reply",
+      "private_reply": "Private message",
+      "hide": "Hide",
+      "unhide": "Unhide"
+    },
+    "status": {
+      "pending": "pending",
+      "sent": "sent",
+      "failed": "rejected",
+      "unknown": "outcome unknown",
+      "cancelled": "cancelled"
+    },
+    "back": "List",
+    "detailError": "Couldn't load this comment.",
+    "detailLabel": "Selected comment",
+    "onPage": "On {{page}}",
+    "parent": "Replying to",
+    "parentUnknown": "The parent comment's text isn't available.",
+    "selectedComment": "Customer's comment",
+    "deletedLong": "Deleted on Facebook",
+    "reviewLong": "Needs staff · automatic replies paused",
+    "changedOnFacebook": "Facebook shows different content for this comment. Wait for it to sync before replying or hiding.",
+    "privateSentNote": "Private message sent. The Messenger conversation appears in Inbox once Facebook syncs it or the customer replies.",
+    "blocked": {
+      "deleted": "This comment was deleted, so it can't be answered.",
+      "reconnect": "Reconnect the Page to reply.",
+      "changed": "The comment changed on Facebook; wait for it to sync and try again."
+    },
+    "viewOnly": "Your role can view only; you can't reply to or hide comments.",
+    "source": "Original post",
+    "openPost": "Open on Facebook",
+    "sourceLoading": "Reading the post from Facebook…",
+    "sourceFresh": "Read from Facebook at {{time}}",
+    "sourceSnapshot": "Saved copy from {{time}}, not re-read from Facebook",
+    "sourceNone": "The post's content isn't available.",
+    "mediaOnly": "This post has no text (image/video only). Rapiz doesn't read content inside images.",
+    "sourceReason": {
+      "reconnect": "Couldn't read Facebook: the Page needs reconnecting.",
+      "permission": "Couldn't read Facebook: comment read permission is missing.",
+      "missing": "Couldn't read Facebook: the post or comment may have been deleted.",
+      "mismatch": "Facebook returned a post that doesn't match this comment.",
+      "provider": "Facebook didn't answer; content may be out of date."
+    },
+    "history": "Actions recorded by Rapiz",
+    "historyScope": "Only actions sent through Rapiz, not every reply on Facebook.",
+    "noHistory": "No actions yet.",
+    "byStaff": "staff",
+    "byKeyword": "keyword rule",
+    "byBot": "automatic",
+    "inspect": "Outcome not confirmed: check Facebook before sending again.",
+    "hide": "Hide",
+    "unhide": "Unhide",
+    "working": "Working…",
+    "moderation": {
+      "failed": "Facebook refused; visibility is unchanged.",
+      "unknown": "Not sure whether Facebook applied it. Check on Facebook.",
+      "rejected": "Couldn't do that: the comment changed, was deleted or you lack permission.",
+      "unmatched": "Nothing was recorded. Review the history.",
+      "unconfirmed": "No answer received. Check the history before trying again."
+    },
+    "mode": "Reply type",
+    "target": {
+      "public": "Shown publicly under {{author}}'s comment, posted as {{page}}.",
+      "private": "Sent to {{author}}'s Messenger from {{page}} · one message only, within 7 days of the comment."
+    },
+    "private": {
+      "deleted": "This comment was deleted, so no private message can be sent.",
+      "attempted": "A private message was already attempted for this comment. Facebook allows one per comment.",
+      "expired": "More than 7 days have passed since the comment, so a private message is no longer possible."
+    },
+    "composer": {
+      "public_reply": "Write a public reply…",
+      "private_reply": "Write a private message…"
+    },
+    "send": {
+      "public_reply": "Reply publicly",
+      "private_reply": "Send privately"
+    },
+    "sending": "Sending…",
+    "retrySame": "Retry this request",
+    "checkStatus": "Check status",
+    "sendAgain": "I checked — send as new",
+    "contactWarning": "This public reply shows a phone number or email to everyone. Customer contact details belong in a private message.",
+    "contactConfirm": "Post publicly anyway",
+    "contactPrivate": "Switch to private message",
+    "attempt": {
+      "sent": {
+        "public_reply": "Public reply posted.",
+        "private_reply": "Private message sent."
+      },
+      "unconfirmed": "No answer received. Your text is kept; retrying reuses the same request, so it can't post twice.",
+      "unknown": "Not sure Facebook received it. Check on Facebook before sending a new one.",
+      "failed": "Facebook rejected this message. Your text is kept so you can edit and resend.",
+      "rejected": "Couldn't send. Your text is kept.",
+      "unmatched": "Nothing was recorded for this request (the comment may have just changed or already been answered). Review the history before sending a new one.",
+      "refused": {
+        "CONFLICT": "The comment changed, was deleted or is no longer on Facebook. Your text is kept.",
+        "FORBIDDEN": "Your role can't reply to comments.",
+        "VALIDATION_FAILED": "This can't be sent (over 7 days, already messaged privately, or invalid text).",
+        "NOT_FOUND": "This comment can no longer be found.",
+        "UNAVAILABLE": "Nothing was sent: the Page needs reconnecting or Facebook didn't answer. Your text is kept."
+      }
+    },
+    "resendWarning": "The earlier attempt may already be on Facebook. Sending a new one can post a duplicate reply — check the comment on Facebook first.",
+    "resendConfirm": "Send a new one anyway",
+    "resendCancel": "Cancel"
   }
 }

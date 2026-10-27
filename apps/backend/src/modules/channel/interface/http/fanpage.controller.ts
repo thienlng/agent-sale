@@ -1,11 +1,17 @@
-import { Body, Controller, Get, Inject, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Patch, Post, Query } from '@nestjs/common';
 import { z } from 'zod';
-import { FacebookId, FanpageSettings, FanpageManualAction } from '@agent-sales/contracts';
+import {
+  FacebookId,
+  FanpageSettings,
+  FanpageManualAction,
+  FanpageCommentListQuery,
+} from '@agent-sales/contracts';
 import { type WorkspaceId } from '@agent-sales/shared';
 import {
   CurrentWorkspace,
   WorkspaceScoped,
   CurrentUser,
+  RequireCapability,
   type AuthState,
 } from '../../../../common/http/auth-context.js';
 import { ZodValidationPipe } from '../../../../common/http/zod-validation.pipe.js';
@@ -36,10 +42,40 @@ export class FanpageController {
   }
   @WorkspaceScoped()
   @Get('comments')
-  async comments(@CurrentWorkspace() ws: WorkspaceId, @Param('id', uuid) id: string) {
-    return { data: await this.pages.comments(ws, id) };
+  comments(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Param('id', uuid) id: string,
+    @Query(new ZodValidationPipe(FanpageCommentListQuery)) query: FanpageCommentListQuery,
+  ) {
+    return this.pages.comments(ws, id, query);
   }
   @WorkspaceScoped()
+  @Get('comment-posts')
+  async commentPosts(@CurrentWorkspace() ws: WorkspaceId, @Param('id', uuid) id: string) {
+    return { data: await this.pages.commentPosts(ws, id) };
+  }
+  // Reads never pause automation, mark review or reorder the list; only actions do.
+  @WorkspaceScoped()
+  @Get('comments/:commentId')
+  comment(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Param('id', uuid) id: string,
+    @Param('commentId', facebookId) commentId: string,
+  ) {
+    return this.pages.comment(ws, id, commentId);
+  }
+  @WorkspaceScoped()
+  @Get('comments/:commentId/source')
+  source(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Param('id', uuid) id: string,
+    @Param('commentId', facebookId) commentId: string,
+  ) {
+    return this.pages.source(ws, id, commentId);
+  }
+  // Same write capability as the inbox: view-only roles cannot reply or moderate, even directly.
+  @WorkspaceScoped()
+  @RequireCapability('contacts.edit')
   @Post('comments/:commentId/actions')
   async act(
     @CurrentWorkspace() ws: WorkspaceId,
@@ -53,6 +89,8 @@ export class FanpageController {
       kind: body.kind,
       text: body.text,
       key: body.requestId,
+      ...(body.version ? { version: body.version } : {}),
+      confirmPublicContact: body.confirmPublicContact,
       actorId: user.userId,
       reason: 'Manual staff action',
       automatic: false,
