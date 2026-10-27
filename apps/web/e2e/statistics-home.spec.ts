@@ -17,7 +17,7 @@ const user = {
   isPlatformAdmin: false,
 };
 
-async function setup(page: Page, failedBusiness?: string) {
+async function setup(page: Page, failedBusiness?: string, largeNumbers = false) {
   await mockApi(page);
   const requests: string[] = [];
   await page.route('**/api/v1/bootstrap', (route) =>
@@ -42,7 +42,9 @@ async function setup(page: Page, failedBusiness?: string) {
     const body = route.request().postDataJSON() as Record<string, unknown>;
     const response = AnalyticsResponse.parse(analyticsRoute('/analytics/query', body));
     response.cards = response.cards.map((card) =>
-      card.state === 'ok' ? { ...card, value: workspace === B ? 20 : 10 } : card,
+      card.state === 'ok'
+        ? { ...card, value: largeNumbers ? 98_765_432 : workspace === B ? 20 : 10 }
+        : card,
     );
     response.meta.scope = workspace === B ? 'own' : 'all';
     return route.fulfill({ json: response });
@@ -141,7 +143,7 @@ test('invalid portfolio dates prevent tenant fan-out', async ({ page }) => {
 for (const width of [375, 768, 1280, 1920])
   test(`statistics and overview fit ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
-    await setup(page);
+    await setup(page, undefined, true);
     for (const route of ['/app/analytics', '/app/overview']) {
       await page.goto(route);
       await expect(page.getByRole('region', { name: 'Chỉ số chính' })).toBeVisible();

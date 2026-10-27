@@ -9,7 +9,7 @@ feature_ids: []
 created: 2026-10-26
 updated: 2026-10-27
 branch: feat/T-081-overview-design
-pr:
+pr: 69
 parent:
 ---
 
@@ -103,3 +103,5 @@ Design-only iteration authorized on 2026-10-27:
 - [ ] Full all-shop portfolio and shop breakdown: awaiting lane A persistence/attribution; no channels renamed as shops or synthetic statistics shipped.
 
 - 2026-10-27 — pnpm check passed on the implementation (log /tmp/t081-full-check-final.log); initial bundle 224.7 KB gzip against 250 KB budget. Actual serving checkout was updated via a checked, scoped frontend patch; three live-dev browser scenarios passed with mocked APIs. Existing dirty typography and unrelated feature work were preserved. The complete T-081 task remains in progress for shop contracts.
+
+- 2026-10-27 — PR #69 opened as a stacked review on PR #64. Production responsive checks passed: 28 existing routes at 375/768/1280/1920px plus every expanded/collapsed layout preference. Tracing was disabled only for the clean rerun after local disk exhaustion; assertions and timeouts were unchanged. Regression fixtures now exercise long exact metrics (98,765,432 per business and 197,530,864 aggregate).
