@@ -65,3 +65,10 @@ To be filled by the implementer before coding. Scope and acceptance above are th
 - [Billing design](../docs/08-billing-quota-credit.md)
 
 - 2026-10-26 — Lane B triage: The running T-068 inbox already supplies the reviewed multi-pane structure. This pass fixes concrete tag failures and keeps its working layout; a complete Pancake-style visual/workflow redesign is larger than the requested simple independent fixes and remains open for an agreed target. No full product parity is claimed.
+
+## Updated reference — 2026-10-27
+
+The product owner now requests Meta Business Suite Inbox as the functional reference. T-095 documents the broader business inventory without starting this implementation task or changing its owner. The original four-person-day estimate applies only to the earlier limited refinement; it is not an estimate for full Meta parity. Before implementation, re-scope this task and link additional implementation tasks for conditional capabilities and existing lane boundaries.
+
+- [Meta-style Inbox BA specification](../docs/business/rapiz-inbox-meta-ba.vi.md)
+- [Research and implementation handoff](../docs/handoffs/2026-10-27-meta-inbox-spec.md)
