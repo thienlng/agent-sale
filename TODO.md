@@ -5,6 +5,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 ## In progress
 
 
+
 - [ ] T-081 Redesign portfolio and business statistics entry screens — @agent:codex · [details](todo/T-081-redesign-portfolio-and-business-statistics-entry-s.md) · PR #70 · partial: shop data awaits lane A
 - [ ] T-076 Reduce integration initial bundle below 250 KB — @agent:codex · [details](todo/T-076-reduce-integration-initial-bundle-below-250-kb.md) · PR #64
 - [ ] T-082 Unify channel assignment and bulk bot filters — @agent:codex · [details](todo/T-082-unify-channel-assignment-and-bulk-bot-filters.md) · PR #64
@@ -66,6 +67,8 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## Done (last 10 — older ones live in todo/done/)
 
+- [x] T-108 Exclude exact public widget fixture fingerprints from secret scans — @agent:codex · [details](todo/done/T-108-exclude-exact-public-widget-fixture-fingerprints-f.md) · PR #72
+
 - [x] T-107 Persist inbox text drafts and personal Enter preference — @agent:codex · [details](todo/done/T-107-persist-inbox-text-drafts-and-personal-enter-prefe.md) · PR #72
 
 - [x] T-105 Allow agents to push and merge to main with owner approval — @agent:claude · [details](todo/done/T-105-allow-agents-to-push-and-merge-to-main-with-owner-.md) · merged to main
@@ -76,4 +79,3 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [x] T-102 Website lead capture into the CRM and inbox — @agent:claude · [details](todo/done/T-102-website-lead-capture-into-the-crm-and-inbox.md) · merged to main
 - [x] T-101 Embeddable website chat widget — @agent:claude · [details](todo/done/T-101-embeddable-website-chat-widget.md) · merged to main
 - [x] T-100 Webchat public API, visitors and rate limits — @agent:claude · [details](todo/done/T-100-webchat-public-api-visitors-and-rate-limits.md) · merged to main
-- [x] T-099 Website connections: settings, site key and management API — @agent:claude · [details](todo/done/T-099-website-connections-settings-site-key-and-manageme.md) · merged to main

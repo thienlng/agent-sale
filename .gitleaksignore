@@ -1,0 +1,5 @@
+# T-108: exact pre-existing public widget site-key fixtures, not authentication credentials.
+# The tests render/copy an intentionally synthetic public embed key. Do not expand to a path/rule ignore.
+9a7e45c6d02344d375a26283239178d2291aa743:apps/web/src/features/channel/components/website.test.tsx:generic-api-key:71
+9a7e45c6d02344d375a26283239178d2291aa743:apps/web/src/features/channel/components/website.test.tsx:generic-api-key:73
+9a7e45c6d02344d375a26283239178d2291aa743:apps/web/src/features/channel/components/website.test.tsx:generic-api-key:76
