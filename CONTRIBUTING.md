@@ -20,5 +20,5 @@ Humans and coding agents follow the same rules. Everything is in [`AGENTS.md`](A
 
 ## Repository administration
 
-- Branch protection: `bash scripts/github-branch-protection.sh <owner>/<repo>` (admin only). Not available while the repo is private on GitHub Free; until then `main` is guarded by the `pre-push` hook and the `Main guard` workflow. Never push to `main` directly — a red `Main guard` run is the signal that someone did.
+- Branch protection: `bash scripts/github-branch-protection.sh <owner>/<repo>` (admin only). Not available while the repo is private on GitHub Free; until then the `pre-push` hook refuses force pushes and deletion of `main`; fast-forward pushes to `main` are allowed (T-105).
 - GitHub Environments and secrets for deployments are set up in T-008.

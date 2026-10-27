@@ -2,8 +2,8 @@
 
 ## Branches
 
-- `main` is protected: no direct pushes, no force pushes, PR + 1 human approval + green CI required.
-  - GitHub-side branch protection is not available on the current plan (private repo, GitHub Free). Until it is enabled (`scripts/github-branch-protection.sh`), the rule is enforced by the `pre-push` git hook, the `Main guard` workflow (fails on any commit that reaches `main` without a merged PR) and reviewer discipline. A red `Main guard` run means someone bypassed the process: revert and open a PR.
+- `main` accepts direct fast-forward pushes from agents and humans when the owner asks for work to land (decision 2026-10-27, T-105). History on `main` is never rewritten: no force pushes, no deletion — the `pre-push` git hook refuses both. Rebase onto `origin/main` before pushing, and run `pnpm check` first.
+  - The `Main guard` workflow still reports commits that did not come from a merged PR; with direct pushes allowed its red result is informational.
 - **One milestone (or coherent block of related tasks) → one branch → one PR.** The maintainer prefers few, larger PRs over many small ones (decision 2026-10-23). Group related tasks; keep **one commit (or a few) per task** inside the PR so history stays reviewable. Branch name: `<type>/T-<id>-<short-slug>` using the first/main task id, e.g. `feat/T-013-m1-foundation`. Small fixes and docs/board updates ride along in the current milestone branch instead of their own PR.
 - Types: `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `perf`, `ci`, `build`.
 - Branch from an up-to-date `main`. Rebase (do not merge `main` into your branch) if you need newer changes.

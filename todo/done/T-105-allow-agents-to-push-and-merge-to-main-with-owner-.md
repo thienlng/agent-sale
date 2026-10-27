@@ -23,11 +23,10 @@ Rules and agent settings no longer forbid agents from pushing or merging to `mai
 
 ## Scope
 
-- In scope: `AGENTS.md` §6, `.agents/rules/02-git-and-pr.md`, `.agents/skills/open-pr/SKILL.md`, `.claude/settings.json` deny list.
+- In scope: `.husky/pre-push`, `CONTRIBUTING.md`, `AGENTS.md` §6, `.agents/rules/02-git-and-pr.md`, `.agents/skills/open-pr/SKILL.md`, `.claude/settings.json` deny list.
 
 ## Out of scope
 
-- The `.husky/pre-push` guard (still blocks direct pushes unless `ALLOW_MAIN_PUSH=1` is set by a human).
 - GitHub branch protection.
 
 ## Acceptance criteria
@@ -39,3 +38,4 @@ Rules and agent settings no longer forbid agents from pushing or merging to `mai
 ## Log
 
 - 2026-10-27 — created and done. The edits had been staged in the primary checkout earlier; the owner chose "push to main" for them during the branch and worktree cleanup.
+- 2026-10-27 — Owner asked to let agents push `main` too: the pre-push hook now allows fast-forward pushes and only refuses force pushes and deleting `main`; rule 02 and CONTRIBUTING updated. The `Main guard` workflow (.github) is unchanged.

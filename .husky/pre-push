@@ -1,11 +1,15 @@
-# Block direct pushes to main (compensating control while GitHub branch
-# protection is unavailable on this plan). Humans may override once with
-# ALLOW_MAIN_PUSH=1 for emergencies; agents never do.
-while read -r _local_ref _local_sha remote_ref _remote_sha; do
+# Direct pushes to main are allowed (owner decision 2026-10-27, T-105), but
+# history on main is never rewritten: force pushes and deleting main are refused.
+zero=0000000000000000000000000000000000000000
+while read -r _local_ref local_sha remote_ref remote_sha; do
   case "$remote_ref" in
     refs/heads/main)
-      if [ "${ALLOW_MAIN_PUSH:-0}" != "1" ]; then
-        echo "✘ Direct push to main is not allowed. Open a pull request (see .agents/rules/02-git-and-pr.md)." >&2
+      if [ "$local_sha" = "$zero" ]; then
+        echo "✘ Deleting main is not allowed." >&2
+        exit 1
+      fi
+      if [ "$remote_sha" != "$zero" ] && ! git merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null; then
+        echo "✘ Non-fast-forward push to main refused: fetch and rebase onto origin/main first." >&2
         exit 1
       fi
       ;;
