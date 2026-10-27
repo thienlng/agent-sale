@@ -78,3 +78,11 @@ Final screenshots are available in `/tmp/qa-t081-actual/`: `business-desktop.png
 ## Explicit remaining scope
 
 Current persistence has neither first-class shops nor the proposed commercial account parent. The aggregate page therefore shows real authorized-business rows with an explicit unavailable-shop message. It does not label channels as shops or present synthetic shop statistics as live data. All-shop aggregation and final ownership mapping remain dependent on lane A (T-077/T-078/T-079/T-080); T-081 must retain that partial-completion qualification.
+
+
+## Author release verification
+
+- Full `pnpm check` passed: frontend 60 files / 377 tests; backend 63 files / 973 tests; build initial payload 224.7 KB gzip against the existing 250 KB budget.
+- Production responsive gate: all six original tests passed, covering 28 routes at 375/768/1280/1920px and all layout preference combinations. Prior failures included local ENOSPC and concurrent rebuild contention; the clean rerun kept every assertion and timeout and disabled only trace recording.
+- Three selected workflows passed against the actual serving checkout on port 5173, with mocked APIs. The development UI is updated without backend mutations or unrelated feature changes.
+- PR #69 is stacked on PR #64. Parent T-081 remains in progress for real shop attribution; the implementation explicitly reports missing shop data.

@@ -59,6 +59,7 @@ test('numbers come from what was done in the CRM, and a card opens its own rows'
   // Three customers, two with a phone number, one tag added — all from the CRM ("Nhập tay").
   await expect(card('Khách hàng mới')).toContainText('3');
   await expect(card('Số điện thoại thu được')).toContainText('2');
+  await page.getByRole('button', { name: 'Phân tích chi tiết', exact: true }).click();
   await expect(card('Nhãn được gắn')).toContainText('1');
   await expect(card('Nhãn bị gỡ')).toContainText('0');
   await expect(card('Khách đang có nhãn')).toContainText('1');
@@ -83,6 +84,7 @@ test('numbers come from what was done in the CRM, and a card opens its own rows'
   await page.keyboard.press('Escape');
 
   // Only chat-channel customers: none exist yet, and the page says why instead of showing a bare 0.
+  await page.getByRole('button', { name: 'Lọc thêm', exact: true }).click();
   await page.getByRole('button', { name: 'Nhập tay' }).click();
   await page.getByRole('button', { name: 'Nhập file' }).click();
   await expect(card('Khách hàng mới')).toContainText('0');
@@ -101,6 +103,7 @@ test('numbers come from what was done in the CRM, and a card opens its own rows'
   await expect(card('Khách hàng mới')).toContainText('0');
 
   // A bad range is explained and nothing is shown for it.
+  await page.getByRole('button', { name: 'Chọn ngày', exact: true }).click();
   await page.getByLabel('Đến ngày').fill('2020-01-01');
   await expect(page.getByText('Ngày bắt đầu phải trước ngày kết thúc.')).toBeVisible();
 });
