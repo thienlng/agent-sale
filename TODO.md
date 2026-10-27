@@ -66,7 +66,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## Done (last 10 — older ones live in todo/done/)
 
-- [x] T-107 Persist inbox text drafts and personal Enter preference — @agent:codex · [details](todo/done/T-107-persist-inbox-text-drafts-and-personal-enter-prefe.md)
+- [x] T-107 Persist inbox text drafts and personal Enter preference — @agent:codex · [details](todo/done/T-107-persist-inbox-text-drafts-and-personal-enter-prefe.md) · PR #72
 
 - [x] T-105 Allow agents to push and merge to main with owner approval — @agent:claude · [details](todo/done/T-105-allow-agents-to-push-and-merge-to-main-with-owner-.md) · merged to main
 - [x] T-096 Rebuild the inbox core around the Meta Business Suite layout — @agent:claude · [details](todo/done/T-096-rebuild-the-inbox-core-around-the-meta-business-su.md) · merged to main

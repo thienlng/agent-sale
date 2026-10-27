@@ -9,7 +9,7 @@ feature_ids: []
 created: 2026-10-27
 updated: 2026-10-27
 branch: feat/T-107-inbox-compose-continuity
-pr:
+pr: https://github.com/thienlng/agent-sale/pull/72
 parent:
 ---
 
@@ -58,6 +58,8 @@ Generic automation, background reminders, direct upload/private storage design, 
 - 2026-10-27 — Frozen-source pnpm check passed (lint/format, architecture, typecheck, test, build). Frontend 67 files/454 tests passed; initial bundle 229.4 KB gzip below the 250 KB budget. Independent QA final verdict approved. Browser verification is running against this final production build.
 
 - 2026-10-27 — Final production-build Chromium suite passed 21/21 (compose continuity, inbox sales/layout and smoke), including all three new regressions and narrow-screen screenshot. Independent reviewer inspected the synthetic mobile screenshot and confirmed fit/readability. Artifact links and git diff checks pass. Ready for maintainer review; this branch does not merge or implement T-106.
+
+- 2026-10-27 — Opened PR #72 as draft while CI runs. Local frozen-source gate, 21/21 browser tests and independent code/mobile review passed. CI status remains visible on the PR; maintainer review is required before landing.
 
 ## Links
 
