@@ -4,7 +4,7 @@ title: Refine the sales inbox around the agreed Pancake workflow
 status: cancelled
 type: feature
 priority: P1
-owner:
+owner: "@agent:claude"
 feature_ids: []
 created: 2026-10-26
 updated: 2026-10-28
@@ -65,6 +65,8 @@ To be filled by the implementer before coding. Scope and acceptance above are th
 - [Billing design](../../docs/08-billing-quota-credit.md)
 
 - 2026-10-26 — Lane B triage: The running T-068 inbox already supplies the reviewed multi-pane structure. This pass fixes concrete tag failures and keeps its working layout; a complete Pancake-style visual/workflow redesign is larger than the requested simple independent fixes and remains open for an agreed target. No full product parity is claimed.
+
+- 2026-10-27 — Lane B owner set to @agent:claude by the user.
 
 ## Updated reference — 2026-10-27
 
