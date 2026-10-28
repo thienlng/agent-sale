@@ -30,7 +30,7 @@ const c = schema.conversations,
 type Row = typeof c.$inferSelect;
 /**
  * `data` is the document; rows written before migration 0024 may lack `createdAt`. The bot comes
- * from the `bot_id` column: the backfill fills it and deleting the bot clears it (0028).
+ * from the `bot_id` column: the backfill fills it and deleting the bot clears it (`releaseBot`).
  */
 const toView = (r: Row): ConversationView =>
   ConversationDto.parse({
@@ -251,6 +251,12 @@ export class DrizzleConversationStore implements ConversationStore {
             aggregateId: id,
             payload,
           });
+        },
+        async releaseBot(botId) {
+          await tx
+            .update(c)
+            .set({ botId: null })
+            .where(and(eq(c.workspaceId, ws), eq(c.botId, botId)));
         },
       }),
     );

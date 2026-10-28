@@ -14,7 +14,7 @@ import { newId, userId, workspaceId, type WorkspaceId } from '@agent-sales/share
 import { startTestPostgres, type TestPostgres } from '@agent-sales/testing';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import type { BotFacade, BotView } from '../../bot/api/index.js';
+import { type BotFacade, BotLifecycle, type BotView } from '../../bot/api/index.js';
 import type { ChannelFacade } from '../../channel/api/index.js';
 import { ConversationFacadeImpl } from '../application/conversation.facade.impl.js';
 import { filterConversations, type ConversationFilter } from '../domain/conversation-filter.js';
@@ -297,7 +297,7 @@ describe('DrizzleConversationStore inbox v2 query', () => {
     await service.bulk(a, { action: 'unstar', ids: [ids[0]!] }, staff);
   });
 
-  it('stores the answering bot in its column and drops it when the bot is deleted', async () => {
+  it('stores the answering bot in its column and drops it when the bot row is removed', async () => {
     const bot = newId();
     await withTenant(tenantDb, a, (tx) =>
       tx
@@ -324,5 +324,34 @@ describe('DrizzleConversationStore inbox v2 query', () => {
     // Saving again must not write the deleted bot back.
     await service.update(a, c.id, { note: 'still here' }, newId());
     expect(await column()).toBeNull();
+  });
+
+  it('detaches conversations from a bot that is soft-deleted through the bot lifecycle', async () => {
+    const bot = newId();
+    await withTenant(tenantDb, a, (tx) =>
+      tx
+        .insert(schema.bots)
+        .values({ id: bot, workspaceId: a, name: 'Bot', industry: 'retail', settings: {} }),
+    );
+    const base = await channels.getConnection(a, channelId);
+    vi.mocked(channels.getConnection).mockResolvedValueOnce({ ...base, botId: bot });
+    const c = await service.receive(a, channelId, event('soft-delete', 'customer-soft'));
+    expect(c.botId).toBe(bot);
+
+    const lifecycle = new BotLifecycle();
+    new ConversationFacadeImpl(
+      store,
+      channels,
+      { getBot: async () => ({}) as BotView },
+      fakeTeam(),
+      fakeIdentity(),
+      fakeCrm() as never,
+      lifecycle,
+    ).onModuleInit();
+    // Another workspace naming the bot changes nothing; its own workspace clears it.
+    await lifecycle.beforeDelete(b, bot);
+    expect((await service.get(a, c.id)).conversation.botId).toBe(bot);
+    await lifecycle.beforeDelete(a, bot);
+    expect((await service.get(a, c.id)).conversation.botId).toBeNull();
   });
 });

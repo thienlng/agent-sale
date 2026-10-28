@@ -78,7 +78,7 @@ The global tables are read and written only by a new `account` backend module, t
   - `message.received` and `reply.completed` outbox payloads gain an optional `botId`: the bot bound to the channel when the event happened.
   - `analytics_facts.bot_id` stores it.
   - Conversation metrics accept a `bots` filter.
-  - `conversations.bot_id` holds the bot currently answering, for inbox and CRM filters. It is taken from the channel's binding on each inbound message, so a rebind reaches a conversation with its next message. Deleting the bot clears it. Rewriting every conversation of a page at rebind time would make `channel` depend on `conversation`, a module cycle.
+  - `conversations.bot_id` holds the bot currently answering, for inbox and CRM filters. It is taken from the channel's binding on each inbound message, so a rebind reaches a conversation with its next message. Deleting the bot clears it: bots are soft-deleted, so the `conversation` module clears the column from the `BotLifecycle` delete hook (the key's `ON DELETE SET NULL` only covers a hard delete). Rewriting every conversation of a page at rebind time would make `channel` depend on `conversation`, a module cycle.
   - History therefore stays with the bot that answered it. The bot home statistics (T-113, lane B PR) switch from the page filter to the bot filter.
 
 ### 5. Billing ownership (implemented by T-091)

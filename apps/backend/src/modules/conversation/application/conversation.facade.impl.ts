@@ -9,8 +9,14 @@ import {
   type UpdateConversationRequest,
 } from '@agent-sales/contracts';
 import { isUuid, newId, userId, type WorkspaceId } from '@agent-sales/shared';
-import { Inject, Injectable, Logger } from '@nestjs/common';
-import { BOT_FACADE, type BotFacade, type BotView } from '../../bot/api/index.js';
+import { Inject, Injectable, Logger, type OnModuleInit, Optional } from '@nestjs/common';
+import {
+  BOT_FACADE,
+  BOT_LIFECYCLE,
+  type BotFacade,
+  type BotLifecycle,
+  type BotView,
+} from '../../bot/api/index.js';
 import {
   CHANNEL_FACADE,
   type ChannelFacade,
@@ -49,7 +55,7 @@ async function requireConversation(tx: ConversationTx, id: string): Promise<Conv
   return c;
 }
 @Injectable()
-export class ConversationFacadeImpl implements ConversationFacade {
+export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit {
   constructor(
     @Inject(CONVERSATION_STORE) private readonly store: ConversationStore,
     @Inject(CHANNEL_FACADE) private readonly channels: ChannelFacade,
@@ -57,7 +63,19 @@ export class ConversationFacadeImpl implements ConversationFacade {
     @Inject(TEAM_FACADE) private readonly team: TeamFacade,
     @Inject(IDENTITY_FACADE) private readonly identity: IdentityFacade,
     @Inject(CRM_FACADE) private readonly crm: CrmFacade,
+    @Inject(BOT_LIFECYCLE) @Optional() private readonly lifecycle?: BotLifecycle,
   ) {}
+  /** `conversations.bot_id` is "the bot answering now" (ADR-012 §4): a deleted bot answers nothing. */
+  onModuleInit(): void {
+    this.lifecycle?.onDeleted(async (ws, botId) => {
+      try {
+        await this.store.run(ws, (tx) => tx.releaseBot(botId));
+      } catch (error) {
+        // Without a database there is no inbox, hence nothing to detach; anything else blocks the delete.
+        if (!(error instanceof ConversationError && error.code === 'UNAVAILABLE')) throw error;
+      }
+    });
+  }
   async list(ws: WorkspaceId, q: ConversationListQuery, viewerId?: string) {
     const filter = {
       ...toListFilter(q, viewerId),

@@ -14,6 +14,8 @@
 
 **Events consumed:** none (claims `channel_webhook_events` through the channel facade).
 
+**Hooks:** registers a `BOT_LIFECYCLE.onDeleted` handler that clears `conversations.bot_id` for the deleted bot in that workspace (`releaseBot`; bots are soft-deleted, so the column's `ON DELETE SET NULL` never fires — ADR-012 §4).
+
 **Invariants:**
 
 - Every receipt is persisted before inference; a burst is answered once, for its newest customer message in **receipt order** (claim order), never Meta timestamps. The model gets all messages in that order and every consecutive customer message after the last bot/staff message **of any status** (sent, failed, pending, unknown: a reply attempt, even a failed one, means the earlier messages were answered; only sent text is shown to the model as an assistant turn) is merged into ONE customer turn (newline-joined, attachment notes once, `jobs/reply-turns.ts`), so one reply answers every question after the last reply; a message claimed in a later tick gets its own reply; a retry of an event whose reply was already attempted (last stored message is outbound) is skipped, never answered or sent twice. A skipped customer message is logged with its reason.

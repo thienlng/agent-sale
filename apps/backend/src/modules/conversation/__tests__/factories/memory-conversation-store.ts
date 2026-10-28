@@ -65,6 +65,11 @@ export class MemoryConversationStore implements ConversationStore {
         audit: async (id, type, payload) => {
           events.push({ id, type, payload });
         },
+        releaseBot: async (botId) => {
+          for (const [key, row] of rows)
+            if (key.startsWith(`${ws}/`) && row.botId === botId)
+              rows.set(key, { ...row, botId: null });
+        },
       });
       this.rows = rows;
       this.messagesByKey = messages;

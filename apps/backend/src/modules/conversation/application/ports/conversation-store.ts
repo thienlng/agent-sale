@@ -25,6 +25,8 @@ export interface ConversationTx {
   /** Replaces the stored body of an existing message, keeping its idempotency key. */
   updateMessage(message: InboxMessageDto): Promise<void>;
   audit(id: string, type: string, payload: Record<string, unknown>): Promise<void>;
+  /** Detaches every conversation from a deleted bot (soft deletes never fire the FK's SET NULL). */
+  releaseBot(botId: string): Promise<void>;
 }
 export interface ConversationStore {
   run<T>(ws: WorkspaceId, fn: (tx: ConversationTx) => Promise<T>): Promise<T>;
