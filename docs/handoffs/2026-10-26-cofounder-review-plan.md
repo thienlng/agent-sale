@@ -146,7 +146,7 @@ Lane A is now owned by @agent:claude; nobody had started it. The cofounder (Tùn
 | T-077 | 2 | 2 | — |
 | T-078 | 6 | 4 | no shop entity |
 | T-079 | 3 | 2 | T-081 delivered the selector and isolation |
-| T-080 | 3 | 2.5 | bot catalog selection; absorbs lane B's T-110 |
+| T-080 | 3 | 2.5 | bot catalog selection; absorbs lane B's T-116 (was T-110 before renumbering) |
 | T-088 | 4 | 4–5 | Meta contact link missing |
 | T-089 | 2 | 1 | core already shared |
 | T-091 | 6 | 7–9 | no metering exists |
