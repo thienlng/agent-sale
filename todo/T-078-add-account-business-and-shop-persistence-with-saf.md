@@ -1,14 +1,14 @@
 ---
 id: T-078
 title: Add account persistence and bot attribution with safe backfills
-status: backlog
+status: in-progress
 type: feature
 priority: P1
 owner: "@agent:claude"
 feature_ids: []
 created: 2026-10-26
 updated: 2026-10-28
-branch:
+branch: feat/T-077-account-foundation
 pr:
 parent:
 ---
@@ -52,10 +52,33 @@ Add account persistence and bot attribution with safe backfills.
 
 ## Plan
 
-To be filled by the implementer before coding. Scope and acceptance above are the planning contract.
+Follows ADR-012 §8. Same branch as T-077 (block A1). Catalog selection columns (`bots.catalog_mode`, `bot_products`) are left to T-080, which owns that behavior.
+
+1. **Expand migration `0028_accounts_and_bot_attribution.sql`** (additive, small tables only):
+   - global `accounts` and `account_members` (app_system only);
+   - nullable `workspaces.account_id` → `accounts`;
+   - unique `bots(workspace_id, id)`;
+   - `channel_connections` (workspace_id, bot_id) → `bots(workspace_id, id)` `ON DELETE SET NULL (bot_id)`, `NOT VALID`;
+   - nullable `conversations.bot_id` (same composite key) and `analytics_facts.bot_id` (no key: history).
+   - Drizzle schema mirrors it. An integration test proves a channel cannot point to another workspace's bot.
+2. **`account` module** (`pnpm gen module account`, tier 1):
+   - facade `resolveForNewBusiness({ userId, accountId?, name })`;
+   - `CreateWorkspaceHandler` stores the account. Signup and `POST /workspaces` therefore both place the business under an account the user owns (ADR-012 §3).
+3. **Backfill `account-backfill [--dry-run]`** (operator CLI, idempotent):
+   - one account per owner user, `account_id` on every workspace;
+   - `bot_id` on conversations and facts from the current binding;
+   - unbind channels whose bot is missing or foreign;
+   - a printed report of what it did not guess.
+   - Integration test with a seeded legacy install, run twice.
+4. **Attribution at event time:**
+   - `botId` on `message.received` / `reply.completed` payloads and in `analytics_facts`;
+   - `conversations.bot_id` set when a conversation is written and when a page is rebound;
+   - `bots` filter on conversation metrics, with an RLS cross-tenant test.
+5. **Docs:** ADR-004 amendment, docs/05, docs/analytics.md, the module's MODULE.md, `docs/ARCHITECTURE.md` tier table. Then run the gate.
 
 ## Log
 
+- 2026-10-28 — Started on `feat/T-077-account-foundation` (block A1) after the maintainer asked to proceed; ADR-012 is still Proposed.
 - 2026-10-28 — Replanned for lane A, now owned by @agent:claude (user decision, 2026-10-28). Product model agreed with the user: account → business (workspace) → bot → channels. **No separate shop entity**: the bot is the selling unit. The catalog is business-owned and each bot chooses which products it sells. Billable unit: an AI reply delivered to the customer, counted once across retries. When the allowance is exhausted, the bot stops and hands off to staff. Business switching lives in the avatar (account) menu. Code inventory and re-estimate: see the handoff's "Lane A replan" section.
 
 - 2026-10-26 — Created from cofounder review; proposed allocation only. No application changes made.
