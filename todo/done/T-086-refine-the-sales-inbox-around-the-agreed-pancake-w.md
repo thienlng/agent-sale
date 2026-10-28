@@ -1,13 +1,13 @@
 ---
 id: T-086
 title: Refine the sales inbox around the agreed Pancake workflow
-status: backlog
+status: cancelled
 type: feature
 priority: P1
 owner:
 feature_ids: []
 created: 2026-10-26
-updated: 2026-10-26
+updated: 2026-10-28
 branch:
 pr:
 parent:
@@ -59,10 +59,10 @@ To be filled by the implementer before coding. Scope and acceptance above are th
 
 ## Links
 
-- [Review milestone handoff](../docs/handoffs/2026-10-26-cofounder-review-plan.md)
-- [Architecture](../docs/ARCHITECTURE.md)
-- [Tenancy and verticals](../docs/17-multi-tenancy-and-verticals.md)
-- [Billing design](../docs/08-billing-quota-credit.md)
+- [Review milestone handoff](../../docs/handoffs/2026-10-26-cofounder-review-plan.md)
+- [Architecture](../../docs/ARCHITECTURE.md)
+- [Tenancy and verticals](../../docs/17-multi-tenancy-and-verticals.md)
+- [Billing design](../../docs/08-billing-quota-credit.md)
 
 - 2026-10-26 — Lane B triage: The running T-068 inbox already supplies the reviewed multi-pane structure. This pass fixes concrete tag failures and keeps its working layout; a complete Pancake-style visual/workflow redesign is larger than the requested simple independent fixes and remains open for an agreed target. No full product parity is claimed.
 
@@ -70,5 +70,7 @@ To be filled by the implementer before coding. Scope and acceptance above are th
 
 The product owner now requests Meta Business Suite Inbox as the functional reference. T-095 documents the broader business inventory without starting this implementation task or changing its owner. The original four-person-day estimate applies only to the earlier limited refinement; it is not an estimate for full Meta parity. Before implementation, re-scope this task and link additional implementation tasks for conditional capabilities and existing lane boundaries.
 
-- [Meta-style Inbox BA specification](../docs/business/rapiz-inbox-meta-ba.vi.md)
-- [Research and implementation handoff](../docs/handoffs/2026-10-27-meta-inbox-spec.md)
+- [Meta-style Inbox BA specification](../../docs/business/rapiz-inbox-meta-ba.vi.md)
+- [Research and implementation handoff](../../docs/handoffs/2026-10-27-meta-inbox-spec.md)
+
+- 2026-10-28 — The earlier Pancake refinement was superseded by the owner-approved Meta reference and delivered T-095/T-096/T-106/T-107. Cancelled to avoid duplicate redesign; no full Meta parity is claimed.

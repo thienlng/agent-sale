@@ -61,3 +61,8 @@ Input source: `../../preny/preny-research/` (Preny research dossier dated 23/10/
 - Living documents: update them in the same PR when behavior/architecture changes.
 - The **[+]** marker = improvement over Preny; feature IDs (`BOT-07`, `ORD-03`…) are used in the backlog and commits.
 - Preny figures are a snapshot as of 23/10/2026, for reference only.
+
+## Lane B delivery acceptance
+
+- [2026-10-28 lane B closeout](handoffs/2026-10-28-lane-b-closeout.md) — delivered independent work, final QA and exact remaining shop/account API prerequisites.
+- [Selected-business industry](handoffs/T-093-business-industry.md) — creation policy, legacy preservation and captured tenant query scope.

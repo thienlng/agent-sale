@@ -1,7 +1,7 @@
 ---
 id: T-081
 title: Redesign portfolio and business statistics entry screens
-status: in-progress
+status: blocked
 type: feature
 priority: P1
 owner: "@agent:codex"
@@ -107,3 +107,9 @@ Design-only iteration authorized on 2026-10-27:
 - 2026-10-27 — PR #69 opened as a stacked review on PR #64. Production responsive checks passed: 28 existing routes at 375/768/1280/1920px plus every expanded/collapsed layout preference. Tracing was disabled only for the clean rerun after local disk exhaustion; assertions and timeouts were unchanged. Regression fixtures now exercise long exact metrics (98,765,432 per business and 197,530,864 aggregate).
 
 - 2026-10-27 — User explicitly requested landing the reviewed work on main. PR #64 was squash-merged first. PR #69 then had a history conflict, so it was closed in favor of clean main-based PR #70 without force-pushing. Cherry-picked tree 4633818 exactly matches reviewed tree 6521c97 (tree d663ed3d725bda25b24db3a0f80d8c71394b6354); only branch/PR tracking is updated afterward. No implementation change.
+
+- 2026-10-28 — T-117 source audit preserves this task as partial: existing business/integration UI is delivered, but shop-level acceptance still needs T-077/T-078/T-080. See docs/handoffs/2026-10-28-lane-b-closeout.md.
+
+- 2026-10-28 — Final independent B acceptance is green (full gate, 47 functional and 114 responsive tests). Parent remains open/blocked only for partial: business dashboards delivered; shop statistics await T-077/T-078/T-080. No missing backend behavior was represented as completed.
+
+- 2026-10-28 — Final remote audit found draft account/bot attribution work in T-077/T-079 and separate portfolio/UX forks. ADR-012 is still Proposed and reverses the original shop/avatar-switch decisions; no blind merge was made. T-087 server filters and T-092 account usage APIs are still absent. This parent waits for an accepted/integrated model, not a claim that no remote work exists. See final remote audit in docs/handoffs/2026-10-28-lane-b-closeout.md.

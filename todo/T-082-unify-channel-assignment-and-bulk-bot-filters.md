@@ -1,7 +1,7 @@
 ---
 id: T-082
 title: Unify channel assignment and bulk bot filters
-status: in-progress
+status: blocked
 type: bug
 priority: P1
 owner: "@agent:codex"
@@ -72,3 +72,9 @@ Autonomous implementation authorized by the user on 2026-10-26. Account/business
 - 2026-10-26 — Implemented the existing-contract assignment slice: actual bot selection, reassignment confirmation, non-destructive unassignment, consistent bot/unassigned filters, busy/permission guards, canonical bot cache and shared discovery/bulk/single invalidation. Stateful regression verifies partial-failure retries only failed rows. Shop eligibility/filtering remains pending T-077/T-078/T-080; do not close this parent task.
 
 - 2026-10-26 — Independent browser QA found mobile integration controls clipped inside an implicit minimum-width grid column despite no document overflow. Bounded the mobile grid column and platform pane; added direct control-bounds regression plus global/bot integration routes to the responsive matrix.
+
+- 2026-10-28 — T-117 source audit preserves this task as partial: existing business/integration UI is delivered, but shop-level acceptance still needs T-077/T-078/T-080. See docs/handoffs/2026-10-28-lane-b-closeout.md.
+
+- 2026-10-28 — Final independent B acceptance is green (full gate, 47 functional and 114 responsive tests). Parent remains open/blocked only for partial: channel assignment delivered; shop eligibility awaits T-077/T-078/T-080. No missing backend behavior was represented as completed.
+
+- 2026-10-28 — Final remote audit found draft account/bot attribution work in T-077/T-079 and separate portfolio/UX forks. ADR-012 is still Proposed and reverses the original shop/avatar-switch decisions; no blind merge was made. T-087 server filters and T-092 account usage APIs are still absent. This parent waits for an accepted/integrated model, not a claim that no remote work exists. See final remote audit in docs/handoffs/2026-10-28-lane-b-closeout.md.

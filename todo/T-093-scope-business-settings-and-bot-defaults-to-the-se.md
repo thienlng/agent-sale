@@ -1,7 +1,7 @@
 ---
 id: T-093
 title: Scope business settings and bot defaults to the selected industry
-status: in-progress
+status: blocked
 type: feature
 priority: P1
 owner: '@agent:codex'
@@ -91,3 +91,7 @@ Existing industry-changing updates are not supported. The current contract permi
 - Details: `docs/handoffs/T-093-business-industry.md`.
 
 - 2026-10-28 — Parent full gate passed with final source: backend 68 files / 1,104 tests; frontend 75 files / 499 tests; initial bundle 232.2 KB gzip under 250 KB. Independent same-model QA approved source, tenant retry fix and real workspace fixture updates. Existing delete/history fixture assertions remain intact. Browser acceptance is recorded in the final lane B closeout.
+
+- 2026-10-28 — Final independent B acceptance is green (full gate, 47 functional and 114 responsive tests). Parent remains open/blocked only for partial: business industry increment delivered; account billing separation awaits T-092/T-091. No missing backend behavior was represented as completed.
+
+- 2026-10-28 — Final remote audit found draft account/bot attribution work in T-077/T-079 and separate portfolio/UX forks. ADR-012 is still Proposed and reverses the original shop/avatar-switch decisions; no blind merge was made. T-087 server filters and T-092 account usage APIs are still absent. This parent waits for an accepted/integrated model, not a claim that no remote work exists. See final remote audit in docs/handoffs/2026-10-28-lane-b-closeout.md.

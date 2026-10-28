@@ -1,7 +1,7 @@
 ---
 id: T-110
 title: Require settings.manage to change fanpage comment automation settings
-status: in-progress
+status: done
 type: bug
 priority: P1
 owner: '@agent:codex'
@@ -31,10 +31,10 @@ Only roles with `settings.manage` can change fanpage comment automation settings
 
 ## Acceptance criteria
 
-- [ ] Analyst and sales get 403 on `PATCH /fanpage/settings`; owner/admin succeed.
-- [ ] The settings panel does not offer saving to roles without `settings.manage`.
-- [ ] Tests added/updated and `pnpm check` green
-- [ ] Docs updated (or "no docs impact" stated)
+- [x] Analyst and sales get 403 on `PATCH /fanpage/settings`; owner/admin succeed.
+- [x] The settings panel does not offer saving to roles without `settings.manage`.
+- [x] Tests added/updated and `pnpm check` green
+- [x] Docs updated (or "no docs impact" stated)
 
 ## Plan
 
@@ -58,3 +58,5 @@ Dated entries, newest last. Decisions, blockers, questions, what was verified an
 
 - Docs: …
 - Related tasks: …
+
+- 2026-10-28 — Final frozen source passed full pnpm check (backend 1,104 and frontend 499 tests; bundle 232.1 KB). Fresh same-model independent QA approved 47/47 functional and 114/114 responsive browser cases with unchanged timeout/assertions and reviewed the 390px image. Delivery report: docs/handoffs/2026-10-28-lane-b-closeout.md. Prepared for the owner-requested feat/tung-dev push; main is not a landing target.

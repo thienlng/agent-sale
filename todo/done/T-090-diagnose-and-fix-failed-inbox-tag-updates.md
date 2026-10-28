@@ -1,13 +1,13 @@
 ---
 id: T-090
 title: Diagnose and fix failed inbox tag updates
-status: review
+status: done
 type: bug
 priority: P1
 owner: "@agent:codex"
 feature_ids: []
 created: 2026-10-26
-updated: 2026-10-26
+updated: 2026-10-28
 branch: feat/T-090-lane-b-review
 pr: 64
 parent:
@@ -64,12 +64,14 @@ The user explicitly authorized autonomous lane B implementation while away, so n
 
 ## Links
 
-- [Review milestone handoff](../docs/handoffs/2026-10-26-cofounder-review-plan.md)
-- [Architecture](../docs/ARCHITECTURE.md)
-- [Tenancy and verticals](../docs/17-multi-tenancy-and-verticals.md)
-- [Billing design](../docs/08-billing-quota-credit.md)
+- [Review milestone handoff](../../docs/handoffs/2026-10-26-cofounder-review-plan.md)
+- [Architecture](../../docs/ARCHITECTURE.md)
+- [Tenancy and verticals](../../docs/17-multi-tenancy-and-verticals.md)
+- [Billing design](../../docs/08-billing-quota-credit.md)
 
 - 2026-10-26 — Independent QA reproduced the contract mismatch read-only: Event requires event_name and Ticket requires subject; the inbox sent only tagId. VIP has no required fields and validates without values. No live customer records were changed.
 - 2026-10-26 — Added a shared tag-values editor (extracted from CRM), conversation-scoped dialog lifecycle, values payload support and disabled busy quick actions. Targeted hook/tag-bar tests: 15 passed; attribute form tests: 4 passed. Further independent acceptance and full gate pending.
 
 - 2026-10-26 — Ready for human review: full pnpm check passed (frontend 367, backend 973 tests), independent code QA approved and fresh-context browser QA accepted the implemented workflows. See docs/handoffs/2026-10-26-lane-b-qa.md for exact commands, evidence and mocked-API limits.
+
+- 2026-10-28 — Source audit confirms the existing delivered behavior and previously checked acceptance criteria. Tracking reconciled under T-117; final branch regression evidence is recorded in docs/handoffs/2026-10-28-lane-b-closeout.md.

@@ -1,13 +1,13 @@
 ---
 id: T-092
 title: Add account-level plans and aggregated usage settings
-status: backlog
+status: blocked
 type: feature
 priority: P1
-owner:
+owner: '@agent:codex'
 feature_ids: []
 created: 2026-10-26
-updated: 2026-10-26
+updated: 2026-10-28
 branch:
 pr:
 parent:
@@ -65,3 +65,7 @@ To be filled by the implementer before coding. Scope and acceptance above are th
 - [Billing design](../docs/08-billing-quota-credit.md)
 
 - 2026-10-26 — Lane B triage: Account-level plans/usage depend on T-079/T-091 account ownership and quota APIs. Current workspace billing is preserved; no invented aggregate counters were added.
+
+- 2026-10-28 — Source-audited under T-117: blocked by T-079/T-091: account billing ownership and authorized allowance/usage/reset APIs. No fake aggregate or UI-only shop filtering was substituted. See docs/handoffs/2026-10-28-lane-b-closeout.md.
+
+- 2026-10-28 — Final remote audit found draft account/bot attribution work in T-077/T-079 and separate portfolio/UX forks. ADR-012 is still Proposed and reverses the original shop/avatar-switch decisions; no blind merge was made. T-087 server filters and T-092 account usage APIs are still absent. This parent waits for an accepted/integrated model, not a claim that no remote work exists. See final remote audit in docs/handoffs/2026-10-28-lane-b-closeout.md.

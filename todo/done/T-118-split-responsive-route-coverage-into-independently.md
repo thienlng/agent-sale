@@ -1,7 +1,7 @@
 ---
-id: T-113
+id: T-118
 title: Split responsive route coverage into independently timed cases
-status: in-progress
+status: done
 type: bug
 priority: P1
 owner: '@agent:codex'
@@ -10,7 +10,7 @@ created: 2026-10-28
 updated: 2026-10-28
 branch: feat/tung-dev
 pr:
-parent: T-112
+parent: T-117
 ---
 
 ## Context
@@ -34,11 +34,11 @@ Keep complete responsive route/viewport coverage with meaningful independent fai
 
 ## Acceptance criteria
 
-- [ ] Every existing route/viewport pair remains covered.
-- [ ] Heading, no-overflow and runtime-error assertions remain intact.
-- [ ] Existing preference cases remain intact; no test timeout is increased.
-- [ ] Independent QA approves the restructuring and the official suite passes.
-- [ ] The full gate and final branch delivery pass without protected config changes.
+- [x] Every existing route/viewport pair remains covered.
+- [x] Heading, no-overflow and runtime-error assertions remain intact.
+- [x] Existing preference cases remain intact; no test timeout is increased.
+- [x] Independent QA approves the restructuring and the official suite passes.
+- [x] The full gate and final branch delivery pass without protected config changes.
 
 ## Plan
 
@@ -53,6 +53,10 @@ Keep complete responsive route/viewport coverage with meaningful independent fai
 
 ## Links
 
-- Scope: T-112 lane B closeout.
+- Scope: T-117 lane B closeout.
 - Existing guard: apps/web/e2e/responsive.spec.ts.
 - Official original log: /tmp/lane-b-responsive.log; diagnostic: /tmp/lane-b-responsive-375-diagnostic.log.
+
+- 2026-10-28 — Final frozen source passed full pnpm check (backend 1,104 and frontend 499 tests; bundle 232.1 KB). Fresh same-model independent QA approved 47/47 functional and 114/114 responsive browser cases with unchanged timeout/assertions and reviewed the 390px image. Delivery report: docs/handoffs/2026-10-28-lane-b-closeout.md. Prepared for the owner-requested feat/tung-dev push; main is not a landing target.
+
+- 2026-10-28 — Renumbered this unpublished integration task from T-113 to T-118 after fetching concurrently published cofounder tasks. All four fetched feature branches were inspected; their highest ID is T-116. Historical local commit footers retain the earlier alias; no published source history was rewritten.
