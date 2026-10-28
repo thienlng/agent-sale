@@ -137,14 +137,19 @@ export function selectWorkspace(workspaceId: string): boolean {
   return true;
 }
 
-/** Keeps the business name shown in the selector in step with a saved profile edit. */
-export function renameMembership(workspaceId: string, workspaceName: string): void {
+/** Keeps the name and logo shown in the business lists in step with a saved profile edit. */
+export function syncMembership(
+  workspaceId: string,
+  profile: { name: string; logoVersion: string | null },
+): void {
   const current = getSession();
   if (!current) return;
   set({
     ...current,
     memberships: current.memberships.map((m) =>
-      m.workspaceId === workspaceId ? { ...m, workspaceName } : m,
+      m.workspaceId === workspaceId
+        ? { ...m, workspaceName: profile.name, logoVersion: profile.logoVersion }
+        : m,
     ),
   });
 }

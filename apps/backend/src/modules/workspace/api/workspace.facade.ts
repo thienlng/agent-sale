@@ -5,6 +5,8 @@ export interface WorkspaceMembership {
   workspaceId: WorkspaceId;
   workspaceName: string;
   role: string;
+  /** Short hash of the logo image, null without one; lets clients cache the picture. */
+  logoVersion?: string | null;
 }
 
 /** A member of one workspace (removed ones only when asked for). */

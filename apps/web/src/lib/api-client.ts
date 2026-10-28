@@ -155,8 +155,8 @@ export async function api<T>(
  * `<img src>` here because the access token lives in memory, not in a cookie.
  * Resolves null when the resource does not exist.
  */
-export async function apiBlob(path: string): Promise<Blob | null> {
-  const res = await request(path, 'GET', undefined, true, undefined, '*/*');
+export async function apiBlob(path: string, workspaceId?: string): Promise<Blob | null> {
+  const res = await request(path, 'GET', undefined, true, undefined, '*/*', workspaceId);
   if (res.status === 404) return null;
   if (!res.ok) throw await toError(res);
   return res.blob();

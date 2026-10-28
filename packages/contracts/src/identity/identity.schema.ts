@@ -60,6 +60,8 @@ export const MembershipDto = z.object({
   workspaceId: z.uuid(),
   workspaceName: z.string(),
   role: z.string(),
+  /** Changes with the business logo; absent or null when it has none (fetch `GET /workspace/logo`). */
+  logoVersion: z.string().nullable().optional(),
 });
 export type MembershipDto = z.infer<typeof MembershipDto>;
 

@@ -1,4 +1,4 @@
-import { and, type Database, eq, isNull, schema, withSystem } from '@agent-sales/db';
+import { and, type Database, eq, isNull, schema, sql, withSystem } from '@agent-sales/db';
 import { type UserId, userId, workspaceId, type WorkspaceId } from '@agent-sales/shared';
 
 import type { WorkspaceMember, WorkspaceMembership } from '../api/workspace.facade.js';
@@ -51,6 +51,9 @@ export class DrizzleWorkspaceDirectory implements WorkspaceDirectory {
           workspaceId: schema.workspaces.id,
           workspaceName: schema.workspaces.name,
           role: schema.members.role,
+          logoSha256: sql<
+            string | null
+          >`(select ${schema.workspaceAssets.sha256} from ${schema.workspaceAssets} where ${schema.workspaceAssets.id} = ${schema.workspaces.logoAssetId})`,
         })
         .from(schema.members)
         .innerJoin(schema.workspaces, eq(schema.workspaces.id, schema.members.workspaceId))
@@ -62,7 +65,11 @@ export class DrizzleWorkspaceDirectory implements WorkspaceDirectory {
             ws ? eq(schema.members.workspaceId, ws) : undefined,
           ),
         );
-      return rows.map((r) => ({ ...r, workspaceId: workspaceId(r.workspaceId) }));
+      return rows.map(({ logoSha256, ...r }) => ({
+        ...r,
+        workspaceId: workspaceId(r.workspaceId),
+        logoVersion: logoSha256?.slice(0, 16) ?? null,
+      }));
     });
   }
 }

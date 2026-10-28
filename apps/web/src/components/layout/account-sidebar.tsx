@@ -1,7 +1,8 @@
 import { Link, useRouterState } from '@tanstack/react-router';
-import { Building2, LayoutDashboard, Plus, ShieldCheck } from 'lucide-react';
+import { LayoutDashboard, Plus, ShieldCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { BusinessAvatar } from '@/components/business-avatar';
 import { Logo } from '@/components/logo';
 import {
   Sidebar,
@@ -81,7 +82,7 @@ export function AccountSidebar() {
                     disabled={busy}
                     onClick={() => void choose(m.workspaceId).then((ok) => ok && close())}
                   >
-                    <Building2 />
+                    <BusinessAvatar workspaceId={m.workspaceId} logoVersion={m.logoVersion} />
                     <span className="truncate">{m.workspaceName}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
