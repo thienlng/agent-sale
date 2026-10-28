@@ -1,35 +1,16 @@
-/* Self-hosted font faces for the site; WOFF2 files, licenses and checksums are in public/fonts/. */
-/* Full self-hosted variable fonts, including Vietnamese and combining-mark shaping. See fonts/SOURCES.json. */
-@font-face {
-  font-family: 'Plus Jakarta Sans';
-  font-style: normal;
-  font-weight: 200 800;
-  font-display: swap;
-  src: url('/fonts/plus-jakarta-sans/plus-jakarta-sans-normal-variable.woff2') format('woff2');
-}
-
-@font-face {
-  font-family: 'Plus Jakarta Sans';
-  font-style: italic;
-  font-weight: 200 800;
-  font-display: swap;
-  src: url('/fonts/plus-jakarta-sans/plus-jakarta-sans-italic-variable.woff2') format('woff2');
-}
+/* Space Grotesk for text and headings, JetBrains Mono for small labels (T-123), shared with the
+   dashboard. Self-hosted through @fontsource-variable (OFL-1.1, see THIRD_PARTY_NOTICES.md);
+   the Vietnamese subsets load only for Vietnamese text (unicode-range). */
+@import '@fontsource-variable/space-grotesk';
+@import '@fontsource-variable/jetbrains-mono';
 
 :root {
   --font-body:
-    'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
-    sans-serif;
+    'Space Grotesk Variable', 'Space Grotesk', ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-sans: var(--font-body);
   --font-heading: var(--font-body);
-  --font-brand: 'Fraunces', ui-serif, Georgia, Cambria, 'Times New Roman', serif;
-}
-
-/* Full self-hosted variable fonts, including Vietnamese and combining-mark shaping. See fonts/SOURCES.json. */
-@font-face {
-  font-family: 'Fraunces';
-  font-style: normal;
-  font-weight: 100 900;
-  font-display: swap;
-  src: url('/fonts/fraunces/fraunces-normal-variable.woff2') format('woff2');
+  --font-brand: var(--font-body);
+  --font-mono:
+    'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 }

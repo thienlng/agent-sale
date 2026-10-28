@@ -1,6 +1,6 @@
 # @agent-sales/web
 
-Dashboard SPA (ADR-009): Vite 8, React 19, TanStack Router (file routes in `src/routes`, generated `src/routeTree.gen.ts`), TanStack Query, Tailwind v4, **shadcn/ui** (Radix base, `components.json`), i18next with `@agent-sales/i18n`. Brand tokens (Rapiz orange, Be Vietnam Pro) come from `@agent-sales/ui/tokens.css`.
+Dashboard SPA (ADR-009): Vite 8, React 19, TanStack Router (file routes in `src/routes`, generated `src/routeTree.gen.ts`), TanStack Query, Tailwind v4, **shadcn/ui** (Radix base, `components.json`), i18next with `@agent-sales/i18n`. Brand tokens (Rapiz orange; Space Grotesk text with JetBrains Mono accents, T-123) come from `@agent-sales/ui/tokens.css`; the font files are bundled from `@fontsource-variable/*` in `src/styles.css`.
 
 ```bash
 pnpm --filter @agent-sales/web dev        # http://localhost:5173, /api proxied to :3000

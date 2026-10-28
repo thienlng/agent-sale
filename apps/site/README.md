@@ -32,7 +32,9 @@ On phones the header keeps one call to action (free trial); "Đăng nhập" move
 - The demo conversations are illustrative scenarios in `src/pages/index.astro`, not an AI call.
 - Rabbit illustrations are in `public/images/` (selection rationale: `docs/designs/T-121/ASSET-SELECTION.md`);
   every animation has a still frame for `prefers-reduced-motion`.
-- Fonts (Fraunces for the site, Plus Jakarta Sans) are self-hosted WOFF2 copies with their OFL
-  licenses and checksums in `public/fonts/`.
+- Fonts (T-123, shared with the dashboard): Space Grotesk for text and headings, JetBrains Mono
+  for small uppercase labels, self-hosted via `@fontsource-variable/*` (OFL-1.1; notices in
+  `THIRD_PARTY_NOTICES.md`, licence texts served at `/licenses/`). `e2e/fonts.spec.ts` checks they
+  render Vietnamese with no third-party font requests.
 - Light/dark: the header toggle stores the choice as `rapiz-theme` in localStorage; first visit
   follows the system. Colours are in `src/styles/theme.css`.

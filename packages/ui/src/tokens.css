@@ -1,7 +1,7 @@
 /* Rapiz design tokens — white base, saturated Rapiz orange (owner decision 2026-10-23).
    Variable names follow shadcn/ui so its components pick the brand up unchanged; the extra
-   tokens (success, warning, bubbles, primary-soft) are Rapiz's own. One type family,
-   Be Vietnam Pro (drawn for Vietnamese diacritics), self-hosted by each app.
+   tokens (success, warning, bubbles, primary-soft) are Rapiz's own. Type: Space Grotesk with
+   JetBrains Mono accents (T-123), self-hosted by each app with their Vietnamese subsets.
    docs/16 §1, docs/03 §6. Imported once by each app's global CSS, after tailwindcss. */
 
 :root {
@@ -88,8 +88,12 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-sans: 'Be Vietnam Pro', system-ui, sans-serif;
+  /* Space Grotesk for text and headings, JetBrains Mono for small labels and codes (T-123).
+     Each app loads the files (@fontsource-variable/*); the fallbacks keep Vietnamese readable. */
+  --font-sans: 'Space Grotesk Variable', 'Space Grotesk', system-ui, sans-serif;
   --font-heading: var(--font-sans);
+  --font-mono:
+    'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -161,6 +165,11 @@
   }
   body {
     @apply bg-background text-base text-foreground;
+  }
+  /* Space Grotesk is wide; headings read better slightly tightened. */
+  h1,
+  h2 {
+    letter-spacing: -0.02em;
   }
   button:not(:disabled),
   [role='button']:not(:disabled) {

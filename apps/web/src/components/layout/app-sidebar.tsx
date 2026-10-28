@@ -194,7 +194,10 @@ function NavGroup({
 }) {
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>{label}</SidebarGroupLabel>
+      {/* Mono, uppercase and spaced: a quiet section marker that never competes with the items. */}
+      <SidebarGroupLabel className="font-mono text-[0.6875rem] tracking-[0.12em] uppercase">
+        {label}
+      </SidebarGroupLabel>
       <SidebarMenu>
         <NavItems items={items} />
         {children}

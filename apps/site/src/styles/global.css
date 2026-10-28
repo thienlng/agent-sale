@@ -1782,13 +1782,26 @@ dialog p {
   }
 }
 
-/* Landing typography uses the selected display family; app tokens remain separate. */
+/* Display headings: Space Grotesk bold and slightly tightened (T-123). */
 main h1,
 main h2 {
   font-family: var(--font-brand);
-  font-optical-sizing: auto;
-  font-weight: 500;
-  letter-spacing: -0.035em;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  /* The wider face can leave one word on the last line ("lo."); balance the lines instead. */
+  text-wrap: balance;
+}
+
+/* Small labels in JetBrains Mono, uppercase and spaced: the "technical" accent, used sparingly. */
+.hero-label,
+.sample-label,
+.chat-date,
+.connection-title,
+.scene-chat-heading time,
+.bot-name {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
 }
 /* Keep navigation available without changing the bounded page layout. */
 html {
@@ -1810,7 +1823,7 @@ html {
   }
 }
 
-/* Landing-only typography experiment; shared dashboard tokens stay unchanged. */
+/* The landing page reads in the brand family (same as the dashboard since T-123). */
 :root {
   --font: var(--font-brand);
 }
@@ -1866,7 +1879,7 @@ html {
     font-size: 20px;
   }
 }
-/* A slightly larger reading scale for Fraunces, without enlarging the compact header. */
+/* A slightly larger reading scale for the landing page, without enlarging the compact header. */
 body {
   font-size: 18px;
 }
@@ -1885,7 +1898,7 @@ h1 {
   font-size: 15px;
 }
 .hero-label {
-  font-size: 14px;
+  font-size: 13px;
 }
 .demo-copy h2,
 .section-heading h2,
@@ -1969,7 +1982,7 @@ dialog p {
     font-size: 16px;
   }
   .hero-label {
-    font-size: 13px;
+    font-size: 12px;
   }
   .header nav a {
     font-size: 16px;
