@@ -50,7 +50,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## Blocked
 
-- [ ] T-093 Scope business settings and bot defaults to the selected industry — @agent:codex · [details](todo/T-093-scope-business-settings-and-bot-defaults-to-the-se.md) · blocked: partial: business industry increment delivered; account billing separation awaits T-092/T-091
+- [ ] T-093 Scope business settings and bot defaults to the selected industry — @agent:codex · [details](todo/T-093-scope-business-settings-and-bot-defaults-to-the-se.md) · blocked: partial: business industry increment delivered; account billing separation awaits T-092/T-091 · PR #77 (industry increment)
 
 - [ ] T-082 Unify channel assignment and bulk bot filters — @agent:codex · [details](todo/T-082-unify-channel-assignment-and-bulk-bot-filters.md) · PR #64 · blocked: partial: channel assignment delivered; shop eligibility awaits T-077/T-078/T-080
 
@@ -64,11 +64,11 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## Done (last 10 — older ones live in todo/done/)
 
-- [x] T-118 Split responsive route coverage into independently timed cases — @agent:codex · [details](todo/done/T-118-split-responsive-route-coverage-into-independently.md)
+- [x] T-118 Split responsive route coverage into independently timed cases — @agent:codex · [details](todo/done/T-118-split-responsive-route-coverage-into-independently.md) · PR #77
 
-- [x] T-117 Reconcile lane B delivery and remaining integration dependencies — @agent:codex · [details](todo/done/T-117-reconcile-lane-b-delivery-and-remaining-integratio.md)
+- [x] T-117 Reconcile lane B delivery and remaining integration dependencies — @agent:codex · [details](todo/done/T-117-reconcile-lane-b-delivery-and-remaining-integratio.md) · PR #77
 
-- [x] T-110 Require settings.manage to change fanpage comment automation settings — @agent:codex · [details](todo/done/T-110-require-settings-manage-to-change-fanpage-comment-.md)
+- [x] T-110 Require settings.manage to change fanpage comment automation settings — @agent:codex · [details](todo/done/T-110-require-settings-manage-to-change-fanpage-comment-.md) · PR #77
 
 - [x] T-076 Reduce integration initial bundle below 250 KB — @agent:codex · [details](todo/done/T-076-reduce-integration-initial-bundle-below-250-kb.md) · PR #64
 - [x] T-083 Move fanpage management into the bot workspace navigation — @agent:codex · [details](todo/done/T-083-move-fanpage-management-into-the-bot-workspace-nav.md) · PR #64
