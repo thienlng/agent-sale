@@ -86,6 +86,11 @@ export const ConversationDto = z.object({
    * customer is deleted.
    */
   contactId: z.uuid().nullable().default(null),
+  /**
+   * Who chose `contactId`. Once staff chose (a customer, or none), a phone number or a website
+   * lead no longer changes it.
+   */
+  contactLinkedBy: z.enum(['staff', 'lead', 'phone']).nullable().default(null),
   /** Filled on list and detail reads from the crm tag library; never stored. */
   tags: z.array(ConversationTagChip).default([]),
   followUpAt: z.iso.datetime().nullable().optional(),

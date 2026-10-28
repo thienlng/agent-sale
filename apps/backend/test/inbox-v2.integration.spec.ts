@@ -421,7 +421,7 @@ describe('inbox v2 on Postgres', () => {
     const b = await shop('inbox-contacts-b@shop.vn', 'Shop khác');
     const analyst = await member(a.ws, 'analyst');
     const newBot = async (name: string) => {
-      const r = await call(a.h, 'POST', '/bots', { name, industry: 'retail' });
+      const r = await call(a.h, 'POST', '/bots', { name, industry: 'fashion' });
       expect(r.statusCode, r.body).toBe(201);
       return (r.json() as { id: string }).id;
     };
@@ -523,6 +523,9 @@ describe('inbox v2 on Postgres', () => {
     const unlinked = await set(a.h, ig.id, null);
     expect(unlinked.statusCode, unlinked.body).toBe(200);
     expect(ConversationDto.parse(unlinked.json()).contactId).toBeNull();
+    // Staff's "no customer" sticks: her phone in the next message does not link her again.
+    await onPage2('lan-ig', 'Vẫn số 0903 456 781 nhé', 2);
+    expect(await detail(ig.id)).toMatchObject({ contactId: null, contactLinkedBy: 'staff' });
     const relinked = await set(a.h, ig.id, contactId);
     expect(ConversationDto.parse(relinked.json()).contactId).toBe(contactId);
     expect((await set(analyst.in(a.ws), ig.id, null)).statusCode).toBe(403);

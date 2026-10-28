@@ -48,6 +48,7 @@ export function newConversation(input: {
     customerPhone: null,
     lead: null,
     contactId: null,
+    contactLinkedBy: null,
     tags: [],
     revision: 0,
     lastMessage: '',

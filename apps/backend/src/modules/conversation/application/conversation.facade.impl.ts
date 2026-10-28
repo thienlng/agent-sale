@@ -276,10 +276,12 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
     const botId = await this.store.run(ws, async (tx) => {
       const c = await requireConversation(tx, id);
       if (c.lead?.contactId === lead.contactId && c.lead.phone === lead.phoneE164) return null;
+      // Staff's choice of customer wins over the lead; the lead itself is still recorded.
+      const link = c.contactLinkedBy !== 'staff';
       // A lead is a shop-level annotation like read state: no revision or updatedAt change.
       await tx.save({
         ...c,
-        contactId: lead.contactId,
+        ...(link ? { contactId: lead.contactId, contactLinkedBy: 'lead' as const } : {}),
         lead: {
           contactId: lead.contactId,
           phone: lead.phoneE164,
@@ -287,13 +289,13 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
           seenAt: null,
         },
       });
-      if (c.contactId !== lead.contactId)
+      if (link && c.contactId !== lead.contactId)
         await tx.audit(id, 'conversation.contact.linked.v1', {
           actorId: null,
           contactId: lead.contactId,
           origin: 'lead',
         });
-      return c.botId;
+      return link ? c.botId : null;
     });
     if (botId) await this.crm.recordContactBot(ws, lead.contactId, botId);
   }
@@ -311,9 +313,10 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
     if (contactId) await this.crm.getContact(ws, contactId);
     const c = await this.store.run(ws, async (tx) => {
       const c = await requireConversation(tx, id);
-      if (c.contactId === contactId) return c;
-      // Like a lead, the link annotates the conversation: no revision or updatedAt change.
-      const updated = { ...c, contactId };
+      if (c.contactId === contactId && c.contactLinkedBy === 'staff') return c;
+      // Like a lead, the link annotates the conversation: no revision or updatedAt change. Staff's
+      // choice, even "no customer", is kept: phone numbers and leads stop linking on their own.
+      const updated = { ...c, contactId, contactLinkedBy: 'staff' as const };
       await tx.save(updated);
       await tx.audit(id, 'conversation.contact.linked.v1', { actorId, contactId, origin: 'staff' });
       return updated;
@@ -331,7 +334,12 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
   private async linkCustomer(ws: WorkspaceId, c: ConversationView, previousBotId: string | null) {
     try {
       const phoneE164 = c.customerPhone ? normalizeLeadPhone(c.customerPhone) : null;
-      if (!c.contactId && phoneE164 && (c.provider === 'facebook' || c.provider === 'instagram')) {
+      if (
+        !c.contactId &&
+        c.contactLinkedBy !== 'staff' &&
+        phoneE164 &&
+        (c.provider === 'facebook' || c.provider === 'instagram')
+      ) {
         const named = c.customerName.trim() && c.customerName !== c.customerId;
         const { contactId } = await this.crm.upsertLeadByPhone(ws, {
           phoneE164,
@@ -344,9 +352,9 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
         const linked = await this.store.run(ws, async (tx) => {
           await tx.lockPeer(c.channelId, c.customerId);
           const current = await requireConversation(tx, c.id);
-          // Staff may have linked someone meanwhile: their choice wins.
-          if (current.contactId) return null;
-          await tx.save({ ...current, contactId });
+          // Staff may have chosen meanwhile (someone, or no one): their choice wins.
+          if (current.contactId || current.contactLinkedBy === 'staff') return null;
+          await tx.save({ ...current, contactId, contactLinkedBy: 'phone' });
           await tx.audit(c.id, 'conversation.contact.linked.v1', {
             actorId: null,
             contactId,
