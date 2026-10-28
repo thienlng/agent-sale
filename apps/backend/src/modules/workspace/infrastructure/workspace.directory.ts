@@ -55,6 +55,8 @@ export class DrizzleWorkspaceDirectory implements WorkspaceDirectory {
           logoSha256: sql<
             string | null
           >`(select ${schema.workspaceAssets.sha256} from ${schema.workspaceAssets} where ${schema.workspaceAssets.id} = ${schema.workspaces.logoAssetId})`,
+          industry: schema.workspaces.industry,
+          accountId: schema.workspaces.accountId,
         })
         .from(schema.members)
         .innerJoin(schema.workspaces, eq(schema.workspaces.id, schema.members.workspaceId))
@@ -94,8 +96,15 @@ export class InMemoryWorkspaceDirectory implements WorkspaceDirectory {
     for (const m of this.store.members.rows) {
       if (m.userId !== user || m.status !== 'active') continue;
       const w = await this.store.workspaces.findById(m.workspaceId);
-      if (w)
-        out.push({ workspaceId: m.workspaceId, workspaceName: w.snapshot().name, role: m.role });
+      if (!w) continue;
+      const s = w.snapshot();
+      out.push({
+        workspaceId: m.workspaceId,
+        workspaceName: s.name,
+        role: m.role,
+        industry: s.industry,
+        accountId: s.accountId,
+      });
     }
     return out;
   }

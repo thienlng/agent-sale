@@ -9,6 +9,8 @@ export interface WorkspaceMembership {
   logoVersion?: string | null;
   /** Icon shown when there is no logo. */
   icon?: string;
+  industry: string;
+  accountId: string | null;
 }
 
 /** A member of one workspace (removed ones only when asked for). */

@@ -25,6 +25,13 @@ export function accountNameFor(businessName: string): string {
   return businessName.trim().slice(0, 120);
 }
 
+/** An account the user belongs to, with their account role (never business access). */
+export interface AccountMembership {
+  accountId: string;
+  name: string;
+  role: AccountRole;
+}
+
 export interface NewAccount {
   id: string;
   name: string;

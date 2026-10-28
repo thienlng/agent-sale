@@ -7,6 +7,7 @@ import type {
 import type { UserId } from '@agent-sales/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
+import { ACCOUNT_FACADE, type AccountFacade } from '../../../account/api/index.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../../workspace/api/index.js';
 import {
   EmailTakenError,
@@ -118,6 +119,7 @@ export class AccountQueries implements IdentityFacade {
   constructor(
     @Inject(USER_REPOSITORY) private readonly users: UserRepository,
     @Inject(WORKSPACE_FACADE) private readonly workspaces: WorkspaceFacade,
+    @Inject(ACCOUNT_FACADE) private readonly accounts: AccountFacade,
   ) {}
 
   async me(userId: UserId): Promise<UserDto> {
@@ -141,10 +143,22 @@ export class AccountQueries implements IdentityFacade {
   }
 
   async bootstrap(userId: UserId): Promise<BootstrapResponse> {
-    const [user, memberships] = await Promise.all([
+    const [user, memberships, accounts] = await Promise.all([
       this.me(userId),
       this.workspaces.listMemberships(userId),
+      this.accounts.listForUser(userId),
     ]);
-    return { user, memberships };
+    // Only accounts owning a business the user is a member of are named (switcher grouping).
+    const names = await this.accounts.namesOf(
+      memberships.flatMap((m) => (m.accountId ? [m.accountId] : [])),
+    );
+    return {
+      user,
+      accounts,
+      memberships: memberships.map((m) => ({
+        ...m,
+        accountName: m.accountId ? (names.get(m.accountId) ?? null) : null,
+      })),
+    };
   }
 }
