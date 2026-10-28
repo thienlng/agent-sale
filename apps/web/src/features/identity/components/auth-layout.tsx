@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Logo } from '@/components/logo';
+import { siteUrl } from '@/lib/env';
 
 /**
  * Two halves: the form, and the one thing Rapiz does — a customer typing the
@@ -13,7 +14,14 @@ export function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <div className="grid min-h-dvh lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
       <div className="flex flex-col px-6 py-8 sm:px-12">
-        <Logo />
+        {/* Visitors here may still be deciding: the logo leads back to the marketing site. */}
+        <a
+          href={siteUrl()}
+          aria-label={t('account.home')}
+          className="self-start rounded-md focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
+        >
+          <Logo />
+        </a>
         <div className="flex flex-1 items-center">
           <div className="mx-auto w-full max-w-sm py-10">{children}</div>
         </div>

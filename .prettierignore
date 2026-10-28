@@ -10,3 +10,5 @@ pnpm-lock.yaml
 **/*.hbs
 # Private runtime state (credentials) is never formatted or committed.
 services/hermes/var
+# Astro's generated types (apps/site)
+.astro

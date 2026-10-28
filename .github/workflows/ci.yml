@@ -69,6 +69,31 @@ jobs:
       - name: Test
         run: python -I -m unittest discover -s services/hermes -p 'test_*.py' -v
 
+  site:
+    name: site (build + browser checks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/site
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+        working-directory: .
+      - name: Build
+        run: pnpm build
+      - name: Playwright browser
+        run: pnpm exec playwright install --with-deps chromium
+      # Links into the app, demo, theme, reduced motion, layout widths and self-hosted fonts.
+      - name: Browser checks
+        run: pnpm test:e2e
+
   web:
     name: web (e2e smoke + Lighthouse)
     runs-on: ubuntu-latest

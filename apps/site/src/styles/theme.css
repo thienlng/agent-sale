@@ -1,0 +1,225 @@
+:root {
+  --background: #fff;
+  color-scheme: light;
+}
+:root[data-theme='dark'] {
+  --background: #151615;
+  --ink: #eeeeea;
+  --muted: #b0b5a9;
+  --line: #343731;
+  --panel: #20221f;
+  color-scheme: dark;
+}
+body {
+  background: var(--background);
+}
+.theme-toggle {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  margin-left: 0;
+}
+.theme-toggle:hover {
+  background: var(--panel);
+}
+.theme-sun {
+  display: none;
+}
+[data-theme='dark'] .theme-sun {
+  display: block;
+}
+[data-theme='dark'] .theme-moon {
+  display: none;
+}
+.nav-cta {
+  margin-left: 0;
+}
+.scene-chat {
+  color: #20221f;
+}
+[data-theme='dark'] ::selection {
+  background: #735036;
+  color: #fff;
+}
+[data-theme='dark'] .brand-icon {
+  background: #fff;
+  border-radius: 9px;
+}
+[data-theme='dark'] .nav-cta,
+[data-theme='dark'] .primary {
+  color: #20221f;
+}
+[data-theme='dark'] .nav-cta:hover,
+[data-theme='dark'] .primary:hover {
+  background: #d4d9cc;
+}
+[data-theme='dark'] .secondary {
+  background: #2b2e27;
+  color: #d8ded0;
+}
+[data-theme='dark'] .secondary:hover {
+  background: #373c30;
+}
+[data-theme='dark'] .hero-label,
+[data-theme='dark'] .channels > p,
+[data-theme='dark'] .channel-list > span,
+[data-theme='dark'] .demo-copy > p.demo-note,
+[data-theme='dark'] .chat-brand small,
+[data-theme='dark'] .sample-label,
+[data-theme='dark'] .chat-date,
+[data-theme='dark'] .bot-name,
+[data-theme='dark'] .product-preview small,
+[data-theme='dark'] .product-preview div > span:not(#product-symbol),
+[data-theme='dark'] .chat-source,
+[data-theme='dark'] .chat-input,
+[data-theme='dark'] .handoff-preview p,
+[data-theme='dark'] .connection-section small,
+[data-theme='dark'] .connection-title,
+[data-theme='dark'] .connection-arrow,
+[data-theme='dark'] .step-number,
+[data-theme='dark'] .faq-list summary > span,
+[data-theme='dark'] .footer-top > p,
+[data-theme='dark'] .footer-bottom {
+  color: #a9b19e;
+}
+[data-theme='dark'] .industry-tabs button {
+  background: var(--background);
+  border-color: #41473a;
+}
+[data-theme='dark'] .industry-tabs button[aria-selected='true'] {
+  background: #3c2c20;
+  color: #ffbd8d;
+  border-color: #7f5436;
+}
+[data-theme='dark'] .industry-tabs button:hover {
+  background: #2b3024;
+}
+[data-theme='dark'] .chat-stage {
+  background: #23271f;
+}
+[data-theme='dark'] .chat-window,
+[data-theme='dark'] .file,
+[data-theme='dark'] .handoff-preview {
+  background: #1a1d18;
+  border-color: #3a4033;
+}
+[data-theme='dark'] .chat-header {
+  border-color: #343b2b;
+}
+[data-theme='dark'] .sample-label {
+  background: #2b3124;
+}
+[data-theme='dark'] .customer {
+  background: #2d3327;
+}
+[data-theme='dark'] .bot {
+  background: #392b20;
+}
+[data-theme='dark'] .product-preview,
+[data-theme='dark'] .chat-input {
+  border-color: #3a4033;
+}
+[data-theme='dark'] .product-art {
+  background: #44483a;
+}
+[data-theme='dark'] .product-art > span {
+  color: #ccd7b9;
+}
+[data-theme='dark'] .chat-input > span:last-child {
+  background: #353e2b;
+  color: #c2ceb2;
+}
+[data-theme='dark'] .file > span,
+[data-theme='dark'] .file > b {
+  color: #a7b48f;
+}
+[data-theme='dark'] .human-avatar {
+  background: #3e4b31;
+  border-color: #2c3523;
+  color: #d6e2c6;
+}
+[data-theme='dark'] .flow-line {
+  border-color: #536146;
+}
+[data-theme='dark'] .connection-panel {
+  background: #1c2019;
+  border-color: #363e2d;
+}
+[data-theme='dark'] .connection-row {
+  border-color: #343b2b;
+}
+[data-theme='dark'] .connection-row .channel-icon {
+  color: #afbd9a;
+}
+[data-theme='dark'] .step-number {
+  border-color: #505b43;
+}
+[data-theme='dark'] .closing {
+  background: var(--panel);
+}
+[data-theme='dark'] .closing > .rabbit-avatar {
+  background: #fff;
+}
+[data-theme='dark'] .closing > .rabbit-avatar img {
+  mix-blend-mode: normal;
+}
+[data-theme='dark'] .skip {
+  color: #20221f;
+}
+[data-theme='dark'] dialog {
+  background: var(--background);
+}
+[data-theme='dark'] dialog::backdrop {
+  background: #0009;
+}
+[data-theme='dark'] .header nav a:hover,
+[data-theme='dark'] .footer-top a:hover,
+[data-theme='dark'] .footer-top button:hover {
+  color: #ffb880;
+}
+@media (max-width: 1000px) and (min-width: 701px) {
+  .header {
+    gap: 17px;
+  }
+  .header nav {
+    gap: 17px;
+  }
+  .nav-cta {
+    padding-inline: 17px;
+  }
+}
+@media (max-width: 700px) {
+  .theme-toggle {
+    margin-left: auto;
+    width: 30px;
+    height: 30px;
+  }
+  .nav-cta {
+    margin-left: 0;
+  }
+  .header {
+    gap: 10px;
+  }
+  [data-theme='dark'] .header nav {
+    background: var(--background);
+  }
+}
+[data-theme='dark'] .team-art .handoff-preview {
+  background: #ffffffed;
+  border-color: #ffe1dd;
+  color: #414a38;
+}
+[data-theme='dark'] .team-art .handoff-preview p {
+  color: #69705e;
+}
+[data-theme='dark'] .rabbit-lineup,
+[data-theme='dark'] .setup-heading-art > img {
+  filter: invert(1);
+  mix-blend-mode: screen;
+}

@@ -1,0 +1,143 @@
+---
+import '../styles/typography.css';
+import '../styles/global.css';
+import '../styles/theme.css';
+import '../styles/app-links.css';
+import { loginUrl, signupUrl } from '../lib/app-links';
+const assetBase = '/images/friends/';
+const capabilityArt = [
+ {src:'rabbit-rest.jpeg', width:735, height:542, title:'Trả lời ngoài giờ', text:'Khách nhắn lúc tối muộn vẫn được hỗ trợ, kể cả khi đội ngũ đã hết ca.'},
+ {src:'curious-rabbit.webp', still:'curious-rabbit-still.png', width:480, height:360, title:'Theo sát cuộc trò chuyện', text:'Giữ ngữ cảnh để hỏi thêm và trả lời khi khách tiếp tục trao đổi.'},
+ {src:'rabbit-hug.jpeg', width:690, height:794, title:'Ghi nhận nhu cầu', text:'Lưu thông tin khách chia sẻ để nhân viên có cơ sở tư vấn và chăm sóc tiếp.'},
+ {src:'bouncing-rabbit.webp', still:'bouncing-rabbit-still.png', width:480, height:360, title:'Phù hợp với từng ngành', text:'Thiết lập kiến thức riêng cho cửa hàng, trung tâm giáo dục hoặc doanh nghiệp dịch vụ.'},
+];
+const channels = ['Facebook', 'Zalo', 'Instagram', 'TikTok', 'Website'];
+const faqs = [
+ ['Rapiz trả lời khách dựa trên thông tin nào?', 'Rapiz sử dụng thông tin sản phẩm, tài liệu, bảng giá và chính sách bạn cung cấp. Bạn có thể kiểm tra câu trả lời bằng hội thoại thử trước khi đưa vào sử dụng.'],
+ ['Rapiz phù hợp với ngành nào?', 'Các cửa hàng bán lẻ, thời trang, mỹ phẩm hoặc doanh nghiệp giáo dục và dịch vụ có nhiều câu hỏi lặp lại từ khách hàng. Mỗi ngành cần thông tin và hướng dẫn tư vấn riêng.'],
+ ['Khi nào cần nhân viên tiếp nhận?', 'Khi khách cần tư vấn chuyên sâu, yêu cầu gặp nhân viên hoặc hỏi ngoài phạm vi kiến thức đã cung cấp. Nhân viên tiếp tục trao đổi dựa trên ngữ cảnh sẵn có.'],
+ ['Có thể kết nối những kênh nào?', 'Facebook, Zalo OA, Instagram, TikTok và website nằm trong phạm vi đa kênh của Rapiz. Kênh có thể sử dụng sẽ được xác nhận khi triển khai, tùy quyền tài khoản và phê duyệt của nền tảng.'],
+ ['Tôi cần chuẩn bị gì trước khi dùng?', 'Bạn cần thông tin sản phẩm, chính sách bán hàng, những câu hỏi khách thường hỏi và quyền quản trị kênh muốn kết nối. Hãy chọn thêm người phụ trách tiếp nhận khi khách cần gặp nhân viên.'],
+ ['Tôi có thể dùng thử không?', 'Có. Bạn có thể tạo tài khoản miễn phí để thử Rapiz với thông tin cửa hàng của mình. Các cuộc hội thoại ở phần “Xem demo” trên trang này là ví dụ minh họa, chưa kết nối AI trực tiếp.'],
+];
+---
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Rapiz | AI hỗ trợ tư vấn bán hàng 24/7</title>
+<meta name="description" content="Rapiz hỗ trợ trả lời khách hàng theo thông tin sản phẩm và chính sách của bạn. Tư vấn ngoài giờ, ghi nhận nhu cầu và chuyển cho nhân viên khi cần."/>
+<meta name="theme-color" content="#ffffff"/>
+<script is:inline>
+(() => {
+ let saved;
+ try { saved = localStorage.getItem('rapiz-theme'); } catch {}
+ const theme = saved === 'light' || saved === 'dark' ? saved : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+ document.documentElement.dataset.theme = theme;
+ document.querySelector('meta[name="theme-color"]').setAttribute('content', theme === 'dark' ? '#151615' : '#ffffff');
+})();
+</script><link rel="icon" href="/images/rapiz-logo.jpeg"/>
+<link rel="preload" href="/fonts/fraunces/fraunces-normal-variable.woff2" as="font" type="font/woff2" crossorigin/>
+</head>
+<body>
+<a class="skip" href="#main">Đến nội dung chính</a>
+<header class="header wrap">
+<a class="brand" href="#" aria-label="Rapiz trang chủ"><span class="brand-icon"><img src="/images/rapiz-logo.jpeg" alt="" width="102" height="76"/></span>rapiz</a>
+<nav aria-label="Điều hướng chính" id="navigation"><a href="#product">Sản phẩm</a><a href="#solutions">Ứng dụng</a><a href="#how-it-works">Cách bắt đầu</a><a href="#faq">Hỏi đáp</a><a class="nav-login-mobile" href={loginUrl}>Đăng nhập</a></nav>
+<button class="theme-toggle" type="button" aria-label="Bật giao diện tối" aria-pressed="false" title="Bật giao diện tối">
+<svg class="theme-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20.5 13.4A8.5 8.5 0 0 1 10.6 3.5a8.5 8.5 0 1 0 9.9 9.9Z"/></svg>
+<svg class="theme-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path stroke-linecap="round" d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg>
+</button><a class="nav-login" href={loginUrl}>Đăng nhập</a><a class="nav-cta" href={signupUrl}>Dùng thử miễn phí</a><button class="menu-toggle" aria-expanded="false" aria-controls="navigation" aria-label="Mở menu">☰</button>
+</header>
+<main id="main" class="wrap">
+<section class="hero">
+<p class="hero-label"><span class="status-dot"></span> Chào bạn, mình là Rapiz</p>
+<h1>Thêm một trợ lý.<br/>Bớt một việc phải lo.</h1>
+<p class="hero-description">Rapiz hỗ trợ tư vấn bán hàng 24/7, trả lời theo thông tin của<br class="desktop-break"/> doanh nghiệp và chuyển cho nhân viên khi khách cần.</p>
+<div class="hero-actions"><a class="button primary" href={signupUrl}>Dùng thử miễn phí</a><button class="button secondary" data-demo>Xem Rapiz tư vấn</button></div>
+<div class="hero-scene">
+<img class="rabbit" src="/images/rapiz-rabbit.gif" alt="Chú thỏ trắng Rapiz chuyển động trên nền cam" width="800" height="600" fetchpriority="high"/>
+<div class="scene-chat"><div class="scene-chat-heading"><span class="social-icon">f</span><span>Tin nhắn từ khách</span><time>23:48</time></div><p>Shop ơi, giờ này còn tư vấn không?</p><div class="scene-answer"><span class="rabbit-avatar"><img src="/images/rapiz-logo.jpeg" alt=""/></span><p>Có mình đây. Bạn cần tìm sản phẩm gì ạ?</p></div></div>
+<div class="scene-presence"><span class="status-dot"></span> Rapiz vẫn ở đây khi bạn nghỉ ngơi.</div>
+<span class="scene-time">24/7</span>
+</div>
+<div class="channels"><p>Cho những nơi khách hàng thường nhắn tin</p><div class="channel-list">{channels.map((channel,i)=><span><b class:list={['channel-icon',`channel-${i}`]} aria-hidden="true">{['f','Z','◎','♪','⊕'][i]}</b>{channel}</span>)}</div></div>
+</section>
+<section class="intro section" id="product"><h2>Khách hỏi. Rapiz trả lời.</h2><p>Giá bao nhiêu, chọn size nào, chính sách đổi trả ra sao?<br class="desktop-break"/> Rapiz xử lý những câu hỏi quen thuộc để đội ngũ có thời gian tư vấn các trường hợp cần trao đổi kỹ hơn.</p><img class="rabbit-lineup" src="/images/friends/rabbit-lineup.jpeg" alt="" width="736" height="981" loading="lazy" decoding="async"/></section>
+<section class="demo-section section" id="solutions">
+<div class="demo-copy"><picture class="hanging-sticker"><source media="(prefers-reduced-motion: reduce)" srcset="/images/friends/hanging-rabbit-still.png"/><img class="friend-animation" src="/images/friends/hanging-rabbit.gif" alt="" width="400" height="300" loading="lazy" decoding="async"/></picture><h2>Thử một cuộc<br/>trò chuyện với Rapiz.</h2><p>Chọn ngành của bạn để xem Rapiz hỏi thêm nhu cầu và gợi ý cách tư vấn phù hợp.</p>
+<div class="industry-tabs" role="tablist" aria-label="Chọn ngành minh họa"><button role="tab" aria-selected="true" aria-controls="conversation" id="tab-fashion" data-industry="fashion">Thời trang</button><button role="tab" aria-selected="false" aria-controls="conversation" id="tab-beauty" data-industry="beauty" tabindex="-1">Làm đẹp</button><button role="tab" aria-selected="false" aria-controls="conversation" id="tab-education" data-industry="education" tabindex="-1">Giáo dục</button><button role="tab" aria-selected="false" aria-controls="conversation" id="tab-service" data-industry="service" tabindex="-1">Dịch vụ</button></div>
+<p class="demo-note">Hội thoại mẫu, chưa kết nối AI trực tiếp.</p>
+</div>
+<div class="chat-stage"><div class="chat-window"><div class="chat-header"><div class="chat-brand"><span class="rabbit-avatar"><img src="/images/rapiz-logo.jpeg" alt=""/></span><div><strong>Rapiz</strong><small><span class="status-dot"></span> Trợ lý tư vấn</small></div></div><span class="sample-label">Demo</span></div>
+<div id="conversation" class="conversation" role="tabpanel" aria-labelledby="tab-fashion" aria-live="polite"><span class="chat-date">Hôm nay</span><div class="bubble customer" id="customer-message">Mình cao 1m62, thích áo mặc thoải mái. Shop tư vấn giúp mình nhé?</div><div class="bot-name">Rapiz</div><div class="bubble bot" id="bot-message">Dạ, bạn thích form rộng thì mẫu Everyday Tee sẽ hợp đó ạ. Bạn cho mình xin cân nặng để tư vấn size chính xác hơn nhé!</div><div class="product-preview"><div class="product-art"><svg viewBox="0 0 100 100" aria-hidden="true"><path d="M32 17 17 24 6 45 25 54 31 42 28 89 73 89 70 42 77 54 96 45 84 24 68 17C65 32 36 32 32 17Z" fill="#faf8ec" stroke="#d7d3bf" stroke-width="2"/></svg><span id="product-symbol" hidden></span></div><div><small id="product-label">Sản phẩm gợi ý</small><strong id="product-name">Everyday Tee</strong><span id="product-detail">Cotton mềm mại, form rộng</span></div></div><div class="chat-source">Theo thông tin cửa hàng cung cấp</div></div><div class="chat-input"><span>Chọn ngành để xem hội thoại mẫu</span><span aria-hidden="true">↑</span></div></div></div>
+</section>
+<section class="features section"><div class="section-heading"><h2>Bắt đầu từ thông tin<br/>doanh nghiệp của bạn.</h2><p>Bạn cung cấp kiến thức và hướng dẫn.<br class="desktop-break"/> Rapiz dựa vào đó để hỗ trợ khách hàng.</p></div>
+<div class="feature-grid"><article class="feature-card"><div class="knowledge-art"><div class="file"><span aria-hidden="true">▤</span> Danh mục sản phẩm <b>✓</b></div><div class="file"><span aria-hidden="true">▧</span> Chính sách đổi trả <b>✓</b></div><div class="file"><span aria-hidden="true">≡</span> Câu hỏi thường gặp <b>✓</b></div></div><h3>Tư vấn theo dữ liệu của bạn</h3><p>Thêm thông tin sản phẩm, bảng giá và chính sách. Kiểm tra câu trả lời trước khi dùng để Rapiz tư vấn đúng phạm vi bạn cho phép.</p></article>
+<article class="feature-card"><div class="handoff-art team-art"><picture><source media="(prefers-reduced-motion: reduce)" srcset="/images/friends/team-rabbits-still.png"/><img class="friend-animation team-rabbits" src="/images/friends/team-rabbits.gif" alt="" width="500" height="500" loading="lazy" decoding="async"/></picture><div class="handoff-preview"><span class="status-dot"></span><div><strong>Chuyển cho Linh tư vấn</strong><p>Đã gửi kèm nhu cầu của khách.</p></div></div></div><h3>Nhân viên tiếp nhận khi cần</h3><p>Khách cần trao đổi sâu hơn hoặc muốn gặp người thật? Chuyển cuộc trò chuyện cùng thông tin đã ghi nhận để nhân viên tiếp tục hỗ trợ.</p></article></div>
+</section>
+<section class="capabilities section"><div class="section-heading"><h2>Hỗ trợ những việc<br/>lặp lại mỗi ngày.</h2><p>Từ câu hỏi đầu tiên đến lúc<br class="desktop-break"/> nhân viên liên hệ lại với khách.</p></div><div class="capability-grid">{capabilityArt.map(art=><article><div class="capability-copy"><h3>{art.title}</h3><p>{art.text}</p></div><picture class:list={['capability-art',{'is-photo':art.src==='rabbit-hug.jpeg'}]}>{art.still && <source media="(prefers-reduced-motion: reduce)" srcset={assetBase+art.still}/>}<img class:list={{'friend-animation':!!art.still}} src={assetBase+art.src} alt="" width={art.width} height={art.height} loading="lazy" decoding="async"/></picture></article>)}</div></section>
+<section class="connection-section section"><div><h2>Khách nhắn ở đâu,<br/>bạn theo dõi ở đó.</h2><p>Rapiz hướng tới việc tập trung hội thoại từ các kênh bán hàng, giúp đội ngũ quản lý và tiếp nhận khách trong cùng một quy trình.</p><small>Kênh có thể kết nối sẽ được xác nhận khi triển khai, tùy quyền tài khoản và phê duyệt của nền tảng.</small></div><div class="connection-panel"><span class="connection-title">Các kênh của doanh nghiệp</span>{channels.map((channel,i)=><div class="connection-row"><span class:list={['channel-icon',`channel-${i}`]} aria-hidden="true">{['f','Z','◎','♪','⊕'][i]}</span><span>{channel}</span><span class="connection-arrow" aria-hidden="true">↗</span></div>)}</div></section>
+<section class="setup section" id="how-it-works"><div class="section-heading"><h2>Đưa Rapiz vào<br/>công việc của bạn.</h2><div class="setup-heading-art"><p>Chuẩn bị thông tin, kiểm tra câu trả lời,<br class="desktop-break"/> rồi chọn kênh phù hợp để bắt đầu.</p><img src="/images/friends/rabbit-doodles.jpeg" alt="" width="716" height="728" loading="lazy" decoding="async"/></div></div><div class="setup-grid"><article><picture class="step-art carrot-art"><source media="(prefers-reduced-motion: reduce)" srcset="/images/friends/carrot-rabbit-still.png"/><img class="friend-animation" src="/images/friends/carrot-rabbit.gif" alt="" width="580" height="350" loading="lazy" decoding="async"/></picture><span class="step-number">1</span><h3>Thêm kiến thức</h3><p>Cung cấp danh mục sản phẩm, bảng giá, chính sách và những câu khách thường hỏi.</p></article><article><div class="step-art brave-art"><img src="/images/friends/brave-rabbit.jpeg" alt="" width="736" height="732" loading="lazy" decoding="async"/></div><span class="step-number">2</span><h3>Thử và điều chỉnh</h3><p>Đặt câu hỏi như khách hàng thực tế. Bổ sung thông tin và quy tắc chuyển cho nhân viên.</p></article><article><div class="step-art friends-art"><img src="/images/friends/rabbit-friends.jpeg" alt="" width="736" height="736" loading="lazy" decoding="async"/></div><span class="step-number">3</span><h3>Kết nối kênh bán hàng</h3><p>Cấu hình kênh được hỗ trợ và người tiếp nhận, sau đó theo dõi để tiếp tục cải thiện câu trả lời.</p></article></div></section>
+<section class="faq-section section" id="faq"><div class="faq-intro"><h2>Bạn muốn<br/>biết thêm?</h2><img class="shy-rabbit" src="/images/friends/shy-rabbit.jpeg" alt="" width="736" height="736" loading="lazy" decoding="async"/></div><div class="faq-list">{faqs.map(([question,answer])=><details><summary>{question}<span aria-hidden="true">+</span></summary><p>{answer}</p></details>)}</div></section>
+<section class="closing"><div class="closing-art"><picture><source media="(prefers-reduced-motion: reduce)" srcset="/images/friends/rocking-rabbit-still.png"/><img class="friend-animation rocking-rabbit" src="/images/friends/rocking-rabbit.gif" alt="" width="800" height="600" loading="lazy" decoding="async"/></picture></div><div class="closing-copy"><h2>Xem Rapiz tư vấn<br/>cho ngành của bạn.</h2><p>Tạo tài khoản miễn phí, thêm thông tin cửa hàng và thử với câu hỏi của khách bạn.</p><div class="closing-actions"><a class="button primary" href={signupUrl}>Dùng thử miễn phí</a><button class="button secondary" data-demo>Xem demo hội thoại</button></div></div></section>
+</main>
+<footer class="wrap"><div class="footer-top"><a class="brand" href="#" aria-label="Rapiz trang chủ"><span class="brand-icon"><img src="/images/rapiz-logo.jpeg" alt="" loading="lazy" width="102" height="76"/></span>rapiz</a><p>AI hỗ trợ tư vấn bán hàng 24/7.</p><div><a href="#product">Sản phẩm</a><a href="#how-it-works">Cách bắt đầu</a><button data-contact>Về bản demo</button><a href={loginUrl}>Đăng nhập</a></div></div><div class="footer-bottom"><span>© {new Date().getFullYear()} Rapiz</span><a href="#">Lên đầu trang ↑</a></div></footer>
+<dialog id="contact-dialog" aria-labelledby="dialog-title"><button class="dialog-close" aria-label="Đóng">×</button><h2 id="dialog-title">Về bản demo Rapiz</h2><p>Các cuộc hội thoại trên trang là ví dụ minh họa, chưa kết nối AI trực tiếp. Để thử Rapiz với thông tin cửa hàng của bạn, hãy tạo tài khoản miễn phí.</p><div class="dialog-actions"><a class="button primary" href={signupUrl}>Dùng thử miễn phí</a><button class="button secondary" id="explore-demo">Xem demo hội thoại</button></div></dialog>
+<script>
+const themeToggle = document.querySelector<HTMLButtonElement>('.theme-toggle')!;
+const colorPreference = matchMedia('(prefers-color-scheme: dark)');
+function savedTheme() {
+ try { return localStorage.getItem('rapiz-theme'); } catch { return null; }
+}
+function applyTheme(theme: 'dark' | 'light') {
+ document.documentElement.dataset.theme = theme;
+ const dark = theme === 'dark';
+ themeToggle.setAttribute('aria-pressed', String(dark));
+ const label = dark ? 'Bật giao diện sáng' : 'Bật giao diện tối';
+ themeToggle.setAttribute('aria-label', label);
+ themeToggle.title = label;
+ document.querySelector('meta[name="theme-color"]')!.setAttribute('content', dark ? '#151615' : '#ffffff');
+}
+function applyPreference() {
+ const saved = savedTheme();
+ applyTheme(saved === 'dark' || saved === 'light' ? saved : (colorPreference.matches ? 'dark' : 'light'));
+}
+applyPreference();
+themeToggle.addEventListener('click', () => {
+ const theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+ try { localStorage.setItem('rapiz-theme', theme); } catch {}
+ applyTheme(theme);
+});
+colorPreference.addEventListener('change', () => { const saved = savedTheme(); if (saved !== 'dark' && saved !== 'light') applyPreference(); });
+window.addEventListener('storage', event => { if (event.key === 'rapiz-theme' || event.key === null) applyPreference(); });
+const scenarios = {
+ fashion: { customer:'Mình cao 1m62, thích áo mặc thoải mái. Shop tư vấn giúp mình nhé?', bot:'Dạ, bạn thích form rộng thì mẫu Everyday Tee sẽ hợp đó ạ. Bạn cho mình xin cân nặng để tư vấn size chính xác hơn nhé!', name:'Everyday Tee', detail:'Cotton mềm mại, form rộng', label:'Sản phẩm gợi ý', symbol:'' },
+ beauty: { customer:'Mình muốn tìm sản phẩm dưỡng ẩm, da mình khá nhạy cảm.', bot:'Mình hiểu rồi ạ. Để gợi ý theo thông tin sản phẩm của shop, bạn cho mình biết da đang thiên khô hay thiên dầu và có thành phần nào cần tránh không nhé?', name:'Tìm sản phẩm dưỡng ẩm', detail:'Hỏi thêm loại da và thành phần cần tránh', label:'Tư vấn làm đẹp', symbol:'✳' },
+ education: { customer:'Mình đi làm rồi, muốn học tiếng Anh buổi tối thì có lớp nào phù hợp?', bot:'Dạ, mình sẽ giúp bạn tìm lớp theo lịch học của trung tâm. Bạn muốn tập trung giao tiếp hay luyện thi, và thường rảnh những buổi tối nào ạ?', name:'Tìm lớp tiếng Anh buổi tối', detail:'Hỏi mục tiêu học và lịch rảnh', label:'Tư vấn khóa học', symbol:'Aa' },
+ service: { customer:'Mình muốn tìm hiểu gói dịch vụ cho đội ngũ 10 người.', bot:'Dạ, bạn cho mình biết đội ngũ đang cần hỗ trợ công việc gì nhé? Mình sẽ ghi nhận nhu cầu và kết nối bạn với tư vấn viên để trao đổi gói phù hợp.', name:'Chuyển cho nhân viên tư vấn', detail:'Ghi nhận nhu cầu của đội ngũ', label:'Tư vấn dịch vụ', symbol:'⌘' }
+};
+const tabs = [...document.querySelectorAll<HTMLButtonElement>('[data-industry]')];
+function selectIndustry(tab: HTMLButtonElement) {
+ const key = tab.dataset.industry as keyof typeof scenarios;
+ const data = scenarios[key];
+ tabs.forEach(t => {t.setAttribute('aria-selected', String(t === tab));t.tabIndex=t===tab?0:-1;});
+ document.querySelector('#conversation')!.setAttribute('aria-labelledby',tab.id);
+ for(const [id,value] of [['customer-message',data.customer],['bot-message',data.bot],['product-name',data.name],['product-detail',data.detail],['product-label',data.label]]) document.getElementById(id)!.textContent=value;
+ const symbol=document.getElementById('product-symbol')!;symbol.textContent=data.symbol;symbol.hidden=!data.symbol;
+ document.querySelector<SVGElement>('.product-art svg')!.style.display=data.symbol?'none':'block';
+}
+tabs.forEach((tab,index)=>{tab.addEventListener('click',()=>selectIndustry(tab));tab.addEventListener('keydown',(event)=>{let next=index;if(event.key==='ArrowRight')next=(index+1)%tabs.length;else if(event.key==='ArrowLeft')next=(index-1+tabs.length)%tabs.length;else if(event.key==='Home')next=0;else if(event.key==='End')next=tabs.length-1;else return;event.preventDefault();tabs[next].focus();selectIndustry(tabs[next]);});});
+const dialog=document.querySelector<HTMLDialogElement>('#contact-dialog')!;
+document.querySelectorAll('[data-contact]').forEach(button=>button.addEventListener('click',()=>dialog.showModal()));
+document.querySelector('.dialog-close')!.addEventListener('click',()=>dialog.close());
+dialog.addEventListener('click',event=>{if(event.target===dialog){const rect=dialog.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)dialog.close();}});
+function showDemo(){dialog.close();document.getElementById('solutions')!.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});tabs[0].focus({preventScroll:true});}
+document.querySelectorAll('[data-demo]').forEach(button=>button.addEventListener('click',showDemo));
+document.querySelector('#explore-demo')!.addEventListener('click',showDemo);
+const menu=document.querySelector<HTMLButtonElement>('.menu-toggle')!;
+menu.addEventListener('click',()=>{const open=menu.getAttribute('aria-expanded')!=='true';menu.setAttribute('aria-expanded',String(open));document.querySelector('#navigation')!.classList.toggle('open',open);menu.setAttribute('aria-label',open?'Đóng menu':'Mở menu');});
+document.querySelectorAll('#navigation a').forEach(link=>link.addEventListener('click',()=>{menu.setAttribute('aria-expanded','false');menu.setAttribute('aria-label','Mở menu');document.querySelector('#navigation')!.classList.remove('open');}));
+if(matchMedia('(prefers-reduced-motion: reduce)').matches){const rabbit=document.querySelector<HTMLImageElement>('.rabbit');if(rabbit)rabbit.src='/images/rapiz-rabbit-still.png';}
+</script>
+</body></html>

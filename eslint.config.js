@@ -116,6 +116,7 @@ export default tseslint.config(
       '**/coverage/**',
       'pnpm-lock.yaml',
       '**/routeTree.gen.ts',
+      '**/.astro/**',
     ],
   },
   js.configs.recommended,

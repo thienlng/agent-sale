@@ -9,7 +9,7 @@ agent-sale-src/
 │   ├── webhook/           # thin Fastify app (no NestJS) — verify, persist, enqueue channel/payment/carrier webhooks
 │   ├── web/               # Vite + React SPA — dashboard (app.<domain>), served from CDN; src/features/<module>
 │   ├── admin/             # (later) Vite + React SPA — internal back-office
-│   ├── site/              # (later) Astro — marketing site + docs + blog (<domain>)
+│   ├── site/              # Astro, static — marketing site (<domain>); links to app sign-up/log-in via PUBLIC_APP_URL; blog/docs later
 │   ├── widget/            # (later) Preact — website chat widget (loader + iframe app)
 │   └── mobile/            # (later) React Native + Expo — inbox, handoff, CRM, notifications
 ├── packages/

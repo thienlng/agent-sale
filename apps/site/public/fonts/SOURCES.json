@@ -1,0 +1,60 @@
+{
+  "retrieved": "2026-10-24",
+  "provider": "Google Fonts upstream full variable fonts, repackaged locally as WOFF2",
+  "families": {
+    "Fraunces": {
+      "license": "SIL OFL 1.1",
+      "upstream": "https://github.com/google/fonts/tree/main/ofl/fraunces",
+      "licenseFile": "fraunces/LICENSE/OFL.txt"
+    },
+    "Plus Jakarta Sans": {
+      "license": "SIL OFL 1.1",
+      "upstream": "https://github.com/google/fonts/tree/main/ofl/plusjakartasans",
+      "licenseFile": "plus-jakarta-sans/LICENSE/OFL.txt"
+    }
+  },
+  "files": [
+    {
+      "family": "Fraunces",
+      "style": "normal",
+      "path": "fonts/fraunces/fraunces-normal-variable.woff2",
+      "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/fraunces/Fraunces%5BSOFT%2CWONK%2Copsz%2Cwght%5D.ttf",
+      "sourceSha256": "177ff6c0f14e5550a3c624247cd1189611d4eb65d000b14944c63d967958abbb",
+      "conversion": "Full upstream variable TTF repackaged as WOFF2 using FontTools 4.67.0 + Brotli; no glyph subsetting or design changes",
+      "sha256": "a5ab3c36c11d6013cb2349dbf8ef11d437ca38ef2c5ed6723fbb8fa8c98039b0",
+      "bytes": 194616,
+      "axes": {
+        "opsz": [9.0, 9.0, 144.0],
+        "wght": [100.0, 900.0, 900.0],
+        "SOFT": [0.0, 0.0, 100.0],
+        "WONK": [0.0, 1.0, 1.0]
+      }
+    },
+    {
+      "family": "Plus Jakarta Sans",
+      "style": "normal",
+      "path": "fonts/plus-jakarta-sans/plus-jakarta-sans-normal-variable.woff2",
+      "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/plusjakartasans/PlusJakartaSans%5Bwght%5D.ttf",
+      "sourceSha256": "89b3fb38aa0d275d7a731d0d817a4f1622b316b4d7fbdedcf02ee9099ff68bc8",
+      "conversion": "Full upstream variable TTF repackaged as WOFF2 using FontTools 4.67.0 + Brotli; no glyph subsetting or design changes",
+      "sha256": "a8594966df0350e25e79cc27251fb287a735e35d7883e24fac9374a03e675f99",
+      "bytes": 60364,
+      "axes": {
+        "wght": [200.0, 400.0, 800.0]
+      }
+    },
+    {
+      "family": "Plus Jakarta Sans",
+      "style": "italic",
+      "path": "fonts/plus-jakarta-sans/plus-jakarta-sans-italic-variable.woff2",
+      "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/plusjakartasans/PlusJakartaSans-Italic%5Bwght%5D.ttf",
+      "sourceSha256": "9529eb888668b6a3c6dd75b6341a2fc5263fb6c9e788822e6117c29dd9e8b115",
+      "conversion": "Full upstream variable TTF repackaged as WOFF2 using FontTools 4.67.0 + Brotli; no glyph subsetting or design changes",
+      "sha256": "24d209915dd55241ea4cb5e85117e68ae04105ed2fb5ee5863fd8a2f7ee41a92",
+      "bytes": 65952,
+      "axes": {
+        "wght": [200.0, 400.0, 800.0]
+      }
+    }
+  ]
+}

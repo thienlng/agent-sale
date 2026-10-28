@@ -1,0 +1,2 @@
+# Preserve the upstream license files verbatim, including their whitespace.
+public/fonts/**/LICENSE/OFL.txt -whitespace

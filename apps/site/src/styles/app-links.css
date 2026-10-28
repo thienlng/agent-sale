@@ -1,0 +1,70 @@
+/* Links into the dashboard (log in, free trial) added when the site joined the monorepo (T-121). */
+.nav-login {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 6px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.nav-login:hover {
+  color: #a95020;
+}
+.nav-cta {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+.header nav .nav-login-mobile {
+  display: none;
+}
+
+.closing-actions,
+.dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* Icon-only theme switch: keep the 30–32px circle but give it a 44px hit area. */
+.theme-toggle {
+  position: relative;
+}
+.theme-toggle::after {
+  content: '';
+  position: absolute;
+  inset: -7px;
+}
+
+[data-theme='dark'] .nav-login:hover {
+  color: #f0a067;
+}
+
+@media (max-width: 1000px) {
+  .nav-login {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 700px) {
+  /* The phone header keeps one call to action; "log in" moves into the menu. */
+  .nav-login {
+    display: none;
+  }
+  .header nav .nav-login-mobile {
+    display: block;
+    font-weight: 600;
+    border-top: 1px solid var(--line);
+  }
+  .header .nav-cta {
+    min-height: 44px;
+  }
+  .closing-actions,
+  .dialog-actions {
+    flex-direction: column;
+  }
+  .closing-actions .button,
+  .dialog-actions .button {
+    width: 100%;
+  }
+}

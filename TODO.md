@@ -4,6 +4,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
+- [ ] T-121 Move the marketing site into apps/site and link it with the dashboard — @agent:claude · [details](todo/T-121-move-the-marketing-site-into-apps-site-and-link-it.md)
 - [ ] T-120 Move the account menu to the header as a compact Facebook-style panel — @agent:claude · [details](todo/T-120-move-the-account-menu-to-the-header-as-a-compact-f.md)
 - [ ] T-106 Bring Facebook comment threads into the inbox — @agent:claude · [details](todo/T-106-bring-facebook-comment-threads-into-the-inbox.md) · PR #73
 
