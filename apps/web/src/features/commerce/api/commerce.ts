@@ -1,5 +1,6 @@
 import {
   type AdjustStockRequest,
+  BotProductsDto,
   type ChangeOrderStatusRequest,
   type CreateOrderRequest,
   OrderDto,
@@ -103,6 +104,38 @@ export function useSaveProduct() {
       void qc.invalidateQueries({ queryKey: queryKeys.products(ws) });
       void qc.invalidateQueries({ queryKey: queryKeys.variants(ws) });
     },
+  });
+}
+
+/** Products selected for a bot; only used when the bot's catalogMode is 'selected' (T-080). */
+export function useBotProducts(botId: string) {
+  const ws = useWorkspaceId();
+  return useQuery({
+    queryKey: queryKeys.botProducts(ws, botId),
+    queryFn: () => api(`/bots/${botId}/products`, BotProductsDto),
+    enabled: Boolean(ws && botId),
+  });
+}
+
+/** Optimistic: the checkbox flips at once and is rolled back when the save fails. */
+export function useSetBotProducts(botId: string) {
+  const ws = useWorkspaceId();
+  const qc = useQueryClient();
+  const key = queryKeys.botProducts(ws, botId);
+  return useMutation({
+    scope: { id: `bot-products:${ws}:${botId}` },
+    mutationFn: (productIds: string[]) =>
+      api(`/bots/${botId}/products`, BotProductsDto, { method: 'PUT', body: { productIds } }),
+    onMutate: async (productIds) => {
+      await qc.cancelQueries({ queryKey: key });
+      const previous = qc.getQueryData<BotProductsDto>(key);
+      qc.setQueryData<BotProductsDto>(key, { productIds });
+      return { previous };
+    },
+    onError: (_e, _ids, ctx) => {
+      if (ctx?.previous) qc.setQueryData(key, ctx.previous);
+    },
+    onSuccess: (data) => qc.setQueryData(key, data),
   });
 }
 

@@ -181,6 +181,8 @@ export const UpsertProductRequest = z
     imageUrls: ProductImageUrls.default([]),
     status: z.enum(['active', 'archived']).default('active'),
     variants: z.array(ProductVariantInput).min(1).max(100),
+    /** Create only: also selects the new product for this bot (T-080). Ignored on update. */
+    botId: z.uuid().optional(),
   })
   .refine((p) => new Set(p.variants.map((v) => v.sku.toLowerCase())).size === p.variants.length, {
     message: 'each variant needs a different SKU',
@@ -203,6 +205,18 @@ export const ProductListResponse = z.object({
   pageSize: z.number().int(),
 });
 export type ProductListResponse = z.infer<typeof ProductListResponse>;
+
+/** The products selected for one bot; used when the bot's catalogMode is 'selected' (T-080). */
+export const BotProductsDto = z.object({ productIds: z.array(z.uuid()) });
+export type BotProductsDto = z.infer<typeof BotProductsDto>;
+
+export const SetBotProductsRequest = z.object({
+  productIds: z
+    .array(z.uuid())
+    .max(1000)
+    .transform((ids) => [...new Set(ids)]),
+});
+export type SetBotProductsRequest = z.input<typeof SetBotProductsRequest>;
 
 /** Sets the counted quantity of one variant in one warehouse (a stock-take adjustment). */
 export const AdjustStockRequest = z.object({

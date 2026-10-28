@@ -1,14 +1,14 @@
 ---
 id: T-080
 title: Let each bot sell a chosen part of the business catalog
-status: backlog
+status: review
 type: feature
 priority: P1
 owner: "@agent:claude"
 feature_ids: []
 created: 2026-10-26
 updated: 2026-10-28
-branch:
+branch: feat/T-079-business-switching
 pr:
 parent:
 ---
@@ -35,9 +35,9 @@ Let each bot sell a chosen part of the business catalog.
 
 ## Acceptance criteria
 
-- [ ] Two bots of one business sell different product subsets; each bot's AI only sees its own products; another business is unaffected.
-- [ ] Archived products and removed selections keep historical orders intact; the default "all products" mode is unchanged for existing bots.
-- [ ] Unit, integration (cross-tenant) and UI tests; `pnpm check` passes; docs and vi/en strings.
+- [x] Two bots of one business sell different product subsets; each bot's AI only sees its own products; another business is unaffected.
+- [x] Archived products and removed selections keep historical orders intact; the default "all products" mode is unchanged for existing bots.
+- [x] Unit, integration (cross-tenant) and UI tests; `pnpm check` passes; docs and vi/en strings.
 
 ## Estimate and proposed assignment
 
@@ -49,10 +49,16 @@ Let each bot sell a chosen part of the business catalog.
 
 ## Plan
 
-To be filled by the implementer before coding. Scope and acceptance above are the planning contract.
+1. Migration 0029 (additive): `bots.catalog_mode` (`all` default), unique `products(workspace_id, id)`, `bot_products` with composite keys to bots and products (`on delete cascade`) and forced RLS. Drizzle schema.
+2. `bot` module owns `catalogMode` (`BotDto`, `UpdateBotRequest`, `BotView`, settings history and restore).
+3. `commerce` owns `bot_products`: `CatalogFacade` methods take `{ botId, catalogMode }`; `GET`/`PUT /bots/{botId}/products`; `POST /products` accepts `botId` to select the new product. A foreign-key violation maps to 404.
+4. `ai` playground passes the bot's scope to both catalog lookups.
+5. Web: the bot Products page gets a mode choice and, in `selected` mode, a checkbox per product (optimistic save). "Add product" from that page opens `/app/products/new?botId=` and returns to the bot.
+6. Tests: commerce integration (two bots, archived, cross-tenant), UI tests; docs (ADR-012, docs/05, docs/03, MODULE.md files).
 
 ## Log
 
+- 2026-10-28 — Implemented on `feat/T-079-business-switching` (block A2 with T-079). Migration 0029; per-bot selection in `commerce`; `catalogMode` in `bot`; AI lookups scoped to the bot; bot Products page with mode and checkboxes. Commerce integration 15/15 including the new two-bot / cross-tenant test. Decisions: a `PUT` naming a bot of another workspace with an empty list is a no-op (200, RLS hides the rows), while any product or non-empty list there is 404; soft-deleted bots keep their rows (harmless, they are never read). "Reusable bot lookup" needed nothing new: `BotFacade.getBot` and the web `useBots()` already serve inbox, integrations and CRM filters.
 - 2026-10-28 — Replanned for lane A, now owned by @agent:claude (user decision, 2026-10-28). Product model agreed with the user: account → business (workspace) → bot → channels. **No separate shop entity**: the bot is the selling unit. The catalog is business-owned and each bot chooses which products it sells. Billable unit: an AI reply delivered to the customer, counted once across retries. When the allowance is exhausted, the bot stops and hands off to staff. Business switching lives in the avatar (account) menu. Code inventory and re-estimate: see the handoff's "Lane A replan" section.
 
 - 2026-10-26 — Created from cofounder review; proposed allocation only. No application changes made.

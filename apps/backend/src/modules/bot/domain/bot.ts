@@ -4,12 +4,16 @@ import type { BotSettingsData, IndustryKey } from './bot-settings.js';
 import { InvalidBotError } from './bot.errors.js';
 import { defaultSettings } from './packs.js';
 
+export type CatalogMode = 'all' | 'selected';
+
 export interface BotProps {
   id: string;
   workspaceId: WorkspaceId;
   name: string;
   industry: IndustryKey;
   isActive: boolean;
+  /** 'all' sells every active product; 'selected' only the products chosen for the bot. */
+  catalogMode: CatalogMode;
   settings: BotSettingsData;
   createdAt: Date;
   updatedAt: Date;
@@ -39,6 +43,7 @@ export class Bot {
       name: validName(input.name),
       industry: input.industry,
       isActive: false,
+      catalogMode: 'all',
       settings: defaultSettings(input.industry),
       createdAt: now,
       updatedAt: now,
@@ -58,6 +63,10 @@ export class Bot {
 
   setActive(active: boolean): void {
     this.props = { ...this.props, isActive: active, updatedAt: new Date() };
+  }
+
+  setCatalogMode(mode: CatalogMode): void {
+    this.props = { ...this.props, catalogMode: mode, updatedAt: new Date() };
   }
 
   /** Merges validated partial settings; placeholders merge key by key (empty string removes). */

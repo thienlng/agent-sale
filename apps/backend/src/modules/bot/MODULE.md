@@ -1,6 +1,6 @@
 # bot
 
-**Purpose:** bots of a workspace — name, industry, active flag, behaviour settings (mission, greeting, pronouns, fallback/handoff messages, creativity, model tier, theme colour, reply hours, placeholder values) — industry seed packs, the onboarding readiness checklist, and the HTTP surface for FAQs (`/bots/{botId}/faqs`).
+**Purpose:** bots of a workspace — name, industry, active flag, catalog mode (`all` or `selected`; the selection itself is owned by `commerce`, T-080), behaviour settings (mission, greeting, pronouns, fallback/handoff messages, creativity, model tier, theme colour, reply hours, placeholder values) — industry seed packs, the onboarding readiness checklist, and the HTTP surface for FAQs (`/bots/{botId}/faqs`).
 
 **Owned tables:** `bots` (tenant, forced RLS — migration 0002; schema in `packages/db/src/schema/bot.ts`).
 
