@@ -203,8 +203,8 @@ importers:
         specifier: ^4.4.0
         version: 4.4.0
       i18next:
-        specifier: ^25.0.0
-        version: 25.10.10(typescript@5.9.3)
+        specifier: ^26.5.7
+        version: 26.5.11(typescript@5.9.3)
       lucide-react:
         specifier: ^1.61.0
         version: 1.61.0(@types/react@19.3.0)(react@19.3.1)
@@ -224,8 +224,8 @@ importers:
         specifier: ^19.1.0
         version: 19.3.1(react@19.3.1)
       react-i18next:
-        specifier: ^16.0.0
-        version: 16.6.6(i18next@25.10.10(typescript@5.9.3))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@5.9.3)
+        specifier: ^17.1.8
+        version: 17.1.9(i18next@26.5.11(typescript@5.9.3))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@5.9.3)
       recharts:
         specifier: 3.8.0
         version: 3.8.0(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-is@17.0.2)(react@19.3.1)(redux@5.0.1)
@@ -5258,8 +5258,8 @@ packages:
   html-escaper@3.0.3:
     resolution: {integrity: sha512-RuMffC89BOWQoY0WKGpIhn5gX3iI54O6nRA0yC124NYVtzjmFWBIiFd8M0x+ZdX0P9R4lADg1mgP8C7PxGOWuQ==}
 
-  html-parse-stringify@3.1.0:
-    resolution: {integrity: sha512-E0oAXcELOtsXe+BmpJ2EZyedbldPpriV5vICzEuo6xjC/D1lDukOI7KrpfQGF2Qc4wWEy0nk3bFORS2K5ZAhFQ==}
+  html-parse-stringify@4.0.1:
+    resolution: {integrity: sha512-0zHsZJrK7S3K2aucXWL6ycoYJ/iNtIcFHC/nYQgFklPtrv5LpJctIiSCroWZWeuoXvuyFdzp6KzjJQ+OT5MfFw==}
 
   html-void-elements@3.0.0:
     resolution: {integrity: sha512-bEqo66MRXsUGxWHV5IP0PUiAWwoEjba4VCzg0LjFJBpchPaTfyfCKTG6bc5F8ucKec3q5y6qOdGyYTSBEvhCrg==}
@@ -5292,10 +5292,10 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
-  i18next@25.10.10:
-    resolution: {integrity: sha512-cqUW2Z3EkRx7NqSyywjkgCLK7KLCL6IFVFcONG7nVYIJ3ekZ1/N5jUsihHV6Bq37NfhgtczxJcxduELtjTwkuQ==}
+  i18next@26.5.11:
+    resolution: {integrity: sha512-Wc0klBPKxqZ2tL2qdAnF8xvvnWgr1IMGSY2ikTiAvaFVbz7xiFARtkoU4RidBDw1SyziGROp0qxu6qnJ7l2Wug==}
     peerDependencies:
-      typescript: ^5 || ^6
+      typescript: ^5 || ^6 || ^7
     peerDependenciesMeta:
       typescript:
         optional: true
@@ -6423,14 +6423,14 @@ packages:
     peerDependencies:
       react: ^19.3.1
 
-  react-i18next@16.6.6:
-    resolution: {integrity: sha512-ZgL2HUoW34UKUkOV7uSQFE1CDnRPD+tCR3ywSuWH7u2iapnz86U8Bi3Vrs620qNDzCf1F47NxglCEkchCTDOHw==}
+  react-i18next@17.1.9:
+    resolution: {integrity: sha512-OgYqIH13XHPlWTaaI795Dz+k2AdKnXcOxNQVnf750T8Ij0TYWp1nYvXRpoJBulPqlyk2OAbn1PM4tFKiIj/byA==}
     peerDependencies:
-      i18next: '>= 25.10.9'
+      i18next: '>= 26.2.0'
       react: '>= 16.8.0'
       react-dom: '*'
       react-native: '*'
-      typescript: ^5 || ^6
+      typescript: ^5 || ^6 || ^7
     peerDependenciesMeta:
       react-dom:
         optional: true
@@ -7421,10 +7421,6 @@ packages:
         optional: true
       jsdom:
         optional: true
-
-  void-elements@3.1.0:
-    resolution: {integrity: sha512-Dhxzh5HZuiHQhbvTW9AMetFfBHDMYpo23Uo9btPXgdYP+3T5S+p+jgNy7spra+veYhBP2dCSgxR/i2Y02h5/6w==}
-    engines: {node: '>=0.10.0'}
 
   w3c-xmlserializer@5.0.0:
     resolution: {integrity: sha512-o8qghlI8NZHU1lLPrpi2+Uq7abh4GGPpYANlalzWxyWteJOCsr/P+oPBA49TOLu5FTZO4d3F9MnWJfiMo4BkmA==}
@@ -12291,9 +12287,7 @@ snapshots:
 
   html-escaper@3.0.3: {}
 
-  html-parse-stringify@3.1.0:
-    dependencies:
-      void-elements: 3.1.0
+  html-parse-stringify@4.0.1: {}
 
   html-void-elements@3.0.0: {}
 
@@ -12327,9 +12321,7 @@ snapshots:
 
   husky@9.1.7: {}
 
-  i18next@25.10.10(typescript@5.9.3):
-    dependencies:
-      '@babel/runtime': 7.29.10
+  i18next@26.5.11(typescript@5.9.3):
     optionalDependencies:
       typescript: 5.9.3
 
@@ -13338,11 +13330,11 @@ snapshots:
       react: 19.3.1
       scheduler: 0.28.0
 
-  react-i18next@16.6.6(i18next@25.10.10(typescript@5.9.3))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@5.9.3):
+  react-i18next@17.1.9(i18next@26.5.11(typescript@5.9.3))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@5.9.3):
     dependencies:
       '@babel/runtime': 7.29.10
-      html-parse-stringify: 3.1.0
-      i18next: 25.10.10(typescript@5.9.3)
+      html-parse-stringify: 4.0.1
+      i18next: 26.5.11(typescript@5.9.3)
       react: 19.3.1
       use-sync-external-store: 1.7.0(react@19.3.1)
     optionalDependencies:
@@ -14450,8 +14442,6 @@ snapshots:
       jsdom: 27.4.0
     transitivePeerDependencies:
       - msw
-
-  void-elements@3.1.0: {}
 
   w3c-xmlserializer@5.0.0:
     dependencies:

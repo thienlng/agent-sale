@@ -4,6 +4,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
+- [ ] T-130 Upgrade i18next to 26 and react-i18next to 17 together — @agent:claude · [details](todo/T-130-upgrade-i18next-to-26-and-react-i18next-to-17-toge.md) · review: replaces Dependabot #67 and #68
 - [ ] T-077 Define account business ownership and migration contracts — @agent:claude · [details](todo/T-077-define-account-business-shop-ownership-and-migrati.md) · PR #82
 - [ ] T-078 Add account persistence and bot attribution with safe backfills — @agent:claude · [details](todo/T-078-add-account-business-and-shop-persistence-with-saf.md) · PR #82
 - [ ] T-124 Integrate the lane A account PRs onto current main — @agent:claude · [details](todo/T-124-integrate-the-lane-a-account-prs-onto-current-main.md) · PR #82 (A1)
@@ -49,6 +50,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [ ] T-094 Validate the cross-business review milestone end to end — @unassigned · [details](todo/T-094-validate-the-cross-business-review-milestone-end-t.md)
 - [ ] T-119 Reconcile historical and cross-branch task ID aliases before account integration — @unassigned · [details](todo/T-119-reconcile-historical-and-cross-branch-task-id-alia.md)
 - [ ] T-122 Fix the responsive layout-preference e2e that times out on main — @unassigned · [details](todo/T-122-fix-the-responsive-layout-preference-e2e-that-time.md)
+- [ ] T-131 Triage the dev-dependency major bumps from Dependabot PR 71 — @unassigned · [details](todo/T-131-triage-the-dev-dependency-major-bumps-from-dependa.md)
 
 ## Blocked
 
