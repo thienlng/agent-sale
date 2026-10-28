@@ -248,6 +248,8 @@ export interface CommerceTx {
      * product is not in the workspace.
      */
     replace(workspaceId: WorkspaceId, botId: string, productIds: string[]): Promise<void>;
+    /** Adds one product to the selection; already selected is a no-op. Same errors as replace. */
+    add(workspaceId: WorkspaceId, botId: string, productId: string): Promise<void>;
   };
   inventory: {
     stockOf(variantIds: string[]): Promise<StockRecord[]>;

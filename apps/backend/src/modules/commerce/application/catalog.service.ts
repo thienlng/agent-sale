@@ -285,10 +285,7 @@ export class CatalogService {
           archived: false,
         })),
       );
-      if (input.botId) {
-        const selected = await tx.botProducts.list(input.botId);
-        await tx.botProducts.replace(ws, input.botId, [...selected, product.id]);
-      }
+      if (input.botId) await tx.botProducts.add(ws, input.botId, product.id);
       return this.#productDto(tx, product.id);
     });
   }

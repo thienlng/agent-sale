@@ -31,6 +31,20 @@ export function catalogTx(
   ws: WorkspaceId,
   tx: TenantTx,
 ): Pick<CommerceTx, 'warehouses' | 'products' | 'botProducts' | 'inventory'> {
+  /** Inserts selection rows; composite keys reject a bot or product of another workspace. */
+  async function insertSelection(workspaceId: WorkspaceId, botId: string, productIds: string[]) {
+    try {
+      await tx
+        .insert(bp)
+        .values(productIds.map((productId) => ({ workspaceId, botId, productId })))
+        .onConflictDoNothing();
+    } catch (e) {
+      if (pgCode(e) !== '23503') throw e;
+      const constraint = (e as { cause?: { constraint_name?: string } }).cause?.constraint_name;
+      if (constraint === 'bot_products_bot_fk') throw new BotNotFoundError(botId);
+      throw new ProductNotFoundError(productIds.join(','));
+    }
+  }
   return {
     warehouses: {
       async list() {
@@ -249,19 +263,16 @@ export function catalogTx(
         return rows.map((r) => r.id);
       },
       async replace(workspaceId, botId, productIds) {
+        // Two saves of one bot's selection would both delete, then both insert the same rows
+        // (duplicate key): one bot's saves run one after the other.
+        await tx.execute(
+          sql`select pg_advisory_xact_lock(hashtextextended(${`bot-products/${workspaceId}/${botId}`},0))`,
+        );
         await tx.delete(bp).where(eq(bp.botId, botId));
-        if (!productIds.length) return;
-        try {
-          await tx
-            .insert(bp)
-            .values(productIds.map((productId) => ({ workspaceId, botId, productId })));
-        } catch (e) {
-          // Composite keys: the bot and every product must belong to this workspace.
-          if (pgCode(e) !== '23503') throw e;
-          const constraint = (e as { cause?: { constraint_name?: string } }).cause?.constraint_name;
-          if (constraint === 'bot_products_bot_fk') throw new BotNotFoundError(botId);
-          throw new ProductNotFoundError(productIds.join(','));
-        }
+        if (productIds.length) await insertSelection(workspaceId, botId, productIds);
+      },
+      async add(workspaceId, botId, productId) {
+        await insertSelection(workspaceId, botId, [productId]);
       },
     },
 

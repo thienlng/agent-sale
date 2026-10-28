@@ -780,4 +780,41 @@ describe('commerce on Postgres', () => {
         .productIds,
     ).toEqual([]);
   });
+
+  it('serializes concurrent saves of one bot selection and adds a created product once', async () => {
+    const h = await owner('bots-race@shop.vn');
+    const bot = BotDto.parse(
+      (await call(h, 'POST', '/bots', { name: 'Bot đua', industry: 'fashion' })).json(),
+    );
+    const product = async (code: string) =>
+      ProductDto.parse(
+        (
+          await call(h, 'POST', '/products', {
+            code,
+            name: code,
+            variants: [{ sku: `${code}-1`, price: 100_000 }],
+          })
+        ).json(),
+      );
+    const [a, b, c] = [await product('RA01'), await product('RA02'), await product('RA03')];
+    await call(h, 'PUT', `/bots/${bot.id}/products`, { productIds: [a.id] });
+
+    // Both saves keep A and add one more; without the lock the second hit a duplicate key (500).
+    const saves = await Promise.all([
+      call(h, 'PUT', `/bots/${bot.id}/products`, { productIds: [a.id, b.id] }),
+      call(h, 'PUT', `/bots/${bot.id}/products`, { productIds: [a.id, c.id] }),
+      call(h, 'POST', '/products', {
+        code: 'RA04',
+        name: 'RA04',
+        botId: bot.id,
+        variants: [{ sku: 'RA04-1', price: 100_000 }],
+      }),
+    ]);
+    expect(saves.map((r) => r.statusCode)).toEqual([200, 200, 201]);
+    const ids = BotProductsDto.parse(
+      (await call(h, 'GET', `/bots/${bot.id}/products`)).json(),
+    ).productIds;
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids).toContain(a.id);
+  });
 });
