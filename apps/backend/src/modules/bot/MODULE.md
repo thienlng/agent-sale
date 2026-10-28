@@ -8,10 +8,11 @@
 
 **Deleting a bot (T-074):** `DELETE /bots/{botId}` (`bots.manage`, 204) is a soft delete: `bots.deleted_at` is stamped, `is_active` is cleared and a `bot.deleted` audit event (actor, bot name) is written in the same transaction. Every read goes through `findById`/`list`, which skip deleted rows, so a deleted bot is 404 everywhere (get, readiness, FAQs, training, playground, `getBot`). Knowledge, training history and conversations keep their rows. Modules above `bot` hook in through `BOT_LIFECYCLE` (`BotLifecycle.onDeleted`): `channel` registers a handler that unbinds the bot from its pages, run _before_ the delete so a failure leaves the bot intact and the call can be retried. Pages without a bot fall back to staff replies.
 
-**Events consumed:** none. Uses the `knowledge` facade (seed + FAQ CRUD after an ownership check).
+**Events consumed:** none. Uses the `knowledge` facade (seed + FAQ CRUD after an ownership check) and the `workspace` facade (selected-business industry lookup before creation).
 
 **Invariants:**
 
+- Creation requires a supported workspace industry and an exactly matching requested industry. Mismatch or unsupported legacy values return `VALIDATION_FAILED` before a bot or seed is written. The bot update contract does not change industry; existing legacy bots remain readable and editable without silently rewriting their pack.
 - New bots are inactive and get their industry pack (`domain/packs.ts`): default settings + seed FAQs whose answers use `{{placeholders}}` (e.g. `{{store.address}}`). Seeds never ship vague non-answers.
 - Settings updates are partial; the merged result must still satisfy contracts `BotSettings`. Placeholder values merge key by key; an empty string removes one.
 - Readiness = mission ≥ 20 chars, ≥ 1 FAQ, no missing placeholders, ≥ 1 channel (always false until M3).

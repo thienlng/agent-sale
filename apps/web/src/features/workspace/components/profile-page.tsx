@@ -23,6 +23,7 @@ import { useCan } from '@/lib/permissions';
 
 import { useProfile, useProfileMutations } from '../api/profile';
 import { rebaseDraft } from '../utils/profile-draft';
+import { BusinessIndustry } from './business-industry';
 import { LogoField } from './logo-field';
 
 type Draft = Pick<
@@ -157,6 +158,7 @@ export function ProfilePage() {
         <h2 className="font-semibold">{t('wsettings.profile.title')}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{t('wsettings.profile.hint')}</p>
       </div>
+      <BusinessIndustry />
       <LogoField logoVersion={profile.data.logoVersion} />
       <ProfileForm profile={profile.data} />
     </div>

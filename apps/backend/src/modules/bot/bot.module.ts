@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 
 import { DB_TENANT } from '../../common/db/db.module.js';
 import { ActionModule } from '../action/action.module.js';
+import { WorkspaceModule } from '../workspace/workspace.module.js';
 import { IdentityModule } from '../identity/identity.module.js';
 import { KnowledgeModule } from '../knowledge/knowledge.module.js';
 import { BOT_LIFECYCLE, BotLifecycle } from './api/bot-lifecycle.js';
@@ -16,7 +17,7 @@ import { BotController } from './interface/http/bot.controller.js';
 import { MediaController } from './interface/http/media.controller.js';
 
 @Module({
-  imports: [KnowledgeModule, IdentityModule, ActionModule],
+  imports: [KnowledgeModule, IdentityModule, ActionModule, WorkspaceModule],
   controllers: [BotController, TrainingController, MediaController, ActionController],
   providers: [
     BotService,

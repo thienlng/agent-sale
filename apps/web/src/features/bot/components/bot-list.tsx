@@ -12,10 +12,10 @@ import { useCan } from '@/lib/permissions';
 
 import { useBots } from '../api/bots';
 import { BotActiveSwitch } from './bot-active-switch';
-import { CreateBotDialog } from './create-bot-dialog';
+import { CreateBotDialog, type BotBusinessContext } from './create-bot-dialog';
 import { DeleteBotDialog } from './delete-bot-dialog';
 
-export function BotList() {
+export function BotList({ business }: { business?: BotBusinessContext }) {
   const { t, i18n } = useTranslation();
   const bots = useBots();
   const [creating, setCreating] = useState(false);
@@ -63,6 +63,17 @@ export function BotList() {
                       <span className="block truncate text-sm text-muted-foreground">
                         {t(`industries.${bot.industry}`)}
                       </span>
+                      {business?.status === 'success' &&
+                      business.workspace &&
+                      business.workspace.industry !== bot.industry ? (
+                        <span className="block text-sm text-warning">
+                          {t('bots.legacyIndustry', {
+                            industry: t(`industries.${business.workspace.industry}`, {
+                              defaultValue: business.workspace.industry,
+                            }),
+                          })}
+                        </span>
+                      ) : null}
                     </span>
                     <span className="hidden text-sm text-muted-foreground sm:block">
                       {t('bots.updated', { date: date.format(new Date(bot.updatedAt)) })}
@@ -126,7 +137,7 @@ export function BotList() {
             </div>
           )}
         </div>
-        <CreateBotDialog open={creating} onOpenChange={setCreating} />
+        <CreateBotDialog business={business} open={creating} onOpenChange={setCreating} />
         <DeleteBotDialog bot={deleting} onOpenChange={(open) => !open && setDeleting(null)} />
       </section>
     </TooltipProvider>

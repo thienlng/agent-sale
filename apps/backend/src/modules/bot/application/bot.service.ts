@@ -2,6 +2,7 @@ import {
   type BotDto,
   type BotReadiness,
   BotSettings,
+  Industry,
   type CreateBotRequest,
   type CreateFaqRequest,
   type ImportFaqsRequest,
@@ -20,11 +21,12 @@ import {
   TRAINING_FACADE,
   type TrainingFacade,
 } from '../../knowledge/api/index.js';
+import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
 import { BOT_LIFECYCLE, type BotLifecycle } from '../api/bot-lifecycle.js';
 import type { BotFacade, BotView } from '../api/bot.facade.js';
 import { Bot } from '../domain/bot.js';
 import type { BotSettingsData } from '../domain/bot-settings.js';
-import { BotNotFoundError } from '../domain/bot.errors.js';
+import { BotNotFoundError, InvalidBotError } from '../domain/bot.errors.js';
 import { packFor } from '../domain/packs.js';
 import { BOT_UOW, type BotUnitOfWork } from './ports/bot-unit-of-work.js';
 
@@ -99,6 +101,7 @@ export class BotService implements BotFacade {
   constructor(
     @Inject(BOT_UOW) private readonly uow: BotUnitOfWork,
     @Inject(KNOWLEDGE_FACADE) private readonly knowledge: KnowledgeFacade,
+    @Inject(WORKSPACE_FACADE) private readonly workspaces: WorkspaceFacade,
     @Inject(TRAINING_FACADE) @Optional() private readonly training?: TrainingFacade,
     @Inject(BOT_LIFECYCLE) @Optional() private readonly lifecycle?: BotLifecycle,
   ) {}
@@ -115,7 +118,13 @@ export class BotService implements BotFacade {
   }
 
   async create(ws: WorkspaceId, input: CreateBotRequest): Promise<BotDto> {
-    const bot = Bot.create({ workspaceId: ws, name: input.name, industry: input.industry });
+    const workspace = await this.workspaces.getById(ws);
+    const industry = Industry.safeParse(workspace.industry);
+    if (!industry.success)
+      throw new InvalidBotError('The selected business industry does not support bot creation');
+    if (input.industry !== industry.data)
+      throw new InvalidBotError('Bot industry must match the selected business industry');
+    const bot = Bot.create({ workspaceId: ws, name: input.name, industry: industry.data });
     await this.uow.run(ws, ({ bots }) => bots.save(bot));
     await this.knowledge.seedFaqs(ws, bot.id, packFor(input.industry).faqs);
     try {

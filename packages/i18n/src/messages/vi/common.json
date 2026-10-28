@@ -127,7 +127,13 @@
     },
     "deleteConfirmLabel": "Gõ tên bot để xác nhận: {{name}}",
     "deleteConfirmMismatch": "Tên chưa khớp",
-    "toggleNamedLabel": "Bật hoặc tắt bot {{name}}"
+    "toggleNamedLabel": "Bật hoặc tắt bot {{name}}",
+    "businessIndustryPolicy": "Lĩnh vực của {{name}}. Bot mới dùng đúng lĩnh vực doanh nghiệp này; hiện chưa hỗ trợ đổi lĩnh vực tại đây.",
+    "businessLoading": "Đang tải doanh nghiệp đang chọn…",
+    "businessError": "Không đọc được doanh nghiệp đang chọn. Hãy thử lại trước khi tạo bot.",
+    "businessRetry": "Thử lại",
+    "businessUnsupported": "Lĩnh vực đã lưu “{{industry}}” chưa được hỗ trợ để tạo bot mới. Bot hiện tại vẫn dùng được; cần chuyển đổi dữ liệu doanh nghiệp trước khi tạo thêm.",
+    "legacyIndustry": "Bot đang dùng lĩnh vực cũ. Lĩnh vực doanh nghiệp là {{industry}}; nội dung đào tạo hiện tại được giữ nguyên."
   },
   "readiness": {
     "title": "Chuẩn bị cho bot",
@@ -1254,6 +1260,10 @@
       },
       "enabledToast": "Đã bật xác minh 2 bước",
       "disabledToast": "Đã tắt xác minh 2 bước"
+    },
+    "industry": {
+      "title": "Lĩnh vực doanh nghiệp",
+      "policy": "Lĩnh vực thuộc doanh nghiệp đang chọn, tách biệt với tài khoản đăng nhập và thông tin thanh toán. Hiện chưa hỗ trợ đổi lĩnh vực; bot và nội dung đào tạo được giữ nguyên."
     }
   },
   "analytics": {

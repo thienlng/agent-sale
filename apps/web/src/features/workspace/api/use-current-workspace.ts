@@ -13,7 +13,7 @@ export function useCurrentWorkspace() {
   const workspaceId = useWorkspaceId();
   return useQuery({
     queryKey: workspaceKeys.current(workspaceId),
-    queryFn: () => api('/workspaces/current', WorkspaceDto),
+    queryFn: ({ signal }) => api('/workspaces/current', WorkspaceDto, { workspaceId, signal }),
     enabled: Boolean(workspaceId),
   });
 }

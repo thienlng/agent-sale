@@ -94,7 +94,7 @@ describe('ai on Postgres', () => {
           method: 'POST',
           url: '/api/v1/bots',
           headers: h,
-          payload: { name: 'Bot', industry: 'other' },
+          payload: { name: 'Bot', industry: 'retail' },
         })
       ).json(),
     );

@@ -1,6 +1,6 @@
-import { Industry } from '@agent-sales/contracts';
+import { Industry, type WorkspaceDto } from '@agent-sales/contracts';
 import { useNavigate } from '@tanstack/react-router';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
@@ -15,33 +15,35 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { errorMessage } from '@/lib/errors';
 
 import { useCreateBot } from '../api/bots';
 
+export interface BotBusinessContext {
+  workspace: Pick<WorkspaceDto, 'name' | 'industry'> | undefined;
+  status: 'pending' | 'error' | 'success';
+  onRetry: () => void;
+}
+
 export function CreateBotDialog({
   open,
   onOpenChange,
+  business,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  business?: BotBusinessContext | undefined;
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const create = useCreateBot();
-  const [industry, setIndustry] = useState<Industry>('retail');
+  const parsed = Industry.safeParse(business?.workspace?.industry);
+  const industry = business?.status === 'success' && parsed.success ? parsed.data : null;
 
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const name = String(new FormData(e.currentTarget).get('name')).trim();
-    if (!name) return;
+    if (!name || !industry) return;
     create.mutate(
       { name, industry },
       {
@@ -77,24 +79,37 @@ export function CreateBotDialog({
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="bot-industry">{t('auth.industry')}</Label>
-            <Select value={industry} onValueChange={(v) => setIndustry(v as Industry)}>
-              <SelectTrigger id="bot-industry" className="h-10 w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Industry.options.map((i) => (
-                  <SelectItem key={i} value={i}>
-                    {t(`industries.${i}`)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Input
+              id="bot-industry"
+              readOnly
+              value={industry ? t(`industries.${industry}`) : (business?.workspace?.industry ?? '')}
+              aria-describedby="bot-industry-policy"
+            />
+            <p id="bot-industry-policy" className="text-sm text-muted-foreground">
+              {t('bots.businessIndustryPolicy', { name: business?.workspace?.name ?? '' })}
+            </p>
+            {!business || business.status === 'pending' ? (
+              <p role="status" className="text-sm text-muted-foreground">
+                {t('bots.businessLoading')}
+              </p>
+            ) : business.status === 'error' ? (
+              <div role="alert" className="space-y-2 text-sm">
+                <p>{t('bots.businessError')}</p>
+                <Button type="button" variant="outline" onClick={business.onRetry}>
+                  {t('bots.businessRetry')}
+                </Button>
+              </div>
+            ) : !industry ? (
+              <p role="alert" className="text-sm text-destructive">
+                {t('bots.businessUnsupported', { industry: business.workspace?.industry ?? '' })}
+              </p>
+            ) : null}
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               {t('common.cancel')}
             </Button>
-            <Button type="submit" disabled={create.isPending}>
+            <Button type="submit" disabled={create.isPending || !industry}>
               {create.isPending ? t('bots.creating') : t('bots.create')}
             </Button>
           </DialogFooter>

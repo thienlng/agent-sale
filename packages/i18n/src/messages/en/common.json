@@ -127,7 +127,13 @@
     },
     "deleteConfirmLabel": "Type the bot name to confirm: {{name}}",
     "deleteConfirmMismatch": "The name does not match",
-    "toggleNamedLabel": "Turn bot {{name}} on or off"
+    "toggleNamedLabel": "Turn bot {{name}} on or off",
+    "businessIndustryPolicy": "Industry of {{name}}. New bots use this business industry; changing it is not supported here.",
+    "businessLoading": "Loading the selected business…",
+    "businessError": "Could not read the selected business. Retry before creating a bot.",
+    "businessRetry": "Retry",
+    "businessUnsupported": "The stored industry “{{industry}}” is not supported for new bots. Existing bots remain available; a business data migration is required before creating another.",
+    "legacyIndustry": "This bot uses an earlier industry. The business industry is {{industry}}; existing training is kept."
   },
   "readiness": {
     "title": "Get the bot ready",
@@ -1255,6 +1261,10 @@
       },
       "enabledToast": "Two-step verification is on",
       "disabledToast": "Two-step verification is off"
+    },
+    "industry": {
+      "title": "Business industry",
+      "policy": "This industry belongs to the selected business, independently of your login or billing details. Changing industry is not supported; existing bots and training are kept."
     }
   },
   "analytics": {

@@ -860,7 +860,7 @@ describe('team and access on Postgres', () => {
     await join(lan, binh, 'binh-del@team.vn', 'sales');
     const asBinh = binh.in(lan.ownWorkspace);
 
-    const created = await call(lan.h, 'POST', '/bots', { name: 'Bot Lan', industry: 'retail' });
+    const created = await call(lan.h, 'POST', '/bots', { name: 'Bot Lan', industry: 'fashion' });
     const bot = BotDto.parse(created.json());
     const connectionId = '018f0000-0000-7000-8000-00000000d074';
     await owner.db.insert(schema.channelConnections).values({

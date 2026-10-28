@@ -205,3 +205,20 @@ it('keeps the direct switch pending and prevents duplicate requests', async () =
   await waitFor(() => expect(control).not.toBeDisabled());
   expect(control).toBeChecked();
 });
+
+it('labels legacy bot industries without removing their existing controls', async () => {
+  vi.stubGlobal('fetch', stubFetch(routes()).fetchStub);
+  renderWithRouter(() => (
+    <BotList
+      business={{
+        status: 'success',
+        workspace: { name: 'Hotel business', industry: 'hotel' },
+        onRetry: vi.fn(),
+      }}
+    />
+  ));
+  await screen.findByText('Bot Lan');
+  expect(screen.getAllByText(/Bot đang dùng lĩnh vực cũ/)).toHaveLength(2);
+  expect(screen.getAllByText(/Lĩnh vực doanh nghiệp là Khách sạn/)).toHaveLength(2);
+  expect(screen.getAllByRole('button', { name: 'Xóa bot' })).toHaveLength(2);
+});

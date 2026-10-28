@@ -325,7 +325,7 @@ describe('HTTP: bots and FAQs', () => {
           method: 'POST',
           url: '/api/v1/bots',
           headers: h,
-          payload: { name: 'B', industry: 'other' },
+          payload: { name: 'B', industry: 'retail' },
         })
       ).json(),
     );
@@ -410,7 +410,7 @@ describe('HTTP: bots and FAQs', () => {
           method: 'POST',
           url: '/api/v1/bots',
           headers: h,
-          payload: { name: 'B', industry: 'spa' },
+          payload: { name: 'B', industry: 'retail' },
         })
       ).json(),
     );
@@ -435,7 +435,7 @@ describe('HTTP: AI playground', () => {
           method: 'POST',
           url: '/api/v1/bots',
           headers: h,
-          payload: { name: 'Rapiz Bot', industry: 'other' },
+          payload: { name: 'Rapiz Bot', industry: 'retail' },
         })
       ).json(),
     );
@@ -808,7 +808,7 @@ describe('HTTP: platform admin — LLM configuration', () => {
           method: 'POST',
           url: '/api/v1/bots',
           headers: wh,
-          payload: { name: 'Bot', industry: 'other' },
+          payload: { name: 'Bot', industry: 'retail' },
         })
       ).json(),
     );
