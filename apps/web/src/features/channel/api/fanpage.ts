@@ -37,7 +37,10 @@ export function useFanpage(id: string) {
     onSuccess: () => qc.invalidateQueries({ queryKey: key }),
   });
   const act = useMutation({
-    mutationFn: ({ commentId, ...body }: FanpageManualAction & { commentId: string }) =>
+    mutationFn: ({
+      commentId,
+      ...body
+    }: z.input<typeof FanpageManualAction> & { commentId: string }) =>
       api(
         `${path}/comments/${encodeURIComponent(commentId)}/actions`,
         z.object({ action: FanpageAction.nullable() }),

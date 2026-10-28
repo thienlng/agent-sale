@@ -3,8 +3,19 @@ import { interruptsComment } from '../../domain/comment-interruption.js';
 import { sql, withTenant, type Database } from '@agent-sales/db';
 import { FanpageSettings, FanpageComment } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
-import type { FanpageStore } from '../../application/ports/fanpage-store.js';
+import type {
+  CommentPosition,
+  FanpageStore,
+  PostPosition,
+  StoredCommentPost,
+} from '../../application/ports/fanpage-store.js';
 import { ChannelError } from '../../domain/channel.errors.js';
+const likePattern = (q: string): string => `%${q.replace(/[\\%_]/g, '\\$&')}%`;
+// Full microsecond precision, so a cursor taken from one row compares equal to that row again.
+const activity = sql.raw(`to_char(updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`);
+const postActivity = sql.raw(
+  `to_char(max(updated_at) at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+);
 export class DrizzleFanpageStore implements FanpageStore {
   constructor(private readonly db: Database) {}
   privateComments(ws: WorkspaceId, connectionId: string, recipientId: string) {
@@ -52,6 +63,67 @@ export class DrizzleFanpageStore implements FanpageStore {
       return rows.map((r) => FanpageComment.parse(r.document));
     });
   }
+  page(
+    ws: WorkspaceId,
+    connectionId: string,
+    input: { limit: number; after: CommentPosition | null; postId?: string; q?: string },
+  ) {
+    return withTenant(this.db, ws, async (tx) => {
+      const where = [sql`workspace_id=${ws}`, sql`connection_id=${connectionId}`];
+      if (input.postId) where.push(sql`document->>'postId'=${input.postId}`);
+      if (input.q)
+        where.push(
+          sql`(document->>'text' ilike ${likePattern(input.q)} or document->>'authorId'=${input.q})`,
+        );
+      if (input.after)
+        where.push(
+          sql`(updated_at, comment_id) < (${input.after.activityAt}::timestamptz, ${input.after.commentId})`,
+        );
+      const rows = await tx.execute<{ document: unknown; activity: string; comment_id: string }>(
+        sql`select document, ${activity} as activity, comment_id from fanpage_comments where ${sql.join(where, sql` and `)} order by updated_at desc, comment_id desc limit ${input.limit}`,
+      );
+      return rows.map((r) => ({
+        comment: FanpageComment.parse(r.document),
+        position: { activityAt: r.activity, commentId: r.comment_id },
+      }));
+    });
+  }
+  get(ws: WorkspaceId, connectionId: string, commentId: string) {
+    return withTenant(this.db, ws, async (tx) => {
+      const rows = await tx.execute<{ document: unknown }>(
+        sql`select document from fanpage_comments where workspace_id=${ws} and connection_id=${connectionId} and comment_id=${commentId}`,
+      );
+      return rows[0] ? FanpageComment.parse(rows[0].document) : null;
+    });
+  }
+  posts(
+    ws: WorkspaceId,
+    connectionId: string,
+    input: { limit: number; after: PostPosition | null },
+  ) {
+    return withTenant(this.db, ws, async (tx) => {
+      const after = input.after
+        ? sql`having (max(updated_at), document->>'postId') < (${input.after.activityAt}::timestamptz, ${input.after.postId})`
+        : sql``;
+      const rows = await tx.execute<{
+        post_id: string;
+        comments: number;
+        activity: string;
+        context: unknown;
+      }>(
+        sql`select document->>'postId' as post_id, count(*)::int as comments, ${postActivity} as activity,
+          (array_agg(document->'context' order by updated_at desc) filter (where jsonb_typeof(document->'context')='object'))[1] as context
+          from fanpage_comments where workspace_id=${ws} and connection_id=${connectionId}
+          group by 1 ${after} order by max(updated_at) desc, 1 desc limit ${input.limit}`,
+      );
+      return rows.map((r): StoredCommentPost => ({
+        postId: r.post_id,
+        comments: Number(r.comments),
+        lastActivityAt: r.activity,
+        context: r.context ? FanpageComment.shape.context.parse(r.context) : null,
+      }));
+    });
+  }
   change<T>(
     ws: WorkspaceId,
     connectionId: string,
@@ -90,6 +162,15 @@ export class UnavailableFanpageStore implements FanpageStore {
     return this.fail();
   }
   list(): Promise<FanpageComment[]> {
+    return this.fail();
+  }
+  page(): Promise<{ comment: FanpageComment; position: CommentPosition }[]> {
+    return this.fail();
+  }
+  get(): Promise<FanpageComment | null> {
+    return this.fail();
+  }
+  posts(): Promise<StoredCommentPost[]> {
     return this.fail();
   }
   change<T>(): Promise<T> {

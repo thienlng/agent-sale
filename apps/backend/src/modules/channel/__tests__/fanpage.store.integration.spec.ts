@@ -216,4 +216,114 @@ describe('Fanpage persistence on PostgreSQL', () => {
     ).rejects.toThrow();
     expect(await store.list(b, connectionId)).toEqual([]);
   });
+  it('pages by activity then id, filters on the server and reads without touching activity', async () => {
+    const page = newId();
+    await withTenant(tenant, a, (tx) =>
+      tx.insert(schema.channelConnections).values({
+        id: page,
+        workspaceId: a,
+        provider: 'facebook',
+        externalId: '456',
+        name: 'Paged',
+        tokenSealed: 'test-only',
+      }),
+    );
+    for (let n = 0; n < 130; n++) {
+      const c = {
+        ...comment(),
+        id: newId(),
+        connectionId: page,
+        commentId: `10_${1000 + n}`,
+        postId: n % 3 ? '123_10' : '123_11',
+        text: n < 4 ? `Ship COD 100% ${n}` : `Comment ${n}`,
+      };
+      await store.change(a, page, c.commentId, () => ({ comment: c, result: undefined }));
+    }
+    // Equal activity times to the microsecond: only the id tie-breaker orders these rows.
+    await withTenant(tenant, a, (tx) =>
+      tx.execute(
+        sql`update fanpage_comments set updated_at='2026-10-25T10:00:00.123456Z' where connection_id=${page}`,
+      ),
+    );
+    const seen: string[] = [];
+    let after = null;
+    for (;;) {
+      const rows = await store.page(a, page, { limit: 31, after });
+      seen.push(...rows.slice(0, 30).map((r) => r.comment.commentId));
+      if (rows.length <= 30) break;
+      after = rows[29]!.position;
+    }
+    expect(seen).toHaveLength(130);
+    expect(new Set(seen).size).toBe(130);
+    expect(after?.activityAt).toBe('2026-10-25T10:00:00.123456Z');
+    // `%` in the search text is literal, and the matches are the oldest rows.
+    const hits = await store.page(a, page, { limit: 50, after: null, q: 'cod 100%' });
+    expect(hits.map((r) => r.comment.commentId).sort()).toEqual([
+      '10_1000',
+      '10_1001',
+      '10_1002',
+      '10_1003',
+    ]);
+    const post = await store.page(a, page, { limit: 200, after: null, postId: '123_11' });
+    expect(post).toHaveLength(44);
+    const posts = await store.posts(a, page, { limit: 10, after: null });
+    expect(posts.map((p) => [p.postId, p.comments])).toEqual(
+      expect.arrayContaining([
+        ['123_10', 86],
+        ['123_11', 44],
+      ]),
+    );
+    expect((await store.get(a, page, '10_1005'))?.text).toBe('Comment 5');
+    const stamps = await withTenant(tenant, a, (tx) =>
+      tx.execute<{ n: number }>(
+        sql`select count(*)::int as n from fanpage_comments where connection_id=${page} and updated_at<>'2026-10-25T10:00:00.123456Z'`,
+      ),
+    );
+    expect(stamps[0]?.n).toBe(0);
+    // Another workspace sees nothing through any read, even with the right connection id.
+    expect(await store.page(b, page, { limit: 10, after: null })).toEqual([]);
+    expect(await store.get(b, page, '10_1005')).toBeNull();
+    expect(await store.posts(b, page, { limit: 10, after: null })).toEqual([]);
+  });
+  it('pages over more than 200 known posts without gaps or repeats', async () => {
+    const page = newId();
+    await withTenant(tenant, a, (tx) =>
+      tx.insert(schema.channelConnections).values({
+        id: page,
+        workspaceId: a,
+        provider: 'facebook',
+        externalId: '789',
+        name: 'Many posts',
+        tokenSealed: 'test-only',
+      }),
+    );
+    for (let n = 0; n < 205; n++) {
+      const c = {
+        ...comment(),
+        id: newId(),
+        connectionId: page,
+        commentId: `20_${n}`,
+        postId: `789_${n}`,
+      };
+      await store.change(a, page, c.commentId, () => ({ comment: c, result: undefined }));
+    }
+    // Half the posts share one activity time, so only the post id orders them.
+    await withTenant(tenant, a, (tx) =>
+      tx.execute(
+        sql`update fanpage_comments set updated_at='2026-10-25T10:00:00.654321Z' where connection_id=${page} and (substr(comment_id, 4))::int % 2 = 0`,
+      ),
+    );
+    const seen: string[] = [];
+    let after = null;
+    for (;;) {
+      const rows = await store.posts(a, page, { limit: 51, after });
+      seen.push(...rows.slice(0, 50).map((p) => p.postId));
+      if (rows.length <= 50) break;
+      const last = rows[49]!;
+      after = { activityAt: last.lastActivityAt, postId: last.postId };
+    }
+    expect(seen).toHaveLength(205);
+    expect(new Set(seen).size).toBe(205);
+    expect(await store.posts(b, page, { limit: 10, after: null })).toEqual([]);
+  });
 });

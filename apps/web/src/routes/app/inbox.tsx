@@ -4,6 +4,7 @@ import type { InboxConversation } from '@/features/conversation/lib/inbox-v2-typ
 import { InboxPage } from '@/features/conversation/components/inbox-page';
 import type { PanelSlots } from '@/features/conversation/components/conversation-view';
 import { ProductShare } from '@/features/commerce/components/product-share';
+import { CommentsWorkspace } from '@/features/channel/components/comments/comments-workspace';
 import { useSession } from '@/lib/session';
 import { InboxSalesPanel, type InboxCustomerContext } from './-components/inbox-sales-panel';
 
@@ -16,6 +17,7 @@ function SalesInbox() {
   const [contexts, setContexts] = useState<Record<string, InboxCustomerContext>>({});
   return (
     <InboxPage
+      renderComments={() => <CommentsWorkspace />}
       renderComposerTools={(_conversation, insertText) => <ProductShare onInsert={insertText} />}
       renderSalesPanel={(conversation: InboxConversation, slots: PanelSlots) => (
         <InboxSalesPanel

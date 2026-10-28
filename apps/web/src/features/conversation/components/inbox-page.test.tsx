@@ -164,6 +164,13 @@ describe('inbox page', () => {
     expect(fixtures.queries.at(-1)?.provider).toBeUndefined();
   });
 
+  it('renders the comments workspace supplied by the route in the comments tab', () => {
+    render(<InboxPage renderComments={() => <p>Comments workspace</p>} />);
+    fireEvent.click(screen.getByRole('tab', { name: 'channelInbox.meta.tabs.fbComments' }));
+    expect(screen.getByText('Comments workspace')).toBeInTheDocument();
+    expect(screen.queryByText('Comments entry')).not.toBeInTheDocument();
+  });
+
   it('selects only visible rows, clears the selection when the list changes', () => {
     fixtures.rows = [row('a'), row('b')];
     render(<InboxPage />);

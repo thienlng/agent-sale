@@ -761,5 +761,158 @@
     "conflict": "Bản nháp đã thay đổi ở tab khác. Chọn nội dung muốn giữ trước khi gửi.",
     "useLatest": "Dùng bản nháp mới",
     "keepMine": "Giữ nội dung này"
+  },
+  "commentsWorkspace": {
+    "loadingPages": "Đang tải Trang Facebook…",
+    "pagesError": "Không tải được danh sách Trang. Bình luận chưa được hiển thị.",
+    "retry": "Thử lại",
+    "noPageTitle": "Chưa kết nối Trang Facebook nào",
+    "noPageBody": "Kết nối một Trang để nhận và trả lời bình luận ngay trong Hộp thư.",
+    "connectPage": "Mở Kênh kết nối",
+    "page": "Trang",
+    "choosePage": "Chọn Trang…",
+    "choosePageTitle": "Chọn một Trang để xem bình luận",
+    "postFallback": "Bài viết #{{id}}",
+    "reconnect": "Trang {{page}} cần kết nối lại. Bình luận đã nhận vẫn xem được, nhưng chưa thể trả lời hay ẩn.",
+    "openChannels": "Kết nối lại",
+    "search": "Tìm trong bình luận đã nhận",
+    "post": "Lọc theo bài viết",
+    "allPosts": "Tất cả bài viết",
+    "scope": "Chỉ gồm bình luận Rapiz đã nhận từ Trang này, không phải toàn bộ lịch sử trên Facebook.",
+    "selectTitle": "Chọn một bình luận",
+    "selectBody": "Xem bài viết gốc, bình luận được trả lời và các thao tác đã ghi nhận.",
+    "loading": "Đang tải…",
+    "listError": "Không tải được bình luận. Đây không có nghĩa là Trang chưa có bình luận.",
+    "refreshError": "Không làm mới được; đang hiển thị dữ liệu đã tải trước đó.",
+    "noMatchTitle": "Không có bình luận phù hợp",
+    "noMatchBody": "Không có bình luận đã nhận nào khớp bộ lọc hoặc từ khóa này.",
+    "emptyTitle": "Chưa nhận được bình luận nào",
+    "emptyBody": "Bình luận mới trên bài viết của Trang sẽ xuất hiện ở đây.",
+    "listLabel": "Bình luận Facebook",
+    "loadMore": "Tải thêm bình luận cũ hơn",
+    "loadingMore": "Đang tải thêm…",
+    "end": "Đã hiển thị hết bình luận đã nhận.",
+    "author": "Người dùng Facebook {{id}}",
+    "noText": "Không có chữ (ảnh, nhãn dán hoặc tệp đính kèm)",
+    "deleted": "Đã xóa",
+    "review": "Cần xem",
+    "visibility": {
+      "hidden": "Đang ẩn",
+      "uncertain": "Chưa rõ ẩn/hiện"
+    },
+    "kind": {
+      "public_reply": "Trả lời công khai",
+      "private_reply": "Nhắn riêng",
+      "hide": "Ẩn",
+      "unhide": "Bỏ ẩn"
+    },
+    "status": {
+      "pending": "đang xử lý",
+      "sent": "đã gửi",
+      "failed": "bị từ chối",
+      "unknown": "chưa rõ kết quả",
+      "cancelled": "đã hủy"
+    },
+    "back": "Danh sách",
+    "detailError": "Không tải được bình luận này.",
+    "detailLabel": "Bình luận đang chọn",
+    "onPage": "Trên Trang {{page}}",
+    "parent": "Đang trả lời bình luận",
+    "parentUnknown": "Chưa có nội dung bình luận gốc.",
+    "selectedComment": "Bình luận của khách",
+    "deletedLong": "Đã bị xóa trên Facebook",
+    "reviewLong": "Cần nhân viên xem · đã dừng tự trả lời",
+    "changedOnFacebook": "Facebook đang hiển thị nội dung khác cho bình luận này. Hãy đợi đồng bộ trước khi trả lời hoặc ẩn.",
+    "privateSentNote": "Đã gửi tin nhắn riêng. Cuộc trò chuyện Messenger sẽ xuất hiện trong Hộp thư khi Facebook đồng bộ hoặc khi khách trả lời.",
+    "blocked": {
+      "deleted": "Bình luận đã bị xóa nên không thể trả lời.",
+      "reconnect": "Kết nối lại Trang để trả lời.",
+      "changed": "Bình luận đã thay đổi trên Facebook; đợi đồng bộ rồi thử lại."
+    },
+    "viewOnly": "Vai trò của bạn chỉ được xem; không thể trả lời hay ẩn bình luận.",
+    "source": "Bài viết gốc",
+    "openPost": "Mở trên Facebook",
+    "sourceLoading": "Đang đọc bài viết từ Facebook…",
+    "sourceFresh": "Vừa đọc từ Facebook lúc {{time}}",
+    "sourceSnapshot": "Bản lưu lúc {{time}}, chưa đọc lại từ Facebook",
+    "sourceNone": "Chưa có nội dung bài viết.",
+    "mediaOnly": "Bài viết không có chữ (chỉ ảnh/video). Rapiz không đọc nội dung trong ảnh.",
+    "sourceReason": {
+      "reconnect": "Không đọc được từ Facebook: Trang cần kết nối lại.",
+      "permission": "Không đọc được từ Facebook: thiếu quyền đọc bình luận.",
+      "missing": "Không đọc được từ Facebook: bài viết hoặc bình luận có thể đã bị xóa.",
+      "mismatch": "Facebook trả về bài viết không khớp bình luận này.",
+      "provider": "Facebook chưa phản hồi; nội dung có thể chưa mới nhất."
+    },
+    "history": "Thao tác Rapiz đã ghi nhận",
+    "historyScope": "Chỉ gồm thao tác gửi qua Rapiz, không phải mọi trả lời trên Facebook.",
+    "noHistory": "Chưa có thao tác nào.",
+    "byStaff": "nhân viên",
+    "byKeyword": "theo từ khóa",
+    "byBot": "tự động",
+    "inspect": "Chưa xác nhận được kết quả: hãy kiểm tra trên Facebook trước khi gửi lại.",
+    "hide": "Ẩn",
+    "unhide": "Bỏ ẩn",
+    "working": "Đang xử lý…",
+    "moderation": {
+      "failed": "Facebook đã từ chối; trạng thái ẩn/hiện không đổi.",
+      "unknown": "Chưa rõ Facebook đã ẩn/hiện chưa. Hãy kiểm tra trên Facebook.",
+      "rejected": "Không thực hiện được: bình luận đã thay đổi, bị xóa hoặc bạn không có quyền.",
+      "unmatched": "Không có thao tác nào được ghi nhận. Hãy xem lại lịch sử.",
+      "unconfirmed": "Không nhận được phản hồi. Hãy kiểm tra trạng thái; thử lại vẫn dùng đúng yêu cầu cũ.",
+      "pending": "Facebook đang xử lý thao tác này. Hãy kiểm tra trạng thái; thử lại vẫn dùng đúng yêu cầu cũ.",
+      "retry": "Thử lại",
+      "opposite": "Thao tác “{{action}}” trước đó có thể vẫn đang được Facebook xử lý. Hãy kiểm tra trên Facebook; làm ngược lại bây giờ có thể bị ghi đè."
+    },
+    "mode": "Cách trả lời",
+    "target": {
+      "public": "Hiển thị công khai dưới bình luận của {{author}}, đăng bởi Trang {{page}}.",
+      "private": "Gửi riêng vào Messenger của {{author}} từ Trang {{page}} · chỉ một tin, trong 7 ngày kể từ bình luận."
+    },
+    "private": {
+      "deleted": "Bình luận đã bị xóa nên không thể nhắn riêng.",
+      "attempted": "Bình luận này đã được nhắn riêng một lần. Facebook chỉ cho phép một tin nhắn riêng cho mỗi bình luận.",
+      "expired": "Đã quá 7 ngày kể từ bình luận nên không thể nhắn riêng."
+    },
+    "composer": {
+      "public_reply": "Viết trả lời công khai…",
+      "private_reply": "Viết tin nhắn riêng…"
+    },
+    "send": {
+      "public_reply": "Gửi công khai",
+      "private_reply": "Gửi tin riêng"
+    },
+    "sending": "Đang gửi…",
+    "retrySame": "Gửi lại yêu cầu này",
+    "checkStatus": "Kiểm tra trạng thái",
+    "sendAgain": "Đã kiểm tra, gửi lần mới",
+    "contactWarning": "Trả lời công khai này có số điện thoại hoặc email mà ai cũng thấy. Thông tin liên hệ của khách nên gửi bằng tin nhắn riêng.",
+    "contactConfirm": "Vẫn đăng công khai",
+    "contactPrivate": "Chuyển sang nhắn riêng",
+    "attempt": {
+      "sent": {
+        "public_reply": "Đã đăng trả lời công khai.",
+        "private_reply": "Đã gửi tin nhắn riêng."
+      },
+      "unconfirmed": "Không nhận được phản hồi. Nội dung được giữ nguyên; gửi lại sẽ dùng đúng yêu cầu cũ nên không bị trùng.",
+      "unknown": "Chưa rõ Facebook đã nhận chưa. Hãy kiểm tra trên Facebook trước khi gửi lần mới.",
+      "failed": "Facebook đã từ chối tin này. Nội dung vẫn được giữ để bạn sửa và gửi lại.",
+      "rejected": "Không gửi được. Nội dung vẫn được giữ nguyên.",
+      "unmatched": "Không có tin nào được ghi nhận cho yêu cầu này (có thể bình luận vừa thay đổi hoặc đã có trả lời). Xem lại lịch sử trước khi gửi lần mới.",
+      "refused": {
+        "CONFLICT": "Bình luận đã thay đổi, bị xóa hoặc không còn trên Facebook. Nội dung vẫn được giữ.",
+        "FORBIDDEN": "Vai trò của bạn không được trả lời bình luận.",
+        "VALIDATION_FAILED": "Không thể gửi tin này (quá 7 ngày, đã nhắn riêng hoặc nội dung không hợp lệ).",
+        "NOT_FOUND": "Không tìm thấy bình luận này nữa.",
+        "UNAVAILABLE": "Chưa gửi gì: Trang cần kết nối lại hoặc Facebook chưa phản hồi. Nội dung vẫn được giữ."
+      },
+      "pending": "Facebook đang xử lý yêu cầu này. Nội dung được khóa; hãy kiểm tra trạng thái — gửi lại vẫn dùng đúng yêu cầu cũ nên không bị trùng."
+    },
+    "resendWarning": "Lần gửi trước có thể đã lên Facebook. Gửi lần mới có thể tạo một trả lời trùng — hãy kiểm tra bình luận trên Facebook trước.",
+    "resendConfirm": "Vẫn gửi lần mới",
+    "resendCancel": "Hủy",
+    "morePosts": "Tải thêm bài viết cũ hơn",
+    "loadingPosts": "Đang tải bài viết…",
+    "stopWaiting": "Thôi chờ (coi là chưa rõ)"
   }
 }

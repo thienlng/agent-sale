@@ -28,3 +28,10 @@ export function fillPlaceholders(text: string, values: Readonly<Record<string, s
     return v !== undefined && v !== '' ? v : whole;
   });
 }
+
+const CONTACT_DETAILS = /(?:\b0[0-9 .-]{8,14}\b|[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})/i;
+
+/** True when a text carries a phone number or email: public comment replies must not repeat them. */
+export function exposesContactDetails(text: string): boolean {
+  return CONTACT_DETAILS.test(text);
+}

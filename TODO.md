@@ -4,6 +4,10 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
+- [ ] T-111 Integrate parallel inbox delivery on feat tung-dev — @agent:codex · [details](todo/T-111-integrate-parallel-inbox-delivery-on-feat-tung-dev.md)
+
+- [ ] T-106 Bring Facebook comment threads into the inbox — @agent:claude · [details](todo/T-106-bring-facebook-comment-threads-into-the-inbox.md) · PR #73
+
 
 
 
@@ -17,11 +21,12 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## Next
 
-- [ ] T-106 Bring Facebook comment threads into the inbox — @agent:claude · [details](todo/T-106-bring-facebook-comment-threads-into-the-inbox.md)
 
 - [ ] T-045 Email verification at signup (ACC-01) and verified-email invitations — @unassigned · [details](todo/T-045-email-verification-at-signup-acc-01-and-verified-e.md)
 
 ## Backlog
+
+- [ ] T-110 Require settings.manage to change fanpage comment automation settings — @unassigned · [details](todo/T-110-require-settings-manage-to-change-fanpage-comment-.md)
 
 - [ ] T-013 Choose self-hosted object storage now that MinIO stopped publishing community images — @unassigned · [details](todo/T-013-choose-self-hosted-object-storage-now-that-minio-s.md)
 - [ ] T-006 Add Testcontainers integration test harness and cross-tenant test helper — @unassigned · [details](todo/T-006-integration-test-harness.md)

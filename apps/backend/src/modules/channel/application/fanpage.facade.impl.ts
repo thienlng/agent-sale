@@ -5,7 +5,13 @@ import {
   MetaRequestError,
   type NormalizedEvent,
 } from '@agent-sales/channels';
-import { FanpageSettings, type FanpageComment, type FanpageAction } from '@agent-sales/contracts';
+import {
+  FanpageSettings,
+  type FanpageComment,
+  type FanpageAction,
+  type FanpageCommentListQuery,
+  type FanpageCommentPostsQuery,
+} from '@agent-sales/contracts';
 import { newId, type WorkspaceId } from '@agent-sales/shared';
 import { getEnv } from '../../../common/config.js';
 import { SECRET_BOX, type SecretBox } from '../../../common/security/secret-box.js';
@@ -13,6 +19,7 @@ import { BOT_FACADE, type BotFacade, withinReplySchedule } from '../../bot/api/i
 import type { FanpageFacade } from '../api/fanpage.facade.js';
 import { CHANNEL_STORE, type ChannelStore } from './ports/channel-store.js';
 import { FANPAGE_STORE, type FanpageStore } from './ports/fanpage-store.js';
+import { FanpageCommentInbox } from './fanpage-comment-inbox.js';
 import { ChannelError } from '../domain/channel.errors.js';
 @Injectable()
 export class FanpageFacadeImpl implements FanpageFacade {
@@ -21,7 +28,15 @@ export class FanpageFacadeImpl implements FanpageFacade {
     @Inject(FANPAGE_STORE) private readonly store: FanpageStore,
     @Inject(SECRET_BOX) private readonly box: SecretBox,
     @Inject(BOT_FACADE) private readonly bots: BotFacade,
-  ) {}
+  ) {
+    this.inbox = new FanpageCommentInbox(channels, store, {
+      connection: (ws, id) => this.connection(ws, id),
+      asset: (ws, id) => this.asset(ws, id),
+      adapter: () => this.adapter(),
+      review: (ws, id, commentId, version) => this.review(ws, id, commentId, version),
+    });
+  }
+  private readonly inbox: FanpageCommentInbox;
   async pageReply(ws: WorkspaceId, id: string, event: NormalizedEvent) {
     const connection = await this.connection(ws, id);
     if (event.senderExternalId !== connection.externalId || !event.comment?.parentId) return;
@@ -96,9 +111,17 @@ export class FanpageFacadeImpl implements FanpageFacade {
     const asset = await this.asset(ws, id);
     return this.readGraph(ws, id, () => this.adapter().list(asset));
   }
-  async comments(ws: WorkspaceId, id: string) {
-    await this.connection(ws, id);
-    return this.store.list(ws, id);
+  comments(ws: WorkspaceId, id: string, query?: FanpageCommentListQuery) {
+    return this.inbox.comments(ws, id, query);
+  }
+  comment(ws: WorkspaceId, id: string, commentId: string) {
+    return this.inbox.comment(ws, id, commentId);
+  }
+  source(ws: WorkspaceId, id: string, commentId: string) {
+    return this.inbox.source(ws, id, commentId);
+  }
+  commentPosts(ws: WorkspaceId, id: string, query?: FanpageCommentPostsQuery) {
+    return this.inbox.commentPosts(ws, id, query);
   }
   async receive(ws: WorkspaceId, id: string, event: NormalizedEvent): Promise<FanpageComment> {
     const c = await this.connection(ws, id),
@@ -198,10 +221,12 @@ export class FanpageFacadeImpl implements FanpageFacade {
       comment: null,
       result: c,
     }));
-    if (!input.automatic && input.kind === 'private_reply' && current && !current.context) {
-      if (!(await this.context(ws, id, commentId, current.version)))
-        throw new ChannelError('VALIDATION_FAILED', 'Comment could not be verified');
-    }
+    // A retried request id is answered before any source check: if the first attempt went out,
+    // a later edit must not turn the retry into a refusal that invites a second send.
+    if (!input.automatic && current?.actions.some((a) => a.id === input.key)) return null;
+    // The reservation below then only accepts the version that was just verified.
+    if (!input.automatic)
+      input = { ...input, version: await this.inbox.verifyManual(ws, id, commentId, input) };
     if (input.automatic && current && (await this.store.interrupted(ws, id, current))) {
       await this.review(ws, id, commentId, current.version);
       return null;

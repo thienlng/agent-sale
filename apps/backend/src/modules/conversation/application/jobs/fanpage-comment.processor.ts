@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { newId, foldVietnamese } from '@agent-sales/shared';
+import { newId, foldVietnamese, exposesContactDetails } from '@agent-sales/shared';
 import {
   CHANNEL_FACADE,
   FANPAGE_FACADE,
@@ -103,10 +103,7 @@ export class FanpageCommentProcessor {
       return;
     }
     // Public replies cannot repeat a customer's private contact details.
-    if (
-      settings.publicReplies &&
-      /(?:\b0[0-9 .-]{8,14}\b|[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})/i.test(response.reply)
-    ) {
+    if (settings.publicReplies && exposesContactDetails(response.reply)) {
       await this.pages.review(ws, id, comment.commentId, comment.version);
       return;
     }

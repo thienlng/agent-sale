@@ -45,9 +45,12 @@ type ComposerTools = (
 export function InboxPage({
   renderSalesPanel,
   renderComposerTools,
+  renderComments,
 }: {
   renderSalesPanel?: SalesPanel | undefined;
   renderComposerTools?: ComposerTools | undefined;
+  /** The Facebook comments workspace, owned by the channel feature (composed by the route). */
+  renderComments?: (() => ReactNode) | undefined;
 }) {
   const workspaceId = useWorkspaceId();
   const userId = useSession()?.user.id ?? '';
@@ -56,6 +59,7 @@ export function InboxPage({
       key={`${workspaceId}:${userId}`}
       renderSalesPanel={renderSalesPanel}
       renderComposerTools={renderComposerTools}
+      renderComments={renderComments}
     />
   );
 }
@@ -68,9 +72,11 @@ function failedIds(data: readonly { id: string; ok: boolean }[]): Set<string> {
 function InboxWorkspace({
   renderSalesPanel,
   renderComposerTools,
+  renderComments,
 }: {
   renderSalesPanel?: SalesPanel | undefined;
   renderComposerTools?: ComposerTools | undefined;
+  renderComments?: (() => ReactNode) | undefined;
 }) {
   const userId = useSession()?.user.id;
   const workspaceId = useWorkspaceId();
@@ -261,7 +267,7 @@ function InboxWorkspace({
             <ChannelTabs section={section} onSection={changeSection} />
           </div>
           {comments ? (
-            <CommentsEntry />
+            (renderComments?.() ?? <CommentsEntry />)
           ) : (
             <div className="flex min-h-0 flex-1">
               {list}
