@@ -2,6 +2,7 @@ import { type MetricKey, type MetricResult } from '@agent-sales/contracts';
 import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 
+import { BusinessAvatar } from '@/components/business-avatar';
 import { Button } from '@/components/ui/button';
 import { formatDateTime, formatNumber } from '@/lib/format';
 import { useIsMutating } from '@tanstack/react-query';
@@ -150,7 +151,12 @@ export function PortfolioPage({
                 key={business.workspaceId}
                 className="flex min-w-0 flex-wrap items-center justify-between gap-3 py-4"
               >
-                <div className="min-w-0">
+                <BusinessAvatar
+                  workspaceId={business.workspaceId}
+                  logoVersion={business.logoVersion}
+                  className="size-10"
+                />
+                <div className="min-w-0 flex-1">
                   <p className="break-words font-medium">{business.workspaceName}</p>
                   <p className="mt-1 text-sm text-muted-foreground">
                     {query.isPending

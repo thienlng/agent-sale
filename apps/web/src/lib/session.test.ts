@@ -6,8 +6,8 @@ import {
   login,
   logout,
   onSessionExpired,
-  renameMembership,
   selectWorkspace,
+  syncMembership,
 } from './session';
 
 const A = '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d21';
@@ -95,12 +95,13 @@ describe('business selection', () => {
     expect(localStorage.getItem('rapiz.locale')).toBe('vi');
   });
 });
-describe('renameMembership', () => {
-  it('shows a saved business name in the memberships without touching the others', async () => {
+describe('syncMembership', () => {
+  it('shows a saved name and logo in the memberships without touching the others', async () => {
     await authenticate();
-    renameMembership(A, 'Shop Hoa');
-    const names = getSession()?.memberships.map((m) => m.workspaceName);
-    expect(names).toEqual(['Shop Hoa', 'Business B']);
+    syncMembership(A, { name: 'Shop Hoa', logoVersion: 'abc123' });
+    const rows = getSession()?.memberships;
+    expect(rows?.map((m) => m.workspaceName)).toEqual(['Shop Hoa', 'Business B']);
+    expect(rows?.map((m) => m.logoVersion ?? null)).toEqual(['abc123', null]);
     expect(getSession()?.workspaceId).toBe(A);
   });
 });
