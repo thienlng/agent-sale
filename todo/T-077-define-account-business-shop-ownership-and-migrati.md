@@ -1,14 +1,14 @@
 ---
 id: T-077
 title: Define account business ownership and migration contracts
-status: backlog
+status: in-progress
 type: spike
 priority: P1
 owner: "@agent:claude"
 feature_ids: []
 created: 2026-10-26
 updated: 2026-10-28
-branch:
+branch: feat/T-077-account-foundation
 pr:
 parent:
 ---
