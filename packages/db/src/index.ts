@@ -2,6 +2,7 @@ export * from './client.js';
 export * from './tenant.js';
 export * from './outbox.js';
 export * from './audit.js';
+export { backfillAccounts, type AccountBackfillReport } from './account-backfill.js';
 export { ensureLoginRoles, migrate, MIGRATIONS_DIR, withCredentials } from './migrate.js';
 export * as schema from './schema/index.js';
 // Query operators re-exported so modules depend on @agent-sales/db only, never on drizzle-orm directly.
