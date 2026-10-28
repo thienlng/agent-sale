@@ -3,7 +3,10 @@ import {
   BootstrapResponse,
   ConversationDto,
   ConversationListResponse,
+  ContactDto,
   ConversationTagAssignmentDto,
+  CrmOptionDto,
+  CrmOptionList,
   TagAssignmentDto,
   TagDto,
 } from '@agent-sales/contracts';
@@ -308,5 +311,102 @@ describe('inbox v2 on Postgres', () => {
     expect(
       (await call(a.h, 'POST', `/conversations/${c.id}/tags`, { tagId: t.id })).statusCode,
     ).toBeGreaterThanOrEqual(400);
+  });
+  it('keeps one set of tags and customer statuses, managed in Customer settings (T-089)', async () => {
+    const a = await shop('inbox-settings@shop.vn', 'Chủ shop');
+    const other = await shop('inbox-settings-other@shop.vn', 'Shop khác');
+    const seller = await member(a.ws, 'sales');
+    const c = await customer(a, 'c1', 'xin chào');
+
+    // A tag created in Customer settings is the one the inbox assigns; a rename shows everywhere.
+    const vip = await tag(a.h, 'Khách VIP');
+    expect(
+      (await call(a.h, 'POST', `/conversations/${c.id}/tags`, { tagId: vip.id })).statusCode,
+    ).toBe(201);
+    const renamed = await call(a.h, 'PATCH', `/crm/tags/${vip.id}`, {
+      name: 'Khách thân thiết',
+      expectedVersion: vip.version,
+    });
+    expect(renamed.statusCode, renamed.body).toBe(200);
+    const onConversation = (await call(a.h, 'GET', `/conversations/${c.id}/tags`)).json() as {
+      data: ConversationTagAssignmentDto[];
+    };
+    expect(onConversation.data.map((x) => [x.tag.id, x.tag.name])).toEqual([
+      [vip.id, 'Khách thân thiết'],
+    ]);
+    expect((await list(a.h)).data[0]?.tags.map((x) => x.name)).toEqual(['Khách thân thiết']);
+    expect(
+      (await call(a.h, 'POST', '/crm/tags', { name: 'KHÁCH THÂN THIẾT', type: 'classification' }))
+        .statusCode,
+    ).toBe(409);
+
+    // A status renamed in Customer settings keeps its id on the customer.
+    const created = await call(a.h, 'POST', '/crm/statuses', {
+      name: 'Đang tư vấn',
+      color: '#2255aa',
+    });
+    expect(created.statusCode, created.body).toBe(201);
+    const consulting = CrmOptionDto.parse(created.json());
+    const person = await call(a.h, 'POST', '/contacts', {
+      name: 'Chị Hoa',
+      statusId: consulting.id,
+    });
+    expect(person.statusCode, person.body).toBe(201);
+    const hoa = ContactDto.parse(person.json());
+    await call(a.h, 'PATCH', `/crm/statuses/${consulting.id}`, { name: 'Đang chăm sóc' });
+    const statuses = CrmOptionList.parse((await call(a.h, 'GET', '/crm/statuses')).json()).data;
+    expect(statuses.find((x) => x.id === consulting.id)?.name).toBe('Đang chăm sóc');
+
+    // Active statuses keep distinct names; an archived one frees its name but cannot come back
+    // while another active status uses it.
+    const dup = await call(a.h, 'POST', '/crm/statuses', {
+      name: ' đang CHĂM sóc ',
+      color: '#000000',
+    });
+    expect(dup.statusCode).toBe(409);
+    expect(dup.json()).toMatchObject({
+      error: { code: 'CONFLICT', details: { kind: 'status', name: 'đang CHĂM sóc' } },
+    });
+    await call(a.h, 'PATCH', `/crm/statuses/${consulting.id}`, { archived: true });
+    const twin = await call(a.h, 'POST', '/crm/statuses', {
+      name: 'Đang chăm sóc',
+      color: '#000000',
+    });
+    expect(twin.statusCode, twin.body).toBe(201);
+    expect(
+      (await call(a.h, 'PATCH', `/crm/statuses/${consulting.id}`, { archived: false })).statusCode,
+    ).toBe(409);
+    // Archiving keeps the customer's status (history is preserved).
+    const kept = ContactDto.parse((await call(a.h, 'GET', `/contacts/${hoa.id}`)).json());
+    expect(kept.statusId).toBe(consulting.id);
+
+    // The customer status is not the conversation's open/resolved state, nor the bot switch.
+    const resolved = await call(a.h, 'PATCH', `/conversations/${c.id}`, {
+      status: 'resolved',
+      mode: 'human',
+    });
+    expect(resolved.statusCode, resolved.body).toBe(200);
+    expect(ContactDto.parse((await call(a.h, 'GET', `/contacts/${hoa.id}`)).json())).toMatchObject({
+      statusId: consulting.id,
+      version: kept.version,
+    });
+
+    // Only settings managers change definitions, and only in their own business.
+    const sh = seller.in(a.ws);
+    expect(
+      (await call(sh, 'POST', '/crm/statuses', { name: 'Mới', color: '#000000' })).statusCode,
+    ).toBe(403);
+    expect(
+      (await call(sh, 'PATCH', `/crm/tags/${vip.id}`, { name: 'X', expectedVersion: 2 }))
+        .statusCode,
+    ).toBe(403);
+    expect((await call(sh, 'GET', '/crm/tags')).statusCode).toBe(200);
+    expect(
+      (await call(other.h, 'PATCH', `/crm/statuses/${twin.json().id}`, { name: 'Y' })).statusCode,
+    ).toBe(404);
+    expect(
+      (await call(other.h, 'PATCH', `/crm/tags/${vip.id}`, { name: 'Y', expectedVersion: 2 }))
+        .statusCode,
+    ).toBe(404);
   });
 });

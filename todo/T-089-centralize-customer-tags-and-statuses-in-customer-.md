@@ -1,14 +1,14 @@
 ---
 id: T-089
 title: Centralize customer tags and statuses in customer settings
-status: backlog
+status: review
 type: feature
 priority: P1
 owner: "@agent:claude"
 feature_ids: []
 created: 2026-10-26
 updated: 2026-10-28
-branch:
+branch: feat/T-089-crm-links-and-account-billing
 pr:
 parent:
 ---
@@ -35,11 +35,11 @@ Centralize customer tags and statuses in customer settings.
 
 ## Acceptance criteria
 
-- [ ] Create or rename a tag/status in Customer settings and see the same ID/name reflected in CRM and inbox after refresh.
-- [ ] Customer status is independent of conversation resolution and bot enabled state.
-- [ ] Archiving a definition preserves historical assignments; permissions and conflict behavior are covered.
-- [ ] Add/update meaningful regression coverage, permission and scope checks where applicable; `pnpm check` passes before implementation is complete.
-- [ ] Update impacted docs and vi/en product strings; include migration and operational notes where applicable.
+- [x] Create or rename a tag/status in Customer settings and see the same ID/name reflected in CRM and inbox after refresh.
+- [x] Customer status is independent of conversation resolution and bot enabled state.
+- [x] Archiving a definition preserves historical assignments; permissions and conflict behavior are covered.
+- [x] Add/update meaningful regression coverage, permission and scope checks where applicable; `pnpm check` passes before implementation is complete.
+- [x] Update impacted docs and vi/en product strings; include migration and operational notes where applicable.
 
 ## Estimate and proposed assignment
 
@@ -51,9 +51,16 @@ Centralize customer tags and statuses in customer settings.
 
 ## Plan
 
-To be filled by the implementer before coding. Scope and acceptance above are the planning contract.
+Survey (2026-10-28): Customer settings (`/app/crm-settings`: statuses, sources, tags, distribution) is already the only place that defines tags and statuses. CRM, the inbox tag bar, the inbox customer panel and statistics all read `/crm/tags` and `/crm/statuses`; the inbox links to `/app/crm-settings/tags`. There is one tag table (`crm_tags`, assignments scoped `contact | conversation`) and customer status (`contacts.status_id`) is separate from `conversations.status` and the bot mode. No duplicate store exists, so no data migration or link redirect is needed. Remaining gaps:
+
+1. Active sources/statuses could share a name (tags already could not: partial unique index). Add a service-level check (trimmed, case-insensitive) on create, rename and restore, answering 409 `CONFLICT` with `details.name`. No unique index: older workspaces may already hold duplicates, which stay valid until renamed or archived.
+2. Statistics cached tag/status names under their own query keys, so a rename in settings did not refresh them. Put them under the CRM keys.
+3. Web: show the duplicate-name conflict as a sentence; "shop" → "business" in the non-member error.
+4. Integration test covering the acceptance criteria end to end (same id and new name in the inbox, conflicts, archive keeps assignments, status independent of resolve/bot mode, permissions, other business).
 
 ## Log
+
+- 2026-10-28 — Implemented on `feat/T-089-crm-links-and-account-billing` (block A3). Duplicate active source/status names answer 409; statistics name lookups share the CRM query keys; web names the clash. New integration test in `inbox-v2.integration.spec.ts` and web unit test `crm-errors.test.ts`. Docs: crm `MODULE.md`, docs/05.
 
 - 2026-10-28 — Replanned for lane A, now owned by @agent:claude (user decision, 2026-10-28). Product model agreed with the user: account → business (workspace) → bot → channels. **No separate shop entity**: the bot is the selling unit. The catalog is business-owned and each bot chooses which products it sells. Billable unit: an AI reply delivered to the customer, counted once across retries. When the allowance is exhausted, the bot stops and hands off to staff. Business switching lives in the avatar (account) menu. Code inventory and re-estimate: see the handoff's "Lane A replan" section.
 
