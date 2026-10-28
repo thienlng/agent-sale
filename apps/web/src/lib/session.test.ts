@@ -1,11 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 
-import { getWorkspaceId } from './api-client';
+import { api, getWorkspaceId } from './api-client';
 import {
   getSession,
   login,
   logout,
   onSessionExpired,
+  onWorkspaceLost,
   selectWorkspace,
   syncMembership,
 } from './session';
@@ -22,24 +24,28 @@ const user = {
   timezone: 'Asia/Ho_Chi_Minh',
   isPlatformAdmin: false,
 };
-async function authenticate() {
+const both = [
+  { workspaceId: A, workspaceName: 'Business A', role: 'owner' },
+  { workspaceId: B, workspaceName: 'Business B', role: 'sales' },
+];
+let memberships = both;
+const lost = {
+  error: {
+    code: 'NOT_FOUND',
+    message: 'Workspace not found',
+    details: { reason: 'workspace_access' },
+  },
+};
+async function authenticate(remembered?: string, list = both) {
   localStorage.clear();
-  vi.stubGlobal(
-    'fetch',
-    async (input: string) =>
-      new Response(
-        JSON.stringify(
-          input.endsWith('/bootstrap')
-            ? {
-                user,
-                memberships: [
-                  { workspaceId: A, workspaceName: 'Business A', role: 'owner' },
-                  { workspaceId: B, workspaceName: 'Business B', role: 'sales' },
-                ],
-              }
-            : { user, accessToken: 'test-token', expiresIn: 900 },
-        ),
-      ),
+  if (remembered) localStorage.setItem('rapiz.workspace', remembered);
+  memberships = list;
+  vi.stubGlobal('fetch', async (input: string) =>
+    input.endsWith('/bootstrap')
+      ? new Response(JSON.stringify({ user, memberships }))
+      : input.endsWith('/members')
+        ? new Response(JSON.stringify(lost), { status: 404 })
+        : new Response(JSON.stringify({ user, accessToken: 'test-token', expiresIn: 900 })),
   );
   await login({ email: user.email, password: 'test' });
 }
@@ -81,7 +87,27 @@ describe('business selection', () => {
     const previous = getSession();
     expect(selectWorkspace('not-a-membership')).toBe(false);
     expect(getSession()).toBe(previous);
-    expect(getWorkspaceId()).toBe(A);
+    expect(getWorkspaceId()).toBe(null);
+  });
+  it('asks the user to choose when they have several businesses and none remembered', async () => {
+    await authenticate();
+    expect(getSession()?.workspaceId).toBeNull();
+    await authenticate(B);
+    expect(getSession()?.workspaceId).toBe(B);
+    await authenticate('0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d99');
+    expect(getSession()?.workspaceId).toBeNull();
+    await authenticate(undefined, [both[1]!]);
+    expect(getSession()?.workspaceId).toBe(B);
+  });
+  it('reloads the session and reports a lost current business once', async () => {
+    await authenticate(A);
+    const handler = vi.fn();
+    onWorkspaceLost(handler);
+    memberships = [both[1]!];
+    await Promise.allSettled([api('/members', z.unknown()), api('/members', z.unknown())]);
+    await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(1));
+    expect(getSession()?.memberships).toHaveLength(1);
+    expect(getSession()?.workspaceId).toBe(B);
   });
 
   it('clears private feature storage even when logout fails and the feature was not loaded', async () => {

@@ -1501,7 +1501,22 @@
       "denied": "This account cannot create more businesses.",
       "error": "Could not create the business. Try again."
     },
-    "manageAccount": "Manage account"
+    "manageAccount": "Manage account",
+    "switch": "Switch business",
+    "noAccount": "Other businesses",
+    "pickTitle": "Choose a business",
+    "pickSubtitle": "You work in several businesses. Choose the one to manage now; you can switch later from your account menu.",
+    "lost": "You no longer have access to that business. Choose another one.",
+    "createTitle": "Create a business",
+    "createSubtitle": "Each business has its own bots, channels, customers and products.",
+    "welcomeTitle": "Create your first business",
+    "welcomeSubtitle": "You are not part of any business yet. Create one to start selling with an AI bot.",
+    "name": "Business name",
+    "accountLabel": "Account",
+    "creating": "Creating…",
+    "createError": "Could not create the business. Try again.",
+    "back": "Back",
+    "createAction": "Create business"
   },
   "account": {
     "open": "Account of {{name}}",
