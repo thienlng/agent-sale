@@ -4,6 +4,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
+
 - [ ] T-106 Bring Facebook comment threads into the inbox — @agent:claude · [details](todo/T-106-bring-facebook-comment-threads-into-the-inbox.md) · PR #73
 
 ## Next
@@ -65,6 +66,8 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## Done (last 10 — older ones live in todo/done/)
 
+- [x] T-124 Define the complete web acceptance test matrix — @agent:codex · [details](todo/done/T-124-define-the-complete-web-acceptance-test-matrix.md) · documentation delivered; test execution NOT_RUN
+
 - [x] T-123 Switch the site and dashboard typography to Space Grotesk with JetBrains Mono accents — @agent:claude · [details](todo/done/T-123-switch-the-site-and-dashboard-typography-to-space-.md) · main
 - [x] T-121 Move the marketing site into apps/site and link it with the dashboard — @agent:claude · [details](todo/done/T-121-move-the-marketing-site-into-apps-site-and-link-it.md) · main 1620f83
 - [x] T-120 Move the account menu to the header as a compact Facebook-style panel — @agent:claude · [details](todo/done/T-120-move-the-account-menu-to-the-header-as-a-compact-f.md) · main 1620f83
@@ -74,4 +77,3 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [x] T-076 Reduce integration initial bundle below 250 KB — @agent:codex · [details](todo/done/T-076-reduce-integration-initial-bundle-below-250-kb.md) · PR #64
 - [x] T-083 Move fanpage management into the bot workspace navigation — @agent:codex · [details](todo/done/T-083-move-fanpage-management-into-the-bot-workspace-nav.md) · PR #64
 - [x] T-084 Expose bot switches and advanced settings consistently — @agent:codex · [details](todo/done/T-084-expose-bot-switches-and-advanced-settings-consiste.md) · PR #64
-- [x] T-085 Separate bot training facts from behavioral instructions — @agent:codex · [details](todo/done/T-085-separate-bot-training-facts-from-behavioral-instru.md) · PR #64

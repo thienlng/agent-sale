@@ -66,3 +66,7 @@ Input source: `../../preny/preny-research/` (Preny research dossier dated 23/10/
 
 - [2026-10-28 lane B closeout](handoffs/2026-10-28-lane-b-closeout.md) — delivered independent work, final QA and exact remaining shop/account API prerequisites.
 - [Selected-business industry](handoffs/T-093-business-industry.md) — creation policy, legacy preservation and captured tenant query scope.
+
+## Web acceptance specification
+
+- [Complete web acceptance test pack](qa/web-acceptance/README.md) — T-124, current-main control inventory, 116 detailed cases, independent statistics fixture and an unexecuted per-case result ledger.
