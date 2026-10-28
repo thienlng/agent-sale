@@ -6,11 +6,11 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 - [ ] T-081 Redesign portfolio and business statistics entry screens — @agent:codex · [details](todo/T-081-redesign-portfolio-and-business-statistics-entry-s.md) · PR #70 · partial: shop data awaits lane A
 - [ ] T-112 Move product management to its own top-level navigation group — @agent:claude · [details](todo/T-112-move-product-management-to-its-own-top-level-navig.md)
+- [ ] T-114 Clean up bot navigation: hide the image library and rename channel integrations — @agent:claude · [details](todo/T-114-clean-up-bot-navigation-hide-the-image-library-and.md)
 
 ## Next
 
 - [ ] T-045 Email verification at signup (ACC-01) and verified-email invitations — @unassigned · [details](todo/T-045-email-verification-at-signup-acc-01-and-verified-e.md)
-- [ ] T-114 Clean up bot navigation: hide the image library and rename channel integrations — @agent:claude · [details](todo/T-114-clean-up-bot-navigation-hide-the-image-library-and.md)
 - [ ] T-113 Show per-bot statistics on the bot training home — @agent:claude · [details](todo/T-113-show-per-bot-statistics-on-the-bot-training-home.md)
 - [ ] T-086 Refine the sales inbox around the agreed Pancake workflow — @agent:claude · [details](todo/T-086-refine-the-sales-inbox-around-the-agreed-pancake-w.md)
 - [ ] T-115 Redesign the appearance preferences panel — @agent:claude · [details](todo/T-115-redesign-the-appearance-preferences-panel.md)
