@@ -56,6 +56,8 @@ assignment_rules(id, workspace_id, mode: off|by_channel|by_ratio|by_ratio_daily,
 
 **Implemented (M3b, migration 0014):** `members.role` is `owner | admin | sales | care | analyst` (a text column; capabilities per role live in `ROLE_CAPABILITIES` in contracts — custom roles and the `roles` table come with SET-03), `members.status` is `active | removed` with `removed_at`, unique per workspace and user. `invitations(id, workspace_id, email, role, token_hash UNIQUE, invited_by_user_id, invited_by_name, expires_at, accepted_at, accepted_by_user_id, revoked_at, created_at)` stores only a SHA-256 of the link secret; it is owned by the `team` module.
 
+**Implemented (T-078, migration 0028, ADR-012):** global `accounts(id, name, status: active|suspended, created_by_user_id, created_at, updated_at)` and `account_members(account_id, user_id, role: owner|billing, status: active|removed, created_at, removed_at, PK(account_id, user_id))` are owned by the `account` module and reached only through `app_system`. `workspaces.account_id` names the account that owns and pays for the business. It is nullable until the `account-backfill` CLI has run and a later contract migration makes it `NOT NULL`. A business is created under one of the caller's owned accounts, and a first account is created when they own none.
+
 ## 3. Bot & knowledge
 
 ```sql
@@ -137,6 +139,13 @@ ai_runs(id, workspace_id, bot_id, bot_version_id, conversation_id, trigger_messa
         is_test BOOL, created_at)                          -- monthly partitions
 fb_posts(id, workspace_id, channel_connection_id, external_post_id, message, auto_reply_enabled, ...)
 ```
+
+**Bot attribution (T-078, migration 0028, ADR-012):**
+
+- `bots(workspace_id, id)` is unique, so the channel and conversation keys below can reference it.
+- `channel_connections.bot_id` and `conversations.bot_id` are composite foreign keys `(workspace_id, bot_id) → bots(workspace_id, id)` with `ON DELETE SET NULL (bot_id)`. A row can only point at a bot of its own workspace. The keys are `NOT VALID` until the contract step.
+- `conversations.bot_id` is the bot answering now. It is written from the channel's binding on every inbound message, so a rebind takes effect on the conversation's next message.
+- `analytics_facts.bot_id` is the bot at event time. It is history and is never re-pointed.
 
 ## 5. CRM
 
@@ -288,7 +297,7 @@ llm_tier_routes(tier PK: basic|smart|pro|neo, provider_id, model, effort, fallba
 3. **Message sequence** `messages.seq` increases monotonically per conversation (taken from `conversations.last_message_seq` + 1 within the transaction) → lets the AI detect stale context.
 4. **Snapshot** name/price/SKU in `order_items` — editing the catalog does not change existing orders.
 5. **Partitioning — only where it does not break a guarantee.** PostgreSQL requires every unique constraint on a partitioned table to include the partition key, so tables whose correctness depends on a global unique key (`ledger_entries.idempotency_key`, `messages.idempotency_key`, `inbound_events (channel_kind, external_event_id)`, `shipments.request_key`, `orders.idempotency_key`) are **not** partitioned. Start with no partitioning at all; when `messages`/`inbound_events`/`ai_runs` need time-based retention, partition them by month **and** move their dedup keys to small unpartitioned key tables (`message_keys(key PK, message_id)`, `inbound_event_keys(channel_kind, external_event_id, received_at)`) or a Redis `SET NX EX` fast path with the key table as the durable fallback. No foreign keys between partitioned tables (`messages.ai_run_id`, `ai_runs.trigger_message_id` are plain indexed columns). Partition changes are hand-written SQL migrations (drizzle-kit does not manage partitions); `drizzle-kit push` is banned.
-5b. **Tenant context and roles** per ADR-004: all tenant access through `withTenant()`; policies use the InitPlan form; two roles `app_tenant`/`app_system`. **Global tables** (no `workspace_id`, no RLS): `users`, `sessions`, `otp_codes`, `plans`, `vouchers`, `vertical_packs`, `admin_units`, `feature_flags` (global rows), `affiliate_accounts`, `affiliate_links`, `affiliate_clicks`, `commissions`, `payouts`. Operator tables (app_system only, no tenant access): `analytics_checkpoints` and `analytics_dead_letters` (keeps `workspace_id` for inspection, no RLS; migration 0021). Everything else is a tenant table. Cross-boundary references (`members.user_id → users`) are allowed; tenant tables never reference other tenants' rows.
+5b. **Tenant context and roles** per ADR-004: all tenant access through `withTenant()`; policies use the InitPlan form; two roles `app_tenant`/`app_system`. **Global tables** (no `workspace_id`, no RLS): `users`, `sessions`, `otp_codes`, `plans`, `vouchers`, `vertical_packs`, `admin_units`, `feature_flags` (global rows), `affiliate_accounts`, `affiliate_links`, `affiliate_clicks`, `commissions`, `payouts`. Global tables reached only through `app_system` (no tenant grant): `accounts`, `account_members` (migration 0028, `account` module). Operator tables (app_system only, no tenant access): `analytics_checkpoints` and `analytics_dead_letters` (keeps `workspace_id` for inspection, no RLS; migration 0021). Everything else is a tenant table. Cross-boundary references (`members.user_id → users`) are allowed; tenant tables never reference other tenants' rows.
 5c. **Indexes**: `workspace_id` is the leading column of every composite index on tenant tables; every new heavy query ships an `EXPLAIN` run under the `app_tenant` role (RLS can prevent pushing non-leakproof predicates such as `ILIKE`/trigram below the policy — verify on a 1 M-row tenant before promising budgets).
 6. **Migrations**: only versioned migrations (Drizzle Kit `generate` + hand-written SQL for partitions/policies/roles, linted for lock safety); migrations must not lock large tables (add nullable column, backfill in batches, then set NOT NULL).
 7. **Seed data**: industry templates (FAQ, situations, workflows), 7 sources, 8 statuses, 4 system tags, 9 CRM rules, administrative unit catalog, plans & pricing.

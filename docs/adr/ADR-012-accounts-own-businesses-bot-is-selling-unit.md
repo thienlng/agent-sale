@@ -78,7 +78,7 @@ The global tables are read and written only by a new `account` backend module, t
   - `message.received` and `reply.completed` outbox payloads gain an optional `botId`: the bot bound to the channel when the event happened.
   - `analytics_facts.bot_id` stores it.
   - Conversation metrics accept a `bots` filter.
-  - `conversations.bot_id` holds the bot currently answering, updated when a page is rebound, for inbox and CRM filters.
+  - `conversations.bot_id` holds the bot currently answering, for inbox and CRM filters. It is taken from the channel's binding on each inbound message, so a rebind reaches a conversation with its next message. Deleting the bot clears it. Rewriting every conversation of a page at rebind time would make `channel` depend on `conversation`, a module cycle.
   - History therefore stays with the bot that answered it. The bot home statistics (T-107 on the lane B branch) switch from the page filter to the bot filter.
 
 ### 5. Billing ownership (implemented by T-091)
@@ -134,17 +134,16 @@ Switching keeps the T-081 guarantees: tenant captured per request, in-flight que
    - Add nullable `workspaces.account_id`.
    - Add a unique key on `bots(workspace_id, id)`.
    - Add nullable `conversations.bot_id` and `analytics_facts.bot_id`.
-   - Add `bots.catalog_mode` with default `all`.
-   - Create `bot_products` with RLS.
+   - Add `bots.catalog_mode` with default `all` and create `bot_products` with RLS. T-078 ships the rest of this step as migration 0028; these two come with T-080, which first uses them.
    - Add the channel → bot composite foreign key as `NOT VALID`.
 2. **Backfill.** An idempotent operator command, `account:backfill [--dry-run]`:
    - one account per distinct `workspaces.owner_user_id`, named after the owner, with an `owner` account member;
    - set `account_id` on every workspace;
-   - set `conversations.bot_id` and `analytics_facts.bot_id` from the channel's current binding. Past facts of pages already reassigned keep the current bot; this is a known approximation, reported per workspace.
+   - set `conversations.bot_id` and `analytics_facts.bot_id` from the channel's current binding. An analytics rebuild replays old events without a bot, so the command is run again after one. Past facts of pages already reassigned keep the current bot; this is a known approximation, reported per workspace.
    - The report lists what is never guessed: workspaces without an active owner member, owners that are deleted users, channels bound to a missing or foreign bot (they are unbound, not re-pointed), and subscription conflicts for T-091.
 3. **Contract.** Once the report is clean:
    - `workspaces.account_id` becomes `NOT NULL`;
-   - the channel foreign key is validated;
+   - the channel and conversation foreign keys are validated;
    - code that reads `account_id` is deployed.
 4. **Rollback.**
    - Before step 3: deploy the previous code; the new columns and tables are unused.
