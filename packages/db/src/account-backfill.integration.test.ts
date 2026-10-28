@@ -39,7 +39,9 @@ const b3 = newId();
 const orphan = newId();
 const f1 = newId(); // bot of B1
 const e1 = newId(); // bot of B3
+const e2 = newId(); // bot of B3, soft-deleted before the unbind hook existed
 const pageB1 = newId(); // bound to F1
+const pageB3Deleted = newId(); // B3 page still bound to the deleted E2
 const pageB3Foreign = newId(); // B3 page bound to B1's bot F1 (impossible after 0028)
 const pageB2Missing = newId(); // B2 page bound to a bot that does not exist
 const convB1 = newId();
@@ -87,10 +89,13 @@ beforeAll(async () => {
   ] as const)
     await exec(sql`insert into bots (id, workspace_id, name, industry, settings)
       values (${bot}, ${ws}, 'Bot', 'retail', '{}'::jsonb)`);
+  await exec(sql`insert into bots (id, workspace_id, name, industry, settings, deleted_at)
+    values (${e2}, ${b3}, 'Deleted bot', 'retail', '{}'::jsonb, now())`);
   for (const [ch, ws, bot] of [
     [pageB1, b1, f1],
     [pageB3Foreign, b3, f1],
     [pageB2Missing, b2, newId()],
+    [pageB3Deleted, b3, e2],
   ] as const)
     await exec(sql`insert into channel_connections (id, workspace_id, provider, external_id, name, token_sealed, bot_id)
       values (${ch}, ${ws}, 'facebook', ${ch}, 'Page', 'sealed', ${bot})`);
@@ -137,9 +142,9 @@ describe('account backfill (0028, ADR-012 §8)', () => {
     expect(report.workspacesSkipped).toEqual([
       { workspaceId: orphan, reason: 'owner_not_active_member' },
     ]);
-    expect(report.channelsUnbound).toHaveLength(2);
+    expect(report.channelsUnbound).toHaveLength(3);
     expect(report.channelsUnbound.map((c) => c.channelId).sort()).toEqual(
-      [pageB3Foreign, pageB2Missing].sort(),
+      [pageB3Foreign, pageB2Missing, pageB3Deleted].sort(),
     );
     expect(report.conversationsAttributed).toBe(1);
     expect(report.factsAttributed).toEqual([{ workspaceId: b1, facts: 1 }]);

@@ -13,7 +13,7 @@ export interface AccountBackfillReport {
     workspaceId: string;
     reason: 'owner_not_active_member' | 'owner_has_several_accounts';
   }[];
-  /** Channels bound to a missing bot or to another workspace's bot: unbound, never re-pointed. */
+  /** Channels bound to a missing, deleted or other workspace's bot: unbound, never re-pointed. */
   channelsUnbound: { workspaceId: string; channelId: string; botId: string }[];
   conversationsAttributed: number;
   /** Past facts get the channel's current bot: an approximation for pages already rebound. */
@@ -98,11 +98,12 @@ export async function backfillAccounts(
         r.workspacesLinked += 1;
       }
 
-      // 2. Channels whose bot is missing or belongs to another workspace lose the binding.
+      // 2. Channels whose bot is missing, deleted or of another workspace lose the binding.
       const broken = await rows(sql`
         select c.workspace_id, c.id, c.bot_id from channel_connections c
         where c.bot_id is not null
-          and not exists (select 1 from bots b where b.workspace_id = c.workspace_id and b.id = c.bot_id)
+          and not exists (select 1 from bots b where b.workspace_id = c.workspace_id
+                          and b.id = c.bot_id and b.deleted_at is null)
         order by c.workspace_id, c.id`);
       for (const c of broken) {
         await tx.execute(
