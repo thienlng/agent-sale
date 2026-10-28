@@ -35,11 +35,11 @@ Each bot's home shows its own key metrics, computed by the existing analytics de
 
 ## Acceptance criteria
 
-- [ ] Bot figures reconcile with the workspace statistics filtered to the same pages and period (same query, same definitions).
-- [ ] Workspace-scoped: the bot page already 404s for a bot of another workspace, analytics only reads the current workspace's facts; the block follows `analytics.view` like the statistics page.
-- [ ] A bot without pages shows an explicit "no channel" state, never workspace-wide numbers; loading/error/locked states as on the statistics page.
-- [ ] UI tests (figures, period, link, no-channel, permission); `pnpm check` green.
-- [ ] vi/en strings; analytics docs describe the bot view.
+- [x] Bot figures reconcile with the workspace statistics filtered to the same pages and period (same query, same definitions).
+- [x] Workspace-scoped: the bot page already 404s for a bot of another workspace, analytics only reads the current workspace's facts; the block follows `analytics.view` like the statistics page.
+- [x] A bot without pages shows an explicit "no channel" state, never workspace-wide numbers; loading/error/locked states as on the statistics page.
+- [x] UI tests (figures, period, link, no-channel, permission); `pnpm check` green.
+- [x] vi/en strings; analytics docs describe the bot view.
 
 ## Plan
 
@@ -47,7 +47,7 @@ Design change from the original scope: no backend `botId` filter. docs/ARCHITECT
 
 1. `features/analytics/components/bot-statistics.test.tsx` (failing first): queries the conversation metrics with the bot's `pageIds` and the chosen period; renders the three cards; 30-day switch re-queries; link to `/app/analytics?pages=…&from=…`; no pages → "no channel" state and no query; no `analytics.view` → nothing.
 2. `bot-statistics.tsx`: reuses `buildQueries`/`resolveFilters`, `useStatistics`, `useDefinitions` and `MetricCard`; 7/30-day toggle.
-3. Route `bots/$botId/index.tsx`: pages = channels whose `botId` is this bot (any status, history stays attributed); render the block above the setup guide.
+3. Route `bots/$botId/index.tsx`: pages = channels whose `botId` is this bot (any status, history stays attributed); render the block below the setup guide (its `h1` stays the first heading).
 4. i18n vi/en `analytics.bot.*`; docs/analytics.md section on the bot view and its limit (attribution follows the current page→bot assignment).
 5. Verify: targeted tests, `pnpm check`, e2e, responsive matrix.
 
@@ -56,6 +56,7 @@ Risk: moving a page to another bot moves its history with it (facts have no bot)
 ## Log
 
 - 2026-10-27 — created from the review ("vào trang đào tạo bot của mỗi bot thì phải có thống kê").
+- 2026-10-28 — implemented without a backend change: `BotStatistics` (analytics feature) queries the conversation metrics with the bot's pages, resolved in the bot home route from `/channels`. 7/30-day toggle, link to `/app/analytics` with the same pages and period, "no channel" state with no query, hidden without `analytics.view`. Placed below the setup guide rather than above so the guide's `h1` stays first. 4 UI tests; gate green (2 pre-existing max-lines warnings); e2e 49/49 (`website-chat` flaked once under load, passes on rerun). docs/analytics.md "Bot home statistics" documents the current-assignment limit.
 
 ## Links
 

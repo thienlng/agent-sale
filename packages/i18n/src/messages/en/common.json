@@ -1453,6 +1453,16 @@
       "shopPending": "Shop statistics are not available yet.",
       "retry": "Retry",
       "allBusiness": "All businesses"
+    },
+    "bot": {
+      "title": "Bot performance",
+      "subtitle": "Conversations and messages on the channels assigned to this bot.",
+      "period": "Period",
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days",
+      "noChannels": "This bot has no channel yet, so there are no figures. Assign a page or channel so it starts receiving messages.",
+      "connect": "Assign a channel",
+      "openFull": "See details in Statistics"
     }
   },
   "business": {
