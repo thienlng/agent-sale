@@ -37,10 +37,10 @@ Define account business ownership and migration contracts.
 
 ## Acceptance criteria
 
-- [ ] A fixture with two accounts, two industries, several bots per business and one member shared across businesses enumerates permitted and forbidden reads.
+- [x] A fixture with two accounts, two industries, several bots per business and one member shared across businesses enumerates permitted and forbidden reads.
 - [ ] The migration/backfill and rollback plan, account billing ownership, catalog scope and bot attribution rules are written down and approved by the owner before T-078 migrations land.
-- [ ] Lists which existing ADRs and design docs (docs/05, docs/08, docs/17, docs/analytics.md) change, and how.
-- [ ] `pnpm check` passes (docs-only change).
+- [x] Lists which existing ADRs and design docs (docs/05, docs/08, docs/17, docs/analytics.md) change, and how.
+- [x] `pnpm check` passes (docs-only change).
 
 ## Estimate and proposed assignment
 
@@ -52,11 +52,15 @@ Define account business ownership and migration contracts.
 
 ## Plan
 
-To be filled by the implementer before coding. Scope and acceptance above are the planning contract.
+1. Inventory the current tenancy, billing, bot/channel, catalog and CRM code (done 2026-10-28; summary in the handoff's "Lane A replan").
+2. Write ADR-012 (Proposed): entities, access, signup and creation, bot as the selling unit, billing ownership, routes, contracts, backfill and rollback, access fixture, docs to update, open questions.
+3. Owner review: Tùng and the maintainer accept the ADR or ask for changes. T-078 migrations wait for this approval.
+4. On approval: mark ADR-012 Accepted and tick the approval criterion. Docs listed under "Consequences" are updated by the implementing tasks (T-078, T-079, T-080, T-091), not here.
 
 ## Log
 
 - 2026-10-28 — Replanned for lane A, now owned by @agent:claude (user decision, 2026-10-28). Product model agreed with the user: account → business (workspace) → bot → channels. **No separate shop entity**: the bot is the selling unit. The catalog is business-owned and each bot chooses which products it sells. Billable unit: an AI reply delivered to the customer, counted once across retries. When the allowance is exhausted, the bot stops and hands off to staff. Business switching lives in the avatar (account) menu. Code inventory and re-estimate: see the handoff's "Lane A replan" section.
+- 2026-10-28 — ADR-012 drafted (Proposed): accounts as global tables owned by a new `account` module, business access unchanged, composite channel → bot foreign key, bot attribution of events and facts at event time, per-bot catalog selection, account billing (T-091), route map, backfill/rollback, access fixture (§9). Four open questions for the product owner listed in the ADR; none blocks T-078. Waiting for owner approval before T-078 migrations.
 
 - 2026-10-26 — Created from cofounder review; proposed allocation only. No application changes made.
 
