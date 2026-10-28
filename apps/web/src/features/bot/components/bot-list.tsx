@@ -49,7 +49,10 @@ export function BotList({ business }: { business?: BotBusinessContext }) {
           ) : bots.data?.length ? (
             <ul className="divide-y overflow-hidden rounded-xl border">
               {bots.data.map((bot: BotDto) => (
-                <li key={bot.id} className="flex items-center transition-colors hover:bg-muted/60">
+                <li
+                  key={bot.id}
+                  className="flex flex-wrap items-center transition-colors hover:bg-muted/60"
+                >
                   <Link
                     to="/app/bots/$botId"
                     params={{ botId: bot.id }}
@@ -63,17 +66,6 @@ export function BotList({ business }: { business?: BotBusinessContext }) {
                       <span className="block truncate text-sm text-muted-foreground">
                         {t(`industries.${bot.industry}`)}
                       </span>
-                      {business?.status === 'success' &&
-                      business.workspace &&
-                      business.workspace.industry !== bot.industry ? (
-                        <span className="block text-sm text-warning">
-                          {t('bots.legacyIndustry', {
-                            industry: t(`industries.${business.workspace.industry}`, {
-                              defaultValue: business.workspace.industry,
-                            }),
-                          })}
-                        </span>
-                      ) : null}
                     </span>
                     <span className="hidden text-sm text-muted-foreground sm:block">
                       {t('bots.updated', { date: date.format(new Date(bot.updatedAt)) })}
@@ -117,6 +109,17 @@ export function BotList({ business }: { business?: BotBusinessContext }) {
                         <TooltipContent>{t('bots.delete')}</TooltipContent>
                       </Tooltip>
                     </div>
+                  ) : null}
+                  {business?.status === 'success' &&
+                  business.workspace &&
+                  business.workspace.industry !== bot.industry ? (
+                    <p className="w-full min-w-0 basis-full break-words border-t px-5 py-2 text-sm text-muted-foreground">
+                      {t('bots.legacyIndustry', {
+                        industry: t(`industries.${business.workspace.industry}`, {
+                          defaultValue: business.workspace.industry,
+                        }),
+                      })}
+                    </p>
                   ) : null}
                 </li>
               ))}

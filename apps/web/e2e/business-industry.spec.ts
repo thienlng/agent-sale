@@ -62,6 +62,10 @@ test('business settings and new bots follow the sidebar business without an extr
     .getByRole('button', { name: 'Spa business', exact: true })
     .click();
   await expect(page).toHaveURL(/\/app\/analytics$/);
+  await expect(page.getByRole('button', { name: 'Chọn business', exact: true })).toContainText(
+    'Spa business',
+  );
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('rapiz.workspace'))).toBe(B);
   await page.goto('/app/bots');
   await page.getByRole('button', { name: 'Tạo bot', exact: true }).click();
   dialog = page.getByRole('dialog');
@@ -105,6 +109,9 @@ test('industry context fits a narrow create dialog', async ({ page }, testInfo) 
   await page.setViewportSize({ width: 390, height: 844 });
   await setup(page);
   await page.goto('/app/bots');
+  const notice = page.getByText(/Bot đang dùng lĩnh vực cũ/).first();
+  await expect(notice).toBeVisible();
+  expect((await notice.boundingBox())?.width).toBeGreaterThan(200);
   await page.getByRole('button', { name: 'Tạo bot', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByLabel('Lĩnh vực kinh doanh')).toHaveValue('Khách sạn / homestay');
