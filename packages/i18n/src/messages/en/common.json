@@ -1049,7 +1049,8 @@
     },
     "errors": {
       "fieldsInvalid": "Check: {{fields}}",
-      "notMember": "This person is no longer a member of the shop."
+      "notMember": "This person is no longer a member of the business.",
+      "duplicateName": "“{{name}}” already exists. Choose another name."
     },
     "pageInfo": "{{from}}–{{to}} of {{total}} customers",
     "distribution": {

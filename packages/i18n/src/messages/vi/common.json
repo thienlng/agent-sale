@@ -1048,7 +1048,8 @@
     },
     "errors": {
       "fieldsInvalid": "Kiểm tra lại: {{fields}}",
-      "notMember": "Người này không còn là thành viên của shop."
+      "notMember": "Người này không còn là thành viên của doanh nghiệp.",
+      "duplicateName": "Đã có mục tên “{{name}}”. Hãy chọn tên khác."
     },
     "pageInfo": "{{from}}–{{to}} / {{total}} khách hàng",
     "distribution": {
