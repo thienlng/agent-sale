@@ -1,7 +1,7 @@
 ---
 id: T-120
 title: Move the account menu to the header as a compact Facebook-style panel
-status: review
+status: done
 type: feature
 priority: P1
 owner: '@agent:claude'
@@ -9,7 +9,7 @@ feature_ids: []
 created: 2026-10-28
 updated: 2026-10-28
 branch: feat/T-120-header-account-menu
-pr:
+pr: none (pushed directly to main, owner request 2026-10-28)
 parent:
 ---
 
@@ -67,6 +67,7 @@ a short list, with display settings one level deeper.
 - 2026-10-28 — owner added: plan and billing as one menu row that opens a popup (not inline usage); option (b): ship the menu now, add the AI-message usage meter to the popup when T-089 lands. Layout customisation kept, one level deeper in a dialog.
 - 2026-10-28 — verified: web typecheck, lint, 508 unit tests green; affected e2e specs (statistics-home, inbox-compose-continuity, responsive) pass except `every layout preference combination`, which also fails on `main` before this change (pre-existing, follow-up task). Browser check at 1440 and 375 px.
 - 2026-10-28 — fresh-context QA agent review: accept with fixes. Fixed: focus returns to the avatar after the plan/layout popups close (was <body>); avatar hit area 44 px; layout reset no longer resets light/dark; Escape in the display view goes back one level; blank-name initials fallback. Tests added for each.
+- 2026-10-28 — merged to main (1620f83) at the owner's request, without a PR.
 
 ## Links
 

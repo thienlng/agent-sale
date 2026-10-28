@@ -4,8 +4,6 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
-- [ ] T-121 Move the marketing site into apps/site and link it with the dashboard — @agent:claude · [details](todo/T-121-move-the-marketing-site-into-apps-site-and-link-it.md)
-- [ ] T-120 Move the account menu to the header as a compact Facebook-style panel — @agent:claude · [details](todo/T-120-move-the-account-menu-to-the-header-as-a-compact-f.md)
 - [ ] T-106 Bring Facebook comment threads into the inbox — @agent:claude · [details](todo/T-106-bring-facebook-comment-threads-into-the-inbox.md) · PR #73
 
 ## Next
@@ -67,17 +65,13 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## Done (last 10 — older ones live in todo/done/)
 
+- [x] T-121 Move the marketing site into apps/site and link it with the dashboard — @agent:claude · [details](todo/done/T-121-move-the-marketing-site-into-apps-site-and-link-it.md) · main 1620f83
+- [x] T-120 Move the account menu to the header as a compact Facebook-style panel — @agent:claude · [details](todo/done/T-120-move-the-account-menu-to-the-header-as-a-compact-f.md) · main 1620f83
 - [x] T-118 Split responsive route coverage into independently timed cases — @agent:codex · [details](todo/done/T-118-split-responsive-route-coverage-into-independently.md) · PR #77
-
 - [x] T-117 Reconcile lane B delivery and remaining integration dependencies — @agent:codex · [details](todo/done/T-117-reconcile-lane-b-delivery-and-remaining-integratio.md) · PR #77
-
 - [x] T-110 Require settings.manage to change fanpage comment automation settings — @agent:codex · [details](todo/done/T-110-require-settings-manage-to-change-fanpage-comment-.md) · PR #77
-
 - [x] T-076 Reduce integration initial bundle below 250 KB — @agent:codex · [details](todo/done/T-076-reduce-integration-initial-bundle-below-250-kb.md) · PR #64
 - [x] T-083 Move fanpage management into the bot workspace navigation — @agent:codex · [details](todo/done/T-083-move-fanpage-management-into-the-bot-workspace-nav.md) · PR #64
 - [x] T-084 Expose bot switches and advanced settings consistently — @agent:codex · [details](todo/done/T-084-expose-bot-switches-and-advanced-settings-consiste.md) · PR #64
 - [x] T-085 Separate bot training facts from behavioral instructions — @agent:codex · [details](todo/done/T-085-separate-bot-training-facts-from-behavioral-instru.md) · PR #64
 - [x] T-090 Diagnose and fix failed inbox tag updates — @agent:codex · [details](todo/done/T-090-diagnose-and-fix-failed-inbox-tag-updates.md) · PR #64
-- [x] T-086 Refine the sales inbox around the agreed Pancake workflow — @unassigned · [details](todo/done/T-086-refine-the-sales-inbox-around-the-agreed-pancake-w.md) · cancelled: superseded by T-096/T-106/T-107
-
-- [x] T-111 Integrate parallel inbox delivery on feat tung-dev — @agent:codex · [details](todo/done/T-111-integrate-parallel-inbox-delivery-on-feat-tung-dev.md)
