@@ -1,14 +1,14 @@
 ---
 id: T-110
 title: Require settings.manage to change fanpage comment automation settings
-status: backlog
+status: in-progress
 type: bug
 priority: P1
-owner:
+owner: '@agent:codex'
 feature_ids: []
 created: 2026-10-28
 updated: 2026-10-28
-branch:
+branch: feat/tung-dev
 pr:
 parent: T-106
 ---
@@ -38,15 +38,19 @@ Only roles with `settings.manage` can change fanpage comment automation settings
 
 ## Plan
 
-Written by the implementer before coding (see `start-task` skill). Steps, files, tests, migration/docs/i18n impact, risks.
+1. Add failing HTTP regressions: owner/admin may save, analyst/sales may read but cannot save, and foreign workspace/channel requests return 404 without altering stored settings.
+2. Add frontend regressions for read-only settings, including post exclusions and no save control.
+3. Apply the existing settings.manage server capability and matching UI permission; add vi/en explanation and update integration docs.
+4. Run focused tests, the full gate and relevant browser scenarios; request fresh same-model QA and push the existing owner-requested integration branch.
 
-1. …
+No schema, dependencies, migrations or architecture changes. Keep existing comment-action capability separate. Continue on feat/tung-dev per the owner's branch instruction.
 
 ## Log
 
 Dated entries, newest last. Decisions, blockers, questions, what was verified and how.
 
 - 2026-10-28 — created.
+- 2026-10-28 — Claimed under the owner’s request to complete remaining Inbox work. Plan written before code; use existing capability guards without new role semantics.
 
 ## Links
 
