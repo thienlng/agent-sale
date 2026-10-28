@@ -4,6 +4,8 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
+- [ ] T-126 Execute web acceptance and resolve verified regressions — @agent:codex · [details](todo/T-126-execute-web-acceptance-and-resolve-verified-regres.md)
+
 
 - [ ] T-106 Bring Facebook comment threads into the inbox — @agent:claude · [details](todo/T-106-bring-facebook-comment-threads-into-the-inbox.md) · PR #73
 
@@ -49,6 +51,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [ ] T-094 Validate the cross-business review milestone end to end — @unassigned · [details](todo/T-094-validate-the-cross-business-review-milestone-end-t.md)
 - [ ] T-119 Reconcile historical and cross-branch task ID aliases before account integration — @unassigned · [details](todo/T-119-reconcile-historical-and-cross-branch-task-id-alia.md)
 - [ ] T-122 Fix the responsive layout-preference e2e that times out on main — @unassigned · [details](todo/T-122-fix-the-responsive-layout-preference-e2e-that-time.md)
+- [ ] T-127 Route dashboard hot reload WebSockets to the web server — @unassigned · [details](todo/T-127-route-dashboard-hot-reload-websockets-to-the-web-s.md)
 
 ## Blocked
 
@@ -66,7 +69,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## Done (last 10 — older ones live in todo/done/)
 
-- [x] T-124 Define the complete web acceptance test matrix — @agent:codex · [details](todo/done/T-124-define-the-complete-web-acceptance-test-matrix.md) · documentation delivered; test execution NOT_RUN
+- [x] T-125 Define the complete web acceptance test matrix — @agent:codex · [details](todo/done/T-125-define-the-complete-web-acceptance-test-matrix.md) · documentation delivered; test execution NOT_RUN
 
 - [x] T-123 Switch the site and dashboard typography to Space Grotesk with JetBrains Mono accents — @agent:claude · [details](todo/done/T-123-switch-the-site-and-dashboard-typography-to-space-.md) · main
 - [x] T-121 Move the marketing site into apps/site and link it with the dashboard — @agent:claude · [details](todo/done/T-121-move-the-marketing-site-into-apps-site-and-link-it.md) · main 1620f83

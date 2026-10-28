@@ -1,5 +1,5 @@
 ---
-id: T-124
+id: T-125
 title: Define the complete web acceptance test matrix
 status: done
 type: docs
@@ -49,6 +49,8 @@ Produce a reviewable, executable web acceptance pack grounded in the current mai
 4. Review edge cases and dataset arithmetic, run documentation formatting and the repository gate, and report the saved files for owner review.
 
 ## Log
+
+- 2026-10-29 — Renumbered the local documentation task from T-124 to T-125 after origin/main assigned T-124 to the cofounder account integration. The original local commit retains its historical reference; no remote task is overwritten.
 
 - 2026-10-29 — Created and claimed for documentation only; baseline main b0f1be6. No new live test or customer action is authorized by this document-writing task.
 

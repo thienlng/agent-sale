@@ -1,0 +1,59 @@
+---
+id: T-126
+title: Execute web acceptance and resolve verified regressions
+status: in-progress
+type: bug
+priority: P0
+owner: '@agent:codex'
+feature_ids: []
+created: 2026-10-29
+updated: 2026-10-29
+branch: fix/T-126-web-acceptance
+pr:
+parent: T-094
+---
+
+## Context
+
+The owner approved execution of the 116-case web acceptance pack and authorized delegated fixes of reproduced bugs while away. The current live browser/runtime uses b0f1be6; origin/main gained account-foundation 0859328 during planning. Preserve the operating live service and keep tested build identities explicit; do not blindly migrate shared data.
+
+## Goal
+
+Execute available live and isolated cases, fix reproduced regressions, independently retest, and produce an honest per-case release report.
+
+## Scope
+
+- Live owner-to-TinyMind test conversation only, reversible own-thread controls and approved existing AI message allowance.
+- Isolated browser/API/statistics/permission/mobile acceptance with safe synthetic fixtures.
+- Delegated regression fixes, tests, evidence, final pnpm check and QA review.
+- Reconcile acceptance-document task ID collision: local T-124 documentation becomes T-125; remote T-124 remains the cofounder account integration.
+
+## Out of scope
+
+- Unapproved public comment/moderation, customer messaging outside the owner test thread, purchases, real orders, shipping, password/credential changes or shared database destructive operations.
+- Inventing undecided metrics or implementing absent cofounder business models.
+
+## Acceptance criteria
+
+- [ ] Each planned case has evidence-backed PASS/FAIL/BLOCKED/NOT_IMPLEMENTED/DECISION_REQUIRED or an explicit unexecuted reason; no smoke-test count substitutes for deep acceptance.
+- [ ] Every reproduced bug has a failing regression, tracked fix and independent retest.
+- [ ] Final build passes pnpm check and relevant browser/API checks.
+- [ ] Live own-thread state is restored; unavoidable message/read history effects disclosed.
+- [ ] Report includes exact baseline SHAs, test lanes, remaining integration dependencies and no unsupported perfection claim.
+
+## Plan
+
+1. Freeze running live baseline, record own-thread initial state, execute approved provider checks.
+2. Delegate deterministic statistics/API acceptance and known responsive regression T-122 to separate agents.
+3. Execute broad UI/role/fault suites, reproduce uncovered failures, delegate concrete fixes.
+4. Reconcile the ledger from actual assertions, not inferred coverage; run fixed regressions and independent QA.
+5. Publish local reviewable evidence and commit coherent fixes; do not claim a newer untested main deployment.
+
+## Log
+
+- 2026-10-29 — Started at owner request; application baseline b0f1be6 plus documentation 02a69a9. All existing live test side-effect boundaries retained.
+
+## Links
+
+- docs/qa/web-acceptance/README.md
+- T-125 acceptance specification; T-122 responsive harness regression; T-094 integration milestone

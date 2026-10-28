@@ -1,4 +1,4 @@
-# Rapiz web acceptance pack — T-124
+# Rapiz web acceptance pack — T-125
 
 Owner review draft, 2026-10-29. Baseline: `main` at `b0f1be6`. This is an executable acceptance specification, **not an execution report**. No case in this pack has been run merely because it is documented. Earlier automated smoke tests and the observed existing TinyMind exchange do not count as execution of these cases.
 

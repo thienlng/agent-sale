@@ -69,4 +69,4 @@ Input source: `../../preny/preny-research/` (Preny research dossier dated 23/10/
 
 ## Web acceptance specification
 
-- [Complete web acceptance test pack](qa/web-acceptance/README.md) — T-124, current-main control inventory, 116 detailed cases, independent statistics fixture and an unexecuted per-case result ledger.
+- [Complete web acceptance test pack](qa/web-acceptance/README.md) — T-125, current-main control inventory, 116 detailed cases, independent statistics fixture and an unexecuted per-case result ledger.
