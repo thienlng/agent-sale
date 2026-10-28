@@ -87,7 +87,7 @@ Follows ADR-012 §8. Same branch as T-077 (block A1). Catalog selection columns 
     - Backend integration tests: 19 files, 144 tests. db integration tests: 6 files, 28 tests, including the account backfill on a seeded legacy install.
   - Follow-ups:
     - Contract migration once production backfill reports are clean: `workspaces.account_id NOT NULL` and `VALIDATE` the two bot keys.
-    - The bot statistics UI (T-107) switches to `botIds`.
+    - The bot statistics UI (T-113, lane B) switches to `botIds`.
     - T-080 adds `bots.catalog_mode` and `bot_products`.
 - 2026-10-28 — Started on `feat/T-077-account-foundation` (block A1) after the maintainer asked to proceed; ADR-012 is still Proposed.
 - 2026-10-28 — Replanned for lane A, now owned by @agent:claude (user decision, 2026-10-28). Product model agreed with the user: account → business (workspace) → bot → channels. **No separate shop entity**: the bot is the selling unit. The catalog is business-owned and each bot chooses which products it sells. Billable unit: an AI reply delivered to the customer, counted once across retries. When the allowance is exhausted, the bot stops and hands off to staff. Business switching lives in the avatar (account) menu. Code inventory and re-estimate: see the handoff's "Lane A replan" section.
