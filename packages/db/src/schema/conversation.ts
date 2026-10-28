@@ -32,6 +32,8 @@ export const conversations = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     /** Bot currently answering (0028): the channel's bot, updated on rebind. Same-workspace key. */
     botId: uuid('bot_id'),
+    /** The CRM customer of this conversation (0030, T-088). Same-workspace key, null when unknown. */
+    contactId: uuid('contact_id'),
   },
   (t) => [
     uniqueIndex('conversation_customer_unique').on(t.workspaceId, t.channelId, t.customerId),
@@ -45,6 +47,9 @@ export const conversations = pgTable(
     index('conversation_assignee_idx')
       .on(t.workspaceId, t.assigneeId)
       .where(sql`${t.assigneeId} is not null`),
+    index('conversations_contact_idx')
+      .on(t.workspaceId, t.contactId)
+      .where(sql`${t.contactId} is not null`),
     ...tenantPolicies('conversations'),
   ],
 );

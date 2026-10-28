@@ -14,6 +14,7 @@ import { useLeadAlerts } from '../hooks/use-lead-alerts';
 import {
   useAssignConversation,
   useBulkConversations,
+  useConversation,
   useInbox,
   useInboxChannels,
   useInboxMembers,
@@ -45,9 +46,12 @@ type ComposerTools = (
 export function InboxPage({
   renderSalesPanel,
   renderComposerTools,
+  openConversationId,
 }: {
   renderSalesPanel?: SalesPanel | undefined;
   renderComposerTools?: ComposerTools | undefined;
+  /** Deep link (`/app/inbox?conversation=`): opened once, even when the list does not show it. */
+  openConversationId?: string | undefined;
 }) {
   const workspaceId = useWorkspaceId();
   const userId = useSession()?.user.id ?? '';
@@ -56,6 +60,7 @@ export function InboxPage({
       key={`${workspaceId}:${userId}`}
       renderSalesPanel={renderSalesPanel}
       renderComposerTools={renderComposerTools}
+      openConversationId={openConversationId}
     />
   );
 }
@@ -68,9 +73,11 @@ function failedIds(data: readonly { id: string; ok: boolean }[]): Set<string> {
 function InboxWorkspace({
   renderSalesPanel,
   renderComposerTools,
+  openConversationId,
 }: {
   renderSalesPanel?: SalesPanel | undefined;
   renderComposerTools?: ComposerTools | undefined;
+  openConversationId?: string | undefined;
 }) {
   const userId = useSession()?.user.id;
   const workspaceId = useWorkspaceId();
@@ -95,6 +102,14 @@ function InboxWorkspace({
       assign.mutate({ id, assigneeId }, { onError: fail }),
   };
   const [selected, setSelected] = useState<{ id: string; channelId: string } | null>(null);
+  // The deep-linked conversation is looked up by id once; closing it afterwards stays closed.
+  const [deepLink, setDeepLink] = useState(openConversationId);
+  const linked = useConversation(deepLink ?? null).data?.conversation;
+  useEffect(() => {
+    if (!linked) return;
+    setSelected({ id: linked.id, channelId: linked.channelId });
+    setDeepLink(undefined);
+  }, [linked]);
   const [state, setState] = useState<ListState>(DEFAULT_LIST_STATE);
   const [comments, setComments] = useState(false);
   const [managing, setManaging] = useState(false);

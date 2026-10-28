@@ -31,6 +31,10 @@ vi.mock('../api/inbox', () => ({
   useReadState: () => ({ markRead: { mutate: vi.fn() }, markUnread: { mutate: vi.fn() } }),
   useAssignConversation: () => ({ mutate: vi.fn() }),
   useBulkConversations: () => ({ mutate: fixtures.bulk, isPending: false }),
+  // A deep-linked conversation is looked up by id, whatever the list shows.
+  useConversation: (id: string | null) => ({
+    data: id ? { conversation: { id, channelId: 'page-9' } } : undefined,
+  }),
 }));
 vi.mock('sonner', () => ({
   toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn(), info: vi.fn() }),
@@ -67,7 +71,14 @@ vi.mock('./conversation-list', () => ({
   ),
 }));
 vi.mock('./inbox-empty-state', () => ({ InboxEmptyState: () => null }));
-vi.mock('./conversation-view', () => ({ ConversationView: () => null }));
+vi.mock('./conversation-view', () => ({
+  ConversationView: ({ id, onBack }: { id: string; onBack: () => void }) => (
+    <div>
+      <output aria-label="Open conversation">{id}</output>
+      <button onClick={onBack}>Close conversation</button>
+    </div>
+  ),
+}));
 vi.mock('./comments-entry', () => ({ CommentsEntry: () => <p>Comments entry</p> }));
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children, to }: { children: ReactNode; to: string }) => <a href={to}>{children}</a>,
@@ -91,6 +102,15 @@ const row = (id: string) => ({
 });
 
 describe('inbox page', () => {
+  it('opens a deep-linked conversation that the list does not show, once', () => {
+    render(<InboxPage openConversationId="conv-far" />);
+    expect(screen.getByLabelText('Open conversation')).toHaveTextContent('conv-far');
+    act(() => {
+      fireEvent.click(screen.getByRole('button', { name: 'Close conversation' }));
+    });
+    expect(screen.queryByLabelText('Open conversation')).toBeNull();
+  });
+
   it('passes the server tab counts to the list', () => {
     fixtures.counts = { all: 128, unread: 12, waiting: 5 };
     render(<InboxPage />);

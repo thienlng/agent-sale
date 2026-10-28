@@ -6,11 +6,12 @@ import {
   ContactDto,
   ConversationTagAssignmentDto,
   CrmOptionDto,
+  ContactListResponse,
   CrmOptionList,
   TagAssignmentDto,
   TagDto,
 } from '@agent-sales/contracts';
-import { createDb, ensureLoginRoles, migrate, schema, withCredentials } from '@agent-sales/db';
+import { createDb, ensureLoginRoles, eq, migrate, schema, withCredentials } from '@agent-sales/db';
 import { newId, workspaceId } from '@agent-sales/shared';
 import { startTestPostgres, type TestPostgres } from '@agent-sales/testing';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
@@ -53,7 +54,12 @@ afterAll(async () => {
 });
 
 type Headers = Record<string, string>;
-const call = (h: Headers, method: 'GET' | 'POST' | 'PATCH', url: string, payload?: object) =>
+const call = (
+  h: Headers,
+  method: 'GET' | 'POST' | 'PATCH' | 'PUT',
+  url: string,
+  payload?: object,
+) =>
   app
     .getHttpAdapter()
     .getInstance()
@@ -408,5 +414,122 @@ describe('inbox v2 on Postgres', () => {
       (await call(other.h, 'PATCH', `/crm/tags/${vip.id}`, { name: 'Y', expectedVersion: 2 }))
         .statusCode,
     ).toBe(404);
+  });
+
+  it('links conversations to one customer per phone and filters customers by bot (T-088)', async () => {
+    const a = await shop('inbox-contacts@shop.vn', 'Chủ shop');
+    const b = await shop('inbox-contacts-b@shop.vn', 'Shop khác');
+    const analyst = await member(a.ws, 'analyst');
+    const newBot = async (name: string) => {
+      const r = await call(a.h, 'POST', '/bots', { name, industry: 'retail' });
+      expect(r.statusCode, r.body).toBe(201);
+      return (r.json() as { id: string }).id;
+    };
+    const [bot1, bot2, bot3] = [
+      await newBot('Bot 1'),
+      await newBot('Bot 2'),
+      await newBot('Bot 3'),
+    ];
+    const page2 = crypto.randomUUID();
+    await owner.db.insert(schema.channelConnections).values({
+      id: page2,
+      workspaceId: a.ws,
+      provider: 'instagram',
+      externalId: `ig-${a.ws}`,
+      name: 'Instagram',
+      tokenSealed: 'sealed',
+      botId: bot2,
+    });
+    const bind = (id: string, botId: string) =>
+      owner.db
+        .update(schema.channelConnections)
+        .set({ botId })
+        .where(eq(schema.channelConnections.id, id));
+    await bind(a.channelId, bot1);
+    const onPage2 = (sender: string, text: string, n = 1) =>
+      inbox.receive(workspaceId(a.ws), page2, {
+        kind: 'instagram',
+        assetExternalId: `ig-${a.ws}`,
+        externalEventId: `${sender}-${n}`,
+        externalMessageId: `${sender}-${n}`,
+        senderExternalId: sender,
+        type: 'message',
+        occurredAt: new Date(),
+        text,
+        raw: {},
+      });
+    const detail = async (id: string) =>
+      ConversationDto.parse(
+        (
+          (await call(a.h, 'GET', `/conversations/${id}`)).json() as {
+            conversation: unknown;
+          }
+        ).conversation,
+      );
+    const byBot = async (op: 'has_any' | 'has_none', bots: string[]) => {
+      const r = await call(a.h, 'POST', '/contacts/query', {
+        filter: { rules: [{ field: 'botId', op, value: bots }] },
+      });
+      expect(r.statusCode, r.body).toBe(200);
+      return ContactListResponse.parse(r.json()).data.map((c) => c.id);
+    };
+
+    // No phone yet: no customer.
+    const fb = await customer(a, 'lan-fb', 'Chào shop');
+    expect((await detail(fb.id)).contactId).toBeNull();
+    // A phone on Facebook creates the customer and links it; the same phone on Instagram finds it.
+    await inbox.receive(workspaceId(a.ws), a.channelId, {
+      kind: 'facebook',
+      assetExternalId: `page-${a.ws}`,
+      externalEventId: 'lan-fb-2',
+      externalMessageId: 'lan-fb-2',
+      senderExternalId: 'lan-fb',
+      type: 'message',
+      occurredAt: new Date(),
+      text: 'Số mình 0903 456 781 nhé',
+      raw: {},
+    });
+    const contactId = (await detail(fb.id)).contactId;
+    expect(contactId).not.toBeNull();
+    const ig = await onPage2('lan-ig', 'Gọi 0903.456.781 giúp mình');
+    expect((await detail(ig.id)).contactId).toBe(contactId);
+    const lan = ContactDto.parse((await call(a.h, 'GET', `/contacts/${contactId}`)).json());
+    expect(lan.phone).toBe('+84903456781');
+    expect(ids(await list(a.h, `?contactId=${contactId}`))).toEqual([fb.id, ig.id].sort());
+
+    // Both bots talked with her; moving page 1 to bot 3 keeps bot 1 in her history.
+    expect(await byBot('has_any', [bot1])).toEqual([contactId]);
+    expect(await byBot('has_any', [bot2])).toEqual([contactId]);
+    expect(await byBot('has_any', [bot3])).toEqual([]);
+    await bind(a.channelId, bot3);
+    await inbox.receive(workspaceId(a.ws), a.channelId, {
+      kind: 'facebook',
+      assetExternalId: `page-${a.ws}`,
+      externalEventId: 'lan-fb-3',
+      externalMessageId: 'lan-fb-3',
+      senderExternalId: 'lan-fb',
+      type: 'message',
+      occurredAt: new Date(),
+      text: 'Còn hàng không?',
+      raw: {},
+    });
+    expect(await byBot('has_any', [bot1])).toEqual([contactId]);
+    expect(await byBot('has_any', [bot3])).toEqual([contactId]);
+    expect(await byBot('has_none', [bot1])).toEqual([]);
+
+    // Staff unlink and link again; a reader cannot, another business's customer is not found.
+    const set = (h: Headers, id: string, value: string | null) =>
+      call(h, 'PUT', `/conversations/${id}/contact`, { contactId: value });
+    const unlinked = await set(a.h, ig.id, null);
+    expect(unlinked.statusCode, unlinked.body).toBe(200);
+    expect(ConversationDto.parse(unlinked.json()).contactId).toBeNull();
+    const relinked = await set(a.h, ig.id, contactId);
+    expect(ConversationDto.parse(relinked.json()).contactId).toBe(contactId);
+    expect((await set(analyst.in(a.ws), ig.id, null)).statusCode).toBe(403);
+    const foreign = await call(b.h, 'POST', '/contacts', { name: 'Khách B', phone: '0987111222' });
+    expect(foreign.statusCode, foreign.body).toBe(201);
+    expect((await set(a.h, ig.id, ContactDto.parse(foreign.json()).id)).statusCode).toBe(404);
+    expect((await set(b.h, ig.id, null)).statusCode).toBe(404);
+    expect((await detail(ig.id)).contactId).toBe(contactId);
   });
 });

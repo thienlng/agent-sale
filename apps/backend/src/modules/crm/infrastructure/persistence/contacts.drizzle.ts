@@ -93,6 +93,12 @@ export function contactsTx(
           .limit(1);
         return r ? toContact(r) : null;
       },
+      async recordBot(contactId, botId, at) {
+        await tx
+          .insert(schema.contactBots)
+          .values({ workspaceId: ws, contactId, botId, firstSeenAt: at })
+          .onConflictDoNothing();
+      },
       async countOwnedBy(userId) {
         const [r] = await tx
           .select({

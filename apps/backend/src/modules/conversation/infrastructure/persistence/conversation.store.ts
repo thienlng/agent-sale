@@ -30,13 +30,15 @@ const c = schema.conversations,
 type Row = typeof c.$inferSelect;
 /**
  * `data` is the document; rows written before migration 0024 may lack `createdAt`. The bot comes
- * from the `bot_id` column: the backfill fills it and deleting the bot clears it (0028).
+ * from the `bot_id` column: the backfill fills it and deleting the bot clears it (0028). Likewise
+ * the customer from `contact_id`: deleting the customer clears it (0030).
  */
 const toView = (r: Row): ConversationView =>
   ConversationDto.parse({
     ...r.data,
     createdAt: r.data.createdAt ?? r.createdAt.toISOString(),
     botId: r.botId,
+    contactId: r.contactId,
   });
 const likePattern = (q: string): string => `%${q.replace(/[\\%_]/g, '\\$&')}%`;
 /** Open and waiting; a resolved conversation keeps `awaiting_since` but is not waiting. */
@@ -60,6 +62,7 @@ function baseConditions(ws: WorkspaceId, f: ConversationFilter): SQL[] {
     );
   if (f.mode) where.push(eq(c.mode, f.mode));
   if (f.channelId) where.push(eq(c.channelId, f.channelId));
+  if (f.contactId) where.push(eq(c.contactId, f.contactId));
   if (f.assignee === 'none') where.push(isNull(c.assigneeId));
   else if (f.assignee) where.push(eq(c.assigneeId, f.assignee));
   if (f.hasPhone !== undefined)
@@ -89,6 +92,7 @@ const indexColumns = (d: ConversationView) => ({
   status: d.status,
   customerPhone: d.customerPhone,
   botId: d.botId,
+  contactId: d.contactId,
 });
 export class DrizzleConversationStore implements ConversationStore {
   constructor(private readonly db: Database) {}

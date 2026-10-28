@@ -110,6 +110,14 @@ function tagRule(rule: ContactFilterRule): SQL {
   return rule.op === 'has_any' ? has : sql`not ${has}`;
 }
 
+/** Bots that ever answered a linked conversation; kept when a page moves to another bot (T-088). */
+function botRule(rule: ContactFilterRule): SQL {
+  const ids = list(rule);
+  const has = sql`exists (select 1 from contact_bots cb where cb.contact_id = contacts.id
+    and ${inList(sql`cb.bot_id`, ids)})`;
+  return rule.op === 'has_any' ? has : sql`not ${has}`;
+}
+
 function compileRule(rule: ContactFilterRule, timezone: string): SQL {
   const kind = CONTACT_FILTER_FIELDS[rule.field];
   if (rule.field === 'phone') return phoneRule(rule.op, String(rule.value ?? ''));
@@ -138,6 +146,8 @@ function compileRule(rule: ContactFilterRule, timezone: string): SQL {
     }
     case 'tag':
       return tagRule(rule);
+    case 'bot':
+      return botRule(rule);
     default:
       return dateRule(rule, timezone);
   }

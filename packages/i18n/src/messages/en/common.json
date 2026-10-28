@@ -870,7 +870,8 @@
         "between": "between"
       },
       "field": {
-        "tagId": "Tag"
+        "tagId": "Tag",
+        "botId": "Bot that talked with them"
       },
       "fieldLabel": "Field",
       "operator": "Operator"
@@ -925,6 +926,7 @@
       "tabs": {
         "overview": "Overview",
         "details": "Details",
+        "conversations": "Conversations",
         "history": "History",
         "files": "Files"
       },
@@ -1054,6 +1056,16 @@
       "on": "On",
       "noMembers": "No members yet. Invite Sales on the Members page.",
       "share": "{{percent}}%"
+    },
+    "conversations": {
+      "loading": "Loading conversations…",
+      "retry": "Try again",
+      "empty": "No conversations are linked to this customer yet.",
+      "provider": {
+        "facebook": "Facebook",
+        "instagram": "Instagram",
+        "website": "Website"
+      }
     }
   },
   "team": {

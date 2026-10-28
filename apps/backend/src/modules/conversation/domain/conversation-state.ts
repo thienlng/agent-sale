@@ -47,6 +47,7 @@ export function newConversation(input: {
     lastMessageSender: input.echo ? 'human' : 'customer',
     customerPhone: null,
     lead: null,
+    contactId: null,
     tags: [],
     revision: 0,
     lastMessage: '',

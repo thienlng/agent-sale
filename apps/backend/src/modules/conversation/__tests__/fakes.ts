@@ -44,5 +44,11 @@ export function fakeCrm(
     conversationIdsByTags: vi.fn(async () => match),
     listConversationTags: vi.fn(async () => []),
     assignConversationTag: vi.fn(async () => ({ created: true, assignment: {} })),
+    getContact: vi.fn(async (_ws: unknown, id: string) => ({ id })),
+    upsertLeadByPhone: vi.fn(async () => ({
+      contactId: '00000000-0000-4000-8000-0000000000c1',
+      created: true,
+    })),
+    recordContactBot: vi.fn(async () => undefined),
   };
 }
