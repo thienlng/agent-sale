@@ -4,7 +4,6 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
-- [ ] T-109 Align live statistics browser timezone with its workspace — @agent:codex · [details](todo/T-109-align-live-statistics-browser-timezone-with-its-wo.md) · PR #72
 
 
 
@@ -69,6 +68,8 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## Done (last 10 — older ones live in todo/done/)
 
+- [x] T-109 Align live statistics browser timezone with its workspace — @agent:codex · [details](todo/done/T-109-align-live-statistics-browser-timezone-with-its-wo.md) · PR #72
+
 - [x] T-108 Exclude exact public widget fixture fingerprints from secret scans — @agent:codex · [details](todo/done/T-108-exclude-exact-public-widget-fixture-fingerprints-f.md) · PR #72
 
 - [x] T-107 Persist inbox text drafts and personal Enter preference — @agent:codex · [details](todo/done/T-107-persist-inbox-text-drafts-and-personal-enter-prefe.md) · PR #72
@@ -80,4 +81,3 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [x] T-103 Dashboard: website channel management and install guide — @agent:claude · [details](todo/done/T-103-dashboard-website-channel-management-and-install-g.md) · merged to main
 - [x] T-102 Website lead capture into the CRM and inbox — @agent:claude · [details](todo/done/T-102-website-lead-capture-into-the-crm-and-inbox.md) · merged to main
 - [x] T-101 Embeddable website chat widget — @agent:claude · [details](todo/done/T-101-embeddable-website-chat-widget.md) · merged to main
-- [x] T-100 Webchat public API, visitors and rate limits — @agent:claude · [details](todo/done/T-100-webchat-public-api-visitors-and-rate-limits.md) · merged to main
