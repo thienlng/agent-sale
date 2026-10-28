@@ -7,7 +7,6 @@ import { Logo } from '@/components/logo';
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupLabel,
   SidebarHeader,
@@ -20,8 +19,6 @@ import {
 import { useBusinessSwitch } from '@/hooks/use-business-switch';
 import { usePreferences } from '@/lib/preferences/preferences';
 import { useSession } from '@/lib/session';
-
-import { NavUser } from './nav-user';
 
 /** Paths that belong to the account layer, above any single business. */
 export const ACCOUNT_PATHS = /^\/app\/(overview|businesses)(\/|$)/;
@@ -122,9 +119,6 @@ export function AccountSidebar() {
           ) : null}
         </nav>
       </SidebarContent>
-      <SidebarFooter>
-        <NavUser />
-      </SidebarFooter>
       <SidebarRail />
     </Sidebar>
   );
