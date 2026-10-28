@@ -12,7 +12,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [ ] T-129 Let a business pick an icon when it has no logo — @agent:claude · [details](todo/T-129-let-a-business-pick-an-icon-when-it-has-no-logo.md) · PR #84
 - [ ] T-077 Define account business ownership and migration contracts — @agent:claude · [details](todo/T-077-define-account-business-shop-ownership-and-migrati.md) · PR #82
 - [ ] T-078 Add account persistence and bot attribution with safe backfills — @agent:claude · [details](todo/T-078-add-account-business-and-shop-persistence-with-saf.md) · PR #82
-- [ ] T-124 Integrate the lane A account PRs onto current main — @agent:claude · [details](todo/T-124-integrate-the-lane-a-account-prs-onto-current-main.md) · PR #82 (A1)
+- [ ] T-124 Integrate the lane A account PRs onto current main — @agent:claude · A1 merged in PR #82; A2 in PR #84; A3 pending
 - [ ] T-106 Bring Facebook comment threads into the inbox — @agent:claude · [details](todo/T-106-bring-facebook-comment-threads-into-the-inbox.md) · PR #73
 
 ## Next

@@ -48,7 +48,7 @@ Written by the implementer before coding (see `start-task` skill). Steps, files,
 Dated entries, newest last. Decisions, blockers, questions, what was verified and how.
 
 - 2026-10-28 — created.
-- 2026-10-29 — Renumbered from T-110 (PR #76) to T-128 when integrated under T-124: T-110 already names another task on main (T-119). Commits made before the move still say T-110.
+- 2026-10-29 — Renumbered from T-110 (PR #76) to T-128 when integrated under T-124: T-110 already names a done task in todo/done/ on main (see T-119 for the alias policy). Commits made before the move still say T-110.
 
 ## Links
 
