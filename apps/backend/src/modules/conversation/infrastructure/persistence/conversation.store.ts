@@ -28,9 +28,16 @@ import {
 const c = schema.conversations,
   m = schema.conversationMessages;
 type Row = typeof c.$inferSelect;
-/** `data` is the document; rows written before migration 0024 may lack `createdAt`. */
+/**
+ * `data` is the document; rows written before migration 0024 may lack `createdAt`. The bot comes
+ * from the `bot_id` column: the backfill fills it and deleting the bot clears it (0028).
+ */
 const toView = (r: Row): ConversationView =>
-  ConversationDto.parse({ ...r.data, createdAt: r.data.createdAt ?? r.createdAt.toISOString() });
+  ConversationDto.parse({
+    ...r.data,
+    createdAt: r.data.createdAt ?? r.createdAt.toISOString(),
+    botId: r.botId,
+  });
 const likePattern = (q: string): string => `%${q.replace(/[\\%_]/g, '\\$&')}%`;
 /** Open and waiting; a resolved conversation keeps `awaiting_since` but is not waiting. */
 const waitingNow = sql`(${c.awaitingSince} is not null and ${c.status} = 'open')`;
@@ -81,6 +88,7 @@ const indexColumns = (d: ConversationView) => ({
   mode: d.mode,
   status: d.status,
   customerPhone: d.customerPhone,
+  botId: d.botId,
 });
 export class DrizzleConversationStore implements ConversationStore {
   constructor(private readonly db: Database) {}

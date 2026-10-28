@@ -377,6 +377,47 @@ describe('statistics', () => {
     expect(oneDay.total).toBe(2);
   });
 
+  it('keeps history with the bot that answered it after the page is rebound, per tenant', async () => {
+    const lan = await t.user('lanbot@st.vn', 'Chủ shop');
+    const minh = await t.user('minhbot@st.vn', 'Chủ shop');
+    const page = crypto.randomUUID();
+    const before = crypto.randomUUID();
+    const after = crypto.randomUUID();
+    const at = (iso: string, botId: string, n: number) =>
+      t.owner.db.insert(schema.outboxEvents).values({
+        workspaceId: lan.ownWorkspace,
+        type: 'conversation.message.received.v1',
+        aggregateType: 'conversation',
+        aggregateId: crypto.randomUUID(),
+        payload: {
+          messageId: `bot-${n}`,
+          type: 'message',
+          channelId: page,
+          botId,
+          occurredAt: iso,
+        },
+      });
+    // The same page answered by one bot, then rebound to another.
+    await at('2026-10-20T03:00:00.000Z', before, 1);
+    await at('2026-10-20T04:00:00.000Z', before, 2);
+    await at('2026-10-21T03:00:00.000Z', after, 3);
+    const range = { from: '2026-10-20', to: '2026-10-21' };
+    const count = async (u: TestUser, botIds: string[]) =>
+      card(
+        await ask(u, base({ metrics: ['messages.inbound'], dateRange: range, botIds })),
+        'messages.inbound',
+      );
+
+    expect(await count(lan, [before])).toBe(2);
+    expect(await count(lan, [after])).toBe(1);
+    expect(await count(lan, [before, after])).toBe(3);
+    // Another business naming these bots sees nothing and learns nothing.
+    expect(await count(minh, [before, after])).toBe(0);
+    expect(
+      await issues(lan, '/analytics/query', base({ metrics: ['customers.new'], botIds: [before] })),
+    ).toEqual(['scope_not_supported:customers.new']);
+  });
+
   it('refuses what the definitions do not allow, and says exactly what', async () => {
     const lan = await t.user('lan4@st.vn', 'Chủ shop');
     expect(await issues(lan, '/analytics/query', base({ metrics: ['comments.received'] }))).toEqual(

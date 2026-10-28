@@ -220,6 +220,26 @@ describe('ConversationFacade tenant and delivery contract', () => {
       service.send(ws, c.id, { ...body, text: 'different' }, actor),
     ).rejects.toMatchObject({ code: 'CONFLICT' });
   });
+  it('records the bound bot on the conversation and on each event, and follows a rebind', async () => {
+    type Ev = { type: string; payload: { botId?: string } };
+    const c = await service.receive(ws, channelId, event());
+    expect(c.botId).toBe(botId);
+    await service.send(ws, c.id, { text: 'reply', idempotencyKey: newId() }, actor);
+    const events = () => store.events as Ev[];
+    const botsOf = (type: string) =>
+      events()
+        .filter((e) => e.type === type)
+        .map((e) => e.payload.botId);
+    expect(botsOf('conversation.message.received.v1')).toEqual([botId]);
+    expect(botsOf('conversation.reply.completed.v1')).toEqual([botId]);
+
+    const next = '018d0000-0000-7000-8000-000000000006';
+    const base = await channels.getConnection(ws, channelId);
+    vi.mocked(channels.getConnection).mockResolvedValue({ ...base, botId: next });
+    await service.receive(ws, channelId, event('in2'));
+    expect((await service.get(ws, c.id)).conversation.botId).toBe(next);
+    expect(botsOf('conversation.message.received.v1')).toEqual([botId, next]);
+  });
   it('keeps uncertain deliveries visible and never resends them', async () => {
     vi.mocked(channels.deliver).mockResolvedValue({
       externalId: null,

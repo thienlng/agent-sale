@@ -162,7 +162,27 @@ describe('mapOutboxEvent — conversations', () => {
     const [f] = mapOutboxEvent(
       row('conversation.message.received.v1', { messageId: 'old', type: 'message' }, CONVERSATION),
     );
-    expect(f).toMatchObject({ occurredAt: SEEN, channelId: null });
+    expect(f).toMatchObject({ occurredAt: SEEN, channelId: null, botId: null });
+  });
+
+  it('keeps the bot that was bound to the page when the message and the reply happened', () => {
+    const BOT = '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d08';
+    const [inbound] = mapOutboxEvent(
+      row(
+        'conversation.message.received.v1',
+        { messageId: 'm1', type: 'message', channelId: CHANNEL, botId: BOT },
+        CONVERSATION,
+      ),
+    );
+    const [reply] = mapOutboxEvent(
+      row(
+        'conversation.reply.completed.v1',
+        { messageId: 'r', status: 'sent', sender: 'bot', channelId: CHANNEL, botId: BOT },
+        CONVERSATION,
+      ),
+    );
+    expect(inbound).toMatchObject({ channelId: CHANNEL, botId: BOT });
+    expect(reply).toMatchObject({ channelId: CHANNEL, botId: BOT });
   });
 
   it('counts a reply only once the provider accepted it', () => {
