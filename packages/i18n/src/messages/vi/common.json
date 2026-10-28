@@ -1560,6 +1560,12 @@
         "contacts": "Khách hàng",
         "knowledge_items": "Mục kiến thức cho bot"
       }
+    },
+    "usage": {
+      "exhaustedTitle": "Đã dùng hết tin nhắn AI của chu kỳ này",
+      "exhaustedBody": "Bot đang chuyển khách cho nhân viên trả lời. Hạn mức {{limit}} tin nhắn sẽ được làm mới vào {{date}}.",
+      "nearTitle": "Sắp hết tin nhắn AI",
+      "nearBody": "Đã dùng {{used}}/{{limit}} tin nhắn AI của chu kỳ này (làm mới vào {{date}}). Khi hết, bot sẽ chuyển khách cho nhân viên."
     }
   }
 }

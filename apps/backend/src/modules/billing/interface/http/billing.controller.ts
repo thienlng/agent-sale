@@ -1,4 +1,4 @@
-import type { EntitlementsDto } from '@agent-sales/contracts';
+import type { EntitlementsDto, MessageUsageDto } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
 import { Controller, Get, Inject } from '@nestjs/common';
 
@@ -14,5 +14,11 @@ export class BillingController {
   @Get('billing/entitlements')
   entitlements(@CurrentWorkspace() ws: WorkspaceId): Promise<EntitlementsDto> {
     return this.billing.entitlements(ws);
+  }
+
+  /** Shared by the account's businesses; any member sees it (the dashboard banner). */
+  @Get('billing/usage')
+  usage(@CurrentWorkspace() ws: WorkspaceId): Promise<MessageUsageDto> {
+    return this.billing.usage(ws);
   }
 }

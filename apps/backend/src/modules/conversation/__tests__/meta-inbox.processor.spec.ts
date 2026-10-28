@@ -3,12 +3,13 @@ import type { NormalizedEvent } from '@agent-sales/channels';
 import { workspaceId } from '@agent-sales/shared';
 import { describe, expect, it, vi } from 'vitest';
 import type { AiFacade } from '../../ai/api/index.js';
+import type { BillingFacade } from '../../billing/api/index.js';
 import type { BotFacade, BotView } from '../../bot/api/index.js';
 import type { ChannelFacade, PendingMetaEvent } from '../../channel/api/index.js';
 import { ConversationFacadeImpl } from '../application/conversation.facade.impl.js';
 import { MetaInboxProcessor } from '../application/jobs/meta-inbox.processor.js';
 import type { ImageFetcher } from '../application/ports/image-fetcher.js';
-import { fakeCrm, fakeIdentity, fakeTeam } from './fakes.js';
+import { fakeBilling, fakeCrm, fakeIdentity, fakeTeam } from './fakes.js';
 import { MemoryConversationStore } from './factories/memory-conversation-store.js';
 
 const ws = workspaceId('018d0000-0000-7000-8000-000000000001');
@@ -49,8 +50,10 @@ function setup(
     vision?: boolean;
     fetch?: ImageFetcher['fetch'];
     comments?: FanpageCommentProcessor;
+    billing?: ReturnType<typeof fakeBilling>;
   } = {},
 ) {
+  const billing = options.billing ?? fakeBilling();
   const bot = {
     id: botId,
     isActive: true,
@@ -113,11 +116,13 @@ function setup(
     channels,
     ai,
     inbox,
+    billing,
     processor: new MetaInboxProcessor(
       channels,
       inbox,
       ai,
       bots,
+      billing as unknown as BillingFacade,
       { fetch: options.fetch ?? (async () => null) },
       options.vision ?? false,
       options.comments,
@@ -337,6 +342,69 @@ describe('MetaInboxProcessor', () => {
     expect(turns[0].content.match(/Khách đã gửi kèm 1 ảnh/g)).toHaveLength(1);
     const [c] = (await inbox.list(ws, { limit: 10 } as never)).data;
     expect(c?.mode).toBe('bot');
+  });
+  it('bills a delivered answer once, also when its event is retried (ADR-012 §5)', async () => {
+    const { channels, billing, processor } = setup();
+    const first = job('b1', 'message', 'Còn size 40 không?', Date.now());
+    vi.mocked(channels.claimEvents).mockResolvedValueOnce([first]);
+    await processor.tick();
+    await processor.process({ ...first, attempt: 2 });
+    expect(billing.reserveReply).toHaveBeenCalledWith(ws, {
+      idempotencyKey: 'bot:b1',
+      conversationId: expect.any(String),
+      botId,
+    });
+    expect(billing.captureReply).toHaveBeenCalledTimes(1);
+    expect([...billing.state.values()]).toEqual(['captured']);
+  });
+  it('releases the allowance of an answer that was not delivered or never generated', async () => {
+    const billing = fakeBilling();
+    const { channels, ai, processor } = setup({ billing });
+    vi.mocked(channels.deliver).mockResolvedValueOnce({
+      externalId: null,
+      status: 'failed',
+      failureCode: 'token',
+    } as never);
+    vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+      job('f1', 'message', 'one', Date.now()),
+    ]);
+    await processor.tick();
+    expect(billing.state.get('bot:f1')).toBe('released');
+    ai.reply.mockRejectedValueOnce(new Error('provider down'));
+    vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+      job('f2', 'message', 'two', Date.now() + 5000),
+    ]);
+    await processor.tick();
+    expect(billing.state.get('bot:f2')).toBe('released');
+    expect(billing.captureReply).not.toHaveBeenCalled();
+  });
+  it('hands off with the handoff message instead of calling the AI when the allowance is used up', async () => {
+    const { channels, ai, inbox, processor } = setup({ billing: fakeBilling(0) });
+    vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+      job('x1', 'message', 'Giá bao nhiêu?', Date.now()),
+    ]);
+    await processor.tick();
+    expect(ai.reply).not.toHaveBeenCalled();
+    expect(channels.deliver).toHaveBeenCalledWith(
+      ws,
+      channelId,
+      'customer',
+      { text: 'Staff will help you' },
+      'bot:x1',
+    );
+    const [c] = (await inbox.list(ws, { limit: 10 } as never)).data;
+    expect(c?.mode).toBe('human');
+    expect(channels.completeEvent).toHaveBeenCalled();
+  });
+  it('does not bill the handoff message of an attachment-only turn', async () => {
+    const { channels, billing, processor } = setup();
+    vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+      job('img0', 'message', '', Date.now(), 1, [
+        { type: 'image', url: 'https://cdn.example/a.jpg' },
+      ]),
+    ]);
+    await processor.tick();
+    expect(billing.reserveReply).not.toHaveBeenCalled();
   });
   it('hands an attachment-only message to staff with the handoff message', async () => {
     const { channels, ai, inbox, processor } = setup();

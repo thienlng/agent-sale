@@ -9,6 +9,7 @@ import {
   type PendingMetaEvent,
 } from '../../../channel/api/index.js';
 import { AI_FACADE, type AiFacade } from '../../../ai/api/index.js';
+import { BILLING_FACADE, type BillingFacade } from '../../../billing/api/index.js';
 import {
   BOT_FACADE,
   type BotFacade,
@@ -16,7 +17,7 @@ import {
   withinReplySchedule,
 } from '../../../bot/api/index.js';
 import { CONVERSATION_FACADE, type ConversationFacade } from '../../api/conversation.facade.js';
-import type { ConversationDto, InboxMessageDto } from '@agent-sales/contracts';
+import type { ConversationDto, InboxMessageDto, PlaygroundRequest } from '@agent-sales/contracts';
 import { BOT_IMAGE_VISION, IMAGE_FETCHER, type ImageFetcher } from '../ports/image-fetcher.js';
 import { splitReply } from '../../domain/reply-split.js';
 import { toReplyTurns } from './reply-turns.js';
@@ -50,6 +51,7 @@ export class MetaInboxProcessor {
     @Inject(CONVERSATION_FACADE) private readonly inbox: ConversationFacade,
     @Inject(AI_FACADE) private readonly ai: AiFacade,
     @Inject(BOT_FACADE) private readonly bots: BotFacade,
+    @Inject(BILLING_FACADE) private readonly billing: BillingFacade,
     @Inject(IMAGE_FETCHER) private readonly images: ImageFetcher,
     @Inject(BOT_IMAGE_VISION) private readonly vision: boolean,
     @Inject(FanpageCommentProcessor)
@@ -247,7 +249,65 @@ export class MetaInboxProcessor {
       if (result) await this.inbox.handOff(job.workspaceId, c.id, c.assigneeId ?? 'system');
       return;
     }
-    const postContext = provenance?.context;
+    // ADR-012 §5: the account's allowance is taken before the model runs. Exhausted: the bot
+    // stops and staff take over, with the bot's hand-off message for the customer.
+    const quota = await this.billing.reserveReply(job.workspaceId, {
+      idempotencyKey: key,
+      conversationId: c.id,
+      botId,
+    });
+    if (!quota.allowed) {
+      this.logger.warn(
+        `Meta inbox event ${job.id}: message allowance exhausted until ${quota.cycleEnd.toISOString()}, handing off`,
+      );
+      const result = await this.inbox.commitBotReply(job.workspaceId, c.id, {
+        revision: context.revision,
+        text: handoffText(bot),
+        idempotencyKey: key,
+      });
+      if (result) await this.inbox.handOff(job.workspaceId, c.id, c.assigneeId ?? 'system');
+      return;
+    }
+    const committed: { first: InboxMessageDto | null } = { first: null };
+    try {
+      return await this.generate(job, c, botId, context, stored, key, {
+        hasText,
+        fetched,
+        postContext: provenance?.context,
+        committed,
+      });
+    } finally {
+      // Billed once per delivered answer (its first bubble), whatever happens after it. An answer
+      // whose delivery is unknown keeps its reservation until the TTL, then stops counting.
+      const status = committed.first?.status;
+      await (
+        status === 'sent'
+          ? this.billing.captureReply(job.workspaceId, key)
+          : !status || status === 'failed'
+            ? this.billing.releaseReply(job.workspaceId, key)
+            : Promise.resolve()
+      ).catch(() =>
+        this.logger.error(`Meta inbox event ${job.id}: the message meter was not updated`),
+      );
+    }
+  }
+
+  /** The model's answer, committed bubble by bubble (the first one is reported in `committed`). */
+  private async generate(
+    job: PendingMetaEvent,
+    c: ConversationDto,
+    botId: string,
+    context: Awaited<ReturnType<ConversationFacade['getReplyContext']>>,
+    stored: InboxMessageDto[],
+    key: string,
+    turn: {
+      hasText: boolean;
+      fetched: { images: ImageInput[]; seen: Set<string> };
+      postContext: PlaygroundRequest['postContext'] | null | undefined;
+      committed: { first: InboxMessageDto | null };
+    },
+  ): Promise<'requeue' | void> {
+    const { hasText, fetched, postContext } = turn;
     const ask = (images: ImageInput[], seen: ReadonlySet<string>) =>
       this.ai.reply(
         job.workspaceId,
@@ -289,6 +349,7 @@ export class MetaInboxProcessor {
       text: bubbles[0] ?? response.reply,
       idempotencyKey: key,
     });
+    turn.committed.first = result;
     // Later bubbles stop at the first one that is not delivered, or when the customer wrote again
     // (the rest of this answer would be out of date), or when a human took over.
     for (const [index, text] of bubbles.slice(1).entries()) {

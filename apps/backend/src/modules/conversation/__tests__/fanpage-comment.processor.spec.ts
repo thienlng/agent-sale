@@ -4,6 +4,8 @@ import { newId, workspaceId } from '@agent-sales/shared';
 import type { ChannelFacade, FanpageFacade, PendingMetaEvent } from '../../channel/api/index.js';
 import type { BotFacade } from '../../bot/api/index.js';
 import type { AiFacade } from '../../ai/api/index.js';
+import type { BillingFacade } from '../../billing/api/index.js';
+import { fakeBilling } from './fakes.js';
 import { FanpageCommentProcessor } from '../application/jobs/fanpage-comment.processor.js';
 const ws = workspaceId(newId()),
   id = newId();
@@ -17,7 +19,7 @@ const context: FanpageContext = {
   permalink: 'https://www.facebook.com/123_10',
   fetchedAt: '2026-10-25T10:00:00.000Z',
 };
-function setup() {
+function setup(billing = fakeBilling()) {
   const comment: FanpageComment = {
     id: newId(),
     connectionId: id,
@@ -63,6 +65,7 @@ function setup() {
     pages as unknown as FanpageFacade,
     ai as unknown as AiFacade,
     bots as unknown as BotFacade,
+    billing as unknown as BillingFacade,
   );
   const job: PendingMetaEvent = {
     id: newId(),
@@ -82,7 +85,7 @@ function setup() {
       raw: {},
     },
   };
-  return { processor, pages, channels, bots, ai, job, settings, comment };
+  return { processor, pages, channels, bots, ai, job, settings, comment, billing };
 }
 beforeEach(() => {
   vi.useFakeTimers();
@@ -101,6 +104,22 @@ describe('Post-aware comment processing', () => {
     );
     expect(pages.act.mock.calls.map((c) => c[3].kind)).toEqual(['public_reply', 'private_reply']);
     expect(pages.context).toHaveBeenCalledTimes(2);
+  });
+  it('bills a posted comment reply once and leaves comments to staff when the allowance is used up', async () => {
+    const { processor, billing, job } = setup();
+    await processor.process(job);
+    expect(billing.state.get('comment:10_20')).toBe('captured');
+    const exhausted = setup(fakeBilling(0));
+    await exhausted.processor.process(exhausted.job);
+    expect(exhausted.ai.reply).not.toHaveBeenCalled();
+    expect(exhausted.pages.act).not.toHaveBeenCalled();
+    expect(exhausted.pages.review).toHaveBeenCalled();
+  });
+  it('releases the allowance when the reply is dropped', async () => {
+    const { processor, pages, billing, job } = setup();
+    pages.context.mockResolvedValueOnce(context).mockResolvedValueOnce(null);
+    await processor.process(job);
+    expect(billing.state.get('comment:10_20')).toBe('released');
   });
   it('keeps two interleaved posts from the same author separate', async () => {
     const { processor, pages, ai, job, comment } = setup();

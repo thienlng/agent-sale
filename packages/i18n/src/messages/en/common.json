@@ -1561,6 +1561,12 @@
         "contacts": "Customers",
         "knowledge_items": "Bot knowledge items"
       }
+    },
+    "usage": {
+      "exhaustedTitle": "This cycle’s AI messages are used up",
+      "exhaustedBody": "Bots are handing customers to your staff. The {{limit}}-message allowance renews on {{date}}.",
+      "nearTitle": "AI messages are running low",
+      "nearBody": "{{used}}/{{limit}} AI messages used this cycle (renews on {{date}}). When they run out, bots hand customers to your staff."
     }
   }
 }
