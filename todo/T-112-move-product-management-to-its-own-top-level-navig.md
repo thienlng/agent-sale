@@ -1,14 +1,14 @@
 ---
 id: T-112
 title: Move product management to its own top-level navigation group
-status: backlog            # backlog | next | in-progress | blocked | review | done | cancelled
+status: in-progress            # backlog | next | in-progress | blocked | review | done | cancelled
 type: feature              # feature | bug | chore | spike | docs
 priority: P1               # P0 | P1 | P2 | P3
 owner: "@agent:claude"     # @github-handle or @agent:<tool>
 feature_ids: []            # e.g. [BOT-07, CRM-11] from docs/02-functional-requirements.md
 created: 2026-10-27
 updated: 2026-10-27
-branch:
+branch: feat/T-112-lane-b-ux-block
 pr:
 parent:                    # T-xxx if this is a sub-task
 ---
@@ -42,9 +42,12 @@ Products are a top-level navigation destination next to Orders, without changing
 
 ## Plan
 
-Written by the implementer before coding (see `start-task` skill).
+1. Add `components/layout/app-sidebar.test.tsx` (failing first): Products is a top-level entry, not inside the Orders section; Orders keeps overview/list/new/settings; the Products entry is active on `/app/products/$id`.
+2. In `app-sidebar.tsx`: drop Products from `ORDERS` and `ORDER_PATHS`, add a `PRODUCTS` nav item (Package icon) rendered right after the Orders section. URLs and permissions unchanged (products have no extra capability gate today).
+3. Update the docs/03 sidebar table (Products becomes its own group). No i18n key changes: `nav.products` already exists in vi/en.
+4. Verify: targeted test, `pnpm check`, responsive e2e for the products routes, manual check in the running dev app.
 
-1. …
+Risks: none on data; only navigation. Bookmarks keep working because routes do not move.
 
 ## Log
 
