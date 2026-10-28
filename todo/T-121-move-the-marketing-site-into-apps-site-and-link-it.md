@@ -1,7 +1,7 @@
 ---
 id: T-121
 title: Move the marketing site into apps/site and link it with the dashboard
-status: in-progress
+status: review
 type: feature
 priority: P1
 owner: '@agent:claude'

@@ -1,7 +1,7 @@
 ---
 id: T-120
 title: Move the account menu to the header as a compact Facebook-style panel
-status: in-progress
+status: review
 type: feature
 priority: P1
 owner: '@agent:claude'
