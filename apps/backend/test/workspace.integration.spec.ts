@@ -101,6 +101,18 @@ describe('workspace module on Postgres', () => {
     await expect(create('Not mine', foreign)).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
 
+  it('gives a user without an account exactly one account when creations race', async () => {
+    const owner = await newUser();
+    const resolved = await Promise.all(
+      ['A', 'B', 'C', 'D'].map((name) =>
+        accounts().resolveForNewBusiness({ userId: owner, businessName: name }),
+      ),
+    );
+    expect(new Set(resolved).size).toBe(1);
+    const owned = await withSystem(system.db, (tx) => tx.select().from(schema.accountMembers));
+    expect(owned.filter((m) => m.userId === owner)).toHaveLength(1);
+  });
+
   it('rolls everything back when any step of the unit of work fails', async () => {
     const uow = new DrizzleWorkspaceUnitOfWork(tenant.db);
     const owner = await newUser();

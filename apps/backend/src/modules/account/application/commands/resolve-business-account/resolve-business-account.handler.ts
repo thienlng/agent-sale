@@ -21,15 +21,14 @@ export class ResolveBusinessAccountHandler {
     accountId?: string | undefined;
     businessName: string;
   }): Promise<string> {
-    const owned = await this.accounts.ownedBy(input.userId);
-    const picked = pickAccountForNewBusiness({ requested: input.accountId, owned });
-    if (picked) return picked;
-    const id = newId();
-    await this.accounts.createWithOwner({
-      id,
-      name: accountNameFor(input.businessName),
-      ownerUserId: input.userId,
-    });
-    return id;
+    return this.accounts.resolveForOwner(
+      input.userId,
+      (owned) =>
+        pickAccountForNewBusiness({ requested: input.accountId, owned }) ?? {
+          id: newId(),
+          name: accountNameFor(input.businessName),
+          ownerUserId: input.userId,
+        },
+    );
   }
 }

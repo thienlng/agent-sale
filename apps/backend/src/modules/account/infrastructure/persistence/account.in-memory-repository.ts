@@ -7,11 +7,14 @@ import type { AccountRepository } from '../../domain/ports/account.repository.js
 export class InMemoryAccountRepository implements AccountRepository {
   readonly accounts: NewAccount[] = [];
 
-  async ownedBy(user: UserId): Promise<string[]> {
-    return this.accounts.filter((a) => a.ownerUserId === user).map((a) => a.id);
-  }
-
-  async createWithOwner(account: NewAccount): Promise<void> {
-    this.accounts.push(account);
+  // No await between the read and the push, so concurrent callers are already serialized.
+  async resolveForOwner(
+    user: UserId,
+    decide: (owned: string[]) => string | NewAccount,
+  ): Promise<string> {
+    const choice = decide(this.accounts.filter((a) => a.ownerUserId === user).map((a) => a.id));
+    if (typeof choice === 'string') return choice;
+    this.accounts.push(choice);
+    return choice.id;
   }
 }
