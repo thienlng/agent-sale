@@ -64,17 +64,17 @@ function trackErrors(page: Page): string[] {
 }
 
 for (const viewport of VIEWPORTS) {
-  test(`pages fit at ${viewport.width}px`, async ({ page }) => {
-    const errors = trackErrors(page);
-    await page.setViewportSize(viewport);
-    await mockApi(page);
-    for (const [name, url, heading] of PAGES) {
+  for (const [name, url, heading] of PAGES) {
+    test(`${name} fits at ${viewport.width}px`, async ({ page }) => {
+      const errors = trackErrors(page);
+      await page.setViewportSize(viewport);
+      await mockApi(page);
       await page.goto(url);
       await expect(page.getByRole('heading', { name: heading }).first()).toBeVisible();
       await expectNoOverflow(page, `${name} @${viewport.width}`);
-    }
-    expect(errors).toEqual([]);
-  });
+      expect(errors).toEqual([]);
+    });
+  }
 }
 
 const COMBOS: Array<Record<string, string>> = [];
