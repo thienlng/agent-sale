@@ -25,6 +25,7 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
       industry: row.industry,
       timezone: row.timezone,
       ownerUserId: userId(row.ownerUserId),
+      accountId: row.accountId,
       status: row.status as 'active' | 'suspended' | 'deleted',
       createdAt: row.createdAt,
     });
@@ -41,6 +42,7 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
         industry: s.industry,
         timezone: s.timezone,
         ownerUserId: s.ownerUserId,
+        accountId: s.accountId,
         status: s.status,
         createdAt: s.createdAt,
       })

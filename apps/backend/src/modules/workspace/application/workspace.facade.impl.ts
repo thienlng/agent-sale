@@ -32,6 +32,7 @@ export class WorkspaceFacadeImpl implements WorkspaceFacade {
     name: string;
     industry: string;
     ownerUserId: UserId;
+    accountId?: string | undefined;
     timezone?: string | undefined;
   }): Promise<WorkspaceDto> {
     return this.create.execute(input);
