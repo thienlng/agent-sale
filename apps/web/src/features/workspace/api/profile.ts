@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api, apiBlob } from '@/lib/api-client';
 import { queryKeys } from '@/lib/query-keys';
+import { renameMembership } from '@/lib/session';
 import { useWorkspaceId } from '@/lib/use-workspace';
 
 export function useProfile() {
@@ -23,7 +24,10 @@ export function useProfileMutations() {
     update: useMutation({
       mutationFn: (body: UpdateWorkspaceProfileRequest) =>
         api('/workspace/profile', WorkspaceProfileDto, { method: 'PATCH', body }),
-      onSuccess: set,
+      onSuccess: (p) => {
+        set(p);
+        if (ws) renameMembership(ws, p.name);
+      },
       // A stale save: load what is there now so the user can redo the edit on top of it.
       onError: () => void qc.invalidateQueries({ queryKey: queryKeys.profile(ws) }),
     }),
