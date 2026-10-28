@@ -1,7 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { getWorkspaceId } from './api-client';
-import { getSession, login, logout, onSessionExpired, selectWorkspace } from './session';
+import {
+  getSession,
+  login,
+  logout,
+  onSessionExpired,
+  renameMembership,
+  selectWorkspace,
+} from './session';
 
 const A = '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d21';
 const B = '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d22';
@@ -86,5 +93,14 @@ describe('business selection', () => {
     expect(getSession()).toBeNull();
     expect(localStorage.getItem('rapiz.private.inbox.draft.v1:example')).toBeNull();
     expect(localStorage.getItem('rapiz.locale')).toBe('vi');
+  });
+});
+describe('renameMembership', () => {
+  it('shows a saved business name in the memberships without touching the others', async () => {
+    await authenticate();
+    renameMembership(A, 'Shop Hoa');
+    const names = getSession()?.memberships.map((m) => m.workspaceName);
+    expect(names).toEqual(['Shop Hoa', 'Business B']);
+    expect(getSession()?.workspaceId).toBe(A);
   });
 });

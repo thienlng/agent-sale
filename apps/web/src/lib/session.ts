@@ -141,6 +141,18 @@ export function selectWorkspace(workspaceId: string): boolean {
   return true;
 }
 
+/** Keeps the business name shown in the selector in step with a saved profile edit. */
+export function renameMembership(workspaceId: string, workspaceName: string): void {
+  const current = getSession();
+  if (!current) return;
+  set({
+    ...current,
+    memberships: current.memberships.map((m) =>
+      m.workspaceId === workspaceId ? { ...m, workspaceName } : m,
+    ),
+  });
+}
+
 export async function logout(): Promise<void> {
   try {
     await api('/auth/logout', z.null(), { method: 'POST', workspaceScoped: false });
