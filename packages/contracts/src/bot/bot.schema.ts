@@ -51,11 +51,16 @@ export const BotSettings = z.object({
 });
 export type BotSettings = z.infer<typeof BotSettings>;
 
+/** 'all': the bot sells every active product; 'selected': only the products chosen for it. */
+export const CatalogMode = z.enum(['all', 'selected']);
+export type CatalogMode = z.infer<typeof CatalogMode>;
+
 export const BotDto = z.object({
   id: z.uuid(),
   name: z.string(),
   industry: Industry,
   isActive: z.boolean(),
+  catalogMode: CatalogMode.default('all'),
   settings: BotSettings,
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
@@ -71,6 +76,7 @@ export type CreateBotRequest = z.infer<typeof CreateBotRequest>;
 export const UpdateBotRequest = z.object({
   name: z.string().trim().min(1).max(80).optional(),
   isActive: z.boolean().optional(),
+  catalogMode: CatalogMode.optional(),
   settings: BotSettings.omit({
     autoResumeAfterManual: true,
     humanTakeoverMinutes: true,

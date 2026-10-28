@@ -67,7 +67,7 @@ Dedicated layout: back button, bot name, **bot on/off switch**, left menu, **tes
 | Item | Preny route | Our route | Feature |
 |---|---|---|---|
 | Home + checklist | `/bot/{id}/trang-chu` | `/app/bots/{id}` | BOT-04 |
-| Products | `/bot/{id}/quan-ly-san-pham` | `/app/bots/{id}/products` | BOT-09 |
+| Products | `/bot/{id}/quan-ly-san-pham` | `/app/bots/{id}/products` (sells every product or a selection, T-080; "Add product" here selects it via `/app/products/new?botId=`) | BOT-09 |
 | Instructions (scenarios) | `/bot/{id}/kich-ban` | `/app/bots/{id}/instructions` | BOT-05/06 |
 | Information (FAQ) | `/bot/{id}/du-lieu-huan-luyen` | `/app/bots/{id}/knowledge` (`?tab=faq\|documents`) | BOT-07/08 |
 | Integrations | `/bot/{id}/tich-hop-nen-tang/{tab}` | `/app/bots/{id}/channels/{all\|facebook\|instagram\|zalo\|lazada\|tiktok\|website}` | CHN-04/05 |

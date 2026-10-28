@@ -6,6 +6,8 @@ export interface BotView {
   name: string;
   industry: string;
   isActive: boolean;
+  /** 'selected': the AI may only offer the products chosen for this bot (T-080). */
+  catalogMode: 'all' | 'selected';
   mission: string;
   greeting: string;
   selfPronoun: string;

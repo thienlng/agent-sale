@@ -134,8 +134,11 @@ function StockEditor({ product }: { product: ProductDto }) {
   );
 }
 
-/** Create or edit a product with its variants (ORD-01). */
-export function ProductForm({ product }: { product?: ProductDto }) {
+/**
+ * Create or edit a product with its variants (ORD-01). With `botId` (created from a bot's
+ * product page) the new product is selected for that bot and the page returns there.
+ */
+export function ProductForm({ product, botId }: { product?: ProductDto; botId?: string }) {
   const { t } = useTranslation();
   const { t: training } = useTranslation('training');
   const navigate = useNavigate();
@@ -173,6 +176,7 @@ export function ProductForm({ product }: { product?: ProductDto }) {
       botInstructions,
       imageUrls,
       status: archived ? 'archived' : 'active',
+      ...(!product && botId ? { botId } : {}),
       variants: variants.map((v) => ({
         ...(v.id ? { id: v.id } : {}),
         sku: v.sku.trim(),
@@ -187,7 +191,9 @@ export function ProductForm({ product }: { product?: ProductDto }) {
       {
         onSuccess: (p) => {
           toast.success(product ? t('products.form.saved') : t('products.form.created'));
-          if (!product)
+          if (!product && botId)
+            void navigate({ to: '/app/bots/$botId/products', params: { botId } });
+          else if (!product)
             void navigate({ to: '/app/products/$productId', params: { productId: p.id } });
         },
         onError: (err) => toast.error(errorMessage(t, err)),

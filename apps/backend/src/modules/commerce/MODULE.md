@@ -2,9 +2,9 @@
 
 **Purpose:** the shop's catalog and orders — warehouses, products with variants, inventory with a movement log, orders with items, status flow and history, order settings, and the sales overview (docs/02 ORD-01..05, ORD-11).
 
-**Owned tables:** `warehouses`, `products`, `product_variants`, `inventory`, `inventory_movements`, `order_counters`, `orders`, `order_items`, `order_status_history`, `order_settings` (tenant, forced RLS — migrations 0004, 0005 and 0014; schema in `packages/db/src/schema/commerce.ts`).
+**Owned tables:** `warehouses`, `products`, `product_variants`, `inventory`, `inventory_movements`, `order_counters`, `orders`, `order_items`, `order_status_history`, `order_settings`, `bot_products` (tenant, forced RLS — migrations 0004, 0005, 0014 and 0029; schema in `packages/db/src/schema/commerce.ts`).
 
-**Public API (`api/`):** `COMMERCE_FACADE` → `getOrder(workspaceId, orderId)`; `CATALOG_FACADE` → `getBotProducts(workspaceId, query, limit)` (read-only, `visibleToBot` only, with `imageUrls`). HTTP (workspace-scoped): `/warehouses`, `/products`, `/products/{id}/stock`, `/product-variants`, `/orders`, `/orders/overview`, `/orders/{id}`, `/orders/{id}/status`, `/order-settings`. Contracts: `packages/contracts/src/commerce/`.
+**Public API (`api/`):** `COMMERCE_FACADE` → `getOrder(workspaceId, orderId)`; `CATALOG_FACADE` → `getBotProducts(workspaceId, bot, query, limit)` and `listBotCatalog(workspaceId, bot, limit)` (read-only, active and `visibleToBot` only, with `imageUrls`; `bot` is `{ botId, catalogMode }` and `selected` restricts to the bot's selection, T-080). HTTP (workspace-scoped): `/warehouses`, `/products`, `/products/{id}/stock`, `/product-variants`, `/bots/{botId}/products` (GET; PUT replaces the selection, `catalog.manage`; a bot or product of another workspace is 404), `/orders`, `/orders/overview`, `/orders/{id}`, `/orders/{id}/status`, `/order-settings`. Contracts: `packages/contracts/src/commerce/`.
 
 **Events consumed:** none. Uses the `identity` facade (name snapshots) and the `workspace` facade (time zone).
 

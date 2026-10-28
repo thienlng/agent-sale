@@ -77,7 +77,7 @@ function build(reply: object | string, products: ProductDto[] = [oxford], querie
     new InMemoryAiRunRepository(),
     { list: async () => [media] } as unknown as TrainingFacade,
     {
-      getBotProducts: async (_ws: unknown, query: string) => {
+      getBotProducts: async (_ws: unknown, _bot: unknown, query: string) => {
         queries.push(query);
         return products;
       },
