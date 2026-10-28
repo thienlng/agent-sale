@@ -271,6 +271,11 @@ export const AnalyticsQuery = z.object({
   salesIds: z.array(z.uuid()).max(50).optional(),
   pageIds: z.array(z.uuid()).max(50).optional(),
   /**
+   * Bots that handled the conversation when the event happened (ADR-012): history stays with the
+   * bot that answered it, even after a page is rebound. Same metrics as `pageIds`.
+   */
+  botIds: z.array(z.uuid()).max(50).optional(),
+  /**
    * Freezes the data a number is computed from (the projection watermark of an earlier answer),
    * so a drilldown can reproduce exactly what its card counted.
    */
@@ -333,6 +338,9 @@ export function validateAnalyticsQuery(q: AnalyticsQuery, now: Date): QueryIssue
     }
     if (q.pageIds?.length && !d.filters.page) {
       issues.push({ code: 'scope_not_supported', metric: key, detail: { filter: 'page' } });
+    }
+    if (q.botIds?.length && !d.filters.page) {
+      issues.push({ code: 'scope_not_supported', metric: key, detail: { filter: 'bot' } });
     }
   }
   return issues;

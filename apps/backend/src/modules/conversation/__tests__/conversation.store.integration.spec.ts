@@ -296,4 +296,33 @@ describe('DrizzleConversationStore inbox v2 query', () => {
     expect((await service.get(a, ids[0]!)).conversation.starred).toBe(true);
     await service.bulk(a, { action: 'unstar', ids: [ids[0]!] }, staff);
   });
+
+  it('stores the answering bot in its column and drops it when the bot is deleted', async () => {
+    const bot = newId();
+    await withTenant(tenantDb, a, (tx) =>
+      tx
+        .insert(schema.bots)
+        .values({ id: bot, workspaceId: a, name: 'Bot', industry: 'retail', settings: {} }),
+    );
+    const base = await channels.getConnection(a, channelId);
+    vi.mocked(channels.getConnection).mockResolvedValueOnce({ ...base, botId: bot });
+    const c = await service.receive(a, channelId, event('with-bot', 'customer-bot'));
+    expect(c.botId).toBe(bot);
+    const column = async () =>
+      (
+        await withTenant(tenantDb, a, (tx) =>
+          tx
+            .select({ botId: schema.conversations.botId })
+            .from(schema.conversations)
+            .where(eq(schema.conversations.id, c.id)),
+        )
+      )[0]?.botId;
+    expect(await column()).toBe(bot);
+
+    await withTenant(tenantDb, a, (tx) => tx.delete(schema.bots).where(eq(schema.bots.id, bot)));
+    expect((await service.get(a, c.id)).conversation.botId).toBeNull();
+    // Saving again must not write the deleted bot back.
+    await service.update(a, c.id, { note: 'still here' }, newId());
+    expect(await column()).toBeNull();
+  });
 });

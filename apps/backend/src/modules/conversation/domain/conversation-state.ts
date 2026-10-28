@@ -14,6 +14,7 @@ export function preview(text: string, attachments: readonly { type: string }[]):
 export function newConversation(input: {
   id: string;
   channelId: string;
+  botId: string | null;
   provider: ConversationView['provider'];
   customerId: string;
   mode: ConversationView['mode'];
@@ -24,6 +25,7 @@ export function newConversation(input: {
   return {
     id: input.id,
     channelId: input.channelId,
+    botId: input.botId,
     provider: input.provider,
     // The raw id until the profile lookup finds a name.
     customerId: input.customerId,

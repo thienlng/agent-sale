@@ -34,6 +34,8 @@ export interface FactDraft {
   contactId: string | null;
   conversationId: string | null;
   channelId: string | null;
+  /** Bot bound to the channel when it happened (ADR-012); null for CRM facts and older events. */
+  botId: string | null;
   subjectId: string | null;
   fromSubjectId: string | null;
   refId: string | null;
