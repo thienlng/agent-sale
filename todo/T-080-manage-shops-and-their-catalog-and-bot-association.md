@@ -27,7 +27,7 @@ Let each bot sell a chosen part of the business catalog.
 
 - Products stay business-owned. A bot either sells the whole catalog (default, no behavior change for existing bots) or a selected list of products.
 - AI catalog lookups (`CatalogFacade`) take the bot. Expose a reusable bot lookup for inbox, integrations and CRM filters.
-- Bot settings UI to choose products. Newly created products follow the bot's mode. Absorbs lane B's T-110.
+- Bot settings UI to choose products. Newly created products follow the bot's mode. Absorbs lane B's T-116 (was T-110).
 
 ## Out of scope
 

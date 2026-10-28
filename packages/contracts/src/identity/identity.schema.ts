@@ -60,13 +60,27 @@ export const MembershipDto = z.object({
   workspaceId: z.uuid(),
   workspaceName: z.string(),
   role: z.string(),
+  industry: z.string().default(''),
+  /** The account that owns the business (ADR-012); null until the backfill ran. */
+  accountId: z.uuid().nullable().default(null),
+  /** Shown to group the business switcher; membership of the account is not implied. */
+  accountName: z.string().nullable().default(null),
 });
 export type MembershipDto = z.infer<typeof MembershipDto>;
+
+/** An account the user belongs to (ADR-012); the role covers account actions only. */
+export const AccountMembershipDto = z.object({
+  accountId: z.uuid(),
+  name: z.string(),
+  role: z.enum(['owner', 'billing']),
+});
+export type AccountMembershipDto = z.infer<typeof AccountMembershipDto>;
 
 /** Everything the SPA needs before first paint (docs/09 token storage, docs/16 §1). */
 export const BootstrapResponse = z.object({
   user: UserDto,
   memberships: z.array(MembershipDto),
+  accounts: z.array(AccountMembershipDto).default([]),
 });
 export type BootstrapResponse = z.infer<typeof BootstrapResponse>;
 

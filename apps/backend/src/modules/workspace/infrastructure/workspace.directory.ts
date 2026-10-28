@@ -51,6 +51,8 @@ export class DrizzleWorkspaceDirectory implements WorkspaceDirectory {
           workspaceId: schema.workspaces.id,
           workspaceName: schema.workspaces.name,
           role: schema.members.role,
+          industry: schema.workspaces.industry,
+          accountId: schema.workspaces.accountId,
         })
         .from(schema.members)
         .innerJoin(schema.workspaces, eq(schema.workspaces.id, schema.members.workspaceId))
@@ -86,8 +88,15 @@ export class InMemoryWorkspaceDirectory implements WorkspaceDirectory {
     for (const m of this.store.members.rows) {
       if (m.userId !== user || m.status !== 'active') continue;
       const w = await this.store.workspaces.findById(m.workspaceId);
-      if (w)
-        out.push({ workspaceId: m.workspaceId, workspaceName: w.snapshot().name, role: m.role });
+      if (!w) continue;
+      const s = w.snapshot();
+      out.push({
+        workspaceId: m.workspaceId,
+        workspaceName: s.name,
+        role: m.role,
+        industry: s.industry,
+        accountId: s.accountId,
+      });
     }
     return out;
   }

@@ -15,6 +15,8 @@ function fakeAccounts() {
       calls.push(input);
       return accountId;
     },
+    listForUser: async () => [],
+    namesOf: async () => new Map(),
   };
   return { facade, calls, accountId };
 }

@@ -1,14 +1,14 @@
 ---
 id: T-079
 title: Add business selection and switching across sessions
-status: backlog
+status: in-progress
 type: feature
 priority: P1
 owner: "@agent:claude"
 feature_ids: []
 created: 2026-10-26
 updated: 2026-10-28
-branch:
+branch: feat/T-079-business-switching
 pr:
 parent:
 ---
@@ -55,10 +55,25 @@ Add business selection and switching across sessions.
 
 ## Plan
 
-To be filled by the implementer before coding. Scope and acceptance above are the planning contract.
+1. Backend:
+   - `GET /bootstrap` returns `accounts` (the accounts the user owns or bills for).
+   - Each membership carries `accountId`, `accountName` and `industry`. A member sees the name of the account owning a business they work in, for grouping only (ADR-012 fixture).
+   - The workspace guard's 404 for a non-member carries `details.reason = 'workspace_access'`.
+2. Web session:
+   - `accounts` is added to the session.
+   - With several businesses and none remembered (or the remembered one gone), there is no current business and `/app` redirects to `/app/select-business`.
+   - With no business, `/app` redirects to `/app/welcome`.
+3. Web pages:
+   - `/app/select-business` lists businesses grouped by account.
+   - `/app/welcome` creates a business (`POST /workspaces` with `{name, industry, accountId?}`).
+   - Both set the business and open analytics.
+4. Avatar menu: businesses grouped by account, the current one checked, plus "Create business". Uses the same `useBusinessSwitch` as the sidebar picker.
+5. Lost business: the API client recognizes `workspace_access` on a scoped request, reloads the session, and lands on the business picker with a notice.
+6. Tests: an integration test for bootstrap and the guard reason; UI tests for the pages and the menu; e2e for picking, switching and creating.
 
 ## Log
 
+- 2026-10-28 — Started. Backend: bootstrap accounts, membership account and industry, guard reason `workspace_access`.
 - 2026-10-28 — Replanned for lane A, now owned by @agent:claude (user decision, 2026-10-28). Product model agreed with the user: account → business (workspace) → bot → channels. **No separate shop entity**: the bot is the selling unit. The catalog is business-owned and each bot chooses which products it sells. Billable unit: an AI reply delivered to the customer, counted once across retries. When the allowance is exhausted, the bot stops and hands off to staff. Business switching lives in the avatar (account) menu. Code inventory and re-estimate: see the handoff's "Lane A replan" section.
 
 - 2026-10-26 — Created from cofounder review; proposed allocation only. No application changes made.
