@@ -1,13 +1,13 @@
 ---
 id: T-114
 title: Clean up bot navigation: hide the image library and rename channel integrations
-status: backlog            # backlog | next | in-progress | blocked | review | done | cancelled
+status: in-progress            # backlog | next | in-progress | blocked | review | done | cancelled
 type: chore              # feature | bug | chore | spike | docs
 priority: P2               # P0 | P1 | P2 | P3
 owner: "@agent:claude"     # @github-handle or @agent:<tool>
 feature_ids: []            # e.g. [BOT-07, CRM-11] from docs/02-functional-requirements.md
 created: 2026-10-27
-updated: 2026-10-27
+updated: 2026-10-28
 branch:
 pr:
 parent:                    # T-xxx if this is a sub-task
@@ -42,9 +42,14 @@ The bot workspace menu no longer shows the image library, and the integrations e
 
 ## Plan
 
-Written by the implementer before coding (see `start-task` skill).
+1. Add `features/bot/components/training-nav.test.tsx` (failing first): no image library link in either nav (desktop list, mobile strip); the integrations entry reads "Tích hợp kênh" and points to `/app/bots/$botId/integrations`.
+2. `training-nav.tsx`: drop the media item (and the `Image` icon/target). The setup guide has no media step, so nothing to change there.
+3. `routes/app/bots/$botId/media.tsx`: replace the page with a `beforeLoad` redirect to `/app/bots/$botId` (bookmarks land on the bot home). `MediaLibrary` and the media API stay in place, unused by navigation, so the decision can be reversed cheaply.
+4. i18n: `space.nav.integrations` and `integrations` → "Tích hợp kênh" / "Channel integrations".
+5. e2e `t023-training.spec.ts`: the media-folder flow becomes a redirect check (the page is no longer reachable). Quick replies keep the library picker for existing images and the direct HTTPS link field for new ones.
+6. docs/03 §3: drop the image library row, rename Integrations.
 
-1. …
+Risk: owners can no longer upload new images to the library; quick replies still accept an HTTPS image link. Flag this to the reviewer.
 
 ## Log
 
