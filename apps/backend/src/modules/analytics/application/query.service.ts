@@ -217,6 +217,7 @@ export class QueryService {
       ownOnly,
       salesIds: q.salesIds?.length ? q.salesIds : null,
       pageIds: q.pageIds?.length ? q.pageIds : null,
+      botIds: q.botIds?.length ? q.botIds : null,
       origins: Object.fromEntries(
         q.metrics.map((m) => [m, effectiveOrigins(definitionOf(m), q.origins)]),
       ),

@@ -1,4 +1,13 @@
-import { boolean, index, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  index,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core';
 
 import { tenantPolicies, workspaces } from './workspace.js';
 
@@ -18,5 +27,10 @@ export const bots = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
-  (t) => [index('bots_workspace_idx').on(t.workspaceId, t.createdAt), ...tenantPolicies('bots')],
+  (t) => [
+    index('bots_workspace_idx').on(t.workspaceId, t.createdAt),
+    // Target of the same-workspace keys from channels and conversations (0028).
+    uniqueIndex('bots_workspace_id_unique').on(t.workspaceId, t.id),
+    ...tenantPolicies('bots'),
+  ],
 );

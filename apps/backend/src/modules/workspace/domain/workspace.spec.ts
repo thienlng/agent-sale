@@ -8,7 +8,12 @@ const owner = userId(newId());
 
 describe('Workspace aggregate', () => {
   it('creates a valid workspace and raises a created event', () => {
-    const ws = Workspace.create({ name: '  Shop ABC ', industry: 'retail', ownerUserId: owner });
+    const ws = Workspace.create({
+      name: '  Shop ABC ',
+      industry: 'retail',
+      ownerUserId: owner,
+      accountId: 'a1',
+    });
     expect(ws.snapshot().name).toBe('Shop ABC');
     expect(ws.snapshot().timezone).toBe('Asia/Ho_Chi_Minh');
     const events = ws.pullEvents();
@@ -18,16 +23,21 @@ describe('Workspace aggregate', () => {
   });
 
   it('rejects an empty name or industry', () => {
-    expect(() => Workspace.create({ name: ' ', industry: 'retail', ownerUserId: owner })).toThrow(
-      InvalidWorkspaceError,
-    );
-    expect(() => Workspace.create({ name: 'x', industry: ' ', ownerUserId: owner })).toThrow(
-      InvalidWorkspaceError,
-    );
+    expect(() =>
+      Workspace.create({ name: ' ', industry: 'retail', ownerUserId: owner, accountId: 'a1' }),
+    ).toThrow(InvalidWorkspaceError);
+    expect(() =>
+      Workspace.create({ name: 'x', industry: ' ', ownerUserId: owner, accountId: 'a1' }),
+    ).toThrow(InvalidWorkspaceError);
   });
 
   it('renames within limits', () => {
-    const ws = Workspace.create({ name: 'a', industry: 'retail', ownerUserId: owner });
+    const ws = Workspace.create({
+      name: 'a',
+      industry: 'retail',
+      ownerUserId: owner,
+      accountId: 'a1',
+    });
     ws.rename('New name');
     expect(ws.snapshot().name).toBe('New name');
     expect(() => ws.rename('x'.repeat(121))).toThrow(InvalidWorkspaceError);

@@ -7,6 +7,7 @@ const blank = {
   contactId: null,
   conversationId: null,
   channelId: null,
+  botId: null,
   subjectId: null,
   fromSubjectId: null,
   refId: null,
@@ -89,6 +90,7 @@ function fromReceived(row: OutboxRow, c: Common): FactDraft[] {
     occurredAt: p.occurredAt ? new Date(p.occurredAt) : row.createdAt,
     conversationId: row.aggregateId,
     channelId: p.channelId ?? null,
+    botId: p.botId ?? null,
   };
   if (p.type === 'echo') return [{ ...base, kind: 'message.outbound' }];
   return [
@@ -109,6 +111,7 @@ function fromReply(row: OutboxRow, c: Common): FactDraft[] {
       occurredAt: p.occurredAt ? new Date(p.occurredAt) : row.createdAt,
       conversationId: row.aggregateId,
       channelId: p.channelId ?? null,
+      botId: p.botId ?? null,
     },
   ];
 }

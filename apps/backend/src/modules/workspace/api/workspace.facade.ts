@@ -34,6 +34,7 @@ export interface WorkspaceFacade {
     name: string;
     industry: string;
     ownerUserId: UserId;
+    accountId?: string | undefined;
     timezone?: string | undefined;
   }): Promise<WorkspaceDto>;
   /** Active membership of `userId` in `workspaceId`, or null (used by the auth guard). */

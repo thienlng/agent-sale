@@ -35,6 +35,8 @@ export const analyticsFacts = pgTable(
     fromSubjectId: uuid('from_subject_id'),
     refId: uuid('ref_id'),
     role: text('role'),
+    /** Bot bound to the channel when the fact happened (0028); kept when the page is rebound. */
+    botId: uuid('bot_id'),
   },
   (t) => [
     // Names as Postgres gave them in migration 0021.

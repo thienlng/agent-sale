@@ -17,6 +17,8 @@ export interface QueryContext {
   ownOnly: string | null;
   salesIds: readonly string[] | null;
   pageIds: readonly string[] | null;
+  /** Bots that handled the conversation at the time (ADR-012); same metrics as `pageIds`. */
+  botIds: readonly string[] | null;
   /** Effective origins per metric (see `effectiveOrigins`). */
   origins: Partial<Record<MetricKey, readonly Origin[]>>;
 }

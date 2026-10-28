@@ -9,8 +9,14 @@ import {
   type UpdateConversationRequest,
 } from '@agent-sales/contracts';
 import { isUuid, newId, userId, type WorkspaceId } from '@agent-sales/shared';
-import { Inject, Injectable, Logger } from '@nestjs/common';
-import { BOT_FACADE, type BotFacade, type BotView } from '../../bot/api/index.js';
+import { Inject, Injectable, Logger, type OnModuleInit, Optional } from '@nestjs/common';
+import {
+  BOT_FACADE,
+  BOT_LIFECYCLE,
+  type BotFacade,
+  type BotLifecycle,
+  type BotView,
+} from '../../bot/api/index.js';
 import {
   CHANNEL_FACADE,
   type ChannelFacade,
@@ -49,7 +55,7 @@ async function requireConversation(tx: ConversationTx, id: string): Promise<Conv
   return c;
 }
 @Injectable()
-export class ConversationFacadeImpl implements ConversationFacade {
+export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit {
   constructor(
     @Inject(CONVERSATION_STORE) private readonly store: ConversationStore,
     @Inject(CHANNEL_FACADE) private readonly channels: ChannelFacade,
@@ -57,7 +63,19 @@ export class ConversationFacadeImpl implements ConversationFacade {
     @Inject(TEAM_FACADE) private readonly team: TeamFacade,
     @Inject(IDENTITY_FACADE) private readonly identity: IdentityFacade,
     @Inject(CRM_FACADE) private readonly crm: CrmFacade,
+    @Inject(BOT_LIFECYCLE) @Optional() private readonly lifecycle?: BotLifecycle,
   ) {}
+  /** `conversations.bot_id` is "the bot answering now" (ADR-012 §4): a deleted bot answers nothing. */
+  onModuleInit(): void {
+    this.lifecycle?.onDeleted(async (ws, botId) => {
+      try {
+        await this.store.run(ws, (tx) => tx.releaseBot(botId));
+      } catch (error) {
+        // Without a database there is no inbox, hence nothing to detach; anything else blocks the delete.
+        if (!(error instanceof ConversationError && error.code === 'UNAVAILABLE')) throw error;
+      }
+    });
+  }
   async list(ws: WorkspaceId, q: ConversationListQuery, viewerId?: string) {
     const filter = {
       ...toListFilter(q, viewerId),
@@ -340,6 +358,7 @@ export class ConversationFacadeImpl implements ConversationFacade {
           newConversation({
             id: newId(),
             channelId,
+            botId: channel.botId,
             provider: channel.provider,
             customerId: event.senderExternalId,
             mode: bot?.isActive ? 'bot' : 'human',
@@ -403,6 +422,8 @@ export class ConversationFacadeImpl implements ConversationFacade {
           updatedAt: now(),
         };
       }
+      // The bot bound to the page now answers this conversation (ADR-012).
+      c = { ...c, botId: channel.botId };
       await tx.save(c);
       await tx.saveMessage(
         {
@@ -424,8 +445,9 @@ export class ConversationFacadeImpl implements ConversationFacade {
         messageId: event.externalEventId,
         type: event.type,
         revision: c.revision,
-        // Statistics: where and when it happened, and whether it opened the conversation.
+        // Statistics: where, by which bot and when it happened, and whether it opened the conversation.
         channelId,
+        ...(channel.botId ? { botId: channel.botId } : {}),
         occurredAt: event.occurredAt.toISOString(),
         // The customer's first message opens it, even when staff wrote first (an echo creates the row with no inbound yet).
         firstMessage:
@@ -523,7 +545,12 @@ export class ConversationFacadeImpl implements ConversationFacade {
     );
   }
   private async channelBot(ws: WorkspaceId, channelId: string): Promise<BotView | null> {
-    const channel = await this.channels.getConnection(ws, channelId);
+    return this.botOf(ws, await this.channels.getConnection(ws, channelId));
+  }
+  private async botOf(
+    ws: WorkspaceId,
+    channel: { status: string; botId: string | null },
+  ): Promise<BotView | null> {
     if (channel.status !== 'connected' || !channel.botId) return null;
     return this.bots.getBot(ws, channel.botId);
   }
@@ -554,7 +581,8 @@ export class ConversationFacadeImpl implements ConversationFacade {
       ws,
       async (tx) => (await requireConversation(tx, id)).channelId,
     );
-    const bot = await this.channelBot(ws, channelId);
+    const channel = await this.channels.getConnection(ws, channelId);
+    const bot = await this.botOf(ws, channel);
     const senderName =
       actorId && isUuid(actorId) ? await this.identity.displayName(userId(actorId)) : null;
     const reservation = await this.store.run(ws, async (tx) => {
@@ -676,6 +704,7 @@ export class ConversationFacadeImpl implements ConversationFacade {
         status: result.status,
         failureCode: result.failureCode,
         channelId,
+        ...(channel.botId ? { botId: channel.botId } : {}),
         sender: m.sender,
         occurredAt: now(),
       });

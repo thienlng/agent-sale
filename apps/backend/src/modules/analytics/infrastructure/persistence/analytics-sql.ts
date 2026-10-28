@@ -106,13 +106,14 @@ export function unitsSql(ctx: QueryContext, metric: MetricKey): SQL {
   const kind = EVENT_KIND[metric];
   if (!kind) throw new Error(`${metric} has no units of its own`);
   const page = ctx.pageIds ? sql`and ${inList(sql`f.channel_id`, ctx.pageIds, 'uuid')}` : sql``;
+  const bot = ctx.botIds ? sql`and ${inList(sql`f.bot_id`, ctx.botIds, 'uuid')}` : sql``;
   return sql`select f.id as unit_id, f.contact_id, f.conversation_id, f.channel_id,
       f.occurred_at as at, (f.occurred_at at time zone ${tz})::date as day, f.subject_id,
       ${ownerAt(ctx, 'sales', 'f', sql`f.occurred_at`)} as sales_user_id
     from analytics_facts f
     where ${common(ctx)} and f.kind = ${kind} and ${inList(sql`f.origin`, origins, 'text')}
       and f.occurred_at >= ${ts(ctx.fromUtc)} and f.occurred_at < ${ts(ctx.toUtc)}
-      ${page} ${scope(ctx, 'f')}`;
+      ${page} ${bot} ${scope(ctx, 'f')}`;
 }
 
 /** Units after the viewer-chosen salesperson filter. */

@@ -40,6 +40,11 @@ export type ConversationStatus = z.infer<typeof ConversationStatus>;
 export const ConversationDto = z.object({
   id: z.uuid(),
   channelId: z.uuid(),
+  /**
+   * Bot bound to the channel at the latest message (ADR-012): the bot answering now. Refreshed by
+   * the next message after a page is rebound; past conversations are never re-pointed.
+   */
+  botId: z.uuid().nullable().default(null),
   provider: ChannelProvider,
   customerId: z.string(),
   customerName: z.string(),

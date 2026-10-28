@@ -78,7 +78,7 @@ Tenancy: every repository method and every query takes a `WorkspaceId`; persiste
 | Tier | Modules | Notes |
 |---|---|---|
 | 0 — leaf consumers | `audit`, `notification` | Only consume events; everyone may emit to them |
-| 1 — platform | `identity`, `workspace`, `billing` | Entitlements/quota are a `billing` facade |
+| 1 — platform | `identity`, `account`, `workspace`, `billing` | `account` owns businesses (ADR-012); `workspace` uses the `account` facade when a business is created. Entitlements/quota are a `billing` facade |
 | 2 — capabilities | `bot`, `knowledge`, `action`, `channel`, `ai`, `crm`, `commerce` | `ai` depends on `knowledge`, `bot`, `action`, `commerce` (bot product grounding); `channel` on `bot`; `commerce` on `crm` |
 | 3 — flows | `conversation`, `webchat`, `team`, `shipping`, `marketing`, `automation`, `support`, `affiliate` | Orchestrate tier 1–2 facades; `webchat` (website chat) uses the `channel`, `conversation` and `bot` facades; `team` (members, invitations, seats) uses the `identity`, `workspace`, `billing` and `crm` facades |
 | 4 — read models | `analytics` | Consumes events only; owns rollup tables |

@@ -117,6 +117,13 @@ describe('validateAnalyticsQuery', () => {
     expect(page).toEqual([
       { code: 'scope_not_supported', metric: 'customers.new', detail: { filter: 'page' } },
     ]);
+    const bot = validateAnalyticsQuery(
+      { ...base, metrics: ['customers.new', 'messages.inbound'], botIds: [crypto.randomUUID()] },
+      NOW,
+    );
+    expect(bot).toEqual([
+      { code: 'scope_not_supported', metric: 'customers.new', detail: { filter: 'bot' } },
+    ]);
     const sales = validateAnalyticsQuery(
       { ...base, metrics: ['messages.inbound'], salesIds: [crypto.randomUUID()] },
       NOW,

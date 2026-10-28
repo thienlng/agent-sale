@@ -1,7 +1,7 @@
 import { newId, workspaceId } from '@agent-sales/shared';
 import type { NormalizedEvent } from '@agent-sales/channels';
 import type { ChannelFacade } from '../../channel/api/index.js';
-import type { BotFacade, BotView } from '../../bot/api/index.js';
+import { type BotFacade, BotLifecycle, type BotView } from '../../bot/api/index.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ConversationFacadeImpl } from '../application/conversation.facade.impl.js';
 import { fakeCrm, fakeIdentity, fakeTeam } from './fakes.js';
@@ -219,6 +219,46 @@ describe('ConversationFacade tenant and delivery contract', () => {
     await expect(
       service.send(ws, c.id, { ...body, text: 'different' }, actor),
     ).rejects.toMatchObject({ code: 'CONFLICT' });
+  });
+  it('records the bound bot on the conversation and on each event, and follows a rebind', async () => {
+    type Ev = { type: string; payload: { botId?: string } };
+    const c = await service.receive(ws, channelId, event());
+    expect(c.botId).toBe(botId);
+    await service.send(ws, c.id, { text: 'reply', idempotencyKey: newId() }, actor);
+    const events = () => store.events as Ev[];
+    const botsOf = (type: string) =>
+      events()
+        .filter((e) => e.type === type)
+        .map((e) => e.payload.botId);
+    expect(botsOf('conversation.message.received.v1')).toEqual([botId]);
+    expect(botsOf('conversation.reply.completed.v1')).toEqual([botId]);
+
+    const next = '018d0000-0000-7000-8000-000000000006';
+    const base = await channels.getConnection(ws, channelId);
+    vi.mocked(channels.getConnection).mockResolvedValue({ ...base, botId: next });
+    await service.receive(ws, channelId, event('in2'));
+    expect((await service.get(ws, c.id)).conversation.botId).toBe(next);
+    expect(botsOf('conversation.message.received.v1')).toEqual([botId, next]);
+  });
+
+  it('detaches its conversations when the answering bot is deleted, only in that workspace', async () => {
+    const lifecycle = new BotLifecycle();
+    const withLifecycle = new ConversationFacadeImpl(
+      store,
+      channels,
+      { getBot: async () => ({}) as BotView },
+      fakeTeam(),
+      fakeIdentity(),
+      fakeCrm() as never,
+      lifecycle,
+    );
+    withLifecycle.onModuleInit();
+    const c = await service.receive(ws, channelId, event());
+    expect(c.botId).toBe(botId);
+    await lifecycle.beforeDelete(other, botId);
+    expect((await service.get(ws, c.id)).conversation.botId).toBe(botId);
+    await lifecycle.beforeDelete(ws, botId);
+    expect((await service.get(ws, c.id)).conversation.botId).toBeNull();
   });
   it('keeps uncertain deliveries visible and never resends them', async () => {
     vi.mocked(channels.deliver).mockResolvedValue({
