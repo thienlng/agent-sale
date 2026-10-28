@@ -9,7 +9,7 @@ feature_ids: []
 created: 2026-10-27
 updated: 2026-10-28
 branch: feat/T-106-facebook-comments-inbox
-pr:
+pr: 73
 parent:
 ---
 

@@ -4,7 +4,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
-- [ ] T-106 Bring Facebook comment threads into the inbox — @agent:claude · [details](todo/T-106-bring-facebook-comment-threads-into-the-inbox.md) · review: branch `feat/T-106-facebook-comments-inbox`
+- [ ] T-106 Bring Facebook comment threads into the inbox — @agent:claude · [details](todo/T-106-bring-facebook-comment-threads-into-the-inbox.md) · PR #73
 - [ ] T-107 Persist inbox text drafts and personal Enter preference — @agent:codex · [details](todo/T-107-persist-inbox-text-drafts-and-personal-enter-prefe.md)
 
 - [ ] T-081 Redesign portfolio and business statistics entry screens — @agent:codex · [details](todo/T-081-redesign-portfolio-and-business-statistics-entry-s.md) · PR #70 · partial: shop data awaits lane A
