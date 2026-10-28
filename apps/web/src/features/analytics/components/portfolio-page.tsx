@@ -30,9 +30,12 @@ function result(row: PortfolioRow, metric: MetricKey): MetricResult | undefined 
 export function PortfolioPage({
   search,
   onSearch,
+  lost = false,
 }: {
   search: FiltersSearch;
   onSearch: (next: FiltersSearch) => void;
+  /** Sent here after losing access to the business that was open (T-079). */
+  lost?: boolean;
 }) {
   const { t } = useTranslation();
   const session = useSession();
@@ -70,6 +73,14 @@ export function PortfolioPage({
   const own = rows.some((row) => row.people?.meta.scope === 'own');
   return (
     <section className="flex min-w-0 flex-col gap-5">
+      {lost ? (
+        <p
+          role="alert"
+          className="rounded-lg bg-destructive-soft px-3 py-2.5 text-sm text-destructive"
+        >
+          {t('business.lost')}
+        </p>
+      ) : null}
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">{t('analytics.overview.title')}</h1>
         <p className="mt-1.5 text-sm text-muted-foreground">{t('analytics.overview.subtitle')}</p>

@@ -2,7 +2,11 @@ import { expect, test, type Page } from '@playwright/test';
 
 import { mockApi } from './support/mock-api';
 
-/** Choosing, creating and losing a business (T-079). The API is mocked; see mock-api.ts. */
+/**
+ * Choosing, creating and losing a business (T-079), through the account layer (T-108): without a
+ * chosen business the user lands on the overview, whose sidebar lists businesses by account.
+ * The API is mocked; see mock-api.ts.
+ */
 const X = '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9a01';
 const Y = '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9a02';
 const A = '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d20';
@@ -63,15 +67,13 @@ test('a user with several businesses chooses one after login, grouped by account
     business(A, 'Hoa Fashion', X, 'Hoa Group'),
     business(B, 'Minh English', Y, 'Minh', 'sales'),
   ]);
-  // A deep link without a chosen business goes to the picker first.
+  // A deep link without a chosen business goes to the account overview first.
   await page.goto('/app/bots');
-  await expect(page).toHaveURL(/\/businesses$/);
-  await expect(page.getByRole('heading', { name: 'Chọn business' })).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Hoa Group' })).toContainText('Hoa Fashion');
-  await page
-    .getByRole('region', { name: 'Minh' })
-    .getByRole('button', { name: /Minh English/ })
-    .click();
+  await expect(page).toHaveURL(/\/app\/overview$/);
+  const account = page.getByRole('navigation', { name: 'Điều hướng tài khoản' });
+  await expect(account.getByText('Hoa Group', { exact: true })).toBeVisible();
+  await expect(account.getByText('Minh', { exact: true })).toBeVisible();
+  await account.getByRole('button', { name: 'Minh English' }).click();
   await expect(page).toHaveURL(/\/app\/analytics$/);
   await expect(page.getByRole('button', { name: 'Chọn business', exact: true })).toContainText(
     'Minh English',
@@ -102,7 +104,8 @@ test('a user without a business creates one and lands in it', async ({ page }) =
     });
   });
   await page.goto('/app/analytics');
-  await expect(page).toHaveURL(/\/businesses\/new$/);
+  await expect(page).toHaveURL(/\/app\/businesses\/new$/);
+  await expect(page.getByRole('heading', { name: 'Tạo business đầu tiên' })).toBeVisible();
   await page.getByLabel('Tên business').fill('Hoa Spa');
   await page.getByRole('button', { name: 'Tạo business' }).click();
   await expect(page).toHaveURL(/\/app\/analytics$/);
@@ -137,10 +140,11 @@ test('losing the current business mid-session lands on the picker with a notice'
     .getByRole('navigation', { name: 'Điều hướng chính' })
     .getByRole('link', { name: /Đào tạo Bot/ })
     .click();
-  await expect(page).toHaveURL(/\/businesses\?lost=true$/);
+  await expect(page).toHaveURL(/\/app\/overview\?lost=true$/);
   await expect(page.getByRole('alert')).toContainText('Bạn không còn quyền truy cập business đó');
-  await expect(page.getByRole('button', { name: /Minh English/ })).toHaveCount(0);
-  await page.getByRole('button', { name: /Hoa Spa/ }).click();
+  const account = page.getByRole('navigation', { name: 'Điều hướng tài khoản' });
+  await expect(account.getByRole('button', { name: 'Minh English' })).toHaveCount(0);
+  await account.getByRole('button', { name: 'Hoa Spa' }).click();
   await expect(page.getByRole('button', { name: 'Chọn business', exact: true })).toContainText(
     'Hoa Spa',
   );

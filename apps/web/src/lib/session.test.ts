@@ -123,7 +123,8 @@ describe('business selection', () => {
 });
 describe('syncMembership', () => {
   it('shows a saved name and logo in the memberships without touching the others', async () => {
-    await authenticate();
+    // With two businesses nothing is chosen until the user picks one (T-079).
+    await authenticate(A);
     syncMembership(A, { name: 'Shop Hoa', logoVersion: 'abc123', icon: 'store' });
     const rows = getSession()?.memberships;
     expect(rows?.map((m) => m.workspaceName)).toEqual(['Shop Hoa', 'Business B']);

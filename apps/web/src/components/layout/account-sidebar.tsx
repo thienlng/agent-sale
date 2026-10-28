@@ -18,13 +18,15 @@ import {
 } from '@/components/ui/sidebar';
 import { useBusinessSwitch } from '@/hooks/use-business-switch';
 import { usePreferences } from '@/lib/preferences/preferences';
+import { groupByAccount } from '@/lib/business-groups';
 import { useSession } from '@/lib/session';
 
 /** Paths that belong to the account layer, above any single business. */
 export const ACCOUNT_PATHS = /^\/app\/(overview|businesses)(\/|$)/;
 
 /**
- * Sidebar of the account layer: all businesses of the signed-in account. It has no
+ * Sidebar of the account layer: all businesses of the signed-in user, grouped by the account
+ * that owns them (T-079), and the way in when no business is chosen yet. It has no
  * business-scoped entries (bots, inbox, customers…); choosing a business enters its
  * own management area with the business sidebar.
  */
@@ -36,6 +38,23 @@ export function AccountSidebar() {
   const { busy, choose } = useBusinessSwitch();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const close = () => isMobile && setOpenMobile(false);
+  // Grouped by the owning account (ADR-012); one group keeps the plain "Businesses" label.
+  const groups = groupByAccount(session?.memberships ?? []);
+  if (!groups.length) groups.push({ accountId: null, accountName: null, businesses: [] });
+  const newBusiness = (
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        asChild
+        tooltip={t('nav.newBusiness')}
+        isActive={pathname === '/app/businesses/new'}
+      >
+        <Link to="/app/businesses/new" onClick={close}>
+          <Plus />
+          <span>{t('nav.newBusiness')}</span>
+        </Link>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
   return (
     <Sidebar variant={prefs.sidebar_variant} collapsible={prefs.sidebar_collapsible}>
       <SidebarHeader>
@@ -69,39 +88,34 @@ export function AccountSidebar() {
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroup>
-          <SidebarGroup>
-            <SidebarGroupLabel>{t('nav.groupBusinesses')}</SidebarGroupLabel>
-            <SidebarMenu>
-              {session?.memberships.map((m) => (
-                <SidebarMenuItem key={m.workspaceId}>
-                  <SidebarMenuButton
-                    tooltip={m.workspaceName}
-                    disabled={busy}
-                    onClick={() => void choose(m.workspaceId).then((ok) => ok && close())}
-                  >
-                    <BusinessAvatar
-                      workspaceId={m.workspaceId}
-                      logoVersion={m.logoVersion}
-                      icon={m.icon}
-                    />
-                    <span className="truncate">{m.workspaceName}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  tooltip={t('nav.newBusiness')}
-                  isActive={pathname === '/app/businesses/new'}
-                >
-                  <Link to="/app/businesses/new" onClick={close}>
-                    <Plus />
-                    <span>{t('nav.newBusiness')}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroup>
+          {groups.map((group, i) => (
+            <SidebarGroup key={group.accountId ?? 'none'}>
+              <SidebarGroupLabel>
+                {groups.length > 1
+                  ? (group.accountName ?? t('business.noAccount'))
+                  : t('nav.groupBusinesses')}
+              </SidebarGroupLabel>
+              <SidebarMenu>
+                {group.businesses.map((m) => (
+                  <SidebarMenuItem key={m.workspaceId}>
+                    <SidebarMenuButton
+                      tooltip={m.workspaceName}
+                      disabled={busy}
+                      onClick={() => void choose(m.workspaceId).then((ok) => ok && close())}
+                    >
+                      <BusinessAvatar
+                        workspaceId={m.workspaceId}
+                        logoVersion={m.logoVersion}
+                        icon={m.icon}
+                      />
+                      <span className="truncate">{m.workspaceName}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+                {i === groups.length - 1 ? newBusiness : null}
+              </SidebarMenu>
+            </SidebarGroup>
+          ))}
           {session?.user.isPlatformAdmin ? (
             <SidebarGroup>
               <SidebarGroupLabel>{t('nav.admin')}</SidebarGroupLabel>

@@ -19,7 +19,7 @@ onSessionExpired(() => {
 
 // Removed from the current business mid-session: choose another one, with a notice.
 onWorkspaceLost(() => {
-  void router.navigate({ to: '/businesses', search: { lost: true } });
+  void router.navigate({ to: '/app/overview', search: { lost: true } });
 });
 
 declare module '@tanstack/react-router' {

@@ -85,7 +85,7 @@ Dedicated layout: back button, bot name, **bot on/off switch**, left menu, **tes
 | Screen | Route |
 |---|---|
 | Sign up / Log in / Forgot password / Verify email / Accept invitation | `/signup`, `/login`, `/login?mode=forgot`, `/verify-email`, `/invite/{token}` |
-| Choose a business (several, none remembered, or the current one lost) / Create a business | `/businesses` (`?lost=true`), `/businesses/new` (T-079) |
+| Choose a business (several, none remembered, or the current one lost) / Create a business | Account layer: `/app/overview` (`?lost=true` shows the notice; its sidebar lists businesses by account), `/app/businesses/new` (also the welcome step for a user with no business) (T-079, T-108, T-109) |
 | Channel OAuth callback | `/oauth/{provider}/callback` |
 | Payment: VNPAY result | `/billing/return` |
 | Affiliate landing | `/affiliates?ref={code}` |

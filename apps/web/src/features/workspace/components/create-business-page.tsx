@@ -14,15 +14,24 @@ import {
 } from '@/components/ui/select';
 import { useBusinessSwitch } from '@/hooks/use-business-switch';
 import { ApiClientError } from '@/lib/api-client';
+import { useSession } from '@/lib/session';
 
 import { useCreateBusiness } from '../api/create-business';
 
-/** Account-level form: a new business is created, then opened in its own management area. */
+/**
+ * Account-level form: a new business is created, then opened in its own management area. It goes
+ * under the account the user owns; with several owned accounts the user picks one (ADR-012 §3).
+ * A user without any business sees it as the welcome step (T-079).
+ */
 export function CreateBusinessPage() {
   const { t } = useTranslation();
+  const session = useSession();
   const create = useCreateBusiness();
   const { busy, choose } = useBusinessSwitch();
+  const owned = session?.accounts.filter((a) => a.role === 'owner') ?? [];
+  const first = session?.memberships.length === 0;
   const [industry, setIndustry] = useState<Industry>('retail');
+  const [accountId, setAccountId] = useState(owned[0]?.accountId ?? '');
   const [error, setError] = useState<string | null>(null);
 
   async function submit(e: FormEvent<HTMLFormElement>) {
@@ -31,7 +40,11 @@ export function CreateBusinessPage() {
     if (!name) return;
     setError(null);
     try {
-      const created = await create.mutateAsync({ name, industry });
+      const created = await create.mutateAsync({
+        name,
+        industry,
+        ...(owned.length > 1 && accountId ? { accountId } : {}),
+      });
       await choose(created.id);
     } catch (err) {
       const code = err instanceof ApiClientError ? err.code : '';
@@ -46,8 +59,12 @@ export function CreateBusinessPage() {
   return (
     <section className="flex max-w-lg flex-col gap-5">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{t('business.create.title')}</h1>
-        <p className="mt-1.5 text-sm text-muted-foreground">{t('business.create.subtitle')}</p>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {first ? t('business.welcomeTitle') : t('business.create.title')}
+        </h1>
+        <p className="mt-1.5 text-sm text-muted-foreground">
+          {first ? t('business.welcomeSubtitle') : t('business.create.subtitle')}
+        </p>
       </div>
       <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4" noValidate>
         <div className="flex flex-col gap-2">
@@ -69,6 +86,23 @@ export function CreateBusinessPage() {
             </SelectContent>
           </Select>
         </div>
+        {owned.length > 1 ? (
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="business-account">{t('business.accountLabel')}</Label>
+            <Select value={accountId} onValueChange={setAccountId}>
+              <SelectTrigger id="business-account" className="h-10 w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {owned.map((a) => (
+                  <SelectItem key={a.accountId} value={a.accountId}>
+                    {a.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : null}
         {error ? (
           <p role="alert" className="text-sm text-destructive">
             {error}

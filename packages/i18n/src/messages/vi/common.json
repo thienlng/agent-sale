@@ -1503,18 +1503,10 @@
     "manageAccount": "Quản lý tài khoản",
     "switch": "Chuyển business",
     "noAccount": "Business khác",
-    "pickTitle": "Chọn business",
-    "pickSubtitle": "Bạn đang làm việc ở nhiều business. Chọn business để quản lý; có thể đổi sau trong menu tài khoản.",
     "lost": "Bạn không còn quyền truy cập business đó. Hãy chọn business khác.",
-    "createTitle": "Tạo business mới",
-    "createSubtitle": "Mỗi business có bot, kênh, khách hàng và sản phẩm riêng.",
     "welcomeTitle": "Tạo business đầu tiên",
     "welcomeSubtitle": "Bạn chưa thuộc business nào. Tạo một business để bắt đầu bán hàng với bot AI.",
-    "name": "Tên business",
     "accountLabel": "Tài khoản",
-    "creating": "Đang tạo…",
-    "createError": "Không thể tạo business. Thử lại.",
-    "back": "Quay lại",
     "createAction": "Tạo business"
   },
   "account": {
