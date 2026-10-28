@@ -17,6 +17,14 @@ pnpm --filter @agent-sales/site test:e2e   # Playwright against `astro preview` 
 `astro dev` and `https://app.rapiz.vn` in builds. The dashboard links back with `VITE_SITE_URL`
 (account menu "Trang chủ Rapiz", logo on the sign-in pages).
 
+### Behind the dev tunnel (live Meta testing)
+
+`scripts/dev-tunnel-proxy.mjs` serves the site at `/` (plus `/images`, `/fonts`, `/_astro`) of the
+public tunnel host and the dashboard everywhere else, mirroring rapiz.vn / app.rapiz.vn. Run
+`pnpm --filter @agent-sales/site serve:tunnel` (same-origin build in `dist-tunnel/`, preview on
+:4323); the dashboard's "Trang chủ Rapiz" links resolve to `/` when it is opened through the tunnel.
+Rebuild with the same command after editing the site.
+
 On phones the header keeps one call to action (free trial); "Đăng nhập" moves into the menu.
 
 ## Content and assets

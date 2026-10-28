@@ -67,6 +67,7 @@ is reachable from the account menu and from the sign-in pages).
 - 2026-10-28 — fresh-context QA agent review: accept with fixes. Fixed: site browser checks now run in CI (`site` job); font checks restored as `e2e/fonts.spec.ts` (checksums vs SOURCES.json, OFL licences, no Google Fonts requests, Fraunces renders); unused Plus Jakarta Sans preload removed (page is set in Fraunces); unit test for the sign-in logo link; design-records README wording. Not changed: desktop header CTA is 40 px (phones get 44 px), the phone menu toggle keeps its original 21 px width.
 - 2026-10-28 — verified: `pnpm check` green (3 pre-existing lint warnings); site `typecheck`, `build`, 8/8 Playwright; dev server on :4321 serves links to the local app.
 - 2026-10-28 — merged to main (1620f83) at the owner's request, without a PR.
+- 2026-10-28 — follow-up (owner: the home page should open through the Cloudflare tunnel, not localhost): the dev tunnel proxy now serves the site at `/` and its asset folders (same-origin build via `serve:tunnel`, :4323); the dashboard's site links resolve to `/` when opened through the tunnel. Verified on the public tunnel host: `/` landing, CTA → `/signup`, sign-in logo → `/`, `/api`, `/app` unchanged.
 
 ## Links
 

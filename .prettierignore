@@ -12,3 +12,4 @@ pnpm-lock.yaml
 services/hermes/var
 # Astro's generated types (apps/site)
 .astro
+dist-tunnel

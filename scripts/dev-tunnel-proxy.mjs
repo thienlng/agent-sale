@@ -4,6 +4,7 @@
 //   /api/channels/oauth/*  -> API  /api/v1/channels/oauth/*  (legacy redirect URI registered on the Meta app)
 //   /api/*                 -> API  (PORT, default 3000)
 //   /webhooks/*            -> webhook ingress (WEBHOOK_PORT, default 3001)
+//   / and its assets       -> marketing site (SITE_PORT, default 4323; `pnpm --filter @agent-sales/site serve:tunnel`)
 //   everything else        -> Vite dev server (WEB_PORT, default 5180)
 // Usage: node scripts/dev-tunnel-proxy.mjs [listenPort=4000]
 import http from 'node:http';
@@ -14,12 +15,18 @@ const listen = Number(process.argv[2] ?? process.env.PROXY_PORT ?? 4000);
 const api = Number(process.env.API_PORT ?? 3000);
 const webhook = Number(process.env.WEBHOOK_PORT ?? 3001);
 const web = Number(process.env.WEB_PORT ?? 5180);
+const site = Number(process.env.SITE_PORT ?? 4323);
+
+// The landing page owns the root and its static folders, as rapiz.vn does in production; the
+// dashboard keeps every other path (/login, /signup, /app/…), as app.rapiz.vn does.
+const SITE_PATH = /^\/(?:$|\?|index\.html|(?:images|fonts|_astro)\/)/;
 
 function route(url) {
   if (url.startsWith('/api/channels/oauth/'))
     return { port: api, path: url.replace('/api/channels/oauth/', '/api/v1/channels/oauth/') };
   if (url.startsWith('/api/')) return { port: api, path: url };
   if (url.startsWith('/webhooks/')) return { port: webhook, path: url };
+  if (SITE_PATH.test(url)) return { port: site, path: url };
   return { port: web, path: url };
 }
 
@@ -68,6 +75,6 @@ server.on('upgrade', (req, socket, head) => {
 
 server.listen(listen, '127.0.0.1', () => {
   process.stdout.write(
-    `dev tunnel proxy on 127.0.0.1:${listen} -> api:${api} webhook:${webhook} web:${web}\n`,
+    `dev tunnel proxy on 127.0.0.1:${listen} -> api:${api} webhook:${webhook} web:${web} site:${site}\n`,
   );
 });

@@ -17,5 +17,7 @@ const PROD_SITE_URL = 'https://rapiz.vn/';
 export function siteUrl(): string {
   const configured = import.meta.env.VITE_SITE_URL?.trim();
   if (configured) return configured;
-  return import.meta.env.DEV ? DEV_SITE_URL : PROD_SITE_URL;
+  if (!import.meta.env.DEV) return PROD_SITE_URL;
+  // Behind the dev tunnel proxy the site is served at `/` of the same public host.
+  return ['localhost', '127.0.0.1'].includes(location.hostname) ? DEV_SITE_URL : '/';
 }

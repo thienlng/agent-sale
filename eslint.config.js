@@ -117,6 +117,7 @@ export default tseslint.config(
       'pnpm-lock.yaml',
       '**/routeTree.gen.ts',
       '**/.astro/**',
+      '**/dist-tunnel/**',
     ],
   },
   js.configs.recommended,

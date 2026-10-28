@@ -9,7 +9,8 @@
     "build": "astro build",
     "preview": "astro preview --port 4321",
     "typecheck": "astro sync && tsc -p tsconfig.json --noEmit",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "serve:tunnel": "PUBLIC_APP_URL=/ SITE_OUT_DIR=./dist-tunnel astro build && SITE_OUT_DIR=./dist-tunnel astro preview --port 4323 --host 127.0.0.1 --ignore-lock"
   },
   "dependencies": {
     "astro": "^7.4.2"
