@@ -57,6 +57,7 @@ Risk: moving a page to another bot moves its history with it (facts have no bot)
 
 - 2026-10-27 — created from the review ("vào trang đào tạo bot của mỗi bot thì phải có thống kê").
 - 2026-10-28 — implemented without a backend change: `BotStatistics` (analytics feature) queries the conversation metrics with the bot's pages, resolved in the bot home route from `/channels`. 7/30-day toggle, link to `/app/analytics` with the same pages and period, "no channel" state with no query, hidden without `analytics.view`. Placed below the setup guide rather than above so the guide's `h1` stays first. 4 UI tests; gate green (2 pre-existing max-lines warnings); e2e 49/49 (`website-chat` flaked once under load, passes on rerun). docs/analytics.md "Bot home statistics" documents the current-assignment limit.
+- 2026-10-29 — Rebuilt on current main as PR #83 (replaces #79). Counting by the answering bot (`botIds`, available since PR #82) is follow-up T-125.
 
 ## Links
 

@@ -4,7 +4,7 @@ title: Refine the sales inbox around the agreed Pancake workflow
 status: cancelled
 type: feature
 priority: P1
-owner: "@agent:claude"
+owner:
 feature_ids: []
 created: 2026-10-26
 updated: 2026-10-28

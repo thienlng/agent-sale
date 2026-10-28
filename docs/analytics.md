@@ -93,4 +93,4 @@ The bot home (`/app/bots/$botId`) shows that bot's new conversations, inbound an
 
 - A bot with no page shows a "no channel" state with a link to its channel integrations and sends no query, so it never shows workspace-wide numbers.
 - The block follows `analytics.view` like the statistics page; card states (loading, locked, error) are the same.
-- **Limit.** Attribution follows the *current* page→bot assignment: moving a page to another bot moves the page's history with it. Per-bot history would need a bot dimension in the facts (separate task).
+- **Limit.** Attribution follows the *current* page→bot assignment: moving a page to another bot moves the page's history with it. Facts now carry the bot at event time (ADR-012, PR #82); counting the bot home by it is T-125. The page list is also capped at 50 by the query contract, so a bot with more than 50 pages gets an error card until T-125.

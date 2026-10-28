@@ -17,8 +17,7 @@ import { AppSidebar } from './app-sidebar';
 
 vi.mock('@/lib/permissions', () => ({ useCan: () => true }));
 vi.mock('@/lib/session', () => ({ useSession: () => ({ user: { isPlatformAdmin: false } }) }));
-// The account menu and business selector need a full session; these tests cover the navigation only.
-vi.mock('./nav-user', () => ({ NavUser: () => null }));
+// The business selector needs a full session; these tests cover the navigation only.
 vi.mock('./business-selector', () => ({ BusinessSelector: () => null }));
 
 beforeEach(() => {

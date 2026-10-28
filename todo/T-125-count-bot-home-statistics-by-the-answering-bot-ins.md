@@ -33,6 +33,7 @@ The bot home statistics count the conversations that bot answered, and the link 
 
 - [ ] After a page moves from bot A to bot B, bot A's home still counts the conversations it answered and bot B's does not
 - [ ] The "open in statistics" link shows the same figures as the bot home
+- [ ] A bot with more than 50 pages still shows figures (today `pageIds` is capped at 50 by the query contract)
 - [ ] Tests added/updated and `pnpm check` green
 - [ ] Docs updated (or "no docs impact" stated)
 

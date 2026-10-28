@@ -1,13 +1,13 @@
 ---
 id: T-115
 title: Redesign the appearance preferences panel
-status: backlog            # backlog | next | in-progress | blocked | review | done | cancelled
+status: next            # backlog | next | in-progress | blocked | review | done | cancelled
 type: feature              # feature | bug | chore | spike | docs
 priority: P2               # P0 | P1 | P2 | P3
 owner: "@agent:claude"     # @github-handle or @agent:<tool>
 feature_ids: []            # e.g. [BOT-07, CRM-11] from docs/02-functional-requirements.md
 created: 2026-10-27
-updated: 2026-10-27
+updated: 2026-10-29
 branch:
 pr:
 parent:                    # T-xxx if this is a sub-task
