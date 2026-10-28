@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { useCan } from '@/lib/permissions';
 import { useChannels } from '../api/channels';
 import { useFanpageForm } from '../hooks/use-fanpage-form';
 export function FanpagePanel() {
@@ -46,28 +47,38 @@ export function FanpagePanel() {
 function FanpageDetails({ id }: { id: string }) {
   const { t } = useTranslation(),
     f = useFanpageForm(id),
+    canManage = useCan('settings.manage'),
     tr = (key: string) => t(`channelInbox.fanpage.${key}`);
   if (f.settings.isLoading) return <p>{tr('loading')}</p>;
   if (f.settings.isError) return <p role="alert">{tr('error')}</p>;
   return (
     <div className="space-y-5">
       <p className="text-sm text-muted-foreground">{tr('permissions')}</p>
-      {(['publicReplies', 'privateReplies', 'hideComments'] as const).map((key) => (
-        <label key={key} className="flex items-center gap-3">
-          <Switch checked={f.value[key]} onCheckedChange={(v) => f.patch({ [key]: v })} />
-          <span>{tr(key)}</span>
+      {!canManage && <p className="text-sm text-muted-foreground">{tr('readOnlySettings')}</p>}
+      <fieldset disabled={!canManage} className="space-y-5">
+        {(['publicReplies', 'privateReplies', 'hideComments'] as const).map((key) => (
+          <label key={key} className="flex items-center gap-3">
+            <Switch
+              disabled={!canManage}
+              checked={f.value[key]}
+              onCheckedChange={(v) => f.patch({ [key]: v })}
+            />
+            <span>{tr(key)}</span>
+          </label>
+        ))}
+        <label className="block space-y-2">
+          <span>{tr('keywords')}</span>
+          <Textarea value={f.keywords} onChange={(e) => f.setKeywords(e.target.value)} />
         </label>
-      ))}
-      <label className="block space-y-2">
-        <span>{tr('keywords')}</span>
-        <Textarea value={f.keywords} onChange={(e) => f.setKeywords(e.target.value)} />
-      </label>
-      <p className="text-sm text-muted-foreground">{tr('moderationHelp')}</p>
-      <Button onClick={f.saveForm} disabled={f.save.isPending}>
-        {tr('save')}
-      </Button>
-      {f.save.isSuccess && <p role="status">{tr('saved')}</p>}
-      {f.save.isError && <p role="alert">{tr('error')}</p>}
+        <p className="text-sm text-muted-foreground">{tr('moderationHelp')}</p>
+        {canManage && (
+          <Button onClick={f.saveForm} disabled={f.save.isPending}>
+            {tr('save')}
+          </Button>
+        )}
+        {f.save.isSuccess && <p role="status">{tr('saved')}</p>}
+        {f.save.isError && <p role="alert">{tr('error')}</p>}
+      </fieldset>
       <div className="flex items-center justify-between">
         <h3 className="font-semibold">{tr('posts')}</h3>
         <Button variant="outline" onClick={() => void f.refresh()}>
@@ -86,6 +97,7 @@ function FanpageDetails({ id }: { id: string }) {
             <li key={post.id} className="flex items-start gap-3 rounded-lg border p-3">
               <Switch
                 aria-label={`${tr('enablePost')} ${post.id}`}
+                disabled={!canManage}
                 checked={!f.value.excludedPostIds.includes(post.id)}
                 onCheckedChange={(v) => f.togglePost(post.id, v)}
               />

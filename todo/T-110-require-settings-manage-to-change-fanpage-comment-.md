@@ -52,6 +52,8 @@ Dated entries, newest last. Decisions, blockers, questions, what was verified an
 - 2026-10-28 — created.
 - 2026-10-28 — Claimed under the owner’s request to complete remaining Inbox work. Plan written before code; use existing capability guards without new role semantics.
 
+- 2026-10-28 — Reproduced failing-first: 2 frontend role cases and 2 real-HTTP permission cases failed before the fix. Added existing settings.manage capability and read-only UI controls. Focused green: frontend 4/4, HTTP integration 7/7. Fresh same-model QA approved server/UI/docs; final combined gate/browser pending T-093 integration.
+
 ## Links
 
 - Docs: …

@@ -1,4 +1,9 @@
-import { AuthResponse, BootstrapResponse, FanpageCommentPage } from '@agent-sales/contracts';
+import {
+  AuthResponse,
+  BootstrapResponse,
+  FanpageCommentPage,
+  FanpageSettings,
+} from '@agent-sales/contracts';
 import { createDb, ensureLoginRoles, migrate, schema, sql, withCredentials } from '@agent-sales/db';
 import { workspaceId } from '@agent-sales/shared';
 import { startTestPostgres, type TestPostgres } from '@agent-sales/testing';
@@ -39,7 +44,7 @@ afterAll(async () => {
 });
 
 type Headers = Record<string, string>;
-const call = (h: Headers, method: 'GET' | 'POST', url: string, payload?: object) =>
+const call = (h: Headers, method: 'GET' | 'POST' | 'PATCH', url: string, payload?: object) =>
   app
     .getHttpAdapter()
     .getInstance()
@@ -220,5 +225,53 @@ describe('fanpage comments over HTTP', () => {
     ).toBe(503);
     const stored = await call(a.h, 'GET', `/channels/${a.channelId}/fanpage/comments/10_1`);
     expect(stored.json()).toMatchObject({ data: { actions: [] } });
+  });
+});
+
+describe('fanpage automation settings authorization', () => {
+  const settings = { ...FanpageSettings.parse({}), publicReplies: true };
+
+  it.each(['owner', 'admin'])('lets %s save automation settings', async (role) => {
+    const a = await shop(`settings-${role}@settings.test`, `7${++signups}`);
+    const headers = role === 'owner' ? a.h : (await member(a.ws, role)).in(a.ws);
+    const saved = await call(
+      headers,
+      'PATCH',
+      `/channels/${a.channelId}/fanpage/settings`,
+      settings,
+    );
+    expect(saved.statusCode, saved.body).toBe(200);
+    expect(
+      FanpageSettings.parse(
+        (await call(a.h, 'GET', `/channels/${a.channelId}/fanpage/settings`)).json(),
+      ),
+    ).toEqual(settings);
+  });
+
+  it.each(['analyst', 'sales'])(
+    'lets %s read but rejects settings changes without modifying stored state',
+    async (role) => {
+      const a = await shop(`settings-${role}@settings.test`, `7${++signups}`);
+      const viewer = await member(a.ws, role);
+      const path = `/channels/${a.channelId}/fanpage/settings`;
+      expect((await call(a.h, 'PATCH', path, settings)).statusCode).toBe(200);
+      expect((await call(viewer.in(a.ws), 'GET', path)).statusCode).toBe(200);
+      expect(
+        (await call(viewer.in(a.ws), 'PATCH', path, FanpageSettings.parse({}))).statusCode,
+      ).toBe(403);
+      expect(FanpageSettings.parse((await call(a.h, 'GET', path)).json())).toEqual(settings);
+    },
+  );
+
+  it('rejects foreign workspace headers and foreign channel IDs without changing settings', async () => {
+    const a = await shop('settings-a@settings.test', `7${++signups}`);
+    const b = await shop('settings-b@settings.test', `7${++signups}`);
+    const path = `/channels/${a.channelId}/fanpage/settings`;
+    for (const headers of [b.h, b.in(a.ws)]) {
+      expect((await call(headers, 'PATCH', path, settings)).statusCode).toBe(404);
+    }
+    expect(FanpageSettings.parse((await call(a.h, 'GET', path)).json())).toEqual(
+      FanpageSettings.parse({}),
+    );
   });
 });

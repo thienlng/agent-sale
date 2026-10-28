@@ -1,8 +1,16 @@
+import { roleCan, type Capability } from '@agent-sales/contracts';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, it, expect, vi } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import { renderWithProviders, stubFetch } from '@/testing/render';
 import { FanpagePanel } from './fanpage-panel';
+const role = vi.hoisted(() => ({ value: 'owner' }));
+vi.mock('@/lib/permissions', () => ({
+  useCan: (capability: Capability) => roleCan(role.value, capability),
+}));
+beforeEach(() => {
+  role.value = 'owner';
+});
 vi.mock('@/lib/use-workspace', () => ({ useWorkspaceId: () => 'ws-1' }));
 afterEach(() => vi.unstubAllGlobals());
 const id = '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d01';
@@ -88,3 +96,24 @@ describe('Fanpage automation controls', () => {
     ).toBeEnabled();
   });
 });
+
+it.each(['analyst', 'sales'])(
+  'shows settings read-only for %s without a save action',
+  async (viewerRole) => {
+    role.value = viewerRole;
+    const { fetchStub, calls } = stubFetch(routes);
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithProviders(<FanpagePanel />);
+    await screen.findByText('Blue shirt 250k');
+    expect(
+      screen.queryByRole('button', { name: 'Lưu thiết lập và lựa chọn bài viết' }),
+    ).not.toBeInTheDocument();
+    for (const control of screen.getAllByRole('switch')) expect(control).toBeDisabled();
+    expect(screen.getByRole('textbox')).toBeDisabled();
+    expect(
+      screen.getByText('Bạn chỉ có quyền xem thiết lập. Cần quyền quản lý cài đặt để thay đổi.'),
+    ).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Làm mới' })).toBeEnabled();
+    expect(calls.some((call) => call.key === `PATCH ${path}/settings`)).toBe(false);
+  },
+);

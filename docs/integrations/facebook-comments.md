@@ -37,7 +37,8 @@ Every endpoint is authenticated and workspace-scoped under `/api/v1`:
 
 | Method | Path | Behavior |
 | --- | --- | --- |
-| GET / PATCH | `/channels/{id}/fanpage/settings` | Read / replace full validated settings |
+| GET | `/channels/{id}/fanpage/settings` | Read validated settings; workspace members |
+| PATCH | `/channels/{id}/fanpage/settings` | Replace validated settings; requires `settings.manage` (owner/admin). Analyst/sales may read but cannot save. |
 | GET | `/channels/{id}/fanpage/posts` | Latest 50 Page-owned published posts |
 | GET | `/channels/{id}/fanpage/comments` | Stored received comments, newest activity first: see below. Response `{ data, nextCursor }` |
 | GET | `/channels/{id}/fanpage/comments/{commentId}` | One stored comment and its stored parent (`{ data, parent }`), read without side effects |
@@ -60,3 +61,7 @@ Implementation targets the configured `META_GRAPH_VERSION` (default `v24.0`). Ch
 - [Meta Comment reference](https://developers.facebook.com/docs/graph-api/reference/comment/): official reference URL; fetch attempts were rate-limited/unavailable. Comment fields, public replies, hide/unhide and app-specific permission behavior are adapter-tested but **not live-verified** in this task.
 
 No real customer comments were sent, hidden or altered during automated verification. App Review, correct Page tasks, scopes and a public HTTPS webhook remain deployment prerequisites. Never claim the fixture suite proves Meta approval or live delivery.
+
+### Settings authorization (T-110)
+
+Automation settings changes require `settings.manage` on the server. The settings panel preserves read access while disabling automation switches, keyword editing and post exclusions and hiding Save for other roles. Comment actions retain their separate `contacts.edit` requirement. Foreign workspace/channel requests return 404; permission-denied changes return 403 without modifying settings.

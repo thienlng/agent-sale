@@ -628,6 +628,7 @@
     }
   },
   "fanpage": {
+    "readOnlySettings": "Bạn chỉ có quyền xem thiết lập. Cần quyền quản lý cài đặt để thay đổi.",
     "title": "Bài viết và bình luận Facebook",
     "description": "Trả lời dựa trên đúng bài viết gốc. Trả lời công khai, inbox riêng và kiểm duyệt bật/tắt độc lập, mặc định đều tắt.",
     "loading": "Đang tải…",

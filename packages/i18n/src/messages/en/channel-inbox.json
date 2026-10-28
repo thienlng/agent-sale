@@ -628,6 +628,7 @@
     }
   },
   "fanpage": {
+    "readOnlySettings": "You can view these settings. Settings management permission is required to make changes.",
     "title": "Facebook posts and comments",
     "description": "Reply with the originating post context. Public replies, private replies and moderation are independent and off by default.",
     "loading": "Loading…",

@@ -28,6 +28,7 @@ export class FanpageController {
     return this.pages.settings(ws, id);
   }
   @WorkspaceScoped()
+  @RequireCapability('settings.manage')
   @Patch('settings')
   save(
     @CurrentWorkspace() ws: WorkspaceId,
