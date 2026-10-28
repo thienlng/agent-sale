@@ -46,3 +46,7 @@ Review `/tmp/T-106-review-32747d7.md` against your latest work. Address the four
 As of this handoff, the external worktree has advanced to implementation commit `5f3c32c` and follow-up commit `cb258fb`; this report is not acceptance of those newer revisions. Reconcile findings before applying changes.
 
 The external follow-up uses T-108, which collides with PR #72's T-108 scanner blocker. PR #72 also allocates T-109 for the statistics acceptance timezone blocker. Allocate a fresh unused ID for the external fanpage authorization follow-up and update its tracking references before integrating branches. Preserve both tasks. Do not edit Codex's DM draft/preference helpers.
+
+## Final integration review
+
+The four findings above were resolved in the final T-106 source. Fresh same-model QA approved commit `3f2ef52` and its merge with T-107, including regression tests and preservation of both i18n namespaces. The task collision was already corrected to T-110 by Claude. See [T-111 integration evidence](T-111-inbox-integration.md) for completed checks and remaining provider limitations.
