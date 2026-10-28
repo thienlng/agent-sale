@@ -32,7 +32,12 @@
     "contactsList": "Danh sách khách hàng",
     "crmSettings": "Cài đặt khách hàng",
     "members": "Thành viên",
-    "settingsHome": "Cài đặt"
+    "settingsHome": "Cài đặt",
+    "accountLabel": "Điều hướng tài khoản",
+    "groupAccount": "Tài khoản",
+    "groupBusinesses": "Business của tôi",
+    "accountOverview": "Tổng quan các business",
+    "newBusiness": "Tạo business mới"
   },
   "auth": {
     "login": "Đăng nhập",
@@ -1462,7 +1467,16 @@
     "noResults": "Không tìm thấy business.",
     "switching": "Đang chuyển business…",
     "waitForSave": "Đợi lưu xong để chuyển business.",
-    "switchError": "Không thể chuyển business. Thử lại."
+    "switchError": "Không thể chuyển business. Thử lại.",
+    "create": {
+      "title": "Tạo business mới",
+      "subtitle": "Mỗi business có dữ liệu, bot và thành viên riêng. Tạo xong bạn sẽ vào quản lý business đó.",
+      "name": "Tên business",
+      "submit": "Tạo business",
+      "creating": "Đang tạo…",
+      "denied": "Tài khoản hiện không được tạo thêm business.",
+      "error": "Không thể tạo business. Thử lại."
+    }
   },
   "account": {
     "open": "Tài khoản của {{name}}",
