@@ -4,6 +4,9 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
+- [ ] T-112 Move product management to its own top-level navigation group — @agent:claude · [details](todo/T-112-move-product-management-to-its-own-top-level-navig.md) · review: PR #79 rebuilt on main
+- [ ] T-114 Clean up bot navigation: hide the image library and rename channel integrations — @agent:claude · [details](todo/T-114-clean-up-bot-navigation-hide-the-image-library-and.md) · review: PR #79 rebuilt on main
+- [ ] T-113 Show per-bot statistics on the bot training home — @agent:claude · [details](todo/T-113-show-per-bot-statistics-on-the-bot-training-home.md) · review: PR #79 rebuilt on main
 - [ ] T-077 Define account business ownership and migration contracts — @agent:claude · [details](todo/T-077-define-account-business-shop-ownership-and-migrati.md) · PR #82
 - [ ] T-078 Add account persistence and bot attribution with safe backfills — @agent:claude · [details](todo/T-078-add-account-business-and-shop-persistence-with-saf.md) · PR #82
 - [ ] T-124 Integrate the lane A account PRs onto current main — @agent:claude · [details](todo/T-124-integrate-the-lane-a-account-prs-onto-current-main.md) · PR #82 (A1)
@@ -11,6 +14,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## Next
 
+- [ ] T-115 Redesign the appearance preferences panel — @agent:claude · [details](todo/T-115-redesign-the-appearance-preferences-panel.md) · mockup awaiting review
 - [ ] T-045 Email verification at signup (ACC-01) and verified-email invitations — @unassigned · [details](todo/T-045-email-verification-at-signup-acc-01-and-verified-e.md)
 
 ## Backlog
