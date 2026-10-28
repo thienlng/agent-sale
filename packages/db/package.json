@@ -36,7 +36,7 @@
     "@agent-sales/testing": "workspace:*",
     "drizzle-kit": "^0.31.0",
     "tsx": "^4.20.0",
-    "typescript": "^5.8.3",
+    "typescript": "^7.0.2",
     "vitest": "^5.0.5"
   }
 }
