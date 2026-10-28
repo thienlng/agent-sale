@@ -9,7 +9,7 @@ feature_ids: []            # e.g. [BOT-07, CRM-11] from docs/02-functional-requi
 created: 2026-10-28
 updated: 2026-10-28
 branch: feat/T-124-integrate-lane-a1
-pr: 82 (A1)
+pr: 82 (A1, merged)
 parent:                    # T-xxx if this is a sub-task
 ---
 

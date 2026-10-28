@@ -7,9 +7,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [ ] T-112 Move product management to its own top-level navigation group — @agent:claude · [details](todo/T-112-move-product-management-to-its-own-top-level-navig.md) · review: PR #79 rebuilt on main
 - [ ] T-114 Clean up bot navigation: hide the image library and rename channel integrations — @agent:claude · [details](todo/T-114-clean-up-bot-navigation-hide-the-image-library-and.md) · review: PR #79 rebuilt on main
 - [ ] T-113 Show per-bot statistics on the bot training home — @agent:claude · [details](todo/T-113-show-per-bot-statistics-on-the-bot-training-home.md) · review: PR #79 rebuilt on main
-- [ ] T-077 Define account business ownership and migration contracts — @agent:claude · [details](todo/T-077-define-account-business-shop-ownership-and-migrati.md) · PR #82
-- [ ] T-078 Add account persistence and bot attribution with safe backfills — @agent:claude · [details](todo/T-078-add-account-business-and-shop-persistence-with-saf.md) · PR #82
-- [ ] T-124 Integrate the lane A account PRs onto current main — @agent:claude · [details](todo/T-124-integrate-the-lane-a-account-prs-onto-current-main.md) · PR #82 (A1)
+- [ ] T-124 Integrate the lane A account PRs onto current main — @agent:claude · [details](todo/T-124-integrate-the-lane-a-account-prs-onto-current-main.md) · A1 merged in PR #82; A2, A3 pending
 - [ ] T-106 Bring Facebook comment threads into the inbox — @agent:claude · [details](todo/T-106-bring-facebook-comment-threads-into-the-inbox.md) · PR #73
 
 ## Next
@@ -70,6 +68,8 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## Done (last 10 — older ones live in todo/done/)
 
+- [x] T-078 Add account persistence and bot attribution with safe backfills — @agent:claude · [details](todo/done/T-078-add-account-business-and-shop-persistence-with-saf.md) · PR #82
+- [x] T-077 Define account business ownership and migration contracts — @agent:claude · [details](todo/done/T-077-define-account-business-shop-ownership-and-migrati.md) · PR #82
 - [x] T-123 Switch the site and dashboard typography to Space Grotesk with JetBrains Mono accents — @agent:claude · [details](todo/done/T-123-switch-the-site-and-dashboard-typography-to-space-.md) · main
 - [x] T-121 Move the marketing site into apps/site and link it with the dashboard — @agent:claude · [details](todo/done/T-121-move-the-marketing-site-into-apps-site-and-link-it.md) · main 1620f83
 - [x] T-120 Move the account menu to the header as a compact Facebook-style panel — @agent:claude · [details](todo/done/T-120-move-the-account-menu-to-the-header-as-a-compact-f.md) · main 1620f83
@@ -78,5 +78,3 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [x] T-110 Require settings.manage to change fanpage comment automation settings — @agent:codex · [details](todo/done/T-110-require-settings-manage-to-change-fanpage-comment-.md) · PR #77
 - [x] T-076 Reduce integration initial bundle below 250 KB — @agent:codex · [details](todo/done/T-076-reduce-integration-initial-bundle-below-250-kb.md) · PR #64
 - [x] T-083 Move fanpage management into the bot workspace navigation — @agent:codex · [details](todo/done/T-083-move-fanpage-management-into-the-bot-workspace-nav.md) · PR #64
-- [x] T-084 Expose bot switches and advanced settings consistently — @agent:codex · [details](todo/done/T-084-expose-bot-switches-and-advanced-settings-consiste.md) · PR #64
-- [x] T-085 Separate bot training facts from behavioral instructions — @agent:codex · [details](todo/done/T-085-separate-bot-training-facts-from-behavioral-instru.md) · PR #64
