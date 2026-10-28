@@ -85,3 +85,11 @@ The home emphasizes four existing metrics and an area chart. All existing defini
 The portfolio reads at most three businesses concurrently, with separate people (all supported customer origins) and conversation requests. Its cache includes the authenticated user and current memberships. It preserves each member's permission scope and shows an incomplete total when any business fails, is forbidden, has locked cards, or uses an incompatible timezone. It labels customer counts as records across businesses, not deduplicated people. The oldest reported update and maximum projection lag are disclosed.
 
 Current persistence has no first-class shops or commercial account parent. This increment does not invent those records or call channels shops. The portfolio therefore shows real authorized-business rows and an explicit unavailable-shop message. Shop breakdown and the final account ownership mapping remain dependent on T-077/T-078/T-079/T-080. Existing RLS, membership checks, billing ownership and backend endpoints are unchanged.
+
+## Bot home statistics (T-113)
+
+The bot home (`/app/bots/$botId`) shows that bot's new conversations, inbound and outbound messages for the last 7 or 30 days, below the setup guide. There is no bot filter in analytics: facts carry the page (`channelId`), and analytics reads its read model rather than resolving bots through other modules. The route takes the pages whose `botId` is this bot (any connection status) and sends the same conversation query as the statistics page with that page filter, so the figures reconcile with `/app/analytics` filtered to those pages and period; the block links there with both filters set.
+
+- A bot with no page shows a "no channel" state with a link to its channel integrations and sends no query, so it never shows workspace-wide numbers.
+- The block follows `analytics.view` like the statistics page; card states (loading, locked, error) are the same.
+- **Limit.** Attribution follows the *current* page→bot assignment: moving a page to another bot moves the page's history with it. Per-bot history would need a bot dimension in the facts (separate task).
