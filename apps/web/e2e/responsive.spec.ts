@@ -113,7 +113,9 @@ test('every layout preference combination fits, expanded and collapsed', async (
 test('preferences apply instantly and survive a reload', async ({ page }) => {
   await mockApi(page);
   await page.goto('/app/bots');
-  await page.getByRole('button', { name: 'Tuỳ chỉnh giao diện' }).click();
+  await page.getByRole('button', { name: /Tài khoản của/ }).click();
+  await page.getByRole('menuitem', { name: /Màn hình và ngôn ngữ/ }).click();
+  await page.getByRole('menuitem', { name: 'Tùy chỉnh bố cục' }).click();
   await page.getByRole('radio', { name: 'Biển' }).click();
   await page.getByRole('radio', { name: 'Toàn màn hình' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme-preset', 'ocean');

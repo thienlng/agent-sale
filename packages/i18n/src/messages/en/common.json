@@ -398,7 +398,6 @@
     "title": "Appearance",
     "subtitle": "Applies to this browser.",
     "reset": "Reset to defaults",
-    "toggleTheme": "Switch light / dark",
     "theme_preset": {
       "label": "Colour",
       "rapiz": "Rapiz",
@@ -1464,7 +1463,46 @@
     "noResults": "No businesses found.",
     "switching": "Switching business…",
     "waitForSave": "Wait for the current save before switching business.",
-    "switchError": "Could not switch business. Try again.",
-    "account": "Personal account"
+    "switchError": "Could not switch business. Try again."
+  },
+  "account": {
+    "open": "Account of {{name}}",
+    "security": "Account security",
+    "display": "Display and language",
+    "back": "Back",
+    "theme": "Appearance",
+    "customize": "Customize layout",
+    "plan": "Plan and billing",
+    "home": "Rapiz home page",
+    "newTab": "opens in a new tab"
+  },
+  "billing": {
+    "plan": {
+      "title": "Plan and billing",
+      "subtitle": "Your current plan and what it includes.",
+      "current": "Current plan",
+      "includes": "Included",
+      "unlimited": "Unlimited",
+      "aiPerPeriod": "{{amount}} messages / {{days}} days",
+      "periodEnds": "Current period ends {{date}}",
+      "trialEnds": "Trial ends {{date}}",
+      "loadError": "Could not load your plan.",
+      "retry": "Try again",
+      "close": "Close",
+      "status": {
+        "trialing": "Trial",
+        "active": "Active",
+        "past_due": "Payment overdue",
+        "suspended": "Suspended",
+        "canceled": "Canceled"
+      },
+      "limits": {
+        "ai": "AI messages",
+        "members": "Members",
+        "channels": "Connected channels",
+        "contacts": "Customers",
+        "knowledge_items": "Bot knowledge items"
+      }
+    }
   }
 }

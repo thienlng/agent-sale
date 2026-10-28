@@ -8,3 +8,14 @@ export function widgetUrl(): string {
   if (configured) return configured;
   return import.meta.env.DEV ? DEV_WIDGET_URL : PROD_WIDGET_URL;
 }
+
+/** Dev server of `apps/site`; production default is the public marketing site (docs/04). */
+const DEV_SITE_URL = 'http://localhost:4321/';
+const PROD_SITE_URL = 'https://rapiz.vn/';
+
+/** URL of the marketing site (`apps/site`), opened from the account menu and the auth pages. */
+export function siteUrl(): string {
+  const configured = import.meta.env.VITE_SITE_URL?.trim();
+  if (configured) return configured;
+  return import.meta.env.DEV ? DEV_SITE_URL : PROD_SITE_URL;
+}

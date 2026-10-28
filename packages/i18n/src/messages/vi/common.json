@@ -397,7 +397,6 @@
     "title": "Tuỳ chỉnh giao diện",
     "subtitle": "Áp dụng cho trình duyệt này.",
     "reset": "Khôi phục mặc định",
-    "toggleTheme": "Chuyển sáng / tối",
     "theme_preset": {
       "label": "Bảng màu",
       "rapiz": "Rapiz",
@@ -1463,7 +1462,46 @@
     "noResults": "Không tìm thấy business.",
     "switching": "Đang chuyển business…",
     "waitForSave": "Đợi lưu xong để chuyển business.",
-    "switchError": "Không thể chuyển business. Thử lại.",
-    "account": "Tài khoản cá nhân"
+    "switchError": "Không thể chuyển business. Thử lại."
+  },
+  "account": {
+    "open": "Tài khoản của {{name}}",
+    "security": "Bảo mật tài khoản",
+    "display": "Màn hình và ngôn ngữ",
+    "back": "Quay lại",
+    "theme": "Giao diện",
+    "customize": "Tùy chỉnh bố cục",
+    "plan": "Gói và thanh toán",
+    "home": "Trang chủ Rapiz",
+    "newTab": "mở tab mới"
+  },
+  "billing": {
+    "plan": {
+      "title": "Gói và thanh toán",
+      "subtitle": "Gói đang dùng và những gì gói bao gồm.",
+      "current": "Gói hiện tại",
+      "includes": "Gói bao gồm",
+      "unlimited": "Không giới hạn",
+      "aiPerPeriod": "{{amount}} tin / {{days}} ngày",
+      "periodEnds": "Kỳ hiện tại đến {{date}}",
+      "trialEnds": "Dùng thử đến {{date}}",
+      "loadError": "Không tải được thông tin gói.",
+      "retry": "Thử lại",
+      "close": "Đóng",
+      "status": {
+        "trialing": "Dùng thử",
+        "active": "Đang hoạt động",
+        "past_due": "Quá hạn thanh toán",
+        "suspended": "Tạm ngưng",
+        "canceled": "Đã huỷ"
+      },
+      "limits": {
+        "ai": "Tin nhắn AI",
+        "members": "Thành viên",
+        "channels": "Kênh kết nối",
+        "contacts": "Khách hàng",
+        "knowledge_items": "Mục kiến thức cho bot"
+      }
+    }
   }
 }

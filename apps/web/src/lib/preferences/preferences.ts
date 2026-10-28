@@ -48,8 +48,9 @@ export function setPreference<K extends PreferenceKey>(key: K, value: Preference
   listeners.forEach((l) => l());
 }
 
-export function resetPreferences(): void {
-  for (const key of PREFERENCE_KEYS) {
+/** Restores defaults for `keys` (all preferences when omitted). */
+export function resetPreferences(keys: readonly PreferenceKey[] = PREFERENCE_KEYS): void {
+  for (const key of keys) {
     setPreference(key, PREFERENCES[key].defaultValue as PreferenceValues[typeof key]);
   }
 }

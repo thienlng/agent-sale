@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
 
 import { AppShell } from '@/components/app-shell';
+import { PlanDialog } from '@/features/billing/components/plan-dialog';
 import { ensureSession } from '@/lib/session';
 
 /** Authenticated area: restores the session from the refresh cookie or sends the user to /login. */
@@ -11,7 +12,7 @@ export const Route = createFileRoute('/app')({
     }
   },
   component: () => (
-    <AppShell>
+    <AppShell planDialog={(props) => <PlanDialog {...props} />}>
       <Outlet />
     </AppShell>
   ),

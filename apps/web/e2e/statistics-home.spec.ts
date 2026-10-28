@@ -96,7 +96,7 @@ test('sidebar selector changes real context and clears resource-specific navigat
 test('account dropdown anchors locally and contains no business choices', async ({ page }) => {
   await setup(page);
   await page.goto('/app/analytics');
-  const account = page.getByRole('button', { name: /Demo.*Tài khoản cá nhân/ });
+  const account = page.getByRole('button', { name: /Tài khoản của Demo/ });
   await account.click();
   const menu = page.getByRole('menu');
   await expect(menu).toBeVisible();

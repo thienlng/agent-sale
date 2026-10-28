@@ -20,7 +20,6 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupLabel,
   SidebarHeader,
@@ -39,7 +38,6 @@ import { usePreferences } from '@/lib/preferences/preferences';
 import { useSession } from '@/lib/session';
 
 import { BusinessSelector } from './business-selector';
-import { NavUser } from './nav-user';
 
 interface NavItem {
   to: string;
@@ -281,9 +279,6 @@ export function AppSidebar() {
           ) : null}
         </nav>
       </SidebarContent>
-      <SidebarFooter>
-        <NavUser />
-      </SidebarFooter>
       <SidebarRail />
     </Sidebar>
   );

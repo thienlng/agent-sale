@@ -8,8 +8,8 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 
 import { useSession } from '@/lib/session';
 
+import { AccountMenu, type MenuDialogProps } from './layout/account-menu';
 import { AppSidebar } from './layout/app-sidebar';
-import { LayoutControls, ThemeToggle } from './layout/layout-controls';
 
 /** shadcn's sidebar remembers open/closed in this cookie (written by the component itself). */
 function sidebarOpenByDefault(): boolean {
@@ -37,7 +37,14 @@ const SECTION: Record<string, string> = {
  * scrolls; the header can stay sticky. Pages that need the full area (the bot
  * space) set `data-content-padding="false"` on their root.
  */
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({
+  children,
+  planDialog,
+}: {
+  children: ReactNode;
+  /** Plan and billing popup for the account menu, composed by the route from `features/billing`. */
+  planDialog?: ((props: MenuDialogProps) => ReactNode) | undefined;
+}) {
   const { t } = useTranslation();
   const session = useSession();
   const segment = useRouterState({
@@ -65,9 +72,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             <SidebarTrigger className="-ml-1" aria-label={t('nav.toggleSidebar')} />
             <Separator orientation="vertical" className="mx-1 data-[orientation=vertical]:h-4" />
             {section ? <span className="truncate text-base font-medium">{t(section)}</span> : null}
-            <div className="ml-auto flex items-center gap-1">
-              <ThemeToggle />
-              <LayoutControls />
+            <div className="ml-auto flex items-center">
+              <AccountMenu planDialog={planDialog} />
             </div>
           </header>
           <div className="flex min-w-0 flex-1 flex-col p-4 md:p-6 has-data-[content-padding=false]:p-0 md:has-data-[content-padding=false]:p-0">
