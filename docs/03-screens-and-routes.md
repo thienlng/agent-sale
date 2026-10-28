@@ -8,7 +8,7 @@
 - **Header:** logo → profile; Home; Guide; Buy plan; AI credit balance badge (→ AI wallet); language selector; notification bell [+]; avatar.
 - **Banner** when on the free plan / plan about to expire / wallet empty / channel error.
 - **Sidebar** is collapsible; items carry badges ("Miễn phí" (Free), "Hot", unread count).
-- **Workspace switcher** (P2).
+- **Two layers.** The *account layer* (`/app/overview`, `/app/businesses/new`) lists every business of the signed-in account with summary statistics and lets the owner create a business; it has its own sidebar (overview, new business, a shortcut per business, platform admin). The *business layer* (everything else under `/app`) is one business's management area with the sidebar below. The logo always returns to the account layer; choosing a business (overview, sidebar shortcut or the business selector) enters its statistics page. A new business is created with `POST /workspaces` and opened right after.
 - Common patterns: empty states with an illustration + CTA; tables with column resizing, row selection, pagination + page size; date range `dd/mm/yyyy – dd/mm/yyyy` with presets; plan-gated screens ("Nâng cấp để sử dụng" (Upgrade to use)) reuse a single component `<UpgradeGate feature=... />`.
 
 ## 2. Main sidebar
