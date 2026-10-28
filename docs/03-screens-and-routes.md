@@ -29,13 +29,13 @@
 | | Order list | `/quan-ly/don-hang` | `/app/orders` | ORD-04 | P0 |
 | | Create order | `/quan-ly/don-hang/tao-moi` | `/app/orders/new` | ORD-03 | P0 |
 | | Order detail | (not observed) | `/app/orders/{id}` | ORD-05 | P0 |
-| | Product management | `/quan-ly/quan-ly-san-pham` | `/app/products`, `/app/products/{id}` | ORD-01 | P0 |
 | | Settings (hub, choose source) | `/quan-ly/thiet-lap` | `/app/order-settings` | — | P0 |
 | | ↳ Order settings | `/quan-ly/thiet-lap/cai-dat-don-hang?tab=…` | `/app/order-settings/orders?tab=statuses\|conditions\|gsheet\|chat-order` | ORD-05/06/07/10 | P0–P1 |
 | | ↳ Ad optimization | `/quan-ly/thiet-lap/toi-uu-quang-cao` | `/app/order-settings/ads-optimization` | ORD-12 | P1 |
 | | ↳ Shipping carrier connections | `/quan-ly/thiet-lap/don-vi-van-chuyen` | `/app/order-settings/carriers` | ORD-08 | P1 |
 | | ↳ Shipping settings | `/quan-ly/thiet-lap/cai-dat-van-chuyen` | `/app/order-settings/shipping` | ORD-09 | P1 |
 | | ↳ Warehouses | `/quan-ly/thiet-lap/kho-hang` | `/app/order-settings/warehouses` | ORD-02 | P0 |
+| Sản phẩm (Products) | Shared product catalog (top-level entry since T-112; Preny nests it under Orders) | `/quan-ly/quan-ly-san-pham` | `/app/products`, `/app/products/{id}` | ORD-01 | P0 |
 | Thống kê (Analytics) | | `/quan-ly/tong-quan` | `/app/analytics` (`?tab=pages\|interactions\|tags\|current-tags\|statuses\|bot`) | ANA-01/02 | P1 |
 | Hạn mức sử dụng (Usage limits) | | `/quan-ly/han-muc-su-dung` | `/app/usage` | BIL-03 | P0 |
 | Nâng cấp (Upgrade) | | `/quan-ly/nang-cap` | `/app/upgrade` | BIL-01/08 | P0 |

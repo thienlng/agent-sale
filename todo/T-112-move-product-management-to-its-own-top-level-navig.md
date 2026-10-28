@@ -7,7 +7,7 @@ priority: P1               # P0 | P1 | P2 | P3
 owner: "@agent:claude"     # @github-handle or @agent:<tool>
 feature_ids: []            # e.g. [BOT-07, CRM-11] from docs/02-functional-requirements.md
 created: 2026-10-27
-updated: 2026-10-27
+updated: 2026-10-28
 branch: feat/T-112-lane-b-ux-block
 pr:
 parent:                    # T-xxx if this is a sub-task
@@ -35,10 +35,10 @@ Products are a top-level navigation destination next to Orders, without changing
 
 ## Acceptance criteria
 
-- [ ] Products appear as a sibling of Orders in every sidebar layout, and Orders no longer lists Products.
-- [ ] Existing product URLs and bookmarks open the same pages; permissions are unchanged.
-- [ ] Sidebar tests and the responsive matrix cover the new entry; `pnpm check` green.
-- [ ] vi/en labels present; docs/03 screen map updated.
+- [x] Products appear as a sibling of Orders in every sidebar layout, and Orders no longer lists Products.
+- [x] Existing product URLs and bookmarks open the same pages; permissions are unchanged.
+- [x] Sidebar tests and the responsive matrix cover the new entry; `pnpm check` green.
+- [x] vi/en labels present; docs/03 screen map updated.
 
 ## Plan
 
@@ -52,6 +52,7 @@ Risks: none on data; only navigation. Bookmarks keep working because routes do n
 ## Log
 
 - 2026-10-27 — created from the review ("tách quản lý sản phẩm ra ngoài bằng cấp với quản lý đơn hàng").
+- 2026-10-28 — Products is a top-level sidebar entry (Package icon) after Orders; Orders keeps overview/list/new/settings. New `app-sidebar.test.tsx`; responsive e2e matrix (375–1920px, products pages included) green with system Chrome; `pnpm check` green apart from prettier flagging the untracked local `.playwright-mcp/` folder (not in git). Manual dev-app check skipped: no local login account.
 
 ## Links
 
