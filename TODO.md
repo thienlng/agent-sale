@@ -59,7 +59,6 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 - [ ] T-002 Finalize open decisions (domain, data-center location, MVP channels) — @thienlng · blocked: human decision · [details](todo/T-002-finalize-open-decisions.md)
 - [ ] T-082 Unify channel assignment and bulk bot filters — @agent:claude · [details](todo/T-082-unify-channel-assignment-and-bulk-bot-filters.md) · blocked: shop scope needs lane A T-077/T-078/T-080 · PR #64
-- [ ] T-116 Select bot products from the shared catalog and sync new ones back — @agent:claude · [details](todo/T-116-select-bot-products-from-the-shared-catalog-and-sy.md) · blocked: needs lane A T-077/T-080 product scoping
 
 ## Done (last 10 — older ones live in todo/done/)
 

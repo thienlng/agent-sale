@@ -1,7 +1,7 @@
 ---
 id: T-114
 title: Clean up bot navigation: hide the image library and rename channel integrations
-status: in-progress            # backlog | next | in-progress | blocked | review | done | cancelled
+status: review            # backlog | next | in-progress | blocked | review | done | cancelled
 type: chore              # feature | bug | chore | spike | docs
 priority: P2               # P0 | P1 | P2 | P3
 owner: "@agent:claude"     # @github-handle or @agent:<tool>
