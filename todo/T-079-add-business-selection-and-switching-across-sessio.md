@@ -4,10 +4,10 @@ title: Add business selection and switching across sessions
 status: backlog
 type: feature
 priority: P1
-owner:
+owner: "@agent:claude"
 feature_ids: []
 created: 2026-10-26
-updated: 2026-10-26
+updated: 2026-10-28
 branch:
 pr:
 parent:
@@ -25,9 +25,14 @@ Add business selection and switching across sessions.
 
 ## Scope
 
-- Add business selection after authentication, accessible-business listing, account-menu switching and a persistent visible business selector.
-- Bind API authorization to the selected business; cancel in-flight requests and clear or isolate query caches, drafts, selections and realtime subscriptions on switch.
-- Define deep-link, reload, no-business, revoked-membership and single-business behavior.
+- Already delivered by T-081: the sidebar selector, tenant captured per request, query cancel and removal on switch, remembered business on reload.
+- Remaining:
+  - choosing a business after login when the user has several;
+  - switching from the avatar (account) menu, grouped by account;
+  - creating a business under an account;
+  - a no-business state;
+  - reacting to revoked membership mid-session (404 → reload bootstrap);
+  - deep links.
 
 ## Out of scope
 
@@ -35,16 +40,15 @@ Add business selection and switching across sessions.
 
 ## Acceptance criteria
 
-- [ ] A user with two businesses can select either through both entry points and reload without seeing stale data.
-- [ ] A response arriving after a switch cannot populate another business view; unauthorized deep links are rejected.
-- [ ] Login selection and global portfolio navigation follow the route contract from T-077.
-- [ ] Add/update meaningful regression coverage, permission and scope checks where applicable; `pnpm check` passes before implementation is complete.
-- [ ] Update impacted docs and vi/en product strings; include migration and operational notes where applicable.
+- [ ] A user with two businesses picks one after login, switches from the avatar menu and the sidebar, and reloads without stale data.
+- [ ] A response arriving after a switch cannot populate another business view; unauthorized deep links are rejected; revoked membership lands on a safe screen.
+- [ ] A user without any business can create one under their account.
+- [ ] UI tests and e2e; `pnpm check` passes; vi/en strings; docs/analytics.md T-081 note updated (switching now also in the avatar menu).
 
 ## Estimate and proposed assignment
 
-- Proposed lane: A. A = user; B = cofounder. These are planning labels, not committed GitHub assignments.
-- Base estimate: 3 person-days including implementation, self-review and task verification. One person-day is approximately six focused engineering hours.
+- Lane: A, owned by @agent:claude since 2026-10-28.
+- Base estimate: 2 person-days (was 3: T-081 delivered the selector and cache isolation).
 - Uncertainty: approximately -30% / +40%; reassess after T-077. No claim that runtime failures have been reproduced during planning.
 - Dependencies: T-077, T-078
 - See the milestone handoff for scheduling, shared contracts, assumptions and exclusions.
@@ -54,6 +58,8 @@ Add business selection and switching across sessions.
 To be filled by the implementer before coding. Scope and acceptance above are the planning contract.
 
 ## Log
+
+- 2026-10-28 — Replanned for lane A, now owned by @agent:claude (user decision, 2026-10-28). Product model agreed with the user: account → business (workspace) → bot → channels. **No separate shop entity**: the bot is the selling unit. The catalog is business-owned and each bot chooses which products it sells. Billable unit: an AI reply delivered to the customer, counted once across retries. When the allowance is exhausted, the bot stops and hands off to staff. Business switching lives in the avatar (account) menu. Code inventory and re-estimate: see the handoff's "Lane A replan" section.
 
 - 2026-10-26 — Created from cofounder review; proposed allocation only. No application changes made.
 

@@ -118,6 +118,47 @@ Every implementation task requires appropriate regressions, updated docs/i18n an
 - T-059/T-060: invoices, payment history, wallets and vouchers are excluded from this plan.
 - T-076: existing integration bundle gate blocker remains separate.
 
+## Lane A replan (2026-10-28)
+
+Lane A is now owned by @agent:claude; nobody had started it. The cofounder (Tùng) works on the inbox (T-095/T-096 and follow-ups), which is lane B territory, so T-086 is superseded there.
+
+**Product decisions (user, 2026-10-28).** These replace defaults 1–4 above:
+
+- Model: account → business (workspace) → bot → channels. **There is no shop entity.** The bot is the selling unit.
+  - One account owns several businesses, switched from the avatar menu like the workspace switcher of common SaaS apps.
+  - A business can create many bots.
+- Catalog: products are business-owned. Each bot sells either the whole catalog or a chosen subset; prices and stock are shared.
+- Billable unit: an AI reply successfully delivered to the customer, counted once across retries. Human, inbound and test messages are not billed.
+- Exhausted allowance: the bot stops, the conversation is handed to staff, the customer gets a "staff will reply soon" message and the dashboard shows a banner (docs/08).
+
+**What exists today** (code inventory, 2026-10-28):
+
+- There is no account, shop or organization concept anywhere. The workspace is the business, the RLS boundary and the billing unit; `subscriptions` is keyed by `workspace_id`.
+- Only the seat limit is enforced. Messages are not metered; `ai_runs` writes one row per LLM turn, so it over-counts retries.
+- T-081 already delivered the sidebar business selector, per-request tenant capture and cache isolation on switch.
+- Conversations and analytics facts carry the channel, not the bot, so reassigning a page moves its history to the new bot. Meta conversations have no stored contact link.
+- CRM and inbox already share tag definitions. Customer status and conversation status are separate.
+
+**Re-estimate.**
+
+| Task | Was | Now | Why |
+|---|---:|---:|---|
+| T-077 | 2 | 2 | — |
+| T-078 | 6 | 4 | no shop entity |
+| T-079 | 3 | 2 | T-081 delivered the selector and isolation |
+| T-080 | 3 | 2.5 | bot catalog selection; absorbs lane B's T-110 |
+| T-088 | 4 | 4–5 | Meta contact link missing |
+| T-089 | 2 | 1 | core already shared |
+| T-091 | 6 | 7–9 | no metering exists |
+
+Lane A total: about 22.5–25.5 person-days (was 28). Blocks:
+
+- A1: T-077 + T-078
+- A2: T-079 + T-080
+- A3: T-089, T-088, T-091
+
+Lane B tasks that mention shop scope (T-082, T-087) now mean bot scope.
+
 ## Planning artifact locations
 
 New IDs T-077–T-094 were allocated through `pnpm todo:new` on the running integration tree to avoid colliding with its existing T-071–T-076. The new task files and board entries were mirrored into the primary checkout; existing task IDs, entries and files were preserved, even where historical checkouts use different meanings for older IDs. The handoff is mirrored in both trees. Reconcile via the chosen integration base before future implementation; do not merge stale historical board state wholesale.
