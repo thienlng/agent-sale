@@ -1,5 +1,5 @@
 ---
-id: T-111
+id: T-129
 title: Let a business pick an icon when it has no logo
 status: review
 type: feature              # feature | bug | chore | spike | docs
@@ -7,15 +7,15 @@ priority: P1               # P0 | P1 | P2 | P3
 owner: "@agent:claude"
 feature_ids: []            # e.g. [BOT-07, CRM-11] from docs/02-functional-requirements.md
 created: 2026-10-28
-updated: 2026-10-28
-branch: feat/T-108-account-portfolio-layer
+updated: 2026-10-29
+branch: feat/T-124-integrate-lane-a2
 pr: 76
 parent:                    # T-xxx if this is a sub-task
 ---
 
 ## Context
 
-Owner review of PR #76: a business without a logo should still have an icon, chosen by the user (T-110 shows the logo; this adds the fallback the owner picks).
+Owner review of PR #76: a business without a logo should still have an icon, chosen by the user (T-128 shows the logo; this adds the fallback the owner picks).
 
 ## Goal
 
@@ -49,6 +49,7 @@ Written by the implementer before coding (see `start-task` skill). Steps, files,
 Dated entries, newest last. Decisions, blockers, questions, what was verified and how.
 
 - 2026-10-28 — created.
+- 2026-10-29 — Renumbered from T-111 (PR #76) to T-129 when integrated under T-124: T-111 already names another task on main (T-119). Commits made before the move still say T-111.
 
 ## Links
 

@@ -1,5 +1,5 @@
 ---
-id: T-109
+id: T-127
 title: Create a new business from the account portfolio
 status: review
 type: feature              # feature | bug | chore | spike | docs
@@ -7,8 +7,8 @@ priority: P1               # P0 | P1 | P2 | P3
 owner: "@agent:claude"
 feature_ids: []            # e.g. [BOT-07, CRM-11] from docs/02-functional-requirements.md
 created: 2026-10-28
-updated: 2026-10-28
-branch: feat/T-108-account-portfolio-layer
+updated: 2026-10-29
+branch: feat/T-124-integrate-lane-a2
 pr:
 parent:                    # T-xxx if this is a sub-task
 ---
@@ -23,7 +23,7 @@ An account owner can create a new business from the web.
 
 ## Scope
 
-- "Create business" button on the account portfolio (T-108) and a creation form that enters the new business.
+- "Create business" button on the account portfolio (T-126) and a creation form that enters the new business.
 - Respect permissions and plan rules (T-091..T-093); show clear errors.
 
 ## Out of scope
@@ -48,8 +48,9 @@ Written by the implementer before coding (see `start-task` skill). Steps, files,
 Dated entries, newest last. Decisions, blockers, questions, what was verified and how.
 
 - 2026-10-28 — created.
+- 2026-10-29 — Renumbered from T-109 (PR #76) to T-127 when integrated under T-124: T-109 already names another task on main (T-119). Commits made before the move still say T-109.
 
 ## Links
 
 - Issue: #75
-- Related tasks: T-108, T-091..T-093
+- Related tasks: T-126, T-091..T-093

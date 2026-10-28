@@ -1,5 +1,5 @@
 ---
-id: T-108
+id: T-126
 title: Add an account-level portfolio layer with its own navigation
 status: review
 type: feature              # feature | bug | chore | spike | docs
@@ -7,8 +7,8 @@ priority: P1               # P0 | P1 | P2 | P3
 owner: "@agent:claude"
 feature_ids: []            # e.g. [BOT-07, CRM-11] from docs/02-functional-requirements.md
 created: 2026-10-28
-updated: 2026-10-28
-branch: feat/T-108-account-portfolio-layer
+updated: 2026-10-29
+branch: feat/T-124-integrate-lane-a2
 pr:
 parent:                    # T-xxx if this is a sub-task
 ---
@@ -52,6 +52,7 @@ Written by the implementer before coding (see `start-task` skill). Steps, files,
 Dated entries, newest last. Decisions, blockers, questions, what was verified and how.
 
 - 2026-10-28 — created.
+- 2026-10-29 — Renumbered from T-108 (PR #76) to T-126 when integrated under T-124: T-108 already names another task on main (T-119). Commits made before the move still say T-108.
 
 ## Links
 

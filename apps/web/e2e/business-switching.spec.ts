@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { mockApi } from './support/mock-api';
 
 /**
- * Choosing, creating and losing a business (T-079), through the account layer (T-108): without a
+ * Choosing, creating and losing a business (T-079), through the account layer (T-126): without a
  * chosen business the user lands on the overview, whose sidebar lists businesses by account.
  * The API is mocked; see mock-api.ts.
  */
