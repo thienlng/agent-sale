@@ -9,6 +9,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { useSession } from '@/lib/session';
 
 import { AccountMenu, type MenuDialogProps } from './layout/account-menu';
+import { AccountSidebar, ACCOUNT_PATHS } from './layout/account-sidebar';
 import { AppSidebar } from './layout/app-sidebar';
 
 /** shadcn's sidebar remembers open/closed in this cookie (written by the component itself). */
@@ -28,6 +29,8 @@ const SECTION: Record<string, string> = {
   analytics: 'nav.analytics',
   settings: 'nav.settings',
   llm: 'nav.adminLlm',
+  overview: 'nav.accountOverview',
+  businesses: 'nav.newBusiness',
 };
 
 /**
@@ -51,6 +54,7 @@ export function AppShell({
     select: (s) => s.location.pathname.split('/').filter(Boolean)[1] ?? '',
   });
   const section = SECTION[segment];
+  const accountLayer = useRouterState({ select: (s) => ACCOUNT_PATHS.test(s.location.pathname) });
 
   return (
     // Collapsed-sidebar items show their label as a tooltip; only the dashboard needs tooltips.
@@ -59,7 +63,7 @@ export function AppShell({
         defaultOpen={sidebarOpenByDefault()}
         style={{ '--header-height': '3.25rem' } as CSSProperties}
       >
-        <AppSidebar />
+        {accountLayer ? <AccountSidebar /> : <AppSidebar />}
         <SidebarInset className="min-w-0 overflow-x-clip">
           <header
             className={[
