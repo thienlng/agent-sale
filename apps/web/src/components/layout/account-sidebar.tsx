@@ -22,7 +22,7 @@ import { groupByAccount } from '@/lib/business-groups';
 import { useSession } from '@/lib/session';
 
 /** Paths that belong to the account layer, above any single business. */
-export const ACCOUNT_PATHS = /^\/app\/(overview|businesses)(\/|$)/;
+export { ACCOUNT_PATHS } from '@/lib/account-paths';
 
 /**
  * Sidebar of the account layer: all businesses of the signed-in user, grouped by the account
