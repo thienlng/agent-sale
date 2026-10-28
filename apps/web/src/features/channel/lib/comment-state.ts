@@ -20,6 +20,25 @@ export function visibility(comment: Pick<FanpageComment, 'actions'>): Visibility
   return last.kind === 'hide' ? 'hidden' : 'visible';
 }
 
+/** The newest recorded action of these kinds, whatever its status. */
+export function lastAction(
+  comment: Pick<FanpageComment, 'actions'>,
+  kinds: FanpageComment['actions'][number]['kind'][],
+) {
+  return (
+    [...comment.actions]
+      .filter((a) => kinds.includes(a.kind))
+      .sort(byTime)
+      .at(-1) ?? null
+  );
+}
+
+/** A stored hide/unhide that may still be applied by Facebook (pending), if it is the newest. */
+export function pendingModeration(comment: Pick<FanpageComment, 'actions'>) {
+  const last = lastAction(comment, ['hide', 'unhide']);
+  return last?.status === 'pending' ? last : null;
+}
+
 export type PrivateReplyState = 'available' | 'deleted' | 'attempted' | 'expired';
 const PRIVATE_WINDOW_MS = 7 * 86400000;
 

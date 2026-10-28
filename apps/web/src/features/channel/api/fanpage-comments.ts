@@ -2,7 +2,7 @@ import {
   FanpageAction,
   FanpageCommentDetail,
   FanpageCommentPage,
-  FanpageCommentPost,
+  FanpageCommentPostPage,
   FanpageCommentSource,
   FanpagePost,
   type FanpageActionKind,
@@ -79,14 +79,19 @@ export function useCommentSource(page: string, commentId: string | null) {
   });
 }
 
+/** Posts known from stored comments, newest activity first; older ones load on request. */
 export function useCommentPosts(page: string) {
   const ws = useWorkspaceId();
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: [...root(ws, page), 'posts'],
-    queryFn: () =>
-      api(`${path(page)}/comment-posts`, z.object({ data: z.array(FanpageCommentPost) }), {
-        workspaceId: ws,
-      }),
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }) =>
+      api(
+        withQuery(`${path(page)}/comment-posts`, { limit: 50, cursor: pageParam }),
+        FanpageCommentPostPage,
+        { workspaceId: ws },
+      ),
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
     enabled: Boolean(ws && page),
     staleTime: 60000,
   });

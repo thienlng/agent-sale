@@ -6,10 +6,25 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatDateTime } from '@/lib/format';
 import { useCan } from '@/lib/permissions';
+import { useSession } from '@/lib/session';
 import { useWorkspaceId } from '@/lib/use-workspace';
 import { useCommentActions, useCommentDetail, useCommentSource } from '../../api/fanpage-comments';
-import { history, postLink, sentPrivateReply, shortId, visibility } from '../../lib/comment-state';
-import { runAction } from '../../lib/comment-send';
+import {
+  history,
+  pendingModeration,
+  postLink,
+  sentPrivateReply,
+  shortId,
+  visibility,
+} from '../../lib/comment-state';
+import { moderate, reconcileModeration } from '../../lib/comment-send';
+import {
+  moderationKey,
+  moderationOpen,
+  settleModeration,
+  useModeration,
+  type ModerationKind,
+} from '../../lib/moderation-attempts';
 import { CommentComposer } from './comment-composer';
 import { State, commentsT, type FacebookPage, type PostLabel } from './comments-shared';
 
@@ -259,7 +274,11 @@ function History({ comment }: { comment: FanpageComment }) {
   );
 }
 
-/** Hide / unhide with a recorded outcome; an uncertain result is shown as such, never as done. */
+/**
+ * Hide / unhide with a recorded outcome; an uncertain result is shown as such, never as done.
+ * While an attempt may still reach Facebook only its retry (same request id) or a status check
+ * is offered, never the opposite operation.
+ */
 function Moderation({
   page,
   comment: c,
@@ -272,59 +291,87 @@ function Moderation({
   const { t } = useTranslation();
   const tr = (key: string, o?: Record<string, unknown>) => t(`${commentsT}.${key}`, o ?? {});
   const ws = useWorkspaceId();
+  const userId = useSession()?.user.id ?? '';
   const actions = useCommentActions();
-  const [pending, setPending] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  const key = moderationKey({
+    userId,
+    workspaceId: ws,
+    connectionId: page.id,
+    commentId: c.commentId,
+  });
+  const attempt = useModeration(key);
+  const open = moderationOpen(attempt);
+  const sending = attempt?.state === 'sending';
+  const where = { workspaceId: ws, page: page.id, commentId: c.commentId };
   const shown = visibility(c);
   const kind = shown === 'hidden' ? 'unhide' : 'hide';
-  async function run(next: 'hide' | 'unhide') {
-    setPending(true);
-    setNotice(null);
-    const { outcome } = await runAction(actions, {
-      workspaceId: ws,
-      page: page.id,
-      commentId: c.commentId,
-      kind: next,
-      text: '',
-      requestId: crypto.randomUUID(),
-      version: c.version,
-    });
-    setPending(false);
-    setNotice(outcome === 'sent' ? null : tr(`moderation.${outcome}`));
-  }
+  // A stored hide/unhide still pending (another tab, before a reload): the opposite operation
+  // could race it, so it needs an explicit confirmation.
+  const stored = open ? null : pendingModeration(c);
+  const [confirming, setConfirming] = useState<ModerationKind | null>(null);
+  const run = (next: ModerationKind) => {
+    if (stored && next !== stored.kind && confirming !== next) {
+      setConfirming(next);
+      return;
+    }
+    setConfirming(null);
+    void moderate(actions, key, next, { ...where, version: c.version });
+  };
+  const notice =
+    attempt && !sending
+      ? tr(`moderation.${attempt.state}`)
+      : stored
+        ? tr('moderation.pending')
+        : null;
   return (
     <div className="flex flex-col items-end gap-1">
       <div className="flex gap-1">
-        {shown === 'uncertain' ? (
+        {open && attempt ? (
           <>
+            {!sending ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => void reconcileModeration(actions, key, attempt.requestId, where)}
+              >
+                {tr('checkStatus')}
+              </Button>
+            ) : null}
+            {attempt.state === 'pending' ? (
+              // Never final (the server stopped mid-call): release it as unknown, not as done.
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => settleModeration(key, attempt.requestId, 'unknown')}
+              >
+                {tr('stopWaiting')}
+              </Button>
+            ) : null}
             <Button
               size="sm"
               variant="outline"
-              disabled={disabled || pending}
-              onClick={() => void run('hide')}
+              disabled={disabled || sending}
+              onClick={() => run(attempt.kind)}
             >
+              {attempt.kind === 'hide' ? <EyeOff aria-hidden /> : <Eye aria-hidden />}
+              {sending ? tr('working') : `${tr('moderation.retry')}: ${tr(attempt.kind)}`}
+            </Button>
+          </>
+        ) : shown === 'uncertain' ? (
+          <>
+            <Button size="sm" variant="outline" disabled={disabled} onClick={() => run('hide')}>
               <EyeOff aria-hidden />
               {tr('hide')}
             </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={disabled || pending}
-              onClick={() => void run('unhide')}
-            >
+            <Button size="sm" variant="outline" disabled={disabled} onClick={() => run('unhide')}>
               <Eye aria-hidden />
               {tr('unhide')}
             </Button>
           </>
         ) : (
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={disabled || pending}
-            onClick={() => void run(kind)}
-          >
+          <Button size="sm" variant="outline" disabled={disabled} onClick={() => run(kind)}>
             {kind === 'hide' ? <EyeOff aria-hidden /> : <Eye aria-hidden />}
-            {pending ? tr('working') : tr(kind)}
+            {tr(kind)}
           </Button>
         )}
       </div>
@@ -332,6 +379,22 @@ function Moderation({
         <p role="alert" className="max-w-56 text-right text-xs text-destructive">
           {notice}
         </p>
+      ) : null}
+      {confirming && stored ? (
+        <div
+          role="alert"
+          className="max-w-64 space-y-2 rounded-md border border-destructive/40 p-2 text-xs"
+        >
+          <p>{tr('moderation.opposite', { action: tr(stored.kind) })}</p>
+          <div className="flex justify-end gap-2">
+            <Button size="sm" variant="destructive" onClick={() => run(confirming)}>
+              {tr(confirming)}
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setConfirming(null)}>
+              {tr('resendCancel')}
+            </Button>
+          </div>
+        </div>
       ) : null}
     </div>
   );

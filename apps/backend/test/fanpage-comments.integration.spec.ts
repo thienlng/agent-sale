@@ -145,7 +145,10 @@ describe('fanpage comments over HTTP', () => {
     expect(source.statusCode, source.body).toBe(200);
     expect(source.json()).toEqual({ status: 'unavailable', reason: 'reconnect' });
     const posts = await call(a.h, 'GET', `/channels/${a.channelId}/fanpage/comment-posts`);
-    expect(posts.json()).toMatchObject({ data: [{ postId: '111_10', comments: 5 }] });
+    expect(posts.json()).toMatchObject({
+      data: [{ postId: '111_10', comments: 5 }],
+      nextCursor: null,
+    });
     expect(await activity(a.channelId)).toEqual(before);
   });
 

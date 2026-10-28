@@ -9,7 +9,8 @@ import type {
   FanpageCommentPage,
   FanpageCommentDetail,
   FanpageCommentSource,
-  FanpageCommentPost,
+  FanpageCommentPostPage,
+  FanpageCommentPostsQuery,
 } from '@agent-sales/contracts';
 import type { NormalizedEvent } from '@agent-sales/channels';
 import type { WorkspaceId } from '@agent-sales/shared';
@@ -40,7 +41,12 @@ export interface FanpageFacade {
   comment(ws: WorkspaceId, connectionId: string, commentId: string): Promise<FanpageCommentDetail>;
   /** Fresh Facebook read of the comment's post/thread; stores nothing. */
   source(ws: WorkspaceId, connectionId: string, commentId: string): Promise<FanpageCommentSource>;
-  commentPosts(ws: WorkspaceId, connectionId: string): Promise<FanpageCommentPost[]>;
+  /** Posts known from stored comments, newest activity first, by opaque cursor. */
+  commentPosts(
+    ws: WorkspaceId,
+    connectionId: string,
+    query?: FanpageCommentPostsQuery,
+  ): Promise<FanpageCommentPostPage>;
   receive(ws: WorkspaceId, connectionId: string, event: NormalizedEvent): Promise<FanpageComment>;
   context(
     ws: WorkspaceId,

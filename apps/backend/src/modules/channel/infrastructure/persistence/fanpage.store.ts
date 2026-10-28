@@ -6,12 +6,16 @@ import type { WorkspaceId } from '@agent-sales/shared';
 import type {
   CommentPosition,
   FanpageStore,
+  PostPosition,
   StoredCommentPost,
 } from '../../application/ports/fanpage-store.js';
 import { ChannelError } from '../../domain/channel.errors.js';
 const likePattern = (q: string): string => `%${q.replace(/[\\%_]/g, '\\$&')}%`;
 // Full microsecond precision, so a cursor taken from one row compares equal to that row again.
 const activity = sql.raw(`to_char(updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`);
+const postActivity = sql.raw(
+  `to_char(max(updated_at) at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+);
 export class DrizzleFanpageStore implements FanpageStore {
   constructor(private readonly db: Database) {}
   privateComments(ws: WorkspaceId, connectionId: string, recipientId: string) {
@@ -92,18 +96,25 @@ export class DrizzleFanpageStore implements FanpageStore {
       return rows[0] ? FanpageComment.parse(rows[0].document) : null;
     });
   }
-  posts(ws: WorkspaceId, connectionId: string, limit: number) {
+  posts(
+    ws: WorkspaceId,
+    connectionId: string,
+    input: { limit: number; after: PostPosition | null },
+  ) {
     return withTenant(this.db, ws, async (tx) => {
+      const after = input.after
+        ? sql`having (max(updated_at), document->>'postId') < (${input.after.activityAt}::timestamptz, ${input.after.postId})`
+        : sql``;
       const rows = await tx.execute<{
         post_id: string;
         comments: number;
         activity: string;
         context: unknown;
       }>(
-        sql`select document->>'postId' as post_id, count(*)::int as comments, max(${activity}) as activity,
+        sql`select document->>'postId' as post_id, count(*)::int as comments, ${postActivity} as activity,
           (array_agg(document->'context' order by updated_at desc) filter (where jsonb_typeof(document->'context')='object'))[1] as context
           from fanpage_comments where workspace_id=${ws} and connection_id=${connectionId}
-          group by 1 order by max(updated_at) desc limit ${limit}`,
+          group by 1 ${after} order by max(updated_at) desc, 1 desc limit ${input.limit}`,
       );
       return rows.map((r): StoredCommentPost => ({
         postId: r.post_id,

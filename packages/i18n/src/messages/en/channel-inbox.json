@@ -848,7 +848,10 @@
       "unknown": "Not sure whether Facebook applied it. Check on Facebook.",
       "rejected": "Couldn't do that: the comment changed, was deleted or you lack permission.",
       "unmatched": "Nothing was recorded. Review the history.",
-      "unconfirmed": "No answer received. Check the history before trying again."
+      "unconfirmed": "No answer received. Check its status; retrying reuses the same request.",
+      "pending": "Facebook is still processing this. Check its status; retrying reuses the same request.",
+      "retry": "Retry",
+      "opposite": "The earlier “{{action}}” may still be in progress on Facebook. Check on Facebook first; doing the opposite now may be overridden."
     },
     "mode": "Reply type",
     "target": {
@@ -891,10 +894,14 @@
         "VALIDATION_FAILED": "This can't be sent (over 7 days, already messaged privately, or invalid text).",
         "NOT_FOUND": "This comment can no longer be found.",
         "UNAVAILABLE": "Nothing was sent: the Page needs reconnecting or Facebook didn't answer. Your text is kept."
-      }
+      },
+      "pending": "Facebook is still processing this request. Your text is locked; check its status — retrying reuses the same request, so it can't post twice."
     },
     "resendWarning": "The earlier attempt may already be on Facebook. Sending a new one can post a duplicate reply — check the comment on Facebook first.",
     "resendConfirm": "Send a new one anyway",
-    "resendCancel": "Cancel"
+    "resendCancel": "Cancel",
+    "morePosts": "Load older posts",
+    "loadingPosts": "Loading posts…",
+    "stopWaiting": "Stop waiting (treat as unknown)"
   }
 }

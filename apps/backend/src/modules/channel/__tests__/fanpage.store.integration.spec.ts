@@ -266,7 +266,7 @@ describe('Fanpage persistence on PostgreSQL', () => {
     ]);
     const post = await store.page(a, page, { limit: 200, after: null, postId: '123_11' });
     expect(post).toHaveLength(44);
-    const posts = await store.posts(a, page, 10);
+    const posts = await store.posts(a, page, { limit: 10, after: null });
     expect(posts.map((p) => [p.postId, p.comments])).toEqual(
       expect.arrayContaining([
         ['123_10', 86],
@@ -283,6 +283,47 @@ describe('Fanpage persistence on PostgreSQL', () => {
     // Another workspace sees nothing through any read, even with the right connection id.
     expect(await store.page(b, page, { limit: 10, after: null })).toEqual([]);
     expect(await store.get(b, page, '10_1005')).toBeNull();
-    expect(await store.posts(b, page, 10)).toEqual([]);
+    expect(await store.posts(b, page, { limit: 10, after: null })).toEqual([]);
+  });
+  it('pages over more than 200 known posts without gaps or repeats', async () => {
+    const page = newId();
+    await withTenant(tenant, a, (tx) =>
+      tx.insert(schema.channelConnections).values({
+        id: page,
+        workspaceId: a,
+        provider: 'facebook',
+        externalId: '789',
+        name: 'Many posts',
+        tokenSealed: 'test-only',
+      }),
+    );
+    for (let n = 0; n < 205; n++) {
+      const c = {
+        ...comment(),
+        id: newId(),
+        connectionId: page,
+        commentId: `20_${n}`,
+        postId: `789_${n}`,
+      };
+      await store.change(a, page, c.commentId, () => ({ comment: c, result: undefined }));
+    }
+    // Half the posts share one activity time, so only the post id orders them.
+    await withTenant(tenant, a, (tx) =>
+      tx.execute(
+        sql`update fanpage_comments set updated_at='2026-10-25T10:00:00.654321Z' where connection_id=${page} and (substr(comment_id, 4))::int % 2 = 0`,
+      ),
+    );
+    const seen: string[] = [];
+    let after = null;
+    for (;;) {
+      const rows = await store.posts(a, page, { limit: 51, after });
+      seen.push(...rows.slice(0, 50).map((p) => p.postId));
+      if (rows.length <= 50) break;
+      const last = rows[49]!;
+      after = { activityAt: last.lastActivityAt, postId: last.postId };
+    }
+    expect(seen).toHaveLength(205);
+    expect(new Set(seen).size).toBe(205);
+    expect(await store.posts(b, page, { limit: 10, after: null })).toEqual([]);
   });
 });

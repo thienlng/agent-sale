@@ -1,11 +1,15 @@
 import { MetaRequestError, type FacebookPostsAdapter } from '@agent-sales/channels';
-import type { FanpageCommentListQuery, FanpageCommentSource } from '@agent-sales/contracts';
+import type {
+  FanpageCommentListQuery,
+  FanpageCommentPostsQuery,
+  FanpageCommentSource,
+} from '@agent-sales/contracts';
 import { exposesContactDetails, type WorkspaceId } from '@agent-sales/shared';
 import { z } from 'zod';
 import type { FanpageFacade } from '../api/fanpage.facade.js';
 import { ChannelError } from '../domain/channel.errors.js';
 import type { ChannelStore } from './ports/channel-store.js';
-import type { CommentPosition, FanpageStore } from './ports/fanpage-store.js';
+import type { CommentPosition, FanpageStore, PostPosition } from './ports/fanpage-store.js';
 const Cursor = z.object({
   v: z.literal(1),
   c: z.string(),
@@ -14,15 +18,25 @@ const Cursor = z.object({
   a: z.string().regex(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3,6}Z$/),
   i: z.string().max(200),
 });
-type Cursor = z.infer<typeof Cursor>;
-const encodeCursor = (cursor: Cursor) => Buffer.from(JSON.stringify(cursor)).toString('base64url');
-function decodeCursor(raw: string): Cursor {
+/** A post-list cursor; its `k` keeps it from ever being read as a comment-list cursor. */
+const PostCursor = z.object({
+  v: z.literal(1),
+  k: z.literal('posts'),
+  c: z.string(),
+  a: Cursor.shape.a,
+  i: z.string().max(200),
+});
+const encode = (cursor: z.infer<typeof Cursor> | z.infer<typeof PostCursor>) =>
+  Buffer.from(JSON.stringify(cursor)).toString('base64url');
+function decode<T>(schema: z.ZodType<T>, raw: string): T {
   try {
-    return Cursor.parse(JSON.parse(Buffer.from(raw, 'base64url').toString('utf8')));
+    return schema.parse(JSON.parse(Buffer.from(raw, 'base64url').toString('utf8')));
   } catch {
     throw new ChannelError('VALIDATION_FAILED', 'Invalid cursor');
   }
 }
+const decodeCursor = (raw: string) => decode(Cursor.strict(), raw);
+const decodePostCursor = (raw: string) => decode(PostCursor.strict(), raw);
 /** Graph lookup failures, as a reason staff can act on. */
 function unavailableReason(
   error: MetaRequestError,
@@ -69,7 +83,7 @@ export class FanpageCommentInbox {
     return {
       data: rows.slice(0, limit).map((r) => r.comment),
       nextCursor: last
-        ? encodeCursor({
+        ? encode({
             v: 1,
             c: id,
             p: postId,
@@ -125,15 +139,30 @@ export class FanpageCommentInbox {
       return { status: 'unavailable', reason: unavailableReason(error) };
     }
   }
-  async commentPosts(ws: WorkspaceId, id: string) {
+  async commentPosts(ws: WorkspaceId, id: string, query: FanpageCommentPostsQuery = {}) {
     await this.access.connection(ws, id);
-    return (await this.store.posts(ws, id, 200)).map((p) => ({
-      postId: p.postId,
-      comments: p.comments,
-      lastActivityAt: p.lastActivityAt,
-      text: p.context?.text ?? null,
-      permalink: p.context?.permalink || null,
-    }));
+    const limit = query.limit ?? 50;
+    let after: PostPosition | null = null;
+    if (query.cursor) {
+      const cursor = decodePostCursor(query.cursor);
+      if (cursor.c !== id)
+        throw new ChannelError('VALIDATION_FAILED', 'Cursor does not match this list');
+      after = { activityAt: cursor.a, postId: cursor.i };
+    }
+    const rows = await this.store.posts(ws, id, { limit: limit + 1, after });
+    const last = rows.length > limit ? rows[limit - 1] : undefined;
+    return {
+      data: rows.slice(0, limit).map((p) => ({
+        postId: p.postId,
+        comments: p.comments,
+        lastActivityAt: p.lastActivityAt,
+        text: p.context?.text ?? null,
+        permalink: p.context?.permalink || null,
+      })),
+      nextCursor: last
+        ? encode({ v: 1, k: 'posts', c: id, a: last.lastActivityAt, i: last.postId })
+        : null,
+    };
   }
   /**
    * Staff actions check Facebook's current comment before anything is reserved, even with a

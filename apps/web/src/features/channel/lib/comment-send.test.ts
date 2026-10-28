@@ -55,6 +55,36 @@ describe('sendDraft', () => {
     expect(readDraft(key).text).toBe('');
   });
 
+  it('keeps a recorded pending attempt locked to its request id until it is final', async () => {
+    setDraftText(key, 'Hi');
+    // The first request times out while the server is still sending it.
+    const send = vi.fn().mockRejectedValueOnce(new TypeError('timeout'));
+    await sendDraft({ send, reload: vi.fn() }, key, request);
+    const first = readDraft(key).attempt!;
+    // The same-id retry is recognised (no new action), and the record says it is still pending.
+    send.mockResolvedValue({ action: null });
+    const reload = vi.fn(async () => detail([action(first.requestId, 'pending')]));
+    await sendDraft({ send, reload }, key, request);
+    expect(readDraft(key)).toMatchObject({ attempt: { state: 'pending' } });
+    // Typing is ignored and the next Send still carries the first id: no second public reply.
+    setDraftText(key, 'Hi again');
+    await sendDraft({ send, reload }, key, request);
+    expect(send.mock.calls.map((c) => c[0].requestId)).toEqual([
+      first.requestId,
+      first.requestId,
+      first.requestId,
+    ]);
+    expect(send.mock.calls[2]![0].text).toBe('Hi');
+    // Checking status adopts the final outcome once it is recorded.
+    await reconcileDraft(
+      { send, reload: async () => detail([action(first.requestId, 'sent')]) },
+      key,
+      first.requestId,
+      where,
+    );
+    expect(readDraft(key)).toMatchObject({ text: '', attempt: null });
+  });
+
   it('treats a null action as unconfirmed and matches the stored record by request id', async () => {
     setDraftText(key, 'Hi');
     const send = vi.fn(async () => ({ action: null }));

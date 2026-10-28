@@ -853,7 +853,7 @@ describe('HTTP: fanpage comments', () => {
     );
     vi.spyOn(pages, 'posts').mockResolvedValue([]);
     vi.spyOn(pages, 'comments').mockResolvedValue({ data: [], nextCursor: null });
-    vi.spyOn(pages, 'commentPosts').mockResolvedValue([]);
+    vi.spyOn(pages, 'commentPosts').mockResolvedValue({ data: [], nextCursor: null });
     vi.spyOn(pages, 'source').mockResolvedValue({ status: 'unavailable', reason: 'reconnect' });
     vi.spyOn(pages, 'comment').mockResolvedValue({
       data: {
@@ -918,12 +918,20 @@ describe('HTTP: fanpage comments', () => {
         })
       ).statusCode,
     ).toBe(400);
-    for (const query of ['limit=0', 'limit=51', 'postId=abc', `q=${'x'.repeat(201)}`])
+    for (const query of [
+      'comments?limit=0',
+      'comments?limit=51',
+      'comments?postId=abc',
+      `comments?q=${'x'.repeat(201)}`,
+      'comment-posts?limit=0',
+      'comment-posts?limit=101',
+      `comment-posts?cursor=${'x'.repeat(1001)}`,
+    ])
       expect(
         (
           await inject(a, {
             method: 'GET',
-            url: `/api/v1/channels/${id}/fanpage/comments?${query}`,
+            url: `/api/v1/channels/${id}/fanpage/${query}`,
             headers,
           })
         ).statusCode,

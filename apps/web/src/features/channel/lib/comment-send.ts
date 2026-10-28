@@ -2,6 +2,7 @@ import type { FanpageAction, FanpageCommentDetail } from '@agent-sales/contracts
 import { ApiClientError } from '@/lib/api-client';
 import type { ActionRequest } from '../api/fanpage-comments';
 import { beginAttempt, settleAttempt, type AttemptState } from './comment-drafts';
+import { beginModeration, settleModeration, type ModerationKind } from './moderation-attempts';
 
 export interface SendDeps {
   send: (r: ActionRequest) => Promise<{ action: FanpageAction | null }>;
@@ -9,8 +10,15 @@ export interface SendDeps {
 }
 type Outcome = AttemptState | 'sent';
 
-const fromStatus = (status: FanpageAction['status']): Outcome =>
-  status === 'sent' ? 'sent' : status === 'failed' || status === 'cancelled' ? 'failed' : 'unknown';
+/** A recorded `pending` stays open (same id, locked) until the record reaches a final status. */
+export const fromStatus = (status: FanpageAction['status']): Outcome =>
+  status === 'sent'
+    ? 'sent'
+    : status === 'failed' || status === 'cancelled'
+      ? 'failed'
+      : status === 'pending'
+        ? 'pending'
+        : 'unknown';
 
 /**
  * No answer, or a server error after which a reservation may exist: retry with the same id.
@@ -60,7 +68,7 @@ export async function sendDraft(
   settleAttempt(key, attempt.requestId, outcome, code);
 }
 
-/** Re-reads the stored record and adopts the recorded outcome of an unconfirmed attempt. */
+/** Re-reads the stored record and adopts the recorded outcome of an unconfirmed or pending attempt. */
 export async function reconcileDraft(
   deps: SendDeps,
   key: string,
@@ -74,5 +82,40 @@ export async function reconcileDraft(
     if (match) settleAttempt(key, requestId, fromStatus(match.status));
   } catch {
     // still unconfirmed
+  }
+}
+
+/** Hides or unhides under the comment's moderation attempt; refused while the other is open. */
+export async function moderate(
+  deps: SendDeps,
+  key: string,
+  kind: ModerationKind,
+  request: { workspaceId: string; page: string; commentId: string; version: string },
+) {
+  const attempt = beginModeration(key, kind);
+  if (!attempt) return null;
+  const { outcome } = await runAction(deps, {
+    ...request,
+    kind,
+    text: '',
+    requestId: attempt.requestId,
+  });
+  settleModeration(key, attempt.requestId, outcome);
+  return outcome;
+}
+
+/** Re-reads the stored record and adopts the recorded outcome of an open moderation attempt. */
+export async function reconcileModeration(
+  deps: SendDeps,
+  key: string,
+  requestId: string,
+  where: { workspaceId: string; page: string; commentId: string },
+) {
+  try {
+    const detail = await deps.reload(where.workspaceId, where.page, where.commentId);
+    const match = detail.data.actions.find((a) => a.id === requestId);
+    if (match) settleModeration(key, requestId, fromStatus(match.status));
+  } catch {
+    // still open
   }
 }

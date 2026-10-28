@@ -122,3 +122,13 @@ export const FanpageCommentPost = z.object({
   permalink: z.string().max(2000).nullable(),
 });
 export type FanpageCommentPost = z.infer<typeof FanpageCommentPost>;
+export const FanpageCommentPostsQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  cursor: z.string().max(1000).optional(),
+});
+export type FanpageCommentPostsQuery = z.infer<typeof FanpageCommentPostsQuery>;
+export const FanpageCommentPostPage = z.object({
+  data: z.array(FanpageCommentPost),
+  nextCursor: z.string().nullable(),
+});
+export type FanpageCommentPostPage = z.infer<typeof FanpageCommentPostPage>;

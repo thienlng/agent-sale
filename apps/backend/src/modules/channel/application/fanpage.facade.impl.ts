@@ -10,6 +10,7 @@ import {
   type FanpageComment,
   type FanpageAction,
   type FanpageCommentListQuery,
+  type FanpageCommentPostsQuery,
 } from '@agent-sales/contracts';
 import { newId, type WorkspaceId } from '@agent-sales/shared';
 import { getEnv } from '../../../common/config.js';
@@ -119,8 +120,8 @@ export class FanpageFacadeImpl implements FanpageFacade {
   source(ws: WorkspaceId, id: string, commentId: string) {
     return this.inbox.source(ws, id, commentId);
   }
-  commentPosts(ws: WorkspaceId, id: string) {
-    return this.inbox.commentPosts(ws, id);
+  commentPosts(ws: WorkspaceId, id: string, query?: FanpageCommentPostsQuery) {
+    return this.inbox.commentPosts(ws, id, query);
   }
   async receive(ws: WorkspaceId, id: string, event: NormalizedEvent): Promise<FanpageComment> {
     const c = await this.connection(ws, id),

@@ -13,11 +13,12 @@ import {
   draftKey,
   isLocked,
   setDraftText,
+  settleAttempt,
   useDraft,
   type ReplyMode,
 } from '../../lib/comment-drafts';
 import { reconcileDraft, sendDraft } from '../../lib/comment-send';
-import { privateReplyState, shortId } from '../../lib/comment-state';
+import { lastAction, privateReplyState, shortId } from '../../lib/comment-state';
 import { commentsT, type FacebookPage } from './comments-shared';
 
 const MAX = 2000;
@@ -65,8 +66,17 @@ export function CommentComposer({
   const tooLong = text.length > MAX;
   const author = tr('author', { id: shortId(c.authorId) });
   const where = { workspaceId: ws, page: page.id, commentId: c.commentId };
+  const open = attempt?.state === 'unconfirmed' || attempt?.state === 'pending';
+  // The newest recorded reply of this kind that Facebook did not reject has no final outcome
+  // (another tab, an earlier session): it may already be on Facebook, like an unknown attempt.
+  const newest = lastAction(
+    { actions: c.actions.filter((a) => a.status !== 'failed' && a.status !== 'cancelled') },
+    [mode],
+  );
+  const storedUncertain = newest?.status === 'pending' || newest?.status === 'unknown';
   function send(confirmPublicContact = false, confirmResend = false) {
-    const uncertain = attempt?.state === 'unknown' || attempt?.state === 'unmatched';
+    const uncertain =
+      attempt?.state === 'unknown' || attempt?.state === 'unmatched' || (!open && storedUncertain);
     if (uncertain && !confirmResend) {
       setResending(true);
       return;
@@ -171,7 +181,7 @@ export function CommentComposer({
             <span className={cn('text-xs text-muted-foreground', tooLong && 'text-destructive')}>
               {text.length}/{MAX}
             </span>
-            {attempt?.state === 'unconfirmed' ? (
+            {open ? (
               <Button
                 size="sm"
                 variant="outline"
@@ -181,15 +191,26 @@ export function CommentComposer({
                 {tr('checkStatus')}
               </Button>
             ) : null}
+            {attempt?.state === 'pending' ? (
+              // A record that never becomes final (the server stopped mid-send) must not lock the
+              // draft forever: it becomes unknown, so a new attempt still needs confirmation.
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => settleAttempt(key, attempt.requestId, 'unknown')}
+              >
+                {tr('stopWaiting')}
+              </Button>
+            ) : null}
             <Button
               size="sm"
-              className={attempt?.state === 'unconfirmed' ? '' : 'ml-auto'}
+              className={open ? '' : 'ml-auto'}
               disabled={!text.trim() || tooLong || attempt?.state === 'sending'}
               onClick={() => send()}
             >
               {attempt?.state === 'sending'
                 ? tr('sending')
-                : attempt?.state === 'unconfirmed'
+                : open
                   ? tr('retrySame')
                   : attempt?.state === 'unknown' || attempt?.state === 'unmatched'
                     ? tr('sendAgain')

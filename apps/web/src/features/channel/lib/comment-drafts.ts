@@ -11,6 +11,8 @@ export type AttemptState =
   | 'sending'
   /** No answer (network/5xx): retry with the same request id; the text stays locked. */
   | 'unconfirmed'
+  /** Recorded and still running on the server: only its status may be checked; same id, locked. */
+  | 'pending'
   /** Facebook's outcome is unknown: check Facebook before sending again. */
   | 'unknown'
   /** Facebook rejected it or it was cancelled before sending; a new attempt is allowed. */
@@ -61,18 +63,24 @@ export function setDraftText(key: string, text: string) {
   if (isLocked(current)) return;
   write(key, { ...current, text, sentAt: null });
 }
-export const isLocked = (d: Draft) =>
-  d.attempt?.state === 'sending' || d.attempt?.state === 'unconfirmed';
+/** States that keep their request id: the first request may still go out. */
+export const isOpen = (state: AttemptState | undefined) =>
+  state === 'sending' || state === 'unconfirmed' || state === 'pending';
+export const isLocked = (d: Draft) => isOpen(d.attempt?.state);
 
 /**
- * Starts an attempt. An unconfirmed attempt is retried with the same request id, so the server
- * can recognise it; anything else gets a fresh id.
+ * Starts an attempt. An unconfirmed or pending attempt is retried with the same request id, so
+ * the server recognises it instead of sending again; anything else gets a fresh id.
  */
 export function beginAttempt(key: string, newId: () => string = () => crypto.randomUUID()) {
   const current = readDraft(key);
   if (current.attempt?.state === 'sending') return null;
-  const requestId = current.attempt?.state === 'unconfirmed' ? current.attempt.requestId : newId();
-  const attempt: Attempt = { requestId, text: current.text.trim(), state: 'sending' };
+  const open = current.attempt && isOpen(current.attempt.state) ? current.attempt : null;
+  const attempt: Attempt = {
+    requestId: open?.requestId ?? newId(),
+    text: open?.text ?? current.text.trim(),
+    state: 'sending',
+  };
   write(key, { ...current, attempt });
   return attempt;
 }

@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithRouter } from '@/testing/render';
 import { clearAll } from '../../lib/comment-drafts';
+import { clearModeration } from '../../lib/moderation-attempts';
 import { CommentsWorkspace } from './comments-workspace';
 
 vi.mock('@/lib/use-workspace', () => ({ useWorkspaceId: () => 'ws-1' }));
@@ -61,6 +62,13 @@ const recorded = (id: string, kind: FanpageAction['kind'], status: FanpageAction
 type Handler = (url: URL, body: Record<string, unknown> | undefined) => unknown;
 let records: FanpageComment[];
 let channels: unknown[];
+let storedPosts: {
+  postId: string;
+  comments: number;
+  lastActivityAt: string;
+  text: string | null;
+  permalink: null;
+}[];
 let calls: { method: string; url: URL; body: Record<string, unknown> | undefined }[];
 let onAction: Handler;
 const json = (body: unknown, status = 200) =>
@@ -70,6 +78,16 @@ beforeEach(() => {
   can.edit = true;
   records = [comment(1), comment(2, { text: '' })];
   channels = [page()];
+  storedPosts = [
+    {
+      postId: '123_10',
+      comments: 2,
+      lastActivityAt: now,
+      text: 'Áo sơ mi xanh 250k',
+      permalink: null,
+    },
+    { postId: '123_99', comments: 1, lastActivityAt: now, text: null, permalink: null },
+  ];
   calls = [];
   onAction = (_url, body) => ({
     action: recorded(String(body?.requestId), 'public_reply', 'sent'),
@@ -81,19 +99,14 @@ beforeEach(() => {
     calls.push({ method, url, body });
     const path = url.pathname.replace('/api/v1', '');
     if (path === '/channels') return json({ data: channels, providers: [] });
-    if (path === `${base}/comment-posts`)
+    if (path === `${base}/comment-posts`) {
+      const start = Number(url.searchParams.get('cursor') ?? 0);
+      const limit = Number(url.searchParams.get('limit'));
       return json({
-        data: [
-          {
-            postId: '123_10',
-            comments: 2,
-            lastActivityAt: now,
-            text: 'Áo sơ mi xanh 250k',
-            permalink: null,
-          },
-          { postId: '123_99', comments: 1, lastActivityAt: now, text: null, permalink: null },
-        ],
+        data: storedPosts.slice(start, start + limit),
+        nextCursor: start + limit < storedPosts.length ? String(start + limit) : null,
       });
+    }
     if (path === `${base}/posts`)
       return json({ error: { code: 'UNAVAILABLE', message: 'x' } }, 503);
     if (path === `${base}/comments`) {
@@ -140,6 +153,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   clearAll();
+  clearModeration();
 });
 
 const posts = () => calls.filter((c) => c.method === 'POST');
@@ -185,6 +199,23 @@ describe('Facebook comments in Inbox', () => {
     await userEvent.type(screen.getByRole('searchbox'), 'không có');
     expect(await screen.findByText('Không có bình luận phù hợp')).toBeInTheDocument();
     expect(calls.some((c) => c.url.searchParams.get('q') === 'không có')).toBe(true);
+  });
+
+  it('loads older stored posts into the post filter on request', async () => {
+    storedPosts = Array.from({ length: 60 }, (_, i) => ({
+      postId: `123_${200 + i}`,
+      comments: 1,
+      lastActivityAt: now,
+      text: `Bài ${i}`,
+      permalink: null,
+    }));
+    renderWithRouter(() => <CommentsWorkspace />);
+    const select = await screen.findByRole('combobox', { name: 'Lọc theo bài viết' });
+    await waitFor(() => expect(within(select).getAllByRole('option')).toHaveLength(51));
+    await userEvent.click(screen.getByRole('button', { name: 'Tải thêm bài viết cũ hơn' }));
+    await waitFor(() => expect(within(select).getAllByRole('option')).toHaveLength(61));
+    expect(within(select).getByRole('option', { name: 'Bài 59' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Tải thêm bài viết cũ hơn' })).toBeNull();
   });
 
   it('says loading failed instead of claiming the Page has no comments', async () => {
@@ -287,6 +318,64 @@ describe('Facebook comments in Inbox', () => {
     expect(posts()[1]?.body?.requestId).not.toBe(posts()[0]?.body?.requestId);
   });
 
+  it('asks before a new public reply while an earlier stored one has no final outcome', async () => {
+    records = [comment(1, { actions: [recorded(crypto.randomUUID(), 'public_reply', 'pending')] })];
+    renderWithRouter(() => <CommentsWorkspace />);
+    const detail = await open(1);
+    await userEvent.type(within(detail).getByRole('textbox'), 'Dạ 250k ạ');
+    await userEvent.click(within(detail).getByRole('button', { name: 'Gửi công khai' }));
+    expect(within(detail).getByText(/có thể tạo một trả lời trùng/)).toBeInTheDocument();
+    expect(posts()).toHaveLength(0);
+  });
+
+  it('asks again only while the newest stored reply of that mode is uncertain', async () => {
+    const old = {
+      ...recorded(crypto.randomUUID(), 'public_reply', 'unknown'),
+      createdAt: '2026-01-01T00:00:00.000Z',
+    };
+    records = [
+      comment(1, { actions: [old, recorded(crypto.randomUUID(), 'public_reply', 'sent')] }),
+    ];
+    renderWithRouter(() => <CommentsWorkspace />);
+    const detail = await open(1);
+    await userEvent.type(within(detail).getByRole('textbox'), 'Dạ 250k ạ');
+    await userEvent.click(within(detail).getByRole('button', { name: 'Gửi công khai' }));
+    await waitFor(() => expect(posts()).toHaveLength(1));
+    expect(within(detail).queryByText(/có thể tạo một trả lời trùng/)).toBeNull();
+  });
+
+  it('still asks when a later reply was rejected but an earlier one is unknown', async () => {
+    const old = {
+      ...recorded(crypto.randomUUID(), 'public_reply', 'unknown'),
+      createdAt: '2026-01-01T00:00:00.000Z',
+    };
+    records = [
+      comment(1, { actions: [old, recorded(crypto.randomUUID(), 'public_reply', 'failed')] }),
+    ];
+    renderWithRouter(() => <CommentsWorkspace />);
+    const detail = await open(1);
+    await userEvent.type(within(detail).getByRole('textbox'), 'Dạ 250k ạ');
+    await userEvent.click(within(detail).getByRole('button', { name: 'Gửi công khai' }));
+    expect(within(detail).getByText(/có thể tạo một trả lời trùng/)).toBeInTheDocument();
+    expect(posts()).toHaveLength(0);
+  });
+
+  it('lets a never-final pending send be released as unknown, still asking before resending', async () => {
+    onAction = (_url, body) => ({
+      action: recorded(String(body?.requestId), 'public_reply', 'pending'),
+    });
+    renderWithRouter(() => <CommentsWorkspace />);
+    const detail = await open(1);
+    const box = within(detail).getByRole('textbox');
+    await userEvent.type(box, 'Dạ 250k ạ');
+    await userEvent.click(within(detail).getByRole('button', { name: 'Gửi công khai' }));
+    await userEvent.click(await within(detail).findByRole('button', { name: /Thôi chờ/ }));
+    expect(box).not.toHaveAttribute('readonly');
+    await userEvent.click(within(detail).getByRole('button', { name: 'Đã kiểm tra, gửi lần mới' }));
+    expect(within(detail).getByText(/có thể tạo một trả lời trùng/)).toBeInTheDocument();
+    expect(posts()).toHaveLength(1);
+  });
+
   it('explains why a private message is unavailable instead of offering it', async () => {
     records = [
       comment(1, { actions: [recorded(crypto.randomUUID(), 'private_reply', 'unknown')] }),
@@ -311,6 +400,37 @@ describe('Facebook comments in Inbox', () => {
     ).toBeInTheDocument();
     expect(within(detail).queryByText('Đang ẩn')).not.toBeInTheDocument();
     expect(posts()[0]?.body).toMatchObject({ kind: 'hide', version: 'v1' });
+  });
+
+  it('retries an unconfirmed hide under its request id and offers no unhide meanwhile', async () => {
+    onAction = () => new TypeError('network');
+    renderWithRouter(() => <CommentsWorkspace />);
+    const detail = await open(1);
+    await userEvent.click(within(detail).getByRole('button', { name: 'Ẩn' }));
+    expect(await within(detail).findByText(/Không nhận được phản hồi/)).toBeInTheDocument();
+    expect(within(detail).queryByRole('button', { name: 'Bỏ ẩn' })).not.toBeInTheDocument();
+    expect(within(detail).queryByRole('button', { name: 'Ẩn' })).not.toBeInTheDocument();
+    onAction = (_url, body) => ({ action: recorded(String(body?.requestId), 'hide', 'sent') });
+    await userEvent.click(within(detail).getByRole('button', { name: 'Thử lại: Ẩn' }));
+    await waitFor(() => expect(posts()).toHaveLength(2));
+    const [first, second] = posts();
+    expect(second?.body).toMatchObject({ kind: 'hide', requestId: first?.body?.requestId });
+    expect(await within(detail).findByRole('button', { name: 'Ẩn' })).toBeInTheDocument();
+  });
+
+  it('confirms before the opposite of a stored pending hide, e.g. after a reload', async () => {
+    records = [comment(1, { actions: [recorded(crypto.randomUUID(), 'hide', 'pending')] })];
+    onAction = (_url, body) => ({ action: recorded(String(body?.requestId), 'unhide', 'sent') });
+    renderWithRouter(() => <CommentsWorkspace />);
+    const detail = await open(1);
+    expect(within(detail).getByText(/Facebook đang xử lý thao tác này/)).toBeInTheDocument();
+    await userEvent.click(within(detail).getByRole('button', { name: 'Bỏ ẩn' }));
+    expect(posts()).toHaveLength(0);
+    expect(within(detail).getByText(/có thể vẫn đang được Facebook xử lý/)).toBeInTheDocument();
+    const confirm = within(detail).getAllByRole('button', { name: 'Bỏ ẩn' }).at(-1)!;
+    await userEvent.click(confirm);
+    await waitFor(() => expect(posts()).toHaveLength(1));
+    expect(posts()[0]?.body).toMatchObject({ kind: 'unhide' });
   });
 
   it('is view-only for roles without the inbox write capability', async () => {

@@ -5,6 +5,7 @@ import {
   FanpageSettings,
   FanpageManualAction,
   FanpageCommentListQuery,
+  FanpageCommentPostsQuery,
 } from '@agent-sales/contracts';
 import { type WorkspaceId } from '@agent-sales/shared';
 import {
@@ -51,8 +52,12 @@ export class FanpageController {
   }
   @WorkspaceScoped()
   @Get('comment-posts')
-  async commentPosts(@CurrentWorkspace() ws: WorkspaceId, @Param('id', uuid) id: string) {
-    return { data: await this.pages.commentPosts(ws, id) };
+  commentPosts(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Param('id', uuid) id: string,
+    @Query(new ZodValidationPipe(FanpageCommentPostsQuery)) query: FanpageCommentPostsQuery,
+  ) {
+    return this.pages.commentPosts(ws, id, query);
   }
   // Reads never pause automation, mark review or reorder the list; only actions do.
   @WorkspaceScoped()

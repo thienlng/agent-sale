@@ -77,6 +77,7 @@ async function mockComments(page: Page) {
             { postId: '123_10', comments: 31, lastActivityAt: iso(0), text: null, permalink: null },
             { postId: '123_77', comments: 11, lastActivityAt: iso(1), text: null, permalink: null },
           ],
+          nextCursor: null,
         },
       });
     if (path === `${BASE}/posts`)

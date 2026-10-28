@@ -5,6 +5,11 @@ export interface CommentPosition {
   activityAt: string;
   commentId: string;
 }
+/** Keyset position of a post: its newest comment activity, then post id, both descending. */
+export interface PostPosition {
+  activityAt: string;
+  postId: string;
+}
 export interface StoredCommentPost {
   postId: string;
   comments: number;
@@ -29,8 +34,12 @@ export interface FanpageStore {
   ): Promise<{ comment: FanpageComment; position: CommentPosition }[]>;
   /** A plain read: no lock, no write, no activity bump. */
   get(ws: WorkspaceId, connectionId: string, commentId: string): Promise<FanpageComment | null>;
-  /** Distinct posts of stored comments, newest activity first. */
-  posts(ws: WorkspaceId, connectionId: string, limit: number): Promise<StoredCommentPost[]>;
+  /** Distinct posts of stored comments, newest activity first; `limit + 1` as for `page`. */
+  posts(
+    ws: WorkspaceId,
+    connectionId: string,
+    input: { limit: number; after: PostPosition | null },
+  ): Promise<StoredCommentPost[]>;
   /** Serializes decisions and action reservations on one comment; no network work in this callback. */
   change<T>(
     ws: WorkspaceId,

@@ -7,7 +7,8 @@ import {
   FanpageCommentPage,
   FanpageCommentDetail,
   FanpageCommentSource,
-  FanpageCommentPost,
+  FanpageCommentPostPage,
+  FanpageCommentPostsQuery,
 } from './fanpage.schema.js';
 import { z } from 'zod';
 import { defineRoutes } from '../common/routes.js';
@@ -70,8 +71,9 @@ export const channelRoutes = defineRoutes([
     ...scoped,
     method: 'get',
     path: '/channels/{id}/fanpage/comment-posts',
-    summary: 'Posts known from stored comments',
-    responses: { 200: z.object({ data: z.array(FanpageCommentPost) }) },
+    summary: 'Posts known from stored comments, newest activity first, paginated',
+    query: FanpageCommentPostsQuery,
+    responses: { 200: FanpageCommentPostPage },
   },
   {
     ...scoped,

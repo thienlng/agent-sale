@@ -3,6 +3,7 @@ import type { WorkspaceId } from '@agent-sales/shared';
 import type {
   CommentPosition,
   FanpageStore,
+  PostPosition,
   StoredCommentPost,
 } from '../../application/ports/fanpage-store.js';
 export class MemoryFanpageStore implements FanpageStore {
@@ -75,7 +76,7 @@ export class MemoryFanpageStore implements FanpageStore {
     const found = this.records.get(`${ws}/${id}/${commentId}`);
     return found ? structuredClone(found) : null;
   }
-  async posts(ws: WorkspaceId, id: string, limit: number) {
+  async posts(ws: WorkspaceId, id: string, input: { limit: number; after: PostPosition | null }) {
     const posts = new Map<string, StoredCommentPost>();
     for (const { comment, position } of this.rows(ws, id)) {
       const known = posts.get(comment.postId);
@@ -90,7 +91,15 @@ export class MemoryFanpageStore implements FanpageStore {
           context: comment.context,
         });
     }
-    return [...posts.values()].slice(0, limit);
+    const key = (p: StoredCommentPost) => ({ activityAt: p.lastActivityAt, commentId: p.postId });
+    const after = input.after && {
+      activityAt: input.after.activityAt,
+      commentId: input.after.postId,
+    };
+    return [...posts.values()]
+      .sort((a, b) => compare(key(b), key(a)))
+      .filter((p) => !after || compare(key(p), after) < 0)
+      .slice(0, input.limit);
   }
 }
 

@@ -848,7 +848,10 @@
       "unknown": "Chưa rõ Facebook đã ẩn/hiện chưa. Hãy kiểm tra trên Facebook.",
       "rejected": "Không thực hiện được: bình luận đã thay đổi, bị xóa hoặc bạn không có quyền.",
       "unmatched": "Không có thao tác nào được ghi nhận. Hãy xem lại lịch sử.",
-      "unconfirmed": "Không nhận được phản hồi. Kiểm tra lịch sử trước khi thử lại."
+      "unconfirmed": "Không nhận được phản hồi. Hãy kiểm tra trạng thái; thử lại vẫn dùng đúng yêu cầu cũ.",
+      "pending": "Facebook đang xử lý thao tác này. Hãy kiểm tra trạng thái; thử lại vẫn dùng đúng yêu cầu cũ.",
+      "retry": "Thử lại",
+      "opposite": "Thao tác “{{action}}” trước đó có thể vẫn đang được Facebook xử lý. Hãy kiểm tra trên Facebook; làm ngược lại bây giờ có thể bị ghi đè."
     },
     "mode": "Cách trả lời",
     "target": {
@@ -891,10 +894,14 @@
         "VALIDATION_FAILED": "Không thể gửi tin này (quá 7 ngày, đã nhắn riêng hoặc nội dung không hợp lệ).",
         "NOT_FOUND": "Không tìm thấy bình luận này nữa.",
         "UNAVAILABLE": "Chưa gửi gì: Trang cần kết nối lại hoặc Facebook chưa phản hồi. Nội dung vẫn được giữ."
-      }
+      },
+      "pending": "Facebook đang xử lý yêu cầu này. Nội dung được khóa; hãy kiểm tra trạng thái — gửi lại vẫn dùng đúng yêu cầu cũ nên không bị trùng."
     },
     "resendWarning": "Lần gửi trước có thể đã lên Facebook. Gửi lần mới có thể tạo một trả lời trùng — hãy kiểm tra bình luận trên Facebook trước.",
     "resendConfirm": "Vẫn gửi lần mới",
-    "resendCancel": "Hủy"
+    "resendCancel": "Hủy",
+    "morePosts": "Tải thêm bài viết cũ hơn",
+    "loadingPosts": "Đang tải bài viết…",
+    "stopWaiting": "Thôi chờ (coi là chưa rõ)"
   }
 }

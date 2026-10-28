@@ -435,13 +435,40 @@ describe('Fanpage comments in the inbox (T-106)', () => {
     const c = await svc.receive(ws, id, event);
     await seed(svc, event, 3);
     await svc.context(ws, id, c.commentId, c.version);
-    const posts = await svc.commentPosts(ws, id);
+    const { data: posts } = await svc.commentPosts(ws, id);
     expect(posts.map((p) => p.postId).sort()).toEqual(['123_10', '123_11']);
     expect(posts.find((p) => p.postId === '123_10')).toMatchObject({
       comments: 3,
       text: 'Blue shirt 250k',
     });
     expect(posts.find((p) => p.postId === '123_11')).toMatchObject({ comments: 1, text: null });
+  });
+  it('pages over more than 200 known posts and keeps post and comment cursors apart', async () => {
+    const { svc, event } = setup();
+    for (let n = 0; n < 205; n++)
+      await svc.receive(ws, id, {
+        ...event,
+        externalEventId: `p${n}`,
+        comment: { postId: `123_${n}`, commentId: `12_${n}`, parentId: null, operation: 'add' },
+      });
+    const seen: string[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = await svc.commentPosts(ws, id, { limit: 50, ...(cursor ? { cursor } : {}) });
+      seen.push(...page.data.map((p) => p.postId));
+      cursor = page.nextCursor ?? undefined;
+    } while (cursor);
+    expect(seen).toHaveLength(205);
+    expect(new Set(seen).size).toBe(205);
+    const posts = await svc.commentPosts(ws, id, { limit: 1 });
+    const comments = await svc.comments(ws, id, { limit: 1 });
+    for (const call of [
+      svc.comments(ws, id, { limit: 1, cursor: posts.nextCursor! }),
+      svc.commentPosts(ws, id, { cursor: comments.nextCursor! }),
+      svc.commentPosts(ws, id, { cursor: 'not-a-cursor' }),
+    ])
+      await expect(call).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+    await expect(svc.commentPosts(foreign, id)).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
   const manual = (kind: 'public_reply' | 'private_reply' | 'hide', text = 'Hi') => ({
     kind,
@@ -525,5 +552,37 @@ describe('Fanpage comments in the inbox (T-106)', () => {
     expect(await svc.act(ws, id, c.commentId, input)).toBeNull();
     expect(fetch.mock.calls.length).toBe(reads);
     expect(writes(fetch)).toHaveLength(1);
+  });
+  it('answers a lost-response retry from the record after the source was edited', async () => {
+    const { svc, event, fetch, store } = setup();
+    const c = await svc.receive(ws, id, event);
+    const input = manual('public_reply');
+    // The first request reaches Facebook, but its answer never reaches the browser.
+    expect(await svc.act(ws, id, c.commentId, input)).toMatchObject({ status: 'sent' });
+    // The customer then edits the comment on Facebook (the edit webhook has not arrived yet).
+    const base = fetch.getMockImplementation()!;
+    fetch.mockImplementation(async (url, init) =>
+      String(url).includes('/10_20?')
+        ? new Response(
+            JSON.stringify({
+              id: '10_20',
+              message: 'Edited: how much?',
+              from: { id: event.senderExternalId },
+              object: { id: '123_10' },
+              created_time: at,
+            }),
+          )
+        : base(url, init),
+    );
+    // The same-id retry is recognised before the source check: no refusal, no second send,
+    // and the browser finds the recorded send by its id.
+    expect(await svc.act(ws, id, c.commentId, input)).toBeNull();
+    expect(writes(fetch)).toHaveLength(1);
+    const recordedSend = (await store.get(ws, id, c.commentId))?.actions;
+    expect(recordedSend).toEqual([expect.objectContaining({ id: input.key, status: 'sent' })]);
+    // The id is only recognised inside its own workspace.
+    await expect(svc.act(foreign, id, c.commentId, input)).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    });
   });
 });

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { useCommentPosts, useLatestPosts } from '../../api/fanpage-comments';
@@ -26,7 +27,11 @@ export function CommentsPane({ page, canManage }: { page: FacebookPage; canManag
   const known = useCommentPosts(page.id);
   const latest = useLatestPosts(page.id);
   // Stored posts are always listed; Facebook's latest posts only add text to their labels.
-  const posts: PostLabel[] = (known.data?.data ?? []).map((p) => {
+  // A post can move to the top between page loads (new activity): list it once.
+  const stored = [
+    ...new Map((known.data?.pages.flatMap((p) => p.data) ?? []).map((p) => [p.postId, p])).values(),
+  ];
+  const posts: PostLabel[] = stored.map((p) => {
     const text = p.text ?? latest.data?.data.find((l) => l.id === p.postId)?.text ?? '';
     return {
       postId: p.postId,
@@ -73,6 +78,18 @@ export function CommentsPane({ page, canManage }: { page: FacebookPage; canManag
                 </option>
               ))}
             </select>
+            {known.hasNextPage ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-7 w-full"
+                disabled={known.isFetchingNextPage}
+                onClick={() => void known.fetchNextPage()}
+              >
+                {known.isFetchingNextPage ? tr('loadingPosts') : tr('morePosts')}
+              </Button>
+            ) : null}
             <p className="text-xs text-muted-foreground">{tr('scope')}</p>
           </div>
           <CommentList

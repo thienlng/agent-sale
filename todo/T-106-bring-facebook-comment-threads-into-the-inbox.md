@@ -105,8 +105,20 @@ Risks:
   - (3) a new public attempt after an unknown/unmatched outcome needs explicit confirmation;
   - permalinks with credentials are rejected;
   - 503 UNAVAILABLE (raised before reservation) is a refusal, not a locked "unconfirmed".
-  Accepted as-is/follow-up: the source GET marks `reauth_required` on an expired token (same as the existing `readGraph`); the list refetches all loaded pages every 15 s; the post selector is capped at 200 stored posts; text search is an `ilike` scan per connection (no trigram index yet).
+  Accepted as-is/follow-up: the source GET marks `reauth_required` on an expired token (same as the existing `readGraph`); the list refetches all loaded pages every 15 s; the post selector is capped at 200 stored posts (superseded below); text search is an `ilike` scan per connection (no trigram index yet).
 - 2026-10-28 — Not live-verified (no Meta calls in tests): Graph reads of hidden comments for unhide revalidation, the id-based post link fallback, and real feed webhook ordering. Pre-existing gap found, out of scope: `PATCH /fanpage/settings` has no capability check (an analyst can change automation settings), so a follow-up task was created.
+- 2026-10-28 — Reconciled the Codex-coordinated snapshot review of `32747d7` (four P2 findings) against `5f3c32c`:
+  - (1) Recorded `pending` was mapped to `unknown`, so the next Send got a new request id. Now `pending` is its own locked state that keeps the original id ("Check status" / same-id retry) until the record is final. A stored `pending`/`unknown` reply of the same mode also asks for confirmation before a new attempt.
+  - (2) Already fixed in `5f3c32c`: an existing request id is answered before the source check. Added a regression for timeout → sent → comment edited on Facebook → same-id retry (no refusal, no second send, foreign workspace still 404).
+  - (3) Hide/unhide attempts now keep their request id per comment (`moderation-attempts.ts`). An unanswered/pending one offers only "Check status" and a same-id retry; the opposite operation is not offered until the outcome is final.
+  - (4) `comment-posts` is keyset-paginated: `limit` 1–100, default 50, opaque cursor bound to the connection, with a kind marker so a post cursor can never continue a comment list and vice versa. The selector has "Load older posts". Tests use 205 posts: a store integration test with equal µs activity, and facade and web tests.
+  - Task-id collision: PR #72 already uses T-108/T-109, so the fanpage-settings authorization follow-up is now T-110.
+  - Fresh-context QA (sonnet) of these fixes approved. Its P3/P4 notes were fixed with tests:
+    - the opposite of a stored `pending` hide/unhide (e.g. after a reload) needs confirmation;
+    - a never-final `pending` attempt can be released as `unknown` ("Stop waiting"), so a new attempt still needs confirmation;
+    - the resend prompt only considers the newest non-rejected reply of that mode.
+  - Verification: `pnpm check` green (21/21); web channel 80 tests; backend channel/http unit; store + fanpage-comments integration 10/10; e2e inbox-comments, fanpage, inbox-layout and inbox-sales 21/21. Synthetic data only, no Meta calls.
+
 
 ## Links
 
