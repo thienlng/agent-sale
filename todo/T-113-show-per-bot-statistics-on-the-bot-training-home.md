@@ -1,7 +1,7 @@
 ---
 id: T-113
 title: Show per-bot statistics on the bot training home
-status: in-progress            # backlog | next | in-progress | blocked | review | done | cancelled
+status: review            # backlog | next | in-progress | blocked | review | done | cancelled
 type: feature              # feature | bug | chore | spike | docs
 priority: P1               # P0 | P1 | P2 | P3
 owner: "@agent:claude"     # @github-handle or @agent:<tool>

@@ -1,13 +1,13 @@
 ---
 id: T-116
 title: Select bot products from the shared catalog and sync new ones back
-status: blocked            # backlog | next | in-progress | blocked | review | done | cancelled
+status: cancelled
 type: feature              # feature | bug | chore | spike | docs
 priority: P1               # P0 | P1 | P2 | P3
 owner: "@agent:claude"     # @github-handle or @agent:<tool>
 feature_ids: []            # e.g. [BOT-07, CRM-11] from docs/02-functional-requirements.md
 created: 2026-10-27
-updated: 2026-10-27
+updated: 2026-10-28
 branch:
 pr:
 parent:                    # T-xxx if this is a sub-task
@@ -48,6 +48,7 @@ Written by the implementer before coding (see `start-task` skill).
 
 ## Log
 
+- 2026-10-28 — Cancelled: absorbed by lane A T-080 (per-bot catalog selection, ADR-012 §4), which now owns the schema, the bot Products page and the AI lookup scoping.
 - 2026-10-27 — created from the review. Blocked on lane A T-077/T-080 product scoping.
 
 ## Links
