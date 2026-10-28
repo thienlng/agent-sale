@@ -1,13 +1,13 @@
 ---
 id: T-113
 title: Show per-bot statistics on the bot training home
-status: backlog            # backlog | next | in-progress | blocked | review | done | cancelled
+status: in-progress            # backlog | next | in-progress | blocked | review | done | cancelled
 type: feature              # feature | bug | chore | spike | docs
 priority: P1               # P0 | P1 | P2 | P3
 owner: "@agent:claude"     # @github-handle or @agent:<tool>
 feature_ids: []            # e.g. [BOT-07, CRM-11] from docs/02-functional-requirements.md
 created: 2026-10-27
-updated: 2026-10-27
+updated: 2026-10-28
 branch:
 pr:
 parent:                    # T-xxx if this is a sub-task
@@ -25,8 +25,8 @@ Each bot's home shows its own key metrics, computed by the existing analytics de
 
 ## Scope
 
-- Add an optional bot filter to the existing analytics queries/projections where the source events carry the bot (reuse T-039–T-041 definitions; no new KPI without approval).
-- Show a compact KPI block (e.g. conversations handled, AI replies, handoffs, orders attributed) with period selector and link to the full statistics page pre-filtered by the bot.
+- Scope the existing analytics queries to the bot through the pages (channels) assigned to it, using the page filter the statistics page already has (reuse T-039–T-041 definitions; no new KPI without approval). Only page-attributed metrics qualify: new conversations, inbound and outbound messages.
+- Show a compact KPI block with a period selector and a link to the full statistics page pre-filtered by the same pages and period.
 - Keep the setup guide for bots that are not set up yet; empty/loading/error states.
 
 ## Out of scope
@@ -35,16 +35,23 @@ Each bot's home shows its own key metrics, computed by the existing analytics de
 
 ## Acceptance criteria
 
-- [ ] Bot figures reconcile with the workspace statistics filtered to the same bot and period.
-- [ ] The bot filter is workspace-scoped: a bot ID from another workspace returns 404; permission checks match the statistics page.
-- [ ] Backend tests (happy path, validation, permission, cross-tenant) and UI tests; `pnpm check` green.
-- [ ] vi/en strings; analytics docs list the new filter.
+- [ ] Bot figures reconcile with the workspace statistics filtered to the same pages and period (same query, same definitions).
+- [ ] Workspace-scoped: the bot page already 404s for a bot of another workspace, analytics only reads the current workspace's facts; the block follows `analytics.view` like the statistics page.
+- [ ] A bot without pages shows an explicit "no channel" state, never workspace-wide numbers; loading/error/locked states as on the statistics page.
+- [ ] UI tests (figures, period, link, no-channel, permission); `pnpm check` green.
+- [ ] vi/en strings; analytics docs describe the bot view.
 
 ## Plan
 
-Written by the implementer before coding (see `start-task` skill).
+Design change from the original scope: no backend `botId` filter. docs/ARCHITECTURE.md says analytics "reads event-fed read models, not facade chains", and facts carry the page (`channelId`), not the bot. Resolving bot → pages in analytics would chain the bot/channel facades. The web route already composes features, so it resolves the bot's pages from `/channels` and the analytics feature queries with the existing `pageIds` filter. Same numbers by construction; nothing new to secure server-side.
 
-1. …
+1. `features/analytics/components/bot-statistics.test.tsx` (failing first): queries the conversation metrics with the bot's `pageIds` and the chosen period; renders the three cards; 30-day switch re-queries; link to `/app/analytics?pages=…&from=…`; no pages → "no channel" state and no query; no `analytics.view` → nothing.
+2. `bot-statistics.tsx`: reuses `buildQueries`/`resolveFilters`, `useStatistics`, `useDefinitions` and `MetricCard`; 7/30-day toggle.
+3. Route `bots/$botId/index.tsx`: pages = channels whose `botId` is this bot (any status, history stays attributed); render the block above the setup guide.
+4. i18n vi/en `analytics.bot.*`; docs/analytics.md section on the bot view and its limit (attribution follows the current page→bot assignment).
+5. Verify: targeted tests, `pnpm check`, e2e, responsive matrix.
+
+Risk: moving a page to another bot moves its history with it (facts have no bot). Documented; a bot dimension in facts would be a separate task.
 
 ## Log
 
