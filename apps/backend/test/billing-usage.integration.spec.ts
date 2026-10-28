@@ -228,4 +228,36 @@ describe('account message allowance', () => {
     const own = MessageUsageDto.parse((await hx.call(stranger.h, 'GET', '/billing/usage')).json());
     expect(own).toMatchObject({ used: 0, limit: 1000 });
   });
+
+  it('gives every business of an account one plan and cycle before the account has its own', async () => {
+    // A paid and a free business, no account subscription yet (before the backfill, or a plan
+    // set on a business): both must count against the paid business's allowance and cycle.
+    const mixed = await hx.user('meter-mixed@shop.vn', 'Chủ hai shop');
+    const created = await hx.call(mixed.auth, 'POST', '/workspaces', {
+      name: 'Shop miễn phí',
+      industry: 'fashion',
+    });
+    expect(created.statusCode).toBe(201);
+    const paid = mixed.ownWorkspace;
+    const free = WorkspaceDto.parse(created.json()).id;
+    await hx.owner.db.execute(sql`
+      insert into subscriptions (workspace_id, plan_code, plan_version, current_period_start)
+      values (${paid}, 'sales_smart', 1, now() - interval '5 days')`);
+    const read = async (ws: string) =>
+      MessageUsageDto.parse((await hx.call(mixed.in(ws), 'GET', '/billing/usage')).json());
+
+    const [p0, f0] = [await read(paid), await read(free)];
+    expect(f0.limit).toBe(p0.limit);
+    expect(f0.cycleStart).toBe(p0.cycleStart);
+
+    const key = `test:${crypto.randomUUID()}`;
+    await billing.reserveReply(workspaceId(free), {
+      idempotencyKey: key,
+      conversationId: null,
+      botId: null,
+    });
+    await billing.captureReply(workspaceId(free), key);
+    expect((await read(paid)).used).toBe(p0.used + 1);
+    expect((await read(free)).used).toBe(p0.used + 1);
+  });
 });

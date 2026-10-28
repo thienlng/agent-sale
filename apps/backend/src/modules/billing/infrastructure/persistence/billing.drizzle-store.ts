@@ -1,8 +1,10 @@
 import {
   and,
+  asc,
   type Database,
   eq,
   gt,
+  inArray,
   or,
   schema,
   sql,
@@ -29,6 +31,39 @@ const toSubscription = (row: SubscriptionRow, cycleAnchor: Date): SubscriptionRe
   currentPeriodEnd: row.currentPeriodEnd,
   cycleAnchor,
 });
+
+/**
+ * Until the backfill gives an account its own subscription, every business of the account must
+ * still resolve the same plan and cycle, or each would count its own allowance (T-091). The
+ * account then runs on its most expensive paid business subscription, chosen exactly as the
+ * backfill will copy it (packages/db account-subscription-backfill).
+ */
+async function bestPaidBusinessSubscription(
+  tx: Parameters<Parameters<typeof withSystem>[1]>[0],
+  accountId: string,
+): Promise<(SubscriptionRow & { currentPeriodStart: Date }) | null> {
+  const s = schema.subscriptions;
+  const p = schema.plans;
+  const [row] = await tx
+    .select({ sub: s })
+    .from(s)
+    .innerJoin(schema.workspaces, eq(schema.workspaces.id, s.workspaceId))
+    .innerJoin(p, and(eq(p.code, s.planCode), eq(p.version, s.planVersion)))
+    .where(
+      and(
+        eq(schema.workspaces.accountId, accountId),
+        sql`${s.planCode} <> 'free'`,
+        inArray(s.status, ['active', 'trialing', 'past_due']),
+      ),
+    )
+    .orderBy(
+      sql`(select coalesce(max(v::text::numeric), 0) from jsonb_each(${p.priceByPeriod}) as e(k, v)) desc`,
+      sql`${s.currentPeriodEnd} desc nulls first`,
+      asc(s.workspaceId),
+    )
+    .limit(1);
+  return row?.sub ?? null;
+}
 
 const u = schema.messageUsage;
 
@@ -66,9 +101,14 @@ export class DrizzleBillingStore implements BillingStore {
         .select()
         .from(schema.accountEntitlementOverrides)
         .where(eq(schema.accountEntitlementOverrides.accountId, accountId));
+      const best = sub ? null : await bestPaidBusinessSubscription(tx, accountId);
       return {
         ...business,
-        accountSubscription: sub ? toSubscription(sub, sub.cycleAnchor) : null,
+        accountSubscription: sub
+          ? toSubscription(sub, sub.cycleAnchor)
+          : best
+            ? toSubscription(best, best.currentPeriodStart)
+            : null,
         accountOverrides: overrides.map((o) => ({
           key: o.key,
           value: o.value,

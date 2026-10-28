@@ -8,7 +8,8 @@ import { workspaceId } from '@agent-sales/shared';
  *
  * The operator's way to put the workspaces a user owns on a plan until payment
  * approval exists (docs/08 §6, T-059). Uses DATABASE_SYSTEM_URL; the change is
- * audited in each workspace.
+ * audited in each workspace. A business under an account also puts its account on the plan:
+ * the account's subscription is what entitlements and the AI-message allowance use (T-091).
  */
 const [action, email, planCode, months] = process.argv.slice(2);
 const url = process.env['DATABASE_SYSTEM_URL'];
@@ -23,7 +24,11 @@ const { db, close } = createDb({ url, max: 1 });
 try {
   await withSystem(db, async (tx) => {
     const owned = await tx
-      .select({ id: schema.workspaces.id, name: schema.workspaces.name })
+      .select({
+        id: schema.workspaces.id,
+        name: schema.workspaces.name,
+        accountId: schema.workspaces.accountId,
+      })
       .from(schema.workspaces)
       .innerJoin(schema.users, eq(schema.users.id, schema.workspaces.ownerUserId))
       .where(sql`lower(${schema.users.email}) = ${email.toLowerCase()}`);
@@ -32,14 +37,24 @@ try {
       process.exitCode = 1;
       return;
     }
+    const accountsSet = new Set<string>();
     for (const w of owned) {
       if (action === 'show') {
         const [sub] = await tx
           .select()
           .from(schema.subscriptions)
           .where(eq(schema.subscriptions.workspaceId, w.id));
+        const [account] = w.accountId
+          ? await tx
+              .select()
+              .from(schema.accountSubscriptions)
+              .where(eq(schema.accountSubscriptions.accountId, w.accountId))
+          : [];
         console.log(
-          `${w.name} (${w.id}): ${sub ? `${sub.planCode} v${sub.planVersion}, ${sub.status}` : 'free (no subscription)'}`,
+          `${w.name} (${w.id}): ${sub ? `${sub.planCode} v${sub.planVersion}, ${sub.status}` : 'free (no subscription)'}` +
+            (account
+              ? `; account ${w.accountId}: ${account.planCode} v${account.planVersion}, ${account.status} (in effect)`
+              : ''),
         );
         continue;
       }
@@ -92,6 +107,37 @@ try {
         targetId: w.id,
         data: { plan: plan.code, months: period },
       });
+      if (w.accountId && !accountsSet.has(w.accountId)) {
+        accountsSet.add(w.accountId);
+        const now = new Date();
+        await tx
+          .insert(schema.accountSubscriptions)
+          .values({
+            accountId: w.accountId,
+            planCode: plan.code,
+            planVersion: plan.version,
+            periodMonths: period,
+            currentPeriodStart: now,
+            currentPeriodEnd: end,
+            cycleAnchor: now,
+            sourceWorkspaceId: w.id,
+          })
+          .onConflictDoUpdate({
+            target: schema.accountSubscriptions.accountId,
+            set: {
+              planCode: plan.code,
+              planVersion: plan.version,
+              periodMonths: period,
+              status: 'active',
+              currentPeriodStart: now,
+              currentPeriodEnd: end,
+              cycleAnchor: now,
+              version: sql`${schema.accountSubscriptions.version} + 1`,
+              updatedAt: now,
+            },
+          });
+        console.log(`account ${w.accountId}: now on ${plan.code} v${plan.version}`);
+      }
       console.log(`${w.name}: now on ${plan.code} v${plan.version}`);
     }
   });

@@ -8,7 +8,11 @@ export interface BillingState {
   /** The business's own subscription (null = none), under tenant RLS. */
   subscription: SubscriptionRecord | null;
   overrides: OverrideRecord[];
-  /** The account's subscription, which wins over the business's once the backfill copied it. */
+  /**
+   * The account's subscription, which wins over the business's. Until the backfill copied one,
+   * the account's most expensive paid business subscription (the backfill's rule), so every
+   * business of the account shares one plan, allowance and cycle.
+   */
   accountSubscription: SubscriptionRecord | null;
   accountOverrides: OverrideRecord[];
 }
