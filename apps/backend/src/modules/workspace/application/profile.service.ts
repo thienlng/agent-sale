@@ -19,7 +19,7 @@ import {
 import type { Actor } from './ports/audit-writer.js';
 import { WORKSPACE_UOW, type WorkspaceUnitOfWork } from './ports/workspace-unit-of-work.js';
 
-const FIELDS = ['name', 'companyName', 'businessServices', 'productDescription'] as const;
+const FIELDS = ['name', 'companyName', 'businessServices', 'productDescription', 'icon'] as const;
 /** Long text is trimmed in the trail: it says what changed, not the whole document. */
 const clip = (s: string) => (s.length > 200 ? `${s.slice(0, 200)}…` : s);
 
@@ -28,6 +28,7 @@ export const toProfileDto = (p: WorkspaceProfile): WorkspaceProfileDto => ({
   companyName: p.companyName,
   businessServices: p.businessServices,
   productDescription: p.productDescription,
+  icon: p.icon as WorkspaceProfileDto['icon'],
   hasLogo: p.logoAssetId !== null,
   logoVersion: p.logoSha256?.slice(0, 16) ?? null,
   version: p.version,

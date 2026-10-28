@@ -51,6 +51,7 @@ export class DrizzleWorkspaceDirectory implements WorkspaceDirectory {
           workspaceId: schema.workspaces.id,
           workspaceName: schema.workspaces.name,
           role: schema.members.role,
+          icon: schema.workspaces.icon,
           logoSha256: sql<
             string | null
           >`(select ${schema.workspaceAssets.sha256} from ${schema.workspaceAssets} where ${schema.workspaceAssets.id} = ${schema.workspaces.logoAssetId})`,

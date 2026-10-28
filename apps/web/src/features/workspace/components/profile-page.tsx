@@ -1,4 +1,4 @@
-import type { WorkspaceProfileDto } from '@agent-sales/contracts';
+import { BUSINESS_ICONS, type WorkspaceProfileDto } from '@agent-sales/contracts';
 import { useBlocker } from '@tanstack/react-router';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -19,6 +19,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { ApiClientError } from '@/lib/api-client';
 import { errorMessage } from '@/lib/errors';
+import { businessIcon } from '@/lib/business-icons';
 import { useCan } from '@/lib/permissions';
 
 import { useProfile, useProfileMutations } from '../api/profile';
@@ -28,13 +29,14 @@ import { LogoField } from './logo-field';
 
 type Draft = Pick<
   WorkspaceProfileDto,
-  'name' | 'companyName' | 'businessServices' | 'productDescription'
+  'name' | 'companyName' | 'businessServices' | 'productDescription' | 'icon'
 >;
 const draftOf = (p: WorkspaceProfileDto): Draft => ({
   name: p.name,
   companyName: p.companyName,
   businessServices: p.businessServices,
   productDescription: p.productDescription,
+  icon: p.icon,
 });
 
 function ProfileForm({ profile }: { profile: WorkspaceProfileDto }) {
@@ -76,7 +78,12 @@ function ProfileForm({ profile }: { profile: WorkspaceProfileDto }) {
     );
   };
 
-  const field = (key: keyof Draft, label: string, max: number, multiline?: boolean) => (
+  const field = (
+    key: Exclude<keyof Draft, 'icon'>,
+    label: string,
+    max: number,
+    multiline?: boolean,
+  ) => (
     <div className="flex flex-col gap-1.5">
       <Label htmlFor={`pf-${key}`}>{label}</Label>
       {multiline ? (
@@ -109,6 +116,36 @@ function ProfileForm({ profile }: { profile: WorkspaceProfileDto }) {
         </p>
       ) : null}
       {field('name', t('wsettings.profile.name'), 120)}
+      <fieldset className="flex flex-col gap-2" disabled={!canEdit}>
+        <legend className="text-sm font-medium">{t('wsettings.icon.title')}</legend>
+        <p className="text-sm text-muted-foreground">
+          {profile.hasLogo ? t('wsettings.icon.hintLogo') : t('wsettings.icon.hint')}
+        </p>
+        <div
+          className="flex flex-wrap gap-2"
+          role="radiogroup"
+          aria-label={t('wsettings.icon.title')}
+        >
+          {BUSINESS_ICONS.map((key) => {
+            const Icon = businessIcon(key);
+            const name = t(`wsettings.icon.names.${key}`);
+            return (
+              <button
+                key={key}
+                type="button"
+                role="radio"
+                aria-checked={draft.icon === key}
+                aria-label={name}
+                title={name}
+                onClick={() => set({ icon: key })}
+                className="grid size-10 place-items-center rounded-lg border text-muted-foreground hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60 aria-checked:border-primary aria-checked:bg-primary-soft aria-checked:text-accent-foreground"
+              >
+                <Icon aria-hidden className="size-5" />
+              </button>
+            );
+          })}
+        </div>
+      </fieldset>
       {field('companyName', t('wsettings.profile.companyName'), 200)}
       {field('businessServices', t('wsettings.profile.businessServices'), 1000, true)}
       {field('productDescription', t('wsettings.profile.productDescription'), 5000, true)}

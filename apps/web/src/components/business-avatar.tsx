@@ -1,25 +1,29 @@
 import { useQuery } from '@tanstack/react-query';
-import { Building2 } from 'lucide-react';
 
 import { apiBlob } from '@/lib/api-client';
+import { businessIcon } from '@/lib/business-icons';
 import { queryKeys } from '@/lib/query-keys';
 import { cn } from '@/lib/utils';
 
 /**
- * A business's logo (the picture set in Settings › Shop profile), or a building icon
- * without one. The picture is read with that business's own scope, so it also works for
+ * A business's logo (the picture set in Settings › Shop profile), or the icon the
+ * business picked without one. The picture is read with that business's own scope, so it also works for
  * businesses other than the selected one; `logoVersion` refreshes the cached image.
  */
 export function BusinessAvatar({
   workspaceId,
   logoVersion,
+  icon,
   className,
 }: {
   workspaceId: string;
   logoVersion: string | null | undefined;
+  /** Picked icon, drawn when there is no logo. */
+  icon?: string | undefined;
   className?: string;
 }) {
   const version = logoVersion ?? null;
+  const Icon = businessIcon(icon);
   const logo = useQuery({
     queryKey: queryKeys.logo(workspaceId, version),
     queryFn: async () => {
@@ -41,7 +45,7 @@ export function BusinessAvatar({
       {logo.data ? (
         <img src={logo.data} alt="" className="size-full object-cover" />
       ) : (
-        <Building2 className="size-4" />
+        <Icon className="size-4" />
       )}
     </span>
   );

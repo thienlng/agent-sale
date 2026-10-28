@@ -15,6 +15,15 @@ describe('BusinessAvatar', () => {
     expect(fetchStub).not.toHaveBeenCalled();
   });
 
+  it('draws the picked icon, and the building for an unknown one', () => {
+    const { container, rerender } = renderWithProviders(
+      <BusinessAvatar workspaceId={WS} logoVersion={null} icon="store" />,
+    );
+    expect(container.querySelector('svg')).toHaveClass('lucide-store');
+    rerender(<BusinessAvatar workspaceId={WS} logoVersion={null} icon="rocket" />);
+    expect(container.querySelector('svg')).toHaveClass('lucide-building-2');
+  });
+
   it("reads the logo with that business's own scope and shows it", async () => {
     const calls: Array<{ url: string; headers: Record<string, string> }> = [];
     vi.stubGlobal('fetch', async (url: string, init: RequestInit = {}) => {

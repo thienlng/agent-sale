@@ -1268,6 +1268,29 @@
     "industry": {
       "title": "Lĩnh vực doanh nghiệp",
       "policy": "Lĩnh vực thuộc doanh nghiệp đang chọn, tách biệt với tài khoản đăng nhập và thông tin thanh toán. Hiện chưa hỗ trợ đổi lĩnh vực; bot và nội dung đào tạo được giữ nguyên."
+    },
+    "icon": {
+      "title": "Biểu tượng",
+      "hint": "Hiện cạnh tên business khi chưa có logo.",
+      "hintLogo": "Đang dùng logo; biểu tượng này chỉ hiện khi bạn xóa logo.",
+      "names": {
+        "building": "Tòa nhà",
+        "store": "Cửa hàng",
+        "shopping-bag": "Túi mua sắm",
+        "shirt": "Thời trang",
+        "sparkles": "Làm đẹp",
+        "utensils": "Nhà hàng",
+        "coffee": "Cà phê",
+        "home": "Nhà ở, nội thất",
+        "car": "Ô tô",
+        "heart-pulse": "Sức khỏe",
+        "graduation-cap": "Giáo dục",
+        "dumbbell": "Thể thao",
+        "laptop": "Công nghệ",
+        "gem": "Trang sức",
+        "flower": "Hoa, quà tặng",
+        "baby": "Mẹ và bé"
+      }
     }
   },
   "analytics": {

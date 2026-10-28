@@ -7,6 +7,8 @@ export interface WorkspaceMembership {
   role: string;
   /** Short hash of the logo image, null without one; lets clients cache the picture. */
   logoVersion?: string | null;
+  /** Icon shown when there is no logo. */
+  icon?: string;
 }
 
 /** A member of one workspace (removed ones only when asked for). */

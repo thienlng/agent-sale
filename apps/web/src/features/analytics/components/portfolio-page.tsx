@@ -154,6 +154,7 @@ export function PortfolioPage({
                 <BusinessAvatar
                   workspaceId={business.workspaceId}
                   logoVersion={business.logoVersion}
+                  icon={business.icon}
                   className="size-10"
                 />
                 <div className="min-w-0 flex-1">
