@@ -1,4 +1,5 @@
 import { type MetricKey, type MetricResult } from '@agent-sales/contracts';
+import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
@@ -129,7 +130,12 @@ export function PortfolioPage({
         />
       ) : null}
       <section className="rounded-lg border p-4">
-        <h2 className="font-semibold">{t('analytics.overview.businesses')}</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-semibold">{t('analytics.overview.businesses')}</h2>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/app/businesses/new">{t('nav.newBusiness')}</Link>
+          </Button>
+        </div>
         {!session?.memberships.length ? (
           <p className="mt-3 text-sm text-muted-foreground">
             {t('analytics.overview.noBusinesses')}

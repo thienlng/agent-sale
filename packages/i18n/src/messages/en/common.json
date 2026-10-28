@@ -32,7 +32,12 @@
     "contactsList": "Customer list",
     "crmSettings": "Customer settings",
     "members": "Members",
-    "settingsHome": "Settings"
+    "settingsHome": "Settings",
+    "accountLabel": "Account navigation",
+    "groupAccount": "Account",
+    "groupBusinesses": "My businesses",
+    "accountOverview": "All businesses",
+    "newBusiness": "New business"
   },
   "auth": {
     "login": "Log in",
@@ -1455,6 +1460,15 @@
     "switching": "Switching business…",
     "waitForSave": "Wait for the current save before switching business.",
     "switchError": "Could not switch business. Try again.",
-    "account": "Personal account"
+    "account": "Personal account",
+    "create": {
+      "title": "Create a new business",
+      "subtitle": "Each business has its own data, bots and members. After creating it you will manage that business.",
+      "name": "Business name",
+      "submit": "Create business",
+      "creating": "Creating…",
+      "denied": "This account cannot create more businesses.",
+      "error": "Could not create the business. Try again."
+    }
   }
 }
