@@ -1,5 +1,5 @@
 ---
-id: T-108
+id: T-110
 title: Require settings.manage to change fanpage comment automation settings
 status: backlog
 type: bug
