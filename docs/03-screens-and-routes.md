@@ -70,8 +70,8 @@ Dedicated layout: back button, bot name, **bot on/off switch**, left menu, **tes
 | Products | `/bot/{id}/quan-ly-san-pham` | `/app/bots/{id}/products` | BOT-09 |
 | Instructions (scenarios) | `/bot/{id}/kich-ban` | `/app/bots/{id}/instructions` | BOT-05/06 |
 | Information (FAQ) | `/bot/{id}/du-lieu-huan-luyen` | `/app/bots/{id}/knowledge` (`?tab=faq\|documents`) | BOT-07/08 |
-| Integrations | `/bot/{id}/tich-hop-nen-tang/{tab}` | `/app/bots/{id}/channels/{all\|facebook\|instagram\|zalo\|lazada\|tiktok\|website}` | CHN-04/05 |
-| Image library | `/bot/{id}/thu-vien-anh` | `/app/bots/{id}/media` | BOT-10 |
+| Channel integrations (Tích hợp kênh) | `/bot/{id}/tich-hop-nen-tang/{tab}` | `/app/bots/{id}/channels/{all\|facebook\|instagram\|zalo\|lazada\|tiktok\|website}` | CHN-04/05 |
+| Image library (removed from the menu in T-114) | `/bot/{id}/thu-vien-anh` | `/app/bots/{id}/media` redirects to the bot home; existing images stay available to quick replies and the bot | BOT-10 |
 | Settings › Bot setup | `/bot/{id}/tong-quan` | `/app/bots/{id}/settings` (`?tab=basic\|advanced\|schedule`) | BOT-12/13 |
 | Settings › Quick messages | `/bot/{id}/tin-nhan-nhanh` | `/app/bots/{id}/quick-replies` | BOT-11 |
 | Settings › Edit history | `/bot/{id}/lich-su-chinh-sua` | `/app/bots/{id}/history` | BOT-15 |
