@@ -8,7 +8,7 @@ import {
   type InboxMessageDto,
   type UpdateConversationRequest,
 } from '@agent-sales/contracts';
-import { isUuid, newId, userId, type WorkspaceId } from '@agent-sales/shared';
+import { isUuid, newId, normalizeLeadPhone, userId, type WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable, Logger, type OnModuleInit, Optional } from '@nestjs/common';
 import {
   BOT_FACADE,
@@ -273,12 +273,13 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
     id: string,
     lead: { contactId: string; phoneE164: string; capturedAt: string },
   ): Promise<void> {
-    await this.store.run(ws, async (tx) => {
+    const botId = await this.store.run(ws, async (tx) => {
       const c = await requireConversation(tx, id);
-      if (c.lead?.contactId === lead.contactId && c.lead.phone === lead.phoneE164) return;
+      if (c.lead?.contactId === lead.contactId && c.lead.phone === lead.phoneE164) return null;
       // A lead is a shop-level annotation like read state: no revision or updatedAt change.
       await tx.save({
         ...c,
+        contactId: lead.contactId,
         lead: {
           contactId: lead.contactId,
           phone: lead.phoneE164,
@@ -286,7 +287,83 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
           seenAt: null,
         },
       });
+      if (c.contactId !== lead.contactId)
+        await tx.audit(id, 'conversation.contact.linked.v1', {
+          actorId: null,
+          contactId: lead.contactId,
+          origin: 'lead',
+        });
+      return c.botId;
     });
+    if (botId) await this.crm.recordContactBot(ws, lead.contactId, botId);
+  }
+
+  /**
+   * Staff link the conversation to a customer of the same business, or unlink it (`null`). The
+   * customer is checked through crm first, so another business's customer answers NOT_FOUND.
+   */
+  async setContact(
+    ws: WorkspaceId,
+    id: string,
+    contactId: string | null,
+    actorId: string,
+  ): Promise<ConversationView> {
+    if (contactId) await this.crm.getContact(ws, contactId);
+    const c = await this.store.run(ws, async (tx) => {
+      const c = await requireConversation(tx, id);
+      if (c.contactId === contactId) return c;
+      // Like a lead, the link annotates the conversation: no revision or updatedAt change.
+      const updated = { ...c, contactId };
+      await tx.save(updated);
+      await tx.audit(id, 'conversation.contact.linked.v1', { actorId, contactId, origin: 'staff' });
+      return updated;
+    });
+    if (contactId && c.botId) await this.crm.recordContactBot(ws, contactId, c.botId);
+    return this.tagged(ws, c);
+  }
+
+  /**
+   * After a customer message (T-088): a Facebook/Instagram conversation that just got a phone
+   * number and has no customer is linked to the business's customer with that phone (created when
+   * missing, so two pages with one phone end as one customer); a linked conversation now answered
+   * by another bot adds that bot to the customer's bots. Best effort: never fails the message.
+   */
+  private async linkCustomer(ws: WorkspaceId, c: ConversationView, previousBotId: string | null) {
+    try {
+      const phoneE164 = c.customerPhone ? normalizeLeadPhone(c.customerPhone) : null;
+      if (!c.contactId && phoneE164 && (c.provider === 'facebook' || c.provider === 'instagram')) {
+        const named = c.customerName.trim() && c.customerName !== c.customerId;
+        const { contactId } = await this.crm.upsertLeadByPhone(ws, {
+          phoneE164,
+          sourceKey: c.provider,
+          displayName: named
+            ? c.customerName.trim()
+            : `Khách ${c.provider === 'facebook' ? 'Facebook' : 'Instagram'} ${phoneE164.slice(-4)}`,
+          firstUrl: null,
+        });
+        const linked = await this.store.run(ws, async (tx) => {
+          await tx.lockPeer(c.channelId, c.customerId);
+          const current = await requireConversation(tx, c.id);
+          // Staff may have linked someone meanwhile: their choice wins.
+          if (current.contactId) return null;
+          await tx.save({ ...current, contactId });
+          await tx.audit(c.id, 'conversation.contact.linked.v1', {
+            actorId: null,
+            contactId,
+            origin: 'phone',
+          });
+          return current.botId;
+        });
+        if (linked) await this.crm.recordContactBot(ws, contactId, linked);
+        return;
+      }
+      if (c.contactId && c.botId && c.botId !== previousBotId)
+        await this.crm.recordContactBot(ws, c.contactId, c.botId);
+    } catch (err) {
+      log.warn(
+        `Customer link failed for conversation ${c.id}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
 
   async markRead(ws: WorkspaceId, id: string, actorId: string): Promise<ConversationView> {
@@ -347,7 +424,9 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
     )
       throw new ConversationError('NOT_FOUND', 'Connection not found');
     const bot = await this.channelBot(ws, channelId);
-    return this.store.run(ws, async (tx) => {
+    // Set when a message was stored: the bot that answered before it, for the customer link.
+    const stored = { message: false, previousBotId: null as string | null };
+    const received = await this.store.run(ws, async (tx) => {
       await tx.lockPeer(channelId, event.senderExternalId);
       const existing = await tx.findPeer(channelId, event.senderExternalId);
       let c: ConversationView =
@@ -423,6 +502,8 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
         };
       }
       // The bot bound to the page now answers this conversation (ADR-012).
+      stored.message = true;
+      stored.previousBotId = existing?.botId ?? null;
       c = { ...c, botId: channel.botId };
       await tx.save(c);
       await tx.saveMessage(
@@ -455,6 +536,8 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
       });
       return c;
     });
+    if (stored.message) await this.linkCustomer(ws, received, stored.previousBotId);
+    return received;
   }
   async getReplyContext(ws: WorkspaceId, id: string) {
     const detail = await this.load(ws, id);

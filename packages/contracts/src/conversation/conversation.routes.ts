@@ -13,6 +13,7 @@ import {
   ConversationDto,
   BulkConversationRequest,
   BulkConversationResponse,
+  SetConversationContactRequest,
 } from './conversation.schema.js';
 const scoped = { auth: true, workspaceScoped: true, tag: 'conversation' } as const;
 export const conversationRoutes = defineRoutes([
@@ -76,6 +77,14 @@ export const conversationRoutes = defineRoutes([
     summary: 'Add an internal note to the timeline',
     body: AddConversationNoteRequest,
     responses: { 201: ConversationDto },
+  },
+  {
+    ...scoped,
+    method: 'put',
+    path: '/conversations/{id}/contact',
+    summary: 'Link the conversation to a customer of this business, or unlink it (null)',
+    body: SetConversationContactRequest,
+    responses: { 200: ConversationDto },
   },
   {
     ...scoped,

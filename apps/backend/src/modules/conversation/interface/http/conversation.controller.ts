@@ -4,6 +4,7 @@ import {
   BulkConversationRequest,
   ConversationListQuery,
   SendInboxMessageRequest,
+  SetConversationContactRequest,
   UpdateConversationRequest,
 } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
@@ -16,6 +17,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   Res,
 } from '@nestjs/common';
@@ -101,6 +103,18 @@ export class ConversationController {
     @Body(new ZodValidationPipe(AddConversationNoteRequest)) input: AddConversationNoteRequest,
   ) {
     return this.inbox.addNote(ws, id, input.text, user.userId);
+  }
+  /** Link the conversation to a customer of this business, or `{ contactId: null }` to unlink. */
+  @RequireCapability('contacts.edit')
+  @Put(':id/contact')
+  setContact(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @CurrentUser() user: AuthState,
+    @Param('id', idPipe) id: string,
+    @Body(new ZodValidationPipe(SetConversationContactRequest))
+    body: SetConversationContactRequest,
+  ) {
+    return this.inbox.setContact(ws, id, body.contactId, user.userId);
   }
   @Get(':id/tags')
   async tags(@CurrentWorkspace() ws: WorkspaceId, @Param('id', idPipe) id: string) {

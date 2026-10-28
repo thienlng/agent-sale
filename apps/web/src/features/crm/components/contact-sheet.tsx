@@ -1,4 +1,5 @@
 import { FolderLock } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Skeleton } from '@/components/ui/skeleton';
@@ -25,10 +26,13 @@ export function ContactSheet({
   contactId,
   onClose,
   lookups,
+  renderConversations,
 }: {
   contactId: string | undefined;
   onClose: () => void;
   lookups: CrmLookups;
+  /** The customer's inbox conversations, composed by the route (the inbox is another feature). */
+  renderConversations?: ((contactId: string) => ReactNode) | undefined;
 }) {
   const { t } = useTranslation();
   const contact = useContact(contactId);
@@ -62,7 +66,10 @@ export function ContactSheet({
         ) : (
           <Tabs defaultValue="overview" className="p-4">
             <TabsList className="w-full">
-              {(['overview', 'details', 'history', 'files'] as const).map((tab) => (
+              {(renderConversations
+                ? (['overview', 'details', 'conversations', 'history', 'files'] as const)
+                : (['overview', 'details', 'history', 'files'] as const)
+              ).map((tab) => (
                 <TabsTrigger key={tab} value={tab}>
                   {t(`crm.detail.tabs.${tab}`)}
                 </TabsTrigger>
@@ -74,6 +81,11 @@ export function ContactSheet({
             <TabsContent value="details" className="pt-3">
               <ContactDetailsTab key={`${c.id}:${c.version}`} contact={c} lookups={lookups} />
             </TabsContent>
+            {renderConversations ? (
+              <TabsContent value="conversations" className="pt-3">
+                {renderConversations(c.id)}
+              </TabsContent>
+            ) : null}
             <TabsContent value="history" className="pt-3">
               <ContactHistoryTab contactId={c.id} lookups={lookups} />
             </TabsContent>

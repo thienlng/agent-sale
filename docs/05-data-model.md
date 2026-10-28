@@ -154,6 +154,13 @@ fb_posts(id, workspace_id, channel_connection_id, external_post_id, message, aut
 - `bot_products(workspace_id, bot_id, product_id)` is the selection (owned by the `commerce` module). Composite foreign keys to `bots(workspace_id, id)` and `products(workspace_id, id)` (`products(workspace_id, id)` is unique for this) with `ON DELETE CASCADE`, forced RLS. A selection can only name a bot and products of its own workspace.
 - Archived products stay selected but are never offered; orders snapshot their lines, so removing a selection never touches past orders.
 
+**Conversation customers (T-088, migration 0030, ADR-012):**
+
+- `conversations.contact_id` is the conversation's CRM customer. A composite foreign key `(workspace_id, contact_id) → contacts(workspace_id, id)` (`contacts(workspace_id, id)` is unique for this) with `ON DELETE SET NULL (contact_id)`, so a conversation can only point at a customer of its own business. Like `bot_id`, the column is the truth and the document never overrides it. Partial index `(workspace_id, contact_id) where contact_id is not null`.
+- It is set by staff (`PUT /conversations/{id}/contact`), by a website lead (`linkLead`) and by the first phone number a Facebook/Instagram customer sends (find-or-create by the E.164 phone, so one phone is one customer per business across pages and channels). Placeholder numbers never link.
+- `contact_bots(workspace_id, contact_id, bot_id, first_seen_at)` lists every bot that answered a conversation linked to the customer (owned by `crm`; forced RLS). It is history: a page moved to another bot adds the new bot and keeps the old one, and there is no key to `bots` (like analytics facts). It backs the customer filter `botId has_any | has_none`.
+- The migration links website conversations whose document already carries `lead.contactId` of the same business, and records their bots.
+
 ## 5. CRM
 
 ```sql

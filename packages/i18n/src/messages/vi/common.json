@@ -879,7 +879,8 @@
         "between": "trong khoảng"
       },
       "field": {
-        "tagId": "Tag"
+        "tagId": "Tag",
+        "botId": "Bot đã tư vấn"
       },
       "fieldLabel": "Trường",
       "operator": "Phép so sánh"
@@ -934,6 +935,7 @@
       "tabs": {
         "overview": "Tổng quan",
         "details": "Chi tiết",
+        "conversations": "Hội thoại",
         "history": "Lịch sử",
         "files": "Files"
       },
@@ -1063,6 +1065,16 @@
       "on": "Đang bật",
       "noMembers": "Chưa có thành viên. Mời Sales ở trang Thành viên.",
       "share": "{{percent}}%"
+    },
+    "conversations": {
+      "loading": "Đang tải hội thoại…",
+      "retry": "Thử lại",
+      "empty": "Chưa có hội thoại nào gắn với khách hàng này.",
+      "provider": {
+        "facebook": "Facebook",
+        "instagram": "Instagram",
+        "website": "Website"
+      }
     }
   },
   "team": {
