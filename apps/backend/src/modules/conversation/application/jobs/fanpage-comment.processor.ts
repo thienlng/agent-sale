@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { newId, foldVietnamese, exposesContactDetails } from '@agent-sales/shared';
 import {
   CHANNEL_FACADE,
@@ -17,6 +17,7 @@ type CommentSettings = Awaited<ReturnType<FanpageFacade['settings']>>;
 /** Comments are independent jobs, never collapsed into a customer's Messenger burst. */
 @Injectable()
 export class FanpageCommentProcessor {
+  private readonly logger = new Logger(FanpageCommentProcessor.name);
   constructor(
     @Inject(CHANNEL_FACADE) private readonly channels: ChannelFacade,
     @Inject(FANPAGE_FACADE) private readonly pages: FanpageFacade,
@@ -104,9 +105,15 @@ export class FanpageCommentProcessor {
     try {
       await this.answer(job, connection.botId, { comment, context, settings }, progress);
     } finally {
-      await (progress.posted
-        ? this.billing.captureReply(ws, key)
-        : this.billing.releaseReply(ws, key));
+      // A meter failure must neither fail a posted reply (it would be retried) nor hide the
+      // original error; an unreleased reservation stops holding allowance after its TTL.
+      await (
+        progress.posted ? this.billing.captureReply(ws, key) : this.billing.releaseReply(ws, key)
+      ).catch(() =>
+        this.logger.error(
+          `Fanpage comment ${comment.commentId}: the message meter was not updated`,
+        ),
+      );
     }
   }
 
