@@ -35,10 +35,10 @@ The bot workspace menu no longer shows the image library, and the integrations e
 
 ## Acceptance criteria
 
-- [ ] No navigation path leads to the image library; `/app/bots/$botId/media` redirects to the bot home.
-- [ ] Bots can still send image attachments that were uploaded before.
-- [ ] Navigation tests updated; `pnpm check` green.
-- [ ] vi/en strings updated; docs/03 screen map updated.
+- [x] No navigation path leads to the image library; `/app/bots/$botId/media` redirects to the bot home.
+- [x] Bots can still send image attachments that were uploaded before.
+- [x] Navigation tests updated; `pnpm check` green.
+- [x] vi/en strings updated; docs/03 screen map updated.
 
 ## Plan
 
@@ -54,6 +54,7 @@ Risk: owners can no longer upload new images to the library; quick replies still
 ## Log
 
 - 2026-10-27 — created from the review ("xoá thư viện ảnh", "đổi tích hợp -> tích hợp kênh"). Navigation-only removal decided by the user.
+- 2026-10-28 — Image library removed from both bot menus; `/app/bots/$botId/media` redirects to the bot home (`beforeLoad`). Bot integrations nav label and page title are now "Tích hợp kênh" / "Channel integrations"; unused `space.nav.media` key dropped. Media API, `MediaLibrary` and existing images untouched: the quick-reply picker still lists library images and accepts an HTTPS link, and bot replies keep their attachments. e2e: the media-folder flow became a redirect check; all 35 e2e and 372 unit tests green; gate green. Follow-up for the reviewer: owners can no longer add images to the library, decide later whether `MediaLibrary` should be deleted or moved elsewhere.
 
 ## Links
 

@@ -49,8 +49,8 @@ test('bot switch persists and training destinations explain their different purp
   await page.screenshot({ path: '/tmp/lane-b-training-facts.png' });
   await page.getByRole('link', { name: 'Thiết lập cách bot trả lời' }).click();
   await expect(page.getByRole('heading', { name: 'Bot cần trả lời như thế nào?' })).toBeVisible();
-  await page.getByRole('link', { name: 'Fanpage và kênh', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Quản lý fanpage và kênh' })).toBeVisible();
+  await page.getByRole('link', { name: 'Tích hợp kênh', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Tích hợp kênh' })).toBeVisible();
   await page.getByRole('link', { name: 'Xem tất cả trang và bot' }).click();
   await expect(page).toHaveURL(/\/app\/channels$/);
   await expect(
