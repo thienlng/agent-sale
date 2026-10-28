@@ -4,10 +4,10 @@ title: Move subscription and message quota ownership to the account
 status: backlog
 type: feature
 priority: P1
-owner:
+owner: "@agent:claude"
 feature_ids: []
 created: 2026-10-26
-updated: 2026-10-26
+updated: 2026-10-28
 branch:
 pr:
 parent:
@@ -27,7 +27,7 @@ Move subscription and message quota ownership to the account.
 
 - Implement approved account subscription ownership, versioned plan entitlements and aggregated per-cycle billable message usage across owned businesses.
 - Define billable event, cycle timezone/reset, retries/idempotency, concurrent quota reservation/capture/release, exhaustion behavior and reconciliation.
-- Make message allowance the commercial capacity dimension: remove business/shop/bot quantity caps and inventory inherited staff/contact/training/storage entitlements so old commercial limits do not silently contradict the new package policy. Keep operational validation, pagination and rate protection; explicitly document any separately agreed exception.
+- Make message allowance the commercial capacity dimension: remove business/bot quantity caps and inventory inherited staff/contact/training/storage entitlements so old commercial limits do not silently contradict the new package policy. Keep operational validation, pagination and rate protection; explicitly document any separately agreed exception.
 - Migrate existing subscriptions/counters with explicit handling for multiple paid workspaces and shared business members; preserve financial history.
 
 ## Out of scope
@@ -45,8 +45,8 @@ Move subscription and message quota ownership to the account.
 
 ## Estimate and proposed assignment
 
-- Proposed lane: A. A = user; B = cofounder. These are planning labels, not committed GitHub assignments.
-- Base estimate: 6 person-days including implementation, self-review and task verification. One person-day is approximately six focused engineering hours.
+- Lane: A, owned by @agent:claude since 2026-10-28.
+- Base estimate: 7–9 person-days (no message metering exists today; `ai_runs` over-counts retries).
 - Uncertainty: approximately -30% / +40%; reassess after T-077. No claim that runtime failures have been reproduced during planning.
 - Dependencies: T-077, T-078
 - See the milestone handoff for scheduling, shared contracts, assumptions and exclusions.
@@ -56,6 +56,8 @@ Move subscription and message quota ownership to the account.
 To be filled by the implementer before coding. Scope and acceptance above are the planning contract.
 
 ## Log
+
+- 2026-10-28 — Replanned for lane A, now owned by @agent:claude (user decision, 2026-10-28). Product model agreed with the user: account → business (workspace) → bot → channels. **No separate shop entity**: the bot is the selling unit. The catalog is business-owned and each bot chooses which products it sells. Billable unit: an AI reply delivered to the customer, counted once across retries. When the allowance is exhausted, the bot stops and hands off to staff. Business switching lives in the avatar (account) menu. Code inventory and re-estimate: see the handoff's "Lane A replan" section.
 
 - 2026-10-26 — Created from cofounder review; proposed allocation only. No application changes made.
 
