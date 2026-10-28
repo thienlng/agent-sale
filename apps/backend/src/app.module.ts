@@ -3,6 +3,7 @@ import { ConversationModule } from './modules/conversation/conversation.module.j
 import { Module } from '@nestjs/common';
 
 import { DbModule } from './common/db/db.module.js';
+import { AccountModule } from './modules/account/account.module.js';
 import { ActionModule } from './modules/action/action.module.js';
 import { AiModule } from './modules/ai/ai.module.js';
 import { AnalyticsModule } from './modules/analytics/analytics.module.js';
@@ -26,6 +27,7 @@ import { WorkspaceModule } from './modules/workspace/workspace.module.js';
     DbModule,
     HealthModule,
     IdentityModule,
+    AccountModule,
     WorkspaceModule,
     BotModule,
     ActionModule,

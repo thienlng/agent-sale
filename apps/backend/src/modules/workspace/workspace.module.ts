@@ -2,6 +2,7 @@ import type { Database } from '@agent-sales/db';
 import { Module } from '@nestjs/common';
 
 import { DB_SYSTEM, DB_TENANT } from '../../common/db/db.module.js';
+import { AccountModule } from '../account/account.module.js';
 import { WORKSPACE_FACADE } from './api/workspace.facade.js';
 import { CreateWorkspaceHandler } from './application/commands/create-workspace/create-workspace.handler.js';
 import { ManageMembersHandler } from './application/commands/manage-members/manage-members.handler.js';
@@ -29,6 +30,7 @@ const MEMORY_STORE = Symbol('WORKSPACE_MEMORY_STORE');
  * one store. Exports ONLY what api/ declares.
  */
 @Module({
+  imports: [AccountModule],
   controllers: [WorkspaceController, ProfileController],
   providers: [
     CreateWorkspaceHandler,

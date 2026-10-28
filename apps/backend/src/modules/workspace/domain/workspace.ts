@@ -14,6 +14,8 @@ export interface WorkspaceProps {
   industry: string;
   timezone: string;
   ownerUserId: UserId;
+  /** Owning account (ADR-012). Null only for rows the account backfill has not reached. */
+  accountId: string | null;
   status: 'active' | 'suspended' | 'deleted';
   createdAt: Date;
 }
@@ -31,13 +33,10 @@ export class Workspace extends AggregateRoot {
     name: string;
     industry: string;
     ownerUserId: UserId;
+    accountId: string;
     timezone?: string | undefined;
   }): Workspace {
-    const name = input.name.trim();
-    if (name.length < 1 || name.length > 120)
-      throw new InvalidWorkspaceError('name must be 1–120 characters');
-    const industry = input.industry.trim();
-    if (!industry) throw new InvalidWorkspaceError('industry is required');
+    const { name, industry } = Workspace.validate(input);
     const id = workspaceId(newId());
     const ws = new Workspace({
       id,
@@ -45,6 +44,7 @@ export class Workspace extends AggregateRoot {
       industry,
       timezone: input.timezone ?? 'Asia/Ho_Chi_Minh',
       ownerUserId: input.ownerUserId,
+      accountId: input.accountId,
       status: 'active',
       createdAt: new Date(),
     });
@@ -55,6 +55,16 @@ export class Workspace extends AggregateRoot {
       payload: { ownerUserId: input.ownerUserId, industry },
     });
     return ws;
+  }
+
+  /** Name and industry rules, checked before anything (such as an account) is created. */
+  static validate(input: { name: string; industry: string }): { name: string; industry: string } {
+    const name = input.name.trim();
+    if (name.length < 1 || name.length > 120)
+      throw new InvalidWorkspaceError('name must be 1–120 characters');
+    const industry = input.industry.trim();
+    if (!industry) throw new InvalidWorkspaceError('industry is required');
+    return { name, industry };
   }
 
   /** Rebuild from persistence without re-running creation side effects. */

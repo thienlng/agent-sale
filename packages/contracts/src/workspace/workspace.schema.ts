@@ -11,14 +11,19 @@ export const WorkspaceDto = z.object({
 });
 export type WorkspaceDto = z.infer<typeof WorkspaceDto>;
 
-export const CreateWorkspaceRequest = z.object({
+const WorkspaceFields = z.object({
   name: z.string().trim().min(1).max(120),
   industry: z.string().trim().min(1).max(64),
   timezone: z.string().optional(),
 });
+
+export const CreateWorkspaceRequest = WorkspaceFields.extend({
+  /** Account that owns the new business (ADR-012 §3); the caller must own it. Omitted → their only account. */
+  accountId: z.uuid().optional(),
+});
 export type CreateWorkspaceRequest = z.infer<typeof CreateWorkspaceRequest>;
 
-export const UpdateWorkspaceRequest = CreateWorkspaceRequest.partial();
+export const UpdateWorkspaceRequest = WorkspaceFields.partial();
 export type UpdateWorkspaceRequest = z.infer<typeof UpdateWorkspaceRequest>;
 
 // ─── Business profile and logo (ADM-02, T-056) ───────────────────────────────
