@@ -24,7 +24,7 @@
   },
   "dependencies": {
     "@agent-sales/shared": "workspace:*",
-    "@anthropic-ai/sdk": "^1.2.0",
+    "@anthropic-ai/sdk": "^1.3.0",
     "openai": "^7.43.0",
     "zod": "^4.1.0"
   },

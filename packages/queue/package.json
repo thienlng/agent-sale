@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "@agent-sales/shared": "workspace:*",
-    "bullmq": "^6.0.0"
+    "bullmq": "^6.4.2"
   },
   "devDependencies": {
     "typescript": "^5.8.3",
