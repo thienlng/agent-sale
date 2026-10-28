@@ -10,6 +10,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
+import { accounts } from './account.js';
 import { users } from './identity.js';
 
 /** Postgres `bytea` as a Node Buffer. */
@@ -65,8 +66,14 @@ export const workspaces = pgTable(
     profileUpdatedBy: uuid('profile_updated_by'),
     profileUpdatedAt: timestamp('profile_updated_at', { withTimezone: true }),
     logoAssetId: uuid('logo_asset_id'),
+    /** Owning account (0028, ADR-012). Nullable until the account backfill has run. */
+    accountId: uuid('account_id').references(() => accounts.id),
   },
-  (t) => [index('workspaces_owner_idx').on(t.ownerUserId), ...tenantPolicies('workspaces')],
+  (t) => [
+    index('workspaces_owner_idx').on(t.ownerUserId),
+    index('workspaces_account_idx').on(t.accountId),
+    ...tenantPolicies('workspaces'),
+  ],
 );
 
 export const members = pgTable(

@@ -30,6 +30,8 @@ export const conversations = pgTable(
     status: text('status'),
     customerPhone: text('customer_phone'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    /** Bot currently answering (0028): the channel's bot, updated on rebind. Same-workspace key. */
+    botId: uuid('bot_id'),
   },
   (t) => [
     uniqueIndex('conversation_customer_unique').on(t.workspaceId, t.channelId, t.customerId),

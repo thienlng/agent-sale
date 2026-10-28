@@ -20,6 +20,7 @@ export const channelConnections = pgTable(
     externalId: text('external_id').notNull(),
     name: text('name').notNull(),
     status: text('status').notNull().default('connected'),
+    /** Same-workspace bot only: composite key to bots(workspace_id, id), set null on delete (0028). */
     botId: uuid('bot_id'),
     tokenSealed: text('token_sealed').notNull(),
     /** Provider-specific settings (0025): the widget configuration of a website connection. */
