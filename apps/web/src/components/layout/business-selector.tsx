@@ -1,6 +1,6 @@
 import { useIsMutating } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { Building2, Check, ChevronsUpDown, Loader2, Plus } from 'lucide-react';
+import { Building2, Check, ChevronsUpDown, Loader2, Plus, Settings2 } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -106,6 +106,14 @@ export function BusinessSelector() {
                 <p className="p-2 text-sm text-muted-foreground">{t('business.noResults')}</p>
               ) : null}
             </div>
+            <Link
+              to="/app/overview"
+              onClick={() => setOpen(false)}
+              className="flex min-h-11 items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+            >
+              <Settings2 aria-hidden className="size-4" />
+              {t('business.manageAccount')}
+            </Link>
             <Link
               to="/app/businesses/new"
               onClick={() => setOpen(false)}

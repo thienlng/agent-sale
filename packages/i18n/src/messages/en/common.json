@@ -1469,6 +1469,7 @@
       "creating": "Creating…",
       "denied": "This account cannot create more businesses.",
       "error": "Could not create the business. Try again."
-    }
+    },
+    "manageAccount": "Manage account"
   }
 }

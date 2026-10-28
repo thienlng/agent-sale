@@ -1468,6 +1468,7 @@
       "creating": "Đang tạo…",
       "denied": "Tài khoản hiện không được tạo thêm business.",
       "error": "Không thể tạo business. Thử lại."
-    }
+    },
+    "manageAccount": "Quản lý tài khoản"
   }
 }

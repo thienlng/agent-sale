@@ -69,18 +69,6 @@ export function AccountSidebar() {
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  tooltip={t('nav.newBusiness')}
-                  isActive={pathname === '/app/businesses/new'}
-                >
-                  <Link to="/app/businesses/new" onClick={close}>
-                    <Plus />
-                    <span>{t('nav.newBusiness')}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroup>
           <SidebarGroup>
@@ -98,6 +86,18 @@ export function AccountSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  tooltip={t('nav.newBusiness')}
+                  isActive={pathname === '/app/businesses/new'}
+                >
+                  <Link to="/app/businesses/new" onClick={close}>
+                    <Plus />
+                    <span>{t('nav.newBusiness')}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroup>
           {session?.user.isPlatformAdmin ? (
