@@ -140,7 +140,7 @@ export function selectWorkspace(workspaceId: string): boolean {
 /** Keeps the name and logo shown in the business lists in step with a saved profile edit. */
 export function syncMembership(
   workspaceId: string,
-  profile: { name: string; logoVersion: string | null },
+  profile: { name: string; logoVersion: string | null; icon: string },
 ): void {
   const current = getSession();
   if (!current) return;
@@ -148,7 +148,12 @@ export function syncMembership(
     ...current,
     memberships: current.memberships.map((m) =>
       m.workspaceId === workspaceId
-        ? { ...m, workspaceName: profile.name, logoVersion: profile.logoVersion }
+        ? {
+            ...m,
+            workspaceName: profile.name,
+            logoVersion: profile.logoVersion,
+            icon: profile.icon,
+          }
         : m,
     ),
   });

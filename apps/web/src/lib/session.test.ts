@@ -57,7 +57,7 @@ describe('business selection', () => {
 describe('syncMembership', () => {
   it('shows a saved name and logo in the memberships without touching the others', async () => {
     await authenticate();
-    syncMembership(A, { name: 'Shop Hoa', logoVersion: 'abc123' });
+    syncMembership(A, { name: 'Shop Hoa', logoVersion: 'abc123', icon: 'store' });
     const rows = getSession()?.memberships;
     expect(rows?.map((m) => m.workspaceName)).toEqual(['Shop Hoa', 'Business B']);
     expect(rows?.map((m) => m.logoVersion ?? null)).toEqual(['abc123', null]);

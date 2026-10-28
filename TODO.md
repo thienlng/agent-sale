@@ -4,6 +4,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
+- [ ] T-111 Let a business pick an icon when it has no logo — @agent:claude · [details](todo/T-111-let-a-business-pick-an-icon-when-it-has-no-logo.md) · PR #76
 - [ ] T-110 Show the business logo in the business selector and lists — @agent:claude · [details](todo/T-110-show-the-business-logo-in-the-business-selector-an.md) · PR #76
 - [ ] T-108 Add an account-level portfolio layer with its own navigation — @agent:claude · [details](todo/T-108-add-an-account-level-portfolio-layer-with-its-own-.md)  · issue #74 · PR pending
 - [ ] T-109 Create a new business from the account portfolio — @agent:claude · [details](todo/T-109-create-a-new-business-from-the-account-portfolio.md) · issue #75 · PR pending

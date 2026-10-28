@@ -1260,6 +1260,29 @@
       },
       "enabledToast": "Two-step verification is on",
       "disabledToast": "Two-step verification is off"
+    },
+    "icon": {
+      "title": "Icon",
+      "hint": "Shown next to the business name when it has no logo.",
+      "hintLogo": "The logo is used; this icon only shows if you remove the logo.",
+      "names": {
+        "building": "Building",
+        "store": "Store",
+        "shopping-bag": "Shopping bag",
+        "shirt": "Fashion",
+        "sparkles": "Beauty",
+        "utensils": "Restaurant",
+        "coffee": "Coffee",
+        "home": "Home and furniture",
+        "car": "Cars",
+        "heart-pulse": "Health",
+        "graduation-cap": "Education",
+        "dumbbell": "Sports",
+        "laptop": "Technology",
+        "gem": "Jewelry",
+        "flower": "Flowers and gifts",
+        "baby": "Mother and baby"
+      }
     }
   },
   "analytics": {

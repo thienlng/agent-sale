@@ -56,6 +56,7 @@ export function BusinessSelector() {
                 <BusinessAvatar
                   workspaceId={current.workspaceId}
                   logoVersion={current.logoVersion}
+                  icon={current.icon}
                   className="size-8"
                 />
               ) : (
@@ -103,7 +104,11 @@ export function BusinessSelector() {
                     aria-current={m.workspaceId === session.workspaceId ? 'true' : undefined}
                     className="flex min-h-11 w-full items-center gap-2 rounded-md px-2 py-2 text-left hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60"
                   >
-                    <BusinessAvatar workspaceId={m.workspaceId} logoVersion={m.logoVersion} />
+                    <BusinessAvatar
+                      workspaceId={m.workspaceId}
+                      logoVersion={m.logoVersion}
+                      icon={m.icon}
+                    />
                     <span className="min-w-0 flex-1 break-words">{m.workspaceName}</span>
                     {m.workspaceId === session.workspaceId ? (
                       <Check aria-hidden className="size-4 shrink-0" />

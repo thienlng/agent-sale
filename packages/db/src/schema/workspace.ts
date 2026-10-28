@@ -65,6 +65,8 @@ export const workspaces = pgTable(
     profileUpdatedBy: uuid('profile_updated_by'),
     profileUpdatedAt: timestamp('profile_updated_at', { withTimezone: true }),
     logoAssetId: uuid('logo_asset_id'),
+    /** Picked icon, shown when the business has no logo (0028). */
+    icon: text('icon').notNull().default('building'),
   },
   (t) => [index('workspaces_owner_idx').on(t.ownerUserId), ...tenantPolicies('workspaces')],
 );

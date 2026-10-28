@@ -62,6 +62,8 @@ export const MembershipDto = z.object({
   role: z.string(),
   /** Changes with the business logo; absent or null when it has none (fetch `GET /workspace/logo`). */
   logoVersion: z.string().nullable().optional(),
+  /** Icon shown when there is no logo (one of `BUSINESS_ICONS`). */
+  icon: z.string().optional(),
 });
 export type MembershipDto = z.infer<typeof MembershipDto>;
 

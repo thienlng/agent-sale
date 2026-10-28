@@ -82,7 +82,11 @@ export function AccountSidebar() {
                     disabled={busy}
                     onClick={() => void choose(m.workspaceId).then((ok) => ok && close())}
                   >
-                    <BusinessAvatar workspaceId={m.workspaceId} logoVersion={m.logoVersion} />
+                    <BusinessAvatar
+                      workspaceId={m.workspaceId}
+                      logoVersion={m.logoVersion}
+                      icon={m.icon}
+                    />
                     <span className="truncate">{m.workspaceName}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

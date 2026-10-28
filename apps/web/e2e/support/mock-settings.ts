@@ -21,6 +21,7 @@ export function settingsRoute(path: string): unknown {
       companyName: LONG,
       businessServices: LONG.repeat(3),
       productDescription: LONG.repeat(6),
+      icon: 'building',
       hasLogo: false,
       logoVersion: null,
       version: 4,
