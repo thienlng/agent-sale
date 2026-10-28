@@ -7,6 +7,10 @@ const at = '2026-10-28T08:00:00.000Z';
 
 async function setup(page: Page, industry = 'hotel') {
   await mockApi(page);
+  // With two businesses the user chooses one (T-079); these tests start from a remembered A.
+  await page.addInitScript((id) => {
+    if (!localStorage.getItem('rapiz.workspace')) localStorage.setItem('rapiz.workspace', id);
+  }, A);
   await page.route('**/api/v1/bootstrap', (route) =>
     route.fulfill({
       json: {

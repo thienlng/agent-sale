@@ -44,7 +44,8 @@ test('edit the profile, upload and remove a logo, see it in the audit trail', as
   await page.reload();
   await expect(page.getByAltText('Logo của shop')).toBeVisible();
   await page.getByRole('button', { name: 'Gỡ logo' }).click();
-  await expect(page.getByText('Chưa có logo')).toBeVisible();
+  // Exact: the icon picker's hint (T-129) also mentions "chưa có logo".
+  await expect(page.getByText('Chưa có logo', { exact: true })).toBeVisible();
 
   await page.goto('/app/settings/audit');
   await expect(page.getByText('Cập nhật hồ sơ shop').first()).toBeVisible();
