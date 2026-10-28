@@ -1455,6 +1455,21 @@
     "switching": "Switching business…",
     "waitForSave": "Wait for the current save before switching business.",
     "switchError": "Could not switch business. Try again.",
-    "account": "Personal account"
+    "account": "Personal account",
+    "switch": "Switch business",
+    "noAccount": "Other businesses",
+    "pickTitle": "Choose a business",
+    "pickSubtitle": "You work in several businesses. Choose the one to manage now; you can switch later from your account menu.",
+    "lost": "You no longer have access to that business. Choose another one.",
+    "create": "Create business",
+    "createTitle": "Create a business",
+    "createSubtitle": "Each business has its own bots, channels, customers and products.",
+    "welcomeTitle": "Create your first business",
+    "welcomeSubtitle": "You are not part of any business yet. Create one to start selling with an AI bot.",
+    "name": "Business name",
+    "accountLabel": "Account",
+    "creating": "Creating…",
+    "createError": "Could not create the business. Try again.",
+    "back": "Back"
   }
 }

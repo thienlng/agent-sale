@@ -1,4 +1,5 @@
 import {
+  type AccountMembershipDto,
   AuthResponse,
   BootstrapResponse,
   type LoginRequest,
@@ -15,6 +16,7 @@ import {
   setAccessToken,
   setSessionExpiredHandler,
   setWorkspaceId,
+  setWorkspaceLostHandler,
 } from './api-client';
 import { storage } from './storage';
 
@@ -24,7 +26,10 @@ import { storage } from './storage';
  */
 export interface Session {
   user: UserDto;
+  /** Accounts the user owns or bills for: where they can create a business. */
+  accounts: AccountMembershipDto[];
   memberships: MembershipDto[];
+  /** Null when the user has no business, or several and has not chosen one yet. */
   workspaceId: string | null;
 }
 
@@ -62,14 +67,20 @@ export function useSession(): Session | null {
 async function load(auth: AuthResponse): Promise<Session> {
   setAccessToken(auth.accessToken);
   const boot = await api('/bootstrap', BootstrapResponse, { workspaceScoped: false });
-  const remembered = storage.get(WORKSPACE_KEY);
-  const workspaceId =
-    boot.memberships.find((m) => m.workspaceId === remembered)?.workspaceId ??
-    boot.memberships[0]?.workspaceId ??
-    null;
-  const next = { user: boot.user, memberships: boot.memberships, workspaceId };
+  const next = fromBootstrap(boot, storage.get(WORKSPACE_KEY));
   set(next);
   return next;
+}
+
+/**
+ * The preferred business if the user is still a member of it, else their only business.
+ * With several businesses and no valid preference the user chooses (/businesses).
+ */
+function fromBootstrap(boot: BootstrapResponse, preferred: string | null | undefined): Session {
+  const workspaceId =
+    boot.memberships.find((m) => m.workspaceId === preferred)?.workspaceId ??
+    (boot.memberships.length === 1 ? (boot.memberships[0]?.workspaceId ?? null) : null);
+  return { user: boot.user, accounts: boot.accounts, memberships: boot.memberships, workspaceId };
 }
 
 /** Returns the current session, restoring it from the refresh cookie after a reload. */
@@ -119,12 +130,7 @@ export async function reloadSession(workspaceId?: string): Promise<Session | nul
   const current = getSession();
   if (!current) return null;
   const boot = await api('/bootstrap', BootstrapResponse, { workspaceScoped: false });
-  const target = boot.memberships.find((m) => m.workspaceId === workspaceId)?.workspaceId;
-  const next = {
-    user: boot.user,
-    memberships: boot.memberships,
-    workspaceId: target ?? current.workspaceId ?? boot.memberships[0]?.workspaceId ?? null,
-  };
+  const next = fromBootstrap(boot, workspaceId ?? current.workspaceId);
   set(next);
   return next;
 }
@@ -151,5 +157,27 @@ export function onSessionExpired(handler: () => void): void {
   setSessionExpiredHandler(() => {
     set(null);
     handler();
+  });
+}
+
+/**
+ * Called when the server says the user lost access to a business (removed, or the business
+ * is gone). The session is reloaded; the handler runs when the current business was the one lost.
+ */
+export function onWorkspaceLost(handler: () => void): void {
+  let reloading = false;
+  setWorkspaceLostHandler((lost) => {
+    const current = getSession();
+    // Several queries fail at once; one reload answers them all.
+    if (!current || reloading) return;
+    reloading = true;
+    void reloadSession()
+      .then((next) => {
+        if (current.workspaceId === lost && next?.workspaceId !== lost) handler();
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        reloading = false;
+      });
   });
 }

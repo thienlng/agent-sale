@@ -27,6 +27,8 @@ import { Route as AppMembersRouteImport } from './routes/app/members'
 import { Route as AppOrderSettingsRouteImport } from './routes/app/order-settings'
 import { Route as AppOverviewRouteImport } from './routes/app/overview'
 import { Route as AppSettingsRouteImport } from './routes/app/settings'
+import { Route as BusinessesIndexRouteImport } from './routes/businesses/index'
+import { Route as BusinessesNewRouteImport } from './routes/businesses/new'
 import { Route as AppBotsIndexRouteImport } from './routes/app/bots/index'
 import { Route as AppBotsBotIdRouteImport } from './routes/app/bots/$botId'
 import { Route as AppCrmSettingsIndexRouteImport } from './routes/app/crm-settings/index'
@@ -152,6 +154,16 @@ const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
   getParentRoute: () => AppRoute,
+} as any)
+const BusinessesIndexRoute = BusinessesIndexRouteImport.update({
+  id: '/businesses/',
+  path: '/businesses/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BusinessesNewRoute = BusinessesNewRouteImport.update({
+  id: '/businesses/new',
+  path: '/businesses/new',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AppBotsIndexRoute = AppBotsIndexRouteImport.update({
   id: '/bots/',
@@ -354,8 +366,10 @@ export interface FileRoutesByFullPath {
   '/app/order-settings': typeof AppOrderSettingsRouteWithChildren
   '/app/overview': typeof AppOverviewRoute
   '/app/settings': typeof AppSettingsRouteWithChildren
+  '/businesses/new': typeof BusinessesNewRoute
   '/admin/': typeof AdminIndexRoute
   '/app/': typeof AppIndexRoute
+  '/businesses/': typeof BusinessesIndexRoute
   '/app/bots/$botId': typeof AppBotsBotIdRouteWithChildren
   '/app/crm-settings/distribution': typeof AppCrmSettingsDistributionRoute
   '/app/crm-settings/sources': typeof AppCrmSettingsSourcesRoute
@@ -404,8 +418,10 @@ export interface FileRoutesByTo {
   '/app/inbox': typeof AppInboxRoute
   '/app/members': typeof AppMembersRoute
   '/app/overview': typeof AppOverviewRoute
+  '/businesses/new': typeof BusinessesNewRoute
   '/admin': typeof AdminIndexRoute
   '/app': typeof AppIndexRoute
+  '/businesses': typeof BusinessesIndexRoute
   '/app/crm-settings/distribution': typeof AppCrmSettingsDistributionRoute
   '/app/crm-settings/sources': typeof AppCrmSettingsSourcesRoute
   '/app/crm-settings/statuses': typeof AppCrmSettingsStatusesRoute
@@ -459,8 +475,10 @@ export interface FileRoutesById {
   '/app/order-settings': typeof AppOrderSettingsRouteWithChildren
   '/app/overview': typeof AppOverviewRoute
   '/app/settings': typeof AppSettingsRouteWithChildren
+  '/businesses/new': typeof BusinessesNewRoute
   '/admin/': typeof AdminIndexRoute
   '/app/': typeof AppIndexRoute
+  '/businesses/': typeof BusinessesIndexRoute
   '/app/bots/$botId': typeof AppBotsBotIdRouteWithChildren
   '/app/crm-settings/distribution': typeof AppCrmSettingsDistributionRoute
   '/app/crm-settings/sources': typeof AppCrmSettingsSourcesRoute
@@ -516,8 +534,10 @@ export interface FileRouteTypes {
     | '/app/order-settings'
     | '/app/overview'
     | '/app/settings'
+    | '/businesses/new'
     | '/admin/'
     | '/app/'
+    | '/businesses/'
     | '/app/bots/$botId'
     | '/app/crm-settings/distribution'
     | '/app/crm-settings/sources'
@@ -566,8 +586,10 @@ export interface FileRouteTypes {
     | '/app/inbox'
     | '/app/members'
     | '/app/overview'
+    | '/businesses/new'
     | '/admin'
     | '/app'
+    | '/businesses'
     | '/app/crm-settings/distribution'
     | '/app/crm-settings/sources'
     | '/app/crm-settings/statuses'
@@ -620,8 +642,10 @@ export interface FileRouteTypes {
     | '/app/order-settings'
     | '/app/overview'
     | '/app/settings'
+    | '/businesses/new'
     | '/admin/'
     | '/app/'
+    | '/businesses/'
     | '/app/bots/$botId'
     | '/app/crm-settings/distribution'
     | '/app/crm-settings/sources'
@@ -666,6 +690,8 @@ export interface RootRouteChildren {
   JoinRoute: typeof JoinRoute
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
+  BusinessesNewRoute: typeof BusinessesNewRoute
+  BusinessesIndexRoute: typeof BusinessesIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -795,6 +821,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/app/settings'
       preLoaderRoute: typeof AppSettingsRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/businesses/': {
+      id: '/businesses/'
+      path: '/businesses'
+      fullPath: '/businesses/'
+      preLoaderRoute: typeof BusinessesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/businesses/new': {
+      id: '/businesses/new'
+      path: '/businesses/new'
+      fullPath: '/businesses/new'
+      preLoaderRoute: typeof BusinessesNewRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/app/bots/': {
       id: '/app/bots/'
@@ -1200,6 +1240,8 @@ const rootRouteChildren: RootRouteChildren = {
   JoinRoute: JoinRoute,
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
+  BusinessesNewRoute: BusinessesNewRoute,
+  BusinessesIndexRoute: BusinessesIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

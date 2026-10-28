@@ -1,13 +1,15 @@
 import type { Locale } from '@agent-sales/i18n';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { ChevronsUpDown, Languages, LogOut } from 'lucide-react';
+import { Building2, Check, ChevronsUpDown, Languages, LogOut, Plus } from 'lucide-react';
+import { Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
@@ -24,16 +26,22 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '@/components/ui/sidebar';
+import { useBusinessSwitch } from '@/hooks/use-business-switch';
+import { groupByAccount } from '@/lib/business-groups';
 import { setLocale } from '@/lib/i18n';
 import { logout, useSession } from '@/lib/session';
 
-/** Account menu in the sidebar footer: who is signed in, language, log out. */
+/**
+ * Account menu in the sidebar footer: who is signed in, switching or creating a business
+ * (grouped by the account that owns it), language, log out.
+ */
 export function NavUser() {
   const { t, i18n } = useTranslation();
   const session = useSession();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { isMobile } = useSidebar();
+  const { isMobile, setOpenMobile } = useSidebar();
+  const { busy, choose } = useBusinessSwitch();
   if (!session) return null;
   const { user } = session;
   const initials = user.name
@@ -73,6 +81,44 @@ export function NavUser() {
               <span className="block truncate text-xs text-muted-foreground">{user.email}</span>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <Building2 />
+                {t('business.switch')}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="max-h-96 w-64 overflow-y-auto">
+                {groupByAccount(session.memberships).map((group, i) => (
+                  <Fragment key={group.accountId ?? 'none'}>
+                    {i > 0 ? <DropdownMenuSeparator /> : null}
+                    <DropdownMenuGroup>
+                      <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+                        {group.accountName ?? t('business.noAccount')}
+                      </DropdownMenuLabel>
+                      {group.businesses.map((m) => (
+                        <DropdownMenuItem
+                          key={m.workspaceId}
+                          disabled={busy}
+                          aria-current={m.workspaceId === session.workspaceId ? 'true' : undefined}
+                          onSelect={() => {
+                            void choose(m.workspaceId).then((done) => {
+                              if (done && isMobile) setOpenMobile(false);
+                            });
+                          }}
+                        >
+                          <span className="min-w-0 flex-1 truncate">{m.workspaceName}</span>
+                          {m.workspaceId === session.workspaceId ? <Check aria-hidden /> : null}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuGroup>
+                  </Fragment>
+                ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => void navigate({ to: '/businesses/new' })}>
+                  <Plus />
+                  {t('business.create')}
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
                 <Languages />

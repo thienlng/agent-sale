@@ -10,6 +10,7 @@ import type { z } from 'zod';
 let accessToken: string | null = null;
 let workspaceId: string | null = null;
 let onSessionExpired: () => void = () => {};
+let onWorkspaceLost: (workspaceId: string) => void = () => {};
 
 export function setAccessToken(token: string | null): void {
   accessToken = token;
@@ -22,6 +23,11 @@ export function getWorkspaceId(): string | null {
 }
 export function setSessionExpiredHandler(handler: () => void): void {
   onSessionExpired = handler;
+}
+
+/** Called when the server says the user is no longer a member of the business a request named. */
+export function setWorkspaceLostHandler(handler: (workspaceId: string) => void): void {
+  onWorkspaceLost = handler;
 }
 
 export class ApiClientError extends Error {
@@ -121,7 +127,18 @@ async function request(
       onSessionExpired();
     }
   }
+  if (res.status === 404 && scope && (await lostWorkspace(res))) onWorkspaceLost(scope);
   return res;
+}
+
+/** A 404 from the workspace guard (not a missing resource): the membership is gone. */
+async function lostWorkspace(res: Response): Promise<boolean> {
+  const json: unknown = await res
+    .clone()
+    .json()
+    .catch(() => null);
+  const parsed = ErrorResponse.safeParse(json);
+  return parsed.success && parsed.data.error.details?.['reason'] === 'workspace_access';
 }
 
 export async function api<T>(
