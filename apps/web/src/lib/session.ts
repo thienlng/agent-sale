@@ -78,7 +78,7 @@ async function load(auth: AuthResponse): Promise<Session> {
 
 /**
  * The preferred business if the user is still a member of it, else their only business.
- * With several businesses and no valid preference the user chooses (/businesses).
+ * With several businesses and no valid preference the user chooses on the account overview.
  */
 function fromBootstrap(boot: BootstrapResponse, preferred: string | null | undefined): Session {
   const workspaceId =
