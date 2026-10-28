@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
 
 import { AppShell } from '@/components/app-shell';
+import { MessageUsageBanner } from '@/features/billing/components/message-usage-banner';
 import { ensureSession } from '@/lib/session';
 
 /**
@@ -19,6 +20,7 @@ export const Route = createFileRoute('/app')({
   },
   component: () => (
     <AppShell>
+      <MessageUsageBanner />
       <Outlet />
     </AppShell>
   ),

@@ -32,6 +32,8 @@ export type GivenRole = 'admin' | 'sales' | 'care' | 'analyst';
  */
 export interface WorkspaceFacade {
   getById(workspaceId: WorkspaceId): Promise<WorkspaceDto>;
+  /** The account that owns the business (ADR-012); null until the account backfill linked it. */
+  accountOf(workspaceId: WorkspaceId): Promise<string | null>;
   createWorkspace(input: {
     name: string;
     industry: string;

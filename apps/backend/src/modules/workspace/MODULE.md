@@ -6,7 +6,7 @@
 
 **Public API (`api/`):**
 
-- `WORKSPACE_FACADE` → `WorkspaceFacade.getById(workspaceId)`, `createWorkspace({ name, industry, ownerUserId, accountId? })` (the business goes under an account the owner owns, resolved by the `account` facade, ADR-012), `findMembership`, `listMemberships`, `listMembers`, `joinMember`, `changeMemberRole`, `removeMember`, `countActive`
+- `WORKSPACE_FACADE` → `WorkspaceFacade.getById(workspaceId)`, `createWorkspace({ name, industry, ownerUserId, accountId? })` (the business goes under an account the owner owns, resolved by the `account` facade, ADR-012), `findMembership`, `listMemberships`, `listMembers`, `joinMember`, `changeMemberRole`, `removeMember`, `countActive`, `accountOf(workspaceId)` (the owning account id, `null` before the account backfill; used by billing)
 - HTTP: `/workspace/profile` (GET any member, PATCH `settings.manage`), `/workspace/logo` (GET any member; PUT/DELETE `settings.manage`)
 - Events: `workspace.workspace.created.v1` (see `packages/contracts/src/workspace/workspace.events.ts`)
 

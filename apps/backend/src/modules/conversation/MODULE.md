@@ -24,6 +24,7 @@
 - A staff send or an unmatched Meta echo pauses the bot (`mode: human`, optional auto-resume per bot settings). A bot reply is dropped if control or revision changed after generation.
 - The echo of an uncertain (`unknown`/`pending`) send is matched by text and attachment count, not treated as a staff reply.
 - Only a customer message opens the 24-hour window. A message is either text or one HTTPS attachment.
+- Metering (T-091, ADR-012 §5): before asking the AI, a customer reply reserves one unit of the account's allowance through the `billing` facade, keyed by the reply's outbound idempotency key (`bot:<event id>`, `comment:<comment id>`), so retries count once. A `sent` reply captures it; a failed delivery, an AI error or a dropped reply releases it; an unknown/pending delivery keeps the reservation until it expires (15 min). With the allowance spent, the AI is not called: Messenger/Instagram/website get the bot's hand-off message and the conversation switches to `human`; a fanpage comment goes to staff review. Media-only and provenance hand-offs are not billed.
 - Failed processing retries after 20 s, then 60 s; after the last attempt the conversation is handed to staff.
 
 - Read state is shared by the shop and never bumps `revision` or `updatedAt`. `awaitingSince` is set by a customer message and cleared by any outbound one (human, bot or staff echo).

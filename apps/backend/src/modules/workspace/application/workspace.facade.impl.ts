@@ -28,6 +28,10 @@ export class WorkspaceFacadeImpl implements WorkspaceFacade {
     return this.get.execute(workspaceId);
   }
 
+  accountOf(workspaceId: WorkspaceId): Promise<string | null> {
+    return this.get.accountOf(workspaceId);
+  }
+
   createWorkspace(input: {
     name: string;
     industry: string;

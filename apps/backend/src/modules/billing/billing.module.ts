@@ -2,6 +2,7 @@ import type { Database } from '@agent-sales/db';
 import { Module } from '@nestjs/common';
 
 import { DB_SYSTEM, DB_TENANT } from '../../common/db/db.module.js';
+import { WorkspaceModule } from '../workspace/workspace.module.js';
 import { BILLING_FACADE } from './api/billing.facade.js';
 import { BillingService } from './application/billing.service.js';
 import { BILLING_STORE } from './application/ports/billing-store.js';
@@ -9,8 +10,9 @@ import { DrizzleBillingStore } from './infrastructure/persistence/billing.drizzl
 import { UnavailableBillingStore } from './infrastructure/persistence/unavailable-store.js';
 import { BillingController } from './interface/http/billing.controller.js';
 
-/** Plans, subscriptions and entitlements (docs/08). Needs a database. */
+/** Plans, subscriptions, entitlements and the message allowance (docs/08). Needs a database. */
 @Module({
+  imports: [WorkspaceModule],
   controllers: [BillingController],
   providers: [
     {

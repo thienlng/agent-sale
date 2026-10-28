@@ -1,14 +1,14 @@
 ---
 id: T-091
 title: Move subscription and message quota ownership to the account
-status: backlog
+status: review
 type: feature
 priority: P1
 owner: "@agent:claude"
 feature_ids: []
 created: 2026-10-26
 updated: 2026-10-28
-branch:
+branch: feat/T-089-crm-links-and-account-billing
 pr:
 parent:
 ---
@@ -36,12 +36,12 @@ Move subscription and message quota ownership to the account.
 
 ## Acceptance criteria
 
-- [ ] Two businesses consume one account allowance without double-counting provider retries; concurrent sends cannot exceed the approved quota semantics.
-- [ ] Boundary, failure, reset and exhaustion tests pass; manual/handoff behavior at exhaustion matches the approved commercial policy.
-- [ ] Creating additional businesses, shops or bots is not blocked by quantity entitlements; existing subscription migration reconciles before/after totals.
-- [ ] Update billing/tenancy design and ADRs; do not reinterpret or rewrite historical ledger entries.
-- [ ] Add/update meaningful regression coverage, permission and scope checks where applicable; `pnpm check` passes before implementation is complete.
-- [ ] Update impacted docs and vi/en product strings; include migration and operational notes where applicable.
+- [x] Two businesses consume one account allowance without double-counting provider retries; concurrent sends cannot exceed the approved quota semantics.
+- [x] Boundary, failure, reset and exhaustion tests pass; manual/handoff behavior at exhaustion matches the approved commercial policy.
+- [x] Creating additional businesses, shops or bots is not blocked by quantity entitlements; existing subscription migration reconciles before/after totals.
+- [x] Update billing/tenancy design and ADRs; do not reinterpret or rewrite historical ledger entries.
+- [x] Add/update meaningful regression coverage, permission and scope checks where applicable; `pnpm check` passes before implementation is complete.
+- [x] Update impacted docs and vi/en product strings; include migration and operational notes where applicable.
 
 ## Estimate and proposed assignment
 
@@ -53,9 +53,30 @@ Move subscription and message quota ownership to the account.
 
 ## Plan
 
-To be filled by the implementer before coding. Scope and acceptance above are the planning contract.
+1. **Schema (migration 0031).** Add `account_subscriptions`, `account_entitlement_overrides` and `message_usage`, reachable through app_system only.
+2. **Resolution.** Billing resolves the account subscription and its overrides first, then falls back to the business's subscription, then to `free`. The account of a business comes from the new workspace facade `accountOf`.
+3. **Meter.** Reserve under a per-account advisory lock, capture when the reply is `sent`, release on failure. A reservation expires after 15 minutes. The key is the outbound idempotency key.
+4. **Wiring.** Wire the meter into `MetaInboxProcessor` (Messenger, Instagram, website) and `FanpageCommentProcessor`. When the allowance is exhausted, hand off to staff (comments go to staff review).
+5. **API and UI.** Add `GET /billing/usage` and a dashboard banner (vi/en).
+6. **Backfill.** The `account-backfill` CLI copies each account's paid workspace subscription to the account (most expensive plan wins), reports conflicts and never changes workspace subscriptions.
+7. **Inventory.** Inventory the inherited plan keys; nothing new is enforced or removed.
 
 ## Log
+
+- 2026-10-28 — Implemented (migration 0031, billing meter, conversation wiring, `GET /billing/usage`, banner, subscription backfill).
+  - Decisions are in ADR-012 §5 implementation notes and docs/08 §4a:
+    - free cycles use a fixed anchor at Vietnam midnight;
+    - a delivery that ends unknown is not counted after 15 minutes;
+    - fanpage comment replies are billed;
+    - a business without an account is unmetered;
+    - a plan without `ai.included_messages` allows 0 replies.
+  - No business, shop or bot quantity caps exist to remove. Only `members.max` is enforced, and it is kept.
+  - The integration test found that raw `Date` parameters in `sql` templates crash postgres-js; fixed with typed operators.
+  - Tests:
+    - `packages/db/src/account-billing.integration.test.ts`
+    - `apps/backend/test/billing-usage.integration.spec.ts`
+    - billing and processor unit tests
+    - banner component test
 
 - 2026-10-28 — Replanned for lane A, now owned by @agent:claude (user decision, 2026-10-28). Product model agreed with the user: account → business (workspace) → bot → channels. **No separate shop entity**: the bot is the selling unit. The catalog is business-owned and each bot chooses which products it sells. Billable unit: an AI reply delivered to the customer, counted once across retries. When the allowance is exhausted, the bot stops and hands off to staff. Business switching lives in the avatar (account) menu. Code inventory and re-estimate: see the handoff's "Lane A replan" section.
 

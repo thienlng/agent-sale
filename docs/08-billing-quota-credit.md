@@ -61,6 +61,20 @@ The "Hạn mức sử dụng" (Usage limits) screen shows: training data, member
 
 Behavior when hitting quota: warnings at 80% and 100% (in-app + email); exceeding the plan's included AI messages → deduct from the AI wallet; wallet = 0 → the bot stops AI replies, switches to handoff, red banner. **Never leave the end customer waiting indefinitely** — send a "staff will reply soon" message (configurable).
 
+### 4a. Implemented: the account owns the subscription and the message allowance (T-091, ADR-012 §5)
+
+- **Ownership.** `account_subscriptions` (one per account) and `account_entitlement_overrides` hold what the account pays for; every business of the account resolves its entitlements from them. Until the backfill has copied an account's subscription, a business falls back to its own `subscriptions` row, then to `free`. Account overrides apply first, business overrides last (they are per business by nature, e.g. grandfathered seats).
+- **Messages are the only commercial capacity.** The account's `ai.included_messages` allowance is shared by all its businesses. A plan without the key allows no AI reply (deny by default). There are no business, shop or bot quantity caps.
+- **Billable event.** One AI reply delivered to the customer (`sent`), keyed by its outbound idempotency key (`bot:<event id>` for Messenger/Instagram/website, `comment:<comment id>` for fanpage comments), so provider retries and re-runs count once. Staff, inbound, echo, playground, media-only hand-off and provenance hand-off messages are not billed. `ai_runs` is not the meter.
+- **Meter.** `message_usage` (one row per reply, `reserved → captured | released`) replaces the planned `usage_counters` row for AI messages. Reserve before generating (per-account advisory lock, so concurrent replies of all businesses never exceed the allowance), capture on `sent`, release on a failed delivery, an AI error or a dropped reply. An `unknown`/`pending` delivery keeps its reservation, which stops holding allowance after 15 minutes: the reply is then not counted (customer-favourable). A stale reservation that is captured later can exceed the allowance by that one reply.
+- **Cycles.** A paid account's cycles start at `cycle_anchor` (the copied `current_period_start`) and last `periodDays` days (24 h each). Accounts have no time zone yet, so free accounts use a fixed anchor at 00:00 Vietnam time (`2026-01-01T00:00+07:00`) with the free plan's 14-day cycles. A new cycle starts from zero; old rows stay for audit.
+- **Exhaustion.** The AI is not called. Messenger/Instagram/website customers get the bot's hand-off message and the conversation switches to `human`; a fanpage comment goes to staff review. The dashboard shows a red banner (warning banner from 80%), from `GET /billing/usage`.
+- **Not metered.** A business without an account (before the account backfill) is not metered.
+
+**Inherited plan keys (inventory, T-091).** Only `members.max` is enforced (team module; kept, ADR-012 open question 1). `channels.max`, `contacts.max`, `storage.bytes`, `media.max` and `knowledge_items.max` are defined in the seeded plans but enforced nowhere; they stay in the plan rows (published plan versions are never rewritten) and must not be enforced without a product decision. `feature.*` and `ai.models.allowed` are unchanged.
+
+**Operations.** Run `pnpm --filter @agent-sales/backend account-backfill --dry-run`, then without `--dry-run`: after linking businesses to accounts it copies each account's paid workspace subscription (active, trialing or past due) to the account. With several paid businesses the most expensive plan wins (highest monthly price, then the latest period end); the others are listed as conflicts for an operator, no money moves, and workspace subscriptions are never changed. Re-running is safe (existing account subscriptions are never overwritten). Grant extra messages with an `account_entitlement_overrides` row (`ai.included_messages`, `{amount, periodDays}`).
+
 ## 5. Wallets & ledger (simple double-entry)
 
 ```

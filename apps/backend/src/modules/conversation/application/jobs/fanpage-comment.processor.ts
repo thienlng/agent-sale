@@ -8,7 +8,12 @@ import {
   type PendingMetaEvent,
 } from '../../../channel/api/index.js';
 import { AI_FACADE, type AiFacade } from '../../../ai/api/index.js';
+import { BILLING_FACADE, type BillingFacade } from '../../../billing/api/index.js';
 import { BOT_FACADE, type BotFacade, withinReplySchedule } from '../../../bot/api/index.js';
+type Comment = Awaited<ReturnType<FanpageFacade['receive']>>;
+type CommentContext = NonNullable<Awaited<ReturnType<FanpageFacade['context']>>>;
+type CommentSettings = Awaited<ReturnType<FanpageFacade['settings']>>;
+
 /** Comments are independent jobs, never collapsed into a customer's Messenger burst. */
 @Injectable()
 export class FanpageCommentProcessor {
@@ -17,6 +22,7 @@ export class FanpageCommentProcessor {
     @Inject(FANPAGE_FACADE) private readonly pages: FanpageFacade,
     @Inject(AI_FACADE) private readonly ai: AiFacade,
     @Inject(BOT_FACADE) private readonly bots: BotFacade,
+    @Inject(BILLING_FACADE) private readonly billing: BillingFacade,
   ) {}
   async privateContext(
     ws: Parameters<FanpageFacade['privateContext']>[0],
@@ -81,9 +87,41 @@ export class FanpageCommentProcessor {
       await this.pages.review(ws, id, comment.commentId, comment.version);
       return;
     }
+    // An automatic comment reply is an AI reply to a customer: metered like inbox replies
+    // (ADR-012 §5). Exhausted: the comment waits for staff in the review queue.
+    const key = `comment:${comment.commentId}`;
+    const quota = await this.billing.reserveReply(ws, {
+      idempotencyKey: key,
+      conversationId: null,
+      botId: connection.botId,
+    });
+    if (!quota.allowed) {
+      await this.pages.review(ws, id, comment.commentId, comment.version);
+      return;
+    }
+    // Counted as soon as one reply is posted, even if the second one (private) fails.
+    const progress = { posted: false };
+    try {
+      await this.answer(job, connection.botId, { comment, context, settings }, progress);
+    } finally {
+      await (progress.posted
+        ? this.billing.captureReply(ws, key)
+        : this.billing.releaseReply(ws, key));
+    }
+  }
+
+  /** Generates and posts the reply, or sends the comment to review when it must not go out. */
+  private async answer(
+    job: PendingMetaEvent,
+    botId: string,
+    turn: { comment: Comment; context: CommentContext; settings: CommentSettings },
+    progress: { posted: boolean },
+  ): Promise<void> {
+    const { workspaceId: ws, connectionId: id } = job;
+    const { comment, context, settings } = turn;
     const response = await this.ai.reply(
       ws,
-      connection.botId,
+      botId,
       {
         messages: [{ role: 'customer', content: comment.text.slice(0, 2000) }],
         postContext: context,
@@ -119,8 +157,9 @@ export class FanpageCommentProcessor {
         key: newId(),
         version: comment.version,
         automatic: true,
-        expectedBotId: connection.botId,
+        expectedBotId: botId,
       });
+      progress.posted = true;
     }
   }
 }
