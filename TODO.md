@@ -4,6 +4,8 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
+- [ ] T-109 Align live statistics browser timezone with its workspace — @agent:codex · [details](todo/T-109-align-live-statistics-browser-timezone-with-its-wo.md) · PR #72
+
 
 
 - [ ] T-081 Redesign portfolio and business statistics entry screens — @agent:codex · [details](todo/T-081-redesign-portfolio-and-business-statistics-entry-s.md) · PR #70 · partial: shop data awaits lane A

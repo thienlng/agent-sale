@@ -6,6 +6,10 @@ import { expect, test } from '@playwright/test';
  * excludes, and filters survive a reload.
  */
 
+// This story creates a workspace in its default Vietnamese timezone.
+// Keep the browser's default date range aligned across the UTC day boundary.
+test.use({ timezoneId: 'Asia/Ho_Chi_Minh' });
+
 const password = 'live e2e password 2026';
 const email = `stat-${Date.now()}-${Math.round(Math.random() * 1e6)}@e2e.rapiz.test`;
 
