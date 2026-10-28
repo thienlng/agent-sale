@@ -4,12 +4,12 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
-- [ ] T-079 Add business selection and switching across sessions — @agent:claude · [details](todo/T-079-add-business-selection-and-switching-across-sessio.md) · review: T-124 A2 integration
-- [ ] T-080 Let each bot sell a chosen part of the business catalog — @agent:claude · [details](todo/T-080-manage-shops-and-their-catalog-and-bot-association.md) · review: T-124 A2 integration
-- [ ] T-126 Add an account-level portfolio layer with its own navigation — @agent:claude · [details](todo/T-126-add-an-account-level-portfolio-layer-with-its-own-.md) · review: T-124 A2 integration
-- [ ] T-127 Create a new business from the account portfolio — @agent:claude · [details](todo/T-127-create-a-new-business-from-the-account-portfolio.md) · review: T-124 A2 integration
-- [ ] T-128 Show the business logo in the business selector and lists — @agent:claude · [details](todo/T-128-show-the-business-logo-in-the-business-selector-an.md) · review: T-124 A2 integration
-- [ ] T-129 Let a business pick an icon when it has no logo — @agent:claude · [details](todo/T-129-let-a-business-pick-an-icon-when-it-has-no-logo.md) · review: T-124 A2 integration
+- [ ] T-079 Add business selection and switching across sessions — @agent:claude · [details](todo/T-079-add-business-selection-and-switching-across-sessio.md) · PR #84
+- [ ] T-080 Let each bot sell a chosen part of the business catalog — @agent:claude · [details](todo/T-080-manage-shops-and-their-catalog-and-bot-association.md) · PR #84
+- [ ] T-126 Add an account-level portfolio layer with its own navigation — @agent:claude · [details](todo/T-126-add-an-account-level-portfolio-layer-with-its-own-.md) · PR #84
+- [ ] T-127 Create a new business from the account portfolio — @agent:claude · [details](todo/T-127-create-a-new-business-from-the-account-portfolio.md) · PR #84
+- [ ] T-128 Show the business logo in the business selector and lists — @agent:claude · [details](todo/T-128-show-the-business-logo-in-the-business-selector-an.md) · PR #84
+- [ ] T-129 Let a business pick an icon when it has no logo — @agent:claude · [details](todo/T-129-let-a-business-pick-an-icon-when-it-has-no-logo.md) · PR #84
 - [ ] T-077 Define account business ownership and migration contracts — @agent:claude · [details](todo/T-077-define-account-business-shop-ownership-and-migrati.md) · PR #82
 - [ ] T-078 Add account persistence and bot attribution with safe backfills — @agent:claude · [details](todo/T-078-add-account-business-and-shop-persistence-with-saf.md) · PR #82
 - [ ] T-124 Integrate the lane A account PRs onto current main — @agent:claude · [details](todo/T-124-integrate-the-lane-a-account-prs-onto-current-main.md) · PR #82 (A1)
