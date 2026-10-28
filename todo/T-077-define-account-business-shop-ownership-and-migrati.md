@@ -8,7 +8,7 @@ owner: "@agent:claude"
 feature_ids: []
 created: 2026-10-26
 updated: 2026-10-28
-branch: feat/T-077-account-foundation
+branch: feat/T-124-integrate-lane-a1
 pr:
 parent:
 ---

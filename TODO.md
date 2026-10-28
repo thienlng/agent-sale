@@ -4,6 +4,8 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
+- [ ] T-077 Define account business ownership and migration contracts — @agent:claude · [details](todo/T-077-define-account-business-shop-ownership-and-migrati.md) · review: T-124 A1 integration
+- [ ] T-078 Add account persistence and bot attribution with safe backfills — @agent:claude · [details](todo/T-078-add-account-business-and-shop-persistence-with-saf.md) · review: T-124 A1 integration
 - [ ] T-124 Integrate the lane A account PRs onto current main — @agent:claude · [details](todo/T-124-integrate-the-lane-a-account-prs-onto-current-main.md)
 - [ ] T-106 Bring Facebook comment threads into the inbox — @agent:claude · [details](todo/T-106-bring-facebook-comment-threads-into-the-inbox.md) · PR #73
 
@@ -39,11 +41,9 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [ ] T-062 Support tickets with department routing and attachments (ADM-08) — @unassigned · [details](todo/T-062-support-tickets-with-department-routing-and-attach.md)
 - [ ] T-063 Advanced Google connector and capability-aware settings navigation (ADM-09) — @unassigned · [details](todo/T-063-advanced-google-connector-and-capability-aware-set.md)
 - [ ] T-066 Fix flaky MetaInboxProcessor test: reply arriving while the previous one is generated — @unassigned · [details](todo/T-066-fix-flaky-metainboxprocessor-test-reply-arriving-w.md)
-- [ ] T-077 Define account business shop ownership and migration contracts — @unassigned · [details](todo/T-077-define-account-business-shop-ownership-and-migrati.md)
-- [ ] T-078 Add account business and shop persistence with safe backfills — @unassigned · [details](todo/T-078-add-account-business-and-shop-persistence-with-saf.md)
 - [ ] T-079 Add business selection and switching across sessions — @unassigned · [details](todo/T-079-add-business-selection-and-switching-across-sessio.md)
-- [ ] T-080 Manage shops and their catalog and bot associations — @unassigned · [details](todo/T-080-manage-shops-and-their-catalog-and-bot-association.md)
-- [ ] T-088 Link CRM customers to business shop bot and conversations — @unassigned · [details](todo/T-088-link-crm-customers-to-business-shop-bot-and-conver.md)
+- [ ] T-080 Let each bot sell a chosen part of the business catalog — @unassigned · [details](todo/T-080-manage-shops-and-their-catalog-and-bot-association.md)
+- [ ] T-088 Link CRM customers to bots and conversations — @unassigned · [details](todo/T-088-link-crm-customers-to-business-shop-bot-and-conver.md)
 - [ ] T-089 Centralize customer tags and statuses in customer settings — @unassigned · [details](todo/T-089-centralize-customer-tags-and-statuses-in-customer-.md)
 - [ ] T-091 Move subscription and message quota ownership to the account — @unassigned · [details](todo/T-091-move-subscription-and-message-quota-ownership-to-t.md)
 - [ ] T-094 Validate the cross-business review milestone end to end — @unassigned · [details](todo/T-094-validate-the-cross-business-review-milestone-end-t.md)
