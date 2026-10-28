@@ -1,7 +1,7 @@
 ---
 id: T-078
 title: Add account persistence and bot attribution with safe backfills
-status: in-progress
+status: review
 type: feature
 priority: P1
 owner: "@agent:claude"
@@ -36,11 +36,11 @@ Add account persistence and bot attribution with safe backfills.
 
 ## Acceptance criteria
 
-- [ ] Every existing workspace belongs to exactly one account after backfill. Bots, channels, conversations, contacts, orders and subscriptions stay reachable. Unresolved ownership is reported, never guessed.
-- [ ] Cross-account and cross-business IDs are rejected. A channel cannot be bound to a bot of another workspace.
-- [ ] Reassigning a page to another bot keeps past facts attributed to the old bot. Statistics can be filtered by bot.
-- [ ] Migration and backfill are repeatable and backward compatible; rollback boundaries are documented.
-- [ ] Cross-tenant integration tests; `pnpm check` passes; docs updated.
+- [x] Every existing workspace belongs to exactly one account after backfill. Bots, channels, conversations, contacts, orders and subscriptions stay reachable. Unresolved ownership is reported, never guessed.
+- [x] Cross-account and cross-business IDs are rejected. A channel cannot be bound to a bot of another workspace.
+- [x] Reassigning a page to another bot keeps past facts attributed to the old bot. Statistics can be filtered by bot.
+- [x] Migration and backfill are repeatable and backward compatible; rollback boundaries are documented.
+- [x] Cross-tenant integration tests; `pnpm check` passes; docs updated.
 
 ## Estimate and proposed assignment
 
@@ -72,12 +72,23 @@ Follows ADR-012 §8. Same branch as T-077 (block A1). Catalog selection columns 
    - Integration test with a seeded legacy install, run twice.
 4. **Attribution at event time:**
    - `botId` on `message.received` / `reply.completed` payloads and in `analytics_facts`;
-   - `conversations.bot_id` set when a conversation is written and when a page is rebound;
+   - `conversations.bot_id` set from the channel's binding on every inbound message (a rebind reaches a conversation with its next message; see ADR-012 §4);
    - `bots` filter on conversation metrics, with an RLS cross-tenant test.
 5. **Docs:** ADR-004 amendment, docs/05, docs/analytics.md, the module's MODULE.md, `docs/ARCHITECTURE.md` tier table. Then run the gate.
 
 ## Log
 
+- 2026-10-28 — Implemented and verified; ready for review.
+  - Delivered: migration 0028, the `account` module, the `account-backfill` CLI (exit 2 when a workspace is skipped), and bot attribution on events, facts and conversations with a `botIds` statistics filter.
+  - Deviation from the plan: a rebind does not re-point open conversations, because that would make `channel` depend on `conversation` (a cycle). `conversations.bot_id` follows the binding on the next message and is cleared when the bot is deleted. ADR-012 §4 is amended.
+  - A rebuild replays pre-0028 events without a bot, so `account-backfill` must be rerun after `analytics-rebuild` (docs/analytics.md).
+  - Verified:
+    - `pnpm check` (lint, prettier, arch, typecheck, test, build) is green.
+    - Backend integration tests: 19 files, 144 tests. db integration tests: 6 files, 28 tests, including the account backfill on a seeded legacy install.
+  - Follow-ups:
+    - Contract migration once production backfill reports are clean: `workspaces.account_id NOT NULL` and `VALIDATE` the two bot keys.
+    - The bot statistics UI (T-107) switches to `botIds`.
+    - T-080 adds `bots.catalog_mode` and `bot_products`.
 - 2026-10-28 — Started on `feat/T-077-account-foundation` (block A1) after the maintainer asked to proceed; ADR-012 is still Proposed.
 - 2026-10-28 — Replanned for lane A, now owned by @agent:claude (user decision, 2026-10-28). Product model agreed with the user: account → business (workspace) → bot → channels. **No separate shop entity**: the bot is the selling unit. The catalog is business-owned and each bot chooses which products it sells. Billable unit: an AI reply delivered to the customer, counted once across retries. When the allowance is exhausted, the bot stops and hands off to staff. Business switching lives in the avatar (account) menu. Code inventory and re-estimate: see the handoff's "Lane A replan" section.
 

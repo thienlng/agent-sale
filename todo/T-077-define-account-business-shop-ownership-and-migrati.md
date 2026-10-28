@@ -1,7 +1,7 @@
 ---
 id: T-077
 title: Define account business ownership and migration contracts
-status: in-progress
+status: review
 type: spike
 priority: P1
 owner: "@agent:claude"
@@ -59,6 +59,7 @@ Define account business ownership and migration contracts.
 
 ## Log
 
+- 2026-10-28 — In review together with T-078 on the same branch. The maintainer asked to go ahead with T-078 before formally approving ADR-012. Owner approval of ADR-012 is therefore still open (unchecked criterion) and happens in this PR's review; the migrations land only with that approval.
 - 2026-10-28 — Replanned for lane A, now owned by @agent:claude (user decision, 2026-10-28). Product model agreed with the user: account → business (workspace) → bot → channels. **No separate shop entity**: the bot is the selling unit. The catalog is business-owned and each bot chooses which products it sells. Billable unit: an AI reply delivered to the customer, counted once across retries. When the allowance is exhausted, the bot stops and hands off to staff. Business switching lives in the avatar (account) menu. Code inventory and re-estimate: see the handoff's "Lane A replan" section.
 - 2026-10-28 — ADR-012 drafted (Proposed): accounts as global tables owned by a new `account` module, business access unchanged, composite channel → bot foreign key, bot attribution of events and facts at event time, per-bot catalog selection, account billing (T-091), route map, backfill/rollback, access fixture (§9). Four open questions for the product owner listed in the ADR; none blocks T-078. Waiting for owner approval before T-078 migrations.
 
