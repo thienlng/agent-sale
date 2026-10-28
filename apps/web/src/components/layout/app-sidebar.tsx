@@ -6,6 +6,7 @@ import {
   ChevronRight,
   type LucideIcon,
   MessagesSquare,
+  Package,
   Settings,
   ShieldCheck,
   ShoppingBag,
@@ -117,10 +118,12 @@ const ORDERS: readonly NavItem[] = [
   { to: '/app/orders/overview', key: 'nav.ordersOverview', icon: BarChart3 },
   { to: '/app/orders', key: 'nav.ordersList', icon: ShoppingBag },
   { to: '/app/orders/new', key: 'nav.ordersNew', icon: ShoppingBag },
-  { to: '/app/products', key: 'nav.products', icon: ShoppingBag },
   { to: '/app/order-settings', key: 'nav.orderSettings', icon: Settings },
 ];
-const ORDER_PATHS = /^\/app\/(orders|products|order-settings)(\/|$)/;
+const ORDER_PATHS = /^\/app\/(orders|order-settings)(\/|$)/;
+
+/** The shared product catalog: its own top-level entry, used by orders and bots alike. */
+const PRODUCTS: readonly NavItem[] = [{ to: '/app/products', key: 'nav.products', icon: Package }];
 
 /** The customers area (docs/03 §2 "Khách hàng"). */
 const CONTACTS: readonly NavItem[] = [
@@ -274,6 +277,7 @@ export function AppSidebar() {
               paths={ORDER_PATHS}
               exact="/app/orders"
             />
+            <NavItems items={PRODUCTS} />
             <NavItems items={WORK} />
           </NavGroup>
           {session?.user.isPlatformAdmin ? (
