@@ -4,6 +4,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
+- [ ] T-077 Define account business ownership and migration contracts — @agent:claude · [details](todo/T-077-define-account-business-shop-ownership-and-migrati.md)
 - [ ] T-081 Redesign portfolio and business statistics entry screens — @agent:codex · [details](todo/T-081-redesign-portfolio-and-business-statistics-entry-s.md) · PR #70 · partial: shop data awaits lane A
 - [ ] T-076 Reduce integration initial bundle below 250 KB — @agent:codex · [details](todo/T-076-reduce-integration-initial-bundle-below-250-kb.md) · PR #64
 - [ ] T-082 Unify channel assignment and bulk bot filters — @agent:codex · [details](todo/T-082-unify-channel-assignment-and-bulk-bot-filters.md) · PR #64
@@ -44,7 +45,6 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [ ] T-062 Support tickets with department routing and attachments (ADM-08) — @unassigned · [details](todo/T-062-support-tickets-with-department-routing-and-attach.md)
 - [ ] T-063 Advanced Google connector and capability-aware settings navigation (ADM-09) — @unassigned · [details](todo/T-063-advanced-google-connector-and-capability-aware-set.md)
 - [ ] T-066 Fix flaky MetaInboxProcessor test: reply arriving while the previous one is generated — @unassigned · [details](todo/T-066-fix-flaky-metainboxprocessor-test-reply-arriving-w.md)
-- [ ] T-077 Define account business ownership and migration contracts — @agent:claude · [details](todo/T-077-define-account-business-shop-ownership-and-migrati.md)
 - [ ] T-078 Add account persistence and bot attribution with safe backfills — @agent:claude · [details](todo/T-078-add-account-business-and-shop-persistence-with-saf.md)
 - [ ] T-079 Add business selection and switching across sessions — @agent:claude · [details](todo/T-079-add-business-selection-and-switching-across-sessio.md)
 - [ ] T-080 Let each bot sell a chosen part of the business catalog — @agent:claude · [details](todo/T-080-manage-shops-and-their-catalog-and-bot-association.md)
