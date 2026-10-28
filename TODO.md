@@ -4,9 +4,9 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
-- [ ] T-089 Centralize customer tags and statuses in customer settings — @agent:claude · [details](todo/T-089-centralize-customer-tags-and-statuses-in-customer-.md) · review: T-124 A3 integration
-- [ ] T-088 Link CRM customers to bots and conversations — @agent:claude · [details](todo/T-088-link-crm-customers-to-business-shop-bot-and-conver.md) · review: T-124 A3 integration
-- [ ] T-091 Move subscription and message quota ownership to the account — @agent:claude · [details](todo/T-091-move-subscription-and-message-quota-ownership-to-t.md) · review: T-124 A3 integration
+- [ ] T-089 Centralize customer tags and statuses in customer settings — @agent:claude · [details](todo/T-089-centralize-customer-tags-and-statuses-in-customer-.md) · PR #85
+- [ ] T-088 Link CRM customers to bots and conversations — @agent:claude · [details](todo/T-088-link-crm-customers-to-business-shop-bot-and-conver.md) · PR #85
+- [ ] T-091 Move subscription and message quota ownership to the account — @agent:claude · [details](todo/T-091-move-subscription-and-message-quota-ownership-to-t.md) · PR #85
 - [ ] T-079 Add business selection and switching across sessions — @agent:claude · [details](todo/T-079-add-business-selection-and-switching-across-sessio.md) · PR #84
 - [ ] T-080 Let each bot sell a chosen part of the business catalog — @agent:claude · [details](todo/T-080-manage-shops-and-their-catalog-and-bot-association.md) · PR #84
 - [ ] T-126 Add an account-level portfolio layer with its own navigation — @agent:claude · [details](todo/T-126-add-an-account-level-portfolio-layer-with-its-own-.md) · PR #84
@@ -15,7 +15,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [ ] T-129 Let a business pick an icon when it has no logo — @agent:claude · [details](todo/T-129-let-a-business-pick-an-icon-when-it-has-no-logo.md) · PR #84
 - [ ] T-077 Define account business ownership and migration contracts — @agent:claude · [details](todo/T-077-define-account-business-shop-ownership-and-migrati.md) · PR #82
 - [ ] T-078 Add account persistence and bot attribution with safe backfills — @agent:claude · [details](todo/T-078-add-account-business-and-shop-persistence-with-saf.md) · PR #82
-- [ ] T-124 Integrate the lane A account PRs onto current main — @agent:claude · A1 merged in PR #82; A2 in PR #84; A3 in review
+- [ ] T-124 Integrate the lane A account PRs onto current main — @agent:claude · A1 merged in PR #82; A2 in PR #84; A3 in PR #85
 - [ ] T-106 Bring Facebook comment threads into the inbox — @agent:claude · [details](todo/T-106-bring-facebook-comment-threads-into-the-inbox.md) · PR #73
 
 ## Next
