@@ -8,8 +8,8 @@ owner: "@agent:claude"     # @github-handle or @agent:<tool>
 feature_ids: []            # e.g. [BOT-07, CRM-11] from docs/02-functional-requirements.md
 created: 2026-10-27
 updated: 2026-10-28
-branch: feat/T-112-lane-b-ux-block
-pr:
+branch: feat/T-112-lane-b1-on-main
+pr: 83
 parent:                    # T-xxx if this is a sub-task
 ---
 
