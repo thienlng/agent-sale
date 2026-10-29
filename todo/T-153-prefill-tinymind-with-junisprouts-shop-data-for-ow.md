@@ -31,7 +31,7 @@ Populate the verified TinyMind bot with sourced toy-shop data and verify represe
 
 - Application code, schema, API, prompt or tooling changes.
 - Other businesses, channel assignments, existing conversations or contacts.
-- Invented inventory, policies or contact details; actual purchases or customer messages.
+- Unapproved invented inventory, policies or contact details; actual purchases or customer messages. Owner-approved synthetic inventory is explicitly in scope as sample data.
 
 ## Acceptance criteria
 
@@ -44,6 +44,8 @@ Populate the verified TinyMind bot with sourced toy-shop data and verify represe
 - [x] Read back saved counts and verify representative playground answers.
 - [ ] Verify live buyer/owner delivery and takeover after Facebook reauthentication. Playground purchase intent and handoff outcome passed.
 - [x] Record final verification and check results.
+- [x] Save owner-approved demo inventory: every product available 10, with 2 per variant for JS-027.
+- [x] Commit and push the reusable sample data after the final gate.
 
 ## Plan
 
@@ -73,9 +75,13 @@ No application code changes are planned. Validate payloads with existing contrac
 - 2026-10-29 — Owner supplied an authorized account and requested API import followed by verification in their open Chrome profile Tùng. Authenticated owner membership of TinyMind and assigned sale_tinymind bot verified. Private pre-change snapshot saved outside the repository. Facebook connection reports reauth_required.
 - 2026-10-29 — Final pnpm check passed (13/13 Turbo tasks; all cached). Initial attempts were blocked by generated browser script/snapshot artifacts; moved those artifacts outside the source tree and reran the unchanged gate. No application code changed.
 
+- 2026-10-29 — Owner approved availability 10 for every product, then asked to commit/push and retain the catalog as sample data. Adjusted all 63 variants through the existing tenant-scoped stock API; API readback verified all 59 product rows equal 10, total 590. JS-027 has five variants with availability 2 each. Updated stock guidance and profile notes to identify synthetic inventory and use current application quantities during tests.
+
+- 2026-10-29 — Sample fixture payloads and all 63 stock equations passed validation. Rebased onto origin/main 98069d0; pnpm check passed (13/13 Turbo tasks, 12 cached). The post-initialization playground correctly reports JS-039 availability 10 and identifies it as demo inventory. Prepared the requested remote branch push; live Facebook acceptance remains pending reauthentication.
+
 ## Current delivery
 
-API import and native Chrome profile Tùng verification are complete. Live Facebook delivery remains blocked by the existing reauth_required connection. Inventory quantities, hotline and Maps are unverified; no synthetic values were applied. See [the verification report](../docs/business/tinymind-prefill-report.md).
+API import and native Chrome profile Tùng verification are complete. Live Facebook delivery remains blocked by the existing reauth_required connection. Owner-approved sample inventory is applied: every product has availability 10 (590 total); JS-027 has 2 in each of five variants. Real supplier inventory, hotline and Maps remain unverified. See [the verification report](../docs/business/tinymind-prefill-report.md).
 
 ## Links
 

@@ -88,5 +88,24 @@
       "images": []
     }
   ],
-  "concurrencyObservation": "Four API calls returned 503 AI_UNAVAILABLE while the native UI playground had an active generation. All four passed when retried sequentially after it completed; Hermes is documented as single-flight."
+  "concurrencyObservation": "Four API calls returned 503 AI_UNAVAILABLE while the native UI playground had an active generation. All four passed when retried sequentially after it completed; Hermes is documented as single-flight.",
+  "sampleInventoryVerification": {
+    "approvedByOwner": true,
+    "products": 59,
+    "variants": 63,
+    "allProductsAvailable": 10,
+    "totalAvailable": 590,
+    "multiVariantProduct": {
+      "code": "JS-027",
+      "availablePerVariant": 2,
+      "variants": 5
+    },
+    "postInitializationPlayground": {
+      "status": 200,
+      "question": "Bảng học Montessori gỗ 10 trong 1 JS-039 còn bao nhiêu cái để đặt hàng thử?",
+      "reply": "Dạ chào anh/chị, em kiểm tra catalog hiện có 10 bảng học Montessori gỗ 10 trong 1 JS-039, bản Tiêu chuẩn, có thể bán để đặt hàng thử ạ.\nĐây là tồn kho demo, không phải tồn kho thực tế của JuniSprouts. Anh/chị muốn đặt thử bao nhiêu cái ạ?",
+      "outcome": "answered",
+      "guardrail": null
+    }
+  }
 }

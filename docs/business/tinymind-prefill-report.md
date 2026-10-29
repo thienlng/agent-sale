@@ -8,6 +8,7 @@ TinyMind's existing retail bot now uses the owner's JuniSprouts toy catalog and 
 | --- | --- |
 | Active products | 59, with Vietnamese search names and original English names |
 | Variants | 63 unique source SKUs and direct storefront VND prices |
+| Sample inventory | 10 available per product, 590 total; JS-027 has 2 available in each of its 5 variants |
 | Product images | Five source HTTPS images per product; image replies tested |
 | Old shoe products | Nine newly archived; historical variants and inventory retained |
 | FAQ | 12 source-linked entries |
@@ -28,10 +29,12 @@ Ten distinct API playground scenarios were exercised: catalog introduction; JS-0
 
 Four API attempts returned `503 AI_UNAVAILABLE` while the native UI playground was generating. All four passed when retried sequentially after that generation completed. The configured Hermes runtime is documented as single-flight. This is an observed concurrency limit, not evidence of multi-customer load readiness.
 
+After demo inventory initialization, an additional API playground turn for JS-039 correctly reported 10 available and explicitly identified it as demo inventory, rather than real JuniSprouts stock. Its response is also saved in the verification JSON.
+
 ## Missing inputs and limits
 
 - **Facebook:** the existing connection returns `reauth_required`, and the native UI displays **Hết hạn**. Reauthentication is required before Messenger delivery and actual inbox takeover can be verified. No permissions or channel tokens were changed.
-- **Inventory:** the public website exposes availability, not warehouse quantities. No inventory adjustments were made; the application therefore has zero operational inventory for the imported products. The bot's instructions distinguish website availability from unverified stock. Demo inventory was proposed to the owner and has not been approved.
+- **Inventory:** after the initial checks, the owner explicitly approved demo availability of 10 for every product. All 63 variants were adjusted through the stock API and all 59 product rows read back as 10 (590 total). JS-027 has five variants with 2 each; single-variant products have 10. This deliberately includes the two products unavailable in the source snapshot. Source availability is preserved for provenance and is not real inventory evidence. Bot guidance now uses the current application availability for sample-order testing. The sample JSON records per-SKU on-hand, reserved and available quantities without deployment IDs.
 - **Hotline / Maps:** neither was verified from the source, so the previous fictitious phone was cleared and these fields remain empty.
 - **Logo:** the referenced public PNG is 600 × 300. The application's logo endpoint requires a square PNG/JPEG, so no logo was uploaded.
 - **Costs and weights:** no independently verified cost prices or shipping weights were imported. Existing API defaults are zero; these must not be used to claim accurate profit or carrier quotes.
@@ -40,7 +43,7 @@ Four API attempts returned `503 AI_UNAVAILABLE` while the native UI playground w
 - **Currency and shipping:** the direct storefront session and cart reported VND, while source shipping policy still states USD and US-only delivery. No manual currency conversion or Vietnamese delivery policy was invented.
 - **Conflicting policies:** the dedicated return policy says 60 days, whereas product accordions say 90; the imported profile uses the dedicated policy and records the discrepancy. Detailed product age recommendations take precedence over inconsistent product-card ages.
 
-No real customer messages, purchases, live orders, tracking numbers or refunds were created. Live Messenger delivery, actual staff takeover, reservations, checkout and shipping remain unverified.
+The owner designated the saved JSON as reusable sample data; see [the sample-data guide](tinymind-sample-data.md). No real customer messages, purchases, live orders, tracking numbers or refunds were created. Live Messenger delivery, actual staff takeover, reservations, checkout and shipping remain unverified.
 
 ## Sources
 
