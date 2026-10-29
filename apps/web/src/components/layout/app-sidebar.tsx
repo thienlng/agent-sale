@@ -121,7 +121,9 @@ const ORDERS: readonly NavItem[] = [
 const ORDER_PATHS = /^\/app\/(orders|order-settings)(\/|$)/;
 
 /** The shared product catalog: its own top-level entry, used by orders and bots alike. */
-const PRODUCTS: readonly NavItem[] = [{ to: '/app/products', key: 'nav.products', icon: Package }];
+const PRODUCTS: readonly NavItem[] = [
+  { to: '/app/products', key: 'nav.products', icon: Package, ready: true },
+];
 
 /** The customers area (docs/03 §2 "Khách hàng"). */
 const CONTACTS: readonly NavItem[] = [

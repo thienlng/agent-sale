@@ -49,6 +49,13 @@ function renderAt(path: string) {
 }
 
 describe('AppSidebar', () => {
+  it('shows no coming-soon badge on built pages such as products', async () => {
+    renderAt('/app/orders');
+    const nav = await screen.findByRole('navigation', { name: 'Điều hướng chính' });
+    expect(within(nav).getByRole('link', { name: 'Sản phẩm' })).toBeVisible();
+    expect(within(nav).queryByText('Sắp có')).toBeNull();
+  });
+
   it('lists products as a top-level entry next to orders, not inside the orders section', async () => {
     renderAt('/app/orders');
     const nav = await screen.findByRole('navigation', { name: 'Điều hướng chính' });
