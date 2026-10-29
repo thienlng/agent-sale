@@ -298,7 +298,8 @@
       },
       "emptyTitle": "Chưa có website nào",
       "emptyBody": "Thêm website để khách chat với bot ngay trên trang của bạn."
-    }
+    },
+    "pageInOtherBusiness": "Trang này đang được kết nối ở một business khác. Vào business đó → Tích hợp nền tảng → ⋯ → Gỡ trang, rồi kết nối lại tại đây."
   },
   "inbox": {
     "pageTitle": "Tin nhắn đa kênh",

@@ -298,7 +298,8 @@
       },
       "emptyTitle": "No websites yet",
       "emptyBody": "Add a website so visitors can chat with your bot right on your site."
-    }
+    },
+    "pageInOtherBusiness": "This page is connected to another business. Open that business → Platform integrations → ⋯ → Remove page, then connect it here."
   },
   "inbox": {
     "pageTitle": "Multichannel inbox",

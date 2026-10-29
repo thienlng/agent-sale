@@ -10,6 +10,7 @@ import {
   useRemoveChannels,
   useSelectAccounts,
 } from '../api/channels';
+import { selectionErrorKey } from '../lib/selection-error';
 import { useMetaConnect } from './use-meta-connect';
 
 /** Workspace screen (all pages) or a bot's screen (only the pages that bot answers). */
@@ -71,8 +72,8 @@ export function useIntegrations(mode: IntegrationsMode) {
       setDiscoveryId(null);
       if (result.bindFailed) toast.error(tr('integrations.bindFailed'));
       else toast.success(tr('saved'));
-    } catch {
-      toast.error(tr('connectionError'));
+    } catch (error) {
+      toast.error(tr(selectionErrorKey(error)));
     }
   }
 

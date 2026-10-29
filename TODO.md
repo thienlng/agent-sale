@@ -71,6 +71,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## Done (last 10 — older ones live in todo/done/)
 
+- [x] T-151 Explain a page connected to another business when selecting it — @agent:claude · [details](todo/done/T-151-explain-a-page-connected-to-another-business.md) · main
 - [x] T-149 Suggest the matching profile field when an FAQ repeats a profile fact — @agent:claude · [details](todo/done/T-149-point-faq-authors-to-the-matching-profile-field.md) · main
 - [x] T-148 Clean up review leftovers from the bot training and channel work — @agent:claude · [details](todo/done/T-148-tidy-review-leftovers-from-bot-training-and-channel-work.md) · main
 - [x] T-145 Run prompt evals through the reply pipeline — @agent:claude · [details](todo/done/T-145-run-prompt-evals-through-the-reply-pipeline.md) · main
@@ -80,4 +81,3 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [x] T-142 Let another business connect a removed page — @agent:claude · [details](todo/done/T-142-let-another-business-connect-a-removed-page.md) · main c0507f4
 - [x] T-141 Backfill bot profiles from placeholders and drop untouched seed content — @agent:claude · [details](todo/done/T-141-backfill-bot-profiles-from-placeholders.md) · main c0507f4
 - [x] T-140 Split reply guidance into personality, situations and system rules — @agent:claude · [details](todo/done/T-140-split-reply-guidance-into-personality-and-situations.md) · main c0507f4
-- [x] T-139 Business profile form on the bot information page — @agent:claude · [details](todo/done/T-139-business-profile-form-on-the-bot-information-page.md) · main c0507f4
