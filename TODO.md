@@ -4,9 +4,6 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
-- [ ] T-148 Clean up review leftovers from the bot training and channel work — @agent:claude · [details](todo/T-148-tidy-review-leftovers-from-bot-training-and-channel-work.md)
-- [ ] T-149 Suggest the matching profile field when an FAQ repeats a profile fact — @agent:claude · [details](todo/T-149-point-faq-authors-to-the-matching-profile-field.md)
-- [ ] T-145 Run prompt evals through the reply pipeline — @agent:claude · [details](todo/T-145-run-prompt-evals-through-the-reply-pipeline.md)
 - [ ] T-112 Move product management to its own top-level navigation group — @agent:claude · [details](todo/T-112-move-product-management-to-its-own-top-level-navig.md) · PR #83
 - [ ] T-114 Clean up bot navigation: hide the image library and rename channel integrations — @agent:claude · [details](todo/T-114-clean-up-bot-navigation-hide-the-image-library-and.md) · PR #83
 - [ ] T-113 Show per-bot statistics on the bot training home — @agent:claude · [details](todo/T-113-show-per-bot-statistics-on-the-bot-training-home.md) · PR #83
@@ -74,6 +71,9 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## Done (last 10 — older ones live in todo/done/)
 
+- [x] T-149 Suggest the matching profile field when an FAQ repeats a profile fact — @agent:claude · [details](todo/done/T-149-point-faq-authors-to-the-matching-profile-field.md) · main
+- [x] T-148 Clean up review leftovers from the bot training and channel work — @agent:claude · [details](todo/done/T-148-tidy-review-leftovers-from-bot-training-and-channel-work.md) · main
+- [x] T-145 Run prompt evals through the reply pipeline — @agent:claude · [details](todo/done/T-145-run-prompt-evals-through-the-reply-pipeline.md) · main
 - [x] T-146 Define the complete web acceptance test matrix — @agent:codex · [details](todo/done/T-146-define-the-complete-web-acceptance-test-matrix.md) · documentation only; cases NOT_RUN
 - [x] T-144 Create businesses from the selector, simplify business settings, fix the settings tab arrows — @agent:claude · [details](todo/done/T-144-create-businesses-and-simplify-business-settings.md) · main 7895167
 - [x] T-143 Answer with sales-agent@9 and the business profile — @agent:claude · [details](todo/done/T-143-answer-with-sales-agent-9-and-the-business-profile.md) · main c0507f4
@@ -81,6 +81,3 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [x] T-141 Backfill bot profiles from placeholders and drop untouched seed content — @agent:claude · [details](todo/done/T-141-backfill-bot-profiles-from-placeholders.md) · main c0507f4
 - [x] T-140 Split reply guidance into personality, situations and system rules — @agent:claude · [details](todo/done/T-140-split-reply-guidance-into-personality-and-situations.md) · main c0507f4
 - [x] T-139 Business profile form on the bot information page — @agent:claude · [details](todo/done/T-139-business-profile-form-on-the-bot-information-page.md) · main c0507f4
-- [x] T-138 Render the business profile and reply style for the model; prompt sales-agent@9 — @agent:claude · [details](todo/done/T-138-render-the-business-profile-for-the-model.md) · main c0507f4
-- [x] T-137 Store a structured business profile and reply style per bot — @agent:claude · [details](todo/done/T-137-store-a-structured-business-profile-per-bot.md) · main c0507f4
-- [x] T-136 Prefer the Facebook full display name for inbox customers — @agent:claude · [details](todo/done/T-136-prefer-the-facebook-full-display-name-for-customers.md) · main c0507f4

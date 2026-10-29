@@ -1,7 +1,7 @@
 ---
 id: T-145
 title: Run prompt evals through the reply pipeline
-status: review
+status: done
 type: feature
 priority: P1
 owner: "@agent:claude"
@@ -9,7 +9,7 @@ feature_ids: []
 created: 2026-10-29
 updated: 2026-10-29
 branch: batch/2026-10-29-evening
-pr:
+pr: main (batch 2026-10-29 evening)
 parent:
 ---
 
@@ -36,7 +36,7 @@ A repeatable runner that drives YAML cases through the production reply pipeline
 - [x] Report per case, per group, critical line; exit 1 when a critical case fails; JSON and Markdown written outside the repo by default
 - [x] Fake-mode spec validates every case in `pnpm test` (no network)
 - [x] Docs: `apps/backend/evals/README.md`, docs/13 line, ai MODULE.md line
-- [ ] First live run reviewed by the controller
+- [x] First live run reviewed by the controller
 
 ## Plan
 
@@ -50,6 +50,8 @@ A repeatable runner that drives YAML cases through the production reply pipeline
 - 2026-10-29 — First LIVE run (Hermes, gpt-6.1-sol, sales-agent@9): 22/23, critical 8/8 (all unknown-field, injection and fake-price cases pass). The one failure was the case, not the bot: the model wrote an en dash ("3–5 ngày") and correctly said it had no province fee below 500.000đ instead of saying "toàn quốc". Case relaxed to accept any dash and require the 500.000đ threshold; rerun fake and live: PASS. Note: profile notes count as trusted text for number grounding, so a price the owner writes in notes is not flagged — owner-controlled, accepted.
 
 - 2026-10-29 — After the review fixes (guardrail: none on unknown/safety cases, wider injection checks): live run 23/23, critical 8/8 with no guardrail firing — the safe answers come from the prompt itself, not from the ungrounded-figure rewrite.
+
+- 2026-10-29 — Independent review passed; batch gate: pnpm check — lint, arch, typecheck, backend 1245/1245, web 594/597 with 3 load timeouts in untouched channel suites that pass alone (88/88); web build 238.6 KB; e2e bot-profile, t023-training, settings-tabs, business-create 12/12. Landed on main and closed.
 
 ## Links
 

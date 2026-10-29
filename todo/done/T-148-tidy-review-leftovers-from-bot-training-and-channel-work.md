@@ -1,7 +1,7 @@
 ---
 id: T-148
 title: Clean up review leftovers from the bot training and channel work
-status: in-progress
+status: done
 type: chore
 priority: P2
 owner: @agent:claude
@@ -9,7 +9,7 @@ feature_ids: []
 created: 2026-10-29
 updated: 2026-10-29
 branch: batch/2026-10-29-evening
-pr:
+pr: main (batch 2026-10-29 evening)
 parent:
 ---
 
@@ -55,6 +55,8 @@ Land the review leftovers as a pure tidy-up with no behaviour change except the 
 - Decision: the discovery/select path moved into `oauth-discovery.ts`; the two row mappers moved to `record-mappers.ts` because both stores need them.
 - personality-card `set()` already used a functional `setDraft`; no change. Restoring a `profile` history entry is already covered in `settings-history.spec.ts`; no new test.
 - Decision: the Undo button in the profile form is the existing `profile.reset` key ("Hoàn tác").
+
+- 2026-10-29 — Independent review passed; batch gate: pnpm check — lint, arch, typecheck, backend 1245/1245, web 594/597 with 3 load timeouts in untouched channel suites that pass alone (88/88); web build 238.6 KB; e2e bot-profile, t023-training, settings-tabs, business-create 12/12. Landed on main and closed.
 
 ## Links
 
