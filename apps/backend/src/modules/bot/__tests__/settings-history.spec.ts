@@ -80,4 +80,34 @@ describe('Bot settings history', () => {
     await bots.restoreHistory(ws, bot.id, entry!.id);
     expect((await bots.get(ws, bot.id)).settings.placeholders).toEqual({});
   });
+
+  it('restores an older fields-only profile change without undoing a later notes edit', async () => {
+    const { training, bots, ws } = await setup();
+    const bot = await bots.create(ws, { name: 'Shop', industry: 'retail' });
+    await bots.update(ws, bot.id, { settings: { profile: { fields: { hotline: '0901' } } } });
+    await bots.update(ws, bot.id, { settings: { profile: { notes: 'Nghỉ Tết', fields: {} } } });
+    const entries = (await training.history(ws, bot.id)).filter((e) => e.kind === 'settings');
+    const older = entries.find((e) =>
+      e.changes.some((c) => c.field === 'profile' && !JSON.stringify(c.before).includes('0901')),
+    );
+    await bots.restoreHistory(ws, bot.id, older!.id);
+    const profile = (await bots.get(ws, bot.id)).settings.profile;
+    expect(profile.fields.hotline).toBeUndefined();
+    expect(profile.notes).toBe('Nghỉ Tết');
+  });
+
+  it('restores notes only when the entry changed them', async () => {
+    const { training, bots, ws } = await setup();
+    const bot = await bots.create(ws, { name: 'Shop', industry: 'retail' });
+    await bots.update(ws, bot.id, { settings: { profile: { notes: 'Một', fields: {} } } });
+    await bots.update(ws, bot.id, { settings: { profile: { fields: { hotline: '0902' } } } });
+    const entries = (await training.history(ws, bot.id)).filter((e) => e.kind === 'settings');
+    const notesEntry = entries.find((e) =>
+      e.changes.some((c) => c.field === 'profile' && !JSON.stringify(c.before).includes('Một')),
+    );
+    await bots.restoreHistory(ws, bot.id, notesEntry!.id);
+    const profile = (await bots.get(ws, bot.id)).settings.profile;
+    expect(profile.notes).toBe('');
+    expect(profile.fields.hotline).toBe('0902');
+  });
 });

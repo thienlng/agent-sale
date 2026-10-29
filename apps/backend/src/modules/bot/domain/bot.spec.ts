@@ -1,4 +1,4 @@
-import { newId, workspaceId } from '@agent-sales/shared';
+import { newId, placeholdersIn, workspaceId } from '@agent-sales/shared';
 import { describe, expect, it } from 'vitest';
 
 import { Bot } from './bot.js';
@@ -82,12 +82,30 @@ describe('Bot aggregate', () => {
 
   it('readiness still lists placeholders of the greeting for old bots, read-only', () => {
     const bot = Bot.create({ workspaceId: ws, name: 'b', industry: 'retail' });
+    bot.updateSettings({ greeting: 'Dạ {{store.name}} xin chào ạ!' });
     const r = bot.readiness([], 0, []);
     expect(r.missing).toEqual(expect.arrayContaining(['store.name']));
     expect(r.checks.find((c) => c.key === 'profile')?.done).toBe(false);
   });
 
-  it('every industry pack ships FAQs whose answers are concrete or placeholders, never empty', () => {
+  it('the faq check counts only FAQs without an unfilled placeholder', () => {
+    const bot = Bot.create({ workspaceId: ws, name: 'b', industry: 'retail' });
+    const faq = (r: ReturnType<Bot['readiness']>) => r.checks.find((c) => c.key === 'faq');
+    expect(faq(bot.readiness(['Hotline {{store.hotline}}'], 0))).toEqual({
+      key: 'faq',
+      done: false,
+      detail: '0 FAQ',
+    });
+    bot.updateSettings({ placeholders: { 'store.hotline': '0901234567' } });
+    expect(faq(bot.readiness(['Hotline {{store.hotline}}', 'Giờ mở cửa 8h'], 0))).toEqual({
+      key: 'faq',
+      done: true,
+      detail: '2 FAQ',
+    });
+    expect(faq(bot.readiness(['Giá {{x.y}}', 'Giờ mở cửa 8h'], 0))?.detail).toBe('1 FAQ');
+  });
+
+  it('every industry pack seeds only placeholder-free greetings and FAQs', () => {
     for (const industry of [
       'retail',
       'fashion',
@@ -100,9 +118,12 @@ describe('Bot aggregate', () => {
       'other',
     ] as const) {
       const pack = packFor(industry);
-      expect(pack.faqs.length, industry).toBeGreaterThanOrEqual(4);
-      for (const f of pack.faqs)
+      expect(placeholdersIn(pack.greeting), industry).toEqual([]);
+      for (const f of pack.faqs) {
+        expect(placeholdersIn(f.answer), `${industry}: ${f.question}`).toEqual([]);
         expect(f.answer.trim().length, `${industry}: ${f.question}`).toBeGreaterThan(5);
+      }
     }
+    expect(packFor('spa').faqs.map((f) => f.question)).toContain('Đặt lịch như thế nào?');
   });
 });

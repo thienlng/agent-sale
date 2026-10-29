@@ -225,13 +225,15 @@ export class BotService implements BotFacade {
           ...((before ?? {}) as Record<string, string>),
         };
       } else if (field === 'profile') {
-        // Profile fields merge key by key; keys added by the change are removed with ''.
+        // Restore only what this entry changed: the keys whose value differs (a key the change
+        // added is removed with ''), and the notes only when they differ, so later edits survive.
         const was = (before ?? { fields: {}, notes: '' }) as BotProfile;
-        const added = Object.keys(((after ?? {}) as BotProfile).fields ?? {});
-        settings[field] = {
-          fields: { ...Object.fromEntries(added.map((key) => [key, ''])), ...was.fields },
-          notes: was.notes,
-        };
+        const now = (after ?? { fields: {}, notes: '' }) as BotProfile;
+        const fields: Record<string, string> = {};
+        for (const key of new Set([...Object.keys(was.fields), ...Object.keys(now.fields)]))
+          if ((was.fields[key] ?? '') !== (now.fields[key] ?? ''))
+            fields[key] = was.fields[key] ?? '';
+        settings[field] = was.notes !== now.notes ? { fields, notes: was.notes } : { fields };
       } else settings[field] = before;
     }
     if (Object.keys(settings).length)

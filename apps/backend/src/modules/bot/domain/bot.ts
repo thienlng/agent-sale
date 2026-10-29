@@ -99,8 +99,10 @@ export class Bot {
   }
 
   /** Placeholders used by the greeting or the given FAQ answers that have no value yet. */
-  missingPlaceholders(texts: readonly string[]): string[] {
-    const used = new Set([this.props.settings.greeting, ...texts].flatMap(placeholdersIn));
+  missingPlaceholders(texts: readonly string[], withGreeting = true): string[] {
+    const used = new Set(
+      [...(withGreeting ? [this.props.settings.greeting] : []), ...texts].flatMap(placeholdersIn),
+    );
     return [...used].filter((p) => !this.props.settings.placeholders[p]);
   }
 
@@ -115,11 +117,13 @@ export class Bot {
     profileFieldKeys: readonly string[] = [],
   ): { ready: boolean; checks: ReadinessCheck[]; missing: string[] } {
     const missing = this.missingPlaceholders(faqAnswers);
+    // An FAQ whose answer still has an unfilled placeholder is never used by the bot: not counted.
+    const answerable = faqAnswers.filter((a) => this.missingPlaceholders([a], false).length === 0);
     const filled = (key: string) => Boolean(this.props.settings.profile.fields[key]?.trim());
     const empty = profileFieldKeys.filter((k) => !filled(k)).length;
     const checks: ReadinessCheck[] = [
       { key: 'mission', done: this.props.settings.mission.trim().length >= 20 },
-      { key: 'faq', done: faqAnswers.length > 0, detail: `${faqAnswers.length} FAQ` },
+      { key: 'faq', done: answerable.length > 0, detail: `${answerable.length} FAQ` },
       {
         key: 'profile',
         done: REQUIRED_PROFILE_FIELDS.every(filled),
