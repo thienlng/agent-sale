@@ -45,6 +45,7 @@ Prompt `sales-agent@9` and the `<business_profile>` block, behind a `promptVersi
 ## Log
 
 - 2026-10-29 — created; implemented. Prompt evals (Rule 05) not run here; @9 is not the default yet.
+- 2026-10-29 — Final fix wave: the FAQ table badge for an FAQ with unfilled placeholders now reads "Bot không dùng câu này — hãy sửa câu trả lời"; the profile history view renders one line per changed key; personality card uses functional setState.
 
 ## Links
 

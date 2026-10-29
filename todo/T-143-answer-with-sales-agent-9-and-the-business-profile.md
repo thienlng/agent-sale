@@ -43,6 +43,7 @@ Flip the default; fix fixtures lacking a profile; swap the readiness check key a
 ## Log
 
 - 2026-10-29 — implemented. Verified with the dev-fake provider inside the playground specs only. Live-model evals were NOT run (no eval runner, T-007). The backfill dry run on the dev database is left to the controller/owner.
+- 2026-10-29 — Final fix wave: profile fields and notes are trusted text for the number guardrail (decide); prompt @9 unknown rule no longer suppresses answers present in other blocks; Vietnamese polite register and the no-wait rule restored in the style line; e2e readiness mock uses the profile check.
 
 ## Links
 

@@ -44,6 +44,7 @@ Frozen legacy copies inside packages/db (it must not import apps/backend); follo
 ## Log
 
 - 2026-10-29 — created; implemented with a Testcontainers integration test.
+- 2026-10-29 — Final fix wave: backfill skips (and reports as fieldsSkippedTooLong) placeholder values longer than the target field limit; docs state that kept placeholder FAQs stop following profile edits and that the backfill writes no history entries.
 
 ## Links
 

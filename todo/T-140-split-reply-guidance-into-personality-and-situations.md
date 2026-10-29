@@ -45,6 +45,7 @@ Fourth task of the bot-training redesign (docs/superpowers/specs/2026-10-29-bot-
 ## Log
 
 - 2026-10-29 — created; implemented. `instruction-cards.tsx` removed.
+- 2026-10-29 — Final fix wave: history view labels profile, replyLength, tone and allowEmoji (option labels, on/off) and renders a profile change per changed key instead of [object Object]; personality card `set()` uses functional setState.
 
 ## Links
 

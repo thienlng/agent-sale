@@ -44,6 +44,7 @@ Each bot stores a structured, industry-aware business profile plus reply length,
 ## Log
 
 - 2026-10-29 — created and implemented.
+- 2026-10-29 — Final fix wave: Industry enum moved to its own module (breaks the contracts import cycle); new bots seed placeholder-free greetings and FAQs; the readiness FAQ check counts only answerable FAQs; restoring a profile history entry restores only the keys (and notes) that entry changed.
 
 ## Links
 

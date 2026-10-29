@@ -45,6 +45,7 @@ A page removed in business A can be connected in business B as a new row; A keep
 
 - 2026-10-29 — created. RED: two new store tests failed with the old constraint. GREEN after implementation (store integration 15/15, ingress integration 5/5).
 - Migration is backward compatible: the old constraint guaranteed at most one row per (provider, external_id), so the partial unique index cannot fail to build.
+- 2026-10-29 — Final fix wave: migration 0034 uses DROP CONSTRAINT IF EXISTS; deploy order documented (run migration 0034 before starting the new API; old instances fail page connects after the constraint drop) in docs/meta-inbox.md.
 
 ## Links
 
