@@ -13,8 +13,12 @@ import { BulkBar, type BulkRun } from './bulk-bar';
 import { ConversationRow, type RowActions } from './conversation-row';
 import { EnableNotificationsButton } from './enable-notifications-button';
 import { InboxFilterChips } from './inbox-filter-chips';
-import { InboxFilterPopover, type FilterMember, type FilterTag } from './inbox-filter-popover';
-import { SavedInboxViews } from './saved-inbox-views';
+import {
+  InboxFilterPopover,
+  type FilterBot,
+  type FilterMember,
+  type FilterTag,
+} from './inbox-filter-popover';
 
 /** "Quản lý" mode state, owned by the page so a filter change can clear it. */
 export interface ListSelection {
@@ -60,13 +64,13 @@ function QuickFilter({
 export function ConversationList({
   state,
   searchRef,
-  workspaceId,
   userId,
   onState,
   items,
   channels,
   tags,
   members,
+  bots,
   counts,
   pending,
   error,
@@ -84,13 +88,13 @@ export function ConversationList({
 }: {
   state: ListState;
   searchRef: RefObject<HTMLInputElement | null>;
-  workspaceId: string;
   userId: string;
   onState: (patch: Partial<ListState>) => void;
   items: readonly InboxConversation[];
   channels: readonly ChannelConnectionDto[];
   tags: readonly FilterTag[];
   members: readonly FilterMember[];
+  bots: readonly FilterBot[];
   counts: InboxCounts;
   pending: boolean;
   error: boolean;
@@ -188,18 +192,13 @@ export function ConversationList({
               label={meta('quick.followUp')}
             />
           </div>
-          <SavedInboxViews
-            workspaceId={workspaceId}
-            userId={userId}
-            state={state}
-            onApply={onState}
-          />
           <InboxFilterPopover
             state={state}
             onState={onState}
             tags={tags}
             members={members}
             channels={pageChannels}
+            bots={bots}
           />
         </div>
         {state.status !== 'open' ? (
@@ -223,6 +222,7 @@ export function ConversationList({
           tags={tags}
           members={members}
           channels={channels.map((c) => ({ id: c.id, name: c.name, provider: c.provider }))}
+          bots={bots}
         />
         {!pending && !error && !refreshing ? (
           <p className="sr-only" aria-live="polite">

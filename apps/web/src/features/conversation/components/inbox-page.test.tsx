@@ -28,6 +28,7 @@ vi.mock('../api/inbox', () => ({
   useInboxChannels: () => ({ data: { data: [] } }),
   useInboxTags: () => ({ data: [] }),
   useInboxMembers: () => ({ data: [] }),
+  useInboxBots: () => ({ data: [] }),
   useReadState: () => ({ markRead: { mutate: vi.fn() }, markUnread: { mutate: vi.fn() } }),
   useAssignConversation: () => ({ mutate: vi.fn() }),
   useBulkConversations: () => ({ mutate: fixtures.bulk, isPending: false }),
@@ -63,6 +64,7 @@ vi.mock('./conversation-list', () => ({
       <button onClick={() => onState({ tab: 'unread', tagsAny: ['tag-a'], assignee: 'me' })}>
         Filter
       </button>
+      <button onClick={() => onState({ botId: 'bot-a', time: 'yesterday' })}>Bot today</button>
     </div>
   ),
 }));
@@ -114,6 +116,21 @@ describe('inbox page', () => {
       tagsAny: 'tag-a',
       status: 'open',
     });
+  });
+
+  it('sends the bot and the activity window of the chosen preset', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 9, 29, 15, 30));
+    render(<InboxPage />);
+    act(() => {
+      fireEvent.click(screen.getByRole('button', { name: 'Bot today' }));
+    });
+    expect(fixtures.queries.at(-1)).toMatchObject({
+      botId: 'bot-a',
+      updatedFrom: new Date(2026, 9, 28).toISOString(),
+      updatedTo: new Date(2026, 9, 29).toISOString(),
+    });
+    vi.useRealTimers();
   });
 
   it('advances the clock every minute so wait times refresh without a network update', () => {

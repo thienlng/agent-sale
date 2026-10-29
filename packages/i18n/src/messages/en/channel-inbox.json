@@ -403,16 +403,6 @@
     "followUpEdit": "Edit follow-up",
     "followUpAdd": "Schedule follow-up",
     "followUpClear": "Clear follow-up",
-    "views": {
-      "title": "Saved views",
-      "deviceHint": "Saved on this device for your account and workspace. Search text is not saved.",
-      "storageError": "Could not access device storage. Try saving again.",
-      "delete": "Delete {{name}}",
-      "empty": "No saved views yet.",
-      "name": "View name",
-      "save": "Save current filters",
-      "limit": "Maximum 5 views. Delete one to save another."
-    },
     "shortcutsHint": "J/K: switch · /: search · R: compose · E: done · T: tag · U: unread",
     "customerStage": "Customer status"
   },
@@ -436,6 +426,8 @@
     "filter": {
       "groupsLabel": "Filter groups",
       "groups": {
+        "bot": "Bot",
+        "time": "Time",
         "tags": "Tag",
         "waiting": "Reply status",
         "mode": "Who is replying",
@@ -485,7 +477,24 @@
       },
       "reset": "Clear all",
       "close": "Close",
-      "apply": "Apply"
+      "apply": "Apply",
+      "bot": {
+        "hint": "The bot answering the conversation",
+        "all": "All bots",
+        "none": "No bot"
+      },
+      "time": {
+        "hint": "By the conversation's latest activity",
+        "any": "Any time",
+        "today": "Today",
+        "yesterday": "Yesterday",
+        "last7": "Last 7 days",
+        "last30": "Last 30 days",
+        "custom": "Custom range",
+        "from": "From",
+        "to": "To",
+        "invalid": "The start date cannot be after the end date."
+      }
     },
     "chip": {
       "tagsAny": "Has: {{name}}",
@@ -503,7 +512,11 @@
         "yes": "Has phone",
         "no": "No phone"
       },
-      "unknown": "Unknown"
+      "unknown": "Unknown",
+      "bot": "Bot: {{name}}",
+      "timeRange": "{{from}} – {{to}}",
+      "timeFrom": "From {{date}}",
+      "timeTo": "Until {{date}}"
     },
     "row": {
       "guest": "{{provider}} customer ·{{last4}}",

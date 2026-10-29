@@ -1,7 +1,10 @@
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { filterChips, removeChip, type FilterChip, type ListState } from '../lib/inbox-list';
-import type { FilterChannel, FilterMember, FilterTag } from './inbox-filter-popover';
+import type { FilterBot, FilterChannel, FilterMember, FilterTag } from './inbox-filter-popover';
+
+/** `YYYY-MM-DD` as `DD/MM/YYYY`. */
+const dayLabel = (date: string) => date.split('-').reverse().join('/');
 
 /** Active filters as removable chips on one horizontally scrolling line. */
 export function InboxFilterChips({
@@ -10,12 +13,14 @@ export function InboxFilterChips({
   tags,
   members,
   channels,
+  bots,
 }: {
   state: ListState;
   onState: (patch: Partial<ListState>) => void;
   tags: readonly FilterTag[];
   members: readonly FilterMember[];
   channels: readonly FilterChannel[];
+  bots: readonly FilterBot[];
 }) {
   const { t } = useTranslation();
   const chips = filterChips(state);
@@ -44,6 +49,22 @@ export function InboxFilterChips({
         return v2(`filter.channel.${chip.value}`);
       case 'channelId':
         return channels.find((c) => c.id === chip.value)?.name ?? v2('chip.unknown');
+      case 'botId':
+        return chip.value === 'none'
+          ? v2('filter.bot.none')
+          : v2('chip.bot', {
+              name: bots.find((bot) => bot.id === chip.value)?.name ?? v2('chip.unknown'),
+            });
+      case 'time':
+        if (state.time !== 'custom') return v2(`filter.time.${state.time}`);
+        if (state.timeFrom && state.timeTo)
+          return v2('chip.timeRange', {
+            from: dayLabel(state.timeFrom),
+            to: dayLabel(state.timeTo),
+          });
+        return state.timeFrom
+          ? v2('chip.timeFrom', { date: dayLabel(state.timeFrom) })
+          : v2('chip.timeTo', { date: dayLabel(state.timeTo) });
       case 'hasPhone':
         return v2(`chip.phone.${state.hasPhone}`);
       case 'status':

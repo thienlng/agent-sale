@@ -4,6 +4,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
+- [ ] T-132 Filter the inbox by bot and activity time and drop saved filters — @agent:claude · [details](todo/T-132-filter-the-inbox-by-bot-and-activity-time-and-drop.md)
 - [ ] T-112 Move product management to its own top-level navigation group — @agent:claude · [details](todo/T-112-move-product-management-to-its-own-top-level-navig.md) · PR #83
 - [ ] T-114 Clean up bot navigation: hide the image library and rename channel integrations — @agent:claude · [details](todo/T-114-clean-up-bot-navigation-hide-the-image-library-and.md) · PR #83
 - [ ] T-113 Show per-bot statistics on the bot training home — @agent:claude · [details](todo/T-113-show-per-bot-statistics-on-the-bot-training-home.md) · PR #83

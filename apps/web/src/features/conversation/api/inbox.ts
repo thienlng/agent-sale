@@ -109,6 +109,21 @@ export function useInboxBot(botId: string | null) {
   });
 }
 
+/** The business's bots, for the bot filter. */
+export function useInboxBots() {
+  const ws = useWorkspaceId();
+  return useQuery({
+    queryKey: [...queryKeys.bots(ws), 'inbox'],
+    queryFn: async () =>
+      (await api('/bots', z.object({ data: z.array(BotDto) }))).data.map((bot) => ({
+        id: bot.id,
+        name: bot.name,
+      })),
+    enabled: Boolean(ws),
+    staleTime: 60000,
+  });
+}
+
 /** Workspace members for the assignee picker and the assignee filter. */
 export function useInboxMembers() {
   const ws = useWorkspaceId();

@@ -403,16 +403,6 @@
     "followUpEdit": "Sửa lịch",
     "followUpAdd": "Đặt lịch",
     "followUpClear": "Xóa lịch",
-    "views": {
-      "title": "Bộ lọc đã lưu",
-      "deviceHint": "Lưu trên thiết bị này theo tài khoản và workspace. Không lưu nội dung tìm kiếm.",
-      "storageError": "Không truy cập được bộ nhớ thiết bị. Hãy thử lưu lại.",
-      "delete": "Xóa {{name}}",
-      "empty": "Chưa có bộ lọc đã lưu.",
-      "name": "Tên bộ lọc",
-      "save": "Lưu bộ lọc hiện tại",
-      "limit": "Tối đa 5 bộ lọc. Xóa một bộ lọc để lưu bộ lọc khác."
-    },
     "shortcutsHint": "J/K: đổi khách · /: tìm · R: soạn · E: xong · T: tag · U: chưa đọc",
     "customerStage": "Trạng thái khách hàng"
   },
@@ -436,6 +426,8 @@
     "filter": {
       "groupsLabel": "Nhóm bộ lọc",
       "groups": {
+        "bot": "Bot",
+        "time": "Thời gian",
         "tags": "Tag",
         "waiting": "Trạng thái trả lời",
         "mode": "Ai đang trả lời",
@@ -485,7 +477,24 @@
       },
       "reset": "Xóa tất cả",
       "close": "Đóng",
-      "apply": "Áp dụng"
+      "apply": "Áp dụng",
+      "bot": {
+        "hint": "Bot đang trả lời hội thoại",
+        "all": "Tất cả bot",
+        "none": "Chưa gán bot"
+      },
+      "time": {
+        "hint": "Theo hoạt động gần nhất của hội thoại",
+        "any": "Mọi lúc",
+        "today": "Hôm nay",
+        "yesterday": "Hôm qua",
+        "last7": "7 ngày qua",
+        "last30": "30 ngày qua",
+        "custom": "Tùy chọn khoảng ngày",
+        "from": "Từ ngày",
+        "to": "Đến ngày",
+        "invalid": "Ngày bắt đầu không được sau ngày kết thúc."
+      }
     },
     "chip": {
       "tagsAny": "Có: {{name}}",
@@ -503,7 +512,11 @@
         "yes": "Đã có số",
         "no": "Chưa có số"
       },
-      "unknown": "Không rõ"
+      "unknown": "Không rõ",
+      "bot": "Bot: {{name}}",
+      "timeRange": "{{from}} – {{to}}",
+      "timeFrom": "Từ {{date}}",
+      "timeTo": "Đến {{date}}"
     },
     "row": {
       "guest": "Khách {{provider}} ·{{last4}}",

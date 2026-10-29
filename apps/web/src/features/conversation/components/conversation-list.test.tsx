@@ -37,13 +37,13 @@ function renderList(props: Partial<React.ComponentProps<typeof ConversationList>
     <ConversationList
       state={{ ...DEFAULT_LIST_STATE } as ListState}
       searchRef={createRef<HTMLInputElement>()}
-      workspaceId="ws"
       userId="user-me"
       onState={onState}
       items={[conversation]}
       channels={[]}
       tags={[]}
       members={[]}
+      bots={[]}
       counts={{ all: 128, unread: 12, waiting: 5 }}
       pending={false}
       error={false}

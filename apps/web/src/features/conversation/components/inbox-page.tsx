@@ -16,6 +16,7 @@ import {
   useBulkConversations,
   useInbox,
   useInboxChannels,
+  useInboxBots,
   useInboxMembers,
   useInboxTags,
   useReadState,
@@ -79,7 +80,6 @@ function InboxWorkspace({
   renderComments?: (() => ReactNode) | undefined;
 }) {
   const userId = useSession()?.user.id;
-  const workspaceId = useWorkspaceId();
   const searchRef = useRef<HTMLInputElement>(null);
   const { t } = useTranslation();
   const meta = (key: string, options?: Record<string, unknown>) =>
@@ -119,6 +119,7 @@ function InboxWorkspace({
   const channels = useInboxChannels();
   const tags = useInboxTags();
   const members = useInboxMembers();
+  const bots = useInboxBots();
   const items = guardList(inbox.data?.data ?? [], state, userId);
   const counts = tabCounts(inbox.data?.data ?? [], inbox.data?.counts);
   const section: InboxSection = comments ? 'fbComments' : state.provider;
@@ -194,13 +195,13 @@ function InboxWorkspace({
     <ConversationList
       state={state}
       searchRef={searchRef}
-      workspaceId={workspaceId}
       userId={userId ?? ''}
       onState={changeList}
       items={items}
       channels={channels.data?.data ?? []}
       tags={tags.data ?? []}
       members={members.data ?? []}
+      bots={bots.data ?? []}
       counts={counts}
       pending={inbox.isPending}
       refreshing={inbox.isPlaceholderData}
