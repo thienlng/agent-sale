@@ -129,7 +129,7 @@ After a customer message the agent asks the channel module for the customer's na
 - `apps/webhook` stores events only for `connected`/`reauth_required` connections, so a removed page receives nothing new. Events queued before removal are rejected by `ConversationFacade.receive` (`removed` is refused like `disconnected`) and do not create conversations or messages.
 - Reconnecting the same page through the normal OAuth flow upserts on `(provider, external_id)` of the same workspace, reuses the row and sets it back to `connected` (bot not restored: assign it again). A page removed from workspace A still cannot be connected to workspace B ("connected to another workspace").
 - Website chat is excluded: `DELETE` on a website connection is a validation error (use enable/disable or "Xóa kết nối").
-- Migration `0029_channel_removed_status.sql` only widens the status CHECK constraint. Run it before deploying the new API; API instances from before T-133 cannot parse a `removed` row in `GET /channels`.
+- Migration `0033_channel_removed_status.sql` only widens the status CHECK constraint. Run it before deploying the new API; API instances from before T-133 cannot parse a `removed` row in `GET /channels`.
 
 ## Limits
 

@@ -45,7 +45,7 @@ Owners can remove Facebook/Instagram pages from the integrations list; removal i
 ## Plan
 
 1. Contracts: add `removed` to the connection status enum; add `DELETE /channels/{id}` (204) route; schema test.
-2. DB: migration `0029_channel_removed_status.sql` replaces the status CHECK constraint (adds `removed`); no new column.
+2. DB: migration `0033_channel_removed_status.sql` replaces the status CHECK constraint (adds `removed`); no new column.
 3. Backend: `MetaGateway.unsubscribe`, `ChannelStore.remove` (wipes the sealed token, clears bot, hides from `list`), `ChannelFacadeImpl.remove`, `@Delete(':id')`; `ConversationFacade.receive` also rejects `removed`; webhook ingress already only accepts `connected|reauth_required`.
 4. Tests first: facade spec with fakes, store integration spec (Testcontainers), webhook ingress integration spec, conversation receive spec, http contract spec.
 5. Web: `useRemoveChannels` hook (partial failures, like bulk update), `ConnectionCard` row menu, toolbar bulk button, ConfirmDialog usage, i18n vi/en, component tests, e2e touch-up if the integrations page is covered.
@@ -56,6 +56,8 @@ Data-model choice: a new `removed` status instead of a `removed_at` column. Ever
 ## Log
 
 - 2026-10-29 — created. Verified: `apps/webhook/src/infrastructure/meta-ingress.store.ts` only accepts `connected`/`reauth_required`; `ConversationFacade.receive` rejected only `disconnected` (to be tightened); `channel.store.ts` `select()` upserts on (provider, external_id) and sets status `connected`.
+
+- 2026-10-29 — Root review: migration renumbered 0029 → 0033 because the open lane A2/A3 branches already use 0029–0032 (runner tracks files by name, so out-of-order application is safe).
 
 ## Links
 
