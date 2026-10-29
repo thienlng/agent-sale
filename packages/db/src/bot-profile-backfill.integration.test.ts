@@ -145,6 +145,7 @@ describe('bot profile backfill (T-141)', () => {
     expect(retail).toEqual({
       botId: retailBot,
       fieldsCopied: 6,
+      fieldsSkippedTooLong: 0,
       faqsDeleted: 6,
       rulesDeleted: 4,
       personalitySet: ['replyLength'],
@@ -160,6 +161,7 @@ describe('bot profile backfill (T-141)', () => {
     expect(report.bots.find((b) => b.botId === villasBot)).toEqual({
       botId: villasBot,
       fieldsCopied: 0,
+      fieldsSkippedTooLong: 0,
       faqsDeleted: 4,
       rulesDeleted: 0,
       personalitySet: [],
@@ -236,5 +238,30 @@ describe('replyLength mapping (T-141 fix)', () => {
     expect((await settingsOf(detailedWithRule))['replyLength']).toBe('detailed');
     expect(await count('training_items', nullWithRule)).toBe(0);
     expect(await count('training_items', detailedWithRule)).toBe(0);
+  });
+});
+
+describe('over-length placeholder values (T-141 fix)', () => {
+  const longBot = newId();
+
+  beforeAll(async () => {
+    await exec(sql`insert into bots (id, workspace_id, name, industry, settings) values
+      (${longBot}, ${wsA}, 'Long', 'retail', ${JSON.stringify({
+        placeholders: { 'store.hotline': '0'.repeat(61), 'store.hours': '8-22' },
+      })}::jsonb)`);
+  });
+
+  it('skips a value longer than the field allows, counts it, and copies the rest', async () => {
+    const report = await backfillBotProfiles(system.db, { dryRun: false });
+    expect(report.bots.find((b) => b.botId === longBot)).toEqual({
+      botId: longBot,
+      fieldsCopied: 1,
+      fieldsSkippedTooLong: 1,
+      faqsDeleted: 0,
+      rulesDeleted: 0,
+      personalitySet: [],
+    });
+    const profile = (await settingsOf(longBot))['profile'] as { fields: Record<string, string> };
+    expect(profile.fields).toEqual({ hours: '8-22' });
   });
 });

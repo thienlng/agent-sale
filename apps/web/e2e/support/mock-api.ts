@@ -116,7 +116,7 @@ export async function mockApi(page: Page) {
           checks: [
             { key: 'mission', done: true },
             { key: 'faq', done: true },
-            { key: 'placeholders', done: false },
+            { key: 'profile', done: false, detail: '3' },
             { key: 'channel', done: false },
           ],
         }),

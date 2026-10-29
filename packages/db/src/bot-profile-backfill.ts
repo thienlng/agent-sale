@@ -9,6 +9,8 @@ export interface BotProfileBackfillReport {
   bots: {
     botId: string;
     fieldsCopied: number;
+    /** Placeholder values longer than the target field allows: not copied, left for the owner. */
+    fieldsSkippedTooLong: number;
     faqsDeleted: number;
     rulesDeleted: number;
     personalitySet: string[];
@@ -40,6 +42,33 @@ const PLACEHOLDER_TO_FIELD: Readonly<Record<string, string>> = {
   'solar.price_range': 'priceRange',
   'solar.payback': 'payback',
   'solar.warranty': 'warranty',
+};
+
+/**
+ * Frozen copy of the character limits of those profile fields (PROFILE_FIELDS in
+ * packages/contracts/src/bot/profile.ts). A longer value would make every later settings save
+ * fail validation, so it is skipped, never truncated. packages/db must not import contracts.
+ */
+const FIELD_MAX: Readonly<Record<string, number>> = {
+  displayName: 120,
+  address: 300,
+  hotline: 60,
+  hours: 200,
+  payment: 500,
+  shipping: 1000,
+  returns: 1000,
+  sizeGuide: 1000,
+  authenticity: 500,
+  servicePrices: 1000,
+  courseFees: 1000,
+  courseSchedule: 1000,
+  courseTrial: 500,
+  rates: 1000,
+  checkInOut: 200,
+  cancellation: 500,
+  priceRange: 1000,
+  payback: 500,
+  warranty: 500,
 };
 
 /**
@@ -114,7 +143,7 @@ const isEmpty = (v: unknown) => typeof v !== 'string' || v.trim() === '';
 /**
  * T-141 (spec §6): moves legacy bot data into the structured profile. Per bot, in one
  * transaction: copies `settings.placeholders` into empty `settings.profile.fields` (never
- * overwrites), deletes seeded FAQs and style rules that still equal the legacy seed exactly
+ * overwrites; a value longer than the field's limit is skipped and counted), deletes seeded FAQs and style rules that still equal the legacy seed exactly
  * (anything edited or user-written is kept), and maps the deleted length rule to
  * `replyLength: 'short'` when the bot has none. `settings.placeholders` stays untouched.
  * Idempotent. With `dryRun` each bot's transaction is rolled back, so the report is exact.
@@ -149,10 +178,16 @@ export async function backfillBotProfiles(
         const fields = isObject(profile['fields']) ? { ...profile['fields'] } : {};
 
         let fieldsCopied = 0;
+        let fieldsSkippedTooLong = 0;
         for (const [placeholder, field] of Object.entries(PLACEHOLDER_TO_FIELD)) {
           const value = placeholders[placeholder];
           if (isEmpty(value) || !isEmpty(fields[field])) continue;
-          fields[field] = (value as string).trim();
+          const text = (value as string).trim();
+          if (text.length > (FIELD_MAX[field] ?? 0)) {
+            fieldsSkippedTooLong += 1;
+            continue;
+          }
+          fields[field] = text;
           fieldsCopied += 1;
         }
 
@@ -194,10 +229,18 @@ export async function backfillBotProfiles(
             update bots set settings = settings || ${JSON.stringify(patch)}::jsonb
             where id = ${botId} and workspace_id = ${ws}`);
 
-        if (fieldsCopied + faqIds.length + seeded.length + personalitySet.length > 0)
+        if (
+          fieldsCopied +
+            fieldsSkippedTooLong +
+            faqIds.length +
+            seeded.length +
+            personalitySet.length >
+          0
+        )
           report.bots.push({
             botId,
             fieldsCopied,
+            fieldsSkippedTooLong,
             faqsDeleted: faqIds.length,
             rulesDeleted: seeded.length,
             personalitySet,
