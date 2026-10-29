@@ -37,7 +37,7 @@ const PAGES = [
   ['crm distribution', '/app/crm-settings/distribution', 'Cài đặt khách hàng'],
   ['members', '/app/members', 'Thành viên & quyền truy cập'],
   ['statistics', '/app/analytics', 'Khách hàng mới'],
-  ['shop profile', '/app/settings/profile', 'Thông tin shop'],
+  ['business profile', '/app/settings/profile', 'Thông tin business'],
   ['security', '/app/settings/security', 'Xác minh 2 bước'],
   ['audit trail', '/app/settings/audit', 'Nhật ký thay đổi'],
   ['join', `/join?token=${'t'.repeat(43)}`, 'Lời mời tham gia shop'],

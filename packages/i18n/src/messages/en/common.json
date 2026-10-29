@@ -1178,26 +1178,30 @@
   "wsettings": {
     "title": "Settings",
     "tabs": {
-      "profile": "Shop profile",
+      "profile": "Business profile",
       "security": "Security",
       "audit": "Change log"
     },
     "profile": {
-      "title": "Shop information",
-      "hint": "The shop's business details. Separate from your own login account and from invoicing details.",
-      "name": "Shop name",
-      "companyName": "Company name",
-      "businessServices": "Business field / services",
-      "productDescription": "Product and service description",
+      "title": "Business information",
+      "hint": "The selected business's general details. Separate from your own login account and from invoicing details.",
+      "name": "Business name",
+      "companyName": "Company name (optional)",
       "save": "Save changes",
-      "saved": "Shop information saved",
+      "saved": "Business information saved",
       "reset": "Undo",
       "dirty": "Unsaved changes",
       "readOnly": "You can only view this. The owner or an admin can edit it.",
-      "stale": "Someone else just changed the shop information. The latest version is loaded; check it and save again.",
+      "stale": "Someone else just changed the business information. The latest version is loaded; check it and save again.",
       "leave": "You have unsaved changes. Leaving this page discards them.",
       "stay": "Stay",
-      "leaveConfirm": "Leave page"
+      "leaveConfirm": "Leave page",
+      "template": "Template",
+      "templateHint": "Chosen when the business was created and cannot be changed. Existing bots and training are kept.",
+      "companyToggle": "Company information",
+      "companyHint": "Only needed when the legal name differs from the business name.",
+      "botContext": "The facts a bot uses to advise customers (address, policies…) are entered on each bot, under Business information.",
+      "botLink": "Open the bot list"
     },
     "logo": {
       "title": "Logo",
@@ -1257,10 +1261,6 @@
       },
       "enabledToast": "Two-step verification is on",
       "disabledToast": "Two-step verification is off"
-    },
-    "industry": {
-      "title": "Business industry",
-      "policy": "This industry belongs to the selected business, independently of your login or billing details. Changing industry is not supported; existing bots and training are kept."
     }
   },
   "analytics": {
@@ -1470,7 +1470,36 @@
     "noResults": "No businesses found.",
     "switching": "Switching business…",
     "waitForSave": "Wait for the current save before switching business.",
-    "switchError": "Could not switch business. Try again."
+    "switchError": "Could not switch business. Try again.",
+    "create": {
+      "open": "Create business",
+      "title": "Create a new business",
+      "description": "Each business has one template, used to prepare starter content for its bots. The template cannot be changed after creation.",
+      "name": "Business name",
+      "namePlaceholder": "For example: Villas",
+      "template": "Template",
+      "templateHint": "Pick the template closest to how you do business. It cannot be changed after creation.",
+      "submit": "Create business",
+      "submitting": "Creating…",
+      "cancel": "Cancel",
+      "templates": {
+        "retail": "Retail and online shops: products, delivery, returns",
+        "fashion": "Clothing and accessories: sizes, colours, stock, returns",
+        "cosmetics": "Cosmetics and skincare: ingredients, benefits, skin advice",
+        "spa": "Spas and beauty: services, treatment plans, appointments",
+        "dental": "Dental clinics: services, price list, booking visits",
+        "education": "Centres and classes: courses, tuition, start dates",
+        "hotel": "Hotels, homestays, villas: rooms, rates, check-in/out, deposits",
+        "solar": "Solar and mechanical work: surveys, quotes, installation, warranty",
+        "other": "Any other field: start from a blank pack and set up your own details"
+      },
+      "errors": {
+        "forbidden": "You are not allowed to create businesses in this account.",
+        "validation": "The business name or template is not valid. Check it and try again.",
+        "generic": "Could not create the business. Try again.",
+        "loadError": "The business was created but could not be opened. Choose it from the business list."
+      }
+    }
   },
   "account": {
     "open": "Account of {{name}}",

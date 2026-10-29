@@ -10,6 +10,7 @@ import { useSession } from '@/lib/session';
 
 import { AccountMenu, type MenuDialogProps } from './layout/account-menu';
 import { AppSidebar } from './layout/app-sidebar';
+import type { CreateBusinessDialogProps } from './layout/business-selector';
 
 /** shadcn's sidebar remembers open/closed in this cookie (written by the component itself). */
 function sidebarOpenByDefault(): boolean {
@@ -40,10 +41,13 @@ const SECTION: Record<string, string> = {
 export function AppShell({
   children,
   planDialog,
+  createBusinessDialog,
 }: {
   children: ReactNode;
   /** Plan and billing popup for the account menu, composed by the route from `features/billing`. */
   planDialog?: ((props: MenuDialogProps) => ReactNode) | undefined;
+  /** Create-business popup for the business selector, composed by the route from `features/workspace`. */
+  createBusinessDialog?: ((props: CreateBusinessDialogProps) => ReactNode) | undefined;
 }) {
   const { t } = useTranslation();
   const session = useSession();
@@ -59,7 +63,7 @@ export function AppShell({
         defaultOpen={sidebarOpenByDefault()}
         style={{ '--header-height': '3.25rem' } as CSSProperties}
       >
-        <AppSidebar />
+        <AppSidebar createBusinessDialog={createBusinessDialog} />
         <SidebarInset className="min-w-0 overflow-x-clip">
           <header
             className={[

@@ -38,7 +38,7 @@ import { useCan } from '@/lib/permissions';
 import { usePreferences } from '@/lib/preferences/preferences';
 import { useSession } from '@/lib/session';
 
-import { BusinessSelector } from './business-selector';
+import { BusinessSelector, type CreateBusinessDialogProps } from './business-selector';
 
 interface NavItem {
   to: string;
@@ -238,7 +238,11 @@ function NavItems({ items }: { items: readonly NavItem[] }) {
 }
 
 /** The dashboard sidebar; variant and collapse mode come from the user's preferences. */
-export function AppSidebar() {
+export function AppSidebar({
+  createBusinessDialog,
+}: {
+  createBusinessDialog?: ((props: CreateBusinessDialogProps) => ReactNode) | undefined;
+}) {
   const { t } = useTranslation();
   const session = useSession();
   const prefs = usePreferences();
@@ -256,7 +260,7 @@ export function AppSidebar() {
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
-        <BusinessSelector />
+        <BusinessSelector createBusinessDialog={createBusinessDialog} />
       </SidebarHeader>
       <SidebarContent>
         {/* `contents` keeps the sidebar's own layout while exposing a navigation landmark. */}
