@@ -274,7 +274,7 @@ describe('HTTP: bots and FAQs', () => {
     return { authorization: `Bearer ${token}`, 'x-workspace-id': ws };
   }
 
-  it('creates a bot from an industry pack, fills placeholders and becomes FAQ-ready', async () => {
+  it('creates a bot from an industry pack without placeholder FAQs and becomes ready from its profile and an answerable FAQ', async () => {
     const a = await app();
     const h = await owner(a);
     const created = await inject(a, {
@@ -289,8 +289,9 @@ describe('HTTP: bots and FAQs', () => {
     const faqs = FaqListResponse.parse(
       (await inject(a, { method: 'GET', url: `/api/v1/bots/${bot.id}/faqs`, headers: h })).json(),
     );
-    expect(faqs.data.length).toBeGreaterThanOrEqual(6);
-    expect(faqs.data.some((f) => f.missingPlaceholders.includes('store.address'))).toBe(true);
+    // New bots seed only placeholder-free pack FAQs (the retail pack has none).
+    expect(faqs.data.every((f) => f.missingPlaceholders.length === 0)).toBe(true);
+    expect(bot.settings.greeting).not.toMatch(/\{\{/);
 
     const readiness = BotReadiness.parse(
       (
@@ -298,22 +299,38 @@ describe('HTTP: bots and FAQs', () => {
       ).json(),
     );
     expect(readiness.checks.find((c) => c.key === 'profile')?.done).toBe(false);
-    const values = Object.fromEntries(
-      readiness.missingPlaceholders.map((p) => [p, `giá trị ${p}`]),
-    );
-    const patched = await inject(a, {
-      method: 'PATCH',
-      url: `/api/v1/bots/${bot.id}`,
+    expect(readiness.checks.find((c) => c.key === 'faq')?.done).toBe(false);
+    expect(readiness.missingPlaceholders).toEqual([]);
+
+    // An FAQ with an unfilled placeholder is flagged and does not count as answerable.
+    const unfilled = await inject(a, {
+      method: 'POST',
+      url: `/api/v1/bots/${bot.id}/faqs`,
       headers: h,
-      payload: { settings: { placeholders: values } },
+      payload: { question: 'Ở đâu?', answer: 'Dạ ở {{store.address}} ạ.' },
     });
-    expect(patched.statusCode).toBe(200);
+    expect(unfilled.statusCode).toBe(201);
+    expect(unfilled.json().missingPlaceholders).toEqual(['store.address']);
+    const stillNot = BotReadiness.parse(
+      (
+        await inject(a, { method: 'GET', url: `/api/v1/bots/${bot.id}/readiness`, headers: h })
+      ).json(),
+    );
+    expect(stillNot.checks.find((c) => c.key === 'faq')?.done).toBe(false);
+
+    const plain = await inject(a, {
+      method: 'POST',
+      url: `/api/v1/bots/${bot.id}/faqs`,
+      headers: h,
+      payload: { question: 'Giờ mở cửa?', answer: 'Dạ 8h đến 22h ạ.' },
+    });
+    expect(plain.statusCode).toBe(201);
     const after = BotReadiness.parse(
       (
         await inject(a, { method: 'GET', url: `/api/v1/bots/${bot.id}/readiness`, headers: h })
       ).json(),
     );
-    expect(after.missingPlaceholders).toEqual([]);
+    expect(after.checks.find((c) => c.key === 'faq')?.done).toBe(true);
     const profilePatch = await inject(a, {
       method: 'PATCH',
       url: `/api/v1/bots/${bot.id}`,
