@@ -39,13 +39,25 @@ export function IntegrationsView({ mode }: { mode: IntegrationsMode }) {
     t(`channelInbox.integrations.${key}`, options ?? {});
   const bot = mode.kind === 'bot';
   const integrations = useIntegrations(mode);
-  const { channels, bots, canManage, connect, configured, botName, apply, applying, discovery } =
-    integrations;
+  const {
+    channels,
+    bots,
+    canManage,
+    connect,
+    configured,
+    botName,
+    apply,
+    applying,
+    discovery,
+    remove,
+  } = integrations;
   const [category, setCategory] = useState<PlatformKey>('all');
   const [query, setQuery] = useState('');
   const [assignment, setAssignment] = useState('all');
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [dialog, setDialog] = useState<'edit' | 'deactivate' | null>(null);
+  /** Pages waiting for the remove confirmation (one from a row menu, or the bulk selection). */
+  const [removal, setRemoval] = useState<readonly string[] | null>(null);
   const websites = useWebsiteActions();
   const [site, setSite] = useState<
     { kind: 'create' } | { kind: 'install' | 'settings' | 'disconnect'; id: string } | null
@@ -60,6 +72,9 @@ export function IntegrationsView({ mode }: { mode: IntegrationsMode }) {
   const visible = filterConnections(all, { category, query, ...scope, ...assignmentFilter });
   const owned = bot ? filterConnections(all, { category: 'all', query: '', ...scope }) : all;
   const picked = visible.filter((c) => selected.has(c.id));
+  // Website chat keeps its own enable/disconnect flow and is never removed from here.
+  const removable = picked.filter((c) => c.provider !== 'website');
+  const removing = removal ? all.filter((c) => removal.includes(c.id)) : [];
 
   const toggle = (id: string, on: boolean) =>
     setSelected((prev) => {
@@ -77,6 +92,12 @@ export function IntegrationsView({ mode }: { mode: IntegrationsMode }) {
   }
   const deactivate = () =>
     run(picked.filter((c) => c.botId !== null).map((c) => ({ id: c.id, body: { botId: null } })));
+  async function confirmRemove() {
+    const failed = await remove(removing.map((c) => c.id));
+    setSelected(new Set(failed));
+    // A partial failure keeps the dialog open on just the pages that remain.
+    setRemoval(failed.length ? failed : null);
+  }
   const assign = (botId: string | null) =>
     run(picked.filter((c) => c.status === 'connected').map((c) => ({ id: c.id, body: { botId } })));
   const savePlan = (plan: BotPagesPlan) =>
@@ -156,6 +177,8 @@ export function IntegrationsView({ mode }: { mode: IntegrationsMode }) {
             }}
             readOnly={!canManage}
             canUnassign={picked.some((c) => c.botId !== null)}
+            canRemove={removable.length > 0}
+            onRemove={() => setRemoval(removable.map((c) => c.id))}
             selectedCount={picked.length}
             totalCount={visible.length}
             editEnabled={
@@ -211,6 +234,8 @@ export function IntegrationsView({ mode }: { mode: IntegrationsMode }) {
                     showBot={!bot}
                     canReconnect={canManage && configured(provider) && !connect.pending}
                     onReconnect={() => connect.connect(provider)}
+                    canRemove={canManage}
+                    onRemove={() => setRemoval([c.id])}
                   />
                 );
               })}
@@ -298,6 +323,19 @@ export function IntegrationsView({ mode }: { mode: IntegrationsMode }) {
           const id = siteTarget?.id;
           if (id) void websites.disconnectSite(id).then((ok) => ok && setSite(null));
         }}
+      />
+      <ConfirmDialog
+        open={removal !== null && removing.length > 0}
+        destructive
+        title={
+          removing.length === 1
+            ? ti('removeTitle', { name: removing[0]?.name ?? '' })
+            : ti('removeTitleMany', { count: removing.length })
+        }
+        body={ti(removing.length === 1 ? 'removeBody' : 'removeBodyMany')}
+        confirm={ti('removePage')}
+        onCancel={() => setRemoval(null)}
+        onConfirm={() => void confirmRemove()}
       />
       <ConfirmDialog
         open={dialog === 'deactivate'}

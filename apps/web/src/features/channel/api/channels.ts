@@ -112,6 +112,20 @@ export function useBulkUpdateChannels() {
     onSettled: () => invalidateConnectionViews(qc, ws),
   });
 }
+/** Soft-removes pages; returns only the failed page ids, so retries do not repeat successes. */
+export function useRemoveChannels() {
+  const ws = useWorkspaceId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      const results = await Promise.allSettled(
+        ids.map((id) => api(`/channels/${id}`, z.null(), { method: 'DELETE' })),
+      );
+      return ids.filter((_id, index) => results[index]?.status === 'rejected');
+    },
+    onSettled: () => invalidateConnectionViews(qc, ws),
+  });
+}
 export function useUpdateChannel() {
   const ws = useWorkspaceId();
   const qc = useQueryClient();
