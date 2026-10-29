@@ -54,6 +54,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [ ] T-125 Count bot home statistics by the answering bot instead of its current pages — @unassigned · [details](todo/T-125-count-bot-home-statistics-by-the-answering-bot-ins.md)
 
 ## Blocked
+- [ ] T-155 Complete the Villas business experience and seed the real A17 property — @agent:codex · [details](todo/T-155-complete-the-villas-business-experience-and-seed-t.md) · [PR #88](https://github.com/thienlng/agent-sale/pull/88) · implementation/local gate/QA complete; blocked: GitHub Actions account billing
 
 - [ ] T-093 Scope business settings and bot defaults to the selected industry — @agent:codex · [details](todo/T-093-scope-business-settings-and-bot-defaults-to-the-se.md) · blocked: partial: business industry increment delivered; account billing separation awaits T-092/T-091 · PR #77 (industry increment)
 
@@ -70,7 +71,6 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [ ] T-002 Finalize open decisions (domain, data-center location, MVP channels) — @thienlng · blocked: human decision · [details](todo/T-002-finalize-open-decisions.md)
 
 ## Done (last 10 — older ones live in todo/done/)
-- [x] T-155 Complete the Villas business experience and seed the real A17 property — @agent:codex · [details](todo/done/T-155-complete-the-villas-business-experience-and-seed-t.md) · [PR #88](https://github.com/thienlng/agent-sale/pull/88) · local gate and independent QA passed
 
 - [x] T-154 Drop the coming-soon badge from the Products menu entry — @agent:claude · [details](todo/done/T-154-drop-the-coming-soon-badge-from-products.md) · main
 - [x] T-152 Show the business logo in the business selector — @agent:claude · [details](todo/done/T-152-show-the-business-logo-in-the-selector.md) · main

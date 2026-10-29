@@ -46,3 +46,6 @@ Private operator evidence is outside the repository under `/tmp/villas-a17-priva
 ## Practical limits
 
 The source does not provide authoritative availability or commercial policies. Staff must verify them before confirmation. Local confirmed-date exclusion protects this system only, and agreed total is not a payment. No live Messenger customer message or paid reservation was sent. This delivery is a useful one-property inquiry/request/confirmation workflow, with the broader PMS/calendar/payment/appointment architecture documented as future work in ADR-013.
+
+
+Remote delivery: [PR#88](https://github.com/thienlng/agent-sale/pull/88) remains draft. GitHub Actions run40975424974 and PR checks40975424944 failed to start jobs because the account has payment/spending-limit restrictions. This is an external execution blocker; no remote code check ran. Local gate and independent acceptance passed.

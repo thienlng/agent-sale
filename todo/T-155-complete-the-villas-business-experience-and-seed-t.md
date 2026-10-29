@@ -1,7 +1,7 @@
 ---
 id: T-155
 title: Complete the Villas business experience and seed the real A17 property
-status: done
+status: blocked
 type: feature
 priority: P1
 owner: agent:codex
@@ -47,7 +47,8 @@ Deliver and verify a useful one-property lodging workflow, sourced A17 training/
 - [x] Requests cannot be represented as confirmed availability or payment; any confirmation flow has explicit staff verification and overlap safety.
 - [x] A17 profile, FAQs, situations and quick replies answer actual source questions and defer unknown policies appropriately.
 - [x] TinyMind data and retail behavior remain unchanged.
-- [x] Meaningful tests, cross-tenant/permission cases, prompt evals when applicable and pnpm check pass.
+- [x] Meaningful tests, cross-tenant/permission cases, prompt evals and local pnpm check pass.
+- [ ] Remote CI can execute and pass; currently blocked by GitHub account billing/spending limits.
 - [x] Native Chrome acceptance plus independent QA review completed; unresolved limits documented.
 - [x] Docs, task tracking, commits and remote delivery completed.
 
@@ -72,6 +73,8 @@ Deliver and verify a useful one-property lodging workflow, sourced A17 training/
 - 2026-10-30 — Ready for review: final pnpm check passed lint/architecture,22/22 typecheck tasks,19/19 test tasks and13/13 build tasks; backend78files/1268tests, web95files/608tests, contracts77tests. Initial gzip241.7KB stays within250KB budget. Final PostgreSQL lodging integration4/4 passed33.23s. Source scan found no credentials/booking-contact PII; git diff --check passed. Commit/push and PR deliver this completed implementation; maintainer review/ADR acceptance and CI remain separate gates.
 
 - 2026-10-30 — Pushed c9d170a on feat/T-155-villas-a17-business and opened draft PR#88 while CI runs. Maintainer review remains required.
+
+- 2026-10-30 — External CI blocker: Actions run40975424974 and PR checks40975424944 did not start any job. GitHub annotations report recent account payment failure or spending-limit exhaustion. No code check ran remotely. Keep PR#88 draft per open-pr workflow; local gate, independent QA and runtime acceptance passed. Implementation is complete, but remote acceptance cannot be marked complete until the repository owner resolves billing and reruns CI.
 
 ## Links
 
