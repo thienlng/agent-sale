@@ -1,0 +1,9 @@
+# Live profile name correction — T-136
+
+The owner reported a mismatch between the own-thread Facebook display name and Rapiz. A scoped read-only Graph v24 request confirmed the first/last-name join matched the incorrect cached display, while the independent `name` field supplied the complete display name shown in Business Suite. Requested work/education/hometown/location returned no such fields; this does not prove every field is universally inaccessible for every grant.
+
+The adapter now requests and prefers provider `name`, preserving internal spacing/order and retaining first/last fallback. Synthetic adapter regression: two failures before the change, thirteen passing afterward. Instagram and avatar/error behavior remain covered by existing checks. Independent QA approved the bounded change.
+
+After building the package, the parent invalidated only the verified own conversation freshness stamp through the tenant-scoped application store, comparing expected prior stamp/name under row lock, then invoked production profile refresh and MetaAdapter. The persisted full name matched the provider. The only changed fields were customerName, customerAvatarUrl and profileFetchedAt; mode, revision and activity timestamp remained unchanged. No manual name assignment, provider grant change, customer message or outbox event was involved.
+
+Private operational evidence: /tmp/t131-refresh-evidence.json (sanitized booleans/field names). Raw identity/profile/token material stays outside git. This is persisted-source verification, not a claim that every browser surface was retested. Ordinary daily/failed-retry caching policy is unchanged. Final repository gate is recorded in the parent T-147 run report.
