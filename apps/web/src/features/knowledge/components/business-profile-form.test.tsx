@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -8,10 +9,13 @@ import { renderWithRouter, stubFetch } from '@/testing/render';
 import { BusinessProfileForm } from './business-profile-form';
 
 const can = vi.hoisted(() => ({ value: true }));
+const toastError = vi.hoisted(() => vi.fn());
+vi.mock('sonner', () => ({ toast: { error: toastError, success: vi.fn() } }));
 vi.mock('@/lib/use-workspace', () => ({ useWorkspaceId: () => 'ws-1' }));
 vi.mock('@/lib/permissions', () => ({ useCan: () => can.value }));
 beforeEach(() => {
   can.value = true;
+  toastError.mockClear();
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -46,14 +50,30 @@ function bot(
   };
 }
 
+/** A button that makes the bot query refetch, standing in for a background refresh. */
+function Refetch() {
+  const qc = useQueryClient();
+  return (
+    <button type="button" onClick={() => void qc.invalidateQueries()}>
+      refetch-now
+    </button>
+  );
+}
+
 async function setup(initial = bot(), saved: Record<string, unknown> = initial) {
   let current = initial;
+  const control = { patchStatus: 200 };
   const routes = {
     // After a PATCH the server returns the saved bot to every later read.
     get [`GET /bots/${BOT}`]() {
       return { status: 200, body: current };
     },
     get [`PATCH /bots/${BOT}`]() {
+      if (control.patchStatus !== 200)
+        return {
+          status: control.patchStatus,
+          body: { error: { code: 'INTERNAL', message: 'boom' } },
+        };
       current = saved;
       return { status: 200, body: saved };
     },
@@ -64,10 +84,19 @@ async function setup(initial = bot(), saved: Record<string, unknown> = initial) 
     <>
       <BusinessProfileForm botId={BOT} />
       <Link to="/app/bots">go-away</Link>
+      <Refetch />
     </>
   ));
   await screen.findByLabelText(/Tên gọi với khách/, undefined, { timeout: 10_000 });
-  return stub;
+  return {
+    ...stub,
+    serverNow: (next: Record<string, unknown>) => {
+      current = next;
+    },
+    failSaves: () => {
+      control.patchStatus = 500;
+    },
+  };
 }
 
 describe('BusinessProfileForm', () => {
@@ -150,6 +179,38 @@ describe('BusinessProfileForm', () => {
       expect(screen.getByRole('button', { name: 'Lưu thay đổi' })).toBeDisabled(),
     );
     expect(screen.getByLabelText(/Địa chỉ/)).toHaveValue('New');
+  });
+
+  it('keeps what is being typed through a background refetch and takes the server for the rest', async () => {
+    const stub = await setup(bot({ address: 'Old', hotline: '0901' }));
+    await userEvent.type(screen.getByLabelText(/Địa chỉ/), ' typed');
+    // Someone else changed the hotline meanwhile; the next read returns it.
+    stub.serverNow(bot({ address: 'Old', hotline: '0999' }));
+    await userEvent.click(screen.getByText('refetch-now'));
+    await waitFor(() => expect(screen.getByLabelText(/Hotline/)).toHaveValue('0999'), {
+      timeout: 10_000,
+    });
+    expect(screen.getByLabelText(/Địa chỉ/)).toHaveValue('Old typed');
+  });
+
+  it('restores the saved values with Undo', async () => {
+    await setup(bot({ address: 'Old' }, 'note'));
+    await userEvent.type(screen.getByLabelText(/Địa chỉ/), '!');
+    await userEvent.type(screen.getByLabelText(/Ghi chú thêm/), '?');
+    await userEvent.click(screen.getByRole('button', { name: 'Hoàn tác' }));
+    expect(screen.getByLabelText(/Địa chỉ/)).toHaveValue('Old');
+    expect(screen.getByLabelText(/Ghi chú thêm/)).toHaveValue('note');
+    expect(screen.getByRole('button', { name: 'Lưu thay đổi' })).toBeDisabled();
+  });
+
+  it('shows the error and keeps the draft when saving fails', async () => {
+    const stub = await setup(bot({ address: 'Old' }));
+    stub.failSaves();
+    await userEvent.type(screen.getByLabelText(/Địa chỉ/), '!');
+    await userEvent.click(screen.getByRole('button', { name: 'Lưu thay đổi' }));
+    await waitFor(() => expect(toastError).toHaveBeenCalled());
+    expect(screen.getByLabelText(/Địa chỉ/)).toHaveValue('Old!');
+    expect(screen.getByRole('button', { name: 'Lưu thay đổi' })).toBeEnabled();
   });
 
   it('rejects a Google Maps link that is not https', async () => {

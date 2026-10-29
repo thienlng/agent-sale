@@ -519,7 +519,6 @@
     "notesPlaceholder": "Ví dụ: Tuần này tạm nghỉ thứ Hai vì bảo trì.",
     "notesCounter": "{{used}} / {{max}}",
     "save": "Lưu thay đổi",
-    "saving": "Đang lưu...",
     "saved": "Đã lưu thông tin doanh nghiệp",
     "reset": "Hoàn tác",
     "dirty": "Có thay đổi chưa lưu",
@@ -527,8 +526,6 @@
     "stay": "Ở lại",
     "leaveConfirm": "Rời trang",
     "readOnly": "Bạn chỉ có quyền xem thông tin này.",
-    "loadFailed": "Không tải được thông tin doanh nghiệp.",
-    "retry": "Thử lại",
     "invalidUrl": "Link phải bắt đầu bằng https://",
     "faqTitle": "Câu hỏi thường gặp khác",
     "fields": {

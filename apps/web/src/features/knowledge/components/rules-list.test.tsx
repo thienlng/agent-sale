@@ -230,6 +230,17 @@ describe('RulesList', () => {
     expect(within(row).getByText('Bot sẽ báo giá trong dữ liệu')).toBeInTheDocument();
   });
 
+  it('hides the "Khi khách" line when the trigger is only the prefix', async () => {
+    n = 0;
+    await setup([
+      rule({ title: 'Chỉ Khách', trigger: 'Khách' }),
+      rule({ title: 'Chỉ Khi', trigger: 'Khi' }),
+      rule({ title: 'Chỉ Khi khách', trigger: 'Khi khách' }),
+    ]);
+    await screen.findByRole('heading', { name: 'Chỉ Khách' }, { timeout: 10_000 });
+    expect(screen.queryByText(/^Khi khách/)).not.toBeInTheDocument();
+  });
+
   it('shows the locked system group without any action buttons', async () => {
     n = 0;
     await setup([rule()]);

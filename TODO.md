@@ -4,6 +4,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
+- [ ] T-148 Clean up review leftovers from the bot training and channel work — @agent:claude · [details](todo/T-148-tidy-review-leftovers-from-bot-training-and-channel-work.md)
 - [ ] T-145 Run prompt evals through the reply pipeline — @agent:claude · [details](todo/T-145-run-prompt-evals-through-the-reply-pipeline.md)
 - [ ] T-112 Move product management to its own top-level navigation group — @agent:claude · [details](todo/T-112-move-product-management-to-its-own-top-level-navig.md) · PR #83
 - [ ] T-114 Clean up bot navigation: hide the image library and rename channel integrations — @agent:claude · [details](todo/T-114-clean-up-bot-navigation-hide-the-image-library-and.md) · PR #83

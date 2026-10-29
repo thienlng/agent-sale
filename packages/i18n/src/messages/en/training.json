@@ -519,7 +519,6 @@
     "notesPlaceholder": "e.g. Closed this Monday for maintenance.",
     "notesCounter": "{{used}} / {{max}}",
     "save": "Save changes",
-    "saving": "Saving...",
     "saved": "Business information saved",
     "reset": "Undo",
     "dirty": "Unsaved changes",
@@ -527,8 +526,6 @@
     "stay": "Stay",
     "leaveConfirm": "Leave page",
     "readOnly": "You can only view this information.",
-    "loadFailed": "Could not load the business information.",
-    "retry": "Retry",
     "invalidUrl": "The link must start with https://",
     "faqTitle": "Other frequently asked questions",
     "fields": {

@@ -110,7 +110,7 @@ function ProfileForm({ bot }: { bot: BotDto }) {
   const field = (def: (typeof defs)[number]) => {
     const text = draft.fields[def.key] ?? '';
     const id = `bp-${def.key}`;
-    const common = {
+    const inputProps = {
       id,
       maxLength: def.max,
       disabled: !canEdit,
@@ -132,11 +132,19 @@ function ProfileForm({ bot }: { bot: BotDto }) {
           )}
         </div>
         {def.max > 200 ? (
-          <Textarea rows={2} {...common} />
+          <Textarea rows={2} {...inputProps} />
         ) : (
-          <Input {...common} aria-invalid={invalid || undefined} />
+          <Input
+            {...inputProps}
+            aria-invalid={invalid || undefined}
+            aria-describedby={invalid ? `${id}-error` : undefined}
+          />
         )}
-        {invalid ? <p className="text-xs text-destructive">{t('profile.invalidUrl')}</p> : null}
+        {invalid ? (
+          <p id={`${id}-error`} className="text-xs text-destructive">
+            {t('profile.invalidUrl')}
+          </p>
+        ) : null}
       </div>
     );
   };
@@ -163,11 +171,7 @@ function ProfileForm({ bot }: { bot: BotDto }) {
               {t('profile.completeness', { filled, total: keys.length })}
             </span>
           </div>
-          <div
-            className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted"
-            role="presentation"
-            aria-hidden
-          >
+          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden>
             <div
               className="h-full rounded-full bg-primary transition-[width]"
               style={{ width: `${keys.length ? (filled / keys.length) * 100 : 0}%` }}

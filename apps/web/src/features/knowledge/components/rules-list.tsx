@@ -49,7 +49,7 @@ function Group({ title, hint, children }: { title: string; hint?: string; childr
 const bareTrigger = (trigger: string) =>
   trigger
     .trim()
-    .replace(/^(khi\s+khách|khách|khi)\s+/iu, '')
+    .replace(/^(khi\s+khách|khách|khi)(\s+|$)/iu, '')
     .trim();
 
 /** "Bot sẽ <content>": lowercases a sentence-case first letter, but not an acronym or a name. */
