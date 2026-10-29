@@ -32,4 +32,6 @@
 
 **Do not:** call provider SDKs outside `packages/ai-core`; log prompts, replies or API keys; read `bots`/`knowledge_items` tables directly (use the facades).
 
+**Prompt evals (T-145):** `evals/` + `modules/ai/evals/` + `src/cli/eval.ts` run YAML cases through `PlaygroundService` (fake model in `pnpm test`, real model with `--live`); see `apps/backend/evals/README.md`. A prompt or model change needs the critical cases at 100% live.
+
 **Test:** `pnpm --filter @agent-sales/backend test -- ai` · integration: `test/ai.integration.spec.ts`
