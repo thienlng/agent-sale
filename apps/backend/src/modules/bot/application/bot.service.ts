@@ -129,7 +129,10 @@ export class BotService implements BotFacade {
     await this.uow.run(ws, ({ bots }) => bots.save(bot));
     await this.knowledge.seedFaqs(ws, bot.id, packFor(input.industry).faqs);
     try {
-      await this.training?.seedStarterRules(ws, bot.id, '', { recordHistory: false });
+      await this.training?.seedStarterRules(ws, bot.id, '', {
+        recordHistory: false,
+        industry: bot.snapshot().industry,
+      });
     } catch {
       // Best effort: the owner can add the pack from the instructions page. No bot or shop data is logged.
       this.log.warn('starter rules seeding failed');

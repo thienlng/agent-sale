@@ -22,15 +22,16 @@ export function useBotProfile(botId: string) {
   });
 }
 
-/** Sends only the changed profile keys ('' clears one); the server merges them. */
-export function useSaveBotProfile(botId: string) {
+type SettingsPatch = NonNullable<UpdateBotRequest['settings']>;
+
+function useSaveBotSettingsPatch<T>(botId: string, toSettings: (value: T) => SettingsPatch) {
   const ws = useWorkspaceId();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (profile: ProfilePatch) =>
+    mutationFn: (value: T) =>
       api(`/bots/${botId}`, BotDto, {
         method: 'PATCH',
-        body: { settings: { profile } } satisfies UpdateBotRequest,
+        body: { settings: toSettings(value) } satisfies UpdateBotRequest,
       }),
     onSuccess: (bot) => qc.setQueryData(queryKeys.bot(ws, botId), bot),
     onSettled: () => {
@@ -39,4 +40,14 @@ export function useSaveBotProfile(botId: string) {
       void qc.invalidateQueries({ queryKey: queryKeys.readiness(ws, botId) });
     },
   });
+}
+
+/** Sends only the changed profile keys ('' clears one); the server merges them. */
+export function useSaveBotProfile(botId: string) {
+  return useSaveBotSettingsPatch(botId, (profile: ProfilePatch) => ({ profile }));
+}
+
+/** Sends only the changed top-level settings keys (the personality); the server merges them. */
+export function useSaveBotSettings(botId: string) {
+  return useSaveBotSettingsPatch(botId, (settings: SettingsPatch) => settings);
 }

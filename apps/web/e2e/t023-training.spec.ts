@@ -92,7 +92,7 @@ async function trainingApi(page: Page) {
 }
 
 async function addInstruction(page: Page, title: string, content: string) {
-  await page.getByRole('button', { name: 'Add rule', exact: true }).first().click();
+  await page.getByRole('button', { name: 'Add situation', exact: true }).first().click();
   const dialog = page.getByRole('dialog', { name: 'Add item' });
   await dialog.getByLabel('Title', { exact: true }).fill(title);
   await dialog.getByLabel('Content / handling instructions').fill(content);
@@ -100,14 +100,14 @@ async function addInstruction(page: Page, title: string, content: string) {
 }
 
 /** Empty state of the rules page (T-070 replaced the instruction list with grouped rules). */
-const NO_RULES = 'No rules yet. Add a rule or use the starter set.';
+const NO_RULES = 'No situations yet. Add one or use the industry suggestions.';
 
 test('instructions support create, edit, reload, delete and an accurate history', async ({
   page,
 }) => {
   const state = await trainingApi(page);
   await page.goto(`/app/bots/${BOT_ID}/instructions`);
-  await expect(page.getByRole('heading', { name: 'Bot rules' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Reply guidance' })).toBeVisible();
   await expect(page.getByText(NO_RULES)).toBeVisible();
   const dialog = await addInstruction(
     page,
@@ -181,7 +181,7 @@ test('new training screens fit a phone and recover from a load error', async ({ 
   await trainingApi(page);
   await page.setViewportSize({ width: 375, height: 812 });
   for (const [path, heading] of [
-    ['instructions', 'Bot rules'],
+    ['instructions', 'Reply guidance'],
     ['quick-replies', 'Quick replies'],
     ['history', 'Edit history'],
   ] as const) {

@@ -172,15 +172,8 @@
   },
   "settings": {
     "title": "Bot settings",
-    "storeInfo": "Store details",
-    "storeInfoHint": "Template answers use these details. If one is empty, the bot skips the answers that need it.",
     "behaviour": "How the bot talks",
     "name": "Bot name",
-    "mission": "Bot's job",
-    "missionHint": "What it sells, to whom, what it should close. e.g. advise on sizes and take T-shirt orders.",
-    "greeting": "Greeting",
-    "selfPronoun": "Bot calls itself",
-    "customerPronoun": "Bot calls the customer",
     "fallbackMessage": "When the bot doesn't know",
     "fallbackHint": "Sent when a customer asks something the bot wasn't taught.",
     "handoffMessage": "When handing over to staff",
@@ -205,7 +198,11 @@
     "save": "Save changes",
     "saving": "Saving…",
     "saved": "Changes saved",
-    "unsaved": "Unsaved changes"
+    "unsaved": "Unsaved changes",
+    "guidanceMoved": "The bot's mission, how it addresses people and its greeting live in",
+    "guidanceLink": "Reply guidance",
+    "factsMoved": "Store details such as address, prices and policies live in",
+    "factsLink": "Business information"
   },
   "playground": {
     "title": "Test chat",

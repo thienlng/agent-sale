@@ -48,7 +48,7 @@ async function setup(
   const stub = stubFetch({ [list]: { status: 200, body: { data } }, ...extra });
   vi.stubGlobal('fetch', stub.fetchStub);
   renderWithRouter(() => <RulesList botId={BOT} introduction={<p>intro-row</p>} />);
-  await screen.findByRole('heading', { name: 'Quy tắc cho Bot' }, { timeout: 10_000 });
+  await screen.findByRole('heading', { name: 'Hướng dẫn trả lời' }, { timeout: 10_000 });
   return stub;
 }
 
@@ -67,8 +67,8 @@ describe('RulesList', () => {
       .getAllByRole('region')
       .map((el) => el.getAttribute('aria-label'))
       .filter(Boolean);
-    expect(names).toEqual(['Giới thiệu', 'Quy tắc chung', 'Sau khi chốt đơn', 'Hệ thống']);
-    const general = within(group('Quy tắc chung')).getAllByRole('listitem');
+    expect(names).toEqual(['Tình huống', 'Chung', 'Sau khi chốt đơn', 'Hệ thống']);
+    const general = within(group('Chung')).getAllByRole('listitem');
     expect(general).toHaveLength(2);
     expect(within(general[0]!).getByText('1')).toBeInTheDocument();
     expect(within(general[1]!).getByText('2')).toBeInTheDocument();
@@ -173,7 +173,7 @@ describe('RulesList', () => {
     const { calls } = await setup([], {
       [`POST /bots/${BOT}/training-items`]: { status: 201, body: rule() },
     });
-    await userEvent.click(await screen.findByRole('button', { name: 'Thêm quy tắc' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Thêm tình huống' }));
     await userEvent.type(await screen.findByLabelText('Tiêu đề'), 'Thanks');
     await userEvent.type(screen.getByLabelText(/Nội dung/), 'Say thanks');
     await userEvent.click(screen.getByRole('combobox', { name: 'Nhóm quy tắc' }));
@@ -193,19 +193,48 @@ describe('RulesList', () => {
       rule({ title: 'Greeting', section: 'after_order' }),
     ]);
     await screen.findByText('Refund policy');
-    await userEvent.type(screen.getByLabelText('Tìm kiếm quy tắc'), 'refund');
+    await userEvent.type(screen.getByLabelText('Tìm kiếm tình huống'), 'refund');
     expect(screen.queryByText('Greeting')).not.toBeInTheDocument();
     expect(screen.getByText('Refund policy')).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Sau khi chốt đơn' })).not.toBeInTheDocument();
-    await userEvent.clear(screen.getByLabelText('Tìm kiếm quy tắc'));
-    await userEvent.type(screen.getByLabelText('Tìm kiếm quy tắc'), 'zzz');
-    expect(screen.getByText('Không có quy tắc phù hợp')).toBeInTheDocument();
+    await userEvent.clear(screen.getByLabelText('Tìm kiếm tình huống'));
+    await userEvent.type(screen.getByLabelText('Tìm kiếm tình huống'), 'zzz');
+    expect(screen.getByText('Không có tình huống phù hợp')).toBeInTheDocument();
+  });
+
+  it('collapses the system rules by default and expands them on demand', async () => {
+    n = 0;
+    await setup([rule()]);
+    await screen.findByText('Rule 1', {}, { timeout: 10_000 });
+    expect(screen.queryByTestId('system-rules')).not.toBeInTheDocument();
+    const toggle = screen.getByRole('button', { name: /Hệ thống/ });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await userEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByTestId('system-rules')).toBeInTheDocument();
+  });
+
+  it('reads each situation as "Khi khách … → Bot sẽ …" and keeps the title as its label', async () => {
+    n = 0;
+    await setup([
+      rule({
+        title: 'Hỏi giá',
+        trigger: 'Khách hỏi giá sản phẩm',
+        content: 'Báo giá trong dữ liệu',
+      }),
+    ]);
+    const row = (
+      await screen.findByRole('heading', { name: 'Hỏi giá' }, { timeout: 10_000 })
+    ).closest('li')!;
+    expect(within(row).getByText('Khi khách hỏi giá sản phẩm')).toBeInTheDocument();
+    expect(within(row).getByText('Bot sẽ báo giá trong dữ liệu')).toBeInTheDocument();
   });
 
   it('shows the locked system group without any action buttons', async () => {
     n = 0;
     await setup([rule()]);
     await screen.findByText('Rule 1', {}, { timeout: 10_000 });
+    await userEvent.click(screen.getByRole('button', { name: /Hệ thống/ }));
     const system = screen.getByTestId('system-rules');
     expect(within(system).getAllByRole('listitem')).toHaveLength(5);
     expect(within(system).queryAllByRole('button')).toHaveLength(0);
@@ -223,7 +252,7 @@ describe('RulesList', () => {
     vi.stubGlobal('fetch', stub.fetchStub);
     renderWithRouter(() => <RulesList botId={BOT} />);
     await userEvent.click(
-      await screen.findByRole('button', { name: 'Thêm bộ quy tắc mẫu' }, { timeout: 10_000 }),
+      await screen.findByRole('button', { name: 'Gợi ý theo ngành' }, { timeout: 10_000 }),
     );
     await waitFor(() =>
       expect(stub.calls.filter((c) => c.key === list).length).toBeGreaterThanOrEqual(2),

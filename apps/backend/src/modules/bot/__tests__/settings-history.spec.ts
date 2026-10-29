@@ -9,11 +9,11 @@ import { BotService } from '../application/bot.service.js';
 import { BotModule } from '../bot.module.js';
 
 /** The real module wiring (in-memory stores without a database). */
-async function setup() {
+async function setup(industry: 'retail' | 'hotel' = 'retail') {
   const moduleRef = await Test.createTestingModule({ imports: [BotModule] }).compile();
   const workspace = await moduleRef.get<WorkspaceFacade>(WORKSPACE_FACADE).createWorkspace({
     name: 'Retail business',
-    industry: 'retail',
+    industry,
     ownerUserId: userId(newId()),
   });
   return {
@@ -29,6 +29,14 @@ describe('Bot creation starter rules', () => {
     const bot = await bots.create(ws, { name: 'Shop', industry: 'retail' });
     expect((await training.list(ws, bot.id)).length).toBeGreaterThan(0);
     expect(await training.history(ws, bot.id)).toEqual([]);
+  });
+
+  it('seeds the hotel situations and no style rules for a hotel bot', async () => {
+    const { training, bots, ws } = await setup('hotel');
+    const bot = await bots.create(ws, { name: 'Villa', industry: 'hotel' });
+    const titles = (await training.list(ws, bot.id)).map((i) => i.title);
+    expect(titles).toEqual(expect.arrayContaining(['Hỏi còn phòng/căn', 'Mặc cả giá']));
+    expect(titles).not.toContain('Xưng hô lịch sự');
   });
 
   it('still creates the bot when seeding the starter rules fails', async () => {

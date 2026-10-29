@@ -172,15 +172,8 @@
   },
   "settings": {
     "title": "Cài đặt bot",
-    "storeInfo": "Thông tin cửa hàng",
-    "storeInfoHint": "Các câu trả lời mẫu dùng những thông tin này. Ô trống thì bot sẽ không dùng câu trả lời đó.",
     "behaviour": "Cách bot trò chuyện",
     "name": "Tên bot",
-    "mission": "Nhiệm vụ của bot",
-    "missionHint": "Bot bán gì, cho ai, cần chốt điều gì. Ví dụ: tư vấn size và chốt đơn áo thun.",
-    "greeting": "Lời chào",
-    "selfPronoun": "Bot xưng là",
-    "customerPronoun": "Gọi khách là",
     "fallbackMessage": "Khi bot chưa có thông tin",
     "fallbackHint": "Gửi khi khách hỏi điều bot chưa được dạy.",
     "handoffMessage": "Khi chuyển cho nhân viên",
@@ -205,7 +198,11 @@
     "save": "Lưu thay đổi",
     "saving": "Đang lưu…",
     "saved": "Đã lưu thay đổi",
-    "unsaved": "Có thay đổi chưa lưu"
+    "unsaved": "Có thay đổi chưa lưu",
+    "guidanceMoved": "Nhiệm vụ, cách xưng hô và lời chào của bot nằm ở",
+    "guidanceLink": "Hướng dẫn trả lời",
+    "factsMoved": "Thông tin cửa hàng như địa chỉ, giá và chính sách nằm ở",
+    "factsLink": "Thông tin doanh nghiệp"
   },
   "playground": {
     "title": "Chat thử",

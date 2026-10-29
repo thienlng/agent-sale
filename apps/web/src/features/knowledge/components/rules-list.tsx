@@ -1,6 +1,6 @@
 import { TrainingPurpose } from './training-purpose';
 import type { TrainingItemDto, TrainingSection } from '@agent-sales/contracts';
-import { Copy, Lock, Pencil, Plus, Sparkles, Trash2 } from 'lucide-react';
+import { ChevronRight, Copy, Lock, Pencil, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -14,6 +14,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Dialog } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
@@ -32,30 +33,28 @@ import { TrainingItemEditor } from './training-items';
 
 const SYSTEM_RULES = ['sources', 'handover', 'secrecy', 'noInvent', 'actions'] as const;
 
-function Group({
-  title,
-  hint,
-  locked,
-  children,
-}: {
-  title: string;
-  hint?: string;
-  locked?: boolean;
-  children: ReactNode;
-}) {
+function Group({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
   return (
     <section aria-label={title} className="flex flex-col gap-2">
       <header>
-        <h2 className="flex items-center gap-2 text-sm font-semibold">
-          {locked ? <Lock className="size-4 text-muted-foreground" aria-hidden /> : null}
-          {title}
-        </h2>
+        <h3 className="text-sm font-medium text-muted-foreground">{title}</h3>
         {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
       </header>
       <div className={cn(tableFrame, 'overflow-hidden')}>{children}</div>
     </section>
   );
 }
+
+/** "Khi khách <trigger>": seeded triggers often start with "Khách"/"Khi", which the row adds itself. */
+const bareTrigger = (trigger: string) =>
+  trigger
+    .trim()
+    .replace(/^(khi\s+khách|khách|khi)\s+/iu, '')
+    .trim();
+
+/** "Bot sẽ <content>": lowercases a sentence-case first letter, but not an acronym or a name. */
+const lowerFirst = (text: string) =>
+  /^\p{Lu}\p{Ll}/u.test(text) ? text.charAt(0).toLocaleLowerCase() + text.slice(1) : text;
 
 function RuleRow({
   item,
@@ -77,6 +76,7 @@ function RuleRow({
   onDelete: () => void;
 }) {
   const { t } = useTranslation('training');
+  const trigger = bareTrigger(item.trigger);
   return (
     <li
       data-enabled={item.enabled}
@@ -92,11 +92,11 @@ function RuleRow({
         onClick={onEdit}
       >
         <h3 className="font-medium break-words">{item.title}</h3>
-        {item.trigger ? (
-          <p className="mt-1 text-xs break-words text-primary">{item.trigger}</p>
+        {trigger ? (
+          <p className="mt-1 text-xs break-words text-primary">{t('rules.when', { trigger })}</p>
         ) : null}
         <p className="mt-1 line-clamp-2 text-xs break-words whitespace-pre-wrap text-muted-foreground">
-          {item.content}
+          {t('rules.then', { content: lowerFirst(item.content) })}
         </p>
         {!item.enabled ? (
           <span className="mt-1 inline-block text-xs text-muted-foreground">
@@ -229,68 +229,91 @@ export function RulesList({ botId, introduction }: { botId: string; introduction
     <section className="flex min-w-0 flex-col gap-5">
       <DataPageHeader title={t('rules.title')} subtitle={t('rules.subtitle')} />
       <TrainingPurpose botId={botId} kind="instructions" />
-      <div className="flex flex-wrap items-center gap-2">
-        <DataSearch value={search} onChange={setSearch} placeholder={t('rules.search')} />
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          {enabledCount >= COUNTER_FROM ? (
-            <span
-              data-testid="rules-counter"
-              className={cn(
-                'text-xs text-muted-foreground',
-                enabledCount > MAX_ENABLED_RULES && 'font-medium text-destructive',
-              )}
+      {introduction}
+      <section aria-label={t('rules.groupSituations')} className="flex min-w-0 flex-col gap-4">
+        <header>
+          <h2 className="text-base font-semibold">{t('rules.groupSituations')}</h2>
+          <p className="text-sm text-muted-foreground">{t('rules.situationsHint')}</p>
+        </header>
+        <div className="flex flex-wrap items-center gap-2">
+          <DataSearch value={search} onChange={setSearch} placeholder={t('rules.search')} />
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            {enabledCount >= COUNTER_FROM ? (
+              <span
+                data-testid="rules-counter"
+                className={cn(
+                  'text-xs text-muted-foreground',
+                  enabledCount > MAX_ENABLED_RULES && 'font-medium text-destructive',
+                )}
+              >
+                {t('rules.enabledCount', { count: enabledCount, max: MAX_ENABLED_RULES })}
+              </span>
+            ) : null}
+            <Button
+              variant="outline"
+              className="h-9"
+              disabled={starter.isPending}
+              onClick={addStarter}
             >
-              {t('rules.enabledCount', { count: enabledCount, max: MAX_ENABLED_RULES })}
-            </span>
-          ) : null}
-          <Button
-            variant="outline"
-            className="h-9"
-            disabled={starter.isPending}
-            onClick={addStarter}
-          >
-            <Sparkles />
-            {t('rules.starter')}
-          </Button>
-          <Button className="h-9" onClick={() => setEditor({ item: null })}>
-            <Plus />
-            {t('rules.add')}
-          </Button>
+              <Sparkles />
+              {t('rules.starter')}
+            </Button>
+            <Button className="h-9" onClick={() => setEditor({ item: null })}>
+              <Plus />
+              {t('rules.add')}
+            </Button>
+          </div>
         </div>
-      </div>
-      {items.isPending ? (
-        <Skeleton className="h-52 w-full rounded-xl" />
-      ) : items.isError ? (
-        <DataError onRetry={() => void items.refetch()} />
-      ) : (
-        <>
-          {introduction ? <Group title={t('rules.groupIntro')}>{introduction}</Group> : null}
-          {!rules.length ? (
-            <p className="text-sm text-muted-foreground">{t('rules.empty')}</p>
-          ) : null}
-          {noMatches ? (
-            <p className="text-sm text-muted-foreground">{t('rules.noResults')}</p>
-          ) : null}
-          {renderGroup('general', t('rules.groupGeneral'))}
-          {renderGroup('after_order', t('rules.groupAfterOrder'))}
-          <Group title={t('rules.groupSystem')} hint={t('rules.systemHint')} locked>
-            <ul data-testid="system-rules">
-              {SYSTEM_RULES.map((key, index) => (
-                <li
-                  key={key}
-                  className="flex items-start gap-3 border-b bg-muted/30 px-3 py-3 text-sm last:border-b-0"
-                >
-                  <span className="w-6 pt-0.5 text-center text-xs text-muted-foreground">
-                    {index + 1}
-                  </span>
-                  <p className="min-w-0 flex-1">{t(`rules.system.${key}`)}</p>
-                  <Lock className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
-                  <span className="sr-only">{t('rules.locked')}</span>
-                </li>
-              ))}
-            </ul>
-          </Group>
-        </>
+        {items.isPending ? (
+          <Skeleton className="h-52 w-full rounded-xl" />
+        ) : items.isError ? (
+          <DataError onRetry={() => void items.refetch()} />
+        ) : (
+          <>
+            {!rules.length ? (
+              <p className="text-sm text-muted-foreground">{t('rules.empty')}</p>
+            ) : null}
+            {noMatches ? (
+              <p className="text-sm text-muted-foreground">{t('rules.noResults')}</p>
+            ) : null}
+            {renderGroup('general', t('rules.groupGeneral'))}
+            {renderGroup('after_order', t('rules.groupAfterOrder'))}
+          </>
+        )}
+      </section>
+      {items.isPending || items.isError ? null : (
+        <Collapsible asChild>
+          <section aria-label={t('rules.groupSystem')} className="flex flex-col gap-2">
+            <CollapsibleTrigger className="group flex items-center gap-2 self-start text-sm font-semibold">
+              <ChevronRight
+                className="size-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-90"
+                aria-hidden
+              />
+              <Lock className="size-4 text-muted-foreground" aria-hidden />
+              {t('rules.groupSystem')}
+            </CollapsibleTrigger>
+            <p className="text-xs text-muted-foreground">{t('rules.systemHint')}</p>
+            <CollapsibleContent>
+              <div className={cn(tableFrame, 'overflow-hidden')}>
+                <ul data-testid="system-rules">
+                  {SYSTEM_RULES.map((key, index) => (
+                    <li
+                      key={key}
+                      className="flex items-start gap-3 border-b bg-muted/30 px-3 py-3 text-sm last:border-b-0"
+                    >
+                      <span className="w-6 pt-0.5 text-center text-xs text-muted-foreground">
+                        {index + 1}
+                      </span>
+                      <p className="min-w-0 flex-1">{t(`rules.system.${key}`)}</p>
+                      <Lock className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
+                      <span className="sr-only">{t('rules.locked')}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </CollapsibleContent>
+          </section>
+        </Collapsible>
       )}
       <Dialog
         open={editor !== null}

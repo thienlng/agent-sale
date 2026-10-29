@@ -161,13 +161,13 @@ export class TrainingFacadeImpl implements TrainingFacade {
     ws: WorkspaceId,
     botId: string,
     actor = '',
-    options: { recordHistory?: boolean } = {},
+    options: { recordHistory?: boolean; industry?: string } = {},
   ): Promise<TrainingItemDto[]> {
     return this.uow.run(ws, async (repo) => {
       await repo.lockBot(botId);
       const titles = new Set(await repo.scenarioTitles(botId));
       const created: TrainingItemDto[] = [];
-      for (const request of starterRuleRequests()) {
+      for (const request of starterRuleRequests(options.industry)) {
         if (titles.has(request.title)) continue;
         const now = new Date().toISOString();
         const item: TrainingItemDto = {

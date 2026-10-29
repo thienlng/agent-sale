@@ -156,6 +156,16 @@ describe('Training materials', () => {
     });
   });
 
+  it('seeds the hotel situations for a hotel bot and no style rules', async () => {
+    const facade = new TrainingFacadeImpl(new InMemoryTrainingUnitOfWork());
+    const created = await facade.seedStarterRules(ws, bot, '', { industry: 'hotel' });
+    const titles = created.map((i) => i.title);
+    expect(titles).toContain('Hỏi còn phòng/căn');
+    expect(titles).toContain('Mặc cả giá');
+    expect(titles).not.toContain('Xưng hô lịch sự');
+    expect(await facade.seedStarterRules(ws, bot, '', { industry: 'hotel' })).toEqual([]);
+  });
+
   it('seeds the starter rules once, records them and adds only missing titles', async () => {
     const facade = new TrainingFacadeImpl(new InMemoryTrainingUnitOfWork());
     const first = await facade.seedStarterRules(ws, bot);
@@ -164,11 +174,9 @@ describe('Training materials', () => {
     expect(first.filter((i) => i.section === 'after_order')).toHaveLength(1);
     expect(await facade.history(ws, bot)).toHaveLength(first.length);
     expect(await facade.seedStarterRules(ws, bot)).toEqual([]);
-    const removed = first.find((i) => i.title === 'Trả lời ngắn gọn');
+    const removed = first.find((i) => i.title === 'Cách nói giá');
     await facade.delete(ws, bot, removed?.id ?? '');
-    expect((await facade.seedStarterRules(ws, bot)).map((i) => i.title)).toEqual([
-      'Trả lời ngắn gọn',
-    ]);
+    expect((await facade.seedStarterRules(ws, bot)).map((i) => i.title)).toEqual(['Cách nói giá']);
     expect(await facade.list(ws, bot)).toHaveLength(first.length);
     expect(await facade.seedStarterRules(ws, newId())).toHaveLength(first.length);
     expect(await facade.list(other, bot)).toEqual([]);

@@ -275,12 +275,6 @@
   "silenceHint": "Pause automatic replies when a staff message is received from the connected platform.",
   "faq": "FAQ",
   "handoverTitle": "Human handover",
-  "missionTitle": "Main bot mission",
-  "missionDescription": "Describe the role and work your bot performs when talking with customers.",
-  "editMission": "Edit mission",
-  "greetingTitle": "Customer greeting",
-  "greetingDescription": "The opening message shown when a customer starts the test chat.",
-  "editGreeting": "Edit greeting",
   "reactionTitle": "Customer sends a reaction",
   "reactionDescription": "Automatic replies to emoji reactions are not available for this connection yet.",
   "reactionUnavailable": "Not available yet",
@@ -446,29 +440,28 @@
     }
   },
   "rules": {
-    "title": "Bot rules",
-    "subtitle": "Switch on, switch off and manage the rules the Bot follows when replying to customers.",
-    "search": "Search rules",
-    "add": "Add rule",
-    "starter": "Add starter rules",
-    "starterAdded": "Added {{count}} starter rules",
-    "starterNone": "The starter rules are already there",
-    "empty": "No rules yet. Add a rule or use the starter set.",
-    "noResults": "No matching rules",
-    "groupIntro": "Introduction",
-    "groupGeneral": "General rules",
+    "title": "Reply guidance",
+    "subtitle": "Choose how the bot addresses customers, how long its replies are and how it handles each situation.",
+    "search": "Search situations",
+    "add": "Add situation",
+    "starter": "Suggest for my industry",
+    "starterAdded": "Added {{count}} suggested situations",
+    "starterNone": "The suggested situations are already there",
+    "empty": "No situations yet. Add one or use the industry suggestions.",
+    "noResults": "No matching situations",
+    "groupGeneral": "General",
     "groupAfterOrder": "After the order is placed",
     "groupSystem": "System",
-    "groupEmpty": "No rules in this group yet",
-    "systemHint": "Fixed platform principles that cannot be edited or switched off.",
+    "groupEmpty": "No situations in this group",
+    "systemHint": "Fixed platform principles that cannot be edited or turned off.",
     "enabledCount": "{{count}}/{{max}} enabled",
     "locked": "Locked",
     "section": "Rule group",
-    "toggle": "Turn on rule “{{title}}”",
+    "toggle": "Enable situation “{{title}}”",
     "disabled": "Off",
     "copy": "Duplicate",
     "copyTitle": "{{title}} (copy)",
-    "copied": "Rule duplicated",
+    "copied": "Situation duplicated",
     "system": {
       "sources": "Only state figures that appear in the shop's sources.",
       "handover": "Hand over to staff when the customer is too upset to calm down or asks for a human.",
@@ -479,7 +472,14 @@
     "sections": {
       "general": "General rules",
       "after_order": "After the order is placed"
-    }
+    },
+    "groupSituations": "Situations",
+    "situationsHint": "Teach the bot how to handle each situation. Each one reads: When a customer … the Bot will ….",
+    "when": "When a customer {{trigger}}",
+    "then": "Bot will {{content}}",
+    "thenOnly": "Bot will {{content}}",
+    "showSystem": "Show system principles",
+    "hideSystem": "Hide system principles"
   },
   "purpose": {
     "facts": {
@@ -580,5 +580,35 @@
       "priceRange": "e.g. A 5kWp system costs about 60-75 million VND",
       "payback": "e.g. Usually 4-6 years depending on usage"
     }
+  },
+  "personality": {
+    "title": "Bot personality",
+    "subtitle": "The bot talks to customers following these settings.",
+    "mission": "Bot mission",
+    "missionHint": "What the bot sells, to whom, and what it should close. Example: advise on sizes and close t-shirt orders.",
+    "selfPronoun": "Bot calls itself",
+    "customerPronoun": "Bot calls customers",
+    "replyLength": "Reply length",
+    "replyLengthOptions": {
+      "veryShort": "Very short",
+      "short": "Short",
+      "detailed": "Detailed"
+    },
+    "tone": "Tone",
+    "toneOptions": {
+      "friendly": "Friendly",
+      "formal": "Formal and polite"
+    },
+    "allowEmoji": "Allow emoji",
+    "allowEmojiHint": "The bot may use emoji in its replies.",
+    "greeting": "Greeting",
+    "readOnly": "You can only view these settings.",
+    "save": "Save changes",
+    "saved": "Bot personality saved",
+    "dirty": "Unsaved changes",
+    "reset": "Undo",
+    "leave": "Leaving this page discards your unsaved changes.",
+    "stay": "Stay",
+    "leaveConfirm": "Leave page"
   }
 }

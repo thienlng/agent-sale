@@ -275,12 +275,6 @@
   "silenceHint": "Tạm dừng trả lời tự động khi nhận tin nhắn của nhân viên trên nền tảng đã kết nối.",
   "faq": "Câu hỏi thường gặp",
   "handoverTitle": "Chuyển tiếp cho nhân viên",
-  "missionTitle": "Nhiệm vụ chính của Bot",
-  "missionDescription": "Mô tả vai trò và việc Bot cần làm khi giao tiếp với khách hàng.",
-  "editMission": "Chỉnh sửa nhiệm vụ",
-  "greetingTitle": "Chào hỏi khách hàng",
-  "greetingDescription": "Tin nhắn mở đầu hiển thị khi khách bắt đầu đoạn chat thử nghiệm.",
-  "editGreeting": "Chỉnh sửa lời chào",
   "reactionTitle": "Khách hàng gửi Reaction",
   "reactionDescription": "Kết nối này chưa hỗ trợ tin nhắn tự động khi khách thả biểu cảm.",
   "reactionUnavailable": "Chưa hỗ trợ",
@@ -446,29 +440,28 @@
     }
   },
   "rules": {
-    "title": "Quy tắc cho Bot",
-    "subtitle": "Bật, tắt và sắp xếp các quy tắc Bot phải tuân theo khi trả lời khách.",
-    "search": "Tìm kiếm quy tắc",
-    "add": "Thêm quy tắc",
-    "starter": "Thêm bộ quy tắc mẫu",
-    "starterAdded": "Đã thêm {{count}} quy tắc mẫu",
-    "starterNone": "Các quy tắc mẫu đã có sẵn",
-    "empty": "Chưa có quy tắc nào. Thêm quy tắc mới hoặc dùng bộ quy tắc mẫu.",
-    "noResults": "Không có quy tắc phù hợp",
-    "groupIntro": "Giới thiệu",
-    "groupGeneral": "Quy tắc chung",
+    "title": "Hướng dẫn trả lời",
+    "subtitle": "Chọn cách bot xưng hô, độ dài câu trả lời và cách xử lý từng tình huống với khách.",
+    "search": "Tìm kiếm tình huống",
+    "add": "Thêm tình huống",
+    "starter": "Gợi ý theo ngành",
+    "starterAdded": "Đã thêm {{count}} tình huống gợi ý",
+    "starterNone": "Các tình huống gợi ý đã có sẵn",
+    "empty": "Chưa có tình huống nào. Thêm tình huống mới hoặc dùng gợi ý theo ngành.",
+    "noResults": "Không có tình huống phù hợp",
+    "groupGeneral": "Chung",
     "groupAfterOrder": "Sau khi chốt đơn",
     "groupSystem": "Hệ thống",
-    "groupEmpty": "Chưa có quy tắc trong nhóm này",
+    "groupEmpty": "Chưa có tình huống trong nhóm này",
     "systemHint": "Các nguyên tắc cố định của nền tảng, không thể sửa hay tắt.",
     "enabledCount": "{{count}}/{{max}} đang bật",
     "locked": "Đã khóa",
     "section": "Nhóm quy tắc",
-    "toggle": "Bật quy tắc “{{title}}”",
+    "toggle": "Bật tình huống “{{title}}”",
     "disabled": "Đang tắt",
     "copy": "Nhân bản",
     "copyTitle": "{{title}} (bản sao)",
-    "copied": "Đã nhân bản quy tắc",
+    "copied": "Đã nhân bản tình huống",
     "system": {
       "sources": "Chỉ nêu các con số có trong nguồn dữ liệu của cửa hàng.",
       "handover": "Chuyển cho nhân viên khi khách quá bức xúc không thể xoa dịu hoặc khi khách yêu cầu gặp người thật.",
@@ -479,7 +472,14 @@
     "sections": {
       "general": "Quy tắc chung",
       "after_order": "Sau khi chốt đơn"
-    }
+    },
+    "groupSituations": "Tình huống",
+    "situationsHint": "Dạy bot cách xử lý từng tình huống. Mỗi tình huống đọc như: Khi khách … thì Bot sẽ ….",
+    "when": "Khi khách {{trigger}}",
+    "then": "Bot sẽ {{content}}",
+    "thenOnly": "Bot sẽ {{content}}",
+    "showSystem": "Hiện các nguyên tắc hệ thống",
+    "hideSystem": "Ẩn các nguyên tắc hệ thống"
   },
   "purpose": {
     "facts": {
@@ -580,5 +580,35 @@
       "priceRange": "Ví dụ: Hệ thống 5kWp khoảng 60-75 triệu",
       "payback": "Ví dụ: Thường 4-6 năm tuỳ mức tiêu thụ điện"
     }
+  },
+  "personality": {
+    "title": "Tính cách của Bot",
+    "subtitle": "Bot nói chuyện với khách theo những thiết lập này.",
+    "mission": "Nhiệm vụ của bot",
+    "missionHint": "Bot bán gì, cho ai, cần chốt điều gì. Ví dụ: tư vấn size và chốt đơn áo thun.",
+    "selfPronoun": "Bot xưng là",
+    "customerPronoun": "Gọi khách là",
+    "replyLength": "Độ dài câu trả lời",
+    "replyLengthOptions": {
+      "veryShort": "Rất ngắn",
+      "short": "Ngắn gọn",
+      "detailed": "Chi tiết"
+    },
+    "tone": "Giọng điệu",
+    "toneOptions": {
+      "friendly": "Thân thiện",
+      "formal": "Lịch sự trang trọng"
+    },
+    "allowEmoji": "Cho phép emoji",
+    "allowEmojiHint": "Bot có thể dùng emoji trong câu trả lời.",
+    "greeting": "Lời chào",
+    "readOnly": "Bạn chỉ có quyền xem các thiết lập này.",
+    "save": "Lưu thay đổi",
+    "saved": "Đã lưu tính cách của bot",
+    "dirty": "Có thay đổi chưa lưu",
+    "reset": "Hoàn tác",
+    "leave": "Rời trang sẽ mất các thay đổi chưa lưu.",
+    "stay": "Ở lại",
+    "leaveConfirm": "Rời trang"
   }
 }
