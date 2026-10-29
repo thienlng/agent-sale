@@ -26,6 +26,7 @@ situations:
 conversation:
   - customer: 'thuê villa ngày thường giá bao nhiêu một đêm'
 expect:
-  not_contains: ['1.000.000', '1 triệu', '1tr', "\\n"]
+  guardrail: none
+  not_contains: ['1.000.000', '1,000,000', '1000000', '1 triệu', 'một triệu', '1tr', '1 tr', "\\n"]
   numbers_only_from_sources: true
   fake_reply: { outcome: answer, reply: 'Dạ giá ngày thường từ 6.000.000đ/đêm ạ.', sources: [] }

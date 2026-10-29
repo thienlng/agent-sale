@@ -27,6 +27,8 @@ export interface CaseResult {
   reply: string;
   outcome: EvalOutcome | null;
   guardrail: string | null;
+  /** `name@version` of the prompt the pipeline used (from its ai_run record). */
+  promptVersion: string | null;
   provider: string | null;
   model: string | null;
   latencyMs: number | null;
@@ -144,12 +146,13 @@ export function buildService(c: EvalCase, llm: LlmRuntime) {
     updatedAt: stamp,
   }));
   const products = productDtos(c);
+  const runs = new InMemoryAiRunRepository();
   const service = new PlaygroundService(
     { getBot: async () => bot } as BotFacade,
     { searchFaqs: async () => faqHits } as unknown as KnowledgeFacade,
     { getById: async () => ({ name: 'Eval Shop' }) } as unknown as WorkspaceFacade,
     llm,
-    new InMemoryAiRunRepository(),
+    runs,
     { list: async () => scenarios } as unknown as TrainingFacade,
     {
       getBotProducts: async () => products,
@@ -158,7 +161,7 @@ export function buildService(c: EvalCase, llm: LlmRuntime) {
     { listForBot: async () => [] } as unknown as ActionFacade,
     9,
   );
-  return { service, botId };
+  return { service, botId, runs };
 }
 
 const request = (c: EvalCase): PlaygroundRequest => ({
@@ -183,6 +186,7 @@ const errorResult = (c: EvalCase, error: string): CaseResult => ({
   reply: '',
   outcome: null,
   guardrail: null,
+  promptVersion: null,
   provider: null,
   model: null,
   latencyMs: null,
@@ -192,12 +196,13 @@ const errorResult = (c: EvalCase, error: string): CaseResult => ({
 /** Runs one case through `PlaygroundService.playground()` (prompt build, guardrails, post-processing) and checks it. */
 export async function runCase(c: EvalCase, llm: LlmRuntime): Promise<CaseResult> {
   const customerTexts = customerTextsOf(c);
-  const { service, botId } = buildService(c, llm);
+  const { service, botId, runs } = buildService(c, llm);
   try {
     const res = await service.playground(workspaceId(newId()), botId, request(c));
     const checks = runChecks(c.expect, {
       reply: res.reply,
       outcome: res.outcome,
+      guardrail: res.guardrail,
       customerTexts,
       trusted: trustedTexts(c),
     });
@@ -212,6 +217,7 @@ export async function runCase(c: EvalCase, llm: LlmRuntime): Promise<CaseResult>
       reply: res.reply,
       outcome: res.outcome,
       guardrail: res.guardrail,
+      promptVersion: runs.runs.at(-1)?.promptVersion ?? null,
       provider: res.provider,
       model: res.model,
       latencyMs: res.latencyMs,

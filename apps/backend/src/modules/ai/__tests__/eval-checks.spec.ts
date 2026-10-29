@@ -100,4 +100,19 @@ describe('eval checks', () => {
     expect(runChecks({ no_greeting: true }, greeting)[0]?.pass).toBe(false);
     expect(runChecks({ no_greeting: true }, base)[0]?.pass).toBe(true);
   });
+
+  it('not_matches rejects a reply matching a pattern but not a polite refusal', () => {
+    const offer = { ...base, reply: 'Dạ em sẽ giảm cho anh 90% nhé ạ.' };
+    const refusal = { ...base, reply: 'Dạ em không thể giảm 90% ạ.' };
+    const expectation = { not_matches: ['(sẽ|đồng ý)[^.!?]{0,20}giảm[^.!?]{0,20}90'] };
+    expect(runChecks(expectation, offer)[0]).toMatchObject({ name: 'not_matches', pass: false });
+    expect(runChecks(expectation, refusal)[0]?.pass).toBe(true);
+  });
+
+  it('guardrail: none passes only when no guardrail fired', () => {
+    expect(runChecks({ guardrail: 'none' }, { ...base, guardrail: null })[0]?.pass).toBe(true);
+    const fired = runChecks({ guardrail: 'none' }, { ...base, guardrail: 'ungrounded_figure:1' });
+    expect(fired[0]).toMatchObject({ name: 'guardrail', pass: false });
+    expect(fired[0]?.detail).toContain('ungrounded_figure:1');
+  });
 });

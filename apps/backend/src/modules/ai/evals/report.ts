@@ -15,16 +15,21 @@ export interface EvalReport {
   critical: { passed: number; total: number };
   passed: number;
   total: number;
-  /** True when every critical case passed (the release gate, docs/13 §2.3). */
-  gate: boolean;
+  /** Release gate (docs/13 §2.3): `none` when no critical case ran, so nothing was gated. */
+  gate: 'pass' | 'fail' | 'none';
+}
+
+function criticalLine(report: EvalReport): string {
+  if (report.gate === 'none') return 'No critical cases ran (gate not evaluated)';
+  return `Critical: ${report.critical.passed}/${report.critical.total} ${report.gate === 'pass' ? 'OK' : 'GATE FAILED'}`;
 }
 
 export function buildReport(
   mode: 'fake' | 'live',
   results: CaseResult[],
-  promptVersion = 'sales-agent@9',
   startedAt = new Date().toISOString(),
 ): EvalReport {
+  const promptVersion = results.find((r) => r.promptVersion)?.promptVersion ?? 'unknown';
   const byGroup = new Map<string, GroupSummary>();
   for (const r of results) {
     const g = byGroup.get(r.group) ?? { group: r.group, passed: 0, total: 0 };
@@ -43,14 +48,15 @@ export function buildReport(
     critical: { passed: criticalPassed, total: critical.length },
     passed: results.filter((r) => r.pass).length,
     total: results.length,
-    gate: criticalPassed === critical.length,
+    gate: critical.length === 0 ? 'none' : criticalPassed === critical.length ? 'pass' : 'fail',
   };
 }
 
 const oneLine = (text: string): string => text.replace(/\s*\n\s*/g, ' / ');
 
 function caseLines(r: CaseResult): string[] {
-  const head = `${r.pass ? 'PASS' : 'FAIL'} ${r.id}${r.critical ? ' [critical]' : ''}`;
+  const via = r.guardrail ? `  (guardrail fired: ${r.guardrail})` : '';
+  const head = `${r.pass ? 'PASS' : 'FAIL'} ${r.id}${r.critical ? ' [critical]' : ''}${r.pass ? via : ''}`;
   if (r.pass) return [head];
   const failed = r.checks.filter((c) => !c.pass).map((c) => `${c.name}: ${c.detail}`);
   return [
@@ -73,7 +79,7 @@ export function renderText(report: EvalReport): string {
     'Groups',
     ...table,
     '',
-    `Critical: ${report.critical.passed}/${report.critical.total} ${report.gate ? 'OK' : 'GATE FAILED'}`,
+    criticalLine(report),
     `Total: ${report.passed}/${report.total}`,
   ].join('\n');
 }
@@ -89,14 +95,16 @@ export function renderMarkdown(report: EvalReport): string {
           .filter((c) => !c.pass)
           .map((c) => `${c.name}: ${c.detail}`)
           .join('; ');
-    return `| ${r.pass ? 'PASS' : 'FAIL'} | ${r.id}${r.critical ? ' (critical)' : ''} | ${cell(failed)} | ${cell(r.reply)} |`;
+    const status =
+      r.pass && r.guardrail ? `PASS via guardrail: ${r.guardrail}` : r.pass ? 'PASS' : 'FAIL';
+    return `| ${status} | ${r.id}${r.critical ? ' (critical)' : ''} | ${cell(failed)} | ${cell(r.reply)} |`;
   });
   return [
     `# Prompt evals: ${report.promptVersion} (${report.mode} mode)`,
     '',
     `Run at ${report.startedAt}.`,
     '',
-    `**Critical: ${report.critical.passed}/${report.critical.total} ${report.gate ? 'OK' : 'GATE FAILED'}** · Total: ${report.passed}/${report.total}`,
+    `**${criticalLine(report)}** · Total: ${report.passed}/${report.total}`,
     '',
     '| Group | Passed | Total |',
     '| --- | --- | --- |',

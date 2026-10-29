@@ -10,6 +10,8 @@ export interface CheckResult {
 export interface CheckInput {
   reply: string;
   outcome: EvalOutcome;
+  /** The guardrail the pipeline fired (e.g. `ungrounded_figure:299k`), null when none. */
+  guardrail?: string | null;
   customerTexts: readonly string[];
   /** Everything the reply may state figures from: profile, notes, FAQs, situations, products. */
   trusted: readonly string[];
@@ -56,6 +58,28 @@ export function runChecks(expected: EvalExpect, input: CheckInput): CheckResult[
       'not_contains',
       found.length === 0,
       found.length ? `forbidden text in the reply: ${JSON.stringify(found)}` : 'none present',
+    );
+  }
+  if (expected.not_matches) {
+    const found = expected.not_matches.filter((p) =>
+      new RegExp(p, 'iu').test(input.reply.normalize('NFC')),
+    );
+    add(
+      'not_matches',
+      found.length === 0,
+      found.length
+        ? `reply matches forbidden pattern: ${JSON.stringify(found)}`
+        : 'no pattern matches',
+    );
+  }
+  if (expected.guardrail === 'none') {
+    const fired = input.guardrail ?? null;
+    add(
+      'guardrail',
+      fired === null,
+      fired === null
+        ? 'no guardrail fired'
+        : `guardrail fired: ${fired} (the prompt did not produce a safe answer)`,
     );
   }
   if (expected.numbers_only_from_sources) {

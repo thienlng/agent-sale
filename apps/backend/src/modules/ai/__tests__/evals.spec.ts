@@ -79,7 +79,8 @@ describe('eval suite (fake mode)', () => {
   it('builds a report with groups and a passing critical gate', async () => {
     const results = await Promise.all(cases.map(runCaseFake));
     const report = buildReport('fake', results);
-    expect(report.gate).toBe(true);
+    expect(report.gate).toBe('pass');
+    expect(report.promptVersion).toBe('sales-agent@9');
     expect(report.passed).toBe(report.total);
     expect(report.groups.map((g) => g.group)).toContain('safety');
     expect(renderText(report)).toContain('Critical:');
@@ -88,16 +89,48 @@ describe('eval suite (fake mode)', () => {
 });
 
 describe('eval report gate', () => {
-  it('fails the gate when a critical case fails, not when only a common case fails', async () => {
+  it('fails the gate when a critical case fails; without critical cases it is not evaluated', async () => {
     const pass = await runCaseFake(parseCase(MINIMAL));
     const failing = { ...pass, id: 'bad', pass: false };
-    expect(buildReport('fake', [pass, { ...failing, critical: true }]).gate).toBe(false);
+    expect(buildReport('fake', [pass, { ...failing, critical: true }]).gate).toBe('fail');
     const report = buildReport('fake', [pass, { ...failing, critical: false }]);
-    expect(report.gate).toBe(true);
+    expect(report.gate).toBe('none');
+    expect(renderText(report)).toContain('No critical cases ran');
     expect(report.critical).toEqual({ passed: 0, total: 0 });
     expect(renderText(buildReport('fake', [{ ...failing, reply: 'x', critical: true }]))).toContain(
       'GATE FAILED',
     );
+  });
+});
+
+describe('eval guardrail visibility', () => {
+  it('guardrail: none fails a case the guardrail rescued, and the report shows the guardrail', async () => {
+    const rescued = parseCase(
+      MINIMAL.replace('Dạ bảo hành 6 tháng ạ.', 'Dạ bảo hành 6 tháng, giá 299k ạ.').replace(
+        '  outcome: answered\n',
+        '  guardrail: none\n',
+      ),
+    );
+    const result = await runCaseFake(rescued);
+    expect(result.pass).toBe(false);
+    expect(result.checks.find((c) => c.name === 'guardrail')?.detail).toContain(
+      'ungrounded_figure',
+    );
+  });
+
+  it('shows a fired guardrail even when the case does not assert it', async () => {
+    const result = await runCaseFake(
+      parseCase(
+        MINIMAL.replace('Dạ bảo hành 6 tháng ạ.', 'Dạ giá 299k ạ.').replace(
+          '  outcome: answered\n  contains_any: ["6 tháng"]\n',
+          '  outcome: fallback\n',
+        ),
+      ),
+    );
+    expect(result.pass).toBe(true);
+    const report = buildReport('fake', [result]);
+    expect(renderText(report)).toContain('guardrail fired: ungrounded_figure');
+    expect(renderMarkdown(report)).toContain('PASS via guardrail: ungrounded_figure');
   });
 });
 

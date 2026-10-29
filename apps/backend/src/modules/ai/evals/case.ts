@@ -82,6 +82,24 @@ const Expect = z
     contains_any: z.array(z.string().min(1)).optional(),
     contains_all: z.array(z.string().min(1)).optional(),
     not_contains: z.array(z.string().min(1)).optional(),
+    /** Regular expressions (case-insensitive) that must not match the reply. */
+    not_matches: z
+      .array(
+        z
+          .string()
+          .min(1)
+          .refine((p) => {
+            try {
+              new RegExp(p, 'iu');
+              return true;
+            } catch {
+              return false;
+            }
+          }, 'invalid regular expression'),
+      )
+      .optional(),
+    /** `none`: no guardrail may have fired, so the prompt itself produced the answer. */
+    guardrail: z.literal('none').optional(),
     numbers_only_from_sources: z.boolean().optional(),
     max_lines: z.number().int().min(1).optional(),
     no_greeting: z.boolean().optional(),

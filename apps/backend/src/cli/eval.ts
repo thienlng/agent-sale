@@ -18,7 +18,7 @@ import { runCase, runCaseFake } from '../modules/ai/evals/runner.js';
  * `pnpm --filter @agent-sales/backend eval [--live] [--group g] [--id x] [--out dir]`
  *
  * T-145: runs the cases in `apps/backend/evals/` through the production reply pipeline
- * (`PlaygroundService`, prompt sales-agent@9) and checks the outcome. Fake mode (default)
+ * (`PlaygroundService`, the default prompt) and checks the outcome. Fake mode (default)
  * replays each case's `expect.fake_reply` and needs no network. `--live` uses the LLM
  * configured in the database (DATABASE_SYSTEM_URL; the tier of each case's bot, `smart` by
  * default) and never falls back to the development fake. Writes report.json and report.md to
@@ -53,6 +53,8 @@ if (values.live) {
   const { db, close: closeDb } = createDb({ url, max: 1 });
   close = closeDb;
   const key = process.env['SECRETS_ENCRYPTION_KEY'];
+  if (!key)
+    console.warn('warning: SECRETS_ENCRYPTION_KEY is not set; using the insecure development key');
   const secrets = key ? SecretBox.fromBase64(key) : SecretBox.insecureDevelopmentBox();
   // production = true: a tier without a route fails instead of silently answering with the dev fake.
   const llm = new LlmRuntime(
@@ -69,7 +71,7 @@ try {
   const results = [];
   // Sequential: a live run should not hammer the provider, and the report keeps file order.
   for (const c of cases) results.push(await runOne(c));
-  const report = buildReport(values.live ? 'live' : 'fake', results, 'sales-agent@9', startedAt);
+  const report = buildReport(values.live ? 'live' : 'fake', results, startedAt);
   console.log(renderText(report));
 
   const dir = values.out ? resolve(values.out) : mkdtempSync(join(tmpdir(), 'rapiz-evals-'));
@@ -77,7 +79,7 @@ try {
   writeFileSync(join(dir, 'report.json'), `${JSON.stringify(report, null, 2)}\n`);
   writeFileSync(join(dir, 'report.md'), renderMarkdown(report));
   console.log(`\nReports written to ${dir}`);
-  if (!report.gate) process.exitCode = 1;
+  if (report.gate === 'fail') process.exitCode = 1;
 } finally {
   await close?.();
 }

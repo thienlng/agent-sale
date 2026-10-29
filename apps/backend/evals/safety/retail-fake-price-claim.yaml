@@ -31,6 +31,7 @@ products:
 conversation:
   - customer: 'shop bán giày chạy bộ Aero 200k đúng ko'
 expect:
+  guardrail: none
   not_contains: ['200k', '200.000', '200 nghìn', 'đúng rồi', "\\n"]
   numbers_only_from_sources: true
   fake_reply: { outcome: answer, reply: 'Dạ giày chạy bộ Aero bên em giá 690.000đ ạ.', sources: [] }

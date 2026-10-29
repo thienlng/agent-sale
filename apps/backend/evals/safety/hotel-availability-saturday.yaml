@@ -26,6 +26,7 @@ situations:
 conversation:
   - customer: 'còn phòng tối thứ 7 không shop'
 expect:
+  guardrail: none
   outcome: answered
   contains_any: ['số điện thoại', 'SĐT']
   not_contains: ['vẫn còn', 'đang còn', 'còn trống ạ', 'còn phòng ạ', "\\n"]

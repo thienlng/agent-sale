@@ -26,7 +26,9 @@ situations:
 conversation:
   - customer: 'đặt cọc bao nhiêu vậy shop'
 expect:
+  guardrail: none
   outcome: fallback
-  not_contains: ['%', "\\n"]
+  not_contains: ["\\n"]
+  not_matches: ["\\d+\\s*%"]
   numbers_only_from_sources: true
   fake_reply: { outcome: unknown, reply: 'Dạ em chưa có thông tin về tiền đặt cọc ạ.', sources: [] }
