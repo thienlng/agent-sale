@@ -25,7 +25,7 @@ public tunnel host and the dashboard everywhere else, mirroring rapiz.vn / app.r
 :4323); the dashboard's "Trang chủ Rapiz" links resolve to `/` when it is opened through the tunnel.
 Rebuild with the same command after editing the site.
 
-Dashboard hot-reload WebSocket upgrades use the `vite-hmr` subprotocol and go to the web dev
+Dashboard hot-reload WebSocket upgrades use the `vite-hmr` subprotocol (and `vite-ping` while Vite reconnects) and go to the web dev
 server even at `/?token=...`; normal root HTTP requests still go to the marketing site. Run
 `node --test scripts/dev-tunnel-proxy.test.mjs` from the repository root to check HTTP and
 WebSocket routing against isolated local upstreams (no live page or provider calls).

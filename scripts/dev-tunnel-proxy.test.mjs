@@ -123,6 +123,11 @@ test('development tunnel preserves HTTP routing and dispatches WebSocket upgrade
     assert.equal(response['x-test-upstream'], 'web');
   });
 
+  await t.test('the Vite reconnect ping (vite-ping) also reaches the dashboard', async () => {
+    const response = await upgrade(proxyPort, '/?token=synthetic-hmr-token', 'vite-ping');
+    assert.equal(response['x-test-upstream'], 'web');
+  });
+
   await t.test('API WebSocket upgrades retain their API route', async () => {
     const response = await upgrade(proxyPort, '/api/realtime', 'qa-realtime');
     assert.equal(response['x-test-upstream'], 'api');
