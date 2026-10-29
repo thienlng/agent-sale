@@ -37,4 +37,21 @@ describe('replyStyle', () => {
       'Be lively and persuasive, but every fact must still come from the knowledge.',
     );
   });
+
+  it('asks Vietnamese bots for the polite dạ … ạ register in both tones', () => {
+    const friendly = replyStyle({ ...base, tone: 'friendly', language: 'vi' });
+    expect(friendly).toContain('"dạ … ạ"');
+    expect(friendly).toContain('warm');
+    const formal = replyStyle({ ...base, tone: 'formal', language: 'vi' });
+    expect(formal).toContain('"dạ … ạ"');
+    expect(formal).toContain('no slang');
+    expect(replyStyle({ ...base, tone: 'formal', language: 'en' })).not.toContain('dạ');
+  });
+
+  it('never lets the bot tell the customer to wait', () => {
+    for (const language of ['vi', 'en'] as const)
+      expect(replyStyle({ ...base, language })).toContain(
+        'Never tell the customer to wait or that you will reply later unless the conversation is handed over to staff.',
+      );
+  });
 });
