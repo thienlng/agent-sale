@@ -1,5 +1,7 @@
 # T-147 run coverage reconciliation — 2026-10-29
 
+> Note on ids: file names and paths in this run's evidence keep the original local ids (`t126` = T-147, `t127` = T-134, `t131` = T-136). The live spec now lives at `apps/web/e2e-live/web-acceptance.live.spec.ts`; [source-fingerprints.json](source-fingerprints.json) records the old path as captured.
+
 This report reconciles actual evidence against the **116 owner-reviewed acceptance cases**. It is not a claim that the entire web app or a newer `main` deployment is accepted. The [run ledger](execution-ledger.csv) has exactly one reconciliation row per case; the [baseline ledger](../../execution-ledger.csv) remains unchanged.
 
 ## Baseline and verdict rules
