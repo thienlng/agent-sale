@@ -1,6 +1,6 @@
 import { and, desc, eq, schema, sql, withSystem, withTenant, type Database } from '@agent-sales/db';
 import { newId, type WorkspaceId } from '@agent-sales/shared';
-import type { ChannelProvider, MetaProvider } from '@agent-sales/contracts';
+import type { MetaProvider } from '@agent-sales/contracts';
 import type { NormalizedEvent } from '@agent-sales/channels';
 import type {
   ChannelStore,
@@ -10,37 +10,15 @@ import type {
 } from '../../application/ports/channel-store.js';
 import { ChannelError } from '../../domain/channel.errors.js';
 import { MAX_EVENT_ATTEMPTS } from '../../api/channel.facade.js';
-import { reviveOwnRemoved } from './revive-removed.js';
-import {
-  enqueueWebsiteEvent,
-  findWebsiteRecord,
-  hasPendingMessage,
-  readSettings,
-} from './website.store.js';
+import { connection, flow } from './record-mappers.js';
+import { findDiscovery, selectDiscoveredAccounts } from './oauth-discovery.js';
+import { enqueueWebsiteEvent, findWebsiteRecord, hasPendingMessage } from './website.store.js';
 /** A customer's messages are answered together once they pause this long (or after the max wait). */
 export const EVENT_QUIET_MS = 700;
 export const EVENT_MAX_WAIT_MS = 4000;
 const c = schema.channelConnections,
   f = schema.channelOauthFlows,
   e = schema.channelWebhookEvents;
-function connection(r: typeof c.$inferSelect): ConnectionRecord {
-  return {
-    id: r.id,
-    workspaceId: r.workspaceId as WorkspaceId,
-    provider: r.provider as ChannelProvider,
-    externalId: r.externalId,
-    name: r.name,
-    status: r.status as ConnectionRecord['status'],
-    botId: r.botId,
-    tokenSealed: r.tokenSealed,
-    expiresAt: r.expiresAt?.toISOString() ?? null,
-    settings: r.provider === 'website' ? readSettings(r.settings) : null,
-    createdAt: r.createdAt.toISOString(),
-  };
-}
-function flow(r: typeof f.$inferSelect): OAuthFlow {
-  return { ...r, workspaceId: r.workspaceId as WorkspaceId, provider: r.provider as MetaProvider };
-}
 export class DrizzleChannelStore implements ChannelStore {
   constructor(
     private readonly db: Database,
@@ -146,76 +124,10 @@ export class DrizzleChannelStore implements ChannelStore {
     });
   }
   discovery(ws: WorkspaceId, userId: string, id: string) {
-    return withTenant(this.db, ws, async (tx) => {
-      const [r] = await tx
-        .select()
-        .from(f)
-        .where(
-          and(
-            eq(f.workspaceId, ws),
-            eq(f.id, id),
-            eq(f.userId, userId),
-            sql`${f.expiresAt}>now()`,
-            sql`${f.accountsSealed} is not null`,
-            sql`${f.consumedAt} is null`,
-          ),
-        );
-      return r ? flow(r) : null;
-    });
+    return findDiscovery(this.db, ws, userId, id);
   }
   select(ws: WorkspaceId, userId: string, id: string, accounts: ConnectionRecord[]) {
-    return withTenant(this.db, ws, async (tx) => {
-      const [d] = await tx
-        .update(f)
-        // The discovery held tokens for every granted page; drop them once the choice is made
-        // so pages the user did not connect leave no credentials behind.
-        .set({ consumedAt: new Date(), accountsSealed: null })
-        .where(
-          and(
-            eq(f.workspaceId, ws),
-            eq(f.id, id),
-            eq(f.userId, userId),
-            sql`${f.expiresAt}>now()`,
-            sql`${f.consumedAt} is null`,
-          ),
-        )
-        .returning();
-      if (!d) throw new ChannelError('NOT_FOUND', 'Discovery expired or already consumed');
-      const result: ConnectionRecord[] = [];
-      for (const a of accounts) {
-        const revived = await reviveOwnRemoved(tx, ws, a);
-        if (revived === 'conflict')
-          throw new ChannelError('CONFLICT', 'This account is connected to another workspace');
-        const row =
-          revived ??
-          // Only live rows are unique (0034): a removed row of another business does not block.
-          (
-            await tx
-              .insert(c)
-              .values({
-                ...a,
-                expiresAt: a.expiresAt ? new Date(a.expiresAt) : null,
-                createdAt: new Date(a.createdAt),
-              })
-              .onConflictDoUpdate({
-                target: [c.provider, c.externalId],
-                targetWhere: sql`${c.status} <> 'removed'`,
-                set: {
-                  tokenSealed: a.tokenSealed,
-                  status: 'connected',
-                  name: a.name,
-                  expiresAt: a.expiresAt ? new Date(a.expiresAt) : null,
-                },
-                setWhere: eq(c.workspaceId, ws),
-              })
-              .returning()
-          )[0];
-        if (!row)
-          throw new ChannelError('CONFLICT', 'This account is connected to another workspace');
-        result.push(connection(row));
-      }
-      return result;
-    });
+    return selectDiscoveredAccounts(this.db, ws, userId, id, accounts);
   }
   claimEvents(limit: number) {
     return withSystem(this.system, async (tx) => {
