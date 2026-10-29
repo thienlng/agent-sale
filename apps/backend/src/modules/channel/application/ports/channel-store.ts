@@ -30,6 +30,7 @@ export interface PendingMetaEvent {
   attempt: number;
 }
 export interface ChannelStore {
+  /** Connections shown to the workspace: everything except removed ones. */
   list(ws: WorkspaceId): Promise<ConnectionRecord[]>;
   get(ws: WorkspaceId, id: string): Promise<ConnectionRecord | null>;
   update(
@@ -42,6 +43,11 @@ export interface ChannelStore {
       settings?: WebsiteSettings;
     },
   ): Promise<ConnectionRecord | null>;
+  /**
+   * Soft delete (T-133): status `removed`, bot unbound, sealed token replaced by `tokenSealed`.
+   * The row, its conversations and statistics stay; `list` no longer returns it.
+   */
+  remove(ws: WorkspaceId, id: string, tokenSealed: string): Promise<ConnectionRecord | null>;
   /** Inserts a new connection (website connections are created here, Meta ones through `select`). */
   create(record: ConnectionRecord): Promise<ConnectionRecord>;
   /** Cross-tenant lookup of a website connection by its public site key. */

@@ -39,7 +39,7 @@ On failure an event is retried after 20 s and 60 s; after the third attempt the 
 
 ## Screens
 
-- **Tích hợp nền tảng** (`/app/channels`): platform list (all, waiting for a bot, Facebook, Instagram; Zalo, Lazada and TikTok marked as coming soon) and the page list with search, select all, explicit bulk bot assignment, bot/unassigned filtering and confirmed unassignment (which preserves provider connectivity) and connect. Message sync is not supported and the button is disabled.
+- **Tích hợp nền tảng** (`/app/channels`): platform list (all, waiting for a bot, Facebook, Instagram; Zalo, Lazada and TikTok marked as coming soon) and the page list with search, select all, explicit bulk bot assignment, bot/unassigned filtering and confirmed unassignment (which preserves provider connectivity) and connect. Message sync is not supported and the button is disabled. Each Facebook/Instagram page card has a "⋯" menu with **Gỡ trang**, and the toolbar has a bulk **Gỡ trang** next to "Hủy gán bot"; both ask for confirmation and are shown only to users with `settings.manage` (see "Removing a page" below). Website chat cards are not removable from here.
 - **Bot → Tích hợp** (`/app/bots/{botId}/integrations`): only pages bound to that bot. "Chỉnh sửa" chooses which workspace pages the bot answers; "Hủy kích hoạt" unbinds them (`botId: null`). Pages connected from here are bound to the bot right after selection.
 - **Tin nhắn đa kênh** (`/app/inbox`): Meta Business Suite layout (T-096) — channel tabs, conversation list with quick and advanced filters and bulk management, thread with takeover controls and attachments, customer panel. See [Sales inbox workspace](18-sales-inbox-workspace.md).
 
@@ -116,6 +116,20 @@ List rows and detail carry `tags: [{ id, name, color }]` (oldest assignment firs
 ### Customer profile lookup
 
 After a customer message the agent asks the channel module for the customer's name and picture (`ChannelFacade.fetchCustomerProfile`; the page token never leaves the channel module). Messenger: `GET graph.facebook.com/{version}/{psid}?fields=first_name,last_name,profile_pic`; Instagram: `GET graph.instagram.com/{version}/{igsid}?fields=name,username,profile_pic`, both with the token in the `Authorization` header (official docs: [Messenger user profile API](https://developers.facebook.com/docs/messenger-platform/identity/user-profile) and [Instagram messaging user profile](https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/messaging-api); written from the docs on 2026-10-25, not yet run against a live page). The call runs after the message is stored and is not awaited by the reply pipeline. The attempt is stamped in `profileFetchedAt` before the call; a failed lookup (network, 5xx, timeout, refusal) is retried after 15 minutes, a success after a day; a success is refreshed daily as well because Meta picture URLs expire. Failures are ignored and never logged with the customer id. The conversation's `revision` and `updatedAt` do not change.
+
+## Connection lifecycle and removing a page (T-133)
+
+`channel_connections.status` is one of `connected`, `reauth_required` (token expired: inbound is stored, sending is blocked), `disabled` (website chat switched off), `disconnected` (legacy `PATCH {disconnect:true}`: no bot, no ingestion, still listed) and `removed`.
+
+`DELETE /api/v1/channels/{id}` (204, `settings.manage`, other workspace -> 404) **soft-removes** a Facebook or Instagram page:
+
+- The row is kept with status `removed`, `bot_id = null` and the sealed page token replaced by a sealed empty value, so no credential stays behind. Conversations, messages, comments and statistics are untouched.
+- `GET /channels` (integrations page, inbox page filter, bot readiness) no longer returns it. `GET`-by-id inside the backend still resolves it so old conversations keep their page.
+- Facebook only: best-effort `DELETE graph.facebook.com/{version}/{page-id}/subscribed_apps` with the page token in the `Authorization` header (5 s timeout). Any failure (expired token, network, Meta refusal) is ignored for the removal; only Meta's numeric error code and subcode are logged. Instagram pages are not unsubscribed (no matching endpoint is used by the connect flow); ingress already drops their events. This partially addresses T-049 ("page release on disconnect"); releasing the page for another workspace and purging stale OAuth flows remain open there.
+- `apps/webhook` stores events only for `connected`/`reauth_required` connections, so a removed page receives nothing new. Events queued before removal are rejected by `ConversationFacade.receive` (`removed` is refused like `disconnected`) and do not create conversations or messages.
+- Reconnecting the same page through the normal OAuth flow upserts on `(provider, external_id)` of the same workspace, reuses the row and sets it back to `connected` (bot not restored: assign it again). A page removed from workspace A still cannot be connected to workspace B ("connected to another workspace").
+- Website chat is excluded: `DELETE` on a website connection is a validation error (use enable/disable or "Xóa kết nối").
+- Migration `0029_channel_removed_status.sql` only widens the status CHECK constraint. Run it before deploying the new API; API instances from before T-133 cannot parse a `removed` row in `GET /channels`.
 
 ## Limits
 

@@ -203,6 +203,16 @@ describe('ConversationFacade tenant and delivery contract', () => {
       code: 'NOT_FOUND',
     });
   });
+  it('rejects events already queued for a removed page (T-133)', async () => {
+    const base = await channels.getConnection(ws, channelId);
+    vi.mocked(channels.getConnection).mockResolvedValueOnce({
+      ...base,
+      status: 'removed' as const,
+    });
+    await expect(service.receive(ws, channelId, event('in3'))).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    });
+  });
   it('sends once, atomically pauses the bot and keeps the same result on a repeated request', async () => {
     const c = await service.receive(ws, channelId, event());
     const body = { text: 'A human reply', idempotencyKey: newId() };

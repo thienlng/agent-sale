@@ -161,6 +161,47 @@ describe('OAuth discovery and page ownership', () => {
   });
 });
 
+describe('Soft removal (T-133)', () => {
+  it('hides the page from the list, unbinds it and keeps the row, then OAuth restores the same row', async () => {
+    const c = await connect(a, 'page-removable');
+    await store.update(a, c.id, { botId: null });
+    const removed = await store.remove(a, c.id, 'sealed-empty');
+    expect(removed).toMatchObject({ id: c.id, status: 'removed', botId: null });
+    expect((await store.list(a)).map((x) => x.id)).not.toContain(c.id);
+    expect((await store.get(a, c.id))?.tokenSealed).toBe('sealed-empty');
+    expect(await store.remove(a, c.id, 'x')).toBeNull();
+    const [again] = await store.select(a, users[a] ?? '', await discovery(a), [
+      account(a, 'page-removable'),
+    ]);
+    expect(again).toMatchObject({
+      id: c.id,
+      status: 'connected',
+      tokenSealed: 'sealed-page-token',
+    });
+    expect((await store.list(a)).map((x) => x.id)).toContain(c.id);
+  });
+
+  it('cannot remove another tenant page', async () => {
+    const c = await connect(a, 'page-not-yours');
+    expect(await store.remove(b, c.id, 'x')).toBeNull();
+    expect((await store.get(a, c.id))?.status).toBe('connected');
+  });
+
+  it('accepts the removed status in the database and still rejects unknown ones', async () => {
+    const c = await connect(a, 'page-check');
+    await owner
+      .update(schema.channelConnections)
+      .set({ status: 'removed' })
+      .where(eq(schema.channelConnections.id, c.id));
+    await expect(
+      owner
+        .update(schema.channelConnections)
+        .set({ status: 'deleted' })
+        .where(eq(schema.channelConnections.id, c.id)),
+    ).rejects.toThrow();
+  });
+});
+
 describe('Inbox queue', () => {
   it('never hands the same event to two concurrent claimers', async () => {
     const c = await connect(a, 'page-queue');

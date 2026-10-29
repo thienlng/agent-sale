@@ -47,9 +47,13 @@ export class DrizzleChannelStore implements ChannelStore {
   ) {}
   list(ws: WorkspaceId) {
     return withTenant(this.db, ws, async (tx) =>
-      (await tx.select().from(c).where(eq(c.workspaceId, ws)).orderBy(desc(c.createdAt))).map(
-        connection,
-      ),
+      (
+        await tx
+          .select()
+          .from(c)
+          .where(and(eq(c.workspaceId, ws), sql`${c.status} <> 'removed'`))
+          .orderBy(desc(c.createdAt))
+      ).map(connection),
     );
   }
   get(ws: WorkspaceId, id: string) {
@@ -67,6 +71,16 @@ export class DrizzleChannelStore implements ChannelStore {
         .update(c)
         .set(patch)
         .where(and(eq(c.workspaceId, ws), eq(c.id, id)))
+        .returning();
+      return r ? connection(r) : null;
+    });
+  }
+  remove(ws: WorkspaceId, id: string, tokenSealed: string) {
+    return withTenant(this.db, ws, async (tx) => {
+      const [r] = await tx
+        .update(c)
+        .set({ status: 'removed', botId: null, tokenSealed, expiresAt: null })
+        .where(and(eq(c.workspaceId, ws), eq(c.id, id), sql`${c.status} <> 'removed'`))
         .returning();
       return r ? connection(r) : null;
     });
@@ -334,6 +348,9 @@ export class UnavailableChannelStore implements ChannelStore {
     return Promise.resolve(null);
   }
   update(): Promise<null> {
+    return this.fail();
+  }
+  remove(): Promise<null> {
     return this.fail();
   }
   create(): Promise<ConnectionRecord> {

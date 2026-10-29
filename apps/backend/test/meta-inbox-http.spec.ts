@@ -11,6 +11,8 @@ import { Test } from '@nestjs/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module.js';
 import { configureEnv } from '../src/common/config.js';
+import { REQUIRED_CAPABILITY } from '../src/common/http/auth-context.js';
+import { ChannelController } from '../src/modules/channel/interface/http/channel.controller.js';
 import { HttpExceptionFilter } from '../src/common/http/http-exception.filter.js';
 import { createLogger } from '../src/common/logger.js';
 import { CHANNEL_STORE } from '../src/modules/channel/application/ports/channel-store.js';
@@ -44,6 +46,7 @@ async function setup() {
         { externalId: 'page', name: 'Page', token: 'never-visible', expiresAt: null },
       ],
       subscribe: async () => undefined,
+      unsubscribe: async () => undefined,
     })
     .compile();
   app = module.createNestApplication<NestFastifyApplication>(new FastifyAdapter(), {
@@ -169,6 +172,47 @@ describe('HTTP: Meta connections and inbox', () => {
         })
       ).statusCode,
     ).toBe(404);
+  });
+  it('removes a page over DELETE /channels/{id}: auth, validation, tenancy, manage permission (T-133)', async () => {
+    const { http, signup } = await setup();
+    const owner = await signup('meta-remove-owner@example.test'),
+      other = await signup('meta-remove-other@example.test');
+    const start = await http.inject({
+      method: 'POST',
+      url: '/api/v1/channels/facebook/connect',
+      headers: owner,
+    });
+    const state = (start.json() as { state: string }).state;
+    const cookie = start.cookies[0];
+    const callback = await http.inject({
+      method: 'GET',
+      url: `/api/v1/channels/oauth/facebook/callback?state=${state}&code=code`,
+      cookies: { [cookie?.name ?? '']: cookie?.value ?? '' },
+    });
+    const discoveryId = /"discoveryId":"([a-f0-9-]+)"/.exec(callback.body)?.[1] ?? '';
+    const save = await http.inject({
+      method: 'POST',
+      url: `/api/v1/channels/discoveries/${discoveryId}/select`,
+      headers: owner,
+      payload: { externalIds: ['page'] },
+    });
+    const id = (save.json() as { data: Array<{ id: string }> }).data[0]?.id ?? '';
+    const url = `/api/v1/channels/${id}`;
+    expect((await http.inject({ method: 'DELETE', url })).statusCode).toBe(401);
+    expect(
+      (await http.inject({ method: 'DELETE', url: '/api/v1/channels/not-a-uuid', headers: owner }))
+        .statusCode,
+    ).toBe(400);
+    expect((await http.inject({ method: 'DELETE', url, headers: other })).statusCode).toBe(404);
+    const removed = await http.inject({ method: 'DELETE', url, headers: owner });
+    expect(removed.statusCode).toBe(204);
+    expect(removed.body).toBe('');
+    const list = await http.inject({ method: 'GET', url: '/api/v1/channels', headers: owner });
+    expect((list.json() as { data: unknown[] }).data).toEqual([]);
+    expect((await http.inject({ method: 'DELETE', url, headers: owner })).statusCode).toBe(404);
+    // Members without the capability get 403 from the global guard that reads this metadata.
+    const handler = ChannelController.prototype.remove;
+    expect(Reflect.getMetadata(REQUIRED_CAPABILITY, handler)).toBe('settings.manage');
   });
   it('enforces inbox validation, control, workspace ownership and visible send failure', async () => {
     const { http, signup, store, inbox } = await setup();

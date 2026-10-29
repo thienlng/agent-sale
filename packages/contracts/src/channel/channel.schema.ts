@@ -9,7 +9,8 @@ export const ChannelConnectionDto = z.object({
   provider: ChannelProvider,
   externalId: z.string(),
   name: z.string(),
-  status: z.enum(['connected', 'disabled', 'reauth_required', 'disconnected']),
+  /** `removed` is a soft delete: hidden from the list, no bot, no ingestion, history kept. */
+  status: z.enum(['connected', 'disabled', 'reauth_required', 'disconnected', 'removed']),
   botId: z.uuid().nullable(),
   expiresAt: z.iso.datetime().nullable(),
   /** Widget settings; only website connections have them. */

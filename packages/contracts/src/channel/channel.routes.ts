@@ -122,6 +122,13 @@ export const channelRoutes = defineRoutes([
   },
   {
     ...scoped,
+    method: 'delete',
+    path: '/channels/{id}',
+    summary: 'Remove a Facebook or Instagram page (soft delete; history is kept)',
+    responses: { 204: null },
+  },
+  {
+    ...scoped,
     method: 'post',
     path: '/channels/website',
     summary: 'Create a website chat connection',

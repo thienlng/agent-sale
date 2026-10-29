@@ -249,6 +249,35 @@ export class ChannelFacadeImpl implements ChannelFacade, OnModuleInit {
     if (!c) throw new ChannelError('NOT_FOUND', 'Connection not found');
     return publicConnection(c);
   }
+  /**
+   * Soft-removes a Facebook/Instagram page (T-133). The Meta webhook unsubscribe is best effort:
+   * an expired token or a network error must not keep a dead page in the list.
+   */
+  async remove(ws: WorkspaceId, id: string): Promise<void> {
+    const current = await this.store.get(ws, id);
+    if (!current || current.status === 'removed')
+      throw new ChannelError('NOT_FOUND', 'Connection not found');
+    if (current.provider === 'website')
+      throw new ChannelError(
+        'VALIDATION_FAILED',
+        'Website chat is turned off or disconnected, not removed',
+      );
+    await this.unsubscribeQuietly(current);
+    const removed = await this.store.remove(ws, id, this.box.seal(''));
+    if (!removed) throw new ChannelError('NOT_FOUND', 'Connection not found');
+    // Ids only: no page name, token or customer data.
+    log.log(`Channel ${id} removed from workspace ${ws}`);
+  }
+  private async unsubscribeQuietly(c: ConnectionRecord): Promise<void> {
+    if (c.provider === 'website') return;
+    try {
+      const token = this.box.open(c.tokenSealed);
+      if (token) await this.gateway.unsubscribe(c.provider, { externalId: c.externalId, token });
+    } catch {
+      // The gateway already logged Meta's error code and subcode; nothing else is safe to log.
+      log.warn(`Webhook unsubscribe skipped for channel ${c.id}`);
+    }
+  }
   async getConnection(ws: WorkspaceId, id: string) {
     const c = await this.store.get(ws, id);
     if (!c) throw new ChannelError('NOT_FOUND', 'Connection not found');

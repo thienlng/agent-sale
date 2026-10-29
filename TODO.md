@@ -4,6 +4,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
+- [ ] T-133 Remove pages from platform integrations — @agent:claude · [details](todo/T-133-remove-pages-from-platform-integrations.md)
 - [ ] T-132 Filter the inbox by bot and activity time and drop saved filters — @agent:claude · [details](todo/T-132-filter-the-inbox-by-bot-and-activity-time-and-drop.md)
 - [ ] T-112 Move product management to its own top-level navigation group — @agent:claude · [details](todo/T-112-move-product-management-to-its-own-top-level-navig.md) · PR #83
 - [ ] T-114 Clean up bot navigation: hide the image library and rename channel integrations — @agent:claude · [details](todo/T-114-clean-up-bot-navigation-hide-the-image-library-and.md) · PR #83

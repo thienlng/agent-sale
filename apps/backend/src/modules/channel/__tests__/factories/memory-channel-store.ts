@@ -10,7 +10,7 @@ export class MemoryChannelStore implements ChannelStore {
   readonly records = new Map<string, ConnectionRecord>();
   readonly flows = new Map<string, OAuthFlow>();
   async list(ws: WorkspaceId) {
-    return [...this.records.values()].filter((c) => c.workspaceId === ws);
+    return [...this.records.values()].filter((c) => c.workspaceId === ws && c.status !== 'removed');
   }
   async get(ws: WorkspaceId, id: string) {
     const c = this.records.get(id);
@@ -20,6 +20,13 @@ export class MemoryChannelStore implements ChannelStore {
     const c = await this.get(ws, id);
     if (!c) return null;
     const changed = { ...c, ...patch };
+    this.records.set(id, changed);
+    return changed;
+  }
+  async remove(ws: WorkspaceId, id: string, tokenSealed: string) {
+    const c = await this.get(ws, id);
+    if (!c || c.status === 'removed') return null;
+    const changed = { ...c, status: 'removed' as const, botId: null, tokenSealed, expiresAt: null };
     this.records.set(id, changed);
     return changed;
   }
@@ -105,8 +112,24 @@ export class MemoryChannelStore implements ChannelStore {
         throw new ChannelError('CONFLICT', 'Already connected');
     }
     this.flows.delete(id);
-    for (const c of accounts) this.records.set(c.id, c);
-    return accounts;
+    // Same upsert as the SQL store: a known page keeps its row and becomes connected again.
+    const saved = accounts.map((c) => {
+      const known = [...this.records.values()].find(
+        (row) => row.provider === c.provider && row.externalId === c.externalId,
+      );
+      const next = known
+        ? {
+            ...known,
+            tokenSealed: c.tokenSealed,
+            status: 'connected' as const,
+            name: c.name,
+            expiresAt: c.expiresAt,
+          }
+        : c;
+      this.records.set(next.id, next);
+      return next;
+    });
+    return saved;
   }
   async claimEvents() {
     return [];
