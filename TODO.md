@@ -55,6 +55,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## Blocked
 
+- [ ] T-153 Prefill TinyMind with JuniSprouts shop data for owner buyer testing — @agent:codex · [details](todo/T-153-prefill-tinymind-with-junisprouts-shop-data-for-ow.md) · blocked: prepared data; needs authenticated TinyMind owner/test-manager session
 - [ ] T-093 Scope business settings and bot defaults to the selected industry — @agent:codex · [details](todo/T-093-scope-business-settings-and-bot-defaults-to-the-se.md) · blocked: partial: business industry increment delivered; account billing separation awaits T-092/T-091 · PR #77 (industry increment)
 
 - [ ] T-082 Unify channel assignment and bulk bot filters — @agent:codex · [details](todo/T-082-unify-channel-assignment-and-bulk-bot-filters.md) · PR #64 · blocked: partial: channel assignment delivered; shop eligibility awaits T-077/T-078/T-080
