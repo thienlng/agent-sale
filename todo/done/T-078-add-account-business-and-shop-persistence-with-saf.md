@@ -1,13 +1,13 @@
 ---
 id: T-078
 title: Add account persistence and bot attribution with safe backfills
-status: review
+status: done
 type: feature
 priority: P1
 owner: "@agent:claude"
 feature_ids: []
 created: 2026-10-26
-updated: 2026-10-28
+updated: 2026-10-29
 branch: feat/T-124-integrate-lane-a1
 pr: 82
 parent:
@@ -93,6 +93,7 @@ Follows ADR-012 §8. Same branch as T-077 (block A1). Catalog selection columns 
 - 2026-10-28 — Replanned for lane A, now owned by @agent:claude (user decision, 2026-10-28). Product model agreed with the user: account → business (workspace) → bot → channels. **No separate shop entity**: the bot is the selling unit. The catalog is business-owned and each bot chooses which products it sells. Billable unit: an AI reply delivered to the customer, counted once across retries. When the allowance is exhausted, the bot stops and hands off to staff. Business switching lives in the avatar (account) menu. Code inventory and re-estimate: see the handoff's "Lane A replan" section.
 
 - 2026-10-26 — Created from cofounder review; proposed allocation only. No application changes made.
+- 2026-10-29 — Landed on main in PR #82 (squash 0859328), rebuilt from #78 under T-124 with three review fixes. Closed in the lane B block B1 PR as a board update.
 
 ## Links
 

@@ -11,7 +11,7 @@ import { CONTACT_ID } from './support/mock-crm';
 const PAGES = [
   ['bots', '/app/bots', 'Bot của bạn'],
   ['global integrations', '/app/channels', 'Tích hợp nền tảng'],
-  ['bot pages', `/app/bots/${BOT_ID}/integrations`, 'Quản lý fanpage và kênh'],
+  ['bot pages', `/app/bots/${BOT_ID}/integrations`, 'Tích hợp kênh'],
   ['bot overview', `/app/bots/${BOT_ID}`, 'Hướng dẫn Bot'],
   ['faq', `/app/bots/${BOT_ID}/knowledge`, 'Thông tin doanh nghiệp'],
   ['bot settings', `/app/bots/${BOT_ID}/settings`, 'Thiết lập Bot'],

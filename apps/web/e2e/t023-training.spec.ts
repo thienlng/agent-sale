@@ -149,7 +149,7 @@ test('instructions support create, edit, reload, delete and an accurate history'
   await expect(entries.nth(2).getByRole('button', { name: 'Restore' })).toBeVisible();
 });
 
-test('quick replies are separate from instructions and media rejects insecure links', async ({
+test('quick replies are separate from instructions and the image library redirects home', async ({
   page,
 }) => {
   const state = await trainingApi(page);
@@ -169,41 +169,10 @@ test('quick replies are separate from instructions and media rejects insecure li
   await expect(page.getByText(NO_RULES)).toBeVisible();
   await expect(page.getByText('/thanks')).toHaveCount(0);
 
-  // Media lives in folders: create one, open it, then add an image by link.
+  // The image library left the bot menu (T-114): old links land on the bot home.
   await page.goto(`/app/bots/${BOT_ID}/media`);
-  await page.getByRole('button', { name: 'Add folder', exact: true }).click();
-  await page.getByRole('dialog').getByLabel('Folder name').fill('Synthetic products');
-  await page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(page.getByRole('dialog')).toHaveCount(0);
-  const folder = state.items.find((item) => item.kind === 'media_folder');
-  expect(folder).toMatchObject({ title: 'Synthetic products' });
-  await page.getByRole('button', { name: 'Synthetic products 0 images', exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`folder=${folder!.id}`));
-  await page.getByRole('button', { name: 'Add image', exact: true }).first().click();
-  const image = page.getByRole('dialog', { name: 'Add image' });
-  await image.getByRole('tab', { name: 'HTTPS link' }).click();
-  await image.getByLabel('Image name').fill('Synthetic media');
-  await image.getByLabel(/^Description/).fill('Synthetic product reference.');
-  await image.getByLabel('HTTPS image link').fill('http://example.test/synthetic.png');
-  await expect(image.getByText('The image link must start with https://')).toBeVisible();
-  await expect(image.getByLabel('HTTPS image link')).toHaveAttribute('aria-invalid', 'true');
-  await expect(image.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
-  expect(state.items).toHaveLength(2);
-  await image.getByLabel('HTTPS image link').fill('https://example.test/synthetic.png');
-  await expect(image.getByText('The image link must start with https://')).toHaveCount(0);
-  await image.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(page.getByRole('dialog')).toHaveCount(0);
-  expect(state.items.find((item) => item.kind === 'media')).toMatchObject({
-    title: 'Synthetic media',
-    content: 'Synthetic product reference.',
-    mediaUrl: 'https://example.test/synthetic.png',
-    folderId: folder!.id,
-  });
-  await page.reload();
-  await expect(page.getByRole('link', { name: 'Synthetic media' })).toHaveAttribute(
-    'href',
-    'https://example.test/synthetic.png',
-  );
+  await expect(page).toHaveURL(new RegExp(`/app/bots/${BOT_ID}$`));
+  await expect(page.getByRole('link', { name: 'Image library' })).toHaveCount(0);
 });
 
 test('new training screens fit a phone and recover from a load error', async ({ page }) => {
@@ -214,7 +183,6 @@ test('new training screens fit a phone and recover from a load error', async ({ 
   for (const [path, heading] of [
     ['instructions', 'Bot rules'],
     ['quick-replies', 'Quick replies'],
-    ['media', 'Image library'],
     ['history', 'Edit history'],
   ] as const) {
     await page.goto(`/app/bots/${BOT_ID}/${path}`);

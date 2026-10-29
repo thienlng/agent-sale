@@ -1,13 +1,13 @@
 ---
 id: T-077
 title: Define account business ownership and migration contracts
-status: review
+status: done
 type: spike
 priority: P1
 owner: "@agent:claude"
 feature_ids: []
 created: 2026-10-26
-updated: 2026-10-28
+updated: 2026-10-29
 branch: feat/T-124-integrate-lane-a1
 pr: 82
 parent:
@@ -38,7 +38,7 @@ Define account business ownership and migration contracts.
 ## Acceptance criteria
 
 - [x] A fixture with two accounts, two industries, several bots per business and one member shared across businesses enumerates permitted and forbidden reads.
-- [ ] The migration/backfill and rollback plan, account billing ownership, catalog scope and bot attribution rules are written down and approved by the owner before T-078 migrations land.
+- [x] The migration/backfill and rollback plan, account billing ownership, catalog scope and bot attribution rules are written down and approved by the owner before T-078 migrations land. (approved by merging PR #82, 2026-10-28)
 - [x] Lists which existing ADRs and design docs (docs/05, docs/08, docs/17, docs/analytics.md) change, and how.
 - [x] `pnpm check` passes (docs-only change).
 
@@ -64,6 +64,7 @@ Define account business ownership and migration contracts.
 - 2026-10-28 — ADR-012 drafted (Proposed): accounts as global tables owned by a new `account` module, business access unchanged, composite channel → bot foreign key, bot attribution of events and facts at event time, per-bot catalog selection, account billing (T-091), route map, backfill/rollback, access fixture (§9). Four open questions for the product owner listed in the ADR; none blocks T-078. Waiting for owner approval before T-078 migrations.
 
 - 2026-10-26 — Created from cofounder review; proposed allocation only. No application changes made.
+- 2026-10-29 — Landed on main in PR #82 (squash 0859328), rebuilt from #78 under T-124 with three review fixes. Closed in the lane B block B1 PR as a board update.
 
 ## Links
 

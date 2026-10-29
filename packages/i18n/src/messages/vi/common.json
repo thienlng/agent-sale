@@ -1452,6 +1452,15 @@
       "shopPending": "Thống kê theo shop chưa có dữ liệu.",
       "retry": "Thử lại",
       "allBusiness": "Tất cả business"
+    },
+    "bot": {
+      "title": "Hiệu quả của bot",
+      "subtitle": "Hội thoại và tin nhắn trên các kênh đang gắn với bot này.",
+      "period": "Khoảng thời gian",
+      "days_other": "{{count}} ngày",
+      "noChannels": "Bot chưa gắn kênh nào nên chưa có số liệu. Gắn fanpage hoặc kênh để bot bắt đầu nhận tin nhắn.",
+      "connect": "Gắn kênh",
+      "openFull": "Xem chi tiết trong Thống kê"
     }
   },
   "business": {
