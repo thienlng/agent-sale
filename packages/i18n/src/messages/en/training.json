@@ -154,7 +154,11 @@
         "section": "Rule group",
         "folderId": "Folder",
         "question": "Question",
-        "answer": "Answer"
+        "answer": "Answer",
+        "profile": "Business information",
+        "replyLength": "Reply length",
+        "tone": "Tone",
+        "allowEmoji": "Allow emoji"
       }
     },
     "ads": {

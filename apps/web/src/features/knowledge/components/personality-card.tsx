@@ -118,7 +118,8 @@ function Form({ bot }: { bot: BotDto }) {
     setDraft((d) => rebase(d, old, shown.current));
   }, [bot]);
 
-  const set = <K extends Key>(key: K, value: Draft[K]) => setDraft({ ...draft, [key]: value });
+  const set = <K extends Key>(key: K, value: Draft[K]) =>
+    setDraft((current) => ({ ...current, [key]: value }));
 
   const submit = (e: FormEvent) => {
     e.preventDefault();

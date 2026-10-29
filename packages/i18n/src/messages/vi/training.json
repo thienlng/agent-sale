@@ -154,7 +154,11 @@
         "section": "Nhóm quy tắc",
         "folderId": "Thư mục",
         "question": "Câu hỏi",
-        "answer": "Câu trả lời"
+        "answer": "Câu trả lời",
+        "profile": "Thông tin doanh nghiệp",
+        "replyLength": "Độ dài câu trả lời",
+        "tone": "Giọng điệu",
+        "allowEmoji": "Cho phép emoji"
       }
     },
     "ads": {
