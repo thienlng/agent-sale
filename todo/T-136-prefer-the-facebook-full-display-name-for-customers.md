@@ -44,6 +44,8 @@ Port the adapter change and its tests unchanged from 8bdcc26; rewrite the docs p
 - 2026-10-29 — Codex (as local T-131): red 2/13 then green 13/13 on `src/meta.test.ts`; live own-profile refresh matched the fresh provider name; evidence kept outside git.
 - 2026-10-29 — Ported to main by @agent:claude; renumbered T-131 → T-136 (the account lane uses T-126..T-130 and the next free ids). Adapter code and tests unchanged.
 
+- 2026-10-29 — QA review: the rewritten docs paragraph had dropped the "not yet run against a live account" caveat; restored it for Instagram (only Messenger was checked live).
+
 ## Links
 
 - packages/channels/src/meta.ts, packages/channels/src/meta.test.ts, docs/meta-inbox.md
