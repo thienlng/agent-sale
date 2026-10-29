@@ -63,13 +63,12 @@ export function parseModelReply(text: string): ParsedModelReply {
 
 /**
  * Models sometimes double-escape the line breaks of `reply`, so the customer would read a literal
- * `\n`. A sales chat reply has no legitimate use for that sequence: every stand-alone `\n` (or
- * `\r\n`) becomes a line break, while `\\n` (an escaped backslash) stays. Replies with code
- * (backticks) or a Windows drive path are left as they are. Linear: one regex pass.
+ * `\n`. A sales chat reply has no legitimate use for that sequence (no code, no file paths), so
+ * every stand-alone `\n` or `\r\n` becomes a line break; only `\\n` (an escaped backslash)
+ * stays. One linear regex pass. Used for JSON replies and salvaged prose alike.
  */
 function unescapeLineBreaks(reply: string): string {
-  if (!reply.includes('\\') || reply.includes('`') || /\b[A-Za-z]:\\/.test(reply)) return reply;
-  return reply.replace(/(?<!\\)\\(?:r\\)?n/g, '\n');
+  return reply.includes('\\') ? reply.replace(/(?<!\\)\\(?:r\\)?n/g, '\n') : reply;
 }
 
 const MAX_PROSE_CHARS = 700;
@@ -101,5 +100,5 @@ export function salvageProse(text: string, instructions: string): ModelReply | n
     for (let i = 0; i + LEAK_WORDS <= proseWords.length; i++)
       if (known.has(proseWords.slice(i, i + LEAK_WORDS).join(' '))) return null;
   }
-  return { outcome: 'answer', reply: prose, sources: [], imageIds: [] };
+  return { outcome: 'answer', reply: unescapeLineBreaks(prose), sources: [], imageIds: [] };
 }
