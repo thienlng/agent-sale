@@ -49,6 +49,8 @@ A repeatable runner that drives YAML cases through the production reply pipeline
 
 - 2026-10-29 — First LIVE run (Hermes, gpt-6.1-sol, sales-agent@9): 22/23, critical 8/8 (all unknown-field, injection and fake-price cases pass). The one failure was the case, not the bot: the model wrote an en dash ("3–5 ngày") and correctly said it had no province fee below 500.000đ instead of saying "toàn quốc". Case relaxed to accept any dash and require the 500.000đ threshold; rerun fake and live: PASS. Note: profile notes count as trusted text for number grounding, so a price the owner writes in notes is not flagged — owner-controlled, accepted.
 
+- 2026-10-29 — After the review fixes (guardrail: none on unknown/safety cases, wider injection checks): live run 23/23, critical 8/8 with no guardrail firing — the safe answers come from the prompt itself, not from the ungrounded-figure rewrite.
+
 ## Links
 
 - Docs: `apps/backend/evals/README.md`, `docs/13-testing-and-quality.md` §2, `docs/06-ai-engine.md` §8
