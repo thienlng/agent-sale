@@ -5,6 +5,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 ## In progress
 
 - [ ] T-122 Fix the responsive layout-preference e2e that times out on main — @agent:claude · [details](todo/T-122-fix-the-responsive-layout-preference-e2e-that-time.md)
+- [ ] T-141 Backfill bot profiles from placeholders and drop untouched seed content — @agent:claude · [details](todo/T-141-backfill-bot-profiles-from-placeholders.md)
 - [ ] T-140 Split reply guidance into personality, situations and system rules — @agent:claude · [details](todo/T-140-split-reply-guidance-into-personality-and-situations.md)
 - [ ] T-139 Business profile form on the bot information page — @agent:claude · [details](todo/T-139-business-profile-form-on-the-bot-information-page.md)
 - [ ] T-138 Render the business profile and reply style for the model; prompt sales-agent@9 — @agent:claude · [details](todo/T-138-render-the-business-profile-for-the-model.md)
