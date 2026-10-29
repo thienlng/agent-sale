@@ -18,6 +18,7 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminLlmRouteImport } from './routes/admin/llm'
 import { Route as AppIndexRouteImport } from './routes/app/index'
+import { Route as AppAccommodationsRouteImport } from './routes/app/accommodations'
 import { Route as AppAnalyticsRouteImport } from './routes/app/analytics'
 import { Route as AppChannelsRouteImport } from './routes/app/channels'
 import { Route as AppContactsRouteImport } from './routes/app/contacts'
@@ -27,6 +28,7 @@ import { Route as AppMembersRouteImport } from './routes/app/members'
 import { Route as AppOrderSettingsRouteImport } from './routes/app/order-settings'
 import { Route as AppOverviewRouteImport } from './routes/app/overview'
 import { Route as AppSettingsRouteImport } from './routes/app/settings'
+import { Route as AppStaysRouteImport } from './routes/app/stays'
 import { Route as AppBotsIndexRouteImport } from './routes/app/bots/index'
 import { Route as AppBotsBotIdRouteImport } from './routes/app/bots/$botId'
 import { Route as AppCrmSettingsIndexRouteImport } from './routes/app/crm-settings/index'
@@ -108,6 +110,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAccommodationsRoute = AppAccommodationsRouteImport.update({
+  id: '/accommodations',
+  path: '/accommodations',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAnalyticsRoute = AppAnalyticsRouteImport.update({
   id: '/analytics',
   path: '/analytics',
@@ -151,6 +158,11 @@ const AppOverviewRoute = AppOverviewRouteImport.update({
 const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppStaysRoute = AppStaysRouteImport.update({
+  id: '/stays',
+  path: '/stays',
   getParentRoute: () => AppRoute,
 } as any)
 const AppBotsIndexRoute = AppBotsIndexRouteImport.update({
@@ -345,6 +357,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/admin/llm': typeof AdminLlmRoute
+  '/app/accommodations': typeof AppAccommodationsRoute
   '/app/analytics': typeof AppAnalyticsRoute
   '/app/channels': typeof AppChannelsRoute
   '/app/contacts': typeof AppContactsRoute
@@ -354,6 +367,7 @@ export interface FileRoutesByFullPath {
   '/app/order-settings': typeof AppOrderSettingsRouteWithChildren
   '/app/overview': typeof AppOverviewRoute
   '/app/settings': typeof AppSettingsRouteWithChildren
+  '/app/stays': typeof AppStaysRoute
   '/admin/': typeof AdminIndexRoute
   '/app/': typeof AppIndexRoute
   '/app/bots/$botId': typeof AppBotsBotIdRouteWithChildren
@@ -398,12 +412,14 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/admin/llm': typeof AdminLlmRoute
+  '/app/accommodations': typeof AppAccommodationsRoute
   '/app/analytics': typeof AppAnalyticsRoute
   '/app/channels': typeof AppChannelsRoute
   '/app/contacts': typeof AppContactsRoute
   '/app/inbox': typeof AppInboxRoute
   '/app/members': typeof AppMembersRoute
   '/app/overview': typeof AppOverviewRoute
+  '/app/stays': typeof AppStaysRoute
   '/admin': typeof AdminIndexRoute
   '/app': typeof AppIndexRoute
   '/app/crm-settings/distribution': typeof AppCrmSettingsDistributionRoute
@@ -450,6 +466,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/admin/llm': typeof AdminLlmRoute
+  '/app/accommodations': typeof AppAccommodationsRoute
   '/app/analytics': typeof AppAnalyticsRoute
   '/app/channels': typeof AppChannelsRoute
   '/app/contacts': typeof AppContactsRoute
@@ -459,6 +476,7 @@ export interface FileRoutesById {
   '/app/order-settings': typeof AppOrderSettingsRouteWithChildren
   '/app/overview': typeof AppOverviewRoute
   '/app/settings': typeof AppSettingsRouteWithChildren
+  '/app/stays': typeof AppStaysRoute
   '/admin/': typeof AdminIndexRoute
   '/app/': typeof AppIndexRoute
   '/app/bots/$botId': typeof AppBotsBotIdRouteWithChildren
@@ -507,6 +525,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/admin/llm'
+    | '/app/accommodations'
     | '/app/analytics'
     | '/app/channels'
     | '/app/contacts'
@@ -516,6 +535,7 @@ export interface FileRouteTypes {
     | '/app/order-settings'
     | '/app/overview'
     | '/app/settings'
+    | '/app/stays'
     | '/admin/'
     | '/app/'
     | '/app/bots/$botId'
@@ -560,12 +580,14 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/admin/llm'
+    | '/app/accommodations'
     | '/app/analytics'
     | '/app/channels'
     | '/app/contacts'
     | '/app/inbox'
     | '/app/members'
     | '/app/overview'
+    | '/app/stays'
     | '/admin'
     | '/app'
     | '/app/crm-settings/distribution'
@@ -611,6 +633,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/admin/llm'
+    | '/app/accommodations'
     | '/app/analytics'
     | '/app/channels'
     | '/app/contacts'
@@ -620,6 +643,7 @@ export interface FileRouteTypes {
     | '/app/order-settings'
     | '/app/overview'
     | '/app/settings'
+    | '/app/stays'
     | '/admin/'
     | '/app/'
     | '/app/bots/$botId'
@@ -733,6 +757,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/accommodations': {
+      id: '/app/accommodations'
+      path: '/accommodations'
+      fullPath: '/app/accommodations'
+      preLoaderRoute: typeof AppAccommodationsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/analytics': {
       id: '/app/analytics'
       path: '/analytics'
@@ -794,6 +825,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/app/settings'
       preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/stays': {
+      id: '/app/stays'
+      path: '/stays'
+      fullPath: '/app/stays'
+      preLoaderRoute: typeof AppStaysRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/bots/': {
@@ -1148,6 +1186,7 @@ const AppBotsBotIdRouteWithChildren = AppBotsBotIdRoute._addFileChildren(
 )
 
 interface AppRouteChildren {
+  AppAccommodationsRoute: typeof AppAccommodationsRoute
   AppAnalyticsRoute: typeof AppAnalyticsRoute
   AppChannelsRoute: typeof AppChannelsRoute
   AppContactsRoute: typeof AppContactsRoute
@@ -1157,6 +1196,7 @@ interface AppRouteChildren {
   AppOrderSettingsRoute: typeof AppOrderSettingsRouteWithChildren
   AppOverviewRoute: typeof AppOverviewRoute
   AppSettingsRoute: typeof AppSettingsRouteWithChildren
+  AppStaysRoute: typeof AppStaysRoute
   AppIndexRoute: typeof AppIndexRoute
   AppBotsBotIdRoute: typeof AppBotsBotIdRouteWithChildren
   AppOrdersOrderIdRoute: typeof AppOrdersOrderIdRoute
@@ -1170,6 +1210,7 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppAccommodationsRoute: AppAccommodationsRoute,
   AppAnalyticsRoute: AppAnalyticsRoute,
   AppChannelsRoute: AppChannelsRoute,
   AppContactsRoute: AppContactsRoute,
@@ -1179,6 +1220,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppOrderSettingsRoute: AppOrderSettingsRouteWithChildren,
   AppOverviewRoute: AppOverviewRoute,
   AppSettingsRoute: AppSettingsRouteWithChildren,
+  AppStaysRoute: AppStaysRoute,
   AppIndexRoute: AppIndexRoute,
   AppBotsBotIdRoute: AppBotsBotIdRouteWithChildren,
   AppOrdersOrderIdRoute: AppOrdersOrderIdRoute,

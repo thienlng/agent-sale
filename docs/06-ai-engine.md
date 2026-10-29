@@ -181,3 +181,8 @@ The `hermes` provider kind runs the same grounded pipeline through a private Pyt
 ## Originating fanpage post context (T-069)
 
 `sales-agent@8 + fanpage-context@1` accepts bounded, structured originating-post context from the channel facade. Post text and media descriptions enrich retrieval and numerical grounding; parent comments are untrusted context and cannot authorize prices. Changed/unavailable source context and ambiguous comment-to-private-reply provenance stop automatic answering. Media descriptions are not visual inspection. See [Facebook comments](integrations/facebook-comments.md) for the exact flow, limits and deterministic fixture evals.
+
+
+## Hotel grounding extension (T-155)
+
+Hotel bots default to `sales-agent@10`; retail remains @9 and explicit @8/@9 pins stay available. Accommodation metadata replaces retail stock/variant context; unknown pricing units prevent calculated totals or nightly claims, and unverified availability prompts date collection. Guest standards are distinct from absolute limits. Gallery captions support query-ranked images beyond the retail five-image list. The eval runner now uses the same industry default as runtime and reports all prompt versions present. Three critical live A17 cases cover rate basis, adult/child distinction and zero-stock misclassification. See [lodging](lodging.md).

@@ -118,6 +118,7 @@ export function catalogTx(
                 visibleToBot: rec.visibleToBot,
                 botInstructions: rec.botInstructions,
                 imageUrls: rec.imageUrls,
+                accommodation: rec.accommodation ?? null,
                 searchText: rec.searchText,
                 updatedAt: rec.updatedAt,
               },
@@ -184,7 +185,7 @@ export function catalogTx(
           .select({ variant: v, productName: p.name, productCode: p.code, productStatus: p.status })
           .from(v)
           .innerJoin(p, eq(p.id, v.productId))
-          .where(inArray(v.id, ids));
+          .where(and(inArray(v.id, ids), isNull(p.accommodation)));
         return rows.map((r) => ({
           ...toVariant(r.variant),
           productName: r.productName,
@@ -209,6 +210,7 @@ export function catalogTx(
             and(
               isNull(v.archivedAt),
               eq(p.status, 'active'),
+              isNull(p.accommodation),
               q ? contains(p.searchText, q) : undefined,
               inStock ? sql`${available} > 0` : undefined,
             ),

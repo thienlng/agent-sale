@@ -16,3 +16,4 @@ Each ADR: Context → Decision → Consequences. Status: `Proposed` → `Accepte
 | [010](ADR-010-isolated-hermes-runtime.md) | Isolated `hermes-runtime` and first Meta ingress queue adapter | Accepted |
 | [011](ADR-011-website-widget-shadow-dom-and-polling.md) | Website chat widget: single Shadow DOM script, ES2017, polling first, HMAC visitor token | Accepted |
 | [012](ADR-012-accounts-own-businesses-bot-is-selling-unit.md) | Accounts own businesses (billing and portfolio); the bot is the selling unit, no shop entity | Proposed |
+| [013](ADR-013-lodging-catalog-and-stay-requests.md) | Whole-property accommodation metadata and staff-confirmed stay requests inside commerce | Proposed |

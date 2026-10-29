@@ -15,6 +15,7 @@ import { foldVietnamese, isUuid, newId, type WorkspaceId } from '@agent-sales/sh
 import { Inject, Injectable } from '@nestjs/common';
 
 import { botProductSearches } from '../domain/bot-product-search.js';
+import { LodgingError } from '../domain/lodging.js';
 import {
   ProductNotFoundError,
   WarehouseInUseError,
@@ -68,6 +69,7 @@ function toProductDto(
     visibleToBot: p.visibleToBot,
     botInstructions: p.botInstructions,
     imageUrls: p.imageUrls,
+    ...(p.accommodation ? { accommodation: p.accommodation } : {}),
     variants: dtoVariants,
     priceMin: prices.length ? Math.min(...prices) : 0,
     priceMax: prices.length ? Math.max(...prices) : 0,
@@ -225,6 +227,11 @@ export class CatalogService {
 
   createProduct(ws: WorkspaceId, raw: UpsertProductRequest): Promise<ProductDto> {
     const input = UpsertProductSchema.parse(raw);
+    if (input.accommodation && input.variants.length !== 1)
+      throw new LodgingError(
+        'VALIDATION_FAILED',
+        'An entire property has one catalog unit, not separate room or weekday variants',
+      );
     return this.store.run(ws, async (tx) => {
       const now = new Date();
       const product: ProductRecord = {
@@ -237,6 +244,7 @@ export class CatalogService {
         visibleToBot: input.visibleToBot,
         botInstructions: input.botInstructions,
         imageUrls: input.imageUrls,
+        accommodation: input.accommodation ?? null,
         searchText: productSearchText(input, input.variants),
         createdAt: now,
         updatedAt: now,
@@ -268,6 +276,15 @@ export class CatalogService {
     const input = UpsertProductSchema.parse(raw);
     return this.store.run(ws, async (tx) => {
       const current = await this.#product(tx, id);
+      if (current.accommodation && input.accommodation === null)
+        throw new LodgingError('CONFLICT', 'An accommodation cannot be converted into stock goods');
+      if (!current.accommodation && input.accommodation)
+        throw new LodgingError(
+          'CONFLICT',
+          'Create a separate accommodation instead of converting existing stock goods',
+        );
+      if (current.accommodation && input.variants.length !== 1)
+        throw new LodgingError('VALIDATION_FAILED', 'An entire property has one catalog unit');
       const existing = (await tx.products.variantsOf([id])).filter((v) => !v.archived);
       const known = new Map(existing.map((v) => [v.id, v]));
       const kept = new Set<string>();
@@ -299,6 +316,8 @@ export class CatalogService {
         visibleToBot: input.visibleToBot,
         botInstructions: input.botInstructions,
         imageUrls: input.imageUrls,
+        accommodation:
+          input.accommodation === undefined ? (current.accommodation ?? null) : input.accommodation,
         searchText: productSearchText(input, input.variants),
         updatedAt: new Date(),
       });
@@ -314,7 +333,12 @@ export class CatalogService {
     actorUserId: string,
   ): Promise<ProductDto> {
     return this.store.run(ws, async (tx) => {
-      await this.#product(tx, productId);
+      const product = await this.#product(tx, productId);
+      if (product.accommodation)
+        throw new LodgingError(
+          'VALIDATION_FAILED',
+          'Accommodations use stay dates, not warehouse inventory',
+        );
       const variant = (await tx.products.variantsOf([productId])).find(
         (v) => v.id === input.variantId && !v.archived,
       );

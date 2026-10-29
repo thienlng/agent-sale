@@ -70,3 +70,8 @@ Known effects of the backfill, valid for one release:
 ## Direct activation controls (T-084)
 
 The bot list and bot training menu use the same named on/off switch. Users need bots.manage; pending changes disable the switch. List/detail caches update together and revert when the API rejects a save. Switching off keeps page assignments intact and uses the existing runtime stop checks. Existing basic and advanced settings remain under Bot settings.
+
+
+## Hotel accommodations (T-155)
+
+Hotel product routes show the whole-property accommodation editor, including guest standards, bedroom layout, weekday references, unknown policies and a captioned gallery of up to 30 photos. The five-image retail limit remains unchanged. Hotel bots default to sales-agent@10, and lodging requires no warehouse stock. See [lodging operations](lodging.md).

@@ -39,6 +39,8 @@ Input source: `../../preny/preny-research/` (Preny research dossier dated 23/10/
 | — | [Meta inbox](meta-inbox.md) | Implementation | Facebook/Instagram connection, webhook processing, takeover, attachments and live testing (T-045) |
 | — | [Sales inbox workspace](18-sales-inbox-workspace.md) | Implementation | Sales queues, composer drafts, explicit CRM selection and order creation alongside chat (T-068) |
 
+- [Whole-property lodging](lodging.md) — T-155 accommodations, date-based requests, reference quotes and explicit staff confirmation.
+
 ## Inbox redesign business specification
 
 - [Meta-style Inbox BA specification (Vietnamese business material)](business/rapiz-inbox-meta-ba.vi.md) — T-095 observed interface, proposed rules, workflows, acceptance and unverified capability inventory.

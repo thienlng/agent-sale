@@ -56,6 +56,7 @@ export function trustedTexts(c: EvalCase): string[] {
       p.code ?? '',
       p.description,
       p.instructions,
+      ...(p.accommodation ? [JSON.stringify(p.accommodation)] : []),
       ...p.variants.flatMap((v) => [v.name, v.sku ?? '', String(v.price), String(v.stock)]),
     ]),
   ];
@@ -75,6 +76,7 @@ function productDtos(c: EvalCase) {
       visibleToBot: true,
       botInstructions: p.instructions,
       imageUrls: [],
+      ...(p.accommodation ? { accommodation: p.accommodation } : {}),
       variants: p.variants.map((v, j) => ({
         id: newId(),
         sku: v.sku ?? `SKU-${i + 1}-${j + 1}`,
@@ -159,7 +161,6 @@ export function buildService(c: EvalCase, llm: LlmRuntime) {
       listBotCatalog: async () => products,
     } as unknown as CatalogFacade,
     { listForBot: async () => [] } as unknown as ActionFacade,
-    9,
   );
   return { service, botId, runs };
 }

@@ -4,7 +4,6 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
-- [ ] T-155 Complete the Villas business experience and seed the real A17 property — @agent:codex · [details](todo/T-155-complete-the-villas-business-experience-and-seed-t.md) · implementation and independent QA
 - [ ] T-112 Move product management to its own top-level navigation group — @agent:claude · [details](todo/T-112-move-product-management-to-its-own-top-level-navig.md) · PR #83
 - [ ] T-114 Clean up bot navigation: hide the image library and rename channel integrations — @agent:claude · [details](todo/T-114-clean-up-bot-navigation-hide-the-image-library-and.md) · PR #83
 - [ ] T-113 Show per-bot statistics on the bot training home — @agent:claude · [details](todo/T-113-show-per-bot-statistics-on-the-bot-training-home.md) · PR #83
@@ -71,6 +70,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [ ] T-002 Finalize open decisions (domain, data-center location, MVP channels) — @thienlng · blocked: human decision · [details](todo/T-002-finalize-open-decisions.md)
 
 ## Done (last 10 — older ones live in todo/done/)
+- [x] T-155 Complete the Villas business experience and seed the real A17 property — @agent:codex · [details](todo/done/T-155-complete-the-villas-business-experience-and-seed-t.md) · local gate and independent QA passed; PR pending
 
 - [x] T-154 Drop the coming-soon badge from the Products menu entry — @agent:claude · [details](todo/done/T-154-drop-the-coming-soon-badge-from-products.md) · main
 - [x] T-152 Show the business logo in the business selector — @agent:claude · [details](todo/done/T-152-show-the-business-logo-in-the-selector.md) · main
@@ -81,6 +81,3 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [x] T-146 Define the complete web acceptance test matrix — @agent:codex · [details](todo/done/T-146-define-the-complete-web-acceptance-test-matrix.md) · documentation only; cases NOT_RUN
 - [x] T-144 Create businesses from the selector, simplify business settings, fix the settings tab arrows — @agent:claude · [details](todo/done/T-144-create-businesses-and-simplify-business-settings.md) · main 7895167
 - [x] T-143 Answer with sales-agent@9 and the business profile — @agent:claude · [details](todo/done/T-143-answer-with-sales-agent-9-and-the-business-profile.md) · main c0507f4
-- [x] T-142 Let another business connect a removed page — @agent:claude · [details](todo/done/T-142-let-another-business-connect-a-removed-page.md) · main c0507f4
-- [x] T-141 Backfill bot profiles from placeholders and drop untouched seed content — @agent:claude · [details](todo/done/T-141-backfill-bot-profiles-from-placeholders.md) · main c0507f4
-- [x] T-140 Split reply guidance into personality, situations and system rules — @agent:claude · [details](todo/done/T-140-split-reply-guidance-into-personality-and-situations.md) · main c0507f4

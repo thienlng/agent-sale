@@ -2,7 +2,9 @@
 
 **Purpose:** the shop's catalog and orders — warehouses, products with variants, inventory with a movement log, orders with items, status flow and history, order settings, and the sales overview (docs/02 ORD-01..05, ORD-11).
 
-**Owned tables:** `warehouses`, `products`, `product_variants`, `inventory`, `inventory_movements`, `order_counters`, `orders`, `order_items`, `order_status_history`, `order_settings` (tenant, forced RLS — migrations 0004, 0005 and 0014; schema in `packages/db/src/schema/commerce.ts`).
+**Lodging (T-155):** hotel workspaces add whole-property metadata on `products` and commerce-owned `stay_requests` (migration 0035). See [lodging operations](../../../../../docs/lodging.md) and ADR-013 for date quotes, explicit staff confirmation, overlap exclusion, idempotency, permissions and API pagination. Lodging never enters retail stock/order lines.
+
+**Owned tables:** `warehouses`, `products`, `product_variants`, `inventory`, `inventory_movements`, `order_counters`, `orders`, `order_items`, `order_status_history`, `order_settings`, `stay_requests` (tenant, forced RLS — migrations 0004, 0005 and 0014; schema in `packages/db/src/schema/commerce.ts`).
 
 **Public API (`api/`):** `COMMERCE_FACADE` → `getOrder(workspaceId, orderId)`; `CATALOG_FACADE` → `getBotProducts(workspaceId, query, limit)` (read-only, `visibleToBot` only, with `imageUrls`). HTTP (workspace-scoped): `/warehouses`, `/products`, `/products/{id}/stock`, `/product-variants`, `/orders`, `/orders/overview`, `/orders/{id}`, `/orders/{id}/status`, `/order-settings`. Contracts: `packages/contracts/src/commerce/`.
 

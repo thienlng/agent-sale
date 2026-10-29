@@ -29,6 +29,8 @@ const SECTION: Record<string, string> = {
   analytics: 'nav.analytics',
   settings: 'nav.settings',
   llm: 'nav.adminLlm',
+  accommodations: 'nav.accommodations',
+  stays: 'nav.stayRequests',
 };
 
 /**
@@ -43,6 +45,7 @@ export function AppShell({
   planDialog,
   createBusinessDialog,
   businessLogo,
+  industry,
 }: {
   children: ReactNode;
   /** Plan and billing popup for the account menu, composed by the route from `features/billing`. */
@@ -51,6 +54,7 @@ export function AppShell({
   createBusinessDialog?: ((props: CreateBusinessDialogProps) => ReactNode) | undefined;
   /** The current business's logo for the business selector, composed by the route from `features/workspace`. */
   businessLogo?: ReactNode;
+  industry?: string | undefined;
 }) {
   const { t } = useTranslation();
   const session = useSession();
@@ -66,7 +70,11 @@ export function AppShell({
         defaultOpen={sidebarOpenByDefault()}
         style={{ '--header-height': '3.25rem' } as CSSProperties}
       >
-        <AppSidebar createBusinessDialog={createBusinessDialog} businessLogo={businessLogo} />
+        <AppSidebar
+          createBusinessDialog={createBusinessDialog}
+          businessLogo={businessLogo}
+          industry={industry}
+        />
         <SidebarInset className="min-w-0 overflow-x-clip">
           <header
             className={[

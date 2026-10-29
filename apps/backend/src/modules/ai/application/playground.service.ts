@@ -15,6 +15,7 @@ import { BOT_FACADE, type BotFacade, type BotView } from '../../bot/api/index.js
 import { CATALOG_FACADE, type CatalogFacade } from '../../commerce/api/index.js';
 import { KNOWLEDGE_FACADE, type KnowledgeFacade } from '../../knowledge/api/index.js';
 import { renderBusinessProfile } from '../domain/business-profile.js';
+import { catalogProductContext, catalogOverviewContext } from '../domain/catalog-context.js';
 import { replyStyle } from '../domain/reply-style.js';
 import { situationsText } from '../domain/situations.js';
 import { TRAINING_FACADE, type TrainingFacade } from '../../knowledge/api/index.js';
@@ -51,6 +52,7 @@ const FORMAT_REMINDER =
   'Reminder: your previous reply was not a JSON object. Reply again with only the JSON object described above, even for a general question.';
 const PROMPT_V8 = { name: 'sales-agent', version: 8 } as const;
 const PROMPT_V9 = { name: 'sales-agent', version: 9 } as const;
+const PROMPT_V10 = { name: 'sales-agent', version: 10 } as const;
 /** Optional DI token: the sales-agent prompt version both the playground and live replies use (default 8). */
 export const PROMPT_VERSION_OPTION = Symbol('PROMPT_VERSION_OPTION');
 const POST_PROMPT = { name: 'fanpage-context', version: 1 } as const;
@@ -78,6 +80,7 @@ export class PlaygroundService implements AiFacade {
   readonly #prompts = new PromptRegistry(PROMPTS_DIR);
   readonly #logger = new Logger(PlaygroundService.name);
   readonly #prompt: typeof PROMPT_V8 | typeof PROMPT_V9;
+  readonly #automaticLodgingPrompt: boolean;
 
   constructor(
     @Inject(BOT_FACADE) private readonly bots: BotFacade,
@@ -88,9 +91,10 @@ export class PlaygroundService implements AiFacade {
     @Inject(TRAINING_FACADE) @Optional() private readonly training?: TrainingFacade,
     @Inject(CATALOG_FACADE) @Optional() private readonly catalog?: CatalogFacade,
     @Inject(ACTION_FACADE) @Optional() private readonly actions?: ActionFacade,
-    @Inject(PROMPT_VERSION_OPTION) @Optional() promptVersion: 8 | 9 = 9,
+    @Inject(PROMPT_VERSION_OPTION) @Optional() promptVersion?: 8 | 9,
   ) {
-    this.#prompt = promptVersion === 9 ? PROMPT_V9 : PROMPT_V8;
+    this.#prompt = promptVersion === 8 ? PROMPT_V8 : PROMPT_V9;
+    this.#automaticLodgingPrompt = promptVersion === undefined;
   }
 
   async playground(
@@ -117,6 +121,8 @@ export class PlaygroundService implements AiFacade {
     context: { conversationId: string | null; isTest: boolean },
   ): Promise<PlaygroundResponse> {
     const bot = await this.bots.getBot(ws, botId);
+    const prompt =
+      bot.industry === 'hotel' && this.#automaticLodgingPrompt ? PROMPT_V10 : this.#prompt;
     const workspace = await this.workspaces.getById(ws);
     const customerTexts = input.messages.filter((m) => m.role === 'customer').map((m) => m.content);
 
@@ -140,29 +146,16 @@ export class PlaygroundService implements AiFacade {
     const productQuery = lastBotReply ? `${query}\n${lastBotReply}` : query;
     const products = this.catalog ? await this.catalog.getBotProducts(ws, productQuery, 5) : [];
     // The pictures the bot may send this turn. The model only gets ids and labels, never URLs.
-    const allowed = buildAllowlist(productImages(products), libraryImages(media, query));
-    const productContext = products.map((product) => ({
-      id: product.id,
-      code: product.code,
-      name: product.name,
-      description: product.description,
-      instructions: product.botInstructions,
-      variants: product.variants.map((variant) => ({
-        sku: variant.sku,
-        name: variant.name,
-        priceVnd: variant.price,
-        available: variant.stock.reduce((sum, stock) => sum + stock.available, 0),
-      })),
-    }));
+    const allowed = buildAllowlist(
+      productImages(products, query),
+      libraryImages(media, query),
+      products.some((p) => p.accommodation) ? query : '',
+    );
+    const productContext = products.map(catalogProductContext);
     // A short list of everything on sale, so general questions ("what do you sell?", "something
     // under 500k") can be answered even when no product name matched the customer's words.
     const overview = this.catalog ? await this.catalog.listBotCatalog(ws, 15) : [];
-    const overviewContext = overview.map((product) => ({
-      name: product.name,
-      fromVnd: product.priceMin,
-      toVnd: product.priceMax,
-      inStock: product.available > 0,
-    }));
+    const overviewContext = overview.map(catalogOverviewContext);
     const contextData = [
       post
         ? `<originating_post>\n${JSON.stringify({ text: post.text, media: post.media, parentText: post.parentText }).replace(/</g, '\\u003c').replace(/>/g, '\\u003e')}\n</originating_post>`
@@ -194,10 +187,8 @@ export class PlaygroundService implements AiFacade {
     const actionsBlockText = actionViews.length ? actionsBlock(actionViews, pendingAction) : '';
 
     const postRules = post ? await this.#prompts.load(POST_PROMPT) : '';
-    const v9 = this.#prompt.version === 9;
-    const template = [await this.#prompts.load(this.#prompt), postRules]
-      .filter(Boolean)
-      .join('\n\n');
+    const v9 = prompt.version >= 9;
+    const template = [await this.#prompts.load(prompt), postRules].filter(Boolean).join('\n\n');
     const system = this.#prompts.render(template, {
       'bot.name': bot.name,
       // The shop's own name beats the account's workspace name (@9: the profile's display name first).
@@ -307,7 +298,7 @@ export class PlaygroundService implements AiFacade {
     if (this.actions && askedConfirmation && decision.outcome !== 'answered') {
       await this.actions.clearPending(ws, actionConversationId);
     }
-    const promptVersion = `${this.#prompt.name}@${this.#prompt.version}`;
+    const promptVersion = `${prompt.name}@${prompt.version}`;
     const run = {
       id: newId(),
       botId,

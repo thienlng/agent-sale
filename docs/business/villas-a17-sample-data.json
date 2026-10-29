@@ -1,0 +1,146 @@
+{
+  "source": "Owner-supplied villa_a17/info.md and twelve original JPGs; audited 2026-10-30",
+  "code": "A17",
+  "name": "SKY VILLA A17 – Villa nguyên căn view sân golf Tam Đảo",
+  "description": "Một căn villa nguyên căn tại Tam Đảo, view sân golf, có 8 phòng ngủ. Tiêu chuẩn 24 người lớn + 8 trẻ em dưới 6 tuổi. Sân vườn hơn 1.000 m², bể bơi vô cực tràn bờ, BBQ ngoài trời, bếp đầy đủ dụng cụ, karaoke, bi-a, bi-lắc và phòng xông hơi. Phòng 102 có 2 giường 1,8 m × 2 m; phòng tập thể dùng đệm phụ 1,2 m × 2 m, chưa rõ số lượng. Vui lòng xem bố trí chi tiết của từng phòng. Các mức giá theo thứ là giá tham khảo; cần chủ căn xác nhận đơn vị tính và điều kiện trước khi chốt.",
+  "category": "Villa nguyên căn",
+  "status": "active",
+  "visibleToBot": true,
+  "botInstructions": "A17 là đúng một căn thuê nguyên căn. Không tư vấn 8 phòng ngủ như 8 căn có thể đặt riêng. Không dùng tồn kho bán lẻ để nói còn/hết lịch. Chỉ báo mức giá tham khảo theo thứ từ dữ liệu, không thêm đơn vị mỗi đêm và không tự nhân giá theo số đêm khi chưa xác nhận. Hỏi ngày nhận/trả, số người lớn, số trẻ và tuổi từng trẻ; tiêu chuẩn là 24 người lớn và 8 trẻ dưới 6, không suy ra miễn phí hay sức chứa tối đa. Chưa có dữ liệu lịch thực tế, cọc, hủy, giờ check-in/out, giá lễ hay phụ thu; chuyển nhân viên xác minh. Không khẳng định đã tạo yêu cầu hoặc booking nếu chưa có thao tác thành công. Ảnh chưa có xác nhận phòng số nào thì chỉ mô tả là ảnh minh họa.",
+  "imageUrls": [
+    "/demo-assets/01a1882d-b598-7ac1-a3af-b5bf03bc4b06/a17/862406167_122109153483508382_5326933818575878728_n.jpg",
+    "/demo-assets/01a1882d-b598-7ac1-a3af-b5bf03bc4b06/a17/864028230_122109153669508382_3337876454377646469_n.jpg",
+    "/demo-assets/01a1882d-b598-7ac1-a3af-b5bf03bc4b06/a17/861391446_122109153759508382_1408743318892192303_n.jpg",
+    "/demo-assets/01a1882d-b598-7ac1-a3af-b5bf03bc4b06/a17/861764258_122109153849508382_2423470114845411641_n.jpg",
+    "/demo-assets/01a1882d-b598-7ac1-a3af-b5bf03bc4b06/a17/861670541_122109153945508382_4783739892776883140_n.jpg"
+  ],
+  "accommodation": {
+    "rentalType": "entire_property",
+    "bedrooms": 8,
+    "standardAdults": 24,
+    "standardChildren": 8,
+    "childAgeBelow": 6,
+    "maxGuests": null,
+    "roomLayout": [
+      {
+        "name": "Tầng hầm",
+        "beds": "1 giường 1,8 m × 2 m + đệm phụ; chưa có số lượng đệm phụ."
+      },
+      {
+        "name": "Phòng 101",
+        "beds": "1 giường 1,8 m × 2 m + đệm phụ; chưa có số lượng đệm phụ."
+      },
+      {
+        "name": "Phòng 102",
+        "beds": "2 giường 1,8 m × 2 m + đệm phụ; chưa có số lượng đệm phụ."
+      },
+      {
+        "name": "Phòng 201",
+        "beds": "1 giường 1,8 m × 2 m + đệm phụ; chưa có số lượng đệm phụ."
+      },
+      {
+        "name": "Phòng 202",
+        "beds": "1 giường 1,8 m × 2 m + đệm phụ; chưa có số lượng đệm phụ."
+      },
+      {
+        "name": "Phòng 203",
+        "beds": "1 giường 1,8 m × 2 m + đệm phụ; chưa có số lượng đệm phụ."
+      },
+      {
+        "name": "Phòng 301",
+        "beds": "1 giường 1,8 m × 2 m + đệm phụ; chưa có số lượng đệm phụ."
+      },
+      {
+        "name": "Phòng tập thể",
+        "beds": "Đệm phụ 1,2 m × 2 m; nguồn chưa nêu số lượng."
+      }
+    ],
+    "amenities": [
+      "Bể bơi vô cực tràn bờ, view sân golf Tam Đảo",
+      "Sân vườn hơn 1.000 m²",
+      "Khu BBQ ngoài trời cạnh hồ bơi",
+      "Bếp đầy đủ dụng cụ",
+      "Phòng karaoke",
+      "Bàn bi-a",
+      "Bàn bi-lắc",
+      "Phòng xông hơi",
+      "Khăn tắm, dầu gội, sữa tắm và bàn chải đánh răng"
+    ],
+    "rateBasis": "unconfirmed",
+    "rates": [
+      {
+        "days": [1, 2, 3, 4],
+        "amount": 12000000
+      },
+      {
+        "days": [5, 7],
+        "amount": 13000000
+      },
+      {
+        "days": [6],
+        "amount": 14000000
+      }
+    ],
+    "checkInOut": "",
+    "depositPolicy": "",
+    "cancellationPolicy": "",
+    "extraGuestPolicy": "",
+    "holidayPolicy": "",
+    "gallery": [
+      {
+        "url": "/demo-assets/01a1882d-b598-7ac1-a3af-b5bf03bc4b06/a17/862406167_122109153483508382_5326933818575878728_n.jpg",
+        "caption": "A17 · Mặt tiền và lối vào"
+      },
+      {
+        "url": "/demo-assets/01a1882d-b598-7ac1-a3af-b5bf03bc4b06/a17/862385780_122109153585508382_718478772026901458_n.jpg",
+        "caption": "A17 · Ngoại thất phía hồ bơi"
+      },
+      {
+        "url": "/demo-assets/01a1882d-b598-7ac1-a3af-b5bf03bc4b06/a17/864028230_122109153669508382_3337876454377646469_n.jpg",
+        "caption": "A17 · Bể bơi và sân vườn"
+      },
+      {
+        "url": "/demo-assets/01a1882d-b598-7ac1-a3af-b5bf03bc4b06/a17/861391446_122109153759508382_1408743318892192303_n.jpg",
+        "caption": "A17 · Khu bếp và bàn ăn"
+      },
+      {
+        "url": "/demo-assets/01a1882d-b598-7ac1-a3af-b5bf03bc4b06/a17/861764258_122109153849508382_2423470114845411641_n.jpg",
+        "caption": "A17 · Phòng ngủ minh họa, chưa xác định số phòng"
+      },
+      {
+        "url": "/demo-assets/01a1882d-b598-7ac1-a3af-b5bf03bc4b06/a17/861670541_122109153945508382_4783739892776883140_n.jpg",
+        "caption": "A17 · Phòng karaoke"
+      },
+      {
+        "url": "/demo-assets/01a1882d-b598-7ac1-a3af-b5bf03bc4b06/a17/860704360_122109154065508382_1822122786543902417_n.jpg",
+        "caption": "A17 · Khu xông hơi"
+      },
+      {
+        "url": "/demo-assets/01a1882d-b598-7ac1-a3af-b5bf03bc4b06/a17/865757908_122109154911508382_8448341176443129249_n.jpg",
+        "caption": "A17 · Bi-a và bi lắc"
+      },
+      {
+        "url": "/demo-assets/01a1882d-b598-7ac1-a3af-b5bf03bc4b06/a17/866907875_122109154983508382_1913783646506303473_n.jpg",
+        "caption": "A17 · Ban công và ghế treo"
+      },
+      {
+        "url": "/demo-assets/01a1882d-b598-7ac1-a3af-b5bf03bc4b06/a17/862044156_122109155073508382_3789787506472823620_n.jpg",
+        "caption": "A17 · Phòng tắm minh họa"
+      },
+      {
+        "url": "/demo-assets/01a1882d-b598-7ac1-a3af-b5bf03bc4b06/a17/864741807_122109155307508382_5634971422032292350_n.jpg",
+        "caption": "A17 · Lối ra ban công"
+      },
+      {
+        "url": "/demo-assets/01a1882d-b598-7ac1-a3af-b5bf03bc4b06/a17/865049249_122109155433508382_5587709177145839731_n.jpg",
+        "caption": "A17 · Hành lang trong nhà"
+      }
+    ],
+    "notes": "Một căn nguyên căn, không tách 8 phòng thành 8 căn bán riêng. Tiêu chuẩn 24 người lớn + 8 trẻ dưới 6 tuổi, không phải 32 người lớn; chưa có sức chứa tối đa đã xác minh. Nguồn giá chỉ ghi theo thứ, chưa xác nhận giá mỗi đêm hay kỳ lưu trú. Chưa có lịch trống thực tế, giờ nhận/trả, điều kiện cọc/hủy hoặc phí dịch vụ/phụ thu. Ảnh phòng ngủ/phòng tắm là ảnh minh họa thực tế, chưa xác định số phòng và không chứng minh mọi phòng đều có tiện ích đó."
+  },
+  "referenceVariant": {
+    "sku": "A17-WHOLE",
+    "price": 12000000
+  },
+  "operatorNotes": "Gallery paths are dev assets, not durable S3 URLs. Resolve them against the deployment origin. Read booking contacts privately from the owner source; never commit credentials or personal contacts. No stock, fake bookings, or inferred policies."
+}

@@ -13,12 +13,26 @@ import { DrizzleCommerceStore } from './infrastructure/persistence/commerce.driz
 import { UnavailableCommerceStore } from './infrastructure/persistence/unavailable-store.js';
 import { CatalogController } from './interface/http/catalog.controller.js';
 import { OrdersController } from './interface/http/orders.controller.js';
+import { LodgingController } from './interface/http/lodging.controller.js';
+import { LodgingService } from './application/lodging.service.js';
+import { LODGING_STORE } from './application/ports/lodging-store.js';
+import { DrizzleLodgingStore } from './infrastructure/persistence/lodging.drizzle-store.js';
+import { CommerceUnavailableError } from './domain/commerce.errors.js';
 
 /** Products, warehouses, inventory and orders (docs/02 ORD-*). Needs a database. */
 @Module({
   imports: [IdentityModule, WorkspaceModule],
-  controllers: [CatalogController, OrdersController],
+  controllers: [CatalogController, OrdersController, LodgingController],
   providers: [
+    {
+      provide: LODGING_STORE,
+      inject: [{ token: DB_TENANT, optional: true }],
+      useFactory: (db: Database | null | undefined) =>
+        db
+          ? new DrizzleLodgingStore(db)
+          : { run: () => Promise.reject(new CommerceUnavailableError()) },
+    },
+    LodgingService,
     {
       provide: COMMERCE_STORE,
       inject: [{ token: DB_TENANT, optional: true }],

@@ -1,6 +1,8 @@
 import {
   bigint,
   boolean,
+  date,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -9,6 +11,7 @@ import {
   text,
   timestamp,
   uuid,
+  unique,
 } from 'drizzle-orm/pg-core';
 
 import { tenantPolicies, workspaces } from './workspace.js';
@@ -53,11 +56,55 @@ export const products = pgTable(
     visibleToBot: boolean('visible_to_bot').notNull().default(true),
     botInstructions: text('bot_instructions').notNull().default(''),
     imageUrls: jsonb('image_urls').$type<string[]>().notNull().default([]),
+    accommodation: jsonb('accommodation').$type<Record<string, unknown> | null>(),
     searchText: text('search_text').notNull(),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
-  () => [...tenantPolicies('products')],
+  (t) => [
+    unique('products_tenant_id_unique').on(t.workspaceId, t.id),
+    ...tenantPolicies('products'),
+  ],
+);
+
+/** Date occupancy is independent from goods inventory and retail orders. */
+export const stayRequests = pgTable(
+  'stay_requests',
+  {
+    id: uuid('id').primaryKey(),
+    workspaceId: workspaceRef(),
+    propertyId: uuid('property_id').notNull(),
+    propertyName: text('property_name').notNull(),
+    clientRequestId: uuid('client_request_id').notNull(),
+    fingerprint: text('fingerprint').notNull(),
+    guestName: text('guest_name').notNull(),
+    guestPhone: text('guest_phone').notNull(),
+    checkIn: date('check_in').notNull(),
+    checkOut: date('check_out').notNull(),
+    party: jsonb('party').$type<Record<string, unknown>>().notNull(),
+    quote: jsonb('quote').$type<Record<string, unknown>>().notNull(),
+    status: text('status').notNull().default('requested'),
+    agreedTotal: money('agreed_total'),
+    note: text('note').notNull().default(''),
+    version: integer('version').notNull().default(1),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique('stay_requests_request_unique').on(t.workspaceId, t.clientRequestId),
+    foreignKey({
+      columns: [t.workspaceId, t.propertyId],
+      foreignColumns: [products.workspaceId, products.id],
+      name: 'stay_requests_property_tenant_fk',
+    }),
+    index('stay_requests_property_dates_idx').on(
+      t.workspaceId,
+      t.propertyId,
+      t.checkIn,
+      t.checkOut,
+    ),
+    ...tenantPolicies('stay_requests'),
+  ],
 );
 
 export const productVariants = pgTable(

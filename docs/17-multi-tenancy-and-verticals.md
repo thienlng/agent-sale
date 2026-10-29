@@ -134,3 +134,8 @@ flowchart LR
 - `docs/05` adds the tables in §4. `docs/06` tools list gains `check_availability`, `create_appointment`, `estimate_price`, `create_quote`, `collect_document`.
 - T-004 (`packages/db`) must include the workspace→connection router and partitioning from the first migration.
 - Pack content (seed FAQs, scenarios, workflow copy, KPIs) is product work owned by the Product Owner and the chatbot trainer; engineering ships the mechanism.
+
+
+## Current lodging slice (T-155)
+
+One whole property can now carry accommodation metadata and staff-confirmed stay requests inside commerce. This bounded implementation precedes the generic resource/appointment architecture described above; it is not a PMS/external calendar. See [ADR-013](adr/ADR-013-lodging-catalog-and-stay-requests.md) and [lodging operations](lodging.md).

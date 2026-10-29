@@ -30,12 +30,12 @@ beforeEach(() => {
   })) as unknown as typeof window.matchMedia;
 });
 
-function renderAt(path: string) {
+function renderAt(path: string, industry?: 'hotel') {
   const root = createRootRoute({
     component: () => (
       <TooltipProvider>
         <SidebarProvider>
-          <AppSidebar />
+          <AppSidebar industry={industry} />
         </SidebarProvider>
       </TooltipProvider>
     ),
@@ -49,6 +49,21 @@ function renderAt(path: string) {
 }
 
 describe('AppSidebar', () => {
+  it('uses lodging navigation for a hotel without retail stock or shipping orders', async () => {
+    renderAt('/app/accommodations', 'hotel');
+    const nav = await screen.findByRole('navigation', { name: 'Điều hướng chính' });
+    expect(within(nav).getByRole('link', { name: 'Căn lưu trú' })).toHaveAttribute(
+      'href',
+      '/app/accommodations',
+    );
+    expect(within(nav).getByRole('link', { name: 'Yêu cầu đặt căn' })).toHaveAttribute(
+      'href',
+      '/app/stays',
+    );
+    expect(within(nav).queryByRole('link', { name: 'Sản phẩm' })).toBeNull();
+    expect(within(nav).queryByRole('button', { name: 'Đơn hàng' })).toBeNull();
+  });
+
   it('shows no coming-soon badge on built pages such as products', async () => {
     renderAt('/app/orders');
     const nav = await screen.findByRole('navigation', { name: 'Điều hướng chính' });

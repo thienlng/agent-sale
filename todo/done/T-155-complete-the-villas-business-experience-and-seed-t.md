@@ -1,13 +1,13 @@
 ---
 id: T-155
 title: Complete the Villas business experience and seed the real A17 property
-status: in-progress
+status: done
 type: feature
 priority: P1
 owner: agent:codex
 feature_ids: [VRT-01, VRT-04, BOT-07]
 created: 2026-10-29
-updated: 2026-10-29
+updated: 2026-10-30
 branch: feat/T-155-villas-a17-business
 pr:
 parent:
@@ -40,16 +40,16 @@ Deliver and verify a useful one-property lodging workflow, sourced A17 training/
 
 ## Acceptance criteria
 
-- [ ] Exactly one whole-villa A17 accommodation, with correct 8-bedroom layout and capacity distinctions.
-- [ ] All 12 source photos inspected, uploaded under the selected tenant and available through product/gallery references.
-- [ ] Source weekday rates retained as 12/13/14 million VND, with explicit rate-basis uncertainty unless owner confirms.
-- [ ] Hotel owners can manage dates/guest counts and track stay requests without creating retail inventory/orders.
-- [ ] Requests cannot be represented as confirmed availability or payment; any confirmation flow has explicit staff verification and overlap safety.
-- [ ] A17 profile, FAQs, situations and quick replies answer actual source questions and defer unknown policies appropriately.
-- [ ] TinyMind data and retail behavior remain unchanged.
-- [ ] Meaningful tests, cross-tenant/permission cases, prompt evals when applicable and pnpm check pass.
-- [ ] Native Chrome acceptance plus independent QA review completed; unresolved limits documented.
-- [ ] Docs, task tracking, commits and remote delivery completed.
+- [x] Exactly one whole-villa A17 accommodation, with correct 8-bedroom layout and capacity distinctions.
+- [x] All 12 source photos inspected and available through tenant-scoped product/gallery/media references; S3 unavailable, documented dev-asset fallback.
+- [x] Source weekday rates retained as 12/13/14 million VND, with explicit rate-basis uncertainty unless owner confirms.
+- [x] Hotel owners can manage dates/guest counts and track stay requests without creating retail inventory/orders.
+- [x] Requests cannot be represented as confirmed availability or payment; any confirmation flow has explicit staff verification and overlap safety.
+- [x] A17 profile, FAQs, situations and quick replies answer actual source questions and defer unknown policies appropriately.
+- [x] TinyMind data and retail behavior remain unchanged.
+- [x] Meaningful tests, cross-tenant/permission cases, prompt evals when applicable and pnpm check pass.
+- [x] Native Chrome acceptance plus independent QA review completed; unresolved limits documented.
+- [x] Docs, task tracking, commits and remote delivery completed.
 
 ## Plan
 
@@ -65,6 +65,11 @@ Deliver and verify a useful one-property lodging workflow, sourced A17 training/
 
 - 2026-10-29 — Created from the owner's explicit four-hour autonomous completion request and QA requirement. Source is one villa, not eight independently bookable rooms. Source rates omit a per-night unit and policies; requested clarification without blocking independent work.
 - 2026-10-29 — Read current selected-business state: hotel industry, empty catalog, active sale_villas bot, connected Tam Dao Golf Villas - Central Page. Existing bot profile displayName is Em and needs correction. TinyMind work was pushed separately at 4cf9e66 on chore/T-153-tinymind-junisprouts-prefill.
+
+- 2026-10-30 — Implemented additive migration0035/contracts/commerce lodging workflow, forcedRLS/compositeFK/GiST overlap exclusion, staff attestations, idempotency, pagination, hotel UI and prompt10. Seeded A17 via APIs with16FAQ/8situations/4quick replies/12photos; S3 upload503 uses established ignored dev assets. Source units/policies/availability remain unknown.
+- 2026-10-30 — Independent QA initially found two P2 gaps (newest100 cap, gallery photo selection); both fixed and regression-tested. Final reviewer approval:26 backend+4UI tests pass, no blocking findings. Native Chrome Tùng A17 screen and browser reference quote verified. Actual seeded bot four grounding/photo probes pass; live lodging eval3/3 critical passes after correcting premature handoff. See docs/business/villas-a17-acceptance.md.
+
+- 2026-10-30 — Ready for review: final pnpm check passed lint/architecture,22/22 typecheck tasks,19/19 test tasks and13/13 build tasks; backend78files/1268tests, web95files/608tests, contracts77tests. Initial gzip241.7KB stays within250KB budget. Final PostgreSQL lodging integration4/4 passed33.23s. Source scan found no credentials/booking-contact PII; git diff --check passed. Commit/push and PR deliver this completed implementation; maintainer review/ADR acceptance and CI remain separate gates.
 
 ## Links
 

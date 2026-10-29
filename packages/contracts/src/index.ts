@@ -9,6 +9,7 @@ import { billingRoutes } from './billing/billing.routes.js';
 import { llmAdminRoutes } from './ai/llm-admin.routes.js';
 import { botRoutes } from './bot/bot.routes.js';
 import { commerceRoutes } from './commerce/commerce.routes.js';
+import { lodgingRoutes } from './commerce/lodging.routes.js';
 import { crmRoutes } from './crm/crm.routes.js';
 import { healthRoutes } from './health/health.routes.js';
 import { identityRoutes } from './identity/identity.routes.js';
@@ -32,6 +33,8 @@ export * from './billing/billing.routes.js';
 export * from './bot/bot.schema.js';
 export * from './bot/profile.js';
 export * from './commerce/commerce.schema.js';
+export * from './commerce/lodging.schema.js';
+export * from './commerce/lodging.routes.js';
 export * from './commerce/order-overview.schema.js';
 export * from './commerce/order-settings.schema.js';
 export * from './commerce/commerce.routes.js';
@@ -76,6 +79,7 @@ export const allRoutes = [
   ...aiRoutes,
   ...llmAdminRoutes,
   ...commerceRoutes,
+  ...lodgingRoutes,
   ...crmRoutes,
   ...webchatRoutes,
 ] as const;

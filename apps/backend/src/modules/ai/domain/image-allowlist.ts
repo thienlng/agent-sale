@@ -57,9 +57,35 @@ const words = (text: string): string[] =>
  * https URL is dropped even though the API already validates it.
  */
 export function productImages(
-  products: readonly { id: string; name: string; imageUrls?: readonly string[] }[],
+  products: readonly {
+    id: string;
+    name: string;
+    imageUrls?: readonly string[];
+    accommodation?: { gallery: readonly { url: string; caption: string }[] } | null | undefined;
+  }[],
+  query = '',
 ): AllowedImage[] {
+  const asked = new Set(words(query));
   return products.flatMap((product) => {
+    if (product.accommodation) {
+      return product.accommodation.gallery
+        .flatMap((photo, index) =>
+          isHttps(photo.url)
+            ? [
+                {
+                  id: `p:${product.id}:${index}`,
+                  label: `${product.name} – ${photo.caption}`,
+                  url: photo.url,
+                },
+              ]
+            : [],
+        )
+        .sort(
+          (a, b) =>
+            words(b.label).filter((w) => asked.has(w)).length -
+            words(a.label).filter((w) => asked.has(w)).length,
+        );
+    }
     const urls = (product.imageUrls ?? []).filter(isHttps);
     return urls.map((url, index) => ({
       id: `p:${product.id}:${index}`,
@@ -85,22 +111,38 @@ export function libraryImages(
 ): AllowedImage[] {
   const asked = new Set(words(query));
   if (!asked.size) return [];
-  return items.flatMap((item) => {
-    if (item.kind !== 'media' || !item.mediaUrl || !isHttps(item.mediaUrl)) return [];
-    const matched = words(`${item.title} ${item.trigger}`).some((word) => asked.has(word));
-    return matched
-      ? [{ id: `m:${item.id}`, label: item.title.slice(0, 120), url: item.mediaUrl }]
-      : [];
-  });
+  return items
+    .flatMap((item) => {
+      if (item.kind !== 'media' || !item.mediaUrl || !isHttps(item.mediaUrl)) return [];
+      const matched = new Set(
+        words(`${item.title} ${item.trigger}`).filter((word) => asked.has(word)),
+      ).size;
+      return matched
+        ? [
+            {
+              image: { id: `m:${item.id}`, label: item.title.slice(0, 120), url: item.mediaUrl },
+              score: matched,
+            },
+          ]
+        : [];
+    })
+    .sort((a, b) => b.score - a.score)
+    .map((entry) => entry.image);
 }
 
 /** Library matches first (the owner picked them), then product pictures; unique ids, max 10. */
 export function buildAllowlist(
   products: readonly AllowedImage[],
   library: readonly AllowedImage[],
+  query = '',
 ): AllowedImage[] {
+  const asked = new Set(words(query));
+  const score = (image: AllowedImage) =>
+    new Set(words(image.label).filter((word) => asked.has(word))).size;
+  const ranked = [...library, ...products];
+  if (asked.size) ranked.sort((a, b) => score(b) - score(a));
   const seen = new Set<string>();
-  return [...library, ...products]
+  return ranked
     .filter((image) => !seen.has(image.id) && Boolean(seen.add(image.id)))
     .slice(0, MAX_ALLOWED_IMAGES);
 }

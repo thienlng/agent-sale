@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AccommodationDetails } from './lodging.schema.js';
 
 /** Money: integer VND (docs/05 conventions). */
 export const Money = z.number().int().min(0).max(1_000_000_000_000);
@@ -142,6 +143,8 @@ export const ProductDto = z.object({
   botInstructions: z.string().default(''),
   /** Up to 5 https URLs the bot may send to customers who ask to see the product. */
   imageUrls: ProductImageUrls.default([]),
+  /** Present only for an entire-property accommodation; retail stock is inapplicable. */
+  accommodation: AccommodationDetails.nullable().optional(),
   variants: z.array(ProductVariantDto),
   priceMin: Money,
   priceMax: Money,
@@ -179,6 +182,7 @@ export const UpsertProductRequest = z
     visibleToBot: z.boolean().default(true),
     botInstructions: z.string().trim().max(4000).default(''),
     imageUrls: ProductImageUrls.default([]),
+    accommodation: AccommodationDetails.nullable().optional(),
     status: z.enum(['active', 'archived']).default('active'),
     variants: z.array(ProductVariantInput).min(1).max(100),
   })
