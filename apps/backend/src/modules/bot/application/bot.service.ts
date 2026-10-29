@@ -1,6 +1,5 @@
 import {
   type BotDto,
-  type BotProfile,
   type BotReadiness,
   profileFieldsFor,
   BotSettings,
@@ -227,8 +226,9 @@ export class BotService implements BotFacade {
       } else if (field === 'profile') {
         // Restore only what this entry changed: the keys whose value differs (a key the change
         // added is removed with ''), and the notes only when they differ, so later edits survive.
-        const was = (before ?? { fields: {}, notes: '' }) as BotProfile;
-        const now = (after ?? { fields: {}, notes: '' }) as BotProfile;
+        const empty = { fields: {}, notes: '' };
+        const was = (before ?? empty) as { fields: Record<string, string>; notes: string };
+        const now = (after ?? empty) as { fields: Record<string, string>; notes: string };
         const fields: Record<string, string> = {};
         for (const key of new Set([...Object.keys(was.fields), ...Object.keys(now.fields)]))
           if ((was.fields[key] ?? '') !== (now.fields[key] ?? ''))
