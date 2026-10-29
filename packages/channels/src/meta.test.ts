@@ -170,10 +170,67 @@ describe('MetaAdapter.fetchProfile', () => {
     expect(profile).toEqual({ name: 'Hà Nguyễn', avatarUrl: 'https://cdn.example/p.jpg' });
     const [url, init] = transport.mock.calls[0] ?? [];
     expect(url).toBe(
-      'https://graph.facebook.com/v24.0/123?fields=first_name,last_name,profile_pic',
+      'https://graph.facebook.com/v24.0/123?fields=first_name,last_name,profile_pic,name',
     );
     expect(String(url)).not.toContain('secret-token');
     expect(init?.headers).toEqual({ Authorization: 'Bearer secret-token' });
+  });
+
+  it('preserves the Facebook full display name instead of reconstructing its order or middle names', async () => {
+    const transport = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json({
+        name: '  Nguyễn Thị Minh Lan  ',
+        first_name: 'Lan',
+        last_name: 'Nguyễn',
+        profile_pic: 'https://cdn.example/full-profile.jpg',
+      }),
+    );
+    const profile = await new MetaAdapter('facebook', 'v24.0', transport).fetchProfile(
+      { token: 'secret-token' },
+      'synthetic-profile',
+    );
+
+    expect(profile).toEqual({
+      name: 'Nguyễn Thị Minh Lan',
+      avatarUrl: 'https://cdn.example/full-profile.jpg',
+    });
+    const [url, init] = transport.mock.calls[0] ?? [];
+    expect(url).toBe(
+      'https://graph.facebook.com/v24.0/synthetic-profile?fields=first_name,last_name,profile_pic,name',
+    );
+    expect(String(url)).not.toContain('secret-token');
+    expect(init?.headers).toEqual({ Authorization: 'Bearer secret-token' });
+  });
+
+  it('preserves internal full-name spacing and rejects an unsafe avatar independently', async () => {
+    const transport = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json({
+        name: '  Nguyễn  Thu Hà  ',
+        first_name: 'Hà',
+        last_name: 'Nguyễn',
+        profile_pic: 'http://insecure.example/profile.jpg',
+      }),
+    );
+
+    expect(
+      await new MetaAdapter('facebook', 'v24.0', transport).fetchProfile({ token: 't' }, '1'),
+    ).toEqual({ name: 'Nguyễn  Thu Hà', avatarUrl: null });
+  });
+
+  it('keeps the legacy Facebook fallback when the provider full name is absent or blank', async () => {
+    const transport = vi.fn<typeof fetch>();
+    for (const fullName of [undefined, null, 42, ' \t\n ']) {
+      transport.mockResolvedValueOnce(
+        Response.json({ name: fullName, first_name: '  Hà ', last_name: ' Nguyễn  ' }),
+      );
+      expect(
+        await new MetaAdapter('facebook', 'v24.0', transport).fetchProfile({ token: 't' }, '1'),
+      ).toEqual({ name: 'Hà Nguyễn', avatarUrl: null });
+    }
+    transport.mockResolvedValueOnce(Response.json({ name: '  ', first_name: '', last_name: '' }));
+    expect(
+      await new MetaAdapter('facebook', 'v24.0', transport).fetchProfile({ token: 't' }, '1'),
+    ).toEqual({ name: null, avatarUrl: null });
   });
 
   it('reads an Instagram profile and falls back from name to username', async () => {
