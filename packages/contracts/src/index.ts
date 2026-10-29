@@ -30,6 +30,7 @@ export * from './audit/audit.routes.js';
 export * from './billing/billing.schema.js';
 export * from './billing/billing.routes.js';
 export * from './bot/bot.schema.js';
+export * from './bot/profile.js';
 export * from './commerce/commerce.schema.js';
 export * from './commerce/order-overview.schema.js';
 export * from './commerce/order-settings.schema.js';

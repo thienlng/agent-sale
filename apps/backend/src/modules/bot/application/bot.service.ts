@@ -334,6 +334,14 @@ export class BotService implements BotFacade {
       industry: s.industry,
       isActive: s.isActive,
       ...s.settings,
+      profile: {
+        fields: Object.fromEntries(
+          Object.entries(s.settings.profile.fields).filter(
+            (entry): entry is [string, string] => typeof entry[1] === 'string',
+          ),
+        ),
+        notes: s.settings.profile.notes,
+      },
       greeting: fillPlaceholders(s.settings.greeting, s.settings.placeholders),
     };
   }

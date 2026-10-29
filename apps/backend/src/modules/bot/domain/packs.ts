@@ -151,6 +151,10 @@ export function defaultSettings(industry: IndustryKey): BotSettingsData {
     language: 'vi',
     themeColor: '#FF6600',
     replySchedule: { mode: 'always', start: '08:00', end: '22:00' },
+    profile: { fields: {}, notes: '' },
+    replyLength: 'short',
+    tone: 'friendly',
+    allowEmoji: false,
     placeholders: {},
   };
 }

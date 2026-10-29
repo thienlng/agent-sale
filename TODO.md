@@ -5,6 +5,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 ## In progress
 
 - [ ] T-122 Fix the responsive layout-preference e2e that times out on main — @agent:claude · [details](todo/T-122-fix-the-responsive-layout-preference-e2e-that-time.md)
+- [ ] T-137 Store a structured business profile and reply style per bot — @agent:claude · [details](todo/T-137-store-a-structured-business-profile-per-bot.md)
 - [ ] T-136 Prefer the Facebook full display name for inbox customers — @agent:claude · [details](todo/T-136-prefer-the-facebook-full-display-name-for-customers.md)
 - [ ] T-135 Normalize escaped line breaks in generated sales replies — @agent:claude · [details](todo/T-135-normalize-escaped-line-breaks-in-generated-sales-replies.md)
 - [ ] T-134 Route dashboard hot reload WebSockets to the web server — @agent:claude · [details](todo/T-134-route-dashboard-hot-reload-websockets-to-the-web-s.md)

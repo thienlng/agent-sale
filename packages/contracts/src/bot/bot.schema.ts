@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { BotProfile } from './profile.js';
+
 export const ModelTier = z.enum(['basic', 'smart', 'pro', 'neo']);
 export type ModelTier = z.infer<typeof ModelTier>;
 
@@ -46,6 +48,11 @@ export const BotSettings = z.object({
     .default('#FF6600'),
   /** When the bot answers channel messages; outside the window conversations wait for staff. */
   replySchedule: ReplySchedule.default({ mode: 'always', start: '08:00', end: '22:00' }),
+  /** Structured business facts of this bot (address, hours, policies) plus free notes. */
+  profile: BotProfile.default({ fields: {}, notes: '' }),
+  replyLength: z.enum(['veryShort', 'short', 'detailed']).default('short'),
+  tone: z.enum(['friendly', 'formal']).default('friendly'),
+  allowEmoji: z.boolean().default(false),
   /** Values for `{{placeholders}}` used by seeded knowledge, e.g. { "store.address": "12 Lê Lợi" }. */
   placeholders: z.record(z.string().regex(/^[a-z][a-z0-9_.]*$/), z.string().trim().max(500)),
 });
@@ -77,6 +84,10 @@ export const UpdateBotRequest = z.object({
     silenceOnExternalReply: true,
     themeColor: true,
     replySchedule: true,
+    profile: true,
+    replyLength: true,
+    tone: true,
+    allowEmoji: true,
   })
     .partial()
     // Defaulted fields are re-added without defaults, or a partial update would reset them.
@@ -86,6 +97,11 @@ export const UpdateBotRequest = z.object({
         .regex(/^#[0-9a-fA-F]{6}$/)
         .optional(),
       replySchedule: ReplySchedule.optional(),
+      // A partial update replaces the whole profile (fields and notes) as sent; the web sends all of it.
+      profile: BotProfile.optional(),
+      replyLength: z.enum(['veryShort', 'short', 'detailed']).optional(),
+      tone: z.enum(['friendly', 'formal']).optional(),
+      allowEmoji: z.boolean().optional(),
       autoResumeAfterManual: z.boolean().optional(),
       humanTakeoverMinutes: z.number().int().min(1).max(1440).optional(),
       silenceOnExternalReply: z.boolean().optional(),

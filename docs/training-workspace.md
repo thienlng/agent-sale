@@ -38,6 +38,8 @@ Instruction scenarios provide guidance for bot generation through the knowledge 
 
 Bot settings include `themeColor` (`#RRGGBB`, default `#FF6600`) and `replySchedule` (`{mode: always|custom, start, end}` in `HH:MM`, Vietnam time, `[start, end)`, `end < start` spans midnight). Outside the reply hours the Meta inbox processor stores the message without answering, so staff handle it. Bot settings also include `autoResumeAfterManual` (default true), `humanTakeoverMinutes` (1–1440, default 5), and `silenceOnExternalReply` (default true). Old JSON settings receive these defaults on rehydration; partial updates never re-apply defaults to fields the client did not send. Partial updates leave unrelated handover values unchanged. The conversation module enforces these values on staff sends and Meta echoes.
 
+Bot settings also hold the business profile and reply style (T-137): `profile` (`{fields, notes}`; fields are industry-specific keyed facts with per-field limits, `mapsUrl` must be https, notes up to 3000 characters; an update replaces the profile as sent), `replyLength` (`veryShort|short|detailed`, default `short`), `tone` (`friendly|formal`, default `friendly`) and `allowEmoji` (default false). Old rows read back with these defaults.
+
 The HTTP contract lives in `packages/contracts/src/bot/bot.routes.ts`; request/response schemas live in `packages/contracts/src/knowledge/knowledge.schema.ts`. Vietnamese and English labels are isolated in the `training` i18n namespace.
 
 ## Factual knowledge and response instructions (T-085)

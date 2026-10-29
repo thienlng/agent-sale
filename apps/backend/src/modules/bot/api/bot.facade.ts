@@ -19,6 +19,10 @@ export interface BotView {
   humanTakeoverMinutes?: number;
   silenceOnExternalReply?: boolean;
   replySchedule?: { mode: 'always' | 'custom'; start: string; end: string };
+  profile: { fields: Readonly<Record<string, string>>; notes: string };
+  replyLength: 'veryShort' | 'short' | 'detailed';
+  tone: 'friendly' | 'formal';
+  allowEmoji: boolean;
   placeholders: Readonly<Record<string, string>>;
 }
 

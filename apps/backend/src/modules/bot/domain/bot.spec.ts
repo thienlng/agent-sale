@@ -17,6 +17,16 @@ describe('Bot aggregate', () => {
     expect(s.settings.modelTier).toBe('smart');
   });
 
+  it('fills the profile and reply style for settings stored before they existed', () => {
+    const fresh = Bot.create({ workspaceId: ws, name: 'b', industry: 'hotel' }).snapshot();
+    const { profile, replyLength, tone, allowEmoji, ...old } = fresh.settings;
+    void [profile, replyLength, tone, allowEmoji];
+    const bot = Bot.rehydrate({ ...fresh, settings: old as typeof fresh.settings });
+    const s = bot.snapshot().settings;
+    expect(s.profile).toEqual({ fields: {}, notes: '' });
+    expect([s.replyLength, s.tone, s.allowEmoji]).toEqual(['short', 'friendly', false]);
+  });
+
   it('rejects empty or long names', () => {
     expect(() => Bot.create({ workspaceId: ws, name: ' ', industry: 'retail' })).toThrow(
       InvalidBotError,

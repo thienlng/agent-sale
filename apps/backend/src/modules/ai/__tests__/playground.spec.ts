@@ -36,6 +36,10 @@ const bot: BotView = {
   creativity: 'balanced',
   modelTier: 'smart',
   language: 'vi',
+  profile: { fields: {}, notes: '' },
+  replyLength: 'short',
+  tone: 'friendly',
+  allowEmoji: false,
   placeholders: { 'store.hotline': '0901234567' },
 };
 

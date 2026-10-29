@@ -1,6 +1,6 @@
 # bot
 
-**Purpose:** bots of a workspace — name, industry, active flag, behaviour settings (mission, greeting, pronouns, fallback/handoff messages, creativity, model tier, theme colour, reply hours, placeholder values) — industry seed packs, the onboarding readiness checklist, and the HTTP surface for FAQs (`/bots/{botId}/faqs`).
+**Purpose:** bots of a workspace — name, industry, active flag, behaviour settings (mission, greeting, pronouns, fallback/handoff messages, creativity, model tier, theme colour, reply hours, business profile, reply style, placeholder values) — industry seed packs, the onboarding readiness checklist, and the HTTP surface for FAQs (`/bots/{botId}/faqs`).
 
 **Owned tables:** `bots` (tenant, forced RLS — migration 0002; schema in `packages/db/src/schema/bot.ts`).
 
@@ -15,6 +15,7 @@
 - Creation requires a supported workspace industry and an exactly matching requested industry. Mismatch or unsupported legacy values return `VALIDATION_FAILED` before a bot or seed is written. The bot update contract does not change industry; existing legacy bots remain readable and editable without silently rewriting their pack.
 - New bots are inactive and get their industry pack (`domain/packs.ts`): default settings + seed FAQs whose answers use `{{placeholders}}` (e.g. `{{store.address}}`). Seeds never ship vague non-answers.
 - Settings updates are partial; the merged result must still satisfy contracts `BotSettings`. Placeholder values merge key by key; an empty string removes one.
+- Business profile (T-137): `settings.profile` is `{ fields, notes }` — keyed facts per industry (contracts `PROFILE_FIELDS` / `profileFieldsFor`, each value capped, `mapsUrl` https only) and up to 3000 characters of notes. A settings update that carries `profile` replaces the whole object as sent (the web sends all of it); other settings updates leave it untouched. Reply style is `replyLength` (`veryShort` | `short` | `detailed`, default `short`), `tone` (`friendly` | `formal`, default `friendly`) and `allowEmoji` (default false). Rows stored before these keys existed read back with the defaults (`Bot.rehydrate`). `BotView` exposes all four. `placeholders` stays as before. Values are data for the model, never instructions.
 - Readiness = mission ≥ 20 chars, ≥ 1 FAQ, no missing placeholders, ≥ 1 channel (always false until M3).
 - FAQ routes 404 when the bot is not in the workspace — knowledge is only called after that check.
 - Pack content is tenant seed data in the tenant's language (not UI copy), hence in `domain/packs.ts` rather than `packages/i18n`.
