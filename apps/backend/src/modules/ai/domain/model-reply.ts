@@ -54,10 +54,37 @@ export function parseModelReply(text: string): ParsedModelReply {
       continue;
     }
     const parsed = ModelReply.safeParse(json);
-    if (parsed.success) return { ok: true, value: parsed.data };
+    if (parsed.success)
+      return {
+        ok: true,
+        value: { ...parsed.data, reply: normalizeEscapedSentenceBreaks(parsed.data.reply) },
+      };
     reason = 'schema';
   }
   return { ok: false, reason };
+}
+
+/**
+ * Some structured model outputs double-escape a natural-language sentence break, leaving the
+ * literal `\\n` in customer-facing text after JSON parsing. Convert only the clear separator
+ * form: a sentence-ending punctuation mark, then the literal token, then an uppercase sentence
+ * start. If the reply contains quotation/code markers, Windows or POSIX path syntax, a regex
+ * literal, or recognizable code syntax, leave the entire reply unchanged. This is a bounded
+ * heuristic for these recognizable shapes, not a general-purpose code detector.
+ */
+function normalizeEscapedSentenceBreaks(reply: string): string {
+  const ambiguousTechnicalContext =
+    /[`"]|'[^'\n]*'|[“‘][\s\S]*?[”’]/u.test(reply) ||
+    /\b[A-Za-z]:\\/u.test(reply) ||
+    /(?:^|[^\p{L}\p{N}])\/\S/u.test(reply) ||
+    /\\\\/u.test(reply) ||
+    /\b(?:const|let|var|function|class|return|import|export|SELECT|UPDATE|INSERT|DELETE)\b/i.test(
+      reply,
+    ) ||
+    /=>|[{};]/u.test(reply);
+  if (ambiguousTechnicalContext) return reply;
+
+  return reply.replace(/(?<=[.!?])\\n(?=\p{Lu})/gu, '\n');
 }
 
 const MAX_PROSE_CHARS = 700;

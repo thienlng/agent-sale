@@ -53,6 +53,12 @@ Execute available live and isolated cases, fix reproduced regressions, independe
 
 - 2026-10-29 — Started at owner request; application baseline b0f1be6 plus documentation 02a69a9. All existing live test side-effect boundaries retained.
 
+- 2026-10-29 — Confirmed regression evidence: responsive 125/125 (serial); remaining web production-browser/mocked-API 52/52; site production-browser 8/8; real-backend CRM/team 10/10 and new deep acceptance 4/4; disposable PostgreSQL statistics 11 golden + 18 existing; proxy protocol 6/6. These 234 assertions are supporting evidence, not 234 full acceptance cases or a complete 116-case verdict.
+- 2026-10-29 — Live own-thread greeting reached Messenger and Rapiz once; permanent human takeover suppressed AI, staff multiline/emoji sent once and draft survived reload. Explicit bot resume produced a fresh bot response at 00:57:23Z. Original operational bot mode restored; test message/read history remains.
+- 2026-10-29 — Live source/UI snapshot at approximately 00:50Z reconciled immutable received events 137 and successful completed sends 29; CRM contact metrics zero with no CRM contacts, comments explicitly unavailable. Legacy received events omit firstMessage 132 times, so zero new-conversation facts cannot certify historical first-conversation completeness. Independent agent confirmed documented legacy fallback; no analytics definition silently changed.
+- 2026-10-29 — Detected literal escaped newline in a generated live bot reply while human multiline renders correctly. Delegated tracked T-128 diagnosis/regression/fix; historical sent content stays unchanged.
+- 2026-10-29 — Initial final check stopped at formatting of expanded statistics fixture; formatted that new test and restarted the full gate. Completion remains pending.
+
 ## Links
 
 - docs/qa/web-acceptance/README.md

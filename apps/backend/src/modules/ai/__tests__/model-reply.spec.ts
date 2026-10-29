@@ -22,6 +22,65 @@ describe('parseModelReply', () => {
       value: valid,
     });
   });
+  it('turns a literal escaped newline into a line break only at a natural sentence boundary', () => {
+    const reply = 'Dạ shop còn mẫu này ạ.\\nAnh/chị thường đi size bao nhiêu ạ?';
+    const parsed = parseModelReply(JSON.stringify({ ...valid, reply }));
+
+    expect(parsed).toEqual({
+      ok: true,
+      value: { ...valid, reply: 'Dạ shop còn mẫu này ạ.\nAnh/chị thường đi size bao nhiêu ạ?' },
+    });
+  });
+  it('preserves literal backslashes in paths, escapes, and quoted examples', () => {
+    const reply = String.raw`Dùng C:\new\folder; tab=\t; ký tự xuống dòng là "\\n".`;
+    const parsed = parseModelReply(JSON.stringify({ ...valid, reply }));
+
+    expect(parsed).toEqual({ ok: true, value: { ...valid, reply } });
+  });
+  it('does not normalize sentence-like escapes inside quoted, inline, or fenced technical content', () => {
+    const quoted = String.raw`const s = "Hello.\nWorld";`;
+    const inline =
+      'Dạ đây là ví dụ: `' + quoted + '` .\\nAnh/chị cần thêm gì ạ?\nDòng này đã có newline thật.';
+    const fenced = '```js\n' + quoted + '\n```\\nNext sentence.\nActual newline.';
+
+    for (const reply of [quoted, inline, fenced]) {
+      expect(parseModelReply(JSON.stringify({ ...valid, reply }))).toEqual({
+        ok: true,
+        value: { ...valid, reply },
+      });
+    }
+  });
+  it('does not normalize a path-like reply even when the escape follows punctuation', () => {
+    const reply = String.raw`Path: C:\temp.\nNew`;
+
+    expect(parseModelReply(JSON.stringify({ ...valid, reply }))).toEqual({
+      ok: true,
+      value: { ...valid, reply },
+    });
+  });
+  it('does not normalize escaped separators in regex literals or POSIX paths', () => {
+    for (const reply of [
+      String.raw`Regex: /Hello.\nWorld/`,
+      String.raw`Regex:/Hello.\nWorld/`,
+      String.raw`Config is at /config.\nNew`,
+      String.raw`Config is at /tmp/config.\nNew`,
+      String.raw`UNC path: \\server\share.\nNew`,
+      String.raw`Path:\\server\share.\nNew`,
+    ]) {
+      expect(parseModelReply(JSON.stringify({ ...valid, reply }))).toEqual({
+        ok: true,
+        value: { ...valid, reply },
+      });
+    }
+  });
+  it('handles a long unclosed escaped regex-like string without changing it', () => {
+    const reply = `Regex: /${'\\x'.repeat(1_000)}`;
+
+    expect(parseModelReply(JSON.stringify({ ...valid, reply }))).toEqual({
+      ok: true,
+      value: { ...valid, reply },
+    });
+  });
   it('names the rejection category without echoing the text', () => {
     expect(parseModelReply('  ')).toEqual({ ok: false, reason: 'empty' });
     expect(parseModelReply('not json')).toEqual({ ok: false, reason: 'not_json' });

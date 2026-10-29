@@ -4,6 +4,11 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
+- [ ] T-131 Preserve Facebook full display names in inbox profiles — @agent:codex · [details](todo/T-131-preserve-facebook-full-display-names-in-inbox-prof.md)
+- [ ] T-130 Redesign business creation and template based settings — @agent:codex · [details](todo/T-130-redesign-business-creation-and-template-based-sett.md)
+- [ ] T-122 Fix the responsive layout-preference e2e that times out on main — @agent:codex · [details](todo/T-122-fix-the-responsive-layout-preference-e2e-that-time.md)
+- [ ] T-127 Route dashboard hot reload WebSockets to the web server — @agent:codex · [details](todo/T-127-route-dashboard-hot-reload-websockets-to-the-web-s.md)
+- [ ] T-128 Normalize escaped line separators in generated sales replies — @agent:codex · [details](todo/T-128-normalize-escaped-line-separators-in-generated-sal.md)
 - [ ] T-126 Execute web acceptance and resolve verified regressions — @agent:codex · [details](todo/T-126-execute-web-acceptance-and-resolve-verified-regres.md)
 
 
@@ -50,8 +55,6 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [ ] T-091 Move subscription and message quota ownership to the account — @unassigned · [details](todo/T-091-move-subscription-and-message-quota-ownership-to-t.md)
 - [ ] T-094 Validate the cross-business review milestone end to end — @unassigned · [details](todo/T-094-validate-the-cross-business-review-milestone-end-t.md)
 - [ ] T-119 Reconcile historical and cross-branch task ID aliases before account integration — @unassigned · [details](todo/T-119-reconcile-historical-and-cross-branch-task-id-alia.md)
-- [ ] T-122 Fix the responsive layout-preference e2e that times out on main — @unassigned · [details](todo/T-122-fix-the-responsive-layout-preference-e2e-that-time.md)
-- [ ] T-127 Route dashboard hot reload WebSockets to the web server — @unassigned · [details](todo/T-127-route-dashboard-hot-reload-websockets-to-the-web-s.md)
 
 ## Blocked
 
@@ -80,3 +83,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [x] T-076 Reduce integration initial bundle below 250 KB — @agent:codex · [details](todo/done/T-076-reduce-integration-initial-bundle-below-250-kb.md) · PR #64
 - [x] T-083 Move fanpage management into the bot workspace navigation — @agent:codex · [details](todo/done/T-083-move-fanpage-management-into-the-bot-workspace-nav.md) · PR #64
 - [x] T-084 Expose bot switches and advanced settings consistently — @agent:codex · [details](todo/done/T-084-expose-bot-switches-and-advanced-settings-consiste.md) · PR #64
+
+## Cancelled
+
+- [ ] T-129 Restore Facebook Page permission editing and complete discovery choices — @agent:codex · [details](todo/T-129-restore-facebook-page-permission-editing-and-compl.md) · owner confirmed both Pages are available; no OAuth defect reproduced

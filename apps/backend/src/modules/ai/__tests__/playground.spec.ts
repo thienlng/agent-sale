@@ -130,6 +130,22 @@ describe('PlaygroundService', () => {
     ]);
   });
 
+  it('returns normalized sentence breaks from a double-escaped structured reply', async () => {
+    const fake = provider('dev-fake', {
+      outcome: 'answer',
+      reply: 'Dạ shop còn mẫu này ạ.\\nAnh/chị thường đi size bao nhiêu ạ?',
+      sources: [],
+    });
+    const { svc } = service(new LlmRuntime(new InMemoryLlmConfigRepository(), factory(fake)));
+
+    const res = await svc.playground(ws, botId, ask('Shop còn mẫu này không?'));
+
+    expect(res).toMatchObject({
+      outcome: 'answered',
+      reply: 'Dạ shop còn mẫu này ạ.\nAnh/chị thường đi size bao nhiêu ạ?',
+    });
+  });
+
   it('introduces the shop by the store name setting, not the workspace name', async () => {
     const fake = provider('dev-fake', { outcome: 'answer', reply: 'Dạ ạ', sources: [] });
     const named = { ...bot, placeholders: { ...bot.placeholders, 'store.name': 'TinyMind Store' } };
