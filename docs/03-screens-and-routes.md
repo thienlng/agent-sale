@@ -56,6 +56,7 @@
 | | › Statuses | `/quan-ly/trang-thai` | `/app/settings/statuses` | CRM-08 | P0 |
 | | › Advanced connections | `/quan-ly/ket-noi-nang-cao/google` | `/app/settings/advanced-connections/{google\|sms\|zns}` | MKT-03 | P1 |
 | | › Workspace information | `/quan-ly/thong-tin-workspace` | `/app/settings/workspace` | ACC-07 | P0 |
+| | › Business information (T-144) | — | `/app/settings/profile` | ACC-07 | P0 |
 | | Security settings | `/quan-ly/cai-dat-bao-mat` | `/app/settings/security` | ACC-05/10 | P1 |
 | | Audit log [+] | — | `/app/settings/audit-log` | SET-09 | P1 |
 | | Personal profile | `/quan-ly/thong-tin-ca-nhan` | `/app/profile` | ACC-06 | P0 |
@@ -114,3 +115,10 @@ Dedicated layout: back button, bot name, **bot on/off switch**, left menu, **tes
 
 - Do not copy Preny's identity (logo, purple-pink colors, copy) — only learn from the information architecture. Build our own design system (shadcn/ui + our own tokens), with dark mode support.
 - Prioritize high information density for CRM/order tables (users are salespeople operating many hours a day), keyboard shortcuts (F2/F6 like Preny, `/` to search, `J/K` to switch conversations).
+
+## Business selector and business information (T-144)
+
+- The sidebar business selector lists the caller's businesses and always ends with **+ Tạo business**. It opens a dialog with a business name and a template (`Industry`, with a one-line description each; no default). Submitting calls `POST /workspaces` (the server picks the caller's only owned account, ADR-012), reloads the memberships and switches to the new business, landing on `/app/analytics`. The dialog is composed in `routes/app.tsx` and passed through `AppShell` (shared components may not import features).
+- `/app/settings/profile` is one card: logo, a single editable business name, the template as a read-only summary (chosen at creation, never changed afterwards), and an optional company name in a collapsed section. Facts the AI uses (address, policies…) are entered per bot under Business information. The workspace fields `businessServices` and `productDescription` are deprecated: no longer shown, still accepted by the API.
+- After a rename the session memberships (selector), the current-business query and the profile query are refreshed without a reload.
+- The settings tab strips (`/app/settings`, `/app/crm-settings`, `/app/order-settings`) share `components/settings-tabs.tsx`: horizontal scroll only, baseline drawn as an inset shadow so the strip never scrolls vertically.

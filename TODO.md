@@ -4,6 +4,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
+- [ ] T-144 Create businesses from the selector, simplify business settings, fix the settings tab arrows — @agent:claude · [details](todo/T-144-create-businesses-and-simplify-business-settings.md)
 - [ ] T-142 Let another business connect a removed page — @agent:claude · [details](todo/T-142-let-another-business-connect-a-removed-page.md)
 - [ ] T-143 Answer with sales-agent@9 and the business profile — @agent:claude · [details](todo/T-143-answer-with-sales-agent-9-and-the-business-profile.md)
 - [ ] T-122 Fix the responsive layout-preference e2e that times out on main — @agent:claude · [details](todo/T-122-fix-the-responsive-layout-preference-e2e-that-time.md)
