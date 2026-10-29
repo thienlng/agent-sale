@@ -71,6 +71,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## Done (last 10 — older ones live in todo/done/)
 
+- [x] T-152 Show the business logo in the business selector — @agent:claude · [details](todo/done/T-152-show-the-business-logo-in-the-selector.md) · main
 - [x] T-151 Explain a page connected to another business when selecting it — @agent:claude · [details](todo/done/T-151-explain-a-page-connected-to-another-business.md) · main
 - [x] T-149 Suggest the matching profile field when an FAQ repeats a profile fact — @agent:claude · [details](todo/done/T-149-point-faq-authors-to-the-matching-profile-field.md) · main
 - [x] T-148 Clean up review leftovers from the bot training and channel work — @agent:claude · [details](todo/done/T-148-tidy-review-leftovers-from-bot-training-and-channel-work.md) · main

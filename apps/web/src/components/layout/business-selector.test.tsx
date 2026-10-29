@@ -73,3 +73,18 @@ describe('BusinessSelector create action', () => {
     expect(screen.getByRole('button', { name: /Tạo business/ })).toBeInTheDocument();
   });
 });
+
+describe('BusinessSelector logo', () => {
+  it('shows the logo the route passes in place of the building icon', () => {
+    renderWithProviders(
+      <TooltipProvider>
+        <SidebarProvider>
+          <BusinessSelector businessLogo={<img alt="" data-testid="biz-logo" src="blob:x" />} />
+        </SidebarProvider>
+      </TooltipProvider>,
+    );
+    const trigger = screen.getByRole('button', { name: 'Chọn business' });
+    expect(trigger.querySelector('[data-testid="biz-logo"]')).not.toBeNull();
+    expect(trigger.querySelector('svg.lucide-building2, svg.lucide-building-2')).toBeNull();
+  });
+});

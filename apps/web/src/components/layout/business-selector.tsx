@@ -23,8 +23,11 @@ export interface CreateBusinessDialogProps {
 /** The single business picker. Account controls remain account-scoped. */
 export function BusinessSelector({
   createBusinessDialog,
+  businessLogo,
 }: {
   createBusinessDialog?: ((props: CreateBusinessDialogProps) => ReactNode) | undefined;
+  /** The current business's logo, composed by the route from `features/workspace`; the building icon otherwise. */
+  businessLogo?: ReactNode;
 }) {
   const { t } = useTranslation();
   const session = useSession();
@@ -61,7 +64,7 @@ export function BusinessSelector({
               tooltip={t('business.choose')}
               aria-label={t('business.choose')}
             >
-              <Building2 aria-hidden />
+              {businessLogo ?? <Building2 aria-hidden />}
               <span className="grid min-w-0 flex-1 text-left group-data-[collapsible=icon]:hidden">
                 <span className="text-xs text-muted-foreground">{t('business.current')}</span>
                 <span className="truncate font-medium" title={current?.workspaceName}>

@@ -42,12 +42,15 @@ export function AppShell({
   children,
   planDialog,
   createBusinessDialog,
+  businessLogo,
 }: {
   children: ReactNode;
   /** Plan and billing popup for the account menu, composed by the route from `features/billing`. */
   planDialog?: ((props: MenuDialogProps) => ReactNode) | undefined;
   /** Create-business popup for the business selector, composed by the route from `features/workspace`. */
   createBusinessDialog?: ((props: CreateBusinessDialogProps) => ReactNode) | undefined;
+  /** The current business's logo for the business selector, composed by the route from `features/workspace`. */
+  businessLogo?: ReactNode;
 }) {
   const { t } = useTranslation();
   const session = useSession();
@@ -63,7 +66,7 @@ export function AppShell({
         defaultOpen={sidebarOpenByDefault()}
         style={{ '--header-height': '3.25rem' } as CSSProperties}
       >
-        <AppSidebar createBusinessDialog={createBusinessDialog} />
+        <AppSidebar createBusinessDialog={createBusinessDialog} businessLogo={businessLogo} />
         <SidebarInset className="min-w-0 overflow-x-clip">
           <header
             className={[
