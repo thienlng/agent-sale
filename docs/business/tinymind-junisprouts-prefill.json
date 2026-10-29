@@ -1,7 +1,7 @@
 {
-  "status": "prepared_not_applied",
+  "status": "applied_verified_for_consultation",
   "preparedAt": "2026-10-29",
-  "target": "TinyMind (identity and assigned bot must be verified after sign-in)",
+  "target": "TinyMind / sale_tinymind",
   "source": "https://junisprouts.com/",
   "sourceCurrency": "VND",
   "sourceCurrencyEvidence": "Browser Shopify.currency.active and /cart.js both returned VND; rendered product prices matched products.json. Search crawler showed USD. No manual FX conversion.",
@@ -10,28 +10,31 @@
     "variants": 63
   },
   "limitations": [
-    "Not applied: dashboard requires owner sign-in.",
     "Source exposes availability booleans only; inventory quantities remain unknown.",
     "Dedicated return policy says 60 days, while product accordion says 90 days. Dedicated policy selected; owner should reconcile source.",
     "Product cards sometimes conflict with detailed recommended ages; use detailed safety guidance.",
     "Shipping policy is US-only even when storefront shows VND.",
     "Published address is a mailing address; not verified as a pickup location.",
     "No public telephone, maps link, exact inventory, cost prices or independent warranty terms verified.",
-    "Old TinyMind shoe content must be audited before any replacement; retain a private backup and preserve channel assignments, conversations and contacts."
+    "Live Facebook connection is reauth_required; native Chrome UI displays Hết hạn. Messenger delivery and actual staff takeover were not tested.",
+    "Inventory quantities were not imported; catalog defaults to zero operational inventory. Source availability is documented separately and the bot does not promise stock.",
+    "No square logo was uploaded: the referenced source PNG is 600 × 300, while the application accepts square PNG/JPEG logos.",
+    "Native Chrome profile Tùng was used for UI verification and one playground chat. No real customer message or live order was sent."
   ],
   "profileUpdate": {
     "settings": {
       "profile": {
         "fields": {
-          "displayName": "TinyMind",
-          "address": "Địa chỉ nhận thư của JuniSprouts / KT Novelty LLC: 8790 FM 1960 Bypass, Humble, TX 77338, Hoa Kỳ. Chưa xác nhận đây là điểm nhận hàng trực tiếp.",
           "hours": "Thứ Hai–Thứ Sáu, 09:00–17:00 CST theo website JuniSprouts; Thứ Bảy và Chủ nhật đóng cửa.",
-          "shipping": "Theo chính sách JuniSprouts: chỉ giao trong 50 bang Hoa Kỳ, chưa giao quốc tế. Thường xử lý trong 12 giờ. USPS/UPS, dự kiến 3–7 ngày làm việc sau xử lý, không bảo đảm ngày đến. Phí tiêu chuẩn 8.99 USD; miễn phí với đơn trên 49.99 USD. Alaska/Hawaii có thể lâu hơn. Tracking gửi qua email. Chính sách vẫn niêm yết USD dù catalog đang hiển thị VND; chưa quy đổi phí vận chuyển.",
+          "address": "Địa chỉ nhận thư của JuniSprouts / KT Novelty LLC: 8790 FM 1960 Bypass, Humble, TX 77338, Hoa Kỳ. Chưa xác nhận đây là điểm nhận hàng trực tiếp.",
+          "payment": "Footer website JuniSprouts hiển thị các phương thức: Visa, Mastercard, American Express, Discover, Diners Club, JCB, Maestro, UnionPay và PayPal (kiểm tra ngày 2026-10-29). Phương thức khả dụng cho đơn cụ thể cần xem tại checkout https://junisprouts.com/. Chưa có căn cứ cam kết COD, chuyển khoản ngân hàng hay MoMo.",
           "returns": "Theo trang chính sách riêng: trong 60 ngày từ khi nhận, hàng mới/chưa dùng, đủ bộ và bao bì gốc. Email support@junisprouts.com kèm mã đơn trước khi gửi trả; nhận hướng dẫn và địa chỉ trả từ hỗ trợ. Khách chịu phí gửi trả; phí giao ban đầu không hoàn. Hoàn tiền sau kiểm tra, thường 5–10 ngày làm việc, về phương thức gốc hoặc store credit. Gift card, hàng final-sale/clearance, hàng đã chơi không đủ điều kiện. Trang sản phẩm có đoạn 90 ngày mâu thuẫn; cần chủ shop xác nhận.",
+          "shipping": "Theo chính sách JuniSprouts: chỉ giao trong 50 bang Hoa Kỳ, chưa giao quốc tế. Thường xử lý trong 12 giờ. USPS/UPS, dự kiến 3–7 ngày làm việc sau xử lý, không bảo đảm ngày đến. Phí tiêu chuẩn 8.99 USD; miễn phí với đơn trên 49.99 USD. Alaska/Hawaii có thể lâu hơn. Tracking gửi qua email. Chính sách vẫn niêm yết USD dù catalog đang hiển thị VND; chưa quy đổi phí vận chuyển.",
           "warranty": "Chưa tìm thấy thời hạn bảo hành riêng. Nếu hàng hỏng, lỗi hoặc giao sai, gửi email support@junisprouts.com trong 30 ngày kèm ảnh. Không tự hứa hoàn tiền hoặc đổi mới trước khi bộ phận hỗ trợ xác nhận.",
-          "promotion": "Website mời đăng ký email để nhận ưu đãi 10% cho đơn đầu. Chưa xác minh mã, thời hạn hay khả năng cộng dồn; không tự áp dụng hoặc cam kết ưu đãi khác."
+          "promotion": "Website mời đăng ký email để nhận ưu đãi 10% cho đơn đầu. Chưa xác minh mã, thời hạn hay khả năng cộng dồn; không tự áp dụng hoặc cam kết ưu đãi khác.",
+          "displayName": "TinyMind"
         },
-        "notes": "Bộ dữ liệu thử nghiệm cho TinyMind lấy từ JuniSprouts (https://junisprouts.com/), cửa hàng đồ chơi gỗ lấy cảm hứng Montessori cho trẻ nhỏ, do KT Novelty LLC vận hành tại Humble, Texas. Email hỗ trợ công khai: support@junisprouts.com; trang Contact ghi phản hồi trong 1–2 ngày làm việc. Bán từng món, không subscription. Catalog VND được lấy trực tiếp từ phiên website hiển thị VND ngày 2026-10-29; chính sách phí ship bằng USD giữ nguyên. Không suy ra có giao Việt Nam từ việc hiển thị VND. Chưa xác minh hotline, Zalo, Google Maps, phương thức thanh toán cụ thể, số lượng tồn kho thực tế hoặc địa điểm nhận trực tiếp. Luôn theo tuổi khuyến nghị và cảnh báo tại trang chi tiết; người lớn giám sát khi chơi."
+        "notes": "Bộ dữ liệu thử nghiệm cho TinyMind lấy từ JuniSprouts (https://junisprouts.com/), cửa hàng đồ chơi gỗ lấy cảm hứng Montessori cho trẻ nhỏ, do KT Novelty LLC vận hành tại Humble, Texas. Email hỗ trợ công khai: support@junisprouts.com; trang Contact ghi phản hồi trong 1–2 ngày làm việc. Bán từng món, không subscription. Catalog VND được lấy trực tiếp từ phiên website hiển thị VND ngày 2026-10-29; chính sách phí ship bằng USD giữ nguyên. Không suy ra có giao Việt Nam từ việc hiển thị VND. Chưa xác minh hotline, Zalo, Google Maps, phương thức thanh toán áp dụng cho từng đơn, số lượng tồn kho thực tế hoặc địa điểm nhận trực tiếp. Luôn theo tuổi khuyến nghị và cảnh báo tại trang chi tiết; người lớn giám sát khi chơi."
       },
       "mission": "Tư vấn đồ chơi gỗ và Montessori cho khách của TinyMind bằng dữ liệu JuniSprouts đã được nhập. Hỏi tuổi của bé, sở thích, nhu cầu và ngân sách; gợi ý phù hợp tuổi và lưu ý chi tiết nhỏ. Chỉ nói giá và chính sách có nguồn. Khi khách muốn đặt hàng, tóm tắt đúng sản phẩm/biến thể, xin thông tin cần thiết và chuyển cho chủ shop xác nhận; không tự hứa đã tạo đơn, giữ hàng hoặc thu tiền.",
       "greeting": "Dạ, TinyMind chào anh/chị! Anh/chị đang tìm đồ chơi cho bé bao nhiêu tuổi ạ?",
@@ -39,7 +42,16 @@
       "customerPronoun": "anh/chị",
       "replyLength": "short",
       "tone": "friendly",
-      "allowEmoji": false
+      "allowEmoji": false,
+      "placeholders": {
+        "store.name": "",
+        "store.hours": "",
+        "return.policy": "",
+        "store.address": "",
+        "store.hotline": "",
+        "payment.methods": "",
+        "shipping.policy": ""
+      }
     }
   },
   "products": [
@@ -2588,23 +2600,48 @@
   "quickReplies": [
     {
       "kind": "quick_reply",
-      "title": "Hỏi tuổi bé",
-      "content": "Dạ anh/chị đang tìm đồ chơi cho bé bao nhiêu tuổi và thích hoạt động nào ạ?"
+      "title": "tuoi-be",
+      "content": "Dạ anh/chị đang tìm đồ chơi cho bé bao nhiêu tuổi và thích hoạt động nào ạ?",
+      "trigger": "tuoi-be"
     },
     {
       "kind": "quick_reply",
-      "title": "Xác nhận biến thể",
-      "content": "Dạ anh/chị chọn bộ/biến thể nào và số lượng bao nhiêu để shop kiểm tra chính xác ạ?"
+      "title": "chon-bo",
+      "content": "Dạ anh/chị chọn bộ/biến thể nào và số lượng bao nhiêu để shop kiểm tra chính xác ạ?",
+      "trigger": "chon-bo"
     },
     {
       "kind": "quick_reply",
-      "title": "Tra cứu đơn với nhân viên",
-      "content": "Dạ anh/chị gửi giúp shop mã đơn và vấn đề cần hỗ trợ; nhân viên sẽ kiểm tra trạng thái thực tế ạ."
+      "title": "tra-don",
+      "content": "Dạ anh/chị gửi giúp shop mã đơn và vấn đề cần hỗ trợ; nhân viên sẽ kiểm tra trạng thái thực tế ạ.",
+      "trigger": "tra-don"
     },
     {
       "kind": "quick_reply",
-      "title": "Kênh hỗ trợ JuniSprouts",
-      "content": "Anh/chị có thể gửi mã đơn và ảnh vấn đề đến support@junisprouts.com. Vui lòng chờ hướng dẫn trước khi gửi trả hàng ạ."
+      "title": "ho-tro",
+      "content": "Anh/chị có thể gửi mã đơn và ảnh vấn đề đến support@junisprouts.com. Vui lòng chờ hướng dẫn trước khi gửi trả hàng ạ.",
+      "trigger": "ho-tro"
     }
-  ]
+  ],
+  "verification": {
+    "checkedAt": "2026-10-29",
+    "products": 59,
+    "variants": 63,
+    "archivedShoeProducts": 9,
+    "faqs": 12,
+    "scenarios": 8,
+    "quickReplies": 4,
+    "catalogReadback": "All names, SKUs, prices, images, categories and guidance matched intended payloads; description differences were whitespace trimming only.",
+    "playground": "10 API scenarios answered as expected after sequential execution; one additional native Chrome UI scenario verified price and recommended age.",
+    "knownMissingFields": [
+      "hotline",
+      "mapsUrl",
+      "square business logo",
+      "verified warehouse quantities"
+    ],
+    "facebook": "reauth_required",
+    "liveOrderCreated": false,
+    "liveMessengerMessageSent": false,
+    "quickReplyShortcuts": ["tuoi-be", "chon-bo", "tra-don", "ho-tro"]
+  }
 }
