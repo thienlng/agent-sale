@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import type { Industry } from './bot.schema.js';
+import type { Industry } from './industry.js';
 
 export type ProfileGroup = 'basic' | 'industry';
 

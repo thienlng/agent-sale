@@ -1,23 +1,12 @@
 import { z } from 'zod';
 
+import { Industry } from './industry.js';
 import { BotProfile } from './profile.js';
 
 export const ModelTier = z.enum(['basic', 'smart', 'pro', 'neo']);
 export type ModelTier = z.infer<typeof ModelTier>;
 
-/** Industries with a seed pack (docs/17 §3). `other` gets a generic pack. */
-export const Industry = z.enum([
-  'retail',
-  'fashion',
-  'cosmetics',
-  'spa',
-  'dental',
-  'education',
-  'hotel',
-  'solar',
-  'other',
-]);
-export type Industry = z.infer<typeof Industry>;
+export { Industry } from './industry.js';
 
 const ClockTime = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 /** Daily reply window in Vietnam time (Asia/Ho_Chi_Minh); `end` before `start` spans midnight. */
