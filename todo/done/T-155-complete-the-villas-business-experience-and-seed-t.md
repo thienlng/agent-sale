@@ -9,7 +9,7 @@ feature_ids: [VRT-01, VRT-04, BOT-07]
 created: 2026-10-29
 updated: 2026-10-30
 branch: feat/T-155-villas-a17-business
-pr:
+pr: https://github.com/thienlng/agent-sale/pull/88
 parent:
 ---
 
@@ -70,6 +70,8 @@ Deliver and verify a useful one-property lodging workflow, sourced A17 training/
 - 2026-10-30 — Independent QA initially found two P2 gaps (newest100 cap, gallery photo selection); both fixed and regression-tested. Final reviewer approval:26 backend+4UI tests pass, no blocking findings. Native Chrome Tùng A17 screen and browser reference quote verified. Actual seeded bot four grounding/photo probes pass; live lodging eval3/3 critical passes after correcting premature handoff. See docs/business/villas-a17-acceptance.md.
 
 - 2026-10-30 — Ready for review: final pnpm check passed lint/architecture,22/22 typecheck tasks,19/19 test tasks and13/13 build tasks; backend78files/1268tests, web95files/608tests, contracts77tests. Initial gzip241.7KB stays within250KB budget. Final PostgreSQL lodging integration4/4 passed33.23s. Source scan found no credentials/booking-contact PII; git diff --check passed. Commit/push and PR deliver this completed implementation; maintainer review/ADR acceptance and CI remain separate gates.
+
+- 2026-10-30 — Pushed c9d170a on feat/T-155-villas-a17-business and opened draft PR#88 while CI runs. Maintainer review remains required.
 
 ## Links
 

@@ -70,7 +70,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [ ] T-002 Finalize open decisions (domain, data-center location, MVP channels) — @thienlng · blocked: human decision · [details](todo/T-002-finalize-open-decisions.md)
 
 ## Done (last 10 — older ones live in todo/done/)
-- [x] T-155 Complete the Villas business experience and seed the real A17 property — @agent:codex · [details](todo/done/T-155-complete-the-villas-business-experience-and-seed-t.md) · local gate and independent QA passed; PR pending
+- [x] T-155 Complete the Villas business experience and seed the real A17 property — @agent:codex · [details](todo/done/T-155-complete-the-villas-business-experience-and-seed-t.md) · [PR #88](https://github.com/thienlng/agent-sale/pull/88) · local gate and independent QA passed
 
 - [x] T-154 Drop the coming-soon badge from the Products menu entry — @agent:claude · [details](todo/done/T-154-drop-the-coming-soon-badge-from-products.md) · main
 - [x] T-152 Show the business logo in the business selector — @agent:claude · [details](todo/done/T-152-show-the-business-logo-in-the-selector.md) · main
