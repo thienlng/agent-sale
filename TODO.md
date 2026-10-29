@@ -65,10 +65,13 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 - [ ] T-087 Filter the multichannel inbox by shop bot and channel scope — @agent:codex · [details](todo/T-087-filter-the-multichannel-inbox-by-shop-bot-and-chan.md) · blocked: T-078/T-080: authorized shop attribution, bot history semantics and server filter/count/pagination contracts
 
+- [ ] T-147 Execute web acceptance and resolve verified regressions — @agent:codex · [details](todo/T-147-execute-web-acceptance-and-resolve-verified-regressions.md) · blocked: 111 of 116 cases NOT_RUN, waiting for the cofounder's lane A/B integration (owner decision)
+
 - [ ] T-002 Finalize open decisions (domain, data-center location, MVP channels) — @thienlng · blocked: human decision · [details](todo/T-002-finalize-open-decisions.md)
 
 ## Done (last 10 — older ones live in todo/done/)
 
+- [x] T-146 Define the complete web acceptance test matrix — @agent:codex · [details](todo/done/T-146-define-the-complete-web-acceptance-test-matrix.md) · documentation only; cases NOT_RUN
 - [x] T-144 Create businesses from the selector, simplify business settings, fix the settings tab arrows — @agent:claude · [details](todo/done/T-144-create-businesses-and-simplify-business-settings.md) · main 7895167
 - [x] T-143 Answer with sales-agent@9 and the business profile — @agent:claude · [details](todo/done/T-143-answer-with-sales-agent-9-and-the-business-profile.md) · main c0507f4
 - [x] T-142 Let another business connect a removed page — @agent:claude · [details](todo/done/T-142-let-another-business-connect-a-removed-page.md) · main c0507f4
@@ -78,4 +81,3 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [x] T-138 Render the business profile and reply style for the model; prompt sales-agent@9 — @agent:claude · [details](todo/done/T-138-render-the-business-profile-for-the-model.md) · main c0507f4
 - [x] T-137 Store a structured business profile and reply style per bot — @agent:claude · [details](todo/done/T-137-store-a-structured-business-profile-per-bot.md) · main c0507f4
 - [x] T-136 Prefer the Facebook full display name for inbox customers — @agent:claude · [details](todo/done/T-136-prefer-the-facebook-full-display-name-for-customers.md) · main c0507f4
-- [x] T-135 Normalize escaped line breaks in generated sales replies — @agent:claude · [details](todo/done/T-135-normalize-escaped-line-breaks-in-generated-sales-replies.md) · main c0507f4
