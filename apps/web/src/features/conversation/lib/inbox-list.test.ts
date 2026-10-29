@@ -279,6 +279,7 @@ describe('bot and activity-time filters', () => {
     expect(customRangeValid('2026-10-21', '2026-10-20')).toBe(false);
     expect(customRangeValid('', '')).toBe(false);
     expect(customRangeValid('2026-10-20', '2026-10-21')).toBe(true);
+    expect(customRangeValid('0026-10-20', '')).toBe(false);
     // An invalid custom range never reaches the API.
     const invalid = toListQuery(
       state({ time: 'custom', timeFrom: '2026-10-21', timeTo: '2026-10-20' }),

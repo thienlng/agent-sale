@@ -168,6 +168,8 @@ const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 function localDay(date: string, days = 0): Date | null {
   const m = DATE.exec(date);
   if (!m) return null;
+  // `new Date(26, …)` would mean 1926; a typed year before 1970 is not a real inbox date.
+  if (Number(m[1]) < 1970) return null;
   const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]) + days);
   return Number.isNaN(d.getTime()) ? null : d;
 }
@@ -181,7 +183,8 @@ export function customRangeValid(from: string, to: string): boolean {
 
 /**
  * The last-activity window as instants: `from` inclusive, `to` exclusive. Boundaries are local
- * midnights, so the query stays the same all day. `null` for an unusable custom range.
+ * midnights, so the query stays the same all day and rolls over at midnight (lead alerts then
+ * re-prime on the new key without alerting). `null` for an unusable custom range.
  */
 export function activityWindow(
   state: Pick<ListState, 'time' | 'timeFrom' | 'timeTo'>,

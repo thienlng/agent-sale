@@ -57,6 +57,7 @@ Sales staff can narrow the inbox to one bot and to a last-activity window, and t
 
 - 2026-10-29 — created from owner feedback; branch from `origin/main` a354c32 in a temporary worktree.
 - 2026-10-29 — Contract red→green (inverted/empty window, local timestamps, unknown bot values rejected). Backend: domain filter + SQL (`bot_id`, `updated_at` range); `inbox-v2.spec` 58/58; store integration (Testcontainers Postgres) 11/11, including SQL-vs-reference for `botId` none/unknown/real bot and time windows. Web: list state red→green (19/19), popover/chips/page tests; conversation feature 224/224. Saved views removed (component, hook, tests, i18n keys, e2e, screenshot); docs 18 / meta-inbox / BA doc record the owner's decision. Production-build e2e `inbox-sales.spec.ts` 11/11 with a new bot+yesterday case asserting the server query.
+- 2026-10-29 — Independent QA review (fresh agent): no blockers. Fixed: typed years before 1970 rejected (`new Date(26,…)` meant 1926); documented the midnight query-key rollover (lead alerts re-prime without alerting, verified in `use-lead-alerts.ts`). Accepted as is: typed future dates (empty list), "unknown" bot chip while `/bots` loads, dated 2026-10-25 runbook still mentions saved views. First `pnpm check`: everything green except one timeout in the untouched `message-composer.test.tsx` under host load ~8; that file passed 3/3 alone.
 
 ## Links
 
