@@ -49,6 +49,7 @@ An owner creates a business (name + template) from the selector, and the setting
 - 2026-10-29 — verified by grep that `businessServices`/`productDescription` are not read in `apps/backend/src/modules/ai` or `packages/ai-core`.
 - 2026-10-29 — decisions: no default template (the choice is permanent, so the user picks consciously; submit stays disabled until chosen); if memberships reload or the switch fails after the business was created, the dialog keeps an error and disables submit to avoid creating a duplicate; the template summary reuses `useCurrentWorkspace`; tab baseline is an inset box-shadow on the nav (`var(--border)`) with `overflow-y-hidden`; removed unused `wsettings.industry.*` strings; vi tab label "Hồ sơ business", page title "Thông tin business".
 - 2026-10-29 — implemented on feat/T-144-business-create-settings; verification results are in the final report.
+- 2026-10-29 — settings-tabs e2e RED confirmed by the controller on an origin/main build: nav scrollHeight 34 > clientHeight 33 on all three pages.
 
 ## Links
 

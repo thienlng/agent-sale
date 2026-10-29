@@ -99,6 +99,8 @@ describe('business information page', () => {
     await waitFor(() => expect(mocks.reloadSession).toHaveBeenCalledTimes(1));
     const patch = stub.calls.find((c) => c.key === 'PATCH /workspace/profile');
     expect(patch?.body).toMatchObject({ name: 'Villas', expectedVersion: 4 });
+    expect(patch?.body).not.toHaveProperty('businessServices');
+    expect(patch?.body).not.toHaveProperty('productDescription');
     await waitFor(() =>
       expect(stub.calls.filter((c) => c.key === 'GET /workspaces/current')).toHaveLength(2),
     );

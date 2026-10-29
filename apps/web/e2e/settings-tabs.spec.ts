@@ -4,16 +4,16 @@ import { mockApi } from './support/mock-api';
 
 /** The tab strips must not scroll vertically (native up/down arrows on Windows Chrome). */
 for (const width of [1280, 375]) {
-  for (const path of [
-    '/app/settings/profile',
-    '/app/crm-settings/statuses',
-    '/app/order-settings/statuses',
-  ]) {
+  for (const [path, label] of [
+    ['/app/settings/profile', 'Cài đặt'],
+    ['/app/crm-settings/statuses', 'Cài đặt khách hàng'],
+    ['/app/order-settings/statuses', 'Thiết lập đơn hàng'],
+  ] as const) {
     test(`tab strip of ${path} has no vertical overflow at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 800 });
       await mockApi(page);
       await page.goto(path);
-      const nav = page.locator('main nav, [data-slot="sidebar-inset"] nav').first();
+      const nav = page.getByRole('navigation', { name: label, exact: true });
       await expect(nav).toBeVisible();
       const sizes = await nav.evaluate((el) => ({
         scrollHeight: el.scrollHeight,
