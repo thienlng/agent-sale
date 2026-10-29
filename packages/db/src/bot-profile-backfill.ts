@@ -174,9 +174,8 @@ export async function backfillBotProfiles(
         const patch: Record<string, unknown> = {};
         if (fieldsCopied > 0) patch['profile'] = { notes: '', ...profile, fields };
         if (
-          (seeded.some((r) => r['title'] === SHORT_RULE_TITLE) &&
-            settings['replyLength'] === undefined) ||
-          settings['replyLength'] === null
+          seeded.some((r) => r['title'] === SHORT_RULE_TITLE) &&
+          (settings['replyLength'] === undefined || settings['replyLength'] === null)
         ) {
           patch['replyLength'] = 'short';
           personalitySet.push('replyLength');

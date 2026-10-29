@@ -210,3 +210,31 @@ describe('bot profile backfill (T-141)', () => {
     expect(await count('knowledge_items', retailBot)).toBe(2);
   });
 });
+
+describe('replyLength mapping (T-141 fix)', () => {
+  const [nullNoRule, nullWithRule, detailedWithRule] = [newId(), newId(), newId()];
+  const shortRule = LEGACY_RULES[2]!;
+
+  beforeAll(async () => {
+    for (const [bot, replyLength] of [
+      [nullNoRule, null],
+      [nullWithRule, null],
+      [detailedWithRule, 'detailed'],
+    ] as const)
+      await exec(sql`insert into bots (id, workspace_id, name, industry, settings) values
+        (${bot}, ${wsA}, 'Bot', 'retail', ${JSON.stringify({ replyLength })}::jsonb)`);
+    await seedFaq(wsA, nullNoRule, 'Câu hỏi riêng', 'Trả lời riêng');
+    for (const bot of [nullWithRule, detailedWithRule])
+      await seedRule(wsA, bot, shortRule[0], shortRule[1], shortRule[2]);
+  });
+
+  it('sets short only when the legacy short rule was removed and the bot has no length', async () => {
+    const report = await backfillBotProfiles(system.db, { dryRun: false });
+    expect(report.bots.map((b) => b.botId).sort()).toEqual([nullWithRule, detailedWithRule].sort());
+    expect((await settingsOf(nullNoRule))['replyLength']).toBeNull();
+    expect((await settingsOf(nullWithRule))['replyLength']).toBe('short');
+    expect((await settingsOf(detailedWithRule))['replyLength']).toBe('detailed');
+    expect(await count('training_items', nullWithRule)).toBe(0);
+    expect(await count('training_items', detailedWithRule)).toBe(0);
+  });
+});
