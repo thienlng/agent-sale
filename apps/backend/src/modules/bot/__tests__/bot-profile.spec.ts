@@ -39,7 +39,7 @@ describe('Bot profile and reply style', () => {
     });
   });
 
-  it('keeps the profile when only the style or other settings change, and replaces it as sent', async () => {
+  it('merges profile updates: one field, clearing a key, notes only', async () => {
     const { bots, facade, ws } = await setup();
     const bot = await bots.create(ws, { name: 'Shop', industry: 'retail' });
     await bots.update(ws, bot.id, {
@@ -55,17 +55,21 @@ describe('Bot profile and reply style', () => {
     });
     expect([view.replyLength, view.tone, view.allowEmoji]).toEqual(['detailed', 'friendly', true]);
 
-    // The web sends the whole profile; the update replaces it as sent.
     await bots.update(ws, bot.id, {
-      settings: {
-        profile: {
-          fields: { address: '34 Hai Ba Trung', hotline: '0900' },
-          notes: 'Closed on Tet',
-        },
-      },
+      settings: { profile: { fields: { address: '34 Hai Ba Trung' } } },
     });
     view = await facade.getBot(ws, bot.id);
-    expect(view.profile.fields).toEqual({ address: '34 Hai Ba Trung', hotline: '0900' });
-    expect(view.profile.notes).toBe('Closed on Tet');
+    expect(view.profile).toEqual({
+      fields: { address: '34 Hai Ba Trung', hotline: '0900' },
+      notes: 'Closed on Tet',
+    });
+
+    await bots.update(ws, bot.id, { settings: { profile: { fields: { hotline: '' } } } });
+    view = await facade.getBot(ws, bot.id);
+    expect(view.profile.fields).toEqual({ address: '34 Hai Ba Trung' });
+
+    await bots.update(ws, bot.id, { settings: { profile: { notes: 'New notes' } } });
+    view = await facade.getBot(ws, bot.id);
+    expect(view.profile).toEqual({ fields: { address: '34 Hai Ba Trung' }, notes: 'New notes' });
   });
 });

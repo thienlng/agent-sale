@@ -1,5 +1,6 @@
 import {
   type BotDto,
+  type BotProfile,
   type BotReadiness,
   BotSettings,
   Industry,
@@ -24,7 +25,7 @@ import {
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
 import { BOT_LIFECYCLE, type BotLifecycle } from '../api/bot-lifecycle.js';
 import type { BotFacade, BotView } from '../api/bot.facade.js';
-import { Bot } from '../domain/bot.js';
+import { Bot, type BotSettingsChange } from '../domain/bot.js';
 import type { BotSettingsData } from '../domain/bot-settings.js';
 import { BotNotFoundError, InvalidBotError } from '../domain/bot.errors.js';
 import { packFor } from '../domain/packs.js';
@@ -175,7 +176,7 @@ export class BotService implements BotFacade {
       if (change.name !== undefined) bot.rename(change.name);
       if (change.isActive !== undefined) bot.setActive(change.isActive);
       if (change.settings) {
-        bot.updateSettings(change.settings as Partial<BotSettingsData>);
+        bot.updateSettings(change.settings as BotSettingsChange);
         BotSettings.parse(bot.snapshot().settings); // full settings must stay valid after merge
       }
       await bots.save(bot);
@@ -218,6 +219,14 @@ export class BotService implements BotFacade {
         settings[field] = {
           ...Object.fromEntries(added.map((key) => [key, ''])),
           ...((before ?? {}) as Record<string, string>),
+        };
+      } else if (field === 'profile') {
+        // Profile fields merge key by key; keys added by the change are removed with ''.
+        const was = (before ?? { fields: {}, notes: '' }) as BotProfile;
+        const added = Object.keys(((after ?? {}) as BotProfile).fields ?? {});
+        settings[field] = {
+          fields: { ...Object.fromEntries(added.map((key) => [key, ''])), ...was.fields },
+          notes: was.notes,
         };
       } else settings[field] = before;
     }

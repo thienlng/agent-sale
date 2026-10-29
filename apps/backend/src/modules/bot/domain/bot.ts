@@ -27,6 +27,24 @@ function validName(name: string): string {
   return n;
 }
 
+/** Stored settings may predate newer keys, including parts of `profile`: default them deeply. */
+function withDefaults(industry: IndustryKey, stored: Partial<BotSettingsData>): BotSettingsData {
+  const defaults = defaultSettings(industry);
+  return {
+    ...defaults,
+    ...stored,
+    profile: {
+      fields: { ...(stored.profile?.fields ?? {}) },
+      notes: stored.profile?.notes ?? '',
+    },
+  };
+}
+
+/** Settings change as validated by the contract: `profile` is a partial that merges into the stored one. */
+export type BotSettingsChange = Omit<Partial<BotSettingsData>, 'profile'> & {
+  profile?: { fields?: Partial<Record<string, string>>; notes?: string };
+};
+
 export class Bot {
   private constructor(private props: BotProps) {}
 
@@ -48,7 +66,7 @@ export class Bot {
   static rehydrate(props: BotProps): Bot {
     return new Bot({
       ...props,
-      settings: { ...defaultSettings(props.industry), ...props.settings },
+      settings: withDefaults(props.industry, props.settings),
     });
   }
 
@@ -60,13 +78,19 @@ export class Bot {
     this.props = { ...this.props, isActive: active, updatedAt: new Date() };
   }
 
-  /** Merges validated partial settings; placeholders merge key by key (empty string removes). */
-  updateSettings(change: Partial<BotSettingsData>): void {
+  /**
+   * Merges validated partial settings; placeholders and profile fields merge key by key
+   * (empty string removes); profile notes change only when sent.
+   */
+  updateSettings(change: BotSettingsChange): void {
     const placeholders = { ...this.props.settings.placeholders, ...(change.placeholders ?? {}) };
     for (const [k, v] of Object.entries(placeholders)) if (v === '') delete placeholders[k];
+    const fields = { ...this.props.settings.profile.fields, ...(change.profile?.fields ?? {}) };
+    for (const [k, v] of Object.entries(fields)) if (v === '' || v === undefined) delete fields[k];
+    const profile = { fields, notes: change.profile?.notes ?? this.props.settings.profile.notes };
     this.props = {
       ...this.props,
-      settings: { ...this.props.settings, ...change, placeholders },
+      settings: { ...this.props.settings, ...change, profile, placeholders },
       updatedAt: new Date(),
     };
   }

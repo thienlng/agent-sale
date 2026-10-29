@@ -97,8 +97,13 @@ export const UpdateBotRequest = z.object({
         .regex(/^#[0-9a-fA-F]{6}$/)
         .optional(),
       replySchedule: ReplySchedule.optional(),
-      // A partial update replaces the whole profile (fields and notes) as sent; the web sends all of it.
-      profile: BotProfile.optional(),
+      // Profile updates merge: `fields` key by key (an empty string removes a key), `notes` only when sent.
+      profile: z
+        .object({
+          fields: BotProfile.shape.fields.optional(),
+          notes: BotProfile.shape.notes.optional(),
+        })
+        .optional(),
       replyLength: z.enum(['veryShort', 'short', 'detailed']).optional(),
       tone: z.enum(['friendly', 'formal']).optional(),
       allowEmoji: z.boolean().optional(),

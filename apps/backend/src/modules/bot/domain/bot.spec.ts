@@ -27,6 +27,18 @@ describe('Bot aggregate', () => {
     expect([s.replyLength, s.tone, s.allowEmoji]).toEqual(['short', 'friendly', false]);
   });
 
+  it('defaults a stored profile that lacks notes or fields', () => {
+    const fresh = Bot.create({ workspaceId: ws, name: 'b', industry: 'hotel' }).snapshot();
+    const stored = { ...fresh.settings, profile: { fields: { address: 'x' } } };
+    const a = Bot.rehydrate({ ...fresh, settings: stored as never }).snapshot().settings.profile;
+    expect(a).toEqual({ fields: { address: 'x' }, notes: '' });
+    const b = Bot.rehydrate({
+      ...fresh,
+      settings: { ...stored, profile: { notes: 'n' } } as never,
+    });
+    expect(b.snapshot().settings.profile).toEqual({ fields: {}, notes: 'n' });
+  });
+
   it('rejects empty or long names', () => {
     expect(() => Bot.create({ workspaceId: ws, name: ' ', industry: 'retail' })).toThrow(
       InvalidBotError,

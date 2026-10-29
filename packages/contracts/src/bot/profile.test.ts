@@ -25,13 +25,16 @@ describe('profileFieldsFor', () => {
     expect(profileFieldsFor('other').map((f) => f.key)).toEqual(BASIC);
   });
 
-  it('adds sizeGuide for fashion and authenticity for cosmetics only', () => {
+  it('pins the exact field set and order per industry', () => {
     const keys = (i: string) => profileFieldsFor(i).map((f) => f.key);
-    expect(keys('fashion')).toContain('sizeGuide');
-    expect(keys('retail')).not.toContain('sizeGuide');
-    expect(keys('cosmetics')).toContain('authenticity');
-    expect(keys('spa')).toEqual(expect.arrayContaining(['servicePrices', 'booking', 'payment']));
-    expect(keys('solar')).toEqual(expect.arrayContaining(['priceRange', 'payback', 'warranty']));
+    const shop = [...BASIC, 'payment', 'shipping', 'returns', 'warranty', 'promotion'];
+    expect(keys('retail')).toEqual(shop);
+    expect(keys('fashion')).toEqual([...shop, 'sizeGuide']);
+    expect(keys('cosmetics')).toEqual([...shop, 'authenticity']);
+    expect(keys('spa')).toEqual([...BASIC, 'payment', 'servicePrices', 'booking']);
+    expect(keys('dental')).toEqual([...BASIC, 'payment', 'servicePrices', 'booking']);
+    expect(keys('education')).toEqual([...BASIC, 'courseFees', 'courseSchedule', 'courseTrial']);
+    expect(keys('solar')).toEqual([...BASIC, 'warranty', 'priceRange', 'payback']);
   });
 
   it('has unique keys', () => {
@@ -100,6 +103,16 @@ describe('BotSettings profile and style', () => {
 });
 
 describe('UpdateBotRequest profile and style', () => {
+  it('accepts a partial profile (fields only, notes only) and rejects bad values', () => {
+    const p = (profile: unknown) => UpdateBotRequest.safeParse({ settings: { profile } });
+    expect(p({ fields: { address: 'x' } }).success).toBe(true);
+    expect(p({ notes: 'n' }).success).toBe(true);
+    expect(p({ fields: { address: '' } }).success).toBe(true);
+    expect(p({ fields: { nope: 'x' } }).success).toBe(false);
+    expect(p({ fields: { mapsUrl: 'http://x.com' } }).success).toBe(false);
+    expect(p({ notes: 'x'.repeat(3001) }).success).toBe(false);
+  });
+
   it('accepts a partial profile and the style keys without injecting defaults', () => {
     const parsed = UpdateBotRequest.parse({
       settings: {
