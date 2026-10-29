@@ -527,6 +527,8 @@
     "leaveConfirm": "Leave page",
     "readOnly": "You can only view this information.",
     "invalidUrl": "The link must start with https://",
+    "faqHint": "This belongs in the “{{field}}” field of Business information so the bot always uses a single source.",
+    "faqHintGo": "Go to the field",
     "faqTitle": "Other frequently asked questions",
     "fields": {
       "displayName": "Name shown to customers",

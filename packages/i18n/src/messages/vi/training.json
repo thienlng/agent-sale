@@ -527,6 +527,8 @@
     "leaveConfirm": "Rời trang",
     "readOnly": "Bạn chỉ có quyền xem thông tin này.",
     "invalidUrl": "Link phải bắt đầu bằng https://",
+    "faqHint": "Thông tin này nên điền ở ô “{{field}}” trong Thông tin doanh nghiệp để bot luôn dùng một nguồn.",
+    "faqHintGo": "Đi tới ô này",
     "faqTitle": "Câu hỏi thường gặp khác",
     "fields": {
       "displayName": "Tên gọi với khách",
