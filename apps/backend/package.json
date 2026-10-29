@@ -21,6 +21,7 @@
     "bot-profile-backfill": "tsx --env-file-if-exists=../../.env src/cli/bot-profile-backfill.ts",
     "analytics-rebuild": "tsx --env-file-if-exists=../../.env src/cli/analytics-rebuild.ts",
     "mfa-reset": "tsx --env-file-if-exists=../../.env src/cli/mfa-reset.ts",
+    "eval": "tsx --env-file-if-exists=../../.env src/cli/eval.ts",
     "workspace-plan": "tsx --env-file-if-exists=../../.env src/cli/workspace-plan.ts"
   },
   "dependencies": {
@@ -43,6 +44,7 @@
     "prom-client": "^15.1.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
+    "yaml": "^2.9.1",
     "zod": "^4.1.0"
   },
   "devDependencies": {

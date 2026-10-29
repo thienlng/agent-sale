@@ -1,0 +1,41 @@
+id: retail-second-turn-no-greeting
+group: multi-turn
+tags: []
+bot:
+  industry: retail
+  name: TinyMind
+  profile:
+    fields:
+      displayName: TinyMind
+      address: '12 Lê Lợi, Quận 1, TP.HCM'
+      hotline: '0900 000 000'
+      hours: '8h00 - 21h00 mỗi ngày'
+      payment: 'Thanh toán khi nhận hàng (COD), chuyển khoản ngân hàng và ví MoMo. Đơn COD được kiểm tra giày trước khi thanh toán.'
+      shipping: 'Giao hàng toàn quốc. Phí ship nội thành 30.000đ, miễn phí cho đơn từ 500.000đ; giao nội thành 1-2 ngày, các tỉnh 3-5 ngày.'
+      returns: 'đổi trả trong 7 ngày kể từ khi nhận hàng, sản phẩm còn nguyên tem mác và chưa qua sử dụng, miễn phí đổi size lần đầu'
+      warranty: 'Giày được bảo hành 6 tháng cho lỗi do nhà sản xuất như bong keo, đứt chỉ. Không áp dụng cho hao mòn do sử dụng hoặc hỏng do khách.'
+      promotion: ''
+    notes: 'Khách có thể đến cửa hàng thử giày trực tiếp.'
+products:
+  - name: 'Giày chạy bộ Aero'
+    code: AERO
+    description: 'Giày chạy bộ nhẹ, đế êm'
+    variants:
+      - { name: 'Size 41', price: 690000, stock: 5 }
+      - { name: 'Size 42', price: 690000, stock: 3 }
+  - name: 'Giày thể thao Classic'
+    code: CLASSIC
+    description: 'Giày thể thao phối đồ hằng ngày'
+    variants:
+      - { name: 'Size 40', price: 590000, stock: 8 }
+conversation:
+  - customer: 'chào shop'
+  - bot: 'Dạ em chào anh/chị ạ, em có thể giúp gì cho anh/chị ạ?'
+  - customer: 'giày thể thao Classic giá bao nhiêu'
+expect:
+  outcome: answered
+  contains_any: ['590.000', '590k']
+  no_greeting: true
+  not_contains: ["\\n"]
+  numbers_only_from_sources: true
+  fake_reply: { outcome: answer, reply: 'Dạ giày thể thao Classic giá 590.000đ ạ.', sources: [] }
