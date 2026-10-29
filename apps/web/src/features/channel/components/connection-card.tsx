@@ -68,7 +68,7 @@ export function ConnectionCard({
   showBot: boolean;
   canReconnect: boolean;
   onReconnect: () => void;
-  /** Owners only; the row menu is not rendered otherwise. */
+  /** Only for members with `settings.manage`; the row menu is not rendered otherwise. */
   canRemove?: boolean;
   onRemove?: () => void;
 }) {

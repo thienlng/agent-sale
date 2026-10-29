@@ -8,16 +8,15 @@ import {
 import { newId, type WorkspaceId } from '@agent-sales/shared';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Test } from '@nestjs/testing';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AppModule } from '../src/app.module.js';
 import { configureEnv } from '../src/common/config.js';
-import { REQUIRED_CAPABILITY } from '../src/common/http/auth-context.js';
-import { ChannelController } from '../src/modules/channel/interface/http/channel.controller.js';
 import { HttpExceptionFilter } from '../src/common/http/http-exception.filter.js';
 import { createLogger } from '../src/common/logger.js';
 import { CHANNEL_STORE } from '../src/modules/channel/application/ports/channel-store.js';
 import { META_GATEWAY } from '../src/modules/channel/application/ports/meta-gateway.js';
 import { MemoryChannelStore } from '../src/modules/channel/__tests__/factories/memory-channel-store.js';
+import { WORKSPACE_FACADE, type WorkspaceFacade } from '../src/modules/workspace/api/index.js';
 import { CONVERSATION_STORE } from '../src/modules/conversation/application/ports/conversation-store.js';
 import { MemoryConversationStore } from '../src/modules/conversation/__tests__/factories/memory-conversation-store.js';
 import {
@@ -199,6 +198,20 @@ describe('HTTP: Meta connections and inbox', () => {
     const id = (save.json() as { data: Array<{ id: string }> }).data[0]?.id ?? '';
     const url = `/api/v1/channels/${id}`;
     expect((await http.inject({ method: 'DELETE', url })).statusCode).toBe(401);
+    // A member without settings.manage is stopped by the global guard and the page stays.
+    const workspaces = app?.get<WorkspaceFacade>(WORKSPACE_FACADE, { strict: false });
+    const real = workspaces?.findMembership.bind(workspaces);
+    const spy = vi
+      .spyOn(workspaces as WorkspaceFacade, 'findMembership')
+      .mockImplementationOnce(async (...args) => {
+        const membership = await real?.(...args);
+        return membership ? { ...membership, role: 'sales' } : null;
+      });
+    const forbidden = await http.inject({ method: 'DELETE', url, headers: owner });
+    expect(forbidden.statusCode).toBe(403);
+    spy.mockRestore();
+    const kept = await http.inject({ method: 'GET', url: '/api/v1/channels', headers: owner });
+    expect((kept.json() as { data: Array<{ id: string }> }).data.map((c) => c.id)).toEqual([id]);
     expect(
       (await http.inject({ method: 'DELETE', url: '/api/v1/channels/not-a-uuid', headers: owner }))
         .statusCode,
@@ -210,9 +223,14 @@ describe('HTTP: Meta connections and inbox', () => {
     const list = await http.inject({ method: 'GET', url: '/api/v1/channels', headers: owner });
     expect((list.json() as { data: unknown[] }).data).toEqual([]);
     expect((await http.inject({ method: 'DELETE', url, headers: owner })).statusCode).toBe(404);
-    // Members without the capability get 403 from the global guard that reads this metadata.
-    const handler = ChannelController.prototype.remove;
-    expect(Reflect.getMetadata(REQUIRED_CAPABILITY, handler)).toBe('settings.manage');
+    const withRemoved = await http.inject({
+      method: 'GET',
+      url: '/api/v1/channels?includeRemoved=true',
+      headers: owner,
+    });
+    expect((withRemoved.json() as { data: Array<{ id: string; status: string }> }).data).toEqual([
+      expect.objectContaining({ id, status: 'removed' }),
+    ]);
   });
   it('enforces inbox validation, control, workspace ownership and visible send failure', async () => {
     const { http, signup, store, inbox } = await setup();

@@ -9,8 +9,10 @@ import { ChannelError } from '../../domain/channel.errors.js';
 export class MemoryChannelStore implements ChannelStore {
   readonly records = new Map<string, ConnectionRecord>();
   readonly flows = new Map<string, OAuthFlow>();
-  async list(ws: WorkspaceId) {
-    return [...this.records.values()].filter((c) => c.workspaceId === ws && c.status !== 'removed');
+  async list(ws: WorkspaceId, opts: { includeRemoved?: boolean } = {}) {
+    return [...this.records.values()].filter(
+      (c) => c.workspaceId === ws && (opts.includeRemoved || c.status !== 'removed'),
+    );
   }
   async get(ws: WorkspaceId, id: string) {
     const c = this.records.get(id);

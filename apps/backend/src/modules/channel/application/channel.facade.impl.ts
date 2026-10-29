@@ -151,9 +151,9 @@ export class ChannelFacadeImpl implements ChannelFacade, OnModuleInit {
   unbindBot(ws: WorkspaceId, botId: string): Promise<number> {
     return this.store.unbindBot(ws, botId);
   }
-  async list(ws: WorkspaceId) {
+  async list(ws: WorkspaceId, opts: { includeRemoved?: boolean } = {}) {
     return {
-      data: (await this.store.list(ws)).map(publicConnection),
+      data: (await this.store.list(ws, opts)).map(publicConnection),
       providers: (['facebook', 'instagram'] as const).map((provider) => ({
         provider,
         configured: this.gateway.configured(provider),
@@ -262,11 +262,13 @@ export class ChannelFacadeImpl implements ChannelFacade, OnModuleInit {
         'VALIDATION_FAILED',
         'Website chat is turned off or disconnected, not removed',
       );
-    await this.unsubscribeQuietly(current);
+    // Database first: if it fails the page stays connected and subscribed. The unsubscribe uses
+    // the token read above, so a reconnect racing this call re-subscribes with its new token.
     const removed = await this.store.remove(ws, id, this.box.seal(''));
     if (!removed) throw new ChannelError('NOT_FOUND', 'Connection not found');
     // Ids only: no page name, token or customer data.
     log.log(`Channel ${id} removed from workspace ${ws}`);
+    await this.unsubscribeQuietly(current);
   }
   private async unsubscribeQuietly(c: ConnectionRecord): Promise<void> {
     if (c.provider === 'website') return;
@@ -296,6 +298,9 @@ export class ChannelFacadeImpl implements ChannelFacade, OnModuleInit {
       return c.status === 'connected'
         ? { externalId: null, status: 'sent' as const, failureCode: null }
         : { externalId: null, status: 'failed' as const, failureCode: 'site_disabled' };
+    // A deliberately removed page is not a reconnect prompt.
+    if (c?.status === 'removed')
+      return { externalId: null, status: 'failed' as const, failureCode: 'page_removed' };
     if (!c || c.status !== 'connected' || (c.expiresAt && Date.parse(c.expiresAt) <= Date.now()))
       return { externalId: null, status: 'failed' as const, failureCode: 'reauth_required' };
     try {

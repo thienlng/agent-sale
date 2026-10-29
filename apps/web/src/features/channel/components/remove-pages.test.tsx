@@ -9,8 +9,12 @@ import { IntegrationsView } from './integrations-view';
 
 const can = vi.hoisted(() => ({ value: true }));
 vi.mock('@/lib/permissions', () => ({ useCan: () => can.value }));
+const toasts = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
+vi.mock('sonner', () => ({ toast: toasts }));
 vi.mock('@/lib/use-workspace', () => ({ useWorkspaceId: () => 'ws-1' }));
 afterEach(() => {
+  toasts.success.mockReset();
+  toasts.error.mockReset();
   vi.unstubAllGlobals();
   can.value = true;
 });
@@ -37,10 +41,11 @@ const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
 /** A tiny backend: GET /channels, DELETE /channels/:id (optionally failing once for some ids). */
-function backend(initial: ChannelConnectionDto[], failOnce: string[] = []) {
+function backend(initial: ChannelConnectionDto[], failOnce: string[] = [], gone: string[] = []) {
   let data = [...initial];
   const deleted: string[] = [];
   const failing = new Set(failOnce);
+  const removedElsewhere = new Set(gone);
   const stub = async (input: string, init: RequestInit = {}) => {
     const path = input.replace('/api/v1', '');
     const method = init.method ?? 'GET';
@@ -50,6 +55,10 @@ function backend(initial: ChannelConnectionDto[], failOnce: string[] = []) {
       const id = path.split('/').at(-1) ?? '';
       deleted.push(id);
       if (failing.delete(id)) return json({ error: { code: 'INTERNAL', message: 'Down' } }, 503);
+      if (removedElsewhere.has(id)) {
+        data = data.filter((c) => c.id !== id);
+        return json({ error: { code: 'NOT_FOUND', message: 'Connection not found' } }, 404);
+      }
       data = data.filter((c) => c.id !== id);
       return new Response(null, { status: 204 });
     }
@@ -89,6 +98,23 @@ describe('removing pages from platform integrations (T-133)', () => {
     await waitFor(() => expect(screen.queryByText('QA Actions')).not.toBeInTheDocument());
     expect(screen.getByText('Shop Hoa')).toBeInTheDocument();
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+  });
+
+  it('treats a page already removed elsewhere (404) as removed, not as a failure', async () => {
+    const api = backend([qa, shop], [], [qa.id]);
+    vi.stubGlobal('fetch', api.stub);
+    renderWithProviders(<IntegrationsView mode={{ kind: 'workspace' }} />);
+    const user = userEvent.setup();
+    await screen.findByText('QA Actions');
+    await user.click(screen.getByRole('button', { name: 'Tùy chọn cho QA Actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Gỡ trang' }));
+    const dialog = await screen.findByRole('alertdialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Gỡ trang' }));
+    await waitFor(() => expect(api.deleted).toEqual([qa.id]));
+    await waitFor(() => expect(screen.queryByText('QA Actions')).not.toBeInTheDocument());
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(toasts.error).not.toHaveBeenCalled();
+    expect(toasts.success).toHaveBeenCalled();
   });
 
   it('does nothing when the confirmation is cancelled', async () => {

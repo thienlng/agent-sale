@@ -756,7 +756,8 @@
       "resolved": "This conversation is in Done. Reopen it to reply.",
       "spam": "This conversation is in Spam. Move it back to the inbox to reply.",
       "reopen": "Reopen",
-      "readOnly": "You can only view this conversation; replying and changes need edit access."
+      "readOnly": "You can only view this conversation; replying and changes need edit access.",
+      "pageRemoved": "This page was removed from Rapiz. The history stays readable; reconnect the page to reply."
     },
     "composer": {
       "replyIn": "Reply in {{channel}}…",

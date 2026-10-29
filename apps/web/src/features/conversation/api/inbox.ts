@@ -42,11 +42,13 @@ export function useInbox(query: InboxListQuery) {
     refetchInterval: 5000,
   });
 }
+/** Includes removed pages so their old conversations keep the page name; pickers filter them. */
 export function useInboxChannels() {
   const ws = useWorkspaceId();
   return useQuery({
-    queryKey: ['channels', ws],
-    queryFn: () => api('/channels', ChannelListResponse),
+    // Own key: the integrations list caches `['channels', ws]` without removed pages.
+    queryKey: ['channels', ws, 'includeRemoved'],
+    queryFn: () => api('/channels?includeRemoved=true', ChannelListResponse),
     enabled: Boolean(ws),
   });
 }

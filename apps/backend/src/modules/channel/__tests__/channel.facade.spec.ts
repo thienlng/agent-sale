@@ -282,6 +282,10 @@ describe('ChannelFacade page removal (T-133)', () => {
     await store.update(ws, id, { botId: '018d0000-0000-7000-8000-0000000000b1' });
     await service.remove(ws, id);
     expect((await service.list(ws)).data).toEqual([]);
+    // The inbox asks for removed pages too, to keep naming their old conversations.
+    expect((await service.list(ws, { includeRemoved: true })).data).toEqual([
+      expect.objectContaining({ id, status: 'removed' }),
+    ]);
     const row = store.records.get(id);
     expect(row).toMatchObject({ status: 'removed', botId: null });
     expect(box.open(row?.tokenSealed ?? '')).toBe('');
@@ -323,7 +327,28 @@ describe('ChannelFacade page removal (T-133)', () => {
     await service.remove(ws, id);
     await expect(service.deliver(ws, id, 'psid', { text: 'hi' }, 'k')).resolves.toMatchObject({
       status: 'failed',
+      failureCode: 'page_removed',
     });
+  });
+  it('writes the removal before calling Meta, and keeps the page when the write fails', async () => {
+    const { service, store, gateway, id } = await connected();
+    const order: string[] = [];
+    const write = store.remove.bind(store);
+    vi.spyOn(store, 'remove').mockImplementationOnce(async (...args) => {
+      order.push('db');
+      return write(...args);
+    });
+    vi.mocked(gateway.unsubscribe).mockImplementationOnce(async () => {
+      order.push('meta');
+    });
+    await service.remove(ws, id);
+    expect(order).toEqual(['db', 'meta']);
+
+    const second = await connected();
+    vi.spyOn(second.store, 'remove').mockRejectedValueOnce(new Error('db down'));
+    await expect(second.service.remove(ws, second.id)).rejects.toThrow('db down');
+    expect(second.gateway.unsubscribe).not.toHaveBeenCalled();
+    expect(second.store.records.get(second.id)?.status).toBe('connected');
   });
   it('reconnecting the same page through OAuth reuses the row and shows it again', async () => {
     const { service, store, id } = await connected();

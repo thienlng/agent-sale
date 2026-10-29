@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import {
+  ChannelListQuery,
   CreateWebsiteRequest,
   MetaProvider,
   SelectChannelRequest,
@@ -49,8 +50,11 @@ export class ChannelController {
   constructor(@Inject(ChannelFacadeImpl) private readonly channels: ChannelFacadeImpl) {}
   @WorkspaceScoped()
   @Get()
-  list(@CurrentWorkspace() ws: WorkspaceId) {
-    return this.channels.list(ws);
+  list(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Query(new ZodValidationPipe(ChannelListQuery)) query: ChannelListQuery,
+  ) {
+    return this.channels.list(ws, { includeRemoved: query.includeRemoved === true });
   }
   @RequireCapability('settings.manage')
   @WorkspaceScoped()

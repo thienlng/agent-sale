@@ -263,6 +263,10 @@ export function ConversationView({
         <p role="status" className="mx-3 mb-2 rounded-lg bg-muted px-3 py-2 text-xs sm:mx-4">
           {tr('meta.locked.readOnly')}
         </p>
+      ) : channel?.removed ? (
+        <p role="status" className="mx-3 mb-2 rounded-lg bg-muted px-3 py-2 text-xs sm:mx-4">
+          {tr('meta.locked.pageRemoved')}
+        </p>
       ) : folder ? (
         <div
           role="status"
@@ -283,7 +287,7 @@ export function ConversationView({
         id={id}
         botId={botId}
         windowClosed={windowClosed}
-        locked={folder !== null || !canEdit}
+        locked={folder !== null || !canEdit || channel?.removed === true}
         channelLabel={CHANNEL_LABEL[c.provider]}
         channelId={c.channelId}
         renderTools={

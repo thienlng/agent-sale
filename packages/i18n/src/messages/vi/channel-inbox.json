@@ -756,7 +756,8 @@
       "resolved": "Hội thoại đã ở mục Xong. Mở lại để trả lời.",
       "spam": "Hội thoại đang ở Spam. Đưa về hộp thư để trả lời.",
       "reopen": "Mở lại",
-      "readOnly": "Bạn chỉ có quyền xem hội thoại này, không thể trả lời hay thay đổi."
+      "readOnly": "Bạn chỉ có quyền xem hội thoại này, không thể trả lời hay thay đổi.",
+      "pageRemoved": "Trang này đã được gỡ khỏi Rapiz. Lịch sử vẫn xem được; kết nối lại trang để trả lời."
     },
     "composer": {
       "replyIn": "Trả lời trong {{channel}}…",

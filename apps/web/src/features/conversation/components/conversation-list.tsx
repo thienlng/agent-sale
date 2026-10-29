@@ -127,8 +127,11 @@ export function ConversationList({
           ? 'emptyFilter'
           : 'emptyInbox';
   const count = (n: number) => (pending || error ? undefined : n);
+  // A removed page is no longer a filter choice; its old conversations still list under "all".
   const pageChannels = channels.filter(
-    (channel) => state.provider === 'all' || channel.provider === state.provider,
+    (channel) =>
+      channel.status !== 'removed' &&
+      (state.provider === 'all' || channel.provider === state.provider),
   );
   return (
     <aside

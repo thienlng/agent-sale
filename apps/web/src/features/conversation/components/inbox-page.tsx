@@ -279,7 +279,13 @@ function InboxWorkspace({
                   onBack={() => setSelected(null)}
                   botId={botId}
                   channel={
-                    channel ? { name: channel.name, externalId: channel.externalId } : undefined
+                    channel
+                      ? {
+                          name: channel.name,
+                          externalId: channel.externalId,
+                          removed: channel.status === 'removed',
+                        }
+                      : undefined
                   }
                   renderSalesPanel={renderSalesPanel}
                   renderComposerTools={renderComposerTools}

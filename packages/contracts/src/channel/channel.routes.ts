@@ -13,6 +13,7 @@ import {
 import { z } from 'zod';
 import { defineRoutes } from '../common/routes.js';
 import {
+  ChannelListQuery,
   ChannelListResponse,
   ChannelConnectionDto,
   ConnectChannelResponse,
@@ -88,6 +89,7 @@ export const channelRoutes = defineRoutes([
     method: 'get',
     path: '/channels',
     summary: 'Connections and provider readiness',
+    query: ChannelListQuery,
     responses: { 200: ChannelListResponse },
   },
   {

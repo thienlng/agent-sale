@@ -45,13 +45,17 @@ export class DrizzleChannelStore implements ChannelStore {
     private readonly db: Database,
     private readonly system: Database,
   ) {}
-  list(ws: WorkspaceId) {
+  list(ws: WorkspaceId, opts: { includeRemoved?: boolean } = {}) {
     return withTenant(this.db, ws, async (tx) =>
       (
         await tx
           .select()
           .from(c)
-          .where(and(eq(c.workspaceId, ws), sql`${c.status} <> 'removed'`))
+          .where(
+            opts.includeRemoved
+              ? eq(c.workspaceId, ws)
+              : and(eq(c.workspaceId, ws), sql`${c.status} <> 'removed'`),
+          )
           .orderBy(desc(c.createdAt))
       ).map(connection),
     );

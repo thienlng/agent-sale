@@ -58,6 +58,7 @@ Data-model choice: a new `removed` status instead of a `removed_at` column. Ever
 - 2026-10-29 — created. Verified: `apps/webhook/src/infrastructure/meta-ingress.store.ts` only accepts `connected`/`reauth_required`; `ConversationFacade.receive` rejected only `disconnected` (to be tightened); `channel.store.ts` `select()` upserts on (provider, external_id) and sets status `connected`.
 
 - 2026-10-29 — Root review: migration renumbered 0029 → 0033 because the open lane A2/A3 branches already use 0029–0032 (runner tracks files by name, so out-of-order application is safe).
+- 2026-10-29 — Independent QA review: no blockers; fixed every should-fix. (1) Inbox reads `GET /channels?includeRemoved=true` under its own query key so old conversations keep the page name; the page filter leaves removed pages out; the thread shows a "page removed" notice and locks the composer. (2) `deliver` on a removed page fails with `page_removed`, not `reauth_required`. (3) Runtime 403 test: a `sales` member gets 403 from the global guard and the page stays (replaces the metadata-only assertion). (4) Web treats a DELETE 404 (already removed elsewhere) as success — test verified red without the fix. Also: DB write before the Meta unsubscribe (token captured first; failed write leaves the page connected and subscribed; tested), doc timeout 5→8 s, MODULE.md migration number, permission comment. Backend channel+HTTP 92/92, store integration 12/12, web conversation+channel 313/313.
 
 ## Links
 

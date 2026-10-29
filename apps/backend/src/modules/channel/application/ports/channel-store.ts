@@ -31,7 +31,8 @@ export interface PendingMetaEvent {
 }
 export interface ChannelStore {
   /** Connections shown to the workspace: everything except removed ones. */
-  list(ws: WorkspaceId): Promise<ConnectionRecord[]>;
+  /** Removed pages are left out unless asked for. */
+  list(ws: WorkspaceId, opts?: { includeRemoved?: boolean }): Promise<ConnectionRecord[]>;
   get(ws: WorkspaceId, id: string): Promise<ConnectionRecord | null>;
   update(
     ws: WorkspaceId,

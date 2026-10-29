@@ -2,7 +2,7 @@
 
 **Purpose:** Connects Facebook Pages, Instagram professional accounts and website chat widgets to a workspace (Meta OAuth, sealed page tokens, bot binding) and delivers outbound messages through the Meta adapter.
 
-**Owned tables:** `fanpage_settings`, `fanpage_comments` (migration 0024), `channel_connections`, `channel_oauth_flows`, `channel_webhook_events` (schema in `packages/db/src/schema/channel.ts`, migrations 0007/0009/0013, 0029 adds the `removed` status; `settings` jsonb column in 0025).
+**Owned tables:** `fanpage_settings`, `fanpage_comments` (migration 0024), `channel_connections`, `channel_oauth_flows`, `channel_webhook_events` (schema in `packages/db/src/schema/channel.ts`, migrations 0007/0009/0013, 0033 adds the `removed` status; `settings` jsonb column in 0025).
 
 **Public API (`api/`):**
 

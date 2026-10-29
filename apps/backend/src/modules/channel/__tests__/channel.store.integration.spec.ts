@@ -168,6 +168,8 @@ describe('Soft removal (T-133)', () => {
     const removed = await store.remove(a, c.id, 'sealed-empty');
     expect(removed).toMatchObject({ id: c.id, status: 'removed', botId: null });
     expect((await store.list(a)).map((x) => x.id)).not.toContain(c.id);
+    expect((await store.list(a, { includeRemoved: true })).map((x) => x.id)).toContain(c.id);
+    expect((await store.list(b, { includeRemoved: true })).map((x) => x.id)).not.toContain(c.id);
     expect((await store.get(a, c.id))?.tokenSealed).toBe('sealed-empty');
     expect(await store.remove(a, c.id, 'x')).toBeNull();
     const [again] = await store.select(a, users[a] ?? '', await discovery(a), [
