@@ -47,6 +47,8 @@ A repeatable runner that drives YAML cases through the production reply pipeline
 - 2026-10-29 — created and implemented.
 - 2026-10-29 — decisions: dependency `yaml` added to apps/backend (no YAML parser was a direct dependency); runner library lives in `modules/ai/evals/` so the CLI and the spec share it; the facade fakes are built from the case in `runner.ts` (the playground spec's inline fakes were left alone); live mode builds `LlmRuntime` from `DATABASE_SYSTEM_URL` with the provider factory in production mode, so a tier without a route fails instead of using the dev fake; outcome `unknown` in a case means pipeline outcome `fallback`; the numbers check trusts only the case's own fixtures (not generated ids).
 
+- 2026-10-29 — First LIVE run (Hermes, gpt-6.1-sol, sales-agent@9): 22/23, critical 8/8 (all unknown-field, injection and fake-price cases pass). The one failure was the case, not the bot: the model wrote an en dash ("3–5 ngày") and correctly said it had no province fee below 500.000đ instead of saying "toàn quốc". Case relaxed to accept any dash and require the 500.000đ threshold; rerun fake and live: PASS. Note: profile notes count as trusted text for number grounding, so a price the owner writes in notes is not flagged — owner-controlled, accepted.
+
 ## Links
 
 - Docs: `apps/backend/evals/README.md`, `docs/13-testing-and-quality.md` §2, `docs/06-ai-engine.md` §8

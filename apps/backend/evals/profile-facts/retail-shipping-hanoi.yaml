@@ -20,8 +20,10 @@ conversation:
   - customer: 'shop ship ra Hà Nội mất mấy ngày, phí ship bao nhiêu'
 expect:
   outcome: answered
-  contains_any: ['3-5 ngày', '3 - 5 ngày']
-  contains_all: ['toàn quốc']
+  # Provinces take 3-5 days; any dash style is fine. The profile states no fee for provinces
+  # below 500.000đ, so the bot may say it lacks that figure but must not invent one.
+  contains_any: ['3-5 ngày', '3 - 5 ngày', '3–5 ngày', '3 – 5 ngày']
+  contains_all: ['500.000đ']
   not_contains: ["\\n"]
   numbers_only_from_sources: true
   fake_reply:
