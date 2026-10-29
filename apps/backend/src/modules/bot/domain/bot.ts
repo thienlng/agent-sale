@@ -16,10 +16,13 @@ export interface BotProps {
 }
 
 export interface ReadinessCheck {
-  key: 'mission' | 'faq' | 'placeholders' | 'channel';
+  key: 'mission' | 'faq' | 'profile' | 'channel';
   done: boolean;
   detail?: string;
 }
+
+/** Basic profile fields every bot needs before going live (`mapsUrl` is optional). */
+const REQUIRED_PROFILE_FIELDS = ['displayName', 'address', 'hotline', 'hours'] as const;
 
 function validName(name: string): string {
   const n = name.trim();
@@ -101,19 +104,26 @@ export class Bot {
     return [...used].filter((p) => !this.props.settings.placeholders[p]);
   }
 
-  /** Onboarding checklist (docs/02 BOT-04). `channels` is 0 until M3 connects channels. */
+  /**
+   * Onboarding checklist (docs/02 BOT-04). The profile check is done when the basic fields are
+   * filled; its detail is how many of `profileFieldKeys` (the industry's fields) are still empty.
+   * `missing` lists the unfilled placeholders (read-only, kept one release for old clients).
+   */
   readiness(
     faqAnswers: readonly string[],
     channels: number,
+    profileFieldKeys: readonly string[] = [],
   ): { ready: boolean; checks: ReadinessCheck[]; missing: string[] } {
     const missing = this.missingPlaceholders(faqAnswers);
+    const filled = (key: string) => Boolean(this.props.settings.profile.fields[key]?.trim());
+    const empty = profileFieldKeys.filter((k) => !filled(k)).length;
     const checks: ReadinessCheck[] = [
       { key: 'mission', done: this.props.settings.mission.trim().length >= 20 },
       { key: 'faq', done: faqAnswers.length > 0, detail: `${faqAnswers.length} FAQ` },
       {
-        key: 'placeholders',
-        done: missing.length === 0,
-        ...(missing.length ? { detail: missing.join(', ') } : {}),
+        key: 'profile',
+        done: REQUIRED_PROFILE_FIELDS.every(filled),
+        detail: String(empty),
       },
       { key: 'channel', done: channels > 0 },
     ];

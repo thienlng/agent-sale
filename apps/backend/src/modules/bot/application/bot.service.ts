@@ -2,6 +2,7 @@ import {
   type BotDto,
   type BotProfile,
   type BotReadiness,
+  profileFieldsFor,
   BotSettings,
   Industry,
   type CreateBotRequest,
@@ -244,6 +245,7 @@ export class BotService implements BotFacade {
     const r = bot.readiness(
       faqs.map((f) => f.answer),
       0,
+      profileFieldsFor(bot.snapshot().industry).map((f) => f.key),
     );
     return { ready: r.ready, checks: r.checks, missingPlaceholders: r.missing };
   }

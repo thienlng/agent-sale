@@ -59,19 +59,32 @@ describe('Bot aggregate', () => {
     expect(s.greeting).toBe('Xin chào {{store.name}}');
   });
 
-  it('readiness lists placeholders used by the greeting and FAQs that have no value', () => {
+  it('readiness reports business profile completeness, not placeholders', () => {
+    const bot = Bot.create({ workspaceId: ws, name: 'b', industry: 'hotel' });
+    const faqs = ['a'];
+    const fields = ['displayName', 'address', 'mapsUrl', 'hotline', 'hours', 'deposit', 'rates'];
+    const before = bot.readiness(faqs, 0, fields);
+    const profile = before.checks.find((c) => c.key === 'profile');
+    expect(before.checks.some((c) => (c.key as string) === 'placeholders')).toBe(false);
+    expect(profile).toEqual({ key: 'profile', done: false, detail: '7' });
+
+    bot.updateSettings({
+      profile: {
+        fields: { displayName: 'A', address: 'B', hotline: 'C', hours: 'D', rates: ' ' },
+        notes: '',
+      },
+    });
+    const basics = bot.readiness(faqs, 1, fields).checks.find((c) => c.key === 'profile');
+    // mapsUrl is optional and does not block the step; two industry fields stay empty.
+    expect(basics).toEqual({ key: 'profile', done: true, detail: '3' });
+    expect(bot.readiness(faqs, 1, fields).ready).toBe(true);
+  });
+
+  it('readiness still lists placeholders of the greeting for old bots, read-only', () => {
     const bot = Bot.create({ workspaceId: ws, name: 'b', industry: 'retail' });
-    const faqs = packFor('retail').faqs.map((f) => f.answer);
-    const before = bot.readiness(faqs, 0);
-    expect(before.ready).toBe(false);
-    expect(before.missing).toEqual(
-      expect.arrayContaining(['store.name', 'store.address', 'store.hours', 'shipping.policy']),
-    );
-    const values = Object.fromEntries(before.missing.map((p) => [p, `value of ${p}`]));
-    bot.updateSettings({ placeholders: values });
-    const after = bot.readiness(faqs, 1);
-    expect(after.missing).toEqual([]);
-    expect(after.ready).toBe(true);
+    const r = bot.readiness([], 0, []);
+    expect(r.missing).toEqual(expect.arrayContaining(['store.name']));
+    expect(r.checks.find((c) => c.key === 'profile')?.done).toBe(false);
   });
 
   it('every industry pack ships FAQs whose answers are concrete or placeholders, never empty', () => {

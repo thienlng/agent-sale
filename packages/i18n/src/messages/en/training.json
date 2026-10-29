@@ -22,6 +22,11 @@
       "done": "done",
       "todo": "not done",
       "steps": {
+        "profile": {
+          "title": "Business information.",
+          "body": "Fill in your name, address, hotline and opening hours so the Bot answers with your facts",
+          "missing": "{{count}} details are still empty"
+        },
         "channel": {
           "title": "Connect platforms.",
           "body": "Connect your Bot to Facebook Pages, Instagram, TikTok, Zalo, Lazada"

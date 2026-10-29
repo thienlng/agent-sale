@@ -297,6 +297,7 @@ describe('HTTP: bots and FAQs', () => {
         await inject(a, { method: 'GET', url: `/api/v1/bots/${bot.id}/readiness`, headers: h })
       ).json(),
     );
+    expect(readiness.checks.find((c) => c.key === 'profile')?.done).toBe(false);
     const values = Object.fromEntries(
       readiness.missingPlaceholders.map((p) => [p, `giá trị ${p}`]),
     );
@@ -313,6 +314,23 @@ describe('HTTP: bots and FAQs', () => {
       ).json(),
     );
     expect(after.missingPlaceholders).toEqual([]);
+    const profilePatch = await inject(a, {
+      method: 'PATCH',
+      url: `/api/v1/bots/${bot.id}`,
+      headers: h,
+      payload: {
+        settings: {
+          profile: { fields: { displayName: 'A', address: 'B', hotline: 'C', hours: 'D' } },
+        },
+      },
+    });
+    expect(profilePatch.statusCode).toBe(200);
+    const filled = BotReadiness.parse(
+      (
+        await inject(a, { method: 'GET', url: `/api/v1/bots/${bot.id}/readiness`, headers: h })
+      ).json(),
+    );
+    expect(filled.checks.find((c) => c.key === 'profile')?.done).toBe(true);
     expect(after.checks.find((c) => c.key === 'channel')?.done).toBe(false);
   });
 

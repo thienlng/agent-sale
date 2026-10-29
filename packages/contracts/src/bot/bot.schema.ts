@@ -115,12 +115,17 @@ export const UpdateBotRequest = z.object({
 });
 export type UpdateBotRequest = z.infer<typeof UpdateBotRequest>;
 
-/** Onboarding checklist (docs/02 BOT-04): what is still missing before the bot can go live. */
+/**
+ * Onboarding checklist (docs/02 BOT-04): what is still missing before the bot can go live.
+ * The `profile` check is done when the basic business fields are filled; its `detail` is the
+ * number of the industry's profile fields still empty. `missingPlaceholders` is read-only and
+ * deprecated: it only reports old placeholders for one release.
+ */
 export const BotReadiness = z.object({
   ready: z.boolean(),
   checks: z.array(
     z.object({
-      key: z.enum(['mission', 'faq', 'placeholders', 'channel']),
+      key: z.enum(['mission', 'faq', 'profile', 'channel']),
       done: z.boolean(),
       detail: z.string().optional(),
     }),

@@ -142,8 +142,8 @@
     "mission": "Mô tả nhiệm vụ của bot",
     "missionDetail": "Viết ít nhất 20 ký tự về việc bot cần làm.",
     "faq": "Có ít nhất một câu hỏi thường gặp",
-    "placeholders": "Điền thông tin cửa hàng",
-    "placeholdersDetail": "Còn {{count}} thông tin chưa điền, bot sẽ không dùng các câu trả lời có chỗ trống.",
+    "profile": "Thông tin doanh nghiệp",
+    "profileDetail": "Còn {{count}} thông tin chưa điền, bot sẽ nói là chưa có thông tin khi khách hỏi.",
     "channel": "Kết nối một kênh chat",
     "channelDetail": "Facebook, Zalo và website sẽ có ở bản tiếp theo.",
     "go": "Làm ngay"

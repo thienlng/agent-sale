@@ -88,7 +88,7 @@ export class PlaygroundService implements AiFacade {
     @Inject(TRAINING_FACADE) @Optional() private readonly training?: TrainingFacade,
     @Inject(CATALOG_FACADE) @Optional() private readonly catalog?: CatalogFacade,
     @Inject(ACTION_FACADE) @Optional() private readonly actions?: ActionFacade,
-    @Inject(PROMPT_VERSION_OPTION) @Optional() promptVersion: 8 | 9 = 8,
+    @Inject(PROMPT_VERSION_OPTION) @Optional() promptVersion: 8 | 9 = 9,
   ) {
     this.#prompt = promptVersion === 9 ? PROMPT_V9 : PROMPT_V8;
   }

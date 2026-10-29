@@ -92,6 +92,11 @@ export function SetupGuide({
                   <span className="block text-sm text-muted-foreground">
                     {t(`space.home.steps.${step.key}.body`)}
                   </span>
+                  {step.emptyCount ? (
+                    <span className="block text-sm text-muted-foreground">
+                      {t('space.home.steps.profile.missing', { count: step.emptyCount })}
+                    </span>
+                  ) : null}
                 </span>
                 <ChevronRight aria-hidden className="size-4 shrink-0 text-muted-foreground" />
               </Link>

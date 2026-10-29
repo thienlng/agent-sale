@@ -142,8 +142,8 @@
     "mission": "Describe the bot's job",
     "missionDetail": "Write at least 20 characters about what the bot should do.",
     "faq": "Add at least one FAQ",
-    "placeholders": "Fill in your store details",
-    "placeholdersDetail": "{{count}} details are empty; answers that need them won't be used.",
+    "profile": "Business information",
+    "profileDetail": "{{count}} details are empty; the bot will say it has no information when asked.",
     "channel": "Connect a chat channel",
     "channelDetail": "Facebook, Zalo and website come in the next release.",
     "go": "Do it now"

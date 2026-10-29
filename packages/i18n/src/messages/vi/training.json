@@ -22,6 +22,11 @@
       "done": "đã hoàn thành",
       "todo": "chưa hoàn thành",
       "steps": {
+        "profile": {
+          "title": "Thông tin doanh nghiệp.",
+          "body": "Điền tên, địa chỉ, hotline và giờ mở cửa để Bot trả lời đúng thông tin của bạn",
+          "missing": "Còn {{count}} thông tin chưa điền"
+        },
         "channel": {
           "title": "Tích hợp nền tảng.",
           "body": "Kết nối Bot của bạn với Fanpage Facebook, Instagram, TikTok, Zalo, Lazada"
