@@ -1,3 +1,4 @@
+import { REQUIRED_PROFILE_FIELDS } from '@agent-sales/contracts';
 import { newId, placeholdersIn, type WorkspaceId } from '@agent-sales/shared';
 
 import type { BotSettingsData, IndustryKey } from './bot-settings.js';
@@ -20,9 +21,6 @@ export interface ReadinessCheck {
   done: boolean;
   detail?: string;
 }
-
-/** Basic profile fields every bot needs before going live (`mapsUrl` is optional). */
-const REQUIRED_PROFILE_FIELDS = ['displayName', 'address', 'hotline', 'hours'] as const;
 
 function validName(name: string): string {
   const n = name.trim();
@@ -114,7 +112,7 @@ export class Bot {
   readiness(
     faqAnswers: readonly string[],
     channels: number,
-    profileFieldKeys: readonly string[] = [],
+    profileFieldKeys: readonly string[],
   ): { ready: boolean; checks: ReadinessCheck[]; missing: string[] } {
     const missing = this.missingPlaceholders(faqAnswers);
     // An FAQ whose answer still has an unfilled placeholder is never used by the bot: not counted.

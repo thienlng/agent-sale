@@ -91,18 +91,18 @@ describe('Bot aggregate', () => {
   it('the faq check counts only FAQs without an unfilled placeholder', () => {
     const bot = Bot.create({ workspaceId: ws, name: 'b', industry: 'retail' });
     const faq = (r: ReturnType<Bot['readiness']>) => r.checks.find((c) => c.key === 'faq');
-    expect(faq(bot.readiness(['Hotline {{store.hotline}}'], 0))).toEqual({
+    expect(faq(bot.readiness(['Hotline {{store.hotline}}'], 0, []))).toEqual({
       key: 'faq',
       done: false,
       detail: '0 FAQ',
     });
     bot.updateSettings({ placeholders: { 'store.hotline': '0901234567' } });
-    expect(faq(bot.readiness(['Hotline {{store.hotline}}', 'Giờ mở cửa 8h'], 0))).toEqual({
+    expect(faq(bot.readiness(['Hotline {{store.hotline}}', 'Giờ mở cửa 8h'], 0, []))).toEqual({
       key: 'faq',
       done: true,
       detail: '2 FAQ',
     });
-    expect(faq(bot.readiness(['Giá {{x.y}}', 'Giờ mở cửa 8h'], 0))?.detail).toBe('1 FAQ');
+    expect(faq(bot.readiness(['Giá {{x.y}}', 'Giờ mở cửa 8h'], 0, []))?.detail).toBe('1 FAQ');
   });
 
   it('every industry pack seeds only placeholder-free greetings and FAQs', () => {

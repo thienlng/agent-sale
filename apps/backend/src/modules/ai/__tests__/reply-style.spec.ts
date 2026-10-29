@@ -7,6 +7,7 @@ const base = {
   tone: 'friendly',
   allowEmoji: false,
   creativity: 'balanced',
+  language: 'en',
 } as const;
 
 describe('replyStyle', () => {

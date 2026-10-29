@@ -1,4 +1,4 @@
-import { profileFieldsFor } from '@agent-sales/contracts';
+import { profileFieldsFor, REQUIRED_PROFILE_FIELDS } from '@agent-sales/contracts';
 
 /**
  * The bot home's onboarding steps, in the order a new owner should do them:
@@ -48,9 +48,6 @@ export function setupSteps(input: SetupInput): SetupStep[] {
     ...(key === 'profile' ? { emptyCount: input.profile.emptyCount } : {}),
   }));
 }
-
-/** Basic fields every bot needs before going live; `mapsUrl` stays optional. */
-const REQUIRED_PROFILE_FIELDS = ['displayName', 'address', 'hotline', 'hours'];
 
 /** Completeness of the business profile: basics filled, and how many industry fields are empty. */
 export function profileProgress(

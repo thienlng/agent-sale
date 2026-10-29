@@ -92,6 +92,9 @@ export const PROFILE_FIELDS: readonly ProfileFieldDef[] = [
 ];
 
 /** Fields shown for an industry: the basic group first, then its own. Unknown industry: basic only. */
+/** Basic fields every bot needs before going live (`mapsUrl` stays optional). */
+export const REQUIRED_PROFILE_FIELDS = ['displayName', 'address', 'hotline', 'hours'] as const;
+
 export function profileFieldsFor(industryKey: string): ProfileFieldDef[] {
   return PROFILE_FIELDS.filter(
     (f) =>

@@ -35,7 +35,7 @@ export function replyStyle(bot: {
   tone: ReplyTone;
   allowEmoji: boolean;
   creativity: Creativity;
-  language?: 'vi' | 'en';
+  language: 'vi' | 'en';
 }): string {
   return [
     LENGTH[bot.replyLength],
