@@ -5,7 +5,6 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 ## In progress
 
 - [ ] T-133 Remove pages from platform integrations — @agent:claude · [details](todo/T-133-remove-pages-from-platform-integrations.md)
-- [ ] T-132 Filter the inbox by bot and activity time and drop saved filters — @agent:claude · [details](todo/T-132-filter-the-inbox-by-bot-and-activity-time-and-drop.md)
 - [ ] T-112 Move product management to its own top-level navigation group — @agent:claude · [details](todo/T-112-move-product-management-to-its-own-top-level-navig.md) · PR #83
 - [ ] T-114 Clean up bot navigation: hide the image library and rename channel integrations — @agent:claude · [details](todo/T-114-clean-up-bot-navigation-hide-the-image-library-and.md) · PR #83
 - [ ] T-113 Show per-bot statistics on the bot training home — @agent:claude · [details](todo/T-113-show-per-bot-statistics-on-the-bot-training-home.md) · PR #83
@@ -71,6 +70,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## Done (last 10 — older ones live in todo/done/)
 
+- [x] T-132 Filter the inbox by bot and activity time and drop saved filters — @agent:claude · [details](todo/done/T-132-filter-the-inbox-by-bot-and-activity-time-and-drop.md) · main ff5a996
 - [x] T-078 Add account persistence and bot attribution with safe backfills — @agent:claude · [details](todo/done/T-078-add-account-business-and-shop-persistence-with-saf.md) · PR #82
 - [x] T-077 Define account business ownership and migration contracts — @agent:claude · [details](todo/done/T-077-define-account-business-shop-ownership-and-migrati.md) · PR #82
 - [x] T-123 Switch the site and dashboard typography to Space Grotesk with JetBrains Mono accents — @agent:claude · [details](todo/done/T-123-switch-the-site-and-dashboard-typography-to-space-.md) · main

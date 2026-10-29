@@ -1,7 +1,7 @@
 ---
 id: T-132
 title: Filter the inbox by bot and activity time and drop saved filters
-status: in-progress
+status: done
 type: feature
 priority: P1
 owner: '@agent:claude'
@@ -39,12 +39,12 @@ Sales staff can narrow the inbox to one bot and to a last-activity window, and t
 
 ## Acceptance criteria
 
-- [ ] Choosing a bot lists only conversations whose current bot is that bot; "no bot" lists those without one; counts match the list.
-- [ ] Time presets and a custom range list only conversations whose last activity falls in the window (local day boundaries); an inverted range is rejected by the API and cannot be applied in the UI.
-- [ ] The saved-filters control and its storage code are gone; nothing else references them.
-- [ ] Unit tests (domain filter, contract, web list state and popover) and the store integration test cover the new filters; `pnpm check` green.
-- [ ] Independent QA review done and its findings resolved.
-- [ ] Docs updated (inbox API filters).
+- [x] Choosing a bot lists only conversations whose current bot is that bot; "no bot" lists those without one; counts match the list.
+- [x] Time presets and a custom range list only conversations whose last activity falls in the window (local day boundaries); an inverted range is rejected by the API and cannot be applied in the UI.
+- [x] The saved-filters control and its storage code are gone; nothing else references them.
+- [x] Unit tests (domain filter, contract, web list state and popover) and the store integration test cover the new filters; `pnpm check` green.
+- [x] Independent QA review done and its findings resolved.
+- [x] Docs updated (inbox API filters).
 
 ## Plan
 
@@ -58,6 +58,8 @@ Sales staff can narrow the inbox to one bot and to a last-activity window, and t
 - 2026-10-29 — created from owner feedback; branch from `origin/main` a354c32 in a temporary worktree.
 - 2026-10-29 — Contract red→green (inverted/empty window, local timestamps, unknown bot values rejected). Backend: domain filter + SQL (`bot_id`, `updated_at` range); `inbox-v2.spec` 58/58; store integration (Testcontainers Postgres) 11/11, including SQL-vs-reference for `botId` none/unknown/real bot and time windows. Web: list state red→green (19/19), popover/chips/page tests; conversation feature 224/224. Saved views removed (component, hook, tests, i18n keys, e2e, screenshot); docs 18 / meta-inbox / BA doc record the owner's decision. Production-build e2e `inbox-sales.spec.ts` 11/11 with a new bot+yesterday case asserting the server query.
 - 2026-10-29 — Independent QA review (fresh agent): no blockers. Fixed: typed years before 1970 rejected (`new Date(26,…)` meant 1926); documented the midnight query-key rollover (lead alerts re-prime without alerting, verified in `use-lead-alerts.ts`). Accepted as is: typed future dates (empty list), "unknown" bot chip while `/bots` loads, dated 2026-10-25 runbook still mentions saved views. First `pnpm check`: everything green except one timeout in the untouched `message-composer.test.tsx` under host load ~8; that file passed 3/3 alone.
+
+- 2026-10-29 — Landed on main (ff5a996) by the owner after green `pnpm check`, QA review and production e2e.
 
 ## Links
 
