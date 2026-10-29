@@ -1,7 +1,7 @@
 ---
 id: T-140
 title: Split reply guidance into personality, situations and system rules
-status: review
+status: done
 type: feature
 priority: P1
 owner: @agent:claude
@@ -9,7 +9,7 @@ feature_ids: []
 created: 2026-10-29
 updated: 2026-10-29
 branch: feat/T-137-bot-profile
-pr:
+pr: main c0507f4
 parent: T-137
 ---
 
@@ -46,6 +46,8 @@ Fourth task of the bot-training redesign (docs/superpowers/specs/2026-10-29-bot-
 
 - 2026-10-29 — created; implemented. `instruction-cards.tsx` removed.
 - 2026-10-29 — Final fix wave: history view labels profile, replyLength, tone and allowEmoji (option labels, on/off) and renders a profile change per changed key instead of [object Object]; personality card `set()` uses functional setState.
+
+- 2026-10-29 — Landed on main c0507f4 after independent review and the branch gate (pnpm check green; load-induced timeouts in untouched suites passed when rerun alone). Closed.
 
 ## Links
 

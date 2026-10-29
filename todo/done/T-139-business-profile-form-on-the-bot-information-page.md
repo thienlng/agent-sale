@@ -1,7 +1,7 @@
 ---
 id: T-139
 title: Business profile form on the bot information page
-status: review
+status: done
 type: feature
 priority: P1
 owner: @agent:claude
@@ -9,7 +9,7 @@ feature_ids: []
 created: 2026-10-29
 updated: 2026-10-29
 branch: feat/T-137-bot-profile
-pr:
+pr: main c0507f4
 parent: T-137
 ---
 
@@ -44,6 +44,8 @@ The "Thông tin doanh nghiệp" page shows the profile form (basic, industry, no
 ## Log
 
 - 2026-10-29 — created; implemented. Layout: profile card (basic, industry, notes, Save) then the FAQ table.
+
+- 2026-10-29 — Landed on main c0507f4 after independent review and the branch gate (pnpm check green; load-induced timeouts in untouched suites passed when rerun alone). Closed.
 
 ## Links
 

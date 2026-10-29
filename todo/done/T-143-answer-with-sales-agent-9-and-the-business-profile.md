@@ -1,7 +1,7 @@
 ---
 id: T-143
 title: Answer with sales-agent@9 and the business profile
-status: review
+status: done
 type: feat
 priority: P1
 owner: @agent:claude
@@ -9,7 +9,7 @@ feature_ids: []
 created: 2026-10-29
 updated: 2026-10-29
 branch: feat/T-137-bot-profile
-pr:
+pr: main c0507f4
 parent: T-137
 ---
 
@@ -44,6 +44,8 @@ Flip the default; fix fixtures lacking a profile; swap the readiness check key a
 
 - 2026-10-29 — implemented. Verified with the dev-fake provider inside the playground specs only. Live-model evals were NOT run (no eval runner, T-007). The backfill dry run on the dev database is left to the controller/owner.
 - 2026-10-29 — Final fix wave: profile fields and notes are trusted text for the number guardrail (decide); prompt @9 unknown rule no longer suppresses answers present in other blocks; Vietnamese polite register and the no-wait rule restored in the style line; e2e readiness mock uses the profile check.
+
+- 2026-10-29 — Landed on main c0507f4 after independent review and the branch gate (pnpm check green; load-induced timeouts in untouched suites passed when rerun alone). Closed.
 
 ## Links
 

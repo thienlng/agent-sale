@@ -1,7 +1,7 @@
 ---
 id: T-142
 title: Let another business connect a removed page
-status: review
+status: done
 type: feature
 priority: P1
 owner: '@agent:claude'
@@ -9,7 +9,7 @@ feature_ids: []
 created: 2026-10-29
 updated: 2026-10-29
 branch: feat/T-142-page-reconnect
-pr:
+pr: main c0507f4
 parent: T-133
 ---
 
@@ -46,6 +46,8 @@ A page removed in business A can be connected in business B as a new row; A keep
 - 2026-10-29 — created. RED: two new store tests failed with the old constraint. GREEN after implementation (store integration 15/15, ingress integration 5/5).
 - Migration is backward compatible: the old constraint guaranteed at most one row per (provider, external_id), so the partial unique index cannot fail to build.
 - 2026-10-29 — Final fix wave: migration 0034 uses DROP CONSTRAINT IF EXISTS; deploy order documented (run migration 0034 before starting the new API; old instances fail page connects after the constraint drop) in docs/meta-inbox.md.
+
+- 2026-10-29 — Landed on main c0507f4 after independent review and the branch gate (pnpm check green; load-induced timeouts in untouched suites passed when rerun alone). Closed.
 
 ## Links
 

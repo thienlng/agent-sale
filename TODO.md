@@ -4,19 +4,6 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
-- [ ] T-144 Create businesses from the selector, simplify business settings, fix the settings tab arrows — @agent:claude · [details](todo/T-144-create-businesses-and-simplify-business-settings.md)
-- [ ] T-142 Let another business connect a removed page — @agent:claude · [details](todo/T-142-let-another-business-connect-a-removed-page.md)
-- [ ] T-143 Answer with sales-agent@9 and the business profile — @agent:claude · [details](todo/T-143-answer-with-sales-agent-9-and-the-business-profile.md)
-- [ ] T-122 Fix the responsive layout-preference e2e that times out on main — @agent:claude · [details](todo/T-122-fix-the-responsive-layout-preference-e2e-that-time.md)
-- [ ] T-141 Backfill bot profiles from placeholders and drop untouched seed content — @agent:claude · [details](todo/T-141-backfill-bot-profiles-from-placeholders.md)
-- [ ] T-140 Split reply guidance into personality, situations and system rules — @agent:claude · [details](todo/T-140-split-reply-guidance-into-personality-and-situations.md)
-- [ ] T-139 Business profile form on the bot information page — @agent:claude · [details](todo/T-139-business-profile-form-on-the-bot-information-page.md)
-- [ ] T-138 Render the business profile and reply style for the model; prompt sales-agent@9 — @agent:claude · [details](todo/T-138-render-the-business-profile-for-the-model.md)
-- [ ] T-137 Store a structured business profile and reply style per bot — @agent:claude · [details](todo/T-137-store-a-structured-business-profile-per-bot.md)
-- [ ] T-136 Prefer the Facebook full display name for inbox customers — @agent:claude · [details](todo/T-136-prefer-the-facebook-full-display-name-for-customers.md)
-- [ ] T-135 Normalize escaped line breaks in generated sales replies — @agent:claude · [details](todo/T-135-normalize-escaped-line-breaks-in-generated-sales-replies.md)
-- [ ] T-134 Route dashboard hot reload WebSockets to the web server — @agent:claude · [details](todo/T-134-route-dashboard-hot-reload-websockets-to-the-web-s.md)
-- [ ] T-133 Remove pages from platform integrations — @agent:claude · [details](todo/T-133-remove-pages-from-platform-integrations.md)
 - [ ] T-112 Move product management to its own top-level navigation group — @agent:claude · [details](todo/T-112-move-product-management-to-its-own-top-level-navig.md) · PR #83
 - [ ] T-114 Clean up bot navigation: hide the image library and rename channel integrations — @agent:claude · [details](todo/T-114-clean-up-bot-navigation-hide-the-image-library-and.md) · PR #83
 - [ ] T-113 Show per-bot statistics on the bot training home — @agent:claude · [details](todo/T-113-show-per-bot-statistics-on-the-bot-training-home.md) · PR #83
@@ -81,14 +68,13 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## Done (last 10 — older ones live in todo/done/)
 
-- [x] T-132 Filter the inbox by bot and activity time and drop saved filters — @agent:claude · [details](todo/done/T-132-filter-the-inbox-by-bot-and-activity-time-and-drop.md) · main ff5a996
-- [x] T-078 Add account persistence and bot attribution with safe backfills — @agent:claude · [details](todo/done/T-078-add-account-business-and-shop-persistence-with-saf.md) · PR #82
-- [x] T-077 Define account business ownership and migration contracts — @agent:claude · [details](todo/done/T-077-define-account-business-shop-ownership-and-migrati.md) · PR #82
-- [x] T-123 Switch the site and dashboard typography to Space Grotesk with JetBrains Mono accents — @agent:claude · [details](todo/done/T-123-switch-the-site-and-dashboard-typography-to-space-.md) · main
-- [x] T-121 Move the marketing site into apps/site and link it with the dashboard — @agent:claude · [details](todo/done/T-121-move-the-marketing-site-into-apps-site-and-link-it.md) · main 1620f83
-- [x] T-120 Move the account menu to the header as a compact Facebook-style panel — @agent:claude · [details](todo/done/T-120-move-the-account-menu-to-the-header-as-a-compact-f.md) · main 1620f83
-- [x] T-118 Split responsive route coverage into independently timed cases — @agent:codex · [details](todo/done/T-118-split-responsive-route-coverage-into-independently.md) · PR #77
-- [x] T-117 Reconcile lane B delivery and remaining integration dependencies — @agent:codex · [details](todo/done/T-117-reconcile-lane-b-delivery-and-remaining-integratio.md) · PR #77
-- [x] T-110 Require settings.manage to change fanpage comment automation settings — @agent:codex · [details](todo/done/T-110-require-settings-manage-to-change-fanpage-comment-.md) · PR #77
-- [x] T-076 Reduce integration initial bundle below 250 KB — @agent:codex · [details](todo/done/T-076-reduce-integration-initial-bundle-below-250-kb.md) · PR #64
-- [x] T-083 Move fanpage management into the bot workspace navigation — @agent:codex · [details](todo/done/T-083-move-fanpage-management-into-the-bot-workspace-nav.md) · PR #64
+- [x] T-144 Create businesses from the selector, simplify business settings, fix the settings tab arrows — @agent:claude · [details](todo/done/T-144-create-businesses-and-simplify-business-settings.md) · main 7895167
+- [x] T-143 Answer with sales-agent@9 and the business profile — @agent:claude · [details](todo/done/T-143-answer-with-sales-agent-9-and-the-business-profile.md) · main c0507f4
+- [x] T-142 Let another business connect a removed page — @agent:claude · [details](todo/done/T-142-let-another-business-connect-a-removed-page.md) · main c0507f4
+- [x] T-141 Backfill bot profiles from placeholders and drop untouched seed content — @agent:claude · [details](todo/done/T-141-backfill-bot-profiles-from-placeholders.md) · main c0507f4
+- [x] T-140 Split reply guidance into personality, situations and system rules — @agent:claude · [details](todo/done/T-140-split-reply-guidance-into-personality-and-situations.md) · main c0507f4
+- [x] T-139 Business profile form on the bot information page — @agent:claude · [details](todo/done/T-139-business-profile-form-on-the-bot-information-page.md) · main c0507f4
+- [x] T-138 Render the business profile and reply style for the model; prompt sales-agent@9 — @agent:claude · [details](todo/done/T-138-render-the-business-profile-for-the-model.md) · main c0507f4
+- [x] T-137 Store a structured business profile and reply style per bot — @agent:claude · [details](todo/done/T-137-store-a-structured-business-profile-per-bot.md) · main c0507f4
+- [x] T-136 Prefer the Facebook full display name for inbox customers — @agent:claude · [details](todo/done/T-136-prefer-the-facebook-full-display-name-for-customers.md) · main c0507f4
+- [x] T-135 Normalize escaped line breaks in generated sales replies — @agent:claude · [details](todo/done/T-135-normalize-escaped-line-breaks-in-generated-sales-replies.md) · main c0507f4

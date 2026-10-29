@@ -1,7 +1,7 @@
 ---
 id: T-134
 title: Route dashboard hot reload WebSockets to the web server
-status: in-progress
+status: done
 type: bug
 priority: P1
 owner: '@agent:claude'
@@ -9,7 +9,7 @@ feature_ids: []
 created: 2026-10-29
 updated: 2026-10-29
 branch: fix/T-134-codex-fixes
-pr:
+pr: main c0507f4
 parent:
 ---
 
@@ -59,6 +59,8 @@ Preserve normal landing/API routing while forwarding Vite HMR WebSocket upgrades
 - 2026-10-29 — Ported to main by @agent:claude from the Codex WIP snapshot 8bdcc26 (branch `fix/T-126-web-acceptance`). Renumbered from the local T-127, which collides with the account lane's T-127; "T-126" in the entries above means that local acceptance task, not the account lane's T-126. Proxy protocol test rerun on main.
 
 - 2026-10-29 — QA review: Vite also opens a `vite-ping` WebSocket at the root while it reconnects (vite 8.3.5 `client.mjs`); the proxy now routes it to the web dev server too. Red → green: proxy protocol test 7/7.
+
+- 2026-10-29 — Landed on main c0507f4 after independent review and the branch gate (pnpm check green; load-induced timeouts in untouched suites passed when rerun alone). Closed.
 
 ## Links
 

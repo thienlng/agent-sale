@@ -1,7 +1,7 @@
 ---
 id: T-137
 title: Store a structured business profile and reply style per bot
-status: review
+status: done
 type: feature
 priority: P1
 owner: @agent:claude
@@ -9,7 +9,7 @@ feature_ids: []
 created: 2026-10-29
 updated: 2026-10-29
 branch: feat/T-137-bot-profile
-pr:
+pr: main c0507f4
 parent:
 ---
 
@@ -45,6 +45,8 @@ Each bot stores a structured, industry-aware business profile plus reply length,
 
 - 2026-10-29 — created and implemented.
 - 2026-10-29 — Final fix wave: Industry enum moved to its own module (breaks the contracts import cycle); new bots seed placeholder-free greetings and FAQs; the readiness FAQ check counts only answerable FAQs; restoring a profile history entry restores only the keys (and notes) that entry changed.
+
+- 2026-10-29 — Landed on main c0507f4 after independent review and the branch gate (pnpm check green; load-induced timeouts in untouched suites passed when rerun alone). Closed.
 
 ## Links
 

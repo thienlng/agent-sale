@@ -1,7 +1,7 @@
 ---
 id: T-141
 title: Backfill bot profiles from placeholders and drop untouched seed content
-status: review
+status: done
 type: chore
 priority: P1
 owner: @agent:claude
@@ -9,7 +9,7 @@ feature_ids: []
 created: 2026-10-29
 updated: 2026-10-29
 branch: feat/T-137-bot-profile
-pr:
+pr: main c0507f4
 parent: T-137
 ---
 
@@ -45,6 +45,8 @@ Frozen legacy copies inside packages/db (it must not import apps/backend); follo
 
 - 2026-10-29 — created; implemented with a Testcontainers integration test.
 - 2026-10-29 — Final fix wave: backfill skips (and reports as fieldsSkippedTooLong) placeholder values longer than the target field limit; docs state that kept placeholder FAQs stop following profile edits and that the backfill writes no history entries.
+
+- 2026-10-29 — Landed on main c0507f4 after independent review and the branch gate (pnpm check green; load-induced timeouts in untouched suites passed when rerun alone). Closed.
 
 ## Links
 

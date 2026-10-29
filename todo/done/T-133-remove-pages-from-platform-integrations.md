@@ -1,7 +1,7 @@
 ---
 id: T-133
 title: Remove pages from platform integrations
-status: in-progress
+status: done
 type: feature
 priority: P1
 owner: '@agent:claude'
@@ -9,7 +9,7 @@ feature_ids: []
 created: 2026-10-29
 updated: 2026-10-29
 branch: feat/T-133-remove-page
-pr:
+pr: main de04081
 parent:
 ---
 
@@ -34,13 +34,13 @@ Owners can remove Facebook/Instagram pages from the integrations list; removal i
 
 ## Acceptance criteria
 
-- [ ] `DELETE /channels/{id}` needs `settings.manage`, is tenant scoped (other workspace -> 404), returns 204.
-- [ ] A removed connection is hidden from `GET /channels`, has no bot, a wiped token, and is rejected by webhook ingress and `receive`.
-- [ ] Facebook pages are unsubscribed from webhooks on a best effort basis; failures never block removal and log only code/subcode.
-- [ ] OAuth select of the same Page makes the row `connected` again.
-- [ ] UI: row menu "Go trang", bulk "Go trang" with partial-failure retry, confirmation dialog, hidden for users without `settings.manage`.
-- [ ] Tests added/updated and `pnpm check` green
-- [ ] Docs updated (`docs/meta-inbox.md`, channel `MODULE.md`)
+- [x] `DELETE /channels/{id}` needs `settings.manage`, is tenant scoped (other workspace -> 404), returns 204.
+- [x] A removed connection is hidden from `GET /channels`, has no bot, a wiped token, and is rejected by webhook ingress and `receive`.
+- [x] Facebook pages are unsubscribed from webhooks on a best effort basis; failures never block removal and log only code/subcode.
+- [x] OAuth select of the same Page makes the row `connected` again.
+- [x] UI: row menu "Go trang", bulk "Go trang" with partial-failure retry, confirmation dialog, hidden for users without `settings.manage`.
+- [x] Tests added/updated and `pnpm check` green
+- [x] Docs updated (`docs/meta-inbox.md`, channel `MODULE.md`)
 
 ## Plan
 
@@ -59,6 +59,8 @@ Data-model choice: a new `removed` status instead of a `removed_at` column. Ever
 
 - 2026-10-29 — Root review: migration renumbered 0029 → 0033 because the open lane A2/A3 branches already use 0029–0032 (runner tracks files by name, so out-of-order application is safe).
 - 2026-10-29 — Independent QA review: no blockers; fixed every should-fix. (1) Inbox reads `GET /channels?includeRemoved=true` under its own query key so old conversations keep the page name; the page filter leaves removed pages out; the thread shows a "page removed" notice and locks the composer. (2) `deliver` on a removed page fails with `page_removed`, not `reauth_required`. (3) Runtime 403 test: a `sales` member gets 403 from the global guard and the page stays (replaces the metadata-only assertion). (4) Web treats a DELETE 404 (already removed elsewhere) as success — test verified red without the fix. Also: DB write before the Meta unsubscribe (token captured first; failed write leaves the page connected and subscribed; tested), doc timeout 5→8 s, MODULE.md migration number, permission comment. Backend channel+HTTP 92/92, store integration 12/12, web conversation+channel 313/313.
+
+- 2026-10-29 — Landed on main de04081 after independent review and the branch gate (pnpm check green; load-induced timeouts in untouched suites passed when rerun alone). Closed.
 
 ## Links
 

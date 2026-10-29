@@ -1,7 +1,7 @@
 ---
 id: T-138
 title: Render the business profile and reply style for the model; prompt sales-agent@9
-status: review
+status: done
 type: feature
 priority: P1
 owner: @agent:claude
@@ -9,7 +9,7 @@ feature_ids: []
 created: 2026-10-29
 updated: 2026-10-29
 branch: feat/T-137-bot-profile
-pr:
+pr: main c0507f4
 parent: T-137
 ---
 
@@ -46,6 +46,8 @@ Prompt `sales-agent@9` and the `<business_profile>` block, behind a `promptVersi
 
 - 2026-10-29 — created; implemented. Prompt evals (Rule 05) not run here; @9 is not the default yet.
 - 2026-10-29 — Final fix wave: the FAQ table badge for an FAQ with unfilled placeholders now reads "Bot không dùng câu này — hãy sửa câu trả lời"; the profile history view renders one line per changed key; personality card uses functional setState.
+
+- 2026-10-29 — Landed on main c0507f4 after independent review and the branch gate (pnpm check green; load-induced timeouts in untouched suites passed when rerun alone). Closed.
 
 ## Links
 
