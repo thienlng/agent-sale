@@ -22,6 +22,45 @@ describe('parseModelReply', () => {
       value: valid,
     });
   });
+  describe('literal "\n" in the customer reply (T-135)', () => {
+    const parse = (reply: string) => parseModelReply(JSON.stringify({ ...valid, reply }));
+    const replyOf = (reply: string) => {
+      const parsed = parse(reply);
+      return parsed.ok ? parsed.value.reply : null;
+    };
+    it('turns every stand-alone literal \n into a line break, wherever the model put it', () => {
+      expect(replyOf('Dạ shop còn mẫu này ạ.\\nAnh/chị đi size bao nhiêu ạ?')).toBe(
+        'Dạ shop còn mẫu này ạ.\nAnh/chị đi size bao nhiêu ạ?',
+      );
+      // Vietnamese replies often end a line with "ạ", an emoji or a lowercase start.
+      expect(replyOf('Dạ còn ạ\\nanh/chị cần size nào ạ')).toBe('Dạ còn ạ\nanh/chị cần size nào ạ');
+      expect(replyOf('Dạ em chào anh 😊\\n\\nShop có ạ')).toBe('Dạ em chào anh 😊\n\nShop có ạ');
+      expect(replyOf('Dạ\\r\\nVâng ạ')).toBe('Dạ\nVâng ạ');
+    });
+    it('still converts when the reply quotes a product name', () => {
+      expect(replyOf('Dạ mẫu "Áo thun basic" còn ạ.\\nAnh/chị lấy màu gì ạ?')).toBe(
+        'Dạ mẫu "Áo thun basic" còn ạ.\nAnh/chị lấy màu gì ạ?',
+      );
+    });
+    it('keeps real line breaks and an escaped backslash before n', () => {
+      expect(replyOf('Dòng một\nDòng hai')).toBe('Dòng một\nDòng hai');
+      expect(replyOf(String.raw`Ký hiệu \\n giữ nguyên`)).toBe(String.raw`Ký hiệu \\n giữ nguyên`);
+    });
+    it('leaves code and Windows paths untouched', () => {
+      for (const reply of [
+        'Dạ ví dụ: `printf("a\\nb")` ạ',
+        '```js\nconst s = "a\\nb";\n```',
+        String.raw`Dùng C:\new\folder ạ`,
+      ])
+        expect(replyOf(reply)).toBe(reply);
+    });
+    it('stays linear on long input', () => {
+      const reply = `${'\\n'.repeat(5_000)}x`;
+      const started = performance.now();
+      expect(replyOf(reply)).toBe(`${'\n'.repeat(5_000)}x`);
+      expect(performance.now() - started).toBeLessThan(200);
+    });
+  });
   it('names the rejection category without echoing the text', () => {
     expect(parseModelReply('  ')).toEqual({ ok: false, reason: 'empty' });
     expect(parseModelReply('not json')).toEqual({ ok: false, reason: 'not_json' });

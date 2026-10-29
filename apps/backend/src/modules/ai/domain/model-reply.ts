@@ -54,10 +54,22 @@ export function parseModelReply(text: string): ParsedModelReply {
       continue;
     }
     const parsed = ModelReply.safeParse(json);
-    if (parsed.success) return { ok: true, value: parsed.data };
+    if (parsed.success)
+      return { ok: true, value: { ...parsed.data, reply: unescapeLineBreaks(parsed.data.reply) } };
     reason = 'schema';
   }
   return { ok: false, reason };
+}
+
+/**
+ * Models sometimes double-escape the line breaks of `reply`, so the customer would read a literal
+ * `\n`. A sales chat reply has no legitimate use for that sequence: every stand-alone `\n` (or
+ * `\r\n`) becomes a line break, while `\\n` (an escaped backslash) stays. Replies with code
+ * (backticks) or a Windows drive path are left as they are. Linear: one regex pass.
+ */
+function unescapeLineBreaks(reply: string): string {
+  if (!reply.includes('\\') || reply.includes('`') || /\b[A-Za-z]:\\/.test(reply)) return reply;
+  return reply.replace(/(?<!\\)\\(?:r\\)?n/g, '\n');
 }
 
 const MAX_PROSE_CHARS = 700;

@@ -4,6 +4,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
+- [ ] T-135 Normalize escaped line breaks in generated sales replies — @agent:claude · [details](todo/T-135-normalize-escaped-line-breaks-in-generated-sales-replies.md)
 - [ ] T-134 Route dashboard hot reload WebSockets to the web server — @agent:claude · [details](todo/T-134-route-dashboard-hot-reload-websockets-to-the-web-s.md)
 - [ ] T-133 Remove pages from platform integrations — @agent:claude · [details](todo/T-133-remove-pages-from-platform-integrations.md)
 - [ ] T-112 Move product management to its own top-level navigation group — @agent:claude · [details](todo/T-112-move-product-management-to-its-own-top-level-navig.md) · PR #83
