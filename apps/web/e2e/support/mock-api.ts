@@ -33,6 +33,7 @@ const settings = {
   modelTier: 'smart',
   language: 'vi',
   placeholders: { 'store.name': LONG, 'store.address': '' },
+  profile: { fields: { displayName: LONG }, notes: '' },
 };
 const bot = {
   id: BOT_ID,
@@ -73,6 +74,8 @@ const json = (body: unknown, status = 200) => ({
 /** A logged-in platform admin with one bot full of long content. */
 export async function mockApi(page: Page) {
   await page.addInitScript(() => localStorage.setItem('rapiz.session', '1'));
+  // The bot is stateful so a PATCH (e.g. the business profile form) survives a reload.
+  const current = structuredClone(bot);
   await page.route('**/api/v1/**', (route) => {
     const path = new URL(route.request().url()).pathname.replace('/api/v1', '');
     if (path === '/auth/refresh')
@@ -92,9 +95,19 @@ export async function mockApi(page: Page) {
       );
     if (path === '/bots')
       return route.fulfill(
-        json({ data: [bot, { ...bot, id: `${BOT_ID.slice(0, -1)}1`, isActive: false }] }),
+        json({ data: [current, { ...current, id: `${BOT_ID.slice(0, -1)}1`, isActive: false }] }),
       );
-    if (path === `/bots/${BOT_ID}`) return route.fulfill(json(bot));
+    if (path === `/bots/${BOT_ID}` && route.request().method() === 'PATCH') {
+      const patch = route.request().postDataJSON()?.settings?.profile ?? {};
+      const profile = current.settings.profile;
+      for (const [key, v] of Object.entries<string>(patch.fields ?? {})) {
+        if (v === '') delete (profile.fields as Record<string, string>)[key];
+        else (profile.fields as Record<string, string>)[key] = v;
+      }
+      if (typeof patch.notes === 'string') profile.notes = patch.notes;
+      return route.fulfill(json(current));
+    }
+    if (path === `/bots/${BOT_ID}`) return route.fulfill(json(current));
     if (path === `/bots/${BOT_ID}/readiness`)
       return route.fulfill(
         json({
