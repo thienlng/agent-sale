@@ -10,6 +10,7 @@ import type {
 } from '../../application/ports/channel-store.js';
 import { ChannelError } from '../../domain/channel.errors.js';
 import { MAX_EVENT_ATTEMPTS } from '../../api/channel.facade.js';
+import { reviveOwnRemoved } from './revive-removed.js';
 import {
   enqueueWebsiteEvent,
   findWebsiteRecord,
@@ -182,24 +183,33 @@ export class DrizzleChannelStore implements ChannelStore {
       if (!d) throw new ChannelError('NOT_FOUND', 'Discovery expired or already consumed');
       const result: ConnectionRecord[] = [];
       for (const a of accounts) {
-        const [row] = await tx
-          .insert(c)
-          .values({
-            ...a,
-            expiresAt: a.expiresAt ? new Date(a.expiresAt) : null,
-            createdAt: new Date(a.createdAt),
-          })
-          .onConflictDoUpdate({
-            target: [c.provider, c.externalId],
-            set: {
-              tokenSealed: a.tokenSealed,
-              status: 'connected',
-              name: a.name,
-              expiresAt: a.expiresAt ? new Date(a.expiresAt) : null,
-            },
-            setWhere: eq(c.workspaceId, ws),
-          })
-          .returning();
+        const revived = await reviveOwnRemoved(tx, ws, a);
+        if (revived === 'conflict')
+          throw new ChannelError('CONFLICT', 'This account is connected to another workspace');
+        const row =
+          revived ??
+          // Only live rows are unique (0034): a removed row of another business does not block.
+          (
+            await tx
+              .insert(c)
+              .values({
+                ...a,
+                expiresAt: a.expiresAt ? new Date(a.expiresAt) : null,
+                createdAt: new Date(a.createdAt),
+              })
+              .onConflictDoUpdate({
+                target: [c.provider, c.externalId],
+                targetWhere: sql`${c.status} <> 'removed'`,
+                set: {
+                  tokenSealed: a.tokenSealed,
+                  status: 'connected',
+                  name: a.name,
+                  expiresAt: a.expiresAt ? new Date(a.expiresAt) : null,
+                },
+                setWhere: eq(c.workspaceId, ws),
+              })
+              .returning()
+          )[0];
         if (!row)
           throw new ChannelError('CONFLICT', 'This account is connected to another workspace');
         result.push(connection(row));

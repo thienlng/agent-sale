@@ -183,6 +183,51 @@ describe('Soft removal (T-133)', () => {
     expect((await store.list(a)).map((x) => x.id)).toContain(c.id);
   });
 
+  it('lets another business connect a removed page as a new row and keeps the old one removed (T-142)', async () => {
+    const old = await connect(a, 'page-moved');
+    await store.remove(a, old.id, 'sealed-empty');
+    const moved = await connect(b, 'page-moved');
+    expect(moved.id).not.toBe(old.id);
+    expect(moved).toMatchObject({ workspaceId: b, status: 'connected' });
+    expect(await store.get(a, old.id)).toMatchObject({ id: old.id, status: 'removed' });
+    expect((await store.list(b)).map((x) => x.id)).toContain(moved.id);
+    expect((await store.list(a)).map((x) => x.id)).not.toContain(old.id);
+  });
+
+  it('blocks a live page of another business, also after the page moved away and back (T-142)', async () => {
+    const first = await connect(a, 'page-roundtrip');
+    await store.remove(a, first.id, 'sealed-empty');
+    const second = await connect(b, 'page-roundtrip');
+    // Live in b: a cannot take it, and a's removed row must stay removed.
+    await expect(connect(a, 'page-roundtrip')).rejects.toMatchObject({ code: 'CONFLICT' });
+    expect((await store.get(a, first.id))?.status).toBe('removed');
+    // b removes it: a revives its own row (same id), no third row appears.
+    await store.remove(b, second.id, 'sealed-empty');
+    const back = await connect(a, 'page-roundtrip');
+    expect(back.id).toBe(first.id);
+    expect(back.status).toBe('connected');
+    const rows = await owner
+      .select()
+      .from(schema.channelConnections)
+      .where(eq(schema.channelConnections.externalId, 'page-roundtrip'));
+    expect(rows).toHaveLength(2);
+    expect(rows.filter((r) => r.status !== 'removed')).toHaveLength(1);
+  });
+
+  it('makes two live rows for one page impossible in the database (T-142)', async () => {
+    await connect(a, 'page-unique');
+    await expect(
+      owner.insert(schema.channelConnections).values({
+        id: newId(),
+        workspaceId: b,
+        provider: 'facebook',
+        externalId: 'page-unique',
+        name: 'Duplicate',
+        tokenSealed: 'sealed',
+      }),
+    ).rejects.toThrow();
+  });
+
   it('cannot remove another tenant page', async () => {
     const c = await connect(a, 'page-not-yours');
     expect(await store.remove(b, c.id, 'x')).toBeNull();
