@@ -159,7 +159,7 @@
     "answerHint": "Dùng {{example}} để chèn thông tin cửa hàng.",
     "search": "Tìm câu hỏi",
     "count": "{{count}} câu hỏi",
-    "missing": "Thiếu: {{fields}}",
+    "missing": "Bot không dùng câu này — hãy sửa câu trả lời",
     "seed": "Mẫu",
     "edit": "Sửa",
     "delete": "Xóa",

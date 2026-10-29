@@ -159,7 +159,7 @@
     "answerHint": "Use {{example}} to insert a store detail.",
     "search": "Search questions",
     "count": "{{count}} questions",
-    "missing": "Missing: {{fields}}",
+    "missing": "The bot does not use this answer — edit the answer",
     "seed": "Template",
     "edit": "Edit",
     "delete": "Delete",
