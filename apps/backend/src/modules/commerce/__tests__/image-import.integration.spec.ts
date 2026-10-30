@@ -143,4 +143,34 @@ describe('importProductImages', () => {
     await importProductImages(system.db, storage);
     expect((await read(pB)).image_urls[0]).toContain(`/products/${wsB}/`);
   });
+
+  it('keeps a merchant edit made while images were downloading', async () => {
+    const id = newId();
+    const call = (q: ReturnType<typeof sql>) => owner.db.execute(q);
+    await call(sql`insert into products (id, workspace_id, code, name, search_text, image_urls, accommodation)
+      values (${id}, ${wsA}, 'RACE', 'RACE', 'RACE', ${JSON.stringify([`${base}/ok.png`])}::jsonb,
+      ${JSON.stringify({ rooms: 1, gallery: [{ url: `${base}/ok.png`, caption: 'Old' }] })}::jsonb)`);
+    await importProductImages(system.db, storage, {
+      workspaceId: wsA,
+      download: async (url) => {
+        const img = await (
+          await import('../infrastructure/image-import/download-image.js')
+        ).downloadImage(url);
+        // The merchant edits the caption and adds a picture before the import writes.
+        await call(sql`update products set accommodation = ${JSON.stringify({
+          rooms: 1,
+          gallery: [{ url: `${base}/ok.png`, caption: 'Edited' }],
+        })}::jsonb, image_urls = ${JSON.stringify([`${base}/ok.png`, `${MEDIA}/products/${wsA}/new.jpg`])}::jsonb
+          where id = ${id}`);
+        return img;
+      },
+    });
+    const after = await read(id);
+    expect(after.image_urls).toHaveLength(2);
+    expect(after.image_urls[0]).toContain(`/products/${wsA}/`);
+    expect(after.image_urls[0]).not.toContain('127.0.0.1');
+    expect(after.image_urls[1]).toBe(`${MEDIA}/products/${wsA}/new.jpg`);
+    expect(after.accommodation?.gallery[0]?.caption).toBe('Edited');
+    expect(after.accommodation?.gallery[0]?.url).toBe(after.image_urls[0]);
+  });
 });

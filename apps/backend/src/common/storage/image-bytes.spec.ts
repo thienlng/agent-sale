@@ -30,3 +30,9 @@ describe('verifyImageBytes', () => {
     expect(() => verifyImageBytes(new Uint8Array())).toThrow();
   });
 });
+
+describe('sniffImageMime', () => {
+  it('accepts a JPEG by its start marker even with trailing bytes', () => {
+    expect(verifyImageBytes(Uint8Array.from([255, 216, 255, 224, 1, 2, 0, 0]))).toBe('image/jpeg');
+  });
+});

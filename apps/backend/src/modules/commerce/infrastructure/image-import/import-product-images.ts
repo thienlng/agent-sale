@@ -1,9 +1,9 @@
-import { schema, eq, type Database } from '@agent-sales/db';
+import { and, eq, schema, type Database } from '@agent-sales/db';
 import { newId, type WorkspaceId } from '@agent-sales/shared';
 
 import { IMAGE_EXTENSIONS } from '../../../../common/storage/image-bytes.js';
 import type { PublicObjectStorage } from '../../../../common/storage/public-object-storage.js';
-import { classifyImageUrls, rewriteImageUrls } from '../../domain/image-import.js';
+import { allImageUrls, classifyImageUrls, rewriteImageUrls } from '../../domain/image-import.js';
 import { ownImageProblem, ownImagePrefix } from '../../domain/own-image.js';
 import { downloadImage, ImageDownloadError, type DownloadedImage } from './download-image.js';
 
@@ -63,41 +63,61 @@ export async function importProductImages(
     r.found += external.length;
     if (options.dryRun || external.length === 0) continue;
 
-    const replacements = new Map<string, string>();
-    for (const src of external) {
-      const key = `${ws}|${src}`;
-      let result = done.get(key);
-      if (!result) {
-        try {
-          const img = await download(src);
-          const url = await storage.put(
-            `${ownImagePrefix(ws)}${newId()}.${IMAGE_EXTENSIONS[img.mime]}`,
-            img.bytes,
-            img.mime,
-          );
-          result = { url };
-        } catch (e) {
-          result = { reason: e instanceof ImageDownloadError ? e.message : 'storage_error' };
+    const fail = (reason: string) => {
+      r.failed.count += 1;
+      r.failed.reasons[reason] = (r.failed.reasons[reason] ?? 0) + 1;
+    };
+    try {
+      const replacements = new Map<string, string>();
+      for (const src of external) {
+        const key = `${ws}|${src}`;
+        let result = done.get(key);
+        if (!result) {
+          try {
+            const img = await download(src);
+            const url = await storage.put(
+              `${ownImagePrefix(ws)}${newId()}.${IMAGE_EXTENSIONS[img.mime]}`,
+              img.bytes,
+              img.mime,
+            );
+            result = { url };
+          } catch (e) {
+            result = { reason: e instanceof ImageDownloadError ? e.message : 'storage_error' };
+          }
+          done.set(key, result);
         }
-        done.set(key, result);
+        if ('url' in result) replacements.set(src, result.url);
+        else fail(result.reason);
       }
-      if ('url' in result) {
-        replacements.set(src, result.url);
-        r.imported += 1;
-      } else {
-        r.failed.count += 1;
-        r.failed.reasons[result.reason] = (r.failed.reasons[result.reason] ?? 0) + 1;
-      }
-    }
+      if (replacements.size === 0) continue;
 
-    const next = rewriteImageUrls(holder, replacements);
-    if (next) {
-      await db.transaction(async (tx) => {
+      // Downloads can take long: re-read the row under lock and rewrite the fresh values,
+      // so a merchant edit made meanwhile survives.
+      const applied = await db.transaction(async (tx) => {
+        const [fresh] = await tx
+          .select({
+            imageUrls: schema.products.imageUrls,
+            accommodation: schema.products.accommodation,
+          })
+          .from(schema.products)
+          .where(and(eq(schema.products.id, row.id), eq(schema.products.workspaceId, ws)))
+          .for('update');
+        if (!fresh) return 0;
+        const next = rewriteImageUrls(fresh, replacements);
+        if (!next) return 0;
         await tx
           .update(schema.products)
-          .set({ imageUrls: next.imageUrls, accommodation: next.accommodation })
-          .where(eq(schema.products.id, row.id));
+          .set({
+            imageUrls: next.imageUrls,
+            accommodation: next.accommodation,
+            updatedAt: new Date(),
+          })
+          .where(and(eq(schema.products.id, row.id), eq(schema.products.workspaceId, ws)));
+        return allImageUrls(fresh).filter((u) => replacements.has(u)).length;
       });
+      r.imported += applied;
+    } catch {
+      fail('product_error');
     }
   }
   return report;
