@@ -749,6 +749,7 @@
       "imageTooLarge": "This image is too large. Choose a smaller picture.",
       "imageStorageUnavailable": "Image storage is not available right now. Please try again later.",
       "imageUploadFailed": "The image could not be uploaded. Please try again.",
+      "imageNotUploaded": "This product still has a linked image. Remove it and upload the picture instead.",
       "imagesFull": "All image slots are used. Remove one to add another."
     },
     "stock": {

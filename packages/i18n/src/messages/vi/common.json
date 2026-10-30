@@ -748,6 +748,7 @@
       "imageTooLarge": "Ảnh quá lớn. Hãy chọn ảnh nhỏ hơn.",
       "imageStorageUnavailable": "Kho lưu ảnh chưa sẵn sàng. Vui lòng thử lại sau.",
       "imageUploadFailed": "Không tải được ảnh lên. Vui lòng thử lại.",
+      "imageNotUploaded": "Sản phẩm còn ảnh dạng link cũ. Xoá ảnh đó rồi tải ảnh lên lại.",
       "imagesFull": "Đã đủ số ảnh. Hãy bỏ bớt ảnh để thêm ảnh mới."
     },
     "stock": {
