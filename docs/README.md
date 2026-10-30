@@ -24,7 +24,7 @@ Input source: `../../preny/preny-research/` (Preny research dossier dated 23/10/
 | 12 | [Roadmap & plan](12-roadmap-and-plan.md) | Everyone | Team, Phases 0–4, sprints, exit criteria, risks |
 | 13 | [Testing & quality](13-testing-and-quality.md) | QA, AI | Test pyramid, AI eval suite, critical business cases |
 | 14 | [Open decisions](14-open-decisions.md) | Project owner | Questions to finalize + default proposals |
-| 15 | [Team workflow](15-team-workflow.md) | Humans | How two maintainers run many agents: roles, cadence, review policy, Phase 0 plan |
+| 15 | [Team workflow](15-team-workflow.md) | Humans | How maintainers run many agents: roles, workflow, review policy |
 | 16 | [Performance & scale](16-performance-and-scale.md) | Everyone | Binding budgets for "fast, smooth, modern", mandatory patterns, scale plan to ~1,000 tenants |
 | 17 | [Multi-tenancy & verticals](17-multi-tenancy-and-verticals.md) | PO, architects | Vertical packs (hotel, education, solar/mechanical, …), first-class objects (appointments, quotes, applications), per-tenant extensibility, horizontal scaling model |
 | — | [ARCHITECTURE.md](ARCHITECTURE.md) | Everyone writing code | Where code goes, the fixed module shape, allowed imports, enforcement, generators — mandatory before any code change |

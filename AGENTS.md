@@ -10,10 +10,9 @@ Read these files, in order, before changing anything:
 
 1. This file.
 2. `.agents/rules/*.md` — all rule files (numbered; each is short).
-3. `TODO.md` — the task board. Every piece of work starts from a task there.
-4. `docs/ARCHITECTURE.md` — module shape, allowed imports, golden module (`apps/backend/src/modules/workspace`). Mandatory for any code change.
-5. `docs/README.md` — index of the design docs. Read the docs relevant to your task (at minimum `docs/04-system-architecture.md` and `docs/11-code-structure-and-conventions.md`).
-6. `docs/adr/README.md` — architecture decisions that must not be silently reverted.
+3. `docs/ARCHITECTURE.md` — module shape, allowed imports, golden module (`apps/backend/src/modules/workspace`). Mandatory for any code change.
+4. `docs/README.md` — index of the design docs. Read the docs relevant to your work (at minimum `docs/04-system-architecture.md` and `docs/11-code-structure-and-conventions.md`).
+5. `docs/adr/README.md` — architecture decisions that must not be silently reverted.
 
 Rules in `.agents/rules/` override anything in `docs/`. `docs/` describes the intended design; the code and tests describe the current reality. When they disagree, say so in your PR instead of guessing.
 
@@ -21,14 +20,13 @@ Rules in `.agents/rules/` override anything in `docs/`. `docs/` describes the in
 
 | # | Rule | Details |
 |---|------|---------|
-| 1 | **English** for code, identifiers, comments, commits, PRs, tests, todo files and technical docs. Vietnamese is allowed only in chat with humans, in product UI strings (i18n files) and in business/marketing content. | `01-language.md` |
-| 2 | **One milestone/block of tasks → one branch → one PR** (few, larger PRs), one commit per task inside. Branch `type/T-123-short-slug`. Conventional Commits. PR references every task it closes. | `02-git-and-pr.md` |
-| 3 | **Work is tracked in `TODO.md` + `todo/`.** Never start work without a task file; keep its status current in the same PR. | `03-task-tracking.md` |
+| 1 | **English** for code, identifiers, comments, commits, PRs, tests and technical docs. Vietnamese is allowed only in chat with humans, in product UI strings (i18n files) and in business/marketing content. | `01-language.md` |
+| 2 | **One finished feature → one branch → one PR** (few, large PRs). Before merging: update the branch with `main`, resolve conflicts, then squash-merge. Conventional Commits. | `02-git-and-pr.md` |
 | 4 | **`pnpm check` must pass** (lint, typecheck, tests, build) before you claim anything is done. New behavior needs tests. Never delete or skip a test to make CI green. | `04-code-quality.md` |
 | 5 | **Respect the architecture.** Module boundaries, tenant isolation (`workspace_id`), ledger rules, backward-compatible migrations. Architecture changes need an ADR. | `05-architecture-guardrails.md` |
 | 6 | **Docs change with the code.** If behavior, API, schema or config changes, update `docs/` in the same PR. | `06-documentation.md` |
 | 7 | **No secrets, no PII in logs, no unsafe shortcuts.** | `07-security.md` |
-| 8 | **Stay in scope, verify before claiming, ask when blocked.** Do not edit `AGENTS.md`, `.agents/`, `.github/`, `CODEOWNERS` or root tooling config without a task that explicitly asks for it. | `08-agent-behavior.md` |
+| 8 | **Stay in scope, verify before claiming, ask when blocked.** Do not edit `AGENTS.md`, `.agents/`, `.github/`, `CODEOWNERS` or root tooling config unless a human explicitly asks. | `08-agent-behavior.md` |
 
 ## 3. Repository map
 
@@ -37,12 +35,10 @@ AGENTS.md            ← you are here (single source of truth for all agents)
 CLAUDE.md, GEMINI.md ← thin pointers to AGENTS.md for tools that look for them
 .agents/
   rules/             ← numbered rule files (mandatory)
-  skills/            ← reusable workflows (onboarding, start-task, open-pr, …)
+  skills/            ← reusable workflows (onboarding, open-pr, review-pr, write-adr)
 .claude/ .codex/       ← per-tool config; Claude Code reads skills via .claude/skills → .agents/skills,
                          Codex and OpenCode read .agents/skills natively
 .mcp.json, opencode.json, .codex/config.toml ← MCP servers per tool
-TODO.md              ← task board (short). Details live in todo/T-xxx-*.md
-todo/                ← one file per task; todo/done/ for finished tasks
 docs/                ← design docs (English). docs/adr/ = decisions. docs/reference/ = research
 apps/backend/        ← NestJS modular monolith; entries api | worker | agent | realtime; modules in src/modules/<name>
 apps/webhook/        ← thin Fastify ingress (no business logic)
@@ -64,7 +60,6 @@ pnpm check            # lint + arch + typecheck + test + build — the gate for 
 pnpm lint / pnpm arch / pnpm typecheck / pnpm test / pnpm build / pnpm format
 pnpm gen module <name>   # scaffold a backend module with the fixed shape (never create one by hand)
 pnpm gen feature <name>  # scaffold a web feature folder
-pnpm todo:new "Title" # create a new task file + TODO.md entry (see 03-task-tracking.md)
 bash scripts/verify-setup.sh   # verify your local environment and the agent setup
 ```
 

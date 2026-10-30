@@ -6,7 +6,7 @@ Source code of an **AI Sales Agent platform for Vietnamese SMEs**: a multichanne
 
 ## Status
 
-Phase 0 — repository foundation done; product code starts with the tasks in [`TODO.md`](TODO.md). Decisions pending from humans are tracked in `T-002`.
+Version 1 is on `main` (2026-10-30); version 2 starts from there.
 
 ## Quick start
 
@@ -22,7 +22,6 @@ bash scripts/verify-setup.sh # environment + agent setup check
 | Path | What |
 |---|---|
 | `AGENTS.md`, `.agents/` | Rules and skills for all coding agents (Claude Code, Codex, OpenCode, …) |
-| `TODO.md`, `todo/` | Task board and task files |
 | `docs/` | Design docs (English), ADRs, research reference |
 | `apps/` | Deployable apps (api, web, webhook, worker, widget, admin, site) |
 | `packages/` | Shared libraries |
@@ -31,7 +30,7 @@ bash scripts/verify-setup.sh # environment + agent setup check
 
 ## Workflow in one paragraph
 
-Pick a task from `TODO.md` → branch `type/T-xxx-slug` → write the plan in the task file → implement with tests → `pnpm check` → open a PR from the template → a human reviews and squash-merges. Details: [`.agents/rules/`](.agents/rules/).
+Branch `type/short-slug` from `main` → build the whole feature with tests → `pnpm check` → open one PR from the template → before merging, merge `main` into the branch and resolve conflicts → a human reviews and squash-merges. Details: [`.agents/rules/`](.agents/rules/).
 
 ## Stack
 
