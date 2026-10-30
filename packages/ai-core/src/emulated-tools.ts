@@ -44,6 +44,8 @@ function toolsSection(request: GenerateRequest): string {
   return `<tools>\n${JSON.stringify(defs)}\n</tools>\n${PROTOCOL}`;
 }
 
+const attr = (v: string | undefined) => (v ?? '').replaceAll('"', '&quot;').replaceAll('<', '&lt;');
+
 function renderMessages(messages: ChatMessage[], section: string): ChatMessage[] {
   const out: ChatMessage[] = [];
   let sectionAdded = false;
@@ -57,7 +59,7 @@ function renderMessages(messages: ChatMessage[], section: string): ChatMessage[]
       const calls = m.toolCalls.map((c) => ({ name: c.name, arguments: c.input }));
       out.push({ role: 'assistant', content: JSON.stringify({ tool_calls: calls }) });
     } else if (m.role === 'tool') {
-      const block = `<tool_result name="${m.name ?? ''}" id="${m.toolCallId ?? ''}">\n${m.content.replaceAll('<', '&lt;')}\n</tool_result>`;
+      const block = `<tool_result name="${attr(m.name)}" id="${attr(m.toolCallId)}">\n${m.content.replaceAll('<', '&lt;')}\n</tool_result>`;
       const last = out[out.length - 1];
       if (afterToolResult && last)
         out[out.length - 1] = { ...last, content: `${last.content}\n${block}` };
@@ -117,13 +119,17 @@ export class EmulatedToolsProvider implements LlmProvider {
 
   async generate(request: GenerateRequest, target: ModelTarget): Promise<GenerateResponse> {
     if (!request.tools?.length) return this.inner.generate(request, target);
-    const { tools, toolChoice: _choice, responseFormat, ...rest } = request;
+    const { tools, toolChoice, responseFormat, ...rest } = request;
+    const final = toolChoice === 'none';
     const forward: GenerateRequest = {
       ...rest,
       messages: renderMessages(request.messages, toolsSection(request)),
-      ...(responseFormat ? { responseFormat: z.union([ToolCalls, responseFormat]) } : {}),
+      ...(responseFormat
+        ? { responseFormat: final ? responseFormat : z.union([ToolCalls, responseFormat]) }
+        : {}),
     };
     const res = await this.inner.generate(forward, target);
+    if (final) return res;
     const calls = parseToolCalls(res.text, new Set(tools.map((t) => t.name)));
     return calls ? { ...res, text: '', toolCalls: calls, stopReason: 'tool_use' } : res;
   }

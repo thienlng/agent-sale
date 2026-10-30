@@ -73,6 +73,37 @@ describe('EmulatedToolsProvider', () => {
     expect(fake.calls[0]!.toolChoice).toBeUndefined();
   });
 
+  it('with toolChoice none keeps responseFormat and never parses tool calls', async () => {
+    const reply = '{"tool_calls":[{"name":"search_products","arguments":{"query":"a"}}]}';
+    const { fake, emu } = setup(reply);
+    const original = z.object({ reply: z.string() });
+    const res = await emu.generate(
+      base({ tools: [search], toolChoice: 'none', responseFormat: original }),
+      target,
+    );
+    expect(fake.calls[0]!.responseFormat).toBe(original);
+    expect(res.text).toBe(reply);
+    expect(res.toolCalls).toEqual([]);
+    expect(res.stopReason).toBe('end');
+  });
+
+  it('escapes quotes and angle brackets in tool_result attributes', async () => {
+    const { fake, emu } = setup();
+    await emu.generate(
+      base({
+        tools: [search],
+        messages: [
+          { role: 'user', content: 'hi' },
+          { role: 'tool', toolCallId: 'a"<b', name: 'x"y', content: 'r' },
+        ],
+      }),
+      target,
+    );
+    expect(fake.calls[0]!.messages[2]!.content).toContain(
+      '<tool_result name="x&quot;y" id="a&quot;&lt;b">',
+    );
+  });
+
   it('unions responseFormat with the tool_calls shape, and adds none when unset', async () => {
     const { fake, emu } = setup();
     await emu.generate(base({ tools: [search] }), target);
