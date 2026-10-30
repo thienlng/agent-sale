@@ -139,12 +139,15 @@ export class MetaAdapter implements ChannelAdapter {
   /**
    * Name and picture of a customer (Messenger PSID or Instagram-scoped id). Read-only and safe to
    * retry; throws `MetaRequestError` when Meta refuses (the profile is a nicety, never required).
-   * Messenger: first_name, last_name, profile_pic. Instagram: name, username, profile_pic.
+   * Messenger: provider name, with first_name/last_name as a legacy fallback, and profile_pic.
+   * Instagram: name, username, profile_pic.
    */
   async fetchProfile(asset: { token: string }, customerId: string): Promise<CustomerProfile> {
     const instagram = this.kind === 'instagram';
     const host = instagram ? 'graph.instagram.com' : 'graph.facebook.com';
-    const fields = instagram ? 'name,username,profile_pic' : 'first_name,last_name,profile_pic';
+    const fields = instagram
+      ? 'name,username,profile_pic'
+      : 'first_name,last_name,profile_pic,name';
     let res: Response;
     try {
       res = await this.transport(
@@ -168,7 +171,7 @@ export class MetaAdapter implements ChannelAdapter {
     const text = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
     const name = instagram
       ? text(data.name) || text(data.username)
-      : [text(data.first_name), text(data.last_name)].filter(Boolean).join(' ');
+      : text(data.name) || [text(data.first_name), text(data.last_name)].filter(Boolean).join(' ');
     const pic = text(data.profile_pic);
     return {
       name: name.slice(0, 200) || null,

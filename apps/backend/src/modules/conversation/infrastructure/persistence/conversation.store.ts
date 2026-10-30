@@ -4,8 +4,10 @@ import {
   asc,
   eq,
   gt,
+  gte,
   isNotNull,
   isNull,
+  lt,
   schema,
   sql,
   withTenant,
@@ -63,6 +65,9 @@ function baseConditions(ws: WorkspaceId, f: ConversationFilter): SQL[] {
   if (f.mode) where.push(eq(c.mode, f.mode));
   if (f.channelId) where.push(eq(c.channelId, f.channelId));
   if (f.contactId) where.push(eq(c.contactId, f.contactId));
+  if (f.botId) where.push(f.botId === 'none' ? isNull(c.botId) : eq(c.botId, f.botId));
+  if (f.updatedFrom) where.push(gte(c.updatedAt, new Date(f.updatedFrom)));
+  if (f.updatedTo) where.push(lt(c.updatedAt, new Date(f.updatedTo)));
   if (f.assignee === 'none') where.push(isNull(c.assigneeId));
   else if (f.assignee) where.push(eq(c.assigneeId, f.assignee));
   if (f.hasPhone !== undefined)

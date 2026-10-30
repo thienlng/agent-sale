@@ -60,8 +60,12 @@ test('opens business statistics as home while preserving existing module navigat
   page,
 }) => {
   await setup(page);
+  // `/` opens the account overview (T-126); a business's home is its statistics.
   await page.goto('/');
-  await expect(page).toHaveURL(/\/app\/analytics$/);
+  await expect(page).toHaveURL(/\/app\/overview$/);
+  await page.goto('/app');
+  await expect(page).toHaveURL(/\/app\/overview$/);
+  await page.goto('/app/analytics');
   await expect(page.getByRole('region', { name: 'Chỉ số chính' }).getByRole('heading')).toHaveCount(
     4,
   );
@@ -128,13 +132,17 @@ test('logo reads authorized business totals without changing the selected busine
   await page.getByRole('link', { name: 'Rapiz', exact: true }).click();
   await expect(page).toHaveURL(/\/app\/overview$/);
   await expect(page.getByRole('region', { name: 'Chỉ số chính' })).toContainText('30');
-  await expect(page.getByRole('button', { name: 'Chọn business', exact: true })).toContainText(
-    'Business A',
-  );
+  // The overview has the account sidebar, not the business selector: back in a business page,
+  // the selection is still A.
+  expect(await page.evaluate(() => localStorage.getItem('rapiz.workspace'))).toBe(A);
   expect(requests).toContain(A);
   expect(requests).toContain(B);
   await expect(page.getByText('Thống kê theo shop chưa có dữ liệu.')).toBeVisible();
   await expect(page.getByText(/Chỉ gồm khách bạn phụ trách/).first()).toBeVisible();
+  await page.goto('/app/analytics');
+  await expect(page.getByRole('button', { name: 'Chọn business', exact: true })).toContainText(
+    'Business A',
+  );
 });
 
 test('a failed business never becomes a zero or an apparently complete portfolio total', async ({
@@ -186,7 +194,7 @@ test('canceling an existing unsaved-profile guard keeps the previous business an
 }) => {
   await setup(page);
   await page.goto('/app/settings/profile');
-  await page.getByLabel('Tên shop', { exact: true }).fill('Unsaved business draft');
+  await page.getByLabel('Tên business', { exact: true }).fill('Unsaved business draft');
   await page.getByRole('button', { name: 'Chọn business', exact: true }).click();
   await page
     .getByRole('dialog', { name: 'Chọn business' })
@@ -197,7 +205,9 @@ test('canceling an existing unsaved-profile guard keeps the previous business an
     .getByRole('button', { name: 'Ở lại', exact: true })
     .click();
   await expect(page).toHaveURL(/\/app\/settings\/profile$/);
-  await expect(page.getByLabel('Tên shop', { exact: true })).toHaveValue('Unsaved business draft');
+  await expect(page.getByLabel('Tên business', { exact: true })).toHaveValue(
+    'Unsaved business draft',
+  );
   await expect(page.getByRole('button', { name: 'Chọn business', exact: true })).toContainText(
     'Business A',
   );

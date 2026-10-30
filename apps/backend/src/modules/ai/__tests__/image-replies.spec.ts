@@ -29,6 +29,8 @@ const bot = {
   modelTier: 'smart',
   language: 'vi',
   placeholders: {},
+  industry: 'retail',
+  profile: { fields: {}, notes: '' },
 } as unknown as BotView;
 
 const product = (id: string, name: string, imageUrls: string[]): ProductDto =>

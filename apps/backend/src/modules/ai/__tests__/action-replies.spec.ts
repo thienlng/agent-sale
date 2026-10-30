@@ -34,6 +34,8 @@ const bot = {
   modelTier: 'smart',
   language: 'vi',
   placeholders: {},
+  industry: 'retail',
+  profile: { fields: {}, notes: '' },
 } as unknown as BotView;
 
 /** Stable per logical write: conversation, action, hash of the sorted args, 10 minute bucket. */
@@ -328,7 +330,7 @@ describe('bot API actions in the reply pipeline', () => {
       expect(res.actions).toBeUndefined();
       expect(lastMessage(fake.calls[0])).not.toContain('<actions>');
       expect(fake.calls).toHaveLength(1);
-      expect(runs.runs[0]?.promptVersion).toBe('sales-agent@8');
+      expect(runs.runs[0]?.promptVersion).toBe('sales-agent@9');
     }
     // Action outcomes are only valid when actions exist.
     const none = build([call('act-lookup')], { actions: [] });

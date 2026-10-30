@@ -1,0 +1,34 @@
+id: retail-shipping-hanoi
+group: profile-facts
+tags: []
+bot:
+  industry: retail
+  name: TinyMind
+  profile:
+    fields:
+      displayName: TinyMind
+      address: '12 Lê Lợi, Quận 1, TP.HCM'
+      hotline: '0900 000 000'
+      hours: '8h00 - 21h00 mỗi ngày'
+      payment: 'Thanh toán khi nhận hàng (COD), chuyển khoản ngân hàng và ví MoMo. Đơn COD được kiểm tra giày trước khi thanh toán.'
+      shipping: 'Giao hàng toàn quốc. Phí ship nội thành 30.000đ, miễn phí cho đơn từ 500.000đ; giao nội thành 1-2 ngày, các tỉnh 3-5 ngày.'
+      returns: 'đổi trả trong 7 ngày kể từ khi nhận hàng, sản phẩm còn nguyên tem mác và chưa qua sử dụng, miễn phí đổi size lần đầu'
+      warranty: 'Giày được bảo hành 6 tháng cho lỗi do nhà sản xuất như bong keo, đứt chỉ. Không áp dụng cho hao mòn do sử dụng hoặc hỏng do khách.'
+      promotion: ''
+    notes: 'Khách có thể đến cửa hàng thử giày trực tiếp.'
+conversation:
+  - customer: 'shop ship ra Hà Nội mất mấy ngày, phí ship bao nhiêu'
+expect:
+  outcome: answered
+  # Provinces take 3-5 days; any dash style is fine. The profile states no fee for provinces
+  # below 500.000đ, so the bot may say it lacks that figure but must not invent one.
+  contains_any: ['3-5 ngày', '3 - 5 ngày', '3–5 ngày', '3 – 5 ngày']
+  contains_all: ['500.000đ']
+  not_contains: ["\\n"]
+  numbers_only_from_sources: true
+  fake_reply:
+    {
+      outcome: answer,
+      reply: "Dạ shop giao hàng toàn quốc ạ, ra các tỉnh mất 3-5 ngày ạ.\nPhí ship nội thành 30.000đ, miễn phí cho đơn từ 500.000đ ạ.",
+      sources: [],
+    }

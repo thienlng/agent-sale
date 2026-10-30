@@ -1,10 +1,16 @@
 import type { ChannelConnectionDto } from '@agent-sales/contracts';
-import { RefreshCw } from 'lucide-react';
+import { MoreHorizontal, RefreshCw, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { formatDay, initials } from '../lib/integrations';
 import { ProviderGlyph } from './platform-icon';
@@ -14,6 +20,7 @@ const STATUS_CLASS: Record<ChannelConnectionDto['status'], string> = {
   disabled: 'border-border bg-muted text-muted-foreground',
   disconnected: 'border-destructive/30 bg-destructive-soft text-destructive',
   reauth_required: 'border-warning/40 bg-warning-soft text-warning',
+  removed: 'border-border bg-muted text-muted-foreground',
 };
 
 /** Facebook pages expose a public picture; everything else falls back to initials. */
@@ -49,6 +56,8 @@ export function ConnectionCard({
   showBot,
   canReconnect,
   onReconnect,
+  canRemove = false,
+  onRemove,
   disabled = false,
 }: {
   connection: ChannelConnectionDto;
@@ -59,6 +68,9 @@ export function ConnectionCard({
   showBot: boolean;
   canReconnect: boolean;
   onReconnect: () => void;
+  /** Only for members with `settings.manage`; the row menu is not rendered otherwise. */
+  canRemove?: boolean;
+  onRemove?: () => void;
 }) {
   const { t } = useTranslation();
   const ti = (key: string, options?: Record<string, unknown>) =>
@@ -108,6 +120,27 @@ export function ConnectionCard({
         >
           <RefreshCw />
         </Button>
+      ) : null}
+      {canRemove && onRemove ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="shrink-0"
+              disabled={disabled}
+              aria-label={ti('rowMenu', { name: c.name })}
+            >
+              <MoreHorizontal />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem variant="destructive" onSelect={onRemove}>
+              <Trash2 />
+              {ti('removePage')}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       ) : null}
     </li>
   );

@@ -47,6 +47,10 @@ beforeEach(() => {
     creativity: 'strict',
     modelTier: 'basic',
     language: 'en',
+    profile: { fields: {}, notes: '' },
+    replyLength: 'short',
+    tone: 'friendly',
+    allowEmoji: false,
     placeholders: {},
     autoResumeAfterManual: true,
     humanTakeoverMinutes: 5,
@@ -201,6 +205,16 @@ describe('ConversationFacade tenant and delivery contract', () => {
       status: 'disconnected' as const,
     });
     await expect(service.receive(ws, channelId, event('in2'))).rejects.toMatchObject({
+      code: 'NOT_FOUND',
+    });
+  });
+  it('rejects events already queued for a removed page (T-133)', async () => {
+    const base = await channels.getConnection(ws, channelId);
+    vi.mocked(channels.getConnection).mockResolvedValueOnce({
+      ...base,
+      status: 'removed' as const,
+    });
+    await expect(service.receive(ws, channelId, event('in3'))).rejects.toMatchObject({
       code: 'NOT_FOUND',
     });
   });

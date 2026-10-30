@@ -1,6 +1,7 @@
-import { createFileRoute, Link, Outlet } from '@tanstack/react-router';
+import { createFileRoute, Outlet } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 
+import { SettingsTabs } from '@/components/settings-tabs';
 import { useCan } from '@/lib/permissions';
 
 export const Route = createFileRoute('/app/settings')({
@@ -15,19 +16,10 @@ export const Route = createFileRoute('/app/settings')({
     return (
       <section className="flex flex-col gap-5">
         <h1 className="text-2xl font-semibold tracking-tight">{t('wsettings.title')}</h1>
-        <nav className="flex gap-5 overflow-x-auto border-b" aria-label={t('wsettings.title')}>
-          {tabs
-            .filter((tab) => tab.show)
-            .map((tab) => (
-              <Link
-                key={tab.to}
-                to={tab.to}
-                className="-mb-px shrink-0 border-b-2 border-transparent pb-2.5 text-base text-muted-foreground hover:text-foreground data-[status=active]:border-primary data-[status=active]:font-medium data-[status=active]:text-foreground"
-              >
-                {t(tab.key)}
-              </Link>
-            ))}
-        </nav>
+        <SettingsTabs
+          label={t('wsettings.title')}
+          tabs={tabs.filter((tab) => tab.show).map((tab) => ({ to: tab.to, label: t(tab.key) }))}
+        />
         <Outlet />
       </section>
     );

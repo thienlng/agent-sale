@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/select';
 import { useBusinessSwitch } from '@/hooks/use-business-switch';
 import { ApiClientError } from '@/lib/api-client';
-import { useSession } from '@/lib/session';
+import { reloadSession, useSession } from '@/lib/session';
 
 import { useCreateBusiness } from '../api/create-business';
 
@@ -45,6 +45,7 @@ export function CreateBusinessPage() {
         industry,
         ...(owned.length > 1 && accountId ? { accountId } : {}),
       });
+      await reloadSession();
       await choose(created.id);
     } catch (err) {
       const code = err instanceof ApiClientError ? err.code : '';

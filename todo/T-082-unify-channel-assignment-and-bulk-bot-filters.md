@@ -73,6 +73,8 @@ Autonomous implementation authorized by the user on 2026-10-26. Account/business
 
 - 2026-10-26 — Independent browser QA found mobile integration controls clipped inside an implicit minimum-width grid column despite no document overflow. Bounded the mobile grid column and platform pane; added direct control-bounds regression plus global/bot integration routes to the responsive matrix.
 
+- 2026-10-27 — Lane B handed to @agent:claude. The existing-contract slice landed on main in 1b983a7. Remaining shop eligibility/filtering is blocked on lane A T-077/T-078/T-080.
+
 - 2026-10-28 — T-117 source audit preserves this task as partial: existing business/integration UI is delivered, but shop-level acceptance still needs T-077/T-078/T-080. See docs/handoffs/2026-10-28-lane-b-closeout.md.
 
 - 2026-10-28 — Final independent B acceptance is green (full gate, 47 functional and 114 responsive tests). Parent remains open/blocked only for partial: channel assignment delivered; shop eligibility awaits T-077/T-078/T-080. No missing backend behavior was represented as completed.

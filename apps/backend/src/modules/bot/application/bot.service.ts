@@ -1,6 +1,7 @@
 import {
   type BotDto,
   type BotReadiness,
+  profileFieldsFor,
   BotSettings,
   Industry,
   type CreateBotRequest,
@@ -24,7 +25,7 @@ import {
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
 import { BOT_LIFECYCLE, type BotLifecycle } from '../api/bot-lifecycle.js';
 import type { BotFacade, BotView } from '../api/bot.facade.js';
-import { Bot } from '../domain/bot.js';
+import { Bot, type BotSettingsChange } from '../domain/bot.js';
 import type { BotSettingsData } from '../domain/bot-settings.js';
 import { BotNotFoundError, InvalidBotError } from '../domain/bot.errors.js';
 import { packFor } from '../domain/packs.js';
@@ -129,7 +130,10 @@ export class BotService implements BotFacade {
     await this.uow.run(ws, ({ bots }) => bots.save(bot));
     await this.knowledge.seedFaqs(ws, bot.id, packFor(input.industry).faqs);
     try {
-      await this.training?.seedStarterRules(ws, bot.id, '', { recordHistory: false });
+      await this.training?.seedStarterRules(ws, bot.id, '', {
+        recordHistory: false,
+        industry: bot.snapshot().industry,
+      });
     } catch {
       // Best effort: the owner can add the pack from the instructions page. No bot or shop data is logged.
       this.log.warn('starter rules seeding failed');
@@ -177,7 +181,7 @@ export class BotService implements BotFacade {
       if (change.isActive !== undefined) bot.setActive(change.isActive);
       if (change.catalogMode !== undefined) bot.setCatalogMode(change.catalogMode);
       if (change.settings) {
-        bot.updateSettings(change.settings as Partial<BotSettingsData>);
+        bot.updateSettings(change.settings as BotSettingsChange);
         BotSettings.parse(bot.snapshot().settings); // full settings must stay valid after merge
       }
       await bots.save(bot);
@@ -223,6 +227,17 @@ export class BotService implements BotFacade {
           ...Object.fromEntries(added.map((key) => [key, ''])),
           ...((before ?? {}) as Record<string, string>),
         };
+      } else if (field === 'profile') {
+        // Restore only what this entry changed: the keys whose value differs (a key the change
+        // added is removed with ''), and the notes only when they differ, so later edits survive.
+        const empty = { fields: {}, notes: '' };
+        const was = (before ?? empty) as { fields: Record<string, string>; notes: string };
+        const now = (after ?? empty) as { fields: Record<string, string>; notes: string };
+        const fields: Record<string, string> = {};
+        for (const key of new Set([...Object.keys(was.fields), ...Object.keys(now.fields)]))
+          if ((was.fields[key] ?? '') !== (now.fields[key] ?? ''))
+            fields[key] = was.fields[key] ?? '';
+        settings[field] = was.notes !== now.notes ? { fields, notes: was.notes } : { fields };
       } else settings[field] = before;
     }
     if (Object.keys(settings).length)
@@ -236,6 +251,7 @@ export class BotService implements BotFacade {
     const r = bot.readiness(
       faqs.map((f) => f.answer),
       0,
+      profileFieldsFor(bot.snapshot().industry).map((f) => f.key),
     );
     return { ready: r.ready, checks: r.checks, missingPlaceholders: r.missing };
   }
@@ -339,6 +355,14 @@ export class BotService implements BotFacade {
       isActive: s.isActive,
       catalogMode: s.catalogMode,
       ...s.settings,
+      profile: {
+        fields: Object.fromEntries(
+          Object.entries(s.settings.profile.fields).filter(
+            (entry): entry is [string, string] => typeof entry[1] === 'string',
+          ),
+        ),
+        notes: s.settings.profile.notes,
+      },
       greeting: fillPlaceholders(s.settings.greeting, s.settings.placeholders),
     };
   }

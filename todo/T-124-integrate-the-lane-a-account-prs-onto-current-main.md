@@ -9,7 +9,7 @@ feature_ids: []            # e.g. [BOT-07, CRM-11] from docs/02-functional-requi
 created: 2026-10-28
 updated: 2026-10-28
 branch: feat/T-124-integrate-lane-a1
-pr: 82 (A1)
+pr: 82 (A1, merged)
 parent:                    # T-xxx if this is a sub-task
 ---
 
@@ -93,9 +93,17 @@ Dated entries, newest last. Decisions, blockers, questions, what was verified an
 - 2026-10-29 — GitHub Actions stopped starting jobs for #84/#85 ("recent account payments have failed or your spending limit needs to be increased"); #86 ran green before that. Owner action needed in Settings → Billing & plans.
 - 2026-10-29 — Local verification instead (A3 worktree = A1+A2+A3 with all fixes): full `pnpm check` green; integration specs one at a time (`--hookTimeout=400000`, retries only where Testcontainers' Postgres failed its 120 s health check before any test ran): backend `billing-usage` 8/8 (incl. the mixed-plan test), `inbox-v2` 6/6 (incl. the sticky unlink), `commerce` 16/16 (incl. concurrent saves), `workspace` 5/5 (incl. the account race), `conversation.store` 10/10 (incl. soft-deleted bot); db `account-backfill` 5/5, `account-billing` 5/5, `conversation-contacts` 3/3.
 - 2026-10-29 — T-094 part A smoke on the dev stack (local-only branch merging #85 + #83; dev DB migrated 0029–0032; backfills no-op): login with one business opens it; creating a second business from `/app/businesses/new` opens it; the header panel's "Switch business" lists businesses under the account with the current one checked and switches; clearing the remembered business then opening `/app/bots` lands on `/app/overview`, whose account sidebar opens a business (the no-selection switch path); both businesses report the same allowance and cycle; `workspace-plan set` puts the account and both businesses on `sales_smart` (limit 7,000, one cycle). Note: the dashboard must be opened on `http://localhost:5173` — `127.0.0.1` fails the refresh-cookie origin check (`APP_ORIGINS` default).
+- 2026-10-30 — `origin/main` (after #83, T-112..T-114, T-120..T-123, T-133, T-152) merged into A2 (#84), following `docs/handoffs/2026-10-29-pr84-merge-notes.md`:
+  - `bot.ts`: A2's `setCatalogMode` kept next to main's `updateSettings`; `bot/MODULE.md` takes main's purpose line plus the catalog mode.
+  - Business selector: A2's `BusinessAvatar` and "manage account" link, main's create-business dialog. T-152's `BusinessLogo` (sidebar header) is superseded by `BusinessAvatar` and removed with its test; the selector test now checks the logo in the trigger.
+  - Profile page: A2's icon picker placed after the name, then main's industry summary and company collapsible. `profile.ts` keeps both `syncMembership` (A2) and `reloadSession` (main); `create-business-page` reloads the session itself, since main's `createBusiness` no longer does.
+  - i18n: keys unioned. Eval runner `botFor` sets `catalogMode: 'all'` (main's eval cases predate T-080).
+  - Tests fixed for the union: the selector test renders in a router (it has a `Link`); main's profile-page test fixture gains `icon` and a `syncMembership` mock.
+  - Local: lint 0 errors, prettier, arch, typecheck 22/22, tests 19/19 tasks, build 13/13.
+- 2026-10-30 — Updated A2 merged into A3 (#85). Conflicts were unions: the conversation list filter takes A3's `contactId` and main's `botId`/`updatedFrom`/`updatedTo` (contract with main's refine, in-memory filter, store, `docs/meta-inbox.md`); `routes/app.tsx` has main's create-business dialog and A3's usage banner; `packages/db` exports both backfills; the inbox page test mock serves both the deep-link test (A3) and the removed-page test (T-133). Local: lint 0 errors, prettier, arch, typecheck 22/22, tests 19/19 tasks, build 13/13.
 
 ## Links
 
-- PRs: #78 (A1), #80 (A2), #81 (A3); overlapping: #76, #79
+- PRs: #82 (A1, merged), #84 (A2), #85 (A3); superseded and closed: #76, #78, #79, #80, #81
 - Docs: `docs/handoffs/2026-10-26-cofounder-review-plan.md`, ADR-012 (on the A1 branch)
 - Related tasks: T-077, T-078, T-079, T-080, T-088, T-089, T-091, T-094, T-119

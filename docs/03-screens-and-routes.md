@@ -30,13 +30,13 @@
 | | Order list | `/quan-ly/don-hang` | `/app/orders` | ORD-04 | P0 |
 | | Create order | `/quan-ly/don-hang/tao-moi` | `/app/orders/new` | ORD-03 | P0 |
 | | Order detail | (not observed) | `/app/orders/{id}` | ORD-05 | P0 |
-| | Product management | `/quan-ly/quan-ly-san-pham` | `/app/products`, `/app/products/{id}` | ORD-01 | P0 |
 | | Settings (hub, choose source) | `/quan-ly/thiet-lap` | `/app/order-settings` | — | P0 |
 | | ↳ Order settings | `/quan-ly/thiet-lap/cai-dat-don-hang?tab=…` | `/app/order-settings/orders?tab=statuses\|conditions\|gsheet\|chat-order` | ORD-05/06/07/10 | P0–P1 |
 | | ↳ Ad optimization | `/quan-ly/thiet-lap/toi-uu-quang-cao` | `/app/order-settings/ads-optimization` | ORD-12 | P1 |
 | | ↳ Shipping carrier connections | `/quan-ly/thiet-lap/don-vi-van-chuyen` | `/app/order-settings/carriers` | ORD-08 | P1 |
 | | ↳ Shipping settings | `/quan-ly/thiet-lap/cai-dat-van-chuyen` | `/app/order-settings/shipping` | ORD-09 | P1 |
 | | ↳ Warehouses | `/quan-ly/thiet-lap/kho-hang` | `/app/order-settings/warehouses` | ORD-02 | P0 |
+| Sản phẩm (Products) | Shared product catalog (top-level entry since T-112; Preny nests it under Orders) | `/quan-ly/quan-ly-san-pham` | `/app/products`, `/app/products/{id}` | ORD-01 | P0 |
 | Thống kê (Analytics) | | `/quan-ly/tong-quan` | `/app/analytics` (`?tab=pages\|interactions\|tags\|current-tags\|statuses\|bot`) | ANA-01/02 | P1 |
 | Hạn mức sử dụng (Usage limits) | | `/quan-ly/han-muc-su-dung` | `/app/usage` | BIL-03 | P0 |
 | Nâng cấp (Upgrade) | | `/quan-ly/nang-cap` | `/app/upgrade` | BIL-01/08 | P0 |
@@ -57,6 +57,7 @@
 | | › Statuses | `/quan-ly/trang-thai` | `/app/settings/statuses` | CRM-08 | P0 |
 | | › Advanced connections | `/quan-ly/ket-noi-nang-cao/google` | `/app/settings/advanced-connections/{google\|sms\|zns}` | MKT-03 | P1 |
 | | › Workspace information | `/quan-ly/thong-tin-workspace` | `/app/settings/workspace` | ACC-07 | P0 |
+| | › Business information (T-144) | — | `/app/settings/profile` | ACC-07 | P0 |
 | | Security settings | `/quan-ly/cai-dat-bao-mat` | `/app/settings/security` | ACC-05/10 | P1 |
 | | Audit log [+] | — | `/app/settings/audit-log` | SET-09 | P1 |
 | | Personal profile | `/quan-ly/thong-tin-ca-nhan` | `/app/profile` | ACC-06 | P0 |
@@ -71,8 +72,8 @@ Dedicated layout: back button, bot name, **bot on/off switch**, left menu, **tes
 | Products | `/bot/{id}/quan-ly-san-pham` | `/app/bots/{id}/products` (sells every product or a selection, T-080; "Add product" here selects it via `/app/products/new?botId=`) | BOT-09 |
 | Instructions (scenarios) | `/bot/{id}/kich-ban` | `/app/bots/{id}/instructions` | BOT-05/06 |
 | Information (FAQ) | `/bot/{id}/du-lieu-huan-luyen` | `/app/bots/{id}/knowledge` (`?tab=faq\|documents`) | BOT-07/08 |
-| Integrations | `/bot/{id}/tich-hop-nen-tang/{tab}` | `/app/bots/{id}/channels/{all\|facebook\|instagram\|zalo\|lazada\|tiktok\|website}` | CHN-04/05 |
-| Image library | `/bot/{id}/thu-vien-anh` | `/app/bots/{id}/media` | BOT-10 |
+| Channel integrations (Tích hợp kênh) | `/bot/{id}/tich-hop-nen-tang/{tab}` | `/app/bots/{id}/channels/{all\|facebook\|instagram\|zalo\|lazada\|tiktok\|website}` | CHN-04/05 |
+| Image library (removed from the menu in T-114) | `/bot/{id}/thu-vien-anh` | `/app/bots/{id}/media` redirects to the bot home; existing images stay available to quick replies and the bot | BOT-10 |
 | Settings › Bot setup | `/bot/{id}/tong-quan` | `/app/bots/{id}/settings` (`?tab=basic\|advanced\|schedule`) | BOT-12/13 |
 | Settings › Quick messages | `/bot/{id}/tin-nhan-nhanh` | `/app/bots/{id}/quick-replies` | BOT-11 |
 | Settings › Edit history | `/bot/{id}/lich-su-chinh-sua` | `/app/bots/{id}/history` | BOT-15 |
@@ -116,3 +117,10 @@ Dedicated layout: back button, bot name, **bot on/off switch**, left menu, **tes
 
 - Do not copy Preny's identity (logo, purple-pink colors, copy) — only learn from the information architecture. Build our own design system (shadcn/ui + our own tokens), with dark mode support.
 - Prioritize high information density for CRM/order tables (users are salespeople operating many hours a day), keyboard shortcuts (F2/F6 like Preny, `/` to search, `J/K` to switch conversations).
+
+## Business selector and business information (T-144)
+
+- The sidebar business selector lists the caller's businesses and always ends with **+ Tạo business**. It opens a dialog with a business name and a template (`Industry`, with a one-line description each; no default). Submitting calls `POST /workspaces` (the server picks the caller's only owned account, ADR-012), reloads the memberships and switches to the new business, landing on `/app/analytics`. The dialog is composed in `routes/app.tsx` and passed through `AppShell` (shared components may not import features).
+- `/app/settings/profile` is one card: logo, a single editable business name, the template as a read-only summary (chosen at creation, never changed afterwards), and an optional company name in a collapsed section. Facts the AI uses (address, policies…) are entered per bot under Business information. The workspace fields `businessServices` and `productDescription` are deprecated: no longer shown, still accepted by the API.
+- After a rename the session memberships (selector), the current-business query and the profile query are refreshed without a reload.
+- The settings tab strips (`/app/settings`, `/app/crm-settings`, `/app/order-settings`) share `components/settings-tabs.tsx`: horizontal scroll only, baseline drawn as an inset shadow so the strip never scrolls vertically.

@@ -1,0 +1,16 @@
+{
+  "recorded_at": "2026-10-29T01:02:59Z",
+  "head": "1ddcacc7087bd446e539a51779abe52566f4b4e5",
+  "product_base": "b0f1be6",
+  "qualifier": "Working-tree test and dev-proxy fixes; not an immutable final release commit. These hashes identify the files present during reconciliation, not proof every artifact was rebuilt at this instant.",
+  "sha256": {
+    "apps/web/e2e/responsive.spec.ts": "d47fc08df1fb3c4d94169f00327b253ed143a8286980e58d84a0159a41fa725c",
+    "scripts/dev-tunnel-proxy.mjs": "9dfd9382c40d9072172aac75ab525eb89dcd0b7beb4c796ad20212615618b4aa",
+    "scripts/dev-tunnel-proxy.test.mjs": "bbee14f9dec86d941f6cefee1c5c94e9ea9d43c15ba5e3c88c64660cabc78008",
+    "apps/backend/test/acceptance-statistics.integration.spec.ts": "4915e423fdba645ef8f3e606b3c1ccb8454d1afb97a3982dd14386e1e87dcf29",
+    "apps/backend/test/support/acceptance-statistics.ts": "805ea08dc3acc0c23775c66fd888ac04cb387765db047a1b7f96ab6c8e76c6e3",
+    "apps/web/e2e-live/t126-acceptance.spec.ts": "b264349c871470b38c663038a6abc2f8b4ded8f058938ba5a74b1788768087ef",
+    "apps/web/dist/index.html": "67a5df55a85c27039e3b8fd579a19bce92c9d1f499dc5f94ae240036af751fba",
+    "apps/site/dist/index.html": "5c575b06bad5c0362f8a7f1baf7fd2cd25e708ed1205c9888e28f421f216ed15"
+  }
+}

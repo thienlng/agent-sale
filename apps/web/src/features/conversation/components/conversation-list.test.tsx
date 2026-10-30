@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import { ChannelConnectionDto } from '@agent-sales/contracts';
 import { createRef } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { DEFAULT_LIST_STATE, type ListState } from '../lib/inbox-list';
@@ -37,13 +38,13 @@ function renderList(props: Partial<React.ComponentProps<typeof ConversationList>
     <ConversationList
       state={{ ...DEFAULT_LIST_STATE } as ListState}
       searchRef={createRef<HTMLInputElement>()}
-      workspaceId="ws"
       userId="user-me"
       onState={onState}
       items={[conversation]}
       channels={[]}
       tags={[]}
       members={[]}
+      bots={[]}
       counts={{ all: 128, unread: 12, waiting: 5 }}
       pending={false}
       error={false}
@@ -138,6 +139,30 @@ describe('conversation list', () => {
     renderList();
     expect(screen.getAllByRole('button', { name: 'channelInbox.v2.list.filter' })).toHaveLength(1);
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+  });
+
+  it('offers live pages as page filters but not removed ones (T-133)', () => {
+    const page = (id: string, name: string, status: 'connected' | 'removed') =>
+      ChannelConnectionDto.parse({
+        id,
+        provider: 'facebook',
+        externalId: id.slice(-4),
+        name,
+        status,
+        botId: null,
+        expiresAt: null,
+        createdAt: '2026-10-20T00:00:00.000Z',
+      });
+    renderList({
+      channels: [
+        page('0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9e01', 'Shop sống', 'connected'),
+        page('0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9e02', 'QA Actions', 'removed'),
+      ],
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'channelInbox.v2.list.filter' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'channelInbox.v2.filter.groups.channel' }));
+    expect(screen.getByRole('radio', { name: 'Shop sống' })).toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: 'QA Actions' })).not.toBeInTheDocument();
   });
 
   it('lists the conversations and selects one', () => {

@@ -1,4 +1,5 @@
 import type { BotSettings } from '@agent-sales/contracts';
+import { Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -13,12 +14,10 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { placeholderLabel } from '@/lib/placeholders';
 
 import type { SettingsDraft } from '../utils/settings-draft';
 
-type TextKey =
-  'mission' | 'greeting' | 'selfPronoun' | 'customerPronoun' | 'fallbackMessage' | 'handoffMessage';
+type TextKey = 'fallbackMessage' | 'handoffMessage';
 type Update = (change: (draft: SettingsDraft) => SettingsDraft) => void;
 
 function Field({
@@ -46,16 +45,17 @@ function Field({
 }
 
 /**
- * "Cài đặt nâng cao": store details (they unblock template answers), how the
- * bot talks and when it hands over to staff.
+ * "Cài đặt nâng cao": technical items only (fallback and handoff messages,
+ * creativity, takeover). Personality lives on "Hướng dẫn trả lời" and facts on
+ * "Thông tin doanh nghiệp".
  */
 export function BotSettingsAdvanced({
+  botId,
   draft,
-  placeholderKeys,
   update,
 }: {
+  botId: string;
   draft: SettingsDraft;
-  placeholderKeys: string[];
   update: Update;
 }) {
   const { t } = useTranslation();
@@ -80,40 +80,28 @@ export function BotSettingsAdvanced({
 
   return (
     <div className="flex flex-col gap-10">
-      {placeholderKeys.length ? (
-        <section>
-          <h2 className="text-base font-semibold">{t('settings.storeInfo')}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{t('settings.storeInfoHint')}</p>
-          <div className="mt-5 grid gap-5 sm:grid-cols-2">
-            {placeholderKeys.map((key) => {
-              const id = `placeholder-${key}`;
-              const empty = !draft.settings.placeholders[key]?.trim();
-              return (
-                <Field key={key} id={id} label={placeholderLabel(t, key)}>
-                  <Input
-                    id={id}
-                    className="h-10 data-[empty=true]:border-warning/60 data-[empty=true]:bg-warning-soft/40"
-                    data-empty={empty}
-                    value={draft.settings.placeholders[key] ?? ''}
-                    onChange={(e) =>
-                      set('placeholders', { ...draft.settings.placeholders, [key]: e.target.value })
-                    }
-                  />
-                </Field>
-              );
-            })}
-          </div>
-        </section>
-      ) : null}
+      <p className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
+        {t('settings.guidanceMoved')}{' '}
+        <Link
+          to="/app/bots/$botId/instructions"
+          params={{ botId }}
+          className="font-medium text-primary underline-offset-4 hover:underline"
+        >
+          {t('settings.guidanceLink')}
+        </Link>
+        . {t('settings.factsMoved')}{' '}
+        <Link
+          to="/app/bots/$botId/knowledge"
+          params={{ botId }}
+          className="font-medium text-primary underline-offset-4 hover:underline"
+        >
+          {t('settings.factsLink')}
+        </Link>
+        .
+      </p>
 
       <section className="flex flex-col gap-5">
         <h2 className="text-base font-semibold">{t('settings.behaviour')}</h2>
-        {text('mission', { multiline: true, hint: t('settings.missionHint') })}
-        {text('greeting', { multiline: true })}
-        <div className="grid gap-5 sm:grid-cols-2">
-          {text('selfPronoun')}
-          {text('customerPronoun')}
-        </div>
         {text('fallbackMessage', { multiline: true, hint: t('settings.fallbackHint') })}
         {text('handoffMessage', { multiline: true })}
         <Field id="setting-creativity" label={t('settings.creativity')}>

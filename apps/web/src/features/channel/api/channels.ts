@@ -12,7 +12,7 @@ import {
 import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import { queryKeys } from '@/lib/query-keys';
-import { api } from '@/lib/api-client';
+import { api, ApiClientError } from '@/lib/api-client';
 import { useWorkspaceId } from '@/lib/use-workspace';
 /** Every assignment path refreshes the global list, bot setup/readiness and inbox context. */
 function invalidateConnectionViews(qc: QueryClient, ws: string) {
@@ -108,6 +108,27 @@ export function useBulkUpdateChannels() {
       return changes
         .filter((_change, index) => results[index]?.status === 'rejected')
         .map((change) => change.id);
+    },
+    onSettled: () => invalidateConnectionViews(qc, ws),
+  });
+}
+/** Soft-removes pages; returns only the failed page ids, so retries do not repeat successes. */
+export function useRemoveChannels() {
+  const ws = useWorkspaceId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      const results = await Promise.allSettled(
+        ids.map((id) => api(`/channels/${id}`, z.null(), { method: 'DELETE' })),
+      );
+      // 404: already removed (another tab or teammate), which is what the user asked for.
+      return ids.filter((_id, index) => {
+        const result = results[index];
+        return (
+          result?.status === 'rejected' &&
+          !(result.reason instanceof ApiClientError && result.reason.status === 404)
+        );
+      });
     },
     onSettled: () => invalidateConnectionViews(qc, ws),
   });

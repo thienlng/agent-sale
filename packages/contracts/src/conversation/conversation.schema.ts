@@ -151,36 +151,47 @@ const queryBool = z.preprocess(
 export const ConversationTab = z.enum(['all', 'unread', 'waiting']);
 export type ConversationTab = z.infer<typeof ConversationTab>;
 
-export const ConversationListQuery = z.object({
-  provider: ChannelProvider.optional(),
-  status: ConversationStatus.optional(),
-  mode: z.enum(['human', 'bot']).optional(),
-  q: z.string().max(200).optional(),
-  /** Only starred (followed / priority) conversations. */
-  starred: queryBool,
-  /** Only conversations with a follow-up reminder set ("Trao đổi thêm"). */
-  followUp: queryBool,
-  /** `unread` and `waiting` narrow the list (default `all`); counts always ignore the tab. */
-  tab: ConversationTab.optional(),
-  /** `me` is the caller, `none` is unassigned, otherwise a member id. */
-  assignee: z.union([z.enum(['me', 'none']), z.uuid()]).optional(),
-  channelId: z.uuid().optional(),
-  /** Only the conversations linked to this CRM customer. */
-  contactId: z.uuid().optional(),
-  hasPhone: queryBool,
-  /** `any`: customer unanswered; `longest`: same, longest wait first; `readNotReplied`: opened but unanswered. */
-  waiting: z.enum(['any', 'longest', 'readNotReplied']).optional(),
-  /** Tags from the crm library: has any of these. */
-  tagsAny: queryUuids,
-  /** Has all of these. */
-  tagsAll: queryUuids,
-  /** Has none of these. */
-  tagsExclude: queryUuids,
-  /** Has no tag at all. */
-  untagged: queryBool,
-  sort: z.enum(['recent', 'waitingLongest']).optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(50),
-});
+export const ConversationListQuery = z
+  .object({
+    provider: ChannelProvider.optional(),
+    status: ConversationStatus.optional(),
+    mode: z.enum(['human', 'bot']).optional(),
+    q: z.string().max(200).optional(),
+    /** Only starred (followed / priority) conversations. */
+    starred: queryBool,
+    /** Only conversations with a follow-up reminder set ("Trao đổi thêm"). */
+    followUp: queryBool,
+    /** `unread` and `waiting` narrow the list (default `all`); counts always ignore the tab. */
+    tab: ConversationTab.optional(),
+    /** `me` is the caller, `none` is unassigned, otherwise a member id. */
+    assignee: z.union([z.enum(['me', 'none']), z.uuid()]).optional(),
+    channelId: z.uuid().optional(),
+    /** Only the conversations linked to this CRM customer. */
+    contactId: z.uuid().optional(),
+    hasPhone: queryBool,
+    /** `any`: customer unanswered; `longest`: same, longest wait first; `readNotReplied`: opened but unanswered. */
+    waiting: z.enum(['any', 'longest', 'readNotReplied']).optional(),
+    /** Tags from the crm library: has any of these. */
+    tagsAny: queryUuids,
+    /** Has all of these. */
+    tagsAll: queryUuids,
+    /** Has none of these. */
+    tagsExclude: queryUuids,
+    /** Has no tag at all. */
+    untagged: queryBool,
+    /** The bot answering the conversation now (`ConversationDto.botId`); `none`: no bot. */
+    botId: z.union([z.literal('none'), z.uuid()]).optional(),
+    /** Last activity (`updatedAt`) at or after this instant. */
+    updatedFrom: z.iso.datetime({ offset: true }).optional(),
+    /** Last activity strictly before this instant. */
+    updatedTo: z.iso.datetime({ offset: true }).optional(),
+    sort: z.enum(['recent', 'waitingLongest']).optional(),
+    limit: z.coerce.number().int().min(1).max(100).default(50),
+  })
+  .refine(
+    (q) => !q.updatedFrom || !q.updatedTo || Date.parse(q.updatedFrom) < Date.parse(q.updatedTo),
+    { message: 'updatedFrom must be before updatedTo', path: ['updatedTo'] },
+  );
 export type ConversationListQuery = z.infer<typeof ConversationListQuery>;
 export const ConversationCounts = z.object({
   all: z.number().int(),

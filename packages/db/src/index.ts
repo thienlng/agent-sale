@@ -7,6 +7,7 @@ export {
   backfillAccountSubscriptions,
   type AccountSubscriptionBackfillReport,
 } from './account-subscription-backfill.js';
+export { backfillBotProfiles, type BotProfileBackfillReport } from './bot-profile-backfill.js';
 export { ensureLoginRoles, migrate, MIGRATIONS_DIR, withCredentials } from './migrate.js';
 export * as schema from './schema/index.js';
 // Query operators re-exported so modules depend on @agent-sales/db only, never on drizzle-orm directly.
