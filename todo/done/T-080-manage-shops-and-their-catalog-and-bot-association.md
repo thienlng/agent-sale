@@ -1,13 +1,13 @@
 ---
 id: T-080
 title: Let each bot sell a chosen part of the business catalog
-status: review
+status: done
 type: feature
 priority: P1
 owner: "@agent:claude"
 feature_ids: []
 created: 2026-10-26
-updated: 2026-10-29
+updated: 2026-10-30
 branch: feat/T-124-integrate-lane-a2
 pr: 84
 parent:
@@ -66,7 +66,7 @@ Let each bot sell a chosen part of the business catalog.
 
 ## Links
 
-- [Review milestone handoff](../docs/handoffs/2026-10-26-cofounder-review-plan.md)
-- [Architecture](../docs/ARCHITECTURE.md)
-- [Tenancy and verticals](../docs/17-multi-tenancy-and-verticals.md)
-- [Billing design](../docs/08-billing-quota-credit.md)
+- [Review milestone handoff](../../docs/handoffs/2026-10-26-cofounder-review-plan.md)
+- [Architecture](../../docs/ARCHITECTURE.md)
+- [Tenancy and verticals](../../docs/17-multi-tenancy-and-verticals.md)
+- [Billing design](../../docs/08-billing-quota-credit.md)
