@@ -67,6 +67,31 @@ describe('HTTP: POST /products/images', () => {
     expect(res.statusCode).toBe(400);
   });
 
+  it('rejects a WebP mime with 400 INVALID_IMAGE', async () => {
+    const { http, headers } = await setup();
+    const res = await http.inject({
+      method: 'POST',
+      url,
+      headers,
+      payload: { mimeType: 'image/webp', base64: png.toString('base64') },
+    });
+    expect(res.statusCode, res.body).toBe(400);
+    expect(res.json()).toMatchObject({
+      error: { code: 'VALIDATION_FAILED', details: { reason: 'INVALID_IMAGE' } },
+    });
+  });
+
+  it('keeps the catalog workspace-scoped: no workspace header is rejected', async () => {
+    const { http, headers } = await setup();
+    const res = await http.inject({
+      method: 'GET',
+      url: '/api/v1/warehouses',
+      headers: { authorization: headers.authorization },
+    });
+    expect(res.statusCode, res.body).toBeGreaterThanOrEqual(400);
+    expect(res.statusCode).toBeLessThan(500);
+  });
+
   it('rejects bad magic bytes with 400 INVALID_IMAGE', async () => {
     const { http, headers } = await setup();
     const res = await http.inject({
