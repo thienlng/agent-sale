@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto';
-
 import type { ChatMessage } from '@agent-sales/ai-core';
 import type { WorkspaceId } from '@agent-sales/shared';
 
@@ -57,56 +55,13 @@ export interface ActionLoopInput {
   keyFor(actionId: string, args: ActionArgs): string;
 }
 
-type ActionArgs = Record<string, string | number | boolean>;
+/** Re-exported until the reply pipeline moves to tool calling. */
+export { idempotencyKey, playgroundConversationId, safeJson } from './action-tools.js';
+import { safeJson, vouchedValues, type ActionArgs } from './action-tools.js';
 
-/** Same write inside the same 10 minute bucket is the same logical write, whichever event retries it. */
-const IDEMPOTENCY_BUCKET_MS = 10 * 60 * 1000;
-
-/**
- * Key of a write: conversation + action + hash of the canonical (sorted) args + 10 minute bucket.
- * Independent of the channel event, so a requeued or superseded event answering the same burst
- * sends the same key and the remote API can drop the duplicate.
- */
-export function idempotencyKey(
-  conversationId: string,
-  actionId: string,
-  args: ActionArgs,
-  now: number = Date.now(),
-): string {
-  const canonical = JSON.stringify(Object.entries(args).sort(([a], [b]) => (a < b ? -1 : 1)));
-  const hash = createHash('sha256').update(canonical).digest('hex').slice(0, 32);
-  return `act:${conversationId}:${actionId}:${hash}:${Math.floor(now / IDEMPOTENCY_BUCKET_MS)}`;
-}
-
-/** Errors worth a retry by the customer: the write may well not have happened. */
 const TRANSIENT_ERRORS = new Set(['timeout', 'network']);
 
-const escapeRegExp = (v: string): string => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-/** Values of `args` that appear as a whole token in `texts` (the customer's words or trusted results). */
-function vouchedValues(args: ActionArgs, texts: readonly string[]): string[] {
-  return Object.values(args)
-    .map(String)
-    .filter((value) =>
-      texts.some((t) =>
-        new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegExp(value)}(?![\\p{L}\\p{N}])`, 'iu').test(t),
-      ),
-    );
-}
-
 const ACTION_OUTCOMES = new Set(['call_action', 'confirm_action', 'cancel_action']);
-
-/** A stable UUID for the playground, which has no conversation: lets confirmations work in tests. */
-export function playgroundConversationId(botId: string): string {
-  const h = createHash('sha1').update(`playground:${botId}`).digest('hex');
-  const variant = ((Number.parseInt(h.slice(16, 18), 16) & 0x3f) | 0x80).toString(16);
-  return `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-${variant}${h.slice(18, 20)}-${h.slice(20, 32)}`;
-}
-
-/** JSON for the model that cannot close the `<action_result>` tag early. */
-export function safeJson(value: unknown): string {
-  return (JSON.stringify(value) ?? 'null').replaceAll('<', '\\u003c');
-}
 
 const asAnswer = (value: ModelReply): ParsedModelReply => ({
   ok: true,

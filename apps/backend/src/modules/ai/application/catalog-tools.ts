@@ -5,7 +5,7 @@ import type { WorkspaceId } from '@agent-sales/shared';
 
 import type { BotCatalogScope, CatalogFacade } from '../../commerce/api/catalog.facade.js';
 import { compactProduct, productDetails } from '../domain/product-view.js';
-import { safeJson } from './action-loop.js';
+import { safeJson } from './action-tools.js';
 
 export interface ToolResult {
   /** The JSON the model receives. */

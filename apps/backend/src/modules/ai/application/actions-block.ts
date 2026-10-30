@@ -1,6 +1,6 @@
 import { type BotActionView, type PendingAction } from '../../action/api/index.js';
 
-import { safeJson } from './action-loop.js';
+import { safeJson } from './action-tools.js';
 
 /** The `<actions>` list (never a URL, header or secret) and the call awaiting confirmation. */
 export function actionsBlock(
