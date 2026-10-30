@@ -315,6 +315,10 @@ export class ChannelFacadeImpl implements ChannelFacade, OnModuleInit {
       return { externalId: result.externalMessageId, status: 'sent' as const, failureCode: null };
     } catch (error) {
       const code = error instanceof MetaRequestError ? error.code : 'delivery_unknown';
+      if (error instanceof MetaRequestError)
+        log.warn(
+          `Send on channel ${id} failed: ${code} (meta ${JSON.stringify(error.meta)}, ${message.attachments?.length ? `${message.attachments.length} attachment(s)` : 'text'})`,
+        );
       if (code === 'auth_expired') await this.store.update(ws, id, { status: 'reauth_required' });
       return {
         externalId: null,

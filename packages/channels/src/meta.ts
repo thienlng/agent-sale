@@ -12,6 +12,8 @@ export class MetaRequestError extends Error {
   constructor(
     readonly code: string,
     readonly uncertain: boolean = false,
+    /** Meta's own error code, subcode and type: safe to log (no message text, which can echo input). */
+    readonly meta: { code?: number; subcode?: number; type?: string } = {},
   ) {
     super('Meta request failed');
   }
@@ -105,7 +107,11 @@ export class MetaAdapter implements ChannelAdapter {
             : res.status === 429
               ? 'rate_limited'
               : 'provider_rejected';
-      throw new MetaRequestError(code, res.status >= 500);
+      throw new MetaRequestError(code, res.status >= 500, {
+        ...(typeof error.code === 'number' ? { code: error.code } : {}),
+        ...(typeof error.error_subcode === 'number' ? { subcode: error.error_subcode } : {}),
+        ...(typeof error.type === 'string' ? { type: error.type.slice(0, 60) } : {}),
+      });
     }
     if (typeof data.message_id !== 'string') throw new MetaRequestError('delivery_unknown', true);
     return { externalMessageId: data.message_id };

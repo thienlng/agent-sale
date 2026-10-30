@@ -85,6 +85,33 @@ describe('Meta signed messaging adapter', () => {
       server.send({ externalId: 'page', token: 't' }, 'u', { text: 'Hi' }, { idempotencyKey: 'k' }),
     ).rejects.toBeInstanceOf(MetaRequestError);
   });
+  it('keeps Meta error code, subcode and type but never the message text', async () => {
+    const adapter = new MetaAdapter(
+      'facebook',
+      'v24.0',
+      vi.fn<typeof fetch>().mockResolvedValue(
+        Response.json(
+          {
+            error: {
+              code: 100,
+              error_subcode: 2018047,
+              type: 'OAuthException',
+              message: 'echo: chị Lan 0912',
+            },
+          },
+          { status: 400 },
+        ),
+      ),
+    );
+    const failure = await adapter
+      .send({ externalId: 'page', token: 't' }, 'u', { text: 'Hi' }, { idempotencyKey: 'k' })
+      .catch((e: unknown) => e);
+    expect(failure).toMatchObject({
+      code: 'provider_rejected',
+      meta: { code: 100, subcode: 2018047, type: 'OAuthException' },
+    });
+    expect(JSON.stringify((failure as MetaRequestError).meta)).not.toContain('0912');
+  });
   it('keeps HTTPS media attachments and sends one attachment by URL', async () => {
     const a = new MetaAdapter('facebook');
     const body = payload();
