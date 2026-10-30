@@ -28,12 +28,15 @@ function loop(script: GenerateResponse[], execute?: (call: ToolCall) => Promise<
   const requests: GenerateRequest[] = [];
   const queue = [...script];
   const executed: ToolCall[] = [];
+  const errors: [ToolCall, unknown][] = [];
   return {
+    errors,
     requests,
     executed,
     run: () =>
       runToolLoop({
         base,
+        onError: (call, error) => errors.push([call, error]),
         generate: async (req) => {
           // Snapshot: the loop reuses arrays.
           requests.push({ ...req, messages: [...req.messages] });
@@ -149,6 +152,8 @@ describe('runToolLoop', () => {
       return { content: '{"fine":true}', trusted: 't' };
     });
     const out = await l.run();
+    expect(l.errors.map(([c]) => c.id)).toEqual(['a']);
+    expect((l.errors[0]?.[1] as Error).message).toContain('secret');
     expect(out.res.text).toBe('ok');
     const tools = out.messages.filter((m) => m.role === 'tool');
     expect(tools.map((m) => m.content)).toEqual(['{"error":"tool_failed"}', '{"fine":true}']);

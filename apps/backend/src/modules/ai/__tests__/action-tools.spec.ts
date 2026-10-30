@@ -111,6 +111,7 @@ function setup(
         byName,
         keyFor: (actionId, args) => idempotencyKey(conversationId, actionId, args),
         state,
+        confirmable: (options.pending ?? null) !== null,
       },
       { id: `c-${newId()}`, name, input } satisfies ToolCall,
     );
@@ -209,7 +210,9 @@ describe('runActionTool', () => {
   });
 
   it('(c) confirm with nothing pending runs nothing', async () => {
-    const { parsed, invocations } = setup();
+    // Offered at turn start, but already taken (expired or consumed by another event).
+    const { parsed, invocations, store } = setup({ pending: pendingOf() });
+    store.pending = null;
     expect(await parsed('confirm_pending_action')).toEqual({ error: 'nothing_pending' });
     expect(invocations).toHaveLength(0);
   });
@@ -381,6 +384,33 @@ describe('runActionTool', () => {
     fromResult.state.results.push('{"hour":10}');
     await fromResult.run('action_2', { hour: 10 });
     expect(fromResult.state.readback).toEqual(['10']);
+  });
+});
+
+describe('confirmation safety', () => {
+  it('never confirms a call stored in the same turn (same batch or next round)', async () => {
+    const s = setup({ customerTexts: ['đặt lịch 9 giờ'] });
+    await s.run('action_2', { hour: 9 });
+    expect(s.store.pending).not.toBeNull();
+    // Even if confirm were offered later, a call stored this turn is not confirmable.
+    expect(await s.parsed('confirm_pending_action')).toEqual({ error: 'not_confirmable' });
+    expect(s.store.consumed).toBe(0);
+    expect(s.invocations).toHaveLength(0);
+
+    const carried = setup({ pending: pendingOf() });
+    await carried.run('action_2', { hour: 10 });
+    expect(await carried.parsed('confirm_pending_action')).toEqual({ error: 'not_confirmable' });
+    expect(carried.store.consumed).toBe(0);
+    expect(carried.invocations).toHaveLength(0);
+  });
+
+  it('refuses confirm and cancel when no call was pending at turn start', async () => {
+    const s = setup();
+    expect(await s.parsed('confirm_pending_action')).toEqual({ error: 'not_confirmable' });
+    expect(await s.parsed('cancel_pending_action')).toEqual({ error: 'nothing_pending' });
+    expect(s.store.consumed).toBe(0);
+    expect(s.store.cleared).toBe(0);
+    expect(s.invocations).toHaveLength(0);
   });
 });
 

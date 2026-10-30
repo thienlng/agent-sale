@@ -27,6 +27,12 @@ export interface ActionToolState {
   readback: string[];
   /** A confirmation question was stored this turn: it must reach the customer or be dropped. */
   askedConfirmation: boolean;
+  /**
+   * A pending call was stored this turn: it cannot be confirmed in the same turn.
+   * The caller must clear the pending call when `askedConfirmation` is true and the final
+   * reply does not reach the customer or is empty (the customer was never asked).
+   */
+  stored: boolean;
   calls: ActionCall[];
   /** Set to a guardrail name when the turn must end in the fallback; undefined = not decided. */
   fallback: string | null | undefined;
@@ -37,6 +43,7 @@ export const newActionToolState = (): ActionToolState => ({
   results: [],
   readback: [],
   askedConfirmation: false,
+  stored: false,
   calls: [],
   fallback: undefined,
 });
@@ -149,6 +156,8 @@ export interface ActionToolContext {
   /** Idempotency key of a call: stable for the same logical write (see `idempotencyKey`). */
   keyFor(actionId: string, args: ActionArgs): string;
   state: ActionToolState;
+  /** A pending call existed when the turn started (loaded by the caller): the only confirmable one. */
+  confirmable: boolean;
 }
 
 export interface ActionToolResult {
@@ -176,6 +185,7 @@ export async function runActionTool(
   const { facade, ws, botId, conversationId, state } = ctx;
 
   if (call.name === CANCEL_TOOL) {
+    if (!ctx.confirmable) return result({ error: 'nothing_pending' });
     await facade.clearPending(ws, conversationId);
     return result({ status: 'cancelled' });
   }
@@ -185,6 +195,8 @@ export async function runActionTool(
   let args: ActionArgs;
 
   if (call.name === CONFIRM_TOOL) {
+    // Only a call stored in an earlier turn, which the customer has now answered.
+    if (!ctx.confirmable || state.stored) return result({ error: 'not_confirmable' });
     // Never the model's arguments: only what was stored when the customer was asked.
     if (state.executed >= MAX_ACTION_ROUNDS) return limit(state);
     // Atomic take BEFORE the call: of two concurrent confirmations only one gets the stored write.
@@ -204,6 +216,7 @@ export async function runActionTool(
     if (action.requiresConfirm) {
       await facade.setPending(ws, conversationId, { actionId: action.id, args });
       state.askedConfirmation = true;
+      state.stored = true;
       state.readback = vouchedValues(args, [...ctx.customerTexts, ...state.results]);
       return result({ status: 'awaiting_customer_confirmation', readBack: args });
     }

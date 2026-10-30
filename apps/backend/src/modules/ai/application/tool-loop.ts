@@ -26,6 +26,8 @@ export interface ToolLoopInput {
   /** Messages, tools and response format of the turn. */
   base: GenerateRequest;
   generate(req: GenerateRequest): Promise<GenerateResponse>;
+  /** Called when `execute` throws (the model only sees `tool_failed`): log it, never rethrow. */
+  onError?(call: ToolCall, error: unknown): void;
   execute(call: ToolCall): Promise<{ content: string; trusted: string; productIds?: string[] }>;
 }
 
@@ -66,7 +68,8 @@ export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult>
         content = out.content;
         if (out.trusted) trusted.push(out.trusted);
         for (const id of out.productIds ?? []) productIds.add(id);
-      } catch {
+      } catch (error) {
+        input.onError?.(call, error);
         // Never the error message: it may carry internals the model must not see.
         content = '{"error":"tool_failed"}';
       }
