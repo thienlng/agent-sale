@@ -29,7 +29,18 @@ services:
   # the `rapiz` identity writes. Create the bucket once: see docs/10 section 1.
   object-storage:
     image: chrislusf/seaweedfs:latest
-    command: ['server', '-s3', '-s3.port=9000', '-s3.config=/etc/seaweedfs/s3.json', '-dir=/data']
+    # Small volumes: the 30 GB default reserves more than a laptop disk has free, and then no
+    # volume can be created ("Not enough data nodes found") and every upload fails.
+    command:
+      [
+        'server',
+        '-s3',
+        '-s3.port=9000',
+        '-s3.config=/etc/seaweedfs/s3.json',
+        '-dir=/data',
+        '-master.volumeSizeLimitMB=100',
+        '-volume.max=50',
+      ]
     ports: ['9000:9000']
     volumes:
       - s3data:/data
