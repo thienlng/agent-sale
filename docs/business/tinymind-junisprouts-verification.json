@@ -1,0 +1,111 @@
+{
+  "source": "https://junisprouts.com/",
+  "verifiedAt": "2026-10-29",
+  "results": [
+    {
+      "question": "Bảng học Montessori gỗ 10 trong 1 JS-039 giá bao nhiêu? Bé 2 tuổi chơi được không?",
+      "status": 200,
+      "reply": "Dạ em chào anh/chị, bảng học Montessori gỗ 10 trong 1 JS-039 bản tiêu chuẩn có giá 960.000 đồng ạ.\nBộ này khuyến nghị từ 3 tuổi trở lên, có hạt gỗ và chi tiết nhỏ, cần người lớn giám sát nên chưa phù hợp cho bé 2 tuổi ạ.",
+      "outcome": "answered",
+      "guardrail": null,
+      "images": []
+    },
+    {
+      "question": "Bộ thực phẩm gỗ chơi đóng vai JS-027 có những loại nào và giá từng loại bao nhiêu?",
+      "status": 200,
+      "reply": "Dạ chào anh/chị, em gửi giá 5 loại của bộ thực phẩm gỗ JS-027 ạ.\nBộ dụng cụ bếp (Knife Set) giá 730.000đ; bộ trái cây (Fruit Set) giá 1.110.000đ; bộ rau củ (Vegetable Set) giá 1.260.000đ.\nBộ thịt (Meat Set) giá 920.000đ; bộ bánh mì và bánh nướng (Bread & Bakery Set) giá 1.260.000đ. Bộ này dành cho bé từ 4 tuổi, có chi tiết nhỏ và nam châm nhỏ nên cần người lớn giám sát khi chơi ạ.",
+      "outcome": "answered",
+      "guardrail": null,
+      "images": []
+    },
+    {
+      "question": "Shop giao tới Hà Nội được không? Có COD không?",
+      "status": 200,
+      "reply": "Dạ chào anh/chị, chính sách hiện chỉ giao trong 50 bang Hoa Kỳ, chưa giao quốc tế nên chưa giao tới Hà Nội ạ.\nEm chưa có thông tin xác nhận cửa hàng hỗ trợ COD ạ.",
+      "outcome": "answered",
+      "guardrail": null,
+      "images": []
+    },
+    {
+      "question": "Chính sách đổi trả là 60 ngày hay 90 ngày?",
+      "status": 200,
+      "reply": "Dạ chào anh/chị, chính sách đổi trả riêng hiện quy định 60 ngày kể từ khi nhận hàng ạ.\nMột số trang sản phẩm còn ghi 90 ngày nên có mâu thuẫn; em đang tư vấn theo chính sách 60 ngày, còn trường hợp áp dụng khác cần chủ cửa hàng xác nhận.",
+      "outcome": "answered",
+      "guardrail": null,
+      "images": []
+    },
+    {
+      "question": "Cho tôi xem ảnh Bảng học Montessori gỗ 10 trong 1 JS-039",
+      "status": 200,
+      "reply": "Dạ em chào anh/chị, em gửi ảnh Bảng học Montessori gỗ 10 trong 1 JS-039 ạ.\nBộ này dành cho bé từ 3 tuổi, có chi tiết nhỏ nên cần người lớn giám sát khi chơi ạ.",
+      "outcome": "answered",
+      "guardrail": null,
+      "images": [
+        {
+          "url": "https://cdn.shopify.com/s/files/1/0794/5931/9865/files/wooden-montessori-10-in-1-learning-board-hero.webp?v=1779309469",
+          "label": "Bảng học Montessori gỗ 10 trong 1 — Wooden Montessori 10-in-1 Learning Board (1/5)"
+        },
+        {
+          "url": "https://cdn.shopify.com/s/files/1/0794/5931/9865/files/wooden-montessori-10-in-1-learning-board-full-set.webp?v=1779309469",
+          "label": "Bảng học Montessori gỗ 10 trong 1 — Wooden Montessori 10-in-1 Learning Board (2/5)"
+        },
+        {
+          "url": "https://cdn.shopify.com/s/files/1/0794/5931/9865/files/wooden-montessori-10-in-1-learning-board-toddler-play.webp?v=1779309469",
+          "label": "Bảng học Montessori gỗ 10 trong 1 — Wooden Montessori 10-in-1 Learning Board (3/5)"
+        }
+      ]
+    },
+    {
+      "question": "Cho tôi gặp người chủ shop hoặc nhân viên tư vấn.",
+      "status": 200,
+      "reply": "Dạ, em đã chuyển cho nhân viên, anh/chị đợi một chút ạ.",
+      "outcome": "handoff",
+      "guardrail": null,
+      "images": []
+    },
+    {
+      "question": "Shop còn bán giày Oxford và đổi size giày không?",
+      "status": 200,
+      "reply": "Dạ chào anh/chị, TinyMind bán đồ chơi gỗ Montessori, không có giày Oxford trong danh mục ạ.\nEm chưa có thông tin về chính sách đổi size giày để tư vấn cho anh/chị.",
+      "outcome": "answered",
+      "guardrail": null,
+      "images": []
+    },
+    {
+      "question": "Bảng học Montessori gỗ 10 trong 1 JS-039 hiện còn hàng không?",
+      "status": 200,
+      "reply": "Dạ anh/chị, bảng học Montessori gỗ 10 trong 1 JS-039 được nguồn website ghi nhận là có thể mua ạ.\nTuy nhiên, em chưa có thông tin xác nhận tồn kho thực tế của sản phẩm.",
+      "outcome": "answered",
+      "guardrail": null,
+      "images": []
+    },
+    {
+      "question": "Tôi muốn mua 1 Bảng học Montessori gỗ 10 trong 1 JS-039, ship đến Texas. Shop chốt đơn cho tôi nhé.",
+      "status": 200,
+      "reply": "Dạ em ghi nhận anh/chị muốn mua 1 Bảng học Montessori gỗ 10 trong 1 JS-039, bản Tiêu chuẩn, giá 960.000đ, giao đến Texas; đơn cần chủ cửa hàng xác nhận ạ.\nBộ này dành cho bé từ 3 tuổi, có chi tiết nhỏ nên cần người lớn giám sát. Bé nhà anh/chị bao nhiêu tuổi ạ?\nAnh/chị cho em xin tên người nhận, số điện thoại và địa chỉ giao cụ thể để chủ cửa hàng xác nhận đơn và phí vận chuyển nhé.",
+      "outcome": "answered",
+      "guardrail": null,
+      "images": []
+    }
+  ],
+  "concurrencyObservation": "Four API calls returned 503 AI_UNAVAILABLE while the native UI playground had an active generation. All four passed when retried sequentially after it completed; Hermes is documented as single-flight.",
+  "sampleInventoryVerification": {
+    "approvedByOwner": true,
+    "products": 59,
+    "variants": 63,
+    "allProductsAvailable": 10,
+    "totalAvailable": 590,
+    "multiVariantProduct": {
+      "code": "JS-027",
+      "availablePerVariant": 2,
+      "variants": 5
+    },
+    "postInitializationPlayground": {
+      "status": 200,
+      "question": "Bảng học Montessori gỗ 10 trong 1 JS-039 còn bao nhiêu cái để đặt hàng thử?",
+      "reply": "Dạ chào anh/chị, em kiểm tra catalog hiện có 10 bảng học Montessori gỗ 10 trong 1 JS-039, bản Tiêu chuẩn, có thể bán để đặt hàng thử ạ.\nĐây là tồn kho demo, không phải tồn kho thực tế của JuniSprouts. Anh/chị muốn đặt thử bao nhiêu cái ạ?",
+      "outcome": "answered",
+      "guardrail": null
+    }
+  }
+}
