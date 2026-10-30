@@ -214,6 +214,20 @@ export interface CommerceTx {
       rows: ProductRecord[];
       total: number;
     }>;
+    /**
+     * Active, bot-visible products ranked for the bot catalog search. `terms` are already folded
+     * (catalogTerms) and `query` is the whole folded query; without terms the rows come by name.
+     */
+    searchForBot(filter: {
+      terms: string[];
+      query: string;
+      /** Only the products selected for this bot. */
+      selectedFor?: string | undefined;
+      limit: number;
+    }): Promise<ProductRecord[]>;
+    /** Active, bot-visible products with these ids (any order). */
+    findForBot(ids: string[], selectedFor?: string | undefined): Promise<ProductRecord[]>;
+    countForBot(selectedFor?: string | undefined): Promise<number>;
     find(id: string): Promise<ProductRecord | null>;
     /** Throws DuplicateCodeError on a code clash. */
     save(p: ProductRecord): Promise<void>;

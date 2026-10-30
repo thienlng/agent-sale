@@ -1,5 +1,16 @@
-import { and, asc, desc, eq, inArray, isNull, schema, sql, type TenantTx } from '@agent-sales/db';
-import type { WorkspaceId } from '@agent-sales/shared';
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  isNull,
+  schema,
+  sql,
+  type SQL,
+  type TenantTx,
+} from '@agent-sales/db';
+import { foldVietnamese, type WorkspaceId } from '@agent-sales/shared';
 
 import type {
   CommerceTx,
@@ -26,6 +37,18 @@ import {
   w,
 } from './commerce.rows.js';
 
+/** Drops below this best single-term word_similarity (spec §5). */
+const SIMILARITY_FLOOR = 0.3;
+
+const ACCENTED = 'àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ';
+const ACCENTED_ALL = ACCENTED + ACCENTED.toUpperCase();
+const UNACCENTED_ALL = [...ACCENTED_ALL].map((c) => foldVietnamese(c)).join('');
+
+/** SQL twin of foldVietnamese for a column: lower-case, no diacritics (đ becomes d). */
+function foldedSql(expr: SQL): SQL {
+  return sql`translate(lower(${expr}), ${ACCENTED_ALL}, ${UNACCENTED_ALL})`;
+}
+
 /** Warehouses, products/variants and inventory inside one tenant transaction. */
 export function catalogTx(
   ws: WorkspaceId,
@@ -44,6 +67,16 @@ export function catalogTx(
       if (constraint === 'bot_products_bot_fk') throw new BotNotFoundError(botId);
       throw new ProductNotFoundError(productIds.join(','));
     }
+  }
+  /** Active, visible-to-bot products; in 'selected' mode only the bot's selection. */
+  function botVisible(selectedFor: string | undefined): SQL | undefined {
+    return and(
+      eq(p.status, 'active'),
+      eq(p.visibleToBot, true),
+      selectedFor
+        ? inArray(p.id, tx.select({ id: bp.productId }).from(bp).where(eq(bp.botId, selectedFor)))
+        : undefined,
+    );
   }
   return {
     warehouses: {
@@ -125,6 +158,48 @@ export function catalogTx(
             .where(where),
         ]);
         return { rows: rows.map(toProduct), total: n(count?.c) };
+      },
+      async searchForBot({ terms, query, selectedFor, limit }) {
+        const base = botVisible(selectedFor);
+        if (!terms.length) {
+          const rows = await tx
+            .select()
+            .from(p)
+            .where(base)
+            .orderBy(asc(p.name), asc(p.id))
+            .limit(limit);
+          return rows.map(toProduct);
+        }
+        const category = foldedSql(sql`coalesce(${p.category}, '')`);
+        const name = foldedSql(sql`${p.name}`);
+        const text = sql`${p.searchText}`;
+        const sims = terms.map((t) => sql`word_similarity(${t}, ${text})`);
+        const catSims = terms.map((t) => sql`word_similarity(${t}, ${category})`);
+        const sum = (parts: SQL[]) => sql.join(parts, sql` + `);
+        const score = sql`(${sum(sims)}) + 0.5 * (${sum(catSims)}) + (case when strpos(${name}, ${query}) > 0 then 1.0 else 0 end)`;
+        const best = sql`greatest(${sql.join([...sims, ...catSims], sql`, `)})`;
+        const rows = await tx
+          .select()
+          .from(p)
+          .where(and(base, sql`(${best} >= ${SIMILARITY_FLOOR} or strpos(${name}, ${query}) > 0)`))
+          .orderBy(desc(score), asc(p.name), asc(p.id))
+          .limit(limit);
+        return rows.map(toProduct);
+      },
+      async findForBot(ids, selectedFor) {
+        if (!ids.length) return [];
+        const rows = await tx
+          .select()
+          .from(p)
+          .where(and(botVisible(selectedFor), inArray(p.id, ids)));
+        return rows.map(toProduct);
+      },
+      async countForBot(selectedFor) {
+        const [count] = await tx
+          .select({ c: sql<number>`count(*)` })
+          .from(p)
+          .where(botVisible(selectedFor));
+        return n(count?.c);
       },
       async find(id) {
         const [r] = await tx.select().from(p).where(eq(p.id, id)).limit(1);

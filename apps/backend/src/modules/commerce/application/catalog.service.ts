@@ -17,6 +17,7 @@ import { foldVietnamese, isUuid, newId, type WorkspaceId } from '@agent-sales/sh
 import { Inject, Injectable } from '@nestjs/common';
 
 import type { BotCatalogScope } from '../api/catalog.facade.js';
+import { catalogTerms } from '../domain/bot-catalog-query.js';
 import { botProductSearches } from '../domain/bot-product-search.js';
 import { LodgingError } from '../domain/lodging.js';
 import {
@@ -91,6 +92,9 @@ function productSearchText(
   return foldVietnamese([p.code, p.name, ...variants.flatMap((v) => [v.sku, v.name])].join(' '));
 }
 
+/** Most rows a bot catalog search or browse returns (spec §5). */
+const BOT_CATALOG_CAP = 300;
+
 /** The bot_products filter for a bot in 'selected' mode; undefined sells every active product. */
 function selection(bot: BotCatalogScope): string | undefined {
   return bot.catalogMode === 'selected' ? bot.botId : undefined;
@@ -153,6 +157,80 @@ export class CatalogService {
       if (error instanceof CommerceUnavailableError) return [];
       throw error;
     }
+  }
+
+  async searchBotCatalog(
+    ws: WorkspaceId,
+    bot: BotCatalogScope,
+    input: { query?: string; maxPriceVnd?: number; inStockOnly?: boolean; limit: number },
+  ): Promise<ProductDto[]> {
+    const limit = Math.max(1, Math.min(input.limit, BOT_CATALOG_CAP));
+    const terms = catalogTerms(input.query ?? '');
+    const query = terms.length
+      ? foldVietnamese(input.query ?? '')
+          .replace(/[^\p{L}\p{N}]+/gu, ' ')
+          .trim()
+      : '';
+    // Price and stock are computed from variants and stock rows, so they filter after the query.
+    const filtered = input.maxPriceVnd !== undefined || input.inStockOnly === true;
+    try {
+      return await this.store.run(ws, async (tx) => {
+        const rows = await tx.products.searchForBot({
+          terms,
+          query,
+          selectedFor: selection(bot),
+          limit: filtered ? BOT_CATALOG_CAP : limit,
+        });
+        const dtos = await this.#dtos(tx, rows);
+        return dtos
+          .filter((d) => input.maxPriceVnd === undefined || d.priceMin <= input.maxPriceVnd)
+          .filter((d) => !input.inStockOnly || d.available > 0)
+          .slice(0, limit);
+      });
+    } catch (error) {
+      if (error instanceof CommerceUnavailableError) return [];
+      throw error;
+    }
+  }
+
+  async getBotProductsByIds(
+    ws: WorkspaceId,
+    bot: BotCatalogScope,
+    ids: readonly string[],
+  ): Promise<ProductDto[]> {
+    const wanted = [...new Set(ids)].filter(isUuid).slice(0, 10);
+    if (!wanted.length) return [];
+    try {
+      return await this.store.run(ws, async (tx) => {
+        const rows = await tx.products.findForBot(wanted, selection(bot));
+        const dtos = new Map((await this.#dtos(tx, rows)).map((d) => [d.id, d]));
+        return wanted.flatMap((id) => dtos.get(id) ?? []);
+      });
+    } catch (error) {
+      if (error instanceof CommerceUnavailableError) return [];
+      throw error;
+    }
+  }
+
+  async countBotCatalog(ws: WorkspaceId, bot: BotCatalogScope): Promise<number> {
+    try {
+      return await this.store.run(ws, (tx) => tx.products.countForBot(selection(bot)));
+    } catch (error) {
+      if (error instanceof CommerceUnavailableError) return 0;
+      throw error;
+    }
+  }
+
+  async #dtos(tx: CommerceTx, rows: ProductRecord[]): Promise<ProductDto[]> {
+    const variants = await tx.products.variantsOf(rows.map((r) => r.id));
+    const stock = await tx.inventory.stockOf(variants.map((v) => v.id));
+    return rows.map((p) =>
+      toProductDto(
+        p,
+        variants.filter((v) => v.productId === p.id),
+        stock,
+      ),
+    );
   }
 
   // ─── Warehouses ───────────────────────────────────────────────────────────
