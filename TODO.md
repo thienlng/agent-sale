@@ -71,5 +71,5 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [x] T-091 Move subscription and message quota ownership to the account — @agent:claude · [details](todo/done/T-091-move-subscription-and-message-quota-ownership-to-t.md) · main (PR #85)
 - [x] T-089 Centralize customer tags and statuses in customer settings — @agent:claude · [details](todo/done/T-089-centralize-customer-tags-and-statuses-in-customer-.md) · main (PR #85)
 - [x] T-088 Link CRM customers to bots and conversations — @agent:claude · [details](todo/done/T-088-link-crm-customers-to-business-shop-bot-and-conver.md) · main (PR #85)
-- [x] T-156 Reset TinyMind and Villas conversation history — @agent:codex · [details](todo/done/T-156-reset-tinymind-and-villas-conversation-history.md) · operational data reset; no code changes
+- [x] T-159 Reset TinyMind and Villas conversation history — @agent:codex · [details](todo/done/T-159-reset-tinymind-and-villas-conversation-history.md) · operational data reset; no code changes
 - [x] T-129 Let a business pick an icon when it has no logo — @agent:claude · [details](todo/done/T-129-let-a-business-pick-an-icon-when-it-has-no-logo.md) · main (PR #84)
