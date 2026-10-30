@@ -22,6 +22,7 @@ import { lodgingErrorMessage } from '../hooks/lodging-errors';
 import { useWorkspaceId } from '@/lib/use-workspace';
 import { useCan } from '@/lib/permissions';
 import { useSaveProduct } from '../api/commerce';
+import { LodgingGalleryEditor } from './lodging-gallery-editor';
 
 export function AccommodationForm({
   product,
@@ -319,60 +320,10 @@ export function AccommodationForm({
           )}
         </div>
       ))}
-      <fieldset className="space-y-3">
-        <legend className="font-semibold">
-          {t('lodging.gallery')} · {details.gallery.length}
-        </legend>
-        {details.gallery.map((photo, i) => (
-          <div key={i} className="space-y-2 rounded-lg border p-3">
-            <Input
-              aria-label={`${t('lodging.imageUrl')} ${i + 1}`}
-              value={photo.url}
-              type="url"
-              maxLength={2000}
-              placeholder={t('lodging.imageUrl')}
-              onChange={(e) =>
-                update(
-                  'gallery',
-                  details.gallery.map((v, j) => (i === j ? { ...v, url: e.target.value } : v)),
-                )
-              }
-            />
-            <Input
-              aria-label={`${t('lodging.caption')} ${i + 1}`}
-              value={photo.caption}
-              maxLength={300}
-              placeholder={t('lodging.caption')}
-              onChange={(e) =>
-                update(
-                  'gallery',
-                  details.gallery.map((v, j) => (i === j ? { ...v, caption: e.target.value } : v)),
-                )
-              }
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() =>
-                update(
-                  'gallery',
-                  details.gallery.filter((_, j) => i !== j),
-                )
-              }
-            >
-              {t('lodging.remove')}
-            </Button>
-          </div>
-        ))}
-        <Button
-          type="button"
-          variant="outline"
-          disabled={details.gallery.length >= 30}
-          onClick={() => update('gallery', [...details.gallery, { url: '', caption: '' }])}
-        >
-          {t('lodging.addPhoto')}
-        </Button>
-      </fieldset>
+      <LodgingGalleryEditor
+        value={details.gallery}
+        onChange={(gallery) => update('gallery', gallery)}
+      />
       {error && (
         <p role="alert" className="text-sm text-destructive">
           {t('lodging.invalid')}
