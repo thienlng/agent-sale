@@ -71,6 +71,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## Done (last 10 — older ones live in todo/done/)
 
+- [x] T-156 Make main CI green again after the billing outage — @agent:claude · [details](todo/done/T-156-make-main-ci-green-again-after-the-billing-outage.md) · main (PR #89)
 - [x] T-114 Clean up bot navigation: hide the image library and rename channel integrations — @agent:claude · [details](todo/done/T-114-clean-up-bot-navigation-hide-the-image-library-and.md) · main (PR #83)
 - [x] T-113 Show per-bot statistics on the bot training home — @agent:claude · [details](todo/done/T-113-show-per-bot-statistics-on-the-bot-training-home.md) · main (PR #83)
 - [x] T-112 Move product management to its own top-level navigation group — @agent:claude · [details](todo/done/T-112-move-product-management-to-its-own-top-level-navig.md) · main (PR #83)
@@ -80,4 +81,3 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [x] T-154 Drop the coming-soon badge from the Products menu entry — @agent:claude · [details](todo/done/T-154-drop-the-coming-soon-badge-from-products.md) · main
 - [x] T-152 Show the business logo in the business selector — @agent:claude · [details](todo/done/T-152-show-the-business-logo-in-the-selector.md) · main
 - [x] T-151 Explain a page connected to another business when selecting it — @agent:claude · [details](todo/done/T-151-explain-a-page-connected-to-another-business.md) · main
-- [x] T-149 Suggest the matching profile field when an FAQ repeats a profile fact — @agent:claude · [details](todo/done/T-149-point-faq-authors-to-the-matching-profile-field.md) · main
