@@ -54,6 +54,8 @@ const words = (text: string): string[] =>
 
 /** Most pictures listed per product. */
 export const MAX_PRODUCT_IMAGES = 5;
+/** Lodging galleries are listed whole (up to this many), so any photo can be requested. */
+export const MAX_GALLERY_IMAGES = 15;
 
 /**
  * The pictures of the products whose details the model received, ids `p:<productId>:<index>`, at
@@ -72,7 +74,7 @@ export function productImages(
 ): AllowedImage[] {
   return products.flatMap((product) => {
     if (product.accommodation) {
-      return product.accommodation.gallery.slice(0, MAX_PRODUCT_IMAGES).flatMap((photo, index) =>
+      return product.accommodation.gallery.slice(0, MAX_GALLERY_IMAGES).flatMap((photo, index) =>
         isHttps(photo.url)
           ? [
               {

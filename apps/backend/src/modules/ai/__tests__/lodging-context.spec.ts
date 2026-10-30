@@ -37,17 +37,20 @@ const product: ProductDto = {
   accommodation: details,
 };
 describe('lodging catalog grounding', () => {
-  it('lists at most five gallery photos per property regardless of the customer query', () => {
-    const gallery = Array.from({ length: 12 }, (_, i) => ({
-      url: `https://images.example.test/${i}.jpg`,
-      caption: i === 11 ? 'Hành lang tầng trên' : 'Ngoại thất',
-    }));
-    const images = productImages(
-      [{ ...product, accommodation: { ...details, gallery } }],
-      'Cho xem hành lang',
-    );
-    expect(images.map((i) => i.id)).toEqual([0, 1, 2, 3, 4].map((n) => `p:${product.id}:${n}`));
-    expect(images[0]?.label).toContain('Ngoại thất');
+  it('lists the whole gallery (up to 15) with captions, independent of the query', () => {
+    const make = (n: number) =>
+      Array.from({ length: n }, (_, i) => ({
+        url: `https://images.example.test/${i}.jpg`,
+        caption: i === 11 ? 'Hành lang tầng trên' : 'Ngoại thất',
+      }));
+    const ids = (n: number) =>
+      productImages(
+        [{ ...product, accommodation: { ...details, gallery: make(n) } }],
+        'Cho xem hành lang',
+      );
+    expect(ids(12)).toHaveLength(12);
+    expect(ids(12)[11]?.label).toContain('Hành lang');
+    expect(ids(20)).toHaveLength(15);
   });
 
   it('does not turn zero warehouse inventory into a sold-out property or zero-price offer', () => {

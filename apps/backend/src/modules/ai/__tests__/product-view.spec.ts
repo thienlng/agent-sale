@@ -118,4 +118,38 @@ describe('productDetails', () => {
     ]);
     expect(JSON.stringify(d)).not.toContain('https://');
   });
+  it('strips URL and source lines from the owner instructions', () => {
+    const d = productDetails({
+      ...base,
+      botInstructions: 'Gợi ý theo tuổi\nNguồn: https://x.test/a\nXem https://x.test/b',
+    });
+    expect(d.instructions).toBe('Gợi ý theo tuổi');
+  });
+  it('lists a whole lodging gallery (12 -> 12, 20 -> 15) while retail stays at 5', () => {
+    const lodging = (n: number) =>
+      productDetails({
+        ...base,
+        imageUrls: [],
+        accommodation: AccommodationDetails.parse({
+          rentalType: 'entire_property',
+          bedrooms: 1,
+          standardAdults: 2,
+          standardChildren: 1,
+          childAgeBelow: 6,
+          maxGuests: null,
+          roomLayout: [{ name: 'Room', beds: 'One bed' }],
+          amenities: [],
+          rateBasis: 'unconfirmed',
+          rates: [{ days: [1, 2, 3, 4, 5, 6, 7], amount: 100000 }],
+          gallery: Array.from({ length: n }, (_, i) => ({
+            url: `https://img.example.test/${i}.jpg`,
+            caption: `Ảnh ${i}`,
+          })),
+        }),
+      });
+    expect(lodging(12).images).toHaveLength(12);
+    expect(lodging(12).images[11]?.label).toContain('Ảnh 11');
+    expect(lodging(20).images).toHaveLength(15);
+    expect(productDetails(base).images).toHaveLength(5);
+  });
 });

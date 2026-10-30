@@ -88,7 +88,8 @@ async function search(ctx: CatalogToolContext, input: z.infer<typeof SearchInput
   if (total === undefined && rows.length < BROWSE_CAP) return browse(rows);
   return done({
     tooMany: true,
-    total: total ?? (await catalog.countBotCatalog(ws, scope)),
+    // The count ignores the filters, so it is only meaningful for an unfiltered browse.
+    ...(total !== undefined ? { total } : {}),
     categories: [...new Set(rows.map((p) => p.category?.trim()).filter((c): c is string => !!c))]
       .sort()
       .slice(0, MAX_CATEGORIES),

@@ -79,7 +79,7 @@ export function productDetails(p: ProductDto): ProductDetails {
     ...compact,
     ...rest,
     description: cleanDescription(p.description, DESCRIPTION_MAX),
-    instructions,
+    instructions: cleanDescription(instructions, DESCRIPTION_MAX),
     images: imageList(p),
   } as ProductDetails;
 }

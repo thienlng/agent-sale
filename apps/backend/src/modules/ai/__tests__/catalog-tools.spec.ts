@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { ProductDto } from '@agent-sales/contracts';
+import { AccommodationDetails, type ProductDto } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
 import type { CatalogFacade } from '../../commerce/api/catalog.facade.js';
 import { CATALOG_TOOLS, runCatalogTool } from '../application/catalog-tools.js';
@@ -159,5 +159,96 @@ describe('invalid input', () => {
     const r = await runCatalogTool({ ws, scope, catalog: facade }, call(name, input));
     expect(JSON.parse(r.content)).toEqual({ error: 'invalid_arguments' });
     expect(r.productIds).toEqual([]);
+  });
+});
+
+describe('filters and browse paths', () => {
+  const many = (n: number) => Array.from({ length: n }, (_, i) => product(i + 1));
+
+  it('forwards filters to the facade', async () => {
+    const { facade } = fake();
+    await runCatalogTool(
+      { ws, scope, catalog: facade },
+      call('search_products', { query: 'gỗ', maxPriceVnd: 5000, inStockOnly: true }),
+    );
+    expect(facade.searchBotCatalog).toHaveBeenCalledWith(ws, scope, {
+      query: 'gỗ',
+      maxPriceVnd: 5000,
+      inStockOnly: true,
+      limit: 8,
+    });
+  });
+
+  it('filtered browse under 300 rows returns an index', async () => {
+    const { facade } = fake();
+    const r = await runCatalogTool(
+      { ws, scope, catalog: facade },
+      call('search_products', { maxPriceVnd: 5000 }),
+    );
+    expect(facade.searchBotCatalog).toHaveBeenCalledWith(ws, scope, {
+      maxPriceVnd: 5000,
+      limit: 300,
+    });
+    expect(JSON.parse(r.content).index).toHaveLength(10);
+  });
+
+  it('filtered browse that fills 300 rows is tooMany without a misleading total', async () => {
+    const { facade } = fake({
+      searchBotCatalog: vi.fn(async () => many(300)),
+    } as Partial<CatalogFacade>);
+    const r = await runCatalogTool(
+      { ws, scope, catalog: facade },
+      call('search_products', { inStockOnly: true }),
+    );
+    const body = JSON.parse(r.content);
+    expect(body.tooMany).toBe(true);
+    expect(body).not.toHaveProperty('total');
+  });
+
+  it('sorts categories and caps them at 50', async () => {
+    const rows = Array.from({ length: 300 }, (_, i) =>
+      product(i + 1, { category: i < 60 ? `Cat ${String(59 - i).padStart(2, '0')}` : null }),
+    );
+    const { facade } = fake({
+      countBotCatalog: vi.fn(async () => 400),
+      searchBotCatalog: vi.fn(async () => rows),
+    } as Partial<CatalogFacade>);
+    const r = await runCatalogTool({ ws, scope, catalog: facade }, call('search_products', {}));
+    const body = JSON.parse(r.content);
+    expect(body.total).toBe(400);
+    expect(body.categories).toHaveLength(50);
+    expect(body.categories[0]).toBe('Cat 00');
+    expect(body.categories[49]).toBe('Cat 49');
+  });
+
+  it('returns the lodging shape for an accommodation without URLs', async () => {
+    const lodging = product(1, {
+      imageUrls: [],
+      accommodation: AccommodationDetails.parse({
+        rentalType: 'entire_property',
+        bedrooms: 1,
+        standardAdults: 2,
+        standardChildren: 1,
+        childAgeBelow: 6,
+        maxGuests: null,
+        roomLayout: [{ name: 'Room', beds: 'One bed' }],
+        amenities: [],
+        rateBasis: 'unconfirmed',
+        rates: [{ days: [1, 2, 3, 4, 5, 6, 7], amount: 100000 }],
+        gallery: [{ url: 'https://img.example.test/a.jpg', caption: 'Phòng khách' }],
+      }),
+    });
+    const { facade } = fake({
+      getBotProductsByIds: vi.fn(async () => [lodging]),
+    } as Partial<CatalogFacade>);
+    const r = await runCatalogTool(
+      { ws, scope, catalog: facade },
+      call('product_details', { ids: [lodging.id] }),
+    );
+    const d = JSON.parse(r.content).products[0];
+    expect(d).toMatchObject({ catalogKind: 'accommodation', availability: 'unverified' });
+    expect(d).not.toHaveProperty('inStock');
+    expect(d.images).toEqual([{ id: `p:${lodging.id}:0`, label: `${lodging.name} – Phòng khách` }]);
+    expect(r.content).not.toContain('http');
   });
 });
