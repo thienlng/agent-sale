@@ -45,6 +45,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## Blocked
 
+- [ ] T-153 Prefill TinyMind with JuniSprouts shop data for owner buyer testing — @agent:codex · [details](todo/T-153-prefill-tinymind-with-junisprouts-shop-data-for-ow.md) · prefill + Chrome verified; live test blocked: Facebook reauthentication
 
 - [ ] T-093 Scope business settings and bot defaults to the selected industry — @agent:codex · [details](todo/T-093-scope-business-settings-and-bot-defaults-to-the-se.md) · blocked: partial: business industry increment delivered; account billing separation awaits T-092/T-091 · PR #77 (industry increment)
 
