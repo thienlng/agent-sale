@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import {
   boolean,
   index,
@@ -34,6 +35,7 @@ export const aiRuns = pgTable(
     cachedTokens: integer('cached_tokens').notNull(),
     latencyMs: integer('latency_ms').notNull(),
     retrieved: jsonb('retrieved').notNull().default([]),
+    productIds: jsonb('product_ids').$type<string[]>().notNull().default([]),
     outcome: text('outcome').notNull(),
     guardrail: text('guardrail'),
     isTest: boolean('is_test').notNull().default(false),
@@ -42,6 +44,9 @@ export const aiRuns = pgTable(
   (t) => [
     index('ai_runs_workspace_idx').on(t.workspaceId, t.createdAt),
     index('ai_runs_bot_idx').on(t.workspaceId, t.botId, t.createdAt),
+    index('ai_runs_conversation_recent_idx')
+      .on(t.workspaceId, t.conversationId, t.createdAt.desc())
+      .where(sql`${t.conversationId} is not null`),
     ...tenantPolicies('ai_runs'),
   ],
 );

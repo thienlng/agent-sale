@@ -324,6 +324,7 @@ export class PlaygroundService implements AiFacade {
       outcome: decision.outcome,
       guardrail: decision.guardrail,
       isTest: context.isTest,
+      productIds: [],
       createdAt: new Date(),
     };
     await this.runs.record(ws, run);

@@ -15,13 +15,14 @@ import {
   withSystem,
   withTenant,
 } from '@agent-sales/db';
-import { workspaceId } from '@agent-sales/shared';
+import { newId, workspaceId } from '@agent-sales/shared';
 import { startTestPostgres, type TestPostgres } from '@agent-sales/testing';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
 import { createHttpApp } from '../src/bootstrap.js';
+import { DrizzleAiRunRepository } from '../src/modules/ai/infrastructure/persistence/ai-run.repositories.js';
 import { DrizzleUserRepository } from '../src/modules/identity/infrastructure/persistence/identity.drizzle-repositories.js';
 
 /** Playground metering (ai_runs, RLS) and platform LLM config (system role, encrypted keys) on Postgres. */
@@ -138,6 +139,66 @@ describe('ai on Postgres', () => {
     }
   });
 
+  it('reads back the products of the most recent runs of a conversation', async () => {
+    const { token, ws } = await signup('ai-focus@shop.vn');
+    const h = { authorization: `Bearer ${token}`, 'x-workspace-id': ws };
+    const bot = BotDto.parse(
+      (
+        await inject({
+          method: 'POST',
+          url: '/api/v1/bots',
+          headers: h,
+          payload: { name: 'Bot', industry: 'retail' },
+        })
+      ).json(),
+    );
+    const tenant = createDb({ url: tenantUrl, max: 1 });
+    try {
+      const repo = new DrizzleAiRunRepository(tenant.db);
+      const wsId = workspaceId(ws);
+      const conv = newId();
+      const base = Date.now() - 60_000;
+      const run = (conversationId: string, productIds: string[], n: number) => ({
+        id: newId(),
+        botId: bot.id,
+        conversationId,
+        tier: 'standard',
+        provider: 'dev-fake',
+        model: 'm',
+        promptVersion: 'sales-agent@9',
+        inputTokens: 1,
+        outputTokens: 1,
+        cachedTokens: 0,
+        latencyMs: 1,
+        retrieved: [],
+        outcome: 'answered' as const,
+        guardrail: null,
+        isTest: false,
+        productIds,
+        createdAt: new Date(base + n * 1000),
+      });
+      await repo.record(wsId, run(conv, ['a'], 1));
+      await repo.record(wsId, run(conv, ['b', 'a'], 2));
+      await repo.record(wsId, run(conv, [], 3));
+      await repo.record(wsId, run(conv, ['c'], 4));
+      await repo.record(wsId, run(newId(), ['x'], 5));
+      expect(await repo.recentProductIds(wsId, conv, { runs: 3, limit: 3 })).toEqual([
+        'c',
+        'b',
+        'a',
+      ]);
+      expect(await repo.recentProductIds(wsId, conv, { runs: 4, limit: 2 })).toEqual(['c', 'b']);
+      expect(
+        await repo.recentProductIds(wsId, conv, {
+          runs: 3,
+          limit: 3,
+          since: new Date(base + 3500),
+        }),
+      ).toEqual(['c']);
+    } finally {
+      await tenant.close();
+    }
+  });
   it('stores providers with an encrypted key and routes tiers, as the system role only', async () => {
     const { token } = await signup('root@rapiz.vn');
     const system = createDb({ url: systemUrl, max: 1 });
