@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { AccommodationDetails, type ProductDto } from '@agent-sales/contracts';
-import { catalogOverviewContext, catalogProductContext } from '../domain/catalog-context.js';
+import { catalogProductContext } from '../domain/catalog-context.js';
 import { buildAllowlist, libraryImages, productImages } from '../domain/image-allowlist.js';
+import { compactProduct, productDetails } from '../domain/product-view.js';
 
 const details = AccommodationDetails.parse({
   rentalType: 'entire_property',
@@ -37,48 +38,48 @@ const product: ProductDto = {
   accommodation: details,
 };
 describe('lodging catalog grounding', () => {
-  it('lists the whole gallery (up to 15) with captions, independent of the query', () => {
+  it('lists the whole gallery (up to 15) with captions', () => {
     const make = (n: number) =>
       Array.from({ length: n }, (_, i) => ({
         url: `https://images.example.test/${i}.jpg`,
         caption: i === 11 ? 'Hành lang tầng trên' : 'Ngoại thất',
       }));
     const ids = (n: number) =>
-      productImages(
-        [{ ...product, accommodation: { ...details, gallery: make(n) } }],
-        'Cho xem hành lang',
-      );
+      productImages([{ ...product, accommodation: { ...details, gallery: make(n) } }]);
     expect(ids(12)).toHaveLength(12);
     expect(ids(12)[11]?.label).toContain('Hành lang');
     expect(ids(20)).toHaveLength(15);
   });
 
   it('does not turn zero warehouse inventory into a sold-out property or zero-price offer', () => {
-    const overview = catalogOverviewContext(product);
-    const full = catalogProductContext(product);
-    expect(overview).toMatchObject({
+    const compact = compactProduct(product);
+    const full = productDetails(product);
+    expect(compact).toMatchObject({ catalogKind: 'accommodation' });
+    expect(compact).not.toHaveProperty('inStock');
+    expect(compact).not.toHaveProperty('fromVnd');
+    expect(full).toMatchObject({
       catalogKind: 'accommodation',
       availability: 'unverified',
-      rateBasis: 'unconfirmed',
+      accommodation: { rateBasis: 'unconfirmed' },
     });
-    expect(overview).not.toHaveProperty('inStock');
-    expect(overview).not.toHaveProperty('fromVnd');
     expect(full).not.toHaveProperty('variants');
     expect(full).toHaveProperty('accommodation.rates.0.amount', 100000);
+    expect(catalogProductContext(product)).not.toHaveProperty('variants');
   });
   it('never puts gallery URLs into model context', () => {
     expect(JSON.stringify(catalogProductContext(product))).not.toContain('https://');
+    expect(JSON.stringify(productDetails(product))).not.toContain('https://');
   });
-  it('keeps retail overview semantics unchanged', () => {
+  it('keeps retail compact semantics unchanged', () => {
     expect(
-      catalogOverviewContext({
+      compactProduct({
         ...product,
         accommodation: null,
         priceMin: 50,
         priceMax: 70,
-        available: 3,
+        variants: [{ stock: [{ available: 3 }] } as unknown as ProductDto['variants'][number]],
       }),
-    ).toEqual({ name: 'Test property', fromVnd: 50, toVnd: 70, inStock: true });
+    ).toMatchObject({ name: 'Test property', fromVnd: 50, toVnd: 70, inStock: true });
   });
   it('ranks a specifically requested room feature ahead of generic property matches before capping images', () => {
     const items = Array.from({ length: 12 }, (_, i) => ({

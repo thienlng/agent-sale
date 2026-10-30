@@ -60,8 +60,8 @@ export const MAX_GALLERY_IMAGES = 15;
 /**
  * The pictures of the products whose details the model received, ids `p:<productId>:<index>`, at
  * most 5 per product and independent of the customer's text (the model picks which to send).
- * Anything that is not an https URL is dropped even though the API already validates it.
- * `_query` is ignored and kept only until the playground stops passing it.
+ * Lodging galleries are listed whole (max 15). Anything that is not an https URL is dropped even
+ * though the API already validates it.
  */
 export function productImages(
   products: readonly {
@@ -70,7 +70,6 @@ export function productImages(
     imageUrls?: readonly string[];
     accommodation?: { gallery: readonly { url: string; caption: string }[] } | null | undefined;
   }[],
-  _query = '',
 ): AllowedImage[] {
   return products.flatMap((product) => {
     if (product.accommodation) {
@@ -130,11 +129,12 @@ export function libraryImages(
     .map((entry) => entry.image);
 }
 
-/** Library matches first (the owner picked them), then product pictures; unique ids, max 10. */
+/** Library matches first (the owner picked them), then product pictures; unique ids, max `max` (default 10). */
 export function buildAllowlist(
   products: readonly AllowedImage[],
   library: readonly AllowedImage[],
   query = '',
+  max = MAX_ALLOWED_IMAGES,
 ): AllowedImage[] {
   const asked = new Set(words(query));
   const score = (image: AllowedImage) =>
@@ -142,9 +142,7 @@ export function buildAllowlist(
   const ranked = [...library, ...products];
   if (asked.size) ranked.sort((a, b) => score(b) - score(a));
   const seen = new Set<string>();
-  return ranked
-    .filter((image) => !seen.has(image.id) && Boolean(seen.add(image.id)))
-    .slice(0, MAX_ALLOWED_IMAGES);
+  return ranked.filter((image) => !seen.has(image.id) && Boolean(seen.add(image.id))).slice(0, max);
 }
 
 /** The compact block for the model: id and label only, never a URL. */
@@ -158,19 +156,32 @@ export function imagesBlock(allowed: readonly AllowedImage[]): string {
  * Resolves the ids the model asked for. Ids outside the allowlist (invented, URL-looking, from
  * another turn) are dropped, duplicates collapse, at most 3 remain, in the order requested.
  */
-export function resolveImageIds(
+export function selectImages(
   ids: readonly string[] | undefined,
   allowed: readonly AllowedImage[],
-): { url: string; label: string }[] {
+): AllowedImage[] {
   const byId = new Map(allowed.map((image) => [image.id, image]));
   const seen = new Set<string>();
-  const out: { url: string; label: string }[] = [];
+  const out: AllowedImage[] = [];
   for (const raw of ids ?? []) {
     const image = typeof raw === 'string' ? byId.get(raw.trim()) : undefined;
     if (!image || seen.has(image.id)) continue;
     seen.add(image.id);
-    out.push({ url: image.url, label: image.label });
+    out.push(image);
     if (out.length === MAX_SENT_IMAGES) break;
   }
   return out;
+}
+
+export function resolveImageIds(
+  ids: readonly string[] | undefined,
+  allowed: readonly AllowedImage[],
+): { url: string; label: string }[] {
+  return selectImages(ids, allowed).map(({ url, label }) => ({ url, label }));
+}
+
+/** The product id inside a product image id (`p:<productId>:<index>`); null for library images. */
+export function productIdOfImage(imageId: string): string | null {
+  const m = /^p:(.+):\d+$/.exec(imageId);
+  return m?.[1] ?? null;
 }

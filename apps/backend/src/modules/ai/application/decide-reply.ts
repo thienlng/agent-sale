@@ -31,8 +31,8 @@ export function decide(
   sources: KnowledgeSource[],
   customerTexts: string[],
   guidance: string,
-  /** `data` of the action results of this turn (JSON text): figures in them are grounded. */
-  actionResults: readonly string[] = [],
+  /** Text the model received from tools this turn (catalog and action results): figures in it are grounded. */
+  trustedResults: readonly string[] = [],
 ): Decision {
   // Fallback never sends model text and handoff only a vetted lead-in: an empty setting uses the built-in message.
   const fallback = (guardrail: string | null): Decision => fallbackDecision(bot, guardrail);
@@ -57,7 +57,7 @@ export function decide(
     bot.mission,
     bot.greeting,
     guidance,
-    ...actionResults,
+    ...trustedResults,
     ...Object.values(bot.placeholders),
     // The business profile is given to the model, so its figures (hotline, hours, prices) are grounded.
     ...Object.values(bot.profile.fields),
@@ -69,15 +69,7 @@ export function decide(
       lead.length <= MAX_HANDOFF_LEAD && !ungroundedFigures(lead, trusted, customerTexts).length;
     return handoff(null, safe ? lead : '');
   }
-  // An action outcome that reaches this point was not resolved by the action loop: never send it.
-  if (
-    parsed.outcome === 'unknown' ||
-    parsed.outcome === 'call_action' ||
-    parsed.outcome === 'confirm_action' ||
-    parsed.outcome === 'cancel_action' ||
-    !parsed.reply.trim()
-  )
-    return fallback(null);
+  if (parsed.outcome === 'unknown' || !parsed.reply.trim()) return fallback(null);
 
   const ungrounded = ungroundedFigures(parsed.reply, trusted, customerTexts);
   if (ungrounded.length) return fallback(`ungrounded_figure:${ungrounded.join(',')}`);

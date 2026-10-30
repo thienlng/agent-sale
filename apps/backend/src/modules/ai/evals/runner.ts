@@ -157,8 +157,9 @@ export function buildService(c: EvalCase, llm: LlmRuntime) {
     runs,
     { list: async () => scenarios } as unknown as TrainingFacade,
     {
-      getBotProducts: async () => products,
-      listBotCatalog: async () => products,
+      searchBotCatalog: async () => products,
+      getBotProductsByIds: async () => [],
+      countBotCatalog: async () => products.length,
     } as unknown as CatalogFacade,
     { listForBot: async () => [] } as unknown as ActionFacade,
   );
