@@ -33,12 +33,12 @@ function Harness({ initial = [] as string[] }) {
   return (
     <>
       <ProductImagesEditor value={urls} onChange={setUrls} />
-      <output>{JSON.stringify(urls)}</output>
+      <output data-testid="value">{JSON.stringify(urls)}</output>
     </>
   );
 }
 
-const urls = () => JSON.parse(screen.getByRole('status').textContent ?? '[]') as string[];
+const urls = () => JSON.parse(screen.getByTestId('value').textContent ?? '[]') as string[];
 const pick = (...names: string[]) =>
   fireEvent.change(screen.getByTestId('image-file-input'), {
     target: { files: names.map((n) => new File(['x'], n, { type: 'image/png' })) },
@@ -127,5 +127,38 @@ describe('ProductImagesEditor', () => {
     pick('a.heic');
     await waitFor(() => expect(mocks.toastError).toHaveBeenCalledTimes(1));
     expect(mocks.mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('uploads sequentially: the second call starts after the first resolves', async () => {
+    let release!: (url: string) => void;
+    mocks.mutateAsync
+      .mockImplementationOnce(() => new Promise<string>((r) => (release = r)))
+      .mockResolvedValueOnce('https://s3.test/products/w/2.jpg');
+    render(<Harness />);
+    pick('a.png', 'b.png');
+    await waitFor(() => expect(mocks.mutateAsync).toHaveBeenCalledTimes(1));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(mocks.mutateAsync).toHaveBeenCalledTimes(1);
+    release('https://s3.test/products/w/1.jpg');
+    await waitFor(() => expect(mocks.mutateAsync).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(urls()).toHaveLength(2));
+  });
+
+  it('keeps edits made while an upload is running and appends the new picture', async () => {
+    let release!: (url: string) => void;
+    mocks.mutateAsync.mockImplementationOnce(() => new Promise<string>((r) => (release = r)));
+    render(<Harness initial={['https://a.test/1.jpg', 'https://a.test/2.jpg']} />);
+    pick('a.png');
+    await waitFor(() => expect(mocks.mutateAsync).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: /remove image 1|bỏ ảnh 1/i }));
+    release('https://s3.test/products/w/new.jpg');
+    await waitFor(() =>
+      expect(urls()).toEqual(['https://a.test/2.jpg', 'https://s3.test/products/w/new.jpg']),
+    );
+  });
+
+  it('says so when all slots are used', () => {
+    render(<Harness initial={['1', '2', '3', '4', '5'].map((n) => `https://a.test/${n}.jpg`)} />);
+    expect(screen.getAllByRole('status')[0]).toHaveTextContent(/all 5|đủ số ảnh|slots are used/i);
   });
 });

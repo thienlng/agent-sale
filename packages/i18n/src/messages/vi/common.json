@@ -747,7 +747,8 @@
       "imageTooMany": "Chỉ còn chỗ cho {{n}} ảnh nữa, các ảnh dư đã được bỏ qua.",
       "imageTooLarge": "Ảnh quá lớn. Hãy chọn ảnh nhỏ hơn.",
       "imageStorageUnavailable": "Kho lưu ảnh chưa sẵn sàng. Vui lòng thử lại sau.",
-      "imageUploadFailed": "Không tải được ảnh lên. Vui lòng thử lại."
+      "imageUploadFailed": "Không tải được ảnh lên. Vui lòng thử lại.",
+      "imagesFull": "Đã đủ số ảnh. Hãy bỏ bớt ảnh để thêm ảnh mới."
     },
     "stock": {
       "title": "Tồn kho",
@@ -1712,6 +1713,7 @@
     "availabilityUnknown": "Thông tin căn không xác nhận lịch trống. Nhân viên cần kiểm tra lịch thực tế theo ngày khách chọn.",
     "previous": "Trang trước",
     "next": "Trang sau",
-    "conflict": "Thông tin đã thay đổi, mã yêu cầu đã dùng hoặc ngày đã có booking xác nhận. Tải lại danh sách và kiểm tra lịch trước khi thử lại."
+    "conflict": "Thông tin đã thay đổi, mã yêu cầu đã dùng hoặc ngày đã có booking xác nhận. Tải lại danh sách và kiểm tra lịch trước khi thử lại.",
+    "photoAlt": "Ảnh thực tế {{n}}"
   }
 }

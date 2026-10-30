@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
@@ -21,16 +22,19 @@ export function LodgingGalleryEditor({
   onChange: (gallery: GalleryPhoto[]) => void;
 }) {
   const { t } = useTranslation();
+  // Uploads finish later: append to what the user has now, not to what they had at the start.
+  const latest = useRef(value);
+  latest.current = value;
   return (
     <fieldset className="space-y-3">
       <legend className="font-semibold">
         {t('lodging.gallery')} · {value.length}/{MAX_GALLERY_PHOTOS}
       </legend>
       {value.map((photo, i) => (
-        <div key={photo.url} className="flex gap-3 rounded-lg border p-3">
+        <div key={`${photo.url}#${i}`} className="flex gap-3 rounded-lg border p-3">
           <img
             src={photo.url}
-            alt={t('products.form.imageAlt', { n: i + 1 })}
+            alt={t('lodging.photoAlt', { n: i + 1 })}
             loading="lazy"
             referrerPolicy="no-referrer"
             className="size-20 shrink-0 rounded-md border object-cover"
@@ -56,11 +60,13 @@ export function LodgingGalleryEditor({
         </div>
       ))}
       <ImageUploadZone
-        inputId="lodging-gallery-file"
         remaining={MAX_GALLERY_PHOTOS - value.length}
         onUploaded={(urls) =>
           onChange(
-            [...value, ...urls.map((url) => ({ url, caption: '' }))].slice(0, MAX_GALLERY_PHOTOS),
+            [...latest.current, ...urls.map((url) => ({ url, caption: '' }))].slice(
+              0,
+              MAX_GALLERY_PHOTOS,
+            ),
           )
         }
       />

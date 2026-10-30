@@ -1,5 +1,6 @@
 import { MAX_PRODUCT_IMAGES } from '@agent-sales/contracts';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,9 @@ export function ProductImagesEditor({
   onChange: (urls: string[]) => void;
 }) {
   const { t } = useTranslation();
+  // Uploads finish later: append to what the user has now, not to what they had at the start.
+  const latest = useRef(value);
+  latest.current = value;
 
   return (
     <section className="rounded-xl border bg-card p-4 md:p-5" aria-labelledby="pf-images-title">
@@ -90,9 +94,8 @@ export function ProductImagesEditor({
       ) : null}
 
       <ImageUploadZone
-        inputId="pf-image-file"
         remaining={MAX_PRODUCT_IMAGES - value.length}
-        onUploaded={(urls) => onChange([...value, ...urls].slice(0, MAX_PRODUCT_IMAGES))}
+        onUploaded={(urls) => onChange([...latest.current, ...urls].slice(0, MAX_PRODUCT_IMAGES))}
       />
     </section>
   );

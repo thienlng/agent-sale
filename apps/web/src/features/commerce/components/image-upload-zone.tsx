@@ -18,18 +18,17 @@ const ACCEPT = 'image/jpeg,image/png,image/webp';
 export function ImageUploadZone({
   remaining,
   onUploaded,
-  inputId,
 }: {
   remaining: number;
   onUploaded: (urls: string[]) => void;
-  inputId: string;
 }) {
   const { t } = useTranslation();
   const upload = useUploadProductImage();
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
-  const disabled = busy || remaining <= 0;
+  const full = remaining <= 0;
+  const disabled = busy || full;
 
   async function handle(files: File[]) {
     if (!files.length || remaining <= 0) return;
@@ -75,7 +74,7 @@ export function ImageUploadZone({
     >
       <input
         ref={inputRef}
-        id={inputId}
+        aria-label={t('products.form.pickImages')}
         type="file"
         accept={ACCEPT}
         multiple
@@ -87,19 +86,22 @@ export function ImageUploadZone({
           void handle(files);
         }}
       />
-      {busy ? (
-        <p role="status" className="flex items-center gap-2">
-          <Loader2 className="size-4 animate-spin" aria-hidden />
-          {t('products.form.uploadingImages')}
-        </p>
-      ) : (
-        <p>{t('products.form.dropImages')}</p>
-      )}
+      <p role="status" className="flex items-center gap-2">
+        {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
+        {busy
+          ? t('products.form.uploadingImages')
+          : full
+            ? t('products.form.imagesFull')
+            : t('products.form.dropImages')}
+      </p>
       <Button
         type="button"
         variant="outline"
-        disabled={disabled}
-        onClick={() => inputRef.current?.click()}
+        aria-disabled={disabled || undefined}
+        className={cn(disabled && 'opacity-50')}
+        onClick={() => {
+          if (!disabled) inputRef.current?.click();
+        }}
       >
         <ImagePlus />
         {t('products.form.pickImages')}

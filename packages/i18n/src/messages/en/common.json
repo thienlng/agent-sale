@@ -748,7 +748,8 @@
       "imageTooMany": "Only {{n}} more image(s) fit; the extra files were ignored.",
       "imageTooLarge": "This image is too large. Choose a smaller picture.",
       "imageStorageUnavailable": "Image storage is not available right now. Please try again later.",
-      "imageUploadFailed": "The image could not be uploaded. Please try again."
+      "imageUploadFailed": "The image could not be uploaded. Please try again.",
+      "imagesFull": "All image slots are used. Remove one to add another."
     },
     "stock": {
       "title": "Stock",
@@ -1714,6 +1715,7 @@
     "availabilityUnknown": "Property details do not confirm availability. Staff must verify the actual calendar for the requested dates.",
     "previous": "Previous page",
     "next": "Next page",
-    "conflict": "Details changed, the request key was already used, or the dates overlap a confirmed stay. Reload the list and check the calendar before retrying."
+    "conflict": "Details changed, the request key was already used, or the dates overlap a confirmed stay. Reload the list and check the calendar before retrying.",
+    "photoAlt": "Property photo {{n}}"
   }
 }

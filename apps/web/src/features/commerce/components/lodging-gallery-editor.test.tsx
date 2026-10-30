@@ -26,11 +26,11 @@ function Harness({ initial = [] as GalleryPhoto[] }) {
   return (
     <>
       <LodgingGalleryEditor value={photos} onChange={setPhotos} />
-      <output>{JSON.stringify(photos)}</output>
+      <output data-testid="value">{JSON.stringify(photos)}</output>
     </>
   );
 }
-const photos = () => JSON.parse(screen.getByRole('status').textContent ?? '[]') as GalleryPhoto[];
+const photos = () => JSON.parse(screen.getByTestId('value').textContent ?? '[]') as GalleryPhoto[];
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -59,5 +59,21 @@ describe('LodgingGalleryEditor', () => {
       screen.getAllByRole('button', { name: /remove|bỏ|xóa|xoá/i })[0] as HTMLElement,
     );
     expect(photos()).toHaveLength(1);
+  });
+
+  it('keeps a caption typed while an upload is running', async () => {
+    let release!: (url: string) => void;
+    mocks.mutateAsync.mockImplementationOnce(() => new Promise<string>((r) => (release = r)));
+    render(<Harness initial={[{ url: 'https://a.test/1.jpg', caption: '' }]} />);
+    fireEvent.change(screen.getByTestId('image-file-input'), {
+      target: { files: [new File(['x'], 'a', { type: 'image/jpeg' })] },
+    });
+    await waitFor(() => expect(mocks.mutateAsync).toHaveBeenCalled());
+    fireEvent.change(screen.getByLabelText(/caption 1|mô tả ảnh 1/i), {
+      target: { value: 'Pool' },
+    });
+    release('https://s3.test/products/w/new.jpg');
+    await waitFor(() => expect(photos()).toHaveLength(2));
+    expect(photos().map((p) => p.caption)).toEqual(['Pool', '']);
   });
 });
