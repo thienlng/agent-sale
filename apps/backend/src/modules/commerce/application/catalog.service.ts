@@ -18,7 +18,6 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import type { BotCatalogScope } from '../api/catalog.facade.js';
 import { catalogTerms } from '../domain/bot-catalog-query.js';
-import { botProductSearches } from '../domain/bot-product-search.js';
 import { LodgingError } from '../domain/lodging.js';
 import {
   BotNotFoundError,
@@ -104,60 +103,6 @@ function selection(bot: BotCatalogScope): string | undefined {
 @Injectable()
 export class CatalogService {
   constructor(@Inject(COMMERCE_STORE) private readonly store: CommerceStore) {}
-
-  async getBotProducts(
-    ws: WorkspaceId,
-    bot: BotCatalogScope,
-    query: string,
-    limit: number,
-  ): Promise<ProductDto[]> {
-    const cap = Math.max(1, Math.min(limit, 20));
-    const { searches, words } = botProductSearches(query);
-    if (!searches.length) return [];
-    const selectedFor = selection(bot);
-    let matches: ProductListResponse[];
-    try {
-      matches = await Promise.all(
-        searches.map((q) =>
-          this.listProducts(ws, { q, status: 'active', page: 1, pageSize: cap, selectedFor }),
-        ),
-      );
-    } catch (error) {
-      // DB-less playgrounds still answer FAQs; real persistence failures must surface.
-      if (error instanceof CommerceUnavailableError) return [];
-      throw error;
-    }
-    const unique = new Map(
-      matches
-        .flatMap((result) => result.data)
-        .filter((product) => product.visibleToBot)
-        .map((product) => [product.id, product]),
-    );
-    const score = (product: ProductDto) =>
-      words.filter((word) => foldVietnamese(`${product.name} ${product.code}`).includes(word))
-        .length;
-    return [...unique.values()].sort((a, b) => score(b) - score(a)).slice(0, cap);
-  }
-
-  async listBotCatalog(
-    ws: WorkspaceId,
-    bot: BotCatalogScope,
-    limit: number,
-  ): Promise<ProductDto[]> {
-    const cap = Math.max(1, Math.min(limit, 30));
-    try {
-      const page = await this.listProducts(ws, {
-        status: 'active',
-        page: 1,
-        pageSize: cap,
-        selectedFor: selection(bot),
-      });
-      return page.data.filter((product) => product.visibleToBot);
-    } catch (error) {
-      if (error instanceof CommerceUnavailableError) return [];
-      throw error;
-    }
-  }
 
   async searchBotCatalog(
     ws: WorkspaceId,

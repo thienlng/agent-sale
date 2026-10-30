@@ -743,13 +743,20 @@ describe('commerce on Postgres', () => {
     const names = (list: ProductDto[]) => list.map((p) => p.name).sort();
     const all = { botId: shirts.id, catalogMode: 'all' as const };
     const only = { botId: shoes.id, catalogMode: 'selected' as const };
-    expect(names(await catalog.listBotCatalog(ws, all, 10))).toEqual(
+    expect(names(await catalog.searchBotCatalog(ws, all, { limit: 10 }))).toEqual(
       ['Giày da', 'Giày sneaker', 'Sơ mi trắng'].sort(),
     );
     // Archived products stay out even when selected.
-    expect(names(await catalog.listBotCatalog(ws, only, 10))).toEqual(['Giày da', 'Giày sneaker']);
-    expect(names(await catalog.getBotProducts(ws, only, 'sơ mi trắng', 5))).toEqual([]);
-    expect(names(await catalog.getBotProducts(ws, all, 'sơ mi trắng', 5))).toEqual(['Sơ mi trắng']);
+    expect(names(await catalog.searchBotCatalog(ws, only, { limit: 10 }))).toEqual([
+      'Giày da',
+      'Giày sneaker',
+    ]);
+    expect(
+      names(await catalog.searchBotCatalog(ws, only, { query: 'sơ mi trắng', limit: 5 })),
+    ).toEqual([]);
+    expect(
+      names(await catalog.searchBotCatalog(ws, all, { query: 'sơ mi trắng', limit: 5 })),
+    ).toEqual(['Sơ mi trắng']);
 
     // Another business can neither change this bot's selection nor select its products.
     const foreignProduct = ProductDto.parse(
