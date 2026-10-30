@@ -7,7 +7,7 @@
     },
     {
       "name": "anonymous",
-      "actions": ["Read"]
+      "actions": ["Read:rapiz-local"]
     }
   ]
 }

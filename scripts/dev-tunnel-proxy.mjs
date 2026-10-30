@@ -11,6 +11,7 @@
 import http from 'node:http';
 import net from 'node:net';
 import process from 'node:process';
+import { URL } from 'node:url';
 
 const listen = Number(process.argv[2] ?? process.env.PROXY_PORT ?? 4000);
 const api = Number(process.env.API_PORT ?? 3000);
@@ -24,12 +25,33 @@ const bucket = process.env.S3_BUCKET || 'rapiz-local';
 // dashboard keeps every other path (/login, /signup, /app/…), as app.rapiz.vn does.
 const SITE_PATH = /^\/(?:$|\?|index\.html|(?:images|fonts|_astro)\/)/;
 
+// Public object reads: only a plain key is forwarded (no traversal, no empty or encoded-slash
+// segments, no query such as ?list-type=2), re-encoded segment by segment.
+function mediaRoute(url) {
+  const denied = { rejected: true };
+  let segments;
+  try {
+    const pathname = new URL(url, 'http://x').pathname;
+    if (!pathname.startsWith('/media/')) return denied;
+    segments = pathname
+      .slice('/media/'.length)
+      .split('/')
+      .map((segment) => decodeURIComponent(segment));
+  } catch {
+    return denied;
+  }
+  const unsafe = (segment) =>
+    segment === '' || segment === '.' || segment === '..' || /[/\\]/.test(segment);
+  if (segments.some(unsafe)) return denied;
+  const key = segments.map((segment) => encodeURIComponent(segment)).join('/');
+  return { port: s3, path: `/${bucket}/${key}`, readOnly: true };
+}
+
 function route(url) {
   if (url.startsWith('/api/channels/oauth/'))
     return { port: api, path: url.replace('/api/channels/oauth/', '/api/v1/channels/oauth/') };
   if (url.startsWith('/api/')) return { port: api, path: url };
-  if (url.startsWith('/media/'))
-    return { port: s3, path: `/${bucket}/${url.slice('/media/'.length)}`, readOnly: true };
+  if (url.startsWith('/media/')) return mediaRoute(url);
   if (url.startsWith('/webhooks/')) return { port: webhook, path: url };
   if (SITE_PATH.test(url)) return { port: site, path: url };
   return { port: web, path: url };
@@ -37,6 +59,11 @@ function route(url) {
 
 const server = http.createServer((req, res) => {
   const target = route(req.url ?? '/');
+  if (target.rejected) {
+    res.writeHead(404);
+    res.end('not found');
+    return;
+  }
   if (target.readOnly && req.method !== 'GET' && req.method !== 'HEAD') {
     res.writeHead(405, { allow: 'GET, HEAD' });
     res.end('method not allowed');
@@ -76,6 +103,10 @@ server.on('upgrade', (req, socket, head) => {
     .split(',')
     .some((protocol) => ['vite-hmr', 'vite-ping'].includes(protocol.trim()));
   const target = hmr ? { port: web, path: req.url ?? '/' } : route(req.url ?? '/');
+  if (target.rejected) {
+    socket.destroy();
+    return;
+  }
   const upstream = net.connect(target.port, '127.0.0.1', () => {
     const headers = Object.entries({ ...req.headers, host: `localhost:${target.port}` })
       .map(([k, v]) => `${k}: ${v}`)
