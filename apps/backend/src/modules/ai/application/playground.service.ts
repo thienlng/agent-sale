@@ -189,7 +189,6 @@ export class PlaygroundService implements AiFacade {
       industry: bot.industry,
       saas: this.saas,
       ws,
-      conversationId: actionConversationId,
       isTest: context.isTest,
       customerTexts,
     });

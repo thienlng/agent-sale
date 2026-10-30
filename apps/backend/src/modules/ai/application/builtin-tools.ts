@@ -25,14 +25,14 @@ export const saasRequestView: BotActionView = {
   id: SAAS_REQUEST_TOOL,
   name: 'Record a demo, free trial or consultation request',
   description:
-    'Records that the customer wants a product demo, a free trial account or a consultation, so staff contact them. Call it once the customer asked for one and gave their name and a phone number or an email; call it again when they add or correct details. One request per kind per conversation. Staff schedule and confirm: never promise a time or an account yourself.',
+    'Records that the customer wants a product demo, a free trial account or a consultation, so staff contact them. Call it once the customer asked for one and gave their name and a phone number; call it again when they add or correct details. Staff schedule and confirm: never promise a time or an account yourself.',
   method: 'POST',
   requiresConfirm: false,
   params: [
     param('kind', true, '"demo", "trial" or "consultation"'),
     param('name', true, "The customer's name as they wrote it"),
-    param('phone', false, 'Phone number the customer wrote (phone or email is required)'),
-    param('email', false, 'Email the customer wrote (phone or email is required)'),
+    param('phone', true, 'Phone number the customer wrote'),
+    param('email', false, 'Email the customer wrote'),
     param('company', false, 'Company or shop name'),
     param('teamSize', false, 'How many people will use it, as the customer said'),
     param('need', false, 'What they want to solve, in a short sentence'),
@@ -43,13 +43,7 @@ export const saasRequestView: BotActionView = {
     {
       name: 'recorded',
       type: 'boolean',
-      description:
-        'true when the request is saved; false when staff already handle an earlier request',
-    },
-    {
-      name: 'status',
-      type: 'string',
-      description: '"new" (staff will contact the customer) or a later stage staff already set',
+      description: 'true when the request is saved on the customer; staff will contact them',
     },
   ],
 };
@@ -92,7 +86,6 @@ export function builtinTools(input: {
   industry: string;
   saas: SaasFacade | undefined;
   ws: WorkspaceId;
-  conversationId: string;
   isTest: boolean;
   customerTexts: readonly string[];
 }): { views: BotActionView[]; invokers: Map<string, BuiltinInvoker> } {
@@ -111,8 +104,6 @@ export function builtinTools(input: {
     let r: Awaited<ReturnType<SaasFacade['recordBotRequest']>>;
     try {
       r = await saas.recordBotRequest(input.ws, {
-        conversationId: input.conversationId,
-        contactId: null,
         kind: kind.data,
         details,
         preview: input.isTest,
@@ -127,16 +118,7 @@ export function builtinTools(input: {
       return { ok: false, errorCode: 'network' };
     }
     if (r.outcome === 'invalid') return { ok: false, errorCode: 'invalid_args' };
-    // A request staff already work on is left as is: the model says it is being handled.
-    return {
-      ok: true,
-      statusCode: 200,
-      data: {
-        recorded: r.outcome !== 'in_progress',
-        kind: kind.data,
-        status: r.request?.status ?? 'new',
-      },
-    };
+    return { ok: true, statusCode: 200, data: { recorded: true, kind: kind.data } };
   };
   return { views: [saasRequestView], invokers: new Map([[SAAS_REQUEST_TOOL, invoke]]) };
 }

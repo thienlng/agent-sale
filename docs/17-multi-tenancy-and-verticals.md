@@ -142,4 +142,4 @@ One whole property can now carry accommodation metadata and staff-confirmed stay
 
 ## Current SaaS slice (ADR-014)
 
-Industry `saas` has its own tier-2 module `saas` (requests and subscriptions) and the first per-vertical bot tool, a built-in `builtin.saas.request` action routed in-process. See [ADR-014](adr/ADR-014-saas-vertical-requests-subscriptions-builtin-tool.md) and [SaaS businesses](saas.md).
+Industry `saas` has its own built-in customer statuses, a tier-2 module `saas` (customer subscriptions) and the first per-vertical bot tool, a built-in `builtin.saas.request` action routed in-process that records a demo / trial request on the customer. See [ADR-014](adr/ADR-014-saas-vertical-requests-subscriptions-builtin-tool.md) and [SaaS businesses](saas.md).

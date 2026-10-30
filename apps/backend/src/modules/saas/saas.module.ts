@@ -8,19 +8,16 @@ import { WorkspaceModule } from '../workspace/workspace.module.js';
 import { SAAS_FACADE } from './api/saas.facade.js';
 import { SAAS_STORE } from './application/ports/saas-store.js';
 import { SaasFacadeImpl } from './application/saas.facade.impl.js';
-import { SaasRequestService } from './application/saas-request.service.js';
+import { SaasLeadService } from './application/saas-lead.service.js';
 import { SaasSubscriptionService } from './application/saas-subscription.service.js';
 import { SaasUnavailableError } from './domain/saas.errors.js';
 import { DrizzleSaasStore } from './infrastructure/persistence/saas.drizzle-store.js';
-import {
-  SaasRequestsController,
-  SaasSubscriptionsController,
-} from './interface/http/saas.controller.js';
+import { SaasSubscriptionsController } from './interface/http/saas.controller.js';
 
-/** SaaS vertical (ADR-014): demo/trial requests and customer subscriptions. Needs a database. */
+/** SaaS vertical (ADR-014): customer subscriptions and the bot's request capture. Needs a database. */
 @Module({
   imports: [IdentityModule, WorkspaceModule, CrmModule],
-  controllers: [SaasRequestsController, SaasSubscriptionsController],
+  controllers: [SaasSubscriptionsController],
   providers: [
     {
       provide: SAAS_STORE,
@@ -28,7 +25,7 @@ import {
       useFactory: (db: Database | null | undefined) =>
         db ? new DrizzleSaasStore(db) : { run: () => Promise.reject(new SaasUnavailableError()) },
     },
-    SaasRequestService,
+    SaasLeadService,
     SaasSubscriptionService,
     { provide: SAAS_FACADE, useClass: SaasFacadeImpl },
   ],

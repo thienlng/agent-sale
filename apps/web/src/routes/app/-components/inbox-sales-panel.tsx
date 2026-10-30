@@ -31,7 +31,6 @@ import { ContactConversations } from './contact-conversations';
 import { InboxContactControls } from './inbox-contact-controls';
 import { useCurrentWorkspace } from '@/features/workspace/api/use-current-workspace';
 import { StayRequestForm } from '@/features/commerce/components/stay-request-form';
-import { SaasInboxPanel } from '@/features/saas/components/saas-inbox-panel';
 import { SubscriptionCard } from '@/features/saas/components/subscription-card';
 
 /** Orders created in this session; the linked customer is stored on the conversation (T-088). */
@@ -196,13 +195,9 @@ export function InboxSalesPanel({
           phone={contact?.phone ?? c.customerPhone ?? ''}
         />
       ) : industry === 'saas' ? (
-        <PanelBlock title={t('saas.requestsTitle')}>
-          <SaasInboxPanel
-            name={contact?.name ?? c.customerName}
-            phone={contact?.phone ?? c.customerPhone ?? ''}
-            contactId={contact?.id ?? null}
-          />
-        </PanelBlock>
+        contact ? (
+          <SubscriptionCard contactId={contact.id} />
+        ) : null
       ) : (
         <PanelBlock
           title={t('channelInbox.v2.panel.orders')}

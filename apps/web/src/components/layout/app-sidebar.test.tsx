@@ -64,27 +64,14 @@ describe('AppSidebar', () => {
     expect(within(nav).queryByRole('button', { name: 'Đơn hàng' })).toBeNull();
   });
 
-  it('puts SaaS requests and subscribers under customers, without orders and products', async () => {
-    renderAt('/app/saas-requests', 'saas');
+  it('keeps a SaaS business on one customer list, without orders and products', async () => {
+    renderAt('/app/contacts', 'saas');
     const nav = await screen.findByRole('navigation', { name: 'Điều hướng chính' });
-    // The customers section is open on a SaaS page and lists the SaaS pages after the list.
-    expect(within(nav).getByRole('button', { name: 'Khách hàng' })).toHaveAttribute(
-      'data-active',
-      'true',
-    );
     const links = within(nav)
       .getAllByRole('link')
       .map((a) => a.getAttribute('href'))
       .filter((h) => /^\/app\/(contacts|saas-)/.test(h ?? ''));
-    expect(links).toEqual(['/app/contacts', '/app/saas-requests', '/app/saas-customers']);
-    expect(within(nav).getByRole('link', { name: 'Yêu cầu demo / dùng thử' })).toHaveAttribute(
-      'href',
-      '/app/saas-requests',
-    );
-    expect(within(nav).getByRole('link', { name: 'Khách thuê bao' })).toHaveAttribute(
-      'href',
-      '/app/saas-customers',
-    );
+    expect(links).toEqual(['/app/contacts']);
     expect(within(nav).queryByRole('link', { name: 'Sản phẩm' })).toBeNull();
     expect(within(nav).queryByRole('button', { name: 'Đơn hàng' })).toBeNull();
   });

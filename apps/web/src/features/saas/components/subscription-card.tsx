@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { formatVnd } from '@/lib/format';
+import { formatDay, formatVnd } from '@/lib/format';
 import { useCan } from '@/lib/permissions';
 
 import { useContactSubscription } from '../api/saas';
@@ -82,10 +82,10 @@ function SubscriptionFacts({ sub }: { sub: SaasSubscriptionDto }) {
     ['billingPeriod', t(`saas.period.${sub.billingPeriod}`)],
     ['mrr', formatVnd(sub.mrr)],
     ['seats', sub.seats === null ? null : String(sub.seats)],
-    ['trialEndsOn', sub.trialEndsOn],
-    ['startedOn', sub.startedOn],
-    ['renewsOn', sub.renewsOn],
-    ['canceledOn', sub.canceledOn],
+    ['trialEndsOn', sub.trialEndsOn && formatDay(sub.trialEndsOn)],
+    ['startedOn', sub.startedOn && formatDay(sub.startedOn)],
+    ['renewsOn', sub.renewsOn && formatDay(sub.renewsOn)],
+    ['canceledOn', sub.canceledOn && formatDay(sub.canceledOn)],
     ['externalRef', sub.externalRef],
   ];
   return (

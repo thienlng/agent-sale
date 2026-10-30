@@ -13,19 +13,18 @@ const CalendarDate = z
 
 const Email = z.string().trim().toLowerCase().max(200).pipe(z.email());
 
-// ─── Demo / trial / consultation requests (ADR-014) ───────────────────────────
+// ─── Demo / trial / consultation requests taken by the bot (ADR-014) ──────────
 
 export const SaasRequestKind = z.enum(['demo', 'trial', 'consultation']);
 export type SaasRequestKind = z.infer<typeof SaasRequestKind>;
-export const SaasRequestStatus = z.enum(['new', 'contacted', 'scheduled', 'converted', 'closed']);
-export type SaasRequestStatus = z.infer<typeof SaasRequestStatus>;
-export const SaasRequestSource = z.enum(['bot', 'staff']);
-export type SaasRequestSource = z.infer<typeof SaasRequestSource>;
 
-/** What the lead told us. Free text on purpose: "10-20 người", "chiều thứ 5". */
+/**
+ * What a lead told the bot. The phone identifies the customer (one phone = one customer); the
+ * rest goes to a note on the customer. Free text on purpose: "10-20 người", "chiều thứ 5".
+ */
 export const SaasLeadDetails = z.object({
   name: text(120).min(1),
-  phone: text(40).nullable().default(null),
+  phone: text(40).min(1),
   email: Email.nullable().default(null),
   company: text(200).default(''),
   teamSize: text(60).default(''),
@@ -34,75 +33,6 @@ export const SaasLeadDetails = z.object({
   planInterest: text(200).default(''),
 });
 export type SaasLeadDetails = z.infer<typeof SaasLeadDetails>;
-
-const reachable = (v: { phone: string | null; email: string | null }) =>
-  Boolean(v.phone?.trim() || v.email);
-const REACHABLE = 'give a phone number or an email';
-
-export const CreateSaasRequest = SaasLeadDetails.extend({
-  clientRequestId: z.uuid(),
-  kind: SaasRequestKind,
-  contactId: z.uuid().nullable().default(null),
-  note: text(2000).default(''),
-}).refine(reachable, REACHABLE);
-export type CreateSaasRequest = z.infer<typeof CreateSaasRequest>;
-
-export const SaasRequestDto = z.object({
-  id: z.uuid(),
-  kind: SaasRequestKind,
-  status: SaasRequestStatus,
-  source: SaasRequestSource,
-  name: z.string(),
-  phone: z.string().nullable(),
-  email: z.string().nullable(),
-  company: z.string(),
-  teamSize: z.string(),
-  need: z.string(),
-  preferredTime: z.string(),
-  planInterest: z.string(),
-  contactId: z.uuid().nullable(),
-  conversationId: z.uuid().nullable(),
-  note: z.string(),
-  version: z.number().int(),
-  createdAt: z.iso.datetime(),
-  updatedAt: z.iso.datetime(),
-});
-export type SaasRequestDto = z.infer<typeof SaasRequestDto>;
-
-export const SaasRequestList = z.object({
-  data: z.array(SaasRequestDto),
-  nextOffset: z.number().int().nonnegative().nullable(),
-});
-export type SaasRequestList = z.infer<typeof SaasRequestList>;
-
-export const SaasRequestListQuery = z.object({
-  status: SaasRequestStatus.optional(),
-  kind: SaasRequestKind.optional(),
-  offset: z.coerce.number().int().min(0).max(1_000_000).default(0),
-});
-export type SaasRequestListQuery = z.infer<typeof SaasRequestListQuery>;
-
-/** Staff follow-up: move the status, correct details, link the customer. */
-export const UpdateSaasRequest = z
-  .object({
-    version: z.number().int().min(1),
-    name: text(120).min(1).optional(),
-    phone: text(40).nullable().optional(),
-    email: Email.nullable().optional(),
-    company: text(200).optional(),
-    teamSize: text(60).optional(),
-    need: text(2000).optional(),
-    preferredTime: text(200).optional(),
-    planInterest: text(200).optional(),
-    status: SaasRequestStatus.exclude(['new']).optional(),
-    contactId: z.uuid().nullable().optional(),
-    note: text(2000).optional(),
-  })
-  .refine(
-    (v) => Object.keys(v).some((k) => k !== 'version' && v[k as keyof typeof v] !== undefined),
-    'nothing to change',
-  );
-export type UpdateSaasRequest = z.infer<typeof UpdateSaasRequest>;
 
 // ─── Customer subscriptions ───────────────────────────────────────────────────
 
@@ -156,6 +86,17 @@ export type SaasSubscriptionList = z.infer<typeof SaasSubscriptionList>;
 
 export const SaasSubscriptionListQuery = z.object({
   stage: SaasStage.optional(),
+  /** Comma-separated customer ids (at most 100): the rows of a customer list page. */
+  contactIds: z
+    .string()
+    .optional()
+    .transform((v) => (v ? v.split(',').filter(Boolean) : undefined))
+    .pipe(z.array(z.uuid()).max(100).optional()),
+  /** Only trials ending in the next 7 days (business-local date), soonest first. */
+  endingSoon: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((v) => v === 'true'),
   offset: z.coerce.number().int().min(0).max(1_000_000).default(0),
 });
 export type SaasSubscriptionListQuery = z.infer<typeof SaasSubscriptionListQuery>;
@@ -169,9 +110,7 @@ export const SaasSummary = z.object({
     past_due: z.number().int(),
     canceled: z.number().int(),
   }),
-  /** Trials ending within the next 7 days (business-local date). */
+  /** Trials ending in the next 7 days, today included (business-local date). */
   trialsEndingSoon: z.number().int(),
-  /** Requests still waiting for a first contact. */
-  newRequests: z.number().int(),
 });
 export type SaasSummary = z.infer<typeof SaasSummary>;

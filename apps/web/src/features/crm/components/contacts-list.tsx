@@ -1,5 +1,5 @@
 import { Plus, UsersRound } from 'lucide-react';
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Pager } from '@/components/pager';
@@ -28,18 +28,36 @@ import { OptionBadge } from './crm-badges';
 import { type ContactsSearch, toSort } from './contacts-search';
 import { ContactsToolbar } from './contacts-toolbar';
 
+/** A column another feature adds after the built-in ones (composed by the route). */
+export interface ExtraContactColumn {
+  id: string;
+  /** Translated header. */
+  header: string;
+  className?: string;
+  cell: (contactId: string) => ReactNode;
+}
+
 /** Customer list (CRM-01/02): search, typed filters, saved views, columns, drawer. */
 export function ContactsList({
   search,
   onSearch,
   renderConversations,
   renderOverviewExtra,
+  summary,
+  extraColumns = [],
+  onRowsChange,
 }: {
   search: ContactsSearch;
   onSearch: (next: ContactsSearch) => void;
   /** Passed to the customer sheet (see `ContactSheet`). */
   renderConversations?: ((contactId: string) => ReactNode) | undefined;
   renderOverviewExtra?: ((contactId: string) => ReactNode) | undefined;
+  /** Shown between the title and the toolbar (e.g. an industry's figures). */
+  summary?: ReactNode;
+  /** Desktop table only, after the built-in columns. */
+  extraColumns?: readonly ExtraContactColumn[];
+  /** The customer ids on the current page, whenever they change (to load `extraColumns`). */
+  onRowsChange?: ((contactIds: string[]) => void) | undefined;
 }) {
   const { t } = useTranslation();
   const lookups = useCrmLookups();
@@ -59,6 +77,11 @@ export function ContactsList({
   const rows = data?.data ?? [];
   const unavailable = contacts.error instanceof ApiClientError && contacts.error.status === 503;
   const filtered = Boolean(search.q || search.filter);
+  const rowIds = rows.map((c) => c.id).join(',');
+  useEffect(() => {
+    onRowsChange?.(rowIds ? rowIds.split(',') : []);
+  }, [rowIds, onRowsChange]);
+  const span = columns.length + extraColumns.length;
 
   // Any change of the query starts again from page 1; opening a customer keeps the page.
   const change = useCallback(
@@ -88,6 +111,8 @@ export function ContactsList({
           </Button>
         ) : null}
       </header>
+
+      {summary}
 
       <ContactsToolbar search={search} onChange={change} lookups={lookups} />
 
@@ -122,13 +147,21 @@ export function ContactsList({
                     {t(c.header)}
                   </TableHead>
                 ))}
+                {extraColumns.map((c) => (
+                  <TableHead
+                    key={c.id}
+                    className={cn('text-xs font-medium text-muted-foreground', c.className)}
+                  >
+                    {c.header}
+                  </TableHead>
+                ))}
               </TableRow>
             </TableHeader>
             <TableBody>
               {contacts.isPending
                 ? Array.from({ length: 6 }, (_, i) => (
                     <TableRow key={i}>
-                      <TableCell colSpan={columns.length}>
+                      <TableCell colSpan={span}>
                         <Skeleton className="h-7" />
                       </TableCell>
                     </TableRow>
@@ -158,14 +191,16 @@ export function ContactsList({
                           )}
                         </TableCell>
                       ))}
+                      {extraColumns.map((col) => (
+                        <TableCell key={col.id} className={cn('align-top', col.className)}>
+                          {col.cell(c.id)}
+                        </TableCell>
+                      ))}
                     </TableRow>
                   ))}
               {(data && !rows.length) || unavailable ? (
                 <TableRow className="hover:bg-transparent">
-                  <TableCell
-                    colSpan={columns.length}
-                    className="py-16 text-center text-muted-foreground"
-                  >
+                  <TableCell colSpan={span} className="py-16 text-center text-muted-foreground">
                     <UsersRound className="mx-auto mb-3 size-8 text-primary" aria-hidden />
                     {unavailable
                       ? t('crm.unavailable')

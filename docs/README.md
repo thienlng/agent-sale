@@ -40,7 +40,7 @@ Input source: `../../preny/preny-research/` (Preny research dossier dated 23/10/
 | — | [Sales inbox workspace](18-sales-inbox-workspace.md) | Implementation | Sales queues, composer drafts, explicit CRM selection and order creation alongside chat (T-068) |
 
 - [Whole-property lodging](lodging.md) — T-155 accommodations, date-based requests, reference quotes and explicit staff confirmation.
-- [SaaS businesses](saas.md) — ADR-014 demo/trial requests (also recorded by the bot), customer subscriptions and MRR summary.
+- [SaaS businesses](saas.md) — ADR-014 SaaS customer statuses, demo/trial requests recorded by the bot on the customer, subscriptions and MRR on the customer list.
 
 ## Inbox redesign business specification
 

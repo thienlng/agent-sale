@@ -22,47 +22,6 @@ const workspaceRef = () =>
     .notNull()
     .references(() => workspaces.id);
 
-/** Demo / trial / consultation requests of a SaaS business (0036, ADR-014). */
-export const saasRequests = pgTable(
-  'saas_requests',
-  {
-    id: uuid('id').primaryKey(),
-    workspaceId: workspaceRef(),
-    clientRequestId: uuid('client_request_id').notNull(),
-    fingerprint: text('fingerprint').notNull(),
-    kind: text('kind').notNull(),
-    status: text('status').notNull().default('new'),
-    source: text('source').notNull(),
-    name: text('name').notNull(),
-    phone: text('phone'),
-    email: text('email'),
-    company: text('company').notNull().default(''),
-    teamSize: text('team_size').notNull().default(''),
-    need: text('need').notNull().default(''),
-    preferredTime: text('preferred_time').notNull().default(''),
-    planInterest: text('plan_interest').notNull().default(''),
-    contactId: uuid('contact_id'),
-    conversationId: uuid('conversation_id'),
-    note: text('note').notNull().default(''),
-    version: integer('version').notNull().default(1),
-    createdAt: ts('created_at').notNull().defaultNow(),
-    updatedAt: ts('updated_at').notNull().defaultNow(),
-  },
-  (t) => [
-    unique('saas_requests_request_unique').on(t.workspaceId, t.clientRequestId),
-    foreignKey({
-      columns: [t.workspaceId, t.contactId],
-      foreignColumns: [contacts.workspaceId, contacts.id],
-      name: 'saas_requests_contact_fk',
-    }),
-    index('saas_requests_status_idx').on(t.workspaceId, t.status, t.createdAt.desc()),
-    index('saas_requests_contact_idx')
-      .on(t.workspaceId, t.contactId)
-      .where(sql`contact_id is not null`),
-    ...tenantPolicies('saas_requests'),
-  ],
-);
-
 /** One subscription per customer: plan, stage, MRR in VND, dates (0036, ADR-014). */
 export const saasSubscriptions = pgTable(
   'saas_subscriptions',

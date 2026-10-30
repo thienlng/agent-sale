@@ -1,23 +1,24 @@
+import { SaasStage, SaasBillingPeriod } from '@agent-sales/contracts';
 import {
-  SaasRequestKind,
-  SaasRequestSource,
-  SaasRequestStatus,
-  SaasStage,
-  SaasBillingPeriod,
-} from '@agent-sales/contracts';
-import { and, desc, eq, schema, sql, withTenant, writeAudit, type Database } from '@agent-sales/db';
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  inArray,
+  lt,
+  schema,
+  sql,
+  withTenant,
+  writeAudit,
+  type Database,
+} from '@agent-sales/db';
 import type { WorkspaceId } from '@agent-sales/shared';
 
-import type {
-  SaasStore,
-  SaasTx,
-  StoredRequest,
-  SubscriptionRecord,
-} from '../../application/ports/saas-store.js';
+import type { SaasStore, SaasTx, SubscriptionRecord } from '../../application/ports/saas-store.js';
 import { SaasError } from '../../domain/saas.errors.js';
 
-const r = schema.saasRequests,
-  s = schema.saasSubscriptions;
+const s = schema.saasSubscriptions;
 
 type PgError = { code?: string; constraint_name?: string };
 const pgError = (e: unknown): PgError => (e as { cause?: PgError }).cause ?? (e as PgError);
@@ -37,48 +38,6 @@ async function conflictOnDuplicate(write: () => Promise<unknown>): Promise<void>
     throw e;
   }
 }
-
-function toRequest(row: typeof r.$inferSelect): StoredRequest {
-  return {
-    id: row.id,
-    clientRequestId: row.clientRequestId,
-    fingerprint: row.fingerprint,
-    kind: SaasRequestKind.parse(row.kind),
-    status: SaasRequestStatus.parse(row.status),
-    source: SaasRequestSource.parse(row.source),
-    name: row.name,
-    phone: row.phone,
-    email: row.email,
-    company: row.company,
-    teamSize: row.teamSize,
-    need: row.need,
-    preferredTime: row.preferredTime,
-    planInterest: row.planInterest,
-    contactId: row.contactId,
-    conversationId: row.conversationId,
-    note: row.note,
-    version: row.version,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-  };
-}
-const requestValues = (x: StoredRequest) => ({
-  kind: x.kind,
-  status: x.status,
-  name: x.name,
-  phone: x.phone,
-  email: x.email,
-  company: x.company,
-  teamSize: x.teamSize,
-  need: x.need,
-  preferredTime: x.preferredTime,
-  planInterest: x.planInterest,
-  contactId: x.contactId,
-  note: x.note,
-  fingerprint: x.fingerprint,
-  version: x.version,
-  updatedAt: new Date(x.updatedAt),
-});
 
 function toSubscription(row: typeof s.$inferSelect): SubscriptionRecord {
   return {
@@ -127,57 +86,6 @@ export class DrizzleSaasStore implements SaasStore {
             sql`select pg_advisory_xact_lock(hashtextextended(${`saas:${ws}:${key}`}, 0))`,
           );
         },
-        async findRequest(id, lock) {
-          const q = tx
-            .select()
-            .from(r)
-            .where(and(eq(r.workspaceId, ws), eq(r.id, id)))
-            .limit(1);
-          const [row] = await (lock ? q.for('update') : q);
-          return row ? toRequest(row) : null;
-        },
-        async findRequestByKey(key, lock) {
-          const q = tx
-            .select()
-            .from(r)
-            .where(and(eq(r.workspaceId, ws), eq(r.clientRequestId, key)))
-            .limit(1);
-          const [row] = await (lock ? q.for('update') : q);
-          return row ? toRequest(row) : null;
-        },
-        async listRequests(f) {
-          const rows = await tx
-            .select()
-            .from(r)
-            .where(
-              and(
-                eq(r.workspaceId, ws),
-                f.status ? eq(r.status, f.status) : undefined,
-                f.kind ? eq(r.kind, f.kind) : undefined,
-              ),
-            )
-            .orderBy(desc(r.createdAt), desc(r.id))
-            .limit(101)
-            .offset(f.offset);
-          return rows.map(toRequest);
-        },
-        async insertRequest(x) {
-          await tx.insert(r).values({
-            ...requestValues(x),
-            id: x.id,
-            workspaceId: ws,
-            clientRequestId: x.clientRequestId,
-            source: x.source,
-            conversationId: x.conversationId,
-            createdAt: new Date(x.createdAt),
-          });
-        },
-        async updateRequest(x) {
-          await tx
-            .update(r)
-            .set(requestValues(x))
-            .where(and(eq(r.workspaceId, ws), eq(r.id, x.id)));
-        },
         async findSubscription(contactId, lock) {
           const q = tx
             .select()
@@ -191,8 +99,21 @@ export class DrizzleSaasStore implements SaasStore {
           const rows = await tx
             .select()
             .from(s)
-            .where(and(eq(s.workspaceId, ws), f.stage ? eq(s.stage, f.stage) : undefined))
-            .orderBy(desc(s.updatedAt), desc(s.id))
+            .where(
+              and(
+                eq(s.workspaceId, ws),
+                f.stage ? eq(s.stage, f.stage) : undefined,
+                f.contactIds ? inArray(s.contactId, f.contactIds) : undefined,
+                f.trialEnds
+                  ? and(
+                      eq(s.stage, 'trial'),
+                      gte(s.trialEndsOn, f.trialEnds.from),
+                      lt(s.trialEndsOn, f.trialEnds.before),
+                    )
+                  : undefined,
+              ),
+            )
+            .orderBy(...(f.trialEnds ? [asc(s.trialEndsOn)] : []), desc(s.updatedAt), desc(s.id))
             .limit(101)
             .offset(f.offset);
           return rows.map(toSubscription);
@@ -228,10 +149,6 @@ export class DrizzleSaasStore implements SaasStore {
             })
             .from(s)
             .where(eq(s.workspaceId, ws));
-          const [req] = await tx
-            .select({ n: sql<number>`count(*)::int` })
-            .from(r)
-            .where(and(eq(r.workspaceId, ws), eq(r.status, 'new')));
           return {
             mrr: Number(sub?.mrr ?? 0),
             stages: {
@@ -241,7 +158,6 @@ export class DrizzleSaasStore implements SaasStore {
               canceled: sub?.canceled ?? 0,
             },
             trialsEndingSoon: sub?.soon ?? 0,
-            newRequests: req?.n ?? 0,
           };
         },
         async audit(actor, action, target, data) {

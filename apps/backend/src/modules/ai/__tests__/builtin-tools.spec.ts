@@ -34,10 +34,9 @@ const botOf = (industry: string) =>
     profile: { fields: {}, notes: '' },
   }) as unknown as BotView;
 
-const request = (status = 'new') =>
-  ({ outcome: 'created', request: { id: newId(), status } }) as unknown as BotSaasRequestResult;
+const recorded: BotSaasRequestResult = { outcome: 'recorded', contactId: newId(), created: true };
 
-function build(script: object[], industry = 'saas', result = request()) {
+function build(script: object[], industry = 'saas', result = recorded) {
   const queue = [...script];
   const requests: GenerateRequest[] = [];
   const fake = new FakeLlmProvider('dev-fake', (req) => {
@@ -88,20 +87,17 @@ describe('SaaS built-in request tool', () => {
       call(args),
       answer('Dạ em đã ghi nhận, bên em sẽ liên hệ chị ạ.'),
     ]);
-    const conversationId = newId();
     const res = await svc.reply(
       ws,
       botId,
       { messages: [{ role: 'customer', content: said }] },
-      { conversationId, isTest: false },
+      { conversationId: newId(), isTest: false },
     );
     expect(res.outcome).toBe('answered');
     expect(res.actions).toEqual([
       { name: 'Record a demo, free trial or consultation request', ok: true, statusCode: 200 },
     ]);
     expect(saas.recordBotRequest).toHaveBeenCalledWith(ws, {
-      conversationId,
-      contactId: null,
       kind: 'demo',
       details: { name: 'Lan', phone: '0983456721' },
       preview: false,
@@ -130,26 +126,6 @@ describe('SaaS built-in request tool', () => {
     expect(saas.recordBotRequest).not.toHaveBeenCalled();
     expect(res.actions).toEqual([expect.objectContaining({ ok: false })]);
     expect(requests[1]?.messages.at(-1)?.content).toContain('invalid_args');
-  });
-
-  it('tells the model when staff already handle the request', async () => {
-    const inProgress = {
-      outcome: 'in_progress',
-      request: { id: newId(), status: 'scheduled' },
-    } as unknown as BotSaasRequestResult;
-    const { svc, requests } = build(
-      [call(args), answer('Dạ bên em đang xử lý ạ.')],
-      'saas',
-      inProgress,
-    );
-    await svc.reply(
-      ws,
-      botId,
-      { messages: [{ role: 'customer', content: said }] },
-      { conversationId: newId(), isTest: false },
-    );
-    expect(requests[1]?.messages.at(-1)?.content).toContain('"recorded":false');
-    expect(requests[1]?.messages.at(-1)?.content).toContain('"status":"scheduled"');
   });
 
   it('answers a failed write with a retryable error code', async () => {

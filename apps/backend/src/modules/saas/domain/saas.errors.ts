@@ -12,6 +12,6 @@ export class SaasError extends DomainError {
 export class SaasUnavailableError extends DomainError {
   readonly code = 'UNAVAILABLE';
   constructor() {
-    super('SaaS requests and subscriptions need a database (DATABASE_URL is not configured)');
+    super('SaaS subscriptions need a database (DATABASE_URL is not configured)');
   }
 }

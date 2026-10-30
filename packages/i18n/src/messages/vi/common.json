@@ -39,9 +39,7 @@
     "groupAccount": "Tài khoản",
     "groupBusinesses": "Business của tôi",
     "accountOverview": "Tổng quan các business",
-    "newBusiness": "Tạo business mới",
-    "saasRequests": "Yêu cầu demo / dùng thử",
-    "saasCustomers": "Khách thuê bao"
+    "newBusiness": "Tạo business mới"
   },
   "auth": {
     "login": "Đăng nhập",
@@ -1715,26 +1713,6 @@
     "conflict": "Thông tin đã thay đổi, mã yêu cầu đã dùng hoặc ngày đã có booking xác nhận. Tải lại danh sách và kiểm tra lịch trước khi thử lại."
   },
   "saas": {
-    "requestsTitle": "Yêu cầu demo / dùng thử",
-    "requestsIntro": "Khách xin demo, dùng thử hoặc tư vấn. Bot tự ghi nhận từ hội thoại; nhân viên liên hệ, hẹn lịch và chốt.",
-    "newRequest": "Thêm yêu cầu",
-    "saveRequest": "Lưu yêu cầu",
-    "requestSaved": "Đã lưu yêu cầu",
-    "requestInvalid": "Cần tên và số điện thoại hoặc email hợp lệ.",
-    "statusSaved": "Đã cập nhật trạng thái",
-    "emptyRequests": "Chưa có yêu cầu nào.",
-    "filterStatus": "Lọc theo trạng thái",
-    "allStatuses": "Mọi trạng thái",
-    "openContact": "Mở khách hàng",
-    "openConversation": "Mở hội thoại",
-    "permission": "Bạn không có quyền tạo yêu cầu.",
-    "customersTitle": "Khách thuê bao",
-    "customersIntro": "Gói, giai đoạn và doanh thu định kỳ (MRR) của từng khách. Sửa gói trong hồ sơ khách hàng.",
-    "emptyCustomers": "Chưa có khách thuê bao. Thêm gói từ hồ sơ khách hàng.",
-    "filterStage": "Lọc theo giai đoạn",
-    "allStages": "Mọi giai đoạn",
-    "revenuePermission": "Chỉ chủ, quản trị và phân tích viên xem được doanh thu thuê bao.",
-    "saasOnly": "Trang này dành cho doanh nghiệp phần mềm (SaaS).",
     "unnamed": "Khách chưa có tên",
     "saveSubscription": "Lưu gói",
     "subscriptionSaved": "Đã lưu gói thuê bao",
@@ -1743,42 +1721,6 @@
     "loading": "Đang tải…",
     "loadError": "Không tải được dữ liệu.",
     "retry": "Thử lại",
-    "previous": "Trang trước",
-    "next": "Trang sau",
-    "kind": {
-      "demo": "Demo",
-      "trial": "Dùng thử",
-      "consultation": "Tư vấn"
-    },
-    "status": {
-      "new": "Mới",
-      "contacted": "Đã liên hệ",
-      "scheduled": "Đã hẹn lịch",
-      "converted": "Đã chốt",
-      "closed": "Đã đóng"
-    },
-    "moveTo": {
-      "contacted": "Đã liên hệ",
-      "scheduled": "Đã hẹn lịch",
-      "converted": "Chốt thành khách",
-      "closed": "Đóng"
-    },
-    "source": {
-      "bot": "Bot ghi nhận",
-      "staff": "Nhân viên tạo"
-    },
-    "field": {
-      "kind": "Loại yêu cầu",
-      "name": "Tên khách",
-      "phone": "Số điện thoại",
-      "email": "Email",
-      "company": "Công ty",
-      "teamSize": "Quy mô đội",
-      "need": "Nhu cầu",
-      "preferredTime": "Thời gian mong muốn",
-      "planInterest": "Gói quan tâm",
-      "note": "Ghi chú"
-    },
     "stage": {
       "trial": "Dùng thử",
       "active": "Đang dùng",
@@ -1806,15 +1748,22 @@
       "renewsOn": "Gia hạn",
       "canceledOn": "Ngày huỷ",
       "externalRef": "Mã bên ngoài",
-      "nextDate": "Mốc tiếp theo"
+      "nextDate": "Mốc tiếp theo",
+      "note": "Ghi chú"
     },
     "summary": {
       "mrr": "MRR",
-      "active": "Đang dùng",
+      "active": "Khách trả phí",
       "trial": "Dùng thử",
-      "trialsEndingSoon": "Dùng thử hết trong 7 ngày",
+      "trialsEndingSoon": "Hết dùng thử trong 7 ngày",
       "past_due": "Quá hạn thanh toán",
-      "newRequests": "Yêu cầu mới"
-    }
+      "canceled": "Rời bỏ"
+    },
+    "col": {
+      "plan": "Gói",
+      "mrr": "MRR",
+      "next": "Mốc tiếp theo"
+    },
+    "noTrialsEndingSoon": "Không có khách nào hết dùng thử trong 7 ngày tới."
   }
 }

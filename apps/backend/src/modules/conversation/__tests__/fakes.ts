@@ -49,7 +49,6 @@ export function fakeCrm(
       contactId: '00000000-0000-4000-8000-0000000000c1',
       created: true,
     })),
-    findContactIdByPhone: vi.fn(async () => null),
     recordContactBot: vi.fn(async () => undefined),
   };
 }

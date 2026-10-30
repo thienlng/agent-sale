@@ -97,14 +97,14 @@ async function contact(h: Headers, phone = '0983456721') {
   expect(r.statusCode).toBe(201);
   return r.json().id as string;
 }
-const staffRequest = () => ({
-  clientRequestId: newId(),
-  kind: 'demo',
-  name: 'Synthetic lead',
-  email: 'lead@example.test',
-  company: 'Synthetic Co',
-  teamSize: '10-20',
-});
+/** Built-in status key of a customer (statuses are seeded per industry on first read). */
+async function statusKey(h: Headers, contactId: string): Promise<string | null> {
+  const statuses = (await call(h, 'GET', '/crm/statuses')).json() as {
+    data: Array<{ id: string; key: string | null }>;
+  };
+  const { statusId } = (await call(h, 'GET', `/contacts/${contactId}`)).json();
+  return statuses.data.find((o) => o.id === statusId)?.key ?? null;
+}
 const subscription = {
   version: null,
   planName: 'Pro',
@@ -117,87 +117,6 @@ const subscription = {
 };
 
 describe('saas HTTP and PostgreSQL isolation', () => {
-  it('records staff requests idempotently, follows them up and enforces tenant and capability boundaries', async () => {
-    const a = await owner(),
-      b = await owner();
-    const body = staffRequest();
-    const created = await call(a.headers, 'POST', '/saas-requests', body);
-    expect(created.statusCode).toBe(201);
-    const row = created.json();
-    expect(row).toMatchObject({ status: 'new', source: 'staff', kind: 'demo', version: 1 });
-    expect((await call(a.headers, 'POST', '/saas-requests', body)).json().id).toBe(row.id);
-    expect(
-      (await call(a.headers, 'POST', '/saas-requests', { ...body, company: 'Other' })).statusCode,
-    ).toBe(409);
-    expect(
-      (await call(a.headers, 'POST', '/saas-requests', { ...staffRequest(), email: null }))
-        .statusCode,
-    ).toBe(400);
-
-    const contactId = await contact(a.headers);
-    const moved = await call(a.headers, 'PATCH', `/saas-requests/${row.id}`, {
-      version: 1,
-      status: 'scheduled',
-      contactId,
-      preferredTime: 'Thứ 5, 15h',
-    });
-    expect(moved.statusCode).toBe(200);
-    expect(moved.json()).toMatchObject({ status: 'scheduled', contactId, version: 2 });
-    expect(
-      (await call(a.headers, 'PATCH', `/saas-requests/${row.id}`, { version: 1, note: 'x' }))
-        .statusCode,
-    ).toBe(409);
-    expect(
-      (
-        await call(a.headers, 'PATCH', `/saas-requests/${row.id}`, {
-          version: 2,
-          status: 'converted',
-        })
-      ).statusCode,
-    ).toBe(200);
-    expect(
-      (
-        await call(a.headers, 'PATCH', `/saas-requests/${row.id}`, {
-          version: 3,
-          status: 'contacted',
-        })
-      ).statusCode,
-    ).toBe(409);
-    const list = (await call(a.headers, 'GET', '/saas-requests?status=converted')).json();
-    expect(list.data.map((r: { id: string }) => r.id)).toEqual([row.id]);
-
-    // Another business sees nothing, and cannot link someone else's customer.
-    expect((await call(b.headers, 'GET', `/saas-requests/${row.id}`)).statusCode).toBe(404);
-    expect((await call(b.headers, 'GET', '/saas-requests')).json().data).toEqual([]);
-    expect(
-      (await call(b.headers, 'POST', '/saas-requests', { ...staffRequest(), contactId }))
-        .statusCode,
-    ).toBe(404);
-    const { db, close } = createDb({
-      url: withCredentials(pg.ownerUrl, pg.tenantLogin.user, pg.tenantLogin.password),
-      max: 2,
-    });
-    try {
-      const seen = await withTenant(db, workspaceId(b.ws), (tx) =>
-        tx.select().from(schema.saasRequests).where(eq(schema.saasRequests.id, row.id)),
-      );
-      expect(seen).toEqual([]);
-    } finally {
-      await close();
-    }
-
-    // A business of another industry has no SaaS screens.
-    const shop = await owner('fashion');
-    expect((await call(shop.headers, 'GET', '/saas-requests')).statusCode).toBe(404);
-
-    // An analyst reads requests but cannot change them.
-    await join(a, b, 'analyst');
-    const analyst = { ...b.headers, 'x-workspace-id': a.ws };
-    expect((await call(analyst, 'GET', '/saas-requests')).statusCode).toBe(200);
-    expect((await call(analyst, 'POST', '/saas-requests', staffRequest())).statusCode).toBe(403);
-    expect((await call({}, 'GET', '/saas-requests')).statusCode).toBe(401);
-  });
-
   it('keeps one subscription per customer with MRR totals readable only with contacts.view_all', async () => {
     const a = await owner(),
       sales = await owner(),
@@ -208,6 +127,8 @@ describe('saas HTTP and PostgreSQL isolation', () => {
     const put = await call(a.headers, 'PUT', path, subscription);
     expect(put.statusCode).toBe(200);
     expect(put.json()).toMatchObject({ contactId, contactName: 'Synthetic customer', version: 1 });
+    // The subscription decides the customer's status.
+    expect(await statusKey(a.headers, contactId)).toBe('paying');
     expect((await call(a.headers, 'PUT', path, subscription)).statusCode).toBe(409);
     expect(
       (await call(a.headers, 'PUT', path, { ...subscription, version: 1, stage: 'trial' }))
@@ -235,6 +156,7 @@ describe('saas HTTP and PostgreSQL isolation', () => {
       error: { code: 'CONFLICT', message: 'This external reference is already used' },
     });
     await call(a.headers, 'PUT', `/contacts/${other}/saas-subscription`, trial);
+    expect(await statusKey(a.headers, other)).toBe('trial');
     const summary = (await call(a.headers, 'GET', '/saas-subscriptions/summary')).json();
     expect(summary).toMatchObject({
       mrr: 990000,
@@ -244,6 +166,36 @@ describe('saas HTTP and PostgreSQL isolation', () => {
     const list = (await call(a.headers, 'GET', '/saas-subscriptions?stage=active')).json();
     expect(list.data).toHaveLength(1);
     expect(list.data[0]).toMatchObject({ contactId, planName: 'Pro' });
+    const rows = (
+      await call(a.headers, 'GET', `/saas-subscriptions?contactIds=${other},${newId()}`)
+    ).json();
+    expect(rows.data.map((r: { contactId: string }) => r.contactId)).toEqual([other]);
+    const ending = (await call(a.headers, 'GET', '/saas-subscriptions?endingSoon=true')).json();
+    expect(ending.data.map((r: { contactId: string }) => r.contactId)).toEqual([other]);
+
+    // Another business sees nothing, also at the database level (forced RLS).
+    const b = await owner();
+    expect((await call(b.headers, 'GET', '/saas-subscriptions')).json().data).toEqual([]);
+    expect((await call(b.headers, 'GET', path)).statusCode).toBe(404);
+    const { db, close } = createDb({
+      url: withCredentials(pg.ownerUrl, pg.tenantLogin.user, pg.tenantLogin.password),
+      max: 2,
+    });
+    try {
+      const seen = await withTenant(db, workspaceId(b.ws), (tx) =>
+        tx
+          .select()
+          .from(schema.saasSubscriptions)
+          .where(eq(schema.saasSubscriptions.contactId, contactId)),
+      );
+      expect(seen).toEqual([]);
+    } finally {
+      await close();
+    }
+    // A business of another industry has no SaaS screens.
+    const shop = await owner('fashion');
+    expect((await call(shop.headers, 'GET', '/saas-subscriptions')).statusCode).toBe(404);
+    expect((await call({}, 'GET', '/saas-subscriptions')).statusCode).toBe(401);
 
     await join(a, sales, 'sales');
     await join(a, analyst, 'analyst');
@@ -256,41 +208,36 @@ describe('saas HTTP and PostgreSQL isolation', () => {
     );
   });
 
-  it('lets the bot create one request per conversation and kind, linked to the customer by phone', async () => {
+  it('lets the bot record a request on the customer: found or created by phone, moved forward, noted', async () => {
     const a = await owner();
-    const contactId = await contact(a.headers);
     const saas = app.get<SaasFacade>(SAAS_FACADE);
-    const conversationId = newId();
     const ws = workspaceId(a.ws);
     const details = { name: 'Synthetic lead', phone: '+84 983 456 721', need: 'Quản lý bán hàng' };
-    const first = await saas.recordBotRequest(ws, {
-      conversationId,
-      contactId: null,
-      kind: 'trial',
-      details,
+    const first = await saas.recordBotRequest(ws, { kind: 'trial', details, preview: false });
+    expect(first).toMatchObject({ outcome: 'recorded', created: true });
+    const contactId = first.outcome === 'recorded' ? first.contactId : '';
+    expect(await statusKey(a.headers, contactId)).toBe('requested');
+    const again = await saas.recordBotRequest(ws, { kind: 'trial', details, preview: false });
+    expect(again).toEqual({ outcome: 'recorded', contactId, created: false });
+    const notes = (await call(a.headers, 'GET', `/contacts/${contactId}/notes`)).json().data;
+    expect(notes).toHaveLength(1);
+    expect(notes[0]).toMatchObject({
+      authorName: 'Bot AI',
+      body: 'Xin dùng thử (bot ghi nhận)\nNhu cầu: Quản lý bán hàng',
+    });
+
+    // A paying customer asking for a demo stays paying; the note still lands.
+    const paying = await contact(a.headers, '0983456799');
+    await call(a.headers, 'PUT', `/contacts/${paying}/saas-subscription`, subscription);
+    const demo = await saas.recordBotRequest(ws, {
+      kind: 'demo',
+      details: { name: 'Synthetic customer', phone: '0983456799' },
       preview: false,
     });
-    expect(first.outcome).toBe('created');
-    expect(first.request).toMatchObject({ source: 'bot', contactId, conversationId });
-    const [again, other] = await Promise.all([
-      saas.recordBotRequest(ws, {
-        conversationId,
-        contactId: null,
-        kind: 'trial',
-        details: { ...details, teamSize: '8' },
-        preview: false,
-      }),
-      saas.recordBotRequest(ws, {
-        conversationId,
-        contactId: null,
-        kind: 'trial',
-        details: { ...details, preferredTime: 'Sáng mai' },
-        preview: false,
-      }),
-    ]);
-    expect([again.outcome, other.outcome].sort()).toEqual(['updated', 'updated']);
-    const rows = (await call(a.headers, 'GET', '/saas-requests')).json().data;
-    expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ teamSize: '8', preferredTime: 'Sáng mai', version: 3 });
+    expect(demo).toEqual({ outcome: 'recorded', contactId: paying, created: false });
+    expect(await statusKey(a.headers, paying)).toBe('paying');
+    expect((await call(a.headers, 'GET', `/contacts/${paying}/notes`)).json().data[0].body).toBe(
+      'Xin demo (bot ghi nhận)',
+    );
   });
 });

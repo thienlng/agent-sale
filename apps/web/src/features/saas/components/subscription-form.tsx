@@ -175,7 +175,7 @@ export function SubscriptionForm({
         </div>
       </div>
       <div className="space-y-2">
-        <Label htmlFor="sub-note">{t('saas.field.note')}</Label>
+        <Label htmlFor="sub-note">{t('saas.sub.note')}</Label>
         <Textarea
           id="sub-note"
           value={note}

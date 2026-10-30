@@ -22,7 +22,7 @@ import {
   NoteNotFoundError,
   StaleVersionError,
 } from '../domain/crm.errors.js';
-import { DEFAULT_SOURCES } from '../domain/crm-defaults.js';
+import { DEFAULT_SOURCES, defaultStatusesFor } from '../domain/crm-defaults.js';
 import { toContactDto, toHistoryDto, toNoteDto } from './crm.mappers.js';
 import { applyFields } from './contact-fields.js';
 import { DistributionService } from './distribution.service.js';
@@ -144,11 +144,6 @@ export class ContactService {
       });
       return this.#dto(tx, contact);
     });
-  }
-
-  /** The customer with this phone (E.164), if any. */
-  async findIdByPhone(ws: WorkspaceId, phoneE164: string): Promise<string | null> {
-    return this.store.run(ws, async (tx) => (await tx.contacts.findByPhone(phoneE164))?.id ?? null);
   }
 
   /**
@@ -371,6 +366,89 @@ export class ContactService {
     return this.store.run(ws, async (tx) => {
       await this.#contact(tx, contactId, undefined, viewer);
       return (await tx.notes.list(contactId)).map(toNoteDto);
+    });
+  }
+
+  /**
+   * Moves a customer to the built-in status `key` on behalf of the system (no staff actor), with
+   * the same history entry and event as a staff change. `forwardOnly` keeps a customer already at
+   * or past that status in the pipeline order. An unknown or archived status changes nothing.
+   * Returns whether the status changed. Throws NOT_FOUND for an unknown customer.
+   */
+  async moveStatusByKey(
+    ws: WorkspaceId,
+    contactId: string,
+    key: string,
+    opts: { forwardOnly: boolean },
+  ): Promise<boolean> {
+    const defaults = defaultStatusesFor((await this.workspaces.getById(ws)).industry);
+    return this.store.run(ws, async (tx) => {
+      const before = await this.#contact(tx, contactId, { forUpdate: true });
+      await tx.options.ensureDefaults(ws, 'status', defaults);
+      const statuses = await tx.options.list('status');
+      const target = statuses.find((s) => s.key === key && !s.archivedAt);
+      if (!target || target.id === before.statusId) return false;
+      const current = statuses.find((s) => s.id === before.statusId);
+      if (opts.forwardOnly && current && current.position >= target.position) return false;
+      const now = new Date();
+      const next = { ...before, statusId: target.id, version: before.version + 1, updatedAt: now };
+      if (!(await tx.contacts.update(next, before.version))) {
+        throw new StaleVersionError('contact', next.version);
+      }
+      await this.#record(
+        tx,
+        ws,
+        next,
+        'contact.status_changed',
+        { statusId: { from: before.statusId, to: target.id } },
+        null,
+        null,
+        now,
+      );
+      await tx.outbox(ws, {
+        type: 'crm.contact.status_changed.v1',
+        aggregateId: contactId,
+        payload: event(ws, contactId, null, now, {
+          fromStatusId: before.statusId,
+          toStatusId: target.id,
+        }),
+      });
+      return true;
+    });
+  }
+
+  /**
+   * A note written by the system (`authorName` says by whom, e.g. the bot). A repeat of the
+   * customer's latest note is skipped, so a retried call leaves one note. Returns whether it was added.
+   */
+  async addSystemNote(
+    ws: WorkspaceId,
+    contactId: string,
+    raw: unknown,
+    authorName: string,
+  ): Promise<boolean> {
+    const { body } = CreateContactNoteRequest.parse(raw);
+    return this.store.run(ws, async (tx) => {
+      const contact = await this.#contact(tx, contactId, { forUpdate: true });
+      const [latest] = await tx.notes.list(contactId);
+      if (latest?.body === body) return false;
+      const now = new Date();
+      const note = {
+        id: newId(),
+        contactId,
+        body,
+        authorUserId: null,
+        authorName,
+        version: 1,
+        createdAt: now,
+        editedAt: null,
+      };
+      await tx.notes.insert(note);
+      await this.#record(tx, ws, contact, 'note.added', {}, null, authorName, now, {
+        noteId: note.id,
+        body,
+      });
+      return true;
     });
   }
 

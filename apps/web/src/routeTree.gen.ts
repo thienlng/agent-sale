@@ -27,8 +27,6 @@ import { Route as AppInboxRouteImport } from './routes/app/inbox'
 import { Route as AppMembersRouteImport } from './routes/app/members'
 import { Route as AppOrderSettingsRouteImport } from './routes/app/order-settings'
 import { Route as AppOverviewRouteImport } from './routes/app/overview'
-import { Route as AppSaasCustomersRouteImport } from './routes/app/saas-customers'
-import { Route as AppSaasRequestsRouteImport } from './routes/app/saas-requests'
 import { Route as AppSettingsRouteImport } from './routes/app/settings'
 import { Route as AppStaysRouteImport } from './routes/app/stays'
 import { Route as AppBotsIndexRouteImport } from './routes/app/bots/index'
@@ -156,16 +154,6 @@ const AppOrderSettingsRoute = AppOrderSettingsRouteImport.update({
 const AppOverviewRoute = AppOverviewRouteImport.update({
   id: '/overview',
   path: '/overview',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppSaasCustomersRoute = AppSaasCustomersRouteImport.update({
-  id: '/saas-customers',
-  path: '/saas-customers',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppSaasRequestsRoute = AppSaasRequestsRouteImport.update({
-  id: '/saas-requests',
-  path: '/saas-requests',
   getParentRoute: () => AppRoute,
 } as any)
 const AppSettingsRoute = AppSettingsRouteImport.update({
@@ -384,8 +372,6 @@ export interface FileRoutesByFullPath {
   '/app/members': typeof AppMembersRoute
   '/app/order-settings': typeof AppOrderSettingsRouteWithChildren
   '/app/overview': typeof AppOverviewRoute
-  '/app/saas-customers': typeof AppSaasCustomersRoute
-  '/app/saas-requests': typeof AppSaasRequestsRoute
   '/app/settings': typeof AppSettingsRouteWithChildren
   '/app/stays': typeof AppStaysRoute
   '/admin/': typeof AdminIndexRoute
@@ -440,8 +426,6 @@ export interface FileRoutesByTo {
   '/app/inbox': typeof AppInboxRoute
   '/app/members': typeof AppMembersRoute
   '/app/overview': typeof AppOverviewRoute
-  '/app/saas-customers': typeof AppSaasCustomersRoute
-  '/app/saas-requests': typeof AppSaasRequestsRoute
   '/app/stays': typeof AppStaysRoute
   '/admin': typeof AdminIndexRoute
   '/app': typeof AppIndexRoute
@@ -499,8 +483,6 @@ export interface FileRoutesById {
   '/app/members': typeof AppMembersRoute
   '/app/order-settings': typeof AppOrderSettingsRouteWithChildren
   '/app/overview': typeof AppOverviewRoute
-  '/app/saas-customers': typeof AppSaasCustomersRoute
-  '/app/saas-requests': typeof AppSaasRequestsRoute
   '/app/settings': typeof AppSettingsRouteWithChildren
   '/app/stays': typeof AppStaysRoute
   '/admin/': typeof AdminIndexRoute
@@ -561,8 +543,6 @@ export interface FileRouteTypes {
     | '/app/members'
     | '/app/order-settings'
     | '/app/overview'
-    | '/app/saas-customers'
-    | '/app/saas-requests'
     | '/app/settings'
     | '/app/stays'
     | '/admin/'
@@ -617,8 +597,6 @@ export interface FileRouteTypes {
     | '/app/inbox'
     | '/app/members'
     | '/app/overview'
-    | '/app/saas-customers'
-    | '/app/saas-requests'
     | '/app/stays'
     | '/admin'
     | '/app'
@@ -675,8 +653,6 @@ export interface FileRouteTypes {
     | '/app/members'
     | '/app/order-settings'
     | '/app/overview'
-    | '/app/saas-customers'
-    | '/app/saas-requests'
     | '/app/settings'
     | '/app/stays'
     | '/admin/'
@@ -854,20 +830,6 @@ declare module '@tanstack/react-router' {
       path: '/overview'
       fullPath: '/app/overview'
       preLoaderRoute: typeof AppOverviewRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/saas-customers': {
-      id: '/app/saas-customers'
-      path: '/saas-customers'
-      fullPath: '/app/saas-customers'
-      preLoaderRoute: typeof AppSaasCustomersRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/saas-requests': {
-      id: '/app/saas-requests'
-      path: '/saas-requests'
-      fullPath: '/app/saas-requests'
-      preLoaderRoute: typeof AppSaasRequestsRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/settings': {
@@ -1252,8 +1214,6 @@ interface AppRouteChildren {
   AppMembersRoute: typeof AppMembersRoute
   AppOrderSettingsRoute: typeof AppOrderSettingsRouteWithChildren
   AppOverviewRoute: typeof AppOverviewRoute
-  AppSaasCustomersRoute: typeof AppSaasCustomersRoute
-  AppSaasRequestsRoute: typeof AppSaasRequestsRoute
   AppSettingsRoute: typeof AppSettingsRouteWithChildren
   AppStaysRoute: typeof AppStaysRoute
   AppIndexRoute: typeof AppIndexRoute
@@ -1279,8 +1239,6 @@ const AppRouteChildren: AppRouteChildren = {
   AppMembersRoute: AppMembersRoute,
   AppOrderSettingsRoute: AppOrderSettingsRouteWithChildren,
   AppOverviewRoute: AppOverviewRoute,
-  AppSaasCustomersRoute: AppSaasCustomersRoute,
-  AppSaasRequestsRoute: AppSaasRequestsRoute,
   AppSettingsRoute: AppSettingsRouteWithChildren,
   AppStaysRoute: AppStaysRoute,
   AppIndexRoute: AppIndexRoute,

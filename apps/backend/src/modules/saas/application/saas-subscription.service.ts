@@ -9,7 +9,7 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import { CRM_FACADE, type CrmFacade } from '../../crm/api/index.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
-import { addDays } from '../domain/saas-request.js';
+import { STAGE_STATUS, addDays } from '../domain/saas-lead.js';
 import { SaasError } from '../domain/saas.errors.js';
 import {
   SAAS_STORE,
@@ -17,27 +17,38 @@ import {
   type SaasStore,
   type SubscriptionRecord,
 } from './ports/saas-store.js';
-import { SaasRequestService } from './saas-request.service.js';
+import { SaasLeadService } from './saas-lead.service.js';
 
 const PAGE = 100;
 const SOON_DAYS = 7;
 
-/** Plan, stage and MRR of each customer: revenue figures, so readers need contacts.view_all. */
+/**
+ * Plan, stage and MRR of each customer: revenue figures, so readers need contacts.view_all.
+ * The stage decides the customer's status (`STAGE_STATUS`), one way: subscription → status.
+ */
 @Injectable()
 export class SaasSubscriptionService {
   constructor(
     @Inject(SAAS_STORE) private readonly store: SaasStore,
     @Inject(WORKSPACE_FACADE) private readonly workspaces: WorkspaceFacade,
     @Inject(CRM_FACADE) private readonly crm: CrmFacade,
-    @Inject(SaasRequestService) private readonly requests: SaasRequestService,
+    @Inject(SaasLeadService) private readonly leads: SaasLeadService,
   ) {}
 
   async list(
     ws: WorkspaceId,
     q: SaasSubscriptionListQuery,
   ): Promise<{ data: SaasSubscriptionDto[]; nextOffset: number | null }> {
-    await this.requests.assertSaas(ws);
-    const rows = await this.store.run(ws, (tx) => tx.listSubscriptions(q));
+    await this.leads.assertSaas(ws);
+    const trialEnds = q.endingSoon ? await this.#soon(ws) : undefined;
+    const rows = await this.store.run(ws, (tx) =>
+      tx.listSubscriptions({
+        stage: q.stage,
+        contactIds: q.contactIds,
+        trialEnds: trialEnds && { from: trialEnds.today, before: trialEnds.soon },
+        offset: q.offset,
+      }),
+    );
     const page = rows.slice(0, PAGE);
     const names = await this.crm.contactNames(
       ws,
@@ -50,7 +61,7 @@ export class SaasSubscriptionService {
   }
 
   async forContact(ws: WorkspaceId, contactId: string): Promise<SaasSubscriptionDto | null> {
-    await this.requests.assertSaas(ws);
+    await this.leads.assertSaas(ws);
     const contact = await this.crm.getContact(ws, contactId);
     const row = await this.store.run(ws, (tx) => tx.findSubscription(contactId));
     return row ? { ...row, contactName: contact.name } : null;
@@ -62,7 +73,7 @@ export class SaasSubscriptionService {
     raw: unknown,
     actor: SaasActor,
   ): Promise<SaasSubscriptionDto> {
-    await this.requests.assertSaas(ws);
+    await this.leads.assertSaas(ws);
     const { version, ...fields } = PutSaasSubscription.parse(raw);
     const contact = await this.crm.getContact(ws, contactId);
     const row = await this.store.run(ws, async (tx) => {
@@ -115,13 +126,23 @@ export class SaasSubscriptionService {
       );
       return next;
     });
+    // After the commit: the status follows the stage even if staff moved the customer by hand.
+    await this.crm.moveContactStatus(ws, contactId, STAGE_STATUS[row.stage], {
+      forwardOnly: false,
+    });
     return { ...row, contactName: contact.name };
   }
 
   async summary(ws: WorkspaceId): Promise<SaasSummary> {
-    await this.requests.assertSaas(ws);
+    await this.leads.assertSaas(ws);
+    const { today, soon } = await this.#soon(ws);
+    return this.store.run(ws, (tx) => tx.summary(today, soon));
+  }
+
+  /** Today and the day after the "ending soon" window, in the business's own calendar. */
+  async #soon(ws: WorkspaceId): Promise<{ today: string; soon: string }> {
     const { timezone } = await this.workspaces.getById(ws);
     const today = localDate(new Date(), timezone);
-    return this.store.run(ws, (tx) => tx.summary(today, addDays(today, SOON_DAYS)));
+    return { today, soon: addDays(today, SOON_DAYS) };
   }
 }

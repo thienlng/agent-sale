@@ -39,9 +39,7 @@
     "groupAccount": "Account",
     "groupBusinesses": "My businesses",
     "accountOverview": "All businesses",
-    "newBusiness": "New business",
-    "saasRequests": "Demo / trial requests",
-    "saasCustomers": "Subscribers"
+    "newBusiness": "New business"
   },
   "auth": {
     "login": "Log in",
@@ -1717,26 +1715,6 @@
     "conflict": "Details changed, the request key was already used, or the dates overlap a confirmed stay. Reload the list and check the calendar before retrying."
   },
   "saas": {
-    "requestsTitle": "Demo / trial requests",
-    "requestsIntro": "Customers asking for a demo, a trial or a consultation. The bot records them from the conversation; staff contact, schedule and convert.",
-    "newRequest": "Add request",
-    "saveRequest": "Save request",
-    "requestSaved": "Request saved",
-    "requestInvalid": "A name and a valid phone number or email are required.",
-    "statusSaved": "Status updated",
-    "emptyRequests": "No requests yet.",
-    "filterStatus": "Filter by status",
-    "allStatuses": "All statuses",
-    "openContact": "Open customer",
-    "openConversation": "Open conversation",
-    "permission": "You are not allowed to create requests.",
-    "customersTitle": "Subscribers",
-    "customersIntro": "Each customer's plan, stage and monthly recurring revenue (MRR). Edit plans on the customer profile.",
-    "emptyCustomers": "No subscribers yet. Add a plan from a customer profile.",
-    "filterStage": "Filter by stage",
-    "allStages": "All stages",
-    "revenuePermission": "Only owners, admins and analysts can see subscription revenue.",
-    "saasOnly": "This page is for software (SaaS) businesses.",
     "unnamed": "Unnamed customer",
     "saveSubscription": "Save plan",
     "subscriptionSaved": "Subscription saved",
@@ -1745,42 +1723,6 @@
     "loading": "Loading…",
     "loadError": "Could not load the data.",
     "retry": "Retry",
-    "previous": "Previous",
-    "next": "Next",
-    "kind": {
-      "demo": "Demo",
-      "trial": "Trial",
-      "consultation": "Consultation"
-    },
-    "status": {
-      "new": "New",
-      "contacted": "Contacted",
-      "scheduled": "Scheduled",
-      "converted": "Converted",
-      "closed": "Closed"
-    },
-    "moveTo": {
-      "contacted": "Contacted",
-      "scheduled": "Scheduled",
-      "converted": "Convert to customer",
-      "closed": "Close"
-    },
-    "source": {
-      "bot": "Recorded by the bot",
-      "staff": "Added by staff"
-    },
-    "field": {
-      "kind": "Request type",
-      "name": "Name",
-      "phone": "Phone",
-      "email": "Email",
-      "company": "Company",
-      "teamSize": "Team size",
-      "need": "Need",
-      "preferredTime": "Preferred time",
-      "planInterest": "Plan of interest",
-      "note": "Note"
-    },
     "stage": {
       "trial": "Trial",
       "active": "Active",
@@ -1808,15 +1750,22 @@
       "renewsOn": "Renews",
       "canceledOn": "Canceled on",
       "externalRef": "External reference",
-      "nextDate": "Next date"
+      "nextDate": "Next date",
+      "note": "Note"
     },
     "summary": {
       "mrr": "MRR",
-      "active": "Active",
-      "trial": "Trial",
+      "active": "Paying",
+      "trial": "On trial",
       "trialsEndingSoon": "Trials ending in 7 days",
       "past_due": "Past due",
-      "newRequests": "New requests"
-    }
+      "canceled": "Churned"
+    },
+    "col": {
+      "plan": "Plan",
+      "mrr": "MRR",
+      "next": "Next date"
+    },
+    "noTrialsEndingSoon": "No trial ends in the next 7 days."
   }
 }
