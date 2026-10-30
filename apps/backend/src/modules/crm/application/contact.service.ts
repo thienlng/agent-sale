@@ -150,6 +150,10 @@ export class ContactService {
    * Lead capture from a channel (no staff actor): one customer per phone. The per-phone advisory
    * lock makes two concurrent captures of the same number serialize, so the second finds the first.
    */
+  async findIdByPhone(ws: WorkspaceId, phoneE164: string): Promise<string | null> {
+    return this.store.run(ws, async (tx) => (await tx.contacts.findByPhone(phoneE164))?.id ?? null);
+  }
+
   async upsertLead(
     ws: WorkspaceId,
     input: { phoneE164: string; sourceKey: string; displayName: string; firstUrl: string | null },

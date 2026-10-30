@@ -61,6 +61,8 @@ export interface CrmFacade {
       firstUrl: string | null;
     },
   ): Promise<{ contactId: string; created: boolean }>;
+  /** The customer with this E.164 phone, or null. Never creates one. */
+  findContactIdByPhone(workspaceId: WorkspaceId, phoneE164: string): Promise<string | null>;
   /**
    * Remembers that a bot answered a conversation linked to the customer (bot filter, history kept
    * across page reassignment). Idempotent. Throws NOT_FOUND for a customer of another business.

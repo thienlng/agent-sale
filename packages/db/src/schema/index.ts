@@ -10,6 +10,7 @@ export * from './commerce.js';
 export * from './channel.js';
 export * from './conversation.js';
 export * from './crm.js';
+export * from './saas.js';
 export * from './action.js';
 export * from './analytics.js';
 export * from './billing.js';
