@@ -4,6 +4,8 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
+
+
 - [ ] T-112 Move product management to its own top-level navigation group — @agent:claude · [details](todo/T-112-move-product-management-to-its-own-top-level-navig.md) · PR #83
 - [ ] T-114 Clean up bot navigation: hide the image library and rename channel integrations — @agent:claude · [details](todo/T-114-clean-up-bot-navigation-hide-the-image-library-and.md) · PR #83
 - [ ] T-113 Show per-bot statistics on the bot training home — @agent:claude · [details](todo/T-113-show-per-bot-statistics-on-the-bot-training-home.md) · PR #83
@@ -54,6 +56,8 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [ ] T-125 Count bot home statistics by the answering bot instead of its current pages — @unassigned · [details](todo/T-125-count-bot-home-statistics-by-the-answering-bot-ins.md)
 
 ## Blocked
+
+- [ ] T-157 Keep business profile save actions visible while editing — @agent:codex · [details](todo/T-157-keep-business-profile-save-actions-visible-while-e.md) · [PR #88](https://github.com/thienlng/agent-sale/pull/88) · locally verified; blocked: GitHub Actions account billing
 - [ ] T-155 Complete the Villas business experience and seed the real A17 property — @agent:codex · [details](todo/T-155-complete-the-villas-business-experience-and-seed-t.md) · [PR #88](https://github.com/thienlng/agent-sale/pull/88) · implementation/local gate/QA complete; blocked: GitHub Actions account billing
 
 - [ ] T-093 Scope business settings and bot defaults to the selected industry — @agent:codex · [details](todo/T-093-scope-business-settings-and-bot-defaults-to-the-se.md) · blocked: partial: business industry increment delivered; account billing separation awaits T-092/T-091 · PR #77 (industry increment)
@@ -71,6 +75,8 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [ ] T-002 Finalize open decisions (domain, data-center location, MVP channels) — @thienlng · blocked: human decision · [details](todo/T-002-finalize-open-decisions.md)
 
 ## Done (last 10 — older ones live in todo/done/)
+
+- [x] T-156 Reset TinyMind and Villas conversation history — @agent:codex · [details](todo/done/T-156-reset-tinymind-and-villas-conversation-history.md) · operational data reset; no code changes
 
 - [x] T-154 Drop the coming-soon badge from the Products menu entry — @agent:claude · [details](todo/done/T-154-drop-the-coming-soon-badge-from-products.md) · main
 - [x] T-152 Show the business logo in the business selector — @agent:claude · [details](todo/done/T-152-show-the-business-logo-in-the-selector.md) · main
