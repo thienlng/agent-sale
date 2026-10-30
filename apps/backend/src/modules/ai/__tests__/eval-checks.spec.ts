@@ -115,4 +115,19 @@ describe('eval checks', () => {
     expect(fired[0]).toMatchObject({ name: 'guardrail', pass: false });
     expect(fired[0]?.detail).toContain('ungrounded_figure:1');
   });
+
+  it('outcome_not fails only on the forbidden outcome', () => {
+    expect(runChecks({ outcome_not: 'handoff' }, base)[0]?.pass).toBe(true);
+    const handoff = runChecks({ outcome_not: 'handoff' }, { ...base, outcome: 'handoff' });
+    expect(handoff[0]).toMatchObject({ name: 'outcome_not', pass: false });
+  });
+
+  it('images_min needs at least that many pictures sent', () => {
+    expect(runChecks({ images_min: 1 }, base)[0]).toMatchObject({
+      name: 'images_min',
+      pass: false,
+    });
+    expect(runChecks({ images_min: 1 }, { ...base, images: 1 })[0]?.pass).toBe(true);
+    expect(runChecks({ images_min: 2 }, { ...base, images: 1 })[0]?.pass).toBe(false);
+  });
 });

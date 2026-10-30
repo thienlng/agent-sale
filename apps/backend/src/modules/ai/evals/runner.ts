@@ -1,10 +1,10 @@
-import { FakeLlmProvider } from '@agent-sales/ai-core';
-import type { PlaygroundRequest, TrainingItemDto } from '@agent-sales/contracts';
-import { newId, workspaceId } from '@agent-sales/shared';
+import { FakeLlmProvider, type GenerateRequest } from '@agent-sales/ai-core';
+import type { PlaygroundRequest, ProductDto, TrainingItemDto } from '@agent-sales/contracts';
+import { foldVietnamese, newId, workspaceId } from '@agent-sales/shared';
 
 import type { ActionFacade } from '../../action/api/index.js';
 import type { BotFacade, BotView } from '../../bot/api/index.js';
-import type { CatalogFacade } from '../../commerce/api/index.js';
+import type { BotCatalogScope, CatalogFacade } from '../../commerce/api/index.js';
 import type { FaqHit, KnowledgeFacade, TrainingFacade } from '../../knowledge/api/index.js';
 import type { WorkspaceFacade } from '../../workspace/api/index.js';
 import { LlmRuntime } from '../application/llm-runtime.js';
@@ -32,6 +32,10 @@ export interface CaseResult {
   provider: string | null;
   model: string | null;
   latencyMs: number | null;
+  /** Model calls of the turn (1 without tools; each tool round adds one). */
+  modelCalls: number;
+  /** Pictures sent with the reply. */
+  images: number;
   /** Set when the pipeline itself failed (provider down, no fake reply); the case then fails. */
   error: string | null;
 }
@@ -67,7 +71,8 @@ function productDtos(c: EvalCase) {
   return c.products.map((p, i) => {
     const prices = p.variants.map((v) => v.price);
     return {
-      id: newId(),
+      // Stable ids: a fake reply names its pictures as `p:<product id>:<n>`.
+      id: `eval-product-${i + 1}`,
       code: p.code ?? `SKU-${i + 1}`,
       name: p.name,
       description: p.description,
@@ -75,7 +80,7 @@ function productDtos(c: EvalCase) {
       status: 'active' as const,
       visibleToBot: true,
       botInstructions: p.instructions,
-      imageUrls: [],
+      imageUrls: p.images,
       ...(p.accommodation ? { accommodation: p.accommodation } : {}),
       variants: p.variants.map((v, j) => ({
         id: newId(),
@@ -95,9 +100,51 @@ function productDtos(c: EvalCase) {
   });
 }
 
-/** The same `LlmRuntime` the api uses, on an in-memory config whose only provider answers with `reply`. */
-export function fakeRuntime(replyFor: (c: EvalCase) => string, c: EvalCase): LlmRuntime {
-  const provider = new FakeLlmProvider(DEV_FAKE_PROVIDER, () => ({ text: replyFor(c) }));
+type FakeScript = (req: GenerateRequest) => {
+  text: string;
+  toolCalls?: { id: string; name: string; input: Record<string, unknown> }[];
+  stopReason?: 'tool_use';
+};
+
+const hasToolResult = (req: GenerateRequest): boolean =>
+  req.messages.some((m) => m.role === 'tool');
+
+/**
+ * The fake model of a case: on its first call it makes the case's `fake_tool_calls` (or browses the
+ * catalog when the case has products, so figures are grounded as in production), then it returns
+ * `fake_reply`.
+ */
+export function fakeScript(c: EvalCase): FakeScript {
+  const calls =
+    c.expect.fake_tool_calls ??
+    (c.products.length ? [{ name: 'search_products', arguments: {} }] : []);
+  return (req) => {
+    if (calls.length && !hasToolResult(req))
+      return {
+        text: '',
+        stopReason: 'tool_use',
+        toolCalls: calls.map((call, i) => ({
+          id: `fake-call-${i + 1}`,
+          name: call.name,
+          input: call.arguments,
+        })),
+      };
+    return { text: fakeReplyText(c) };
+  };
+}
+
+/** The same `LlmRuntime` the api uses, on an in-memory config whose only provider is scripted by `script`. */
+export function fakeRuntime(replyFor: (c: EvalCase) => string, c: EvalCase): LlmRuntime;
+export function fakeRuntime(script: FakeScript): LlmRuntime;
+export function fakeRuntime(
+  first: ((c: EvalCase) => string) | FakeScript,
+  c?: EvalCase,
+): LlmRuntime {
+  const script: FakeScript =
+    c !== undefined
+      ? () => ({ text: (first as (c: EvalCase) => string)(c) })
+      : (first as FakeScript);
+  const provider = new FakeLlmProvider(DEV_FAKE_PROVIDER, script);
   const factory: LlmProviderFactory = {
     create: () => {
       throw new Error('fake mode has no configured providers');
@@ -116,6 +163,53 @@ export function fakeReplyText(c: EvalCase): string {
   const fake = c.expect.fake_reply;
   if (!fake) throw new Error(`case ${c.id} has no expect.fake_reply (needed in fake mode)`);
   return JSON.stringify(fake);
+}
+
+const terms = (text: string): string[] =>
+  [
+    ...new Set(
+      foldVietnamese(text)
+        .split(/[^a-z0-9]+/)
+        .filter((t) => t.length >= 2),
+    ),
+  ].slice(0, 8);
+
+/**
+ * The in-memory catalog of a case. `search_products` ranks like a small search engine: accent-folded
+ * terms of the query found in the name (weight 3), category or description, so a live model that
+ * searches for a product by name finds it first. No query lists every product.
+ */
+export function evalCatalog(products: ProductDto[]): CatalogFacade {
+  const visible = (_scope: BotCatalogScope) => products;
+  return {
+    searchBotCatalog: async (_ws, scope, input) => {
+      let rows = visible(scope).filter(
+        (p) =>
+          (input.maxPriceVnd === undefined || p.priceMin <= input.maxPriceVnd) &&
+          (!input.inStockOnly || p.available > 0),
+      );
+      const wanted = terms(input.query ?? '');
+      if (wanted.length) {
+        const score = (p: ProductDto): number => {
+          const name = foldVietnamese(p.name);
+          const rest = foldVietnamese(`${p.category ?? ''} ${p.description}`);
+          return wanted.reduce(
+            (sum, t) => sum + (name.includes(t) ? 3 : 0) + (rest.includes(t) ? 1 : 0),
+            0,
+          );
+        };
+        rows = rows
+          .map((p, index) => ({ p, index, s: score(p) }))
+          .filter((x) => x.s > 0)
+          .sort((a, b) => b.s - a.s || a.index - b.index)
+          .map((x) => x.p);
+      }
+      return rows.slice(0, Math.min(input.limit, 300));
+    },
+    getBotProductsByIds: async (_ws, scope, ids) =>
+      ids.flatMap((id) => visible(scope).filter((p) => p.id === id)).slice(0, 10),
+    countBotCatalog: async (_ws, scope) => visible(scope).length,
+  };
 }
 
 /** The production reply pipeline on in-memory facades built from the case. */
@@ -156,11 +250,7 @@ export function buildService(c: EvalCase, llm: LlmRuntime) {
     llm,
     runs,
     { list: async () => scenarios } as unknown as TrainingFacade,
-    {
-      searchBotCatalog: async () => products,
-      getBotProductsByIds: async () => [],
-      countBotCatalog: async () => products.length,
-    } as unknown as CatalogFacade,
+    evalCatalog(products as unknown as ProductDto[]),
     { listForBot: async () => [] } as unknown as ActionFacade,
   );
   return { service, botId, runs };
@@ -192,6 +282,8 @@ const errorResult = (c: EvalCase, error: string): CaseResult => ({
   provider: null,
   model: null,
   latencyMs: null,
+  modelCalls: 0,
+  images: 0,
   error,
 });
 
@@ -199,12 +291,20 @@ const errorResult = (c: EvalCase, error: string): CaseResult => ({
 export async function runCase(c: EvalCase, llm: LlmRuntime): Promise<CaseResult> {
   const customerTexts = customerTextsOf(c);
   const { service, botId, runs } = buildService(c, llm);
+  // Count the model calls of the turn by wrapping the runtime the pipeline uses.
+  const generate = llm.generate.bind(llm);
+  let modelCalls = 0;
+  llm.generate = (req) => {
+    modelCalls += 1;
+    return generate(req);
+  };
   try {
     const res = await service.playground(workspaceId(newId()), botId, request(c));
     const checks = runChecks(c.expect, {
       reply: res.reply,
       outcome: res.outcome,
       guardrail: res.guardrail,
+      images: res.images.length,
       customerTexts,
       trusted: trustedTexts(c),
     });
@@ -223,16 +323,20 @@ export async function runCase(c: EvalCase, llm: LlmRuntime): Promise<CaseResult>
       provider: res.provider,
       model: res.model,
       latencyMs: res.latencyMs,
+      modelCalls,
+      images: res.images.length,
       error: null,
     };
   } catch (error) {
     return errorResult(c, error instanceof Error ? error.message : String(error));
+  } finally {
+    llm.generate = generate;
   }
 }
 
-/** Fake mode: the model answers with each case's `expect.fake_reply`; no network. */
+/** Fake mode: the scripted model makes the case's tool calls, then answers with `expect.fake_reply`; no network. */
 export function runCaseFake(c: EvalCase): Promise<CaseResult> {
   if (!c.expect.fake_reply)
     return Promise.resolve(errorResult(c, 'expect.fake_reply is required in fake mode'));
-  return runCase(c, fakeRuntime(fakeReplyText, c));
+  return runCase(c, fakeRuntime(fakeScript(c)));
 }

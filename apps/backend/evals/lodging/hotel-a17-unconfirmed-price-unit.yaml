@@ -55,6 +55,7 @@
       'numbers_only_from_sources': true,
       'contains_all': ['14.000.000', '13.000.000', 'chưa'],
       'not_contains': ['27.000.000', 'mỗi đêm'],
+      'fake_tool_calls': [{ 'name': 'search_products', 'arguments': { 'query': 'A17' } }],
       'fake_reply':
         {
           'outcome': 'answer',

@@ -55,6 +55,7 @@
       'numbers_only_from_sources': true,
       'contains_all': ['24', '8', '6'],
       'not_contains': ['32 người lớn vẫn vừa', 'miễn phí'],
+      'fake_tool_calls': [{ 'name': 'search_products', 'arguments': { 'query': 'A17' } }],
       'fake_reply':
         {
           'outcome': 'answer',

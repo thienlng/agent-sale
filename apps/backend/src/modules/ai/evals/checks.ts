@@ -12,6 +12,8 @@ export interface CheckInput {
   outcome: EvalOutcome;
   /** The guardrail the pipeline fired (e.g. `ungrounded_figure:299k`), null when none. */
   guardrail?: string | null;
+  /** How many pictures were sent with the reply. */
+  images?: number;
   customerTexts: readonly string[];
   /** Everything the reply may state figures from: profile, notes, FAQs, situations, products. */
   trusted: readonly string[];
@@ -34,6 +36,20 @@ export function runChecks(expected: EvalExpect, input: CheckInput): CheckResult[
       expected.outcome === input.outcome,
       `expected ${expected.outcome}, got ${input.outcome}`,
     );
+  if (expected.outcome_not)
+    add(
+      'outcome_not',
+      expected.outcome_not !== input.outcome,
+      `must not be ${expected.outcome_not}, got ${input.outcome}`,
+    );
+  if (expected.images_min !== undefined) {
+    const sent = input.images ?? 0;
+    add(
+      'images_min',
+      sent >= expected.images_min,
+      `${sent} images sent, min ${expected.images_min}`,
+    );
+  }
   if (expected.contains_any) {
     const hit = expected.contains_any.find((s) => reply.includes(norm(s)));
     add(
