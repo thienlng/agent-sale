@@ -1,0 +1,13 @@
+{
+  "identities": [
+    {
+      "name": "rapiz",
+      "credentials": [{ "accessKey": "minioadmin", "secretKey": "minioadmin" }],
+      "actions": ["Admin", "Read", "Write", "List", "Tagging"]
+    },
+    {
+      "name": "anonymous",
+      "actions": ["Read:rapiz-local"]
+    }
+  ]
+}

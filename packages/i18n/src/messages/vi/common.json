@@ -733,15 +733,22 @@
       "saved": "Đã lưu sản phẩm",
       "created": "Đã tạo sản phẩm",
       "images": "Ảnh sản phẩm",
-      "imagesHint": "Tối đa {{max}} ảnh (liên kết HTTPS). Bot sẽ gửi các ảnh này khi khách muốn xem hình sản phẩm.",
-      "imageUrl": "Liên kết ảnh (https://…)",
-      "addImage": "Thêm ảnh",
+      "imagesHint": "Tối đa {{max}} ảnh (JPG, PNG hoặc WebP) chọn từ máy của bạn. Bot sẽ gửi các ảnh này khi khách muốn xem hình sản phẩm.",
       "removeImage": "Bỏ ảnh {{n}}",
       "imageAlt": "Ảnh sản phẩm {{n}}",
       "imageCount": "{{n}}/{{max}} ảnh",
-      "imageInvalid": "Chỉ nhận liên kết HTTPS hợp lệ, tối đa 2000 ký tự.",
-      "imageDuplicate": "Ảnh này đã có trong danh sách.",
-      "imageLimit": "Đã đủ {{max}} ảnh."
+      "imageInvalid": "Tệp này không phải ảnh hợp lệ (JPG, PNG hoặc WebP).",
+      "pickImages": "Chọn ảnh",
+      "dropImages": "Kéo thả ảnh vào đây hoặc",
+      "uploadingImages": "Đang tải ảnh lên…",
+      "moveImageLeft": "Dời ảnh {{n}} sang trái",
+      "moveImageRight": "Dời ảnh {{n}} sang phải",
+      "imageUnreadable": "Không đọc được ảnh này. Hãy chọn ảnh JPG, PNG hoặc WebP.",
+      "imageTooMany": "Chỉ còn chỗ cho {{n}} ảnh nữa, các ảnh dư đã được bỏ qua.",
+      "imageTooLarge": "Ảnh quá lớn. Hãy chọn ảnh nhỏ hơn.",
+      "imageStorageUnavailable": "Kho lưu ảnh chưa sẵn sàng. Vui lòng thử lại sau.",
+      "imageUploadFailed": "Không tải được ảnh lên. Vui lòng thử lại.",
+      "imagesFull": "Đã đủ số ảnh. Hãy bỏ bớt ảnh để thêm ảnh mới."
     },
     "stock": {
       "title": "Tồn kho",
@@ -1647,9 +1654,7 @@
     "notes": "Ghi chú",
     "gallery": "Ảnh thực tế",
     "caption": "Mô tả ảnh",
-    "imageUrl": "Đường dẫn ảnh HTTPS",
-    "addPhoto": "Thêm ảnh",
-    "invalid": "Vui lòng kiểm tra thông tin, số phòng, giá đủ 7 ngày và đường dẫn ảnh HTTPS.",
+    "invalid": "Kiểm tra thông tin, số phòng ngủ, đủ giá cho 7 ngày trong tuần và chú thích cho mỗi ảnh.",
     "saved": "Đã lưu thông tin căn.",
     "permission": "Bạn không có quyền thực hiện thao tác này.",
     "requestsTitle": "Yêu cầu đặt căn",
@@ -1708,6 +1713,7 @@
     "availabilityUnknown": "Thông tin căn không xác nhận lịch trống. Nhân viên cần kiểm tra lịch thực tế theo ngày khách chọn.",
     "previous": "Trang trước",
     "next": "Trang sau",
-    "conflict": "Thông tin đã thay đổi, mã yêu cầu đã dùng hoặc ngày đã có booking xác nhận. Tải lại danh sách và kiểm tra lịch trước khi thử lại."
+    "conflict": "Thông tin đã thay đổi, mã yêu cầu đã dùng hoặc ngày đã có booking xác nhận. Tải lại danh sách và kiểm tra lịch trước khi thử lại.",
+    "photoAlt": "Ảnh thực tế {{n}}"
   }
 }

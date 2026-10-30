@@ -19,6 +19,7 @@
     "platform-admin": "tsx --env-file-if-exists=../../.env src/cli/platform-admin.ts",
     "account-backfill": "tsx --env-file-if-exists=../../.env src/cli/account-backfill.ts",
     "bot-profile-backfill": "tsx --env-file-if-exists=../../.env src/cli/bot-profile-backfill.ts",
+    "product-images:import": "tsx --env-file-if-exists=../../.env src/cli/product-images-import.ts",
     "analytics-rebuild": "tsx --env-file-if-exists=../../.env src/cli/analytics-rebuild.ts",
     "mfa-reset": "tsx --env-file-if-exists=../../.env src/cli/mfa-reset.ts",
     "eval": "tsx --env-file-if-exists=../../.env src/cli/eval.ts",

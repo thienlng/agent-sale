@@ -20,6 +20,7 @@ import {
   WarehouseList,
 } from './commerce.schema.js';
 import { OrderOverviewQuery, OrderOverviewResponse } from './order-overview.schema.js';
+import { UploadProductImageRequest, UploadProductImageResponse } from './product-images.schema.js';
 import { OrderSettingsDto } from './order-settings.schema.js';
 
 const scoped = { auth: true, workspaceScoped: true } as const;
@@ -29,6 +30,14 @@ const route = <T extends Omit<RouteContract, 'auth' | 'workspaceScoped'>>(r: T) 
 });
 
 export const commerceRoutes = defineRoutes([
+  route({
+    method: 'post',
+    path: '/products/images',
+    summary: 'Upload a product picture to Rapiz storage and get its public URL',
+    tag: 'commerce',
+    body: UploadProductImageRequest,
+    responses: { 201: UploadProductImageResponse },
+  }),
   route({
     method: 'get',
     path: '/warehouses',

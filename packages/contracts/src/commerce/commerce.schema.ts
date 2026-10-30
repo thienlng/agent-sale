@@ -117,7 +117,10 @@ export const ProductVariantDto = z.object({
 });
 export type ProductVariantDto = z.infer<typeof ProductVariantDto>;
 
-/** Customer-facing product pictures: public HTTPS URLs only (the bot sends them in chats). */
+/**
+ * Customer-facing product pictures: public HTTPS URLs (the bot sends them in chats).
+ * The API additionally requires a URL returned by POST /products/images for the same workspace.
+ */
 export const MAX_PRODUCT_IMAGES = 5;
 export const ProductImageUrl = z
   .string()
