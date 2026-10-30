@@ -183,8 +183,11 @@ export class PlaygroundService implements AiFacade {
     ].join('\n');
 
     const actionViews = this.actions ? await this.actions.listForBot(ws, botId) : [];
+    // A public comment reply has no private conversation: it never reads (or writes) the pending
+    // key the owner's playground uses, and confirm-required actions are refused for it.
+    const isCommentReply = context.conversationId === null && !context.isTest;
     const storedPending =
-      this.actions && actionViews.length
+      this.actions && actionViews.length && !isCommentReply
         ? await this.actions.getPending(ws, conversationKey)
         : null;
     // A pending call whose action was disabled meanwhile cannot be confirmed.
@@ -247,6 +250,7 @@ export class PlaygroundService implements AiFacade {
           state,
           // Only a call stored before this turn can be confirmed by it.
           confirmable: pending !== null,
+          confirmationAvailable: !isCommentReply,
         }
       : null;
     const catalog = this.catalog;

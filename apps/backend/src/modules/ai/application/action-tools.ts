@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-import type { ToolCall, ToolDefinition } from '@agent-sales/ai-core';
+import { INVALID_JSON_INPUT_KEY, type ToolCall, type ToolDefinition } from '@agent-sales/ai-core';
 import type { WorkspaceId } from '@agent-sales/shared';
 import { z } from 'zod';
 
@@ -158,6 +158,11 @@ export interface ActionToolContext {
   state: ActionToolState;
   /** A pending call existed when the turn started (loaded by the caller): the only confirmable one. */
   confirmable: boolean;
+  /**
+   * False for a public comment reply: there is no private conversation to hold a pending call, so
+   * a confirm-required action is refused instead of stored under a key shared with other customers.
+   */
+  confirmationAvailable?: boolean;
 }
 
 export interface ActionToolResult {
@@ -171,7 +176,7 @@ const result = (value: unknown, trusted = ''): ActionToolResult => ({
 });
 
 const isInvalidJson = (input: unknown): boolean =>
-  typeof input === 'object' && input !== null && '__invalidJson' in input;
+  typeof input === 'object' && input !== null && INVALID_JSON_INPUT_KEY in input;
 
 /**
  * Runs one action tool call (docs/actions.md): at most `MAX_ACTION_ROUNDS` executions per customer
@@ -214,6 +219,8 @@ export async function runActionTool(
     if (!parsed.success) return result({ error: 'invalid_arguments' });
     args = parsed.data as ActionArgs;
     if (action.requiresConfirm) {
+      if (ctx.confirmationAvailable === false)
+        return result({ error: 'confirmation_not_available' });
       await facade.setPending(ws, conversationId, { actionId: action.id, args });
       state.askedConfirmation = true;
       state.stored = true;
@@ -224,13 +231,20 @@ export async function runActionTool(
 
   if (state.executed >= MAX_ACTION_ROUNDS) return limit(state);
   state.executed += 1;
-  const outcome = await facade.invoke(ws, botId, {
-    actionId: action.id,
-    args,
-    conversationId,
-    idempotencyKey: ctx.keyFor(action.id, args),
-    isTest: ctx.isTest,
-  });
+  let outcome: Awaited<ReturnType<ActionFacade['invoke']>>;
+  try {
+    outcome = await facade.invoke(ws, botId, {
+      actionId: action.id,
+      args,
+      conversationId,
+      idempotencyKey: ctx.keyFor(action.id, args),
+      isTest: ctx.isTest,
+    });
+  } catch (error) {
+    // Not a failed outcome but an exception: the customer's "ok" must still be answerable.
+    if (pending) await facade.setPending(ws, conversationId, { actionId: pending.actionId, args });
+    throw error;
+  }
   // The write may not have happened: let the customer say "ok" again instead of losing the call.
   if (pending && !outcome.ok && TRANSIENT_ERRORS.has(outcome.errorCode)) {
     await facade.setPending(ws, conversationId, { actionId: pending.actionId, args });

@@ -496,6 +496,37 @@ describe('bot API actions in the reply pipeline', () => {
     expect(given.store.pending).toMatchObject({ args: { hour: 9 } });
   });
 
+  it('keeps a fanpage comment reply away from the shared playground pending key', async () => {
+    const { svc, store, fake } = build(
+      [call(BOOK, { hour: 9 }), answer('Dạ em chưa đặt lịch được ở bình luận ạ')],
+      {
+        pending: stored(),
+      },
+    );
+    const reqs: GenerateRequest[] = [];
+    const orig = fake.generate.bind(fake);
+    fake.generate = (req, target) => {
+      reqs.push(req);
+      return orig(req, target);
+    };
+    const res = await svc.reply(
+      ws,
+      botId,
+      { messages: [{ role: 'customer', content: 'đặt lịch 9 giờ' }] },
+      { conversationId: null, isTest: false },
+    );
+    expect(res.outcome).toBe('answered');
+    expect(store.ids).toEqual([]);
+    expect(store.pending).not.toBeNull();
+    expect(store.cleared).toBe(0);
+    expect(store.consumed).toBe(0);
+    for (const req of reqs) {
+      expect(toolNames(req)).toEqual([LOOKUP, BOOK]);
+      expect(lastMessage(req)).not.toContain('<pending_action>');
+    }
+    expect(JSON.stringify(reqs[1]?.messages.at(-1))).toContain('confirmation_not_available');
+  });
+
   it('drops a stored confirmation question when the final reply is empty', async () => {
     const { ask, store } = build([call(BOOK, { hour: 9 }), answer('')]);
     const res = await ask('đặt lịch 9 giờ giúp em');

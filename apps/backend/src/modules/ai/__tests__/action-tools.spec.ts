@@ -68,6 +68,8 @@ function setup(
     outcome?: ActionOutcome;
     pending?: PendingAction | null;
     customerTexts?: string[];
+    throws?: boolean;
+    confirmationAvailable?: boolean;
   } = {},
 ) {
   const invocations: Invocation[] = [];
@@ -75,6 +77,7 @@ function setup(
   const facade = {
     invoke: async (_ws: unknown, _bot: unknown, call: Invocation) => {
       invocations.push(call);
+      if (options.throws) throw new Error('executor crashed');
       return options.outcome ?? { ok: true, statusCode: 200, data: { status: 'đang giao' } };
     },
     setPending: async (
@@ -112,6 +115,7 @@ function setup(
         keyFor: (actionId, args) => idempotencyKey(conversationId, actionId, args),
         state,
         confirmable: (options.pending ?? null) !== null,
+        ...(options.confirmationAvailable === false ? { confirmationAvailable: false } : {}),
       },
       { id: `c-${newId()}`, name, input } satisfies ToolCall,
     );
@@ -384,6 +388,24 @@ describe('runActionTool', () => {
     fromResult.state.results.push('{"hour":10}');
     await fromResult.run('action_2', { hour: 10 });
     expect(fromResult.state.readback).toEqual(['10']);
+  });
+});
+
+describe('failure modes', () => {
+  it('puts the consumed pending call back when the write throws, and rethrows', async () => {
+    const { run, store } = setup({ pending: pendingOf({ hour: 9 }), throws: true });
+    await expect(run('confirm_pending_action')).rejects.toThrow('executor crashed');
+    expect(store.pending).toMatchObject({ actionId: 'act-book', args: { hour: 9 } });
+  });
+
+  it('refuses to store a confirm-required call when confirmation is not available', async () => {
+    const { parsed, store, invocations, state } = setup({ confirmationAvailable: false });
+    expect(await parsed('action_2', { hour: 9 })).toEqual({ error: 'confirmation_not_available' });
+    expect(store.pending).toBeNull();
+    expect(state.askedConfirmation).toBe(false);
+    expect(invocations).toHaveLength(0);
+    // Actions that need no confirmation still run.
+    expect(await parsed('action_1', { orderId: 'A1' })).toMatchObject({ ok: true });
   });
 });
 
