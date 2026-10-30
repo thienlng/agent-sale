@@ -3,8 +3,14 @@ import { createHash } from 'node:crypto';
 import type { ChatMessage } from '@agent-sales/ai-core';
 import type { WorkspaceId } from '@agent-sales/shared';
 
-import type { ActionFacade, BotActionView, PendingAction } from '../../action/api/index.js';
+import type {
+  ActionFacade,
+  ActionOutcome,
+  BotActionView,
+  PendingAction,
+} from '../../action/api/index.js';
 import type { ModelReply, ParsedModelReply } from '../domain/model-reply.js';
+import type { BuiltinInvoker } from './builtin-tools.js';
 
 /** Executions per customer turn (a 4th requested call ends in the fallback). */
 export const MAX_ACTION_ROUNDS = 3;
@@ -38,14 +44,17 @@ export type ActionLoopResult =
   | { kind: 'fallback'; guardrail: string | null; calls: ActionCall[] };
 
 export interface ActionLoopInput {
-  facade: ActionFacade;
+  /** Null when the action module is absent: only built-in tools can run. */
+  facade: ActionFacade | null;
   ws: WorkspaceId;
   botId: string;
   /** A UUID: the real conversation, or a stable per-bot id in the playground. */
   conversationId: string;
   isTest: boolean;
-  /** Enabled actions of the bot (the only ones the model may name). */
+  /** Enabled actions of the bot and its built-in tools (the only ones the model may name). */
   actions: readonly BotActionView[];
+  /** In-process tools by id (`builtin.*`, never confirm-required): they skip the action module. */
+  builtins?: ReadonlyMap<string, BuiltinInvoker> | undefined;
   first: ModelTurn;
   /** Next model turn given the messages to append after the base conversation. */
   ask(followUp: ChatMessage[]): Promise<ModelTurn>;
@@ -139,7 +148,7 @@ export async function runActionLoop(input: ActionLoopInput): Promise<ActionLoopR
     const reply = turn.output.value;
 
     if (reply.outcome === 'cancel_action') {
-      await facade.clearPending(ws, conversationId);
+      await facade?.clearPending(ws, conversationId);
       return {
         kind: 'turn',
         turn: { ...turn, output: asAnswer(reply) },
@@ -158,7 +167,7 @@ export async function runActionLoop(input: ActionLoopInput): Promise<ActionLoopR
       // Never the model's arguments: only what was stored when the customer was asked.
       if (executed >= MAX_ACTION_ROUNDS) return fallback('action_loop_limit');
       // Atomic take BEFORE the call: of two concurrent confirmations only one gets the stored write.
-      pending = await facade.consumePending(ws, conversationId);
+      pending = facade ? await facade.consumePending(ws, conversationId) : null;
       if (!pending) return fallback(null);
       action = input.actions.find((a) => a.id === pending?.actionId);
       if (!action) return fallback(null);
@@ -168,7 +177,7 @@ export async function runActionLoop(input: ActionLoopInput): Promise<ActionLoopR
       if (!action) return fallback(null);
       args = reply.args ?? {};
       if (action.requiresConfirm) {
-        if (!reply.reply.trim()) return fallback(null);
+        if (!reply.reply.trim() || !facade) return fallback(null);
         await facade.setPending(ws, conversationId, { actionId: action.id, args });
         return {
           kind: 'turn',
@@ -183,15 +192,20 @@ export async function runActionLoop(input: ActionLoopInput): Promise<ActionLoopR
 
     if (executed >= MAX_ACTION_ROUNDS) return fallback('action_loop_limit');
     executed += 1;
-    const outcome = await facade.invoke(ws, botId, {
-      actionId: action.id,
-      args,
-      conversationId,
-      idempotencyKey: input.keyFor(action.id, args),
-      isTest: input.isTest,
-    });
+    const builtin = input.builtins?.get(action.id);
+    let outcome: ActionOutcome;
+    if (builtin) outcome = await builtin(args);
+    else if (facade)
+      outcome = await facade.invoke(ws, botId, {
+        actionId: action.id,
+        args,
+        conversationId,
+        idempotencyKey: input.keyFor(action.id, args),
+        isTest: input.isTest,
+      });
+    else return fallback(null);
     // The write may not have happened: let the customer say "ok" again instead of losing the call.
-    if (pending && !outcome.ok && TRANSIENT_ERRORS.has(outcome.errorCode)) {
+    if (facade && pending && !outcome.ok && TRANSIENT_ERRORS.has(outcome.errorCode)) {
       await facade.setPending(ws, conversationId, { actionId: pending.actionId, args });
     }
 

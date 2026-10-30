@@ -11,6 +11,7 @@ import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
 import { recordAiRun } from '../../../common/metrics.js';
 import { ACTION_FACADE, type ActionFacade } from '../../action/api/index.js';
+import { SAAS_FACADE, type SaasFacade } from '../../saas/api/index.js';
 import { BOT_FACADE, type BotFacade, type BotView } from '../../bot/api/index.js';
 import { CATALOG_FACADE, type CatalogFacade } from '../../commerce/api/index.js';
 import { KNOWLEDGE_FACADE, type KnowledgeFacade } from '../../knowledge/api/index.js';
@@ -43,6 +44,7 @@ import {
   runActionLoop,
 } from './action-loop.js';
 import { actionsBlock } from './actions-block.js';
+import { builtinTools } from './builtin-tools.js';
 import { decide, fallbackDecision } from './decide-reply.js';
 import { LlmRuntime } from './llm-runtime.js';
 
@@ -92,6 +94,7 @@ export class PlaygroundService implements AiFacade {
     @Inject(CATALOG_FACADE) @Optional() private readonly catalog?: CatalogFacade,
     @Inject(ACTION_FACADE) @Optional() private readonly actions?: ActionFacade,
     @Inject(PROMPT_VERSION_OPTION) @Optional() promptVersion?: 8 | 9,
+    @Inject(SAAS_FACADE) @Optional() private readonly saas?: SaasFacade,
   ) {
     this.#prompt = promptVersion === 8 ? PROMPT_V8 : PROMPT_V9;
     this.#automaticLodgingPrompt = promptVersion === undefined;
@@ -182,9 +185,18 @@ export class PlaygroundService implements AiFacade {
 
     // The playground has no conversation: a stable id per bot lets confirmations work in the test chat.
     const actionConversationId = context.conversationId ?? playgroundConversationId(botId);
-    const actionViews = this.actions ? await this.actions.listForBot(ws, botId) : [];
+    const builtins = builtinTools({
+      industry: bot.industry,
+      saas: this.saas,
+      ws,
+      conversationId: actionConversationId,
+      isTest: context.isTest,
+      customerTexts,
+    });
+    const ownActions = this.actions ? await this.actions.listForBot(ws, botId) : [];
+    const actionViews = [...ownActions, ...builtins.views];
     const pendingAction =
-      this.actions && actionViews.length
+      this.actions && ownActions.length
         ? await this.actions.getPending(ws, actionConversationId)
         : null;
     const actionsBlockText = actionViews.length ? actionsBlock(actionViews, pendingAction) : '';
@@ -247,10 +259,11 @@ export class PlaygroundService implements AiFacade {
     let readback: string[] = [];
     let askedConfirmation = false;
     let forced: { guardrail: string | null } | null = null;
-    if (this.actions && actionViews.length) {
+    if (actionViews.length) {
       let current = last;
       const loop = await runActionLoop({
-        facade: this.actions,
+        facade: this.actions ?? null,
+        builtins: builtins.invokers,
         ws,
         botId,
         conversationId: actionConversationId,
