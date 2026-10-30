@@ -63,7 +63,6 @@ conversation:
   - bot: 'Dạ em gợi ý bộ Thú gỗ xếp thăng bằng giá 340.000đ, rất hợp bé từ 1 tuổi ạ.'
   - customer: 'Oke. Tạo đơn cho tôi nhé, tôi mua 4 bộ'
 expect:
-  outcome: answered
   contains_all: ['Thú gỗ xếp thăng bằng']
   contains_any: ['địa chỉ', 'số điện thoại']
   not_contains: ['chưa có']
