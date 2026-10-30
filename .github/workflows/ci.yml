@@ -2,6 +2,7 @@ name: CI
 
 on:
   pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
 
@@ -11,7 +12,10 @@ concurrency:
 
 permissions:
   contents: read
+  pull-requests: read
 
+# Three jobs: the gate (check), browser tests against a real API (e2e), and Testcontainers
+# integration tests. Everything else is a step inside them.
 jobs:
   check:
     name: check
@@ -22,12 +26,46 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: PR title follows Conventional Commits
+        if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
+        uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            refactor
+            chore
+            docs
+            test
+            perf
+            ci
+            build
+            revert
+          requireScope: false
+          subjectPattern: ^[a-z].+$
+          subjectPatternError: Subject must start with a lowercase letter.
+
+      # Scan the full history with the pinned gitleaks CLI (no license, no dependency on the push range).
+      - name: Secret scan (gitleaks)
+        env:
+          GITLEAKS_VERSION: 8.24.3
+        run: |
+          set -euo pipefail
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" | tar -xz -C /tmp gitleaks
+          /tmp/gitleaks git --redact --verbose --exit-code=1 --no-banner .
+
       - uses: pnpm/action-setup@v6
 
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
 
       - name: Install
         run: pnpm install --frozen-lockfile
@@ -39,6 +77,10 @@ jobs:
           key: turbo-${{ runner.os }}-${{ github.sha }}
           restore-keys: turbo-${{ runner.os }}-
 
+      - name: Commit messages (PR only; Dependabot exempt)
+        if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
+        run: pnpm commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+
       - name: Lint
         run: pnpm lint
 
@@ -48,86 +90,17 @@ jobs:
       - name: Test
         run: pnpm test
 
+      # Fails above the web bundle budget (docs/16 §1).
       - name: Build
         run: pnpm build
 
-      - name: Commit messages (PR only; Dependabot exempt)
-        if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
-        run: pnpm commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+      - name: hermes-runtime unit tests
+        run: python -I -m unittest discover -s services/hermes -p 'test_*.py'
 
-  hermes:
-    name: hermes-runtime (python unittest)
+  e2e:
+    name: e2e (web + site)
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.13'
-
-      - name: Test
-        run: python -I -m unittest discover -s services/hermes -p 'test_*.py' -v
-
-  site:
-    name: site (build + browser checks)
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: apps/site
-    steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-      - name: Install
-        run: pnpm install --frozen-lockfile
-        working-directory: .
-      - name: Build
-        run: pnpm build
-      - name: Playwright browser
-        run: pnpm exec playwright install --with-deps chromium
-      # Links into the app, demo, theme, reduced motion, layout widths and self-hosted fonts.
-      - name: Browser checks
-        run: pnpm test:e2e
-
-  web:
-    name: web (e2e smoke + Lighthouse)
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    defaults:
-      run:
-        working-directory: apps/web
-    steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-      - name: Install
-        run: pnpm install --frozen-lockfile
-        working-directory: .
-      # Builds the web app and its workspace dependencies; fails above the bundle budget (docs/16 §1).
-      - name: Build
-        run: pnpm turbo build --filter=@agent-sales/web
-        working-directory: .
-      - name: Playwright browser
-        run: pnpm exec playwright install --with-deps chromium
-      - name: Smoke tests (API mocked)
-        run: pnpm test:e2e
-      # Accessibility and best practices block the PR; performance warns (CI hardware varies).
-      - name: Lighthouse CI on /login
-        run: pnpm dlx @lhci/cli@0.15.1 autorun
-
-  web-live:
-    name: web (live-backend e2e)
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    # Orders through the real API and Postgres (T-027, #23); the mocked smoke stays in `web`.
+    timeout-minutes: 25
     services:
       postgres:
         image: pgvector/pgvector:pg16
@@ -154,16 +127,27 @@ jobs:
           cache: pnpm
       - name: Install
         run: pnpm install --frozen-lockfile
-      - name: Build backend and web
-        run: pnpm turbo build --filter=@agent-sales/backend --filter=@agent-sales/web
-      - name: Migrate (with login roles)
-        run: pnpm --filter @agent-sales/db exec tsx src/cli/migrate.ts --dev-roles
+      - name: Build backend, web and site
+        run: pnpm turbo build --filter=@agent-sales/backend --filter=@agent-sales/web --filter=@agent-sales/site
       - name: Playwright browser
         run: pnpm exec playwright install --with-deps chromium
         working-directory: apps/web
-      - name: Live-backend e2e
+      - name: Web smoke tests (API mocked)
+        run: pnpm test:e2e
+        working-directory: apps/web
+      # Accessibility and best practices block the PR; performance warns (CI hardware varies).
+      - name: Lighthouse CI on /login
+        run: pnpm dlx @lhci/cli@0.15.1 autorun
+        working-directory: apps/web
+      - name: Migrate (with login roles)
+        run: pnpm --filter @agent-sales/db exec tsx src/cli/migrate.ts --dev-roles
+      - name: Web live-backend tests (real API and Postgres)
         run: pnpm test:e2e:live
         working-directory: apps/web
+      # Links into the app, demo, theme, reduced motion, layout widths and self-hosted fonts.
+      - name: Site browser checks
+        run: pnpm test:e2e
+        working-directory: apps/site
 
   integration:
     name: integration
@@ -180,20 +164,3 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Integration tests (Testcontainers, real Postgres)
         run: pnpm test:integration
-
-  secrets:
-    name: secret scan
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      # Scan the full history with the pinned gitleaks CLI (no license, no dependency on the push range).
-      - name: gitleaks
-        env:
-          GITLEAKS_VERSION: 8.24.3
-        run: |
-          set -euo pipefail
-          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" | tar -xz gitleaks
-          ./gitleaks git --redact --verbose --exit-code=1 --no-banner .
