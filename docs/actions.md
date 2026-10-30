@@ -45,7 +45,7 @@ Tokens of all rounds are summed into one `ai_runs` row (one billed AI message). 
 
 ## Built-in actions
 
-Some industries get an action without declaring it: a SaaS bot has `builtin.saas.request`, which records a demo / trial / consultation request through the `saas` facade in-process (no HTTP, no run log, no confirmation). It obeys the same argument vouching as declared actions. See [SaaS businesses](saas.md#bot-behavior).
+Some industries get an action without declaring it: a SaaS bot has `builtin.saas.request`, which records a demo / trial / consultation request through the `saas` facade in-process (no HTTP, no run log, no confirmation). Its contact details are vouched by their own rule: the phone's last 9 digits or the whole email address must appear in what the customer wrote. See [SaaS businesses](saas.md#bot-behavior).
 
 ## Known limits (v1)
 

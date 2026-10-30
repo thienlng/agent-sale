@@ -215,12 +215,26 @@ describe('saas HTTP and PostgreSQL isolation', () => {
     ).toBe(400);
 
     const other = await contact(a.headers, '0983456722');
-    await call(a.headers, 'PUT', `/contacts/${other}/saas-subscription`, {
+    const trial = {
       ...subscription,
       stage: 'trial',
       mrr: 0,
       trialEndsOn: new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10),
+    };
+    expect(
+      (await call(a.headers, 'PUT', path, { ...subscription, version: 1, externalRef: 'acct-1' }))
+        .statusCode,
+    ).toBe(200);
+    // An external reference belongs to one customer: reusing it is a conflict, not a server error.
+    const reused = await call(a.headers, 'PUT', `/contacts/${other}/saas-subscription`, {
+      ...trial,
+      externalRef: 'acct-1',
     });
+    expect(reused.statusCode).toBe(409);
+    expect(reused.json()).toMatchObject({
+      error: { code: 'CONFLICT', message: 'This external reference is already used' },
+    });
+    await call(a.headers, 'PUT', `/contacts/${other}/saas-subscription`, trial);
     const summary = (await call(a.headers, 'GET', '/saas-subscriptions/summary')).json();
     expect(summary).toMatchObject({
       mrr: 990000,

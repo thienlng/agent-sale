@@ -14,9 +14,29 @@ import type {
   StoredRequest,
   SubscriptionRecord,
 } from '../../application/ports/saas-store.js';
+import { SaasError } from '../../domain/saas.errors.js';
 
 const r = schema.saasRequests,
   s = schema.saasSubscriptions;
+
+type PgError = { code?: string; constraint_name?: string };
+const pgError = (e: unknown): PgError => (e as { cause?: PgError }).cause ?? (e as PgError);
+/** A unique key broken by a subscription write is a conflict, not a server error. */
+async function conflictOnDuplicate(write: () => Promise<unknown>): Promise<void> {
+  try {
+    await write();
+  } catch (e) {
+    const pg = pgError(e);
+    if (pg.code === '23505')
+      throw new SaasError(
+        'CONFLICT',
+        pg.constraint_name === 'saas_subscriptions_external_ref_unique'
+          ? 'This external reference is already used'
+          : 'This customer already has a subscription',
+      );
+    throw e;
+  }
+}
 
 function toRequest(row: typeof r.$inferSelect): StoredRequest {
   return {
@@ -178,19 +198,23 @@ export class DrizzleSaasStore implements SaasStore {
           return rows.map(toSubscription);
         },
         async insertSubscription(x) {
-          await tx.insert(s).values({
-            ...subscriptionValues(x),
-            id: x.id,
-            workspaceId: ws,
-            contactId: x.contactId,
-            createdAt: new Date(x.createdAt),
-          });
+          await conflictOnDuplicate(() =>
+            tx.insert(s).values({
+              ...subscriptionValues(x),
+              id: x.id,
+              workspaceId: ws,
+              contactId: x.contactId,
+              createdAt: new Date(x.createdAt),
+            }),
+          );
         },
         async updateSubscription(x) {
-          await tx
-            .update(s)
-            .set(subscriptionValues(x))
-            .where(and(eq(s.workspaceId, ws), eq(s.id, x.id)));
+          await conflictOnDuplicate(() =>
+            tx
+              .update(s)
+              .set(subscriptionValues(x))
+              .where(and(eq(s.workspaceId, ws), eq(s.id, x.id))),
+          );
         },
         async summary(today, soon) {
           const [sub] = await tx
@@ -200,7 +224,7 @@ export class DrizzleSaasStore implements SaasStore {
               active: sql<number>`count(*) filter (where ${s.stage} = 'active')::int`,
               pastDue: sql<number>`count(*) filter (where ${s.stage} = 'past_due')::int`,
               canceled: sql<number>`count(*) filter (where ${s.stage} = 'canceled')::int`,
-              soon: sql<number>`count(*) filter (where ${s.stage} = 'trial' and ${s.trialEndsOn} between ${today}::date and ${soon}::date)::int`,
+              soon: sql<number>`count(*) filter (where ${s.stage} = 'trial' and ${s.trialEndsOn} >= ${today}::date and ${s.trialEndsOn} < ${soon}::date)::int`,
             })
             .from(s)
             .where(eq(s.workspaceId, ws));

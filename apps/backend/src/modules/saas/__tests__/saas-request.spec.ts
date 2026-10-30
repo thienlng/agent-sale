@@ -125,6 +125,21 @@ describe('SaasRequestService.recordFromBot', () => {
     expect(again.request?.need).toBe('');
   });
 
+  it('opens a new request after the previous one was converted or closed', async () => {
+    const { svc, rows } = service();
+    const first = await svc.recordFromBot(WS, bot(lead));
+    rows.get(first.request!.id)!.status = 'closed';
+    const second = await svc.recordFromBot(WS, bot(lead));
+    expect(second.outcome).toBe('created');
+    expect(second.request!.id).not.toBe(first.request!.id);
+    expect((await svc.recordFromBot(WS, bot({ ...lead, need: 'CRM' }))).outcome).toBe('updated');
+    rows.get(second.request!.id)!.status = 'converted';
+    const third = await svc.recordFromBot(WS, bot(lead));
+    expect(third.outcome).toBe('created');
+    expect(new Set([...rows.values()].map((r) => r.clientRequestId)).size).toBe(3);
+    expect(rows.get(first.request!.id)!.need).toBe('');
+  });
+
   it('reports invalid arguments instead of throwing, and previews without writing', async () => {
     const { svc, rows } = service();
     const invalid = await svc.recordFromBot(WS, bot({ name: 'Lan' }));

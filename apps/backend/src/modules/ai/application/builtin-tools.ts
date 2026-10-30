@@ -1,5 +1,6 @@
 import { SaasRequestKind } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
+import { Logger } from '@nestjs/common';
 
 import type { ActionOutcome, BotActionView } from '../../action/api/index.js';
 import type { SaasFacade } from '../../saas/api/index.js';
@@ -39,7 +40,12 @@ export const saasRequestView: BotActionView = {
     param('planInterest', false, 'The plan they asked about'),
   ],
   responseFields: [
-    { name: 'recorded', type: 'boolean', description: 'true when the request is saved' },
+    {
+      name: 'recorded',
+      type: 'boolean',
+      description:
+        'true when the request is saved; false when staff already handle an earlier request',
+    },
     {
       name: 'status',
       type: 'string',
@@ -52,9 +58,18 @@ const digits = (v: string) => v.replace(/\D/g, '');
 /** A national-form tail: "+84 983…" and "0983…" both end with the same 9 digits. */
 const phoneTail = (v: string) => digits(v).slice(-9);
 
+const logger = new Logger('BuiltinTools');
+const escapeRegExp = (v: string): string => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+/** `email` as a whole address in `text`: not the tail of a longer local part or domain. */
+const hasEmail = (text: string, email: string): boolean =>
+  new RegExp(
+    `(?<![\\p{L}\\p{N}._%+-])${escapeRegExp(email)}(?![\\p{L}\\p{N}_%+-]|\\.[\\p{L}\\p{N}])`,
+    'iu',
+  ).test(text);
+
 /**
  * Contact details must come from the customer's own words, never from the model: a phone needs
- * its last 9 digits in a customer message, an email must appear verbatim.
+ * its last 9 digits in a customer message, an email must appear as a whole address.
  */
 export function contactVouched(args: Args, customerTexts: readonly string[]): boolean {
   const phone = typeof args['phone'] === 'string' ? args['phone'].trim() : '';
@@ -65,7 +80,7 @@ export function contactVouched(args: Args, customerTexts: readonly string[]): bo
       !customerTexts.some((t) => digits(t).includes(phoneTail(phone))))
   )
     return false;
-  if (email && !customerTexts.some((t) => t.toLowerCase().includes(email))) return false;
+  if (email && !customerTexts.some((t) => hasEmail(t, email))) return false;
   return true;
 }
 
@@ -102,15 +117,25 @@ export function builtinTools(input: {
         details,
         preview: input.isTest,
       });
-    } catch {
+    } catch (e) {
       // The customer's reply must not fail: the model says it could not record it right now.
+      const code = (e as { code?: unknown }).code;
+      logger.warn(
+        `${SAAS_REQUEST_TOOL} failed: ${e instanceof Error ? e.name : typeof e}` +
+          (typeof code === 'string' ? ` (${code})` : ''),
+      );
       return { ok: false, errorCode: 'network' };
     }
     if (r.outcome === 'invalid') return { ok: false, errorCode: 'invalid_args' };
+    // A request staff already work on is left as is: the model says it is being handled.
     return {
       ok: true,
       statusCode: 200,
-      data: { recorded: true, kind: kind.data, status: r.request?.status ?? 'new' },
+      data: {
+        recorded: r.outcome !== 'in_progress',
+        kind: kind.data,
+        status: r.request?.status ?? 'new',
+      },
     };
   };
   return { views: [saasRequestView], invokers: new Map([[SAAS_REQUEST_TOOL, invoke]]) };

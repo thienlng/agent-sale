@@ -27,12 +27,19 @@ const PAGE = 100;
 const dto = ({ clientRequestId: _k, fingerprint: _f, ...row }: StoredRequest): SaasRequestDto =>
   row;
 const fingerprintOf = (v: unknown) => createHash('sha256').update(JSON.stringify(v)).digest('hex');
-/** Deterministic request key of a bot conversation and kind (UUID-shaped, version 8). */
-export function botRequestKey(conversationId: string, kind: SaasRequestKind): string {
-  const h = createHash('sha256').update(`bot:${conversationId}:${kind}`).digest('hex');
+/** A UUID-shaped (version 8) key derived from `seed`. */
+function uuidOf(seed: string): string {
+  const h = createHash('sha256').update(seed).digest('hex');
   const variant = ((parseInt(h.charAt(16), 16) & 0x3) | 0x8).toString(16);
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-8${h.slice(13, 16)}-${variant}${h.slice(17, 20)}-${h.slice(20, 32)}`;
 }
+/** Deterministic request key of a bot conversation and kind. */
+export function botRequestKey(conversationId: string, kind: SaasRequestKind): string {
+  return uuidOf(`bot:${conversationId}:${kind}`);
+}
+/** Key of the request that follows a converted or closed one in the same conversation and kind. */
+const nextBotRequestKey = (key: string, previousId: string) => uuidOf(`${key}:after:${previousId}`);
+const FINISHED: ReadonlySet<string> = new Set(['converted', 'closed']);
 const BotRequest = SaasLeadDetails.refine(
   (v) => Boolean(v.phone?.trim() || v.email),
   'give a phone number or an email',
@@ -177,11 +184,17 @@ export class SaasRequestService {
     const phone = lead.phone ? normalizeAnyPhone(lead.phone) : null;
     const contactId =
       input.contactId ?? (phone ? await this.crm.findContactIdByPhone(ws, phone) : null);
-    const key = botRequestKey(input.conversationId, input.kind);
     const bot: SaasActor = { userId: null, name: null };
     return this.store.run(ws, async (tx) => {
+      // The first key's lock serialises every request of this conversation and kind; a finished
+      // request (converted or closed) does not block a new one, which takes the next key in the chain.
+      let key = botRequestKey(input.conversationId, input.kind);
       await tx.lockKey(key);
-      const existing = await tx.findRequestByKey(key, true);
+      let existing = await tx.findRequestByKey(key, true);
+      while (existing && FINISHED.has(existing.status)) {
+        key = nextBotRequestKey(key, existing.id);
+        existing = await tx.findRequestByKey(key, true);
+      }
       if (existing) {
         if (existing.status !== 'new') return { outcome: 'in_progress', request: dto(existing) };
         const merged = mergeLeadDetails(existing, lead);

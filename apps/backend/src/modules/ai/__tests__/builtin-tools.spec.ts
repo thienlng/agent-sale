@@ -132,6 +132,39 @@ describe('SaaS built-in request tool', () => {
     expect(requests[1]?.messages.at(-1)?.content).toContain('invalid_args');
   });
 
+  it('tells the model when staff already handle the request', async () => {
+    const inProgress = {
+      outcome: 'in_progress',
+      request: { id: newId(), status: 'scheduled' },
+    } as unknown as BotSaasRequestResult;
+    const { svc, requests } = build(
+      [call(args), answer('Dạ bên em đang xử lý ạ.')],
+      'saas',
+      inProgress,
+    );
+    await svc.reply(
+      ws,
+      botId,
+      { messages: [{ role: 'customer', content: said }] },
+      { conversationId: newId(), isTest: false },
+    );
+    expect(requests[1]?.messages.at(-1)?.content).toContain('"recorded":false');
+    expect(requests[1]?.messages.at(-1)?.content).toContain('"status":"scheduled"');
+  });
+
+  it('answers a failed write with a retryable error code', async () => {
+    const { svc, saas, requests } = build([call(args), answer('Dạ chị thử lại sau ạ.')]);
+    saas.recordBotRequest.mockRejectedValueOnce(new Error('connection reset'));
+    const res = await svc.reply(
+      ws,
+      botId,
+      { messages: [{ role: 'customer', content: said }] },
+      { conversationId: newId(), isTest: false },
+    );
+    expect(res.actions).toEqual([expect.objectContaining({ ok: false })]);
+    expect(requests[1]?.messages.at(-1)?.content).toContain('"errorCode":"network"');
+  });
+
   it('other industries get no built-in tool', async () => {
     const { svc, requests } = build([answer('Dạ chào chị.')], 'fashion');
     await svc.reply(
@@ -148,6 +181,9 @@ describe('SaaS built-in request tool', () => {
     expect(contactVouched({ phone: '0983' }, ['0983'])).toBe(false);
     expect(contactVouched({ email: 'Lan@Example.test' }, ['mail: lan@example.test'])).toBe(true);
     expect(contactVouched({ email: 'x@example.test' }, [said])).toBe(false);
+    expect(contactVouched({ email: 'lan@example.test' }, ['lan@example.test.'])).toBe(true);
+    expect(contactVouched({ email: 'lan@example.test' }, ['xlan@example.test'])).toBe(false);
+    expect(contactVouched({ email: 'lan@example.test' }, ['lan@example.test.vn'])).toBe(false);
     expect(contactVouched({ name: 'Lan' }, [said])).toBe(true);
   });
 });

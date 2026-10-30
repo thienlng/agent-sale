@@ -14,7 +14,7 @@ A request is a lead asking for a `demo`, a `trial` or a `consultation`: name, ph
 
 One subscription per customer, edited on the customer profile (overview tab, **Subscription** card): plan name, stage (`trial | active | past_due | canceled`), billing period (`monthly | quarterly | yearly`), MRR in whole VND per month (a yearly price counts / 12), seats, trial end / start / renewal / cancellation dates, an external reference and a note. A trial needs its end date and a cancellation its date. The first save sends `version: null`; later saves send the current version.
 
-The **Subscribers** page shows the summary (MRR of active and past-due subscriptions, counts per stage, trials ending within 7 business-local days, requests still `new`) and the list filtered by stage, linking each row to the customer profile.
+The **Subscribers** page shows the summary (MRR of active and past-due subscriptions, counts per stage, trials ending in the next 7 business-local days, today included, requests still `new`) and the list filtered by stage, linking each row to the customer profile.
 
 ## Permissions
 
@@ -46,8 +46,8 @@ Writes and their audit events (`saas.request.created|updated`, `saas.subscriptio
 
 A SaaS bot sees one built-in entry in its `<actions>` block, `builtin.saas.request` (no confirmation turn). The action loop runs it in-process through the `saas` facade: no `bot_actions` row, no HTTP call, no `action_runs` row.
 
-- Arguments: `kind` and `name` are required, plus a phone or an email. A phone or email the customer never wrote in the conversation (last 9 digits of the phone; the email verbatim) is refused as `invalid_args`, so the model cannot invent contact details.
-- One request per conversation and kind (key `bot:<conversationId>:<kind>`): a repeat call fills in or corrects the details while the request is still `new`; later it is left alone. Concurrent calls are serialized by an advisory lock.
+- Arguments: `kind` and `name` are required, plus a phone or an email. A phone or email the customer never wrote in the conversation (last 9 digits of the phone; the whole email address, not part of a longer one) is refused as `invalid_args`, so the model cannot invent contact details.
+- One request per conversation and kind (key `bot:<conversationId>:<kind>`): a repeat call fills in or corrects the details while the request is still `new`; while staff work on it (`contacted`, `scheduled`) it is left alone and the tool answers `recorded: false`; once it is `converted` or `closed`, a new call opens a new request. Concurrent calls are serialized by an advisory lock.
 - The request is linked to an existing customer when the phone matches one; otherwise staff link it.
 - Playground and test conversations get a preview result and never write.
 
