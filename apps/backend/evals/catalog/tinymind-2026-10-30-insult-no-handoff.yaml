@@ -65,7 +65,8 @@ conversation:
 expect:
   outcome_not: handoff
   outcome: answered
-  contains_any: ['340.000']
+  contains_all: ['Thú gỗ xếp thăng bằng']
+  not_contains: ['chưa có']
   numbers_only_from_sources: true
   fake_tool_calls:
     - { name: search_products, arguments: { query: 'Thú gỗ xếp thăng bằng' } }
