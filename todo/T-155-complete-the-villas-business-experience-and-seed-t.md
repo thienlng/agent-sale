@@ -48,7 +48,7 @@ Deliver and verify a useful one-property lodging workflow, sourced A17 training/
 - [x] A17 profile, FAQs, situations and quick replies answer actual source questions and defer unknown policies appropriately.
 - [x] TinyMind data and retail behavior remain unchanged.
 - [x] Meaningful tests, cross-tenant/permission cases, prompt evals and local pnpm check pass.
-- [ ] Remote CI can execute and pass; currently blocked by GitHub account billing/spending limits.
+- [ ] Resolve PR conflicts with main and pass current-head remote CI.
 - [x] Native Chrome acceptance plus independent QA review completed; unresolved limits documented.
 - [x] Docs, task tracking, commits and remote delivery completed.
 
@@ -82,3 +82,5 @@ Deliver and verify a useful one-property lodging workflow, sourced A17 training/
 - docs/training-workspace.md
 - docs/ARCHITECTURE.md
 - Source folder: /home/kenknight/Pictures/villa_a17
+
+- 2026-10-30 — Fresh remote verification after the T-157 follow-up: billing no longer prevents all jobs from starting. CI run 40975576999 on e01b872 executed check successfully but integration failed. PR #88 at d508773 now reports mergeable=false/state=dirty against main and has no current-head run. Current remote acceptance is blocked by branch conflicts and pending CI; earlier billing notes describe historical failures. T-157 local full gate passed with one test worker.

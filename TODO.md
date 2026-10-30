@@ -57,8 +57,8 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## Blocked
 
-- [ ] T-157 Keep business profile save actions visible while editing — @agent:codex · [details](todo/T-157-keep-business-profile-save-actions-visible-while-e.md) · [PR #88](https://github.com/thienlng/agent-sale/pull/88) · locally verified; blocked: GitHub Actions account billing
-- [ ] T-155 Complete the Villas business experience and seed the real A17 property — @agent:codex · [details](todo/T-155-complete-the-villas-business-experience-and-seed-t.md) · [PR #88](https://github.com/thienlng/agent-sale/pull/88) · implementation/local gate/QA complete; blocked: GitHub Actions account billing
+- [ ] T-157 Keep business profile save actions visible while editing — @agent:codex · [details](todo/T-157-keep-business-profile-save-actions-visible-while-e.md) · [PR #88](https://github.com/thienlng/agent-sale/pull/88) · locally verified; blocked: PR conflicts with main; current-head CI pending
+- [ ] T-155 Complete the Villas business experience and seed the real A17 property — @agent:codex · [details](todo/T-155-complete-the-villas-business-experience-and-seed-t.md) · [PR #88](https://github.com/thienlng/agent-sale/pull/88) · implementation/local gate/QA complete; blocked: PR conflicts with main; current-head CI pending
 
 - [ ] T-093 Scope business settings and bot defaults to the selected industry — @agent:codex · [details](todo/T-093-scope-business-settings-and-bot-defaults-to-the-se.md) · blocked: partial: business industry increment delivered; account billing separation awaits T-092/T-091 · PR #77 (industry increment)
 
