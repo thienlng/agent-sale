@@ -137,3 +137,6 @@ export class LlmGateway {
     return provider.generate(request, effort ? { model, effort } : { model });
   }
 }
+
+/** Key of the `input` a provider hands over when a tool call's arguments were not valid JSON. */
+export const INVALID_JSON_INPUT_KEY = '__invalidJson';

@@ -214,6 +214,24 @@ describe('AnthropicProvider', () => {
       ]);
     });
 
+    it('refuses a tool message without toolCallId', async () => {
+      const { client, bodies } = stubClient(okReply);
+      await expect(
+        new AnthropicProvider({ client }).generate(
+          {
+            ...request,
+            tools,
+            messages: [
+              { role: 'user', content: 'hi' },
+              { role: 'tool', name: 'search_products', content: 'r1' },
+            ],
+          },
+          model,
+        ),
+      ).rejects.toThrow('anthropic provider: tool message without toolCallId');
+      expect(bodies).toHaveLength(0);
+    });
+
     it('omits the text block when the assistant turn has no text', async () => {
       const { client, bodies } = stubClient(okReply);
       await new AnthropicProvider({ client }).generate(

@@ -1,12 +1,13 @@
 import { z } from 'zod';
 
-import type {
-  ChatMessage,
-  GenerateRequest,
-  GenerateResponse,
-  LlmProvider,
-  ModelTarget,
-  ToolCall,
+import {
+  INVALID_JSON_INPUT_KEY,
+  type ChatMessage,
+  type GenerateRequest,
+  type GenerateResponse,
+  type LlmProvider,
+  type ModelTarget,
+  type ToolCall,
 } from './gateway.js';
 
 const PROTOCOL =
@@ -88,7 +89,7 @@ function parseToolCalls(text: string, allowed: Set<string>): ToolCall[] | null {
         calls.length = 0;
         break;
       }
-      const input = isObject(raw.arguments) ? raw.arguments : { __invalidJson: true };
+      const input = isObject(raw.arguments) ? raw.arguments : { [INVALID_JSON_INPUT_KEY]: true };
       calls.push({
         id: `emu_${i}_${Math.random().toString(36).slice(2, 8).padEnd(6, '0')}`,
         name: raw.name,

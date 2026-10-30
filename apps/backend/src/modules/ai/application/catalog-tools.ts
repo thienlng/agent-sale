@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { ToolCall, ToolDefinition } from '@agent-sales/ai-core';
+import { INVALID_JSON_INPUT_KEY, type ToolCall, type ToolDefinition } from '@agent-sales/ai-core';
 import type { ProductDto } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
 
@@ -59,7 +59,7 @@ const done = (value: unknown, productIds: string[] = []): ToolResult => {
 const invalid = (): ToolResult => done({ error: 'invalid_arguments' });
 
 const isInvalidJson = (input: unknown): boolean =>
-  typeof input === 'object' && input !== null && '__invalidJson' in input;
+  typeof input === 'object' && input !== null && INVALID_JSON_INPUT_KEY in input;
 
 async function search(ctx: CatalogToolContext, input: z.infer<typeof SearchInput>) {
   const { ws, scope, catalog } = ctx;

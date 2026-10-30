@@ -235,6 +235,24 @@ describe('OpenAiCompatibleProvider', () => {
       ]);
     });
 
+    it('refuses a tool message without toolCallId', async () => {
+      const { client, bodies } = stubClient(okReply);
+      await expect(
+        new OpenAiCompatibleProvider({ baseURL: 'x', client }).generate(
+          {
+            ...request,
+            tools,
+            messages: [
+              ...request.messages,
+              { role: 'tool', name: 'search_products', content: '{}' },
+            ],
+          },
+          { model: 'm' },
+        ),
+      ).rejects.toThrow('openai-compatible provider: tool message without toolCallId');
+      expect(bodies).toHaveLength(0);
+    });
+
     it('still sends response_format together with tools', async () => {
       const { client, bodies } = stubClient(okReply);
       await new OpenAiCompatibleProvider({ baseURL: 'x', client }).generate(

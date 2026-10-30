@@ -137,9 +137,10 @@ function toAnthropicMessages(request: GenerateRequest): {
       if (messages.length) throw new Error('anthropic provider: system messages must come first');
       system.push({ type: 'text', text: m.content });
     } else if (m.role === 'tool') {
+      if (!m.toolCallId) throw new Error('anthropic provider: tool message without toolCallId');
       const block: Anthropic.Beta.BetaToolResultBlockParam = {
         type: 'tool_result',
-        tool_use_id: m.toolCallId ?? '',
+        tool_use_id: m.toolCallId,
         content: m.content,
       };
       const prev = messages.at(-1);

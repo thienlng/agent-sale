@@ -1,13 +1,14 @@
 import OpenAI from 'openai';
 import { z } from 'zod';
 
-import type {
-  GenerateRequest,
-  GenerateResponse,
-  LlmProvider,
-  ModelTarget,
-  StopReason,
-  ToolCall,
+import {
+  INVALID_JSON_INPUT_KEY,
+  type GenerateRequest,
+  type GenerateResponse,
+  type LlmProvider,
+  type ModelTarget,
+  type StopReason,
+  type ToolCall,
 } from '../gateway.js';
 
 /**
@@ -151,7 +152,7 @@ function toToolCall(call: OpenAI.Chat.ChatCompletionMessageToolCall): ToolCall[]
   try {
     input = JSON.parse(call.function.arguments);
   } catch {
-    input = { __invalidJson: true };
+    input = { [INVALID_JSON_INPUT_KEY]: true };
   }
   return [{ id: call.id, name: call.function.name, input }];
 }
@@ -160,7 +161,9 @@ function toOpenAiMessage(
   m: GenerateRequest['messages'][number],
 ): OpenAI.Chat.ChatCompletionMessageParam {
   if (m.role === 'tool') {
-    return { role: 'tool', tool_call_id: m.toolCallId ?? '', content: m.content };
+    if (!m.toolCallId)
+      throw new Error('openai-compatible provider: tool message without toolCallId');
+    return { role: 'tool', tool_call_id: m.toolCallId, content: m.content };
   }
   if (m.role === 'assistant' && m.toolCalls?.length) {
     return {
