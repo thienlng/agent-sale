@@ -36,7 +36,7 @@ export interface TrainingFacade {
     actor?: string,
   ): Promise<TrainingItemDto>;
   /**
-   * Creates the Vietnamese starter rules (domain/starter-rules.ts) whose exact title the bot does
+   * Creates the Vietnamese starter situations of the bot's `industry` (domain/starter-rules.ts `starterRulesFor`) whose exact title the bot does
    * not have yet and records them in the history (unless `recordHistory` is false: bot creation seeds silently).
    * Concurrent calls for one bot are serialized, so no title is added twice. Idempotent; returns only the created items.
    */
@@ -44,7 +44,7 @@ export interface TrainingFacade {
     ws: WorkspaceId,
     botId: string,
     actor?: string,
-    options?: { recordHistory?: boolean },
+    options?: { recordHistory?: boolean; industry?: string },
   ): Promise<TrainingItemDto[]>;
   /** Deleting a media folder deletes (and records) the media inside it first. */
   delete(ws: WorkspaceId, botId: string, itemId: string, actor?: string): Promise<void>;

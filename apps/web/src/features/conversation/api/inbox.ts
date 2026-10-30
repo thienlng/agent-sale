@@ -42,11 +42,13 @@ export function useInbox(query: InboxListQuery) {
     refetchInterval: 5000,
   });
 }
+/** Includes removed pages so their old conversations keep the page name; pickers filter them. */
 export function useInboxChannels() {
   const ws = useWorkspaceId();
   return useQuery({
-    queryKey: ['channels', ws],
-    queryFn: () => api('/channels', ChannelListResponse),
+    // Own key: the integrations list caches `['channels', ws]` without removed pages.
+    queryKey: ['channels', ws, 'includeRemoved'],
+    queryFn: () => api('/channels?includeRemoved=true', ChannelListResponse),
     enabled: Boolean(ws),
   });
 }
@@ -105,6 +107,21 @@ export function useInboxBot(botId: string | null) {
       return { isActive: bot.isActive, takeoverMinutes: bot.settings.humanTakeoverMinutes };
     },
     enabled: Boolean(ws && botId),
+    staleTime: 60000,
+  });
+}
+
+/** The business's bots, for the bot filter. */
+export function useInboxBots() {
+  const ws = useWorkspaceId();
+  return useQuery({
+    queryKey: [...queryKeys.bots(ws), 'inbox'],
+    queryFn: async () =>
+      (await api('/bots', z.object({ data: z.array(BotDto) }))).data.map((bot) => ({
+        id: bot.id,
+        name: bot.name,
+      })),
+    enabled: Boolean(ws),
     staleTime: 60000,
   });
 }
@@ -206,6 +223,37 @@ export function useBulkConversations() {
         qc.invalidateQueries({ queryKey: ['inbox', ws] }),
         qc.invalidateQueries({ queryKey: ['conversation', ws] }),
       ]),
+  });
+}
+
+/**
+ * Links the conversation to a CRM customer of this business, or unlinks it (`null`). The link is
+ * stored on the conversation, so every member sees the same customer (T-088).
+ */
+export function useSetConversationContact(id: string) {
+  const ws = useWorkspaceId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (contactId: string | null) =>
+      api(`/conversations/${id}/contact`, InboxConversationDto, {
+        method: 'PUT',
+        body: { contactId },
+      }),
+    onSettled: () =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: ['conversation', ws, id] }),
+        qc.invalidateQueries({ queryKey: ['inbox', ws] }),
+      ]),
+  });
+}
+
+/** The conversations linked to one CRM customer, newest first (customer profile, T-088). */
+export function useContactConversations(contactId: string | undefined) {
+  const ws = useWorkspaceId();
+  return useQuery({
+    queryKey: ['inbox', ws, { contactId, limit: 20 }],
+    queryFn: () => api(withQuery('/conversations', { contactId, limit: 20 }), InboxListResponse),
+    enabled: Boolean(ws && contactId),
   });
 }
 

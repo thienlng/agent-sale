@@ -44,5 +44,39 @@ export function fakeCrm(
     conversationIdsByTags: vi.fn(async () => match),
     listConversationTags: vi.fn(async () => []),
     assignConversationTag: vi.fn(async () => ({ created: true, assignment: {} })),
+    getContact: vi.fn(async (_ws: unknown, id: string) => ({ id })),
+    upsertLeadByPhone: vi.fn(async () => ({
+      contactId: '00000000-0000-4000-8000-0000000000c1',
+      created: true,
+    })),
+    recordContactBot: vi.fn(async () => undefined),
+  };
+}
+
+/** An in-memory message meter with `limit` replies (ADR-012 §5): records every meter call. */
+export function fakeBilling(limit = Number.POSITIVE_INFINITY) {
+  const state = new Map<string, 'reserved' | 'captured' | 'released'>();
+  const counted = () => [...state.values()].filter((s) => s !== 'released').length;
+  return {
+    state,
+    reserveReply: vi.fn(async (_ws: string, reply: { idempotencyKey: string }) => {
+      const current = state.get(reply.idempotencyKey);
+      if (current === 'captured' || current === 'reserved')
+        return { allowed: true as const, metered: true };
+      if (counted() >= limit)
+        return {
+          allowed: false as const,
+          reason: 'allowance_exhausted' as const,
+          cycleEnd: new Date('2026-11-01T00:00:00Z'),
+        };
+      state.set(reply.idempotencyKey, 'reserved');
+      return { allowed: true as const, metered: true };
+    }),
+    captureReply: vi.fn(async (_ws: string, key: string) => {
+      if (state.has(key)) state.set(key, 'captured');
+    }),
+    releaseReply: vi.fn(async (_ws: string, key: string) => {
+      if (state.get(key) === 'reserved') state.set(key, 'released');
+    }),
   };
 }

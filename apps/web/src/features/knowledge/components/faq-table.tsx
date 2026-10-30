@@ -122,9 +122,7 @@ export function FaqTable({
                     variant="secondary"
                     className="mt-1.5 flex w-fit bg-warning-soft text-warning"
                   >
-                    {t('faq.missing', {
-                      fields: faq.missingPlaceholders.map((p) => placeholderLabel(t, p)).join(', '),
-                    })}
+                    {t('faq.missing')}
                   </Badge>
                 ) : null}
               </TableCell>

@@ -5,6 +5,12 @@ export interface WorkspaceMembership {
   workspaceId: WorkspaceId;
   workspaceName: string;
   role: string;
+  /** Short hash of the logo image, null without one; lets clients cache the picture. */
+  logoVersion?: string | null;
+  /** Icon shown when there is no logo. */
+  icon?: string;
+  industry: string;
+  accountId: string | null;
 }
 
 /** A member of one workspace (removed ones only when asked for). */
@@ -30,6 +36,8 @@ export type GivenRole = 'admin' | 'sales' | 'care' | 'analyst';
  */
 export interface WorkspaceFacade {
   getById(workspaceId: WorkspaceId): Promise<WorkspaceDto>;
+  /** The account that owns the business (ADR-012); null until the account backfill linked it. */
+  accountOf(workspaceId: WorkspaceId): Promise<string | null>;
   createWorkspace(input: {
     name: string;
     industry: string;

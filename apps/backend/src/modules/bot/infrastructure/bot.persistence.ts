@@ -25,6 +25,7 @@ function toBot(r: Row): Bot {
     name: r.name,
     industry: r.industry as IndustryKey,
     isActive: r.isActive,
+    catalogMode: r.catalogMode,
     settings: r.settings as unknown as BotSettingsData,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
@@ -73,6 +74,7 @@ export class DrizzleBotRepository implements BotRepository {
       name: s.name,
       industry: s.industry,
       isActive: s.isActive,
+      catalogMode: s.catalogMode,
       settings: s.settings as unknown as Record<string, unknown>,
       createdAt: s.createdAt,
       updatedAt: s.updatedAt,
@@ -85,6 +87,7 @@ export class DrizzleBotRepository implements BotRepository {
         set: {
           name: row.name,
           isActive: row.isActive,
+          catalogMode: row.catalogMode,
           settings: row.settings,
           updatedAt: row.updatedAt,
         },

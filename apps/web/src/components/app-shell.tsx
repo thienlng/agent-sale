@@ -9,7 +9,9 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { useSession } from '@/lib/session';
 
 import { AccountMenu, type MenuDialogProps } from './layout/account-menu';
+import { AccountSidebar, ACCOUNT_PATHS } from './layout/account-sidebar';
 import { AppSidebar } from './layout/app-sidebar';
+import type { CreateBusinessDialogProps } from './layout/business-selector';
 
 /** shadcn's sidebar remembers open/closed in this cookie (written by the component itself). */
 function sidebarOpenByDefault(): boolean {
@@ -28,6 +30,8 @@ const SECTION: Record<string, string> = {
   analytics: 'nav.analytics',
   settings: 'nav.settings',
   llm: 'nav.adminLlm',
+  overview: 'nav.accountOverview',
+  businesses: 'nav.newBusiness',
 };
 
 /**
@@ -40,10 +44,13 @@ const SECTION: Record<string, string> = {
 export function AppShell({
   children,
   planDialog,
+  createBusinessDialog,
 }: {
   children: ReactNode;
   /** Plan and billing popup for the account menu, composed by the route from `features/billing`. */
   planDialog?: ((props: MenuDialogProps) => ReactNode) | undefined;
+  /** Create-business popup for the business selector, composed by the route from `features/workspace`. */
+  createBusinessDialog?: ((props: CreateBusinessDialogProps) => ReactNode) | undefined;
 }) {
   const { t } = useTranslation();
   const session = useSession();
@@ -51,6 +58,7 @@ export function AppShell({
     select: (s) => s.location.pathname.split('/').filter(Boolean)[1] ?? '',
   });
   const section = SECTION[segment];
+  const accountLayer = useRouterState({ select: (s) => ACCOUNT_PATHS.test(s.location.pathname) });
 
   return (
     // Collapsed-sidebar items show their label as a tooltip; only the dashboard needs tooltips.
@@ -59,7 +67,11 @@ export function AppShell({
         defaultOpen={sidebarOpenByDefault()}
         style={{ '--header-height': '3.25rem' } as CSSProperties}
       >
-        <AppSidebar />
+        {accountLayer ? (
+          <AccountSidebar />
+        ) : (
+          <AppSidebar createBusinessDialog={createBusinessDialog} />
+        )}
         <SidebarInset className="min-w-0 overflow-x-clip">
           <header
             className={[

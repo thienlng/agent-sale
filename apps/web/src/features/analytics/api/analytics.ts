@@ -12,6 +12,7 @@ import {
 import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 
 import { api } from '@/lib/api-client';
+import { queryKeys } from '@/lib/query-keys';
 import { useWorkspaceId } from '@/lib/use-workspace';
 
 export function useDefinitions() {
@@ -81,7 +82,8 @@ export function usePages(enabled = true) {
 export function useTagNames() {
   const ws = useWorkspaceId();
   return useQuery({
-    queryKey: ['ws', ws, 'analytics', 'tags'],
+    // Under the CRM key, so a rename in Customer settings refreshes these names too (T-089).
+    queryKey: [...queryKeys.crmTags(ws), 'analytics'],
     queryFn: async () => (await api('/crm/tags', TagList)).data,
     enabled: Boolean(ws),
   });
@@ -90,7 +92,7 @@ export function useTagNames() {
 export function useStatusNames() {
   const ws = useWorkspaceId();
   return useQuery({
-    queryKey: ['ws', ws, 'analytics', 'statuses'],
+    queryKey: [...queryKeys.crmOptions(ws, 'statuses'), 'analytics'],
     queryFn: async () => (await api('/crm/statuses', CrmOptionList)).data,
     enabled: Boolean(ws),
   });

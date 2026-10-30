@@ -11,7 +11,7 @@ import { CONTACT_ID } from './support/mock-crm';
 const PAGES = [
   ['bots', '/app/bots', 'Bot của bạn'],
   ['global integrations', '/app/channels', 'Tích hợp nền tảng'],
-  ['bot pages', `/app/bots/${BOT_ID}/integrations`, 'Quản lý fanpage và kênh'],
+  ['bot pages', `/app/bots/${BOT_ID}/integrations`, 'Tích hợp kênh'],
   ['bot overview', `/app/bots/${BOT_ID}`, 'Hướng dẫn Bot'],
   ['faq', `/app/bots/${BOT_ID}/knowledge`, 'Thông tin doanh nghiệp'],
   ['bot settings', `/app/bots/${BOT_ID}/settings`, 'Thiết lập Bot'],
@@ -37,7 +37,7 @@ const PAGES = [
   ['crm distribution', '/app/crm-settings/distribution', 'Cài đặt khách hàng'],
   ['members', '/app/members', 'Thành viên & quyền truy cập'],
   ['statistics', '/app/analytics', 'Khách hàng mới'],
-  ['shop profile', '/app/settings/profile', 'Thông tin shop'],
+  ['business profile', '/app/settings/profile', 'Thông tin business'],
   ['security', '/app/settings/security', 'Xác minh 2 bước'],
   ['audit trail', '/app/settings/audit', 'Nhật ký thay đổi'],
   ['join', `/join?token=${'t'.repeat(43)}`, 'Lời mời tham gia shop'],
@@ -89,26 +89,33 @@ for (const sidebar_variant of ['sidebar', 'inset', 'floating'])
         theme_mode: sidebar_variant === 'inset' ? 'dark' : 'light',
       });
 
-test('every layout preference combination fits, expanded and collapsed', async ({ page }) => {
-  const errors = trackErrors(page);
-  await page.setViewportSize({ width: 1280, height: 800 });
-  await mockApi(page);
-  for (const prefs of COMBOS) {
+// Each combination gets its own browser context and timeout. Repeated navigation in a single
+// test made an otherwise valid combination fail when earlier combinations consumed its budget.
+for (const prefs of COMBOS) {
+  const label = `${prefs['sidebar_variant']}/${prefs['sidebar_collapsible']}/${prefs['content_layout']}`;
+  test(`layout preference combination ${label} fits, expanded and collapsed`, async ({ page }) => {
+    const errors = trackErrors(page);
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await mockApi(page);
     await page.addInitScript((p) => {
       for (const [k, v] of Object.entries(p)) localStorage.setItem(`rapiz.pref.${k}`, v);
     }, prefs);
     await page.goto(`/app/bots/${BOT_ID}/knowledge`);
-    await expect(page.locator('html')).toHaveAttribute(
-      'data-sidebar-variant',
-      prefs['sidebar_variant']!,
-    );
+    await expect(page.getByRole('heading', { name: 'Thông tin doanh nghiệp' })).toBeVisible();
+    for (const [key, value] of Object.entries(prefs))
+      await expect(page.locator('html')).toHaveAttribute(`data-${key.replaceAll('_', '-')}`, value);
+    const sidebar = page.locator('[data-slot="sidebar"][data-state]');
+    await expect(sidebar).toHaveAttribute('data-state', 'expanded');
     await expectNoOverflow(page, JSON.stringify(prefs));
     await page.getByRole('button', { name: 'Mở hoặc thu gọn thanh bên' }).click();
+    await expect(sidebar).toHaveAttribute('data-state', 'collapsed');
     await expectNoOverflow(page, `${JSON.stringify(prefs)} collapsed`);
     await page.getByRole('button', { name: 'Mở hoặc thu gọn thanh bên' }).click();
-  }
-  expect(errors).toEqual([]);
-});
+    await expect(sidebar).toHaveAttribute('data-state', 'expanded');
+    await expectNoOverflow(page, `${JSON.stringify(prefs)} expanded again`);
+    expect(errors).toEqual([]);
+  });
+}
 
 test('preferences apply instantly and survive a reload', async ({ page }) => {
   await mockApi(page);

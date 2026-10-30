@@ -41,7 +41,8 @@ export interface ConversationFacade {
   markRead(ws: WorkspaceId, id: string, actorId: string): Promise<ConversationView>;
   /**
    * A website visitor left a phone number: sets `lead` (unseen) on the conversation. Idempotent
-   * for the same contact and phone; a different contact replaces the lead. Throws NOT_FOUND.
+   * for the same contact and phone; a different contact replaces the lead and becomes the
+   * conversation's customer (`contactId`), with the bot recorded on it. Throws NOT_FOUND.
    */
   linkLead(
     ws: WorkspaceId,

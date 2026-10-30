@@ -18,6 +18,8 @@ export const CONTACT_FILTER_FIELDS = {
   salesUserId: 'ref',
   careUserId: 'ref',
   tagId: 'tag',
+  /** Bots that ever answered a conversation linked to the customer (T-088). */
+  botId: 'bot',
   createdAt: 'date',
   updatedAt: 'date',
   birthday: 'date',
@@ -34,6 +36,7 @@ export const FILTER_OPERATORS = {
   enum: ['in', 'not_in', 'is_set', 'is_empty'],
   ref: ['in', 'not_in', 'is_set', 'is_empty'],
   tag: ['has_any', 'has_none'],
+  bot: ['has_any', 'has_none'],
   date: ['before', 'after', 'between', 'is_set', 'is_empty'],
 } as const satisfies Record<ContactFilterKind, readonly string[]>;
 

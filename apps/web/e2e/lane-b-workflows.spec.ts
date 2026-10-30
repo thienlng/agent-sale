@@ -49,8 +49,8 @@ test('bot switch persists and training destinations explain their different purp
   await page.screenshot({ path: '/tmp/lane-b-training-facts.png' });
   await page.getByRole('link', { name: 'Thiết lập cách bot trả lời' }).click();
   await expect(page.getByRole('heading', { name: 'Bot cần trả lời như thế nào?' })).toBeVisible();
-  await page.getByRole('link', { name: 'Fanpage và kênh', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Quản lý fanpage và kênh' })).toBeVisible();
+  await page.getByRole('link', { name: 'Tích hợp kênh', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Tích hợp kênh' })).toBeVisible();
   await page.getByRole('link', { name: 'Xem tất cả trang và bot' }).click();
   await expect(page).toHaveURL(/\/app\/channels$/);
   await expect(
@@ -208,6 +208,8 @@ test('integration controls stay inside the mobile panel instead of being clipped
     page.getByRole('searchbox', { name: 'Tìm theo tên hoặc ID page...' }),
     page.getByRole('button', { name: 'Gán bot', exact: true }),
     page.getByRole('button', { name: 'Hủy gán bot', exact: true }),
+    page.getByRole('button', { name: 'Gỡ trang', exact: true }),
+    page.getByRole('button', { name: 'Tùy chọn cho Trang kiểm thử' }),
     page.getByLabel('Lọc theo bot'),
   ];
   for (const control of controls) {
@@ -217,4 +219,44 @@ test('integration controls stay inside the mobile panel instead of being clipped
     expect(box.x + box.width).toBeLessThanOrEqual(375);
   }
   await page.screenshot({ path: '/tmp/lane-b-integrations-mobile-fixed.png', fullPage: true });
+});
+
+test('an owner removes a dead page from the integrations list (T-133)', async ({ page }) => {
+  await mockApi(page);
+  const pageDto = {
+    id: id(2),
+    provider: 'facebook',
+    externalId: 'synthetic-page',
+    name: 'QA Actions',
+    status: 'disconnected',
+    botId: null,
+    expiresAt: null,
+    createdAt: now,
+  };
+  let removed = false;
+  await page.route('**/api/v1/channels', (route) =>
+    route.fulfill({
+      json: {
+        data: removed ? [] : [pageDto],
+        providers: [
+          { provider: 'facebook', configured: true },
+          { provider: 'instagram', configured: true },
+        ],
+      },
+    }),
+  );
+  await page.route(`**/api/v1/channels/${id(2)}`, (route) => {
+    if (route.request().method() !== 'DELETE') return route.fallback();
+    removed = true;
+    return route.fulfill({ status: 204 });
+  });
+  await page.goto('/app/channels');
+  await expect(page.getByText('Mất kết nối')).toBeVisible();
+  await page.getByRole('button', { name: 'Tùy chọn cho QA Actions' }).click();
+  await page.getByRole('menuitem', { name: 'Gỡ trang' }).click();
+  const dialog = page.getByRole('alertdialog');
+  await expect(dialog.getByText('Gỡ QA Actions khỏi Rapiz?')).toBeVisible();
+  await dialog.getByRole('button', { name: 'Gỡ trang' }).click();
+  await expect(page.getByText('QA Actions')).toHaveCount(0);
+  expect(removed).toBe(true);
 });

@@ -902,4 +902,28 @@ describe('team and access on Postgres', () => {
     expect(audit.data).toHaveLength(1);
     expect(audit.data[0]).toMatchObject({ action: 'bot.deleted', targetId: bot.id });
   });
+
+  it('bootstrap groups businesses by account and tells a lost business apart (T-079)', async () => {
+    const lan = await user('lanacc@team.vn', 'Lan Acc');
+    const hoa = await user('hoaacc@team.vn', 'Hoa Acc');
+    await join(lan, hoa, 'hoaacc@team.vn', 'sales');
+
+    const boot = BootstrapResponse.parse((await call(hoa.auth, 'GET', '/bootstrap')).json());
+    // Hoa owns only their own account; Lan's business is listed under Lan's account name.
+    expect(boot.accounts).toHaveLength(1);
+    expect(boot.accounts[0]).toMatchObject({ name: 'Shop Hoa Acc', role: 'owner' });
+    const own = boot.memberships.find((m) => m.workspaceId === hoa.ownWorkspace);
+    const lans = boot.memberships.find((m) => m.workspaceId === lan.ownWorkspace);
+    expect(own).toMatchObject({ accountId: boot.accounts[0]?.accountId, industry: 'fashion' });
+    expect(lans).toMatchObject({ accountName: 'Shop Lan Acc', role: 'sales', industry: 'fashion' });
+    expect(lans?.accountId).not.toBe(own?.accountId);
+
+    // Removed: a scoped request says the business is gone, not that a resource is missing.
+    await call(lan.h, 'POST', `/members/${hoa.userId}/remove`);
+    const lost = await call(hoa.in(lan.ownWorkspace), 'GET', '/members');
+    expect(lost.statusCode).toBe(404);
+    expect(lost.json()).toMatchObject({ error: { details: { reason: 'workspace_access' } } });
+    const after = BootstrapResponse.parse((await call(hoa.auth, 'GET', '/bootstrap')).json());
+    expect(after.memberships.map((m) => m.workspaceId)).toEqual([hoa.ownWorkspace]);
+  });
 });

@@ -6,7 +6,6 @@ import {
   ChevronDown,
   Code,
   House,
-  Image,
   Info,
   Megaphone,
   Package,
@@ -29,7 +28,6 @@ type Target =
   | '/app/bots/$botId/knowledge'
   | '/app/bots/$botId/integrations'
   | '/app/bots/$botId/actions'
-  | '/app/bots/$botId/media'
   | '/app/bots/$botId/settings'
   | '/app/bots/$botId/quick-replies'
   | '/app/bots/$botId/history'
@@ -48,7 +46,6 @@ const MAIN: Item[] = [
   { to: '/app/bots/$botId/knowledge', key: 'information', icon: Info },
   { to: '/app/bots/$botId/integrations', key: 'integrations', icon: Code },
   { to: '/app/bots/$botId/actions', key: 'actions', icon: Zap },
-  { to: '/app/bots/$botId/media', key: 'media', icon: Image },
 ];
 const SETTINGS: Item[] = [
   { to: '/app/bots/$botId/settings', key: 'botSettings' },

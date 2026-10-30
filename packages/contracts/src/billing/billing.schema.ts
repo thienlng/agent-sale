@@ -32,3 +32,21 @@ export type EntitlementsDto = z.infer<typeof EntitlementsDto>;
 
 /** `limits` key of the member seat count. */
 export const MEMBERS_LIMIT = 'members.max';
+
+// ─── Message allowance (ADR-012 §5, T-091) ────────────────────────────────────
+
+/**
+ * The account's AI reply allowance for the current cycle, shared by every business of the
+ * account. `used` counts delivered AI replies (once per reply, retries included) plus replies
+ * being generated right now. `metered: false` = the business has no account yet (not counted).
+ */
+export const MessageUsageDto = z.object({
+  metered: z.boolean(),
+  used: z.number().int().min(0),
+  limit: z.number().int().min(0),
+  cycleStart: z.iso.datetime(),
+  cycleEnd: z.iso.datetime(),
+  /** The bot hands new conversations to staff until `cycleEnd`. */
+  exhausted: z.boolean(),
+});
+export type MessageUsageDto = z.infer<typeof MessageUsageDto>;

@@ -1,7 +1,14 @@
 import type { TrainingHistoryDto } from '@agent-sales/contracts';
 import { describe, expect, it } from 'vitest';
 
-import { defaultRange, describeValue, fieldLabelKey, filterHistory, localDay } from './history';
+import {
+  defaultRange,
+  describeValue,
+  fieldLabelKey,
+  filterHistory,
+  localDay,
+  profileChanges,
+} from './history';
 
 function entry(over: Partial<TrainingHistoryDto>): TrainingHistoryDto {
   return {
@@ -102,5 +109,42 @@ describe('describeValue', () => {
   it('truncates long text', () => {
     const view = describeValue('content', 'x'.repeat(200));
     expect(view.type === 'text' && view.text.length).toBe(80);
+  });
+});
+
+describe('new training settings in history', () => {
+  it('labels profile, replyLength, tone and allowEmoji', () => {
+    for (const f of ['profile', 'replyLength', 'tone', 'allowEmoji'])
+      expect(fieldLabelKey(f)).toBe(`space.history.fields.${f}`);
+  });
+
+  it('shows allowEmoji as on/off and reply length and tone through their option labels', () => {
+    expect(describeValue('allowEmoji', true)).toEqual({ type: 'onOff', on: true });
+    expect(describeValue('replyLength', 'veryShort')).toEqual({
+      type: 'option',
+      key: 'personality.replyLengthOptions.veryShort',
+    });
+    expect(describeValue('tone', 'formal')).toEqual({
+      type: 'option',
+      key: 'personality.toneOptions.formal',
+    });
+  });
+
+  it('never renders a profile object as [object Object]', () => {
+    const view = describeValue('profile', { fields: { hotline: '0901' }, notes: 'Nghỉ Tết' });
+    expect(view).toEqual({ type: 'text', text: 'hotline: 0901, notes: Nghỉ Tết' });
+  });
+
+  it('lists only the profile keys that changed, notes last', () => {
+    expect(
+      profileChanges(
+        { fields: { hotline: '0901', hours: '8h' }, notes: '' },
+        { fields: { hotline: '0902', hours: '8h', address: 'A' }, notes: 'Nghỉ' },
+      ),
+    ).toEqual([
+      { key: 'hotline', isNotes: false, before: '0901', after: '0902' },
+      { key: 'address', isNotes: false, before: '', after: 'A' },
+      { key: 'notes', isNotes: true, before: '', after: 'Nghỉ' },
+    ]);
   });
 });

@@ -15,6 +15,7 @@ import { IDENTITY_FACADE, type IdentityFacade } from '../../identity/api/index.j
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
 import { DEFAULT_SOURCES, DEFAULT_STATUSES, DEFAULT_TAGS } from '../domain/crm-defaults.js';
 import {
+  DuplicateOptionNameError,
   CrmOptionNotFoundError,
   InvalidContactError,
   StaleVersionError,
@@ -73,7 +74,9 @@ export class CrmSettingsService {
     const input = CreateCrmOptionRequest.parse(raw);
     return this.store.run(ws, async (tx) => {
       await tx.options.ensureDefaults(ws, kind, DEFAULTS[kind]);
-      const last = (await tx.options.list(kind)).at(-1);
+      const all = await tx.options.list(kind);
+      assertUniqueName(kind, all, input.name);
+      const last = all.at(-1);
       const option = {
         id: newId(),
         key: null,
@@ -101,6 +104,10 @@ export class CrmSettingsService {
           ? { archivedAt: input.archived ? (option.archivedAt ?? new Date()) : null }
           : {}),
       };
+      // Renaming, or restoring an archived option, must not clash with another active one.
+      const clashes = next.name !== option.name || (option.archivedAt && !next.archivedAt);
+      if (clashes && !next.archivedAt)
+        assertUniqueName(kind, await tx.options.list(kind), next.name, id);
       await tx.options.update(kind, next);
       return toOptionDto(next);
     });
@@ -211,4 +218,22 @@ export class CrmSettingsService {
   #ensureTags(tx: CrmTx, ws: WorkspaceId): Promise<void> {
     return tx.tags.ensureDefaults(ws, DEFAULT_TAGS);
   }
+}
+
+/**
+ * Active options of one kind have distinct names (trimmed, case-insensitive). Checked here rather
+ * than by a unique index: older workspaces may already hold duplicates, which stay valid until an
+ * owner renames or archives one (T-089).
+ */
+function assertUniqueName(
+  kind: OptionKind,
+  options: ReadonlyArray<{ id: string; name: string; archivedAt: Date | null }>,
+  name: string,
+  except?: string,
+): void {
+  const wanted = name.trim().toLocaleLowerCase('vi');
+  const clash = options.some(
+    (o) => o.id !== except && !o.archivedAt && o.name.trim().toLocaleLowerCase('vi') === wanted,
+  );
+  if (clash) throw new DuplicateOptionNameError(kind, name);
 }

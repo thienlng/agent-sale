@@ -12,6 +12,7 @@ import {
   ACTION_VERB,
   describeValue,
   fieldLabelKey,
+  profileChanges,
   SECTION_KEY,
   type ValueView,
 } from '../utils/history';
@@ -49,22 +50,54 @@ function Value({ view }: { view: ValueView }) {
   }
 }
 
-function ChangeLine({ change }: { change: TrainingChange }) {
+function ChangeRow({
+  label,
+  before,
+  after,
+}: {
+  label: string;
+  before: ValueView;
+  after: ValueView;
+}) {
   const { t } = useTranslation('training');
-  const labelKey = fieldLabelKey(change.field);
   return (
     <li className="flex items-start gap-2">
       <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-md bg-primary-soft text-primary">
         <Pencil aria-hidden className="size-3.5" />
       </span>
       <p className="min-w-0 text-sm">
-        <span className="font-medium text-primary">{t('space.history.editVerb')}</span>{' '}
-        {labelKey ? t(labelKey) : change.field}{' '}
-        <Value view={describeValue(change.field, change.before)} />
+        <span className="font-medium text-primary">{t('space.history.editVerb')}</span> {label}{' '}
+        <Value view={before} />
         <span aria-label={t('space.history.to')}> → </span>
-        <Value view={describeValue(change.field, change.after)} />
+        <Value view={after} />
       </p>
     </li>
+  );
+}
+
+function ChangeLine({ change }: { change: TrainingChange }) {
+  const { t } = useTranslation('training');
+  if (change.field === 'profile')
+    // One line per changed profile field, never one opaque object.
+    return (
+      <>
+        {profileChanges(change.before, change.after).map((c) => (
+          <ChangeRow
+            key={c.key}
+            label={c.isNotes ? t('profile.groups.notes') : t(`profile.fields.${c.key}`, c.key)}
+            before={describeValue(c.key, c.before)}
+            after={describeValue(c.key, c.after)}
+          />
+        ))}
+      </>
+    );
+  const labelKey = fieldLabelKey(change.field);
+  return (
+    <ChangeRow
+      label={labelKey ? t(labelKey) : change.field}
+      before={describeValue(change.field, change.before)}
+      after={describeValue(change.field, change.after)}
+    />
   );
 }
 

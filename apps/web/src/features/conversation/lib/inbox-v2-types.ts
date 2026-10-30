@@ -81,6 +81,11 @@ export interface InboxListQuery {
   tab?: InboxTab;
   assignee?: string;
   channelId?: string;
+  /** `none` or a bot id: the bot answering now. */
+  botId?: string;
+  /** ISO instants of the last-activity window: from inclusive, to exclusive. */
+  updatedFrom?: string;
+  updatedTo?: string;
   provider?: 'facebook' | 'instagram' | 'website';
   hasPhone?: boolean;
   waiting?: WaitingFilter;

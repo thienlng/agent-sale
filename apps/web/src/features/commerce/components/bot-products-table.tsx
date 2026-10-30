@@ -13,7 +13,10 @@ import {
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { toast } from 'sonner';
+
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,12 +42,22 @@ import {
 } from '@/components/ui/table';
 import { formatDateTime, formatVnd } from '@/lib/format';
 
-import { useProducts } from '../api/commerce';
+import { useBotProducts, useProducts, useSetBotProducts } from '../api/commerce';
 import { downloadCsv, formatProductsCsv } from './bot-products-csv';
 
 const PAGE_SIZES = [10, 20, 50] as const;
 
-function ProductRow({ product, index }: { product: ProductDto; index: number }) {
+function ProductRow({
+  product,
+  index,
+  selection,
+}: {
+  product: ProductDto;
+  index: number;
+  /** Shown when the bot sells only selected products. */
+  selection?: { checked: boolean; onChange: (checked: boolean) => void } | undefined;
+}) {
+  const { t } = useTranslation('training');
   const navigate = useNavigate();
   return (
     <TableRow
@@ -53,6 +66,15 @@ function ProductRow({ product, index }: { product: ProductDto; index: number }) 
         void navigate({ to: '/app/products/$productId', params: { productId: product.id } })
       }
     >
+      {selection ? (
+        <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+          <Checkbox
+            checked={selection.checked}
+            onCheckedChange={(v) => selection.onChange(v === true)}
+            aria-label={t('data.products.select', { name: product.name })}
+          />
+        </TableCell>
+      ) : null}
       <TableCell className="text-center text-xs text-muted-foreground tabular-nums">
         {index}
       </TableCell>
@@ -89,9 +111,24 @@ function ProductRow({ product, index }: { product: ProductDto; index: number }) 
   );
 }
 
-/** Bot "Sản phẩm" page body: search, CSV download, add menu, table and pagination. */
-export function BotProductsTable() {
+/**
+ * Bot "Sản phẩm" page body: search, CSV download, add menu, table and pagination. With
+ * `selecting`, a checkbox per row picks the products this bot sells (T-080).
+ */
+export function BotProductsTable({ botId, selecting }: { botId: string; selecting: boolean }) {
   const { t } = useTranslation('training');
+  const selection = useBotProducts(botId);
+  const setSelection = useSetBotProducts(botId);
+  const selected = new Set(selection.data?.productIds ?? []);
+  const toggle = (productId: string, checked: boolean) => {
+    const next = new Set(selected);
+    if (checked) next.add(productId);
+    else next.delete(productId);
+    setSelection.mutate([...next], {
+      onError: () => toast.error(t('data.products.selectError')),
+    });
+  };
+  const columns = selecting ? 6 : 5;
   const [text, setText] = useState('');
   const [q, setQ] = useState('');
   const [page, setPage] = useState(1);
@@ -123,6 +160,11 @@ export function BotProductsTable() {
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
+      {selecting && selection.data && !selected.size ? (
+        <p role="status" className="rounded-lg bg-warning-soft p-3 text-sm text-warning">
+          {t('data.products.noneSelected')}
+        </p>
+      ) : null}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative w-full sm:w-80">
           <Search
@@ -159,7 +201,9 @@ export function BotProductsTable() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem asChild>
-                <Link to="/app/products/new">{t('data.addManual')}</Link>
+                <Link to="/app/products/new" search={selecting ? { botId } : {}}>
+                  {t('data.addManual')}
+                </Link>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -171,6 +215,9 @@ export function BotProductsTable() {
           <Table className="min-w-[760px]">
             <TableHeader>
               <TableRow className="bg-muted hover:bg-muted [&>th]:font-medium [&>th]:text-primary">
+                {selecting ? (
+                  <TableHead className="w-14 text-center">{t('data.products.colSelect')}</TableHead>
+                ) : null}
                 <TableHead className="w-14 text-center">{t('data.products.colIndex')}</TableHead>
                 <TableHead>{t('data.products.colProduct')}</TableHead>
                 <TableHead className="w-44">{t('data.products.colPrice')}</TableHead>
@@ -182,7 +229,7 @@ export function BotProductsTable() {
               {products.isPending
                 ? Array.from({ length: 4 }, (_, i) => (
                     <TableRow key={i}>
-                      <TableCell colSpan={5}>
+                      <TableCell colSpan={columns}>
                         <Skeleton className="h-10" />
                       </TableCell>
                     </TableRow>
@@ -192,11 +239,19 @@ export function BotProductsTable() {
                       key={p.id}
                       product={p}
                       index={(data ? (data.page - 1) * data.pageSize : 0) + i + 1}
+                      selection={
+                        selecting
+                          ? {
+                              checked: selected.has(p.id),
+                              onChange: (checked) => toggle(p.id, checked),
+                            }
+                          : undefined
+                      }
                     />
                   ))}
               {products.isError || (data && !rows.length) ? (
                 <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={5} className="py-14 text-center">
+                  <TableCell colSpan={columns} className="py-14 text-center">
                     <span className="mx-auto mb-3 flex size-16 items-center justify-center rounded-2xl bg-primary-soft">
                       <PackageOpen className="size-8 text-primary" aria-hidden />
                     </span>
@@ -221,6 +276,9 @@ export function BotProductsTable() {
       <div className="flex flex-wrap items-center gap-2">
         <p className="mr-auto text-sm text-muted-foreground">
           {t('data.products.total', { count: data?.total ?? 0 })}
+          {selecting && selection.data
+            ? ` · ${t('data.products.selectedCount', { count: selected.size })}`
+            : null}
         </p>
         <Select
           value={String(pageSize)}

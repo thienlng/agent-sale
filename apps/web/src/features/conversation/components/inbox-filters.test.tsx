@@ -19,6 +19,7 @@ const tags = [
 ];
 const members = [{ userId: 'user-lan', name: 'Lan' }];
 const channels = [{ id: 'page-1', name: 'Shop Hoa', provider: 'facebook' as const }];
+const bots = [{ id: 'bot-sale', name: 'Bot bán hàng' }];
 
 function Harness({
   initial = {},
@@ -42,6 +43,7 @@ function Harness({
         tags={tags}
         members={members}
         channels={channels}
+        bots={bots}
       />
       <InboxFilterChips
         state={state}
@@ -49,6 +51,7 @@ function Harness({
         tags={tags}
         members={members}
         channels={channels}
+        bots={bots}
       />
     </>
   );
@@ -70,6 +73,8 @@ describe('inbox filter popover', () => {
       screen.getByRole('tablist', { name: 'channelInbox.v2.filter.groupsLabel' }),
     );
     expect(groups.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
+      'channelInbox.v2.filter.groups.bot',
+      'channelInbox.v2.filter.groups.time',
       'channelInbox.v2.filter.groups.tags',
       'channelInbox.v2.filter.groups.assignee',
       'channelInbox.v2.filter.groups.status',
@@ -98,11 +103,15 @@ describe('inbox filter popover', () => {
     const user = userEvent.setup();
     const spy = vi.fn();
     render(<Harness spy={spy} />);
+    const tagsTab = () =>
+      user.click(screen.getByRole('tab', { name: 'channelInbox.v2.filter.groups.tags' }));
     await user.click(screen.getByRole('button', { name: 'channelInbox.v2.list.filter' }));
+    await tagsTab();
     await user.click(screen.getByRole('checkbox', { name: 'VIP' }));
     await user.click(screen.getByRole('button', { name: 'channelInbox.v2.filter.close' }));
     expect(spy).not.toHaveBeenCalled();
     await user.click(screen.getByRole('button', { name: 'channelInbox.v2.list.filter' }));
+    await tagsTab();
     expect(screen.getByRole('checkbox', { name: 'VIP' })).toHaveAttribute('aria-checked', 'false');
   });
 
@@ -112,8 +121,10 @@ describe('inbox filter popover', () => {
     render(<Harness spy={spy} />);
     const apply = () =>
       user.click(screen.getByRole('button', { name: 'channelInbox.v2.filter.apply' }));
-    const reopen = () =>
-      user.click(screen.getByRole('button', { name: /channelInbox\.v2\.list\.filter/ }));
+    const reopen = async () => {
+      await user.click(screen.getByRole('button', { name: /channelInbox\.v2\.list\.filter/ }));
+      await user.click(screen.getByRole('tab', { name: 'channelInbox.v2.filter.groups.tags' }));
+    };
     await reopen();
     await user.click(screen.getByRole('checkbox', { name: 'VIP' }));
     await apply();
@@ -185,6 +196,98 @@ describe('inbox filter popover', () => {
   });
 });
 
+describe('inbox bot and time filters', () => {
+  it('opens on the bot group and applies one bot or "no bot"', async () => {
+    const user = userEvent.setup();
+    const spy = vi.fn();
+    render(<Harness spy={spy} />);
+    await user.click(screen.getByRole('button', { name: 'channelInbox.v2.list.filter' }));
+    expect(screen.getByRole('tab', { name: 'channelInbox.v2.filter.groups.bot' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(screen.getAllByRole('radio').map((r) => r.textContent)).toEqual([
+      'channelInbox.v2.filter.bot.all',
+      'Bot bán hàng',
+      'channelInbox.v2.filter.bot.none',
+    ]);
+    await user.click(screen.getByRole('radio', { name: 'Bot bán hàng' }));
+    await user.click(screen.getByRole('button', { name: 'channelInbox.v2.filter.apply' }));
+    expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ botId: 'bot-sale' }));
+    expect(
+      screen.getByRole('button', {
+        name: 'channelInbox.v2.list.removeChip channelInbox.v2.chip.bot Bot bán hàng',
+      }),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /filterActive/ }));
+    await user.click(screen.getByRole('radio', { name: 'channelInbox.v2.filter.bot.none' }));
+    await user.click(screen.getByRole('button', { name: 'channelInbox.v2.filter.apply' }));
+    expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ botId: 'none' }));
+  });
+
+  it('applies a time preset and clears custom dates when switching back to a preset', async () => {
+    const user = userEvent.setup();
+    const spy = vi.fn();
+    render(<Harness spy={spy} initial={{ time: 'custom', timeFrom: '2026-10-01', timeTo: '' }} />);
+    await user.click(screen.getByRole('button', { name: /filterActive/ }));
+    await user.click(screen.getByRole('tab', { name: 'channelInbox.v2.filter.groups.time' }));
+    expect(screen.getAllByRole('radio').map((r) => r.textContent)).toEqual([
+      'channelInbox.v2.filter.time.any',
+      'channelInbox.v2.filter.time.today',
+      'channelInbox.v2.filter.time.yesterday',
+      'channelInbox.v2.filter.time.last7',
+      'channelInbox.v2.filter.time.last30',
+      'channelInbox.v2.filter.time.custom',
+    ]);
+    await user.click(screen.getByRole('radio', { name: 'channelInbox.v2.filter.time.last7' }));
+    expect(screen.queryByLabelText('channelInbox.v2.filter.time.from')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'channelInbox.v2.filter.apply' }));
+    expect(spy).toHaveBeenLastCalledWith(
+      expect.objectContaining({ time: 'last7', timeFrom: '', timeTo: '' }),
+    );
+    expect(
+      screen.getByRole('button', {
+        name: 'channelInbox.v2.list.removeChip channelInbox.v2.filter.time.last7',
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('takes a custom date range, blocks an inverted one and labels the chip', async () => {
+    const user = userEvent.setup();
+    const spy = vi.fn();
+    render(<Harness spy={spy} />);
+    await user.click(screen.getByRole('button', { name: 'channelInbox.v2.list.filter' }));
+    await user.click(screen.getByRole('tab', { name: 'channelInbox.v2.filter.groups.time' }));
+    await user.click(screen.getByRole('radio', { name: 'channelInbox.v2.filter.time.custom' }));
+    const apply = screen.getByRole('button', { name: 'channelInbox.v2.filter.apply' });
+    // No date yet: nothing to apply.
+    expect(apply).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('channelInbox.v2.filter.time.from'), {
+      target: { value: '2026-10-10' },
+    });
+    fireEvent.change(screen.getByLabelText('channelInbox.v2.filter.time.to'), {
+      target: { value: '2026-10-05' },
+    });
+    expect(screen.getByRole('alert')).toHaveTextContent('channelInbox.v2.filter.time.invalid');
+    expect(apply).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('channelInbox.v2.filter.time.to'), {
+      target: { value: '2026-10-12' },
+    });
+    expect(apply).toBeEnabled();
+    await user.click(apply);
+    expect(spy).toHaveBeenLastCalledWith(
+      expect.objectContaining({ time: 'custom', timeFrom: '2026-10-10', timeTo: '2026-10-12' }),
+    );
+    const chip = screen.getByRole('button', {
+      name: 'channelInbox.v2.list.removeChip channelInbox.v2.chip.timeRange 10/10/2026 12/10/2026',
+    });
+    await user.click(chip);
+    expect(spy).toHaveBeenLastCalledWith(
+      expect.objectContaining({ time: 'any', timeFrom: '', timeTo: '' }),
+    );
+  });
+});
+
 describe('inbox filter chips', () => {
   it('shows one removable chip per active value on a scrolling line', () => {
     const spy = vi.fn();
@@ -222,7 +325,10 @@ describe('inbox filter chips', () => {
     const user = userEvent.setup();
     const spy = vi.fn();
     render(<Harness spy={spy} initial={{ tagsExclude: ['tag-vip'], tagsAll: ['tag-price'] }} />);
-    const reopen = () => user.click(screen.getByRole('button', { name: /filterActive/ }));
+    const reopen = async () => {
+      await user.click(screen.getByRole('button', { name: /filterActive/ }));
+      await user.click(screen.getByRole('tab', { name: 'channelInbox.v2.filter.groups.tags' }));
+    };
     const apply = () =>
       user.click(screen.getByRole('button', { name: 'channelInbox.v2.filter.apply' }));
     await reopen();

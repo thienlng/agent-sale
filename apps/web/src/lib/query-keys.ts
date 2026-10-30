@@ -14,6 +14,8 @@ export const queryKeys = {
   warehouses: (ws: string) => ['ws', ws, 'warehouses'] as const,
   products: (ws: string) => ['ws', ws, 'products'] as const,
   product: (ws: string, id: string) => ['ws', ws, 'products', id] as const,
+  /** Under products: creating a product for a bot refreshes the bot's selection too. */
+  botProducts: (ws: string, botId: string) => ['ws', ws, 'products', 'bot', botId] as const,
   variants: (ws: string) => ['ws', ws, 'variants'] as const,
   orders: (ws: string) => ['ws', ws, 'orders'] as const,
   order: (ws: string, id: string) => ['ws', ws, 'orders', 'detail', id] as const,

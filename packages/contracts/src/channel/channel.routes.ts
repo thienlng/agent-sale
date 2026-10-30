@@ -13,6 +13,7 @@ import {
 import { z } from 'zod';
 import { defineRoutes } from '../common/routes.js';
 import {
+  ChannelListQuery,
   ChannelListResponse,
   ChannelConnectionDto,
   ConnectChannelResponse,
@@ -88,6 +89,7 @@ export const channelRoutes = defineRoutes([
     method: 'get',
     path: '/channels',
     summary: 'Connections and provider readiness',
+    query: ChannelListQuery,
     responses: { 200: ChannelListResponse },
   },
   {
@@ -119,6 +121,13 @@ export const channelRoutes = defineRoutes([
     summary: 'Bind a bot or disconnect',
     body: UpdateChannelRequest,
     responses: { 200: ChannelConnectionDto },
+  },
+  {
+    ...scoped,
+    method: 'delete',
+    path: '/channels/{id}',
+    summary: 'Remove a Facebook or Instagram page (soft delete; history is kept)',
+    responses: { 204: null },
   },
   {
     ...scoped,

@@ -7,8 +7,10 @@ import {
   useBulkUpdateChannels,
   useChannelBots,
   useChannels,
+  useRemoveChannels,
   useSelectAccounts,
 } from '../api/channels';
+import { selectionErrorKey } from '../lib/selection-error';
 import { useMetaConnect } from './use-meta-connect';
 
 /** Workspace screen (all pages) or a bot's screen (only the pages that bot answers). */
@@ -23,6 +25,7 @@ export function useIntegrations(mode: IntegrationsMode) {
   const canManage = useCan('settings.manage');
   const bots = useChannelBots();
   const bulk = useBulkUpdateChannels();
+  const removal = useRemoveChannels();
   const [discoveryId, setDiscoveryId] = useState<string | null>(null);
   const connect = useMetaConnect(setDiscoveryId);
   const save = useSelectAccounts(mode.kind === 'bot' ? mode.botId : undefined);
@@ -47,6 +50,21 @@ export function useIntegrations(mode: IntegrationsMode) {
     }
   }
 
+  /** Soft-removes the pages; resolves with the ids that failed so the caller can keep them selected. */
+  async function remove(ids: string[]) {
+    if (!ids.length) return [];
+    if (!canManage) return ids;
+    try {
+      const failed = await removal.mutateAsync(ids);
+      if (failed.length) toast.error(tr('integrations.removePartialError'));
+      else toast.success(tr('integrations.removed', { count: ids.length }));
+      return failed;
+    } catch {
+      toast.error(tr('loadError'));
+      return ids;
+    }
+  }
+
   async function saveSelection(externalIds: string[]) {
     if (!discoveryId) return;
     try {
@@ -54,8 +72,8 @@ export function useIntegrations(mode: IntegrationsMode) {
       setDiscoveryId(null);
       if (result.bindFailed) toast.error(tr('integrations.bindFailed'));
       else toast.success(tr('saved'));
-    } catch {
-      toast.error(tr('connectionError'));
+    } catch (error) {
+      toast.error(tr(selectionErrorKey(error)));
     }
   }
 
@@ -67,7 +85,8 @@ export function useIntegrations(mode: IntegrationsMode) {
     configured,
     botName,
     apply,
-    applying: bulk.isPending,
+    applying: bulk.isPending || removal.isPending,
+    remove,
     discovery: {
       id: discoveryId,
       close: () => setDiscoveryId(null),

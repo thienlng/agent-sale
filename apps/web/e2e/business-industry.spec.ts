@@ -7,6 +7,10 @@ const at = '2026-10-28T08:00:00.000Z';
 
 async function setup(page: Page, industry = 'hotel') {
   await mockApi(page);
+  // With two businesses the user chooses one (T-079); these tests start from a remembered A.
+  await page.addInitScript((id) => {
+    if (!localStorage.getItem('rapiz.workspace')) localStorage.setItem('rapiz.workspace', id);
+  }, A);
   await page.route('**/api/v1/bootstrap', (route) =>
     route.fulfill({
       json: {
@@ -46,10 +50,9 @@ test('business settings and new bots follow the sidebar business without an extr
 }) => {
   await setup(page);
   await page.goto('/app/settings/profile');
-  const section = page.getByRole('region', { name: 'Lĩnh vực doanh nghiệp' });
-  await expect(section.getByText('Hotel business', { exact: true })).toBeVisible();
-  await expect(section.getByLabel('Lĩnh vực kinh doanh')).toHaveValue('Khách sạn / homestay');
-  await expect(section.getByLabel('Lĩnh vực kinh doanh')).toHaveAttribute('readonly');
+  await expect(page.getByText('Khách sạn / homestay')).toBeVisible();
+  await expect(page.getByText('Loại hình', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Lĩnh vực kinh doanh')).toHaveCount(0);
   await page.goto('/app/bots');
   await page.getByRole('button', { name: 'Tạo bot', exact: true }).click();
   let dialog = page.getByRole('dialog');

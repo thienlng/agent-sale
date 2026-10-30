@@ -3,16 +3,20 @@ import { Check, SlidersHorizontal } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import {
   activeFilterCount,
   advancedPart,
+  customRangeValid,
   DEFAULT_LIST_STATE,
   type ListState,
   type ModeFilter,
   type PhoneFilter,
   type StatusFilter,
+  type TimeFilter,
 } from '../lib/inbox-list';
 import type { WaitingFilter } from '../lib/inbox-v2-types';
 import { TagChip } from './tag-chip';
@@ -26,14 +30,22 @@ export interface FilterMember {
   userId: string;
   name: string;
 }
+export interface FilterBot {
+  id: string;
+  name: string;
+}
 export interface FilterChannel {
   id: string;
   name: string;
   provider: ChannelProvider;
 }
 
-type Group = 'tags' | 'assignee' | 'status' | 'waiting' | 'mode' | 'channel' | 'phone';
+type Group =
+  'bot' | 'time' | 'tags' | 'assignee' | 'status' | 'waiting' | 'mode' | 'channel' | 'phone';
+/** Bot and time first: the filters sales teams reach for most. */
 const GROUPS: readonly Group[] = [
+  'bot',
+  'time',
   'tags',
   'assignee',
   'status',
@@ -44,9 +56,20 @@ const GROUPS: readonly Group[] = [
 ];
 type TagMode = 'tagsAny' | 'tagsAll' | 'tagsExclude';
 const TAG_MODES: readonly TagMode[] = ['tagsAny', 'tagsAll', 'tagsExclude'];
+const TIMES: readonly TimeFilter[] = ['any', 'today', 'yesterday', 'last7', 'last30', 'custom'];
+
+/** Today as `YYYY-MM-DD` in local time, the latest day a custom range can pick. */
+function localToday(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 function groupActive(group: Group, s: ListState): boolean {
   switch (group) {
+    case 'bot':
+      return s.botId !== 'all';
+    case 'time':
+      return s.time !== 'any';
     case 'tags':
       return s.untagged || s.tagsAny.length + s.tagsAll.length + s.tagsExclude.length > 0;
     case 'waiting':
@@ -103,21 +126,24 @@ export function InboxFilterPopover({
   tags,
   members,
   channels,
+  bots,
 }: {
   state: ListState;
   onState: (patch: Partial<ListState>) => void;
   tags: readonly FilterTag[];
   members: readonly FilterMember[];
   channels: readonly FilterChannel[];
+  bots: readonly FilterBot[];
 }) {
   const { t } = useTranslation();
   const tr = (key: string, options?: Record<string, unknown>) =>
     t(`channelInbox.v2.filter.${key}`, options ?? {});
   const [open, setOpen] = useState(false);
-  const [group, setGroup] = useState<Group>('tags');
+  const [group, setGroup] = useState<Group>('bot');
   const [tagMode, setTagMode] = useState<TagMode>('tagsAny');
   const [draft, setDraft] = useState(state);
   const count = activeFilterCount(state);
+  const rangeInvalid = draft.time === 'custom' && !customRangeValid(draft.timeFrom, draft.timeTo);
   const filterLabel = t('channelInbox.v2.list.filter');
   const patch = (next: Partial<ListState>) => setDraft((previous) => ({ ...previous, ...next }));
   function openChange(next: boolean) {
@@ -187,6 +213,78 @@ export function InboxFilterPopover({
             ))}
           </div>
           <div role="tabpanel" className="max-h-72 min-w-0 flex-1 overflow-y-auto p-1.5">
+            {group === 'bot' ? (
+              <>
+                <p className="px-2 pt-0.5 pb-1 text-xs text-muted-foreground">{tr('bot.hint')}</p>
+                <Option selected={draft.botId === 'all'} onSelect={() => patch({ botId: 'all' })}>
+                  {tr('bot.all')}
+                </Option>
+                {bots.map((bot) => (
+                  <Option
+                    key={bot.id}
+                    selected={draft.botId === bot.id}
+                    onSelect={() => patch({ botId: bot.id })}
+                  >
+                    <span className="truncate">{bot.name}</span>
+                  </Option>
+                ))}
+                <Option selected={draft.botId === 'none'} onSelect={() => patch({ botId: 'none' })}>
+                  {tr('bot.none')}
+                </Option>
+              </>
+            ) : null}
+            {group === 'time' ? (
+              <>
+                <p className="px-2 pt-0.5 pb-1 text-xs text-muted-foreground">{tr('time.hint')}</p>
+                {TIMES.map((time) => (
+                  <Option
+                    key={time}
+                    selected={draft.time === time}
+                    onSelect={() =>
+                      patch(time === 'custom' ? { time } : { time, timeFrom: '', timeTo: '' })
+                    }
+                  >
+                    {tr(`time.${time}`)}
+                  </Option>
+                ))}
+                {draft.time === 'custom' ? (
+                  <div className="grid grid-cols-2 gap-2 px-2 pt-1.5">
+                    <div className="flex min-w-0 flex-col gap-1">
+                      <Label htmlFor="inbox-time-from" className="text-xs">
+                        {tr('time.from')}
+                      </Label>
+                      <Input
+                        id="inbox-time-from"
+                        type="date"
+                        max={draft.timeTo || localToday()}
+                        value={draft.timeFrom}
+                        onChange={(e) => patch({ timeFrom: e.target.value })}
+                        className="h-8 px-2 text-xs"
+                      />
+                    </div>
+                    <div className="flex min-w-0 flex-col gap-1">
+                      <Label htmlFor="inbox-time-to" className="text-xs">
+                        {tr('time.to')}
+                      </Label>
+                      <Input
+                        id="inbox-time-to"
+                        type="date"
+                        min={draft.timeFrom || undefined}
+                        max={localToday()}
+                        value={draft.timeTo}
+                        onChange={(e) => patch({ timeTo: e.target.value })}
+                        className="h-8 px-2 text-xs"
+                      />
+                    </div>
+                    {rangeInvalid ? (
+                      <p role="alert" className="col-span-2 text-xs text-destructive">
+                        {tr('time.invalid')}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+              </>
+            ) : null}
             {group === 'tags' ? (
               <div className="space-y-1">
                 <div role="radiogroup" className="grid grid-cols-3 gap-1 pb-1">
@@ -336,6 +434,7 @@ export function InboxFilterPopover({
             </Button>
             <Button
               size="sm"
+              disabled={rangeInvalid}
               onClick={() => {
                 onState(advancedPart(draft));
                 setOpen(false);

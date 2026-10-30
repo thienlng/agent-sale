@@ -1,6 +1,8 @@
 import {
   AuthResponse,
   BootstrapResponse,
+  BotDto,
+  BotProductsDto,
   OrderDto,
   OrderListResponse,
   OrderOverviewResponse,
@@ -10,12 +12,14 @@ import {
   WarehouseDto,
 } from '@agent-sales/contracts';
 import { ensureLoginRoles, migrate, withCredentials } from '@agent-sales/db';
+import { workspaceId } from '@agent-sales/shared';
 import { startTestPostgres, type TestPostgres } from '@agent-sales/testing';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
 import { createHttpApp } from '../src/bootstrap.js';
+import { CATALOG_FACADE, type CatalogFacade } from '../src/modules/commerce/api/index.js';
 
 /** Products, stock and the order lifecycle on a real Postgres (RLS, SQL search, aggregates). */
 let pg: TestPostgres;
@@ -695,5 +699,122 @@ describe('commerce on Postgres', () => {
       ).json(),
     );
     expect(charged.amounts).toMatchObject({ shippingFeeCharged: 30_000, total: 330_000 });
+  });
+
+  it('lets each bot sell every product or only its selection, inside its own business (T-080)', async () => {
+    const h = await owner('bots@shop.vn');
+    const other = await owner('other-bots@shop.vn');
+    const ws = workspaceId(h['x-workspace-id']!);
+    const bot = async (name: string) =>
+      BotDto.parse((await call(h, 'POST', '/bots', { name, industry: 'fashion' })).json());
+    const product = async (code: string, name: string, extra: object = {}) => {
+      const r = await call(h, 'POST', '/products', {
+        code,
+        name,
+        variants: [{ sku: `${code}-1`, price: 100_000 }],
+        ...extra,
+      });
+      expect(r.statusCode).toBe(201);
+      return ProductDto.parse(r.json());
+    };
+    const shirts = await bot('Bot áo');
+    const shoes = await bot('Bot giày');
+    expect(shoes.catalogMode).toBe('all');
+    await product('SM01', 'Sơ mi trắng');
+    const sneaker = await product('GI01', 'Giày sneaker');
+    const old = await product('GI02', 'Giày cũ', { status: 'archived' });
+
+    const patched = await call(h, 'PATCH', `/bots/${shoes.id}`, { catalogMode: 'selected' });
+    expect(BotDto.parse(patched.json()).catalogMode).toBe('selected');
+    const put = await call(h, 'PUT', `/bots/${shoes.id}/products`, {
+      productIds: [sneaker.id, old.id, sneaker.id],
+    });
+    expect(put.statusCode).toBe(200);
+    expect(BotProductsDto.parse(put.json()).productIds.sort()).toEqual([sneaker.id, old.id].sort());
+
+    // A product created from the bot's page is selected for it.
+    const boot = await product('GI03', 'Giày da', { botId: shoes.id });
+    const selected = BotProductsDto.parse(
+      (await call(h, 'GET', `/bots/${shoes.id}/products`)).json(),
+    );
+    expect(selected.productIds).toContain(boot.id);
+
+    const catalog = app.get<CatalogFacade>(CATALOG_FACADE, { strict: false });
+    const names = (list: ProductDto[]) => list.map((p) => p.name).sort();
+    const all = { botId: shirts.id, catalogMode: 'all' as const };
+    const only = { botId: shoes.id, catalogMode: 'selected' as const };
+    expect(names(await catalog.listBotCatalog(ws, all, 10))).toEqual(
+      ['Giày da', 'Giày sneaker', 'Sơ mi trắng'].sort(),
+    );
+    // Archived products stay out even when selected.
+    expect(names(await catalog.listBotCatalog(ws, only, 10))).toEqual(['Giày da', 'Giày sneaker']);
+    expect(names(await catalog.getBotProducts(ws, only, 'sơ mi trắng', 5))).toEqual([]);
+    expect(names(await catalog.getBotProducts(ws, all, 'sơ mi trắng', 5))).toEqual(['Sơ mi trắng']);
+
+    // Another business can neither change this bot's selection nor select its products.
+    const foreignProduct = ProductDto.parse(
+      (
+        await call(other, 'POST', '/products', {
+          code: 'X01',
+          name: 'Hàng shop khác',
+          variants: [{ sku: 'X01-1', price: 1 }],
+        })
+      ).json(),
+    );
+    expect(
+      (await call(other, 'PUT', `/bots/${shoes.id}/products`, { productIds: [] })).statusCode,
+    ).toBe(200);
+    expect(
+      (await call(other, 'PUT', `/bots/${shoes.id}/products`, { productIds: [foreignProduct.id] }))
+        .statusCode,
+    ).toBe(404);
+    expect(
+      (await call(h, 'PUT', `/bots/${shoes.id}/products`, { productIds: [foreignProduct.id] }))
+        .statusCode,
+    ).toBe(404);
+    expect(
+      BotProductsDto.parse((await call(h, 'GET', `/bots/${shoes.id}/products`)).json()).productIds,
+    ).toHaveLength(3);
+    expect(
+      BotProductsDto.parse((await call(other, 'GET', `/bots/${shoes.id}/products`)).json())
+        .productIds,
+    ).toEqual([]);
+  });
+
+  it('serializes concurrent saves of one bot selection and adds a created product once', async () => {
+    const h = await owner('bots-race@shop.vn');
+    const bot = BotDto.parse(
+      (await call(h, 'POST', '/bots', { name: 'Bot đua', industry: 'fashion' })).json(),
+    );
+    const product = async (code: string) =>
+      ProductDto.parse(
+        (
+          await call(h, 'POST', '/products', {
+            code,
+            name: code,
+            variants: [{ sku: `${code}-1`, price: 100_000 }],
+          })
+        ).json(),
+      );
+    const [a, b, c] = [await product('RA01'), await product('RA02'), await product('RA03')];
+    await call(h, 'PUT', `/bots/${bot.id}/products`, { productIds: [a.id] });
+
+    // Both saves keep A and add one more; without the lock the second hit a duplicate key (500).
+    const saves = await Promise.all([
+      call(h, 'PUT', `/bots/${bot.id}/products`, { productIds: [a.id, b.id] }),
+      call(h, 'PUT', `/bots/${bot.id}/products`, { productIds: [a.id, c.id] }),
+      call(h, 'POST', '/products', {
+        code: 'RA04',
+        name: 'RA04',
+        botId: bot.id,
+        variants: [{ sku: 'RA04-1', price: 100_000 }],
+      }),
+    ]);
+    expect(saves.map((r) => r.statusCode)).toEqual([200, 200, 201]);
+    const ids = BotProductsDto.parse(
+      (await call(h, 'GET', `/bots/${bot.id}/products`)).json(),
+    ).productIds;
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids).toContain(a.id);
   });
 });

@@ -46,8 +46,9 @@ export interface CrmFacade {
   ): Promise<{ sales: number; care: number }>;
 
   /**
-   * A website visitor left a phone number: finds the customer by the E.164 phone, or creates
-   * one (named `displayName`, source = the built-in source with `sourceKey`). An existing
+   * A customer gave a phone number (website lead, or a number in a Facebook/Instagram message):
+   * finds the customer by the E.164 phone, or creates one (named `displayName`, source = the
+   * built-in source with `sourceKey`). One phone = one customer per business (T-088). An existing
    * customer keeps its first source and gets a history entry. Safe under retries and races:
    * concurrent calls for the same phone end with one customer.
    */
@@ -55,11 +56,16 @@ export interface CrmFacade {
     workspaceId: WorkspaceId,
     input: {
       phoneE164: string;
-      sourceKey: 'website';
+      sourceKey: 'website' | 'facebook' | 'instagram';
       displayName: string;
       firstUrl: string | null;
     },
   ): Promise<{ contactId: string; created: boolean }>;
+  /**
+   * Remembers that a bot answered a conversation linked to the customer (bot filter, history kept
+   * across page reassignment). Idempotent. Throws NOT_FOUND for a customer of another business.
+   */
+  recordContactBot(workspaceId: WorkspaceId, contactId: string, botId: string): Promise<void>;
 
   /**
    * Tag chips of conversations for list rows (active, non-archived tags, oldest first);

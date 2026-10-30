@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import {
+  ChannelListQuery,
   CreateWebsiteRequest,
   MetaProvider,
   SelectChannelRequest,
@@ -10,7 +11,9 @@ import type { WorkspaceId } from '@agent-sales/shared';
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   Inject,
   Logger,
   Param,
@@ -47,8 +50,11 @@ export class ChannelController {
   constructor(@Inject(ChannelFacadeImpl) private readonly channels: ChannelFacadeImpl) {}
   @WorkspaceScoped()
   @Get()
-  list(@CurrentWorkspace() ws: WorkspaceId) {
-    return this.channels.list(ws);
+  list(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Query(new ZodValidationPipe(ChannelListQuery)) query: ChannelListQuery,
+  ) {
+    return this.channels.list(ws, { includeRemoved: query.includeRemoved === true });
   }
   @RequireCapability('settings.manage')
   @WorkspaceScoped()
@@ -118,6 +124,13 @@ export class ChannelController {
     @Body(new ZodValidationPipe(UpdateChannelRequest)) body: UpdateChannelRequest,
   ) {
     return this.channels.update(ws, id, body);
+  }
+  @RequireCapability('settings.manage')
+  @WorkspaceScoped()
+  @Delete(':id')
+  @HttpCode(204)
+  remove(@CurrentWorkspace() ws: WorkspaceId, @Param('id', idPipe) id: string): Promise<void> {
+    return this.channels.remove(ws, id);
   }
   @Public()
   @Get('oauth/:provider/callback')

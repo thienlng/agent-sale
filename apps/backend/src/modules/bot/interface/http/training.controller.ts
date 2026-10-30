@@ -71,8 +71,12 @@ export class TrainingController {
     @CurrentUser() user: AuthState,
     @Param('botId') botId: string,
   ): Promise<{ data: TrainingItemDto[] }> {
-    await this.bots.getBot(ws, botId);
-    return { data: await this.training.seedStarterRules(ws, botId, await this.actor(user)) };
+    const bot = await this.bots.getBot(ws, botId);
+    return {
+      data: await this.training.seedStarterRules(ws, botId, await this.actor(user), {
+        industry: bot.industry,
+      }),
+    };
   }
   @RequireCapability('bots.manage')
   @Patch('training-items/:itemId')

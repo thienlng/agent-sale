@@ -1,6 +1,6 @@
 import type { ContactDto, OrderDto } from '@agent-sales/contracts';
 import { Link } from '@tanstack/react-router';
-import { ArrowLeft, Check, Copy, Maximize2, Plus, Search } from 'lucide-react';
+import { ArrowLeft, Check, Copy, ExternalLink, Maximize2, Plus, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -21,15 +21,17 @@ import { NotesBlock } from '@/features/conversation/components/notes-block';
 import { PanelBlock } from '@/features/conversation/components/panel-block';
 import type { PanelSlots } from '@/features/conversation/components/conversation-view';
 import type { InboxConversation } from '@/features/conversation/lib/inbox-v2-types';
+import { useSetConversationContact } from '@/features/conversation/api/inbox';
 import { useContact, useContacts } from '@/features/crm/api/crm';
 import { ContactSheet } from '@/features/crm/components/contact-sheet';
 import { useCrmLookups } from '@/features/crm/hooks/use-crm-lookups';
 import { formatVnd } from '@/lib/format';
 import { useCan } from '@/lib/permissions';
+import { ContactConversations } from './contact-conversations';
 import { InboxContactControls } from './inbox-contact-controls';
 
+/** Orders created in this session; the linked customer is stored on the conversation (T-088). */
 export interface InboxCustomerContext {
-  contact?: ContactDto | undefined;
   orders: OrderDto[];
   created?: OrderDto | undefined;
 }
@@ -60,8 +62,17 @@ export function InboxSalesPanel({
   const created = value.created;
   const lookups = useCrmLookups();
   const canCreate = useCan('orders.manage');
-  const selectedContact = useContact(value.contact?.id);
+  const linked = c.contactId ?? undefined;
+  const selectedContact = useContact(linked);
   const contact = selectedContact.data;
+  const canLink = useCan('contacts.edit');
+  const [changing, setChanging] = useState(false);
+  const link = useSetConversationContact(c.id);
+  const setLink = (contactId: string | null) =>
+    link.mutate(contactId, {
+      onSuccess: () => setChanging(false),
+      onError: () => toast.error(tr('contactLinkError')),
+    });
   async function copy(text: string) {
     try {
       await navigator.clipboard.writeText(text);
@@ -76,7 +87,18 @@ export function InboxSalesPanel({
       <PanelBlock title={t('channelInbox.meta.panel.about')}>
         <div className="space-y-4">
           <CustomerSummary conversation={c} showIdentity={false} />
-          {value.contact && !contact ? (
+          {changing || !linked ? (
+            canLink ? (
+              <div className="space-y-2">
+                <ContactSearch onSelect={(selected) => setLink(selected.id)} />
+                {changing ? (
+                  <Button variant="ghost" size="sm" onClick={() => setChanging(false)}>
+                    {t('channelInbox.back')}
+                  </Button>
+                ) : null}
+              </div>
+            ) : null
+          ) : !contact ? (
             <div role="status" className="space-y-2 rounded-xl border p-3 text-sm">
               <p>
                 {t(selectedContact.isError ? 'channelInbox.loadError' : 'channelInbox.loading')}
@@ -84,15 +106,18 @@ export function InboxSalesPanel({
               <Button variant="outline" size="sm" onClick={() => void selectedContact.refetch()}>
                 {t('channelInbox.retry')}
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onChange({ ...value, contact: undefined })}
-              >
-                {tr('changeContact')}
-              </Button>
+              {canLink ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={link.isPending}
+                  onClick={() => setLink(null)}
+                >
+                  {tr('unlinkContact')}
+                </Button>
+              ) : null}
             </div>
-          ) : contact ? (
+          ) : (
             <div className="space-y-3 rounded-xl border bg-muted/20 p-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
@@ -131,17 +156,29 @@ export function InboxSalesPanel({
                 <Button variant="outline" size="sm" onClick={() => setProfile(contact.id)}>
                   {tr('openProfile')}
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onChange({ ...value, contact: undefined })}
-                >
-                  {tr('changeContact')}
+                <Button asChild variant="ghost" size="sm">
+                  <Link to="/app/contacts" search={{ contact: contact.id }}>
+                    <ExternalLink />
+                    {tr('openInCrm')}
+                  </Link>
                 </Button>
+                {canLink ? (
+                  <>
+                    <Button variant="ghost" size="sm" onClick={() => setChanging(true)}>
+                      {tr('changeContact')}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={link.isPending}
+                      onClick={() => setLink(null)}
+                    >
+                      {tr('unlinkContact')}
+                    </Button>
+                  </>
+                ) : null}
               </div>
             </div>
-          ) : (
-            <ContactSearch onSelect={(contact) => onChange({ ...value, contact })} />
           )}
         </div>
       </PanelBlock>
@@ -157,7 +194,7 @@ export function InboxSalesPanel({
               <ArrowLeft />
               {t('channelInbox.back')}
             </Button>
-            {value.contact && !contact ? (
+            {linked && !contact ? (
               <p role="status" className="p-2 text-sm">
                 {t(selectedContact.isError ? 'channelInbox.loadError' : 'channelInbox.loading')}
               </p>
@@ -229,7 +266,12 @@ export function InboxSalesPanel({
       </PanelBlock>
       <FollowUpBlock conversation={c} />
       {slots.media}
-      <ContactSheet contactId={profile} onClose={() => setProfile(undefined)} lookups={lookups} />
+      <ContactSheet
+        contactId={profile}
+        onClose={() => setProfile(undefined)}
+        lookups={lookups}
+        renderConversations={(contactId) => <ContactConversations contactId={contactId} />}
+      />
     </div>
   );
 }

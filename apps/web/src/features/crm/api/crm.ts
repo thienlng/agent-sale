@@ -1,4 +1,5 @@
 import {
+  BotDto,
   AssignmentPolicyDto,
   AssignmentPolicyList,
   type AssignTagRequest,
@@ -215,6 +216,17 @@ export function useOptionMutations(kind: Kind) {
       onSuccess: (r) => qc.setQueryData(queryKeys.crmOptions(ws, kind), r.data),
     }),
   };
+}
+
+/** The business's bots, for the "Bot" customer filter (same cache as the other bot lists). */
+export function useCrmBots() {
+  const ws = useWorkspaceId();
+  return useQuery({
+    queryKey: queryKeys.bots(ws),
+    queryFn: async () => (await api('/bots', z.object({ data: z.array(BotDto) }))).data,
+    enabled: Boolean(ws),
+    staleTime: 30_000,
+  });
 }
 
 export function useCrmTags() {

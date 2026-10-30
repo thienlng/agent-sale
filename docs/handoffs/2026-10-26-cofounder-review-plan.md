@@ -61,10 +61,10 @@ One person-day is approximately six focused engineering hours, including impleme
 
 | Task | Deliverable | Lane | Base person-days | Dependencies |
 |---|---|---|---:|---|
-| [T-077](../../todo/T-077-define-account-business-shop-ownership-and-migrati.md) | Define account business shop ownership and migration contracts | A | 2 | None |
-| [T-078](../../todo/T-078-add-account-business-and-shop-persistence-with-saf.md) | Add account business and shop persistence with safe backfills | A | 6 | T-077 |
-| [T-079](../../todo/T-079-add-business-selection-and-switching-across-sessio.md) | Add business selection and switching across sessions | A | 3 | T-077, T-078 |
-| [T-080](../../todo/T-080-manage-shops-and-their-catalog-and-bot-association.md) | Manage shops and their catalog and bot associations | A | 3 | T-077, T-078 |
+| [T-077](../../todo/done/T-077-define-account-business-shop-ownership-and-migrati.md) | Define account business shop ownership and migration contracts | A | 2 | None |
+| [T-078](../../todo/done/T-078-add-account-business-and-shop-persistence-with-saf.md) | Add account business and shop persistence with safe backfills | A | 6 | T-077 |
+| [T-079](../../todo/done/T-079-add-business-selection-and-switching-across-sessio.md) | Add business selection and switching across sessions | A | 3 | T-077, T-078 |
+| [T-080](../../todo/done/T-080-manage-shops-and-their-catalog-and-bot-association.md) | Manage shops and their catalog and bot associations | A | 3 | T-077, T-078 |
 | [T-081](../../todo/T-081-redesign-portfolio-and-business-statistics-entry-s.md) | Redesign portfolio and business statistics entry screens | B | 4 | T-077, T-078, T-079 |
 | [T-082](../../todo/T-082-unify-channel-assignment-and-bulk-bot-filters.md) | Unify channel assignment and bulk bot filters | B | 3 | T-077, T-078, T-080 |
 | [T-083](../../todo/done/T-083-move-fanpage-management-into-the-bot-workspace-nav.md) | Move fanpage management into the bot workspace navigation | B | 2 | T-077, T-082 |
