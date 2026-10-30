@@ -94,6 +94,7 @@
     "education": "Giáo dục / trung tâm",
     "hotel": "Khách sạn / homestay",
     "solar": "Điện mặt trời / cơ khí",
+    "saas": "Phần mềm / SaaS",
     "other": "Lĩnh vực khác"
   },
   "bots": {
@@ -1536,6 +1537,7 @@
         "education": "Trung tâm, lớp học: khóa học, học phí, lịch khai giảng",
         "hotel": "Khách sạn, homestay, villa: phòng, giá, nhận/trả phòng, đặt cọc",
         "solar": "Điện mặt trời, cơ khí: khảo sát, báo giá, lắp đặt, bảo hành",
+        "saas": "Phần mềm, SaaS: gói cước, dùng thử, demo, khách thuê bao",
         "other": "Lĩnh vực khác: bắt đầu từ nội dung trống, tự thiết lập thông tin"
       },
       "errors": {
@@ -1709,5 +1711,59 @@
     "previous": "Trang trước",
     "next": "Trang sau",
     "conflict": "Thông tin đã thay đổi, mã yêu cầu đã dùng hoặc ngày đã có booking xác nhận. Tải lại danh sách và kiểm tra lịch trước khi thử lại."
+  },
+  "saas": {
+    "unnamed": "Khách chưa có tên",
+    "saveSubscription": "Lưu gói",
+    "subscriptionSaved": "Đã lưu gói thuê bao",
+    "subscriptionInvalid": "Kiểm tra lại: cần tên gói, MRR là số nguyên ≥ 0; dùng thử cần ngày hết hạn, đã huỷ cần ngày huỷ.",
+    "cancel": "Huỷ",
+    "loading": "Đang tải…",
+    "loadError": "Không tải được dữ liệu.",
+    "retry": "Thử lại",
+    "stage": {
+      "trial": "Dùng thử",
+      "active": "Đang dùng",
+      "past_due": "Quá hạn thanh toán",
+      "canceled": "Đã huỷ"
+    },
+    "period": {
+      "monthly": "Hằng tháng",
+      "quarterly": "Hằng quý",
+      "yearly": "Hằng năm"
+    },
+    "sub": {
+      "title": "Gói thuê bao",
+      "none": "Khách chưa có gói.",
+      "add": "Thêm gói",
+      "edit": "Sửa gói",
+      "customer": "Khách hàng",
+      "planName": "Tên gói",
+      "stage": "Giai đoạn",
+      "billingPeriod": "Chu kỳ thanh toán",
+      "mrr": "MRR (VND/tháng)",
+      "seats": "Số người dùng",
+      "trialEndsOn": "Hết dùng thử",
+      "startedOn": "Bắt đầu",
+      "renewsOn": "Gia hạn",
+      "canceledOn": "Ngày huỷ",
+      "externalRef": "Mã bên ngoài",
+      "nextDate": "Mốc tiếp theo",
+      "note": "Ghi chú"
+    },
+    "summary": {
+      "mrr": "MRR",
+      "active": "Khách trả phí",
+      "trial": "Dùng thử",
+      "trialsEndingSoon": "Hết dùng thử trong 7 ngày",
+      "past_due": "Quá hạn thanh toán",
+      "canceled": "Rời bỏ"
+    },
+    "col": {
+      "plan": "Gói",
+      "mrr": "MRR",
+      "next": "Mốc tiếp theo"
+    },
+    "noTrialsEndingSoon": "Không có khách nào hết dùng thử trong 7 ngày tới."
   }
 }

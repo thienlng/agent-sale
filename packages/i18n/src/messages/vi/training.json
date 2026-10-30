@@ -569,7 +569,15 @@
       "courseSchedule": "Lịch học",
       "courseTrial": "Học thử",
       "priceRange": "Khoảng giá lắp đặt",
-      "payback": "Thời gian hoàn vốn"
+      "payback": "Thời gian hoàn vốn",
+      "plans": "Gói cước & bảng giá",
+      "freeTrial": "Dùng thử miễn phí",
+      "demo": "Demo sản phẩm",
+      "integrations": "Tích hợp",
+      "onboarding": "Cài đặt & hướng dẫn",
+      "support": "Hỗ trợ khách hàng",
+      "dataSecurity": "Bảo mật dữ liệu",
+      "refundPolicy": "Hoàn tiền & huỷ gói"
     },
     "examples": {
       "displayName": "Ví dụ: Cửa hàng Hoa Nắng",
@@ -598,7 +606,15 @@
       "courseSchedule": "Ví dụ: Thứ 2-4-6, 18:30-20:30; khai giảng đầu tháng",
       "courseTrial": "Ví dụ: Học thử miễn phí 1 buổi, đăng ký trước 1 ngày",
       "priceRange": "Ví dụ: Hệ thống 5kWp khoảng 60-75 triệu",
-      "payback": "Ví dụ: Thường 4-6 năm tuỳ mức tiêu thụ điện"
+      "payback": "Ví dụ: Thường 4-6 năm tuỳ mức tiêu thụ điện",
+      "plans": "Ví dụ: Gói Cơ bản 299k/tháng (1 kênh, 1.000 tin); gói Pro 799k/tháng (5 kênh); trả năm giảm 20%",
+      "freeTrial": "Ví dụ: Dùng thử 14 ngày, không cần thẻ, đủ tính năng gói Pro",
+      "demo": "Ví dụ: Demo online 30 phút qua Google Meet, thứ 2-6, 9:00-17:00",
+      "integrations": "Ví dụ: Facebook, Zalo OA, website; xuất dữ liệu qua API",
+      "onboarding": "Ví dụ: Hướng dẫn cài đặt miễn phí 1 buổi; chuyển dữ liệu từ Excel",
+      "support": "Ví dụ: Zalo và hotline 8:00-22:00 hằng ngày, phản hồi trong 15 phút",
+      "dataSecurity": "Ví dụ: Máy chủ tại Việt Nam, sao lưu hằng ngày, không chia sẻ dữ liệu cho bên thứ ba",
+      "refundPolicy": "Ví dụ: Huỷ gói bất kỳ lúc nào; hoàn tiền trong 7 ngày đầu nếu chưa dùng"
     }
   },
   "personality": {

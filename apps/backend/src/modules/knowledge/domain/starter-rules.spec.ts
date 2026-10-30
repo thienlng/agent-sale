@@ -72,6 +72,26 @@ describe('starter rules', () => {
       ).toBe(true);
   });
 
+  it('gives SaaS businesses pricing, demo/trial, missing-feature, bargaining and security situations', () => {
+    const rules = starterRulesFor('saas');
+    expect(rules.map((r) => r.title)).toEqual([
+      'Cách nói giá',
+      'Khách muốn xem demo hoặc dùng thử',
+      'Hỏi tính năng chưa có',
+      'Mặc cả giá',
+      'Hỏi về bảo mật dữ liệu',
+      'Sau khi ghi nhận yêu cầu',
+    ]);
+    expect(rules.find((r) => r.title === 'Hỏi tính năng chưa có')?.content).toMatch(
+      /không khẳng định là có/,
+    );
+    expect(rules.map((r) => r.content).join('\n')).not.toMatch(/\d+\s*(k\b|[.,]\d{3})/i);
+    for (const rule of rules)
+      expect(
+        CreateTrainingItemRequest.safeParse({ ...rule, kind: 'scenario', enabled: true }).success,
+      ).toBe(true);
+  });
+
   it('puts no sample price in rule text, because rule text vouches for figures in replies', () => {
     expect(STARTER_RULES.map((r) => r.content).join('\n')).not.toMatch(/\d+\s*(k\b|[.,]\d{3})/i);
   });

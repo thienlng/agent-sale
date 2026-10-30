@@ -94,6 +94,7 @@
     "education": "Education / training centre",
     "hotel": "Hotel / homestay",
     "solar": "Solar / mechanical",
+    "saas": "Software / SaaS",
     "other": "Other"
   },
   "bots": {
@@ -1538,6 +1539,7 @@
         "education": "Centres and classes: courses, tuition, start dates",
         "hotel": "Hotels, homestays, villas: rooms, rates, check-in/out, deposits",
         "solar": "Solar and mechanical work: surveys, quotes, installation, warranty",
+        "saas": "Software, SaaS: plans, free trials, demos, subscribers",
         "other": "Any other field: start from a blank pack and set up your own details"
       },
       "errors": {
@@ -1711,5 +1713,59 @@
     "previous": "Previous page",
     "next": "Next page",
     "conflict": "Details changed, the request key was already used, or the dates overlap a confirmed stay. Reload the list and check the calendar before retrying."
+  },
+  "saas": {
+    "unnamed": "Unnamed customer",
+    "saveSubscription": "Save plan",
+    "subscriptionSaved": "Subscription saved",
+    "subscriptionInvalid": "Check the form: a plan name and a whole MRR ≥ 0 are required; a trial needs its end date, a cancellation its date.",
+    "cancel": "Cancel",
+    "loading": "Loading…",
+    "loadError": "Could not load the data.",
+    "retry": "Retry",
+    "stage": {
+      "trial": "Trial",
+      "active": "Active",
+      "past_due": "Past due",
+      "canceled": "Canceled"
+    },
+    "period": {
+      "monthly": "Monthly",
+      "quarterly": "Quarterly",
+      "yearly": "Yearly"
+    },
+    "sub": {
+      "title": "Subscription",
+      "none": "No plan yet.",
+      "add": "Add plan",
+      "edit": "Edit plan",
+      "customer": "Customer",
+      "planName": "Plan",
+      "stage": "Stage",
+      "billingPeriod": "Billing period",
+      "mrr": "MRR (VND/month)",
+      "seats": "Seats",
+      "trialEndsOn": "Trial ends",
+      "startedOn": "Started",
+      "renewsOn": "Renews",
+      "canceledOn": "Canceled on",
+      "externalRef": "External reference",
+      "nextDate": "Next date",
+      "note": "Note"
+    },
+    "summary": {
+      "mrr": "MRR",
+      "active": "Paying",
+      "trial": "On trial",
+      "trialsEndingSoon": "Trials ending in 7 days",
+      "past_due": "Past due",
+      "canceled": "Churned"
+    },
+    "col": {
+      "plan": "Plan",
+      "mrr": "MRR",
+      "next": "Next date"
+    },
+    "noTrialsEndingSoon": "No trial ends in the next 7 days."
   }
 }

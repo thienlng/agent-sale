@@ -287,7 +287,7 @@ export function AppSidebar({
             />
             {industry === 'hotel' ? (
               <NavItems items={LODGING} />
-            ) : (
+            ) : industry === 'saas' ? null : (
               <>
                 <SectionNav
                   label="nav.orders"

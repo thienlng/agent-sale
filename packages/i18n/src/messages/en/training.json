@@ -569,7 +569,15 @@
       "courseSchedule": "Class schedule",
       "courseTrial": "Trial class",
       "priceRange": "Installation price range",
-      "payback": "Payback time"
+      "payback": "Payback time",
+      "plans": "Plans and prices",
+      "freeTrial": "Free trial",
+      "demo": "Product demo",
+      "integrations": "Integrations",
+      "onboarding": "Setup and onboarding",
+      "support": "Customer support",
+      "dataSecurity": "Data security",
+      "refundPolicy": "Refunds and cancellation"
     },
     "examples": {
       "displayName": "e.g. Sunny Flowers",
@@ -598,7 +606,15 @@
       "courseSchedule": "e.g. Mon-Wed-Fri 18:30-20:30; new classes start monthly",
       "courseTrial": "e.g. One free trial class, register a day ahead",
       "priceRange": "e.g. A 5kWp system costs about 60-75 million VND",
-      "payback": "e.g. Usually 4-6 years depending on usage"
+      "payback": "e.g. Usually 4-6 years depending on usage",
+      "plans": "e.g. Basic 299k/month (1 channel, 1,000 messages); Pro 799k/month (5 channels); 20% off yearly",
+      "freeTrial": "e.g. 14-day trial, no card needed, all Pro features",
+      "demo": "e.g. 30-minute online demo on Google Meet, Mon-Fri 9:00-17:00",
+      "integrations": "e.g. Facebook, Zalo OA, website; export data through the API",
+      "onboarding": "e.g. One free setup session; import data from Excel",
+      "support": "e.g. Zalo and hotline 8:00-22:00 every day, answer within 15 minutes",
+      "dataSecurity": "e.g. Servers in Vietnam, daily backups, no data shared with third parties",
+      "refundPolicy": "e.g. Cancel any time; refund within the first 7 days if unused"
     }
   },
   "personality": {

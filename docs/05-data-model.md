@@ -327,3 +327,7 @@ llm_tier_routes(tier PK: basic|smart|pro|neo, provider_id, model, effort, fallba
 ## Implemented lodging extension (T-155)
 
 Migration 0035 adds optional JSONB `products.accommodation` and forced-RLS `stay_requests`: tenant/product composite FK, request-key uniqueness, local date range, party/quote snapshots, status/version and agreed total. Confirmed stays exclude overlapping half-open date ranges per tenant/property through PostgreSQL GiST. No inventory or payment ledger change occurs. See [lodging](lodging.md) and [ADR-013](adr/ADR-013-lodging-catalog-and-stay-requests.md).
+
+## Implemented SaaS extension (ADR-014)
+
+Migration 0036 adds one forced-RLS tenant table owned by the `saas` module. `saas_subscriptions`: one row per customer (unique `(workspace_id, contact_id)`, composite FK cascading with the contact), stage / billing period checks, `mrr bigint >= 0`, seats, trial / start / renewal / cancellation dates (a trial needs its end, a cancellation its date), optional `external_ref` unique per workspace when set, optimistic `version`. Demo / trial requests have no table: they are a customer status (`requested`, from the SaaS set of built-in `crm_statuses`) and a note. See [SaaS businesses](saas.md).

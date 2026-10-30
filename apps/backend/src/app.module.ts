@@ -11,6 +11,7 @@ import { AuditModule } from './modules/audit/audit.module.js';
 import { BillingModule } from './modules/billing/billing.module.js';
 import { CommerceModule } from './modules/commerce/commerce.module.js';
 import { CrmModule } from './modules/crm/crm.module.js';
+import { SaasModule } from './modules/saas/saas.module.js';
 import { TeamModule } from './modules/team/team.module.js';
 import { BotModule } from './modules/bot/bot.module.js';
 import { HealthModule } from './modules/health/health.module.js';
@@ -37,6 +38,7 @@ import { WorkspaceModule } from './modules/workspace/workspace.module.js';
     ConversationModule,
     WebchatModule,
     CrmModule,
+    SaasModule,
     TeamModule,
     BillingModule,
     AnalyticsModule,

@@ -24,6 +24,24 @@ export const DEFAULT_STATUSES = [
   { key: 'closed', name: 'Đóng', color: '#ef4444' },
 ] as const;
 
+/**
+ * A SaaS business tracks one customer from lead to subscriber (ADR-014): the subscription stage
+ * moves `trial` → `paying` / `past_due` / `churned`, the bot moves a lead to `requested`.
+ */
+export const SAAS_STATUSES = [
+  { key: 'new_lead', name: 'Lead mới', color: '#64748b' },
+  { key: 'contacted', name: 'Đã liên hệ', color: '#0ea5e9' },
+  { key: 'requested', name: 'Xin demo / dùng thử', color: '#6366f1' },
+  { key: 'trial', name: 'Dùng thử', color: '#f59e0b' },
+  { key: 'paying', name: 'Khách trả phí', color: '#16a34a' },
+  { key: 'past_due', name: 'Quá hạn thanh toán', color: '#f97316' },
+  { key: 'churned', name: 'Rời bỏ', color: '#ef4444' },
+] as const;
+
+/** Statuses a business starts with, by industry. */
+export const defaultStatusesFor = (industry: string) =>
+  industry === 'saas' ? SAAS_STATUSES : DEFAULT_STATUSES;
+
 /** System tags (field schemas are our own; the reference only shows field counts). */
 export const DEFAULT_TAGS = [
   {
