@@ -4,6 +4,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
+- [ ] T-130 Upgrade i18next to 26 and react-i18next to 17 together — @agent:claude · [details](todo/T-130-upgrade-i18next-to-26-and-react-i18next-to-17-toge.md) · review: replaces Dependabot #67 and #68
 - [ ] T-089 Centralize customer tags and statuses in customer settings — @agent:claude · [details](todo/T-089-centralize-customer-tags-and-statuses-in-customer-.md) · PR #85
 - [ ] T-088 Link CRM customers to bots and conversations — @agent:claude · [details](todo/T-088-link-crm-customers-to-business-shop-bot-and-conver.md) · PR #85
 - [ ] T-091 Move subscription and message quota ownership to the account — @agent:claude · [details](todo/T-091-move-subscription-and-message-quota-ownership-to-t.md) · PR #85
@@ -46,6 +47,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [ ] T-094 Validate the cross-business review milestone end to end — @unassigned · [details](todo/T-094-validate-the-cross-business-review-milestone-end-t.md)
 - [ ] T-119 Reconcile historical and cross-branch task ID aliases before account integration — @unassigned · [details](todo/T-119-reconcile-historical-and-cross-branch-task-id-alia.md)
 - [ ] T-125 Count bot home statistics by the answering bot instead of its current pages — @unassigned · [details](todo/T-125-count-bot-home-statistics-by-the-answering-bot-ins.md)
+- [ ] T-131 Triage the dev-dependency major bumps from Dependabot PR 71 — @unassigned · [details](todo/T-131-triage-the-dev-dependency-major-bumps-from-dependa.md)
 
 ## Blocked
 
