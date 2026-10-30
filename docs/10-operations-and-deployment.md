@@ -100,6 +100,10 @@ On-call: rotation, PagerDuty/Opsgenie; blameless postmortem for every Sev1/Sev2 
 - Object storage: versioning + lifecycle.
 - **Monthly restore drills** (measure real RTO/RPO), with results recorded.
 
+### One-off: import linked product pictures
+
+Product pictures must be Rapiz-stored files (S3-compatible bucket, `S3_*` env). Before enabling that rule on an environment with older data, take a database backup, then run `pnpm --filter @agent-sales/backend product-images:import --dry-run` (counts only) and `pnpm --filter @agent-sales/backend product-images:import [--workspace <id>]`. It copies each external image into the bucket and rewrites the product URLs; it is idempotent and exits 1 if any image failed (e.g. a dead link), in which case fix or remove those and re-run.
+
 ## 8. Operating costs to track (unit economics)
 
 - AI COGS / AI message per tier; infrastructure COGS / active workspace; message sending cost (ZBS/email) vs selling price; support hours / workspace / month.
