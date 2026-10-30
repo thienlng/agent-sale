@@ -139,3 +139,7 @@ flowchart LR
 ## Current lodging slice (T-155)
 
 One whole property can now carry accommodation metadata and staff-confirmed stay requests inside commerce. This bounded implementation precedes the generic resource/appointment architecture described above; it is not a PMS/external calendar. See [ADR-013](adr/ADR-013-lodging-catalog-and-stay-requests.md) and [lodging operations](lodging.md).
+
+## Current SaaS slice (ADR-014)
+
+Industry `saas` has its own tier-2 module `saas` (requests and subscriptions) and the first per-vertical bot tool, a built-in `builtin.saas.request` action routed in-process. See [ADR-014](adr/ADR-014-saas-vertical-requests-subscriptions-builtin-tool.md) and [SaaS businesses](saas.md).

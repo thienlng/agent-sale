@@ -12,6 +12,8 @@ import {
   ShoppingBag,
   House,
   CalendarDays,
+  Handshake,
+  Repeat,
   Users,
   UsersRound,
 } from 'lucide-react';
@@ -129,6 +131,12 @@ const PRODUCTS: readonly NavItem[] = [
 const LODGING: readonly NavItem[] = [
   { to: '/app/accommodations', key: 'nav.accommodations', icon: House, ready: true },
   { to: '/app/stays', key: 'nav.stayRequests', icon: CalendarDays, ready: true },
+];
+
+/** A SaaS business sells subscriptions: demo/trial requests and subscribers (ADR-014). */
+const SAAS: readonly NavItem[] = [
+  { to: '/app/saas-requests', key: 'nav.saasRequests', icon: Handshake, ready: true },
+  { to: '/app/saas-customers', key: 'nav.saasCustomers', icon: Repeat, ready: true },
 ];
 
 /** The customers area (docs/03 §2 "Khách hàng"). */
@@ -287,6 +295,8 @@ export function AppSidebar({
             />
             {industry === 'hotel' ? (
               <NavItems items={LODGING} />
+            ) : industry === 'saas' ? (
+              <NavItems items={SAAS} />
             ) : (
               <>
                 <SectionNav

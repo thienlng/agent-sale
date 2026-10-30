@@ -33,11 +33,13 @@ export function ContactsList({
   search,
   onSearch,
   renderConversations,
+  renderOverviewExtra,
 }: {
   search: ContactsSearch;
   onSearch: (next: ContactsSearch) => void;
   /** Passed to the customer sheet (see `ContactSheet`). */
   renderConversations?: ((contactId: string) => ReactNode) | undefined;
+  renderOverviewExtra?: ((contactId: string) => ReactNode) | undefined;
 }) {
   const { t } = useTranslation();
   const lookups = useCrmLookups();
@@ -204,6 +206,7 @@ export function ContactsList({
         onClose={() => open(undefined)}
         lookups={lookups}
         renderConversations={renderConversations}
+        renderOverviewExtra={renderOverviewExtra}
       />
     </section>
   );

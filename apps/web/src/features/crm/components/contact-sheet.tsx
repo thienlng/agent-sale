@@ -27,12 +27,15 @@ export function ContactSheet({
   onClose,
   lookups,
   renderConversations,
+  renderOverviewExtra,
 }: {
   contactId: string | undefined;
   onClose: () => void;
   lookups: CrmLookups;
   /** The customer's inbox conversations, composed by the route (the inbox is another feature). */
   renderConversations?: ((contactId: string) => ReactNode) | undefined;
+  /** Industry blocks under the overview (e.g. a SaaS customer's plan), composed by the route. */
+  renderOverviewExtra?: ((contactId: string) => ReactNode) | undefined;
 }) {
   const { t } = useTranslation();
   const contact = useContact(contactId);
@@ -77,6 +80,7 @@ export function ContactSheet({
             </TabsList>
             <TabsContent value="overview" className="pt-3">
               <ContactOverviewTab contact={c} lookups={lookups} />
+              {renderOverviewExtra ? <div className="mt-4">{renderOverviewExtra(c.id)}</div> : null}
             </TabsContent>
             <TabsContent value="details" className="pt-3">
               <ContactDetailsTab key={`${c.id}:${c.version}`} contact={c} lookups={lookups} />

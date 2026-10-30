@@ -30,7 +30,7 @@ beforeEach(() => {
   })) as unknown as typeof window.matchMedia;
 });
 
-function renderAt(path: string, industry?: 'hotel') {
+function renderAt(path: string, industry?: 'hotel' | 'saas') {
   const root = createRootRoute({
     component: () => (
       <TooltipProvider>
@@ -59,6 +59,21 @@ describe('AppSidebar', () => {
     expect(within(nav).getByRole('link', { name: 'Yêu cầu đặt căn' })).toHaveAttribute(
       'href',
       '/app/stays',
+    );
+    expect(within(nav).queryByRole('link', { name: 'Sản phẩm' })).toBeNull();
+    expect(within(nav).queryByRole('button', { name: 'Đơn hàng' })).toBeNull();
+  });
+
+  it('gives a SaaS business its requests and subscribers instead of orders and products', async () => {
+    renderAt('/app/saas-requests', 'saas');
+    const nav = await screen.findByRole('navigation', { name: 'Điều hướng chính' });
+    expect(within(nav).getByRole('link', { name: 'Yêu cầu demo / dùng thử' })).toHaveAttribute(
+      'href',
+      '/app/saas-requests',
+    );
+    expect(within(nav).getByRole('link', { name: 'Khách thuê bao' })).toHaveAttribute(
+      'href',
+      '/app/saas-customers',
     );
     expect(within(nav).queryByRole('link', { name: 'Sản phẩm' })).toBeNull();
     expect(within(nav).queryByRole('button', { name: 'Đơn hàng' })).toBeNull();

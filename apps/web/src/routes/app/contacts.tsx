@@ -5,6 +5,8 @@ import { z } from 'zod';
 import { ContactsList } from '@/features/crm/components/contacts-list';
 import { ContactConversations } from './-components/contact-conversations';
 import { SORT_KEYS } from '@/features/crm/components/contacts-search';
+import { SubscriptionCard } from '@/features/saas/components/subscription-card';
+import { useCurrentWorkspace } from '@/features/workspace/api/use-current-workspace';
 
 /** List state lives in the URL; anything malformed falls back to "none". */
 const Search = z.object({
@@ -27,11 +29,15 @@ export const Route = createFileRoute('/app/contacts')({
   component: function ContactsPage() {
     const search = Route.useSearch();
     const navigate = useNavigate({ from: '/app/contacts' });
+    const saas = useCurrentWorkspace().data?.industry === 'saas';
     return (
       <ContactsList
         search={search}
         onSearch={(next) => void navigate({ search: next, replace: true })}
         renderConversations={(contactId) => <ContactConversations contactId={contactId} />}
+        renderOverviewExtra={
+          saas ? (contactId) => <SubscriptionCard contactId={contactId} /> : undefined
+        }
       />
     );
   },
