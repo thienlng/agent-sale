@@ -111,6 +111,8 @@ export class CatalogService {
   ): Promise<ProductDto[]> {
     const limit = Math.max(1, Math.min(input.limit, BOT_CATALOG_CAP));
     const terms = catalogTerms(input.query ?? '');
+    // A query with no usable term ("a", "?!") matches nothing; only a missing query browses.
+    if (!terms.length && (input.query ?? '').trim()) return [];
     const query = terms.length
       ? foldVietnamese(input.query ?? '')
           .replace(/[^\p{L}\p{N}]+/gu, ' ')
@@ -127,9 +129,15 @@ export class CatalogService {
           limit: filtered ? BOT_CATALOG_CAP : limit,
         });
         const dtos = await this.#dtos(tx, rows);
+        // An accommodation has no stock and a rate reference rather than a price: neither filter applies.
         return dtos
-          .filter((d) => input.maxPriceVnd === undefined || d.priceMin <= input.maxPriceVnd)
-          .filter((d) => !input.inStockOnly || d.available > 0)
+          .filter(
+            (d) =>
+              d.accommodation !== undefined ||
+              input.maxPriceVnd === undefined ||
+              d.priceMin <= input.maxPriceVnd,
+          )
+          .filter((d) => d.accommodation !== undefined || !input.inStockOnly || d.available > 0)
           .slice(0, limit);
       });
     } catch (error) {

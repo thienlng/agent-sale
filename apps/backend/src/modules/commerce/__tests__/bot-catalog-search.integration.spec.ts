@@ -165,6 +165,10 @@ describe('bot catalog search on Postgres', () => {
     expect(names(list)).not.toContain('Bóng gỗ');
   });
 
+  it('returns no rows for a query without a usable term', async () => {
+    expect(await catalog().searchBotCatalog(ws, all, { query: 'a', limit: 8 })).toEqual([]);
+  });
+
   it('filters by price', async () => {
     const rows = await catalog().searchBotCatalog(ws, all, {
       query: 'go thang bang',
