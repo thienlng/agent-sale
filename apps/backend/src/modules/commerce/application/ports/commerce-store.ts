@@ -206,6 +206,8 @@ export interface CommerceTx {
     list(filter: {
       q?: string | undefined;
       status: string;
+      /** Only the products selected for this bot. */
+      selectedFor?: string | undefined;
       offset: number;
       limit: number;
     }): Promise<{
@@ -239,6 +241,17 @@ export interface CommerceTx {
         }
       >
     >;
+  };
+  /** Products selected for a bot (bot_products). */
+  botProducts: {
+    list(botId: string): Promise<string[]>;
+    /**
+     * Replaces the selection. Throws BotNotFoundError or ProductNotFoundError when the bot or a
+     * product is not in the workspace.
+     */
+    replace(workspaceId: WorkspaceId, botId: string, productIds: string[]): Promise<void>;
+    /** Adds one product to the selection; already selected is a no-op. Same errors as replace. */
+    add(workspaceId: WorkspaceId, botId: string, productId: string): Promise<void>;
   };
   inventory: {
     stockOf(variantIds: string[]): Promise<StockRecord[]>;

@@ -6,8 +6,13 @@ import type {
   StockChange,
   StockRecord,
 } from '../../application/ports/commerce-store.js';
-import { DuplicateCodeError } from '../../domain/commerce.errors.js';
 import {
+  BotNotFoundError,
+  DuplicateCodeError,
+  ProductNotFoundError,
+} from '../../domain/commerce.errors.js';
+import {
+  bp,
   contains,
   inv,
   n,
@@ -25,7 +30,21 @@ import {
 export function catalogTx(
   ws: WorkspaceId,
   tx: TenantTx,
-): Pick<CommerceTx, 'warehouses' | 'products' | 'inventory'> {
+): Pick<CommerceTx, 'warehouses' | 'products' | 'botProducts' | 'inventory'> {
+  /** Inserts selection rows; composite keys reject a bot or product of another workspace. */
+  async function insertSelection(workspaceId: WorkspaceId, botId: string, productIds: string[]) {
+    try {
+      await tx
+        .insert(bp)
+        .values(productIds.map((productId) => ({ workspaceId, botId, productId })))
+        .onConflictDoNothing();
+    } catch (e) {
+      if (pgCode(e) !== '23503') throw e;
+      const constraint = (e as { cause?: { constraint_name?: string } }).cause?.constraint_name;
+      if (constraint === 'bot_products_bot_fk') throw new BotNotFoundError(botId);
+      throw new ProductNotFoundError(productIds.join(','));
+    }
+  }
   return {
     warehouses: {
       async list() {
@@ -87,8 +106,17 @@ export function catalogTx(
     },
 
     products: {
-      async list({ q, status, offset, limit }) {
-        const where = and(eq(p.status, status), q ? contains(p.searchText, q) : undefined);
+      async list({ q, status, selectedFor, offset, limit }) {
+        const where = and(
+          eq(p.status, status),
+          q ? contains(p.searchText, q) : undefined,
+          selectedFor
+            ? inArray(
+                p.id,
+                tx.select({ id: bp.productId }).from(bp).where(eq(bp.botId, selectedFor)),
+              )
+            : undefined,
+        );
         const [rows, [count]] = await Promise.all([
           tx.select().from(p).where(where).orderBy(desc(p.updatedAt)).offset(offset).limit(limit),
           tx
@@ -224,6 +252,29 @@ export function catalogTx(
           onHand: n(r.onHand),
           reserved: n(r.reserved),
         }));
+      },
+    },
+
+    botProducts: {
+      async list(botId) {
+        const rows = await tx
+          .select({ id: bp.productId })
+          .from(bp)
+          .where(eq(bp.botId, botId))
+          .orderBy(asc(bp.createdAt), asc(bp.productId));
+        return rows.map((r) => r.id);
+      },
+      async replace(workspaceId, botId, productIds) {
+        // Two saves of one bot's selection would both delete, then both insert the same rows
+        // (duplicate key): one bot's saves run one after the other.
+        await tx.execute(
+          sql`select pg_advisory_xact_lock(hashtextextended(${`bot-products/${workspaceId}/${botId}`},0))`,
+        );
+        await tx.delete(bp).where(eq(bp.botId, botId));
+        if (productIds.length) await insertSelection(workspaceId, botId, productIds);
+      },
+      async add(workspaceId, botId, productId) {
+        await insertSelection(workspaceId, botId, [productId]);
       },
     },
 

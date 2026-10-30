@@ -70,7 +70,7 @@ The global tables are read and written only by a new `account` backend module, t
   - Products stay business-owned.
   - `bots.catalog_mode` is `all` (default, today's behavior) or `selected`.
   - `bot_products(workspace_id, bot_id, product_id)` lists the selection, with composite foreign keys to `bots(workspace_id, id)` and `products(workspace_id, id)`, and RLS.
-  - `CatalogFacade` lookups take the bot.
+  - `CatalogFacade` lookups take the bot (`{ botId, catalogMode }`); in `selected` mode only the bot's selected, active, bot-visible products are returned. Selections are managed with `GET`/`PUT /bots/{botId}/products` (T-080).
   - A product created from a bot's screen is created in the business catalog and selected for that bot.
   - Price and stock are shared; there is no per-bot price.
 - **Channel ↔ bot consistency.** `channel_connections` gets a composite foreign key (`workspace_id`, `bot_id`) → `bots(workspace_id, id)` with `ON DELETE SET NULL (bot_id)`. This makes a channel bound to another workspace's bot impossible.
@@ -89,6 +89,19 @@ The global tables are read and written only by a new `account` backend module, t
 - **Reservation.** Reserve before generating, capture on send, release on failure. This keeps concurrent replies from exceeding the allowance.
 - **Exhaustion.** The bot stops and hands off, the customer gets the configurable "staff will reply soon" message, and the dashboard shows a banner (docs/08).
 - **Financial history.** Ledger and financial history are never rewritten (ADR-008).
+
+**Implementation notes (T-091, migration 0031).** Details: docs/08 §4a.
+
+- **Timezone.** Accounts have no time zone column yet. A paid account's cycles start at its copied `current_period_start` (`cycle_anchor`). Free accounts use one fixed anchor at 00:00 Vietnam time with the free plan's 14-day cycles. A per-account time zone is a later, additive change.
+- **Release and expiry.** A delivery that ends `unknown`/`pending` keeps its reservation for 15 minutes, then stops holding allowance. Such a reply is not counted, which favours the customer; capturing a stale reservation later can exceed the allowance by one reply.
+- **Comment replies.** Fanpage comment replies are billed like messages (key `comment:<comment id>`). When the allowance is exhausted, the comment goes to staff review.
+- **Unlinked businesses.** A business without an account is not metered until the account backfill links it.
+- **Subscription source.** Until the backfill, a business falls back to its own subscription.
+- **Open questions.**
+  1. `members.max` is kept and still enforced.
+  2. The backfill applies the proposed rule (highest plan, then latest period end; conflicts reported; no money moves).
+  3. The free allowance stays 1,000 messages per 14 days, now per account.
+  4. Untouched by this task.
 
 ### 6. Routes and navigation
 
@@ -134,7 +147,7 @@ Switching keeps the T-081 guarantees: tenant captured per request, in-flight que
    - Add nullable `workspaces.account_id`.
    - Add a unique key on `bots(workspace_id, id)`.
    - Add nullable `conversations.bot_id` and `analytics_facts.bot_id`.
-   - Add `bots.catalog_mode` with default `all` and create `bot_products` with RLS. T-078 ships the rest of this step as migration 0028; these two come with T-080, which first uses them.
+   - Add `bots.catalog_mode` with default `all` and create `bot_products` with RLS. T-078 ships the rest of this step as migration 0028; these two ship with T-080 as migration 0029 (additive; existing bots stay `all`).
    - Add the channel → bot composite foreign key as `NOT VALID`.
 2. **Backfill.** An idempotent operator command, `account:backfill [--dry-run]`:
    - one account per distinct `workspaces.owner_user_id`, named after the owner, with an `owner` account member;

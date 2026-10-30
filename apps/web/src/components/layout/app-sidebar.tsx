@@ -248,11 +248,9 @@ function NavItems({ items }: { items: readonly NavItem[] }) {
 /** The dashboard sidebar; variant and collapse mode come from the user's preferences. */
 export function AppSidebar({
   createBusinessDialog,
-  businessLogo,
   industry,
 }: {
   createBusinessDialog?: ((props: CreateBusinessDialogProps) => ReactNode) | undefined;
-  businessLogo?: ReactNode;
   industry?: string | undefined;
 }) {
   const { t } = useTranslation();
@@ -272,7 +270,7 @@ export function AppSidebar({
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
-        <BusinessSelector createBusinessDialog={createBusinessDialog} businessLogo={businessLogo} />
+        <BusinessSelector createBusinessDialog={createBusinessDialog} />
       </SidebarHeader>
       <SidebarContent>
         {/* `contents` keeps the sidebar's own layout while exposing a navigation landmark. */}

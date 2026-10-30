@@ -17,6 +17,7 @@ export interface ConversationFilter {
   /** A member id, or `none` for unassigned. */
   assignee?: string | undefined;
   channelId?: string | undefined;
+  contactId?: string | undefined;
   hasPhone?: boolean | undefined;
   waiting?: 'any' | 'longest' | 'readNotReplied' | undefined;
   status?: ConversationStatus | undefined;
@@ -48,6 +49,7 @@ export function toListFilter(q: ConversationListQuery, viewerId?: string): Conve
     tab: q.tab ?? 'all',
     assignee: q.assignee === 'me' ? viewerId : q.assignee,
     channelId: q.channelId,
+    contactId: q.contactId,
     hasPhone: q.hasPhone,
     waiting: q.waiting,
     status: q.status,
@@ -77,6 +79,7 @@ export function matchesFilter(c: ConversationView, f: ConversationFilter): boole
   if (f.followUp !== undefined && Boolean(c.followUpAt) !== f.followUp) return false;
   if (f.mode && c.mode !== f.mode) return false;
   if (f.channelId && c.channelId !== f.channelId) return false;
+  if (f.contactId && c.contactId !== f.contactId) return false;
   if (f.botId && c.botId !== (f.botId === 'none' ? null : f.botId)) return false;
   if (f.updatedFrom && Date.parse(c.updatedAt) < Date.parse(f.updatedFrom)) return false;
   if (f.updatedTo && Date.parse(c.updatedAt) >= Date.parse(f.updatedTo)) return false;

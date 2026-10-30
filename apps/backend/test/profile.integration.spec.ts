@@ -23,6 +23,7 @@ describe('workspace profile', () => {
     expect(first).toMatchObject({
       name: 'Shop Chủ shop Lan',
       companyName: '',
+      icon: 'building',
       hasLogo: false,
       version: 1,
     });
@@ -32,6 +33,7 @@ describe('workspace profile', () => {
       companyName: 'Công ty TNHH Lan Fashion',
       businessServices: 'Thời trang nữ, may đo',
       productDescription: 'Áo dài, váy công sở, phụ kiện',
+      icon: 'shirt',
       expectedVersion: 1,
     });
     expect(saved.statusCode, saved.body).toBe(200);
@@ -44,8 +46,16 @@ describe('workspace profile', () => {
       companyName: 'Công ty TNHH Lan Fashion',
       businessServices: 'Thời trang nữ, may đo',
       productDescription: 'Áo dài, váy công sở, phụ kiện',
+      icon: 'shirt',
       version: 2,
     });
+    // An icon outside the list is refused and changes nothing.
+    const bad = await t.call(lan.h, 'PATCH', '/workspace/profile', {
+      icon: 'rocket',
+      expectedVersion: 2,
+    });
+    expect(bad.statusCode).toBe(400);
+    expect((await profile(lan.h)).icon).toBe('shirt');
     // The shop name is the same name everywhere.
     expect((await t.call(lan.h, 'GET', '/workspaces/current')).json()).toMatchObject({
       name: 'Cửa hàng Lan',

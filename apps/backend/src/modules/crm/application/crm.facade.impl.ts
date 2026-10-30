@@ -37,6 +37,10 @@ export class CrmFacadeImpl implements CrmFacade {
     return this.contacts.upsertLead(ws, input);
   }
 
+  recordContactBot(ws: WorkspaceId, contactId: string, botId: string) {
+    return this.contacts.recordBot(ws, contactId, botId);
+  }
+
   conversationTags(ws: WorkspaceId, ids: readonly string[]) {
     return this.conversationTagsService.chips(ws, ids);
   }

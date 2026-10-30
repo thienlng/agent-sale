@@ -1,5 +1,6 @@
 import type {
   AdjustStockRequest,
+  BotProductsDto,
   ProductDto,
   ProductListResponse,
   UpsertProductRequest,
@@ -8,15 +9,18 @@ import type {
   WarehouseDto,
 } from '@agent-sales/contracts';
 import {
+  SetBotProductsRequest,
   UpsertProductRequest as UpsertProductSchema,
   UpsertWarehouseRequest as UpsertWarehouseSchema,
 } from '@agent-sales/contracts';
 import { foldVietnamese, isUuid, newId, type WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
+import type { BotCatalogScope } from '../api/catalog.facade.js';
 import { botProductSearches } from '../domain/bot-product-search.js';
 import { LodgingError } from '../domain/lodging.js';
 import {
+  BotNotFoundError,
   ProductNotFoundError,
   WarehouseInUseError,
   WarehouseNotFoundError,
@@ -87,19 +91,32 @@ function productSearchText(
   return foldVietnamese([p.code, p.name, ...variants.flatMap((v) => [v.sku, v.name])].join(' '));
 }
 
+/** The bot_products filter for a bot in 'selected' mode; undefined sells every active product. */
+function selection(bot: BotCatalogScope): string | undefined {
+  return bot.catalogMode === 'selected' ? bot.botId : undefined;
+}
+
 /** Warehouses, products with variants, stock adjustments and the order-form picker (ORD-01, ORD-02). */
 @Injectable()
 export class CatalogService {
   constructor(@Inject(COMMERCE_STORE) private readonly store: CommerceStore) {}
 
-  async getBotProducts(ws: WorkspaceId, query: string, limit: number): Promise<ProductDto[]> {
+  async getBotProducts(
+    ws: WorkspaceId,
+    bot: BotCatalogScope,
+    query: string,
+    limit: number,
+  ): Promise<ProductDto[]> {
     const cap = Math.max(1, Math.min(limit, 20));
     const { searches, words } = botProductSearches(query);
     if (!searches.length) return [];
+    const selectedFor = selection(bot);
     let matches: ProductListResponse[];
     try {
       matches = await Promise.all(
-        searches.map((q) => this.listProducts(ws, { q, status: 'active', page: 1, pageSize: cap })),
+        searches.map((q) =>
+          this.listProducts(ws, { q, status: 'active', page: 1, pageSize: cap, selectedFor }),
+        ),
       );
     } catch (error) {
       // DB-less playgrounds still answer FAQs; real persistence failures must surface.
@@ -118,10 +135,19 @@ export class CatalogService {
     return [...unique.values()].sort((a, b) => score(b) - score(a)).slice(0, cap);
   }
 
-  async listBotCatalog(ws: WorkspaceId, limit: number): Promise<ProductDto[]> {
+  async listBotCatalog(
+    ws: WorkspaceId,
+    bot: BotCatalogScope,
+    limit: number,
+  ): Promise<ProductDto[]> {
     const cap = Math.max(1, Math.min(limit, 30));
     try {
-      const page = await this.listProducts(ws, { status: 'active', page: 1, pageSize: cap });
+      const page = await this.listProducts(ws, {
+        status: 'active',
+        page: 1,
+        pageSize: cap,
+        selectedFor: selection(bot),
+      });
       return page.data.filter((product) => product.visibleToBot);
     } catch (error) {
       if (error instanceof CommerceUnavailableError) return [];
@@ -195,12 +221,15 @@ export class CatalogService {
       status: 'active' | 'archived';
       page: number;
       pageSize: number;
+      /** Only the products selected for this bot (internal: bots in 'selected' mode). */
+      selectedFor?: string | undefined;
     },
   ): Promise<ProductListResponse> {
     return this.store.run(ws, async (tx) => {
       const { rows, total } = await tx.products.list({
         q: query.q ? foldVietnamese(query.q) : undefined,
         status: query.status,
+        selectedFor: query.selectedFor,
         offset: (query.page - 1) * query.pageSize,
         limit: query.pageSize,
       });
@@ -264,7 +293,29 @@ export class CatalogService {
           archived: false,
         })),
       );
+      if (input.botId) await tx.botProducts.add(ws, input.botId, product.id);
       return this.#productDto(tx, product.id);
+    });
+  }
+
+  // ─── Per-bot selection (T-080, ADR-012 §5) ────────────────────────────────
+
+  async listBotProducts(ws: WorkspaceId, botId: string): Promise<BotProductsDto> {
+    if (!isUuid(botId)) throw new BotNotFoundError(botId);
+    return { productIds: await this.store.run(ws, (tx) => tx.botProducts.list(botId)) };
+  }
+
+  /** Replaces the selection; a bot or product outside the workspace is NOT_FOUND. */
+  async setBotProducts(
+    ws: WorkspaceId,
+    botId: string,
+    raw: SetBotProductsRequest,
+  ): Promise<BotProductsDto> {
+    if (!isUuid(botId)) throw new BotNotFoundError(botId);
+    const { productIds } = SetBotProductsRequest.parse(raw);
+    return this.store.run(ws, async (tx) => {
+      await tx.botProducts.replace(ws, botId, productIds);
+      return { productIds: await tx.botProducts.list(botId) };
     });
   }
 

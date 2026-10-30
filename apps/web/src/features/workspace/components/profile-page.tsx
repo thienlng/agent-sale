@@ -1,4 +1,4 @@
-import type { WorkspaceProfileDto } from '@agent-sales/contracts';
+import { BUSINESS_ICONS, type WorkspaceProfileDto } from '@agent-sales/contracts';
 import { Link, useBlocker } from '@tanstack/react-router';
 import { ChevronRight } from 'lucide-react';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
@@ -20,6 +20,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ApiClientError } from '@/lib/api-client';
 import { errorMessage } from '@/lib/errors';
+import { businessIcon } from '@/lib/business-icons';
 import { useCan } from '@/lib/permissions';
 
 import { useProfile, useProfileMutations } from '../api/profile';
@@ -28,10 +29,11 @@ import { BusinessIndustry } from './business-industry';
 import { LogoField } from './logo-field';
 
 // businessServices and productDescription are deprecated (T-144): neither edited here nor read by the AI.
-type Draft = Pick<WorkspaceProfileDto, 'name' | 'companyName'>;
+type Draft = Pick<WorkspaceProfileDto, 'name' | 'companyName' | 'icon'>;
 const draftOf = (p: WorkspaceProfileDto): Draft => ({
   name: p.name,
   companyName: p.companyName,
+  icon: p.icon,
 });
 
 function ProfileForm({ profile }: { profile: WorkspaceProfileDto }) {
@@ -73,7 +75,7 @@ function ProfileForm({ profile }: { profile: WorkspaceProfileDto }) {
     );
   };
 
-  const field = (key: keyof Draft, label: string, max: number) => (
+  const field = (key: Exclude<keyof Draft, 'icon'>, label: string, max: number) => (
     <div className="flex flex-col gap-1.5">
       <Label htmlFor={`pf-${key}`}>{label}</Label>
       <Input
@@ -95,6 +97,36 @@ function ProfileForm({ profile }: { profile: WorkspaceProfileDto }) {
         </p>
       ) : null}
       {field('name', t('wsettings.profile.name'), 120)}
+      <fieldset className="flex flex-col gap-2" disabled={!canEdit}>
+        <legend className="text-sm font-medium">{t('wsettings.icon.title')}</legend>
+        <p className="text-sm text-muted-foreground">
+          {profile.hasLogo ? t('wsettings.icon.hintLogo') : t('wsettings.icon.hint')}
+        </p>
+        <div
+          className="flex flex-wrap gap-2"
+          role="radiogroup"
+          aria-label={t('wsettings.icon.title')}
+        >
+          {BUSINESS_ICONS.map((key) => {
+            const Icon = businessIcon(key);
+            const name = t(`wsettings.icon.names.${key}`);
+            return (
+              <button
+                key={key}
+                type="button"
+                role="radio"
+                aria-checked={draft.icon === key}
+                aria-label={name}
+                title={name}
+                onClick={() => set({ icon: key })}
+                className="grid size-10 place-items-center rounded-lg border text-muted-foreground hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60 aria-checked:border-primary aria-checked:bg-primary-soft aria-checked:text-accent-foreground"
+              >
+                <Icon aria-hidden className="size-5" />
+              </button>
+            );
+          })}
+        </div>
+      </fieldset>
       <BusinessIndustry />
       <Collapsible defaultOpen={draft.companyName !== ''} className="group/company">
         <CollapsibleTrigger className="flex items-center gap-1.5 text-sm font-medium focus-visible:outline-2 focus-visible:outline-ring">

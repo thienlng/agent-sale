@@ -31,6 +31,7 @@ import { Route as AppSettingsRouteImport } from './routes/app/settings'
 import { Route as AppStaysRouteImport } from './routes/app/stays'
 import { Route as AppBotsIndexRouteImport } from './routes/app/bots/index'
 import { Route as AppBotsBotIdRouteImport } from './routes/app/bots/$botId'
+import { Route as AppBusinessesNewRouteImport } from './routes/app/businesses/new'
 import { Route as AppCrmSettingsIndexRouteImport } from './routes/app/crm-settings/index'
 import { Route as AppCrmSettingsDistributionRouteImport } from './routes/app/crm-settings/distribution'
 import { Route as AppCrmSettingsSourcesRouteImport } from './routes/app/crm-settings/sources'
@@ -173,6 +174,11 @@ const AppBotsIndexRoute = AppBotsIndexRouteImport.update({
 const AppBotsBotIdRoute = AppBotsBotIdRouteImport.update({
   id: '/bots/$botId',
   path: '/bots/$botId',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppBusinessesNewRoute = AppBusinessesNewRouteImport.update({
+  id: '/businesses/new',
+  path: '/businesses/new',
   getParentRoute: () => AppRoute,
 } as any)
 const AppCrmSettingsIndexRoute = AppCrmSettingsIndexRouteImport.update({
@@ -371,6 +377,7 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AdminIndexRoute
   '/app/': typeof AppIndexRoute
   '/app/bots/$botId': typeof AppBotsBotIdRouteWithChildren
+  '/app/businesses/new': typeof AppBusinessesNewRoute
   '/app/crm-settings/distribution': typeof AppCrmSettingsDistributionRoute
   '/app/crm-settings/sources': typeof AppCrmSettingsSourcesRoute
   '/app/crm-settings/statuses': typeof AppCrmSettingsStatusesRoute
@@ -422,6 +429,7 @@ export interface FileRoutesByTo {
   '/app/stays': typeof AppStaysRoute
   '/admin': typeof AdminIndexRoute
   '/app': typeof AppIndexRoute
+  '/app/businesses/new': typeof AppBusinessesNewRoute
   '/app/crm-settings/distribution': typeof AppCrmSettingsDistributionRoute
   '/app/crm-settings/sources': typeof AppCrmSettingsSourcesRoute
   '/app/crm-settings/statuses': typeof AppCrmSettingsStatusesRoute
@@ -480,6 +488,7 @@ export interface FileRoutesById {
   '/admin/': typeof AdminIndexRoute
   '/app/': typeof AppIndexRoute
   '/app/bots/$botId': typeof AppBotsBotIdRouteWithChildren
+  '/app/businesses/new': typeof AppBusinessesNewRoute
   '/app/crm-settings/distribution': typeof AppCrmSettingsDistributionRoute
   '/app/crm-settings/sources': typeof AppCrmSettingsSourcesRoute
   '/app/crm-settings/statuses': typeof AppCrmSettingsStatusesRoute
@@ -539,6 +548,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/app/'
     | '/app/bots/$botId'
+    | '/app/businesses/new'
     | '/app/crm-settings/distribution'
     | '/app/crm-settings/sources'
     | '/app/crm-settings/statuses'
@@ -590,6 +600,7 @@ export interface FileRouteTypes {
     | '/app/stays'
     | '/admin'
     | '/app'
+    | '/app/businesses/new'
     | '/app/crm-settings/distribution'
     | '/app/crm-settings/sources'
     | '/app/crm-settings/statuses'
@@ -647,6 +658,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/app/'
     | '/app/bots/$botId'
+    | '/app/businesses/new'
     | '/app/crm-settings/distribution'
     | '/app/crm-settings/sources'
     | '/app/crm-settings/statuses'
@@ -846,6 +858,13 @@ declare module '@tanstack/react-router' {
       path: '/bots/$botId'
       fullPath: '/app/bots/$botId'
       preLoaderRoute: typeof AppBotsBotIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/businesses/new': {
+      id: '/app/businesses/new'
+      path: '/businesses/new'
+      fullPath: '/app/businesses/new'
+      preLoaderRoute: typeof AppBusinessesNewRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/crm-settings/': {
@@ -1199,6 +1218,7 @@ interface AppRouteChildren {
   AppStaysRoute: typeof AppStaysRoute
   AppIndexRoute: typeof AppIndexRoute
   AppBotsBotIdRoute: typeof AppBotsBotIdRouteWithChildren
+  AppBusinessesNewRoute: typeof AppBusinessesNewRoute
   AppOrdersOrderIdRoute: typeof AppOrdersOrderIdRoute
   AppOrdersNewRoute: typeof AppOrdersNewRoute
   AppOrdersOverviewRoute: typeof AppOrdersOverviewRoute
@@ -1223,6 +1243,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppStaysRoute: AppStaysRoute,
   AppIndexRoute: AppIndexRoute,
   AppBotsBotIdRoute: AppBotsBotIdRouteWithChildren,
+  AppBusinessesNewRoute: AppBusinessesNewRoute,
   AppOrdersOrderIdRoute: AppOrdersOrderIdRoute,
   AppOrdersNewRoute: AppOrdersNewRoute,
   AppOrdersOverviewRoute: AppOrdersOverviewRoute,

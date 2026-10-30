@@ -13,6 +13,8 @@ export interface SubscriptionRecord {
   planVersion: number;
   status: EntitlementsDto['status'];
   currentPeriodEnd: Date | null;
+  /** Where the message allowance cycles of this subscription start. */
+  cycleAnchor: Date;
 }
 
 export interface OverrideRecord {

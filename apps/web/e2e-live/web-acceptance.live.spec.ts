@@ -34,6 +34,7 @@ async function body<T>(response: APIResponse): Promise<T> {
   return (await response.json()) as T;
 }
 
+let signups = 0;
 async function subject(page: Page): Promise<Subject> {
   const suffix = stamp();
   const email = `acceptance-${suffix}@e2e.rapiz.test`;
@@ -41,6 +42,10 @@ async function subject(page: Page): Promise<Subject> {
   const auth = await body<{ accessToken: string }>(
     await page.request.post('/api/v1/auth/signup', {
       data: { email, password, name: 'QA Owner', workspaceName, industry: 'fashion' },
+      // The live suite signs up more owners than one address may in 15 minutes (10).
+      headers: {
+        'x-forwarded-for': `10.77.${Math.floor(Math.random() * 250)}.${(signups++ % 250) + 1}`,
+      },
     }),
   );
   const bootstrap = await body<{ memberships: Array<{ workspaceId: string }> }>(
@@ -60,12 +65,13 @@ function headers(owner: Subject, workspaceId = owner.workspaceId): Record<string
   return { authorization: `Bearer ${owner.token}`, 'x-workspace-id': workspaceId };
 }
 
-async function login(page: Page, owner: Subject): Promise<void> {
+/** One business opens on its statistics; several and none chosen open the account overview (T-079). */
+async function login(page: Page, owner: Subject, landing = /\/app\/analytics/): Promise<void> {
   await page.goto('/login');
   await page.getByLabel('Email', { exact: true }).fill(owner.email);
   await page.getByLabel('Mật khẩu', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
-  await expect(page).toHaveURL(/\/app\/analytics/);
+  await expect(page).toHaveURL(landing);
 }
 
 async function noOverflow(page: Page): Promise<void> {
@@ -130,9 +136,12 @@ test('business switching isolates source records and survives reload on desktop 
     data: { name: 'should not change', expectedVersion: firstContact.version },
   });
   expect(crossWrite.status()).toBe(404);
-  await login(page, owner);
-  await page.getByRole('button', { name: 'Chọn business', exact: true }).click();
-  await page.getByRole('button', { name: owner.workspaceName, exact: true }).click();
+  await login(page, owner, /\/app\/overview$/);
+  await page
+    .getByRole('navigation', { name: 'Điều hướng tài khoản' })
+    .getByRole('button', { name: owner.workspaceName, exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/app\/analytics$/);
   await expect(page.getByRole('button', { name: 'Chọn business', exact: true })).toContainText(
     owner.workspaceName,
   );

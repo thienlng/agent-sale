@@ -19,6 +19,10 @@ const user = {
 
 async function setup(page: Page, failedBusiness?: string, largeNumbers = false) {
   await mockApi(page);
+  // With two businesses the user chooses one (T-079); these tests start from a remembered A.
+  await page.addInitScript((id) => {
+    if (!localStorage.getItem('rapiz.workspace')) localStorage.setItem('rapiz.workspace', id);
+  }, A);
   const requests: string[] = [];
   await page.route('**/api/v1/bootstrap', (route) =>
     route.fulfill({
@@ -56,8 +60,12 @@ test('opens business statistics as home while preserving existing module navigat
   page,
 }) => {
   await setup(page);
+  // `/` opens the account overview (T-126); a business's home is its statistics.
   await page.goto('/');
-  await expect(page).toHaveURL(/\/app\/analytics$/);
+  await expect(page).toHaveURL(/\/app\/overview$/);
+  await page.goto('/app');
+  await expect(page).toHaveURL(/\/app\/overview$/);
+  await page.goto('/app/analytics');
   await expect(page.getByRole('region', { name: 'Chỉ số chính' }).getByRole('heading')).toHaveCount(
     4,
   );
@@ -93,16 +101,26 @@ test('sidebar selector changes real context and clears resource-specific navigat
   );
 });
 
-test('account dropdown anchors locally and contains no business choices', async ({ page }) => {
-  await setup(page);
+test('account dropdown anchors locally and also switches business', async ({ page }) => {
+  const requests = await setup(page);
   await page.goto('/app/analytics');
   const account = page.getByRole('button', { name: /Tài khoản của Demo/ });
   await account.click();
   const menu = page.getByRole('menu');
   await expect(menu).toBeVisible();
   await expect(menu.getByRole('menuitem', { name: 'Đăng xuất' })).toBeVisible();
-  await expect(menu.getByText('Business A')).toHaveCount(0);
-  await expect(menu.getByText('Business B')).toHaveCount(0);
+  await menu.getByRole('menuitem', { name: 'Chuyển business' }).click();
+  const businesses = page.getByRole('menu').last();
+  await expect(businesses.getByRole('menuitem', { name: 'Business A' })).toHaveAttribute(
+    'aria-current',
+    'true',
+  );
+  await businesses.getByRole('menuitem', { name: 'Business B' }).click();
+  await expect(page.getByRole('button', { name: 'Chọn business', exact: true })).toContainText(
+    'Business B',
+  );
+  await expect(page.getByRole('region', { name: 'Chỉ số chính' })).toContainText('20');
+  expect(requests).toContain(B);
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
@@ -114,13 +132,17 @@ test('logo reads authorized business totals without changing the selected busine
   await page.getByRole('link', { name: 'Rapiz', exact: true }).click();
   await expect(page).toHaveURL(/\/app\/overview$/);
   await expect(page.getByRole('region', { name: 'Chỉ số chính' })).toContainText('30');
-  await expect(page.getByRole('button', { name: 'Chọn business', exact: true })).toContainText(
-    'Business A',
-  );
+  // The overview has the account sidebar, not the business selector: back in a business page,
+  // the selection is still A.
+  expect(await page.evaluate(() => localStorage.getItem('rapiz.workspace'))).toBe(A);
   expect(requests).toContain(A);
   expect(requests).toContain(B);
   await expect(page.getByText('Thống kê theo shop chưa có dữ liệu.')).toBeVisible();
   await expect(page.getByText(/Chỉ gồm khách bạn phụ trách/).first()).toBeVisible();
+  await page.goto('/app/analytics');
+  await expect(page.getByRole('button', { name: 'Chọn business', exact: true })).toContainText(
+    'Business A',
+  );
 });
 
 test('a failed business never becomes a zero or an apparently complete portfolio total', async ({

@@ -10,10 +10,12 @@ import {
   primaryKey,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
   unique,
 } from 'drizzle-orm/pg-core';
 
+import { bots } from './bot.js';
 import { tenantPolicies, workspaces } from './workspace.js';
 
 /** Money columns: bigint VND, read as JS numbers (safe far beyond any order total). */
@@ -62,7 +64,8 @@ export const products = pgTable(
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
   (t) => [
-    unique('products_tenant_id_unique').on(t.workspaceId, t.id),
+    // Target of the same-workspace keys from bot_products (0029) and stay_requests (0035).
+    uniqueIndex('products_workspace_id_unique').on(t.workspaceId, t.id),
     ...tenantPolicies('products'),
   ],
 );
@@ -104,6 +107,32 @@ export const stayRequests = pgTable(
       t.checkOut,
     ),
     ...tenantPolicies('stay_requests'),
+  ],
+);
+
+/** Products selected for a bot whose catalog_mode is 'selected' (0029, ADR-012 §5). */
+export const botProducts = pgTable(
+  'bot_products',
+  {
+    workspaceId: workspaceRef(),
+    botId: uuid('bot_id').notNull(),
+    productId: uuid('product_id').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.workspaceId, t.botId, t.productId] }),
+    foreignKey({
+      name: 'bot_products_bot_fk',
+      columns: [t.workspaceId, t.botId],
+      foreignColumns: [bots.workspaceId, bots.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'bot_products_product_fk',
+      columns: [t.workspaceId, t.productId],
+      foreignColumns: [products.workspaceId, products.id],
+    }).onDelete('cascade'),
+    index('bot_products_product_idx').on(t.workspaceId, t.productId),
+    ...tenantPolicies('bot_products'),
   ],
 );
 

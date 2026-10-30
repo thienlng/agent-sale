@@ -48,6 +48,7 @@ beforeEach(() => {
     name: 'Bot',
     industry: 'retail',
     isActive: true,
+    catalogMode: 'all',
     mission: '',
     greeting: '',
     selfPronoun: '',

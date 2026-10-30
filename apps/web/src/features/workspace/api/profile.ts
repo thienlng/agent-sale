@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api, apiBlob } from '@/lib/api-client';
 import { queryKeys } from '@/lib/query-keys';
-import { reloadSession } from '@/lib/session';
+import { reloadSession, syncMembership } from '@/lib/session';
 import { useWorkspaceId } from '@/lib/use-workspace';
 
 import { workspaceKeys } from './use-current-workspace';
@@ -21,7 +21,11 @@ export function useProfile() {
 export function useProfileMutations() {
   const ws = useWorkspaceId();
   const qc = useQueryClient();
-  const set = (p: WorkspaceProfileDto) => qc.setQueryData(queryKeys.profile(ws), p);
+  const set = (p: WorkspaceProfileDto) => {
+    qc.setQueryData(queryKeys.profile(ws), p);
+    // The business lists read name and logo from the session, so keep them in step.
+    if (ws) syncMembership(ws, p);
+  };
   return {
     update: useMutation({
       mutationFn: (body: UpdateWorkspaceProfileRequest) =>

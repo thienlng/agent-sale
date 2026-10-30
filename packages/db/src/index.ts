@@ -3,6 +3,10 @@ export * from './tenant.js';
 export * from './outbox.js';
 export * from './audit.js';
 export { backfillAccounts, type AccountBackfillReport } from './account-backfill.js';
+export {
+  backfillAccountSubscriptions,
+  type AccountSubscriptionBackfillReport,
+} from './account-subscription-backfill.js';
 export { backfillBotProfiles, type BotProfileBackfillReport } from './bot-profile-backfill.js';
 export { ensureLoginRoles, migrate, MIGRATIONS_DIR, withCredentials } from './migrate.js';
 export * as schema from './schema/index.js';

@@ -333,7 +333,7 @@
       "title": "Thông tin về sản phẩm",
       "subtitle": "Quản lý thông tin sản phẩm, dịch vụ mà Bot dùng để phản hồi khách hàng",
       "tab": "Sản phẩm",
-      "shared": "Danh mục sản phẩm được dùng chung cho tất cả Bot trong workspace.",
+      "shared": "Danh mục sản phẩm thuộc doanh nghiệp. Chọn những sản phẩm Bot này được giới thiệu và bán.",
       "search": "Tìm kiếm theo tên hoặc mã sản phẩm",
       "add": "Thêm sản phẩm",
       "exportCsv": "Tải danh sách sản phẩm (CSV)",
@@ -344,7 +344,18 @@
       "colPrice": "Giá",
       "colDescription": "Mô tả",
       "colUpdated": "Cập nhật gần nhất",
-      "colCode": "Mã sản phẩm"
+      "colCode": "Mã sản phẩm",
+      "modeLabel": "Bot bán sản phẩm nào",
+      "modeAll": "Tất cả sản phẩm đang bán",
+      "modeAllHint": "Sản phẩm mới tự động có trong danh sách của Bot.",
+      "modeSelected": "Chỉ sản phẩm được chọn",
+      "modeSelectedHint": "Tích chọn từng sản phẩm trong bảng. Sản phẩm thêm từ trang này được chọn sẵn.",
+      "modeError": "Không đổi được chế độ. Vui lòng thử lại.",
+      "colSelect": "Bán",
+      "select": "Bot bán {{name}}",
+      "selectedCount": "Đã chọn {{count}} sản phẩm",
+      "noneSelected": "Bot chưa có sản phẩm nào được chọn nên sẽ không giới thiệu sản phẩm.",
+      "selectError": "Không lưu được lựa chọn. Vui lòng thử lại."
     },
     "faq": {
       "title": "Thông tin doanh nghiệp",

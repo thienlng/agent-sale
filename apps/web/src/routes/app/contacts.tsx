@@ -3,6 +3,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { z } from 'zod';
 
 import { ContactsList } from '@/features/crm/components/contacts-list';
+import { ContactConversations } from './-components/contact-conversations';
 import { SORT_KEYS } from '@/features/crm/components/contacts-search';
 
 /** List state lives in the URL; anything malformed falls back to "none". */
@@ -30,6 +31,7 @@ export const Route = createFileRoute('/app/contacts')({
       <ContactsList
         search={search}
         onSearch={(next) => void navigate({ search: next, replace: true })}
+        renderConversations={(contactId) => <ContactConversations contactId={contactId} />}
       />
     );
   },

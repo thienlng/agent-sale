@@ -7,6 +7,13 @@ export class ProductNotFoundError extends DomainError {
   }
 }
 
+export class BotNotFoundError extends DomainError {
+  readonly code = 'NOT_FOUND';
+  constructor(id: string) {
+    super('Bot not found', { id });
+  }
+}
+
 export class WarehouseNotFoundError extends DomainError {
   readonly code = 'NOT_FOUND';
   constructor(id: string) {

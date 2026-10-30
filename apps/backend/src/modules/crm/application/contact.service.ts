@@ -234,6 +234,18 @@ export class ContactService {
   }
 
   /**
+   * A bot answered (or was answering) a conversation linked to the customer. Kept as history: a page
+   * moved to another bot later does not erase it (T-088). Unknown customers answer NOT_FOUND.
+   */
+  async recordBot(ws: WorkspaceId, contactId: string, botId: string): Promise<void> {
+    if (!isUuid(contactId)) throw new ContactNotFoundError(contactId);
+    await this.store.run(ws, async (tx) => {
+      if (!(await tx.contacts.find(contactId))) throw new ContactNotFoundError(contactId);
+      await tx.contacts.recordBot(contactId, botId, new Date());
+    });
+  }
+
+  /**
    * Edits only the fields sent. `expectedVersion` must be the stored version: a
    * stale edit answers CONFLICT and changes nothing. Status and assignment
    * changes get their own history entries and events.

@@ -9,6 +9,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { useSession } from '@/lib/session';
 
 import { AccountMenu, type MenuDialogProps } from './layout/account-menu';
+import { AccountSidebar, ACCOUNT_PATHS } from './layout/account-sidebar';
 import { AppSidebar } from './layout/app-sidebar';
 import type { CreateBusinessDialogProps } from './layout/business-selector';
 
@@ -31,6 +32,8 @@ const SECTION: Record<string, string> = {
   llm: 'nav.adminLlm',
   accommodations: 'nav.accommodations',
   stays: 'nav.stayRequests',
+  overview: 'nav.accountOverview',
+  businesses: 'nav.newBusiness',
 };
 
 /**
@@ -44,7 +47,6 @@ export function AppShell({
   children,
   planDialog,
   createBusinessDialog,
-  businessLogo,
   industry,
 }: {
   children: ReactNode;
@@ -52,8 +54,7 @@ export function AppShell({
   planDialog?: ((props: MenuDialogProps) => ReactNode) | undefined;
   /** Create-business popup for the business selector, composed by the route from `features/workspace`. */
   createBusinessDialog?: ((props: CreateBusinessDialogProps) => ReactNode) | undefined;
-  /** The current business's logo for the business selector, composed by the route from `features/workspace`. */
-  businessLogo?: ReactNode;
+  /** The current business's industry; hotels get lodging navigation. */
   industry?: string | undefined;
 }) {
   const { t } = useTranslation();
@@ -62,6 +63,7 @@ export function AppShell({
     select: (s) => s.location.pathname.split('/').filter(Boolean)[1] ?? '',
   });
   const section = SECTION[segment];
+  const accountLayer = useRouterState({ select: (s) => ACCOUNT_PATHS.test(s.location.pathname) });
 
   return (
     // Collapsed-sidebar items show their label as a tooltip; only the dashboard needs tooltips.
@@ -70,11 +72,11 @@ export function AppShell({
         defaultOpen={sidebarOpenByDefault()}
         style={{ '--header-height': '3.25rem' } as CSSProperties}
       >
-        <AppSidebar
-          createBusinessDialog={createBusinessDialog}
-          businessLogo={businessLogo}
-          industry={industry}
-        />
+        {accountLayer ? (
+          <AccountSidebar />
+        ) : (
+          <AppSidebar createBusinessDialog={createBusinessDialog} industry={industry} />
+        )}
         <SidebarInset className="min-w-0 overflow-x-clip">
           <header
             className={[

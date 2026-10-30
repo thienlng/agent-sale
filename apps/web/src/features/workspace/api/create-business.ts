@@ -4,8 +4,9 @@ import { useMutation } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 
 /**
- * Creates a business under the caller's only owned account (the server resolves `accountId`).
- * Not workspace-scoped: the new business does not exist yet.
+ * Creates a business. The server resolves the account when the caller owns one; owners of
+ * several accounts pass `accountId`. Not workspace-scoped: the new business does not exist yet.
+ * Callers reload the session themselves, so a failed reload is not mistaken for a failed create.
  */
 export function useCreateBusiness() {
   return useMutation({

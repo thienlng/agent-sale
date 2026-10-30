@@ -12,6 +12,7 @@ import type { OrderStatus, StockState } from '../../domain/order-stock.js';
 /** Row ↔ record mapping and SQL fragments shared by the commerce Drizzle adapters. */
 export const w = schema.warehouses;
 export const p = schema.products;
+export const bp = schema.botProducts;
 export const v = schema.productVariants;
 export const inv = schema.inventory;
 export const o = schema.orders;

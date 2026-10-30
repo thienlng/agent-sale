@@ -21,6 +21,13 @@ export function useBusinessSwitch() {
     inFlight = true;
     setBusy(true);
     try {
+      // Nothing chosen yet (the overview after login, T-079): nothing to evict, and /app pages
+      // need a business before they render, so choose first, then open it.
+      if (!previous.workspaceId) {
+        if (!selectWorkspace(id)) return false;
+        await router.navigate({ to: '/app/analytics', search: {} });
+        return true;
+      }
       await router.navigate({ to: '/app/analytics', search: {} });
       // Existing route blockers can cancel navigation. Do not switch after cancellation/logout.
       if (router.state.location.pathname !== '/app/analytics' || getSession() !== previous)

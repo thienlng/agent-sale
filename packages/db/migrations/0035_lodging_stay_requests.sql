@@ -2,7 +2,6 @@
 CREATE EXTENSION IF NOT EXISTS btree_gist;
 ALTER TABLE products ADD COLUMN accommodation jsonb;
 ALTER TABLE products ADD CONSTRAINT products_accommodation_object CHECK (accommodation IS NULL OR jsonb_typeof(accommodation) = 'object');
-ALTER TABLE products ADD CONSTRAINT products_tenant_id_unique UNIQUE (workspace_id, id);
 CREATE TABLE stay_requests (
   id uuid PRIMARY KEY, workspace_id uuid NOT NULL REFERENCES workspaces(id),
   property_id uuid NOT NULL, property_name text NOT NULL,

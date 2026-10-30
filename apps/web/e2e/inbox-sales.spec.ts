@@ -47,6 +47,15 @@ async function inboxApi(page: Page) {
       owner?.notes.push(note);
       return route.fulfill({ json: note });
     }
+    if (path.endsWith('/contact') && route.request().method() === 'PUT') {
+      // Staff link the conversation to a CRM customer (T-088).
+      const owner = conversations.find((item) => path.includes(item.id));
+      Object.assign(owner ?? {}, {
+        contactId: route.request().postDataJSON().contactId,
+        contactLinkedBy: 'staff',
+      });
+      return route.fulfill({ json: owner });
+    }
     if (!conversation) return route.fallback();
     if (route.request().method() === 'PATCH') {
       const body = route.request().postDataJSON();
@@ -79,7 +88,8 @@ async function inboxApi(page: Page) {
       },
     });
   });
-  await page.route('**/api/v1/channels', (route) =>
+  // The inbox lists channels with `?includeRemoved=true` (T-133).
+  await page.route(/\/api\/v1\/channels(\?.*)?$/, (route) =>
     route.fulfill({
       json: {
         data: [
@@ -402,7 +412,8 @@ test('selected CRM profile can change status and open tag controls directly', as
     await route.fulfill({ json: contact });
   });
   await openCustomer(page);
-  await page.getByLabel('Tìm hồ sơ CRM', { exact: true }).fill('0912');
+  // Choosing the customer links it to the conversation (T-088), hence the label.
+  await page.getByLabel('Gắn khách hàng CRM', { exact: true }).fill('0912');
   await page
     .getByRole('button', { name: /Nguyễn Thị Thanh Hương Lan Anh Phương Thảo Ngọc Bích/ })
     .first()

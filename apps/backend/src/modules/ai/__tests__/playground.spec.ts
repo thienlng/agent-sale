@@ -27,6 +27,7 @@ const bot: BotView = {
   name: 'Rapiz Bot',
   industry: 'retail',
   isActive: true,
+  catalogMode: 'all',
   mission: 'Bán áo thun',
   greeting: 'Dạ em chào anh/chị',
   selfPronoun: 'em',
