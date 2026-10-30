@@ -77,6 +77,7 @@ const final = (reply: string, extra: object = {}) => ({
 function build(
   script: (Partial<GenerateResponse> | ((req: GenerateRequest) => Partial<GenerateResponse>))[],
   catalogError?: Error,
+  pool: ProductDto[] = [toy],
 ) {
   const queue = [...script];
   const fake = new FakeLlmProvider('dev-fake', (req) => {
@@ -94,11 +95,11 @@ function build(
   const catalog = {
     searchBotCatalog: vi.fn(async () => {
       if (catalogError) throw catalogError;
-      return [toy];
+      return pool.slice(0, 3);
     }),
     countBotCatalog: vi.fn(async () => 1),
     getBotProductsByIds: vi.fn(async (_w: unknown, _s: unknown, ids: readonly string[]) =>
-      ids.includes(toy.id) ? [toy] : [],
+      pool.filter((p) => ids.includes(p.id)),
     ),
   };
   const runs = new InMemoryAiRunRepository();
@@ -294,18 +295,19 @@ describe('the reply pipeline answers from catalog tools', () => {
     expect(res.usage.inputTokens).toBe(30);
   });
 
-  it('tells the model only that a tool failed, and logs the tool name and error class', async () => {
+  it('tells the model only that a tool failed, and logs the tool name and error class only', async () => {
     const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     const { fake, svc } = build(
       [tool('search_products', { query: 'chuyện riêng' }), final('Dạ em chưa tra được ạ.')],
-      new Error('db down'),
+      new Error('relation failed, params: chuyện riêng 0912345678'),
     );
     const res = await svc.playground(ws, botId, ask('số điện thoại 0912345678 của tôi'));
     expect(res.outcome).toBe('answered');
     expect(fake.calls[1]?.messages.at(-1)?.content).toBe('{"error":"tool_failed"}');
     const logged = warn.mock.calls.map((c) => String(c[0])).join('\n');
     expect(logged).toContain('search_products');
-    expect(logged).toContain('Error: db down');
+    expect(logged).toContain('Error');
+    expect(logged).not.toContain('relation failed');
     expect(logged).not.toContain('chuyện riêng');
     expect(logged).not.toContain('0912345678');
   });
@@ -314,6 +316,29 @@ describe('the reply pipeline answers from catalog tools', () => {
     const { catalog, svc } = build([tool('search_products', { query: 'thu go' }), final('Dạ ạ.')]);
     await svc.playground(ws, botId, ask('thú gỗ'));
     expect(catalog.getBotProductsByIds).not.toHaveBeenCalled();
+  });
+
+  it('keeps the pictures of the first of seven detailed products selectable', async () => {
+    const pool = Array.from({ length: 7 }, (_, i) => ({
+      ...toy,
+      id: `toy-${i + 1}`,
+      imageUrls: [`https://img.example.com/t${i + 1}.jpg`],
+    })) as unknown as ProductDto[];
+    const { svc } = build(
+      [
+        tool('search_products', { query: 'thu go' }),
+        tool('product_details', { ids: ['toy-4', 'toy-5', 'toy-6'] }),
+        tool('product_details', { ids: ['toy-7'] }),
+        final('Dạ bộ thú gỗ giá 350.000đ ạ.', { imageIds: ['p:toy-1:0', 'p:toy-7:0'] }),
+      ],
+      undefined,
+      pool,
+    );
+    const res = await svc.playground(ws, botId, ask('thú gỗ'));
+    expect(res.images.map((i) => i.url)).toEqual([
+      'https://img.example.com/t1.jpg',
+      'https://img.example.com/t7.jpg',
+    ]);
   });
 
   it('declares no tools for a bot without a catalog or actions', async () => {

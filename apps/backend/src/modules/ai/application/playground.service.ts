@@ -68,7 +68,7 @@ const FOCUS_PRODUCTS = 3;
 /** The playground has no conversation: only recent runs count as "the product being discussed". */
 const PLAYGROUND_FOCUS_WINDOW_MS = 30 * 60_000;
 /** Products fetched after the loop to extend the image allowlist (those the tools returned). */
-const MAX_TOOL_IMAGE_PRODUCTS = 6;
+const MAX_TOOL_IMAGE_PRODUCTS = 12;
 const ALLOWLIST_CAP = 60;
 
 /**
@@ -258,9 +258,9 @@ export class PlaygroundService implements AiFacade {
         base,
         generate: (req) => this.llm.generate(req),
         onError: (call, error) =>
-          // The tool name and the error only: never arguments or customer text.
+          // The tool name and the error class only: a DB error message can embed customer words.
           this.#logger.warn(
-            `Tool ${call.name} failed: ${error instanceof Error ? `${error.name}: ${error.message}` : 'unknown error'}`,
+            `Tool ${call.name} failed: ${error instanceof Error ? error.name : 'unknown error'}`,
           ),
         execute: async (call) => {
           if (catalog && catalogToolNames.has(call.name))
