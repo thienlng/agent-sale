@@ -48,6 +48,8 @@ flowchart LR
 - DB migrations run as a separate job before rollout, **backward compatible** (expand → migrate → contract).
 - Feature flags for unfinished features; release per workspace (beta testers first).
 - Rollback: previous image + flag; never roll back destructive migrations.
+- Deploy checklist (product picture upload release): run `pnpm --filter @agent-sales/backend product-images:import` (dry run first) before or at deploy of this release. Product saves that still hold old external image links fail with `IMAGE_NOT_UPLOADED` until they are imported. The importer refuses loopback, private, link-local and unique-local hosts (`blocked_address`).
+- Object storage: production uses any S3-compatible service configured through `S3_*` (the MinIO named in Stage 1 is only an example); local development uses SeaweedFS.
 
 ## 4. Observability
 
