@@ -15,15 +15,11 @@ command -v pnpm >/dev/null && ok "pnpm $(pnpm -v)" || bad "pnpm missing: corepac
 
 echo "Agent setup"
 [[ -f AGENTS.md ]] && ok "AGENTS.md" || bad "AGENTS.md missing"
-for f in .agents/rules/0{1,2,3,4,5,6,7,8}-*.md; do [[ -f "$f" ]] && ok "$f" || bad "$f missing"; done
+for f in .agents/rules/0{1,2,4,5,6,7,8}-*.md; do [[ -f "$f" ]] && ok "$f" || bad "$f missing"; done
 if [[ -L .claude/skills && -d .claude/skills ]]; then ok ".claude/skills -> $(readlink .claude/skills)"; else bad ".claude/skills should be a symlink to ../.agents/skills"; fi
 [[ -d .agents/skills ]] && ok ".agents/skills (read natively by Codex and OpenCode)" || bad ".agents/skills missing"
 for s in .agents/skills/*/SKILL.md; do head -1 "$s" | grep -q '^---$' && ok "$s" || bad "$s has no front matter"; done
 [[ -f .mcp.json && -f opencode.json && -f .codex/config.toml ]] && ok "MCP configs present" || bad "MCP config missing"
-
-echo "Task board"
-grep -q '^## In progress' TODO.md && grep -q '^## Backlog' TODO.md && ok "TODO.md sections" || bad "TODO.md malformed"
-for f in todo/T-*.md todo/done/T-*.md; do [[ -f "$f" ]] || continue; head -1 "$f" | grep -q '^---$' || bad "$f missing front matter"; done
 
 echo "Dependencies"
 if [[ ! -d node_modules ]]; then echo "  installing…"; pnpm install --frozen-lockfile; fi
@@ -34,4 +30,4 @@ ok "node_modules present"
 echo "Gate: pnpm check"
 if pnpm check >/tmp/agent-sales-check.log 2>&1; then ok "pnpm check passed"; else bad "pnpm check failed — see /tmp/agent-sales-check.log"; fi
 
-if [[ $fail -eq 0 ]]; then echo "All good. Read AGENTS.md, then take a task from TODO.md."; else echo "Fix the items marked ✘."; exit 1; fi
+if [[ $fail -eq 0 ]]; then echo "All good. Read AGENTS.md before you start."; else echo "Fix the items marked ✘."; exit 1; fi

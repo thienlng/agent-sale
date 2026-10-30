@@ -7,7 +7,7 @@ Use English for:
 - Code: identifiers, types, database tables/columns, API paths, enum values, error codes.
 - Comments, docstrings, TODO/FIXME notes in code.
 - Commit messages, branch names, PR titles and descriptions, code review comments.
-- `TODO.md`, every file in `todo/`, every file in `docs/` (technical documentation, ADRs, specs).
+- Every file in `docs/` (technical documentation, ADRs, specs).
 - Tests: names, fixtures, assertion messages.
 - Log messages, metrics names, error messages intended for developers.
 

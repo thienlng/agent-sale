@@ -2,7 +2,7 @@
 
 ## The gate
 
-`pnpm check` = `lint` + `typecheck` + `test` + `build`. It must pass locally before you commit "done" and in CI before review. Never weaken the gate (disable a lint rule, add `// @ts-ignore`, skip/delete a test, lower coverage) to make it pass. If a rule is genuinely wrong, open a separate `chore` task.
+`pnpm check` = `lint` + `typecheck` + `test` + `build`. It must pass locally before you commit "done" and in CI before review. Never weaken the gate (disable a lint rule, add `// @ts-ignore`, skip/delete a test, lower coverage) to make it pass. If a rule is genuinely wrong, raise it with a human and fix it in a separate `chore` PR.
 
 ## TypeScript
 
@@ -31,13 +31,13 @@
 - Input validation at the boundary (DTO / Zod). Domain logic framework-free so it is unit-testable.
 - Errors: use the shared error codes in `packages/shared`; never swallow errors silently; never leak internals or PII in user-facing messages.
 
-## Definition of Done (per task)
+## Definition of Done (per feature)
 
-1. Acceptance criteria in the task file are met and each is verifiable.
+1. The feature does what was asked, and each behavior is verifiable.
 2. Tests added/updated; `pnpm check` green locally and in CI.
 3. Permission + tenant isolation covered for any new endpoint or query.
 4. Audit log / metrics / structured logs added for sensitive or operational actions.
 5. i18n (vi + en) for any user-facing string; empty / loading / error states for UI.
 6. Migrations are backward compatible (expand → migrate → contract); seeds updated.
-7. Docs updated (`docs/`, ADR if architectural); task file and `TODO.md` updated.
+7. Docs updated (`docs/`, ADR if architectural).
 8. PR description says exactly how the change was verified (commands run, screenshots for UI).

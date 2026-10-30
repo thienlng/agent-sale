@@ -1,5 +1,5 @@
 name: Bug report
-description: Something is broken. A task (T-xxx) will be created from this issue.
+description: Something is broken.
 labels: [bug]
 body:
   - type: textarea

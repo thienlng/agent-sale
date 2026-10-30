@@ -26,4 +26,4 @@ Verified against the official docs on 2026-10-23 (OpenCode: docs/rules, docs/ski
 
 ## Changing rules or skills
 
-Rules and skills are **protected**: change them only through a task in `TODO.md` that explicitly asks for it, reviewed by a human. Keep rules short; put long explanations in `docs/`.
+Rules and skills are **protected**: change them only when a human explicitly asks, through a reviewed PR. Keep rules short; put long explanations in `docs/`.

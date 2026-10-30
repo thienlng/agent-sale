@@ -1,12 +1,6 @@
 // Conventional Commits, enforced on commit-msg. See .agents/rules/02-git-and-pr.md
 export default {
   extends: ['@commitlint/config-conventional'],
-  parserPreset: {
-    parserOpts: {
-      // "Refs: T-012" / "Closes: T-012" footers and inline T-012 references
-      issuePrefixes: ['T-'],
-    },
-  },
   rules: {
     'type-enum': [
       2,
@@ -20,7 +14,7 @@ export default {
         'repo',
         'docs',
         'ci',
-        'todo',
+        'deps',
         'api',
         'backend',
         // backend modules (docs/ARCHITECTURE.md §3)
@@ -65,7 +59,5 @@ export default {
     'body-max-line-length': [2, 'always', 100],
     // Subject starts lowercase; proper nouns (Codex, NestJS, Zalo) are allowed mid-subject.
     'subject-case': [2, 'never', ['sentence-case', 'start-case', 'pascal-case', 'upper-case']],
-    // Every commit must reference a task: "Refs: T-012" or "Closes: T-012"
-    'references-empty': [2, 'never'],
   },
 };
