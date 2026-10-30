@@ -4,6 +4,7 @@ import { Module } from '@nestjs/common';
 import { DB_SYSTEM } from '../../common/db/db.module.js';
 import { ACCOUNT_FACADE } from './api/account.facade.js';
 import { AccountFacadeImpl } from './application/account.facade.impl.js';
+import { ListAccountsHandler } from './application/queries/list-accounts/list-accounts.handler.js';
 import { ResolveBusinessAccountHandler } from './application/commands/resolve-business-account/resolve-business-account.handler.js';
 import { ACCOUNT_REPOSITORY } from './domain/ports/account.repository.js';
 import { DrizzleAccountRepository } from './infrastructure/persistence/account.drizzle-repository.js';
@@ -19,6 +20,7 @@ import { AccountController } from './interface/http/account.controller.js';
   controllers: [AccountController],
   providers: [
     ResolveBusinessAccountHandler,
+    ListAccountsHandler,
     {
       provide: ACCOUNT_REPOSITORY,
       inject: [{ token: DB_SYSTEM, optional: true }],

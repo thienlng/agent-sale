@@ -17,6 +17,7 @@ export interface ConversationFilter {
   /** A member id, or `none` for unassigned. */
   assignee?: string | undefined;
   channelId?: string | undefined;
+  contactId?: string | undefined;
   hasPhone?: boolean | undefined;
   waiting?: 'any' | 'longest' | 'readNotReplied' | undefined;
   status?: ConversationStatus | undefined;
@@ -25,6 +26,12 @@ export interface ConversationFilter {
   followUp?: boolean | undefined;
   mode?: 'human' | 'bot' | undefined;
   provider?: ChannelProvider | undefined;
+  /** The bot answering now; `none`: conversations without one. */
+  botId?: string | undefined;
+  /** Last activity at or after this ISO instant. */
+  updatedFrom?: string | undefined;
+  /** Last activity strictly before this ISO instant. */
+  updatedTo?: string | undefined;
   q?: string | undefined;
   sort: 'recent' | 'waitingLongest';
   /** Only these conversations (tag filters); `undefined` means no restriction. */
@@ -42,6 +49,7 @@ export function toListFilter(q: ConversationListQuery, viewerId?: string): Conve
     tab: q.tab ?? 'all',
     assignee: q.assignee === 'me' ? viewerId : q.assignee,
     channelId: q.channelId,
+    contactId: q.contactId,
     hasPhone: q.hasPhone,
     waiting: q.waiting,
     status: q.status,
@@ -49,6 +57,9 @@ export function toListFilter(q: ConversationListQuery, viewerId?: string): Conve
     followUp: q.followUp,
     mode: q.mode,
     provider: q.provider,
+    botId: q.botId,
+    updatedFrom: q.updatedFrom,
+    updatedTo: q.updatedTo,
     q: q.q,
     sort: q.sort ?? 'recent',
     limit: q.limit,
@@ -68,6 +79,10 @@ export function matchesFilter(c: ConversationView, f: ConversationFilter): boole
   if (f.followUp !== undefined && Boolean(c.followUpAt) !== f.followUp) return false;
   if (f.mode && c.mode !== f.mode) return false;
   if (f.channelId && c.channelId !== f.channelId) return false;
+  if (f.contactId && c.contactId !== f.contactId) return false;
+  if (f.botId && c.botId !== (f.botId === 'none' ? null : f.botId)) return false;
+  if (f.updatedFrom && Date.parse(c.updatedAt) < Date.parse(f.updatedFrom)) return false;
+  if (f.updatedTo && Date.parse(c.updatedAt) >= Date.parse(f.updatedTo)) return false;
   if (f.assignee === 'none' ? c.assigneeId !== null : f.assignee && c.assigneeId !== f.assignee)
     return false;
   if (f.hasPhone !== undefined && (c.customerPhone !== null) !== f.hasPhone) return false;

@@ -1,8 +1,10 @@
 import { useIsMutating } from '@tanstack/react-query';
-import { Building2, Check, ChevronsUpDown, Loader2 } from 'lucide-react';
-import { useState } from 'react';
+import { Link } from '@tanstack/react-router';
+import { Building2, Check, ChevronsUpDown, Loader2, Plus, Settings2 } from 'lucide-react';
+import { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { BusinessAvatar } from '@/components/business-avatar';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
@@ -14,14 +16,25 @@ import {
 import { useBusinessSwitch } from '@/hooks/use-business-switch';
 import { useSession } from '@/lib/session';
 
+/** Props of the create-business popup a route plugs into the shell (shared code may not import features). */
+export interface CreateBusinessDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
 /** The single business picker. Account controls remain account-scoped. */
-export function BusinessSelector() {
+export function BusinessSelector({
+  createBusinessDialog,
+}: {
+  createBusinessDialog?: ((props: CreateBusinessDialogProps) => ReactNode) | undefined;
+}) {
   const { t } = useTranslation();
   const session = useSession();
   const { isMobile, setOpenMobile } = useSidebar();
   const mutations = useIsMutating();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [createOpen, setCreateOpen] = useState(false);
   const { busy, choose } = useBusinessSwitch();
   const current = session?.memberships.find((m) => m.workspaceId === session.workspaceId);
   async function select(id: string) {
@@ -50,7 +63,16 @@ export function BusinessSelector() {
               tooltip={t('business.choose')}
               aria-label={t('business.choose')}
             >
-              <Building2 aria-hidden />
+              {current ? (
+                <BusinessAvatar
+                  workspaceId={current.workspaceId}
+                  logoVersion={current.logoVersion}
+                  icon={current.icon}
+                  className="size-8"
+                />
+              ) : (
+                <Building2 aria-hidden />
+              )}
               <span className="grid min-w-0 flex-1 text-left group-data-[collapsible=icon]:hidden">
                 <span className="text-xs text-muted-foreground">{t('business.current')}</span>
                 <span className="truncate font-medium" title={current?.workspaceName}>
@@ -93,6 +115,11 @@ export function BusinessSelector() {
                     aria-current={m.workspaceId === session.workspaceId ? 'true' : undefined}
                     className="flex min-h-11 w-full items-center gap-2 rounded-md px-2 py-2 text-left hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60"
                   >
+                    <BusinessAvatar
+                      workspaceId={m.workspaceId}
+                      logoVersion={m.logoVersion}
+                      icon={m.icon}
+                    />
                     <span className="min-w-0 flex-1 break-words">{m.workspaceName}</span>
                     {m.workspaceId === session.workspaceId ? (
                       <Check aria-hidden className="size-4 shrink-0" />
@@ -105,6 +132,29 @@ export function BusinessSelector() {
                 <p className="p-2 text-sm text-muted-foreground">{t('business.noResults')}</p>
               ) : null}
             </div>
+            <Link
+              to="/app/overview"
+              onClick={() => setOpen(false)}
+              className="flex min-h-11 items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+            >
+              <Settings2 aria-hidden className="size-4" />
+              {t('business.manageAccount')}
+            </Link>
+            {createBusinessDialog ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  setOpen(false);
+                  setSearch('');
+                  setCreateOpen(true);
+                }}
+                className="flex min-h-11 w-full items-center gap-2 rounded-md border-t px-2 py-2 text-left text-sm font-medium hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60"
+              >
+                <Plus aria-hidden className="size-4 shrink-0" />
+                {t('business.create.open')}
+              </button>
+            ) : null}
             {busy ? (
               <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 aria-hidden className="size-4 animate-spin" />
@@ -118,6 +168,7 @@ export function BusinessSelector() {
             ) : null}
           </PopoverContent>
         </Popover>
+        {createBusinessDialog?.({ open: createOpen, onOpenChange: setCreateOpen })}
       </SidebarMenuItem>
     </SidebarMenu>
   );

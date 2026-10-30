@@ -66,6 +66,8 @@ To be filled by the implementer before coding. Scope and acceptance above are th
 
 - 2026-10-26 — Lane B triage: Server-side shop filtering and historical attribution require the shop/contracts work in T-077/T-078/T-080. Existing channel filters are preserved; UI-only filtering is not substituted for authorized server scope.
 
+- 2026-10-27 — Lane B owner set to @agent:claude by the user.
+
 - 2026-10-28 — Source-audited under T-117: blocked by T-078/T-080: authorized shop attribution, bot history semantics and server filter/count/pagination contracts. No fake aggregate or UI-only shop filtering was substituted. See docs/handoffs/2026-10-28-lane-b-closeout.md.
 
 - 2026-10-28 — Final remote audit found draft account/bot attribution work in T-077/T-079 and separate portfolio/UX forks. ADR-012 is still Proposed and reverses the original shop/avatar-switch decisions; no blind merge was made. T-087 server filters and T-092 account usage APIs are still absent. This parent waits for an accepted/integrated model, not a claim that no remote work exists. See final remote audit in docs/handoffs/2026-10-28-lane-b-closeout.md.

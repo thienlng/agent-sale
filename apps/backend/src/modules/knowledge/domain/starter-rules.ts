@@ -16,21 +16,7 @@ import type { CreateTrainingItemRequest } from '@agent-sales/contracts';
  */
 type StarterRule = Pick<CreateTrainingItemRequest, 'title' | 'trigger' | 'content' | 'section'>;
 
-export const STARTER_RULES: readonly StarterRule[] = [
-  {
-    title: 'Xưng hô lịch sự',
-    trigger: 'Mọi câu trả lời',
-    content:
-      'Luôn mở đầu hoặc kết câu lịch sự bằng "dạ" và "ạ", giọng thân thiện, tôn trọng khách.',
-    section: 'general',
-  },
-  {
-    title: 'Cách gọi khách',
-    trigger: 'Mọi câu trả lời',
-    content:
-      'Gọi khách là anh/chị và xưng "em". Khi chưa rõ giới tính của khách thì gọi "bạn" và xưng "mình".',
-    section: 'general',
-  },
+const SHARED_RULES: readonly StarterRule[] = [
   {
     title: 'Cách nói giá',
     trigger: 'Khi báo giá',
@@ -39,23 +25,10 @@ export const STARTER_RULES: readonly StarterRule[] = [
     section: 'general',
   },
   {
-    title: 'Trả lời ngắn gọn',
-    trigger: 'Mọi câu trả lời',
-    content: 'Mỗi câu trả lời tối đa 40 từ, đi thẳng vào ý khách hỏi, không dài dòng.',
-    section: 'general',
-  },
-  {
     title: 'Khách quan tâm sản phẩm',
     trigger: 'Khách hỏi giá, hỏi size hoặc nói thích một sản phẩm',
     content:
       'Sau khi trả lời, xin số điện thoại và địa chỉ nhận hàng để lên đơn cho khách, trừ khi đã có thông tin này trong cuộc trò chuyện.',
-    section: 'general',
-  },
-  {
-    title: 'Không bảo khách chờ',
-    trigger: 'Mọi câu trả lời',
-    content:
-      'Không nói khách chờ hoặc hẹn trả lời sau, trừ khi chuyển cuộc trò chuyện cho nhân viên. Trả lời ngay bằng thông tin hiện có của cửa hàng.',
     section: 'general',
   },
   {
@@ -73,9 +46,50 @@ export const STARTER_RULES: readonly StarterRule[] = [
   },
 ];
 
-/** The starter pack as create requests (kind scenario, enabled). */
-export function starterRuleRequests(): CreateTrainingItemRequest[] {
-  return STARTER_RULES.map((rule) => ({
+export const STARTER_RULES: readonly StarterRule[] = SHARED_RULES;
+const AFTER_ORDER = SHARED_RULES.filter((r) => r.section === 'after_order');
+
+const HOTEL_RULES: readonly StarterRule[] = [
+  {
+    title: 'Hỏi còn phòng/căn',
+    trigger: 'Khách hỏi còn phòng/căn ngày nào',
+    content:
+      'Hỏi ngày nhận/trả và số khách, xin số điện thoại để nhân viên kiểm tra lịch trống. Không tự khẳng định còn phòng/căn.',
+    section: 'general',
+  },
+  {
+    title: 'Muốn đặt phòng/căn',
+    trigger: 'Khách muốn đặt',
+    content:
+      'Tóm tắt lại ngày và số khách, xin số điện thoại, báo nhân viên sẽ gọi xác nhận và hướng dẫn đặt cọc theo thông tin cửa hàng.',
+    section: 'general',
+  },
+  {
+    title: 'Mặc cả giá',
+    trigger: 'Khách xin giảm giá hoặc mặc cả',
+    content: 'Không tự giảm giá. Nói sẽ chuyển nhân viên xem ưu đãi cho khách.',
+    section: 'general',
+  },
+  {
+    title: 'Hỏi đường đi',
+    trigger: 'Khách hỏi đường hoặc cách di chuyển',
+    content: 'Trả lời theo thông tin đường đi/đưa đón và link bản đồ trong thông tin của cửa hàng.',
+    section: 'general',
+  },
+  ...AFTER_ORDER,
+];
+
+/**
+ * The situations a bot of this industry starts with. Style rules (address, length, no waiting)
+ * are not seeded: they are personality settings. Unknown industries get the shared pack.
+ */
+export function starterRulesFor(industry: string): readonly StarterRule[] {
+  return industry === 'hotel' ? HOTEL_RULES : STARTER_RULES;
+}
+
+/** The starter pack of an industry as create requests (kind scenario, enabled). */
+export function starterRuleRequests(industry = ''): CreateTrainingItemRequest[] {
+  return starterRulesFor(industry).map((rule) => ({
     ...rule,
     kind: 'scenario',
     mediaUrl: null,

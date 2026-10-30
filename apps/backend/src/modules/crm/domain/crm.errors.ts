@@ -90,6 +90,19 @@ export class DuplicateTagNameError extends DomainError {
   }
 }
 
+/** Two active sources (or statuses) of one business cannot share a name, case-insensitively. */
+export class DuplicateOptionNameError extends DomainError {
+  readonly code = 'CONFLICT';
+  constructor(kind: 'source' | 'status', name: string) {
+    super(
+      kind === 'source'
+        ? 'A customer source with this name already exists'
+        : 'A customer status with this name already exists',
+      { kind, name },
+    );
+  }
+}
+
 export class TagFieldChangeError extends DomainError {
   readonly code = 'VALIDATION_FAILED';
   constructor(key: string) {

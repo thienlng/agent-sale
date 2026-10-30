@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
+import { z } from 'zod';
 import type { InboxConversation } from '@/features/conversation/lib/inbox-v2-types';
 import { InboxPage } from '@/features/conversation/components/inbox-page';
 import type { PanelSlots } from '@/features/conversation/components/conversation-view';
@@ -8,16 +9,29 @@ import { CommentsWorkspace } from '@/features/channel/components/comments/commen
 import { useSession } from '@/lib/session';
 import { InboxSalesPanel, type InboxCustomerContext } from './-components/inbox-sales-panel';
 
-export const Route = createFileRoute('/app/inbox')({ component: InboxRoute });
+/** `?conversation=` opens one conversation (links from a customer profile, T-088). */
+const Search = z.object({ conversation: z.uuid().optional().catch(undefined) });
+
+export const Route = createFileRoute('/app/inbox')({
+  validateSearch: Search,
+  component: InboxRoute,
+});
 function InboxRoute() {
   const session = useSession();
-  return <SalesInbox key={`${session?.user.id}:${session?.workspaceId}`} />;
+  const { conversation } = Route.useSearch();
+  return (
+    <SalesInbox
+      key={`${session?.user.id}:${session?.workspaceId}:${conversation ?? ''}`}
+      conversationId={conversation}
+    />
+  );
 }
-function SalesInbox() {
+function SalesInbox({ conversationId }: { conversationId?: string | undefined }) {
   const [contexts, setContexts] = useState<Record<string, InboxCustomerContext>>({});
   return (
     <InboxPage
       renderComments={() => <CommentsWorkspace />}
+      openConversationId={conversationId}
       renderComposerTools={(_conversation, insertText) => <ProductShare onInsert={insertText} />}
       renderSalesPanel={(conversation: InboxConversation, slots: PanelSlots) => (
         <InboxSalesPanel

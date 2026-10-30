@@ -223,6 +223,13 @@ describe('DrizzleConversationStore inbox v2 query', () => {
       { idsIn: [] },
       { idsNotIn: [everything[0]!.id] },
       { idsIn: everything.map((c) => c.id), idsNotIn: [everything[1]!.id], tab: 'unread' },
+      { botId: 'none' },
+      { botId: newId() },
+      { botId: 'none', tab: 'waiting' },
+      { updatedFrom: everything[2]!.updatedAt },
+      { updatedTo: everything[2]!.updatedAt },
+      { updatedFrom: everything[3]!.updatedAt, updatedTo: everything[1]!.updatedAt, tab: 'unread' },
+      { updatedFrom: '2099-01-01T00:00:00.000Z' },
     ];
     for (const f of filters) {
       const filter = { ...base, ...f };
@@ -234,6 +241,30 @@ describe('DrizzleConversationStore inbox v2 query', () => {
       ).toEqual(ref.data.map((c) => c.id));
       expect(sql.counts, JSON.stringify(f)).toEqual(ref.counts);
     }
+  });
+
+  it('filters by the answering bot column, matching the reference', async () => {
+    await seed();
+    const bot = newId();
+    await withTenant(tenantDb, a, (tx) =>
+      tx
+        .insert(schema.bots)
+        .values({ id: bot, workspaceId: a, name: 'Bot', industry: 'retail', settings: {} }),
+    );
+    const connection = await channels.getConnection(a, channelId);
+    vi.mocked(channels.getConnection).mockResolvedValueOnce({ ...connection, botId: bot });
+    const answered = await service.receive(a, channelId, event('qe-bot', 'q-bot', 'hi bot'));
+    const everything = (await store.run(a, (tx) => tx.query(base))).data;
+    for (const f of [{ botId: bot }, { botId: 'none' }, { botId: bot, tab: 'unread' as const }]) {
+      const filter = { ...base, ...f };
+      const sql = await store.run(a, (tx) => tx.query(filter));
+      expect(sql.data.map((c) => c.id)).toEqual(
+        filterConversations(everything, filter).data.map((c) => c.id),
+      );
+    }
+    expect((await store.run(a, (tx) => tx.query({ ...base, botId: bot }))).data).toEqual([
+      expect.objectContaining({ id: answered.id }),
+    ]);
   });
 
   it('keeps the index columns in step with the document on every save', async () => {

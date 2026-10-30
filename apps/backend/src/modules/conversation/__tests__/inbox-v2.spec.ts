@@ -48,6 +48,7 @@ beforeEach(() => {
     name: 'Bot',
     industry: 'retail',
     isActive: true,
+    catalogMode: 'all',
     mission: '',
     greeting: '',
     selfPronoun: '',
@@ -57,6 +58,10 @@ beforeEach(() => {
     creativity: 'strict',
     modelTier: 'basic',
     language: 'en',
+    profile: { fields: {}, notes: '' },
+    replyLength: 'short',
+    tone: 'friendly',
+    allowEmoji: false,
     placeholders: {},
     autoResumeAfterManual: true,
     humanTakeoverMinutes: 5,
@@ -369,6 +374,43 @@ describe('list filters and counts', () => {
     expect(ids(recent)).toEqual([d.id, c.id]);
     expect(recent.counts.all).toBe(4);
     expect(new Set([a.id, b.id]).size).toBe(2);
+  });
+
+  it('filters by the bot answering now, and "none" for pages without a bot', async () => {
+    const base = await channels.getConnection(ws, channelId);
+    vi.mocked(channels.getConnection).mockImplementation(async (_ws, id) => ({
+      ...base,
+      id,
+      botId: id === otherChannel ? null : botId,
+    }));
+    const { a, b, c, d } = await seed();
+    const q = async (query: object) => ids(await service.list(ws, { limit: 50, ...query }, lan));
+    expect((await q({ botId })).sort()).toEqual([a.id, b.id, c.id].sort());
+    expect(await q({ botId: 'none' })).toEqual([d.id]);
+    expect(await q({ botId: newId() })).toEqual([]);
+    const counted = await service.list(ws, { limit: 50, botId, tab: 'unread' }, lan);
+    expect(counted.counts).toEqual({ all: 3, unread: 2, waiting: 2 });
+  });
+
+  it('filters by last activity: from inclusive, to exclusive, counts included', async () => {
+    await seed();
+    const all = (await service.list(ws, { limit: 50 }, lan)).data;
+    const times = [...new Set(all.map((c) => c.updatedAt))].sort();
+    expect(times.length).toBeGreaterThan(1);
+    const [first, second] = times as [string, string];
+    const q = async (query: object) =>
+      ids(await service.list(ws, { limit: 50, ...query }, lan)).sort();
+    const where = (keep: (at: string) => boolean) =>
+      all
+        .filter((c) => keep(c.updatedAt))
+        .map((c) => c.id)
+        .sort();
+    expect(await q({ updatedFrom: second })).toEqual(where((at) => at >= second));
+    expect(await q({ updatedTo: second })).toEqual(where((at) => at < second));
+    expect(await q({ updatedFrom: first, updatedTo: second })).toEqual(where((at) => at === first));
+    expect(await q({ updatedFrom: '2030-01-01T00:00:00Z' })).toEqual([]);
+    const counted = await service.list(ws, { limit: 50, updatedTo: second, tab: 'waiting' }, lan);
+    expect(counted.counts.all).toBe(where((at) => at < second).length);
   });
 
   it('refuses assignee=me without a signed-in user', async () => {

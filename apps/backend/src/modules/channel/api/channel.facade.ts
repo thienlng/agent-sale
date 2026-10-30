@@ -33,7 +33,7 @@ export interface WebsiteSite {
   connectionId: string;
   siteKey: string;
   name: string;
-  status: 'connected' | 'disabled' | 'disconnected' | 'reauth_required';
+  status: ChannelConnectionDto['status'];
   botId: string | null;
   settings: WebsiteSettings;
 }

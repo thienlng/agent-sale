@@ -9,7 +9,7 @@ feature_ids: []            # e.g. [BOT-07, CRM-11] from docs/02-functional-requi
 created: 2026-10-29
 updated: 2026-10-29
 branch: build/T-130-i18next-26
-pr:
+pr: 86
 parent:                    # T-xxx if this is a sub-task
 ---
 

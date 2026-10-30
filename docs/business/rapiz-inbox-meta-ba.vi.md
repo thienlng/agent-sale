@@ -90,7 +90,7 @@ Thứ tự vùng phải bám ảnh tham chiếu, không chuyển những tác v�
 | INB-FLT-04 · QS | Nhãn | Chọn nhiều nhãn từ thư viện đúng business. Nhãn đã xóa/không còn quyền không làm màn bị lỗi. |
 | INB-FLT-05 · QS/ĐX | Người được giao | Một nhân viên cụ thể; Rapiz thêm “Tôi”, “Chưa giao” nếu chưa có trong UI tương đương. Không coi chưa giao là bot. |
 | INB-FLT-06 · QS | Trạng thái/thư mục | Giao diện tham chiếu có trao đổi thêm, chưa đọc, thư mục Xong, Spam. Read state độc lập work state theo mục 6. |
-| INB-FLT-07 · GC/ĐX | Bộ lọc Rapiz | Shop, channel/page, bot, bot/người xử lý, đang chờ trả lời, chờ lâu nhất, có điện thoại và saved view hiện có. Không bỏ các bộ lọc này khi làm lại UI. |
+| INB-FLT-07 · GC/ĐX | Bộ lọc Rapiz | Shop, channel/page, bot, bot/người xử lý, đang chờ trả lời, chờ lâu nhất, có điện thoại, bot đang trả lời và thời gian hoạt động gần nhất (T-132). Không bỏ các bộ lọc này khi làm lại UI. Saved view đã được bỏ theo quyết định của chủ sản phẩm ngày 2026-10-29. |
 | INB-FLT-08 · QS/ĐX | Áp dụng | Bộ lọc nâng cao có Áp dụng, Xóa tất cả, đóng. Thay đổi trong form chưa áp dụng không được âm thầm tác động danh sách; đóng bỏ bản sửa. Lọc nhanh có hiệu lực ngay và thể hiện trạng thái đã chọn. |
 | INB-FLT-09 · ĐX | Kết hợp | Đề xuất OR trong một nhóm, AND giữa các nhóm; nhiều nhãn mặc định “có ít nhất một nhãn đã chọn”, ghi rõ trên UI. Một mức lead dùng lựa chọn đơn. Nếu cần “đủ tất cả nhãn”, phải có tùy chọn rõ, không tự đổi ý nghĩa. |
 | INB-FLT-10 · GC/ĐX | Count và view | Count lấy từ toàn tập phù hợp, không chỉ trang đang tải. Các count all/unread/waiting áp dụng mọi bộ lọc liên quan trừ tab hàng đợi đang chọn, giữ semantics hiện tại. Ví dụ trong shop A có 10 conversation phù hợp, 3 chưa đọc và 2 đang chờ: bấm tab chưa đọc chỉ hiện 3 row nhưng count vẫn 10/3/2, không biến tất cả thành 3. Bộ lọc chưa đọc do người dùng chọn riêng trong advanced filter vẫn có hiệu lực như một bộ lọc; chỉ loại trừ queue tab khỏi phép tính count. Saved view lưu bộ lọc, không lưu dữ liệu khách hoặc bulk selection. Hiện có tối đa 5 view cục bộ/user/workspace; đồng bộ dùng chung là yêu cầu mới cần task riêng. |
@@ -262,7 +262,7 @@ Tab bình luận đã quan sát; luồng chi tiết chưa kiểm chứng trên t
 - **INB-RPZ-02:** tiếp quản tạm thời có thời điểm hết hạn rõ; tiếp quản đến khi bật lại không tự hết hạn. Cho biết ai tiếp quản, cách trả về bot; không làm mất assignment nhân viên.
 - **INB-RPZ-03:** khi người tiếp quản, tác vụ bot đang chờ không được gửi muộn đè lên câu trả lời người; tác vụ đã gửi trước đó vẫn hiển thị đúng. Trả về bot không tự replay toàn bộ tin cũ như tin mới.
 - **INB-RPZ-04:** trường hợp bot bị tắt ở quản lý bot, mất channel hoặc hết quota phải có lý do riêng; “trả về bot” không tự bật bot toàn cục/khôi phục token/mua thêm gói. Staff trả lời theo quyền và policy kênh; cách tính quota cần dùng quy tắc account đã duyệt, không tự đặt ở Inbox.
-- **INB-RPZ-05:** giữ nguồn sản phẩm, dữ liệu CRM, draft order, template, nhãn bắt buộc giá trị, saved view và retry an toàn. Không cắt bỏ chức năng đã chạy chỉ để giao diện gần Meta hơn.
+- **INB-RPZ-05:** giữ nguồn sản phẩm, dữ liệu CRM, draft order, template, nhãn bắt buộc giá trị và retry an toàn (saved view đã bỏ ngày 2026-10-29, T-132). Không cắt bỏ chức năng đã chạy chỉ để giao diện gần Meta hơn.
 
 ## 13. Luồng nghiệp vụ chuẩn
 

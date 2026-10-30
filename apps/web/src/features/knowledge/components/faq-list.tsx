@@ -22,6 +22,7 @@ import { errorMessage } from '@/lib/errors';
 import { useDeleteFaqs, useFaqs } from '../api/faqs';
 import { downloadFaqCsv } from '../utils/faq-csv';
 import { matchesText, paginate } from '../utils/table-data';
+import { BusinessProfileForm } from './business-profile-form';
 import {
   AddMenuButton,
   DataEmptyState,
@@ -90,6 +91,8 @@ export function FaqList({ botId }: { botId: string }) {
     <section className="flex min-w-0 flex-col gap-5">
       <DataPageHeader title={t('data.faq.title')} subtitle={t('data.faq.subtitle')} />
       <TrainingPurpose botId={botId} kind="facts" />
+      <BusinessProfileForm botId={botId} />
+      <h2 className="-mb-2 text-base font-semibold">{t('profile.faqTitle')}</h2>
       <div className="flex flex-wrap items-center gap-2">
         <DataSearch
           value={query}

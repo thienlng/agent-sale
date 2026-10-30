@@ -38,7 +38,9 @@ export function findWebsiteRecord(system: Database, siteKey: string) {
     const [r] = await tx
       .select()
       .from(c)
-      .where(and(eq(c.provider, 'website'), eq(c.externalId, siteKey)));
+      .where(
+        and(eq(c.provider, 'website'), eq(c.externalId, siteKey), sql`${c.status} <> 'removed'`),
+      );
     return r ? record(r) : null;
   });
 }

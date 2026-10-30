@@ -47,4 +47,6 @@ Inspect initial imports and code splitting in the integration web app. Preserve 
 
 - 2026-10-26 — Ready for human review: full pnpm check passed (frontend 367, backend 973 tests), independent code QA approved and fresh-context browser QA accepted the implemented workflows. See docs/handoffs/2026-10-26-lane-b-qa.md for exact commands, evidence and mocked-API limits.
 
+- 2026-10-27 — Closed by lane B (@agent:claude): all acceptance criteria were checked and the change landed on main in 1b983a7 (reviewed in PR #64, pushed to main without a squash merge).
+
 - 2026-10-28 — Source audit confirms the existing delivered behavior and previously checked acceptance criteria. Tracking reconciled under T-117; final branch regression evidence is recorded in docs/handoffs/2026-10-28-lane-b-closeout.md.

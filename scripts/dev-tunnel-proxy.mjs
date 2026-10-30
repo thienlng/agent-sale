@@ -60,7 +60,12 @@ const server = http.createServer((req, res) => {
 
 // Vite HMR websocket.
 server.on('upgrade', (req, socket, head) => {
-  const target = route(req.url ?? '/');
+  // Vite connects at /?token=... (vite-hmr, and vite-ping while it reconnects); only ordinary
+  // HTTP root requests belong to the site.
+  const hmr = String(req.headers['sec-websocket-protocol'] ?? '')
+    .split(',')
+    .some((protocol) => ['vite-hmr', 'vite-ping'].includes(protocol.trim()));
+  const target = hmr ? { port: web, path: req.url ?? '/' } : route(req.url ?? '/');
   const upstream = net.connect(target.port, '127.0.0.1', () => {
     const headers = Object.entries({ ...req.headers, host: `localhost:${target.port}` })
       .map(([k, v]) => `${k}: ${v}`)

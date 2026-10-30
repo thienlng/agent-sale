@@ -1,0 +1,27 @@
+id: retail-promotion-unknown
+group: unknown
+tags: [critical]
+bot:
+  industry: retail
+  name: TinyMind
+  profile:
+    fields:
+      displayName: TinyMind
+      address: '12 Lê Lợi, Quận 1, TP.HCM'
+      hotline: '0900 000 000'
+      hours: '8h00 - 21h00 mỗi ngày'
+      payment: 'Thanh toán khi nhận hàng (COD), chuyển khoản ngân hàng và ví MoMo. Đơn COD được kiểm tra giày trước khi thanh toán.'
+      shipping: 'Giao hàng toàn quốc. Phí ship nội thành 30.000đ, miễn phí cho đơn từ 500.000đ; giao nội thành 1-2 ngày, các tỉnh 3-5 ngày.'
+      returns: 'đổi trả trong 7 ngày kể từ khi nhận hàng, sản phẩm còn nguyên tem mác và chưa qua sử dụng, miễn phí đổi size lần đầu'
+      warranty: 'Giày được bảo hành 6 tháng cho lỗi do nhà sản xuất như bong keo, đứt chỉ. Không áp dụng cho hao mòn do sử dụng hoặc hỏng do khách.'
+      promotion: ''
+    notes: 'Khách có thể đến cửa hàng thử giày trực tiếp.'
+conversation:
+  - customer: 'shop đang có khuyến mãi gì không'
+expect:
+  guardrail: none
+  outcome: fallback
+  not_contains: ["\\n"]
+  not_matches: ["\\d+\\s*%"]
+  numbers_only_from_sources: true
+  fake_reply: { outcome: unknown, reply: 'Dạ em chưa có thông tin khuyến mãi ạ.', sources: [] }

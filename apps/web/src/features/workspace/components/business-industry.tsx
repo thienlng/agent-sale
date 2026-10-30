@@ -1,11 +1,14 @@
 import { Industry } from '@agent-sales/contracts';
 import { useTranslation } from 'react-i18next';
+
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+
 import { useCurrentWorkspace } from '../api/use-current-workspace';
 
-/** Industry belongs to the selected business and is not an editable billing setting. */
+/**
+ * The business template (industry) as a labelled read-only summary. It is chosen when the
+ * business is created and does not change afterwards, so it is text, not a form control.
+ */
 export function BusinessIndustry() {
   const { t } = useTranslation();
   const workspace = useCurrentWorkspace();
@@ -21,20 +24,17 @@ export function BusinessIndustry() {
     );
   const industry = Industry.safeParse(workspace.data.industry);
   return (
-    <section className="space-y-2 rounded-lg border p-4" aria-label={t('wsettings.industry.title')}>
-      <h3 className="font-medium">{workspace.data.name}</h3>
-      <Label htmlFor="business-industry">{t('auth.industry')}</Label>
-      <Input
-        id="business-industry"
-        readOnly
-        value={industry.success ? t(`industries.${industry.data}`) : workspace.data.industry}
-      />
-      <p className="text-sm text-muted-foreground">{t('wsettings.industry.policy')}</p>
+    <div className="flex flex-col gap-1">
+      <dl className="flex flex-wrap items-baseline gap-x-2">
+        <dt className="text-sm font-medium">{t('wsettings.profile.template')}</dt>
+        <dd>{industry.success ? t(`industries.${industry.data}`) : workspace.data.industry}</dd>
+      </dl>
+      <p className="text-sm text-muted-foreground">{t('wsettings.profile.templateHint')}</p>
       {!industry.success ? (
         <p className="text-sm text-warning">
           {t('bots.businessUnsupported', { industry: workspace.data.industry })}
         </p>
       ) : null}
-    </section>
+    </div>
   );
 }

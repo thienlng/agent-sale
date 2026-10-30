@@ -14,6 +14,8 @@ const Account = z.object({
   expiresAt: z.string().nullable(),
 });
 const str = (v: unknown): string => (typeof v === 'string' ? v : '');
+/** Meta error codes are numbers; anything else is dropped so free text never reaches the log. */
+const num = (v: unknown): string => (typeof v === 'number' ? String(v) : '');
 const rec = (v: unknown): Record<string, unknown> => Json.parse(v);
 /** `host/path` of a URL, without the query that may hold secrets. */
 const endpoint = (url: string): string => {
@@ -231,6 +233,38 @@ export class LiveMetaGateway implements MetaGateway {
       if (!after) break;
     }
     return accounts;
+  }
+  async unsubscribe(
+    p: MetaProvider,
+    a: Pick<GrantedAccount, 'externalId' | 'token'>,
+  ): Promise<void> {
+    // Instagram Login has no DELETE on subscribed_apps that this integration relies on; ingress
+    // already drops events of removed connections, so there is nothing to call.
+    if (p === 'instagram') return;
+    const url = `https://graph.facebook.com/${this.env.META_GRAPH_VERSION}/${encodeURIComponent(a.externalId)}/subscribed_apps`;
+    let response: Response;
+    try {
+      response = await this.transport(url, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${a.token}` },
+        signal: AbortSignal.timeout(8000),
+        redirect: 'error',
+      });
+    } catch {
+      // The error text can echo the request; keep it out of the log.
+      log.warn('Meta unsubscribe failed: no response');
+      throw new ChannelError('UNAVAILABLE', 'Meta did not respond');
+    }
+    const body = Json.safeParse(await response.json().catch(() => null));
+    if (!response.ok || !body.success || body.data.error) {
+      // Only the error code and subcode: messages may carry names or tokens.
+      const err = body.success ? Json.safeParse(body.data.error) : null;
+      const f = err?.success ? err.data : {};
+      log.warn(
+        `Meta unsubscribe rejected (HTTP ${response.status}): code=${num(f.code)} subcode=${num(f.error_subcode)}`,
+      );
+      throw new ChannelError('UNAVAILABLE', 'Meta rejected the unsubscribe request');
+    }
   }
   async subscribe(p: MetaProvider, a: GrantedAccount): Promise<void> {
     const host = p === 'instagram' ? 'graph.instagram.com' : 'graph.facebook.com';

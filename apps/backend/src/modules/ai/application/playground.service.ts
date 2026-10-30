@@ -10,15 +10,12 @@ import { newId, type WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
 import { recordAiRun } from '../../../common/metrics.js';
-import {
-  ACTION_FACADE,
-  type ActionFacade,
-  type BotActionView,
-  type PendingAction,
-} from '../../action/api/index.js';
+import { ACTION_FACADE, type ActionFacade } from '../../action/api/index.js';
 import { BOT_FACADE, type BotFacade, type BotView } from '../../bot/api/index.js';
 import { CATALOG_FACADE, type CatalogFacade } from '../../commerce/api/index.js';
 import { KNOWLEDGE_FACADE, type KnowledgeFacade } from '../../knowledge/api/index.js';
+import { renderBusinessProfile } from '../domain/business-profile.js';
+import { replyStyle } from '../domain/reply-style.js';
 import { situationsText } from '../domain/situations.js';
 import { TRAINING_FACADE, type TrainingFacade } from '../../knowledge/api/index.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
@@ -43,8 +40,8 @@ import {
   idempotencyKey,
   playgroundConversationId,
   runActionLoop,
-  safeJson,
 } from './action-loop.js';
+import { actionsBlock } from './actions-block.js';
 import { decide, fallbackDecision } from './decide-reply.js';
 import { LlmRuntime } from './llm-runtime.js';
 
@@ -52,9 +49,11 @@ import { LlmRuntime } from './llm-runtime.js';
 const JSON_REMINDER = 'Reply with the JSON object only, as described above.';
 const FORMAT_REMINDER =
   'Reminder: your previous reply was not a JSON object. Reply again with only the JSON object described above, even for a general question.';
-const PROMPT = { name: 'sales-agent', version: 8 } as const;
+const PROMPT_V8 = { name: 'sales-agent', version: 8 } as const;
+const PROMPT_V9 = { name: 'sales-agent', version: 9 } as const;
+/** Optional DI token: the sales-agent prompt version both the playground and live replies use (default 8). */
+export const PROMPT_VERSION_OPTION = Symbol('PROMPT_VERSION_OPTION');
 const POST_PROMPT = { name: 'fanpage-context', version: 1 } as const;
-const PROMPT_VERSION = `${PROMPT.name}@${PROMPT.version}`;
 const MAX_SOURCES = 5;
 
 const STYLE: Record<BotView['creativity'], string> = {
@@ -78,6 +77,7 @@ export const PHONE_KNOWN_LINE =
 export class PlaygroundService implements AiFacade {
   readonly #prompts = new PromptRegistry(PROMPTS_DIR);
   readonly #logger = new Logger(PlaygroundService.name);
+  readonly #prompt: typeof PROMPT_V8 | typeof PROMPT_V9;
 
   constructor(
     @Inject(BOT_FACADE) private readonly bots: BotFacade,
@@ -88,7 +88,10 @@ export class PlaygroundService implements AiFacade {
     @Inject(TRAINING_FACADE) @Optional() private readonly training?: TrainingFacade,
     @Inject(CATALOG_FACADE) @Optional() private readonly catalog?: CatalogFacade,
     @Inject(ACTION_FACADE) @Optional() private readonly actions?: ActionFacade,
-  ) {}
+    @Inject(PROMPT_VERSION_OPTION) @Optional() promptVersion: 8 | 9 = 9,
+  ) {
+    this.#prompt = promptVersion === 9 ? PROMPT_V9 : PROMPT_V8;
+  }
 
   async playground(
     ws: WorkspaceId,
@@ -135,7 +138,10 @@ export class PlaygroundService implements AiFacade {
     // finds the product being discussed through the bot's own last reply, which names it.
     const lastBotReply = input.messages.findLast((m) => m.role === 'bot')?.content.slice(0, 400);
     const productQuery = lastBotReply ? `${query}\n${lastBotReply}` : query;
-    const products = this.catalog ? await this.catalog.getBotProducts(ws, productQuery, 5) : [];
+    const scope = { botId, catalogMode: bot.catalogMode };
+    const products = this.catalog
+      ? await this.catalog.getBotProducts(ws, scope, productQuery, 5)
+      : [];
     // The pictures the bot may send this turn. The model only gets ids and labels, never URLs.
     const allowed = buildAllowlist(productImages(products), libraryImages(media, query));
     const productContext = products.map((product) => ({
@@ -153,7 +159,7 @@ export class PlaygroundService implements AiFacade {
     }));
     // A short list of everything on sale, so general questions ("what do you sell?", "something
     // under 500k") can be answered even when no product name matched the customer's words.
-    const overview = this.catalog ? await this.catalog.listBotCatalog(ws, 15) : [];
+    const overview = this.catalog ? await this.catalog.listBotCatalog(ws, scope, 15) : [];
     const overviewContext = overview.map((product) => ({
       name: product.name,
       fromVnd: product.priceMin,
@@ -191,15 +197,21 @@ export class PlaygroundService implements AiFacade {
     const actionsBlockText = actionViews.length ? actionsBlock(actionViews, pendingAction) : '';
 
     const postRules = post ? await this.#prompts.load(POST_PROMPT) : '';
-    const template = [await this.#prompts.load(PROMPT), postRules].filter(Boolean).join('\n\n');
+    const v9 = this.#prompt.version === 9;
+    const template = [await this.#prompts.load(this.#prompt), postRules]
+      .filter(Boolean)
+      .join('\n\n');
     const system = this.#prompts.render(template, {
       'bot.name': bot.name,
-      // The shop's own name (a bot setting) beats the account's workspace name.
-      'workspace.name': bot.placeholders['store.name'] || workspace.name,
+      // The shop's own name beats the account's workspace name (@9: the profile's display name first).
+      'workspace.name':
+        (v9 ? bot.profile.fields.displayName : undefined) ||
+        bot.placeholders['store.name'] ||
+        workspace.name,
       'bot.language': bot.language === 'en' ? 'English' : 'Vietnamese',
       'bot.selfPronoun': bot.selfPronoun,
       'bot.customerPronoun': bot.customerPronoun,
-      'bot.style': STYLE[bot.creativity],
+      'bot.style': v9 ? replyStyle(bot) : STYLE[bot.creativity],
       'bot.mission': bot.mission || '(not described yet)',
     });
 
@@ -216,6 +228,7 @@ export class PlaygroundService implements AiFacade {
           sources,
           contextData,
           [imagesBlock(allowed), actionsBlockText].filter(Boolean).join('\n\n'),
+          v9 ? renderBusinessProfile(bot) : '',
         ),
       ],
       responseFormat: ModelReply,
@@ -297,6 +310,7 @@ export class PlaygroundService implements AiFacade {
     if (this.actions && askedConfirmation && decision.outcome !== 'answered') {
       await this.actions.clearPending(ws, actionConversationId);
     }
+    const promptVersion = `${this.#prompt.name}@${this.#prompt.version}`;
     const run = {
       id: newId(),
       botId,
@@ -305,8 +319,8 @@ export class PlaygroundService implements AiFacade {
       provider: res.provider,
       model: res.model,
       promptVersion: post
-        ? `${PROMPT_VERSION}+${POST_PROMPT.name}@${POST_PROMPT.version}`
-        : PROMPT_VERSION,
+        ? `${promptVersion}+${POST_PROMPT.name}@${POST_PROMPT.version}`
+        : promptVersion,
       inputTokens: res.usage.inputTokens,
       outputTokens: res.usage.outputTokens,
       cachedTokens: res.usage.cachedInputTokens,
@@ -388,40 +402,6 @@ export class PlaygroundService implements AiFacade {
   }
 }
 
-/** The `<actions>` list (never a URL, header or secret) and the call awaiting confirmation. */
-function actionsBlock(actions: readonly BotActionView[], pending: PendingAction | null): string {
-  const list = actions.map((a) => ({
-    id: a.id,
-    name: a.name,
-    description: a.description,
-    confirm: a.requiresConfirm ? 'yes' : 'no',
-    params: a.params.map((p) => ({
-      name: p.name,
-      type: p.type,
-      required: p.required,
-      description: p.description,
-    })),
-    responseFields: a.responseFields.map((f) => ({
-      name: f.name,
-      type: f.type,
-      description: f.description,
-    })),
-  }));
-  const blocks = [`<actions>\n${JSON.stringify(list)}\n</actions>`];
-  const waiting = pending ? actions.find((a) => a.id === pending.actionId) : undefined;
-  if (pending && waiting) {
-    blocks.push(
-      `<pending_action>\n${safeJson({
-        actionId: waiting.id,
-        name: waiting.name,
-        args: pending.args,
-        askedMinutesAgo: Math.max(0, Math.floor((Date.now() - pending.askedAt.getTime()) / 60_000)),
-      })}\n</pending_action>`,
-    );
-  }
-  return blocks.join('\n\n');
-}
-
 /**
  * The test conversation as chat turns. Customer text is wrapped as data; the
  * knowledge block rides on the last customer turn so the cached prefix
@@ -432,6 +412,7 @@ function conversation(
   sources: KnowledgeSource[],
   guidance: string,
   images: string,
+  profile: string,
 ): ChatMessage[] {
   const firstCustomer = input.messages.findIndex((m) => m.role === 'customer');
   const turns = input.messages.slice(firstCustomer);
@@ -442,7 +423,7 @@ function conversation(
       role: 'user',
       content:
         i === turns.length - 1
-          ? `${knowledgeBlock(sources)}\n\n<shop_situations>\n${guidance}\n</shop_situations>\n\n${images ? `${images}\n\n` : ''}${customer}\n\n${JSON_REMINDER}`
+          ? `${profile ? `${profile}\n\n` : ''}${knowledgeBlock(sources)}\n\n<shop_situations>\n${guidance}\n</shop_situations>\n\n${images ? `${images}\n\n` : ''}${customer}\n\n${JSON_REMINDER}`
           : customer,
     };
   });

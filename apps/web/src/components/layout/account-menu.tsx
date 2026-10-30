@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 import {
   ArrowLeft,
+  Building2,
   ChevronDown,
   ChevronRight,
   CreditCard,
@@ -32,9 +33,10 @@ import { setPreference, usePreferences } from '@/lib/preferences/preferences';
 import { PREFERENCES, type PreferenceValues } from '@/lib/preferences/registry';
 import { logout, useSession } from '@/lib/session';
 
+import { BusinessSwitchView } from './business-switch-view';
 import { LayoutCustomizeDialog } from './layout-controls';
 
-type View = 'main' | 'display';
+type View = 'main' | 'display' | 'business';
 
 /** Props of a popup the shell lets a route plug in (shared components may not import features). */
 export interface MenuDialogProps {
@@ -65,9 +67,9 @@ function initialsOf(name: string): string {
 
 /**
  * The only personal control in the shell: an avatar at the top right that opens a compact
- * panel (who is signed in, plan and billing, account security, display and language, the
- * marketing site, log out). Display settings open in place, one level deeper, so the first
- * view stays short; plan details open in a popup supplied by the route (`planDialog`).
+ * panel (who is signed in, plan and billing, account security, switching business, display
+ * and language, the marketing site, log out). Business switching and display settings open in
+ * place, one level deeper, so the first view stays short; plan details open in a popup supplied by the route (`planDialog`).
  */
 export function AccountMenu({
   planDialog,
@@ -134,9 +136,9 @@ export function AccountMenu({
         <DropdownMenuContent
           align="end"
           sideOffset={4}
-          // Escape in the display view goes back one level first, like Facebook's menu.
+          // Escape in a nested view goes back one level first, like Facebook's menu.
           onEscapeKeyDown={(e) => {
-            if (view === 'display') {
+            if (view !== 'main') {
               e.preventDefault();
               setView('main');
             }
@@ -184,6 +186,19 @@ export function AccountMenu({
                 className="gap-3 py-1.5"
                 onSelect={(e) => {
                   e.preventDefault();
+                  setView('business');
+                }}
+              >
+                <RowIcon>
+                  <Building2 />
+                </RowIcon>
+                {t('business.switch')}
+                <ChevronRight className="ml-auto text-muted-foreground" />
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="gap-3 py-1.5"
+                onSelect={(e) => {
+                  e.preventDefault();
                   setView('display');
                 }}
               >
@@ -219,6 +234,14 @@ export function AccountMenu({
                 {t('nav.logout')}
               </DropdownMenuItem>
             </>
+          ) : view === 'business' ? (
+            <BusinessSwitchView
+              session={session}
+              firstItem={firstItem}
+              rowIcon={(icon) => <RowIcon>{icon}</RowIcon>}
+              onBack={() => setView('main')}
+              onChosen={() => setOpen(false)}
+            />
           ) : (
             <>
               <DropdownMenuItem

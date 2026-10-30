@@ -7,7 +7,8 @@
 **Public API (`api/`):**
 
 - `ACCOUNT_FACADE` → `AccountFacade.resolveForNewBusiness({ userId, accountId?, businessName })`, used by `workspace` when a business is created (signup and `POST /workspaces`)
-- HTTP: none yet (account screens come with T-079/T-091)
+- `AccountFacade.listForUser(userId)` (accounts the user owns or bills for) and `namesOf(accountIds)` (names for grouping businesses), used by `identity` for `GET /bootstrap` (T-079)
+- HTTP: none yet (account screens come with T-091/T-092)
 - Events: none
 
 **Events consumed:** none.
