@@ -12,7 +12,11 @@ vi.mock('@/lib/session', () => ({
   useSession: () => ({
     user: { id: 'u1', name: 'Nguyễn Thị Lan', email: 'lan.nguyen.very.long.address@example.com' },
     workspaceId: 'w1',
-    memberships: [],
+    memberships: [
+      { workspaceId: 'w1', workspaceName: 'Lan Fashion', accountId: 'a1', accountName: 'Lan' },
+      { workspaceId: 'w2', workspaceName: 'Lan Homestay', accountId: 'a1', accountName: 'Lan' },
+      { workspaceId: 'w3', workspaceName: 'Minh English', accountId: 'a2', accountName: 'Minh' },
+    ],
   }),
   logout: () => logout(),
 }));
@@ -42,6 +46,7 @@ describe('AccountMenu', () => {
     ).toEqual([
       'Gói và thanh toán',
       'Bảo mật tài khoản',
+      'Chuyển business',
       'Màn hình và ngôn ngữ',
       'Trang chủ Rapiz (mở tab mới)',
       'Đăng xuất',
@@ -91,6 +96,27 @@ describe('AccountMenu', () => {
     await user.click(within(menu).getByRole('menuitem', { name: 'Tùy chỉnh bố cục' }));
     const dialog = await screen.findByRole('dialog', { name: 'Tuỳ chỉnh giao diện' });
     expect(within(dialog).getByRole('button', { name: 'Khôi phục mặc định' })).toBeInTheDocument();
+  });
+
+  it('lists businesses by account in place, the current one marked, and goes back', async () => {
+    renderWithRouter(() => <AccountMenu />);
+    const { user, menu } = await openMenu();
+    await user.click(within(menu).getByRole('menuitem', { name: /Chuyển business/ }));
+    expect(within(menu).getByText('Lan')).toBeInTheDocument();
+    expect(within(menu).getByText('Minh')).toBeInTheDocument();
+    expect(within(menu).getByRole('menuitem', { name: 'Lan Fashion' })).toHaveAttribute(
+      'aria-current',
+      'true',
+    );
+    expect(within(menu).getByRole('menuitem', { name: 'Minh English' })).not.toHaveAttribute(
+      'aria-current',
+    );
+    expect(within(menu).getByRole('menuitem', { name: 'Tạo business' })).toHaveAttribute(
+      'href',
+      '/app/businesses/new',
+    );
+    await user.keyboard('{Escape}');
+    expect(within(menu).getByRole('menuitem', { name: 'Đăng xuất' })).toBeInTheDocument();
   });
 
   it('goes back one level on Escape before closing', async () => {

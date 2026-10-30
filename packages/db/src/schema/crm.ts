@@ -2,12 +2,15 @@ import {
   bigint,
   boolean,
   date,
+  foreignKey,
+  index,
   integer,
   jsonb,
   pgTable,
   primaryKey,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
 
@@ -72,7 +75,35 @@ export const contacts = pgTable(
     updatedAt: ts('updated_at').notNull().defaultNow(),
     archivedAt: ts('archived_at'),
   },
-  () => [...tenantPolicies('contacts')],
+  (t) => [
+    // Target of same-workspace composite keys (conversations.contact_id, contact_bots; 0030).
+    uniqueIndex('contacts_workspace_id_unique').on(t.workspaceId, t.id),
+    ...tenantPolicies('contacts'),
+  ],
+);
+
+/**
+ * Every bot that answered a conversation linked to the customer (0030, T-088). History: kept when a
+ * page moves to another bot or the bot is deleted, so there is no key to `bots`.
+ */
+export const contactBots = pgTable(
+  'contact_bots',
+  {
+    workspaceId: workspaceRef(),
+    contactId: uuid('contact_id').notNull(),
+    botId: uuid('bot_id').notNull(),
+    firstSeenAt: ts('first_seen_at').notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.workspaceId, t.contactId, t.botId] }),
+    foreignKey({
+      name: 'contact_bots_contact_fk',
+      columns: [t.workspaceId, t.contactId],
+      foreignColumns: [contacts.workspaceId, contacts.id],
+    }).onDelete('cascade'),
+    index('contact_bots_bot_idx').on(t.workspaceId, t.botId),
+    ...tenantPolicies('contact_bots'),
+  ],
 );
 
 export const contactNotes = pgTable(

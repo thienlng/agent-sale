@@ -6,6 +6,7 @@ export interface WorkspaceProfile {
   companyName: string;
   businessServices: string;
   productDescription: string;
+  icon: string;
   logoAssetId: string | null;
   logoSha256: string | null;
   version: number;
@@ -13,7 +14,10 @@ export interface WorkspaceProfile {
 }
 
 export type ProfilePatch = Partial<
-  Pick<WorkspaceProfile, 'name' | 'companyName' | 'businessServices' | 'productDescription'>
+  Pick<
+    WorkspaceProfile,
+    'name' | 'companyName' | 'businessServices' | 'productDescription' | 'icon'
+  >
 >;
 
 export interface LogoAsset {

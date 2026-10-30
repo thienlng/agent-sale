@@ -11,8 +11,10 @@ import type {
 export type StatusFilter = 'open' | 'resolved' | 'spam' | 'all';
 export type ModeFilter = 'bot' | 'human' | 'all';
 export type PhoneFilter = 'all' | 'yes' | 'no';
+/** Last-activity window: presets end now; `custom` uses `timeFrom`/`timeTo` (local dates). */
+export type TimeFilter = 'any' | 'today' | 'yesterday' | 'last7' | 'last30' | 'custom';
 
-/** Everything the list can be narrowed by; saved views store this whole object. */
+/** Everything the list can be narrowed by. */
 export interface ListState {
   q: string;
   tab: InboxTab;
@@ -27,6 +29,13 @@ export interface ListState {
   provider: ChannelProvider | 'all';
   /** `all` or a connected page / account id. */
   channelId: string;
+  /** `all`, `none` (no bot answers) or the id of the bot answering now. */
+  botId: string;
+  time: TimeFilter;
+  /** `YYYY-MM-DD`, inclusive; empty for an open start. Only used by `time: 'custom'`. */
+  timeFrom: string;
+  /** `YYYY-MM-DD`, inclusive; empty for an open end. Only used by `time: 'custom'`. */
+  timeTo: string;
   hasPhone: PhoneFilter;
   status: StatusFilter;
   /** Quick filter "Ưu tiên": starred conversations only. */
@@ -47,16 +56,15 @@ export const DEFAULT_LIST_STATE: ListState = {
   assignee: 'all',
   provider: 'all',
   channelId: 'all',
+  botId: 'all',
+  time: 'any',
+  timeFrom: '',
+  timeTo: '',
   hasPhone: 'all',
   status: 'open',
   starred: false,
   followUp: false,
 };
-
-/** A saved view written before a field existed still applies with that field's default. */
-export function withDefaults(state: Partial<ListState>): ListState {
-  return { ...DEFAULT_LIST_STATE, ...state };
-}
 
 /** The advanced-filter fields (everything except search, queue tab, channel tab and quick filters). */
 export function advancedPart(state: ListState): Partial<ListState> {
@@ -81,6 +89,8 @@ export function activeFilterCount(state: ListState): number {
     state.assignee !== 'all',
     // The provider is the channel tab, not an advanced filter.
     state.channelId !== 'all',
+    state.botId !== 'all',
+    state.time !== 'any',
     state.hasPhone !== 'all',
     state.status !== DEFAULT_LIST_STATE.status,
   ].filter(Boolean).length;
@@ -101,7 +111,8 @@ export type FilterChip =
   | { id: string; kind: 'tagsAny' | 'tagsAll' | 'tagsExclude'; tagId: string }
   | { id: string; kind: 'untagged' | 'waiting' | 'mode' | 'hasPhone' | 'status' }
   | { id: string; kind: 'assignee'; value: string }
-  | { id: string; kind: 'provider' | 'channelId'; value: string };
+  | { id: string; kind: 'provider' | 'channelId' | 'botId'; value: string }
+  | { id: string; kind: 'time' };
 
 /** One removable chip per active value. */
 export function filterChips(state: ListState): FilterChip[] {
@@ -115,6 +126,8 @@ export function filterChips(state: ListState): FilterChip[] {
     chips.push({ id: 'assignee', kind: 'assignee', value: state.assignee });
   if (state.channelId !== 'all')
     chips.push({ id: 'channelId', kind: 'channelId', value: state.channelId });
+  if (state.botId !== 'all') chips.push({ id: 'botId', kind: 'botId', value: state.botId });
+  if (state.time !== 'any') chips.push({ id: 'time', kind: 'time' });
   if (state.hasPhone !== 'all') chips.push({ id: 'hasPhone', kind: 'hasPhone' });
   // The folder has its own "Đang xem: …" line, so it gets no chip.
   return chips;
@@ -139,6 +152,10 @@ export function removeChip(state: ListState, chip: FilterChip): Partial<ListStat
       return { provider: 'all' };
     case 'channelId':
       return { channelId: 'all' };
+    case 'botId':
+      return { botId: 'all' };
+    case 'time':
+      return { time: 'any', timeFrom: '', timeTo: '' };
     case 'hasPhone':
       return { hasPhone: 'all' };
     case 'status':
@@ -146,12 +163,69 @@ export function removeChip(state: ListState, chip: FilterChip): Partial<ListStat
   }
 }
 
+const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+/** Local midnight of a `YYYY-MM-DD` date, `days` later; null for anything else. */
+function localDay(date: string, days = 0): Date | null {
+  const m = DATE.exec(date);
+  if (!m) return null;
+  // `new Date(26, …)` would mean 1926; a typed year before 1970 is not a real inbox date.
+  if (Number(m[1]) < 1970) return null;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]) + days);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/** A custom range needs at least one end, and the start may not be after the end. */
+export function customRangeValid(from: string, to: string): boolean {
+  const [start, end] = [localDay(from), localDay(to)];
+  if ((from && !start) || (to && !end) || (!start && !end)) return false;
+  return !start || !end || start <= end;
+}
+
+/**
+ * The last-activity window as instants: `from` inclusive, `to` exclusive. Boundaries are local
+ * midnights, so the query stays the same all day and rolls over at midnight (lead alerts then
+ * re-prime on the new key without alerting). `null` for an unusable custom range.
+ */
+export function activityWindow(
+  state: Pick<ListState, 'time' | 'timeFrom' | 'timeTo'>,
+  now = new Date(),
+): { from?: string; to?: string } | null {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const daysAgo = (n: number) =>
+    new Date(today.getFullYear(), today.getMonth(), today.getDate() - n).toISOString();
+  switch (state.time) {
+    case 'any':
+      return {};
+    case 'today':
+      return { from: today.toISOString() };
+    case 'yesterday':
+      return { from: daysAgo(1), to: today.toISOString() };
+    case 'last7':
+      return { from: daysAgo(6) };
+    case 'last30':
+      return { from: daysAgo(29) };
+    case 'custom': {
+      if (!customRangeValid(state.timeFrom, state.timeTo)) return null;
+      const from = localDay(state.timeFrom);
+      const to = localDay(state.timeTo, 1);
+      return {
+        ...(from ? { from: from.toISOString() } : {}),
+        ...(to ? { to: to.toISOString() } : {}),
+      };
+    }
+  }
+}
+
 /** Maps the UI state to GET /conversations. */
-export function toListQuery(state: ListState, limit = 100): InboxListQuery {
+export function toListQuery(state: ListState, limit = 100, now = new Date()): InboxListQuery {
   const query: InboxListQuery = { tab: state.tab, limit };
   if (state.q.trim()) query.q = state.q.trim();
   if (state.assignee !== 'all') query.assignee = state.assignee;
   if (state.channelId !== 'all') query.channelId = state.channelId;
+  if (state.botId !== 'all') query.botId = state.botId;
+  const window = activityWindow(state, now);
+  if (window?.from) query.updatedFrom = window.from;
+  if (window?.to) query.updatedTo = window.to;
   if (state.provider !== 'all') query.provider = state.provider;
   if (state.hasPhone !== 'all') query.hasPhone = state.hasPhone === 'yes';
   if (state.waiting !== 'off') query.waiting = state.waiting;
@@ -175,7 +249,9 @@ export function guardList(
   items: readonly InboxConversation[],
   state: ListState,
   userId: string | undefined,
+  now = new Date(),
 ): InboxConversation[] {
+  const window = activityWindow(state, now);
   return items.filter(
     (item) =>
       (state.status === 'all' || item.status === state.status) &&
@@ -184,6 +260,9 @@ export function guardList(
       (state.mode === 'all' || item.mode === state.mode) &&
       (state.provider === 'all' || item.provider === state.provider) &&
       (state.channelId === 'all' || item.channelId === state.channelId) &&
+      (state.botId === 'all' || item.botId === (state.botId === 'none' ? null : state.botId)) &&
+      (!window?.from || Date.parse(item.updatedAt) >= Date.parse(window.from)) &&
+      (!window?.to || Date.parse(item.updatedAt) < Date.parse(window.to)) &&
       (state.assignee === 'all' ||
         (state.assignee === 'none'
           ? item.assigneeId === null

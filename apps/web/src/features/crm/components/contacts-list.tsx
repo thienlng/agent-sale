@@ -1,5 +1,5 @@
 import { Plus, UsersRound } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Pager } from '@/components/pager';
@@ -32,9 +32,12 @@ import { ContactsToolbar } from './contacts-toolbar';
 export function ContactsList({
   search,
   onSearch,
+  renderConversations,
 }: {
   search: ContactsSearch;
   onSearch: (next: ContactsSearch) => void;
+  /** Passed to the customer sheet (see `ContactSheet`). */
+  renderConversations?: ((contactId: string) => ReactNode) | undefined;
 }) {
   const { t } = useTranslation();
   const lookups = useCrmLookups();
@@ -196,7 +199,12 @@ export function ContactsList({
         lookups={lookups}
         onCreated={(id) => open(id)}
       />
-      <ContactSheet contactId={search.contact} onClose={() => open(undefined)} lookups={lookups} />
+      <ContactSheet
+        contactId={search.contact}
+        onClose={() => open(undefined)}
+        lookups={lookups}
+        renderConversations={renderConversations}
+      />
     </section>
   );
 }

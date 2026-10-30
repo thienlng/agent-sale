@@ -1,8 +1,10 @@
 import {
   AdjustStockRequest,
+  type BotProductsDto,
   type ProductDto,
   ProductListQuery,
   type ProductListResponse,
+  SetBotProductsRequest,
   UpsertProductRequest,
   UpsertWarehouseRequest,
   type VariantOption,
@@ -122,6 +124,24 @@ export class CatalogController {
     @Body(new ZodValidationPipe(AdjustStockRequest)) body: AdjustStockRequest,
   ): Promise<ProductDto> {
     return this.catalog.adjustStock(ws, id, body, user.userId);
+  }
+
+  @Get('bots/:botId/products')
+  botProducts(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Param('botId') botId: string,
+  ): Promise<BotProductsDto> {
+    return this.catalog.listBotProducts(ws, botId);
+  }
+
+  @RequireCapability('catalog.manage')
+  @Put('bots/:botId/products')
+  setBotProducts(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Param('botId') botId: string,
+    @Body(new ZodValidationPipe(SetBotProductsRequest)) body: SetBotProductsRequest,
+  ): Promise<BotProductsDto> {
+    return this.catalog.setBotProducts(ws, botId, body);
   }
 
   @Get('product-variants')

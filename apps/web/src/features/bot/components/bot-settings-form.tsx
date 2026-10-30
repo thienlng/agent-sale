@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { errorMessage } from '@/lib/errors';
 
-import { useReadiness, useUpdateBot } from '../api/bots';
+import { useUpdateBot } from '../api/bots';
 import { changedFields, type SettingsDraft, settingsProblems } from '../utils/settings-draft';
 import { BotSettingsAdvanced } from './bot-settings-advanced';
 import { BotSettingsBasic } from './bot-settings-basic';
@@ -21,20 +21,8 @@ export function BotSettingsForm({ bot }: { bot: BotDto }) {
   const { t } = useTranslation();
   const { t: training } = useTranslation('training');
   const update = useUpdateBot(bot.id);
-  const readiness = useReadiness(bot.id);
   const initial: SettingsDraft = useMemo(() => ({ name: bot.name, settings: bot.settings }), [bot]);
   const [draft, setDraft] = useState<SettingsDraft>(initial);
-
-  const placeholderKeys = useMemo(
-    () =>
-      [
-        ...new Set([
-          ...(readiness.data?.missingPlaceholders ?? []),
-          ...Object.keys(bot.settings.placeholders),
-        ]),
-      ].sort((a, b) => a.localeCompare(b)),
-    [readiness.data, bot.settings.placeholders],
-  );
 
   const changed = useMemo(() => changedFields(draft, initial), [draft, initial]);
   const problems = useMemo(() => settingsProblems(draft), [draft]);
@@ -76,7 +64,7 @@ export function BotSettingsForm({ bot }: { bot: BotDto }) {
           <BotSettingsBasic draft={draft} problems={problems} update={setDraft} />
         </TabsContent>
         <TabsContent value="advanced">
-          <BotSettingsAdvanced draft={draft} placeholderKeys={placeholderKeys} update={setDraft} />
+          <BotSettingsAdvanced botId={bot.id} draft={draft} update={setDraft} />
         </TabsContent>
       </Tabs>
 

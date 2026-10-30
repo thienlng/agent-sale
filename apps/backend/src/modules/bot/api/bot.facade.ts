@@ -6,6 +6,8 @@ export interface BotView {
   name: string;
   industry: string;
   isActive: boolean;
+  /** 'selected': the AI may only offer the products chosen for this bot (T-080). */
+  catalogMode: 'all' | 'selected';
   mission: string;
   greeting: string;
   selfPronoun: string;
@@ -19,6 +21,10 @@ export interface BotView {
   humanTakeoverMinutes?: number;
   silenceOnExternalReply?: boolean;
   replySchedule?: { mode: 'always' | 'custom'; start: string; end: string };
+  profile: { fields: Readonly<Record<string, string>>; notes: string };
+  replyLength: 'veryShort' | 'short' | 'detailed';
+  tone: 'friendly' | 'formal';
+  allowEmoji: boolean;
   placeholders: Readonly<Record<string, string>>;
 }
 

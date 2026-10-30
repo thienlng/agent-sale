@@ -131,9 +131,10 @@ describe('tenant isolation (ADR-004)', () => {
       from pg_class c
       join pg_attribute a on a.attrelid = c.oid and a.attname = 'workspace_id' and not a.attisdropped
       join pg_namespace n on n.oid = c.relnamespace and n.nspname = 'public'
-      -- Global operator tables (app_system only; tenants have no privileges on them).
+      -- Global operator tables (app_system only; tenants have no privileges on them, see
+      -- account-billing.integration.test.ts for message_usage).
       where c.relkind = 'r'
-        and c.relname not in ('tenant_routes', 'outbox_events', 'analytics_dead_letters')`);
+        and c.relname not in ('tenant_routes', 'outbox_events', 'analytics_dead_letters', 'message_usage')`);
     expect(rows.length).toBeGreaterThan(0);
     for (const r of rows)
       expect({ table: r.table, rls: r.rls, forced: r.forced }).toEqual({

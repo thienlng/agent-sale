@@ -8,6 +8,7 @@ import {
   index,
   integer,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import { tenantPolicies, workspaces } from './workspace.js';
 export const channelConnections = pgTable(
   'channel_connections',
@@ -29,7 +30,10 @@ export const channelConnections = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    uniqueIndex('channel_asset_unique').on(t.provider, t.externalId),
+    // A removed page (T-133) no longer owns its provider identity: only live rows are unique (0034).
+    uniqueIndex('channel_connections_live_external_key')
+      .on(t.provider, t.externalId)
+      .where(sql`${t.status} <> 'removed'`),
     index('channel_workspace_idx').on(t.workspaceId),
     ...tenantPolicies('channel_connections'),
   ],

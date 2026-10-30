@@ -14,8 +14,10 @@ import { useLeadAlerts } from '../hooks/use-lead-alerts';
 import {
   useAssignConversation,
   useBulkConversations,
+  useConversation,
   useInbox,
   useInboxChannels,
+  useInboxBots,
   useInboxMembers,
   useInboxTags,
   useReadState,
@@ -46,11 +48,14 @@ export function InboxPage({
   renderSalesPanel,
   renderComposerTools,
   renderComments,
+  openConversationId,
 }: {
   renderSalesPanel?: SalesPanel | undefined;
   renderComposerTools?: ComposerTools | undefined;
   /** The Facebook comments workspace, owned by the channel feature (composed by the route). */
   renderComments?: (() => ReactNode) | undefined;
+  /** Deep link (`/app/inbox?conversation=`): opened once, even when the list does not show it. */
+  openConversationId?: string | undefined;
 }) {
   const workspaceId = useWorkspaceId();
   const userId = useSession()?.user.id ?? '';
@@ -60,6 +65,7 @@ export function InboxPage({
       renderSalesPanel={renderSalesPanel}
       renderComposerTools={renderComposerTools}
       renderComments={renderComments}
+      openConversationId={openConversationId}
     />
   );
 }
@@ -73,13 +79,14 @@ function InboxWorkspace({
   renderSalesPanel,
   renderComposerTools,
   renderComments,
+  openConversationId,
 }: {
   renderSalesPanel?: SalesPanel | undefined;
   renderComposerTools?: ComposerTools | undefined;
   renderComments?: (() => ReactNode) | undefined;
+  openConversationId?: string | undefined;
 }) {
   const userId = useSession()?.user.id;
-  const workspaceId = useWorkspaceId();
   const searchRef = useRef<HTMLInputElement>(null);
   const { t } = useTranslation();
   const meta = (key: string, options?: Record<string, unknown>) =>
@@ -101,6 +108,14 @@ function InboxWorkspace({
       assign.mutate({ id, assigneeId }, { onError: fail }),
   };
   const [selected, setSelected] = useState<{ id: string; channelId: string } | null>(null);
+  // The deep-linked conversation is looked up by id once; closing it afterwards stays closed.
+  const [deepLink, setDeepLink] = useState(openConversationId);
+  const linked = useConversation(deepLink ?? null).data?.conversation;
+  useEffect(() => {
+    if (!linked) return;
+    setSelected({ id: linked.id, channelId: linked.channelId });
+    setDeepLink(undefined);
+  }, [linked]);
   const [state, setState] = useState<ListState>(DEFAULT_LIST_STATE);
   const [comments, setComments] = useState(false);
   const [managing, setManaging] = useState(false);
@@ -119,6 +134,7 @@ function InboxWorkspace({
   const channels = useInboxChannels();
   const tags = useInboxTags();
   const members = useInboxMembers();
+  const bots = useInboxBots();
   const items = guardList(inbox.data?.data ?? [], state, userId);
   const counts = tabCounts(inbox.data?.data ?? [], inbox.data?.counts);
   const section: InboxSection = comments ? 'fbComments' : state.provider;
@@ -194,13 +210,13 @@ function InboxWorkspace({
     <ConversationList
       state={state}
       searchRef={searchRef}
-      workspaceId={workspaceId}
       userId={userId ?? ''}
       onState={changeList}
       items={items}
       channels={channels.data?.data ?? []}
       tags={tags.data ?? []}
       members={members.data ?? []}
+      bots={bots.data ?? []}
       counts={counts}
       pending={inbox.isPending}
       refreshing={inbox.isPlaceholderData}
@@ -278,7 +294,13 @@ function InboxWorkspace({
                   onBack={() => setSelected(null)}
                   botId={botId}
                   channel={
-                    channel ? { name: channel.name, externalId: channel.externalId } : undefined
+                    channel
+                      ? {
+                          name: channel.name,
+                          externalId: channel.externalId,
+                          removed: channel.status === 'removed',
+                        }
+                      : undefined
                   }
                   renderSalesPanel={renderSalesPanel}
                   renderComposerTools={renderComposerTools}

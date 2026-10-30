@@ -1,6 +1,6 @@
 import { createRouter } from '@tanstack/react-router';
 
-import { onSessionExpired } from '@/lib/session';
+import { onSessionExpired, onWorkspaceLost } from '@/lib/session';
 
 import { routeTree } from '../routeTree.gen';
 
@@ -15,6 +15,11 @@ export const router = createRouter({
 // A refresh that fails mid-session (expired or revoked) lands on /login, keeping the page.
 onSessionExpired(() => {
   void router.navigate({ to: '/login', search: { redirect: router.state.location.href } });
+});
+
+// Removed from the current business mid-session: choose another one, with a notice.
+onWorkspaceLost(() => {
+  void router.navigate({ to: '/app/overview', search: { lost: true } });
 });
 
 declare module '@tanstack/react-router' {

@@ -68,6 +68,8 @@ export const workspaces = pgTable(
     logoAssetId: uuid('logo_asset_id'),
     /** Owning account (0028, ADR-012). Nullable until the account backfill has run. */
     accountId: uuid('account_id').references(() => accounts.id),
+    /** Picked icon, shown when the business has no logo (0032). */
+    icon: text('icon').notNull().default('building'),
   },
   (t) => [
     index('workspaces_owner_idx').on(t.ownerUserId),

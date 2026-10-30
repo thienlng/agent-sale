@@ -41,7 +41,7 @@ const inject = (opts: {
 }) => app.getHttpAdapter().getInstance().inject(opts);
 
 describe('bot + knowledge on Postgres', () => {
-  it('seeds the industry pack and finds FAQs from unaccented customer text', async () => {
+  it('seeds no placeholder FAQs and finds FAQs from unaccented customer text', async () => {
     const signup = await inject({
       method: 'POST',
       url: '/api/v1/auth/signup',
@@ -78,6 +78,20 @@ describe('bot + knowledge on Postgres', () => {
     );
 
     const knowledge = app.get<KnowledgeFacade>(KNOWLEDGE_FACADE);
+    // The retail pack seeds no FAQs since T-137 (packs carry no placeholder answers).
+    expect(await knowledge.searchFaqs(workspaceId(ws), bot.id, 'phi ship')).toEqual([]);
+    for (const [question, answer] of [
+      ['Phí ship bao nhiêu, giao mất mấy ngày?', 'Dạ phí ship 30.000đ, giao 2–3 ngày ạ.'],
+      ['Cửa hàng ở đâu?', 'Dạ shop ở 12 Lê Lợi, Quận 1 ạ.'],
+    ]) {
+      const created = await inject({
+        method: 'POST',
+        url: `/api/v1/bots/${bot.id}/faqs`,
+        headers: h,
+        payload: { question, answer },
+      });
+      expect(created.statusCode).toBe(201);
+    }
     const ship = await knowledge.searchFaqs(workspaceId(ws), bot.id, 'phi ship bao nhieu vay shop');
     expect(ship[0]?.question).toBe('Phí ship bao nhiêu, giao mất mấy ngày?');
     const where = await knowledge.searchFaqs(workspaceId(ws), bot.id, 'cua hang o dau');

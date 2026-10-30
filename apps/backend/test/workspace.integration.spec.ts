@@ -14,6 +14,7 @@ import { startTestPostgres, type TestPostgres, twoTenants } from '@agent-sales/t
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { AccountFacadeImpl } from '../src/modules/account/application/account.facade.impl.js';
+import { ListAccountsHandler } from '../src/modules/account/application/queries/list-accounts/list-accounts.handler.js';
 import { ResolveBusinessAccountHandler } from '../src/modules/account/application/commands/resolve-business-account/resolve-business-account.handler.js';
 import { DrizzleAccountRepository } from '../src/modules/account/infrastructure/persistence/account.drizzle-repository.js';
 import { CreateWorkspaceHandler } from '../src/modules/workspace/application/commands/create-workspace/create-workspace.handler.js';
@@ -44,8 +45,13 @@ afterAll(async () => {
   await pg?.stop();
 });
 
-const accounts = () =>
-  new AccountFacadeImpl(new ResolveBusinessAccountHandler(new DrizzleAccountRepository(system.db)));
+const accounts = () => {
+  const repo = new DrizzleAccountRepository(system.db);
+  return new AccountFacadeImpl(
+    new ResolveBusinessAccountHandler(repo),
+    new ListAccountsHandler(repo),
+  );
+};
 
 async function newUser() {
   const id = userId(newId());

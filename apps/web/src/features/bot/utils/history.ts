@@ -69,6 +69,10 @@ const LABELLED_FIELDS = new Set([
   'themeColor',
   'replySchedule',
   'placeholders',
+  'profile',
+  'replyLength',
+  'tone',
+  'allowEmoji',
   'title',
   'content',
   'trigger',
@@ -91,6 +95,7 @@ const BOOLEAN_FIELDS = new Set([
   'useCustomerName',
   'autoResumeAfterManual',
   'silenceOnExternalReply',
+  'allowEmoji',
   'enabled',
 ]);
 /** Fields whose values are option ids, with the i18n key prefix of their labels. */
@@ -98,6 +103,8 @@ const OPTION_FIELDS: Record<string, string> = {
   modelTier: 'space.settings.modelOptions',
   language: 'space.settings.languageOptions',
   creativity: 'common:settings.creativityOptions',
+  replyLength: 'personality.replyLengthOptions',
+  tone: 'personality.toneOptions',
   section: 'space.history.ruleSections',
 };
 const MAX_TEXT = 80;
@@ -127,6 +134,12 @@ export function describeValue(field: string, value: unknown): ValueView {
   const prefix = OPTION_FIELDS[field];
   if (prefix && typeof value === 'string') return { type: 'option', key: `${prefix}.${value}` };
   if (field === 'replySchedule' && isSchedule(value)) return { type: 'schedule', ...value };
+  if (field === 'profile' && isProfile(value)) {
+    const text = profileEntries(value)
+      .map(([k, v]) => `${k}: ${v}`)
+      .join(', ');
+    return text ? { type: 'text', text: truncate(text) } : { type: 'empty' };
+  }
   if (typeof value === 'object') {
     const text = Array.isArray(value)
       ? value.map(String).join(', ')
@@ -136,4 +149,43 @@ export function describeValue(field: string, value: unknown): ValueView {
     return text ? { type: 'text', text: truncate(text) } : { type: 'empty' };
   }
   return { type: 'text', text: truncate(String(value)) };
+}
+
+interface ProfileValue {
+  fields?: Record<string, string>;
+  notes?: string;
+}
+
+function isProfile(v: unknown): v is ProfileValue {
+  return typeof v === 'object' && v !== null && ('fields' in v || 'notes' in v);
+}
+
+function profileEntries(p: ProfileValue): [string, string][] {
+  const out = Object.entries(p.fields ?? {}).map(([k, v]): [string, string] => [k, String(v)]);
+  return p.notes ? [...out, ['notes', p.notes]] : out;
+}
+
+export interface ProfileChange {
+  /** A profile field key, or `notes` for the free-text notes. */
+  key: string;
+  isNotes: boolean;
+  before: string;
+  after: string;
+}
+
+/** The profile keys whose value differs between two stored profiles (fields first, notes last). */
+export function profileChanges(before: unknown, after: unknown): ProfileChange[] {
+  const was = isProfile(before) ? before : {};
+  const now = isProfile(after) ? after : {};
+  const keys = new Set([...Object.keys(was.fields ?? {}), ...Object.keys(now.fields ?? {})]);
+  const out: ProfileChange[] = [];
+  for (const key of keys) {
+    const b = was.fields?.[key] ?? '';
+    const a = now.fields?.[key] ?? '';
+    if (a !== b) out.push({ key, isNotes: false, before: b, after: a });
+  }
+  const b = was.notes ?? '';
+  const a = now.notes ?? '';
+  if (a !== b) out.push({ key: 'notes', isNotes: true, before: b, after: a });
+  return out;
 }

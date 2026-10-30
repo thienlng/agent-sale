@@ -3,7 +3,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api, apiBlob } from '@/lib/api-client';
 import { queryKeys } from '@/lib/query-keys';
+import { reloadSession, syncMembership } from '@/lib/session';
 import { useWorkspaceId } from '@/lib/use-workspace';
+
+import { workspaceKeys } from './use-current-workspace';
 
 export function useProfile() {
   const ws = useWorkspaceId();
@@ -18,12 +21,22 @@ export function useProfile() {
 export function useProfileMutations() {
   const ws = useWorkspaceId();
   const qc = useQueryClient();
-  const set = (p: WorkspaceProfileDto) => qc.setQueryData(queryKeys.profile(ws), p);
+  const set = (p: WorkspaceProfileDto) => {
+    qc.setQueryData(queryKeys.profile(ws), p);
+    // The business lists read name and logo from the session, so keep them in step.
+    if (ws) syncMembership(ws, p);
+  };
   return {
     update: useMutation({
       mutationFn: (body: UpdateWorkspaceProfileRequest) =>
         api('/workspace/profile', WorkspaceProfileDto, { method: 'PATCH', body }),
-      onSuccess: set,
+      onSuccess: (p) => {
+        set(p);
+        // The name is shown by the business selector (session memberships) and the current
+        // business query; refresh both so no label keeps the old name.
+        void qc.invalidateQueries({ queryKey: workspaceKeys.current(ws) });
+        void reloadSession().catch(() => undefined);
+      },
       // A stale save: load what is there now so the user can redo the edit on top of it.
       onError: () => void qc.invalidateQueries({ queryKey: queryKeys.profile(ws) }),
     }),

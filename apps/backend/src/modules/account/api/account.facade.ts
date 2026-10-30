@@ -12,6 +12,19 @@ export interface AccountFacade {
     accountId?: string | undefined;
     businessName: string;
   }): Promise<string>;
+  /** Accounts the user belongs to, with the account role (bootstrap, account menu). */
+  listForUser(userId: UserId): Promise<AccountMembership[]>;
+  /**
+   * Names of the accounts owning these businesses, for grouping the business switcher.
+   * Pass only account ids of businesses the user is a member of; names only, no content.
+   */
+  namesOf(accountIds: readonly string[]): Promise<Map<string, string>>;
+}
+
+export interface AccountMembership {
+  accountId: string;
+  name: string;
+  role: 'owner' | 'billing';
 }
 
 export const ACCOUNT_FACADE = Symbol('ACCOUNT_FACADE');

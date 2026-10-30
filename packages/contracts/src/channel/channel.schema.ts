@@ -9,7 +9,8 @@ export const ChannelConnectionDto = z.object({
   provider: ChannelProvider,
   externalId: z.string(),
   name: z.string(),
-  status: z.enum(['connected', 'disabled', 'reauth_required', 'disconnected']),
+  /** `removed` is a soft delete: hidden from the list, no bot, no ingestion, history kept. */
+  status: z.enum(['connected', 'disabled', 'reauth_required', 'disconnected', 'removed']),
   botId: z.uuid().nullable(),
   expiresAt: z.iso.datetime().nullable(),
   /** Widget settings; only website connections have them. */
@@ -17,6 +18,15 @@ export const ChannelConnectionDto = z.object({
   createdAt: z.iso.datetime(),
 });
 export type ChannelConnectionDto = z.infer<typeof ChannelConnectionDto>;
+/** `includeRemoved=true` also returns removed pages, for labelling their old conversations. */
+export const ChannelListQuery = z.object({
+  includeRemoved: z.preprocess(
+    (v) => (v === 'true' ? true : v === 'false' ? false : v),
+    z.boolean().optional(),
+  ),
+});
+export type ChannelListQuery = z.infer<typeof ChannelListQuery>;
+
 export const ChannelListResponse = z.object({
   data: z.array(ChannelConnectionDto),
   providers: z.array(z.object({ provider: MetaProvider, configured: z.boolean() })),

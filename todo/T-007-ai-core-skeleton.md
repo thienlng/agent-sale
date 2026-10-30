@@ -43,6 +43,7 @@ ADR-005: all LLM calls go through a gateway with provider abstraction, fallback,
 ## Log
 
 - 2026-10-23 — created.
+- 2026-10-29 — a minimal prompt eval runner (YAML cases, deterministic checks, fake/live) was delivered by T-145; the rest of this task stays open.
 
 ## Links
 

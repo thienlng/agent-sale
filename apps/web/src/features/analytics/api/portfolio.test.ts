@@ -13,11 +13,17 @@ const memberships: MembershipDto[] = [
     workspaceId: '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d21',
     workspaceName: 'Business A',
     role: 'owner',
+    industry: 'retail',
+    accountId: null,
+    accountName: null,
   },
   {
     workspaceId: '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d22',
     workspaceName: 'Business B',
     role: 'sales',
+    industry: 'retail',
+    accountId: null,
+    accountName: null,
   },
 ];
 const filters = resolveFilters({ from: date, to: date });

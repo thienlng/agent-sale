@@ -19,13 +19,13 @@ Since T-096 the inbox follows the Meta Business Suite inbox ([BA specification](
   - Hide/Unhide show an uncertain state until an outcome is recorded. An unanswered or `pending` hide/unhide keeps its request id per comment: only "Check status" and a same-id retry are offered, never the opposite operation, until the outcome is final.
   - Roles without `contacts.edit` (analyst) are view-only.
   - After a private reply the UI says the Messenger conversation appears once Facebook syncs it; there is no Open DM link, because no scoped-id → conversation lookup exists yet.
-- **List.** Search plus "Quản lý" (bulk mode). Quick filters apply at once and show their state: unread and awaiting reply (server counts, mutually exclusive queue tabs), priority (star) and follow-up. The advanced filter (tags, assignee, folder, waiting kind, reply mode, page, phone) edits a draft: "Áp dụng" applies it, "Xóa tất cả" resets the draft, closing discards it; search, tabs and quick filters are never touched by it. Viewing Done or Spam shows a "Đang xem" line with a way back.
+- **List.** Search plus "Quản lý" (bulk mode). Quick filters apply at once and show their state: unread and awaiting reply (server counts, mutually exclusive queue tabs), priority (star) and follow-up. The advanced filter (bot, time, tags, assignee, folder, waiting kind, reply mode, page, phone; T-132) opens on the bot group and edits a draft: "Áp dụng" applies it, "Xóa tất cả" resets the draft, closing discards it; search, tabs and quick filters are never touched by it. Viewing Done or Spam shows a "Đang xem" line with a way back.
 - **Bulk mode.** Rows get tick boxes and a click ticks instead of opening. "Select all" covers the rows on screen only. Actions: done/reopen, priority, read/unread, spam, assign, remove follow-up. A partial failure reports both counts and keeps only the failed rows selected so "retry" repeats just those. Any change of search, tab or filter clears the selection with a notice.
 - **Thread header.** Customer, page and Meta's "Chỉ định cuộc trò chuyện này" assignee menu; reply mode; icon actions with tooltips for spam, priority, mark unread and done (`E`); more (search in thread, open on Facebook); panel toggle.
 - **Thread and composer.** Messenger-style bubbles (outbound in the brand colour, customer avatar on the last bubble of a run, centred time between runs over 30 minutes). Sender and delivery state stay visible on outbound messages. The composer names the channel ("Trả lời trong Messenger…") and has attach, quick replies, emoji, product sharing and send. While the draft is empty the send button is Meta's 👍, which sends a real 👍 message. In Done or Spam the draft stays editable but nothing can be sent; a banner offers "Mở lại". Without `contacts.edit` (for example the analyst role) the composer says the conversation is view-only and every control is disabled; a refused send says it was a permission problem.
 - **Customer panel.** Profile header, then About (phone, CRM profile link), Labels (conversation tags from Customer settings, "Quản lý nhãn" link), Notes, Orders, Follow-up, Shared photos (pictures in the loaded messages only, labelled as such).
 
-Not in this slice (spec §16 decision gates): Instagram comments, automation, inbox settings, calls/payments, real delete/block/report, lead stage/quality and ad-reply filters, commerce markers, availability/tasks/notifications, direct file upload, shop/bot filters (T-087).
+Not in this slice (spec §16 decision gates): Instagram comments, automation, inbox settings, calls/payments, real delete/block/report, lead stage/quality and ad-reply filters, commerce markers, availability/tasks/notifications, direct file upload, shop-level filters across businesses (T-087).
 
 ## Queues and filters
 
@@ -33,7 +33,11 @@ Not in this slice (spec §16 decision gates): Instagram comments, automation, in
 
 The left column provides all conversations, staff handling, assigned to me, unassigned, AI handling and follow-ups due queues. A follow-up is due only when its saved UTC timestamp has passed and the conversation is open; the due count refreshes at least once per minute. This queue shares the latest-100-result limit and is not a comprehensive reminder scheduler. Counts refer to the latest loaded results (at most 100), not workspace totals. Page/account, provider, status and reply mode filters apply before queue counts. The staff queue describes ownership mode: it does not claim that the latest message is unanswered. The API currently does not expose unread state or the last sender in the list DTO.
 
-Saved views keep up to five filter combinations on the current device, separately for each user and workspace. They exclude customer search text, can be applied or deleted, and surface storage failures. They are not shared with teammates or synchronized between devices.
+**Bot filter (T-132).** "Tất cả bot", one bot, or "Chưa gán bot". It matches the bot answering the conversation now (`ConversationDto.botId`, ADR-012 §4): after a Page is moved to another bot, its conversations follow on their next message, so the filter is not a historical attribution report.
+
+**Time filter (T-132).** Any time, today, yesterday, last 7 days (today and the six days before), last 30 days, or a custom range of whole days (both ends inclusive, one end may be open, start after end cannot be applied). It filters on the conversation's latest activity (`updatedAt`, the list order). Days are the browser's local days; the query only changes at local midnight.
+
+Saved views (device-local filter combinations) were removed on the owner's decision of 2026-10-29: they were rarely understood and the bot and time filters cover the common cases.
 
 Keyboard shortcuts `J`/`K` switch visible conversations, `/` focuses inbox search, `R` focuses the visible reply/private-note editor and `E` resolves or reopens the selected conversation. Editors, dialogs, menus, IME composition and modified key combinations keep their normal behavior.
 
@@ -55,7 +59,7 @@ Saved follow-ups survive reload through existing JSON persistence; this additive
 
 ## Customer and order context
 
-A Meta sender ID is not a CRM contact UUID. Staff explicitly search and select a CRM profile; the UI never automatically matches customers by name. A selected profile supplies initial details to a new order. An existing draft preserves its original editable customer fields and displays a warning instead of overwriting them when a different profile is selected. The selected profile exposes stage and tag controls directly in the panel using existing permissions and version checks. Full CRM editing and history remain available through the profile drawer.
+A Meta sender ID is not a CRM contact UUID. The conversation stores its CRM customer (`contactId`, T-088), so every member sees the same link. It is set when the customer sends a phone number (one customer per phone in the business, created when missing), when a website visitor leaves one, or by staff, who search and select a profile and can change or remove the link (`contacts.edit`); the UI never matches customers by name. The profile offers "Open in CRM" (`/app/contacts?contact=`), and the CRM profile lists the customer's conversations, each opening `/app/inbox?conversation=`. A selected profile supplies initial details to a new order. An existing draft preserves its original editable customer fields and displays a warning instead of overwriting them when a different profile is selected. The selected profile exposes stage and tag controls directly in the panel using existing permissions and version checks. Full CRM editing and history remain available through the profile drawer.
 
 The order tab reuses the existing commerce form, source-specific field policies, warehouses, product variants, stock warnings and integer money calculations. It creates a real order through the existing endpoint and keeps the operator in the inbox. A draft retains its client request ID and fields across conversation switches; a shared in-flight registry prevents duplicate submission from remounted forms. The awaited completion clears the original draft and records the created order even when the operator has switched away. Embedded F2 applies only with focus inside the visible order form.
 
@@ -65,7 +69,7 @@ Orders shown in the customer panel are explicitly labelled as created during the
 
 - Updates use the existing polling intervals, not realtime transport.
 - Attachments use existing HTTPS URL/media-library capabilities; direct uploads are not implemented here.
-- Background/recurring notifications, server-shared inbox views, cross-channel identity linking and complete historical order linking require their own persistent backend work. No inactive controls are presented for those capabilities.
+- Background/recurring notifications, server-shared inbox views and complete historical order linking require their own persistent backend work. Cross-channel identity is only by phone number (T-088). No inactive controls are presented for those capabilities.
 - Browser coverage includes filled order panels at 375, 1280 and 1440 pixels, draft switching and consecutive note saves. Component tests cover in-flight completion and duplicate prevention; backend tests cover stale writes and cross-tenant access.
 
 ## Review screenshots
@@ -77,7 +81,6 @@ Generated from synthetic API fixtures in the production browser suite, not real 
 - [Mobile order panel](reference/inbox-redesign/mobile-order.png)
 - [Expanded order details](reference/inbox-redesign/expanded-order.png)
 - [Follow-up editor](reference/inbox-redesign/follow-up.png)
-- [Saved views](reference/inbox-redesign/saved-views.png)
 
 ## Personal compose options (T-107)
 

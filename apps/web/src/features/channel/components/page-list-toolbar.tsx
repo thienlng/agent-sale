@@ -1,5 +1,5 @@
 import type { BotDto } from '@agent-sales/contracts';
-import { Search, Bot, Unplug } from 'lucide-react';
+import { Search, Bot, Trash2, Unplug } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -24,6 +24,8 @@ export function PageListToolbar({
   onAssignmentChange,
   readOnly,
   canUnassign,
+  canRemove,
+  onRemove,
 }: {
   bot: boolean;
   bots: readonly BotDto[];
@@ -31,6 +33,9 @@ export function PageListToolbar({
   onAssignmentChange: (value: string) => void;
   readOnly: boolean;
   canUnassign: boolean;
+  /** At least one selected page can be removed (website chat cannot). */
+  canRemove: boolean;
+  onRemove: () => void;
   query: string;
   onQueryChange: (value: string) => void;
   selectedCount: number;
@@ -118,6 +123,17 @@ export function PageListToolbar({
             <Unplug />
             {ti('deactivate')}
           </Button>
+          {!readOnly ? (
+            <Button
+              variant="outline"
+              className="text-destructive hover:text-destructive"
+              disabled={!canRemove || busy}
+              onClick={onRemove}
+            >
+              <Trash2 />
+              {ti('removePage')}
+            </Button>
+          ) : null}
         </div>
       </div>
     </div>
