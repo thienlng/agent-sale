@@ -1,13 +1,13 @@
 ---
 id: T-106
 title: Bring Facebook comment threads into the inbox
-status: review
+status: done
 type: feature
 priority: P1
 owner: '@agent:claude'
 feature_ids: []
 created: 2026-10-27
-updated: 2026-10-28
+updated: 2026-10-30
 branch: feat/T-106-facebook-comments-inbox
 pr: 73
 parent:
@@ -122,7 +122,7 @@ Risks:
 
 ## Links
 
-- [T-106 functional/implementation handoff](../docs/handoffs/T-106-facebook-comments-inbox.md)
-- [Meta-style BA specification](../docs/business/rapiz-inbox-meta-ba.vi.md)
-- [Current sales workspace](../docs/18-sales-inbox-workspace.md)
-- [Current comment behavior](../docs/integrations/facebook-comments.md)
+- [T-106 functional/implementation handoff](../../docs/handoffs/T-106-facebook-comments-inbox.md)
+- [Meta-style BA specification](../../docs/business/rapiz-inbox-meta-ba.vi.md)
+- [Current sales workspace](../../docs/18-sales-inbox-workspace.md)
+- [Current comment behavior](../../docs/integrations/facebook-comments.md)
