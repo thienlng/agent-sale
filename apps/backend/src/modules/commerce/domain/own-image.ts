@@ -9,7 +9,8 @@ export interface ImageUrlChecker {
 }
 
 /**
- * Pictures must be files Rapiz stored for this workspace. Returns
+ * Pictures must be JPEG or PNG (Messenger rejects WebP in multi-image albums), and
+ * must be files Rapiz stored for this workspace. Returns
  * 'IMAGE_NOT_UPLOADED' for anything else (external links, another workspace,
  * unconfigured storage, traversal tricks), or null when the URL is acceptable.
  */
@@ -22,5 +23,5 @@ export function ownImageProblem(
   if (!storage.isPublicUrlUnder(url, prefix)) return 'IMAGE_NOT_UPLOADED';
   if (/[?#%\\]|\.\./.test(url)) return 'IMAGE_NOT_UPLOADED';
   const file = url.slice(url.indexOf(`/${prefix}`) + prefix.length + 1);
-  return /^[\w-]+\.(jpe?g|png|webp)$/i.test(file) ? null : 'IMAGE_NOT_UPLOADED';
+  return /^[\w-]+\.(jpe?g|png)$/i.test(file) ? null : 'IMAGE_NOT_UPLOADED';
 }

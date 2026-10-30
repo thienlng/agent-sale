@@ -2,11 +2,11 @@ import type { UploadProductImageRequest, UploadProductImageResponse } from '@age
 import { newId, type WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
-import { decodeImage } from '../../../common/storage/image-bytes.js';
+import { decodeImage, InvalidImageError } from '../../../common/storage/image-bytes.js';
 import type { PublicObjectStorage } from '../../../common/storage/public-object-storage.js';
 import { PRODUCT_IMAGE_STORAGE } from './ports/product-image-storage.js';
 
-const EXTENSIONS = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' } as const;
+const EXTENSIONS = { 'image/jpeg': 'jpg', 'image/png': 'png' } as const;
 
 /** Product pictures are files on Rapiz storage, one prefix per workspace. */
 @Injectable()
@@ -17,6 +17,8 @@ export class ProductImageService {
     ws: WorkspaceId,
     input: UploadProductImageRequest,
   ): Promise<UploadProductImageResponse> {
+    // Defence in depth: the schema already limits mimeType (Messenger rejects WebP in albums).
+    if (!(input.mimeType in EXTENSIONS)) throw new InvalidImageError();
     const bytes = decodeImage(input.base64, input.mimeType);
     const key = `products/${ws}/${newId()}.${EXTENSIONS[input.mimeType]}`;
     return { url: await this.storage.put(key, bytes, input.mimeType) };

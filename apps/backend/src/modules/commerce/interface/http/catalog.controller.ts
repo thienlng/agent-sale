@@ -37,6 +37,7 @@ import {
   RequireCapability,
   WorkspaceScoped,
 } from '../../../../common/http/auth-context.js';
+import { InvalidImageError } from '../../../../common/storage/image-bytes.js';
 import { ZodValidationPipe } from '../../../../common/http/zod-validation.pipe.js';
 import { CatalogService } from '../../application/catalog.service.js';
 import { LodgingService } from '../../application/lodging.service.js';
@@ -44,6 +45,20 @@ import { ProductImageService } from '../../application/product-image.service.js'
 
 /** Thin controller: warehouses, products and the variant picker. */
 @WorkspaceScoped()
+/** WebP (or any other type) gets the same INVALID_IMAGE answer as bad bytes; the rest is Zod. */
+class ProductImageBodyPipe extends ZodValidationPipe<UploadProductImageRequest> {
+  constructor() {
+    super(UploadProductImageRequest);
+  }
+
+  override transform(value: unknown): UploadProductImageRequest {
+    const mime = (value as { mimeType?: unknown } | null)?.mimeType;
+    if (typeof mime === 'string' && mime !== 'image/jpeg' && mime !== 'image/png')
+      throw new InvalidImageError();
+    return super.transform(value);
+  }
+}
+
 @Controller()
 export class CatalogController {
   constructor(
@@ -112,7 +127,7 @@ export class CatalogController {
   @RouteConfig({ bodyLimit: 2_097_152 })
   uploadProductImage(
     @CurrentWorkspace() ws: WorkspaceId,
-    @Body(new ZodValidationPipe(UploadProductImageRequest)) body: UploadProductImageRequest,
+    @Body(new ProductImageBodyPipe()) body: UploadProductImageRequest,
   ): Promise<UploadProductImageResponse> {
     return this.images.upload(ws, body);
   }

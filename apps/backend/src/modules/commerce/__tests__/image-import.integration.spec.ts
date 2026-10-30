@@ -101,14 +101,20 @@ const read = async (id: string) =>
 
 describe('importProductImages', () => {
   it('dry run counts and changes nothing', async () => {
-    const report = await importProductImages(system.db, storage, { dryRun: true });
+    const report = await importProductImages(system.db, storage, {
+      dryRun: true,
+      allowPrivateHosts: true,
+    });
     expect(report[wsA]).toMatchObject({ found: 5, alreadyStored: 1, imported: 0 });
     expect(puts).toHaveLength(0);
     expect(hits).toEqual({});
   });
 
   it('imports, rewrites in place, reports failures, uploads one copy per source per workspace', async () => {
-    const report = await importProductImages(system.db, storage, { workspaceId: wsA });
+    const report = await importProductImages(system.db, storage, {
+      workspaceId: wsA,
+      allowPrivateHosts: true,
+    });
     expect(report[wsB]).toBeUndefined();
     expect(report[wsA]).toEqual({
       found: 5,
@@ -118,7 +124,8 @@ describe('importProductImages', () => {
     });
     expect(hits['/ok.png']).toBe(2); // once direct (shared by A1 and the A2 gallery), once via the redirect
     expect(puts).toHaveLength(2);
-    expect(accept[0]).toBe('image/jpeg,image/png,image/webp');
+    expect(accept[0]).toBe('image/jpeg,image/png;q=0.9,*/*;q=0.1');
+    expect(accept[0]).not.toContain('webp');
     const a1 = await read(pA1);
     expect(a1.image_urls[0]).toMatch(new RegExp(`^${MEDIA}/products/${wsA}/[\\w-]+\\.png$`));
     expect(a1.image_urls[1]).toBe(`${MEDIA}/products/${wsA}/keep.jpg`);
@@ -134,13 +141,16 @@ describe('importProductImages', () => {
 
   it('is idempotent: a second run only retries the failures', async () => {
     const before = puts.length;
-    const report = await importProductImages(system.db, storage, { workspaceId: wsA });
+    const report = await importProductImages(system.db, storage, {
+      workspaceId: wsA,
+      allowPrivateHosts: true,
+    });
     expect(report[wsA]).toMatchObject({ found: 2, imported: 0, alreadyStored: 4 });
     expect(puts.length).toBe(before);
   });
 
   it('imports other workspaces under their own prefix', async () => {
-    await importProductImages(system.db, storage);
+    await importProductImages(system.db, storage, { allowPrivateHosts: true });
     expect((await read(pB)).image_urls[0]).toContain(`/products/${wsB}/`);
   });
 
@@ -155,7 +165,7 @@ describe('importProductImages', () => {
       download: async (url) => {
         const img = await (
           await import('../infrastructure/image-import/download-image.js')
-        ).downloadImage(url);
+        ).downloadImage(url, fetch, { allowPrivateHosts: true });
         // The merchant edits the caption and adds a picture before the import writes.
         await call(sql`update products set accommodation = ${JSON.stringify({
           rooms: 1,

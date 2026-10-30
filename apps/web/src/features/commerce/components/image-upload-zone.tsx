@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { imageUploadErrorKey, useUploadProductImage } from '../api/commerce';
 import { ImageUnreadableError, resizeImage } from '../lib/resize-image';
 
+// WebP files may be picked: resize-image.ts always converts to JPEG (Messenger rejects WebP in albums).
 const ACCEPT = 'image/jpeg,image/png,image/webp';
 
 /**

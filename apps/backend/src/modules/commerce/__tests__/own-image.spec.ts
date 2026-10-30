@@ -21,7 +21,11 @@ describe('ownImageProblem', () => {
   const check = (url: string, configured = true) => ownImageProblem(url, WS, storage(configured));
   it('accepts a file under the workspace prefix', () => {
     expect(check(`${BASE}/products/${WS}/abc.jpg`)).toBeNull();
-    expect(check(`${BASE}/products/${WS}/abc.webp`)).toBeNull();
+    expect(check(`${BASE}/products/${WS}/abc.jpeg`)).toBeNull();
+    expect(check(`${BASE}/products/${WS}/abc.png`)).toBeNull();
+  });
+  it('rejects WebP (Messenger rejects it in albums)', () => {
+    expect(check(`${BASE}/products/${WS}/abc.webp`)).toBe('IMAGE_NOT_UPLOADED');
   });
   it('rejects external links, other workspaces, traversal and unconfigured storage', () => {
     expect(check('https://img.example.com/a.jpg')).toBe('IMAGE_NOT_UPLOADED');
@@ -94,9 +98,9 @@ describe('CatalogService image rule', () => {
     );
   });
   it('accepts an own image (reaches the store)', async () => {
-    expect(
-      (await reason(() => service().createProduct(WS, product({ imageUrls: [own] }))))?.details,
-    ).toBeUndefined();
+    const err = await reason(() => service().createProduct(WS, product({ imageUrls: [own] })));
+    expect(err).toBeInstanceOf(Error);
+    expect((err as unknown as Error).message).toBe('store reached');
   });
   it('applies the same rule to accommodation gallery urls', async () => {
     const bad = product({
@@ -113,6 +117,8 @@ describe('CatalogService image rule', () => {
       expect(err?.details).toEqual({ reason: 'IMAGE_NOT_UPLOADED', field: 'gallery[1].url' });
     }
     const ok = product({ accommodation: accommodation([{ url: own, caption: 'ok' }]) });
-    expect((await reason(() => service().createProduct(WS, ok)))?.details).toBeUndefined();
+    expect(
+      ((await reason(() => service().createProduct(WS, ok))) as unknown as Error).message,
+    ).toBe('store reached');
   });
 });

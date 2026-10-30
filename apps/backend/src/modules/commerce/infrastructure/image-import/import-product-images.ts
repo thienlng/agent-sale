@@ -18,6 +18,8 @@ export interface ImportOptions {
   dryRun?: boolean;
   workspaceId?: string;
   download?: (url: string) => Promise<DownloadedImage>;
+  /** Internal, tests only: let the default downloader reach loopback/private hosts. */
+  allowPrivateHosts?: boolean;
 }
 
 const emptyReport = (): WorkspaceImportReport => ({
@@ -38,7 +40,10 @@ export async function importProductImages(
   storage: PublicObjectStorage,
   options: ImportOptions = {},
 ): Promise<Record<string, WorkspaceImportReport>> {
-  const download = options.download ?? ((u: string) => downloadImage(u));
+  const download =
+    options.download ??
+    ((u: string) =>
+      downloadImage(u, fetch, { allowPrivateHosts: options.allowPrivateHosts === true }));
   const rows = await db
     .select({
       id: schema.products.id,
