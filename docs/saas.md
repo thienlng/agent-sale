@@ -1,6 +1,6 @@
 # SaaS businesses (ADR-014)
 
-A business with industry `saas` sells software subscriptions. Its sidebar shows **Demo / trial requests** (`/app/saas-requests`) and **Subscribers** (`/app/saas-customers`) instead of orders and products. Rapiz itself is such a business: the system-created Rapiz HQ workspace and its billing sync arrive in the follow-up PR.
+A business with industry `saas` sells software subscriptions. It has no orders or products; the sidebar's **Customers** section lists, after the customer list, **Demo / trial requests** (`/app/saas-requests`) and **Subscribers** (`/app/saas-customers`, only for members with `contacts.view_all`). Rapiz itself is such a business: the system-created Rapiz HQ workspace and its billing sync arrive in the follow-up PR.
 
 ## Requests
 

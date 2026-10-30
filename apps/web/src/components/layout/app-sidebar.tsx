@@ -133,18 +133,19 @@ const LODGING: readonly NavItem[] = [
   { to: '/app/stays', key: 'nav.stayRequests', icon: CalendarDays, ready: true },
 ];
 
-/** A SaaS business sells subscriptions: demo/trial requests and subscribers (ADR-014). */
-const SAAS: readonly NavItem[] = [
+/** A SaaS business sells subscriptions: its leads and subscribers are customers (ADR-014). */
+const SAAS_CONTACTS: readonly NavItem[] = [
   { to: '/app/saas-requests', key: 'nav.saasRequests', icon: Handshake, ready: true },
   { to: '/app/saas-customers', key: 'nav.saasCustomers', icon: Repeat, ready: true },
 ];
 
-/** The customers area (docs/03 §2 "Khách hàng"). */
-const CONTACTS: readonly NavItem[] = [
+/** The customers area (docs/03 §2 "Khách hàng"); a SaaS business adds its pages after the list. */
+const contactItems = (saas: boolean): readonly NavItem[] => [
   { to: '/app/contacts', key: 'nav.contactsList', icon: Users },
+  ...(saas ? SAAS_CONTACTS : []),
   { to: '/app/crm-settings', key: 'nav.crmSettings', icon: Settings },
 ];
-const CONTACT_PATHS = /^\/app\/(contacts|crm-settings)(\/|$)/;
+const CONTACT_PATHS = /^\/app\/(contacts|crm-settings|saas-requests|saas-customers)(\/|$)/;
 
 /** A sidebar entry with sub-pages that opens while you are inside it. */
 function SectionNav({
@@ -265,6 +266,7 @@ export function AppSidebar({
   const session = useSession();
   const prefs = usePreferences();
   const canSettings = useCan('settings.manage');
+  const canViewAll = useCan('contacts.view_all');
   return (
     <Sidebar variant={prefs.sidebar_variant} collapsible={prefs.sidebar_collapsible}>
       <SidebarHeader>
@@ -290,14 +292,17 @@ export function AppSidebar({
             <SectionNav
               label="nav.contacts"
               icon={Users}
-              items={CONTACTS.filter((i) => canSettings || i.to !== '/app/crm-settings')}
+              items={contactItems(industry === 'saas').filter(
+                (i) =>
+                  (canSettings || i.to !== '/app/crm-settings') &&
+                  // Subscriptions are revenue figures: the page needs contacts.view_all.
+                  (canViewAll || i.to !== '/app/saas-customers'),
+              )}
               paths={CONTACT_PATHS}
             />
             {industry === 'hotel' ? (
               <NavItems items={LODGING} />
-            ) : industry === 'saas' ? (
-              <NavItems items={SAAS} />
-            ) : (
+            ) : industry === 'saas' ? null : (
               <>
                 <SectionNav
                   label="nav.orders"
