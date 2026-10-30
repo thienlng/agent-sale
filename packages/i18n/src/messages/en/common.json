@@ -94,6 +94,7 @@
     "education": "Education / training centre",
     "hotel": "Hotel / homestay",
     "solar": "Solar / mechanical",
+    "saas": "Software / SaaS",
     "other": "Other"
   },
   "bots": {
@@ -1538,6 +1539,7 @@
         "education": "Centres and classes: courses, tuition, start dates",
         "hotel": "Hotels, homestays, villas: rooms, rates, check-in/out, deposits",
         "solar": "Solar and mechanical work: surveys, quotes, installation, warranty",
+        "saas": "Software, SaaS: plans, free trials, demos, subscribers",
         "other": "Any other field: start from a blank pack and set up your own details"
       },
       "errors": {

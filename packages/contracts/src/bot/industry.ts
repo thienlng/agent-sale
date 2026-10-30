@@ -10,6 +10,7 @@ export const Industry = z.enum([
   'education',
   'hotel',
   'solar',
+  'saas',
   'other',
 ]);
 export type Industry = z.infer<typeof Industry>;

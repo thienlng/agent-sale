@@ -74,6 +74,18 @@ const PACKS: Record<IndustryKey, IndustryPack> = {
     greeting: GREETING,
     faqs: [],
   },
+  saas: {
+    mission:
+      'Tư vấn gói cước, tính năng và tích hợp theo đúng thông tin doanh nghiệp; ghi nhận yêu cầu demo hoặc dùng thử (tên, số điện thoại hoặc email, công ty, nhu cầu) để nhân viên liên hệ; không hứa tính năng hay giá ngoài thông tin đã có.',
+    greeting: 'Dạ em chào anh/chị ạ! Anh/chị đang tìm giải pháp cho nhu cầu nào ạ?',
+    faqs: [
+      {
+        question: 'Có được dùng thử không?',
+        answer:
+          'Dạ, anh/chị cho em xin tên, số điện thoại hoặc email và tên công ty, bên em sẽ liên hệ để mở dùng thử cho mình ạ.',
+      },
+    ],
+  },
   other: {
     mission:
       'Trả lời câu hỏi của khách dựa trên thông tin doanh nghiệp, xin số điện thoại khi khách có nhu cầu.',

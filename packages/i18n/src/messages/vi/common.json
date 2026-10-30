@@ -94,6 +94,7 @@
     "education": "Giáo dục / trung tâm",
     "hotel": "Khách sạn / homestay",
     "solar": "Điện mặt trời / cơ khí",
+    "saas": "Phần mềm / SaaS",
     "other": "Lĩnh vực khác"
   },
   "bots": {
@@ -1536,6 +1537,7 @@
         "education": "Trung tâm, lớp học: khóa học, học phí, lịch khai giảng",
         "hotel": "Khách sạn, homestay, villa: phòng, giá, nhận/trả phòng, đặt cọc",
         "solar": "Điện mặt trời, cơ khí: khảo sát, báo giá, lắp đặt, bảo hành",
+        "saas": "Phần mềm, SaaS: gói cước, dùng thử, demo, khách thuê bao",
         "other": "Lĩnh vực khác: bắt đầu từ nội dung trống, tự thiết lập thông tin"
       },
       "errors": {
