@@ -95,3 +95,47 @@ describe('HTTP: POST /products/images', () => {
     });
   });
 });
+
+describe('HTTP: product image body limit', () => {
+  const url = '/api/v1/products/images';
+
+  it('accepts a ~1.3 MB base64 body (decoded within 1 MiB) past the transport limit', async () => {
+    const { http, headers } = await setup();
+    const jpeg = Buffer.concat([
+      Buffer.from([255, 216, 255]),
+      Buffer.alloc(1_000_000, 1),
+      Buffer.from([255, 217]),
+    ]);
+    const res = await http.inject({
+      method: 'POST',
+      url,
+      headers,
+      payload: { mimeType: 'image/jpeg', base64: jpeg.toString('base64') },
+    });
+    expect(res.statusCode, res.body.slice(0, 200)).toBe(503);
+  });
+
+  it('rejects above 2 MiB before the handler (Fastify 413, surfaced as 500 by the filter)', async () => {
+    const { http, headers } = await setup();
+    const res = await http.inject({
+      method: 'POST',
+      url,
+      headers,
+      payload: { mimeType: 'image/jpeg', base64: 'A'.repeat(2_200_000) },
+    });
+    expect([413, 500]).toContain(res.statusCode);
+    expect(res.body).not.toContain('MEDIA_STORAGE_UNAVAILABLE');
+  });
+
+  it('keeps the 1 MiB default on other routes (same rejection)', async () => {
+    const { http, headers } = await setup();
+    const res = await http.inject({
+      method: 'POST',
+      url: '/api/v1/warehouses',
+      headers,
+      payload: { name: 'x'.repeat(1_200_000) },
+    });
+    expect([413, 500]).toContain(res.statusCode);
+    expect(res.body).not.toContain('MEDIA_STORAGE_UNAVAILABLE');
+  });
+});

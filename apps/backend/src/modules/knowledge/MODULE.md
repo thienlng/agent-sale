@@ -21,3 +21,4 @@
 **Do not:** import the bot module (dependency goes bot → knowledge); put AI/LLM logic here.
 
 **Test:** `pnpm --filter @agent-sales/backend test -- knowledge`
+- Bot image storage uses the shared S3-compatible adapter in `apps/backend/src/common/storage` (`S3PublicObjectStorage`, `decodeImage`, `InvalidImageError`, `MediaStorageUnavailableError`), also used by commerce for product pictures. Upload errors carry `details.reason` (`INVALID_IMAGE`, `MEDIA_STORAGE_UNAVAILABLE`).
