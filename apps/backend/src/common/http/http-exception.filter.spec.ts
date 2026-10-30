@@ -25,7 +25,7 @@ describe('HttpExceptionFilter', () => {
     });
     const { status, body, logger } = run(err);
     expect(status).toBe(413);
-    expect(body.error).toMatchObject({
+    expect(body?.error).toMatchObject({
       code: 'VALIDATION_FAILED',
       details: { reason: 'PAYLOAD_TOO_LARGE' },
       traceId: 'trace-1',
@@ -36,6 +36,6 @@ describe('HttpExceptionFilter', () => {
   it('still maps unknown errors to 500 INTERNAL', () => {
     const { status, body } = run(new Error('boom'));
     expect(status).toBe(500);
-    expect(body.error.code).toBe('INTERNAL');
+    expect(body?.error.code).toBe('INTERNAL');
   });
 });
