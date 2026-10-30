@@ -1,5 +1,5 @@
 ---
-id: T-156
+id: T-159
 title: Reset TinyMind and Villas conversation history
 status: done
 type: chore
@@ -49,3 +49,4 @@ Catalog, inventory, training content/history, bot configuration, channel binding
 - Related: T-153, T-155.
 
 - 2026-10-30 — Completed in one transaction: removed 6 conversations, 45 messages, 233 AI runs, 29 action runs, 68 webhook records, 177 chat analytics facts and 440 conversation outbox events. All target chat tables read back empty. Full content hashes verified 15 preserved tables and all unrelated workspace rows unchanged. Private recovery copy is outside the repository with directory mode 0700 and file mode 0600. No application code, schema, Meta data or credentials changed.
+- 2026-10-30 — Renumbered from T-156 to T-159: T-156 is already the CI recovery task (PR #89); both were created in parallel.
