@@ -625,7 +625,7 @@ describe('MetaInboxProcessor', () => {
         }));
     };
 
-    it('sends the text, then ONE message per picture (Meta rejects URL albums), with stable keys', async () => {
+    it('sends the text, then ONE album message with every picture, with stable keys', async () => {
       const { channels, ai, inbox, processor } = setup();
       ai.reply.mockResolvedValueOnce(withImages(pics.slice(0, 2)));
       vi.mocked(channels.claimEvents).mockResolvedValueOnce([
@@ -633,47 +633,62 @@ describe('MetaInboxProcessor', () => {
       ]);
       await processor.tick();
       const calls = vi.mocked(channels.deliver).mock.calls;
-      expect(calls.map((call) => call[4])).toEqual(['bot:p1', 'bot:p1:img:0', 'bot:p1:img:1']);
-      expect(calls[0]?.[3]).toEqual({ text: 'Here they are', attachments: undefined });
+      expect(calls.map((call) => call[4])).toEqual(['bot:p1', 'bot:p1:img']);
       expect(calls[1]?.[3]).toEqual({
         text: '',
-        attachments: [{ type: 'image', url: pics[0]?.url }],
-      });
-      expect(calls[2]?.[3]).toEqual({
-        text: '',
-        attachments: [{ type: 'image', url: pics[1]?.url }],
+        attachments: [
+          { type: 'image', url: pics[0]?.url },
+          { type: 'image', url: pics[1]?.url },
+        ],
       });
       expect(await outbound(inbox, ws)).toEqual([
         { text: 'Here they are', status: 'sent', sender: 'bot' },
         { text: '', url: pics[0]?.url, status: 'sent', sender: 'bot' },
-        { text: '', url: pics[1]?.url, status: 'sent', sender: 'bot' },
       ]);
     });
 
-    it('caps the pictures at three even if the answer carries more', async () => {
+    it('caps the album at three pictures even if the answer carries more', async () => {
       const { channels, ai, processor } = setup();
       ai.reply.mockResolvedValueOnce(withImages(pics));
       vi.mocked(channels.claimEvents).mockResolvedValueOnce([
         job('p2', 'message', 'photos please', Date.now()),
       ]);
       await processor.tick();
-      expect(channels.deliver).toHaveBeenCalledTimes(4);
-      for (const call of vi.mocked(channels.deliver).mock.calls.slice(1))
-        expect(call[3].attachments).toHaveLength(1);
+      expect(channels.deliver).toHaveBeenCalledTimes(2);
+      expect(vi.mocked(channels.deliver).mock.calls[1]?.[3].attachments).toHaveLength(3);
     });
 
-    it('keeps sending the next pictures after one fails', async () => {
+    it('falls back to one message per picture when the album is rejected', async () => {
       const { channels, ai, inbox, processor } = setup();
       ai.reply.mockResolvedValueOnce(withImages(pics.slice(0, 3)));
       vi.mocked(channels.deliver)
         .mockResolvedValueOnce({ externalId: 'ok', status: 'sent', failureCode: null })
-        .mockResolvedValueOnce({ externalId: null, status: 'failed', failureCode: 'bad_media' });
+        .mockResolvedValueOnce({
+          externalId: null,
+          status: 'failed',
+          failureCode: 'provider_rejected',
+        })
+        .mockResolvedValueOnce({
+          externalId: null,
+          status: 'failed',
+          failureCode: 'provider_rejected',
+        });
       vi.mocked(channels.claimEvents).mockResolvedValueOnce([
         job('p6', 'message', 'show me', Date.now()),
       ]);
       await processor.tick();
+      const calls = vi.mocked(channels.deliver).mock.calls;
+      expect(calls.map((call) => call[4])).toEqual([
+        'bot:p6',
+        'bot:p6:img',
+        'bot:p6:img:0',
+        'bot:p6:img:1',
+        'bot:p6:img:2',
+      ]);
+      for (const call of calls.slice(2)) expect(call[3].attachments).toHaveLength(1);
       expect((await outbound(inbox, ws)).map((m) => m.status)).toEqual([
         'sent',
+        'failed',
         'failed',
         'sent',
         'sent',
@@ -699,7 +714,12 @@ describe('MetaInboxProcessor', () => {
         job('p4', 'message', 'show me', Date.now()),
       ]);
       await processor.tick();
-      expect((await outbound(inbox, ws)).map((m) => m.status)).toEqual(['sent', 'failed', 'sent']);
+      expect((await outbound(inbox, ws)).map((m) => m.status)).toEqual([
+        'sent',
+        'failed',
+        'sent',
+        'sent',
+      ]);
       const [c] = (await inbox.list(ws, { limit: 10 } as never)).data;
       expect(c?.mode).toBe('bot');
       expect(channels.completeEvent).toHaveBeenCalledTimes(1);
@@ -728,8 +748,8 @@ describe('MetaInboxProcessor', () => {
       await processor.tick();
       vi.mocked(channels.claimEvents).mockResolvedValueOnce([{ ...again, attempt: 2 }]);
       await processor.tick();
-      expect(channels.deliver).toHaveBeenCalledTimes(3);
-      expect(await outbound(inbox, ws)).toHaveLength(3);
+      expect(channels.deliver).toHaveBeenCalledTimes(2);
+      expect(await outbound(inbox, ws)).toHaveLength(2);
     });
 
     it('sends no image after a human took over', async () => {

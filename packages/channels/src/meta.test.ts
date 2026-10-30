@@ -112,6 +112,40 @@ describe('Meta signed messaging adapter', () => {
     });
     expect(JSON.stringify((failure as MetaRequestError).meta)).not.toContain('0912');
   });
+  it('retries an album once when Meta could not fetch one of its pictures', async () => {
+    const transport = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        Response.json({ error: { code: 100, error_subcode: 2018047 } }, { status: 400 }),
+      )
+      .mockResolvedValueOnce(Response.json({ message_id: 'm1' }));
+    const adapter = new MetaAdapter('facebook', 'v24.0', transport, 0);
+    const album = {
+      attachments: [
+        { type: 'image' as const, url: 'https://cdn.example.com/a.jpg' },
+        { type: 'image' as const, url: 'https://cdn.example.com/b.jpg' },
+      ],
+    };
+    await expect(
+      adapter.send({ externalId: 'page', token: 't' }, 'u', album, { idempotencyKey: 'k' }),
+    ).resolves.toEqual({ externalMessageId: 'm1' });
+    expect(transport).toHaveBeenCalledTimes(2);
+  });
+  it('does not retry other rejections or a single picture', async () => {
+    const reject = () =>
+      Response.json({ error: { code: 100, error_subcode: 2018047 } }, { status: 400 });
+    const transport = vi.fn<typeof fetch>().mockImplementation(async () => reject());
+    const adapter = new MetaAdapter('facebook', 'v24.0', transport, 0);
+    await expect(
+      adapter.send(
+        { externalId: 'page', token: 't' },
+        'u',
+        { attachments: [{ type: 'image', url: 'https://cdn.example.com/a.jpg' }] },
+        { idempotencyKey: 'k' },
+      ),
+    ).rejects.toMatchObject({ code: 'provider_rejected' });
+    expect(transport).toHaveBeenCalledTimes(1);
+  });
   it('keeps HTTPS media attachments and sends one attachment by URL', async () => {
     const a = new MetaAdapter('facebook');
     const body = payload();
