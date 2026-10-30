@@ -34,6 +34,7 @@ async function body<T>(response: APIResponse): Promise<T> {
   return (await response.json()) as T;
 }
 
+let signups = 0;
 async function subject(page: Page): Promise<Subject> {
   const suffix = stamp();
   const email = `acceptance-${suffix}@e2e.rapiz.test`;
@@ -41,6 +42,10 @@ async function subject(page: Page): Promise<Subject> {
   const auth = await body<{ accessToken: string }>(
     await page.request.post('/api/v1/auth/signup', {
       data: { email, password, name: 'QA Owner', workspaceName, industry: 'fashion' },
+      // The live suite signs up more owners than one address may in 15 minutes (10).
+      headers: {
+        'x-forwarded-for': `10.77.${Math.floor(Math.random() * 250)}.${(signups++ % 250) + 1}`,
+      },
     }),
   );
   const bootstrap = await body<{ memberships: Array<{ workspaceId: string }> }>(

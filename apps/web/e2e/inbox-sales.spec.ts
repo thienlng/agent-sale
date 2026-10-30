@@ -79,7 +79,8 @@ async function inboxApi(page: Page) {
       },
     });
   });
-  await page.route('**/api/v1/channels', (route) =>
+  // The inbox lists channels with `?includeRemoved=true` (T-133).
+  await page.route(/\/api\/v1\/channels(\?.*)?$/, (route) =>
     route.fulfill({
       json: {
         data: [

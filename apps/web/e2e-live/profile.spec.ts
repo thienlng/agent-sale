@@ -25,12 +25,14 @@ test('edit the profile, upload and remove a logo, see it in the audit trail', as
   await expect(page).toHaveURL(/\/app/);
 
   await page.goto('/app/settings/profile');
-  await page.getByLabel('Tên shop').fill('Cửa hàng Lan');
-  await page.getByLabel('Tên công ty').fill('Công ty TNHH Lan');
+  // One business card since T-144: the company name sits behind a toggle while it is empty.
+  await page.getByLabel('Tên business').fill('Cửa hàng Lan');
+  await page.getByRole('button', { name: 'Thông tin công ty' }).click();
+  await page.getByLabel(/^Tên công ty/).fill('Công ty TNHH Lan');
   await page.getByRole('button', { name: 'Lưu thay đổi' }).click();
-  await expect(page.getByText('Đã lưu thông tin shop')).toBeVisible();
+  await expect(page.getByText('Đã lưu thông tin business')).toBeVisible();
   await page.reload();
-  await expect(page.getByLabel('Tên công ty')).toHaveValue('Công ty TNHH Lan');
+  await expect(page.getByLabel(/^Tên công ty/)).toHaveValue('Công ty TNHH Lan');
 
   // A rule-breaking file is explained, a good one is shown.
   await page
