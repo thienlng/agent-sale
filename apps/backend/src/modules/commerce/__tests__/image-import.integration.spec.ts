@@ -124,7 +124,8 @@ describe('importProductImages', () => {
     });
     expect(hits['/ok.png']).toBe(2); // once direct (shared by A1 and the A2 gallery), once via the redirect
     expect(puts).toHaveLength(2);
-    expect(accept[0]).toBe('image/jpeg,image/png,image/webp');
+    expect(accept[0]).toBe('image/jpeg,image/png;q=0.9,*/*;q=0.1');
+    expect(accept[0]).not.toContain('webp');
     const a1 = await read(pA1);
     expect(a1.image_urls[0]).toMatch(new RegExp(`^${MEDIA}/products/${wsA}/[\\w-]+\\.png$`));
     expect(a1.image_urls[1]).toBe(`${MEDIA}/products/${wsA}/keep.jpg`);

@@ -1,8 +1,12 @@
 import { z } from 'zod';
 
-/** A product picture uploaded to Rapiz storage; the browser resizes it first (max 1 MiB decoded). */
+/**
+ * A product picture uploaded to Rapiz storage; the browser resizes it first (max 1 MiB decoded).
+ * JPEG or PNG only: Messenger rejects WebP inside multi-image albums (#-1 / 2018012), so
+ * product pictures are never stored as WebP (the web converts WebP files to JPEG).
+ */
 export const UploadProductImageRequest = z.object({
-  mimeType: z.enum(['image/png', 'image/jpeg', 'image/webp']),
+  mimeType: z.enum(['image/png', 'image/jpeg']),
   base64: z
     .string()
     .min(1)

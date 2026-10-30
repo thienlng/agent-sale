@@ -45,6 +45,17 @@ describe('ProductImageService', () => {
     expect(puts[0]?.key.endsWith('.jpg')).toBe(true);
   });
 
+  it('rejects a WebP mime without touching storage', async () => {
+    const { storage, puts } = fakeStorage();
+    await expect(
+      new ProductImageService(storage).upload(ws, {
+        mimeType: 'image/webp',
+        base64: png.toString('base64'),
+      } as never),
+    ).rejects.toMatchObject({ code: 'VALIDATION_FAILED', details: { reason: 'INVALID_IMAGE' } });
+    expect(puts).toHaveLength(0);
+  });
+
   it('rejects bad magic bytes without touching storage', async () => {
     const { storage, puts } = fakeStorage();
     await expect(

@@ -21,7 +21,11 @@ describe('ownImageProblem', () => {
   const check = (url: string, configured = true) => ownImageProblem(url, WS, storage(configured));
   it('accepts a file under the workspace prefix', () => {
     expect(check(`${BASE}/products/${WS}/abc.jpg`)).toBeNull();
-    expect(check(`${BASE}/products/${WS}/abc.webp`)).toBeNull();
+    expect(check(`${BASE}/products/${WS}/abc.jpeg`)).toBeNull();
+    expect(check(`${BASE}/products/${WS}/abc.png`)).toBeNull();
+  });
+  it('rejects WebP (Messenger rejects it in albums)', () => {
+    expect(check(`${BASE}/products/${WS}/abc.webp`)).toBe('IMAGE_NOT_UPLOADED');
   });
   it('rejects external links, other workspaces, traversal and unconfigured storage', () => {
     expect(check('https://img.example.com/a.jpg')).toBe('IMAGE_NOT_UPLOADED');

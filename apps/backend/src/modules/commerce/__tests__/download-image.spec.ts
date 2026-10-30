@@ -25,6 +25,29 @@ describe('downloadImage', () => {
     expect(img.mime).toBe('image/png');
   });
 
+  it('sends an Accept header without webp', async () => {
+    let accept = '';
+    await downloadImage(
+      'https://x.test/a',
+      (_u, init) => {
+        accept = new Headers(init?.headers).get('accept') ?? '';
+        return Promise.resolve(new Response(PNG));
+      },
+      PUBLIC,
+    );
+    expect(accept).toBe('image/jpeg,image/png;q=0.9,*/*;q=0.1');
+    expect(accept).not.toContain('webp');
+  });
+
+  it('fails WebP bytes as unsupported_format', async () => {
+    const webp = Buffer.concat([Buffer.from('RIFF'), Buffer.alloc(4), Buffer.from('WEBPVP8 ')]);
+    expect(
+      await reason(
+        downloadImage('https://x.test/a', () => Promise.resolve(new Response(webp)), PUBLIC),
+      ),
+    ).toBe('unsupported_format');
+  });
+
   it('rejects a declared content-length over 10 MiB', async () => {
     const res = new Response(PNG, { headers: { 'content-length': String(IMPORT_MAX_BYTES + 1) } });
     expect(

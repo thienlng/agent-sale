@@ -4,6 +4,8 @@ import { isIP } from 'node:net';
 import { verifyImageBytes, type ImageMime } from '../../../../common/storage/image-bytes.js';
 
 export const IMPORT_MAX_BYTES = 10 * 1_048_576;
+/** No WebP: Shopify-like CDNs would otherwise serve WebP, which Messenger rejects in albums. */
+export const IMPORT_ACCEPT = 'image/jpeg,image/png;q=0.9,*/*;q=0.1';
 const TIMEOUT_MS = 15_000;
 const MAX_REDIRECTS = 3;
 
@@ -110,7 +112,7 @@ export async function downloadImage(
       const res = await fetchImpl(target, {
         redirect: 'manual',
         signal,
-        headers: { Accept: 'image/jpeg,image/png,image/webp' },
+        headers: { Accept: IMPORT_ACCEPT },
       });
       if (res.status >= 300 && res.status < 400) {
         const location = res.headers.get('location');
@@ -124,11 +126,15 @@ export async function downloadImage(
         throw new ImageDownloadError(`http_${res.status}`);
       }
       const bytes = await readLimited(res);
+      let mime: ImageMime;
       try {
-        return { bytes, mime: verifyImageBytes(bytes, IMPORT_MAX_BYTES) };
+        mime = verifyImageBytes(bytes, IMPORT_MAX_BYTES);
       } catch {
         throw new ImageDownloadError('not_an_image');
       }
+      if (mime !== 'image/jpeg' && mime !== 'image/png')
+        throw new ImageDownloadError('unsupported_format');
+      return { bytes, mime };
     }
     throw new ImageDownloadError('too_many_redirects');
   } catch (e) {
