@@ -36,9 +36,9 @@ export interface CaseResult {
   error: string | null;
 }
 
-/** The case's bot, with every field of `BotView` filled. */
+/** The case's bot, with every field of `BotView` filled; it sells every product of the case. */
 export function botFor(c: EvalCase, botId: string): BotView {
-  return { id: botId, isActive: true, ...c.bot };
+  return { id: botId, isActive: true, catalogMode: 'all', ...c.bot };
 }
 
 /** What the reply may state figures from: only the case's own fixtures (not generated ids). */

@@ -1,6 +1,8 @@
 import { type MetricKey, type MetricResult } from '@agent-sales/contracts';
+import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 
+import { BusinessAvatar } from '@/components/business-avatar';
 import { Button } from '@/components/ui/button';
 import { formatDateTime, formatNumber } from '@/lib/format';
 import { useIsMutating } from '@tanstack/react-query';
@@ -28,9 +30,12 @@ function result(row: PortfolioRow, metric: MetricKey): MetricResult | undefined 
 export function PortfolioPage({
   search,
   onSearch,
+  lost = false,
 }: {
   search: FiltersSearch;
   onSearch: (next: FiltersSearch) => void;
+  /** Sent here after losing access to the business that was open (T-079). */
+  lost?: boolean;
 }) {
   const { t } = useTranslation();
   const session = useSession();
@@ -68,6 +73,14 @@ export function PortfolioPage({
   const own = rows.some((row) => row.people?.meta.scope === 'own');
   return (
     <section className="flex min-w-0 flex-col gap-5">
+      {lost ? (
+        <p
+          role="alert"
+          className="rounded-lg bg-destructive-soft px-3 py-2.5 text-sm text-destructive"
+        >
+          {t('business.lost')}
+        </p>
+      ) : null}
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">{t('analytics.overview.title')}</h1>
         <p className="mt-1.5 text-sm text-muted-foreground">{t('analytics.overview.subtitle')}</p>
@@ -129,7 +142,12 @@ export function PortfolioPage({
         />
       ) : null}
       <section className="rounded-lg border p-4">
-        <h2 className="font-semibold">{t('analytics.overview.businesses')}</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-semibold">{t('analytics.overview.businesses')}</h2>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/app/businesses/new">{t('nav.newBusiness')}</Link>
+          </Button>
+        </div>
         {!session?.memberships.length ? (
           <p className="mt-3 text-sm text-muted-foreground">
             {t('analytics.overview.noBusinesses')}
@@ -144,7 +162,13 @@ export function PortfolioPage({
                 key={business.workspaceId}
                 className="flex min-w-0 flex-wrap items-center justify-between gap-3 py-4"
               >
-                <div className="min-w-0">
+                <BusinessAvatar
+                  workspaceId={business.workspaceId}
+                  logoVersion={business.logoVersion}
+                  icon={business.icon}
+                  className="size-10"
+                />
+                <div className="min-w-0 flex-1">
                   <p className="break-words font-medium">{business.workspaceName}</p>
                   <p className="mt-1 text-sm text-muted-foreground">
                     {query.isPending

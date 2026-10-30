@@ -79,9 +79,23 @@ Dated entries, newest last. Decisions, blockers, questions, what was verified an
   - `18eb067` — the backfill kept channels bound to soft-deleted bots (it checked only that the row exists). Fixture extended with a soft-deleted bot; expected unbound channels 2 → 3.
   - Not fixed, for the owner: (a) the backfill counts owned accounts without `accounts.status = 'active'` while the app filters on it, and the app would give a user whose only account is suspended a fresh one — the suspended-account policy is a product decision; (b) the backfill takes no per-owner lock, so a signup racing a running backfill can still leave an owner with two accounts (reported as `owner_has_several_accounts`); a per-owner lock in the backfill's single transaction would hold one lock per owner until commit, so run the backfill in a quiet window instead; (c) accounts fall back to the in-memory store when only `DATABASE_SYSTEM_URL` is missing (same pre-existing weakness as the workspace directory).
   - After the fixes: backend unit 70 files / 1129 tests, db unit 1/1, typecheck 22/22, arch clean, lint 0 errors (the `max-lines` warning on `conversation.facade.impl.ts` predates this task: 635 counted lines on `main`). Commitlint warns that `account` is not in the scope enum (root config, protected — left for a human).
+- 2026-10-29 — A2 rebuilt on branch `feat/T-124-integrate-lane-a2` (worktree) from main after #82:
+  - #76's 6 commits first (T-108..T-111, renumbered T-126..T-129: the old IDs name other tasks on main). Conflicts: i18n JSON (3-way merged by key), `app-shell.tsx` (kept T-120's header `AccountMenu` and #76's `AccountSidebar`), `session.test.ts` imports, `packages/db/src/schema/workspace.ts` (A1's `accountId` and #76's `icon`). #76's `0028_workspace_icon.sql` became **`0032_workspace_icon.sql`**: lane A keeps 0028–0031, referenced ~30 times including ADR-012 (protected); the runner applies unapplied files by name, and both migrations are additive and independent.
+  - `6fd0220`: #76's account sidebar rendered the deleted `NavUser` in its footer; dropped, following T-120 (no account footer in the sidebar).
+  - A2's 3 commits. Backend: account repository keeps #82's `resolveForOwner` and gains A2's `membershipsOf`/`namesOf` (A2's `ownedBy`/`createWithOwner` were only used by the handler #82 rewrote); membership and contract fields unioned. Web: `business.create` was a string in A2 and an object in #76 → A2's label is `business.createAction`. A2's `nav-user.tsx` changes dropped with the file.
+  - `3eccf2e` reconciles the two account layers (owner decision taken autonomously while the owner was away, to be reviewed): #76's structure, A2's behaviour; see the commit message. `useBusinessSwitch` selects first when nothing is chosen, since `/app` business pages need a business.
+  - Mistake caught and undone: the cherry-pick loop skipped #76's T-110 commit once (it ran `--skip` when `--continue` failed without conflicts); the loop was fixed, the branch reset to the last good pick and the commit reapplied.
+  - Local: typecheck 22/22; web 83 files / 529 tests; backend 70 files / 1130 tests; lint 0 errors.
+- 2026-10-30 — `origin/main` (after #83, T-112..T-114, T-120..T-123, T-133, T-152) merged into A2 (#84), following `docs/handoffs/2026-10-29-pr84-merge-notes.md`:
+  - `bot.ts`: A2's `setCatalogMode` kept next to main's `updateSettings`; `bot/MODULE.md` takes main's purpose line plus the catalog mode.
+  - Business selector: A2's `BusinessAvatar` and "manage account" link, main's create-business dialog. T-152's `BusinessLogo` (sidebar header) is superseded by `BusinessAvatar` and removed with its test; the selector test now checks the logo in the trigger.
+  - Profile page: A2's icon picker placed after the name, then main's industry summary and company collapsible. `profile.ts` keeps both `syncMembership` (A2) and `reloadSession` (main); `create-business-page` reloads the session itself, since main's `createBusiness` no longer does.
+  - i18n: keys unioned. Eval runner `botFor` sets `catalogMode: 'all'` (main's eval cases predate T-080).
+  - Tests fixed for the union: the selector test renders in a router (it has a `Link`); main's profile-page test fixture gains `icon` and a `syncMembership` mock.
+  - Local: lint 0 errors, prettier, arch, typecheck 22/22, tests 19/19 tasks, build 13/13.
 
 ## Links
 
-- PRs: #78 (A1), #80 (A2), #81 (A3); overlapping: #76, #79
+- PRs: #82 (A1, merged), #84 (A2), #85 (A3); superseded and closed: #76, #78, #79, #80, #81
 - Docs: `docs/handoffs/2026-10-26-cofounder-review-plan.md`, ADR-012 (on the A1 branch)
 - Related tasks: T-077, T-078, T-079, T-080, T-088, T-089, T-091, T-094, T-119

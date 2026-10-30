@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('sonner', () => ({ toast: { error: mocks.toastError, success: mocks.toastSuccess } }));
 vi.mock('@/lib/session', () => ({
   reloadSession: mocks.reloadSession,
+  syncMembership: vi.fn(),
   useSession: () => ({ workspaceId: 'ws-1', memberships: [] }),
 }));
 vi.mock('@/lib/permissions', () => ({ useCan: () => mocks.canEdit }));
@@ -22,6 +23,7 @@ vi.mock('@/lib/permissions', () => ({ useCan: () => mocks.canEdit }));
 const profile = {
   name: 'Ken Shop',
   companyName: '',
+  icon: 'store',
   businessServices: 'legacy services text',
   productDescription: 'legacy description text',
   hasLogo: false,

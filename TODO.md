@@ -4,12 +4,13 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## In progress
 
-- [ ] T-156 Make main CI green again after the billing outage — @agent:claude · [details](todo/T-156-make-main-ci-green-again-after-the-billing-outage.md) · fix/T-156-main-ci-red
-- [ ] T-112 Move product management to its own top-level navigation group — @agent:claude · [details](todo/T-112-move-product-management-to-its-own-top-level-navig.md) · PR #83
-- [ ] T-114 Clean up bot navigation: hide the image library and rename channel integrations — @agent:claude · [details](todo/T-114-clean-up-bot-navigation-hide-the-image-library-and.md) · PR #83
-- [ ] T-113 Show per-bot statistics on the bot training home — @agent:claude · [details](todo/T-113-show-per-bot-statistics-on-the-bot-training-home.md) · PR #83
-- [ ] T-124 Integrate the lane A account PRs onto current main — @agent:claude · [details](todo/T-124-integrate-the-lane-a-account-prs-onto-current-main.md) · A1 merged in PR #82; A2, A3 pending
-- [ ] T-106 Bring Facebook comment threads into the inbox — @agent:claude · [details](todo/T-106-bring-facebook-comment-threads-into-the-inbox.md) · PR #73
+- [ ] T-079 Add business selection and switching across sessions — @agent:claude · [details](todo/T-079-add-business-selection-and-switching-across-sessio.md) · PR #84
+- [ ] T-080 Let each bot sell a chosen part of the business catalog — @agent:claude · [details](todo/T-080-manage-shops-and-their-catalog-and-bot-association.md) · PR #84
+- [ ] T-126 Add an account-level portfolio layer with its own navigation — @agent:claude · [details](todo/T-126-add-an-account-level-portfolio-layer-with-its-own-.md) · PR #84
+- [ ] T-127 Create a new business from the account portfolio — @agent:claude · [details](todo/T-127-create-a-new-business-from-the-account-portfolio.md) · PR #84
+- [ ] T-128 Show the business logo in the business selector and lists — @agent:claude · [details](todo/T-128-show-the-business-logo-in-the-business-selector-an.md) · PR #84
+- [ ] T-129 Let a business pick an icon when it has no logo — @agent:claude · [details](todo/T-129-let-a-business-pick-an-icon-when-it-has-no-logo.md) · PR #84
+- [ ] T-124 Integrate the lane A account PRs onto current main — @agent:claude · [details](todo/T-124-integrate-the-lane-a-account-prs-onto-current-main.md) · A1 merged in PR #82; A2 in PR #84; A3 in PR #85
 
 ## Next
 
@@ -45,8 +46,6 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [ ] T-062 Support tickets with department routing and attachments (ADM-08) — @unassigned · [details](todo/T-062-support-tickets-with-department-routing-and-attach.md)
 - [ ] T-063 Advanced Google connector and capability-aware settings navigation (ADM-09) — @unassigned · [details](todo/T-063-advanced-google-connector-and-capability-aware-set.md)
 - [ ] T-066 Fix flaky MetaInboxProcessor test: reply arriving while the previous one is generated — @unassigned · [details](todo/T-066-fix-flaky-metainboxprocessor-test-reply-arriving-w.md)
-- [ ] T-079 Add business selection and switching across sessions — @unassigned · [details](todo/T-079-add-business-selection-and-switching-across-sessio.md)
-- [ ] T-080 Let each bot sell a chosen part of the business catalog — @unassigned · [details](todo/T-080-manage-shops-and-their-catalog-and-bot-association.md)
 - [ ] T-088 Link CRM customers to bots and conversations — @unassigned · [details](todo/T-088-link-crm-customers-to-business-shop-bot-and-conver.md)
 - [ ] T-089 Centralize customer tags and statuses in customer settings — @unassigned · [details](todo/T-089-centralize-customer-tags-and-statuses-in-customer-.md)
 - [ ] T-091 Move subscription and message quota ownership to the account — @unassigned · [details](todo/T-091-move-subscription-and-message-quota-ownership-to-t.md)
@@ -72,15 +71,13 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## Done (last 10 — older ones live in todo/done/)
 
+- [x] T-156 Make main CI green again after the billing outage — @agent:claude · [details](todo/done/T-156-make-main-ci-green-again-after-the-billing-outage.md) · main (PR #89)
+- [x] T-114 Clean up bot navigation: hide the image library and rename channel integrations — @agent:claude · [details](todo/done/T-114-clean-up-bot-navigation-hide-the-image-library-and.md) · main (PR #83)
+- [x] T-113 Show per-bot statistics on the bot training home — @agent:claude · [details](todo/done/T-113-show-per-bot-statistics-on-the-bot-training-home.md) · main (PR #83)
+- [x] T-112 Move product management to its own top-level navigation group — @agent:claude · [details](todo/done/T-112-move-product-management-to-its-own-top-level-navig.md) · main (PR #83)
+- [x] T-106 Bring Facebook comment threads into the inbox — @agent:claude · [details](todo/done/T-106-bring-facebook-comment-threads-into-the-inbox.md) · main (PR #73)
+- [x] T-078 Add account persistence and bot attribution with safe backfills — @agent:claude · [details](todo/done/T-078-add-account-business-and-shop-persistence-with-saf.md) · main (PR #82)
+- [x] T-077 Define account business ownership and migration contracts — @agent:claude · [details](todo/done/T-077-define-account-business-shop-ownership-and-migrati.md) · main (PR #82)
 - [x] T-154 Drop the coming-soon badge from the Products menu entry — @agent:claude · [details](todo/done/T-154-drop-the-coming-soon-badge-from-products.md) · main
 - [x] T-152 Show the business logo in the business selector — @agent:claude · [details](todo/done/T-152-show-the-business-logo-in-the-selector.md) · main
 - [x] T-151 Explain a page connected to another business when selecting it — @agent:claude · [details](todo/done/T-151-explain-a-page-connected-to-another-business.md) · main
-- [x] T-149 Suggest the matching profile field when an FAQ repeats a profile fact — @agent:claude · [details](todo/done/T-149-point-faq-authors-to-the-matching-profile-field.md) · main
-- [x] T-148 Clean up review leftovers from the bot training and channel work — @agent:claude · [details](todo/done/T-148-tidy-review-leftovers-from-bot-training-and-channel-work.md) · main
-- [x] T-145 Run prompt evals through the reply pipeline — @agent:claude · [details](todo/done/T-145-run-prompt-evals-through-the-reply-pipeline.md) · main
-- [x] T-146 Define the complete web acceptance test matrix — @agent:codex · [details](todo/done/T-146-define-the-complete-web-acceptance-test-matrix.md) · documentation only; cases NOT_RUN
-- [x] T-144 Create businesses from the selector, simplify business settings, fix the settings tab arrows — @agent:claude · [details](todo/done/T-144-create-businesses-and-simplify-business-settings.md) · main 7895167
-- [x] T-143 Answer with sales-agent@9 and the business profile — @agent:claude · [details](todo/done/T-143-answer-with-sales-agent-9-and-the-business-profile.md) · main c0507f4
-- [x] T-142 Let another business connect a removed page — @agent:claude · [details](todo/done/T-142-let-another-business-connect-a-removed-page.md) · main c0507f4
-- [x] T-141 Backfill bot profiles from placeholders and drop untouched seed content — @agent:claude · [details](todo/done/T-141-backfill-bot-profiles-from-placeholders.md) · main c0507f4
-- [x] T-140 Split reply guidance into personality, situations and system rules — @agent:claude · [details](todo/done/T-140-split-reply-guidance-into-personality-and-situations.md) · main c0507f4

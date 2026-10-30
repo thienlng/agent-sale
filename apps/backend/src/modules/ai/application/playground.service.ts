@@ -138,7 +138,10 @@ export class PlaygroundService implements AiFacade {
     // finds the product being discussed through the bot's own last reply, which names it.
     const lastBotReply = input.messages.findLast((m) => m.role === 'bot')?.content.slice(0, 400);
     const productQuery = lastBotReply ? `${query}\n${lastBotReply}` : query;
-    const products = this.catalog ? await this.catalog.getBotProducts(ws, productQuery, 5) : [];
+    const scope = { botId, catalogMode: bot.catalogMode };
+    const products = this.catalog
+      ? await this.catalog.getBotProducts(ws, scope, productQuery, 5)
+      : [];
     // The pictures the bot may send this turn. The model only gets ids and labels, never URLs.
     const allowed = buildAllowlist(productImages(products), libraryImages(media, query));
     const productContext = products.map((product) => ({
@@ -156,7 +159,7 @@ export class PlaygroundService implements AiFacade {
     }));
     // A short list of everything on sale, so general questions ("what do you sell?", "something
     // under 500k") can be answered even when no product name matched the customer's words.
-    const overview = this.catalog ? await this.catalog.listBotCatalog(ws, 15) : [];
+    const overview = this.catalog ? await this.catalog.listBotCatalog(ws, scope, 15) : [];
     const overviewContext = overview.map((product) => ({
       name: product.name,
       fromVnd: product.priceMin,

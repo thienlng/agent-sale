@@ -46,7 +46,7 @@ class NotRestorableError extends DomainError {
 
 /** Editable bot state as one flat record: name, on/off and every setting. */
 function editable(dto: BotDto): Record<string, unknown> {
-  return { name: dto.name, isActive: dto.isActive, ...dto.settings };
+  return { name: dto.name, isActive: dto.isActive, catalogMode: dto.catalogMode, ...dto.settings };
 }
 function settingsDiff(before: BotDto, after: BotDto): TrainingChange[] {
   const a = editable(before);
@@ -69,6 +69,7 @@ export function toBotDto(bot: Bot): BotDto {
     name: s.name,
     industry: s.industry,
     isActive: s.isActive,
+    catalogMode: s.catalogMode,
     settings: s.settings,
     createdAt: s.createdAt.toISOString(),
     updatedAt: s.updatedAt.toISOString(),
@@ -178,6 +179,7 @@ export class BotService implements BotFacade {
       const before = toBotDto(bot);
       if (change.name !== undefined) bot.rename(change.name);
       if (change.isActive !== undefined) bot.setActive(change.isActive);
+      if (change.catalogMode !== undefined) bot.setCatalogMode(change.catalogMode);
       if (change.settings) {
         bot.updateSettings(change.settings as BotSettingsChange);
         BotSettings.parse(bot.snapshot().settings); // full settings must stay valid after merge
@@ -216,6 +218,8 @@ export class BotService implements BotFacade {
     for (const { field, before, after } of entry.changes) {
       if (field === 'name' && typeof before === 'string') change.name = before;
       else if (field === 'isActive' && typeof before === 'boolean') change.isActive = before;
+      else if (field === 'catalogMode' && (before === 'all' || before === 'selected'))
+        change.catalogMode = before;
       else if (field === 'placeholders') {
         // Placeholders merge key by key; keys added by the change are removed with ''.
         const added = Object.keys((after ?? {}) as Record<string, string>);
@@ -349,6 +353,7 @@ export class BotService implements BotFacade {
       name: s.name,
       industry: s.industry,
       isActive: s.isActive,
+      catalogMode: s.catalogMode,
       ...s.settings,
       profile: {
         fields: Object.fromEntries(

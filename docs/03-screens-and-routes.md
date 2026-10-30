@@ -8,7 +8,7 @@
 - **Header:** logo → profile; Home; Guide; Buy plan; AI credit balance badge (→ AI wallet); language selector; notification bell [+]; avatar.
 - **Banner** when on the free plan / plan about to expire / wallet empty / channel error.
 - **Sidebar** is collapsible; items carry badges ("Miễn phí" (Free), "Hot", unread count).
-- **Workspace switcher** (P2).
+- **Two layers.** The *account layer* (`/app/overview`, `/app/businesses/new`) lists every business of the signed-in account with summary statistics and lets the owner create a business; it has its own sidebar (overview, new business, a shortcut per business, platform admin). The *business layer* (everything else under `/app`) is one business's management area with the sidebar below. The logo always returns to the account layer; choosing a business (overview, sidebar shortcut or the business selector) enters its statistics page. A new business is created with `POST /workspaces` and opened right after.
 - Common patterns: empty states with an illustration + CTA; tables with column resizing, row selection, pagination + page size; date range `dd/mm/yyyy – dd/mm/yyyy` with presets; plan-gated screens ("Nâng cấp để sử dụng" (Upgrade to use)) reuse a single component `<UpgradeGate feature=... />`.
 
 ## 2. Main sidebar
@@ -68,7 +68,7 @@ Dedicated layout: back button, bot name, **bot on/off switch**, left menu, **tes
 | Item | Preny route | Our route | Feature |
 |---|---|---|---|
 | Home + checklist | `/bot/{id}/trang-chu` | `/app/bots/{id}` | BOT-04 |
-| Products | `/bot/{id}/quan-ly-san-pham` | `/app/bots/{id}/products` | BOT-09 |
+| Products | `/bot/{id}/quan-ly-san-pham` | `/app/bots/{id}/products` (sells every product or a selection, T-080; "Add product" here selects it via `/app/products/new?botId=`) | BOT-09 |
 | Instructions (scenarios) | `/bot/{id}/kich-ban` | `/app/bots/{id}/instructions` | BOT-05/06 |
 | Information (FAQ) | `/bot/{id}/du-lieu-huan-luyen` | `/app/bots/{id}/knowledge` (`?tab=faq\|documents`) | BOT-07/08 |
 | Channel integrations (Tích hợp kênh) | `/bot/{id}/tich-hop-nen-tang/{tab}` | `/app/bots/{id}/channels/{all\|facebook\|instagram\|zalo\|lazada\|tiktok\|website}` | CHN-04/05 |
@@ -86,6 +86,7 @@ Dedicated layout: back button, bot name, **bot on/off switch**, left menu, **tes
 | Screen | Route |
 |---|---|
 | Sign up / Log in / Forgot password / Verify email / Accept invitation | `/signup`, `/login`, `/login?mode=forgot`, `/verify-email`, `/invite/{token}` |
+| Choose a business (several, none remembered, or the current one lost) / Create a business | Account layer: `/app/overview` (`?lost=true` shows the notice; its sidebar lists businesses by account), `/app/businesses/new` (also the welcome step for a user with no business) (T-079, T-126, T-127) |
 | Channel OAuth callback | `/oauth/{provider}/callback` |
 | Payment: VNPAY result | `/billing/return` |
 | Affiliate landing | `/affiliates?ref={code}` |

@@ -1,13 +1,13 @@
 ---
 id: T-113
 title: Show per-bot statistics on the bot training home
-status: review            # backlog | next | in-progress | blocked | review | done | cancelled
+status: done              # backlog | next | in-progress | blocked | review | done | cancelled
 type: feature              # feature | bug | chore | spike | docs
 priority: P1               # P0 | P1 | P2 | P3
 owner: "@agent:claude"     # @github-handle or @agent:<tool>
 feature_ids: []            # e.g. [BOT-07, CRM-11] from docs/02-functional-requirements.md
 created: 2026-10-27
-updated: 2026-10-28
+updated: 2026-10-30
 branch: feat/T-112-lane-b1-on-main
 pr: 83
 parent:                    # T-xxx if this is a sub-task
@@ -17,7 +17,7 @@ parent:                    # T-xxx if this is a sub-task
 
 The bot home (`/app/bots/$botId`) shows only the setup guide. The review asks for statistics on each bot's training page. The analytics contracts (`packages/contracts/src/analytics`) have no bot dimension today, so this needs a backend filter, not only UI.
 
-Source: cofounder walkthrough in chat on 2026-10-26 (lane B, see [handoff](../docs/handoffs/2026-10-26-cofounder-review-plan.md)). Lane B owner: @agent:claude (assigned by the user on 2026-10-27); lane A belongs to the cofounder.
+Source: cofounder walkthrough in chat on 2026-10-26 (lane B, see [handoff](../../docs/handoffs/2026-10-26-cofounder-review-plan.md)). Lane B owner: @agent:claude (assigned by the user on 2026-10-27); lane A belongs to the cofounder.
 
 ## Goal
 
@@ -61,6 +61,6 @@ Risk: moving a page to another bot moves its history with it (facts have no bot)
 
 ## Links
 
-- [Review milestone handoff](../docs/handoffs/2026-10-26-cofounder-review-plan.md)
-- [Architecture](../docs/ARCHITECTURE.md)
+- [Review milestone handoff](../../docs/handoffs/2026-10-26-cofounder-review-plan.md)
+- [Architecture](../../docs/ARCHITECTURE.md)
 - Related tasks: T-039, T-040, T-041, T-081

@@ -32,7 +32,12 @@
     "contactsList": "Danh sách khách hàng",
     "crmSettings": "Cài đặt khách hàng",
     "members": "Thành viên",
-    "settingsHome": "Cài đặt"
+    "settingsHome": "Cài đặt",
+    "accountLabel": "Điều hướng tài khoản",
+    "groupAccount": "Tài khoản",
+    "groupBusinesses": "Business của tôi",
+    "accountOverview": "Tổng quan các business",
+    "newBusiness": "Tạo business mới"
   },
   "auth": {
     "login": "Đăng nhập",
@@ -1260,6 +1265,33 @@
       },
       "enabledToast": "Đã bật xác minh 2 bước",
       "disabledToast": "Đã tắt xác minh 2 bước"
+    },
+    "industry": {
+      "title": "Lĩnh vực doanh nghiệp",
+      "policy": "Lĩnh vực thuộc doanh nghiệp đang chọn, tách biệt với tài khoản đăng nhập và thông tin thanh toán. Hiện chưa hỗ trợ đổi lĩnh vực; bot và nội dung đào tạo được giữ nguyên."
+    },
+    "icon": {
+      "title": "Biểu tượng",
+      "hint": "Hiện cạnh tên business khi chưa có logo.",
+      "hintLogo": "Đang dùng logo; biểu tượng này chỉ hiện khi bạn xóa logo.",
+      "names": {
+        "building": "Tòa nhà",
+        "store": "Cửa hàng",
+        "shopping-bag": "Túi mua sắm",
+        "shirt": "Thời trang",
+        "sparkles": "Làm đẹp",
+        "utensils": "Nhà hàng",
+        "coffee": "Cà phê",
+        "home": "Nhà ở, nội thất",
+        "car": "Ô tô",
+        "heart-pulse": "Sức khỏe",
+        "graduation-cap": "Giáo dục",
+        "dumbbell": "Thể thao",
+        "laptop": "Công nghệ",
+        "gem": "Trang sức",
+        "flower": "Hoa, quà tặng",
+        "baby": "Mẹ và bé"
+      }
     }
   },
   "analytics": {
@@ -1496,8 +1528,20 @@
         "validation": "Tên business hoặc loại hình chưa hợp lệ. Kiểm tra rồi thử lại.",
         "generic": "Không tạo được business. Thử lại.",
         "loadError": "Đã tạo business nhưng chưa chuyển sang được. Chọn nó trong danh sách business."
-      }
-    }
+      },
+      "subtitle": "Mỗi business có dữ liệu, bot và thành viên riêng. Tạo xong bạn sẽ vào quản lý business đó.",
+      "creating": "Đang tạo…",
+      "denied": "Tài khoản hiện không được tạo thêm business.",
+      "error": "Không thể tạo business. Thử lại."
+    },
+    "manageAccount": "Quản lý tài khoản",
+    "switch": "Chuyển business",
+    "noAccount": "Business khác",
+    "lost": "Bạn không còn quyền truy cập business đó. Hãy chọn business khác.",
+    "welcomeTitle": "Tạo business đầu tiên",
+    "welcomeSubtitle": "Bạn chưa thuộc business nào. Tạo một business để bắt đầu bán hàng với bot AI.",
+    "accountLabel": "Tài khoản",
+    "createAction": "Tạo business"
   },
   "account": {
     "open": "Tài khoản của {{name}}",

@@ -22,6 +22,8 @@ export const bots = pgTable(
     name: text('name').notNull(),
     industry: text('industry').notNull(),
     isActive: boolean('is_active').notNull().default(false),
+    /** 'all' sells every active product; 'selected' only the bot_products rows (0029). */
+    catalogMode: text('catalog_mode').notNull().default('all').$type<'all' | 'selected'>(),
     settings: jsonb('settings').notNull().$type<Record<string, unknown>>(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

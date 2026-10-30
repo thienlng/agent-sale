@@ -62,7 +62,7 @@ assignment_rules(id, workspace_id, mode: off|by_channel|by_ratio|by_ratio_daily,
 
 ```sql
 bots(id, workspace_id, name, industry, avatar_url, color, language, model_tier: basic|smart|pro|neo,
-     is_active BOOL, published_version_id, onboarding JSONB, deleted_at)
+     is_active BOOL, catalog_mode: all|selected DEFAULT 'all', published_version_id, onboarding JSONB, deleted_at)
 bot_versions(id, bot_id, version INT, snapshot JSONB,            -- settings + mission + greeting + instructions ids
              published_at, published_by)
 bot_settings(bot_id PK, mission TEXT, greeting JSONB, reaction_reply JSONB,
@@ -81,7 +81,8 @@ knowledge_items(id, bot_id, workspace_id, type: faq|document|url, question, answ
 knowledge_chunks(id, knowledge_item_id, bot_id, workspace_id, chunk_index, content, content_unaccent,
                  tsv TSVECTOR, embedding VECTOR(1536), token_count, embedding_model)
    -- INDEX HNSW (embedding vector_cosine_ops), GIN(tsv), GIN(content_unaccent gin_trgm_ops)
-bot_products(bot_id, product_id, instructions TEXT, position, PRIMARY KEY(bot_id, product_id))
+bot_products(workspace_id, bot_id, product_id, created_at,      -- T-080, migration 0029 (see below)
+             PRIMARY KEY(workspace_id, bot_id, product_id))
 media_albums(id, workspace_id, bot_id NULL, name)
 media_assets(id, workspace_id, album_id, kind: image|video|file, storage_key, mime, bytes, width, height, caption)
 quick_replies(id, workspace_id, shortcut, content, media_asset_ids UUID[], created_by,
@@ -146,6 +147,12 @@ fb_posts(id, workspace_id, channel_connection_id, external_post_id, message, aut
 - `channel_connections.bot_id` and `conversations.bot_id` are composite foreign keys `(workspace_id, bot_id) → bots(workspace_id, id)` with `ON DELETE SET NULL (bot_id)`. A row can only point at a bot of its own workspace. The keys are `NOT VALID` until the contract step.
 - `conversations.bot_id` is the bot answering now. It is written from the channel's binding on every inbound message, so a rebind takes effect on the conversation's next message.
 - `analytics_facts.bot_id` is the bot at event time. It is history and is never re-pointed.
+
+**Per-bot catalog (T-080, migration 0029, ADR-012 §4):**
+
+- Products stay business-owned. `bots.catalog_mode` is `all` (default: the bot sells every active product) or `selected`.
+- `bot_products(workspace_id, bot_id, product_id)` is the selection (owned by the `commerce` module). Composite foreign keys to `bots(workspace_id, id)` and `products(workspace_id, id)` (`products(workspace_id, id)` is unique for this) with `ON DELETE CASCADE`, forced RLS. A selection can only name a bot and products of its own workspace.
+- Archived products stay selected but are never offered; orders snapshot their lines, so removing a selection never touches past orders.
 
 ## 5. CRM
 

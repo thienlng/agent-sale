@@ -65,7 +65,9 @@ export class AuthGuard implements CanActivate {
         throw new ApiError('VALIDATION_FAILED', 'Invalid X-Workspace-Id');
       }
       const membership = await this.workspaces.findMembership(ws, claims.userId);
-      if (!membership) throw new ApiError('NOT_FOUND', 'Workspace not found');
+      // `reason` lets the client tell a lost business from a missing resource (T-079).
+      if (!membership)
+        throw new ApiError('NOT_FOUND', 'Workspace not found', { reason: 'workspace_access' });
       req.workspaceId = ws;
       req.auth.role = membership.role;
       const needed = this.reflector.getAllAndOverride<Capability | undefined>(

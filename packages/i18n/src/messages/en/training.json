@@ -332,7 +332,7 @@
       "title": "Product information",
       "subtitle": "Manage the products and services the Bot uses to answer customers",
       "tab": "Products",
-      "shared": "The product catalog is shared by every Bot in this workspace.",
+      "shared": "The product catalog belongs to the business. Choose which products this Bot presents and sells.",
       "search": "Search by product name or code",
       "add": "Add product",
       "exportCsv": "Download products (CSV)",
@@ -343,7 +343,18 @@
       "colPrice": "Price",
       "colDescription": "Description",
       "colUpdated": "Last updated",
-      "colCode": "Product code"
+      "colCode": "Product code",
+      "modeLabel": "Which products this Bot sells",
+      "modeAll": "Every active product",
+      "modeAllHint": "New products are added to the Bot automatically.",
+      "modeSelected": "Only selected products",
+      "modeSelectedHint": "Tick each product in the table. Products added from this page are selected for this Bot.",
+      "modeError": "Could not change the mode. Please try again.",
+      "colSelect": "Sells",
+      "select": "Bot sells {{name}}",
+      "selectedCount": "{{count}} products selected",
+      "noneSelected": "No product is selected yet, so this Bot will not present any product.",
+      "selectError": "Could not save the selection. Please try again."
     },
     "faq": {
       "title": "Business information",

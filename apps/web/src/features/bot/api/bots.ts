@@ -80,6 +80,7 @@ export function useUpdateBot(botId: string) {
           ...previous,
           ...(change.name !== undefined ? { name: change.name } : {}),
           ...(change.isActive !== undefined ? { isActive: change.isActive } : {}),
+          ...(change.catalogMode !== undefined ? { catalogMode: change.catalogMode } : {}),
         };
         qc.setQueryData<BotDto>(key, optimistic);
         qc.setQueryData<BotDto[]>(listKey, (list) =>

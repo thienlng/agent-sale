@@ -5,6 +5,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { DB_SYSTEM } from '../../common/db/db.module.js';
 import { getEnv } from '../../common/config.js';
 import { SECRET_BOX, SecretBox } from '../../common/security/secret-box.js';
+import { AccountModule } from '../account/account.module.js';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
 import { IDENTITY_FACADE } from './api/identity.facade.js';
 import {
@@ -41,7 +42,7 @@ import { AuthGuard } from './interface/http/auth.guard.js';
  * app_system connection (identity is cross-tenant); in-memory without a DB.
  */
 @Module({
-  imports: [WorkspaceModule],
+  imports: [WorkspaceModule, AccountModule],
   controllers: [AuthController],
   providers: [
     SessionService,

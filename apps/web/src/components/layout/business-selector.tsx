@@ -1,8 +1,10 @@
 import { useIsMutating } from '@tanstack/react-query';
-import { Building2, Check, ChevronsUpDown, Loader2, Plus } from 'lucide-react';
+import { Link } from '@tanstack/react-router';
+import { Building2, Check, ChevronsUpDown, Loader2, Plus, Settings2 } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { BusinessAvatar } from '@/components/business-avatar';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
@@ -23,11 +25,8 @@ export interface CreateBusinessDialogProps {
 /** The single business picker. Account controls remain account-scoped. */
 export function BusinessSelector({
   createBusinessDialog,
-  businessLogo,
 }: {
   createBusinessDialog?: ((props: CreateBusinessDialogProps) => ReactNode) | undefined;
-  /** The current business's logo, composed by the route from `features/workspace`; the building icon otherwise. */
-  businessLogo?: ReactNode;
 }) {
   const { t } = useTranslation();
   const session = useSession();
@@ -64,7 +63,16 @@ export function BusinessSelector({
               tooltip={t('business.choose')}
               aria-label={t('business.choose')}
             >
-              {businessLogo ?? <Building2 aria-hidden />}
+              {current ? (
+                <BusinessAvatar
+                  workspaceId={current.workspaceId}
+                  logoVersion={current.logoVersion}
+                  icon={current.icon}
+                  className="size-8"
+                />
+              ) : (
+                <Building2 aria-hidden />
+              )}
               <span className="grid min-w-0 flex-1 text-left group-data-[collapsible=icon]:hidden">
                 <span className="text-xs text-muted-foreground">{t('business.current')}</span>
                 <span className="truncate font-medium" title={current?.workspaceName}>
@@ -107,6 +115,11 @@ export function BusinessSelector({
                     aria-current={m.workspaceId === session.workspaceId ? 'true' : undefined}
                     className="flex min-h-11 w-full items-center gap-2 rounded-md px-2 py-2 text-left hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60"
                   >
+                    <BusinessAvatar
+                      workspaceId={m.workspaceId}
+                      logoVersion={m.logoVersion}
+                      icon={m.icon}
+                    />
                     <span className="min-w-0 flex-1 break-words">{m.workspaceName}</span>
                     {m.workspaceId === session.workspaceId ? (
                       <Check aria-hidden className="size-4 shrink-0" />
@@ -119,6 +132,14 @@ export function BusinessSelector({
                 <p className="p-2 text-sm text-muted-foreground">{t('business.noResults')}</p>
               ) : null}
             </div>
+            <Link
+              to="/app/overview"
+              onClick={() => setOpen(false)}
+              className="flex min-h-11 items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+            >
+              <Settings2 aria-hidden className="size-4" />
+              {t('business.manageAccount')}
+            </Link>
             {createBusinessDialog ? (
               <button
                 type="button"

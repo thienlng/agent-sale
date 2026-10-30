@@ -38,12 +38,36 @@ export const LOGO_RULES = {
   mimes: ['image/png', 'image/jpeg'],
 } as const;
 
+/** Icons a business can pick when it has no logo; the web maps each key to a drawing. */
+export const BUSINESS_ICONS = [
+  'building',
+  'store',
+  'shopping-bag',
+  'shirt',
+  'sparkles',
+  'utensils',
+  'coffee',
+  'home',
+  'car',
+  'heart-pulse',
+  'graduation-cap',
+  'dumbbell',
+  'laptop',
+  'gem',
+  'flower',
+  'baby',
+] as const;
+export const BusinessIcon = z.enum(BUSINESS_ICONS);
+export type BusinessIcon = z.infer<typeof BusinessIcon>;
+
 export const WorkspaceProfileDto = z.object({
   /** The shop name shown in the app (also `workspaces/current`). */
   name: z.string(),
   companyName: z.string(),
   businessServices: z.string(),
   productDescription: z.string(),
+  /** Shown in business lists when there is no logo. */
+  icon: BusinessIcon,
   /** Has a logo: fetch it from `GET /workspace/logo` (authorised route, not a public URL). */
   hasLogo: z.boolean(),
   /** Changes whenever the logo does: use it to refresh a cached image. */
@@ -60,6 +84,7 @@ export const UpdateWorkspaceProfileRequest = z.object({
   businessServices: z.string().trim().max(1000).optional(),
   /** @deprecated T-144: see `businessServices`. */
   productDescription: z.string().trim().max(5000).optional(),
+  icon: BusinessIcon.optional(),
   /** The version you loaded; a newer one answers CONFLICT. */
   expectedVersion: z.number().int().min(1),
 });

@@ -70,7 +70,7 @@ The global tables are read and written only by a new `account` backend module, t
   - Products stay business-owned.
   - `bots.catalog_mode` is `all` (default, today's behavior) or `selected`.
   - `bot_products(workspace_id, bot_id, product_id)` lists the selection, with composite foreign keys to `bots(workspace_id, id)` and `products(workspace_id, id)`, and RLS.
-  - `CatalogFacade` lookups take the bot.
+  - `CatalogFacade` lookups take the bot (`{ botId, catalogMode }`); in `selected` mode only the bot's selected, active, bot-visible products are returned. Selections are managed with `GET`/`PUT /bots/{botId}/products` (T-080).
   - A product created from a bot's screen is created in the business catalog and selected for that bot.
   - Price and stock are shared; there is no per-bot price.
 - **Channel ↔ bot consistency.** `channel_connections` gets a composite foreign key (`workspace_id`, `bot_id`) → `bots(workspace_id, id)` with `ON DELETE SET NULL (bot_id)`. This makes a channel bound to another workspace's bot impossible.
@@ -134,7 +134,7 @@ Switching keeps the T-081 guarantees: tenant captured per request, in-flight que
    - Add nullable `workspaces.account_id`.
    - Add a unique key on `bots(workspace_id, id)`.
    - Add nullable `conversations.bot_id` and `analytics_facts.bot_id`.
-   - Add `bots.catalog_mode` with default `all` and create `bot_products` with RLS. T-078 ships the rest of this step as migration 0028; these two come with T-080, which first uses them.
+   - Add `bots.catalog_mode` with default `all` and create `bot_products` with RLS. T-078 ships the rest of this step as migration 0028; these two ship with T-080 as migration 0029 (additive; existing bots stay `all`).
    - Add the channel → bot composite foreign key as `NOT VALID`.
 2. **Backfill.** An idempotent operator command, `account:backfill [--dry-run]`:
    - one account per distinct `workspaces.owner_user_id`, named after the owner, with an `owner` account member;

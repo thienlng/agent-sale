@@ -1,6 +1,7 @@
 import { defineRoutes, type RouteContract } from '../common/routes.js';
 import {
   AdjustStockRequest,
+  BotProductsDto,
   ChangeOrderStatusRequest,
   CreateOrderRequest,
   OrderDto,
@@ -9,6 +10,7 @@ import {
   ProductDto,
   ProductListQuery,
   ProductListResponse,
+  SetBotProductsRequest,
   UpdateOrderRequest,
   UpsertProductRequest,
   UpsertWarehouseRequest,
@@ -96,6 +98,21 @@ export const commerceRoutes = defineRoutes([
     tag: 'commerce',
     body: AdjustStockRequest,
     responses: { 200: ProductDto },
+  }),
+  route({
+    method: 'get',
+    path: '/bots/{botId}/products',
+    summary: "Products selected for a bot (used when the bot's catalogMode is 'selected')",
+    tag: 'commerce',
+    responses: { 200: BotProductsDto },
+  }),
+  route({
+    method: 'put',
+    path: '/bots/{botId}/products',
+    summary: 'Replace the products selected for a bot',
+    tag: 'commerce',
+    body: SetBotProductsRequest,
+    responses: { 200: BotProductsDto },
   }),
   route({
     method: 'get',

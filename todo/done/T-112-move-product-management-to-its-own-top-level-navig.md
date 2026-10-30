@@ -1,13 +1,13 @@
 ---
 id: T-112
 title: Move product management to its own top-level navigation group
-status: review            # backlog | next | in-progress | blocked | review | done | cancelled
+status: done              # backlog | next | in-progress | blocked | review | done | cancelled
 type: feature              # feature | bug | chore | spike | docs
 priority: P1               # P0 | P1 | P2 | P3
 owner: "@agent:claude"     # @github-handle or @agent:<tool>
 feature_ids: []            # e.g. [BOT-07, CRM-11] from docs/02-functional-requirements.md
 created: 2026-10-27
-updated: 2026-10-28
+updated: 2026-10-30
 branch: feat/T-112-lane-b1-on-main
 pr: 83
 parent:                    # T-xxx if this is a sub-task
@@ -17,7 +17,7 @@ parent:                    # T-xxx if this is a sub-task
 
 Products (`/app/products`) currently sit inside the Orders navigation group (`apps/web/src/components/layout/app-sidebar.tsx`). The review asks for product management at the same level as order management, because the catalog is also what bots sell from (see T-116).
 
-Source: cofounder walkthrough in chat on 2026-10-26 (lane B, see [handoff](../docs/handoffs/2026-10-26-cofounder-review-plan.md)). Lane B owner: @agent:claude (assigned by the user on 2026-10-27); lane A belongs to the cofounder.
+Source: cofounder walkthrough in chat on 2026-10-26 (lane B, see [handoff](../../docs/handoffs/2026-10-26-cofounder-review-plan.md)). Lane B owner: @agent:claude (assigned by the user on 2026-10-27); lane A belongs to the cofounder.
 
 ## Goal
 
@@ -56,7 +56,7 @@ Risks: none on data; only navigation. Bookmarks keep working because routes do n
 
 ## Links
 
-- [Review milestone handoff](../docs/handoffs/2026-10-26-cofounder-review-plan.md)
-- [Architecture](../docs/ARCHITECTURE.md)
-- [Screens and routes](../docs/03-screens-and-routes.md)
+- [Review milestone handoff](../../docs/handoffs/2026-10-26-cofounder-review-plan.md)
+- [Architecture](../../docs/ARCHITECTURE.md)
+- [Screens and routes](../../docs/03-screens-and-routes.md)
 - Related tasks: T-116, T-080

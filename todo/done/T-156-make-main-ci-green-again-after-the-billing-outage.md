@@ -1,7 +1,7 @@
 ---
 id: T-156
 title: Make main CI green again after the billing outage
-status: review             # backlog | next | in-progress | blocked | review | done | cancelled
+status: done             # backlog | next | in-progress | blocked | review | done | cancelled
 type: bug                  # feature | bug | chore | spike | docs
 priority: P1               # P0 | P1 | P2 | P3
 owner: @agent:claude                     # @github-handle or @agent:<tool>
@@ -9,7 +9,7 @@ feature_ids: []            # e.g. [BOT-07, CRM-11] from docs/02-functional-requi
 created: 2026-10-30
 updated: 2026-10-30
 branch: fix/T-156-main-ci-red
-pr:
+pr: 89
 parent:                    # T-xxx if this is a sub-task
 ---
 
