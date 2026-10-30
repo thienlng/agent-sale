@@ -88,6 +88,8 @@ const Expect = z
     contains_any: z.array(z.string().min(1)).optional(),
     contains_all: z.array(z.string().min(1)).optional(),
     not_contains: z.array(z.string().min(1)).optional(),
+    /** Text → the most times it may appear in the reply (case-insensitive), e.g. a repeated pronoun. */
+    max_occurrences: z.record(z.string().min(1), z.number().int().min(0)).optional(),
     /** Regular expressions (case-insensitive) that must not match the reply. */
     not_matches: z
       .array(

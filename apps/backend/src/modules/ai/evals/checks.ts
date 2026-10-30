@@ -76,6 +76,13 @@ export function runChecks(expected: EvalExpect, input: CheckInput): CheckResult[
       found.length ? `forbidden text in the reply: ${JSON.stringify(found)}` : 'none present',
     );
   }
+  if (expected.max_occurrences) {
+    const over = Object.entries(expected.max_occurrences).flatMap(([text, max]) => {
+      const count = reply.split(norm(text)).length - 1;
+      return count > max ? [`"${text}" ${count}× (max ${max})`] : [];
+    });
+    add('max_occurrences', over.length === 0, over.length ? over.join(', ') : 'within limits');
+  }
   if (expected.not_matches) {
     const found = expected.not_matches.filter((p) =>
       new RegExp(p, 'iu').test(input.reply.normalize('NFC')),

@@ -1,0 +1,74 @@
+id: tinymind-pronoun-customer-says-chi
+group: pronouns
+tags: [critical]
+bot:
+  industry: retail
+  name: TinyMind
+  profile:
+    fields:
+      displayName: TinyMind
+      shipping: 'Giao hàng toàn quốc, ship nội thành 30.000đ.'
+    notes: 'Shop bán đồ chơi gỗ Montessori cho bé.'
+products:
+  - name: 'Thú gỗ xếp thăng bằng — Wooden Animal Balancing Stacker Toy'
+    code: TM-001
+    description: 'Bộ thú gỗ xếp thăng bằng, phù hợp bé từ 1 tuổi trở lên. Rèn khéo tay và tư duy.'
+    images:
+      - 'https://example.com/thu-go-xep-thang-bang-1.jpg'
+      - 'https://example.com/thu-go-xep-thang-bang-2.jpg'
+      - 'https://example.com/thu-go-xep-thang-bang-3.jpg'
+    variants:
+      - { name: 'Mặc định', price: 340000, stock: 12 }
+  - name: 'Xương rồng gỗ xếp thăng bằng — Wooden Balancing Cactus Stacking Toy'
+    code: TM-002
+    description: 'Xương rồng gỗ xếp thăng bằng, phù hợp bé từ 2 tuổi trở lên.'
+    images:
+      - 'https://example.com/xuong-rong-go-1.jpg'
+    variants:
+      - { name: 'Mặc định', price: 460000, stock: 6 }
+  - name: 'Thú gỗ ghép hình xếp chồng — Wooden Animal Puzzle Stacker'
+    code: TM-003
+    description: 'Thú gỗ ghép hình xếp chồng, phù hợp bé từ 4 tuổi trở lên.'
+    images:
+      - 'https://example.com/thu-go-ghep-hinh-1.jpg'
+    variants:
+      - { name: 'Mặc định', price: 610000, stock: 4 }
+  - name: 'Bảng chữ cái gỗ Montessori — Wooden Alphabet Board'
+    code: TM-004
+    description: 'Bảng chữ cái gỗ cho bé từ 3 tuổi trở lên.'
+    variants:
+      - { name: 'Mặc định', price: 280000, stock: 9 }
+  - name: 'Tháp gỗ cầu vồng — Rainbow Wooden Tower'
+    code: TM-005
+    description: 'Tháp gỗ nhiều màu, phù hợp bé từ 1 tuổi trở lên.'
+    variants:
+      - { name: 'Mặc định', price: 390000, stock: 7 }
+  - name: 'Xe kéo gỗ — Wooden Pull Along Car'
+    code: TM-006
+    description: 'Xe kéo gỗ cho bé tập đi, từ 1 tuổi.'
+    variants:
+      - { name: 'Mặc định', price: 220000, stock: 15 }
+  - name: 'Bộ xếp hình khối gỗ 100 chi tiết — 100 Piece Wooden Blocks'
+    code: TM-007
+    description: 'Bộ khối gỗ 100 chi tiết, phù hợp bé từ 3 tuổi trở lên.'
+    variants:
+      - { name: 'Mặc định', price: 520000, stock: 5 }
+  - name: 'Bàn cờ gỗ cho bé — Wooden Kids Chess'
+    code: TM-008
+    description: 'Bộ cờ gỗ dành cho bé từ 5 tuổi trở lên.'
+    variants:
+      - { name: 'Mặc định', price: 350000, stock: 8 }
+conversation:
+  - customer: 'Chị muốn mua bộ Thú gỗ xếp thăng bằng cho con, giá bao nhiêu em'
+expect:
+  outcome: answered
+  contains_all: ['chị', '340.000']
+  not_contains: ['anh/chị', 'anh/ chị']
+  numbers_only_from_sources: true
+  fake_tool_calls:
+    - { name: search_products, arguments: { query: 'Thú gỗ xếp thăng bằng' } }
+  fake_reply:
+    outcome: answer
+    reply: 'Dạ bộ Thú gỗ xếp thăng bằng giá 340.000đ chị ạ, bé từ 1 tuổi chơi được.'
+    sources: []
+    imageIds: []
