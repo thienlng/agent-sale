@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AccommodationDetails } from '@agent-sales/contracts';
 
 const Outcome = z
   .enum(['answered', 'fallback', 'unknown', 'handoff'])
@@ -42,6 +43,7 @@ const Product = z
     description: z.string().default(''),
     instructions: z.string().default(''),
     variants: z.array(Variant).min(1),
+    accommodation: AccommodationDetails.optional(),
   })
   .strict();
 

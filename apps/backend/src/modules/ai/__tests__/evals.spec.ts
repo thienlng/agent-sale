@@ -80,7 +80,8 @@ describe('eval suite (fake mode)', () => {
     const results = await Promise.all(cases.map(runCaseFake));
     const report = buildReport('fake', results);
     expect(report.gate).toBe('pass');
-    expect(report.promptVersion).toBe('sales-agent@9');
+    expect(report.promptVersion).toContain('sales-agent@9');
+    expect(report.promptVersion).toContain('sales-agent@10');
     expect(report.passed).toBe(report.total);
     expect(report.groups.map((g) => g.group)).toContain('safety');
     expect(renderText(report)).toContain('Critical:');

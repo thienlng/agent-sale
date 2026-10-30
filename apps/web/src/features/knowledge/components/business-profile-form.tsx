@@ -93,7 +93,7 @@ function ProfileForm({ bot }: { bot: BotDto }) {
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (!dirty || !canEdit || mapsInvalid) return;
+    if (!dirty || !canEdit || save.isPending || mapsInvalid) return;
     const fields = Object.fromEntries(changed.map((k) => [k, value(draft.fields, k)]));
     save.mutate(
       {
@@ -161,7 +161,31 @@ function ProfileForm({ bot }: { bot: BotDto }) {
   };
 
   return (
-    <form onSubmit={submit}>
+    <form onSubmit={submit} className="flex min-w-0 flex-col gap-3">
+      {canEdit ? (
+        <div
+          role="toolbar"
+          aria-label={t('profile.title')}
+          className="sticky top-0 z-20 flex flex-wrap items-center justify-end gap-3 rounded-xl border bg-background p-3 shadow-sm [html[data-navbar-style=sticky]_&]:top-(--header-height)"
+        >
+          {dirty ? (
+            <span className="mr-auto text-sm text-warning" role="status">
+              {t('profile.dirty')}
+            </span>
+          ) : null}
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={!dirty || save.isPending}
+            onClick={() => setDraft(base)}
+          >
+            {t('profile.reset')}
+          </Button>
+          <Button type="submit" disabled={!dirty || save.isPending || mapsInvalid}>
+            {t('profile.save')}
+          </Button>
+        </div>
+      ) : null}
       <Card>
         <CardHeader>
           <CardTitle className="text-base font-semibold">{t('profile.title')}</CardTitle>
@@ -205,26 +229,6 @@ function ProfileForm({ bot }: { bot: BotDto }) {
               </span>
             </div>
           </fieldset>
-          {canEdit ? (
-            <div className="flex flex-wrap items-center justify-end gap-3">
-              {dirty ? (
-                <span className="mr-auto text-sm text-warning" role="status">
-                  {t('profile.dirty')}
-                </span>
-              ) : null}
-              <Button
-                type="button"
-                variant="ghost"
-                disabled={!dirty}
-                onClick={() => setDraft(base)}
-              >
-                {t('profile.reset')}
-              </Button>
-              <Button type="submit" disabled={!dirty || save.isPending || mapsInvalid}>
-                {t('profile.save')}
-              </Button>
-            </div>
-          ) : null}
         </CardContent>
       </Card>
       <Dialog open={blocker.status === 'blocked'} onOpenChange={(o) => !o && blocker.reset?.()}>

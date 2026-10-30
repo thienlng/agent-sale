@@ -1,0 +1,65 @@
+{
+  'group': 'lodging-a17',
+  'tags': ['critical'],
+  'bot':
+    {
+      'industry': 'hotel',
+      'name': 'Test lodging assistant',
+      'profile': { 'fields': { 'displayName': 'Test lodging business' }, 'notes': '' },
+    },
+  'products':
+    [
+      {
+        'name': 'Villa A17',
+        'code': 'A17',
+        'description': 'Một căn nguyên căn có 8 phòng ngủ. Tiêu chuẩn 24 người lớn và 8 trẻ dưới 6 tuổi.',
+        'instructions': 'Không khẳng định lịch trống, không bịa đơn vị giá, không tạo booking khi chỉ trao đổi.',
+        'variants': [{ 'name': 'Nguyên căn, giá tham khảo', 'price': 12000000, 'stock': 0 }],
+        'accommodation':
+          {
+            'rentalType': 'entire_property',
+            'bedrooms': 8,
+            'standardAdults': 24,
+            'standardChildren': 8,
+            'childAgeBelow': 6,
+            'maxGuests': null,
+            'roomLayout':
+              [
+                { 'name': 'Room 1', 'beds': 'Beds described by owner' },
+                { 'name': 'Room 2', 'beds': 'Beds described by owner' },
+                { 'name': 'Room 3', 'beds': 'Beds described by owner' },
+                { 'name': 'Room 4', 'beds': 'Beds described by owner' },
+                { 'name': 'Room 5', 'beds': 'Beds described by owner' },
+                { 'name': 'Room 6', 'beds': 'Beds described by owner' },
+                { 'name': 'Room 7', 'beds': 'Beds described by owner' },
+                { 'name': 'Room 8', 'beds': 'Beds described by owner' },
+              ],
+            'amenities': ['Bể bơi', 'BBQ'],
+            'rateBasis': 'unconfirmed',
+            'rates':
+              [
+                { 'days': [1, 2, 3, 4], 'amount': 12000000 },
+                { 'days': [5, 7], 'amount': 13000000 },
+                { 'days': [6], 'amount': 14000000 },
+              ],
+            'gallery': [],
+          },
+      },
+    ],
+  'id': 'hotel-a17-standard-not-adult-maximum',
+  'conversation': [{ 'customer': '32 người lớn vào A17 có vừa không?' }],
+  'expect':
+    {
+      'outcome': 'answered',
+      'guardrail': 'none',
+      'numbers_only_from_sources': true,
+      'contains_all': ['24', '8', '6'],
+      'not_contains': ['32 người lớn vẫn vừa', 'miễn phí'],
+      'fake_reply':
+        {
+          'outcome': 'answer',
+          'reply': 'Dạ tiêu chuẩn A17 là 24 người lớn và 8 trẻ dưới 6 tuổi, chưa có xác nhận nhận đoàn như anh/chị hỏi; cần chủ căn kiểm tra ạ.',
+          'sources': [],
+        },
+    },
+}

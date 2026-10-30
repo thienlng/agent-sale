@@ -1,4 +1,5 @@
 import type { WorkspaceId } from '@agent-sales/shared';
+import type { AccommodationDetails } from '@agent-sales/contracts';
 
 import type { OrderStatus, StockState } from '../../domain/order-stock.js';
 
@@ -35,6 +36,7 @@ export interface ProductRecord {
   visibleToBot: boolean;
   botInstructions: string;
   imageUrls: string[];
+  accommodation?: AccommodationDetails | null;
   searchText: string;
   createdAt: Date;
   updatedAt: Date;

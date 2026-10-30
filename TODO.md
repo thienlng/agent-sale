@@ -51,6 +51,9 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## Blocked
 
+- [ ] T-157 Keep business profile save actions visible while editing — @agent:codex · [details](todo/T-157-keep-business-profile-save-actions-visible-while-e.md) · [PR #88](https://github.com/thienlng/agent-sale/pull/88) · locally verified; blocked: PR conflicts with main; current-head CI pending
+- [ ] T-155 Complete the Villas business experience and seed the real A17 property — @agent:codex · [details](todo/T-155-complete-the-villas-business-experience-and-seed-t.md) · [PR #88](https://github.com/thienlng/agent-sale/pull/88) · implementation/local gate/QA complete; blocked: PR conflicts with main; current-head CI pending
+
 - [ ] T-093 Scope business settings and bot defaults to the selected industry — @agent:codex · [details](todo/T-093-scope-business-settings-and-bot-defaults-to-the-se.md) · blocked: partial: business industry increment delivered; account billing separation awaits T-092/T-091 · PR #77 (industry increment)
 
 - [ ] T-082 Unify channel assignment and bulk bot filters — @agent:codex · [details](todo/T-082-unify-channel-assignment-and-bulk-bot-filters.md) · PR #64 · blocked: partial: channel assignment delivered; shop eligibility awaits T-077/T-078/T-080
@@ -67,6 +70,7 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 
 ## Done (last 10 — older ones live in todo/done/)
 
+- [x] T-156 Reset TinyMind and Villas conversation history — @agent:codex · [details](todo/done/T-156-reset-tinymind-and-villas-conversation-history.md) · operational data reset; no code changes
 - [x] T-129 Let a business pick an icon when it has no logo — @agent:claude · [details](todo/done/T-129-let-a-business-pick-an-icon-when-it-has-no-logo.md) · main (PR #84)
 - [x] T-128 Show the business logo in the business selector and lists — @agent:claude · [details](todo/done/T-128-show-the-business-logo-in-the-business-selector-an.md) · main (PR #84)
 - [x] T-127 Create a new business from the account portfolio — @agent:claude · [details](todo/done/T-127-create-a-new-business-from-the-account-portfolio.md) · main (PR #84)
@@ -76,4 +80,3 @@ Rules: `.agents/rules/03-task-tracking.md`. One line per task; details in `todo/
 - [x] T-156 Make main CI green again after the billing outage — @agent:claude · [details](todo/done/T-156-make-main-ci-green-again-after-the-billing-outage.md) · main (PR #89)
 - [x] T-114 Clean up bot navigation: hide the image library and rename channel integrations — @agent:claude · [details](todo/done/T-114-clean-up-bot-navigation-hide-the-image-library-and.md) · main (PR #83)
 - [x] T-113 Show per-bot statistics on the bot training home — @agent:claude · [details](todo/done/T-113-show-per-bot-statistics-on-the-bot-training-home.md) · main (PR #83)
-- [x] T-112 Move product management to its own top-level navigation group — @agent:claude · [details](todo/done/T-112-move-product-management-to-its-own-top-level-navig.md) · main (PR #83)

@@ -57,7 +57,17 @@ const DEVELOPMENT: Item[] = [{ to: '/app/bots/$botId/ads-tool', key: 'adsTool', 
 const itemClass =
   'flex shrink-0 items-center gap-2.5 border-r-2 border-transparent px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none data-[status=active]:border-primary data-[status=active]:bg-primary-soft data-[status=active]:font-medium data-[status=active]:text-primary';
 
-function NavLink({ botId, item, className }: { botId: string; item: Item; className?: string }) {
+function NavLink({
+  botId,
+  item,
+  className,
+  industry,
+}: {
+  botId: string;
+  item: Item;
+  className?: string;
+  industry?: string;
+}) {
   const { t } = useTranslation('training');
   const Icon = item.icon;
   return (
@@ -68,7 +78,11 @@ function NavLink({ botId, item, className }: { botId: string; item: Item; classN
       className={cn(itemClass, className)}
     >
       {Icon ? <Icon aria-hidden className="size-4 shrink-0" /> : null}
-      {t(`space.nav.${item.key}`)}
+      {t(
+        item.key === 'products' && industry === 'hotel'
+          ? 'space.nav.accommodations'
+          : `space.nav.${item.key}`,
+      )}
     </Link>
   );
 }
@@ -135,7 +149,7 @@ export function TrainingNav({ bot }: { bot: BotDto }) {
       <nav aria-label={t('menu')} className="hidden flex-col pb-4 lg:flex">
         <GroupLabel>{t('space.nav.main')}</GroupLabel>
         {MAIN.map((item) => (
-          <NavLink key={item.to} botId={bot.id} item={item} />
+          <NavLink key={item.to} botId={bot.id} item={item} industry={bot.industry} />
         ))}
         <SettingsGroup botId={bot.id} />
         <GroupLabel>{t('space.nav.development')}</GroupLabel>
@@ -151,6 +165,7 @@ export function TrainingNav({ bot }: { bot: BotDto }) {
             botId={bot.id}
             item={item}
             className="border-r-0 border-b-2 px-3 data-[status=active]:border-primary"
+            industry={bot.industry}
           />
         ))}
       </nav>

@@ -29,6 +29,8 @@ import { formatVnd } from '@/lib/format';
 import { useCan } from '@/lib/permissions';
 import { ContactConversations } from './contact-conversations';
 import { InboxContactControls } from './inbox-contact-controls';
+import { useCurrentWorkspace } from '@/features/workspace/api/use-current-workspace';
+import { StayRequestForm } from '@/features/commerce/components/stay-request-form';
 
 /** Orders created in this session; the linked customer is stored on the conversation (T-088). */
 export interface InboxCustomerContext {
@@ -64,6 +66,7 @@ export function InboxSalesPanel({
   const canCreate = useCan('orders.manage');
   const linked = c.contactId ?? undefined;
   const selectedContact = useContact(linked);
+  const workspace = useCurrentWorkspace();
   const contact = selectedContact.data;
   const canLink = useCan('contacts.edit');
   const [changing, setChanging] = useState(false);
@@ -184,86 +187,98 @@ export function InboxSalesPanel({
       </PanelBlock>
       {slots.tags}
       <NotesBlock conversation={c} />
-      <PanelBlock
-        title={t('channelInbox.v2.panel.orders')}
-        summary={orderCount ? String(orderCount) : undefined}
-      >
-        {creating ? (
-          <div className="space-y-3">
-            <Button variant="ghost" size="sm" className="-ml-2" onClick={() => setCreating(false)}>
-              <ArrowLeft />
-              {t('channelInbox.back')}
-            </Button>
-            {linked && !contact ? (
-              <p role="status" className="p-2 text-sm">
-                {t(selectedContact.isError ? 'channelInbox.loadError' : 'channelInbox.loading')}
-              </p>
-            ) : !canCreate ? (
-              <p role="status" className="rounded-lg bg-muted p-4 text-sm">
-                {tr('orderPermission')}
-              </p>
-            ) : created ? (
-              <div className="space-y-3 rounded-xl border p-4">
-                <Check className="size-8 text-success" />
-                <p className="font-semibold">{t('orderForm.created', { code: created.code })}</p>
-                <Button asChild variant="outline" className="w-full">
-                  <Link to="/app/orders/$orderId" params={{ orderId: created.id }}>
-                    {tr('openOrder')}
-                  </Link>
-                </Button>
-                <Button
-                  className="w-full"
-                  onClick={() => {
-                    onChange({ ...value, created: undefined });
-                    setGeneration((n) => n + 1);
+      {workspace.data?.industry === 'hotel' ? (
+        <HotelStayPanel
+          name={contact?.name ?? c.customerName}
+          phone={contact?.phone ?? c.customerPhone ?? ''}
+        />
+      ) : (
+        <PanelBlock
+          title={t('channelInbox.v2.panel.orders')}
+          summary={orderCount ? String(orderCount) : undefined}
+        >
+          {creating ? (
+            <div className="space-y-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="-ml-2"
+                onClick={() => setCreating(false)}
+              >
+                <ArrowLeft />
+                {t('channelInbox.back')}
+              </Button>
+              {linked && !contact ? (
+                <p role="status" className="p-2 text-sm">
+                  {t(selectedContact.isError ? 'channelInbox.loadError' : 'channelInbox.loading')}
+                </p>
+              ) : !canCreate ? (
+                <p role="status" className="rounded-lg bg-muted p-4 text-sm">
+                  {tr('orderPermission')}
+                </p>
+              ) : created ? (
+                <div className="space-y-3 rounded-xl border p-4">
+                  <Check className="size-8 text-success" />
+                  <p className="font-semibold">{t('orderForm.created', { code: created.code })}</p>
+                  <Button asChild variant="outline" className="w-full">
+                    <Link to="/app/orders/$orderId" params={{ orderId: created.id }}>
+                      {tr('openOrder')}
+                    </Link>
+                  </Button>
+                  <Button
+                    className="w-full"
+                    onClick={() => {
+                      onChange({ ...value, created: undefined });
+                      setGeneration((n) => n + 1);
+                    }}
+                  >
+                    {tr('anotherOrder')}
+                  </Button>
+                </div>
+              ) : (
+                <InboxOrderComposer
+                  key={`${c.id}:${generation}`}
+                  context={{
+                    draftKey: c.id,
+                    customerName: c.customerName,
+                    source: c.provider,
+                    contact,
                   }}
-                >
-                  {tr('anotherOrder')}
-                </Button>
-              </div>
-            ) : (
-              <InboxOrderComposer
-                key={`${c.id}:${generation}`}
-                context={{
-                  draftKey: c.id,
-                  customerName: c.customerName,
-                  source: c.provider,
-                  contact,
-                }}
-                onCreated={onOrderCreated}
-              />
-            )}
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {value.orders.length ? (
-              value.orders.map((order) => (
-                <Link
-                  key={order.id}
-                  to="/app/orders/$orderId"
-                  params={{ orderId: order.id }}
-                  className="flex items-center justify-between gap-2 rounded-lg border p-2 text-sm hover:bg-muted/40"
-                >
-                  <span className="font-medium">{order.code}</span>
-                  <OrderStatusBadge status={order.status} />
-                  <span>{formatVnd(order.amounts.total)}</span>
-                </Link>
-              ))
-            ) : (
-              <p className="text-xs text-muted-foreground">{tr('noSessionOrders')}</p>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full"
-              onClick={() => setCreating(true)}
-            >
-              <Plus />
-              {t('channelInbox.v2.panel.createOrder')}
-            </Button>
-          </div>
-        )}
-      </PanelBlock>
+                  onCreated={onOrderCreated}
+                />
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {value.orders.length ? (
+                value.orders.map((order) => (
+                  <Link
+                    key={order.id}
+                    to="/app/orders/$orderId"
+                    params={{ orderId: order.id }}
+                    className="flex items-center justify-between gap-2 rounded-lg border p-2 text-sm hover:bg-muted/40"
+                  >
+                    <span className="font-medium">{order.code}</span>
+                    <OrderStatusBadge status={order.status} />
+                    <span>{formatVnd(order.amounts.total)}</span>
+                  </Link>
+                ))
+              ) : (
+                <p className="text-xs text-muted-foreground">{tr('noSessionOrders')}</p>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => setCreating(true)}
+              >
+                <Plus />
+                {t('channelInbox.v2.panel.createOrder')}
+              </Button>
+            </div>
+          )}
+        </PanelBlock>
+      )}
       <FollowUpBlock conversation={c} />
       {slots.media}
       <ContactSheet
@@ -273,6 +288,43 @@ export function InboxSalesPanel({
         renderConversations={(contactId) => <ContactConversations contactId={contactId} />}
       />
     </div>
+  );
+}
+
+function HotelStayPanel({ name, phone }: { name: string; phone: string }) {
+  const { t } = useTranslation(),
+    canCreate = useCan('orders.manage');
+  const [open, setOpen] = useState(false);
+  return (
+    <PanelBlock title={t('lodging.requestsTitle')}>
+      <div className="space-y-3">
+        <p className="text-xs text-muted-foreground">{t('lodging.requestsIntro')}</p>
+        <Button asChild variant="outline" size="sm" className="w-full">
+          <Link to="/app/stays">{t('lodging.requestsTitle')}</Link>
+        </Button>
+        {canCreate && (
+          <Button variant="outline" size="sm" className="w-full" onClick={() => setOpen(true)}>
+            <Plus />
+            {t('lodging.newRequest')}
+          </Button>
+        )}
+      </div>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{t('lodging.newRequest')}</DialogTitle>
+            <DialogDescription>{t('lodging.requestsIntro')}</DialogDescription>
+          </DialogHeader>
+          {open && (
+            <StayRequestForm
+              initialName={name}
+              initialPhone={phone}
+              onSaved={() => setOpen(false)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+    </PanelBlock>
   );
 }
 

@@ -740,9 +740,15 @@ describe('prompt version 9 (T-138)', () => {
     expect(String(messages[0]?.content)).toContain('sales assistant of Shop Lan');
   });
 
-  it('answers with sales-agent@9 and the profile block by default (T-143)', async () => {
+  it('uses lodging prompt 10 and the profile block for hotel bots by default', async () => {
     const { messages, runs } = await run(rich);
     expect(String(messages.at(-1)?.content).startsWith('<business_profile>\n')).toBe(true);
+    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@10');
+    expect(String(messages[0]?.content)).toContain('availability unverified never means sold out');
+  });
+
+  it('keeps retail bots on prompt 9 by default', async () => {
+    const { runs } = await run({ ...rich, industry: 'retail' });
     expect(runs.runs[0]?.promptVersion).toBe('sales-agent@9');
   });
 

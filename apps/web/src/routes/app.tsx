@@ -6,6 +6,7 @@ import { CreateBusinessDialog } from '@/features/workspace/components/create-bus
 import { PlanDialog } from '@/features/billing/components/plan-dialog';
 import { ACCOUNT_PATHS } from '@/lib/account-paths';
 import { ensureSession } from '@/lib/session';
+import { useCurrentWorkspace } from '@/features/workspace/api/use-current-workspace';
 
 /**
  * Authenticated area: restores the session from the refresh cookie or sends the user to /login.
@@ -23,13 +24,17 @@ export const Route = createFileRoute('/app')({
       throw redirect({ to: session.memberships.length ? '/app/overview' : '/app/businesses/new' });
     }
   },
-  component: () => (
-    <AppShell
-      planDialog={(props) => <PlanDialog {...props} />}
-      createBusinessDialog={(props) => <CreateBusinessDialog {...props} />}
-    >
-      <MessageUsageBanner />
-      <Outlet />
-    </AppShell>
-  ),
+  component: function AppLayout() {
+    const workspace = useCurrentWorkspace();
+    return (
+      <AppShell
+        planDialog={(props) => <PlanDialog {...props} />}
+        createBusinessDialog={(props) => <CreateBusinessDialog {...props} />}
+        industry={workspace.data?.industry}
+      >
+        <MessageUsageBanner />
+        <Outlet />
+      </AppShell>
+    );
+  },
 });

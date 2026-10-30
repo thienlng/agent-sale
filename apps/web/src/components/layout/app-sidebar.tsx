@@ -10,6 +10,8 @@ import {
   Settings,
   ShieldCheck,
   ShoppingBag,
+  House,
+  CalendarDays,
   Users,
   UsersRound,
 } from 'lucide-react';
@@ -123,6 +125,10 @@ const ORDER_PATHS = /^\/app\/(orders|order-settings)(\/|$)/;
 /** The shared product catalog: its own top-level entry, used by orders and bots alike. */
 const PRODUCTS: readonly NavItem[] = [
   { to: '/app/products', key: 'nav.products', icon: Package, ready: true },
+];
+const LODGING: readonly NavItem[] = [
+  { to: '/app/accommodations', key: 'nav.accommodations', icon: House, ready: true },
+  { to: '/app/stays', key: 'nav.stayRequests', icon: CalendarDays, ready: true },
 ];
 
 /** The customers area (docs/03 §2 "Khách hàng"). */
@@ -242,8 +248,10 @@ function NavItems({ items }: { items: readonly NavItem[] }) {
 /** The dashboard sidebar; variant and collapse mode come from the user's preferences. */
 export function AppSidebar({
   createBusinessDialog,
+  industry,
 }: {
   createBusinessDialog?: ((props: CreateBusinessDialogProps) => ReactNode) | undefined;
+  industry?: string | undefined;
 }) {
   const { t } = useTranslation();
   const session = useSession();
@@ -277,14 +285,20 @@ export function AppSidebar({
               items={CONTACTS.filter((i) => canSettings || i.to !== '/app/crm-settings')}
               paths={CONTACT_PATHS}
             />
-            <SectionNav
-              label="nav.orders"
-              icon={ShoppingBag}
-              items={ORDERS.filter((i) => canSettings || i.to !== '/app/order-settings')}
-              paths={ORDER_PATHS}
-              exact="/app/orders"
-            />
-            <NavItems items={PRODUCTS} />
+            {industry === 'hotel' ? (
+              <NavItems items={LODGING} />
+            ) : (
+              <>
+                <SectionNav
+                  label="nav.orders"
+                  icon={ShoppingBag}
+                  items={ORDERS.filter((i) => canSettings || i.to !== '/app/order-settings')}
+                  paths={ORDER_PATHS}
+                  exact="/app/orders"
+                />
+                <NavItems items={PRODUCTS} />
+              </>
+            )}
             <NavItems items={WORK} />
           </NavGroup>
           {session?.user.isPlatformAdmin ? (

@@ -36,12 +36,16 @@ import {
 } from '../../../../common/http/auth-context.js';
 import { ZodValidationPipe } from '../../../../common/http/zod-validation.pipe.js';
 import { CatalogService } from '../../application/catalog.service.js';
+import { LodgingService } from '../../application/lodging.service.js';
 
 /** Thin controller: warehouses, products and the variant picker. */
 @WorkspaceScoped()
 @Controller()
 export class CatalogController {
-  constructor(@Inject(CatalogService) private readonly catalog: CatalogService) {}
+  constructor(
+    @Inject(CatalogService) private readonly catalog: CatalogService,
+    @Inject(LodgingService) private readonly lodging: LodgingService,
+  ) {}
 
   @Get('warehouses')
   async warehouses(@CurrentWorkspace() ws: WorkspaceId): Promise<{ data: WarehouseDto[] }> {
@@ -89,10 +93,11 @@ export class CatalogController {
   @RequireCapability('catalog.manage')
   @Post('products')
   @HttpCode(201)
-  createProduct(
+  async createProduct(
     @CurrentWorkspace() ws: WorkspaceId,
     @Body(new ZodValidationPipe(UpsertProductRequest)) body: UpsertProductRequest,
   ): Promise<ProductDto> {
+    if (body.accommodation) await this.lodging.assertHotel(ws);
     return this.catalog.createProduct(ws, body);
   }
 
@@ -106,11 +111,12 @@ export class CatalogController {
 
   @RequireCapability('catalog.manage')
   @Put('products/:productId')
-  updateProduct(
+  async updateProduct(
     @CurrentWorkspace() ws: WorkspaceId,
     @Param('productId') id: string,
     @Body(new ZodValidationPipe(UpsertProductRequest)) body: UpsertProductRequest,
   ): Promise<ProductDto> {
+    if (body.accommodation) await this.lodging.assertHotel(ws);
     return this.catalog.updateProduct(ws, id, body);
   }
 

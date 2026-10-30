@@ -322,3 +322,8 @@ llm_tier_routes(tier PK: basic|smart|pro|neo, provider_id, model, effort, fallba
 5c. **Indexes**: `workspace_id` is the leading column of every composite index on tenant tables; every new heavy query ships an `EXPLAIN` run under the `app_tenant` role (RLS can prevent pushing non-leakproof predicates such as `ILIKE`/trigram below the policy — verify on a 1 M-row tenant before promising budgets).
 6. **Migrations**: only versioned migrations (Drizzle Kit `generate` + hand-written SQL for partitions/policies/roles, linted for lock safety); migrations must not lock large tables (add nullable column, backfill in batches, then set NOT NULL).
 7. **Seed data**: industry templates (FAQ, situations, workflows), 7 sources, 8 statuses, 4 system tags, 9 CRM rules, administrative unit catalog, plans & pricing.
+
+
+## Implemented lodging extension (T-155)
+
+Migration 0035 adds optional JSONB `products.accommodation` and forced-RLS `stay_requests`: tenant/product composite FK, request-key uniqueness, local date range, party/quote snapshots, status/version and agreed total. Confirmed stays exclude overlapping half-open date ranges per tenant/property through PostgreSQL GiST. No inventory or payment ledger change occurs. See [lodging](lodging.md) and [ADR-013](adr/ADR-013-lodging-catalog-and-stay-requests.md).

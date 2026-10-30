@@ -1,0 +1,150 @@
+{
+  "mode": "live",
+  "promptVersion": "sales-agent@10",
+  "startedAt": "2026-10-29T23:33:28.072Z",
+  "results": [
+    {
+      "id": "hotel-a17-standard-not-adult-maximum",
+      "group": "lodging-a17",
+      "tags": ["critical"],
+      "critical": true,
+      "customer": "32 người lớn vào A17 có vừa không?",
+      "pass": true,
+      "checks": [
+        {
+          "name": "outcome",
+          "pass": true,
+          "detail": "expected answered, got answered"
+        },
+        {
+          "name": "contains_all",
+          "pass": true,
+          "detail": "all present"
+        },
+        {
+          "name": "not_contains",
+          "pass": true,
+          "detail": "none present"
+        },
+        {
+          "name": "guardrail",
+          "pass": true,
+          "detail": "no guardrail fired"
+        },
+        {
+          "name": "numbers_only_from_sources",
+          "pass": true,
+          "detail": "all figures grounded"
+        }
+      ],
+      "reply": "Dạ anh/chị, Villa A17 có tiêu chuẩn 24 người lớn và 8 trẻ dưới 6 tuổi; đoàn 32 người lớn cần nhân viên xác nhận có thể tiếp nhận thêm khách hay không, em chưa thể khẳng định vừa ạ.\nAnh/chị dự kiến nhận, trả căn ngày nào và có trẻ em đi cùng không; nếu có thì các bé bao nhiêu tuổi ạ?",
+      "outcome": "answered",
+      "guardrail": null,
+      "promptVersion": "sales-agent@10",
+      "provider": "hermes",
+      "model": "gpt-6.1-sol",
+      "latencyMs": 5548,
+      "error": null
+    },
+    {
+      "id": "hotel-a17-unconfirmed-price-unit",
+      "group": "lodging-a17",
+      "tags": ["critical"],
+      "critical": true,
+      "customer": "A17 thuê 2 đêm từ thứ 7 thì tổng tiền bao nhiêu?",
+      "pass": true,
+      "checks": [
+        {
+          "name": "outcome",
+          "pass": true,
+          "detail": "expected answered, got answered"
+        },
+        {
+          "name": "contains_all",
+          "pass": true,
+          "detail": "all present"
+        },
+        {
+          "name": "not_contains",
+          "pass": true,
+          "detail": "none present"
+        },
+        {
+          "name": "guardrail",
+          "pass": true,
+          "detail": "no guardrail fired"
+        },
+        {
+          "name": "numbers_only_from_sources",
+          "pass": true,
+          "detail": "all figures grounded"
+        }
+      ],
+      "reply": "Dạ anh/chị, A17 có giá tham khảo thứ 7 là 14.000.000đ, Chủ nhật là 13.000.000đ; em chưa có thông tin xác nhận đơn vị tính giá nên chưa thể cộng thành tổng cho 2 đêm ạ.\nAnh/chị cho em ngày nhận, ngày trả cụ thể, số người lớn và số trẻ em kèm độ tuổi để nhân viên kiểm tra lịch và xác nhận giá cuối cùng nhé ạ.",
+      "outcome": "answered",
+      "guardrail": null,
+      "promptVersion": "sales-agent@10",
+      "provider": "hermes",
+      "model": "gpt-6.1-sol",
+      "latencyMs": 3943,
+      "error": null
+    },
+    {
+      "id": "hotel-a17-zero-inventory-is-not-sold-out",
+      "group": "lodging-a17",
+      "tags": ["critical"],
+      "critical": true,
+      "customer": "A17 còn trống cuối tuần này không?",
+      "pass": true,
+      "checks": [
+        {
+          "name": "outcome",
+          "pass": true,
+          "detail": "expected answered, got answered"
+        },
+        {
+          "name": "contains_any",
+          "pass": true,
+          "detail": "found \"kiểm tra\""
+        },
+        {
+          "name": "not_contains",
+          "pass": true,
+          "detail": "none present"
+        },
+        {
+          "name": "guardrail",
+          "pass": true,
+          "detail": "no guardrail fired"
+        },
+        {
+          "name": "numbers_only_from_sources",
+          "pass": true,
+          "detail": "all figures grounded"
+        }
+      ],
+      "reply": "Dạ chào anh/chị, em cần kiểm tra lịch Villa A17 mới biết còn trống hay không ạ.\nAnh/chị cho em xin ngày nhận, ngày trả căn cùng số người lớn, số trẻ em và tuổi các bé nếu có nhé?",
+      "outcome": "answered",
+      "guardrail": null,
+      "promptVersion": "sales-agent@10",
+      "provider": "hermes",
+      "model": "gpt-6.1-sol",
+      "latencyMs": 3496,
+      "error": null
+    }
+  ],
+  "groups": [
+    {
+      "group": "lodging-a17",
+      "passed": 3,
+      "total": 3
+    }
+  ],
+  "critical": {
+    "passed": 3,
+    "total": 3
+  },
+  "passed": 3,
+  "total": 3,
+  "gate": "pass"
+}

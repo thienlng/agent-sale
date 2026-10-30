@@ -30,6 +30,8 @@ const SECTION: Record<string, string> = {
   analytics: 'nav.analytics',
   settings: 'nav.settings',
   llm: 'nav.adminLlm',
+  accommodations: 'nav.accommodations',
+  stays: 'nav.stayRequests',
   overview: 'nav.accountOverview',
   businesses: 'nav.newBusiness',
 };
@@ -45,12 +47,15 @@ export function AppShell({
   children,
   planDialog,
   createBusinessDialog,
+  industry,
 }: {
   children: ReactNode;
   /** Plan and billing popup for the account menu, composed by the route from `features/billing`. */
   planDialog?: ((props: MenuDialogProps) => ReactNode) | undefined;
   /** Create-business popup for the business selector, composed by the route from `features/workspace`. */
   createBusinessDialog?: ((props: CreateBusinessDialogProps) => ReactNode) | undefined;
+  /** The current business's industry; hotels get lodging navigation. */
+  industry?: string | undefined;
 }) {
   const { t } = useTranslation();
   const session = useSession();
@@ -70,7 +75,7 @@ export function AppShell({
         {accountLayer ? (
           <AccountSidebar />
         ) : (
-          <AppSidebar createBusinessDialog={createBusinessDialog} />
+          <AppSidebar createBusinessDialog={createBusinessDialog} industry={industry} />
         )}
         <SidebarInset className="min-w-0 overflow-x-clip">
           <header

@@ -29,7 +29,10 @@ export function buildReport(
   results: CaseResult[],
   startedAt = new Date().toISOString(),
 ): EvalReport {
-  const promptVersion = results.find((r) => r.promptVersion)?.promptVersion ?? 'unknown';
+  const promptVersion =
+    [...new Set(results.map((r) => r.promptVersion).filter((v): v is string => Boolean(v)))]
+      .sort()
+      .join(', ') || 'unknown';
   const byGroup = new Map<string, GroupSummary>();
   for (const r of results) {
     const g = byGroup.get(r.group) ?? { group: r.group, passed: 0, total: 0 };
