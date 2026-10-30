@@ -7,8 +7,11 @@ export type ModelTier = 'basic' | 'smart' | 'pro' | 'neo';
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
   content: string;
-  /** Present on tool results. */
+  /** Assistant messages that asked for tools. */
+  toolCalls?: ToolCall[];
+  /** Tool results: the call they answer and the tool's name. */
   toolCallId?: string;
+  name?: string;
 }
 
 export interface ToolDefinition<TInput = unknown> {
@@ -34,6 +37,8 @@ export interface GenerateRequest {
   tier: ModelTier;
   messages: ChatMessage[];
   tools?: ToolDefinition[];
+  /** `none` keeps the tools in the request but forbids calling them. Default `auto`. */
+  toolChoice?: 'auto' | 'none';
   /** Stable prefix for prompt caching: tools → system → tenant knowledge. */
   cachePrefixKey?: string;
   maxOutputTokens?: number;

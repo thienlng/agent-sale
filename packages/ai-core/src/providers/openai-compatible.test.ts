@@ -127,4 +127,134 @@ describe('OpenAiCompatibleProvider', () => {
     const provider = new OpenAiCompatibleProvider({ baseURL: 'x', client });
     expect(await provider.listModels()).toEqual(['llama-3.3-70b', 'qwen3-32b']);
   });
+
+  describe('native tools', () => {
+    const tools = [
+      {
+        name: 'search_products',
+        description: 'd',
+        input: z.object({ query: z.string().optional() }),
+      },
+    ];
+    const toolReply = (args: string) => ({
+      ...okReply,
+      choices: [
+        {
+          finish_reason: 'tool_calls',
+          message: {
+            content: null,
+            refusal: null,
+            tool_calls: [
+              {
+                id: 'c1',
+                type: 'function',
+                function: { name: 'search_products', arguments: args },
+              },
+            ],
+          },
+        },
+      ],
+    });
+
+    it('sends tools with tool_choice auto, or none when asked', async () => {
+      const a = stubClient(okReply);
+      const provider = new OpenAiCompatibleProvider({ baseURL: 'x', client: a.client });
+      await provider.generate({ ...request, tools }, { model: 'm' });
+      expect(a.bodies[0]).toMatchObject({
+        tools: [
+          {
+            type: 'function',
+            function: {
+              name: 'search_products',
+              description: 'd',
+              parameters: z.toJSONSchema(tools[0]!.input),
+            },
+          },
+        ],
+        tool_choice: 'auto',
+      });
+      await provider.generate({ ...request, tools, toolChoice: 'none' }, { model: 'm' });
+      expect(a.bodies[1]).toMatchObject({ tool_choice: 'none' });
+    });
+
+    it('maps tool calls in the response', async () => {
+      const { client } = stubClient(toolReply('{"query":"thú gỗ"}'));
+      const res = await new OpenAiCompatibleProvider({ baseURL: 'x', client }).generate(
+        { ...request, tools },
+        { model: 'm' },
+      );
+      expect(res.toolCalls).toEqual([
+        { id: 'c1', name: 'search_products', input: { query: 'thú gỗ' } },
+      ]);
+      expect(res.stopReason).toBe('tool_use');
+      expect(res.text).toBe('');
+    });
+
+    it('marks malformed arguments instead of throwing', async () => {
+      const { client } = stubClient(toolReply('{oops'));
+      const res = await new OpenAiCompatibleProvider({ baseURL: 'x', client }).generate(
+        { ...request, tools },
+        { model: 'm' },
+      );
+      expect(res.toolCalls).toEqual([
+        { id: 'c1', name: 'search_products', input: { __invalidJson: true } },
+      ]);
+    });
+
+    it('maps assistant tool calls and tool results in the history', async () => {
+      const { client, bodies } = stubClient(okReply);
+      await new OpenAiCompatibleProvider({ baseURL: 'x', client }).generate(
+        {
+          ...request,
+          tools,
+          messages: [
+            ...request.messages,
+            {
+              role: 'assistant',
+              content: '',
+              toolCalls: [{ id: 'c1', name: 'search_products', input: { query: 'x' } }],
+            },
+            { role: 'tool', toolCallId: 'c1', name: 'search_products', content: '{"rows":[]}' },
+          ],
+        },
+        { model: 'm' },
+      );
+      expect((bodies[0]!.messages as unknown[]).slice(2)).toEqual([
+        {
+          role: 'assistant',
+          content: null,
+          tool_calls: [
+            {
+              id: 'c1',
+              type: 'function',
+              function: { name: 'search_products', arguments: '{"query":"x"}' },
+            },
+          ],
+        },
+        { role: 'tool', tool_call_id: 'c1', content: '{"rows":[]}' },
+      ]);
+    });
+
+    it('still sends response_format together with tools', async () => {
+      const { client, bodies } = stubClient(okReply);
+      await new OpenAiCompatibleProvider({ baseURL: 'x', client }).generate(
+        { ...request, tools, responseFormat: z.object({ reply: z.string() }) },
+        { model: 'm' },
+      );
+      expect(bodies[0]).toHaveProperty('tools');
+      expect(bodies[0]).toHaveProperty('response_format');
+    });
+
+    it('throws for emulated providers', async () => {
+      const { client } = stubClient(okReply);
+      await expect(
+        new OpenAiCompatibleProvider({
+          name: 'selfhost',
+          baseURL: 'x',
+          client,
+          tools: 'emulated',
+        }).generate({ ...request, tools }, { model: 'm' }),
+      ).rejects.toThrow('selfhost provider: tools must be emulated');
+    });
+  });
 });
