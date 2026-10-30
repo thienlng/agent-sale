@@ -76,6 +76,16 @@ flowchart TD
 
 Tool availability per workspace is declared by its vertical pack (`docs/17` §3); tools not in the pack are not exposed to the model.
 
+**Implemented now (ADR-014, `sales-agent@11` / `@12` for hotel bots):** the reply agent runs one tool loop (`apps/backend/src/modules/ai/application/tool-loop.ts`, max 4 tool rounds and 3 action executions per customer turn) with these tools only:
+
+| Tool | Result |
+|---|---|
+| `search_products(query?, maxPriceVnd?, inStockOnly?)` | With `query`: up to 8 ranked rows plus the full details of the top 3. Without: the compact index of every bot-visible product (cap 300 rows, above it `tooMany` and the categories). |
+| `product_details(ids)` | Full details (description, variants, prices, stock, up to 5 image ids) of 1 to 3 products. |
+| `action_<n>`, `confirm_pending_action`, `cancel_pending_action` | The owner's API actions (see `docs/actions.md`). |
+
+`show_product`, `send_media`, `get_customer_orders`, `create_order_draft`, `tag_contact` and the vertical-pack tools above are not implemented; the bot hands off to staff to create an order. The server no longer pre-selects products: the catalog reaches the model only through tool results and `<focus_products>` (up to 3 products of the last 3 runs of the conversation, from `ai_runs.product_ids`; playground: last 30 minutes). Tool results never contain URLs; the model returns up to 3 `imageIds`. Every tool result is trusted grounding text. Hermes gets the same tools through an emulated JSON protocol in `packages/ai-core`; OpenAI-compatible and Anthropic providers use native function calling.
+
 ### 3.3 Guardrails
 
 1. **Number grounding**: every price/stock/fee/% figure in an answer must appear in the retrieved sources or tool results; otherwise → rewrite as "để em kiểm tra lại" (let me check that again) (matches Preny behavior T06).
