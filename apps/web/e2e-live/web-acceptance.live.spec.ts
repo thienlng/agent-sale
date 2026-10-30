@@ -65,12 +65,13 @@ function headers(owner: Subject, workspaceId = owner.workspaceId): Record<string
   return { authorization: `Bearer ${owner.token}`, 'x-workspace-id': workspaceId };
 }
 
-async function login(page: Page, owner: Subject): Promise<void> {
+/** One business opens on its statistics; several and none chosen open the account overview (T-079). */
+async function login(page: Page, owner: Subject, landing = /\/app\/analytics/): Promise<void> {
   await page.goto('/login');
   await page.getByLabel('Email', { exact: true }).fill(owner.email);
   await page.getByLabel('Mật khẩu', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
-  await expect(page).toHaveURL(/\/app\/analytics/);
+  await expect(page).toHaveURL(landing);
 }
 
 async function noOverflow(page: Page): Promise<void> {
@@ -135,9 +136,12 @@ test('business switching isolates source records and survives reload on desktop 
     data: { name: 'should not change', expectedVersion: firstContact.version },
   });
   expect(crossWrite.status()).toBe(404);
-  await login(page, owner);
-  await page.getByRole('button', { name: 'Chọn business', exact: true }).click();
-  await page.getByRole('button', { name: owner.workspaceName, exact: true }).click();
+  await login(page, owner, /\/app\/overview$/);
+  await page
+    .getByRole('navigation', { name: 'Điều hướng tài khoản' })
+    .getByRole('button', { name: owner.workspaceName, exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/app\/analytics$/);
   await expect(page.getByRole('button', { name: 'Chọn business', exact: true })).toContainText(
     owner.workspaceName,
   );
