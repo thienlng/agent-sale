@@ -36,6 +36,7 @@ export * from './commerce/commerce.schema.js';
 export * from './commerce/lodging.schema.js';
 export * from './commerce/lodging.routes.js';
 export * from './commerce/order-overview.schema.js';
+export * from './commerce/product-images.schema.js';
 export * from './commerce/order-settings.schema.js';
 export * from './commerce/commerce.routes.js';
 export * from './crm/contact.schema.js';
