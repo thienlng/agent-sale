@@ -35,6 +35,7 @@ function isBlockedV4(a: number[]): boolean {
     o1 === 0 ||
     o1 === 10 ||
     o1 === 127 ||
+    (o1 === 100 && o2 >= 64 && o2 <= 127) ||
     (o1 === 169 && o2 === 254) ||
     (o1 === 172 && o2 >= 16 && o2 <= 31) ||
     (o1 === 192 && o2 === 168)
@@ -43,7 +44,15 @@ function isBlockedV4(a: number[]): boolean {
 
 /** True for loopback, private, link-local, unique-local and unspecified addresses. */
 export function isBlockedAddress(address: string): boolean {
-  const ip = address.replace(/^\[|\]$/g, '').toLowerCase();
+  let ip = address.replace(/^\[|\]$/g, '').toLowerCase();
+  if (isIP(ip) === 6) {
+    try {
+      // Canonical compressed form: long spellings of :: and ::1, mixed IPv4-mapped notation.
+      ip = new URL(`http://[${ip}]`).hostname.replace(/^\[|\]$/g, '');
+    } catch {
+      return true;
+    }
+  }
   if (isIP(ip) === 4) return isBlockedV4(ip.split('.').map(Number));
   if (isIP(ip) !== 6) return true;
   const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(ip);

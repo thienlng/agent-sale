@@ -138,6 +138,13 @@ describe('downloadImage', () => {
       'fe80::1',
       'fd00::1',
       '::ffff:10.0.0.1',
+      '0:0:0:0:0:0:0:1',
+      '0:0:0:0:0:0:0:0',
+      '0000:0000:0000:0000:0000:ffff:0a00:0001',
+      '0:0:0:0:0:ffff:127.0.0.1',
+      '::ffff:100.64.0.1',
+      '100.64.0.1',
+      '100.127.255.254',
     ])('blocks a host resolving to %s', async (addr) => {
       expect(await reason(downloadImage('https://x.test/a', ok, to(addr)))).toBe('blocked_address');
     });
