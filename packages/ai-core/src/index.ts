@@ -1,4 +1,5 @@
 export * from './gateway.js';
+export * from './emulated-tools.js';
 export * from './prompts.js';
 export * from './providers/fake.js';
 export * from './providers/anthropic.js';
