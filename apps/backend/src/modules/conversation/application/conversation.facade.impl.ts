@@ -342,6 +342,7 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
     // A connection waiting for re-auth still records inbound messages; only sending is blocked.
     if (
       channel.status === 'disconnected' ||
+      channel.status === 'removed' ||
       channel.provider !== event.kind ||
       channel.externalId !== event.assetExternalId
     )

@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { Logger } from '@nestjs/common';
+import { describe, expect, it, vi } from 'vitest';
 import type { Env } from '../../../common/config.js';
 import { LiveMetaGateway } from '../infrastructure/clients/meta-oauth.js';
 
@@ -129,5 +130,59 @@ describe('LiveMetaGateway.exchange (Facebook)', () => {
     await expect(new LiveMetaGateway(env, transport).exchange('facebook', 'code')).rejects.toThrow(
       /Meta rejected/,
     );
+  });
+});
+
+describe('LiveMetaGateway unsubscribe (T-133)', () => {
+  const account = { externalId: '123', token: 'page-secret-token' };
+  it('sends DELETE subscribed_apps with the page token in a header, not the URL', async () => {
+    const calls: { url: string; init: RequestInit }[] = [];
+    const transport = (async (url: string, init: RequestInit) => {
+      calls.push({ url, init });
+      return new Response(JSON.stringify({ success: true }), { status: 200 });
+    }) as unknown as typeof fetch;
+    await new LiveMetaGateway(env, transport).unsubscribe('facebook', account);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.url).toBe('https://graph.facebook.com/v24.0/123/subscribed_apps');
+    expect(calls[0]?.init.method).toBe('DELETE');
+    expect(calls[0]?.url).not.toContain('page-secret-token');
+    expect(new Headers(calls[0]?.init.headers).get('authorization')).toBe(
+      'Bearer page-secret-token',
+    );
+  });
+  it('does nothing for Instagram', async () => {
+    const transport = vi.fn() as unknown as typeof fetch;
+    await new LiveMetaGateway(env, transport).unsubscribe('instagram', account);
+    expect(transport).not.toHaveBeenCalled();
+  });
+  it('throws on a Meta error and logs only code and subcode, never token or message', async () => {
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const transport = (async () =>
+      new Response(
+        JSON.stringify({
+          error: { code: 190, error_subcode: 463, message: 'Token page-secret-token for Jane Doe' },
+        }),
+        { status: 400 },
+      )) as unknown as typeof fetch;
+    await expect(
+      new LiveMetaGateway(env, transport).unsubscribe('facebook', account),
+    ).rejects.toThrow();
+    const logged = warn.mock.calls.map((c) => String(c[0])).join('\n');
+    expect(logged).toContain('code=190');
+    expect(logged).toContain('subcode=463');
+    expect(logged).not.toContain('page-secret-token');
+    expect(logged).not.toContain('Jane Doe');
+    warn.mockRestore();
+  });
+  it('throws without leaking details when the network fails', async () => {
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const transport = (async () => {
+      throw new Error('connect ECONNREFUSED token=page-secret-token');
+    }) as unknown as typeof fetch;
+    await expect(
+      new LiveMetaGateway(env, transport).unsubscribe('facebook', account),
+    ).rejects.toThrow();
+    expect(warn.mock.calls.map((c) => String(c[0])).join('\n')).not.toContain('page-secret-token');
+    warn.mockRestore();
   });
 });

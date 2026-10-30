@@ -80,7 +80,9 @@ export type WorkspaceProfileDto = z.infer<typeof WorkspaceProfileDto>;
 export const UpdateWorkspaceProfileRequest = z.object({
   name: z.string().trim().min(1).max(120).optional(),
   companyName: z.string().trim().max(200).optional(),
+  /** @deprecated T-144: no longer edited in the UI nor read by the AI; facts live in each bot's profile. Kept for API compatibility. */
   businessServices: z.string().trim().max(1000).optional(),
+  /** @deprecated T-144: see `businessServices`. */
   productDescription: z.string().trim().max(5000).optional(),
   icon: BusinessIcon.optional(),
   /** The version you loaded; a newer one answers CONFLICT. */

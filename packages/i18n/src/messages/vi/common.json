@@ -147,8 +147,8 @@
     "mission": "Mô tả nhiệm vụ của bot",
     "missionDetail": "Viết ít nhất 20 ký tự về việc bot cần làm.",
     "faq": "Có ít nhất một câu hỏi thường gặp",
-    "placeholders": "Điền thông tin cửa hàng",
-    "placeholdersDetail": "Còn {{count}} thông tin chưa điền, bot sẽ không dùng các câu trả lời có chỗ trống.",
+    "profile": "Thông tin doanh nghiệp",
+    "profileDetail": "Còn {{count}} thông tin chưa điền, bot sẽ nói là chưa có thông tin khi khách hỏi.",
     "channel": "Kết nối một kênh chat",
     "channelDetail": "Facebook, Zalo và website sẽ có ở bản tiếp theo.",
     "go": "Làm ngay"
@@ -164,7 +164,7 @@
     "answerHint": "Dùng {{example}} để chèn thông tin cửa hàng.",
     "search": "Tìm câu hỏi",
     "count": "{{count}} câu hỏi",
-    "missing": "Thiếu: {{fields}}",
+    "missing": "Bot không dùng câu này — hãy sửa câu trả lời",
     "seed": "Mẫu",
     "edit": "Sửa",
     "delete": "Xóa",
@@ -177,15 +177,8 @@
   },
   "settings": {
     "title": "Cài đặt bot",
-    "storeInfo": "Thông tin cửa hàng",
-    "storeInfoHint": "Các câu trả lời mẫu dùng những thông tin này. Ô trống thì bot sẽ không dùng câu trả lời đó.",
     "behaviour": "Cách bot trò chuyện",
     "name": "Tên bot",
-    "mission": "Nhiệm vụ của bot",
-    "missionHint": "Bot bán gì, cho ai, cần chốt điều gì. Ví dụ: tư vấn size và chốt đơn áo thun.",
-    "greeting": "Lời chào",
-    "selfPronoun": "Bot xưng là",
-    "customerPronoun": "Gọi khách là",
     "fallbackMessage": "Khi bot chưa có thông tin",
     "fallbackHint": "Gửi khi khách hỏi điều bot chưa được dạy.",
     "handoffMessage": "Khi chuyển cho nhân viên",
@@ -210,7 +203,11 @@
     "save": "Lưu thay đổi",
     "saving": "Đang lưu…",
     "saved": "Đã lưu thay đổi",
-    "unsaved": "Có thay đổi chưa lưu"
+    "unsaved": "Có thay đổi chưa lưu",
+    "guidanceMoved": "Nhiệm vụ, cách xưng hô và lời chào của bot nằm ở",
+    "guidanceLink": "Hướng dẫn trả lời",
+    "factsMoved": "Thông tin cửa hàng như địa chỉ, giá và chính sách nằm ở",
+    "factsLink": "Thông tin doanh nghiệp"
   },
   "playground": {
     "title": "Chat thử",
@@ -1185,26 +1182,30 @@
   "wsettings": {
     "title": "Cài đặt",
     "tabs": {
-      "profile": "Hồ sơ shop",
+      "profile": "Hồ sơ business",
       "security": "Bảo mật",
       "audit": "Nhật ký"
     },
     "profile": {
-      "title": "Thông tin shop",
-      "hint": "Thông tin kinh doanh của shop. Khác với tài khoản đăng nhập của bạn và thông tin xuất hoá đơn.",
-      "name": "Tên shop",
-      "companyName": "Tên công ty",
-      "businessServices": "Lĩnh vực / dịch vụ kinh doanh",
-      "productDescription": "Mô tả sản phẩm, dịch vụ",
+      "title": "Thông tin business",
+      "hint": "Thông tin chung của business đang chọn. Khác với tài khoản đăng nhập của bạn và thông tin xuất hóa đơn.",
+      "name": "Tên business",
+      "companyName": "Tên công ty (không bắt buộc)",
       "save": "Lưu thay đổi",
-      "saved": "Đã lưu thông tin shop",
+      "saved": "Đã lưu thông tin business",
       "reset": "Hoàn tác",
       "dirty": "Có thay đổi chưa lưu",
       "readOnly": "Bạn chỉ xem được thông tin này. Chủ shop hoặc quản trị mới sửa được.",
-      "stale": "Thông tin shop vừa được người khác sửa. Đã tải bản mới nhất, hãy kiểm tra rồi lưu lại.",
+      "stale": "Thông tin business vừa được người khác sửa. Đã tải bản mới nhất, hãy kiểm tra rồi lưu lại.",
       "leave": "Có thay đổi chưa lưu. Rời trang sẽ mất các thay đổi này.",
       "stay": "Ở lại",
-      "leaveConfirm": "Rời trang"
+      "leaveConfirm": "Rời trang",
+      "template": "Loại hình",
+      "templateHint": "Chọn khi tạo business, không đổi được. Bot và nội dung đào tạo được giữ nguyên.",
+      "companyToggle": "Thông tin công ty",
+      "companyHint": "Chỉ dùng khi cần ghi tên pháp lý khác tên business.",
+      "botContext": "Thông tin bot dùng để tư vấn (địa chỉ, chính sách…) nhập ở mỗi bot, mục Thông tin doanh nghiệp.",
+      "botLink": "Mở danh sách bot"
     },
     "logo": {
       "title": "Logo",
@@ -1480,6 +1481,15 @@
       "shopPending": "Thống kê theo shop chưa có dữ liệu.",
       "retry": "Thử lại",
       "allBusiness": "Tất cả business"
+    },
+    "bot": {
+      "title": "Hiệu quả của bot",
+      "subtitle": "Hội thoại và tin nhắn trên các kênh đang gắn với bot này.",
+      "period": "Khoảng thời gian",
+      "days_other": "{{count}} ngày",
+      "noChannels": "Bot chưa gắn kênh nào nên chưa có số liệu. Gắn fanpage hoặc kênh để bot bắt đầu nhận tin nhắn.",
+      "connect": "Gắn kênh",
+      "openFull": "Xem chi tiết trong Thống kê"
     }
   },
   "business": {
@@ -1492,10 +1502,34 @@
     "waitForSave": "Đợi lưu xong để chuyển business.",
     "switchError": "Không thể chuyển business. Thử lại.",
     "create": {
+      "open": "Tạo business",
       "title": "Tạo business mới",
-      "subtitle": "Mỗi business có dữ liệu, bot và thành viên riêng. Tạo xong bạn sẽ vào quản lý business đó.",
+      "description": "Mỗi business có một loại hình riêng, dùng để chuẩn bị nội dung mẫu cho bot. Loại hình không đổi được sau khi tạo.",
       "name": "Tên business",
+      "namePlaceholder": "Ví dụ: Villas",
+      "template": "Loại hình",
+      "templateHint": "Chọn loại hình gần nhất với cách bạn kinh doanh. Không đổi được sau khi tạo.",
       "submit": "Tạo business",
+      "submitting": "Đang tạo…",
+      "cancel": "Hủy",
+      "templates": {
+        "retail": "Bán lẻ, online shop: sản phẩm, giao hàng, đổi trả",
+        "fashion": "Shop quần áo, phụ kiện: size, màu, tồn kho, đổi trả",
+        "cosmetics": "Mỹ phẩm, chăm sóc da: thành phần, công dụng, tư vấn da",
+        "spa": "Spa, thẩm mỹ: dịch vụ, liệu trình, đặt lịch hẹn",
+        "dental": "Phòng khám nha khoa: dịch vụ, bảng giá, đặt lịch khám",
+        "education": "Trung tâm, lớp học: khóa học, học phí, lịch khai giảng",
+        "hotel": "Khách sạn, homestay, villa: phòng, giá, nhận/trả phòng, đặt cọc",
+        "solar": "Điện mặt trời, cơ khí: khảo sát, báo giá, lắp đặt, bảo hành",
+        "other": "Lĩnh vực khác: bắt đầu từ nội dung trống, tự thiết lập thông tin"
+      },
+      "errors": {
+        "forbidden": "Bạn không có quyền tạo business mới trong tài khoản này.",
+        "validation": "Tên business hoặc loại hình chưa hợp lệ. Kiểm tra rồi thử lại.",
+        "generic": "Không tạo được business. Thử lại.",
+        "loadError": "Đã tạo business nhưng chưa chuyển sang được. Chọn nó trong danh sách business."
+      },
+      "subtitle": "Mỗi business có dữ liệu, bot và thành viên riêng. Tạo xong bạn sẽ vào quản lý business đó.",
       "creating": "Đang tạo…",
       "denied": "Tài khoản hiện không được tạo thêm business.",
       "error": "Không thể tạo business. Thử lại."

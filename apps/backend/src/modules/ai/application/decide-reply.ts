@@ -59,6 +59,9 @@ export function decide(
     guidance,
     ...actionResults,
     ...Object.values(bot.placeholders),
+    // The business profile is given to the model, so its figures (hotline, hours, prices) are grounded.
+    ...Object.values(bot.profile.fields),
+    bot.profile.notes,
   ];
   if (parsed.outcome === 'handoff') {
     const lead = parsed.reply.trim();

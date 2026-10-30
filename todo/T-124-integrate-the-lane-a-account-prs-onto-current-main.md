@@ -9,7 +9,7 @@ feature_ids: []            # e.g. [BOT-07, CRM-11] from docs/02-functional-requi
 created: 2026-10-28
 updated: 2026-10-28
 branch: feat/T-124-integrate-lane-a1
-pr: 82 (A1)
+pr: 82 (A1, merged)
 parent:                    # T-xxx if this is a sub-task
 ---
 
@@ -86,9 +86,16 @@ Dated entries, newest last. Decisions, blockers, questions, what was verified an
   - `3eccf2e` reconciles the two account layers (owner decision taken autonomously while the owner was away, to be reviewed): #76's structure, A2's behaviour; see the commit message. `useBusinessSwitch` selects first when nothing is chosen, since `/app` business pages need a business.
   - Mistake caught and undone: the cherry-pick loop skipped #76's T-110 commit once (it ran `--skip` when `--continue` failed without conflicts); the loop was fixed, the branch reset to the last good pick and the commit reapplied.
   - Local: typecheck 22/22; web 83 files / 529 tests; backend 70 files / 1130 tests; lint 0 errors.
+- 2026-10-30 — `origin/main` (after #83, T-112..T-114, T-120..T-123, T-133, T-152) merged into A2 (#84), following `docs/handoffs/2026-10-29-pr84-merge-notes.md`:
+  - `bot.ts`: A2's `setCatalogMode` kept next to main's `updateSettings`; `bot/MODULE.md` takes main's purpose line plus the catalog mode.
+  - Business selector: A2's `BusinessAvatar` and "manage account" link, main's create-business dialog. T-152's `BusinessLogo` (sidebar header) is superseded by `BusinessAvatar` and removed with its test; the selector test now checks the logo in the trigger.
+  - Profile page: A2's icon picker placed after the name, then main's industry summary and company collapsible. `profile.ts` keeps both `syncMembership` (A2) and `reloadSession` (main); `create-business-page` reloads the session itself, since main's `createBusiness` no longer does.
+  - i18n: keys unioned. Eval runner `botFor` sets `catalogMode: 'all'` (main's eval cases predate T-080).
+  - Tests fixed for the union: the selector test renders in a router (it has a `Link`); main's profile-page test fixture gains `icon` and a `syncMembership` mock.
+  - Local: lint 0 errors, prettier, arch, typecheck 22/22, tests 19/19 tasks, build 13/13.
 
 ## Links
 
-- PRs: #78 (A1), #80 (A2), #81 (A3); overlapping: #76, #79
+- PRs: #82 (A1, merged), #84 (A2), #85 (A3); superseded and closed: #76, #78, #79, #80, #81
 - Docs: `docs/handoffs/2026-10-26-cofounder-review-plan.md`, ADR-012 (on the A1 branch)
 - Related tasks: T-077, T-078, T-079, T-080, T-088, T-089, T-091, T-094, T-119

@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
 
 import { AppShell } from '@/components/app-shell';
+import { CreateBusinessDialog } from '@/features/workspace/components/create-business-dialog';
 import { PlanDialog } from '@/features/billing/components/plan-dialog';
 import { ACCOUNT_PATHS } from '@/lib/account-paths';
 import { ensureSession } from '@/lib/session';
@@ -22,7 +23,10 @@ export const Route = createFileRoute('/app')({
     }
   },
   component: () => (
-    <AppShell planDialog={(props) => <PlanDialog {...props} />}>
+    <AppShell
+      planDialog={(props) => <PlanDialog {...props} />}
+      createBusinessDialog={(props) => <CreateBusinessDialog {...props} />}
+    >
       <Outlet />
     </AppShell>
   ),

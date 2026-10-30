@@ -32,6 +32,8 @@ import { ReplyModeMenu } from './reply-mode-menu';
 export interface HeaderChannel {
   name: string;
   externalId: string;
+  /** Removed from Rapiz (T-133): history stays readable, replies are not possible. */
+  removed?: boolean;
 }
 
 /** Meta Business Suite inbox of the page; there is no stable per-thread link. */

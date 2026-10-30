@@ -104,6 +104,20 @@ describe('MetaIngressStore', () => {
     expect(await stored(gone)).toHaveLength(0);
   });
 
+  it('drops events of a removed page (T-133)', async () => {
+    const removed = await page('page-removed', 'removed');
+    expect(await store.storeOnce('facebook', 'e5', {}, event('page-removed', 'e5'))).toBe(false);
+    expect(await stored(removed)).toHaveLength(0);
+  });
+
+  it('resolves a page to its live row when a removed row of another business exists (T-142)', async () => {
+    const removed = await page('page-moved', 'removed');
+    const live = await page('page-moved', 'connected');
+    expect(await store.storeOnce('facebook', 'e6', {}, event('page-moved', 'e6'))).toBe(true);
+    expect(await stored(live)).toHaveLength(1);
+    expect(await stored(removed)).toHaveLength(0);
+  });
+
   it('ignores events for pages nobody connected', async () => {
     expect(await store.storeOnce('facebook', 'e4', {}, event('page-unknown', 'e4'))).toBe(false);
   });

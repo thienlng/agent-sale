@@ -310,36 +310,38 @@ test('follow-up survives reload and shows one line again once cleared', async ({
   await expect(page.getByText('Chưa đặt lịch chăm sóc', { exact: true })).toBeVisible();
 });
 
-test('device saved views restore filters without retaining customer search text', async ({
+test('filters by bot and by a time preset on the server; saved filters are gone', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await inboxApi(page);
+  const queries: URLSearchParams[] = [];
+  page.on('request', (request) => {
+    const url = new URL(request.url());
+    if (url.pathname.endsWith('/api/v1/conversations')) queries.push(url.searchParams);
+  });
   await page.goto('/app/inbox');
+  await expect(page.getByText(names[0], { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Bộ lọc đã lưu' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Lọc', exact: true }).click();
-  await page.getByRole('tab', { name: 'Ai đang trả lời', exact: true }).click();
-  await page.getByRole('radio', { name: 'Người', exact: true }).click();
-  // The advanced filter is a draft until applied.
+  // Opens on the bot group: all bots, each bot, then "no bot".
+  await expect(page.getByRole('tab', { name: 'Bot', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  await page.getByRole('radio').nth(1).click();
+  await page.getByRole('tab', { name: 'Thời gian', exact: true }).click();
+  await page.getByRole('radio', { name: 'Hôm qua', exact: true }).click();
   await page.getByRole('button', { name: 'Áp dụng', exact: true }).click();
-  await page.locator('input[type=search]').fill('Nguyễn');
-  await page.getByRole('button', { name: 'Bộ lọc đã lưu', exact: true }).click();
-  await page.getByLabel('Tên bộ lọc', { exact: true }).fill('Cần chăm sóc');
-  await page.getByRole('button', { name: 'Lưu bộ lọc hiện tại', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Cần chăm sóc', exact: true })).toBeVisible();
-  await page.screenshot({ path: '/tmp/t070-saved-views.png', fullPage: true });
-  await test
-    .info()
-    .attach('saved-views', { path: '/tmp/t070-saved-views.png', contentType: 'image/png' });
-  await page.reload();
-  await page.getByRole('button', { name: 'Bộ lọc đã lưu', exact: true }).click();
-  await page.getByRole('button', { name: 'Cần chăm sóc', exact: true }).click();
-  await expect(
-    page.getByRole('button', { name: 'Bỏ lọc Người trả lời', exact: true }),
-  ).toBeVisible();
-  await expect(page.locator('input[type=search]')).toHaveValue('');
-  await page.getByRole('button', { name: 'Bộ lọc đã lưu', exact: true }).click();
-  await page.getByRole('button', { name: 'Xóa Cần chăm sóc', exact: true }).click();
-  await expect(page.getByText('Chưa có bộ lọc đã lưu.', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Bỏ lọc Hôm qua', exact: true })).toBeVisible();
+  await expect.poll(() => queries.at(-1)?.get('botId')).toBe(BOT_ID);
+  const last = queries.at(-1)!;
+  const from = Date.parse(last.get('updatedFrom') ?? '');
+  const to = Date.parse(last.get('updatedTo') ?? '');
+  // Yesterday in the browser's time zone: one local day ending at local midnight.
+  expect(to - from).toBe(24 * 60 * 60 * 1000);
+  expect(to).toBeLessThanOrEqual(Date.parse(fixedNow));
+  expect(Date.parse(fixedNow) - to).toBeLessThan(24 * 60 * 60 * 1000);
 });
 
 test('product sharing prepares a draft and keyboard shortcuts respect the editor', async ({

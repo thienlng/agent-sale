@@ -7,8 +7,8 @@ const context = vi.hoisted(() => ({ id: 'workspace-hotel' }));
 vi.mock('@/lib/use-workspace', () => ({ useWorkspaceId: () => context.id }));
 afterEach(() => vi.unstubAllGlobals());
 
-describe('business industry settings', () => {
-  it('shows the selected business industry read-only and changes with the business query key', async () => {
+describe('business template summary', () => {
+  it('shows the selected business template as read-only text and follows the business query key', async () => {
     context.id = 'workspace-hotel';
     const fetchStub = vi.fn(
       async () =>
@@ -24,15 +24,16 @@ describe('business industry settings', () => {
     );
     vi.stubGlobal('fetch', fetchStub);
     const view = renderWithProviders(<BusinessIndustry />);
-    await screen.findByText('Hotel business');
-    expect(screen.getByLabelText('Lĩnh vực kinh doanh')).toHaveValue('Khách sạn / homestay');
-    expect(screen.getByLabelText('Lĩnh vực kinh doanh')).toHaveAttribute('readonly');
+    expect(await screen.findByText('Khách sạn / homestay')).toBeInTheDocument();
+    expect(screen.getByText('Loại hình')).toBeInTheDocument();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    // The name is edited elsewhere; the summary must not repeat it.
+    expect(screen.queryByText('Hotel business')).not.toBeInTheDocument();
     context.id = 'workspace-fashion';
     view.rerender(<BusinessIndustry />);
-    await screen.findByText('Fashion business');
-    expect(screen.getByLabelText('Lĩnh vực kinh doanh')).toHaveValue('Thời trang');
-    expect(screen.queryByText('Hotel business')).not.toBeInTheDocument();
+    expect(await screen.findByText('Thời trang')).toBeInTheDocument();
+    expect(screen.queryByText('Khách sạn / homestay')).not.toBeInTheDocument();
     expect(fetchStub.mock.calls).toHaveLength(2);
   });
 });

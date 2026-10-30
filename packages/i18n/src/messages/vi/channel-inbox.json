@@ -135,7 +135,8 @@
       "connected": "Đã kết nối",
       "disconnected": "Mất kết nối",
       "disabled": "Đang tắt",
-      "reauth_required": "Hết hạn"
+      "reauth_required": "Hết hạn",
+      "removed": "Đã gỡ"
     },
     "emptyTitle": "Chưa có trang nào",
     "emptyBody": "Kết nối Trang Facebook hoặc tài khoản Instagram để bắt đầu nhận tin nhắn.",
@@ -155,6 +156,14 @@
     "deactivateTitle": "Hủy gán bot cho {{count}} trang?",
     "deactivateBody": "Bot sẽ ngừng trả lời các trang này. Kết nối nền tảng và lịch sử tin nhắn được giữ lại.",
     "botDeactivateBody": "Bot sẽ ngừng trả lời các trang này. Trang vẫn được kết nối với workspace.",
+    "removePage": "Gỡ trang",
+    "rowMenu": "Tùy chọn cho {{name}}",
+    "removeTitle": "Gỡ {{name}} khỏi Rapiz?",
+    "removeTitleMany": "Gỡ {{count}} trang khỏi Rapiz?",
+    "removeBody": "Bot sẽ ngừng trả lời và Rapiz không nhận tin nhắn mới từ trang này. Lịch sử hội thoại vẫn được giữ. Bạn có thể kết nối lại bất cứ lúc nào.",
+    "removeBodyMany": "Bot sẽ ngừng trả lời và Rapiz không nhận tin nhắn mới từ các trang này. Lịch sử hội thoại vẫn được giữ. Bạn có thể kết nối lại bất cứ lúc nào.",
+    "removed": "Đã gỡ {{count}} trang.",
+    "removePartialError": "Một số trang chưa được gỡ. Vui lòng thử lại.",
     "save": "Lưu",
     "partialError": "Một số trang chưa được cập nhật. Vui lòng thử lại.",
     "bindFailed": "Đã kết nối trang nhưng chưa gán được bot. Dùng Gán bot để thử lại.",
@@ -162,7 +171,7 @@
     "filterBot": "Lọc theo bot",
     "allBots": "Tất cả bot",
     "chooseBot": "Chọn bot trả lời",
-    "botTitle": "Quản lý fanpage và kênh",
+    "botTitle": "Tích hợp kênh",
     "openInventory": "Xem tất cả trang và bot",
     "website": {
       "add": "Thêm website",
@@ -289,7 +298,8 @@
       },
       "emptyTitle": "Chưa có website nào",
       "emptyBody": "Thêm website để khách chat với bot ngay trên trang của bạn."
-    }
+    },
+    "pageInOtherBusiness": "Trang này đang được kết nối ở một business khác. Vào business đó → Tích hợp nền tảng → ⋯ → Gỡ trang, rồi kết nối lại tại đây."
   },
   "inbox": {
     "pageTitle": "Tin nhắn đa kênh",
@@ -403,16 +413,6 @@
     "followUpEdit": "Sửa lịch",
     "followUpAdd": "Đặt lịch",
     "followUpClear": "Xóa lịch",
-    "views": {
-      "title": "Bộ lọc đã lưu",
-      "deviceHint": "Lưu trên thiết bị này theo tài khoản và workspace. Không lưu nội dung tìm kiếm.",
-      "storageError": "Không truy cập được bộ nhớ thiết bị. Hãy thử lưu lại.",
-      "delete": "Xóa {{name}}",
-      "empty": "Chưa có bộ lọc đã lưu.",
-      "name": "Tên bộ lọc",
-      "save": "Lưu bộ lọc hiện tại",
-      "limit": "Tối đa 5 bộ lọc. Xóa một bộ lọc để lưu bộ lọc khác."
-    },
     "shortcutsHint": "J/K: đổi khách · /: tìm · R: soạn · E: xong · T: tag · U: chưa đọc",
     "customerStage": "Trạng thái khách hàng"
   },
@@ -436,6 +436,8 @@
     "filter": {
       "groupsLabel": "Nhóm bộ lọc",
       "groups": {
+        "bot": "Bot",
+        "time": "Thời gian",
         "tags": "Tag",
         "waiting": "Trạng thái trả lời",
         "mode": "Ai đang trả lời",
@@ -485,7 +487,24 @@
       },
       "reset": "Xóa tất cả",
       "close": "Đóng",
-      "apply": "Áp dụng"
+      "apply": "Áp dụng",
+      "bot": {
+        "hint": "Bot đang trả lời hội thoại",
+        "all": "Tất cả bot",
+        "none": "Chưa gán bot"
+      },
+      "time": {
+        "hint": "Theo hoạt động gần nhất của hội thoại",
+        "any": "Mọi lúc",
+        "today": "Hôm nay",
+        "yesterday": "Hôm qua",
+        "last7": "7 ngày qua",
+        "last30": "30 ngày qua",
+        "custom": "Tùy chọn khoảng ngày",
+        "from": "Từ ngày",
+        "to": "Đến ngày",
+        "invalid": "Ngày bắt đầu không được sau ngày kết thúc."
+      }
     },
     "chip": {
       "tagsAny": "Có: {{name}}",
@@ -503,7 +522,11 @@
         "yes": "Đã có số",
         "no": "Chưa có số"
       },
-      "unknown": "Không rõ"
+      "unknown": "Không rõ",
+      "bot": "Bot: {{name}}",
+      "timeRange": "{{from}} – {{to}}",
+      "timeFrom": "Từ {{date}}",
+      "timeTo": "Đến {{date}}"
     },
     "row": {
       "guest": "Khách {{provider}} ·{{last4}}",
@@ -734,7 +757,8 @@
       "resolved": "Hội thoại đã ở mục Xong. Mở lại để trả lời.",
       "spam": "Hội thoại đang ở Spam. Đưa về hộp thư để trả lời.",
       "reopen": "Mở lại",
-      "readOnly": "Bạn chỉ có quyền xem hội thoại này, không thể trả lời hay thay đổi."
+      "readOnly": "Bạn chỉ có quyền xem hội thoại này, không thể trả lời hay thay đổi.",
+      "pageRemoved": "Trang này đã được gỡ khỏi Rapiz. Lịch sử vẫn xem được; kết nối lại trang để trả lời."
     },
     "composer": {
       "replyIn": "Trả lời trong {{channel}}…",

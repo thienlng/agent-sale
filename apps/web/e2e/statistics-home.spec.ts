@@ -194,7 +194,7 @@ test('canceling an existing unsaved-profile guard keeps the previous business an
 }) => {
   await setup(page);
   await page.goto('/app/settings/profile');
-  await page.getByLabel('Tên shop', { exact: true }).fill('Unsaved business draft');
+  await page.getByLabel('Tên business', { exact: true }).fill('Unsaved business draft');
   await page.getByRole('button', { name: 'Chọn business', exact: true }).click();
   await page
     .getByRole('dialog', { name: 'Chọn business' })
@@ -205,7 +205,9 @@ test('canceling an existing unsaved-profile guard keeps the previous business an
     .getByRole('button', { name: 'Ở lại', exact: true })
     .click();
   await expect(page).toHaveURL(/\/app\/settings\/profile$/);
-  await expect(page.getByLabel('Tên shop', { exact: true })).toHaveValue('Unsaved business draft');
+  await expect(page.getByLabel('Tên business', { exact: true })).toHaveValue(
+    'Unsaved business draft',
+  );
   await expect(page.getByRole('button', { name: 'Chọn business', exact: true })).toContainText(
     'Business A',
   );

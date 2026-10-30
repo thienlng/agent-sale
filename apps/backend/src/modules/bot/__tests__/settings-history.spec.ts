@@ -9,11 +9,11 @@ import { BotService } from '../application/bot.service.js';
 import { BotModule } from '../bot.module.js';
 
 /** The real module wiring (in-memory stores without a database). */
-async function setup() {
+async function setup(industry: 'retail' | 'hotel' = 'retail') {
   const moduleRef = await Test.createTestingModule({ imports: [BotModule] }).compile();
   const workspace = await moduleRef.get<WorkspaceFacade>(WORKSPACE_FACADE).createWorkspace({
     name: 'Retail business',
-    industry: 'retail',
+    industry,
     ownerUserId: userId(newId()),
   });
   return {
@@ -29,6 +29,14 @@ describe('Bot creation starter rules', () => {
     const bot = await bots.create(ws, { name: 'Shop', industry: 'retail' });
     expect((await training.list(ws, bot.id)).length).toBeGreaterThan(0);
     expect(await training.history(ws, bot.id)).toEqual([]);
+  });
+
+  it('seeds the hotel situations and no style rules for a hotel bot', async () => {
+    const { training, bots, ws } = await setup('hotel');
+    const bot = await bots.create(ws, { name: 'Villa', industry: 'hotel' });
+    const titles = (await training.list(ws, bot.id)).map((i) => i.title);
+    expect(titles).toEqual(expect.arrayContaining(['Hỏi còn phòng/căn', 'Mặc cả giá']));
+    expect(titles).not.toContain('Xưng hô lịch sự');
   });
 
   it('still creates the bot when seeding the starter rules fails', async () => {
@@ -71,5 +79,35 @@ describe('Bot settings history', () => {
     expect(entry?.kind).toBe('settings');
     await bots.restoreHistory(ws, bot.id, entry!.id);
     expect((await bots.get(ws, bot.id)).settings.placeholders).toEqual({});
+  });
+
+  it('restores an older fields-only profile change without undoing a later notes edit', async () => {
+    const { training, bots, ws } = await setup();
+    const bot = await bots.create(ws, { name: 'Shop', industry: 'retail' });
+    await bots.update(ws, bot.id, { settings: { profile: { fields: { hotline: '0901' } } } });
+    await bots.update(ws, bot.id, { settings: { profile: { notes: 'Nghỉ Tết', fields: {} } } });
+    const entries = (await training.history(ws, bot.id)).filter((e) => e.kind === 'settings');
+    const older = entries.find((e) =>
+      e.changes.some((c) => c.field === 'profile' && !JSON.stringify(c.before).includes('0901')),
+    );
+    await bots.restoreHistory(ws, bot.id, older!.id);
+    const profile = (await bots.get(ws, bot.id)).settings.profile;
+    expect(profile.fields.hotline).toBeUndefined();
+    expect(profile.notes).toBe('Nghỉ Tết');
+  });
+
+  it('restores notes only when the entry changed them', async () => {
+    const { training, bots, ws } = await setup();
+    const bot = await bots.create(ws, { name: 'Shop', industry: 'retail' });
+    await bots.update(ws, bot.id, { settings: { profile: { notes: 'Một', fields: {} } } });
+    await bots.update(ws, bot.id, { settings: { profile: { fields: { hotline: '0902' } } } });
+    const entries = (await training.history(ws, bot.id)).filter((e) => e.kind === 'settings');
+    const notesEntry = entries.find((e) =>
+      e.changes.some((c) => c.field === 'profile' && !JSON.stringify(c.before).includes('Một')),
+    );
+    await bots.restoreHistory(ws, bot.id, notesEntry!.id);
+    const profile = (await bots.get(ws, bot.id)).settings.profile;
+    expect(profile.notes).toBe('');
+    expect(profile.fields.hotline).toBe('0902');
   });
 });

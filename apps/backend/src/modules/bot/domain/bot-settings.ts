@@ -23,7 +23,17 @@ export interface BotSettingsData {
   language: 'vi' | 'en';
   themeColor: string;
   replySchedule: ReplySchedule;
+  profile: BotProfileData;
+  replyLength: 'veryShort' | 'short' | 'detailed';
+  tone: 'friendly' | 'formal';
+  allowEmoji: boolean;
   placeholders: Record<string, string>;
+}
+
+/** Structured business facts of a bot: keyed fields (contracts `PROFILE_FIELDS`) plus free notes. */
+export interface BotProfileData {
+  fields: Partial<Record<string, string>>;
+  notes: string;
 }
 
 /** Daily reply window in Vietnam time; `end` before `start` spans midnight. */
