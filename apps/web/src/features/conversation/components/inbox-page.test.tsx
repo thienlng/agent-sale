@@ -39,6 +39,10 @@ vi.mock('../api/inbox', () => ({
   useReadState: () => ({ markRead: { mutate: vi.fn() }, markUnread: { mutate: vi.fn() } }),
   useAssignConversation: () => ({ mutate: vi.fn() }),
   useBulkConversations: () => ({ mutate: fixtures.bulk, isPending: false }),
+  // A deep-linked conversation is looked up by id, whatever the list shows.
+  useConversation: (id: string | null) => ({
+    data: id ? { conversation: { id, channelId: 'page-9' } } : undefined,
+  }),
 }));
 vi.mock('sonner', () => ({
   toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn(), info: vi.fn() }),
@@ -80,8 +84,20 @@ vi.mock('./conversation-list', () => ({
 }));
 vi.mock('./inbox-empty-state', () => ({ InboxEmptyState: () => null }));
 vi.mock('./conversation-view', () => ({
-  ConversationView: ({ channel }: { channel?: { name: string; removed?: boolean } }) => (
-    <output aria-label="Open channel">{`${channel?.name ?? '-'}:${String(channel?.removed)}`}</output>
+  ConversationView: ({
+    id,
+    onBack,
+    channel,
+  }: {
+    id: string;
+    onBack: () => void;
+    channel?: { name: string; removed?: boolean };
+  }) => (
+    <div>
+      <output aria-label="Open conversation">{id}</output>
+      <output aria-label="Open channel">{`${channel?.name ?? '-'}:${String(channel?.removed)}`}</output>
+      <button onClick={onBack}>Close conversation</button>
+    </div>
   ),
 }));
 vi.mock('./comments-entry', () => ({ CommentsEntry: () => <p>Comments entry</p> }));
@@ -108,6 +124,15 @@ const row = (id: string) => ({
 });
 
 describe('inbox page', () => {
+  it('opens a deep-linked conversation that the list does not show, once', () => {
+    render(<InboxPage openConversationId="conv-far" />);
+    expect(screen.getByLabelText('Open conversation')).toHaveTextContent('conv-far');
+    act(() => {
+      fireEvent.click(screen.getByRole('button', { name: 'Close conversation' }));
+    });
+    expect(screen.queryByLabelText('Open conversation')).toBeNull();
+  });
+
   it('opens an old conversation of a removed page with its name and marked removed (T-133)', () => {
     fixtures.rows = [row('a')];
     fixtures.channels = [

@@ -1,13 +1,13 @@
 ---
 id: T-128
 title: Show the business logo in the business selector and lists
-status: review
+status: done
 type: feature              # feature | bug | chore | spike | docs
 priority: P1               # P0 | P1 | P2 | P3
 owner: "@agent:claude"
 feature_ids: []            # e.g. [BOT-07, CRM-11] from docs/02-functional-requirements.md
 created: 2026-10-28
-updated: 2026-10-29
+updated: 2026-10-30
 branch: feat/T-124-integrate-lane-a2
 pr: 84
 parent:                    # T-xxx if this is a sub-task

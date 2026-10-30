@@ -15,4 +15,11 @@ export class GetWorkspaceHandler {
     if (!ws) throw new WorkspaceNotFoundError(id);
     return toWorkspaceDto(ws);
   }
+
+  /** The account owning the business; null before the account backfill linked it. */
+  async accountOf(id: WorkspaceId): Promise<string | null> {
+    const ws = await this.uow.run(id, ({ workspaces }) => workspaces.findById(id));
+    if (!ws) throw new WorkspaceNotFoundError(id);
+    return ws.snapshot().accountId;
+  }
 }

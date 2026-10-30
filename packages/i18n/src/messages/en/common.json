@@ -877,7 +877,8 @@
         "between": "between"
       },
       "field": {
-        "tagId": "Tag"
+        "tagId": "Tag",
+        "botId": "Bot that talked with them"
       },
       "fieldLabel": "Field",
       "operator": "Operator"
@@ -932,6 +933,7 @@
       "tabs": {
         "overview": "Overview",
         "details": "Details",
+        "conversations": "Conversations",
         "history": "History",
         "files": "Files"
       },
@@ -1046,7 +1048,8 @@
     },
     "errors": {
       "fieldsInvalid": "Check: {{fields}}",
-      "notMember": "This person is no longer a member of the shop."
+      "notMember": "This person is no longer a member of the business.",
+      "duplicateName": "“{{name}}” already exists. Choose another name."
     },
     "pageInfo": "{{from}}–{{to}} of {{total}} customers",
     "distribution": {
@@ -1060,6 +1063,16 @@
       "on": "On",
       "noMembers": "No members yet. Invite Sales on the Members page.",
       "share": "{{percent}}%"
+    },
+    "conversations": {
+      "loading": "Loading conversations…",
+      "retry": "Try again",
+      "empty": "No conversations are linked to this customer yet.",
+      "provider": {
+        "facebook": "Facebook",
+        "instagram": "Instagram",
+        "website": "Website"
+      }
     }
   },
   "team": {
@@ -1583,6 +1596,12 @@
         "contacts": "Customers",
         "knowledge_items": "Bot knowledge items"
       }
+    },
+    "usage": {
+      "exhaustedTitle": "This cycle’s AI messages are used up",
+      "exhaustedBody": "Bots are handing customers to your staff. The {{limit}}-message allowance renews on {{date}}.",
+      "nearTitle": "AI messages are running low",
+      "nearBody": "{{used}}/{{limit}} AI messages used this cycle (renews on {{date}}). When they run out, bots hand customers to your staff."
     }
   }
 }

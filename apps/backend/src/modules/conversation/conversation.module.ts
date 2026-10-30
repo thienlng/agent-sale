@@ -4,6 +4,7 @@ import type { Database } from '@agent-sales/db';
 import { DB_TENANT } from '../../common/db/db.module.js';
 import { ChannelModule } from '../channel/channel.module.js';
 import { AiModule } from '../ai/ai.module.js';
+import { BillingModule } from '../billing/billing.module.js';
 import { BotModule } from '../bot/bot.module.js';
 import { CrmModule } from '../crm/crm.module.js';
 import { IdentityModule } from '../identity/identity.module.js';
@@ -21,7 +22,15 @@ import {
 } from './infrastructure/persistence/conversation.store.js';
 import { ConversationController } from './interface/http/conversation.controller.js';
 @Module({
-  imports: [ChannelModule, AiModule, BotModule, IdentityModule, TeamModule, CrmModule],
+  imports: [
+    ChannelModule,
+    AiModule,
+    BotModule,
+    BillingModule,
+    IdentityModule,
+    TeamModule,
+    CrmModule,
+  ],
   controllers: [ConversationController],
   providers: [
     {

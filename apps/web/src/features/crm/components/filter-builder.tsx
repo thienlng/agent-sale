@@ -54,6 +54,7 @@ const FIELD_LABELS: Record<ContactFilterField, string> = {
   salesUserId: 'crm.field.sales',
   careUserId: 'crm.field.care',
   tagId: 'crm.filter.field.tagId',
+  botId: 'crm.filter.field.botId',
   createdAt: 'crm.col.createdAt',
   updatedAt: 'crm.col.updatedAt',
   birthday: 'crm.field.birthday',
@@ -72,6 +73,8 @@ function choicesFor(field: ContactFilterField, lookups: CrmLookups, t: (k: strin
       return lookups.assignees.map((m) => ({ id: m.userId, label: m.name, muted: false }));
     case 'tagId':
       return lookups.tags.map((tag) => ({ id: tag.id, label: tag.name, muted: tag.archived }));
+    case 'botId':
+      return lookups.bots.map((bot) => ({ id: bot.id, label: bot.name, muted: false }));
     case 'gender':
       return (['male', 'female', 'other'] as const).map((g) => ({
         id: g,
@@ -83,7 +86,7 @@ function choicesFor(field: ContactFilterField, lookups: CrmLookups, t: (k: strin
   }
 }
 
-/** Choose several ids from a searchable list (sources, statuses, members, tags, genders). */
+/** Choose several ids from a searchable list (sources, statuses, members, tags, bots, genders). */
 function MultiPicker({
   choices,
   value,

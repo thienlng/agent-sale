@@ -59,7 +59,7 @@ Saved follow-ups survive reload through existing JSON persistence; this additive
 
 ## Customer and order context
 
-A Meta sender ID is not a CRM contact UUID. Staff explicitly search and select a CRM profile; the UI never automatically matches customers by name. A selected profile supplies initial details to a new order. An existing draft preserves its original editable customer fields and displays a warning instead of overwriting them when a different profile is selected. The selected profile exposes stage and tag controls directly in the panel using existing permissions and version checks. Full CRM editing and history remain available through the profile drawer.
+A Meta sender ID is not a CRM contact UUID. The conversation stores its CRM customer (`contactId`, T-088), so every member sees the same link. It is set when the customer sends a phone number (one customer per phone in the business, created when missing), when a website visitor leaves one, or by staff, who search and select a profile and can change or remove the link (`contacts.edit`); the UI never matches customers by name. The profile offers "Open in CRM" (`/app/contacts?contact=`), and the CRM profile lists the customer's conversations, each opening `/app/inbox?conversation=`. A selected profile supplies initial details to a new order. An existing draft preserves its original editable customer fields and displays a warning instead of overwriting them when a different profile is selected. The selected profile exposes stage and tag controls directly in the panel using existing permissions and version checks. Full CRM editing and history remain available through the profile drawer.
 
 The order tab reuses the existing commerce form, source-specific field policies, warehouses, product variants, stock warnings and integer money calculations. It creates a real order through the existing endpoint and keeps the operator in the inbox. A draft retains its client request ID and fields across conversation switches; a shared in-flight registry prevents duplicate submission from remounted forms. The awaited completion clears the original draft and records the created order even when the operator has switched away. Embedded F2 applies only with focus inside the visible order form.
 
@@ -69,7 +69,7 @@ Orders shown in the customer panel are explicitly labelled as created during the
 
 - Updates use the existing polling intervals, not realtime transport.
 - Attachments use existing HTTPS URL/media-library capabilities; direct uploads are not implemented here.
-- Background/recurring notifications, server-shared inbox views, cross-channel identity linking and complete historical order linking require their own persistent backend work. No inactive controls are presented for those capabilities.
+- Background/recurring notifications, server-shared inbox views and complete historical order linking require their own persistent backend work. Cross-channel identity is only by phone number (T-088). No inactive controls are presented for those capabilities.
 - Browser coverage includes filled order panels at 375, 1280 and 1440 pixels, draft switching and consecutive note saves. Component tests cover in-flight completion and duplicate prevention; backend tests cover stale writes and cross-tenant access.
 
 ## Review screenshots

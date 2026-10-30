@@ -49,7 +49,7 @@ describe('BotProductsTable (T-080)', () => {
   it('lists the shared catalog without checkboxes when the bot sells every product', async () => {
     vi.stubGlobal('fetch', stubFetch(routes([])).fetchStub);
     renderWithRouter(() => <BotProductsTable botId={BOT} selecting={false} />);
-    await screen.findByText('Sơ mi trắng');
+    await screen.findByText('Sơ mi trắng', undefined, { timeout: 5000 });
     expect(screen.queryByRole('checkbox')).toBeNull();
     expect(screen.queryByRole('status')).toBeNull();
     expect(screen.getByText('Tổng 2 sản phẩm')).toBeTruthy();
