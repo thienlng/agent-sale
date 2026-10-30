@@ -22,6 +22,7 @@ import { createHttpApp } from '../src/bootstrap.js';
 import { CATALOG_FACADE, type CatalogFacade } from '../src/modules/commerce/api/index.js';
 
 /** Products, stock and the order lifecycle on a real Postgres (RLS, SQL search, aggregates). */
+const MEDIA_URL = 'https://media.rapiz.test';
 let pg: TestPostgres;
 let app: NestFastifyApplication;
 
@@ -32,6 +33,12 @@ beforeAll(async () => {
   const booted = await createHttpApp(AppModule, {
     NODE_ENV: 'test',
     LOG_LEVEL: 'error',
+    // Pictures must live under this public URL; nothing is uploaded in these tests.
+    S3_ENDPOINT: 'http://127.0.0.1:9',
+    S3_BUCKET: 'rapiz-test',
+    S3_PUBLIC_URL: MEDIA_URL,
+    S3_ACCESS_KEY: 'test',
+    S3_SECRET_KEY: 'test',
     DATABASE_URL: withCredentials(pg.ownerUrl, pg.tenantLogin.user, pg.tenantLogin.password),
     DATABASE_SYSTEM_URL: withCredentials(pg.ownerUrl, pg.systemLogin.user, pg.systemLogin.password),
   });
@@ -166,14 +173,16 @@ describe('commerce on Postgres', () => {
     });
   });
 
-  it('stores up to five https product images and refuses anything else', async () => {
+  it('stores up to five uploaded product images and refuses anything else', async () => {
     const headers = await owner('product-images@example.test');
     const body = {
       code: 'IMG-1',
       name: 'Image product',
       variants: [{ sku: 'IMG-SKU', price: 90000 }],
     };
-    const urls = ['https://cdn.example.com/a.jpg', 'https://cdn.example.com/b.jpg'];
+    const wsId = headers['x-workspace-id']!;
+    const stored = (name: string, ws = wsId) => `${MEDIA_URL}/products/${ws}/${name}`;
+    const urls = [stored('a.jpg'), stored('b.jpg')];
     const created = await call(headers, 'POST', '/products', { ...body, imageUrls: urls });
     expect(created.statusCode).toBe(201);
     const product = ProductDto.parse(created.json());
@@ -190,11 +199,33 @@ describe('commerce on Postgres', () => {
     expect(ProductDto.parse((await update(urls.slice(0, 1))).json()).imageUrls).toEqual(
       urls.slice(0, 1),
     );
-    expect((await update(['http://cdn.example.com/a.jpg'])).statusCode).toBe(400);
-    expect(
-      (await update(Array.from({ length: 6 }, (_, i) => `https://cdn.example.com/${i}.jpg`)))
-        .statusCode,
-    ).toBe(400);
+    expect((await update([stored('a.jpg').replace('https:', 'http:')])).statusCode).toBe(400);
+    expect((await update(Array.from({ length: 6 }, (_, i) => stored(`${i}.jpg`)))).statusCode).toBe(
+      400,
+    );
+    // Links are refused, a kept stored picture is not exempt, another shop's file is refused.
+    const notUploaded = async (res: Awaited<ReturnType<typeof update>>, field: string) => {
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error).toMatchObject({
+        code: 'VALIDATION_FAILED',
+        details: { reason: 'IMAGE_NOT_UPLOADED', field },
+      });
+    };
+    await notUploaded(await update(['https://cdn.example.com/a.jpg']), 'imageUrls[0]');
+    await notUploaded(await update([urls[0]!, 'https://cdn.example.com/a.jpg']), 'imageUrls[1]');
+    await notUploaded(
+      await update([stored('a.jpg', '0192f0a0-0000-7000-8000-000000000009')]),
+      'imageUrls[0]',
+    );
+    await notUploaded(
+      await call(headers, 'POST', '/products', {
+        ...body,
+        code: 'IMG-2',
+        variants: [{ sku: 'IMG-SKU-2', price: 1 }],
+        imageUrls: ['https://cdn.example.com/a.jpg'],
+      }),
+      'imageUrls[0]',
+    );
     expect(ProductDto.parse((await update([])).json()).imageUrls).toEqual([]);
   });
 

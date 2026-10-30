@@ -16,6 +16,9 @@ import {
 import { foldVietnamese, isUuid, newId, type WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
+import type { PublicObjectStorage } from '../../../common/storage/public-object-storage.js';
+import { PRODUCT_IMAGE_STORAGE } from './ports/product-image-storage.js';
+
 import type { BotCatalogScope } from '../api/catalog.facade.js';
 import { botProductSearches } from '../domain/bot-product-search.js';
 import { LodgingError } from '../domain/lodging.js';
@@ -25,7 +28,9 @@ import {
   WarehouseInUseError,
   WarehouseNotFoundError,
   CommerceUnavailableError,
+  ImageNotUploadedError,
 } from '../domain/commerce.errors.js';
+import { ownImageProblem } from '../domain/own-image.js';
 import {
   COMMERCE_STORE,
   type CommerceStore,
@@ -99,7 +104,21 @@ function selection(bot: BotCatalogScope): string | undefined {
 /** Warehouses, products with variants, stock adjustments and the order-form picker (ORD-01, ORD-02). */
 @Injectable()
 export class CatalogService {
-  constructor(@Inject(COMMERCE_STORE) private readonly store: CommerceStore) {}
+  constructor(
+    @Inject(COMMERCE_STORE) private readonly store: CommerceStore,
+    @Inject(PRODUCT_IMAGE_STORAGE) private readonly images: PublicObjectStorage,
+  ) {}
+
+  /** Pictures are files Rapiz stored for this workspace; links are refused, kept ones included. */
+  #assertOwnImages(ws: WorkspaceId, input: ReturnType<typeof UpsertProductSchema.parse>): void {
+    input.imageUrls.forEach((url, i) => {
+      if (ownImageProblem(url, ws, this.images)) throw new ImageNotUploadedError(`imageUrls[${i}]`);
+    });
+    input.accommodation?.gallery.forEach((g, i) => {
+      if (ownImageProblem(g.url, ws, this.images))
+        throw new ImageNotUploadedError(`gallery[${i}].url`);
+    });
+  }
 
   async getBotProducts(
     ws: WorkspaceId,
@@ -256,6 +275,7 @@ export class CatalogService {
 
   createProduct(ws: WorkspaceId, raw: UpsertProductRequest): Promise<ProductDto> {
     const input = UpsertProductSchema.parse(raw);
+    this.#assertOwnImages(ws, input);
     if (input.accommodation && input.variants.length !== 1)
       throw new LodgingError(
         'VALIDATION_FAILED',
@@ -325,6 +345,7 @@ export class CatalogService {
    */
   updateProduct(ws: WorkspaceId, id: string, raw: UpsertProductRequest): Promise<ProductDto> {
     const input = UpsertProductSchema.parse(raw);
+    this.#assertOwnImages(ws, input);
     return this.store.run(ws, async (tx) => {
       const current = await this.#product(tx, id);
       if (current.accommodation && input.accommodation === null)
