@@ -115,7 +115,7 @@ describe('HTTP: product image body limit', () => {
     expect(res.statusCode, res.body.slice(0, 200)).toBe(503);
   });
 
-  it('rejects above 2 MiB before the handler (Fastify 413, surfaced as 500 by the filter)', async () => {
+  it('rejects above 2 MiB before the handler with 413', async () => {
     const { http, headers } = await setup();
     const res = await http.inject({
       method: 'POST',
@@ -123,11 +123,13 @@ describe('HTTP: product image body limit', () => {
       headers,
       payload: { mimeType: 'image/jpeg', base64: 'A'.repeat(2_200_000) },
     });
-    expect([413, 500]).toContain(res.statusCode);
-    expect(res.body).not.toContain('MEDIA_STORAGE_UNAVAILABLE');
+    expect(res.statusCode).toBe(413);
+    expect(res.json()).toMatchObject({
+      error: { code: 'VALIDATION_FAILED', details: { reason: 'PAYLOAD_TOO_LARGE' } },
+    });
   });
 
-  it('keeps the 1 MiB default on other routes (same rejection)', async () => {
+  it('keeps the 1 MiB default on other routes (413)', async () => {
     const { http, headers } = await setup();
     const res = await http.inject({
       method: 'POST',
@@ -135,7 +137,9 @@ describe('HTTP: product image body limit', () => {
       headers,
       payload: { name: 'x'.repeat(1_200_000) },
     });
-    expect([413, 500]).toContain(res.statusCode);
-    expect(res.body).not.toContain('MEDIA_STORAGE_UNAVAILABLE');
+    expect(res.statusCode).toBe(413);
+    expect(res.json()).toMatchObject({
+      error: { code: 'VALIDATION_FAILED', details: { reason: 'PAYLOAD_TOO_LARGE' } },
+    });
   });
 });
