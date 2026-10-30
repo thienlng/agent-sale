@@ -3,6 +3,7 @@
 // can serve the whole dev stack for live Meta testing:
 //   /api/channels/oauth/*  -> API  /api/v1/channels/oauth/*  (legacy redirect URI registered on the Meta app)
 //   /api/*                 -> API  (PORT, default 3000)
+//   /media/*               -> object storage (S3_PORT, default 9000) /<S3_BUCKET>/*, GET/HEAD only (public reads for Meta)
 //   /webhooks/*            -> webhook ingress (WEBHOOK_PORT, default 3001)
 //   / and its assets       -> marketing site (SITE_PORT, default 4323; `pnpm --filter @agent-sales/site serve:tunnel`)
 //   everything else        -> Vite dev server (WEB_PORT, default 5180)
@@ -16,6 +17,8 @@ const api = Number(process.env.API_PORT ?? 3000);
 const webhook = Number(process.env.WEBHOOK_PORT ?? 3001);
 const web = Number(process.env.WEB_PORT ?? 5180);
 const site = Number(process.env.SITE_PORT ?? 4323);
+const s3 = Number(process.env.S3_PORT ?? 9000);
+const bucket = process.env.S3_BUCKET || 'rapiz-local';
 
 // The landing page owns the root and its static folders, as rapiz.vn does in production; the
 // dashboard keeps every other path (/login, /signup, /app/…), as app.rapiz.vn does.
@@ -25,6 +28,8 @@ function route(url) {
   if (url.startsWith('/api/channels/oauth/'))
     return { port: api, path: url.replace('/api/channels/oauth/', '/api/v1/channels/oauth/') };
   if (url.startsWith('/api/')) return { port: api, path: url };
+  if (url.startsWith('/media/'))
+    return { port: s3, path: `/${bucket}/${url.slice('/media/'.length)}`, readOnly: true };
   if (url.startsWith('/webhooks/')) return { port: webhook, path: url };
   if (SITE_PATH.test(url)) return { port: site, path: url };
   return { port: web, path: url };
@@ -32,6 +37,11 @@ function route(url) {
 
 const server = http.createServer((req, res) => {
   const target = route(req.url ?? '/');
+  if (target.readOnly && req.method !== 'GET' && req.method !== 'HEAD') {
+    res.writeHead(405, { allow: 'GET, HEAD' });
+    res.end('method not allowed');
+    return;
+  }
   const upstream = http.request(
     {
       host: '127.0.0.1',

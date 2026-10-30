@@ -75,7 +75,7 @@ function upgrade(port, path, protocol) {
 
 test('development tunnel preserves HTTP routing and dispatches WebSocket upgrades', async (t) => {
   const services = {};
-  for (const name of ['site', 'web', 'api', 'webhook']) services[name] = await upstream(name);
+  for (const name of ['site', 'web', 'api', 'webhook', 's3']) services[name] = await upstream(name);
   const reservation = net.createServer();
   const proxyPort = await listen(reservation);
   await new Promise((resolve) => reservation.close(resolve));
@@ -89,6 +89,8 @@ test('development tunnel preserves HTTP routing and dispatches WebSocket upgrade
         WEB_PORT: String(services.web.port),
         API_PORT: String(services.api.port),
         WEBHOOK_PORT: String(services.webhook.port),
+        S3_PORT: String(services.s3.port),
+        S3_BUCKET: 'rapiz-test',
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     },
@@ -146,5 +148,22 @@ test('development tunnel preserves HTTP routing and dispatches WebSocket upgrade
       assert.equal(response.name, name);
       assert.equal(response.path, target);
     }
+  });
+
+  await t.test('/media reads go to the object storage bucket; writes are refused', async () => {
+    const response = await read(proxyPort, '/media/products/ws/pic.jpg');
+    assert.equal(response.name, 's3');
+    assert.equal(response.path, '/rapiz-test/products/ws/pic.jpg');
+    const put = await globalThis.fetch(`http://127.0.0.1:${proxyPort}/media/products/ws/pic.jpg`, {
+      method: 'PUT',
+      body: 'x',
+      signal: globalThis.AbortSignal.timeout(5000),
+    });
+    assert.equal(put.status, 405);
+    const head = await globalThis.fetch(`http://127.0.0.1:${proxyPort}/media/products/ws/pic.jpg`, {
+      method: 'HEAD',
+      signal: globalThis.AbortSignal.timeout(5000),
+    });
+    assert.equal(head.status, 200);
   });
 });

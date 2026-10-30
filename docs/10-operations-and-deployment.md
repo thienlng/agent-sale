@@ -4,12 +4,14 @@
 
 | Environment | Purpose | Data | Real channels |
 |---|---|---|---|
-| `local` | Development on the machine (docker compose: postgres, redis, minio, mailpit, langfuse) | Seed | No — use webhook fixture replay + ngrok/cloudflared when needed |
+| `local` | Development on the machine (docker compose: postgres, redis, object-storage (SeaweedFS), mailpit, langfuse) | Seed | No — use webhook fixture replay + ngrok/cloudflared when needed |
 | `dev` | Continuous integration on every merge into `main` | Seed + fake data | Internal test Page/OA |
 | `staging` | Acceptance, AI eval, load testing, Meta App Review testing | Anonymized copy | Test Page/OA |
 | `production` | Customers | Real | Real |
 
 Configuration via environment variables + secret manager; the env schema is validated with Zod at startup (the app will not run if anything is missing). Product configuration that operators change at runtime — LLM providers and tier routing — is **not** env: it lives in the database and is edited by platform admins (docs/06 §7). First admin per environment: `pnpm --filter @agent-sales/backend platform-admin grant <email>` with `DATABASE_SYSTEM_URL`.
+
+**Local object storage.** `infra/docker/docker-compose.local.yml` runs `object-storage` (SeaweedFS, S3 API on `localhost:9000`; MinIO community images are no longer pullable). `infra/docker/seaweedfs-s3.json` defines the `rapiz` identity (the `S3_ACCESS_KEY`/`S3_SECRET_KEY` from `.env.example`) and an `anonymous` identity with `Read` only, so objects are publicly readable by URL but not listable. Create the bucket once: `docker compose -f infra/docker/docker-compose.local.yml exec object-storage sh -c 'echo "s3.bucket.create -name rapiz-local" | weed shell'` (or `CreateBucket` with the `rapiz` keys). Meta must fetch product pictures over public HTTPS: `scripts/dev-tunnel-proxy.mjs` serves `/media/<key>` (GET/HEAD) from the bucket, so set `S3_PUBLIC_URL=https://<tunnel host>/media`.
 
 ## 2. Infrastructure roadmap
 
