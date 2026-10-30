@@ -25,6 +25,17 @@ describe('image allowlist', () => {
     expect(images[0]?.label).toBe('Giày da Oxford (1/2)');
   });
 
+  it('returns every image (max 5) of a product regardless of the query', () => {
+    const six = {
+      id: 'p6',
+      name: 'Bộ xếp hình',
+      imageUrls: Array.from({ length: 6 }, (_, i) => `https://cdn.example.com/${i}.jpg`),
+    };
+    const images = productImages([six], 'cho xem ảnh khác hẳn');
+    expect(images.map((i) => i.id)).toEqual([0, 1, 2, 3, 4].map((n) => `p:p6:${n}`));
+    expect(productImages([six]).map((i) => i.id)).toEqual(images.map((i) => i.id));
+  });
+
   it('matches library media by title or trigger words, ignoring request filler', () => {
     const items = [
       {

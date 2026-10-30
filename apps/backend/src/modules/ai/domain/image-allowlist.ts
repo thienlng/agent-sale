@@ -52,9 +52,14 @@ const words = (text: string): string[] =>
     .split(/[^a-z0-9]+/)
     .filter((word) => word.length >= 3 && !NOISE.has(word));
 
+/** Most pictures listed per product. */
+export const MAX_PRODUCT_IMAGES = 5;
+
 /**
- * The pictures of the retrieved products, ids `p:<productId>:<index>`. Anything that is not an
- * https URL is dropped even though the API already validates it.
+ * The pictures of the products whose details the model received, ids `p:<productId>:<index>`, at
+ * most 5 per product and independent of the customer's text (the model picks which to send).
+ * Anything that is not an https URL is dropped even though the API already validates it.
+ * `_query` is ignored and kept only until the playground stops passing it.
  */
 export function productImages(
   products: readonly {
@@ -63,30 +68,23 @@ export function productImages(
     imageUrls?: readonly string[];
     accommodation?: { gallery: readonly { url: string; caption: string }[] } | null | undefined;
   }[],
-  query = '',
+  _query = '',
 ): AllowedImage[] {
-  const asked = new Set(words(query));
   return products.flatMap((product) => {
     if (product.accommodation) {
-      return product.accommodation.gallery
-        .flatMap((photo, index) =>
-          isHttps(photo.url)
-            ? [
-                {
-                  id: `p:${product.id}:${index}`,
-                  label: `${product.name} – ${photo.caption}`,
-                  url: photo.url,
-                },
-              ]
-            : [],
-        )
-        .sort(
-          (a, b) =>
-            words(b.label).filter((w) => asked.has(w)).length -
-            words(a.label).filter((w) => asked.has(w)).length,
-        );
+      return product.accommodation.gallery.slice(0, MAX_PRODUCT_IMAGES).flatMap((photo, index) =>
+        isHttps(photo.url)
+          ? [
+              {
+                id: `p:${product.id}:${index}`,
+                label: `${product.name} – ${photo.caption}`,
+                url: photo.url,
+              },
+            ]
+          : [],
+      );
     }
-    const urls = (product.imageUrls ?? []).filter(isHttps);
+    const urls = (product.imageUrls ?? []).filter(isHttps).slice(0, MAX_PRODUCT_IMAGES);
     return urls.map((url, index) => ({
       id: `p:${product.id}:${index}`,
       label: urls.length > 1 ? `${product.name} (${index + 1}/${urls.length})` : product.name,
