@@ -1,7 +1,7 @@
 ---
 id: T-157
 title: Keep business profile save actions visible while editing
-status: blocked
+status: done
 type: bug
 priority: P1
 owner: agent:codex
@@ -44,6 +44,7 @@ API, schema, stored merchant content and permission changes.
 ## Log
 
 - 2026-10-30 — Confirmed Save exists only at the bottom of the long profile card. Existing tests cover patch payloads, errors, permissions, dirty state and navigation blocking.
+- 2026-10-30 — merged to main (PR #88); closed in the version 1 close-out (T-158).
 
 ## Links
 

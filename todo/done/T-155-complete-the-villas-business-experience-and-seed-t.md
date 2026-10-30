@@ -1,7 +1,7 @@
 ---
 id: T-155
 title: Complete the Villas business experience and seed the real A17 property
-status: blocked
+status: done
 type: feature
 priority: P1
 owner: agent:codex
@@ -75,6 +75,7 @@ Deliver and verify a useful one-property lodging workflow, sourced A17 training/
 - 2026-10-30 — Pushed c9d170a on feat/T-155-villas-a17-business and opened draft PR#88 while CI runs. Maintainer review remains required.
 
 - 2026-10-30 — External CI blocker: Actions run40975424974 and PR checks40975424944 did not start any job. GitHub annotations report recent account payment failure or spending-limit exhaustion. No code check ran remotely. Keep PR#88 draft per open-pr workflow; local gate, independent QA and runtime acceptance passed. Implementation is complete, but remote acceptance cannot be marked complete until the repository owner resolves billing and reruns CI.
+- 2026-10-30 — merged to main (PR #88); closed in the version 1 close-out (T-158).
 
 ## Links
 

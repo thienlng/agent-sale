@@ -1,13 +1,13 @@
 ---
 id: T-124
 title: Integrate the lane A account PRs onto current main
-status: in-progress        # backlog | next | in-progress | blocked | review | done | cancelled
+status: done
 type: feature              # feature | bug | chore | spike | docs
 priority: P1               # P0 | P1 | P2 | P3
 owner: "@agent:claude"     # @github-handle or @agent:<tool>
 feature_ids: []            # e.g. [BOT-07, CRM-11] from docs/02-functional-requirements.md
 created: 2026-10-28
-updated: 2026-10-28
+updated: 2026-10-30
 branch: feat/T-124-integrate-lane-a1
 pr: 82 (A1, merged)
 parent:                    # T-xxx if this is a sub-task
@@ -101,6 +101,7 @@ Dated entries, newest last. Decisions, blockers, questions, what was verified an
   - Tests fixed for the union: the selector test renders in a router (it has a `Link`); main's profile-page test fixture gains `icon` and a `syncMembership` mock.
   - Local: lint 0 errors, prettier, arch, typecheck 22/22, tests 19/19 tasks, build 13/13.
 - 2026-10-30 — Updated A2 merged into A3 (#85). Conflicts were unions: the conversation list filter takes A3's `contactId` and main's `botId`/`updatedFrom`/`updatedTo` (contract with main's refine, in-memory filter, store, `docs/meta-inbox.md`); `routes/app.tsx` has main's create-business dialog and A3's usage banner; `packages/db` exports both backfills; the inbox page test mock serves both the deep-link test (A3) and the removed-page test (T-133). Local: lint 0 errors, prettier, arch, typecheck 22/22, tests 19/19 tasks, build 13/13.
+- 2026-10-30 — merged to main (PRs #82, #84, #85); closed in the version 1 close-out (T-158).
 
 ## Links
 
