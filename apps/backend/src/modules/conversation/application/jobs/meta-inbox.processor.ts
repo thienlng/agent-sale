@@ -379,8 +379,7 @@ export class MetaInboxProcessor {
   }
 
   /**
-   * The pictures that follow a committed text reply, as ONE album message (a single picture stays
-   * a plain image). Best effort: a failure is recorded on the message and never fails the event,
+   * The pictures that follow a committed text reply, one image message each. Best effort: a failure is recorded on the message and never fails the event,
    * hands over or retries, and a closed 24-hour window or a takeover simply leaves the text alone.
    */
   private async sendImages(
@@ -390,18 +389,24 @@ export class MetaInboxProcessor {
   ): Promise<void> {
     const urls = [...new Set(images.map((i) => i.url))].slice(0, MAX_BOT_IMAGES);
     if (!urls.length || (await this.hasNewerMessage(job))) return;
-    try {
-      const sent = await this.inbox.commitBotImages(job.workspaceId, conversationId, {
-        urls,
-        idempotencyKey: `bot:${job.event.externalEventId}:img`,
-      });
-      // Null: a human took over (or the bot was switched off) since the text went out.
-      if (!sent)
-        this.logger.log(
-          `Meta inbox event ${job.id}: images skipped, the bot no longer holds the conversation`,
-        );
-    } catch {
-      this.logger.warn(`Meta inbox event ${job.id}: images not sent`);
+    // One message per picture: Meta rejects multi-image albums sent by URL (#100/2018047),
+    // while a single image by URL is accepted. A failed picture does not stop the next one.
+    for (const [index, url] of urls.entries()) {
+      try {
+        const sent = await this.inbox.commitBotImages(job.workspaceId, conversationId, {
+          urls: [url],
+          idempotencyKey: `bot:${job.event.externalEventId}:img:${index}`,
+        });
+        // Null: a human took over (or the bot was switched off) since the text went out.
+        if (!sent) {
+          this.logger.log(
+            `Meta inbox event ${job.id}: images skipped, the bot no longer holds the conversation`,
+          );
+          return;
+        }
+      } catch {
+        this.logger.warn(`Meta inbox event ${job.id}: image ${index + 1} not sent`);
+      }
     }
   }
 
