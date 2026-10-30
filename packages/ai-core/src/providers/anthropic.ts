@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
+import { z } from 'zod';
 
 import type {
   GenerateRequest,
@@ -61,7 +62,6 @@ export class AnthropicProvider implements LlmProvider {
 
   async generate(request: GenerateRequest, target: ModelTarget): Promise<GenerateResponse> {
     if (request.images?.length) throw new Error('anthropic provider: images are not supported');
-    if (request.tools?.length) throw new Error('anthropic provider: tools are not wired yet');
     const { system, messages } = toAnthropicMessages(request);
     const started = performance.now();
     const fallback = SERVER_FALLBACK_MODELS.has(target.model);
@@ -71,6 +71,16 @@ export class AnthropicProvider implements LlmProvider {
       max_tokens: request.maxOutputTokens ?? 2_000,
       ...(system.length ? { system } : {}),
       messages,
+      ...(request.tools?.length
+        ? {
+            tools: request.tools.map((t) => ({
+              name: t.name,
+              description: t.description,
+              input_schema: z.toJSONSchema(t.input) as Anthropic.Beta.BetaTool.InputSchema,
+            })),
+            tool_choice: { type: request.toolChoice ?? 'auto' },
+          }
+        : {}),
       ...(target.effort || request.responseFormat
         ? {
             output_config: {
@@ -90,7 +100,9 @@ export class AnthropicProvider implements LlmProvider {
     const usage = response.usage;
     return {
       text,
-      toolCalls: [],
+      toolCalls: response.content.flatMap((block) =>
+        block.type === 'tool_use' ? [{ id: block.id, name: block.name, input: block.input }] : [],
+      ),
       stopReason: toStopReason(response.stop_reason),
       usage: {
         inputTokens: usage.input_tokens + (usage.cache_creation_input_tokens ?? 0),
@@ -125,7 +137,31 @@ function toAnthropicMessages(request: GenerateRequest): {
       if (messages.length) throw new Error('anthropic provider: system messages must come first');
       system.push({ type: 'text', text: m.content });
     } else if (m.role === 'tool') {
-      throw new Error('anthropic provider: tool messages are not wired yet');
+      const block: Anthropic.Beta.BetaToolResultBlockParam = {
+        type: 'tool_result',
+        tool_use_id: m.toolCallId ?? '',
+        content: m.content,
+      };
+      const prev = messages.at(-1);
+      // Results of one assistant turn must share a single user message.
+      if (prev?.role === 'user' && Array.isArray(prev.content) && isToolResults(prev.content)) {
+        prev.content.push(block);
+      } else {
+        messages.push({ role: 'user', content: [block] });
+      }
+    } else if (m.role === 'assistant' && m.toolCalls?.length) {
+      messages.push({
+        role: 'assistant',
+        content: [
+          ...(m.content ? [{ type: 'text' as const, text: m.content }] : []),
+          ...m.toolCalls.map((c) => ({
+            type: 'tool_use' as const,
+            id: c.id,
+            name: c.name,
+            input: c.input ?? {},
+          })),
+        ],
+      });
     } else {
       messages.push({ role: m.role, content: m.content });
     }
@@ -133,6 +169,10 @@ function toAnthropicMessages(request: GenerateRequest): {
   const last = system.at(-1);
   if (last) last.cache_control = { type: 'ephemeral' };
   return { system, messages };
+}
+
+function isToolResults(content: Anthropic.Beta.BetaContentBlockParam[]): boolean {
+  return content.every((b) => b.type === 'tool_result');
 }
 
 function toStopReason(reason: string | null): StopReason {
