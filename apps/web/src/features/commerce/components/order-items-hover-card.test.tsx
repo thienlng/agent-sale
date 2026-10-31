@@ -22,18 +22,27 @@ const order = {
     },
     { name: 'Túi tote canvas', qty: 1, variantName: null, unitPrice: 150_000, imageUrl: null },
   ],
+  itemCount: 2,
 };
+const line = (n: number) => ({
+  name: `Sản phẩm ${n}`,
+  qty: 1,
+  variantName: null,
+  unitPrice: 10_000,
+  imageUrl: null,
+});
+const fallbacks = (el: HTMLElement) => el.querySelectorAll('[data-slot="thumb-fallback"]');
 
 /** Text with every kind of space (the currency uses a no-break space) as one plain space. */
 const plain = (s: string | null | undefined) => (s ?? '').replace(/\s+/gu, ' ');
 
-function renderCard() {
-  renderWithProviders(<OrderItemsHoverCard order={order} />);
+function renderCard(o: typeof order = order) {
+  renderWithProviders(<OrderItemsHoverCard order={o} />);
   return screen.getByRole('group', { name: 'Chi tiết sản phẩm của đơn DH0042' });
 }
 
-const findCard = async () =>
-  (await screen.findByText('2 sản phẩm', undefined, { timeout: 3000 })).closest(
+const findCard = async (header = '2 sản phẩm') =>
+  (await screen.findByText(header, undefined, { timeout: 3000 })).closest(
     '[data-slot="hover-card-content"]',
   ) as HTMLElement;
 
@@ -45,12 +54,39 @@ describe('OrderItemsHoverCard (products column)', () => {
     expect(lines[0]).toHaveTextContent(`2× ${LONG} – Size M`);
   });
 
+  it('shows three lines in the cell and a muted +N for the rest', () => {
+    const trigger = renderCard({
+      ...order,
+      itemsPreview: [1, 2, 3, 4, 5].map(line),
+      itemCount: 5,
+    });
+    expect(trigger.querySelectorAll('.truncate')).toHaveLength(3);
+    expect(within(trigger).getByText('+2')).toBeInTheDocument();
+    expect(within(trigger).queryByText('Sản phẩm 4')).toBeNull();
+  });
+
+  it('counts every line when the preview stops at 10, and says how many more there are', async () => {
+    const trigger = renderCard({
+      ...order,
+      itemsPreview: Array.from({ length: 10 }, (_, i) => line(i + 1)),
+      itemCount: 14,
+    });
+    expect(within(trigger).getByText('+11')).toBeInTheDocument();
+    await userEvent.setup().tab();
+    const card = await findCard('14 sản phẩm');
+    expect(within(card).getByText('Sản phẩm 10')).toBeInTheDocument();
+    expect(within(card).getByText('+4 sản phẩm khác')).toBeInTheDocument();
+  });
+
   it('opens on keyboard focus with full names, variant, qty × price, picture or fallback, and the total', async () => {
     const trigger = renderCard();
     await userEvent.setup().tab();
     expect(trigger).toHaveFocus();
     const card = await findCard();
-    expect(trigger).toHaveAttribute('aria-describedby', card.id);
+    // The description is always there, open or not.
+    const summary = document.getElementById(trigger.getAttribute('aria-describedby')!);
+    expect(plain(summary?.textContent)).toBe(plain(`2 sản phẩm · Tổng ${formatVnd(480_000)}`));
+    expect(card).toBeInTheDocument();
 
     const rows = within(card).getAllByRole('listitem');
     expect(rows).toHaveLength(2);
@@ -64,7 +100,9 @@ describe('OrderItemsHoverCard (products column)', () => {
     expect(img).toHaveAttribute('loading', 'lazy');
 
     expect(within(rows[1]!).getByText('Túi tote canvas')).toBeInTheDocument();
-    expect(within(rows[1]!).getByRole('img', { name: 'Chưa có ảnh' })).toBeInTheDocument();
+    const fallback = fallbacks(rows[1]!);
+    expect(fallback).toHaveLength(1);
+    expect(fallback[0]).toHaveAttribute('aria-hidden', 'true');
     expect(plain(rows[1]!.textContent)).toContain(plain(`1 × ${formatVnd(150_000)}`));
 
     expect(plain(within(card).getByText('Tổng đơn').parentElement?.textContent)).toBe(
@@ -88,8 +126,6 @@ describe('OrderItemsHoverCard (products column)', () => {
     const card = await findCard();
     const img = card.querySelector('img')!;
     img.dispatchEvent(new Event('error'));
-    await waitFor(() =>
-      expect(within(card).getAllByRole('img', { name: 'Chưa có ảnh' })).toHaveLength(2),
-    );
+    await waitFor(() => expect(fallbacks(card)).toHaveLength(2));
   });
 });

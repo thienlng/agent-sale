@@ -393,7 +393,6 @@ export function OrdersToolbar({
                 status: undefined,
                 statusMode: undefined,
                 createdBy: undefined,
-                review: undefined,
                 carrier: undefined,
                 source: undefined,
                 from: undefined,

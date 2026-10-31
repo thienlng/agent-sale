@@ -579,14 +579,20 @@
       "undone": "Approval of order {{code}} undone",
       "bannerPending": "The bot created this order from a conversation. Check it before handling it.",
       "bannerApproved": "Created by the bot · approved by {{name}} at {{time}}",
-      "newTab": "(opens in a new tab)"
+      "newTab": "(opens in a new tab)",
+      "bannerApprovedShort": "Created by the bot · approved",
+      "bannerLabel": "Bot order to review"
     },
     "items": {
       "count_one": "{{count}} product",
       "count_other": "{{count}} products",
       "total": "Order total",
       "noImage": "No image",
-      "details": "Products in order {{code}}"
+      "details": "Products in order {{code}}",
+      "more_one": "+{{count}} more product",
+      "more_other": "+{{count}} more products",
+      "summary_one": "{{count}} product · Total {{total}}",
+      "summary_other": "{{count}} products · Total {{total}}"
     }
   },
   "orderForm": {

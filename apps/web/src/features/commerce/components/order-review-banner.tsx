@@ -55,8 +55,8 @@ export function OrderReviewBanner({
 
   if (order.reviewState === 'pending') {
     return (
-      <div
-        role="status"
+      <section
+        aria-label={t('orders.review.bannerLabel')}
         className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-xl border border-warning/40 bg-warning-soft px-4 py-3"
       >
         <div className="flex min-w-0 flex-1 basis-72 items-start gap-3">
@@ -74,7 +74,7 @@ export function OrderReviewBanner({
             <ConversationButton conversationId={order.conversationId} variant="outline" />
           ) : null}
         </div>
-      </div>
+      </section>
     );
   }
 
@@ -87,7 +87,7 @@ export function OrderReviewBanner({
               name: order.reviewedByName,
               time: formatDateTime(order.reviewedAt),
             })
-          : t('orders.review.approved')}
+          : t('orders.review.bannerApprovedShort')}
       </span>
       {order.conversationId ? (
         <ConversationButton conversationId={order.conversationId} variant="link" />

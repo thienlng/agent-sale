@@ -1,5 +1,5 @@
 import type { OrderDto, OrderSummaryDto } from '@agent-sales/contracts';
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -27,6 +27,7 @@ afterEach(() => {
 
 const BOT_ORDER = '3f0c1f0e-5b1c-4c1e-9d55-0a1b2c3d4e5f';
 const STAFF_ORDER = '3f0c1f0e-5b1c-4c1e-9d55-0a1b2c3d4e60';
+const SECOND_BOT_ORDER = '3f0c1f0e-5b1c-4c1e-9d55-0a1b2c3d4e61';
 const CONVERSATION = '4f0c1f0e-5b1c-4c1e-9d55-0a1b2c3d4e5f';
 const amounts = {
   itemQty: 1,
@@ -66,6 +67,7 @@ const summary = (over: Partial<OrderSummaryDto>): OrderSummaryDto => ({
   reviewedByName: null,
   reviewedAt: null,
   conversationId: CONVERSATION,
+  itemCount: 1,
   placedAt: '2026-10-31T08:00:00.000Z',
   ...over,
 });
@@ -115,6 +117,9 @@ const common = {
   [`POST /orders/${BOT_ORDER}/approve`]: { status: 200, body: approved },
 };
 
+/** The desktop table (the mobile cards repeat the chips). */
+const table = () => within(screen.getByRole('table'));
+
 /** Lets the approve call hang until the test releases it, to see the optimistic row. */
 function holdApprove(fetchStub: ReturnType<typeof stubFetch>['fetchStub']) {
   let release = () => {};
@@ -142,18 +147,20 @@ describe('approving a bot order from the list', () => {
     ));
 
     // The staff order has no "Duyệt đơn".
-    await user.click(await screen.findByRole('button', { name: 'Thao tác với đơn DH0002' }));
+    await user.click(
+      await screen.findByRole('button', { name: 'Thao tác với đơn DH0002' }, { timeout: 5000 }),
+    );
     expect(await screen.findByRole('menuitem', { name: 'Xem chi tiết' })).toBeInTheDocument();
     expect(screen.queryByRole('menuitem', { name: 'Duyệt đơn' })).toBeNull();
     await user.keyboard('{Escape}');
 
-    expect(screen.getByText('Chờ duyệt')).toBeInTheDocument();
+    expect(table().getByText('Chờ duyệt')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Thao tác với đơn DH0001' }));
     await user.click(await screen.findByRole('menuitem', { name: 'Duyệt đơn' }));
 
     // Optimistic: the row reads "Đã duyệt" before the server answers.
-    expect(await screen.findByText('Đã duyệt')).toBeInTheDocument();
-    expect(screen.queryByText('Chờ duyệt')).toBeNull();
+    expect(await table().findByText('Đã duyệt')).toBeInTheDocument();
+    expect(table().queryByText('Chờ duyệt')).toBeNull();
     release();
 
     await waitFor(() => expect(toast.success).toHaveBeenCalled());
@@ -188,7 +195,9 @@ describe('approving a bot order from the list', () => {
         <OrdersList search={{}} onSearch={() => {}} />
       </TooltipProvider>
     ));
-    await user.click(await screen.findByRole('button', { name: 'Thao tác với đơn DH0001' }));
+    await user.click(
+      await screen.findByRole('button', { name: 'Thao tác với đơn DH0001' }, { timeout: 5000 }),
+    );
     await user.click(await screen.findByRole('menuitem', { name: 'Duyệt đơn' }));
     await waitFor(() => expect(toast.success).toHaveBeenCalled());
     const options = toast.success.mock.calls[0]![1] as { action: { onClick: () => void } };
@@ -198,6 +207,80 @@ describe('approving a bot order from the list', () => {
     options.action.onClick();
     await new Promise((r) => setTimeout(r, 50));
     expect(stub.calls.filter((c) => c.key.endsWith('/approve'))).toHaveLength(1);
+  });
+});
+
+describe('approving: concurrency and failure', () => {
+  const renderList = () =>
+    renderWithRouter(() => (
+      <TooltipProvider>
+        <OrdersList search={{}} onSearch={() => {}} />
+      </TooltipProvider>
+    ));
+
+  it('gives two quick approvals each their own toast and undo', async () => {
+    const second = summary({ id: SECOND_BOT_ORDER, code: 'DH0003' });
+    const stub = stubFetch({
+      ...common,
+      'GET /orders?page=1&pageSize=20': { status: 200, body: listBody([botPending, second]) },
+      [`POST /orders/${SECOND_BOT_ORDER}/approve`]: {
+        status: 200,
+        body: { ...approved, id: SECOND_BOT_ORDER, code: 'DH0003' },
+      },
+    });
+    const { held, release } = holdApprove(stub.fetchStub);
+    vi.stubGlobal('fetch', held);
+    const user = userEvent.setup();
+    renderList();
+    for (const code of ['DH0001', 'DH0003']) {
+      await user.click(
+        await screen.findByRole('button', { name: `Thao tác với đơn ${code}` }, { timeout: 5000 }),
+      );
+      await user.click(await screen.findByRole('menuitem', { name: 'Duyệt đơn' }));
+    }
+    // Both are in flight together, then both answer.
+    release();
+    await waitFor(() => expect(toast.success).toHaveBeenCalledTimes(2));
+    const calls = toast.success.mock.calls as Array<[string, { action: { onClick: () => void } }]>;
+    expect(calls.map(([m]) => m).sort()).toEqual(['Đã duyệt đơn DH0001', 'Đã duyệt đơn DH0003']);
+
+    calls.find(([m]) => m.endsWith('DH0001'))![1].action.onClick();
+    await waitFor(() =>
+      expect(stub.calls.filter((c) => c.key === `POST /orders/${BOT_ORDER}/approve`)).toHaveLength(
+        2,
+      ),
+    );
+    expect(
+      stub.calls.filter((c) => c.key === `POST /orders/${BOT_ORDER}/approve`)[1]!.body,
+    ).toEqual({ approve: false });
+    expect(
+      stub.calls.filter((c) => c.key === `POST /orders/${SECOND_BOT_ORDER}/approve`),
+    ).toHaveLength(1);
+  });
+
+  it('rolls the row back and shows an error when approving fails', async () => {
+    const stub = stubFetch({
+      ...common,
+      'GET /orders?page=1&pageSize=20': { status: 200, body: listBody([botPending]) },
+      [`POST /orders/${BOT_ORDER}/approve`]: {
+        status: 409,
+        body: { error: { code: 'CONFLICT', message: 'changed' } },
+      },
+    });
+    const { held, release } = holdApprove(stub.fetchStub);
+    vi.stubGlobal('fetch', held);
+    const user = userEvent.setup();
+    renderList();
+    await user.click(
+      await screen.findByRole('button', { name: 'Thao tác với đơn DH0001' }, { timeout: 5000 }),
+    );
+    await user.click(await screen.findByRole('menuitem', { name: 'Duyệt đơn' }));
+    expect(await table().findByText('Đã duyệt')).toBeInTheDocument();
+    release();
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+    expect(await table().findByText('Chờ duyệt')).toBeInTheDocument();
+    expect(table().queryByText('Đã duyệt')).toBeNull();
+    expect(toast.success).not.toHaveBeenCalled();
   });
 });
 
@@ -233,14 +316,22 @@ describe('"Bot · chờ duyệt" quick filter', () => {
   });
 
   it('hides the count when no bot order waits', async () => {
-    vi.stubGlobal(
-      'fetch',
-      stubFetch({ ...common, 'GET /orders/review-count': { status: 200, body: { pending: 0 } } })
-        .fetchStub,
-    );
+    const stub = stubFetch({
+      ...common,
+      'GET /orders/review-count': { status: 200, body: { pending: 0 } },
+    });
+    let signal = () => {};
+    const answered = new Promise<void>((r) => (signal = r));
+    vi.stubGlobal('fetch', async (input: string, init?: RequestInit) => {
+      const res = await stub.fetchStub(input, init);
+      if (input.endsWith('/orders/review-count')) signal();
+      return res;
+    });
     renderWithProviders(toolbar(undefined));
     const chip = screen.getByRole('button', { name: 'Bot · chờ duyệt' });
-    await new Promise((r) => setTimeout(r, 50));
+    await answered;
+    // Let the answer reach the component before checking that no count is shown.
+    await act(async () => new Promise((r) => setTimeout(r, 20)));
     expect(chip).toHaveAccessibleName('Bot · chờ duyệt');
   });
 
@@ -259,7 +350,8 @@ describe('"Bot · chờ duyệt" quick filter', () => {
         <OrdersList search={{ review: 'pending' }} onSearch={() => {}} />
       </TooltipProvider>
     ));
-    expect(await screen.findByText('Chờ duyệt')).toBeInTheDocument();
+    await screen.findByRole('table', undefined, { timeout: 5000 });
+    expect(await table().findByText('Chờ duyệt')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Bot · chờ duyệt/ })).toHaveAttribute(
       'aria-pressed',
       'true',
@@ -272,7 +364,7 @@ describe('OrderReviewBanner (order detail)', () => {
     const stub = stubFetch(common);
     vi.stubGlobal('fetch', stub.fetchStub);
     renderWithProviders(<OrderReviewBanner order={detail({})} />);
-    expect(screen.getByRole('status')).toHaveTextContent(
+    expect(screen.getByRole('region', { name: 'Đơn do bot tạo cần duyệt' })).toHaveTextContent(
       'Đơn do bot tạo từ hội thoại — cần kiểm tra trước khi xử lý',
     );
     const link = screen.getByRole('link', { name: /Mở hội thoại/ });

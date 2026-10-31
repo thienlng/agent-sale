@@ -35,6 +35,7 @@ import { downloadOrdersCsv } from '../hooks/export-orders';
 import { useApproveWithUndo } from '../hooks/use-approve-order';
 import { useOrderStatuses } from '../hooks/use-order-statuses';
 import { type OrderColumn, useVisibleOrderColumns } from './order-columns';
+import { BotBadge, PendingReviewChip } from './order-created-by-cell';
 import { OrderStatusBadge } from './order-status-badge';
 import { OrdersBulkBar } from './orders-bulk-bar';
 import { type OrdersSearch, toOrderQuery } from './orders-search';
@@ -78,7 +79,13 @@ function OrderCards({ rows }: { rows: OrderSummaryDto[] }) {
             className="flex flex-col gap-2 rounded-xl border bg-card p-3 focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
           >
             <div className="flex items-center justify-between gap-2">
-              <span className="font-medium text-primary tabular-nums">{o.code}</span>
+              <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+                <span className="font-medium text-primary tabular-nums">{o.code}</span>
+                {o.createdByKind === 'bot' ? <BotBadge /> : null}
+                {o.createdByKind === 'bot' && o.reviewState === 'pending' ? (
+                  <PendingReviewChip />
+                ) : null}
+              </span>
               <OrderStatusBadge status={o.status} />
             </div>
             <div className="flex items-center justify-between gap-3 text-sm">
