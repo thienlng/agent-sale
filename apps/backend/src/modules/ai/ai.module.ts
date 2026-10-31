@@ -15,12 +15,17 @@ import { LlmRuntime } from './application/llm-runtime.js';
 import { PlaygroundService } from './application/playground.service.js';
 import { LLM_PROVIDER_FACTORY } from './application/ports/llm-provider-factory.js';
 import { AI_RUN_REPOSITORY } from './domain/ports/ai-run.repository.js';
+import { CONVERSATION_SUMMARY_REPOSITORY } from './domain/ports/conversation-summary.repository.js';
 import { LLM_CONFIG_REPOSITORY } from './domain/ports/llm-config.repository.js';
 import { SdkLlmProviderFactory } from './infrastructure/llm/sdk-provider-factory.js';
 import {
   DrizzleAiRunRepository,
   InMemoryAiRunRepository,
 } from './infrastructure/persistence/ai-run.repositories.js';
+import {
+  DrizzleConversationSummaryRepository,
+  InMemoryConversationSummaryRepository,
+} from './infrastructure/persistence/conversation-summary.drizzle.js';
 import { DrizzleLlmConfigRepository } from './infrastructure/persistence/llm-config.drizzle-repository.js';
 import { InMemoryLlmConfigRepository } from './infrastructure/persistence/llm-config.in-memory-repository.js';
 import { AiController } from './interface/http/ai.controller.js';
@@ -49,6 +54,14 @@ import { LlmAdminController } from './interface/http/llm-admin.controller.js';
       inject: [{ token: DB_TENANT, optional: true }],
       useFactory: (db: Database | null | undefined) =>
         db ? new DrizzleAiRunRepository(db) : new InMemoryAiRunRepository(),
+    },
+    {
+      provide: CONVERSATION_SUMMARY_REPOSITORY,
+      inject: [{ token: DB_TENANT, optional: true }],
+      useFactory: (db: Database | null | undefined) =>
+        db
+          ? new DrizzleConversationSummaryRepository(db)
+          : new InMemoryConversationSummaryRepository(),
     },
     {
       provide: LLM_PROVIDER_FACTORY,

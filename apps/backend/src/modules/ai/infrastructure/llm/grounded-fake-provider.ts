@@ -7,26 +7,36 @@ const HANDOFF = /nhan vien|nguoi that|human|staff/;
 
 /**
  * Development/test stand-in for a real model, used for tiers without a route
- * outside production. Deterministic: answers with the best knowledge entry
- * verbatim, asks for a human when the customer does, otherwise "unknown".
+ * outside production. Deterministic free text: answers with the best knowledge
+ * entry verbatim, calls the `handoff` tool when the customer asks for a human,
+ * otherwise says it has no information.
  */
 export function groundedFakeProvider(): FakeLlmProvider {
   return new FakeLlmProvider(DEV_FAKE_PROVIDER, (req: GenerateRequest) => {
-    const last = req.messages.at(-1)?.content ?? '';
-    const customer = (/<customer>\n([\s\S]*?)\n<\/customer>/.exec(last)?.[1] ?? last)
+    const lastUser = req.messages.findLast((m) => m.role === 'user')?.content ?? '';
+    const customer = (
+      /<customer>\n([\s\S]*?)\n<\/customer>(?![\s\S]*<customer>)/.exec(lastUser)?.[1] ?? lastUser
+    )
       .normalize('NFD')
       .replace(/\p{Diacritic}/gu, '')
       .replace(/đ/gi, 'd')
       .toLowerCase();
-    const entry = ENTRY.exec(last);
-    const reply = HANDOFF.test(customer)
-      ? { outcome: 'handoff', reply: 'Dạ em chuyển nhân viên hỗ trợ ạ.', sources: [] }
-      : entry
-        ? { outcome: 'answer', reply: entry[2], sources: [entry[1]] }
-        : { outcome: 'unknown', reply: 'Dạ em chưa có thông tin này ạ.', sources: [] };
-    return {
-      text: JSON.stringify(reply),
-      usage: { inputTokens: Math.ceil(last.length / 4), outputTokens: 20, cachedInputTokens: 0 },
+    const usage = {
+      inputTokens: Math.ceil(lastUser.length / 4),
+      outputTokens: 20,
+      cachedInputTokens: 0,
     };
+    const handedOver = req.messages.some((m) => m.role === 'tool' && m.name === 'handoff');
+    const canHandOff = req.tools?.some((t) => t.name === 'handoff') && req.toolChoice !== 'none';
+    if (HANDOFF.test(customer) && canHandOff && !handedOver) {
+      return {
+        text: 'Dạ em chuyển nhân viên hỗ trợ ạ.',
+        stopReason: 'tool_use',
+        toolCalls: [{ id: 'fake-handoff', name: 'handoff', input: { reason: 'customer asked' } }],
+        usage,
+      };
+    }
+    const entry = ENTRY.exec(lastUser);
+    return { text: entry ? (entry[2] ?? '') : 'Dạ em chưa có thông tin này ạ.', usage };
   });
 }

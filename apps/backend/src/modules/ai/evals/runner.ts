@@ -7,12 +7,10 @@ import type { BotFacade, BotView } from '../../bot/api/index.js';
 import type { BotCatalogScope, CatalogFacade } from '../../commerce/api/index.js';
 import type { FaqHit, KnowledgeFacade, TrainingFacade } from '../../knowledge/api/index.js';
 import type { WorkspaceFacade } from '../../workspace/api/index.js';
-import { LlmRuntime } from '../application/llm-runtime.js';
+import type { LlmRuntime } from '../application/llm-runtime.js';
 import { PlaygroundService } from '../application/playground.service.js';
-import type { LlmProviderFactory } from '../application/ports/llm-provider-factory.js';
 import { DEV_FAKE_PROVIDER } from '../domain/llm-config.js';
 import { InMemoryAiRunRepository } from '../infrastructure/persistence/ai-run.repositories.js';
-import { InMemoryLlmConfigRepository } from '../infrastructure/persistence/llm-config.in-memory-repository.js';
 import { type CheckResult, runChecks } from './checks.js';
 import type { EvalCase, EvalOutcome } from './case.js';
 
@@ -106,20 +104,23 @@ type FakeScript = (req: GenerateRequest) => {
   stopReason?: 'tool_use';
 };
 
-const hasToolResult = (req: GenerateRequest): boolean =>
-  req.messages.some((m) => m.role === 'tool');
+const ranTool = (req: GenerateRequest, name?: string): boolean =>
+  req.messages.some((m) => m.role === 'tool' && (name === undefined || m.name === name));
 
 /**
- * The fake model of a case: on its first call it makes the case's `fake_tool_calls` (or browses the
- * catalog when the case has products, so figures are grounded as in production), then it returns
- * `fake_reply`.
+ * The fake model of a case, speaking the free-text protocol: on its first call it makes the case's
+ * `fake_tool_calls` (or browses the catalog when the case has products, so figures come from tools
+ * as in production). Then it replays `fake_reply`: its `imageIds` go out through one
+ * `send_message` call, `handoff` becomes a handoff call (its `reply` is the lead-in sentence),
+ * `unknown` an empty answer (the bot's fallback message) and `answer` the reply text.
  */
 export function fakeScript(c: EvalCase): FakeScript {
   const calls =
     c.expect.fake_tool_calls ??
     (c.products.length ? [{ name: 'search_products', arguments: {} }] : []);
+  const fake = c.expect.fake_reply;
   return (req) => {
-    if (calls.length && !hasToolResult(req))
+    if (calls.length && !ranTool(req))
       return {
         text: '',
         stopReason: 'tool_use',
@@ -129,11 +130,24 @@ export function fakeScript(c: EvalCase): FakeScript {
           input: call.arguments,
         })),
       };
+    if (!fake) return { text: fakeReplyText(c) };
+    if (fake.imageIds.length && !ranTool(req, 'send_message'))
+      return {
+        text: '',
+        stopReason: 'tool_use',
+        toolCalls: [{ id: 'fake-send', name: 'send_message', input: { imageIds: fake.imageIds } }],
+      };
+    if (fake.outcome === 'handoff')
+      return {
+        text: fake.reply,
+        stopReason: 'tool_use',
+        toolCalls: [{ id: 'fake-handoff', name: 'handoff', input: { reason: 'eval case' } }],
+      };
     return { text: fakeReplyText(c) };
   };
 }
 
-/** The same `LlmRuntime` the api uses, on an in-memory config whose only provider is scripted by `script`. */
+/** A runtime whose only provider is scripted by `script` (no network). */
 export function fakeRuntime(replyFor: (c: EvalCase) => string, c: EvalCase): LlmRuntime;
 export function fakeRuntime(script: FakeScript): LlmRuntime;
 export function fakeRuntime(
@@ -145,24 +159,21 @@ export function fakeRuntime(
       ? () => ({ text: (first as (c: EvalCase) => string)(c) })
       : (first as FakeScript);
   const provider = new FakeLlmProvider(DEV_FAKE_PROVIDER, script);
-  const factory: LlmProviderFactory = {
-    create: () => {
-      throw new Error('fake mode has no configured providers');
-    },
-    hermesLogin: () => {
-      throw new Error('not used');
-    },
-    listModels: () => Promise.resolve({ models: [], state: 'unavailable' }),
-    developmentFallback: () => ({ provider, model: 'eval-fake' }),
-  };
-  return new LlmRuntime(new InMemoryLlmConfigRepository(), factory);
+  // The provider without the gateway: an `unknown` case answers with empty text, which the
+  // gateway would retry with backoff sleeps.
+  return {
+    generate: (req: GenerateRequest) => provider.generate(req, { model: 'eval-fake' }),
+  } as unknown as LlmRuntime;
 }
 
-/** The model output a fake-mode case replays (its `expect.fake_reply`). */
+/**
+ * The free-text answer a fake-mode case replays (its `expect.fake_reply`): the reply text, empty for
+ * `unknown` (the pipeline then sends the bot's fallback message).
+ */
 export function fakeReplyText(c: EvalCase): string {
   const fake = c.expect.fake_reply;
   if (!fake) throw new Error(`case ${c.id} has no expect.fake_reply (needed in fake mode)`);
-  return JSON.stringify(fake);
+  return fake.outcome === 'unknown' ? '' : fake.reply;
 }
 
 const terms = (text: string): string[] =>

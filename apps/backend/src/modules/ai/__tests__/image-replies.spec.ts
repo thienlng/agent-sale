@@ -71,16 +71,36 @@ const search = (query = 'giày'): Partial<GenerateResponse> => ({
   toolCalls: [{ id: 'c1', name: 'search_products', input: { query } }],
 });
 
+/** `send_message` calls with these id lists, one call each. */
+const send = (...calls: string[][]): Partial<GenerateResponse> => ({
+  text: '',
+  stopReason: 'tool_use',
+  toolCalls: calls.map((imageIds, i) => ({
+    id: `s${i + 1}`,
+    name: 'send_message',
+    input: { imageIds },
+  })),
+});
+
+/**
+ * A scripted turn: the catalog search (unless `searchFirst` is false), then the `send_message`
+ * calls of `reply.sends` (one round), then the free-text answer.
+ */
 function build(
-  reply: object | string,
+  reply: { sends?: string[][]; text?: string } | string,
   options: { products?: ProductDto[]; focus?: string[]; searchFirst?: boolean } = {},
 ) {
   const { products = [oxford], focus = [], searchFirst = true } = options;
-  let step = 0;
-  const fake = new FakeLlmProvider('dev-fake', () => {
-    if (searchFirst && step++ === 0) return search();
-    return { text: typeof reply === 'string' ? reply : JSON.stringify(reply) };
-  });
+  const { sends = [], text = 'Dạ đây là hình ạ.' } =
+    typeof reply === 'string' ? { text: reply } : reply;
+  const script: Partial<GenerateResponse>[] = [
+    ...(searchFirst ? [search()] : []),
+    ...(sends.length ? [send(...sends)] : []),
+    { text },
+  ];
+  const fake = new FakeLlmProvider('dev-fake', () =>
+    script.length > 1 ? (script.shift() ?? {}) : (script[0] ?? {}),
+  );
   const factory: LlmProviderFactory = {
     create: () => fake as LlmProvider,
     hermesLogin: () => {
@@ -117,7 +137,7 @@ function build(
         tier: 'smart',
         provider: 'p',
         model: 'm',
-        promptVersion: 'sales-agent@11',
+        promptVersion: 'sales-agent@13',
         inputTokens: 0,
         outputTokens: 0,
         cachedTokens: 0,
@@ -135,12 +155,10 @@ function build(
   return { fake, ask, askWith, lookups, runs, conversationId };
 }
 
-const answer = (imageIds?: string[]) => ({
-  outcome: 'answer',
-  reply: 'Dạ đây là hình ạ.',
-  sources: [],
-  ...(imageIds ? { imageIds } : {}),
-});
+const answer = (imageIds?: string[]) => (imageIds?.length ? { sends: [imageIds] } : {});
+/** The content of the tool message answering `send_message` call `id`. */
+const toolResult = (req: GenerateRequest | undefined, id = 's1') =>
+  req?.messages.find((m) => m.role === 'tool' && m.toolCallId === id)?.content;
 /** Everything after the system prompt (which names the blocks it explains). */
 const requestText = (req: GenerateRequest | undefined) => JSON.stringify(req?.messages.slice(1));
 
@@ -152,6 +170,21 @@ describe('bot-sent images', () => {
       { url: 'https://img.example.com/ox2.jpg', label: 'Giày da Oxford (2/4)' },
       { url: 'https://img.example.com/size.png', label: 'Bảng size giày' },
     ]);
+    expect(res.messages).toEqual([
+      {
+        text: '',
+        images: [
+          {
+            id: 'p:oxford:1',
+            url: 'https://img.example.com/ox2.jpg',
+            label: 'Giày da Oxford (2/4)',
+          },
+          { id: 'm:size', url: 'https://img.example.com/size.png', label: 'Bảng size giày' },
+        ],
+        via: 'send_message',
+      },
+      { text: 'Dạ đây là hình ạ.', images: [], via: 'final' },
+    ]);
     // The library image is offered up front; the product pictures come back with its details.
     expect(requestText(fake.calls[0])).toContain('m:size: Bảng size giày');
     expect(requestText(fake.calls[1])).toContain('p:oxford:0');
@@ -162,20 +195,29 @@ describe('bot-sent images', () => {
     const { fake, ask } = build(answer());
     await ask('cho xem ảnh giày da Oxford');
     const system = String(fake.calls[0]?.messages[0]?.content);
-    expect(system).toContain('put up to 3 image ids from their "images" in imageIds');
+    expect(system).toContain('send their pictures with send_message');
+    expect(system).toContain('Each call takes optional text and up to 3 image ids');
     expect(system).toContain('Never say a product has no picture when its details list images');
   });
 
-  it('drops an invented or foreign id', async () => {
-    const { ask } = build(answer(['p:other:0', 'm:nope', 'p:oxford:0']));
+  it('drops an invented or foreign id and tells the model which ones', async () => {
+    const { fake, ask } = build(answer(['p:other:0', 'm:nope', 'p:oxford:0']));
     expect((await ask('cho xem ảnh giày')).images).toEqual([
       { url: 'https://img.example.com/ox1.jpg', label: 'Giày da Oxford (1/4)' },
     ]);
+    expect(JSON.parse(toolResult(fake.calls[2]) ?? '{}')).toEqual({
+      status: 'sent',
+      delivered: 1,
+      droppedImageIds: ['p:other:0', 'm:nope'],
+    });
   });
 
   it('drops the picture of a product the model never saw this turn', async () => {
-    const { ask } = build(answer(['p:oxford:0']), { searchFirst: false });
-    expect((await ask('cho xem ảnh giày')).images).toEqual([]);
+    const { fake, ask } = build(answer(['p:oxford:0']), { searchFirst: false });
+    const res = await ask('cho xem ảnh giày');
+    expect(res.images).toEqual([]);
+    expect(res.messages?.map((m) => m.via)).toEqual(['final']);
+    expect(toolResult(fake.calls[1])).toContain('nothing_to_send');
   });
 
   it('ignores URL-looking strings', async () => {
@@ -185,23 +227,29 @@ describe('bot-sent images', () => {
     expect((await ask('cho xem ảnh giày')).images).toEqual([]);
   });
 
-  it('caps the pictures at 3 and dedupes', async () => {
-    const { ask } = build(
-      answer(['p:oxford:0', 'p:oxford:0', 'p:oxford:1', 'p:oxford:2', 'p:oxford:3']),
-    );
-    expect((await ask('cho xem ảnh giày')).images).toHaveLength(3);
+  it('takes at most 3 ids per call, dedupes, and lets several calls send more', async () => {
+    const tooMany = build(answer(['p:oxford:0', 'p:oxford:1', 'p:oxford:2', 'p:oxford:3']));
+    const rejected = await tooMany.ask('cho xem ảnh giày');
+    expect(rejected.images).toEqual([]);
+    expect(toolResult(tooMany.fake.calls[2])).toContain('invalid_arguments');
+
+    const two = build({
+      sends: [
+        ['p:oxford:0', 'p:oxford:0', 'p:oxford:1'],
+        ['p:oxford:2', 'p:oxford:3'],
+      ],
+    });
+    const res = await two.ask('cho xem hết ảnh giày');
+    expect(
+      res.messages?.filter((m) => m.via === 'send_message').map((m) => m.images.length),
+    ).toEqual([2, 2]);
+    // The joined view keeps its contract cap of 3; `messages` lists every picture.
+    expect(res.images).toHaveLength(3);
   });
 
   it('returns no pictures when the model sends none or omits the field', async () => {
     expect((await build(answer([])).ask('giá giày bao nhiêu')).images).toEqual([]);
     expect((await build(answer()).ask('giá giày bao nhiêu')).images).toEqual([]);
-  });
-
-  it('sends no pictures with a fallback or handoff outcome', async () => {
-    const handoff = { outcome: 'handoff', reply: '', sources: [], imageIds: ['p:oxford:0'] };
-    expect((await build(handoff).ask('gặp nhân viên')).images).toEqual([]);
-    const unknown = { outcome: 'unknown', reply: '', sources: [], imageIds: ['p:oxford:0'] };
-    expect((await build(unknown).ask('xem ảnh')).images).toEqual([]);
   });
 
   it('has no allowlist block when nothing can be sent', async () => {
@@ -232,7 +280,9 @@ describe('focus products carry the product being discussed', () => {
       searchFirst: false,
     });
     const res = await askWith(thread);
-    expect(fake.calls).toHaveLength(1);
+    // No catalog call: the focus product's pictures are sendable straight away.
+    expect(fake.calls).toHaveLength(2);
+    expect(fake.calls[0]?.toolChoice).toBeUndefined();
     expect(lookups).toEqual([['oxford']]);
     const sent = String(fake.calls[0]?.messages.at(-1)?.content);
     expect(sent).toContain('<focus_products>');
@@ -250,20 +300,15 @@ describe('focus products carry the product being discussed', () => {
   });
 });
 
-describe('answers that are not JSON', () => {
-  it('accepts a short plain-prose answer after the retry', async () => {
-    const { ask } = build('Dạ, cửa hàng có giày da nam Oxford và giày lười Loafer ạ.', {
+describe('free-text answers', () => {
+  it('sends a plain-prose answer as is, in one model call', async () => {
+    const { fake, ask } = build('Dạ, cửa hàng có giày da nam Oxford và giày lười Loafer ạ.', {
       searchFirst: false,
     });
     const res = await ask('shop có những mẫu nào vậy?');
     expect(res.outcome).toBe('answered');
     expect(res.reply).toBe('Dạ, cửa hàng có giày da nam Oxford và giày lười Loafer ạ.');
-  });
-  it('falls back when the prose is broken JSON', async () => {
-    const { ask } = build('{"outcome": "answer", "reply": ', { searchFirst: false });
-    const res = await ask('shop có những mẫu nào vậy?');
-    expect(res.outcome).toBe('fallback');
-    expect(res.guardrail).toMatch(/^invalid_output/);
+    expect(fake.calls).toHaveLength(1);
   });
   it('offers the catalog as tools and puts no catalog or overview in the request', async () => {
     const { fake, ask } = build(answer(), { searchFirst: false });
@@ -271,6 +316,8 @@ describe('answers that are not JSON', () => {
     expect(fake.calls[0]?.tools?.map((t) => t.name)).toEqual([
       'search_products',
       'product_details',
+      'send_message',
+      'handoff',
     ]);
     const sent = requestText(fake.calls[0]);
     expect(sent).not.toContain('<catalog');

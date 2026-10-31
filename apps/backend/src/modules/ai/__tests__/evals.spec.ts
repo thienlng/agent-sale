@@ -81,8 +81,8 @@ describe('eval suite (fake mode)', () => {
     const results = await Promise.all(cases.map(runCaseFake));
     const report = buildReport('fake', results);
     expect(report.gate).toBe('pass');
-    expect(report.promptVersion).toContain('sales-agent@11');
-    expect(report.promptVersion).toContain('sales-agent@12');
+    expect(report.promptVersion).toContain('sales-agent@13');
+    expect(report.promptVersion).toContain('sales-agent@14');
     expect(report.passed).toBe(report.total);
     expect(report.groups.map((g) => g.group)).toContain('safety');
     expect(renderText(report)).toContain('Critical:');
@@ -106,40 +106,46 @@ describe('eval report gate', () => {
 });
 
 describe('eval guardrail visibility', () => {
+  /** A model that never stops calling tools: the pipeline ends in the fallback (tool_loop_limit). */
+  const looping = () =>
+    fakeRuntime(() => ({
+      text: '',
+      stopReason: 'tool_use' as const,
+      toolCalls: [{ id: 'loop', name: 'handoff_unknown', input: {} }],
+    }));
+
   it('guardrail: none fails a case the guardrail rescued, and the report shows the guardrail', async () => {
     const rescued = parseCase(
-      MINIMAL.replace('Dạ bảo hành 6 tháng ạ.', 'Dạ bảo hành 6 tháng, giá 299k ạ.').replace(
-        '  outcome: answered\n',
-        '  guardrail: none\n',
-      ),
+      MINIMAL.replace('  outcome: answered\n  contains_any: ["6 tháng"]\n', '  guardrail: none\n'),
     );
-    const result = await runCaseFake(rescued);
+    const result = await runCase(rescued, looping());
     expect(result.pass).toBe(false);
-    expect(result.checks.find((c) => c.name === 'guardrail')?.detail).toContain(
-      'ungrounded_figure',
+    expect(result.checks.find((c) => c.name === 'guardrail')?.detail).toMatch(
+      /tool_loop_limit|invalid_tools/,
     );
   });
 
   it('shows a fired guardrail even when the case does not assert it', async () => {
-    const result = await runCaseFake(
+    const result = await runCase(
       parseCase(
-        MINIMAL.replace('Dạ bảo hành 6 tháng ạ.', 'Dạ giá 299k ạ.').replace(
+        MINIMAL.replace(
           '  outcome: answered\n  contains_any: ["6 tháng"]\n',
           '  outcome: fallback\n',
         ),
       ),
+      looping(),
     );
     expect(result.pass).toBe(true);
     const report = buildReport('fake', [result]);
-    expect(renderText(report)).toContain('guardrail fired: ungrounded_figure');
-    expect(renderMarkdown(report)).toContain('PASS via guardrail: ungrounded_figure');
+    expect(renderText(report)).toMatch(/guardrail fired: (tool_loop_limit|invalid_tools)/);
+    expect(renderMarkdown(report)).toMatch(/PASS via guardrail: (tool_loop_limit|invalid_tools)/);
   });
 });
 
 describe('eval runner', () => {
   const sample = parseCase(MINIMAL);
 
-  it('sends the case through the real prompt: profile block, customer text, prompt @11', async () => {
+  it('sends the case through the real prompt: profile block, customer text, prompt @13', async () => {
     const provider = new FakeLlmProvider('dev-fake', () => ({ text: fakeReplyText(sample) }));
     const llm = new LlmRuntime(new InMemoryLlmConfigRepository(), {
       create: () => provider,
@@ -165,13 +171,18 @@ describe('eval runner', () => {
     expect(result.reply).toContain('một năm');
   });
 
-  it('shows the guardrail when the pipeline replaces an ungrounded figure', async () => {
+  it('lets the numbers check catch an ungrounded figure the pipeline now sends as written', async () => {
     const bad = parseCase(
-      MINIMAL.replace('Dạ bảo hành 6 tháng ạ.', 'Dạ bảo hành 6 tháng, giá 299k ạ.'),
+      MINIMAL.replace('Dạ bảo hành 6 tháng ạ.', 'Dạ bảo hành 6 tháng, giá 299k ạ.').replace(
+        'contains_any: ["6 tháng"]',
+        'contains_any: ["6 tháng"]\n  numbers_only_from_sources: true',
+      ),
     );
     const result = await runCaseFake(bad);
-    expect(result).toMatchObject({ outcome: 'fallback', pass: false });
-    expect(result.guardrail).toContain('ungrounded_figure');
+    expect(result).toMatchObject({ outcome: 'answered', guardrail: null, pass: false });
+    expect(result.checks.filter((c) => !c.pass).map((c) => c.name)).toEqual([
+      'numbers_only_from_sources',
+    ]);
   });
 
   it('fails (not throws) when fake mode has no fake_reply or the model call errors', async () => {
