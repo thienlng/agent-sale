@@ -1,0 +1,38 @@
+id: tinymind-order-confirm-gives-code
+group: orders
+tags: [critical]
+bot:
+  industry: retail
+  name: TinyMind
+  orderTaking: true
+  orderShippingFeeVnd: 30000
+  profile:
+    fields: { displayName: TinyMind }
+    notes: 'Shop bán đồ chơi gỗ Montessori cho bé.'
+products:
+  - name: 'Thú gỗ xếp thăng bằng'
+    code: TM-001
+    description: 'Bộ thú gỗ xếp thăng bằng, phù hợp bé từ 1 tuổi trở lên.'
+    variants:
+      - { name: 'Mặc định', sku: TM-001-STD, price: 340000, stock: 12 }
+# The summary below was stored before this turn, so the customer's tap can confirm it.
+order_draft:
+  items: [{ sku: TM-001-STD, qty: 2 }]
+  recipient:
+    name: 'Nguyễn Thị Lan'
+    phone: '0903 111 222'
+    address: '12 Lê Lợi, phường Bến Nghé, quận 1, TP.HCM'
+conversation:
+  - customer: 'Lấy mình 2 bộ thú gỗ xếp thăng bằng nhé. Nguyễn Thị Lan, 0903 111 222, 12 Lê Lợi, phường Bến Nghé, quận 1, TP.HCM'
+  - bot: "Dạ em tóm tắt đơn của mình ạ:\n• Thú gỗ xếp thăng bằng (Mặc định) ×2 — 680.000đ\nPhí ship: 30.000đ\nTổng: 710.000đ\nNgười nhận: Nguyễn Thị Lan · 0903 111 222\nĐịa chỉ: 12 Lê Lợi, phường Bến Nghé, quận 1, TP.HCM"
+  - customer: '✅ Đặt hàng'
+expect:
+  outcome: answered
+  guardrail: none
+  steps_succeeded: ['confirm_order']
+  steps_exclude: ['prepare_order', 'handoff']
+  order_created: true
+  contains_all: ['DH000001']
+fake_turns:
+  - tool_calls: [{ name: confirm_order, input: {} }]
+  - text: 'Dạ em đã tạo đơn DH000001 cho chị Lan ạ. Shop sẽ kiểm tra và liên hệ xác nhận sớm ạ.'
