@@ -9,7 +9,7 @@
 | `staging` | Acceptance, AI eval, load testing, Meta App Review testing | Anonymized copy | Test Page/OA |
 | `production` | Customers | Real | Real |
 
-Configuration via environment variables + secret manager; the env schema is validated with Zod at startup (the app will not run if anything is missing). Product configuration that operators change at runtime — LLM providers and tier routing — is **not** env: it lives in the database and is edited by platform admins (docs/06 §7). First admin per environment: `pnpm --filter @agent-sales/backend platform-admin grant <email>` with `DATABASE_SYSTEM_URL`.
+Configuration via environment variables + secret manager; the env schema is validated with Zod at startup (the app will not run if anything is missing). Product configuration that operators change at runtime — LLM providers and tier routing — is **not** env: it lives in the database and is edited by platform admins (docs/06 §7). The agent worker wakes on Postgres `LISTEN/NOTIFY` (channel `rapiz_ingress`, fired by a trigger on `channel_webhook_events`) and keeps a 5 s safety poll (300 ms while the listener is down; reconnect backoff 1 s to 30 s). The listener needs a direct, non-PgBouncer connection: `DATABASE_LISTEN_URL` (optional, defaults to `DATABASE_SYSTEM_URL`). First admin per environment: `pnpm --filter @agent-sales/backend platform-admin grant <email>` with `DATABASE_SYSTEM_URL`.
 
 ## 2. Infrastructure roadmap
 
