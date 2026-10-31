@@ -70,8 +70,13 @@ const tool = (name: string, input: object): Partial<GenerateResponse> => ({
   stopReason: 'tool_use',
   toolCalls: [{ id: `c-${name}`, name, input }],
 });
-const final = (reply: string, extra: object = {}) => ({
-  text: JSON.stringify({ outcome: 'answer', reply, sources: [], ...extra }),
+const final = (reply: string) => ({ text: reply });
+const send = (imageIds: string[], text?: string): Partial<GenerateResponse> => ({
+  text: '',
+  stopReason: 'tool_use',
+  toolCalls: [
+    { id: 'c-send', name: 'send_message', input: { imageIds, ...(text ? { text } : {}) } },
+  ],
 });
 
 function build(
@@ -124,10 +129,11 @@ const body = (req: GenerateRequest | undefined) => JSON.stringify(req?.messages.
 afterEach(() => vi.restoreAllMocks());
 
 describe('the reply pipeline answers from catalog tools', () => {
-  it('searches, feeds the result back and grounds the price on it', async () => {
+  it('searches, feeds the result back, sends a picture and answers in free text', async () => {
     const { fake, catalog, runs, svc } = build([
       tool('search_products', { query: 'thu go' }),
-      final('Dạ bộ thú gỗ giá 350.000đ ạ.', { imageIds: ['p:toy-1:1'] }),
+      send(['p:toy-1:1']),
+      final('Dạ bộ thú gỗ giá 350.000đ ạ.'),
     ]);
     const res = await svc.playground(ws, botId, ask('có đồ chơi gỗ cho bé 2 tuổi không'));
 
@@ -142,10 +148,12 @@ describe('the reply pipeline answers from catalog tools', () => {
       { botId, catalogMode: 'selected' },
       { query: 'thu go', limit: 8 },
     );
-    expect(fake.calls).toHaveLength(2);
+    expect(fake.calls).toHaveLength(3);
     expect(fake.calls[0]?.tools?.map((t) => t.name)).toEqual([
       'search_products',
       'product_details',
+      'send_message',
+      'handoff',
     ]);
     const second = fake.calls[1]?.messages ?? [];
     expect(second.at(-2)).toMatchObject({
@@ -161,19 +169,17 @@ describe('the reply pipeline answers from catalog tools', () => {
     expect(runs.runs[0]).toMatchObject({
       productIds: ['toy-1'],
       conversationId: playgroundConversationId(botId),
-      promptVersion: 'sales-agent@11',
+      promptVersion: 'sales-agent@13',
       isTest: true,
     });
-    expect(res.usage).toEqual({ inputTokens: 20, outputTokens: 10, cachedInputTokens: 0 });
-  });
-
-  it('does not trust a price the tools never returned', async () => {
-    const { svc } = build([
-      tool('search_products', { query: 'thu go' }),
-      final('Dạ giá 299.000đ ạ.'),
+    expect(res.usage).toEqual({ inputTokens: 30, outputTokens: 15, cachedInputTokens: 0 });
+    expect(res.steps?.map((s) => `${s.kind}:${s.name ?? ''}`)).toEqual([
+      'model_call:',
+      'tool:search_products',
+      'model_call:',
+      'tool:send_message',
+      'model_call:',
     ]);
-    const res = await svc.playground(ws, botId, ask('thú gỗ giá sao'));
-    expect(res).toMatchObject({ outcome: 'fallback', guardrail: 'ungrounded_figure:299.000d' });
   });
 
   it('answers a follow-up from the focus products without a tool call', async () => {
@@ -217,7 +223,7 @@ describe('the reply pipeline answers from catalog tools', () => {
         tier: 'smart',
         provider: 'p',
         model: 'm',
-        promptVersion: 'sales-agent@11',
+        promptVersion: 'sales-agent@13',
         inputTokens: 0,
         outputTokens: 0,
         cachedTokens: 0,
@@ -247,7 +253,7 @@ describe('the reply pipeline answers from catalog tools', () => {
       tier: 'smart',
       provider: 'p',
       model: 'm',
-      promptVersion: 'sales-agent@11',
+      promptVersion: 'sales-agent@13',
       inputTokens: 0,
       outputTokens: 0,
       cachedTokens: 0,
@@ -272,27 +278,10 @@ describe('the reply pipeline answers from catalog tools', () => {
       guardrail: 'tool_loop_limit',
       reply: 'fallback',
     });
-    expect(fake.calls).toHaveLength(5);
-    expect(fake.calls[4]?.toolChoice).toBe('none');
+    // 10 rounds, then one call with tools forbidden.
+    expect(fake.calls).toHaveLength(11);
+    expect(fake.calls[10]?.toolChoice).toBe('none');
     expect(runs.runs[0]?.guardrail).toBe('tool_loop_limit');
-  });
-
-  it('retries a malformed final reply once with the format reminder and tools forbidden', async () => {
-    const { fake, svc } = build([
-      tool('search_products', { query: 'thu go' }),
-      { text: 'Dạ có bộ thú gỗ ạ' },
-      final('Dạ bộ thú gỗ giá 350.000đ ạ.'),
-    ]);
-    const res = await svc.playground(ws, botId, ask('thú gỗ giá sao'));
-    expect(res.outcome).toBe('answered');
-    expect(fake.calls).toHaveLength(3);
-    const retry = fake.calls[2] as GenerateRequest;
-    expect(String(retry.messages[0]?.content)).toContain('previous reply was not a JSON object');
-    expect(String(fake.calls[1]?.messages[0]?.content)).not.toContain('previous reply was not');
-    expect(retry.toolChoice).toBe('none');
-    expect(retry.tools?.length).toBeGreaterThan(0);
-    expect(retry.messages.at(-1)).toMatchObject({ role: 'tool', name: 'search_products' });
-    expect(res.usage.inputTokens).toBe(30);
   });
 
   it('tells the model only that a tool failed, and logs the tool name and error class only', async () => {
@@ -312,7 +301,7 @@ describe('the reply pipeline answers from catalog tools', () => {
     expect(logged).not.toContain('0912345678');
   });
 
-  it('fetches the products of tool results only when pictures were requested', async () => {
+  it('never fetches tool-result products again: their pictures come with the tool rows', async () => {
     const { catalog, svc } = build([tool('search_products', { query: 'thu go' }), final('Dạ ạ.')]);
     await svc.playground(ws, botId, ask('thú gỗ'));
     expect(catalog.getBotProductsByIds).not.toHaveBeenCalled();
@@ -329,7 +318,8 @@ describe('the reply pipeline answers from catalog tools', () => {
         tool('search_products', { query: 'thu go' }),
         tool('product_details', { ids: ['toy-4', 'toy-5', 'toy-6'] }),
         tool('product_details', { ids: ['toy-7'] }),
-        final('Dạ bộ thú gỗ giá 350.000đ ạ.', { imageIds: ['p:toy-1:0', 'p:toy-7:0'] }),
+        send(['p:toy-1:0', 'p:toy-7:0']),
+        final('Dạ bộ thú gỗ giá 350.000đ ạ.'),
       ],
       undefined,
       pool,
@@ -341,7 +331,7 @@ describe('the reply pipeline answers from catalog tools', () => {
     ]);
   });
 
-  it('declares no tools for a bot without a catalog or actions', async () => {
+  it('declares only the output tools for a bot without a catalog or actions', async () => {
     const fake = new FakeLlmProvider('dev-fake', () => final('Dạ ạ.'));
     const factory: LlmProviderFactory = {
       create: () => fake as LlmProvider,
@@ -359,7 +349,7 @@ describe('the reply pipeline answers from catalog tools', () => {
       new InMemoryAiRunRepository(),
     );
     await svc.playground(ws, botId, ask('chào'));
-    expect(fake.calls[0]?.tools).toBeUndefined();
+    expect(fake.calls[0]?.tools?.map((t) => t.name)).toEqual(['send_message', 'handoff']);
     expect(fake.calls[0]?.toolChoice).toBeUndefined();
   });
 });

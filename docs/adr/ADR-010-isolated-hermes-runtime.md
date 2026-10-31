@@ -1,6 +1,7 @@
 # ADR-010: Isolate the inherited Hermes AI runtime behind a private bridge
 
 - Status: Accepted (owner, 2026-10-24, merging PR #40)
+- Partly superseded by [ADR-015](ADR-015-agent-harness-v2.md) (2026-10-31): the bridge now carries native tool calls (it still never executes them), and Hermes is only the development pipe to ChatGPT; production uses the OpenAI API.
 - Date: 2026-10-24
 - Decision makers: thienlng (maintainer); implementation requested by the owner
 

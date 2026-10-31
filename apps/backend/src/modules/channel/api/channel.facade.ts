@@ -16,6 +16,9 @@ export interface PendingMetaEvent {
   attempt: number;
 }
 export const MAX_EVENT_ATTEMPTS = 3;
+/** A customer's messages are answered together once they pause this long (or after the max wait). */
+export const EVENT_QUIET_MS = 700;
+export const EVENT_MAX_WAIT_MS = 4000;
 type OutboundAttachment = { type: 'image' | 'video' | 'audio' | 'file'; url: string };
 /** Either text or attachments (one, or several delivered as one album), as Meta accepts per message. */
 export interface OutboundInboxMessage {
@@ -93,7 +96,11 @@ export interface ChannelFacade {
   deadLetterExhaustedEvents(): Promise<string[]>;
   /** Ends a failed attempt early so the next claim can retry after `retryInMs` instead of the full lease. */
   releaseEvent(id: string, claimToken: string, retryInMs: number): Promise<void>;
-  /** Hands the event back without spending an attempt, to be answered together with newer messages. */
+  /**
+   * Hands the event back without spending an attempt, to be answered together with newer messages.
+   * It stays leased for one quiet window (EVENT_QUIET_MS + 50 ms) so it is never re-claimed alone
+   * before the newer message's own quiet window has passed.
+   */
   requeueEvent(id: string, claimToken: string): Promise<void>;
   /** Whether the same customer wrote again after this event (its answer would already be stale). */
   hasNewerCustomerEvent(

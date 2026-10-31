@@ -65,10 +65,9 @@ expect:
   contains_all: ['chị', '340.000']
   not_contains: ['anh/chị', 'anh/ chị']
   numbers_only_from_sources: true
-  fake_tool_calls:
-    - { name: search_products, arguments: { query: 'Thú gỗ xếp thăng bằng' } }
-  fake_reply:
-    outcome: answer
-    reply: 'Dạ bộ Thú gỗ xếp thăng bằng giá 340.000đ chị ạ, bé từ 1 tuổi chơi được.'
-    sources: []
-    imageIds: []
+fake_turns:
+  - tool_calls:
+      - name: 'search_products'
+        input:
+          query: 'Thú gỗ xếp thăng bằng'
+  - text: 'Dạ bộ Thú gỗ xếp thăng bằng giá 340.000đ chị ạ, bé từ 1 tuổi chơi được.'

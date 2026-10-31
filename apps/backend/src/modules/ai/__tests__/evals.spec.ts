@@ -6,7 +6,7 @@ import { LlmRuntime } from '../application/llm-runtime.js';
 import { InMemoryLlmConfigRepository } from '../infrastructure/persistence/llm-config.in-memory-repository.js';
 import { loadCases, parseCase } from '../evals/load.js';
 import { buildReport, renderMarkdown, renderText } from '../evals/report.js';
-import { evalCatalog, fakeReplyText, fakeRuntime, runCase, runCaseFake } from '../evals/runner.js';
+import { evalCatalog, fakeRuntime, fakeScript, runCase, runCaseFake } from '../evals/runner.js';
 
 const cases = loadCases();
 
@@ -19,7 +19,8 @@ conversation:
 expect:
   outcome: answered
   contains_any: ["6 tháng"]
-  fake_reply: { outcome: answer, reply: "Dạ bảo hành 6 tháng ạ.", sources: [] }
+fake_turns:
+  - text: "Dạ bảo hành 6 tháng ạ."
 `;
 
 describe('eval case format', () => {
@@ -52,7 +53,7 @@ describe('eval case format', () => {
 });
 
 describe('eval suite (fake mode)', () => {
-  it('has unique ids, a critical tag on the unknown and injection cases, and at least 20 cases', () => {
+  it('has unique ids, a critical tag on the unknown, injection and harness v2 cases, and at least 20 cases', () => {
     expect(cases.length).toBeGreaterThanOrEqual(20);
     expect(new Set(cases.map((c) => c.id)).size).toBe(cases.length);
     const critical = new Set(cases.filter((c) => c.tags.includes('critical')).map((c) => c.id));
@@ -63,6 +64,9 @@ describe('eval suite (fake mode)', () => {
       'hotel-pets-unknown',
       'retail-injection-discount',
       'hotel-injection-from-notes',
+      'tinymind-several-products-own-pictures',
+      'tinymind-check-follow-up-no-promise',
+      'villas-long-conversation-recalls-phone',
     ])
       expect(critical.has(id), id).toBe(true);
   });
@@ -81,8 +85,8 @@ describe('eval suite (fake mode)', () => {
     const results = await Promise.all(cases.map(runCaseFake));
     const report = buildReport('fake', results);
     expect(report.gate).toBe('pass');
-    expect(report.promptVersion).toContain('sales-agent@11');
-    expect(report.promptVersion).toContain('sales-agent@12');
+    expect(report.promptVersion).toContain('sales-agent@13');
+    expect(report.promptVersion).toContain('sales-agent@14');
     expect(report.passed).toBe(report.total);
     expect(report.groups.map((g) => g.group)).toContain('safety');
     expect(renderText(report)).toContain('Critical:');
@@ -106,41 +110,47 @@ describe('eval report gate', () => {
 });
 
 describe('eval guardrail visibility', () => {
+  /** A model that never stops calling tools: the pipeline ends in the fallback (tool_loop_limit). */
+  const looping = () =>
+    fakeRuntime(() => ({
+      text: '',
+      stopReason: 'tool_use' as const,
+      toolCalls: [{ id: 'loop', name: 'handoff_unknown', input: {} }],
+    }));
+
   it('guardrail: none fails a case the guardrail rescued, and the report shows the guardrail', async () => {
     const rescued = parseCase(
-      MINIMAL.replace('Dạ bảo hành 6 tháng ạ.', 'Dạ bảo hành 6 tháng, giá 299k ạ.').replace(
-        '  outcome: answered\n',
-        '  guardrail: none\n',
-      ),
+      MINIMAL.replace('  outcome: answered\n  contains_any: ["6 tháng"]\n', '  guardrail: none\n'),
     );
-    const result = await runCaseFake(rescued);
+    const result = await runCase(rescued, looping());
     expect(result.pass).toBe(false);
-    expect(result.checks.find((c) => c.name === 'guardrail')?.detail).toContain(
-      'ungrounded_figure',
+    expect(result.checks.find((c) => c.name === 'guardrail')?.detail).toMatch(
+      /tool_loop_limit|invalid_tools/,
     );
   });
 
   it('shows a fired guardrail even when the case does not assert it', async () => {
-    const result = await runCaseFake(
+    const result = await runCase(
       parseCase(
-        MINIMAL.replace('Dạ bảo hành 6 tháng ạ.', 'Dạ giá 299k ạ.').replace(
+        MINIMAL.replace(
           '  outcome: answered\n  contains_any: ["6 tháng"]\n',
           '  outcome: fallback\n',
         ),
       ),
+      looping(),
     );
     expect(result.pass).toBe(true);
     const report = buildReport('fake', [result]);
-    expect(renderText(report)).toContain('guardrail fired: ungrounded_figure');
-    expect(renderMarkdown(report)).toContain('PASS via guardrail: ungrounded_figure');
+    expect(renderText(report)).toMatch(/guardrail fired: (tool_loop_limit|invalid_tools)/);
+    expect(renderMarkdown(report)).toMatch(/PASS via guardrail: (tool_loop_limit|invalid_tools)/);
   });
 });
 
 describe('eval runner', () => {
   const sample = parseCase(MINIMAL);
 
-  it('sends the case through the real prompt: profile block, customer text, prompt @11', async () => {
-    const provider = new FakeLlmProvider('dev-fake', () => ({ text: fakeReplyText(sample) }));
+  it('sends the case through the real prompt: profile block, customer text, prompt @13', async () => {
+    const provider = new FakeLlmProvider('dev-fake', fakeScript(sample));
     const llm = new LlmRuntime(new InMemoryLlmConfigRepository(), {
       create: () => provider,
       hermesLogin: () => {
@@ -165,23 +175,28 @@ describe('eval runner', () => {
     expect(result.reply).toContain('một năm');
   });
 
-  it('shows the guardrail when the pipeline replaces an ungrounded figure', async () => {
+  it('lets the numbers check catch an ungrounded figure the pipeline now sends as written', async () => {
     const bad = parseCase(
-      MINIMAL.replace('Dạ bảo hành 6 tháng ạ.', 'Dạ bảo hành 6 tháng, giá 299k ạ.'),
+      MINIMAL.replace('Dạ bảo hành 6 tháng ạ.', 'Dạ bảo hành 6 tháng, giá 299k ạ.').replace(
+        'contains_any: ["6 tháng"]',
+        'contains_any: ["6 tháng"]\n  numbers_only_from_sources: true',
+      ),
     );
     const result = await runCaseFake(bad);
-    expect(result).toMatchObject({ outcome: 'fallback', pass: false });
-    expect(result.guardrail).toContain('ungrounded_figure');
+    expect(result).toMatchObject({ outcome: 'answered', guardrail: null, pass: false });
+    expect(result.checks.filter((c) => !c.pass).map((c) => c.name)).toEqual([
+      'numbers_only_from_sources',
+    ]);
   });
 
-  it('fails (not throws) when fake mode has no fake_reply or the model call errors', async () => {
-    const noFake = parseCase(MINIMAL.replace(/ {2}fake_reply:.*\n/, ''));
+  it('fails (not throws) when fake mode has no fake_turns or the model call errors', async () => {
+    const noFake = parseCase(MINIMAL.replace(/fake_turns:\n.*\n/, ''));
     const missing = await runCaseFake(noFake);
-    expect(missing).toMatchObject({ pass: false, error: expect.stringContaining('fake_reply') });
+    expect(missing).toMatchObject({ pass: false, error: expect.stringContaining('fake_turns') });
 
     const llm = fakeRuntime(() => {
       throw new Error('provider down');
-    }, sample);
+    });
     const failed = await runCase(sample, llm);
     expect(failed).toMatchObject({ pass: false, error: expect.any(String) });
   });
@@ -196,32 +211,88 @@ describe('eval fake model and catalog', () => {
 conversation:`,
   );
 
-  it('browses the catalog first when the case has products, so prices are grounded', async () => {
+  const withTurns = (source: string, turns: string) =>
+    source.replace(/fake_turns:\n[\s\S]*$/, `fake_turns:\n${turns}\n`);
+
+  it('replays the scripted turns in order: a catalog browse, then the grounded answer', async () => {
     const c = parseCase(
-      WITH_PRODUCTS.replace('bảo hành bao lâu', 'xe kéo giá sao')
-        .replace('Dạ bảo hành 6 tháng ạ.', 'Dạ xe kéo gỗ giá 220.000đ ạ.')
-        .replace('contains_any: ["6 tháng"]', 'contains_any: ["220.000"]'),
+      withTurns(
+        WITH_PRODUCTS.replace('bảo hành bao lâu', 'xe kéo giá sao').replace(
+          'contains_any: ["6 tháng"]',
+          'contains_any: ["220.000"]',
+        ),
+        `  - tool_calls: [{ name: search_products, input: {} }]
+  - text: "Dạ xe kéo gỗ giá 220.000đ ạ."`,
+      ),
     );
     const result = await runCaseFake(c);
     expect(result.pass).toBe(true);
     expect(result.modelCalls).toBe(2);
   });
 
-  it('counts one model call for a case without tools and reports the pictures sent', async () => {
+  it('counts one model call for a case without tools and checks the delivered messages', async () => {
     const plain = await runCaseFake(parseCase(MINIMAL));
-    expect(plain.modelCalls).toBe(1);
+    expect(plain).toMatchObject({ modelCalls: 1, messages: 1, images: 0 });
     const c = parseCase(
-      WITH_PRODUCTS.replace(
-        'expect:',
-        'expect:\n  images_min: 1\n  fake_tool_calls: [{ name: search_products, arguments: { query: "thu go" } }]',
-      ).replace(
-        '"Dạ bảo hành 6 tháng ạ.", sources: []',
-        '"Dạ bảo hành 6 tháng ạ.", sources: [], imageIds: ["p:eval-product-1:0"]',
+      withTurns(
+        WITH_PRODUCTS.replace(
+          'expect:',
+          'expect:\n  images_min: 1\n  messages_min: 2\n  image_messages_min: 1\n  images_per_message_max: 1',
+        ),
+        `  - tool_calls: [{ name: search_products, input: { query: "thu go" } }]
+  - tool_calls: [{ name: send_message, input: { text: "Thú gỗ xếp thăng bằng", imageIds: ["p:eval-product-1:0"] } }]
+  - text: "Dạ bảo hành 6 tháng ạ."`,
       ),
     );
     const result = await runCaseFake(c);
-    expect(result.images).toBe(1);
-    expect(result.pass).toBe(true);
+    expect(result).toMatchObject({ images: 1, messages: 2, modelCalls: 3, pass: true });
+    expect(result.reply).toBe('Thú gỗ xếp thăng bằng\nDạ bảo hành 6 tháng ạ.');
+  });
+
+  it('fails the message checks on what each delivered message carried', async () => {
+    const c = parseCase(
+      withTurns(
+        WITH_PRODUCTS.replace(
+          'expect:',
+          'expect:\n  messages_min: 3\n  image_messages_min: 2\n  images_per_message_max: 0',
+        ),
+        `  - tool_calls: [{ name: search_products, input: { query: "thu go" } }]
+  - tool_calls: [{ name: send_message, input: { imageIds: ["p:eval-product-1:0"] } }]
+  - text: "Dạ bảo hành 6 tháng ạ."`,
+      ),
+    );
+    const result = await runCaseFake(c);
+    expect(result.pass).toBe(false);
+    expect(result.checks.filter((x) => !x.pass).map((x) => x.name)).toEqual([
+      'messages_min',
+      'image_messages_min',
+      'images_per_message_max',
+    ]);
+  });
+
+  it('ends a turn with handoff: the lead-in text, then the bot handoff message', async () => {
+    const c = parseCase(
+      withTurns(
+        MINIMAL.replace(
+          '  outcome: answered\n  contains_any: ["6 tháng"]\n',
+          '  outcome: handoff\n',
+        ),
+        `  - text: "Dạ em đã ghi nhận ạ."
+    tool_calls: [{ name: handoff, input: { reason: "customer asked for staff" } }]`,
+      ),
+    );
+    const result = await runCaseFake(c);
+    expect(result).toMatchObject({ outcome: 'handoff', pass: true, modelCalls: 1 });
+    expect(result.reply).toContain('Dạ em đã ghi nhận ạ.');
+    expect(result.reply).toContain('chuyển cuộc trò chuyện cho nhân viên');
+  });
+
+  it('fails (not throws) when the model asks for a turn the case did not script', async () => {
+    const c = parseCase(
+      withTurns(MINIMAL, '  - tool_calls: [{ name: search_products, input: {} }]'),
+    );
+    const result = await runCaseFake(c);
+    expect(result).toMatchObject({ pass: false, error: expect.stringContaining('fake_turns') });
   });
 
   it('ranks the product named in the query first, ignoring accents', async () => {
@@ -254,5 +325,43 @@ conversation:`,
     expect(
       await catalog.searchBotCatalog(ws, scope, { query: 'kem chong nang', limit: 8 }),
     ).toEqual([]);
+  });
+});
+
+describe('eval long conversation (history compression)', () => {
+  const long = cases.find((c) => c.id === 'villas-long-conversation-recalls-phone');
+
+  it('compresses a history over 24 000 chars and keeps the early phone number in the summary', async () => {
+    expect(long).toBeDefined();
+    const c = long as NonNullable<typeof long>;
+    const chars = c.conversation.reduce(
+      (n, t) => n + ('customer' in t ? t.customer : t.bot).length,
+      0,
+    );
+    expect(chars).toBeGreaterThan(24_000);
+    const first = c.conversation[0];
+    expect(first && 'customer' in first ? first.customer : '').toContain('0987 654 321');
+
+    const requests: GenerateRequest[] = [];
+    const script = fakeScript(c);
+    const result = await runCase(
+      c,
+      fakeRuntime((req) => {
+        requests.push(req);
+        return script(req);
+      }),
+    );
+    expect(result.pass).toBe(true);
+    const summarizer = requests.filter((r) => !r.tools?.length);
+    expect(summarizer).toHaveLength(1);
+    const answer = requests.find((r) => r.tools?.length);
+    const context = answer?.messages.map((m) => m.content).join('\n') ?? '';
+    expect(context).toMatch(
+      /<earlier_conversation_summary>[\s\S]*0987 654 321[\s\S]*<\/earlier_conversation_summary>/,
+    );
+    // The first turns themselves were folded into the summary.
+    expect(context).not.toContain(
+      `<customer>\n${first && 'customer' in first ? first.customer : ''}`,
+    );
   });
 });

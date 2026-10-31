@@ -7,13 +7,22 @@ export interface CheckResult {
   detail: string;
 }
 
+/** One message the bot delivered this turn: its text and how many pictures it carried. */
+export interface DeliveredMessage {
+  text: string;
+  images: number;
+}
+
 export interface CheckInput {
+  /** Every delivered message's text, joined by line breaks (what the customer read). */
   reply: string;
   outcome: EvalOutcome;
-  /** The guardrail the pipeline fired (e.g. `ungrounded_figure:299k`), null when none. */
+  /** The guardrail the pipeline fired (e.g. `interrupted`), null when none. */
   guardrail?: string | null;
-  /** How many pictures were sent with the reply. */
+  /** Pictures sent in the turn, every message together. */
   images?: number;
+  /** The delivered messages in order (`send_message` ones, then the final one). */
+  messages?: readonly DeliveredMessage[];
   customerTexts: readonly string[];
   /** Everything the reply may state figures from: profile, notes, FAQs, situations, products. */
   trusted: readonly string[];
@@ -47,8 +56,28 @@ export function runChecks(expected: EvalExpect, input: CheckInput): CheckResult[
     add(
       'images_min',
       sent >= expected.images_min,
-      `${sent} images sent, min ${expected.images_min}`,
+      `${sent} pictures sent, min ${expected.images_min}`,
     );
+  }
+  const messages = input.messages ?? [];
+  if (expected.messages_min !== undefined)
+    add(
+      'messages_min',
+      messages.length >= expected.messages_min,
+      `${messages.length} messages delivered, min ${expected.messages_min}`,
+    );
+  if (expected.image_messages_min !== undefined) {
+    const withImages = messages.filter((m) => m.images > 0).length;
+    add(
+      'image_messages_min',
+      withImages >= expected.image_messages_min,
+      `${withImages} messages with pictures, min ${expected.image_messages_min}`,
+    );
+  }
+  if (expected.images_per_message_max !== undefined) {
+    const max = expected.images_per_message_max;
+    const most = Math.max(0, ...messages.map((m) => m.images));
+    add('images_per_message_max', most <= max, `at most ${most} pictures in a message, max ${max}`);
   }
   if (expected.contains_any) {
     const hit = expected.contains_any.find((s) => reply.includes(norm(s)));

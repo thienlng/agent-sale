@@ -23,9 +23,5 @@ expect:
   contains_any: ['COD']
   not_contains: ["\\n"]
   numbers_only_from_sources: true
-  fake_reply:
-    {
-      outcome: answer,
-      reply: 'Dạ được ạ, shop giao toàn quốc và nhận thanh toán khi nhận hàng (COD) ạ.',
-      sources: [],
-    }
+fake_turns:
+  - text: 'Dạ được ạ, shop giao toàn quốc và nhận thanh toán khi nhận hàng (COD) ạ.'

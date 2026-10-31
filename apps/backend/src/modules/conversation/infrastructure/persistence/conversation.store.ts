@@ -117,6 +117,19 @@ export class DrizzleConversationStore implements ConversationStore {
             .for('update');
           return r ? toView(r) : null;
         },
+        async peekControl(id) {
+          const [r] = await tx
+            .select({ mode: c.mode, status: c.status })
+            .from(c)
+            .where(and(eq(c.workspaceId, ws), eq(c.id, id)));
+          // Index columns derived from the document on every save (see indexColumns).
+          return r
+            ? {
+                mode: r.mode as ConversationView['mode'],
+                status: r.status as ConversationView['status'],
+              }
+            : null;
+        },
         async findPeer(channelId, customerId) {
           const [r] = await tx
             .select()

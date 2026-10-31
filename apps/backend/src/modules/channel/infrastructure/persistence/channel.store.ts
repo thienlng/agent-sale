@@ -9,13 +9,10 @@ import type {
   PendingMetaEvent,
 } from '../../application/ports/channel-store.js';
 import { ChannelError } from '../../domain/channel.errors.js';
-import { MAX_EVENT_ATTEMPTS } from '../../api/channel.facade.js';
+import { EVENT_MAX_WAIT_MS, EVENT_QUIET_MS, MAX_EVENT_ATTEMPTS } from '../../api/channel.facade.js';
 import { connection, flow } from './record-mappers.js';
 import { findDiscovery, selectDiscoveredAccounts } from './oauth-discovery.js';
 import { enqueueWebsiteEvent, findWebsiteRecord, hasPendingMessage } from './website.store.js';
-/** A customer's messages are answered together once they pause this long (or after the max wait). */
-export const EVENT_QUIET_MS = 700;
-export const EVENT_MAX_WAIT_MS = 4000;
 const c = schema.channelConnections,
   f = schema.channelOauthFlows,
   e = schema.channelWebhookEvents;
@@ -240,7 +237,12 @@ export class DrizzleChannelStore implements ChannelStore {
     await withSystem(this.system, async (tx) => {
       await tx
         .update(e)
-        .set({ leaseUntil: null, attempts: sql`greatest(${e.attempts} - 1, 0)` })
+        // Held back one quiet window: the newer message that interrupted this event clears its
+        // own quiet window first, so the next claim takes both together (never the old one alone).
+        .set({
+          leaseUntil: sql`now() + ${`${EVENT_QUIET_MS + 50} milliseconds`}::interval`,
+          attempts: sql`greatest(${e.attempts} - 1, 0)`,
+        })
         .where(and(eq(e.id, id), eq(e.claimToken, claimToken), sql`${e.processedAt} is null`));
     });
   }

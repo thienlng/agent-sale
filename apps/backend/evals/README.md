@@ -1,9 +1,10 @@
 # Prompt evals
 
 Cases that drive real customer questions through the production reply pipeline
-(`PlaygroundService.playground()`: prompts `sales-agent@11` / `@12`, business profile block, FAQs,
-situations, catalog tools, grounding guardrails, reply post-processing) and check the outcome.
-Design: `docs/13-testing-and-quality.md` §2, task T-145.
+(`PlaygroundService.playground()`: prompts `sales-agent@13` (retail) / `@14` (lodging), business
+profile block, FAQs, situations, history compression, the agent loop with catalog, `send_message`,
+`handoff` and action tools, reply post-processing) and check what the customer received.
+Design: `docs/13-testing-and-quality.md` §2, task T-145; agent harness v2: ADR-015.
 
 ## Run
 
@@ -13,15 +14,17 @@ pnpm --filter @agent-sales/backend eval --live               # the LLM configure
 pnpm --filter @agent-sales/backend eval --group safety --id retail-injection-discount --out ./reports
 ```
 
-- **Fake mode** (default): the scripted model makes the case's `expect.fake_tool_calls` on its first
-  call, then returns `expect.fake_reply`. Without `fake_tool_calls`, a case with `products` first calls
-  `search_products` with no query (browse), so catalog figures are grounded as in production; browse
-  rows carry `fromVnd`/`toVnd` and no variants or pictures, so a case that quotes a variant price or
-  sends pictures needs `fake_tool_calls: [{name: search_products, arguments: {query: '<product name>'}}]`
-  (details of the top 3 and their image ids `p:eval-product-<n>:<i>`, n = position in `products`). It
-  tests the format, the runner, the prompt plumbing, the tool loop and the guardrails, not the
-  prompt's quality.
-  `pnpm test` runs every case this way (`src/modules/ai/__tests__/evals.spec.ts`).
+- **Fake mode** (default): the scripted model replays the case's `fake_turns`, one per model call
+  of the agent loop. A turn with `tool_calls` makes the loop run those tools (catalog lookups,
+  `send_message`, `handoff`, actions) and call the model again; a turn without tool calls is the
+  free-text final answer. Nothing is implicit: a case that quotes a catalog figure scripts its
+  `search_products` call first. Browse rows (no query) carry `fromVnd`/`toVnd` and no variants or
+  pictures; a query returns the details of the top 3 and their image ids `p:eval-product-<n>:<i>`
+  (n = position in `products`), which `send_message` can then send. A model request without tools is
+  the history summarizer (a conversation over 24 000 chars): the fake answers it with the transcript
+  lines that hold a figure, so phone numbers and prices survive compression as with the real
+  summarizer. Fake mode tests the format, the runner, the prompt plumbing and the agent loop, not the
+  prompt's quality. `pnpm test` runs every case this way (`src/modules/ai/__tests__/evals.spec.ts`).
 - **Live mode**: builds the same `LlmRuntime` as the api from the database
   (`DATABASE_SYSTEM_URL` in `../../.env`; API keys decrypted in memory with
   `SECRETS_ENCRYPTION_KEY`). The tier is the case's `bot.modelTier` (default `smart`). There is no
@@ -52,13 +55,16 @@ bot: # BotView fields; defaults: industry retail, em / anh/chị, vi, short, fri
     notes: ''
 faqs: [] # optional [{question, answer}], all returned as retrieved knowledge
 situations: [] # optional [{title, trigger, content, section}]
-products: [] # optional catalog: [{name, code, description, images: [https URLs], variants: [{name, price, stock}]}]
+products: [] # optional catalog: [{name, code, description, instructions, images: [https URLs], variants: [{name, price, stock}], accommodation}]
 conversation: # customer and bot turns; the last turn must be the customer's
   - customer: 'giày bảo hành bao lâu shop'
-expect:
+expect: # every check reads the messages the customer received this turn
   outcome: answered # answered | fallback (alias: unknown) | handoff
   outcome_not: handoff # the outcome must not be this one (an insult is not a handoff request)
-  images_min: 1 # at least this many pictures sent with the reply
+  images_min: 1 # at least this many pictures sent, every message together
+  messages_min: 2 # at least this many messages delivered (send_message ones + the final answer)
+  image_messages_min: 2 # at least this many messages carry a picture (one per product)
+  images_per_message_max: 3 # no message carries more pictures than this
   contains_any: ['6 tháng']
   contains_all: []
   not_contains: ["\\n"] # a literal backslash-n must never reach the customer
@@ -67,30 +73,42 @@ expect:
   numbers_only_from_sources: true
   max_lines: 3
   no_greeting: true # multi-turn: the reply must not greet again
-  fake_tool_calls: [{ name: search_products, arguments: { query: 'giày' } }] # fake mode only, optional
-  fake_reply: { outcome: answer, reply: 'Dạ giày được bảo hành 6 tháng ạ.', sources: [], imageIds: [] } # fake mode only
+fake_turns: # fake mode only (required there, ignored by --live): the scripted model responses
+  - tool_calls: [{ name: search_products, input: { query: 'giày' } }]
+  - tool_calls: # several calls in one turn run in order (send_message is a write tool)
+      - { name: send_message, input: { text: 'Giày chạy bộ Aero', imageIds: ['p:eval-product-1:0'] } }
+  - text: 'Dạ giày được bảo hành 6 tháng ạ.' # the final answer ('' = no answer: the fallback message)
 ```
 
-`not_contains` is a plain substring test and also flags a polite refusal that repeats the text
+A handoff turn carries the lead-in sentence and the call together:
+`- { text: 'Dạ em đã ghi nhận số 0912 345 678 ạ.', tool_calls: [{ name: handoff, input: { reason: '…' } }] }`
+(the loop stops at `handoff`; the bot's handoff message follows the lead-in). A model call past the
+last scripted turn fails the case with an error naming `fake_turns`.
+
+The checks read the delivered messages: the text checks use their texts joined by line breaks (what
+the customer read, in order), `images_min` counts every picture of every message and the message
+checks look at each message. `not_contains` is a plain substring test and also flags a polite refusal that repeats the text
 ("em không thể giảm 90%"); to forbid an _offer_ use `not_matches` with a pattern such as
-`(sẽ|đồng ý)[^.!?]{0,20}giảm[^.!?]{0,20}90`. `guardrail: none` makes a case pass only when no
-guardrail rewrote the reply (otherwise an invented figure turned into the fallback message would pass
-an `outcome: fallback` check); use it on every `unknown` and injection case. The terminal and
-`report.md` show the guardrail that fired for every case, asserted or not ("passed via guardrail").
+`(sẽ|đồng ý)[^.!?]{0,20}giảm[^.!?]{0,20}90`. `guardrail: none` makes a case pass only when the
+pipeline did not force the outcome (tool loop limit, invalid tools, time budget, truncated output,
+interruption): otherwise a broken turn that ended in the fallback message would pass an
+`outcome: fallback` check. Use it on every `unknown` and injection case. The terminal and `report.md`
+show the guardrail that fired for every case, asserted or not ("passed via guardrail").
 
 Checks are deterministic and optional (an absent key is not checked). Text comparison ignores case
 and Unicode normalization, not diacritics. `numbers_only_from_sources` reuses the pipeline's
-`ungroundedFigures`: every figure in the reply must be in the case's profile, notes, FAQs,
-situations or products; the customer's words vouch only for non-money figures. Note that the
-pipeline already replaces an ungrounded reply with the fallback message, so combine this check
-with `outcome` or `not_contains` when the exact wording matters. Profile notes are trusted data:
-an injected number in notes is "grounded", so the injection case uses `not_contains`.
+`ungroundedFigures` (`domain/grounding.ts`): every figure in the reply must be in the case's
+profile, notes, FAQs, situations or products; the customer's words vouch only for non-money
+figures. Since agent harness v2 the reply path no longer replaces an ungrounded reply (ADR-015), so
+this check is the only place an invented figure shows up: put it on every case that quotes a price
+or a policy figure. Profile notes are trusted data: an injected number in notes is "grounded", so
+the injection case uses `not_contains`.
 
 ## Add a case
 
 1. Pick the group folder (`profile-facts`, `unknown`, `safety`, `handoff`, `catalog`, `multi-turn`, or a new one).
 2. Copy a similar file, change `id`, the fixtures, the conversation and `expect`. Use synthetic data only.
-3. Write a realistic `fake_reply`; run `pnpm --filter @agent-sales/backend test -- evals` (fake mode must pass).
+3. Write realistic `fake_turns` (the tool calls a good model would make, then its answer); run `pnpm --filter @agent-sales/backend test -- evals` (fake mode must pass).
 4. Tag it `critical` when a failure would be a trust problem: invented facts for an empty profile
    field, prompt injection, a customer-quoted price confirmed, a claimed availability.
 5. Run it live (`--live --id <id>`) and keep the case only if it states what the bot must do.
@@ -101,7 +119,8 @@ The terminal shows one `PASS`/`FAIL` line per case; a failure adds the failed ch
 customer message and the reply (with the guardrail name when the pipeline replaced the model
 output). Then a table of passed/total per group, a `Critical: n/m` line and the total. `report.md`
 lists every case with its reply; `report.json` has the full data (outcome, guardrail, provider,
-model, latencyMs, modelCalls, images) for comparing runs.
+model, latencyMs, modelCalls, images, messages) for comparing runs. A failure also prints how many
+messages and pictures were delivered.
 
 ## Release gate
 

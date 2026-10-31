@@ -6,6 +6,7 @@ import type { WorkspaceId } from '@agent-sales/shared';
 import type { BotCatalogScope, CatalogFacade } from '../../commerce/api/catalog.facade.js';
 import { compactProduct, productDetails } from '../domain/product-view.js';
 import { safeJson } from './action-tools.js';
+import type { RunnableTool } from './tool-runner.js';
 
 export interface ToolResult {
   /** The JSON the model receives. */
@@ -20,6 +21,8 @@ export interface CatalogToolContext {
   ws: WorkspaceId;
   scope: BotCatalogScope;
   catalog: CatalogFacade;
+  /** Called with the products whose full details the model receives (their pictures become sendable). */
+  onProducts?(products: readonly ProductDto[]): void;
 }
 
 const SEARCH_ROWS = 8;
@@ -74,6 +77,7 @@ async function search(ctx: CatalogToolContext, input: z.infer<typeof SearchInput
       limit: SEARCH_ROWS,
     });
     const top = rows.slice(0, DETAIL_ROWS);
+    ctx.onProducts?.(top);
     return done(
       { rows: rows.map(compactProduct), details: top.map(productDetails) },
       top.map((p) => p.id),
@@ -108,6 +112,7 @@ async function details(ctx: CatalogToolContext, ids: string[]) {
   if (ids.length > MAX_IDS) return done({ error: 'too_many_ids', max: MAX_IDS });
   const found = await ctx.catalog.getBotProductsByIds(ctx.ws, ctx.scope, ids);
   const foundIds = new Set(found.map((p) => p.id));
+  ctx.onProducts?.(found);
   return done(
     { products: found.map(productDetails), notFound: ids.filter((id) => !foundIds.has(id)) },
     found.map((p) => p.id),
@@ -126,4 +131,15 @@ export async function runCatalogTool(ctx: CatalogToolContext, call: ToolCall): P
     return parsed.success ? details(ctx, parsed.data.ids) : invalid();
   }
   return invalid();
+}
+
+/** The catalog tools for the agent loop: read-only, so a batch of them runs in parallel. */
+export function catalogRunnableTools(ctx: CatalogToolContext): RunnableTool[] {
+  const runnable = (name: string, schema: z.ZodType): RunnableTool => ({
+    name,
+    readOnly: true,
+    schema,
+    run: (input) => runCatalogTool(ctx, { id: name, name, input }),
+  });
+  return [runnable('search_products', SearchInput), runnable('product_details', DetailsInput)];
 }

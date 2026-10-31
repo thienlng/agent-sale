@@ -22,4 +22,9 @@ expect:
   outcome: handoff
   not_contains: ["\\n"]
   numbers_only_from_sources: true
-  fake_reply: { outcome: handoff, reply: 'Dạ em đã ghi nhận số 0912 345 678 ạ.', sources: [] }
+fake_turns:
+  - text: 'Dạ em đã ghi nhận số 0912 345 678 ạ.'
+    tool_calls:
+      - name: 'handoff'
+        input:
+          reason: 'customer asked to be called back'

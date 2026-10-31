@@ -1,6 +1,7 @@
 # ADR-014: Tool calling for the reply agent
 
 - Status: Proposed
+- Partly superseded by [ADR-015](ADR-015-agent-harness-v2.md) (2026-10-31): the JSON final reply, the 4-round loop, the 3-images-per-turn cap and emulated tools as the Hermes path. Catalog tools, actions as tools and focus products stand.
 - Date: 2026-10-30
 - Decision makers: thienlng
 

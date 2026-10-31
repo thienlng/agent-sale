@@ -20,8 +20,11 @@ conversation:
   - customer: 'shop đang có khuyến mãi gì không'
 expect:
   guardrail: none
-  outcome: fallback
+  # Free-text answers (ADR-015): an honest "not known" reply is a normal answer, not a fallback.
+  outcome: answered
+  contains_any: ['chưa có thông tin', 'chưa rõ', 'chưa nắm', 'nhân viên']
   not_contains: ["\\n"]
   not_matches: ["\\d+\\s*%"]
   numbers_only_from_sources: true
-  fake_reply: { outcome: unknown, reply: 'Dạ em chưa có thông tin khuyến mãi ạ.', sources: [] }
+fake_turns:
+  - text: "Dạ em chưa có thông tin về việc này ạ.\nNhân viên sẽ xác nhận giúp mình ạ."

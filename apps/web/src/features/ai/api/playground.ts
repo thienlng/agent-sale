@@ -2,6 +2,7 @@ import {
   type PlaygroundImage,
   type PlaygroundMessage,
   PlaygroundResponse,
+  REPLY_HISTORY_MAX_TURNS,
 } from '@agent-sales/contracts';
 import { useMutation } from '@tanstack/react-query';
 
@@ -19,7 +20,10 @@ export function usePlayground(botId: string) {
     mutationFn: ({ messages, images }: PlaygroundTurn) =>
       api(`/bots/${botId}/playground`, PlaygroundResponse, {
         method: 'POST',
-        body: { messages: messages.slice(-20), ...(images?.length ? { images } : {}) },
+        body: {
+          messages: messages.slice(-REPLY_HISTORY_MAX_TURNS),
+          ...(images?.length ? { images } : {}),
+        },
       }),
   });
 }

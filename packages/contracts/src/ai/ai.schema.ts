@@ -18,12 +18,18 @@ export const PlaygroundImage = z.object({
 });
 export type PlaygroundImage = z.infer<typeof PlaygroundImage>;
 
+/**
+ * How many turns of history a reply sees (channel conversations and the playground). Long
+ * histories are compressed by the ai module before the model call.
+ */
+export const REPLY_HISTORY_MAX_TURNS = 100;
+
 /** The test conversation so far; the last message is the customer's turn to answer. */
 export const PlaygroundRequest = z.object({
   messages: z
     .array(PlaygroundMessage)
     .min(1)
-    .max(20)
+    .max(REPLY_HISTORY_MAX_TURNS)
     .refine((m) => m.at(-1)?.role === 'customer', {
       message: 'the last message must come from the customer',
     }),
@@ -60,8 +66,8 @@ export const PlaygroundResponse = z.object({
   /** Why a reply was replaced, e.g. a number that is not in the sources. */
   guardrail: z.string().nullable(),
   sources: z.array(PlaygroundSource),
-  /** Pictures to send after the text (max 3); empty unless the customer asked to see one. */
-  images: z.array(BotReplyImage).max(3).default([]),
+  /** Every picture the bot sent this turn, in order (per message: see `messages`). */
+  images: z.array(BotReplyImage).max(30).default([]),
   usage: z.object({
     inputTokens: z.number().int(),
     outputTokens: z.number().int(),
@@ -74,5 +80,28 @@ export const PlaygroundResponse = z.object({
   actions: z
     .array(z.object({ name: z.string(), ok: z.boolean(), statusCode: z.number().int().nullable() }))
     .optional(),
+  /** Each message the bot sent, in order (`reply` and `images` stay as the joined view). */
+  messages: z
+    .array(
+      z.object({
+        text: z.string(),
+        images: z.array(z.object({ id: z.string(), url: z.string(), label: z.string() })),
+        via: z.enum(['send_message', 'final']),
+      }),
+    )
+    .optional(),
+  /** What the bot did while answering (kinds and names only). */
+  steps: z
+    .array(
+      z.object({
+        kind: z.string(),
+        name: z.string().optional(),
+        ok: z.boolean().optional(),
+        ms: z.number().optional(),
+      }),
+    )
+    .optional(),
+  /** True when a newer customer message cut this turn short. */
+  interrupted: z.boolean().optional(),
 });
 export type PlaygroundResponse = z.infer<typeof PlaygroundResponse>;

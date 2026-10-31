@@ -23,6 +23,7 @@ import { toPlaygroundImages, useImageAttachments } from '../hooks/use-image-atta
 import { TestChatComposer } from './test-chat-composer';
 import { Outcome } from './test-chat-outcome';
 import { AttachmentThumbs, BotImages } from './test-chat-images';
+import { TestChatSteps } from './test-chat-steps';
 
 interface Turn {
   id: number;
@@ -213,47 +214,40 @@ export function TestChat({
                     className="animate-[bubble-in_220ms_ease-out]"
                   >
                     <MessageContent className="gap-1">
-                      {/* A bot answer reaches Messenger as several bubbles (same split as the
-                          Meta inbox), so the test chat shows them the same way. */}
-                      {(turn.role === 'bot' && !turn.error
-                        ? splitReply(turn.content.slice(0, 2000))
-                        : [turn.content]
-                      ).map((part, index) => (
-                        <Bubble
-                          key={index}
-                          align={turn.role === 'customer' ? 'end' : 'start'}
-                          className={cn(
-                            'max-w-[85%]',
-                            turn.role === 'customer'
-                              ? '*:data-[slot=bubble-content]:bg-bubble-customer *:data-[slot=bubble-content]:text-foreground'
-                              : turn.error
-                                ? '*:data-[slot=bubble-content]:bg-destructive-soft *:data-[slot=bubble-content]:text-destructive'
-                                : '*:data-[slot=bubble-content]:bg-bubble-bot *:data-[slot=bubble-content]:text-primary-foreground',
-                          )}
-                        >
-                          <BubbleContent
-                            className={cn(
-                              'rounded-[1.1rem] text-base whitespace-pre-line',
-                              turn.role === 'customer' ? 'rounded-br-md' : 'rounded-bl-md',
-                            )}
-                          >
-                            {index === 0 && turn.images?.length ? (
-                              <span className="mb-1 block">
-                                <AttachmentThumbs items={turn.images} />
-                              </span>
+                      {turn.result?.messages?.length ? (
+                        // Each message the agent sent, in order, as Messenger shows it:
+                        // its text bubbles, then its own album.
+                        turn.result.messages.map((message, index) => (
+                          <div key={index} className="flex flex-col gap-1">
+                            <TurnBubbles turn={turn} text={message.text} />
+                            {message.images.length ? (
+                              <div className="mt-0.5">
+                                <BotImages images={message.images} />
+                              </div>
                             ) : null}
-                            {part}
-                          </BubbleContent>
-                        </Bubble>
-                      ))}
-                      {turn.result?.images.length ? (
-                        <div className="mt-1.5">
-                          <BotImages images={turn.result.images} />
-                        </div>
-                      ) : null}
+                          </div>
+                        ))
+                      ) : (
+                        <>
+                          <TurnBubbles turn={turn} text={turn.content} />
+                          {turn.result?.images.length ? (
+                            <div className="mt-1.5">
+                              <BotImages images={turn.result.images} />
+                            </div>
+                          ) : null}
+                        </>
+                      )}
                       {turn.result ? (
-                        <MessageFooter>
+                        <MessageFooter className="flex-col items-start gap-1.5">
+                          {turn.result.interrupted ? (
+                            <span className="text-xs text-muted-foreground italic">
+                              {t('playground.interrupted')}
+                            </span>
+                          ) : null}
                           <Outcome result={turn.result} />
+                          {turn.result.steps?.length ? (
+                            <TestChatSteps steps={turn.result.steps} />
+                          ) : null}
                         </MessageFooter>
                       ) : null}
                     </MessageContent>
@@ -293,4 +287,43 @@ export function TestChat({
       />
     </section>
   );
+}
+
+/**
+ * One chat message's bubbles. A bot answer reaches Messenger as several bubbles
+ * (same split as the Meta inbox), so the test chat shows them the same way.
+ */
+function TurnBubbles({ turn, text }: { turn: Turn; text: string }) {
+  // An image-only message has no text: show its album without an empty bubble
+  // (a customer turn still needs its bubble for the attached thumbnails).
+  if (!text.trim() && !turn.images?.length) return null;
+  const parts = turn.role === 'bot' && !turn.error ? splitReply(text.slice(0, 2000)) : [text];
+  return parts.map((part, index) => (
+    <Bubble
+      key={index}
+      align={turn.role === 'customer' ? 'end' : 'start'}
+      className={cn(
+        'max-w-[85%]',
+        turn.role === 'customer'
+          ? '*:data-[slot=bubble-content]:bg-bubble-customer *:data-[slot=bubble-content]:text-foreground'
+          : turn.error
+            ? '*:data-[slot=bubble-content]:bg-destructive-soft *:data-[slot=bubble-content]:text-destructive'
+            : '*:data-[slot=bubble-content]:bg-bubble-bot *:data-[slot=bubble-content]:text-primary-foreground',
+      )}
+    >
+      <BubbleContent
+        className={cn(
+          'rounded-[1.1rem] text-base whitespace-pre-line',
+          turn.role === 'customer' ? 'rounded-br-md' : 'rounded-bl-md',
+        )}
+      >
+        {index === 0 && turn.images?.length ? (
+          <span className="mb-1 block">
+            <AttachmentThumbs items={turn.images} />
+          </span>
+        ) : null}
+        {part}
+      </BubbleContent>
+    </Bubble>
+  ));
 }

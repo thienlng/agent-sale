@@ -14,7 +14,9 @@ import { newId, userId, workspaceId, type WorkspaceId } from '@agent-sales/share
 import { startTestPostgres, type TestPostgres } from '@agent-sales/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { MAX_EVENT_ATTEMPTS } from '../api/channel.facade.js';
+import { startIngressListener } from '../../../common/db/ingress-listener.js';
+import { createTickScheduler } from '../../../common/db/tick-scheduler.js';
+import { EVENT_MAX_WAIT_MS, EVENT_QUIET_MS, MAX_EVENT_ATTEMPTS } from '../api/channel.facade.js';
 import type { ConnectionRecord } from '../application/ports/channel-store.js';
 import { DrizzleChannelStore } from '../infrastructure/persistence/channel.store.js';
 
@@ -314,6 +316,46 @@ describe('Inbox queue', () => {
     expect(later).toEqual(expect.arrayContaining([first, second]));
   });
 
+  it('claims a fresh message through NOTIFY plus the trailing tick well before the 5 s safety poll', async () => {
+    const c = await connect(a, 'page-notify');
+    const claimed: string[] = [];
+    const scheduler = createTickScheduler({
+      tick: async () => {
+        for (const j of await store.claimEvents(10)) claimed.push(j.id);
+      },
+      trailingMs: EVENT_QUIET_MS + 50,
+      maxTrailingMs: EVENT_MAX_WAIT_MS,
+    });
+    let up = false;
+    const listener = startIngressListener({
+      url: pg.ownerUrl,
+      channel: 'rapiz_ingress',
+      onNotify: () => scheduler.notify(),
+      onState: (state) => {
+        up = state;
+        scheduler.setListenerUp(state);
+      },
+      backoff: { minMs: 100, maxMs: 400 },
+    });
+    try {
+      const end = Date.now() + 5_000;
+      while (!up && Date.now() < end) await new Promise((r) => setTimeout(r, 20));
+      expect(up).toBe(true);
+      await new Promise((r) => setTimeout(r, 100)); // let the catch-up tick settle
+      const t0 = Date.now();
+      const id = await message(c.id, 'cust-notify', 0);
+      while (!claimed.includes(id) && Date.now() - t0 < 3_000)
+        await new Promise((r) => setTimeout(r, 20));
+      const took = Date.now() - t0;
+      expect(claimed).toContain(id);
+      expect(took).toBeLessThan(1_500);
+      await store.completeEvent(id, (await event(id))!.claimToken!);
+    } finally {
+      scheduler.stop();
+      await listener.stop();
+    }
+  });
+
   it('claims the oldest message of a burst after the max wait even if the customer keeps typing', async () => {
     const c = await connect(a, 'page-maxwait');
     const old = await message(c.id, 'cust-3', 5000);
@@ -331,8 +373,27 @@ describe('Inbox queue', () => {
     expect(await store.hasNewerCustomerEvent(c.id, 'cust-4', first)).toBe(true);
     expect(await store.hasNewerCustomerEvent(c.id, 'cust-5', first)).toBe(false);
     await store.requeueEvent(first, job!.claimToken);
-    expect((await event(first))?.attempts).toBe(0);
-    expect((await event(first))?.leaseUntil).toBeNull();
+    const requeued = await event(first);
+    expect(requeued?.attempts).toBe(0);
+    // Held back for one quiet window instead of being claimable at once.
+    expect(requeued?.leaseUntil).not.toBeNull();
+    expect(requeued!.leaseUntil!.getTime()).toBeGreaterThan(Date.now());
+  });
+
+  it('holds a requeued event back until the newer message clears its quiet window, then claims both', async () => {
+    const c = await connect(a, 'page-requeue');
+    // E1 is older than the max wait, so only its lease can hold it back.
+    const e1 = await message(c.id, 'cust-6', 10_000);
+    const [job] = (await store.claimEvents(10)).filter((j) => j.id === e1);
+    expect(job).toBeDefined();
+    await store.requeueEvent(e1, job!.claimToken);
+    const e2 = await message(c.id, 'cust-6', 0);
+    const ours = (ids: string[]) => ids.filter((id) => id === e1 || id === e2);
+    // Right away: E1 is still leased and E2 is inside its quiet window.
+    expect(ours((await store.claimEvents(10)).map((j) => j.id))).toEqual([]);
+    await new Promise((r) => setTimeout(r, EVENT_QUIET_MS + 150));
+    // After the window: the trailing tick takes them together, so the re-run sees both messages.
+    expect(ours((await store.claimEvents(10)).map((j) => j.id)).sort()).toEqual([e1, e2].sort());
   });
 
   it('dead-letters failed and exhausted events so they leave the queue with their payload', async () => {

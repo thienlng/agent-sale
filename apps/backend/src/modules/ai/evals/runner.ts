@@ -7,12 +7,10 @@ import type { BotFacade, BotView } from '../../bot/api/index.js';
 import type { BotCatalogScope, CatalogFacade } from '../../commerce/api/index.js';
 import type { FaqHit, KnowledgeFacade, TrainingFacade } from '../../knowledge/api/index.js';
 import type { WorkspaceFacade } from '../../workspace/api/index.js';
-import { LlmRuntime } from '../application/llm-runtime.js';
+import type { LlmRuntime } from '../application/llm-runtime.js';
 import { PlaygroundService } from '../application/playground.service.js';
-import type { LlmProviderFactory } from '../application/ports/llm-provider-factory.js';
 import { DEV_FAKE_PROVIDER } from '../domain/llm-config.js';
 import { InMemoryAiRunRepository } from '../infrastructure/persistence/ai-run.repositories.js';
-import { InMemoryLlmConfigRepository } from '../infrastructure/persistence/llm-config.in-memory-repository.js';
 import { type CheckResult, runChecks } from './checks.js';
 import type { EvalCase, EvalOutcome } from './case.js';
 
@@ -34,9 +32,11 @@ export interface CaseResult {
   latencyMs: number | null;
   /** Model calls of the turn (1 without tools; each tool round adds one). */
   modelCalls: number;
-  /** Pictures sent with the reply. */
+  /** Pictures sent in the turn, every message together. */
   images: number;
-  /** Set when the pipeline itself failed (provider down, no fake reply); the case then fails. */
+  /** Messages delivered in the turn (`send_message` ones and the final one). */
+  messages: number;
+  /** Set when the pipeline itself failed (provider down, no fake turn); the case then fails. */
   error: string | null;
 }
 
@@ -71,7 +71,7 @@ function productDtos(c: EvalCase) {
   return c.products.map((p, i) => {
     const prices = p.variants.map((v) => v.price);
     return {
-      // Stable ids: a fake reply names its pictures as `p:<product id>:<n>`.
+      // Stable ids: a fake turn names its pictures as `p:<product id>:<n>`.
       id: `eval-product-${i + 1}`,
       code: p.code ?? `SKU-${i + 1}`,
       name: p.name,
@@ -106,63 +106,61 @@ type FakeScript = (req: GenerateRequest) => {
   stopReason?: 'tool_use';
 };
 
-const hasToolResult = (req: GenerateRequest): boolean =>
-  req.messages.some((m) => m.role === 'tool');
+/** The longest note the fake summarizer writes (the real one caps at SUMMARY_MAX_CHARS). */
+const FAKE_NOTE_CHARS = 1_200;
 
 /**
- * The fake model of a case: on its first call it makes the case's `fake_tool_calls` (or browses the
- * catalog when the case has products, so figures are grounded as in production), then it returns
- * `fake_reply`.
+ * The fake history summarizer: an extractive note of the transcript lines that hold a figure
+ * (phone numbers, dates, prices, head counts), so a long fake-mode case still carries those facts
+ * into the compressed context. The real summarizer is the model (see `history-summarizer.ts`).
+ */
+export function fakeSummary(req: GenerateRequest): string {
+  const input = req.messages.at(-1)?.content ?? '';
+  const lines = input
+    .split('\n')
+    .filter((line) => /\d/u.test(line) && !line.startsWith('Previous note:'));
+  const note = (lines.length ? lines : input.split('\n').slice(0, 1)).join('\n');
+  return note.slice(0, FAKE_NOTE_CHARS);
+}
+
+/** Tool rounds the loop completed so far: the assistant messages that made tool calls. */
+const toolRounds = (req: GenerateRequest): number =>
+  req.messages.filter((m) => m.role === 'assistant' && (m.toolCalls?.length ?? 0) > 0).length;
+
+/**
+ * The fake model of a case: it replays `fake_turns` in order, one per model call of the agent loop
+ * (the turn index is the number of tool rounds already in the request). A turn with `tool_calls`
+ * makes the loop run them; a turn without is the free-text final answer. A request without tools is
+ * the history summarizer, answered by `fakeSummary`. Running out of turns is an error.
  */
 export function fakeScript(c: EvalCase): FakeScript {
-  const calls =
-    c.expect.fake_tool_calls ??
-    (c.products.length ? [{ name: 'search_products', arguments: {} }] : []);
+  const turns = c.fake_turns ?? [];
   return (req) => {
-    if (calls.length && !hasToolResult(req))
-      return {
-        text: '',
-        stopReason: 'tool_use',
-        toolCalls: calls.map((call, i) => ({
-          id: `fake-call-${i + 1}`,
-          name: call.name,
-          input: call.arguments,
-        })),
-      };
-    return { text: fakeReplyText(c) };
+    if (!req.tools?.length) return { text: fakeSummary(req) };
+    const index = toolRounds(req);
+    const turn = turns[index];
+    if (!turn) throw new Error(`case ${c.id}: fake_turns has no turn ${index + 1}`);
+    if (!turn.tool_calls) return { text: turn.text ?? '' };
+    return {
+      text: turn.text ?? '',
+      stopReason: 'tool_use',
+      toolCalls: turn.tool_calls.map((call, i) => ({
+        id: `fake-${index + 1}-${i + 1}`,
+        name: call.name,
+        input: call.input,
+      })),
+    };
   };
 }
 
-/** The same `LlmRuntime` the api uses, on an in-memory config whose only provider is scripted by `script`. */
-export function fakeRuntime(replyFor: (c: EvalCase) => string, c: EvalCase): LlmRuntime;
-export function fakeRuntime(script: FakeScript): LlmRuntime;
-export function fakeRuntime(
-  first: ((c: EvalCase) => string) | FakeScript,
-  c?: EvalCase,
-): LlmRuntime {
-  const script: FakeScript =
-    c !== undefined
-      ? () => ({ text: (first as (c: EvalCase) => string)(c) })
-      : (first as FakeScript);
+/** A runtime whose only provider is scripted by `script` (no network). */
+export function fakeRuntime(script: FakeScript): LlmRuntime {
   const provider = new FakeLlmProvider(DEV_FAKE_PROVIDER, script);
-  const factory: LlmProviderFactory = {
-    create: () => {
-      throw new Error('fake mode has no configured providers');
-    },
-    hermesLogin: () => {
-      throw new Error('not used');
-    },
-    listModels: () => Promise.resolve({ models: [], state: 'unavailable' }),
-    developmentFallback: () => ({ provider, model: 'eval-fake' }),
-  };
-  return new LlmRuntime(new InMemoryLlmConfigRepository(), factory);
-}
-
-/** The model output a fake-mode case replays (its `expect.fake_reply`). */
-export function fakeReplyText(c: EvalCase): string {
-  const fake = c.expect.fake_reply;
-  if (!fake) throw new Error(`case ${c.id} has no expect.fake_reply (needed in fake mode)`);
-  return JSON.stringify(fake);
+  // The provider without the gateway: an `unknown` case answers with empty text, which the
+  // gateway would retry with backoff sleeps.
+  return {
+    generate: (req: GenerateRequest) => provider.generate(req, { model: 'eval-fake' }),
+  } as unknown as LlmRuntime;
 }
 
 const terms = (text: string): string[] =>
@@ -284,6 +282,7 @@ const errorResult = (c: EvalCase, error: string): CaseResult => ({
   latencyMs: null,
   modelCalls: 0,
   images: 0,
+  messages: 0,
   error,
 });
 
@@ -300,11 +299,19 @@ export async function runCase(c: EvalCase, llm: LlmRuntime): Promise<CaseResult>
   };
   try {
     const res = await service.playground(workspaceId(newId()), botId, request(c));
+    // Checks read what the customer received: every delivered message, not the joined view.
+    const delivered = (res.messages ?? []).map((m) => ({ text: m.text, images: m.images.length }));
+    const reply = delivered
+      .map((m) => m.text)
+      .filter(Boolean)
+      .join('\n');
+    const images = delivered.reduce((sum, m) => sum + m.images, 0);
     const checks = runChecks(c.expect, {
-      reply: res.reply,
+      reply,
       outcome: res.outcome,
       guardrail: res.guardrail,
-      images: res.images.length,
+      images,
+      messages: delivered,
       customerTexts,
       trusted: trustedTexts(c),
     });
@@ -316,7 +323,7 @@ export async function runCase(c: EvalCase, llm: LlmRuntime): Promise<CaseResult>
       customer: customerTexts.at(-1) ?? '',
       pass: checks.every((x) => x.pass),
       checks,
-      reply: res.reply,
+      reply,
       outcome: res.outcome,
       guardrail: res.guardrail,
       promptVersion: runs.runs.at(-1)?.promptVersion ?? null,
@@ -324,7 +331,8 @@ export async function runCase(c: EvalCase, llm: LlmRuntime): Promise<CaseResult>
       model: res.model,
       latencyMs: res.latencyMs,
       modelCalls,
-      images: res.images.length,
+      images,
+      messages: delivered.length,
       error: null,
     };
   } catch (error) {
@@ -334,9 +342,8 @@ export async function runCase(c: EvalCase, llm: LlmRuntime): Promise<CaseResult>
   }
 }
 
-/** Fake mode: the scripted model makes the case's tool calls, then answers with `expect.fake_reply`; no network. */
+/** Fake mode: the scripted model replays the case's `fake_turns`; no network. */
 export function runCaseFake(c: EvalCase): Promise<CaseResult> {
-  if (!c.expect.fake_reply)
-    return Promise.resolve(errorResult(c, 'expect.fake_reply is required in fake mode'));
+  if (!c.fake_turns) return Promise.resolve(errorResult(c, 'fake_turns is required in fake mode'));
   return runCase(c, fakeRuntime(fakeScript(c)));
 }

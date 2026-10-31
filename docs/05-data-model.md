@@ -138,6 +138,7 @@ ai_runs(id, workspace_id, bot_id, bot_version_id, conversation_id, trigger_messa
         latency_ms, cost_micro_usd, cost_vnd, charged_milli_credit,
         retrieved JSONB, product_ids JSONB (products the reply saw; focus memory), tool_calls JSONB, guardrail JSONB, outcome: replied|handoff|skipped|error,
         is_test BOOL, created_at)                          -- monthly partitions
+conversation_summaries(workspace_id, conversation_id, covered_until, summary, updated_at)  -- PK (workspace_id, conversation_id); summary of older turns of long chats
 fb_posts(id, workspace_id, channel_connection_id, external_post_id, message, auto_reply_enabled, ...)
 ```
 
