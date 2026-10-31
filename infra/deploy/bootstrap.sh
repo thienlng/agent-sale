@@ -20,7 +20,7 @@ mkdir -p "$DIR/backups"
 chmod 750 "$DIR" "$DIR/backups"
 if [[ $HERE != "$DIR" ]]; then
   install -m 644 "$HERE/compose.yml" "$DIR/compose.yml"
-  for f in deploy.sh backup.sh set-host.sh; do install -m 755 "$HERE/$f" "$DIR/$f"; done
+  for f in deploy.sh backup.sh set-host.sh beta-gate.sh; do install -m 755 "$HERE/$f" "$DIR/$f"; done
 fi
 
 if [[ ! -f $DIR/.env ]]; then

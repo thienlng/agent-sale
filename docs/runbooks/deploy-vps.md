@@ -97,6 +97,22 @@ docker compose start api agent worker webhook
 
 Backups live on the same disk. Copy `backups/` off the server regularly; off-site backup is not automated yet.
 
+## Private-beta gate
+
+`./beta-gate.sh on [user]` puts the whole host behind a login in Nginx Proxy Manager. It creates or rotates the password and the gate cookie, and writes the credentials to `~/beta-access.txt` (mode 600) for the owner. `./beta-gate.sh off` removes the gate. Rapiz's own sign-in is unchanged behind it.
+
+| Path | Access |
+|---|---|
+| Pages and static files | HTTP Basic auth. The bcrypt hash (cost 12) lives in `/data/rapiz-beta/htpasswd` in the NPM data volume |
+| `/api/*` | Requires the HttpOnly `rapiz_beta` cookie, which a successful Basic login sets (7 days). The dashboard already sends `Authorization: Bearer` to the API, so Basic auth cannot share that header |
+| `/webhooks/*` | Public. The webhook app rejects requests without a valid `X-Hub-Signature-256` |
+| `/api[/v1]/channels/oauth/<provider>/callback` | Public. The API checks the OAuth `state` |
+| `/media/*` | Public, read-only, so Meta can download product pictures |
+
+The gate also blocks the chat widget on customer websites. Turn it off before testing the widget on an external site.
+
+Neither the password nor the gate token is in Git. The token sits in the NPM proxy host's advanced config, which is root-only on the server. NPM must keep *Force SSL* on, so the Basic credentials only travel over HTTPS.
+
 ## Security notes
 
 - No container publishes ports. Only `edge` is reachable, and only through NPM. Postgres, Redis and the S3 API sit on an internal network; `/metrics` is not routed.

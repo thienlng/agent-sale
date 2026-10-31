@@ -100,7 +100,7 @@ jobs:
           TARGET: ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}
         run: |
           scp -q infra/deploy/compose.yml infra/deploy/deploy.sh infra/deploy/backup.sh \
-            infra/deploy/set-host.sh "$TARGET:/opt/apps/rapiz/"
+            infra/deploy/set-host.sh infra/deploy/beta-gate.sh "$TARGET:/opt/apps/rapiz/"
       - name: Deploy
         env:
           TARGET: ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}
