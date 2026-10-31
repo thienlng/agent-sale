@@ -127,7 +127,7 @@ describe('MetaInboxProcessor — re-run state (fix round 1)', () => {
       return answer('B');
     });
     await run(job('f1', 'hi'));
-    expect(results).toEqual([{ delivered: 0 }]);
+    expect(results).toEqual([{ delivered: 0, complete: false }]);
     expect(channels.deliver).not.toHaveBeenCalled();
     expect(channels.completeEvent).not.toHaveBeenCalled();
     expect(channels.releaseEvent).toHaveBeenCalledTimes(1);

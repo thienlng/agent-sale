@@ -215,6 +215,17 @@ describe('ChannelFacade website channel (T-098)', () => {
     expect(transport).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
   });
+  it('accepts quick replies for a website visitor without any network call', async () => {
+    const { service, store } = setup();
+    const transport = vi.fn();
+    service.transport = transport as never;
+    store.records.set('w', site('connected'));
+    const quickReplies = [{ title: '✅ Đặt hàng', payload: 'ORDER_CONFIRM' }];
+    expect(
+      await service.deliver(ws, 'w', 'visitor', { text: 'Tổng', quickReplies }, 'k1'),
+    ).toMatchObject({ status: 'sent' });
+    expect(transport).not.toHaveBeenCalled();
+  });
   it('fails delivery to a site that is not connected', async () => {
     const { service, store } = setup();
     store.records.set('w', site('disabled'));
@@ -321,6 +332,34 @@ describe('ChannelFacade page removal (T-133)', () => {
     await expect(service.remove(ws, '018d0000-0000-7000-8000-0000000000ff')).rejects.toMatchObject({
       code: 'NOT_FOUND',
     });
+  });
+  it('sends quick replies on a Meta text message in the Graph shape', async () => {
+    const { service, id } = await connected();
+    const transport = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ message_id: 'm.1' }));
+    service.transport = transport;
+    const quickReplies = [
+      { title: '✅ Đặt hàng', payload: 'ORDER_CONFIRM' },
+      { title: '✏️ Sửa thông tin', payload: 'ORDER_EDIT' },
+    ];
+    await expect(
+      service.deliver(ws, id, 'psid', { text: 'Tổng', quickReplies }, 'k'),
+    ).resolves.toMatchObject({ status: 'sent', externalId: 'm.1' });
+    const body = JSON.parse(String(transport.mock.calls[0]?.[1]?.body));
+    expect(body).toMatchObject({ recipient: { id: 'psid' }, messaging_type: 'RESPONSE' });
+    expect(body.message).toEqual({
+      text: 'Tổng',
+      quick_replies: quickReplies.map((q) => ({ content_type: 'text', ...q })),
+    });
+    const album = [
+      { type: 'image' as const, url: 'https://cdn.example/1.jpg' },
+      { type: 'image' as const, url: 'https://cdn.example/2.jpg' },
+    ];
+    transport.mockResolvedValueOnce(Response.json({ message_id: 'm.2' }));
+    await service.deliver(ws, id, 'psid', { text: '', attachments: album, quickReplies }, 'k2');
+    const albumBody = JSON.parse(String(transport.mock.calls[1]?.[1]?.body));
+    expect(albumBody.message.attachments).toHaveLength(2);
+    expect(albumBody.message).not.toHaveProperty('quick_replies');
+    expect(JSON.stringify(albumBody)).not.toContain('quick_replies');
   });
   it('refuses to deliver for a removed page', async () => {
     const { service, id } = await connected();

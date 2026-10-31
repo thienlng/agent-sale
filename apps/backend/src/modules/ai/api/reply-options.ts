@@ -16,12 +16,18 @@ export interface OutgoingMessage {
 
 /** Where `send_message` output goes: a channel delivery or, in the playground, a collector. */
 export interface MessageSink {
-  send(message: OutgoingMessage): Promise<{ delivered: number }>;
+  /**
+   * `complete` is false when the message was cut short (a newer message, a takeover or a failure
+   * stopped it before every part went out); absent means complete.
+   */
+  send(message: OutgoingMessage): Promise<{ delivered: number; complete?: boolean }>;
 }
 
 export interface ReplyOptions {
   conversationId: string | null;
   isTest: boolean;
+  /** The conversation's channel (`facebook`, `instagram`, `website`), the source of a bot order. */
+  channel?: string;
   /** Absent: messages are collected (playground). */
   sink?: MessageSink;
   /** Checked by the agent loop between rounds. */
@@ -43,4 +49,6 @@ export interface ReplyOptions {
 export type ReplyResult = PlaygroundResponse & {
   carry?: ChatMessage[];
   askedConfirmation?: boolean;
+  /** The turn created an order, so a caller must never drop its final message. */
+  orderCreated?: boolean;
 };
