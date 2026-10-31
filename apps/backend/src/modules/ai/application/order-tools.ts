@@ -133,6 +133,20 @@ export function announceOrder<D extends TurnDecision>(
 }
 
 /**
+ * Keeps a delivered order summary the turn's last message: Messenger hides quick replies once a
+ * newer message arrives, so a final after the summary (other than a hand-off) is dropped.
+ */
+export function keepSummaryLast<D extends TurnDecision>(
+  decision: D,
+  sent: readonly { quickReplies?: readonly { payload: string }[] }[],
+): D {
+  const summaryLast = sent.at(-1)?.quickReplies?.some((q) => q.payload === 'ORDER_CONFIRM');
+  return summaryLast && decision.outcome !== 'handoff' && decision.final
+    ? { ...decision, final: null }
+    : decision;
+}
+
+/**
  * Whether the customer answered a draft stored at `storedAt`. With message times (aligned with
  * `messages`): a bot message delivered at or after `storedAt` (the summary) comes before the
  * customer's newest message, so an "ok" written before the summary arrived never confirms it.

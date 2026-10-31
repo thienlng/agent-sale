@@ -56,6 +56,7 @@ import {
   answeredSince,
   newOrderToolState,
   announceOrder,
+  keepSummaryLast,
   type OrderToolContext,
   PLAYGROUND_ORDER_CHANNEL,
 } from './order-tools.js';
@@ -372,6 +373,7 @@ export class PlaygroundService implements AiFacade {
     let decision: ReplyDecision = loop
       ? decideReply({ loop, output, bot, actionFallback: actionState.fallback })
       : { outcome: 'answered', guardrail: 'model_error', final: fallbackText(bot) };
+    decision = keepSummaryLast(decision, output.sent);
     // An order was created: its code reaches the customer exactly once, whatever cut the turn short.
     const orderCode = orders?.state.orderCode;
     if (orderCode) {

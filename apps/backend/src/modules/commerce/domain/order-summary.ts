@@ -36,8 +36,11 @@ export function formatSummaryPhone(phone: string): string {
 }
 
 function lineText(l: SummaryLine): string {
+  const product = l.productName.trim();
   const variant = l.variantName.trim();
-  const name = variant ? `${l.productName.trim()} (${variant})` : l.productName.trim();
+  // Catalog names often already end with the variant ("… – Tiêu chuẩn"): never show it twice.
+  const showVariant = variant && !product.toLowerCase().includes(variant.toLowerCase());
+  const name = showVariant ? `${product} (${variant})` : product;
   return `• ${clip(name, MAX_NAME_CHARS)} ×${l.qty} — ${formatVnd(l.lineTotal)}`;
 }
 

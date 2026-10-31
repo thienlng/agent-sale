@@ -22,6 +22,7 @@ import {
   CONFIRM_ORDER_TOOL,
   confirmableDraft,
   announceOrder,
+  keepSummaryLast,
   answeredSince,
   newOrderToolState,
   ORDER_QUICK_REPLIES,
@@ -750,5 +751,36 @@ describe('prompts 15 and 16', () => {
     expect(s16.start).toBeGreaterThan(-1);
     expect(p16.slice(s16.start, s16.end)).toBe(p14.slice(s14.start, s14.end));
     expect(p16.slice(0, s16.start) + p16.slice(s16.end)).toBe(p15);
+  });
+});
+
+describe('keepSummaryLast', () => {
+  const summary = {
+    text: 'Dạ em tóm tắt đơn…',
+    quickReplies: [{ title: '✅ Đặt hàng', payload: 'ORDER_CONFIRM' }],
+  };
+  const answered = {
+    outcome: 'answered' as const,
+    guardrail: null,
+    final: 'Mình bấm Đặt hàng nhé ạ.',
+  };
+
+  it('drops a final written after the summary so its buttons stay visible', () => {
+    expect(keepSummaryLast(answered, [summary]).final).toBeNull();
+  });
+
+  it('keeps the final when something else was sent after the summary, or none was sent', () => {
+    const picture = { text: 'ảnh' };
+    expect(keepSummaryLast(answered, [summary, picture]).final).toBe(answered.final);
+    expect(keepSummaryLast(answered, []).final).toBe(answered.final);
+  });
+
+  it('keeps a hand-off final', () => {
+    const handoff = {
+      outcome: 'handoff' as const,
+      guardrail: null,
+      final: 'Dạ shop sẽ liên hệ ạ.',
+    };
+    expect(keepSummaryLast(handoff, [summary]).final).toBe(handoff.final);
   });
 });

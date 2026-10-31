@@ -54,6 +54,22 @@ describe('buildOrderSummary', () => {
     expect(text).toContain('• Áo thun (Trắng / L) ×1 — 150.000đ');
   });
 
+  it('does not repeat a variant the product name already carries', () => {
+    const text = buildOrderSummary({
+      ...base,
+      lines: [
+        {
+          productName: 'Tháp gỗ – Tiêu chuẩn',
+          variantName: 'Tiêu chuẩn',
+          qty: 1,
+          lineTotal: 90_000,
+        },
+      ],
+    });
+    expect(text).toContain('• Tháp gỗ – Tiêu chuẩn ×1 — 90.000đ');
+    expect(text).not.toContain('(Tiêu chuẩn)');
+  });
+
   it('folds long product lists and stays within the message limit', () => {
     const lines = Array.from({ length: 20 }, (_, i) => ({
       productName: `Sản phẩm số ${i + 1} ${'rất dài '.repeat(30)}`,
