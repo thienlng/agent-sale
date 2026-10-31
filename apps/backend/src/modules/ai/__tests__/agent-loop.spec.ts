@@ -363,4 +363,26 @@ describe('runAgentLoop', () => {
       ['fast', 5],
     ]);
   });
+
+  it('reports the summed usage and latency of an interrupted run', async () => {
+    let n = 0;
+    const out = await runAgentLoop({
+      base,
+      tools: [lookup],
+      generate: script(reply('', [tc('1')]), reply('never')),
+      shouldInterrupt: async () => ++n >= 2,
+    });
+    expect(out.outcome).toBe('interrupted');
+    expect(out.res).toBeNull();
+    expect(out.modelCalls).toBe(1);
+    expect(out.usage).toEqual(usage);
+    expect(out.latencyMs).toBe(10);
+    const none = await runAgentLoop({
+      base,
+      tools: [],
+      generate: script(),
+      shouldInterrupt: async () => true,
+    });
+    expect(none.usage).toEqual({ inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 });
+  });
 });

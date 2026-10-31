@@ -58,6 +58,9 @@ export interface AgentLoopResult {
   trusted: string[];
   productIds: string[];
   modelCalls: number;
+  /** Summed usage and latency of every model call made, whatever the outcome (billing). */
+  usage: Usage;
+  latencyMs: number;
   outcome: AgentOutcome;
   steps: AgentStep[];
 }
@@ -108,6 +111,8 @@ export async function runAgentLoop(input: AgentLoopInput): Promise<AgentLoopResu
     trusted,
     productIds: [...productIds],
     modelCalls,
+    usage: usage ?? { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 },
+    latencyMs,
     outcome,
     steps,
   });
