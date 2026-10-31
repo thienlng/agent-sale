@@ -50,11 +50,23 @@ describe('calculate', () => {
   });
 
   it('keeps commas in function arguments as separators', () => {
-    expect(value('max(1,500)')).toBe('500');
-    // Inside a call every comma separates arguments: round(1, 15) and round(1500, 0).
+    expect(value('max(1, 500)')).toBe('500');
+    // Inside a call every comma separates arguments: round(1, 15).
     expect(value('round(1,5 * 3)')).toBe('1');
-    expect(value('round(1500,000 / 7)')).toBe('1500');
     expect(value('round(1500000 / 7)')).toBe('214286');
+    expect(value('sum(500000, 30000)')).toBe('530000');
+  });
+
+  it.each(['sum(500,000, 30,000)', 'max(1,500)', 'round(1500,000 / 7)'])(
+    'refuses the ambiguous comma number in %s',
+    (e) => {
+      expect(calculate(e)).toEqual({ error: 'invalid_expression' });
+    },
+  );
+
+  it('reads a leading-zero comma number as a decimal', () => {
+    expect(value('0,500')).toBe('0.5');
+    expect(value('0,500 * 4')).toBe('2');
   });
 
   it('applies percent to the left operand', () => {

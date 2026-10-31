@@ -147,17 +147,21 @@ function isInsideCall(text: string, at: number): boolean {
 
 /**
  * Vietnamese-formatted input to mathjs syntax: thousands dots and spaces inside numbers are
- * dropped (`1.760.000` → `1760000`) and `x` / `×` become `*`. Outside function-call arguments
- * (where `,` always separates arguments, so `max(1,5)` keeps working), `\d{1,3}(,\d{3})+` is read
- * as comma thousands (`500,000` → `500000`) and any other digit,digit comma is a decimal mark
- * (`1,5` → `1.5`).
+ * dropped (`1.760.000` → `1760000`) and `x` / `×` become `*`. Outside function-call arguments,
+ * `[1-9]\d{0,2}(,\d{3})+` is read as comma thousands (`500,000` → `500000`) and any other
+ * digit,digit comma is a decimal mark (`1,5` → `1.5`, `0,500` → `0.5`). Inside a call `,`
+ * separates arguments (`max(1,5)`), but `\d,\d{3}` there is ambiguous between an argument list
+ * and thousands (`sum(500,000, 30,000)`), so it throws and the expression is refused.
  */
 export function normalizeExpression(input: string): string {
   let text = input
     .replace(/(?<![\d.])[1-9]\d{0,2}(?:\.\d{3})+(?![\d.])/g, (n) => n.replaceAll('.', ''))
     .replace(/(?<=\d) (?=\d{3}(?!\d))/g, '')
     .replace(/×|(?<![A-Za-z_])x(?![A-Za-z_])/g, '*');
-  text = text.replace(/(?<![\d.,])\d{1,3}(?:,\d{3})+(?![\d.,])/g, (n, offset: number) =>
+  for (const match of text.matchAll(/(?<=\d),(?=\d{3}(?!\d))/g)) {
+    if (isInsideCall(text, match.index)) throw new Error('ambiguous comma in a call');
+  }
+  text = text.replace(/(?<![\d.,])[1-9]\d{0,2}(?:,\d{3})+(?![\d.,])/g, (n, offset: number) =>
     isInsideCall(text, offset) ? n : n.replaceAll(',', ''),
   );
   text = text.replace(/(?<=\d),(?=\d)/g, (comma, offset: number) =>
@@ -200,7 +204,7 @@ const CalculateInput = z.object({
 export const CALCULATE_TOOL: ToolDefinition = {
   name: 'calculate',
   description:
-    'Exact calculator. Use it for every total, discount, deposit, change and quantity you state; never compute in your head. Supports numbers, + - * / ^, postfix % (e.g. 2220000 * 10%), parentheses, round(x, digits), floor, ceil, abs, min, max, sum. Write numbers as plain digits (2220000). Percent applies to the left operand: `2220000 - 10%` is a 10 % discount. Returns { value, formatted }; quote `formatted` to the customer.',
+    "Exact calculator. Use it for every total, discount, deposit, change and quantity you state; never compute in your head. Supports numbers, + - * / ^, postfix % (e.g. 2220000 * 10%), parentheses, round(x, digits), floor, ceil, abs, min, max, sum. Write numbers as plain digits (2220000) and separate function arguments with ', ' (comma + space). Percent applies to the left operand: `2220000 - 10%` is a 10 % discount. Returns { value, formatted }; quote `formatted` to the customer.",
   input: CalculateInput,
 };
 
