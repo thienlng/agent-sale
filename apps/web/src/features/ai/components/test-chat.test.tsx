@@ -289,17 +289,18 @@ describe('TestChat', () => {
       await send(twoMessages);
       const toggle = await screen.findByRole('button', { name: /Các bước bot đã làm/ });
       expect(toggle).toHaveAttribute('aria-expanded', 'false');
-      expect(screen.queryByText('search_products')).not.toBeInTheDocument();
+      expect(screen.getByText('search_products')).not.toBeVisible();
 
       await userEvent.click(toggle);
       expect(toggle).toHaveAttribute('aria-expanded', 'true');
-      expect(screen.getByText('search_products')).toBeInTheDocument();
+      expect(screen.getByText('search_products')).toBeVisible();
+      expect(toggle).toHaveAttribute('aria-controls', screen.getByRole('list').id);
       expect(screen.getByText('send_message')).toBeInTheDocument();
       expect(screen.getByText('812 ms')).toBeInTheDocument();
       expect(screen.getByText('lỗi')).toBeInTheDocument();
 
       await userEvent.click(toggle);
-      expect(screen.queryByText('search_products')).not.toBeInTheDocument();
+      expect(screen.getByText('search_products')).not.toBeVisible();
     });
 
     it('notes a turn that a newer customer message cut short', async () => {
@@ -307,6 +308,28 @@ describe('TestChat', () => {
       expect(
         await screen.findByText('Khách vừa nhắn thêm nên bot dừng lượt này giữa chừng'),
       ).toBeInTheDocument();
+    });
+
+    it('falls back to the reply when messages is empty and keeps the steps', async () => {
+      await send({ ...reply, reply: 'Dạ có ạ.', messages: [], steps: twoMessages.steps });
+      expect(await screen.findByText('Dạ có ạ.')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Các bước bot đã làm/ })).toBeInTheDocument();
+    });
+
+    it('shows an image-only message as its album without an empty bubble', async () => {
+      await send({
+        ...twoMessages,
+        reply: '',
+        messages: [
+          {
+            text: '',
+            images: [{ id: 'img-a', url: 'https://cdn.shop.vn/a.jpg', label: 'Mẫu A' }],
+            via: 'send_message',
+          },
+        ],
+      });
+      expect(await screen.findByAltText('Mẫu A')).toBeInTheDocument();
+      expect(document.querySelectorAll('[data-slot="bubble-content"]')).toHaveLength(1);
     });
 
     it('still renders a legacy response without messages or steps', async () => {

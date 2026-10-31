@@ -29,26 +29,24 @@ export function TestChatSteps({ steps }: { steps: readonly Step[] }) {
         {t('playground.steps.title')}
         <span aria-hidden>({steps.length})</span>
       </button>
-      {open ? (
-        <ol id={listId} className="mt-1 flex flex-col gap-0.5 border-l pl-3">
-          {steps.map((step, i) => (
-            <li key={i} className="flex flex-wrap items-baseline gap-x-1.5">
-              <span>{step.kind}</span>
-              {step.name ? <span className="font-mono text-foreground/80">{step.name}</span> : null}
-              {step.ok === undefined ? null : (
-                <span className={step.ok ? 'text-success' : 'text-destructive'}>
-                  {t(step.ok ? 'playground.steps.ok' : 'playground.steps.failed')}
-                </span>
-              )}
-              {step.ms === undefined ? null : (
-                <span className="tabular-nums">
-                  {t('playground.steps.ms', { ms: Math.round(step.ms) })}
-                </span>
-              )}
-            </li>
-          ))}
-        </ol>
-      ) : null}
+      <ol id={listId} hidden={!open} className="mt-1 flex flex-col gap-0.5 border-l pl-3">
+        {steps.map((step, i) => (
+          <li key={i} className="flex flex-wrap items-baseline gap-x-1.5">
+            <span>{step.kind}</span>
+            {step.name ? <span className="font-mono text-foreground/80">{step.name}</span> : null}
+            {step.ok === undefined ? null : (
+              <span className={step.ok ? 'text-success' : 'text-destructive'}>
+                {t(step.ok ? 'playground.steps.ok' : 'playground.steps.failed')}
+              </span>
+            )}
+            {step.ms === undefined ? null : (
+              <span className="tabular-nums">
+                {t('playground.steps.ms', { ms: Math.round(step.ms) })}
+              </span>
+            )}
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }

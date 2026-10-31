@@ -214,7 +214,7 @@ export function TestChat({
                     className="animate-[bubble-in_220ms_ease-out]"
                   >
                     <MessageContent className="gap-1">
-                      {turn.result?.messages ? (
+                      {turn.result?.messages?.length ? (
                         // Each message the agent sent, in order, as Messenger shows it:
                         // its text bubbles, then its own album.
                         turn.result.messages.map((message, index) => (
@@ -294,6 +294,9 @@ export function TestChat({
  * (same split as the Meta inbox), so the test chat shows them the same way.
  */
 function TurnBubbles({ turn, text }: { turn: Turn; text: string }) {
+  // An image-only message has no text: show its album without an empty bubble
+  // (a customer turn still needs its bubble for the attached thumbnails).
+  if (!text.trim() && !turn.images?.length) return null;
   const parts = turn.role === 'bot' && !turn.error ? splitReply(text.slice(0, 2000)) : [text];
   return parts.map((part, index) => (
     <Bubble
