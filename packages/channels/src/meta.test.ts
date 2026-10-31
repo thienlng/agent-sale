@@ -231,6 +231,34 @@ describe('Meta signed messaging adapter', () => {
     expect(sent[1]).toEqual({ text: 'Hi' });
     expect(sent[2].quick_replies).toHaveLength(3);
   });
+  it('clamps titles to 20 code points and payloads to 1000, dropping empty entries', async () => {
+    const transport = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ message_id: 'm' }));
+    const long = '✏️ Sửa thông tin giao hàng của đơn';
+    await new MetaAdapter('facebook', 'v24.0', transport).send(
+      { externalId: 'p', token: 't' },
+      'u',
+      {
+        text: 'Hi',
+        quickReplies: [
+          { title: '', payload: 'EMPTY_TITLE' },
+          { title: 'No payload', payload: '' },
+          { title: long, payload: 'x'.repeat(1500) },
+          { title: '✅ Đặt hàng', payload: 'ORDER_CONFIRM' },
+        ],
+      },
+      { idempotencyKey: 'k' },
+    );
+    const quick = JSON.parse(String(transport.mock.calls[0]?.[1]?.body)).message.quick_replies;
+    expect(quick).toEqual([
+      {
+        content_type: 'text',
+        title: Array.from(long).slice(0, 20).join(''),
+        payload: 'x'.repeat(1000),
+      },
+      { content_type: 'text', title: '✅ Đặt hàng', payload: 'ORDER_CONFIRM' },
+    ]);
+    expect(Array.from(quick[0].title)).toHaveLength(20);
+  });
   it('keeps the button title as the text and the quick reply payload on the event', () => {
     const body = payload();
     Object.assign(body.entry[0]!.messaging[0]!.message, {

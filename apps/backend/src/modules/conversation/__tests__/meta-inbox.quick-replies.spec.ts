@@ -27,16 +27,31 @@ describe('MetaInboxProcessor — quick replies', () => {
     expect(sent).toEqual([undefined, buttons]);
   });
 
-  it('puts them on a single bubble and never on the pictures that follow', async () => {
-    const { ai, channels, keys, run } = setup();
+  it('sends the album first and the text with the buttons last when both are present', async () => {
+    const { ai, channels, keys, texts, run } = setup();
     ai.reply.mockImplementationOnce(async (_w, _b, _req, options) => {
-      await options.sink!.send({ text: 'Tổng: 460.000đ', images: pics, quickReplies: buttons });
+      await options.sink!.send({
+        text: 'Dạ em tóm tắt.\n\nTổng: 460.000đ',
+        images: pics,
+        quickReplies: buttons,
+      });
       return answer('');
     });
     await run(job('q2', 'chốt'));
-    expect(keys()).toEqual(['bot:q2:s1', 'bot:q2:s1:img']);
+    expect(keys()).toEqual(['bot:q2:s1:img', 'bot:q2:s1', 'bot:q2:s1:t2']);
+    expect(texts()).toEqual(['', 'Dạ em tóm tắt.', 'Tổng: 460.000đ']);
     const sent = vi.mocked(channels.deliver).mock.calls.map((c) => c[3].quickReplies);
-    expect(sent).toEqual([buttons, undefined]);
+    expect(sent).toEqual([undefined, undefined, buttons]);
+  });
+
+  it('keeps text first, then the album, when there are no quick replies', async () => {
+    const { ai, keys, run } = setup();
+    ai.reply.mockImplementationOnce(async (_w, _b, _req, options) => {
+      await options.sink!.send({ text: 'Mẫu này ạ', images: pics });
+      return answer('');
+    });
+    await run(job('q4', 'xem mẫu'));
+    expect(keys()).toEqual(['bot:q4:s1', 'bot:q4:s1:img']);
   });
 
   it('sends no quick replies when the message has none', async () => {

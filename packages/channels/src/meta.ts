@@ -255,9 +255,15 @@ function outbound(message: OutboundMessage): Record<string, unknown> {
     .slice(0, 10)
     .map((a) => ({ type: a.type, payload: { url: a.url, is_reusable: true } }));
   if (!items.length) {
+    // Graph limits: title 20 characters (code points, so emoji stay whole), payload 1000.
     const quick = (message.quickReplies ?? [])
-      .slice(0, 3)
-      .map((q) => ({ content_type: 'text', title: q.title, payload: q.payload }));
+      .map((q) => ({
+        content_type: 'text',
+        title: Array.from(q.title).slice(0, 20).join(''),
+        payload: q.payload.slice(0, 1000),
+      }))
+      .filter((q) => q.title && q.payload)
+      .slice(0, 3);
     return quick.length ? { text: message.text, quick_replies: quick } : { text: message.text };
   }
   return items.length === 1 ? { attachment: items[0] } : { attachments: items };

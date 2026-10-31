@@ -350,6 +350,16 @@ describe('ChannelFacade page removal (T-133)', () => {
       text: 'Tổng',
       quick_replies: quickReplies.map((q) => ({ content_type: 'text', ...q })),
     });
+    const album = [
+      { type: 'image' as const, url: 'https://cdn.example/1.jpg' },
+      { type: 'image' as const, url: 'https://cdn.example/2.jpg' },
+    ];
+    transport.mockResolvedValueOnce(Response.json({ message_id: 'm.2' }));
+    await service.deliver(ws, id, 'psid', { text: '', attachments: album, quickReplies }, 'k2');
+    const albumBody = JSON.parse(String(transport.mock.calls[1]?.[1]?.body));
+    expect(albumBody.message.attachments).toHaveLength(2);
+    expect(albumBody.message).not.toHaveProperty('quick_replies');
+    expect(JSON.stringify(albumBody)).not.toContain('quick_replies');
   });
   it('refuses to deliver for a removed page', async () => {
     const { service, id } = await connected();

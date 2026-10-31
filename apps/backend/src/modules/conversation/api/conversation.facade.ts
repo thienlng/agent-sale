@@ -81,7 +81,10 @@ export interface ConversationFacade {
    * does not exist.
    */
   botHolds(ws: WorkspaceId, id: string): Promise<boolean>;
-  /** `quickReplies`: buttons under this bubble (Meta, website); delivery only, not stored. */
+  /**
+   * `quickReplies`: buttons under this bubble; delivery only, not stored. Meta shows them; website:
+   * accepted, not yet delivered to the widget.
+   */
   commitBotReply(
     ws: WorkspaceId,
     id: string,

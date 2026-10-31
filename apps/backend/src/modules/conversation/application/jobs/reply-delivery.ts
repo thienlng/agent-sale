@@ -109,7 +109,10 @@ export class ReplyDelivery {
     this.clearNewerStop();
   }
 
-  /** One `send_message` call: its text bubbles, then its pictures as one album. */
+  /**
+   * One `send_message` call: its text bubbles, then its pictures as one album. With quick replies
+   * the album goes first, so the buttons stay on the last message Messenger shows.
+   */
   private async sendMessage(message: OutgoingMessage): Promise<{ delivered: number }> {
     const n = ++this.sends;
     this.delivered = 0;
@@ -119,9 +122,17 @@ export class ReplyDelivery {
     if (await this.stopForNewer()) return { delivered: 0 };
     try {
       const text = message.text?.trim();
-      if (text) await this.sendText(text, `${this.turn.key}:s${n}`, message.quickReplies);
-      if (!this.stop && message.images.length && !(text && (await this.stopForNewer())))
-        await this.sendImages(message.images, `${this.turn.key}:s${n}:img`);
+      const key = `${this.turn.key}:s${n}`;
+      const images = message.images.length > 0;
+      if (text && images && message.quickReplies?.length) {
+        await this.sendImages(message.images, `${key}:img`);
+        if (!this.stop && !(await this.stopForNewer()))
+          await this.sendText(text, key, message.quickReplies);
+      } else {
+        if (text) await this.sendText(text, key, message.quickReplies);
+        if (!this.stop && images && !(text && (await this.stopForNewer())))
+          await this.sendImages(message.images, `${key}:img`);
+      }
     } catch (error) {
       this.stop = 'failed';
       if (!this.attempted) this.failure = error;
