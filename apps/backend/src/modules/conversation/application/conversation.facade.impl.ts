@@ -552,6 +552,10 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
     const detail = await this.load(ws, id);
     return { ...detail, revision: detail.conversation.revision };
   }
+  async botHolds(ws: WorkspaceId, id: string): Promise<boolean> {
+    const c = await this.store.run(ws, (tx) => tx.find(id));
+    return c?.mode === 'bot' && c.status === 'open';
+  }
   send(
     ws: WorkspaceId,
     id: string,

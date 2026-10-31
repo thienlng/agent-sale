@@ -838,15 +838,15 @@ describe('MetaInboxProcessor', () => {
       expect(channels.completeEvent).not.toHaveBeenCalled();
     });
 
-    it('answers anyway after the event was superseded twice (no starvation)', async () => {
+    it('answers anyway after the turn was re-run three times (no starvation)', async () => {
       const { channels, processor } = setup();
       vi.mocked(channels.hasNewerCustomerEvent).mockResolvedValue(true);
       const again = job('r2', 'message', 'hi', Date.now());
-      for (const attempt of [1, 2, 3]) {
+      for (const attempt of [1, 1, 1, 1]) {
         vi.mocked(channels.claimEvents).mockResolvedValueOnce([{ ...again, attempt }]);
         await processor.tick();
       }
-      expect(channels.requeueEvent).toHaveBeenCalledTimes(2);
+      expect(channels.requeueEvent).toHaveBeenCalledTimes(3);
       expect(channels.deliver).toHaveBeenCalledTimes(1);
     });
   });

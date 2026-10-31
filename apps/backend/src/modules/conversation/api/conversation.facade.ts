@@ -75,6 +75,11 @@ export interface ConversationFacade {
     ws: WorkspaceId,
     id: string,
   ): Promise<ConversationDetailDto & { revision: number }>;
+  /**
+   * Whether the bot still holds the conversation (mode `bot`, status `open`): one primary-key
+   * read, cheap enough for the agent loop's interrupt check. False when it does not exist.
+   */
+  botHolds(ws: WorkspaceId, id: string): Promise<boolean>;
   commitBotReply(
     ws: WorkspaceId,
     id: string,

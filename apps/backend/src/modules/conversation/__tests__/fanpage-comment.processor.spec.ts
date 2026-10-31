@@ -103,6 +103,9 @@ describe('Post-aware comment processing', () => {
       { conversationId: null, isTest: false },
     );
     expect(pages.act.mock.calls.map((c) => c[3].kind)).toEqual(['public_reply', 'private_reply']);
+    // One public reply per comment: no send_message sink and no interrupt (spec §7).
+    expect(ai.reply.mock.calls[0]?.[3]).not.toHaveProperty('sink');
+    expect(ai.reply.mock.calls[0]?.[3]).not.toHaveProperty('shouldInterrupt');
     expect(pages.context).toHaveBeenCalledTimes(2);
   });
   it('bills a posted comment reply once and leaves comments to staff when the allowance is used up', async () => {
