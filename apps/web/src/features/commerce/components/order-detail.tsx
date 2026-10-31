@@ -28,6 +28,7 @@ import { orderErrorMessage } from '../hooks/order-errors';
 import { useOrderStatuses } from '../hooks/use-order-statuses';
 import { OrderItemsEditor } from './order-items-editor';
 import { OrderPeoplePanel } from './order-people-editor';
+import { OrderReviewBanner } from './order-review-banner';
 import { OrderStatusBadge } from './order-status-badge';
 
 function Panel({
@@ -297,6 +298,8 @@ export function OrderDetail({ orderId }: { orderId: string }) {
           </span>
         </div>
       </header>
+
+      <OrderReviewBanner order={order} />
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <div className="flex min-w-0 flex-col gap-5">

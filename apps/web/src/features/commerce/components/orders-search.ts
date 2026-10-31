@@ -6,6 +6,8 @@ export interface OrdersSearch {
   /** `exclude`: every status except the chosen ones. */
   statusMode?: 'include' | 'exclude' | undefined;
   createdBy?: string | undefined;
+  /** `pending`: only bot orders that wait for review (the toolbar quick filter). */
+  review?: 'pending' | undefined;
   carrier?: string | undefined;
   q?: string | undefined;
   source?: OrderSource | undefined;

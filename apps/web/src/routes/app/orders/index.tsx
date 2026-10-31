@@ -13,6 +13,7 @@ const Search = z.object({
     .catch(undefined),
   statusMode: z.enum(['include', 'exclude']).optional().catch(undefined),
   createdBy: z.uuid().optional().catch(undefined),
+  review: z.enum(['pending']).optional().catch(undefined),
   carrier: z.string().max(60).optional().catch(undefined),
   q: z.string().max(100).optional().catch(undefined),
   source: OrderSource.optional().catch(undefined),

@@ -6,6 +6,8 @@ import { useSyncExternalStore } from 'react';
 import { formatDateTime, formatVnd } from '@/lib/format';
 import { storage } from '@/lib/storage';
 
+import { OrderCreatedByCell } from './order-created-by-cell';
+import { OrderItemsHoverCard } from './order-items-hover-card';
 import { OrderStatusBadge } from './order-status-badge';
 
 export interface OrderColumn {
@@ -80,15 +82,7 @@ export const ORDER_COLUMNS: readonly OrderColumn[] = [
     header: 'orders.col.products',
     defaultVisible: true,
     className: 'max-w-72 whitespace-normal',
-    cell: (o) => (
-      <div className="flex flex-col gap-0.5">
-        {o.itemsPreview.map((i, idx) => (
-          <span key={idx} className="truncate">
-            <span className="text-muted-foreground tabular-nums">{i.qty}×</span> {i.name}
-          </span>
-        ))}
-      </div>
-    ),
+    cell: (o) => <OrderItemsHoverCard order={o} />,
     csv: products,
   },
   {
@@ -164,12 +158,16 @@ export const ORDER_COLUMNS: readonly OrderColumn[] = [
     csv: (o, t) => t(`source.${o.source}`),
   },
   {
-    id: 'createdBy',
+    // A new id (was `createdBy`, hidden): saved column choices pick it up as a new column.
+    id: 'creator',
     header: 'orders.col.createdBy',
-    defaultVisible: false,
-    className: 'max-w-36',
-    cell: (o) => <span className="block truncate">{o.createdByName ?? '—'}</span>,
-    csv: (o) => o.createdByName ?? '',
+    defaultVisible: true,
+    className: 'w-55 min-w-55 max-w-60',
+    cell: (o) => <OrderCreatedByCell order={o} />,
+    csv: (o, t) =>
+      o.createdByKind === 'bot'
+        ? `${t('orders.review.bot')} · ${t(o.reviewState === 'pending' ? 'orders.review.pending' : 'orders.review.approved')}`
+        : (o.createdByName ?? ''),
   },
   {
     id: 'placedAt',
@@ -192,14 +190,20 @@ export const ORDER_COLUMNS: readonly OrderColumn[] = [
 
 // ─── Column choice, remembered per browser ────────────────────────────────────
 
-const KEY = 'rapiz.orders.columns';
+const KEY = 'rapiz.orders.columns.v2';
+/** Choices saved before "Người tạo" became a default column (then `createdBy`, hidden). */
+const LEGACY_KEY = 'rapiz.orders.columns';
 const listeners = new Set<() => void>();
 
-function read(): ReadonlySet<string> {
+function savedIds(): string[] | null {
   const saved = storage.get(KEY);
-  const ids = saved
-    ? saved.split(',')
-    : ORDER_COLUMNS.filter((c) => c.defaultVisible).map((c) => c.id);
+  if (saved) return saved.split(',');
+  const legacy = storage.get(LEGACY_KEY);
+  return legacy ? [...legacy.split(',').filter((id) => id !== 'createdBy'), 'creator'] : null;
+}
+
+function read(): ReadonlySet<string> {
+  const ids = savedIds() ?? ORDER_COLUMNS.filter((c) => c.defaultVisible).map((c) => c.id);
   return new Set([...ids, ...ORDER_COLUMNS.filter((c) => c.fixed).map((c) => c.id)]);
 }
 
@@ -216,6 +220,7 @@ export function toggleOrderColumn(id: string): void {
 
 export function resetOrderColumns(): void {
   storage.remove(KEY);
+  storage.remove(LEGACY_KEY);
   visible = read();
   listeners.forEach((l) => l());
 }

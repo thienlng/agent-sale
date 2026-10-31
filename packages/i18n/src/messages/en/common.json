@@ -561,7 +561,33 @@
     },
     "perPage": "{{count}} / page",
     "perPageLabel": "Orders per page",
-    "pagination": "Pagination"
+    "pagination": "Pagination",
+    "review": {
+      "bot": "Bot",
+      "pending": "Needs review",
+      "approved": "Approved",
+      "approvedBy": "Approved by {{name}} · {{time}}",
+      "staff": "a staff member",
+      "openConversation": "Open the conversation in a new tab",
+      "openConversationShort": "Open conversation",
+      "filter": "Bot · needs review",
+      "filterCount": "{{count}} bot orders need review",
+      "approve": "Approve order",
+      "approving": "Approving…",
+      "approvedToast": "Order {{code}} approved",
+      "undo": "Undo",
+      "undone": "Approval of order {{code}} undone",
+      "bannerPending": "The bot created this order from a conversation. Check it before handling it.",
+      "bannerApproved": "Created by the bot · approved by {{name}} at {{time}}",
+      "newTab": "(opens in a new tab)"
+    },
+    "items": {
+      "count_one": "{{count}} product",
+      "count_other": "{{count}} products",
+      "total": "Order total",
+      "noImage": "No image",
+      "details": "Products in order {{code}}"
+    }
   },
   "orderForm": {
     "title": "New order",
