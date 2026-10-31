@@ -369,7 +369,7 @@ describe('bot API actions in the reply pipeline', () => {
         'handoff',
       ]);
       expect(fake.calls).toHaveLength(1);
-      expect(runs.runs[0]?.promptVersion).toBe('sales-agent@13');
+      expect(runs.runs[0]?.promptVersion).toBe('sales-agent@15');
     }
     // A tool call is meaningless without actions: nothing runs.
     const none = build([call(LOOKUP), answer('Dạ em chưa rõ ạ.')], { actions: [] });
@@ -597,12 +597,15 @@ describe('bot API actions in the reply pipeline', () => {
     expect(lastMessage(fake.calls[0])).not.toContain('<pending_action>');
   });
 
-  it('keeps prompt sales-agent@13 telling the model to doubt an old pending call', async () => {
-    const { PROMPTS_DIR } = await import('@agent-sales/ai-core');
-    const { readFile } = await import('node:fs/promises');
-    const text = await readFile(`${PROMPTS_DIR}/sales-agent@13.md`, 'utf8');
-    expect(text).toContain('askedMinutesAgo');
-    expect(text).toContain('confirm_pending_action');
-    expect(text).not.toContain('call_action');
-  });
+  it.each([13, 15])(
+    'keeps prompt sales-agent@%i telling the model to doubt an old pending call',
+    async (version) => {
+      const { PROMPTS_DIR } = await import('@agent-sales/ai-core');
+      const { readFile } = await import('node:fs/promises');
+      const text = await readFile(`${PROMPTS_DIR}/sales-agent@${version}.md`, 'utf8');
+      expect(text).toContain('askedMinutesAgo');
+      expect(text).toContain('confirm_pending_action');
+      expect(text).not.toContain('call_action');
+    },
+  );
 });

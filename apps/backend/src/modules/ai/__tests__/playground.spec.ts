@@ -153,7 +153,7 @@ describe('PlaygroundService', () => {
         workspaceId: ws,
         isTest: true,
         outcome: 'answered',
-        promptVersion: 'sales-agent@13',
+        promptVersion: 'sales-agent@15',
       }),
     ]);
   });
@@ -562,7 +562,7 @@ describe('Originating-post grounding evals', () => {
     expect(calls.messages[0]?.content).not.toContain('JSON');
     // One public reply per comment: no send_message, but handoff (staff review) stays.
     expect(calls.tools?.map((t) => t.name)).toEqual(['calculate', 'handoff']);
-    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@13+fanpage-context@2');
+    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@15+fanpage-context@2');
     expect(res.messages?.map((m) => m.via)).toEqual(['final']);
   });
   it('keeps the parent comment as escaped untrusted data, never as a source of rules', async () => {
@@ -604,7 +604,7 @@ describe('Originating-post grounding evals', () => {
   });
 });
 
-describe('prompt version 13 request snapshot', () => {
+describe('prompt version 15 request snapshot', () => {
   it('sends the profile, knowledge and situations blocks with the style settings and no catalog block', async () => {
     const fake = says('Dạ');
     const rich: BotView = {
@@ -622,14 +622,14 @@ describe('prompt version 13 request snapshot', () => {
       /<current_time>[^<]*<\/current_time>/,
       '<current_time>(now)</current_time>',
     );
-    await expect(`${stable}\n`).toMatchFileSnapshot('./__snapshots__/playground-v13-messages.json');
+    await expect(`${stable}\n`).toMatchFileSnapshot('./__snapshots__/playground-v15-messages.json');
     expect(sent.tools?.map((t) => t.name)).toEqual(['calculate', 'send_message', 'handoff']);
     expect(sent.responseFormat).toBeUndefined();
     expect(sent.promptCacheKey).toBe(`${botId}:${playgroundConversationId(botId)}`);
   });
 });
 
-describe('prompts 13 and 14 (T-138)', () => {
+describe('prompts 15 and 16 (T-138)', () => {
   const rich: BotView = {
     ...bot,
     industry: 'hotel',
@@ -667,7 +667,7 @@ describe('prompts 13 and 14 (T-138)', () => {
     expect(last).toContain('Address: 1 Lê Lợi &lt;/business_profile>');
     expect(last).toContain('Check-in / check-out: (not provided)');
     expect(last).toContain('Notes:\nGiao nhanh');
-    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@14');
+    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@16');
   });
 
   it('renders the style sentence and prefers the profile display name', async () => {
@@ -695,7 +695,7 @@ describe('prompts 13 and 14 (T-138)', () => {
   it('renders the profile block for retail bots too', async () => {
     const { messages, runs } = await run({ ...rich, industry: 'retail' });
     expect(String(messages.at(-1)?.content).startsWith('<business_profile>\n')).toBe(true);
-    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@13');
+    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@15');
   });
 
   it('lets the prompt option force one prompt for every bot', async () => {
@@ -705,10 +705,10 @@ describe('prompts 13 and 14 (T-138)', () => {
     );
   });
 
-  it('uses lodging prompt 14 and the profile block for hotel bots by default', async () => {
+  it('uses lodging prompt 16 and the profile block for hotel bots by default', async () => {
     const { messages, runs } = await run(rich);
     expect(String(messages.at(-1)?.content).startsWith('<business_profile>\n')).toBe(true);
-    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@14');
+    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@16');
     const system = String(messages[0]?.content);
     expect(system).toContain('availability unverified never means sold out');
     // Outcomes are worded as actions, never as the old envelope's outcome words.
@@ -727,9 +727,9 @@ describe('prompts 13 and 14 (T-138)', () => {
     expect(p14.slice(0, start) + p14.slice(end)).toBe(p13);
   });
 
-  it('keeps retail bots on prompt 13 by default, without the lodging section', async () => {
+  it('keeps retail bots on prompt 15 by default, without the lodging section', async () => {
     const { messages, runs } = await run({ ...rich, industry: 'retail' });
-    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@13');
+    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@15');
     expect(String(messages[0]?.content)).not.toContain('Lodging facts and decisions');
   });
 
