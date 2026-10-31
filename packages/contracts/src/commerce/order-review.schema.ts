@@ -38,8 +38,6 @@ export const OrderOriginFields = {
   reviewedByName: z.string().nullable(),
   reviewedAt: z.iso.datetime().nullable(),
   conversationId: z.uuid().nullable(),
-  /** How many lines the order has; `itemsPreview` carries at most the first 10. */
-  itemCount: z.number().int().nonnegative(),
 };
 
 /** `approve:false` reverts an approval (same user, within a few seconds). */
