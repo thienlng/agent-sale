@@ -10,8 +10,7 @@ import { renderWithProviders, renderWithRouter, stubFetch } from '@/testing/rend
 import { APPROVE_UNDO_MS } from '../hooks/use-approve-order';
 import { OrderReviewBanner } from './order-review-banner';
 import { OrdersList } from './orders-list';
-import { toOrderQuery } from './orders-search';
-import { OrdersToolbar } from './orders-toolbar';
+import { parseOrdersSearch, toOrderQuery } from './orders-search';
 
 const toast = vi.hoisted(() => Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }));
 vi.mock('sonner', () => ({ toast }));
@@ -284,62 +283,15 @@ describe('approving: concurrency and failure', () => {
   });
 });
 
-describe('"Bot · chờ duyệt" quick filter', () => {
-  const toolbar = (review: 'pending' | undefined, onChange = vi.fn()) => (
-    <OrdersToolbar
-      search={{ review }}
-      onChange={onChange}
-      statuses={[]}
-      counts={{}}
-      facets={undefined}
-      onExport={() => {}}
-      exporting={false}
-    />
-  );
-
-  it('shows the pending count and toggles review=pending', async () => {
-    vi.stubGlobal('fetch', stubFetch(common).fetchStub);
-    const onChange = vi.fn();
-    const user = userEvent.setup();
-    const view = renderWithProviders(toolbar(undefined, onChange));
-    const chip = await screen.findByRole('button', {
-      name: /Bot · chờ duyệt.*3 đơn bot chờ duyệt/,
-    });
-    expect(chip).toHaveAttribute('aria-pressed', 'false');
-    await user.click(chip);
-    expect(onChange).toHaveBeenLastCalledWith({ review: 'pending' });
-
-    view.rerender(toolbar('pending', onChange));
-    expect(chip).toHaveAttribute('aria-pressed', 'true');
-    await user.click(chip);
-    expect(onChange).toHaveBeenLastCalledWith({ review: undefined });
-  });
-
-  it('hides the count when no bot order waits', async () => {
+// The old toolbar quick filter now lives in the "Người tạo" column menu (creator=bot_pending).
+describe('"Bot · chờ duyệt" in the "Người tạo" column', () => {
+  it('maps the old review=pending link and sends creator=bot_pending to the list API', async () => {
+    const search = parseOrdersSearch({ review: 'pending' });
+    expect(search).toEqual({ creator: ['bot_pending'] });
+    expect(toOrderQuery(search)).toEqual({ creator: 'bot_pending' });
     const stub = stubFetch({
       ...common,
-      'GET /orders/review-count': { status: 200, body: { pending: 0 } },
-    });
-    let signal = () => {};
-    const answered = new Promise<void>((r) => (signal = r));
-    vi.stubGlobal('fetch', async (input: string, init?: RequestInit) => {
-      const res = await stub.fetchStub(input, init);
-      if (input.endsWith('/orders/review-count')) signal();
-      return res;
-    });
-    renderWithProviders(toolbar(undefined));
-    const chip = screen.getByRole('button', { name: 'Bot · chờ duyệt' });
-    await answered;
-    // Let the answer reach the component before checking that no count is shown.
-    await act(async () => new Promise((r) => setTimeout(r, 20)));
-    expect(chip).toHaveAccessibleName('Bot · chờ duyệt');
-  });
-
-  it('sends review=pending to the list API', async () => {
-    expect(toOrderQuery({ review: 'pending' })).toEqual({ review: 'pending' });
-    const stub = stubFetch({
-      ...common,
-      'GET /orders?review=pending&page=1&pageSize=20': {
+      'GET /orders?creator=bot_pending&page=1&pageSize=20': {
         status: 200,
         body: listBody([botPending]),
       },
@@ -347,15 +299,42 @@ describe('"Bot · chờ duyệt" quick filter', () => {
     vi.stubGlobal('fetch', stub.fetchStub);
     renderWithRouter(() => (
       <TooltipProvider>
-        <OrdersList search={{ review: 'pending' }} onSearch={() => {}} />
+        <OrdersList search={search} onSearch={() => {}} />
       </TooltipProvider>
     ));
     await screen.findByRole('table', undefined, { timeout: 5000 });
     expect(await table().findByText('Chờ duyệt')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Bot · chờ duyệt/ })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
+    expect(screen.getByText('Người tạo: Bot · chờ duyệt')).toBeInTheDocument();
+    // The header says the column is filtered and that 3 bot orders wait (review-count).
+    expect(
+      await screen.findByRole('button', {
+        name: 'Người tạo, đang lọc, 3 đơn bot chờ duyệt',
+      }),
+    ).toHaveAttribute('aria-haspopup', 'dialog');
+  });
+
+  it('shows no pending dot when no bot order waits', async () => {
+    let signal = () => {};
+    const answered = new Promise<void>((r) => (signal = r));
+    const stub = stubFetch({
+      ...common,
+      'GET /orders/review-count': { status: 200, body: { pending: 0 } },
+      'GET /orders?page=1&pageSize=20': { status: 200, body: listBody([staffOrder]) },
+    });
+    vi.stubGlobal('fetch', async (input: string, init?: RequestInit) => {
+      const res = await stub.fetchStub(input, init);
+      if (input.endsWith('/orders/review-count')) signal();
+      return res;
+    });
+    renderWithRouter(() => (
+      <TooltipProvider>
+        <OrdersList search={{}} onSearch={() => {}} />
+      </TooltipProvider>
+    ));
+    await answered;
+    await act(async () => new Promise((r) => setTimeout(r, 20)));
+    expect(screen.getByRole('button', { name: 'Người tạo' })).toBeInTheDocument();
+    expect(screen.queryByTestId('pending-review-dot')).toBeNull();
   });
 });
 

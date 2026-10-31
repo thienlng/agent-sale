@@ -461,7 +461,7 @@ describe('approve', () => {
     expect(await ctx.reviews.reviewCount(ws)).toEqual({ pending: 1 });
     const page = { page: 1, pageSize: 20, statusMode: 'include', sort: 'placed_desc' } as const;
     const pending = await ctx.orders.list(ws, { ...page, review: 'pending' });
-    expect(ctx.db.lastListFilter?.review).toBe('pending');
+    expect(ctx.db.lastListFilter?.creators).toEqual(['bot_pending']);
     expect(pending.data.map((o) => o.id)).toEqual([orderId]);
     await ctx.reviews.approve(ws, orderId, true, staff);
     expect(await ctx.reviews.reviewCount(ws)).toEqual({ pending: 0 });

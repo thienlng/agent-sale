@@ -13,7 +13,7 @@ import {
   UpdateOrderRequest as UpdateOrderSchema,
   type UpdateOrderRequest,
 } from '@agent-sales/contracts';
-import { foldVietnamese, isUuid, newId, userId, type WorkspaceId } from '@agent-sales/shared';
+import { isUuid, newId, userId, type WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable } from '@nestjs/common';
 import type { z } from 'zod';
 
@@ -47,6 +47,7 @@ import {
   orderLines,
   peopleOf,
 } from './order-rules.js';
+import { toOrderListFilter } from './order-list-filter.js';
 import {
   amountFields,
   orderSearchText,
@@ -308,20 +309,12 @@ export class OrderService {
   async list(ws: WorkspaceId, q: z.output<typeof OrderListSchema>): Promise<OrderListResponse> {
     const tz = await this.#timezone(ws);
     return this.store.run(ws, async (tx) => {
-      const result = await tx.orders.list({
-        statuses: q.status,
-        statusMode: q.statusMode,
-        createdBy: q.createdBy,
-        carrier: q.carrier,
-        q: q.q ? foldVietnamese(q.q) : undefined,
-        source: q.source,
-        review: q.review,
-        from: q.from ? startOfLocalDay(q.from, tz) : undefined,
-        to: q.to ? startOfLocalDay(nextDate(q.to), tz) : undefined,
-        sort: q.sort,
-        offset: (q.page - 1) * q.pageSize,
-        limit: q.pageSize,
-      });
+      const result = await tx.orders.list(
+        toOrderListFilter(q, {
+          from: q.from ? startOfLocalDay(q.from, tz) : undefined,
+          to: q.to ? startOfLocalDay(nextDate(q.to), tz) : undefined,
+        }),
+      );
       return {
         data: result.rows.map((r) => toSummary(r, r.itemsPreview, r.itemCount)),
         total: result.total,

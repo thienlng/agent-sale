@@ -6,7 +6,6 @@ import {
   inArray,
   isNotNull,
   isNull,
-  notInArray,
   schema,
   sql,
   type TenantTx,
@@ -25,7 +24,6 @@ import type { OrderStatus } from '../../domain/order-stock.js';
 import { PREVIEW_LINES } from '../../application/order.mappers.js';
 import { DuplicateOrderRequestError } from '../../domain/commerce.errors.js';
 import {
-  contains,
   h,
   isClosed,
   n,
@@ -38,9 +36,14 @@ import {
   profitExpr,
   toOrder,
 } from './commerce.rows.js';
-
-/** Bot orders waiting for review; cancelling one rejects it (partial index orders_review_pending_idx). */
-const pendingReview = and(eq(o.reviewState, 'pending'), notInArray(o.status, ['cancelled']));
+import {
+  countsByKey,
+  creatorKey,
+  grossExpr,
+  listFilterParts,
+  orderBy,
+  pendingReview,
+} from './order-list.sql.js';
 
 /** Orders, their history and settings inside one tenant transaction. */
 export function ordersTx(ws: WorkspaceId, tx: TenantTx): Pick<CommerceTx, 'orders' | 'settings'> {
@@ -136,69 +139,74 @@ export function ordersTx(ws: WorkspaceId, tx: TenantTx): Pick<CommerceTx, 'order
         await tx.insert(h).values({ id: crypto.randomUUID(), workspaceId, orderId, ...entry });
       },
       async list(f: OrderListFilter): Promise<OrderListResult> {
-        const base = and(
-          isNull(o.deletedAt),
-          f.q ? contains(o.searchText, f.q) : undefined,
-          f.source ? eq(o.source, f.source) : undefined,
-          f.from ? sql`${o.placedAt} >= ${f.from.toISOString()}` : undefined,
-          f.to ? sql`${o.placedAt} < ${f.to.toISOString()}` : undefined,
-          f.createdBy ? eq(o.createdByUserId, f.createdBy) : undefined,
-          f.carrier ? eq(o.carrier, f.carrier) : undefined,
-          f.review ? pendingReview : undefined,
-        );
+        // Each filter is a named part: the per-column facet counts drop their own column's part.
+        const parts = listFilterParts(f);
+        const allBut = (...skip: Array<keyof typeof parts>) =>
+          and(
+            isNull(o.deletedAt),
+            ...Object.entries(parts)
+              .filter(([k]) => !skip.includes(k as keyof typeof parts))
+              .map(([, c]) => c),
+          );
         // Status is the only filter the per-status counts ignore (they label the choices).
-        const statusFilter = f.statuses?.length
-          ? f.statusMode === 'exclude'
-            ? notInArray(o.status, f.statuses)
-            : inArray(o.status, f.statuses)
-          : undefined;
-        const where = and(base, statusFilter);
-        const order = {
-          placed_desc: [desc(o.placedAt), desc(o.code)],
-          placed_asc: [asc(o.placedAt), asc(o.code)],
-          total_desc: [desc(o.total), desc(o.placedAt)],
-          total_asc: [asc(o.total), desc(o.placedAt)],
-        }[f.sort];
-        const [rows, countRows, [totals], creators, carriers] = await Promise.all([
-          tx
-            .select()
-            .from(o)
-            .where(where)
-            .orderBy(...order)
-            .offset(f.offset)
-            .limit(f.limit),
-          tx
-            .select({ status: o.status, c: sql<number>`count(*)` })
-            .from(o)
-            .where(base)
-            .groupBy(o.status),
-          tx
-            .select({
-              c: sql<number>`count(*)`,
-              itemQty: sql<number>`coalesce(sum(${o.itemQty}), 0)`,
-              shippingFeeCharged: sql<number>`coalesce(sum(${o.shippingFeeCharged}), 0)`,
-              cod: sql<number>`coalesce(sum(${o.codAmount}), 0)`,
-              gross: sql<number>`coalesce(sum(${o.subtotal} + ${o.shippingFeeCharged} + ${o.surcharge}), 0)`,
-              total: sql<number>`coalesce(sum(${o.total}), 0)`,
-            })
-            .from(o)
-            .where(where),
-          tx
-            .selectDistinctOn([o.createdByUserId], {
-              id: o.createdByUserId,
-              name: o.createdByName,
-            })
-            .from(o)
-            .where(and(isNull(o.deletedAt), isNotNull(o.createdByUserId)))
-            .orderBy(o.createdByUserId, desc(o.createdAt))
-            .limit(100),
-          tx
-            .selectDistinct({ carrier: o.carrier })
-            .from(o)
-            .where(and(isNull(o.deletedAt), isNotNull(o.carrier)))
-            .orderBy(o.carrier)
-            .limit(100),
-        ]);
+        const base = allBut('status');
+        const where = allBut();
+        const [rows, countRows, [totals], creators, carriers, bySource, byCreator, byCarrier] =
+          await Promise.all([
+            tx
+              .select()
+              .from(o)
+              .where(where)
+              .orderBy(...orderBy(f.sort))
+              .offset(f.offset)
+              .limit(f.limit),
+            tx
+              .select({ status: o.status, c: sql<number>`count(*)` })
+              .from(o)
+              .where(base)
+              .groupBy(o.status),
+            tx
+              .select({
+                c: sql<number>`count(*)`,
+                itemQty: sql<number>`coalesce(sum(${o.itemQty}), 0)`,
+                shippingFeeCharged: sql<number>`coalesce(sum(${o.shippingFeeCharged}), 0)`,
+                cod: sql<number>`coalesce(sum(${o.codAmount}), 0)`,
+                gross: sql<number>`coalesce(sum(${grossExpr}), 0)`,
+                total: sql<number>`coalesce(sum(${o.total}), 0)`,
+              })
+              .from(o)
+              .where(where),
+            tx
+              .selectDistinctOn([o.createdByUserId], {
+                id: o.createdByUserId,
+                name: o.createdByName,
+              })
+              .from(o)
+              .where(and(isNull(o.deletedAt), isNotNull(o.createdByUserId)))
+              .orderBy(o.createdByUserId, desc(o.createdAt))
+              .limit(100),
+            tx
+              .selectDistinct({ carrier: o.carrier })
+              .from(o)
+              .where(and(isNull(o.deletedAt), isNotNull(o.carrier)))
+              .orderBy(o.carrier)
+              .limit(100),
+            tx
+              .select({ key: o.source, c: sql<number>`count(*)` })
+              .from(o)
+              .where(allBut('source'))
+              .groupBy(o.source),
+            tx
+              .select({ key: creatorKey, c: sql<number>`count(*)` })
+              .from(o)
+              .where(allBut('creator'))
+              .groupBy(sql`1`),
+            tx
+              .select({ key: o.carrier, c: sql<number>`count(*)` })
+              .from(o)
+              .where(and(allBut('carrier'), isNotNull(o.carrier)))
+              .groupBy(o.carrier),
+          ]);
         const ids = rows.map((r) => r.id);
         const items = ids.length
           ? await tx
@@ -251,6 +259,11 @@ export function ordersTx(ws: WorkspaceId, tx: TenantTx): Pick<CommerceTx, 'order
               .flatMap((c) => (c.id ? [{ id: c.id, name: c.name ?? '' }] : []))
               .sort((a, b) => a.name.localeCompare(b.name, 'vi')),
             carriers: carriers.flatMap((c) => (c.carrier ? [c.carrier] : [])),
+            counts: {
+              source: countsByKey(bySource),
+              creator: countsByKey(byCreator),
+              carrier: countsByKey(byCarrier),
+            },
           },
         };
       },

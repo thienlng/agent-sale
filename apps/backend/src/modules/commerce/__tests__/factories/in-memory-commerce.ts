@@ -137,15 +137,27 @@ export class InMemoryCommerce implements CommerceStore {
         },
         list: async (f: OrderListFilter) => {
           this.lastListFilter = f;
+          // Only the creator filter, as the bot order tests need (Postgres covers the rest).
+          const creators = f.creators ?? [];
           const rows = this.orders.filter(
-            (o) => !f.review || (o.reviewState === 'pending' && o.status !== 'cancelled'),
+            (o) =>
+              !creators.length ||
+              (o.createdByUserId !== null && creators.includes(o.createdByUserId)) ||
+              (creators.includes('bot_pending') &&
+                o.reviewState === 'pending' &&
+                o.status !== 'cancelled') ||
+              (creators.includes('bot_approved') && o.reviewState === 'approved'),
           );
           return {
             rows: rows.map((o) => ({ ...o, itemsPreview: [] })),
             total: rows.length,
             counts: {},
             totals: { itemQty: 0, shippingFeeCharged: 0, cod: 0, gross: 0, total: 0 },
-            facets: { creators: [], carriers: [] },
+            facets: {
+              creators: [],
+              carriers: [],
+              counts: { source: {}, creator: {}, carrier: {} },
+            },
           };
         },
         countPendingReview: async () =>

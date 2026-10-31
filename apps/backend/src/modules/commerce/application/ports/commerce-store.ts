@@ -1,8 +1,10 @@
 import type { WorkspaceId } from '@agent-sales/shared';
 import type {
   AccommodationDetails,
+  ORDER_MONEY_COLUMNS,
   OrderCreatedByKind,
   OrderReviewState,
+  OrderSort,
   OrderSummaryDto,
 } from '@agent-sales/contracts';
 
@@ -139,21 +141,46 @@ export interface HistoryRecord {
   createdAt: Date;
 }
 
+/** Per-column "contains" searches of the orders list, already folded (`foldVietnamese`). */
+export interface OrderListText {
+  code?: string | undefined;
+  tracking?: string | undefined;
+  /** Customer or recipient name. */
+  customer?: string | undefined;
+  /** Digit sequences (see `phoneNeedles`), any of them; an empty list matches nothing. */
+  phone?: string[] | undefined;
+  /** Recipient address, ward and province. */
+  address?: string | undefined;
+  /** Any line's product or variant name. */
+  product?: string | undefined;
+  /** Internal or printed note. */
+  note?: string | undefined;
+}
+
+export type OrderMoneyColumn = (typeof ORDER_MONEY_COLUMNS)[number];
+
 export interface OrderListFilter {
   statuses?: OrderStatus[] | undefined;
   /** `exclude`: status NOT IN `statuses`. */
   statusMode: 'include' | 'exclude';
-  createdBy?: string | undefined;
-  carrier?: string | undefined;
-  /** Folded search text. */
+  /**
+   * Any of: staff user ids, `bot_pending` (bot orders waiting for review; cancelled ones excluded:
+   * cancelling rejects them), `bot_approved`. Empty or absent: no filter.
+   */
+  creators?: string[] | undefined;
+  /** Any of these exact carrier names. */
+  carriers?: string[] | undefined;
+  /** Any of these sources. */
+  sources?: string[] | undefined;
+  /** Folded search text over the order's `search_text`. */
   q?: string | undefined;
-  source?: string | undefined;
-  /** `pending`: bot orders waiting for review (cancelled ones excluded: cancelling rejects them). */
-  review?: 'pending' | undefined;
+  text: OrderListText;
+  /** Inclusive VND bounds per money column. */
+  money: Partial<Record<OrderMoneyColumn, { min?: number | undefined; max?: number | undefined }>>;
   /** Half-open UTC range [from, to). */
   from?: Date | undefined;
   to?: Date | undefined;
-  sort: 'placed_desc' | 'placed_asc' | 'total_desc' | 'total_asc';
+  sort: OrderSort;
   offset: number;
   limit: number;
 }
@@ -169,7 +196,16 @@ export interface OrderListResult {
     gross: number;
     total: number;
   };
-  facets: { creators: Array<{ id: string; name: string }>; carriers: string[] };
+  facets: {
+    creators: Array<{ id: string; name: string }>;
+    carriers: string[];
+    /** Per value, the orders matching every filter except that column's own. */
+    counts: {
+      source: Record<string, number>;
+      creator: Record<string, number>;
+      carrier: Record<string, number>;
+    };
+  };
 }
 
 export interface SourcePolicyRecord {

@@ -30,10 +30,12 @@ import { formatDateTime, formatNumber, formatVnd } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { useCan } from '@/lib/permissions';
 
-import { fetchAllOrders, useOrders } from '../api/commerce';
+import { fetchAllOrders, useOrderReviewCount, useOrders } from '../api/commerce';
 import { downloadOrdersCsv } from '../hooks/export-orders';
 import { useApproveWithUndo } from '../hooks/use-approve-order';
 import { useOrderStatuses } from '../hooks/use-order-statuses';
+import { columnMenu, columnSortDir, type OrderFilterContext } from './order-column-filters';
+import { OrderColumnMenu } from './order-column-menu';
 import { type OrderColumn, useVisibleOrderColumns } from './order-columns';
 import { BotBadge, PendingReviewChip } from './order-created-by-cell';
 import { OrderStatusBadge } from './order-status-badge';
@@ -175,12 +177,19 @@ export function OrdersList({
   const [exporting, setExporting] = useState(false);
   // Lives here, not in the row menu: the undo toast outlives the menu (and a filtered-out row).
   const { approve } = useApproveWithUndo();
+  const pendingReview = useOrderReviewCount().data?.pending ?? 0;
 
   const data = orders.data;
   const rows = data?.data ?? [];
   const unavailable = orders.error instanceof ApiClientError && orders.error.status === 503;
   const allOnPage = rows.length > 0 && rows.every((o) => selected.includes(o.id));
   const colCount = columns.length + 2;
+  const ctx: OrderFilterContext = {
+    statuses,
+    statusCounts: data?.counts ?? {},
+    facets: data?.facets,
+    pendingReview,
+  };
 
   const change = useCallback(
     (patch: Partial<OrdersSearch>) => onSearch({ ...search, ...patch, page: patch.page ?? 1 }),
@@ -232,9 +241,7 @@ export function OrdersList({
       <OrdersToolbar
         search={search}
         onChange={change}
-        statuses={statuses}
-        counts={data?.counts ?? {}}
-        facets={data?.facets}
+        ctx={ctx}
         onExport={() => void exportCsv()}
         exporting={exporting}
       />
@@ -253,25 +260,40 @@ export function OrdersList({
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className="w-10">
+                <TableHead className="h-9 w-10">
                   <Checkbox
                     aria-label={t('orders.bulk.selectPage')}
                     checked={allOnPage ? true : selected.length ? 'indeterminate' : false}
                     onCheckedChange={(c) => setSelected(c === true ? rows.map((o) => o.id) : [])}
                   />
                 </TableHead>
-                {columns.map((c) => (
-                  <TableHead
-                    key={c.id}
-                    className={cn(
-                      'text-xs font-medium text-muted-foreground',
-                      c.align === 'right' && 'text-right',
-                    )}
-                  >
-                    {t(c.header)}
-                  </TableHead>
-                ))}
-                <TableHead className="w-10" />
+                {columns.map((c) => {
+                  const menu = columnMenu(c.id);
+                  const dir = menu ? columnSortDir(menu, search) : null;
+                  return (
+                    <TableHead
+                      key={c.id}
+                      aria-sort={dir ? (dir === 'asc' ? 'ascending' : 'descending') : undefined}
+                      className={cn(
+                        'h-9 text-xs font-medium text-muted-foreground',
+                        c.align === 'right' && 'text-right',
+                      )}
+                    >
+                      {menu ? (
+                        <OrderColumnMenu
+                          spec={menu}
+                          search={search}
+                          onChange={change}
+                          ctx={ctx}
+                          align={c.align}
+                        />
+                      ) : (
+                        t(c.header)
+                      )}
+                    </TableHead>
+                  );
+                })}
+                <TableHead className="h-9 w-10" />
               </TableRow>
             </TableHeader>
             <TableBody>
