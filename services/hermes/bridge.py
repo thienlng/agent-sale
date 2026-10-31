@@ -6,6 +6,7 @@ import hmac
 import json
 import logging
 import os
+import re
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -20,6 +21,11 @@ MAX_IMAGE_BYTES = 3_000_000  # decoded, per image
 MAX_IMAGES_TOTAL_BYTES = 6_000_000  # decoded, all images of one request
 # base64 inflates by 4/3; the slack covers the JSON around it.
 MAX_IMAGE_BODY = MAX_BODY + MAX_IMAGES_TOTAL_BYTES * 4 // 3 + 4_096
+MAX_TOOLS = 32
+MAX_TOOL_CALLS_PER_MESSAGE = 16
+MAX_MESSAGES = 42
+MAX_TOOL_MESSAGES = 200  # a native tool turn replays the whole tool loop
+TOOL_NAME = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 IMAGE_MAGIC = {
     "image/jpeg": lambda b: b.startswith(b"\xff\xd8\xff"),
     "image/png": lambda b: b.startswith(b"\x89PNG\r\n\x1a\n"),
@@ -53,11 +59,61 @@ def validate_images(images):
     return images
 
 
+def validate_tools(tools):
+    """Function tools the model may call. The bridge forwards them and never runs one."""
+    if not isinstance(tools, list) or not 1 <= len(tools) <= MAX_TOOLS:
+        raise ValueError("invalid tools")
+    names = set()
+    for tool in tools:
+        if (not isinstance(tool, dict) or set(tool) != {"name", "description", "parameters"}
+                or not isinstance(tool["name"], str) or not TOOL_NAME.match(tool["name"])
+                or tool["name"] in names or not isinstance(tool["description"], str)
+                or len(tool["description"]) > 8_000 or not isinstance(tool["parameters"], dict)):
+            raise ValueError("invalid tool")
+        names.add(tool["name"])
+    return tools
+
+
+def validate_message(message, native):
+    if not isinstance(message, dict) or message.get("role") not in ("system", "user", "assistant", "tool"):
+        raise ValueError("invalid message")
+    role, keys = message["role"], set(message)
+    if not isinstance(message.get("content"), str) or len(message["content"]) > 80_000:
+        raise ValueError("invalid message")
+    if role in ("assistant", "tool") and keys - {"role", "content"} and not native:
+        raise ValueError("invalid message")
+    if role == "assistant":
+        if keys not in ({"role", "content"}, {"role", "content", "toolCalls"}):
+            raise ValueError("invalid message")
+        calls = message.get("toolCalls")
+        if calls is None:
+            if not message["content"]:
+                raise ValueError("invalid message")
+            return
+        if not isinstance(calls, list) or not 1 <= len(calls) <= MAX_TOOL_CALLS_PER_MESSAGE:
+            raise ValueError("invalid tool calls")
+        for call in calls:
+            if (not isinstance(call, dict) or set(call) != {"id", "name", "arguments"}
+                    or not all(isinstance(call[k], str) for k in call)
+                    or not 1 <= len(call["id"]) <= 200 or not TOOL_NAME.match(call["name"])
+                    or len(call["arguments"]) > 80_000):
+                raise ValueError("invalid tool call")
+        return
+    if role == "tool":
+        if (keys not in ({"role", "content", "toolCallId"}, {"role", "content", "toolCallId", "name"})
+                or not isinstance(message["toolCallId"], str) or not 1 <= len(message["toolCallId"]) <= 200
+                or ("name" in message and (not isinstance(message["name"], str) or not TOOL_NAME.match(message["name"])))):
+            raise ValueError("invalid tool message")
+        return
+    if keys != {"role", "content"} or not message["content"]:
+        raise ValueError("invalid message")
+
+
 def validate_request(value):
     if not isinstance(value, dict) or value.get("version") != 1:
         raise ValueError("invalid version")
     allowed = {"version", "requestId", "workspaceId", "model", "effort", "messages", "maxOutputTokens", "responseSchema",
-               "images"}
+               "images", "tools", "toolChoice", "promptCacheKey"}
     if set(value) - allowed:
         raise ValueError("unknown request fields")
     for field in ("requestId", "workspaceId"):
@@ -71,16 +127,29 @@ def validate_request(value):
     cap = value.get("maxOutputTokens", 2000)
     if type(cap) is not int or not 1 <= cap <= 8000:
         raise ValueError("invalid output cap")
+    tools = value.get("tools")
+    native = tools is not None
+    if native:
+        validate_tools(tools)
+    if value.get("toolChoice") not in (None, "auto", "none"):
+        raise ValueError("invalid tool choice")
+    if value.get("toolChoice") is not None and not native:
+        raise ValueError("tool choice without tools")
+    cache_key = value.get("promptCacheKey")
+    if cache_key is not None and (not isinstance(cache_key, str) or not 1 <= len(cache_key) <= 256):
+        raise ValueError("invalid prompt cache key")
     messages = value.get("messages")
-    if not isinstance(messages, list) or not 1 <= len(messages) <= 42:
+    limit = MAX_TOOL_MESSAGES if native else MAX_MESSAGES
+    if not isinstance(messages, list) or not 1 <= len(messages) <= limit:
         raise ValueError("invalid messages")
     for message in messages:
-        if (not isinstance(message, dict) or set(message) != {"role", "content"}
-                or message["role"] not in ("system", "user", "assistant")
-                or not isinstance(message["content"], str) or not 1 <= len(message["content"]) <= 80_000):
-            raise ValueError("invalid message")
-    if messages[-1]["role"] != "user":
+        validate_message(message, native)
+    if not native and any(m["role"] == "tool" or "toolCalls" in m for m in messages):
+        raise ValueError("tool messages without tools")
+    if messages[-1]["role"] not in (("user", "tool") if native else ("user",)):
         raise ValueError("last turn must be user")
+    if value.get("images") is not None and messages[-1]["role"] != "user":
+        raise ValueError("images need a user turn")
     if value.get("responseSchema") is not None and not isinstance(value["responseSchema"], dict):
         raise ValueError("invalid response schema")
     if value.get("images") is not None:
@@ -146,7 +215,7 @@ def make_server(host, port, key, runtime, login=None):
                     return self.send_json(502, {"error": "RUNTIME_FAILED"})
             if self.path != "/health":
                 return self.send_json(404, {"error": "NOT_FOUND"})
-            self.send_json(200, {"status": "up", "runtime": "hermes", "version": 1})
+            self.send_json(200, {"status": "up", "runtime": "hermes", "version": 1, "nativeTools": True})
 
         def do_POST(self):
             if self.path == "/v1/auth/start":

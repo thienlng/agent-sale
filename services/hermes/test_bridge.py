@@ -176,6 +176,181 @@ class BridgeTests(unittest.TestCase):
             self.assertEqual(FakeAgent.instances[-1].kwargs["api_key"], "new-private-access")
 
 
+TOOL = {"name": "get_time", "description": "Current time", "parameters": {"type": "object", "properties": {}}}
+
+
+class NativeAgent(FakeAgent):
+    """Fake of the single-call Responses path: records what the transport would receive."""
+    instances = []
+    response = None
+
+    def _build_api_kwargs(self, api_messages, tools_for_api=None):
+        self.api_messages = api_messages
+        self.sent_tools = list(self.tools)
+        return {"model": self.kwargs["model"], "tools": list(self.tools), "tool_choice": "auto",
+                "prompt_cache_key": (getattr(self, "request_overrides", None) or {}).get("prompt_cache_key")}
+
+    def _interruptible_api_call(self, api_kwargs):
+        self.api_kwargs = api_kwargs
+        return self.response
+
+    def _get_transport(self):
+        outer = self
+
+        class Transport:
+            def normalize_response(self, response):
+                return response["normalized"]
+        return Transport()
+
+    def run_conversation(self, *args, **kwargs):
+        raise AssertionError("the Hermes loop must not run for native tools")
+
+
+def normalized(content=None, calls=(), finish="stop"):
+    return types.SimpleNamespace(
+        content=content, finish_reason=finish,
+        tool_calls=[types.SimpleNamespace(id=cid + "|fc_" + cid, name=name, arguments=args,
+                                          provider_data={"call_id": cid}) for cid, name, args in calls] or None)
+
+
+def native_runtime(temporary, response):
+    NativeAgent.response = {"normalized": response, "usage": types.SimpleNamespace(
+        input_tokens=11, output_tokens=5, input_tokens_details=types.SimpleNamespace(cached_tokens=4))}
+    home = Path(temporary) / "private"
+    runtime = HermesRuntime(home, "openai-codex", NativeAgent, lambda: {"api_key": "test", "base_url": CODEX_URL})
+    auth = home / "auth.json"
+    auth.write_text(json.dumps({"providers": {"openai-codex": {"tokens": {
+        "access_token": "test-only", "refresh_token": "test-only"}}}}))
+    auth.chmod(0o600)
+    return runtime
+
+
+def tool_payload(**extra):
+    return {**payload(), "responseSchema": None, "tools": [TOOL], **extra}
+
+
+class NativeToolTests(unittest.TestCase):
+    def run_native(self, request, response):
+        with tempfile.TemporaryDirectory() as temporary, patch.dict(os.environ, {}, clear=True):
+            runtime = native_runtime(temporary, response)
+            result = runtime.generate(request)
+            return result, NativeAgent.instances[-1]
+
+    def test_validates_tools_tool_choice_and_cache_key(self):
+        validate_request(tool_payload(toolChoice="auto", promptCacheKey="bot:conv"))
+        bad = ({"tools": ["shell"]}, {"tools": [{"name": "x"}]}, {"tools": [{**TOOL, "name": "bad name!"}]},
+               {"toolChoice": "required"}, {"promptCacheKey": 5}, {"promptCacheKey": "x" * 300},
+               {"tools": [TOOL] * 40})
+        for value in bad:
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                validate_request(tool_payload(**value))
+
+    def test_validates_tool_history_and_allows_a_tool_turn_last(self):
+        history = [
+            {"role": "system", "content": "frame"}, {"role": "user", "content": "q"},
+            {"role": "assistant", "content": "", "toolCalls": [{"id": "call_1", "name": "get_time", "arguments": "{}"}]},
+            {"role": "tool", "content": "12:00", "toolCallId": "call_1", "name": "get_time"}]
+        validate_request(tool_payload(messages=history))
+        for broken in (
+            history[:3] + [{"role": "tool", "content": "x"}],
+            [history[0], history[1], {"role": "assistant", "content": "", "toolCalls": []}, history[3]],
+            history[:2] + [{"role": "assistant", "content": "a", "toolCalls": [{"id": "c", "name": "n"}]}, history[3]],
+        ):
+            with self.subTest(broken=broken), self.assertRaises(ValueError):
+                validate_request(tool_payload(messages=broken))
+        with self.assertRaises(ValueError):  # a plain assistant turn still cannot be last
+            validate_request(tool_payload(messages=[history[0], history[1], {"role": "assistant", "content": "a"}]))
+
+    def test_function_tools_reach_the_transport_and_calls_come_back(self):
+        result, agent = self.run_native(
+            tool_payload(promptCacheKey="bot:conv"),
+            normalized(calls=[("call_9", "get_time", '{"tz":"UTC"}')], finish="tool_calls"))
+        self.assertEqual(agent.sent_tools, [{"type": "function", "function": {
+            "name": "get_time", "description": "Current time", "parameters": {"type": "object", "properties": {}}}}])
+        self.assertEqual(agent.api_kwargs["prompt_cache_key"], "bot:conv")
+        self.assertEqual(agent.api_kwargs["tool_choice"], "auto")
+        self.assertEqual(result["toolCalls"], [{"id": "call_9", "name": "get_time", "arguments": '{"tz":"UTC"}'}])
+        self.assertEqual(result["stopReason"], "tool_use")
+        self.assertEqual(result["text"], "")
+        self.assertEqual(result["usage"], {"inputTokens": 7, "outputTokens": 5, "cachedInputTokens": 4})
+        self.assertTrue(agent.closed)
+
+    def test_text_answer_without_calls_ends(self):
+        result, _ = self.run_native(tool_payload(), normalized(content="  xin chao  "))
+        self.assertEqual((result["text"], result["toolCalls"], result["stopReason"]), ("xin chao", [], "end"))
+
+    def test_length_finish_is_max_tokens(self):
+        result, _ = self.run_native(tool_payload(), normalized(content="cut", finish="length"))
+        self.assertEqual(result["stopReason"], "max_tokens")
+
+    def test_empty_reply_without_calls_fails(self):
+        with tempfile.TemporaryDirectory() as temporary, patch.dict(os.environ, {}, clear=True):
+            runtime = native_runtime(temporary, normalized(content="  "))
+            with self.assertRaises(RuntimeUnavailable) as error:
+                runtime.generate(tool_payload())
+            self.assertEqual(error.exception.code, "MODEL_REPLY_FAILED")
+
+    def test_tool_choice_none_keeps_tools_but_forbids_calls(self):
+        _, agent = self.run_native(tool_payload(toolChoice="none"), normalized(content="ok"))
+        self.assertEqual(len(agent.api_kwargs["tools"]), 1)
+        self.assertEqual(agent.api_kwargs["tool_choice"], "none")
+
+    def test_history_becomes_chat_tool_messages_for_the_transport(self):
+        history = [
+            {"role": "system", "content": "frame"}, {"role": "user", "content": "q"},
+            {"role": "assistant", "content": "", "toolCalls": [{"id": "call_1", "name": "get_time", "arguments": "{}"}]},
+            {"role": "tool", "content": "12:00", "toolCallId": "call_1", "name": "get_time"}]
+        _, agent = self.run_native(tool_payload(messages=history), normalized(content="done"))
+        self.assertEqual(agent.api_messages, [
+            {"role": "system", "content": "frame"}, {"role": "user", "content": "q"},
+            {"role": "assistant", "content": "", "tool_calls": [
+                {"id": "call_1", "type": "function", "function": {"name": "get_time", "arguments": "{}"}}]},
+            {"role": "tool", "tool_call_id": "call_1", "name": "get_time", "content": "12:00"}])
+
+    def test_the_bridge_never_executes_a_tool(self):
+        executed = []
+        agent_tool = types.SimpleNamespace(call=lambda *a: executed.append(a))
+        _, agent = self.run_native(tool_payload(), normalized(calls=[("c", "get_time", "{}")], finish="tool_calls"))
+        self.assertEqual(executed, [])
+        self.assertFalse(hasattr(agent, "handle_function_call"))
+        self.assertEqual(agent.kwargs["enabled_toolsets"], [])
+
+    def test_tool_mode_requires_empty_builtin_toolset(self):
+        class Loaded(NativeAgent):
+            def __init__(self, **kwargs):
+                super().__init__(**kwargs)
+                self.tools = [{"type": "function", "function": {"name": "terminal"}}]
+        with tempfile.TemporaryDirectory() as temporary, patch.dict(os.environ, {}, clear=True):
+            runtime = native_runtime(temporary, normalized(content="x"))
+            runtime.agent_class = Loaded
+            with self.assertRaises(RuntimeUnavailable) as error:
+                runtime.generate(tool_payload())
+            self.assertEqual(error.exception.code, "TOOLSET_MISMATCH")
+
+    def test_prompt_cache_key_also_reaches_the_plain_loop(self):
+        with tempfile.TemporaryDirectory() as temporary, patch.dict(os.environ, {}, clear=True):
+            home = Path(temporary) / "private"
+            runtime = HermesRuntime(home, "openai-codex", FakeAgent, lambda: {"api_key": "test", "base_url": CODEX_URL})
+            (home / "auth.json").write_text(json.dumps({"providers": {"openai-codex": {"tokens": {
+                "access_token": "t", "refresh_token": "t"}}}}))
+            (home / "auth.json").chmod(0o600)
+            runtime.generate({**payload(), "promptCacheKey": "bot:conv"})
+            self.assertEqual(FakeAgent.instances[-1].request_overrides, {"prompt_cache_key": "bot:conv"})
+
+    def test_health_reports_native_tools(self):
+        key = "k" * 32
+        server = make_server("127.0.0.1", 0, key, FakeRuntime())
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            with urlopen(f"http://127.0.0.1:{server.server_port}/health", timeout=2) as response:
+                self.assertEqual(json.load(response), {"status": "up", "runtime": "hermes", "version": 1, "nativeTools": True})
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
+
 class ImageValidationTests(unittest.TestCase):
     def test_accepts_allowed_types_with_matching_magic_bytes(self):
         images = [image(PNG), image(JPEG, "image/jpeg"), image(WEBP, "image/webp")]

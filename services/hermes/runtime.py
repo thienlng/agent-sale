@@ -150,6 +150,7 @@ tools:
         return result
 
     def generate(self, request):
+        native = bool(request.get("tools"))
         credentials = self._credentials()
         agent_class = self.agent_class
         if agent_class is None:
@@ -164,6 +165,7 @@ tools:
         if request.get("responseSchema"):
             system += "\nReturn only valid JSON matching this schema:\n" + json.dumps(request["responseSchema"])
         history = [m for m in messages[:-1] if m["role"] != "system"]
+        cache_key = request.get("promptCacheKey")
         agent = agent_class(
             **credentials, model=request["model"], max_iterations=3,
             max_tokens=request.get("maxOutputTokens", 2000),
@@ -176,6 +178,11 @@ tools:
         try:
             if agent.tools:
                 raise RuntimeUnavailable("TOOLSET_MISMATCH")
+            if cache_key:
+                # Hermes forwards request_overrides into the Responses body (prompt_cache_key).
+                agent.request_overrides = {"prompt_cache_key": cache_key}
+            if native:
+                return self._generate_native(agent, request, system)
             # Keep Hermes' operator scaffold and local identity out of customer-facing prompts.
             agent._build_system_prompt = lambda system_message=None: system
             agent._cached_system_prompt_static = system
@@ -204,3 +211,68 @@ tools:
                 agent.close()
             except Exception:
                 pass
+
+    def _generate_native(self, agent, request, system):
+        """ONE Responses call with function tools; Hermes' own tool loop is never entered.
+
+        The tools are set on the agent only after the empty-toolset check, so Hermes' transport
+        builds the request (tool schema, tool_choice, cache key, reasoning) exactly as it would
+        for its own calls. The raw output items are normalized and returned; no tool is executed.
+        """
+        agent.tools = [{"type": "function", "function": {
+            "name": t["name"], "description": t["description"], "parameters": t["parameters"]}}
+            for t in request["tools"]]
+        messages = [{"role": "system", "content": system}]
+        for m in request["messages"]:
+            if m["role"] == "system":
+                continue
+            if m["role"] == "assistant" and m.get("toolCalls"):
+                messages.append({"role": "assistant", "content": m["content"], "tool_calls": [
+                    {"id": c["id"], "type": "function",
+                     "function": {"name": c["name"], "arguments": c["arguments"]}} for c in m["toolCalls"]]})
+            elif m["role"] == "tool":
+                tool = {"role": "tool", "tool_call_id": m["toolCallId"], "content": m["content"]}
+                if m.get("name"):
+                    tool["name"] = m["name"]
+                messages.append(tool)
+            else:
+                messages.append({"role": m["role"], "content": m["content"]})
+        images = request.get("images")
+        if images:
+            supports = getattr(agent, "_model_supports_vision", None)
+            if not callable(supports) or supports() is not True:
+                raise RuntimeUnavailable("VISION_UNSUPPORTED")
+            messages[-1]["content"] = [{"type": "text", "text": messages[-1]["content"]}] + [
+                {"type": "image_url", "image_url": {"url": f"data:{i['mimeType']};base64,{i['base64']}"}}
+                for i in images]
+        api_kwargs = agent._build_api_kwargs(messages)
+        if request.get("toolChoice") == "none":
+            api_kwargs["tool_choice"] = "none"
+        response = agent._interruptible_api_call(api_kwargs)
+        normalized = agent._get_transport().normalize_response(response)
+        calls = []
+        for call in getattr(normalized, "tool_calls", None) or []:
+            provider_data = getattr(call, "provider_data", None) or {}
+            call_id = provider_data.get("call_id") or str(call.id).split("|", 1)[0]
+            calls.append({"id": call_id, "name": call.name,
+                          "arguments": call.arguments if isinstance(call.arguments, str)
+                          else json.dumps(call.arguments or {})})
+        text = (getattr(normalized, "content", None) or "").strip()
+        if not calls and not text:
+            raise RuntimeUnavailable("MODEL_REPLY_FAILED")
+        finish = getattr(normalized, "finish_reason", "stop")
+        stop = "tool_use" if calls else "max_tokens" if finish == "length" else "end"
+        return {"version": 1, "text": text, "toolCalls": calls, "stopReason": stop, "model": request["model"],
+                "usage": self._usage(getattr(response, "usage", None) if not isinstance(response, dict)
+                                     else response.get("usage"))}
+
+    @staticmethod
+    def _usage(raw):
+        """Codex Responses usage: input_tokens includes cached tokens; report them separately."""
+        if raw is None:
+            return {"inputTokens": 0, "outputTokens": 0, "cachedInputTokens": 0}
+        details = getattr(raw, "input_tokens_details", None)
+        cached = int(getattr(details, "cached_tokens", 0) or 0)
+        total = int(getattr(raw, "input_tokens", 0) or 0)
+        return {"inputTokens": max(total - cached, 0), "outputTokens": int(getattr(raw, "output_tokens", 0) or 0),
+                "cachedInputTokens": cached}
