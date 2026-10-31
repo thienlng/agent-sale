@@ -368,7 +368,7 @@ describe('OrderReviewBanner (order detail)', () => {
       'Đơn do bot tạo từ hội thoại — cần kiểm tra trước khi xử lý',
     );
     const link = screen.getByRole('link', { name: /Mở hội thoại/ });
-    expect(link).toHaveAttribute('href', `/app/inbox?conversation=${CONVERSATION}`);
+    expect(link).toHaveAttribute('href', `/app/inbox?conversation=${CONVERSATION}&ws=ws-1`);
     expect(link).toHaveAttribute('target', '_blank');
     expect(link.getAttribute('rel')).toContain('noopener');
 
@@ -391,7 +391,7 @@ describe('OrderReviewBanner (order detail)', () => {
     expect(screen.queryByRole('button', { name: 'Duyệt đơn' })).toBeNull();
     expect(screen.getByRole('link', { name: /Mở hội thoại/ })).toHaveAttribute(
       'href',
-      `/app/inbox?conversation=${CONVERSATION}`,
+      `/app/inbox?conversation=${CONVERSATION}&ws=ws-1`,
     );
   });
 

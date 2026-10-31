@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { formatDateTime } from '@/lib/format';
 import { useCan } from '@/lib/permissions';
+import { useWorkspaceId } from '@/lib/use-workspace';
 
 import { useApproveWithUndo } from '../hooks/use-approve-order';
 import { conversationHref } from './order-created-by-cell';
@@ -18,9 +19,14 @@ function ConversationButton({
   variant: 'outline' | 'link';
 }) {
   const { t } = useTranslation();
+  const workspaceId = useWorkspaceId();
   return (
     <Button variant={variant} size={variant === 'link' ? 'sm' : 'default'} asChild>
-      <a href={conversationHref(conversationId)} target="_blank" rel="noopener noreferrer">
+      <a
+        href={conversationHref(conversationId, workspaceId)}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
         {variant === 'outline' ? <MessagesSquare aria-hidden /> : null}
         {t('orders.review.openConversationShort')}
         <span className="sr-only"> {t('orders.review.newTab')}</span>

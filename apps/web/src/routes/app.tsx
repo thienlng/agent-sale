@@ -5,7 +5,7 @@ import { MessageUsageBanner } from '@/features/billing/components/message-usage-
 import { CreateBusinessDialog } from '@/features/workspace/components/create-business-dialog';
 import { PlanDialog } from '@/features/billing/components/plan-dialog';
 import { ACCOUNT_PATHS } from '@/lib/account-paths';
-import { ensureSession } from '@/lib/session';
+import { ensureSession, selectWorkspace } from '@/lib/session';
 import { useCurrentWorkspace } from '@/features/workspace/api/use-current-workspace';
 
 /**
@@ -16,9 +16,15 @@ import { useCurrentWorkspace } from '@/features/workspace/api/use-current-worksp
  */
 export const Route = createFileRoute('/app')({
   beforeLoad: async ({ location }) => {
-    const session = await ensureSession();
+    let session = await ensureSession();
     if (!session) {
       throw redirect({ to: '/login', search: { redirect: location.href } });
+    }
+    // A shared link (e.g. "Mở hội thoại" from an order) names its business: switch to it when the
+    // user belongs to it, so a new tab opens the right shop whatever was chosen last.
+    const linked = (location.search as { ws?: unknown }).ws;
+    if (typeof linked === 'string' && linked !== session.workspaceId && selectWorkspace(linked)) {
+      session = (await ensureSession()) ?? session;
     }
     if (!session.workspaceId && !ACCOUNT_PATHS.test(location.pathname)) {
       throw redirect({ to: session.memberships.length ? '/app/overview' : '/app/businesses/new' });

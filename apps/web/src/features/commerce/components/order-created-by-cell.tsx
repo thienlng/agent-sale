@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatDateTime } from '@/lib/format';
+import { useWorkspaceId } from '@/lib/use-workspace';
 import { cn } from '@/lib/utils';
 
 export type OrderOrigin = Pick<
@@ -18,9 +19,10 @@ export type OrderOrigin = Pick<
   | 'conversationId'
 >;
 
-/** The inbox deep link that opens one conversation. */
-export const conversationHref = (conversationId: string) =>
-  `/app/inbox?conversation=${encodeURIComponent(conversationId)}`;
+/** The inbox deep link that opens one conversation, in its business (`ws`) even in a new tab. */
+export const conversationHref = (conversationId: string, workspaceId: string) =>
+  `/app/inbox?conversation=${encodeURIComponent(conversationId)}` +
+  (workspaceId ? `&ws=${encodeURIComponent(workspaceId)}` : '');
 
 /**
  * "Mở hội thoại": opens the conversation the bot took the order in, in a new tab, without also
@@ -35,11 +37,12 @@ export function OpenConversationLink({
 }) {
   const { t } = useTranslation();
   const label = t('orders.review.openConversation');
+  const workspaceId = useWorkspaceId();
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <a
-          href={conversationHref(conversationId)}
+          href={conversationHref(conversationId, workspaceId)}
           target="_blank"
           rel="noopener noreferrer"
           aria-label={label}

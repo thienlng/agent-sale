@@ -8,6 +8,8 @@ import { renderWithProviders } from '@/testing/render';
 
 import { OrderCreatedByCell, type OrderOrigin } from './order-created-by-cell';
 
+vi.mock('@/lib/use-workspace', () => ({ useWorkspaceId: () => 'ws-tinymind' }));
+
 const CONVERSATION = '4f0c1f0e-5b1c-4c1e-9d55-0a1b2c3d4e5f';
 const staff: OrderOrigin = {
   createdByKind: 'agent',
@@ -62,7 +64,8 @@ describe('OrderCreatedByCell ("Người tạo")', () => {
     expect(screen.getByText('Bot')).toBeInTheDocument();
     expect(screen.getByText('Chờ duyệt')).toBeInTheDocument();
     const link = screen.getByRole('link', { name: 'Mở cuộc trò chuyện ở tab mới' });
-    expect(link).toHaveAttribute('href', `/app/inbox?conversation=${CONVERSATION}`);
+    // The business travels with the link, so a new tab opens the right shop.
+    expect(link).toHaveAttribute('href', `/app/inbox?conversation=${CONVERSATION}&ws=ws-tinymind`);
     expect(link).toHaveAttribute('target', '_blank');
     expect(link.getAttribute('rel')).toContain('noopener');
   });
