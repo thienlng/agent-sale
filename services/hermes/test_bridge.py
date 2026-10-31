@@ -283,12 +283,10 @@ class NativeToolTests(unittest.TestCase):
         result, _ = self.run_native(tool_payload(), normalized(content="cut", finish="length"))
         self.assertEqual(result["stopReason"], "max_tokens")
 
-    def test_empty_reply_without_calls_fails(self):
-        with tempfile.TemporaryDirectory() as temporary, patch.dict(os.environ, {}, clear=True):
-            runtime = native_runtime(temporary, normalized(content="  "))
-            with self.assertRaises(RuntimeUnavailable) as error:
-                runtime.generate(tool_payload())
-            self.assertEqual(error.exception.code, "MODEL_REPLY_FAILED")
+    def test_empty_reply_without_calls_is_returned_empty(self):
+        # The gateway, not the bridge, decides whether an empty answer is retried (allowEmpty).
+        result, _ = self.run_native(tool_payload(), normalized(content="  "))
+        self.assertEqual((result["text"], result["toolCalls"], result["stopReason"]), ("", [], "end"))
 
     def test_tool_choice_none_keeps_tools_but_forbids_calls(self):
         _, agent = self.run_native(tool_payload(toolChoice="none"), normalized(content="ok"))

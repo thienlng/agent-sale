@@ -255,9 +255,9 @@ tools:
             calls.append({"id": call_id, "name": call.name,
                           "arguments": call.arguments if isinstance(call.arguments, str)
                           else json.dumps(call.arguments or {})})
+        # An empty answer is returned as-is: after a send_message the agent loop may legitimately
+        # end with nothing more to say, and the gateway decides whether to retry an empty answer.
         text = (getattr(normalized, "content", None) or "").strip()
-        if not calls and not text:
-            raise RuntimeUnavailable("MODEL_REPLY_FAILED")
         finish = getattr(normalized, "finish_reason", "stop")
         stop = "tool_use" if calls else "max_tokens" if finish == "length" else "end"
         return {"version": 1, "text": text, "toolCalls": calls, "stopReason": stop, "model": request["model"],
