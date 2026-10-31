@@ -379,10 +379,17 @@ export class MetaInboxProcessor {
   }
 
   /**
-   * The pictures that follow a committed text reply, as ONE album message (a single picture stays
-   * a plain image). Best effort: a failure is recorded on the message and never fails the event,
+   * The pictures that follow a committed text reply: one album, or one message per picture when
+   * Meta rejects the album. Best effort: a failure is recorded on the message and never fails the event,
    * hands over or retries, and a closed 24-hour window or a takeover simply leaves the text alone.
    */
+  /** Null from a commit: a human took over (or the bot was switched off) since the text went out. */
+  private skippedImages(job: PendingMetaEvent): void {
+    this.logger.log(
+      `Meta inbox event ${job.id}: images skipped, the bot no longer holds the conversation`,
+    );
+  }
+
   private async sendImages(
     job: PendingMetaEvent,
     conversationId: string,
@@ -390,18 +397,25 @@ export class MetaInboxProcessor {
   ): Promise<void> {
     const urls = [...new Set(images.map((i) => i.url))].slice(0, MAX_BOT_IMAGES);
     if (!urls.length || (await this.hasNewerMessage(job))) return;
+    // One album first (Meta retries it once when fetching a picture failed); if it is still
+    // rejected, each picture goes as its own message so the customer gets what can be delivered.
+    const commit = (list: readonly string[], idempotencyKey: string) =>
+      this.inbox.commitBotImages(job.workspaceId, conversationId, { urls: list, idempotencyKey });
+    const key = `bot:${job.event.externalEventId}:img`;
     try {
-      const sent = await this.inbox.commitBotImages(job.workspaceId, conversationId, {
-        urls,
-        idempotencyKey: `bot:${job.event.externalEventId}:img`,
-      });
-      // Null: a human took over (or the bot was switched off) since the text went out.
-      if (!sent)
-        this.logger.log(
-          `Meta inbox event ${job.id}: images skipped, the bot no longer holds the conversation`,
-        );
+      const album = await commit(urls, key);
+      if (!album) return this.skippedImages(job);
+      if (album.status !== 'failed' || urls.length === 1) return;
     } catch {
       this.logger.warn(`Meta inbox event ${job.id}: images not sent`);
+      return;
+    }
+    for (const [index, url] of urls.entries()) {
+      try {
+        if (!(await commit([url], `${key}:${index}`))) return this.skippedImages(job);
+      } catch {
+        this.logger.warn(`Meta inbox event ${job.id}: image ${index + 1} not sent`);
+      }
     }
   }
 

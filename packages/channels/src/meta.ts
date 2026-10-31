@@ -12,6 +12,8 @@ export class MetaRequestError extends Error {
   constructor(
     readonly code: string,
     readonly uncertain: boolean = false,
+    /** Meta's own error code, subcode and type: safe to log (no message text, which can echo input). */
+    readonly meta: { code?: number; subcode?: number; type?: string } = {},
   ) {
     super('Meta request failed');
   }
@@ -21,12 +23,20 @@ export interface CustomerProfile {
   name: string | null;
   avatarUrl: string | null;
 }
-/** No automatic retries: a network failure after a POST has an uncertain delivery outcome. */
+/** Meta could not fetch one of the pictures of an album (#100): a definite rejection, nothing sent. */
+const ALBUM_FETCH_FAILED = 2018047;
+
+/**
+ * No automatic retries: a network failure after a POST has an uncertain delivery outcome. The one
+ * exception is an album Meta explicitly rejected because fetching a picture failed (it fails
+ * intermittently on CDN-hosted product images): nothing was sent, so it is tried once more.
+ */
 export class MetaAdapter implements ChannelAdapter {
   constructor(
     readonly kind: MetaKind,
     private readonly version = 'v24.0',
     private readonly transport: typeof fetch = fetch,
+    private readonly albumRetryDelayMs = 1500,
   ) {}
   verifyWebhook(headers: Record<string, string | undefined>, raw: string, secret: string): boolean {
     const signature = headers['x-hub-signature-256'];
@@ -74,6 +84,25 @@ export class MetaAdapter implements ChannelAdapter {
     message: OutboundMessage,
     _opts: { idempotencyKey: string },
   ): Promise<SendResult> {
+    try {
+      return await this.#sendOnce(asset, to, message);
+    } catch (error) {
+      const album = (message.attachments?.length ?? 0) > 1;
+      if (
+        !(error instanceof MetaRequestError) ||
+        !album ||
+        error.meta.subcode !== ALBUM_FETCH_FAILED
+      )
+        throw error;
+      await new Promise((resolve) => setTimeout(resolve, this.albumRetryDelayMs));
+      return this.#sendOnce(asset, to, message);
+    }
+  }
+  async #sendOnce(
+    asset: { externalId: string; token: string },
+    to: string,
+    message: OutboundMessage,
+  ): Promise<SendResult> {
     const host = this.kind === 'instagram' ? 'graph.instagram.com' : 'graph.facebook.com';
     let res: Response;
     try {
@@ -105,7 +134,11 @@ export class MetaAdapter implements ChannelAdapter {
             : res.status === 429
               ? 'rate_limited'
               : 'provider_rejected';
-      throw new MetaRequestError(code, res.status >= 500);
+      throw new MetaRequestError(code, res.status >= 500, {
+        ...(typeof error.code === 'number' ? { code: error.code } : {}),
+        ...(typeof error.error_subcode === 'number' ? { subcode: error.error_subcode } : {}),
+        ...(typeof error.type === 'string' ? { type: error.type.slice(0, 60) } : {}),
+      });
     }
     if (typeof data.message_id !== 'string') throw new MetaRequestError('delivery_unknown', true);
     return { externalMessageId: data.message_id };

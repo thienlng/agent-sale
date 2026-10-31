@@ -1,6 +1,6 @@
 import type { ProductDto } from '@agent-sales/contracts';
 
-/** Accommodations have reference tariffs and date occupancy, never stock availability. */
+/** The model view of a product that `product-view.ts` builds on. Accommodations have reference tariffs and date occupancy, never stock availability. */
 export function catalogProductContext(product: ProductDto) {
   const base = {
     id: product.id,
@@ -26,23 +26,5 @@ export function catalogProductContext(product: ProductDto) {
       priceVnd: v.price,
       available: v.stock.reduce((sum, s) => sum + s.available, 0),
     })),
-  };
-}
-
-export function catalogOverviewContext(product: ProductDto) {
-  if (product.accommodation)
-    return {
-      name: product.name,
-      catalogKind: 'accommodation',
-      rentalType: product.accommodation.rentalType,
-      rateBasis: product.accommodation.rateBasis,
-      referenceRates: product.accommodation.rates,
-      availability: 'unverified',
-    };
-  return {
-    name: product.name,
-    fromVnd: product.priceMin,
-    toVnd: product.priceMax,
-    inStock: product.available > 0,
   };
 }

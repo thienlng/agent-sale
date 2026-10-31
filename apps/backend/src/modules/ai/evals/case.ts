@@ -11,20 +11,20 @@ const Turn = z.union([
   z.object({ bot: z.string().min(1) }).strict(),
 ]);
 
-/** What the pipeline's model call returns in fake mode (the structured output of `ModelReply`). */
+/** The final structured reply the model returns in fake mode (`FinalReply`; action steps go through tools). */
 const FakeReply = z
   .object({
-    outcome: z.enum([
-      'answer',
-      'unknown',
-      'handoff',
-      'call_action',
-      'confirm_action',
-      'cancel_action',
-    ]),
+    outcome: z.enum(['answer', 'unknown', 'handoff']),
     reply: z.string(),
     sources: z.array(z.string()).default([]),
+    /** Ids from the product "images" lists, e.g. `p:eval-product-1:0` (fixture products get stable ids). */
+    imageIds: z.array(z.string()).default([]),
   })
+  .strict();
+
+/** A tool call the fake model makes on its first call, before the final reply. */
+const FakeToolCall = z
+  .object({ name: z.string().min(1), arguments: z.record(z.string(), z.unknown()).default({}) })
   .strict();
 
 const Variant = z
@@ -43,6 +43,8 @@ const Product = z
     description: z.string().default(''),
     instructions: z.string().default(''),
     variants: z.array(Variant).min(1),
+    /** https picture URLs the bot may send for this product. */
+    images: z.array(z.string().url()).default([]),
     accommodation: AccommodationDetails.optional(),
   })
   .strict();
@@ -81,9 +83,13 @@ const BotFixture = z
 const Expect = z
   .object({
     outcome: Outcome.optional(),
+    /** The reply must NOT end with this outcome (e.g. `handoff`: an insult is not a handoff request). */
+    outcome_not: Outcome.optional(),
     contains_any: z.array(z.string().min(1)).optional(),
     contains_all: z.array(z.string().min(1)).optional(),
     not_contains: z.array(z.string().min(1)).optional(),
+    /** Text → the most times it may appear in the reply (case-insensitive), e.g. a repeated pronoun. */
+    max_occurrences: z.record(z.string().min(1), z.number().int().min(0)).optional(),
     /** Regular expressions (case-insensitive) that must not match the reply. */
     not_matches: z
       .array(
@@ -105,6 +111,13 @@ const Expect = z
     numbers_only_from_sources: z.boolean().optional(),
     max_lines: z.number().int().min(1).optional(),
     no_greeting: z.boolean().optional(),
+    /** At least this many pictures must be sent with the reply. */
+    images_min: z.number().int().min(1).optional(),
+    /**
+     * Fake mode: tool calls made on the first model call. Absent, a case with products browses the
+     * catalog (`search_products` without a query), as the real model does before quoting a price.
+     */
+    fake_tool_calls: z.array(FakeToolCall).optional(),
     fake_reply: FakeReply.optional(),
   })
   .strict();
@@ -142,6 +155,7 @@ export const EvalCase = z
 export type EvalCase = z.infer<typeof EvalCase>;
 export type EvalExpect = z.infer<typeof Expect>;
 export type FakeReply = z.infer<typeof FakeReply>;
+export type FakeToolCall = z.infer<typeof FakeToolCall>;
 export type EvalOutcome = 'answered' | 'fallback' | 'handoff';
 
 export const isCritical = (c: EvalCase): boolean => c.tags.includes('critical');

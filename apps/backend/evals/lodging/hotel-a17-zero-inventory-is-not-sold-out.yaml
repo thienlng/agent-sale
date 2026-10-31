@@ -55,6 +55,7 @@
       'numbers_only_from_sources': true,
       'contains_any': ['chưa có lịch', 'kiểm tra'],
       'not_contains': ['hết hàng', 'còn trống ạ', 'đã giữ', 'đã đặt'],
+      'fake_tool_calls': [{ 'name': 'search_products', 'arguments': { 'query': 'A17' } }],
       'fake_reply':
         {
           'outcome': 'answer',

@@ -131,4 +131,127 @@ describe('AnthropicProvider', () => {
       'claude-haiku-5-5',
     ]);
   });
+
+  describe('native tools', () => {
+    const tools = [
+      {
+        name: 'search_products',
+        description: 'd',
+        input: z.object({ query: z.string().optional() }),
+      },
+    ];
+    const model = { model: 'claude-haiku-5-5' };
+
+    it('sends tools with tool_choice auto, or none when asked', async () => {
+      const { client, bodies } = stubClient(okReply);
+      const provider = new AnthropicProvider({ client });
+      await provider.generate({ ...request, tools }, model);
+      expect(bodies[0]).toMatchObject({
+        tools: [
+          {
+            name: 'search_products',
+            description: 'd',
+            input_schema: z.toJSONSchema(tools[0]!.input),
+          },
+        ],
+        tool_choice: { type: 'auto' },
+      });
+      await provider.generate({ ...request, tools, toolChoice: 'none' }, model);
+      expect(bodies[1]).toMatchObject({ tool_choice: { type: 'none' } });
+    });
+
+    it('maps tool_use blocks to tool calls', async () => {
+      const { client } = stubClient({
+        ...okReply,
+        stop_reason: 'tool_use',
+        content: [{ type: 'tool_use', id: 't1', name: 'search_products', input: { query: 'x' } }],
+      });
+      const res = await new AnthropicProvider({ client }).generate({ ...request, tools }, model);
+      expect(res.toolCalls).toEqual([{ id: 't1', name: 'search_products', input: { query: 'x' } }]);
+      expect(res.stopReason).toBe('tool_use');
+      expect(res.text).toBe('');
+    });
+
+    it('maps assistant tool calls and groups consecutive tool results', async () => {
+      const { client, bodies } = stubClient(okReply);
+      await new AnthropicProvider({ client }).generate(
+        {
+          ...request,
+          tools,
+          messages: [
+            { role: 'user', content: 'hi' },
+            {
+              role: 'assistant',
+              content: 'Để em tìm',
+              toolCalls: [
+                { id: 't1', name: 'search_products', input: { query: 'x' } },
+                { id: 't2', name: 'search_products', input: { query: 'y' } },
+              ],
+            },
+            { role: 'tool', toolCallId: 't1', name: 'search_products', content: 'r1' },
+            { role: 'tool', toolCallId: 't2', name: 'search_products', content: 'r2' },
+          ],
+        },
+        model,
+      );
+      expect(bodies[0]!.messages).toEqual([
+        { role: 'user', content: 'hi' },
+        {
+          role: 'assistant',
+          content: [
+            { type: 'text', text: 'Để em tìm' },
+            { type: 'tool_use', id: 't1', name: 'search_products', input: { query: 'x' } },
+            { type: 'tool_use', id: 't2', name: 'search_products', input: { query: 'y' } },
+          ],
+        },
+        {
+          role: 'user',
+          content: [
+            { type: 'tool_result', tool_use_id: 't1', content: 'r1' },
+            { type: 'tool_result', tool_use_id: 't2', content: 'r2' },
+          ],
+        },
+      ]);
+    });
+
+    it('refuses a tool message without toolCallId', async () => {
+      const { client, bodies } = stubClient(okReply);
+      await expect(
+        new AnthropicProvider({ client }).generate(
+          {
+            ...request,
+            tools,
+            messages: [
+              { role: 'user', content: 'hi' },
+              { role: 'tool', name: 'search_products', content: 'r1' },
+            ],
+          },
+          model,
+        ),
+      ).rejects.toThrow('anthropic provider: tool message without toolCallId');
+      expect(bodies).toHaveLength(0);
+    });
+
+    it('omits the text block when the assistant turn has no text', async () => {
+      const { client, bodies } = stubClient(okReply);
+      await new AnthropicProvider({ client }).generate(
+        {
+          ...request,
+          tools,
+          messages: [
+            { role: 'user', content: 'hi' },
+            {
+              role: 'assistant',
+              content: '',
+              toolCalls: [{ id: 't1', name: 'search_products', input: {} }],
+            },
+          ],
+        },
+        model,
+      );
+      expect((bodies[0]!.messages as Array<{ content: unknown }>)[1]!.content).toEqual([
+        { type: 'tool_use', id: 't1', name: 'search_products', input: {} },
+      ]);
+    });
+  });
 });

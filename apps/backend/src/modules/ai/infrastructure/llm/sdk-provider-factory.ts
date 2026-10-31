@@ -1,5 +1,6 @@
 import {
   AnthropicProvider,
+  EmulatedToolsProvider,
   HermesLoginClient,
   HermesProvider,
   type LlmProvider,
@@ -30,15 +31,20 @@ export class SdkLlmProviderFactory implements LlmProviderFactory {
       timeoutMs: config.options.timeoutMs,
     };
     if (config.kind === 'hermes')
-      return new HermesProvider({ ...common, name: config.name, baseURL: config.baseUrl ?? '' });
+      return new EmulatedToolsProvider(
+        new HermesProvider({ ...common, name: config.name, baseURL: config.baseUrl ?? '' }),
+      );
     if (config.kind === 'anthropic') return new AnthropicProvider({ ...common, name: config.name });
-    return new OpenAiCompatibleProvider({
+    const emulated = config.options.tools === 'emulated';
+    const provider = new OpenAiCompatibleProvider({
       ...common,
       name: config.name,
       baseURL: config.baseUrl ?? '',
       structuredOutput: config.options.structuredOutput,
       sendReasoningEffort: config.options.sendReasoningEffort,
+      ...(emulated ? { tools: 'emulated' as const } : {}),
     });
+    return emulated ? new EmulatedToolsProvider(provider) : provider;
   }
 
   hermesLogin(config: LlmProviderConfig): HermesLoginClient {

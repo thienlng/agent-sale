@@ -9,6 +9,8 @@ export interface LlmProviderOptions {
   structuredOutput: 'json_schema' | 'json_object' | 'none';
   sendReasoningEffort: boolean;
   timeoutMs: number;
+  /** `emulated` for servers without function calling; absent means native. */
+  tools?: 'native' | 'emulated';
 }
 
 export const DEFAULT_PROVIDER_OPTIONS: LlmProviderOptions = {

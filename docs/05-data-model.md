@@ -136,7 +136,7 @@ messages(id, workspace_id, conversation_id, seq BIGINT, direction: in|out,
 ai_runs(id, workspace_id, bot_id, bot_version_id, conversation_id, trigger_message_id,
         tier, provider, model, prompt_version, input_tokens, output_tokens, cached_tokens,
         latency_ms, cost_micro_usd, cost_vnd, charged_milli_credit,
-        retrieved JSONB, tool_calls JSONB, guardrail JSONB, outcome: replied|handoff|skipped|error,
+        retrieved JSONB, product_ids JSONB (products the reply saw; focus memory), tool_calls JSONB, guardrail JSONB, outcome: replied|handoff|skipped|error,
         is_test BOOL, created_at)                          -- monthly partitions
 fb_posts(id, workspace_id, channel_connection_id, external_post_id, message, auto_reply_enabled, ...)
 ```

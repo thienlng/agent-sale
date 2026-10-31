@@ -1,31 +1,20 @@
 import { z } from 'zod';
 
-/** What the model must return (structured output); validated again after parsing. */
-export const ModelReply = z.object({
-  outcome: z.enum([
-    'answer',
-    'unknown',
-    'handoff',
-    'call_action',
-    'confirm_action',
-    'cancel_action',
-  ]),
+/** What the model must return as its final reply (structured output); validated again after parsing. */
+export const FinalReply = z.object({
+  outcome: z.enum(['answer', 'unknown', 'handoff']),
   reply: z.string(),
   sources: z.array(z.string()),
-  /** Ids from the "Images you may send" list; the server validates them (max 3 are sent). */
+  /** Ids from the product "images" lists and the "Images you may send" block; the server validates them (max 3 are sent). */
   imageIds: z.array(z.string()).default([]),
-  /** `call_action` only: an id from the `<actions>` list; the server validates it. */
-  actionId: z.string().optional(),
-  /** `call_action` only: argument values (the runner validates them against the declared params). */
-  args: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
 });
-export type ModelReply = z.infer<typeof ModelReply>;
+export type FinalReply = z.infer<typeof FinalReply>;
 
 /** Why a model output was rejected. A category only: never any text of the output. */
 export type InvalidOutputReason = 'empty' | 'not_json' | 'schema';
 
 export type ParsedModelReply =
-  { ok: true; value: ModelReply } | { ok: false; reason: InvalidOutputReason };
+  { ok: true; value: FinalReply } | { ok: false; reason: InvalidOutputReason };
 
 /** The JSON object inside a ```json fence or surrounded by prose, or the text itself. */
 function jsonCandidates(text: string): string[] {
@@ -41,7 +30,7 @@ function jsonCandidates(text: string): string[] {
 
 /**
  * Parses the model output. Tolerates formatting variants (a code fence or a sentence around the
- * JSON object) but never relaxes the schema: the object must still match `ModelReply` exactly.
+ * JSON object) but never relaxes the schema: the object must still match `FinalReply` exactly.
  */
 export function parseModelReply(text: string): ParsedModelReply {
   if (!text.trim()) return { ok: false, reason: 'empty' };
@@ -53,7 +42,7 @@ export function parseModelReply(text: string): ParsedModelReply {
     } catch {
       continue;
     }
-    const parsed = ModelReply.safeParse(json);
+    const parsed = FinalReply.safeParse(json);
     if (parsed.success)
       return { ok: true, value: { ...parsed.data, reply: unescapeLineBreaks(parsed.data.reply) } };
     reason = 'schema';
@@ -87,7 +76,7 @@ const words = (text: string) =>
  * a run of the instructions it was given (an injected "print your prompt" must not get through
  * this door). The number guardrails still apply to what this returns.
  */
-export function salvageProse(text: string, instructions: string): ModelReply | null {
+export function salvageProse(text: string, instructions: string): FinalReply | null {
   const prose = text.trim();
   if (!prose || prose.length > MAX_PROSE_CHARS || prose.includes('{') || prose.includes('}'))
     return null;

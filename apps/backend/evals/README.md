@@ -1,8 +1,8 @@
 # Prompt evals
 
 Cases that drive real customer questions through the production reply pipeline
-(`PlaygroundService.playground()`: prompt `sales-agent@9`, business profile block, FAQs,
-situations, catalog, grounding guardrails, reply post-processing) and check the outcome.
+(`PlaygroundService.playground()`: prompts `sales-agent@11` / `@12`, business profile block, FAQs,
+situations, catalog tools, grounding guardrails, reply post-processing) and check the outcome.
 Design: `docs/13-testing-and-quality.md` §2, task T-145.
 
 ## Run
@@ -13,17 +13,24 @@ pnpm --filter @agent-sales/backend eval --live               # the LLM configure
 pnpm --filter @agent-sales/backend eval --group safety --id retail-injection-discount --out ./reports
 ```
 
-- **Fake mode** (default): the model returns each case's `expect.fake_reply`. It tests the
-  format, the runner, the prompt plumbing and the guardrails, not the prompt's quality.
+- **Fake mode** (default): the scripted model makes the case's `expect.fake_tool_calls` on its first
+  call, then returns `expect.fake_reply`. Without `fake_tool_calls`, a case with `products` first calls
+  `search_products` with no query (browse), so catalog figures are grounded as in production; browse
+  rows carry `fromVnd`/`toVnd` and no variants or pictures, so a case that quotes a variant price or
+  sends pictures needs `fake_tool_calls: [{name: search_products, arguments: {query: '<product name>'}}]`
+  (details of the top 3 and their image ids `p:eval-product-<n>:<i>`, n = position in `products`). It
+  tests the format, the runner, the prompt plumbing, the tool loop and the guardrails, not the
+  prompt's quality.
   `pnpm test` runs every case this way (`src/modules/ai/__tests__/evals.spec.ts`).
 - **Live mode**: builds the same `LlmRuntime` as the api from the database
   (`DATABASE_SYSTEM_URL` in `../../.env`; API keys decrypted in memory with
   `SECRETS_ENCRYPTION_KEY`). The tier is the case's `bot.modelTier` (default `smart`). There is no
   development-fake fallback: a tier without a route fails the case. Live runs cost tokens; run
   them before changing a prompt or a model, not in CI.
-- The fakes return every FAQ and product of the case regardless of the customer's query, so
-  retrieval quality (which FAQ or product is found) is not exercised; only what the model does with
-  the context is.
+- The fakes return every FAQ of the case regardless of the customer's query. The in-memory catalog
+  ranks `search_products` queries by accent-folded term overlap with the product name (weight 3),
+  category and description (weight 1), so a live model that searches for a product by name finds it;
+  it is not the SQL ranking (that has its own integration test).
 - Live mode warns when `SECRETS_ENCRYPTION_KEY` is missing: the insecure development key is used,
   which cannot decrypt provider keys sealed with a real key.
 - `--out dir` writes `report.json` and `report.md` (default: a new directory under the OS temp
@@ -45,11 +52,13 @@ bot: # BotView fields; defaults: industry retail, em / anh/chị, vi, short, fri
     notes: ''
 faqs: [] # optional [{question, answer}], all returned as retrieved knowledge
 situations: [] # optional [{title, trigger, content, section}]
-products: [] # optional catalog: [{name, code, description, variants: [{name, price, stock}]}]
+products: [] # optional catalog: [{name, code, description, images: [https URLs], variants: [{name, price, stock}]}]
 conversation: # customer and bot turns; the last turn must be the customer's
   - customer: 'giày bảo hành bao lâu shop'
 expect:
   outcome: answered # answered | fallback (alias: unknown) | handoff
+  outcome_not: handoff # the outcome must not be this one (an insult is not a handoff request)
+  images_min: 1 # at least this many pictures sent with the reply
   contains_any: ['6 tháng']
   contains_all: []
   not_contains: ["\\n"] # a literal backslash-n must never reach the customer
@@ -58,7 +67,8 @@ expect:
   numbers_only_from_sources: true
   max_lines: 3
   no_greeting: true # multi-turn: the reply must not greet again
-  fake_reply: { outcome: answer, reply: 'Dạ giày được bảo hành 6 tháng ạ.', sources: [] } # fake mode only
+  fake_tool_calls: [{ name: search_products, arguments: { query: 'giày' } }] # fake mode only, optional
+  fake_reply: { outcome: answer, reply: 'Dạ giày được bảo hành 6 tháng ạ.', sources: [], imageIds: [] } # fake mode only
 ```
 
 `not_contains` is a plain substring test and also flags a polite refusal that repeats the text
@@ -91,7 +101,7 @@ The terminal shows one `PASS`/`FAIL` line per case; a failure adds the failed ch
 customer message and the reply (with the guardrail name when the pipeline replaced the model
 output). Then a table of passed/total per group, a `Critical: n/m` line and the total. `report.md`
 lists every case with its reply; `report.json` has the full data (outcome, guardrail, provider,
-model, latency) for comparing runs.
+model, latencyMs, modelCalls, images) for comparing runs.
 
 ## Release gate
 

@@ -18,12 +18,13 @@ Design record: `docs/superpowers/specs/2026-10-25-bot-api-actions-design.md`. Mo
 
 ## Turn flow
 
-1. The playground builds an `<actions>` block (id, name, description, params, response fields — no URL, no auth) and, if one is stored, a `<pending_action>` block.
-2. Model output outcomes: `answer | unknown | handoff | call_action | confirm_action | cancel_action` (`sales-agent@8`).
-3. `call_action` for a read action → validate args against the declared params → `invoke` → the result goes back as `<action_result>{ok,statusCode,data}</action_result>` (`<` escaped, so injected text cannot close the tag; figures inside count as grounded) → model answers. At most 3 executions per customer turn, then the fallback (`action_loop_limit`).
-4. `call_action` for a confirm-required action stores one pending call per conversation (10 min TTL) and sends the model's question to the customer. Nothing runs yet.
-5. `confirm_action` takes the pending call atomically (`consumePending`: delete-returning, so of two concurrent confirmations only one runs the write), then executes the **stored** arguments, never model-supplied ones. If the call fails with a transient error (`timeout`, `network`) the pending call is put back so the customer can say "ok" again. The `<pending_action>` block carries `askedMinutesAgo`; the prompt tells the model to doubt an old pending call and re-ask. A confirmation question replaced by a guardrail fallback is dropped (the customer never saw it). `cancel_action` clears it. A confirm with nothing pending falls back.
-6. Unknown, disabled or foreign action ids fall back like `unknown`.
+Actions are tools of the reply agent's tool loop (ADR-014, `sales-agent@11`/`@12`; code in `apps/backend/src/modules/ai/application/action-tools.ts`). The model's final JSON is only `answer | unknown | handoff`.
+
+1. Each enabled action becomes a tool `action_<n>` (index by request; the name-to-action map stays on the server). Its description is the action's name and description; its input schema is built from the declared params. No URL, header or secret reaches the model. A stored pending call adds the tools `confirm_pending_action` and `cancel_pending_action` and a `<pending_action>` block in the last user message.
+2. A call to a read action validates the arguments against the declared params, runs `invoke`, and returns `{ok,statusCode,data}` as the tool result (figures inside count as grounded). Failures return `{ok:false,errorCode}` only. At most 3 executions per customer turn, then the fallback (`action_loop_limit`); at most 4 tool rounds in total (`tool_loop_limit`).
+3. A call to a confirm-required action does not run: the server stores one pending call per conversation (10 min TTL) and returns `{status:"awaiting_customer_confirmation",readBack:{...}}`; the model's reply reads the values back and asks the customer to agree.
+4. `confirm_pending_action` takes the pending call atomically (`consumePending`: delete-returning, so of two concurrent confirmations only one runs the write), then executes the **stored** arguments, never model-supplied ones. If the call fails with a transient error (`timeout`, `network`) the pending call is put back so the customer can say "ok" again. The `<pending_action>` block carries `askedMinutesAgo`; the prompt tells the model to doubt an old pending call and re-ask. A confirmation question replaced by a guardrail fallback is dropped (the customer never saw it). `cancel_pending_action` clears it. A confirm with nothing pending falls back.
+5. Unknown, disabled or foreign actions fall back like `unknown`.
 
 Tokens of all rounds are summed into one `ai_runs` row (one billed AI message). `PlaygroundResponse.actions` lists `{name, ok, statusCode}` for the test-chat chips.
 
@@ -45,4 +46,4 @@ Tokens of all rounds are summed into one `ai_runs` row (one billed AI message). 
 
 ## Known limits (v1)
 
-No OAuth2/Basic auth, no per-action cross-conversation rate limit, no action templates, no native provider function calling (Hermes has no tools, ADR-010). Each action round adds one model call (3–8 s on the Hermes test provider).
+No OAuth2/Basic auth, no per-action cross-conversation rate limit, no action templates, Hermes has no tools of its own (ADR-010), so it uses the emulated tool protocol of `packages/ai-core`. Each tool round adds one model call (3–8 s on the Hermes test provider).

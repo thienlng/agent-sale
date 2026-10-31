@@ -1,4 +1,9 @@
-import { FakeLlmProvider, type GenerateRequest, type LlmProvider } from '@agent-sales/ai-core';
+import {
+  FakeLlmProvider,
+  type GenerateRequest,
+  type GenerateResponse,
+  type LlmProvider,
+} from '@agent-sales/ai-core';
 import type { PlaygroundRequest, ProductDto, TrainingItemDto } from '@agent-sales/contracts';
 import { newId, workspaceId } from '@agent-sales/shared';
 import { describe, expect, it } from 'vitest';
@@ -59,10 +64,23 @@ const media = {
   mediaUrl: 'https://img.example.com/size.png',
 } as unknown as TrainingItemDto;
 
-function build(reply: object | string, products: ProductDto[] = [oxford], queries: string[] = []) {
-  const fake = new FakeLlmProvider('dev-fake', () => ({
-    text: typeof reply === 'string' ? reply : JSON.stringify(reply),
-  }));
+/** A scripted model step: a final reply, or the catalog search every product turn starts with. */
+const search = (query = 'giày'): Partial<GenerateResponse> => ({
+  text: '',
+  stopReason: 'tool_use',
+  toolCalls: [{ id: 'c1', name: 'search_products', input: { query } }],
+});
+
+function build(
+  reply: object | string,
+  options: { products?: ProductDto[]; focus?: string[]; searchFirst?: boolean } = {},
+) {
+  const { products = [oxford], focus = [], searchFirst = true } = options;
+  let step = 0;
+  const fake = new FakeLlmProvider('dev-fake', () => {
+    if (searchFirst && step++ === 0) return search();
+    return { text: typeof reply === 'string' ? reply : JSON.stringify(reply) };
+  });
   const factory: LlmProviderFactory = {
     create: () => fake as LlmProvider,
     hermesLogin: () => {
@@ -71,34 +89,50 @@ function build(reply: object | string, products: ProductDto[] = [oxford], querie
     listModels: () => Promise.resolve({ models: [], state: 'unavailable' }),
     developmentFallback: () => ({ provider: fake, model: 'echo' }),
   };
+  const lookups: string[][] = [];
+  const runs = new InMemoryAiRunRepository();
   const svc = new PlaygroundService(
     { getBot: async () => bot } as BotFacade,
     { searchFaqs: async () => [] } as unknown as KnowledgeFacade,
     { getById: async () => ({ name: 'Shop' }) } as unknown as WorkspaceFacade,
     new LlmRuntime(new InMemoryLlmConfigRepository(), factory),
-    new InMemoryAiRunRepository(),
+    runs,
     { list: async () => [media] } as unknown as TrainingFacade,
     {
-      getBotProducts: async (_ws: unknown, _bot: unknown, query: string) => {
-        queries.push(query);
-        return products;
+      searchBotCatalog: async () => products,
+      countBotCatalog: async () => products.length,
+      getBotProductsByIds: async (_ws: unknown, _bot: unknown, ids: readonly string[]) => {
+        lookups.push([...ids]);
+        return products.filter((p) => ids.includes(p.id));
       },
-      listBotCatalog: async () => products,
     } as unknown as CatalogFacade,
   );
-  const ask = (text: string) =>
-    svc.reply(
-      ws,
-      botId,
-      { messages: [{ role: 'customer', content: text }] },
-      {
-        conversationId: newId(),
+  const conversationId = newId();
+  const askWith = async (messages: PlaygroundRequest['messages']) => {
+    if (focus.length)
+      await runs.record(ws, {
+        id: newId(),
+        botId,
+        conversationId,
+        tier: 'smart',
+        provider: 'p',
+        model: 'm',
+        promptVersion: 'sales-agent@11',
+        inputTokens: 0,
+        outputTokens: 0,
+        cachedTokens: 0,
+        latencyMs: 0,
+        retrieved: [],
+        outcome: 'answered',
+        guardrail: null,
         isTest: false,
-      },
-    );
-  const askWith = (messages: PlaygroundRequest['messages']) =>
-    svc.reply(ws, botId, { messages }, { conversationId: newId(), isTest: false });
-  return { fake, ask, askWith };
+        productIds: focus,
+        createdAt: new Date(),
+      });
+    return svc.reply(ws, botId, { messages }, { conversationId, isTest: false });
+  };
+  const ask = (text: string) => askWith([{ role: 'customer', content: text }]);
+  return { fake, ask, askWith, lookups, runs, conversationId };
 }
 
 const answer = (imageIds?: string[]) => ({
@@ -107,6 +141,8 @@ const answer = (imageIds?: string[]) => ({
   sources: [],
   ...(imageIds ? { imageIds } : {}),
 });
+/** Everything after the system prompt (which names the blocks it explains). */
+const requestText = (req: GenerateRequest | undefined) => JSON.stringify(req?.messages.slice(1));
 
 describe('bot-sent images', () => {
   it('resolves valid ids to stored URLs and shows the model ids and labels only', async () => {
@@ -116,24 +152,30 @@ describe('bot-sent images', () => {
       { url: 'https://img.example.com/ox2.jpg', label: 'Giày da Oxford (2/4)' },
       { url: 'https://img.example.com/size.png', label: 'Bảng size giày' },
     ]);
-    const sent = JSON.stringify((fake.calls[0] as GenerateRequest).messages);
-    expect(sent).toContain('Images you may send (id: label)');
-    expect(sent).toContain('p:oxford:0: Giày da Oxford (1/4)');
-    expect(sent).toContain('m:size: Bảng size giày');
-    expect(sent).not.toContain('img.example.com');
+    // The library image is offered up front; the product pictures come back with its details.
+    expect(requestText(fake.calls[0])).toContain('m:size: Bảng size giày');
+    expect(requestText(fake.calls[1])).toContain('p:oxford:0');
+    for (const call of fake.calls) expect(JSON.stringify(call)).not.toContain('img.example.com');
   });
 
-  it('tells the model what to say when a known product has no picture', async () => {
+  it('tells the model to send the pictures its details list and never to deny them', async () => {
     const { fake, ask } = build(answer());
     await ask('cho xem ảnh giày da Oxford');
-    const sent = JSON.stringify((fake.calls[0] as GenerateRequest).messages);
-    expect(sent).toContain('no picture yet');
+    const system = String(fake.calls[0]?.messages[0]?.content);
+    expect(system).toContain('put up to 3 image ids from their "images" in imageIds');
+    expect(system).toContain('Never say a product has no picture when its details list images');
   });
+
   it('drops an invented or foreign id', async () => {
     const { ask } = build(answer(['p:other:0', 'm:nope', 'p:oxford:0']));
     expect((await ask('cho xem ảnh giày')).images).toEqual([
       { url: 'https://img.example.com/ox1.jpg', label: 'Giày da Oxford (1/4)' },
     ]);
+  });
+
+  it('drops the picture of a product the model never saw this turn', async () => {
+    const { ask } = build(answer(['p:oxford:0']), { searchFirst: false });
+    expect((await ask('cho xem ảnh giày')).images).toEqual([]);
   });
 
   it('ignores URL-looking strings', async () => {
@@ -163,53 +205,75 @@ describe('bot-sent images', () => {
   });
 
   it('has no allowlist block when nothing can be sent', async () => {
-    const { fake, ask } = build(answer(), [product('plain', 'Dép', [])]);
+    const { fake, ask } = build(answer(), { products: [product('plain', 'Dép', [])] });
     await ask('giá dép');
-    expect(JSON.stringify((fake.calls[0] as GenerateRequest).messages)).not.toContain(
-      'Images you may send (id: label)',
-    );
+    for (const call of fake.calls) expect(requestText(call)).not.toContain('Images you may send');
+  });
+
+  it('records the products whose pictures were sent next to the ones the tools returned', async () => {
+    const other = product('other', 'Dép da', ['https://img.example.com/d1.jpg']);
+    const { ask, runs } = build(answer(['p:other:0']), { products: [oxford, other] });
+    const res = await ask('cho xem ảnh dép');
+    expect(res.images).toHaveLength(1);
+    expect(runs.runs[0]?.productIds).toEqual(['oxford', 'other']);
   });
 });
 
-describe('product lookup keeps the product being discussed', () => {
-  it('adds the last bot reply to the catalog search, so "size 41?" still finds the product', async () => {
-    const queries: string[] = [];
-    const { askWith } = build(answer(), [oxford], queries);
-    await askWith([
-      { role: 'customer', content: 'cho xem ảnh giày da Oxford' },
-      { role: 'bot', content: 'Dạ em gửi ảnh giày da nam Oxford ạ.' },
-      { role: 'customer', content: 'size 41 thì sao, giá bao nhiêu?' },
+describe('focus products carry the product being discussed', () => {
+  const thread: PlaygroundRequest['messages'] = [
+    { role: 'customer', content: 'cho xem ảnh giày da Oxford' },
+    { role: 'bot', content: 'Dạ em gửi ảnh giày da nam Oxford ạ.' },
+    { role: 'customer', content: 'gửi thêm ảnh đi' },
+  ];
+
+  it('gives the details and pictures of the last run products with no tool call', async () => {
+    const { fake, askWith, lookups } = build(answer(['p:oxford:2']), {
+      focus: ['oxford'],
+      searchFirst: false,
+    });
+    const res = await askWith(thread);
+    expect(fake.calls).toHaveLength(1);
+    expect(lookups).toEqual([['oxford']]);
+    const sent = String(fake.calls[0]?.messages.at(-1)?.content);
+    expect(sent).toContain('<focus_products>');
+    expect(sent).toContain('Giày da Oxford');
+    expect(sent).toContain('p:oxford:0: Giày da Oxford (1/4)');
+    expect(res.images).toEqual([
+      { url: 'https://img.example.com/ox3.jpg', label: 'Giày da Oxford (3/4)' },
     ]);
-    const query = queries.at(-1) ?? '';
-    expect(query.startsWith('cho xem ảnh giày da Oxford\nsize 41')).toBe(true);
-    expect(query).toContain('giày da nam Oxford');
   });
-  it('searches with the customer text alone before the bot has said anything', async () => {
-    const queries: string[] = [];
-    const { ask } = build(answer(), [oxford], queries);
-    await ask('giá giày Oxford bao nhiêu?');
-    expect(queries.at(-1)).toBe('giá giày Oxford bao nhiêu?');
+
+  it('shows no focus block when the conversation has no earlier run', async () => {
+    const { fake, askWith } = build(answer(), { searchFirst: false });
+    await askWith(thread);
+    expect(requestText(fake.calls[0])).not.toContain('<focus_products>');
   });
 });
 
 describe('answers that are not JSON', () => {
   it('accepts a short plain-prose answer after the retry', async () => {
-    const { ask } = build('Dạ, cửa hàng có giày da nam Oxford và giày lười Loafer ạ.');
+    const { ask } = build('Dạ, cửa hàng có giày da nam Oxford và giày lười Loafer ạ.', {
+      searchFirst: false,
+    });
     const res = await ask('shop có những mẫu nào vậy?');
     expect(res.outcome).toBe('answered');
     expect(res.reply).toBe('Dạ, cửa hàng có giày da nam Oxford và giày lười Loafer ạ.');
   });
   it('falls back when the prose is broken JSON', async () => {
-    const { ask } = build('{"outcome": "answer", "reply": ');
+    const { ask } = build('{"outcome": "answer", "reply": ', { searchFirst: false });
     const res = await ask('shop có những mẫu nào vậy?');
     expect(res.outcome).toBe('fallback');
     expect(res.guardrail).toMatch(/^invalid_output/);
   });
-  it('lists every product on sale as a catalog overview in the model request', async () => {
-    const { fake, ask } = build(answer());
+  it('offers the catalog as tools and puts no catalog or overview in the request', async () => {
+    const { fake, ask } = build(answer(), { searchFirst: false });
     await ask('shop có những mẫu nào vậy?');
-    const sent = JSON.stringify((fake.calls[0] as GenerateRequest).messages);
-    expect(sent).toContain('catalog_overview');
-    expect(sent).toContain(oxford.name);
+    expect(fake.calls[0]?.tools?.map((t) => t.name)).toEqual([
+      'search_products',
+      'product_details',
+    ]);
+    const sent = requestText(fake.calls[0]);
+    expect(sent).not.toContain('<catalog');
+    expect(sent).not.toContain(oxford.name);
   });
 });

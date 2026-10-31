@@ -115,4 +115,31 @@ describe('eval checks', () => {
     expect(fired[0]).toMatchObject({ name: 'guardrail', pass: false });
     expect(fired[0]?.detail).toContain('ungrounded_figure:1');
   });
+
+  it('outcome_not fails only on the forbidden outcome', () => {
+    expect(runChecks({ outcome_not: 'handoff' }, base)[0]?.pass).toBe(true);
+    const handoff = runChecks({ outcome_not: 'handoff' }, { ...base, outcome: 'handoff' });
+    expect(handoff[0]).toMatchObject({ name: 'outcome_not', pass: false });
+  });
+
+  it('images_min needs at least that many pictures sent', () => {
+    expect(runChecks({ images_min: 1 }, base)[0]).toMatchObject({
+      name: 'images_min',
+      pass: false,
+    });
+    expect(runChecks({ images_min: 1 }, { ...base, images: 1 })[0]?.pass).toBe(true);
+    expect(runChecks({ images_min: 2 }, { ...base, images: 1 })[0]?.pass).toBe(false);
+  });
+
+  it('max_occurrences caps how often a text appears in the reply', () => {
+    const reply = 'Dạ anh/chị xem mẫu này nhé.\nAnh/chị cần size nào ạ?';
+    expect(runChecks({ max_occurrences: { 'anh/chị': 1 } }, { ...base, reply })[0]).toMatchObject({
+      name: 'max_occurrences',
+      pass: false,
+    });
+    expect(runChecks({ max_occurrences: { 'anh/chị': 2 } }, { ...base, reply })[0]?.pass).toBe(
+      true,
+    );
+    expect(runChecks({ max_occurrences: { 'anh/chị': 0 } }, base)[0]?.pass).toBe(true);
+  });
 });

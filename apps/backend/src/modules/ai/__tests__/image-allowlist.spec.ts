@@ -4,8 +4,10 @@ import {
   buildAllowlist,
   imagesBlock,
   libraryImages,
+  productIdOfImage,
   productImages,
   resolveImageIds,
+  selectImages,
 } from '../domain/image-allowlist.js';
 
 const product = {
@@ -23,6 +25,16 @@ describe('image allowlist', () => {
     const images = productImages([product, { id: 'prod-2', name: 'Dép', imageUrls: [] }]);
     expect(images.map((i) => i.id)).toEqual(['p:prod-1:0', 'p:prod-1:1']);
     expect(images[0]?.label).toBe('Giày da Oxford (1/2)');
+  });
+
+  it('returns every image (max 5) of a product', () => {
+    const six = {
+      id: 'p6',
+      name: 'Bộ xếp hình',
+      imageUrls: Array.from({ length: 6 }, (_, i) => `https://cdn.example.com/${i}.jpg`),
+    };
+    const images = productImages([six]);
+    expect(images.map((i) => i.id)).toEqual([0, 1, 2, 3, 4].map((n) => `p:p6:${n}`));
   });
 
   it('matches library media by title or trigger words, ignoring request filler', () => {
@@ -107,5 +119,31 @@ describe('image allowlist', () => {
       expect(resolveImageIds(undefined, allowed)).toEqual([]);
       expect(resolveImageIds([], allowed)).toEqual([]);
     });
+  });
+});
+
+describe('selectImages and productIdOfImage', () => {
+  const allowed = [
+    { id: 'p:prod-1:0', label: 'A', url: 'https://x.test/0.jpg' },
+    { id: 'm:size', label: 'B', url: 'https://x.test/1.jpg' },
+  ];
+  it('keeps the allowed ids with their images, in the requested order', () => {
+    expect(selectImages(['m:size', 'nope', 'p:prod-1:0', 'm:size'], allowed)).toEqual([
+      allowed[1],
+      allowed[0],
+    ]);
+  });
+  it('reads the product id of a product image id only', () => {
+    expect(productIdOfImage('p:prod-1:0')).toBe('prod-1');
+    expect(productIdOfImage('m:size')).toBeNull();
+  });
+  it('lets the caller raise the allowlist cap', () => {
+    const many = Array.from({ length: 14 }, (_, i) => ({
+      id: `p:x:${i}`,
+      label: `L${i}`,
+      url: `https://x.test/${i}.jpg`,
+    }));
+    expect(buildAllowlist(many, [])).toHaveLength(10);
+    expect(buildAllowlist(many, [], '', 60)).toHaveLength(14);
   });
 });

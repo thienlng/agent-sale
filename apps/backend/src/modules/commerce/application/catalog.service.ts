@@ -20,7 +20,7 @@ import type { PublicObjectStorage } from '../../../common/storage/public-object-
 import { PRODUCT_IMAGE_STORAGE } from './ports/product-image-storage.js';
 
 import type { BotCatalogScope } from '../api/catalog.facade.js';
-import { botProductSearches } from '../domain/bot-product-search.js';
+import { catalogTerms } from '../domain/bot-catalog-query.js';
 import { LodgingError } from '../domain/lodging.js';
 import {
   BotNotFoundError,
@@ -96,6 +96,9 @@ function productSearchText(
   return foldVietnamese([p.code, p.name, ...variants.flatMap((v) => [v.sku, v.name])].join(' '));
 }
 
+/** Most rows a bot catalog search or browse returns (spec §5). */
+const BOT_CATALOG_CAP = 300;
+
 /** The bot_products filter for a bot in 'selected' mode; undefined sells every active product. */
 function selection(bot: BotCatalogScope): string | undefined {
   return bot.catalogMode === 'selected' ? bot.botId : undefined;
@@ -120,58 +123,86 @@ export class CatalogService {
     });
   }
 
-  async getBotProducts(
+  async searchBotCatalog(
     ws: WorkspaceId,
     bot: BotCatalogScope,
-    query: string,
-    limit: number,
+    input: { query?: string; maxPriceVnd?: number; inStockOnly?: boolean; limit: number },
   ): Promise<ProductDto[]> {
-    const cap = Math.max(1, Math.min(limit, 20));
-    const { searches, words } = botProductSearches(query);
-    if (!searches.length) return [];
-    const selectedFor = selection(bot);
-    let matches: ProductListResponse[];
+    const limit = Math.max(1, Math.min(input.limit, BOT_CATALOG_CAP));
+    const terms = catalogTerms(input.query ?? '');
+    // A query with no usable term ("a", "?!") matches nothing; only a missing query browses.
+    if (!terms.length && (input.query ?? '').trim()) return [];
+    const query = terms.length
+      ? foldVietnamese(input.query ?? '')
+          .replace(/[^\p{L}\p{N}]+/gu, ' ')
+          .trim()
+      : '';
+    // Price and stock are computed from variants and stock rows, so they filter after the query.
+    const filtered = input.maxPriceVnd !== undefined || input.inStockOnly === true;
     try {
-      matches = await Promise.all(
-        searches.map((q) =>
-          this.listProducts(ws, { q, status: 'active', page: 1, pageSize: cap, selectedFor }),
-        ),
-      );
+      return await this.store.run(ws, async (tx) => {
+        const rows = await tx.products.searchForBot({
+          terms,
+          query,
+          selectedFor: selection(bot),
+          limit: filtered ? BOT_CATALOG_CAP : limit,
+        });
+        const dtos = await this.#dtos(tx, rows);
+        // An accommodation has no stock and a rate reference rather than a price: neither filter applies.
+        return dtos
+          .filter(
+            (d) =>
+              d.accommodation !== undefined ||
+              input.maxPriceVnd === undefined ||
+              d.priceMin <= input.maxPriceVnd,
+          )
+          .filter((d) => d.accommodation !== undefined || !input.inStockOnly || d.available > 0)
+          .slice(0, limit);
+      });
     } catch (error) {
-      // DB-less playgrounds still answer FAQs; real persistence failures must surface.
       if (error instanceof CommerceUnavailableError) return [];
       throw error;
     }
-    const unique = new Map(
-      matches
-        .flatMap((result) => result.data)
-        .filter((product) => product.visibleToBot)
-        .map((product) => [product.id, product]),
-    );
-    const score = (product: ProductDto) =>
-      words.filter((word) => foldVietnamese(`${product.name} ${product.code}`).includes(word))
-        .length;
-    return [...unique.values()].sort((a, b) => score(b) - score(a)).slice(0, cap);
   }
 
-  async listBotCatalog(
+  async getBotProductsByIds(
     ws: WorkspaceId,
     bot: BotCatalogScope,
-    limit: number,
+    ids: readonly string[],
   ): Promise<ProductDto[]> {
-    const cap = Math.max(1, Math.min(limit, 30));
+    const wanted = [...new Set(ids)].filter(isUuid).slice(0, 10);
+    if (!wanted.length) return [];
     try {
-      const page = await this.listProducts(ws, {
-        status: 'active',
-        page: 1,
-        pageSize: cap,
-        selectedFor: selection(bot),
+      return await this.store.run(ws, async (tx) => {
+        const rows = await tx.products.findForBot(wanted, selection(bot));
+        const dtos = new Map((await this.#dtos(tx, rows)).map((d) => [d.id, d]));
+        return wanted.flatMap((id) => dtos.get(id) ?? []);
       });
-      return page.data.filter((product) => product.visibleToBot);
     } catch (error) {
       if (error instanceof CommerceUnavailableError) return [];
       throw error;
     }
+  }
+
+  async countBotCatalog(ws: WorkspaceId, bot: BotCatalogScope): Promise<number> {
+    try {
+      return await this.store.run(ws, (tx) => tx.products.countForBot(selection(bot)));
+    } catch (error) {
+      if (error instanceof CommerceUnavailableError) return 0;
+      throw error;
+    }
+  }
+
+  async #dtos(tx: CommerceTx, rows: ProductRecord[]): Promise<ProductDto[]> {
+    const variants = await tx.products.variantsOf(rows.map((r) => r.id));
+    const stock = await tx.inventory.stockOf(variants.map((v) => v.id));
+    return rows.map((p) =>
+      toProductDto(
+        p,
+        variants.filter((v) => v.productId === p.id),
+        stock,
+      ),
+    );
   }
 
   // ─── Warehouses ───────────────────────────────────────────────────────────
