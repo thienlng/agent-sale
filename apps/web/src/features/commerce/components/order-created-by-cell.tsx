@@ -107,9 +107,27 @@ function ApprovedChip({ order }: { order: OrderOrigin }) {
   );
 }
 
+/** A bot order from the dashboard test chat has no customer conversation to open: say so. */
+function TestChatChip() {
+  const { t } = useTranslation();
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          tabIndex={0}
+          className="inline-flex h-5 items-center rounded-full border border-dashed px-2 text-xs whitespace-nowrap text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          {t('orders.review.testChat')}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>{t('orders.review.testChatHint')}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 /**
  * "Người tạo": the staff name, or for bot orders the Bot badge, the review state and a link to
- * the conversation (spec §6.1).
+ * the conversation (spec §6.1), or "Chat thử" when the order came from the test chat.
  */
 export function OrderCreatedByCell({ order }: { order: OrderOrigin }) {
   if (order.createdByKind !== 'bot') {
@@ -123,7 +141,11 @@ export function OrderCreatedByCell({ order }: { order: OrderOrigin }) {
     <div className="-my-1.5 flex flex-wrap items-center gap-1.5">
       <BotBadge />
       {order.reviewState === 'pending' ? <PendingReviewChip /> : <ApprovedChip order={order} />}
-      {order.conversationId ? <OpenConversationLink conversationId={order.conversationId} /> : null}
+      {order.conversationId ? (
+        <OpenConversationLink conversationId={order.conversationId} />
+      ) : (
+        <TestChatChip />
+      )}
     </div>
   );
 }

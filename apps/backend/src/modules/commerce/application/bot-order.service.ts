@@ -27,6 +27,7 @@ import {
   checkRecipient,
   cleanNote,
   mergeItems,
+  linkedConversationId,
   orderSourceOf,
 } from '../domain/bot-order.js';
 import { CommerceUnavailableError, VariantNotFoundError } from '../domain/commerce.errors.js';
@@ -281,7 +282,7 @@ export class BotOrderService {
       createdByName: input.botName,
       clientRequestId: requestId,
       createdByKind: 'bot',
-      conversationId: input.conversationId,
+      conversationId: linkedConversationId(draft.channel, input.conversationId),
       reviewState: 'pending',
       reviewedByUserId: null,
       reviewedByName: null,

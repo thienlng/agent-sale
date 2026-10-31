@@ -83,9 +83,18 @@ describe('OrderCreatedByCell ("Người tạo")', () => {
     expect(onRow).not.toHaveBeenCalled();
   });
 
-  it('hides the conversation link when the order has no conversation', () => {
+  it('marks a test-chat order (no conversation) as "Chat thử" instead of a dead link', async () => {
     renderCell({ ...botPending, conversationId: null });
     expect(screen.getByText('Chờ duyệt')).toBeInTheDocument();
     expect(screen.queryByRole('link')).toBeNull();
+    expect(screen.getByText('Chat thử')).toBeInTheDocument();
+    await userEvent.setup().hover(screen.getByText('Chat thử'));
+    expect(
+      (
+        await screen.findAllByText(
+          'Đơn tạo từ khung chat thử của bot, không có cuộc hội thoại với khách',
+        )
+      ).length,
+    ).toBeGreaterThan(0);
   });
 });

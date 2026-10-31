@@ -208,6 +208,20 @@ describe('confirmBotOrder', () => {
   const confirm = (f: CommerceFacadeImpl) =>
     f.confirmBotOrder(ws, { botId, botName: 'Bot Lan', conversationId });
 
+  it('links no conversation for an order taken in the test chat', async () => {
+    const { facade, db } = setup();
+    await facade.prepareBotOrder(
+      ws,
+      prepareInput([{ sku: 'TG-01', qty: 1 }], { channel: 'other' }),
+    );
+    expect(await confirm(facade)).toMatchObject({ ok: true });
+    expect(db.orders[0]).toMatchObject({
+      source: 'other',
+      createdByKind: 'bot',
+      conversationId: null,
+    });
+  });
+
   it('creates a pending-review bot order, reserves stock and writes history', async () => {
     const { facade, db, crm, a, warehouseId } = setup();
     await facade.prepareBotOrder(

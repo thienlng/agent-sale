@@ -72,6 +72,14 @@ export function orderSourceOf(channel: string): string {
 }
 
 /**
+ * Only a customer channel has an inbox conversation to open; the dashboard test chat keys its
+ * draft by a synthetic id that is not a conversation, so its orders link to nothing.
+ */
+export function linkedConversationId(channel: string, conversationId: string): string | null {
+  return CHANNEL_SOURCES.has(channel) ? conversationId : null;
+}
+
+/**
  * The idempotency key of the order a draft becomes (spec §4.5, plus the draft's nonce): retrying
  * one draft never creates a second order, while the same basket ordered again later (a new draft
  * in the same conversation) is a new order.

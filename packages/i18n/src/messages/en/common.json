@@ -581,6 +581,8 @@
       "staff": "a staff member",
       "openConversation": "Open the conversation in a new tab",
       "openConversationShort": "Open conversation",
+      "testChat": "Test chat",
+      "testChatHint": "Created in the bot's test chat; there is no customer conversation",
       "filter": "Bot · needs review",
       "filterCount": "{{count}} bot orders need review",
       "approve": "Approve order",

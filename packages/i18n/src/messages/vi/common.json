@@ -580,6 +580,8 @@
       "staff": "nhân viên",
       "openConversation": "Mở cuộc trò chuyện ở tab mới",
       "openConversationShort": "Mở hội thoại",
+      "testChat": "Chat thử",
+      "testChatHint": "Đơn tạo từ khung chat thử của bot, không có cuộc hội thoại với khách",
       "filter": "Bot · chờ duyệt",
       "filterCount": "{{count}} đơn bot chờ duyệt",
       "approve": "Duyệt đơn",
