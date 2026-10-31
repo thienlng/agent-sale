@@ -102,9 +102,11 @@ export class ReplyDelivery {
   }
 
   /** From now on a newer customer message no longer stops this turn (a hand-off goes out whole). */
-  stopWatchingNewer(): void {
+  stopWatchingNewer(clearFailure = false): void {
     this.watchNewer = false;
     this.clearNewerStop();
+    // A created order: its final is attempted even after a failed send.
+    if (clearFailure && this.stop === 'failed') this.stop = null;
   }
 
   /**

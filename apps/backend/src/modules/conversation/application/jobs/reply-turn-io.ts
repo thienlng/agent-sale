@@ -7,12 +7,12 @@ import type { ChannelFacade, PendingMetaEvent } from '../../../channel/api/index
 import type { ImageFetcher } from '../ports/image-fetcher.js';
 
 const MAX_VISION_IMAGES = 3;
+/** Meta shows "typing…" for about 20 s; refresh it while the model is still working. */
+const TYPING_REFRESH_MS = 10_000;
 
 /** A customer message with something to answer (text or attachments). */
 export const isCustomerContent = (e: NormalizedEvent): boolean =>
   e.type === 'message' && Boolean(e.text?.trim() || e.attachments?.length);
-/** Meta shows "typing…" for about 20 s; refresh it while the model is still working. */
-const TYPING_REFRESH_MS = 10_000;
 
 /** The answer still to send after the run: the `final` message, or (older replies) `reply` + `images`. */
 export function finalMessage(response: ReplyResult): {

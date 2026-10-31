@@ -115,6 +115,22 @@ describe('MetaInboxProcessor — a turn that created an order', () => {
     expect(channels.requeueEvent).not.toHaveBeenCalled();
   });
 
+  it('still attempts the order code once when the first send threw before anything was stored', async () => {
+    const { ai, channels, inbox, keys, texts, run } = setup();
+    vi.spyOn(inbox, 'commitBotReply').mockRejectedValueOnce(new Error('db down'));
+    const results: unknown[] = [];
+    ai.reply.mockImplementationOnce(async (_w, _b, _req, options) => {
+      results.push(await options.sink!.send({ text: 'Tóm tắt', images: [] }));
+      return ordered();
+    });
+    await run(job('o4', 'đặt'));
+    expect(results).toEqual([{ delivered: 0, complete: false }]);
+    expect(keys()).toEqual(['bot:o4']);
+    expect(texts()).toEqual(['Dạ đơn DH123 đã được tạo ạ']);
+    expect(channels.completeEvent).toHaveBeenCalled();
+    expect(channels.releaseEvent).not.toHaveBeenCalled();
+  });
+
   it('still drops a stale final without an order (control)', async () => {
     const { ai, channels, texts, run } = setup();
     ai.reply.mockImplementationOnce(async () => {

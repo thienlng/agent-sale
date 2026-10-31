@@ -324,7 +324,9 @@ export class MetaInboxProcessor {
       response = await ask([], new Set());
     }
     // Nothing went out because the first send failed: retry the event (then staff) as before.
-    if (delivery.stop === 'failed' && !delivery.attempted) throw delivery.failure;
+    // An order exists, though: its final (the order code) is still attempted once below.
+    if (delivery.stop === 'failed' && !delivery.attempted && !response.orderCreated)
+      throw delivery.failure;
     // A created order is never re-run or dropped (it exists now): its final goes out whole.
     if (response.interrupted && !finishing && !response.orderCreated) {
       // A takeover (or bot off) also interrupts, but nobody is waiting for a new turn.
@@ -334,7 +336,7 @@ export class MetaInboxProcessor {
     }
     const handoff = response.outcome === 'handoff';
     // A hand-off (or a created order) is never dropped: its message goes out whole.
-    if (handoff || response.orderCreated) delivery.stopWatchingNewer();
+    if (handoff || response.orderCreated) delivery.stopWatchingNewer(response.orderCreated);
     else if (!finishing && !delivery.takenOver) {
       // The customer wrote again after the run: its final answer is already stale.
       if (await delivery.hasNewerMessage()) {
