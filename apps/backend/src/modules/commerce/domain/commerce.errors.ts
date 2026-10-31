@@ -148,3 +148,11 @@ export class ShippingFeeRequiredError extends DomainError {
     super('Send shippingFeeCharged when turning free shipping off');
   }
 }
+
+/** A product or gallery picture is not a file Rapiz stored for this workspace. */
+export class ImageNotUploadedError extends DomainError {
+  readonly code = 'VALIDATION_FAILED';
+  constructor(field: string) {
+    super('Upload the picture instead of linking to it', { reason: 'IMAGE_NOT_UPLOADED', field });
+  }
+}

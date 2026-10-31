@@ -21,13 +21,14 @@ export class ApiError extends Error {
     readonly code: ErrorCode,
     message: string,
     readonly details?: Record<string, unknown>,
+    private readonly statusOverride?: number,
   ) {
     super(message);
     this.name = 'ApiError';
   }
 
   get status(): number {
-    return STATUS[this.code];
+    return this.statusOverride ?? STATUS[this.code];
   }
 
   /** Maps a typed domain error (packages/shared DomainError) to the HTTP envelope. */
