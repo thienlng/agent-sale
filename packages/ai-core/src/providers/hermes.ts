@@ -15,23 +15,22 @@ import {
   type ToolCall,
 } from '../gateway.js';
 
-const BridgeReply = z
-  .object({
-    version: z.literal(1),
-    text: z.string().max(100_000),
-    toolCalls: z
-      .array(z.object({ id: z.string().min(1), name: z.string().min(1), arguments: z.string() }))
-      .max(64)
-      .default([]),
-    stopReason: z.enum(['end', 'max_tokens', 'tool_use', 'refusal']).optional(),
-    model: z.string().min(1).max(200),
-    usage: z.object({
-      inputTokens: z.number().int().nonnegative(),
-      outputTokens: z.number().int().nonnegative(),
-      cachedInputTokens: z.number().int().nonnegative(),
-    }),
-  })
-  .refine((reply) => reply.text.length > 0 || reply.toolCalls.length > 0);
+const BridgeReply = z.object({
+  version: z.literal(1),
+  text: z.string().max(100_000),
+  toolCalls: z
+    .array(z.object({ id: z.string().min(1), name: z.string().min(1), arguments: z.string() }))
+    .max(64)
+    .default([]),
+  stopReason: z.enum(['end', 'max_tokens', 'tool_use', 'refusal']).optional(),
+  model: z.string().min(1).max(200),
+  usage: z.object({
+    inputTokens: z.number().int().nonnegative(),
+    outputTokens: z.number().int().nonnegative(),
+    cachedInputTokens: z.number().int().nonnegative(),
+  }),
+});
+// An empty text with no tool calls is a valid (empty) answer; the gateway decides on retries.
 
 /** Wire form of a history message (bridge contract v2). */
 function toBridgeMessage(message: ChatMessage): Record<string, unknown> {

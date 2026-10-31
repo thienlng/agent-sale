@@ -240,11 +240,10 @@ describe('HermesProvider native tools', () => {
     expect(result.usage).toEqual({ inputTokens: 3, outputTokens: 2, cachedInputTokens: 1 });
   });
 
-  it('rejects an empty reply that carries no tool call', async () => {
+  it('returns an empty reply with no tool call as an empty answer (the gateway decides on retries)', async () => {
     const transport = vi.fn().mockResolvedValue(reply());
-    await expect(make(transport).generate(request, { model: 'm' })).rejects.toThrow(
-      'Invalid Hermes bridge response',
-    );
+    const result = await make(transport).generate(request, { model: 'm' });
+    expect(result).toMatchObject({ text: '', toolCalls: [], stopReason: 'end' });
   });
 
   it('serializes assistant tool calls and tool results into the history', async () => {
