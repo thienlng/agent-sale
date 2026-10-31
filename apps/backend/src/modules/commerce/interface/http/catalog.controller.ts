@@ -5,6 +5,8 @@ import {
   ProductListQuery,
   type ProductListResponse,
   SetBotProductsRequest,
+  UploadProductImageRequest,
+  type UploadProductImageResponse,
   UpsertProductRequest,
   UpsertWarehouseRequest,
   type VariantOption,
@@ -25,6 +27,7 @@ import {
   Put,
   Query,
 } from '@nestjs/common';
+import { RouteConfig } from '@nestjs/platform-fastify';
 import type { z } from 'zod';
 
 import {
@@ -35,8 +38,24 @@ import {
   WorkspaceScoped,
 } from '../../../../common/http/auth-context.js';
 import { ZodValidationPipe } from '../../../../common/http/zod-validation.pipe.js';
+import { InvalidImageError } from '../../../../common/storage/image-bytes.js';
 import { CatalogService } from '../../application/catalog.service.js';
 import { LodgingService } from '../../application/lodging.service.js';
+import { ProductImageService } from '../../application/product-image.service.js';
+
+/** WebP (or any other type) gets the same INVALID_IMAGE answer as bad bytes; the rest is Zod. */
+class ProductImageBodyPipe extends ZodValidationPipe<UploadProductImageRequest> {
+  constructor() {
+    super(UploadProductImageRequest);
+  }
+
+  override transform(value: unknown): UploadProductImageRequest {
+    const mime = (value as { mimeType?: unknown } | null)?.mimeType;
+    if (typeof mime === 'string' && mime !== 'image/jpeg' && mime !== 'image/png')
+      throw new InvalidImageError();
+    return super.transform(value);
+  }
+}
 
 /** Thin controller: warehouses, products and the variant picker. */
 @WorkspaceScoped()
@@ -45,6 +64,7 @@ export class CatalogController {
   constructor(
     @Inject(CatalogService) private readonly catalog: CatalogService,
     @Inject(LodgingService) private readonly lodging: LodgingService,
+    @Inject(ProductImageService) private readonly images: ProductImageService,
   ) {}
 
   @Get('warehouses')
@@ -99,6 +119,17 @@ export class CatalogController {
   ): Promise<ProductDto> {
     if (body.accommodation) await this.lodging.assertHotel(ws);
     return this.catalog.createProduct(ws, body);
+  }
+
+  @RequireCapability('catalog.manage')
+  @Post('products/images')
+  @HttpCode(201)
+  @RouteConfig({ bodyLimit: 2_097_152 })
+  uploadProductImage(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Body(new ProductImageBodyPipe()) body: UploadProductImageRequest,
+  ): Promise<UploadProductImageResponse> {
+    return this.images.upload(ws, body);
   }
 
   @Get('products/:productId')

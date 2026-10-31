@@ -13,6 +13,8 @@ import {
   type UpdateOrderRequest,
   type UpsertProductRequest,
   type UpsertWarehouseRequest,
+  type UploadProductImageRequest,
+  UploadProductImageResponse,
   VariantSearchResponse,
   WarehouseDto,
   WarehouseList,
@@ -312,4 +314,23 @@ export async function fetchAllOrders(query: Omit<OrderListQuery, 'page' | 'pageS
     if (page * 100 >= res.total) break;
   }
   return rows;
+}
+
+/** Upload one (already resized) product or gallery picture to Rapiz storage; resolves to its URL. */
+export function useUploadProductImage() {
+  return useMutation({
+    mutationFn: async (body: UploadProductImageRequest) =>
+      (await api('/products/images', UploadProductImageResponse, { method: 'POST', body })).url,
+  });
+}
+
+/** i18n key for a failed picture upload, chosen by the server's `details.reason`. */
+export function imageUploadErrorKey(error: unknown) {
+  const reason = error instanceof ApiClientError ? error.details?.reason : undefined;
+  if (reason === 'INVALID_IMAGE') return 'products.form.imageInvalid' as const;
+  if (reason === 'PAYLOAD_TOO_LARGE' || (error instanceof ApiClientError && error.status === 413))
+    return 'products.form.imageTooLarge' as const;
+  if (reason === 'MEDIA_STORAGE_UNAVAILABLE')
+    return 'products.form.imageStorageUnavailable' as const;
+  return 'products.form.imageUploadFailed' as const;
 }

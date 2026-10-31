@@ -1,24 +1,22 @@
-import { MAX_PRODUCT_IMAGES, ProductImageUrl } from '@agent-sales/contracts';
-import { Plus, X } from 'lucide-react';
-import { useState } from 'react';
+import { MAX_PRODUCT_IMAGES } from '@agent-sales/contracts';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 
-/** Why `raw` cannot join `current`, or null when it can. */
-export function imageUrlProblem(
-  raw: string,
-  current: readonly string[],
-): 'invalid' | 'duplicate' | 'limit' | null {
-  if (current.length >= MAX_PRODUCT_IMAGES) return 'limit';
-  const parsed = ProductImageUrl.safeParse(raw);
-  if (!parsed.success) return 'invalid';
-  return current.includes(parsed.data) ? 'duplicate' : null;
+import { ImageUploadZone } from './image-upload-zone';
+
+/** Move the item at `from` by `delta` places, or return the list unchanged at the edges. */
+export function moveItem<T>(list: readonly T[], from: number, delta: -1 | 1): T[] {
+  const to = from + delta;
+  if (to < 0 || to >= list.length) return [...list];
+  const next = [...list];
+  [next[from], next[to]] = [next[to] as T, next[from] as T];
+  return next;
 }
 
-/** Up to five HTTPS pictures of a product, with thumbnails; the bot sends them on request. */
+/** Up to five product pictures uploaded from the device; the bot sends them on request. */
 export function ProductImagesEditor({
   value,
   onChange,
@@ -27,29 +25,9 @@ export function ProductImagesEditor({
   onChange: (urls: string[]) => void;
 }) {
   const { t } = useTranslation();
-  const [draft, setDraft] = useState('');
-  const [problem, setProblem] = useState<'invalid' | 'duplicate' | 'limit' | null>(null);
-  const full = value.length >= MAX_PRODUCT_IMAGES;
-
-  function add() {
-    const trimmed = draft.trim();
-    if (!trimmed) return;
-    const issue = imageUrlProblem(trimmed, value);
-    setProblem(issue);
-    if (issue) return;
-    onChange([...value, trimmed]);
-    setDraft('');
-  }
-
-  const errorKey = problem
-    ? (
-        {
-          invalid: 'products.form.imageInvalid',
-          duplicate: 'products.form.imageDuplicate',
-          limit: 'products.form.imageLimit',
-        } as const
-      )[problem]
-    : null;
+  // Uploads finish later: append to what the user has now, not to what they had at the start.
+  const latest = useRef(value);
+  latest.current = value;
 
   return (
     <section className="rounded-xl border bg-card p-4 md:p-5" aria-labelledby="pf-images-title">
@@ -82,54 +60,43 @@ export function ProductImagesEditor({
                 size="icon"
                 className="absolute right-1 top-1 size-7"
                 aria-label={t('products.form.removeImage', { n: i + 1 })}
-                onClick={() => {
-                  setProblem(null);
-                  onChange(value.filter((_, idx) => idx !== i));
-                }}
+                onClick={() => onChange(value.filter((_, idx) => idx !== i))}
               >
                 <X aria-hidden />
               </Button>
+              <div className="absolute inset-x-1 bottom-1 flex justify-between">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="icon"
+                  className="size-7"
+                  disabled={i === 0}
+                  aria-label={t('products.form.moveImageLeft', { n: i + 1 })}
+                  onClick={() => onChange(moveItem(value, i, -1))}
+                >
+                  <ChevronLeft aria-hidden />
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="icon"
+                  className="size-7"
+                  disabled={i === value.length - 1}
+                  aria-label={t('products.form.moveImageRight', { n: i + 1 })}
+                  onClick={() => onChange(moveItem(value, i, 1))}
+                >
+                  <ChevronRight aria-hidden />
+                </Button>
+              </div>
             </li>
           ))}
         </ul>
       ) : null}
 
-      <div className="mt-4 flex flex-col gap-1.5">
-        <Label htmlFor="pf-image-url">{t('products.form.imageUrl')}</Label>
-        <div className="flex gap-2">
-          <Input
-            id="pf-image-url"
-            type="url"
-            inputMode="url"
-            maxLength={2000}
-            disabled={full}
-            value={draft}
-            aria-invalid={problem ? true : undefined}
-            aria-describedby={errorKey ? 'pf-image-error' : undefined}
-            placeholder="https://"
-            onChange={(e) => {
-              setDraft(e.target.value);
-              setProblem(null);
-            }}
-            onKeyDown={(e) => {
-              // Enter adds the picture instead of submitting the whole product form.
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                add();
-              }
-            }}
-          />
-          <Button type="button" variant="outline" disabled={full || !draft.trim()} onClick={add}>
-            <Plus />
-            {t('products.form.addImage')}
-          </Button>
-        </div>
-        {errorKey ? (
-          <p id="pf-image-error" role="alert" className="text-sm text-destructive">
-            {t(errorKey, { max: MAX_PRODUCT_IMAGES })}
-          </p>
-        ) : null}
-      </div>
+      <ImageUploadZone
+        remaining={MAX_PRODUCT_IMAGES - value.length}
+        onUploaded={(urls) => onChange([...latest.current, ...urls].slice(0, MAX_PRODUCT_IMAGES))}
+      />
     </section>
   );
 }

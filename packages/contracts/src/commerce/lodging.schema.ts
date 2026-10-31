@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 const Amount = z.number().int().min(0).max(1_000_000_000_000);
 const text = (max: number) => z.string().trim().max(max);
+/** `url` must be a URL returned by POST /products/images (the API rejects other links). */
 const Image = z.object({
   url: z
     .url()

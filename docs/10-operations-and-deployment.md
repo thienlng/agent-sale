@@ -4,12 +4,14 @@
 
 | Environment | Purpose | Data | Real channels |
 |---|---|---|---|
-| `local` | Development on the machine (docker compose: postgres, redis, minio, mailpit, langfuse) | Seed | No — use webhook fixture replay + ngrok/cloudflared when needed |
+| `local` | Development on the machine (docker compose: postgres, redis, object-storage (SeaweedFS), mailpit, langfuse) | Seed | No — use webhook fixture replay + ngrok/cloudflared when needed |
 | `dev` | Continuous integration on every merge into `main` | Seed + fake data | Internal test Page/OA |
 | `staging` | Acceptance, AI eval, load testing, Meta App Review testing | Anonymized copy | Test Page/OA |
 | `production` | Customers | Real | Real |
 
 Configuration via environment variables + secret manager; the env schema is validated with Zod at startup (the app will not run if anything is missing). Product configuration that operators change at runtime — LLM providers and tier routing — is **not** env: it lives in the database and is edited by platform admins (docs/06 §7). The agent worker wakes on Postgres `LISTEN/NOTIFY` (channel `rapiz_ingress`, fired by a trigger on `channel_webhook_events`) and keeps a 5 s safety poll (300 ms while the listener is down; reconnect backoff 1 s to 30 s). The listener needs a direct, non-PgBouncer connection: `DATABASE_LISTEN_URL` (optional, defaults to `DATABASE_SYSTEM_URL`). First admin per environment: `pnpm --filter @agent-sales/backend platform-admin grant <email>` with `DATABASE_SYSTEM_URL`.
+
+**Local object storage.** `infra/docker/docker-compose.local.yml` runs `object-storage` (SeaweedFS, S3 API on `localhost:9000`; MinIO community images are no longer pullable). `infra/docker/seaweedfs-s3.json` defines the `rapiz` identity (the `S3_ACCESS_KEY`/`S3_SECRET_KEY` from `.env.example`) and an `anonymous` identity with `Read` only, so objects are publicly readable by URL but not listable. Create the bucket once: `docker compose -f infra/docker/docker-compose.local.yml exec object-storage sh -c 'echo "s3.bucket.create -name rapiz-local" | weed shell'` (or `CreateBucket` with the `rapiz` keys). Meta must fetch product pictures over public HTTPS: `scripts/dev-tunnel-proxy.mjs` serves `/media/<key>` (GET/HEAD) from the bucket, so set `S3_PUBLIC_URL=https://<tunnel host>/media`.
 
 ## 2. Infrastructure roadmap
 
@@ -46,6 +48,8 @@ flowchart LR
 - DB migrations run as a separate job before rollout, **backward compatible** (expand → migrate → contract).
 - Feature flags for unfinished features; release per workspace (beta testers first).
 - Rollback: previous image + flag; never roll back destructive migrations.
+- Deploy checklist (product picture upload release): run `pnpm --filter @agent-sales/backend product-images:import` (dry run first) before or at deploy of this release. Product saves that still hold old external image links fail with `IMAGE_NOT_UPLOADED` until they are imported. The importer refuses loopback, private, link-local and unique-local hosts (`blocked_address`).
+- Object storage: production uses any S3-compatible service configured through `S3_*` (the MinIO named in Stage 1 is only an example); local development uses SeaweedFS.
 
 ## 4. Observability
 
@@ -97,6 +101,10 @@ On-call: rotation, PagerDuty/Opsgenie; blameless postmortem for every Sev1/Sev2 
 - Postgres: 14-day PITR + daily snapshots kept for 30 days, cross-region.
 - Object storage: versioning + lifecycle.
 - **Monthly restore drills** (measure real RTO/RPO), with results recorded.
+
+### One-off: import linked product pictures
+
+Product pictures are stored as JPEG or PNG only because Messenger rejects WebP inside multi-image albums (#-1/2018012). They must be Rapiz-stored files (S3-compatible bucket, `S3_*` env). Before enabling that rule on an environment with older data, take a database backup, then run `pnpm --filter @agent-sales/backend product-images:import --dry-run` (counts only) and `pnpm --filter @agent-sales/backend product-images:import [--workspace <id>]`. It copies each external image into the bucket and rewrites the product URLs; it is idempotent, sends `Accept: image/jpeg,image/png;q=0.9,*/*;q=0.1` and fails WebP sources as `unsupported_format` (they keep their old URL), and exits 1 if any image failed (e.g. a dead link), in which case fix or remove those and re-run.
 
 ## 8. Operating costs to track (unit economics)
 

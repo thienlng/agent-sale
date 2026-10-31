@@ -55,7 +55,11 @@ function service() {
     inventory: { stockOf: async () => [] },
   };
   const store = { run: async (_ws: unknown, fn: (t: unknown) => unknown) => fn(tx) };
-  return { svc: new CatalogService(store as unknown as CommerceStore), calls };
+  // Image storage is irrelevant to catalog search; any URL check would say "not ours".
+  const images = { isPublicUrlUnder: () => false } as unknown as ConstructorParameters<
+    typeof CatalogService
+  >[1];
+  return { svc: new CatalogService(store as unknown as CommerceStore, images), calls };
 }
 
 describe('bot catalog search filters', () => {

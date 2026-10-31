@@ -1,10 +1,17 @@
 import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
-import type { BotMediaStorage } from '../application/ports/bot-media-storage.js';
-import { MediaStorageUnavailableError } from '../domain/image-upload.js';
+import { MediaStorageUnavailableError } from './storage.errors.js';
 
-/** Generic S3-compatible public marketing-image bucket; never falls back to host disk. */
-export class S3BotMediaStorage implements BotMediaStorage {
+/** Port for a public-read object store: put returns the public URL. */
+export interface PublicObjectStorage {
+  put(key: string, content: Uint8Array, mimeType: string): Promise<string>;
+  remove(key: string): Promise<void>;
+  /** True when `url` is a public URL of an object whose key starts with `keyPrefix`. */
+  isPublicUrlUnder(url: string, keyPrefix: string): boolean;
+}
+
+/** Generic S3-compatible public-read bucket; never falls back to host disk. */
+export class S3PublicObjectStorage implements PublicObjectStorage {
   readonly #client: S3Client | null;
 
   constructor(
@@ -50,6 +57,12 @@ export class S3BotMediaStorage implements BotMediaStorage {
     } catch {
       throw new MediaStorageUnavailableError();
     }
+  }
+
+  isPublicUrlUnder(url: string, keyPrefix: string): boolean {
+    const base = this.options.publicUrl;
+    if (!this.#client || !base) return false;
+    return url.startsWith(`${base.replace(/\/$/, '')}/${keyPrefix}`);
   }
 
   async remove(key: string): Promise<void> {

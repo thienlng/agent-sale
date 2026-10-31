@@ -6,3 +6,4 @@ export * from './domain-event.js';
 export * from './text.js';
 export * from './order-amounts.js';
 export * from './local-time.js';
+export * from './reply-split.js';

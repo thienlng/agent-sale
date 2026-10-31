@@ -4,7 +4,7 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import type { MediaFacade } from '../api/media.facade.js';
 import { TRAINING_FACADE, type TrainingFacade } from '../api/training.facade.js';
-import { decodeImage } from '../domain/image-upload.js';
+import { decodeImage } from '../../../common/storage/image-bytes.js';
 import { BOT_MEDIA_STORAGE, type BotMediaStorage } from './ports/bot-media-storage.js';
 
 @Injectable()

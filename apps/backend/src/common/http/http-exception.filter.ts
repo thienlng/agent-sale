@@ -4,6 +4,16 @@ import type { Logger } from 'pino';
 
 import { ApiError, isDomainError } from './api-error.js';
 
+/** Fastify rejects a body over the route limit before any handler runs. */
+function isBodyTooLarge(e: unknown): boolean {
+  const err = e as { code?: unknown; statusCode?: unknown } | null;
+  return (
+    err?.code === 'FST_ERR_CTP_BODY_TOO_LARGE' ||
+    err?.statusCode === 413 ||
+    (e instanceof HttpException && e.getStatus() === 413)
+  );
+}
+
 /** Every error leaves the API as the contracts ErrorResponse envelope (docs/11 §2). */
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -32,6 +42,14 @@ export class HttpExceptionFilter implements ExceptionFilter {
   #normalize(exception: unknown): ApiError {
     if (exception instanceof ApiError) return exception;
     if (isDomainError(exception)) return ApiError.fromDomain(exception);
+    if (isBodyTooLarge(exception)) {
+      return new ApiError(
+        'VALIDATION_FAILED',
+        'The request body is too large',
+        { reason: 'PAYLOAD_TOO_LARGE' },
+        413,
+      );
+    }
     if (exception instanceof HttpException) {
       const status = exception.getStatus();
       const code =
