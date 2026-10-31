@@ -3,6 +3,7 @@ import { workspaceId } from '@agent-sales/shared';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createHistorySummarizer } from '../application/history-summarizer.js';
+import { InMemoryConversationSummaryRepository } from '../infrastructure/persistence/conversation-summary.drizzle.js';
 import {
   COMPRESS_AT_CHARS,
   KEEP_LAST_TURNS,
@@ -103,12 +104,41 @@ describe('createHistorySummarizer', () => {
     expect(prompt).toContain('phone numbers');
   });
 
-  it('caps the note at 1500 characters', async () => {
-    const generate = vi.fn(async () => ({ text: 'a'.repeat(3000) }) as GenerateResponse);
+  it('throws on an empty note so the caller keeps the full turns', async () => {
+    const generate = vi.fn(async () => ({ text: '  \n ' }) as GenerateResponse);
     const summarize = createHistorySummarizer(generate, {
       workspaceId: workspaceId('00000000-0000-4000-8000-000000000001'),
       tier: 'basic',
     });
-    expect((await summarize('x', null)).length).toBe(1500);
+    await expect(summarize('x', null)).rejects.toThrow(/empty/);
+  });
+
+  it('cuts an over-long note at the last line break before 1500 characters', async () => {
+    const line = 'b'.repeat(99);
+    const text = Array.from({ length: 30 }, () => line).join('\n');
+    const generate = vi.fn(async () => ({ text }) as GenerateResponse);
+    const summarize = createHistorySummarizer(generate, {
+      workspaceId: workspaceId('00000000-0000-4000-8000-000000000001'),
+      tier: 'basic',
+    });
+    const out = await summarize('x', null);
+    expect(out.length).toBeLessThanOrEqual(1500);
+    expect(out.split('\n').every((l) => l === line)).toBe(true);
+    const req = generate.mock.calls[0] as unknown as [GenerateRequest];
+    expect(req[0].messages[0]?.content).toContain('1200');
+  });
+});
+
+describe('InMemoryConversationSummaryRepository', () => {
+  it('stores per workspace and conversation, overwriting on put', async () => {
+    const repo = new InMemoryConversationSummaryRepository();
+    const a = workspaceId('00000000-0000-4000-8000-00000000000a');
+    const b = workspaceId('00000000-0000-4000-8000-00000000000b');
+    expect(await repo.get(a, 'c1')).toBeNull();
+    await repo.put(a, 'c1', { coveredUntil: new Date(1), summary: 'one' });
+    await repo.put(a, 'c1', { coveredUntil: new Date(2), summary: 'two' });
+    expect(await repo.get(a, 'c1')).toEqual({ coveredUntil: new Date(2), summary: 'two' });
+    expect(await repo.get(b, 'c1')).toBeNull();
+    expect(await repo.get(a, 'c2')).toBeNull();
   });
 });
