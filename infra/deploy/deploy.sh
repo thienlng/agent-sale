@@ -2,6 +2,7 @@
 # Deploys one image tag (a git commit SHA built by CI), run as `deploy` in /opt/apps/rapiz:
 #   ./deploy.sh <tag>        pull, migrate, restart; rolls back on a failed health check
 #   ./deploy.sh rollback     restart the previous tag (no migrations; they only move forward)
+# RAPIZ_SKIP_PULL=1 uses images already on the server (e.g. built there with docker build).
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -26,7 +27,7 @@ fi
 tag=$arg
 export RAPIZ_TAG=$tag
 echo "deploying $tag (current: ${current:-none})"
-compose pull --quiet
+[[ ${RAPIZ_SKIP_PULL:-} == 1 ]] || compose pull --quiet
 compose up -d --wait postgres redis object-storage
 
 # The bucket must exist before the first upload; creating an existing one is harmless.
