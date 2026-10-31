@@ -491,7 +491,14 @@ const CreatorToken = z.union([
 ]);
 
 /** Money columns that take a `<column>Min` / `<column>Max` range. */
-export const ORDER_MONEY_COLUMNS = ['total', 'cod', 'subtotal', 'shipping', 'gross', 'paid'] as const;
+export const ORDER_MONEY_COLUMNS = [
+  'total',
+  'cod',
+  'subtotal',
+  'shipping',
+  'gross',
+  'paid',
+] as const;
 
 export const OrderListQuery = z.object({
   status: StatusList.optional(),
