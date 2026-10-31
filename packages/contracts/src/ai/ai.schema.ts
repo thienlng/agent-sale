@@ -74,5 +74,28 @@ export const PlaygroundResponse = z.object({
   actions: z
     .array(z.object({ name: z.string(), ok: z.boolean(), statusCode: z.number().int().nullable() }))
     .optional(),
+  /** Each message the bot sent, in order (`reply` and `images` stay as the joined view). */
+  messages: z
+    .array(
+      z.object({
+        text: z.string(),
+        images: z.array(z.object({ id: z.string(), url: z.string(), label: z.string() })),
+        via: z.enum(['send_message', 'final']),
+      }),
+    )
+    .optional(),
+  /** What the bot did while answering (kinds and names only). */
+  steps: z
+    .array(
+      z.object({
+        kind: z.string(),
+        name: z.string().optional(),
+        ok: z.boolean().optional(),
+        ms: z.number().optional(),
+      }),
+    )
+    .optional(),
+  /** True when a newer customer message cut this turn short. */
+  interrupted: z.boolean().optional(),
 });
 export type PlaygroundResponse = z.infer<typeof PlaygroundResponse>;

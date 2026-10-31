@@ -49,6 +49,36 @@ export interface GenerateRequest {
   responseFormat?: z.ZodType;
   /** Images attached to the last user message (max 3). Providers without vision must throw. */
   images?: ImageInput[];
+  /** Stable key letting providers reuse a cached prompt prefix across calls. */
+  promptCacheKey?: string;
+  /** Per-call timeout in milliseconds. */
+  timeoutMs?: number;
+  /** Aborts the call when signalled. */
+  signal?: AbortSignal;
+}
+
+export type LlmErrorKind =
+  | 'rate_limit'
+  | 'overloaded'
+  | 'timeout'
+  | 'network'
+  | 'context_too_long'
+  | 'auth'
+  | 'invalid_request'
+  | 'content_filter'
+  | 'aborted'
+  | 'unknown';
+
+/** A classified model-call failure; the gateway retries or falls back based on `kind`. */
+export class LlmCallError extends Error {
+  constructor(
+    readonly kind: LlmErrorKind,
+    message: string,
+    readonly retryAfterMs?: number,
+    readonly status?: number,
+  ) {
+    super(message);
+  }
 }
 
 /** `inputTokens` excludes cache reads, which are counted in `cachedInputTokens`. */
