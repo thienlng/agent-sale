@@ -309,4 +309,25 @@ describe('AnthropicProvider', () => {
     );
     expect(options[0]).toEqual({ signal: controller.signal, timeout: 7_000 });
   });
+
+  it('never puts cache_control on an empty text block', async () => {
+    const { client, bodies } = stubClient(okReply);
+    await new AnthropicProvider({ client }).generate(
+      {
+        ...request,
+        messages: [
+          { role: 'system', content: 'frame' },
+          { role: 'user', content: 'one' },
+          { role: 'assistant', content: 'a' },
+          { role: 'user', content: '' },
+        ],
+      },
+      { model: 'claude-haiku-5-5' },
+    );
+    const msgs = bodies[0]!.messages as Array<{ content: unknown }>;
+    expect(msgs[2]!.content).toBe('');
+    expect(msgs[0]!.content).toEqual([
+      { type: 'text', text: 'one', cache_control: { type: 'ephemeral' } },
+    ]);
+  });
 });

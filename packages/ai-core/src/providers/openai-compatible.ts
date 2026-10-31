@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import {
   INVALID_JSON_INPUT_KEY,
+  LlmCallError,
   type GenerateRequest,
   type GenerateResponse,
   type LlmProvider,
@@ -62,14 +63,15 @@ export class OpenAiCompatibleProvider implements LlmProvider {
         baseURL: options.baseURL,
         apiKey: options.apiKey || 'not-needed',
         timeout: options.timeoutMs ?? 20_000,
-        maxRetries: options.maxRetries ?? 1,
+        maxRetries: options.maxRetries ?? 0,
       });
   }
 
   async generate(request: GenerateRequest, target: ModelTarget): Promise<GenerateResponse> {
-    if (request.images?.length) throw new Error(`${this.name} provider: images are not supported`);
+    if (request.images?.length)
+      throw new LlmCallError('invalid_request', `${this.name} provider: images are not supported`);
     if (request.tools?.length && this.#tools === 'emulated') {
-      throw new Error(`${this.name} provider: tools must be emulated`);
+      throw new LlmCallError('invalid_request', `${this.name} provider: tools must be emulated`);
     }
     const started = performance.now();
     const response = await this.#client.chat.completions.create(

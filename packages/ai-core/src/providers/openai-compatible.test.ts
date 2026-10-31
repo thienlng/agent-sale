@@ -292,4 +292,14 @@ describe('OpenAiCompatibleProvider', () => {
     expect(bodies[1]).not.toHaveProperty('prompt_cache_key');
     expect(options[1]).toEqual({});
   });
+
+  it('rejects images as a non-retryable invalid_request', async () => {
+    const { client } = stubClient(okReply);
+    await expect(
+      new OpenAiCompatibleProvider({ baseURL: 'x', client }).generate(
+        { ...request, images: [{ mimeType: 'image/png', base64: 'AA==' }] },
+        { model: 'm' },
+      ),
+    ).rejects.toMatchObject({ kind: 'invalid_request' });
+  });
 });

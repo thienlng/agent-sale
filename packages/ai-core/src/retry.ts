@@ -4,15 +4,19 @@ export const MAX_RETRIES = 3;
 export const BACKOFF_BASE_MS = 1_000;
 export const BACKOFF_CAP_MS = 15_000;
 
+/** Longest single sleep when the call has no deadline (covers a huge Retry-After). */
+export const MAX_RETRY_AFTER_SLEEP_MS = 15_000;
+
 const RETRYABLE: ReadonlySet<LlmErrorKind> = new Set([
   'rate_limit',
   'overloaded',
   'timeout',
   'network',
-  'unknown',
 ]);
 
-export function isRetryable(kind: LlmErrorKind): boolean {
+/** `unknown` is retried only when it carries an HTTP 5xx status. */
+export function isRetryable(kind: LlmErrorKind, status?: number): boolean {
+  if (kind === 'unknown') return status !== undefined && status >= 500;
   return RETRYABLE.has(kind);
 }
 

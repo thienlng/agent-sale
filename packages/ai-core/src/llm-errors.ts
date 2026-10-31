@@ -11,7 +11,8 @@ const NETWORK_CODES = new Set([
   'UND_ERR_CONNECT_TIMEOUT',
 ]);
 const CONTEXT_PATTERN = /context[ _]length|maximum context|context window|too many tokens/i;
-const FILTER_PATTERN = /content[ _]filter|content[ _]policy|refus|safety/i;
+const FILTER_PATTERN = /content[ _]filter|content[ _]policy/i;
+const FILTER_CODES = new Set(['content_filter', 'content_policy_violation']);
 const MAX_RETRY_AFTER_MS = 5 * 60_000;
 
 interface ErrorLike {
@@ -35,7 +36,6 @@ export function classifyLlmError(error: unknown): LlmErrorKind {
 
   if (name === 'APIUserAbortError' || name === 'AbortError') return 'aborted';
   if (name === 'APIConnectionTimeoutError' || name === 'TimeoutError') return 'timeout';
-  if (code === 'ETIMEDOUT' && status === undefined) return 'timeout';
 
   if (status !== undefined) {
     if (status === 429) return 'rate_limit';
@@ -44,7 +44,9 @@ export function classifyLlmError(error: unknown): LlmErrorKind {
     if (status === 413 || (status === 400 && CONTEXT_PATTERN.test(message))) {
       return 'context_too_long';
     }
-    if (status === 400 && FILTER_PATTERN.test(message)) return 'content_filter';
+    if (status === 400 && (FILTER_PATTERN.test(message) || FILTER_CODES.has(code ?? ''))) {
+      return 'content_filter';
+    }
     if (status === 400 || status === 404 || status === 422) return 'invalid_request';
     return 'unknown';
   }
@@ -56,9 +58,7 @@ export function classifyLlmError(error: unknown): LlmErrorKind {
   ) {
     return 'network';
   }
-  if (FILTER_PATTERN.test(message) && /content[ _]filter|content[ _]policy/i.test(message)) {
-    return 'content_filter';
-  }
+  if (FILTER_PATTERN.test(message)) return 'content_filter';
   return 'unknown';
 }
 

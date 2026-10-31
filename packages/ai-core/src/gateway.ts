@@ -2,7 +2,13 @@ import type { WorkspaceId } from '@agent-sales/shared';
 import type { z } from 'zod';
 
 import { classifyLlmError, retryAfterMsOf } from './llm-errors.js';
-import { backoffDelayMs, isRetryable, MAX_RETRIES, sleep } from './retry.js';
+import {
+  backoffDelayMs,
+  isRetryable,
+  MAX_RETRIES,
+  MAX_RETRY_AFTER_SLEEP_MS,
+  sleep,
+} from './retry.js';
 
 /** Commercial tiers map to pipeline configs, not to fixed models (ADR-005). */
 export type ModelTier = 'basic' | 'smart' | 'pro' | 'neo';
@@ -155,49 +161,76 @@ export class LlmGateway {
   async generate(request: GenerateRequest): Promise<GenerateResponse> {
     await this.hooks.admit?.(request);
     const policy = this.tiers[request.tier];
+    // `timeoutMs` is the total budget of this call: retries and the fallback included.
+    const deadline = request.timeoutMs !== undefined ? Date.now() + request.timeoutMs : undefined;
+    let primary: GenerateResponse | undefined;
+    let failure: unknown;
     try {
-      const res = await this.#withRetries(policy.provider, policy, request);
-      await this.hooks.record?.(request, res);
-      return res;
+      primary = await this.#withRetries(policy.provider, policy, request, deadline);
     } catch (error) {
-      if (!policy.fallback || classifyLlmError(error) === 'aborted') throw error;
+      failure = error;
     }
-    const res = await this.#callNonEmpty(policy.fallback.provider, policy.fallback, request);
+    if (primary && !isEmptyAnswer(primary)) {
+      await this.hooks.record?.(request, primary);
+      return primary;
+    }
+    const fallback = policy.fallback;
+    if (!fallback || (failure !== undefined && !shouldFallBack(failure, request))) {
+      if (primary) {
+        await this.hooks.record?.(request, primary);
+        return primary;
+      }
+      throw failure;
+    }
+    if (request.signal?.aborted) throw failure ?? abortError();
+    if (deadline !== undefined && deadline - Date.now() <= 0) {
+      if (!primary) throw failure;
+      await this.hooks.record?.(request, primary);
+      return primary;
+    }
+    const res = await this.#call(fallback.provider, fallback, withRemaining(request, deadline));
     await this.hooks.record?.(request, res);
     return res;
   }
 
+  /**
+   * Calls one provider, retrying retryable failures and empty answers (3 retries
+   * in total). Returns the last empty answer if every attempt came back empty.
+   */
   async #withRetries(
     providerName: string,
     target: ModelTarget,
     request: GenerateRequest,
+    deadline: number | undefined,
   ): Promise<GenerateResponse> {
     for (let attempt = 0; ; attempt++) {
+      let failure: unknown;
+      let empty: GenerateResponse | undefined;
       try {
-        return await this.#callNonEmpty(providerName, target, request);
+        const res = await this.#call(providerName, target, withRemaining(request, deadline));
+        if (!isEmptyAnswer(res)) return res;
+        empty = res;
       } catch (error) {
-        const kind = classifyLlmError(error);
-        if (attempt >= MAX_RETRIES || !isRetryable(kind)) throw error;
-        const delay = backoffDelayMs(
-          attempt,
-          this.#random,
-          retryAfterMsOf(error),
-          request.timeoutMs,
-        );
-        await this.#sleep(delay, request.signal);
+        failure = error;
+        if (!isRetryable(classifyLlmError(error), statusOf(error))) throw error;
+      }
+      const exhausted = attempt >= MAX_RETRIES;
+      const remaining = deadline === undefined ? Infinity : deadline - Date.now();
+      if (exhausted || remaining <= 0 || request.signal?.aborted) {
+        if (empty) return empty;
+        throw failure;
+      }
+      const retryAfter = failure === undefined ? undefined : retryAfterMsOf(failure);
+      const delay = Math.min(
+        backoffDelayMs(attempt, this.#random, retryAfter, request.timeoutMs),
+        deadline === undefined ? MAX_RETRY_AFTER_SLEEP_MS : remaining,
+      );
+      await this.#sleep(delay, request.signal);
+      if (deadline !== undefined && deadline - Date.now() <= 0) {
+        if (empty) return empty;
+        throw failure;
       }
     }
-  }
-
-  /** An answer with neither text nor tool calls is retried once. */
-  async #callNonEmpty(
-    providerName: string,
-    target: ModelTarget,
-    request: GenerateRequest,
-  ): Promise<GenerateResponse> {
-    const res = await this.#call(providerName, target, request);
-    if (!isEmptyAnswer(res)) return res;
-    return this.#call(providerName, target, request);
   }
 
   async #call(
@@ -206,10 +239,39 @@ export class LlmGateway {
     request: GenerateRequest,
   ): Promise<GenerateResponse> {
     const provider = this.#providers.get(providerName);
-    if (!provider) throw new Error(`LLM provider not registered: ${providerName}`);
+    if (!provider) {
+      throw new LlmCallError('invalid_request', `LLM provider not registered: ${providerName}`);
+    }
     const { model, effort } = target;
     return provider.generate(request, effort ? { model, effort } : { model });
   }
+}
+
+/** Clones the request with `timeoutMs` set to the time left on the call's deadline. */
+function withRemaining(request: GenerateRequest, deadline: number | undefined): GenerateRequest {
+  if (deadline === undefined) return request;
+  return { ...request, timeoutMs: Math.max(1, deadline - Date.now()) };
+}
+
+const NO_FALLBACK_KINDS: ReadonlySet<LlmErrorKind> = new Set([
+  'aborted',
+  'auth',
+  'invalid_request',
+  'content_filter',
+  'context_too_long',
+]);
+
+function shouldFallBack(error: unknown, request: GenerateRequest): boolean {
+  return !request.signal?.aborted && !NO_FALLBACK_KINDS.has(classifyLlmError(error));
+}
+
+function statusOf(error: unknown): number | undefined {
+  const status = (error as { status?: unknown } | null)?.status;
+  return typeof status === 'number' ? status : undefined;
+}
+
+function abortError(): Error {
+  return Object.assign(new Error('aborted'), { name: 'AbortError' });
 }
 
 function isEmptyAnswer(res: GenerateResponse): boolean {
