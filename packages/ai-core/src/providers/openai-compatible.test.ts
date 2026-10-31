@@ -10,17 +10,19 @@ const ws = workspaceId('0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d10');
 
 function stubClient(reply: Record<string, unknown>) {
   const bodies: Array<Record<string, unknown>> = [];
+  const options: Array<Record<string, unknown>> = [];
   const client = {
     chat: {
       completions: {
-        create: async (body: Record<string, unknown>) => {
+        create: async (body: Record<string, unknown>, opts?: Record<string, unknown>) => {
           bodies.push(body);
+          options.push(opts ?? {});
           return reply;
         },
       },
     },
   } as unknown as OpenAI;
-  return { client, bodies };
+  return { client, bodies, options };
 }
 
 const okReply = {
@@ -274,5 +276,30 @@ describe('OpenAiCompatibleProvider', () => {
         }).generate({ ...request, tools }, { model: 'm' }),
       ).rejects.toThrow('selfhost provider: tools must be emulated');
     });
+  });
+
+  it('sends prompt_cache_key and forwards signal and timeout to the SDK call', async () => {
+    const { client, bodies, options } = stubClient(okReply);
+    const controller = new AbortController();
+    const provider = new OpenAiCompatibleProvider({ baseURL: 'x', client });
+    await provider.generate(
+      { ...request, promptCacheKey: 'bot-1', signal: controller.signal, timeoutMs: 9_000 },
+      { model: 'qwen3-32b' },
+    );
+    expect(bodies[0]!.prompt_cache_key).toBe('bot-1');
+    expect(options[0]).toEqual({ signal: controller.signal, timeout: 9_000 });
+    await provider.generate(request, { model: 'qwen3-32b' });
+    expect(bodies[1]).not.toHaveProperty('prompt_cache_key');
+    expect(options[1]).toEqual({});
+  });
+
+  it('rejects images as a non-retryable invalid_request', async () => {
+    const { client } = stubClient(okReply);
+    await expect(
+      new OpenAiCompatibleProvider({ baseURL: 'x', client }).generate(
+        { ...request, images: [{ mimeType: 'image/png', base64: 'AA==' }] },
+        { model: 'm' },
+      ),
+    ).rejects.toMatchObject({ kind: 'invalid_request' });
   });
 });
