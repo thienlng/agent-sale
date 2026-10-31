@@ -8,44 +8,41 @@ import {
   type ChannelFacade,
   type PendingMetaEvent,
 } from '../../../channel/api/index.js';
-import { AI_FACADE, type AiFacade } from '../../../ai/api/index.js';
+import { AI_FACADE, type AiFacade, type ReplyResult } from '../../../ai/api/index.js';
 import { BILLING_FACADE, type BillingFacade } from '../../../billing/api/index.js';
-import {
-  BOT_FACADE,
-  type BotFacade,
-  type BotView,
-  withinReplySchedule,
-} from '../../../bot/api/index.js';
+import { BOT_FACADE, type BotFacade, withinReplySchedule } from '../../../bot/api/index.js';
 import { CONVERSATION_FACADE, type ConversationFacade } from '../../api/conversation.facade.js';
-import type { ConversationDto, InboxMessageDto, PlaygroundRequest } from '@agent-sales/contracts';
+import type { PlaygroundRequest } from '@agent-sales/contracts';
 import { BOT_IMAGE_VISION, IMAGE_FETCHER, type ImageFetcher } from '../ports/image-fetcher.js';
-import { splitReply } from '@agent-sales/shared';
 import { toReplyTurns } from './reply-turns.js';
-
-const MAX_VISION_IMAGES = 3;
-const MAX_BOT_IMAGES = 3;
-/** Meta shows "typing…" for about 20 s; refresh it while the model is still working. */
-const TYPING_REFRESH_MS = 10_000;
-/** An answer is dropped for newer customer messages at most this often per event (no starvation). */
-const MAX_SUPERSEDES = 2;
+import {
+  errorClass,
+  fallbackText,
+  fetchTurnImages,
+  finalMessage,
+  handoffText,
+  REPLY_PACING,
+  ReplyDelivery,
+  type ReplyPacing,
+  realPacing,
+  showTyping,
+} from './reply-delivery.js';
+import {
+  MAX_INTERRUPT_RERUNS,
+  nextResume,
+  ResumeStore,
+  startTurn,
+  type Turn,
+} from './reply-resume.js';
 
 const isCustomerContent = (e: NormalizedEvent): boolean =>
   e.type === 'message' && Boolean(e.text?.trim() || e.attachments?.length);
-
-function handoffText(bot: BotView): string {
-  return (
-    bot.handoffMessage.trim() ||
-    (bot.language === 'en'
-      ? "I've passed your conversation to our staff. They'll reply shortly."
-      : `Dạ, ${bot.selfPronoun} đã chuyển cho nhân viên hỗ trợ, ${bot.customerPronoun} đợi một chút ạ.`)
-  );
-}
 
 /** Invoked exclusively by the agent entry; API never starts background inference. */
 @Injectable()
 export class MetaInboxProcessor {
   private readonly logger = new Logger(MetaInboxProcessor.name);
-  private readonly superseded = new Map<string, number>();
+  private readonly resumes = new ResumeStore();
   constructor(
     @Inject(CHANNEL_FACADE) private readonly channels: ChannelFacade,
     @Inject(CONVERSATION_FACADE) private readonly inbox: ConversationFacade,
@@ -57,6 +54,9 @@ export class MetaInboxProcessor {
     @Inject(FanpageCommentProcessor)
     @Optional()
     private readonly comments?: FanpageCommentProcessor,
+    @Inject(REPLY_PACING)
+    @Optional()
+    private readonly pacing: ReplyPacing = realPacing,
   ) {}
   async tick(): Promise<void> {
     const dead = await this.channels.deadLetterExhaustedEvents();
@@ -112,12 +112,9 @@ export class MetaInboxProcessor {
       try {
         if ((await this.process(latest)) === 'requeue')
           await this.channels.requeueEvent(latest.id, latest.claimToken);
-        else {
-          this.superseded.delete(latest.id);
-          await this.channels.completeEvent(latest.id, latest.claimToken);
-        }
+        else await this.channels.completeEvent(latest.id, latest.claimToken);
       } catch {
-        this.superseded.delete(latest.id);
+        this.resumes.take(latest.workspaceId, conversationId);
         this.failed(latest);
         if (latest.attempt >= MAX_EVENT_ATTEMPTS) await this.handOver(latest, conversationId);
         else await this.retrySoon(latest);
@@ -151,8 +148,11 @@ export class MetaInboxProcessor {
   }
   async process(job: PendingMetaEvent): Promise<'requeue' | void> {
     const c = await this.inbox.receive(job.workspaceId, job.connectionId, job.event);
+    // An echo (e.g. of the interrupted run's own send) leaves the pending re-run alone.
     if (job.event.type !== 'message' || !isCustomerContent(job.event))
       return this.skip(job, 'not a customer message');
+    // Taken now so every skip below drops it: a later, unrelated turn must not inherit it.
+    const taken = this.resumes.take(job.workspaceId, c.id);
     if (c.mode !== 'bot' || c.status !== 'open') return this.skip(job, 'conversation not on bot');
     const channel = await this.channels.getConnection(job.workspaceId, job.connectionId);
     // Re-auth pending: the message is stored for staff, but the bot cannot send.
@@ -184,71 +184,53 @@ export class MetaInboxProcessor {
     if (context.conversation.mode !== 'bot' || context.conversation.status !== 'open')
       return this.skip(job, 'conversation control changed');
     const key = `bot:${job.event.externalEventId}`;
-    const stopTyping = this.showTyping(job);
+    const { resume, history } = startTurn(taken, stored);
+    const turn: Turn = {
+      job,
+      c,
+      botId: channel.botId,
+      bot,
+      context,
+      stored: history,
+      newestId: stored.at(-1)?.id ?? '',
+      key,
+      resume,
+    };
+    const stopTyping = showTyping(this.channels, job);
     try {
-      return await this.answer(job, c, channel.botId, bot, context, stored, key);
+      return await this.answer(turn);
     } finally {
       stopTyping();
     }
   }
 
-  /** "Seen", then "typing…" until the answer is out: the customer sees the bot at work at once. */
-  private showTyping(job: PendingMetaEvent): () => void {
-    const { workspaceId: ws, connectionId } = job;
-    const to = job.event.senderExternalId;
-    let stopped = false;
-    const typing = () =>
-      stopped ? Promise.resolve() : this.channels.presence(ws, connectionId, to, 'typing_on');
-    void this.channels
-      .presence(ws, connectionId, to, 'mark_seen')
-      .then(typing)
-      .catch(() => undefined);
-    const timer = setInterval(() => void typing().catch(() => undefined), TYPING_REFRESH_MS);
-    return () => {
-      // A slow "seen" must not be followed by a "typing…" after the answer is already out.
-      stopped = true;
-      clearInterval(timer);
-    };
+  /** The bot's hand-over message, then staff take over (no AI call). */
+  private async handOffWithMessage(turn: Turn): Promise<void> {
+    const { job, c, bot, context, key } = turn;
+    const result = await this.inbox.commitBotReply(job.workspaceId, c.id, {
+      revision: context.revision,
+      text: handoffText(bot),
+      idempotencyKey: key,
+    });
+    if (result) await this.inbox.handOff(job.workspaceId, c.id, c.assigneeId ?? 'system');
   }
 
-  private async answer(
-    job: PendingMetaEvent,
-    c: ConversationDto,
-    botId: string,
-    bot: BotView,
-    context: Awaited<ReturnType<ConversationFacade['getReplyContext']>>,
-    stored: InboxMessageDto[],
-    key: string,
-  ): Promise<'requeue' | void> {
+  private async answer(turn: Turn): Promise<'requeue' | void> {
+    const { job, c, botId, stored, key } = turn;
     const lastReply = stored.findLastIndex((m) => m.direction === 'outbound');
     const pending = stored.slice(lastReply + 1);
     const hasText = pending.some((m) => m.direction === 'inbound' && m.text.trim());
-    const fetched = await this.fetchImages(pending);
-    if (!hasText && !fetched.images.length) {
-      // Only media the model cannot see (vision off, or nothing could be fetched): staff take over.
-      const result = await this.inbox.commitBotReply(job.workspaceId, c.id, {
-        revision: context.revision,
-        text: handoffText(bot),
-        idempotencyKey: key,
-      });
-      if (result) await this.inbox.handOff(job.workspaceId, c.id, c.assigneeId ?? 'system');
-      return;
-    }
+    const fetched = await fetchTurnImages(this.vision ? this.images : null, pending);
+    // Only media the model cannot see (vision off, or nothing could be fetched): staff take over.
+    if (!hasText && !fetched.images.length) return this.handOffWithMessage(turn);
     // One customer turn per burst: every question after the last reply reaches the model together.
     const provenance = await this.comments?.privateContext(
       job.workspaceId,
       job.connectionId,
       job.event.senderExternalId,
     );
-    if (provenance && (provenance.status === 'ambiguous' || provenance.status === 'unavailable')) {
-      const result = await this.inbox.commitBotReply(job.workspaceId, c.id, {
-        revision: context.revision,
-        text: handoffText(bot),
-        idempotencyKey: key,
-      });
-      if (result) await this.inbox.handOff(job.workspaceId, c.id, c.assigneeId ?? 'system');
-      return;
-    }
+    if (provenance && (provenance.status === 'ambiguous' || provenance.status === 'unavailable'))
+      return this.handOffWithMessage(turn);
     // ADR-012 §5: the account's allowance is taken before the model runs. Exhausted: the bot
     // stops and staff take over, with the bot's hand-off message for the customer.
     const quota = await this.billing.reserveReply(job.workspaceId, {
@@ -260,26 +242,28 @@ export class MetaInboxProcessor {
       this.logger.warn(
         `Meta inbox event ${job.id}: message allowance exhausted until ${quota.cycleEnd.toISOString()}, handing off`,
       );
-      const result = await this.inbox.commitBotReply(job.workspaceId, c.id, {
-        revision: context.revision,
-        text: handoffText(bot),
-        idempotencyKey: key,
-      });
-      if (result) await this.inbox.handOff(job.workspaceId, c.id, c.assigneeId ?? 'system');
-      return;
+      return this.handOffWithMessage(turn);
     }
-    const committed: { first: InboxMessageDto | null } = { first: null };
+    const delivery = new ReplyDelivery(
+      { inbox: this.inbox, channels: this.channels, logger: this.logger, pacing: this.pacing },
+      {
+        job,
+        conversationId: c.id,
+        revision: turn.context.revision,
+        key,
+        watchNewer: turn.resume.reruns < MAX_INTERRUPT_RERUNS,
+      },
+    );
     try {
-      return await this.generate(job, c, botId, context, stored, key, {
+      return await this.generate(turn, delivery, {
         hasText,
         fetched,
         postContext: provenance?.context,
-        committed,
       });
     } finally {
-      // Billed once per delivered answer (its first bubble), whatever happens after it. An answer
+      // Billed once per delivered answer (its first message), whatever happens after it. An answer
       // whose delivery is unknown keeps its reservation until the TTL, then stops counting.
-      const status = committed.first?.status;
+      const status = delivery.first?.status;
       await (
         status === 'sent'
           ? this.billing.captureReply(job.workspaceId, key)
@@ -292,22 +276,24 @@ export class MetaInboxProcessor {
     }
   }
 
-  /** The model's answer, committed bubble by bubble (the first one is reported in `committed`). */
+  /**
+   * One agent run: `send_message` output goes out through the turn's sink as it happens, the
+   * final answer after the run. A newer customer message interrupts the run (or drops a finished
+   * answer that is not out yet) and hands the event back with the run's tool work, so the next
+   * claim re-runs the turn with every customer message; at most MAX_INTERRUPT_RERUNS times per burst.
+   */
   private async generate(
-    job: PendingMetaEvent,
-    c: ConversationDto,
-    botId: string,
-    context: Awaited<ReturnType<ConversationFacade['getReplyContext']>>,
-    stored: InboxMessageDto[],
-    key: string,
-    turn: {
+    turn: Turn,
+    delivery: ReplyDelivery,
+    input: {
       hasText: boolean;
       fetched: { images: ImageInput[]; seen: Set<string> };
       postContext: PlaygroundRequest['postContext'] | null | undefined;
-      committed: { first: InboxMessageDto | null };
     },
   ): Promise<'requeue' | void> {
-    const { hasText, fetched, postContext } = turn;
+    const { job, c, botId, bot, context, stored, resume } = turn;
+    const { hasText, fetched, postContext } = input;
+    const finishing = resume.reruns >= MAX_INTERRUPT_RERUNS;
     const ask = (images: ImageInput[], seen: ReadonlySet<string>) =>
       this.ai.reply(
         job.workspaceId,
@@ -318,137 +304,80 @@ export class MetaInboxProcessor {
           ...(postContext ? { postContext } : {}),
           ...(context.conversation.lead ? { phoneKnown: true } : {}),
         },
-        { conversationId: c.id, isTest: false },
+        {
+          conversationId: c.id,
+          isTest: false,
+          sink: delivery.sink(),
+          // The last allowed re-run gets no interrupt check: it runs to completion.
+          ...(finishing ? {} : { shouldInterrupt: () => this.shouldInterrupt(turn, delivery) }),
+          ...(resume.carry ? { carry: resume.carry } : {}),
+        },
       );
-    let response;
+    let response: ReplyResult;
     try {
       response = await ask(fetched.images, fetched.seen);
     } catch (error) {
       // A provider without vision (or a busy bridge) must not lose the text of the turn.
-      if (!fetched.images.length) throw error;
+      if (!fetched.images.length || delivery.attempted) throw error;
       this.logger.warn(`Meta inbox event ${job.id}: reply with images failed, retrying text-only`);
       if (!hasText) throw error;
       response = await ask([], new Set());
     }
-    // The customer wrote again while the model was thinking: this answer is already stale. Hand the
-    // event back so the next claim answers the whole burst once, instead of two answers in a row.
-    if (await this.hasNewerMessage(job)) {
-      const times = this.superseded.get(job.id) ?? 0;
-      if (times < MAX_SUPERSEDES) {
-        this.superseded.set(job.id, times + 1);
-        this.logger.log(
-          `Meta inbox event ${job.id}: newer message arrived, answering them together`,
-        );
-        return 'requeue';
-      }
+    // Nothing went out because the first send failed: retry the event (then staff) as before.
+    if (delivery.stop === 'failed' && !delivery.attempted) throw delivery.failure;
+    if (response.interrupted && !finishing) {
+      // A takeover (or bot off) also interrupts, but nobody is waiting for a new turn.
+      if (!(await this.inbox.botHolds(job.workspaceId, c.id).catch(() => true)))
+        return this.skip(job, 'conversation control changed during the turn');
+      return this.rerun(turn, delivery, response.carry, 'interrupted by a newer message');
     }
-    this.superseded.delete(job.id);
-    const bubbles = splitReply(response.reply.slice(0, 2000));
-    let result = await this.inbox.commitBotReply(job.workspaceId, c.id, {
-      revision: context.revision,
-      text: bubbles[0] ?? response.reply,
-      idempotencyKey: key,
-    });
-    turn.committed.first = result;
-    // Later bubbles stop at the first one that is not delivered, or when the customer wrote again
-    // (the rest of this answer would be out of date), or when a human took over.
-    for (const [index, text] of bubbles.slice(1).entries()) {
-      if (result?.status !== 'sent' || (await this.hasNewerMessage(job))) break;
-      void this.channels
-        .presence(job.workspaceId, job.connectionId, job.event.senderExternalId, 'typing_on')
-        .catch(() => undefined);
-      result = await this.inbox.commitBotFollowUp(job.workspaceId, c.id, {
-        text,
-        idempotencyKey: `${key}:t${index + 2}`,
-      });
+    if (!finishing && !delivery.takenOver) {
+      // The customer wrote again after the run: its final answer is already stale.
+      if (await delivery.hasNewerMessage())
+        return this.rerun(turn, delivery, undefined, 'newer message arrived');
+      // The newer message that stopped the sends is gone (or unreadable): finish the answer.
+      delivery.clearNewerStop();
     }
-    if (result && result.status !== 'sent')
-      this.logger.warn(
-        `Meta inbox event ${job.id}: a bubble was not delivered (${result.status}), the answer is incomplete`,
+    if (delivery.takenOver) return;
+    const final = finalMessage(response);
+    if (final.text.trim() || final.images.length)
+      await delivery.sendFinal(final.text, final.images, response.outcome === 'answered');
+    else if (!delivery.attempted)
+      // Nothing sent at all: the customer is never left without an answer.
+      await delivery.sendFinal(
+        response.outcome === 'handoff' ? handoffText(bot) : fallbackText(bot),
+        [],
+        false,
       );
-    if (result && response.outcome === 'handoff')
+    if (delivery.attempted && !delivery.takenOver && response.outcome === 'handoff')
       await this.inbox.handOff(job.workspaceId, c.id, c.assigneeId ?? 'system');
-    if (result?.status === 'sent' && response.outcome === 'answered')
-      await this.sendImages(job, c.id, response.images ?? []);
   }
 
-  private hasNewerMessage(job: PendingMetaEvent): Promise<boolean> {
-    return this.channels
-      .hasNewerCustomerEvent(job.connectionId, job.event.senderExternalId, job.id)
-      .catch(() => false);
+  /** Spec §7: a newer customer message after the turn's event, or the bot lost the conversation. */
+  private async shouldInterrupt(turn: Turn, delivery: ReplyDelivery): Promise<boolean> {
+    if (await delivery.hasNewerMessage()) return true;
+    // Fails open like the post-run check: an unreadable control state never interrupts (the
+    // sends themselves still stop on a takeover).
+    return !(await this.inbox.botHolds(turn.job.workspaceId, turn.c.id).catch((error: unknown) => {
+      this.logger.warn(
+        `Meta inbox event ${turn.job.id}: control check failed (${errorClass(error)})`,
+      );
+      return true;
+    }));
   }
 
-  /**
-   * The pictures that follow a committed text reply: one album, or one message per picture when
-   * Meta rejects the album. Best effort: a failure is recorded on the message and never fails the event,
-   * hands over or retries, and a closed 24-hour window or a takeover simply leaves the text alone.
-   */
-  /** Null from a commit: a human took over (or the bot was switched off) since the text went out. */
-  private skippedImages(job: PendingMetaEvent): void {
-    this.logger.log(
-      `Meta inbox event ${job.id}: images skipped, the bot no longer holds the conversation`,
-    );
-  }
-
-  private async sendImages(
-    job: PendingMetaEvent,
-    conversationId: string,
-    images: readonly { url: string }[],
-  ): Promise<void> {
-    const urls = [...new Set(images.map((i) => i.url))].slice(0, MAX_BOT_IMAGES);
-    if (!urls.length || (await this.hasNewerMessage(job))) return;
-    // One album first (Meta retries it once when fetching a picture failed); if it is still
-    // rejected, each picture goes as its own message so the customer gets what can be delivered.
-    const commit = (list: readonly string[], idempotencyKey: string) =>
-      this.inbox.commitBotImages(job.workspaceId, conversationId, { urls: list, idempotencyKey });
-    const key = `bot:${job.event.externalEventId}:img`;
-    try {
-      const album = await commit(urls, key);
-      if (!album) return this.skippedImages(job);
-      if (album.status !== 'failed' || urls.length === 1) return;
-    } catch {
-      this.logger.warn(`Meta inbox event ${job.id}: images not sent`);
-      return;
-    }
-    for (const [index, url] of urls.entries()) {
-      try {
-        if (!(await commit([url], `${key}:${index}`))) return this.skippedImages(job);
-      } catch {
-        this.logger.warn(`Meta inbox event ${job.id}: image ${index + 1} not sent`);
-      }
-    }
-  }
-
-  /**
-   * The newest image attachments of the pending customer turn (max 3), downloaded for the model.
-   * Never throws: any failure leaves the image out and the turn degrades to the text-only note.
-   */
-  private async fetchImages(
-    pending: readonly {
-      direction: string;
-      attachments: readonly { type: string; url: string }[];
-    }[],
-  ): Promise<{ images: ImageInput[]; seen: Set<string> }> {
-    const result = { images: [] as ImageInput[], seen: new Set<string>() };
-    if (!this.vision) return result;
-    const urls = pending
-      .filter((m) => m.direction === 'inbound')
-      .flatMap((m) => m.attachments.filter((a) => a.type === 'image').map((a) => a.url))
-      .reverse()
-      .slice(0, MAX_VISION_IMAGES);
-    const downloads = await Promise.all(
-      urls.map((url) => this.images.fetch(url).catch(() => null)),
-    );
-    let total = 0;
-    downloads.forEach((image, i) => {
-      const url = urls[i];
-      const size = image ? Math.floor((image.base64.length * 3) / 4) : 0;
-      if (!image || !url || total + size > 6_000_000) return;
-      total += size;
-      result.images.push(image);
-      result.seen.add(url);
-    });
-    return result;
+  /** Hands the event back; the next claim (with the new messages) re-runs the turn. */
+  private rerun(
+    turn: Turn,
+    delivery: ReplyDelivery,
+    freshCarry: ReplyResult['carry'],
+    reason: string,
+  ): 'requeue' {
+    const { job, c } = turn;
+    const newest = delivery.lastId ?? turn.newestId;
+    this.resumes.put(job.workspaceId, c.id, nextResume(turn.resume, freshCarry, newest));
+    this.logger.log(`Meta inbox event ${job.id}: ${reason}, answering them together`);
+    return 'requeue';
   }
 
   /** A customer message with nothing to answer is never silent: the reason is logged. */
