@@ -23,6 +23,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module.js';
 import { createHttpApp } from '../src/bootstrap.js';
 import { DrizzleAiRunRepository } from '../src/modules/ai/infrastructure/persistence/ai-run.repositories.js';
+import { DrizzleConversationSummaryRepository } from '../src/modules/ai/infrastructure/persistence/conversation-summary.drizzle.js';
 import { DrizzleUserRepository } from '../src/modules/identity/infrastructure/persistence/identity.drizzle-repositories.js';
 
 /** Playground metering (ai_runs, RLS) and platform LLM config (system role, encrypted keys) on Postgres. */
@@ -254,6 +255,38 @@ describe('ai on Postgres', () => {
       ]);
     } finally {
       await system.close();
+    }
+  });
+
+  it('stores one conversation summary per conversation, isolated per workspace', async () => {
+    const a = await signup('sum-a@shop.vn');
+    const b = await signup('sum-b@shop.vn');
+    const conv = newId();
+    const tenant = createDb({ url: tenantUrl, max: 1 });
+    try {
+      const repo = new DrizzleConversationSummaryRepository(tenant.db);
+      const wsA = workspaceId(a.ws);
+      const wsB = workspaceId(b.ws);
+      expect(await repo.get(wsA, conv)).toBeNull();
+      await repo.put(wsA, conv, { coveredUntil: new Date('2026-10-30T10:00:00Z'), summary: 'one' });
+      await repo.put(wsA, conv, { coveredUntil: new Date('2026-10-31T10:00:00Z'), summary: 'two' });
+      expect(await repo.get(wsA, conv)).toEqual({
+        coveredUntil: new Date('2026-10-31T10:00:00Z'),
+        summary: 'two',
+      });
+      expect(await repo.get(wsB, conv)).toBeNull();
+      await expect(
+        withTenant(tenant.db, wsB, (tx) =>
+          tx.insert(schema.conversationSummaries).values({
+            workspaceId: wsA,
+            conversationId: newId(),
+            coveredUntil: new Date(),
+            summary: 'leak',
+          }),
+        ),
+      ).rejects.toThrow();
+    } finally {
+      await tenant.close();
     }
   });
 });
