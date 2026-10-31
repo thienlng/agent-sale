@@ -173,8 +173,14 @@ export function catalogTx(
         const category = foldedSql(sql`coalesce(${p.category}, '')`);
         const name = foldedSql(sql`${p.name}`);
         const text = sql`${p.searchText}`;
-        const sims = terms.map((t) => sql`word_similarity(${t}, ${text})`);
-        const catSims = terms.map((t) => sql`word_similarity(${t}, ${category})`);
+        // A 1–2 letter term ("so" of "sơ mi") is too short for trigrams: as a fuzzy prefix it would
+        // match every word starting with "s". It counts only as a whole word.
+        const termScore = (t: string, against: SQL) =>
+          t.length < 3
+            ? sql`(case when ${against} ~ ${`\\m${t}\\M`} then 1.0 else 0 end)`
+            : sql`word_similarity(${t}, ${against})`;
+        const sims = terms.map((t) => termScore(t, text));
+        const catSims = terms.map((t) => termScore(t, category));
         const sum = (parts: SQL[]) => sql.join(parts, sql` + `);
         const score = sql`(${sum(sims)}) + 0.5 * (${sum(catSims)}) + (case when strpos(${name}, ${query}) > 0 then 1.0 else 0 end)`;
         const best = sql`greatest(${sql.join([...sims, ...catSims], sql`, `)})`;
