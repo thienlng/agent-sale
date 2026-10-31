@@ -1,5 +1,6 @@
 import {
   type AdjustStockRequest,
+  type ApproveOrderRequest,
   BotProductsDto,
   type ChangeOrderStatusRequest,
   type CreateOrderRequest,
@@ -7,6 +8,7 @@ import {
   type OrderListQuery,
   OrderListResponse,
   OrderOverviewResponse,
+  OrderReviewCountResponse,
   OrderSettingsDto,
   ProductDto,
   ProductListResponse,
@@ -232,6 +234,59 @@ export function useChangeOrderStatus(id: string) {
   return useMutation({
     mutationFn: (body: ChangeOrderStatusRequest) =>
       api(`/orders/${id}/status`, OrderDto, { method: 'POST', body }),
+    onSuccess: changed,
+  });
+}
+
+// ─── Bot order review ─────────────────────────────────────────────────────────
+
+const reviewCountKey = (ws: string) => [...queryKeys.orders(ws), 'review-count'] as const;
+
+/** How many bot orders wait for review (the toolbar chip); refreshed with every order change. */
+export function useOrderReviewCount() {
+  const ws = useWorkspaceId();
+  return useQuery({
+    queryKey: reviewCountKey(ws),
+    queryFn: () => api('/orders/review-count', OrderReviewCountResponse),
+    enabled: Boolean(ws),
+  });
+}
+
+/**
+ * Approves a bot order, or reverts the approval (`approve:false`, the undo). Optimistic: list
+ * rows, the detail and the pending count flip at once and are restored when the call fails.
+ */
+export function useApproveOrder() {
+  const ws = useWorkspaceId();
+  const qc = useQueryClient();
+  const changed = useOrderChanged();
+  return useMutation({
+    mutationFn: ({ id, approve }: { id: string; approve: boolean }) =>
+      api(`/orders/${id}/approve`, OrderDto, {
+        method: 'POST',
+        body: { approve } satisfies ApproveOrderRequest,
+      }),
+    onMutate: async ({ id, approve }) => {
+      await qc.cancelQueries({ queryKey: queryKeys.orders(ws) });
+      const snapshot = qc.getQueriesData({ queryKey: queryKeys.orders(ws) });
+      const reviewState = approve ? ('approved' as const) : ('pending' as const);
+      qc.setQueriesData<OrderListResponse>(
+        { queryKey: [...queryKeys.orders(ws), 'list'] },
+        (old) =>
+          old && {
+            ...old,
+            data: old.data.map((o) => (o.id === id ? { ...o, reviewState } : o)),
+          },
+      );
+      qc.setQueryData<OrderDto>(queryKeys.order(ws, id), (old) => old && { ...old, reviewState });
+      qc.setQueryData<OrderReviewCountResponse>(
+        reviewCountKey(ws),
+        (old) => old && { pending: Math.max(0, old.pending + (approve ? -1 : 1)) },
+      );
+      return { snapshot };
+    },
+    onError: (_err, _vars, ctx) =>
+      ctx?.snapshot.forEach(([key, data]) => qc.setQueryData(key, data)),
     onSuccess: changed,
   });
 }

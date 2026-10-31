@@ -1,7 +1,7 @@
 import type { OrderDto, OrderStatus } from '@agent-sales/contracts';
 import { Link } from '@tanstack/react-router';
 import { ChevronLeft, Pencil } from 'lucide-react';
-import { type ReactNode, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
@@ -27,37 +27,10 @@ import { useChangeOrderStatus, useOrder, useUpdateOrder } from '../api/commerce'
 import { orderErrorMessage } from '../hooks/order-errors';
 import { useOrderStatuses } from '../hooks/use-order-statuses';
 import { OrderItemsEditor } from './order-items-editor';
+import { Panel, Row } from './order-detail-parts';
 import { OrderPeoplePanel } from './order-people-editor';
+import { OrderReviewBanner } from './order-review-banner';
 import { OrderStatusBadge } from './order-status-badge';
-
-function Panel({
-  title,
-  action,
-  children,
-}: {
-  title: string;
-  action?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <section className="rounded-xl border bg-card p-4 md:p-5">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="font-semibold">{title}</h2>
-        {action}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function Row({ label, value, strong }: { label: string; value: ReactNode; strong?: boolean }) {
-  return (
-    <div className={cn('flex justify-between gap-4', strong && 'font-semibold')}>
-      <dt className={strong ? undefined : 'text-muted-foreground'}>{label}</dt>
-      <dd className="text-right tabular-nums">{value}</dd>
-    </div>
-  );
-}
 
 function StatusChanger({ order }: { order: OrderDto }) {
   const { t } = useTranslation();
@@ -297,6 +270,8 @@ export function OrderDetail({ orderId }: { orderId: string }) {
           </span>
         </div>
       </header>
+
+      <OrderReviewBanner order={order} />
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <div className="flex min-w-0 flex-col gap-5">

@@ -1,6 +1,6 @@
 import type { OrderSummaryDto } from '@agent-sales/contracts';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { Copy, Eye, MoreHorizontal, PackageOpen, Plus } from 'lucide-react';
+import { Check, Copy, Eye, MoreHorizontal, PackageOpen, Plus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -32,8 +32,10 @@ import { useCan } from '@/lib/permissions';
 
 import { fetchAllOrders, useOrders } from '../api/commerce';
 import { downloadOrdersCsv } from '../hooks/export-orders';
+import { useApproveWithUndo } from '../hooks/use-approve-order';
 import { useOrderStatuses } from '../hooks/use-order-statuses';
 import { type OrderColumn, useVisibleOrderColumns } from './order-columns';
+import { BotBadge, PendingReviewChip } from './order-created-by-cell';
 import { OrderStatusBadge } from './order-status-badge';
 import { OrdersBulkBar } from './orders-bulk-bar';
 import { type OrdersSearch, toOrderQuery } from './orders-search';
@@ -77,7 +79,13 @@ function OrderCards({ rows }: { rows: OrderSummaryDto[] }) {
             className="flex flex-col gap-2 rounded-xl border bg-card p-3 focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
           >
             <div className="flex items-center justify-between gap-2">
-              <span className="font-medium text-primary tabular-nums">{o.code}</span>
+              <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+                <span className="font-medium text-primary tabular-nums">{o.code}</span>
+                {o.createdByKind === 'bot' ? <BotBadge /> : null}
+                {o.createdByKind === 'bot' && o.reviewState === 'pending' ? (
+                  <PendingReviewChip />
+                ) : null}
+              </span>
               <OrderStatusBadge status={o.status} />
             </div>
             <div className="flex items-center justify-between gap-3 text-sm">
@@ -99,7 +107,16 @@ function OrderCards({ rows }: { rows: OrderSummaryDto[] }) {
   );
 }
 
-function RowMenu({ order, onOpen }: { order: OrderSummaryDto; onOpen: () => void }) {
+function RowMenu({
+  order,
+  onOpen,
+  onApprove,
+}: {
+  order: OrderSummaryDto;
+  onOpen: () => void;
+  /** Set for a pending bot order the user may approve. */
+  onApprove: (() => void) | undefined;
+}) {
   const { t } = useTranslation();
   return (
     <DropdownMenu>
@@ -113,6 +130,12 @@ function RowMenu({ order, onOpen }: { order: OrderSummaryDto; onOpen: () => void
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        {onApprove ? (
+          <DropdownMenuItem onSelect={onApprove}>
+            <Check />
+            {t('orders.review.approve')}
+          </DropdownMenuItem>
+        ) : null}
         <DropdownMenuItem onSelect={onOpen}>
           <Eye />
           {t('orders.row.view')}
@@ -150,6 +173,8 @@ export function OrdersList({
   const orders = useOrders(toOrderQuery({ ...search, page, pageSize }));
   const [selected, setSelected] = useState<string[]>([]);
   const [exporting, setExporting] = useState(false);
+  // Lives here, not in the row menu: the undo toast outlives the menu (and a filtered-out row).
+  const { approve } = useApproveWithUndo();
 
   const data = orders.data;
   const rows = data?.data ?? [];
@@ -285,7 +310,15 @@ export function OrdersList({
                         </TableCell>
                       ))}
                       <TableCell className="align-top" onClick={(e) => e.stopPropagation()}>
-                        <RowMenu order={o} onOpen={() => open(o)} />
+                        <RowMenu
+                          order={o}
+                          onOpen={() => open(o)}
+                          onApprove={
+                            canAdd && o.createdByKind === 'bot' && o.reviewState === 'pending'
+                              ? () => approve(o)
+                              : undefined
+                          }
+                        />
                       </TableCell>
                     </TableRow>
                   ))}

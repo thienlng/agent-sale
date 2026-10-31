@@ -1,5 +1,5 @@
 import { type OrderListResponse, OrderSource, type OrderStatus } from '@agent-sales/contracts';
-import { ChevronDown, Columns3, Download, ListFilter, Search, X } from 'lucide-react';
+import { Bot, ChevronDown, Columns3, Download, ListFilter, Search, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
@@ -32,6 +32,7 @@ import {
 import { formatDate, formatNumber } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
+import { useOrderReviewCount } from '../api/commerce';
 import {
   ORDER_COLUMNS,
   resetOrderColumns,
@@ -85,6 +86,8 @@ export function OrdersToolbar({
   const creatorName = facets?.creators.find((c) => c.id === search.createdBy)?.name;
   const visible = new Set(useVisibleOrderColumns().map((c) => c.id));
   const [text, setText] = useState(search.q ?? '');
+  const pendingReview = useOrderReviewCount().data?.pending ?? 0;
+  const reviewing = search.review === 'pending';
 
   // Follow the URL when it changes from outside (sidebar link, back button) …
   const pushed = useRef(search.q ?? '');
@@ -157,6 +160,28 @@ export function OrdersToolbar({
             className="h-9 pl-9"
           />
         </div>
+
+        <Button
+          variant="outline"
+          aria-pressed={reviewing}
+          onClick={() => onChange({ review: reviewing ? undefined : 'pending' })}
+          className={cn(
+            'h-9 gap-2 font-normal',
+            reviewing &&
+              'border-primary bg-primary-soft text-accent-foreground hover:bg-primary-soft hover:text-accent-foreground dark:border-primary dark:bg-primary-soft',
+          )}
+        >
+          <Bot className={reviewing ? 'text-primary' : 'text-muted-foreground'} aria-hidden />
+          {t('orders.review.filter')}
+          {pendingReview ? (
+            <span className="rounded-full bg-warning-soft px-1.5 text-xs font-medium text-amber-900 tabular-nums dark:text-amber-200">
+              <span aria-hidden>{formatNumber(pendingReview)}</span>
+              <span className="sr-only">
+                {t('orders.review.filterCount', { count: pendingReview })}
+              </span>
+            </span>
+          ) : null}
+        </Button>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
