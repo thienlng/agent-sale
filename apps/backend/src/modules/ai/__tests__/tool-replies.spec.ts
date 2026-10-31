@@ -152,6 +152,7 @@ describe('the reply pipeline answers from catalog tools', () => {
     expect(fake.calls[0]?.tools?.map((t) => t.name)).toEqual([
       'search_products',
       'product_details',
+      'calculate',
       'send_message',
       'handoff',
     ]);

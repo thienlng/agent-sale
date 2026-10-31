@@ -316,6 +316,7 @@ describe('free-text answers', () => {
     expect(fake.calls[0]?.tools?.map((t) => t.name)).toEqual([
       'search_products',
       'product_details',
+      'calculate',
       'send_message',
       'handoff',
     ]);

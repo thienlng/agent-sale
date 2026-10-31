@@ -14,6 +14,7 @@ import { normalizeReplyText } from '../domain/reply-text.js';
 import { productImages } from '../domain/image-allowlist.js';
 import { type ActionToolContext, playgroundConversationId, runActionTool } from './action-tools.js';
 import type { AgentLoopResult } from './agent-loop.js';
+import { CALCULATE_TOOL, calculateTool } from './calculator.js';
 import { CATALOG_TOOLS, type CatalogToolContext, catalogRunnableTools } from './catalog-tools.js';
 import {
   type ImageAllowlist,
@@ -50,7 +51,7 @@ export function writeTools(
 }
 
 /**
- * The tools of one turn, in the order the model sees them: catalog (read-only), `send_message`
+ * The tools of one turn, in the order the model sees them: catalog and `calculate` (read-only), `send_message`
  * (not for comment replies) and `handoff`, then the owner's actions. Products whose details the
  * catalog returns make their pictures sendable.
  */
@@ -68,14 +69,17 @@ export function turnTools(opts: {
   return mergeToolSets(
     catalog
       ? {
-          definitions: CATALOG_TOOLS,
-          runnable: catalogRunnableTools({
-            ...catalog,
-            onProducts: (products) => {
-              allowlist.add(productImages(products));
-              opts.onProducts?.(products);
-            },
-          }),
+          definitions: [...CATALOG_TOOLS, CALCULATE_TOOL],
+          runnable: [
+            ...catalogRunnableTools({
+              ...catalog,
+              onProducts: (products) => {
+                allowlist.add(productImages(products));
+                opts.onProducts?.(products);
+              },
+            }),
+            calculateTool,
+          ],
         }
       : { definitions: [], runnable: [] },
     outputTools({
