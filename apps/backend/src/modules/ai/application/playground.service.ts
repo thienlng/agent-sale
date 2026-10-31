@@ -69,7 +69,6 @@ import {
 } from './reply-pipeline.js';
 
 export { PHONE_KNOWN_LINE };
-
 const PROMPT_RETAIL = { name: 'sales-agent', version: 13 } as const;
 const PROMPT_LODGING = { name: 'sales-agent', version: 14 } as const;
 /** Optional DI token: forces the sales-agent prompt for every bot (default: 14 for hotel bots, 13 otherwise). */
