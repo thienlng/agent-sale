@@ -770,7 +770,7 @@ describe('keepSummaryLast', () => {
   });
 
   it('keeps the final when something else was sent after the summary, or none was sent', () => {
-    const picture = { text: 'ảnh' };
+    const picture: { text: string; quickReplies?: { payload: string }[] } = { text: 'ảnh' };
     expect(keepSummaryLast(answered, [summary, picture]).final).toBe(answered.final);
     expect(keepSummaryLast(answered, []).final).toBe(answered.final);
   });
