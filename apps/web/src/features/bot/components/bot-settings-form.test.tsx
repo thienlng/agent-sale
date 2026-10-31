@@ -132,4 +132,14 @@ describe('BotSettingsForm order taking', () => {
     await waitFor(() => expect(calls).toHaveLength(1));
     expect(calls[0]?.body).toEqual({ settings: { orderShippingFeeVnd: 0 } });
   });
+
+  it('keeps digits only, groups them and saves the number', async () => {
+    const calls = await open(bot);
+    const fee = await screen.findByLabelText('Phí ship mặc định');
+    await userEvent.type(fee, '3a0.0x00');
+    expect(fee).toHaveValue('30.000');
+    await userEvent.click(screen.getByRole('button', { name: 'Lưu thay đổi' }));
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0]?.body).toEqual({ settings: { orderShippingFeeVnd: 30000 } });
+  });
 });

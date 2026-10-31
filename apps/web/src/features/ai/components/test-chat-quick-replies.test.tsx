@@ -57,6 +57,8 @@ beforeAll(() => {
     disconnect() {}
   } as unknown as typeof ResizeObserver;
   Element.prototype.scrollTo ??= () => {};
+  URL.createObjectURL ??= () => `blob:test/${Math.random()}`;
+  URL.revokeObjectURL ??= () => {};
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -123,5 +125,34 @@ describe('TestChat quick replies', () => {
     await userEvent.type(box, 'ok dat luon{Enter}');
     expect(await screen.findByText('Dạ em đã ghi nhận đơn ạ.')).toBeInTheDocument();
     expect(pill('✅ Đặt hàng')).not.toBeInTheDocument();
+  });
+
+  it('sends only the title and leaves the typed draft and queued images alone', async () => {
+    const { fetchStub, sent } = queueFetch([summary, confirmed]);
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithProviders(<TestChat botId={botId} greeting="" />);
+    const box = screen.getByLabelText('Nhập tin nhắn của bạn');
+    await userEvent.type(box, 'chot don{Enter}');
+    await screen.findByRole('button', { name: '✅ Đặt hàng' });
+
+    await userEvent.type(box, 'ghi chu giao gio hanh chinh');
+    await userEvent.upload(
+      screen.getByTestId('test-chat-file'),
+      new File([new Uint8Array(4)], 'a.png', { type: 'image/png' }),
+    );
+    expect(await screen.findByRole('button', { name: 'Bỏ ảnh này' })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: '✅ Đặt hàng' }));
+    expect(await screen.findByText('Dạ em đã ghi nhận đơn ạ.')).toBeInTheDocument();
+
+    expect(sent[1]).toEqual({
+      messages: [
+        { role: 'customer', content: 'chot don' },
+        { role: 'bot', content: summary.reply },
+        { role: 'customer', content: '✅ Đặt hàng' },
+      ],
+    });
+    expect(box).toHaveValue('ghi chu giao gio hanh chinh');
+    expect(screen.getByRole('button', { name: 'Bỏ ảnh này' })).toBeInTheDocument();
   });
 });

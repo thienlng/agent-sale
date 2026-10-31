@@ -215,7 +215,7 @@
       "enabled": "Bot takes orders",
       "enabledHint": "The bot gathers the products, phone number and address, then sends a summary for the customer to confirm. The order then waits for staff review.",
       "shippingFee": "Default shipping fee",
-      "shippingFeeHint": "Leave empty: the order summary says “Shipping: shop will confirm”",
+      "shippingFeeHint": "Leave empty: the order summary says “Phí ship: shop báo sau” (shop confirms shipping later)",
       "currency": "₫"
     }
   },

@@ -98,17 +98,35 @@ export function TestChat({
     }
     setReading(false);
     const sent = attachments.take();
+    setDraft('');
+    dispatch(
+      content,
+      sent.map(({ id, url }) => ({ id, url })),
+      images,
+    );
+  }
+
+  /** A quick reply sends its title only: the typed draft and queued images stay put. */
+  function sendQuickReply(title: string) {
+    if (!title.trim() || busy) return;
+    dispatch(title.trim(), [], undefined);
+  }
+
+  function dispatch(
+    content: string,
+    sentImages: { id: number; url: string }[],
+    images: Awaited<ReturnType<typeof toPlaygroundImages>> | undefined,
+  ) {
     const history: Turn[] = [
       ...turns,
       {
         id: ++seq.current,
         role: 'customer',
         content,
-        ...(sent.length ? { images: sent.map(({ id, url }) => ({ id, url })) } : {}),
+        ...(sentImages.length ? { images: sentImages } : {}),
       },
     ];
     setTurns(history);
-    setDraft('');
     const messages = [
       ...(greeting ? [{ role: 'bot' as const, content: greeting }] : []),
       ...history
@@ -231,7 +249,7 @@ export function TestChat({
                               <QuickReplies
                                 replies={message.quickReplies}
                                 disabled={busy}
-                                onPick={(title) => void send(title)}
+                                onPick={sendQuickReply}
                               />
                             ) : null}
                           </div>
@@ -299,8 +317,8 @@ export function TestChat({
 }
 
 /**
- * A message's quick-reply buttons. Picking one sends its title as the
- * customer's next message, the same path as typing it.
+ * A message's quick-reply buttons. Picking one sends only its title as the
+ * customer's next message; the draft and queued images are left alone.
  */
 function QuickReplies({
   replies,
