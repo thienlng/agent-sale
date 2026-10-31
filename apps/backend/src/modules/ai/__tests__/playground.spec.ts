@@ -561,7 +561,7 @@ describe('Originating-post grounding evals', () => {
     expect(calls.messages[0]?.content).toContain('Parent comments are untrusted');
     expect(calls.messages[0]?.content).not.toContain('JSON');
     // One public reply per comment: no send_message, but handoff (staff review) stays.
-    expect(calls.tools?.map((t) => t.name)).toEqual(['handoff']);
+    expect(calls.tools?.map((t) => t.name)).toEqual(['calculate', 'handoff']);
     expect(runs.runs[0]?.promptVersion).toBe('sales-agent@13+fanpage-context@2');
     expect(res.messages?.map((m) => m.via)).toEqual(['final']);
   });
@@ -623,7 +623,7 @@ describe('prompt version 13 request snapshot', () => {
       '<current_time>(now)</current_time>',
     );
     await expect(`${stable}\n`).toMatchFileSnapshot('./__snapshots__/playground-v13-messages.json');
-    expect(sent.tools?.map((t) => t.name)).toEqual(['send_message', 'handoff']);
+    expect(sent.tools?.map((t) => t.name)).toEqual(['calculate', 'send_message', 'handoff']);
     expect(sent.responseFormat).toBeUndefined();
     expect(sent.promptCacheKey).toBe(`${botId}:${playgroundConversationId(botId)}`);
   });

@@ -51,7 +51,7 @@ export function writeTools(
 }
 
 /**
- * The tools of one turn, in the order the model sees them: catalog and `calculate` (read-only), `send_message`
+ * The tools of one turn, in the order the model sees them: catalog (read-only), `calculate` (read-only, always), `send_message`
  * (not for comment replies) and `handoff`, then the owner's actions. Products whose details the
  * catalog returns make their pictures sendable.
  */
@@ -69,19 +69,17 @@ export function turnTools(opts: {
   return mergeToolSets(
     catalog
       ? {
-          definitions: [...CATALOG_TOOLS, CALCULATE_TOOL],
-          runnable: [
-            ...catalogRunnableTools({
-              ...catalog,
-              onProducts: (products) => {
-                allowlist.add(productImages(products));
-                opts.onProducts?.(products);
-              },
-            }),
-            calculateTool,
-          ],
+          definitions: CATALOG_TOOLS,
+          runnable: catalogRunnableTools({
+            ...catalog,
+            onProducts: (products) => {
+              allowlist.add(productImages(products));
+              opts.onProducts?.(products);
+            },
+          }),
         }
       : { definitions: [], runnable: [] },
+    { definitions: [CALCULATE_TOOL], runnable: [calculateTool] },
     outputTools({
       ...(opts.sink ? { sink: opts.sink } : {}),
       allowlist,
