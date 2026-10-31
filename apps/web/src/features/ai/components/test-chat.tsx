@@ -1,4 +1,5 @@
 import type { PlaygroundResponse } from '@agent-sales/contracts';
+import { splitReply } from '@agent-sales/shared';
 import { PanelRightClose, RotateCcw } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -211,32 +212,40 @@ export function TestChat({
                     align={turn.role === 'customer' ? 'end' : 'start'}
                     className="animate-[bubble-in_220ms_ease-out]"
                   >
-                    <MessageContent>
-                      <Bubble
-                        align={turn.role === 'customer' ? 'end' : 'start'}
-                        className={cn(
-                          'max-w-[85%]',
-                          turn.role === 'customer'
-                            ? '*:data-[slot=bubble-content]:bg-bubble-customer *:data-[slot=bubble-content]:text-foreground'
-                            : turn.error
-                              ? '*:data-[slot=bubble-content]:bg-destructive-soft *:data-[slot=bubble-content]:text-destructive'
-                              : '*:data-[slot=bubble-content]:bg-bubble-bot *:data-[slot=bubble-content]:text-primary-foreground',
-                        )}
-                      >
-                        <BubbleContent
+                    <MessageContent className="gap-1">
+                      {/* A bot answer reaches Messenger as several bubbles (same split as the
+                          Meta inbox), so the test chat shows them the same way. */}
+                      {(turn.role === 'bot' && !turn.error
+                        ? splitReply(turn.content.slice(0, 2000))
+                        : [turn.content]
+                      ).map((part, index) => (
+                        <Bubble
+                          key={index}
+                          align={turn.role === 'customer' ? 'end' : 'start'}
                           className={cn(
-                            'rounded-[1.1rem] text-base whitespace-pre-line',
-                            turn.role === 'customer' ? 'rounded-br-md' : 'rounded-bl-md',
+                            'max-w-[85%]',
+                            turn.role === 'customer'
+                              ? '*:data-[slot=bubble-content]:bg-bubble-customer *:data-[slot=bubble-content]:text-foreground'
+                              : turn.error
+                                ? '*:data-[slot=bubble-content]:bg-destructive-soft *:data-[slot=bubble-content]:text-destructive'
+                                : '*:data-[slot=bubble-content]:bg-bubble-bot *:data-[slot=bubble-content]:text-primary-foreground',
                           )}
                         >
-                          {turn.images?.length ? (
-                            <span className="mb-1 block">
-                              <AttachmentThumbs items={turn.images} />
-                            </span>
-                          ) : null}
-                          {turn.content}
-                        </BubbleContent>
-                      </Bubble>
+                          <BubbleContent
+                            className={cn(
+                              'rounded-[1.1rem] text-base whitespace-pre-line',
+                              turn.role === 'customer' ? 'rounded-br-md' : 'rounded-bl-md',
+                            )}
+                          >
+                            {index === 0 && turn.images?.length ? (
+                              <span className="mb-1 block">
+                                <AttachmentThumbs items={turn.images} />
+                              </span>
+                            ) : null}
+                            {part}
+                          </BubbleContent>
+                        </Bubble>
+                      ))}
                       {turn.result?.images.length ? (
                         <div className="mt-1.5">
                           <BotImages images={turn.result.images} />
