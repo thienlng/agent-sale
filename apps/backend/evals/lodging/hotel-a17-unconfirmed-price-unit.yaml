@@ -55,12 +55,12 @@
       'numbers_only_from_sources': true,
       'contains_all': ['14.000.000', '13.000.000', 'chưa'],
       'not_contains': ['27.000.000', 'mỗi đêm'],
-      'fake_tool_calls': [{ 'name': 'search_products', 'arguments': { 'query': 'A17' } }],
-      'fake_reply':
-        {
-          'outcome': 'answer',
-          'reply': 'Dạ A17 có giá tham khảo thứ Bảy là 14.000.000đ, thứ Sáu và Chủ nhật là 13.000.000đ; đơn vị tính chưa được xác nhận nên em chưa tính tổng ạ.',
-          'sources': [],
-        },
     },
+  fake_turns:
+    [
+      { tool_calls: [{ name: 'search_products', input: { query: 'A17' } }] },
+      {
+        text: 'Dạ A17 có giá tham khảo thứ Bảy là 14.000.000đ, thứ Sáu và Chủ nhật là 13.000.000đ; đơn vị tính chưa được xác nhận nên em chưa tính tổng ạ.',
+      },
+    ],
 }

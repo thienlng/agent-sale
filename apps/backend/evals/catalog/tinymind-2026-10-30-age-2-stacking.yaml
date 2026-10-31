@@ -66,10 +66,14 @@ expect:
   images_min: 1
   not_contains: ['dữ liệu', 'lượt', 'hệ thống']
   numbers_only_from_sources: true
-  fake_tool_calls:
-    - { name: search_products, arguments: { query: 'đồ chơi gỗ xếp hình thăng bằng bé 2 tuổi' } }
-  fake_reply:
-    outcome: answer
-    reply: 'Dạ bé 2 tuổi thích xếp hình thì mình hợp với Thú gỗ xếp thăng bằng giá 340.000đ (từ 1 tuổi) hoặc Xương rồng gỗ xếp thăng bằng giá 460.000đ ạ. Em gửi ảnh để anh/chị xem nhé.'
-    sources: []
-    imageIds: ['p:eval-product-1:0']
+fake_turns:
+  - tool_calls:
+      - name: 'search_products'
+        input:
+          query: 'đồ chơi gỗ xếp hình thăng bằng bé 2 tuổi'
+  - tool_calls:
+      - name: 'send_message'
+        input:
+          imageIds:
+            - 'p:eval-product-1:0'
+  - text: 'Dạ bé 2 tuổi thích xếp hình thì mình hợp với Thú gỗ xếp thăng bằng giá 340.000đ (từ 1 tuổi) hoặc Xương rồng gỗ xếp thăng bằng giá 460.000đ ạ. Em gửi ảnh để anh/chị xem nhé.'

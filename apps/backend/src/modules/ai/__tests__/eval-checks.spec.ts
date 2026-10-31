@@ -142,4 +142,41 @@ describe('eval checks', () => {
     );
     expect(runChecks({ max_occurrences: { 'anh/chị': 0 } }, base)[0]?.pass).toBe(true);
   });
+
+  it('messages_min, image_messages_min and images_per_message_max read the delivered messages', () => {
+    const messages = [
+      { text: 'Thú gỗ xếp thăng bằng', images: 3 },
+      { text: 'Xương rồng gỗ', images: 1 },
+      { text: 'Dạ bé thích mẫu nào ạ?', images: 0 },
+    ];
+    const input = { ...base, messages, images: 4 };
+    const passing = runChecks(
+      { messages_min: 3, image_messages_min: 2, images_per_message_max: 3, images_min: 4 },
+      input,
+    );
+    expect(passing.map((c) => [c.name, c.pass])).toEqual([
+      ['images_min', true],
+      ['messages_min', true],
+      ['image_messages_min', true],
+      ['images_per_message_max', true],
+    ]);
+    const failing = runChecks(
+      { messages_min: 4, image_messages_min: 3, images_per_message_max: 2 },
+      input,
+    );
+    expect(failing.filter((c) => !c.pass).map((c) => c.name)).toEqual([
+      'messages_min',
+      'image_messages_min',
+      'images_per_message_max',
+    ]);
+    expect(failing.find((c) => c.name === 'images_per_message_max')?.detail).toContain('3');
+  });
+
+  it('counts no delivered messages when the input has none', () => {
+    expect(runChecks({ messages_min: 1 }, base)[0]).toMatchObject({
+      name: 'messages_min',
+      pass: false,
+    });
+    expect(runChecks({ images_per_message_max: 0 }, base)[0]?.pass).toBe(true);
+  });
 });

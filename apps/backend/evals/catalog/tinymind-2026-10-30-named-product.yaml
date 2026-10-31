@@ -65,10 +65,14 @@ expect:
   contains_any: ['340.000']
   images_min: 1
   numbers_only_from_sources: true
-  fake_tool_calls:
-    - { name: search_products, arguments: { query: 'Thú gỗ xếp thăng bằng' } }
-  fake_reply:
-    outcome: answer
-    reply: 'Dạ shop có bộ Thú gỗ xếp thăng bằng giá 340.000đ ạ, bé từ 1 tuổi chơi được. Em gửi ảnh anh/chị xem nhé.'
-    sources: []
-    imageIds: ['p:eval-product-1:0']
+fake_turns:
+  - tool_calls:
+      - name: 'search_products'
+        input:
+          query: 'Thú gỗ xếp thăng bằng'
+  - tool_calls:
+      - name: 'send_message'
+        input:
+          imageIds:
+            - 'p:eval-product-1:0'
+  - text: 'Dạ shop có bộ Thú gỗ xếp thăng bằng giá 340.000đ ạ, bé từ 1 tuổi chơi được. Em gửi ảnh anh/chị xem nhé.'

@@ -11,21 +11,26 @@ const Turn = z.union([
   z.object({ bot: z.string().min(1) }).strict(),
 ]);
 
-/** The final structured reply the model returns in fake mode (`FinalReply`; action steps go through tools). */
-const FakeReply = z
-  .object({
-    outcome: z.enum(['answer', 'unknown', 'handoff']),
-    reply: z.string(),
-    sources: z.array(z.string()).default([]),
-    /** Ids from the product "images" lists, e.g. `p:eval-product-1:0` (fixture products get stable ids). */
-    imageIds: z.array(z.string()).default([]),
-  })
+/** A tool call of a scripted model turn (fake mode). */
+const FakeToolCall = z
+  .object({ name: z.string().min(1), input: z.record(z.string(), z.unknown()).default({}) })
   .strict();
 
-/** A tool call the fake model makes on its first call, before the final reply. */
-const FakeToolCall = z
-  .object({ name: z.string().min(1), arguments: z.record(z.string(), z.unknown()).default({}) })
-  .strict();
+/**
+ * One scripted model response (fake mode). `tool_calls` makes the loop run those tools and call the
+ * model again; a turn without tool calls ends the loop and `text` is the free-text final answer
+ * (empty: no answer, so the bot's fallback message is sent). Text next to tool calls is the
+ * model's commentary, used as the lead-in sentence when the turn ends with `handoff`.
+ */
+const FakeTurn = z
+  .object({
+    text: z.string().optional(),
+    tool_calls: z.array(FakeToolCall).min(1).optional(),
+  })
+  .strict()
+  .refine((t) => t.text !== undefined || t.tool_calls !== undefined, {
+    message: 'a fake turn needs text or tool_calls',
+  });
 
 const Variant = z
   .object({
@@ -111,14 +116,14 @@ const Expect = z
     numbers_only_from_sources: z.boolean().optional(),
     max_lines: z.number().int().min(1).optional(),
     no_greeting: z.boolean().optional(),
-    /** At least this many pictures must be sent with the reply. */
+    /** At least this many pictures sent in the turn (every message together). */
     images_min: z.number().int().min(1).optional(),
-    /**
-     * Fake mode: tool calls made on the first model call. Absent, a case with products browses the
-     * catalog (`search_products` without a query), as the real model does before quoting a price.
-     */
-    fake_tool_calls: z.array(FakeToolCall).optional(),
-    fake_reply: FakeReply.optional(),
+    /** At least this many messages delivered in the turn (`send_message` ones and the final one). */
+    messages_min: z.number().int().min(1).optional(),
+    /** At least this many delivered messages carry a picture (e.g. one message per product). */
+    image_messages_min: z.number().int().min(1).optional(),
+    /** No delivered message carries more pictures than this. */
+    images_per_message_max: z.number().int().min(0).optional(),
   })
   .strict();
 
@@ -150,11 +155,16 @@ export const EvalCase = z
         message: 'the last turn must be a customer message',
       }),
     expect: Expect,
+    /**
+     * Fake mode only: the scripted model responses of the turn, in order (the history summarizer
+     * is answered separately). Required in fake mode, ignored by `--live`.
+     */
+    fake_turns: z.array(FakeTurn).min(1).optional(),
   })
   .strict();
 export type EvalCase = z.infer<typeof EvalCase>;
 export type EvalExpect = z.infer<typeof Expect>;
-export type FakeReply = z.infer<typeof FakeReply>;
+export type FakeTurn = z.infer<typeof FakeTurn>;
 export type FakeToolCall = z.infer<typeof FakeToolCall>;
 export type EvalOutcome = 'answered' | 'fallback' | 'handoff';
 

@@ -35,9 +35,8 @@ expect:
   contains_any: ['690.000', '690k']
   not_contains: ["\\n"]
   numbers_only_from_sources: true
-  fake_reply:
-    {
-      outcome: answer,
-      reply: 'Dạ giày chạy bộ Aero giá 690.000đ ạ. Anh/chị đi size mấy để em kiểm tra giúp ạ?',
-      sources: [],
-    }
+fake_turns:
+  - tool_calls:
+      - name: 'search_products'
+        input: {}
+  - text: 'Dạ giày chạy bộ Aero giá 690.000đ ạ. Anh/chị đi size mấy để em kiểm tra giúp ạ?'

@@ -30,5 +30,5 @@ expect:
   contains_any: ['20 khách']
   not_contains: ["\\n"]
   numbers_only_from_sources: true
-  fake_reply:
-    { outcome: answer, reply: 'Dạ villa có 4–6 phòng ngủ, chứa tối đa 20 khách ạ.', sources: [] }
+fake_turns:
+  - text: 'Dạ villa có 4–6 phòng ngủ, chứa tối đa 20 khách ạ.'

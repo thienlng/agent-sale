@@ -34,6 +34,6 @@
 
 **Do not:** call provider SDKs outside `packages/ai-core`; log prompts, replies or API keys; read `bots`/`knowledge_items` tables directly (use the facades).
 
-**Prompt evals (T-145):** `evals/` + `modules/ai/evals/` + `src/cli/eval.ts` run YAML cases through `PlaygroundService` (scripted fake model with tool calls in `pnpm test`, real model with `--live`); see `apps/backend/evals/README.md`. Fake mode translates the cases' legacy `fake_reply` envelope into the free-text protocol (`imageIds` → one `send_message`, `handoff` → a handoff call, `unknown` → empty text). A prompt or model change needs the critical cases at 100% live.
+**Prompt evals (T-145):** `evals/` + `modules/ai/evals/` + `src/cli/eval.ts` run YAML cases through `PlaygroundService` (scripted fake model with tool calls in `pnpm test`, real model with `--live`); see `apps/backend/evals/README.md`. Fake mode replays each case's `fake_turns` (scripted model responses: tool calls, then the free-text answer; a tool-less request is the history summarizer) and the checks read the delivered messages (joined text, pictures, message count). A prompt or model change needs the critical cases at 100% live.
 
 **Test:** `pnpm --filter @agent-sales/backend test -- ai` · integration: `test/ai.integration.spec.ts`

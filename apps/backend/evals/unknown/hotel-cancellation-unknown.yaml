@@ -31,5 +31,5 @@ expect:
   not_contains: ['hoàn 100', "\\n"]
   not_matches: ["\\d+\\s*%"]
   numbers_only_from_sources: true
-  fake_reply:
-    { outcome: unknown, reply: 'Dạ em chưa có thông tin về chính sách hủy ạ.', sources: [] }
+fake_turns:
+  - text: ''
