@@ -24,6 +24,8 @@ type OutboundAttachment = { type: 'image' | 'video' | 'audio' | 'file'; url: str
 export interface OutboundInboxMessage {
   text: string;
   attachments?: readonly OutboundAttachment[] | undefined;
+  /** Buttons under a text message (at most 3); the website visitor reads replies by polling. */
+  quickReplies?: readonly { title: string; payload: string }[] | undefined;
 }
 /** What Meta knows about a customer; either part can be missing. */
 export interface CustomerProfile {

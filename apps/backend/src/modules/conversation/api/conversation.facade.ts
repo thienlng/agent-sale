@@ -81,16 +81,17 @@ export interface ConversationFacade {
    * does not exist.
    */
   botHolds(ws: WorkspaceId, id: string): Promise<boolean>;
+  /** `quickReplies`: buttons under this bubble (Meta, website); delivery only, not stored. */
   commitBotReply(
     ws: WorkspaceId,
     id: string,
-    input: { revision: number; text: string; idempotencyKey: string },
+    input: { revision: number; text: string; idempotencyKey: string } & BotQuickReplies,
   ): Promise<InboxMessageDto | null>;
   /** A further bubble of an answer whose first bubble was committed (same rules, no revision check). */
   commitBotFollowUp(
     ws: WorkspaceId,
     id: string,
-    input: { text: string; idempotencyKey: string },
+    input: { text: string; idempotencyKey: string } & BotQuickReplies,
   ): Promise<InboxMessageDto | null>;
   /**
    * The pictures of a bot reply as ONE message (several images arrive as a single album; https
@@ -102,6 +103,9 @@ export interface ConversationFacade {
     id: string,
     input: { urls: readonly string[]; idempotencyKey: string },
   ): Promise<InboxMessageDto | null>;
+}
+export interface BotQuickReplies {
+  quickReplies?: readonly { title: string; payload: string }[] | undefined;
 }
 export const CONVERSATION_FACADE = Symbol('CONVERSATION_FACADE');
 /** Agent entry capability; never started by the HTTP process. */

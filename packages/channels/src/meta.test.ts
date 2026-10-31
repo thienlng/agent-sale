@@ -179,6 +179,78 @@ describe('Meta signed messaging adapter', () => {
       },
     });
   });
+  it('sends quick replies on a text message in the Graph shape (Messenger and Instagram)', async () => {
+    for (const kind of ['facebook', 'instagram'] as const) {
+      const transport = vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(Response.json({ message_id: 'm.q' }));
+      await new MetaAdapter(kind, 'v24.0', transport).send(
+        { externalId: 'page', token: 't' },
+        'u',
+        {
+          text: 'Tóm tắt đơn',
+          quickReplies: [
+            { title: '✅ Đặt hàng', payload: 'ORDER_CONFIRM' },
+            { title: '✏️ Sửa thông tin', payload: 'ORDER_EDIT' },
+          ],
+        },
+        { idempotencyKey: 'k' },
+      );
+      const body = JSON.parse(String(transport.mock.calls[0]?.[1]?.body));
+      expect(body.recipient).toEqual({ id: 'u' });
+      expect(body.message).toEqual({
+        text: 'Tóm tắt đơn',
+        quick_replies: [
+          { content_type: 'text', title: '✅ Đặt hàng', payload: 'ORDER_CONFIRM' },
+          { content_type: 'text', title: '✏️ Sửa thông tin', payload: 'ORDER_EDIT' },
+        ],
+      });
+    }
+  });
+  it('sends no quick_replies key for plain text and keeps at most 3 buttons', async () => {
+    const transport = vi
+      .fn<typeof fetch>()
+      .mockImplementation(() => Promise.resolve(Response.json({ message_id: 'm' })));
+    const a = new MetaAdapter('facebook', 'v24.0', transport);
+    await a.send({ externalId: 'p', token: 't' }, 'u', { text: 'Hi' }, { idempotencyKey: 'k' });
+    await a.send(
+      { externalId: 'p', token: 't' },
+      'u',
+      { text: 'Hi', quickReplies: [] },
+      { idempotencyKey: 'k2' },
+    );
+    const four = ['a', 'b', 'c', 'd'].map((x) => ({ title: x, payload: x.toUpperCase() }));
+    await a.send(
+      { externalId: 'p', token: 't' },
+      'u',
+      { text: 'Hi', quickReplies: four },
+      { idempotencyKey: 'k3' },
+    );
+    const sent = transport.mock.calls.map((c) => JSON.parse(String(c[1]?.body)).message);
+    expect(sent[0]).toEqual({ text: 'Hi' });
+    expect(sent[1]).toEqual({ text: 'Hi' });
+    expect(sent[2].quick_replies).toHaveLength(3);
+  });
+  it('keeps the button title as the text and the quick reply payload on the event', () => {
+    const body = payload();
+    Object.assign(body.entry[0]!.messaging[0]!.message, {
+      text: '✅ Đặt hàng',
+      quick_reply: { payload: 'ORDER_CONFIRM' },
+    });
+    const [event] = new MetaAdapter('facebook').parseWebhook(body);
+    expect(event).toMatchObject({ text: '✅ Đặt hàng', quickReplyPayload: 'ORDER_CONFIRM' });
+    expect(new MetaAdapter('facebook').parseWebhook(payload())[0]).not.toHaveProperty(
+      'quickReplyPayload',
+    );
+    const ig = { ...body, object: 'instagram' };
+    expect(new MetaAdapter('instagram').parseWebhook(ig)[0]?.quickReplyPayload).toBe(
+      'ORDER_CONFIRM',
+    );
+  });
+  it('declares quick reply support', () => {
+    expect(new MetaAdapter('facebook').capabilities().quickReplies).toBe(true);
+    expect(new MetaAdapter('instagram').capabilities().quickReplies).toBe(true);
+  });
   it('sends several images as one album message', async () => {
     const transport = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ message_id: 'm.2' }));
     await new MetaAdapter('facebook', 'v24.0', transport).send(

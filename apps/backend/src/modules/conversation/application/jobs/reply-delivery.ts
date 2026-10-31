@@ -2,7 +2,12 @@ import type { ImageInput } from '@agent-sales/ai-core';
 import type { InboxMessageDto } from '@agent-sales/contracts';
 import { splitReply } from '@agent-sales/shared';
 import type { Logger } from '@nestjs/common';
-import type { MessageSink, OutgoingMessage, ReplyResult } from '../../../ai/api/index.js';
+import type {
+  MessageSink,
+  OutgoingMessage,
+  QuickReply,
+  ReplyResult,
+} from '../../../ai/api/index.js';
 import type { BotView } from '../../../bot/api/index.js';
 import type { ChannelFacade, PendingMetaEvent } from '../../../channel/api/index.js';
 import type { ConversationFacade } from '../../api/conversation.facade.js';
@@ -114,7 +119,7 @@ export class ReplyDelivery {
     if (await this.stopForNewer()) return { delivered: 0 };
     try {
       const text = message.text?.trim();
-      if (text) await this.sendText(text, `${this.turn.key}:s${n}`);
+      if (text) await this.sendText(text, `${this.turn.key}:s${n}`, message.quickReplies);
       if (!this.stop && message.images.length && !(text && (await this.stopForNewer())))
         await this.sendImages(message.images, `${this.turn.key}:s${n}:img`);
     } catch (error) {
@@ -185,8 +190,15 @@ export class ReplyDelivery {
     if (wait > 0) await this.deps.pacing.sleep(wait);
   }
 
-  /** Bubbles of one text (`splitReply`); stops at the first one not delivered. */
-  private async sendText(text: string, key: string): Promise<void> {
+  /**
+   * Bubbles of one text (`splitReply`); stops at the first one not delivered. Quick replies go on
+   * the last bubble only (spec §4.4); keys and pacing do not change.
+   */
+  private async sendText(
+    text: string,
+    key: string,
+    quickReplies?: readonly QuickReply[],
+  ): Promise<void> {
     const { job, conversationId, revision } = this.turn;
     const { inbox, channels } = this.deps;
     const bubbles = splitReply(text.slice(0, MAX_TEXT_CHARS));
@@ -199,17 +211,23 @@ export class ReplyDelivery {
           .catch(() => undefined);
       }
       const idempotencyKey = index === 0 ? key : `${key}:t${index + 1}`;
+      const buttons =
+        index === bubbles.length - 1 && quickReplies?.length
+          ? { quickReplies: quickReplies.slice(0, 3) }
+          : {};
       // The turn's first message also checks that nothing changed since the context was read;
       // later ones only need the bot to still hold the conversation.
       const result = this.first
         ? await inbox.commitBotFollowUp(job.workspaceId, conversationId, {
             text: bubble,
             idempotencyKey,
+            ...buttons,
           })
         : await inbox.commitBotReply(job.workspaceId, conversationId, {
             revision,
             text: bubble,
             idempotencyKey,
+            ...buttons,
           });
       if (!result) {
         this.stop = 'takeover';

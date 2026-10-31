@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import { META_CAPABILITIES } from './capabilities.js';
 import { parseFeedComments } from './meta-comments.js';
 import type {
   ChannelAdapter,
@@ -62,6 +63,8 @@ export class MetaAdapter implements ChannelAdapter {
         if (typeof peer !== 'string' || peer === e.id) continue;
         const timestamp = typeof m.timestamp === 'number' ? m.timestamp : NaN;
         if (!Number.isFinite(timestamp) || timestamp <= 0 || timestamp > 8640000000000000) continue;
+        // A tapped quick reply: the text stays the button title, the payload rides along.
+        const quickReply = record(message.quick_reply).payload;
         events.push({
           kind: this.kind,
           assetExternalId: e.id,
@@ -72,6 +75,9 @@ export class MetaAdapter implements ChannelAdapter {
           occurredAt: new Date(timestamp),
           text: typeof message.text === 'string' ? message.text : '',
           attachments: attachments(message.attachments),
+          ...(typeof quickReply === 'string' && quickReply
+            ? { quickReplyPayload: quickReply.slice(0, 1000) }
+            : {}),
           raw: item,
         });
       }
@@ -212,7 +218,7 @@ export class MetaAdapter implements ChannelAdapter {
     };
   }
   capabilities() {
-    return { richCards: false, quickReplies: false, media: true, replyWindowHours: 24 };
+    return { ...META_CAPABILITIES };
   }
   mapError(error: unknown): ConnectorError {
     return {
@@ -240,12 +246,20 @@ function attachments(value: unknown): InboundAttachment[] {
   }
   return result;
 }
-/** Meta takes either text or attachments in one message; several attachments arrive as one album. */
+/**
+ * Meta takes either text or attachments in one message; several attachments arrive as one album.
+ * Quick replies (at most 3 buttons) ride on a text message; Messenger and Instagram share the shape.
+ */
 function outbound(message: OutboundMessage): Record<string, unknown> {
   const items = (message.attachments ?? [])
     .slice(0, 10)
     .map((a) => ({ type: a.type, payload: { url: a.url, is_reusable: true } }));
-  if (!items.length) return { text: message.text };
+  if (!items.length) {
+    const quick = (message.quickReplies ?? [])
+      .slice(0, 3)
+      .map((q) => ({ content_type: 'text', title: q.title, payload: q.payload }));
+    return quick.length ? { text: message.text, quick_replies: quick } : { text: message.text };
+  }
   return items.length === 1 ? { attachment: items[0] } : { attachments: items };
 }
 function record(value: unknown): Record<string, unknown> {
