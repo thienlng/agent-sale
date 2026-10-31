@@ -182,7 +182,9 @@ export async function runAgentLoop(input: AgentLoopInput): Promise<AgentLoopResu
     const out = await callModel({
       ...input.base,
       messages: [...input.base.messages, ...followUps],
-      timeoutMs: clamp((budgetMs - elapsed) / 2, MIN_CALL_TIMEOUT_MS, MAX_CALL_TIMEOUT_MS),
+      timeoutMs: Math.floor(
+        clamp((budgetMs - elapsed) / 2, MIN_CALL_TIMEOUT_MS, MAX_CALL_TIMEOUT_MS),
+      ),
       ...(finalCall ? { toolChoice: 'none' as const } : {}),
     });
     if (out === INTERRUPTED) {

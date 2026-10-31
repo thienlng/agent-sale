@@ -233,7 +233,7 @@ export class LlmGateway {
 /** Clones the request with `timeoutMs` set to the time left on the call's deadline. */
 function withRemaining(request: GenerateRequest, deadline: number | undefined): GenerateRequest {
   if (deadline === undefined) return request;
-  return { ...request, timeoutMs: Math.max(1, deadline - Date.now()) };
+  return { ...request, timeoutMs: Math.max(1, Math.floor(deadline - Date.now())) };
 }
 
 const NO_FALLBACK_KINDS: ReadonlySet<LlmErrorKind> = new Set([

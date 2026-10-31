@@ -58,6 +58,7 @@ import {
 } from './reply-context.js';
 import {
   decideReply,
+  fallbackText,
   joinedImages,
   meteredGenerate,
   type ReplyDecision,
@@ -330,7 +331,7 @@ export class PlaygroundService implements AiFacade {
 
     const decision: ReplyDecision = loop
       ? decideReply({ loop, output, bot, actionFallback: actionState.fallback })
-      : { outcome: 'answered', guardrail: 'model_error', final: null };
+      : { outcome: 'answered', guardrail: 'model_error', final: fallbackText(bot) };
     const messages = turnMessages(output, decision);
     const interrupted = loop?.outcome === 'interrupted';
     // A question that never reached the customer must not be confirmed by their next "ok".

@@ -297,6 +297,12 @@ describe('HermesProvider native tools', () => {
     expect(error).toMatchObject({ kind: 'rate_limit', retryAfterMs: 17_000, status: 429 });
   });
 
+  it('accepts a fractional timeoutMs (AbortSignal.timeout needs whole milliseconds)', async () => {
+    const transport = vi.fn().mockImplementation(async () => reply({ text: 'hi' }));
+    const res = await make(transport).generate({ ...request, timeoutMs: 58_190.5 }, { model: 'm' });
+    expect(res.text).toBe('hi');
+  });
+
   it('never lets timeoutMs extend past the transport default', async () => {
     const timeout = vi.spyOn(AbortSignal, 'timeout');
     const transport = vi.fn().mockImplementation(async () => reply({ text: 'hi' }));

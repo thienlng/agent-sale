@@ -143,8 +143,9 @@ export class HermesProvider implements LlmProvider {
     // default (the bridge's own 50 s run budget + refresh). Aborting earlier leaves the bridge's
     // single slot busy; its next answer is then 429 with a Retry-After estimate of the remaining
     // time, surfaced as `rate_limit` so the gateway backoff waits instead of hammering.
+    // AbortSignal.timeout only takes a whole number of milliseconds.
     const timeout = AbortSignal.timeout(
-      Math.min(request.timeoutMs ?? this.#timeout, this.#timeout),
+      Math.max(1, Math.floor(Math.min(request.timeoutMs ?? this.#timeout, this.#timeout))),
     );
     const signal = request.signal ? AbortSignal.any([timeout, request.signal]) : timeout;
     let response: Response;

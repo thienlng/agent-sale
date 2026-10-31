@@ -130,7 +130,7 @@ export interface ReplyDecision {
   final: string | null;
 }
 
-const fallbackText = (bot: BotView): string =>
+export const fallbackText = (bot: BotView): string =>
   bot.fallbackMessage.trim() || defaultFallbackMessage(bot);
 const handoffText = (bot: BotView): string =>
   bot.handoffMessage.trim() || defaultHandoffMessage(bot);
@@ -176,7 +176,10 @@ export function decideReply(input: {
   const forced = forcedGuardrail(loop, input.actionFallback);
   const text = forced ? '' : normalizeReplyText(loop.res?.text ?? '');
   if (text) return { outcome: 'answered', guardrail: null, final: text };
-  if (sentAny) return { outcome: 'answered', guardrail: forced, final: null };
+  // Cut short after a send (budget, round limit, invalid tools): close with the fallback line so
+  // a promise like "em gửi ảnh từng mẫu nhé" is not left hanging.
+  if (sentAny)
+    return { outcome: 'answered', guardrail: forced, final: forced ? fallbackText(bot) : null };
   return { outcome: 'fallback', guardrail: forced, final: fallbackText(bot) };
 }
 

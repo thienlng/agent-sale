@@ -361,7 +361,7 @@ describe('reply on the agent loop: context', () => {
     ]);
   });
 
-  it('reports what was already delivered instead of throwing when a later call fails', async () => {
+  it('reports what was already delivered and closes with the fallback when a later call fails', async () => {
     const { svc, runs } = build([
       calls(sendMessage({ text: 'Dạ em gửi ảnh ạ', imageIds: [] })),
       new Error('provider down'),
@@ -373,12 +373,14 @@ describe('reply on the agent loop: context', () => {
       sink,
     });
     expect(sent).toHaveLength(1);
-    expect(res).toMatchObject({
-      outcome: 'answered',
-      guardrail: 'model_error',
-      reply: 'Dạ em gửi ảnh ạ',
-      messages: [{ text: 'Dạ em gửi ảnh ạ', images: [], via: 'send_message' }],
-    });
+    expect(res).toMatchObject({ outcome: 'answered', guardrail: 'model_error' });
+    // The sink already delivered the first message; the caller sends the fallback line last.
+    expect(res.messages).toEqual([
+      { text: 'Dạ em gửi ảnh ạ', images: [], via: 'send_message' },
+      { text: expect.any(String), images: [], via: 'final' },
+    ]);
+    expect(res.messages?.[1]?.text.length).toBeGreaterThan(0);
+    expect(res.reply.startsWith('Dạ em gửi ảnh ạ\n')).toBe(true);
     expect(res.steps?.map((s) => s.kind)).toEqual(['model_call', 'tool']);
     expect(runs.runs).toEqual([
       expect.objectContaining({ outcome: 'answered', guardrail: 'model_error', inputTokens: 10 }),

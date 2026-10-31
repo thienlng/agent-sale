@@ -132,6 +132,17 @@ describe('runAgentLoop', () => {
     expect(timeouts).toEqual([60_000, 35_000, 15_000]);
   });
 
+  it('passes a whole number of milliseconds when the remaining budget is odd', async () => {
+    let t = 0;
+    const generate = vi.fn(async (_r: GenerateRequest) => {
+      t += 3_619;
+      return generate.mock.calls.length < 2 ? reply('', [tc(String(t))]) : reply('done');
+    });
+    await runAgentLoop({ base, tools: [lookup], generate, now: () => t });
+    const timeouts = generate.mock.calls.map((c) => c[0].timeoutMs);
+    expect(timeouts).toEqual([60_000, 58_190]);
+  });
+
   it('adds the wrap-up notice once at 80% of the budget', async () => {
     let t = 0;
     const generate = vi.fn(async (_r: GenerateRequest) => {
