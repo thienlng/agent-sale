@@ -31,9 +31,5 @@ expect:
   contains_any: ['số điện thoại', 'SĐT']
   not_contains: ['vẫn còn', 'đang còn', 'còn trống ạ', 'còn phòng ạ', "\\n"]
   numbers_only_from_sources: true
-  fake_reply:
-    {
-      outcome: answer,
-      reply: 'Dạ anh/chị cho em xin ngày nhận phòng, số khách và số điện thoại để nhân viên kiểm tra lịch trống giúp ạ.',
-      sources: [],
-    }
+fake_turns:
+  - text: 'Dạ anh/chị cho em xin ngày nhận phòng, số khách và số điện thoại để nhân viên kiểm tra lịch trống giúp ạ.'

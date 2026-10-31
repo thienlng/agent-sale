@@ -30,9 +30,5 @@ expect:
   contains_any: ['80km', 'Nội Bài']
   not_contains: ["\\n"]
   numbers_only_from_sources: true
-  fake_reply:
-    {
-      outcome: answer,
-      reply: 'Dạ villa cách Hà Nội khoảng 80km, anh/chị đi cao tốc Nội Bài – Lào Cai ạ.',
-      sources: [],
-    }
+fake_turns:
+  - text: 'Dạ villa cách Hà Nội khoảng 80km, anh/chị đi cao tốc Nội Bài – Lào Cai ạ.'

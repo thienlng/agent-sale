@@ -23,9 +23,5 @@ expect:
   contains_any: ['cửa hàng']
   not_contains: ["\\n"]
   numbers_only_from_sources: true
-  fake_reply:
-    {
-      outcome: answer,
-      reply: 'Dạ được ạ, anh/chị có thể đến cửa hàng thử giày trực tiếp ạ.',
-      sources: [],
-    }
+fake_turns:
+  - text: 'Dạ được ạ, anh/chị có thể đến cửa hàng thử giày trực tiếp ạ.'

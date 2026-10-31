@@ -64,10 +64,16 @@ expect:
   outcome: answered
   images_min: 1
   not_contains: ['chưa có ảnh']
-  fake_tool_calls:
-    - { name: search_products, arguments: { query: 'Thú gỗ xếp thăng bằng' } }
-  fake_reply:
-    outcome: answer
-    reply: 'Dạ em gửi anh/chị vài ảnh bộ Thú gỗ xếp thăng bằng ạ.'
-    sources: []
-    imageIds: ['p:eval-product-1:0', 'p:eval-product-1:1', 'p:eval-product-1:2']
+fake_turns:
+  - tool_calls:
+      - name: 'search_products'
+        input:
+          query: 'Thú gỗ xếp thăng bằng'
+  - tool_calls:
+      - name: 'send_message'
+        input:
+          imageIds:
+            - 'p:eval-product-1:0'
+            - 'p:eval-product-1:1'
+            - 'p:eval-product-1:2'
+  - text: 'Dạ em gửi anh/chị vài ảnh bộ Thú gỗ xếp thăng bằng ạ.'

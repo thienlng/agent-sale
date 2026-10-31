@@ -23,9 +23,5 @@ expect:
   contains_any: ['6 tháng']
   not_contains: ["\\n"]
   numbers_only_from_sources: true
-  fake_reply:
-    {
-      outcome: answer,
-      reply: 'Dạ giày bên em được bảo hành 6 tháng cho lỗi do nhà sản xuất như bong keo, đứt chỉ ạ.',
-      sources: [],
-    }
+fake_turns:
+  - text: 'Dạ giày bên em được bảo hành 6 tháng cho lỗi do nhà sản xuất như bong keo, đứt chỉ ạ.'

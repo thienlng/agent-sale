@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { runChecks } from '../evals/checks.js';
+import { loadCases } from '../evals/load.js';
 
 const base = {
   reply: 'Dạ giày được bảo hành 6 tháng ạ.',
@@ -141,5 +142,59 @@ describe('eval checks', () => {
       true,
     );
     expect(runChecks({ max_occurrences: { 'anh/chị': 0 } }, base)[0]?.pass).toBe(true);
+  });
+
+  it('messages_min, image_messages_min and images_per_message_max read the delivered messages', () => {
+    const messages = [
+      { text: 'Thú gỗ xếp thăng bằng', images: 3 },
+      { text: 'Xương rồng gỗ', images: 1 },
+      { text: 'Dạ bé thích mẫu nào ạ?', images: 0 },
+    ];
+    const input = { ...base, messages, images: 4 };
+    const passing = runChecks(
+      { messages_min: 3, image_messages_min: 2, images_per_message_max: 3, images_min: 4 },
+      input,
+    );
+    expect(passing.map((c) => [c.name, c.pass])).toEqual([
+      ['images_min', true],
+      ['messages_min', true],
+      ['image_messages_min', true],
+      ['images_per_message_max', true],
+    ]);
+    const failing = runChecks(
+      { messages_min: 4, image_messages_min: 3, images_per_message_max: 2 },
+      input,
+    );
+    expect(failing.filter((c) => !c.pass).map((c) => c.name)).toEqual([
+      'messages_min',
+      'image_messages_min',
+      'images_per_message_max',
+    ]);
+    expect(failing.find((c) => c.name === 'images_per_message_max')?.detail).toContain('3');
+  });
+
+  it('counts no delivered messages when the input has none', () => {
+    expect(runChecks({ messages_min: 1 }, base)[0]).toMatchObject({
+      name: 'messages_min',
+      pass: false,
+    });
+    expect(runChecks({ images_per_message_max: 0 }, base)[0]?.pass).toBe(true);
+  });
+
+  it('the "ktra xong chưa" patterns reject a promise to check but not a past-tense answer', () => {
+    const c = loadCases().find((x) => x.id === 'tinymind-check-follow-up-no-promise');
+    const expectation = { not_matches: c?.expect.not_matches };
+    expect(expectation.not_matches?.length).toBeGreaterThan(0);
+    for (const promise of [
+      'Dạ để em kiểm tra lại rồi báo anh/chị ngay ạ.',
+      'Dạ em sẽ xem lại kho rồi báo ạ.',
+      'Dạ em kiểm tra lại rồi báo anh/chị nhé.',
+    ])
+      expect(runChecks(expectation, { ...base, reply: promise })[0]?.pass, promise).toBe(false);
+    for (const answer of [
+      'Dạ em đã kiểm tra rồi ạ, mẫu này còn hàng, giá 460.000đ ạ.',
+      'Dạ Xương rồng gỗ xếp thăng bằng phù hợp bé từ 2 tuổi trở lên, còn hàng ạ.',
+    ])
+      expect(runChecks(expectation, { ...base, reply: answer })[0]?.pass, answer).toBe(true);
   });
 });

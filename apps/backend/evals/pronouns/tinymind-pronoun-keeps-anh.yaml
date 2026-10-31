@@ -66,10 +66,14 @@ expect:
   outcome: answered
   contains_all: ['anh']
   not_contains: ['anh/chị', 'chị']
-  fake_tool_calls:
-    - { name: search_products, arguments: { query: 'Thú gỗ xếp thăng bằng' } }
-  fake_reply:
-    outcome: answer
-    reply: 'Dạ bộ này còn hàng anh ạ, em gửi anh ảnh nhé.'
-    sources: []
-    imageIds: ['p:eval-product-1:0']
+fake_turns:
+  - tool_calls:
+      - name: 'search_products'
+        input:
+          query: 'Thú gỗ xếp thăng bằng'
+  - tool_calls:
+      - name: 'send_message'
+        input:
+          imageIds:
+            - 'p:eval-product-1:0'
+  - text: 'Dạ bộ này còn hàng anh ạ, em gửi anh ảnh nhé.'

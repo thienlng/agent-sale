@@ -67,6 +67,7 @@ function caseLines(r: CaseResult): string[] {
     ...(r.error ? [`  error: ${r.error}`] : failed.map((f) => `  failed ${f}`)),
     `  customer: ${oneLine(r.customer)}`,
     `  reply: ${oneLine(r.reply)}${r.guardrail ? `  (guardrail ${r.guardrail})` : ''}`,
+    `  delivered: ${r.messages} messages, ${r.images} pictures`,
   ];
 }
 

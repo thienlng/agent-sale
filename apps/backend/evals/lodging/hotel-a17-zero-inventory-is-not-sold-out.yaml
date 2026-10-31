@@ -55,12 +55,12 @@
       'numbers_only_from_sources': true,
       'contains_any': ['chưa có lịch', 'kiểm tra'],
       'not_contains': ['hết hàng', 'còn trống ạ', 'đã giữ', 'đã đặt'],
-      'fake_tool_calls': [{ 'name': 'search_products', 'arguments': { 'query': 'A17' } }],
-      'fake_reply':
-        {
-          'outcome': 'answer',
-          'reply': 'Dạ em chưa có lịch trống thực tế của A17. Anh/chị cho em xin ngày nhận, ngày trả và số khách để chủ căn kiểm tra ạ.',
-          'sources': [],
-        },
     },
+  fake_turns:
+    [
+      { tool_calls: [{ name: 'search_products', input: { query: 'A17' } }] },
+      {
+        text: 'Dạ em chưa có lịch trống thực tế của A17. Anh/chị cho em xin ngày nhận, ngày trả và số khách để chủ căn kiểm tra ạ.',
+      },
+    ],
 }

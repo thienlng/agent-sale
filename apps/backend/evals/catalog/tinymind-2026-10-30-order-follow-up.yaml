@@ -66,10 +66,9 @@ expect:
   contains_all: ['Thú gỗ xếp thăng bằng']
   contains_any: ['địa chỉ', 'số điện thoại']
   not_contains: ['chưa có']
-  fake_tool_calls:
-    - { name: search_products, arguments: { query: 'Thú gỗ xếp thăng bằng' } }
-  fake_reply:
-    outcome: answer
-    reply: 'Dạ em lên đơn 4 bộ Thú gỗ xếp thăng bằng cho anh/chị ạ. Anh/chị cho em xin họ tên, số điện thoại và địa chỉ nhận hàng nhé.'
-    sources: []
-    imageIds: []
+fake_turns:
+  - tool_calls:
+      - name: 'search_products'
+        input:
+          query: 'Thú gỗ xếp thăng bằng'
+  - text: 'Dạ em lên đơn 4 bộ Thú gỗ xếp thăng bằng cho anh/chị ạ. Anh/chị cho em xin họ tên, số điện thoại và địa chỉ nhận hàng nhé.'

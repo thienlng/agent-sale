@@ -24,9 +24,5 @@ expect:
   not_contains: ["\\n"]
   numbers_only_from_sources: true
   max_lines: 3
-  fake_reply:
-    {
-      outcome: answer,
-      reply: "Dạ shop ở 12 Lê Lợi, Quận 1, TP.HCM ạ.\nShop mở cửa 8h00 - 21h00 mỗi ngày ạ.",
-      sources: [],
-    }
+fake_turns:
+  - text: "Dạ shop ở 12 Lê Lợi, Quận 1, TP.HCM ạ.\nShop mở cửa 8h00 - 21h00 mỗi ngày ạ."

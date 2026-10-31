@@ -63,10 +63,14 @@ conversation:
 expect:
   outcome: answered
   max_occurrences: { 'anh/chị': 1 }
-  fake_tool_calls:
-    - { name: search_products, arguments: { query: 'đồ chơi gỗ 1 tuổi' } }
-  fake_reply:
-    outcome: answer
-    reply: 'Dạ bên em có bộ Thú gỗ xếp thăng bằng, hợp với bé từ 1 tuổi ạ. Em gửi ảnh để mình xem nhé.'
-    sources: []
-    imageIds: ['p:eval-product-1:0']
+fake_turns:
+  - tool_calls:
+      - name: 'search_products'
+        input:
+          query: 'đồ chơi gỗ 1 tuổi'
+  - tool_calls:
+      - name: 'send_message'
+        input:
+          imageIds:
+            - 'p:eval-product-1:0'
+  - text: 'Dạ bên em có bộ Thú gỗ xếp thăng bằng, hợp với bé từ 1 tuổi ạ. Em gửi ảnh để mình xem nhé.'
