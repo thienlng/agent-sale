@@ -60,6 +60,23 @@ describe('TestChat', () => {
     });
   });
 
+  it('shows a bot answer as the same bubbles Messenger receives', async () => {
+    const answer = {
+      ...reply,
+      reply: 'Dạ bộ này giá 340.000đ ạ.\nBé mấy tuổi rồi ạ? Em tư vấn thêm nhé.',
+    };
+    const { fetchStub } = stubFetch({
+      [`POST /bots/${botId}/playground`]: { status: 200, body: answer },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithProviders(<TestChat botId={botId} greeting="Dạ Shop Lan xin chào ạ!" />);
+
+    await userEvent.type(screen.getByLabelText('Nhập tin nhắn của bạn'), 'gia sao{Enter}');
+
+    for (const bubble of ['Dạ bộ này giá 340.000đ ạ.', 'Bé mấy tuổi rồi ạ?', 'Em tư vấn thêm nhé.'])
+      expect(await screen.findByText(bubble)).toBeInTheDocument();
+  });
+
   it('explains a missing AI configuration instead of failing silently', async () => {
     const { fetchStub } = stubFetch({
       [`POST /bots/${botId}/playground`]: {

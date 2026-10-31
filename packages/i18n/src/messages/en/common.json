@@ -734,15 +734,23 @@
       "saved": "Product saved",
       "created": "Product created",
       "images": "Product images",
-      "imagesHint": "Up to {{max}} images (HTTPS links). The bot sends these when a customer asks to see the product.",
-      "imageUrl": "Image link (https://…)",
-      "addImage": "Add image",
+      "imagesHint": "Up to {{max}} images (JPG, PNG or WebP) chosen from your device. The bot sends these when a customer asks to see the product.",
       "removeImage": "Remove image {{n}}",
       "imageAlt": "Product image {{n}}",
       "imageCount": "{{n}}/{{max}} images",
-      "imageInvalid": "Only valid HTTPS links up to 2000 characters are accepted.",
-      "imageDuplicate": "This image is already in the list.",
-      "imageLimit": "All {{max}} images are used."
+      "imageInvalid": "This file is not a valid image (JPG, PNG or WebP).",
+      "pickImages": "Choose images",
+      "dropImages": "Drag and drop images here or",
+      "uploadingImages": "Uploading images…",
+      "moveImageLeft": "Move image {{n}} left",
+      "moveImageRight": "Move image {{n}} right",
+      "imageUnreadable": "This image cannot be read. Choose a JPG, PNG or WebP picture.",
+      "imageTooMany": "Only {{n}} more image(s) fit; the extra files were ignored.",
+      "imageTooLarge": "This image is too large. Choose a smaller picture.",
+      "imageStorageUnavailable": "Image storage is not available right now. Please try again later.",
+      "imageUploadFailed": "The image could not be uploaded. Please try again.",
+      "imageNotUploaded": "This product still has a linked image. Remove it and upload the picture instead.",
+      "imagesFull": "All image slots are used. Remove one to add another."
     },
     "stock": {
       "title": "Stock",
@@ -1649,9 +1657,7 @@
     "notes": "Notes",
     "gallery": "Property photos",
     "caption": "Photo caption",
-    "imageUrl": "HTTPS image URL",
-    "addPhoto": "Add photo",
-    "invalid": "Check the details, bedroom count, seven-day tariff coverage and HTTPS photo URLs.",
+    "invalid": "Check the details, bedroom count, seven-day tariff coverage and a caption for every photo.",
     "saved": "Property saved.",
     "permission": "You do not have permission for this action.",
     "requestsTitle": "Stay requests",
@@ -1710,6 +1716,7 @@
     "availabilityUnknown": "Property details do not confirm availability. Staff must verify the actual calendar for the requested dates.",
     "previous": "Previous page",
     "next": "Next page",
-    "conflict": "Details changed, the request key was already used, or the dates overlap a confirmed stay. Reload the list and check the calendar before retrying."
+    "conflict": "Details changed, the request key was already used, or the dates overlap a confirmed stay. Reload the list and check the calendar before retrying.",
+    "photoAlt": "Property photo {{n}}"
   }
 }
