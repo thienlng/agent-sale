@@ -1,0 +1,63 @@
+# Public entry point. One host serves everything, like scripts/dev-tunnel-proxy.mjs:
+#   /api/*      -> api        /webhooks/* -> webhook     /media/* -> object storage (read only)
+#   /widget.js  -> widget     / and site assets -> marketing site     else -> dashboard SPA
+# PUBLIC_HOST comes from the server's .env; Caddy obtains and renews the HTTPS certificate.
+{
+	email {$ACME_EMAIL}
+}
+
+{$PUBLIC_HOST} {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+
+	# Legacy OAuth redirect path registered on the Meta app.
+	handle /api/channels/oauth/* {
+		uri replace /api/channels/oauth/ /api/v1/channels/oauth/ 1
+		reverse_proxy api:3000
+	}
+	handle /api/* {
+		reverse_proxy api:3000
+	}
+	handle /webhooks/* {
+		reverse_proxy webhook:3001
+	}
+
+	# Public product pictures for Meta. Reads only; the anonymous S3 identity cannot list.
+	handle_path /media/* {
+		@write not method GET HEAD
+		respond @write 405
+		@query expression {query} != ""
+		respond @query 404
+		rewrite * /{$S3_BUCKET}{uri}
+		reverse_proxy object-storage:8333
+	}
+
+	handle /widget.js {
+		root * /srv/widget
+		header Cache-Control "public, max-age=300"
+		file_server
+	}
+
+	@site path / /index.html /images/* /fonts/* /_astro/*
+	handle @site {
+		root * /srv/site
+		@hashed path /_astro/*
+		header @hashed Cache-Control "public, max-age=31536000, immutable"
+		file_server
+	}
+
+	handle {
+		root * /srv/web
+		@hashed path /assets/*
+		header @hashed Cache-Control "public, max-age=31536000, immutable"
+		try_files {path} /index.html
+		@shell path /index.html
+		header @shell Cache-Control "no-cache"
+		file_server
+	}
+}
