@@ -240,7 +240,14 @@
     "imagesUnsupported": "Mô hình AI hiện tại chưa đọc được ảnh. Hãy thử gửi tin nhắn chữ, hoặc liên hệ quản trị hệ thống để bật nhận diện ảnh.",
     "imageOnly": "(Ảnh)",
     "imageRead": "Không đọc được ảnh, vui lòng thử lại.",
-    "unavailable": "Chưa cấu hình mô hình AI cho gói này. Liên hệ quản trị hệ thống."
+    "unavailable": "Chưa cấu hình mô hình AI cho gói này. Liên hệ quản trị hệ thống.",
+    "steps": {
+      "title": "Các bước bot đã làm",
+      "ok": "xong",
+      "failed": "lỗi",
+      "ms": "{{ms}} ms"
+    },
+    "interrupted": "Khách vừa nhắn thêm nên bot dừng lượt này giữa chừng"
   },
   "admin": {
     "title": "Mô hình AI",
