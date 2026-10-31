@@ -2,18 +2,75 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 
 import { parseBridgeBaseUrl } from './bridge-url.js';
-import type { GenerateRequest, GenerateResponse, LlmProvider, ModelTarget } from '../gateway.js';
+import { EmulatedToolsProvider } from '../emulated-tools.js';
+import {
+  type ChatMessage,
+  type GenerateRequest,
+  type GenerateResponse,
+  INVALID_JSON_INPUT_KEY,
+  type LlmErrorKind,
+  LlmCallError,
+  type LlmProvider,
+  type ModelTarget,
+  type ToolCall,
+} from '../gateway.js';
 
-const BridgeReply = z.object({
-  version: z.literal(1),
-  text: z.string().min(1).max(100_000),
-  model: z.string().min(1).max(200),
-  usage: z.object({
-    inputTokens: z.number().int().nonnegative(),
-    outputTokens: z.number().int().nonnegative(),
-    cachedInputTokens: z.number().int().nonnegative(),
-  }),
-});
+const BridgeReply = z
+  .object({
+    version: z.literal(1),
+    text: z.string().max(100_000),
+    toolCalls: z
+      .array(z.object({ id: z.string().min(1), name: z.string().min(1), arguments: z.string() }))
+      .max(64)
+      .default([]),
+    stopReason: z.enum(['end', 'max_tokens', 'tool_use', 'refusal']).optional(),
+    model: z.string().min(1).max(200),
+    usage: z.object({
+      inputTokens: z.number().int().nonnegative(),
+      outputTokens: z.number().int().nonnegative(),
+      cachedInputTokens: z.number().int().nonnegative(),
+    }),
+  })
+  .refine((reply) => reply.text.length > 0 || reply.toolCalls.length > 0);
+
+/** Wire form of a history message (bridge contract v2). */
+function toBridgeMessage(message: ChatMessage): Record<string, unknown> {
+  if (message.role === 'tool' && message.toolCallId)
+    return {
+      role: 'tool',
+      content: message.content,
+      toolCallId: message.toolCallId,
+      ...(message.name ? { name: message.name } : {}),
+    };
+  if (message.role === 'assistant' && message.toolCalls?.length)
+    return {
+      role: 'assistant',
+      content: message.content,
+      toolCalls: message.toolCalls.map((call) => ({
+        id: call.id,
+        name: call.name,
+        arguments: JSON.stringify(call.input ?? {}),
+      })),
+    };
+  return { role: message.role, content: message.content };
+}
+
+function parseArguments(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return { [INVALID_JSON_INPUT_KEY]: true };
+  }
+}
+
+function httpErrorKind(status: number): LlmErrorKind {
+  if (status === 429) return 'rate_limit';
+  if (status === 401 || status === 403) return 'auth';
+  if (status === 503) return 'overloaded';
+  if (status === 413) return 'context_too_long';
+  if (status >= 400 && status < 500) return 'invalid_request';
+  return 'unknown';
+}
 
 /**
  * The bridge may run a turn for its 50 s budget plus a 15 s token refresh. Aborting earlier frees
@@ -50,7 +107,6 @@ export class HermesProvider implements LlmProvider {
   }
 
   async generate(request: GenerateRequest, target: ModelTarget): Promise<GenerateResponse> {
-    if (request.tools?.length) throw new Error('Hermes bridge tools are not enabled');
     const started = performance.now();
     const images = request.images?.length ? request.images : undefined;
     const body = JSON.stringify({
@@ -59,10 +115,21 @@ export class HermesProvider implements LlmProvider {
       workspaceId: request.workspaceId,
       model: target.model,
       effort: target.effort ?? null,
-      messages: request.messages,
+      messages: request.messages.map(toBridgeMessage),
       maxOutputTokens: request.maxOutputTokens ?? 2000,
       responseSchema: request.responseFormat ? z.toJSONSchema(request.responseFormat) : null,
       ...(images ? { images } : {}),
+      ...(request.tools?.length
+        ? {
+            tools: request.tools.map((tool) => ({
+              name: tool.name,
+              description: tool.description,
+              parameters: z.toJSONSchema(tool.input),
+            })),
+            ...(request.toolChoice ? { toolChoice: request.toolChoice } : {}),
+          }
+        : {}),
+      ...(request.promptCacheKey ? { promptCacheKey: request.promptCacheKey } : {}),
     });
     // The text cap stays; an image request may add the base64 bytes (mirrors the bridge's MAX_IMAGE_BODY).
     const imageChars = images?.reduce((sum, image) => sum + image.base64.length, 0) ?? 0;
@@ -71,20 +138,34 @@ export class HermesProvider implements LlmProvider {
       Buffer.byteLength(body) > MAX_IMAGE_BODY_BYTES
     )
       throw new Error('Hermes context exceeds bridge limit');
+    // A per-call timeout from the agent loop wins over the transport floor: the loop owns the budget.
+    const timeout = AbortSignal.timeout(request.timeoutMs ?? this.#timeout);
+    const signal = request.signal ? AbortSignal.any([timeout, request.signal]) : timeout;
     let response: Response;
     try {
       response = await this.#fetch(this.#endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.#key}` },
         body,
-        signal: AbortSignal.timeout(this.#timeout),
+        signal,
         redirect: 'error',
       });
     } catch {
       // Fetch errors can contain private URLs or upstream response text.
-      throw new Error('Hermes bridge request failed');
+      if (request.signal?.aborted)
+        throw new LlmCallError('aborted', 'Hermes bridge request aborted');
+      if (timeout.aborted) throw new LlmCallError('timeout', 'Hermes bridge request timed out');
+      throw new LlmCallError('network', 'Hermes bridge request failed');
     }
-    if (!response.ok) throw new Error(`Hermes bridge unavailable (${response.status})`);
+    if (!response.ok) {
+      const retryAfter = Number(response.headers.get('retry-after'));
+      throw new LlmCallError(
+        httpErrorKind(response.status),
+        `Hermes bridge unavailable (${response.status})`,
+        Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : undefined,
+        response.status,
+      );
+    }
     let result: z.infer<typeof BridgeReply>;
     try {
       const raw = await response.text();
@@ -93,14 +174,74 @@ export class HermesProvider implements LlmProvider {
     } catch {
       throw new Error('Invalid Hermes bridge response');
     }
+    const toolCalls: ToolCall[] = result.toolCalls.map((call) => ({
+      id: call.id,
+      name: call.name,
+      input: parseArguments(call.arguments),
+    }));
     return {
       text: result.text,
-      toolCalls: [],
-      stopReason: 'end',
+      toolCalls,
+      stopReason: toolCalls.length ? 'tool_use' : (result.stopReason ?? 'end'),
       usage: result.usage,
       provider: this.name,
       model: result.model,
       latencyMs: Math.round(performance.now() - started),
     };
+  }
+}
+
+/**
+ * Asks the bridge whether it carries native function calls (`/health` → `nativeTools: true`).
+ * Any failure (down, slow, old bridge, bad JSON) means "assume emulated".
+ */
+export async function probeHermesNativeTools(options: {
+  baseURL: string;
+  fetch?: typeof fetch;
+}): Promise<boolean> {
+  const base = parseBridgeBaseUrl(options.baseURL);
+  if (!base) return false;
+  try {
+    const response = await (options.fetch ?? fetch)(`${base}/health`, {
+      signal: AbortSignal.timeout(2_000),
+      redirect: 'error',
+    });
+    if (!response.ok) return false;
+    const body: unknown = JSON.parse(await response.text());
+    return (
+      typeof body === 'object' &&
+      body !== null &&
+      (body as { nativeTools?: unknown }).nativeTools === true
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Hermes with native tools when the bridge supports them, otherwise wrapped in
+ * `EmulatedToolsProvider`. The `/health` check runs once, on the first call.
+ */
+export class HermesAutoToolsProvider implements LlmProvider {
+  readonly name: string;
+  readonly #native: HermesProvider;
+  readonly #emulated: EmulatedToolsProvider;
+  readonly #probe: () => Promise<boolean>;
+  #choice: Promise<LlmProvider> | undefined;
+
+  constructor(options: ConstructorParameters<typeof HermesProvider>[0]) {
+    this.#native = new HermesProvider(options);
+    this.name = this.#native.name;
+    this.#emulated = new EmulatedToolsProvider(this.#native);
+    this.#probe = () =>
+      probeHermesNativeTools({
+        baseURL: options.baseURL,
+        ...(options.fetch ? { fetch: options.fetch } : {}),
+      });
+  }
+
+  generate(request: GenerateRequest, target: ModelTarget): Promise<GenerateResponse> {
+    this.#choice ??= this.#probe().then((native) => (native ? this.#native : this.#emulated));
+    return this.#choice.then((provider) => provider.generate(request, target));
   }
 }

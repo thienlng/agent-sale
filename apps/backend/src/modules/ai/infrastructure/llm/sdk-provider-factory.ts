@@ -1,8 +1,8 @@
 import {
   AnthropicProvider,
   EmulatedToolsProvider,
+  HermesAutoToolsProvider,
   HermesLoginClient,
-  HermesProvider,
   type LlmProvider,
   listProviderModels,
   OpenAiCompatibleProvider,
@@ -31,9 +31,12 @@ export class SdkLlmProviderFactory implements LlmProviderFactory {
       timeoutMs: config.options.timeoutMs,
     };
     if (config.kind === 'hermes')
-      return new EmulatedToolsProvider(
-        new HermesProvider({ ...common, name: config.name, baseURL: config.baseUrl ?? '' }),
-      );
+      // Native function calls when the bridge's /health says so, emulated JSON tools otherwise.
+      return new HermesAutoToolsProvider({
+        ...common,
+        name: config.name,
+        baseURL: config.baseUrl ?? '',
+      });
     if (config.kind === 'anthropic') return new AnthropicProvider({ ...common, name: config.name });
     const emulated = config.options.tools === 'emulated';
     const provider = new OpenAiCompatibleProvider({
