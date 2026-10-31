@@ -25,6 +25,8 @@ export interface NormalizedEvent {
   senderExternalId: string;
   occurredAt: Date;
   text?: string;
+  /** Payload of the quick reply the customer tapped; `text` stays the button title. */
+  quickReplyPayload?: string;
   attachments?: Array<{ type: 'image' | 'video' | 'file' | 'audio' | 'sticker'; url: string }>;
   /** Raw payload kept for investigation (retention 30 days). */
   raw: unknown;
@@ -41,6 +43,8 @@ export interface OutboundMessage {
   attachments?: Array<{ type: 'image' | 'video' | 'audio' | 'file'; url: string }>;
   /** Rich content rendered per channel capability (product card, album…). */
   rich?: { kind: 'product_card' | 'album' | 'quick_replies'; data: unknown };
+  /** Buttons under the text (at most 3, titles of 20 characters or fewer); see `capabilities`. */
+  quickReplies?: { title: string; payload: string }[];
 }
 
 export interface SendResult {

@@ -191,6 +191,7 @@ export function ordersTx(ws: WorkspaceId, tx: TenantTx): Pick<CommerceTx, 'order
                 productName: oi.productName,
                 variantName: oi.variantName,
                 qty: oi.qty,
+                unitPrice: oi.unitPrice,
               })
               .from(oi)
               .where(inArray(oi.orderId, ids))
@@ -210,6 +211,9 @@ export function ordersTx(ws: WorkspaceId, tx: TenantTx): Pick<CommerceTx, 'order
               .map((i) => ({
                 name: [i.productName, i.variantName].filter(Boolean).join(' – '),
                 qty: i.qty,
+                variantName: i.variantName || null,
+                unitPrice: i.unitPrice,
+                imageUrl: null,
               })),
           })),
           total: n(totals?.c),

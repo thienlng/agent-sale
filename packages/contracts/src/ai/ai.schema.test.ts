@@ -39,3 +39,32 @@ describe('PlaygroundResponse harness v2 fields', () => {
     expect(parsed.steps).toBeUndefined();
   });
 });
+
+describe('PlaygroundResponse quick replies', () => {
+  const message = (quickReplies: unknown) => ({
+    ...base,
+    messages: [{ text: 'Tóm tắt đơn', images: [], via: 'send_message', quickReplies }],
+  });
+
+  it('accepts up to three quick replies on a message', () => {
+    const replies = [
+      { title: '✅ Đặt hàng', payload: 'ORDER_CONFIRM' },
+      { title: '✏️ Sửa thông tin', payload: 'ORDER_EDIT' },
+    ];
+    expect(PlaygroundResponse.parse(message(replies)).messages?.[0]?.quickReplies).toEqual(replies);
+    expect(
+      PlaygroundResponse.parse(message(undefined)).messages?.[0]?.quickReplies,
+    ).toBeUndefined();
+  });
+
+  it('rejects a fourth reply, a title over 20 characters and a payload over 100', () => {
+    const r = { title: 'Ok', payload: 'OK' };
+    expect(PlaygroundResponse.safeParse(message([r, r, r, r])).success).toBe(false);
+    expect(PlaygroundResponse.safeParse(message([{ ...r, title: 'x'.repeat(21) }])).success).toBe(
+      false,
+    );
+    expect(
+      PlaygroundResponse.safeParse(message([{ ...r, payload: 'x'.repeat(101) }])).success,
+    ).toBe(false);
+  });
+});

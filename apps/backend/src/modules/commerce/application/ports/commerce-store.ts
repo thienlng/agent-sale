@@ -1,5 +1,10 @@
 import type { WorkspaceId } from '@agent-sales/shared';
-import type { AccommodationDetails } from '@agent-sales/contracts';
+import type {
+  AccommodationDetails,
+  OrderCreatedByKind,
+  OrderReviewState,
+  OrderSummaryDto,
+} from '@agent-sales/contracts';
 
 import type { OrderStatus, StockState } from '../../domain/order-stock.js';
 
@@ -107,6 +112,13 @@ export interface OrderRecord {
   createdByUserId: string | null;
   createdByName: string | null;
   clientRequestId: string | null;
+  createdByKind: OrderCreatedByKind;
+  /** Bot orders: the source conversation and the staff review (null for other orders). */
+  conversationId: string | null;
+  reviewState: OrderReviewState | null;
+  reviewedByUserId: string | null;
+  reviewedByName: string | null;
+  reviewedAt: Date | null;
   placedAt: Date;
   confirmedAt: Date | null;
   cancelledAt: Date | null;
@@ -114,6 +126,9 @@ export interface OrderRecord {
   createdAt: Date;
   updatedAt: Date;
 }
+
+/** One line of the list's product column. */
+export type OrderItemPreview = OrderSummaryDto['itemsPreview'][number];
 
 export interface HistoryRecord {
   fromStatus: OrderStatus | null;
@@ -142,7 +157,7 @@ export interface OrderListFilter {
 }
 
 export interface OrderListResult {
-  rows: Array<OrderRecord & { itemsPreview: Array<{ name: string; qty: number }> }>;
+  rows: Array<OrderRecord & { itemsPreview: OrderItemPreview[] }>;
   total: number;
   counts: Record<string, number>;
   totals: {

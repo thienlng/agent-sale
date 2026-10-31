@@ -28,6 +28,10 @@ export interface BotSettingsData {
   tone: 'friendly' | 'formal';
   allowEmoji: boolean;
   placeholders: Record<string, string>;
+  /** "Chốt đơn": the bot may prepare and create orders. */
+  orderTaking: boolean;
+  /** Integer VND; null: "Phí ship: shop báo sau". */
+  orderShippingFeeVnd: number | null;
 }
 
 /** Structured business facts of a bot: keyed fields (contracts `PROFILE_FIELDS`) plus free notes. */

@@ -87,6 +87,11 @@ export const PlaygroundResponse = z.object({
         text: z.string(),
         images: z.array(z.object({ id: z.string(), url: z.string(), label: z.string() })),
         via: z.enum(['send_message', 'final']),
+        /** Buttons under this message (the order summary's confirm/edit). */
+        quickReplies: z
+          .array(z.object({ title: z.string().max(20), payload: z.string().max(100) }))
+          .max(3)
+          .optional(),
       }),
     )
     .optional(),

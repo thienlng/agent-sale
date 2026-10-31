@@ -1,8 +1,9 @@
 import { z } from 'zod';
 import { AccommodationDetails } from './lodging.schema.js';
+import { Money } from './money.schema.js';
+import { OrderItemPreview, OrderOriginFields } from './order-review.schema.js';
 
-/** Money: integer VND (docs/05 conventions). */
-export const Money = z.number().int().min(0).max(1_000_000_000_000);
+export { Money } from './money.schema.js';
 
 // ─── Order statuses (docs/02 ORD-05) ──────────────────────────────────────────
 
@@ -416,8 +417,9 @@ export const OrderSummaryDto = z.object({
   noteInternal: z.string(),
   amounts: OrderAmounts,
   /** First items, for the list's product column. */
-  itemsPreview: z.array(z.object({ name: z.string(), qty: z.number().int() })),
+  itemsPreview: z.array(OrderItemPreview),
   createdByName: z.string().nullable(),
+  ...OrderOriginFields,
   placedAt: z.iso.datetime(),
 });
 export type OrderSummaryDto = z.infer<typeof OrderSummaryDto>;
@@ -447,6 +449,8 @@ export const OrderListQuery = z.object({
   /** `exclude`: every order whose status is NOT in `status`. */
   statusMode: z.enum(['include', 'exclude']).default('include'),
   createdBy: z.uuid().optional(),
+  /** `pending`: only bot orders that staff have not approved yet. */
+  review: z.enum(['pending']).optional(),
   /** Exact carrier name as entered on the order. */
   carrier: z.string().trim().min(1).max(60).optional(),
   /** Order code, tracking code, customer/recipient name, phone, address, notes (accent-insensitive). */

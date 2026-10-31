@@ -53,6 +53,7 @@ import {
   reservationChanges,
   stockChanges,
   toOrderDto,
+  STAFF_ORDER_ORIGIN,
   toSummary,
 } from './order.mappers.js';
 import {
@@ -61,6 +62,10 @@ import {
   type CommerceTx,
   type OrderRecord,
 } from './ports/commerce-store.js';
+
+const notImplemented = (): never => {
+  throw new Error('not implemented');
+};
 
 const CLOSED: ReadonlySet<string> = new Set(CLOSED_ORDER_STATUSES);
 const FULFILMENT: ReadonlySet<string> = new Set(FULFILMENT_ORDER_STATUSES);
@@ -150,6 +155,7 @@ export class OrderService implements CommerceFacade {
         createdByUserId: actorUserId,
         createdByName: actorName,
         clientRequestId: input.clientRequestId ?? null,
+        ...STAFF_ORDER_ORIGIN,
         placedAt: input.placedAt ? new Date(input.placedAt) : now,
         confirmedAt: CLOSED.has(input.status) ? now : null,
         cancelledAt: input.status === 'cancelled' ? now : null,
@@ -428,4 +434,10 @@ export class OrderService implements CommerceFacade {
     ]);
     return toOrderDto(o, items, history, warehouse?.name ?? '');
   }
+
+  // Bot orders: placeholders until the bot order service implements them.
+  prepareBotOrder = notImplemented;
+  confirmBotOrder = notImplemented;
+  cancelBotOrderDraft = notImplemented;
+  hasBotOrderDraft = notImplemented;
 }

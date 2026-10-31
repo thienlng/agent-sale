@@ -1,4 +1,5 @@
 import {
+  bigint,
   boolean,
   index,
   jsonb,
@@ -25,6 +26,9 @@ export const bots = pgTable(
     /** 'all' sells every active product; 'selected' only the bot_products rows (0029). */
     catalogMode: text('catalog_mode').notNull().default('all').$type<'all' | 'selected'>(),
     settings: jsonb('settings').notNull().$type<Record<string, unknown>>(),
+    /** "Chốt đơn" (0039): kept out of `settings`; null fee means "shop báo sau". */
+    orderTaking: boolean('order_taking').notNull().default(false),
+    orderShippingFeeVnd: bigint('order_shipping_fee_vnd', { mode: 'number' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
