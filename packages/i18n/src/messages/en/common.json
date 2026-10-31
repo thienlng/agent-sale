@@ -209,7 +209,15 @@
     "guidanceMoved": "The bot's mission, how it addresses people and its greeting live in",
     "guidanceLink": "Reply guidance",
     "factsMoved": "Store details such as address, prices and policies live in",
-    "factsLink": "Business information"
+    "factsLink": "Business information",
+    "orders": {
+      "title": "Order taking",
+      "enabled": "Bot takes orders",
+      "enabledHint": "The bot gathers the products, phone number and address, then sends a summary for the customer to confirm. The order then waits for staff review.",
+      "shippingFee": "Default shipping fee",
+      "shippingFeeHint": "Leave empty: the order summary says “Phí ship: shop báo sau” (shop confirms shipping later)",
+      "currency": "₫"
+    }
   },
   "playground": {
     "title": "Test chat",
@@ -247,7 +255,10 @@
       "failed": "failed",
       "ms": "{{ms}} ms"
     },
-    "interrupted": "A newer customer message cut this turn short"
+    "interrupted": "A newer customer message cut this turn short",
+    "quickReplies": {
+      "label": "Quick replies"
+    }
   },
   "admin": {
     "title": "AI models",

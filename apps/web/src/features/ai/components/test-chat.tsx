@@ -98,17 +98,35 @@ export function TestChat({
     }
     setReading(false);
     const sent = attachments.take();
+    setDraft('');
+    dispatch(
+      content,
+      sent.map(({ id, url }) => ({ id, url })),
+      images,
+    );
+  }
+
+  /** A quick reply sends its title only: the typed draft and queued images stay put. */
+  function sendQuickReply(title: string) {
+    if (!title.trim() || busy) return;
+    dispatch(title.trim(), [], undefined);
+  }
+
+  function dispatch(
+    content: string,
+    sentImages: { id: number; url: string }[],
+    images: Awaited<ReturnType<typeof toPlaygroundImages>> | undefined,
+  ) {
     const history: Turn[] = [
       ...turns,
       {
         id: ++seq.current,
         role: 'customer',
         content,
-        ...(sent.length ? { images: sent.map(({ id, url }) => ({ id, url })) } : {}),
+        ...(sentImages.length ? { images: sentImages } : {}),
       },
     ];
     setTurns(history);
-    setDraft('');
     const messages = [
       ...(greeting ? [{ role: 'bot' as const, content: greeting }] : []),
       ...history
@@ -217,13 +235,22 @@ export function TestChat({
                       {turn.result?.messages?.length ? (
                         // Each message the agent sent, in order, as Messenger shows it:
                         // its text bubbles, then its own album.
-                        turn.result.messages.map((message, index) => (
+                        turn.result.messages.map((message, index, all) => (
                           <div key={index} className="flex flex-col gap-1">
                             <TurnBubbles turn={turn} text={message.text} />
                             {message.images.length ? (
                               <div className="mt-0.5">
                                 <BotImages images={message.images} />
                               </div>
+                            ) : null}
+                            {/* Only the newest bot message offers its buttons, as on
+                                Messenger; any customer turn after it retires them. */}
+                            {turn === turns.at(-1) && index === all.length - 1 ? (
+                              <QuickReplies
+                                replies={message.quickReplies}
+                                disabled={busy}
+                                onPick={sendQuickReply}
+                              />
                             ) : null}
                           </div>
                         ))
@@ -286,6 +313,42 @@ export function TestChat({
         busy={busy}
       />
     </section>
+  );
+}
+
+/**
+ * A message's quick-reply buttons. Picking one sends only its title as the
+ * customer's next message; the draft and queued images are left alone.
+ */
+function QuickReplies({
+  replies,
+  disabled,
+  onPick,
+}: {
+  replies: { title: string; payload: string }[] | undefined;
+  disabled: boolean;
+  onPick: (title: string) => void;
+}) {
+  const { t } = useTranslation();
+  if (!replies?.length) return null;
+  return (
+    <div
+      role="group"
+      aria-label={t('playground.quickReplies.label')}
+      className="flex flex-wrap gap-2 pt-1"
+    >
+      {replies.map((reply) => (
+        <button
+          key={reply.payload}
+          type="button"
+          disabled={disabled}
+          onClick={() => onPick(reply.title)}
+          className="min-h-8 rounded-full border border-primary/60 bg-background px-3.5 py-1 text-sm font-medium text-primary transition-colors hover:bg-primary-soft focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
+        >
+          {reply.title}
+        </button>
+      ))}
+    </div>
   );
 }
 
