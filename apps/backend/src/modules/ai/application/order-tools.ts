@@ -70,7 +70,7 @@ export interface OrderToolContext {
   /** Absent: the summary is collected (playground), like `send_message`. */
   sink?: MessageSink;
   output: OutputState;
-  /** A draft stored before this turn started: the only one this turn can confirm or cancel. */
+  /** A draft stored before the customer's newest message: the only one this turn can confirm or cancel. */
   confirmable: boolean;
   state: OrderToolState;
 }
@@ -78,22 +78,52 @@ export interface OrderToolContext {
 export interface OrderToolState {
   /** A draft was stored this turn: it cannot be confirmed in the same turn. */
   stored: boolean;
+  /** A summary send was attempted this turn: a second one is refused (no duplicate summaries). */
+  summarySent: boolean;
+  /** `confirm_order` created an order this turn: its final message must reach the customer. */
+  orderCreated: boolean;
 }
 
-export const newOrderToolState = (): OrderToolState => ({ stored: false });
+export const newOrderToolState = (): OrderToolState => ({
+  stored: false,
+  summarySent: false,
+  orderCreated: false,
+});
+
+/**
+ * The time a draft must predate to be confirmable: the customer's newest message (an "ok" written
+ * before the summary arrived answers something else), or the turn start when times are unknown.
+ */
+export function confirmCutoff(
+  messages: readonly { role: string }[],
+  times: readonly Date[] | undefined,
+  turnStartedAt: Date,
+): Date {
+  if (!times || times.length !== messages.length) return turnStartedAt;
+  for (let i = messages.length - 1; i >= 0; i--)
+    if (messages[i]?.role === 'customer') return times[i] ?? turnStartedAt;
+  return turnStartedAt;
+}
 
 /**
  * Whether the conversation's draft can be confirmed by this turn: it must have been stored before
- * the turn started (the customer has seen the summary since), the same rule as pending actions.
+ * `cutoff` (the customer has seen the summary since), the same rule as pending actions. A failed
+ * check means "not confirmable" (`onError` gets the error to log its class).
  */
 export async function confirmableDraft(
   facade: CommerceFacade,
   ws: WorkspaceId,
   conversationId: string,
-  turnStartedAt: Date,
+  cutoff: Date,
+  onError?: (error: unknown) => void,
 ): Promise<boolean> {
-  const draft = await facade.hasBotOrderDraft(ws, conversationId);
-  return draft.pending && draft.storedAt !== null && draft.storedAt < turnStartedAt;
+  try {
+    const draft = await facade.hasBotOrderDraft(ws, conversationId);
+    return draft.pending && draft.storedAt !== null && draft.storedAt < cutoff;
+  } catch (error) {
+    onError?.(error);
+    return false;
+  }
 }
 
 const reply = (value: unknown, ok = true) => ({ content: safeJson(value), ok });
@@ -107,6 +137,10 @@ export function orderTools(ctx: OrderToolContext): {
   runnable: RunnableTool[];
 } {
   const { facade, ws, conversationId, state } = ctx;
+  const dropDraft = async (): Promise<void> => {
+    await facade.cancelBotOrderDraft(ws, conversationId);
+    state.stored = false;
+  };
 
   const prepare: RunnableTool = {
     name: PREPARE_ORDER_TOOL,
@@ -114,6 +148,8 @@ export function orderTools(ctx: OrderToolContext): {
     schema: PrepareOrderInput,
     run: async (input) => {
       const args = input as z.infer<typeof PrepareOrderInput>;
+      // One summary per turn: a second one would stack buttons for two different drafts.
+      if (state.summarySent) return reply({ ok: false, error: 'already_sent' }, false);
       const res = await facade.prepareBotOrder(ws, {
         botId: ctx.bot.id,
         conversationId,
@@ -131,11 +167,17 @@ export function orderTools(ctx: OrderToolContext): {
         images: [],
         quickReplies: ORDER_QUICK_REPLIES.map((q) => ({ ...q })),
       };
-      const delivered = ctx.sink ? (await ctx.sink.send(message)).delivered : 1;
-      if (delivered <= 0) {
-        // The customer never saw it: their next "ok" must not confirm it.
-        await facade.cancelBotOrderDraft(ws, conversationId);
-        state.stored = false;
+      state.summarySent = true;
+      let sent: { delivered: number; complete?: boolean } = { delivered: 1 };
+      try {
+        if (ctx.sink) sent = await ctx.sink.send(message);
+      } catch (error) {
+        await dropDraft();
+        throw error;
+      }
+      if (sent.delivered <= 0 || sent.complete === false) {
+        // The customer never saw the whole summary: their next "ok" must not confirm it.
+        await dropDraft();
         return reply({ ok: false, error: 'not_delivered' }, false);
       }
       ctx.output.sent.push({
@@ -164,9 +206,9 @@ export function orderTools(ctx: OrderToolContext): {
         botName: ctx.bot.name,
         conversationId,
       });
-      return res.ok
-        ? reply({ ok: true, orderCode: res.orderCode })
-        : reply({ ok: false, code: res.code }, false);
+      if (!res.ok) return reply({ ok: false, code: res.code }, false);
+      state.orderCreated = true;
+      return reply({ ok: true, orderCode: res.orderCode });
     },
   };
 

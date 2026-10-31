@@ -21,6 +21,7 @@ import {
   CANCEL_ORDER_DRAFT_TOOL,
   CONFIRM_ORDER_TOOL,
   confirmableDraft,
+  confirmCutoff,
   newOrderToolState,
   ORDER_QUICK_REPLIES,
   type OrderToolContext,
@@ -73,9 +74,15 @@ function fakeCommerce(
   return facade as unknown as CommerceFacade & { draft: { storedAt: Date } | null };
 }
 
-const recordingSink = (delivered = 1) => {
+const recordingSink = (delivered = 1, complete?: boolean) => {
   const sent: OutgoingMessage[] = [];
-  return { sent, send: async (m: OutgoingMessage) => (sent.push(m), { delivered }) };
+  return {
+    sent,
+    send: async (m: OutgoingMessage) => (
+      sent.push(m),
+      { delivered, ...(complete === undefined ? {} : { complete }) }
+    ),
+  };
 };
 
 function context(facade: CommerceFacade, extra: Partial<OrderToolContext> = {}): OrderToolContext {
@@ -170,6 +177,59 @@ describe('order tools (spec §4.1)', () => {
     expect(ctx.output.sent).toEqual([]);
   });
 
+  it('drops the draft when only part of the summary went out', async () => {
+    const facade = fakeCommerce();
+    const ctx = context(facade, { sink: recordingSink(1, false) });
+    const out = await runnable(ctx, PREPARE_ORDER_TOOL).run(ORDER_INPUT);
+    expect(JSON.parse(out.content)).toEqual({ ok: false, error: 'not_delivered' });
+    expect(facade.cancelBotOrderDraft).toHaveBeenCalledWith(ws, conversationId);
+    expect(facade.draft).toBeNull();
+    expect(ctx.output.sent).toEqual([]);
+    expect(ctx.state.stored).toBe(false);
+  });
+
+  it('drops the draft and rethrows when the sink fails', async () => {
+    const facade = fakeCommerce();
+    const sink = {
+      send: async () => {
+        throw new Error('graph down');
+      },
+    };
+    const ctx = context(facade, { sink });
+    await expect(runnable(ctx, PREPARE_ORDER_TOOL).run(ORDER_INPUT)).rejects.toThrow('graph down');
+    expect(facade.cancelBotOrderDraft).toHaveBeenCalledWith(ws, conversationId);
+    expect(facade.draft).toBeNull();
+  });
+
+  it('refuses a second summary in the same turn and sends nothing more', async () => {
+    const facade = fakeCommerce();
+    const sink = recordingSink();
+    const ctx = context(facade, { sink });
+    const tool = runnable(ctx, PREPARE_ORDER_TOOL);
+    await tool.run(ORDER_INPUT);
+    const second = await tool.run({ ...ORDER_INPUT, items: [{ sku: 'TOY-2', qty: 1 }] });
+    expect(JSON.parse(second.content)).toEqual({ ok: false, error: 'already_sent' });
+    expect(facade.prepareBotOrder).toHaveBeenCalledTimes(1);
+    expect(sink.sent).toHaveLength(1);
+  });
+
+  it('enforces the input limits', () => {
+    const { schema } = runnable(context(fakeCommerce()), PREPARE_ORDER_TOOL);
+    const ok = (v: object) => schema.safeParse({ ...ORDER_INPUT, ...v }).success;
+    const recipient = (v: object) => ({ recipient: { ...ORDER_INPUT.recipient, ...v } });
+    expect(ok(recipient({ name: 'a'.repeat(120) }))).toBe(true);
+    expect(ok(recipient({ name: 'a'.repeat(121) }))).toBe(false);
+    expect(ok(recipient({ address: 'a'.repeat(300) }))).toBe(true);
+    expect(ok(recipient({ address: 'a'.repeat(301) }))).toBe(false);
+    expect(ok({ note: 'a'.repeat(300) })).toBe(true);
+    expect(ok({ note: 'a'.repeat(301) })).toBe(false);
+    const items = (n: number) => ({
+      items: Array.from({ length: n }, (_, i) => ({ sku: `S${i}`, qty: 1 })),
+    });
+    expect(ok(items(20))).toBe(true);
+    expect(ok(items(21))).toBe(false);
+  });
+
   it('rejects a price or bad quantity in the arguments by schema', () => {
     const tool = runnable(context(fakeCommerce()), PREPARE_ORDER_TOOL);
     expect(tool.schema.safeParse({ ...ORDER_INPUT, items: [{ sku: 'A', qty: 100 }] }).success).toBe(
@@ -233,6 +293,26 @@ describe('order tools (spec §4.1)', () => {
     expect(await confirmableDraft(at(-1_000), ws, conversationId, start)).toBe(true);
     expect(await confirmableDraft(at(1_000), ws, conversationId, start)).toBe(false);
     expect(await confirmableDraft(fakeCommerce(), ws, conversationId, start)).toBe(false);
+  });
+
+  it('treats a failed draft check as not confirmable', async () => {
+    const facade = fakeCommerce();
+    vi.mocked(facade.hasBotOrderDraft).mockRejectedValueOnce(new TypeError('db down'));
+    const onError = vi.fn();
+    expect(await confirmableDraft(facade, ws, conversationId, new Date(), onError)).toBe(false);
+    expect(onError).toHaveBeenCalledWith(expect.any(TypeError));
+  });
+
+  it('cuts off at the newest customer message when times are known', () => {
+    const start = new Date('2026-10-31T10:00:10Z');
+    const t = (s: number) => new Date(`2026-10-31T10:00:0${s}Z`);
+    const msgs = [{ role: 'customer' }, { role: 'assistant' }, { role: 'customer' }];
+    expect(confirmCutoff(msgs, [t(1), t(2), t(3)], start)).toEqual(t(3));
+    expect(
+      confirmCutoff([...msgs, { role: 'assistant' }], [t(1), t(2), t(3), t(4)], start),
+    ).toEqual(t(3));
+    expect(confirmCutoff(msgs, undefined, start)).toBe(start);
+    expect(confirmCutoff(msgs, [t(1)], start)).toBe(start);
   });
 });
 
@@ -341,6 +421,78 @@ describe('order tools in the reply pipeline', () => {
     );
   });
 
+  describe('a stale "ok"', () => {
+    const summaryAt = new Date(Date.now() - 60_000);
+    const okTurn = {
+      messages: [
+        { role: 'customer' as const, content: 'lấy 2 thú gỗ' },
+        { role: 'customer' as const, content: 'ok' },
+      ],
+    };
+    const times = (okAt: Date) => [new Date(summaryAt.getTime() - 120_000), okAt];
+
+    it('an "ok" written before the summary arrived does not offer confirm_order', async () => {
+      const commerce = fakeCommerce({ storedAt: summaryAt });
+      const { svc, requests } = build(bot, [{ text: 'Dạ' }], commerce);
+      const okAt = new Date(summaryAt.getTime() - 1_000);
+      await svc.reply(ws, botId, okTurn, {
+        conversationId,
+        isTest: false,
+        sink: recordingSink(),
+        turnTimes: times(okAt),
+      });
+      expect(toolNames(requests[0])).toContain(PREPARE_ORDER_TOOL);
+      expect(toolNames(requests[0])).not.toContain(CONFIRM_ORDER_TOOL);
+    });
+
+    it('an "ok" written after the summary offers confirm_order', async () => {
+      const commerce = fakeCommerce({ storedAt: summaryAt });
+      const { svc, requests } = build(bot, [{ text: 'Dạ' }], commerce);
+      const okAt = new Date(summaryAt.getTime() + 1_000);
+      await svc.reply(ws, botId, okTurn, {
+        conversationId,
+        isTest: false,
+        sink: recordingSink(),
+        turnTimes: times(okAt),
+      });
+      expect(toolNames(requests[0])).toContain(CONFIRM_ORDER_TOOL);
+    });
+  });
+
+  it('marks a turn that created an order, so its final message is never dropped', async () => {
+    const commerce = fakeCommerce({ storedAt: new Date(Date.now() - 60_000) });
+    const confirmCall: Partial<GenerateResponse> = {
+      text: '',
+      stopReason: 'tool_use',
+      toolCalls: [{ id: 'c1', name: CONFIRM_ORDER_TOOL, input: {} }],
+    };
+    const { svc } = build(bot, [confirmCall, { text: 'Dạ đơn DH0042 đã được tạo ạ.' }], commerce);
+    const res = await svc.reply(ws, botId, ask('✅ Đặt hàng'), {
+      conversationId,
+      isTest: false,
+      sink: recordingSink(),
+    });
+    expect(res.orderCreated).toBe(true);
+    expect(res.reply).toContain('DH0042');
+
+    const plain = build(bot, [{ text: 'Dạ' }]);
+    const other = await plain.svc.reply(ws, botId, ask('xin chào'), {
+      conversationId,
+      isTest: false,
+      sink: recordingSink(),
+    });
+    expect(other.orderCreated).toBeUndefined();
+  });
+
+  it('a failed draft check offers no confirm and does not fail the turn', async () => {
+    const commerce = fakeCommerce({ storedAt: new Date(Date.now() - 60_000) });
+    vi.mocked(commerce.hasBotOrderDraft).mockRejectedValueOnce(new Error('db down'));
+    const { svc, requests } = build(bot, [{ text: 'Dạ' }], commerce);
+    const res = await svc.playground(ws, botId, ask('ok'));
+    expect(res.outcome).toBe('answered');
+    expect(toolNames(requests[0])).not.toContain(CONFIRM_ORDER_TOOL);
+  });
+
   it('uses the conversation channel as the order source', async () => {
     const { svc, commerce } = build(bot, [prepareCall, { text: '' }]);
     const sink = recordingSink();
@@ -365,6 +517,7 @@ describe('prompts 15 and 16', () => {
     expect(p15).toContain('prepare_order');
     expect(p15).toContain('confirm_order');
     expect(p15).toContain('Never call handoff merely because an order is ready');
+    expect(p15).toContain('except where the lodging rules say not to state a total');
     expect(p15).not.toContain('Lodging facts and decisions');
   });
 

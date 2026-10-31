@@ -53,6 +53,7 @@ import { createHistorySummarizer } from './history-summarizer.js';
 import { LlmRuntime } from './llm-runtime.js';
 import {
   confirmableDraft,
+  confirmCutoff,
   newOrderToolState,
   type OrderToolContext,
   PLAYGROUND_ORDER_CHANNEL,
@@ -243,7 +244,13 @@ export class PlaygroundService implements AiFacade {
             channel: options.channel ?? PLAYGROUND_ORDER_CHANNEL,
             ...(options.sink ? { sink: options.sink } : {}),
             output,
-            confirmable: await confirmableDraft(this.commerce, ws, conversationKey, startedAt),
+            confirmable: await confirmableDraft(
+              this.commerce,
+              ws,
+              conversationKey,
+              confirmCutoff(input.messages, options.turnTimes, startedAt),
+              (error) => this.#logger.warn(`Order draft check failed: ${errorClass(error)}`),
+            ),
             state: newOrderToolState(),
           }
         : null;
@@ -416,6 +423,7 @@ export class PlaygroundService implements AiFacade {
       steps,
       ...(interrupted && loop ? { interrupted: true, carry: loop.followUps } : {}),
       ...(actionState.askedConfirmation ? { askedConfirmation: true } : {}),
+      ...(orders?.state.orderCreated ? { orderCreated: true } : {}),
     };
   }
 
