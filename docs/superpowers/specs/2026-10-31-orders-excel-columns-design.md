@@ -42,7 +42,7 @@ The orders toolbar takes two rows: search, the "Bot · chờ duyệt" quick filt
 | Trạng thái (`status`) | ✓ | checklist with counts plus "Loại trừ các mục đã chọn" (exclude mode) |
 
 - **Checklists** have "Chọn tất cả" / "Bỏ chọn" and show counts from `facets.counts`: the orders matching every other filter, Excel-style. Status uses the existing `counts`.
-- **Pending bot orders stay visible.** The "Người tạo" header shows a primary-coloured dot while any bot order is pending review: `facets.counts.creator.bot_pending > 0` in the unfiltered sense. The dot carries a tooltip, "n đơn bot chờ duyệt", and clicking it opens the menu.
+- **Pending bot orders stay visible.** The "Người tạo" header shows a primary-coloured dot while any bot order is pending review, from the existing `GET /orders/review-count` (independent of the filters). The dot carries a tooltip, "n đơn bot chờ duyệt", and clicking it opens the menu.
 - **All state lives in the URL** (`OrdersSearch`), so sharing a link or reloading keeps it. Old URLs (`review=pending`, `createdBy=<id>`, a single `source`) still work: they are mapped to the new parameters when read.
 - **Below `md`** the cards have no headers. The toolbar shows a "Lọc & sắp xếp" button that opens a sheet listing the same column editors.
 
