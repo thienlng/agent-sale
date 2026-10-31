@@ -119,7 +119,7 @@ describe('MetaInboxProcessor — re-run state (fix round 1)', () => {
   });
 
   it('retries the event (no silent drop) when the first send throws before anything was stored', async () => {
-    const { ai, channels, inbox, run } = setup();
+    const { ai, billing, channels, inbox, run } = setup();
     vi.spyOn(inbox, 'commitBotReply').mockRejectedValueOnce(new Error('db down'));
     const results: { delivered: number }[] = [];
     ai.reply.mockImplementationOnce(async (_w, _b, _req, options) => {
@@ -131,6 +131,28 @@ describe('MetaInboxProcessor — re-run state (fix round 1)', () => {
     expect(channels.deliver).not.toHaveBeenCalled();
     expect(channels.completeEvent).not.toHaveBeenCalled();
     expect(channels.releaseEvent).toHaveBeenCalledTimes(1);
+    // Nothing was delivered: the reservation is given back.
+    expect(billing.releaseReply).toHaveBeenCalledWith(ws, 'bot:f1');
+    expect(billing.captureReply).not.toHaveBeenCalled();
+  });
+
+  it('keeps the pending re-run when an echo is claimed alone before it', async () => {
+    const { ai, channels, run } = setup();
+    const carry = [{ role: 'assistant' as const, content: 'tool work' }];
+    ai.reply.mockImplementationOnce(async (_w, _b, _req, options) => {
+      await options.sink!.send({ text: 'Dạ em xem ạ', images: [] });
+      return { ...answer(''), interrupted: true, carry } as Partial<ReplyResult>;
+    });
+    const first = job('e1', 'còn hàng không?');
+    await run(first);
+    // Meta's echo of the run's own send (delivered as `sent1`) arrives in a tick of its own.
+    const echo = job('sent1', 'Dạ em xem ạ');
+    await run({ ...echo, event: { ...echo.event, type: 'echo' } });
+    expect(ai.reply).toHaveBeenCalledTimes(1);
+    ai.reply.mockResolvedValueOnce(answer('Còn ạ'));
+    await run({ ...first }, job('e2', 'màu đen'));
+    expect(ai.reply.mock.calls[1]![3].carry).toBe(carry);
+    expect(channels.requeueEvent).toHaveBeenCalledTimes(1);
   });
 
   it('drops a pending re-run when staff took over and handed back before it ran', async () => {

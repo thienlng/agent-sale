@@ -117,6 +117,7 @@ export function setup(pacing?: ReplyPacing) {
     fakeCrm() as never,
   );
   const ai = { reply: vi.fn<Reply>(async () => answer('ok')) };
+  const billing = fakeBilling();
   const sleeps: number[] = [];
   let clock = 0;
   const recorder: ReplyPacing = {
@@ -131,7 +132,7 @@ export function setup(pacing?: ReplyPacing) {
     inbox,
     ai as unknown as AiFacade,
     bots,
-    fakeBilling() as unknown as BillingFacade,
+    billing as unknown as BillingFacade,
     { fetch: async () => null },
     false,
     undefined,
@@ -147,5 +148,17 @@ export function setup(pacing?: ReplyPacing) {
     vi.mocked(channels.claimEvents).mockResolvedValueOnce(jobs);
     await processor.tick();
   };
-  return { channels, inbox, ai, processor, sleeps, keys, texts, takeOver, run, conversationId };
+  return {
+    billing,
+    channels,
+    inbox,
+    ai,
+    processor,
+    sleeps,
+    keys,
+    texts,
+    takeOver,
+    run,
+    conversationId,
+  };
 }

@@ -148,10 +148,11 @@ export class MetaInboxProcessor {
   }
   async process(job: PendingMetaEvent): Promise<'requeue' | void> {
     const c = await this.inbox.receive(job.workspaceId, job.connectionId, job.event);
-    // Taken now so every skip below drops it: a later, unrelated turn must not inherit it.
-    const taken = this.resumes.take(job.workspaceId, c.id);
+    // An echo (e.g. of the interrupted run's own send) leaves the pending re-run alone.
     if (job.event.type !== 'message' || !isCustomerContent(job.event))
       return this.skip(job, 'not a customer message');
+    // Taken now so every skip below drops it: a later, unrelated turn must not inherit it.
+    const taken = this.resumes.take(job.workspaceId, c.id);
     if (c.mode !== 'bot' || c.status !== 'open') return this.skip(job, 'conversation not on bot');
     const channel = await this.channels.getConnection(job.workspaceId, job.connectionId);
     // Re-auth pending: the message is stored for staff, but the bot cannot send.
