@@ -410,6 +410,10 @@ describe('sales-agent prompt and handoff reply', () => {
     expect(system).toContain('one idea per line');
     expect(system).toContain('up to 3 image ids');
     expect(system).toContain('call it several times for more pictures');
+    // Final review: handoff ends the turn, and no "looking it up" message before a lookup.
+    expect(system).toContain('write that confirmation in the same response as the handoff call');
+    expect(system).toContain('Look things up first, then answer');
+    expect(system).not.toContain('before a longer lookup');
     expect(system).toContain(
       'Call handoff (with a short reason) when the customer asks for a person',
     );
@@ -707,7 +711,20 @@ describe('prompts 13 and 14 (T-138)', () => {
     expect(runs.runs[0]?.promptVersion).toBe('sales-agent@14');
     const system = String(messages[0]?.content);
     expect(system).toContain('availability unverified never means sold out');
-    expect(system).toContain('"handoff" means call handoff');
+    // Outcomes are worded as actions, never as the old envelope's outcome words.
+    expect(system).toContain('do not call handoff merely because the party exceeds the standard');
+    expect(system).not.toMatch(/outcome "(answer|unknown|handoff)"/);
+  });
+
+  it('keeps prompt 14 equal to prompt 13 plus the lodging section', async () => {
+    const { PROMPTS_DIR } = await import('@agent-sales/ai-core');
+    const { readFile } = await import('node:fs/promises');
+    const p13 = await readFile(`${PROMPTS_DIR}/sales-agent@13.md`, 'utf8');
+    const p14 = await readFile(`${PROMPTS_DIR}/sales-agent@14.md`, 'utf8');
+    const start = p14.indexOf('Lodging facts and decisions:');
+    const end = p14.indexOf('\n\n', start) + 2;
+    expect(start).toBeGreaterThan(-1);
+    expect(p14.slice(0, start) + p14.slice(end)).toBe(p13);
   });
 
   it('keeps retail bots on prompt 13 by default, without the lodging section', async () => {
