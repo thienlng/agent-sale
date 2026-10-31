@@ -176,7 +176,7 @@ function toAnthropicMessages(request: GenerateRequest): {
     }
   }
   const last = system.at(-1);
-  if (last) last.cache_control = { type: 'ephemeral' };
+  if (last?.text) last.cache_control = { type: 'ephemeral' };
   // Rolling breakpoints on the last two user/tool-result messages (≤ 4 in total).
   let marked = 0;
   for (let i = messages.length - 1; i >= 0 && marked < 2; i--) {

@@ -330,4 +330,21 @@ describe('AnthropicProvider', () => {
       { type: 'text', text: 'one', cache_control: { type: 'ephemeral' } },
     ]);
   });
+
+  it('does not put cache_control on an empty system block', async () => {
+    const { client, bodies } = stubClient(okReply);
+    await new AnthropicProvider({ client }).generate(
+      {
+        ...request,
+        messages: [
+          { role: 'system', content: 'frame' },
+          { role: 'system', content: '' },
+          { role: 'user', content: 'hi' },
+        ],
+      },
+      { model: 'claude-haiku-5-5' },
+    );
+    const system = bodies[0]!.system as Array<Record<string, unknown>>;
+    expect(system.some((b) => b.cache_control)).toBe(false);
+  });
 });

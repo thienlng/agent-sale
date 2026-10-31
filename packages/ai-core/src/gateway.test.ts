@@ -101,7 +101,12 @@ describe('LlmGateway', () => {
       await expect(gw.generate(req)).rejects.toThrow();
       expect(delays).toEqual([8_000, 8_000, 8_000]);
       delays.length = 0;
-      await expect(gw.generate({ ...req, timeoutMs: 5_000 })).rejects.toThrow();
+      vi.useFakeTimers(); // freezes Date.now so the remaining deadline is exact
+      try {
+        await expect(gw.generate({ ...req, timeoutMs: 5_000 })).rejects.toThrow();
+      } finally {
+        vi.useRealTimers();
+      }
       expect(delays).toEqual([5_000, 5_000, 5_000]);
     });
 
