@@ -6,7 +6,7 @@ import { knowledgeBlock, type KnowledgeSource } from '../domain/grounding.js';
 import type { ConversationSummaryValue } from '../domain/ports/conversation-summary.repository.js';
 import { productDetails } from '../domain/product-view.js';
 import { safeJson } from './action-tools.js';
-import { compressHistory } from './context-compression.js';
+import { COMPRESS_AT_TURNS, compressHistory, summaryMessage } from './context-compression.js';
 
 /** Added to the last user message once the customer has left a phone number. */
 export const PHONE_KNOWN_LINE =
@@ -123,8 +123,9 @@ export function withTurnContext(turns: readonly ChatMessage[], ctx: TurnContext)
 /**
  * Long histories: older turns are replaced by the conversation summary (Task 4). The stored summary
  * is used only when message times are known (it is keyed by the time of the last covered message);
- * otherwise the overflow is summarised for this turn only. A summarizer failure keeps the full
- * history. `save` is the summary to store (null: nothing new).
+ * otherwise the overflow is summarised for this turn only. A summarizer failure falls back to the
+ * stored summary (if any) plus the newest `COMPRESS_AT_TURNS` turns, so a failing summarizer never
+ * sends the whole window. `save` is the summary to store (null: nothing new).
  */
 export async function compactHistory(
   turns: readonly ChatMessage[],
@@ -158,6 +159,9 @@ export async function compactHistory(
     };
   } catch (error) {
     opts.onError(error);
-    return { turns: [...turns], save: null };
+    const tail = turns.slice(
+      Math.max(stored?.coveredUntilIndex ?? 0, turns.length - COMPRESS_AT_TURNS),
+    );
+    return { turns: stored ? [summaryMessage(stored.summary), ...tail] : tail, save: null };
   }
 }

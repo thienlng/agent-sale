@@ -188,7 +188,7 @@ describe('createHistorySummarizer', () => {
     expect(prompt).toContain('phone numbers');
   });
 
-  it('keeps the full turns when the summary call times out', async () => {
+  it('keeps only the newest 30 turns when the summary call times out', async () => {
     const all = turns(40);
     const onError = vi.fn();
     const timeout = Object.assign(new Error('timed out'), { name: 'TimeoutError' });
@@ -198,8 +198,22 @@ describe('createHistorySummarizer', () => {
       summarize: async () => Promise.reject(timeout),
       onError,
     });
-    expect(out).toEqual({ turns: all, save: null });
+    expect(out).toEqual({ turns: all.slice(-30), save: null });
     expect(onError).toHaveBeenCalledWith(timeout);
+  });
+
+  it('keeps the stored summary and the newest uncovered turns when re-summarising fails', async () => {
+    const all = turns(100);
+    const times = all.map((_, i) => new Date(Date.UTC(2026, 9, 31, 0, i)));
+    const out = await compactHistory(all, {
+      times,
+      stored: { coveredUntil: times[49]!, summary: 'old note' },
+      summarize: async () => Promise.reject(new Error('down')),
+      onError: vi.fn(),
+    });
+    expect(out.save).toBeNull();
+    expect(out.turns[0]?.content).toContain('old note');
+    expect(out.turns.slice(1)).toEqual(all.slice(-30));
   });
 
   it('throws on an empty note so the caller keeps the full turns', async () => {
