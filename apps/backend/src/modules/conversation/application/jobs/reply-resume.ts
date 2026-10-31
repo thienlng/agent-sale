@@ -100,3 +100,19 @@ export interface Turn {
   key: string;
   resume: Resume;
 }
+
+/**
+ * Who answers the stored turn: `answered` when the newest stored message is outbound (already
+ * answered or attempted), `newer` when a newer customer message than `ownExternalId` will answer,
+ * else `own`.
+ */
+export function turnOwner(
+  stored: readonly InboxMessageDto[],
+  ownExternalId: string | null | undefined,
+): 'answered' | 'newer' | 'own' {
+  if (stored.at(-1)?.direction !== 'inbound') return 'answered';
+  const newest = stored.findLast(
+    (m) => m.direction === 'inbound' && (m.text.trim() || m.attachments.length),
+  );
+  return newest?.externalId === ownExternalId ? 'own' : 'newer';
+}

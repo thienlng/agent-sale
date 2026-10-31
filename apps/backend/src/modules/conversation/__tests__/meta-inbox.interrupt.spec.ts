@@ -155,6 +155,25 @@ describe('MetaInboxProcessor — re-run state (fix round 1)', () => {
     expect(channels.requeueEvent).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps the pending re-run when the old event is claimed alone after a newer message', async () => {
+    const { ai, inbox, run } = setup();
+    const carry = [{ role: 'assistant' as const, content: 'tool work' }];
+    ai.reply.mockImplementationOnce(async (_w, _b, _req, options) => {
+      await options.sink!.send({ text: 'Dạ em xem ạ', images: [] });
+      return { ...answer(''), interrupted: true, carry } as Partial<ReplyResult>;
+    });
+    const first = job('e1', 'còn hàng không?');
+    await run(first);
+    // e2 is stored (still in its quiet window) when the requeued e1 is claimed on its own.
+    const second = job('e2', 'màu đen');
+    await inbox.receive(second.workspaceId, second.connectionId, second.event);
+    await run({ ...first });
+    expect(ai.reply).toHaveBeenCalledTimes(1);
+    ai.reply.mockResolvedValueOnce(answer('Còn ạ'));
+    await run(second);
+    expect(ai.reply.mock.calls[1]![3].carry).toBe(carry);
+  });
+
   it('drops a pending re-run when staff took over and handed back before it ran', async () => {
     const { ai, inbox, run, conversationId } = setup();
     ai.reply.mockImplementationOnce(async () => ({
