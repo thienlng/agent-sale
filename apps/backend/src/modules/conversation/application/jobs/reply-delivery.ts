@@ -27,36 +27,6 @@ export const realPacing: ReplyPacing = {
   sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
 };
 
-/** What an interrupted turn hands to its re-run. */
-export interface Resume {
-  /** The interrupted run's tool work, passed back to the AI as-is (it already holds earlier carry). */
-  carry: ReplyResult['carry'];
-  /** Re-runs already started for this burst. */
-  reruns: number;
-  /** Id of the newest message the first run folded: bot messages after it are carried, not history. */
-  boundary: string;
-}
-
-/** A pending re-run older than this is ignored (its burst was answered or abandoned meanwhile). */
-const RESUME_TTL_MS = 10 * 60_000;
-
-/** Interrupted turns waiting for their re-run, per conversation (in memory: one agent process). */
-export class ResumeStore {
-  private readonly pending = new Map<string, Resume & { at: number }>();
-  put(ws: string, conversationId: string, resume: Resume): void {
-    this.pending.set(`${ws}/${conversationId}`, { ...resume, at: Date.now() });
-  }
-  /** Removes and returns the conversation's pending re-run, if still fresh. */
-  take(ws: string, conversationId: string): Resume | undefined {
-    const id = `${ws}/${conversationId}`;
-    const found = this.pending.get(id);
-    this.pending.delete(id);
-    if (!found || Date.now() - found.at >= RESUME_TTL_MS) return undefined;
-    const { at: _at, ...resume } = found;
-    return resume;
-  }
-}
-
 /** Why nothing more goes out in this turn. */
 export type DeliveryStop = 'takeover' | 'failed' | 'newer';
 
@@ -70,7 +40,13 @@ export class ReplyDelivery {
   /** The first message committed in this turn (the answer is billed on its status). */
   first: InboxMessageDto | null = null;
   stop: DeliveryStop | null = null;
+  /** Why the turn stopped with `failed` when nothing was committed (rethrown by the processor). */
+  failure: unknown = null;
+  /** Id of the newest message committed in this turn. */
+  lastId: string | null = null;
   private sends = 0;
+  /** Messages delivered by the current send (kept when it throws midway). */
+  private delivered = 0;
   private lastSendAt: number | null = null;
 
   constructor(
@@ -112,30 +88,40 @@ export class ReplyDelivery {
       .catch(() => false);
   }
 
+  /** A newer customer message stopped the sends but is gone after the run: send the final. */
+  clearNewerStop(): void {
+    if (this.stop === 'newer') this.stop = null;
+  }
+
   /** One `send_message` call: its text bubbles, then its pictures as one album. */
   private async sendMessage(message: OutgoingMessage): Promise<{ delivered: number }> {
     const n = ++this.sends;
-    if (this.stop) return { delivered: 0 };
-    if (this.turn.watchNewer && (await this.hasNewerMessage())) {
-      this.stop = 'newer';
-      return { delivered: 0 };
-    }
+    this.delivered = 0;
+    if (this.stop || (await this.stopForNewer())) return { delivered: 0 };
     await this.pace();
-    let delivered = 0;
+    // The customer may have written while we waited.
+    if (await this.stopForNewer()) return { delivered: 0 };
     try {
       const text = message.text?.trim();
-      if (text) delivered += await this.sendText(text, `${this.turn.key}:s${n}`);
-      if (!this.stop && message.images.length)
-        delivered += await this.sendImages(message.images, `${this.turn.key}:s${n}:img`);
+      if (text) await this.sendText(text, `${this.turn.key}:s${n}`);
+      if (!this.stop && message.images.length && !(text && (await this.stopForNewer())))
+        await this.sendImages(message.images, `${this.turn.key}:s${n}:img`);
     } catch (error) {
       this.stop = 'failed';
+      if (!this.attempted) this.failure = error;
       this.deps.logger.warn(
         `Meta inbox event ${this.turn.job.id}: a message was not sent (${errorClass(error)})`,
       );
     } finally {
       this.lastSendAt = this.deps.pacing.now();
     }
-    return { delivered };
+    return { delivered: this.delivered };
+  }
+
+  private async stopForNewer(): Promise<boolean> {
+    if (!(await this.newerStops())) return false;
+    this.stop = 'newer';
+    return true;
   }
 
   /**
@@ -165,19 +151,15 @@ export class ReplyDelivery {
     if (wait > 0) await this.deps.pacing.sleep(wait);
   }
 
-  /** Bubbles of one text (`splitReply`); stops at the first one not delivered. Returns the sent count. */
-  private async sendText(text: string, key: string): Promise<number> {
+  /** Bubbles of one text (`splitReply`); stops at the first one not delivered. */
+  private async sendText(text: string, key: string): Promise<void> {
     const { job, conversationId, revision } = this.turn;
     const { inbox, channels } = this.deps;
     const bubbles = splitReply(text.slice(0, MAX_TEXT_CHARS));
-    let sent = 0;
     for (const [index, bubble] of bubbles.entries()) {
       if (index > 0) {
         // The customer wrote again: the rest of this message would be out of date.
-        if (await this.newerStops()) {
-          this.stop = 'newer';
-          break;
-        }
+        if (await this.stopForNewer()) break;
         void channels
           .presence(job.workspaceId, job.connectionId, job.event.senderExternalId, 'typing_on')
           .catch(() => undefined);
@@ -200,6 +182,7 @@ export class ReplyDelivery {
         break;
       }
       this.first ??= result;
+      this.lastId = result.id;
       if (result.status !== 'sent') {
         this.stop = 'failed';
         this.deps.logger.warn(
@@ -207,27 +190,29 @@ export class ReplyDelivery {
         );
         break;
       }
-      sent++;
+      this.delivered++;
     }
-    return sent;
   }
 
   /**
    * Pictures as one album, or one message per picture when Meta rejects the album (the adapter
    * already retried it once on 2018047). Best effort: a failure is recorded on the message and
-   * never stops the turn; a takeover does. Returns the delivered message count.
+   * never stops the turn; a takeover does. Counts delivered messages in `delivered`.
    */
-  private async sendImages(images: readonly { url: string }[], key: string): Promise<number> {
+  private async sendImages(images: readonly { url: string }[], key: string): Promise<void> {
     const { job, conversationId } = this.turn;
     const urls = [...new Set(images.map((i) => i.url))].slice(0, MAX_BOT_IMAGES);
-    if (!urls.length) return 0;
+    if (!urls.length) return;
     const commit = async (list: readonly string[], idempotencyKey: string) => {
       const result = await this.deps.inbox.commitBotImages(job.workspaceId, conversationId, {
         urls: list,
         idempotencyKey,
       });
-      if (result) this.first ??= result;
-      else {
+      if (result) {
+        this.first ??= result;
+        this.lastId = result.id;
+        if (result.status === 'sent') this.delivered++;
+      } else {
         this.stop = 'takeover';
         this.deps.logger.log(
           `Meta inbox event ${job.id}: images skipped, the bot no longer holds the conversation`,
@@ -237,25 +222,20 @@ export class ReplyDelivery {
     };
     try {
       const album = await commit(urls, key);
-      if (!album) return 0;
-      if (album.status !== 'failed' || urls.length === 1) return album.status === 'sent' ? 1 : 0;
+      if (!album || album.status !== 'failed' || urls.length === 1) return;
     } catch (error) {
       this.deps.logger.warn(`Meta inbox event ${job.id}: images not sent (${errorClass(error)})`);
-      return 0;
+      return;
     }
-    let delivered = 0;
     for (const [index, url] of urls.entries()) {
       try {
-        const single = await commit([url], `${key}:${index}`);
-        if (!single) break;
-        if (single.status === 'sent') delivered++;
+        if (!(await commit([url], `${key}:${index}`))) break;
       } catch (error) {
         this.deps.logger.warn(
           `Meta inbox event ${job.id}: image ${index + 1} not sent (${errorClass(error)})`,
         );
       }
     }
-    return delivered;
   }
 }
 

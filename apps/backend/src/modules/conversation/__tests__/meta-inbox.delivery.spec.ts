@@ -1,147 +1,13 @@
-import type { NormalizedEvent } from '@agent-sales/channels';
-import { workspaceId } from '@agent-sales/shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { AiFacade, ReplyOptions, ReplyResult } from '../../ai/api/index.js';
+import type { AiFacade } from '../../ai/api/index.js';
 import type { BillingFacade } from '../../billing/api/index.js';
-import type { BotFacade, BotView } from '../../bot/api/index.js';
-import type { ChannelFacade, PendingMetaEvent } from '../../channel/api/index.js';
-import { ConversationFacadeImpl } from '../application/conversation.facade.impl.js';
+import type { BotView } from '../../bot/api/index.js';
 import { MetaInboxProcessor } from '../application/jobs/meta-inbox.processor.js';
-import { type ReplyPacing, SEND_GAP_MS } from '../application/jobs/reply-delivery.js';
-import { fakeBilling, fakeCrm, fakeIdentity, fakeTeam } from './fakes.js';
-import { MemoryConversationStore } from './factories/memory-conversation-store.js';
+import { SEND_GAP_MS } from '../application/jobs/reply-delivery.js';
+import { fakeBilling } from './fakes.js';
+import { answer, job, pics, setup } from './factories/meta-inbox-harness.js';
 
-// Spec §7: `send_message` output is delivered as it is sent (through the turn's sink), paced, and
-// a newer customer message interrupts the turn, which is re-run with the carried tool work.
-
-const ws = workspaceId('018d0000-0000-7000-8000-000000000001');
-const channelId = '018d0000-0000-7000-8000-000000000003';
-const botId = '018d0000-0000-7000-8000-000000000004';
-const staff = '018d0000-0000-7000-8000-000000000005';
-const pics = [
-  { id: 'i1', url: 'https://img.example.com/1.jpg', label: 'one' },
-  { id: 'i2', url: 'https://img.example.com/2.jpg', label: 'two' },
-];
-let seq = 0;
-
-function job(id: string, text: string, at = Date.now()): PendingMetaEvent {
-  const event: NormalizedEvent = {
-    kind: 'facebook',
-    assetExternalId: 'page',
-    externalEventId: id,
-    externalMessageId: id,
-    senderExternalId: 'customer',
-    type: 'message',
-    occurredAt: new Date(at),
-    text,
-    raw: {},
-  };
-  return {
-    id: `dj-${++seq}`,
-    claimToken: 't',
-    workspaceId: ws,
-    connectionId: channelId,
-    attempt: 1,
-    event,
-  };
-}
-
-type Reply = (
-  ...args: [unknown, unknown, { messages: { role: string; content: string }[] }, ReplyOptions]
-) => Promise<Partial<ReplyResult>>;
-
-function answer(final: string, extra: Partial<ReplyResult> = {}): Partial<ReplyResult> {
-  return {
-    reply: final,
-    outcome: 'answered',
-    images: [],
-    messages: final ? [{ text: final, images: [], via: 'final' }] : [],
-    ...extra,
-  };
-}
-
-function setup(pacing?: ReplyPacing) {
-  const bot = {
-    id: botId,
-    isActive: true,
-    silenceOnExternalReply: true,
-    handoffMessage: 'Staff will help you',
-    fallbackMessage: 'Shop will get back to you',
-    language: 'vi',
-    selfPronoun: 'em',
-    customerPronoun: 'anh/chị',
-  } as BotView;
-  let sent = 0;
-  const channels = {
-    getConnection: vi.fn(async () => ({
-      id: channelId,
-      provider: 'facebook' as const,
-      externalId: 'page',
-      name: 'Page',
-      status: 'connected' as const,
-      botId,
-      expiresAt: null,
-      createdAt: new Date().toISOString(),
-    })),
-    deliver: vi.fn(async () => ({
-      externalId: `sent${++sent}`,
-      status: 'sent' as const,
-      failureCode: null,
-    })),
-    fetchCustomerProfile: vi.fn(async () => null),
-    claimEvents: vi.fn(async () => [] as PendingMetaEvent[]),
-    renewEvent: async () => true,
-    completeEvent: vi.fn(async () => undefined),
-    releaseEvent: vi.fn(async () => undefined),
-    deadLetterEvent: vi.fn(async () => undefined),
-    deadLetterExhaustedEvents: vi.fn(async () => [] as string[]),
-    presence: vi.fn(async () => undefined),
-    requeueEvent: vi.fn(async () => undefined),
-    hasNewerCustomerEvent: vi.fn(async () => false),
-    unbindBot: vi.fn(async () => 0),
-  } as unknown as ChannelFacade & { claimEvents: ReturnType<typeof vi.fn> };
-  const bots: BotFacade = { getBot: async () => bot };
-  const inbox = new ConversationFacadeImpl(
-    new MemoryConversationStore(),
-    channels,
-    bots,
-    fakeTeam(),
-    fakeIdentity(),
-    fakeCrm() as never,
-  );
-  const ai = { reply: vi.fn<Reply>(async () => answer('ok')) };
-  const sleeps: number[] = [];
-  let clock = 0;
-  const recorder: ReplyPacing = {
-    now: () => clock,
-    sleep: async (ms) => {
-      sleeps.push(ms);
-      clock += ms;
-    },
-  };
-  const processor = new MetaInboxProcessor(
-    channels,
-    inbox,
-    ai as unknown as AiFacade,
-    bots,
-    fakeBilling() as unknown as BillingFacade,
-    { fetch: async () => null },
-    false,
-    undefined,
-    pacing ?? recorder,
-  );
-  const keys = () => vi.mocked(channels.deliver).mock.calls.map((c) => c[4]);
-  const texts = () => vi.mocked(channels.deliver).mock.calls.map((c) => c[3].text);
-  const takeOver = async () => {
-    const [c] = (await inbox.list(ws, { limit: 10 } as never)).data;
-    await inbox.update(ws, c!.id, { mode: 'human' }, staff);
-  };
-  const run = async (...jobs: PendingMetaEvent[]) => {
-    vi.mocked(channels.claimEvents).mockResolvedValueOnce(jobs);
-    await processor.tick();
-  };
-  return { channels, inbox, ai, processor, sleeps, keys, texts, takeOver, run };
-}
+// Spec §7: `send_message` output is delivered as it is sent (through the turn's sink) and paced.
 
 afterEach(() => vi.useRealTimers());
 
@@ -306,78 +172,65 @@ describe('MetaInboxProcessor — messages sent during the turn', () => {
   });
 });
 
-describe('MetaInboxProcessor — interrupt', () => {
-  it('reports a newer customer message or a takeover through shouldInterrupt', async () => {
-    const { ai, channels, takeOver, run } = setup();
-    const seen: boolean[] = [];
-    ai.reply.mockImplementationOnce(async (_w, _b, _req, options) => {
-      seen.push(await options.shouldInterrupt!());
-      vi.mocked(channels.hasNewerCustomerEvent).mockResolvedValueOnce(true);
-      seen.push(await options.shouldInterrupt!());
-      await takeOver();
-      seen.push(await options.shouldInterrupt!());
-      return answer('x');
+describe('MetaInboxProcessor — send details (fix round 1)', () => {
+  it('paces the final 800 ms after a sink send and checks for newer messages before it', async () => {
+    const order: string[] = [];
+    let clock = 0;
+    const { ai, channels, run } = setup({
+      now: () => clock,
+      sleep: async (ms) => {
+        order.push(`sleep ${ms}`);
+        clock += ms;
+      },
     });
-    await run(job('i1', 'hi'));
-    expect(seen).toEqual([false, true, true]);
-  });
-
-  it('re-runs an interrupted turn with every customer message and the carry, as given', async () => {
-    const { ai, channels, keys, texts, run } = setup();
-    const carry = [{ role: 'assistant' as const, content: 'tool work' }];
-    ai.reply.mockImplementationOnce(async (_w, _b, _req, options) => {
-      await options.sink!.send({ text: 'Dạ em xem ạ', images: [] });
-      return { ...answer(''), interrupted: true, carry } as Partial<ReplyResult>;
+    vi.mocked(channels.hasNewerCustomerEvent).mockImplementation(async () => {
+      order.push('newer?');
+      return false;
     });
-    const first = job('i2', 'giày size 40 còn không?');
-    await run(first);
-    expect(channels.requeueEvent).toHaveBeenCalledTimes(1);
-    expect(channels.completeEvent).not.toHaveBeenCalled();
-    ai.reply.mockResolvedValueOnce(answer('Còn ạ, màu đen nhé'));
-    await run({ ...first, attempt: 1 }, job('i3', 'màu đen nhé'));
-    const [, , req, options] = ai.reply.mock.calls[1]!;
-    expect(options.carry).toBe(carry);
-    // The interrupted run's own message is in the carry, not repeated as history.
-    expect(req.messages).toEqual([
-      { role: 'customer', content: 'giày size 40 còn không?\nmàu đen nhé' },
+    vi.mocked(channels.deliver).mockImplementation(async (_w, _c, _r, message) => {
+      order.push(`send ${message.text}`);
+      return { externalId: message.text, status: 'sent', failureCode: null };
+    });
+    ai.reply.mockImplementationOnce(async (_w, _b, _req, options) => {
+      await options.sink!.send({ text: 'A', images: [] });
+      return answer('B');
+    });
+    await run(job('p1', 'hi'));
+    expect(order.slice(order.indexOf('send A'))).toEqual([
+      'send A',
+      'newer?', // after the run: the final is not stale
+      `sleep ${SEND_GAP_MS}`,
+      'send B',
     ]);
-    expect(keys()).toEqual(['bot:i2:s1', 'bot:i3']);
-    expect(texts().at(-1)).toBe('Còn ạ, màu đen nhé');
   });
 
-  it('re-runs at most 3 times per burst, then lets the last run finish', async () => {
+  it('checks for a newer message after the pacing wait and between a text and its album', async () => {
     const { ai, channels, keys, run } = setup();
-    let n = 0;
-    ai.reply.mockImplementation(async (_w, _b, _req, options) => {
-      if (!options.shouldInterrupt) return answer('Xong ạ');
-      n++;
-      return { ...answer(''), interrupted: true, carry: [{ role: 'assistant', content: `c${n}` }] };
+    vi.mocked(channels.deliver).mockImplementationOnce(async () => {
+      vi.mocked(channels.hasNewerCustomerEvent).mockResolvedValue(true);
+      return { externalId: 'ok', status: 'sent', failureCode: null };
     });
-    const again = job('i4', 'hi');
-    for (let i = 0; i < 4; i++) await run({ ...again });
-    expect(channels.requeueEvent).toHaveBeenCalledTimes(3);
-    const calls = ai.reply.mock.calls.map((c) => c[3]);
-    expect(calls.map((o) => Boolean(o.shouldInterrupt))).toEqual([true, true, true, false]);
-    // Each re-run gets the previous run's carry exactly, never a concatenation.
-    expect(calls.map((o) => o.carry?.map((m) => m.content))).toEqual([
-      undefined,
-      ['c1'],
-      ['c2'],
-      ['c3'],
-    ]);
-    expect(keys()).toEqual(['bot:i4']);
-    expect(channels.completeEvent).toHaveBeenCalledTimes(1);
+    let delivered = -1;
+    ai.reply.mockImplementationOnce(async (_w, _b, _req, options) => {
+      delivered = (await options.sink!.send({ text: 'A', images: pics })).delivered;
+      return answer('');
+    });
+    await run(job('p2', 'hi'));
+    expect(keys()).toEqual(['bot:p2:s1']);
+    expect(delivered).toBe(1);
   });
 
-  it('does not re-run a turn interrupted by a takeover', async () => {
-    const { ai, channels, takeOver, run } = setup();
-    ai.reply.mockImplementationOnce(async () => {
-      await takeOver();
-      return { ...answer(''), interrupted: true, carry: [] };
+  it('counts the bubbles already sent when a send throws midway', async () => {
+    const { ai, inbox, keys, run } = setup();
+    vi.spyOn(inbox, 'commitBotFollowUp').mockRejectedValueOnce(new Error('db down'));
+    let delivered = -1;
+    ai.reply.mockImplementationOnce(async (_w, _b, _req, options) => {
+      delivered = (await options.sink!.send({ text: 'Một ý. Hai ý.', images: [] })).delivered;
+      return answer('Ba');
     });
-    await run(job('i5', 'hi'));
-    expect(channels.requeueEvent).not.toHaveBeenCalled();
-    expect(channels.completeEvent).toHaveBeenCalledTimes(1);
-    expect(channels.deliver).not.toHaveBeenCalled();
+    await run(job('p3', 'hi'));
+    expect(delivered).toBe(1);
+    // The turn stops after the failure: no final answer.
+    expect(keys()).toEqual(['bot:p3:s1']);
   });
 });

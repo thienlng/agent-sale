@@ -10,14 +10,9 @@ import {
 } from '../../../channel/api/index.js';
 import { AI_FACADE, type AiFacade, type ReplyResult } from '../../../ai/api/index.js';
 import { BILLING_FACADE, type BillingFacade } from '../../../billing/api/index.js';
-import {
-  BOT_FACADE,
-  type BotFacade,
-  type BotView,
-  withinReplySchedule,
-} from '../../../bot/api/index.js';
+import { BOT_FACADE, type BotFacade, withinReplySchedule } from '../../../bot/api/index.js';
 import { CONVERSATION_FACADE, type ConversationFacade } from '../../api/conversation.facade.js';
-import type { ConversationDto, InboxMessageDto, PlaygroundRequest } from '@agent-sales/contracts';
+import type { PlaygroundRequest } from '@agent-sales/contracts';
 import { BOT_IMAGE_VISION, IMAGE_FETCHER, type ImageFetcher } from '../ports/image-fetcher.js';
 import { toReplyTurns } from './reply-turns.js';
 import {
@@ -30,26 +25,15 @@ import {
   ReplyDelivery,
   type ReplyPacing,
   realPacing,
-  type Resume,
-  ResumeStore,
   showTyping,
 } from './reply-delivery.js';
-
-/** Spec §7: a turn is re-run for newer customer messages at most this often per burst (no starvation). */
-export const MAX_INTERRUPT_RERUNS = 3;
-
-/** Everything one answer needs, resolved by `process`. */
-interface Turn {
-  job: PendingMetaEvent;
-  c: ConversationDto;
-  botId: string;
-  bot: BotView;
-  context: Awaited<ReturnType<ConversationFacade['getReplyContext']>>;
-  /** Messages in arrival order, as the model sees them. */
-  stored: InboxMessageDto[];
-  key: string;
-  resume: Resume;
-}
+import {
+  MAX_INTERRUPT_RERUNS,
+  nextResume,
+  ResumeStore,
+  startTurn,
+  type Turn,
+} from './reply-resume.js';
 
 const isCustomerContent = (e: NormalizedEvent): boolean =>
   e.type === 'message' && Boolean(e.text?.trim() || e.attachments?.length);
@@ -164,6 +148,8 @@ export class MetaInboxProcessor {
   }
   async process(job: PendingMetaEvent): Promise<'requeue' | void> {
     const c = await this.inbox.receive(job.workspaceId, job.connectionId, job.event);
+    // Taken now so every skip below drops it: a later, unrelated turn must not inherit it.
+    const taken = this.resumes.take(job.workspaceId, c.id);
     if (job.event.type !== 'message' || !isCustomerContent(job.event))
       return this.skip(job, 'not a customer message');
     if (c.mode !== 'bot' || c.status !== 'open') return this.skip(job, 'conversation not on bot');
@@ -197,21 +183,17 @@ export class MetaInboxProcessor {
     if (context.conversation.mode !== 'bot' || context.conversation.status !== 'open')
       return this.skip(job, 'conversation control changed');
     const key = `bot:${job.event.externalEventId}`;
-    const resume = this.resumes.take(job.workspaceId, c.id);
-    // A re-run sees every customer message of the burst as one turn: what the interrupted run
-    // already sent comes back through `carry` (as its send_message calls), not as history.
-    const turnStored = resume
-      ? stored.filter((m) => !(m.sender === 'bot' && m.id > resume.boundary))
-      : stored;
+    const { resume, history } = startTurn(taken, stored);
     const turn: Turn = {
       job,
       c,
       botId: channel.botId,
       bot,
       context,
-      stored: turnStored,
+      stored: history,
+      newestId: stored.at(-1)?.id ?? '',
       key,
-      resume: resume ?? { carry: undefined, reruns: 0, boundary: stored.at(-1)?.id ?? '' },
+      resume,
     };
     const stopTyping = showTyping(this.channels, job);
     try {
@@ -340,15 +322,21 @@ export class MetaInboxProcessor {
       if (!hasText) throw error;
       response = await ask([], new Set());
     }
+    // Nothing went out because the first send failed: retry the event (then staff) as before.
+    if (delivery.stop === 'failed' && !delivery.attempted) throw delivery.failure;
     if (response.interrupted && !finishing) {
       // A takeover (or bot off) also interrupts, but nobody is waiting for a new turn.
       if (!(await this.inbox.botHolds(job.workspaceId, c.id).catch(() => true)))
         return this.skip(job, 'conversation control changed during the turn');
-      return this.rerun(turn, response.carry ?? resume.carry, 'interrupted by a newer message');
+      return this.rerun(turn, delivery, response.carry, 'interrupted by a newer message');
     }
-    // The customer wrote again after the run: its final answer is already stale.
-    if (!finishing && !delivery.takenOver && (await delivery.hasNewerMessage()))
-      return this.rerun(turn, response.carry ?? resume.carry, 'newer message arrived');
+    if (!finishing && !delivery.takenOver) {
+      // The customer wrote again after the run: its final answer is already stale.
+      if (await delivery.hasNewerMessage())
+        return this.rerun(turn, delivery, undefined, 'newer message arrived');
+      // The newer message that stopped the sends is gone (or unreadable): finish the answer.
+      delivery.clearNewerStop();
+    }
     if (delivery.takenOver) return;
     const final = finalMessage(response);
     if (final.text.trim() || final.images.length)
@@ -367,6 +355,8 @@ export class MetaInboxProcessor {
   /** Spec §7: a newer customer message after the turn's event, or the bot lost the conversation. */
   private async shouldInterrupt(turn: Turn, delivery: ReplyDelivery): Promise<boolean> {
     if (await delivery.hasNewerMessage()) return true;
+    // Fails open like the post-run check: an unreadable control state never interrupts (the
+    // sends themselves still stop on a takeover).
     return !(await this.inbox.botHolds(turn.job.workspaceId, turn.c.id).catch((error: unknown) => {
       this.logger.warn(
         `Meta inbox event ${turn.job.id}: control check failed (${errorClass(error)})`,
@@ -375,14 +365,16 @@ export class MetaInboxProcessor {
     }));
   }
 
-  /** Hands the event back; the next claim (with the new messages) re-runs the turn with `carry`. */
-  private rerun(turn: Turn, carry: ReplyResult['carry'], reason: string): 'requeue' {
-    const { job, c, resume } = turn;
-    this.resumes.put(job.workspaceId, c.id, {
-      carry,
-      reruns: resume.reruns + 1,
-      boundary: resume.boundary,
-    });
+  /** Hands the event back; the next claim (with the new messages) re-runs the turn. */
+  private rerun(
+    turn: Turn,
+    delivery: ReplyDelivery,
+    freshCarry: ReplyResult['carry'],
+    reason: string,
+  ): 'requeue' {
+    const { job, c } = turn;
+    const newest = delivery.lastId ?? turn.newestId;
+    this.resumes.put(job.workspaceId, c.id, nextResume(turn.resume, freshCarry, newest));
     this.logger.log(`Meta inbox event ${job.id}: ${reason}, answering them together`);
     return 'requeue';
   }

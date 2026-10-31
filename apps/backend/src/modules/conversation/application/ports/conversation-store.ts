@@ -4,6 +4,8 @@ import type { ConversationFilter, ConversationPage } from '../../domain/conversa
 export interface ConversationTx {
   lockPeer(channelId: string, customerId: string): Promise<void>;
   find(id: string): Promise<ConversationView | null>;
+  /** Who holds the conversation, read without a row lock (polled while the agent works). */
+  peekControl(id: string): Promise<Pick<ConversationView, 'mode' | 'status'> | null>;
   findPeer(channelId: string, customerId: string): Promise<ConversationView | null>;
   /** Filters, counts and sorts in the store (SQL), newest activity first by default. */
   query(filter: ConversationFilter): Promise<ConversationPage>;
