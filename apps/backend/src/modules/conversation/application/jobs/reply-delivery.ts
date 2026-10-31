@@ -37,8 +37,10 @@ export type DeliveryStop = 'takeover' | 'failed' | 'newer';
  * customer message. Keys: `<key>:s<n>` (+ `:t2`… bubbles, `:img` album) per send, `<key>` for the final.
  */
 export class ReplyDelivery {
-  /** The first message committed in this turn (the answer is billed on its status). */
+  /** The first message committed in this turn (any status): later ones are follow-ups. */
   first: InboxMessageDto | null = null;
+  /** Statuses of every message committed in this turn (the answer is billed on them). */
+  private readonly statuses = new Set<InboxMessageDto['status']>();
   stop: DeliveryStop | null = null;
   /** Why the turn stopped with `failed` when nothing was committed (rethrown by the processor). */
   failure: unknown = null;
@@ -48,6 +50,7 @@ export class ReplyDelivery {
   /** Messages delivered by the current send (kept when it throws midway). */
   private delivered = 0;
   private lastSendAt: number | null = null;
+  private watchNewer: boolean;
 
   constructor(
     private readonly deps: {
@@ -64,7 +67,9 @@ export class ReplyDelivery {
       /** False on the last allowed re-run: a newer customer message no longer stops this turn. */
       watchNewer: boolean;
     },
-  ) {}
+  ) {
+    this.watchNewer = turn.watchNewer;
+  }
 
   /** A human took over (or the bot was switched off): nothing more goes out, no hand-off. */
   get takenOver(): boolean {
@@ -91,6 +96,12 @@ export class ReplyDelivery {
   /** A newer customer message stopped the sends but is gone after the run: send the final. */
   clearNewerStop(): void {
     if (this.stop === 'newer') this.stop = null;
+  }
+
+  /** From now on a newer customer message no longer stops this turn (a hand-off goes out whole). */
+  stopWatchingNewer(): void {
+    this.watchNewer = false;
+    this.clearNewerStop();
   }
 
   /** One `send_message` call: its text bubbles, then its pictures as one album. */
@@ -126,12 +137,18 @@ export class ReplyDelivery {
 
   /**
    * The final answer (key `<key>`, `:t2`…; pictures `<key>:img` when `withImages`) after the
-   * agent's own sends. Throws like today when the first commit of the turn fails.
+   * agent's own sends. Throws like today when the first commit of the turn fails. Resolves whether
+   * any of it was committed (false: the final was dropped).
    */
-  async sendFinal(text: string, images: readonly { url: string }[], withImages: boolean) {
-    if (this.stop) return;
+  async sendFinal(
+    text: string,
+    images: readonly { url: string }[],
+    withImages: boolean,
+  ): Promise<boolean> {
+    if (this.stop) return false;
     if (this.sends) await this.pace();
     this.sends++;
+    const before = this.lastId;
     try {
       if (text.trim()) await this.sendText(text, this.turn.key);
       if (!this.stop && withImages && images.length && !(await this.newerStops()))
@@ -139,10 +156,27 @@ export class ReplyDelivery {
     } finally {
       this.lastSendAt = this.deps.pacing.now();
     }
+    return this.lastId !== before;
+  }
+
+  private committed(result: InboxMessageDto): void {
+    this.first ??= result;
+    this.lastId = result.id;
+    this.statuses.add(result.status);
+  }
+
+  /**
+   * Billed once per delivered answer, on its first sent message (a failed album whose single
+   * pictures went out still counts). Nothing committed, or only failures: the reservation is
+   * released. A delivery that is still unsure keeps it until the TTL, then it stops counting.
+   */
+  get billing(): 'capture' | 'release' | 'hold' {
+    if (this.statuses.has('sent')) return 'capture';
+    return [...this.statuses].every((s) => s === 'failed') ? 'release' : 'hold';
   }
 
   private async newerStops(): Promise<boolean> {
-    return this.turn.watchNewer && (await this.hasNewerMessage());
+    return this.watchNewer && (await this.hasNewerMessage());
   }
 
   private async pace(): Promise<void> {
@@ -181,8 +215,7 @@ export class ReplyDelivery {
         this.stop = 'takeover';
         break;
       }
-      this.first ??= result;
-      this.lastId = result.id;
+      this.committed(result);
       if (result.status !== 'sent') {
         this.stop = 'failed';
         this.deps.logger.warn(
@@ -209,8 +242,7 @@ export class ReplyDelivery {
         idempotencyKey,
       });
       if (result) {
-        this.first ??= result;
-        this.lastId = result.id;
+        this.committed(result);
         if (result.status === 'sent') this.delivered++;
       } else {
         this.stop = 'takeover';

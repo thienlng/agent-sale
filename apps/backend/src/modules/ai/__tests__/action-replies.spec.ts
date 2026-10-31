@@ -500,6 +500,22 @@ describe('bot API actions in the reply pipeline', () => {
     expect(JSON.stringify(reqs[1]?.messages.at(-1))).toContain('confirmation_not_available');
   });
 
+  it('flags a stored confirmation question so a caller that drops the answer can discard it', async () => {
+    const { ask, svc, store, conversationId } = build([
+      call(BOOK, { hour: 9 }),
+      answer('Dạ em đặt lịch 9 giờ, anh xác nhận giúp em nhé?'),
+      answer('Dạ shop mở cửa 8 giờ ạ.'),
+    ]);
+    const first = await ask('đặt lịch 9 giờ giúp em');
+    expect(first.askedConfirmation).toBe(true);
+    expect(store.pending).not.toBeNull();
+    // The channel dropped that final (the customer wrote again): the question was never seen.
+    await svc.discardPendingConfirmation(ws, conversationId);
+    expect(store.pending).toBeNull();
+    expect(store.cleared).toBe(1);
+    expect((await ask('mấy giờ mở cửa')).askedConfirmation).toBeUndefined();
+  });
+
   it('drops a stored confirmation question when the final reply is empty', async () => {
     const { ask, store } = build([call(BOOK, { hour: 9 }), answer('')]);
     const res = await ask('đặt lịch 9 giờ giúp em');

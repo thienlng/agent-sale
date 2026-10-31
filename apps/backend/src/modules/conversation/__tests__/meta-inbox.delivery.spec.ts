@@ -58,6 +58,23 @@ describe('MetaInboxProcessor — messages sent during the turn', () => {
     expect(delivered).toBe(2);
   });
 
+  it('bills the turn when the album failed but its single pictures went out', async () => {
+    const { ai, billing, channels, run } = setup();
+    vi.mocked(channels.deliver).mockResolvedValueOnce({
+      externalId: null,
+      status: 'failed',
+      failureCode: 'provider_rejected',
+    });
+    ai.reply.mockImplementationOnce(async (_w, _b, _req, options) => {
+      await options.sink!.send({ images: pics });
+      return answer('');
+    });
+    await run(job('e2b', 'cho xem ảnh'));
+    // The first committed message (the album) failed; the first sent one is a single picture.
+    expect(billing.captureReply).toHaveBeenCalledWith(expect.anything(), 'bot:e2b');
+    expect(billing.releaseReply).not.toHaveBeenCalled();
+  });
+
   it('waits 800 ms between consecutive sends, the final answer included (fake timers)', async () => {
     vi.useFakeTimers();
     const { ai, channels, processor } = setup({

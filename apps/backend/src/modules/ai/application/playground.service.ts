@@ -58,6 +58,7 @@ import {
 } from './reply-context.js';
 import {
   decideReply,
+  errorClass,
   fallbackText,
   joinedImages,
   meteredGenerate,
@@ -79,9 +80,6 @@ const FOCUS_RUNS = 3;
 const FOCUS_PRODUCTS = 3;
 /** The playground has no conversation: only recent runs count as "the product being discussed". */
 const PLAYGROUND_FOCUS_WINDOW_MS = 30 * 60_000;
-
-const errorClass = (error: unknown): string =>
-  error instanceof Error ? error.name : 'unknown error';
 
 /**
  * The bot's reply pipeline, one customer turn: retrieve FAQs and focus products → agent loop
@@ -386,7 +384,12 @@ export class PlaygroundService implements AiFacade {
       messages,
       steps,
       ...(interrupted && loop ? { interrupted: true, carry: loop.followUps } : {}),
+      ...(actionState.askedConfirmation ? { askedConfirmation: true } : {}),
     };
+  }
+
+  async discardPendingConfirmation(ws: WorkspaceId, conversationId: string): Promise<void> {
+    await this.actions?.clearPending(ws, conversationId);
   }
 
   /** Writes the run; an interrupted one is not counted as a fallback in the outcome metric. */

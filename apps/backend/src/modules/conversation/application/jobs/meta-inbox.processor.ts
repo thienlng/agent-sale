@@ -261,13 +261,12 @@ export class MetaInboxProcessor {
         postContext: provenance?.context,
       });
     } finally {
-      // Billed once per delivered answer (its first message), whatever happens after it. An answer
-      // whose delivery is unknown keeps its reservation until the TTL, then stops counting.
-      const status = delivery.first?.status;
+      // Billed once per delivered answer, whatever happens after it (see ReplyDelivery.billing).
+      const billing = delivery.billing;
       await (
-        status === 'sent'
+        billing === 'capture'
           ? this.billing.captureReply(job.workspaceId, key)
-          : !status || status === 'failed'
+          : billing === 'release'
             ? this.billing.releaseReply(job.workspaceId, key)
             : Promise.resolve()
       ).catch(() =>
@@ -279,8 +278,9 @@ export class MetaInboxProcessor {
   /**
    * One agent run: `send_message` output goes out through the turn's sink as it happens, the
    * final answer after the run. A newer customer message interrupts the run (or drops a finished
-   * answer that is not out yet) and hands the event back with the run's tool work, so the next
-   * claim re-runs the turn with every customer message; at most MAX_INTERRUPT_RERUNS times per burst.
+   * answer that is not out yet, never a hand-off) and hands the event back with the run's tool work,
+   * so the next claim re-runs the turn with every customer message; at most MAX_INTERRUPT_RERUNS
+   * times per burst. A dropped final also drops the confirmation question it may have asked.
    */
   private async generate(
     turn: Turn,
@@ -334,26 +334,35 @@ export class MetaInboxProcessor {
         return this.skip(job, 'conversation control changed during the turn');
       return this.rerun(turn, delivery, response.carry, 'interrupted by a newer message');
     }
-    if (!finishing && !delivery.takenOver) {
+    const handoff = response.outcome === 'handoff';
+    // A hand-off is never dropped: its message goes out whole and staff take over.
+    if (handoff) delivery.stopWatchingNewer();
+    else if (!finishing && !delivery.takenOver) {
       // The customer wrote again after the run: its final answer is already stale.
-      if (await delivery.hasNewerMessage())
+      if (await delivery.hasNewerMessage()) {
+        await this.discardConfirmation(turn, response);
         return this.rerun(turn, delivery, undefined, 'newer message arrived');
+      }
       // The newer message that stopped the sends is gone (or unreadable): finish the answer.
       delivery.clearNewerStop();
     }
-    if (delivery.takenOver) return;
     const final = finalMessage(response);
-    if (final.text.trim() || final.images.length)
-      await delivery.sendFinal(final.text, final.images, response.outcome === 'answered');
-    else if (!delivery.attempted)
+    if (final.text.trim() || final.images.length) {
+      if (!(await delivery.sendFinal(final.text, final.images, response.outcome === 'answered')))
+        await this.discardConfirmation(turn, response);
+    } else if (!delivery.attempted)
       // Nothing sent at all: the customer is never left without an answer.
-      await delivery.sendFinal(
-        response.outcome === 'handoff' ? handoffText(bot) : fallbackText(bot),
-        [],
-        false,
-      );
-    if (delivery.attempted && !delivery.takenOver && response.outcome === 'handoff')
+      await delivery.sendFinal(handoff ? handoffText(bot) : fallbackText(bot), [], false);
+    if (delivery.attempted && !delivery.takenOver && handoff)
       await this.inbox.handOff(job.workspaceId, c.id, c.assigneeId ?? 'system');
+  }
+
+  /** A final that never went out may hold a confirmation question: it must not stay pending. */
+  private async discardConfirmation({ job, c }: Turn, response: ReplyResult): Promise<void> {
+    if (response.askedConfirmation)
+      await this.ai
+        .discardPendingConfirmation(job.workspaceId, c.id)
+        .catch(() => this.logger.warn(`Meta inbox event ${job.id}: confirmation not cleared`));
   }
 
   /** Spec §7: a newer customer message after the turn's event, or the bot lost the conversation. */

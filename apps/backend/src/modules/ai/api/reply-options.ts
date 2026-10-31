@@ -27,5 +27,12 @@ export interface ReplyOptions {
   turnTimes?: readonly Date[];
 }
 
-/** What AiFacade.reply returns: the public DTO plus, on interrupt, the loop's follow-up messages to carry into the re-run. */
-export type ReplyResult = PlaygroundResponse & { carry?: ChatMessage[] };
+/**
+ * What AiFacade.reply returns: the public DTO plus, on interrupt, the loop's follow-up messages to
+ * carry into the re-run, and whether the turn stored an action confirmation question (a caller that
+ * drops the answer must then call `discardPendingConfirmation`).
+ */
+export type ReplyResult = PlaygroundResponse & {
+  carry?: ChatMessage[];
+  askedConfirmation?: boolean;
+};

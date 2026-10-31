@@ -229,3 +229,7 @@ export function joinedImages(
   const byUrl = new Map(images.map(({ url, label }) => [url, { url, label }]));
   return [...byUrl.values()].slice(0, MAX_JOINED_IMAGES);
 }
+
+/** Rule 07: the error class only, never the message, which may carry customer data. */
+export const errorClass = (error: unknown): string =>
+  error instanceof Error ? error.name : 'unknown error';

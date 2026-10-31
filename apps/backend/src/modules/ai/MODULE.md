@@ -6,7 +6,7 @@
 
 **Public API (`api/`):**
 
-- `AI_FACADE` → `AiFacade.playground(workspaceId, botId, input)` — one test reply; `reply(workspaceId, botId, input, options: ReplyOptions)` (channels: `{ conversationId, isTest, sink?, shouldInterrupt?, carry?, turnTimes? }`) returns `ReplyResult` (`PlaygroundResponse` + `carry` on interrupt), see below.
+- `AI_FACADE` → `AiFacade.playground(workspaceId, botId, input)` — one test reply; `reply(workspaceId, botId, input, options: ReplyOptions)` (channels: `{ conversationId, isTest, sink?, shouldInterrupt?, carry?, turnTimes? }`) returns `ReplyResult` (`PlaygroundResponse` + `carry` on interrupt + `askedConfirmation` when the turn stored an action confirmation question), see below; `discardPendingConfirmation(workspaceId, conversationId)` — drops that question when the caller did not deliver the answer that asked it.
 - HTTP: `POST /bots/{botId}/playground` (workspace-scoped); `/admin/llm/providers…` (incl. `GET|POST|DELETE /admin/llm/providers/{id}/hermes-login`: ChatGPT device-code sign-in of a `hermes` provider, proxied to the bridge's `/v1/auth/*`; bridge down = `{state:"unreachable"}`; gated by `HERMES_SUBSCRIPTION_LOGIN`, default off in production: GET returns `{state:"disabled"}`, POST/DELETE 403 `FORBIDDEN`; logout is local only), `GET /admin/llm/providers/{id}/models` (bridge `/v1/models`) and `/admin/llm/tiers…` (`@PlatformAdmin()`). Contracts: `packages/contracts/src/ai/`.
 - Events: none yet.
 

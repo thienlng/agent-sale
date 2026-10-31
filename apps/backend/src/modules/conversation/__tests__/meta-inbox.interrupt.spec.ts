@@ -211,3 +211,54 @@ describe('MetaInboxProcessor — re-run state (fix round 1)', () => {
     expect(channels.requeueEvent).not.toHaveBeenCalled();
   });
 });
+
+describe('MetaInboxProcessor — dropped finals (final review)', () => {
+  it('never drops a hand-off final: it goes out whole and staff take over', async () => {
+    const { ai, channels, inbox, keys, texts, run, conversationId } = setup();
+    ai.reply.mockImplementationOnce(async () => {
+      vi.mocked(channels.hasNewerCustomerEvent).mockResolvedValue(true);
+      return answer('Dạ em chuyển nhân viên ạ. Anh đợi chút nhé!', { outcome: 'handoff' });
+    });
+    await run(job('d1', 'cho gặp nhân viên'));
+    expect(channels.requeueEvent).not.toHaveBeenCalled();
+    expect(keys()).toEqual(['bot:d1', 'bot:d1:t2']);
+    expect(texts()).toEqual(['Dạ em chuyển nhân viên ạ.', 'Anh đợi chút nhé!']);
+    expect(await inbox.botHolds(ws, await conversationId())).toBe(false);
+  });
+
+  it('clears an unseen confirmation question when the final is dropped for a newer message', async () => {
+    const { ai, channels, run, conversationId } = setup();
+    ai.reply.mockImplementationOnce(async () => {
+      vi.mocked(channels.hasNewerCustomerEvent).mockResolvedValue(true);
+      return answer('Em đặt đơn size 40 nhé, anh xác nhận giúp em?', { askedConfirmation: true });
+    });
+    await run(job('d2', 'đặt giày'));
+    expect(channels.requeueEvent).toHaveBeenCalledTimes(1);
+    expect(channels.deliver).not.toHaveBeenCalled();
+    expect(ai.discardPendingConfirmation).toHaveBeenCalledWith(ws, await conversationId());
+  });
+
+  it('clears an unseen confirmation question when a takeover drops the final', async () => {
+    const { ai, channels, takeOver, run, conversationId } = setup();
+    ai.reply.mockImplementationOnce(async () => {
+      await takeOver();
+      return answer('Anh xác nhận giúp em?', { askedConfirmation: true });
+    });
+    await run(job('d3', 'đặt giày'));
+    expect(channels.deliver).not.toHaveBeenCalled();
+    expect(ai.discardPendingConfirmation).toHaveBeenCalledWith(ws, await conversationId());
+  });
+
+  it('keeps the confirmation question when the final went out, or when none was asked', async () => {
+    const { ai, channels, run } = setup();
+    ai.reply.mockResolvedValueOnce(answer('Anh xác nhận giúp em?', { askedConfirmation: true }));
+    await run(job('d4', 'đặt giày'));
+    ai.reply.mockImplementationOnce(async () => {
+      vi.mocked(channels.hasNewerCustomerEvent).mockResolvedValue(true);
+      return answer('Dạ còn ạ');
+    });
+    await run(job('d5', 'còn không'));
+    expect(channels.requeueEvent).toHaveBeenCalledTimes(1);
+    expect(ai.discardPendingConfirmation).not.toHaveBeenCalled();
+  });
+});

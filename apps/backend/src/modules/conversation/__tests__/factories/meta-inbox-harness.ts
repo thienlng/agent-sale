@@ -116,7 +116,10 @@ export function setup(pacing?: ReplyPacing) {
     fakeIdentity(),
     fakeCrm() as never,
   );
-  const ai = { reply: vi.fn<Reply>(async () => answer('ok')) };
+  const ai = {
+    reply: vi.fn<Reply>(async () => answer('ok')),
+    discardPendingConfirmation: vi.fn(async (_ws: unknown, _conversationId: string) => undefined),
+  };
   const billing = fakeBilling();
   const sleeps: number[] = [];
   let clock = 0;
