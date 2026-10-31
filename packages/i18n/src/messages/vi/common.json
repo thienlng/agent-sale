@@ -209,7 +209,15 @@
     "guidanceMoved": "Nhiệm vụ, cách xưng hô và lời chào của bot nằm ở",
     "guidanceLink": "Hướng dẫn trả lời",
     "factsMoved": "Thông tin cửa hàng như địa chỉ, giá và chính sách nằm ở",
-    "factsLink": "Thông tin doanh nghiệp"
+    "factsLink": "Thông tin doanh nghiệp",
+    "orders": {
+      "title": "Chốt đơn",
+      "enabled": "Bot chốt đơn",
+      "enabledHint": "Bot gom sản phẩm, số điện thoại và địa chỉ, gửi tóm tắt đơn để khách xác nhận. Đơn tạo xong sẽ chờ nhân viên duyệt.",
+      "shippingFee": "Phí ship mặc định",
+      "shippingFeeHint": "Để trống: tóm tắt đơn ghi “Phí ship: shop báo sau”",
+      "currency": "đ"
+    }
   },
   "playground": {
     "title": "Chat thử",
@@ -247,7 +255,10 @@
       "failed": "lỗi",
       "ms": "{{ms}} ms"
     },
-    "interrupted": "Khách vừa nhắn thêm nên bot dừng lượt này giữa chừng"
+    "interrupted": "Khách vừa nhắn thêm nên bot dừng lượt này giữa chừng",
+    "quickReplies": {
+      "label": "Trả lời nhanh"
+    }
   },
   "admin": {
     "title": "Mô hình AI",

@@ -1,5 +1,5 @@
 import type { BotDto } from '@agent-sales/contracts';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -49,6 +49,8 @@ const bot = {
     silenceOnExternalReply: true,
     placeholders: { 'store.name': 'Shop' },
     profile: { fields: {}, notes: '' },
+    orderTaking: false,
+    orderShippingFeeVnd: null,
   },
 } as unknown as BotDto;
 
@@ -73,5 +75,61 @@ describe('BotSettingsForm advanced tab', () => {
       'href',
       `/app/bots/${BOT}/knowledge`,
     );
+  });
+});
+
+describe('BotSettingsForm order taking', () => {
+  const withSettings = (settings: Partial<BotDto['settings']>) =>
+    ({ ...bot, settings: { ...bot.settings, ...settings } }) as BotDto;
+
+  async function open(target: BotDto) {
+    const stub = stubFetch({ [`PATCH /bots/${BOT}`]: { status: 200, body: target } });
+    vi.stubGlobal('fetch', stub.fetchStub);
+    renderWithRouter(() => <BotSettingsForm bot={target} />);
+    await userEvent.click(
+      await screen.findByRole('tab', { name: /nâng cao/i }, { timeout: 10_000 }),
+    );
+    return stub.calls;
+  }
+
+  it('turns order taking on with a default shipping fee', async () => {
+    const calls = await open(bot);
+    expect(await screen.findByRole('heading', { name: 'Chốt đơn' })).toBeInTheDocument();
+    expect(
+      screen.getByText(/Để trống: tóm tắt đơn ghi “Phí ship: shop báo sau”/),
+    ).toBeInTheDocument();
+    const toggle = screen.getByRole('switch', { name: 'Bot chốt đơn' });
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
+    await userEvent.click(toggle);
+    const fee = screen.getByLabelText('Phí ship mặc định');
+    await userEvent.type(fee, '30000');
+    expect(fee).toHaveValue('30.000');
+    await userEvent.click(screen.getByRole('button', { name: 'Lưu thay đổi' }));
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0]?.body).toEqual({
+      settings: { orderTaking: true, orderShippingFeeVnd: 30000 },
+    });
+  });
+
+  it('sends null when the fee is cleared and keeps zero as free shipping', async () => {
+    const calls = await open(withSettings({ orderTaking: true, orderShippingFeeVnd: 25000 }));
+    const fee = await screen.findByLabelText('Phí ship mặc định');
+    expect(fee).toHaveValue('25.000');
+    expect(screen.getByRole('switch', { name: 'Bot chốt đơn' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    await userEvent.clear(fee);
+    await userEvent.click(screen.getByRole('button', { name: 'Lưu thay đổi' }));
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0]?.body).toEqual({ settings: { orderShippingFeeVnd: null } });
+  });
+
+  it('keeps an explicit zero fee', async () => {
+    const calls = await open(bot);
+    await userEvent.type(await screen.findByLabelText('Phí ship mặc định'), '0');
+    await userEvent.click(screen.getByRole('button', { name: 'Lưu thay đổi' }));
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0]?.body).toEqual({ settings: { orderShippingFeeVnd: 0 } });
   });
 });
