@@ -1,46 +1,27 @@
 #!/usr/bin/env bash
-# One-time server setup on a fresh Ubuntu 24.04 host, run as root:
-#   bash bootstrap.sh <public-host> <acme-email> [ci-public-key-file]
-# Installs Docker if missing, opens only SSH/HTTP/HTTPS, creates the `deploy` user that CI
-# logs in as, and writes /opt/rapiz/.env with freshly generated secrets (never overwritten).
-# Safe to re-run. See docs/runbooks/deploy-vps.md.
+# One-time setup of the app folder, run as the `deploy` user on the server:
+#   bash bootstrap.sh <public-host>
+# Prerequisites (once, by an admin; docs/runbooks/deploy-vps.md): Docker, `deploy` in the
+# `docker` group, /opt/apps/rapiz owned by deploy, and the external Docker network `proxy`
+# of the server's Nginx Proxy Manager.
+# Copies the server files, writes /opt/apps/rapiz/.env with freshly generated secrets (an
+# existing file is never overwritten) and installs the daily backup in deploy's crontab.
 set -euo pipefail
 
-HOST=${1:?usage: bootstrap.sh <public-host> <acme-email> [ci-public-key-file]}
-EMAIL=${2:?usage: bootstrap.sh <public-host> <acme-email> [ci-public-key-file]}
-CI_KEY=${3:-}
-DIR=/opt/rapiz
+HOST=${1:?usage: bootstrap.sh <public-host>}
+DIR=${RAPIZ_DIR:-/opt/apps/rapiz}
 HERE=$(cd "$(dirname "$0")" && pwd)
 
-[[ $EUID -eq 0 ]] || { echo "run as root" >&2; exit 1; }
+docker info >/dev/null 2>&1 || { echo "this user cannot use Docker (add it to the docker group)" >&2; exit 1; }
+[[ -w $DIR ]] || { echo "$DIR must exist and be writable by $(id -un)" >&2; exit 1; }
+docker network inspect proxy >/dev/null 2>&1 || { echo "external Docker network 'proxy' is missing" >&2; exit 1; }
 
-if ! command -v docker >/dev/null; then
-  curl -fsSL https://get.docker.com | sh
+mkdir -p "$DIR/backups"
+chmod 750 "$DIR" "$DIR/backups"
+if [[ $HERE != "$DIR" ]]; then
+  install -m 644 "$HERE/compose.yml" "$DIR/compose.yml"
+  for f in deploy.sh backup.sh set-host.sh; do install -m 755 "$HERE/$f" "$DIR/$f"; done
 fi
-systemctl enable --now docker
-
-apt-get install -y -qq ufw openssl >/dev/null
-ufw allow OpenSSH >/dev/null
-ufw allow 80/tcp >/dev/null
-ufw allow 443/tcp >/dev/null
-ufw allow 443/udp >/dev/null
-ufw --force enable >/dev/null
-
-id deploy >/dev/null 2>&1 || useradd -m -s /bin/bash deploy
-usermod -aG docker deploy
-install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
-if [[ -n $CI_KEY ]]; then
-  touch /home/deploy/.ssh/authorized_keys
-  grep -qxF "$(cat "$CI_KEY")" /home/deploy/.ssh/authorized_keys || cat "$CI_KEY" >> /home/deploy/.ssh/authorized_keys
-  chown deploy:deploy /home/deploy/.ssh/authorized_keys
-  chmod 600 /home/deploy/.ssh/authorized_keys
-fi
-
-install -d -m 750 -o deploy -g deploy "$DIR" "$DIR/backups"
-for f in compose.yml deploy.sh backup.sh set-host.sh; do
-  install -m 755 -o deploy -g deploy "$HERE/$f" "$DIR/$f"
-done
-chmod 644 "$DIR/compose.yml"
 
 if [[ ! -f $DIR/.env ]]; then
   pw() { openssl rand -hex 24; }
@@ -52,7 +33,6 @@ if [[ ! -f $DIR/.env ]]; then
   cat > "$DIR/.env" <<ENV
 # Rapiz production environment. Secrets: never commit, never paste into chat or logs.
 PUBLIC_HOST=$HOST
-ACME_EMAIL=$EMAIL
 LOG_LEVEL=info
 
 POSTGRES_OWNER_PASSWORD=$owner
@@ -85,12 +65,12 @@ META_APP_ORIGIN=https://$HOST
 # SMTP_URL=
 ENV
   rm -f "$key"
-  chown deploy:deploy "$DIR/.env"
   echo "wrote $DIR/.env"
 else
   echo "$DIR/.env exists; left unchanged"
 fi
 
-# Daily database backup at 03:15, 14 days kept (see backup.sh).
-echo "15 3 * * * deploy $DIR/backup.sh >> $DIR/backups/backup.log 2>&1" > /etc/cron.d/rapiz-backup
+# Daily database backup at 03:15 server time, 14 days kept (see backup.sh).
+line="15 3 * * * $DIR/backup.sh >> $DIR/backups/backup.log 2>&1"
+( crontab -l 2>/dev/null | grep -vF "$DIR/backup.sh"; echo "$line" ) | crontab -
 echo "bootstrap done"

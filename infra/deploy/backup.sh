@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Database dump into /opt/rapiz/backups (cron, daily). Keeps 14 days. Copy the dumps off the
+# Database dump into /opt/apps/rapiz/backups (cron, daily). Keeps 14 days. Copy the dumps off the
 # server too: a backup on the same disk does not survive losing the server.
 # Restore: docs/runbooks/deploy-vps.md#restore.
 set -euo pipefail

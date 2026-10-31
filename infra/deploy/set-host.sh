@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Moves the stack to another domain, e.g. ./set-host.sh rapiz.io
-# Point the domain's DNS A record at this server first. Caddy fetches the new certificate on
-# restart. Afterwards update the Meta app (webhook URL, OAuth redirect URIs, app domains).
+# First point the domain's DNS A record at this server and add it to the rapiz-edge proxy host
+# in Nginx Proxy Manager (with a Let's Encrypt certificate). Afterwards update the Meta app
+# (webhook URL, OAuth redirect URIs, app domains).
 set -euo pipefail
 cd "$(dirname "$0")"
 new=${1:?usage: set-host.sh <new-host>}

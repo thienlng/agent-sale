@@ -1,12 +1,17 @@
 # Public entry point. One host serves everything, like scripts/dev-tunnel-proxy.mjs:
 #   /api/*      -> api        /webhooks/* -> webhook     /media/* -> object storage (read only)
 #   /widget.js  -> widget     / and site assets -> marketing site     else -> dashboard SPA
-# PUBLIC_HOST comes from the server's .env; Caddy obtains and renews the HTTPS certificate.
+# Plain HTTP on :80: the server's reverse proxy (Nginx Proxy Manager) terminates HTTPS for the
+# public host and forwards here, so the image knows nothing about the domain.
 {
-	email {$ACME_EMAIL}
+	auto_https off
+	servers {
+		trusted_proxies static private_ranges
+		client_ip_headers X-Forwarded-For X-Real-IP
+	}
 }
 
-{$PUBLIC_HOST} {
+:80 {
 	encode zstd gzip
 	header {
 		Strict-Transport-Security "max-age=31536000"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploys one image tag (a git commit SHA built by CI), run as `deploy` in /opt/rapiz:
+# Deploys one image tag (a git commit SHA built by CI), run as `deploy` in /opt/apps/rapiz:
 #   ./deploy.sh <tag>        pull, migrate, restart; rolls back on a failed health check
 #   ./deploy.sh rollback     restart the previous tag (no migrations; they only move forward)
 set -euo pipefail

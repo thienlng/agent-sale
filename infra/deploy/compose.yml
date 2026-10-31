@@ -1,6 +1,8 @@
-# Production stack on one server (docs/runbooks/deploy-vps.md). Lives in /opt/rapiz next to
-# its .env (created by bootstrap.sh). deploy.sh pulls the images for RAPIZ_TAG, runs the
-# migrations, then restarts the services. Only the edge publishes ports.
+# Production stack on one server (docs/runbooks/deploy-vps.md). Lives in /opt/apps/rapiz next
+# to its .env (created by bootstrap.sh). deploy.sh pulls the images for RAPIZ_TAG, runs the
+# migrations, then restarts the services. Nothing publishes ports: the server's Nginx Proxy
+# Manager terminates HTTPS and reaches `edge` as `rapiz-edge:80` on the external `proxy`
+# network. State services sit on the internal `backend` network only.
 name: rapiz
 
 x-app: &app
@@ -9,12 +11,13 @@ x-app: &app
   environment:
     NODE_ENV: production
   restart: unless-stopped
+  networks: [default, backend]
   depends_on:
     postgres: { condition: service_healthy }
     redis: { condition: service_healthy }
   logging: &logging
     driver: json-file
-    options: { max-size: 20m, max-file: '5' }
+    options: { max-size: 10m, max-file: '3' }
 
 services:
   postgres:
@@ -31,6 +34,7 @@ services:
       timeout: 3s
       retries: 30
     shm_size: 256m
+    networks: [backend]
     logging: *logging
 
   redis:
@@ -43,6 +47,7 @@ services:
       interval: 5s
       timeout: 3s
       retries: 30
+    networks: [backend]
     logging: *logging
 
   # S3-compatible object storage. The identities file is rendered from .env at start:
@@ -65,6 +70,7 @@ services:
         JSON
         exec weed server -dir=/data -s3 -s3.config=/tmp/s3.json -master.volumeSizeLimitMB=1024 -volume.max=0
     volumes: [s3data:/data]
+    networks: [backend]
     logging: *logging
 
   migrate:
@@ -108,14 +114,26 @@ services:
   edge:
     image: ${RAPIZ_IMAGE:-ghcr.io/thienlng/agent-sale}/edge:${RAPIZ_TAG:-latest}
     restart: unless-stopped
-    ports: ['80:80', '443:443', '443:443/udp']
     environment:
-      PUBLIC_HOST: ${PUBLIC_HOST:?set in .env}
-      ACME_EMAIL: ${ACME_EMAIL:?set in .env}
       S3_BUCKET: ${S3_BUCKET:-rapiz}
+    networks:
+      default: {}
+      backend: {}
+      proxy: { aliases: [rapiz-edge] }
     volumes: [caddydata:/data, caddyconfig:/config]
     depends_on: [api, webhook, object-storage]
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '--spider', 'http://127.0.0.1/']
+      interval: 10s
+      timeout: 5s
+      retries: 6
     logging: *logging
+
+networks:
+  backend:
+    internal: true
+  proxy:
+    external: true
 
 volumes:
   pgdata:

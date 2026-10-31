@@ -100,7 +100,7 @@ jobs:
           TARGET: ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}
         run: |
           scp -q infra/deploy/compose.yml infra/deploy/deploy.sh infra/deploy/backup.sh \
-            infra/deploy/set-host.sh "$TARGET:/opt/rapiz/"
+            infra/deploy/set-host.sh "$TARGET:/opt/apps/rapiz/"
       - name: Deploy
         env:
           TARGET: ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}
@@ -111,4 +111,4 @@ jobs:
         run: |
           # The job token can pull the private images until this job ends; log out right after.
           printf '%s' "$GHCR_TOKEN" | ssh "$TARGET" "docker login ghcr.io -u $GHCR_USER --password-stdin >/dev/null"
-          ssh "$TARGET" "cd /opt/rapiz && RAPIZ_IMAGE=$IMAGE ./deploy.sh $TAG; status=\$?; docker logout ghcr.io >/dev/null; exit \$status"
+          ssh "$TARGET" "cd /opt/apps/rapiz && RAPIZ_IMAGE=$IMAGE ./deploy.sh $TAG; status=\$?; docker logout ghcr.io >/dev/null; exit \$status"
