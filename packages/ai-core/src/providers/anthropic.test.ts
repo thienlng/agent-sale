@@ -11,17 +11,19 @@ const ws = workspaceId('0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d10');
 /** Records the request body and answers with a canned message; no network. */
 function stubClient(reply: Record<string, unknown>) {
   const bodies: Array<Record<string, unknown>> = [];
+  const options: Array<Record<string, unknown>> = [];
   const client = {
     beta: {
       messages: {
-        create: async (body: Record<string, unknown>) => {
+        create: async (body: Record<string, unknown>, opts?: Record<string, unknown>) => {
           bodies.push(body);
+          options.push(opts ?? {});
           return reply;
         },
       },
     },
   } as unknown as Anthropic;
-  return { client, bodies };
+  return { client, bodies, options };
 }
 
 const okReply = {
@@ -66,7 +68,12 @@ describe('AnthropicProvider', () => {
       { type: 'text', text: 'frame' },
       { type: 'text', text: 'bot instructions', cache_control: { type: 'ephemeral' } },
     ]);
-    expect(body.messages).toEqual([{ role: 'user', content: 'hi' }]);
+    expect(body.messages).toEqual([
+      {
+        role: 'user',
+        content: [{ type: 'text', text: 'hi', cache_control: { type: 'ephemeral' } }],
+      },
+    ]);
     expect(body.output_config).toEqual({ effort: 'low' });
     // Haiku has no server-side refusal fallback.
     expect(body).not.toHaveProperty('fallbacks');
@@ -195,7 +202,10 @@ describe('AnthropicProvider', () => {
         model,
       );
       expect(bodies[0]!.messages).toEqual([
-        { role: 'user', content: 'hi' },
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'hi', cache_control: { type: 'ephemeral' } }],
+        },
         {
           role: 'assistant',
           content: [
@@ -208,7 +218,12 @@ describe('AnthropicProvider', () => {
           role: 'user',
           content: [
             { type: 'tool_result', tool_use_id: 't1', content: 'r1' },
-            { type: 'tool_result', tool_use_id: 't2', content: 'r2' },
+            {
+              type: 'tool_result',
+              tool_use_id: 't2',
+              content: 'r2',
+              cache_control: { type: 'ephemeral' },
+            },
           ],
         },
       ]);
@@ -253,5 +268,45 @@ describe('AnthropicProvider', () => {
         { type: 'tool_use', id: 't1', name: 'search_products', input: {} },
       ]);
     });
+  });
+
+  it('puts at most 4 cache breakpoints: system + the last two user/tool messages', async () => {
+    const { client, bodies } = stubClient(okReply);
+    await new AnthropicProvider({ client }).generate(
+      {
+        ...request,
+        messages: [
+          { role: 'system', content: 'frame' },
+          { role: 'user', content: 'one' },
+          { role: 'assistant', content: 'a' },
+          { role: 'user', content: 'two' },
+          { role: 'assistant', content: 'b' },
+          { role: 'user', content: 'three' },
+        ],
+      },
+      { model: 'claude-haiku-5-5' },
+    );
+    const body = bodies[0]!;
+    const blocks = [
+      ...(body.system as Array<Record<string, unknown>>),
+      ...(body.messages as Array<{ content: unknown }>).flatMap((m) =>
+        Array.isArray(m.content) ? (m.content as Array<Record<string, unknown>>) : [],
+      ),
+    ];
+    expect(blocks.filter((b) => b.cache_control)).toHaveLength(3);
+    const msgs = body.messages as Array<{ content: unknown }>;
+    expect(msgs[0]!.content).toBe('one');
+    expect(Array.isArray(msgs[2]!.content)).toBe(true);
+    expect(Array.isArray(msgs[4]!.content)).toBe(true);
+  });
+
+  it('passes the abort signal and timeout to the SDK call', async () => {
+    const { client, options } = stubClient(okReply);
+    const controller = new AbortController();
+    await new AnthropicProvider({ client }).generate(
+      { ...request, signal: controller.signal, timeoutMs: 7_000 },
+      { model: 'claude-haiku-5-5' },
+    );
+    expect(options[0]).toEqual({ signal: controller.signal, timeout: 7_000 });
   });
 });

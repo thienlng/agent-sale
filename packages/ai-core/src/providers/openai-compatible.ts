@@ -72,19 +72,26 @@ export class OpenAiCompatibleProvider implements LlmProvider {
       throw new Error(`${this.name} provider: tools must be emulated`);
     }
     const started = performance.now();
-    const response = await this.#client.chat.completions.create({
-      model: target.model,
-      max_completion_tokens: request.maxOutputTokens ?? 2_000,
-      messages: request.messages.map(toOpenAiMessage),
-      ...(request.tools?.length
-        ? {
-            tools: request.tools.map(toOpenAiTool),
-            tool_choice: request.toolChoice ?? 'auto',
-          }
-        : {}),
-      ...this.#responseFormat(request),
-      ...(this.#sendReasoningEffort && target.effort ? { reasoning_effort: target.effort } : {}),
-    });
+    const response = await this.#client.chat.completions.create(
+      {
+        model: target.model,
+        max_completion_tokens: request.maxOutputTokens ?? 2_000,
+        messages: request.messages.map(toOpenAiMessage),
+        ...(request.tools?.length
+          ? {
+              tools: request.tools.map(toOpenAiTool),
+              tool_choice: request.toolChoice ?? 'auto',
+            }
+          : {}),
+        ...this.#responseFormat(request),
+        ...(this.#sendReasoningEffort && target.effort ? { reasoning_effort: target.effort } : {}),
+        ...(request.promptCacheKey ? { prompt_cache_key: request.promptCacheKey } : {}),
+      },
+      {
+        ...(request.signal ? { signal: request.signal } : {}),
+        ...(request.timeoutMs ? { timeout: request.timeoutMs } : {}),
+      },
+    );
 
     const choice = response.choices[0];
     const usage = response.usage;

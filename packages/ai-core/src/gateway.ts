@@ -1,6 +1,9 @@
 import type { WorkspaceId } from '@agent-sales/shared';
 import type { z } from 'zod';
 
+import { classifyLlmError, retryAfterMsOf } from './llm-errors.js';
+import { backoffDelayMs, isRetryable, MAX_RETRIES, sleep } from './retry.js';
+
 /** Commercial tiers map to pipeline configs, not to fixed models (ADR-005). */
 export type ModelTier = 'basic' | 'smart' | 'pro' | 'neo';
 
@@ -129,6 +132,8 @@ export interface TierPolicy extends ModelTarget {
  */
 export class LlmGateway {
   readonly #providers = new Map<string, LlmProvider>();
+  readonly #random: () => number;
+  readonly #sleep: (ms: number, signal?: AbortSignal) => Promise<void>;
 
   constructor(
     providers: LlmProvider[],
@@ -137,7 +142,13 @@ export class LlmGateway {
       admit?: (req: GenerateRequest) => Promise<void>;
       record?: (req: GenerateRequest, res: GenerateResponse) => Promise<void>;
     } = {},
+    options: {
+      random?: () => number;
+      sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
+    } = {},
   ) {
+    this.#random = options.random ?? Math.random;
+    this.#sleep = options.sleep ?? sleep;
     for (const p of providers) this.#providers.set(p.name, p);
   }
 
@@ -145,15 +156,48 @@ export class LlmGateway {
     await this.hooks.admit?.(request);
     const policy = this.tiers[request.tier];
     try {
-      const res = await this.#call(policy.provider, policy, request);
+      const res = await this.#withRetries(policy.provider, policy, request);
       await this.hooks.record?.(request, res);
       return res;
     } catch (error) {
-      if (!policy.fallback) throw error;
-      const res = await this.#call(policy.fallback.provider, policy.fallback, request);
-      await this.hooks.record?.(request, res);
-      return res;
+      if (!policy.fallback || classifyLlmError(error) === 'aborted') throw error;
     }
+    const res = await this.#callNonEmpty(policy.fallback.provider, policy.fallback, request);
+    await this.hooks.record?.(request, res);
+    return res;
+  }
+
+  async #withRetries(
+    providerName: string,
+    target: ModelTarget,
+    request: GenerateRequest,
+  ): Promise<GenerateResponse> {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await this.#callNonEmpty(providerName, target, request);
+      } catch (error) {
+        const kind = classifyLlmError(error);
+        if (attempt >= MAX_RETRIES || !isRetryable(kind)) throw error;
+        const delay = backoffDelayMs(
+          attempt,
+          this.#random,
+          retryAfterMsOf(error),
+          request.timeoutMs,
+        );
+        await this.#sleep(delay, request.signal);
+      }
+    }
+  }
+
+  /** An answer with neither text nor tool calls is retried once. */
+  async #callNonEmpty(
+    providerName: string,
+    target: ModelTarget,
+    request: GenerateRequest,
+  ): Promise<GenerateResponse> {
+    const res = await this.#call(providerName, target, request);
+    if (!isEmptyAnswer(res)) return res;
+    return this.#call(providerName, target, request);
   }
 
   async #call(
@@ -166,6 +210,10 @@ export class LlmGateway {
     const { model, effort } = target;
     return provider.generate(request, effort ? { model, effort } : { model });
   }
+}
+
+function isEmptyAnswer(res: GenerateResponse): boolean {
+  return !res.text.trim() && res.toolCalls.length === 0 && res.stopReason !== 'refusal';
 }
 
 /** Key of the `input` a provider hands over when a tool call's arguments were not valid JSON. */

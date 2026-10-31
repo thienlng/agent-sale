@@ -66,33 +66,39 @@ export class AnthropicProvider implements LlmProvider {
     const started = performance.now();
     const fallback = SERVER_FALLBACK_MODELS.has(target.model);
 
-    const response = await this.#client.beta.messages.create({
-      model: target.model,
-      max_tokens: request.maxOutputTokens ?? 2_000,
-      ...(system.length ? { system } : {}),
-      messages,
-      ...(request.tools?.length
-        ? {
-            tools: request.tools.map((t) => ({
-              name: t.name,
-              description: t.description,
-              input_schema: z.toJSONSchema(t.input) as Anthropic.Beta.BetaTool.InputSchema,
-            })),
-            tool_choice: { type: request.toolChoice ?? 'auto' },
-          }
-        : {}),
-      ...(target.effort || request.responseFormat
-        ? {
-            output_config: {
-              ...(target.effort ? { effort: target.effort } : {}),
-              ...(request.responseFormat
-                ? { format: zodOutputFormat(request.responseFormat) }
-                : {}),
-            },
-          }
-        : {}),
-      ...(fallback ? { betas: [SERVER_FALLBACK_BETA], fallbacks: 'default' as const } : {}),
-    });
+    const response = await this.#client.beta.messages.create(
+      {
+        model: target.model,
+        max_tokens: request.maxOutputTokens ?? 2_000,
+        ...(system.length ? { system } : {}),
+        messages,
+        ...(request.tools?.length
+          ? {
+              tools: request.tools.map((t) => ({
+                name: t.name,
+                description: t.description,
+                input_schema: z.toJSONSchema(t.input) as Anthropic.Beta.BetaTool.InputSchema,
+              })),
+              tool_choice: { type: request.toolChoice ?? 'auto' },
+            }
+          : {}),
+        ...(target.effort || request.responseFormat
+          ? {
+              output_config: {
+                ...(target.effort ? { effort: target.effort } : {}),
+                ...(request.responseFormat
+                  ? { format: zodOutputFormat(request.responseFormat) }
+                  : {}),
+              },
+            }
+          : {}),
+        ...(fallback ? { betas: [SERVER_FALLBACK_BETA], fallbacks: 'default' as const } : {}),
+      },
+      {
+        ...(request.signal ? { signal: request.signal } : {}),
+        ...(request.timeoutMs ? { timeout: request.timeoutMs } : {}),
+      },
+    );
 
     const text = response.content
       .flatMap((block) => (block.type === 'text' ? [block.text] : []))
@@ -169,7 +175,26 @@ function toAnthropicMessages(request: GenerateRequest): {
   }
   const last = system.at(-1);
   if (last) last.cache_control = { type: 'ephemeral' };
+  // Rolling breakpoints on the last two user/tool-result messages (≤ 4 in total).
+  let marked = 0;
+  for (let i = messages.length - 1; i >= 0 && marked < 2; i--) {
+    const m = messages[i];
+    if (m?.role !== 'user') continue;
+    markCacheBreakpoint(m);
+    marked++;
+  }
   return { system, messages };
+}
+
+function markCacheBreakpoint(message: Anthropic.Beta.BetaMessageParam): void {
+  if (typeof message.content === 'string') {
+    message.content = [
+      { type: 'text', text: message.content, cache_control: { type: 'ephemeral' } },
+    ];
+    return;
+  }
+  const lastBlock = message.content?.at(-1);
+  if (lastBlock) (lastBlock as { cache_control?: unknown }).cache_control = { type: 'ephemeral' };
 }
 
 function isToolResults(content: Anthropic.Beta.BetaContentBlockParam[]): boolean {
