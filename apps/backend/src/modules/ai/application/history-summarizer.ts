@@ -2,6 +2,8 @@ import type { GenerateRequest, GenerateResponse, ModelTier } from '@agent-sales/
 import type { WorkspaceId } from '@agent-sales/shared';
 
 export const SUMMARY_MAX_CHARS = 1_500;
+/** Total budget of one summary call (retries included); on timeout the turn keeps the full history. */
+export const SUMMARY_TIMEOUT_MS = 20_000;
 
 const SUMMARIZER_INSTRUCTION = [
   'You compress the earlier part of a sales chat between a customer and a shop assistant into a short memory note for the assistant.',
@@ -28,6 +30,7 @@ export function createHistorySummarizer(
         { role: 'user', content: parts.join('\n\n') },
       ],
       maxOutputTokens: 800,
+      timeoutMs: SUMMARY_TIMEOUT_MS,
     });
     const out = res.text.trim();
     if (!out) throw new Error('history summarizer returned an empty note');

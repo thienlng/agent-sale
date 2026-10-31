@@ -40,15 +40,15 @@ describe('toTimedReplyTurns', () => {
     ]);
   });
 
-  it('keeps the times aligned when the history is cut to the last 20 turns', () => {
-    const stored = Array.from({ length: 25 }, (_, i) =>
+  it('keeps the times aligned when the history is cut to the last 100 turns', () => {
+    const stored = Array.from({ length: 105 }, (_, i) =>
       msg(i % 2 ? 'bot' : 'customer', `m${i}`, new Date(Date.UTC(2026, 9, 31, 1, i)).toISOString()),
     );
 
     const { turns, times } = toTimedReplyTurns(stored);
 
-    expect(turns).toHaveLength(20);
-    expect(times).toHaveLength(20);
+    expect(turns).toHaveLength(100);
+    expect(times).toHaveLength(100);
     expect(turns[0]?.content).toBe('m5');
     expect(times[0]?.toISOString()).toBe('2026-10-31T01:05:00.000Z');
   });

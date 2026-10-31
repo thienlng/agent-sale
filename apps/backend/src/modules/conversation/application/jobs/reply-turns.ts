@@ -1,4 +1,4 @@
-import type { InboxMessageDto } from '@agent-sales/contracts';
+import { type InboxMessageDto, REPLY_HISTORY_MAX_TURNS } from '@agent-sales/contracts';
 
 export type ReplyTurn = { role: 'customer' | 'bot'; content: string };
 
@@ -100,5 +100,8 @@ export function toTimedReplyTurns(
     attempted = false;
   }
   for (const t of turns) t.content = t.content.slice(-MAX_TURN_CHARS);
-  return { turns: turns.slice(-20), times: times.slice(-20) };
+  return {
+    turns: turns.slice(-REPLY_HISTORY_MAX_TURNS),
+    times: times.slice(-REPLY_HISTORY_MAX_TURNS),
+  };
 }

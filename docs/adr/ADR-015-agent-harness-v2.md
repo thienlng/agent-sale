@@ -24,7 +24,7 @@ Owner decisions of 2026-10-31:
 7. **Hermes stays only as the development pipe to ChatGPT.** The bridge (ADR-010) gains contract v2 with native tool calls (`/health` → `nativeTools`); it never executes tools. The emulated JSON tool protocol remains only as the fallback when a bridge reports no native tools. Production uses the OpenAI API through the `openai_compatible` provider.
 8. **Model: `gpt-6.1-sol`.** The harness and prompts are tuned and gated on it (live evals, critical = 100 %); it is the intended production route. Routes stay data in Admin → LLM, never a model name in code.
 
-Also part of the harness: a byte-stable system prompt per bot (`sales-agent@13` retail, `@14` hotel) with every per-turn block on the last user message and `promptCacheKey = <botId>:<conversation>` (OpenAI `prompt_cache_key`, Anthropic `cache_control`, passed through by Hermes); history compression at 24 000 chars keeping the last 12 turns, older turns summarised by the bot's tier and stored in `conversation_summaries`; the response lists every delivered message and the loop steps.
+Also part of the harness: a byte-stable system prompt per bot (`sales-agent@13` retail, `@14` hotel) with every per-turn block on the last user message and `promptCacheKey = <botId>:<conversation>` (OpenAI `prompt_cache_key`, Anthropic `cache_control`, passed through by Hermes); a 100-turn history window with compression at 24 000 chars or more than 30 turns, keeping the last 12 turns, older turns summarised by the bot's tier and stored in `conversation_summaries`; the response lists every delivered message and the loop steps.
 
 ## Options considered
 

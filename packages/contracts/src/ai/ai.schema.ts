@@ -18,12 +18,18 @@ export const PlaygroundImage = z.object({
 });
 export type PlaygroundImage = z.infer<typeof PlaygroundImage>;
 
+/**
+ * How many turns of history a reply sees (channel conversations and the playground). Long
+ * histories are compressed by the ai module before the model call.
+ */
+export const REPLY_HISTORY_MAX_TURNS = 100;
+
 /** The test conversation so far; the last message is the customer's turn to answer. */
 export const PlaygroundRequest = z.object({
   messages: z
     .array(PlaygroundMessage)
     .min(1)
-    .max(20)
+    .max(REPLY_HISTORY_MAX_TURNS)
     .refine((m) => m.at(-1)?.role === 'customer', {
       message: 'the last message must come from the customer',
     }),
