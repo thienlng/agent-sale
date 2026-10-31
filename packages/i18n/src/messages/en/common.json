@@ -598,7 +598,6 @@
       "count_one": "{{count}} product",
       "count_other": "{{count}} products",
       "total": "Order total",
-      "noImage": "No image",
       "details": "Products in order {{code}}",
       "more_one": "+{{count}} more product",
       "more_other": "+{{count}} more products",
