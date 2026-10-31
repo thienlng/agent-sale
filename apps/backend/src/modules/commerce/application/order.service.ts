@@ -13,11 +13,10 @@ import {
   UpdateOrderRequest as UpdateOrderSchema,
   type UpdateOrderRequest,
 } from '@agent-sales/contracts';
-import { foldVietnamese, isUuid, newId, userId, type WorkspaceId } from '@agent-sales/shared';
+import { isUuid, newId, userId, type WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable } from '@nestjs/common';
 import type { z } from 'zod';
 
-import type { CommerceFacade } from '../api/commerce.facade.js';
 import { IDENTITY_FACADE, type IdentityFacade } from '../../identity/api/index.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
 import {
@@ -42,17 +41,19 @@ import { stockTransition } from '../domain/order-stock.js';
 import {
   assertPolicy,
   assertStatusAllowed,
+  loadOrderDto,
   loadSettings,
   normalizeSettings,
   orderLines,
   peopleOf,
 } from './order-rules.js';
+import { toOrderListFilter } from './order-list-filter.js';
 import {
   amountFields,
   orderSearchText,
   reservationChanges,
   stockChanges,
-  toOrderDto,
+  STAFF_ORDER_ORIGIN,
   toSummary,
 } from './order.mappers.js';
 import {
@@ -67,7 +68,7 @@ const FULFILMENT: ReadonlySet<string> = new Set(FULFILMENT_ORDER_STATUSES);
 
 /** Orders: creation with stock reservation, status flow, edits, list, overview (ORD-03/04/05/11). */
 @Injectable()
-export class OrderService implements CommerceFacade {
+export class OrderService {
   constructor(
     @Inject(COMMERCE_STORE) private readonly store: CommerceStore,
     @Inject(IDENTITY_FACADE) private readonly identity: IdentityFacade,
@@ -150,6 +151,7 @@ export class OrderService implements CommerceFacade {
         createdByUserId: actorUserId,
         createdByName: actorName,
         clientRequestId: input.clientRequestId ?? null,
+        ...STAFF_ORDER_ORIGIN,
         placedAt: input.placedAt ? new Date(input.placedAt) : now,
         confirmedAt: CLOSED.has(input.status) ? now : null,
         cancelledAt: input.status === 'cancelled' ? now : null,
@@ -170,10 +172,6 @@ export class OrderService implements CommerceFacade {
       });
       return this.#dto(tx, order);
     });
-  }
-
-  getOrder(ws: WorkspaceId, id: string): Promise<OrderDto> {
-    return this.get(ws, id);
   }
 
   get(ws: WorkspaceId, id: string): Promise<OrderDto> {
@@ -311,21 +309,14 @@ export class OrderService implements CommerceFacade {
   async list(ws: WorkspaceId, q: z.output<typeof OrderListSchema>): Promise<OrderListResponse> {
     const tz = await this.#timezone(ws);
     return this.store.run(ws, async (tx) => {
-      const result = await tx.orders.list({
-        statuses: q.status,
-        statusMode: q.statusMode,
-        createdBy: q.createdBy,
-        carrier: q.carrier,
-        q: q.q ? foldVietnamese(q.q) : undefined,
-        source: q.source,
-        from: q.from ? startOfLocalDay(q.from, tz) : undefined,
-        to: q.to ? startOfLocalDay(nextDate(q.to), tz) : undefined,
-        sort: q.sort,
-        offset: (q.page - 1) * q.pageSize,
-        limit: q.pageSize,
-      });
+      const result = await tx.orders.list(
+        toOrderListFilter(q, {
+          from: q.from ? startOfLocalDay(q.from, tz) : undefined,
+          to: q.to ? startOfLocalDay(nextDate(q.to), tz) : undefined,
+        }),
+      );
       return {
-        data: result.rows.map((r) => toSummary(r, r.itemsPreview)),
+        data: result.rows.map((r) => toSummary(r, r.itemsPreview, r.itemCount)),
         total: result.total,
         page: q.page,
         pageSize: q.pageSize,
@@ -420,12 +411,7 @@ export class OrderService implements CommerceFacade {
     return o;
   }
 
-  async #dto(tx: CommerceTx, o: OrderRecord): Promise<OrderDto> {
-    const [items, history, warehouse] = await Promise.all([
-      tx.orders.itemsOf(o.id),
-      tx.orders.historyOf(o.id),
-      tx.warehouses.find(o.warehouseId),
-    ]);
-    return toOrderDto(o, items, history, warehouse?.name ?? '');
+  #dto(tx: CommerceTx, o: OrderRecord): Promise<OrderDto> {
+    return loadOrderDto(tx, o);
   }
 }

@@ -50,6 +50,18 @@ describe('eval case format', () => {
     ).toThrow(/last turn/);
     expect(() => parseCase('id: [', 'z.yaml')).toThrow(/z\.yaml: invalid YAML/);
   });
+
+  it('defaults order taking off and needs it for an order draft', () => {
+    expect(parseCase(MINIMAL).bot).toMatchObject({
+      orderTaking: false,
+      orderShippingFeeVnd: null,
+    });
+    const draft = `${MINIMAL}order_draft:
+  items: [{ sku: SKU-1-1, qty: 1 }]
+  recipient: { name: An, phone: '0903111222', address: '1 Lê Lợi' }
+`;
+    expect(() => parseCase(draft, 'd.yaml')).toThrow(/order_draft needs bot\.orderTaking/);
+  });
 });
 
 describe('eval suite (fake mode)', () => {
@@ -67,6 +79,11 @@ describe('eval suite (fake mode)', () => {
       'tinymind-several-products-own-pictures',
       'tinymind-check-follow-up-no-promise',
       'villas-long-conversation-recalls-phone',
+      'tinymind-discount-total-uses-calculate',
+      'tinymind-order-asks-missing-recipient',
+      'tinymind-order-summary-quick-replies',
+      'tinymind-order-confirm-gives-code',
+      'tinymind-order-insufficient-stock',
     ])
       expect(critical.has(id), id).toBe(true);
   });
@@ -85,8 +102,8 @@ describe('eval suite (fake mode)', () => {
     const results = await Promise.all(cases.map(runCaseFake));
     const report = buildReport('fake', results);
     expect(report.gate).toBe('pass');
-    expect(report.promptVersion).toContain('sales-agent@13');
-    expect(report.promptVersion).toContain('sales-agent@14');
+    expect(report.promptVersion).toContain('sales-agent@15');
+    expect(report.promptVersion).toContain('sales-agent@16');
     expect(report.passed).toBe(report.total);
     expect(report.groups.map((g) => g.group)).toContain('safety');
     expect(renderText(report)).toContain('Critical:');

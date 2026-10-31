@@ -168,7 +168,7 @@ const call = (tool: string, input: object = {}) => ({ tool, input });
 const answer = (reply: string) => reply;
 const lastMessage = (req: GenerateRequest | undefined) => req?.messages.at(-1)?.content ?? '';
 const OUTPUT_TOOLS = new Set(['send_message', 'handoff']);
-/** The action tools offered (the output tools send_message/handoff are always there besides). */
+/** The action tools and `calculate` offered (the output tools send_message/handoff are always there besides). */
 const toolNames = (req: GenerateRequest | undefined) =>
   (req?.tools ?? []).map((t) => t.name).filter((name) => !OUTPUT_TOOLS.has(name));
 /** Confirms whenever the model has no tool result yet, answers once it has one. */
@@ -216,7 +216,7 @@ describe('bot API actions in the reply pipeline', () => {
     const { fake, ask } = build([answer('Dạ ạ')]);
     await ask('xin chào');
     const first = fake.calls[0];
-    expect(toolNames(first)).toEqual([LOOKUP, BOOK]);
+    expect(toolNames(first)).toEqual(['calculate', LOOKUP, BOOK]);
     const sent = JSON.stringify(first?.tools?.map((t) => ({ n: t.name, d: t.description })));
     expect(sent).toContain('Tra cứu trạng thái đơn hàng theo mã đơn');
     expect(sent).toContain('asks the customer to confirm first');
@@ -257,6 +257,7 @@ describe('bot API actions in the reply pipeline', () => {
     expect(second.actions).toEqual([{ name: 'Đặt lịch', ok: true, statusCode: 200 }]);
     expect(lastMessage(fake.calls[2])).toContain('<pending_action>');
     expect(toolNames(fake.calls[2])).toEqual([
+      'calculate',
       LOOKUP,
       BOOK,
       'confirm_pending_action',
@@ -341,7 +342,7 @@ describe('bot API actions in the reply pipeline', () => {
     expect(invocations).toHaveLength(0);
     const disabled = build([answer('Dạ ạ')], { actions: [booking] });
     await disabled.ask('đơn A1');
-    expect(toolNames(disabled.fake.calls[0])).toEqual([LOOKUP]);
+    expect(toolNames(disabled.fake.calls[0])).toEqual(['calculate', LOOKUP]);
     expect(JSON.stringify(disabled.fake.calls[0]?.tools)).toContain('Đặt lịch');
     expect(JSON.stringify(disabled.fake.calls[0]?.tools)).not.toContain('Tra cứu');
   });
@@ -362,9 +363,13 @@ describe('bot API actions in the reply pipeline', () => {
       const res = await ask('chào');
       expect(res.outcome).toBe('answered');
       expect(res.actions).toBeUndefined();
-      expect(fake.calls[0]?.tools?.map((t) => t.name)).toEqual(['send_message', 'handoff']);
+      expect(fake.calls[0]?.tools?.map((t) => t.name)).toEqual([
+        'calculate',
+        'send_message',
+        'handoff',
+      ]);
       expect(fake.calls).toHaveLength(1);
-      expect(runs.runs[0]?.promptVersion).toBe('sales-agent@13');
+      expect(runs.runs[0]?.promptVersion).toBe('sales-agent@15');
     }
     // A tool call is meaningless without actions: nothing runs.
     const none = build([call(LOOKUP), answer('Dạ em chưa rõ ạ.')], { actions: [] });
@@ -494,7 +499,7 @@ describe('bot API actions in the reply pipeline', () => {
     expect(store.cleared).toBe(0);
     expect(store.consumed).toBe(0);
     for (const req of reqs) {
-      expect(toolNames(req)).toEqual([LOOKUP, BOOK]);
+      expect(toolNames(req)).toEqual(['calculate', LOOKUP, BOOK]);
       expect(lastMessage(req)).not.toContain('<pending_action>');
     }
     expect(JSON.stringify(reqs[1]?.messages.at(-1))).toContain('confirmation_not_available');
@@ -588,16 +593,19 @@ describe('bot API actions in the reply pipeline', () => {
       { role: 'bot', content: 'Anh xác nhận nhé?' },
       { role: 'customer', content: 'ok' },
     ]);
-    expect(toolNames(fake.calls[0])).toEqual([LOOKUP]);
+    expect(toolNames(fake.calls[0])).toEqual(['calculate', LOOKUP]);
     expect(lastMessage(fake.calls[0])).not.toContain('<pending_action>');
   });
 
-  it('keeps prompt sales-agent@13 telling the model to doubt an old pending call', async () => {
-    const { PROMPTS_DIR } = await import('@agent-sales/ai-core');
-    const { readFile } = await import('node:fs/promises');
-    const text = await readFile(`${PROMPTS_DIR}/sales-agent@13.md`, 'utf8');
-    expect(text).toContain('askedMinutesAgo');
-    expect(text).toContain('confirm_pending_action');
-    expect(text).not.toContain('call_action');
-  });
+  it.each([13, 15])(
+    'keeps prompt sales-agent@%i telling the model to doubt an old pending call',
+    async (version) => {
+      const { PROMPTS_DIR } = await import('@agent-sales/ai-core');
+      const { readFile } = await import('node:fs/promises');
+      const text = await readFile(`${PROMPTS_DIR}/sales-agent@${version}.md`, 'utf8');
+      expect(text).toContain('askedMinutesAgo');
+      expect(text).toContain('confirm_pending_action');
+      expect(text).not.toContain('call_action');
+    },
+  );
 });

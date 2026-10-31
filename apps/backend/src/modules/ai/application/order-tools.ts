@@ -1,0 +1,322 @@
+import type { ToolDefinition } from '@agent-sales/ai-core';
+import type { AiOutcome } from '@agent-sales/contracts';
+import type { WorkspaceId } from '@agent-sales/shared';
+import { z } from 'zod';
+
+import type { CommerceFacade } from '../../commerce/api/index.js';
+import type { MessageSink, OutgoingMessage, QuickReply } from '../api/reply-options.js';
+import { safeJson } from './action-tools.js';
+import type { OutputState } from './output-tools.js';
+import type { RunnableTool } from './tool-runner.js';
+
+export const PREPARE_ORDER_TOOL = 'prepare_order';
+export const CONFIRM_ORDER_TOOL = 'confirm_order';
+export const CANCEL_ORDER_DRAFT_TOOL = 'cancel_order_draft';
+
+/** The buttons under the order summary (spec §4.4); tapping one sends its title as text. */
+export const ORDER_QUICK_REPLIES: readonly QuickReply[] = [
+  { title: '✅ Đặt hàng', payload: 'ORDER_CONFIRM' },
+  { title: '✏️ Sửa thông tin', payload: 'ORDER_EDIT' },
+];
+
+/** The order source when the caller names no channel (the dashboard playground). */
+export const PLAYGROUND_ORDER_CHANNEL = 'other';
+
+const PrepareOrderInput = z.object({
+  items: z
+    .array(
+      z.object({ sku: z.string().trim().min(1).max(100), qty: z.number().int().min(1).max(99) }),
+    )
+    .min(1)
+    .max(20),
+  // Empty values are allowed: the server answers with `missing_*` problems the model can ask about.
+  recipient: z.object({
+    name: z.string().max(120),
+    phone: z.string().max(40),
+    address: z.string().max(300),
+  }),
+  note: z.string().max(300).optional(),
+});
+
+const PREPARE_DEFINITION: ToolDefinition = {
+  name: PREPARE_ORDER_TOOL,
+  description:
+    'Prepares an order once the customer clearly wants to buy and you know the products (sku from product details), quantities and the recipient name, phone and delivery address. The server checks stock, computes the prices and sends the customer the order summary with "Đặt hàng" / "Sửa thông tin" buttons; never restate the summary. Returns problems to ask the customer about, or that the order waits for the customer to confirm.',
+  input: PrepareOrderInput,
+};
+
+const CONFIRM_DEFINITION: ToolDefinition = {
+  name: CONFIRM_ORDER_TOOL,
+  description:
+    'The customer agreed to the order summary sent earlier ("Đặt hàng", "ok", "chốt"): creates the order exactly as summarised and returns its code.',
+  input: z.object({}),
+};
+
+const CANCEL_DEFINITION: ToolDefinition = {
+  name: CANCEL_ORDER_DRAFT_TOOL,
+  description:
+    'The customer wants to change or drop the order summary sent earlier: discards it. To change something, prepare the order again with the new details.',
+  input: z.object({}),
+};
+
+/** What one turn's order tools need; built by the reply pipeline only for bots that take orders. */
+export interface OrderToolContext {
+  facade: CommerceFacade;
+  ws: WorkspaceId;
+  bot: { id: string; name: string; orderShippingFeeVnd?: number | null };
+  /** A UUID: the real conversation, or the stable per-bot playground id. */
+  conversationId: string;
+  /** The order source: the conversation's channel. */
+  channel: string;
+  /** Absent: the summary is collected (playground), like `send_message`. */
+  sink?: MessageSink;
+  output: OutputState;
+  /** A draft stored before the customer's newest message: the only one this turn can confirm or cancel. */
+  confirmable: boolean;
+  state: OrderToolState;
+  /** Logs a failure the turn survives (the error class only). */
+  onError?: (error: unknown) => void;
+}
+
+export interface OrderToolState {
+  /** A draft was stored this turn: it cannot be confirmed in the same turn. */
+  stored: boolean;
+  /** A summary send was attempted this turn: a second one is refused (no duplicate summaries). */
+  summarySent: boolean;
+  /** `confirm_order` created an order this turn: its final message must reach the customer. */
+  orderCreated: boolean;
+  /** The created order's code (set with `orderCreated`). */
+  orderCode: string | null;
+  /** A summary was not (fully) delivered this turn: the next turn may prepare it again. */
+  undelivered: boolean;
+  /** Dropping a draft failed: its state is unknown, so confirm / cancel are off for this turn. */
+  draftUnknown: boolean;
+}
+
+export const newOrderToolState = (): OrderToolState => ({
+  stored: false,
+  summarySent: false,
+  orderCreated: false,
+  orderCode: null,
+  undelivered: false,
+  draftUnknown: false,
+});
+
+/** The final line when an order was created but the model could not finish the turn. */
+export const orderCreatedText = (orderCode: string): string =>
+  `Dạ em đã tạo đơn ${orderCode} cho mình ạ. Shop sẽ kiểm tra và liên hệ xác nhận sớm ạ.`;
+
+interface TurnDecision {
+  outcome: AiOutcome;
+  guardrail: string | null;
+  final: string | null;
+}
+
+/**
+ * Makes a created order's code reach the customer exactly once: nothing is added when a sent
+ * message or the final already carries it; an empty or fallback final is replaced, a hand-off
+ * gets the line first, and any other answer gets it as its last line.
+ */
+export function announceOrder<D extends TurnDecision>(
+  decision: D,
+  opts: { orderCode: string; sentTexts: readonly string[]; fallback: string },
+): D {
+  const { orderCode } = opts;
+  const final = decision.final ?? '';
+  if (final.includes(orderCode) || opts.sentTexts.some((t) => t.includes(orderCode)))
+    return decision;
+  const line = orderCreatedText(orderCode);
+  if (decision.outcome === 'handoff') return { ...decision, final: `${line}\n${final}` };
+  if (!final.trim() || final === opts.fallback)
+    return { ...decision, outcome: 'answered', final: line };
+  return { ...decision, final: `${final}\n${line}` };
+}
+
+/**
+ * Keeps a delivered order summary the turn's last message: Messenger hides quick replies once a
+ * newer message arrives, so a final after the summary (other than a hand-off) is dropped.
+ */
+export function keepSummaryLast<D extends TurnDecision>(
+  decision: D,
+  sent: readonly { quickReplies?: readonly { payload: string }[] }[],
+): D {
+  const summaryLast = sent.at(-1)?.quickReplies?.some((q) => q.payload === 'ORDER_CONFIRM');
+  return summaryLast && decision.outcome !== 'handoff' && decision.final
+    ? { ...decision, final: null }
+    : decision;
+}
+
+/**
+ * Whether the customer answered a draft stored at `storedAt`. With message times (aligned with
+ * `messages`): a bot message delivered at or after `storedAt` (the summary) comes before the
+ * customer's newest message, so an "ok" written before the summary arrived never confirms it.
+ * Without times (playground): the draft predates the turn.
+ */
+export function answeredSince(
+  messages: readonly { role: string }[],
+  times: readonly Date[] | undefined,
+  turnStartedAt: Date,
+): (storedAt: Date) => boolean {
+  if (!times || times.length !== messages.length) return (storedAt) => storedAt < turnStartedAt;
+  const lastCustomer = messages.map((m) => m.role).lastIndexOf('customer');
+  const answeredAt = times[lastCustomer]?.getTime() ?? -Infinity;
+  return (storedAt) =>
+    messages.some((m, i) => {
+      const at = times[i]?.getTime() ?? -Infinity;
+      return (
+        i < lastCustomer && m.role !== 'customer' && at >= storedAt.getTime() && answeredAt > at
+      );
+    });
+}
+
+/**
+ * Whether the conversation's draft can be confirmed by this turn: the customer must have written
+ * after the summary reached them (`answered`), the same idea as pending actions. A failed check
+ * means "not confirmable" (`onError` gets the error to log its class).
+ */
+export async function confirmableDraft(
+  facade: CommerceFacade,
+  ws: WorkspaceId,
+  conversationId: string,
+  answered: (storedAt: Date) => boolean,
+  onError?: (error: unknown) => void,
+): Promise<boolean> {
+  try {
+    const draft = await facade.hasBotOrderDraft(ws, conversationId);
+    return draft.pending && draft.storedAt !== null && answered(draft.storedAt);
+  } catch (error) {
+    onError?.(error);
+    return false;
+  }
+}
+
+const reply = (value: unknown, ok = true) => ({ content: safeJson(value), ok });
+
+/**
+ * `prepare_order`, plus `confirm_order` / `cancel_order_draft` while a draft from an earlier turn
+ * waits (spec §4.1). The model never sets a price, and confirming never reads its arguments.
+ */
+export function orderTools(ctx: OrderToolContext): {
+  definitions: ToolDefinition[];
+  runnable: RunnableTool[];
+} {
+  const { facade, ws, conversationId, state } = ctx;
+  const dropDraft = async (): Promise<void> => {
+    try {
+      await facade.cancelBotOrderDraft(ws, conversationId);
+      state.stored = false;
+    } catch (error) {
+      state.draftUnknown = true;
+      ctx.onError?.(error);
+    }
+  };
+  const draftOpen = (): boolean => ctx.confirmable && !state.stored && !state.draftUnknown;
+
+  const prepare: RunnableTool = {
+    name: PREPARE_ORDER_TOOL,
+    readOnly: false,
+    schema: PrepareOrderInput,
+    run: async (input) => {
+      const args = input as z.infer<typeof PrepareOrderInput>;
+      // One summary per turn: a second one would stack buttons for two different drafts.
+      // One order per turn: a summary after a confirm would put the code line after it and hide its buttons.
+      if (state.orderCreated)
+        return reply({ ok: false, error: 'order_created_retry_next_turn' }, false);
+      if (state.summarySent)
+        return reply(
+          {
+            ok: false,
+            error: state.undelivered ? 'not_delivered_retry_next_turn' : 'already_sent',
+          },
+          false,
+        );
+      const res = await facade.prepareBotOrder(ws, {
+        botId: ctx.bot.id,
+        conversationId,
+        channel: ctx.channel,
+        items: args.items,
+        recipient: args.recipient,
+        ...(args.note?.trim() ? { note: args.note.trim() } : {}),
+        shippingFeeVnd: ctx.bot.orderShippingFeeVnd ?? null,
+      });
+      if (!res.ok) return reply({ ok: false, problems: res.problems }, false);
+      state.stored = true;
+      // The server, not the model, delivers the summary with the confirm / edit buttons.
+      const message: OutgoingMessage = {
+        text: res.summaryText,
+        images: [],
+        quickReplies: ORDER_QUICK_REPLIES.map((q) => ({ ...q })),
+      };
+      state.summarySent = true;
+      let sent: { delivered: number; complete?: boolean } = { delivered: 1 };
+      try {
+        if (ctx.sink) sent = await ctx.sink.send(message);
+      } catch (error) {
+        state.undelivered = true;
+        await dropDraft();
+        throw error;
+      }
+      if (sent.delivered <= 0 || sent.complete === false) {
+        // The customer never saw the whole summary: their next "ok" must not confirm it.
+        state.undelivered = true;
+        await dropDraft();
+        return reply({ ok: false, error: 'not_delivered' }, false);
+      }
+      ctx.output.sent.push({
+        text: res.summaryText,
+        images: [],
+        quickReplies: message.quickReplies ?? [],
+        via: 'send_message',
+      });
+      return {
+        ...reply({ ok: true, status: 'awaiting_customer_confirmation' }),
+        productIds: res.productIds,
+      };
+    },
+  };
+
+  const confirm: RunnableTool = {
+    name: CONFIRM_ORDER_TOOL,
+    readOnly: false,
+    schema: z.object({}),
+    // Never the model's arguments: only the draft the customer was shown.
+    run: async () => {
+      if (!draftOpen()) return reply({ ok: false, code: 'not_confirmable' }, false);
+      const res = await facade.confirmBotOrder(ws, {
+        botId: ctx.bot.id,
+        botName: ctx.bot.name,
+        conversationId,
+      });
+      if (!res.ok) return reply({ ok: false, code: res.code }, false);
+      state.orderCreated = true;
+      state.orderCode = res.orderCode;
+      return reply({ ok: true, orderCode: res.orderCode });
+    },
+  };
+
+  const cancel: RunnableTool = {
+    name: CANCEL_ORDER_DRAFT_TOOL,
+    readOnly: false,
+    schema: z.object({}),
+    run: async () => {
+      if (!draftOpen()) return reply({ ok: false, code: 'nothing_pending' }, false);
+      let dropped: boolean;
+      try {
+        dropped = await facade.cancelBotOrderDraft(ws, conversationId);
+      } catch (error) {
+        state.draftUnknown = true;
+        throw error;
+      }
+      return dropped
+        ? reply({ ok: true, status: 'cancelled' })
+        : reply({ ok: false, code: 'nothing_pending' }, false);
+    },
+  };
+
+  return ctx.confirmable
+    ? {
+        definitions: [PREPARE_DEFINITION, CONFIRM_DEFINITION, CANCEL_DEFINITION],
+        runnable: [prepare, confirm, cancel],
+      }
+    : { definitions: [PREPARE_DEFINITION], runnable: [prepare] };
+}

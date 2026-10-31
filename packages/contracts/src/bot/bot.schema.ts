@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { Money } from '../commerce/money.schema.js';
 import { Industry } from './industry.js';
 import { BotProfile } from './profile.js';
 
@@ -44,6 +45,10 @@ export const BotSettings = z.object({
   allowEmoji: z.boolean().default(false),
   /** Values for `{{placeholders}}` used by seeded knowledge, e.g. { "store.address": "12 Lê Lợi" }. */
   placeholders: z.record(z.string().regex(/^[a-z][a-z0-9_.]*$/), z.string().trim().max(500)),
+  /** "Chốt đơn": the bot may prepare and create orders in the conversation. */
+  orderTaking: z.boolean().default(false),
+  /** Shipping fee the bot's order summary charges; null: "Phí ship: shop báo sau". */
+  orderShippingFeeVnd: Money.nullable().default(null),
 });
 export type BotSettings = z.infer<typeof BotSettings>;
 
@@ -83,6 +88,8 @@ export const UpdateBotRequest = z.object({
     replyLength: true,
     tone: true,
     allowEmoji: true,
+    orderTaking: true,
+    orderShippingFeeVnd: true,
   })
     .partial()
     // Defaulted fields are re-added without defaults, or a partial update would reset them.
@@ -105,6 +112,8 @@ export const UpdateBotRequest = z.object({
       autoResumeAfterManual: z.boolean().optional(),
       humanTakeoverMinutes: z.number().int().min(1).max(1440).optional(),
       silenceOnExternalReply: z.boolean().optional(),
+      orderTaking: z.boolean().optional(),
+      orderShippingFeeVnd: Money.nullable().optional(),
     })
     .optional(),
 });

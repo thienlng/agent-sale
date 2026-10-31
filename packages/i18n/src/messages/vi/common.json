@@ -209,7 +209,15 @@
     "guidanceMoved": "Nhiệm vụ, cách xưng hô và lời chào của bot nằm ở",
     "guidanceLink": "Hướng dẫn trả lời",
     "factsMoved": "Thông tin cửa hàng như địa chỉ, giá và chính sách nằm ở",
-    "factsLink": "Thông tin doanh nghiệp"
+    "factsLink": "Thông tin doanh nghiệp",
+    "orders": {
+      "title": "Chốt đơn",
+      "enabled": "Bot chốt đơn",
+      "enabledHint": "Bot gom sản phẩm, số điện thoại và địa chỉ, gửi tóm tắt đơn để khách xác nhận. Đơn tạo xong sẽ chờ nhân viên duyệt.",
+      "shippingFee": "Phí ship mặc định",
+      "shippingFeeHint": "Để trống: tóm tắt đơn ghi “Phí ship: shop báo sau”",
+      "currency": "đ"
+    }
   },
   "playground": {
     "title": "Chat thử",
@@ -247,7 +255,10 @@
       "failed": "lỗi",
       "ms": "{{ms}} ms"
     },
-    "interrupted": "Khách vừa nhắn thêm nên bot dừng lượt này giữa chừng"
+    "interrupted": "Khách vừa nhắn thêm nên bot dừng lượt này giữa chừng",
+    "quickReplies": {
+      "label": "Trả lời nhanh"
+    }
   },
   "admin": {
     "title": "Mô hình AI",
@@ -476,14 +487,6 @@
     "all": "Tất cả",
     "more": "Trạng thái khác",
     "search": "Mã đơn, mã vận đơn, tên, địa chỉ, SĐT, ghi chú",
-    "source": "Nguồn đơn",
-    "allSources": "Mọi nguồn",
-    "sort": {
-      "placed_desc": "Mới nhất",
-      "placed_asc": "Cũ nhất",
-      "total_desc": "Tổng tiền cao nhất",
-      "total_asc": "Tổng tiền thấp nhất"
-    },
     "col": {
       "code": "Mã đơn",
       "customer": "Khách hàng",
@@ -521,25 +524,16 @@
     "nextPage": "Trang sau",
     "summary": "{{count}} đơn · tổng {{total}}",
     "filters": {
-      "status": "Trạng thái",
-      "allStatuses": "Mọi trạng thái",
-      "sort": "Sắp xếp",
       "columns": "Cột",
       "resetColumns": "Cột mặc định",
       "export": "Xuất Excel",
       "exporting": "Đang xuất…",
       "exported": "Đã xuất {{count}} đơn",
       "remove": "Bỏ lọc {{name}}",
-      "clear": "Xoá bộ lọc",
-      "statusCount": "{{count}} trạng thái",
+      "clear": "Xoá lọc",
       "excluding": "Trừ {{name}}",
-      "exclude": "Loại trừ các trạng thái đã chọn",
-      "clearStatuses": "Bỏ chọn trạng thái",
-      "creator": "Người tạo",
-      "allCreators": "Mọi người tạo",
-      "carrier": "ĐVVC",
-      "allCarriers": "Mọi ĐVVC",
-      "more": "Lọc thêm"
+      "exclude": "Loại trừ các mục đã chọn",
+      "active": "Bộ lọc đang áp dụng"
     },
     "bulk": {
       "selected": "Đã chọn {{count}} đơn",
@@ -560,7 +554,66 @@
     },
     "perPage": "{{count}} / trang",
     "perPageLabel": "Số đơn mỗi trang",
-    "pagination": "Phân trang"
+    "pagination": "Phân trang",
+    "review": {
+      "bot": "Bot",
+      "pending": "Chờ duyệt",
+      "approved": "Đã duyệt",
+      "approvedBy": "Duyệt bởi {{name}} · {{time}}",
+      "staff": "nhân viên",
+      "openConversation": "Mở cuộc trò chuyện ở tab mới",
+      "openConversationShort": "Mở hội thoại",
+      "testChat": "Chat thử",
+      "testChatHint": "Đơn tạo từ khung chat thử của bot, không có cuộc hội thoại với khách",
+      "filterCount": "{{count}} đơn bot chờ duyệt",
+      "approve": "Duyệt đơn",
+      "approving": "Đang duyệt…",
+      "approvedToast": "Đã duyệt đơn {{code}}",
+      "undo": "Hoàn tác",
+      "undone": "Đã hoàn tác duyệt đơn {{code}}",
+      "bannerPending": "Đơn do bot tạo từ hội thoại — cần kiểm tra trước khi xử lý",
+      "bannerApproved": "Bot tạo · duyệt bởi {{name}} lúc {{time}}",
+      "newTab": "(mở ở tab mới)",
+      "bannerApprovedShort": "Bot tạo · đã duyệt",
+      "bannerLabel": "Đơn do bot tạo cần duyệt"
+    },
+    "items": {
+      "count_other": "{{count}} sản phẩm",
+      "total": "Tổng đơn",
+      "details": "Chi tiết sản phẩm của đơn {{code}}",
+      "more_other": "+{{count}} sản phẩm khác",
+      "summary_other": "{{count}} sản phẩm · Tổng {{total}}"
+    },
+    "columnMenu": {
+      "sortAsc": "Sắp xếp tăng dần",
+      "sortDesc": "Sắp xếp giảm dần",
+      "clearColumn": "Xoá lọc cột",
+      "apply": "Áp dụng",
+      "contains": "{{name}} có chứa",
+      "containsPlaceholder": "Nhập để lọc…",
+      "searchList": "Tìm trong danh sách",
+      "searchListIn": "Tìm trong danh sách {{name}}",
+      "selectAll": "Chọn tất cả",
+      "selectNone": "Bỏ chọn",
+      "noOptions": "Không có giá trị nào",
+      "moneyFrom": "Từ",
+      "moneyTo": "Đến",
+      "dateCustom": "Hoặc chọn khoảng ngày rồi bấm Áp dụng",
+      "presets": {
+        "today": "Hôm nay",
+        "last7": "7 ngày",
+        "last30": "30 ngày",
+        "monthToDate": "Tháng này"
+      },
+      "botPending": "Bot · chờ duyệt",
+      "botApproved": "Bot · đã duyệt",
+      "stateFiltered": "đang lọc",
+      "stateAsc": "sắp xếp tăng dần",
+      "stateDesc": "sắp xếp giảm dần",
+      "mobile": "Lọc & sắp xếp",
+      "mobileHint": "Chọn một cột để sắp xếp hoặc lọc",
+      "activeCount": "{{count}} cột đang lọc"
+    }
   },
   "orderForm": {
     "title": "Tạo đơn hàng mới",

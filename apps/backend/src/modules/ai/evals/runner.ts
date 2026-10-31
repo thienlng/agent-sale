@@ -11,7 +11,8 @@ import type { LlmRuntime } from '../application/llm-runtime.js';
 import { PlaygroundService } from '../application/playground.service.js';
 import { DEV_FAKE_PROVIDER } from '../domain/llm-config.js';
 import { InMemoryAiRunRepository } from '../infrastructure/persistence/ai-run.repositories.js';
-import { type CheckResult, runChecks } from './checks.js';
+import { type CheckResult, runChecks, type ToolStep } from './checks.js';
+import { evalCommerce } from './commerce.js';
 import type { EvalCase, EvalOutcome } from './case.js';
 
 export interface CaseResult {
@@ -36,6 +37,8 @@ export interface CaseResult {
   images: number;
   /** Messages delivered in the turn (`send_message` ones and the final one). */
   messages: number;
+  /** The tools the loop ran this turn, in order, with their ok flag. */
+  tools: ToolStep[];
   /** Set when the pipeline itself failed (provider down, no fake turn); the case then fails. */
   error: string | null;
 }
@@ -241,6 +244,11 @@ export function buildService(c: EvalCase, llm: LlmRuntime) {
   }));
   const products = productDtos(c);
   const runs = new InMemoryAiRunRepository();
+  // Only a bot that takes orders gets the order tools; the pipeline checks `bot.orderTaking` itself.
+  const commerce = evalCommerce(
+    products as unknown as ProductDto[],
+    c.order_draft ? { draft: c.order_draft, shippingFeeVnd: c.bot.orderShippingFeeVnd } : undefined,
+  );
   const service = new PlaygroundService(
     { getBot: async () => bot } as BotFacade,
     { searchFaqs: async () => faqHits } as unknown as KnowledgeFacade,
@@ -250,6 +258,9 @@ export function buildService(c: EvalCase, llm: LlmRuntime) {
     { list: async () => scenarios } as unknown as TrainingFacade,
     evalCatalog(products as unknown as ProductDto[]),
     { listForBot: async () => [] } as unknown as ActionFacade,
+    undefined,
+    undefined,
+    commerce,
   );
   return { service, botId, runs };
 }
@@ -283,6 +294,7 @@ const errorResult = (c: EvalCase, error: string): CaseResult => ({
   modelCalls: 0,
   images: 0,
   messages: 0,
+  tools: [],
   error,
 });
 
@@ -300,7 +312,14 @@ export async function runCase(c: EvalCase, llm: LlmRuntime): Promise<CaseResult>
   try {
     const res = await service.playground(workspaceId(newId()), botId, request(c));
     // Checks read what the customer received: every delivered message, not the joined view.
-    const delivered = (res.messages ?? []).map((m) => ({ text: m.text, images: m.images.length }));
+    const delivered = (res.messages ?? []).map((m) => ({
+      text: m.text,
+      images: m.images.length,
+      ...(m.quickReplies?.length ? { quickReplies: m.quickReplies.map((q) => q.title) } : {}),
+    }));
+    const tools = (res.steps ?? []).flatMap((s) =>
+      s.kind === 'tool' && s.name ? [{ name: s.name, ok: s.ok === true }] : [],
+    );
     const reply = delivered
       .map((m) => m.text)
       .filter(Boolean)
@@ -312,6 +331,8 @@ export async function runCase(c: EvalCase, llm: LlmRuntime): Promise<CaseResult>
       guardrail: res.guardrail,
       images,
       messages: delivered,
+      steps: tools,
+      orderCreated: (res as { orderCreated?: boolean }).orderCreated === true,
       customerTexts,
       trusted: trustedTexts(c),
     });
@@ -333,6 +354,7 @@ export async function runCase(c: EvalCase, llm: LlmRuntime): Promise<CaseResult>
       modelCalls,
       images,
       messages: delivered.length,
+      tools,
       error: null,
     };
   } catch (error) {

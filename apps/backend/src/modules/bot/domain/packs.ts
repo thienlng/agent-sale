@@ -86,6 +86,13 @@ export function packFor(industry: IndustryKey): IndustryPack {
   return PACKS[industry];
 }
 
+/** Industries that sell catalog products, whose new bots start with order taking on. */
+const ORDER_TAKING_INDUSTRIES: ReadonlySet<IndustryKey> = new Set([
+  'retail',
+  'fashion',
+  'cosmetics',
+]);
+
 export function defaultSettings(industry: IndustryKey): BotSettingsData {
   const pack = packFor(industry);
   return {
@@ -110,5 +117,8 @@ export function defaultSettings(industry: IndustryKey): BotSettingsData {
     tone: 'friendly',
     allowEmoji: false,
     placeholders: {},
+    // New shop bots take orders; bots that existed before the switch keep it off (column default).
+    orderTaking: ORDER_TAKING_INDUSTRIES.has(industry),
+    orderShippingFeeVnd: null,
   };
 }

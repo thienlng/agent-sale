@@ -1,5 +1,12 @@
 import type { WorkspaceId } from '@agent-sales/shared';
-import type { AccommodationDetails } from '@agent-sales/contracts';
+import type {
+  AccommodationDetails,
+  ORDER_MONEY_COLUMNS,
+  OrderCreatedByKind,
+  OrderReviewState,
+  OrderSort,
+  OrderSummaryDto,
+} from '@agent-sales/contracts';
 
 import type { OrderStatus, StockState } from '../../domain/order-stock.js';
 
@@ -107,6 +114,13 @@ export interface OrderRecord {
   createdByUserId: string | null;
   createdByName: string | null;
   clientRequestId: string | null;
+  createdByKind: OrderCreatedByKind;
+  /** Bot orders: the source conversation and the staff review (null for other orders). */
+  conversationId: string | null;
+  reviewState: OrderReviewState | null;
+  reviewedByUserId: string | null;
+  reviewedByName: string | null;
+  reviewedAt: Date | null;
   placedAt: Date;
   confirmedAt: Date | null;
   cancelledAt: Date | null;
@@ -114,6 +128,9 @@ export interface OrderRecord {
   createdAt: Date;
   updatedAt: Date;
 }
+
+/** One line of the list's product column. */
+export type OrderItemPreview = OrderSummaryDto['itemsPreview'][number];
 
 export interface HistoryRecord {
   fromStatus: OrderStatus | null;
@@ -124,25 +141,52 @@ export interface HistoryRecord {
   createdAt: Date;
 }
 
+/** Per-column "contains" searches of the orders list, already folded (`foldVietnamese`). */
+export interface OrderListText {
+  code?: string | undefined;
+  tracking?: string | undefined;
+  /** Customer or recipient name. */
+  customer?: string | undefined;
+  /** Digit sequences (see `phoneNeedles`), any of them; an empty list matches nothing. */
+  phone?: string[] | undefined;
+  /** Recipient address, ward and province. */
+  address?: string | undefined;
+  /** Any line's product or variant name. */
+  product?: string | undefined;
+  /** Internal or printed note. */
+  note?: string | undefined;
+}
+
+export type OrderMoneyColumn = (typeof ORDER_MONEY_COLUMNS)[number];
+
 export interface OrderListFilter {
   statuses?: OrderStatus[] | undefined;
   /** `exclude`: status NOT IN `statuses`. */
   statusMode: 'include' | 'exclude';
-  createdBy?: string | undefined;
-  carrier?: string | undefined;
-  /** Folded search text. */
+  /**
+   * Any of: staff user ids, `bot_pending` (bot orders waiting for review; cancelled ones excluded:
+   * cancelling rejects them), `bot_approved`. Empty or absent: no filter.
+   */
+  creators?: string[] | undefined;
+  /** Any of these exact carrier names. */
+  carriers?: string[] | undefined;
+  /** Any of these sources. */
+  sources?: string[] | undefined;
+  /** Folded search text over the order's `search_text`. */
   q?: string | undefined;
-  source?: string | undefined;
+  text: OrderListText;
+  /** Inclusive VND bounds per money column. */
+  money: Partial<Record<OrderMoneyColumn, { min?: number | undefined; max?: number | undefined }>>;
   /** Half-open UTC range [from, to). */
   from?: Date | undefined;
   to?: Date | undefined;
-  sort: 'placed_desc' | 'placed_asc' | 'total_desc' | 'total_asc';
+  sort: OrderSort;
   offset: number;
   limit: number;
 }
 
 export interface OrderListResult {
-  rows: Array<OrderRecord & { itemsPreview: Array<{ name: string; qty: number }> }>;
+  rows: Array<OrderRecord & { itemsPreview: OrderItemPreview[]; itemCount: number }>;
   total: number;
   counts: Record<string, number>;
   totals: {
@@ -152,7 +196,16 @@ export interface OrderListResult {
     gross: number;
     total: number;
   };
-  facets: { creators: Array<{ id: string; name: string }>; carriers: string[] };
+  facets: {
+    creators: Array<{ id: string; name: string }>;
+    carriers: string[];
+    /** Per value, the orders matching every filter except that column's own. */
+    counts: {
+      source: Record<string, number>;
+      creator: Record<string, number>;
+      carrier: Record<string, number>;
+    };
+  };
 }
 
 export interface SourcePolicyRecord {
@@ -188,6 +241,30 @@ export interface OverviewAggregates {
     byHour: Array<{ hour: number; revenue: number }>;
   };
 }
+
+/** The conversation's order the bot prepared and the customer has not confirmed yet. */
+export interface BotOrderDraftRecord {
+  conversationId: string;
+  botId: string;
+  /** Conversation channel; becomes the order source. */
+  channel: string;
+  lines: Array<{ variantId: string; sku: string; qty: number }>;
+  /** Phone in national form `0xxxxxxxxx`. */
+  recipient: { name: string; phone: string; address: string };
+  note: string | null;
+  /** Null: "Phí ship: shop báo sau" (the order gets 0 and staff set it on review). */
+  shippingVnd: number | null;
+  amountsHash: string;
+  createdAt: Date;
+  expiresAt: Date;
+}
+
+/** A variant matched by SKU, with what decides whether the bot may sell it. */
+export type SkuVariantRecord = VariantRecord & {
+  productName: string;
+  productActive: boolean;
+  productVisibleToBot: boolean;
+};
 
 /** Everything one use case reads and writes, inside one tenant transaction (RLS-scoped). */
 export interface CommerceTx {
@@ -280,12 +357,16 @@ export interface CommerceTx {
     find(id: string, opts?: { forUpdate?: boolean }): Promise<OrderRecord | null>;
     findByRequestId(requestId: string): Promise<OrderRecord | null>;
     itemsOf(orderId: string): Promise<OrderItemRecord[]>;
+    /** The current first picture of each line's product, by variant id (lines without one are absent). */
+    itemImages(orderId: string): Promise<Map<string, string>>;
     historyOf(orderId: string): Promise<HistoryRecord[]>;
     update(o: OrderRecord): Promise<void>;
     /** Replaces every line of an order. */
     replaceItems(orderId: string, items: OrderItemRecord[]): Promise<void>;
     addHistory(workspaceId: WorkspaceId, orderId: string, h: HistoryRecord): Promise<void>;
     list(filter: OrderListFilter): Promise<OrderListResult>;
+    /** Bot orders waiting for review (not cancelled). */
+    countPendingReview(): Promise<number>;
     overview(range: {
       from: Date;
       to: Date;
@@ -293,6 +374,22 @@ export interface CommerceTx {
       todayTo: Date;
       timezone: string;
     }): Promise<OverviewAggregates>;
+  };
+  /** Bot order drafts (one per conversation) and the SKU lookup the bot's orders need. */
+  botOrders: {
+    /** Variants whose SKU matches case-insensitively (archived ones included, live ones first). */
+    variantsBySkus(skus: string[]): Promise<SkuVariantRecord[]>;
+    /** With `forUpdate`, the row stays locked until the transaction ends. */
+    findDraft(
+      conversationId: string,
+      opts?: { forUpdate?: boolean },
+    ): Promise<BotOrderDraftRecord | null>;
+    /** Inserts, or replaces the conversation's earlier draft. */
+    saveDraft(workspaceId: WorkspaceId, d: BotOrderDraftRecord): Promise<void>;
+    /** Whether a row was deleted; with `storedAt`, only that version of the draft. */
+    deleteDraft(conversationId: string, storedAt?: Date): Promise<boolean>;
+    /** Removes drafts that expired before `now`. */
+    sweepExpired(now: Date): Promise<void>;
   };
   settings: {
     get(): Promise<OrderSettingsRecord | null>;

@@ -156,3 +156,19 @@ export class ImageNotUploadedError extends DomainError {
     super('Upload the picture instead of linking to it', { reason: 'IMAGE_NOT_UPLOADED', field });
   }
 }
+
+/** Only orders the bot created carry a review. */
+export class NotBotOrderError extends DomainError {
+  readonly code = 'CONFLICT';
+  constructor() {
+    super('Only orders created by the bot can be approved', { reason: 'NOT_BOT_ORDER' });
+  }
+}
+
+/** An approval can be taken back only by its reviewer, within a few seconds. */
+export class ApprovalUndoNotAllowedError extends DomainError {
+  readonly code = 'CONFLICT';
+  constructor() {
+    super('This approval can no longer be undone', { reason: 'UNDO_NOT_ALLOWED' });
+  }
+}

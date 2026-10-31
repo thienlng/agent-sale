@@ -1,7 +1,7 @@
 import type { ToolDefinition } from '@agent-sales/ai-core';
 import { z } from 'zod';
 
-import type { MessageSink, OutgoingMessage } from '../api/reply-options.js';
+import type { MessageSink, OutgoingMessage, QuickReply } from '../api/reply-options.js';
 import type { AllowedImage } from '../domain/image-allowlist.js';
 import { normalizeReplyText } from '../domain/reply-text.js';
 import { safeJson } from './action-tools.js';
@@ -27,6 +27,8 @@ const HandoffInput = z.object({ reason: z.string().trim().min(1).max(500) });
 export interface SentMessage {
   text: string;
   images: { id: string; url: string; label: string }[];
+  /** Buttons under the message (the order summary's confirm / edit). */
+  quickReplies?: QuickReply[];
   via: 'send_message' | 'final';
 }
 
@@ -84,7 +86,7 @@ const SEND_MESSAGE_DEFINITION: ToolDefinition = {
 const HANDOFF_DEFINITION: ToolDefinition = {
   name: HANDOFF_TOOL,
   description:
-    'Hands the conversation over to the shop staff: when the customer asks for a person, an order is ready (details collected and read back) or a staff decision is needed. The shop then sends its own hand-over message.',
+    'Hands the conversation over to the shop staff: when the customer asks for a person or a staff decision is needed. The shop then sends its own hand-over message.',
   input: HandoffInput,
 };
 

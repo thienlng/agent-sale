@@ -1,5 +1,5 @@
 import type { ImageInput } from '@agent-sales/ai-core';
-import { type NormalizedEvent, withinReplyWindow } from '@agent-sales/channels';
+import { withinReplyWindow } from '@agent-sales/channels';
 import { FanpageCommentProcessor } from './fanpage-comment.processor.js';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import {
@@ -21,6 +21,7 @@ import {
   fetchTurnImages,
   finalMessage,
   handoffText,
+  isCustomerContent,
   REPLY_PACING,
   ReplyDelivery,
   type ReplyPacing,
@@ -35,9 +36,6 @@ import {
   turnOwner,
   type Turn,
 } from './reply-resume.js';
-
-const isCustomerContent = (e: NormalizedEvent): boolean =>
-  e.type === 'message' && Boolean(e.text?.trim() || e.attachments?.length);
 
 /** Invoked exclusively by the agent entry; API never starts background inference. */
 @Injectable()
@@ -306,6 +304,7 @@ export class MetaInboxProcessor {
         {
           conversationId: c.id,
           isTest: false,
+          channel: c.provider,
           sink: delivery.sink(),
           // The last allowed re-run gets no interrupt check: it runs to completion.
           ...(finishing ? {} : { shouldInterrupt: () => this.shouldInterrupt(turn, delivery) }),
@@ -325,16 +324,19 @@ export class MetaInboxProcessor {
       response = await ask([], new Set());
     }
     // Nothing went out because the first send failed: retry the event (then staff) as before.
-    if (delivery.stop === 'failed' && !delivery.attempted) throw delivery.failure;
-    if (response.interrupted && !finishing) {
+    // An order exists, though: its final (the order code) is still attempted once below.
+    if (delivery.stop === 'failed' && !delivery.attempted && !response.orderCreated)
+      throw delivery.failure;
+    // A created order is never re-run or dropped (it exists now): its final goes out whole.
+    if (response.interrupted && !finishing && !response.orderCreated) {
       // A takeover (or bot off) also interrupts, but nobody is waiting for a new turn.
       if (!(await this.inbox.botHolds(job.workspaceId, c.id).catch(() => true)))
         return this.skip(job, 'conversation control changed during the turn');
       return this.rerun(turn, delivery, response.carry, 'interrupted by a newer message');
     }
     const handoff = response.outcome === 'handoff';
-    // A hand-off is never dropped: its message goes out whole and staff take over.
-    if (handoff) delivery.stopWatchingNewer();
+    // A hand-off (or a created order) is never dropped: its message goes out whole.
+    if (handoff || response.orderCreated) delivery.stopWatchingNewer(response.orderCreated);
     else if (!finishing && !delivery.takenOver) {
       // The customer wrote again after the run: its final answer is already stale.
       if (await delivery.hasNewerMessage()) {

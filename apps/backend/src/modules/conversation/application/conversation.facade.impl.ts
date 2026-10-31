@@ -25,7 +25,7 @@ import {
 import { CRM_FACADE, type CrmFacade } from '../../crm/api/index.js';
 import { IDENTITY_FACADE, type IdentityFacade } from '../../identity/api/index.js';
 import { TEAM_FACADE, type TeamFacade } from '../../team/api/index.js';
-import type { ConversationFacade } from '../api/conversation.facade.js';
+import type { BotQuickReplies, ConversationFacade } from '../api/conversation.facade.js';
 import { ConversationError } from '../domain/conversation.errors.js';
 import { nextMessageId } from '../domain/message-id.js';
 import { toListFilter } from '../domain/conversation-filter.js';
@@ -581,7 +581,7 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
   commitBotReply(
     ws: WorkspaceId,
     id: string,
-    input: { revision: number; text: string; idempotencyKey: string },
+    input: { revision: number; text: string; idempotencyKey: string } & BotQuickReplies,
   ): Promise<InboxMessageDto | null> {
     if (!input.text.trim() || input.text.length > 2000)
       throw new ConversationError(
@@ -591,7 +591,7 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
     return this.reserveAndDeliver(
       ws,
       id,
-      { text: input.text, idempotencyKey: input.idempotencyKey },
+      { text: input.text, quickReplies: input.quickReplies, idempotencyKey: input.idempotencyKey },
       null,
       input.revision,
     );
@@ -599,7 +599,7 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
   commitBotFollowUp(
     ws: WorkspaceId,
     id: string,
-    input: { text: string; idempotencyKey: string },
+    input: { text: string; idempotencyKey: string } & BotQuickReplies,
   ): Promise<InboxMessageDto | null> {
     if (!input.text.trim() || input.text.length > 2000)
       throw new ConversationError(
@@ -610,7 +610,7 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
     return this.reserveAndDeliver(
       ws,
       id,
-      { text: input.text, idempotencyKey: input.idempotencyKey },
+      { text: input.text, quickReplies: input.quickReplies, idempotencyKey: input.idempotencyKey },
       null,
       'follow-up',
     );
@@ -777,7 +777,7 @@ export class ConversationFacadeImpl implements ConversationFacade, OnModuleInit 
       ws,
       channelId,
       reservation.customerId,
-      { text: input.text, attachments: input.attachments },
+      { text: input.text, attachments: input.attachments, quickReplies: input.quickReplies },
       input.idempotencyKey,
     );
     return this.store.run(ws, async (tx) => {

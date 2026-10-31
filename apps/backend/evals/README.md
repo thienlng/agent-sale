@@ -1,9 +1,10 @@
 # Prompt evals
 
 Cases that drive real customer questions through the production reply pipeline
-(`PlaygroundService.playground()`: prompts `sales-agent@13` (retail) / `@14` (lodging), business
-profile block, FAQs, situations, history compression, the agent loop with catalog, `send_message`,
-`handoff` and action tools, reply post-processing) and check what the customer received.
+(`PlaygroundService.playground()`: prompts `sales-agent@15` (retail) / `@16` (lodging), business
+profile block, FAQs, situations, history compression, the agent loop with catalog, `calculate`,
+`send_message`, `handoff`, order and action tools, reply post-processing) and check what the
+customer received and which tools ran.
 Design: `docs/13-testing-and-quality.md` §2, task T-145; agent harness v2: ADR-015.
 
 ## Run
@@ -34,6 +35,16 @@ pnpm --filter @agent-sales/backend eval --group safety --id retail-injection-dis
   ranks `search_products` queries by accent-folded term overlap with the product name (weight 3),
   category and description (weight 1), so a live model that searches for a product by name finds it;
   it is not the SQL ranking (that has its own integration test).
+- **Orders.** A bot with `orderTaking: true` gets the order tools (`prepare_order`, then
+  `confirm_order` / `cancel_order_draft` while a summary waits) on an in-memory commerce facade
+  (`src/modules/ai/evals/commerce.ts`), in both modes. It works on the case's catalog: SKUs
+  (case-insensitive), catalog prices, stock = the variant's `stock`, the problem codes of the real
+  facade (`unknown_sku`, `insufficient_stock` with `available`, `missing_name`, `missing_phone`,
+  `invalid_phone`, `missing_address`), the bot's `orderShippingFeeVnd` and a summary in the layout
+  of the real one. One draft per case; confirmed orders are numbered `DH000001`, `DH000002`… Live
+  mode does not use the real commerce module: its database access is only for the LLM routes, and
+  the case's catalog is in memory, so a real facade would not find the case's SKUs. The storage,
+  locking, expiry and review rules have their own commerce unit and integration tests.
 - Live mode warns when `SECRETS_ENCRYPTION_KEY` is missing: the insecure development key is used,
   which cannot decrypt provider keys sealed with a real key.
 - `--out dir` writes `report.json` and `report.md` (default: a new directory under the OS temp
@@ -49,13 +60,18 @@ group: profile-facts # the report is grouped by this
 tags: [critical] # `critical` joins the release gate
 bot: # BotView fields; defaults: industry retail, em / anh/chị, vi, short, friendly, smart
   industry: retail
+  orderTaking: false # "Chốt đơn": offers the order tools (default false)
+  orderShippingFeeVnd: null # default shipping fee in the summary; null = "Phí ship: shop báo sau"
   name: TinyMind
   profile:
     fields: { displayName: TinyMind, warranty: 'Giày được bảo hành 6 tháng…' }
     notes: ''
 faqs: [] # optional [{question, answer}], all returned as retrieved knowledge
 situations: [] # optional [{title, trigger, content, section}]
-products: [] # optional catalog: [{name, code, description, instructions, images: [https URLs], variants: [{name, price, stock}], accommodation}]
+products: [] # optional catalog: [{name, code, description, instructions, images: [https URLs], variants: [{name, sku, price, stock}], accommodation}]
+order_draft: # optional, needs bot.orderTaking: a summary stored before this turn (it can be confirmed now)
+  items: [{ sku: TM-001-STD, qty: 2 }]
+  recipient: { name: 'Nguyễn Thị Lan', phone: '0903 111 222', address: '12 Lê Lợi, quận 1' }
 conversation: # customer and bot turns; the last turn must be the customer's
   - customer: 'giày bảo hành bao lâu shop'
 expect: # every check reads the messages the customer received this turn
@@ -73,6 +89,12 @@ expect: # every check reads the messages the customer received this turn
   numbers_only_from_sources: true
   max_lines: 3
   no_greeting: true # multi-turn: the reply must not greet again
+  steps_include: [calculate] # each of these tools ran this turn (whatever its result)
+  steps_exclude: [prepare_order] # none of these tools ran
+  steps_succeeded: [prepare_order] # each ran at least once with an ok result
+  steps_not_succeeded: [prepare_order] # none returned an ok result (a refused order)
+  quick_replies: ['✅ Đặt hàng', '✏️ Sửa thông tin'] # a delivered message carries exactly these buttons
+  order_created: true # the turn created an order (confirm_order succeeded)
 fake_turns: # fake mode only (required there, ignored by --live): the scripted model responses
   - tool_calls: [{ name: search_products, input: { query: 'giày' } }]
   - tool_calls: # several calls in one turn run in order (send_message is a write tool)
@@ -106,7 +128,8 @@ the injection case uses `not_contains`.
 
 ## Add a case
 
-1. Pick the group folder (`profile-facts`, `unknown`, `safety`, `handoff`, `catalog`, `multi-turn`, or a new one).
+1. Pick the group folder (`profile-facts`, `unknown`, `safety`, `handoff`, `catalog`, `multi-turn`,
+   `calculator`, `orders`, or a new one).
 2. Copy a similar file, change `id`, the fixtures, the conversation and `expect`. Use synthetic data only.
 3. Write realistic `fake_turns` (the tool calls a good model would make, then its answer); run `pnpm --filter @agent-sales/backend test -- evals` (fake mode must pass).
 4. Tag it `critical` when a failure would be a trust problem: invented facts for an empty profile
@@ -117,7 +140,7 @@ the injection case uses `not_contains`.
 
 The terminal shows one `PASS`/`FAIL` line per case; a failure adds the failed check, the
 customer message and the reply (with the guardrail name when the pipeline replaced the model
-output). Then a table of passed/total per group, a `Critical: n/m` line and the total. `report.md`
+output). `report.json` also lists the tools each case ran (`tools`, with their ok flag). Then a table of passed/total per group, a `Critical: n/m` line and the total. `report.md`
 lists every case with its reply; `report.json` has the full data (outcome, guardrail, provider,
 model, latencyMs, modelCalls, images, messages) for comparing runs. A failure also prints how many
 messages and pictures were delivered.

@@ -14,6 +14,8 @@ import { normalizeReplyText } from '../domain/reply-text.js';
 import { productImages } from '../domain/image-allowlist.js';
 import { type ActionToolContext, playgroundConversationId, runActionTool } from './action-tools.js';
 import type { AgentLoopResult } from './agent-loop.js';
+import { CALCULATE_TOOL, calculateTool } from './calculator.js';
+import { type OrderToolContext, orderTools } from './order-tools.js';
 import { CATALOG_TOOLS, type CatalogToolContext, catalogRunnableTools } from './catalog-tools.js';
 import {
   type ImageAllowlist,
@@ -50,8 +52,8 @@ export function writeTools(
 }
 
 /**
- * The tools of one turn, in the order the model sees them: catalog (read-only), `send_message`
- * (not for comment replies) and `handoff`, then the owner's actions. Products whose details the
+ * The tools of one turn, in the order the model sees them: catalog (read-only), `calculate` (read-only, always), `send_message`
+ * (not for comment replies) and `handoff`, the order tools, then the owner's actions. Products whose details the
  * catalog returns make their pictures sendable.
  */
 export function turnTools(opts: {
@@ -63,6 +65,8 @@ export function turnTools(opts: {
   sink?: MessageSink;
   sendMessage: boolean;
   actions: { definitions: ToolDefinition[]; context: ActionToolContext } | null;
+  /** Present only for a bot that takes orders, in a private conversation (or the playground). */
+  orders?: OrderToolContext | null;
 }): ToolSet {
   const { catalog, allowlist, actions } = opts;
   return mergeToolSets(
@@ -78,12 +82,14 @@ export function turnTools(opts: {
           }),
         }
       : { definitions: [], runnable: [] },
+    { definitions: [CALCULATE_TOOL], runnable: [calculateTool] },
     outputTools({
       ...(opts.sink ? { sink: opts.sink } : {}),
       allowlist,
       state: opts.output,
       sendMessage: opts.sendMessage,
     }),
+    opts.orders ? orderTools(opts.orders) : { definitions: [], runnable: [] },
     actions
       ? {
           definitions: actions.definitions,

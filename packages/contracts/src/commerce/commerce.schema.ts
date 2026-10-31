@@ -1,8 +1,9 @@
 import { z } from 'zod';
 import { AccommodationDetails } from './lodging.schema.js';
+import { Money } from './money.schema.js';
+import { OrderItemsPreviewFields, OrderOriginFields } from './order-review.schema.js';
 
-/** Money: integer VND (docs/05 conventions). */
-export const Money = z.number().int().min(0).max(1_000_000_000_000);
+export { Money } from './money.schema.js';
 
 // ─── Order statuses (docs/02 ORD-05) ──────────────────────────────────────────
 
@@ -415,9 +416,9 @@ export const OrderSummaryDto = z.object({
   trackingCode: z.string().nullable(),
   noteInternal: z.string(),
   amounts: OrderAmounts,
-  /** First items, for the list's product column. */
-  itemsPreview: z.array(z.object({ name: z.string(), qty: z.number().int() })),
+  ...OrderItemsPreviewFields,
   createdByName: z.string().nullable(),
+  ...OrderOriginFields,
   placedAt: z.iso.datetime(),
 });
 export type OrderSummaryDto = z.infer<typeof OrderSummaryDto>;
@@ -442,20 +443,108 @@ const StatusList = z
   .transform((v) => v.split(',').filter(Boolean))
   .pipe(z.array(OrderStatus).max(OrderStatus.options.length));
 
+/** A comma-separated query parameter read as a list of `item`. */
+const csv = <T extends z.ZodType<unknown, string>>(item: T, max: number) =>
+  z
+    .string()
+    .trim()
+    .transform((v) =>
+      v
+        .split(',')
+        .map((part) => part.trim())
+        .filter(Boolean),
+    )
+    .pipe(z.array(item).max(max));
+
+/** One column's "contains" search (accent- and case-insensitive). */
+const ColumnText = z.string().trim().min(1).max(100);
+/** An inclusive money bound in VND. */
+const MoneyBound = z.coerce.number().int().min(0).max(1_000_000_000_000);
+
+/** Columns the orders list sorts by (Excel-style header menus). */
+export const OrderSortColumn = z.enum([
+  'placed',
+  'code',
+  'customer',
+  'total',
+  'cod',
+  'subtotal',
+  'shipping',
+  'gross',
+  'paid',
+  'source',
+  'creator',
+  'status',
+  'carrier',
+]);
+export type OrderSortColumn = z.infer<typeof OrderSortColumn>;
+export const OrderSort = z.templateLiteral([OrderSortColumn, '_', z.enum(['asc', 'desc'])]);
+export type OrderSort = z.infer<typeof OrderSort>;
+
+/** Bot orders in the creator filter, next to staff user ids. */
+export const ORDER_CREATOR_BOT_PENDING = 'bot_pending';
+export const ORDER_CREATOR_BOT_APPROVED = 'bot_approved';
+const CreatorToken = z.union([
+  z.uuid(),
+  z.literal(ORDER_CREATOR_BOT_PENDING),
+  z.literal(ORDER_CREATOR_BOT_APPROVED),
+]);
+
+/** Money columns that take a `<column>Min` / `<column>Max` range. */
+export const ORDER_MONEY_COLUMNS = [
+  'total',
+  'cod',
+  'subtotal',
+  'shipping',
+  'gross',
+  'paid',
+] as const;
+
 export const OrderListQuery = z.object({
   status: StatusList.optional(),
   /** `exclude`: every order whose status is NOT in `status`. */
   statusMode: z.enum(['include', 'exclude']).default('include'),
+  /** @deprecated Use `creator`. One staff user id. */
   createdBy: z.uuid().optional(),
-  /** Exact carrier name as entered on the order. */
-  carrier: z.string().trim().min(1).max(60).optional(),
+  /** @deprecated Use `creator=bot_pending`. Only bot orders that staff have not approved yet. */
+  review: z.enum(['pending']).optional(),
+  /** Any of: staff user ids, `bot_pending`, `bot_approved` (comma-separated). */
+  creator: csv(CreatorToken, 100).optional(),
+  /** Exact carrier names as entered on the order (comma-separated). */
+  carrier: csv(z.string().min(1).max(60), 100).optional(),
   /** Order code, tracking code, customer/recipient name, phone, address, notes (accent-insensitive). */
   q: z.string().trim().max(100).optional(),
-  source: OrderSource.optional(),
+  /** Any of these sources (comma-separated). */
+  source: csv(OrderSource, OrderSource.options.length).optional(),
+  /** Per-column "contains" searches; all given ones must match. */
+  code: ColumnText.optional(),
+  tracking: ColumnText.optional(),
+  /** Customer or recipient name. */
+  customer: ColumnText.optional(),
+  /** Customer or recipient phone; digits match whatever the formatting (`+84`/`0`). */
+  phone: ColumnText.optional(),
+  /** Recipient address. */
+  address: ColumnText.optional(),
+  /** Any line's product or variant name. */
+  product: ColumnText.optional(),
+  /** Internal or printed note. */
+  note: ColumnText.optional(),
+  totalMin: MoneyBound.optional(),
+  totalMax: MoneyBound.optional(),
+  codMin: MoneyBound.optional(),
+  codMax: MoneyBound.optional(),
+  subtotalMin: MoneyBound.optional(),
+  subtotalMax: MoneyBound.optional(),
+  shippingMin: MoneyBound.optional(),
+  shippingMax: MoneyBound.optional(),
+  grossMin: MoneyBound.optional(),
+  grossMax: MoneyBound.optional(),
+  paidMin: MoneyBound.optional(),
+  paidMax: MoneyBound.optional(),
   /** Inclusive local dates (workspace time zone), yyyy-mm-dd. */
   from: z.iso.date().optional(),
   to: z.iso.date().optional(),
-  sort: z.enum(['placed_desc', 'placed_asc', 'total_desc', 'total_asc']).default('placed_desc'),
+  sort: OrderSort.default('placed_desc'),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });
@@ -480,6 +569,17 @@ export const OrderListResponse = z.object({
   facets: z.object({
     creators: z.array(z.object({ id: z.uuid(), name: z.string() })),
     carriers: z.array(z.string()),
+    /**
+     * Per value, the orders matching every filter except that column's own (Excel-style counts
+     * in the header menus). `creator` keys: staff user ids, `bot_pending`, `bot_approved`.
+     */
+    counts: z
+      .object({
+        source: z.record(z.string(), z.number().int()),
+        creator: z.record(z.string(), z.number().int()),
+        carrier: z.record(z.string(), z.number().int()),
+      })
+      .optional(),
   }),
 });
 export type OrderListResponse = z.infer<typeof OrderListResponse>;

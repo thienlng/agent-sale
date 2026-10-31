@@ -404,7 +404,11 @@ export function catalogTx(
           t.reserved += c.reservedDelta;
           totals.set(key, t);
         }
-        for (const t of totals.values()) {
+        // Rows in one fixed order, so two transactions moving the same rows cannot deadlock.
+        const ordered = [...totals.values()].sort((a, b) =>
+          `${a.variantId}:${a.warehouseId}`.localeCompare(`${b.variantId}:${b.warehouseId}`),
+        );
+        for (const t of ordered) {
           await tx
             .insert(inv)
             .values({

@@ -19,6 +19,7 @@ import {
   WarehouseDto,
   WarehouseList,
 } from './commerce.schema.js';
+import { ApproveOrderRequest, OrderReviewCountResponse } from './order-review.schema.js';
 import { OrderOverviewQuery, OrderOverviewResponse } from './order-overview.schema.js';
 import { UploadProductImageRequest, UploadProductImageResponse } from './product-images.schema.js';
 import { OrderSettingsDto } from './order-settings.schema.js';
@@ -158,6 +159,13 @@ export const commerceRoutes = defineRoutes([
   }),
   route({
     method: 'get',
+    path: '/orders/review-count',
+    summary: 'How many bot orders wait for review',
+    tag: 'commerce',
+    responses: { 200: OrderReviewCountResponse },
+  }),
+  route({
+    method: 'get',
     path: '/orders/{orderId}',
     summary: 'One order with items and status history',
     tag: 'commerce',
@@ -177,6 +185,14 @@ export const commerceRoutes = defineRoutes([
     summary: 'Change the status (moves stock as needed)',
     tag: 'commerce',
     body: ChangeOrderStatusRequest,
+    responses: { 200: OrderDto },
+  }),
+  route({
+    method: 'post',
+    path: '/orders/{orderId}/approve',
+    summary: 'Approve a bot order, or revert the approval',
+    tag: 'commerce',
+    body: ApproveOrderRequest,
     responses: { 200: OrderDto },
   }),
 

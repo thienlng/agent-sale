@@ -38,7 +38,11 @@ describe('MetaInboxProcessor — messages sent during the turn', () => {
       '',
       'Anh cần gì thêm không?',
     ]);
-    expect(results).toEqual([{ delivered: 2 }, { delivered: 1 }, { delivered: 2 }]);
+    expect(results).toEqual([
+      { delivered: 2, complete: true },
+      { delivered: 1, complete: true },
+      { delivered: 2, complete: true },
+    ]);
   });
 
   it('keeps the album fallback for pictures sent during the turn', async () => {
@@ -128,7 +132,10 @@ describe('MetaInboxProcessor — messages sent during the turn', () => {
     const handOff = vi.spyOn(inbox, 'handOff');
     await run(job('e5', 'hi'));
     expect(keys()).toEqual(['bot:e5:s1']);
-    expect(results).toEqual([{ delivered: 1 }, { delivered: 0 }]);
+    expect(results).toEqual([
+      { delivered: 1, complete: true },
+      { delivered: 0, complete: false },
+    ]);
     expect(handOff).not.toHaveBeenCalled();
   });
 
@@ -143,7 +150,10 @@ describe('MetaInboxProcessor — messages sent during the turn', () => {
     });
     await run(job('e6', 'hi'));
     expect(keys()).toEqual(['bot:e6:s1']);
-    expect(results).toEqual([{ delivered: 1 }, { delivered: 0 }]);
+    expect(results).toEqual([
+      { delivered: 1, complete: true },
+      { delivered: 0, complete: false },
+    ]);
   });
 
   it('sends no fallback when the agent already spoke and the final text is empty', async () => {

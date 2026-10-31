@@ -1,0 +1,37 @@
+id: tinymind-discount-total-uses-calculate
+group: calculator
+tags: [critical]
+bot:
+  industry: retail
+  name: TinyMind
+  profile:
+    fields:
+      displayName: TinyMind
+      promotion: 'Đơn từ 2 sản phẩm trở lên được giảm 10% tổng tiền hàng.'
+    notes: 'Shop bán đồ chơi gỗ Montessori cho bé.'
+products:
+  - name: 'Thú gỗ xếp thăng bằng'
+    code: TM-001
+    description: 'Bộ thú gỗ xếp thăng bằng, phù hợp bé từ 1 tuổi trở lên.'
+    variants:
+      - { name: 'Mặc định', sku: TM-001-STD, price: 340000, stock: 12 }
+  - name: 'Xương rồng gỗ xếp thăng bằng'
+    code: TM-002
+    description: 'Xương rồng gỗ xếp thăng bằng, phù hợp bé từ 2 tuổi trở lên.'
+    variants:
+      - { name: 'Mặc định', sku: TM-002-STD, price: 460000, stock: 6 }
+conversation:
+  - customer: 'Mình lấy 2 bộ thú gỗ xếp thăng bằng với 1 xương rồng gỗ thì giảm còn bao nhiêu shop?'
+expect:
+  outcome: answered
+  guardrail: none
+  steps_succeeded: ['calculate']
+  # (2 × 340.000 + 460.000) − 10 % = 1.026.000: the exact figure, never a mental estimate.
+  contains_all: ['1.026.000']
+  not_contains: ['1.140.000đ sau', 'khoảng']
+fake_turns:
+  - tool_calls:
+      - { name: search_products, input: { query: 'thú gỗ xếp thăng bằng xương rồng gỗ' } }
+  - tool_calls:
+      - { name: calculate, input: { expression: '(2*340000 + 460000) * 0.9' } }
+  - text: 'Dạ 2 bộ Thú gỗ xếp thăng bằng và 1 Xương rồng gỗ xếp thăng bằng tổng 1.140.000đ, giảm 10% còn 1.026.000đ ạ.'

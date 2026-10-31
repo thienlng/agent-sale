@@ -152,6 +152,7 @@ describe('the reply pipeline answers from catalog tools', () => {
     expect(fake.calls[0]?.tools?.map((t) => t.name)).toEqual([
       'search_products',
       'product_details',
+      'calculate',
       'send_message',
       'handoff',
     ]);
@@ -169,7 +170,7 @@ describe('the reply pipeline answers from catalog tools', () => {
     expect(runs.runs[0]).toMatchObject({
       productIds: ['toy-1'],
       conversationId: playgroundConversationId(botId),
-      promptVersion: 'sales-agent@13',
+      promptVersion: 'sales-agent@15',
       isTest: true,
     });
     expect(res.usage).toEqual({ inputTokens: 30, outputTokens: 15, cachedInputTokens: 0 });
@@ -223,7 +224,7 @@ describe('the reply pipeline answers from catalog tools', () => {
         tier: 'smart',
         provider: 'p',
         model: 'm',
-        promptVersion: 'sales-agent@13',
+        promptVersion: 'sales-agent@15',
         inputTokens: 0,
         outputTokens: 0,
         cachedTokens: 0,
@@ -253,7 +254,7 @@ describe('the reply pipeline answers from catalog tools', () => {
       tier: 'smart',
       provider: 'p',
       model: 'm',
-      promptVersion: 'sales-agent@13',
+      promptVersion: 'sales-agent@15',
       inputTokens: 0,
       outputTokens: 0,
       cachedTokens: 0,
@@ -349,7 +350,11 @@ describe('the reply pipeline answers from catalog tools', () => {
       new InMemoryAiRunRepository(),
     );
     await svc.playground(ws, botId, ask('chào'));
-    expect(fake.calls[0]?.tools?.map((t) => t.name)).toEqual(['send_message', 'handoff']);
+    expect(fake.calls[0]?.tools?.map((t) => t.name)).toEqual([
+      'calculate',
+      'send_message',
+      'handoff',
+    ]);
     expect(fake.calls[0]?.toolChoice).toBeUndefined();
   });
 });

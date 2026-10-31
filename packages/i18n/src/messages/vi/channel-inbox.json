@@ -553,6 +553,7 @@
       "assignMe": "Giao cho tôi",
       "unassign": "Bỏ giao",
       "actionError": "Không cập nhật được hội thoại. Thử lại.",
+      "linkMissing": "Không tìm thấy cuộc hội thoại này. Có thể nó đã bị xoá hoặc thuộc cửa hàng khác.",
       "newLead": "Số mới",
       "newLeadLabel": "Khách vừa để lại số điện thoại"
     },

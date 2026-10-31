@@ -209,7 +209,15 @@
     "guidanceMoved": "The bot's mission, how it addresses people and its greeting live in",
     "guidanceLink": "Reply guidance",
     "factsMoved": "Store details such as address, prices and policies live in",
-    "factsLink": "Business information"
+    "factsLink": "Business information",
+    "orders": {
+      "title": "Order taking",
+      "enabled": "Bot takes orders",
+      "enabledHint": "The bot gathers the products, phone number and address, then sends a summary for the customer to confirm. The order then waits for staff review.",
+      "shippingFee": "Default shipping fee",
+      "shippingFeeHint": "Leave empty: the order summary says “Phí ship: shop báo sau” (shop confirms shipping later)",
+      "currency": "₫"
+    }
   },
   "playground": {
     "title": "Test chat",
@@ -247,7 +255,10 @@
       "failed": "failed",
       "ms": "{{ms}} ms"
     },
-    "interrupted": "A newer customer message cut this turn short"
+    "interrupted": "A newer customer message cut this turn short",
+    "quickReplies": {
+      "label": "Quick replies"
+    }
   },
   "admin": {
     "title": "AI models",
@@ -477,14 +488,6 @@
     "all": "All",
     "more": "More statuses",
     "search": "Order code, tracking code, name, address, phone, note",
-    "source": "Source",
-    "allSources": "All sources",
-    "sort": {
-      "placed_desc": "Newest",
-      "placed_asc": "Oldest",
-      "total_desc": "Highest total",
-      "total_asc": "Lowest total"
-    },
     "col": {
       "code": "Order",
       "customer": "Customer",
@@ -522,9 +525,6 @@
     "nextPage": "Next page",
     "summary": "{{count}} orders · total {{total}}",
     "filters": {
-      "status": "Status",
-      "allStatuses": "All statuses",
-      "sort": "Sort",
       "columns": "Columns",
       "resetColumns": "Default columns",
       "export": "Export to Excel",
@@ -532,15 +532,9 @@
       "exported": "Exported {{count}} orders",
       "remove": "Remove filter {{name}}",
       "clear": "Clear filters",
-      "statusCount": "{{count}} statuses",
       "excluding": "Except {{name}}",
-      "exclude": "Exclude the chosen statuses",
-      "clearStatuses": "Clear statuses",
-      "creator": "Created by",
-      "allCreators": "Anyone",
-      "carrier": "Carrier",
-      "allCarriers": "Any carrier",
-      "more": "More filters"
+      "exclude": "Exclude the chosen items",
+      "active": "Active filters"
     },
     "bulk": {
       "selected": "{{count}} orders selected",
@@ -561,7 +555,69 @@
     },
     "perPage": "{{count}} / page",
     "perPageLabel": "Orders per page",
-    "pagination": "Pagination"
+    "pagination": "Pagination",
+    "review": {
+      "bot": "Bot",
+      "pending": "Needs review",
+      "approved": "Approved",
+      "approvedBy": "Approved by {{name}} · {{time}}",
+      "staff": "a staff member",
+      "openConversation": "Open the conversation in a new tab",
+      "openConversationShort": "Open conversation",
+      "testChat": "Test chat",
+      "testChatHint": "Created in the bot's test chat; there is no customer conversation",
+      "filterCount": "{{count}} bot orders need review",
+      "approve": "Approve order",
+      "approving": "Approving…",
+      "approvedToast": "Order {{code}} approved",
+      "undo": "Undo",
+      "undone": "Approval of order {{code}} undone",
+      "bannerPending": "The bot created this order from a conversation. Check it before handling it.",
+      "bannerApproved": "Created by the bot · approved by {{name}} at {{time}}",
+      "newTab": "(opens in a new tab)",
+      "bannerApprovedShort": "Created by the bot · approved",
+      "bannerLabel": "Bot order to review"
+    },
+    "items": {
+      "count_one": "{{count}} product",
+      "count_other": "{{count}} products",
+      "total": "Order total",
+      "details": "Products in order {{code}}",
+      "more_one": "+{{count}} more product",
+      "more_other": "+{{count}} more products",
+      "summary_one": "{{count}} product · Total {{total}}",
+      "summary_other": "{{count}} products · Total {{total}}"
+    },
+    "columnMenu": {
+      "sortAsc": "Sort ascending",
+      "sortDesc": "Sort descending",
+      "clearColumn": "Clear column filter",
+      "apply": "Apply",
+      "contains": "{{name}} contains",
+      "containsPlaceholder": "Type to filter…",
+      "searchList": "Search the list",
+      "searchListIn": "Search the {{name}} list",
+      "selectAll": "Select all",
+      "selectNone": "Clear selection",
+      "noOptions": "No values",
+      "moneyFrom": "From",
+      "moneyTo": "To",
+      "dateCustom": "Or pick a date range, then Apply",
+      "presets": {
+        "today": "Today",
+        "last7": "7 days",
+        "last30": "30 days",
+        "monthToDate": "This month"
+      },
+      "botPending": "Bot · needs review",
+      "botApproved": "Bot · approved",
+      "stateFiltered": "filtered",
+      "stateAsc": "sorted ascending",
+      "stateDesc": "sorted descending",
+      "mobile": "Filter & sort",
+      "mobileHint": "Pick a column to sort or filter by",
+      "activeCount": "{{count}} filtered columns"
+    }
   },
   "orderForm": {
     "title": "New order",

@@ -4,6 +4,7 @@ import { type Amounts, foldVietnamese } from '@agent-sales/shared';
 import type { StockAction } from '../domain/order-stock.js';
 import type {
   HistoryRecord,
+  OrderItemPreview,
   OrderItemRecord,
   OrderRecord,
   StockChange,
@@ -97,6 +98,16 @@ export function reservationChanges(
 }
 
 /** The stored amount columns of an order, from the shared formulas. */
+/** Origin of an order staff create: no conversation, nothing to review. */
+export const STAFF_ORDER_ORIGIN = {
+  createdByKind: 'agent',
+  conversationId: null,
+  reviewState: null,
+  reviewedByUserId: null,
+  reviewedByName: null,
+  reviewedAt: null,
+} as const satisfies Partial<OrderRecord>;
+
 export function amountFields(a: Amounts) {
   return {
     itemQty: a.itemQty,
@@ -138,9 +149,13 @@ function amountsOf(o: OrderRecord) {
   };
 }
 
+/** Lines a summary carries; the order may have more (`itemCount`). */
+export const PREVIEW_LINES = 10;
+
 export function toSummary(
   o: OrderRecord,
-  itemsPreview: Array<{ name: string; qty: number }>,
+  itemsPreview: OrderItemPreview[],
+  itemCount: number,
 ): OrderSummaryDto {
   return {
     id: o.id,
@@ -153,8 +168,14 @@ export function toSummary(
     trackingCode: o.trackingCode,
     noteInternal: o.noteInternal,
     amounts: amountsOf(o),
-    itemsPreview,
+    itemsPreview: itemsPreview.slice(0, PREVIEW_LINES),
+    itemCount,
     createdByName: o.createdByName,
+    createdByKind: o.createdByKind,
+    reviewState: o.reviewState,
+    reviewedByName: o.reviewedByName,
+    reviewedAt: o.reviewedAt?.toISOString() ?? null,
+    conversationId: o.conversationId,
     placedAt: o.placedAt.toISOString(),
   };
 }
@@ -164,14 +185,19 @@ export function toOrderDto(
   items: OrderItemRecord[],
   history: HistoryRecord[],
   warehouseName: string,
+  images: ReadonlyMap<string, string> = new Map(),
 ): OrderDto {
   return {
     ...toSummary(
       o,
-      items.slice(0, 3).map((i) => ({
+      items.slice(0, PREVIEW_LINES).map((i) => ({
         name: [i.productName, i.variantName].filter(Boolean).join(' – '),
         qty: i.qty,
+        variantName: i.variantName || null,
+        unitPrice: i.unitPrice,
+        imageUrl: images.get(i.variantId) ?? null,
       })),
+      items.length,
     ),
     warehouseId: o.warehouseId,
     warehouseName,
