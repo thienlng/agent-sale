@@ -246,7 +246,7 @@ export const orders = pgTable(
     notePrint: text('note_print').notNull().default(''),
     createdByUserId: uuid('created_by_user_id'),
     createdByName: text('created_by_name'),
-    /** A uuid from staff forms; `bot:<conversationId>:<amounts_hash>` for bot orders (0039). */
+    /** A uuid from staff forms; `bot:<conversationId>:<amounts_hash>:<draft createdAt ms>` for bot orders (0039). */
     clientRequestId: text('client_request_id'),
     createdByKind: text('created_by_kind').notNull().default('agent'),
     /** Bot orders (0039): the source conversation and the staff review. */

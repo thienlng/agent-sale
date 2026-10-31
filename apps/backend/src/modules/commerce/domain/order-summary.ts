@@ -35,11 +35,17 @@ export function formatSummaryPhone(phone: string): string {
     : phone;
 }
 
+/** "Tháp gỗ – Tiêu chuẩn" ends with "Tiêu chuẩn"; "Áo sơ mi" does not end with the size "M". */
+function endsWithVariant(product: string, variant: string): boolean {
+  const escaped = variant.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(^|[\\s–—(/-])${escaped}\\)?$`, 'iu').test(product);
+}
+
 function lineText(l: SummaryLine): string {
   const product = l.productName.trim();
   const variant = l.variantName.trim();
   // Catalog names often already end with the variant ("… – Tiêu chuẩn"): never show it twice.
-  const showVariant = variant && !product.toLowerCase().includes(variant.toLowerCase());
+  const showVariant = variant && !endsWithVariant(product, variant);
   const name = showVariant ? `${product} (${variant})` : product;
   return `• ${clip(name, MAX_NAME_CHARS)} ×${l.qty} — ${formatVnd(l.lineTotal)}`;
 }

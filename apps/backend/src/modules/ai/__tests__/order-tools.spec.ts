@@ -203,6 +203,16 @@ describe('order tools (spec §4.1)', () => {
     expect(facade.draft).toBeNull();
   });
 
+  it('refuses a new summary after an order was created in the same turn', async () => {
+    const facade = fakeCommerce();
+    const sink = recordingSink();
+    const ctx = context(facade, { sink });
+    ctx.state.orderCreated = true;
+    const res = await runnable(ctx, PREPARE_ORDER_TOOL).run(ORDER_INPUT);
+    expect(JSON.parse(res.content)).toEqual({ ok: false, error: 'order_created_retry_next_turn' });
+    expect(facade.prepareBotOrder).not.toHaveBeenCalled();
+  });
+
   it('refuses a second summary in the same turn and sends nothing more', async () => {
     const facade = fakeCommerce();
     const sink = recordingSink();
@@ -502,6 +512,13 @@ describe('order tools in the reply pipeline', () => {
     stopReason: 'tool_use',
     toolCalls: [{ id: 'p1', name: PREPARE_ORDER_TOOL, input: ORDER_INPUT }],
   };
+
+  it('keeps the summary as the last message: a final written after it is dropped', async () => {
+    const { svc } = build(bot, [prepareCall, { text: 'Mình bấm Đặt hàng giúp em nhé ạ.' }]);
+    const res = await svc.playground(ws, botId, ask('lấy 2 thú gỗ, Lan 0912345678, 12 LTK'));
+    expect(res.messages?.map((m) => m.via)).toEqual(['send_message']);
+    expect(res.messages?.at(-1)?.quickReplies).toEqual([...ORDER_QUICK_REPLIES]);
+  });
 
   it('offers no order tools when order taking is off', async () => {
     const { svc, requests } = build({ ...bot, orderTaking: false }, [{ text: 'Dạ' }]);

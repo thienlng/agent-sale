@@ -70,6 +70,18 @@ describe('buildOrderSummary', () => {
     expect(text).not.toContain('(Tiêu chuẩn)');
   });
 
+  it('keeps a size or colour whose letters merely occur inside the product name', () => {
+    const line = (productName: string, variantName: string) =>
+      buildOrderSummary({
+        ...base,
+        lines: [{ productName, variantName, qty: 1, lineTotal: 1_000 }],
+      });
+    expect(line('Áo sơ mi', 'S')).toContain('• Áo sơ mi (S) ×1');
+    expect(line('Áo sơ mi', 'M')).toContain('• Áo sơ mi (M) ×1');
+    expect(line('Áo thun nam', 'M')).toContain('• Áo thun nam (M) ×1');
+    expect(line('Giày (Đen)', 'Đen')).toContain('• Giày (Đen) ×1');
+  });
+
   it('folds long product lists and stays within the message limit', () => {
     const lines = Array.from({ length: 20 }, (_, i) => ({
       productName: `Sản phẩm số ${i + 1} ${'rất dài '.repeat(30)}`,

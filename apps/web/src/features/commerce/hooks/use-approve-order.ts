@@ -5,7 +5,8 @@ import { useApproveOrder } from '../api/commerce';
 import { orderErrorMessage } from './order-errors';
 
 /** The server accepts the undo only within this window, and only from the approving user. */
-export const APPROVE_UNDO_MS = 5_000;
+/** Shorter than the server's 5 s window so a late click never meets UNDO_NOT_ALLOWED. */
+export const APPROVE_UNDO_MS = 4_000;
 
 /**
  * Approves a pending bot order (optimistically) and offers "Hoàn tác" for 5 s, which sends the

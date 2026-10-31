@@ -373,7 +373,9 @@ export class PlaygroundService implements AiFacade {
     let decision: ReplyDecision = loop
       ? decideReply({ loop, output, bot, actionFallback: actionState.fallback })
       : { outcome: 'answered', guardrail: 'model_error', final: fallbackText(bot) };
+    const droppedFinal = Boolean(decision.final);
     decision = keepSummaryLast(decision, output.sent);
+    const finalDropped = droppedFinal && !decision.final;
     // An order was created: its code reaches the customer exactly once, whatever cut the turn short.
     const orderCode = orders?.state.orderCode;
     if (orderCode) {
@@ -389,6 +391,7 @@ export class PlaygroundService implements AiFacade {
       (decision.outcome !== 'answered' ||
         decision.guardrail === 'model_error' ||
         interrupted ||
+        finalDropped ||
         !messages.length)
     ) {
       await this.actions.clearPending(ws, conversationKey);

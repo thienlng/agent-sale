@@ -22,9 +22,10 @@ conversation:
 expect:
   outcome: answered
   guardrail: none
-  # Without a phone number and an address the bot asks for them instead of preparing the order.
+  # Without a phone number and an address the bot asks for them (one at a time is fine) instead
+  # of preparing the order.
   steps_exclude: ['prepare_order', 'handoff']
-  contains_all: ['số điện thoại', 'địa chỉ']
+  contains_any: ['số điện thoại', 'địa chỉ']
   not_contains: ['tạo đơn', 'đã đặt']
 fake_turns:
   - tool_calls:

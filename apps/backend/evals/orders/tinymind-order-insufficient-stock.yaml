@@ -19,10 +19,10 @@ conversation:
 expect:
   outcome: answered
   guardrail: none
-  # The server refuses 5 when 2 are left: no summary, no buttons, and the bot offers the 2.
-  steps_include: ['prepare_order']
+  # 5 asked, 2 left: no summary, no buttons, and the bot offers the 2. Either the model sees the
+  # stock first, or the server refuses prepare_order; both are right, a successful prepare is not.
   steps_not_succeeded: ['prepare_order']
-  steps_exclude: ['confirm_order']
+  steps_exclude: ['confirm_order', 'handoff']
   contains_any: ['còn 2', '2 bộ']
   not_contains: ['tóm tắt đơn', 'Đặt hàng', 'tạo đơn']
 fake_turns:

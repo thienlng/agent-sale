@@ -219,6 +219,9 @@ export function orderTools(ctx: OrderToolContext): {
     run: async (input) => {
       const args = input as z.infer<typeof PrepareOrderInput>;
       // One summary per turn: a second one would stack buttons for two different drafts.
+      // One order per turn: a summary after a confirm would put the code line after it and hide its buttons.
+      if (state.orderCreated)
+        return reply({ ok: false, error: 'order_created_retry_next_turn' }, false);
       if (state.summarySent)
         return reply(
           {

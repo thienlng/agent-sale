@@ -7,7 +7,7 @@ bot:
   profile:
     fields:
       displayName: TinyMind
-      promotions: 'Đơn từ 2 sản phẩm trở lên được giảm 10% tổng tiền hàng.'
+      promotion: 'Đơn từ 2 sản phẩm trở lên được giảm 10% tổng tiền hàng.'
     notes: 'Shop bán đồ chơi gỗ Montessori cho bé.'
 products:
   - name: 'Thú gỗ xếp thăng bằng'
