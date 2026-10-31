@@ -56,7 +56,19 @@ export function toReplyTurns(
   stored: readonly InboxMessageDto[],
   seen: ReadonlySet<string> = new Set(),
 ): ReplyTurn[] {
+  return toTimedReplyTurns(stored, seen).turns;
+}
+
+/**
+ * `toReplyTurns` plus, for each turn, when its newest message was stored (same length and
+ * order), so the ai module can reuse the stored conversation summary across turns.
+ */
+export function toTimedReplyTurns(
+  stored: readonly InboxMessageDto[],
+  seen: ReadonlySet<string> = new Set(),
+): { turns: ReplyTurn[]; times: Date[] } {
   const turns: ReplyTurn[] = [];
+  const times: Date[] = [];
   let attempted = false;
   const lastOutbound = stored.findLastIndex((m) => m.direction === 'outbound');
   for (const [index, m] of stored.entries()) {
@@ -74,12 +86,19 @@ export function toReplyTurns(
     const role = m.sender === 'customer' ? 'customer' : 'bot';
     const prev = turns.at(-1);
     // Customer bursts are one turn; so are the bubbles of one bot answer (sent as separate messages).
-    if (role === 'customer' && prev?.role === 'customer' && !attempted)
+    const at = new Date(m.createdAt);
+    if (
+      (role === 'customer' && prev?.role === 'customer' && !attempted) ||
+      (role === 'bot' && prev?.role === 'bot')
+    ) {
       prev.content += `\n${content}`;
-    else if (role === 'bot' && prev?.role === 'bot') prev.content += `\n${content}`;
-    else turns.push({ role, content });
+      times[times.length - 1] = at;
+    } else {
+      turns.push({ role, content });
+      times.push(at);
+    }
     attempted = false;
   }
   for (const t of turns) t.content = t.content.slice(-MAX_TURN_CHARS);
-  return turns.slice(-20);
+  return { turns: turns.slice(-20), times: times.slice(-20) };
 }

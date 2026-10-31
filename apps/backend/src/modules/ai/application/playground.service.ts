@@ -58,6 +58,7 @@ import {
 } from './reply-context.js';
 import {
   decideReply,
+  joinedImages,
   meteredGenerate,
   type ReplyDecision,
   runBase,
@@ -336,7 +337,10 @@ export class PlaygroundService implements AiFacade {
     if (
       this.actions &&
       actionState.askedConfirmation &&
-      (decision.outcome !== 'answered' || interrupted || !messages.length)
+      (decision.outcome !== 'answered' ||
+        decision.guardrail === 'model_error' ||
+        interrupted ||
+        !messages.length)
     ) {
       await this.actions.clearPending(ws, conversationKey);
     }
@@ -372,7 +376,7 @@ export class PlaygroundService implements AiFacade {
         score: s.score,
         used: used.has(s.key),
       })),
-      images: sentImages.map(({ url, label }) => ({ url, label })),
+      images: joinedImages(sentImages),
       usage: meter.usage,
       provider: run.provider,
       model: run.model,

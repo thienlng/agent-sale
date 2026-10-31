@@ -14,7 +14,7 @@ import { BOT_FACADE, type BotFacade, withinReplySchedule } from '../../../bot/ap
 import { CONVERSATION_FACADE, type ConversationFacade } from '../../api/conversation.facade.js';
 import type { PlaygroundRequest } from '@agent-sales/contracts';
 import { BOT_IMAGE_VISION, IMAGE_FETCHER, type ImageFetcher } from '../ports/image-fetcher.js';
-import { toReplyTurns } from './reply-turns.js';
+import { toTimedReplyTurns } from './reply-turns.js';
 import {
   errorClass,
   fallbackText,
@@ -294,12 +294,13 @@ export class MetaInboxProcessor {
     const { job, c, botId, bot, context, stored, resume } = turn;
     const { hasText, fetched, postContext } = input;
     const finishing = resume.reruns >= MAX_INTERRUPT_RERUNS;
-    const ask = (images: ImageInput[], seen: ReadonlySet<string>) =>
-      this.ai.reply(
+    const ask = (images: ImageInput[], seen: ReadonlySet<string>) => {
+      const history = toTimedReplyTurns(stored, seen);
+      return this.ai.reply(
         job.workspaceId,
         botId,
         {
-          messages: toReplyTurns(stored, seen),
+          messages: history.turns,
           ...(images.length ? { images } : {}),
           ...(postContext ? { postContext } : {}),
           ...(context.conversation.lead ? { phoneKnown: true } : {}),
@@ -311,8 +312,10 @@ export class MetaInboxProcessor {
           // The last allowed re-run gets no interrupt check: it runs to completion.
           ...(finishing ? {} : { shouldInterrupt: () => this.shouldInterrupt(turn, delivery) }),
           ...(resume.carry ? { carry: resume.carry } : {}),
+          turnTimes: history.times,
         },
       );
+    };
     let response: ReplyResult;
     try {
       response = await ask(fetched.images, fetched.seen);

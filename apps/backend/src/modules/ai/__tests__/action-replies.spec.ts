@@ -513,6 +513,17 @@ describe('bot API actions in the reply pipeline', () => {
     expect(store.pending).toBeNull();
   });
 
+  it('drops a stored confirmation question when the provider fails after a sent message', async () => {
+    const { ask, store } = build([
+      call(BOOK, { hour: 9 }),
+      call('send_message', { text: 'Dạ em kiểm tra lịch ạ.' }),
+    ]);
+    const res = await ask('đặt lịch 9 giờ giúp em');
+    expect(res.guardrail).toBe('model_error');
+    expect(res.messages?.length).toBeGreaterThan(0);
+    expect(store.pending).toBeNull();
+  });
+
   it('cannot confirm a call stored in the same turn', async () => {
     const { ask, invocations, store } = build([
       call(BOOK, { hour: 9 }),

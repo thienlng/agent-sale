@@ -215,3 +215,14 @@ export function runBase(input: {
     createdAt: new Date(),
   };
 }
+
+/** `PlaygroundResponse.images` holds at most this many pictures (the contract's max). */
+const MAX_JOINED_IMAGES = 30;
+
+/** The joined picture view of a turn: unique by URL, within the contract; `messages` keeps them all. */
+export function joinedImages(
+  images: readonly { url: string; label: string }[],
+): { url: string; label: string }[] {
+  const byUrl = new Map(images.map(({ url, label }) => [url, { url, label }]));
+  return [...byUrl.values()].slice(0, MAX_JOINED_IMAGES);
+}
