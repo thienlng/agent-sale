@@ -148,6 +148,8 @@ export interface OrderListFilter {
   /** Folded search text. */
   q?: string | undefined;
   source?: string | undefined;
+  /** `pending`: bot orders waiting for review (cancelled ones excluded: cancelling rejects them). */
+  review?: 'pending' | undefined;
   /** Half-open UTC range [from, to). */
   from?: Date | undefined;
   to?: Date | undefined;
@@ -203,6 +205,26 @@ export interface OverviewAggregates {
     byHour: Array<{ hour: number; revenue: number }>;
   };
 }
+
+/** The conversation's order the bot prepared and the customer has not confirmed yet. */
+export interface BotOrderDraftRecord {
+  conversationId: string;
+  botId: string;
+  /** Conversation channel; becomes the order source. */
+  channel: string;
+  lines: Array<{ variantId: string; sku: string; qty: number }>;
+  /** Phone in national form `0xxxxxxxxx`. */
+  recipient: { name: string; phone: string; address: string };
+  note: string | null;
+  /** Null: "Phí ship: shop báo sau" (the order gets 0 and staff set it on review). */
+  shippingVnd: number | null;
+  amountsHash: string;
+  createdAt: Date;
+  expiresAt: Date;
+}
+
+/** A variant matched by SKU, with what decides whether the bot may sell it. */
+export type SkuVariantRecord = VariantRecord & { productName: string; productActive: boolean };
 
 /** Everything one use case reads and writes, inside one tenant transaction (RLS-scoped). */
 export interface CommerceTx {
@@ -301,6 +323,8 @@ export interface CommerceTx {
     replaceItems(orderId: string, items: OrderItemRecord[]): Promise<void>;
     addHistory(workspaceId: WorkspaceId, orderId: string, h: HistoryRecord): Promise<void>;
     list(filter: OrderListFilter): Promise<OrderListResult>;
+    /** Bot orders waiting for review (not cancelled). */
+    countPendingReview(): Promise<number>;
     overview(range: {
       from: Date;
       to: Date;
@@ -308,6 +332,22 @@ export interface CommerceTx {
       todayTo: Date;
       timezone: string;
     }): Promise<OverviewAggregates>;
+  };
+  /** Bot order drafts (one per conversation) and the SKU lookup the bot's orders need. */
+  botOrders: {
+    /** Variants whose SKU matches case-insensitively (archived ones included, live ones first). */
+    variantsBySkus(skus: string[]): Promise<SkuVariantRecord[]>;
+    /** With `forUpdate`, the row stays locked until the transaction ends. */
+    findDraft(
+      conversationId: string,
+      opts?: { forUpdate?: boolean },
+    ): Promise<BotOrderDraftRecord | null>;
+    /** Inserts, or replaces the conversation's earlier draft. */
+    saveDraft(workspaceId: WorkspaceId, d: BotOrderDraftRecord): Promise<void>;
+    /** Whether a row was deleted. */
+    deleteDraft(conversationId: string): Promise<boolean>;
+    /** Removes drafts that expired before `now`. */
+    sweepExpired(now: Date): Promise<void>;
   };
   settings: {
     get(): Promise<OrderSettingsRecord | null>;

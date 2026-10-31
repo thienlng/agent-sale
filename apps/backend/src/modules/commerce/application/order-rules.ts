@@ -1,4 +1,5 @@
 import {
+  type OrderDto,
   defaultOrderPolicy,
   FULFILMENT_ORDER_STATUSES,
   OPTIONAL_ORDER_STATUSES,
@@ -15,6 +16,7 @@ import {
 } from '../domain/commerce.errors.js';
 import { missingFields, type OrderPeople } from '../domain/order-policy.js';
 import type { OrderStatus } from '../domain/order-stock.js';
+import { toOrderDto } from './order.mappers.js';
 import type { CommerceTx, OrderItemRecord, OrderRecord } from './ports/commerce-store.js';
 
 /** Order rules shared by the order use cases: settings, source policies, line snapshots. */
@@ -141,4 +143,14 @@ export function assertStatusAllowed(settings: OrderSettingsDto, status: OrderSta
   if (OPTIONAL.has(status) && !(settings.extraStatuses as string[]).includes(status)) {
     throw new StatusDisabledError(status);
   }
+}
+
+/** The full order DTO: lines, status history and the warehouse name. */
+export async function loadOrderDto(tx: CommerceTx, o: OrderRecord): Promise<OrderDto> {
+  const [items, history, warehouse] = await Promise.all([
+    tx.orders.itemsOf(o.id),
+    tx.orders.historyOf(o.id),
+    tx.warehouses.find(o.warehouseId),
+  ]);
+  return toOrderDto(o, items, history, warehouse?.name ?? '');
 }
