@@ -54,6 +54,7 @@ export function startIngressListener(options: IngressListenerOptions): { stop():
       onclose: () => {
         if (current === sql) {
           current = undefined;
+          void sql.end({ timeout: 0 }).catch(() => undefined);
           scheduleReconnect();
         }
       },
