@@ -53,8 +53,9 @@ import { createHistorySummarizer } from './history-summarizer.js';
 import { LlmRuntime } from './llm-runtime.js';
 import {
   confirmableDraft,
-  confirmCutoff,
+  answeredSince,
   newOrderToolState,
+  orderCreatedText,
   type OrderToolContext,
   PLAYGROUND_ORDER_CHANNEL,
 } from './order-tools.js';
@@ -248,7 +249,7 @@ export class PlaygroundService implements AiFacade {
               this.commerce,
               ws,
               conversationKey,
-              confirmCutoff(input.messages, options.turnTimes, startedAt),
+              answeredSince(input.messages, options.turnTimes, startedAt),
               (error) => this.#logger.warn(`Order draft check failed: ${errorClass(error)}`),
             ),
             state: newOrderToolState(),
@@ -346,7 +347,8 @@ export class PlaygroundService implements AiFacade {
           this.#logger.warn(`Tool ${name} failed: ${errorClass(error)}`),
       });
     } catch (error) {
-      if (!output.sent.length) {
+      // A created order counts as delivered: its code must still reach the customer.
+      if (!output.sent.length && !orders?.state.orderCreated) {
         // Nothing reached the customer: their "ok" must not confirm an unasked question, the turn
         // is billed for what it consumed, and the caller decides how to degrade.
         if (this.actions && actionState.askedConfirmation)
@@ -365,9 +367,15 @@ export class PlaygroundService implements AiFacade {
       this.#logger.warn(`Model call failed after messages were sent (${errorClass(error)})`);
     }
 
-    const decision: ReplyDecision = loop
+    let decision: ReplyDecision = loop
       ? decideReply({ loop, output, bot, actionFallback: actionState.fallback })
       : { outcome: 'answered', guardrail: 'model_error', final: fallbackText(bot) };
+    // An order was created: its code reaches the customer whatever else cut the turn short.
+    const orderCode = orders?.state.orderCode;
+    if (orderCode && (!loop || !decision.final || decision.outcome === 'fallback')) {
+      const outcome = decision.outcome === 'fallback' ? 'answered' : decision.outcome;
+      decision = { ...decision, outcome, final: orderCreatedText(orderCode) };
+    }
     const messages = turnMessages(output, decision);
     const interrupted = loop?.outcome === 'interrupted';
     // A question that never reached the customer must not be confirmed by their next "ok".

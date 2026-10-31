@@ -21,7 +21,7 @@ import {
   CANCEL_ORDER_DRAFT_TOOL,
   CONFIRM_ORDER_TOOL,
   confirmableDraft,
-  confirmCutoff,
+  answeredSince,
   newOrderToolState,
   ORDER_QUICK_REPLIES,
   type OrderToolContext,
@@ -213,6 +213,18 @@ describe('order tools (spec §4.1)', () => {
     expect(sink.sent).toHaveLength(1);
   });
 
+  it('tells the model to retry next turn after an undelivered summary', async () => {
+    const facade = fakeCommerce();
+    const ctx = context(facade, { sink: recordingSink(0) });
+    const tool = runnable(ctx, PREPARE_ORDER_TOOL);
+    await tool.run(ORDER_INPUT);
+    expect(JSON.parse((await tool.run(ORDER_INPUT)).content)).toEqual({
+      ok: false,
+      error: 'not_delivered_retry_next_turn',
+    });
+    expect(facade.prepareBotOrder).toHaveBeenCalledTimes(1);
+  });
+
   it('enforces the input limits', () => {
     const { schema } = runnable(context(fakeCommerce()), PREPARE_ORDER_TOOL);
     const ok = (v: object) => schema.safeParse({ ...ORDER_INPUT, ...v }).success;
@@ -290,29 +302,36 @@ describe('order tools (spec §4.1)', () => {
   it('only a draft stored before the turn started is confirmable', async () => {
     const start = new Date();
     const at = (ms: number) => fakeCommerce({ storedAt: new Date(start.getTime() + ms) });
-    expect(await confirmableDraft(at(-1_000), ws, conversationId, start)).toBe(true);
-    expect(await confirmableDraft(at(1_000), ws, conversationId, start)).toBe(false);
-    expect(await confirmableDraft(fakeCommerce(), ws, conversationId, start)).toBe(false);
+    const before = (storedAt: Date) => storedAt < start;
+    expect(await confirmableDraft(at(-1_000), ws, conversationId, before)).toBe(true);
+    expect(await confirmableDraft(at(1_000), ws, conversationId, before)).toBe(false);
+    expect(await confirmableDraft(fakeCommerce(), ws, conversationId, before)).toBe(false);
   });
 
   it('treats a failed draft check as not confirmable', async () => {
     const facade = fakeCommerce();
     vi.mocked(facade.hasBotOrderDraft).mockRejectedValueOnce(new TypeError('db down'));
     const onError = vi.fn();
-    expect(await confirmableDraft(facade, ws, conversationId, new Date(), onError)).toBe(false);
+    expect(await confirmableDraft(facade, ws, conversationId, () => true, onError)).toBe(false);
     expect(onError).toHaveBeenCalledWith(expect.any(TypeError));
   });
 
-  it('cuts off at the newest customer message when times are known', () => {
+  it('needs a bot message delivered at or after the draft, before the newest customer message', () => {
     const start = new Date('2026-10-31T10:00:10Z');
     const t = (s: number) => new Date(`2026-10-31T10:00:0${s}Z`);
-    const msgs = [{ role: 'customer' }, { role: 'assistant' }, { role: 'customer' }];
-    expect(confirmCutoff(msgs, [t(1), t(2), t(3)], start)).toEqual(t(3));
-    expect(
-      confirmCutoff([...msgs, { role: 'assistant' }], [t(1), t(2), t(3), t(4)], start),
-    ).toEqual(t(3));
-    expect(confirmCutoff(msgs, undefined, start)).toBe(start);
-    expect(confirmCutoff(msgs, [t(1)], start)).toBe(start);
+    const msgs = [{ role: 'customer' }, { role: 'bot' }, { role: 'customer' }];
+    const answered = answeredSince(msgs, [t(1), t(3), t(4)], start);
+    expect(answered(t(2))).toBe(true);
+    expect(answered(t(3))).toBe(true);
+    // Stored after the last bot message: the summary has not reached the customer before "ok".
+    expect(answered(t(4))).toBe(false);
+    // A bot message after the newest customer message does not count.
+    expect(answeredSince([...msgs, { role: 'bot' }], [t(1), t(2), t(4), t(5)], start)(t(3))).toBe(
+      false,
+    );
+    // Without aligned times: the draft must predate the turn.
+    expect(answeredSince(msgs, undefined, start)(t(9))).toBe(true);
+    expect(answeredSince(msgs, [t(1)], start)(new Date('2026-10-31T10:00:11Z'))).toBe(false);
   });
 });
 
@@ -422,41 +441,77 @@ describe('order tools in the reply pipeline', () => {
   });
 
   describe('a stale "ok"', () => {
-    const summaryAt = new Date(Date.now() - 60_000);
+    const storedAt = new Date(Date.now() - 60_000);
+    const at = (ms: number) => new Date(storedAt.getTime() + ms);
     const okTurn = {
       messages: [
         { role: 'customer' as const, content: 'lấy 2 thú gỗ' },
+        { role: 'bot' as const, content: 'Dạ em tóm tắt đơn của mình ạ: …' },
         { role: 'customer' as const, content: 'ok' },
       ],
     };
-    const times = (okAt: Date) => [new Date(summaryAt.getTime() - 120_000), okAt];
-
-    it('an "ok" written before the summary arrived does not offer confirm_order', async () => {
-      const commerce = fakeCommerce({ storedAt: summaryAt });
+    const offered = async (summaryDeliveredAt: Date, okAt: Date) => {
+      const commerce = fakeCommerce({ storedAt });
       const { svc, requests } = build(bot, [{ text: 'Dạ' }], commerce);
-      const okAt = new Date(summaryAt.getTime() - 1_000);
       await svc.reply(ws, botId, okTurn, {
         conversationId,
         isTest: false,
         sink: recordingSink(),
-        turnTimes: times(okAt),
+        turnTimes: [at(-120_000), summaryDeliveredAt, okAt],
       });
       expect(toolNames(requests[0])).toContain(PREPARE_ORDER_TOOL);
-      expect(toolNames(requests[0])).not.toContain(CONFIRM_ORDER_TOOL);
+      return toolNames(requests[0]).includes(CONFIRM_ORDER_TOOL);
+    };
+
+    it('an "ok" written between storing and delivering the summary is not confirmable', async () => {
+      // The history's last bot message predates the draft: the summary was still on its way.
+      expect(await offered(at(-30_000), at(500))).toBe(false);
     });
 
-    it('an "ok" written after the summary offers confirm_order', async () => {
-      const commerce = fakeCommerce({ storedAt: summaryAt });
-      const { svc, requests } = build(bot, [{ text: 'Dạ' }], commerce);
-      const okAt = new Date(summaryAt.getTime() + 1_000);
-      await svc.reply(ws, botId, okTurn, {
-        conversationId,
-        isTest: false,
-        sink: recordingSink(),
-        turnTimes: times(okAt),
-      });
-      expect(toolNames(requests[0])).toContain(CONFIRM_ORDER_TOOL);
+    it('an "ok" written after the delivered summary is confirmable', async () => {
+      expect(await offered(at(1_000), at(2_000))).toBe(true);
     });
+  });
+
+  it('keeps the order code when the model fails after confirm_order', async () => {
+    const commerce = fakeCommerce({ storedAt: new Date(Date.now() - 60_000) });
+    let call = 0;
+    const fake = new FakeLlmProvider('dev-fake', () =>
+      call++ === 0
+        ? {
+            text: '',
+            stopReason: 'tool_use',
+            toolCalls: [{ id: 'c1', name: CONFIRM_ORDER_TOOL, input: {} }],
+          }
+        : new Error('provider down'),
+    );
+    const llm = {
+      generate: (req: GenerateRequest) => fake.generate(req, { model: 'echo' }),
+    } as unknown as LlmRuntime;
+    const svc = new PlaygroundService(
+      { getBot: async () => bot } as BotFacade,
+      { searchFaqs: async () => [] } as unknown as KnowledgeFacade,
+      { getById: async () => ({ name: 'Shop' }) } as unknown as WorkspaceFacade,
+      llm,
+      new InMemoryAiRunRepository(),
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      commerce,
+    );
+    const res = await svc.reply(ws, botId, ask('✅ Đặt hàng'), {
+      conversationId,
+      isTest: false,
+      sink: recordingSink(),
+    });
+    expect(res.orderCreated).toBe(true);
+    expect(res.outcome).toBe('answered');
+    expect(res.guardrail).toBe('model_error');
+    expect(res.reply).toBe(
+      'Dạ em đã tạo đơn DH0042 cho mình ạ. Shop sẽ kiểm tra và liên hệ xác nhận sớm ạ.',
+    );
   });
 
   it('marks a turn that created an order, so its final message is never dropped', async () => {
@@ -482,6 +537,39 @@ describe('order tools in the reply pipeline', () => {
       sink: recordingSink(),
     });
     expect(other.orderCreated).toBeUndefined();
+  });
+
+  it('sends the order code when the turn is interrupted after a send and confirm_order', async () => {
+    const commerce = fakeCommerce({ storedAt: new Date(Date.now() - 60_000) });
+    let confirmed = false;
+    vi.mocked(commerce.confirmBotOrder).mockImplementationOnce(async () => {
+      confirmed = true;
+      return { ok: true, orderId: newId(), orderCode: 'DH0042' };
+    });
+    const batch: Partial<GenerateResponse> = {
+      text: '',
+      stopReason: 'tool_use',
+      toolCalls: [
+        { id: 's1', name: 'send_message', input: { text: 'Dạ em lên đơn ngay ạ.' } },
+        { id: 'c1', name: CONFIRM_ORDER_TOOL, input: {} },
+      ],
+    };
+    const { svc } = build(bot, [batch, { text: 'never reached' }], commerce);
+    const sink = recordingSink();
+    const res = await svc.reply(ws, botId, ask('✅ Đặt hàng'), {
+      conversationId,
+      isTest: false,
+      sink,
+      shouldInterrupt: async () => confirmed,
+    });
+    expect(res.interrupted).toBe(true);
+    expect(res.orderCreated).toBe(true);
+    expect(res.outcome).toBe('answered');
+    expect(res.messages?.at(-1)).toEqual({
+      text: 'Dạ em đã tạo đơn DH0042 cho mình ạ. Shop sẽ kiểm tra và liên hệ xác nhận sớm ạ.',
+      images: [],
+      via: 'final',
+    });
   });
 
   it('a failed draft check offers no confirm and does not fail the turn', async () => {
