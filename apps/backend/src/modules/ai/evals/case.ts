@@ -75,6 +75,10 @@ const BotFixture = z
     tone: z.enum(['friendly', 'formal']).default('friendly'),
     allowEmoji: z.boolean().default(false),
     placeholders: z.record(z.string(), z.string()).default({}),
+    /** The bot closes orders itself (`prepare_order` / `confirm_order`, setting "Chốt đơn"). */
+    orderTaking: z.boolean().default(false),
+    /** The bot's default shipping fee in VND; null: the summary says "Phí ship: shop báo sau". */
+    orderShippingFeeVnd: z.number().int().min(0).nullable().default(null),
     profile: z
       .object({
         fields: z.record(z.string(), z.string()).default({}),
@@ -124,6 +128,29 @@ const Expect = z
     image_messages_min: z.number().int().min(1).optional(),
     /** No delivered message carries more pictures than this. */
     images_per_message_max: z.number().int().min(0).optional(),
+    /** Each of these tools ran at least once this turn (whatever its result). */
+    steps_include: z.array(z.string().min(1)).optional(),
+    /** None of these tools ran this turn. */
+    steps_exclude: z.array(z.string().min(1)).optional(),
+    /** Each of these tools ran at least once with an ok result. */
+    steps_succeeded: z.array(z.string().min(1)).optional(),
+    /** None of these tools returned an ok result (it may have run and failed). */
+    steps_not_succeeded: z.array(z.string().min(1)).optional(),
+    /** A delivered message carries exactly these quick-reply titles, in order. */
+    quick_replies: z.array(z.string().min(1)).min(1).optional(),
+    /** Whether the turn created an order (`confirm_order` succeeded). */
+    order_created: z.boolean().optional(),
+  })
+  .strict();
+
+const OrderItem = z.object({ sku: z.string().min(1), qty: z.number().int().min(1) }).strict();
+
+/** A summary the customer already received: the draft waiting for their answer this turn. */
+const OrderDraft = z
+  .object({
+    items: z.array(OrderItem).min(1),
+    recipient: z.object({ name: z.string(), phone: z.string(), address: z.string() }).strict(),
+    note: z.string().optional(),
   })
   .strict();
 
@@ -148,6 +175,11 @@ export const EvalCase = z
       )
       .default([]),
     products: z.array(Product).default([]),
+    /**
+     * Needs `bot.orderTaking`: an order summary stored before this turn (the bot's previous turn
+     * sent it), so the turn may call `confirm_order` / `cancel_order_draft`.
+     */
+    order_draft: OrderDraft.optional(),
     conversation: z
       .array(Turn)
       .min(1)
@@ -161,7 +193,11 @@ export const EvalCase = z
      */
     fake_turns: z.array(FakeTurn).min(1).optional(),
   })
-  .strict();
+  .strict()
+  .refine((c) => !c.order_draft || c.bot.orderTaking, {
+    message: 'order_draft needs bot.orderTaking: true',
+    path: ['order_draft'],
+  });
 export type EvalCase = z.infer<typeof EvalCase>;
 export type EvalExpect = z.infer<typeof Expect>;
 export type FakeTurn = z.infer<typeof FakeTurn>;

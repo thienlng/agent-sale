@@ -11,6 +11,14 @@ export interface CheckResult {
 export interface DeliveredMessage {
   text: string;
   images: number;
+  /** The titles of the quick replies under the message (the order summary's buttons). */
+  quickReplies?: readonly string[];
+}
+
+/** One tool the loop ran this turn and whether its result was ok. */
+export interface ToolStep {
+  name: string;
+  ok: boolean;
 }
 
 export interface CheckInput {
@@ -23,6 +31,10 @@ export interface CheckInput {
   images?: number;
   /** The delivered messages in order (`send_message` ones, then the final one). */
   messages?: readonly DeliveredMessage[];
+  /** The tools the loop ran this turn, in order. */
+  steps?: readonly ToolStep[];
+  /** The turn created an order. */
+  orderCreated?: boolean;
   customerTexts: readonly string[];
   /** Everything the reply may state figures from: profile, notes, FAQs, situations, products. */
   trusted: readonly string[];
@@ -78,6 +90,26 @@ export function runChecks(expected: EvalExpect, input: CheckInput): CheckResult[
     const max = expected.images_per_message_max;
     const most = Math.max(0, ...messages.map((m) => m.images));
     add('images_per_message_max', most <= max, `at most ${most} pictures in a message, max ${max}`);
+  }
+  stepChecks(expected, input.steps ?? [], add);
+  if (expected.quick_replies) {
+    const want = JSON.stringify(expected.quick_replies);
+    const found = messages.map((m) => JSON.stringify(m.quickReplies ?? []));
+    add(
+      'quick_replies',
+      found.includes(want),
+      found.includes(want)
+        ? `a message carries ${want}`
+        : `no message carries ${want} (got ${found.filter((f) => f !== '[]').join(', ') || 'none'})`,
+    );
+  }
+  if (expected.order_created !== undefined) {
+    const created = input.orderCreated === true;
+    add(
+      'order_created',
+      created === expected.order_created,
+      `expected orderCreated ${expected.order_created}, got ${created}`,
+    );
   }
   if (expected.contains_any) {
     const hit = expected.contains_any.find((s) => reply.includes(norm(s)));
@@ -150,4 +182,24 @@ export function runChecks(expected: EvalExpect, input: CheckInput): CheckResult[
     add('no_greeting', !GREETING.test(input.reply), 'checks the reply for a greeting');
   }
   return results;
+}
+
+/** The tool-step expectations: which tools ran, and which returned an ok result. */
+function stepChecks(
+  expected: EvalExpect,
+  steps: readonly ToolStep[],
+  add: (name: string, pass: boolean, detail: string) => void,
+): void {
+  const ran = steps.map((s) => s.name);
+  const succeeded = steps.filter((s) => s.ok).map((s) => s.name);
+  const seen = `tools run: ${steps.map((s) => `${s.name}${s.ok ? '' : ' (failed)'}`).join(', ') || 'none'}`;
+  const rule = (name: string, names: string[] | undefined, pass: (n: string) => boolean) => {
+    if (!names) return;
+    const bad = names.filter((n) => !pass(n));
+    add(name, bad.length === 0, bad.length ? `${JSON.stringify(bad)}; ${seen}` : seen);
+  };
+  rule('steps_include', expected.steps_include, (n) => ran.includes(n));
+  rule('steps_exclude', expected.steps_exclude, (n) => !ran.includes(n));
+  rule('steps_succeeded', expected.steps_succeeded, (n) => succeeded.includes(n));
+  rule('steps_not_succeeded', expected.steps_not_succeeded, (n) => !succeeded.includes(n));
 }

@@ -1,0 +1,32 @@
+id: tinymind-order-asks-missing-recipient
+group: orders
+tags: [critical]
+bot:
+  industry: retail
+  name: TinyMind
+  orderTaking: true
+  orderShippingFeeVnd: 30000
+  profile:
+    fields: { displayName: TinyMind }
+    notes: 'Shop bán đồ chơi gỗ Montessori cho bé.'
+products:
+  - name: 'Thú gỗ xếp thăng bằng'
+    code: TM-001
+    description: 'Bộ thú gỗ xếp thăng bằng, phù hợp bé từ 1 tuổi trở lên.'
+    variants:
+      - { name: 'Mặc định', sku: TM-001-STD, price: 340000, stock: 12 }
+conversation:
+  - customer: 'Thú gỗ xếp thăng bằng còn không shop'
+  - bot: 'Dạ Thú gỗ xếp thăng bằng còn hàng, giá 340.000đ ạ.'
+  - customer: 'Ok chốt cho mình 2 bộ nhé, tên Nguyễn Thị Lan'
+expect:
+  outcome: answered
+  guardrail: none
+  # Without a phone number and an address the bot asks for them instead of preparing the order.
+  steps_exclude: ['prepare_order', 'handoff']
+  contains_all: ['số điện thoại', 'địa chỉ']
+  not_contains: ['tạo đơn', 'đã đặt']
+fake_turns:
+  - tool_calls:
+      - { name: search_products, input: { query: 'thú gỗ xếp thăng bằng' } }
+  - text: 'Dạ em lên đơn 2 bộ Thú gỗ xếp thăng bằng cho chị Lan ạ. Chị cho em xin số điện thoại và địa chỉ nhận hàng nhé.'

@@ -181,6 +181,61 @@ describe('eval checks', () => {
     expect(runChecks({ images_per_message_max: 0 }, base)[0]?.pass).toBe(true);
   });
 
+  it('checks the tools the turn ran and which of them succeeded', () => {
+    const steps = [
+      { name: 'search_products', ok: true },
+      { name: 'prepare_order', ok: false },
+      { name: 'calculate', ok: true },
+    ];
+    const input = { ...base, steps };
+    const passing = runChecks(
+      {
+        steps_include: ['prepare_order', 'calculate'],
+        steps_exclude: ['confirm_order'],
+        steps_succeeded: ['calculate'],
+        steps_not_succeeded: ['prepare_order', 'confirm_order'],
+      },
+      input,
+    );
+    expect(passing.map((c) => [c.name, c.pass])).toEqual([
+      ['steps_include', true],
+      ['steps_exclude', true],
+      ['steps_succeeded', true],
+      ['steps_not_succeeded', true],
+    ]);
+    const failing = runChecks(
+      {
+        steps_include: ['confirm_order'],
+        steps_exclude: ['prepare_order'],
+        steps_succeeded: ['prepare_order'],
+        steps_not_succeeded: ['calculate'],
+      },
+      input,
+    );
+    expect(failing.filter((c) => !c.pass)).toHaveLength(4);
+    expect(failing[0]?.detail).toContain('prepare_order (failed)');
+    expect(runChecks({ steps_include: ['calculate'] }, base)[0]?.detail).toContain('none');
+  });
+
+  it('checks the quick replies of a delivered message and whether an order was created', () => {
+    const messages = [
+      { text: 'Dạ em tóm tắt đơn của mình ạ:', images: 0, quickReplies: ['✅ Đặt hàng', '✏️ Sửa'] },
+      { text: 'Dạ mình kiểm tra giúp em ạ.', images: 0 },
+    ];
+    const input = { ...base, messages, orderCreated: false };
+    expect(
+      runChecks({ quick_replies: ['✅ Đặt hàng', '✏️ Sửa'], order_created: false }, input).every(
+        (c) => c.pass,
+      ),
+    ).toBe(true);
+    const failing = runChecks({ quick_replies: ['✅ Đặt hàng'], order_created: true }, input);
+    expect(failing.map((c) => [c.name, c.pass])).toEqual([
+      ['quick_replies', false],
+      ['order_created', false],
+    ]);
+    expect(runChecks({ order_created: false }, base)[0]?.pass).toBe(true);
+  });
+
   it('the "ktra xong chưa" patterns reject a promise to check but not a past-tense answer', () => {
     const c = loadCases().find((x) => x.id === 'tinymind-check-follow-up-no-promise');
     const expectation = { not_matches: c?.expect.not_matches };
