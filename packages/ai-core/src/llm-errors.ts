@@ -1,4 +1,26 @@
-import { LlmCallError, type LlmErrorKind } from './gateway.js';
+export type LlmErrorKind =
+  | 'rate_limit'
+  | 'overloaded'
+  | 'timeout'
+  | 'network'
+  | 'context_too_long'
+  | 'auth'
+  | 'invalid_request'
+  | 'content_filter'
+  | 'aborted'
+  | 'unknown';
+
+/** A classified model-call failure; the gateway retries or falls back based on `kind`. */
+export class LlmCallError extends Error {
+  constructor(
+    readonly kind: LlmErrorKind,
+    message: string,
+    readonly retryAfterMs?: number,
+    readonly status?: number,
+  ) {
+    super(message);
+  }
+}
 
 const NETWORK_CODES = new Set([
   'ECONNRESET',

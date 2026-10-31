@@ -9,7 +9,7 @@ import {
   KEEP_LAST_TURNS,
   compressHistory,
   needsCompression,
-} from '../domain/context-compression.js';
+} from '../application/context-compression.js';
 
 const turn = (i: number, size = 10): ChatMessage => ({
   role: i % 2 === 0 ? 'user' : 'assistant',

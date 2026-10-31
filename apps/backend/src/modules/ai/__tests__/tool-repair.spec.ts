@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { repairArguments, repairToolName } from '../domain/tool-repair.js';
+import { repairArguments, repairToolName } from '../application/tool-repair.js';
 
 const known = ['search_products', 'product_details', 'send_message', 'handoff'];
 

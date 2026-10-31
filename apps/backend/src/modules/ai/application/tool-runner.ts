@@ -1,6 +1,6 @@
 import type { ToolCall } from '@agent-sales/ai-core';
 import type { ZodType } from 'zod';
-import { repairArguments, repairToolName } from '../domain/tool-repair.js';
+import { repairArguments, repairToolName } from './tool-repair.js';
 
 export interface RunnableTool {
   name: string;

@@ -1,4 +1,4 @@
-import type { LlmErrorKind } from './gateway.js';
+import type { LlmErrorKind } from './llm-errors.js';
 
 export const MAX_RETRIES = 3;
 export const BACKOFF_BASE_MS = 1_000;

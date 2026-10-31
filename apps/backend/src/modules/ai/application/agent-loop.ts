@@ -5,7 +5,7 @@ import type {
   ToolCall,
   Usage,
 } from '@agent-sales/ai-core';
-import { repairToolName } from '../domain/tool-repair.js';
+import { repairToolName } from './tool-repair.js';
 import { runToolBatch, type RunnableTool } from './tool-runner.js';
 
 export const AGENT_MAX_ROUNDS = 10;
