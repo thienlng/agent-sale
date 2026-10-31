@@ -55,7 +55,7 @@ import {
   confirmableDraft,
   answeredSince,
   newOrderToolState,
-  orderCreatedText,
+  announceOrder,
   type OrderToolContext,
   PLAYGROUND_ORDER_CHANNEL,
 } from './order-tools.js';
@@ -253,6 +253,8 @@ export class PlaygroundService implements AiFacade {
               (error) => this.#logger.warn(`Order draft check failed: ${errorClass(error)}`),
             ),
             state: newOrderToolState(),
+            onError: (error: unknown) =>
+              this.#logger.warn(`Order draft drop failed: ${errorClass(error)}`),
           }
         : null;
     const seenProducts = new Set<string>();
@@ -370,11 +372,11 @@ export class PlaygroundService implements AiFacade {
     let decision: ReplyDecision = loop
       ? decideReply({ loop, output, bot, actionFallback: actionState.fallback })
       : { outcome: 'answered', guardrail: 'model_error', final: fallbackText(bot) };
-    // An order was created: its code reaches the customer whatever else cut the turn short.
+    // An order was created: its code reaches the customer exactly once, whatever cut the turn short.
     const orderCode = orders?.state.orderCode;
-    if (orderCode && (!loop || !decision.final || decision.outcome === 'fallback')) {
-      const outcome = decision.outcome === 'fallback' ? 'answered' : decision.outcome;
-      decision = { ...decision, outcome, final: orderCreatedText(orderCode) };
+    if (orderCode) {
+      const sentTexts = output.sent.map((m) => m.text);
+      decision = announceOrder(decision, { orderCode, sentTexts, fallback: fallbackText(bot) });
     }
     const messages = turnMessages(output, decision);
     const interrupted = loop?.outcome === 'interrupted';

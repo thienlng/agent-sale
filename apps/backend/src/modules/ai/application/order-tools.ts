@@ -1,4 +1,5 @@
 import type { ToolDefinition } from '@agent-sales/ai-core';
+import type { AiOutcome } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
 import { z } from 'zod';
 
@@ -73,6 +74,8 @@ export interface OrderToolContext {
   /** A draft stored before the customer's newest message: the only one this turn can confirm or cancel. */
   confirmable: boolean;
   state: OrderToolState;
+  /** Logs a failure the turn survives (the error class only). */
+  onError?: (error: unknown) => void;
 }
 
 export interface OrderToolState {
@@ -86,6 +89,8 @@ export interface OrderToolState {
   orderCode: string | null;
   /** A summary was not (fully) delivered this turn: the next turn may prepare it again. */
   undelivered: boolean;
+  /** Dropping a draft failed: its state is unknown, so confirm / cancel are off for this turn. */
+  draftUnknown: boolean;
 }
 
 export const newOrderToolState = (): OrderToolState => ({
@@ -94,11 +99,38 @@ export const newOrderToolState = (): OrderToolState => ({
   orderCreated: false,
   orderCode: null,
   undelivered: false,
+  draftUnknown: false,
 });
 
 /** The final line when an order was created but the model could not finish the turn. */
 export const orderCreatedText = (orderCode: string): string =>
   `Dạ em đã tạo đơn ${orderCode} cho mình ạ. Shop sẽ kiểm tra và liên hệ xác nhận sớm ạ.`;
+
+interface TurnDecision {
+  outcome: AiOutcome;
+  guardrail: string | null;
+  final: string | null;
+}
+
+/**
+ * Makes a created order's code reach the customer exactly once: nothing is added when a sent
+ * message or the final already carries it; an empty or fallback final is replaced, a hand-off
+ * gets the line first, and any other answer gets it as its last line.
+ */
+export function announceOrder<D extends TurnDecision>(
+  decision: D,
+  opts: { orderCode: string; sentTexts: readonly string[]; fallback: string },
+): D {
+  const { orderCode } = opts;
+  const final = decision.final ?? '';
+  if (final.includes(orderCode) || opts.sentTexts.some((t) => t.includes(orderCode)))
+    return decision;
+  const line = orderCreatedText(orderCode);
+  if (decision.outcome === 'handoff') return { ...decision, final: `${line}\n${final}` };
+  if (!final.trim() || final === opts.fallback)
+    return { ...decision, outcome: 'answered', final: line };
+  return { ...decision, final: `${final}\n${line}` };
+}
 
 /**
  * Whether the customer answered a draft stored at `storedAt`. With message times (aligned with
@@ -113,13 +145,14 @@ export function answeredSince(
 ): (storedAt: Date) => boolean {
   if (!times || times.length !== messages.length) return (storedAt) => storedAt < turnStartedAt;
   const lastCustomer = messages.map((m) => m.role).lastIndexOf('customer');
+  const answeredAt = times[lastCustomer]?.getTime() ?? -Infinity;
   return (storedAt) =>
-    messages.some(
-      (m, i) =>
-        i < lastCustomer &&
-        m.role !== 'customer' &&
-        (times[i]?.getTime() ?? -Infinity) >= storedAt.getTime(),
-    );
+    messages.some((m, i) => {
+      const at = times[i]?.getTime() ?? -Infinity;
+      return (
+        i < lastCustomer && m.role !== 'customer' && at >= storedAt.getTime() && answeredAt > at
+      );
+    });
 }
 
 /**
@@ -155,9 +188,15 @@ export function orderTools(ctx: OrderToolContext): {
 } {
   const { facade, ws, conversationId, state } = ctx;
   const dropDraft = async (): Promise<void> => {
-    await facade.cancelBotOrderDraft(ws, conversationId);
-    state.stored = false;
+    try {
+      await facade.cancelBotOrderDraft(ws, conversationId);
+      state.stored = false;
+    } catch (error) {
+      state.draftUnknown = true;
+      ctx.onError?.(error);
+    }
   };
+  const draftOpen = (): boolean => ctx.confirmable && !state.stored && !state.draftUnknown;
 
   const prepare: RunnableTool = {
     name: PREPARE_ORDER_TOOL,
@@ -225,8 +264,7 @@ export function orderTools(ctx: OrderToolContext): {
     schema: z.object({}),
     // Never the model's arguments: only the draft the customer was shown.
     run: async () => {
-      if (!ctx.confirmable || state.stored)
-        return reply({ ok: false, code: 'not_confirmable' }, false);
+      if (!draftOpen()) return reply({ ok: false, code: 'not_confirmable' }, false);
       const res = await facade.confirmBotOrder(ws, {
         botId: ctx.bot.id,
         botName: ctx.bot.name,
@@ -244,9 +282,14 @@ export function orderTools(ctx: OrderToolContext): {
     readOnly: false,
     schema: z.object({}),
     run: async () => {
-      if (!ctx.confirmable || state.stored)
-        return reply({ ok: false, code: 'nothing_pending' }, false);
-      const dropped = await facade.cancelBotOrderDraft(ws, conversationId);
+      if (!draftOpen()) return reply({ ok: false, code: 'nothing_pending' }, false);
+      let dropped: boolean;
+      try {
+        dropped = await facade.cancelBotOrderDraft(ws, conversationId);
+      } catch (error) {
+        state.draftUnknown = true;
+        throw error;
+      }
       return dropped
         ? reply({ ok: true, status: 'cancelled' })
         : reply({ ok: false, code: 'nothing_pending' }, false);

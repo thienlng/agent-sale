@@ -21,6 +21,7 @@ import {
   CANCEL_ORDER_DRAFT_TOOL,
   CONFIRM_ORDER_TOOL,
   confirmableDraft,
+  announceOrder,
   answeredSince,
   newOrderToolState,
   ORDER_QUICK_REPLIES,
@@ -316,6 +317,46 @@ describe('order tools (spec §4.1)', () => {
     expect(onError).toHaveBeenCalledWith(expect.any(TypeError));
   });
 
+  it('needs the newest customer message to be strictly later than the summary', () => {
+    const start = new Date('2026-10-31T10:00:10Z');
+    const t = (s: number) => new Date(`2026-10-31T10:00:0${s}Z`);
+    const msgs = [{ role: 'customer' }, { role: 'bot' }, { role: 'customer' }];
+    expect(answeredSince(msgs, [t(1), t(3), t(3)], start)(t(2))).toBe(false);
+    expect(answeredSince(msgs, [t(1), t(3), t(4)], start)(t(2))).toBe(true);
+  });
+
+  it('turns confirm and cancel off when dropping an undelivered draft fails', async () => {
+    const facade = fakeCommerce({ storedAt: new Date(Date.now() - 60_000) });
+    vi.mocked(facade.cancelBotOrderDraft).mockRejectedValueOnce(new TypeError('db down'));
+    const onError = vi.fn();
+    const ctx = context(facade, { sink: recordingSink(0), confirmable: true, onError });
+    const out = await runnable(ctx, PREPARE_ORDER_TOOL).run(ORDER_INPUT);
+    expect(JSON.parse(out.content)).toEqual({ ok: false, error: 'not_delivered' });
+    expect(onError).toHaveBeenCalledWith(expect.any(TypeError));
+    expect(ctx.state.draftUnknown).toBe(true);
+    expect(JSON.parse((await runnable(ctx, CONFIRM_ORDER_TOOL).run({})).content)).toEqual({
+      ok: false,
+      code: 'not_confirmable',
+    });
+    expect(JSON.parse((await runnable(ctx, CANCEL_ORDER_DRAFT_TOOL).run({})).content)).toEqual({
+      ok: false,
+      code: 'nothing_pending',
+    });
+    expect(facade.confirmBotOrder).not.toHaveBeenCalled();
+  });
+
+  it('turns confirm off when cancel_order_draft fails', async () => {
+    const facade = fakeCommerce({ storedAt: new Date(Date.now() - 60_000) });
+    vi.mocked(facade.cancelBotOrderDraft).mockRejectedValueOnce(new Error('db down'));
+    const ctx = context(facade, { confirmable: true });
+    await expect(runnable(ctx, CANCEL_ORDER_DRAFT_TOOL).run({})).rejects.toThrow('db down');
+    expect(JSON.parse((await runnable(ctx, CONFIRM_ORDER_TOOL).run({})).content)).toEqual({
+      ok: false,
+      code: 'not_confirmable',
+    });
+    expect(facade.confirmBotOrder).not.toHaveBeenCalled();
+  });
+
   it('needs a bot message delivered at or after the draft, before the newest customer message', () => {
     const start = new Date('2026-10-31T10:00:10Z');
     const t = (s: number) => new Date(`2026-10-31T10:00:0${s}Z`);
@@ -332,6 +373,68 @@ describe('order tools (spec §4.1)', () => {
     // Without aligned times: the draft must predate the turn.
     expect(answeredSince(msgs, undefined, start)(t(9))).toBe(true);
     expect(answeredSince(msgs, [t(1)], start)(new Date('2026-10-31T10:00:11Z'))).toBe(false);
+  });
+});
+
+describe('announcing a created order exactly once', () => {
+  const code = 'DH0042';
+  const line = 'Dạ em đã tạo đơn DH0042 cho mình ạ. Shop sẽ kiểm tra và liên hệ xác nhận sớm ạ.';
+  const fallback = 'fallback';
+  const announce = (
+    decision: {
+      outcome: 'answered' | 'handoff' | 'fallback';
+      guardrail: string | null;
+      final: string | null;
+    },
+    sentTexts: string[] = [],
+  ) => announceOrder(decision, { orderCode: code, sentTexts, fallback });
+
+  it('adds nothing when send_message already carried the code and the final is empty', () => {
+    const d = { outcome: 'answered' as const, guardrail: null, final: null };
+    expect(announce(d, ['Dạ đơn DH0042 đã tạo ạ'])).toEqual(d);
+  });
+
+  it('adds nothing when the final already carries the code', () => {
+    const d = { outcome: 'answered' as const, guardrail: null, final: 'Mã đơn DH0042 ạ' };
+    expect(announce(d)).toEqual(d);
+  });
+
+  it('replaces the fallback of a budget or limit cut-off after a send', () => {
+    for (const guardrail of ['budget', 'tool_loop_limit']) {
+      expect(
+        announce({ outcome: 'answered', guardrail, final: fallback }, ['Dạ em lên đơn ạ']),
+      ).toEqual({ outcome: 'answered', guardrail, final: line });
+    }
+  });
+
+  it('replaces an empty or fallback final and answers', () => {
+    expect(announce({ outcome: 'fallback', guardrail: 'interrupted', final: null })).toEqual({
+      outcome: 'answered',
+      guardrail: 'interrupted',
+      final: line,
+    });
+  });
+
+  it('puts the code line before a refusal hand-off', () => {
+    expect(
+      announce({
+        outcome: 'handoff',
+        guardrail: 'provider_refusal',
+        final: 'Dạ em chuyển nhân viên ạ.',
+      }),
+    ).toEqual({
+      outcome: 'handoff',
+      guardrail: 'provider_refusal',
+      final: `${line}\nDạ em chuyển nhân viên ạ.`,
+    });
+  });
+
+  it('appends the code line to a normal answer without it', () => {
+    expect(announce({ outcome: 'answered', guardrail: null, final: 'Dạ cảm ơn mình ạ.' })).toEqual({
+      outcome: 'answered',
+      guardrail: null,
+      final: `Dạ cảm ơn mình ạ.\n${line}`,
+    });
   });
 });
 
@@ -570,6 +673,31 @@ describe('order tools in the reply pipeline', () => {
       images: [],
       via: 'final',
     });
+  });
+
+  it('does not repeat an order code that send_message already sent', async () => {
+    const commerce = fakeCommerce({ storedAt: new Date(Date.now() - 60_000) });
+    const call = (id: string, name: string, input: object): Partial<GenerateResponse> => ({
+      text: '',
+      stopReason: 'tool_use',
+      toolCalls: [{ id, name, input }],
+    });
+    const { svc } = build(
+      bot,
+      [
+        call('c1', CONFIRM_ORDER_TOOL, {}),
+        call('s1', 'send_message', { text: 'Dạ đơn DH0042 đã được tạo ạ.' }),
+        { text: '' },
+      ],
+      commerce,
+    );
+    const res = await svc.reply(ws, botId, ask('✅ Đặt hàng'), {
+      conversationId,
+      isTest: false,
+      sink: recordingSink(),
+    });
+    expect(res.orderCreated).toBe(true);
+    expect(res.messages?.map((m) => m.text)).toEqual(['Dạ đơn DH0042 đã được tạo ạ.']);
   });
 
   it('a failed draft check offers no confirm and does not fail the turn', async () => {
