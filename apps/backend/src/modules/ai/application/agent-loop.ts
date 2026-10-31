@@ -5,6 +5,7 @@ import type {
   ToolCall,
   Usage,
 } from '@agent-sales/ai-core';
+import { repairToolName } from '../domain/tool-repair.js';
 import { runToolBatch, type RunnableTool } from './tool-runner.js';
 
 export const AGENT_MAX_ROUNDS = 10;
@@ -34,7 +35,10 @@ export interface AgentLoopInput {
   shouldInterrupt?: () => Promise<boolean>;
   /** Messages of an interrupted earlier run, appended after `base.messages`. */
   carry?: ChatMessage[];
-  /** A terminal call (e.g. handoff) ends the turn after its batch ran. */
+  /**
+   * A terminal call (e.g. handoff) ends the turn after its batch ran. Only checked for calls that
+   * actually ran successfully; `call.name` is the resolved (repaired) tool name.
+   */
   isTerminal?(call: ToolCall): boolean;
   maxRounds?: number;
   budgetMs?: number;
@@ -45,7 +49,11 @@ export interface AgentLoopInput {
 
 export interface AgentLoopResult {
   res: GenerateResponse | null;
-  /** Carry plus this run's assistant tool calls and tool results, in order. */
+  /**
+   * The input `carry` plus this run's assistant tool calls and tool results, in order. It already
+   * contains the input carry: pass it back as the next `carry` as is, never append it to one.
+   * On `interrupted` before a write batch, the unexecuted assistant tool-call message is left out.
+   */
   followUps: ChatMessage[];
   trusted: string[];
   productIds: string[];
@@ -68,6 +76,9 @@ const INTERRUPTED = Symbol('interrupted');
  * Hermes-style agent loop: model call, run the requested tools, feed results back, until the model
  * answers without tools. Bounded by rounds and a wall-clock budget, interruptible between and
  * during model calls, and stopped after repeated invalid-only tool batches.
+ *
+ * A caller-supplied `base.signal` is combined with the loop's own abort controller; when it aborts,
+ * the loop stops with outcome `interrupted` (no error is thrown).
  */
 export async function runAgentLoop(input: AgentLoopInput): Promise<AgentLoopResult> {
   const now = input.now ?? Date.now;
@@ -89,6 +100,8 @@ export async function runAgentLoop(input: AgentLoopInput): Promise<AgentLoopResu
   let usage: Usage | undefined;
   let latencyMs = 0;
 
+  const external = input.base.signal;
+
   const finish = (outcome: AgentOutcome, res: GenerateResponse | null): AgentLoopResult => ({
     res: res && usage ? { ...res, usage, latencyMs } : res,
     followUps,
@@ -103,9 +116,19 @@ export async function runAgentLoop(input: AgentLoopInput): Promise<AgentLoopResu
     req: GenerateRequest,
   ): Promise<GenerateResponse | typeof INTERRUPTED> => {
     const controller = new AbortController();
+    const signal = external ? AbortSignal.any([external, controller.signal]) : controller.signal;
     let interrupted = false;
     let timer: ReturnType<typeof setInterval> | undefined;
+    let onExternalAbort: (() => void) | undefined;
     const aborted = new Promise<typeof INTERRUPTED>((resolve) => {
+      if (external) {
+        onExternalAbort = () => {
+          interrupted = true;
+          resolve(INTERRUPTED);
+        };
+        if (external.aborted) onExternalAbort();
+        else external.addEventListener('abort', onExternalAbort, { once: true });
+      }
       if (!input.shouldInterrupt) return;
       let busy = false;
       timer = setInterval(() => {
@@ -127,7 +150,7 @@ export async function runAgentLoop(input: AgentLoopInput): Promise<AgentLoopResu
       }, INTERRUPT_POLL_MS);
     });
     try {
-      const call = input.generate({ ...req, signal: controller.signal });
+      const call = input.generate({ ...req, signal });
       call.catch(() => undefined); // an aborted call may reject after we stopped waiting
       return await Promise.race([call, aborted]);
     } catch (error) {
@@ -135,11 +158,12 @@ export async function runAgentLoop(input: AgentLoopInput): Promise<AgentLoopResu
       throw error;
     } finally {
       if (timer) clearInterval(timer);
+      if (onExternalAbort) external?.removeEventListener('abort', onExternalAbort);
     }
   };
 
   for (;;) {
-    if (await input.shouldInterrupt?.()) {
+    if (external?.aborted || (await input.shouldInterrupt?.())) {
       step({ kind: 'interrupted' });
       return finish('interrupted', null);
     }
@@ -172,13 +196,25 @@ export async function runAgentLoop(input: AgentLoopInput): Promise<AgentLoopResu
     }
     rounds += 1;
 
+    const hasWrite = out.toolCalls.some((c) => {
+      const name = repairToolName(
+        c.name,
+        input.tools.map((t) => t.name),
+      );
+      return input.tools.some((t) => t.name === name && !t.readOnly);
+    });
+    if (hasWrite && (external?.aborted || (await input.shouldInterrupt?.()))) {
+      step({ kind: 'interrupted' });
+      return finish('interrupted', null);
+    }
     followUps.push({ role: 'assistant', content: out.text, toolCalls: out.toolCalls });
-    const toolStart = now();
     const batch = await runToolBatch(out.toolCalls, input.tools, {
+      now,
       ...(input.onToolError ? { onError: input.onToolError } : {}),
     });
-    const ms = now() - toolStart;
-    for (const r of batch.results) step({ kind: 'tool', name: r.call.name, ok: r.ok, ms });
+    for (const r of batch.results) {
+      step({ kind: 'tool', name: r.name ?? r.call.name, ok: r.ok, ms: r.ms });
+    }
     trusted.push(...batch.trusted);
     for (const id of batch.productIds) productIds.add(id);
     const toolMessages: ChatMessage[] = batch.results.map((r) => ({
@@ -195,7 +231,11 @@ export async function runAgentLoop(input: AgentLoopInput): Promise<AgentLoopResu
     }
     followUps.push(...toolMessages);
 
-    if (input.isTerminal && out.toolCalls.some((c) => input.isTerminal?.(c))) {
+    const isTerminal = input.isTerminal;
+    if (
+      isTerminal &&
+      batch.results.some((r) => r.ok && r.name !== null && isTerminal({ ...r.call, name: r.name }))
+    ) {
       return finish('done', out);
     }
     invalidStreak = batch.allInvalid ? invalidStreak + 1 : 0;

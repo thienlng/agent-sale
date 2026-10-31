@@ -235,4 +235,132 @@ describe('runAgentLoop', () => {
     expect(out.followUps[1]!.content).toBe('{"error":"tool_failed"}');
     expect(out.steps.find((s) => s.kind === 'tool')?.ok).toBe(false);
   });
+
+  const handoffTool = (run?: () => Promise<{ content: string }>): RunnableTool => ({
+    name: 'handoff',
+    readOnly: false,
+    schema: z.object({ reason: z.string() }),
+    run: run ?? (async () => ({ content: 'ok' })),
+  });
+  const terminal = (c: ToolCall) => c.name === 'handoff';
+
+  it('ends the turn on a case-variant handoff name that ran', async () => {
+    const generate = script(reply('bye', [tc('1', 'Handoff', { reason: 'x' })]), reply('never'));
+    const out = await runAgentLoop({
+      base,
+      tools: [handoffTool()],
+      generate,
+      isTerminal: terminal,
+    });
+    expect(out.outcome).toBe('done');
+    expect(out.res?.text).toBe('bye');
+    expect(generate).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not end the turn on a handoff with invalid arguments or one that threw', async () => {
+    const bad = await runAgentLoop({
+      base,
+      tools: [handoffTool()],
+      generate: script(reply('', [tc('1', 'handoff', { reason: 5 })]), reply('next')),
+      isTerminal: terminal,
+    });
+    expect(bad.res?.text).toBe('next');
+    expect(bad.modelCalls).toBe(2);
+    const thrown = await runAgentLoop({
+      base,
+      tools: [
+        handoffTool(async () => {
+          throw new Error('x');
+        }),
+      ],
+      generate: script(reply('', [tc('1', 'handoff', { reason: 'r' })]), reply('next')),
+      isTerminal: terminal,
+    });
+    expect(thrown.res?.text).toBe('next');
+  });
+
+  it('stops with interrupted when the caller signal aborts during a call', async () => {
+    const external = new AbortController();
+    let seen: AbortSignal | undefined;
+    const generate = vi.fn(
+      (req: GenerateRequest) =>
+        new Promise<GenerateResponse>(() => {
+          seen = req.signal;
+          setTimeout(() => external.abort(), 10);
+        }),
+    );
+    const out = await runAgentLoop({
+      base: { ...base, signal: external.signal },
+      tools: [],
+      generate,
+    });
+    expect(out.outcome).toBe('interrupted');
+    expect(seen?.aborted).toBe(true);
+    const pre = new AbortController();
+    pre.abort();
+    const again = await runAgentLoop({
+      base: { ...base, signal: pre.signal },
+      tools: [],
+      generate: script(reply('x')),
+    });
+    expect(again.outcome).toBe('interrupted');
+  });
+
+  it('accepts followUps fed back as carry without duplicating it', async () => {
+    const first = await runAgentLoop({
+      base,
+      tools: [lookup],
+      generate: script(reply('', [tc('1')]), reply('a')),
+    });
+    const generate = script(reply('b'));
+    const second = await runAgentLoop({ base, tools: [lookup], generate, carry: first.followUps });
+    expect(generate.mock.calls[0]![0].messages).toEqual([...base.messages, ...first.followUps]);
+    expect(second.followUps).toEqual(first.followUps);
+  });
+
+  it('does not run a write batch when interrupted just before it', async () => {
+    const run = vi.fn(async () => ({ content: 'ok' }));
+    let n = 0;
+    const out = await runAgentLoop({
+      base,
+      tools: [handoffTool(run)],
+      generate: script(reply('', [tc('1', 'handoff', { reason: 'r' })])),
+      shouldInterrupt: async () => ++n >= 2,
+    });
+    expect(out.outcome).toBe('interrupted');
+    expect(run).not.toHaveBeenCalled();
+    expect(out.followUps).toEqual([]);
+  });
+
+  it('reports each tool step with its own duration', async () => {
+    let t = 0;
+    const slow: RunnableTool = {
+      ...lookup,
+      name: 'slow',
+      readOnly: false,
+      run: async () => {
+        t += 30;
+        return { content: 's' };
+      },
+    };
+    const fast: RunnableTool = {
+      ...lookup,
+      name: 'fast',
+      readOnly: false,
+      run: async () => {
+        t += 5;
+        return { content: 'f' };
+      },
+    };
+    const out = await runAgentLoop({
+      base,
+      tools: [slow, fast],
+      generate: script(reply('', [tc('1', 'slow'), tc('2', 'fast')]), reply('ok')),
+      now: () => t,
+    });
+    expect(out.steps.filter((s) => s.kind === 'tool').map((s) => [s.name, s.ms])).toEqual([
+      ['slow', 30],
+      ['fast', 5],
+    ]);
+  });
 });

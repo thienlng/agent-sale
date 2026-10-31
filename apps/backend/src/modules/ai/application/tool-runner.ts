@@ -10,7 +10,14 @@ export interface RunnableTool {
 }
 
 export interface ToolBatchResult {
-  results: { call: ToolCall; content: string; ok: boolean }[];
+  /** `name` is the resolved tool name (null for an unknown tool); `ms` is that tool's own run time. */
+  results: {
+    call: ToolCall;
+    name: string | null;
+    content: string;
+    ok: boolean;
+    ms: number;
+  }[];
   trusted: string[];
   productIds: string[];
   /** Every call of the batch was unknown or had invalid arguments. */
@@ -26,6 +33,8 @@ interface Slot {
   content: string;
   ok: boolean;
   invalid: boolean;
+  name: string | null;
+  ms: number;
   trusted?: string;
   productIds?: string[];
   pending?: { tool: RunnableTool; input: unknown };
@@ -46,10 +55,12 @@ export async function runToolBatch(
     onError?(name: string, e: unknown): void;
     maxParallel?: number;
     maxResultChars?: number;
+    now?: () => number;
   } = {},
 ): Promise<ToolBatchResult> {
   const cap = opts.maxResultChars ?? MAX_TOOL_RESULT_CHARS;
   const parallel = Math.max(1, opts.maxParallel ?? MAX_PARALLEL_TOOLS);
+  const now = opts.now ?? Date.now;
   const names = tools.map((t) => t.name);
 
   const slots: Slot[] = calls.map((call) => {
@@ -58,6 +69,8 @@ export async function runToolBatch(
     if (!tool) {
       return {
         call,
+        name: null,
+        ms: 0,
         invalid: true,
         ok: false,
         content: JSON.stringify({ error: 'unknown_tool', available: names }),
@@ -66,6 +79,8 @@ export async function runToolBatch(
     const args = repairArguments(call.input);
     const invalidArgs = (detail: string): Slot => ({
       call,
+      name: tool.name,
+      ms: 0,
       invalid: true,
       ok: false,
       content: JSON.stringify({ error: 'invalid_arguments', detail }),
@@ -73,12 +88,21 @@ export async function runToolBatch(
     if (!args.ok) return invalidArgs(args.detail);
     const parsed = tool.schema.safeParse(args.value);
     if (!parsed.success) return invalidArgs(zodDetail(parsed.error));
-    return { call, invalid: false, ok: true, content: '', pending: { tool, input: parsed.data } };
+    return {
+      call,
+      name: tool.name,
+      ms: 0,
+      invalid: false,
+      ok: true,
+      content: '',
+      pending: { tool, input: parsed.data },
+    };
   });
 
   const execute = async (slot: Slot): Promise<void> => {
     if (!slot.pending) return;
     const { tool, input } = slot.pending;
+    const startedAt = now();
     try {
       const out = await tool.run(input);
       slot.content = out.content;
@@ -89,6 +113,8 @@ export async function runToolBatch(
       // Never the error message: it may carry internals the model must not see.
       slot.content = '{"error":"tool_failed"}';
       slot.ok = false;
+    } finally {
+      slot.ms = now() - startedAt;
     }
   };
 
@@ -111,7 +137,7 @@ export async function runToolBatch(
     for (const id of s.productIds ?? []) productIds.add(id);
   }
   return {
-    results: slots.map(({ call, content, ok }) => ({ call, content, ok })),
+    results: slots.map(({ call, name, content, ok, ms }) => ({ call, name, content, ok, ms })),
     trusted,
     productIds: [...productIds],
     allInvalid: slots.length > 0 && slots.every((s) => s.invalid),
