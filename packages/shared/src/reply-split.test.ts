@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { splitReply } from '../domain/reply-split.js';
+import { splitReply } from './reply-split.js';
 
 describe('splitReply', () => {
   it('keeps one idea as one bubble', () => {

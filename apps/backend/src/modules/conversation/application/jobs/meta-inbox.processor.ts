@@ -19,7 +19,7 @@ import {
 import { CONVERSATION_FACADE, type ConversationFacade } from '../../api/conversation.facade.js';
 import type { ConversationDto, InboxMessageDto, PlaygroundRequest } from '@agent-sales/contracts';
 import { BOT_IMAGE_VISION, IMAGE_FETCHER, type ImageFetcher } from '../ports/image-fetcher.js';
-import { splitReply } from '../../domain/reply-split.js';
+import { splitReply } from '@agent-sales/shared';
 import { toReplyTurns } from './reply-turns.js';
 
 const MAX_VISION_IMAGES = 3;
