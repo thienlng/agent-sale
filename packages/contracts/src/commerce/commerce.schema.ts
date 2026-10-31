@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { AccommodationDetails } from './lodging.schema.js';
 import { Money } from './money.schema.js';
-import { OrderItemPreview, OrderOriginFields } from './order-review.schema.js';
+import { OrderItemsPreviewFields, OrderOriginFields } from './order-review.schema.js';
 
 export { Money } from './money.schema.js';
 
@@ -416,8 +416,7 @@ export const OrderSummaryDto = z.object({
   trackingCode: z.string().nullable(),
   noteInternal: z.string(),
   amounts: OrderAmounts,
-  /** First items, for the list's product column. */
-  itemsPreview: z.array(OrderItemPreview),
+  ...OrderItemsPreviewFields,
   createdByName: z.string().nullable(),
   ...OrderOriginFields,
   placedAt: z.iso.datetime(),

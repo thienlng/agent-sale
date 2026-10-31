@@ -149,7 +149,14 @@ function amountsOf(o: OrderRecord) {
   };
 }
 
-export function toSummary(o: OrderRecord, itemsPreview: OrderItemPreview[]): OrderSummaryDto {
+/** Lines a summary carries; the order may have more (`itemCount`). */
+export const PREVIEW_LINES = 10;
+
+export function toSummary(
+  o: OrderRecord,
+  itemsPreview: OrderItemPreview[],
+  itemCount: number,
+): OrderSummaryDto {
   return {
     id: o.id,
     code: o.code,
@@ -161,7 +168,8 @@ export function toSummary(o: OrderRecord, itemsPreview: OrderItemPreview[]): Ord
     trackingCode: o.trackingCode,
     noteInternal: o.noteInternal,
     amounts: amountsOf(o),
-    itemsPreview,
+    itemsPreview: itemsPreview.slice(0, PREVIEW_LINES),
+    itemCount,
     createdByName: o.createdByName,
     createdByKind: o.createdByKind,
     reviewState: o.reviewState,
@@ -177,17 +185,19 @@ export function toOrderDto(
   items: OrderItemRecord[],
   history: HistoryRecord[],
   warehouseName: string,
+  images: ReadonlyMap<string, string> = new Map(),
 ): OrderDto {
   return {
     ...toSummary(
       o,
-      items.slice(0, 3).map((i) => ({
+      items.slice(0, PREVIEW_LINES).map((i) => ({
         name: [i.productName, i.variantName].filter(Boolean).join(' – '),
         qty: i.qty,
         variantName: i.variantName || null,
         unitPrice: i.unitPrice,
-        imageUrl: null,
+        imageUrl: images.get(i.variantId) ?? null,
       })),
+      items.length,
     ),
     warehouseId: o.warehouseId,
     warehouseName,

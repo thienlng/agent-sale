@@ -19,3 +19,4 @@ Each ADR: Context → Decision → Consequences. Status: `Proposed` → `Accepte
 | [013](ADR-013-lodging-catalog-and-stay-requests.md) | Whole-property accommodation metadata and staff-confirmed stay requests inside commerce | Proposed |
 | [014](ADR-014-tool-calling-for-the-reply-agent.md) | Tool calling for the reply agent: catalog lookup on demand, actions as tools, focus products, emulated tools for Hermes | Proposed; JSON reply, 4-round loop, 3-images-per-turn cap and Hermes emulation superseded by ADR-015 |
 | [015](ADR-015-agent-harness-v2.md) | Agent harness v2: free-text Hermes-style agent loop, `send_message`, 10 rounds / 120 s, interrupt, LISTEN/NOTIFY wake-up, no number guardrail on replies | Proposed |
+| [016](ADR-016-bot-orders.md) | Bot orders: the ai module writes through new `CommerceFacade` methods; bot creates, customer confirms (quick replies), staff review; bot orders reserve stock | Proposed |

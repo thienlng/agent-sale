@@ -22,6 +22,7 @@ import type {
   OverviewAggregates,
 } from '../../application/ports/commerce-store.js';
 import type { OrderStatus } from '../../domain/order-stock.js';
+import { PREVIEW_LINES } from '../../application/order.mappers.js';
 import { DuplicateOrderRequestError } from '../../domain/commerce.errors.js';
 import {
   contains,
@@ -31,10 +32,15 @@ import {
   o,
   oi,
   orderRow,
+  p,
+  v,
   pgCode,
   profitExpr,
   toOrder,
 } from './commerce.rows.js';
+
+/** Bot orders waiting for review; cancelling one rejects it (partial index orders_review_pending_idx). */
+const pendingReview = and(eq(o.reviewState, 'pending'), notInArray(o.status, ['cancelled']));
 
 /** Orders, their history and settings inside one tenant transaction. */
 export function ordersTx(ws: WorkspaceId, tx: TenantTx): Pick<CommerceTx, 'orders' | 'settings'> {
@@ -94,6 +100,15 @@ export function ordersTx(ws: WorkspaceId, tx: TenantTx): Pick<CommerceTx, 'order
           position: r.position,
         }));
       },
+      async itemImages(orderId) {
+        const rows = await tx
+          .select({ variantId: oi.variantId, url: sql<string | null>`${p.imageUrls} ->> 0` })
+          .from(oi)
+          .innerJoin(v, eq(v.id, oi.variantId))
+          .innerJoin(p, eq(p.id, v.productId))
+          .where(eq(oi.orderId, orderId));
+        return new Map(rows.flatMap((r) => (r.url ? [[r.variantId, r.url] as const] : [])));
+      },
       async historyOf(orderId) {
         const rows = await tx
           .select()
@@ -129,6 +144,7 @@ export function ordersTx(ws: WorkspaceId, tx: TenantTx): Pick<CommerceTx, 'order
           f.to ? sql`${o.placedAt} < ${f.to.toISOString()}` : undefined,
           f.createdBy ? eq(o.createdByUserId, f.createdBy) : undefined,
           f.carrier ? eq(o.carrier, f.carrier) : undefined,
+          f.review ? pendingReview : undefined,
         );
         // Status is the only filter the per-status counts ignore (they label the choices).
         const statusFilter = f.statuses?.length
@@ -192,8 +208,12 @@ export function ordersTx(ws: WorkspaceId, tx: TenantTx): Pick<CommerceTx, 'order
                 variantName: oi.variantName,
                 qty: oi.qty,
                 unitPrice: oi.unitPrice,
+                // The product's current primary picture (the line keeps only names and prices).
+                imageUrl: sql<string | null>`${p.imageUrls} ->> 0`,
               })
               .from(oi)
+              .leftJoin(v, eq(v.id, oi.variantId))
+              .leftJoin(p, eq(p.id, v.productId))
               .where(inArray(oi.orderId, ids))
               .orderBy(asc(oi.position))
           : [];
@@ -203,19 +223,20 @@ export function ordersTx(ws: WorkspaceId, tx: TenantTx): Pick<CommerceTx, 'order
           counts['all'] = (counts['all'] ?? 0) + n(c.c);
         }
         return {
-          rows: rows.map((r) => ({
-            ...toOrder(r),
-            itemsPreview: items
-              .filter((i) => i.orderId === r.id)
-              .slice(0, 3)
-              .map((i) => ({
+          rows: rows.map((r) => {
+            const lines = items.filter((i) => i.orderId === r.id);
+            return {
+              ...toOrder(r),
+              itemCount: lines.length,
+              itemsPreview: lines.slice(0, PREVIEW_LINES).map((i) => ({
                 name: [i.productName, i.variantName].filter(Boolean).join(' – '),
                 qty: i.qty,
                 variantName: i.variantName || null,
                 unitPrice: i.unitPrice,
-                imageUrl: null,
+                imageUrl: i.imageUrl ?? null,
               })),
-          })),
+            };
+          }),
           total: n(totals?.c),
           counts,
           totals: {
@@ -232,6 +253,13 @@ export function ordersTx(ws: WorkspaceId, tx: TenantTx): Pick<CommerceTx, 'order
             carriers: carriers.flatMap((c) => (c.carrier ? [c.carrier] : [])),
           },
         };
+      },
+      async countPendingReview() {
+        const [r] = await tx
+          .select({ c: sql<number>`count(*)` })
+          .from(o)
+          .where(and(isNull(o.deletedAt), pendingReview));
+        return n(r?.c);
       },
       async overview({ from, to, todayFrom, todayTo, timezone }): Promise<OverviewAggregates> {
         const localDay = sql<string>`to_char(${o.placedAt} at time zone ${timezone}, 'YYYY-MM-DD')`;
