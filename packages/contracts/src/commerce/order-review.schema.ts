@@ -20,6 +20,16 @@ export const OrderItemPreview = z.object({
 });
 export type OrderItemPreview = z.infer<typeof OrderItemPreview>;
 
+/** Most order lines a summary carries (the list cell shows the first 3, the hover card all of these). */
+export const ORDER_ITEMS_PREVIEW_MAX = 10;
+
+/** The list's product column and its hover card: the first lines and how many lines there are. */
+export const OrderItemsPreviewFields = {
+  itemsPreview: z.array(OrderItemPreview).max(ORDER_ITEMS_PREVIEW_MAX),
+  /** Every line of the order; more than `itemsPreview.length` means "và N sản phẩm khác". */
+  itemCount: z.number().int().min(0),
+};
+
 /** Who created an order and, for bot orders, the source conversation and the staff review. */
 export const OrderOriginFields = {
   createdByKind: OrderCreatedByKind,

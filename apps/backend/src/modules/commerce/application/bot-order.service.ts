@@ -23,16 +23,13 @@ import {
   BOT_ORDER_DRAFT_TTL_MS,
   BOT_ORDER_HISTORY_NOTE,
   botOrderRequestId,
+  DraftNotConfirmable,
   checkRecipient,
   cleanNote,
   mergeItems,
   orderSourceOf,
 } from '../domain/bot-order.js';
-import {
-  CommerceUnavailableError,
-  DuplicateOrderRequestError,
-  VariantNotFoundError,
-} from '../domain/commerce.errors.js';
+import { CommerceUnavailableError, VariantNotFoundError } from '../domain/commerce.errors.js';
 import { stockTransition } from '../domain/order-stock.js';
 import { buildOrderSummary } from '../domain/order-summary.js';
 import { orderLines } from './order-rules.js';
@@ -102,7 +99,6 @@ export class BotOrderService {
         : null;
     // Throws NOT_FOUND for a bot of another workspace; its catalog mode scopes the SKUs.
     const bot = await this.bots.getBot(ws, input.botId);
-    const selectedFor = bot.catalogMode === 'selected' ? bot.id : undefined;
 
     return this.store.run(ws, async (tx) => {
       const now = new Date();
@@ -111,12 +107,11 @@ export class BotOrderService {
       for (const v of await tx.botOrders.variantsBySkus(items.map((i) => i.sku))) {
         if (!bySku.has(v.sku.toLowerCase())) bySku.set(v.sku.toLowerCase(), v);
       }
-      const candidates = [...new Set([...bySku.values()].map((v) => v.productId))];
-      const inScope = new Set(
-        (candidates.length ? await tx.products.findForBot(candidates, selectedFor) : []).map(
-          (p) => p.id,
-        ),
-      );
+      // The bot catalog rule (searchBotCatalog, T-080) minus the status, which is reported as `inactive`.
+      const selection =
+        bot.catalogMode === 'selected' ? new Set(await tx.botProducts.list(bot.id)) : null;
+      const inScope = (v: SkuVariantRecord) =>
+        v.productVisibleToBot && (!selection || selection.has(v.productId));
       const warehouse = await tx.warehouses.findDefault();
       const stock = warehouse
         ? await tx.inventory.stockOf([...bySku.values()].map((v) => v.id))
@@ -130,10 +125,9 @@ export class BotOrderService {
       const lines: Array<{ variant: SkuVariantRecord; qty: number }> = [];
       for (const item of items) {
         const v = bySku.get(item.sku.toLowerCase());
-        if (!v) problems.push({ code: 'unknown_sku', sku: item.sku });
+        // Products the bot may not sell are not revealed as such, whatever their status.
+        if (!v || !inScope(v)) problems.push({ code: 'unknown_sku', sku: item.sku });
         else if (v.archived || !v.productActive) problems.push({ code: 'inactive', sku: item.sku });
-        // Products the bot may not sell are not revealed as such.
-        else if (!inScope.has(v.productId)) problems.push({ code: 'unknown_sku', sku: item.sku });
         else if (available(v.id) < item.qty)
           problems.push({
             code: 'insufficient_stock',
@@ -193,50 +187,52 @@ export class BotOrderService {
     if (!isUuid(input.conversationId)) return { ok: false, code: 'nothing_pending' };
     let done: Confirmed;
     try {
+      // A DuplicateOrderRequestError is not caught: the draft row lock serializes confirmations
+      // of one draft and its key carries the draft's nonce, so a unique clash would be a bug.
       done = await this.store.run(ws, (tx) => this.#confirm(ws, tx, input));
     } catch (error) {
-      // Two confirmations of the same draft raced past the lookup: the loser returns the winner's order.
-      if (!(error instanceof DuplicateOrderRequestError)) throw error;
-      const existing = await this.store.run(ws, async (tx) => {
-        const draft = await tx.botOrders.findDraft(input.conversationId);
-        if (!draft) return null;
-        await tx.botOrders.deleteDraft(input.conversationId);
-        return tx.orders.findByRequestId(
-          botOrderRequestId(input.conversationId, draft.amountsHash),
-        );
-      });
-      if (!existing) throw error;
-      return { ok: true, orderId: existing.id, orderCode: existing.code };
+      if (!(error instanceof DraftNotConfirmable)) throw error;
+      // Rolled back: no order, no order code used. The draft that can no longer become the order
+      // it showed is dropped in its own short transaction (only that version: a newer prepare wins).
+      await this.store.run(ws, (tx) =>
+        tx.botOrders.deleteDraft(input.conversationId, error.draftStoredAt),
+      );
+      return { ok: false, code: error.code };
     }
     if (done.lead) await this.#upsertLead(ws, done.lead);
     return done.result;
   }
 
+  /**
+   * Lock order, the same as the staff create path: the draft row, then the order counter
+   * (`nextCode`), then the inventory rows sorted by variant (`inventory.apply` sorts too), so a
+   * bot confirmation and a staff order of the same workspace cannot deadlock. Every failure
+   * throws DraftNotConfirmable so the transaction rolls back (no gap in order codes).
+   */
   async #confirm(
     ws: WorkspaceId,
     tx: CommerceTx,
     input: { botId: string; botName: string; conversationId: string },
   ): Promise<Confirmed> {
     const now = new Date();
-    const fail = async (code: 'expired' | 'insufficient_stock'): Promise<Confirmed> => {
-      // A draft that can no longer become the order it showed is dropped; the bot prepares again.
-      await tx.botOrders.deleteDraft(input.conversationId);
-      return { result: { ok: false, code }, lead: null };
-    };
-    // Locked: a second confirmation waits, then finds the draft gone.
+    // Locked: a second confirmation of this draft waits, then finds it gone.
     const draft = await tx.botOrders.findDraft(input.conversationId, { forUpdate: true });
     if (!draft || draft.botId !== input.botId) {
       return { result: { ok: false, code: 'nothing_pending' }, lead: null };
     }
-    if (draft.expiresAt <= now) return fail('expired');
-    const requestId = botOrderRequestId(input.conversationId, draft.amountsHash);
+    const fail = (code: 'expired' | 'insufficient_stock') =>
+      new DraftNotConfirmable(code, draft.createdAt);
+    if (draft.expiresAt <= now) throw fail('expired');
+    const requestId = botOrderRequestId(input.conversationId, draft.amountsHash, draft.createdAt);
     const existing = await tx.orders.findByRequestId(requestId);
     if (existing) {
       await tx.botOrders.deleteDraft(input.conversationId);
       return { result: { ok: true, orderId: existing.id, orderCode: existing.code }, lead: null };
     }
     const warehouse = await tx.warehouses.findDefault();
-    if (!warehouse) return fail('insufficient_stock');
+    if (!warehouse) throw fail('insufficient_stock');
+    // The bot's catalog scope is not checked again: the customer agreed to this summary, and a
+    // selection changed in the last minutes is for the next order; staff review every bot order.
     let items;
     try {
       items = await orderLines(
@@ -245,7 +241,7 @@ export class BotOrderService {
       );
     } catch (error) {
       // Archived since the summary: it cannot be ordered any more.
-      if (error instanceof VariantNotFoundError) return fail('insufficient_stock');
+      if (error instanceof VariantNotFoundError) throw fail('insufficient_stock');
       throw error;
     }
     const fingerprint = amountsFingerprint({
@@ -255,17 +251,20 @@ export class BotOrderService {
       note: draft.note,
     });
     // A price changed since the customer saw the summary: they must see the new one first.
-    if (hashOf(fingerprint) !== draft.amountsHash) return fail('expired');
-    for (const item of items) {
+    if (hashOf(fingerprint) !== draft.amountsHash) throw fail('expired');
+
+    const code = await tx.orders.nextCode(ws);
+    const byVariant = [...items].sort((a, b) => a.variantId.localeCompare(b.variantId));
+    for (const item of byVariant) {
       const row = await tx.inventory.lockStock(item.variantId, warehouse.id);
-      if (!row || row.onHand - row.reserved < item.qty) return fail('insufficient_stock');
+      if (!row || row.onHand - row.reserved < item.qty) throw fail('insufficient_stock');
     }
 
     const amounts = amountsOf(items, draft.shippingVnd);
     const stock = stockTransition('released', 'new');
     const order: OrderRecord = {
       id: newId(),
-      code: await tx.orders.nextCode(ws),
+      code,
       status: 'new',
       stockState: stock.next,
       source: orderSourceOf(draft.channel),

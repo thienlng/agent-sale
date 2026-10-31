@@ -159,7 +159,7 @@ export interface OrderListFilter {
 }
 
 export interface OrderListResult {
-  rows: Array<OrderRecord & { itemsPreview: OrderItemPreview[] }>;
+  rows: Array<OrderRecord & { itemsPreview: OrderItemPreview[]; itemCount: number }>;
   total: number;
   counts: Record<string, number>;
   totals: {
@@ -224,7 +224,11 @@ export interface BotOrderDraftRecord {
 }
 
 /** A variant matched by SKU, with what decides whether the bot may sell it. */
-export type SkuVariantRecord = VariantRecord & { productName: string; productActive: boolean };
+export type SkuVariantRecord = VariantRecord & {
+  productName: string;
+  productActive: boolean;
+  productVisibleToBot: boolean;
+};
 
 /** Everything one use case reads and writes, inside one tenant transaction (RLS-scoped). */
 export interface CommerceTx {
@@ -317,6 +321,8 @@ export interface CommerceTx {
     find(id: string, opts?: { forUpdate?: boolean }): Promise<OrderRecord | null>;
     findByRequestId(requestId: string): Promise<OrderRecord | null>;
     itemsOf(orderId: string): Promise<OrderItemRecord[]>;
+    /** The current first picture of each line's product, by variant id (lines without one are absent). */
+    itemImages(orderId: string): Promise<Map<string, string>>;
     historyOf(orderId: string): Promise<HistoryRecord[]>;
     update(o: OrderRecord): Promise<void>;
     /** Replaces every line of an order. */
@@ -344,8 +350,8 @@ export interface CommerceTx {
     ): Promise<BotOrderDraftRecord | null>;
     /** Inserts, or replaces the conversation's earlier draft. */
     saveDraft(workspaceId: WorkspaceId, d: BotOrderDraftRecord): Promise<void>;
-    /** Whether a row was deleted. */
-    deleteDraft(conversationId: string): Promise<boolean>;
+    /** Whether a row was deleted; with `storedAt`, only that version of the draft. */
+    deleteDraft(conversationId: string, storedAt?: Date): Promise<boolean>;
     /** Removes drafts that expired before `now`. */
     sweepExpired(now: Date): Promise<void>;
   };

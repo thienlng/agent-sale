@@ -70,6 +70,7 @@ describe('bot orders and review', () => {
     itemsPreview: [
       { name: 'Tháp cầu vồng', qty: 1, variantName: null, unitPrice: 100000, imageUrl: null },
     ],
+    itemCount: 1,
     createdByName: 'Bot Lan',
     createdByKind: 'bot',
     reviewState: 'pending',
@@ -92,6 +93,10 @@ describe('bot orders and review', () => {
     const oldPreview = { ...summary, itemsPreview: [{ name: 'A', qty: 1 }] };
     expect(OrderSummaryDto.safeParse(oldPreview).success).toBe(false);
     expect(OrderSummaryDto.safeParse({ ...summary, reviewState: 'rejected' }).success).toBe(false);
+    const { itemCount: _count, ...noCount } = summary;
+    expect(OrderSummaryDto.safeParse(noCount).success).toBe(false);
+    const eleven = Array.from({ length: 11 }, () => summary.itemsPreview[0]);
+    expect(OrderSummaryDto.safeParse({ ...summary, itemsPreview: eleven }).success).toBe(false);
     expect(OrderSummaryDto.safeParse({ ...summary, createdByKind: 'robot' }).success).toBe(false);
   });
 

@@ -70,13 +70,14 @@ function setup(catalogMode: 'all' | 'selected' = 'all') {
   const tower = product('Tháp cầu vồng');
   const hidden = product('Bút màu sáp', { visibleToBot: false });
   const archived = product('Bóng gỗ', { status: 'archived' });
-  db.products.push(animal, tower, hidden, archived);
+  const archivedHidden = product('Bút xoá', { status: 'archived', visibleToBot: false });
+  db.products.push(animal, tower, hidden, archived, archivedHidden);
   const a = variant(animal, 'TG-01', 880_000);
   const t = variant(tower, 'TCV-01', 460_000);
   const h = variant(hidden, 'BM-01', 50_000);
   const old = variant(archived, 'BG-01', 90_000);
   const gone = variant(tower, 'TCV-OLD', 400_000, { archived: true });
-  db.variants.push(a, t, h, old, gone);
+  db.variants.push(a, t, h, old, gone, variant(archivedHidden, 'BX-01', 20_000));
   for (const v of [a, t, h, old]) {
     db.stock.push({ variantId: v.id, warehouseId, onHand: 5, reserved: 1 });
   }
@@ -145,6 +146,7 @@ describe('prepareBotOrder', () => {
     ['unknown_sku', { sku: 'NOPE', qty: 1 }, { code: 'unknown_sku', sku: 'NOPE' }],
     ['hidden from the bot', { sku: 'BM-01', qty: 1 }, { code: 'unknown_sku', sku: 'BM-01' }],
     ['archived product', { sku: 'BG-01', qty: 1 }, { code: 'inactive', sku: 'BG-01' }],
+    ['archived and hidden', { sku: 'BX-01', qty: 1 }, { code: 'unknown_sku', sku: 'BX-01' }],
     ['archived variant', { sku: 'TCV-OLD', qty: 1 }, { code: 'inactive', sku: 'TCV-OLD' }],
     [
       'insufficient_stock',
@@ -224,7 +226,9 @@ describe('confirmBotOrder', () => {
       createdByUserId: null,
       conversationId,
       reviewState: 'pending',
-      clientRequestId: expect.stringMatching(new RegExp(`^bot:${conversationId}:[0-9a-f]{32}$`)),
+      clientRequestId: expect.stringMatching(
+        new RegExp(`^bot:${conversationId}:[0-9a-f]{32}:\\d+$`),
+      ),
       customer: { name: 'Lan', phone: '0912345678' },
       recipient: { name: 'Lan', phone: '0912345678', address: recipient.address },
       subtotal: 1_760_000,
@@ -262,16 +266,53 @@ describe('confirmBotOrder', () => {
     expect(db.orders[0]).toMatchObject({ shippingFee: 0, shippingFeeCharged: 0, total: 880_000 });
   });
 
-  it('is idempotent: the same draft again returns the existing order', async () => {
+  it('is idempotent for one draft: a retry of the same draft returns its order', async () => {
+    const { facade, db } = setup();
+    await facade.prepareBotOrder(ws, prepareInput([{ sku: 'TG-01', qty: 1 }]));
+    const draft = structuredClone(db.drafts.get(conversationId)!);
+    const first = await confirm(facade);
+    expect(await confirm(facade)).toEqual({ ok: false, code: 'nothing_pending' });
+    // The same draft seen again (e.g. a retry racing the commit) never makes a second order.
+    db.drafts.set(conversationId, draft);
+    expect(await confirm(facade)).toEqual(first);
+    expect(db.orders).toHaveLength(1);
+    expect(db.drafts.size).toBe(0);
+  });
+
+  it('creates a new order when the same basket is prepared and confirmed again later', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
     const { facade, db } = setup();
     await facade.prepareBotOrder(ws, prepareInput([{ sku: 'TG-01', qty: 1 }]));
     const first = await confirm(facade);
+    vi.setSystemTime(Date.now() + 60_000);
     await facade.prepareBotOrder(ws, prepareInput([{ sku: 'TG-01', qty: 1 }]));
-    const again = await confirm(facade);
-    expect(again).toEqual(first);
-    expect(db.orders).toHaveLength(1);
-    expect(db.drafts.size).toBe(0);
-    expect(await confirm(facade)).toEqual({ ok: false, code: 'nothing_pending' });
+    const second = await confirm(facade);
+    expect(second).toMatchObject({ ok: true, orderCode: 'DH000002' });
+    expect(second).not.toEqual(first);
+    expect(db.orders).toHaveLength(2);
+  });
+
+  it('uses no order code when a confirmation fails (rolled back)', async () => {
+    const { facade, db, a } = setup();
+    await facade.prepareBotOrder(ws, prepareInput([{ sku: 'TG-01', qty: 3 }]));
+    const row = db.stock.find((s) => s.variantId === a.id)!;
+    row.reserved = 4;
+    expect(await confirm(facade)).toEqual({ ok: false, code: 'insufficient_stock' });
+    // The failed transaction was rolled back (the fake restores a copy of the rows).
+    db.stock.find((s) => s.variantId === a.id)!.reserved = 1;
+    await facade.prepareBotOrder(ws, prepareInput([{ sku: 'TG-01', qty: 3 }]));
+    expect(await confirm(facade)).toMatchObject({ ok: true, orderCode: 'DH000001' });
+  });
+
+  it('keeps a newer draft when an older one fails', async () => {
+    const { facade, db } = setup();
+    await facade.prepareBotOrder(ws, prepareInput([{ sku: 'TG-01', qty: 1 }]));
+    const older = db.drafts.get(conversationId)!.createdAt;
+    const deleted = await db.run(ws, (tx) =>
+      tx.botOrders.deleteDraft(conversationId, new Date(older.getTime() - 1)),
+    );
+    expect(deleted).toBe(false);
+    expect(db.drafts.size).toBe(1);
   });
 
   it('answers expired after 30 minutes and drops the draft', async () => {
@@ -353,6 +394,7 @@ describe('approve', () => {
       reviewedAt: expect.any(String),
       createdByKind: 'bot',
       conversationId,
+      itemCount: 1,
     });
     await ctx.reviews.approve(ws, orderId, true, staff);
     const notes = ctx.db.history.get(orderId)!.map((h) => h.note);

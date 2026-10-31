@@ -34,7 +34,7 @@ export class InMemoryCommerce implements CommerceStore {
   history = new Map<string, HistoryRecord[]>();
   drafts = new Map<string, BotOrderDraftRecord>();
   lastListFilter: OrderListFilter | null = null;
-  #counter = 0;
+  codeCounter = 0;
 
   async run<T>(_ws: WorkspaceId, fn: (tx: CommerceTx) => Promise<T>): Promise<T> {
     const snapshot = clone({
@@ -44,6 +44,7 @@ export class InMemoryCommerce implements CommerceStore {
       items: this.items,
       history: this.history,
       drafts: this.drafts,
+      codeCounter: this.codeCounter,
     });
     try {
       return await fn(this.#tx());
@@ -67,6 +68,7 @@ export class InMemoryCommerce implements CommerceStore {
       productName: p?.name ?? '',
       productCode: p?.code ?? '',
       productActive: p?.status === 'active',
+      productVisibleToBot: p?.visibleToBot ?? false,
     };
   }
 
@@ -81,6 +83,9 @@ export class InMemoryCommerce implements CommerceStore {
           this.#botVisible(selectedFor).filter((p) => ids.includes(p.id)),
         variantsByIds: async (ids: string[]) =>
           this.variants.filter((v) => ids.includes(v.id)).map((v) => this.#withProduct(v)),
+      },
+      botProducts: {
+        list: async (botId: string) => [...(this.botSelection.get(botId) ?? [])],
       },
       inventory: {
         stockOf: async (ids: string[]) => this.stock.filter((s) => ids.includes(s.variantId)),
@@ -103,7 +108,7 @@ export class InMemoryCommerce implements CommerceStore {
         },
       },
       orders: {
-        nextCode: async () => `DH${String(++this.#counter).padStart(6, '0')}`,
+        nextCode: async () => `DH${String(++this.codeCounter).padStart(6, '0')}`,
         insert: async (o: OrderRecord, items: OrderItemRecord[]) => {
           if (o.clientRequestId && this.orders.some((x) => x.clientRequestId === o.clientRequestId))
             throw new DuplicateOrderRequestError();
@@ -114,6 +119,15 @@ export class InMemoryCommerce implements CommerceStore {
         findByRequestId: async (rid: string) =>
           clone(this.orders.find((o) => o.clientRequestId === rid) ?? null),
         itemsOf: async (id: string) => clone(this.items.get(id) ?? []),
+        itemImages: async (id: string) => {
+          const urls = new Map<string, string>();
+          for (const i of this.items.get(id) ?? []) {
+            const v = this.variants.find((x) => x.id === i.variantId);
+            const url = this.products.find((p) => p.id === v?.productId)?.imageUrls[0];
+            if (url) urls.set(i.variantId, url);
+          }
+          return urls;
+        },
         historyOf: async (id: string) => clone(this.history.get(id) ?? []),
         update: async (o: OrderRecord) => {
           this.orders = this.orders.map((x) => (x.id === o.id ? clone(o) : x));
@@ -150,7 +164,11 @@ export class InMemoryCommerce implements CommerceStore {
         saveDraft: async (_ws: WorkspaceId, d: BotOrderDraftRecord) => {
           this.drafts.set(d.conversationId, clone(d));
         },
-        deleteDraft: async (id: string) => this.drafts.delete(id),
+        deleteDraft: async (id: string, storedAt?: Date) => {
+          const d = this.drafts.get(id);
+          if (!d || (storedAt && d.createdAt.getTime() !== storedAt.getTime())) return false;
+          return this.drafts.delete(id);
+        },
         sweepExpired: async (now: Date) => {
           for (const [id, d] of this.drafts) if (d.expiresAt < now) this.drafts.delete(id);
         },

@@ -33,7 +33,12 @@ export function botOrdersTx(ws: WorkspaceId, tx: TenantTx): Pick<CommerceTx, 'bo
         const wanted = [...new Set(skus.map((s) => s.trim().toLowerCase()).filter(Boolean))];
         if (!wanted.length) return [];
         const rows = await tx
-          .select({ variant: v, productName: p.name, productStatus: p.status })
+          .select({
+            variant: v,
+            productName: p.name,
+            productStatus: p.status,
+            productVisibleToBot: p.visibleToBot,
+          })
           .from(v)
           .innerJoin(p, eq(p.id, v.productId))
           .where(inArray(sql`lower(${v.sku})`, wanted))
@@ -43,10 +48,15 @@ export function botOrdersTx(ws: WorkspaceId, tx: TenantTx): Pick<CommerceTx, 'bo
           ...toVariant(r.variant),
           productName: r.productName,
           productActive: r.productStatus === 'active',
+          productVisibleToBot: r.productVisibleToBot,
         }));
       },
       async findDraft(conversationId, opts) {
-        const q = tx.select().from(d).where(eq(d.conversationId, conversationId)).limit(1);
+        const q = tx
+          .select()
+          .from(d)
+          .where(and(eq(d.workspaceId, ws), eq(d.conversationId, conversationId)))
+          .limit(1);
         const [r] = opts?.forUpdate ? await q.for('update') : await q;
         return r ? toDraft(r) : null;
       },
@@ -58,10 +68,16 @@ export function botOrdersTx(ws: WorkspaceId, tx: TenantTx): Pick<CommerceTx, 'bo
           .values(row)
           .onConflictDoUpdate({ target: [d.workspaceId, d.conversationId], set: replace });
       },
-      async deleteDraft(conversationId) {
+      async deleteDraft(conversationId, storedAt) {
         const gone = await tx
           .delete(d)
-          .where(eq(d.conversationId, conversationId))
+          .where(
+            and(
+              eq(d.workspaceId, ws),
+              eq(d.conversationId, conversationId),
+              storedAt ? eq(d.createdAt, storedAt) : undefined,
+            ),
+          )
           .returning({ id: d.conversationId });
         return gone.length > 0;
       },

@@ -323,7 +323,7 @@ export class OrderService {
         limit: q.pageSize,
       });
       return {
-        data: result.rows.map((r) => toSummary(r, r.itemsPreview)),
+        data: result.rows.map((r) => toSummary(r, r.itemsPreview, r.itemCount)),
         total: result.total,
         page: q.page,
         pageSize: q.pageSize,

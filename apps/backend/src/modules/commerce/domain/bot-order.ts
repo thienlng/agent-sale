@@ -71,9 +71,17 @@ export function orderSourceOf(channel: string): string {
   return CHANNEL_SOURCES.has(channel) ? channel : 'other';
 }
 
-/** The idempotency key of the order a draft becomes (spec §4.5). */
-export function botOrderRequestId(conversationId: string, amountsHash: string): string {
-  return `bot:${conversationId}:${amountsHash}`;
+/**
+ * The idempotency key of the order a draft becomes (spec §4.5, plus the draft's nonce): retrying
+ * one draft never creates a second order, while the same basket ordered again later (a new draft
+ * in the same conversation) is a new order.
+ */
+export function botOrderRequestId(
+  conversationId: string,
+  amountsHash: string,
+  draftStoredAt: Date,
+): string {
+  return `bot:${conversationId}:${amountsHash}:${draftStoredAt.getTime()}`;
 }
 
 /**
@@ -117,4 +125,15 @@ export function reviewDecision(
     current.reviewedAt !== null &&
     now.getTime() - current.reviewedAt.getTime() <= APPROVE_UNDO_WINDOW_MS;
   return recent && current.reviewedByUserId === actorUserId ? 'revert' : 'undo_not_allowed';
+}
+
+/** Why a stored draft cannot become its order; thrown so the confirming transaction rolls back. */
+export class DraftNotConfirmable extends Error {
+  readonly code: 'expired' | 'insufficient_stock';
+  readonly draftStoredAt: Date;
+  constructor(code: 'expired' | 'insufficient_stock', draftStoredAt: Date) {
+    super(code);
+    this.code = code;
+    this.draftStoredAt = draftStoredAt;
+  }
 }

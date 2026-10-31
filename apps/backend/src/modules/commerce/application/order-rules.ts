@@ -147,10 +147,11 @@ export function assertStatusAllowed(settings: OrderSettingsDto, status: OrderSta
 
 /** The full order DTO: lines, status history and the warehouse name. */
 export async function loadOrderDto(tx: CommerceTx, o: OrderRecord): Promise<OrderDto> {
-  const [items, history, warehouse] = await Promise.all([
+  const [items, history, warehouse, images] = await Promise.all([
     tx.orders.itemsOf(o.id),
     tx.orders.historyOf(o.id),
     tx.warehouses.find(o.warehouseId),
+    tx.orders.itemImages(o.id),
   ]);
-  return toOrderDto(o, items, history, warehouse?.name ?? '');
+  return toOrderDto(o, items, history, warehouse?.name ?? '', images);
 }

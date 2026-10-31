@@ -22,6 +22,7 @@ import type {
   OverviewAggregates,
 } from '../../application/ports/commerce-store.js';
 import type { OrderStatus } from '../../domain/order-stock.js';
+import { PREVIEW_LINES } from '../../application/order.mappers.js';
 import { DuplicateOrderRequestError } from '../../domain/commerce.errors.js';
 import {
   contains,
@@ -98,6 +99,15 @@ export function ordersTx(ws: WorkspaceId, tx: TenantTx): Pick<CommerceTx, 'order
           lineTotal: r.lineTotal,
           position: r.position,
         }));
+      },
+      async itemImages(orderId) {
+        const rows = await tx
+          .select({ variantId: oi.variantId, url: sql<string | null>`${p.imageUrls} ->> 0` })
+          .from(oi)
+          .innerJoin(v, eq(v.id, oi.variantId))
+          .innerJoin(p, eq(p.id, v.productId))
+          .where(eq(oi.orderId, orderId));
+        return new Map(rows.flatMap((r) => (r.url ? [[r.variantId, r.url] as const] : [])));
       },
       async historyOf(orderId) {
         const rows = await tx
@@ -213,19 +223,20 @@ export function ordersTx(ws: WorkspaceId, tx: TenantTx): Pick<CommerceTx, 'order
           counts['all'] = (counts['all'] ?? 0) + n(c.c);
         }
         return {
-          rows: rows.map((r) => ({
-            ...toOrder(r),
-            itemsPreview: items
-              .filter((i) => i.orderId === r.id)
-              .slice(0, 3)
-              .map((i) => ({
+          rows: rows.map((r) => {
+            const lines = items.filter((i) => i.orderId === r.id);
+            return {
+              ...toOrder(r),
+              itemCount: lines.length,
+              itemsPreview: lines.slice(0, PREVIEW_LINES).map((i) => ({
                 name: [i.productName, i.variantName].filter(Boolean).join(' – '),
                 qty: i.qty,
                 variantName: i.variantName || null,
                 unitPrice: i.unitPrice,
                 imageUrl: i.imageUrl ?? null,
               })),
-          })),
+            };
+          }),
           total: n(totals?.c),
           counts,
           totals: {

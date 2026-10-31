@@ -198,11 +198,10 @@ describe('bot orders on Postgres', () => {
     });
     expect(confirmed).toMatchObject({ ok: true, orderCode: expect.stringMatching(/^DH\d{6}$/) });
     if (!confirmed.ok) return;
-    // Idempotent: the same draft again gives the same order.
-    await prepare(a.ws, a.bot.id, conversationId, 2);
+    // The draft is gone with the order: confirming again has nothing to confirm.
     expect(
       await facade().confirmBotOrder(a.ws, { botId: a.bot.id, botName: 'Bot Lan', conversationId }),
-    ).toEqual(confirmed);
+    ).toEqual({ ok: false, code: 'nothing_pending' });
 
     const order = OrderDto.parse((await call(a.h, 'GET', `/orders/${confirmed.orderId}`)).json());
     expect(order).toMatchObject({
@@ -216,6 +215,8 @@ describe('bot orders on Postgres', () => {
       recipient: { name: 'Lan', phone: '0912345678', address: recipient.address },
     });
     expect(order.history.map((x) => x.note)).toEqual(['Bot tạo đơn từ hội thoại']);
+    expect(order.itemCount).toBe(1);
+    expect(order.itemsPreview[0]?.imageUrl).toBe(`${MEDIA_URL}/products/${a.ws}/thu-go.jpg`);
     const product = ProductDto.parse((await call(a.h, 'GET', `/products/${a.product.id}`)).json());
     expect(product.variants[0]?.stock[0]).toMatchObject({ onHand: 5, reserved: 2 });
     expect(await facade().hasBotOrderDraft(a.ws, conversationId)).toMatchObject({
@@ -290,5 +291,118 @@ describe('bot orders on Postgres', () => {
       payload: { approve: true },
     });
     expect(anonymous.statusCode).toBe(401);
+  });
+
+  it('makes a new order when the same basket is ordered again in the same conversation', async () => {
+    const conversationId = newId();
+    const confirm = () =>
+      facade().confirmBotOrder(a.ws, { botId: a.bot.id, botName: 'Bot Lan', conversationId });
+    await prepare(a.ws, a.bot.id, conversationId, 1);
+    const first = await confirm();
+    await prepare(a.ws, a.bot.id, conversationId, 1);
+    const second = await confirm();
+    expect(first).toMatchObject({ ok: true });
+    expect(second).toMatchObject({ ok: true });
+    if (first.ok && second.ok) expect(second.orderId).not.toBe(first.orderId);
+  });
+});
+
+describe('bot orders under concurrency on Postgres', () => {
+  let c: Awaited<ReturnType<typeof shop>>;
+  let codes = 0;
+
+  beforeAll(async () => {
+    c = await shop('bot-orders-race@shop.vn');
+  });
+
+  /** A product with `onHand` units of one variant, sold under its own SKU. */
+  async function stocked(onHand: number) {
+    const sku = `RACE-${++codes}`;
+    const created = await call(c.h, 'POST', '/products', {
+      code: `R${codes}`,
+      name: `Hàng giới hạn ${codes}`,
+      variants: [{ sku, price: 100_000 }],
+    });
+    const product = ProductDto.parse(created.json());
+    const variant = product.variants[0]!;
+    await call(c.h, 'POST', `/products/${product.id}/stock`, {
+      variantId: variant.id,
+      warehouseId: c.warehouse.id,
+      onHand,
+    });
+    const stockOf = async () =>
+      ProductDto.parse((await call(c.h, 'GET', `/products/${product.id}`)).json()).variants[0]!
+        .stock[0];
+    return { sku, product, variant, stockOf };
+  }
+  const draft = (conversationId: string, sku: string, qty: number) =>
+    facade().prepareBotOrder(c.ws, {
+      botId: c.bot.id,
+      conversationId,
+      channel: 'website',
+      items: [{ sku, qty }],
+      recipient,
+      shippingFeeVnd: null,
+    });
+  const confirm = (conversationId: string) =>
+    facade().confirmBotOrder(c.ws, { botId: c.bot.id, botName: 'Bot', conversationId });
+
+  it('confirms one draft once when two confirmations race', async () => {
+    const item = await stocked(5);
+    const conversationId = newId();
+    expect(await draft(conversationId, item.sku, 1)).toMatchObject({ ok: true });
+    const results = await Promise.all([confirm(conversationId), confirm(conversationId)]);
+    expect(results.filter((r) => r.ok)).toHaveLength(1);
+    expect(results.filter((r) => !r.ok)).toEqual([{ ok: false, code: 'nothing_pending' }]);
+    expect(await item.stockOf()).toMatchObject({ onHand: 5, reserved: 1 });
+  });
+
+  it('sells the last unit once when two conversations race for it', async () => {
+    const item = await stocked(1);
+    const [one, two] = [newId(), newId()];
+    expect(await draft(one, item.sku, 1)).toMatchObject({ ok: true });
+    expect(await draft(two, item.sku, 1)).toMatchObject({ ok: true });
+    const results = await Promise.all([confirm(one), confirm(two)]);
+    expect(results.filter((r) => r.ok)).toHaveLength(1);
+    expect(results.filter((r) => !r.ok)).toEqual([{ ok: false, code: 'insufficient_stock' }]);
+    expect(await item.stockOf()).toMatchObject({ onHand: 1, reserved: 1 });
+  });
+
+  it('lets a bot confirmation and a staff order of the same goods finish without deadlock', async () => {
+    const other = await stocked(10);
+    const item = await stocked(10);
+    const conversationId = newId();
+    // The bot locks the variants in id order; the staff order lists them the other way round.
+    const res = await facade().prepareBotOrder(c.ws, {
+      botId: c.bot.id,
+      conversationId,
+      channel: 'website',
+      items: [
+        { sku: item.sku, qty: 2 },
+        { sku: other.sku, qty: 2 },
+      ],
+      recipient,
+      shippingFeeVnd: null,
+    });
+    expect(res).toMatchObject({ ok: true });
+    const staff = call(c.h, 'POST', '/orders', {
+      source: 'hotline',
+      warehouseId: c.warehouse.id,
+      customer: { name: 'Bình' },
+      recipient: { name: 'Bình' },
+      items: [
+        { variantId: other.variant.id, qty: 3 },
+        { variantId: item.variant.id, qty: 3 },
+      ].sort((x, y) => y.variantId.localeCompare(x.variantId)),
+    });
+    const [bot, staffRes] = await Promise.all([confirm(conversationId), staff]);
+    expect(bot).toMatchObject({ ok: true });
+    expect(staffRes.statusCode).toBe(201);
+    expect(await item.stockOf()).toMatchObject({ onHand: 10, reserved: 5 });
+    expect(await other.stockOf()).toMatchObject({ onHand: 10, reserved: 5 });
+    const codesSeen = OrderListResponse.parse((await call(c.h, 'GET', '/orders')).json()).data.map(
+      (o) => o.code,
+    );
+    expect(new Set(codesSeen).size).toBe(codesSeen.length);
   });
 });
