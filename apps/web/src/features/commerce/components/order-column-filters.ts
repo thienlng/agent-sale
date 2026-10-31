@@ -239,6 +239,11 @@ export function activeFilterChips(s: OrdersSearch, t: TFunction, ctx: OrderFilte
   }));
 }
 
+/** Whether the list is narrowed by the global search or any column filter. */
+export function hasAnyFilter(s: OrdersSearch): boolean {
+  return Boolean(s.q?.trim()) || ORDER_COLUMN_MENUS.some((m) => isColumnFiltered(m, s));
+}
+
 /** Every column filter and the global search unset: "Xoá lọc". */
 export function clearAllFilters(): Partial<OrdersSearch> {
   return Object.assign(

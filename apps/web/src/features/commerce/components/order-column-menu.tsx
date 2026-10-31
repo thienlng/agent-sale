@@ -279,12 +279,12 @@ export function OrderColumnMenu({
         type="button"
         aria-label={columnStateLabel(t, spec, search, pending)}
         className={cn(
-          'group -mx-1.5 inline-flex h-7 max-w-full items-center gap-1 rounded-md px-1.5 text-xs font-medium whitespace-nowrap hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none data-[state=open]:bg-muted',
+          'group -mx-1.5 inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-1.5 text-xs font-medium whitespace-nowrap hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none data-[state=open]:bg-muted',
           filtered || dir ? 'text-primary' : 'text-muted-foreground',
           align === 'right' && 'flex-row-reverse',
         )}
       >
-        <span className="relative truncate">
+        <span className="relative">
           {t(spec.header)}
           {pending ? (
             <span

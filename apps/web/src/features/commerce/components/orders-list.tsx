@@ -34,7 +34,13 @@ import { fetchAllOrders, useOrderReviewCount, useOrders } from '../api/commerce'
 import { downloadOrdersCsv } from '../hooks/export-orders';
 import { useApproveWithUndo } from '../hooks/use-approve-order';
 import { useOrderStatuses } from '../hooks/use-order-statuses';
-import { columnMenu, columnSortDir, type OrderFilterContext } from './order-column-filters';
+import {
+  clearAllFilters,
+  columnMenu,
+  columnSortDir,
+  hasAnyFilter,
+  type OrderFilterContext,
+} from './order-column-filters';
 import { OrderColumnMenu } from './order-column-menu';
 import { type OrderColumn, useVisibleOrderColumns } from './order-columns';
 import { BotBadge, PendingReviewChip } from './order-created-by-cell';
@@ -348,11 +354,24 @@ export function OrdersList({
                 <TableRow className="hover:bg-transparent">
                   <TableCell colSpan={colCount} className="py-16 text-center text-muted-foreground">
                     <PackageOpen className="mx-auto mb-3 size-8 text-primary" aria-hidden />
-                    {unavailable
-                      ? t('orders.unavailable')
-                      : data?.counts['all']
-                        ? t('orders.empty')
-                        : t('orders.emptyStart')}
+                    {unavailable ? (
+                      t('orders.unavailable')
+                    ) : hasAnyFilter(search) || data?.counts['all'] ? (
+                      <>
+                        {t('orders.empty')}
+                        {hasAnyFilter(search) ? (
+                          <Button
+                            variant="link"
+                            className="ml-1 h-auto p-0"
+                            onClick={() => change(clearAllFilters())}
+                          >
+                            {t('orders.filters.clear')}
+                          </Button>
+                        ) : null}
+                      </>
+                    ) : (
+                      t('orders.emptyStart')
+                    )}
                   </TableCell>
                 </TableRow>
               ) : null}

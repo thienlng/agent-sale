@@ -86,6 +86,12 @@ describe('OrderCreatedByCell ("Người tạo")', () => {
     expect(onRow).not.toHaveBeenCalled();
   });
 
+  it('shows no "Chờ duyệt" for a cancelled bot order (cancelling rejects it)', () => {
+    renderCell({ ...botPending, status: 'cancelled' });
+    expect(screen.getByText('Bot')).toBeInTheDocument();
+    expect(screen.queryByText('Chờ duyệt')).toBeNull();
+  });
+
   it('marks a test-chat order (no conversation) as "Chat thử" instead of a dead link', async () => {
     renderCell({ ...botPending, conversationId: null });
     expect(screen.getByText('Chờ duyệt')).toBeInTheDocument();
