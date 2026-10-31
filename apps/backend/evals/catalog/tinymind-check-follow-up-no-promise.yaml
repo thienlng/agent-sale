@@ -34,9 +34,15 @@ expect:
   outcome: answered
   guardrail: none
   no_greeting: true
-  not_matches: ['kiểm tra (lại|xem)', 'để em (xem|kiểm tra)']
-  # A product fact from the catalog: the age the cactus suits.
-  contains_any: ['2 tuổi']
+  # A promise to look it up (again) fails; a past-tense "em đã kiểm tra rồi ạ" is fine.
+  not_matches:
+    [
+      '(để|sẽ) em .{0,15}(kiểm tra|xem)',
+      'em sẽ .{0,10}(kiểm tra|xem)',
+      'em (sẽ )?kiểm tra (lại|xem) (rồi|và) báo',
+    ]
+  # A catalog fact the customer did not say: the price or the stock of the cactus.
+  contains_any: ['460.000', '460k', 'còn hàng', 'còn 6']
   numbers_only_from_sources: true
 fake_turns:
   - tool_calls:

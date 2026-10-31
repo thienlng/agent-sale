@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { runChecks } from '../evals/checks.js';
+import { loadCases } from '../evals/load.js';
 
 const base = {
   reply: 'Dạ giày được bảo hành 6 tháng ạ.',
@@ -178,5 +179,22 @@ describe('eval checks', () => {
       pass: false,
     });
     expect(runChecks({ images_per_message_max: 0 }, base)[0]?.pass).toBe(true);
+  });
+
+  it('the "ktra xong chưa" patterns reject a promise to check but not a past-tense answer', () => {
+    const c = loadCases().find((x) => x.id === 'tinymind-check-follow-up-no-promise');
+    const expectation = { not_matches: c?.expect.not_matches };
+    expect(expectation.not_matches?.length).toBeGreaterThan(0);
+    for (const promise of [
+      'Dạ để em kiểm tra lại rồi báo anh/chị ngay ạ.',
+      'Dạ em sẽ xem lại kho rồi báo ạ.',
+      'Dạ em kiểm tra lại rồi báo anh/chị nhé.',
+    ])
+      expect(runChecks(expectation, { ...base, reply: promise })[0]?.pass, promise).toBe(false);
+    for (const answer of [
+      'Dạ em đã kiểm tra rồi ạ, mẫu này còn hàng, giá 460.000đ ạ.',
+      'Dạ Xương rồng gỗ xếp thăng bằng phù hợp bé từ 2 tuổi trở lên, còn hàng ạ.',
+    ])
+      expect(runChecks(expectation, { ...base, reply: answer })[0]?.pass, answer).toBe(true);
   });
 });

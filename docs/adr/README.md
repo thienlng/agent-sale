@@ -17,5 +17,5 @@ Each ADR: Context → Decision → Consequences. Status: `Proposed` → `Accepte
 | [011](ADR-011-website-widget-shadow-dom-and-polling.md) | Website chat widget: single Shadow DOM script, ES2017, polling first, HMAC visitor token | Accepted |
 | [012](ADR-012-accounts-own-businesses-bot-is-selling-unit.md) | Accounts own businesses (billing and portfolio); the bot is the selling unit, no shop entity | Proposed |
 | [013](ADR-013-lodging-catalog-and-stay-requests.md) | Whole-property accommodation metadata and staff-confirmed stay requests inside commerce | Proposed |
-| [014](ADR-014-tool-calling-for-the-reply-agent.md) | Tool calling for the reply agent: catalog lookup on demand, actions as tools, focus products, emulated tools for Hermes | Proposed; JSON reply, 4-round loop and Hermes emulation superseded by ADR-015 |
+| [014](ADR-014-tool-calling-for-the-reply-agent.md) | Tool calling for the reply agent: catalog lookup on demand, actions as tools, focus products, emulated tools for Hermes | Proposed; JSON reply, 4-round loop, 3-images-per-turn cap and Hermes emulation superseded by ADR-015 |
 | [015](ADR-015-agent-harness-v2.md) | Agent harness v2: free-text Hermes-style agent loop, `send_message`, 10 rounds / 120 s, interrupt, LISTEN/NOTIFY wake-up, no number guardrail on replies | Proposed |

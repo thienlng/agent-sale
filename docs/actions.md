@@ -18,7 +18,7 @@ Design record: `docs/superpowers/specs/2026-10-25-bot-api-actions-design.md`. Mo
 
 ## Turn flow
 
-Actions are tools of the reply agent's tool loop (ADR-014, `sales-agent@11`/`@12`; code in `apps/backend/src/modules/ai/application/action-tools.ts`). The model's final JSON is only `answer | unknown | handoff`.
+Actions are tools of the reply agent's loop (ADR-014, ADR-015; prompts `sales-agent@13`/`@14`; code in `apps/backend/src/modules/ai/application/action-tools.ts`). The model's final answer is free text; the outcome is derived: `handoff` when the handoff tool ran, `answered` when a message reached the customer, otherwise `fallback` (the bot's fallback message).
 
 1. Each enabled action becomes a tool `action_<n>` (index by request; the name-to-action map stays on the server). Its description is the action's name and description; its input schema is built from the declared params. No URL, header or secret reaches the model. A stored pending call adds the tools `confirm_pending_action` and `cancel_pending_action` and a `<pending_action>` block in the last user message.
 2. A call to a read action validates the arguments against the declared params, runs `invoke`, and returns `{ok,statusCode,data}` as the tool result (figures inside count as grounded). Failures return `{ok:false,errorCode}` only. At most 3 executions per customer turn, then the fallback (`action_loop_limit`); at most 10 agent-loop rounds in total (`tool_loop_limit`, ADR-015).
