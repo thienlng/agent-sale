@@ -48,13 +48,14 @@
     ],
   'id': 'hotel-a17-zero-inventory-is-not-sold-out',
   'conversation': [{ 'customer': 'A17 còn trống cuối tuần này không?' }],
-  'expect':
-    {
+  'expect': {
       'outcome': 'answered',
       'guardrail': 'none',
       'numbers_only_from_sources': true,
       'contains_any': ['chưa có lịch', 'kiểm tra'],
-      'not_contains': ['hết hàng', 'còn trống ạ', 'đã giữ', 'đã đặt'],
+      'not_contains': ['hết hàng', 'đã giữ', 'đã đặt'],
+      # "còn trống ạ" as a claim fails; "em chưa có xác nhận còn trống ạ" is the honest answer.
+      'not_matches': ['(?<!xác nhận )(?<!chưa )còn trống ạ'],
     },
   fake_turns:
     [
