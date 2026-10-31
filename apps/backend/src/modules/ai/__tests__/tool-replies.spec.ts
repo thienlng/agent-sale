@@ -152,6 +152,7 @@ describe('the reply pipeline answers from catalog tools', () => {
     expect(fake.calls[0]?.tools?.map((t) => t.name)).toEqual([
       'search_products',
       'product_details',
+      'calculate',
       'send_message',
       'handoff',
     ]);
@@ -349,7 +350,11 @@ describe('the reply pipeline answers from catalog tools', () => {
       new InMemoryAiRunRepository(),
     );
     await svc.playground(ws, botId, ask('chào'));
-    expect(fake.calls[0]?.tools?.map((t) => t.name)).toEqual(['send_message', 'handoff']);
+    expect(fake.calls[0]?.tools?.map((t) => t.name)).toEqual([
+      'calculate',
+      'send_message',
+      'handoff',
+    ]);
     expect(fake.calls[0]?.toolChoice).toBeUndefined();
   });
 });
