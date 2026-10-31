@@ -6,7 +6,12 @@ import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { recordAiRun } from '../../../common/metrics.js';
 import { ACTION_FACADE, type ActionFacade } from '../../action/api/index.js';
 import { BOT_FACADE, type BotFacade } from '../../bot/api/index.js';
-import { CATALOG_FACADE, type CatalogFacade } from '../../commerce/api/index.js';
+import {
+  CATALOG_FACADE,
+  type CatalogFacade,
+  COMMERCE_FACADE,
+  type CommerceFacade,
+} from '../../commerce/api/index.js';
 import {
   KNOWLEDGE_FACADE,
   type KnowledgeFacade,
@@ -46,6 +51,12 @@ import {
 import { type AgentLoopResult, type AgentStep, runAgentLoop } from './agent-loop.js';
 import { createHistorySummarizer } from './history-summarizer.js';
 import { LlmRuntime } from './llm-runtime.js';
+import {
+  confirmableDraft,
+  newOrderToolState,
+  type OrderToolContext,
+  PLAYGROUND_ORDER_CHANNEL,
+} from './order-tools.js';
 import { HANDOFF_TOOL, ImageAllowlist, newOutputState } from './output-tools.js';
 import {
   carriedProductIds,
@@ -69,9 +80,11 @@ import {
 } from './reply-pipeline.js';
 
 export { PHONE_KNOWN_LINE };
-const PROMPT_RETAIL = { name: 'sales-agent', version: 13 } as const;
-const PROMPT_LODGING = { name: 'sales-agent', version: 14 } as const;
-/** Optional DI token: forces the sales-agent prompt for every bot (default: 14 for hotel bots, 13 otherwise). */
+const PROMPT_RETAIL = { name: 'sales-agent', version: 15 } as const;
+const PROMPT_LODGING = { name: 'sales-agent', version: 16 } as const;
+/** The sales-agent prompt versions the option may force (13/14: before the order tools). */
+export type SalesPromptVersion = 13 | 14 | 15 | 16;
+/** Optional DI token: forces the sales-agent prompt for every bot (default: 16 for hotel bots, 15 otherwise). */
 export const PROMPT_VERSION_OPTION = Symbol('PROMPT_VERSION_OPTION');
 const POST_PROMPT = { name: 'fanpage-context', version: 2 } as const;
 const MAX_SOURCES = 5;
@@ -90,7 +103,7 @@ const PLAYGROUND_FOCUS_WINDOW_MS = 30 * 60_000;
 export class PlaygroundService implements AiFacade {
   readonly #prompts = new PromptRegistry(PROMPTS_DIR);
   readonly #logger = new Logger(PlaygroundService.name);
-  readonly #forcedPrompt: typeof PROMPT_RETAIL | typeof PROMPT_LODGING | undefined;
+  readonly #forcedPrompt: { name: 'sales-agent'; version: SalesPromptVersion } | undefined;
 
   constructor(
     @Inject(BOT_FACADE) private readonly bots: BotFacade,
@@ -101,13 +114,15 @@ export class PlaygroundService implements AiFacade {
     @Inject(TRAINING_FACADE) @Optional() private readonly training?: TrainingFacade,
     @Inject(CATALOG_FACADE) @Optional() private readonly catalog?: CatalogFacade,
     @Inject(ACTION_FACADE) @Optional() private readonly actions?: ActionFacade,
-    @Inject(PROMPT_VERSION_OPTION) @Optional() promptVersion?: 13 | 14,
+    @Inject(PROMPT_VERSION_OPTION) @Optional() promptVersion?: SalesPromptVersion,
     @Inject(CONVERSATION_SUMMARY_REPOSITORY)
     @Optional()
     private readonly summaries?: ConversationSummaryRepository,
+    @Inject(COMMERCE_FACADE) @Optional() private readonly commerce?: CommerceFacade,
   ) {
-    this.#forcedPrompt =
-      promptVersion === 13 ? PROMPT_RETAIL : promptVersion === 14 ? PROMPT_LODGING : undefined;
+    this.#forcedPrompt = promptVersion
+      ? { name: 'sales-agent', version: promptVersion }
+      : undefined;
   }
 
   async playground(
@@ -124,6 +139,7 @@ export class PlaygroundService implements AiFacade {
     input: PlaygroundRequest,
     options: ReplyOptions = { conversationId: null, isTest: false },
   ): Promise<ReplyResult> {
+    const startedAt = new Date();
     const bot = await this.bots.getBot(ws, botId);
     const prompt =
       this.#forcedPrompt ?? (bot.industry === 'hotel' ? PROMPT_LODGING : PROMPT_RETAIL);
@@ -216,6 +232,21 @@ export class PlaygroundService implements AiFacade {
         }
       : null;
     const output = newOutputState();
+    // Orders need a private conversation: never for a public comment reply.
+    const orders: OrderToolContext | null =
+      this.commerce && bot.orderTaking && !isCommentReply
+        ? {
+            facade: this.commerce,
+            ws,
+            bot,
+            conversationId: conversationKey,
+            channel: options.channel ?? PLAYGROUND_ORDER_CHANNEL,
+            ...(options.sink ? { sink: options.sink } : {}),
+            output,
+            confirmable: await confirmableDraft(this.commerce, ws, conversationKey, startedAt),
+            state: newOrderToolState(),
+          }
+        : null;
     const seenProducts = new Set<string>();
     const tools = turnTools({
       ...(catalog ? { catalog: { ws, scope, catalog } } : {}),
@@ -225,6 +256,7 @@ export class PlaygroundService implements AiFacade {
       ...(options.sink ? { sink: options.sink } : {}),
       sendMessage: !isCommentReply,
       actions: actionContext ? { definitions: actionDefinitions, context: actionContext } : null,
+      orders,
     });
 
     const postRules = post ? await this.#prompts.load(POST_PROMPT) : '';

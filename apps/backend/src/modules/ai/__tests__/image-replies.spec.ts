@@ -137,7 +137,7 @@ function build(
         tier: 'smart',
         provider: 'p',
         model: 'm',
-        promptVersion: 'sales-agent@13',
+        promptVersion: 'sales-agent@15',
         inputTokens: 0,
         outputTokens: 0,
         cachedTokens: 0,

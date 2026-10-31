@@ -169,7 +169,7 @@ describe('the reply pipeline answers from catalog tools', () => {
     expect(runs.runs[0]).toMatchObject({
       productIds: ['toy-1'],
       conversationId: playgroundConversationId(botId),
-      promptVersion: 'sales-agent@13',
+      promptVersion: 'sales-agent@15',
       isTest: true,
     });
     expect(res.usage).toEqual({ inputTokens: 30, outputTokens: 15, cachedInputTokens: 0 });
@@ -223,7 +223,7 @@ describe('the reply pipeline answers from catalog tools', () => {
         tier: 'smart',
         provider: 'p',
         model: 'm',
-        promptVersion: 'sales-agent@13',
+        promptVersion: 'sales-agent@15',
         inputTokens: 0,
         outputTokens: 0,
         cachedTokens: 0,
@@ -253,7 +253,7 @@ describe('the reply pipeline answers from catalog tools', () => {
       tier: 'smart',
       provider: 'p',
       model: 'm',
-      promptVersion: 'sales-agent@13',
+      promptVersion: 'sales-agent@15',
       inputTokens: 0,
       outputTokens: 0,
       cachedTokens: 0,

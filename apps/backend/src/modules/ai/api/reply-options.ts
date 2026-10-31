@@ -22,6 +22,8 @@ export interface MessageSink {
 export interface ReplyOptions {
   conversationId: string | null;
   isTest: boolean;
+  /** The conversation's channel (`facebook`, `instagram`, `website`): the source of a bot order. */
+  channel?: string;
   /** Absent: messages are collected (playground). */
   sink?: MessageSink;
   /** Checked by the agent loop between rounds. */
