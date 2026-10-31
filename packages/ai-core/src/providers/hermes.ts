@@ -66,8 +66,9 @@ function parseArguments(raw: string): unknown {
 function httpErrorKind(status: number): LlmErrorKind {
   if (status === 429) return 'rate_limit';
   if (status === 401 || status === 403) return 'auth';
-  if (status === 503) return 'overloaded';
+  if (status >= 500) return 'overloaded';
   if (status === 413) return 'context_too_long';
+  if (status === 408) return 'timeout';
   if (status >= 400 && status < 500) return 'invalid_request';
   return 'unknown';
 }
@@ -138,8 +139,13 @@ export class HermesProvider implements LlmProvider {
       Buffer.byteLength(body) > MAX_IMAGE_BODY_BYTES
     )
       throw new Error('Hermes context exceeds bridge limit');
-    // A per-call timeout from the agent loop wins over the transport floor: the loop owns the budget.
-    const timeout = AbortSignal.timeout(request.timeoutMs ?? this.#timeout);
+    // Per-attempt timeout: the caller's `timeoutMs` when given, never longer than the transport
+    // default (the bridge's own 50 s run budget + refresh). Aborting earlier leaves the bridge's
+    // single slot busy; its next answer is then 429 with a Retry-After estimate of the remaining
+    // time, surfaced as `rate_limit` so the gateway backoff waits instead of hammering.
+    const timeout = AbortSignal.timeout(
+      Math.min(request.timeoutMs ?? this.#timeout, this.#timeout),
+    );
     const signal = request.signal ? AbortSignal.any([timeout, request.signal]) : timeout;
     let response: Response;
     try {
@@ -192,56 +198,84 @@ export class HermesProvider implements LlmProvider {
 }
 
 /**
- * Asks the bridge whether it carries native function calls (`/health` → `nativeTools: true`).
- * Any failure (down, slow, old bridge, bad JSON) means "assume emulated".
+ * Asks the bridge whether it carries native function calls (`/health` → `nativeTools`).
+ * `true`/`false` are definitive answers from a bridge that responded; `undefined` means the
+ * probe failed (down, slow, non-2xx, bad JSON) and nothing is known.
  */
-export async function probeHermesNativeTools(options: {
+async function probeHealth(options: {
   baseURL: string;
   fetch?: typeof fetch;
-}): Promise<boolean> {
+}): Promise<boolean | undefined> {
   const base = parseBridgeBaseUrl(options.baseURL);
-  if (!base) return false;
+  if (!base) return undefined;
   try {
     const response = await (options.fetch ?? fetch)(`${base}/health`, {
       signal: AbortSignal.timeout(2_000),
       redirect: 'error',
     });
-    if (!response.ok) return false;
+    if (!response.ok) return undefined;
     const body: unknown = JSON.parse(await response.text());
-    return (
-      typeof body === 'object' &&
-      body !== null &&
-      (body as { nativeTools?: unknown }).nativeTools === true
-    );
+    if (typeof body !== 'object' || body === null) return undefined;
+    return (body as { nativeTools?: unknown }).nativeTools === true;
   } catch {
-    return false;
+    return undefined;
   }
 }
 
+/** True only when `/health` says `nativeTools: true`; any failure means "assume emulated". */
+export async function probeHermesNativeTools(options: {
+  baseURL: string;
+  fetch?: typeof fetch;
+}): Promise<boolean> {
+  return (await probeHealth(options)) === true;
+}
+
+/** A failed probe is retried on a later call, at most this often. */
+export const HERMES_PROBE_RETRY_MS = 30_000;
+
 /**
  * Hermes with native tools when the bridge supports them, otherwise wrapped in
- * `EmulatedToolsProvider`. The `/health` check runs once, on the first call.
+ * `EmulatedToolsProvider`. A definitive `/health` answer is cached; a failed probe uses
+ * emulation for that call and is retried on a later call, at most every 30 s.
  */
 export class HermesAutoToolsProvider implements LlmProvider {
   readonly name: string;
   readonly #native: HermesProvider;
   readonly #emulated: EmulatedToolsProvider;
-  readonly #probe: () => Promise<boolean>;
-  #choice: Promise<LlmProvider> | undefined;
+  readonly #probe: () => Promise<boolean | undefined>;
+  readonly #now: () => number;
+  #known: LlmProvider | undefined;
+  #pending: Promise<boolean | undefined> | undefined;
+  #lastFailure = Number.NEGATIVE_INFINITY;
 
-  constructor(options: ConstructorParameters<typeof HermesProvider>[0]) {
+  constructor(options: ConstructorParameters<typeof HermesProvider>[0] & { now?: () => number }) {
     this.#native = new HermesProvider(options);
     this.name = this.#native.name;
     this.#emulated = new EmulatedToolsProvider(this.#native);
+    this.#now = options.now ?? Date.now;
     this.#probe = () =>
-      probeHermesNativeTools({
+      probeHealth({
         baseURL: options.baseURL,
         ...(options.fetch ? { fetch: options.fetch } : {}),
       });
   }
 
-  generate(request: GenerateRequest, target: ModelTarget): Promise<GenerateResponse> {
-    this.#choice ??= this.#probe().then((native) => (native ? this.#native : this.#emulated));
-    return this.#choice.then((provider) => provider.generate(request, target));
+  async generate(request: GenerateRequest, target: ModelTarget): Promise<GenerateResponse> {
+    return (await this.#choose()).generate(request, target);
+  }
+
+  async #choose(): Promise<LlmProvider> {
+    if (this.#known) return this.#known;
+    if (this.#now() - this.#lastFailure < HERMES_PROBE_RETRY_MS) return this.#emulated;
+    this.#pending ??= this.#probe().finally(() => {
+      this.#pending = undefined;
+    });
+    const native = await this.#pending;
+    if (native === undefined) {
+      this.#lastFailure = this.#now();
+      return this.#emulated;
+    }
+    this.#known = native ? this.#native : this.#emulated;
+    return this.#known;
   }
 }

@@ -174,13 +174,11 @@ tools:
             skip_background_review=True, save_trajectories=False, fallback_model=None,
             reasoning_config={"effort": request["effort"]} if request.get("effort") else None,
             run_budget_seconds=50.0,
+            request_overrides={"prompt_cache_key": cache_key} if cache_key else None,
         )
         try:
             if agent.tools:
                 raise RuntimeUnavailable("TOOLSET_MISMATCH")
-            if cache_key:
-                # Hermes forwards request_overrides into the Responses body (prompt_cache_key).
-                agent.request_overrides = {"prompt_cache_key": cache_key}
             if native:
                 return self._generate_native(agent, request, system)
             # Keep Hermes' operator scaffold and local identity out of customer-facing prompts.

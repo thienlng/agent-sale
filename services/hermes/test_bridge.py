@@ -188,7 +188,7 @@ class NativeAgent(FakeAgent):
         self.api_messages = api_messages
         self.sent_tools = list(self.tools)
         return {"model": self.kwargs["model"], "tools": list(self.tools), "tool_choice": "auto",
-                "prompt_cache_key": (getattr(self, "request_overrides", None) or {}).get("prompt_cache_key")}
+                "prompt_cache_key": (self.kwargs.get("request_overrides") or {}).get("prompt_cache_key")}
 
     def _interruptible_api_call(self, api_kwargs):
         self.api_kwargs = api_kwargs
@@ -327,6 +327,42 @@ class NativeToolTests(unittest.TestCase):
                 runtime.generate(tool_payload())
             self.assertEqual(error.exception.code, "TOOLSET_MISMATCH")
 
+    def test_busy_bridge_answers_429_with_a_clamped_retry_after(self):
+        release, entered = threading.Event(), threading.Event()
+
+        class Slow:
+            def generate(self, request):
+                entered.set()
+                release.wait(5)
+                return FakeRuntime().generate(request)
+
+        key = "k" * 32
+        server = make_server("127.0.0.1", 0, key, Slow())
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        url = f"http://127.0.0.1:{server.server_port}/v1/generate"
+
+        def post():
+            return Request(url, data=json.dumps(payload()).encode(),
+                           headers={"Content-Type": "application/json", "Authorization": "Bearer " + key})
+
+        first = threading.Thread(target=lambda: urlopen(post(), timeout=10).read(), daemon=True)
+        try:
+            first.start()
+            self.assertTrue(entered.wait(2))
+            with self.assertRaises(HTTPError) as error:
+                urlopen(post(), timeout=2)
+            self.assertEqual(error.exception.code, 429)
+            retry_after = int(error.exception.headers["Retry-After"])
+            self.assertTrue(1 <= retry_after <= 30, retry_after)
+            self.assertEqual(retry_after, 30)  # a turn just started: ~50 s remain, clamped to 30
+        finally:
+            release.set()
+            first.join(timeout=5)
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
     def test_prompt_cache_key_also_reaches_the_plain_loop(self):
         with tempfile.TemporaryDirectory() as temporary, patch.dict(os.environ, {}, clear=True):
             home = Path(temporary) / "private"
@@ -335,7 +371,7 @@ class NativeToolTests(unittest.TestCase):
                 "access_token": "t", "refresh_token": "t"}}}}))
             (home / "auth.json").chmod(0o600)
             runtime.generate({**payload(), "promptCacheKey": "bot:conv"})
-            self.assertEqual(FakeAgent.instances[-1].request_overrides, {"prompt_cache_key": "bot:conv"})
+            self.assertEqual(FakeAgent.instances[-1].kwargs["request_overrides"], {"prompt_cache_key": "bot:conv"})
 
     def test_health_reports_native_tools(self):
         key = "k" * 32

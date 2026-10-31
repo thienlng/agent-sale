@@ -8,6 +8,7 @@ import logging
 import os
 import re
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from uuid import UUID
@@ -21,6 +22,7 @@ MAX_IMAGE_BYTES = 3_000_000  # decoded, per image
 MAX_IMAGES_TOTAL_BYTES = 6_000_000  # decoded, all images of one request
 # base64 inflates by 4/3; the slack covers the JSON around it.
 MAX_IMAGE_BODY = MAX_BODY + MAX_IMAGES_TOTAL_BYTES * 4 // 3 + 4_096
+RUN_BUDGET_SECONDS = 50  # mirrors runtime.generate's run_budget_seconds
 MAX_TOOLS = 32
 MAX_TOOL_CALLS_PER_MESSAGE = 16
 MAX_MESSAGES = 42
@@ -161,18 +163,21 @@ def make_server(host, port, key, runtime, login=None):
     if len(key) < 32:
         raise ValueError("HERMES_BRIDGE_KEY must contain at least 32 characters")
     gate = threading.BoundedSemaphore(1)
+    started = {"at": None}  # monotonic start of the turn in flight, for the Retry-After estimate
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_args):
             # Default HTTP logging includes request URLs and upstream errors.
             return
 
-        def send_json(self, status, body):
+        def send_json(self, status, body, headers=None):
             encoded = json.dumps(body, ensure_ascii=False).encode("utf-8")
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(encoded)))
             self.send_header("Cache-Control", "no-store")
+            for name, value in (headers or {}).items():
+                self.send_header(name, value)
             self.end_headers()
             try:
                 self.wfile.write(encoded)
@@ -243,7 +248,12 @@ def make_server(host, port, key, runtime, login=None):
             except (ValueError, TypeError, KeyError, OSError):
                 return self.send_json(400, {"error": "INVALID_REQUEST"})
             if not gate.acquire(blocking=False):
-                return self.send_json(429, {"error": "RUNTIME_BUSY"})
+                # Seconds until the turn in flight should finish (run budget minus elapsed), 1..30.
+                since = started["at"]
+                left = RUN_BUDGET_SECONDS - (time.monotonic() - since) if since is not None else 5
+                retry_after = min(30, max(1, int(left + 0.999)))
+                return self.send_json(429, {"error": "RUNTIME_BUSY"}, {"Retry-After": str(retry_after)})
+            started["at"] = time.monotonic()
             try:
                 self.send_json(200, runtime.generate(request))
             except RuntimeUnavailable as error:
@@ -252,6 +262,7 @@ def make_server(host, port, key, runtime, login=None):
                 # Exception text may include provider credentials or customer context.
                 self.send_json(502, {"error": "RUNTIME_FAILED"})
             finally:
+                started["at"] = None
                 gate.release()
 
     server = ThreadingHTTPServer((host, port), Handler)

@@ -2,7 +2,7 @@ import { workspaceId } from '@agent-sales/shared';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
-import { INVALID_JSON_INPUT_KEY } from '../gateway.js';
+import { INVALID_JSON_INPUT_KEY, LlmCallError } from '../gateway.js';
 import {
   HERMES_MIN_TIMEOUT_MS,
   HermesAutoToolsProvider,
@@ -276,13 +276,31 @@ describe('HermesProvider native tools', () => {
     ]);
   });
 
-  it('uses the per-call timeout when given, else the bridge floor', async () => {
+  it('uses the per-call timeout when shorter, else the transport default', async () => {
     const timeout = vi.spyOn(AbortSignal, 'timeout');
     const transport = vi.fn().mockImplementation(async () => reply({ text: 'hi' }));
     const provider = make(transport);
     await provider.generate({ ...request, timeoutMs: 25_000 }, { model: 'm' });
     expect(timeout).toHaveBeenLastCalledWith(25_000);
     await provider.generate(request, { model: 'm' });
+    expect(timeout).toHaveBeenLastCalledWith(HERMES_MIN_TIMEOUT_MS);
+    timeout.mockRestore();
+  });
+
+  it('surfaces the bridge Retry-After on a busy 429 as retryAfterMs', async () => {
+    const busy = make(
+      async () =>
+        new Response('{"error":"RUNTIME_BUSY"}', { status: 429, headers: { 'Retry-After': '17' } }),
+    );
+    const error = await busy.generate(request, { model: 'm' }).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(LlmCallError);
+    expect(error).toMatchObject({ kind: 'rate_limit', retryAfterMs: 17_000, status: 429 });
+  });
+
+  it('never lets timeoutMs extend past the transport default', async () => {
+    const timeout = vi.spyOn(AbortSignal, 'timeout');
+    const transport = vi.fn().mockImplementation(async () => reply({ text: 'hi' }));
+    await make(transport).generate({ ...request, timeoutMs: 500_000 }, { model: 'm' });
     expect(timeout).toHaveBeenLastCalledWith(HERMES_MIN_TIMEOUT_MS);
     timeout.mockRestore();
   });
@@ -312,7 +330,12 @@ describe('HermesProvider native tools', () => {
     await expect(status(401)).rejects.toMatchObject({ kind: 'auth' });
     await expect(status(503)).rejects.toMatchObject({ kind: 'overloaded' });
     await expect(status(400)).rejects.toMatchObject({ kind: 'invalid_request' });
-    await expect(status(502)).rejects.toMatchObject({ kind: 'unknown', status: 502 });
+    await expect(status(502)).rejects.toMatchObject({ kind: 'overloaded', status: 502 });
+    await expect(status(500)).rejects.toMatchObject({ kind: 'overloaded', status: 500 });
+    await expect(status(429)).rejects.toMatchObject({ status: 429 });
+    await expect(
+      make(async () => Promise.reject(new Error('refused'))).generate(request, { model: 'm' }),
+    ).rejects.toMatchObject({ kind: 'network' });
   });
 });
 
@@ -404,5 +427,91 @@ describe('HermesAutoToolsProvider', () => {
     await provider.generate(request, { model: 'm' });
     await provider.generate(request, { model: 'm' });
     expect(probes).toBe(1);
+  });
+});
+
+describe('HermesAutoToolsProvider probe failures', () => {
+  const tool = { name: 'get_time', description: 'Time', input: z.object({}) };
+  const ask = (provider: HermesAutoToolsProvider) =>
+    provider.generate({ ...plain, tools: [tool] }, { model: 'm' });
+
+  it('emulates on a failed probe, does not cache it, and re-probes after 30 s', async () => {
+    let healthy = false;
+    let probes = 0;
+    const bodies: Array<Record<string, unknown>> = [];
+    const fake = (async (url: string | URL | Request, init?: RequestInit) => {
+      if (String(url).endsWith('/health')) {
+        probes += 1;
+        if (!healthy) throw new Error('down');
+        return new Response('{"nativeTools":true}');
+      }
+      bodies.push(JSON.parse(String(init?.body)));
+      return new Response(
+        JSON.stringify({
+          version: 1,
+          text: 'hi',
+          model: 'm',
+          usage: { inputTokens: 1, outputTokens: 1, cachedInputTokens: 0 },
+        }),
+      );
+    }) as typeof fetch;
+    let clock = 1_000_000;
+    const provider = new HermesAutoToolsProvider({
+      baseURL: 'http://127.0.0.1:8788',
+      apiKey: 'k',
+      fetch: fake,
+      now: () => clock,
+    });
+    await ask(provider);
+    expect(bodies[0]).not.toHaveProperty('tools');
+    clock += 10_000;
+    healthy = true;
+    await ask(provider);
+    expect(probes).toBe(1);
+    expect(bodies[1]).not.toHaveProperty('tools');
+    clock += 20_001;
+    await ask(provider);
+    expect(probes).toBe(2);
+    expect(bodies[2]?.tools).toHaveLength(1);
+    await ask(provider);
+    expect(probes).toBe(2);
+  });
+
+  it('caches a definitive false and treats a non-2xx probe as a failure', async () => {
+    let probes = 0;
+    const fake = (status: number, body: string) =>
+      (async (url: string | URL | Request) => {
+        if (String(url).endsWith('/health')) {
+          probes += 1;
+          return new Response(body, { status });
+        }
+        return new Response(
+          JSON.stringify({
+            version: 1,
+            text: 'hi',
+            model: 'm',
+            usage: { inputTokens: 1, outputTokens: 1, cachedInputTokens: 0 },
+          }),
+        );
+      }) as typeof fetch;
+    const old = new HermesAutoToolsProvider({
+      baseURL: 'http://127.0.0.1:8788',
+      apiKey: 'k',
+      fetch: fake(200, '{"status":"up"}'),
+    });
+    await ask(old);
+    await ask(old);
+    expect(probes).toBe(1);
+    probes = 0;
+    const clock = 0;
+    const broken = new HermesAutoToolsProvider({
+      baseURL: 'http://127.0.0.1:8788',
+      apiKey: 'k',
+      fetch: fake(500, '{}'),
+      now: () => clock,
+    });
+    await ask(broken);
+    await ask(broken);
+    expect(probes).toBe(1); // retry window not elapsed
   });
 });
