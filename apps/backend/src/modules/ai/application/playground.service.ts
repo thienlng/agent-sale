@@ -1,6 +1,6 @@
 import { type GenerateRequest, PROMPTS_DIR, PromptRegistry } from '@agent-sales/ai-core';
 import type { PlaygroundRequest, PlaygroundResponse } from '@agent-sales/contracts';
-import { newId, type WorkspaceId } from '@agent-sales/shared';
+import type { WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
 import { recordAiRun } from '../../../common/metrics.js';
@@ -25,7 +25,11 @@ import {
   productIdOfImage,
   productImages,
 } from '../domain/image-allowlist.js';
-import { AI_RUN_REPOSITORY, type AiRunRepository } from '../domain/ports/ai-run.repository.js';
+import {
+  AI_RUN_REPOSITORY,
+  type AiRunRecord,
+  type AiRunRepository,
+} from '../domain/ports/ai-run.repository.js';
 import {
   CONVERSATION_SUMMARY_REPOSITORY,
   type ConversationSummaryRepository,
@@ -39,7 +43,7 @@ import {
   newActionToolState,
   playgroundConversationId,
 } from './action-tools.js';
-import { type AgentLoopResult, runAgentLoop } from './agent-loop.js';
+import { type AgentLoopResult, type AgentStep, runAgentLoop } from './agent-loop.js';
 import { createHistorySummarizer } from './history-summarizer.js';
 import { LlmRuntime } from './llm-runtime.js';
 import { HANDOFF_TOOL, ImageAllowlist, newOutputState } from './output-tools.js';
@@ -52,7 +56,14 @@ import {
   PHONE_KNOWN_LINE,
   withTurnContext,
 } from './reply-context.js';
-import { decideReply, meteredGenerate, turnMessages, turnTools } from './reply-pipeline.js';
+import {
+  decideReply,
+  meteredGenerate,
+  type ReplyDecision,
+  runBase,
+  turnMessages,
+  turnTools,
+} from './reply-pipeline.js';
 
 export { PHONE_KNOWN_LINE };
 
@@ -206,9 +217,11 @@ export class PlaygroundService implements AiFacade {
         }
       : null;
     const output = newOutputState();
+    const seenProducts = new Set<string>();
     const tools = turnTools({
       ...(catalog ? { catalog: { ws, scope, catalog } } : {}),
       allowlist,
+      onProducts: (products) => products.forEach((p) => seenProducts.add(p.id)),
       output,
       ...(options.sink ? { sink: options.sink } : {}),
       sendMessage: !isCommentReply,
@@ -231,13 +244,17 @@ export class PlaygroundService implements AiFacade {
     });
 
     const meter = meteredGenerate((req) => this.llm.generate(req));
+    const promptVersion = [prompt, ...(post ? [POST_PROMPT] : [])]
+      .map((p) => `${p.name}@${p.version}`)
+      .join('+');
     const history = historyTurns(input, options.turnTimes);
     const summaryKey = options.conversationId;
     const stored =
       this.summaries && summaryKey && history.times
         ? await this.summaries.get(ws, summaryKey)
         : null;
-    let loop: AgentLoopResult;
+    const steps: AgentStep[] = [];
+    let loop: AgentLoopResult | null = null;
     try {
       const compact = await compactHistory(history.turns, {
         times: history.times,
@@ -280,7 +297,9 @@ export class PlaygroundService implements AiFacade {
       loop = await runAgentLoop({
         base,
         tools: tools.runnable,
-        generate: meter.generate,
+        // Once a message went out, an empty final answer is fine: no gateway retry for it.
+        generate: (req) => meter.generate(output.sent.length ? { ...req, allowEmpty: true } : req),
+        onStep: (step) => steps.push(step),
         isTerminal: (call) => call.name === HANDOFF_TOOL,
         ...(options.shouldInterrupt ? { shouldInterrupt: options.shouldInterrupt } : {}),
         ...(options.carry?.length ? { carry: options.carry } : {}),
@@ -289,27 +308,30 @@ export class PlaygroundService implements AiFacade {
           this.#logger.warn(`Tool ${name} failed: ${errorClass(error)}`),
       });
     } catch (error) {
-      // The confirmation question never reached the customer: their "ok" must not confirm it.
-      if (this.actions && actionState.askedConfirmation)
-        await this.actions.clearPending(ws, conversationKey);
-      // Bill what the turn already consumed; the caller decides how to degrade.
-      if (meter.last) {
-        const failed = {
-          ...this.#run(botId, bot.modelTier, options, prompt, post !== undefined, meter),
-          retrieved: sources.map((s) => ({ faqId: s.faqId, score: s.score, used: false })),
-          outcome: 'fallback' as const,
-          guardrail: 'model_error',
-          productIds: [],
-        };
-        await this.runs.record(ws, failed);
-        recordAiRun(failed);
+      if (!output.sent.length) {
+        // Nothing reached the customer: their "ok" must not confirm an unasked question, the turn
+        // is billed for what it consumed, and the caller decides how to degrade.
+        if (this.actions && actionState.askedConfirmation)
+          await this.actions.clearPending(ws, conversationKey);
+        if (meter.last)
+          await this.#record(ws, {
+            ...runBase({ botId, tier: bot.modelTier, options, promptVersion, meter }),
+            retrieved: sources.map((s) => ({ faqId: s.faqId, score: s.score, used: false })),
+            outcome: 'fallback' as const,
+            guardrail: 'model_error',
+            productIds: [...seenProducts],
+          });
+        throw error;
       }
-      throw error;
+      // Messages were already delivered: report them, so the caller neither retries nor repeats them.
+      this.#logger.warn(`Model call failed after messages were sent (${errorClass(error)})`);
     }
 
-    const decision = decideReply({ loop, output, bot, actionFallback: actionState.fallback });
+    const decision: ReplyDecision = loop
+      ? decideReply({ loop, output, bot, actionFallback: actionState.fallback })
+      : { outcome: 'answered', guardrail: 'model_error', final: null };
     const messages = turnMessages(output, decision);
-    const interrupted = loop.outcome === 'interrupted';
+    const interrupted = loop?.outcome === 'interrupted';
     // A question that never reached the customer must not be confirmed by their next "ok".
     if (
       this.actions &&
@@ -326,19 +348,18 @@ export class PlaygroundService implements AiFacade {
     const sentImages = messages.flatMap((m) => m.images);
     const used = quotedSources(replyText, sources);
     const run = {
-      ...this.#run(botId, bot.modelTier, options, prompt, post !== undefined, meter),
+      ...runBase({ botId, tier: bot.modelTier, options, promptVersion, meter }),
       retrieved: sources.map((s) => ({ faqId: s.faqId, score: s.score, used: used.has(s.key) })),
       outcome: decision.outcome,
       guardrail: decision.guardrail,
       productIds: [
         ...new Set([
-          ...loop.productIds,
+          ...(loop?.productIds ?? seenProducts),
           ...sentImages.flatMap((image) => productIdOfImage(image.id) ?? []),
         ]),
       ],
     };
-    await this.runs.record(ws, run);
-    recordAiRun(run);
+    await this.#record(ws, run);
 
     return {
       runId: run.id,
@@ -351,47 +372,21 @@ export class PlaygroundService implements AiFacade {
         score: s.score,
         used: used.has(s.key),
       })),
-      // The joined view keeps its contract cap; every picture is listed under `messages`.
-      images: sentImages.slice(0, 3).map(({ url, label }) => ({ url, label })),
+      images: sentImages.map(({ url, label }) => ({ url, label })),
       usage: meter.usage,
       provider: run.provider,
       model: run.model,
       latencyMs: meter.latencyMs,
       ...(actionState.calls.length ? { actions: actionState.calls } : {}),
       messages,
-      steps: loop.steps,
-      ...(interrupted ? { interrupted: true, carry: loop.followUps } : {}),
+      steps,
+      ...(interrupted && loop ? { interrupted: true, carry: loop.followUps } : {}),
     };
   }
 
-  /** The ai_runs fields shared by every outcome; usage and latency cover every model call made. */
-  #run(
-    botId: string,
-    tier: string,
-    options: ReplyOptions,
-    prompt: { name: string; version: number },
-    withPost: boolean,
-    meter: ReturnType<typeof meteredGenerate>,
-  ) {
-    const promptVersion = `${prompt.name}@${prompt.version}`;
-    return {
-      id: newId(),
-      botId,
-      // A playground run is remembered under its stable id; a comment reply under none.
-      conversationId:
-        options.conversationId ?? (options.isTest ? playgroundConversationId(botId) : null),
-      tier,
-      provider: meter.last?.provider ?? 'none',
-      model: meter.last?.model ?? 'none',
-      promptVersion: withPost
-        ? `${promptVersion}+${POST_PROMPT.name}@${POST_PROMPT.version}`
-        : promptVersion,
-      inputTokens: meter.usage.inputTokens,
-      outputTokens: meter.usage.outputTokens,
-      cachedTokens: meter.usage.cachedInputTokens,
-      latencyMs: meter.latencyMs,
-      isTest: options.isTest,
-      createdAt: new Date(),
-    };
+  /** Writes the run; an interrupted one is not counted as a fallback in the outcome metric. */
+  async #record(ws: WorkspaceId, run: AiRunRecord): Promise<void> {
+    await this.runs.record(ws, run);
+    recordAiRun({ ...run, outcome: run.guardrail === 'interrupted' ? 'interrupted' : run.outcome });
   }
 }

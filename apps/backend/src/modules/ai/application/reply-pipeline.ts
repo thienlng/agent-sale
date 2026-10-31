@@ -4,14 +4,15 @@ import type {
   ToolDefinition,
   Usage,
 } from '@agent-sales/ai-core';
-import type { AiOutcome } from '@agent-sales/contracts';
+import type { AiOutcome, ProductDto } from '@agent-sales/contracts';
+import { newId } from '@agent-sales/shared';
 
 import type { BotView } from '../../bot/api/index.js';
-import type { MessageSink } from '../api/reply-options.js';
+import type { MessageSink, ReplyOptions } from '../api/reply-options.js';
 import { defaultFallbackMessage, defaultHandoffMessage } from '../domain/default-messages.js';
 import { normalizeReplyText } from '../domain/reply-text.js';
 import { productImages } from '../domain/image-allowlist.js';
-import { type ActionToolContext, runActionTool } from './action-tools.js';
+import { type ActionToolContext, playgroundConversationId, runActionTool } from './action-tools.js';
 import type { AgentLoopResult } from './agent-loop.js';
 import { CATALOG_TOOLS, type CatalogToolContext, catalogRunnableTools } from './catalog-tools.js';
 import {
@@ -56,6 +57,8 @@ export function writeTools(
 export function turnTools(opts: {
   catalog?: Omit<CatalogToolContext, 'onProducts'>;
   allowlist: ImageAllowlist;
+  /** Products whose details the model received (besides making their pictures sendable). */
+  onProducts?(products: readonly ProductDto[]): void;
   output: OutputState;
   sink?: MessageSink;
   sendMessage: boolean;
@@ -68,7 +71,10 @@ export function turnTools(opts: {
           definitions: CATALOG_TOOLS,
           runnable: catalogRunnableTools({
             ...catalog,
-            onProducts: (products) => allowlist.add(productImages(products)),
+            onProducts: (products) => {
+              allowlist.add(productImages(products));
+              opts.onProducts?.(products);
+            },
           }),
         }
       : { definitions: [], runnable: [] },
@@ -180,4 +186,32 @@ export function turnMessages(output: OutputState, decision: ReplyDecision): Sent
     ...output.sent,
     ...(decision.final ? [{ text: decision.final, images: [], via: 'final' as const }] : []),
   ];
+}
+
+/** The ai_runs fields shared by every outcome; usage and latency cover every model call made. */
+export function runBase(input: {
+  botId: string;
+  tier: string;
+  options: ReplyOptions;
+  promptVersion: string;
+  meter: ReturnType<typeof meteredGenerate>;
+}) {
+  const { botId, options, meter } = input;
+  return {
+    id: newId(),
+    botId,
+    // A playground run is remembered under its stable id; a comment reply under none.
+    conversationId:
+      options.conversationId ?? (options.isTest ? playgroundConversationId(botId) : null),
+    tier: input.tier,
+    provider: meter.last?.provider ?? 'none',
+    model: meter.last?.model ?? 'none',
+    promptVersion: input.promptVersion,
+    inputTokens: meter.usage.inputTokens,
+    outputTokens: meter.usage.outputTokens,
+    cachedTokens: meter.usage.cachedInputTokens,
+    latencyMs: meter.latencyMs,
+    isTest: options.isTest,
+    createdAt: new Date(),
+  };
 }

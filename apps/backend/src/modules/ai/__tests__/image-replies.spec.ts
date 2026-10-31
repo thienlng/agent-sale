@@ -243,8 +243,8 @@ describe('bot-sent images', () => {
     expect(
       res.messages?.filter((m) => m.via === 'send_message').map((m) => m.images.length),
     ).toEqual([2, 2]);
-    // The joined view keeps its contract cap of 3; `messages` lists every picture.
-    expect(res.images).toHaveLength(3);
+    // No per-turn picture cap (spec §10): the joined view lists all four.
+    expect(res.images).toHaveLength(4);
   });
 
   it('returns no pictures when the model sends none or omits the field', async () => {

@@ -133,6 +133,37 @@ const recordingSink = (delivered = 1) => {
 };
 
 describe('reply on the agent loop: send_message', () => {
+  it('fixes a literal \\n in send_message text like the final answer', async () => {
+    const { svc } = build([calls(sendMessage({ text: ' Dạ có ạ\\nMẫu nào ạ? ' })), { text: '' }]);
+    const res = await svc.playground(ws, botId, ask('còn hàng không'));
+    expect(res.messages?.[0]?.text).toBe('Dạ có ạ\nMẫu nào ạ?');
+  });
+
+  it('allows an empty final answer only once a message went out (no gateway retry)', async () => {
+    const { fake, svc } = build([
+      calls(details(['a'])),
+      calls(sendMessage({ text: 'Dạ có ạ' })),
+      { text: '' },
+    ]);
+    await svc.playground(ws, botId, ask('còn hàng không'));
+    expect(fake.calls.map((c) => c.allowEmpty === true)).toEqual([false, false, true]);
+  });
+
+  it('shows nothing_to_send and not_delivered as failed steps', async () => {
+    const { svc } = build([
+      calls(sendMessage({ imageIds: ['p:zz:0'] })),
+      calls(sendMessage({ text: 'Dạ có ạ' })),
+      { text: '' },
+    ]);
+    const { sink } = recordingSink(0);
+    const res = await svc.reply(ws, botId, ask('còn hàng không'), {
+      conversationId: newId(),
+      isTest: false,
+      sink,
+    });
+    expect(res.steps?.filter((s) => s.kind === 'tool').map((s) => s.ok)).toEqual([false, false]);
+  });
+
   it('delivers send_message through the sink as it runs, then returns the final text', async () => {
     const { fake, svc } = build([
       calls(details(['a'])),
@@ -221,6 +252,30 @@ describe('reply on the agent loop: send_message', () => {
 });
 
 describe('reply on the agent loop: interrupt and carry', () => {
+  it('returns the input carry plus the new follow-ups, without duplication, on a second interrupt', async () => {
+    const carry: ChatMessage[] = [
+      {
+        role: 'assistant',
+        content: '',
+        toolCalls: [{ id: 'old', name: 'product_details', input: { ids: ['a'] } }],
+      },
+      { role: 'tool', toolCallId: 'old', name: 'product_details', content: '{"products":[]}' },
+    ];
+    const { svc } = build([calls(details(['b'])), { text: 'never reached' }]);
+    let checks = 0;
+    const res = await svc.reply(ws, botId, ask('mẫu B nữa'), {
+      conversationId: newId(),
+      isTest: false,
+      carry,
+      shouldInterrupt: async () => checks++ > 0,
+    });
+    expect(res.interrupted).toBe(true);
+    expect(res.carry).toHaveLength(4);
+    expect(res.carry?.slice(0, 2)).toEqual(carry);
+    expect(res.carry?.slice(2).map((m) => m.role)).toEqual(['assistant', 'tool']);
+    expect(res.carry?.[2]?.toolCalls?.[0]?.input).toEqual({ ids: ['b'] });
+  });
+
   it('stops on interrupt, returns the follow-ups as carry and sends no final message', async () => {
     const { fake, svc, runs } = build([calls(details(['b'])), { text: 'never reached' }]);
     let checks = 0;
@@ -300,7 +355,33 @@ describe('reply on the agent loop: context', () => {
         guardrail: 'model_error',
         inputTokens: 10,
         outputTokens: 5,
+        // The products the model already received count for the focus memory.
+        productIds: ['a'],
       }),
+    ]);
+  });
+
+  it('reports what was already delivered instead of throwing when a later call fails', async () => {
+    const { svc, runs } = build([
+      calls(sendMessage({ text: 'Dạ em gửi ảnh ạ', imageIds: [] })),
+      new Error('provider down'),
+    ]);
+    const { sink, sent } = recordingSink();
+    const res = await svc.reply(ws, botId, ask('mẫu A'), {
+      conversationId: newId(),
+      isTest: false,
+      sink,
+    });
+    expect(sent).toHaveLength(1);
+    expect(res).toMatchObject({
+      outcome: 'answered',
+      guardrail: 'model_error',
+      reply: 'Dạ em gửi ảnh ạ',
+      messages: [{ text: 'Dạ em gửi ảnh ạ', images: [], via: 'send_message' }],
+    });
+    expect(res.steps?.map((s) => s.kind)).toEqual(['model_call', 'tool']);
+    expect(runs.runs).toEqual([
+      expect.objectContaining({ outcome: 'answered', guardrail: 'model_error', inputTokens: 10 }),
     ]);
   });
 

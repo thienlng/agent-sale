@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import type { MessageSink, OutgoingMessage } from '../api/reply-options.js';
 import type { AllowedImage } from '../domain/image-allowlist.js';
+import { normalizeReplyText } from '../domain/reply-text.js';
 import { safeJson } from './action-tools.js';
 import type { RunnableTool } from './tool-runner.js';
 
@@ -106,17 +107,18 @@ export function outputTools(opts: {
     schema: SendMessageInput,
     run: async (input) => {
       const args = input as z.infer<typeof SendMessageInput>;
-      const text = args.text?.trim() ?? '';
+      const text = normalizeReplyText(args.text ?? '');
       const { images, dropped } = allowlist.resolve(args.imageIds ?? []);
       const extra = dropped.length ? { droppedImageIds: dropped } : {};
       if (!text && !images.length)
-        return { content: safeJson({ error: 'nothing_to_send', ...extra }) };
+        return { content: safeJson({ error: 'nothing_to_send', ...extra }), ok: false };
       const message: OutgoingMessage = {
         ...(text ? { text } : {}),
         images: images.map(({ id, url, label }) => ({ id, url, label })),
       };
       const delivered = sink ? (await sink.send(message)).delivered : 1;
-      if (delivered <= 0) return { content: safeJson({ error: 'not_delivered', ...extra }) };
+      if (delivered <= 0)
+        return { content: safeJson({ error: 'not_delivered', ...extra }), ok: false };
       state.sent.push({ text, images: message.images, via: 'send_message' });
       return { content: safeJson({ status: 'sent', delivered, ...extra }) };
     },

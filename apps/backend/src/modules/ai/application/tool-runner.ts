@@ -6,7 +6,10 @@ export interface RunnableTool {
   name: string;
   readOnly: boolean;
   schema: ZodType;
-  run(input: unknown): Promise<{ content: string; trusted?: string; productIds?: string[] }>;
+  /** `ok: false` marks a handled failure (an error result for the model, not a throw). */
+  run(
+    input: unknown,
+  ): Promise<{ content: string; trusted?: string; productIds?: string[]; ok?: boolean }>;
 }
 
 export interface ToolBatchResult {
@@ -108,6 +111,7 @@ export async function runToolBatch(
       slot.content = out.content;
       if (out.trusted) slot.trusted = out.trusted;
       if (out.productIds) slot.productIds = out.productIds;
+      if (out.ok === false) slot.ok = false;
     } catch (e) {
       opts.onError?.(tool.name, e);
       // Never the error message: it may carry internals the model must not see.
