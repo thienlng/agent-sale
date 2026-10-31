@@ -3,3 +3,5 @@
 9a7e45c6d02344d375a26283239178d2291aa743:apps/web/src/features/channel/components/website.test.tsx:generic-api-key:71
 9a7e45c6d02344d375a26283239178d2291aa743:apps/web/src/features/channel/components/website.test.tsx:generic-api-key:73
 9a7e45c6d02344d375a26283239178d2291aa743:apps/web/src/features/channel/components/website.test.tsx:generic-api-key:76
+# Orders list column choice: a localStorage key name ('rapiz.orders.columns.v2'), not a credential.
+a79b086d147940cf5659b3584d6481dfd4f40f51:apps/web/src/features/commerce/components/order-columns.tsx:generic-api-key:193
