@@ -373,8 +373,27 @@ describe('Inbox queue', () => {
     expect(await store.hasNewerCustomerEvent(c.id, 'cust-4', first)).toBe(true);
     expect(await store.hasNewerCustomerEvent(c.id, 'cust-5', first)).toBe(false);
     await store.requeueEvent(first, job!.claimToken);
-    expect((await event(first))?.attempts).toBe(0);
-    expect((await event(first))?.leaseUntil).toBeNull();
+    const requeued = await event(first);
+    expect(requeued?.attempts).toBe(0);
+    // Held back for one quiet window instead of being claimable at once.
+    expect(requeued?.leaseUntil).not.toBeNull();
+    expect(requeued!.leaseUntil!.getTime()).toBeGreaterThan(Date.now());
+  });
+
+  it('holds a requeued event back until the newer message clears its quiet window, then claims both', async () => {
+    const c = await connect(a, 'page-requeue');
+    // E1 is older than the max wait, so only its lease can hold it back.
+    const e1 = await message(c.id, 'cust-6', 10_000);
+    const [job] = (await store.claimEvents(10)).filter((j) => j.id === e1);
+    expect(job).toBeDefined();
+    await store.requeueEvent(e1, job!.claimToken);
+    const e2 = await message(c.id, 'cust-6', 0);
+    const ours = (ids: string[]) => ids.filter((id) => id === e1 || id === e2);
+    // Right away: E1 is still leased and E2 is inside its quiet window.
+    expect(ours((await store.claimEvents(10)).map((j) => j.id))).toEqual([]);
+    await new Promise((r) => setTimeout(r, EVENT_QUIET_MS + 150));
+    // After the window: the trailing tick takes them together, so the re-run sees both messages.
+    expect(ours((await store.claimEvents(10)).map((j) => j.id)).sort()).toEqual([e1, e2].sort());
   });
 
   it('dead-letters failed and exhausted events so they leave the queue with their payload', async () => {
