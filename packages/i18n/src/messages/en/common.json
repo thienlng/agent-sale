@@ -240,7 +240,14 @@
     "imagesUnsupported": "The current AI model can't read images. Try a text message, or ask the platform admin to enable image recognition.",
     "imageOnly": "(Image)",
     "imageRead": "Couldn't read the image, please try again.",
-    "unavailable": "No AI model is configured for this plan. Contact the platform admin."
+    "unavailable": "No AI model is configured for this plan. Contact the platform admin.",
+    "steps": {
+      "title": "What the bot did",
+      "ok": "ok",
+      "failed": "failed",
+      "ms": "{{ms}} ms"
+    },
+    "interrupted": "A newer customer message cut this turn short"
   },
   "admin": {
     "title": "AI models",

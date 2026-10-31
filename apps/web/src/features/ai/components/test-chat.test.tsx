@@ -234,6 +234,94 @@ describe('TestChat', () => {
     });
   });
 
+  describe('agent messages and steps', () => {
+    const send = async (body: unknown) => {
+      const { fetchStub } = stubFetch({
+        [`POST /bots/${botId}/playground`]: { status: 200, body },
+      });
+      vi.stubGlobal('fetch', fetchStub);
+      renderWithProviders(<TestChat botId={botId} greeting="" />);
+      await userEvent.type(screen.getByLabelText('Nhập tin nhắn của bạn'), 'cho xem mau{Enter}');
+    };
+    const twoMessages = {
+      ...reply,
+      reply: 'Dạ mẫu A giá 200k ạ.\nDạ mẫu B giá 300k ạ.',
+      images: [
+        { url: 'https://cdn.shop.vn/a.jpg', label: 'Mẫu A' },
+        { url: 'https://cdn.shop.vn/b.jpg', label: 'Mẫu B' },
+      ],
+      messages: [
+        {
+          text: 'Dạ mẫu A giá 200k ạ.',
+          images: [{ id: 'img-a', url: 'https://cdn.shop.vn/a.jpg', label: 'Mẫu A' }],
+          via: 'send_message',
+        },
+        {
+          text: 'Dạ mẫu B giá 300k ạ.',
+          images: [{ id: 'img-b', url: 'https://cdn.shop.vn/b.jpg', label: 'Mẫu B' }],
+          via: 'final',
+        },
+      ],
+      steps: [
+        { kind: 'model', ms: 812 },
+        { kind: 'tool', name: 'search_products', ok: true, ms: 34 },
+        { kind: 'tool', name: 'send_message', ok: false, ms: 5 },
+      ],
+    };
+
+    it('renders each message in order with its own album under it', async () => {
+      await send(twoMessages);
+      const textA = await screen.findByText('Dạ mẫu A giá 200k ạ.');
+      const textB = screen.getByText('Dạ mẫu B giá 300k ạ.');
+      const imgA = screen.getByAltText('Mẫu A');
+      const imgB = screen.getByAltText('Mẫu B');
+      // Each picture once (no second copy from the joined `images` view).
+      expect(screen.getAllByAltText('Mẫu A')).toHaveLength(1);
+      expect(screen.getAllByAltText('Mẫu B')).toHaveLength(1);
+      const order = [textA, imgA, textB, imgB];
+      for (let i = 1; i < order.length; i++)
+        expect(
+          order[i - 1]!.compareDocumentPosition(order[i]!) & Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+    });
+
+    it('keeps the steps collapsed until the owner opens them', async () => {
+      await send(twoMessages);
+      const toggle = await screen.findByRole('button', { name: /Các bước bot đã làm/ });
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      expect(screen.queryByText('search_products')).not.toBeInTheDocument();
+
+      await userEvent.click(toggle);
+      expect(toggle).toHaveAttribute('aria-expanded', 'true');
+      expect(screen.getByText('search_products')).toBeInTheDocument();
+      expect(screen.getByText('send_message')).toBeInTheDocument();
+      expect(screen.getByText('812 ms')).toBeInTheDocument();
+      expect(screen.getByText('lỗi')).toBeInTheDocument();
+
+      await userEvent.click(toggle);
+      expect(screen.queryByText('search_products')).not.toBeInTheDocument();
+    });
+
+    it('notes a turn that a newer customer message cut short', async () => {
+      await send({ ...twoMessages, interrupted: true });
+      expect(
+        await screen.findByText('Khách vừa nhắn thêm nên bot dừng lượt này giữa chừng'),
+      ).toBeInTheDocument();
+    });
+
+    it('still renders a legacy response without messages or steps', async () => {
+      await send({
+        ...reply,
+        reply: 'Dạ có ạ.\nChị xem ảnh nhé.',
+        images: [{ url: 'https://cdn.shop.vn/c.jpg', label: 'Mẫu C' }],
+      });
+      expect(await screen.findByText('Dạ có ạ.')).toBeInTheDocument();
+      expect(screen.getByText('Chị xem ảnh nhé.')).toBeInTheDocument();
+      expect(screen.getByAltText('Mẫu C')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Các bước bot đã làm/ })).not.toBeInTheDocument();
+    });
+  });
+
   it('shows a chip per API action the bot called', async () => {
     const { fetchStub } = stubFetch({
       [`POST /bots/${botId}/playground`]: {
