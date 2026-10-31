@@ -72,5 +72,5 @@ fi
 
 # Daily database backup at 03:15 server time, 14 days kept (see backup.sh).
 line="15 3 * * * $DIR/backup.sh >> $DIR/backups/backup.log 2>&1"
-( crontab -l 2>/dev/null | grep -vF "$DIR/backup.sh"; echo "$line" ) | crontab -
+{ crontab -l 2>/dev/null | grep -vF "$DIR/backup.sh" || true; echo "$line"; } | crontab -
 echo "bootstrap done"
