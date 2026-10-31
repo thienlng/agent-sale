@@ -12,7 +12,7 @@ Decisions taken with the owner on 2026-10-31:
 - Output is free text, as in Hermes. No JSON envelope, no hard caps beyond Meta's own limits. Behaviour is tuned later from real use.
 - The number guardrail is removed from the reply path (the owner will revisit "what is a wrong price" later). The grounding module and its tests stay in the repo, unused by the reply path.
 - New customer messages during a running turn: **interrupt** (Hermes' default `busy_input_mode`), carrying the interrupted turn's tool work forward.
-- Message batching: wait **0.2 s** of quiet before starting a turn.
+- Message batching: unchanged — the agent worker's 300 ms queue poll already folds messages that arrive together; no extra wait. (Push wake-up via Postgres LISTEN/NOTIFY is a separate, later task.)
 
 Reference implementation: `/home/kenknight/Workspace/NetClaw_1.1.0/hermes-agent` (`agent/conversation_loop.py`, `agent/tool_executor.py`, `agent/tool_dispatch_helpers.py`, `agent/iteration_budget.py`, `agent/prompt_caching.py`, `agent/transports/codex.py`, `agent/context_compressor.py`) and booking-agent (`src/booking_agent/runtime/*`, `dispatcher.py`).
 
@@ -20,7 +20,7 @@ Reference implementation: `/home/kenknight/Workspace/NetClaw_1.1.0/hermes-agent`
 
 ```
 Customer message → Dispatch (conversation module)
-                     wait 0.2 s quiet, claim the conversation, interrupt a running turn on a new message
+                     300 ms queue poll (unchanged), claim the conversation, interrupt a running turn on a new message
                    → Context (ai module)
                      fixed system prompt per bot + per-turn data in the last user message + history (compressed)
                    → Agent loop (ai module)
@@ -80,7 +80,7 @@ Execution (from Hermes `tool_executor` / `conversation_loop`):
 
 ## 7. Dispatch and delivery (conversation module)
 
-- **Batching:** a claimed customer event waits until 200 ms have passed without a newer customer message in the same conversation (constant `REPLY_QUIET_MS = 200`), then the turn starts with all pending customer messages.
+- **Batching:** unchanged. The worker polls the ingress queue every 300 ms (`apps/backend/src/entries/agent.ts`); customer messages already stored when a turn starts are answered together. No extra wait.
 - **Interrupt:** the turn's `shouldInterrupt()` = a newer customer message arrived in this conversation (or takeover/bot off). On interrupt, the processor re-runs immediately with all customer messages and the `carry` messages; at most 3 re-runs per burst, then the turn runs to completion.
 - **`send_message` delivery:** synchronous from the tool executor through the existing reserve → deliver → record path (idempotency key `bot:<event>:s<n>` / `:s<n>:img`); text → `splitReply` bubbles; images → album with the existing retry and fall-back-to-single-pictures logic; 800 ms between sends. A takeover stops further sends.
 - **Final text:** after the loop, the final answer text (if non-empty) is cut by `splitReply` (unchanged rules, ≤ 4 bubbles) and sent like today (keys `bot:<event>`, `:t2`…). Empty final text with ≥ 1 `send_message` is fine. Nothing sent at all → the fallback message.
@@ -104,7 +104,7 @@ In the playground (no channel), `send_message` calls are collected instead of de
 - **C3 Agent loop:** `runAgentLoop({ base, tools: {name, readOnly}[], generate, execute, shouldInterrupt?, carry?, maxRounds?, budgetMs?, onStep?, now? })` → `{ res, followUps, trusted, productIds, modelCalls, outcome: 'done'|'interrupted'|'limit'|'invalid_tools'|'budget', steps }`.
 - **C4 Output:** `send_message`/`handoff` executors receive a `MessageSink { send(msg: {text?, images[]}): Promise<{ delivered: number }> }` injected by the caller (Meta processor → deliver; playground → collect); `AiFacade.reply(ws, botId, input, { conversationId, isTest, sink?, shouldInterrupt?, carry? })`.
 - **C5 Compression:** `compressHistory(turns, { maxChars, keepLast, summarize, stored? })`; storage port `ConversationSummaryRepository { get(ws, conversationId); put(ws, conversationId, { coveredUntil, summary }) }`.
-- **C6 Dispatch:** `REPLY_QUIET_MS = 200`; interrupt re-run limit 3; `bot:<event>:s<n>` keys.
+- **C6 Dispatch:** no batching change; interrupt re-run limit 3; `bot:<event>:s<n>` keys.
 
 ## 10. Removed
 
@@ -112,7 +112,7 @@ JSON reply envelope and `responseFormat` on the reply path; `FinalReply`/`ModelR
 
 ## 11. Testing and acceptance
 
-- Unit tests per unit: name/argument repair, mixed batches and the 3-strike stop, parallel read-only vs sequential writes and result order, result cap, wrap-up notice at 80 %, per-call timeout, interrupt with carry, error classification and retry/backoff (fake timers), `Retry-After`, fallback model, prompt cache key per provider, compression thresholds and incremental summary, 200 ms batching, `send_message` delivery and idempotency keys, takeover stops sends.
+- Unit tests per unit: name/argument repair, mixed batches and the 3-strike stop, parallel read-only vs sequential writes and result order, result cap, wrap-up notice at 80 %, per-call timeout, interrupt with carry, error classification and retry/backoff (fake timers), `Retry-After`, fallback model, prompt cache key per provider, compression thresholds and incremental summary, `send_message` delivery and idempotency keys, takeover stops sends.
 - Bridge: Python tests for the v2 contract (fake transport), plus one live probe recorded in the PR.
 - Evals (`pnpm --filter @agent-sales/backend eval --live`, gpt-6.1-sol): the existing suite adapted to free text (checks on delivered messages, not an envelope) plus new cases: several products presented each with its own pictures; "ktra xong chưa" never answered with a promise to check; a customer message arriving mid-turn (interrupt) gets an answer covering both messages; a long conversation compresses and still remembers the phone number given early.
 - Acceptance QA: an agent drives the playground HTTP API through scripted TinyMind and Villas conversations and reports PASS/FAIL per scenario with transcripts. No Messenger sends.
