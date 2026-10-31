@@ -1,5 +1,7 @@
 export {
   CHANNEL_FACADE,
+  EVENT_MAX_WAIT_MS,
+  EVENT_QUIET_MS,
   MAX_EVENT_ATTEMPTS,
   type ChannelFacade,
   type OutboundInboxMessage,

@@ -9,13 +9,10 @@ import type {
   PendingMetaEvent,
 } from '../../application/ports/channel-store.js';
 import { ChannelError } from '../../domain/channel.errors.js';
-import { MAX_EVENT_ATTEMPTS } from '../../api/channel.facade.js';
+import { EVENT_MAX_WAIT_MS, EVENT_QUIET_MS, MAX_EVENT_ATTEMPTS } from '../../api/channel.facade.js';
 import { connection, flow } from './record-mappers.js';
 import { findDiscovery, selectDiscoveredAccounts } from './oauth-discovery.js';
 import { enqueueWebsiteEvent, findWebsiteRecord, hasPendingMessage } from './website.store.js';
-/** A customer's messages are answered together once they pause this long (or after the max wait). */
-export const EVENT_QUIET_MS = 700;
-export const EVENT_MAX_WAIT_MS = 4000;
 const c = schema.channelConnections,
   f = schema.channelOauthFlows,
   e = schema.channelWebhookEvents;

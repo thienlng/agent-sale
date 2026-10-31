@@ -11,6 +11,8 @@ export const EnvSchema = z
     LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error']).default('info'),
     DATABASE_URL: z.string().url().optional(),
     DATABASE_SYSTEM_URL: z.string().url().optional(),
+    /** Direct (non-PgBouncer) connection for LISTEN; defaults to DATABASE_SYSTEM_URL. */
+    DATABASE_LISTEN_URL: z.string().url().optional(),
     REDIS_URL: z.string().url().optional(),
     META_APP_ID: z.string().optional(),
     META_APP_SECRET: z.string().optional(),
