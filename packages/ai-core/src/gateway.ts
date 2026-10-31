@@ -64,6 +64,11 @@ export interface GenerateRequest {
   timeoutMs?: number;
   /** Aborts the call when signalled. */
   signal?: AbortSignal;
+  /**
+   * An empty answer (no text, no tool calls) is acceptable: the gateway returns it at once instead
+   * of retrying (e.g. the agent already sent its messages through a tool this turn).
+   */
+  allowEmpty?: boolean;
 }
 
 export { LlmCallError, type LlmErrorKind } from './llm-errors.js';
@@ -148,7 +153,7 @@ export class LlmGateway {
     } catch (error) {
       failure = error;
     }
-    if (primary && !isEmptyAnswer(primary)) {
+    if (primary && (request.allowEmpty || !isEmptyAnswer(primary))) {
       await this.hooks.record?.(request, primary);
       return primary;
     }
@@ -186,7 +191,7 @@ export class LlmGateway {
       let empty: GenerateResponse | undefined;
       try {
         const res = await this.#call(providerName, target, withRemaining(request, deadline));
-        if (!isEmptyAnswer(res)) return res;
+        if (request.allowEmpty || !isEmptyAnswer(res)) return res;
         empty = res;
       } catch (error) {
         failure = error;

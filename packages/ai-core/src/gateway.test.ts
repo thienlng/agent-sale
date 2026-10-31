@@ -219,6 +219,27 @@ describe('LlmGateway', () => {
       expect(backup.calls).toHaveLength(1);
     });
 
+    it('returns an empty answer at once, without retry or fallback, when allowEmpty is set', async () => {
+      const backup = new FakeLlmProvider('backup', () => ({ text: 'rescued' }));
+      const empty = new FakeLlmProvider('empty', () => ({ text: '' }));
+      const sleeps: number[] = [];
+      const gw = new LlmGateway(
+        [empty, backup],
+        tiers('empty', 'backup'),
+        {},
+        {
+          random: () => 0.5,
+          sleep: async (ms) => {
+            sleeps.push(ms);
+          },
+        },
+      );
+      expect((await gw.generate({ ...req, allowEmpty: true })).text).toBe('');
+      expect(empty.calls).toHaveLength(1);
+      expect(backup.calls).toHaveLength(0);
+      expect(sleeps).toEqual([]);
+    });
+
     it('treats timeoutMs as the total deadline across attempts and sleeps', async () => {
       vi.useFakeTimers();
       try {

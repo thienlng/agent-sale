@@ -20,6 +20,11 @@ export interface ReplyOptions {
   shouldInterrupt?: () => Promise<boolean>;
   /** Follow-ups of an interrupted turn. */
   carry?: ChatMessage[];
+  /**
+   * When each entry of `input.messages` was sent (same length and order). Lets the stored
+   * conversation summary be reused across turns; without it a long history is summarised per turn.
+   */
+  turnTimes?: readonly Date[];
 }
 
 /** What AiFacade.reply returns: the public DTO plus, on interrupt, the loop's follow-up messages to carry into the re-run. */

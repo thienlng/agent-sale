@@ -60,8 +60,8 @@ export const PlaygroundResponse = z.object({
   /** Why a reply was replaced, e.g. a number that is not in the sources. */
   guardrail: z.string().nullable(),
   sources: z.array(PlaygroundSource),
-  /** Pictures to send after the text (max 3); empty unless the customer asked to see one. */
-  images: z.array(BotReplyImage).max(3).default([]),
+  /** Every picture the bot sent this turn, in order (per message: see `messages`). */
+  images: z.array(BotReplyImage).max(30).default([]),
   usage: z.object({
     inputTokens: z.number().int(),
     outputTokens: z.number().int(),
