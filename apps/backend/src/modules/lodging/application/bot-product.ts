@@ -29,7 +29,26 @@ function coversWeek(rows: WeekdayRow[]): boolean {
   return days.length === 7 && new Set(days).size === 7 && days.every((d) => d >= 1 && d <= 7);
 }
 
-const lowest = (rows: WeekdayRow[]): number => Math.min(...rows.map((r) => r.amount));
+/** Per ISO weekday the sum of every room's price, equal amounts grouped into one row. */
+function summedRows(roomRows: WeekdayRow[][]): WeekdayRow[] {
+  const byAmount = new Map<number, number[]>();
+  for (let day = 1; day <= 7; day += 1) {
+    const amount = roomRows.reduce(
+      (sum, rows) => sum + (rows.find((r) => r.days.includes(day))?.amount ?? 0),
+      0,
+    );
+    byAmount.set(amount, [...(byAmount.get(amount) ?? []), day]);
+  }
+  return [...byAmount]
+    .map(([amount, days]) => ({ days, amount }))
+    .sort((a, b) => (a.days[0] ?? 0) - (b.days[0] ?? 0));
+}
+
+/** An override's label with its minimum stay, so the model can tell the customer. */
+const overrideLabel = (label: string, minNights: number | null): string =>
+  minNights && minNights > 1
+    ? [label.trim(), `(min ${minNights} nights)`].filter(Boolean).join(' ')
+    : label;
 
 /**
  * The bot view of one property as a `ProductDto` (`id` = property id) whose `accommodation` holds
@@ -52,8 +71,13 @@ export function toBotProduct(
   const priced = roomRows.filter((r) => coversWeek(r.rows));
 
   const wholeRows = weekdayRows(rates, null);
-  const cheapestRoom = [...priced].sort((a, b) => lowest(a.rows) - lowest(b.rows))[0];
-  const weekRates = coversWeek(wholeRows) ? wholeRows : (cheapestRoom?.rows ?? []);
+  // Without whole-place weekday rules, renting the whole place costs the sum of its active rooms
+  // per night (as `quoteStay` prices it); a room without a price hides the property.
+  const weekRates = coversWeek(wholeRows)
+    ? wholeRows
+    : rooms.length && priced.length === rooms.length
+      ? summedRows(priced.map((r) => r.rows))
+      : [];
   if (!coversWeek(weekRates)) return null;
 
   const amounts = [...weekRates, ...priced.flatMap((r) => r.rows)].map((r) => r.amount);
@@ -72,7 +96,7 @@ export function toBotProduct(
     .map((r) => ({
       dateFrom: r.dateFrom,
       dateTo: r.dateTo,
-      label: r.label,
+      label: overrideLabel(r.label, r.minNights),
       amount: r.sell,
       unitName: r.unitId === null ? null : (roomNames.get(r.unitId) ?? null),
     }));

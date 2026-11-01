@@ -132,7 +132,7 @@ describe('toBotProduct', () => {
       {
         dateFrom: '2026-12-31',
         dateTo: '2027-01-01',
-        label: 'Tết Dương lịch',
+        label: 'Tết Dương lịch (min 2 nights)',
         amount: 20_000_000,
         unitName: null,
       },
@@ -167,7 +167,7 @@ describe('toBotProduct', () => {
     expect(toBotProduct(property(), [wholeUnit()], partial, today)).toBeNull();
   });
 
-  it('maps a rooms property with its active rooms and the cheapest room rates', () => {
+  it('maps a rooms property with its active rooms and the whole place at the sum of the rooms', () => {
     const p = property({
       id: R01_ID,
       code: 'R01',
@@ -193,10 +193,10 @@ describe('toBotProduct', () => {
       { days: [1, 2, 3, 4, 5], amount: 900_000 },
       { days: [6, 7], amount: 1_000_000 },
     ]);
-    // No whole-property rule: the cheapest room's weekday rates.
+    // No whole-property rule: the whole place costs P1 + P2 per night (the inactive P3 is out).
     expect(acc.rates).toEqual([
-      { days: [1, 2, 3, 4, 5], amount: 900_000 },
-      { days: [6, 7], amount: 1_000_000 },
+      { days: [1, 2, 3, 4, 5], amount: 2_100_000 },
+      { days: [6, 7], amount: 2_200_000 },
     ]);
     expect(acc.overrides).toEqual([
       {
@@ -209,6 +209,32 @@ describe('toBotProduct', () => {
     ]);
     expect(dto.priceMin).toBe(900_000);
     expect(JSON.stringify(dto)).not.toMatch(/70000[123]/);
+  });
+
+  it('hides a rooms property without whole rules when an active room lacks a weekday price', () => {
+    const p = property({ id: R01_ID, code: 'R01', sellMode: 'rooms', layout: [] });
+    const units = [room(P1, 'P1', 0), room(P2, 'P2', 1)];
+    const rates = [
+      weekday(P1, [1, 2, 3, 4, 5, 6, 7], 1_200_000),
+      weekday(P2, [1, 2, 3, 4, 5], 900_000),
+    ];
+    expect(toBotProduct(p, units, rates, today)).toBeNull();
+    expect(toBotProduct(p, [], [], today)).toBeNull();
+  });
+
+  it('keeps the minimum stay of a date-range price in its label', () => {
+    const rates = [
+      ...a17Rates().filter((r) => r.kind === 'weekday'),
+      override(null, '2026-12-31', '2027-01-01', 20_000_000, 'Tết Dương lịch', 2),
+      override(null, '2027-02-10', '2027-02-12', 25_000_000, '', 3),
+      override(null, '2027-04-30', '2027-05-01', 18_000_000, 'Lễ', 1),
+    ];
+    const acc = toBotProduct(property(), [wholeUnit()], rates, today)!.accommodation!;
+    expect(acc.overrides?.map((o) => o.label)).toEqual([
+      'Tết Dương lịch (min 2 nights)',
+      '(min 3 nights)',
+      'Lễ',
+    ]);
   });
 
   it('prefers whole-property weekday rates of a rooms property', () => {

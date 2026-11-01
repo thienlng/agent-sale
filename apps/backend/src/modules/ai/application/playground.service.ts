@@ -242,9 +242,10 @@ export class PlaygroundService implements AiFacade {
         }
       : null;
     const output = newOutputState();
-    // Orders need a private conversation: never for a public comment reply.
+    // Orders need a private conversation: never for a public comment reply. Hotel bots sell
+    // lodging properties, which commerce orders cannot hold (T-160).
     const orders: OrderToolContext | null =
-      this.commerce && bot.orderTaking && !isCommentReply
+      this.commerce && bot.orderTaking && !isCommentReply && bot.industry !== 'hotel'
         ? {
             facade: this.commerce,
             ws,
