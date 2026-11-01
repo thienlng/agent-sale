@@ -159,13 +159,16 @@ export class MemoryIntegrationStore implements IntegrationStore {
   connectionsDueForReconcile: IntegrationStore['connectionsDueForReconcile'] = notModelled;
   connectionForSystem: IntegrationStore['connectionForSystem'] = notModelled;
 
-  connectionsPushingOrders: IntegrationStore['connectionsPushingOrders'] = () =>
+  connectionsForPushScan: IntegrationStore['connectionsForPushScan'] = () =>
     Promise.resolve(
       this.connections
-        .filter(
-          (c) => c.settings.pushOrders && (c.status === 'connected' || c.status === 'syncing'),
-        )
-        .map((c) => ({ workspaceId: c.workspaceId, connectionId: c.id, createdAt: c.createdAt })),
+        .filter((c) => c.status === 'connected' || c.status === 'syncing')
+        .map((c) => ({
+          workspaceId: c.workspaceId,
+          connectionId: c.id,
+          createdAt: c.createdAt,
+          pushOrders: c.settings.pushOrders,
+        })),
     );
 }
 

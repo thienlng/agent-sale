@@ -157,9 +157,12 @@ export interface IntegrationStore {
   connectionsDueForReconcile(
     olderThan: Date,
   ): Promise<Array<{ workspaceId: WorkspaceId; connectionId: string }>>;
-  /** Connections that push orders: `settings.pushOrders` on, status `connected` or `syncing`. */
-  connectionsPushingOrders(): Promise<
-    Array<{ workspaceId: WorkspaceId; connectionId: string; createdAt: Date }>
+  /**
+   * Connections the push scan looks at: status `connected` or `syncing`, with `pushOrders` from
+   * their settings (those with it on push; the others only have stale claims released).
+   */
+  connectionsForPushScan(): Promise<
+    Array<{ workspaceId: WorkspaceId; connectionId: string; createdAt: Date; pushOrders: boolean }>
   >;
   connectionForSystem(id: string): Promise<ConnectionRecord | null>;
 }

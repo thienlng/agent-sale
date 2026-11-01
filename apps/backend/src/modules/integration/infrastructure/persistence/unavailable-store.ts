@@ -25,6 +25,6 @@ export class UnavailableIntegrationStore implements IntegrationStore {
   failJob = unavailable;
   claimWebhookEvents = unavailable;
   connectionsDueForReconcile = unavailable;
-  connectionsPushingOrders = unavailable;
+  connectionsForPushScan = unavailable;
   connectionForSystem = unavailable;
 }

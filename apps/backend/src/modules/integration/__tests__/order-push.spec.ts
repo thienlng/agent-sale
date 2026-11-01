@@ -13,7 +13,7 @@ import {
 } from '../../commerce/api/index.js';
 import { CatalogImport } from '../application/catalog-import.js';
 import { CatalogWriter } from '../application/catalog-writer.js';
-import { OrderPusher } from '../application/order-push.js';
+import { OrderPusher, STALE_PENDING_MS } from '../application/order-push.js';
 import type { ConnectionRecord, JobRecord } from '../application/ports/integration-store.js';
 import { SyncService } from '../application/sync.service.js';
 import { SyncRunner } from '../application/sync-runner.js';
@@ -116,15 +116,20 @@ class MemoryOrders implements OrderPushFacade {
     },
   );
 
-  requeueOrderPush = vi.fn(async (_ws: unknown, id: string) => {
+  /** Order creation times (default: after any connection), for the `since` check. */
+  createdAt = new Map<string, Date>();
+
+  requeueOrderPush = vi.fn(async (_ws: unknown, id: string, since: Date) => {
     const o = this.orders.get(id)!;
     if (o.state !== 'failed') throw new Error('not failed');
+    if ((this.createdAt.get(id) ?? new Date()) < since) return 'before_since' as const;
     Object.assign(o, { state: null, error: null });
+    return 'requeued' as const;
   });
 
   stalePendingOrders = vi.fn(async () => [...this.stale]);
 
-  releasePendingPushes = vi.fn(async () => 0);
+  releasePendingPushes = vi.fn(async (_ws: unknown, _s: unknown, _olderThan?: Date) => 0);
 
   applyExternalOrderStatus = vi.fn(
     async (
@@ -221,13 +226,14 @@ let orders: MemoryOrders;
 let sync: SyncService;
 let pusher: OrderPusher;
 let webhooks: WebhookApplier;
+let catalog: CatalogSyncFacade;
 
 beforeEach(() => {
   vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
   store = new JobStore();
   gateway = new FakeKiotVietGateway();
   orders = new MemoryOrders();
-  const catalog = {
+  catalog = {
     setExternalStock: vi.fn(async () => 0),
     removeExternalProducts: vi.fn(async () => 0),
     releaseExternalSource: vi.fn(async () => 0),
@@ -236,7 +242,7 @@ beforeEach(() => {
     archiveUnlinkedVariants: vi.fn(async () => 0),
   } as unknown as CatalogSyncFacade;
   const writer = new CatalogWriter(store, gateway, catalog);
-  pusher = new OrderPusher(store, gateway, orders);
+  pusher = new OrderPusher(store, gateway, orders, catalog);
   sync = new SyncService(
     store,
     new CatalogImport(store, gateway, catalog, writer),
@@ -274,6 +280,62 @@ describe('push_order job', () => {
     ]);
     expect(conn().counts).toEqual({ products: 12, ordersPushed: 1 });
     expect(store.completed).toEqual([j.id]);
+  });
+
+  describe('stock right after the push', () => {
+    // KiotViet product 501 (the line's variant): 10 on hand in branch 3, 1 already reserved; 4 in
+    // branch 1 (a sale branch too) and 50 in branch 9 (not a sale branch).
+    beforeEach(() => {
+      gateway.productsById = [
+        {
+          id: 501,
+          code: 'AO-S',
+          name: 'Áo',
+          inventories: [
+            { branchId: 3, onHand: 10, reserved: 1 },
+            { branchId: 1, onHand: 4, reserved: 0 },
+            { branchId: 9, onHand: 50, reserved: 0 },
+          ],
+        },
+      ];
+    });
+
+    it("sets the lines' stock to KiotViet's available, its new reservation included", async () => {
+      orders.add(ORDER, { state: 'pending' });
+      const j = pushJob();
+      await sync.runJob(j);
+
+      // 10 − (1 + 2 for this order) + 4: the hold Rapiz released is now KiotViet's reservation.
+      expect(catalog.setExternalStock).toHaveBeenCalledWith(ws, 'kiotviet', [
+        { externalVariantId: '501', available: 11 },
+      ]);
+      expect(store.completed).toEqual([j.id]);
+    });
+
+    it('also after adopting the order an earlier attempt stored', async () => {
+      orders.add(ORDER, { state: 'pending' });
+      gateway.lostCreates = [new KiotVietUnavailableError()];
+      await sync.runJob(pushJob());
+      expect(catalog.setExternalStock).not.toHaveBeenCalled();
+
+      await sync.runJob(pushJob({ cursor: { ambiguous: true, branchId: 3 }, attempts: 1 }));
+      expect(order().state).toBe('pushed');
+      expect(catalog.setExternalStock).toHaveBeenCalledWith(ws, 'kiotviet', [
+        { externalVariantId: '501', available: 11 },
+      ]);
+    });
+
+    it('a failed refresh only logs: the order stays pushed and the job completes', async () => {
+      orders.add(ORDER, { state: 'pending' });
+      gateway.fail.productById = new KiotVietUnavailableError();
+      const j = pushJob();
+      await sync.runJob(j);
+
+      expect(order().state).toBe('pushed');
+      expect(catalog.setExternalStock).not.toHaveBeenCalled();
+      expect(store.retried).toEqual([]);
+      expect(store.completed).toEqual([j.id]);
+    });
   });
 
   it('completes without work when the order is no longer pending', async () => {
@@ -456,6 +518,38 @@ describe('push scan', () => {
   });
 });
 
+describe('push scan with push off', () => {
+  it('releases stale claims of a connected connection with push off, and queues nothing', async () => {
+    conn().settings.pushOrders = false;
+    orders.add(ORDER, { state: 'pending' });
+    orders.stale = [ORDER];
+    const before = Date.now();
+    await pusher.scan();
+
+    expect(orders.claimOrdersForPush).not.toHaveBeenCalled();
+    expect(orders.stalePendingOrders).not.toHaveBeenCalled();
+    expect(store.jobs.filter((j) => j.kind === 'push_order')).toEqual([]);
+    expect(orders.releasePendingPushes).toHaveBeenCalledWith(ws, 'kiotviet', expect.any(Date));
+    const olderThan = orders.releasePendingPushes.mock.calls[0]![2]!;
+    expect(before - olderThan.getTime()).toBeGreaterThanOrEqual(STALE_PENDING_MS - 50);
+    expect(before - olderThan.getTime()).toBeLessThanOrEqual(STALE_PENDING_MS + 50);
+  });
+
+  it('leaves the claims of a pushing connection to the re-queue', async () => {
+    orders.add(ORDER, { state: 'pending' });
+    await pusher.scan();
+    expect(orders.releasePendingPushes).not.toHaveBeenCalled();
+    expect(orders.stalePendingOrders).toHaveBeenCalled();
+  });
+
+  it('touches nothing of a connection in error', async () => {
+    conn().settings.pushOrders = false;
+    conn().status = 'error';
+    await pusher.scan();
+    expect(orders.releasePendingPushes).not.toHaveBeenCalled();
+  });
+});
+
 describe('order.update webhook', () => {
   const deliver = async (body: object) => {
     const raw = JSON.stringify(body);
@@ -552,6 +646,44 @@ describe('reconcile', () => {
   });
 });
 
+describe('"Thử lại"', () => {
+  const failedOrder = () => orders.add(ORDER, { state: 'failed', error: { code: 'x' } });
+
+  it('requeues a failed push of an order created since the connection', async () => {
+    failedOrder();
+    await pusher.retry(ws, ORDER);
+    expect(order().state).toBeNull();
+    expect(orders.requeueOrderPush).toHaveBeenCalledWith(ws, ORDER, conn().createdAt);
+  });
+
+  it.each([
+    ['no live connection', () => (conn().status = 'disconnected')],
+    ['push off', () => (conn().settings.pushOrders = false)],
+    ['a connection in error', () => (conn().status = 'error')],
+    [
+      'a connect that failed',
+      () => (conn().lastError = { code: 'connect_failed', at: new Date().toISOString() }),
+    ],
+  ])('answers 409 not_pushing with %s, leaving the order failed', async (_name, arrange) => {
+    failedOrder();
+    arrange();
+    await expect(pusher.retry(ws, ORDER)).rejects.toMatchObject({
+      code: 'CONFLICT',
+      details: { reason: 'not_pushing' },
+    });
+    expect(order().state).toBe('failed');
+  });
+
+  it('answers 409 not_pushing for an order created before the connection', async () => {
+    failedOrder();
+    orders.createdAt.set(ORDER, new Date('2026-09-01T00:00:00.000Z'));
+    await expect(pusher.retry(ws, ORDER)).rejects.toMatchObject({
+      details: { reason: 'not_pushing' },
+    });
+    expect(order().state).toBe('failed');
+  });
+});
+
 describe('push retries across jobs', () => {
   const createCalls = () => gateway.calls.filter((c) => c.method === 'createOrder');
 
@@ -566,7 +698,7 @@ describe('push retries across jobs', () => {
     expect(order()).toMatchObject({ state: 'failed', error: { code: 'kiotviet_unavailable' } });
     conn().settings.orderBranchId = 1;
 
-    await orders.requeueOrderPush(ws, ORDER);
+    await pusher.retry(ws, ORDER);
     await pusher.scan();
     const again = store.jobs.at(-1)!;
     expect(again.id).not.toBe(first.id);

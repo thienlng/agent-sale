@@ -374,13 +374,20 @@ describe('order push facade on Postgres', () => {
     });
     expect((await order(id)).stockState).toBe('reserved');
 
-    await push().requeueOrderPush(ws, id);
+    // Created before the current connection: no scan would claim it, so it stays failed.
+    expect(await push().requeueOrderPush(ws, id, new Date(Date.now() + 60_000))).toBe(
+      'before_since',
+    );
+    expect((await order(id)).external?.state).toBe('failed');
+    expect(await push().requeueOrderPush(ws, id, since)).toBe('requeued');
     expect((await order(id)).external).toBeNull();
-    await expect(push().requeueOrderPush(ws, id)).rejects.toMatchObject({ code: 'CONFLICT' });
-    await expect(push().requeueOrderPush(ws, ids['staff']!)).rejects.toMatchObject({
+    await expect(push().requeueOrderPush(ws, id, since)).rejects.toMatchObject({
       code: 'CONFLICT',
     });
-    await expect(push().requeueOrderPush(ws, newId())).rejects.toMatchObject({
+    await expect(push().requeueOrderPush(ws, ids['staff']!, since)).rejects.toMatchObject({
+      code: 'CONFLICT',
+    });
+    await expect(push().requeueOrderPush(ws, newId(), since)).rejects.toMatchObject({
       code: 'NOT_FOUND',
     });
     // Only a pending push can fail: a requeued (null) or failed one is left as it is.
@@ -465,6 +472,9 @@ describe('order push facade on Postgres', () => {
       ),
     ).toEqual([]);
 
+    // With `olderThan` (the runner's sweep while push is off) only older claims go back.
+    await push().releasePendingPushes(ws, 'kiotviet', new Date(Date.now() - 60_000));
+    expect((await order(id)).external?.state).toBe('pending');
     expect(await push().releasePendingPushes(ws, 'kiotviet')).toBeGreaterThanOrEqual(1);
     expect((await order(id)).external).toBeNull();
     expect(

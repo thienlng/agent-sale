@@ -35,6 +35,11 @@ export class FakeKiotVietGateway implements KiotVietGateway {
   orders: FakeGatewayOrder[] = [];
   /** Errors the next `createOrder` calls throw *after* storing the order (an answer lost on the way back). */
   lostCreates: Error[] = [];
+  /**
+   * What `productById` answers. `createOrder` adds each line's quantity to the product's `reserved`
+   * in the order branch, as KiotViet reserves an order's goods.
+   */
+  productsById: KvProduct[] = [];
   /** What `productCount` answers; defaults to the number of codes. */
   total: number | null | undefined = undefined;
   private nextWebhookId = 100;
@@ -74,8 +79,10 @@ export class FakeKiotVietGateway implements KiotVietGateway {
     return Promise.resolve({ data: [], total: 0, removedIds: [] });
   }
 
-  productById(_c: KvCredentials, _id: number): Promise<KvProduct | null> {
-    return Promise.resolve(null);
+  productById(_c: KvCredentials, id: number): Promise<KvProduct | null> {
+    if (this.fail.productById) return Promise.reject(this.fail.productById);
+    const found = this.productsById.find((p) => p.id === id);
+    return Promise.resolve(found ? structuredClone(found) : null);
   }
 
   onHands(_c: KvCredentials, _q: unknown): Promise<KvPage<KvOnHand>> {
@@ -128,6 +135,12 @@ export class FakeKiotVietGateway implements KiotVietGateway {
       body: structuredClone(body),
     };
     this.orders.push(order);
+    for (const line of body.orderDetails) {
+      const inv = this.productsById
+        .find((p) => p.id === line.productId)
+        ?.inventories?.find((i) => i.branchId === body.branchId);
+      if (inv) inv.reserved += line.quantity;
+    }
     const lost = this.lostCreates.shift();
     if (lost) return Promise.reject(lost);
     return Promise.resolve({ id, code: order.code, status: order.status });

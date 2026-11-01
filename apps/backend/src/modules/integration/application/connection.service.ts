@@ -213,6 +213,11 @@ export class ConnectionService {
         } satisfies SyncLogParams['webhook_register_failed'],
       });
     }
+    if (current.settings.pushOrders && req.settings && !req.settings.pushOrders) {
+      // Push turned off: claimed orders no scan will push go back to unclaimed (not "Đang đẩy"
+      // forever, lines locked); turning push on again claims them anew.
+      await this.orders.releasePendingPushes(ws, PROVIDER);
+    }
     if (salesChanged) {
       const queued = await this.store.enqueue(ws, {
         connectionId: current.id,

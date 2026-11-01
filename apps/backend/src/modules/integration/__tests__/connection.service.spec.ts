@@ -318,6 +318,23 @@ describe('ConnectionService', () => {
       expect(store.jobs.filter((j) => j.open)).toEqual([]);
     });
 
+    it('releases the pending push claims when push is turned off, not otherwise', async () => {
+      const dto = await connect();
+      const on = await service.update(ws, {
+        version: dto.version,
+        settings: { ...settings, pushOrders: true },
+      });
+      const again = await service.update(ws, {
+        version: on.version,
+        settings: { ...settings, pushOrders: true, orderBranchId: 2 },
+      });
+      expect(pushOrders.releasePendingPushes).not.toHaveBeenCalled();
+
+      await service.update(ws, { version: again.version, settings });
+      expect(pushOrders.releasePendingPushes).toHaveBeenCalledTimes(1);
+      expect(pushOrders.releasePendingPushes).toHaveBeenCalledWith(ws, 'kiotviet');
+    });
+
     it('ensures the webhook set on a settings save: order.update follows pushOrders', async () => {
       const dto = await connect();
       const on = await service.update(ws, {

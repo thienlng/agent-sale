@@ -239,7 +239,7 @@ beforeEach(() => {
   catalog = new MemoryCatalog();
   const facade = catalog as unknown as CatalogSyncFacade;
   const writer = new CatalogWriter(store, gateway, facade);
-  pusher = new OrderPusher(store, gateway, noOrders);
+  pusher = new OrderPusher(store, gateway, noOrders, facade);
   sync = new SyncService(
     store,
     new CatalogImport(store, gateway, facade, writer),

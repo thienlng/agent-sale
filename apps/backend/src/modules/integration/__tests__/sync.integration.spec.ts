@@ -347,6 +347,15 @@ describe('KiotViet sync on the worker', () => {
       stockState: 'external',
       external: { state: 'pushed', code: kv.state.orders[0]!.code, status: 'draft' },
     });
+    // KiotViet reserved the 2 units (42 on hand, 2 + 2 reserved): Rapiz shows that at once, not
+    // only after a stock.update delivery or the next reconcile.
+    const kvStock = kv.state.products.find((p) => p.id === 1001)!['inventories'] as Array<{
+      branchId: number;
+      onHand: number;
+      reserved: number;
+    }>;
+    expect(kvStock).toEqual([{ branchId: 1, onHand: 42, reserved: 4 }]);
+    expect(await onHand('1001')).toBe(38);
     const kvBody = kv.state.orders[0]!.body as { description: string; branchId: number };
     expect(kvBody.description.startsWith(`Rapiz ${order.code}`)).toBe(true);
     expect(kvBody.branchId).toBe(1);

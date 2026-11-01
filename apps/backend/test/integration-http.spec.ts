@@ -120,13 +120,39 @@ const orders = {
   requeueOrderPush: async (_ws: unknown, orderId: string) => {
     if (orderId !== FAILED_ORDER) throw new PushNotFailedError();
     requeued.push(orderId);
+    return 'requeued';
   },
   releasePendingPushes: async () => 0,
 };
 
 describe('HTTP: KiotViet order push retry', () => {
+  /** A live connection that pushes orders (connected, push on). */
+  const pushing = async (call: Awaited<ReturnType<typeof setup>>['call']) => {
+    const connected = await call('POST', '/kiotviet', {
+      ...creds,
+      settings: { ...settings, pushOrders: true },
+    });
+    expect(connected.statusCode, connected.body).toBe(201);
+  };
+
+  it('answers 409 not_pushing when no connection pushes orders', async () => {
+    const { call, store } = await setup();
+    const none = await call('POST', `/kiotviet/orders/${FAILED_ORDER}/push`);
+    expect(none.statusCode).toBe(409);
+    expect(none.json()).toMatchObject({
+      error: { code: 'CONFLICT', details: { reason: 'not_pushing' } },
+    });
+
+    await pushing(call);
+    store.connections[0]!.settings.pushOrders = false;
+    const off = await call('POST', `/kiotviet/orders/${FAILED_ORDER}/push`);
+    expect(off.json()).toMatchObject({ error: { details: { reason: 'not_pushing' } } });
+    expect(requeued).toEqual([]);
+  });
+
   it('requeues a failed push with 202 and refuses any other with 409', async () => {
     const { call } = await setup();
+    await pushing(call);
     const ok = await call('POST', `/kiotviet/orders/${FAILED_ORDER}/push`);
     expect(ok.statusCode, ok.body).toBe(202);
     expect(requeued).toEqual([FAILED_ORDER]);
@@ -145,6 +171,7 @@ describe('HTTP: KiotViet order push retry', () => {
 
   it('refuses a member without orders.manage with 403', async () => {
     const { call } = await setup();
+    await pushing(call);
     const workspaces = app?.get<WorkspaceFacade>(WORKSPACE_FACADE, { strict: false });
     const real = workspaces?.findMembership.bind(workspaces);
     const spy = vi

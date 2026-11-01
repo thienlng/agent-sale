@@ -257,7 +257,7 @@ export async function startFakeKiotViet(
     const b = (req.body ?? {}) as {
       branchId?: number;
       description?: string;
-      orderDetails?: unknown[];
+      orderDetails?: Array<{ productId?: number; quantity?: number }>;
     };
     if (!b.branchId || !b.orderDetails?.length) {
       return reply.code(400).send({ responseStatus: { errorCode: 'Validation' } });
@@ -273,6 +273,17 @@ export async function startFakeKiotViet(
       body: req.body,
     };
     state.orders.push(order);
+    // KiotViet reserves the order's goods in its branch (product and on-hand views alike).
+    for (const line of b.orderDetails) {
+      const views = [
+        state.products.find((p) => p.id === line.productId)?.['inventories'],
+        state.onHands.find((r) => r.productId === line.productId)?.inventories,
+      ] as Array<FakeKvOnHand['inventories'] | undefined>;
+      for (const inventories of views) {
+        const inv = inventories?.find((i) => i.branchId === b.branchId);
+        if (inv) inv.reserved += line.quantity ?? 0;
+      }
+    }
     const lost = state.orderCreateFailures.shift();
     if (lost) return reply.code(lost).send({ responseStatus: { errorCode: 'Fake' } });
     return { id: order.id, code: order.code, status: order.status, branchId: order.branchId };

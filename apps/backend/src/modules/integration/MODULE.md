@@ -23,8 +23,10 @@ a 503 `UNAVAILABLE` stand-in when the process has no database).
   `POST|PATCH|DELETE /integrations/kiotviet`, `POST /integrations/kiotviet/sync`, `GET /integrations/kiotviet/log`
   (`interface/http/integration.controller.ts` → `application/connection.service.ts`). GETs need
   `catalog.manage`, writes `settings.manage`. `POST /integrations/kiotviet/orders/{orderId}/push` ("Thử lại",
-  `orders.manage`, 202; 409 `PUSH_NOT_FAILED` unless the push failed) → `OrderPusher.retry` →
-  `requeueOrderPush`.
+  `orders.manage`, 202; 409 `PUSH_NOT_FAILED` unless the push failed; 409 `not_pushing` when the
+  workspace has no live connection pushing orders — none, `pushOrders` off, status not
+  `connected|syncing`, or a failed connect — or the order was created before the connection) →
+  `OrderPusher.retry` → `requeueOrderPush(ws, orderId, connection.createdAt)`.
 - Webhook ingress: `apps/webhook` (`POST /webhooks/kiotviet/:token`) only inserts raw deliveries into
   `integration_webhook_events`; everything else (signature, parsing, writes) happens in this module's runner.
 - Events: none yet.
@@ -115,12 +117,14 @@ a 503 `UNAVAILABLE` stand-in when the process has no database).
   +1/+5/+30 min (by `attempts` = failures so far), then fails with `error` status and `kiotviet_unavailable` or `sync_failed`. A `false` from
   any fenced job write stops the job at once.
 - Order push (spec §7, `application/order-push.ts`, `domain/kiotviet-order.ts`): every 15 s the tick
-  claims up to 20 orders per connection with `pushOrders` on and status `connected|syncing`
+  reads the `connected|syncing` connections (`connectionsForPushScan`). One with `pushOrders` off only
+  releases its pending claims older than 2 min (`releasePendingPushes(ws, 'kiotviet', olderThan)`). For one
+  with push on it claims up to 20 orders
   (`claimOrdersForPush(ws, 'kiotviet', connection.createdAt, 20)`), adds pending orders whose claim is more
   than 2 min old and created since the connection (`stalePendingOrders`: a crash between claim and enqueue;
   orders of an earlier connection never come back), and enqueues one `push_order` job per order unless its
   newest job is still open (`latestPushJob`), with `payload { orderId, firstAttemptAt }`. At most one open push
-  job per order is enforced by the unique index `integration_jobs_one_push_per_order` (migration 0043):
+  job per order is enforced by the unique index `integration_jobs_one_push_per_order` on `(workspace_id, payload ->> 'orderId')` (migration 0050):
   `enqueue` answers `false` on that conflict, so two workers scanning at once never queue a second job, and
   `integration_jobs_push_order_idx` serves the per-order lookup.
   When that newest job's cursor or payload says `ambiguous` (a "Thử lại" after a possibly delivered create),
@@ -133,7 +137,11 @@ a 503 `UNAVAILABLE` stand-in when the process has no database).
   and adopts the one whose description carries the code as a whole token (`carriesRapizCode`). Then
   `markOrderPushed` (status via `orderStatusOf`, `KV_ORDER_STATUS`), log `order_pushed {code}` (or
   `order_pushed_cancelled {code}` when Rapiz cancelled or deleted it meanwhile), `counts.ordersPushed =
-pushedOrderCount`. `KiotVietRejectedError` → `kiotviet_rejected`, `OrderAlreadyPushedError` → log
+pushedOrderCount`, then the stock refresh: `markOrderPushed` released the Rapiz hold, so the job re-reads
+  each distinct line product (`productById`) and calls `setExternalStock` with
+  `availableBySaleBranches(inventories, saleBranchIds)`, which now counts the order in KiotViet's
+  `reserved` (no window in which the units are sellable twice; a failure only logs, the reconcile
+  repairs). `KiotVietRejectedError` → `kiotviet_rejected`, `OrderAlreadyPushedError` → log
   `order_push_duplicate {code}` (staff cancel the extra KiotViet order), `OrderExternalLinkConflictError` → `kiotviet_link_conflict`:
   all complete without a retry. Other errors take the shared job path (`PushAttemptError` carries the order
   code): auth → connection `error` + order `auth_failed`; others retry +1/+5/+30 min, then the order fails
@@ -142,7 +150,8 @@ pushedOrderCount`. `KiotVietRejectedError` → `kiotviet_rejected`, `OrderAlread
   `order_push_failed {code, reason}` (warning). Each reconcile with push on pages `GET /orders` of the order
   branch since the previous `lastReconcileAt` (else `createdAt`) − 2 min (≤ 20 pages) and applies every
   status (`reconcileStatuses`), repairing lost `order.update` deliveries; best effort. `disconnect` calls
-  `releasePendingPushes` after the status write, so claimed orders go back to unclaimed. A full import or reconcile writes `counts` from the latest
+  `releasePendingPushes` after the status write, so claimed orders go back to unclaimed; a settings save
+  that turns `pushOrders` off does the same. A full import or reconcile writes `counts` from the latest
   connection, so it never undoes `ordersPushed`.
 - Webhook deliveries: signature = HMAC-SHA256 keyed by the registered secret text (`webhookSigningKey`, one
   line to change); bad → dropped, `webhook_bad_signature` logged once per connection per process (the

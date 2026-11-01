@@ -420,7 +420,7 @@ describe('integration store on Postgres', () => {
     expect(ids).not.toContain(gone.c.id);
   });
 
-  it('lists connections that push orders: push on, connected or syncing', async () => {
+  it('lists connections for the push scan: connected or syncing, with pushOrders', async () => {
     const on = { saleBranchIds: [1], orderBranchId: 1, pushOrders: true, syncCustomers: false };
     const make = async (over: Partial<ConnectionRecord>) => {
       const ws = await workspace();
@@ -432,16 +432,17 @@ describe('integration store on Postgres', () => {
     const syncing = await make({ settings: on, status: 'syncing' });
     const off = await make({});
     const errored = await make({ settings: on, status: 'error' });
-    const rows = await store.connectionsPushingOrders();
+    const rows = await store.connectionsForPushScan();
     const ids = rows.map((r) => r.connectionId);
-    expect(ids).toEqual(expect.arrayContaining([pushing.id, syncing.id]));
-    expect(ids).not.toContain(off.id);
+    expect(ids).toEqual(expect.arrayContaining([pushing.id, syncing.id, off.id]));
     expect(ids).not.toContain(errored.id);
     expect(rows.find((r) => r.connectionId === pushing.id)).toEqual({
       workspaceId: pushing.workspaceId,
       connectionId: pushing.id,
       createdAt: pushing.createdAt,
+      pushOrders: true,
     });
+    expect(rows.find((r) => r.connectionId === off.id)?.pushOrders).toBe(false);
   });
 
   it('claims push_order jobs, any number per connection', async () => {
@@ -512,5 +513,16 @@ describe('integration store on Postgres', () => {
       }),
     ).toBe(true);
     expect(await store.latestPushJob(await workspace(), orderId)).toBeNull();
+
+    // The index is per workspace: another workspace's open job for the same order id never makes
+    // this one "already queued" (no cross-tenant interference).
+    const other = await connected();
+    expect(
+      await store.enqueue(other.ws, {
+        connectionId: other.c.id,
+        kind: 'push_order',
+        payload: { orderId: again },
+      }),
+    ).toBe(true);
   });
 });

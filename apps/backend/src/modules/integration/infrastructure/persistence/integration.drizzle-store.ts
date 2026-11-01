@@ -401,22 +401,23 @@ export class DrizzleIntegrationStore implements IntegrationStore {
     );
   }
 
-  connectionsPushingOrders() {
+  connectionsForPushScan() {
     return withSystem(this.system, async (tx) =>
       (
         await tx
-          .select({ workspaceId: c.workspaceId, connectionId: c.id, createdAt: c.createdAt })
+          .select({
+            workspaceId: c.workspaceId,
+            connectionId: c.id,
+            createdAt: c.createdAt,
+            pushOrders: sql<boolean>`coalesce((${c.settings} ->> 'pushOrders')::boolean, false)`,
+          })
           .from(c)
-          .where(
-            and(
-              sql`${c.status} in ('connected','syncing')`,
-              sql`(${c.settings} ->> 'pushOrders')::boolean is true`,
-            ),
-          )
+          .where(sql`${c.status} in ('connected','syncing')`)
       ).map((r) => ({
         workspaceId: r.workspaceId as WorkspaceId,
         connectionId: r.connectionId,
         createdAt: r.createdAt,
+        pushOrders: r.pushOrders === true,
       })),
     );
   }

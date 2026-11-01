@@ -83,13 +83,17 @@ KiotViet ──webhook──▶ apps/webhook  POST /webhooks/kiotviet/:token ─
   Retries: +1, +5, +30 min, then the order shows "Lỗi" with **Thử lại**
   (`POST /integrations/kiotviet/orders/{orderId}/push`, `orders.manage`). An order with a product not
   linked to KiotViet, or one KiotViet refuses (4xx), fails at once. Once pushed, KiotViet owns the order's
-  stock (`stock_state = 'external'`, the Rapiz hold is released).
+  stock (`stock_state = 'external'`, the Rapiz hold is released) and the job re-reads the lines' KiotViet
+  products (`GET /products/{id}`) and sets their Rapiz stock to KiotViet's available over the sale
+  branches, which now counts the order as `reserved`: the units are never sellable twice in between (best
+  effort; a failure only logs, the next reconcile repairs it).
 - **Order status**: the `order.update` webhook (registered while push is on; each settings save and each
   reconcile add or remove it) re-reads the order from KiotViet and stores its status; a KiotViet
   cancellation cancels the Rapiz order. Each reconcile also re-reads the order branch's orders changed since
   the previous one, so a lost delivery is repaired within 10 minutes. **Thử lại** after an attempt whose
   answer was lost looks for the KiotViet order first, too. A pending order whose job was lost is queued again
-  after 2 minutes; disconnecting returns orders still waiting to "not pushed".
+  after 2 minutes; disconnecting, or turning push off, returns orders still waiting to "not pushed" (while
+  push is off the worker also returns any claim older than 2 minutes).
 
 ## Order push on the orders pages
 
@@ -103,9 +107,13 @@ Each order carries `external` (`OrderSummaryDto` / `OrderDto`): `null` when it w
 | `failed` | "Lỗi" (the reason on hover/focus) and **Thử lại** | "Lỗi", the reason and **Thử lại** |
 
 - The "KiotViet" column is always on (not in the column picker) but left out when no order on the page has
-  been pushed, so a workspace without KiotViet never sees it. The CSV export carries the chip text.
+  been pushed, so a workspace without KiotViet never sees it. The CSV export carries the chip text; it has
+  the column when any exported order was pushed (whatever page is on screen).
 - **Thử lại** shows only with `orders.manage`. It calls `POST /integrations/kiotviet/orders/{orderId}/push`
-  (202; 409 when the push is no longer failed, which the page explains and reloads). The hook lives in
+  (202; 409 `PUSH_NOT_FAILED` when the push is no longer failed, which the page explains and reloads; 409
+  `not_pushing` when no connection pushes orders — none, push off, not connected — or the order was created
+  before the current connection: "KiotViet chưa bật đẩy đơn hoặc đơn được tạo trước khi kết nối"). After a
+  202 the orders are read again after 3 s and 15 s, so the list shows the new state without a reload. The hook lives in
   `apps/web/src/features/integration/api/integrations.ts` (`useRetryOrderPush`); the orders routes pass it
   to the commerce components, since web features do not import each other.
 - While a push is pending, the list and the order page re-read every 3 s until it is pushed or failed.
@@ -193,4 +201,6 @@ status numbers (`KV_ORDER_STATUS = { draft: 1, delivering: 2, completed: 3, canc
 not in the guide), the `customer` and `orderDelivery` field names (`KV_ORDER_CUSTOMER_FIELD`,
 `KV_ORDER_DELIVERY_FIELD`), whether `orderDelivery.price` adds to the order total (the surcharge is folded
 into it), whether `orderDetails[].discount` is per unit, the `GET /orders` filters (`branchIds`,
-`lastModifiedFrom`) and the `order.update` delivery's id field (`ID_KEYS` in `webhook-apply.ts`).
+`lastModifiedFrom`) and the `order.update` delivery's id field (`ID_KEYS` in `webhook-apply.ts`), and
+whether creating an order emits `stock.update` (its `reserved` changes; the push re-reads the lines'
+products right after `POST /orders` either way, so this only tells whether that read is redundant).

@@ -119,12 +119,18 @@ export class OrderPushService implements OrderPushFacade {
     });
   }
 
-  requeueOrderPush(ws: WorkspaceId, orderId: string): Promise<void> {
+  requeueOrderPush(
+    ws: WorkspaceId,
+    orderId: string,
+    since: Date,
+  ): Promise<'requeued' | 'before_since'> {
     return this.store.run(ws, async (tx) => {
       const o = await this.#locked(tx, orderId);
       const state = o.external?.state ?? null;
       if (state !== 'failed') throw new OrderPushNotFailedError(state);
+      if (o.createdAt < since) return 'before_since';
       await tx.orderPush.set(o.id, { state: null, source: null, error: null });
+      return 'requeued';
     });
   }
 
@@ -163,8 +169,8 @@ export class OrderPushService implements OrderPushFacade {
     });
   }
 
-  releasePendingPushes(ws: WorkspaceId, source: ExternalSource): Promise<number> {
-    return this.store.run(ws, (tx) => tx.orderPush.releasePending(source));
+  releasePendingPushes(ws: WorkspaceId, source: ExternalSource, olderThan?: Date): Promise<number> {
+    return this.store.run(ws, (tx) => tx.orderPush.releasePending(source, olderThan));
   }
 
   stalePendingOrders(

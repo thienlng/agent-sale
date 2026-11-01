@@ -73,8 +73,16 @@ export interface OrderPushFacade {
     orderId: string,
     error: { code: string; params?: Record<string, string | number> },
   ): Promise<void>;
-  /** "Thử lại": failed → null so the next scan claims it again. 409 when not failed. */
-  requeueOrderPush(ws: WorkspaceId, orderId: string): Promise<void>;
+  /**
+   * "Thử lại": failed → null so the next scan claims it again; 409 when not failed. An order created
+   * before `since` (the current connection) is left failed and answers `before_since`: no scan
+   * would ever claim it again.
+   */
+  requeueOrderPush(
+    ws: WorkspaceId,
+    orderId: string,
+    since: Date,
+  ): Promise<'requeued' | 'before_since'>;
   /** order.update from the PMS: stores the status; a cancellation cancels the Rapiz order (history "Đơn đã huỷ trên KiotViet"). */
   applyExternalOrderStatus(
     ws: WorkspaceId,
@@ -84,10 +92,11 @@ export interface OrderPushFacade {
   ): Promise<'updated' | 'cancelled' | 'unknown'>;
   pushedOrderCount(ws: WorkspaceId, source: ExternalSource): Promise<number>;
   /**
-   * Disconnect: every `pending` claim of the source goes back to no push state (so a later
-   * connection claims it again); returns how many.
+   * Disconnect or push turned off: every `pending` claim of the source goes back to no push state
+   * (so a later connection, or push turned on again, claims it again); with `olderThan`, only
+   * claims last updated before it (the runner's sweep of claims nothing will push). Returns how many.
    */
-  releasePendingPushes(ws: WorkspaceId, source: ExternalSource): Promise<number>;
+  releasePendingPushes(ws: WorkspaceId, source: ExternalSource, olderThan?: Date): Promise<number>;
   /**
    * Orders still `pending`, created since `since` (the connection), whose claim (or last edit) is
    * older than `olderThan`, oldest first: the caller re-queues those its own queue lost (a crash

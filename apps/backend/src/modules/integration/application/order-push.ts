@@ -2,6 +2,8 @@ import { DomainError, type WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import {
+  CATALOG_SYNC_FACADE,
+  type CatalogSyncFacade,
   ORDER_PUSH_FACADE,
   OrderAlreadyPushedError,
   OrderExternalLinkConflictError,
@@ -11,8 +13,10 @@ import {
 import {
   IntegrationUnavailableError,
   KiotVietRejectedError,
+  OrderPushOffError,
 } from '../domain/integration.errors.js';
 import { carriesRapizCode, kiotVietOrderBody, orderStatusOf } from '../domain/kiotviet-order.js';
+import { availableBySaleBranches } from '../domain/stock.js';
 import { SOURCE } from './catalog-writer.js';
 import {
   type ConnectionRecord,
@@ -69,16 +73,27 @@ export class OrderPusher {
     @Inject(INTEGRATION_STORE) private readonly store: IntegrationStore,
     @Inject(KIOTVIET_GATEWAY) private readonly gateway: KiotVietGateway,
     @Inject(ORDER_PUSH_FACADE) private readonly orders: OrderPushFacade,
+    @Inject(CATALOG_SYNC_FACADE) private readonly catalog: CatalogSyncFacade,
   ) {}
 
   /**
    * Claims eligible orders of every pushing connection and queues one job per order; also re-queues
-   * pending orders whose job was lost (claimed more than `STALE_PENDING_MS` ago, no open job).
+   * pending orders whose job was lost (claimed more than `STALE_PENDING_MS` ago, no open job). A
+   * connected one with push off releases its claims older than that instead: nothing would push
+   * them, and they would otherwise stay "Đang đẩy" with their lines locked.
    */
   async scan(): Promise<void> {
-    for (const c of await this.store.connectionsPushingOrders()) {
+    for (const c of await this.store.connectionsForPushScan()) {
       try {
         const ws = c.workspaceId;
+        if (!c.pushOrders) {
+          await this.orders.releasePendingPushes(
+            ws,
+            SOURCE,
+            new Date(Date.now() - STALE_PENDING_MS),
+          );
+          continue;
+        }
         const claimed = await this.orders.claimOrdersForPush(ws, SOURCE, c.createdAt, PUSH_BATCH);
         const stale = await this.orders.stalePendingOrders(
           ws,
@@ -145,9 +160,22 @@ export class OrderPusher {
     this.logger.warn(`Connection ${c.id}: order statuses stopped after ${STATUS_MAX_PAGES} pages`);
   }
 
-  /** "Thử lại": a failed push goes back to the queue (409 when it is not failed). */
-  retry(ws: WorkspaceId, orderId: string): Promise<void> {
-    return this.orders.requeueOrderPush(ws, orderId);
+  /**
+   * "Thử lại": a failed push goes back to the queue (409 `PUSH_NOT_FAILED` when it is not failed).
+   * 409 `not_pushing` when no scan would pick it up: no live connection pushing orders (none, push
+   * off, a status other than `connected`/`syncing`, or a connect that failed), or the order was
+   * created before the current connection. The order then stays failed.
+   */
+  async retry(ws: WorkspaceId, orderId: string): Promise<void> {
+    const c = await this.store.liveConnection(ws, SOURCE);
+    const pushing =
+      c !== null &&
+      c.settings.pushOrders &&
+      (c.status === 'connected' || c.status === 'syncing') &&
+      c.lastError?.code !== 'connect_failed';
+    if (!pushing) throw new OrderPushOffError();
+    const result = await this.orders.requeueOrderPush(ws, orderId, c.createdAt);
+    if (result === 'before_since') throw new OrderPushOffError();
   }
 
   /**
@@ -183,9 +211,10 @@ export class OrderPusher {
     }
 
     const order = found.order;
+    const creds = credentials();
     let ref: KvOrderRef;
     try {
-      ref = await this.pushOnce(job, connection, credentials(), order);
+      ref = await this.pushOnce(job, connection, creds, order);
     } catch (error) {
       if (error instanceof LeaseLostError) throw error;
       if (error instanceof KiotVietRejectedError) {
@@ -196,7 +225,7 @@ export class OrderPusher {
       }
       throw PushAttemptError.of(error, order.code);
     }
-    await this.record(job, connection, order, ref);
+    await this.record(job, connection, creds, order, ref);
   }
 
   /**
@@ -273,6 +302,7 @@ export class OrderPusher {
   private async record(
     job: JobRecord,
     connection: ConnectionRecord,
+    creds: KvCredentials,
     order: PushableOrder,
     ref: KvOrderRef,
   ): Promise<void> {
@@ -319,7 +349,44 @@ export class OrderPusher {
       });
     }
     await this.updateCount(ws, connection.id);
+    await this.refreshStock(connection, creds, order);
     await this.complete(job);
+  }
+
+  /**
+   * The push released Rapiz's hold and KiotViet now reserves the goods, but Rapiz's stock would show
+   * that reservation only after a `stock.update` delivery or the next reconcile: until then the bot
+   * could sell the same units again. Re-reads the lines' KiotViet products and sets their stock to
+   * KiotViet's available over the sale branches. Best effort: a failure only logs (the reconcile
+   * repairs it).
+   */
+  private async refreshStock(
+    connection: ConnectionRecord,
+    creds: KvCredentials,
+    order: PushableOrder,
+  ): Promise<void> {
+    try {
+      const ids = [...new Set(order.lines.map((l) => Number(l.externalVariantId)))].filter(
+        (id) => Number.isSafeInteger(id) && id > 0,
+      );
+      const rows: Array<{ externalVariantId: string; available: number }> = [];
+      for (const id of ids) {
+        const product = await this.gateway.productById(creds, id);
+        if (!product?.inventories) continue;
+        rows.push({
+          externalVariantId: String(product.id),
+          available: availableBySaleBranches(
+            product.inventories,
+            connection.settings.saleBranchIds,
+          ),
+        });
+      }
+      if (rows.length) await this.catalog.setExternalStock(connection.workspaceId, SOURCE, rows);
+    } catch (error) {
+      this.logger.warn(
+        `Connection ${connection.id}: stock refresh after a push failed (${errorName(error)})`,
+      );
+    }
   }
 
   private async updateCount(ws: WorkspaceId, connectionId: string): Promise<void> {

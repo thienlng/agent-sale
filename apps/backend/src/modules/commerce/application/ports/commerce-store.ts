@@ -482,8 +482,11 @@ export interface CommerceTx {
      */
     set(orderId: string, patch: Partial<OrderExternalRecord>): Promise<void>;
     countPushed(source: ExternalSource): Promise<number>;
-    /** Every `pending` claim of the source back to no push state; returns how many. */
-    releasePending(source: ExternalSource): Promise<number>;
+    /**
+     * Every `pending` claim of the source (with `olderThan`, only those last updated before it)
+     * back to no push state; returns how many.
+     */
+    releasePending(source: ExternalSource, olderThan?: Date): Promise<number>;
     /**
      * Pending orders of the source created since `since` and last updated before `olderThan` (the
      * claim sets `updated_at`).

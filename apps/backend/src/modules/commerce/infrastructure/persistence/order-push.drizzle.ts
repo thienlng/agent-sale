@@ -88,11 +88,17 @@ export function orderPushTx(tx: TenantTx): Pick<CommerceTx, 'orderPush'> {
           throw e;
         }
       },
-      async releasePending(source) {
+      async releasePending(source, olderThan) {
         const rows = await tx
           .update(o)
           .set({ externalState: null, externalSource: null })
-          .where(and(eq(o.externalSource, source), eq(o.externalState, 'pending')))
+          .where(
+            and(
+              eq(o.externalSource, source),
+              eq(o.externalState, 'pending'),
+              olderThan ? sql`${o.updatedAt} < ${olderThan.toISOString()}` : undefined,
+            ),
+          )
           .returning({ id: o.id });
         return rows.length;
       },
