@@ -94,6 +94,7 @@ export interface BookingHistoryRecord {
 /** Everything lodging persists, inside one tenant transaction (RLS scoped to the workspace). */
 export interface LodgingTx {
   properties(filter?: { ids?: string[]; activeOnly?: boolean }): Promise<PropertyRecord[]>;
+  /** `lock` = SELECT … FOR NO KEY UPDATE (serializes property writers). */
   property(id: string, lock?: boolean): Promise<PropertyRecord | null>;
   insertProperty(p: PropertyRecord): Promise<void>;
   /** The caller bumps `version`. */
@@ -137,7 +138,7 @@ export interface LodgingTx {
   history(bookingId: string): Promise<BookingHistoryRecord[]>;
   audit(
     actorId: string | null,
-    targetType: 'lodging_property' | 'lodging_booking',
+    targetType: 'lodging_property' | 'lodging_booking' | 'lodging_settings' | 'bot',
     id: string,
     action: string,
     data: Record<string, unknown>,

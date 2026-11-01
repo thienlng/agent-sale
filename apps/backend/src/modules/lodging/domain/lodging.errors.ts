@@ -13,3 +13,11 @@ export class LodgingError extends DomainError {
     super(message, details);
   }
 }
+
+/** Lodging needs PostgreSQL; without DATABASE_URL every call answers 503. */
+export class LodgingUnavailableError extends DomainError {
+  readonly code = 'UNAVAILABLE';
+  constructor() {
+    super('Lodging needs a database (DATABASE_URL is not configured)');
+  }
+}

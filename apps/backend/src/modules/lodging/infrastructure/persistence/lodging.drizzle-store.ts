@@ -40,6 +40,18 @@ export class DrizzleLodgingStore implements LodgingStore {
   }
 }
 
+/** A duplicate property code (23505) → CONFLICT; the transaction is aborted, so callers rethrow. */
+async function uniqueCode(write: () => Promise<unknown>): Promise<void> {
+  try {
+    await write();
+  } catch (e) {
+    if (pgCode(e) === '23505') {
+      throw new LodgingError('CONFLICT', 'Another property already uses this code');
+    }
+    throw e;
+  }
+}
+
 function lodgingTx(tx: TenantTx, ws: WorkspaceId): LodgingTx {
   return {
     ...bookingPort(tx, ws),
@@ -65,20 +77,23 @@ function lodgingTx(tx: TenantTx, ws: WorkspaceId): LodgingTx {
         .from(P)
         .where(and(eq(P.workspaceId, ws), eq(P.id, id)))
         .limit(1);
-      const [r] = await (lock ? q.for('update') : q);
+      // NO KEY UPDATE: FOR UPDATE would wait on the FK KEY SHARE locks of concurrent booking inserts.
+      const [r] = await (lock ? q.for('no key update') : q);
       return r ? toProperty(r) : null;
     },
 
     async insertProperty(p) {
-      await tx.insert(P).values(propertyValues(ws, p));
+      await uniqueCode(() => tx.insert(P).values(propertyValues(ws, p)));
     },
 
     async updateProperty(p) {
       const { id: _id, workspaceId: _ws, createdAt: _created, ...set } = propertyValues(ws, p);
-      await tx
-        .update(P)
-        .set(set)
-        .where(and(eq(P.workspaceId, ws), eq(P.id, p.id)));
+      await uniqueCode(() =>
+        tx
+          .update(P)
+          .set(set)
+          .where(and(eq(P.workspaceId, ws), eq(P.id, p.id))),
+      );
     },
 
     async units(propertyIds) {

@@ -4,7 +4,9 @@ import {
   BookingStatusRequest,
   CreateBookingRequest,
   GalleryImage,
+  OverrideInput,
   PropertyInput,
+  UpdateOverrideRequest,
   UpdatePropertyRequest,
 } from './lodging.schema.js';
 
@@ -55,6 +57,17 @@ describe('lodging v2 property patch', () => {
     expect(UpdatePropertyRequest.parse({ version: 1, patch: { maxGuests: null } }).patch).toEqual({
       maxGuests: null,
     });
+  });
+});
+
+describe('lodging v2 override patch', () => {
+  it('keeps omitted fields absent, so minNights is not reset to null', () => {
+    expect(UpdateOverrideRequest.parse({ version: 2, sell: 5 })).toEqual({ version: 2, sell: 5 });
+  });
+
+  it('still defaults minNights on create', () => {
+    const base = { unitId: null, dateFrom: '2027-02-05', dateTo: '2027-02-06', label: 'Tết' };
+    expect(OverrideInput.parse({ ...base, sell: 1, cost: 1 }).minNights).toBeNull();
   });
 });
 

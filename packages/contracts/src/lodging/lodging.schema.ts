@@ -180,22 +180,27 @@ export const PutRatesRequest = z.object({
   surcharges: Surcharges,
 });
 export type PutRatesRequest = z.infer<typeof PutRatesRequest>;
-/** Date-range price; `dateFrom`..`dateTo` are inclusive nights. */
-export const OverrideInput = z.object({
+/** Override field validators without defaults; shared by create (with defaults) and patch. */
+const overrideShape = {
   unitId: z.uuid().nullable(),
   dateFrom: IsoNight,
   dateTo: IsoNight,
   label: z.string().trim().min(1).max(100),
   sell: Vnd,
   cost: Vnd,
-  minNights: z.number().int().min(1).max(60).nullable().default(null),
+  minNights: z.number().int().min(1).max(60).nullable(),
+};
+/** Date-range price; `dateFrom`..`dateTo` are inclusive nights. */
+export const OverrideInput = z.object({
+  ...overrideShape,
+  minNights: overrideShape.minNights.default(null),
 });
 export type OverrideInput = z.infer<typeof OverrideInput>;
 /** POST body: the override plus the property version it was edited against. */
 export const CreateOverrideRequest = OverrideInput.extend({ version: z.number().int().positive() });
 export type CreateOverrideRequest = z.infer<typeof CreateOverrideRequest>;
-/** PATCH body: `version` is the property version. */
-export const UpdateOverrideRequest = OverrideInput.partial().extend({
+/** PATCH body: `version` is the property version; omitted fields stay absent (no defaults). */
+export const UpdateOverrideRequest = z.object(overrideShape).partial().extend({
   version: z.number().int().positive(),
 });
 export type UpdateOverrideRequest = z.infer<typeof UpdateOverrideRequest>;
