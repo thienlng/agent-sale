@@ -255,5 +255,13 @@ function lodgingTx(tx: TenantTx, ws: WorkspaceId): LodgingTx {
           );
       }
     },
+
+    async addPropertyToBots(propertyId) {
+      await tx.execute(sql`
+        insert into ${BP} (workspace_id, bot_id, property_id)
+        select distinct workspace_id, bot_id, ${propertyId}::uuid from ${BP}
+        where workspace_id = ${ws}
+        on conflict do nothing`);
+    },
   };
 }

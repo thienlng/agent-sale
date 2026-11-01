@@ -541,6 +541,9 @@ describe('lodging v2 properties over HTTP', () => {
     });
     expect(put.statusCode, put.body).toBe(200);
     expect(await read()).toEqual([b.id]);
+    // Spec §3.7: a new property is sold by every bot, including bots with an explicit list.
+    const c = await create(o.headers, villa('C1'));
+    expect(await read()).toEqual([b.id, c.id].sort());
     expect(
       (
         await call(o.headers, 'PUT', `/lodging/bots/${botId}/properties`, {

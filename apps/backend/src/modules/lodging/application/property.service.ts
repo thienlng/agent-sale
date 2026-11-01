@@ -55,6 +55,12 @@ function fieldsOf(p: PropertyRecord): PropertyFieldsOut {
   };
 }
 
+function validationError(issues: z.core.$ZodIssue[]): LodgingError {
+  return new LodgingError('VALIDATION_FAILED', 'Property validation failed', {
+    issues: issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
+  });
+}
+
 /** The single whole unit follows the property's name and standard capacity. */
 function wholeUnit(p: PropertyRecord, existing?: UnitRecord): UnitRecord {
   return {
@@ -143,10 +149,15 @@ export class PropertyService {
     });
   }
 
-  /** A `whole` property gets its single whole unit; a `rooms` property starts without rooms. */
+  /**
+   * A `whole` property gets its single whole unit; a `rooms` property starts without rooms.
+   * Bots with an explicit property list get the new property too (bots without one sell all).
+   */
   async create(ws: WorkspaceId, input: PropertyFieldsOut, actorId: string): Promise<PropertyDto> {
     await this.access.assertHotel(ws);
-    const fields = PropertyInput.parse(input);
+    const parsed = PropertyInput.safeParse(input);
+    if (!parsed.success) throw validationError(parsed.error.issues);
+    const fields = parsed.data;
     return this.store.run(ws, async (tx) => {
       const now = new Date().toISOString();
       const p: PropertyRecord = {
@@ -161,6 +172,7 @@ export class PropertyService {
       await tx.insertProperty(p);
       const units = p.sellMode === 'whole' ? [wholeUnit(p)] : [];
       if (units.length > 0) await tx.replaceUnits(p.id, units);
+      await tx.addPropertyToBots(p.id);
       await tx.audit(actorId, 'lodging_property', p.id, 'lodging.property.created', {
         code: p.code,
         sellMode: p.sellMode,
@@ -184,11 +196,7 @@ export class PropertyService {
     return this.store.run(ws, async (tx) => {
       const p = await lockForWrite(tx, id, input.version);
       const merged = PropertyInput.safeParse({ ...fieldsOf(p), ...input.patch });
-      if (!merged.success) {
-        throw new LodgingError('VALIDATION_FAILED', 'Property validation failed', {
-          issues: merged.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
-        });
-      }
+      if (!merged.success) throw validationError(merged.error.issues);
       const next = { ...p, ...merged.data };
       if (next.sellMode !== p.sellMode) await this.assertNoFutureBookings(tx, p.id);
       await syncUnits(tx, next, await tx.units([p.id]));

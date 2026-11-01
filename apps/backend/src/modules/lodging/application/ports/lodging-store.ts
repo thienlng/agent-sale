@@ -134,6 +134,8 @@ export interface LodgingTx {
   /** null = no rows for this bot (= every active property). */
   botPropertyIds(botId: string): Promise<string[] | null>;
   setBotProperties(botId: string, propertyIds: string[]): Promise<void>;
+  /** Adds the property to every bot that has an explicit selection (bots without one sell all). */
+  addPropertyToBots(propertyId: string): Promise<void>;
   /** Audit trail of one booking, oldest first. */
   history(bookingId: string): Promise<BookingHistoryRecord[]>;
   audit(
