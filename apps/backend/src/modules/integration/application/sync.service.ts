@@ -197,20 +197,18 @@ export class SyncService {
   }
 
   /**
-   * A reconcile with `syncCustomers` on also reads the customers changed since the previous
-   * reconcile (minus the overlap), before `lastReconcileAt` moves: a failure retries the reconcile,
-   * so no change is skipped (it resumes at the catalog's `finish` phase). The first sync of
-   * customers is the `customer_import` job.
+   * A reconcile with `syncCustomers` on also reads the customers changed since the customer
+   * watermark (`CustomerSync.reconcilePass`: a customer failure never fails the catalog reconcile,
+   * and the watermark does not move). Heartbeats with the catalog's `finish` cursor. The first
+   * sync of customers is the `customer_import` job.
    */
   private async customerPass(ctx: SyncContext, cursor: ImportCursor): Promise<void> {
-    const last = ctx.connection.lastReconcileAt;
-    const live = await ctx.live();
-    if (ctx.job.kind !== 'reconcile' || !live.settings.syncCustomers || !last) return;
-    await this.customers.incremental(
-      live,
+    if (ctx.job.kind !== 'reconcile') return;
+    await this.customers.reconcilePass(
+      ctx.connection,
       ctx.creds,
-      new Date(last.getTime() - RECONCILE_OVERLAP_MS),
       { live: ctx.live, heartbeat: () => ctx.checkpoint(cursor) },
+      RECONCILE_OVERLAP_MS,
     );
   }
 

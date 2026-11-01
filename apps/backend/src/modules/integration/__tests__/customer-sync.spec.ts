@@ -21,7 +21,12 @@ import { SyncService } from '../application/sync.service.js';
 import { SyncRunner } from '../application/sync-runner.js';
 import { WebhookApplier } from '../application/webhook-apply.js';
 import { WebhookSet } from '../application/webhook-set.js';
-import { KiotVietRejectedError, KiotVietUnavailableError } from '../domain/integration.errors.js';
+import {
+  KiotVietAuthError,
+  KiotVietPermissionError,
+  KiotVietRejectedError,
+  KiotVietUnavailableError,
+} from '../domain/integration.errors.js';
 import { FakeKiotVietGateway, kvCustomer } from './factories/fake-gateway.js';
 import { JobStore } from './factories/job-store.js';
 import { MemoryContacts } from './memory-contacts.js';
@@ -140,7 +145,11 @@ describe('customer_import job (full import)', () => {
     expect(existing.externalId).toBe('3');
     expect(contacts.contacts).toHaveLength(150);
     expect(store.cursors.map((c) => c['currentItem'])).toEqual([0, 100, 200]);
-    expect(conn().counts).toEqual({ products: 12, customers: 150 });
+    expect(conn().counts).toEqual({
+      products: 12,
+      customers: 150,
+      lastCustomerSyncAt: expect.any(String),
+    });
     expect(logOf('customers_synced').map((l) => [l.level, l.params])).toEqual([
       ['info', { count: 150 }],
     ]);
@@ -239,6 +248,79 @@ const delivery = (body: object): ClaimedWebhookEvent => {
     signature: `sha256=${sign(raw)}`,
   };
 };
+
+describe('without the customer permission (403 on /customers)', () => {
+  const forbidden = () => new KiotVietPermissionError(['customers']);
+  const expectSwitchedOff = () => {
+    expect(conn().settings.syncCustomers).toBe(false);
+    expect(conn().status).toBe('connected');
+    expect(conn().lastError).toBeNull();
+    expect(contacts.releasePendingContactPushes).toHaveBeenCalledWith(ws, 'kiotviet');
+    expect(logOf('customers_permission_missing').map((l) => l.level)).toEqual(['warning']);
+    expect(logOf('auth_failed')).toEqual([]);
+  };
+
+  it('the import turns customer sync off and completes, logging once', async () => {
+    gateway.fail.customers = forbidden();
+    const j = job();
+    await sync.runJob(j);
+    expectSwitchedOff();
+    expect(store.completed).toEqual([j.id]);
+    expect(store.retried).toEqual([]);
+    await sync.runJob(job());
+    expect(logOf('customers_permission_missing')).toHaveLength(1);
+  });
+
+  it('the reconcile pass turns it off and the catalog reconcile still commits', async () => {
+    gateway.fail.customers = forbidden();
+    const before = conn().lastReconcileAt!;
+    const j = job({ kind: 'reconcile' });
+    await sync.runJob(j);
+    expectSwitchedOff();
+    expect(store.completed).toContain(j.id);
+    expect(conn().lastReconcileAt!.getTime()).toBeGreaterThan(before.getTime());
+  });
+
+  it('a push turns it off, completes the job and leaves the customer unclaimed', async () => {
+    const c = contacts.add({ phoneE164: e164Of(11), push: 'pending' });
+    gateway.fail.customersByPhone = forbidden();
+    const j = job({ payload: { contactId: c.id } });
+    await sync.runJob(j);
+    expectSwitchedOff();
+    expect(c.push).toBeNull();
+    expect(store.completed).toEqual([j.id]);
+    expect(logOf('customer_push_failed')).toEqual([]);
+  });
+});
+
+describe('a failing customer pass', () => {
+  it('never fails the reconcile and keeps reading from the old watermark', async () => {
+    gateway.fail.customers = new KiotVietUnavailableError();
+    const j = job({ kind: 'reconcile' });
+    await sync.runJob(j);
+    expect(store.completed).toContain(j.id);
+    expect(store.retried).toEqual([]);
+    expect(conn().status).toBe('connected');
+    // Pinned at the previous reconcile, although lastReconcileAt moved on.
+    expect(conn().counts.lastCustomerSyncAt).toBe('2026-11-01T02:00:00.000Z');
+
+    delete gateway.fail.customers;
+    const calls = vi.spyOn(gateway, 'customers');
+    await sync.runJob(job({ kind: 'reconcile' }));
+    expect(calls.mock.calls[0]?.[1].lastModifiedFrom).toEqual(new Date('2026-11-01T01:58:00.000Z'));
+    // Success moves the watermark to the start of that pass.
+    expect(Date.parse(conn().counts.lastCustomerSyncAt!)).toBeGreaterThan(
+      Date.parse('2026-11-01T02:00:00.000Z'),
+    );
+  });
+
+  it('an auth error still takes the connection path', async () => {
+    gateway.fail.customers = new KiotVietAuthError();
+    await sync.runJob(job({ kind: 'reconcile' }));
+    expect(conn().status).toBe('error');
+    expect(conn().lastError?.code).toBe('auth_failed');
+  });
+});
 
 describe('customer webhooks', () => {
   it('customer.update re-reads the customer (never the payload) and upserts it', async () => {
@@ -395,5 +477,28 @@ describe('contact push', () => {
     await sync.runJob(j);
     expect(gateway.calls.filter((x) => x.method === 'customersByPhone')).toEqual([]);
     expect(store.completed).toEqual([j.id]);
+    expect(c.push).toBeNull();
+  });
+
+  it('a pending customer that can no longer be pushed fails silently, so it is not re-queued', async () => {
+    const c = contacts.add({ phoneE164: null, push: 'pending' });
+    await sync.runJob(pushJobOf(c.id));
+    expect(c).toMatchObject({ push: 'failed', pushError: 'not_pushable' });
+    expect(logOf('customer_push_failed')).toEqual([]);
+  });
+
+  it('logs one entry per failure reason between scans', async () => {
+    const a = contacts.add({ phoneE164: e164Of(12), push: 'pending' });
+    const b = contacts.add({ phoneE164: e164Of(13), push: 'pending' });
+    gateway.fail.createCustomer = new KiotVietRejectedError(400);
+    await sync.runJob(pushJobOf(a.id));
+    await sync.runJob(pushJobOf(b.id));
+    expect([a.push, b.push]).toEqual(['failed', 'failed']);
+    expect(logOf('customer_push_failed')).toHaveLength(1);
+
+    await pusher.scan();
+    const c = contacts.add({ phoneE164: e164Of(14), push: 'pending' });
+    await sync.runJob(pushJobOf(c.id));
+    expect(logOf('customer_push_failed')).toHaveLength(2);
   });
 });

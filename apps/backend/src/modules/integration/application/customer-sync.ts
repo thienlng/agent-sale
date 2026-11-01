@@ -8,8 +8,15 @@ import {
   type ContactSyncFacade,
   InvalidExternalContactIdError,
 } from '../../crm/api/index.js';
+import {
+  IntegrationUnavailableError,
+  KiotVietAuthError,
+  KiotVietPermissionError,
+  KiotVietRetailerError,
+} from '../domain/integration.errors.js';
 import { contactOfKvCustomer, type KvCustomer } from '../domain/kiotviet-customer.js';
 import { SOURCE } from './catalog-writer.js';
+import { disableCustomerSync } from './customer-switch.js';
 import {
   type ConnectionRecord,
   INTEGRATION_STORE,
@@ -67,44 +74,59 @@ export class CustomerSync {
    */
   async runImport(job: JobRecord, connection: ConnectionRecord, creds: KvCredentials) {
     const ws = job.workspaceId;
-    const hooks = this.hooks(job, connection);
     if (!connection.settings.syncCustomers) {
       await this.store.completeJob(job.id, job.claimToken);
       return;
     }
-    let cursor: CustomerCursor;
-    if (isCustomerCursor(job.cursor)) cursor = { ...job.cursor };
-    else {
-      cursor = { currentItem: 0, startedAt: new Date().toISOString() };
-      await this.contacts.releaseFailedContactPushes(ws, SOURCE);
-      await this.checkpoint(job, cursor);
+    try {
+      await this.importPages(job, connection, creds);
+    } catch (error) {
+      if (!(error instanceof KiotVietPermissionError)) throw error;
+      await disableCustomerSync(this.store, this.contacts, ws, connection.id);
     }
-    for (;;) {
-      await hooks.live();
-      const page = await this.gateway.customers(creds, {
-        currentItem: cursor.currentItem,
-        pageSize: PAGE_SIZE,
-      });
-      await this.upsertAll(ws, hooks, page.data);
-      cursor.currentItem += PAGE_SIZE;
-      await this.checkpoint(job, cursor);
-      if (page.data.length === 0 || cursor.currentItem >= page.total) break;
-    }
-    await hooks.live();
-    const count = await this.updateCount(ws, connection.id);
-    await this.store.log(ws, connection.id, {
-      level: 'info',
-      code: 'customers_synced',
-      params: { count } satisfies SyncLogParams['customers_synced'],
-    });
     await this.store.completeJob(job.id, job.claimToken);
   }
 
   /**
-   * A reconcile's customer pass: customers changed since `since` are upserted and the ids KiotViet
-   * reports deleted are unlinked. Errors propagate (the reconcile retries).
+   * A reconcile's customer pass (switch on): customers changed since the customer watermark
+   * (`counts.lastCustomerSyncAt`, else the previous `lastReconcileAt`) minus `overlapMs`. A 403
+   * turns customer sync off; any other failure but a connection-wide one (auth, store, lease,
+   * disconnect, no database) is logged and swallowed so the catalog reconcile still commits, and
+   * the watermark stays (pinned at its old value), so the next pass reads the same window again.
    */
-  async incremental(
+  async reconcilePass(
+    start: ConnectionRecord,
+    creds: KvCredentials,
+    hooks: CustomerPassHooks,
+    overlapMs: number,
+  ): Promise<void> {
+    const live = await hooks.live();
+    if (!live.settings.syncCustomers) return;
+    const mark = live.counts.lastCustomerSyncAt
+      ? new Date(live.counts.lastCustomerSyncAt)
+      : start.lastReconcileAt;
+    if (!mark || Number.isNaN(mark.getTime())) return;
+    const startedAt = new Date();
+    try {
+      await this.incremental(live, creds, new Date(mark.getTime() - overlapMs), hooks);
+      await this.updateCount(live.workspaceId, live.id, startedAt);
+    } catch (error) {
+      if (error instanceof KiotVietPermissionError) {
+        await disableCustomerSync(this.store, this.contacts, live.workspaceId, live.id);
+        return;
+      }
+      if (connectionWide(error)) throw error;
+      this.logger.warn(`Connection ${live.id}: customer pass failed (${errorName(error)})`);
+      // Pin the window: without a watermark the next pass would start at the new lastReconcileAt.
+      await this.updateCount(live.workspaceId, live.id, null, mark);
+    }
+  }
+
+  /**
+   * Customers changed since `since` are upserted and the ids KiotViet reports deleted are
+   * unlinked. Errors propagate.
+   */
+  private async incremental(
     c: ConnectionRecord,
     creds: KvCredentials,
     since: Date,
@@ -112,21 +134,20 @@ export class CustomerSync {
   ): Promise<void> {
     const ws = c.workspaceId;
     for (let currentItem = 0; ; currentItem += PAGE_SIZE) {
-      await hooks.live();
       const page = await this.gateway.customers(creds, {
         currentItem,
         pageSize: PAGE_SIZE,
         lastModifiedFrom: since,
       });
-      await this.upsertAll(ws, hooks, page.data);
+      // Once per page, right before its writes: a disconnect stops at the next page.
+      await hooks.live();
+      await this.upsertAll(ws, page.data);
       if (page.removedIds.length) {
-        await hooks.live();
         await this.contacts.unlinkExternalContacts(ws, SOURCE, page.removedIds.map(String));
       }
       await hooks.heartbeat();
       if (page.data.length === 0 || currentItem + PAGE_SIZE >= page.total) break;
     }
-    await this.updateCount(ws, c.id);
   }
 
   /**
@@ -144,17 +165,15 @@ export class CustomerSync {
     const ws = c.workspaceId;
     const gone: string[] = action === 'customer.delete' ? ids.map(String) : [];
     if (action === 'customer.update') {
-      const hooks: CustomerPassHooks = {
-        live: async () => {
-          await assertLive();
-          return c;
-        },
-        heartbeat: () => Promise.resolve(),
-      };
+      const found: KvCustomer[] = [];
       for (const id of ids) {
         const customer = await this.gateway.customerById(creds, id);
-        if (customer) await this.upsertAll(ws, hooks, [customer]);
+        if (customer) found.push(customer);
         else gone.push(String(id));
+      }
+      if (found.length) {
+        await assertLive();
+        await this.upsertAll(ws, found);
       }
     }
     if (gone.length) {
@@ -173,13 +192,26 @@ export class CustomerSync {
     await this.contacts.releaseExternalSource(ws, SOURCE);
   }
 
-  /** `counts.customers` = linked customers, on the latest connection row. Returns the count. */
-  async updateCount(ws: WorkspaceId, connectionId: string): Promise<number> {
+  /**
+   * `counts.customers` = linked customers, on the latest connection row; `syncedAt` moves the
+   * customer watermark, `keepAt` sets it only when there is none yet. Returns the count.
+   */
+  async updateCount(
+    ws: WorkspaceId,
+    connectionId: string,
+    syncedAt: Date | null = null,
+    keepAt: Date | null = null,
+  ): Promise<number> {
     const count = await this.contacts.linkedContactCount(ws, SOURCE);
     const latest = await this.store.connectionForSystem(connectionId);
     if (latest && latest.status !== 'disconnected') {
+      const mark = syncedAt ?? (latest.counts.lastCustomerSyncAt ? null : keepAt);
       await this.store.updateConnection(ws, connectionId, {
-        counts: { ...latest.counts, customers: count },
+        counts: {
+          ...latest.counts,
+          customers: count,
+          ...(mark ? { lastCustomerSyncAt: mark.toISOString() } : {}),
+        },
       });
     }
     return count;
@@ -188,13 +220,47 @@ export class CustomerSync {
   // ── internals ──────────────────────────────────────────────────────────────
 
   /**
-   * Upserts each customer, the connection re-read first. A record the CRM refuses (bad id, its
-   * KiotViet id linked elsewhere by a race) is skipped and counted in the process log.
+   * The full import's pages: the cursor is saved after every page, the watermark set to the start
+   * of the import when it ends.
    */
-  private async upsertAll(ws: WorkspaceId, hooks: CustomerPassHooks, customers: KvCustomer[]) {
+  private async importPages(job: JobRecord, connection: ConnectionRecord, creds: KvCredentials) {
+    const ws = job.workspaceId;
+    const hooks = this.hooks(job, connection);
+    let cursor: CustomerCursor;
+    if (isCustomerCursor(job.cursor)) cursor = { ...job.cursor };
+    else {
+      cursor = { currentItem: 0, startedAt: new Date().toISOString() };
+      await this.contacts.releaseFailedContactPushes(ws, SOURCE);
+      await this.checkpoint(job, cursor);
+    }
+    for (;;) {
+      const page = await this.gateway.customers(creds, {
+        currentItem: cursor.currentItem,
+        pageSize: PAGE_SIZE,
+      });
+      await hooks.live();
+      await this.upsertAll(ws, page.data);
+      cursor.currentItem += PAGE_SIZE;
+      await this.checkpoint(job, cursor);
+      if (page.data.length === 0 || cursor.currentItem >= page.total) break;
+    }
+    await hooks.live();
+    const count = await this.updateCount(ws, connection.id, new Date(cursor.startedAt));
+    await this.store.log(ws, connection.id, {
+      level: 'info',
+      code: 'customers_synced',
+      params: { count } satisfies SyncLogParams['customers_synced'],
+    });
+  }
+
+  /**
+   * Upserts a page of customers (the caller re-reads the connection once per page). A record the
+   * CRM refuses (bad id, its KiotViet id linked elsewhere by a race) is skipped
+   * and counted in the process log.
+   */
+  private async upsertAll(ws: WorkspaceId, customers: KvCustomer[]) {
     let skipped = 0;
     for (const customer of customers) {
-      await hooks.live();
       try {
         await this.contacts.upsertExternalContact(ws, SOURCE, contactOfKvCustomer(customer));
       } catch (error) {
@@ -225,3 +291,14 @@ export class CustomerSync {
     if (!saved) throw new LeaseLostError();
   }
 }
+
+/** Errors that concern the whole connection (or the job), never swallowed by the customer pass. */
+const connectionWide = (error: unknown): boolean =>
+  error instanceof KiotVietAuthError ||
+  error instanceof KiotVietRetailerError ||
+  error instanceof IntegrationUnavailableError ||
+  error instanceof LeaseLostError ||
+  error instanceof ConnectionGoneError;
+
+const errorName = (error: unknown): string =>
+  error instanceof Error ? error.constructor.name : 'unknown';

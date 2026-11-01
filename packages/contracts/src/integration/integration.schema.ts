@@ -153,6 +153,8 @@ export const SyncLogParams = {
    * `kiotviet_rejected`, `link_conflict`, `kiotviet_unavailable`, `auth_failed` or `sync_failed`.
    */
   customer_push_failed: z.object({ reason: z.string() }),
+  /** KiotViet refused the customer API (403): customer sync was turned off, the rest goes on. */
+  customers_permission_missing: z.object({}),
 } as const;
 export type SyncLogParams = {
   [Code in keyof typeof SyncLogParams]: z.infer<(typeof SyncLogParams)[Code]>;

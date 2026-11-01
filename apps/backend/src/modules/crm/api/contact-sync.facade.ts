@@ -105,8 +105,8 @@ export interface ContactSyncFacade {
    */
   releaseFailedContactPushes(ws: WorkspaceId, source: ContactExternalSource): Promise<number>;
   /**
-   * Customers still `pending`, created since `since`, claimed before `olderThan`, oldest claim
-   * first: the caller re-queues those its own queue lost (a crash between claim and enqueue).
+   * Customers still `pending`, live and with a usable phone, created since `since`, claimed before
+   * `olderThan`, oldest claim first: the caller re-queues those its own queue lost (a crash between claim and enqueue).
    */
   staleContactPushes(
     ws: WorkspaceId,

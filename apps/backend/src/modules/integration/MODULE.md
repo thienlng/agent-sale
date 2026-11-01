@@ -168,20 +168,28 @@ pushedOrderCount`, then the stock refresh: `markOrderPushed` released the Rapiz 
   `{ currentItem, startedAt }` saved after every page, the connection re-read before every upsert), upserts
   each (`InvalidExternalContactIdError` / `ContactExternalLinkConflictError` skip the record, counted in the
   process log), then writes `counts.customers = linkedContactCount` and logs `customers_synced {count}`; with
-  the switch off it completes with no work. A `reconcile` with the switch on and a previous
-  `lastReconcileAt` reads customers modified since it − 2 min (`includeRemoveIds`; removed ids unlink)
-  before `lastReconcileAt` moves, heartbeating with the catalog's `finish` cursor, so a failure retries the
-  reconcile. `customer.update` re-reads each id (`customerById`; gone → unlink), `customer.delete` unlinks;
+  the switch off it completes with no work. A `reconcile` with the switch on
+  (`CustomerSync.reconcilePass`) reads customers modified since the customer watermark
+  `counts.lastCustomerSyncAt` (else the previous `lastReconcileAt`) − 2 min (`includeRemoveIds`; removed ids
+  unlink), heartbeating with the catalog's `finish` cursor. On success the watermark becomes the pass start
+  (the import sets it to its own start); any failure except auth/store/lease/disconnect/no-database is
+  process-logged and swallowed so the catalog reconcile commits, and the watermark is pinned at the old
+  value. A `KiotVietPermissionError` (403) in the import, the pass or a push job calls
+  `disableCustomerSync` (`customer-switch.ts`): `settings.syncCustomers = false` against the version read
+  (an owner field, so `version` bumps), `releasePendingContactPushes`, `customers_permission_missing` logged
+  once; the job completes and the connection status is untouched. The connection is re-read once per page. `customer.update` re-reads each id (`customerById`; gone → unlink), `customer.delete` unlinks;
   both are ignored while the switch is off. The push scan (30 s) claims up to 20 customers created since the
   connection (`claimContactsForPush`) plus pending ones claimed > 2 min ago (`staleContactPushes`) and
   enqueues one `customer_import {contactId}` each (switch off: `releasePendingContactPushes(olderThan
-  2 min)`). The push job reads `pushableContact` (null → complete), looks KiotViet up by phone
+  2 min)`). The push job reads `pushableContact` (null with the switch on → `markContactPushFailed('not_pushable')`,
+  silent, so an archived or phone-less pending customer is not re-queued forever; the crm stale sweep also
+  skips them), looks KiotViet up by phone
   (`customersByPhone` with the local number, hits re-checked with `matchesPhone`, lowest id wins) and adopts
   it, else heartbeats and sends `POST /customers` (once-mode, order branch), then `markContactPushed`;
   `ContactAlreadyLinkedError` / `NOT_FOUND` complete, `KiotVietRejectedError` → `kiotviet_rejected`,
   `ContactExternalLinkConflictError` → `link_conflict` (failed at once); other errors take the shared retry
   path, and a give-up marks the customer failed with the code and leaves the connection status alone (auth
-  errors still set the connection `error`). Every failure logs `customer_push_failed {reason}`. A failed
+  errors still set the connection `error`). Every failure logs `customer_push_failed {reason}`, once per connection and reason between two scans. A failed
   customer stays failed until a full customer import or the switch turned off and on. Order push: while
   `syncCustomers` is on, `OrderPusher` asks `ContactPusher.customerIdForOrder` (buyer phone → KiotViet
   customer found or created) and sends `customerId` instead of the inline `customer`; no usable phone or any

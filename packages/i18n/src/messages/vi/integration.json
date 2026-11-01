@@ -153,6 +153,7 @@
     "order_pushed_cancelled": "Đơn {{code}} đã huỷ trên Rapiz nhưng đã có trên KiotViet — hãy huỷ đơn đó trên KiotViet",
     "customers_synced": "Đã đồng bộ {{count}} khách hàng với KiotViet",
     "customer_push_failed": "Chưa tạo được một khách hàng trên KiotViet — tắt rồi bật lại Đồng bộ khách hàng để thử lại",
+    "customers_permission_missing": "Tài khoản API chưa có quyền khách hàng nên đã tắt Đồng bộ khách hàng — vào KiotViet → Thiết lập kết nối API, tick quyền Khách hàng, rồi bật lại Đồng bộ khách hàng",
     "unknown": "Sự kiện đồng bộ khác",
     "level": {
       "info": "Thông tin",

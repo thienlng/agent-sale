@@ -33,7 +33,16 @@ export interface ConnectionRecord {
   settings: ConnectionSettings;
   version: number;
   progress: { phase: string; done: number; total: number | null } | null;
-  counts: { products?: number; customers?: number; ordersPushed?: number };
+  /**
+   * `lastCustomerSyncAt` (ISO): where the next reconcile's customer pass reads from (PR 3); it moves
+   * only when a customer import or pass succeeds. Not part of the API counts.
+   */
+  counts: {
+    products?: number;
+    customers?: number;
+    ordersPushed?: number;
+    lastCustomerSyncAt?: string;
+  };
   lastError: { code: string; at: string } | null;
   lastFullSyncAt: Date | null;
   lastReconcileAt: Date | null;

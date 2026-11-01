@@ -377,6 +377,29 @@ describe('contact sync facade on Postgres', () => {
     expect(await sync().releaseFailedContactPushes(a.ws, 'kiotviet')).toBe(0);
   });
 
+  it('never offers an archived or phone-less pending customer to the stale sweep', async () => {
+    const a = await shop('sync-push-stale@shop.vn');
+    const since = new Date(Date.now() - 60_000);
+    const keep = await contact(a.h, { name: 'Còn', phone: '0912000031' });
+    const archived = await contact(a.h, { name: 'Lưu trữ', phone: '0912000032' });
+    const noPhone = await contact(a.h, { name: 'Mất số', phone: '0912000033' });
+    await sync().claimContactsForPush(a.ws, 'kiotviet', since, 10);
+    await withTenant(db(), a.ws, async (tx) => {
+      await tx
+        .update(schema.contacts)
+        .set({ archivedAt: new Date() })
+        .where(eq(schema.contacts.id, archived.id));
+      await tx
+        .update(schema.contacts)
+        .set({ phone: null, phoneNormalized: null })
+        .where(eq(schema.contacts.id, noPhone.id));
+    });
+    const later = new Date(Date.now() + 1000);
+    expect(await sync().staleContactPushes(a.ws, 'kiotviet', since, later, 10)).toEqual([keep.id]);
+    expect(await sync().pushableContact(a.ws, 'kiotviet', archived.id)).toBeNull();
+    expect(await sync().pushableContact(a.ws, 'kiotviet', noPhone.id)).toBeNull();
+  });
+
   it('ends with one linked customer when a push result and a webhook import of it race', async () => {
     const a = await shop('sync-push-race@shop.vn');
     for (let i = 0; i < 5; i++) {

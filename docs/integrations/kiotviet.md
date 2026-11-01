@@ -112,6 +112,18 @@ KiotViet ──webhook──▶ apps/webhook  POST /webhooks/kiotviet/:token ─
   unlinks every customer (data kept). While the switch is on, an order push names the buyer's KiotViet
   customer (`customerId`, found by phone or created); without a usable phone, or when that fails, the order
   carries the buyer inline as before. Orders do not record their CRM customer, so the lookup is by phone.
+  A customer failure never fails the catalog reconcile: the pass logs it and reads the same window again
+  next time (the customer watermark `counts.lastCustomerSyncAt` moves only on success). A 403 on the
+  customer API turns customer sync off (`customers_permission_missing`). A claimed customer that can no
+  longer be pushed (archived, phone removed) is marked failed (`not_pushable`, no log entry). Failure
+  entries are logged once per reason between two push scans.
+- **Customer caveats.** The phone lookup before every create is not a lock: with several worker replicas,
+  a customer push and an order push (or two order pushes) for the same new phone at the same moment can
+  each create a KiotViet customer; Rapiz links one of them and the extra one stays in KiotViet (merge it
+  there). On the order path a `POST /customers` whose answer is lost falls back to the inline buyer, so it
+  can leave a stray KiotViet customer (the next customer pass imports and links it by phone). A full
+  customer import does not sweep: customers deleted in KiotViet while customer sync was off stay linked
+  until a `customer.update` for them finds them gone, or until disconnect.
 
 ## Order push on the orders pages
 
@@ -192,6 +204,7 @@ The activity list on the connection page shows these codes (i18n `integration.js
 | `order_push_duplicate` | The order (`code`) was already pushed, so KiotViet now holds an extra order for it. | Cancel the extra order in KiotViet; no **Thử lại**. |
 | `order_pushed_cancelled` | The order was cancelled (or deleted) in Rapiz while it was being pushed; KiotViet has it. | Cancel the order in KiotViet. |
 | `customers_synced` | A customer import finished; `count` = Rapiz customers now linked to KiotViet. | — |
+| `customers_permission_missing` | KiotViet answered 403 to the customer API (the API account lacks the customer permission). Customer sync was turned off (logged once); products, stock and order push go on and the connection stays connected. Turning the switch off this way is a settings write, so a settings form open at that moment answers 409 and reloads. | In KiotViet → Thiết lập kết nối API, tick the Customers permission, then turn **Đồng bộ khách hàng** back on. |
 | `customer_push_failed` | A new Rapiz customer could not be created in KiotViet (`reason`: `kiotviet_rejected`, `link_conflict`: another Rapiz customer is already linked to the KiotViet customer with that phone, `kiotviet_unavailable` after the retries, `auth_failed`, `sync_failed`). The customer stays failed. | Fix the customer (phone, name) and turn **Đồng bộ khách hàng** off and on again: that retries every failed customer (a full customer import does too). |
 
 Wizard errors: wrong Client ID / secret (`kiotviet_auth`), unknown store name (`kiotviet_retailer`), missing

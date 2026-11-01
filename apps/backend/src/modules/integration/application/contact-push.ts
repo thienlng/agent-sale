@@ -10,6 +10,7 @@ import {
 } from '../../crm/api/index.js';
 import {
   IntegrationUnavailableError,
+  KiotVietPermissionError,
   KiotVietRejectedError,
 } from '../domain/integration.errors.js';
 import {
@@ -19,6 +20,7 @@ import {
   type PushCustomer,
 } from '../domain/kiotviet-customer.js';
 import { SOURCE } from './catalog-writer.js';
+import { disableCustomerSync } from './customer-switch.js';
 import {
   type ConnectionRecord,
   INTEGRATION_STORE,
@@ -52,6 +54,11 @@ export const isContactPush = (job: JobRecord): boolean =>
 @Injectable()
 export class ContactPusher {
   private readonly logger = new Logger(ContactPusher.name);
+  /**
+   * `connectionId:reason` already logged as `customer_push_failed` since the last scan: a batch of
+   * customers failing for one reason makes one sync-log entry, not twenty.
+   */
+  private readonly loggedFailures = new Set<string>();
 
   constructor(
     @Inject(INTEGRATION_STORE) private readonly store: IntegrationStore,
@@ -65,6 +72,7 @@ export class ContactPusher {
    * the switch off releases its claims older than 2 min instead.
    */
   async scan(): Promise<void> {
+    this.loggedFailures.clear();
     for (const c of await this.store.connectionsForPushScan()) {
       try {
         const ws = c.workspaceId;
@@ -111,11 +119,16 @@ export class ContactPusher {
   async run(job: JobRecord, connection: ConnectionRecord, creds: KvCredentials): Promise<void> {
     const ws = job.workspaceId;
     const contactId = contactIdOf(job);
-    const contact = connection.settings.syncCustomers
-      ? await this.contacts.pushableContact(ws, SOURCE, contactId)
-      : null;
+    if (!connection.settings.syncCustomers) {
+      // The switch is off: the scan releases the claim.
+      await this.complete(job);
+      return;
+    }
+    const contact = await this.contacts.pushableContact(ws, SOURCE, contactId);
     if (!contact) {
-      // Pushed, released, linked or archived meanwhile, or the switch is off: nothing to do.
+      // Pushed or linked meanwhile (a no-op then), or archived or without a phone: still `pending`,
+      // it would be queued again every scan. Failed, silently (nothing for the owner to do).
+      await this.contacts.markContactPushFailed(ws, contactId, 'not_pushable');
       await this.complete(job);
       return;
     }
@@ -123,6 +136,12 @@ export class ContactPusher {
     try {
       externalId = await this.findOrCreate(job, creds, contact, connection.settings.orderBranchId);
     } catch (error) {
+      if (error instanceof KiotVietPermissionError) {
+        // The API account cannot touch customers: customer sync stops, the connection goes on.
+        await disableCustomerSync(this.store, this.contacts, ws, connection.id);
+        await this.complete(job);
+        return;
+      }
       if (!(error instanceof KiotVietRejectedError)) throw error;
       await this.fail(ws, connection.id, contactId, 'kiotviet_rejected');
       await this.complete(job);
@@ -219,6 +238,9 @@ export class ContactPusher {
 
   private async fail(ws: WorkspaceId, connectionId: string, contactId: string, reason: string) {
     await this.contacts.markContactPushFailed(ws, contactId, reason);
+    const key = `${connectionId}:${reason}`;
+    if (this.loggedFailures.has(key)) return;
+    this.loggedFailures.add(key);
     await this.store.log(ws, connectionId, {
       level: 'warning',
       code: 'customer_push_failed',

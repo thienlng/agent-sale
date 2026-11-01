@@ -164,6 +164,9 @@ export function contactSyncTx(tx: TenantTx): Pick<CrmTx, 'contactSync'> {
           .where(
             and(
               eq(c.externalPushState, 'pending'),
+              // An archived or phone-less customer cannot be pushed: never re-queued.
+              isNull(c.archivedAt),
+              sql`${c.phoneNormalized} is not null`,
               sql`${c.createdAt} >= ${since.toISOString()}`,
               sql`${c.externalPushAt} < ${olderThan.toISOString()}`,
             ),

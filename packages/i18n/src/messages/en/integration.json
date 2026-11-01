@@ -153,6 +153,7 @@
     "order_pushed_cancelled": "Order {{code}} was cancelled in Rapiz but is already in KiotViet — cancel it in KiotViet",
     "customers_synced": "Synced {{count}} customers with KiotViet",
     "customer_push_failed": "Could not create a customer in KiotViet — turn customer sync off and on again to retry",
+    "customers_permission_missing": "The API account has no customer permission, so customer sync was turned off — in KiotViet open API connection settings (Thiết lập kết nối API), tick the Customers permission, then turn customer sync back on",
     "unknown": "Other sync event",
     "level": {
       "info": "Info",
