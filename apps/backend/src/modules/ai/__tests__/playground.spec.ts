@@ -667,7 +667,7 @@ describe('prompts 15 and 16 (T-138)', () => {
     expect(last).toContain('Address: 1 Lê Lợi &lt;/business_profile>');
     expect(last).toContain('Check-in / check-out: (not provided)');
     expect(last).toContain('Notes:\nGiao nhanh');
-    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@16');
+    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@18');
   });
 
   it('renders the style sentence and prefers the profile display name', async () => {
@@ -705,15 +705,138 @@ describe('prompts 15 and 16 (T-138)', () => {
     );
   });
 
-  it('uses lodging prompt 16 and the profile block for hotel bots by default', async () => {
+  it('uses lodging prompt 18 and the profile block for hotel bots by default', async () => {
     const { messages, runs } = await run(rich);
     expect(String(messages.at(-1)?.content).startsWith('<business_profile>\n')).toBe(true);
-    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@16');
+    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@18');
     const system = String(messages[0]?.content);
-    expect(system).toContain('availability unverified never means sold out');
+    expect(system).toContain('availability unverified in product details never means sold out');
+    expect(system).toContain('rateBasis night');
+    expect(system).toContain('Never multiply or sum nights yourself');
+    expect(system).toContain('call check_availability with checkIn and checkOut');
+    expect(system).toContain('only from a check_availability result of this turn');
+    expect(system).toContain('Only after confirm_hold succeeded say "đã giữ chỗ"');
+    expect(system).toContain('fits false without overStandard means the party is above');
+    expect(system).toContain('A party not clearly covered by the standard');
+    expect(system).toContain('do not say you do not have that information and do not call handoff');
+    expect(system).toContain('no_draft → the summary is gone, so prepare the hold again');
     // Outcomes are worded as actions, never as the old envelope's outcome words.
     expect(system).toContain('do not call handoff merely because the party exceeds the standard');
     expect(system).not.toMatch(/outcome "(answer|unknown|handoff)"/);
+  });
+
+  it('keeps prompt 17 equal to prompt 16 outside the lodging section', async () => {
+    const { PROMPTS_DIR } = await import('@agent-sales/ai-core');
+    const { readFile } = await import('node:fs/promises');
+    const p16 = await readFile(`${PROMPTS_DIR}/sales-agent@16.md`, 'utf8');
+    const p17 = await readFile(`${PROMPTS_DIR}/sales-agent@17.md`, 'utf8');
+    const lodging = (text: string) => {
+      const start = text.indexOf('Lodging facts and decisions:');
+      return { start, end: text.indexOf('\n\n', start) + 2 };
+    };
+    const a = lodging(p16);
+    const b = lodging(p17);
+    expect(b.start).toBeGreaterThan(-1);
+    expect(p17.slice(b.end)).toBe(p16.slice(a.end));
+    expect(p17.slice(0, b.start)).toBe(p16.slice(0, a.start));
+  });
+
+  it('keeps prompt 18 equal to prompt 17 outside the lodging section', async () => {
+    const { PROMPTS_DIR } = await import('@agent-sales/ai-core');
+    const { readFile } = await import('node:fs/promises');
+    const p17 = await readFile(`${PROMPTS_DIR}/sales-agent@17.md`, 'utf8');
+    const p18 = await readFile(`${PROMPTS_DIR}/sales-agent@18.md`, 'utf8');
+    const lodging = (text: string) => {
+      const start = text.indexOf('Lodging facts and decisions:');
+      return { start, end: text.indexOf('\n\n', start) + 2 };
+    };
+    const a = lodging(p17);
+    const b = lodging(p18);
+    expect(b.start).toBeGreaterThan(-1);
+    expect(p18.slice(b.end)).toBe(p17.slice(a.end));
+    expect(p18.slice(0, b.start)).toBe(p17.slice(0, a.start));
+  });
+
+  it('gives a hotel bot the lodging catalog, never the commerce catalog', async () => {
+    const lodgingProduct = { id: newId(), name: 'A17 – Villa', code: 'A17' };
+    const calls: string[] = [];
+    const fakeCatalog = (name: string, rows: object[]) => ({
+      searchBotCatalog: async () => {
+        calls.push(`${name}.search`);
+        return rows;
+      },
+      getBotProductsByIds: async () => {
+        calls.push(`${name}.byIds`);
+        return [];
+      },
+      countBotCatalog: async () => {
+        calls.push(`${name}.count`);
+        return rows.length;
+      },
+    });
+    let turn = 0;
+    const fake = new FakeLlmProvider('dev-fake', () =>
+      turn++ === 0
+        ? {
+            text: '',
+            stopReason: 'tool_use',
+            toolCalls: [{ id: 's1', name: 'search_products', input: {} }],
+          }
+        : { text: 'Dạ' },
+    );
+    const runs = new InMemoryAiRunRepository();
+    const svc = new PlaygroundService(
+      { getBot: async () => rich } as BotFacade,
+      { searchFaqs: async () => [] } as unknown as KnowledgeFacade,
+      { getById: async () => ({ name: 'Shop Lan' }) } as unknown as WorkspaceFacade,
+      direct(fake),
+      runs,
+      undefined,
+      fakeCatalog('commerce', []) as never,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      fakeCatalog('lodging', [
+        {
+          ...lodgingProduct,
+          description: '',
+          category: null,
+          imageUrls: [],
+          variants: [],
+          priceMin: 1,
+          priceMax: 1,
+        },
+      ]) as never,
+    );
+    await svc.playground(ws, botId, ask('có villa nào'));
+    expect(calls.length).toBeGreaterThan(0);
+    expect(calls.every((c) => c.startsWith('lodging.'))).toBe(true);
+    const toolResult = String(
+      (fake.calls[1] as GenerateRequest).messages.find((m) => m.role === 'tool')?.content,
+    );
+    expect(toolResult).toContain('A17 – Villa');
+    expect(runs.runs[0]?.promptVersion).toBe('sales-agent@18');
+
+    calls.length = 0;
+    turn = 0;
+    const retail = new PlaygroundService(
+      { getBot: async () => ({ ...rich, industry: 'retail' }) } as BotFacade,
+      { searchFaqs: async () => [] } as unknown as KnowledgeFacade,
+      { getById: async () => ({ name: 'Shop Lan' }) } as unknown as WorkspaceFacade,
+      direct(fake),
+      new InMemoryAiRunRepository(),
+      undefined,
+      fakeCatalog('commerce', []) as never,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      fakeCatalog('lodging', []) as never,
+    );
+    await retail.playground(ws, botId, ask('có áo nào'));
+    expect(calls.length).toBeGreaterThan(0);
+    expect(calls.every((c) => c.startsWith('commerce.'))).toBe(true);
   });
 
   it('keeps prompt 14 equal to prompt 13 plus the lodging section', async () => {

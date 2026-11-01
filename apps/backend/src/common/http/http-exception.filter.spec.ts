@@ -1,4 +1,5 @@
 import type { ArgumentsHost } from '@nestjs/common';
+import { DomainError } from '@agent-sales/shared';
 import { describe, expect, it, vi } from 'vitest';
 
 import { HttpExceptionFilter } from './http-exception.filter.js';
@@ -31,6 +32,19 @@ describe('HttpExceptionFilter', () => {
       traceId: 'trace-1',
     });
     expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it('answers 409 CONFLICT for a module-specific domain code and keeps it as the reason', () => {
+    class TakenError extends DomainError {
+      readonly code = 'NIGHTS_TAKEN';
+    }
+    const { status, body } = run(new TakenError('Nights are taken', { codes: ['BK-0001'] }));
+    expect(status).toBe(409);
+    expect(body?.error).toMatchObject({
+      code: 'CONFLICT',
+      message: 'Nights are taken',
+      details: { codes: ['BK-0001'], reason: 'NIGHTS_TAKEN' },
+    });
   });
 
   it('still maps unknown errors to 500 INTERNAL', () => {

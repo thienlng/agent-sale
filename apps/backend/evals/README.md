@@ -1,7 +1,7 @@
 # Prompt evals
 
 Cases that drive real customer questions through the production reply pipeline
-(`PlaygroundService.playground()`: prompts `sales-agent@15` (retail) / `@16` (lodging), business
+(`PlaygroundService.playground()`: prompts `sales-agent@15` (retail) / `@18` (lodging), business
 profile block, FAQs, situations, history compression, the agent loop with catalog, `calculate`,
 `send_message`, `handoff`, order and action tools, reply post-processing) and check what the
 customer received and which tools ran.
@@ -35,6 +35,14 @@ pnpm --filter @agent-sales/backend eval --group safety --id retail-injection-dis
   ranks `search_products` queries by accent-folded term overlap with the product name (weight 3),
   category and description (weight 1), so a live model that searches for a product by name finds it;
   it is not the SQL ranking (that has its own integration test).
+- **Lodging holds.** A hotel bot gets `check_availability` and, with `orderTaking: true`,
+  `prepare_hold` / `confirm_hold` / `cancel_hold_draft` on an in-memory lodging bot facade
+  (`src/modules/ai/evals/lodging.ts`), in both modes. The case's accommodation products are the
+  properties (whole rental only): weekday `rates`, extra-adult surcharges above `standardAdults`,
+  `maxGuests`, nights booked by `lodging.taken`, a summary in the layout of the real one, holds
+  numbered `BK-0001`… `lodging.hold_draft` seeds a summary sent before the turn and
+  `lodging.taken_before_confirm` makes another booking take its nights before the confirm. Dates and
+  review rules are not checked by the fake (the lodging module has its own tests).
 - **Orders.** A bot with `orderTaking: true` gets the order tools (`prepare_order`, then
   `confirm_order` / `cancel_order_draft` while a summary waits) on an in-memory commerce facade
   (`src/modules/ai/evals/commerce.ts`), in both modes. It works on the case's catalog: SKUs
@@ -72,6 +80,12 @@ products: [] # optional catalog: [{name, code, description, instructions, images
 order_draft: # optional, needs bot.orderTaking: a summary stored before this turn (it can be confirmed now)
   items: [{ sku: TM-001-STD, qty: 2 }]
   recipient: { name: 'Nguyễn Thị Lan', phone: '0903 111 222', address: '12 Lê Lợi, quận 1' }
+lodging: # optional, hotel cases: the calendar of the lodging bot facade
+  taken: [{ code: A17, checkIn: '2027-01-08', checkOut: '2027-01-10' }]
+  hold_minutes: 120
+  hold_draft: # optional, needs bot.orderTaking: a hold summary stored before this turn
+    { code: A17, checkIn: '2027-01-08', checkOut: '2027-01-10', adults: 20, guestName: 'Nam', guestPhone: '0901234567' }
+  taken_before_confirm: false
 conversation: # customer and bot turns; the last turn must be the customer's
   - customer: 'giày bảo hành bao lâu shop'
 expect: # every check reads the messages the customer received this turn

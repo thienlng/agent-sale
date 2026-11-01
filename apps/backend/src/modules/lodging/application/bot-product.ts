@@ -1,0 +1,181 @@
+import type { AccommodationDetails, ProductDto } from '@agent-sales/contracts';
+
+import type { RateRule } from '../domain/rates.js';
+import type { PropertyRecord, UnitRecord } from './ports/lodging-store.js';
+import { currentUnits } from './property-support.js';
+
+/** Limits of the bot view (the product image list and the `AccommodationDetails` schema). */
+const MAX_IMAGE_URLS = 5;
+const MAX_GALLERY = 30;
+const MAX_AMENITIES = 50;
+const MAX_OVERRIDES = 20;
+const MAX_NOTES = 3000;
+/** The model reads an unknown field as "(not provided)" (prompt rule). */
+const NOT_PROVIDED = '(not provided)';
+
+type WeekdayRow = { days: number[]; amount: number };
+
+/** Weekday rules of one target (null = whole property) as `{days, amount}` rows, sell prices only. */
+function weekdayRows(rules: RateRule[], unitId: string | null): WeekdayRow[] {
+  return rules
+    .filter((r) => r.kind === 'weekday' && r.unitId === unitId && r.weekdays.length)
+    .map((r) => ({ days: [...r.weekdays].sort((a, b) => a - b), amount: r.sell }))
+    .sort((a, b) => (a.days[0] ?? 0) - (b.days[0] ?? 0));
+}
+
+/** Every ISO weekday 1..7 priced exactly once. */
+function coversWeek(rows: WeekdayRow[]): boolean {
+  const days = rows.flatMap((r) => r.days);
+  return days.length === 7 && new Set(days).size === 7 && days.every((d) => d >= 1 && d <= 7);
+}
+
+/** Per ISO weekday the sum of every room's price, equal amounts grouped into one row. */
+function summedRows(roomRows: WeekdayRow[][]): WeekdayRow[] {
+  const byAmount = new Map<number, number[]>();
+  for (let day = 1; day <= 7; day += 1) {
+    const amount = roomRows.reduce(
+      (sum, rows) => sum + (rows.find((r) => r.days.includes(day))?.amount ?? 0),
+      0,
+    );
+    byAmount.set(amount, [...(byAmount.get(amount) ?? []), day]);
+  }
+  return [...byAmount]
+    .map(([amount, days]) => ({ days, amount }))
+    .sort((a, b) => (a.days[0] ?? 0) - (b.days[0] ?? 0));
+}
+
+/** An override's label with its minimum stay, so the model can tell the customer. */
+const overrideLabel = (label: string, minNights: number | null): string =>
+  minNights && minNights > 1
+    ? [label.trim(), `(min ${minNights} nights)`].filter(Boolean).join(' ')
+    : label;
+
+/**
+ * The bot view of one property as a `ProductDto` (`id` = property id) whose `accommodation` holds
+ * the per-night weekday rates, the rooms of a `rooms` property, upcoming date-range prices (from
+ * `today`, at most 20) and the surcharges. Sell prices only: no cost ever leaves this function.
+ * `rates` are this property's rules; `units` may hold other properties' units too.
+ * Returns null when the property cannot be quoted (some weekday has no price).
+ */
+export function toBotProduct(
+  p: PropertyRecord,
+  units: UnitRecord[],
+  rates: RateRule[],
+  today: string,
+): ProductDto | null {
+  const rooms =
+    p.sellMode === 'rooms'
+      ? currentUnits(p, units).filter((u) => u.active && u.kind === 'room')
+      : [];
+  const roomRows = rooms.map((u) => ({ unit: u, rows: weekdayRows(rates, u.id) }));
+  const priced = roomRows.filter((r) => coversWeek(r.rows));
+
+  const wholeRows = weekdayRows(rates, null);
+  // Without whole-place weekday rules, renting the whole place costs the sum of its active rooms
+  // per night (as `quoteStay` prices it); a room without a price hides the property.
+  const weekRates = coversWeek(wholeRows)
+    ? wholeRows
+    : rooms.length && priced.length === rooms.length
+      ? summedRows(priced.map((r) => r.rows))
+      : [];
+  if (!coversWeek(weekRates)) return null;
+
+  const amounts = [...weekRates, ...priced.flatMap((r) => r.rows)].map((r) => r.amount);
+  const roomNames = new Map(rooms.map((u) => [u.id, u.name]));
+  const overrides = rates
+    .filter(
+      (r): r is RateRule & { dateFrom: string; dateTo: string } =>
+        r.kind === 'override' &&
+        r.dateFrom !== null &&
+        r.dateTo !== null &&
+        r.dateTo >= today &&
+        (r.unitId === null || roomNames.has(r.unitId)),
+    )
+    .sort((a, b) => a.dateFrom.localeCompare(b.dateFrom))
+    .slice(0, MAX_OVERRIDES)
+    .map((r) => ({
+      dateFrom: r.dateFrom,
+      dateTo: r.dateTo,
+      label: overrideLabel(r.label, r.minNights),
+      amount: r.sell,
+      unitName: r.unitId === null ? null : (roomNames.get(r.unitId) ?? null),
+    }));
+
+  const layout =
+    p.sellMode === 'rooms'
+      ? rooms.map((u) => ({ name: u.name, beds: u.beds }))
+      : p.layout.map((l) => ({ name: l.name, beds: l.beds }));
+  const roomLayout = (layout.length ? layout : [{ name: p.name, beds: '' }]).map((l) => ({
+    name: l.name.slice(0, 100),
+    beds: l.beds.trim().slice(0, 500) || NOT_PROVIDED,
+  }));
+  const gallery = p.gallery.slice(0, MAX_GALLERY).map((g, i) => ({
+    url: g.url,
+    caption: g.caption.trim().slice(0, 300) || `${p.code} photo ${i + 1}`,
+  }));
+  const { checkInTime, checkOutTime, deposit, cancellation, houseRules, other } = p.policies;
+
+  const accommodation: AccommodationDetails = {
+    rentalType: p.sellMode === 'rooms' ? 'rooms' : 'entire_property',
+    code: p.code,
+    bedrooms: Math.max(1, roomLayout.length),
+    standardAdults: p.standardAdults,
+    standardChildren: p.standardChildren,
+    childAgeBelow: Math.max(1, p.childFreeBelow || p.childAdultFrom),
+    maxGuests: p.maxGuests,
+    roomLayout,
+    amenities: p.amenities.slice(0, MAX_AMENITIES),
+    rateBasis: 'night',
+    rates: weekRates,
+    checkInOut: [checkInTime.trim(), checkOutTime.trim()].filter(Boolean).join(' / '),
+    depositPolicy: deposit.slice(0, 1000),
+    cancellationPolicy: cancellation.slice(0, 1000),
+    extraGuestPolicy: '',
+    holidayPolicy: '',
+    gallery,
+    notes: [p.address.trim() ? `Address: ${p.address.trim()}` : '', houseRules, other]
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .join('\n')
+      .slice(0, MAX_NOTES),
+    ...(p.sellMode === 'rooms'
+      ? {
+          units: priced.map(({ unit, rows }) => ({
+            name: unit.name,
+            beds: unit.beds,
+            capacityAdults: unit.capacityAdults,
+            capacityChildren: unit.capacityChildren,
+            weekdayRates: rows,
+          })),
+        }
+      : {}),
+    ...(overrides.length ? { overrides } : {}),
+    surcharges: {
+      extraAdult: p.surcharges.extraAdult?.sell ?? null,
+      extraChild: p.surcharges.extraChild?.sell ?? null,
+      childFreeBelow: p.childFreeBelow,
+      childAdultFrom: p.childAdultFrom,
+    },
+  };
+
+  return {
+    id: p.id,
+    code: p.code,
+    name: `${p.code} – ${p.name}`,
+    description: p.description,
+    category: p.area.trim() || null,
+    status: 'active',
+    visibleToBot: true,
+    botInstructions: '',
+    imageUrls: gallery.slice(0, MAX_IMAGE_URLS).map((g) => g.url),
+    accommodation,
+    // Lodging places are Rapiz-owned; they never come from a PMS.
+    external: null,
+    variants: [],
+    priceMin: Math.min(...amounts),
+    priceMax: Math.max(...amounts),
+    available: 0,
+    createdAt: p.createdAt,
+    updatedAt: p.updatedAt,
+  };
+}

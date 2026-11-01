@@ -1,0 +1,143 @@
+# Production stack on one server (docs/runbooks/deploy-vps.md). Lives in /opt/apps/rapiz next
+# to its .env (created by bootstrap.sh). deploy.sh pulls the images for RAPIZ_TAG, runs the
+# migrations, then restarts the services. Nothing publishes ports: the server's Nginx Proxy
+# Manager terminates HTTPS and reaches `edge` as `rapiz-edge:80` on the external `proxy`
+# network. State services sit on the internal `backend` network only.
+name: rapiz
+
+x-app: &app
+  image: ${RAPIZ_IMAGE:-ghcr.io/thienlng/agent-sale}/app:${RAPIZ_TAG:-latest}
+  env_file: .env
+  environment:
+    NODE_ENV: production
+  restart: unless-stopped
+  networks: [default, backend]
+  depends_on:
+    postgres: { condition: service_healthy }
+    redis: { condition: service_healthy }
+  logging: &logging
+    driver: json-file
+    options: { max-size: 10m, max-file: '3' }
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: rapiz_owner
+      POSTGRES_PASSWORD: ${POSTGRES_OWNER_PASSWORD:?set in .env}
+      POSTGRES_DB: rapiz
+    volumes: [pgdata:/var/lib/postgresql/data, ./backups:/backups]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U rapiz_owner -d rapiz']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    shm_size: 256m
+    networks: [backend]
+    logging: *logging
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes: [redisdata:/data]
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    networks: [backend]
+    logging: *logging
+
+  # S3-compatible object storage. The identities file is rendered from .env at start:
+  # `rapiz` writes, `anonymous` may only read the bucket (public product pictures for Meta).
+  object-storage:
+    image: chrislusf/seaweedfs:latest
+    restart: unless-stopped
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?set in .env}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?set in .env}
+      S3_BUCKET: ${S3_BUCKET:-rapiz}
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        cat > /tmp/s3.json <<JSON
+        {"identities":[
+          {"name":"rapiz","credentials":[{"accessKey":"$$S3_ACCESS_KEY","secretKey":"$$S3_SECRET_KEY"}],
+           "actions":["Admin","Read","Write","List","Tagging"]},
+          {"name":"anonymous","actions":["Read:$$S3_BUCKET"]}]}
+        JSON
+        exec weed server -dir=/data -s3 -s3.config=/tmp/s3.json -master.volumeSizeLimitMB=1024 -volume.max=0
+    volumes: [s3data:/data]
+    networks: [backend]
+    logging: *logging
+
+  migrate:
+    <<: *app
+    restart: 'no'
+    profiles: [tools]
+    command: ['node', 'packages/db/dist/cli/migrate.js', '--login-roles']
+
+  api:
+    <<: *app
+    command: ['node', 'apps/backend/dist/entries/api.js']
+    environment: { NODE_ENV: production, PORT: '3000' }
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/api/v1/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+  agent:
+    <<: *app
+    command: ['node', 'apps/backend/dist/entries/agent.js']
+
+  worker:
+    <<: *app
+    command: ['node', 'apps/backend/dist/entries/worker.js']
+
+  webhook:
+    <<: *app
+    command: ['node', 'apps/webhook/dist/main.js']
+    environment: { NODE_ENV: production, PORT: '3001' }
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  edge:
+    image: ${RAPIZ_IMAGE:-ghcr.io/thienlng/agent-sale}/edge:${RAPIZ_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      S3_BUCKET: ${S3_BUCKET:-rapiz}
+    networks:
+      default: {}
+      backend: {}
+      proxy: { aliases: [rapiz-edge] }
+    volumes: [caddydata:/data, caddyconfig:/config]
+    depends_on: [api, webhook, object-storage]
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '--spider', 'http://127.0.0.1/']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    logging: *logging
+
+networks:
+  backend:
+    internal: true
+  proxy:
+    external: true
+
+volumes:
+  pgdata:
+  redisdata:
+  s3data:
+  caddydata:
+  caddyconfig:

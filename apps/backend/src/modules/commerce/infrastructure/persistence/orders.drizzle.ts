@@ -20,6 +20,7 @@ import type {
   OrderListResult,
   OverviewAggregates,
 } from '../../application/ports/commerce-store.js';
+import { toMediaPath } from '../../../../common/storage/media-url.js';
 import type { OrderStatus } from '../../domain/order-stock.js';
 import { PREVIEW_LINES } from '../../application/order.mappers.js';
 import { DuplicateOrderRequestError } from '../../domain/commerce.errors.js';
@@ -110,7 +111,9 @@ export function ordersTx(ws: WorkspaceId, tx: TenantTx): Pick<CommerceTx, 'order
           .innerJoin(v, eq(v.id, oi.variantId))
           .innerJoin(p, eq(p.id, v.productId))
           .where(eq(oi.orderId, orderId));
-        return new Map(rows.flatMap((r) => (r.url ? [[r.variantId, r.url] as const] : [])));
+        return new Map(
+          rows.flatMap((r) => (r.url ? [[r.variantId, toMediaPath(r.url)] as const] : [])),
+        );
       },
       async historyOf(orderId) {
         const rows = await tx
@@ -241,7 +244,7 @@ export function ordersTx(ws: WorkspaceId, tx: TenantTx): Pick<CommerceTx, 'order
                 qty: i.qty,
                 variantName: i.variantName || null,
                 unitPrice: i.unitPrice,
-                imageUrl: i.imageUrl ?? null,
+                imageUrl: i.imageUrl ? toMediaPath(i.imageUrl) : null,
               })),
             };
           }),

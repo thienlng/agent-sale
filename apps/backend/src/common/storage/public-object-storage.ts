@@ -1,12 +1,17 @@
 import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
+import { mediaPath } from './media-url.js';
 import { MediaStorageUnavailableError } from './storage.errors.js';
 
 /** Port for a public-read object store: put returns the public URL. */
 export interface PublicObjectStorage {
   put(key: string, content: Uint8Array, mimeType: string): Promise<string>;
   remove(key: string): Promise<void>;
-  /** True when `url` is a public URL of an object whose key starts with `keyPrefix`. */
+  /**
+   * True when `url` is a public URL of an object whose key starts with `keyPrefix`: the
+   * host-relative `/media/<key>` path, or that path on any host (URLs stored before a public
+   * host change), when the public base is served under `/media`.
+   */
   isPublicUrlUnder(url: string, keyPrefix: string): boolean;
 }
 
@@ -62,7 +67,9 @@ export class S3PublicObjectStorage implements PublicObjectStorage {
   isPublicUrlUnder(url: string, keyPrefix: string): boolean {
     const base = this.options.publicUrl;
     if (!this.#client || !base) return false;
-    return url.startsWith(`${base.replace(/\/$/, '')}/${keyPrefix}`);
+    if (url.startsWith(`${base.replace(/\/$/, '')}/${keyPrefix}`)) return true;
+    const servedUnderMedia = new URL(base).pathname.replace(/\/$/, '') === '/media';
+    return servedUnderMedia && (mediaPath(url)?.startsWith(`/media/${keyPrefix}`) ?? false);
   }
 
   async remove(key: string): Promise<void> {

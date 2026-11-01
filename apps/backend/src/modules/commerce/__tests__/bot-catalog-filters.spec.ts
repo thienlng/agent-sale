@@ -22,7 +22,7 @@ const record = (id: string, accommodation: boolean): ProductRecord =>
     visibleToBot: true,
     botInstructions: '',
     imageUrls: [],
-    accommodation: accommodation ? { rentalType: 'entire_property' } : null,
+    accommodation: accommodation ? { rentalType: 'entire_property', gallery: [] } : null,
     createdAt: new Date(),
     updatedAt: new Date(),
   }) as unknown as ProductRecord;
