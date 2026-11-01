@@ -174,14 +174,15 @@ function PropertyCard({
         p.status === 'paused' && 'opacity-70',
       )}
     >
-      <div className="aspect-[16/9] bg-muted">
+      {/* Fixed 4:3 crop; the absolute image cannot stretch the box (aspect-ratio min-height). */}
+      <div className="relative aspect-[4/3] shrink-0 overflow-hidden bg-muted">
         {cover ? (
           <img
             src={cover.url}
             alt={cover.caption}
             loading="lazy"
             referrerPolicy="no-referrer"
-            className="size-full object-cover"
+            className="absolute inset-0 size-full object-cover"
           />
         ) : (
           <div className="grid size-full place-items-center text-xs text-muted-foreground">

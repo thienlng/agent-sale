@@ -74,6 +74,32 @@ describe('PropertiesPage', () => {
     expect(document.body).not.toHaveTextContent(/sản phẩm/i);
   });
 
+  it('crops every cover to one fixed ratio so the cards line up', async () => {
+    const tall = summaryFixture({
+      id: LODGING_IDS.h1,
+      code: 'T1',
+      gallery: [
+        {
+          url: '/media/products/0192f0a0-0000-7000-8000-000000000001/0192f0a0-0000-7000-8000-0000000000aa.jpg',
+          caption: 'Ảnh dọc',
+        },
+      ],
+    });
+    const { fetchStub } = stubLodgingApi({
+      'GET /lodging/properties': { status: 200, body: { data: [tall] } },
+      'GET /lodging/calendar': {
+        status: 200,
+        body: { from: '2026-11-01', to: '2026-11-08', today: '2026-11-01', properties: [] },
+      },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithRouter(() => <PropertiesPage />);
+    const img = await screen.findByRole('img', { name: 'Ảnh dọc' });
+    // An absolutely positioned cover cannot stretch its aspect-ratio box (min-height: auto).
+    expect(img).toHaveClass('absolute', 'inset-0', 'object-cover');
+    expect(img.parentElement).toHaveClass('aspect-[4/3]', 'relative', 'overflow-hidden');
+  });
+
   it('creates a place from the dialog', async () => {
     const calls = stub();
     renderWithRouter(() => <PropertiesPage />);

@@ -83,14 +83,14 @@ export function PropertiesTable({
                 className={cn(p.status === 'paused' && 'opacity-70')}
               >
                 <TableCell>
-                  <div className="size-10 overflow-hidden rounded-md bg-muted">
+                  <div className="relative size-10 shrink-0 overflow-hidden rounded-md bg-muted">
                     {cover ? (
                       <img
                         src={cover.url}
                         alt={cover.caption}
                         loading="lazy"
                         referrerPolicy="no-referrer"
-                        className="size-full object-cover"
+                        className="absolute inset-0 size-full object-cover"
                       />
                     ) : (
                       <span className="grid size-full place-items-center text-muted-foreground">
