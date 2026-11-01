@@ -83,7 +83,7 @@ hold ──confirm──▶ confirmed ──check-in──▶ checked_in ──c
 ```
 
 - A hold has `holdExpiresAt` = now + the workspace's `holdMinutes` (default 120, settings 15–1440). Staff can extend it.
-- Expiry: every write transaction that touches a property first expires its overdue holds (lazy), and a worker job on the existing scheduler queue sweeps overdue holds every minute. Expiry emits `lodging.booking.expired.v1`.
+- Expiry is lazy and needs no worker (the `worker` process runs no job processors yet): every lodging transaction (calendar, availability, quote, bookings list/detail, any booking write) first runs `expireOverdueHolds(now)` for the workspace — status `expired`, nights deleted, `lodging.booking.expired.v1` emitted — so nobody can observe or be blocked by an overdue hold. A periodic sweep can be added when the worker gets processors.
 - Check-in is allowed from the check-in date (local time Asia/Ho_Chi_Minh); check-out after check-in.
 - `block` bookings have status `active` | `removed`, no guest and no money.
 - Editing dates/units/party of a `hold` or `confirmed` booking re-quotes and re-takes the nights atomically (all or nothing); the old quote is kept in the audit trail. `checked_in` bookings can only extend/shorten the check-out date.
@@ -151,7 +151,7 @@ Card grid: cover photo, code + name, area, sell mode, standard capacity, today's
 
 ## 6. Bot in part 1 (keep it working)
 
-For hotel bots the `ai` module gets properties from `LodgingFacade.listBotProperties(workspaceId, botId)` instead of commerce products with accommodation metadata. The product view keeps `catalogKind: 'accommodation'` with the new details (code, sell mode, units, standard, policies, weekday and override prices per night, surcharges). Images: gallery captions feed the existing image allowlist. Prompt `sales-agent@17` (hotel): prices are per night and may be quoted exactly for listed rules; still never claim a night is free or held (calendar tools come in part 3). Lodging evals are updated and run live before merge.
+For hotel bots the `ai` module uses a lodging-backed `CatalogFacade` (`LODGING_CATALOG_FACADE`, implemented by the `lodging` module with the same three methods `searchBotCatalog` / `getBotProductsByIds` / `countBotCatalog`) instead of commerce products. It returns `ProductDto` rows whose `accommodation` is built from the property; `AccommodationDetails` is extended additively (`rentalType` gains `rooms`; optional `code`, `units`, `overrides`, `surcharges`; `rateBasis` is `night`). The product view keeps `catalogKind: 'accommodation'`, so the reply pipeline, tools and image allowlist stay unchanged. Images: gallery captions feed the existing image allowlist. Prompt `sales-agent@17` (hotel): prices are per night and may be quoted exactly for listed rules; still never claim a night is free or held (calendar tools come in part 3). Lodging evals are updated and run live before merge.
 
 ## 7. Migration and data
 
