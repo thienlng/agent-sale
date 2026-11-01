@@ -11,11 +11,3 @@ export function isImageNotUploaded(error: unknown): boolean {
 export function productSaveErrorMessage(t: TFunction, error: unknown): string {
   return isImageNotUploaded(error) ? t('products.form.imageNotUploaded') : errorMessage(t, error);
 }
-
-/** Lodging conflicts can mean overlapping dates, a stale version, or a reused request key. */
-export function lodgingErrorMessage(t: TFunction, error: unknown): string {
-  if (isImageNotUploaded(error)) return t('products.form.imageNotUploaded');
-  return error instanceof ApiClientError && error.code === 'CONFLICT'
-    ? t('lodging.conflict')
-    : errorMessage(t, error);
-}

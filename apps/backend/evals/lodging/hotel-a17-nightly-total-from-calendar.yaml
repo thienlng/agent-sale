@@ -1,0 +1,81 @@
+{
+  'group': 'lodging-a17',
+  'tags': ['critical'],
+  'bot':
+    {
+      'industry': 'hotel',
+      'name': 'Test lodging assistant',
+      'profile': { 'fields': { 'displayName': 'Test lodging business' }, 'notes': '' },
+    },
+  'products':
+    [
+      {
+        'name': 'A17 – Villa A17',
+        'code': 'A17',
+        'description': 'Một căn nguyên căn có 8 phòng ngủ. Tiêu chuẩn 24 người lớn và 8 trẻ dưới 6 tuổi.',
+        'variants': [{ 'name': 'Nguyên căn, giá tham khảo', 'price': 12000000, 'stock': 0 }],
+        'accommodation':
+          {
+            'rentalType': 'entire_property',
+            'code': 'A17',
+            'bedrooms': 8,
+            'standardAdults': 24,
+            'standardChildren': 8,
+            'childAgeBelow': 6,
+            'maxGuests': null,
+            'roomLayout':
+              [
+                { 'name': 'Room 1', 'beds': 'Beds described by owner' },
+                { 'name': 'Room 2', 'beds': 'Beds described by owner' },
+                { 'name': 'Room 3', 'beds': 'Beds described by owner' },
+                { 'name': 'Room 4', 'beds': 'Beds described by owner' },
+                { 'name': 'Room 5', 'beds': 'Beds described by owner' },
+                { 'name': 'Room 6', 'beds': 'Beds described by owner' },
+                { 'name': 'Room 7', 'beds': 'Beds described by owner' },
+                { 'name': 'Room 8', 'beds': 'Beds described by owner' },
+              ],
+            'amenities': ['Bể bơi', 'BBQ'],
+            'rateBasis': 'night',
+            'rates':
+              [
+                { 'days': [1, 2, 3, 4], 'amount': 12000000 },
+                { 'days': [5, 7], 'amount': 13000000 },
+                { 'days': [6], 'amount': 14000000 },
+              ],
+            'gallery': [],
+            'surcharges':
+              { 'extraAdult': null, 'extraChild': null, 'childFreeBelow': 6, 'childAdultFrom': 12 },
+          },
+      },
+    ],
+  'id': 'hotel-a17-nightly-total-from-calendar',
+  'conversation':
+    [{ 'customer': 'A17 thuê 2 đêm từ thứ 7 tuần sau cho 20 người lớn thì tổng tiền bao nhiêu?' }],
+  # Prompt 18 (T-161): a dated question goes to check_availability; the Saturday + Sunday nights
+  # and the stay total are quoted from the server's result, never from the model's own arithmetic.
+  'expect': {
+      'outcome': 'answered',
+      'guardrail': 'none',
+      'steps_succeeded': ['check_availability'],
+      'steps_exclude': ['prepare_hold', 'handoff'],
+      # The weekday labels are the server's (weekdayLabel), never the model's own date arithmetic.
+      'contains_all': ['Thứ Bảy', 'Chủ Nhật', '14.000.000', '13.000.000', '27.000.000'],
+      'not_contains': ['đã giữ', 'đã đặt'],
+    },
+  fake_turns:
+    [
+      {
+        tool_calls:
+          [
+            {
+              name: 'check_availability',
+              input:
+                { checkIn: '2027-01-09', checkOut: '2027-01-11', adults: 20, propertyCode: 'A17' },
+            },
+          ],
+      },
+      {
+        text: 'Dạ A17 từ Thứ Bảy 09/01 đến Thứ Hai 11/01 còn trống ạ: đêm Thứ Bảy 14.000.000đ, đêm Chủ Nhật 13.000.000đ, tổng 2 đêm 27.000.000đ ạ.',
+      },
+    ],
+}

@@ -12,7 +12,7 @@ import { COMPRESS_AT_TURNS, compressHistory, summaryMessage } from './context-co
 export const PHONE_KNOWN_LINE =
   'The customer already left their phone number; do not ask for it again.';
 
-const SHOP_TIME_ZONE = 'Asia/Ho_Chi_Minh';
+export const SHOP_TIME_ZONE = 'Asia/Ho_Chi_Minh';
 /** Products of an interrupted run's tool results whose pictures stay sendable in the re-run. */
 const MAX_CARRY_PRODUCTS = 12;
 const CARRY_IMAGE_ID = /p:([0-9A-Za-z-]{1,64}):\d+/g;

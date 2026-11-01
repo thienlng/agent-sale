@@ -20,6 +20,8 @@ import { Route as AdminLlmRouteImport } from './routes/admin/llm'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as AppAccommodationsRouteImport } from './routes/app/accommodations'
 import { Route as AppAnalyticsRouteImport } from './routes/app/analytics'
+import { Route as AppBookingsRouteImport } from './routes/app/bookings'
+import { Route as AppCalendarRouteImport } from './routes/app/calendar'
 import { Route as AppChannelsRouteImport } from './routes/app/channels'
 import { Route as AppContactsRouteImport } from './routes/app/contacts'
 import { Route as AppCrmSettingsRouteImport } from './routes/app/crm-settings'
@@ -50,6 +52,8 @@ import { Route as AppOrdersOverviewRouteImport } from './routes/app/orders/overv
 import { Route as AppProductsIndexRouteImport } from './routes/app/products/index'
 import { Route as AppProductsProductIdRouteImport } from './routes/app/products/$productId'
 import { Route as AppProductsNewRouteImport } from './routes/app/products/new'
+import { Route as AppPropertiesIndexRouteImport } from './routes/app/properties/index'
+import { Route as AppPropertiesPropertyIdRouteImport } from './routes/app/properties/$propertyId'
 import { Route as AppSettingsIndexRouteImport } from './routes/app/settings/index'
 import { Route as AppSettingsAuditRouteImport } from './routes/app/settings/audit'
 import { Route as AppSettingsProfileRouteImport } from './routes/app/settings/profile'
@@ -121,6 +125,16 @@ const AppAccommodationsRoute = AppAccommodationsRouteImport.update({
 const AppAnalyticsRoute = AppAnalyticsRouteImport.update({
   id: '/analytics',
   path: '/analytics',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppBookingsRoute = AppBookingsRouteImport.update({
+  id: '/bookings',
+  path: '/bookings',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCalendarRoute = AppCalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
   getParentRoute: () => AppRoute,
 } as any)
 const AppChannelsRoute = AppChannelsRouteImport.update({
@@ -276,6 +290,16 @@ const AppProductsNewRoute = AppProductsNewRouteImport.update({
   path: '/products/new',
   getParentRoute: () => AppRoute,
 } as any)
+const AppPropertiesIndexRoute = AppPropertiesIndexRouteImport.update({
+  id: '/properties/',
+  path: '/properties/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPropertiesPropertyIdRoute = AppPropertiesPropertyIdRouteImport.update({
+  id: '/properties/$propertyId',
+  path: '/properties/$propertyId',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -377,6 +401,8 @@ export interface FileRoutesByFullPath {
   '/admin/llm': typeof AdminLlmRoute
   '/app/accommodations': typeof AppAccommodationsRoute
   '/app/analytics': typeof AppAnalyticsRoute
+  '/app/bookings': typeof AppBookingsRoute
+  '/app/calendar': typeof AppCalendarRoute
   '/app/channels': typeof AppChannelsRoute
   '/app/contacts': typeof AppContactsRoute
   '/app/crm-settings': typeof AppCrmSettingsRouteWithChildren
@@ -403,6 +429,7 @@ export interface FileRoutesByFullPath {
   '/app/orders/overview': typeof AppOrdersOverviewRoute
   '/app/products/$productId': typeof AppProductsProductIdRoute
   '/app/products/new': typeof AppProductsNewRoute
+  '/app/properties/$propertyId': typeof AppPropertiesPropertyIdRoute
   '/app/settings/audit': typeof AppSettingsAuditRoute
   '/app/settings/profile': typeof AppSettingsProfileRoute
   '/app/settings/security': typeof AppSettingsSecurityRoute
@@ -412,6 +439,7 @@ export interface FileRoutesByFullPath {
   '/app/order-settings/': typeof AppOrderSettingsIndexRoute
   '/app/orders/': typeof AppOrdersIndexRoute
   '/app/products/': typeof AppProductsIndexRoute
+  '/app/properties/': typeof AppPropertiesIndexRoute
   '/app/settings/': typeof AppSettingsIndexRoute
   '/app/bots/$botId/ads-tool': typeof AppBotsBotIdAdsToolRoute
   '/app/bots/$botId/history': typeof AppBotsBotIdHistoryRoute
@@ -435,6 +463,8 @@ export interface FileRoutesByTo {
   '/admin/llm': typeof AdminLlmRoute
   '/app/accommodations': typeof AppAccommodationsRoute
   '/app/analytics': typeof AppAnalyticsRoute
+  '/app/bookings': typeof AppBookingsRoute
+  '/app/calendar': typeof AppCalendarRoute
   '/app/channels': typeof AppChannelsRoute
   '/app/contacts': typeof AppContactsRoute
   '/app/inbox': typeof AppInboxRoute
@@ -457,6 +487,7 @@ export interface FileRoutesByTo {
   '/app/orders/overview': typeof AppOrdersOverviewRoute
   '/app/products/$productId': typeof AppProductsProductIdRoute
   '/app/products/new': typeof AppProductsNewRoute
+  '/app/properties/$propertyId': typeof AppPropertiesPropertyIdRoute
   '/app/settings/audit': typeof AppSettingsAuditRoute
   '/app/settings/profile': typeof AppSettingsProfileRoute
   '/app/settings/security': typeof AppSettingsSecurityRoute
@@ -466,6 +497,7 @@ export interface FileRoutesByTo {
   '/app/order-settings': typeof AppOrderSettingsIndexRoute
   '/app/orders': typeof AppOrdersIndexRoute
   '/app/products': typeof AppProductsIndexRoute
+  '/app/properties': typeof AppPropertiesIndexRoute
   '/app/settings': typeof AppSettingsIndexRoute
   '/app/bots/$botId/ads-tool': typeof AppBotsBotIdAdsToolRoute
   '/app/bots/$botId/history': typeof AppBotsBotIdHistoryRoute
@@ -492,6 +524,8 @@ export interface FileRoutesById {
   '/admin/llm': typeof AdminLlmRoute
   '/app/accommodations': typeof AppAccommodationsRoute
   '/app/analytics': typeof AppAnalyticsRoute
+  '/app/bookings': typeof AppBookingsRoute
+  '/app/calendar': typeof AppCalendarRoute
   '/app/channels': typeof AppChannelsRoute
   '/app/contacts': typeof AppContactsRoute
   '/app/crm-settings': typeof AppCrmSettingsRouteWithChildren
@@ -518,6 +552,7 @@ export interface FileRoutesById {
   '/app/orders/overview': typeof AppOrdersOverviewRoute
   '/app/products/$productId': typeof AppProductsProductIdRoute
   '/app/products/new': typeof AppProductsNewRoute
+  '/app/properties/$propertyId': typeof AppPropertiesPropertyIdRoute
   '/app/settings/audit': typeof AppSettingsAuditRoute
   '/app/settings/profile': typeof AppSettingsProfileRoute
   '/app/settings/security': typeof AppSettingsSecurityRoute
@@ -527,6 +562,7 @@ export interface FileRoutesById {
   '/app/order-settings/': typeof AppOrderSettingsIndexRoute
   '/app/orders/': typeof AppOrdersIndexRoute
   '/app/products/': typeof AppProductsIndexRoute
+  '/app/properties/': typeof AppPropertiesIndexRoute
   '/app/settings/': typeof AppSettingsIndexRoute
   '/app/bots/$botId/ads-tool': typeof AppBotsBotIdAdsToolRoute
   '/app/bots/$botId/history': typeof AppBotsBotIdHistoryRoute
@@ -554,6 +590,8 @@ export interface FileRouteTypes {
     | '/admin/llm'
     | '/app/accommodations'
     | '/app/analytics'
+    | '/app/bookings'
+    | '/app/calendar'
     | '/app/channels'
     | '/app/contacts'
     | '/app/crm-settings'
@@ -580,6 +618,7 @@ export interface FileRouteTypes {
     | '/app/orders/overview'
     | '/app/products/$productId'
     | '/app/products/new'
+    | '/app/properties/$propertyId'
     | '/app/settings/audit'
     | '/app/settings/profile'
     | '/app/settings/security'
@@ -589,6 +628,7 @@ export interface FileRouteTypes {
     | '/app/order-settings/'
     | '/app/orders/'
     | '/app/products/'
+    | '/app/properties/'
     | '/app/settings/'
     | '/app/bots/$botId/ads-tool'
     | '/app/bots/$botId/history'
@@ -612,6 +652,8 @@ export interface FileRouteTypes {
     | '/admin/llm'
     | '/app/accommodations'
     | '/app/analytics'
+    | '/app/bookings'
+    | '/app/calendar'
     | '/app/channels'
     | '/app/contacts'
     | '/app/inbox'
@@ -634,6 +676,7 @@ export interface FileRouteTypes {
     | '/app/orders/overview'
     | '/app/products/$productId'
     | '/app/products/new'
+    | '/app/properties/$propertyId'
     | '/app/settings/audit'
     | '/app/settings/profile'
     | '/app/settings/security'
@@ -643,6 +686,7 @@ export interface FileRouteTypes {
     | '/app/order-settings'
     | '/app/orders'
     | '/app/products'
+    | '/app/properties'
     | '/app/settings'
     | '/app/bots/$botId/ads-tool'
     | '/app/bots/$botId/history'
@@ -668,6 +712,8 @@ export interface FileRouteTypes {
     | '/admin/llm'
     | '/app/accommodations'
     | '/app/analytics'
+    | '/app/bookings'
+    | '/app/calendar'
     | '/app/channels'
     | '/app/contacts'
     | '/app/crm-settings'
@@ -694,6 +740,7 @@ export interface FileRouteTypes {
     | '/app/orders/overview'
     | '/app/products/$productId'
     | '/app/products/new'
+    | '/app/properties/$propertyId'
     | '/app/settings/audit'
     | '/app/settings/profile'
     | '/app/settings/security'
@@ -703,6 +750,7 @@ export interface FileRouteTypes {
     | '/app/order-settings/'
     | '/app/orders/'
     | '/app/products/'
+    | '/app/properties/'
     | '/app/settings/'
     | '/app/bots/$botId/ads-tool'
     | '/app/bots/$botId/history'
@@ -805,6 +853,20 @@ declare module '@tanstack/react-router' {
       path: '/analytics'
       fullPath: '/app/analytics'
       preLoaderRoute: typeof AppAnalyticsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/bookings': {
+      id: '/app/bookings'
+      path: '/bookings'
+      fullPath: '/app/bookings'
+      preLoaderRoute: typeof AppBookingsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/calendar': {
+      id: '/app/calendar'
+      path: '/calendar'
+      fullPath: '/app/calendar'
+      preLoaderRoute: typeof AppCalendarRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/channels': {
@@ -1015,6 +1077,20 @@ declare module '@tanstack/react-router' {
       path: '/products/new'
       fullPath: '/app/products/new'
       preLoaderRoute: typeof AppProductsNewRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/properties/': {
+      id: '/app/properties/'
+      path: '/properties'
+      fullPath: '/app/properties/'
+      preLoaderRoute: typeof AppPropertiesIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/properties/$propertyId': {
+      id: '/app/properties/$propertyId'
+      path: '/properties/$propertyId'
+      fullPath: '/app/properties/$propertyId'
+      preLoaderRoute: typeof AppPropertiesPropertyIdRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/settings/': {
@@ -1245,6 +1321,8 @@ const AppBotsBotIdRouteWithChildren = AppBotsBotIdRoute._addFileChildren(
 interface AppRouteChildren {
   AppAccommodationsRoute: typeof AppAccommodationsRoute
   AppAnalyticsRoute: typeof AppAnalyticsRoute
+  AppBookingsRoute: typeof AppBookingsRoute
+  AppCalendarRoute: typeof AppCalendarRoute
   AppChannelsRoute: typeof AppChannelsRoute
   AppContactsRoute: typeof AppContactsRoute
   AppCrmSettingsRoute: typeof AppCrmSettingsRouteWithChildren
@@ -1263,15 +1341,19 @@ interface AppRouteChildren {
   AppOrdersOverviewRoute: typeof AppOrdersOverviewRoute
   AppProductsProductIdRoute: typeof AppProductsProductIdRoute
   AppProductsNewRoute: typeof AppProductsNewRoute
+  AppPropertiesPropertyIdRoute: typeof AppPropertiesPropertyIdRoute
   AppBotsIndexRoute: typeof AppBotsIndexRoute
   AppIntegrationsIndexRoute: typeof AppIntegrationsIndexRoute
   AppOrdersIndexRoute: typeof AppOrdersIndexRoute
   AppProductsIndexRoute: typeof AppProductsIndexRoute
+  AppPropertiesIndexRoute: typeof AppPropertiesIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppAccommodationsRoute: AppAccommodationsRoute,
   AppAnalyticsRoute: AppAnalyticsRoute,
+  AppBookingsRoute: AppBookingsRoute,
+  AppCalendarRoute: AppCalendarRoute,
   AppChannelsRoute: AppChannelsRoute,
   AppContactsRoute: AppContactsRoute,
   AppCrmSettingsRoute: AppCrmSettingsRouteWithChildren,
@@ -1290,10 +1372,12 @@ const AppRouteChildren: AppRouteChildren = {
   AppOrdersOverviewRoute: AppOrdersOverviewRoute,
   AppProductsProductIdRoute: AppProductsProductIdRoute,
   AppProductsNewRoute: AppProductsNewRoute,
+  AppPropertiesPropertyIdRoute: AppPropertiesPropertyIdRoute,
   AppBotsIndexRoute: AppBotsIndexRoute,
   AppIntegrationsIndexRoute: AppIntegrationsIndexRoute,
   AppOrdersIndexRoute: AppOrdersIndexRoute,
   AppProductsIndexRoute: AppProductsIndexRoute,
+  AppPropertiesIndexRoute: AppPropertiesIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

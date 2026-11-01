@@ -1,0 +1,80 @@
+{
+  'group': 'lodging-a17',
+  'tags': ['critical'],
+  'bot':
+    {
+      'industry': 'hotel',
+      'name': 'Test lodging assistant',
+      'profile': { 'fields': { 'displayName': 'Test lodging business' }, 'notes': '' },
+    },
+  'products':
+    [
+      {
+        'name': 'A17 – Villa A17',
+        'code': 'A17',
+        'description': 'Một căn nguyên căn có 8 phòng ngủ. Tiêu chuẩn 24 người lớn và 8 trẻ dưới 6 tuổi.',
+        'variants': [{ 'name': 'Nguyên căn, giá tham khảo', 'price': 12000000, 'stock': 0 }],
+        'accommodation':
+          {
+            'rentalType': 'entire_property',
+            'code': 'A17',
+            'bedrooms': 8,
+            'standardAdults': 24,
+            'standardChildren': 8,
+            'childAgeBelow': 6,
+            'maxGuests': null,
+            'roomLayout':
+              [
+                { 'name': 'Room 1', 'beds': 'Beds described by owner' },
+                { 'name': 'Room 2', 'beds': 'Beds described by owner' },
+                { 'name': 'Room 3', 'beds': 'Beds described by owner' },
+                { 'name': 'Room 4', 'beds': 'Beds described by owner' },
+                { 'name': 'Room 5', 'beds': 'Beds described by owner' },
+                { 'name': 'Room 6', 'beds': 'Beds described by owner' },
+                { 'name': 'Room 7', 'beds': 'Beds described by owner' },
+                { 'name': 'Room 8', 'beds': 'Beds described by owner' },
+              ],
+            'amenities': ['Bể bơi', 'BBQ'],
+            'rateBasis': 'night',
+            'rates':
+              [
+                { 'days': [1, 2, 3, 4], 'amount': 12000000 },
+                { 'days': [5, 7], 'amount': 13000000 },
+                { 'days': [6], 'amount': 14000000 },
+              ],
+            'gallery': [],
+            'surcharges':
+              { 'extraAdult': null, 'extraChild': null, 'childFreeBelow': 6, 'childAdultFrom': 12 },
+          },
+      },
+    ],
+  'id': 'hotel-a17-weekend-free-from-calendar',
+  'conversation':
+    [{ 'customer': 'A17 đêm thứ 7 tuần sau còn trống không? Nhà mình 20 người lớn, ở 1 đêm.' }],
+  # Zero warehouse stock is not sold out; with dates and the party the bot reads the calendar and
+  # may say "còn trống" only from that result, echoing the server's weekday labels.
+  'expect':
+    {
+      'outcome': 'answered',
+      'guardrail': 'none',
+      'steps_succeeded': ['check_availability'],
+      'steps_exclude': ['prepare_hold', 'handoff'],
+      'contains_all': ['còn trống'],
+      'contains_any': ['Thứ Sáu', 'Thứ Bảy', 'Chủ Nhật'],
+      'not_contains': ['hết hàng', 'hết phòng', 'đã kín', 'đã giữ', 'đã đặt'],
+    },
+  fake_turns:
+    [
+      {
+        tool_calls:
+          [
+            {
+              name: 'check_availability',
+              input:
+                { checkIn: '2027-01-09', checkOut: '2027-01-10', adults: 20, propertyCode: 'A17' },
+            },
+          ],
+      },
+      { text: 'Dạ A17 đêm Thứ Bảy 09/01 còn trống ạ, giá 14.000.000đ.' },
+    ],
+}

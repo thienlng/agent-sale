@@ -1,4 +1,5 @@
 import type {
+  AccommodationDetails,
   AdjustStockRequest,
   BotProductsDto,
   ProductDto,
@@ -18,6 +19,7 @@ import {
 import { foldVietnamese, isUuid, newId, type WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
+import { toMediaPath } from '../../../common/storage/media-url.js';
 import type { PublicObjectStorage } from '../../../common/storage/public-object-storage.js';
 import { PRODUCT_IMAGE_STORAGE } from './ports/product-image-storage.js';
 
@@ -47,6 +49,27 @@ import {
 
 export function toWarehouseDto(w: WarehouseRecord): WarehouseDto {
   return { ...w };
+}
+
+/**
+ * Rapiz pictures as host-relative `/media/…` paths (stored that way from now on; older rows hold
+ * the absolute URL of a former public host). External links stay as they are.
+ */
+function withMediaPaths<
+  T extends { imageUrls: string[]; accommodation?: AccommodationDetails | null | undefined },
+>(p: T): T {
+  return {
+    ...p,
+    imageUrls: p.imageUrls.map(toMediaPath),
+    ...(p.accommodation
+      ? {
+          accommodation: {
+            ...p.accommodation,
+            gallery: p.accommodation.gallery.map((g) => ({ ...g, url: toMediaPath(g.url) })),
+          },
+        }
+      : {}),
+  };
 }
 
 function toProductDto(
@@ -81,8 +104,10 @@ function toProductDto(
     status: p.status,
     visibleToBot: p.visibleToBot,
     botInstructions: p.botInstructions,
-    imageUrls: p.imageUrls,
-    ...(p.accommodation ? { accommodation: p.accommodation } : {}),
+    ...withMediaPaths({
+      imageUrls: p.imageUrls,
+      ...(p.accommodation ? { accommodation: p.accommodation } : {}),
+    }),
     variants: dtoVariants,
     priceMin: prices.length ? Math.min(...prices) : 0,
     priceMax: prices.length ? Math.max(...prices) : 0,
@@ -313,7 +338,7 @@ export class CatalogService {
   }
 
   createProduct(ws: WorkspaceId, raw: UpsertProductRequest): Promise<ProductDto> {
-    const input = UpsertProductSchema.parse(raw);
+    const input = withMediaPaths(UpsertProductSchema.parse(raw));
     this.#assertOwnImages(ws, input);
     if (input.accommodation && input.variants.length !== 1)
       throw new LodgingError(
@@ -384,7 +409,7 @@ export class CatalogService {
    * added, the others are archived (never deleted — past orders reference them).
    */
   updateProduct(ws: WorkspaceId, id: string, raw: UpsertProductRequest): Promise<ProductDto> {
-    const input = UpsertProductSchema.parse(raw);
+    const input = withMediaPaths(UpsertProductSchema.parse(raw));
     this.#assertOwnImages(ws, input);
     return this.store.run(ws, async (tx) => {
       // Locked so a PMS sync and a staff save cannot overwrite each other's fields.

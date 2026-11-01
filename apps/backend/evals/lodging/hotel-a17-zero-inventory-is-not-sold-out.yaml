@@ -10,14 +10,14 @@
   'products':
     [
       {
-        'name': 'Villa A17',
+        'name': 'A17 – Villa A17',
         'code': 'A17',
         'description': 'Một căn nguyên căn có 8 phòng ngủ. Tiêu chuẩn 24 người lớn và 8 trẻ dưới 6 tuổi.',
-        'instructions': 'Không khẳng định lịch trống, không bịa đơn vị giá, không tạo booking khi chỉ trao đổi.',
         'variants': [{ 'name': 'Nguyên căn, giá tham khảo', 'price': 12000000, 'stock': 0 }],
         'accommodation':
           {
             'rentalType': 'entire_property',
+            'code': 'A17',
             'bedrooms': 8,
             'standardAdults': 24,
             'standardChildren': 8,
@@ -35,7 +35,7 @@
                 { 'name': 'Room 8', 'beds': 'Beds described by owner' },
               ],
             'amenities': ['Bể bơi', 'BBQ'],
-            'rateBasis': 'unconfirmed',
+            'rateBasis': 'night',
             'rates':
               [
                 { 'days': [1, 2, 3, 4], 'amount': 12000000 },
@@ -43,17 +43,24 @@
                 { 'days': [6], 'amount': 14000000 },
               ],
             'gallery': [],
+            'surcharges':
+              { 'extraAdult': null, 'extraChild': null, 'childFreeBelow': 6, 'childAdultFrom': 12 },
           },
       },
     ],
   'id': 'hotel-a17-zero-inventory-is-not-sold-out',
   'conversation': [{ 'customer': 'A17 còn trống cuối tuần này không?' }],
+  # Zero warehouse stock never means sold out, and without the party (and a calendar result of
+  # this turn) the bot never claims the stay is free either: it asks for the details.
   'expect': {
       'outcome': 'answered',
       'guardrail': 'none',
+      # Prompt 18 asks for the missing party / exact dates without a catalog search first, so the
+      # @17 `steps_succeeded: [search_products]` no longer applies; the guards below stay.
+      'steps_exclude': ['prepare_hold', 'handoff'],
       'numbers_only_from_sources': true,
       'contains_any': ['chưa có lịch', 'kiểm tra'],
-      'not_contains': ['hết hàng', 'đã giữ', 'đã đặt'],
+      'not_contains': ['hết hàng', 'hết phòng', 'đã kín', 'đã giữ', 'đã đặt'],
       # "còn trống ạ" as a claim fails; "em chưa có xác nhận còn trống ạ" is the honest answer.
       'not_matches': ['(?<!xác nhận )(?<!chưa )còn trống ạ'],
     },
@@ -61,7 +68,7 @@
     [
       { tool_calls: [{ name: 'search_products', input: { query: 'A17' } }] },
       {
-        text: 'Dạ em chưa có lịch trống thực tế của A17. Anh/chị cho em xin ngày nhận, ngày trả và số khách để chủ căn kiểm tra ạ.',
+        text: 'Dạ em chưa có lịch trống thực tế của A17. Anh/chị cho em xin ngày nhận, ngày trả và số khách để em kiểm tra ạ.',
       },
     ],
 }
