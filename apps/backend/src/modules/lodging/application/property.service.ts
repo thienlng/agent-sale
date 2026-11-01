@@ -11,6 +11,7 @@ import type { z } from 'zod';
 
 import { LodgingError } from '../domain/lodging.errors.js';
 import { addNights, localToday } from '../domain/nights.js';
+import { expireHolds } from './booking-support.js';
 import { LodgingAccess } from './lodging-access.js';
 import {
   LODGING_STORE,
@@ -112,10 +113,11 @@ export class PropertyService {
   async list(ws: WorkspaceId): Promise<{ data: PropertySummary[] }> {
     await this.access.assertHotel(ws);
     return this.store.run(ws, async (tx) => {
+      const now = new Date();
+      await expireHolds(tx, now);
       const props = await tx.properties();
       const ids = props.map((p) => p.id);
       const units = await tx.units(ids);
-      const now = new Date();
       const today = localToday(now);
       const tomorrow = addNights(today, 1);
       const taken = await tx.takenNights(
@@ -256,7 +258,9 @@ export class PropertyService {
   }
 
   private async assertNoFutureBookings(tx: LodgingTx, propertyId: string): Promise<void> {
-    const today = localToday(new Date());
+    const now = new Date();
+    await expireHolds(tx, now);
+    const today = localToday(now);
     const future = await tx.bookingsInRange([propertyId], today, '9999-12-31');
     if (future.length > 0) {
       throw new LodgingError(

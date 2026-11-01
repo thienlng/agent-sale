@@ -299,11 +299,11 @@ export function bookingPort(tx: TenantTx, ws: WorkspaceId): BookingPort {
       return rows.map((r) => ({ ...r, at: r.at.toISOString() }));
     },
 
-    async audit(actorId, targetType, id, action, data) {
+    async audit(actorId, targetType, id, action, data, actorName = null) {
       await writeAudit(tx, {
         workspaceId: ws,
         actorUserId: actorId,
-        actorName: null,
+        actorName,
         action,
         targetType,
         targetId: id,

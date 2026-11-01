@@ -144,6 +144,7 @@ export interface LodgingTx {
     id: string,
     action: string,
     data: Record<string, unknown>,
+    actorName?: string | null,
   ): Promise<void>;
   /** Integration event to the outbox in the same transaction; `payload.bookingId` is the aggregate. */
   publish(event: { name: string; payload: Record<string, unknown> }): Promise<void>;
