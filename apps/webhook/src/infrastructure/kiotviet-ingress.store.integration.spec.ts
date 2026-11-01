@@ -13,7 +13,7 @@ import { newId } from '@agent-sales/shared';
 import { startTestPostgres, type TestPostgres } from '@agent-sales/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { DrizzleKiotVietIngressStore } from './kiotviet-ingress.store.js';
+import { DrizzleKiotVietIngressStore, KiotVietStoreError } from './kiotviet-ingress.store.js';
 
 /** KiotViet webhook persistence on a real Postgres, as the restricted system role. */
 let pg: TestPostgres;
@@ -106,5 +106,20 @@ describe('DrizzleKiotVietIngressStore', () => {
   it('answers unknown for a token nobody owns', async () => {
     const d = { deliveryId: 'd-3', body: '{}', signature: null };
     expect(await store.store(randomBytes(32).toString('base64url'), d)).toBe('unknown');
+  });
+
+  it('rethrows a database failure without the token or the body (NUL byte)', async () => {
+    const c = await connection('connected');
+    const body = '{"Id":"nul","Customer":"Trần Thị B\u0000"}';
+    expect(body).toContain('\u0000');
+    const err = await store.store(c.token, { deliveryId: 'nul', body, signature: null }).then(
+      () => null,
+      (e: unknown) => e,
+    );
+    expect(err).toBeInstanceOf(KiotVietStoreError);
+    const text = `${(err as Error).message} ${(err as Error).stack ?? ''} ${JSON.stringify(err)}`;
+    expect(text).not.toContain(c.token);
+    expect(text).not.toContain('Trần');
+    expect(await stored(c.id)).toHaveLength(0);
   });
 });

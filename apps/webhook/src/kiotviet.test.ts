@@ -28,9 +28,9 @@ function memoryStore(): KiotVietIngressStore & { rows: (KiotVietDelivery & { tok
   };
 }
 
-function harness() {
-  const kiotviet = memoryStore();
+function harness(kiotviet: ReturnType<typeof memoryStore> = memoryStore()) {
   const meta: string[] = [];
+  const logs: string[] = [];
   const app = buildServer({
     registry: new ChannelRegistry().register(new MetaAdapter('facebook')),
     store: {
@@ -43,9 +43,10 @@ function harness() {
     secrets: { facebook: 'meta-secret' },
     verifyToken: 'verify-me',
     kiotviet,
-    logLevel: 'silent',
+    logLevel: 'info',
+    logStream: { write: (line) => void logs.push(line) },
   });
-  return { app, kiotviet, meta };
+  return { app, kiotviet, meta, logs: () => logs.join('') };
 }
 
 const post = (
@@ -197,5 +198,81 @@ describe('KiotViet webhook ingress', () => {
   it('redacts the path token from logged URLs', () => {
     expect(redactUrl(`/webhooks/kiotviet/${TOKEN}?a=1`)).toBe('/webhooks/kiotviet/[redacted]?a=1');
     expect(redactUrl('/webhooks/facebook')).toBe('/webhooks/facebook');
+  });
+
+  it('stores multi-byte Vietnamese and BOM-prefixed bodies byte-exact', async () => {
+    const { app, kiotviet } = harness();
+    const vi = '{"Id":"vi-1","Notifications":[{"Data":[{"Name":"Áo dài lụa – đỏ thẫm 🌸"}]}]}';
+    const bom = '﻿{"Id":"vi-2","Name":"Nón lá"}';
+    for (const b of [vi, bom]) {
+      const res = await post(app, b, { 'content-type': 'application/json; charset=utf-8' });
+      expect(res.statusCode).toBe(200);
+    }
+    expect(kiotviet.rows.map((r) => r.body)).toEqual([vi, bom]);
+    expect(Buffer.from(kiotviet.rows[0]!.body, 'utf8').equals(Buffer.from(vi, 'utf8'))).toBe(true);
+    expect(Buffer.from(kiotviet.rows[1]!.body, 'utf8').equals(Buffer.from(bom, 'utf8'))).toBe(true);
+  });
+
+  it('answers 500 on a store failure without logging the token or the body', async () => {
+    const body = '{"Id":"secret-delivery","Customer":"Nguyễn Văn A 0901234567"}';
+    const failing = memoryStore();
+    failing.store = async (token, delivery) => {
+      // What drizzle-orm's DrizzleQueryError message looks like.
+      const err = new Error(
+        `Failed query: select ... where webhook_token = $1\nparams: ${token},${delivery.body}`,
+      ) as Error & { cause?: unknown };
+      err.name = 'DrizzleQueryError';
+      err.cause = Object.assign(new Error(`invalid byte sequence near ${delivery.body}`), {
+        code: '22021',
+      });
+      throw err;
+    };
+    const { app, logs } = harness(failing);
+    const res = await post(app, body);
+    expect(res.statusCode).toBe(500);
+    expect(res.body).not.toContain(TOKEN);
+    expect(res.body).not.toContain('Nguyễn');
+    const out = logs();
+    expect(out).toContain('kiotviet_ingress_failed');
+    expect(out).toContain('22021');
+    expect(out).not.toContain(TOKEN);
+    expect(out).not.toContain('Nguyễn');
+    expect(out).not.toContain('secret-delivery');
+  });
+
+  it('redacts the token from the request log of a real request', async () => {
+    const { app, logs } = harness();
+    expect((await post(app, '{"Id":"log-1"}')).statusCode).toBe(200);
+    const out = logs();
+    expect(out).toContain('/webhooks/kiotviet/[redacted]');
+    expect(out).not.toContain(TOKEN);
+  });
+
+  it('logs not-found KiotViet URLs redacted, keeping Meta answers', async () => {
+    const { app, logs } = harness();
+    const misses = [
+      { method: 'GET' as const, url: `/webhooks/kiotviet/${TOKEN}` },
+      { method: 'POST' as const, url: `/webhooks/kiotviet/${TOKEN}/` },
+      { method: 'POST' as const, url: `/webhooks/kiotviet/${TOKEN}/extra` },
+    ];
+    for (const m of misses) {
+      const res = await app.inject(m.method === 'POST' ? { ...m, payload: '{}' } : m);
+      expect(res.statusCode).toBe(404);
+    }
+    const out = logs();
+    expect(out).toContain('route_not_found');
+    expect(out).not.toContain(TOKEN);
+    // Meta's own 404 for an unknown channel is unchanged.
+    const meta = await app.inject({ method: 'POST', url: '/webhooks/nope', payload: { id: 'x' } });
+    expect(meta.json()).toEqual({ error: 'unknown channel' });
+  });
+
+  it('logs a 413 without the body', async () => {
+    const { app, logs } = harness();
+    const big = JSON.stringify({ Id: 'big', pad: 'Đ'.repeat(KIOTVIET_BODY_LIMIT) });
+    expect((await post(app, big)).statusCode).toBe(413);
+    const out = logs();
+    expect(out).not.toContain(TOKEN);
+    expect(out).not.toContain('ĐĐĐ');
   });
 });

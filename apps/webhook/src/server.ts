@@ -29,6 +29,8 @@ export interface ServerDeps {
   /** Secret per channel kind for signature verification (from channel config in production). */
   secrets: Partial<Record<ChannelKind, string>>;
   logLevel?: string;
+  /** Log destination; tests capture it. Defaults to stdout. */
+  logStream?: { write(line: string): void };
   verifyToken?: string;
   /** KiotViet deliveries per connection (`POST /webhooks/kiotviet/:token`); route omitted when absent. */
   kiotviet?: KiotVietIngressStore;
@@ -48,6 +50,7 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
   const app = Fastify({
     logger: {
       level: deps.logLevel ?? 'info',
+      ...(deps.logStream ? { stream: deps.logStream } : {}),
       serializers: {
         req: (req: FastifyRequest) => ({
           method: req.method,
