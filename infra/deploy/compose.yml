@@ -111,6 +111,20 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
 
+  # Optional ChatGPT-plan bridge (testing only): COMPOSE_PROFILES=hermes and HERMES_BRIDGE_KEY in
+  # .env, image built on the server (docs/runbooks/deploy-vps.md). Admin → Mô hình AI then adds a
+  # Hermes provider at http://hermes:8788. Internal network only; never published.
+  hermes:
+    image: rapiz-hermes:local
+    pull_policy: never
+    profiles: [hermes]
+    restart: unless-stopped
+    environment:
+      HERMES_BRIDGE_KEY: ${HERMES_BRIDGE_KEY:-}
+    volumes: [hermes:/data]
+    networks: [backend]
+    logging: *logging
+
   edge:
     image: ${RAPIZ_IMAGE:-ghcr.io/thienlng/agent-sale}/edge:${RAPIZ_TAG:-latest}
     restart: unless-stopped
@@ -141,3 +155,4 @@ volumes:
   s3data:
   caddydata:
   caddyconfig:
+  hermes:
