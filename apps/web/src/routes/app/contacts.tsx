@@ -15,6 +15,7 @@ import {
 } from '@/features/saas/components/subscription-columns';
 import { useCurrentWorkspace } from '@/features/workspace/api/use-current-workspace';
 import { useCan } from '@/lib/permissions';
+import { loadNamespace } from '@/lib/i18n';
 
 /** List state lives in the URL; anything malformed falls back to "none". */
 const Search = z.object({
@@ -34,6 +35,9 @@ const Search = z.object({
 
 export const Route = createFileRoute('/app/contacts')({
   validateSearch: Search,
+  // The KiotViet badge and field hint read the `integration` namespace (kept out of common.json).
+  // A failed load shows raw keys there instead of the error page.
+  loader: () => loadNamespace('integration').catch(() => undefined),
   component: function ContactsPage() {
     const search = Route.useSearch();
     const navigate = useNavigate({ from: '/app/contacts' });

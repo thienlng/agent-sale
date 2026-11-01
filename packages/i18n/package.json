@@ -22,6 +22,10 @@
     "./en": {
       "types": "./dist/en.d.ts",
       "import": "./dist/en.js"
+    },
+    "./integration": {
+      "types": "./dist/integration.d.ts",
+      "import": "./dist/integration.js"
     }
   },
   "files": [

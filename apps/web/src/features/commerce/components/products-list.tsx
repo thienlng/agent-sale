@@ -1,8 +1,9 @@
 import { Link, useNavigate } from '@tanstack/react-router';
-import { ChevronLeft, ChevronRight, Package, Plus, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Package, Plus, RefreshCw, Search, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -14,20 +15,95 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { formatNumber, formatVnd } from '@/lib/format';
+import { formatNumber, formatRelativeTime, formatVnd } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { useCan } from '@/lib/permissions';
 
 import { useProducts } from '../api/commerce';
+import { usePmsHintDismissed } from '../hooks/pms-hint';
 
-/** Product catalog (ORD-01): search, on-sale/archived, price range, stock available. */
-export function ProductsList() {
+/** The workspace's live KiotViet connection, as the route reads it from the integration feature. */
+export interface PmsLink {
+  retailer: string;
+  lastSyncAt: string | null;
+}
+
+type Source = 'all' | 'kiotviet' | 'rapiz';
+
+/** A small toggle group; 44 px tall on touch screens, compact from `md`. */
+function Segmented<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label?: string;
+  options: ReadonlyArray<{ value: T; label: string }>;
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div className="flex rounded-lg border p-0.5" role="group" aria-label={label}>
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          aria-pressed={value === o.value}
+          onClick={() => onChange(o.value)}
+          className={cn(
+            'min-h-10 rounded-md px-3 py-1 text-sm md:min-h-0',
+            value === o.value
+              ? 'bg-primary-soft font-medium text-accent-foreground'
+              : 'text-muted-foreground hover:bg-muted',
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Not connected: a dismissible card that points to the PMS integrations hub. */
+function PmsHint({ onDismiss }: { onDismiss: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex items-start gap-2 rounded-xl border bg-primary-soft/40 p-3 pl-4">
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-2">
+        <p className="min-w-0 flex-1 basis-56 py-1.5 text-sm font-medium">
+          {t('products.pmsHint')}
+        </p>
+        <Button variant="outline" className="h-11 md:h-9" asChild>
+          <Link to="/app/integrations">{t('products.pmsHintAction')}</Link>
+        </Button>
+      </div>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="size-11 shrink-0 md:size-9"
+        aria-label={t('products.pmsHintDismiss')}
+        onClick={onDismiss}
+      >
+        <X />
+      </Button>
+    </div>
+  );
+}
+
+/**
+ * Product catalog (ORD-01): search, on-sale/archived, price range, stock available. With
+ * `pmsLink` (KiotViet connected) it shows the sync bar and a source filter; with `null` (not
+ * connected) it offers the integration; `undefined` (unknown yet) shows neither.
+ */
+export function ProductsList({ pmsLink }: { pmsLink?: PmsLink | null | undefined }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const canAdd = useCan('catalog.manage');
+  const [hintDismissed, dismissHint] = usePmsHintDismissed();
   const [text, setText] = useState('');
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<'active' | 'archived'>('active');
+  const [source, setSource] = useState<Source>('all');
   const [page, setPage] = useState(1);
   useEffect(() => {
     const id = setTimeout(() => {
@@ -36,7 +112,12 @@ export function ProductsList() {
     }, 300);
     return () => clearTimeout(id);
   }, [text]);
-  const products = useProducts({ ...(q ? { q } : {}), status, page });
+  const products = useProducts({
+    ...(q ? { q } : {}),
+    status,
+    page,
+    ...(pmsLink && source !== 'all' ? { source } : {}),
+  });
   const data = products.data;
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
 
@@ -54,6 +135,20 @@ export function ProductsList() {
         ) : null}
       </header>
 
+      {pmsLink ? (
+        <Link
+          to="/app/integrations/kiotviet"
+          className="-my-2 inline-flex min-h-11 w-fit items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <RefreshCw className="size-4 text-primary" aria-hidden />
+          {pmsLink.lastSyncAt
+            ? t('products.pmsBar', { time: formatRelativeTime(pmsLink.lastSyncAt) })
+            : t('products.pmsBarPending')}
+        </Link>
+      ) : pmsLink === null && canAdd && !hintDismissed ? (
+        <PmsHint onDismiss={dismissHint} />
+      ) : null}
+
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-60 flex-1">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -66,27 +161,32 @@ export function ProductsList() {
             className="h-9 pl-9"
           />
         </div>
-        <div className="flex rounded-lg border p-0.5" role="group">
-          {(['active', 'archived'] as const).map((s) => (
-            <button
-              key={s}
-              type="button"
-              aria-pressed={status === s}
-              onClick={() => {
-                setStatus(s);
-                setPage(1);
-              }}
-              className={cn(
-                'rounded-md px-3 py-1 text-sm',
-                status === s
-                  ? 'bg-primary-soft font-medium text-accent-foreground'
-                  : 'text-muted-foreground hover:bg-muted',
-              )}
-            >
-              {t(`products.${s}`)}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          options={(['active', 'archived'] as const).map((s) => ({
+            value: s,
+            label: t(`products.${s}`),
+          }))}
+          value={status}
+          onChange={(s) => {
+            setStatus(s);
+            setPage(1);
+          }}
+        />
+        {pmsLink ? (
+          <Segmented
+            label={t('products.source')}
+            options={[
+              { value: 'all', label: t('products.sourceAll') },
+              { value: 'kiotviet', label: t('products.sourceKiotviet') },
+              { value: 'rapiz', label: t('products.sourceRapiz') },
+            ]}
+            value={source}
+            onChange={(s: Source) => {
+              setSource(s);
+              setPage(1);
+            }}
+          />
+        ) : null}
       </div>
 
       <div className="overflow-hidden rounded-xl border">
@@ -131,7 +231,14 @@ export function ProductsList() {
                           {p.code}
                         </Link>
                       </TableCell>
-                      <TableCell className="max-w-80 truncate">{p.name}</TableCell>
+                      <TableCell className="max-w-80">
+                        <span className="flex items-center gap-2">
+                          <span className="truncate">{p.name}</span>
+                          {p.external ? (
+                            <Badge variant="outline">{t('products.sourceKiotviet')}</Badge>
+                          ) : null}
+                        </span>
+                      </TableCell>
                       <TableCell className="text-muted-foreground">
                         {t('products.variantsCount', { count: p.variants.length })}
                       </TableCell>
@@ -154,7 +261,9 @@ export function ProductsList() {
                 <TableRow className="hover:bg-transparent">
                   <TableCell colSpan={5} className="py-14 text-center text-muted-foreground">
                     <Package className="mx-auto mb-3 size-8 text-primary" aria-hidden />
-                    {q || status === 'archived' ? t('products.empty') : t('products.emptyStart')}
+                    {q || status === 'archived' || (pmsLink && source !== 'all')
+                      ? t('products.empty')
+                      : t('products.emptyStart')}
                   </TableCell>
                 </TableRow>
               ) : null}

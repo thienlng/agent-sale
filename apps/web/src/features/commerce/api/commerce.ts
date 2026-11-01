@@ -13,6 +13,7 @@ import {
   ProductDto,
   ProductListResponse,
   type UpdateOrderRequest,
+  type UpdateProductBotSettingsRequest,
   type UpsertProductRequest,
   type UpsertWarehouseRequest,
   type UploadProductImageRequest,
@@ -70,6 +71,8 @@ export function useProducts(query: {
   q?: string;
   status: 'active' | 'archived';
   page: number;
+  /** `kiotviet`: only products synced from KiotViet; `rapiz`: only products managed here. */
+  source?: 'kiotviet' | 'rapiz';
   /** Defaults to 20 (the catalog screen); the bot products table lets the user pick. */
   pageSize?: number;
 }) {
@@ -107,6 +110,23 @@ export function useSaveProduct() {
       qc.setQueryData(queryKeys.product(ws, p.id), p);
       void qc.invalidateQueries({ queryKey: queryKeys.products(ws) });
       void qc.invalidateQueries({ queryKey: queryKeys.variants(ws) });
+    },
+  });
+}
+
+/**
+ * Saves only the bot's fields. A KiotViet-linked product saves through this, never the full PUT:
+ * its other fields are read-only and may not pass the form's rules (e.g. a code with a space).
+ */
+export function useSaveProductBotSettings(productId: string) {
+  const ws = useWorkspaceId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: UpdateProductBotSettingsRequest) =>
+      api(`/products/${productId}/bot-settings`, ProductDto, { method: 'PATCH', body }),
+    onSuccess: (p) => {
+      qc.setQueryData(queryKeys.product(ws, p.id), p);
+      void qc.invalidateQueries({ queryKey: queryKeys.products(ws) });
     },
   });
 }
@@ -171,6 +191,9 @@ export function useVariantSearch(query: { q: string; warehouseId: string; inStoc
 
 // ─── Orders ───────────────────────────────────────────────────────────────────
 
+/** How often an order list or page re-reads while a KiotViet push is pending. */
+export const PUSH_POLL_MS = 3000;
+
 export function useOrders(query: OrderListQuery) {
   const ws = useWorkspaceId();
   return useQuery({
@@ -178,6 +201,9 @@ export function useOrders(query: OrderListQuery) {
     queryFn: () => api(withQuery('/orders', query), OrderListResponse),
     placeholderData: keepPreviousData,
     enabled: Boolean(ws),
+    // A KiotViet push takes seconds: follow it until it is pushed or failed.
+    refetchInterval: (q) =>
+      q.state.data?.data.some((o) => o.external?.state === 'pending') ? PUSH_POLL_MS : false,
   });
 }
 
@@ -187,6 +213,7 @@ export function useOrder(id: string) {
     queryKey: queryKeys.order(ws, id),
     queryFn: () => api(`/orders/${id}`, OrderDto),
     enabled: Boolean(ws),
+    refetchInterval: (q) => (q.state.data?.external?.state === 'pending' ? PUSH_POLL_MS : false),
   });
 }
 

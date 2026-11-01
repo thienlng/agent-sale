@@ -16,6 +16,7 @@ import { useCan } from '@/lib/permissions';
 import { useSession } from '@/lib/session';
 
 import type { CrmLookups } from '../hooks/use-crm-lookups';
+import { KiotVietFieldHint } from './kiotviet-link';
 
 const NONE = '__none';
 const PHONE = '\\+?[0-9 .()\\-]{8,20}';
@@ -89,19 +90,21 @@ function OptionSelect({
   value,
   options,
   onChange,
+  describedBy,
 }: {
   id: string;
   label: string;
   value: string;
   options: Array<{ id: string; label: string; archived?: boolean }>;
   onChange: (v: string) => void;
+  describedBy?: string | undefined;
 }) {
   const { t } = useTranslation();
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
       <Label htmlFor={id}>{label}</Label>
       <Select value={value || NONE} onValueChange={(v) => onChange(v === NONE ? '' : v)}>
-        <SelectTrigger id={id} className="w-full">
+        <SelectTrigger id={id} className="w-full" aria-describedby={describedBy}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -120,6 +123,15 @@ function OptionSelect({
   );
 }
 
+/** The fields a KiotViet customer owns (the others are Rapiz-only). */
+const OWNED: ReadonlySet<keyof ContactDraft> = new Set([
+  'name',
+  'phone',
+  'email',
+  'birthday',
+  'address',
+]);
+
 const opts = (list: CrmOptionDto[]) =>
   list.map((o) => ({ id: o.id, label: o.name, archived: o.archived }));
 
@@ -130,6 +142,7 @@ export function ContactFields({
   onChange,
   lookups,
   invalid,
+  synced = false,
 }: {
   idPrefix: string;
   value: ContactDraft;
@@ -137,9 +150,16 @@ export function ContactFields({
   lookups: CrmLookups;
   /** Field names the server rejected. */
   invalid?: ReadonlySet<string>;
+  /**
+   * Linked to a KiotViet customer: KiotViet owns name, phone, email, address, birthday and gender
+   * and overwrites them on its next change. They stay editable and carry a hint (no lock).
+   */
+  synced?: boolean;
 }) {
   const { t } = useTranslation();
   const set = (patch: Partial<ContactDraft>) => onChange({ ...value, ...patch });
+  const hintId = `${idPrefix}-kiotviet-hint`;
+  const owned = synced ? hintId : undefined;
   const text = (
     key: keyof ContactDraft,
     label: string,
@@ -152,6 +172,7 @@ export function ContactFields({
         value={value[key]}
         onChange={(e) => set({ [key]: e.target.value })}
         aria-invalid={invalid?.has(key) || undefined}
+        aria-describedby={synced && OWNED.has(key) ? hintId : undefined}
         {...extra}
       />
     </div>
@@ -166,6 +187,7 @@ export function ContactFields({
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
+      {synced ? <KiotVietFieldHint id={hintId} /> : null}
       {text('name', t('crm.field.name'), { maxLength: 120, autoComplete: 'off' })}
       {text('phone', t('crm.field.phone'), {
         type: 'tel',
@@ -184,6 +206,7 @@ export function ContactFields({
           label: t(`crm.field.genders.${g}`),
         }))}
         onChange={(gender) => set({ gender })}
+        describedBy={owned}
       />
       {text('adRef', t('crm.field.adRef'), { maxLength: 120 })}
       <div className="sm:col-span-2">

@@ -4,9 +4,11 @@ import { Module } from '@nestjs/common';
 import { DB_TENANT } from '../../common/db/db.module.js';
 import { IdentityModule } from '../identity/identity.module.js';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
+import { CONTACT_SYNC_FACADE } from './api/contact-sync.facade.js';
 import { CRM_FACADE } from './api/crm.facade.js';
 import { ConversationTagsService } from './application/conversation-tags.service.js';
 import { ContactService } from './application/contact.service.js';
+import { ContactSyncService } from './application/contact-sync.service.js';
 import { CrmFacadeImpl } from './application/crm.facade.impl.js';
 import { OwnershipService } from './application/ownership.service.js';
 import { CrmSettingsService } from './application/crm-settings.service.js';
@@ -38,7 +40,9 @@ import { CrmSettingsController } from './interface/http/crm-settings.controller.
     SavedViewService,
     OwnershipService,
     { provide: CRM_FACADE, useClass: CrmFacadeImpl },
+    ContactSyncService,
+    { provide: CONTACT_SYNC_FACADE, useExisting: ContactSyncService },
   ],
-  exports: [CRM_FACADE],
+  exports: [CRM_FACADE, CONTACT_SYNC_FACADE],
 })
 export class CrmModule {}

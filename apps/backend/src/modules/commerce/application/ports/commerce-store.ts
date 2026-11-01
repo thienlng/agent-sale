@@ -8,6 +8,7 @@ import type {
   OrderSummaryDto,
 } from '@agent-sales/contracts';
 
+import type { ExternalSource } from '../../api/catalog-sync.facade.js';
 import type { OrderStatus, StockState } from '../../domain/order-stock.js';
 
 /** Plain records the commerce use cases work with. Money is integer VND. */
@@ -31,6 +32,11 @@ export interface VariantRecord {
   weightGram: number;
   position: number;
   archived: boolean;
+  /**
+   * PMS id of this variant (ADR-017); its source is the product's. Undefined on a write keeps the
+   * stored value; null clears it.
+   */
+  externalId?: string | null | undefined;
 }
 
 export interface ProductRecord {
@@ -44,6 +50,11 @@ export interface ProductRecord {
   botInstructions: string;
   imageUrls: string[];
   accommodation?: AccommodationDetails | null;
+  /**
+   * The PMS record this product is synced from (ADR-017). Undefined on a write keeps the stored
+   * link; null clears it. Source and id are always set together.
+   */
+  external?: { source: ExternalSource; id: string } | null | undefined;
   searchText: string;
   createdAt: Date;
   updatedAt: Date;
@@ -64,7 +75,7 @@ export interface StockChange {
   onHandDelta: number;
   reservedDelta: number;
   reason: MovementReason;
-  refType: 'order' | 'stocktake';
+  refType: 'order' | 'stocktake' | 'external';
   refId: string | null;
   actorUserId: string | null;
 }
@@ -80,6 +91,17 @@ export interface OrderItemRecord {
   unitCost: number;
   lineTotal: number;
   position: number;
+}
+
+/** An order's push to a PMS (ADR-017); written only through `CommerceTx.orderPush`. */
+export interface OrderExternalRecord {
+  source: ExternalSource | null;
+  state: 'pending' | 'pushed' | 'failed' | null;
+  id: string | null;
+  code: string | null;
+  status: string | null;
+  error: { code: string; params?: Record<string, string | number> } | null;
+  pushedAt: Date | null;
 }
 
 export interface OrderRecord {
@@ -127,6 +149,21 @@ export interface OrderRecord {
   searchText: string;
   createdAt: Date;
   updatedAt: Date;
+  /**
+   * Read only: set when the order is read from the store. `orders.update` never writes it, so an
+   * edit cannot undo a push; the push columns change only through `orderPush`.
+   */
+  external?: OrderExternalRecord | undefined;
+}
+
+/** One line of an order with what a push needs: the variant's PMS id when linked to the source. */
+export interface PushLineRecord {
+  externalVariantId: string | null;
+  sku: string;
+  productName: string;
+  variantName: string;
+  qty: number;
+  unitPrice: number;
 }
 
 /** One line of the list's product column. */
@@ -285,6 +322,8 @@ export interface CommerceTx {
       status: string;
       /** Only the products selected for this bot. */
       selectedFor?: string | undefined;
+      /** `kiotviet`: linked to that PMS; `rapiz`: not linked to any. */
+      source?: 'kiotviet' | 'rapiz' | undefined;
       offset: number;
       limit: number;
     }): Promise<{
@@ -305,11 +344,18 @@ export interface CommerceTx {
     /** Active, bot-visible products with these ids (any order). */
     findForBot(ids: string[], selectedFor?: string | undefined): Promise<ProductRecord[]>;
     countForBot(selectedFor?: string | undefined): Promise<number>;
-    find(id: string): Promise<ProductRecord | null>;
-    /** Throws DuplicateCodeError on a code clash. */
+    /** With `forUpdate`, the row stays locked until the transaction ends. */
+    find(id: string, opts?: { forUpdate?: boolean }): Promise<ProductRecord | null>;
+    /**
+     * Throws DuplicateCodeError on a code clash, ExternalLinkConflictError when another
+     * transaction holds the external link.
+     */
     save(p: ProductRecord): Promise<void>;
     variantsOf(productIds: string[]): Promise<VariantRecord[]>;
-    /** Insert or update; throws DuplicateCodeError('sku') on an SKU clash. */
+    /**
+     * Insert or update; throws DuplicateCodeError('sku') on an SKU clash, ExternalLinkConflictError
+     * on an external id clash.
+     */
     saveVariants(workspaceId: WorkspaceId, variants: VariantRecord[]): Promise<void>;
     archiveVariants(ids: string[]): Promise<void>;
     variantsByIds(
@@ -350,6 +396,42 @@ export interface CommerceTx {
     lockStock(variantId: string, warehouseId: string): Promise<StockRecord | null>;
     /** Applies the deltas and appends one movement per change. */
     apply(workspaceId: WorkspaceId, changes: StockChange[]): Promise<void>;
+    /** Creates an empty stock row (on hand 0) when there is none; no movement (nothing moved). */
+    ensureRow(workspaceId: WorkspaceId, variantId: string, warehouseId: string): Promise<void>;
+  };
+  /** Link columns of PMS-synced products and variants (ADR-017). */
+  catalogSync: {
+    /** Serializes syncs of one external product until the transaction ends (advisory lock). */
+    lockExternal(source: ExternalSource, externalId: string): Promise<void>;
+    findProduct(
+      source: ExternalSource,
+      externalId: string,
+      opts?: { forUpdate?: boolean },
+    ): Promise<ProductRecord | null>;
+    /** Variants carrying these external ids, archived ones included, with their product's link. */
+    variantsByExternalIds(
+      externalIds: string[],
+    ): Promise<Array<VariantRecord & { productSource: string | null }>>;
+    /** Archives the variants and clears their external ids. */
+    archiveAndUnlinkVariants(ids: string[]): Promise<void>;
+    /** Whether a product (any status) already has this code, case-insensitive. */
+    codeTaken(code: string): Promise<boolean>;
+    /** Archives the linked products with these external ids; returns how many changed. */
+    archiveProducts(source: ExternalSource, externalIds: string[]): Promise<number>;
+    /** Archives the live variants of the source's products carrying these external ids. */
+    archiveLinkedVariants(source: ExternalSource, externalIds: string[]): Promise<number>;
+    /** Archives the live variants without an external id of the source's products. */
+    archiveUnlinkedVariants(source: ExternalSource): Promise<number>;
+    /** External ids of the source's active products and of their live linked variants. */
+    linkedIds(source: ExternalSource): Promise<{ products: string[]; variants: string[] }>;
+    /** Clears the links of the source's products and their variants; returns the products. */
+    release(source: ExternalSource): Promise<number>;
+    count(source: ExternalSource): Promise<number>;
+    /**
+     * `matched`: distinct folded codes equal to a live variant SKU; `rapizOnly`: active, unlinked
+     * products none of whose live SKUs is among the codes.
+     */
+    previewMatch(lowerCodes: string[]): Promise<{ matched: number; rapizOnly: number }>;
   };
   orders: {
     nextCode(workspaceId: WorkspaceId): Promise<string>;
@@ -374,6 +456,47 @@ export interface CommerceTx {
       todayTo: Date;
       timezone: string;
     }): Promise<OverviewAggregates>;
+  };
+  /** PMS push columns of orders (ADR-017); the push eligibility is `domain/order-push.ts`. */
+  orderPush: {
+    /**
+     * Moves up to `limit` eligible orders (bot orders approved before `settledBefore`) to
+     * `pending` with the source (stamping `updated_at`), skipping rows another claim holds; returns
+     * their ids.
+     */
+    claim(
+      source: ExternalSource,
+      since: Date,
+      settledBefore: Date,
+      limit: number,
+    ): Promise<string[]>;
+    /** The order, deleted ones included, row locked until the transaction ends. */
+    lock(orderId: string): Promise<(OrderRecord & { deleted: boolean }) | null>;
+    /** The order pushed to the source as `externalId`, row locked until the transaction ends. */
+    findByExternal(source: ExternalSource, externalId: string): Promise<OrderRecord | null>;
+    /** The order's lines in position order; `externalVariantId` only when linked to `source`. */
+    lines(orderId: string, source: ExternalSource): Promise<PushLineRecord[]>;
+    /**
+     * Writes the given push columns (`undefined` keeps a column). Throws
+     * OrderExternalLinkConflictError when another order already has the external id.
+     */
+    set(orderId: string, patch: Partial<OrderExternalRecord>): Promise<void>;
+    countPushed(source: ExternalSource): Promise<number>;
+    /**
+     * Every `pending` claim of the source (with `olderThan`, only those last updated before it)
+     * back to no push state; returns how many.
+     */
+    releasePending(source: ExternalSource, olderThan?: Date): Promise<number>;
+    /**
+     * Pending orders of the source created since `since` and last updated before `olderThan` (the
+     * claim sets `updated_at`).
+     */
+    stalePending(
+      source: ExternalSource,
+      since: Date,
+      olderThan: Date,
+      limit: number,
+    ): Promise<string[]>;
   };
   /** Bot order drafts (one per conversation) and the SKU lookup the bot's orders need. */
   botOrders: {

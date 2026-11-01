@@ -54,4 +54,16 @@ describe('stockTransition', () => {
     expect(stockTransition('released', 'returned')).toEqual({ next: 'released', actions: [] });
     expect(stockTransition('returned', 'cancelled')).toEqual({ next: 'released', actions: [] });
   });
+
+  it('moves no Rapiz stock once the order is in the PMS (external)', () => {
+    for (const to of [
+      'new',
+      'packing',
+      'delivering',
+      'delivered',
+      'returned',
+      'cancelled',
+    ] as const)
+      expect(stockTransition('external', to)).toEqual({ next: 'external', actions: [] });
+  });
 });

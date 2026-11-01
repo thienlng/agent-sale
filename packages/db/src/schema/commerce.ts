@@ -1,6 +1,8 @@
+import { sql } from 'drizzle-orm';
 import {
   bigint,
   boolean,
+  check,
   date,
   foreignKey,
   index,
@@ -59,6 +61,9 @@ export const products = pgTable(
     botInstructions: text('bot_instructions').notNull().default(''),
     imageUrls: jsonb('image_urls').$type<string[]>().notNull().default([]),
     accommodation: jsonb('accommodation').$type<Record<string, unknown> | null>(),
+    /** PMS link (0040, ADR-017): the provider and its product id; null for products made here. */
+    externalSource: text('external_source'),
+    externalId: text('external_id'),
     searchText: text('search_text').notNull(),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
@@ -66,6 +71,13 @@ export const products = pgTable(
   (t) => [
     // Target of the same-workspace keys from bot_products (0029) and stay_requests (0035).
     uniqueIndex('products_workspace_id_unique').on(t.workspaceId, t.id),
+    uniqueIndex('products_external')
+      .on(t.workspaceId, t.externalSource, t.externalId)
+      .where(sql`${t.externalId} is not null`),
+    check(
+      'products_external_pair_check',
+      sql`(${t.externalId} is null) = (${t.externalSource} is null)`,
+    ),
     ...tenantPolicies('products'),
   ],
 );
@@ -150,12 +162,17 @@ export const productVariants = pgTable(
     cost: money('cost').notNull().default(0),
     weightGram: integer('weight_gram').notNull().default(0),
     position: integer('position').notNull().default(0),
+    /** PMS product id of this variant (0040); the source is the product's `externalSource`. */
+    externalId: text('external_id'),
     archivedAt: ts('archived_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
   (t) => [
     index('product_variants_product_idx').on(t.productId),
+    uniqueIndex('product_variants_external')
+      .on(t.workspaceId, t.externalId)
+      .where(sql`${t.externalId} is not null`),
     ...tenantPolicies('product_variants'),
   ],
 );
@@ -255,6 +272,14 @@ export const orders = pgTable(
     reviewedByUserId: uuid('reviewed_by_user_id'),
     reviewedByName: text('reviewed_by_name'),
     reviewedAt: ts('reviewed_at'),
+    /** PMS push of the order (0040; written from PR 2 of the PMS sync). */
+    externalSource: text('external_source'),
+    externalId: text('external_id'),
+    externalCode: text('external_code'),
+    externalStatus: text('external_status'),
+    externalState: text('external_state').$type<'pending' | 'pushed' | 'failed'>(),
+    externalError: jsonb('external_error').$type<Record<string, unknown> | null>(),
+    externalPushedAt: ts('external_pushed_at'),
     placedAt: ts('placed_at').notNull(),
     confirmedAt: ts('confirmed_at'),
     cancelledAt: ts('cancelled_at'),
@@ -263,7 +288,23 @@ export const orders = pgTable(
     updatedAt: ts('updated_at').notNull().defaultNow(),
     deletedAt: ts('deleted_at'),
   },
-  () => [...tenantPolicies('orders')],
+  // Mirrors migration 0050 (order push): `external` = pushed to a PMS, which owns the goods.
+  (t) => [
+    check(
+      'orders_stock_state_check',
+      sql`${t.stockState} in ('reserved', 'shipped', 'released', 'returned', 'external')`,
+    ),
+    uniqueIndex('orders_external')
+      .on(t.workspaceId, t.externalSource, t.externalId)
+      .where(sql`${t.externalId} is not null`),
+    index('orders_push_unclaimed_idx')
+      .on(t.workspaceId, t.createdAt)
+      .where(sql`${t.externalState} is null and ${t.deletedAt} is null`),
+    index('orders_push_pending_idx')
+      .on(t.workspaceId, t.updatedAt)
+      .where(sql`${t.externalState} = 'pending'`),
+    ...tenantPolicies('orders'),
+  ],
 );
 
 export const orderItems = pgTable(

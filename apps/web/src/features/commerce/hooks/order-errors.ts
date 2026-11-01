@@ -22,6 +22,8 @@ export function orderErrorMessage(t: TFunction, err: unknown): string {
     return t('orderForm.fieldsRequired', { fields });
   }
   if (err instanceof ApiClientError && err.code === 'CONFLICT') {
+    // A KiotViet push is reading the order: products and amounts are frozen for a few seconds.
+    if (err.details?.['reason'] === 'PUSH_PENDING') return t('orderDetail.pushPending');
     if (err.details && 'stockState' in err.details) return t('orderDetail.itemsLocked');
     return t('orderDetail.conflict');
   }

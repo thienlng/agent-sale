@@ -146,6 +146,14 @@ export const ProductDto = z.object({
   priceMax: Money,
   /** Σ available over variants and warehouses. */
   available: z.number().int(),
+  /**
+   * The PMS record this product is synced from; null for a product managed in Rapiz. A response
+   * from an API older than the field (web deployed first) reads as null.
+   */
+  external: z
+    .object({ source: z.literal('kiotviet'), id: z.string() })
+    .nullable()
+    .default(null),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });
@@ -190,9 +198,25 @@ export const UpsertProductRequest = z
   });
 export type UpsertProductRequest = z.input<typeof UpsertProductRequest>;
 
+/**
+ * Only the bot's fields of a product (at least one). Stays usable on a PMS-synced product, whose
+ * other fields are read-only and may not fit the full product form.
+ */
+export const UpdateProductBotSettingsRequest = z
+  .object({
+    visibleToBot: z.boolean().optional(),
+    botInstructions: z.string().trim().max(4000).optional(),
+  })
+  .refine((b) => b.visibleToBot !== undefined || b.botInstructions !== undefined, {
+    message: 'send visibleToBot or botInstructions',
+  });
+export type UpdateProductBotSettingsRequest = z.input<typeof UpdateProductBotSettingsRequest>;
+
 export const ProductListQuery = z.object({
   q: z.string().trim().max(100).optional(),
   status: z.enum(['active', 'archived']).default('active'),
+  /** `kiotviet`: products synced from KiotViet; `rapiz`: products managed in Rapiz. */
+  source: z.enum(['kiotviet', 'rapiz']).optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });
@@ -397,6 +421,27 @@ export const OrderHistoryEntry = z.object({
   at: z.iso.datetime(),
 });
 
+/**
+ * The order's push to a PMS (ADR-017): `pending` while queued or sending, `pushed` with the PMS
+ * order code and status, `failed` with an i18n error code. Null: never pushed (default, so an
+ * older API still parses).
+ */
+export const OrderExternalDto = z
+  .object({
+    state: z.enum(['pending', 'pushed', 'failed']),
+    code: z.string().nullable(),
+    status: z.string().nullable(),
+    error: z
+      .object({
+        code: z.string(),
+        params: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
+      })
+      .nullable(),
+  })
+  .nullable()
+  .default(null);
+export type OrderExternalDto = z.infer<typeof OrderExternalDto>;
+
 export const OrderSummaryDto = z.object({
   id: z.uuid(),
   code: z.string(),
@@ -411,6 +456,7 @@ export const OrderSummaryDto = z.object({
   ...OrderItemsPreviewFields,
   createdByName: z.string().nullable(),
   ...OrderOriginFields,
+  external: OrderExternalDto,
   placedAt: z.iso.datetime(),
 });
 export type OrderSummaryDto = z.infer<typeof OrderSummaryDto>;
@@ -422,7 +468,8 @@ export const OrderDto = OrderSummaryDto.extend({
   notePrint: z.string(),
   items: z.array(OrderItemDto),
   history: z.array(OrderHistoryEntry),
-  stockState: z.enum(['reserved', 'shipped', 'released', 'returned']),
+  /** `external`: pushed to a PMS, which owns the order's stock from then on. */
+  stockState: z.enum(['reserved', 'shipped', 'released', 'returned', 'external']),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });

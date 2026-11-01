@@ -13,6 +13,12 @@ export const DEFAULT_SOURCES = [
   { key: 'lazada', name: 'Lazada', color: '#f97316' },
 ] as const;
 
+/**
+ * The source of customers imported from KiotViet (ADR-017). Seeded by key on the first import only,
+ * so businesses without KiotViet never see it; then editable and archivable like the defaults.
+ */
+export const KIOTVIET_SOURCE = { key: 'kiotviet', name: 'KiotViet', color: '#0070f4' } as const;
+
 export const DEFAULT_STATUSES = [
   { key: 'new_data', name: 'New data', color: '#64748b' },
   { key: 'call', name: 'Cuộc gọi', color: '#0ea5e9' },

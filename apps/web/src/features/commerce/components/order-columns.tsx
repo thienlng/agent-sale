@@ -7,6 +7,7 @@ import { formatDateTime, formatVnd } from '@/lib/format';
 import { storage } from '@/lib/storage';
 
 import { OrderCreatedByCell } from './order-created-by-cell';
+import { OrderExternalChip, pushStateLabel } from './order-external';
 import { OrderItemsHoverCard } from './order-items-hover-card';
 import { OrderStatusBadge } from './order-status-badge';
 
@@ -179,6 +180,16 @@ export const ORDER_COLUMNS: readonly OrderColumn[] = [
     csv: (o) => o.placedAt,
   },
   {
+    // The KiotViet push state. Fixed (not in the column picker), and the list leaves it out when no
+    // order on the page was pushed, so workspaces without KiotViet never see it.
+    id: 'kiotviet',
+    header: 'orders.col.kiotviet',
+    defaultVisible: true,
+    fixed: true,
+    cell: (o) => <OrderExternalChip order={o} />,
+    csv: (o, t) => (o.external ? pushStateLabel(t, o.external) : ''),
+  },
+  {
     id: 'status',
     header: 'orders.col.status',
     defaultVisible: true,
@@ -223,6 +234,17 @@ export function resetOrderColumns(): void {
   storage.remove(LEGACY_KEY);
   visible = read();
   listeners.forEach((l) => l());
+}
+
+/**
+ * The KiotViet column earns its space only when one of `rows` was pushed: the page's rows for the
+ * table, every exported row for the CSV (so the file's columns never depend on the page shown).
+ */
+export function withPushColumn(
+  columns: readonly OrderColumn[],
+  rows: ReadonlyArray<Pick<OrderSummaryDto, 'external'>>,
+): OrderColumn[] {
+  return rows.some((o) => o.external) ? [...columns] : columns.filter((c) => c.id !== 'kiotviet');
 }
 
 export function useVisibleOrderColumns(): OrderColumn[] {

@@ -48,6 +48,19 @@ async function switchTo(locale: Locale): Promise<void> {
 const saved = initialLocale();
 if (saved !== 'vi') void switchTo(saved);
 
+/** Namespaces kept out of the initial bundle; a route loads its own before rendering (docs/16 §1). */
+const lazyNamespaces = {
+  integration: () => import('@agent-sales/i18n/integration').then((m) => m.integration),
+} satisfies Record<string, () => Promise<Record<Locale, unknown>>>;
+
+/** Adds a lazy namespace in every locale, so a later language switch needs no extra fetch. */
+export async function loadNamespace(ns: keyof typeof lazyNamespaces): Promise<void> {
+  if (i18n.hasResourceBundle('vi', ns)) return;
+  const catalogs = await lazyNamespaces[ns]();
+  for (const [locale, messages] of Object.entries(catalogs))
+    i18n.addResourceBundle(locale, ns, messages as object, true, true);
+}
+
 export function setLocale(locale: Locale): void {
   storage.set(LOCALE_KEY, locale);
   document.documentElement.lang = locale;

@@ -149,6 +149,13 @@ function amountsOf(o: OrderRecord) {
   };
 }
 
+/** The push state staff see; null until the order is claimed for a PMS. */
+function externalOf(o: OrderRecord): OrderSummaryDto['external'] {
+  const e = o.external;
+  if (!e?.state) return null;
+  return { state: e.state, code: e.code, status: e.status, error: e.error };
+}
+
 /** Lines a summary carries; the order may have more (`itemCount`). */
 export const PREVIEW_LINES = 10;
 
@@ -176,6 +183,7 @@ export function toSummary(
     reviewedByName: o.reviewedByName,
     reviewedAt: o.reviewedAt?.toISOString() ?? null,
     conversationId: o.conversationId,
+    external: externalOf(o),
     placedAt: o.placedAt.toISOString(),
   };
 }

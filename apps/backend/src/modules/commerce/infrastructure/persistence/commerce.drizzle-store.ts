@@ -4,6 +4,7 @@ import type { WorkspaceId } from '@agent-sales/shared';
 import type { CommerceStore, CommerceTx } from '../../application/ports/commerce-store.js';
 import { botOrdersTx } from './bot-order-draft.drizzle.js';
 import { catalogTx } from './catalog.drizzle.js';
+import { orderPushTx } from './order-push.drizzle.js';
 import { ordersTx } from './orders.drizzle.js';
 
 /** One withTenant transaction per use case; RLS scopes every statement to the workspace. */
@@ -16,6 +17,7 @@ export class DrizzleCommerceStore implements CommerceStore {
       fn({
         ...catalogTx(workspaceId, tx),
         ...ordersTx(workspaceId, tx),
+        ...orderPushTx(tx),
         ...botOrdersTx(workspaceId, tx),
       } satisfies CommerceTx),
     );

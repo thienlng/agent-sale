@@ -2,6 +2,8 @@ import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 
 import { verifyImageBytes, type ImageMime } from '../../../../common/storage/image-bytes.js';
+import { ExternalImageError } from '../../api/catalog-sync.facade.js';
+import type { ExternalImageDownloader } from '../../application/ports/external-image-downloader.js';
 
 export const IMPORT_MAX_BYTES = 10 * 1_048_576;
 /** No WebP: Shopify-like CDNs would otherwise serve WebP, which Messenger rejects in albums. */
@@ -152,3 +154,17 @@ export async function downloadImage(
     throw new ImageDownloadError('network_error');
   }
 }
+
+/** `downloadImage` for the PMS sync: JPEG/PNG only, failures as ExternalImageError(reason). */
+export const downloadExternalImage: ExternalImageDownloader = async (url) => {
+  try {
+    const { bytes, mime } = await downloadImage(url);
+    // downloadImage already refuses everything else; this narrows the type.
+    if (mime !== 'image/jpeg' && mime !== 'image/png')
+      throw new ExternalImageError('unsupported_format');
+    return { bytes, mime };
+  } catch (e) {
+    if (e instanceof ImageDownloadError) throw new ExternalImageError(e.message);
+    throw e;
+  }
+};

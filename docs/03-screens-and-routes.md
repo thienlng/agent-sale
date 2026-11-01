@@ -19,7 +19,7 @@
 | Đào tạo Bot (Bot training) | Bot list (create, settings shortcut, delete with confirmation) | `/quan-ly/bot` | `/app/bots` | BOT-01/02 | P0 |
 | Chat đa kênh (Omnichannel chat) | Omnichannel messages | `/quan-ly/tin-nhan` | `/app/inbox` | INB-* | P0 |
 | | Platform integrations | `/quan-ly/tich-hop-nen-tang/{tab}` | `/app/channels/{all\|pending\|facebook\|instagram\|zalo\|lazada\|tiktok}` | CHN-01..03 | P0 |
-| AI Mini CRM | Customer list | `/quan-ly/khach-hang` | `/app/contacts` | CRM-01..04 | P0 |
+| AI Mini CRM | Customer list. A customer linked to KiotViet shows a "KiotViet" badge by its name (list and drawer); its edit form hints on the KiotViet-owned fields, which stay editable. See [integrations/kiotviet.md](integrations/kiotviet.md#customers-in-the-crm) | `/quan-ly/khach-hang` | `/app/contacts` | CRM-01..04 | P0 |
 | | Customer lists (segments) | `/quan-ly/tep-khach-hang` | `/app/segments` | CRM-10 | P1 |
 | Remarketing | Zalo ZBS | `/quan-ly/chien-dich/zbs` | `/app/campaigns/zbs` (`?tab=list\|stats\|templates`) | MKT-01/02 | P1 |
 | | Facebook FMM | `/quan-ly/facebook-marketing-messenger` | `/app/campaigns/fmm` | MKT-04 | P2 |
@@ -27,9 +27,9 @@
 | Automation Workflow | | `/quan-ly/automation-workflow` | `/app/workflows` (`?tab=workflows\|zalo-templates`) | WFL-* | P1 |
 | | Workflow form | `/quan-ly/automation-workflow/soft-follow-up?industry=retail` | `/app/workflows/new?template=soft-follow-up&industry=retail`, `/app/workflows/{id}` | WFL-02 | P1 |
 | Đơn hàng (Orders) | Overview | `/quan-ly/don-hang/thong-ke` | `/app/orders/overview` | ORD-11 | P1 |
-| | Order list | `/quan-ly/don-hang` | `/app/orders` | ORD-04 | P0 |
+| | Order list. With KiotViet push on, a "KiotViet" column (left out when no order on the page was pushed) shows the push chip: "Đang đẩy", "Đã đẩy · <code>" or "Lỗi" (reason on hover) with **Thử lại** (`orders.manage`); mobile cards show the chip only. See [integrations/kiotviet.md](integrations/kiotviet.md#order-push-on-the-orders-pages) | `/quan-ly/don-hang` | `/app/orders` | ORD-04, ORD-15 | P0 |
 | | Create order | `/quan-ly/don-hang/tao-moi` | `/app/orders/new` | ORD-03 | P0 |
-| | Order detail | (not observed) | `/app/orders/{id}` | ORD-05 | P0 |
+| | Order detail. A pushed order has a "KiotViet" card: the chip, the failure reason and **Thử lại**, or the KiotViet status and "Đơn đã ở KiotViet — cập nhật trạng thái trên KiotViet" | (not observed) | `/app/orders/{id}` | ORD-05, ORD-15 | P0 |
 | | Settings (hub, choose source) | `/quan-ly/thiet-lap` | `/app/order-settings` | — | P0 |
 | | ↳ Order settings | `/quan-ly/thiet-lap/cai-dat-don-hang?tab=…` | `/app/order-settings/orders?tab=statuses\|conditions\|gsheet\|chat-order` | ORD-05/06/07/10 | P0–P1 |
 | | ↳ Ad optimization | `/quan-ly/thiet-lap/toi-uu-quang-cao` | `/app/order-settings/ads-optimization` | ORD-12 | P1 |
@@ -37,6 +37,8 @@
 | | ↳ Shipping settings | `/quan-ly/thiet-lap/cai-dat-van-chuyen` | `/app/order-settings/shipping` | ORD-09 | P1 |
 | | ↳ Warehouses | `/quan-ly/thiet-lap/kho-hang` | `/app/order-settings/warehouses` | ORD-02 | P0 |
 | Sản phẩm (Products) | Shared product catalog (top-level entry since T-112; Preny nests it under Orders) | `/quan-ly/quan-ly-san-pham` | `/app/products`, `/app/products/{id}` | ORD-01 | P0 |
+| Tích hợp PMS (PMS integrations) | Hub of point-of-sale / inventory software (icon `Blocks`; right after Products, or after Platform integrations for hotels; shown with `catalog.manage`, marked "Thử nghiệm" in the sidebar until proven with real shops): KiotViet live, Sapo / Haravan / Pancake POS "Sắp có" | (name only) | `/app/integrations` | ORD-15 | P1 |
+| | KiotViet: 3-step connect wizard (credentials → branches → preview & start) until connected, then the connection view (status, sync progress polled every 3 s, counts of linked products, customers and pushed orders, sync settings incl. the "Đẩy đơn sang KiotViet" and "Đồng bộ khách hàng" switches, "Cập nhật mã", recent activity, disconnect). Changes need `settings.manage`; others see it read-only. Guide: [integrations/kiotviet.md](integrations/kiotviet.md) | — | `/app/integrations/kiotviet` | ORD-15 | P1 |
 | Lưu trú (hotel businesses only, T-160; replace Sản phẩm in their sidebar) | Lịch — nightly calendar, find availability, holds, bookings, blocks | — | `/app/calendar` | VRT | P0 |
 | | Booking — today / holds / upcoming / all, booking sheet; bot holds marked "Bot tạo" with a waiting count and a source filter (T-161) | — | `/app/bookings` | VRT | P0 |
 | | Căn hộ — property cards or a compact list (remembered per user) and the editor (info, rooms, prices, policies, photos) | — | `/app/properties`, `/app/properties/$propertyId` | VRT | P0 |

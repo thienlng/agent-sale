@@ -6,6 +6,7 @@ import { InboxPage } from '@/features/conversation/components/inbox-page';
 import type { PanelSlots } from '@/features/conversation/components/conversation-view';
 import { ProductShare } from '@/features/commerce/components/product-share';
 import { CommentsWorkspace } from '@/features/channel/components/comments/comments-workspace';
+import { loadNamespace } from '@/lib/i18n';
 import { useSession } from '@/lib/session';
 import { InboxSalesPanel, type InboxCustomerContext } from './-components/inbox-sales-panel';
 
@@ -14,6 +15,9 @@ const Search = z.object({ conversation: z.uuid().optional().catch(undefined) });
 
 export const Route = createFileRoute('/app/inbox')({
   validateSearch: Search,
+  // The customer drawer of the sales panel shows the KiotViet badge and field hint. A failed load
+  // shows raw keys there instead of the error page.
+  loader: () => loadNamespace('integration').catch(() => undefined),
   component: InboxRoute,
 });
 function InboxRoute() {

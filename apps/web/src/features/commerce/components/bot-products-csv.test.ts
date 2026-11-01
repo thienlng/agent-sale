@@ -17,6 +17,7 @@ const product = (patch: Partial<ProductDto>): ProductDto => ({
   priceMin: 150000,
   priceMax: 180000,
   available: 3,
+  external: null,
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-02T00:00:00.000Z',
   ...patch,

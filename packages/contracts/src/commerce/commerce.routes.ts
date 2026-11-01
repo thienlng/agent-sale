@@ -12,6 +12,7 @@ import {
   ProductListResponse,
   SetBotProductsRequest,
   UpdateOrderRequest,
+  UpdateProductBotSettingsRequest,
   UpsertProductRequest,
   UpsertWarehouseRequest,
   VariantSearchQuery,
@@ -99,6 +100,14 @@ export const commerceRoutes = defineRoutes([
     summary: 'Replace a product and its variants (missing variants are archived)',
     tag: 'commerce',
     body: UpsertProductRequest,
+    responses: { 200: ProductDto },
+  }),
+  route({
+    method: 'patch',
+    path: '/products/{productId}/bot-settings',
+    summary: "Change only a product's bot fields (visibleToBot, botInstructions); any product",
+    tag: 'commerce',
+    body: UpdateProductBotSettingsRequest,
     responses: { 200: ProductDto },
   }),
   route({

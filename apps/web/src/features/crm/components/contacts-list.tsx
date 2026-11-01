@@ -25,6 +25,7 @@ import { useVisibleContactColumns } from './contact-columns';
 import { ContactCreateDialog } from './contact-create-dialog';
 import { ContactSheet } from './contact-sheet';
 import { OptionBadge } from './crm-badges';
+import { KiotVietBadge } from './kiotviet-link';
 import { type ContactsSearch, toSort } from './contacts-search';
 import { ContactsToolbar } from './contacts-toolbar';
 
@@ -126,7 +127,10 @@ export function ContactsList({
               className="flex w-full flex-col gap-1 rounded-xl border bg-card p-3 text-left focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
             >
               <span className="flex items-center justify-between gap-2">
-                <span className="truncate font-medium">{contactLabel(c, t)}</span>
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="truncate font-medium">{contactLabel(c, t)}</span>
+                  <KiotVietBadge contact={c} />
+                </span>
                 <OptionBadge option={lookups.status(c.statusId)} />
               </span>
               <span className="truncate text-sm text-muted-foreground tabular-nums">
@@ -176,16 +180,19 @@ export function ContactsList({
                       {columns.map((col) => (
                         <TableCell key={col.id} className={cn('align-top', col.className)}>
                           {col.id === 'name' ? (
-                            <button
-                              type="button"
-                              className="max-w-full truncate text-left font-medium hover:underline focus-visible:underline focus-visible:outline-none"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                open(c.id);
-                              }}
-                            >
-                              {contactLabel(c, t)}
-                            </button>
+                            <span className="flex min-w-0 items-center gap-2">
+                              <button
+                                type="button"
+                                className="max-w-full truncate text-left font-medium hover:underline focus-visible:underline focus-visible:outline-none"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  open(c.id);
+                                }}
+                              >
+                                {contactLabel(c, t)}
+                              </button>
+                              <KiotVietBadge contact={c} />
+                            </span>
                           ) : (
                             col.cell(c, { t, lookups })
                           )}

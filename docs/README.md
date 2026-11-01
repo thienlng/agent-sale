@@ -58,6 +58,7 @@ Input source: `../../preny/preny-research/` (Preny research dossier dated 23/10/
 - **Immediate actions:** finalize the [open decisions](14-open-decisions.md), submit Meta Business Verification/App Review + Zalo app, interview shops, scaffold the repo.
 
 - [Facebook post/comment automation](integrations/facebook-comments.md) — T-069 configuration, source context, moderation policy, delivery guarantees and provider verification limits.
+- [KiotViet integration ("Tích hợp PMS")](integrations/kiotviet.md) — owner setup, data flow (full import, webhooks, 10-minute reconcile), locked fields, limits, sync log troubleshooting and env vars (ADR-017).
 
 ## Documentation conventions
 

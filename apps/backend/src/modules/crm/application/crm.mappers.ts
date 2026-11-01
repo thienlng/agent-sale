@@ -70,6 +70,10 @@ export function toContactDto(c: ContactRecord, tags: AssignmentRecord[]): Contac
     adRef: c.adRef,
     profileNote: c.profileNote,
     tags: tags.filter((t) => !t.removedAt).map(toAssignmentDto),
+    external:
+      c.externalSource === 'kiotviet' && c.externalId
+        ? { source: c.externalSource, id: c.externalId }
+        : null,
     version: c.version,
     createdAt: c.createdAt.toISOString(),
     updatedAt: c.updatedAt.toISOString(),
