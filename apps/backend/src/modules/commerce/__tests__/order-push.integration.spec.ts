@@ -258,6 +258,7 @@ describe('order push facade on Postgres', () => {
     expect(await push().claimOrdersForPush(ws, 'kiotviet', since, 10)).toContain(ids['unlinked']);
     expect(await push().pushableOrder(ws, ids['unlinked']!)).toEqual({
       problem: { reason: 'unlinked_product', name: 'Quần jean' },
+      code: expect.any(String),
     });
   });
 
@@ -266,8 +267,8 @@ describe('order push facade on Postgres', () => {
     // Hold of 2 (staff) + 1 (each bot order still holding).
     const before = await stock();
     const ref = { externalId: '9001', externalCode: 'DHKV0001', externalStatus: 'confirmed' };
-    await push().markOrderPushed(ws, id, ref);
-    await push().markOrderPushed(ws, id, ref);
+    expect(await push().markOrderPushed(ws, id, ref)).toEqual({ cancelled: false });
+    expect(await push().markOrderPushed(ws, id, ref)).toEqual({ cancelled: false });
     // Another PMS order for the same Rapiz order: refused, the first refs stay.
     await expect(
       push().markOrderPushed(ws, id, { ...ref, externalId: '9999', externalCode: 'DHKV9999' }),
@@ -418,11 +419,13 @@ describe('order push facade on Postgres', () => {
     const cancelled = await staffOrder(linked.variants[0]!.id, 1);
     await setOrder(cancelled, { createdAt: new Date(since.getTime() - 5_000) });
     await call(h, 'POST', `/orders/${cancelled}/status`, { status: 'cancelled' });
-    await push().markOrderPushed(ws, cancelled, {
-      externalId: '9101',
-      externalCode: 'DHKV0101',
-      externalStatus: 'draft',
-    });
+    expect(
+      await push().markOrderPushed(ws, cancelled, {
+        externalId: '9101',
+        externalCode: 'DHKV0101',
+        externalStatus: 'draft',
+      }),
+    ).toEqual({ cancelled: true });
     expect(await order(cancelled)).toMatchObject({
       status: 'cancelled',
       stockState: 'external',

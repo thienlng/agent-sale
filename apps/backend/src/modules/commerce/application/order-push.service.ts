@@ -47,7 +47,7 @@ export class OrderPushService implements OrderPushFacade {
   pushableOrder(
     ws: WorkspaceId,
     orderId: string,
-  ): Promise<{ order: PushableOrder } | { problem: PushProblem } | null> {
+  ): Promise<{ order: PushableOrder } | { problem: PushProblem; code: string } | null> {
     return this.store.run(ws, async (tx) => {
       // Locked: a cancellation and the claim's release cannot interleave.
       const o = isUuid(orderId) ? await tx.orderPush.lock(orderId) : null;
@@ -58,7 +58,8 @@ export class OrderPushService implements OrderPushFacade {
         await tx.orderPush.set(o.id, { state: null, source: null });
         return null;
       }
-      return pushPayload(o, await tx.orderPush.lines(o.id, o.external.source));
+      const payload = pushPayload(o, await tx.orderPush.lines(o.id, o.external.source));
+      return 'problem' in payload ? { ...payload, code: o.code } : payload;
     });
   }
 
@@ -66,11 +67,12 @@ export class OrderPushService implements OrderPushFacade {
     ws: WorkspaceId,
     orderId: string,
     ref: { externalId: string; externalCode: string; externalStatus: string },
-  ): Promise<void> {
+  ): Promise<{ cancelled: boolean }> {
     return this.store.run(ws, async (tx) => {
       const o = await this.#locked(tx, orderId);
+      const cancelled = o.status === 'cancelled';
       if (o.external?.state === 'pushed') {
-        if (o.external.id === ref.externalId) return;
+        if (o.external.id === ref.externalId) return { cancelled };
         throw new OrderAlreadyPushedError(o.external.code);
       }
       const now = new Date();
@@ -98,6 +100,7 @@ export class OrderPushService implements OrderPushFacade {
         actorName: null,
         createdAt: now,
       });
+      return { cancelled };
     });
   }
 

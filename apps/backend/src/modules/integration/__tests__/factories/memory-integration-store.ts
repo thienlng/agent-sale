@@ -131,6 +131,15 @@ export class MemoryIntegrationStore implements IntegrationStore {
   claimWebhookEvents: IntegrationStore['claimWebhookEvents'] = notModelled;
   connectionsDueForReconcile: IntegrationStore['connectionsDueForReconcile'] = notModelled;
   connectionForSystem: IntegrationStore['connectionForSystem'] = notModelled;
+
+  connectionsPushingOrders: IntegrationStore['connectionsPushingOrders'] = () =>
+    Promise.resolve(
+      this.connections
+        .filter(
+          (c) => c.settings.pushOrders && (c.status === 'connected' || c.status === 'syncing'),
+        )
+        .map((c) => ({ workspaceId: c.workspaceId, connectionId: c.id, createdAt: c.createdAt })),
+    );
 }
 
 function notModelled(): Promise<never> {

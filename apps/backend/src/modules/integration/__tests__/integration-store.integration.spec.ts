@@ -417,4 +417,47 @@ describe('integration store on Postgres', () => {
     expect(ids).not.toContain(fresh.c.id);
     expect(ids).not.toContain(gone.c.id);
   });
+
+  it('lists connections that push orders: push on, connected or syncing', async () => {
+    const on = { saleBranchIds: [1], orderBranchId: 1, pushOrders: true, syncCustomers: false };
+    const make = async (over: Partial<ConnectionRecord>) => {
+      const ws = await workspace();
+      const c = record(ws, over);
+      await store.insertConnection(ws, c);
+      return c;
+    };
+    const pushing = await make({ settings: on });
+    const syncing = await make({ settings: on, status: 'syncing' });
+    const off = await make({});
+    const errored = await make({ settings: on, status: 'error' });
+    const rows = await store.connectionsPushingOrders();
+    const ids = rows.map((r) => r.connectionId);
+    expect(ids).toEqual(expect.arrayContaining([pushing.id, syncing.id]));
+    expect(ids).not.toContain(off.id);
+    expect(ids).not.toContain(errored.id);
+    expect(rows.find((r) => r.connectionId === pushing.id)).toEqual({
+      workspaceId: pushing.workspaceId,
+      connectionId: pushing.id,
+      createdAt: pushing.createdAt,
+    });
+  });
+
+  it('claims push_order jobs, any number per connection', async () => {
+    const { ws, c } = await connected();
+    await store.enqueue(ws, { connectionId: c.id, kind: 'full_import' });
+    for (const orderId of ['a', 'b']) {
+      expect(
+        await store.enqueue(ws, { connectionId: c.id, kind: 'push_order', payload: { orderId } }),
+      ).toBe(true);
+    }
+    const rows = await withTenant(tenant.db, ws, (tx) =>
+      tx.select().from(schema.integrationJobs).where(eq(schema.integrationJobs.connectionId, c.id)),
+    );
+    const push = rows.filter((r) => r.kind === 'push_order');
+    expect(push).toHaveLength(2);
+    expect(await claimOne(push[0]!.id)).toMatchObject({
+      kind: 'push_order',
+      payload: { orderId: push[0]!.payload['orderId'] },
+    });
+  });
 });

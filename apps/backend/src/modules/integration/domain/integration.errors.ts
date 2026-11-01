@@ -40,6 +40,14 @@ export class KiotVietUnavailableError extends DomainError {
   }
 }
 
+/** KiotViet refused a write as invalid (4xx other than auth): retrying the same body cannot help. */
+export class KiotVietRejectedError extends DomainError {
+  readonly code = 'VALIDATION_FAILED';
+  constructor(readonly status: number) {
+    super('KiotViet rejected the request', { reason: 'kiotviet_rejected', status });
+  }
+}
+
 /** The settings name branches the KiotViet store does not have. */
 export class KiotVietBranchError extends DomainError {
   readonly code = 'VALIDATION_FAILED';

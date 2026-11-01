@@ -45,27 +45,28 @@ export interface OrderPushFacade {
     limit: number,
   ): Promise<string[]>;
   /**
-   * The push payload of a pending order, or a problem that makes it unpushable. Null when the
+   * The push payload of a pending order, or a problem that makes it unpushable (with the order
+   * code, for the caller's log). Null when the
    * order does not exist or is not pending; a pending order cancelled or deleted since its claim
    * also loses the claim (back to no push state, so reviving it queues it again).
    */
   pushableOrder(
     ws: WorkspaceId,
     orderId: string,
-  ): Promise<{ order: PushableOrder } | { problem: PushProblem } | null>;
+  ): Promise<{ order: PushableOrder } | { problem: PushProblem; code: string } | null>;
   /**
    * Stores the PMS refs, `pushed`, from `pending`, `failed` or no claim; a held order gives its
    * hold back (one `release` movement per line) and its stock becomes the PMS's
    * (`stock_state = 'external'`). The same external id again is a no-op; another one throws
    * OrderAlreadyPushedError (the first refs stay). An external id already on another order throws
-   * OrderExternalLinkConflictError. A cancelled order is still recorded: the caller must then
-   * cancel the PMS order or surface it.
+   * OrderExternalLinkConflictError. A cancelled order is still recorded (`cancelled: true`): the
+   * caller must then cancel the PMS order or surface it.
    */
   markOrderPushed(
     ws: WorkspaceId,
     orderId: string,
     ref: { externalId: string; externalCode: string; externalStatus: string },
-  ): Promise<void>;
+  ): Promise<{ cancelled: boolean }>;
   /** `pending` → `failed` with an i18n error code (PII-free params); any other state: no-op. */
   markOrderPushFailed(
     ws: WorkspaceId,

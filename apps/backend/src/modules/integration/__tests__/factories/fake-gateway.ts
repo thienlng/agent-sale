@@ -3,10 +3,19 @@ import type {
   KvBranch,
   KvCredentials,
   KvOnHand,
+  KvOrderRef,
+  KvOrderSummary,
   KvPage,
   KvWebhook,
 } from '../../application/ports/kiotviet-gateway.js';
 import type { KvProduct } from '../../domain/kiotviet-mapping.js';
+import type { KvOrderBody } from '../../domain/kiotviet-order.js';
+
+/** An order the fake KiotViet holds. */
+export interface FakeGatewayOrder extends KvOrderSummary {
+  branchId: number;
+  body: KvOrderBody;
+}
 
 /**
  * In-memory KiotVietGateway for service and HTTP tests. `fail` makes the named method throw;
@@ -23,6 +32,9 @@ export class FakeKiotVietGateway implements KiotVietGateway {
   calls: Array<{ method: string; interactive: boolean; credentials: KvCredentials | undefined }> =
     [];
   codesRead = 0;
+  orders: FakeGatewayOrder[] = [];
+  /** Errors the next `createOrder` calls throw *after* storing the order (an answer lost on the way back). */
+  lostCreates: Error[] = [];
   /** What `productCount` answers; defaults to the number of codes. */
   total: number | null | undefined = undefined;
   private nextWebhookId = 100;
@@ -42,7 +54,10 @@ export class FakeKiotVietGateway implements KiotVietGateway {
       productCodes: (c) => (record('productCodes', c), this.doCodes()),
       registerWebhook: (c, w) => (record('registerWebhook', c), this.doRegister(c, w)),
       deleteWebhook: (c, id) => (record('deleteWebhook', c), this.doDelete(id)),
-      listWebhooks: (c) => (record('listWebhooks', c), this.listWebhooks(c)),
+      listWebhooks: (c) => (record('listWebhooks', c), this.doList()),
+      createOrder: (c, b) => (record('createOrder', c), this.createOrder(c, b)),
+      recentOrders: (c, q) => (record('recentOrders', c), this.recentOrders(c, q)),
+      orderById: (c, id) => (record('orderById', c), this.orderById(c, id)),
     };
   }
 
@@ -90,8 +105,55 @@ export class FakeKiotVietGateway implements KiotVietGateway {
     return this.doDelete(id);
   }
 
-  listWebhooks(_c: KvCredentials): Promise<KvWebhook[]> {
+  listWebhooks(c: KvCredentials): Promise<KvWebhook[]> {
+    this.track('listWebhooks', false, c);
+    return this.doList();
+  }
+
+  private doList(): Promise<KvWebhook[]> {
+    if (this.fail.listWebhooks) return Promise.reject(this.fail.listWebhooks);
     return Promise.resolve(this.webhooks.map(({ id, type, url }) => ({ id, type, url })));
+  }
+
+  createOrder(c: KvCredentials, body: KvOrderBody): Promise<KvOrderRef> {
+    this.track('createOrder', false, c);
+    if (this.fail.createOrder) return Promise.reject(this.fail.createOrder);
+    const id = 7000 + this.orders.length + 1;
+    const order: FakeGatewayOrder = {
+      id,
+      code: `DH${id}`,
+      status: 1,
+      description: body.description,
+      branchId: body.branchId,
+      body: structuredClone(body),
+    };
+    this.orders.push(order);
+    const lost = this.lostCreates.shift();
+    if (lost) return Promise.reject(lost);
+    return Promise.resolve({ id, code: order.code, status: order.status });
+  }
+
+  recentOrders(
+    c: KvCredentials,
+    q: { branchId: number; since: Date; currentItem: number; pageSize: number },
+  ): Promise<KvPage<KvOrderSummary>> {
+    this.track('recentOrders', false, c);
+    if (this.fail.recentOrders) return Promise.reject(this.fail.recentOrders);
+    const rows = this.orders
+      .filter((o) => o.branchId === q.branchId)
+      .map(({ id, code, status, description }) => ({ id, code, status, description }));
+    return Promise.resolve({
+      data: rows.slice(q.currentItem, q.currentItem + q.pageSize),
+      total: rows.length,
+      removedIds: [],
+    });
+  }
+
+  orderById(c: KvCredentials, id: number): Promise<KvOrderRef | null> {
+    this.track('orderById', false, c);
+    if (this.fail.orderById) return Promise.reject(this.fail.orderById);
+    const o = this.orders.find((x) => x.id === id);
+    return Promise.resolve(o ? { id: o.id, code: o.code, status: o.status } : null);
   }
 
   private track(method: keyof KiotVietGateway, interactive: boolean, c?: KvCredentials) {

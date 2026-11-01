@@ -135,6 +135,16 @@ export const SyncLogParams = {
   }),
   webhook_bad_signature: z.object({}),
   webhook_unknown: z.object({ type: z.string() }),
+  /** `code`: the Rapiz order code (never customer data). */
+  order_pushed: z.object({ code: z.string() }),
+  /**
+   * `reason`: `unlinked_product`, `empty`, `kiotviet_rejected`, `kiotviet_unavailable`,
+   * `auth_failed`, `sync_failed`, `not_connected`, `duplicate` (KiotViet now holds a second order) or
+   * `link_conflict`.
+   */
+  order_push_failed: z.object({ code: z.string(), reason: z.string() }),
+  /** Pushed, but cancelled in Rapiz meanwhile: staff cancel it in KiotViet. */
+  order_pushed_cancelled: z.object({ code: z.string() }),
 } as const;
 export type SyncLogParams = {
   [Code in keyof typeof SyncLogParams]: z.infer<(typeof SyncLogParams)[Code]>;

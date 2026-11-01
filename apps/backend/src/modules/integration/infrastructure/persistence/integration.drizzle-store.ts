@@ -28,6 +28,8 @@ import {
   ConnectionVersionConflictError,
 } from '../../domain/integration.errors.js';
 
+import { patchColumns, toConnection } from './integration.mappers.js';
+
 const c = schema.integrationConnections,
   j = schema.integrationJobs,
   log = schema.integrationSyncLog,
@@ -35,56 +37,8 @@ const c = schema.integrationConnections,
 
 /** Entries kept per connection in `integration_sync_log` (spec §4.3). */
 const LOG_KEEP = 200;
-/** Kinds this PR runs; `push_order` / `customer_import` stay queued until their runners land. */
-const RUNNABLE_KINDS = sql.raw(`'full_import','reconcile','webhook'`);
-
-type ConnectionRow = typeof c.$inferSelect;
-
-function toConnection(r: ConnectionRow): ConnectionRecord {
-  return {
-    id: r.id,
-    workspaceId: r.workspaceId as WorkspaceId,
-    provider: r.provider,
-    status: r.status,
-    retailer: r.retailer,
-    clientId: r.clientId,
-    clientSecretSealed: r.clientSecretSealed,
-    webhookToken: r.webhookToken,
-    webhookSecretSealed: r.webhookSecretSealed,
-    settings: r.settings as unknown as ConnectionRecord['settings'],
-    version: r.version,
-    progress: (r.progress ?? null) as ConnectionRecord['progress'],
-    counts: (r.counts ?? {}) as ConnectionRecord['counts'],
-    lastError: (r.lastError ?? null) as ConnectionRecord['lastError'],
-    lastFullSyncAt: r.lastFullSyncAt,
-    lastReconcileAt: r.lastReconcileAt,
-    connectedByUserId: r.connectedByUserId,
-    createdAt: r.createdAt,
-    updatedAt: r.updatedAt,
-  };
-}
-
-/** Columns a patch may write; identity, version and timestamps are owned by the store. */
-function patchColumns(patch: Partial<ConnectionRecord>): Partial<typeof c.$inferInsert> {
-  const set: Partial<typeof c.$inferInsert> = {};
-  if (patch.status !== undefined) {
-    set.status = patch.status;
-    set.disconnectedAt = patch.status === 'disconnected' ? new Date() : null;
-  }
-  if (patch.retailer !== undefined) set.retailer = patch.retailer;
-  if (patch.clientId !== undefined) set.clientId = patch.clientId;
-  if (patch.clientSecretSealed !== undefined) set.clientSecretSealed = patch.clientSecretSealed;
-  if (patch.webhookToken !== undefined) set.webhookToken = patch.webhookToken;
-  if (patch.webhookSecretSealed !== undefined) set.webhookSecretSealed = patch.webhookSecretSealed;
-  if (patch.settings !== undefined) set.settings = { ...patch.settings };
-  if (patch.progress !== undefined) set.progress = patch.progress;
-  if (patch.counts !== undefined) set.counts = { ...patch.counts };
-  if (patch.lastError !== undefined) set.lastError = patch.lastError;
-  if (patch.lastFullSyncAt !== undefined) set.lastFullSyncAt = patch.lastFullSyncAt;
-  if (patch.lastReconcileAt !== undefined) set.lastReconcileAt = patch.lastReconcileAt;
-  if (patch.connectedByUserId !== undefined) set.connectedByUserId = patch.connectedByUserId;
-  return set;
-}
+/** Kinds the runner claims; `customer_import` stays queued until its runner lands (PR 3). */
+const RUNNABLE_KINDS = sql.raw(`'full_import','reconcile','webhook','push_order'`);
 
 /** Owner-driven fields: changing one bumps `version`; runner writes do not. */
 const OWNER_FIELDS = ['settings', 'retailer', 'clientId', 'clientSecretSealed'] as const;
@@ -419,6 +373,26 @@ export class DrizzleIntegrationStore implements IntegrationStore {
             ),
           )
       ).map((r) => ({ workspaceId: r.workspaceId as WorkspaceId, connectionId: r.connectionId })),
+    );
+  }
+
+  connectionsPushingOrders() {
+    return withSystem(this.system, async (tx) =>
+      (
+        await tx
+          .select({ workspaceId: c.workspaceId, connectionId: c.id, createdAt: c.createdAt })
+          .from(c)
+          .where(
+            and(
+              sql`${c.status} in ('connected','syncing')`,
+              sql`(${c.settings} ->> 'pushOrders')::boolean is true`,
+            ),
+          )
+      ).map((r) => ({
+        workspaceId: r.workspaceId as WorkspaceId,
+        connectionId: r.connectionId,
+        createdAt: r.createdAt,
+      })),
     );
   }
 

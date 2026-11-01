@@ -139,3 +139,25 @@ export const KvWebhookIdSchema = z
   })
   .transform((v) => v.id ?? v.Id ?? v.data?.id ?? v.data?.Id)
   .pipe(z.number().int());
+
+/** An order (`POST /orders` answer, `GET /orders/{id}`, list items), possibly under `data`. */
+const KvOrderFields = z.looseObject({
+  id: int,
+  code: text,
+  status: int,
+  description: z.string().nullish(),
+});
+
+export const KvOrderSchema = z
+  .preprocess((raw) => {
+    const o = raw as { id?: unknown; data?: unknown } | null;
+    return o && typeof o === 'object' && o.id === undefined && o.data ? o.data : raw;
+  }, KvOrderFields)
+  .transform((o) => ({ id: o.id, code: o.code, status: o.status }));
+
+export const KvOrderSummarySchema = KvOrderFields.transform((o) => ({
+  id: o.id,
+  code: o.code,
+  status: o.status,
+  description: o.description ?? null,
+}));

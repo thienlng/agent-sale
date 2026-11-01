@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SecretBox } from '../../../common/security/secret-box.js';
 import type { CatalogSyncFacade } from '../../commerce/api/index.js';
 import { ConnectionService } from '../application/connection.service.js';
+import { WebhookSet } from '../application/webhook-set.js';
 import {
   ConnectFailedError,
   ConnectionExistsError,
@@ -65,9 +66,13 @@ describe('ConnectionService', () => {
   let warn: ReturnType<typeof vi.spyOn>;
 
   const make = (webhookBaseUrl: string | null = 'https://hooks.rapiz.test/') =>
-    new ConnectionService(store, gateway, catalog as unknown as CatalogSyncFacade, box, {
-      webhookBaseUrl: webhookBaseUrl ?? undefined,
-    });
+    new ConnectionService(
+      store,
+      gateway,
+      catalog as unknown as CatalogSyncFacade,
+      box,
+      new WebhookSet(gateway, box, { webhookBaseUrl: webhookBaseUrl ?? undefined }),
+    );
 
   beforeEach(() => {
     store = new MemoryIntegrationStore();
@@ -301,8 +306,61 @@ describe('ConnectionService', () => {
       expect(updated.settings).toEqual({ ...settings, pushOrders: true, orderBranchId: 2 });
       expect(updated.version).toBe(dto.version + 1);
       expect(updated.branches).toEqual(gateway.branchList);
-      expect(store.connections[0]!.settings.webhookIds).toHaveLength(3);
       expect(store.jobs.filter((j) => j.open)).toEqual([]);
+    });
+
+    it('ensures the webhook set on a settings save: order.update follows pushOrders', async () => {
+      const dto = await connect();
+      const on = await service.update(ws, {
+        version: dto.version,
+        settings: { ...settings, pushOrders: true },
+      });
+      const row = () => store.connections[0]!;
+      expect(gateway.webhooks.map((h) => h.type)).toEqual([
+        'product.update',
+        'product.delete',
+        'stock.update',
+        'order.update',
+      ]);
+      expect(gateway.webhooks.at(-1)?.secretBase64).toBe(box.open(row().webhookSecretSealed));
+      expect(row().settings.webhookIds).toEqual(gateway.webhooks.map((h) => h.id));
+      // One owner write: the ids ride along with the settings.
+      expect(on.version).toBe(dto.version + 1);
+
+      // A lost catalog webhook is registered again; turning push off removes order.update.
+      gateway.webhooks = gateway.webhooks.filter((h) => h.type !== 'stock.update');
+      await service.update(ws, { version: on.version, settings });
+      expect(gateway.webhooks.map((h) => h.type).sort()).toEqual([
+        'product.delete',
+        'product.update',
+        'stock.update',
+      ]);
+      expect([...row().settings.webhookIds!].sort()).toEqual(
+        gateway.webhooks.map((h) => h.id).sort(),
+      );
+      expect(store.logs.map((l) => l.code)).not.toContain('webhook_register_failed');
+    });
+
+    it('saves the settings when KiotViet cannot list webhooks, and logs a failed registration', async () => {
+      const dto = await connect();
+      gateway.fail.listWebhooks = new Error('down');
+      const saved = await service.update(ws, {
+        version: dto.version,
+        settings: { ...settings, pushOrders: true },
+      });
+      expect(saved.settings.pushOrders).toBe(true);
+      expect(store.connections[0]!.settings.webhookIds).toHaveLength(3);
+
+      delete gateway.fail.listWebhooks;
+      gateway.fail.registerWebhook = new Error('down');
+      await service.update(ws, {
+        version: saved.version,
+        settings: { ...settings, pushOrders: true },
+      });
+      expect(store.logs.find((l) => l.code === 'webhook_register_failed')?.params).toEqual({
+        registered: 3,
+        expected: 4,
+      });
     });
 
     it('queues a full reconcile when the sale branches change', async () => {

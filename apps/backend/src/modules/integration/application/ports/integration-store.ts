@@ -2,7 +2,7 @@ import type { WorkspaceId } from '@agent-sales/shared';
 
 export type IntegrationProvider = 'kiotviet';
 export type ConnectionStatus = 'connected' | 'syncing' | 'error' | 'disconnected';
-export type SyncJobKind = 'full_import' | 'reconcile' | 'webhook';
+export type SyncJobKind = 'full_import' | 'reconcile' | 'webhook' | 'push_order';
 export type SyncLogLevel = 'info' | 'warning' | 'error';
 
 export interface ConnectionSettings {
@@ -144,6 +144,10 @@ export interface IntegrationStore {
   connectionsDueForReconcile(
     olderThan: Date,
   ): Promise<Array<{ workspaceId: WorkspaceId; connectionId: string }>>;
+  /** Connections that push orders: `settings.pushOrders` on, status `connected` or `syncing`. */
+  connectionsPushingOrders(): Promise<
+    Array<{ workspaceId: WorkspaceId; connectionId: string; createdAt: Date }>
+  >;
   connectionForSystem(id: string): Promise<ConnectionRecord | null>;
 }
 

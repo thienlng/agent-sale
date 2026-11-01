@@ -14,7 +14,8 @@ import { AppModule } from '../src/app.module.js';
 import { configureEnv } from '../src/common/config.js';
 import { HttpExceptionFilter } from '../src/common/http/http-exception.filter.js';
 import { createLogger } from '../src/common/logger.js';
-import { CATALOG_SYNC_FACADE } from '../src/modules/commerce/api/index.js';
+import { DomainError } from '@agent-sales/shared';
+import { CATALOG_SYNC_FACADE, ORDER_PUSH_FACADE } from '../src/modules/commerce/api/index.js';
 import { INTEGRATION_STORE } from '../src/modules/integration/application/ports/integration-store.js';
 import { KIOTVIET_GATEWAY } from '../src/modules/integration/application/ports/kiotviet-gateway.js';
 import {
@@ -57,6 +58,8 @@ async function setup() {
     .useValue(gateway)
     .overrideProvider(CATALOG_SYNC_FACADE)
     .useValue(catalog)
+    .overrideProvider(ORDER_PUSH_FACADE)
+    .useValue(orders)
     .compile();
   app = module.createNestApplication<NestFastifyApplication>(new FastifyAdapter(), {
     logger: false,
@@ -99,8 +102,41 @@ async function setup() {
       headers,
       ...(payload ? { payload } : {}),
     });
-  return { http, call, store, gateway };
+  return { http, call, store, gateway, orders };
 }
+
+/** What commerce answers when the push of an order has not failed. */
+class PushNotFailedError extends DomainError {
+  readonly code = 'CONFLICT';
+  constructor() {
+    super('The push of this order has not failed', { reason: 'PUSH_NOT_FAILED' });
+  }
+}
+
+const FAILED_ORDER = '0190f5c2-0000-7000-8000-0000000000f1';
+const requeued: string[] = [];
+const orders = {
+  requeueOrderPush: async (_ws: unknown, orderId: string) => {
+    if (orderId !== FAILED_ORDER) throw new PushNotFailedError();
+    requeued.push(orderId);
+  },
+};
+
+describe('HTTP: KiotViet order push retry', () => {
+  it('requeues a failed push with 202 and refuses any other with 409', async () => {
+    const { call } = await setup();
+    const ok = await call('POST', `/kiotviet/orders/${FAILED_ORDER}/push`);
+    expect(ok.statusCode, ok.body).toBe(202);
+    expect(requeued).toEqual([FAILED_ORDER]);
+
+    const refused = await call(
+      'POST',
+      '/kiotviet/orders/0190f5c2-0000-7000-8000-0000000000f2/push',
+    );
+    expect(refused.statusCode).toBe(409);
+    expect(refused.json()).toMatchObject({ error: { details: { reason: 'PUSH_NOT_FAILED' } } });
+  });
+});
 
 describe('HTTP: KiotViet integration', () => {
   it('tests, connects, edits, syncs, reads the log and disconnects', async () => {

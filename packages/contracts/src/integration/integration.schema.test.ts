@@ -84,7 +84,7 @@ describe('connection DTO', () => {
 
 describe('integration routes', () => {
   it('are workspace-scoped and tagged integration', () => {
-    expect(integrationRoutes).toHaveLength(7);
+    expect(integrationRoutes).toHaveLength(8);
     for (const r of integrationRoutes) {
       expect(r).toMatchObject({ auth: true, workspaceScoped: true, tag: 'integration' });
     }

@@ -25,6 +25,16 @@ export interface FakeKvWebhook {
   secret: string;
 }
 
+export interface FakeKvOrder {
+  id: number;
+  code: string;
+  status: number;
+  branchId: number;
+  description: string | null;
+  modifiedDate: string;
+  body: unknown;
+}
+
 export interface FakeKiotVietState {
   retailer: string;
   clientId: string;
@@ -48,6 +58,9 @@ export interface FakeKiotVietState {
   apiFailures: Array<number | { status: number; retryAfter?: string }>;
   /** API path prefixes answered with 403 (e.g. `/customers`). */
   forbiddenPaths: string[];
+  orders: FakeKvOrder[];
+  /** Statuses answered, in order, by the next `POST /orders` *after* storing the order (a lost answer). */
+  orderCreateFailures: number[];
 }
 
 export interface FakeRequest {
@@ -87,6 +100,8 @@ const defaults = (): FakeKiotVietState => ({
   tokenFailures: [],
   apiFailures: [],
   forbiddenPaths: [],
+  orders: [],
+  orderCreateFailures: [],
 });
 
 const queryOf = (req: FastifyRequest): Record<string, string> => {
@@ -111,6 +126,7 @@ export async function startFakeKiotViet(
   const validTokens = new Set<string>();
   let issued = 0;
   let nextWebhookId = 1000;
+  let nextOrderId = 0;
 
   const app: FastifyInstance = Fastify({ logger: false });
   app.addContentTypeParser(
@@ -234,6 +250,58 @@ export async function startFakeKiotViet(
     state.webhooks = state.webhooks.filter((w) => w.id !== id);
     if (state.webhooks.length === before) return reply.code(404).send({});
     return { message: 'deleted' };
+  });
+
+  app.post('/orders', async (req, reply) => {
+    if (guard(req, reply)) return reply;
+    const b = (req.body ?? {}) as {
+      branchId?: number;
+      description?: string;
+      orderDetails?: unknown[];
+    };
+    if (!b.branchId || !b.orderDetails?.length) {
+      return reply.code(400).send({ responseStatus: { errorCode: 'Validation' } });
+    }
+    nextOrderId += 1;
+    const order: FakeKvOrder = {
+      id: nextOrderId,
+      code: `DH${String(nextOrderId).padStart(6, '0')}`,
+      status: 1,
+      branchId: b.branchId,
+      description: b.description ?? null,
+      modifiedDate: new Date().toISOString(),
+      body: req.body,
+    };
+    state.orders.push(order);
+    const lost = state.orderCreateFailures.shift();
+    if (lost) return reply.code(lost).send({ responseStatus: { errorCode: 'Fake' } });
+    return { id: order.id, code: order.code, status: order.status, branchId: order.branchId };
+  });
+
+  app.get('/orders', async (req, reply) => {
+    if (guard(req, reply)) return reply;
+    const q = queryOf(req);
+    const branchIds = (q.branchIds ?? '').split(',').filter(Boolean).map(Number);
+    const from = q.lastModifiedFrom ? Date.parse(q.lastModifiedFrom) : null;
+    const rows = state.orders
+      .filter((o) => !branchIds.length || branchIds.includes(o.branchId))
+      .filter((o) => from === null || Date.parse(o.modifiedDate) >= from)
+      .map(({ id, code, status, description, branchId }) => ({
+        id,
+        code,
+        status,
+        description,
+        branchId,
+      }));
+    return pageOf(rows, q);
+  });
+
+  app.get('/orders/:id', async (req, reply) => {
+    if (guard(req, reply)) return reply;
+    const id = Number((req.params as { id: string }).id);
+    const o = state.orders.find((x) => x.id === id);
+    if (!o) return reply.code(404).send({ responseStatus: { errorCode: 'NotFound' } });
+    return { id: o.id, code: o.code, status: o.status, description: o.description };
   });
 
   const address = await app.listen({ host: '127.0.0.1', port: 0 });

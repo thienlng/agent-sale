@@ -47,7 +47,7 @@ recent activity and **Ngắt kết nối**.
 KiotViet ──webhook──▶ apps/webhook  POST /webhooks/kiotviet/:token ──▶ integration_webhook_events (raw)
     ▲                                                                        │
     │ REST (token, 4 500 req/h budget)                                       ▼
-    └──────────────── worker: integration tick every 2 s ◀── integration_jobs (full_import, reconcile)
+    └──────────────── worker: integration tick every 2 s ◀── integration_jobs (full_import, reconcile, push_order)
                               │
                               ▼ CATALOG_SYNC_FACADE (commerce)
                        products, product_variants, inventory (+ movements), pictures
@@ -69,6 +69,22 @@ KiotViet ──webhook──▶ apps/webhook  POST /webhooks/kiotviet/:token ─
   and archives the ones KiotViet reports as removed. It also catches lost webhooks.
 - **Stock** = Σ max(0, on hand − reserved) over the sale branches (a missing branch counts 0), written to the
   default Rapiz warehouse as an `adjust` movement with `ref_type = 'external'`.
+- **Order push** (PR 2, `settings.pushOrders`, `application/order-push.ts`): every 15 s the worker claims
+  orders created since the connection — staff orders at once, bot orders 5 s after their approval — and
+  queues one `push_order` job each. The job sends `POST /orders` to the order branch: lines by KiotViet
+  product id and code, the order discount, `customer` (name, phone) and `orderDelivery` (receiver, phone,
+  address, price), and a description starting `Rapiz <order code>`. Rapiz's surcharge has no free field in
+  KiotViet (`surchages` needs a surcharge set up in the store), so it is added to the delivery price: the
+  KiotViet total always equals the Rapiz total. Before the call the job marks itself ambiguous; any retry
+  (lost answer, timeout, 5xx, crash) first lists the branch's orders modified since a minute before the
+  first attempt and adopts the one carrying the code, so a retry never creates a second KiotViet order.
+  Retries: +1, +5, +30 min, then the order shows "Lỗi" with **Thử lại**
+  (`POST /integrations/kiotviet/orders/{orderId}/push`, `orders.manage`). An order with a product not
+  linked to KiotViet, or one KiotViet refuses (4xx), fails at once. Once pushed, KiotViet owns the order's
+  stock (`stock_state = 'external'`, the Rapiz hold is released).
+- **Order status**: the `order.update` webhook (registered while push is on; each settings save and each
+  reconcile add or remove it) re-reads the order from KiotViet and stores its status; a KiotViet
+  cancellation cancels the Rapiz order.
 
 ## What is locked on a linked product
 
@@ -112,6 +128,9 @@ The activity list on the connection page shows these codes (i18n `integration.js
 | `webhook_register_failed` | Webhooks could not be registered (or `PUBLIC_WEBHOOK_BASE_URL` is unset). | Data still refreshes every 10 minutes; set the base URL and reconnect for instant updates. |
 | `webhook_bad_signature` | A delivery failed the HMAC check and was dropped. Logged once per connection per worker process; the worker log keeps the count. | Check the worker log count; if it keeps rising, check the base URL and reconnect. |
 | `webhook_unknown` | A webhook type Rapiz does not handle. | Nothing. |
+| `order_pushed` | An order (`code`) is now in KiotViet. | — |
+| `order_push_failed` | An order (`code`) was not pushed (`reason`: `unlinked_product`, `empty`, `kiotviet_rejected`, `kiotviet_unavailable` after the retries, `auth_failed`, `sync_failed`, `link_conflict`, `not_connected`: the connection was gone when the job ran), or `duplicate`: it was already pushed, so KiotViet now holds a second order for it. | Fix the cause (link the product, check the order) and click **Thử lại** on the order; for `duplicate`, cancel the extra order in KiotViet. |
+| `order_pushed_cancelled` | The order was cancelled (or deleted) in Rapiz while it was being pushed; KiotViet has it. | Cancel the order in KiotViet. |
 
 Wizard errors: wrong Client ID / secret (`kiotviet_auth`), unknown store name (`kiotviet_retailer`), missing
 API permissions (`kiotviet_permission`, lists them), a branch no longer in KiotViet (`kiotviet_branch`), new
@@ -135,4 +154,9 @@ store: the `branchIds` query format for on-hands, the status code for an unknown
 webhook HMAC key is the registered base64 secret text or its decoded bytes (`webhookSigningKey`, one line),
 the field names in webhook `Notifications[].Data` (`ID_KEYS` in `webhook-apply.ts`), that `/products`
 accepts `orderBy=id&orderDirection=Asc` (`PRODUCT_ORDER` in `kiotviet-client.ts`, one constant), whether
-`GET /webhooks` is paginated, and (for PR 2) the order status codes.
+`GET /webhooks` is paginated, and for the order push (PR 2; the constants live in `domain/kiotviet-order.ts`): the order
+status numbers (`KV_ORDER_STATUS = { draft: 1, delivering: 2, completed: 3, cancelled: 4, confirmed: 5 }`,
+not in the guide), the `customer` and `orderDelivery` field names (`KV_ORDER_CUSTOMER_FIELD`,
+`KV_ORDER_DELIVERY_FIELD`), whether `orderDelivery.price` adds to the order total (the surcharge is folded
+into it), whether `orderDetails[].discount` is per unit, the `GET /orders` filters (`branchIds`,
+`lastModifiedFrom`) and the `order.update` delivery's id field (`ID_KEYS` in `webhook-apply.ts`).

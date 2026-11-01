@@ -4,6 +4,7 @@ import {
   AuthResponse,
   BootstrapResponse,
   ConnectionDto,
+  OrderDto,
   ProductDto,
   ProductListResponse,
   SyncLogResponse,
@@ -23,7 +24,7 @@ import {
 import { newId, workspaceId, type WorkspaceId } from '@agent-sales/shared';
 import { startTestPostgres, type TestPostgres } from '@agent-sales/testing';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { AppModule } from '../../../app.module.js';
 import { createHttpApp } from '../../../bootstrap.js';
@@ -33,7 +34,8 @@ import { type FakeKiotViet, type FakeKvProduct, startFakeKiotViet } from './fake
 
 /**
  * The worker's sync end to end: real Postgres, the real KiotViet client against the fake KiotViet
- * server, the real commerce facade. Full import (2 pages) → stock webhook → reconcile.
+ * server, the real commerce facade. Full import (2 pages) → stock webhook → reconcile → order push
+ * (a lost answer, then the retry adopts the stored order) → order.update cancels it.
  */
 let pg: TestPostgres;
 let kv: FakeKiotViet;
@@ -279,5 +281,107 @@ describe('KiotViet sync on the worker', () => {
     expect((await productOf('1002')).name).toBe('Tên mới từ KiotViet');
     const reconcile = kv.apiRequests('/products').at(-1)!;
     expect(reconcile.query['lastModifiedFrom']).toBeDefined();
+  });
+
+  /** Ticks with the clock 20 s ahead, so the 15 s push scan runs on this tick. */
+  const scanTick = async () => {
+    const realNow = Date.now.bind(Date);
+    const spy = vi.spyOn(Date, 'now').mockImplementation(() => realNow() + 20_000);
+    try {
+      await runner().tick();
+    } finally {
+      spy.mockRestore();
+    }
+  };
+  const orderOf = async (id: string) =>
+    OrderDto.parse((await call(h, 'GET', `/orders/${id}`)).json());
+  const setJobsReady = async () => {
+    const system = app.get<Database>(DB_SYSTEM, { strict: false });
+    await withSystem(system, (tx) =>
+      tx
+        .update(schema.integrationJobs)
+        .set({ runAfter: new Date(Date.now() - 1_000) })
+        .where(eq(schema.integrationJobs.connectionId, connection.id)),
+    );
+  };
+
+  it('pushes a staff order once, even when KiotViet loses its answer, then reads its cancellation', async () => {
+    const current = ConnectionDto.parse(
+      (await call(h, 'GET', '/integrations')).json().providers[0].connection,
+    );
+    const patched = await http().inject({
+      method: 'PATCH',
+      url: '/api/v1/integrations/kiotviet',
+      headers: h,
+      payload: {
+        version: current.version,
+        settings: { saleBranchIds: [1], orderBranchId: 1, pushOrders: true, syncCustomers: false },
+      },
+    });
+    expect(patched.statusCode, patched.body).toBe(200);
+    expect(kv.state.webhooks.map((w) => w.type)).toContain('order.update');
+
+    const variantId = (await productOf('1001')).variants[0]!.id;
+    const created = await call(h, 'POST', '/orders', {
+      source: 'hotline',
+      warehouseId: warehouse.id,
+      customer: { name: 'Lan', phone: '0912345678' },
+      recipient: { name: 'Hoa', phone: '0987654321', address: '12 Lý Thường Kiệt' },
+      items: [{ variantId, qty: 2 }],
+    });
+    expect(created.statusCode, created.body).toBe(201);
+    const order = OrderDto.parse(created.json());
+
+    // KiotViet stores the order but the answer is lost: the job retries later.
+    kv.state.orderCreateFailures = [500];
+    await scanTick();
+    expect(kv.state.orders).toHaveLength(1);
+    expect((await orderOf(order.id)).external).toMatchObject({ state: 'pending' });
+
+    await setJobsReady();
+    await runner().tick();
+    expect(kv.state.orders).toHaveLength(1);
+    expect(kv.apiRequests('/orders').filter((r) => r.method === 'POST')).toHaveLength(1);
+    const pushed = await orderOf(order.id);
+    expect(pushed).toMatchObject({
+      stockState: 'external',
+      external: { state: 'pushed', code: kv.state.orders[0]!.code, status: 'draft' },
+    });
+    const kvBody = kv.state.orders[0]!.body as { description: string; branchId: number };
+    expect(kvBody.description.startsWith(`Rapiz ${order.code}`)).toBe(true);
+    expect(kvBody.branchId).toBe(1);
+    const after = ConnectionDto.parse(
+      (await call(h, 'GET', '/integrations')).json().providers[0].connection,
+    );
+    expect(after.counts.ordersPushed).toBe(1);
+
+    // KiotViet cancels it: the signed order.update re-reads the order and cancels the Rapiz one.
+    kv.state.orders[0]!.status = 4;
+    const hook = kv.state.webhooks.find((w) => w.type === 'order.update')!;
+    const body = JSON.stringify({
+      Id: 'delivery-2',
+      Attempt: 1,
+      Notifications: [{ Action: 'order.update.777', Data: [{ Id: kv.state.orders[0]!.id }] }],
+    });
+    const system = app.get<Database>(DB_SYSTEM, { strict: false });
+    await withSystem(system, (tx) =>
+      tx.insert(schema.integrationWebhookEvents).values({
+        id: newId(),
+        workspaceId: ws,
+        connectionId: connection.id,
+        deliveryId: 'delivery-2',
+        body,
+        signature: createHmac('sha256', hook.secret).update(body).digest('hex'),
+      }),
+    );
+    await runner().tick();
+    expect(await orderOf(order.id)).toMatchObject({
+      status: 'cancelled',
+      external: { state: 'pushed', status: 'cancelled' },
+    });
+    const log = SyncLogResponse.parse((await call(h, 'GET', '/integrations/kiotviet/log')).json());
+    expect(log.entries.find((e) => e.code === 'order_pushed')?.params).toEqual({
+      code: order.code,
+    });
   });
 });

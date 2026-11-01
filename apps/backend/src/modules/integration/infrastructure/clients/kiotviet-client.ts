@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto';
-
 import { Logger } from '@nestjs/common';
 import type { z } from 'zod';
 
@@ -9,21 +7,42 @@ import type {
   KvBranch,
   KvCredentials,
   KvOnHand,
+  KvOrderRef,
+  KvOrderSummary,
   KvPage,
   KvWebhook,
 } from '../../application/ports/kiotviet-gateway.js';
 import {
   KiotVietAuthError,
   KiotVietPermissionError,
+  KiotVietRejectedError,
   KiotVietRetailerError,
   KiotVietUnavailableError,
 } from '../../domain/integration.errors.js';
 import type { KvProduct } from '../../domain/kiotviet-mapping.js';
-import { type Bucket, takeFromBudget } from './kiotviet-budget.js';
+import type { KvOrderBody } from '../../domain/kiotviet-order.js';
+import { takeFromBudget } from './kiotviet-budget.js';
+import { parseItems, parseJson, parsePayload, readRetryAfter } from './kiotviet-payload.js';
+import {
+  BACKGROUND,
+  type CallOptions,
+  type CallProfile,
+  DEFAULT_TOKEN_TTL_S,
+  INTERACTIVE,
+  type Query,
+  type Received,
+  resourceOf,
+  retryable,
+  type SharedState,
+  TOKEN_MARGIN_MS,
+  tokenKey,
+} from './kiotviet-call.js';
 import {
   KvBranchSchema,
   KvListSchema,
   KvOnHandSchema,
+  KvOrderSchema,
+  KvOrderSummarySchema,
   KvProductSchema,
   KvWebhookIdSchema,
   KvWebhookSchema,
@@ -36,25 +55,6 @@ import {
  */
 const log = new Logger('KiotVietClient');
 
-/** Calls made while the owner waits (connect wizard): one 10 s try, no retries, no budget wait. */
-interface CallProfile {
-  timeoutMs: number;
-  retryDelaysMs: readonly number[];
-  /** Wait for the per-store budget (background) or spend it into debt at once (interactive). */
-  waitForBudget: boolean;
-}
-
-const BACKGROUND: CallProfile = {
-  timeoutMs: 15_000,
-  retryDelaysMs: [1_000, 4_000, 15_000],
-  waitForBudget: true,
-};
-const INTERACTIVE: CallProfile = { timeoutMs: 10_000, retryDelaysMs: [], waitForBudget: false };
-/** Upper bound for a server-sent `Retry-After`. */
-const MAX_RETRY_AFTER_MS = 60_000;
-/** Tokens are renewed this long before KiotViet says they expire. */
-const TOKEN_MARGIN_MS = 300_000;
-const DEFAULT_TOKEN_TTL_S = 86_400;
 const PAGE_SIZE = 100;
 /**
  * A stable order for paging `/products` by `currentItem`: without it, products edited during a long
@@ -71,41 +71,6 @@ export interface KiotVietClientOptions {
   /** Milliseconds since the epoch. */
   now?: () => number;
 }
-
-interface CachedToken {
-  token: string;
-  expiresAt: number;
-}
-
-/** A response whose body was read inside the retried section. */
-interface Received {
-  status: number;
-  /** Empty unless the status is 2xx. */
-  body: string;
-}
-
-/** Token cache and budget, shared by the background client and its interactive view. */
-interface SharedState {
-  tokens: Map<string, CachedToken>;
-  pendingTokens: Map<string, Promise<string>>;
-  buckets: Map<string, Bucket>;
-}
-
-type Query = Record<string, string | number | boolean | undefined>;
-
-interface CallOptions {
-  query?: Query;
-  body?: unknown;
-  /** Answer `null` on 404 instead of treating it as an unknown store. */
-  allowNotFound?: boolean;
-}
-
-const sha256 = (v: string): string => createHash('sha256').update(v).digest('hex');
-/** Token cache key: a rotated secret never reuses, or is overwritten by, the old secret's token. */
-const tokenKey = (c: KvCredentials): string => `${c.clientId}\u0000${sha256(c.clientSecret)}`;
-const retryable = (status: number): boolean => status === 429 || status >= 500;
-/** `/products/12` → `products`: the resource named in a permission error. */
-const resourceOf = (path: string): string => path.split('/').filter(Boolean)[0] ?? path;
 
 export class KiotVietClient implements KiotVietGateway {
   private readonly fetchImpl: typeof fetch;
@@ -184,7 +149,7 @@ export class KiotVietClient implements KiotVietGateway {
   async productById(c: KvCredentials, id: number): Promise<KvProduct | null> {
     const raw = await this.call(c, 'GET', `/products/${id}`, { allowNotFound: true });
     if (raw === null) return null;
-    return this.parse(KvProductSchema, raw, 'GET /products/{id}');
+    return parsePayload(KvProductSchema, raw, 'GET /products/{id}');
   }
 
   onHands(
@@ -238,7 +203,7 @@ export class KiotVietClient implements KiotVietGateway {
         },
       },
     });
-    return this.parse(KvWebhookIdSchema, raw, 'POST /webhooks');
+    return parsePayload(KvWebhookIdSchema, raw, 'POST /webhooks');
   }
 
   async deleteWebhook(c: KvCredentials, id: number): Promise<void> {
@@ -248,8 +213,36 @@ export class KiotVietClient implements KiotVietGateway {
 
   async listWebhooks(c: KvCredentials): Promise<KvWebhook[]> {
     const raw = await this.call(c, 'GET', '/webhooks', { query: { pageSize: PAGE_SIZE } });
-    const items = Array.isArray(raw) ? raw : this.parse(KvListSchema, raw, 'GET /webhooks').data;
-    return this.items(KvWebhookSchema, items, 'GET /webhooks');
+    const items = Array.isArray(raw) ? raw : parsePayload(KvListSchema, raw, 'GET /webhooks').data;
+    return parseItems(KvWebhookSchema, items, 'GET /webhooks');
+  }
+
+  async createOrder(c: KvCredentials, body: KvOrderBody): Promise<KvOrderRef> {
+    const raw = await this.call(c, 'POST', '/orders', { body, once: true });
+    return parsePayload(KvOrderSchema, raw, 'POST /orders');
+  }
+
+  recentOrders(
+    c: KvCredentials,
+    q: { branchId: number; since: Date; currentItem: number; pageSize: number },
+  ): Promise<KvPage<KvOrderSummary>> {
+    return this.list(
+      c,
+      '/orders',
+      {
+        branchIds: q.branchId,
+        lastModifiedFrom: q.since.toISOString(),
+        currentItem: q.currentItem,
+        pageSize: Math.min(q.pageSize, PAGE_SIZE),
+      },
+      KvOrderSummarySchema,
+    );
+  }
+
+  async orderById(c: KvCredentials, id: number): Promise<KvOrderRef | null> {
+    const raw = await this.call(c, 'GET', `/orders/${id}`, { allowNotFound: true });
+    if (raw === null) return null;
+    return parsePayload(KvOrderSchema, raw, 'GET /orders/{id}');
   }
 
   // ── internals ──────────────────────────────────────────────────────────────
@@ -261,29 +254,8 @@ export class KiotVietClient implements KiotVietGateway {
     schema: S,
   ): Promise<KvPage<z.output<S>>> {
     const raw = await this.call(c, 'GET', path, { query });
-    const envelope = this.parse(KvListSchema, raw, `GET ${path}`);
-    return { ...envelope, data: this.items(schema, envelope.data, `GET ${path}`) };
-  }
-
-  /** Validates items one by one so a single odd record does not sink the page. */
-  private items<S extends z.ZodType>(schema: S, raw: unknown[], label: string): Array<z.output<S>> {
-    const out: Array<z.output<S>> = [];
-    let dropped = 0;
-    for (const item of raw) {
-      const parsed = schema.safeParse(item);
-      if (parsed.success) out.push(parsed.data);
-      else dropped += 1;
-    }
-    if (dropped) log.warn(`KiotViet ${label}: dropped ${dropped} of ${raw.length} malformed items`);
-    return out;
-  }
-
-  private parse<S extends z.ZodType>(schema: S, raw: unknown, label: string): z.output<S> {
-    const parsed = schema.safeParse(raw);
-    if (parsed.success) return parsed.data;
-    const fields = parsed.error.issues.map((i) => i.path.join('.') || '(root)').join(',');
-    log.warn(`KiotViet ${label}: unexpected payload shape at ${fields}`);
-    throw new KiotVietUnavailableError();
+    const envelope = parsePayload(KvListSchema, raw, `GET ${path}`);
+    return { ...envelope, data: parseItems(schema, envelope.data, `GET ${path}`) };
   }
 
   /**
@@ -317,6 +289,7 @@ export class KiotVietClient implements KiotVietGateway {
           ? { method, headers }
           : { method, headers, body: JSON.stringify(opts.body) },
         c.retailer,
+        opts.once === true,
       );
 
       if (res.status === 401) {
@@ -337,33 +310,29 @@ export class KiotVietClient implements KiotVietGateway {
         log.warn(`KiotViet ${label} → 404: unknown store`);
         throw new KiotVietRetailerError();
       }
+      if (opts.once && res.status >= 400 && res.status < 500) {
+        log.warn(`KiotViet ${label} → ${res.status}: rejected`);
+        throw new KiotVietRejectedError(res.status);
+      }
       if (res.status < 200 || res.status >= 300) {
         log.warn(`KiotViet ${label} → ${res.status}`);
         throw new KiotVietUnavailableError();
       }
-      return this.json(res.body, label);
-    }
-  }
-
-  private json(body: string, label: string): unknown {
-    if (!body) return null;
-    try {
-      return JSON.parse(body) as unknown;
-    } catch {
-      log.warn(`KiotViet ${label}: response is not JSON`);
-      throw new KiotVietUnavailableError();
+      return parseJson(res.body, label);
     }
   }
 
   /**
    * Fetch with timeout and backoff on 429, 5xx and network errors. The body is read inside the
-   * retried section, so a timeout or a dropped connection while it streams is retried too.
+   * retried section, so a timeout or a dropped connection while it streams is retried too. With
+   * `once`, only a 429 is retried: anything else may have been processed.
    */
   private async send(
     label: string,
     url: string,
     init: RequestInit,
     budgetKey?: string,
+    once = false,
   ): Promise<Received> {
     for (let attempt = 0; ; attempt += 1) {
       if (budgetKey !== undefined) await this.takeBudget(budgetKey);
@@ -382,10 +351,14 @@ export class KiotVietClient implements KiotVietGateway {
         await res.body?.cancel();
         outcome = String(res.status);
         if (res.status === 429 || res.status === 503) {
-          retryAfterMs = this.retryAfter(res.headers.get('retry-after'));
+          retryAfterMs = readRetryAfter(res.headers.get('retry-after'), this.now());
         }
       } catch (error) {
         outcome = error instanceof Error ? error.name : 'network error';
+      }
+      if (once && outcome !== '429') {
+        log.warn(`KiotViet ${label} → ${outcome}; not retried (the write may have landed)`);
+        throw new KiotVietUnavailableError();
       }
       const scheduled = this.profile.retryDelaysMs[attempt];
       if (scheduled === undefined) {
@@ -396,15 +369,6 @@ export class KiotVietClient implements KiotVietGateway {
       log.warn(`KiotViet ${label} → ${outcome}; retry ${attempt + 1} in ${delay} ms`);
       await this.sleep(delay);
     }
-  }
-
-  /** `Retry-After` in seconds or as an HTTP date, capped at 60 s; undefined when unusable. */
-  private retryAfter(header: string | null): number | undefined {
-    if (!header) return undefined;
-    const value = header.trim();
-    const ms = /^\d+$/.test(value) ? Number(value) * 1000 : Date.parse(value) - this.now();
-    if (!Number.isFinite(ms) || ms < 0) return undefined;
-    return Math.min(ms, MAX_RETRY_AFTER_MS);
   }
 
   /** Cached per client id and secret; one token request in flight per pair. */
@@ -442,7 +406,7 @@ export class KiotVietClient implements KiotVietGateway {
       log.warn(`KiotViet token → ${res.status}`);
       throw new KiotVietUnavailableError();
     }
-    const parsed = this.parse(TokenSchema, this.json(res.body, 'POST /connect/token'), 'token');
+    const parsed = parsePayload(TokenSchema, parseJson(res.body, 'POST /connect/token'), 'token');
     const ttlMs = (parsed.expires_in ?? DEFAULT_TOKEN_TTL_S) * 1000;
     this.shared.tokens.set(key, {
       token: parsed.access_token,
