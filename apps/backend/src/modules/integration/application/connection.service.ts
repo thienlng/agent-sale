@@ -8,7 +8,6 @@ import type {
   KiotVietTestResponse,
   SyncLogParams,
   SyncLogResponse,
-  SyncProgress,
   UpdateKiotVietRequest,
 } from '@agent-sales/contracts';
 import { newId, type WorkspaceId } from '@agent-sales/shared';
@@ -21,6 +20,7 @@ import {
   ORDER_PUSH_FACADE,
   type OrderPushFacade,
 } from '../../commerce/api/index.js';
+import { CONTACT_SYNC_FACADE, type ContactSyncFacade } from '../../crm/api/index.js';
 import {
   ConnectFailedError,
   ConnectionExistsError,
@@ -34,9 +34,9 @@ import {
   SyncAlreadyRunningError,
 } from '../domain/integration.errors.js';
 import { parseRetailer } from '../domain/retailer.js';
+import { toDto } from './connection.dto.js';
 import {
   type ConnectionRecord,
-  type ConnectionSettings,
   INTEGRATION_STORE,
   type IntegrationStore,
 } from './ports/integration-store.js';
@@ -56,13 +56,6 @@ const PROVIDER = 'kiotviet';
 const MAX_PREVIEW_CODES = 3_000;
 const COMING_SOON = ['sapo', 'haravan', 'pancake_pos'] as const;
 const LOG_LIMIT = 200;
-const PROGRESS_PHASES: ReadonlySet<string> = new Set([
-  'branches',
-  'categories',
-  'products',
-  'stock',
-]);
-
 /**
  * Connect, test, change and disconnect a workspace's KiotViet store (spec §4.5, §6.3, §8).
  * Calls the owner waits on use the gateway's interactive view (no retries, short timeout).
@@ -79,6 +72,7 @@ export class ConnectionService {
     @Inject(SECRET_BOX) private readonly secrets: SecretBox,
     @Inject(WebhookSet) private readonly webhooks: WebhookSet,
     @Inject(ORDER_PUSH_FACADE) private readonly orders: OrderPushFacade,
+    @Inject(CONTACT_SYNC_FACADE) private readonly contacts: ContactSyncFacade,
   ) {}
 
   async list(ws: WorkspaceId): Promise<IntegrationListResponse> {
@@ -150,6 +144,9 @@ export class ConnectionService {
     // `syncing` without a job.
     try {
       await this.store.enqueue(ws, { connectionId: record.id, kind: 'full_import' });
+      if (req.settings.syncCustomers) {
+        await this.store.enqueue(ws, { connectionId: record.id, kind: 'customer_import' });
+      }
       const saved = await this.registerWebhooks(ws, record, creds, webhookSecret);
       await this.store.log(ws, record.id, {
         level: 'info',
@@ -218,6 +215,7 @@ export class ConnectionService {
       // forever, lines locked); turning push on again claims them anew.
       await this.orders.releasePendingPushes(ws, PROVIDER);
     }
+    if (req.settings) await this.customerSwitch(ws, current, req.settings.syncCustomers);
     if (salesChanged) {
       const queued = await this.store.enqueue(ws, {
         connectionId: current.id,
@@ -258,8 +256,8 @@ export class ConnectionService {
   }
 
   /**
-   * Deletes the webhooks at KiotViet (best effort), disconnects, then releases the linked products
-   * and the orders still waiting to be pushed.
+   * Deletes the webhooks at KiotViet (best effort), disconnects, then releases the linked products,
+   * the orders still waiting to be pushed and the linked customers.
    * The status goes first so a running job or webhook stops writing before the release; one that
    * still lands a write releases again when it sees the disconnect (`SyncService`, `WebhookApplier`).
    */
@@ -274,9 +272,24 @@ export class ConnectionService {
     await this.catalog.releaseExternalSource(ws, PROVIDER);
     // Claimed orders no job will push any more: back to unclaimed, so a later connection takes them.
     await this.orders.releasePendingPushes(ws, PROVIDER);
+    // Customers keep their data and lose the link; their push states clear too.
+    await this.contacts.releaseExternalSource(ws, PROVIDER);
   }
 
   // ── internals ──────────────────────────────────────────────────────────────
+
+  /**
+   * `syncCustomers` turned on: failed customer pushes get another chance and the customer import
+   * is queued. Turned off: claimed customers no scan will push go back to unclaimed.
+   */
+  private async customerSwitch(ws: WorkspaceId, current: ConnectionRecord, on: boolean) {
+    const was = current.settings.syncCustomers;
+    if (!was && on) {
+      await this.contacts.releaseFailedContactPushes(ws, PROVIDER);
+      await this.store.enqueue(ws, { connectionId: current.id, kind: 'customer_import' });
+    }
+    if (was && !on) await this.contacts.releasePendingContactPushes(ws, PROVIDER);
+  }
 
   private async live(ws: WorkspaceId): Promise<ConnectionRecord> {
     const current = await this.store.liveConnection(ws, PROVIDER);
@@ -381,46 +394,3 @@ function sameIds(a: number[], b: number[]): boolean {
 
 const errorName = (error: unknown): string =>
   error instanceof Error ? error.constructor.name : 'unknown';
-
-const maskClientId = (clientId: string): string => `••••${clientId.slice(-4)}`;
-
-function latest(...dates: Array<Date | null>): Date | null {
-  return dates.reduce<Date | null>((a, d) => (d && (!a || d > a) ? d : a), null);
-}
-
-function progressOf(p: ConnectionRecord['progress']): SyncProgress | null {
-  if (!p || !PROGRESS_PHASES.has(p.phase)) return null;
-  return { phase: p.phase as SyncProgress['phase'], done: p.done, total: p.total };
-}
-
-function settingsOf(s: ConnectionSettings): ConnectionDto['settings'] {
-  return {
-    saleBranchIds: s.saleBranchIds,
-    orderBranchId: s.orderBranchId,
-    pushOrders: s.pushOrders,
-    syncCustomers: s.syncCustomers,
-  };
-}
-
-/** The API view of a connection: no secrets, the client id masked to its last 4 characters. */
-export function toDto(c: ConnectionRecord): ConnectionDto {
-  const lastSync = latest(c.lastFullSyncAt, c.lastReconcileAt);
-  return {
-    id: c.id,
-    provider: PROVIDER,
-    status: c.status,
-    retailer: c.retailer,
-    clientIdMasked: maskClientId(c.clientId),
-    settings: settingsOf(c.settings),
-    branches: c.settings.branches ?? [],
-    counts: {
-      products: c.counts.products ?? 0,
-      customers: c.counts.customers ?? 0,
-      ordersPushed: c.counts.ordersPushed ?? 0,
-    },
-    progress: progressOf(c.progress),
-    lastSyncAt: lastSync ? lastSync.toISOString() : null,
-    lastError: c.lastError,
-    version: c.version,
-  };
-}

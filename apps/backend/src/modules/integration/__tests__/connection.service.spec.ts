@@ -22,6 +22,7 @@ import {
   SyncAlreadyRunningError,
 } from '../domain/integration.errors.js';
 import { FakeKiotVietGateway } from './factories/fake-gateway.js';
+import { MemoryContacts } from './memory-contacts.js';
 import { MemoryIntegrationStore } from './factories/memory-integration-store.js';
 
 const ws = workspaceId('0190f5c2-0000-7000-8000-000000000001');
@@ -75,6 +76,7 @@ describe('ConnectionService', () => {
       box,
       new WebhookSet(gateway, box, { webhookBaseUrl: webhookBaseUrl ?? undefined }),
       pushOrders,
+      new MemoryContacts(),
     );
 
   beforeEach(() => {

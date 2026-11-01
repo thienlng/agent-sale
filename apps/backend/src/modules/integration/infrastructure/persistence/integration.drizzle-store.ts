@@ -28,6 +28,7 @@ import {
   ConnectionVersionConflictError,
 } from '../../domain/integration.errors.js';
 
+import { enqueueCustomerJob } from './customer-jobs.drizzle.js';
 import { patchColumns, toConnection } from './integration.mappers.js';
 
 const c = schema.integrationConnections,
@@ -37,8 +38,10 @@ const c = schema.integrationConnections,
 
 /** Entries kept per connection in `integration_sync_log` (spec §4.3). */
 const LOG_KEEP = 200;
-/** Kinds the runner claims; `customer_import` stays queued until its runner lands (PR 3). */
-const RUNNABLE_KINDS = sql.raw(`'full_import','reconcile','webhook','push_order'`);
+/** Kinds the runner claims. */
+const RUNNABLE_KINDS = sql.raw(
+  `'full_import','reconcile','webhook','push_order','customer_import'`,
+);
 
 /** Owner-driven fields: changing one bumps `version`; runner writes do not. */
 const OWNER_FIELDS = ['settings', 'retailer', 'clientId', 'clientSecretSealed'] as const;
@@ -139,6 +142,7 @@ export class DrizzleIntegrationStore implements IntegrationStore {
       runAfter?: Date;
     },
   ) {
+    if (job.kind === 'customer_import') return enqueueCustomerJob(this.db, ws, job);
     return withTenant(this.db, ws, async (tx) => {
       // A fresh id can only hit `integration_jobs_one_sync` (one open sync per connection) or
       // `integration_jobs_one_push_per_order` (one open push job per order): both mean "already queued".
@@ -410,6 +414,7 @@ export class DrizzleIntegrationStore implements IntegrationStore {
             connectionId: c.id,
             createdAt: c.createdAt,
             pushOrders: sql<boolean>`coalesce((${c.settings} ->> 'pushOrders')::boolean, false)`,
+            syncCustomers: sql<boolean>`coalesce((${c.settings} ->> 'syncCustomers')::boolean, false)`,
           })
           .from(c)
           .where(sql`${c.status} in ('connected','syncing')`)
@@ -418,6 +423,7 @@ export class DrizzleIntegrationStore implements IntegrationStore {
         connectionId: r.connectionId,
         createdAt: r.createdAt,
         pushOrders: r.pushOrders === true,
+        syncCustomers: r.syncCustomers === true,
       })),
     );
   }

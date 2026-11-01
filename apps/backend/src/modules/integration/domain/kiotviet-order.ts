@@ -13,8 +13,10 @@ export const KV_ORDER_STATUS = {
   confirmed: 5,
 } as const;
 
-/** Field of the order body carrying the buyer (PR 3 replaces it with a found-or-created id). */
+/** Field of the order body carrying the buyer inline (when no KiotViet customer id is known). */
 export const KV_ORDER_CUSTOMER_FIELD = 'customer';
+/** Field of the order body carrying the found-or-created KiotViet customer (PR 3). */
+export const KV_ORDER_CUSTOMER_ID_FIELD = 'customerId';
 /** Field of the order body carrying the receiver, address and delivery price. */
 export const KV_ORDER_DELIVERY_FIELD = 'orderDelivery';
 
@@ -60,6 +62,7 @@ export interface KvOrderBody {
   discount: number;
   orderDetails: KvOrderDetail[];
   [KV_ORDER_CUSTOMER_FIELD]?: { name: string; contactNumber: string | null };
+  [KV_ORDER_CUSTOMER_ID_FIELD]?: number;
   [KV_ORDER_DELIVERY_FIELD]: {
     receiver: string;
     contactNumber: string | null;
@@ -74,9 +77,14 @@ export interface KvOrderBody {
  * also carries the surcharge, which has no free-form field in KiotViet (`surchages` needs a
  * surcharge configured in the store): the difference between Rapiz's total and the lines minus the
  * discount plus the shipping fee goes into the delivery price (or, if negative, the order
- * discount), so `kiotVietOrderTotal(body) === o.total`.
+ * discount), so `kiotVietOrderTotal(body) === o.total`. With `customerId` (the KiotViet customer
+ * found or created for the buyer) the body names it instead of the inline customer.
  */
-export function kiotVietOrderBody(o: PushOrder, branchId: number): KvOrderBody {
+export function kiotVietOrderBody(
+  o: PushOrder,
+  branchId: number,
+  customerId: number | null = null,
+): KvOrderBody {
   let discount = o.discount;
   const orderDetails = o.lines.map((l): KvOrderDetail => {
     const perUnit = l.qty > 0 && l.lineDiscount % l.qty === 0 ? l.lineDiscount / l.qty : 0;
@@ -110,7 +118,8 @@ export function kiotVietOrderBody(o: PushOrder, branchId: number): KvOrderBody {
       price: deliveryPrice,
     },
   };
-  if (customerName || o.customer.phone) {
+  if (customerId !== null) body[KV_ORDER_CUSTOMER_ID_FIELD] = customerId;
+  else if (customerName || o.customer.phone) {
     body[KV_ORDER_CUSTOMER_FIELD] = { name: customerName, contactNumber: o.customer.phone };
   }
   return body;

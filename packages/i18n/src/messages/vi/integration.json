@@ -84,7 +84,6 @@
     "previewPartial": "{{matched}} sản phẩm khớp theo mã · {{created}} sản phẩm mới (trong {{scanned}}/{{total}} sản phẩm đầu)",
     "pushOrders": "Đẩy đơn sang KiotViet",
     "syncCustomers": "Đồng bộ khách hàng",
-    "soon": "Sắp có",
     "sourceNote": "Sau khi kết nối, tên, giá, ảnh và tồn kho của sản phẩm liên kết được sửa trên KiotViet. Cài đặt riêng cho bot vẫn sửa trên Rapiz.",
     "start": "Bắt đầu đồng bộ",
     "back": "Quay lại",
@@ -151,11 +150,20 @@
     "order_push_failed": "Chưa đẩy được đơn {{code}} sang KiotViet — mở đơn để xem lý do và bấm Thử lại",
     "order_push_duplicate": "Đơn {{code}} đã có trên KiotViet nên KiotViet vừa nhận thêm một đơn trùng — hãy huỷ đơn thừa trên KiotViet (không cần Thử lại)",
     "order_pushed_cancelled": "Đơn {{code}} đã huỷ trên Rapiz nhưng đã có trên KiotViet — hãy huỷ đơn đó trên KiotViet",
+    "customers_synced": "Đã đồng bộ {{count}} khách hàng với KiotViet",
+    "customer_push_failed": "Chưa tạo được một khách hàng trên KiotViet — tắt rồi bật lại Đồng bộ khách hàng để thử lại",
+    "customers_permission_missing": "Tài khoản API chưa có quyền khách hàng nên đã tắt Đồng bộ khách hàng — vào KiotViet → Thiết lập kết nối API, tick quyền Khách hàng, rồi bật lại Đồng bộ khách hàng",
+    "customers_import_failed": "Chưa đồng bộ được khách hàng từ KiotViet — Rapiz sẽ thử lại ở lần đồng bộ sau; đơn hàng và tồn kho vẫn chạy bình thường",
     "unknown": "Sự kiện đồng bộ khác",
     "level": {
       "info": "Thông tin",
       "warning": "Cảnh báo",
       "error": "Lỗi"
     }
+  },
+  "crm": {
+    "badge": "KiotViet",
+    "badgeLabel": "Khách hàng liên kết với KiotViet",
+    "fieldHint": "Đồng bộ từ KiotViet — sửa trên KiotViet để giữ thay đổi"
   }
 }

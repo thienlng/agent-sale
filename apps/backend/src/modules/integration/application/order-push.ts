@@ -18,6 +18,7 @@ import {
 import { carriesRapizCode, kiotVietOrderBody, orderStatusOf } from '../domain/kiotviet-order.js';
 import { availableBySaleBranches } from '../domain/stock.js';
 import { SOURCE } from './catalog-writer.js';
+import { ContactPusher } from './contact-push.js';
 import {
   type ConnectionRecord,
   INTEGRATION_STORE,
@@ -74,6 +75,7 @@ export class OrderPusher {
     @Inject(KIOTVIET_GATEWAY) private readonly gateway: KiotVietGateway,
     @Inject(ORDER_PUSH_FACADE) private readonly orders: OrderPushFacade,
     @Inject(CATALOG_SYNC_FACADE) private readonly catalog: CatalogSyncFacade,
+    @Inject(ContactPusher) private readonly contacts: ContactPusher,
   ) {}
 
   /**
@@ -267,6 +269,9 @@ export class OrderPusher {
       const stored = await this.findStored(creds, lookIn, order.code, lookupSince(job));
       if (stored) return stored;
     }
+    // With `syncCustomers` on, the order names the buyer's KiotViet customer (found by phone or
+    // created); otherwise, or when that fails, it carries the buyer inline.
+    const customerId = await this.contacts.customerIdForOrder(connection, creds, order.customer);
     const saved = await this.store.saveCursor(
       job.id,
       job.claimToken,
@@ -274,7 +279,7 @@ export class OrderPusher {
       JOB_LEASE_MS,
     );
     if (!saved) throw new LeaseLostError();
-    return this.gateway.createOrder(creds, kiotVietOrderBody(order, branchId));
+    return this.gateway.createOrder(creds, kiotVietOrderBody(order, branchId, customerId));
   }
 
   private async findStored(

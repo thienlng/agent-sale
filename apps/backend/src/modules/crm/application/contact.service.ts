@@ -494,7 +494,8 @@ export class ContactService {
   }
 }
 
-function event(
+/** The common payload of a crm contact event. */
+export function event(
   ws: WorkspaceId,
   contactId: string,
   actor: string | null,
@@ -510,7 +511,8 @@ function event(
   };
 }
 
-function emptyContact(
+/** A blank customer to apply fields to (create paths). */
+export function emptyContact(
   createdBy: string | null,
   now: Date,
   clientRequestId?: string | null,
@@ -538,6 +540,8 @@ function emptyContact(
     profileNote: '',
     searchText: '',
     clientRequestId: clientRequestId ?? null,
+    externalSource: null,
+    externalId: null,
     version: 1,
     createdByUserId: createdBy,
     createdAt: now,

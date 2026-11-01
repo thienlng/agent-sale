@@ -16,6 +16,7 @@ import { HttpExceptionFilter } from '../src/common/http/http-exception.filter.js
 import { createLogger } from '../src/common/logger.js';
 import { DomainError } from '@agent-sales/shared';
 import { CATALOG_SYNC_FACADE, ORDER_PUSH_FACADE } from '../src/modules/commerce/api/index.js';
+import { CONTACT_SYNC_FACADE } from '../src/modules/crm/api/index.js';
 import { INTEGRATION_STORE } from '../src/modules/integration/application/ports/integration-store.js';
 import { KIOTVIET_GATEWAY } from '../src/modules/integration/application/ports/kiotviet-gateway.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../src/modules/workspace/api/index.js';
@@ -61,6 +62,8 @@ async function setup() {
     .useValue(catalog)
     .overrideProvider(ORDER_PUSH_FACADE)
     .useValue(orders)
+    .overrideProvider(CONTACT_SYNC_FACADE)
+    .useValue(contacts)
     .compile();
   app = module.createNestApplication<NestFastifyApplication>(new FastifyAdapter(), {
     logger: false,
@@ -113,6 +116,14 @@ class PushNotFailedError extends DomainError {
     super('The push of this order has not failed', { reason: 'PUSH_NOT_FAILED' });
   }
 }
+
+/** The CRM side of the customer switch (no database here). */
+const contactCalls: string[] = [];
+const contacts = {
+  releaseExternalSource: async () => (contactCalls.push('releaseExternalSource'), 0),
+  releasePendingContactPushes: async () => (contactCalls.push('releasePending'), 0),
+  releaseFailedContactPushes: async () => (contactCalls.push('releaseFailed'), 0),
+};
 
 const FAILED_ORDER = '0190f5c2-0000-7000-8000-0000000000f1';
 const requeued: string[] = [];
@@ -235,10 +246,16 @@ describe('HTTP: KiotViet integration', () => {
     expect(stale.statusCode).toBe(409);
     const edited = await call('PATCH', '/kiotviet', {
       version: dto.version,
-      settings: { ...settings, pushOrders: true },
+      settings: { ...settings, pushOrders: true, syncCustomers: true },
     });
     expect(edited.statusCode, edited.body).toBe(200);
-    expect(ConnectionDto.parse(edited.json()).settings.pushOrders).toBe(true);
+    expect(ConnectionDto.parse(edited.json()).settings).toMatchObject({
+      pushOrders: true,
+      syncCustomers: true,
+    });
+    // The switch turned on: failed customer pushes get another chance, the import is queued.
+    expect(contactCalls).toEqual(['releaseFailed']);
+    expect(store.jobs.map((j) => j.kind)).toContain('customer_import');
 
     // The first import is still open.
     const busy = await call('POST', '/kiotviet/sync');
@@ -260,6 +277,7 @@ describe('HTTP: KiotViet integration', () => {
     expect(store.jobs.filter((j) => j.open)).toEqual([]);
 
     expect((await call('DELETE', '/kiotviet')).statusCode).toBe(204);
+    expect(contactCalls).toEqual(['releaseFailed', 'releaseExternalSource']);
     expect((await call('DELETE', '/kiotviet')).statusCode).toBe(404);
     expect((await call('POST', '/kiotviet/sync')).statusCode).toBe(404);
     expect((await call('GET', '/kiotviet/log')).statusCode).toBe(404);

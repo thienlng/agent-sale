@@ -84,7 +84,6 @@
     "previewPartial": "{{matched}} products match by code · {{created}} new products (in the first {{scanned}}/{{total}} products)",
     "pushOrders": "Push orders to KiotViet",
     "syncCustomers": "Sync customers",
-    "soon": "Soon",
     "sourceNote": "Once connected, the name, price, pictures and stock of linked products are edited in KiotViet. Bot-specific settings are still edited in Rapiz.",
     "start": "Start syncing",
     "back": "Back",
@@ -151,11 +150,20 @@
     "order_push_failed": "Could not push order {{code}} to KiotViet — open the order to see why, then Retry",
     "order_push_duplicate": "Order {{code}} was already in KiotViet, so KiotViet now has an extra copy — cancel the extra order in KiotViet (no need to Retry)",
     "order_pushed_cancelled": "Order {{code}} was cancelled in Rapiz but is already in KiotViet — cancel it in KiotViet",
+    "customers_synced": "Synced {{count}} customers with KiotViet",
+    "customer_push_failed": "Could not create a customer in KiotViet — turn customer sync off and on again to retry",
+    "customers_permission_missing": "The API account has no customer permission, so customer sync was turned off — in KiotViet open API connection settings (Thiết lập kết nối API), tick the Customers permission, then turn customer sync back on",
+    "customers_import_failed": "Could not sync customers from KiotViet — Rapiz tries again at the next sync; orders and stock carry on",
     "unknown": "Other sync event",
     "level": {
       "info": "Info",
       "warning": "Warning",
       "error": "Error"
     }
+  },
+  "crm": {
+    "badge": "KiotViet",
+    "badgeLabel": "Customer linked to KiotViet",
+    "fieldHint": "Synced from KiotViet — edit it in KiotViet to keep the change"
   }
 }

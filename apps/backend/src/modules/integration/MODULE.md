@@ -1,6 +1,6 @@
 # integration
 
-> PMS integration: KiotViet catalog and stock (PR 1) and order push (PR 2); customer sync (PR 3) comes next.
+> PMS integration: KiotViet catalog and stock (PR 1), order push (PR 2) and customer sync (PR 3).
 > Owner guide and troubleshooting in `docs/integrations/kiotviet.md`.
 
 **Purpose:** connects a workspace to an external shop management system (PMS) and mirrors its catalog,
@@ -18,7 +18,8 @@ a 503 `UNAVAILABLE` stand-in when the process has no database).
 - `INTEGRATION_FACADE` → `IntegrationFacade` — empty (nothing calls the module; the order push runs on the
   worker tick).
 - `INTEGRATION_RUNNER` → `IntegrationRunner.tick()`, run every 2 s by the `worker` entry (guarded against overlap,
-  like the analytics projector): `application/sync-runner.ts`.
+  like the analytics projector): `application/sync-runner.ts` (reconcile scan 1 min, order push scan 15 s,
+  customer push scan 30 s, ≤ 5 jobs, ≤ 50 webhook deliveries).
 - HTTP and DTOs: `packages/contracts/src/integration/` — `GET /integrations`, `POST /integrations/kiotviet/test`,
   `POST|PATCH|DELETE /integrations/kiotviet`, `POST /integrations/kiotviet/sync`, `GET /integrations/kiotviet/log`
   (`interface/http/integration.controller.ts` → `application/connection.service.ts`). GETs need
@@ -31,7 +32,7 @@ a 503 `UNAVAILABLE` stand-in when the process has no database).
   `integration_webhook_events`; everything else (signature, parsing, writes) happens in this module's runner.
 - Events: none yet.
 
-**Depends on:** the `commerce` (`CATALOG_SYNC_FACADE`: partial upserts, removals, stock, pictures, linked ids; `ORDER_PUSH_FACADE`: claim, payload, mark pushed/failed, requeue, PMS status, pushed count), `crm` and `workspace` facades. Nothing depends on
+**Depends on:** the `commerce` (`CATALOG_SYNC_FACADE`: partial upserts, removals, stock, pictures, linked ids; `ORDER_PUSH_FACADE`: claim, payload, mark pushed/failed, requeue, PMS status, pushed count), `crm` (`CONTACT_SYNC_FACADE`: upsert/unlink, push claim/read/mark/release, release on disconnect, linked count; `CrmModule` is imported) and `workspace` facades. Nothing depends on
 `integration` (tier 3, docs/ARCHITECTURE.md §3).
 
 **Events consumed:** none.
@@ -50,29 +51,32 @@ a 503 `UNAVAILABLE` stand-in when the process has no database).
   `Retry-After` (≤ 60 s), and spends an in-memory budget
   of 4 500 requests/hour per store (bursts of 10). `createOrder` (`POST /orders`) is never sent twice: only
   a 429 or a 401 token renewal repeats it; a timeout, network error or 5xx is `KiotVietUnavailableError` at
-  once (the order may exist) and another 4xx is `KiotVietRejectedError`. Call profiles and shared state live
+  once (the order may exist) and another 4xx is `KiotVietRejectedError`. `createCustomer` (`POST /customers`) follows the same once-mode rule (customer calls live in
+  `kiotviet-customers.ts` on the client's transport). Call profiles and shared state live
   in `kiotviet-call.ts`, payload reading in `kiotviet-payload.ts`. Payloads use tolerant Zod schemas
   (`kiotviet.schemas.ts`); malformed list items are dropped and counted. Tests run against
   `__tests__/fake-kiotviet.ts`.
 - Connection lifecycle (`ConnectionService`): `test` stores nothing (store name via `parseRetailer`, branches,
   preview over at most 3 000 product codes, with `scanned` and the store `total` from `productCount`); `connect` refuses a live connection (409), checks the sale
   branches exist (`kiotviet_branch`), seals the client secret and a random 24-byte webhook secret (registered
-  base64-encoded; the sealed value is that base64 text), creates the connection `syncing`, enqueues `full_import`, registers
-  `product.update`/`product.delete`/`stock.update` webhooks (plus `order.update` when `pushOrders` is on) at
+  base64-encoded; the sealed value is that base64 text), creates the connection `syncing`, enqueues `full_import`, also enqueues `customer_import` when `syncCustomers` is on, registers
+  `product.update`/`product.delete`/`stock.update` webhooks (plus `order.update` when `pushOrders` is on,
+  `customer.update`/`customer.delete` when `syncCustomers` is on) at
   `${PUBLIC_WEBHOOK_BASE_URL}/webhooks/kiotviet/<token>` (`application/webhook-set.ts`; each id saved in
   `settings.webhookIds` as soon as it registers; failure or no base URL → log `webhook_register_failed`) and logs `connected`; any failure after the insert sets status `error` with
   `lastError.code = 'connect_failed'` (best effort) and rethrows. `update` needs settings or credentials (`nothing_to_update`), checks `version`, accepts
   credentials only for the same store (`kiotviet_retailer_changed`), re-tests them, reseals and clears the error;
   a sale-branch change enqueues `reconcile` with `payload.full = true`. A settings save also ensures the
   webhook set (`WebhookSet.ensure`: list at the connection URL, register the missing types, delete
-  `order.update` when push is off; the ids ride in the same versioned write; a type that fails to register
+  `order.update` when push is off and the customer types when customer sync is off; the ids ride in the same versioned write; a type that fails to register
   logs `webhook_register_failed`, a failed list only the process log). Every reconcile ensures it too (the
   background gateway; ids saved only when changed, against the version read). `syncNow` enqueues `reconcile` (409
   `sync_running`; 409 `connect_failed` when `lastError.code = 'connect_failed'`, whose jobs the runner never
   runs: the owner must disconnect and connect again). `connected` is logged with `{ retailer, branches }`
   (`SyncLogParams` in the contracts lists every code's params). `disconnect` deletes the saved webhooks plus
   any KiotViet lists at the connection URL (best effort), sets `disconnected`, then releases the commerce
-  links (status first, so running writers stop before the release). Calls the owner waits on use `KIOTVIET_GATEWAY.interactive()`: one try, 10 s timeout, no
+  links, the pending order pushes and the CRM links (`CONTACT_SYNC_FACADE.releaseExternalSource`, which also
+  clears every customer push state) — status first, so running writers stop before the release. Calls the owner waits on use `KIOTVIET_GATEWAY.interactive()`: one try, 10 s timeout, no
   retries or `Retry-After` waits, budget spent without waiting (background calls repay the debt; past 60
   calls of debt an interactive call fails fast with 503). A stored secret that no longer opens is
   `kiotviet_auth` (the "update the code" path), not a 500.
@@ -86,8 +90,9 @@ a 503 `UNAVAILABLE` stand-in when the process has no database).
   recorded failures only (`retryJob` increments it), so a re-claim after a lapsed lease (worker restart, slow
   page) never spends a retry;
   cursor/complete/retry/fail are fenced by the claim token and return `false`
-  when the lease was lost (the runner then aborts); `saveCursor` is the heartbeat that extends the lease. `full_import`, `reconcile`, `webhook` and
-  `push_order` are claimed (`customer_import` waits for PR 3). Idle open jobs of a disconnected connection are closed (`done_at`,
+  when the lease was lost (the runner then aborts); `saveCursor` is the heartbeat that extends the lease. Every kind is claimed (`full_import`, `reconcile`,
+  `webhook`, `push_order`, `customer_import`); at most one open `customer_import` per connection and
+  `payload.contactId` (none: the import), checked under an advisory lock (`customer-jobs.drizzle.ts`; no index). Idle open jobs of a disconnected connection are closed (`done_at`,
   `last_error = 'connection_disconnected'`) instead of claimed. Webhook deliveries are claimed at most once
   (marked processed in the claiming statement; reconcile covers a loss); a disconnected connection's
   deliveries are consumed but not returned. The sync log keeps the newest 200 entries per connection.
@@ -153,12 +158,60 @@ pushedOrderCount`, then the stock refresh: `markOrderPushed` released the Rapiz 
   `releasePendingPushes` after the status write, so claimed orders go back to unclaimed; a settings save
   that turns `pushOrders` off does the same. A full import or reconcile writes `counts` from the latest
   connection, so it never undoes `ordersPushed`.
+- Customers (spec §4.4, PR 3; `application/customer-sync.ts`, `application/contact-push.ts`,
+  `domain/kiotviet-customer.ts`): KiotViet customer → `ExternalContactInput` (`contactOfKvCustomer`: id as
+  text, the first number of `contactNumber`, address joined with ward and location, `gender` through
+  `KV_CUSTOMER_GENDER`; the crm module normalizes). A settings save that turns `syncCustomers` on calls
+  `releaseFailedContactPushes` and enqueues `customer_import`; turning it off calls
+  `releasePendingContactPushes`. The `customer_import` job without `payload.contactId` is the full import:
+  a fresh run releases failed pushes, then pages `GET /customers` (100, `orderBy=id`, cursor
+  `{ currentItem, startedAt }` saved after every page, the connection re-read before every upsert; paging
+  stops on `currentItem ≥ total`, never on a page that parsed empty), upserts
+  each (`InvalidExternalContactIdError` / `ContactExternalLinkConflictError` skip the record, counted in the
+  process log), unlinks the page's `removedIds`, then writes `counts.customers = linkedContactCount` and logs `customers_synced {count}`; with
+  the switch off it completes with no work. A full import that gives up after its retries
+  (`sync_failed` / `kiotviet_unavailable`) calls `CustomerSync.importFailed`: `customers_import_failed
+  {reason}` unless the newest customer entry of the last 50 log entries already says so, connection status
+  untouched (auth/retailer errors keep the connection-wide path). A `reconcile` with the switch on
+  (`CustomerSync.reconcilePass`) reads customers modified since the customer watermark
+  `counts.lastCustomerSyncAt` − 2 min (`includeRemoveIds`; removed ids
+  unlink), heartbeating with the catalog's `finish` cursor; without a watermark it enqueues `customer_import`
+  (deduped) instead. On success the watermark becomes the pass start
+  (the import sets it to its own start); any failure except auth/store/lease/disconnect/no-database is
+  process-logged and swallowed so the catalog reconcile commits, and the watermark stays. The import's and
+  the pass's `live()` also throw `CustomerSyncOffError` once the switch is off: the work stops quietly (job
+  completed, reconcile committed). A `KiotVietPermissionError` (403) in the import, the pass or a push job calls
+  `disableCustomerSync` (`customer-switch.ts`): `settings.syncCustomers = false` against the version read
+  (an owner field, so `version` bumps), `releasePendingContactPushes`, `customers_permission_missing` logged
+  once; the job completes and the connection status is untouched. On the order path
+  (`customerIdForOrder`) a 403 calls it too and the order goes inline. The connection is re-read once per page. `customer.update` re-reads each id (`customerById`; gone → unlink), `customer.delete` unlinks;
+  both are ignored while the switch is off. Every unlink for a KiotViet delete (webhooks, `removedIds`)
+  goes through `unlinkExternalContacts`, which marks the customer `detached` in the crm module: never
+  claimed for a push again until an import links it. The push scan (30 s) claims up to 20 customers created since the
+  connection (`claimContactsForPush`) plus pending ones claimed > 2 min ago (`staleContactPushes`) and
+  enqueues one `customer_import {contactId}` each (switch off: `releasePendingContactPushes(olderThan
+  2 min)`). The push job reads `pushableContact` (null with the switch on → `markContactPushFailed('not_pushable')`,
+  silent, so an archived or phone-less pending customer is not re-queued forever; the crm stale sweep also
+  skips them), looks KiotViet up by phone
+  (`customersByPhone` with the local number, hits re-checked with `matchesPhone`, lowest id wins) and adopts
+  it, else heartbeats and sends `POST /customers` (once-mode, order branch), then `markContactPushed`;
+  `ContactAlreadyLinkedError` / `NOT_FOUND` complete, `KiotVietRejectedError` → `kiotviet_rejected`,
+  `ContactExternalLinkConflictError` → `link_conflict` (failed at once); other errors take the shared retry
+  path, and a give-up marks the customer failed with the code and leaves the connection status alone (auth
+  errors still set the connection `error`). Every failure logs `customer_push_failed {reason}`, once per connection and reason between two scans. A failed
+  customer stays failed until a full customer import or the switch turned off and on. Order push: while
+  `syncCustomers` is on, `OrderPusher` asks `ContactPusher.customerIdForOrder` (buyer phone → KiotViet
+  customer found or created) and sends `customerId` instead of the inline `customer`; no usable phone or any
+  failure falls back to the inline customer (never blocks the order). Orders carry no CRM contact id, so
+  `externalIdOf` is not used. A disconnect seen by a job or webhook also re-releases the CRM links unless a
+  new connection is live (`CustomerSync.releaseIfDisconnected`).
 - Webhook deliveries: signature = HMAC-SHA256 keyed by the registered secret text (`webhookSigningKey`, one
   line to change); bad → dropped, `webhook_bad_signature` logged once per connection per process (the
   process log counts them, warning at the 1st and every 100th). A disconnect seen while applying (per item,
   and once more after the last) releases the links again, as for jobs. `Notifications[].Action` loses its retailer
   suffix; `product.update` / `stock.update` re-read the products by id (never the payload) and upsert the
-  group / set stock from their inventories; `product.delete` archives the `RemoveId`s; `order.update` re-reads each order (`orderById`) and calls
+  group / set stock from their inventories; `product.delete` archives the `RemoveId`s; `customer.update` / `customer.delete` go to `CustomerSync`;
+  `order.update` re-reads each order (`orderById`) and calls
   `applyExternalOrderStatus` (an order Rapiz did not push answers `unknown`: ignored); other actions log
   `webhook_unknown {type}` once per type and process.
 - Never log secrets, tokens or customer data: log codes and counts (rule 07).
@@ -167,8 +220,11 @@ pushedOrderCount`, then the stock refresh: `markOrderPushed` released the Rapiz 
 
 **Test:** `pnpm --filter @agent-sales/backend test -- integration` (unit and HTTP, fake KiotViet in
 `__tests__/fake-kiotviet.ts`, routes in `test/integration-http.spec.ts`; order push in
-`__tests__/order-push.spec.ts`, `__tests__/kiotviet-client-orders.spec.ts`, `domain/kiotviet-order.spec.ts`) · Postgres (Testcontainers, needs
+`__tests__/order-push.spec.ts`, `__tests__/kiotviet-client-orders.spec.ts`, `domain/kiotviet-order.spec.ts`;
+customers in `__tests__/customer-sync.spec.ts`, `__tests__/connection-customers.spec.ts`,
+`__tests__/kiotviet-client-customers.spec.ts`, `domain/kiotviet-customer.spec.ts`, with the CRM fake
+`__tests__/memory-contacts.ts`) · Postgres (Testcontainers, needs
 Docker): `pnpm --filter @agent-sales/backend test:integration -- integration`, covering
 `__tests__/integration-store.integration.spec.ts`, `__tests__/sync.integration.spec.ts` (incl. an order push
-whose first answer is lost, then a KiotViet cancellation) and
+whose first answer is lost, then a KiotViet cancellation, and customers both ways) and
 `test/integration-tables.integration.spec.ts` (RLS) · webhook ingress: `pnpm --filter @agent-sales/webhook test`.

@@ -19,9 +19,11 @@ import {
   KiotVietRetailerError,
   KiotVietUnavailableError,
 } from '../../domain/integration.errors.js';
+import type { KvCustomer, KvCustomerBody } from '../../domain/kiotviet-customer.js';
 import type { KvProduct } from '../../domain/kiotviet-mapping.js';
 import type { KvOrderBody } from '../../domain/kiotviet-order.js';
 import { takeFromBudget } from './kiotviet-budget.js';
+import { type CustomerPageQuery, KiotVietCustomerApi } from './kiotviet-customers.js';
 import { parseItems, parseJson, parsePayload, readRetryAfter } from './kiotviet-payload.js';
 import {
   BACKGROUND,
@@ -79,6 +81,10 @@ export class KiotVietClient implements KiotVietGateway {
   private readonly apiUrl: string;
   private readonly shared: SharedState;
   private interactiveView: KiotVietClient | undefined;
+  private readonly customerApi = new KiotVietCustomerApi({
+    call: (c, method, path, opts) => this.call(c, method, path, opts),
+    list: (c, path, query, schema) => this.list(c, path, query, schema),
+  });
 
   constructor(
     private readonly options: KiotVietClientOptions,
@@ -243,6 +249,22 @@ export class KiotVietClient implements KiotVietGateway {
     const raw = await this.call(c, 'GET', `/orders/${id}`, { allowNotFound: true });
     if (raw === null) return null;
     return parsePayload(KvOrderSchema, raw, 'GET /orders/{id}');
+  }
+
+  customers(c: KvCredentials, q: CustomerPageQuery): Promise<KvPage<KvCustomer>> {
+    return this.customerApi.customers(c, q);
+  }
+
+  customerById(c: KvCredentials, id: number): Promise<KvCustomer | null> {
+    return this.customerApi.customerById(c, id);
+  }
+
+  customersByPhone(c: KvCredentials, contactNumber: string): Promise<KvCustomer[]> {
+    return this.customerApi.customersByPhone(c, contactNumber);
+  }
+
+  createCustomer(c: KvCredentials, body: KvCustomerBody): Promise<{ id: number }> {
+    return this.customerApi.createCustomer(c, body);
   }
 
   // ── internals ──────────────────────────────────────────────────────────────

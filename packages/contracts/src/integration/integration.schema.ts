@@ -146,6 +146,21 @@ export const SyncLogParams = {
   order_push_duplicate: z.object({ code: z.string() }),
   /** Pushed, but cancelled in Rapiz meanwhile: staff cancel it in KiotViet. */
   order_pushed_cancelled: z.object({ code: z.string() }),
+  /** A customer import finished: `count` = customers now linked to KiotViet. */
+  customers_synced: z.object({ count: z.number().int() }),
+  /**
+   * A Rapiz customer could not be created in KiotViet (no customer data, ever). `reason`:
+   * `kiotviet_rejected`, `link_conflict`, `kiotviet_unavailable`, `auth_failed` or `sync_failed`.
+   */
+  customer_push_failed: z.object({ reason: z.string() }),
+  /** KiotViet refused the customer API (403): customer sync was turned off, the rest goes on. */
+  customers_permission_missing: z.object({}),
+  /**
+   * A full customer import gave up after its retries; the connection status stays (the catalog and
+   * order push go on) and the next reconcile queues it again. `reason`: `sync_failed` or
+   * `kiotviet_unavailable`.
+   */
+  customers_import_failed: z.object({ reason: z.string() }),
 } as const;
 export type SyncLogParams = {
   [Code in keyof typeof SyncLogParams]: z.infer<(typeof SyncLogParams)[Code]>;

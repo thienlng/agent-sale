@@ -5,7 +5,6 @@ import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -29,39 +28,37 @@ export function usePreviewSentence() {
   };
 }
 
-/**
- * What the connection syncs besides the catalog: "Đẩy đơn sang KiotViet" (on by default, saved with
- * the settings) and "Đồng bộ khách hàng", which ships in PR 3 — shown on and locked as "Sắp có".
- */
+/** The sync switches saved with the settings (both on by default). */
+export interface SyncToggleValues {
+  pushOrders: boolean;
+  syncCustomers: boolean;
+}
+
+/** What the connection syncs besides the catalog: "Đẩy đơn sang KiotViet" and "Đồng bộ khách hàng". */
 export function SyncToggles({
-  pushOrders,
-  onPushOrdersChange,
+  value,
+  onChange,
   disabled = false,
 }: {
-  pushOrders: boolean;
-  onPushOrdersChange: (next: boolean) => void;
+  value: SyncToggleValues;
+  onChange: (next: SyncToggleValues) => void;
   disabled?: boolean;
 }) {
   const { t } = useTranslation('integration');
   const id = useId();
   return (
     <ul className="flex flex-col divide-y rounded-lg border">
-      <li className="flex min-h-11 items-center justify-between gap-3 px-3 py-2">
-        <Label htmlFor={`${id}-pushOrders`}>{t('wizard.pushOrders')}</Label>
-        <Switch
-          id={`${id}-pushOrders`}
-          checked={pushOrders}
-          disabled={disabled}
-          onCheckedChange={onPushOrdersChange}
-        />
-      </li>
-      <li className="flex min-h-11 items-center justify-between gap-3 px-3 py-2">
-        <span className="flex flex-wrap items-center gap-2">
-          <Label htmlFor={`${id}-syncCustomers`}>{t('wizard.syncCustomers')}</Label>
-          <Badge variant="secondary">{t('wizard.soon')}</Badge>
-        </span>
-        <Switch id={`${id}-syncCustomers`} checked disabled />
-      </li>
+      {(['pushOrders', 'syncCustomers'] as const).map((key) => (
+        <li key={key} className="flex min-h-11 items-center justify-between gap-3 px-3 py-2">
+          <Label htmlFor={`${id}-${key}`}>{t(`wizard.${key}`)}</Label>
+          <Switch
+            id={`${id}-${key}`}
+            checked={value[key]}
+            disabled={disabled}
+            onCheckedChange={(on) => onChange({ ...value, [key]: on })}
+          />
+        </li>
+      ))}
     </ul>
   );
 }
@@ -71,16 +68,16 @@ export function WizardReviewStep({
   result,
   banner,
   starting,
-  pushOrders,
-  onPushOrdersChange,
+  toggles,
+  onTogglesChange,
   onBack,
   onStart,
 }: {
   result: KiotVietTestResponse;
   banner: string | null;
   starting: boolean;
-  pushOrders: boolean;
-  onPushOrdersChange: (next: boolean) => void;
+  toggles: SyncToggleValues;
+  onTogglesChange: (next: SyncToggleValues) => void;
   onBack: () => void;
   onStart: () => void;
 }) {
@@ -104,11 +101,7 @@ export function WizardReviewStep({
         </h3>
         <p className="text-base font-medium tabular-nums">{sentence(result.preview)}</p>
       </section>
-      <SyncToggles
-        pushOrders={pushOrders}
-        onPushOrdersChange={onPushOrdersChange}
-        disabled={starting}
-      />
+      <SyncToggles value={toggles} onChange={onTogglesChange} disabled={starting} />
       <Alert role="note">
         <Info />
         <AlertDescription>{t('wizard.sourceNote')}</AlertDescription>

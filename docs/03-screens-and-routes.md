@@ -19,7 +19,7 @@
 | Đào tạo Bot (Bot training) | Bot list (create, settings shortcut, delete with confirmation) | `/quan-ly/bot` | `/app/bots` | BOT-01/02 | P0 |
 | Chat đa kênh (Omnichannel chat) | Omnichannel messages | `/quan-ly/tin-nhan` | `/app/inbox` | INB-* | P0 |
 | | Platform integrations | `/quan-ly/tich-hop-nen-tang/{tab}` | `/app/channels/{all\|pending\|facebook\|instagram\|zalo\|lazada\|tiktok}` | CHN-01..03 | P0 |
-| AI Mini CRM | Customer list | `/quan-ly/khach-hang` | `/app/contacts` | CRM-01..04 | P0 |
+| AI Mini CRM | Customer list. A customer linked to KiotViet shows a "KiotViet" badge by its name (list and drawer); its edit form hints on the KiotViet-owned fields, which stay editable. See [integrations/kiotviet.md](integrations/kiotviet.md#customers-in-the-crm) | `/quan-ly/khach-hang` | `/app/contacts` | CRM-01..04 | P0 |
 | | Customer lists (segments) | `/quan-ly/tep-khach-hang` | `/app/segments` | CRM-10 | P1 |
 | Remarketing | Zalo ZBS | `/quan-ly/chien-dich/zbs` | `/app/campaigns/zbs` (`?tab=list\|stats\|templates`) | MKT-01/02 | P1 |
 | | Facebook FMM | `/quan-ly/facebook-marketing-messenger` | `/app/campaigns/fmm` | MKT-04 | P2 |
@@ -38,7 +38,7 @@
 | | ↳ Warehouses | `/quan-ly/thiet-lap/kho-hang` | `/app/order-settings/warehouses` | ORD-02 | P0 |
 | Sản phẩm (Products) | Shared product catalog (top-level entry since T-112; Preny nests it under Orders) | `/quan-ly/quan-ly-san-pham` | `/app/products`, `/app/products/{id}` | ORD-01 | P0 |
 | Tích hợp PMS (PMS integrations) | Hub of point-of-sale / inventory software (icon `Blocks`; right after Products, or after Platform integrations for hotels; shown with `catalog.manage`, marked "Thử nghiệm" in the sidebar until proven with real shops): KiotViet live, Sapo / Haravan / Pancake POS "Sắp có" | (name only) | `/app/integrations` | ORD-15 | P1 |
-| | KiotViet: 3-step connect wizard (credentials → branches → preview & start) until connected, then the connection view (status, sync progress polled every 3 s, counts, sync settings incl. the "Đẩy đơn sang KiotViet" switch ("Đồng bộ khách hàng" still "Sắp có"), "Cập nhật mã", recent activity, disconnect). Changes need `settings.manage`; others see it read-only. Guide: [integrations/kiotviet.md](integrations/kiotviet.md) | — | `/app/integrations/kiotviet` | ORD-15 | P1 |
+| | KiotViet: 3-step connect wizard (credentials → branches → preview & start) until connected, then the connection view (status, sync progress polled every 3 s, counts of linked products, customers and pushed orders, sync settings incl. the "Đẩy đơn sang KiotViet" and "Đồng bộ khách hàng" switches, "Cập nhật mã", recent activity, disconnect). Changes need `settings.manage`; others see it read-only. Guide: [integrations/kiotviet.md](integrations/kiotviet.md) | — | `/app/integrations/kiotviet` | ORD-15 | P1 |
 | Lưu trú (hotel businesses only, T-160; replace Sản phẩm in their sidebar) | Lịch — nightly calendar, find availability, holds, bookings, blocks | — | `/app/calendar` | VRT | P0 |
 | | Booking — today / holds / upcoming / all, booking sheet; bot holds marked "Bot tạo" with a waiting count and a source filter (T-161) | — | `/app/bookings` | VRT | P0 |
 | | Căn hộ — property cards or a compact list (remembered per user) and the editor (info, rooms, prices, policies, photos) | — | `/app/properties`, `/app/properties/$propertyId` | VRT | P0 |

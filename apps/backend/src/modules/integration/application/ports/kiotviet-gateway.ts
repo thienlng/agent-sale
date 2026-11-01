@@ -1,3 +1,4 @@
+import type { KvCustomer, KvCustomerBody } from '../../domain/kiotviet-customer.js';
 import type { KvProduct } from '../../domain/kiotviet-mapping.js';
 import type { KvOrderBody } from '../../domain/kiotviet-order.js';
 
@@ -93,6 +94,23 @@ export interface KiotVietGateway {
     q: { branchId: number; since: Date; currentItem: number; pageSize: number },
   ): Promise<KvPage<KvOrderSummary>>;
   orderById(c: KvCredentials, id: number): Promise<KvOrderRef | null>;
+  /** Customers in id order (pageSize ≤ 100), with the ids deleted since `lastModifiedFrom`. */
+  customers(
+    c: KvCredentials,
+    q: { currentItem: number; pageSize: number; lastModifiedFrom?: Date },
+  ): Promise<KvPage<KvCustomer>>;
+  customerById(c: KvCredentials, id: number): Promise<KvCustomer | null>;
+  /**
+   * `GET /customers?contactNumber=` (first page). KiotViet may match loosely: callers keep only the
+   * customers whose number is the one they look for (`matchesPhone`).
+   */
+  customersByPhone(c: KvCredentials, contactNumber: string): Promise<KvCustomer[]>;
+  /**
+   * `POST /customers`. Not idempotent, like `createOrder`: a timeout, network error or 5xx throws
+   * `KiotVietUnavailableError` and the customer may exist (the caller looks it up by phone before
+   * trying again); a 4xx throws `KiotVietRejectedError`.
+   */
+  createCustomer(c: KvCredentials, body: KvCustomerBody): Promise<{ id: number }>;
 }
 
 export const KIOTVIET_GATEWAY = Symbol('KIOTVIET_GATEWAY');

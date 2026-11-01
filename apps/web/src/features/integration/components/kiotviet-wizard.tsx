@@ -74,8 +74,8 @@ export function KiotVietWizard() {
             result={w.result}
             banner={w.banner}
             starting={w.starting}
-            pushOrders={w.pushOrders}
-            onPushOrdersChange={w.setPushOrders}
+            toggles={w.toggles}
+            onTogglesChange={w.setToggles}
             onBack={w.back}
             onStart={() => void w.start()}
           />

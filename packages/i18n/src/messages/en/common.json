@@ -946,7 +946,8 @@
       "createdAt": "Created",
       "updatedAt": "Updated",
       "birthday": "Birthday",
-      "gender": "Gender"
+      "gender": "Gender",
+      "external": "PMS link"
     },
     "columns": {
       "title": "Visible columns",

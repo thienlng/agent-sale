@@ -18,6 +18,8 @@ export const SWEEP_CAP = 200;
 export interface ImportOutcome {
   products: number;
   imagesFailed: number;
+  /** The cursor as last saved (phase `finish`): later steps of the job heartbeat with it. */
+  cursor: ImportCursor;
 }
 
 /**
@@ -44,6 +46,7 @@ export class CatalogImport {
     return {
       products: await this.catalog.countExternalProducts(ctx.ws, SOURCE),
       imagesFailed: cursor.imagesFailed,
+      cursor,
     };
   }
 

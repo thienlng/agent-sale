@@ -161,3 +161,45 @@ export const KvOrderSummarySchema = KvOrderFields.transform((o) => ({
   status: o.status,
   description: o.description ?? null,
 }));
+
+const optionalText = text
+  .nullish()
+  .catch(null)
+  .transform((v) => v ?? null);
+
+/** A customer (`GET /customers`, `GET /customers/{id}`); field names to verify (docs "Still to verify"). */
+export const KvCustomerSchema = z
+  .looseObject({
+    id: int,
+    code: optionalText,
+    name: optionalText,
+    contactNumber: optionalText,
+    email: optionalText,
+    address: optionalText,
+    wardName: optionalText,
+    locationName: optionalText,
+    birthDate: optionalText,
+    gender: z.boolean().nullish().catch(null),
+  })
+  .transform((c) => ({
+    id: c.id,
+    code: c.code,
+    name: c.name,
+    contactNumber: c.contactNumber,
+    email: c.email,
+    address: c.address,
+    wardName: c.wardName,
+    locationName: c.locationName,
+    birthDate: c.birthDate,
+    gender: c.gender ?? null,
+  }));
+
+/** `POST /customers` answer: the id, possibly under `data`. */
+export const KvCustomerIdSchema = z
+  .looseObject({
+    id: int.optional(),
+    data: z.looseObject({ id: int.optional() }).optional(),
+  })
+  .transform((v) => v.id ?? v.data?.id)
+  .pipe(z.number().int())
+  .transform((id) => ({ id }));

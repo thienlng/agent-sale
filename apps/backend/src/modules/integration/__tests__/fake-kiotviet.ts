@@ -35,6 +35,16 @@ export interface FakeKvOrder {
   body: unknown;
 }
 
+export interface FakeKvCustomer {
+  id: number;
+  code?: string;
+  name?: string;
+  contactNumber?: string | null;
+  /** ISO; `GET /customers?lastModifiedFrom=` filters on it (missing: always included). */
+  modifiedDate?: string;
+  [field: string]: unknown;
+}
+
 export interface FakeKiotVietState {
   retailer: string;
   clientId: string;
@@ -61,6 +71,11 @@ export interface FakeKiotVietState {
   orders: FakeKvOrder[];
   /** Statuses answered, in order, by the next `POST /orders` *after* storing the order (a lost answer). */
   orderCreateFailures: number[];
+  customers: FakeKvCustomer[];
+  /** Answered as `removedIds` on /customers with `includeRemoveIds`. */
+  removedCustomerIds: number[];
+  /** Statuses answered, in order, by the next `POST /customers` *after* storing it (a lost answer). */
+  customerCreateFailures: number[];
 }
 
 export interface FakeRequest {
@@ -102,6 +117,9 @@ const defaults = (): FakeKiotVietState => ({
   forbiddenPaths: [],
   orders: [],
   orderCreateFailures: [],
+  customers: [],
+  removedCustomerIds: [],
+  customerCreateFailures: [],
 });
 
 const queryOf = (req: FastifyRequest): Record<string, string> => {
@@ -313,6 +331,45 @@ export async function startFakeKiotViet(
     const o = state.orders.find((x) => x.id === id);
     if (!o) return reply.code(404).send({ responseStatus: { errorCode: 'NotFound' } });
     return { id: o.id, code: o.code, status: o.status, description: o.description };
+  });
+
+  app.get('/customers', async (req, reply) => {
+    if (guard(req, reply)) return reply;
+    const q = queryOf(req);
+    const from = q.lastModifiedFrom ? Date.parse(q.lastModifiedFrom) : null;
+    const rows = state.customers
+      .filter((c) => !q.contactNumber || String(c.contactNumber ?? '').includes(q.contactNumber))
+      .filter(
+        (c) => from === null || !c.modifiedDate || Date.parse(String(c.modifiedDate)) >= from,
+      );
+    const page = pageOf(rows, q);
+    return q.includeRemoveIds === 'true' ? { ...page, removedIds: state.removedCustomerIds } : page;
+  });
+
+  app.get('/customers/:id', async (req, reply) => {
+    if (guard(req, reply)) return reply;
+    const id = Number((req.params as { id: string }).id);
+    const found = state.customers.find((c) => c.id === id);
+    if (!found) return reply.code(404).send({ responseStatus: { errorCode: 'NotFound' } });
+    return found;
+  });
+
+  app.post('/customers', async (req, reply) => {
+    if (guard(req, reply)) return reply;
+    const b = (req.body ?? {}) as { name?: string; contactNumber?: string };
+    if (!b.name || !b.contactNumber) {
+      return reply.code(400).send({ responseStatus: { errorCode: 'Validation' } });
+    }
+    const id = Math.max(0, ...state.customers.map((c) => c.id)) + 1;
+    state.customers.push({
+      ...(req.body as object),
+      id,
+      code: `KH${String(id).padStart(6, '0')}`,
+      modifiedDate: new Date().toISOString(),
+    });
+    const lost = state.customerCreateFailures.shift();
+    if (lost) return reply.code(lost).send({ responseStatus: { errorCode: 'Fake' } });
+    return { data: { id, code: `KH${String(id).padStart(6, '0')}`, name: b.name } };
   });
 
   const address = await app.listen({ host: '127.0.0.1', port: 0 });

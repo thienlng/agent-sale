@@ -5,11 +5,14 @@ import { getEnv } from '../../common/config.js';
 import { DB_SYSTEM, DB_TENANT } from '../../common/db/db.module.js';
 import { SECRET_BOX, SecretBox } from '../../common/security/secret-box.js';
 import { CommerceModule } from '../commerce/commerce.module.js';
+import { CrmModule } from '../crm/crm.module.js';
 import { INTEGRATION_FACADE } from './api/integration.facade.js';
 import { INTEGRATION_RUNNER } from './api/integration.runner.js';
 import { CatalogImport } from './application/catalog-import.js';
 import { CatalogWriter } from './application/catalog-writer.js';
 import { ConnectionService } from './application/connection.service.js';
+import { ContactPusher } from './application/contact-push.js';
+import { CustomerSync } from './application/customer-sync.js';
 import { IntegrationFacadeImpl } from './application/integration.facade.impl.js';
 import { INTEGRATION_OPTIONS } from './application/integration-options.js';
 import { OrderPusher } from './application/order-push.js';
@@ -26,7 +29,7 @@ import { IntegrationController } from './interface/http/integration.controller.j
 
 /** Bind ports to adapters here. Export ONLY what api/ declares. */
 @Module({
-  imports: [CommerceModule],
+  imports: [CommerceModule, CrmModule],
   controllers: [IntegrationController],
   providers: [
     { provide: INTEGRATION_FACADE, useClass: IntegrationFacadeImpl },
@@ -55,6 +58,8 @@ import { IntegrationController } from './interface/http/integration.controller.j
     ConnectionService,
     CatalogWriter,
     CatalogImport,
+    CustomerSync,
+    ContactPusher,
     OrderPusher,
     SyncService,
     WebhookApplier,

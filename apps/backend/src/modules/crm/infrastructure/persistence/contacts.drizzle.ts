@@ -7,6 +7,7 @@ import type {
   HistoryRecord,
   NoteRecord,
 } from '../../application/ports/crm-store.js';
+import { ContactExternalLinkConflictError } from '../../api/contact-sync.facade.js';
 import { DuplicateContactRequestError } from '../../domain/crm.errors.js';
 import { compileContactOrder, compileContactWhere } from './contact-filter.sql.js';
 
@@ -16,10 +17,10 @@ const h = schema.contactHistory;
 
 type ContactRow = typeof c.$inferSelect;
 
-const pgCode = (e: unknown): string | undefined =>
+export const pgCode = (e: unknown): string | undefined =>
   (e as { cause?: { code?: string }; code?: string }).cause?.code ?? (e as { code?: string }).code;
 
-function toContact(r: ContactRow): ContactRecord {
+export function toContact(r: ContactRow): ContactRecord {
   return {
     id: r.id,
     name: r.name,
@@ -43,6 +44,8 @@ function toContact(r: ContactRow): ContactRecord {
     profileNote: r.profileNote,
     searchText: r.searchText,
     clientRequestId: r.clientRequestId,
+    externalSource: r.externalSource,
+    externalId: r.externalId,
     version: r.version,
     createdByUserId: r.createdByUserId,
     createdAt: r.createdAt,
@@ -61,13 +64,23 @@ export function contactsTx(
         try {
           await tx.insert(c).values({ ...rec, workspaceId: ws });
         } catch (e) {
+          const constraint = (e as { cause?: { constraint_name?: string } }).cause?.constraint_name;
+          if (pgCode(e) === '23505' && constraint === 'contacts_external')
+            throw new ContactExternalLinkConflictError();
           if (pgCode(e) === '23505' && rec.clientRequestId)
             throw new DuplicateContactRequestError();
           throw e;
         }
       },
       async update(rec, expectedVersion) {
-        const { id, createdAt: _created, ...rest } = rec;
+        // The PMS link changes only through `contactSync`, never with a profile edit.
+        const {
+          id,
+          createdAt: _created,
+          externalSource: _source,
+          externalId: _external,
+          ...rest
+        } = rec;
         const rows = await tx
           .update(c)
           .set(rest)
@@ -176,6 +189,13 @@ export function contactsTx(
     history: {
       async add(entry) {
         await tx.insert(h).values({ ...entry, workspaceId: ws });
+      },
+      async addMany(entries) {
+        for (let i = 0; i < entries.length; i += 500) {
+          await tx
+            .insert(h)
+            .values(entries.slice(i, i + 500).map((e) => ({ ...e, workspaceId: ws })));
+        }
       },
       async list(contactId, f) {
         const rows = await tx

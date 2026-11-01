@@ -14,6 +14,8 @@ import {
 } from '../../commerce/api/index.js';
 import { CatalogImport, SWEEP_CAP } from '../application/catalog-import.js';
 import { CatalogWriter } from '../application/catalog-writer.js';
+import { ContactPusher } from '../application/contact-push.js';
+import { CustomerSync } from '../application/customer-sync.js';
 import { ConnectionService } from '../application/connection.service.js';
 import { WebhookSet } from '../application/webhook-set.js';
 import { OrderPusher } from '../application/order-push.js';
@@ -31,6 +33,7 @@ import type { KvProduct } from '../domain/kiotviet-mapping.js';
 import { UnavailableIntegrationStore } from '../infrastructure/persistence/unavailable-store.js';
 import { FakeKiotVietGateway } from './factories/fake-gateway.js';
 import { JobStore } from './factories/job-store.js';
+import { MemoryContacts } from './memory-contacts.js';
 
 const ws = workspaceId('0190f5c2-0000-7000-8000-000000000001');
 const box = SecretBox.insecureDevelopmentBox();
@@ -222,6 +225,9 @@ let store: JobStore;
 let gateway: CatalogGateway;
 let catalog: MemoryCatalog;
 let sync: SyncService;
+let contacts: MemoryContacts;
+let customers: CustomerSync;
+let contactPusher: ContactPusher;
 let webhooks: WebhookApplier;
 let pusher: OrderPusher;
 /** No order to push: these specs cover the catalog; `order-push.spec.ts` covers pushes. */
@@ -239,7 +245,10 @@ beforeEach(() => {
   catalog = new MemoryCatalog();
   const facade = catalog as unknown as CatalogSyncFacade;
   const writer = new CatalogWriter(store, gateway, facade);
-  pusher = new OrderPusher(store, gateway, noOrders, facade);
+  contacts = new MemoryContacts();
+  customers = new CustomerSync(store, gateway, contacts);
+  contactPusher = new ContactPusher(store, gateway, contacts);
+  pusher = new OrderPusher(store, gateway, noOrders, facade, contactPusher);
   sync = new SyncService(
     store,
     new CatalogImport(store, gateway, facade, writer),
@@ -247,8 +256,10 @@ beforeEach(() => {
     writer,
     pusher,
     new WebhookSet(gateway, box, { webhookBaseUrl: undefined }),
+    customers,
+    contactPusher,
   );
-  webhooks = new WebhookApplier(store, gateway, facade, writer, box, noOrders);
+  webhooks = new WebhookApplier(store, gateway, facade, writer, box, noOrders, customers);
   store.connections.push(connection());
 });
 
@@ -261,6 +272,7 @@ const connections = () =>
     box,
     new WebhookSet(gateway, box, { webhookBaseUrl: undefined }),
     noOrders,
+    contacts,
   );
 
 describe('SyncService full import', () => {
@@ -775,7 +787,13 @@ describe('WebhookApplier', () => {
 
 describe('SyncRunner', () => {
   it('skips cleanly without a database', async () => {
-    const runner = new SyncRunner(new UnavailableIntegrationStore(), sync, webhooks, pusher);
+    const runner = new SyncRunner(
+      new UnavailableIntegrationStore(),
+      sync,
+      webhooks,
+      pusher,
+      contactPusher,
+    );
     await expect(runner.tick()).resolves.toBeUndefined();
   });
 
@@ -788,7 +806,7 @@ describe('SyncRunner', () => {
     store.events = [
       delivery({ Notifications: [{ Action: 'product.delete', Data: [{ RemoveId: [9] }] }] }),
     ];
-    const runner = new SyncRunner(store, sync, webhooks, pusher);
+    const runner = new SyncRunner(store, sync, webhooks, pusher, contactPusher);
     await runner.tick();
     await runner.tick();
     expect(due).toHaveBeenCalledTimes(1);
