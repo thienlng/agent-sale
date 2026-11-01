@@ -1,6 +1,6 @@
 import type { QuoteDto } from '@agent-sales/contracts';
 import { TriangleAlert } from 'lucide-react';
-import { useId } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -11,11 +11,13 @@ import { Label } from '@/components/ui/label';
 import { dayMonth, formatVnd, nightList, weekdayShort } from '../lib/format';
 import { bookingTotal, type PriceFields } from '../lib/party';
 
+/** "1.000.000" → 1000000, "-500000" → -500000; null when there are no digits. */
 const parseMoney = (raw: string): number | null => {
-  const digits = raw.replace(/[^\d-]/g, '');
-  if (digits === '' || digits === '-') return null;
+  const digits = raw.replace(/\D/g, '');
+  if (digits === '') return null;
   const n = Number.parseInt(digits, 10);
-  return Number.isFinite(n) ? n : null;
+  if (!Number.isFinite(n)) return null;
+  return raw.trim().startsWith('-') ? -n : n;
 };
 
 /** Nightly table and surcharges of a quote. */
@@ -57,6 +59,45 @@ function QuoteLines({ quote }: { quote: QuoteDto }) {
         </div>
       )}
     </>
+  );
+}
+
+/**
+ * Signed money box: keeps the raw text so "-" and "-1.000.000" can be typed, and reports
+ * the parsed amount (0 while empty or only a sign).
+ */
+function AdjustmentInput({
+  id,
+  value,
+  onChange,
+}: {
+  id: string;
+  value: number;
+  onChange: (next: number) => void;
+}) {
+  const [text, setText] = useState(value === 0 ? '' : String(value));
+  // Follow outside changes (e.g. a reset) without fighting the user's typing.
+  useEffect(() => {
+    setText((prev) =>
+      (parseMoney(prev) ?? 0) === value ? prev : value === 0 ? '' : String(value),
+    );
+  }, [value]);
+  return (
+    <Input
+      id={id}
+      inputMode="numeric"
+      className="h-8 tabular-nums"
+      value={text}
+      onChange={(e) => {
+        const raw = e.target.value.replace(/[^\d.,\s-]/g, '');
+        setText(raw);
+        onChange(parseMoney(raw) ?? 0);
+      }}
+      onBlur={() => {
+        const n = parseMoney(text);
+        setText(n === null || n === 0 ? '' : String(n));
+      }}
+    />
   );
 }
 
@@ -191,14 +232,10 @@ export function QuoteBreakdown({
           <Label htmlFor={`${id}-adj`} className="text-xs">
             {t('lodging.quote.adjustment')}
           </Label>
-          <Input
+          <AdjustmentInput
             id={`${id}-adj`}
-            inputMode="numeric"
-            className="h-8 tabular-nums"
-            value={price.adjustment === 0 ? '' : price.adjustment}
-            onChange={(e) =>
-              onPriceChange({ ...price, adjustment: parseMoney(e.target.value) ?? 0 })
-            }
+            value={price.adjustment}
+            onChange={(adjustment) => onPriceChange({ ...price, adjustment })}
           />
         </div>
         <div className="grid gap-1">

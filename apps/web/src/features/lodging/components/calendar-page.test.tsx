@@ -244,7 +244,10 @@ describe('CalendarPage', () => {
     renderPage();
     const monday = await cell(/^A17, Thứ Hai 02\/11, trống/);
     expect(monday).toHaveTextContent('12tr');
-    expect(screen.getByText('Anh Nam · BK-0001')).toBeInTheDocument();
+    const bar = screen.getByText('Anh Nam · BK-0001');
+    // Guest and code first; the status word follows (shown when the bar is wide enough).
+    expect(bar.nextElementSibling).toHaveTextContent('Đã đặt');
+    expect(bar.nextElementSibling).toHaveClass('hidden', '@min-[10rem]:inline');
     expect(screen.getAllByText('Đã đặt').length).toBeGreaterThan(0);
     expect(
       screen.getByRole('button', { name: /^A17, Thứ Sáu 06\/11, Đã đặt BK-0001/ }),
@@ -371,5 +374,25 @@ describe('CalendarPage', () => {
     expect(screen.getByRole('button', { name: /^A17, Thứ Ba 03\/11, trống/ })).toHaveFocus();
     await user.keyboard('{ArrowDown}');
     expect(document.activeElement).toHaveAccessibleName(/^H1, Thứ Ba 03\/11/);
+  });
+
+  it('on a phone shows month cards whose full nights open the booking', async () => {
+    const width = window.innerWidth;
+    window.innerWidth = 375;
+    try {
+      const calls = stubApi({ [`GET /lodging/bookings/${BK1}`]: { status: 200, body: created } });
+      const user = userEvent.setup();
+      renderPage();
+      const full = await screen.findByRole('button', { name: 'A17 06/11: Đã kín' });
+      expect(screen.queryByRole('radio', { name: 'Tháng' })).toBeNull();
+      expect(calls.map((c) => c.url)).toContain('/lodging/calendar?from=2026-11-02&to=2026-12-03');
+      await user.click(full);
+      expect(
+        await within(await screen.findByRole('dialog')).findByText('BK-0003'),
+      ).toBeInTheDocument();
+      expect(calls.some((c) => c.key === `GET /lodging/bookings/${BK1}`)).toBe(true);
+    } finally {
+      window.innerWidth = width;
+    }
   });
 });

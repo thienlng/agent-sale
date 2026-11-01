@@ -150,14 +150,15 @@ function UnitRow({
             title={label}
             style={{ gridColumn: `${start + 2} / ${end + 2}`, gridRow: '1' }}
             className={cn(
-              'pointer-events-none z-[2] mx-0.5 flex h-7 min-w-0 items-center gap-1 self-center overflow-hidden rounded-md border px-1.5 text-xs',
+              '@container pointer-events-none z-[2] mx-0.5 flex h-7 min-w-0 items-center gap-1 self-center overflow-hidden rounded-md border px-1.5 text-xs',
               style.className,
             )}
           >
             <Icon className="size-3 shrink-0" />
+            <span className="min-w-0 truncate font-medium">{label}</span>
             <span
               className={cn(
-                'max-w-full shrink-0 truncate',
+                'hidden shrink-0 @min-[10rem]:inline',
                 expiresSoon && s.status === 'hold' && 'font-semibold text-destructive',
               )}
             >
@@ -166,7 +167,6 @@ function UnitRow({
                 ? ` · ${t('lodging.cal.holdExpires', { time: clockTime(s.holdExpiresAt) })}`
                 : ''}
             </span>
-            <span className="min-w-0 truncate font-medium">{label}</span>
           </div>
         );
       })}

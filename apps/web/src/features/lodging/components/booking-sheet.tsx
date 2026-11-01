@@ -41,7 +41,7 @@ export function BookingSheet(props: BookingSheetProps) {
     <Sheet open={props.open} onOpenChange={props.onOpenChange}>
       <SheetContent
         side={mobile ? 'bottom' : 'right'}
-        className="flex max-h-[92svh] flex-col gap-0 data-[side=right]:w-full data-[side=right]:sm:max-w-[480px]"
+        className="flex flex-col gap-0 data-[side=bottom]:max-h-[92svh] data-[side=right]:w-full data-[side=right]:sm:max-w-[480px]"
       >
         <SheetHeader className="pr-12">
           <SheetTitle>

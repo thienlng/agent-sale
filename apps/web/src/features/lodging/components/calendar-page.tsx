@@ -139,6 +139,7 @@ export function CalendarPage({ initialFrom }: { initialFrom?: string }) {
         from={from}
         nights={rangeNights}
         shownNights={nightsCount}
+        showRange={!mobile}
         onShift={shift}
         onNights={setRangeNights}
         areas={areas}
@@ -194,6 +195,7 @@ export function CalendarPage({ initialFrom }: { initialFrom?: string }) {
               night ? { propertyId, checkIn: night, checkOut: addDays(night, 1) } : { propertyId },
             )
           }
+          onOpenBooking={handlers.onOpenBooking}
         />
       ) : (
         <CalendarGrid

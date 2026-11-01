@@ -78,7 +78,8 @@ export function BookingEditForm({
     (!whole && !sameList(unitIds, booking.unitIds)) ||
     party.adults !== booking.party.adults ||
     !sameList(party.childAges, booking.party.childAges);
-  const manualRequired = !block && originalManual !== null && stayChanged;
+  // Checked-in stays only move check-out and never send price fields, so no manual-price choice.
+  const manualRequired = stay && originalManual !== null && stayChanged;
   const manualMissing =
     manualRequired && !useAuto && (!manualTouched || price.manualTotal === null);
 
@@ -176,6 +177,9 @@ export function BookingEditForm({
                   aria-invalid={(submitted && !guestName.trim()) || undefined}
                   onChange={(e) => setGuestName(e.target.value)}
                 />
+                {submitted && !guestName.trim() && (
+                  <p className="text-xs text-destructive">{t('lodging.sheet.required')}</p>
+                )}
               </div>
               <div className="grid gap-1">
                 <Label htmlFor={`${id}-phone`} className="text-xs">

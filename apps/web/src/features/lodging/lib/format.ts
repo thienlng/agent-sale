@@ -72,6 +72,15 @@ export function clockTime(iso: string): string {
   }).format(new Date(iso));
 }
 
+/** "06/11" of an instant in the business time zone. */
+export function localDayMonth(iso: string): string {
+  return new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    day: '2-digit',
+    month: '2-digit',
+  }).format(new Date(iso));
+}
+
 /** Longest stay the API accepts. */
 export const MAX_STAY_NIGHTS = 60;
 

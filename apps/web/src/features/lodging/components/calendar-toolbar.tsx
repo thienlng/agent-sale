@@ -24,6 +24,7 @@ export function CalendarToolbar({
   from,
   nights,
   shownNights = nights,
+  showRange = true,
   onShift,
   onNights,
   areas,
@@ -36,6 +37,8 @@ export function CalendarToolbar({
   nights: RangeNights;
   /** Nights actually shown (the phone view always shows a month). */
   shownNights?: number;
+  /** The 2 tuần / Tháng switch (hidden on phones, which always show a month). */
+  showRange?: boolean;
   onShift: (direction: -1 | 0 | 1) => void;
   onNights: (nights: RangeNights) => void;
   areas: string[];
@@ -72,17 +75,19 @@ export function CalendarToolbar({
           {dayMonth(from)} – {dayMonth(addDays(from, shownNights - 1))}
         </span>
       </div>
-      <ToggleGroup
-        type="single"
-        variant="outline"
-        size="sm"
-        aria-label={t('lodging.cal.range')}
-        value={String(nights)}
-        onValueChange={(v) => v && onNights(v === '31' ? 31 : 14)}
-      >
-        <ToggleGroupItem value="14">{t('lodging.cal.twoWeeks')}</ToggleGroupItem>
-        <ToggleGroupItem value="31">{t('lodging.cal.month')}</ToggleGroupItem>
-      </ToggleGroup>
+      {showRange && (
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          size="sm"
+          aria-label={t('lodging.cal.range')}
+          value={String(nights)}
+          onValueChange={(v) => v && onNights(v === '31' ? 31 : 14)}
+        >
+          <ToggleGroupItem value="14">{t('lodging.cal.twoWeeks')}</ToggleGroupItem>
+          <ToggleGroupItem value="31">{t('lodging.cal.month')}</ToggleGroupItem>
+        </ToggleGroup>
+      )}
       {areas.length > 1 && (
         <Select value={area || ALL} onValueChange={(v) => onArea(v === ALL ? '' : v)}>
           <SelectTrigger size="sm" aria-label={t('lodging.cal.area')} className="w-40">

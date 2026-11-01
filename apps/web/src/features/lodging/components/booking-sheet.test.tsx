@@ -207,9 +207,119 @@ describe('BookingSheet view', () => {
       }),
     );
   });
+
+  it('lets a checked-in booking with a manual price extend its check-out', async () => {
+    const stayed = booking({ status: 'checked_in', holdExpiresAt: null, totalSell: 20_000_000 });
+    const calls = stubApi({
+      [`GET /lodging/bookings/${BK}`]: { status: 200, body: stayed },
+      [`GET /lodging/properties/${PROP}`]: { status: 200, body: property },
+      'POST /lodging/quote': { status: 200, body: quote },
+      [`PATCH /lodging/bookings/${BK}`]: { status: 200, body: stayed },
+    });
+    const user = userEvent.setup();
+    renderSheet({ mode: 'view', bookingId: BK });
+    const sheet = await screen.findByRole('dialog');
+    await user.click(await within(sheet).findByRole('button', { name: 'Sửa' }));
+    expect(within(sheet).getByLabelText('Nhận phòng')).toBeDisabled();
+    const out = within(sheet).getByLabelText('Trả phòng');
+    await user.clear(out);
+    await user.type(out, '2099-11-06');
+    expect(within(sheet).queryByText(/Nhập giá thủ công mới/)).toBeNull();
+    await user.click(within(sheet).getByRole('button', { name: 'Lưu' }));
+    await waitFor(() =>
+      expect(calls.find((c) => c.key.startsWith('PATCH'))?.body).toEqual({
+        version: 3,
+        checkOut: '2099-11-06',
+      }),
+    );
+  });
+
+  it('shows a failed cancel inside the dialog and reloads on a stale version', async () => {
+    const calls = stubApi({
+      [`GET /lodging/bookings/${BK}`]: {
+        status: 200,
+        body: booking({ status: 'confirmed', holdExpiresAt: null }),
+      },
+      [`POST /lodging/bookings/${BK}/status`]: {
+        status: 409,
+        body: {
+          error: {
+            code: 'CONFLICT',
+            message: 'stale',
+            details: { reason: 'STALE_VERSION', version: 4 },
+          },
+        },
+      },
+    });
+    const user = userEvent.setup();
+    renderSheet({ mode: 'view', bookingId: BK });
+    const sheet = await screen.findByRole('dialog');
+    await user.click(await within(sheet).findByRole('button', { name: 'Huỷ' }));
+    const confirm = await screen.findByRole('alertdialog');
+    await user.type(within(confirm).getByLabelText('Lý do huỷ'), 'Khách đổi lịch');
+    await user.click(within(confirm).getByRole('button', { name: 'Huỷ' }));
+    expect(await within(confirm).findByText(/vừa được người khác cập nhật/)).toBeInTheDocument();
+    const loads = calls.filter((c) => c.key === `GET /lodging/bookings/${BK}`).length;
+    await user.click(within(confirm).getByRole('button', { name: 'Tải lại' }));
+    await waitFor(() =>
+      expect(calls.filter((c) => c.key === `GET /lodging/bookings/${BK}`).length).toBeGreaterThan(
+        loads,
+      ),
+    );
+    await waitFor(() =>
+      expect(within(confirm).queryByText(/vừa được người khác cập nhật/)).toBeNull(),
+    );
+  });
+
+  it('says the guest name is required when it is cleared in edit mode', async () => {
+    stubApi({
+      [`GET /lodging/bookings/${BK}`]: { status: 200, body: booking() },
+      [`GET /lodging/properties/${PROP}`]: { status: 200, body: property },
+    });
+    const user = userEvent.setup();
+    renderSheet({ mode: 'view', bookingId: BK });
+    const sheet = await screen.findByRole('dialog');
+    await user.click(await within(sheet).findByRole('button', { name: 'Sửa' }));
+    await user.clear(within(sheet).getByLabelText('Tên khách'));
+    await user.click(within(sheet).getByRole('button', { name: 'Lưu' }));
+    expect(within(sheet).getByText('Bắt buộc')).toBeInTheDocument();
+  });
 });
 
 describe('BookingSheet create', () => {
+  it('accepts a negative adjustment typed with its sign', async () => {
+    const calls = stubApi({
+      'GET /lodging/properties': { status: 200, body: { data: [] } },
+      [`GET /lodging/properties/${PROP}`]: { status: 200, body: property },
+      'POST /lodging/quote': { status: 200, body: quote },
+      'POST /lodging/bookings': { status: 201, body: booking() },
+    });
+    const user = userEvent.setup();
+    renderSheet({
+      mode: 'create',
+      initial: {
+        propertyId: PROP,
+        checkIn: '2099-11-02',
+        checkOut: '2099-11-04',
+        guestName: 'Chị Lan',
+      },
+    });
+    const sheet = await screen.findByRole('dialog');
+    const adj = within(sheet).getByLabelText('Điều chỉnh (+/−)');
+    await user.type(adj, '-');
+    expect(adj).toHaveValue('-');
+    await user.type(adj, '500000');
+    expect(adj).toHaveValue('-500000');
+    await waitFor(() =>
+      expect(within(sheet).getByTestId('quote-total')).toHaveTextContent(/23\.500\.000/),
+    );
+    await user.click(within(sheet).getByRole('button', { name: 'Giữ chỗ' }));
+    await waitFor(() =>
+      expect(calls.find((c) => c.key === 'POST /lodging/bookings')?.body).toMatchObject({
+        adjustment: -500_000,
+      }),
+    );
+  });
   it('explains a lost race even when the server names no booking', async () => {
     stubApi({
       'GET /lodging/properties': { status: 200, body: { data: [] } },

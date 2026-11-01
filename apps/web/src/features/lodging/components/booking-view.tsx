@@ -23,7 +23,14 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { formatDateTime } from '@/lib/format';
 
 import { useBooking, useChangeBookingStatus } from '../api/bookings';
-import { clockTime, dayMonth, nightsBetween, todayNight, weekdayShort } from '../lib/format';
+import {
+  clockTime,
+  dayMonth,
+  localDayMonth,
+  nightsBetween,
+  todayNight,
+  weekdayShort,
+} from '../lib/format';
 import { BookingEditForm } from './booking-edit-form';
 import { BookingErrorAlert } from './booking-error-alert';
 import { SheetSection } from './booking-fields';
@@ -82,6 +89,11 @@ export function BookingView({ bookingId }: { bookingId: string }) {
         },
       },
     );
+  // A stale or failed action is cleared once the fresh booking is loaded.
+  const reload = () => {
+    change.reset();
+    void booking.refetch();
+  };
   const actions = ACTIONS[b.status] ?? [];
   const tooEarly = b.checkIn > todayNight();
 
@@ -134,9 +146,9 @@ export function BookingView({ bookingId }: { bookingId: string }) {
           </Button>
         )}
       </div>
-      {change.error && (
+      {change.error && !cancelOpen && (
         <div className="px-4 pt-3">
-          <BookingErrorAlert error={change.error} onReload={() => void booking.refetch()} />
+          <BookingErrorAlert error={change.error} onReload={reload} />
         </div>
       )}
 
@@ -145,7 +157,7 @@ export function BookingView({ bookingId }: { bookingId: string }) {
           key={b.version}
           booking={b}
           onDone={() => setEditing(false)}
-          onReload={() => void booking.refetch()}
+          onReload={reload}
         />
       ) : (
         <div className="grid flex-1 content-start gap-5 overflow-y-auto px-4 py-4 text-sm">
@@ -161,7 +173,7 @@ export function BookingView({ bookingId }: { bookingId: string }) {
             {b.status === 'hold' && b.holdExpiresAt && (
               <p className="text-warning">
                 {t('lodging.sheet.holdUntil', {
-                  time: `${clockTime(b.holdExpiresAt)} ${dayMonth(b.holdExpiresAt.slice(0, 10))}`,
+                  time: `${clockTime(b.holdExpiresAt)} ${localDayMonth(b.holdExpiresAt)}`,
                 })}
               </p>
             )}
@@ -256,6 +268,7 @@ export function BookingView({ bookingId }: { bookingId: string }) {
             value={reason}
             onChange={(e) => setReason(e.target.value)}
           />
+          {change.error && <BookingErrorAlert error={change.error} onReload={reload} />}
           <AlertDialogFooter>
             <AlertDialogCancel>{t('lodging.sheet.keep')}</AlertDialogCancel>
             <AlertDialogAction

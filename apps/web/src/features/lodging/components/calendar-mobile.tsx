@@ -21,7 +21,7 @@ function nightStates(property: CalendarPropertyData, nights: string[]): NightSta
 
 const STATE_CLASS: Record<NightState, string> = {
   free: 'border-border bg-background text-foreground',
-  partial: 'border-primary/40 bg-primary-soft text-primary-strong',
+  partial: 'border-primary/40 bg-half-primary text-primary-strong',
   taken: 'border-muted-foreground/30 bg-hatch-muted text-muted-foreground',
 };
 
@@ -34,11 +34,14 @@ export function CalendarMobile({
   nights,
   today,
   onCreate,
+  onOpenBooking,
 }: {
   properties: CalendarPropertyData[];
   nights: string[];
   today: string;
   onCreate: (propertyId: string, night?: string) => void;
+  /** A full night opens the booking that takes it. */
+  onOpenBooking: (bookingId: string) => void;
 }) {
   const { t } = useTranslation();
   const first = nights[0];
@@ -61,6 +64,7 @@ export function CalendarMobile({
       </div>
       {properties.map((p) => {
         const states = nightStates(p, nights);
+        const firstRow = p.rows[0] ? takenByNight(p.rows[0], nights) : [];
         return (
           <Card key={p.id} className="gap-3 py-3">
             <CardHeader className="px-3">
@@ -83,14 +87,17 @@ export function CalendarMobile({
                     <button
                       key={night}
                       type="button"
-                      disabled={state === 'taken'}
                       aria-label={`${p.code} ${dayMonth(night)}: ${legend.find(([s]) => s === state)?.[1] ?? ''}`}
                       className={cn(
                         'flex h-11 items-center justify-center rounded-md border text-xs tabular-nums',
                         STATE_CLASS[state],
                         night === today && 'ring-2 ring-primary',
                       )}
-                      onClick={() => onCreate(p.id, night)}
+                      onClick={() => {
+                        const taken = state === 'taken' ? firstRow[i] : null;
+                        if (taken) onOpenBooking(taken.bookingId);
+                        else onCreate(p.id, night);
+                      }}
                     >
                       {Number(night.slice(8, 10))}
                     </button>
