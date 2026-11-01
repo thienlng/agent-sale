@@ -1,6 +1,7 @@
 import type { ToolDefinition } from '@agent-sales/ai-core';
 import { z } from 'zod';
 
+import { absoluteMediaUrl } from '../../../common/storage/media-url.js';
 import type { MessageSink, OutgoingMessage, QuickReply } from '../api/reply-options.js';
 import type { AllowedImage } from '../domain/image-allowlist.js';
 import { normalizeReplyText } from '../domain/reply-text.js';
@@ -48,12 +49,24 @@ export const newOutputState = (): OutputState => ({ sent: [], handoff: null });
 export class ImageAllowlist {
   readonly #byId = new Map<string, AllowedImage>();
 
-  constructor(initial: readonly AllowedImage[] = []) {
+  /**
+   * `mediaBase` is the current public base of Rapiz storage (`S3_PUBLIC_URL`): stored pictures are
+   * host-relative `/media/…` paths (or URLs on a former host), so each is rebuilt on it here, at
+   * send time. A picture that still is not an https URL (no base configured) cannot be sent.
+   */
+  constructor(
+    initial: readonly AllowedImage[] = [],
+    private readonly mediaBase?: string,
+  ) {
     this.add(initial);
   }
 
   add(images: readonly AllowedImage[]): void {
-    for (const image of images) if (!this.#byId.has(image.id)) this.#byId.set(image.id, image);
+    for (const image of images) {
+      if (this.#byId.has(image.id)) continue;
+      const url = absoluteMediaUrl(image.url, this.mediaBase);
+      if (url.startsWith('https://')) this.#byId.set(image.id, { ...image, url });
+    }
   }
 
   /** Resolves ids in the order given, deduplicated; ids outside the allowlist are returned as `dropped`. */

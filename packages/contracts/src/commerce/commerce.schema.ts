@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PublicImageUrl } from '../common/media.js';
 import { AccommodationDetails } from './lodging.schema.js';
 import { Money } from './money.schema.js';
 import { OrderItemsPreviewFields, OrderOriginFields } from './order-review.schema.js';
@@ -119,21 +120,12 @@ export const ProductVariantDto = z.object({
 export type ProductVariantDto = z.infer<typeof ProductVariantDto>;
 
 /**
- * Customer-facing product pictures: public HTTPS URLs (the bot sends them in chats).
+ * Customer-facing product pictures: Rapiz `/media/…` paths (older rows: https URLs). The bot
+ * sends them in chats as absolute URLs on the current public base.
  * The API additionally requires a URL returned by POST /products/images for the same workspace.
  */
 export const MAX_PRODUCT_IMAGES = 5;
-export const ProductImageUrl = z
-  .string()
-  .trim()
-  .max(2000)
-  .refine((value) => {
-    try {
-      return new URL(value).protocol === 'https:';
-    } catch {
-      return false;
-    }
-  }, 'must be an https URL');
+export const ProductImageUrl = PublicImageUrl;
 export const ProductImageUrls = z.array(ProductImageUrl).max(MAX_PRODUCT_IMAGES);
 
 export const ProductDto = z.object({

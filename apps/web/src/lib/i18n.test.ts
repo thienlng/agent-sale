@@ -12,6 +12,8 @@ describe('i18n catalogs', () => {
     setLocale('en');
     await expect.poll(() => i18n.language).toBe('en');
     expect(i18n.t('rules.title', { ns: 'training' })).toBe('Reply guidance');
+    expect(i18n.t('lodging.list.pendingBotHolds', { count: 1 })).toBe('1 bot hold to review');
+    expect(i18n.t('lodging.list.pendingBotHolds', { count: 3 })).toBe('3 bot holds to review');
     setLocale('vi');
     await expect.poll(() => i18n.language).toBe('vi');
   });

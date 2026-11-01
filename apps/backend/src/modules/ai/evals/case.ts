@@ -75,7 +75,10 @@ const BotFixture = z
     tone: z.enum(['friendly', 'formal']).default('friendly'),
     allowEmoji: z.boolean().default(false),
     placeholders: z.record(z.string(), z.string()).default({}),
-    /** The bot closes orders itself (`prepare_order` / `confirm_order`, setting "Chốt đơn"). */
+    /**
+     * The bot closes orders itself (`prepare_order` / `confirm_order`, setting "Chốt đơn"); a hotel
+     * bot places holds (`prepare_hold` / `confirm_hold`).
+     */
     orderTaking: z.boolean().default(false),
     /** The bot's default shipping fee in VND; null: the summary says "Phí ship: shop báo sau". */
     orderShippingFeeVnd: z.number().int().min(0).nullable().default(null),
@@ -154,6 +157,36 @@ const OrderDraft = z
   })
   .strict();
 
+const IsoDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'YYYY-MM-DD');
+
+/** A stay already booked in the calendar (nights check-in .. check-out, exclusive). */
+const TakenStay = z.object({ code: z.string().min(1), checkIn: IsoDay, checkOut: IsoDay }).strict();
+
+/** A hold summary the customer already received: the draft waiting for their answer this turn. */
+const HoldDraft = z
+  .object({
+    code: z.string().min(1),
+    checkIn: IsoDay,
+    checkOut: IsoDay,
+    adults: z.number().int().min(1),
+    childAges: z.array(z.number().int().min(0)).default([]),
+    guestName: z.string().min(1),
+    guestPhone: z.string().min(1),
+  })
+  .strict();
+
+/** The calendar of a hotel case (its accommodation products are the properties). */
+const LodgingFixture = z
+  .object({
+    taken: z.array(TakenStay).default([]),
+    hold_minutes: z.number().int().min(1).default(120),
+    /** Needs `bot.orderTaking`: a hold summary stored before this turn. */
+    hold_draft: HoldDraft.optional(),
+    /** Another booking takes the draft's nights before the customer confirms it. */
+    taken_before_confirm: z.boolean().default(false),
+  })
+  .strict();
+
 /** One eval case (apps/backend/evals/<group>/*.yaml). */
 export const EvalCase = z
   .object({
@@ -180,6 +213,8 @@ export const EvalCase = z
      * sent it), so the turn may call `confirm_order` / `cancel_order_draft`.
      */
     order_draft: OrderDraft.optional(),
+    /** Hotel cases: booked nights and a waiting hold summary for the lodging bot facade. */
+    lodging: LodgingFixture.optional(),
     conversation: z
       .array(Turn)
       .min(1)
@@ -197,6 +232,10 @@ export const EvalCase = z
   .refine((c) => !c.order_draft || c.bot.orderTaking, {
     message: 'order_draft needs bot.orderTaking: true',
     path: ['order_draft'],
+  })
+  .refine((c) => !c.lodging?.hold_draft || c.bot.orderTaking, {
+    message: 'lodging.hold_draft needs bot.orderTaking: true',
+    path: ['lodging', 'hold_draft'],
   });
 export type EvalCase = z.infer<typeof EvalCase>;
 export type EvalExpect = z.infer<typeof Expect>;

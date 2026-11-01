@@ -4,6 +4,7 @@ import {
   Bot,
   Cable,
   ChevronRight,
+  ClipboardList,
   type LucideIcon,
   MessagesSquare,
   Package,
@@ -30,6 +31,7 @@ import {
   SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSkeleton,
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
@@ -81,9 +83,11 @@ const ORDER_PATHS = /^\/app\/(orders|order-settings)(\/|$)/;
 const PRODUCTS: readonly NavItem[] = [
   { to: '/app/products', key: 'nav.products', icon: Package, ready: true },
 ];
+/** A hotel sells nights, not stock: calendar, bookings and properties replace orders and products. */
 const LODGING: readonly NavItem[] = [
-  { to: '/app/accommodations', key: 'nav.accommodations', icon: House, ready: true },
-  { to: '/app/stays', key: 'nav.stayRequests', icon: CalendarDays, ready: true },
+  { to: '/app/calendar', key: 'nav.calendar', icon: CalendarDays, ready: true },
+  { to: '/app/bookings', key: 'nav.bookings', icon: ClipboardList, ready: true },
+  { to: '/app/properties', key: 'nav.properties', icon: House, ready: true },
 ];
 
 /** The customers area (docs/03 §2 "Khách hàng"). */
@@ -172,30 +176,47 @@ function NavGroup({
   );
 }
 
-function NavItems({ items }: { items: readonly NavItem[] }) {
+/** A number waiting behind a nav entry (e.g. bot holds to review), keyed by the entry's path. */
+export type NavCounts = Partial<Record<string, { count: number; label: string }>>;
+
+function NavItems({
+  items,
+  counts,
+}: {
+  items: readonly NavItem[];
+  counts?: NavCounts | undefined;
+}) {
   const { t } = useTranslation();
   const { isMobile, setOpenMobile } = useSidebar();
   return (
     <>
-      {items.map(({ to, key, icon: Icon, ready }) => (
-        <SidebarMenuItem key={to}>
-          <SidebarMenuButton asChild tooltip={t(key)}>
-            <Link
-              to={to}
-              onClick={() => isMobile && setOpenMobile(false)}
-              activeProps={{ 'data-active': true }}
-            >
-              <Icon />
-              <span>{t(key)}</span>
-            </Link>
-          </SidebarMenuButton>
-          {!ready ? (
-            <SidebarMenuBadge className="font-normal text-muted-foreground">
-              {t('nav.comingSoon')}
-            </SidebarMenuBadge>
-          ) : null}
-        </SidebarMenuItem>
-      ))}
+      {items.map(({ to, key, icon: Icon, ready }) => {
+        const waiting = counts?.[to];
+        return (
+          <SidebarMenuItem key={to}>
+            <SidebarMenuButton asChild tooltip={t(key)}>
+              <Link
+                to={to}
+                onClick={() => isMobile && setOpenMobile(false)}
+                activeProps={{ 'data-active': true }}
+              >
+                <Icon />
+                <span>{t(key)}</span>
+              </Link>
+            </SidebarMenuButton>
+            {!ready ? (
+              <SidebarMenuBadge className="font-normal text-muted-foreground">
+                {t('nav.comingSoon')}
+              </SidebarMenuBadge>
+            ) : waiting && waiting.count > 0 ? (
+              <SidebarMenuBadge className="bg-warning-soft text-warning">
+                <span aria-hidden>{waiting.count}</span>
+                <span className="sr-only">{waiting.label}</span>
+              </SidebarMenuBadge>
+            ) : null}
+          </SidebarMenuItem>
+        );
+      })}
     </>
   );
 }
@@ -204,9 +225,13 @@ function NavItems({ items }: { items: readonly NavItem[] }) {
 export function AppSidebar({
   createBusinessDialog,
   industry,
+  navCounts,
 }: {
   createBusinessDialog?: ((props: CreateBusinessDialogProps) => ReactNode) | undefined;
+  /** The business's industry; undefined while it loads (industry entries show placeholders). */
   industry?: string | undefined;
+  /** Waiting counts composed by the route from features (shared code may not import them). */
+  navCounts?: NavCounts | undefined;
 }) {
   const { t } = useTranslation();
   const session = useSession();
@@ -240,8 +265,19 @@ export function AppSidebar({
               items={CONTACTS.filter((i) => canSettings || i.to !== '/app/crm-settings')}
               paths={CONTACT_PATHS}
             />
-            {industry === 'hotel' ? (
-              <NavItems items={LODGING} />
+            {industry === undefined ? (
+              // Until the business loads its industry is unknown: hold the place instead of
+              // flashing retail entries a hotel never has.
+              <>
+                <SidebarMenuItem>
+                  <SidebarMenuSkeleton showIcon data-testid="industry-nav-loading" />
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuSkeleton showIcon />
+                </SidebarMenuItem>
+              </>
+            ) : industry === 'hotel' ? (
+              <NavItems items={LODGING} counts={navCounts} />
             ) : (
               <>
                 <SectionNav

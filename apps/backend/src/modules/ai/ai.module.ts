@@ -8,11 +8,12 @@ import { ActionModule } from '../action/action.module.js';
 import { BotModule } from '../bot/bot.module.js';
 import { CommerceModule } from '../commerce/commerce.module.js';
 import { KnowledgeModule } from '../knowledge/knowledge.module.js';
+import { LodgingModule } from '../lodging/lodging.module.js';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
 import { AI_FACADE } from './api/ai.facade.js';
 import { HERMES_SUBSCRIPTION_LOGIN, LlmAdminService } from './application/llm-admin.service.js';
 import { LlmRuntime } from './application/llm-runtime.js';
-import { PlaygroundService } from './application/playground.service.js';
+import { MEDIA_PUBLIC_BASE, PlaygroundService } from './application/playground.service.js';
 import { LLM_PROVIDER_FACTORY } from './application/ports/llm-provider-factory.js';
 import { AI_RUN_REPOSITORY } from './domain/ports/ai-run.repository.js';
 import { CONVERSATION_SUMMARY_REPOSITORY } from './domain/ports/conversation-summary.repository.js';
@@ -33,7 +34,14 @@ import { LlmAdminController } from './interface/http/llm-admin.controller.js';
 
 /** LLM configuration (platform admin), runtime gateway, playground and ai_runs metering. */
 @Module({
-  imports: [ActionModule, BotModule, KnowledgeModule, WorkspaceModule, CommerceModule],
+  imports: [
+    ActionModule,
+    BotModule,
+    KnowledgeModule,
+    WorkspaceModule,
+    CommerceModule,
+    LodgingModule,
+  ],
   controllers: [AiController, LlmAdminController],
   providers: [
     {
@@ -73,6 +81,7 @@ import { LlmAdminController } from './interface/http/llm-admin.controller.js';
       provide: HERMES_SUBSCRIPTION_LOGIN,
       useFactory: () => hermesSubscriptionLoginEnabled(getEnv()),
     },
+    { provide: MEDIA_PUBLIC_BASE, useFactory: () => getEnv().S3_PUBLIC_URL ?? '' },
     LlmRuntime,
     LlmAdminService,
     PlaygroundService,

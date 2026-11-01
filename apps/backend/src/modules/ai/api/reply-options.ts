@@ -28,6 +28,8 @@ export interface ReplyOptions {
   isTest: boolean;
   /** The conversation's channel (`facebook`, `instagram`, `website`): the source of a bot order. */
   channel?: string;
+  /** The conversation's contact, when known: a bot hold links it (the playground has none). */
+  contactId?: string | null;
   /** Absent: messages are collected (playground). */
   sink?: MessageSink;
   /** Checked by the agent loop between rounds. */
@@ -49,6 +51,6 @@ export interface ReplyOptions {
 export type ReplyResult = PlaygroundResponse & {
   carry?: ChatMessage[];
   askedConfirmation?: boolean;
-  /** The turn created an order: a caller must never drop its final message. */
+  /** The turn created an order or placed a lodging hold: a caller must never drop its final message. */
   orderCreated?: boolean;
 };

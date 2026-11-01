@@ -35,6 +35,20 @@ describe('ProductImageService', () => {
     expect(url).toBe(`https://cdn.test/${puts[0]?.key}`);
   });
 
+  it('answers the host-relative /media/ path when storage is served under /media', async () => {
+    const { storage, puts } = fakeStorage();
+    const media: PublicObjectStorage = {
+      ...storage,
+      put: async (key, bytes, mime) =>
+        (await storage.put(key, bytes, mime)).replace('https://cdn.test/', 'https://t.test/media/'),
+    };
+    const { url } = await new ProductImageService(media).upload(ws, {
+      mimeType: 'image/png',
+      base64: png.toString('base64'),
+    });
+    expect(url).toBe(`/media/${puts[0]?.key}`);
+  });
+
   it('maps jpeg to a .jpg key', async () => {
     const { storage, puts } = fakeStorage();
     const jpeg = Buffer.from([255, 216, 255, 0, 1, 2, 255, 217]);
