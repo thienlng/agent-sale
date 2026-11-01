@@ -1,6 +1,6 @@
 import type { ProductDto, UpsertProductRequest } from '@agent-sales/contracts';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { ChevronLeft, Plus, Trash2 } from 'lucide-react';
+import { ChevronLeft, Lock, Plus, Trash2 } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -13,10 +13,13 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { errorMessage } from '@/lib/errors';
 import { productSaveErrorMessage } from '../hooks/lodging-errors';
-import { formatNumber } from '@/lib/format';
+import { cn } from '@/lib/utils';
 
-import { useAdjustStock, useSaveProduct, useWarehouses } from '../api/commerce';
+import { useSaveProduct, useSaveProductBotSettings } from '../api/commerce';
+import { FieldLabel, LOCKED_FIELD, LockedHint } from './locked-field';
 import { ProductImagesEditor } from './product-images-editor';
+import { StockEditor } from './product-stock-editor';
+import type { PmsLink } from './products-list';
 
 interface VariantDraft {
   key: string;
@@ -38,112 +41,34 @@ const blankVariant = (code = ''): VariantDraft => ({
   weightGram: 0,
 });
 
-/** Stock per warehouse for each variant; a stock-take sets the counted quantity. */
-function StockEditor({ product }: { product: ProductDto }) {
-  const { t } = useTranslation();
-  const warehouses = useWarehouses();
-  const adjust = useAdjustStock(product.id);
-  const [counts, setCounts] = useState<Record<string, string>>({});
-
-  return (
-    <section className="rounded-xl border bg-card p-4 md:p-5">
-      <h2 className="font-semibold">{t('products.stock.title')}</h2>
-      <p className="mt-1 text-sm text-muted-foreground">{t('products.stock.hint')}</p>
-      <div className="mt-4 overflow-x-auto">
-        <table className="w-full min-w-[640px] text-sm">
-          <thead>
-            <tr className="border-b text-left text-muted-foreground">
-              <th className="py-2 pr-3 font-medium">{t('products.form.sku')}</th>
-              <th className="py-2 pr-3 font-medium">{t('products.stock.warehouse')}</th>
-              <th className="py-2 pr-3 text-right font-medium">{t('products.stock.onHand')}</th>
-              <th className="py-2 pr-3 text-right font-medium">{t('products.stock.reserved')}</th>
-              <th className="py-2 pr-3 text-right font-medium">{t('products.stock.available')}</th>
-              <th className="py-2" />
-            </tr>
-          </thead>
-          <tbody>
-            {product.variants.flatMap((v) =>
-              (warehouses.data ?? []).map((w) => {
-                const s = v.stock.find((x) => x.warehouseId === w.id);
-                const key = `${v.id}:${w.id}`;
-                const draft = counts[key] ?? String(s?.onHand ?? 0);
-                const changed = Number(draft) !== (s?.onHand ?? 0);
-                return (
-                  <tr key={key} className="border-b last:border-0">
-                    <td className="py-2 pr-3">
-                      <div className="font-medium">{v.sku}</div>
-                      <div className="text-xs text-muted-foreground">{v.name}</div>
-                    </td>
-                    <td className="py-2 pr-3">{w.name}</td>
-                    <td className="py-2 pr-3 text-right">
-                      <Input
-                        aria-label={`${v.sku} ${w.name} ${t('products.stock.onHand')}`}
-                        inputMode="numeric"
-                        className="ml-auto h-8 w-24 text-right tabular-nums"
-                        value={draft}
-                        onChange={(e) =>
-                          setCounts({
-                            ...counts,
-                            [key]: e.target.value.replace(/\D/g, '').slice(0, 8),
-                          })
-                        }
-                      />
-                    </td>
-                    <td className="py-2 pr-3 text-right tabular-nums">
-                      {formatNumber(s?.reserved ?? 0)}
-                    </td>
-                    <td className="py-2 pr-3 text-right font-medium tabular-nums">
-                      {formatNumber(s?.available ?? 0)}
-                    </td>
-                    <td className="py-2 text-right">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={!changed || adjust.isPending}
-                        onClick={() =>
-                          adjust.mutate(
-                            { variantId: v.id, warehouseId: w.id, onHand: Number(draft || 0) },
-                            {
-                              onSuccess: () => {
-                                setCounts(({ [key]: _done, ...rest }) => rest);
-                                toast.success(t('products.stock.updated'));
-                              },
-                              onError: (err) => toast.error(errorMessage(t, err)),
-                            },
-                          )
-                        }
-                      >
-                        {t('products.stock.update')}
-                      </Button>
-                    </td>
-                  </tr>
-                );
-              }),
-            )}
-          </tbody>
-        </table>
-      </div>
-      {warehouses.data && !warehouses.data.length ? (
-        <p className="mt-3 text-sm text-muted-foreground">
-          {t('warehouses.empty')}{' '}
-          <Link to="/app/order-settings/warehouses" className="text-primary hover:underline">
-            {t('orderForm.goWarehouses')}
-          </Link>
-        </p>
-      ) : null}
-    </section>
-  );
-}
-
 /**
  * Create or edit a product with its variants (ORD-01). With `botId` (created from a bot's
  * product page) the new product is selected for that bot and the page returns there.
+ *
+ * A product synced from KiotViet (`product.external`) is read-only except for its bot settings,
+ * which save on their own; `pmsLink` (from the route) gives the store for the "edit in KiotViet"
+ * link.
  */
-export function ProductForm({ product, botId }: { product?: ProductDto; botId?: string }) {
+export function ProductForm({
+  product,
+  botId,
+  pmsLink,
+}: {
+  product?: ProductDto;
+  botId?: string;
+  pmsLink?: PmsLink | null | undefined;
+}) {
   const { t } = useTranslation();
   const { t: training } = useTranslation('training');
   const navigate = useNavigate();
   const save = useSaveProduct();
+  const saveBot = useSaveProductBotSettings(product?.id ?? '');
+  const locked = Boolean(product?.external);
+  const retailer = pmsLink?.retailer ?? null;
+  const saving = save.isPending || saveBot.isPending;
+  /** Props for a read-only field described by the section's hint. */
+  const lockedField = (hintId: string) =>
+    locked ? { readOnly: true, 'aria-describedby': hintId, className: LOCKED_FIELD } : {};
   const [code, setCode] = useState(product?.code ?? '');
   const [name, setName] = useState(product?.name ?? '');
   const [description, setDescription] = useState(product?.description ?? '');
@@ -168,6 +93,16 @@ export function ProductForm({ product, botId }: { product?: ProductDto; botId?: 
 
   function submit(e: FormEvent) {
     e.preventDefault();
+    if (product && locked) {
+      saveBot.mutate(
+        { visibleToBot, botInstructions },
+        {
+          onSuccess: () => toast.success(t('products.form.saved')),
+          onError: (err) => toast.error(errorMessage(t, err)),
+        },
+      );
+      return;
+    }
     const body: UpsertProductRequest = {
       code: code.trim(),
       name: name.trim(),
@@ -219,10 +154,18 @@ export function ProductForm({ product, botId }: { product?: ProductDto; botId?: 
 
       <form onSubmit={submit} className="flex flex-col gap-5">
         <section className="grid gap-4 rounded-xl border bg-card p-4 md:grid-cols-2 md:p-5">
+          {locked ? (
+            <div className="md:col-span-2">
+              <LockedHint id="pf-locked-hint" retailer={retailer} />
+            </div>
+          ) : null}
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="pf-code">{t('products.form.code')}</Label>
+            <FieldLabel htmlFor="pf-code" locked={locked}>
+              {t('products.form.code')}
+            </FieldLabel>
             <Input
               id="pf-code"
+              {...lockedField('pf-locked-hint')}
               required
               maxLength={64}
               value={code}
@@ -230,9 +173,12 @@ export function ProductForm({ product, botId }: { product?: ProductDto; botId?: 
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="pf-name">{t('products.form.name')}</Label>
+            <FieldLabel htmlFor="pf-name" locked={locked}>
+              {t('products.form.name')}
+            </FieldLabel>
             <Input
               id="pf-name"
+              {...lockedField('pf-locked-hint')}
               required
               maxLength={200}
               value={name}
@@ -240,9 +186,12 @@ export function ProductForm({ product, botId }: { product?: ProductDto; botId?: 
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="pf-category">{t('products.form.category')}</Label>
+            <FieldLabel htmlFor="pf-category" locked={locked}>
+              {t('products.form.category')}
+            </FieldLabel>
             <Input
               id="pf-category"
+              {...lockedField('pf-locked-hint')}
               maxLength={120}
               value={category}
               onChange={(e) => setCategory(e.target.value)}
@@ -256,7 +205,12 @@ export function ProductForm({ product, botId }: { product?: ProductDto; botId?: 
               />
               {t('products.form.visibleToBot')}
             </label>
-            {product ? (
+            {product && locked ? (
+              <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Lock className="size-4" aria-hidden />
+                {t(`products.${product.status}`)}
+              </p>
+            ) : product ? (
               <label className="flex items-center gap-2 text-sm">
                 <Checkbox checked={archived} onCheckedChange={(c) => setArchived(c === true)} />
                 {t('products.form.archived')}
@@ -275,9 +229,12 @@ export function ProductForm({ product, botId }: { product?: ProductDto; botId?: 
             <p className="text-sm text-muted-foreground">{training('productInstructionsHint')}</p>
           </div>
           <div className="flex flex-col gap-1.5 md:col-span-2">
-            <Label htmlFor="pf-description">{t('products.form.description')}</Label>
+            <FieldLabel htmlFor="pf-description" locked={locked}>
+              {t('products.form.description')}
+            </FieldLabel>
             <Textarea
               id="pf-description"
+              {...lockedField('pf-locked-hint')}
               rows={4}
               maxLength={5000}
               value={description}
@@ -286,26 +243,39 @@ export function ProductForm({ product, botId }: { product?: ProductDto; botId?: 
           </div>
         </section>
 
-        <ProductImagesEditor value={imageUrls} onChange={setImageUrls} />
+        <ProductImagesEditor
+          value={imageUrls}
+          onChange={setImageUrls}
+          readOnly={locked}
+          lockedHint={<LockedHint id="pf-images-locked-hint" retailer={retailer} />}
+        />
 
         <section className="rounded-xl border bg-card p-4 md:p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="font-semibold">{t('products.form.variants')}</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {t('products.form.variantsHint')}
-              </p>
+              {locked ? (
+                <div className="mt-1">
+                  <LockedHint id="pv-locked-hint" retailer={retailer} />
+                </div>
+              ) : (
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {t('products.form.variantsHint')}
+                </p>
+              )}
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() =>
-                setVariants((vs) => [...vs, blankVariant(code ? `${code}-${vs.length + 1}` : '')])
-              }
-            >
-              <Plus />
-              {t('products.form.addVariant')}
-            </Button>
+            {locked ? null : (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  setVariants((vs) => [...vs, blankVariant(code ? `${code}-${vs.length + 1}` : '')])
+                }
+              >
+                <Plus />
+                {t('products.form.addVariant')}
+              </Button>
+            )}
           </div>
           <ul className="mt-4 flex flex-col gap-3">
             {variants.map((v, i) => (
@@ -314,9 +284,12 @@ export function ProductForm({ product, botId }: { product?: ProductDto; botId?: 
                 className="grid gap-3 rounded-lg border p-3 sm:grid-cols-2 lg:grid-cols-[1fr_1.4fr_1fr_1fr_0.7fr_auto] lg:items-end"
               >
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor={`pv-sku-${v.key}`}>{t('products.form.sku')}</Label>
+                  <FieldLabel htmlFor={`pv-sku-${v.key}`} locked={locked}>
+                    {t('products.form.sku')}
+                  </FieldLabel>
                   <Input
                     id={`pv-sku-${v.key}`}
+                    {...lockedField('pv-locked-hint')}
                     required
                     maxLength={64}
                     value={v.sku}
@@ -324,36 +297,48 @@ export function ProductForm({ product, botId }: { product?: ProductDto; botId?: 
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor={`pv-name-${v.key}`}>{t('products.form.variantName')}</Label>
+                  <FieldLabel htmlFor={`pv-name-${v.key}`} locked={locked}>
+                    {t('products.form.variantName')}
+                  </FieldLabel>
                   <Input
                     id={`pv-name-${v.key}`}
+                    {...lockedField('pv-locked-hint')}
                     maxLength={120}
                     value={v.name}
                     onChange={(e) => setVariant(i, { name: e.target.value })}
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor={`pv-price-${v.key}`}>{t('products.form.price')}</Label>
+                  <FieldLabel htmlFor={`pv-price-${v.key}`} locked={locked}>
+                    {t('products.form.price')}
+                  </FieldLabel>
                   <MoneyInput
                     id={`pv-price-${v.key}`}
+                    {...lockedField('pv-locked-hint')}
                     value={v.price}
                     onValueChange={(price) => setVariant(i, { price })}
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor={`pv-cost-${v.key}`}>{t('products.form.cost')}</Label>
+                  <FieldLabel htmlFor={`pv-cost-${v.key}`} locked={locked}>
+                    {t('products.form.cost')}
+                  </FieldLabel>
                   <MoneyInput
                     id={`pv-cost-${v.key}`}
+                    {...lockedField('pv-locked-hint')}
                     value={v.cost}
                     onValueChange={(cost) => setVariant(i, { cost })}
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor={`pv-weight-${v.key}`}>{t('products.form.weight')}</Label>
+                  <FieldLabel htmlFor={`pv-weight-${v.key}`} locked={locked}>
+                    {t('products.form.weight')}
+                  </FieldLabel>
                   <Input
                     id={`pv-weight-${v.key}`}
+                    {...lockedField('pv-locked-hint')}
                     inputMode="numeric"
-                    className="text-right tabular-nums"
+                    className={cn('text-right tabular-nums', locked && LOCKED_FIELD)}
                     value={v.weightGram || ''}
                     onChange={(e) =>
                       setVariant(i, {
@@ -362,29 +347,36 @@ export function ProductForm({ product, botId }: { product?: ProductDto; botId?: 
                     }
                   />
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  disabled={variants.length === 1}
-                  aria-label={t('products.form.removeVariant')}
-                  onClick={() => setVariants((vs) => vs.filter((_, idx) => idx !== i))}
-                >
-                  <Trash2 />
-                </Button>
+                {locked ? null : (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    disabled={variants.length === 1}
+                    aria-label={t('products.form.removeVariant')}
+                    onClick={() => setVariants((vs) => vs.filter((_, idx) => idx !== i))}
+                  >
+                    <Trash2 />
+                  </Button>
+                )}
               </li>
             ))}
           </ul>
         </section>
 
         <div className="flex justify-end">
-          <Button type="submit" size="lg" disabled={save.isPending}>
-            {save.isPending ? t('products.form.saving') : t('products.form.save')}
+          <Button type="submit" size="lg" disabled={saving}>
+            {saving ? t('products.form.saving') : t('products.form.save')}
           </Button>
         </div>
       </form>
 
-      {product ? <StockEditor product={product} /> : null}
+      {product ? (
+        <StockEditor
+          product={product}
+          lockedHint={locked ? <LockedHint id="ps-locked-hint" retailer={retailer} /> : undefined}
+        />
+      ) : null}
     </div>
   );
 }

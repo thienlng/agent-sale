@@ -146,6 +146,14 @@ export const ProductDto = z.object({
   priceMax: Money,
   /** Σ available over variants and warehouses. */
   available: z.number().int(),
+  /**
+   * The PMS record this product is synced from; null for a product managed in Rapiz. A response
+   * from an API older than the field (web deployed first) reads as null.
+   */
+  external: z
+    .object({ source: z.literal('kiotviet'), id: z.string() })
+    .nullable()
+    .default(null),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });
@@ -190,9 +198,25 @@ export const UpsertProductRequest = z
   });
 export type UpsertProductRequest = z.input<typeof UpsertProductRequest>;
 
+/**
+ * Only the bot's fields of a product (at least one). Stays usable on a PMS-synced product, whose
+ * other fields are read-only and may not fit the full product form.
+ */
+export const UpdateProductBotSettingsRequest = z
+  .object({
+    visibleToBot: z.boolean().optional(),
+    botInstructions: z.string().trim().max(4000).optional(),
+  })
+  .refine((b) => b.visibleToBot !== undefined || b.botInstructions !== undefined, {
+    message: 'send visibleToBot or botInstructions',
+  });
+export type UpdateProductBotSettingsRequest = z.input<typeof UpdateProductBotSettingsRequest>;
+
 export const ProductListQuery = z.object({
   q: z.string().trim().max(100).optional(),
   status: z.enum(['active', 'archived']).default('active'),
+  /** `kiotviet`: products synced from KiotViet; `rapiz`: products managed in Rapiz. */
+  source: z.enum(['kiotviet', 'rapiz']).optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });

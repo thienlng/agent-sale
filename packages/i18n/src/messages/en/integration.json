@@ -1,0 +1,157 @@
+{
+  "hub": {
+    "title": "PMS integrations",
+    "subtitle": "Connect your sales management software so the bot quotes the right price and stock, and closed orders land in your software.",
+    "comingSoon": "Soon",
+    "connect": "Connect",
+    "manage": "Manage",
+    "notConnected": "Not connected",
+    "loadError": "Could not load the integrations. Reload the page to try again."
+  },
+  "providers": {
+    "kiotviet": {
+      "name": "KiotViet",
+      "description": "Sync products, stock per branch, orders and customers."
+    },
+    "sapo": {
+      "name": "Sapo"
+    },
+    "haravan": {
+      "name": "Haravan"
+    },
+    "pancake_pos": {
+      "name": "Pancake POS"
+    }
+  },
+  "wizard": {
+    "title": "Connect KiotViet",
+    "backToHub": "PMS integrations",
+    "stepOf": "Step {{current}}/{{total}}",
+    "steps": ["Connection details", "Branches", "Preview & start"],
+    "retailer": "Store name",
+    "retailerHelp": "The part before .kiotviet.vn, e.g. shopabc. Pasting the full link works too.",
+    "retailerSuffix": ".kiotviet.vn",
+    "clientId": "Client ID",
+    "clientSecret": "Client secret",
+    "secretHelp": "Rapiz encrypts this secret and never shows it again.",
+    "showSecret": "Show client secret",
+    "hideSecret": "Hide client secret",
+    "where": "Where do I find these?",
+    "whereSteps": [
+      "Sign in to KiotViet with the store owner account.",
+      "Go to Settings → Store → API connection and click Edit.",
+      "Verify with your phone number, click Create and tick access to customers, invoices and orders.",
+      "Copy the Client ID and the client secret and paste them here."
+    ],
+    "guideLink": "Open the KiotViet guide",
+    "test": "Test connection",
+    "errors": {
+      "required": {
+        "retailer": "Enter the store name.",
+        "clientId": "Enter the Client ID.",
+        "clientSecret": "Enter the client secret."
+      },
+      "auth": "The Client ID or client secret is wrong. Check them in KiotViet → API connection settings.",
+      "retailer": "This store was not found. The store name is the part before .kiotviet.vn.",
+      "retailerChanged": "The new credentials belong to another store. To switch stores, disconnect and connect again.",
+      "permission": "The API account is missing permissions: {{list}}. Tick them in KiotViet and try again.",
+      "unavailable": "KiotViet is not responding. Try again in a few minutes.",
+      "busy": "KiotViet is busy, try again in a minute.",
+      "branch": "A branch no longer exists in KiotViet. Reload the list and choose again.",
+      "branchesRequired": "Choose at least one branch.",
+      "orderBranchRequired": "Choose the order branch among the selected branches.",
+      "noBranches": "The store has no branches in KiotViet yet.",
+      "alreadyConnected": "This business is already connected to KiotViet.",
+      "generic": "Something went wrong. Try again later."
+    },
+    "permissions": {
+      "products": "products",
+      "branches": "branches",
+      "categories": "categories",
+      "customers": "customers",
+      "orders": "orders",
+      "invoices": "invoices"
+    },
+    "branchesTitle": "Branches used for online sales",
+    "branchesHelp": "The bot reports stock as the total left across the branches you choose.",
+    "reloadBranches": "Reload list",
+    "orderBranch": "Order branch",
+    "orderBranchHelp": "Orders closed in Rapiz go to this branch.",
+    "orderBranchPlaceholder": "Choose a branch",
+    "store": "Store {{retailer}}",
+    "previewTitle": "First sync",
+    "preview": "{{matched}} products match by code · {{created}} new products · {{rapizOnly}} products only in Rapiz (kept)",
+    "previewPartial": "{{matched}} products match by code · {{created}} new products (in the first {{scanned}}/{{total}} products)",
+    "pushOrders": "Push orders to KiotViet",
+    "syncCustomers": "Sync customers",
+    "soon": "Soon",
+    "sourceNote": "Once connected, the name, price, pictures and stock of linked products are edited in KiotViet. Bot-specific settings are still edited in Rapiz.",
+    "start": "Start syncing",
+    "back": "Back",
+    "next": "Continue",
+    "connected": "KiotViet connected. Products are being imported.",
+    "notConnected": "This business is not connected to KiotViet. The owner or an admin can connect it."
+  },
+  "connection": {
+    "status": {
+      "connected": "Connected",
+      "syncing": "Syncing",
+      "error": "Error",
+      "disconnected": "Disconnected"
+    },
+    "clientId": "Client ID {{masked}}",
+    "lastSync": "Last synced {{time}}",
+    "neverSynced": "Not synced yet",
+    "syncNow": "Sync now",
+    "syncStarted": "Sync started.",
+    "syncRunning": "A sync is already running.",
+    "progress": {
+      "products": "Importing products {{done}}/{{total}}",
+      "productsCount": "Importing products {{done}}",
+      "stock": "Updating stock",
+      "preparing": "Preparing the sync",
+      "leave": "You can leave this page; the sync keeps running."
+    },
+    "stats": {
+      "products": "Linked products",
+      "customers": "Customers",
+      "orders": "Orders pushed"
+    },
+    "settings": "Sync settings",
+    "save": "Save",
+    "saved": "Sync settings saved.",
+    "conflict": "The connection was just changed elsewhere. It has been reloaded; try again.",
+    "updateCredentials": "Update credentials",
+    "updateCredentialsHelp": "Paste the new Client ID and client secret of the same KiotViet store.",
+    "credentialsUpdated": "Credentials updated.",
+    "cancel": "Cancel",
+    "lastErrorTitle": "The sync hit an error",
+    "activity": "Recent activity",
+    "activityEmpty": "No activity yet.",
+    "activityError": "Could not load recent activity.",
+    "danger": "Disconnect",
+    "dangerHelp": "Synced data is kept. Products become Rapiz products and can be edited as usual.",
+    "confirmDisconnect": "Disconnect KiotViet?",
+    "disconnected": "KiotViet disconnected."
+  },
+  "log": {
+    "connected": "Connected store {{retailer}}",
+    "full_sync_done": "Synced {{products}} products",
+    "image_failed": "{{count}} pictures could not be loaded (JPEG/PNG only)",
+    "sku_conflict": "Code {{sku}} is used by another Rapiz product — change it on one side to link them",
+    "auth_failed": "KiotViet rejected the client secret — it may have been changed. Click Update credentials.",
+    "kiotviet_unavailable": "KiotViet is not responding, will retry",
+    "webhook_register_failed": "Could not register instant updates — still syncing every 10 minutes",
+    "webhook_bad_signature": "Ignored an invalid notification",
+    "webhook_unknown": "Ignored an unknown notification from KiotViet",
+    "sync_failed": "Sync failed, will retry",
+    "sweep_capped": "{{count}} more products will be checked again on the next sync",
+    "connect_failed": "The connection did not finish setting up, so it cannot sync. Disconnect, then connect again to retry.",
+    "unknown": "Other sync event",
+    "level": {
+      "info": "Info",
+      "warning": "Warning",
+      "error": "Error"
+    }
+  }
+}

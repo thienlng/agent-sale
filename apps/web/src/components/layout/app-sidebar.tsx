@@ -1,6 +1,7 @@
 import { Link, useRouterState } from '@tanstack/react-router';
 import {
   BarChart3,
+  Blocks,
   Bot,
   Cable,
   ChevronRight,
@@ -49,6 +50,8 @@ interface NavItem {
   key: string;
   icon: LucideIcon;
   ready?: boolean;
+  /** Built and usable, but still being proven with real shops: says "Thử nghiệm". */
+  beta?: boolean;
 }
 
 /** P0 items of docs/03 §2; the ones not built yet say so instead of pretending. */
@@ -82,6 +85,10 @@ const ORDER_PATHS = /^\/app\/(orders|order-settings)(\/|$)/;
 /** The shared product catalog: its own top-level entry, used by orders and bots alike. */
 const PRODUCTS: readonly NavItem[] = [
   { to: '/app/products', key: 'nav.products', icon: Package, ready: true },
+];
+/** Point-of-sale / inventory software (KiotViet, …) feeding the catalog. */
+const PMS: readonly NavItem[] = [
+  { to: '/app/integrations', key: 'nav.pms', icon: Blocks, ready: true, beta: true },
 ];
 /** A hotel sells nights, not stock: calendar, bookings and properties replace orders and products. */
 const LODGING: readonly NavItem[] = [
@@ -190,7 +197,7 @@ function NavItems({
   const { isMobile, setOpenMobile } = useSidebar();
   return (
     <>
-      {items.map(({ to, key, icon: Icon, ready }) => {
+      {items.map(({ to, key, icon: Icon, ready, beta }) => {
         const waiting = counts?.[to];
         return (
           <SidebarMenuItem key={to}>
@@ -207,6 +214,10 @@ function NavItems({
             {!ready ? (
               <SidebarMenuBadge className="font-normal text-muted-foreground">
                 {t('nav.comingSoon')}
+              </SidebarMenuBadge>
+            ) : beta ? (
+              <SidebarMenuBadge className="font-normal text-muted-foreground">
+                {t('nav.beta')}
               </SidebarMenuBadge>
             ) : waiting && waiting.count > 0 ? (
               <SidebarMenuBadge className="bg-warning-soft text-warning">
@@ -237,6 +248,8 @@ export function AppSidebar({
   const session = useSession();
   const prefs = usePreferences();
   const canSettings = useCan('settings.manage');
+  const canCatalog = useCan('catalog.manage');
+  const pms = canCatalog ? <NavItems items={PMS} /> : null;
   return (
     <Sidebar variant={prefs.sidebar_variant} collapsible={prefs.sidebar_collapsible}>
       <SidebarHeader>
@@ -259,6 +272,7 @@ export function AppSidebar({
             <NavItems items={BOTS} />
             <NavItems items={INBOX} />
             <NavItems items={INTEGRATIONS} />
+            {industry === 'hotel' ? pms : null}
             <SectionNav
               label="nav.contacts"
               icon={Users}
@@ -288,6 +302,7 @@ export function AppSidebar({
                   exact="/app/orders"
                 />
                 <NavItems items={PRODUCTS} />
+                {pms}
               </>
             )}
             <NavItems items={WORK} />

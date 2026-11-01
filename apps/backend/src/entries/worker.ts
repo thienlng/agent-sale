@@ -8,6 +8,8 @@ import { DbModule } from '../common/db/db.module.js';
 import { createLogger, PinoNestLogger } from '../common/logger.js';
 import { ANALYTICS_RUNNER, type AnalyticsRunner } from '../modules/analytics/api/index.js';
 import { AnalyticsModule } from '../modules/analytics/analytics.module.js';
+import { INTEGRATION_RUNNER, type IntegrationRunner } from '../modules/integration/api/index.js';
+import { IntegrationModule } from '../modules/integration/integration.module.js';
 
 /**
  * Worker entry: boots an application context (no HTTP) and registers the
@@ -15,7 +17,7 @@ import { AnalyticsModule } from '../modules/analytics/analytics.module.js';
  * (outbound, campaign, workflow, indexer, scheduler). Processors live in each
  * module's application/jobs and are wired here as modules land.
  */
-@Module({ imports: [DbModule, AnalyticsModule] })
+@Module({ imports: [DbModule, AnalyticsModule, IntegrationModule] })
 class WorkerModule {}
 
 const env = configureEnv();
@@ -39,10 +41,26 @@ const timer = setInterval(() => {
       projecting = false;
     });
 }, 2000);
+// PMS sync (full imports, reconciles, webhook deliveries); one tick at a time, like the projector.
+const integration = ctx.get<IntegrationRunner>(INTEGRATION_RUNNER);
+let syncing = false;
+const syncTimer = setInterval(() => {
+  if (syncing) return;
+  syncing = true;
+  void integration
+    .tick()
+    .catch(() => logger.error('Integration sync tick failed'))
+    .finally(() => {
+      syncing = false;
+    });
+}, 2000);
 for (const signal of ['SIGINT', 'SIGTERM'] as const)
-  // The interval keeps the worker alive; clearing it lets the process drain and exit.
-  process.once(signal, () => clearInterval(timer));
+  // The intervals keep the worker alive; clearing them lets the process drain and exit.
+  process.once(signal, () => {
+    clearInterval(timer);
+    clearInterval(syncTimer);
+  });
 logger.info(
   { queues },
-  'worker started (analytics projection; no queue processors registered yet)',
+  'worker started (analytics projection, PMS sync; no queue processors registered yet)',
 );

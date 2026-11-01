@@ -42,6 +42,12 @@ describe('api()', () => {
     });
   });
 
+  it('parses an accepted request without a body as null', async () => {
+    const { fetchStub } = stubFetch({ 'POST /jobs': { status: 202 } });
+    vi.stubGlobal('fetch', fetchStub);
+    await expect(api('/jobs', z.null(), { method: 'POST' })).resolves.toBeNull();
+  });
+
   it('refreshes once on 401 and retries with the new token', async () => {
     let first = true;
     const { fetchStub, calls } = stubFetch({

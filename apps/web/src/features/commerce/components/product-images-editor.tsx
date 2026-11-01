@@ -1,6 +1,6 @@
 import { MAX_PRODUCT_IMAGES } from '@agent-sales/contracts';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
-import { useRef } from 'react';
+import { type ReactNode, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
@@ -16,13 +16,21 @@ export function moveItem<T>(list: readonly T[], from: number, delta: -1 | 1): T[
   return next;
 }
 
-/** Up to five product pictures uploaded from the device; the bot sends them on request. */
+/**
+ * Up to five product pictures uploaded from the device; the bot sends them on request. With
+ * `readOnly` (a product synced from a PMS) it only shows them, with `lockedHint` in place of the
+ * upload help.
+ */
 export function ProductImagesEditor({
   value,
   onChange,
+  readOnly = false,
+  lockedHint,
 }: {
   value: string[];
   onChange: (urls: string[]) => void;
+  readOnly?: boolean;
+  lockedHint?: ReactNode;
 }) {
   const { t } = useTranslation();
   // Uploads finish later: append to what the user has now, not to what they had at the start.
@@ -39,9 +47,13 @@ export function ProductImagesEditor({
           {t('products.form.imageCount', { n: value.length, max: MAX_PRODUCT_IMAGES })}
         </span>
       </div>
-      <p className="mt-1 text-sm text-muted-foreground">
-        {t('products.form.imagesHint', { max: MAX_PRODUCT_IMAGES })}
-      </p>
+      {readOnly ? (
+        <div className="mt-1">{lockedHint}</div>
+      ) : (
+        <p className="mt-1 text-sm text-muted-foreground">
+          {t('products.form.imagesHint', { max: MAX_PRODUCT_IMAGES })}
+        </p>
+      )}
 
       {value.length ? (
         <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
@@ -54,49 +66,55 @@ export function ProductImagesEditor({
                 referrerPolicy="no-referrer"
                 className="aspect-square w-full object-cover"
               />
-              <Button
-                type="button"
-                variant="secondary"
-                size="icon"
-                className="absolute right-1 top-1 size-7"
-                aria-label={t('products.form.removeImage', { n: i + 1 })}
-                onClick={() => onChange(value.filter((_, idx) => idx !== i))}
-              >
-                <X aria-hidden />
-              </Button>
-              <div className="absolute inset-x-1 bottom-1 flex justify-between">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="icon"
-                  className="size-7"
-                  disabled={i === 0}
-                  aria-label={t('products.form.moveImageLeft', { n: i + 1 })}
-                  onClick={() => onChange(moveItem(value, i, -1))}
-                >
-                  <ChevronLeft aria-hidden />
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="icon"
-                  className="size-7"
-                  disabled={i === value.length - 1}
-                  aria-label={t('products.form.moveImageRight', { n: i + 1 })}
-                  onClick={() => onChange(moveItem(value, i, 1))}
-                >
-                  <ChevronRight aria-hidden />
-                </Button>
-              </div>
+              {readOnly ? null : (
+                <>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="icon"
+                    className="absolute right-1 top-1 size-7"
+                    aria-label={t('products.form.removeImage', { n: i + 1 })}
+                    onClick={() => onChange(value.filter((_, idx) => idx !== i))}
+                  >
+                    <X aria-hidden />
+                  </Button>
+                  <div className="absolute inset-x-1 bottom-1 flex justify-between">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="icon"
+                      className="size-7"
+                      disabled={i === 0}
+                      aria-label={t('products.form.moveImageLeft', { n: i + 1 })}
+                      onClick={() => onChange(moveItem(value, i, -1))}
+                    >
+                      <ChevronLeft aria-hidden />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="icon"
+                      className="size-7"
+                      disabled={i === value.length - 1}
+                      aria-label={t('products.form.moveImageRight', { n: i + 1 })}
+                      onClick={() => onChange(moveItem(value, i, 1))}
+                    >
+                      <ChevronRight aria-hidden />
+                    </Button>
+                  </div>
+                </>
+              )}
             </li>
           ))}
         </ul>
       ) : null}
 
-      <ImageUploadZone
-        remaining={MAX_PRODUCT_IMAGES - value.length}
-        onUploaded={(urls) => onChange([...latest.current, ...urls].slice(0, MAX_PRODUCT_IMAGES))}
-      />
+      {readOnly ? null : (
+        <ImageUploadZone
+          remaining={MAX_PRODUCT_IMAGES - value.length}
+          onUploaded={(urls) => onChange([...latest.current, ...urls].slice(0, MAX_PRODUCT_IMAGES))}
+        />
+      )}
     </section>
   );
 }

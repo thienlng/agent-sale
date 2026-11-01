@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { i18n, setLocale } from './i18n';
+import { i18n, loadNamespace, setLocale } from './i18n';
 
 describe('i18n catalogs', () => {
   it('starts in Vietnamese with only the Vietnamese catalog bundled', () => {
@@ -16,5 +16,12 @@ describe('i18n catalogs', () => {
     expect(i18n.t('lodging.list.pendingBotHolds', { count: 3 })).toBe('3 bot holds to review');
     setLocale('vi');
     await expect.poll(() => i18n.language).toBe('vi');
+  });
+
+  it('keeps lazy namespaces out until a page loads them, then has them in every locale', async () => {
+    expect(i18n.hasResourceBundle('vi', 'integration')).toBe(false);
+    await loadNamespace('integration');
+    expect(i18n.t('hub.title', { ns: 'integration' })).toBe('Tích hợp PMS');
+    expect(i18n.getFixedT('en', 'integration')('hub.title')).toBe('PMS integrations');
   });
 });

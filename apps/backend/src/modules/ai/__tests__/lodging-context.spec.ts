@@ -33,6 +33,7 @@ const product: ProductDto = {
   priceMin: 0,
   priceMax: 0,
   available: 0,
+  external: null,
   createdAt: new Date(0).toISOString(),
   updatedAt: new Date(0).toISOString(),
   accommodation: details,

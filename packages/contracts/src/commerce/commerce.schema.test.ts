@@ -4,6 +4,7 @@ import {
   OrderListQuery,
   OrderSummaryDto,
   ProductDto,
+  UpdateProductBotSettingsRequest,
   UpsertProductRequest,
 } from './commerce.schema.js';
 import {
@@ -112,5 +113,23 @@ describe('bot orders and review', () => {
     expect(OrderReviewCountResponse.parse({ pending: 3 })).toEqual({ pending: 3 });
     expect(OrderReviewState.options).toEqual(['pending', 'approved']);
     expect(OrderCreatedByKind.options).toEqual(['agent', 'bot', 'import', 'api']);
+  });
+});
+
+describe('product bot settings', () => {
+  it('takes either bot field and trims the instructions', () => {
+    expect(UpdateProductBotSettingsRequest.parse({ visibleToBot: false })).toEqual({
+      visibleToBot: false,
+    });
+    expect(UpdateProductBotSettingsRequest.parse({ botInstructions: ' Hỏi size ' })).toEqual({
+      botInstructions: 'Hỏi size',
+    });
+  });
+
+  it('needs at least one field and caps the instructions at 4000 characters', () => {
+    expect(UpdateProductBotSettingsRequest.safeParse({}).success).toBe(false);
+    expect(
+      UpdateProductBotSettingsRequest.safeParse({ botInstructions: 'a'.repeat(4001) }).success,
+    ).toBe(false);
   });
 });

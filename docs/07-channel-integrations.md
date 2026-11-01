@@ -29,7 +29,8 @@
 | Bank transfer / VietQR auto-reconciliation | Yes (bank transfer) | P0 (billing) | Via bank webhook services (SePay/Casso…) |
 | MoMo | Mentioned in articles | P2 | |
 | SMS / ZNS via partners | "Coming soon" | P3 | |
-| Pancake / Haravan / Sapo / KiotViet | Name mentioned only | P3 | Order/inventory sync — market expansion |
+| KiotViet (PMS) | Name mentioned only | **P1 — products and stock shipped** | Catalog, per-branch stock, webhooks + 10-minute reconcile ([ADR-017](adr/ADR-017-external-source-of-truth-pms.md)); order push and customer sync next. Guide: [integrations/kiotviet.md](integrations/kiotviet.md) |
+| Pancake POS / Haravan / Sapo (PMS) | Name mentioned only | P3 | Order/inventory sync — shown "Sắp có" on `/app/integrations` |
 | Public API + Webhooks for customers | Not verified | P2 | Mandatory for the Enterprise plan |
 
 ## 2. Common connector contract

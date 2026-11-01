@@ -12,6 +12,7 @@ import { commerceRoutes } from './commerce/commerce.routes.js';
 import { lodgingRoutes } from './commerce/lodging.routes.js';
 import { lodgingV2Routes } from './lodging/lodging.routes.js';
 import { crmRoutes } from './crm/crm.routes.js';
+import { integrationRoutes } from './integration/integration.routes.js';
 import { healthRoutes } from './health/health.routes.js';
 import { identityRoutes } from './identity/identity.routes.js';
 import { accessRoutes } from './workspace/access.routes.js';
@@ -48,6 +49,8 @@ export * from './crm/contact-query.schema.js';
 export * from './crm/crm-settings.schema.js';
 export * from './crm/crm.events.js';
 export * from './crm/crm.routes.js';
+export * from './integration/integration.schema.js';
+export * from './integration/integration.routes.js';
 export * from './bot/bot.routes.js';
 export * from './knowledge/knowledge.schema.js';
 export * from './webchat/webchat.schema.js';
@@ -89,6 +92,7 @@ export const allRoutes = [
   ...lodgingV2Routes,
   ...crmRoutes,
   ...webchatRoutes,
+  ...integrationRoutes,
 ] as const;
 
 export * from './knowledge/media.schema.js';

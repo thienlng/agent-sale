@@ -5,6 +5,7 @@ import {
   ProductListQuery,
   type ProductListResponse,
   SetBotProductsRequest,
+  UpdateProductBotSettingsRequest,
   UploadProductImageRequest,
   type UploadProductImageResponse,
   UpsertProductRequest,
@@ -149,6 +150,17 @@ export class CatalogController {
   ): Promise<ProductDto> {
     if (body.accommodation) await this.lodging.assertHotel(ws);
     return this.catalog.updateProduct(ws, id, body);
+  }
+
+  @RequireCapability('catalog.manage')
+  @Patch('products/:productId/bot-settings')
+  updateBotSettings(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Param('productId') id: string,
+    @Body(new ZodValidationPipe(UpdateProductBotSettingsRequest))
+    body: UpdateProductBotSettingsRequest,
+  ): Promise<ProductDto> {
+    return this.catalog.updateBotSettings(ws, id, body);
   }
 
   @RequireCapability('catalog.manage')

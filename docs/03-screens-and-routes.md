@@ -37,6 +37,8 @@
 | | ↳ Shipping settings | `/quan-ly/thiet-lap/cai-dat-van-chuyen` | `/app/order-settings/shipping` | ORD-09 | P1 |
 | | ↳ Warehouses | `/quan-ly/thiet-lap/kho-hang` | `/app/order-settings/warehouses` | ORD-02 | P0 |
 | Sản phẩm (Products) | Shared product catalog (top-level entry since T-112; Preny nests it under Orders) | `/quan-ly/quan-ly-san-pham` | `/app/products`, `/app/products/{id}` | ORD-01 | P0 |
+| Tích hợp PMS (PMS integrations) | Hub of point-of-sale / inventory software (icon `Blocks`; right after Products, or after Platform integrations for hotels; shown with `catalog.manage`, marked "Thử nghiệm" in the sidebar until proven with real shops): KiotViet live, Sapo / Haravan / Pancake POS "Sắp có" | (name only) | `/app/integrations` | ORD-15 | P1 |
+| | KiotViet: 3-step connect wizard (credentials → branches → preview & start) until connected, then the connection view (status, sync progress polled every 3 s, counts, sync settings, "Cập nhật mã", recent activity, disconnect). Changes need `settings.manage`; others see it read-only. Guide: [integrations/kiotviet.md](integrations/kiotviet.md) | — | `/app/integrations/kiotviet` | ORD-15 | P1 |
 | Lưu trú (hotel businesses only, T-160; replace Sản phẩm in their sidebar) | Lịch — nightly calendar, find availability, holds, bookings, blocks | — | `/app/calendar` | VRT | P0 |
 | | Booking — today / holds / upcoming / all, booking sheet; bot holds marked "Bot tạo" with a waiting count and a source filter (T-161) | — | `/app/bookings` | VRT | P0 |
 | | Căn hộ — property cards or a compact list (remembered per user) and the editor (info, rooms, prices, policies, photos) | — | `/app/properties`, `/app/properties/$propertyId` | VRT | P0 |

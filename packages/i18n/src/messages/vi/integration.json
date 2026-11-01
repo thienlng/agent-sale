@@ -1,0 +1,157 @@
+{
+  "hub": {
+    "title": "Tích hợp PMS",
+    "subtitle": "Kết nối phần mềm quản lý bán hàng để bot tư vấn đúng giá, đúng tồn kho và đơn chốt tự vào phần mềm của bạn.",
+    "comingSoon": "Sắp có",
+    "connect": "Kết nối",
+    "manage": "Quản lý",
+    "notConnected": "Chưa kết nối",
+    "loadError": "Không tải được danh sách tích hợp. Tải lại trang để thử lại."
+  },
+  "providers": {
+    "kiotviet": {
+      "name": "KiotViet",
+      "description": "Đồng bộ sản phẩm, tồn kho theo chi nhánh, đơn hàng và khách hàng."
+    },
+    "sapo": {
+      "name": "Sapo"
+    },
+    "haravan": {
+      "name": "Haravan"
+    },
+    "pancake_pos": {
+      "name": "Pancake POS"
+    }
+  },
+  "wizard": {
+    "title": "Kết nối KiotViet",
+    "backToHub": "Tích hợp PMS",
+    "stepOf": "Bước {{current}}/{{total}}",
+    "steps": ["Thông tin kết nối", "Chi nhánh", "Xem trước & bắt đầu"],
+    "retailer": "Tên gian hàng",
+    "retailerHelp": "Phần trước .kiotviet.vn, ví dụ: shopabc. Dán cả đường link cũng được.",
+    "retailerSuffix": ".kiotviet.vn",
+    "clientId": "Client ID",
+    "clientSecret": "Mã bảo mật",
+    "secretHelp": "Rapiz mã hoá mã này và không bao giờ hiển thị lại.",
+    "showSecret": "Hiện mã bảo mật",
+    "hideSecret": "Ẩn mã bảo mật",
+    "where": "Lấy mã ở đâu?",
+    "whereSteps": [
+      "Đăng nhập KiotViet bằng tài khoản chủ cửa hàng.",
+      "Vào Thiết lập → Cửa hàng → Kết nối API, bấm Chỉnh sửa.",
+      "Xác thực bằng số điện thoại, bấm Tạo mã và tick quyền truy cập khách hàng, hoá đơn, đặt hàng.",
+      "Sao chép Client ID và Mã bảo mật dán vào đây."
+    ],
+    "guideLink": "Xem hướng dẫn của KiotViet",
+    "test": "Kiểm tra kết nối",
+    "errors": {
+      "required": {
+        "retailer": "Nhập tên gian hàng.",
+        "clientId": "Nhập Client ID.",
+        "clientSecret": "Nhập mã bảo mật."
+      },
+      "auth": "Client ID hoặc mã bảo mật không đúng. Kiểm tra lại trong KiotViet → Thiết lập kết nối API.",
+      "retailer": "Không tìm thấy gian hàng này. Tên gian hàng là phần trước .kiotviet.vn.",
+      "retailerChanged": "Mã mới thuộc gian hàng khác. Muốn đổi gian hàng, hãy ngắt kết nối rồi kết nối lại.",
+      "permission": "Tài khoản API chưa được cấp quyền: {{list}}. Tick các quyền này trong KiotViet rồi thử lại.",
+      "unavailable": "KiotViet đang không phản hồi. Thử lại sau ít phút.",
+      "busy": "KiotViet đang bận, thử lại sau một phút.",
+      "branch": "Chi nhánh không còn trên KiotViet. Tải lại danh sách và chọn lại.",
+      "branchesRequired": "Chọn ít nhất một chi nhánh.",
+      "orderBranchRequired": "Chọn chi nhánh nhận đơn trong các chi nhánh đã chọn.",
+      "noBranches": "Gian hàng chưa có chi nhánh nào trên KiotViet.",
+      "alreadyConnected": "Doanh nghiệp này đã kết nối KiotViet.",
+      "generic": "Có lỗi xảy ra. Thử lại sau."
+    },
+    "permissions": {
+      "products": "hàng hoá",
+      "branches": "chi nhánh",
+      "categories": "nhóm hàng",
+      "customers": "khách hàng",
+      "orders": "đặt hàng",
+      "invoices": "hoá đơn"
+    },
+    "branchesTitle": "Chi nhánh dùng để bán online",
+    "branchesHelp": "Bot báo tồn kho bằng tổng hàng còn lại của các chi nhánh bạn chọn.",
+    "reloadBranches": "Tải lại danh sách",
+    "orderBranch": "Chi nhánh nhận đơn",
+    "orderBranchHelp": "Đơn chốt trên Rapiz sẽ vào chi nhánh này.",
+    "orderBranchPlaceholder": "Chọn chi nhánh",
+    "store": "Gian hàng {{retailer}}",
+    "previewTitle": "Lần đồng bộ đầu tiên",
+    "preview": "{{matched}} sản phẩm khớp theo mã · {{created}} sản phẩm mới · {{rapizOnly}} sản phẩm chỉ có trên Rapiz (giữ nguyên)",
+    "previewPartial": "{{matched}} sản phẩm khớp theo mã · {{created}} sản phẩm mới (trong {{scanned}}/{{total}} sản phẩm đầu)",
+    "pushOrders": "Đẩy đơn sang KiotViet",
+    "syncCustomers": "Đồng bộ khách hàng",
+    "soon": "Sắp có",
+    "sourceNote": "Sau khi kết nối, tên, giá, ảnh và tồn kho của sản phẩm liên kết được sửa trên KiotViet. Cài đặt riêng cho bot vẫn sửa trên Rapiz.",
+    "start": "Bắt đầu đồng bộ",
+    "back": "Quay lại",
+    "next": "Tiếp tục",
+    "connected": "Đã kết nối KiotViet. Sản phẩm đang được nhập.",
+    "notConnected": "Doanh nghiệp chưa kết nối KiotViet. Chủ cửa hàng hoặc quản trị viên có thể kết nối."
+  },
+  "connection": {
+    "status": {
+      "connected": "Đã kết nối",
+      "syncing": "Đang đồng bộ",
+      "error": "Lỗi",
+      "disconnected": "Đã ngắt kết nối"
+    },
+    "clientId": "Client ID {{masked}}",
+    "lastSync": "Đồng bộ lần cuối {{time}}",
+    "neverSynced": "Chưa đồng bộ lần nào",
+    "syncNow": "Đồng bộ ngay",
+    "syncStarted": "Đã bắt đầu đồng bộ.",
+    "syncRunning": "Đang có một lần đồng bộ chạy.",
+    "progress": {
+      "products": "Đang nhập sản phẩm {{done}}/{{total}}",
+      "productsCount": "Đang nhập sản phẩm {{done}}",
+      "stock": "Đang cập nhật tồn kho",
+      "preparing": "Đang chuẩn bị đồng bộ",
+      "leave": "Bạn có thể rời trang, đồng bộ vẫn chạy."
+    },
+    "stats": {
+      "products": "Sản phẩm liên kết",
+      "customers": "Khách hàng",
+      "orders": "Đơn đã đẩy"
+    },
+    "settings": "Cài đặt đồng bộ",
+    "save": "Lưu",
+    "saved": "Đã lưu cài đặt đồng bộ.",
+    "conflict": "Kết nối vừa được thay đổi ở nơi khác. Đã tải lại, hãy thử lại.",
+    "updateCredentials": "Cập nhật mã",
+    "updateCredentialsHelp": "Dán Client ID và Mã bảo mật mới của cùng gian hàng trên KiotViet.",
+    "credentialsUpdated": "Đã cập nhật mã kết nối.",
+    "cancel": "Huỷ",
+    "lastErrorTitle": "Đồng bộ gặp lỗi",
+    "activity": "Hoạt động gần đây",
+    "activityEmpty": "Chưa có hoạt động nào.",
+    "activityError": "Không tải được hoạt động gần đây.",
+    "danger": "Ngắt kết nối",
+    "dangerHelp": "Dữ liệu đã đồng bộ được giữ lại. Sản phẩm sẽ thành sản phẩm của Rapiz và sửa được như bình thường.",
+    "confirmDisconnect": "Ngắt kết nối KiotViet?",
+    "disconnected": "Đã ngắt kết nối KiotViet."
+  },
+  "log": {
+    "connected": "Đã kết nối gian hàng {{retailer}}",
+    "full_sync_done": "Đã đồng bộ {{products}} sản phẩm",
+    "image_failed": "{{count}} ảnh không tải được (chỉ nhận JPEG/PNG)",
+    "sku_conflict": "Mã {{sku}} trùng với một sản phẩm khác trên Rapiz — đổi mã ở một bên để liên kết",
+    "auth_failed": "KiotViet từ chối mã bảo mật — có thể mã đã bị đổi. Bấm Cập nhật mã.",
+    "kiotviet_unavailable": "KiotViet không phản hồi, sẽ thử lại",
+    "webhook_register_failed": "Không đăng ký được cập nhật tức thời — vẫn đồng bộ mỗi 10 phút",
+    "webhook_bad_signature": "Bỏ qua một thông báo không hợp lệ",
+    "webhook_unknown": "Bỏ qua một thông báo không rõ từ KiotViet",
+    "sync_failed": "Đồng bộ thất bại, sẽ thử lại",
+    "sweep_capped": "Còn {{count}} sản phẩm cần kiểm tra lại ở lần đồng bộ sau",
+    "connect_failed": "Kết nối chưa hoàn tất nên không đồng bộ được. Ngắt kết nối rồi kết nối lại để thử lại.",
+    "unknown": "Sự kiện đồng bộ khác",
+    "level": {
+      "info": "Thông tin",
+      "warning": "Cảnh báo",
+      "error": "Lỗi"
+    }
+  }
+}

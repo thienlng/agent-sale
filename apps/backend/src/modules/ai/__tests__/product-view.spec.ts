@@ -36,6 +36,7 @@ const base: ProductDto = {
   priceMin: 250000,
   priceMax: 300000,
   available: 4,
+  external: null,
   createdAt: new Date(0).toISOString(),
   updatedAt: new Date(0).toISOString(),
 };

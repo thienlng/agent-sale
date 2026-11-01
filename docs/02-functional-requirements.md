@@ -136,7 +136,7 @@ The Preny inbox layout could not be captured → we design it on the standard 3-
 | ORD-12 | **Facebook ad optimization**: send Purchase events (CAPI) for orders from FB/IG pages | P1 | Dedup event_id; log Meta responses |
 | ORD-13 | Print orders/sales invoices (print templates) | P1 | |
 | ORD-14 | COD reconciliation | P2 | |
-| ORD-15 | Order/inventory sync with Pancake, Haravan, Sapo, KiotViet | P3 | |
+| ORD-15 | Order/inventory sync with point-of-sale software (PMS): KiotViet first, then Sapo, Haravan, Pancake POS | P1 — KiotViet catalog and stock built ([ADR-017](adr/ADR-017-external-source-of-truth-pms.md), [integrations/kiotviet.md](integrations/kiotviet.md)): connect wizard at `/app/integrations`, full import, webhooks and a 10-minute reconcile; linked products are locked in Rapiz except the bot settings. Order push (PR 2) and customer sync (PR 3) are next; other PMS later | KiotViet is the source of truth for linked products (name, price, pictures, stock, variants); a price change in KiotViet reaches Rapiz within seconds (webhook) or 10 minutes (reconcile); stock = Σ max(0, on hand − reserved) of the chosen sale branches; disconnecting keeps all data and makes the products editable again |
 
 ## 7. Marketing & remarketing (`MKT`)
 
