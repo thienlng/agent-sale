@@ -1765,7 +1765,9 @@
       "internalNote": "Ghi chú nội bộ của {{code}}",
       "internalNoteTitle": "Ghi chú nội bộ",
       "quickTotal": "Tổng {{amount}}",
-      "quickNoPrice": "Chưa có giá"
+      "quickNoPrice": "Chưa có giá",
+      "editNightNote": "Sửa ghi chú",
+      "addNightNote": "Thêm ghi chú"
     },
     "find": {
       "title": "Tìm trống",
@@ -1857,7 +1859,15 @@
       "deleteNote": "Xoá ghi chú",
       "noteSaved": "Đã lưu ghi chú",
       "noteDeleted": "Đã xoá ghi chú",
-      "noteError": "Không lưu được ghi chú. Thử lại."
+      "noteError": "Không lưu được ghi chú. Thử lại.",
+      "sectionNightNotes": "Ghi chú ngày",
+      "nightNotesEmpty": "Chưa có ghi chú cho các đêm này.",
+      "addNightNote": "Thêm ghi chú",
+      "editNightNoteOf": "Sửa ghi chú đêm {{date}}",
+      "deleteNightNoteOf": "Xoá ghi chú đêm {{date}}",
+      "nightNoteNights": "Áp dụng cho đêm",
+      "nightNoteNoNight": "Chọn ít nhất một đêm.",
+      "nightNotesLoadError": "Không tải được ghi chú ngày."
     },
     "quote": {
       "date": "Ngày",

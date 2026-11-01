@@ -24,7 +24,7 @@ import { FindAvailabilityBar } from './find-availability-bar';
 
 type SheetState =
   | { mode: 'create'; initial: BookingCreateInitial; key: number }
-  | { mode: 'view'; bookingId: string; key: number }
+  | { mode: 'view'; bookingId: string; noteNight?: string; key: number }
   | null;
 
 /**
@@ -88,6 +88,13 @@ export function CalendarPage({ initialFrom }: { initialFrom?: string }) {
         }),
       ...(canManage
         ? {
+            onEditNightNote: (bookingId: string, night: string) =>
+              setSheet((s) => ({
+                mode: 'view',
+                bookingId,
+                noteNight: night,
+                key: (s?.key ?? 0) + 1,
+              })),
             onHold: (o: AvailabilityOptionData) =>
               search &&
               openCreate({
@@ -242,6 +249,7 @@ export function CalendarPage({ initialFrom }: { initialFrom?: string }) {
           mode="view"
           open
           bookingId={sheet.bookingId}
+          {...(sheet.noteNight ? { noteNight: sheet.noteNight } : {})}
           onOpenChange={(open) => !open && setSheet(null)}
         />
       )}

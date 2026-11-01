@@ -1,4 +1,9 @@
-import type { BookingDto, QuoteDto, UpdateBookingRequest } from '@agent-sales/contracts';
+import {
+  type BookingDto,
+  normalizeBookingTags,
+  type QuoteDto,
+  type UpdateBookingRequest,
+} from '@agent-sales/contracts';
 
 import type { LodgingEventType } from '../api/lodging.events.js';
 import { LodgingError } from '../domain/lodging.errors.js';
@@ -241,9 +246,9 @@ const STAY_ONLY_FIELDS = [
   'tags',
 ] as const;
 
-/** Trimmed tags without empties or duplicates, first occurrence first (labels only). */
+/** NFC-normalised, trimmed tags without empties or duplicates, first occurrence first. */
 export function normalizeTags(tags: readonly string[]): string[] {
-  return [...new Set(tags.map((t) => t.trim()).filter(Boolean))];
+  return normalizeBookingTags(tags);
 }
 
 /** Which bookings an edit may touch, and which fields (409 / 400 otherwise). */

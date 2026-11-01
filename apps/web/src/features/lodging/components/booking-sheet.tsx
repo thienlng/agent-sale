@@ -31,7 +31,12 @@ export type BookingSheetProps = {
       /** Called after a successful create (the sheet does not close itself). */
       onCreated?: (booking: BookingDetail) => void;
     }
-  | { mode: 'view'; bookingId: string }
+  | {
+      mode: 'view';
+      bookingId: string;
+      /** Open the "Ghi chú ngày" editor on this night (the calendar's "Sửa ghi chú"). */
+      noteNight?: string;
+    }
 );
 
 export function BookingSheet(props: BookingSheetProps) {
@@ -65,7 +70,11 @@ export function BookingSheet(props: BookingSheetProps) {
               onClose={() => props.onOpenChange(false)}
             />
           ) : (
-            <BookingView key={props.bookingId} bookingId={props.bookingId} />
+            <BookingView
+              key={props.bookingId}
+              bookingId={props.bookingId}
+              focusNoteNight={props.noteNight}
+            />
           ))}
       </SheetContent>
     </Sheet>

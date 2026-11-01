@@ -3,8 +3,11 @@ import { AccommodationDetails } from '../commerce/lodging.schema.js';
 import {
   BookingListQuery,
   BookingStatusRequest,
+  BookingTag,
   CreateBookingRequest,
   GalleryImage,
+  normalizeBookingTag,
+  normalizeBookingTags,
   OverrideInput,
   PropertyInput,
   PutNightNoteRequest,
@@ -267,5 +270,16 @@ describe('lodging calendar polish: night notes, internal note, tags', () => {
       true,
     );
     expect(BookingListQuery.parse({ tag: 'Đã cọc' }).tag).toBe('Đã cọc');
+  });
+
+  it('stores tags NFC-normalised, so an NFD "Đã cọc" equals the NFC suggestion and filter', () => {
+    const nfc = 'Đã cọc'.normalize('NFC');
+    const nfd = nfc.normalize('NFD');
+    expect(nfd).not.toBe(nfc);
+    expect(BookingTag.parse(` ${nfd} `)).toBe(nfc);
+    expect(BookingListQuery.parse({ tag: nfd }).tag).toBe(nfc);
+    expect(UpdateBookingRequest.parse({ version: 1, tags: [nfd] }).tags).toEqual([nfc]);
+    expect(normalizeBookingTag(` ${nfd}`)).toBe(nfc);
+    expect(normalizeBookingTags([nfc, ` ${nfd} `, '', 'VIP'])).toEqual([nfc, 'VIP']);
   });
 });

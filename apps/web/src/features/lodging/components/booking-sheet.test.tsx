@@ -623,3 +623,168 @@ describe('BookingSheet tags', () => {
     );
   });
 });
+
+const NOTE = '0193a000-0000-7000-8000-000000000301';
+/** The calendar the "Ghi chú ngày" section loads: A17 with a note on 02/11. */
+const notesCalendar = (
+  notes: Array<{ id: string; unitId: string | null; night: string; text: string }>,
+) => ({
+  from: '2099-11-02',
+  to: '2099-11-04',
+  today: '2099-11-01',
+  properties: [
+    {
+      id: PROP,
+      code: 'A17',
+      name: 'Villa A17',
+      area: '',
+      sellMode: 'whole',
+      standardAdults: 24,
+      standardChildren: 8,
+      wholePrices: [],
+      rows: [{ unitId: UNIT, name: 'Nguyên căn', kind: 'whole', prices: [], segments: [] }],
+      internalNote: '',
+      notes,
+    },
+  ],
+});
+const savedNote = { status: 200, body: { note: null } };
+
+describe('BookingSheet night notes', () => {
+  it('lists the notes on the booking nights and edits one night', async () => {
+    const calls = stubApi({
+      [`GET /lodging/bookings/${BK}`]: { status: 200, body: booking() },
+      'GET /lodging/calendar': {
+        status: 200,
+        body: notesCalendar([{ id: NOTE, unitId: null, night: '2099-11-02', text: 'Sửa điện' }]),
+      },
+      [`PUT /lodging/properties/${PROP}/notes`]: savedNote,
+    });
+    const user = userEvent.setup();
+    renderSheet({ mode: 'view', bookingId: BK });
+    const sheet = await screen.findByRole('dialog');
+    const section = await within(sheet).findByRole('region', { name: 'Ghi chú ngày' });
+    expect(await within(section).findByText('Sửa điện')).toBeInTheDocument();
+    await user.click(within(section).getByRole('button', { name: 'Sửa ghi chú đêm T2 02/11' }));
+    const text = within(section).getByRole('textbox', { name: 'Ghi chú cho đêm đã chọn' });
+    expect(text).toHaveValue('Sửa điện');
+    expect(text).toHaveFocus();
+    expect(within(section).getByRole('checkbox', { name: 'T2 02/11' })).toBeChecked();
+    expect(within(section).getByRole('checkbox', { name: 'T3 03/11' })).not.toBeChecked();
+    await user.clear(text);
+    await user.type(text, 'Sửa điện xong 15h');
+    await user.click(within(section).getByRole('checkbox', { name: 'T3 03/11' }));
+    await user.click(within(section).getByRole('button', { name: 'Lưu ghi chú' }));
+    await waitFor(() =>
+      expect(
+        calls.filter((c) => c.key === `PUT /lodging/properties/${PROP}/notes`).map((c) => c.body),
+      ).toEqual([
+        { unitId: null, night: '2099-11-02', text: 'Sửa điện xong 15h' },
+        { unitId: null, night: '2099-11-03', text: 'Sửa điện xong 15h' },
+      ]),
+    );
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith('Đã lưu ghi chú', expect.anything()),
+    );
+  });
+
+  it('adds one note to every night of the booking', async () => {
+    const calls = stubApi({
+      [`GET /lodging/bookings/${BK}`]: { status: 200, body: booking() },
+      'GET /lodging/calendar': { status: 200, body: notesCalendar([]) },
+      [`PUT /lodging/properties/${PROP}/notes`]: savedNote,
+    });
+    const user = userEvent.setup();
+    renderSheet({ mode: 'view', bookingId: BK });
+    const sheet = await screen.findByRole('dialog');
+    const section = await within(sheet).findByRole('region', { name: 'Ghi chú ngày' });
+    expect(
+      await within(section).findByText('Chưa có ghi chú cho các đêm này.'),
+    ).toBeInTheDocument();
+    await user.click(within(section).getByRole('button', { name: 'Thêm ghi chú' }));
+    await user.type(
+      within(section).getByRole('textbox', { name: 'Ghi chú cho đêm đã chọn' }),
+      'Khách cần nôi',
+    );
+    await user.click(within(section).getByRole('button', { name: 'Lưu ghi chú' }));
+    await waitFor(() =>
+      expect(
+        calls.filter((c) => c.key === `PUT /lodging/properties/${PROP}/notes`).map((c) => c.body),
+      ).toEqual([
+        { unitId: null, night: '2099-11-02', text: 'Khách cần nôi' },
+        { unitId: null, night: '2099-11-03', text: 'Khách cần nôi' },
+      ]),
+    );
+  });
+
+  it('deletes the note of one night', async () => {
+    const calls = stubApi({
+      [`GET /lodging/bookings/${BK}`]: { status: 200, body: booking() },
+      'GET /lodging/calendar': {
+        status: 200,
+        body: notesCalendar([{ id: NOTE, unitId: null, night: '2099-11-03', text: 'Sửa điện' }]),
+      },
+      [`PUT /lodging/properties/${PROP}/notes`]: savedNote,
+    });
+    const user = userEvent.setup();
+    renderSheet({ mode: 'view', bookingId: BK });
+    const sheet = await screen.findByRole('dialog');
+    const section = await within(sheet).findByRole('region', { name: 'Ghi chú ngày' });
+    await user.click(
+      await within(section).findByRole('button', { name: 'Xoá ghi chú đêm T3 03/11' }),
+    );
+    await waitFor(() =>
+      expect(calls.find((c) => c.key === `PUT /lodging/properties/${PROP}/notes`)?.body).toEqual({
+        unitId: null,
+        night: '2099-11-03',
+        text: '',
+      }),
+    );
+  });
+
+  it('only lists the notes without orders.manage', async () => {
+    can.value = false;
+    stubApi({
+      [`GET /lodging/bookings/${BK}`]: { status: 200, body: booking() },
+      'GET /lodging/calendar': {
+        status: 200,
+        body: notesCalendar([{ id: NOTE, unitId: null, night: '2099-11-02', text: 'Sửa điện' }]),
+      },
+    });
+    renderSheet({ mode: 'view', bookingId: BK });
+    const sheet = await screen.findByRole('dialog');
+    const section = await within(sheet).findByRole('region', { name: 'Ghi chú ngày' });
+    expect(await within(section).findByText('Sửa điện')).toBeInTheDocument();
+    expect(within(section).queryByRole('button')).toBeNull();
+  });
+});
+
+describe('BookingSheet NFC tags', () => {
+  it('treats an NFD "Đã cọc" as the NFC suggestion (pressed, no duplicate chip)', async () => {
+    const nfd = 'Đã cọc'.normalize('NFD');
+    const tagged = booking({ tags: [nfd] });
+    const calls = stubApi({
+      [`GET /lodging/bookings/${BK}`]: { status: 200, body: tagged },
+      [`GET /lodging/properties/${PROP}`]: { status: 200, body: property },
+      'POST /lodging/quote': { status: 200, body: quote },
+      [`PATCH /lodging/bookings/${BK}`]: { status: 200, body: tagged },
+    });
+    const user = userEvent.setup();
+    renderSheet({ mode: 'view', bookingId: BK });
+    const sheet = await screen.findByRole('dialog');
+    await user.click(await within(sheet).findByRole('button', { name: 'Sửa' }));
+    expect(
+      within(sheet).getByRole('button', { name: 'Đã cọc', pressed: true }),
+    ).toBeInTheDocument();
+    expect(within(sheet).queryByRole('button', { name: /^Bỏ nhãn/ })).toBeNull();
+    await user.type(within(sheet).getByRole('textbox', { name: 'Thêm nhãn' }), `${nfd}{Enter}`);
+    await user.click(within(sheet).getByRole('button', { name: 'Cần xe đón', pressed: false }));
+    await user.click(within(sheet).getByRole('button', { name: 'Lưu' }));
+    await waitFor(() =>
+      expect(calls.find((c) => c.key.startsWith('PATCH'))?.body).toEqual({
+        version: 3,
+        tags: ['Đã cọc'.normalize('NFC'), 'Cần xe đón'],
+      }),
+    );
+  });
+});

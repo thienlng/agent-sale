@@ -292,9 +292,20 @@ export type QuoteDto = z.infer<typeof QuoteDto>;
 
 // ── Bookings ──────────────────────────────────────────────────────────────────
 
+/**
+ * One tag as stored: NFC-normalised and trimmed, so "Đã cọc" typed with combining marks (NFD)
+ * equals the NFC suggestion and the list filter.
+ */
+export function normalizeBookingTag(tag: string): string {
+  return tag.normalize('NFC').trim();
+}
+/** Tags as stored: normalised, without empties or duplicates, first occurrence first. */
+export function normalizeBookingTags(tags: readonly string[]): string[] {
+  return [...new Set(tags.map(normalizeBookingTag).filter(Boolean))];
+}
 /** A free-text label on a booking (e.g. "Đã cọc"); labels only, never money logic. */
-export const BookingTag = z.string().trim().min(1).max(30);
-/** At most 8 tags; the server trims and drops duplicates, keeping the first occurrence. */
+export const BookingTag = z.string().normalize('NFC').trim().min(1).max(30);
+/** At most 8 tags; the server normalises (`normalizeBookingTags`), keeping the first occurrence. */
 export const BookingTags = z.array(BookingTag).max(8);
 
 export const CreateBookingRequest = z.discriminatedUnion('kind', [

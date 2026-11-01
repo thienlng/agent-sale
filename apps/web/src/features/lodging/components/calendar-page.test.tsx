@@ -31,6 +31,7 @@ const R2 = '0193a000-0000-7000-8000-000000000022';
 const BK1 = '0193a000-0000-7000-8000-000000000101';
 const BK2 = '0193a000-0000-7000-8000-000000000102';
 const NOTE1 = '0193a000-0000-7000-8000-000000000301';
+const NOTE2 = '0193a000-0000-7000-8000-000000000302';
 const FROM = '2026-11-02'; // a Monday
 
 const nights = Array.from({ length: 14 }, (_, i) => {
@@ -225,6 +226,17 @@ const created = {
   createdAt: '2026-11-01T00:00:00.000Z',
   updatedAt: '2026-11-01T00:00:00.000Z',
   history: [],
+};
+
+/** BK-0001 as the booking sheet loads it (A17, nights 06/11 and 07/11). */
+const bookedA17 = {
+  ...created,
+  code: 'BK-0001',
+  status: 'confirmed',
+  checkIn: '2026-11-06',
+  checkOut: '2026-11-08',
+  guestName: 'Anh Nam',
+  holdExpiresAt: null,
 };
 
 type Reply = { status: number; body?: unknown };
@@ -563,6 +575,81 @@ describe('CalendarPage notes, tags and quick view', () => {
     expect(await screen.findByRole('tooltip')).toHaveTextContent('Anh Nam');
   });
 
+  it('announces the night note of a booked cell once (in its label, not in the tooltip)', async () => {
+    const noted = structuredClone(calendar);
+    noted.properties[0]?.notes.push({
+      id: NOTE2,
+      unitId: null,
+      night: '2026-11-06',
+      text: 'Dọn hồ bơi sáng',
+    });
+    stubApi({ 'GET /lodging/calendar': { status: 200, body: noted } });
+    renderPage();
+    const taken = await cell(/^A17, Thứ Sáu 06\/11, Đã đặt BK-0001, có ghi chú: Dọn hồ bơi sáng$/);
+    taken.focus();
+    const tip = await screen.findByRole('tooltip');
+    expect(tip).toHaveTextContent('Dọn hồ bơi sáng');
+    expect(taken).toHaveAccessibleDescription(expect.stringContaining('Anh Nam'));
+    expect(taken).not.toHaveAccessibleDescription(expect.stringContaining('Dọn hồ bơi sáng'));
+  });
+
+  it('opens the booking sheet on its night notes from the tooltip "Sửa ghi chú"', async () => {
+    const noted = structuredClone(calendar);
+    noted.properties[0]?.notes.push({
+      id: NOTE2,
+      unitId: null,
+      night: '2026-11-07',
+      text: 'Dọn hồ bơi sáng',
+    });
+    const calls = stubApi({
+      'GET /lodging/calendar': { status: 200, body: noted },
+      [`GET /lodging/bookings/${BK1}`]: { status: 200, body: bookedA17 },
+      [`PUT /lodging/properties/${A17}/notes`]: {
+        status: 200,
+        body: { note: { id: NOTE2, unitId: null, night: '2026-11-07', text: 'Dọn hồ bơi chiều' } },
+      },
+    });
+    const user = userEvent.setup();
+    renderPage();
+    await user.hover(await cell(/^A17, Thứ Bảy 07\/11, Đã đặt BK-0001/));
+    const tip = await screen.findByRole('tooltip');
+    const action = tip.querySelector<HTMLButtonElement>('[data-action="edit-night-note"]');
+    expect(action).toHaveTextContent('Sửa ghi chú');
+    await user.click(action as HTMLButtonElement);
+    const sheet = await screen.findByRole('dialog');
+    const section = await within(sheet).findByRole('region', { name: 'Ghi chú ngày' });
+    const text = await within(section).findByRole('textbox', { name: 'Ghi chú cho đêm đã chọn' });
+    await waitFor(() => expect(text).toHaveFocus());
+    expect(text).toHaveValue('Dọn hồ bơi sáng');
+    expect(within(section).getByRole('checkbox', { name: 'T7 07/11' })).toBeChecked();
+    expect(within(section).getByRole('checkbox', { name: 'T6 06/11' })).not.toBeChecked();
+    await user.clear(text);
+    await user.type(text, 'Dọn hồ bơi chiều');
+    await user.click(within(section).getByRole('button', { name: 'Lưu ghi chú' }));
+    await waitFor(() =>
+      expect(
+        calls.filter((c) => c.key === `PUT /lodging/properties/${A17}/notes`).map((c) => c.body),
+      ).toEqual([{ unitId: null, night: '2026-11-07', text: 'Dọn hồ bơi chiều' }]),
+    );
+  });
+
+  it('offers no "Sửa ghi chú" in the tooltip without orders.manage', async () => {
+    can.value = false;
+    stubApi();
+    const user = userEvent.setup();
+    renderPage();
+    await user.hover(await cell(/^A17, Thứ Sáu 06\/11, Đã đặt BK-0001/));
+    const tip = await screen.findByRole('tooltip');
+    expect(tip.querySelector('[data-action="edit-night-note"]')).toBeNull();
+  });
+
+  it('describes the internal-note button with the note for screen readers', async () => {
+    stubApi();
+    renderPage();
+    const trigger = await screen.findByRole('button', { name: 'Ghi chú nội bộ của A17' });
+    expect(trigger).toHaveAccessibleDescription('Chủ nhà: gọi trước 21h, chìa khoá ở bảo vệ');
+  });
+
   it('shows the property internal note in a card on the property name', async () => {
     stubApi();
     const user = userEvent.setup();
@@ -570,8 +657,10 @@ describe('CalendarPage notes, tags and quick view', () => {
     const trigger = await screen.findByRole('button', { name: 'Ghi chú nội bộ của A17' });
     expect(screen.queryByRole('button', { name: 'Ghi chú nội bộ của H1' })).toBeNull();
     await user.click(trigger);
-    expect(
-      await screen.findByText('Chủ nhà: gọi trước 21h, chìa khoá ở bảo vệ'),
-    ).toBeInTheDocument();
+    // The card shows the note; the other copy is the trigger's visually hidden description.
+    await waitFor(() =>
+      expect(screen.getAllByText('Chủ nhà: gọi trước 21h, chìa khoá ở bảo vệ')).toHaveLength(2),
+    );
+    expect(screen.getByText('Ghi chú nội bộ')).toBeInTheDocument();
   });
 });
