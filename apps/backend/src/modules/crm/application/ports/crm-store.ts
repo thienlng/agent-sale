@@ -214,6 +214,10 @@ export interface CrmTx {
     releasePending(olderThan?: Date): Promise<number>;
     /** 'pending' and 'failed' → null; returns how many. */
     clearPushStates(): Promise<number>;
+    /** 'failed' → null (the next claim takes them again); returns how many. */
+    releaseFailed(): Promise<number>;
+    /** The customer while it is claimed ('pending'), unlinked and live; null otherwise. */
+    pendingPush(contactId: string): Promise<ContactRecord | null>;
     stalePending(since: Date, olderThan: Date, limit: number): Promise<string[]>;
     countLinked(source: string): Promise<number>;
     externalIdOf(source: string, contactId: string): Promise<string | null>;

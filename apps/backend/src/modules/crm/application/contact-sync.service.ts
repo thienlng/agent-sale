@@ -92,14 +92,19 @@ export class ContactSyncService implements ContactSyncFacade {
   ): Promise<PushableContact[]> {
     return this.store.run(ws, async (tx) => {
       const rows = await tx.contactSync.claim(since, Math.max(0, Math.trunc(limit)), new Date());
-      return rows.map((c) => ({
-        id: c.id,
-        // A customer may have only a phone; the PMS needs a name.
-        name: c.name ?? c.phone ?? c.phoneNormalized ?? '',
-        phoneE164: c.phoneNormalized ?? '',
-        email: c.email,
-        address: c.address,
-      }));
+      return rows.map(pushable);
+    });
+  }
+
+  pushableContact(
+    ws: WorkspaceId,
+    _source: ContactExternalSource,
+    contactId: string,
+  ): Promise<PushableContact | null> {
+    if (!isUuid(contactId)) return Promise.resolve(null);
+    return this.store.run(ws, async (tx) => {
+      const c = await tx.contactSync.pendingPush(contactId);
+      return c?.phoneNormalized ? pushable(c) : null;
     });
   }
 
@@ -136,6 +141,10 @@ export class ContactSyncService implements ContactSyncFacade {
     olderThan?: Date,
   ): Promise<number> {
     return this.store.run(ws, (tx) => tx.contactSync.releasePending(olderThan));
+  }
+
+  releaseFailedContactPushes(ws: WorkspaceId, _source: ContactExternalSource): Promise<number> {
+    return this.store.run(ws, (tx) => tx.contactSync.releaseFailed());
   }
 
   staleContactPushes(
@@ -295,6 +304,17 @@ export class ContactSyncService implements ContactSyncFacade {
     );
     return unlinked.length;
   }
+}
+
+function pushable(c: ContactRecord): PushableContact {
+  return {
+    id: c.id,
+    // A customer may have only a phone; the PMS needs a name.
+    name: c.name ?? c.phone ?? c.phoneNormalized ?? '',
+    phoneE164: c.phoneNormalized ?? '',
+    email: c.email,
+    address: c.address,
+  };
 }
 
 function history(

@@ -79,6 +79,15 @@ export interface ContactSyncFacade {
     source: ContactExternalSource,
     externalId: string,
   ): Promise<void>;
+  /**
+   * What a push job needs of a claimed customer: null unless it is still `pending`, unlinked and
+   * live (pushed, released, linked or archived meanwhile).
+   */
+  pushableContact(
+    ws: WorkspaceId,
+    source: ContactExternalSource,
+    contactId: string,
+  ): Promise<PushableContact | null>;
   /** 'pending' → 'failed' with an i18n error code (PII-free); any other state: no-op. */
   markContactPushFailed(ws: WorkspaceId, contactId: string, code: string): Promise<void>;
   /**
@@ -90,6 +99,11 @@ export interface ContactSyncFacade {
     source: ContactExternalSource,
     olderThan?: Date,
   ): Promise<number>;
+  /**
+   * Failed pushes go back to no push state, so the next claim retries them (a full import, or the
+   * owner turning the sync on again). Returns how many.
+   */
+  releaseFailedContactPushes(ws: WorkspaceId, source: ContactExternalSource): Promise<number>;
   /**
    * Customers still `pending`, created since `since`, claimed before `olderThan`, oldest claim
    * first: the caller re-queues those its own queue lost (a crash between claim and enqueue).

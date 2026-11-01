@@ -13,6 +13,8 @@ import {
 } from '../../commerce/api/index.js';
 import { CatalogImport } from '../application/catalog-import.js';
 import { CatalogWriter } from '../application/catalog-writer.js';
+import { ContactPusher } from '../application/contact-push.js';
+import { CustomerSync } from '../application/customer-sync.js';
 import { OrderPusher, STALE_PENDING_MS } from '../application/order-push.js';
 import type { ConnectionRecord, JobRecord } from '../application/ports/integration-store.js';
 import { SyncService } from '../application/sync.service.js';
@@ -25,8 +27,9 @@ import {
   KiotVietUnavailableError,
 } from '../domain/integration.errors.js';
 import { KV_ORDER_STATUS, kiotVietOrderTotal } from '../domain/kiotviet-order.js';
-import { FakeKiotVietGateway } from './factories/fake-gateway.js';
+import { FakeKiotVietGateway, kvCustomer } from './factories/fake-gateway.js';
 import { JobStore } from './factories/job-store.js';
+import { MemoryContacts } from './memory-contacts.js';
 
 const ws = workspaceId('0190f5c2-0000-7000-8000-000000000001');
 const CONN = '0190f5c2-0000-7000-8000-0000000000c1';
@@ -224,6 +227,9 @@ let store: JobStore;
 let gateway: FakeKiotVietGateway;
 let orders: MemoryOrders;
 let sync: SyncService;
+let contacts: MemoryContacts;
+let customers: CustomerSync;
+let contactPusher: ContactPusher;
 let pusher: OrderPusher;
 let webhooks: WebhookApplier;
 let catalog: CatalogSyncFacade;
@@ -242,7 +248,10 @@ beforeEach(() => {
     archiveUnlinkedVariants: vi.fn(async () => 0),
   } as unknown as CatalogSyncFacade;
   const writer = new CatalogWriter(store, gateway, catalog);
-  pusher = new OrderPusher(store, gateway, orders, catalog);
+  contacts = new MemoryContacts();
+  customers = new CustomerSync(store, gateway, contacts);
+  contactPusher = new ContactPusher(store, gateway, contacts);
+  pusher = new OrderPusher(store, gateway, orders, catalog, contactPusher);
   sync = new SyncService(
     store,
     new CatalogImport(store, gateway, catalog, writer),
@@ -250,8 +259,10 @@ beforeEach(() => {
     writer,
     pusher,
     new WebhookSet(gateway, box, { webhookBaseUrl: 'https://hooks.rapiz.test' }),
+    customers,
+    contactPusher,
   );
-  webhooks = new WebhookApplier(store, gateway, catalog, writer, box, orders);
+  webhooks = new WebhookApplier(store, gateway, catalog, writer, box, orders, customers);
   store.connections.push(connection());
 });
 
@@ -490,9 +501,62 @@ describe('push_order job', () => {
   });
 });
 
+describe('the KiotViet customer of a pushed order', () => {
+  const customersOn = () => {
+    store.connections[0] = connection({
+      settings: { ...connection().settings, syncCustomers: true },
+    });
+  };
+
+  it('names the KiotViet customer with the buyer phone instead of the inline customer', async () => {
+    customersOn();
+    gateway.customerList = [kvCustomer(9001, { contactNumber: '0901234567' })];
+    orders.add(ORDER, { state: 'pending' });
+    await sync.runJob(pushJob());
+
+    const sent = gateway.orders[0]!.body;
+    expect(sent.customerId).toBe(9001);
+    expect(sent.customer).toBeUndefined();
+    expect(gateway.createdCustomers).toEqual([]);
+    expect(order().state).toBe('pushed');
+  });
+
+  it('creates the customer in the order branch when KiotViet has none', async () => {
+    customersOn();
+    orders.add(ORDER, { state: 'pending' });
+    await sync.runJob(pushJob());
+
+    expect(gateway.createdCustomers).toEqual([
+      { name: 'Lan', contactNumber: '0901234567', branchId: 3 },
+    ]);
+    expect(gateway.orders[0]!.body.customerId).toBe(gateway.customerList[0]!.id);
+  });
+
+  it('falls back to the inline customer when the customer cannot be resolved', async () => {
+    customersOn();
+    gateway.fail.customersByPhone = new KiotVietUnavailableError();
+    orders.add(ORDER, { state: 'pending' });
+    await sync.runJob(pushJob());
+
+    const sent = gateway.orders[0]!.body;
+    expect(sent.customerId).toBeUndefined();
+    expect(sent.customer).toEqual({ name: 'Lan', contactNumber: '0901234567' });
+    expect(order().state).toBe('pushed');
+  });
+
+  it('keeps the inline customer while customer sync is off', async () => {
+    gateway.customerList = [kvCustomer(9001, { contactNumber: '0901234567' })];
+    orders.add(ORDER, { state: 'pending' });
+    await sync.runJob(pushJob());
+
+    expect(gateway.orders[0]!.body.customerId).toBeUndefined();
+    expect(gateway.calls.filter((c) => c.method === 'customersByPhone')).toEqual([]);
+  });
+});
+
 describe('push scan', () => {
   it('claims eligible orders every 15 s and queues one job per order', async () => {
-    const runner = new SyncRunner(store, sync, webhooks, pusher);
+    const runner = new SyncRunner(store, sync, webhooks, pusher, contactPusher);
     orders.add(ORDER);
     orders.add('0190f5c2-0000-7000-8000-0000000000a2');
     store.connections.push(

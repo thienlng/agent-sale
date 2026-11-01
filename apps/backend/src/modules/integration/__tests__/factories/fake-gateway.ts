@@ -8,6 +8,7 @@ import type {
   KvPage,
   KvWebhook,
 } from '../../application/ports/kiotviet-gateway.js';
+import type { KvCustomer, KvCustomerBody } from '../../domain/kiotviet-customer.js';
 import type { KvProduct } from '../../domain/kiotviet-mapping.js';
 import type { KvOrderBody } from '../../domain/kiotviet-order.js';
 
@@ -40,6 +41,14 @@ export class FakeKiotVietGateway implements KiotVietGateway {
    * in the order branch, as KiotViet reserves an order's goods.
    */
   productsById: KvProduct[] = [];
+  /** The store's customers (`customers`, `customerById`, `customersByPhone`, `createCustomer`). */
+  customerList: KvCustomer[] = [];
+  /** Answered as `removedIds` by `customers` when `lastModifiedFrom` is given. */
+  removedCustomerIds: number[] = [];
+  /** Bodies `createCustomer` received. */
+  createdCustomers: KvCustomerBody[] = [];
+  /** Errors the next `createCustomer` calls throw *after* storing the customer (a lost answer). */
+  lostCustomerCreates: Error[] = [];
   /** What `productCount` answers; defaults to the number of codes. */
   total: number | null | undefined = undefined;
   private nextWebhookId = 100;
@@ -63,6 +72,10 @@ export class FakeKiotVietGateway implements KiotVietGateway {
       createOrder: (c, b) => (record('createOrder', c), this.createOrder(c, b)),
       recentOrders: (c, q) => (record('recentOrders', c), this.recentOrders(c, q)),
       orderById: (c, id) => (record('orderById', c), this.orderById(c, id)),
+      customers: (c, q) => (record('customers', c), this.customers(c, q)),
+      customerById: (c, id) => (record('customerById', c), this.customerById(c, id)),
+      customersByPhone: (c, n) => (record('customersByPhone', c), this.customersByPhone(c, n)),
+      createCustomer: (c, b) => (record('createCustomer', c), this.createCustomer(c, b)),
     };
   }
 
@@ -169,6 +182,47 @@ export class FakeKiotVietGateway implements KiotVietGateway {
     return Promise.resolve(o ? { id: o.id, code: o.code, status: o.status } : null);
   }
 
+  customers(
+    c: KvCredentials,
+    q: { currentItem: number; pageSize: number; lastModifiedFrom?: Date },
+  ): Promise<KvPage<KvCustomer>> {
+    this.track('customers', false, c);
+    if (this.fail.customers) return Promise.reject(this.fail.customers);
+    return Promise.resolve({
+      data: structuredClone(this.customerList.slice(q.currentItem, q.currentItem + q.pageSize)),
+      total: this.customerList.length,
+      removedIds: q.lastModifiedFrom ? [...this.removedCustomerIds] : [],
+    });
+  }
+
+  customerById(c: KvCredentials, id: number): Promise<KvCustomer | null> {
+    this.track('customerById', false, c);
+    if (this.fail.customerById) return Promise.reject(this.fail.customerById);
+    const found = this.customerList.find((x) => x.id === id);
+    return Promise.resolve(found ? structuredClone(found) : null);
+  }
+
+  customersByPhone(c: KvCredentials, contactNumber: string): Promise<KvCustomer[]> {
+    this.track('customersByPhone', false, c);
+    if (this.fail.customersByPhone) return Promise.reject(this.fail.customersByPhone);
+    return Promise.resolve(
+      structuredClone(
+        this.customerList.filter((x) => (x.contactNumber ?? '').includes(contactNumber)),
+      ),
+    );
+  }
+
+  createCustomer(c: KvCredentials, body: KvCustomerBody): Promise<{ id: number }> {
+    this.track('createCustomer', false, c);
+    if (this.fail.createCustomer) return Promise.reject(this.fail.createCustomer);
+    this.createdCustomers.push(structuredClone(body));
+    const id = 9000 + this.customerList.length + 1;
+    this.customerList.push(kvCustomer(id, { name: body.name, contactNumber: body.contactNumber }));
+    const lost = this.lostCustomerCreates.shift();
+    if (lost) return Promise.reject(lost);
+    return Promise.resolve({ id });
+  }
+
   private track(method: keyof KiotVietGateway, interactive: boolean, c?: KvCredentials) {
     this.calls.push({ method, interactive, credentials: c });
   }
@@ -206,4 +260,21 @@ export class FakeKiotVietGateway implements KiotVietGateway {
     this.webhooks = this.webhooks.filter((h) => h.id !== id);
     return Promise.resolve();
   }
+}
+
+/** A KiotViet customer for tests. */
+export function kvCustomer(id: number, over: Partial<KvCustomer> = {}): KvCustomer {
+  return {
+    id,
+    code: `KH${id}`,
+    name: `Khách ${id}`,
+    contactNumber: null,
+    email: null,
+    address: null,
+    wardName: null,
+    locationName: null,
+    birthDate: null,
+    gender: null,
+    ...over,
+  };
 }

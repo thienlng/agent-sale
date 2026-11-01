@@ -84,6 +84,19 @@ export class MemoryIntegrationStore implements IntegrationStore {
     );
     if (exclusive && busy) return Promise.resolve(false);
     const orderId = job.payload?.['orderId'];
+    const contactId = job.payload?.['contactId'] ?? null;
+    if (
+      job.kind === 'customer_import' &&
+      this.jobs.some(
+        (j) =>
+          j.open &&
+          j.kind === 'customer_import' &&
+          j.connectionId === job.connectionId &&
+          (j.payload['contactId'] ?? null) === contactId,
+      )
+    ) {
+      return Promise.resolve(false);
+    }
     if (
       job.kind === 'push_order' &&
       this.jobs.some((j) => j.open && j.kind === 'push_order' && j.payload['orderId'] === orderId)
@@ -168,6 +181,7 @@ export class MemoryIntegrationStore implements IntegrationStore {
           connectionId: c.id,
           createdAt: c.createdAt,
           pushOrders: c.settings.pushOrders,
+          syncCustomers: c.settings.syncCustomers,
         })),
     );
 }

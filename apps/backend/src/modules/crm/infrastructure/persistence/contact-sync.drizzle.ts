@@ -134,6 +134,29 @@ export function contactSyncTx(tx: TenantTx): Pick<CrmTx, 'contactSync'> {
           .returning({ id: c.id });
         return rows.length;
       },
+      async releaseFailed() {
+        const rows = await tx
+          .update(c)
+          .set({ externalPushState: null, externalPushAt: null, externalPushError: null })
+          .where(eq(c.externalPushState, 'failed'))
+          .returning({ id: c.id });
+        return rows.length;
+      },
+      async pendingPush(contactId) {
+        const [r] = await tx
+          .select()
+          .from(c)
+          .where(
+            and(
+              eq(c.id, contactId),
+              eq(c.externalPushState, 'pending'),
+              isNull(c.externalId),
+              isNull(c.archivedAt),
+            ),
+          )
+          .limit(1);
+        return r ? toContact(r) : null;
+      },
       async stalePending(since, olderThan, limit) {
         const rows = await tx
           .select({ id: c.id })

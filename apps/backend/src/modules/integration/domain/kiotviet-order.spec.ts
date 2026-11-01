@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   carriesRapizCode,
+  KV_ORDER_CUSTOMER_ID_FIELD,
   KV_ORDER_STATUS,
   kiotVietOrderBody,
   kiotVietOrderTotal,
@@ -106,6 +107,16 @@ describe('kiotVietOrderBody', () => {
     expect(oddBody.orderDetails[0]?.discount).toBe(0);
     expect(oddBody.discount).toBe(20_003);
     expect(kiotVietOrderTotal(oddBody)).toBe(510_000 - 3);
+  });
+
+  it('sends the KiotViet customer id instead of the inline customer when it is known', () => {
+    const body = kiotVietOrderBody(order(), 1, 9001);
+    expect(body[KV_ORDER_CUSTOMER_ID_FIELD]).toBe(9001);
+    expect(body.customer).toBeUndefined();
+    expect(kiotVietOrderBody(order(), 1, null).customer).toEqual({
+      name: 'Chị Lan',
+      contactNumber: '0901234567',
+    });
   });
 
   it('omits the customer when the order has neither a name nor a phone', () => {

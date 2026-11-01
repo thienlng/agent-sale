@@ -441,8 +441,54 @@ describe('integration store on Postgres', () => {
       connectionId: pushing.id,
       createdAt: pushing.createdAt,
       pushOrders: true,
+      syncCustomers: false,
     });
     expect(rows.find((r) => r.connectionId === off.id)?.pushOrders).toBe(false);
+    const customers = await make({ settings: { ...on, pushOrders: false, syncCustomers: true } });
+    expect(
+      (await store.connectionsForPushScan()).find((r) => r.connectionId === customers.id),
+    ).toMatchObject({ pushOrders: false, syncCustomers: true });
+  });
+
+  it('keeps one open customer import and one open push job per customer, and claims them', async () => {
+    const { ws, c } = await connected();
+    // The import and a sync run side by side.
+    expect(await store.enqueue(ws, { connectionId: c.id, kind: 'full_import' })).toBe(true);
+    const imports = await Promise.all([
+      store.enqueue(ws, { connectionId: c.id, kind: 'customer_import' }),
+      store.enqueue(ws, { connectionId: c.id, kind: 'customer_import' }),
+    ]);
+    expect(imports.sort()).toEqual([false, true]);
+    const contactId = '0190f5c2-0000-7000-8000-0000000000d1';
+    const push = { connectionId: c.id, kind: 'customer_import' as const, payload: { contactId } };
+    const pushes = await Promise.all([store.enqueue(ws, push), store.enqueue(ws, push)]);
+    expect(pushes.sort()).toEqual([false, true]);
+    expect(
+      await store.enqueue(ws, { ...push, payload: { contactId: `${contactId.slice(0, -1)}2` } }),
+    ).toBe(true);
+
+    const rows = await withTenant(tenant.db, ws, (tx) =>
+      tx
+        .select()
+        .from(schema.integrationJobs)
+        .where(
+          and(
+            eq(schema.integrationJobs.connectionId, c.id),
+            eq(schema.integrationJobs.kind, 'customer_import'),
+          ),
+        ),
+    );
+    expect(rows).toHaveLength(3);
+    const pushJob = rows.find((r) => r.payload['contactId'] === contactId)!;
+    const claimed = await claimOne(pushJob.id);
+    expect(claimed).toMatchObject({ kind: 'customer_import', payload: { contactId } });
+    // Still open while it runs (or waits for a retry): no second job for that customer.
+    expect(await store.enqueue(ws, push)).toBe(false);
+    await store.completeJob(claimed!.id, claimed!.claimToken);
+    expect(await store.enqueue(ws, push)).toBe(true);
+    // Another connection's customer jobs are its own.
+    const other = await connected();
+    expect(await store.enqueue(other.ws, { ...push, connectionId: other.c.id })).toBe(true);
   });
 
   it('claims push_order jobs, any number per connection', async () => {

@@ -11,6 +11,7 @@ import type { KvProduct } from '../domain/kiotviet-mapping.js';
 import { orderStatusOf } from '../domain/kiotviet-order.js';
 import { validKiotVietSignature } from '../domain/signature.js';
 import { CatalogWriter, SOURCE, type WriteStats } from './catalog-writer.js';
+import { CustomerSync } from './customer-sync.js';
 import {
   type ClaimedWebhookEvent,
   type ConnectionRecord,
@@ -31,12 +32,20 @@ import { openCredentials } from './sync-credentials.js';
  */
 export const webhookSigningKey = (registeredSecret: string): string => registeredSecret;
 
-type Action = 'product.update' | 'product.delete' | 'stock.update' | 'order.update';
+type Action =
+  | 'product.update'
+  | 'product.delete'
+  | 'stock.update'
+  | 'order.update'
+  | 'customer.update'
+  | 'customer.delete';
 const ACTIONS: ReadonlySet<string> = new Set([
   'product.update',
   'product.delete',
   'stock.update',
   'order.update',
+  'customer.update',
+  'customer.delete',
 ]);
 /** Where each event names its products, best guess first (KiotViet's casing varies). */
 const ID_KEYS: Record<string, readonly string[]> = {
@@ -44,6 +53,8 @@ const ID_KEYS: Record<string, readonly string[]> = {
   'product.delete': ['RemoveId', 'Id', 'ProductId'],
   'stock.update': ['ProductId', 'Id'],
   'order.update': ['Id', 'OrderId'],
+  'customer.update': ['Id', 'CustomerId'],
+  'customer.delete': ['RemoveId', 'Id', 'CustomerId'],
 };
 
 interface Notification {
@@ -52,8 +63,8 @@ interface Notification {
 }
 
 /**
- * Applies one claimed KiotViet delivery (spec §5.3). The payload is only a hint: products and
- * stock are re-read from KiotViet, never taken from `Data`. Deliveries are at-most-once; anything
+ * Applies one claimed KiotViet delivery (spec §5.3). The payload is only a hint: products, stock,
+ * orders and customers are re-read from KiotViet, never taken from `Data`. Deliveries are at-most-once; anything
  * lost here is caught by the next reconcile.
  */
 @Injectable()
@@ -75,6 +86,7 @@ export class WebhookApplier {
     @Inject(CatalogWriter) private readonly writer: CatalogWriter,
     @Inject(SECRET_BOX) private readonly secrets: SecretBox,
     @Inject(ORDER_PUSH_FACADE) private readonly orders: OrderPushFacade,
+    @Inject(CustomerSync) private readonly customers: CustomerSync,
   ) {}
 
   async apply(event: ClaimedWebhookEvent): Promise<void> {
@@ -93,6 +105,7 @@ export class WebhookApplier {
       if (error instanceof ConnectionGoneError) {
         // Disconnected while applying: what was written after the release must not stay linked.
         await this.writer.releaseIfDisconnected(c.workspaceId);
+        await this.customers.releaseIfDisconnected(c.workspaceId);
         return;
       }
       // The reconcile repairs what this delivery missed; auth errors surface on the next job.
@@ -157,6 +170,10 @@ export class WebhookApplier {
     const action = n.action as Action;
     if (action === 'order.update') {
       await this.orderUpdate(c, creds, n.ids);
+      return;
+    }
+    if (action === 'customer.update' || action === 'customer.delete') {
+      await this.customers.webhook(c, creds, action, n.ids, () => this.writer.assertLive(c.id));
       return;
     }
     if (action === 'product.delete') {

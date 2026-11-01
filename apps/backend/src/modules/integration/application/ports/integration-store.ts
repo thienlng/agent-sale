@@ -2,7 +2,12 @@ import type { WorkspaceId } from '@agent-sales/shared';
 
 export type IntegrationProvider = 'kiotviet';
 export type ConnectionStatus = 'connected' | 'syncing' | 'error' | 'disconnected';
-export type SyncJobKind = 'full_import' | 'reconcile' | 'webhook' | 'push_order';
+/**
+ * `customer_import`: the customer import (empty payload) or, with `payload.contactId`, the push of
+ * one Rapiz customer to KiotViet (PR 3).
+ */
+export type SyncJobKind =
+  'full_import' | 'reconcile' | 'webhook' | 'push_order' | 'customer_import';
 export type SyncLogLevel = 'info' | 'warning' | 'error';
 
 export interface ConnectionSettings {
@@ -91,9 +96,10 @@ export interface IntegrationStore {
     expectedVersion?: number,
   ): Promise<ConnectionRecord>;
   /**
-   * False when the job is already queued: a full import or reconcile open for the connection, or a
+   * False when the job is already queued: a full import or reconcile open for the connection, a
    * `push_order` job open for the same `payload.orderId` (unique index, so two workers never both
-   * queue one).
+   * queue one), or a `customer_import` open for the connection with the same `payload.contactId`
+   * (or none: one customer import at a time; serialized by an advisory lock).
    */
   enqueue(
     ws: WorkspaceId,
@@ -158,11 +164,18 @@ export interface IntegrationStore {
     olderThan: Date,
   ): Promise<Array<{ workspaceId: WorkspaceId; connectionId: string }>>;
   /**
-   * Connections the push scan looks at: status `connected` or `syncing`, with `pushOrders` from
-   * their settings (those with it on push; the others only have stale claims released).
+   * Connections the push scans look at: status `connected` or `syncing`, with `pushOrders` and
+   * `syncCustomers` from their settings (those with a switch on push; the others only have stale
+   * claims released).
    */
   connectionsForPushScan(): Promise<
-    Array<{ workspaceId: WorkspaceId; connectionId: string; createdAt: Date; pushOrders: boolean }>
+    Array<{
+      workspaceId: WorkspaceId;
+      connectionId: string;
+      createdAt: Date;
+      pushOrders: boolean;
+      syncCustomers: boolean;
+    }>
   >;
   connectionForSystem(id: string): Promise<ConnectionRecord | null>;
 }

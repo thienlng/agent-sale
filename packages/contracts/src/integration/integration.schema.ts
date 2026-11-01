@@ -146,6 +146,13 @@ export const SyncLogParams = {
   order_push_duplicate: z.object({ code: z.string() }),
   /** Pushed, but cancelled in Rapiz meanwhile: staff cancel it in KiotViet. */
   order_pushed_cancelled: z.object({ code: z.string() }),
+  /** A customer import finished: `count` = customers now linked to KiotViet. */
+  customers_synced: z.object({ count: z.number().int() }),
+  /**
+   * A Rapiz customer could not be created in KiotViet (no customer data, ever). `reason`:
+   * `kiotviet_rejected`, `link_conflict`, `kiotviet_unavailable`, `auth_failed` or `sync_failed`.
+   */
+  customer_push_failed: z.object({ reason: z.string() }),
 } as const;
 export type SyncLogParams = {
   [Code in keyof typeof SyncLogParams]: z.infer<(typeof SyncLogParams)[Code]>;

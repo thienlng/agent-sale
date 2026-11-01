@@ -4,6 +4,8 @@ import {
   AuthResponse,
   BootstrapResponse,
   ConnectionDto,
+  ContactDto,
+  ContactListResponse,
   OrderDto,
   ProductDto,
   ProductListResponse,
@@ -34,8 +36,9 @@ import { type FakeKiotViet, type FakeKvProduct, startFakeKiotViet } from './fake
 
 /**
  * The worker's sync end to end: real Postgres, the real KiotViet client against the fake KiotViet
- * server, the real commerce facade. Full import (2 pages) → stock webhook → reconcile → order push
- * (a lost answer, then the retry adopts the stored order) → order.update cancels it.
+ * server, the real commerce and crm facades. Full import (2 pages) → stock webhook → reconcile →
+ * order push (a lost answer, then the retry adopts the stored order) → order.update cancels it →
+ * customers: import (adopting a Rapiz customer by phone), push of a new one, customer.delete.
  */
 let pg: TestPostgres;
 let kv: FakeKiotViet;
@@ -100,7 +103,7 @@ afterAll(async () => {
 
 type Headers = Record<string, string>;
 const http = () => app.getHttpAdapter().getInstance();
-const call = (h: Headers, method: 'GET' | 'POST', url: string, payload?: object) =>
+const call = (h: Headers, method: 'GET' | 'POST' | 'PATCH', url: string, payload?: object) =>
   http().inject({ method, url: `/api/v1${url}`, headers: h, ...(payload ? { payload } : {}) });
 const runner = () => app.get<IntegrationRunner>(INTEGRATION_RUNNER, { strict: false });
 
@@ -392,5 +395,92 @@ describe('KiotViet sync on the worker', () => {
     expect(log.entries.find((e) => e.code === 'order_pushed')?.params).toEqual({
       code: order.code,
     });
+  });
+  it('syncs customers both ways once the switch is on', async () => {
+    const tickAhead = async (ms: number) => {
+      const realNow = Date.now.bind(Date);
+      const spy = vi.spyOn(Date, 'now').mockImplementation(() => realNow() + ms);
+      try {
+        await runner().tick();
+      } finally {
+        spy.mockRestore();
+      }
+    };
+    const contactOf = async (id: string) =>
+      ContactDto.parse((await call(h, 'GET', `/contacts/${id}`)).json());
+    const made = async (body: object) => {
+      const r = await call(h, 'POST', '/contacts', body);
+      expect(r.statusCode, r.body).toBe(201);
+      return ContactDto.parse(r.json());
+    };
+    // A Rapiz customer KiotViet also has (same phone), and one only Rapiz has.
+    const known = await made({ name: 'Chị A', phone: '0912000001' });
+    const fresh = await made({ name: 'Anh B', phone: '0912000002' });
+    kv.state.customers = [
+      { id: 501, name: 'Chị A (KiotViet)', contactNumber: '0912000001', gender: false },
+      { id: 502, name: 'Anh C', contactNumber: '0912000003', address: '9 Hàng Gai' },
+    ];
+
+    const current = ConnectionDto.parse(
+      (await call(h, 'GET', '/integrations')).json().providers[0].connection,
+    );
+    const patched = await call(h, 'PATCH', '/integrations/kiotviet', {
+      version: current.version,
+      settings: { saleBranchIds: [1], orderBranchId: 1, pushOrders: true, syncCustomers: true },
+    });
+    expect(patched.statusCode, patched.body).toBe(200);
+    expect(kv.state.webhooks.map((w) => w.type)).toEqual(
+      expect.arrayContaining(['customer.update', 'customer.delete']),
+    );
+
+    await drain(ws, connection.id);
+    expect((await contactOf(known.id)).external).toEqual({ source: 'kiotviet', id: '501' });
+    const list = ContactListResponse.parse(
+      (await call(h, 'POST', '/contacts/query', { pageSize: 100 })).json(),
+    );
+    const imported = list.data.find((c) => c.external?.id === '502');
+    expect(imported).toMatchObject({ name: 'Anh C' });
+
+    // The 30 s scan claims the Rapiz-only customer; its job creates it in KiotViet and links it.
+    await tickAhead(60_000);
+    await drain(ws, connection.id);
+    const posts = kv.apiRequests('/customers').filter((r) => r.method === 'POST');
+    expect(posts).toHaveLength(1);
+    expect(posts[0]!.body).toMatchObject({ name: 'Anh B', contactNumber: '0912000002' });
+    const pushedId = String(kv.state.customers.at(-1)!.id);
+    expect((await contactOf(fresh.id)).external).toEqual({ source: 'kiotviet', id: pushedId });
+
+    const after = ConnectionDto.parse(
+      (await call(h, 'GET', '/integrations')).json().providers[0].connection,
+    );
+    expect(after.counts.customers).toBe(3);
+    const log = SyncLogResponse.parse((await call(h, 'GET', '/integrations/kiotviet/log')).json());
+    // 2, or 3 when a push scan linked the Rapiz-only customer before the import finished.
+    expect(log.entries.find((e) => e.code === 'customers_synced')?.params).toEqual({
+      count: expect.any(Number),
+    });
+
+    // KiotViet deletes a customer: the signed delivery unlinks it, the Rapiz customer stays.
+    const hook = kv.state.webhooks.find((w) => w.type === 'customer.delete')!;
+    const body = JSON.stringify({
+      Id: 'delivery-3',
+      Attempt: 1,
+      Notifications: [{ Action: 'customer.delete.777', Data: [{ RemoveId: [501] }] }],
+    });
+    const system = app.get<Database>(DB_SYSTEM, { strict: false });
+    await withSystem(system, (tx) =>
+      tx.insert(schema.integrationWebhookEvents).values({
+        id: newId(),
+        workspaceId: ws,
+        connectionId: connection.id,
+        deliveryId: 'delivery-3',
+        body,
+        signature: createHmac('sha256', hook.secret).update(body).digest('hex'),
+      }),
+    );
+    await runner().tick();
+    const unlinked = await contactOf(known.id);
+    expect(unlinked.external).toBeNull();
+    expect(unlinked.name).toBe('Chị A (KiotViet)');
   });
 });

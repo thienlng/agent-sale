@@ -49,10 +49,10 @@ recent activity and **Ngắt kết nối**.
 KiotViet ──webhook──▶ apps/webhook  POST /webhooks/kiotviet/:token ──▶ integration_webhook_events (raw)
     ▲                                                                        │
     │ REST (token, 4 500 req/h budget)                                       ▼
-    └──────────────── worker: integration tick every 2 s ◀── integration_jobs (full_import, reconcile, push_order)
+    └──────────────── worker: integration tick every 2 s ◀── integration_jobs (full_import, reconcile, push_order, customer_import)
                               │
-                              ▼ CATALOG_SYNC_FACADE (commerce)
-                       products, product_variants, inventory (+ movements), pictures
+                              ▼ CATALOG_SYNC_FACADE, ORDER_PUSH_FACADE (commerce), CONTACT_SYNC_FACADE (crm)
+                       products, product_variants, inventory (+ movements), pictures, orders, contacts
 ```
 
 - **Full import** (on connect, after a sale-branch change, and when "Đồng bộ ngay" finds no earlier
@@ -94,6 +94,24 @@ KiotViet ──webhook──▶ apps/webhook  POST /webhooks/kiotviet/:token ─
   answer was lost looks for the KiotViet order first, too. A pending order whose job was lost is queued again
   after 2 minutes; disconnecting, or turning push off, returns orders still waiting to "not pushed" (while
   push is off the worker also returns any claim older than 2 minutes).
+- **Customers** (PR 3, `settings.syncCustomers`, `application/customer-sync.ts`, `contact-push.ts`,
+  through the crm `CONTACT_SYNC_FACADE`): turning the switch on (at connect or in the settings) queues a
+  `customer_import` job that reads every KiotViet customer (pages of 100, resumable) and upserts it into the
+  CRM: a customer already linked by KiotViet id is updated (KiotViet owns name, phone, email, address,
+  birthday and gender), else the oldest unlinked Rapiz customer with the same phone is linked, else a new
+  customer is created with the source "KiotViet". The import ends with `customers_synced {count}` and
+  `counts.customers`. Each reconcile then reads the customers changed since the previous one and unlinks the
+  ones KiotViet reports deleted; `customer.update` (re-read by id) and `customer.delete` webhooks are
+  registered while the switch is on. A KiotViet delete only unlinks: the Rapiz customer stays. Every 30 s the
+  worker claims Rapiz customers with a usable phone created since the connection and queues one
+  `customer_import` job each (`payload.contactId`): it looks KiotViet up by phone and adopts the customer
+  found, else creates one in the order branch (`POST /customers`, never sent twice; the next attempt looks
+  up by phone again, so a lost answer creates no duplicate), then links it. Retries +1/+5/+30 min, then the
+  customer is marked failed (`customer_push_failed`); failed customers are retried only by a full customer
+  import or by turning the switch off and on. Turning the switch off returns claimed customers; disconnecting
+  unlinks every customer (data kept). While the switch is on, an order push names the buyer's KiotViet
+  customer (`customerId`, found by phone or created); without a usable phone, or when that fails, the order
+  carries the buyer inline as before. Orders do not record their CRM customer, so the lookup is by phone.
 
 ## Order push on the orders pages
 
@@ -173,6 +191,8 @@ The activity list on the connection page shows these codes (i18n `integration.js
 | `order_push_failed` | An order (`code`) was not pushed (`reason`: `unlinked_product`, `empty`, `kiotviet_rejected`, `kiotviet_unavailable` after the retries, `auth_failed`, `sync_failed`, `link_conflict`, `not_connected`: the connection was gone when the job ran). | Fix the cause (link the product, check the order) and click **Thử lại** on the order. |
 | `order_push_duplicate` | The order (`code`) was already pushed, so KiotViet now holds an extra order for it. | Cancel the extra order in KiotViet; no **Thử lại**. |
 | `order_pushed_cancelled` | The order was cancelled (or deleted) in Rapiz while it was being pushed; KiotViet has it. | Cancel the order in KiotViet. |
+| `customers_synced` | A customer import finished; `count` = Rapiz customers now linked to KiotViet. | — |
+| `customer_push_failed` | A new Rapiz customer could not be created in KiotViet (`reason`: `kiotviet_rejected`, `link_conflict`: another Rapiz customer is already linked to the KiotViet customer with that phone, `kiotviet_unavailable` after the retries, `auth_failed`, `sync_failed`). The customer stays failed. | Fix the customer (phone, name) and turn **Đồng bộ khách hàng** off and on again: that retries every failed customer (a full customer import does too). |
 
 Wizard errors: wrong Client ID / secret (`kiotviet_auth`), unknown store name (`kiotviet_retailer`), missing
 API permissions (`kiotviet_permission`, lists them), a branch no longer in KiotViet (`kiotviet_branch`), new
@@ -204,3 +224,12 @@ into it), whether `orderDetails[].discount` is per unit, the `GET /orders` filte
 `lastModifiedFrom`) and the `order.update` delivery's id field (`ID_KEYS` in `webhook-apply.ts`), and
 whether creating an order emits `stock.update` (its `reserved` changes; the push re-reads the lines'
 products right after `POST /orders` either way, so this only tells whether that read is redundant).
+For customers (PR 3; constants in `domain/kiotviet-customer.ts` and `kiotviet-customers.ts`): the
+customer field names (`contactNumber`, `wardName`, `locationName`, `birthDate`, `gender`, `email`,
+`address`), the meaning of `gender` (`KV_CUSTOMER_GENDER = { male: true, female: false }`), that
+`/customers` accepts `orderBy=id&orderDirection=Asc` (`CUSTOMER_ORDER`) and answers `removedIds` with
+`includeRemoveIds`, whether `contactNumber=` matches exactly or by substring (Rapiz re-checks every hit
+with `matchesPhone`) and how KiotViet stores several numbers in one customer, the `POST /customers` body
+(`name`, `contactNumber`, `email`, `address`, `branchId`) and its answer (`id`, possibly under `data`), the
+order body's `customerId` field (`KV_ORDER_CUSTOMER_ID_FIELD`), whether creating a customer through the API
+emits `customer.update`, and the `customer.update` / `customer.delete` delivery id fields (`ID_KEYS`).

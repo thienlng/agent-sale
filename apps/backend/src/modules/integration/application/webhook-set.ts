@@ -13,10 +13,20 @@ import {
 export const CATALOG_WEBHOOKS = ['product.update', 'product.delete', 'stock.update'] as const;
 /** Status changes of pushed orders (spec §7), registered while `pushOrders` is on. */
 export const ORDER_WEBHOOK = 'order.update';
+/** Customer changes (spec §4.4), registered while `syncCustomers` is on. */
+export const CUSTOMER_WEBHOOKS = ['customer.update', 'customer.delete'] as const;
+/** Types that follow a switch: removed from KiotViet when it is off. */
+const SWITCHED: ReadonlySet<string> = new Set([ORDER_WEBHOOK, ...CUSTOMER_WEBHOOKS]);
 
 /** The webhook types a connection with these settings needs. */
-export function webhookTypes(s: Pick<ConnectionSettings, 'pushOrders'>): string[] {
-  return s.pushOrders ? [...CATALOG_WEBHOOKS, ORDER_WEBHOOK] : [...CATALOG_WEBHOOKS];
+export function webhookTypes(
+  s: Pick<ConnectionSettings, 'pushOrders' | 'syncCustomers'>,
+): string[] {
+  return [
+    ...CATALOG_WEBHOOKS,
+    ...(s.pushOrders ? [ORDER_WEBHOOK] : []),
+    ...(s.syncCustomers ? CUSTOMER_WEBHOOKS : []),
+  ];
 }
 
 /** What `ensure` left at KiotViet: every webhook id at the connection URL, and types still missing. */
@@ -30,7 +40,8 @@ export interface EnsuredWebhooks {
 /**
  * The KiotViet webhooks of a connection, all at `${PUBLIC_WEBHOOK_BASE_URL}/webhooks/kiotviet/<token>`
  * (spec §4.6, §5.3, §7). Connect registers them; a settings save and every reconcile ensure the set
- * (`order.update` follows `pushOrders`); disconnect deletes them. Callers choose the gateway view:
+ * (`order.update` follows `pushOrders`, `customer.update`/`customer.delete` follow `syncCustomers`);
+ * disconnect deletes them. Callers choose the gateway view:
  * the owner waits on connect, settings and disconnect (interactive), not on a reconcile.
  */
 @Injectable()
@@ -78,7 +89,8 @@ export class WebhookSet {
 
   /**
    * Lists the webhooks at the connection URL, registers the types `c.settings` needs and lacks, and
-   * deletes `order.update` when push is off. Registration failures are counted, not thrown; a
+   * deletes the switched types whose switch is off (`order.update` with push off, the customer
+   * types with customer sync off). Registration failures are counted, not thrown; a
    * failing list throws. Null without a public base URL.
    */
   async ensure(
@@ -93,7 +105,8 @@ export class WebhookSet {
     const ours = (await kv.listWebhooks(creds)).filter((h) => atConnection(h.url, c));
     const ids: number[] = [];
     for (const h of ours) {
-      if (h.type.toLowerCase() === ORDER_WEBHOOK && !want.includes(ORDER_WEBHOOK)) {
+      const type = h.type.toLowerCase();
+      if (SWITCHED.has(type) && !want.includes(type)) {
         try {
           await kv.deleteWebhook(creds, h.id);
           continue;

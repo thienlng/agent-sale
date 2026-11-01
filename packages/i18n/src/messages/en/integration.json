@@ -151,6 +151,8 @@
     "order_push_failed": "Could not push order {{code}} to KiotViet — open the order to see why, then Retry",
     "order_push_duplicate": "Order {{code}} was already in KiotViet, so KiotViet now has an extra copy — cancel the extra order in KiotViet (no need to Retry)",
     "order_pushed_cancelled": "Order {{code}} was cancelled in Rapiz but is already in KiotViet — cancel it in KiotViet",
+    "customers_synced": "Synced {{count}} customers with KiotViet",
+    "customer_push_failed": "Could not create a customer in KiotViet — turn customer sync off and on again to retry",
     "unknown": "Other sync event",
     "level": {
       "info": "Info",

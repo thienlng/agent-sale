@@ -346,6 +346,37 @@ describe('contact sync facade on Postgres', () => {
     ).toEqual([p3.id]);
   });
 
+  it('reads a claimed customer for its push job and retries failed pushes on request', async () => {
+    const a = await shop('sync-push-read@shop.vn');
+    const since = new Date(Date.now() - 60_000);
+    const p1 = await contact(a.h, { name: 'Khách đọc', phone: '0912000021', email: 'k@shop.vn' });
+    const p2 = await contact(a.h, { phone: '0912000022' });
+
+    // Not claimed yet: nothing to push.
+    expect(await sync().pushableContact(a.ws, 'kiotviet', p1.id)).toBeNull();
+    await sync().claimContactsForPush(a.ws, 'kiotviet', since, 10);
+    expect(await sync().pushableContact(a.ws, 'kiotviet', p1.id)).toEqual({
+      id: p1.id,
+      name: 'Khách đọc',
+      phoneE164: '+84912000021',
+      email: 'k@shop.vn',
+      address: null,
+    });
+    expect(await sync().pushableContact(a.ws, 'kiotviet', 'not-a-uuid')).toBeNull();
+
+    await sync().markContactPushed(a.ws, p1.id, 'kiotviet', '601');
+    expect(await sync().pushableContact(a.ws, 'kiotviet', p1.id)).toBeNull();
+
+    await sync().markContactPushFailed(a.ws, p2.id, 'kiotviet_rejected');
+    expect(await sync().pushableContact(a.ws, 'kiotviet', p2.id)).toBeNull();
+    expect(await sync().claimContactsForPush(a.ws, 'kiotviet', since, 10)).toEqual([]);
+    expect(await sync().releaseFailedContactPushes(a.ws, 'kiotviet')).toBe(1);
+    expect(
+      (await sync().claimContactsForPush(a.ws, 'kiotviet', since, 10)).map((c) => c.id),
+    ).toEqual([p2.id]);
+    expect(await sync().releaseFailedContactPushes(a.ws, 'kiotviet')).toBe(0);
+  });
+
   it('ends with one linked customer when a push result and a webhook import of it race', async () => {
     const a = await shop('sync-push-race@shop.vn');
     for (let i = 0; i < 5; i++) {

@@ -11,6 +11,8 @@ import {
 } from '../domain/integration.errors.js';
 import { CatalogImport } from './catalog-import.js';
 import { CatalogWriter } from './catalog-writer.js';
+import { ContactPusher, isContactPush } from './contact-push.js';
+import { CustomerSync } from './customer-sync.js';
 import { OrderPusher, PushAttemptError } from './order-push.js';
 import {
   type ConnectionRecord,
@@ -54,6 +56,8 @@ export class SyncService {
     @Inject(CatalogWriter) private readonly writer: CatalogWriter,
     @Inject(OrderPusher) private readonly pusher: OrderPusher,
     @Inject(WebhookSet) private readonly webhooks: WebhookSet,
+    @Inject(CustomerSync) private readonly customers: CustomerSync,
+    @Inject(ContactPusher) private readonly contacts: ContactPusher,
   ) {}
 
   /** Never throws, except `IntegrationUnavailableError` (no database: the runner skips). */
@@ -68,13 +72,20 @@ export class SyncService {
         job.kind === 'webhook'
       ) {
         const done = await this.store.completeJob(job.id, job.claimToken);
-        // A claimed order must not stay "pending" with no job left to push it.
+        // A claimed order must not stay "pending" with no job left to push it. (A claimed
+        // customer needs nothing: a disconnect clears every push state.)
         if (done && job.kind === 'push_order')
           await this.pusher.abandon(job, 'not_connected', null);
         return;
       }
       if (job.kind === 'push_order') {
         await this.pusher.run(job, connection, () => openCredentials(this.secrets, connection));
+        return;
+      }
+      if (job.kind === 'customer_import') {
+        const creds = openCredentials(this.secrets, connection);
+        if (isContactPush(job)) await this.contacts.run(job, connection, creds);
+        else await this.customers.runImport(job, connection, creds);
         return;
       }
       await this.sync(job, connection);
@@ -138,6 +149,7 @@ export class SyncService {
     const outcome = await this.importer.run(ctx, cursor);
     cursor = { ...cursor, imagesFailed: outcome.imagesFailed };
     const startedAt = new Date(cursor.startedAt);
+    await this.customerPass(ctx, outcome.cursor);
 
     // The latest counts: order pushes update theirs while this runs.
     const live = await ctx.live();
@@ -185,6 +197,24 @@ export class SyncService {
   }
 
   /**
+   * A reconcile with `syncCustomers` on also reads the customers changed since the previous
+   * reconcile (minus the overlap), before `lastReconcileAt` moves: a failure retries the reconcile,
+   * so no change is skipped (it resumes at the catalog's `finish` phase). The first sync of
+   * customers is the `customer_import` job.
+   */
+  private async customerPass(ctx: SyncContext, cursor: ImportCursor): Promise<void> {
+    const last = ctx.connection.lastReconcileAt;
+    const live = await ctx.live();
+    if (ctx.job.kind !== 'reconcile' || !live.settings.syncCustomers || !last) return;
+    await this.customers.incremental(
+      live,
+      ctx.creds,
+      new Date(last.getTime() - RECONCILE_OVERLAP_MS),
+      { live: ctx.live, heartbeat: () => ctx.checkpoint(cursor) },
+    );
+  }
+
+  /**
    * Once per reconcile: the webhook set the settings need (a lost one comes back; `order.update`
    * follows `pushOrders`). Best effort: the sync already succeeded, the next reconcile tries again.
    * The ids are saved only when they changed, against the version read (an owner edit wins).
@@ -229,6 +259,7 @@ export class SyncService {
   private async releaseAfterDisconnect(job: JobRecord): Promise<void> {
     try {
       await this.writer.releaseIfDisconnected(job.workspaceId);
+      await this.customers.releaseIfDisconnected(job.workspaceId);
     } catch (error) {
       if (error instanceof IntegrationUnavailableError) throw error;
       this.logger.warn(`Job ${job.id}: links not released after disconnect (${errorName(error)})`);
@@ -282,6 +313,7 @@ export class SyncService {
       });
       if (!already) await this.store.log(ws, c.id, { level: 'error', code: 'auth_failed' });
       if (job.kind === 'push_order') await this.pusher.abandon(job, 'auth_failed', orderCode);
+      if (isContactPush(job)) await this.contacts.abandon(job, 'auth_failed');
       return;
     }
 
@@ -299,6 +331,11 @@ export class SyncService {
     if (!(await this.store.failJob(job.id, job.claimToken, code))) return;
     if (job.kind === 'push_order') {
       await this.pusher.abandon(job, code, orderCode);
+      return;
+    }
+    if (isContactPush(job)) {
+      // One customer's failure is not the connection's.
+      await this.contacts.abandon(job, code);
       return;
     }
     await this.store.updateConnection(ws, c.id, {

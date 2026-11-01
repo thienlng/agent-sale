@@ -151,6 +151,8 @@
     "order_push_failed": "Chưa đẩy được đơn {{code}} sang KiotViet — mở đơn để xem lý do và bấm Thử lại",
     "order_push_duplicate": "Đơn {{code}} đã có trên KiotViet nên KiotViet vừa nhận thêm một đơn trùng — hãy huỷ đơn thừa trên KiotViet (không cần Thử lại)",
     "order_pushed_cancelled": "Đơn {{code}} đã huỷ trên Rapiz nhưng đã có trên KiotViet — hãy huỷ đơn đó trên KiotViet",
+    "customers_synced": "Đã đồng bộ {{count}} khách hàng với KiotViet",
+    "customer_push_failed": "Chưa tạo được một khách hàng trên KiotViet — tắt rồi bật lại Đồng bộ khách hàng để thử lại",
     "unknown": "Sự kiện đồng bộ khác",
     "level": {
       "info": "Thông tin",
