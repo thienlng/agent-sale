@@ -185,6 +185,16 @@ describe('stored /media/ pictures', () => {
     ]);
   });
 
+  it('leaves a look-alike external /media/ link alone and ignores a look-alike path', () => {
+    const lookAlike = 'https://cdn.shop.vn/media/products/villa-1.jpg';
+    const images = productImages([
+      { id: 'shop', name: 'Shop', imageUrls: [lookAlike, '/media/products/villa-1.jpg'] },
+    ]);
+    expect(images.map((i) => i.url)).toEqual([lookAlike]);
+    const allowlist = new ImageAllowlist(images, 'https://now.trycloudflare.com/media');
+    expect(allowlist.resolve(['p:shop:0']).images.map((i) => i.url)).toEqual([lookAlike]);
+  });
+
   it('cannot send a relative picture when no public base is configured', () => {
     const allowlist = new ImageAllowlist(productImages([villa]));
     expect(allowlist.resolve(['p:villa:0']).images).toEqual([]);

@@ -83,7 +83,7 @@ describe('lodging v2 gallery images', () => {
     expect(GalleryImage.safeParse({ url: 'https://cdn.example.com/a.jpg' }).success).toBe(true);
     expect(
       GalleryImage.safeParse({
-        url: '/media/products/0192f0a0-0000-7000-8000-000000000001/a.jpg',
+        url: '/media/products/0192f0a0-0000-7000-8000-000000000001/0192f0a0-0000-7000-8000-0000000000aa.jpg',
       }).success,
     ).toBe(true);
     expect(GalleryImage.safeParse({ url: '/media/../etc/passwd.jpg' }).success).toBe(false);

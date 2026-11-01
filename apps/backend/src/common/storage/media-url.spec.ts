@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { absoluteMediaUrl, mediaPath, toMediaPath } from './media-url.js';
 
 const WS = '0192f0a0-0000-7000-8000-000000000001';
-const KEY = `products/${WS}/abc.jpg`;
+const F = '0192f0a0-0000-7000-8000-0000000000aa';
+const KEY = `products/${WS}/${F}.jpg`;
 
 describe('mediaPath', () => {
   it('returns the /media/ path of a stored URL whatever its host', () => {
@@ -12,8 +13,8 @@ describe('mediaPath', () => {
     expect(mediaPath(`/media/${KEY}`)).toBe(`/media/${KEY}`);
   });
   it('covers bot library and website chat uploads too', () => {
-    expect(mediaPath(`https://h.test/media/workspaces/${WS}/bots/b/x.png`)).toBe(
-      `/media/workspaces/${WS}/bots/b/x.png`,
+    expect(mediaPath(`https://h.test/media/workspaces/${WS}/bots/${F}/${F}.png`)).toBe(
+      `/media/workspaces/${WS}/bots/${F}/${F}.png`,
     );
   });
   it('is null for links that are not Rapiz media', () => {
@@ -22,6 +23,7 @@ describe('mediaPath', () => {
     expect(mediaPath(`https://h.test/media/${KEY}?x=1`)).toBeNull();
     expect(mediaPath(`https://h.test/media/products/${WS}/../x.jpg`)).toBeNull();
     expect(mediaPath('javascript:alert(1)')).toBeNull();
+    expect(mediaPath('https://cdn.shop.vn/media/products/villa-1.jpg')).toBeNull();
     expect(mediaPath('not a url')).toBeNull();
   });
 });
@@ -30,6 +32,9 @@ describe('toMediaPath', () => {
   it('keeps anything that is not Rapiz media unchanged', () => {
     expect(toMediaPath('https://img.example.com/a.jpg')).toBe('https://img.example.com/a.jpg');
     expect(toMediaPath(`https://x.trycloudflare.com/media/${KEY}`)).toBe(`/media/${KEY}`);
+    const lookAlike = 'https://cdn.shop.vn/media/products/villa-1.jpg';
+    expect(toMediaPath(lookAlike)).toBe(lookAlike);
+    expect(absoluteMediaUrl(lookAlike, 'https://now.test/media')).toBe(lookAlike);
   });
 });
 

@@ -9,7 +9,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { PublicObjectStorage } from '../../../common/storage/public-object-storage.js';
 import { importProductImages } from '../infrastructure/image-import/import-product-images.js';
 
-const MEDIA = 'https://media.rapiz.test';
+// Served under /media like the dev proxy, so imported pictures are stored as `/media/…` paths.
+const MEDIA = 'https://media.rapiz.test/media';
 const PNG = Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), Buffer.alloc(16, 7)]);
 
 let pg: TestPostgres;
@@ -27,7 +28,8 @@ const storage: PublicObjectStorage = {
     return Promise.resolve(`${MEDIA}/${key}`);
   },
   remove: () => Promise.resolve(),
-  isPublicUrlUnder: (url, prefix) => url.startsWith(`${MEDIA}/${prefix}`),
+  isPublicUrlUnder: (url, prefix) =>
+    url.startsWith(`${MEDIA}/${prefix}`) || url.startsWith(`/media/${prefix}`),
 };
 
 const user = newId();
@@ -127,7 +129,7 @@ describe('importProductImages', () => {
     expect(accept[0]).toBe('image/jpeg,image/png;q=0.9,*/*;q=0.1');
     expect(accept[0]).not.toContain('webp');
     const a1 = await read(pA1);
-    expect(a1.image_urls[0]).toMatch(new RegExp(`^${MEDIA}/products/${wsA}/[\\w-]+\\.png$`));
+    expect(a1.image_urls[0]).toMatch(new RegExp(`^/media/products/${wsA}/[\\w-]+\\.png$`));
     expect(a1.image_urls[1]).toBe(`${MEDIA}/products/${wsA}/keep.jpg`);
     expect(a1.image_urls[2]).toBe(`${base}/404`);
     const a2 = await read(pA2);

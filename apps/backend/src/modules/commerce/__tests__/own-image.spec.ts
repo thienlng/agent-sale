@@ -13,6 +13,7 @@ import { ownImageProblem } from '../domain/own-image.js';
 const WS = '0192f0a0-0000-7000-8000-000000000001' as WorkspaceId;
 const OTHER = '0192f0a0-0000-7000-8000-000000000002';
 const BASE = 'https://cdn.test';
+const F = '0192f0a0-0000-7000-8000-0000000000aa';
 
 const storage = (configured = true): PublicObjectStorage => ({
   put: () => Promise.reject(new Error('unused')),
@@ -51,15 +52,18 @@ describe('ownImageProblem with the media-path storage', () => {
   });
   const check = (url: string) => ownImageProblem(url, WS, real);
   it('accepts the relative path and a URL stored on a former tunnel host', () => {
-    expect(check(`/media/products/${WS}/abc.jpg`)).toBeNull();
-    expect(check(`https://old.trycloudflare.com/media/products/${WS}/abc.png`)).toBeNull();
+    expect(check(`/media/products/${WS}/${F}.jpg`)).toBeNull();
+    expect(check(`https://old.trycloudflare.com/media/products/${WS}/${F}.png`)).toBeNull();
   });
   it('still rejects other workspaces, traversal, WebP and external links', () => {
-    expect(check(`/media/products/${OTHER}/abc.jpg`)).toBe('IMAGE_NOT_UPLOADED');
+    expect(check(`/media/products/${OTHER}/${F}.jpg`)).toBe('IMAGE_NOT_UPLOADED');
     expect(check(`/media/products/${WS}/../${OTHER}/abc.jpg`)).toBe('IMAGE_NOT_UPLOADED');
     expect(check(`/media/products/${WS}/abc.webp`)).toBe('IMAGE_NOT_UPLOADED');
     expect(check(`/media/products/${WS}/a/b.jpg`)).toBe('IMAGE_NOT_UPLOADED');
     expect(check('https://img.example.com/media/products/a.jpg')).toBe('IMAGE_NOT_UPLOADED');
+    expect(check(`https://cdn.shop.vn/media/products/${WS}/villa-1.jpg`)).toBe(
+      'IMAGE_NOT_UPLOADED',
+    );
   });
 });
 

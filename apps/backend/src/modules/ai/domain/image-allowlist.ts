@@ -1,3 +1,4 @@
+import { isMediaPath } from '@agent-sales/contracts';
 import { foldVietnamese } from '@agent-sales/shared';
 
 /** One picture the bot may send this turn. The model only ever sees `id` and `label`. */
@@ -19,13 +20,9 @@ const isHttps = (value: string): boolean => {
 };
 
 /**
- * A stored Rapiz picture (`/media/<key>`, host-relative so a public host change never breaks it).
- * The application turns it into an absolute URL on the current public base before sending.
+ * A picture a channel can receive once made absolute: an https link or a stored Rapiz `/media/<key>`
+ * path (the application rebuilds it on the current public base before sending).
  */
-const isMediaPath = (value: string): boolean =>
-  /^\/media\/[\w-]+(?:\/[\w-]+)*\.[A-Za-z0-9]+$/.test(value);
-
-/** A picture a channel can receive once made absolute: an https link or a Rapiz media path. */
 const isSendable = (value: string): boolean => isHttps(value) || isMediaPath(value);
 
 /** Words that appear in "show me the picture" requests and say nothing about which item. */

@@ -25,7 +25,11 @@ const record = (): ProductRecord =>
     status: 'active',
     visibleToBot: true,
     botInstructions: '',
-    imageUrls: [`${OLD}/${file(1)}`, 'https://img.example.com/legacy.jpg'],
+    imageUrls: [
+      `${OLD}/${file(1)}`,
+      'https://img.example.com/legacy.jpg',
+      'https://cdn.shop.vn/media/products/villa-1.jpg',
+    ],
     accommodation: {
       rentalType: 'entire_property',
       bedrooms: 1,
@@ -84,7 +88,11 @@ function service() {
 describe('product pictures as /media/ paths', () => {
   it('answers a URL stored on a former tunnel host as its relative path', async () => {
     const dto = await service().svc.getProduct(ws, PID);
-    expect(dto.imageUrls).toEqual([`/media/${file(1)}`, 'https://img.example.com/legacy.jpg']);
+    expect(dto.imageUrls).toEqual([
+      `/media/${file(1)}`,
+      'https://img.example.com/legacy.jpg',
+      'https://cdn.shop.vn/media/products/villa-1.jpg',
+    ]);
     expect(dto.accommodation?.gallery[0]?.url).toBe(`/media/${file(2)}`);
   });
 

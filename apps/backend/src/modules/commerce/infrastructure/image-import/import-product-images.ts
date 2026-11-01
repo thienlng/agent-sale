@@ -2,6 +2,7 @@ import { and, eq, schema, type Database } from '@agent-sales/db';
 import { newId, type WorkspaceId } from '@agent-sales/shared';
 
 import { IMAGE_EXTENSIONS } from '../../../../common/storage/image-bytes.js';
+import { toMediaPath } from '../../../../common/storage/media-url.js';
 import type { PublicObjectStorage } from '../../../../common/storage/public-object-storage.js';
 import { allImageUrls, classifyImageUrls, rewriteImageUrls } from '../../domain/image-import.js';
 import { ownImageProblem, ownImagePrefix } from '../../domain/own-image.js';
@@ -80,10 +81,13 @@ export async function importProductImages(
         if (!result) {
           try {
             const img = await download(src);
-            const url = await storage.put(
-              `${ownImagePrefix(ws)}${newId()}.${IMAGE_EXTENSIONS[img.mime]}`,
-              img.bytes,
-              img.mime,
+            // Stored as the host-relative `/media/…` path, like uploads (docs/lodging.md "Pictures").
+            const url = toMediaPath(
+              await storage.put(
+                `${ownImagePrefix(ws)}${newId()}.${IMAGE_EXTENSIONS[img.mime]}`,
+                img.bytes,
+                img.mime,
+              ),
             );
             result = { url };
           } catch (e) {

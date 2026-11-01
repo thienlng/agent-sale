@@ -27,6 +27,7 @@ const row = {
   gallery: [
     { url: `${OLD}/${key}`, caption: 'Mặt tiền' },
     { url: 'https://img.example.com/a.jpg', caption: 'Link ngoài' },
+    { url: 'https://cdn.shop.vn/media/products/villa-1.jpg', caption: 'CDN ngoài' },
   ],
   internalNote: '',
   extraAdultSell: null,
@@ -44,7 +45,11 @@ describe('lodging gallery pictures as /media/ paths', () => {
     expect(toProperty(row).gallery).toEqual([
       { url: `/media/${key}`, caption: 'Mặt tiền' },
       { url: 'https://img.example.com/a.jpg', caption: 'Link ngoài' },
+      { url: 'https://cdn.shop.vn/media/products/villa-1.jpg', caption: 'CDN ngoài' },
     ]);
+    expect(propertyValues(workspaceId(WS), toProperty(row)).gallery[2]?.url).toBe(
+      'https://cdn.shop.vn/media/products/villa-1.jpg',
+    );
   });
   it('stores Rapiz photos as their path, whatever host the editor sent', () => {
     const p = {

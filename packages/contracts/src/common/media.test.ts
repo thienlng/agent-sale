@@ -3,10 +3,26 @@ import { describe, expect, it } from 'vitest';
 import { isMediaPath, PublicImageUrl } from './media.js';
 
 const WS = '0192f0a0-0000-7000-8000-000000000001';
+const F = '0192f0a0-0000-7000-8000-0000000000aa';
+const B = '0192f0a0-0000-7000-8000-0000000000bb';
 
 describe('isMediaPath', () => {
-  it('accepts a plain /media/ object path', () => {
-    expect(isMediaPath(`/media/products/${WS}/abc.jpg`)).toBe(true);
+  it('accepts the key shapes Rapiz generates', () => {
+    expect(isMediaPath(`/media/products/${WS}/${F}.jpg`)).toBe(true);
+    expect(isMediaPath(`/media/products/${WS}/${F}.png`)).toBe(true);
+    expect(isMediaPath(`/media/workspaces/${WS}/bots/${B}/${F}.webp`)).toBe(true);
+    expect(isMediaPath(`/media/webchat/${WS}/${B}/${F}.gif`)).toBe(true);
+  });
+  it('rejects look-alike paths that are not Rapiz keys (external CDNs)', () => {
+    for (const bad of [
+      '/media/products/villa-1.jpg',
+      `/media/products/${WS}/abc.jpg`,
+      `/media/products/shop/${F}.jpg`,
+      `/media/products/${WS}/${F}.webp`,
+      `/media/workspaces/${WS}/${F}.png`,
+      `/media/webchat/${WS}/${F}.png`,
+    ])
+      expect(isMediaPath(bad), bad).toBe(false);
   });
   it('rejects traversal, empty segments, queries, encodings and other roots', () => {
     for (const bad of [
@@ -26,7 +42,7 @@ describe('isMediaPath', () => {
 describe('PublicImageUrl', () => {
   it('accepts an https link or a stored media path', () => {
     expect(PublicImageUrl.safeParse('https://cdn.example.com/a.jpg').success).toBe(true);
-    expect(PublicImageUrl.safeParse(`/media/products/${WS}/abc.jpg`).success).toBe(true);
+    expect(PublicImageUrl.safeParse(`/media/products/${WS}/${F}.jpg`).success).toBe(true);
   });
   it('rejects http, javascript, data and unsafe paths', () => {
     for (const bad of [
