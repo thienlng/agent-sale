@@ -23,7 +23,7 @@ import { useCreateProperty } from '../api/properties';
 import { SavingLabel } from './booking-fields';
 import { Field, intOrNull } from './property-tab-parts';
 
-/** "Thêm căn": code, name, sell mode and standard guests; then opens the editor. */
+/** "Thêm căn hộ": code, name, sell mode and standard guests; then opens the editor. */
 export function PropertyCreateDialog({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const id = useId();

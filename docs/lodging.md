@@ -2,20 +2,24 @@
 
 Hotel businesses sell places to stay: whole villas and per-room homestays. Rapiz is the only source of truth for their calendar: there is no sync with Google Sheets, iCal or OTAs. The backend module is `lodging` ([MODULE.md](../apps/backend/src/modules/lodging/MODULE.md)). The decision records are [ADR-018](adr/ADR-018-lodging-module.md) (module) and [ADR-019](adr/ADR-019-bot-lodging-holds.md) (bot holds); the designs are the [part 1 spec](superpowers/specs/2026-11-01-lodging-calendar-design.md) and the [part 3 spec](superpowers/specs/2026-11-01-bot-lodging-holds-design.md).
 
-Screens (hotel businesses only; the sidebar shows **Lịch · Booking · Căn** instead of products):
+Screens (hotel businesses only; the sidebar shows **Lịch · Booking · Căn hộ** instead of products):
 
 | Screen | Route | Purpose |
 | --- | --- | --- |
 | Lịch | `/app/calendar` | Nightly grid of every property and room, "Tìm trống" search, create holds, bookings and blocks |
 | Booking | `/app/bookings` | Lists: Hôm nay, Giữ chỗ (with the count of bot holds waiting for staff), Sắp tới, Tất cả; filters by place, tag, source and status; the booking sheet with status actions, edits and history |
-| Căn | `/app/properties`, `/app/properties/$propertyId` | Property cards and the editor (Thông tin, Phòng, Giá, Chính sách, Ảnh) |
-| Căn & phòng (bot training) | `/app/bots/$botId/products` | Which properties the bot sells |
+| Căn hộ | `/app/properties`, `/app/properties/$propertyId` | Property cards and the editor (Thông tin, Phòng, Giá, Chính sách, Ảnh) |
+| Căn hộ & phòng (bot training) | `/app/bots/$botId/products` | Which properties the bot sells |
+
+Vocabulary: the Vietnamese UI calls a property **Căn hộ** (sidebar, page title, "Thêm căn hộ", "Tất cả căn hộ", bot training "Căn hộ & phòng"); **Nguyên căn** stays the name of the whole-property sell mode. English says "Properties".
+
+The Căn hộ page has two views, remembered per user in this browser (`localStorage` key `rapiz.lodging.propertiesView.<userId>`; unavailable storage falls back to cards): **Thẻ** (card grid) and **Danh sách** (a compact table: photo, code, name, area, sell mode, standard guests, T2–T5 / T6 / T7 prices from the weekday rates, today's state, and a warning icon when the bot cannot offer the place). The table scrolls horizontally inside its container on phones.
 
 `/app/accommodations` and `/app/stays` (T-155) redirect to `/app/properties` and `/app/bookings`. For a hotel business, `/app/products` also redirects to `/app/properties`.
 
 ## Operator workflow
 
-1. **Set up a property** (Căn → new). Give a short code (e.g. `A17`), name, area and address, and choose the sell mode: **Nguyên căn** (whole) or **Theo phòng** (rooms). Enter the standard party (adults, children), an optional hard maximum, and the child age bands: children younger than `childFreeBelow` are free within the standard children; from `childAdultFrom` a child counts as an adult. Amenities, the descriptive room layout, policies (empty = unknown, never "none") and a captioned gallery (https links, up to 30) are optional. A whole property gets its single whole unit automatically.
+1. **Set up a property** (Căn hộ → new). Give a short code (e.g. `A17`), name, area and address, and choose the sell mode: **Nguyên căn** (whole) or **Theo phòng** (rooms). Enter the standard party (adults, children), an optional hard maximum, and the child age bands: children younger than `childFreeBelow` are free within the standard children; from `childAdultFrom` a child counts as an adult. Amenities, the descriptive room layout, policies (empty = unknown, never "none") and a captioned gallery (uploaded photos or https links, up to 30) are optional. A whole property gets its single whole unit automatically.
 2. **Rooms** (rooms mode only, tab Phòng): add rooms with beds and capacity. A room that has bookings cannot be deleted; deactivate it instead. A room cannot be added or reactivated while a whole-property booking holds a later night (409 with `details.codes`): that booking took the rooms of its day, so move or cancel it first. The sell mode can change only while the property has no booking ending after today.
 3. **Prices** (tab Giá): weekday prices must cover all seven weekdays exactly once for every target: the whole property, or each active room of a rooms property. A rooms property may also have whole-property prices; without them a whole rental costs the sum of its rooms. Add date-range prices ("ngày đặc biệt": Tết, holidays, peak) with an optional minimum stay; ranges of one target never overlap, and a range price wins over the weekday price. Surcharges per extra adult and extra child are per person per night. Every price has a sell and a cost price.
 4. **Calendar** (Lịch):
@@ -27,7 +31,7 @@ Screens (hotel businesses only; the sidebar shows **Lịch · Booking · Căn** 
    - A hold that expired before a status action answers 409 with `details.reason = 'HOLD_EXPIRED'` ("Giữ chỗ đã hết hạn").
    - **Block** (Khoá lịch): takes nights without a guest or money, e.g. repairs or owner use. Removing the block frees them.
    - **Night notes** (tab **Ghi chú** of the create sheet): a staff-only text (≤ 300 characters) on each selected night of the property, or of each selected room. The same text is saved on every night of the range; an empty text (**Xoá ghi chú**) deletes it. A cell with a note shows a small dot, its accessible name ends with the note, and hovering or focusing it shows the note.
-   - **Internal property note** (Căn → Thông tin, "Ghi chú nội bộ — bot không thấy", ≤ 2000 characters): shown in a card on the property name in the calendar's first column (hover, focus or click the note icon). It never reaches the bot.
+   - **Internal property note** (Căn hộ → Thông tin, "Ghi chú nội bộ — bot không thấy", ≤ 2000 characters): shown in a card on the property name in the calendar's first column (hover, focus or click the note icon). It never reaches the bot.
    - **Quick view**: hovering or focusing a booking bar's cells shows the guest, phone, party, total, hold expiry, tags and the start of the booking note (blocks: the reason). A bar with a note shows a note icon; a bar with tags shows a tag icon with their count.
    - **Tags** (Nhãn): free-text labels on a stay (at most 8, each ≤ 30 characters; suggestions "Đã cọc", "Khách quen", "Cần xe đón", "Có trẻ nhỏ", "Đoàn công ty"). Set them when creating or editing a stay (checked-in stays too); they show as chips in the sheet and the bookings table, and the bookings list filters by one tag (clicking a chip filters too). Tags are labels only: no money logic, and changing them never re-prices the stay.
 5. **Edit** a hold or confirmed stay: dates, rooms, party, guest, adjustment, note. Only a change of dates, rooms or party re-quotes the stay at today's prices; the nights are re-taken in one transaction when dates or rooms change, and a conflict keeps the old nights. Any other edit (guest, phone, note, tags, adjustment) keeps the stored quote and nights: the total is the stored price (manual or quoted) plus the new adjustment, so later price changes never move an agreed total. A stay saved with a **manual price** must get a new price (or explicitly go back to the automatic price) when its dates, rooms or party change. A checked-in stay can move its check-out, correct its price (manual price, adjustment and reason) and change its tags; a manual-priced stay that moves its check-out must again choose its price. Bookings of a paused property stay editable; new bookings are refused.
@@ -41,7 +45,7 @@ All routes are authenticated, workspace-scoped and answer `404 NOT_FOUND` outsid
 
 | Route | Capability | Behaviour |
 | --- | --- | --- |
-| GET `/lodging/properties` | `orders.view` | Properties with units and today's state (free, partial, hold, occupied, blocked) |
+| GET `/lodging/properties` | `orders.view` | Properties with units, today's state (free, partial, hold, occupied, blocked) and `weekdaySell` (whole-property sell per weekday, Monday first, from the weekday rates; a rooms property without a whole rate sums its active rooms; null = not fully priced) |
 | POST `/lodging/properties` | `catalog.manage` | Create (201); added to every bot that has an explicit property list |
 | GET `/lodging/properties/{id}` | `orders.view` | Detail with units, rates and surcharges |
 | PATCH `/lodging/properties/{id}` | `catalog.manage` | Partial update `{version, patch}`; sell-mode change refused while a booking ends after today |

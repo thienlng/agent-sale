@@ -20,9 +20,14 @@ vi.mock('@/lib/permissions', () => ({ useCan: () => true }));
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+  window.localStorage.clear();
 });
 
-const a17 = summaryFixture({ today: 'occupied' });
+const a17 = summaryFixture({
+  today: 'occupied',
+  area: 'Sân golf Tam Đảo',
+  weekdaySell: [13_200_000, 13_200_000, 13_200_000, 13_200_000, 15_400_000, 17_600_000, 15_400_000],
+});
 const h1 = summaryFixture({
   id: LODGING_IDS.h1,
   code: 'H1',
@@ -63,20 +68,20 @@ describe('PropertiesPage', () => {
     const h1Card = screen.getByRole('article', { name: /H1/ });
     expect(within(h1Card).getByText('Theo phòng')).toBeInTheDocument();
     expect(
-      within(h1Card).getByText(/Bot chưa thấy căn này cho tới khi đủ giá/),
+      within(h1Card).getByText(/Bot chưa thấy căn hộ này cho tới khi đủ giá/),
     ).toBeInTheDocument();
-    expect(within(a17Card).queryByText(/Bot chưa thấy căn này/)).toBeNull();
+    expect(within(a17Card).queryByText(/Bot chưa thấy căn hộ này/)).toBeNull();
     expect(document.body).not.toHaveTextContent(/sản phẩm/i);
   });
 
   it('creates a place from the dialog', async () => {
     const calls = stub();
     renderWithRouter(() => <PropertiesPage />);
-    await userEvent.click(await screen.findByRole('button', { name: 'Thêm căn' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Thêm căn hộ' }));
     const dialog = await screen.findByRole('dialog');
-    await userEvent.type(within(dialog).getByLabelText('Mã căn'), 'B2');
-    await userEvent.type(within(dialog).getByLabelText('Tên căn'), 'Villa B2');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Tạo căn' }));
+    await userEvent.type(within(dialog).getByLabelText('Mã căn hộ'), 'B2');
+    await userEvent.type(within(dialog).getByLabelText('Tên căn hộ'), 'Villa B2');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Tạo căn hộ' }));
     await waitFor(() =>
       expect(calls.find((c) => c.key === 'POST /lodging/properties')?.body).toMatchObject({
         code: 'B2',
@@ -86,5 +91,67 @@ describe('PropertiesPage', () => {
         standardChildren: 0,
       }),
     );
+  });
+});
+
+describe('PropertiesPage list view', () => {
+  it('switches to a compact table and remembers the choice', async () => {
+    stub();
+    const first = renderWithRouter(() => <PropertiesPage />);
+    const group = await screen.findByRole('radiogroup', { name: 'Kiểu xem' });
+    expect(within(group).getByRole('radio', { name: 'Thẻ' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    await screen.findByRole('article', { name: /A17/ });
+    await userEvent.click(within(group).getByRole('radio', { name: 'Danh sách' }));
+
+    const table = await screen.findByRole('table');
+    expect(screen.queryByRole('article')).toBeNull();
+    const headers = within(table)
+      .getAllByRole('columnheader')
+      .map((h) => h.textContent);
+    expect(headers).toEqual([
+      'Ảnh',
+      'Mã',
+      'Tên',
+      'Khu vực',
+      'Kiểu bán',
+      'Tiêu chuẩn',
+      'T2–T5',
+      'T6',
+      'T7',
+      'Hôm nay',
+    ]);
+    const a17Row = within(table).getByRole('row', { name: /A17/ });
+    expect(within(a17Row).getByRole('link', { name: 'Villa A17 Vinpearl' })).toBeInTheDocument();
+    expect(within(a17Row).getByText('Sân golf Tam Đảo')).toBeInTheDocument();
+    expect(within(a17Row).getByText('Nguyên căn')).toBeInTheDocument();
+    expect(within(a17Row).getByText('24 NL + 8 TE')).toBeInTheDocument();
+    expect(within(a17Row).getByText('13,2tr')).toBeInTheDocument();
+    expect(within(a17Row).getByText('15,4tr')).toBeInTheDocument();
+    expect(within(a17Row).getByText('17,6tr')).toBeInTheDocument();
+    expect(within(a17Row).getByText('Đang có khách')).toBeInTheDocument();
+    expect(within(a17Row).queryByText(/Bot chưa thấy/)).toBeNull();
+    const h1Row = within(table).getByRole('row', { name: /H1/ });
+    expect(within(h1Row).getAllByText('Chưa có giá').length).toBeGreaterThan(0);
+    expect(within(h1Row).getByText(/Bot chưa thấy căn hộ này/)).toBeInTheDocument();
+
+    first.unmount();
+    renderWithRouter(() => <PropertiesPage />);
+    expect(await screen.findByRole('table')).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Danh sách' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+  });
+
+  it('falls back to cards when storage is unavailable', async () => {
+    stub();
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    renderWithRouter(() => <PropertiesPage />);
+    expect(await screen.findByRole('article', { name: /A17/ })).toBeInTheDocument();
   });
 });

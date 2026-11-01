@@ -1977,6 +1977,22 @@
       "add": "Add place",
       "empty": "No places yet",
       "emptyHint": "Add your first place, enter weekday prices, then start taking bookings.",
+      "view": "View",
+      "viewCards": "Cards",
+      "viewList": "List",
+      "col": {
+        "photo": "Photo",
+        "code": "Code",
+        "name": "Name",
+        "area": "Area",
+        "sellMode": "Sold as",
+        "standard": "Standard",
+        "monThu": "Mon–Thu",
+        "fri": "Fri",
+        "sat": "Sat",
+        "today": "Today"
+      },
+      "noPrice": "No price",
       "noPhoto": "No photo",
       "paused": "Paused",
       "today": {

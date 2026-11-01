@@ -92,7 +92,7 @@ export function propertyFixture(over: Partial<PropertyDto> = {}): PropertyDto {
 
 export function summaryFixture(over: Partial<PropertySummary> = {}): PropertySummary {
   const { rates: _rates, ...rest } = propertyFixture();
-  return { ...rest, today: 'free', ...over };
+  return { ...rest, today: 'free', weekdaySell: Array(7).fill(null), ...over };
 }
 
 export function bookingFixture(over: Partial<BookingDto> = {}): BookingDto {

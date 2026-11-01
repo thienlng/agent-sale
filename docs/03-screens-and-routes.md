@@ -39,7 +39,7 @@
 | Sản phẩm (Products) | Shared product catalog (top-level entry since T-112; Preny nests it under Orders) | `/quan-ly/quan-ly-san-pham` | `/app/products`, `/app/products/{id}` | ORD-01 | P0 |
 | Lưu trú (hotel businesses only, T-160; replace Sản phẩm in their sidebar) | Lịch — nightly calendar, find availability, holds, bookings, blocks | — | `/app/calendar` | VRT | P0 |
 | | Booking — today / holds / upcoming / all, booking sheet; bot holds marked "Bot tạo" with a waiting count and a source filter (T-161) | — | `/app/bookings` | VRT | P0 |
-| | Căn — property cards and editor (info, rooms, prices, policies, photos) | — | `/app/properties`, `/app/properties/$propertyId` | VRT | P0 |
+| | Căn hộ — property cards or a compact list (remembered per user) and the editor (info, rooms, prices, policies, photos) | — | `/app/properties`, `/app/properties/$propertyId` | VRT | P0 |
 | Thống kê (Analytics) | | `/quan-ly/tong-quan` | `/app/analytics` (`?tab=pages\|interactions\|tags\|current-tags\|statuses\|bot`) | ANA-01/02 | P1 |
 | Hạn mức sử dụng (Usage limits) | | `/quan-ly/han-muc-su-dung` | `/app/usage` | BIL-03 | P0 |
 | Nâng cấp (Upgrade) | | `/quan-ly/nang-cap` | `/app/upgrade` | BIL-01/08 | P0 |
@@ -72,7 +72,7 @@ Dedicated layout: back button, bot name, **bot on/off switch**, left menu, **tes
 | Item | Preny route | Our route | Feature |
 |---|---|---|---|
 | Home + checklist | `/bot/{id}/trang-chu` | `/app/bots/{id}` | BOT-04 |
-| Products | `/bot/{id}/quan-ly-san-pham` | `/app/bots/{id}/products` (sells every product or a selection, T-080; "Add product" here selects it via `/app/products/new?botId=`). Hotel bots: "Căn & phòng", a sells/doesn't-sell switch per lodging property (T-160) | BOT-09 |
+| Products | `/bot/{id}/quan-ly-san-pham` | `/app/bots/{id}/products` (sells every product or a selection, T-080; "Add product" here selects it via `/app/products/new?botId=`). Hotel bots: "Căn hộ & phòng", a sells/doesn't-sell switch per lodging property (T-160) | BOT-09 |
 | Instructions (scenarios) | `/bot/{id}/kich-ban` | `/app/bots/{id}/instructions` | BOT-05/06 |
 | Information (FAQ) | `/bot/{id}/du-lieu-huan-luyen` | `/app/bots/{id}/knowledge` (`?tab=faq\|documents`) | BOT-07/08 |
 | Channel integrations (Tích hợp kênh) | `/bot/{id}/tich-hop-nen-tang/{tab}` | `/app/bots/{id}/channels/{all\|facebook\|instagram\|zalo\|lazada\|tiktok\|website}` | CHN-04/05 |
@@ -130,7 +130,7 @@ Dedicated layout: back button, bot name, **bot on/off switch**, left menu, **tes
 
 ## Hotel routes (T-160)
 
-- A hotel business's sidebar shows **Lịch** (`/app/calendar`), **Booking** (`/app/bookings`) and **Căn** (`/app/properties`, detail `/app/properties/$propertyId`) instead of Sản phẩm. Each page renders only for a hotel business (`HotelOnly`).
+- A hotel business's sidebar shows **Lịch** (`/app/calendar`), **Booking** (`/app/bookings`) and **Căn hộ** (`/app/properties`, detail `/app/properties/$propertyId`) instead of Sản phẩm. Each page renders only for a hotel business (`HotelOnly`).
 - Redirects: `/app/accommodations` → `/app/properties`, `/app/stays` → `/app/bookings` (T-155 addresses); `/app/products` and `/app/products/{id}` → `/app/properties` for a hotel business.
 - The Inbox sales panel of a hotel business opens the booking sheet with the contact prefilled and lists the conversation's bookings. Workflow and API: [lodging](lodging.md).
 - Bot holds (T-161, [ADR-019](adr/ADR-019-bot-lodging-holds.md)): the sidebar **Booking** item shows how many bot holds wait for staff (`GET /lodging/bookings/review-count`, polled every minute; composed in `routes/app.tsx` and passed through `AppShell` as `navCounts`). On `/app/bookings` the **Giữ chỗ** tab carries the same count, bot bookings carry a **Bot tạo** badge (amber while waiting), and the **Nguồn** filter sends `?source=`. The booking sheet of a bot booking opens with a banner: while the hold waits, "Bot đã giữ chỗ theo yêu cầu khách — gọi xác nhận rồi bấm Xác nhận"; afterwards a quiet "made by the bot" line; both with **Mở hội thoại** (`/app/inbox?conversation=`).

@@ -3,7 +3,7 @@ import { expect, type Page, test } from '@playwright/test';
 import { mockApi } from './support/mock-api';
 
 /**
- * Lodging Booking list, Căn grid and property editor (T-160) layout guard: long Vietnamese
+ * Lodging Booking list, Căn hộ grid and property editor (T-160) layout guard: long Vietnamese
  * names and a 7-day price table stay inside their own scroll areas from phone to desktop.
  */
 const VIEWPORTS = [375, 768, 1280, 1920];

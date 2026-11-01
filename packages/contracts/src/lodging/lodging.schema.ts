@@ -234,6 +234,12 @@ export const PropertyDto = PropertyFields.extend({
 export type PropertyDto = z.infer<typeof PropertyDto>;
 export const PropertySummary = PropertyDto.omit({ rates: true }).extend({
   today: z.enum(['free', 'hold', 'occupied', 'blocked', 'partial']),
+  /**
+   * Whole-property sell price per ISO weekday (index 0 = Monday … 6 = Sunday) from the weekday
+   * rates, without date overrides. A room-sold property without a whole rate sums its active
+   * rooms. Null = that weekday is not fully priced.
+   */
+  weekdaySell: z.array(Vnd.nullable()).length(7),
 });
 export type PropertySummary = z.infer<typeof PropertySummary>;
 export const PropertyList = z.object({ data: z.array(PropertySummary) });

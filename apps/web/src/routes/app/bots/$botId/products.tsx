@@ -24,7 +24,7 @@ export const Route = createFileRoute('/app/bots/$botId/products')({
   },
 });
 
-/** Hotel bots sell places ("Căn & phòng"), read from the lodging module (T-160). */
+/** Hotel bots sell places ("Căn hộ & phòng"), read from the lodging module (T-160). */
 function HotelBotProperties({ botId }: { botId: string }) {
   const { t } = useTranslation();
   return (

@@ -64,7 +64,7 @@ describe('AppSidebar', () => {
       'href',
       '/app/bookings',
     );
-    expect(within(nav).getByRole('link', { name: 'Căn' })).toHaveAttribute(
+    expect(within(nav).getByRole('link', { name: 'Căn hộ' })).toHaveAttribute(
       'href',
       '/app/properties',
     );
@@ -91,9 +91,9 @@ describe('AppSidebar', () => {
     expect(within(booking.closest('li') as HTMLElement).queryByText('0')).toBeNull();
   });
 
-  it('marks Căn active on a property detail page', async () => {
+  it('marks Căn hộ active on a property detail page', async () => {
     renderAt('/app/properties/0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d01', 'hotel');
-    const properties = await screen.findByRole('link', { name: 'Căn' });
+    const properties = await screen.findByRole('link', { name: 'Căn hộ' });
     expect(properties).toHaveAttribute('data-active', 'true');
     expect(screen.getByRole('link', { name: 'Lịch' })).not.toHaveAttribute('data-active', 'true');
   });
