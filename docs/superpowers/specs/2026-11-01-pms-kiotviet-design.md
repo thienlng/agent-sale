@@ -148,9 +148,11 @@ Owned by `crm`: `contacts.external_source text, contacts.external_id text`, uniq
 - Order push (PR 2): `ordersAwaitingPush(ws, since, limit)`, `markOrderPushed(ws, orderId, ref)`,
   `markOrderPushFailed(ws, orderId, error)`, `applyExternalOrderStatus(ws, source, externalId, status)`.
 
-`crm` — `upsertExternalContact(ws, source, contact)` (match by external id, then by normalized phone, else
-create with source "KiotViet"), `removeExternalContacts`, `contactsAwaitingPush(ws, since, limit)`,
-`markContactPushed(ws, contactId, externalId)`, `releaseExternalSource(ws, source)`.
+`crm` — new `CONTACT_SYNC_FACADE` (`api/contact-sync.facade.ts`, PR 3): `upsertExternalContact(ws, source,
+contact)` (match by external id, then the oldest live unlinked customer with that normalized phone, else create
+with source "KiotViet"), `unlinkExternalContacts`, `claimContactsForPush(ws, source, since, limit)`,
+`markContactPushed(ws, contactId, source, externalId)`, `markContactPushFailed`, `releasePendingContactPushes`,
+`staleContactPushes`, `releaseExternalSource(ws, source)`, `linkedContactCount`, `externalIdOf`.
 
 ### 4.5 HTTP API (`packages/contracts/src/integration/`), workspace-scoped
 

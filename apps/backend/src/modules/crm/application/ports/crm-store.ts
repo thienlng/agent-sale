@@ -27,6 +27,9 @@ export interface ContactRecord {
   profileNote: string;
   searchText: string;
   clientRequestId: string | null;
+  /** PMS link (ADR-017); both null when not linked. Written only through `CrmTx.contactSync`. */
+  externalSource: string | null;
+  externalId: string | null;
   version: number;
   createdByUserId: string | null;
   createdAt: Date;
@@ -181,8 +184,44 @@ export interface CrmTx {
     insert(n: NoteRecord): Promise<void>;
     update(n: NoteRecord): Promise<void>;
   };
+  /**
+   * PMS link and push columns of contacts (ADR-017). Lookups lock the row until the transaction
+   * ends. KiotViet is the only source, so the push state carries no source of its own.
+   */
+  contactSync: {
+    findByExternal(source: string, externalId: string): Promise<ContactRecord | null>;
+    /** Oldest live (not archived), unlinked customer with this E.164 phone. */
+    findUnlinkedByPhone(phoneNormalized: string): Promise<ContactRecord | null>;
+    /**
+     * Sets (and clears the push state) or removes the link; the version is the caller's. Throws
+     * ContactExternalLinkConflictError when the external id is on another customer.
+     */
+    setLink(contactId: string, link: { source: string; id: string } | null): Promise<void>;
+    /**
+     * Removes the links to these external ids (all of the source when null), bumping version and
+     * `updatedAt`; returns the customers unlinked.
+     */
+    unlink(
+      source: string,
+      externalIds: readonly string[] | null,
+      at: Date,
+    ): Promise<Array<{ id: string; externalId: string }>>;
+    /** Null → 'pending' for up to `limit` eligible customers (SKIP LOCKED), oldest first. */
+    claim(since: Date, limit: number, at: Date): Promise<ContactRecord[]>;
+    /** 'pending' → 'failed' with the code; false when the customer was not pending. */
+    markFailed(contactId: string, code: string): Promise<boolean>;
+    /** 'pending' → null (claimed before `olderThan` when given); returns how many. */
+    releasePending(olderThan?: Date): Promise<number>;
+    /** 'pending' and 'failed' → null; returns how many. */
+    clearPushStates(): Promise<number>;
+    stalePending(since: Date, olderThan: Date, limit: number): Promise<string[]>;
+    countLinked(source: string): Promise<number>;
+    externalIdOf(source: string, contactId: string): Promise<string | null>;
+  };
   history: {
     add(h: HistoryRecord): Promise<void>;
+    /** Many entries in few statements (bulk unlink). */
+    addMany(h: readonly HistoryRecord[]): Promise<void>;
     list(
       contactId: string,
       f: {

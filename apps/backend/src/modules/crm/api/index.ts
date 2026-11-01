@@ -5,3 +5,13 @@ export {
   type CrmFacade,
 } from './crm.facade.js';
 export * from './crm.events.js';
+export {
+  CONTACT_SYNC_FACADE,
+  ContactAlreadyLinkedError,
+  type ContactExternalSource,
+  ContactExternalLinkConflictError,
+  type ContactSyncFacade,
+  type ExternalContactInput,
+  type PushableContact,
+  type UpsertExternalContactResult,
+} from './contact-sync.facade.js';

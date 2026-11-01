@@ -60,6 +60,12 @@ export const UpdateContactRequest = z.object({
 });
 export type UpdateContactRequest = z.input<typeof UpdateContactRequest>;
 
+export const ContactExternalLink = z.object({
+  source: z.enum(['kiotviet']),
+  id: z.string().min(1),
+});
+export type ContactExternalLink = z.infer<typeof ContactExternalLink>;
+
 export const ContactDto = z.object({
   id: z.uuid(),
   name: z.string().nullable(),
@@ -84,6 +90,11 @@ export const ContactDto = z.object({
   profileNote: z.string(),
   /** Active tags on the customer. */
   tags: z.array(TagAssignmentDto),
+  /**
+   * The PMS customer this customer is linked to (ADR-017). The PMS then owns name, phone, email,
+   * address, birthday and gender; other fields stay editable here.
+   */
+  external: ContactExternalLink.nullable().default(null),
   version: z.number().int(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),

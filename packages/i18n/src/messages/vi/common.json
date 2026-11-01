@@ -941,7 +941,8 @@
       "createdAt": "Tạo lúc",
       "updatedAt": "Cập nhật lúc",
       "birthday": "Ngày sinh",
-      "gender": "Giới tính"
+      "gender": "Giới tính",
+      "external": "Liên kết PMS"
     },
     "columns": {
       "title": "Cột hiển thị",

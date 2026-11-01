@@ -1,6 +1,8 @@
+import { sql } from 'drizzle-orm';
 import {
   bigint,
   boolean,
+  check,
   date,
   foreignKey,
   index,
@@ -74,10 +76,42 @@ export const contacts = pgTable(
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
     archivedAt: ts('archived_at'),
+    /** PMS link (0051, ADR-017): the provider and its customer id; both null when not linked. */
+    externalSource: text('external_source'),
+    externalId: text('external_id'),
+    /** Creating the customer in the PMS (0051): 'pending' while claimed, 'failed' when refused. */
+    externalPushState: text('external_push_state').$type<'pending' | 'failed'>(),
+    externalPushAt: ts('external_push_at'),
+    externalPushError: text('external_push_error'),
   },
   (t) => [
     // Target of same-workspace composite keys (conversations.contact_id, contact_bots; 0030).
     uniqueIndex('contacts_workspace_id_unique').on(t.workspaceId, t.id),
+    // Mirrors migration 0051 (customers linked to a PMS).
+    check(
+      'contacts_external_link_check',
+      sql`(${t.externalId} is null) = (${t.externalSource} is null)`,
+    ),
+    check(
+      'contacts_external_push_state_check',
+      sql`${t.externalPushState} is null or (${t.externalPushState} in ('pending', 'failed') and ${t.externalId} is null and ${t.externalPushAt} is not null)`,
+    ),
+    uniqueIndex('contacts_external')
+      .on(t.workspaceId, t.externalSource, t.externalId)
+      .where(sql`${t.externalId} is not null`),
+    index('contacts_phone_unlinked_idx')
+      .on(t.workspaceId, t.phoneNormalized, t.createdAt)
+      .where(
+        sql`${t.externalId} is null and ${t.archivedAt} is null and ${t.phoneNormalized} is not null`,
+      ),
+    index('contacts_push_unclaimed_idx')
+      .on(t.workspaceId, t.createdAt)
+      .where(
+        sql`${t.externalId} is null and ${t.externalPushState} is null and ${t.archivedAt} is null and ${t.phoneNormalized} is not null`,
+      ),
+    index('contacts_push_pending_idx')
+      .on(t.workspaceId, t.externalPushAt)
+      .where(sql`${t.externalPushState} = 'pending'`),
     ...tenantPolicies('contacts'),
   ],
 );
