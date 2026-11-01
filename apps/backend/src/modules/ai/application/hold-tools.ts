@@ -44,22 +44,30 @@ const Day = z
 const StayFields = {
   checkIn: Day,
   checkOut: Day,
-  adults: z.number().int().min(1).max(500),
+  adults: z.number().int().min(0).max(500),
   childAges: z.array(z.number().int().min(0).max(17)).max(50).optional(),
 };
+/** At least one guest: adults may be 0 when children are given (as the lodging module). */
+const someGuest = (v: { adults: number; childAges?: number[] | undefined }) =>
+  v.adults + (v.childAges?.length ?? 0) >= 1;
+const SOME_GUEST = { message: 'at least one guest', path: ['adults'] };
 const PropertyCode = z.string().trim().min(1).max(40);
 
-const CheckInput = z.object({ ...StayFields, propertyCode: PropertyCode.optional() });
+const CheckInput = z
+  .object({ ...StayFields, propertyCode: PropertyCode.optional() })
+  .refine(someGuest, SOME_GUEST);
 
-const PrepareInput = z.object({
-  ...StayFields,
-  propertyCode: PropertyCode,
-  rooms: z.array(z.string().trim().min(1).max(100)).max(30).optional(),
-  // Empty values are allowed: the server answers with `missing_*` problems the model can ask about.
-  guestName: z.string().max(120),
-  guestPhone: z.string().max(40),
-  note: z.string().max(300).optional(),
-});
+const PrepareInput = z
+  .object({
+    ...StayFields,
+    propertyCode: PropertyCode,
+    rooms: z.array(z.string().trim().min(1).max(100)).max(30).optional(),
+    // Empty values are allowed: the server answers with `missing_*` problems the model can ask about.
+    guestName: z.string().max(120),
+    guestPhone: z.string().max(40),
+    note: z.string().max(300).optional(),
+  })
+  .refine(someGuest, SOME_GUEST);
 
 const CHECK_DEFINITION: ToolDefinition = {
   name: CHECK_AVAILABILITY_TOOL,
@@ -146,18 +154,19 @@ const LOCAL_TIME = new Intl.DateTimeFormat('en-GB', {
   hourCycle: 'h23',
 });
 
-/** '16:30 01/11': the shop's local time and day of an ISO instant. */
-export function localHoldTime(iso: string): { time: string; day: string } {
-  const parts = Object.fromEntries(
-    LOCAL_TIME.formatToParts(new Date(iso)).map((p) => [p.type, p.value]),
-  );
+/** '16:30 01/11': the shop's local time and day of an ISO instant; null when it is not one. */
+export function localHoldTime(iso: string): { time: string; day: string } | null {
+  const at = new Date(iso);
+  if (!iso || Number.isNaN(at.getTime())) return null;
+  const parts = Object.fromEntries(LOCAL_TIME.formatToParts(at).map((p) => [p.type, p.value]));
   return { time: `${parts.hour}:${parts.minute}`, day: `${parts.day}/${parts.month}` };
 }
 
-/** The line that tells the customer the hold's code and until when it is held. */
+/** The line that tells the customer the hold's code and until when it is held (when known). */
 export function holdCreatedText(code: string, expiresAt: string): string {
-  const { time, day } = localHoldTime(expiresAt);
-  return `Dạ em đã giữ chỗ ${code} đến ${time} ngày ${day} ạ. Nhân viên sẽ gọi xác nhận sớm ạ.`;
+  const until = localHoldTime(expiresAt);
+  const when = until ? ` đến ${until.time} ngày ${until.day}` : '';
+  return `Dạ em đã giữ chỗ ${code}${when} ạ. Nhân viên sẽ gọi xác nhận sớm ạ.`;
 }
 
 const reply = (value: unknown, ok = true) => ({ content: safeJson(value), ok });
@@ -390,7 +399,11 @@ export function holdTools(ctx: HoldToolContext): {
         );
       state.created = { code: res.code, expiresAt: res.holdExpiresAt };
       const until = localHoldTime(res.holdExpiresAt);
-      return reply({ ok: true, code: res.code, heldUntil: `${until.time} ${until.day}` });
+      return reply({
+        ok: true,
+        code: res.code,
+        ...(until ? { heldUntil: `${until.time} ${until.day}` } : {}),
+      });
     },
   };
 

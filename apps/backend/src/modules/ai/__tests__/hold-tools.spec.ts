@@ -28,6 +28,7 @@ import {
   type HoldToolContext,
   holdCreatedText,
   holdTools,
+  localHoldTime,
   newHoldToolState,
   PREPARE_HOLD_TOOL,
 } from '../application/hold-tools.js';
@@ -196,6 +197,20 @@ describe('hold tools: gating (spec §4)', () => {
 });
 
 describe('check_availability', () => {
+  it('accepts a party of children only (at least one guest), as the lodging module does', () => {
+    const schema = tool(context(fakeLodging()), CHECK_AVAILABILITY_TOOL).schema;
+    expect(schema.safeParse({ ...STAY, adults: 0, childAges: [8] }).success).toBe(true);
+    expect(schema.safeParse({ ...STAY, adults: 0 }).success).toBe(false);
+    expect(schema.safeParse({ ...STAY, adults: 0, childAges: [] }).success).toBe(false);
+    expect(
+      tool(context(fakeLodging()), PREPARE_HOLD_TOOL).schema.safeParse({
+        ...HOLD,
+        adults: 0,
+        childAges: [8],
+      }).success,
+    ).toBe(true);
+  });
+
   it('maps the property code to its id and shows the model no ids', async () => {
     const facade = fakeLodging({
       check: availability({
@@ -447,6 +462,22 @@ describe('confirm_hold / cancel_hold_draft', () => {
     const out = await tool(context(facade, { confirmable: true }), CANCEL_HOLD_DRAFT_TOOL).run({});
     expect(JSON.parse(out.content)).toEqual({ ok: true, status: 'cancelled' });
     expect(facade.cancelBotHoldDraft).toHaveBeenCalledWith(ws, { conversationId });
+  });
+
+  it('never throws on a held result without a readable expiry', async () => {
+    expect(localHoldTime('')).toBeNull();
+    expect(localHoldTime('not a date')).toBeNull();
+    expect(holdCreatedText('BK0042', '')).toBe(
+      'Dạ em đã giữ chỗ BK0042 ạ. Nhân viên sẽ gọi xác nhận sớm ạ.',
+    );
+    const facade = fakeLodging({
+      storedAt: new Date(0),
+      confirm: { status: 'held', code: 'BK0042', holdExpiresAt: '' },
+    });
+    const ctx = context(facade, { confirmable: true });
+    const out = await tool(ctx, CONFIRM_HOLD_TOOL).run({});
+    expect(JSON.parse(out.content)).toEqual({ ok: true, code: 'BK0042' });
+    expect(ctx.state.created).toEqual({ code: 'BK0042', expiresAt: '' });
   });
 
   it('words the held line with the local expiry time and date', () => {
