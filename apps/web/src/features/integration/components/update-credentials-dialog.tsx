@@ -31,23 +31,28 @@ export function UpdateCredentialsDialog({
 }) {
   const { t } = useTranslation('integration');
   const update = useUpdateKiotViet();
-  const [values, setValues] = useState<CredentialValues>({
+  const blank = (): CredentialValues => ({
     retailer: connection.retailer,
     clientId: '',
     clientSecret: '',
   });
+  const [values, setValues] = useState<CredentialValues>(blank);
   const [errors, setErrors] = useState<Partial<Record<CredentialField, string>>>({});
   const [banner, setBanner] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
-
-  const close = (next: boolean) => {
-    if (!next) {
-      setValues({ retailer: connection.retailer, clientId: '', clientSecret: '' });
+  // Each opening starts blank. Not keyed on the version: a 409 refetch bumps it, and the typed
+  // values and the conflict banner must survive that.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setValues(blank());
       setErrors({});
       setBanner(null);
     }
-    onOpenChange(next);
-  };
+  }
+
+  const close = (next: boolean) => onOpenChange(next);
 
   async function submit(e: FormEvent) {
     e.preventDefault();

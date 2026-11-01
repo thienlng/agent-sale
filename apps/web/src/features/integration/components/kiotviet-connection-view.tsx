@@ -86,7 +86,6 @@ export function KiotVietConnectionView({
       {canManage ? <DangerCard /> : null}
       {canManage ? (
         <UpdateCredentialsDialog
-          key={`credentials-${connection.version}`}
           connection={connection}
           open={updatingCredentials}
           onOpenChange={setUpdatingCredentials}

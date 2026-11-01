@@ -161,4 +161,56 @@ describe('KiotVietConnectionView', () => {
     );
     expect(calls.some((c) => c.key === 'DELETE /integrations/kiotviet')).toBe(true);
   });
+
+  it('keeps typed credentials and the conflict banner when a stale version reloads the connection', async () => {
+    const { user } = setup({
+      'PATCH /integrations/kiotviet': {
+        status: 409,
+        body: {
+          error: { code: 'CONFLICT', message: 'x', details: { reason: 'connection_version' } },
+        },
+      },
+    });
+    const { rerender } = renderWithProviders(
+      <KiotVietConnectionView connection={connection()} canManage />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Cập nhật mã' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText('Client ID'), 'new-id');
+    await user.type(within(dialog).getByLabelText('Mã bảo mật'), 'new-secret');
+    await user.click(within(dialog).getByRole('button', { name: 'Lưu' }));
+    const banner = 'Kết nối vừa được thay đổi ở nơi khác. Đã tải lại, hãy thử lại.';
+    expect(await within(dialog).findByText(banner)).toBeInTheDocument();
+    rerender(<KiotVietConnectionView connection={connection({ version: 4 })} canManage />);
+    const after = screen.getByRole('dialog');
+    expect(within(after).getByText(banner)).toBeInTheDocument();
+    expect(within(after).getByLabelText('Client ID')).toHaveValue('new-id');
+    expect(within(after).getByLabelText('Mã bảo mật')).toHaveValue('new-secret');
+  });
+
+  it('opens the credentials dialog blank again after it was closed', async () => {
+    const { user } = setup();
+    renderWithProviders(<KiotVietConnectionView connection={connection()} canManage />);
+    await user.click(screen.getByRole('button', { name: 'Cập nhật mã' }));
+    await user.type(within(await screen.findByRole('dialog')).getByLabelText('Client ID'), 'x');
+    await user.click(screen.getByRole('button', { name: 'Huỷ' }));
+    await user.click(screen.getByRole('button', { name: 'Cập nhật mã' }));
+    expect(within(await screen.findByRole('dialog')).getByLabelText('Client ID')).toHaveValue('');
+  });
+
+  it('reloads the activity once a sync finishes, to catch its final entry', async () => {
+    const { calls } = setup();
+    const syncing = connection({
+      status: 'syncing',
+      progress: { phase: 'stock', done: 0, total: null },
+    });
+    const { rerender } = renderWithProviders(
+      <KiotVietConnectionView connection={syncing} canManage />,
+    );
+    const logCalls = () => calls.filter((c) => c.key === 'GET /integrations/kiotviet/log').length;
+    await screen.findByText('Đã đồng bộ 1.240 sản phẩm');
+    expect(logCalls()).toBe(1);
+    rerender(<KiotVietConnectionView connection={connection()} canManage />);
+    await vi.waitFor(() => expect(logCalls()).toBe(2));
+  });
 });

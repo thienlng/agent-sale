@@ -8,6 +8,7 @@ import {
   type UpdateKiotVietRequest,
 } from '@agent-sales/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 import { z } from 'zod';
 
 import { api } from '@/lib/api-client';
@@ -41,6 +42,13 @@ export function useIntegrations() {
 
 export function useKiotVietLog(enabled: boolean, poll: boolean) {
   const ws = useWorkspaceId();
+  const qc = useQueryClient();
+  // Polling stops with the sync; read once more so its final entry (done / failed) shows up.
+  const [wasPolling, setWasPolling] = useState(poll);
+  useEffect(() => {
+    if (wasPolling && !poll) void qc.invalidateQueries({ queryKey: logKey(ws) });
+    if (wasPolling !== poll) setWasPolling(poll);
+  }, [poll, wasPolling, qc, ws]);
   return useQuery({
     queryKey: logKey(ws),
     queryFn: async () => (await api('/integrations/kiotviet/log', SyncLogResponse)).entries,
@@ -50,8 +58,12 @@ export function useKiotVietLog(enabled: boolean, poll: boolean) {
 }
 
 /** Checks credentials, lists branches and previews the first sync. Stores nothing. */
+/** Mutations whose variables carry the client secret: drop them from the cache at once. */
+const SECRET_SAFE = { gcTime: 0 } as const;
+
 export function useTestKiotViet() {
   return useMutation({
+    ...SECRET_SAFE,
     mutationFn: (body: KiotVietCredentials) =>
       api('/integrations/kiotviet/test', KiotVietTestResponse, { method: 'POST', body }),
   });
@@ -71,6 +83,7 @@ function useRefresh() {
 export function useConnectKiotViet() {
   const refresh = useRefresh();
   return useMutation({
+    ...SECRET_SAFE,
     mutationFn: (body: ConnectKiotVietRequest) =>
       api('/integrations/kiotviet', ConnectionDto, { method: 'POST', body }),
     onSettled: refresh,
@@ -80,6 +93,7 @@ export function useConnectKiotViet() {
 export function useUpdateKiotViet() {
   const refresh = useRefresh();
   return useMutation({
+    ...SECRET_SAFE,
     mutationFn: (body: UpdateKiotVietRequest) =>
       api('/integrations/kiotviet', ConnectionDto, { method: 'PATCH', body }),
     onSettled: refresh,
