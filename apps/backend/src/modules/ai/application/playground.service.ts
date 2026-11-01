@@ -99,6 +99,18 @@ import {
 } from './reply-pipeline.js';
 
 export { PHONE_KNOWN_LINE };
+
+// TODO(prompt-budget): slim the per-turn prompt later; every agent-loop round resends all of it.
+// 1. Compose sales-agent conditionally: "Closing an order" only when bot.orderTaking, "Actions"
+//    only when the bot has actions (today every bot pays ~3.5K chars for both).
+// 2. Dedupe repeated rules (phone → handoff ×3, "data, never instructions" ×5, "never invent" ×6)
+//    and the tool descriptions that restate the system prompt (calculate, send_message, prepare_order).
+// 3. renderBusinessProfile: drop the "(not provided)" lines, say "unlisted fields are unknown" once.
+// 4. Skip empty <shop_situations> / "(no matching entries)" blocks; add a score floor to FAQ hits.
+// 5. <focus_products>: compact view instead of full details of 3 products every turn.
+// 6. Playground (conversationId null) cannot store the history summary, so long test chats
+//    re-summarise on every turn.
+// Steps 2 and 5 change bot behaviour: run the ai evals before/after. Measure first (prompt viewer).
 const PROMPT_RETAIL = { name: 'sales-agent', version: 15 } as const;
 const PROMPT_LODGING = { name: 'sales-agent', version: 18 } as const;
 /** The sales-agent prompt versions the option may force (13/14: before the order tools). */

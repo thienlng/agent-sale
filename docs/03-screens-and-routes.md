@@ -65,6 +65,8 @@
 | | Audit log [+] | — | `/app/settings/audit-log` | SET-09 | P1 |
 | | Personal profile | `/quan-ly/thong-tin-ca-nhan` | `/app/profile` | ACC-06 | P0 |
 
+> Unlike Preny, our sidebar has no "Chat đa kênh" group: **Tin nhắn đa kênh** (`/app/inbox`) is a top-level item (the page staff use most, one click away) and **Tích hợp nền tảng** (`/app/channels`) is its own top-level item.
+
 ## 3. Bot space (`/app/bots/{botId}/…`)
 
 Dedicated layout: back button, bot name, **bot on/off switch**, left menu, **test chat panel on the right** (collapsible), onboarding checklist dialog (x/4).

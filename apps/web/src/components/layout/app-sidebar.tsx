@@ -16,7 +16,7 @@ import {
   Users,
   UsersRound,
 } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Logo } from '@/components/logo';
@@ -61,59 +61,14 @@ const WORK: readonly NavItem[] = [
   { to: '/app/settings', key: 'nav.settings', icon: Settings, ready: true },
 ];
 
-/** Multichannel messaging stays separate from the global platform inventory. */
-const MULTICHANNEL: readonly NavItem[] = [
+/** The inbox: the page staff use most, one click from anywhere. */
+const INBOX: readonly NavItem[] = [
   { to: '/app/inbox', key: 'nav.inbox', icon: MessagesSquare, ready: true },
 ];
+/** The workspace's channel inventory (connected Pages and accounts), separate from the inbox. */
 const INTEGRATIONS: readonly NavItem[] = [
   { to: '/app/channels', key: 'nav.channels', icon: Cable, ready: true },
 ];
-const MULTICHANNEL_PATHS = /^\/app\/inbox(\/|$)/;
-
-function MultichannelNav() {
-  const { t } = useTranslation();
-  const { isMobile, setOpenMobile } = useSidebar();
-  const inside = useRouterState({
-    select: (s) => MULTICHANNEL_PATHS.test(s.location.pathname),
-  });
-  // Starts open so both pages stay one click away; re-opens whenever the user is inside.
-  const [open, setOpen] = useState(true);
-  const [wasInside, setWasInside] = useState(inside);
-  if (inside !== wasInside) {
-    setWasInside(inside);
-    if (inside) setOpen(true);
-  }
-  return (
-    <Collapsible asChild open={open} onOpenChange={setOpen} className="group/collapsible">
-      <SidebarMenuItem>
-        <CollapsibleTrigger asChild>
-          <SidebarMenuButton tooltip={t('nav.multichannel')} isActive={inside && !open}>
-            <MessagesSquare />
-            <span>{t('nav.multichannel')}</span>
-            <ChevronRight className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-90" />
-          </SidebarMenuButton>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <SidebarMenuSub>
-            {MULTICHANNEL.map(({ to, key }) => (
-              <SidebarMenuSubItem key={to}>
-                <SidebarMenuSubButton asChild>
-                  <Link
-                    to={to}
-                    activeProps={{ 'data-active': true }}
-                    onClick={() => isMobile && setOpenMobile(false)}
-                  >
-                    <span>{t(key)}</span>
-                  </Link>
-                </SidebarMenuSubButton>
-              </SidebarMenuSubItem>
-            ))}
-          </SidebarMenuSub>
-        </CollapsibleContent>
-      </SidebarMenuItem>
-    </Collapsible>
-  );
-}
 
 /** The orders area (docs/03 §2 "Đơn hàng"): one entry with sub-pages. */
 const ORDERS: readonly NavItem[] = [
@@ -302,7 +257,7 @@ export function AppSidebar({
         <nav aria-label={t('nav.mainLabel')} className="contents">
           <NavGroup label={t('nav.groupWork')} items={HOME}>
             <NavItems items={BOTS} />
-            <MultichannelNav />
+            <NavItems items={INBOX} />
             <NavItems items={INTEGRATIONS} />
             <SectionNav
               label="nav.contacts"
