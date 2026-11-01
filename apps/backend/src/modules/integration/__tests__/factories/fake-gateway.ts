@@ -23,6 +23,8 @@ export class FakeKiotVietGateway implements KiotVietGateway {
   calls: Array<{ method: string; interactive: boolean; credentials: KvCredentials | undefined }> =
     [];
   codesRead = 0;
+  /** What `productCount` answers; defaults to the number of codes. */
+  total: number | null | undefined = undefined;
   private nextWebhookId = 100;
   private readonly view: KiotVietGateway;
 
@@ -36,6 +38,7 @@ export class FakeKiotVietGateway implements KiotVietGateway {
       products: (c, q) => (record('products', c), this.products(c, q)),
       productById: (c, id) => (record('productById', c), this.productById(c, id)),
       onHands: (c, q) => (record('onHands', c), this.onHands(c, q)),
+      productCount: (c) => (record('productCount', c), this.doCount()),
       productCodes: (c) => (record('productCodes', c), this.doCodes()),
       registerWebhook: (c, w) => (record('registerWebhook', c), this.doRegister(c, w)),
       deleteWebhook: (c, id) => (record('deleteWebhook', c), this.doDelete(id)),
@@ -62,6 +65,11 @@ export class FakeKiotVietGateway implements KiotVietGateway {
 
   onHands(_c: KvCredentials, _q: unknown): Promise<KvPage<KvOnHand>> {
     return Promise.resolve({ data: [], total: 0, removedIds: [] });
+  }
+
+  productCount(c: KvCredentials): Promise<number | null> {
+    this.track('productCount', false, c);
+    return this.doCount();
   }
 
   productCodes(c: KvCredentials): AsyncIterable<string> {
@@ -93,6 +101,11 @@ export class FakeKiotVietGateway implements KiotVietGateway {
   private doBranches(): Promise<KvBranch[]> {
     if (this.fail.branches) return Promise.reject(this.fail.branches);
     return Promise.resolve(structuredClone(this.branchList));
+  }
+
+  private doCount(): Promise<number | null> {
+    if (this.fail.productCount) return Promise.reject(this.fail.productCount);
+    return Promise.resolve(this.total === undefined ? this.codes.length : this.total);
   }
 
   private async *doCodes(): AsyncIterable<string> {

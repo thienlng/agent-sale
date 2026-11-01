@@ -40,11 +40,16 @@ export type KiotVietBranch = z.infer<typeof KiotVietBranch>;
 export const KiotVietTestResponse = z.object({
   retailer: z.string(),
   branches: z.array(KiotVietBranch),
-  /** What the first sync would do to the catalog. */
+  /**
+   * What the first sync would do to the catalog, estimated from the first `scanned` product codes
+   * (capped so the check answers quickly); `total` is the store's product count, null if unknown.
+   */
   preview: z.object({
     matched: z.number().int(),
     created: z.number().int(),
     rapizOnly: z.number().int(),
+    scanned: z.number().int(),
+    total: z.number().int().nullable(),
   }),
 });
 export type KiotVietTestResponse = z.infer<typeof KiotVietTestResponse>;

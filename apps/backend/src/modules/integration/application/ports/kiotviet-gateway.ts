@@ -52,6 +52,8 @@ export interface KiotVietGateway {
     c: KvCredentials,
     q: { currentItem: number; pageSize: number; lastModifiedFrom?: Date; branchIds: number[] },
   ): Promise<KvPage<KvOnHand>>;
+  /** The store's product total from a one-item page; null when KiotViet does not say. */
+  productCount(c: KvCredentials): Promise<number | null>;
   /** Every product code, page by page (pageSize 100); callers may stop early. */
   productCodes(c: KvCredentials): AsyncIterable<string>;
   registerWebhook(

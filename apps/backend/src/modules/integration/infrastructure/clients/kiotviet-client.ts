@@ -19,6 +19,7 @@ import {
   KiotVietUnavailableError,
 } from '../../domain/integration.errors.js';
 import type { KvProduct } from '../../domain/kiotviet-mapping.js';
+import { type Bucket, takeFromBudget } from './kiotviet-budget.js';
 import {
   KvBranchSchema,
   KvListSchema,
@@ -55,9 +56,6 @@ const MAX_RETRY_AFTER_MS = 60_000;
 const TOKEN_MARGIN_MS = 300_000;
 const DEFAULT_TOKEN_TTL_S = 86_400;
 const PAGE_SIZE = 100;
-/** Per-store request budget: bursts of 10, refilled at 4 500 requests per hour. */
-const BUDGET_CAPACITY = 10;
-const BUDGET_PER_SECOND = 4_500 / 3_600;
 
 export interface KiotVietClientOptions {
   tokenUrl: string;
@@ -78,11 +76,6 @@ interface Received {
   status: number;
   /** Empty unless the status is 2xx. */
   body: string;
-}
-
-interface Bucket {
-  tokens: number;
-  at: number;
 }
 
 /** Token cache and budget, shared by the background client and its interactive view. */
@@ -197,6 +190,12 @@ export class KiotVietClient implements KiotVietGateway {
       },
       KvOnHandSchema,
     );
+  }
+
+  async productCount(c: KvCredentials): Promise<number | null> {
+    const raw = await this.call(c, 'GET', '/products', { query: { currentItem: 0, pageSize: 1 } });
+    const total = (raw as { total?: unknown } | null)?.total;
+    return Number.isInteger(total) && (total as number) >= 0 ? (total as number) : null;
   }
 
   async *productCodes(c: KvCredentials): AsyncIterable<string> {
@@ -445,23 +444,19 @@ export class KiotVietClient implements KiotVietGateway {
     if (this.shared.tokens.get(key)?.token === token) this.shared.tokens.delete(key);
   }
 
-  /** In-memory token bucket per store: background calls wait, interactive ones run into debt. */
+  /** Per-store budget (`kiotviet-budget.ts`): background calls wait, interactive ones do not. */
   private async takeBudget(retailer: string): Promise<void> {
-    const key = retailer.trim().toLowerCase();
+    const interactive = !this.profile.waitForBudget;
     for (;;) {
-      const now = this.now();
-      const bucket = this.shared.buckets.get(key) ?? { tokens: BUDGET_CAPACITY, at: now };
-      bucket.tokens = Math.min(
-        BUDGET_CAPACITY,
-        bucket.tokens + ((now - bucket.at) / 1000) * BUDGET_PER_SECOND,
-      );
-      bucket.at = now;
-      this.shared.buckets.set(key, bucket);
-      if (bucket.tokens >= 1 || !this.profile.waitForBudget) {
-        bucket.tokens -= 1;
-        return;
+      let wait: number;
+      try {
+        wait = takeFromBudget(this.shared.buckets, retailer, this.now(), interactive);
+      } catch (error) {
+        log.warn('KiotViet budget of a store is too far in debt; refusing an interactive call');
+        throw error;
       }
-      await this.sleep(Math.ceil(((1 - bucket.tokens) / BUDGET_PER_SECOND) * 1000));
+      if (wait === 0) return;
+      await this.sleep(wait);
     }
   }
 }

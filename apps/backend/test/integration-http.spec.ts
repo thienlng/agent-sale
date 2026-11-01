@@ -124,6 +124,8 @@ describe('HTTP: KiotViet integration', () => {
       matched: 3,
       created: 0,
       rapizOnly: 2,
+      scanned: 3,
+      total: 3,
     });
 
     const connected = await call('POST', '/kiotviet', { ...creds, settings });

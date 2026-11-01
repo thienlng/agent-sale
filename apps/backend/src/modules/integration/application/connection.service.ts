@@ -19,6 +19,7 @@ import {
   ConnectionExistsError,
   ConnectionNotFoundError,
   ConnectionVersionConflictError,
+  KiotVietAuthError,
   KiotVietBranchError,
   KiotVietRetailerChangedError,
   KiotVietRetailerError,
@@ -41,8 +42,11 @@ import {
 } from './ports/kiotviet-gateway.js';
 
 const PROVIDER = 'kiotviet';
-/** The first-sync preview reads at most this many product codes (200 pages). */
-const MAX_PREVIEW_CODES = 20_000;
+/**
+ * The first-sync preview compares at most this many product codes (30 pages), so the check answers
+ * well inside the proxy timeout and spends little of the store's hourly budget.
+ */
+const MAX_PREVIEW_CODES = 3_000;
 /** Events that keep the catalog fresh between reconciles (spec §5.3). */
 const WEBHOOK_TYPES = ['product.update', 'product.delete', 'stock.update'] as const;
 const COMING_SOON = ['sapo', 'haravan', 'pancake_pos'] as const;
@@ -86,13 +90,18 @@ export class ConnectionService {
     const creds = credentials(input);
     const kv = this.gateway.interactive();
     const branches = await kv.branches(creds);
+    const total = await kv.productCount(creds);
     const codes: string[] = [];
     for await (const code of kv.productCodes(creds)) {
       codes.push(code);
       if (codes.length >= MAX_PREVIEW_CODES) break;
     }
-    const preview = await this.catalog.previewExternalMatch(ws, codes);
-    return { retailer: creds.retailer, branches, preview };
+    const match = await this.catalog.previewExternalMatch(ws, codes);
+    return {
+      retailer: creds.retailer,
+      branches,
+      preview: { ...match, scanned: codes.length, total },
+    };
   }
 
   async connect(
@@ -131,17 +140,21 @@ export class ConnectionService {
     };
     await this.store.insertConnection(ws, record);
 
-    const webhookIds = await this.registerWebhooks(ws, record, creds, webhookSecret);
-    const saved = await this.store.updateConnection(ws, record.id, {
-      settings: { ...record.settings, webhookIds },
-    });
-    await this.store.enqueue(ws, { connectionId: record.id, kind: 'full_import' });
-    await this.store.log(ws, record.id, {
-      level: 'info',
-      code: 'connected',
-      params: { branches: req.settings.saleBranchIds.length },
-    });
-    return toDto(saved);
+    // From here the connection exists: any failure leaves it visibly in error, never silently
+    // `syncing` without a job.
+    try {
+      await this.store.enqueue(ws, { connectionId: record.id, kind: 'full_import' });
+      const saved = await this.registerWebhooks(ws, record, creds, webhookSecret);
+      await this.store.log(ws, record.id, {
+        level: 'info',
+        code: 'connected',
+        params: { branches: req.settings.saleBranchIds.length },
+      });
+      return toDto(saved);
+    } catch (error) {
+      await this.markConnectFailed(ws, record.id, error);
+      throw error;
+    }
   }
 
   async update(ws: WorkspaceId, req: UpdateKiotVietRequest): Promise<ConnectionDto> {
@@ -227,34 +240,64 @@ export class ConnectionService {
     return current;
   }
 
+  /**
+   * The stored credentials. A secret that no longer opens (encryption key changed) is treated like
+   * a rejected secret, so the owner gets the "update the code" path instead of a 500.
+   */
   private storedCredentials(c: ConnectionRecord): KvCredentials {
-    return {
-      retailer: c.retailer,
-      clientId: c.clientId,
-      clientSecret: this.secrets.open(c.clientSecretSealed),
-    };
+    let clientSecret: string;
+    try {
+      clientSecret = this.secrets.open(c.clientSecretSealed);
+    } catch {
+      this.logger.warn(`Connection ${c.id}: the sealed client secret cannot be opened`);
+      throw new KiotVietAuthError();
+    }
+    return { retailer: c.retailer, clientId: c.clientId, clientSecret };
   }
 
-  /** Returns the ids that registered; a failure is logged and the periodic reconcile covers it. */
+  /** Best effort: status `error` with the cause, so a half-made connection is not left `syncing`. */
+  private async markConnectFailed(ws: WorkspaceId, id: string, error: unknown): Promise<void> {
+    this.logger.warn(`Connection ${id}: connect failed after insert (${errorName(error)})`);
+    try {
+      await this.store.updateConnection(ws, id, {
+        status: 'error',
+        lastError: { code: 'connect_failed', at: new Date().toISOString() },
+      });
+    } catch (markError) {
+      this.logger.warn(`Connection ${id}: could not mark the error (${errorName(markError)})`);
+    }
+  }
+
+  /**
+   * Registers the webhooks and saves each id as soon as KiotViet returns it, so a later failure
+   * never leaves a webhook Rapiz cannot delete. A registration failure is logged and the periodic
+   * reconcile covers it; a failure to save an id propagates. Returns the latest record.
+   */
   private async registerWebhooks(
     ws: WorkspaceId,
     c: ConnectionRecord,
     creds: KvCredentials,
     secretBase64: string,
-  ): Promise<number[]> {
+  ): Promise<ConnectionRecord> {
     const base = this.options.webhookBaseUrl?.replace(/\/+$/, '');
     const ids: number[] = [];
+    let saved = c;
     let failure = base ? '' : 'no_public_webhook_base_url';
     if (base) {
       const url = `${base}/webhooks/kiotviet/${c.webhookToken}`;
       const kv = this.gateway.interactive();
       for (const type of WEBHOOK_TYPES) {
+        let id: number;
         try {
-          ids.push(await kv.registerWebhook(creds, { type, url, secretBase64 }));
+          id = await kv.registerWebhook(creds, { type, url, secretBase64 });
         } catch (error) {
           failure = errorName(error);
           break;
         }
+        ids.push(id);
+        saved = await this.store.updateConnection(ws, c.id, {
+          settings: { ...saved.settings, webhookIds: [...ids] },
+        });
       }
     }
     if (failure) {
@@ -265,22 +308,29 @@ export class ConnectionService {
         params: { registered: ids.length, expected: WEBHOOK_TYPES.length },
       });
     }
-    return ids;
+    return saved;
   }
 
+  /**
+   * Deletes the saved webhook ids plus any webhook KiotViet lists at this connection's URL (one
+   * registered but never saved). Best effort throughout.
+   */
   private async deleteWebhooks(c: ConnectionRecord): Promise<void> {
-    const ids = c.settings.webhookIds ?? [];
-    if (!ids.length) return;
     let creds: KvCredentials;
     try {
       creds = this.storedCredentials(c);
     } catch {
-      this.logger.warn(
-        `Connection ${c.id}: cannot open the sealed secret; webhooks left at KiotViet`,
-      );
+      this.logger.warn(`Connection ${c.id}: webhooks left at KiotViet`);
       return;
     }
     const kv = this.gateway.interactive();
+    const ids = new Set(c.settings.webhookIds ?? []);
+    try {
+      const suffix = `/webhooks/kiotviet/${c.webhookToken}`;
+      for (const h of await kv.listWebhooks(creds)) if (h.url.endsWith(suffix)) ids.add(h.id);
+    } catch (error) {
+      this.logger.warn(`Connection ${c.id}: webhooks not listed (${errorName(error)})`);
+    }
     for (const id of ids) {
       try {
         await kv.deleteWebhook(creds, id);
@@ -291,11 +341,14 @@ export class ConnectionService {
   }
 }
 
-/** Store name from what the owner pasted, with the trimmed id and secret. */
+/**
+ * Store name from what the owner pasted, with the id and secret trimmed (the contract already
+ * trims HTTP input; this keeps other callers honest).
+ */
 function credentials(input: KiotVietCredentials): KvCredentials {
   const retailer = parseRetailer(input.retailer);
   if (!retailer) throw new KiotVietRetailerError();
-  return { retailer, clientId: input.clientId, clientSecret: input.clientSecret };
+  return { retailer, clientId: input.clientId.trim(), clientSecret: input.clientSecret.trim() };
 }
 
 function assertBranches(saleBranchIds: number[], branches: KvBranch[]): void {

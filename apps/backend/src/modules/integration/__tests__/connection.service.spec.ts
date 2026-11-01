@@ -84,7 +84,7 @@ describe('ConnectionService', () => {
       expect(KiotVietTestResponse.parse(res)).toEqual({
         retailer: 'shopdemo',
         branches: gateway.branchList,
-        preview: { matched: 2, created: 1, rapizOnly: 4 },
+        preview: { matched: 2, created: 1, rapizOnly: 4, scanned: 3, total: 3 },
       });
       expect(catalog.previewExternalMatch).toHaveBeenCalledWith(ws, ['SP1', 'SP2', 'SP3']);
       expect(gateway.calls.every((c) => c.interactive)).toBe(true);
@@ -97,11 +97,17 @@ describe('ConnectionService', () => {
       expect(store.jobs).toEqual([]);
     });
 
-    it('stops reading product codes after 20 000', async () => {
+    it('compares at most 3 000 codes and reports the store total', async () => {
       gateway.codes = Array.from({ length: 25_000 }, (_, i) => `C${i}`);
-      await service.test(ws, creds);
-      expect(gateway.codesRead).toBe(20_000);
-      expect(catalog.previewExternalMatch.mock.calls[0]?.[1]).toHaveLength(20_000);
+      const res = await service.test(ws, creds);
+      expect(gateway.codesRead).toBe(3_000);
+      expect(catalog.previewExternalMatch.mock.calls[0]?.[1]).toHaveLength(3_000);
+      expect(res.preview).toMatchObject({ scanned: 3_000, total: 25_000 });
+    });
+
+    it('reports an unknown store total as null', async () => {
+      gateway.total = null;
+      expect((await service.test(ws, creds)).preview.total).toBeNull();
     });
 
     it('rejects a store name that is not one before calling KiotViet', async () => {
@@ -215,6 +221,35 @@ describe('ConnectionService', () => {
       expect(store.logs.map((l) => l.code)).toEqual(['webhook_register_failed', 'connected']);
     });
 
+    it('marks the connection in error when the import cannot be queued', async () => {
+      store.enqueue = () => Promise.reject(new Error('db down'));
+      await expect(service.connect(ws, USER, { ...creds, settings })).rejects.toThrow('db down');
+      expect(store.connections[0]).toMatchObject({
+        status: 'error',
+        lastError: { code: 'connect_failed' },
+      });
+      // Nothing was registered at KiotViet before the job was queued.
+      expect(gateway.webhooks).toEqual([]);
+    });
+
+    it('saves each webhook id at once and marks the error when a save fails', async () => {
+      const update = store.updateConnection.bind(store);
+      let saves = 0;
+      store.updateConnection = (w, id, patch, v) =>
+        patch.settings && ++saves === 2
+          ? Promise.reject(new Error('db down'))
+          : update(w, id, patch, v);
+
+      await expect(service.connect(ws, USER, { ...creds, settings })).rejects.toThrow('db down');
+      const row = store.connections[0]!;
+      expect(row.status).toBe('error');
+      expect(row.settings.webhookIds).toEqual([gateway.webhooks[0]!.id]);
+      // Two webhooks exist at KiotViet but only one id was saved: disconnect still removes both.
+      expect(gateway.webhooks).toHaveLength(2);
+      await service.disconnect(ws);
+      expect(gateway.webhooks).toEqual([]);
+    });
+
     it('never logs the secrets', async () => {
       gateway.fail.registerWebhook = new KiotVietUnavailableError();
       await service.connect(ws, USER, { ...creds, settings });
@@ -312,6 +347,17 @@ describe('ConnectionService', () => {
       });
       expect(box.open(store.connections[0]!.clientSecretSealed)).toBe('rotated');
       expect(JSON.stringify(updated)).not.toContain('rotated');
+    });
+
+    it('answers the update-the-code error when the stored secret no longer opens', async () => {
+      const dto = await connect();
+      store.connections[0]!.clientSecretSealed = 'v1.broken.sealed.value';
+      await expect(
+        service.update(ws, {
+          version: dto.version,
+          settings: { ...settings, saleBranchIds: [7], orderBranchId: 7 },
+        }),
+      ).rejects.toBeInstanceOf(KiotVietAuthError);
     });
 
     it('refuses credentials of another store', async () => {

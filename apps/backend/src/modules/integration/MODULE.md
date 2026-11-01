@@ -40,17 +40,20 @@ a 503 `UNAVAILABLE` stand-in when the process has no database).
   (`kiotviet.schemas.ts`); malformed list items are dropped and counted. Tests run against
   `__tests__/fake-kiotviet.ts`.
 - Connection lifecycle (`ConnectionService`): `test` stores nothing (store name via `parseRetailer`, branches,
-  preview over at most 20 000 product codes); `connect` refuses a live connection (409), checks the sale
+  preview over at most 3 000 product codes, with `scanned` and the store `total` from `productCount`); `connect` refuses a live connection (409), checks the sale
   branches exist (`kiotviet_branch`), seals the client secret and a random 24-byte webhook secret (registered
-  base64-encoded; the sealed value is that base64 text), creates the connection `syncing`, registers
+  base64-encoded; the sealed value is that base64 text), creates the connection `syncing`, enqueues `full_import`, registers
   `product.update`/`product.delete`/`stock.update` webhooks at `${PUBLIC_WEBHOOK_BASE_URL}/webhooks/kiotviet/<token>`
-  (ids in `settings.webhookIds`; failure or no base URL → log `webhook_register_failed`), enqueues `full_import`
-  and logs `connected`. `update` needs settings or credentials (`nothing_to_update`), checks `version`, accepts
+  (each id saved in `settings.webhookIds` as soon as it registers; failure or no base URL → log
+  `webhook_register_failed`) and logs `connected`; any failure after the insert sets status `error` with
+  `lastError.code = 'connect_failed'` (best effort) and rethrows. `update` needs settings or credentials (`nothing_to_update`), checks `version`, accepts
   credentials only for the same store (`kiotviet_retailer_changed`), re-tests them, reseals and clears the error;
   a sale-branch change enqueues `reconcile` with `payload.full = true`. `syncNow` enqueues `reconcile` (409
-  `sync_running`). `disconnect` deletes the webhooks (best effort), releases the commerce links and sets
+  `sync_running`). `disconnect` deletes the saved webhooks plus any KiotViet lists at the connection URL (best effort), releases the commerce links and sets
   `disconnected`. Calls the owner waits on use `KIOTVIET_GATEWAY.interactive()`: one try, 10 s timeout, no
-  retries or `Retry-After` waits, budget spent without waiting (background calls repay the debt).
+  retries or `Retry-After` waits, budget spent without waiting (background calls repay the debt; past 60
+  calls of debt an interactive call fails fast with 503). A stored secret that no longer opens is
+  `kiotviet_auth` (the "update the code" path), not a 500.
 - Connect errors are 400 `VALIDATION_FAILED` with `details.reason` (`kiotviet_auth`, `kiotviet_retailer`,
   `kiotviet_permission` + `missing`); an unreachable KiotViet is 503 `UNAVAILABLE`.
 - Persistence: one live connection per workspace and provider (`ConnectionExistsError`); `version` counts

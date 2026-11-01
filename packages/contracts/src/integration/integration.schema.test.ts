@@ -7,6 +7,7 @@ import {
   ConnectKiotVietRequest,
   KiotVietCredentials,
   KiotVietSettings,
+  KiotVietTestResponse,
   UpdateKiotVietRequest,
 } from './integration.schema.js';
 
@@ -53,6 +54,24 @@ describe('KiotViet credentials', () => {
     expect(ConnectKiotVietRequest.parse({ ...creds, settings })).toEqual({ ...creds, settings });
     expect(UpdateKiotVietRequest.safeParse({ settings }).success).toBe(false);
     expect(UpdateKiotVietRequest.parse({ version: 3 })).toEqual({ version: 3 });
+  });
+});
+
+describe('KiotViet test response', () => {
+  const base = { retailer: 'shop', branches: [] };
+  it('says how many codes the preview scanned out of the store total', () => {
+    const preview = { matched: 1, created: 2, rapizOnly: 3, scanned: 3, total: 4500 };
+    expect(KiotVietTestResponse.parse({ ...base, preview }).preview).toEqual(preview);
+    expect(
+      KiotVietTestResponse.parse({ ...base, preview: { ...preview, total: null } }).preview.total,
+    ).toBeNull();
+  });
+
+  it('requires scanned and total', () => {
+    expect(
+      KiotVietTestResponse.safeParse({ ...base, preview: { matched: 1, created: 2, rapizOnly: 3 } })
+        .success,
+    ).toBe(false);
   });
 });
 

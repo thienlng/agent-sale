@@ -151,6 +151,14 @@ describe('KiotVietClient', () => {
     expect(fake.apiRequests('/productOnHands')[0]?.query.branchIds).toBe('2');
   });
 
+  it('reads the product total from a one-item page', async () => {
+    await expect(client.productCount(creds)).resolves.toBe(150);
+    expect(fake.apiRequests('/products').at(-1)?.query).toMatchObject({
+      currentItem: '0',
+      pageSize: '1',
+    });
+  });
+
   it('iterates product codes page by page and stops when the caller stops', async () => {
     const codes: string[] = [];
     for await (const code of client.productCodes(creds)) codes.push(code);
@@ -420,6 +428,14 @@ describe('KiotVietClient', () => {
       await client.branches(creds);
       await client.interactive().branches(creds);
       expect(fake.tokensIssued()).toBe(1);
+    });
+
+    it('fails fast once the store budget is 60 calls in debt', async () => {
+      const view = client.interactive();
+      for (let i = 0; i < 71; i += 1) await view.productById(creds, 1);
+      await expect(view.productById(creds, 1)).rejects.toBeInstanceOf(KiotVietUnavailableError);
+      expect(fake.apiRequests('/products/1')).toHaveLength(71);
+      expect(sleeps).toEqual([]);
     });
 
     it('spends the store budget without waiting for it', async () => {
