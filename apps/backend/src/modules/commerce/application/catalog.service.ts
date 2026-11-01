@@ -3,6 +3,7 @@ import type {
   BotProductsDto,
   ProductDto,
   ProductListResponse,
+  UpdateProductBotSettingsRequest,
   UpsertProductRequest,
   UpsertWarehouseRequest,
   VariantOption,
@@ -10,6 +11,7 @@ import type {
 } from '@agent-sales/contracts';
 import {
   SetBotProductsRequest,
+  UpdateProductBotSettingsRequest as UpdateProductBotSettingsSchema,
   UpsertProductRequest as UpsertProductSchema,
   UpsertWarehouseRequest as UpsertWarehouseSchema,
 } from '@agent-sales/contracts';
@@ -385,7 +387,8 @@ export class CatalogService {
     const input = UpsertProductSchema.parse(raw);
     this.#assertOwnImages(ws, input);
     return this.store.run(ws, async (tx) => {
-      const current = await this.#product(tx, id);
+      // Locked so a PMS sync and a staff save cannot overwrite each other's fields.
+      const current = await this.#product(tx, id, { forUpdate: true });
       if (current.accommodation && input.accommodation === null)
         throw new LodgingError('CONFLICT', 'An accommodation cannot be converted into stock goods');
       if (!current.accommodation && input.accommodation)
@@ -436,6 +439,28 @@ export class CatalogService {
         accommodation:
           input.accommodation === undefined ? (current.accommodation ?? null) : input.accommodation,
         searchText: productSearchText(input, input.variants),
+        updatedAt: new Date(),
+      });
+      return this.#productDto(tx, id);
+    });
+  }
+
+  /**
+   * Only the bot's fields; works for every product, including a PMS-synced one whose data the
+   * full product form would refuse (ADR-017).
+   */
+  updateBotSettings(
+    ws: WorkspaceId,
+    id: string,
+    raw: UpdateProductBotSettingsRequest,
+  ): Promise<ProductDto> {
+    const input = UpdateProductBotSettingsSchema.parse(raw);
+    return this.store.run(ws, async (tx) => {
+      const current = await this.#product(tx, id, { forUpdate: true });
+      await tx.products.save({
+        ...current,
+        visibleToBot: input.visibleToBot ?? current.visibleToBot,
+        botInstructions: input.botInstructions ?? current.botInstructions,
         updatedAt: new Date(),
       });
       return this.#productDto(tx, id);
@@ -517,8 +542,12 @@ export class CatalogService {
     return w;
   }
 
-  async #product(tx: CommerceTx, id: string): Promise<ProductRecord> {
-    const p = isUuid(id) ? await tx.products.find(id) : null;
+  async #product(
+    tx: CommerceTx,
+    id: string,
+    opts?: { forUpdate?: boolean },
+  ): Promise<ProductRecord> {
+    const p = isUuid(id) ? await tx.products.find(id, opts) : null;
     if (!p) throw new ProductNotFoundError(id);
     return p;
   }

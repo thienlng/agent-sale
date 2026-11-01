@@ -27,6 +27,10 @@ const EXTENSIONS = { 'image/jpeg': 'jpg', 'image/png': 'png' } as const;
 
 const fold = (sku: string) => sku.trim().toLowerCase();
 
+/** UpsertProductRequest's limits, so staff can still save a synced product's bot fields. */
+const LIMITS = { name: 200, description: 5000, category: 120, variantName: 120 } as const;
+const clip = (text: string, max: number) => text.trim().slice(0, max).trim();
+
 /** Same text the catalog search matches (CatalogService.productSearchText). */
 function searchText(code: string, name: string, variants: Array<{ sku: string; name: string }>) {
   return foldVietnamese([code, name, ...variants.flatMap((v) => [v.sku, v.name])].join(' '));
@@ -61,31 +65,35 @@ export class CatalogSyncService implements CatalogSyncFacade {
     item: ExternalCatalogItem,
   ): Promise<UpsertExternalProductResult> {
     const inputs = [...item.variants]
-      .map((v) => ({ ...v, sku: v.sku.trim(), name: v.name.trim() }))
+      .map((v) => ({ ...v, name: clip(v.name, LIMITS.variantName) }))
       .sort((a, b) => a.position - b.position);
     return this.store.run(ws, async (tx) => {
+      // Two syncs of one store product (webhook + reconcile) run one after the other.
+      await tx.catalogSync.lockExternal(source, item.externalId);
       const found =
-        (await tx.catalogSync.findProduct(source, item.externalId)) ??
+        (await tx.catalogSync.findProduct(source, item.externalId, { forUpdate: true })) ??
         (await this.#adoptable(tx, inputs));
       const productId = found?.id ?? newId();
 
       // A variant id the PMS moved here from another product: that variant goes (archived).
-      const byExternal = await tx.catalogSync.variantsByExternalIds(
-        inputs.map((v) => v.externalId),
-      );
-      await tx.catalogSync.archiveAndUnlinkVariants(
-        byExternal.filter((v) => v.productId !== productId).map((v) => v.id),
-      );
+      const moved = (
+        await tx.catalogSync.variantsByExternalIds(inputs.map((v) => v.externalId))
+      ).filter((v) => v.productId !== productId);
+      const movedIds = new Set(moved.map((v) => v.id));
 
       // Live variants of other products keep their SKUs: those inputs are skipped.
       const taken = new Set(
         (await tx.botOrders.variantsBySkus(inputs.map((v) => v.sku)))
-          .filter((v) => !v.archived && v.productId !== productId)
+          .filter((v) => !v.archived && v.productId !== productId && !movedIds.has(v.id))
           .map((v) => fold(v.sku)),
       );
       const skipped = inputs.filter((v) => taken.has(fold(v.sku))).map((v) => v.sku);
       const kept = inputs.filter((v) => !taken.has(fold(v.sku)));
+      // Nothing to sell: never create, or empty, a product without a live variant.
+      if (!kept.length)
+        return { productId: found?.id ?? null, created: false, applied: false, skipped };
 
+      await tx.catalogSync.archiveAndUnlinkVariants([...movedIds]);
       const all = found ? await tx.products.variantsOf([productId]) : [];
       const existing = all.filter((v) => !v.archived);
       const variants = this.#matchVariants(productId, kept, all);
@@ -95,8 +103,8 @@ export class CatalogSyncService implements CatalogSyncFacade {
         existing.filter((v) => !keptIds.has(v.id)).map((v) => v.id),
       );
 
-      const name = item.name.trim();
-      const code = found?.code ?? (await this.#newCode(tx, inputs[0]?.sku ?? '', item.externalId));
+      const name = clip(item.name, LIMITS.name);
+      const code = found?.code ?? (await this.#newCode(tx, kept[0]?.sku ?? '', item.externalId));
       const now = new Date();
       // Linked fields only; visibleToBot, botInstructions and accommodation stay as they are.
       const product: ProductRecord = {
@@ -109,8 +117,8 @@ export class CatalogSyncService implements CatalogSyncFacade {
         }),
         code,
         name,
-        description: item.description.trim(),
-        category: item.category?.trim() || null,
+        description: clip(item.description, LIMITS.description),
+        category: clip(item.category ?? '', LIMITS.category) || null,
         status: item.active ? 'active' : 'archived',
         imageUrls: item.imageUrls,
         external: { source, id: item.externalId },
@@ -126,7 +134,7 @@ export class CatalogSyncService implements CatalogSyncFacade {
         for (const v of variants.filter((x) => !known.has(x.id)))
           await tx.inventory.ensureRow(ws, v.id, warehouse.id);
       }
-      return { productId, created: !found, skipped };
+      return { productId, created: !found, applied: true, skipped };
     });
   }
 
@@ -202,7 +210,7 @@ export class CatalogSyncService implements CatalogSyncFacade {
     );
     const [owner, ...others] = new Set(live.map((v) => v.productId));
     if (!owner || others.length) return null;
-    const product = await tx.products.find(owner);
+    const product = await tx.products.find(owner, { forUpdate: true });
     return product && !product.external && !product.accommodation ? product : null;
   }
 

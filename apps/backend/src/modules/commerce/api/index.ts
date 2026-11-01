@@ -14,6 +14,7 @@ export {
   type CatalogSyncFacade,
   type ExternalCatalogItem,
   ExternalImageError,
+  ExternalLinkConflictError,
   type ExternalSource,
   type ExternalVariantInput,
   type UpsertExternalProductResult,

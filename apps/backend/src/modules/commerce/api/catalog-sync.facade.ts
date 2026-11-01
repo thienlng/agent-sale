@@ -26,8 +26,14 @@ export interface ExternalCatalogItem {
 }
 
 export interface UpsertExternalProductResult {
-  productId: string;
+  /** The linked (or adopted, or new) product; null when nothing was created. */
+  productId: string | null;
   created: boolean;
+  /**
+   * False when no input variant could be kept (every SKU is another product's, or the item has
+   * none): nothing was written — no product is created and a linked one stays as it was.
+   */
+  applied: boolean;
   /** Input SKUs not linked because a live variant of another product already uses them. */
   skipped: string[];
 }
@@ -46,7 +52,9 @@ export interface CatalogSyncFacade {
   /**
    * Creates or updates one product by its external id; the first time, adopts the Rapiz product
    * whose variants carry the item's SKUs (case-insensitive). Variants of the product missing from
-   * the item are archived.
+   * the item are archived. Name, description, category and variant names are cut to the product
+   * form's limits; codes and SKUs are kept verbatim (they are match keys). Serialized per
+   * (workspace, source, externalId); throws ExternalLinkConflictError on a lost race (retry).
    */
   upsertExternalProduct(
     ws: WorkspaceId,
@@ -82,5 +90,20 @@ export class ExternalImageError extends DomainError {
   readonly code = 'VALIDATION_FAILED';
   constructor(readonly reason: string) {
     super('The picture could not be imported', { reason });
+  }
+}
+
+/**
+ * Another transaction linked the same external id at the same moment (a unique link index
+ * refused the row). Nothing was written; retrying the call is safe.
+ */
+export class ExternalLinkConflictError extends DomainError {
+  readonly code = 'CONFLICT';
+  readonly retryable = true;
+  constructor(constraint: string) {
+    super('The product was linked by a concurrent sync; retry', {
+      reason: 'EXTERNAL_LINK_RACE',
+      constraint,
+    });
   }
 }

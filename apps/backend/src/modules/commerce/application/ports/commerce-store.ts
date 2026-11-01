@@ -318,11 +318,18 @@ export interface CommerceTx {
     /** Active, bot-visible products with these ids (any order). */
     findForBot(ids: string[], selectedFor?: string | undefined): Promise<ProductRecord[]>;
     countForBot(selectedFor?: string | undefined): Promise<number>;
-    find(id: string): Promise<ProductRecord | null>;
-    /** Throws DuplicateCodeError on a code clash. */
+    /** With `forUpdate`, the row stays locked until the transaction ends. */
+    find(id: string, opts?: { forUpdate?: boolean }): Promise<ProductRecord | null>;
+    /**
+     * Throws DuplicateCodeError on a code clash, ExternalLinkConflictError when another
+     * transaction holds the external link.
+     */
     save(p: ProductRecord): Promise<void>;
     variantsOf(productIds: string[]): Promise<VariantRecord[]>;
-    /** Insert or update; throws DuplicateCodeError('sku') on an SKU clash. */
+    /**
+     * Insert or update; throws DuplicateCodeError('sku') on an SKU clash, ExternalLinkConflictError
+     * on an external id clash.
+     */
     saveVariants(workspaceId: WorkspaceId, variants: VariantRecord[]): Promise<void>;
     archiveVariants(ids: string[]): Promise<void>;
     variantsByIds(
@@ -368,7 +375,13 @@ export interface CommerceTx {
   };
   /** Link columns of PMS-synced products and variants (ADR-017). */
   catalogSync: {
-    findProduct(source: ExternalSource, externalId: string): Promise<ProductRecord | null>;
+    /** Serializes syncs of one external product until the transaction ends (advisory lock). */
+    lockExternal(source: ExternalSource, externalId: string): Promise<void>;
+    findProduct(
+      source: ExternalSource,
+      externalId: string,
+      opts?: { forUpdate?: boolean },
+    ): Promise<ProductRecord | null>;
     /** Variants carrying these external ids, archived ones included, with their product's link. */
     variantsByExternalIds(
       externalIds: string[],

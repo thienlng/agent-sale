@@ -13,6 +13,7 @@ import {
 } from '@agent-sales/db';
 import { foldVietnamese, type WorkspaceId } from '@agent-sales/shared';
 
+import { ExternalLinkConflictError } from '../../api/catalog-sync.facade.js';
 import type {
   CommerceTx,
   StockChange,
@@ -37,6 +38,16 @@ import {
   v,
   w,
 } from './commerce.rows.js';
+
+/** A unique external-link index refused the row: another sync linked it first (retryable). */
+function linkRace(e: unknown): void {
+  const constraint = (e as { cause?: { constraint_name?: string } }).cause?.constraint_name;
+  if (
+    pgCode(e) === '23505' &&
+    (constraint === 'products_external' || constraint === 'product_variants_external')
+  )
+    throw new ExternalLinkConflictError(constraint);
+}
 
 /** Drops below this best single-term word_similarity (spec §5). */
 const SIMILARITY_FLOOR = 0.3;
@@ -213,8 +224,9 @@ export function catalogTx(
           .where(botVisible(selectedFor));
         return n(count?.c);
       },
-      async find(id) {
-        const [r] = await tx.select().from(p).where(eq(p.id, id)).limit(1);
+      async find(id, opts) {
+        const q = tx.select().from(p).where(eq(p.id, id)).limit(1);
+        const [r] = opts?.forUpdate ? await q.for('update') : await q;
         return r ? toProduct(r) : null;
       },
       async save(rec) {
@@ -246,6 +258,7 @@ export function catalogTx(
               },
             });
         } catch (e) {
+          linkRace(e);
           if (pgCode(e) === '23505') throw new DuplicateCodeError('code', rec.code);
           throw e;
         }
@@ -295,6 +308,7 @@ export function catalogTx(
                 },
               });
           } catch (e) {
+            linkRace(e);
             if (pgCode(e) === '23505') throw new DuplicateCodeError('sku', rec.sku);
             throw e;
           }
@@ -471,12 +485,18 @@ export function catalogTx(
     },
 
     catalogSync: {
-      async findProduct(source, externalId) {
-        const [r] = await tx
+      async lockExternal(source, externalId) {
+        await tx.execute(
+          sql`select pg_advisory_xact_lock(hashtextextended(${`catalog-sync/${ws}/${source}/${externalId}`},0))`,
+        );
+      },
+      async findProduct(source, externalId, opts) {
+        const q = tx
           .select()
           .from(p)
           .where(and(eq(p.externalSource, source), eq(p.externalId, externalId)))
           .limit(1);
+        const [r] = opts?.forUpdate ? await q.for('update') : await q;
         return r ? toProduct(r) : null;
       },
       async variantsByExternalIds(externalIds) {

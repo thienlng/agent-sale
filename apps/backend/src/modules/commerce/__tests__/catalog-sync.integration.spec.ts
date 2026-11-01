@@ -59,7 +59,7 @@ afterAll(async () => {
 });
 
 type Headers = Record<string, string>;
-type Method = 'GET' | 'POST' | 'PUT';
+type Method = 'GET' | 'POST' | 'PUT' | 'PATCH';
 const http = () => app.getHttpAdapter().getInstance();
 const call = (h: Headers, method: Method, url: string, payload?: object) =>
   http().inject({ method, url: `/api/v1${url}`, headers: h, ...(payload ? { payload } : {}) });
@@ -157,8 +157,8 @@ describe('catalog sync facade on Postgres', () => {
 
   it('creates a linked product with stock rows at the default warehouse', async () => {
     const res = await sync().upsertExternalProduct(ws, 'kiotviet', item());
-    expect(res).toMatchObject({ created: true, skipped: [] });
-    productId = res.productId;
+    expect(res).toMatchObject({ created: true, applied: true, skipped: [] });
+    productId = String(res.productId);
     const p = await get(productId);
     expect(p).toMatchObject({
       code: 'AT-S',
@@ -227,7 +227,7 @@ describe('catalog sync facade on Postgres', () => {
         ],
       }),
     );
-    expect(res).toEqual({ productId, created: false, skipped: [] });
+    expect(res).toEqual({ productId, created: false, applied: true, skipped: [] });
     const p = await get(productId);
     expect(p.name).toBe('Áo thun cổ tròn 2026');
     expect(p.visibleToBot).toBe(false);
@@ -263,7 +263,7 @@ describe('catalog sync facade on Postgres', () => {
         ],
       }),
     );
-    expect(adopted).toEqual({ productId: rapiz.id, created: false, skipped: [] });
+    expect(adopted).toEqual({ productId: rapiz.id, created: false, applied: true, skipped: [] });
     const p = await get(rapiz.id);
     expect(p).toMatchObject({
       code: 'QJ',
@@ -289,7 +289,39 @@ describe('catalog sync facade on Postgres', () => {
       }),
     );
     expect(clash).toMatchObject({ created: true, skipped: ['QJ-30'] });
-    expect((await get(clash.productId)).variants.map((v) => v.sku)).toEqual(['QS-1']);
+    expect((await get(String(clash.productId))).variants.map((v) => v.sku)).toEqual(['QS-1']);
+  });
+
+  it('writes nothing when no input variant can be kept', async () => {
+    const before = await get(productId);
+    // A new store product whose only SKU is another product's: no product is created.
+    const none = await sync().upsertExternalProduct(
+      ws,
+      'kiotviet',
+      item({
+        externalId: '1004',
+        variants: [
+          { externalId: '2030', sku: 'QS-1', name: '', price: 1, weightGram: 0, position: 0 },
+        ],
+      }),
+    );
+    expect(none).toEqual({ productId: null, created: false, applied: false, skipped: ['QS-1'] });
+    // A linked product whose item has no variant, or only clashing ones, stays as it was.
+    for (const variants of [
+      [],
+      [{ externalId: '2001', sku: 'QS-1', name: 'S', price: 1, weightGram: 0, position: 0 }],
+    ]) {
+      const res = await sync().upsertExternalProduct(
+        ws,
+        'kiotviet',
+        item({ name: 'Đổi tên', variants }),
+      );
+      expect(res).toMatchObject({ productId, created: false, applied: false });
+    }
+    const after = await get(productId);
+    expect(after).toMatchObject({ name: before.name, status: 'active' });
+    expect(after.variants.map((v) => v.id)).toEqual(before.variants.map((v) => v.id));
+    expect(await sync().countExternalProducts(ws, 'kiotviet')).toBe(3);
   });
 
   it('sets stock through one movement per change and is idempotent', async () => {
@@ -332,11 +364,73 @@ describe('catalog sync facade on Postgres', () => {
     expect(await sync().previewExternalMatch(ws, ['NEW-1'])).toMatchObject({ rapizOnly: 1 });
   });
 
+  it('cuts long PMS text to the form limits and keeps bot fields editable', async () => {
+    const res = await sync().upsertExternalProduct(
+      ws,
+      'kiotviet',
+      item({
+        externalId: '1005',
+        name: `  ${'N'.repeat(250)}`,
+        description: 'd'.repeat(6000),
+        category: 'c'.repeat(130),
+        variants: [
+          {
+            externalId: '2050',
+            sku: 'KV 05',
+            name: 'v'.repeat(130),
+            price: 1,
+            weightGram: 0,
+            position: 0,
+          },
+        ],
+      }),
+    );
+    const id = String(res.productId);
+    const p = await get(id);
+    expect([p.name.length, p.description.length, p.category?.length]).toEqual([200, 5000, 120]);
+    expect(p.variants.map((v) => [v.sku, v.name.length])).toEqual([['KV 05', 120]]);
+    // The code keeps the store's space, so the full form refuses it; the bot fields still save.
+    expect(p.code).toBe('KV 05');
+    expect((await call(h, 'PUT', `/products/${id}`, sameBody(p))).statusCode).toBe(400);
+    const patched = await call(h, 'PATCH', `/products/${id}/bot-settings`, {
+      visibleToBot: false,
+      botInstructions: 'Chỉ tư vấn, không chốt đơn',
+    });
+    expect(patched.statusCode).toBe(200);
+    expect(ProductDto.parse(patched.json())).toMatchObject({
+      visibleToBot: false,
+      botInstructions: 'Chỉ tư vấn, không chốt đơn',
+      external: { source: 'kiotviet', id: '1005' },
+    });
+    const half = await call(h, 'PATCH', `/products/${id}/bot-settings`, { visibleToBot: true });
+    expect(ProductDto.parse(half.json())).toMatchObject({
+      visibleToBot: true,
+      botInstructions: 'Chỉ tư vấn, không chốt đơn',
+    });
+    expect((await call(h, 'PATCH', `/products/${id}/bot-settings`, {})).statusCode).toBe(400);
+  });
+
+  it('serializes concurrent upserts of one store product into one product', async () => {
+    const same = item({
+      externalId: '1006',
+      variants: [
+        { externalId: '2060', sku: 'CC-1', name: '', price: 1, weightGram: 0, position: 0 },
+      ],
+    });
+    const results = await Promise.all([
+      sync().upsertExternalProduct(ws, 'kiotviet', same),
+      sync().upsertExternalProduct(ws, 'kiotviet', same),
+    ]);
+    expect(new Set(results.map((r) => r.productId)).size).toBe(1);
+    expect(results.map((r) => r.created).sort()).toEqual([false, true]);
+    expect(await sync().countExternalProducts(ws, 'kiotviet')).toBe(5);
+  });
+
   it('archives removed products and releases the links on disconnect', async () => {
     expect(await sync().removeExternalProducts(ws, 'kiotviet', ['1003', 'missing'])).toBe(1);
     const p = await get(productId);
     const released = await sync().releaseExternalSource(ws, 'kiotviet');
-    expect(released).toBe(3);
+    expect(released).toBe(5);
     expect(await sync().countExternalProducts(ws, 'kiotviet')).toBe(0);
     const res = await call(h, 'PUT', `/products/${productId}`, { ...sameBody(p), name: 'Áo mới' });
     expect(res.statusCode).toBe(200);
