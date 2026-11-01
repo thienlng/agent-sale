@@ -24,6 +24,7 @@ const product = (id: string, code: string, name: string) => ({
   botInstructions: '',
   imageUrls: [],
   variants: [],
+  external: null,
   priceMin: 100_000,
   priceMax: 100_000,
   available: 0,

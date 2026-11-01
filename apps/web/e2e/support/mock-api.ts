@@ -188,6 +188,7 @@ const product = {
   status: 'active',
   visibleToBot: true,
   variants: [variant(1), variant(2)],
+  external: null,
   priceMin: 123_456_789,
   priceMax: 123_456_789,
   available: 24_000,
