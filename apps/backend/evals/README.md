@@ -1,7 +1,7 @@
 # Prompt evals
 
 Cases that drive real customer questions through the production reply pipeline
-(`PlaygroundService.playground()`: prompts `sales-agent@15` (retail) / `@16` (lodging), business
+(`PlaygroundService.playground()`: prompts `sales-agent@15` (retail) / `@17` (lodging), business
 profile block, FAQs, situations, history compression, the agent loop with catalog, `calculate`,
 `send_message`, `handoff`, order and action tools, reply post-processing) and check what the
 customer received and which tools ran.

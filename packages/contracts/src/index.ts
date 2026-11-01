@@ -10,6 +10,7 @@ import { llmAdminRoutes } from './ai/llm-admin.routes.js';
 import { botRoutes } from './bot/bot.routes.js';
 import { commerceRoutes } from './commerce/commerce.routes.js';
 import { lodgingRoutes } from './commerce/lodging.routes.js';
+import { lodgingV2Routes } from './lodging/lodging.routes.js';
 import { crmRoutes } from './crm/crm.routes.js';
 import { healthRoutes } from './health/health.routes.js';
 import { identityRoutes } from './identity/identity.routes.js';
@@ -35,6 +36,8 @@ export * from './bot/profile.js';
 export * from './commerce/commerce.schema.js';
 export * from './commerce/lodging.schema.js';
 export * from './commerce/lodging.routes.js';
+export * from './lodging/lodging.schema.js';
+export * from './lodging/lodging.routes.js';
 export * from './commerce/order-overview.schema.js';
 export * from './commerce/order-review.schema.js';
 export * from './commerce/product-images.schema.js';
@@ -82,6 +85,7 @@ export const allRoutes = [
   ...llmAdminRoutes,
   ...commerceRoutes,
   ...lodgingRoutes,
+  ...lodgingV2Routes,
   ...crmRoutes,
   ...webchatRoutes,
 ] as const;

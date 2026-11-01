@@ -30,8 +30,9 @@ const SECTION: Record<string, string> = {
   analytics: 'nav.analytics',
   settings: 'nav.settings',
   llm: 'nav.adminLlm',
-  accommodations: 'nav.accommodations',
-  stays: 'nav.stayRequests',
+  calendar: 'nav.calendar',
+  bookings: 'nav.bookings',
+  properties: 'nav.properties',
   overview: 'nav.accountOverview',
   businesses: 'nav.newBusiness',
 };

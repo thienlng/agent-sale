@@ -526,6 +526,13 @@ describe('order tools in the reply pipeline', () => {
     expect(toolNames(requests[0])).not.toContain(PREPARE_ORDER_TOOL);
   });
 
+  it('offers no order tools to a hotel bot, even with order taking on (T-160)', async () => {
+    const { svc, requests } = build({ ...bot, industry: 'hotel' }, [{ text: 'Dạ' }]);
+    await svc.playground(ws, botId, ask('chốt đặt phòng'));
+    expect(toolNames(requests[0])).not.toContain(PREPARE_ORDER_TOOL);
+    expect(toolNames(requests[0]).some((name) => name.endsWith('_order'))).toBe(false);
+  });
+
   it('offers no order tools for a public comment reply', async () => {
     const { svc, requests } = build(bot, [{ text: 'Dạ' }]);
     await svc.reply(ws, botId, ask('chốt đơn'), { conversationId: null, isTest: false });

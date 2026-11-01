@@ -18,6 +18,7 @@ import {
   TRAINING_FACADE,
   type TrainingFacade,
 } from '../../knowledge/api/index.js';
+import { LODGING_CATALOG_FACADE, type LodgingCatalogFacade } from '../../lodging/api/index.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
 import type { AiFacade } from '../api/ai.facade.js';
 import type { ReplyOptions, ReplyResult } from '../api/reply-options.js';
@@ -84,10 +85,10 @@ import {
 
 export { PHONE_KNOWN_LINE };
 const PROMPT_RETAIL = { name: 'sales-agent', version: 15 } as const;
-const PROMPT_LODGING = { name: 'sales-agent', version: 16 } as const;
+const PROMPT_LODGING = { name: 'sales-agent', version: 17 } as const;
 /** The sales-agent prompt versions the option may force (13/14: before the order tools). */
-export type SalesPromptVersion = 13 | 14 | 15 | 16;
-/** Optional DI token: forces the sales-agent prompt for every bot (default: 16 for hotel bots, 15 otherwise). */
+export type SalesPromptVersion = 13 | 14 | 15 | 16 | 17;
+/** Optional DI token: forces the sales-agent prompt for every bot (default: 17 for hotel bots, 15 otherwise). */
 export const PROMPT_VERSION_OPTION = Symbol('PROMPT_VERSION_OPTION');
 const POST_PROMPT = { name: 'fanpage-context', version: 2 } as const;
 const MAX_SOURCES = 5;
@@ -122,6 +123,9 @@ export class PlaygroundService implements AiFacade {
     @Optional()
     private readonly summaries?: ConversationSummaryRepository,
     @Inject(COMMERCE_FACADE) @Optional() private readonly commerce?: CommerceFacade,
+    @Inject(LODGING_CATALOG_FACADE)
+    @Optional()
+    private readonly lodgingCatalog?: LodgingCatalogFacade,
   ) {
     this.#forcedPrompt = promptVersion
       ? { name: 'sales-agent', version: promptVersion }
@@ -160,7 +164,10 @@ export class PlaygroundService implements AiFacade {
     const guidance = situationsText(trainingItems.filter((item) => item.kind === 'scenario'));
     const media = trainingItems.filter((item) => item.kind === 'media');
     const scope = { botId, catalogMode: bot.catalogMode };
-    const catalog = this.catalog;
+    // Hotel bots sell lodging properties instead of commerce products (T-160): their selection
+    // lives in lodging and catalogMode is ignored.
+    const catalog: CatalogFacade | undefined =
+      bot.industry === 'hotel' ? this.lodgingCatalog : this.catalog;
 
     // Products already discussed (the last runs of this conversation) need no new search.
     // A comment reply has no conversation to remember, so it never shares one across customers.
@@ -235,9 +242,10 @@ export class PlaygroundService implements AiFacade {
         }
       : null;
     const output = newOutputState();
-    // Orders need a private conversation: never for a public comment reply.
+    // Orders need a private conversation: never for a public comment reply. Hotel bots sell
+    // lodging properties, which commerce orders cannot hold (T-160).
     const orders: OrderToolContext | null =
-      this.commerce && bot.orderTaking && !isCommentReply
+      this.commerce && bot.orderTaking && !isCommentReply && bot.industry !== 'hotel'
         ? {
             facade: this.commerce,
             ws,

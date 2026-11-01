@@ -10,14 +10,14 @@
   'products':
     [
       {
-        'name': 'Villa A17',
+        'name': 'A17 – Villa A17',
         'code': 'A17',
         'description': 'Một căn nguyên căn có 8 phòng ngủ. Tiêu chuẩn 24 người lớn và 8 trẻ dưới 6 tuổi.',
-        'instructions': 'Không khẳng định lịch trống, không bịa đơn vị giá, không tạo booking khi chỉ trao đổi.',
         'variants': [{ 'name': 'Nguyên căn, giá tham khảo', 'price': 12000000, 'stock': 0 }],
         'accommodation':
           {
             'rentalType': 'entire_property',
+            'code': 'A17',
             'bedrooms': 8,
             'standardAdults': 24,
             'standardChildren': 8,
@@ -35,7 +35,7 @@
                 { 'name': 'Room 8', 'beds': 'Beds described by owner' },
               ],
             'amenities': ['Bể bơi', 'BBQ'],
-            'rateBasis': 'unconfirmed',
+            'rateBasis': 'night',
             'rates':
               [
                 { 'days': [1, 2, 3, 4], 'amount': 12000000 },
@@ -43,6 +43,8 @@
                 { 'days': [6], 'amount': 14000000 },
               ],
             'gallery': [],
+            'surcharges':
+              { 'extraAdult': null, 'extraChild': null, 'childFreeBelow': 6, 'childAdultFrom': 12 },
           },
       },
     ],
@@ -51,6 +53,7 @@
   'expect': {
       'outcome': 'answered',
       'guardrail': 'none',
+      'steps_succeeded': ['search_products'],
       'numbers_only_from_sources': true,
       'contains_any': ['chưa có lịch', 'kiểm tra'],
       'not_contains': ['hết hàng', 'đã giữ', 'đã đặt'],

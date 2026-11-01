@@ -249,6 +249,9 @@ export function buildService(c: EvalCase, llm: LlmRuntime) {
     products as unknown as ProductDto[],
     c.order_draft ? { draft: c.order_draft, shippingFeeVnd: c.bot.orderShippingFeeVnd } : undefined,
   );
+  // A hotel bot reads its catalog from lodging, any other bot from commerce: the case's products
+  // stand for either one (lodging cases list properties in the bot-view product shape).
+  const catalog = evalCatalog(products as unknown as ProductDto[]);
   const service = new PlaygroundService(
     { getBot: async () => bot } as BotFacade,
     { searchFaqs: async () => faqHits } as unknown as KnowledgeFacade,
@@ -256,11 +259,12 @@ export function buildService(c: EvalCase, llm: LlmRuntime) {
     llm,
     runs,
     { list: async () => scenarios } as unknown as TrainingFacade,
-    evalCatalog(products as unknown as ProductDto[]),
+    catalog,
     { listForBot: async () => [] } as unknown as ActionFacade,
     undefined,
     undefined,
     commerce,
+    catalog,
   );
   return { service, botId, runs };
 }

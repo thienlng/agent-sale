@@ -4,6 +4,7 @@ import {
   Bot,
   Cable,
   ChevronRight,
+  ClipboardList,
   type LucideIcon,
   MessagesSquare,
   Package,
@@ -126,9 +127,11 @@ const ORDER_PATHS = /^\/app\/(orders|order-settings)(\/|$)/;
 const PRODUCTS: readonly NavItem[] = [
   { to: '/app/products', key: 'nav.products', icon: Package, ready: true },
 ];
+/** A hotel sells nights, not stock: calendar, bookings and properties replace orders and products. */
 const LODGING: readonly NavItem[] = [
-  { to: '/app/accommodations', key: 'nav.accommodations', icon: House, ready: true },
-  { to: '/app/stays', key: 'nav.stayRequests', icon: CalendarDays, ready: true },
+  { to: '/app/calendar', key: 'nav.calendar', icon: CalendarDays, ready: true },
+  { to: '/app/bookings', key: 'nav.bookings', icon: ClipboardList, ready: true },
+  { to: '/app/properties', key: 'nav.properties', icon: House, ready: true },
 ];
 
 /** The customers area (docs/03 §2 "Khách hàng"). */

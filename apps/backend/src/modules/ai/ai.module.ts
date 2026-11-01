@@ -8,6 +8,7 @@ import { ActionModule } from '../action/action.module.js';
 import { BotModule } from '../bot/bot.module.js';
 import { CommerceModule } from '../commerce/commerce.module.js';
 import { KnowledgeModule } from '../knowledge/knowledge.module.js';
+import { LodgingModule } from '../lodging/lodging.module.js';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
 import { AI_FACADE } from './api/ai.facade.js';
 import { HERMES_SUBSCRIPTION_LOGIN, LlmAdminService } from './application/llm-admin.service.js';
@@ -33,7 +34,14 @@ import { LlmAdminController } from './interface/http/llm-admin.controller.js';
 
 /** LLM configuration (platform admin), runtime gateway, playground and ai_runs metering. */
 @Module({
-  imports: [ActionModule, BotModule, KnowledgeModule, WorkspaceModule, CommerceModule],
+  imports: [
+    ActionModule,
+    BotModule,
+    KnowledgeModule,
+    WorkspaceModule,
+    CommerceModule,
+    LodgingModule,
+  ],
   controllers: [AiController, LlmAdminController],
   providers: [
     {
