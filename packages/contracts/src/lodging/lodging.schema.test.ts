@@ -79,8 +79,14 @@ describe('lodging v2 override patch', () => {
 });
 
 describe('lodging v2 gallery images', () => {
-  it('accepts https links only', () => {
+  it('accepts https links and Rapiz /media/ paths only', () => {
     expect(GalleryImage.safeParse({ url: 'https://cdn.example.com/a.jpg' }).success).toBe(true);
+    expect(
+      GalleryImage.safeParse({
+        url: '/media/products/0192f0a0-0000-7000-8000-000000000001/a.jpg',
+      }).success,
+    ).toBe(true);
+    expect(GalleryImage.safeParse({ url: '/media/../etc/passwd.jpg' }).success).toBe(false);
     expect(GalleryImage.safeParse({ url: 'http://cdn.example.com/a.jpg' }).success).toBe(false);
     expect(GalleryImage.safeParse({ url: 'javascript:alert(1)' }).success).toBe(false);
   });

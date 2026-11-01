@@ -105,6 +105,8 @@ const PROMPT_LODGING = { name: 'sales-agent', version: 18 } as const;
 export type SalesPromptVersion = 13 | 14 | 15 | 16 | 17 | 18;
 /** Optional DI token: forces the sales-agent prompt for every bot (default: 18 for hotel bots, 15 otherwise). */
 export const PROMPT_VERSION_OPTION = Symbol('PROMPT_VERSION_OPTION');
+/** The current public base of Rapiz storage (`S3_PUBLIC_URL`); pictures are sent on it. */
+export const MEDIA_PUBLIC_BASE = Symbol('MEDIA_PUBLIC_BASE');
 const POST_PROMPT = { name: 'fanpage-context', version: 2 } as const;
 const MAX_SOURCES = 5;
 const FOCUS_RUNS = 3;
@@ -143,6 +145,7 @@ export class PlaygroundService implements AiFacade {
     private readonly lodgingCatalog?: LodgingCatalogFacade,
     @Inject(LODGING_BOT_FACADE) @Optional() private readonly lodgingBot?: LodgingBotFacade,
     @Inject(LODGING_FACADE) @Optional() private readonly lodging?: LodgingFacade,
+    @Inject(MEDIA_PUBLIC_BASE) @Optional() private readonly mediaBase?: string,
   ) {
     this.#forcedPrompt = promptVersion
       ? { name: 'sales-agent', version: promptVersion }
@@ -210,7 +213,7 @@ export class PlaygroundService implements AiFacade {
       libraryMatches,
       focus.some((p) => p.accommodation) ? query : '',
     );
-    const allowlist = new ImageAllowlist(initialAllowed);
+    const allowlist = new ImageAllowlist(initialAllowed, this.mediaBase);
     const carryIds = carriedProductIds(options.carry ?? []);
     if (catalog && carryIds.length)
       allowlist.add(productImages(await catalog.getBotProductsByIds(ws, scope, carryIds)));

@@ -1,13 +1,12 @@
 import { z } from 'zod';
 
+import { PublicImageUrl } from '../common/media.js';
+
 const Amount = z.number().int().min(0).max(1_000_000_000_000);
 const text = (max: number) => z.string().trim().max(max);
 /** `url` must be a URL returned by POST /products/images (the API rejects other links). */
 const Image = z.object({
-  url: z
-    .url()
-    .max(2000)
-    .refine((v) => v.startsWith('https://')),
+  url: PublicImageUrl,
   caption: text(300).min(1),
 });
 

@@ -18,6 +18,16 @@ const isHttps = (value: string): boolean => {
   }
 };
 
+/**
+ * A stored Rapiz picture (`/media/<key>`, host-relative so a public host change never breaks it).
+ * The application turns it into an absolute URL on the current public base before sending.
+ */
+const isMediaPath = (value: string): boolean =>
+  /^\/media\/[\w-]+(?:\/[\w-]+)*\.[A-Za-z0-9]+$/.test(value);
+
+/** A picture a channel can receive once made absolute: an https link or a Rapiz media path. */
+const isSendable = (value: string): boolean => isHttps(value) || isMediaPath(value);
+
 /** Words that appear in "show me the picture" requests and say nothing about which item. */
 const NOISE = new Set([
   'xem',
@@ -60,8 +70,8 @@ export const MAX_GALLERY_IMAGES = 15;
 /**
  * The pictures of the products whose details the model received, ids `p:<productId>:<index>`, at
  * most 5 per product and independent of the customer's text (the model picks which to send).
- * Lodging galleries are listed whole (max 15). Anything that is not an https URL is dropped even
- * though the API already validates it.
+ * Lodging galleries are listed whole (max 15). Anything that is not an https URL or a Rapiz
+ * `/media/` path is dropped even though the API already validates it.
  */
 export function productImages(
   products: readonly {
@@ -74,7 +84,7 @@ export function productImages(
   return products.flatMap((product) => {
     if (product.accommodation) {
       return product.accommodation.gallery.slice(0, MAX_GALLERY_IMAGES).flatMap((photo, index) =>
-        isHttps(photo.url)
+        isSendable(photo.url)
           ? [
               {
                 id: `p:${product.id}:${index}`,
@@ -85,7 +95,7 @@ export function productImages(
           : [],
       );
     }
-    const urls = (product.imageUrls ?? []).filter(isHttps).slice(0, MAX_PRODUCT_IMAGES);
+    const urls = (product.imageUrls ?? []).filter(isSendable).slice(0, MAX_PRODUCT_IMAGES);
     return urls.map((url, index) => ({
       id: `p:${product.id}:${index}`,
       label: urls.length > 1 ? `${product.name} (${index + 1}/${urls.length})` : product.name,
@@ -112,7 +122,7 @@ export function libraryImages(
   if (!asked.size) return [];
   return items
     .flatMap((item) => {
-      if (item.kind !== 'media' || !item.mediaUrl || !isHttps(item.mediaUrl)) return [];
+      if (item.kind !== 'media' || !item.mediaUrl || !isSendable(item.mediaUrl)) return [];
       const matched = new Set(
         words(`${item.title} ${item.trigger}`).filter((word) => asked.has(word)),
       ).size;

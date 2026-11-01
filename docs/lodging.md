@@ -62,6 +62,8 @@ All routes are authenticated, workspace-scoped and answer `404 NOT_FOUND` outsid
 | GET / PATCH `/lodging/settings` | `orders.view` / `catalog.manage` | Hold minutes |
 | GET / PUT `/lodging/bots/{botId}/properties` | `orders.view` / `bots.manage` | The properties a bot sells (`[]` = every property) |
 
+**Pictures.** Photos uploaded to Rapiz storage (`POST /products/images`, shared with commerce) are stored and returned as host-relative paths `/media/products/<workspaceId>/<file>.jpg|png`, so the browser loads them from whatever host serves the app and a new public host (dev tunnel restart, domain move) never breaks them. Rows written before this rule hold the absolute URL of the public host of that time; every read (web DTOs and the bot) normalises a Rapiz URL on any host to its path, and a write stores the path. When the bot sends a photo (Messenger, Zalo, website widget), the path is turned into an absolute URL on the **current** `S3_PUBLIC_URL` (`https://<public host>/media`), so that variable must point at the live public host. Helpers: `apps/backend/src/common/storage/media-url.ts`.
+
 Booking events go to the outbox: `lodging.booking.created.v1` and `lodging.booking.{confirmed,cancelled,expired,checked_in,checked_out}.v1`. They carry ids, codes, dates, status and source, never the guest's name or phone.
 
 ## What the bot does (parts 1 and 3)

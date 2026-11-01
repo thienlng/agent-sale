@@ -2,7 +2,10 @@ import type { UpsertProductRequest } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
 import { describe, expect, it } from 'vitest';
 
-import type { PublicObjectStorage } from '../../../common/storage/public-object-storage.js';
+import {
+  type PublicObjectStorage,
+  S3PublicObjectStorage,
+} from '../../../common/storage/public-object-storage.js';
 import { CatalogService } from '../application/catalog.service.js';
 import type { CommerceStore } from '../application/ports/commerce-store.js';
 import { ownImageProblem } from '../domain/own-image.js';
@@ -35,6 +38,28 @@ describe('ownImageProblem', () => {
     expect(check(`${BASE}/products/${WS}/a/b.jpg`)).toBe('IMAGE_NOT_UPLOADED');
     expect(check(`${BASE}/products/${WS}/abc.jpg?x=1`)).toBe('IMAGE_NOT_UPLOADED');
     expect(check(`${BASE}/products/${WS}/abc.jpg`, false)).toBe('IMAGE_NOT_UPLOADED');
+  });
+});
+
+describe('ownImageProblem with the media-path storage', () => {
+  const real = new S3PublicObjectStorage({
+    endpoint: 'http://127.0.0.1:9000',
+    bucket: 'b',
+    publicUrl: 'https://now.trycloudflare.com/media',
+    accessKey: 'k',
+    secretKey: 's',
+  });
+  const check = (url: string) => ownImageProblem(url, WS, real);
+  it('accepts the relative path and a URL stored on a former tunnel host', () => {
+    expect(check(`/media/products/${WS}/abc.jpg`)).toBeNull();
+    expect(check(`https://old.trycloudflare.com/media/products/${WS}/abc.png`)).toBeNull();
+  });
+  it('still rejects other workspaces, traversal, WebP and external links', () => {
+    expect(check(`/media/products/${OTHER}/abc.jpg`)).toBe('IMAGE_NOT_UPLOADED');
+    expect(check(`/media/products/${WS}/../${OTHER}/abc.jpg`)).toBe('IMAGE_NOT_UPLOADED');
+    expect(check(`/media/products/${WS}/abc.webp`)).toBe('IMAGE_NOT_UPLOADED');
+    expect(check(`/media/products/${WS}/a/b.jpg`)).toBe('IMAGE_NOT_UPLOADED');
+    expect(check('https://img.example.com/media/products/a.jpg')).toBe('IMAGE_NOT_UPLOADED');
   });
 });
 

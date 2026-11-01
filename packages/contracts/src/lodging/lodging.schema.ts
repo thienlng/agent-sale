@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { PublicImageUrl } from '../common/media.js';
+
 /**
  * Lodging v2 (T-160, spec 2026-11-01-lodging-calendar): properties → units → rates →
  * nightly calendar → bookings. Money is integer VND; nights are local calendar dates.
@@ -60,12 +62,9 @@ export const Policies = z.object({
   other: z.string().max(2000).default(''),
 });
 export type Policies = z.infer<typeof Policies>;
-/** Same rule as the commerce `Image`: https links only (no http:, javascript:, data:). */
+/** Same rule as the commerce `Image`: a Rapiz `/media/…` path or an https link (no http:, javascript:, data:). */
 export const GalleryImage = z.object({
-  url: z
-    .url()
-    .max(2000)
-    .refine((v) => v.startsWith('https://'), 'must be an https link'),
+  url: PublicImageUrl,
   caption: z.string().trim().max(300).default(''),
 });
 

@@ -9,6 +9,7 @@ import {
   resolveImageIds,
   selectImages,
 } from '../domain/image-allowlist.js';
+import { ImageAllowlist } from '../application/output-tools.js';
 
 const product = {
   id: 'prod-1',
@@ -145,5 +146,50 @@ describe('selectImages and productIdOfImage', () => {
     }));
     expect(buildAllowlist(many, [])).toHaveLength(10);
     expect(buildAllowlist(many, [], '', 60)).toHaveLength(14);
+  });
+});
+
+describe('stored /media/ pictures', () => {
+  const WS = '0192f0a0-0000-7000-8000-000000000001';
+  const path = `/media/products/${WS}/0192f0a0-0000-7000-8000-0000000000aa.jpg`;
+  const villa = {
+    id: 'villa',
+    name: 'Villa A20',
+    accommodation: {
+      gallery: [
+        { url: path, caption: 'Bể bơi' },
+        { url: `https://old.trycloudflare.com${path}`, caption: 'Phòng khách' },
+      ],
+    },
+  };
+
+  it('lists relative media paths like https links (the send path makes them absolute)', () => {
+    expect(productImages([villa]).map((i) => i.url)).toEqual([
+      path,
+      `https://old.trycloudflare.com${path}`,
+    ]);
+    expect(productImages([{ id: 'p', name: 'P', imageUrls: [path, '/api/x.jpg'] }])).toHaveLength(
+      1,
+    );
+  });
+
+  it('sends every Rapiz picture on the CURRENT public base', () => {
+    const allowlist = new ImageAllowlist(
+      productImages([villa]),
+      'https://now.trycloudflare.com/media',
+    );
+    const { images } = allowlist.resolve(['p:villa:0', 'p:villa:1']);
+    expect(images.map((i) => i.url)).toEqual([
+      `https://now.trycloudflare.com${path}`,
+      `https://now.trycloudflare.com${path}`,
+    ]);
+  });
+
+  it('cannot send a relative picture when no public base is configured', () => {
+    const allowlist = new ImageAllowlist(productImages([villa]));
+    expect(allowlist.resolve(['p:villa:0']).images).toEqual([]);
+    expect(allowlist.resolve(['p:villa:1']).images.map((i) => i.url)).toEqual([
+      `https://old.trycloudflare.com${path}`,
+    ]);
   });
 });

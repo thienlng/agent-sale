@@ -2,6 +2,7 @@ import { Policies } from '@agent-sales/contracts';
 import type { schema } from '@agent-sales/db';
 import type { WorkspaceId } from '@agent-sales/shared';
 
+import { toMediaPath } from '../../../../common/storage/media-url.js';
 import type { Quote } from '../../domain/quote.js';
 import type { RateRule } from '../../domain/rates.js';
 import type {
@@ -41,7 +42,8 @@ export function toProperty(r: PropertyRow): PropertyRecord {
     layout: r.layout.map((l) => ({ name: l.name, beds: l.beds ?? '', note: l.note ?? '' })),
     // Rows copied by 0041 carry only some policy keys; the contract fills the rest with ''.
     policies: Policies.parse(r.policies),
-    gallery: r.gallery.map((g) => ({ url: g.url, caption: g.caption ?? '' })),
+    // Rapiz photos are host-relative `/media/…` paths; older rows name a former public host.
+    gallery: r.gallery.map((g) => ({ url: toMediaPath(g.url), caption: g.caption ?? '' })),
     internalNote: r.internalNote,
     surcharges: {
       extraAdult: price(r.extraAdultSell, r.extraAdultCost),
@@ -73,7 +75,7 @@ export function propertyValues(ws: WorkspaceId, p: PropertyRecord) {
     amenities: p.amenities,
     layout: p.layout,
     policies: { ...p.policies },
-    gallery: p.gallery,
+    gallery: p.gallery.map((g) => ({ ...g, url: toMediaPath(g.url) })),
     internalNote: p.internalNote,
     extraAdultSell: p.surcharges.extraAdult?.sell ?? null,
     extraAdultCost: p.surcharges.extraAdult?.cost ?? null,
