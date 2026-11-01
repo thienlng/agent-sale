@@ -52,9 +52,16 @@ function calendar(from: string, to: string) {
             guestName: 'Nguyễn Thị Thanh Hương Lan Anh',
             blockReason: '',
             holdExpiresAt: p % 3 === 0 ? new Date(Date.now() + 3_600_000).toISOString() : null,
+            guestPhone: '0912345678',
+            party: { adults: 20, childAges: [] },
+            totalSell: 39_000_000,
+            tags: ['Đoàn công ty'],
+            note: '',
           },
         ],
       })),
+      internalNote: p % 4 === 0 ? 'Chủ nhà nhận khách từ 15h.' : '',
+      notes: [],
     })),
   };
 }
