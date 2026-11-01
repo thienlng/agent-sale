@@ -40,6 +40,35 @@ export class KiotVietUnavailableError extends DomainError {
   }
 }
 
+/** The settings name branches the KiotViet store does not have. */
+export class KiotVietBranchError extends DomainError {
+  readonly code = 'VALIDATION_FAILED';
+  constructor(readonly branchIds: number[]) {
+    super('These branches do not exist in the KiotViet store', {
+      reason: 'kiotviet_branch',
+      branchIds,
+    });
+  }
+}
+
+/** New credentials must belong to the connected store: a different one would mix up product links. */
+export class KiotVietRetailerChangedError extends DomainError {
+  readonly code = 'VALIDATION_FAILED';
+  constructor() {
+    super('New credentials must be for the connected KiotViet store', {
+      reason: 'kiotviet_retailer_changed',
+    });
+  }
+}
+
+/** An update request with neither settings nor credentials. */
+export class NothingToUpdateError extends DomainError {
+  readonly code = 'VALIDATION_FAILED';
+  constructor() {
+    super('Send settings, credentials or both', { reason: 'nothing_to_update' });
+  }
+}
+
 export class ConnectionExistsError extends DomainError {
   readonly code = 'CONFLICT';
   constructor(provider: string) {

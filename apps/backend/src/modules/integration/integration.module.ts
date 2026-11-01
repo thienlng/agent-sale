@@ -3,8 +3,12 @@ import { Module } from '@nestjs/common';
 
 import { getEnv } from '../../common/config.js';
 import { DB_SYSTEM, DB_TENANT } from '../../common/db/db.module.js';
+import { SECRET_BOX, SecretBox } from '../../common/security/secret-box.js';
+import { CommerceModule } from '../commerce/commerce.module.js';
 import { INTEGRATION_FACADE } from './api/integration.facade.js';
+import { ConnectionService } from './application/connection.service.js';
 import { IntegrationFacadeImpl } from './application/integration.facade.impl.js';
+import { INTEGRATION_OPTIONS } from './application/integration-options.js';
 import { INTEGRATION_STORE } from './application/ports/integration-store.js';
 import { KIOTVIET_GATEWAY } from './application/ports/kiotviet-gateway.js';
 import { KiotVietClient } from './infrastructure/clients/kiotviet-client.js';
@@ -14,6 +18,7 @@ import { IntegrationController } from './interface/http/integration.controller.j
 
 /** Bind ports to adapters here. Export ONLY what api/ declares. */
 @Module({
+  imports: [CommerceModule],
   controllers: [IntegrationController],
   providers: [
     { provide: INTEGRATION_FACADE, useClass: IntegrationFacadeImpl },
@@ -27,6 +32,18 @@ import { IntegrationController } from './interface/http/integration.controller.j
         db && system ? new DrizzleIntegrationStore(db, system) : new UnavailableIntegrationStore(),
     },
     { provide: KIOTVIET_GATEWAY, useFactory: () => KiotVietClient.fromEnv(getEnv()) },
+    {
+      provide: SECRET_BOX,
+      useFactory: () =>
+        getEnv().SECRETS_ENCRYPTION_KEY
+          ? SecretBox.fromBase64(getEnv().SECRETS_ENCRYPTION_KEY ?? '')
+          : SecretBox.insecureDevelopmentBox(),
+    },
+    {
+      provide: INTEGRATION_OPTIONS,
+      useFactory: () => ({ webhookBaseUrl: getEnv().PUBLIC_WEBHOOK_BASE_URL }),
+    },
+    ConnectionService,
   ],
   exports: [INTEGRATION_FACADE],
 })

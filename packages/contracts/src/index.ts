@@ -11,6 +11,7 @@ import { botRoutes } from './bot/bot.routes.js';
 import { commerceRoutes } from './commerce/commerce.routes.js';
 import { lodgingRoutes } from './commerce/lodging.routes.js';
 import { crmRoutes } from './crm/crm.routes.js';
+import { integrationRoutes } from './integration/integration.routes.js';
 import { healthRoutes } from './health/health.routes.js';
 import { identityRoutes } from './identity/identity.routes.js';
 import { accessRoutes } from './workspace/access.routes.js';
@@ -86,6 +87,7 @@ export const allRoutes = [
   ...lodgingRoutes,
   ...crmRoutes,
   ...webchatRoutes,
+  ...integrationRoutes,
 ] as const;
 
 export * from './knowledge/media.schema.js';

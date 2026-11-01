@@ -37,6 +37,11 @@ export interface KvWebhook {
  * `KiotVietUnavailableError` (down, timing out or rate limited beyond retries).
  */
 export interface KiotVietGateway {
+  /**
+   * The same gateway for calls the owner waits on (connect wizard): one try with a ~10 s timeout,
+   * no retries or `Retry-After` waits. Background jobs use the gateway itself (full retry schedule).
+   */
+  interactive(): KiotVietGateway;
   branches(c: KvCredentials): Promise<KvBranch[]>;
   products(
     c: KvCredentials,

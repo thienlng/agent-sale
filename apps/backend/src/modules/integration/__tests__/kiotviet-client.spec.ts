@@ -379,6 +379,61 @@ describe('KiotVietClient', () => {
     expect(sleeps).toHaveLength(1);
   });
 
+  describe('interactive view', () => {
+    it('fails at once on 429/5xx instead of retrying or honouring Retry-After', async () => {
+      fake.state.apiFailures = [{ status: 429, retryAfter: '30' }];
+      await expect(client.interactive().branches(creds)).rejects.toBeInstanceOf(
+        KiotVietUnavailableError,
+      );
+      expect(sleeps).toEqual([]);
+      expect(fake.apiRequests('/branches')).toHaveLength(1);
+    });
+
+    it('uses a 10 s timeout and does not retry a timeout', async () => {
+      const signals: Array<AbortSignal | null | undefined> = [];
+      const fetchImpl = vi.fn<typeof fetch>().mockImplementation(async (_input, init) => {
+        signals.push(init?.signal);
+        throw Object.assign(new Error('timeout'), { name: 'TimeoutError' });
+      });
+      const timeout = vi.spyOn(AbortSignal, 'timeout');
+      const offline = new KiotVietClient({
+        tokenUrl: fake.tokenUrl,
+        apiUrl: fake.apiUrl,
+        fetchImpl,
+        now: () => clock,
+        sleep: async (ms) => {
+          sleeps.push(ms);
+          clock += ms;
+        },
+      });
+
+      await expect(offline.interactive().branches(creds)).rejects.toBeInstanceOf(
+        KiotVietUnavailableError,
+      );
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+      expect(timeout).toHaveBeenCalledWith(10_000);
+      expect(sleeps).toEqual([]);
+      timeout.mockRestore();
+    });
+
+    it('shares the token cache with the background client', async () => {
+      await client.branches(creds);
+      await client.interactive().branches(creds);
+      expect(fake.tokensIssued()).toBe(1);
+    });
+
+    it('spends the store budget without waiting for it', async () => {
+      const view = client.interactive();
+      for (let i = 0; i < 12; i += 1) await view.productById(creds, 1);
+      expect(sleeps).toEqual([]);
+
+      // The background client pays the debt the interactive calls ran up.
+      await client.productById(creds, 1);
+      expect(sleeps).toHaveLength(1);
+      expect(sleeps[0]).toBeGreaterThan(800);
+    });
+  });
+
   it('never puts the secret or token in log output', async () => {
     const spies = (['log', 'warn', 'error', 'debug'] as const).map((m) =>
       vi.spyOn(Logger.prototype, m).mockImplementation(() => undefined),

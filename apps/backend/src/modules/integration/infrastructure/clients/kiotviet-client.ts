@@ -35,8 +35,20 @@ import {
  */
 const log = new Logger('KiotVietClient');
 
-const TIMEOUT_MS = 15_000;
-const RETRY_DELAYS_MS = [1_000, 4_000, 15_000] as const;
+/** Calls made while the owner waits (connect wizard): one 10 s try, no retries, no budget wait. */
+interface CallProfile {
+  timeoutMs: number;
+  retryDelaysMs: readonly number[];
+  /** Wait for the per-store budget (background) or spend it into debt at once (interactive). */
+  waitForBudget: boolean;
+}
+
+const BACKGROUND: CallProfile = {
+  timeoutMs: 15_000,
+  retryDelaysMs: [1_000, 4_000, 15_000],
+  waitForBudget: true,
+};
+const INTERACTIVE: CallProfile = { timeoutMs: 10_000, retryDelaysMs: [], waitForBudget: false };
 /** Upper bound for a server-sent `Retry-After`. */
 const MAX_RETRY_AFTER_MS = 60_000;
 /** Tokens are renewed this long before KiotViet says they expire. */
@@ -73,6 +85,13 @@ interface Bucket {
   at: number;
 }
 
+/** Token cache and budget, shared by the background client and its interactive view. */
+interface SharedState {
+  tokens: Map<string, CachedToken>;
+  pendingTokens: Map<string, Promise<string>>;
+  buckets: Map<string, Bucket>;
+}
+
 type Query = Record<string, string | number | boolean | undefined>;
 
 interface CallOptions {
@@ -94,19 +113,35 @@ export class KiotVietClient implements KiotVietGateway {
   private readonly sleep: (ms: number) => Promise<void>;
   private readonly now: () => number;
   private readonly apiUrl: string;
-  private readonly tokens = new Map<string, CachedToken>();
-  private readonly pendingTokens = new Map<string, Promise<string>>();
-  private readonly buckets = new Map<string, Bucket>();
+  private readonly shared: SharedState;
+  private interactiveView: KiotVietClient | undefined;
 
-  constructor(private readonly options: KiotVietClientOptions) {
+  constructor(
+    private readonly options: KiotVietClientOptions,
+    shared?: SharedState,
+    private readonly profile: CallProfile = BACKGROUND,
+  ) {
     this.fetchImpl = options.fetchImpl ?? ((input, init) => fetch(input, init));
     this.sleep = options.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
     this.now = options.now ?? Date.now;
     this.apiUrl = options.apiUrl.replace(/\/+$/, '');
+    this.shared = shared ?? { tokens: new Map(), pendingTokens: new Map(), buckets: new Map() };
   }
 
   static fromEnv(env: Pick<Env, 'KIOTVIET_TOKEN_URL' | 'KIOTVIET_API_URL'>): KiotVietClient {
     return new KiotVietClient({ tokenUrl: env.KIOTVIET_TOKEN_URL, apiUrl: env.KIOTVIET_API_URL });
+  }
+
+  /**
+   * The same client for calls the owner waits on: one try with a 10 s timeout (no retries, no
+   * `Retry-After` wait), budget spent without waiting. Shares the token cache and the budget.
+   */
+  interactive(): KiotVietGateway {
+    this.interactiveView ??=
+      this.profile === INTERACTIVE
+        ? this
+        : new KiotVietClient(this.options, this.shared, INTERACTIVE);
+    return this.interactiveView;
   }
 
   async branches(c: KvCredentials): Promise<KvBranch[]> {
@@ -324,7 +359,10 @@ export class KiotVietClient implements KiotVietGateway {
       let outcome: string;
       let retryAfterMs: number | undefined;
       try {
-        const res = await this.fetchImpl(url, { ...init, signal: AbortSignal.timeout(TIMEOUT_MS) });
+        const res = await this.fetchImpl(url, {
+          ...init,
+          signal: AbortSignal.timeout(this.profile.timeoutMs),
+        });
         if (!retryable(res.status)) {
           if (res.ok) return { status: res.status, body: await res.text() };
           await res.body?.cancel();
@@ -338,7 +376,7 @@ export class KiotVietClient implements KiotVietGateway {
       } catch (error) {
         outcome = error instanceof Error ? error.name : 'network error';
       }
-      const scheduled = RETRY_DELAYS_MS[attempt];
+      const scheduled = this.profile.retryDelaysMs[attempt];
       if (scheduled === undefined) {
         log.warn(`KiotViet ${label} → ${outcome}; giving up after ${attempt} retries`);
         throw new KiotVietUnavailableError();
@@ -361,12 +399,12 @@ export class KiotVietClient implements KiotVietGateway {
   /** Cached per client id and secret; one token request in flight per pair. */
   private token(c: KvCredentials): Promise<string> {
     const key = tokenKey(c);
-    const cached = this.tokens.get(key);
+    const cached = this.shared.tokens.get(key);
     if (cached && cached.expiresAt > this.now()) return Promise.resolve(cached.token);
-    let pending = this.pendingTokens.get(key);
+    let pending = this.shared.pendingTokens.get(key);
     if (!pending) {
-      pending = this.requestToken(c, key).finally(() => this.pendingTokens.delete(key));
-      this.pendingTokens.set(key, pending);
+      pending = this.requestToken(c, key).finally(() => this.shared.pendingTokens.delete(key));
+      this.shared.pendingTokens.set(key, pending);
     }
     return pending;
   }
@@ -395,7 +433,7 @@ export class KiotVietClient implements KiotVietGateway {
     }
     const parsed = this.parse(TokenSchema, this.json(res.body, 'POST /connect/token'), 'token');
     const ttlMs = (parsed.expires_in ?? DEFAULT_TOKEN_TTL_S) * 1000;
-    this.tokens.set(key, {
+    this.shared.tokens.set(key, {
       token: parsed.access_token,
       expiresAt: this.now() + ttlMs - TOKEN_MARGIN_MS,
     });
@@ -404,22 +442,22 @@ export class KiotVietClient implements KiotVietGateway {
 
   private forget(c: KvCredentials, token: string): void {
     const key = tokenKey(c);
-    if (this.tokens.get(key)?.token === token) this.tokens.delete(key);
+    if (this.shared.tokens.get(key)?.token === token) this.shared.tokens.delete(key);
   }
 
-  /** In-memory token bucket per store; waits instead of failing. */
+  /** In-memory token bucket per store: background calls wait, interactive ones run into debt. */
   private async takeBudget(retailer: string): Promise<void> {
     const key = retailer.trim().toLowerCase();
     for (;;) {
       const now = this.now();
-      const bucket = this.buckets.get(key) ?? { tokens: BUDGET_CAPACITY, at: now };
+      const bucket = this.shared.buckets.get(key) ?? { tokens: BUDGET_CAPACITY, at: now };
       bucket.tokens = Math.min(
         BUDGET_CAPACITY,
         bucket.tokens + ((now - bucket.at) / 1000) * BUDGET_PER_SECOND,
       );
       bucket.at = now;
-      this.buckets.set(key, bucket);
-      if (bucket.tokens >= 1) {
+      this.shared.buckets.set(key, bucket);
+      if (bucket.tokens >= 1 || !this.profile.waitForBudget) {
         bucket.tokens -= 1;
         return;
       }
