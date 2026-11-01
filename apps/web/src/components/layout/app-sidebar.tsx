@@ -1,6 +1,7 @@
 import { Link, useRouterState } from '@tanstack/react-router';
 import {
   BarChart3,
+  Blocks,
   Bot,
   Cable,
   ChevronRight,
@@ -125,6 +126,10 @@ const ORDER_PATHS = /^\/app\/(orders|order-settings)(\/|$)/;
 /** The shared product catalog: its own top-level entry, used by orders and bots alike. */
 const PRODUCTS: readonly NavItem[] = [
   { to: '/app/products', key: 'nav.products', icon: Package, ready: true },
+];
+/** Point-of-sale / inventory software (KiotViet, …) feeding the catalog. */
+const PMS: readonly NavItem[] = [
+  { to: '/app/integrations', key: 'nav.pms', icon: Blocks, ready: true },
 ];
 const LODGING: readonly NavItem[] = [
   { to: '/app/accommodations', key: 'nav.accommodations', icon: House, ready: true },
@@ -257,6 +262,8 @@ export function AppSidebar({
   const session = useSession();
   const prefs = usePreferences();
   const canSettings = useCan('settings.manage');
+  const canCatalog = useCan('catalog.manage');
+  const pms = canCatalog ? <NavItems items={PMS} /> : null;
   return (
     <Sidebar variant={prefs.sidebar_variant} collapsible={prefs.sidebar_collapsible}>
       <SidebarHeader>
@@ -279,6 +286,7 @@ export function AppSidebar({
             <NavItems items={BOTS} />
             <MultichannelNav />
             <NavItems items={INTEGRATIONS} />
+            {industry === 'hotel' ? pms : null}
             <SectionNav
               label="nav.contacts"
               icon={Users}
@@ -297,6 +305,7 @@ export function AppSidebar({
                   exact="/app/orders"
                 />
                 <NavItems items={PRODUCTS} />
+                {pms}
               </>
             )}
             <NavItems items={WORK} />

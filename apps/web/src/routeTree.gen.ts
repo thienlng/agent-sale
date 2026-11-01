@@ -37,6 +37,8 @@ import { Route as AppCrmSettingsDistributionRouteImport } from './routes/app/crm
 import { Route as AppCrmSettingsSourcesRouteImport } from './routes/app/crm-settings/sources'
 import { Route as AppCrmSettingsStatusesRouteImport } from './routes/app/crm-settings/statuses'
 import { Route as AppCrmSettingsTagsRouteImport } from './routes/app/crm-settings/tags'
+import { Route as AppIntegrationsIndexRouteImport } from './routes/app/integrations/index'
+import { Route as AppIntegrationsKiotvietRouteImport } from './routes/app/integrations/kiotviet'
 import { Route as AppOrderSettingsIndexRouteImport } from './routes/app/order-settings/index'
 import { Route as AppOrderSettingsSourcesRouteImport } from './routes/app/order-settings/sources'
 import { Route as AppOrderSettingsStatusesRouteImport } from './routes/app/order-settings/statuses'
@@ -206,6 +208,16 @@ const AppCrmSettingsTagsRoute = AppCrmSettingsTagsRouteImport.update({
   id: '/tags',
   path: '/tags',
   getParentRoute: () => AppCrmSettingsRoute,
+} as any)
+const AppIntegrationsIndexRoute = AppIntegrationsIndexRouteImport.update({
+  id: '/integrations/',
+  path: '/integrations/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppIntegrationsKiotvietRoute = AppIntegrationsKiotvietRouteImport.update({
+  id: '/integrations/kiotviet',
+  path: '/integrations/kiotviet',
+  getParentRoute: () => AppRoute,
 } as any)
 const AppOrderSettingsIndexRoute = AppOrderSettingsIndexRouteImport.update({
   id: '/',
@@ -382,6 +394,7 @@ export interface FileRoutesByFullPath {
   '/app/crm-settings/sources': typeof AppCrmSettingsSourcesRoute
   '/app/crm-settings/statuses': typeof AppCrmSettingsStatusesRoute
   '/app/crm-settings/tags': typeof AppCrmSettingsTagsRoute
+  '/app/integrations/kiotviet': typeof AppIntegrationsKiotvietRoute
   '/app/order-settings/sources': typeof AppOrderSettingsSourcesRoute
   '/app/order-settings/statuses': typeof AppOrderSettingsStatusesRoute
   '/app/order-settings/warehouses': typeof AppOrderSettingsWarehousesRoute
@@ -395,6 +408,7 @@ export interface FileRoutesByFullPath {
   '/app/settings/security': typeof AppSettingsSecurityRoute
   '/app/bots/': typeof AppBotsIndexRoute
   '/app/crm-settings/': typeof AppCrmSettingsIndexRoute
+  '/app/integrations/': typeof AppIntegrationsIndexRoute
   '/app/order-settings/': typeof AppOrderSettingsIndexRoute
   '/app/orders/': typeof AppOrdersIndexRoute
   '/app/products/': typeof AppProductsIndexRoute
@@ -434,6 +448,7 @@ export interface FileRoutesByTo {
   '/app/crm-settings/sources': typeof AppCrmSettingsSourcesRoute
   '/app/crm-settings/statuses': typeof AppCrmSettingsStatusesRoute
   '/app/crm-settings/tags': typeof AppCrmSettingsTagsRoute
+  '/app/integrations/kiotviet': typeof AppIntegrationsKiotvietRoute
   '/app/order-settings/sources': typeof AppOrderSettingsSourcesRoute
   '/app/order-settings/statuses': typeof AppOrderSettingsStatusesRoute
   '/app/order-settings/warehouses': typeof AppOrderSettingsWarehousesRoute
@@ -447,6 +462,7 @@ export interface FileRoutesByTo {
   '/app/settings/security': typeof AppSettingsSecurityRoute
   '/app/bots': typeof AppBotsIndexRoute
   '/app/crm-settings': typeof AppCrmSettingsIndexRoute
+  '/app/integrations': typeof AppIntegrationsIndexRoute
   '/app/order-settings': typeof AppOrderSettingsIndexRoute
   '/app/orders': typeof AppOrdersIndexRoute
   '/app/products': typeof AppProductsIndexRoute
@@ -493,6 +509,7 @@ export interface FileRoutesById {
   '/app/crm-settings/sources': typeof AppCrmSettingsSourcesRoute
   '/app/crm-settings/statuses': typeof AppCrmSettingsStatusesRoute
   '/app/crm-settings/tags': typeof AppCrmSettingsTagsRoute
+  '/app/integrations/kiotviet': typeof AppIntegrationsKiotvietRoute
   '/app/order-settings/sources': typeof AppOrderSettingsSourcesRoute
   '/app/order-settings/statuses': typeof AppOrderSettingsStatusesRoute
   '/app/order-settings/warehouses': typeof AppOrderSettingsWarehousesRoute
@@ -506,6 +523,7 @@ export interface FileRoutesById {
   '/app/settings/security': typeof AppSettingsSecurityRoute
   '/app/bots/': typeof AppBotsIndexRoute
   '/app/crm-settings/': typeof AppCrmSettingsIndexRoute
+  '/app/integrations/': typeof AppIntegrationsIndexRoute
   '/app/order-settings/': typeof AppOrderSettingsIndexRoute
   '/app/orders/': typeof AppOrdersIndexRoute
   '/app/products/': typeof AppProductsIndexRoute
@@ -553,6 +571,7 @@ export interface FileRouteTypes {
     | '/app/crm-settings/sources'
     | '/app/crm-settings/statuses'
     | '/app/crm-settings/tags'
+    | '/app/integrations/kiotviet'
     | '/app/order-settings/sources'
     | '/app/order-settings/statuses'
     | '/app/order-settings/warehouses'
@@ -566,6 +585,7 @@ export interface FileRouteTypes {
     | '/app/settings/security'
     | '/app/bots/'
     | '/app/crm-settings/'
+    | '/app/integrations/'
     | '/app/order-settings/'
     | '/app/orders/'
     | '/app/products/'
@@ -605,6 +625,7 @@ export interface FileRouteTypes {
     | '/app/crm-settings/sources'
     | '/app/crm-settings/statuses'
     | '/app/crm-settings/tags'
+    | '/app/integrations/kiotviet'
     | '/app/order-settings/sources'
     | '/app/order-settings/statuses'
     | '/app/order-settings/warehouses'
@@ -618,6 +639,7 @@ export interface FileRouteTypes {
     | '/app/settings/security'
     | '/app/bots'
     | '/app/crm-settings'
+    | '/app/integrations'
     | '/app/order-settings'
     | '/app/orders'
     | '/app/products'
@@ -663,6 +685,7 @@ export interface FileRouteTypes {
     | '/app/crm-settings/sources'
     | '/app/crm-settings/statuses'
     | '/app/crm-settings/tags'
+    | '/app/integrations/kiotviet'
     | '/app/order-settings/sources'
     | '/app/order-settings/statuses'
     | '/app/order-settings/warehouses'
@@ -676,6 +699,7 @@ export interface FileRouteTypes {
     | '/app/settings/security'
     | '/app/bots/'
     | '/app/crm-settings/'
+    | '/app/integrations/'
     | '/app/order-settings/'
     | '/app/orders/'
     | '/app/products/'
@@ -901,6 +925,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/app/crm-settings/tags'
       preLoaderRoute: typeof AppCrmSettingsTagsRouteImport
       parentRoute: typeof AppCrmSettingsRoute
+    }
+    '/app/integrations/': {
+      id: '/app/integrations/'
+      path: '/integrations'
+      fullPath: '/app/integrations/'
+      preLoaderRoute: typeof AppIntegrationsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/integrations/kiotviet': {
+      id: '/app/integrations/kiotviet'
+      path: '/integrations/kiotviet'
+      fullPath: '/app/integrations/kiotviet'
+      preLoaderRoute: typeof AppIntegrationsKiotvietRouteImport
+      parentRoute: typeof AppRoute
     }
     '/app/order-settings/': {
       id: '/app/order-settings/'
@@ -1219,12 +1257,14 @@ interface AppRouteChildren {
   AppIndexRoute: typeof AppIndexRoute
   AppBotsBotIdRoute: typeof AppBotsBotIdRouteWithChildren
   AppBusinessesNewRoute: typeof AppBusinessesNewRoute
+  AppIntegrationsKiotvietRoute: typeof AppIntegrationsKiotvietRoute
   AppOrdersOrderIdRoute: typeof AppOrdersOrderIdRoute
   AppOrdersNewRoute: typeof AppOrdersNewRoute
   AppOrdersOverviewRoute: typeof AppOrdersOverviewRoute
   AppProductsProductIdRoute: typeof AppProductsProductIdRoute
   AppProductsNewRoute: typeof AppProductsNewRoute
   AppBotsIndexRoute: typeof AppBotsIndexRoute
+  AppIntegrationsIndexRoute: typeof AppIntegrationsIndexRoute
   AppOrdersIndexRoute: typeof AppOrdersIndexRoute
   AppProductsIndexRoute: typeof AppProductsIndexRoute
 }
@@ -1244,12 +1284,14 @@ const AppRouteChildren: AppRouteChildren = {
   AppIndexRoute: AppIndexRoute,
   AppBotsBotIdRoute: AppBotsBotIdRouteWithChildren,
   AppBusinessesNewRoute: AppBusinessesNewRoute,
+  AppIntegrationsKiotvietRoute: AppIntegrationsKiotvietRoute,
   AppOrdersOrderIdRoute: AppOrdersOrderIdRoute,
   AppOrdersNewRoute: AppOrdersNewRoute,
   AppOrdersOverviewRoute: AppOrdersOverviewRoute,
   AppProductsProductIdRoute: AppProductsProductIdRoute,
   AppProductsNewRoute: AppProductsNewRoute,
   AppBotsIndexRoute: AppBotsIndexRoute,
+  AppIntegrationsIndexRoute: AppIntegrationsIndexRoute,
   AppOrdersIndexRoute: AppOrdersIndexRoute,
   AppProductsIndexRoute: AppProductsIndexRoute,
 }

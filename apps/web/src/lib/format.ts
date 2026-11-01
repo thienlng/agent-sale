@@ -38,3 +38,26 @@ export function isoDate(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
+
+const RELATIVE_STEPS: Array<[Intl.RelativeTimeFormatUnit, number]> = [
+  ['second', 60],
+  ['minute', 60],
+  ['hour', 24],
+  ['day', 30],
+  ['month', 12],
+  ['year', Number.POSITIVE_INFINITY],
+];
+
+/** "2 phút trước" / "2 minutes ago" for a past instant (future instants read as "now"). */
+export function formatRelativeTime(iso: string, now: number = Date.now()): string {
+  let value = Math.max(0, (now - new Date(iso).getTime()) / 1000);
+  // "auto" only for seconds ("now"); larger units stay numeric ("2 ngày trước", not "Hôm kia").
+  const rtf = new Intl.RelativeTimeFormat(locale(), { numeric: 'always' });
+  if (value < 1)
+    return new Intl.RelativeTimeFormat(locale(), { numeric: 'auto' }).format(0, 'second');
+  for (const [unit, size] of RELATIVE_STEPS) {
+    if (value < size) return rtf.format(-Math.floor(value), unit);
+    value /= size;
+  }
+  return rtf.format(-Math.floor(value), 'year');
+}

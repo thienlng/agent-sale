@@ -164,7 +164,10 @@ export async function api<T>(
     init.signal,
   );
   if (!res.ok) throw await toError(res);
-  return schema.parse(res.status === 204 ? null : await res.json());
+  if (res.status === 204) return schema.parse(null);
+  // An accepted job (202) may answer without a body.
+  const text = await res.text();
+  return schema.parse(text ? JSON.parse(text) : null);
 }
 
 /**

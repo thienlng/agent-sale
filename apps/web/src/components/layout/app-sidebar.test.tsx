@@ -15,12 +15,14 @@ import { renderWithProviders } from '@/testing/render';
 
 import { AppSidebar } from './app-sidebar';
 
-vi.mock('@/lib/permissions', () => ({ useCan: () => true }));
+const denied = vi.hoisted(() => new Set<string>());
+vi.mock('@/lib/permissions', () => ({ useCan: (capability: string) => !denied.has(capability) }));
 vi.mock('@/lib/session', () => ({ useSession: () => ({ user: { isPlatformAdmin: false } }) }));
 // The business selector needs a full session; these tests cover the navigation only.
 vi.mock('./business-selector', () => ({ BusinessSelector: () => null }));
 
 beforeEach(() => {
+  denied.clear();
   // shadcn's sidebar asks for the mobile breakpoint; jsdom has no matchMedia.
   window.matchMedia ??= ((query: string) => ({
     matches: false,
@@ -110,5 +112,32 @@ describe('AppSidebar', () => {
       'href',
       '/app/orders/new',
     );
+  });
+
+  it('lists "Tích hợp PMS" right after products', async () => {
+    renderAt('/app/bots');
+    const nav = await screen.findByRole('navigation', { name: 'Điều hướng chính' });
+    const links = within(nav)
+      .getAllByRole('link')
+      .map((a) => a.textContent);
+    const pms = within(nav).getByRole('link', { name: 'Tích hợp PMS' });
+    expect(pms).toHaveAttribute('href', '/app/integrations');
+    expect(links.indexOf('Tích hợp PMS')).toBe(links.indexOf('Sản phẩm') + 1);
+  });
+
+  it('puts "Tích hợp PMS" after the platform integrations for a hotel', async () => {
+    renderAt('/app/bots', 'hotel');
+    const nav = await screen.findByRole('navigation', { name: 'Điều hướng chính' });
+    const links = within(nav)
+      .getAllByRole('link')
+      .map((a) => a.textContent);
+    expect(links.indexOf('Tích hợp PMS')).toBe(links.indexOf('Tích hợp nền tảng') + 1);
+  });
+
+  it('hides "Tích hợp PMS" from members who cannot manage the catalog', async () => {
+    denied.add('catalog.manage');
+    renderAt('/app/bots');
+    const nav = await screen.findByRole('navigation', { name: 'Điều hướng chính' });
+    expect(within(nav).queryByRole('link', { name: 'Tích hợp PMS' })).toBeNull();
   });
 });
