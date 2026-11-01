@@ -1,6 +1,6 @@
 # ADR-013: Whole-property lodging catalog and staff-confirmed stay requests
 
-- Status: Proposed
+- Status: Superseded in part by [ADR-018](ADR-018-lodging-module.md) (properties, calendar and bookings move to the `lodging` module; T-155 routes and tables stay served, deprecated, until a contract step removes them)
 - Date: 2026-10-29
 - Decision makers: thienlng
 

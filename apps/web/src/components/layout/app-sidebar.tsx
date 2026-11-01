@@ -5,6 +5,7 @@ import {
   Bot,
   Cable,
   ChevronRight,
+  ClipboardList,
   type LucideIcon,
   MessagesSquare,
   Package,
@@ -16,7 +17,7 @@ import {
   Users,
   UsersRound,
 } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Logo } from '@/components/logo';
@@ -31,6 +32,7 @@ import {
   SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSkeleton,
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
@@ -48,6 +50,8 @@ interface NavItem {
   key: string;
   icon: LucideIcon;
   ready?: boolean;
+  /** Built and usable, but still being proven with real shops: says "Thử nghiệm". */
+  beta?: boolean;
 }
 
 /** P0 items of docs/03 §2; the ones not built yet say so instead of pretending. */
@@ -60,59 +64,14 @@ const WORK: readonly NavItem[] = [
   { to: '/app/settings', key: 'nav.settings', icon: Settings, ready: true },
 ];
 
-/** Multichannel messaging stays separate from the global platform inventory. */
-const MULTICHANNEL: readonly NavItem[] = [
+/** The inbox: the page staff use most, one click from anywhere. */
+const INBOX: readonly NavItem[] = [
   { to: '/app/inbox', key: 'nav.inbox', icon: MessagesSquare, ready: true },
 ];
+/** The workspace's channel inventory (connected Pages and accounts), separate from the inbox. */
 const INTEGRATIONS: readonly NavItem[] = [
   { to: '/app/channels', key: 'nav.channels', icon: Cable, ready: true },
 ];
-const MULTICHANNEL_PATHS = /^\/app\/inbox(\/|$)/;
-
-function MultichannelNav() {
-  const { t } = useTranslation();
-  const { isMobile, setOpenMobile } = useSidebar();
-  const inside = useRouterState({
-    select: (s) => MULTICHANNEL_PATHS.test(s.location.pathname),
-  });
-  // Starts open so both pages stay one click away; re-opens whenever the user is inside.
-  const [open, setOpen] = useState(true);
-  const [wasInside, setWasInside] = useState(inside);
-  if (inside !== wasInside) {
-    setWasInside(inside);
-    if (inside) setOpen(true);
-  }
-  return (
-    <Collapsible asChild open={open} onOpenChange={setOpen} className="group/collapsible">
-      <SidebarMenuItem>
-        <CollapsibleTrigger asChild>
-          <SidebarMenuButton tooltip={t('nav.multichannel')} isActive={inside && !open}>
-            <MessagesSquare />
-            <span>{t('nav.multichannel')}</span>
-            <ChevronRight className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-90" />
-          </SidebarMenuButton>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <SidebarMenuSub>
-            {MULTICHANNEL.map(({ to, key }) => (
-              <SidebarMenuSubItem key={to}>
-                <SidebarMenuSubButton asChild>
-                  <Link
-                    to={to}
-                    activeProps={{ 'data-active': true }}
-                    onClick={() => isMobile && setOpenMobile(false)}
-                  >
-                    <span>{t(key)}</span>
-                  </Link>
-                </SidebarMenuSubButton>
-              </SidebarMenuSubItem>
-            ))}
-          </SidebarMenuSub>
-        </CollapsibleContent>
-      </SidebarMenuItem>
-    </Collapsible>
-  );
-}
 
 /** The orders area (docs/03 §2 "Đơn hàng"): one entry with sub-pages. */
 const ORDERS: readonly NavItem[] = [
@@ -129,11 +88,13 @@ const PRODUCTS: readonly NavItem[] = [
 ];
 /** Point-of-sale / inventory software (KiotViet, …) feeding the catalog. */
 const PMS: readonly NavItem[] = [
-  { to: '/app/integrations', key: 'nav.pms', icon: Blocks, ready: true },
+  { to: '/app/integrations', key: 'nav.pms', icon: Blocks, ready: true, beta: true },
 ];
+/** A hotel sells nights, not stock: calendar, bookings and properties replace orders and products. */
 const LODGING: readonly NavItem[] = [
-  { to: '/app/accommodations', key: 'nav.accommodations', icon: House, ready: true },
-  { to: '/app/stays', key: 'nav.stayRequests', icon: CalendarDays, ready: true },
+  { to: '/app/calendar', key: 'nav.calendar', icon: CalendarDays, ready: true },
+  { to: '/app/bookings', key: 'nav.bookings', icon: ClipboardList, ready: true },
+  { to: '/app/properties', key: 'nav.properties', icon: House, ready: true },
 ];
 
 /** The customers area (docs/03 §2 "Khách hàng"). */
@@ -222,30 +183,51 @@ function NavGroup({
   );
 }
 
-function NavItems({ items }: { items: readonly NavItem[] }) {
+/** A number waiting behind a nav entry (e.g. bot holds to review), keyed by the entry's path. */
+export type NavCounts = Partial<Record<string, { count: number; label: string }>>;
+
+function NavItems({
+  items,
+  counts,
+}: {
+  items: readonly NavItem[];
+  counts?: NavCounts | undefined;
+}) {
   const { t } = useTranslation();
   const { isMobile, setOpenMobile } = useSidebar();
   return (
     <>
-      {items.map(({ to, key, icon: Icon, ready }) => (
-        <SidebarMenuItem key={to}>
-          <SidebarMenuButton asChild tooltip={t(key)}>
-            <Link
-              to={to}
-              onClick={() => isMobile && setOpenMobile(false)}
-              activeProps={{ 'data-active': true }}
-            >
-              <Icon />
-              <span>{t(key)}</span>
-            </Link>
-          </SidebarMenuButton>
-          {!ready ? (
-            <SidebarMenuBadge className="font-normal text-muted-foreground">
-              {t('nav.comingSoon')}
-            </SidebarMenuBadge>
-          ) : null}
-        </SidebarMenuItem>
-      ))}
+      {items.map(({ to, key, icon: Icon, ready, beta }) => {
+        const waiting = counts?.[to];
+        return (
+          <SidebarMenuItem key={to}>
+            <SidebarMenuButton asChild tooltip={t(key)}>
+              <Link
+                to={to}
+                onClick={() => isMobile && setOpenMobile(false)}
+                activeProps={{ 'data-active': true }}
+              >
+                <Icon />
+                <span>{t(key)}</span>
+              </Link>
+            </SidebarMenuButton>
+            {!ready ? (
+              <SidebarMenuBadge className="font-normal text-muted-foreground">
+                {t('nav.comingSoon')}
+              </SidebarMenuBadge>
+            ) : beta ? (
+              <SidebarMenuBadge className="font-normal text-muted-foreground">
+                {t('nav.beta')}
+              </SidebarMenuBadge>
+            ) : waiting && waiting.count > 0 ? (
+              <SidebarMenuBadge className="bg-warning-soft text-warning">
+                <span aria-hidden>{waiting.count}</span>
+                <span className="sr-only">{waiting.label}</span>
+              </SidebarMenuBadge>
+            ) : null}
+          </SidebarMenuItem>
+        );
+      })}
     </>
   );
 }
@@ -254,9 +236,13 @@ function NavItems({ items }: { items: readonly NavItem[] }) {
 export function AppSidebar({
   createBusinessDialog,
   industry,
+  navCounts,
 }: {
   createBusinessDialog?: ((props: CreateBusinessDialogProps) => ReactNode) | undefined;
+  /** The business's industry; undefined while it loads (industry entries show placeholders). */
   industry?: string | undefined;
+  /** Waiting counts composed by the route from features (shared code may not import them). */
+  navCounts?: NavCounts | undefined;
 }) {
   const { t } = useTranslation();
   const session = useSession();
@@ -284,7 +270,7 @@ export function AppSidebar({
         <nav aria-label={t('nav.mainLabel')} className="contents">
           <NavGroup label={t('nav.groupWork')} items={HOME}>
             <NavItems items={BOTS} />
-            <MultichannelNav />
+            <NavItems items={INBOX} />
             <NavItems items={INTEGRATIONS} />
             {industry === 'hotel' ? pms : null}
             <SectionNav
@@ -293,8 +279,19 @@ export function AppSidebar({
               items={CONTACTS.filter((i) => canSettings || i.to !== '/app/crm-settings')}
               paths={CONTACT_PATHS}
             />
-            {industry === 'hotel' ? (
-              <NavItems items={LODGING} />
+            {industry === undefined ? (
+              // Until the business loads its industry is unknown: hold the place instead of
+              // flashing retail entries a hotel never has.
+              <>
+                <SidebarMenuItem>
+                  <SidebarMenuSkeleton showIcon data-testid="industry-nav-loading" />
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuSkeleton showIcon />
+                </SidebarMenuItem>
+              </>
+            ) : industry === 'hotel' ? (
+              <NavItems items={LODGING} counts={navCounts} />
             ) : (
               <>
                 <SectionNav

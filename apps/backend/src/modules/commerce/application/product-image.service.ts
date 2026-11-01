@@ -3,6 +3,7 @@ import { newId, type WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
 import { decodeImage, InvalidImageError } from '../../../common/storage/image-bytes.js';
+import { toMediaPath } from '../../../common/storage/media-url.js';
 import type { PublicObjectStorage } from '../../../common/storage/public-object-storage.js';
 import { PRODUCT_IMAGE_STORAGE } from './ports/product-image-storage.js';
 
@@ -21,6 +22,8 @@ export class ProductImageService {
     if (!(input.mimeType in EXTENSIONS)) throw new InvalidImageError();
     const bytes = decodeImage(input.base64, input.mimeType);
     const key = `products/${ws}/${newId()}.${EXTENSIONS[input.mimeType]}`;
-    return { url: await this.storage.put(key, bytes, input.mimeType) };
+    // Stored and answered as the host-relative `/media/…` path, so a public host change never
+    // breaks it (channels get an absolute URL at send time).
+    return { url: toMediaPath(await this.storage.put(key, bytes, input.mimeType)) };
   }
 }

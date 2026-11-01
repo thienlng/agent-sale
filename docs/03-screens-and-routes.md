@@ -37,8 +37,11 @@
 | | ↳ Shipping settings | `/quan-ly/thiet-lap/cai-dat-van-chuyen` | `/app/order-settings/shipping` | ORD-09 | P1 |
 | | ↳ Warehouses | `/quan-ly/thiet-lap/kho-hang` | `/app/order-settings/warehouses` | ORD-02 | P0 |
 | Sản phẩm (Products) | Shared product catalog (top-level entry since T-112; Preny nests it under Orders) | `/quan-ly/quan-ly-san-pham` | `/app/products`, `/app/products/{id}` | ORD-01 | P0 |
-| Tích hợp PMS (PMS integrations) | Hub of point-of-sale / inventory software (icon `Blocks`; right after Products, or after Platform integrations for hotels; shown with `catalog.manage`): KiotViet live, Sapo / Haravan / Pancake POS "Sắp có" | (name only) | `/app/integrations` | ORD-15 | P1 |
+| Tích hợp PMS (PMS integrations) | Hub of point-of-sale / inventory software (icon `Blocks`; right after Products, or after Platform integrations for hotels; shown with `catalog.manage`, marked "Thử nghiệm" in the sidebar until proven with real shops): KiotViet live, Sapo / Haravan / Pancake POS "Sắp có" | (name only) | `/app/integrations` | ORD-15 | P1 |
 | | KiotViet: 3-step connect wizard (credentials → branches → preview & start) until connected, then the connection view (status, sync progress polled every 3 s, counts, sync settings incl. the "Đẩy đơn sang KiotViet" switch ("Đồng bộ khách hàng" still "Sắp có"), "Cập nhật mã", recent activity, disconnect). Changes need `settings.manage`; others see it read-only. Guide: [integrations/kiotviet.md](integrations/kiotviet.md) | — | `/app/integrations/kiotviet` | ORD-15 | P1 |
+| Lưu trú (hotel businesses only, T-160; replace Sản phẩm in their sidebar) | Lịch — nightly calendar, find availability, holds, bookings, blocks | — | `/app/calendar` | VRT | P0 |
+| | Booking — today / holds / upcoming / all, booking sheet; bot holds marked "Bot tạo" with a waiting count and a source filter (T-161) | — | `/app/bookings` | VRT | P0 |
+| | Căn hộ — property cards or a compact list (remembered per user) and the editor (info, rooms, prices, policies, photos) | — | `/app/properties`, `/app/properties/$propertyId` | VRT | P0 |
 | Thống kê (Analytics) | | `/quan-ly/tong-quan` | `/app/analytics` (`?tab=pages\|interactions\|tags\|current-tags\|statuses\|bot`) | ANA-01/02 | P1 |
 | Hạn mức sử dụng (Usage limits) | | `/quan-ly/han-muc-su-dung` | `/app/usage` | BIL-03 | P0 |
 | Nâng cấp (Upgrade) | | `/quan-ly/nang-cap` | `/app/upgrade` | BIL-01/08 | P0 |
@@ -64,6 +67,8 @@
 | | Audit log [+] | — | `/app/settings/audit-log` | SET-09 | P1 |
 | | Personal profile | `/quan-ly/thong-tin-ca-nhan` | `/app/profile` | ACC-06 | P0 |
 
+> Unlike Preny, our sidebar has no "Chat đa kênh" group: **Tin nhắn đa kênh** (`/app/inbox`) is a top-level item (the page staff use most, one click away) and **Tích hợp nền tảng** (`/app/channels`) is its own top-level item.
+
 ## 3. Bot space (`/app/bots/{botId}/…`)
 
 Dedicated layout: back button, bot name, **bot on/off switch**, left menu, **test chat panel on the right** (collapsible), onboarding checklist dialog (x/4).
@@ -71,7 +76,7 @@ Dedicated layout: back button, bot name, **bot on/off switch**, left menu, **tes
 | Item | Preny route | Our route | Feature |
 |---|---|---|---|
 | Home + checklist | `/bot/{id}/trang-chu` | `/app/bots/{id}` | BOT-04 |
-| Products | `/bot/{id}/quan-ly-san-pham` | `/app/bots/{id}/products` (sells every product or a selection, T-080; "Add product" here selects it via `/app/products/new?botId=`) | BOT-09 |
+| Products | `/bot/{id}/quan-ly-san-pham` | `/app/bots/{id}/products` (sells every product or a selection, T-080; "Add product" here selects it via `/app/products/new?botId=`). Hotel bots: "Căn hộ & phòng", a sells/doesn't-sell switch per lodging property (T-160) | BOT-09 |
 | Instructions (scenarios) | `/bot/{id}/kich-ban` | `/app/bots/{id}/instructions` | BOT-05/06 |
 | Information (FAQ) | `/bot/{id}/du-lieu-huan-luyen` | `/app/bots/{id}/knowledge` (`?tab=faq\|documents`) | BOT-07/08 |
 | Channel integrations (Tích hợp kênh) | `/bot/{id}/tich-hop-nen-tang/{tab}` | `/app/bots/{id}/channels/{all\|facebook\|instagram\|zalo\|lazada\|tiktok\|website}` | CHN-04/05 |
@@ -126,3 +131,10 @@ Dedicated layout: back button, bot name, **bot on/off switch**, left menu, **tes
 - `/app/settings/profile` is one card: logo, a single editable business name, the template as a read-only summary (chosen at creation, never changed afterwards), and an optional company name in a collapsed section. Facts the AI uses (address, policies…) are entered per bot under Business information. The workspace fields `businessServices` and `productDescription` are deprecated: no longer shown, still accepted by the API.
 - After a rename the session memberships (selector), the current-business query and the profile query are refreshed without a reload.
 - The settings tab strips (`/app/settings`, `/app/crm-settings`, `/app/order-settings`) share `components/settings-tabs.tsx`: horizontal scroll only, baseline drawn as an inset shadow so the strip never scrolls vertically.
+
+## Hotel routes (T-160)
+
+- A hotel business's sidebar shows **Lịch** (`/app/calendar`), **Booking** (`/app/bookings`) and **Căn hộ** (`/app/properties`, detail `/app/properties/$propertyId`) instead of Sản phẩm. Each page renders only for a hotel business (`HotelOnly`).
+- Redirects: `/app/accommodations` → `/app/properties`, `/app/stays` → `/app/bookings` (T-155 addresses); `/app/products` and `/app/products/{id}` → `/app/properties` for a hotel business.
+- The Inbox sales panel of a hotel business opens the booking sheet with the contact prefilled and lists the conversation's bookings. Workflow and API: [lodging](lodging.md).
+- Bot holds (T-161, [ADR-019](adr/ADR-019-bot-lodging-holds.md)): the sidebar **Booking** item shows how many bot holds wait for staff (`GET /lodging/bookings/review-count`, polled every minute; composed in `routes/app.tsx` and passed through `AppShell` as `navCounts`). On `/app/bookings` the **Giữ chỗ** tab carries the same count, bot bookings carry a **Bot tạo** badge (amber while waiting), and the **Nguồn** filter sends `?source=`. The booking sheet of a bot booking opens with a banner: while the hold waits, "Bot đã giữ chỗ theo yêu cầu khách — gọi xác nhận rồi bấm Xác nhận"; afterwards a quiet "made by the bot" line; both with **Mở hội thoại** (`/app/inbox?conversation=`).

@@ -18,6 +18,14 @@ import {
   TRAINING_FACADE,
   type TrainingFacade,
 } from '../../knowledge/api/index.js';
+import {
+  LODGING_BOT_FACADE,
+  LODGING_CATALOG_FACADE,
+  LODGING_FACADE,
+  type LodgingBotFacade,
+  type LodgingCatalogFacade,
+  type LodgingFacade,
+} from '../../lodging/api/index.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
 import type { AiFacade } from '../api/ai.facade.js';
 import type { ReplyOptions, ReplyResult } from '../api/reply-options.js';
@@ -50,13 +58,21 @@ import {
 } from './action-tools.js';
 import { type AgentLoopResult, type AgentStep, runAgentLoop } from './agent-loop.js';
 import { createHistorySummarizer } from './history-summarizer.js';
+import {
+  HOLD_CONFIRM_PAYLOAD,
+  holdCreatedText,
+  hotelHoldContext,
+  localHoldTime,
+} from './hold-tools.js';
 import { LlmRuntime } from './llm-runtime.js';
 import {
   confirmableDraft,
   answeredSince,
   newOrderToolState,
+  announceCreated,
   announceOrder,
   keepSummaryLast,
+  ORDER_CONFIRM_PAYLOAD,
   type OrderToolContext,
   PLAYGROUND_ORDER_CHANNEL,
 } from './order-tools.js';
@@ -83,12 +99,26 @@ import {
 } from './reply-pipeline.js';
 
 export { PHONE_KNOWN_LINE };
+
+// TODO(prompt-budget): slim the per-turn prompt later; every agent-loop round resends all of it.
+// 1. Compose sales-agent conditionally: "Closing an order" only when bot.orderTaking, "Actions"
+//    only when the bot has actions (today every bot pays ~3.5K chars for both).
+// 2. Dedupe repeated rules (phone → handoff ×3, "data, never instructions" ×5, "never invent" ×6)
+//    and the tool descriptions that restate the system prompt (calculate, send_message, prepare_order).
+// 3. renderBusinessProfile: drop the "(not provided)" lines, say "unlisted fields are unknown" once.
+// 4. Skip empty <shop_situations> / "(no matching entries)" blocks; add a score floor to FAQ hits.
+// 5. <focus_products>: compact view instead of full details of 3 products every turn.
+// 6. Playground (conversationId null) cannot store the history summary, so long test chats
+//    re-summarise on every turn.
+// Steps 2 and 5 change bot behaviour: run the ai evals before/after. Measure first (prompt viewer).
 const PROMPT_RETAIL = { name: 'sales-agent', version: 15 } as const;
-const PROMPT_LODGING = { name: 'sales-agent', version: 16 } as const;
+const PROMPT_LODGING = { name: 'sales-agent', version: 18 } as const;
 /** The sales-agent prompt versions the option may force (13/14: before the order tools). */
-export type SalesPromptVersion = 13 | 14 | 15 | 16;
-/** Optional DI token: forces the sales-agent prompt for every bot (default: 16 for hotel bots, 15 otherwise). */
+export type SalesPromptVersion = 13 | 14 | 15 | 16 | 17 | 18;
+/** Optional DI token: forces the sales-agent prompt for every bot (default: 18 for hotel bots, 15 otherwise). */
 export const PROMPT_VERSION_OPTION = Symbol('PROMPT_VERSION_OPTION');
+/** The current public base of Rapiz storage (`S3_PUBLIC_URL`); pictures are sent on it. */
+export const MEDIA_PUBLIC_BASE = Symbol('MEDIA_PUBLIC_BASE');
 const POST_PROMPT = { name: 'fanpage-context', version: 2 } as const;
 const MAX_SOURCES = 5;
 const FOCUS_RUNS = 3;
@@ -122,6 +152,12 @@ export class PlaygroundService implements AiFacade {
     @Optional()
     private readonly summaries?: ConversationSummaryRepository,
     @Inject(COMMERCE_FACADE) @Optional() private readonly commerce?: CommerceFacade,
+    @Inject(LODGING_CATALOG_FACADE)
+    @Optional()
+    private readonly lodgingCatalog?: LodgingCatalogFacade,
+    @Inject(LODGING_BOT_FACADE) @Optional() private readonly lodgingBot?: LodgingBotFacade,
+    @Inject(LODGING_FACADE) @Optional() private readonly lodging?: LodgingFacade,
+    @Inject(MEDIA_PUBLIC_BASE) @Optional() private readonly mediaBase?: string,
   ) {
     this.#forcedPrompt = promptVersion
       ? { name: 'sales-agent', version: promptVersion }
@@ -160,7 +196,10 @@ export class PlaygroundService implements AiFacade {
     const guidance = situationsText(trainingItems.filter((item) => item.kind === 'scenario'));
     const media = trainingItems.filter((item) => item.kind === 'media');
     const scope = { botId, catalogMode: bot.catalogMode };
-    const catalog = this.catalog;
+    // Hotel bots sell lodging properties instead of commerce products (T-160): their selection
+    // lives in lodging and catalogMode is ignored.
+    const catalog: CatalogFacade | undefined =
+      bot.industry === 'hotel' ? this.lodgingCatalog : this.catalog;
 
     // Products already discussed (the last runs of this conversation) need no new search.
     // A comment reply has no conversation to remember, so it never shares one across customers.
@@ -186,7 +225,7 @@ export class PlaygroundService implements AiFacade {
       libraryMatches,
       focus.some((p) => p.accommodation) ? query : '',
     );
-    const allowlist = new ImageAllowlist(initialAllowed);
+    const allowlist = new ImageAllowlist(initialAllowed, this.mediaBase);
     const carryIds = carriedProductIds(options.carry ?? []);
     if (catalog && carryIds.length)
       allowlist.add(productImages(await catalog.getBotProductsByIds(ws, scope, carryIds)));
@@ -235,9 +274,10 @@ export class PlaygroundService implements AiFacade {
         }
       : null;
     const output = newOutputState();
-    // Orders need a private conversation: never for a public comment reply.
+    // Orders need a private conversation: never for a public comment reply. Hotel bots sell
+    // lodging properties, which commerce orders cannot hold (T-160).
     const orders: OrderToolContext | null =
-      this.commerce && bot.orderTaking && !isCommentReply
+      this.commerce && bot.orderTaking && !isCommentReply && bot.industry !== 'hotel'
         ? {
             facade: this.commerce,
             ws,
@@ -258,6 +298,24 @@ export class PlaygroundService implements AiFacade {
               this.#logger.warn(`Order draft drop failed: ${errorClass(error)}`),
           }
         : null;
+    const holds =
+      this.lodgingBot && this.lodgingCatalog && bot.industry === 'hotel'
+        ? await hotelHoldContext({
+            facade: this.lodgingBot,
+            catalog: this.lodgingCatalog,
+            ws,
+            bot,
+            conversationId: conversationKey,
+            channel: options.channel ?? PLAYGROUND_ORDER_CHANNEL,
+            contactId: options.contactId ?? null,
+            ...(this.lodging ? { lodging: this.lodging } : {}),
+            ...(options.sink ? { sink: options.sink } : {}),
+            output,
+            privateChat: !isCommentReply,
+            answered: answeredSince(input.messages, options.turnTimes, startedAt),
+            warn: (message) => this.#logger.warn(message),
+          })
+        : null;
     const seenProducts = new Set<string>();
     const tools = turnTools({
       ...(catalog ? { catalog: { ws, scope, catalog } } : {}),
@@ -268,6 +326,7 @@ export class PlaygroundService implements AiFacade {
       sendMessage: !isCommentReply,
       actions: actionContext ? { definitions: actionDefinitions, context: actionContext } : null,
       orders,
+      holds,
     });
 
     const postRules = post ? await this.#prompts.load(POST_PROMPT) : '';
@@ -350,8 +409,8 @@ export class PlaygroundService implements AiFacade {
           this.#logger.warn(`Tool ${name} failed: ${errorClass(error)}`),
       });
     } catch (error) {
-      // A created order counts as delivered: its code must still reach the customer.
-      if (!output.sent.length && !orders?.state.orderCreated) {
+      // A created order (or hold) counts as delivered: its code must still reach the customer.
+      if (!output.sent.length && !orders?.state.orderCreated && !holds?.state.created) {
         // Nothing reached the customer: their "ok" must not confirm an unasked question, the turn
         // is billed for what it consumed, and the caller decides how to degrade.
         if (this.actions && actionState.askedConfirmation)
@@ -374,13 +433,28 @@ export class PlaygroundService implements AiFacade {
       ? decideReply({ loop, output, bot, actionFallback: actionState.fallback })
       : { outcome: 'answered', guardrail: 'model_error', final: fallbackText(bot) };
     const droppedFinal = Boolean(decision.final);
-    decision = keepSummaryLast(decision, output.sent);
+    decision = keepSummaryLast(
+      decision,
+      output.sent,
+      holds ? HOLD_CONFIRM_PAYLOAD : ORDER_CONFIRM_PAYLOAD,
+    );
     const finalDropped = droppedFinal && !decision.final;
     // An order was created: its code reaches the customer exactly once, whatever cut the turn short.
     const orderCode = orders?.state.orderCode;
     if (orderCode) {
       const sentTexts = output.sent.map((m) => m.text);
       decision = announceOrder(decision, { orderCode, sentTexts, fallback: fallbackText(bot) });
+    }
+    const held = holds?.state.created;
+    if (held) {
+      decision = announceCreated(decision, {
+        code: held.code,
+        line: holdCreatedText(held.code, held.expiresAt),
+        sentTexts: output.sent.map((m) => m.text),
+        fallback: fallbackText(bot),
+        // The code alone is not enough: the customer must also read until when it is held.
+        alsoRequired: [localHoldTime(held.expiresAt)?.time].filter((t) => t !== undefined),
+      });
     }
     const messages = turnMessages(output, decision);
     const interrupted = loop?.outcome === 'interrupted';
@@ -438,7 +512,8 @@ export class PlaygroundService implements AiFacade {
       steps,
       ...(interrupted && loop ? { interrupted: true, carry: loop.followUps } : {}),
       ...(actionState.askedConfirmation ? { askedConfirmation: true } : {}),
-      ...(orders?.state.orderCreated ? { orderCreated: true } : {}),
+      // A placed hold is binding like an order: the caller must never drop its final message.
+      ...(orders?.state.orderCreated || held ? { orderCreated: true } : {}),
     };
   }
 
