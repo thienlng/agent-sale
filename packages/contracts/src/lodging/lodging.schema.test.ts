@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { AccommodationDetails } from '../commerce/lodging.schema.js';
 import {
+  BookingListQuery,
   BookingStatusRequest,
   CreateBookingRequest,
   GalleryImage,
   OverrideInput,
   PropertyInput,
+  PutNightNoteRequest,
+  UpdateBookingRequest,
   UpdateOverrideRequest,
   UpdatePropertyRequest,
 } from './lodging.schema.js';
@@ -212,5 +215,57 @@ describe('accommodation details stay backward compatible', () => {
       surcharges: { extraAdult: 300_000, extraChild: null, childFreeBelow: 6, childAdultFrom: 12 },
     };
     expect(AccommodationDetails.safeParse(rooms).success).toBe(true);
+  });
+});
+
+describe('lodging calendar polish: night notes, internal note, tags', () => {
+  it('trims a night note, defaults the room to the property and caps it at 300 chars', () => {
+    expect(PutNightNoteRequest.parse({ night: '2027-01-01', text: '  Sửa điện  ' })).toEqual({
+      unitId: null,
+      night: '2027-01-01',
+      text: 'Sửa điện',
+    });
+    expect(PutNightNoteRequest.parse({ unitId, night: '2027-01-01', text: '' }).text).toBe('');
+    expect(
+      PutNightNoteRequest.safeParse({ night: '2027-01-01', text: 'x'.repeat(301) }).success,
+    ).toBe(false);
+  });
+
+  it('defaults the internal note to empty and caps it at 2000 chars', () => {
+    const base = {
+      code: 'A17',
+      name: 'A17',
+      sellMode: 'whole',
+      standardAdults: 2,
+      standardChildren: 0,
+    };
+    expect(PropertyInput.parse(base).internalNote).toBe('');
+    expect(PropertyInput.safeParse({ ...base, internalNote: 'x'.repeat(2001) }).success).toBe(
+      false,
+    );
+  });
+
+  it('accepts up to 8 tags of at most 30 chars on create, edit and the list filter', () => {
+    const stay = {
+      kind: 'stay',
+      clientRequestId: requestId,
+      propertyId,
+      whole: true,
+      checkIn: '2027-01-01',
+      checkOut: '2027-01-02',
+      status: 'hold',
+      party: { adults: 2 },
+      guestName: 'Khách',
+      source: 'phone',
+    };
+    const created = CreateBookingRequest.parse(stay);
+    expect(created.kind === 'stay' && created.tags).toEqual([]);
+    expect(CreateBookingRequest.safeParse({ ...stay, tags: ['x'.repeat(31)] }).success).toBe(false);
+    const nine = Array.from({ length: 9 }, (_, i) => `t${i}`);
+    expect(UpdateBookingRequest.safeParse({ version: 1, tags: nine }).success).toBe(false);
+    expect(UpdateBookingRequest.safeParse({ version: 1, tags: nine.slice(0, 8) }).success).toBe(
+      true,
+    );
+    expect(BookingListQuery.parse({ tag: 'Đã cọc' }).tag).toBe('Đã cọc');
   });
 });

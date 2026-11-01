@@ -2,7 +2,10 @@ import {
   and,
   asc,
   eq,
+  gte,
   inArray,
+  isNull,
+  lt,
   notInArray,
   schema,
   sql,
@@ -31,6 +34,15 @@ const U = schema.lodgingUnits;
 const R = schema.lodgingRates;
 const S = schema.lodgingSettings;
 const BP = schema.lodgingBotProperties;
+const NN = schema.lodgingNightNotes;
+
+const toNote = (r: typeof NN.$inferSelect) => ({
+  id: r.id,
+  propertyId: r.propertyId,
+  unitId: r.unitId,
+  night: r.night,
+  text: r.text,
+});
 
 /** Drizzle adapter for the lodging port; every call runs in one tenant transaction (RLS). */
 export class DrizzleLodgingStore implements LodgingStore {
@@ -267,6 +279,59 @@ function lodgingTx(tx: TenantTx, ws: WorkspaceId): LodgingTx {
             [...new Set(propertyIds)].map((propertyId) => ({ workspaceId: ws, botId, propertyId })),
           );
       }
+    },
+
+    async nightNotes(propertyIds, from, to) {
+      if (propertyIds.length === 0) return [];
+      const rows = await tx
+        .select()
+        .from(NN)
+        .where(
+          and(
+            eq(NN.workspaceId, ws),
+            inArray(NN.propertyId, propertyIds),
+            gte(NN.night, from),
+            lt(NN.night, to),
+          ),
+        )
+        .orderBy(asc(NN.night), asc(NN.id));
+      return rows.map(toNote);
+    },
+
+    async upsertNightNote(note, updatedBy) {
+      const now = new Date();
+      const [row] = await tx
+        .insert(NN)
+        .values({
+          id: note.id,
+          workspaceId: ws,
+          propertyId: note.propertyId,
+          unitId: note.unitId,
+          night: note.night,
+          text: note.text,
+          updatedBy,
+          updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: [NN.workspaceId, NN.propertyId, NN.unitId, NN.night],
+          set: { text: note.text, updatedBy, updatedAt: now },
+        })
+        .returning();
+      if (!row) throw new Error('lodging_night_notes upsert returned no row');
+      return toNote(row);
+    },
+
+    async deleteNightNote(propertyId, unitId, night) {
+      await tx
+        .delete(NN)
+        .where(
+          and(
+            eq(NN.workspaceId, ws),
+            eq(NN.propertyId, propertyId),
+            unitId === null ? isNull(NN.unitId) : eq(NN.unitId, unitId),
+            eq(NN.night, night),
+          ),
+        );
     },
 
     async addPropertyToBots(propertyId) {

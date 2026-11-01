@@ -54,6 +54,7 @@ function property(over: Partial<PropertyRecord> = {}): PropertyRecord {
         caption: `Ảnh ${i + 3}`,
       })),
     ],
+    internalNote: '',
     surcharges: {
       extraAdult: { sell: 300_000, cost: COSTS[3]! },
       extraChild: { sell: 150_000, cost: COSTS[4]! },
@@ -159,6 +160,13 @@ describe('toBotProduct', () => {
     const json = JSON.stringify(toBotProduct(property(), [wholeUnit()], a17Rates(), today));
     for (const cost of COSTS) expect(json).not.toContain(String(cost));
     expect(json).not.toMatch(/"cost"/);
+  });
+
+  it('never carries the internal note', () => {
+    const secret = 'INTERNAL: owner is difficult, call before 21h';
+    const dto = toBotProduct(property({ internalNote: secret }), [wholeUnit()], a17Rates(), today);
+    expect(dto).not.toBeNull();
+    expect(JSON.stringify(dto)).not.toContain('owner is difficult');
   });
 
   it('skips a property whose weekdays are not all priced', () => {

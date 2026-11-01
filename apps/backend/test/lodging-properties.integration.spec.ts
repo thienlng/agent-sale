@@ -177,6 +177,7 @@ function booking(
     totalSell: null,
     totalCost: null,
     note: '',
+    tags: [],
     blockReason: '',
     clientRequestId: newId(),
     fingerprint: 'fp',

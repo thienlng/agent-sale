@@ -53,6 +53,7 @@ function fieldsOf(p: PropertyRecord): PropertyFieldsOut {
     layout: p.layout,
     policies: p.policies,
     gallery: p.gallery,
+    internalNote: p.internalNote,
   };
 }
 

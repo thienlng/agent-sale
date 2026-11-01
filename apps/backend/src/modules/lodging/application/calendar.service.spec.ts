@@ -38,6 +38,7 @@ function property(id: string, code: string, sellMode: 'whole' | 'rooms'): Proper
       other: '',
     },
     gallery: [],
+    internalNote: '',
     surcharges: { extraAdult: null, extraChild: null },
     sortOrder: 0,
     version: 1,
@@ -88,6 +89,7 @@ function service(opts: { takenUnits?: string[] } = {}) {
       [villa, homestay].filter((p) => !f.ids || f.ids.includes(p.id)),
     units: async (ids: string[]) => units.filter((u) => ids.includes(u.propertyId)),
     bookingsInRange: async () => [],
+    nightNotes: async () => [],
     takenNights: async (unitIds: string[]) =>
       (opts.takenUnits ?? [])
         .filter((id) => unitIds.includes(id))

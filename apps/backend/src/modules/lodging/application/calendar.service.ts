@@ -132,6 +132,7 @@ export class CalendarService {
       const units = await tx.units(pids);
       const bookings = await tx.bookingsInRange(pids, query.from, query.to);
       const ratesOf = await tx.ratesByProperty(pids);
+      const notes = await tx.nightNotes(pids, query.from, query.to);
       const properties: CalendarProperty[] = [];
       for (const p of props) {
         const rates = ratesOf.get(p.id) ?? [];
@@ -159,6 +160,8 @@ export class CalendarService {
               .filter((b) => b.unitIds.includes(u.id))
               .map((b) => segment(b, query.from, query.to)),
           })),
+          internalNote: p.internalNote,
+          notes: notes.filter((n) => n.propertyId === p.id).map(({ propertyId: _p, ...n }) => n),
         });
       }
       return { from: query.from, to: query.to, today: localToday(now), properties };
@@ -248,5 +251,10 @@ function segment(b: BookingRecord, from: string, to: string) {
     guestName: b.guestName,
     blockReason: b.blockReason,
     holdExpiresAt: b.holdExpiresAt,
+    guestPhone: b.guestPhone,
+    party: { adults: b.adults, childAges: b.childAges },
+    totalSell: b.totalSell,
+    tags: b.tags,
+    note: b.note,
   };
 }

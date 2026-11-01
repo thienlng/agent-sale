@@ -22,6 +22,8 @@ export interface PropertyRecord {
   layout: { name: string; beds: string; note: string }[];
   policies: Policies;
   gallery: { url: string; caption: string }[];
+  /** Staff-only; never mapped to the bot product. */
+  internalNote: string;
   surcharges: {
     extraAdult: { sell: number; cost: number } | null;
     extraChild: { sell: number; cost: number } | null;
@@ -69,6 +71,7 @@ export interface BookingRecord {
   totalSell: number | null;
   totalCost: number | null;
   note: string;
+  tags: string[];
   blockReason: string;
   clientRequestId: string;
   fingerprint: string;
@@ -82,6 +85,15 @@ export interface TakenNight {
   night: string;
   bookingId: string;
   code: string;
+}
+
+/** Staff-only note on one night of a property (`unitId` null) or of one room. */
+export interface NightNoteRecord {
+  id: string;
+  propertyId: string;
+  unitId: string | null;
+  night: string;
+  text: string;
 }
 
 export interface BookingHistoryRecord {
@@ -138,6 +150,12 @@ export interface LodgingTx {
   setBotProperties(botId: string, propertyIds: string[]): Promise<void>;
   /** Adds the property to every bot that has an explicit selection (bots without one sell all). */
   addPropertyToBots(propertyId: string): Promise<void>;
+  /** Night notes of the properties for nights [from, to), ordered by night. */
+  nightNotes(propertyIds: string[], from: string, to: string): Promise<NightNoteRecord[]>;
+  /** Inserts or updates the note of (property, unit, night); returns the stored row. */
+  upsertNightNote(note: NightNoteRecord, updatedBy: string): Promise<NightNoteRecord>;
+  /** Deletes the note of (property, unit, night) if any. */
+  deleteNightNote(propertyId: string, unitId: string | null, night: string): Promise<void>;
   /** Audit trail of one booking, oldest first. */
   history(bookingId: string): Promise<BookingHistoryRecord[]>;
   audit(

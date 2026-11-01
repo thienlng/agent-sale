@@ -42,6 +42,7 @@ export function toProperty(r: PropertyRow): PropertyRecord {
     // Rows copied by 0041 carry only some policy keys; the contract fills the rest with ''.
     policies: Policies.parse(r.policies),
     gallery: r.gallery.map((g) => ({ url: g.url, caption: g.caption ?? '' })),
+    internalNote: r.internalNote,
     surcharges: {
       extraAdult: price(r.extraAdultSell, r.extraAdultCost),
       extraChild: price(r.extraChildSell, r.extraChildCost),
@@ -73,6 +74,7 @@ export function propertyValues(ws: WorkspaceId, p: PropertyRecord) {
     layout: p.layout,
     policies: { ...p.policies },
     gallery: p.gallery,
+    internalNote: p.internalNote,
     extraAdultSell: p.surcharges.extraAdult?.sell ?? null,
     extraAdultCost: p.surcharges.extraAdult?.cost ?? null,
     extraChildSell: p.surcharges.extraChild?.sell ?? null,
@@ -170,6 +172,7 @@ export function toBooking(r: BookingRow, unitIds: string[]): BookingRecord {
     totalSell: r.totalSell,
     totalCost: r.totalCost,
     note: r.note,
+    tags: r.tags,
     blockReason: r.blockReason,
     clientRequestId: r.clientRequestId,
     fingerprint: r.fingerprint,
@@ -205,6 +208,7 @@ export function bookingValues(ws: WorkspaceId, b: BookingRecord) {
     totalSell: b.totalSell,
     totalCost: b.totalCost,
     note: b.note,
+    tags: b.tags,
     blockReason: b.blockReason,
     clientRequestId: b.clientRequestId,
     fingerprint: b.fingerprint,

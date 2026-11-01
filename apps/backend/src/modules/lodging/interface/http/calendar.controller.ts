@@ -1,27 +1,41 @@
 import {
   AvailabilityRequest,
   CalendarQuery,
+  PutNightNoteRequest,
   QuoteRequest,
   type AvailabilityDto,
   type CalendarDto,
+  type NightNoteResult,
   type QuoteDto,
 } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
-import { Body, Controller, Get, HttpCode, Inject, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Inject, Param, Post, Put, Query } from '@nestjs/common';
+import { z } from 'zod';
 
 import {
+  CurrentUser,
   CurrentWorkspace,
   RequireCapability,
   WorkspaceScoped,
+  type AuthState,
 } from '../../../../common/http/auth-context.js';
 import { ZodValidationPipe } from '../../../../common/http/zod-validation.pipe.js';
 import { CalendarService } from '../../application/calendar.service.js';
+import { NightNotesService } from '../../application/night-notes.service.js';
 
-/** Lodging v2 reads (`lodgingV2Routes`): calendar grid, availability search and quotes. */
+const Id = new ZodValidationPipe(z.uuid());
+
+/**
+ * Lodging v2 calendar routes (`lodgingV2Routes`): calendar grid, availability search, quotes
+ * and the staff-only night notes shown on the grid.
+ */
 @WorkspaceScoped()
 @Controller('lodging')
 export class CalendarController {
-  constructor(@Inject(CalendarService) private readonly calendar: CalendarService) {}
+  constructor(
+    @Inject(CalendarService) private readonly calendar: CalendarService,
+    @Inject(NightNotesService) private readonly notes: NightNotesService,
+  ) {}
 
   @Get('calendar')
   @RequireCapability('orders.view')
@@ -41,6 +55,18 @@ export class CalendarController {
     @Body(new ZodValidationPipe(AvailabilityRequest)) body: AvailabilityRequest,
   ): Promise<AvailabilityDto> {
     return this.calendar.availability(ws, body);
+  }
+
+  /** Night notes are calendar work, so they follow the booking capability. */
+  @Put('properties/:id/notes')
+  @RequireCapability('orders.manage')
+  putNote(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @CurrentUser() actor: AuthState,
+    @Param('id', Id) id: string,
+    @Body(new ZodValidationPipe(PutNightNoteRequest)) body: PutNightNoteRequest,
+  ): Promise<NightNoteResult> {
+    return this.notes.put(ws, id, body, actor.userId);
   }
 
   @Post('quote')

@@ -21,7 +21,7 @@ import { tenantPolicies, workspaces } from './workspace.js';
  * Lodging v2 tables (migration 0041, T-160): properties → units → rates → bookings, with one
  * `lodging_unit_nights` row per occupied unit-night as the anti-double-booking key. Money is
  * bigint VND read as JS numbers; nights are local calendar dates ('YYYY-MM-DD' strings).
- * CHECK constraints live in the SQL migration only.
+ * CHECK constraints live in the SQL migrations only (0041, 0042).
  */
 const money = (name: string) => bigint(name, { mode: 'number' });
 const night = (name: string) => date(name, { mode: 'string' });
@@ -79,6 +79,8 @@ export const lodgingProperties = pgTable(
     extraChildCost: money('extra_child_cost'),
     /** T-155 product this property was copied from by 0041; null for new properties. */
     sourceProductId: uuid('source_product_id'),
+    /** Staff-only note (≤ 2000 chars, migration 0042); never reaches the bot. */
+    internalNote: text('internal_note').notNull().default(''),
     sortOrder: integer('sort_order').notNull().default(0),
     version: integer('version').notNull().default(1),
     createdAt: ts('created_at').notNull().defaultNow(),
@@ -197,6 +199,11 @@ export const lodgingBookings = pgTable(
     totalCost: money('total_cost'),
     note: text('note').notNull().default(''),
     blockReason: text('block_reason').notNull().default(''),
+    /** Free-text labels (≤ 8, each ≤ 30 chars; migration 0042). */
+    tags: text('tags')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
     clientRequestId: uuid('client_request_id').notNull(),
     fingerprint: text('fingerprint').notNull(),
     createdBy: uuid('created_by'),
@@ -217,6 +224,7 @@ export const lodgingBookings = pgTable(
     index('lodging_bookings_hold_idx')
       .on(t.workspaceId, t.holdExpiresAt)
       .where(sql`${t.status} = 'hold'`),
+    index('lodging_bookings_tags_idx').using('gin', t.tags),
     index('lodging_bookings_conversation_idx')
       .on(t.workspaceId, t.conversationId)
       .where(sql`${t.conversationId} is not null`),
@@ -288,5 +296,40 @@ export const lodgingBotProperties = pgTable(
       foreignColumns: [lodgingProperties.workspaceId, lodgingProperties.id],
     }).onDelete('cascade'),
     ...tenantPolicies('lodging_bot_properties'),
+  ],
+);
+
+/**
+ * Staff-only note on one night of a property (`unitId` null) or of one room (migration 0042).
+ * Unique per (workspace, property, unit, night) with NULLS NOT DISTINCT.
+ */
+export const lodgingNightNotes = pgTable(
+  'lodging_night_notes',
+  {
+    id: uuid('id').primaryKey(),
+    workspaceId: workspaceRef(),
+    propertyId: uuid('property_id').notNull(),
+    unitId: uuid('unit_id'),
+    night: night('night').notNull(),
+    text: text('text').notNull(),
+    updatedBy: uuid('updated_by'),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      name: 'lodging_night_notes_property_fk',
+      columns: [t.workspaceId, t.propertyId],
+      foreignColumns: [lodgingProperties.workspaceId, lodgingProperties.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'lodging_night_notes_unit_fk',
+      columns: [t.workspaceId, t.unitId],
+      foreignColumns: [lodgingUnits.workspaceId, lodgingUnits.id],
+    }).onDelete('cascade'),
+    unique('lodging_night_notes_unique')
+      .on(t.workspaceId, t.propertyId, t.unitId, t.night)
+      .nullsNotDistinct(),
+    index('lodging_night_notes_range_idx').on(t.workspaceId, t.propertyId, t.night),
+    ...tenantPolicies('lodging_night_notes'),
   ],
 );

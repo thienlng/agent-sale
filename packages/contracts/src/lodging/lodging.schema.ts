@@ -94,6 +94,8 @@ const propertyShape = {
   layout: z.array(LayoutRoom).max(100),
   policies: Policies,
   gallery: z.array(GalleryImage).max(30),
+  /** Staff-only note about the property (owner habits, keys…); never reaches the bot. */
+  internalNote: z.string().trim().max(2000),
 };
 
 /**
@@ -113,6 +115,7 @@ export const PropertyFields = z.object({
   layout: propertyShape.layout.default([]),
   policies: propertyShape.policies.prefault({}),
   gallery: propertyShape.gallery.default([]),
+  internalNote: propertyShape.internalNote.default(''),
 });
 /**
  * PATCH fields: every field optional and WITHOUT defaults, so omitted fields stay absent
@@ -289,6 +292,11 @@ export type QuoteDto = z.infer<typeof QuoteDto>;
 
 // ── Bookings ──────────────────────────────────────────────────────────────────
 
+/** A free-text label on a booking (e.g. "Đã cọc"); labels only, never money logic. */
+export const BookingTag = z.string().trim().min(1).max(30);
+/** At most 8 tags; the server trims and drops duplicates, keeping the first occurrence. */
+export const BookingTags = z.array(BookingTag).max(8);
+
 export const CreateBookingRequest = z.discriminatedUnion('kind', [
   StaySelection.extend({
     kind: z.literal('stay'),
@@ -304,6 +312,7 @@ export const CreateBookingRequest = z.discriminatedUnion('kind', [
     adjustmentReason: z.string().max(300).default(''),
     manualTotalSell: Vnd.nullable().default(null),
     note: z.string().max(2000).default(''),
+    tags: BookingTags.default([]),
   }),
   StaySelection.extend({
     kind: z.literal('block'),
@@ -325,6 +334,7 @@ export const UpdateBookingRequest = z.object({
   adjustmentReason: z.string().max(300).optional(),
   manualTotalSell: Vnd.nullable().optional(),
   note: z.string().max(2000).optional(),
+  tags: BookingTags.optional(),
 });
 export type UpdateBookingRequest = z.infer<typeof UpdateBookingRequest>;
 export const BookingAction = z.enum([
@@ -371,6 +381,7 @@ export const BookingDto = z.object({
   totalSell: Vnd.nullable(),
   totalCost: Vnd.nullable(),
   note: z.string(),
+  tags: z.array(z.string()),
   blockReason: z.string(),
   version: z.number().int(),
   createdAt: z.iso.datetime(),
@@ -391,6 +402,8 @@ export const BookingListQuery = z.object({
   status: BookingStatus.optional(),
   q: z.string().max(100).optional(),
   conversationId: z.uuid().optional(),
+  /** Bookings carrying exactly this tag. */
+  tag: BookingTag.optional(),
   offset: z.coerce.number().int().min(0).default(0),
 });
 export type BookingListQuery = z.infer<typeof BookingListQuery>;
@@ -421,6 +434,12 @@ export const CalendarSegment = z.object({
   guestName: z.string(),
   blockReason: z.string(),
   holdExpiresAt: z.iso.datetime().nullable(),
+  /** Quick-view details of a stay (empty / null on blocks). */
+  guestPhone: z.string(),
+  party: z.object({ adults: z.number().int(), childAges: z.array(z.number().int()) }),
+  totalSell: Vnd.nullable(),
+  tags: z.array(z.string()),
+  note: z.string(),
 });
 export const CalendarRow = z.object({
   unitId: z.uuid(),
@@ -429,6 +448,24 @@ export const CalendarRow = z.object({
   prices: z.array(NightPrice),
   segments: z.array(CalendarSegment),
 });
+/** Internal note on one night of a property (`unitId` null) or of one room. Staff only. */
+export const NightNoteDto = z.object({
+  id: z.uuid(),
+  unitId: z.uuid().nullable(),
+  night: IsoNight,
+  text: z.string(),
+});
+export type NightNoteDto = z.infer<typeof NightNoteDto>;
+/** PUT body: upsert the note of one night; an empty (or blank) text deletes it. */
+export const PutNightNoteRequest = z.object({
+  unitId: z.uuid().nullable().default(null),
+  night: IsoNight,
+  text: z.string().trim().max(300),
+});
+export type PutNightNoteRequest = z.infer<typeof PutNightNoteRequest>;
+/** The saved note, or null when the text was empty and the note is gone. */
+export const NightNoteResult = z.object({ note: NightNoteDto.nullable() });
+export type NightNoteResult = z.infer<typeof NightNoteResult>;
 export const CalendarProperty = z.object({
   id: z.uuid(),
   code: z.string(),
@@ -439,6 +476,10 @@ export const CalendarProperty = z.object({
   standardChildren: z.number().int(),
   wholePrices: z.array(NightPrice),
   rows: z.array(CalendarRow),
+  /** Staff-only property note (hover card on the property name). */
+  internalNote: z.string(),
+  /** Night notes inside [from, to). */
+  notes: z.array(NightNoteDto),
 });
 export const CalendarDto = z.object({
   from: IsoNight,

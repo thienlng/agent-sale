@@ -21,6 +21,7 @@ import {
   loadContext,
   keptTotals,
   manualTotalForEdit,
+  normalizeTags,
   assertEditable,
   sameSet,
   shortenStay,
@@ -176,6 +177,7 @@ export class BookingService {
               totalSell: null,
               totalCost: null,
               note: '',
+              tags: [],
               blockReason: input.blockReason,
             }
           : await this.newStay(tx, ctx, input, base, now);
@@ -265,6 +267,7 @@ export class BookingService {
           childAges: party.childAges,
           guestName: req.guestName ?? b.guestName,
           guestPhone: req.guestPhone ?? b.guestPhone,
+          tags: req.tags ? normalizeTags(req.tags) : b.tags,
           adjustment,
           adjustmentReason: req.adjustmentReason ?? b.adjustmentReason,
         };
@@ -400,6 +403,7 @@ export class BookingService {
       adjustmentReason: input.adjustmentReason,
       ...totals(quote, input.manualTotalSell, input.adjustment),
       note: input.note,
+      tags: normalizeTags(input.tags),
       blockReason: '',
     };
   }

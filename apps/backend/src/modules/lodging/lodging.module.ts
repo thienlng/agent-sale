@@ -11,6 +11,7 @@ import { CalendarService } from './application/calendar.service.js';
 import { LodgingAccess } from './application/lodging-access.js';
 import { LodgingFacadeImpl } from './application/lodging.facade.impl.js';
 import { LodgingSettingsService } from './application/lodging-settings.service.js';
+import { NightNotesService } from './application/night-notes.service.js';
 import { LODGING_STORE, type LodgingStore } from './application/ports/lodging-store.js';
 import { PropertyService } from './application/property.service.js';
 import { RatesService } from './application/rates.service.js';
@@ -39,6 +40,7 @@ import { PropertiesController } from './interface/http/properties.controller.js'
     LodgingSettingsService,
     BookingService,
     CalendarService,
+    NightNotesService,
     { provide: LODGING_FACADE, useClass: LodgingFacadeImpl },
     { provide: LODGING_CATALOG_FACADE, useClass: LodgingBotCatalog },
   ],

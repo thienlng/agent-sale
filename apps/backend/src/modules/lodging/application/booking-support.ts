@@ -221,13 +221,14 @@ export async function shortenStay(
   return next;
 }
 
-/** Fields a checked-in stay may still change: its check-out and its price. */
+/** Fields a checked-in stay may still change: its check-out, its price and its tags. */
 const IN_HOUSE_FIELDS = new Set([
   'version',
   'checkOut',
   'manualTotalSell',
   'adjustment',
   'adjustmentReason',
+  'tags',
 ]);
 /** Fields that make no sense on a block. */
 const STAY_ONLY_FIELDS = [
@@ -237,7 +238,13 @@ const STAY_ONLY_FIELDS = [
   'adjustment',
   'adjustmentReason',
   'manualTotalSell',
+  'tags',
 ] as const;
+
+/** Trimmed tags without empties or duplicates, first occurrence first (labels only). */
+export function normalizeTags(tags: readonly string[]): string[] {
+  return [...new Set(tags.map((t) => t.trim()).filter(Boolean))];
+}
 
 /** Which bookings an edit may touch, and which fields (409 / 400 otherwise). */
 export function assertEditable(b: BookingRecord, req: UpdateBookingRequest): void {
@@ -249,7 +256,7 @@ export function assertEditable(b: BookingRecord, req: UpdateBookingRequest): voi
     if (others.length > 0) {
       throw new LodgingError(
         'CONFLICT',
-        'A checked-in stay can only change its check-out and price',
+        'A checked-in stay can only change its check-out, price and tags',
         {
           fields: others,
         },
