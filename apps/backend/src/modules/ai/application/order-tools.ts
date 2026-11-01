@@ -13,9 +13,12 @@ export const PREPARE_ORDER_TOOL = 'prepare_order';
 export const CONFIRM_ORDER_TOOL = 'confirm_order';
 export const CANCEL_ORDER_DRAFT_TOOL = 'cancel_order_draft';
 
+/** The payload of the order summary's confirm button. */
+export const ORDER_CONFIRM_PAYLOAD = 'ORDER_CONFIRM';
+
 /** The buttons under the order summary (spec §4.4); tapping one sends its title as text. */
 export const ORDER_QUICK_REPLIES: readonly QuickReply[] = [
-  { title: '✅ Đặt hàng', payload: 'ORDER_CONFIRM' },
+  { title: '✅ Đặt hàng', payload: ORDER_CONFIRM_PAYLOAD },
   { title: '✏️ Sửa thông tin', payload: 'ORDER_EDIT' },
 ];
 
@@ -113,34 +116,48 @@ interface TurnDecision {
 }
 
 /**
- * Makes a created order's code reach the customer exactly once: nothing is added when a sent
- * message or the final already carries it; an empty or fallback final is replaced, a hand-off
- * gets the line first, and any other answer gets it as its last line.
+ * Makes a created record's code (an order, a lodging hold) reach the customer exactly once:
+ * nothing is added when a sent message or the final already carries it; an empty or fallback
+ * final is replaced by `line`, a hand-off gets the line first, and any other answer gets it as its
+ * last line.
  */
-export function announceOrder<D extends TurnDecision>(
+export function announceCreated<D extends TurnDecision>(
   decision: D,
-  opts: { orderCode: string; sentTexts: readonly string[]; fallback: string },
+  opts: { code: string; line: string; sentTexts: readonly string[]; fallback: string },
 ): D {
-  const { orderCode } = opts;
+  const { code, line } = opts;
   const final = decision.final ?? '';
-  if (final.includes(orderCode) || opts.sentTexts.some((t) => t.includes(orderCode)))
-    return decision;
-  const line = orderCreatedText(orderCode);
+  if (final.includes(code) || opts.sentTexts.some((t) => t.includes(code))) return decision;
   if (decision.outcome === 'handoff') return { ...decision, final: `${line}\n${final}` };
   if (!final.trim() || final === opts.fallback)
     return { ...decision, outcome: 'answered', final: line };
   return { ...decision, final: `${final}\n${line}` };
 }
 
+/** `announceCreated` for a bot order: the line is `orderCreatedText`. */
+export function announceOrder<D extends TurnDecision>(
+  decision: D,
+  opts: { orderCode: string; sentTexts: readonly string[]; fallback: string },
+): D {
+  return announceCreated(decision, {
+    code: opts.orderCode,
+    line: orderCreatedText(opts.orderCode),
+    sentTexts: opts.sentTexts,
+    fallback: opts.fallback,
+  });
+}
+
 /**
- * Keeps a delivered order summary the turn's last message: Messenger hides quick replies once a
- * newer message arrives, so a final after the summary (other than a hand-off) is dropped.
+ * Keeps a delivered summary (an order's, or a lodging hold's with its own `confirmPayload`) the
+ * turn's last message: Messenger hides quick replies once a newer message arrives, so a final after
+ * the summary (other than a hand-off) is dropped.
  */
 export function keepSummaryLast<D extends TurnDecision>(
   decision: D,
   sent: readonly { quickReplies?: readonly { payload: string }[] }[],
+  confirmPayload: string = ORDER_CONFIRM_PAYLOAD,
 ): D {
-  const summaryLast = sent.at(-1)?.quickReplies?.some((q) => q.payload === 'ORDER_CONFIRM');
+  const summaryLast = sent.at(-1)?.quickReplies?.some((q) => q.payload === confirmPayload);
   return summaryLast && decision.outcome !== 'handoff' && decision.final
     ? { ...decision, final: null }
     : decision;
@@ -169,20 +186,30 @@ export function answeredSince(
     });
 }
 
+/** Reads whether a conversation has an unexpired draft, and when it was stored. */
+export type DraftLookup = (
+  ws: WorkspaceId,
+  conversationId: string,
+) => Promise<{ pending: boolean; storedAt: Date | null }>;
+
 /**
  * Whether the conversation's draft can be confirmed by this turn: the customer must have written
- * after the summary reached them (`answered`), the same idea as pending actions. A failed check
- * means "not confirmable" (`onError` gets the error to log its class).
+ * after the summary reached them (`answered`), the same idea as pending actions. `drafts` is the
+ * commerce facade (bot orders) or any draft lookup (lodging holds). A failed check means "not
+ * confirmable" (`onError` gets the error to log its class).
  */
 export async function confirmableDraft(
-  facade: CommerceFacade,
+  drafts: Pick<CommerceFacade, 'hasBotOrderDraft'> | DraftLookup,
   ws: WorkspaceId,
   conversationId: string,
   answered: (storedAt: Date) => boolean,
   onError?: (error: unknown) => void,
 ): Promise<boolean> {
   try {
-    const draft = await facade.hasBotOrderDraft(ws, conversationId);
+    const draft =
+      typeof drafts === 'function'
+        ? await drafts(ws, conversationId)
+        : await drafts.hasBotOrderDraft(ws, conversationId);
     return draft.pending && draft.storedAt !== null && answered(draft.storedAt);
   } catch (error) {
     onError?.(error);

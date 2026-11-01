@@ -13,6 +13,7 @@ import { DEV_FAKE_PROVIDER } from '../domain/llm-config.js';
 import { InMemoryAiRunRepository } from '../infrastructure/persistence/ai-run.repositories.js';
 import { type CheckResult, runChecks, type ToolStep } from './checks.js';
 import { evalCommerce } from './commerce.js';
+import { evalLodging } from './lodging.js';
 import type { EvalCase, EvalOutcome } from './case.js';
 
 export interface CaseResult {
@@ -252,6 +253,8 @@ export function buildService(c: EvalCase, llm: LlmRuntime) {
   // A hotel bot reads its catalog from lodging, any other bot from commerce: the case's products
   // stand for either one (lodging cases list properties in the bot-view product shape).
   const catalog = evalCatalog(products as unknown as ProductDto[]);
+  // The calendar of a hotel case; the pipeline gives its tools to hotel bots only.
+  const lodging = evalLodging(products as unknown as ProductDto[], c.lodging);
   const service = new PlaygroundService(
     { getBot: async () => bot } as BotFacade,
     { searchFaqs: async () => faqHits } as unknown as KnowledgeFacade,
@@ -265,6 +268,7 @@ export function buildService(c: EvalCase, llm: LlmRuntime) {
     undefined,
     commerce,
     catalog,
+    lodging,
   );
   return { service, botId, runs };
 }

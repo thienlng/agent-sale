@@ -18,7 +18,12 @@ import {
   TRAINING_FACADE,
   type TrainingFacade,
 } from '../../knowledge/api/index.js';
-import { LODGING_CATALOG_FACADE, type LodgingCatalogFacade } from '../../lodging/api/index.js';
+import {
+  LODGING_BOT_FACADE,
+  LODGING_CATALOG_FACADE,
+  type LodgingBotFacade,
+  type LodgingCatalogFacade,
+} from '../../lodging/api/index.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
 import type { AiFacade } from '../api/ai.facade.js';
 import type { ReplyOptions, ReplyResult } from '../api/reply-options.js';
@@ -51,13 +56,16 @@ import {
 } from './action-tools.js';
 import { type AgentLoopResult, type AgentStep, runAgentLoop } from './agent-loop.js';
 import { createHistorySummarizer } from './history-summarizer.js';
+import { HOLD_CONFIRM_PAYLOAD, holdCreatedText, hotelHoldContext } from './hold-tools.js';
 import { LlmRuntime } from './llm-runtime.js';
 import {
   confirmableDraft,
   answeredSince,
   newOrderToolState,
+  announceCreated,
   announceOrder,
   keepSummaryLast,
+  ORDER_CONFIRM_PAYLOAD,
   type OrderToolContext,
   PLAYGROUND_ORDER_CHANNEL,
 } from './order-tools.js';
@@ -85,10 +93,10 @@ import {
 
 export { PHONE_KNOWN_LINE };
 const PROMPT_RETAIL = { name: 'sales-agent', version: 15 } as const;
-const PROMPT_LODGING = { name: 'sales-agent', version: 17 } as const;
+const PROMPT_LODGING = { name: 'sales-agent', version: 18 } as const;
 /** The sales-agent prompt versions the option may force (13/14: before the order tools). */
-export type SalesPromptVersion = 13 | 14 | 15 | 16 | 17;
-/** Optional DI token: forces the sales-agent prompt for every bot (default: 17 for hotel bots, 15 otherwise). */
+export type SalesPromptVersion = 13 | 14 | 15 | 16 | 17 | 18;
+/** Optional DI token: forces the sales-agent prompt for every bot (default: 18 for hotel bots, 15 otherwise). */
 export const PROMPT_VERSION_OPTION = Symbol('PROMPT_VERSION_OPTION');
 const POST_PROMPT = { name: 'fanpage-context', version: 2 } as const;
 const MAX_SOURCES = 5;
@@ -126,6 +134,7 @@ export class PlaygroundService implements AiFacade {
     @Inject(LODGING_CATALOG_FACADE)
     @Optional()
     private readonly lodgingCatalog?: LodgingCatalogFacade,
+    @Inject(LODGING_BOT_FACADE) @Optional() private readonly lodgingBot?: LodgingBotFacade,
   ) {
     this.#forcedPrompt = promptVersion
       ? { name: 'sales-agent', version: promptVersion }
@@ -266,6 +275,22 @@ export class PlaygroundService implements AiFacade {
               this.#logger.warn(`Order draft drop failed: ${errorClass(error)}`),
           }
         : null;
+    const holds =
+      this.lodgingBot && this.lodgingCatalog && bot.industry === 'hotel'
+        ? await hotelHoldContext({
+            facade: this.lodgingBot,
+            catalog: this.lodgingCatalog,
+            ws,
+            bot,
+            conversationId: conversationKey,
+            channel: options.channel ?? PLAYGROUND_ORDER_CHANNEL,
+            ...(options.sink ? { sink: options.sink } : {}),
+            output,
+            privateChat: !isCommentReply,
+            answered: answeredSince(input.messages, options.turnTimes, startedAt),
+            warn: (message) => this.#logger.warn(message),
+          })
+        : null;
     const seenProducts = new Set<string>();
     const tools = turnTools({
       ...(catalog ? { catalog: { ws, scope, catalog } } : {}),
@@ -276,6 +301,7 @@ export class PlaygroundService implements AiFacade {
       sendMessage: !isCommentReply,
       actions: actionContext ? { definitions: actionDefinitions, context: actionContext } : null,
       orders,
+      holds,
     });
 
     const postRules = post ? await this.#prompts.load(POST_PROMPT) : '';
@@ -358,8 +384,8 @@ export class PlaygroundService implements AiFacade {
           this.#logger.warn(`Tool ${name} failed: ${errorClass(error)}`),
       });
     } catch (error) {
-      // A created order counts as delivered: its code must still reach the customer.
-      if (!output.sent.length && !orders?.state.orderCreated) {
+      // A created order (or hold) counts as delivered: its code must still reach the customer.
+      if (!output.sent.length && !orders?.state.orderCreated && !holds?.state.created) {
         // Nothing reached the customer: their "ok" must not confirm an unasked question, the turn
         // is billed for what it consumed, and the caller decides how to degrade.
         if (this.actions && actionState.askedConfirmation)
@@ -382,13 +408,26 @@ export class PlaygroundService implements AiFacade {
       ? decideReply({ loop, output, bot, actionFallback: actionState.fallback })
       : { outcome: 'answered', guardrail: 'model_error', final: fallbackText(bot) };
     const droppedFinal = Boolean(decision.final);
-    decision = keepSummaryLast(decision, output.sent);
+    decision = keepSummaryLast(
+      decision,
+      output.sent,
+      holds ? HOLD_CONFIRM_PAYLOAD : ORDER_CONFIRM_PAYLOAD,
+    );
     const finalDropped = droppedFinal && !decision.final;
     // An order was created: its code reaches the customer exactly once, whatever cut the turn short.
     const orderCode = orders?.state.orderCode;
     if (orderCode) {
       const sentTexts = output.sent.map((m) => m.text);
       decision = announceOrder(decision, { orderCode, sentTexts, fallback: fallbackText(bot) });
+    }
+    const held = holds?.state.created;
+    if (held) {
+      decision = announceCreated(decision, {
+        code: held.code,
+        line: holdCreatedText(held.code, held.expiresAt),
+        sentTexts: output.sent.map((m) => m.text),
+        fallback: fallbackText(bot),
+      });
     }
     const messages = turnMessages(output, decision);
     const interrupted = loop?.outcome === 'interrupted';
@@ -446,7 +485,8 @@ export class PlaygroundService implements AiFacade {
       steps,
       ...(interrupted && loop ? { interrupted: true, carry: loop.followUps } : {}),
       ...(actionState.askedConfirmation ? { askedConfirmation: true } : {}),
-      ...(orders?.state.orderCreated ? { orderCreated: true } : {}),
+      // A placed hold is binding like an order: the caller must never drop its final message.
+      ...(orders?.state.orderCreated || held ? { orderCreated: true } : {}),
     };
   }
 
