@@ -232,17 +232,34 @@ describe('quoteStay', () => {
     expect(q.totalSell).toBe(2_000_000);
   });
 
-  it('sums rooms outside a whole-only override when no whole weekday rates exist', () => {
-    const rules = [...roomRates, override(null, '2026-12-31', '2026-12-31', 5_000_000, 'NYE')];
+  it('applies a whole-only override on its nights and sums rooms on the others', () => {
+    const rules = [...roomRates, override(null, '2026-12-31', '2026-12-31', 5_000_000, 'NYE', 2)];
     const q = quoteStay(homestay, rooms, rules, {
       ...whole,
-      checkIn: '2026-11-09',
-      checkOut: '2026-11-10',
+      checkIn: '2026-12-30',
+      checkOut: '2027-01-01',
       adults: 4,
       childAges: [],
     });
+    expect(q.nights).toEqual([
+      { date: '2026-12-30', weekday: 3, label: '', sell: 2_200_000, cost: 2_200_000 },
+      { date: '2026-12-31', weekday: 4, label: 'NYE', sell: 5_000_000, cost: 5_000_000 },
+    ]);
+    expect(q.totalSell).toBe(7_200_000);
     expect(q.warnings).toEqual([]);
-    expect(q.totalSell).toBe(2_200_000);
+  });
+
+  it('takes min nights from a whole-only override of a rooms property', () => {
+    const rules = [...roomRates, override(null, '2026-12-31', '2026-12-31', 5_000_000, 'NYE', 2)];
+    const q = quoteStay(homestay, rooms, rules, {
+      ...whole,
+      checkIn: '2026-12-31',
+      checkOut: '2027-01-01',
+      adults: 4,
+      childAges: [],
+    });
+    expect(q.nights[0]).toMatchObject({ label: 'NYE', sell: 5_000_000 });
+    expect(q.warnings).toEqual(['min_nights']);
   });
 
   it('uses the first override label when summing rooms', () => {

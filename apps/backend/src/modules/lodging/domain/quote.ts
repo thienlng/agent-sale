@@ -106,18 +106,22 @@ export function quoteStay(
 ): Quote {
   const nights = nightsBetween(input.checkIn, input.checkOut);
   const unitIds = resolveUnits(p, units, input);
-  // A whole-target override alone does not price a rooms property whole: outside its dates
-  // there would be no whole rate, so whole pricing needs whole weekday rules.
-  const priceWhole =
-    input.whole &&
-    (p.sellMode === 'whole' || rules.some((r) => r.unitId === null && r.kind === 'weekday'));
-  const targets: (string | null)[] = priceWhole ? [null] : unitIds;
+  /**
+   * Targets priced for one night. Whole property: the whole target only. Whole rental of a
+   * rooms property: a whole-target rate for that night if any (override, else weekday — see
+   * `priceNight`), otherwise the sum of the active rooms. Room selection: the selected rooms.
+   */
+  const targetsFor = (night: string): (string | null)[] => {
+    if (!input.whole) return unitIds;
+    if (p.sellMode === 'whole') return [null];
+    return priceNight(rules, null, night) ? [null] : unitIds;
+  };
   const warnings = new Set<QuoteWarning>();
 
   const nightLines = nights.map((date): QuoteLineNight => {
     const line: QuoteLineNight = { date, weekday: isoWeekday(date), label: '', sell: 0, cost: 0 };
     const prices: NightPrice[] = [];
-    for (const t of targets) {
+    for (const t of targetsFor(date)) {
       const price = priceNight(rules, t, date);
       if (!price) {
         warnings.add('missing_rate');
