@@ -82,9 +82,8 @@ export class CatalogWriter {
     for (let attempt = 1; ; attempt++) {
       try {
         const res = await this.catalog.upsertExternalProduct(ws, SOURCE, input, { partial: true });
-        const skipped =
-          res.skipped.length || res.applied ? res.skipped : [item.variants[0]?.sku ?? ''];
-        for (const sku of skipped) await this.conflict(ws, connectionId, sku);
+        // `applied: false` names its skipped SKUs; with none there is nothing to report.
+        for (const sku of res.skipped) await this.conflict(ws, connectionId, sku);
         return;
       } catch (error) {
         if (!isConflict(error)) throw error;

@@ -349,7 +349,7 @@ describe('catalog sync facade on Postgres', () => {
     await call(h, 'POST', '/products', {
       code: 'MU',
       name: 'Mũ',
-      variants: [{ sku: 'MU-1', price: 50_000 }],
+      variants: [{ sku: 'MU-1', price: 50_000, cost: 0 }],
     });
     const rapiz = await list('rapiz');
     expect(rapiz.data.map((p) => p.code)).toEqual(['MU']);
@@ -489,11 +489,52 @@ describe('catalog sync facade on Postgres', () => {
     expect((await sync().linkedExternalIds(ws, 'kiotviet')).products).not.toContain('1100');
   });
 
+  it('archives the unlinked variants of linked products only', async () => {
+    const made = await call(h, 'POST', '/products', {
+      code: 'HAT',
+      name: 'Mũ',
+      variants: [
+        { sku: 'HAT-1', price: 50_000, cost: 0 },
+        { sku: 'HAT-2', price: 60_000, cost: 0 },
+      ],
+    });
+    expect(made.statusCode, made.body).toBe(201);
+    const adopted = ProductDto.parse(made.json());
+    const rapizOnly = ProductDto.parse(
+      (
+        await call(h, 'POST', '/products', {
+          code: 'SCARF',
+          name: 'Khăn',
+          variants: [{ sku: 'SCARF-1', price: 40_000, cost: 0 }],
+        })
+      ).json(),
+    );
+    const res = await sync().upsertExternalProduct(
+      ws,
+      'kiotviet',
+      item({
+        externalId: '1200',
+        name: 'Mũ',
+        variants: [
+          { externalId: '1200', sku: 'HAT-1', name: '', price: 55_000, weightGram: 0, position: 0 },
+        ],
+      }),
+      { partial: true },
+    );
+    expect(res).toMatchObject({ productId: adopted.id, applied: true });
+    expect((await get(adopted.id)).variants.map((v) => v.sku)).toEqual(['HAT-1', 'HAT-2']);
+
+    expect(await sync().archiveUnlinkedVariants(ws, 'kiotviet')).toBe(1);
+    expect((await get(adopted.id)).variants.map((v) => v.sku)).toEqual(['HAT-1']);
+    expect((await get(rapizOnly.id)).variants.map((v) => v.sku)).toEqual(['SCARF-1']);
+    expect(await sync().archiveUnlinkedVariants(ws, 'kiotviet')).toBe(0);
+  });
+
   it('archives removed products and releases the links on disconnect', async () => {
     expect(await sync().removeExternalProducts(ws, 'kiotviet', ['1003', 'missing'])).toBe(1);
     const p = await get(productId);
     const released = await sync().releaseExternalSource(ws, 'kiotviet');
-    expect(released).toBe(6);
+    expect(released).toBe(7);
     expect(await sync().countExternalProducts(ws, 'kiotviet')).toBe(0);
     const res = await call(h, 'PUT', `/products/${productId}`, { ...sameBody(p), name: 'Áo mới' });
     expect(res.statusCode).toBe(200);

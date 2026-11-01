@@ -194,6 +194,17 @@ describe('KiotViet sync on the worker', () => {
   });
 
   it('imports 150 products in two pages with their stock at the default warehouse', async () => {
+    // A Rapiz product the import adopts by SKU, with a variant KiotViet does not have.
+    const made = await call(h, 'POST', '/products', {
+      code: 'KV1003',
+      name: 'Có sẵn trong Rapiz',
+      variants: [
+        { sku: 'KV1003', price: 1 },
+        { sku: 'RAPIZ-ONLY', price: 2 },
+      ],
+    });
+    expect(made.statusCode, made.body).toBe(201);
+
     const res = await call(h, 'POST', '/integrations/kiotviet', {
       retailer: 'shopdemo',
       clientId: 'client-1',
@@ -208,9 +219,16 @@ describe('KiotViet sync on the worker', () => {
 
     const pages = kv.apiRequests('/products').map((r) => r.query['currentItem']);
     expect(pages).toEqual(['0', '100']);
+    expect(
+      kv.apiRequests('/products').every((r) => r.query['includeInventory'] === undefined),
+    ).toBe(true);
     expect(await linkedTotal()).toBe(149);
     const grouped = await productOf('1000');
     expect(grouped.variants.map((v) => v.sku)).toEqual(['KV1000', 'KV1149']);
+    // The adopted product keeps its id; its Rapiz-only variant is archived by the sweep.
+    const adopted = await productOf('1003');
+    expect(adopted.id).toBe(ProductDto.parse(made.json()).id);
+    expect(adopted.variants.map((v) => v.sku)).toEqual(['KV1003']);
     expect(await onHand('1000')).toBe(7);
     expect(await onHand('1149')).toBe(7);
 

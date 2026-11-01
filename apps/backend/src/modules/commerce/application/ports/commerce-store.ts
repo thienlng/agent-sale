@@ -394,6 +394,8 @@ export interface CommerceTx {
     archiveProducts(source: ExternalSource, externalIds: string[]): Promise<number>;
     /** Archives the live variants of the source's products carrying these external ids. */
     archiveLinkedVariants(source: ExternalSource, externalIds: string[]): Promise<number>;
+    /** Archives the live variants without an external id of the source's products. */
+    archiveUnlinkedVariants(source: ExternalSource): Promise<number>;
     /** External ids of the source's active products and of their live linked variants. */
     linkedIds(source: ExternalSource): Promise<{ products: string[]; variants: string[] }>;
     /** Clears the links of the source's products and their variants; returns the products. */

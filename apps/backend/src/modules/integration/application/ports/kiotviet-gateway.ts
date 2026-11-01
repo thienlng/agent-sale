@@ -43,9 +43,15 @@ export interface KiotVietGateway {
    */
   interactive(): KiotVietGateway;
   branches(c: KvCredentials): Promise<KvBranch[]>;
+  /** `includeInventory` adds each product's branch stock (off by default: stock has its own list). */
   products(
     c: KvCredentials,
-    q: { currentItem: number; pageSize: number; lastModifiedFrom?: Date },
+    q: {
+      currentItem: number;
+      pageSize: number;
+      lastModifiedFrom?: Date;
+      includeInventory?: boolean;
+    },
   ): Promise<KvPage<KvProduct>>;
   productById(c: KvCredentials, id: number): Promise<KvProduct | null>;
   onHands(

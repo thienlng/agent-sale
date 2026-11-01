@@ -51,6 +51,7 @@ function fakeCatalog() {
     setExternalStock: vi.fn(),
     importExternalImage: vi.fn(),
     linkedExternalIds: vi.fn(),
+    archiveUnlinkedVariants: vi.fn(),
   } satisfies Record<keyof CatalogSyncFacade, unknown>;
 }
 

@@ -90,6 +90,12 @@ export interface CatalogSyncFacade {
   /** Clears the links of every product and variant of the source; returns the products released. */
   releaseExternalSource(ws: WorkspaceId, source: ExternalSource): Promise<number>;
   countExternalProducts(ws: WorkspaceId, source: ExternalSource): Promise<number>;
+  /**
+   * Archives the live variants without an external id (Rapiz-only variants kept by an adopted
+   * product) of every product linked to the source; returns how many. Called after a complete
+   * PMS import, when every variant the PMS has carries its link.
+   */
+  archiveUnlinkedVariants(ws: WorkspaceId, source: ExternalSource): Promise<number>;
   /** External ids of the source's active linked products and of their live linked variants. */
   linkedExternalIds(
     ws: WorkspaceId,

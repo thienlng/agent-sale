@@ -136,6 +136,7 @@ class MemoryCatalog {
       .flatMap((p) => p.variants.map((v) => v.externalId))
       .filter((id) => !this.archived.has(id)),
   }));
+  archiveUnlinkedVariants = vi.fn(async () => 0);
   previewExternalMatch = vi.fn();
   releaseExternalSource = vi.fn();
 }
@@ -153,14 +154,27 @@ class CatalogGateway extends FakeKiotVietGateway {
   catalog: KvProduct[] = [];
   removed: number[] = [];
   stockRows: KvOnHand[] = [];
-  productCalls: Array<{ currentItem: number; lastModifiedFrom: Date | undefined }> = [];
+  productCalls: Array<{
+    currentItem: number;
+    lastModifiedFrom: Date | undefined;
+    includeInventory?: boolean | undefined;
+  }> = [];
   failProducts: Array<{ at: number; error: Error }> = [];
 
   override products(
     _c: unknown,
-    q: { currentItem: number; pageSize: number; lastModifiedFrom?: Date },
+    q: {
+      currentItem: number;
+      pageSize: number;
+      lastModifiedFrom?: Date;
+      includeInventory?: boolean;
+    },
   ) {
-    this.productCalls.push({ currentItem: q.currentItem, lastModifiedFrom: q.lastModifiedFrom });
+    this.productCalls.push({
+      currentItem: q.currentItem,
+      lastModifiedFrom: q.lastModifiedFrom,
+      includeInventory: q.includeInventory,
+    });
     const i = this.failProducts.findIndex((f) => f.at === q.currentItem);
     if (i >= 0) return Promise.reject(this.failProducts.splice(i, 1)[0]!.error);
     if (this.fail.products) return Promise.reject(this.fail.products);
@@ -263,6 +277,8 @@ describe('SyncService full import', () => {
 
     expect(gateway.productCalls.map((c) => c.currentItem)).toEqual([0, 100]);
     expect(catalog.products.size).toBe(150);
+    // Stock comes from the on-hands phase, not from product pages.
+    expect(gateway.productCalls.every((c) => c.includeInventory === false)).toBe(true);
     expect(catalog.upserts.every((u) => u.partial)).toBe(true);
     expect(catalog.stock.get('1')).toBe(4);
     expect(store.completed).toEqual([j.id]);
@@ -343,6 +359,8 @@ describe('SyncService full import', () => {
         .variants.map((v) => v.externalId)
         .sort(),
     ).toEqual(['1', '2', '3']);
+    // Rapiz-only variants of adopted products go too.
+    expect(catalog.archiveUnlinkedVariants).toHaveBeenCalledTimes(1);
   });
 
   it('does not sweep when a page came back short', async () => {
@@ -363,6 +381,7 @@ describe('SyncService full import', () => {
     };
     await sync.runJob(job());
     expect(catalog.removed).toEqual([]);
+    expect(catalog.archiveUnlinkedVariants).not.toHaveBeenCalled();
     expect(conn().status).toBe('connected');
   });
 
@@ -412,6 +431,18 @@ describe('SyncService full import', () => {
       { sku: 'SP4' },
     ]);
     expect(store.completed).toHaveLength(1);
+  });
+
+  it('logs nothing when an upsert applies nothing and skips no SKU', async () => {
+    gateway.catalog = [product(1)];
+    catalog.upsertExternalProduct.mockResolvedValueOnce({
+      productId: null,
+      created: false,
+      applied: false,
+      skipped: [],
+    });
+    await sync.runJob(job());
+    expect(store.codes()).not.toContain('sku_conflict');
   });
 
   it('retries an item once after a link race', async () => {

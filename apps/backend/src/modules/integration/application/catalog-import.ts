@@ -45,6 +45,8 @@ export class CatalogImport {
       const page = await this.gateway.products(ctx.creds, {
         currentItem: cursor.currentItem,
         pageSize: PAGE_SIZE,
+        // Stock comes from the on-hands phase.
+        includeInventory: false,
         ...(since ? { lastModifiedFrom: since } : {}),
       });
       const items = await this.writer.group(ctx.creds, page.data);
@@ -105,7 +107,10 @@ export class CatalogImport {
     }
   }
 
-  /** Archives linked products and variants the completed full import did not see. */
+  /**
+   * Archives linked products and variants the completed full import did not see, and the unlinked
+   * variants left on linked products.
+   */
   private async sweep(ctx: SyncContext, cursor: ImportCursor): Promise<void> {
     const linked = await this.catalog.linkedExternalIds(ctx.ws, SOURCE);
     const products = new Set(cursor.seenProducts.map(String));
@@ -117,6 +122,8 @@ export class CatalogImport {
     if (stale.length) {
       await this.catalog.removeExternalProducts(ctx.ws, SOURCE, [...new Set(stale)]);
     }
+    // Every KiotViet variant now carries its link: Rapiz-only variants of adopted products go.
+    await this.catalog.archiveUnlinkedVariants(ctx.ws, SOURCE);
   }
 
   private async progress(ctx: SyncContext, phase: string, done: number, total: number) {

@@ -153,7 +153,12 @@ export class KiotVietClient implements KiotVietGateway {
 
   products(
     c: KvCredentials,
-    q: { currentItem: number; pageSize: number; lastModifiedFrom?: Date },
+    q: {
+      currentItem: number;
+      pageSize: number;
+      lastModifiedFrom?: Date;
+      includeInventory?: boolean;
+    },
   ): Promise<KvPage<KvProduct>> {
     return this.list(
       c,
@@ -161,7 +166,7 @@ export class KiotVietClient implements KiotVietGateway {
       {
         currentItem: q.currentItem,
         pageSize: Math.min(q.pageSize, PAGE_SIZE),
-        includeInventory: true,
+        includeInventory: q.includeInventory ? true : undefined,
         includeRemoveIds: true,
         lastModifiedFrom: q.lastModifiedFrom?.toISOString(),
       },

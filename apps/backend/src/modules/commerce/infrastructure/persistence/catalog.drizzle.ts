@@ -554,6 +554,15 @@ export function catalogTx(
           .returning({ id: v.id });
         return rows.length;
       },
+      async archiveUnlinkedVariants(source) {
+        const linked = tx.select({ id: p.id }).from(p).where(eq(p.externalSource, source));
+        const rows = await tx
+          .update(v)
+          .set({ archivedAt: sql`now()`, updatedAt: new Date() })
+          .where(and(isNull(v.externalId), isNull(v.archivedAt), inArray(v.productId, linked)))
+          .returning({ id: v.id });
+        return rows.length;
+      },
       async linkedIds(source) {
         const products = await tx
           .select({ id: p.externalId })

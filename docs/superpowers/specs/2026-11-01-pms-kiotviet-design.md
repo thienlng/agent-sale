@@ -125,11 +125,18 @@ Owned by `crm`: `contacts.external_source text, contacts.external_id text`, uniq
 ### 4.4 Facades the integration calls (new methods)
 
 `commerce` — new `CATALOG_SYNC_FACADE` (`api/catalog-sync.facade.ts`), system-of-record writes only:
-- `upsertExternalProduct(ws, source, item)` — creates or updates one product with its variants by external
-  ids. Partial: only the variants it names are touched; variants of that product missing from `item` are
-  archived. Rapiz-only fields (`visibleToBot`, `botInstructions`, bot selection) are never overwritten.
+- `upsertExternalProduct(ws, source, item, { partial? })` — creates or updates one product with its variants
+  by external ids. Without `partial`, variants of that product missing from `item` are archived. With
+  `partial: true` (what the integration always sends, because a page or a webhook may carry only part of a
+  KiotViet group) only the variants it names are touched: the others stay live, in their order, and new ones
+  follow. Rapiz-only fields (`visibleToBot`, `botInstructions`, bot selection) are never overwritten.
   Matching an existing Rapiz product the first time: by variant SKU = KiotViet `code` (case-insensitive).
-- `removeExternalProducts(ws, source, externalIds)` — archives them.
+- `removeExternalProducts(ws, source, externalIds)` — archives the linked products whose own external id is
+  listed and the linked variants whose external id is listed (KiotViet deletes single variants too).
+- `linkedExternalIds(ws, source)` and `archiveUnlinkedVariants(ws, source)` — the sweep at the end of a full
+  import that read every page: linked products and variants it did not see are archived through
+  `removeExternalProducts`, and the live variants without an external id left on linked products (Rapiz-only
+  variants of an adopted product) are archived, since staff cannot edit the variants of a linked product.
 - `setExternalStock(ws, source, [{ externalVariantId, available }])` — sets `on_hand = available` at the
   default warehouse, writing an `adjust` movement with `ref_type = 'kiotviet'` when it changes.
 - `importExternalImage(ws, url)` — downloads into Rapiz storage with the existing `downloadImage` rules

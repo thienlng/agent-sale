@@ -107,7 +107,11 @@ describe('KiotVietClient', () => {
   });
 
   it('reads product pages with removed ids and tolerant fields', async () => {
-    const first = await client.products(creds, { currentItem: 0, pageSize: 100 });
+    const first = await client.products(creds, {
+      currentItem: 0,
+      pageSize: 100,
+      includeInventory: true,
+    });
     const second = await client.products(creds, {
       currentItem: 100,
       pageSize: 100,
@@ -125,14 +129,16 @@ describe('KiotVietClient', () => {
       inventories: [{ branchId: 1, onHand: 5, reserved: 1 }],
       unknownField: 'kept',
     });
+    expect(fake.apiRequests('/products')[0]?.query.includeInventory).toBe('true');
     const q = fake.apiRequests('/products')[1]?.query;
     expect(q).toMatchObject({
       currentItem: '100',
       pageSize: '100',
-      includeInventory: 'true',
       includeRemoveIds: 'true',
       lastModifiedFrom: '2026-10-01T00:00:00.000Z',
     });
+    // Inventory only on request: the sync reads stock from /productOnHands.
+    expect(q?.includeInventory).toBeUndefined();
   });
 
   it('returns a product by id, or null when KiotViet does not know it', async () => {

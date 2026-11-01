@@ -219,6 +219,10 @@ export class CatalogSyncService implements CatalogSyncFacade {
     return this.store.run(ws, (tx) => tx.catalogSync.count(source));
   }
 
+  archiveUnlinkedVariants(ws: WorkspaceId, source: ExternalSource): Promise<number> {
+    return this.store.run(ws, (tx) => tx.catalogSync.archiveUnlinkedVariants(source));
+  }
+
   linkedExternalIds(
     ws: WorkspaceId,
     source: ExternalSource,

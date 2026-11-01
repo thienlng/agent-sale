@@ -79,7 +79,9 @@ a 503 `UNAVAILABLE` stand-in when the process has no database).
   each page and write batch the connection is re-read: disconnected → the job completes without writing. Jobs
   of a connection whose connect failed, and `webhook` jobs, complete with no work. Groups whose master is not
   in the page fetch it by id (a vanished master drops the group). Every upsert is `{ partial: true }`; a full
-  import that read every page in full archives linked products and variants it did not see. Pictures go
+  import that read every page in full archives linked products and variants it did not see, and the
+  unlinked (Rapiz-only) variants left on linked products. Product pages are read without inventory
+  (`includeInventory` off); stock comes from the on-hands phase. Pictures go
   through the image cache; failures are counted (`image_failed {count}` once per run). An item's link or
   code race (`CONFLICT`) is retried once, then logged `sku_conflict {sku}`, as is every skipped SKU. Success:
   `connected`, `progress` null, `lastError` null, `counts.products`, `lastReconcileAt` = run start (and
