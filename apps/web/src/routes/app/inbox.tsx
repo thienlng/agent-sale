@@ -15,8 +15,9 @@ const Search = z.object({ conversation: z.uuid().optional().catch(undefined) });
 
 export const Route = createFileRoute('/app/inbox')({
   validateSearch: Search,
-  // The customer drawer of the sales panel shows the KiotViet badge and field hint.
-  loader: () => loadNamespace('integration'),
+  // The customer drawer of the sales panel shows the KiotViet badge and field hint. A failed load
+  // shows raw keys there instead of the error page.
+  loader: () => loadNamespace('integration').catch(() => undefined),
   component: InboxRoute,
 });
 function InboxRoute() {
