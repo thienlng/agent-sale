@@ -1,24 +1,30 @@
 # integration
 
-> Under construction (PMS integration PR 1). Sections marked _(planned)_ land in later tasks.
+> PMS integration PR 1: KiotViet catalog and stock. Order push (PR 2) and customer sync (PR 3) come next;
+> owner guide and troubleshooting in `docs/integrations/kiotviet.md`.
 
 **Purpose:** connects a workspace to an external shop management system (PMS) and mirrors its catalog,
 stock and customers into Rapiz. KiotViet is the first provider; for linked records the PMS is the source of
 truth (ADR-017, spec `docs/superpowers/specs/2026-11-01-pms-kiotviet-design.md`).
 
-**Owned tables:** `integration_*` tables (schema in `packages/db/src/schema/integration.ts`), behind
+**Owned tables:** `integration_connections`, `integration_jobs`, `integration_webhook_events`,
+`integration_image_cache`, `integration_sync_log` (migration 0040, forced RLS; schema in
+`packages/db/src/schema/integration.ts`; columns in `docs/05-data-model.md` §6), behind
 `INTEGRATION_STORE` (`application/ports/integration-store.ts`; Drizzle adapter in `infrastructure/persistence/`,
 a 503 `UNAVAILABLE` stand-in when the process has no database).
 
 **Public API (`api/`):**
 
-- `INTEGRATION_FACADE` → `IntegrationFacade` _(use cases planned)_
+- `INTEGRATION_FACADE` → `IntegrationFacade` — empty in PR 1 (nothing calls the module; the order push in PR 2
+  adds use cases).
 - `INTEGRATION_RUNNER` → `IntegrationRunner.tick()`, run every 2 s by the `worker` entry (guarded against overlap,
   like the analytics projector): `application/sync-runner.ts`.
 - HTTP and DTOs: `packages/contracts/src/integration/` — `GET /integrations`, `POST /integrations/kiotviet/test`,
   `POST|PATCH|DELETE /integrations/kiotviet`, `POST /integrations/kiotviet/sync`, `GET /integrations/kiotviet/log`
   (`interface/http/integration.controller.ts` → `application/connection.service.ts`). GETs need
   `catalog.manage`, writes `settings.manage`.
+- Webhook ingress: `apps/webhook` (`POST /webhooks/kiotviet/:token`) only inserts raw deliveries into
+  `integration_webhook_events`; everything else (signature, parsing, writes) happens in this module's runner.
 - Events: none yet.
 
 **Depends on:** the `commerce` (`CATALOG_SYNC_FACADE`: partial upserts, removals, stock, pictures, linked ids), `crm` and `workspace` facades. Nothing depends on
@@ -99,4 +105,8 @@ a 503 `UNAVAILABLE` stand-in when the process has no database).
 
 **Do not:** read `commerce`/`crm` tables (use their facades); put HTTP, Zod or Drizzle types in `domain/`.
 
-**Test:** `pnpm --filter @agent-sales/backend test -- integration`
+**Test:** `pnpm --filter @agent-sales/backend test -- integration` (unit and HTTP, fake KiotViet in
+`__tests__/fake-kiotviet.ts`, routes in `test/integration-http.spec.ts`) · Postgres (Testcontainers, needs
+Docker): `pnpm --filter @agent-sales/backend test:integration -- integration`, covering
+`__tests__/integration-store.integration.spec.ts`, `__tests__/sync.integration.spec.ts` and
+`test/integration-tables.integration.spec.ts` (RLS) · webhook ingress: `pnpm --filter @agent-sales/webhook test`.

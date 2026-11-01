@@ -37,6 +37,8 @@
 | | ↳ Shipping settings | `/quan-ly/thiet-lap/cai-dat-van-chuyen` | `/app/order-settings/shipping` | ORD-09 | P1 |
 | | ↳ Warehouses | `/quan-ly/thiet-lap/kho-hang` | `/app/order-settings/warehouses` | ORD-02 | P0 |
 | Sản phẩm (Products) | Shared product catalog (top-level entry since T-112; Preny nests it under Orders) | `/quan-ly/quan-ly-san-pham` | `/app/products`, `/app/products/{id}` | ORD-01 | P0 |
+| Tích hợp PMS (PMS integrations) | Hub of point-of-sale / inventory software (icon `Blocks`; right after Products, or after Platform integrations for hotels; shown with `catalog.manage`): KiotViet live, Sapo / Haravan / Pancake POS "Sắp có" | (name only) | `/app/integrations` | ORD-15 | P1 |
+| | KiotViet: 3-step connect wizard (credentials → branches → preview & start) until connected, then the connection view (status, sync progress polled every 3 s, counts, sync settings, "Cập nhật mã", recent activity, disconnect). Changes need `settings.manage`; others see it read-only. Guide: [integrations/kiotviet.md](integrations/kiotviet.md) | — | `/app/integrations/kiotviet` | ORD-15 | P1 |
 | Thống kê (Analytics) | | `/quan-ly/tong-quan` | `/app/analytics` (`?tab=pages\|interactions\|tags\|current-tags\|statuses\|bot`) | ANA-01/02 | P1 |
 | Hạn mức sử dụng (Usage limits) | | `/quan-ly/han-muc-su-dung` | `/app/usage` | BIL-03 | P0 |
 | Nâng cấp (Upgrade) | | `/quan-ly/nang-cap` | `/app/upgrade` | BIL-01/08 | P0 |

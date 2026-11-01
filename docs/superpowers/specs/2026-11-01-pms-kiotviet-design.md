@@ -138,7 +138,7 @@ Owned by `crm`: `contacts.external_source text, contacts.external_id text`, uniq
   `removeExternalProducts`, and the live variants without an external id left on linked products (Rapiz-only
   variants of an adopted product) are archived, since staff cannot edit the variants of a linked product.
 - `setExternalStock(ws, source, [{ externalVariantId, available }])` — sets `on_hand = available` at the
-  default warehouse, writing an `adjust` movement with `ref_type = 'kiotviet'` when it changes.
+  default warehouse, writing an `adjust` movement with `ref_type = 'external'` (no actor) when it changes.
 - `importExternalImage(ws, url)` — downloads into Rapiz storage with the existing `downloadImage` rules
   (SSRF check, 10 MiB, JPEG/PNG only) and returns the stored URL.
 - `releaseExternalSource(ws, source)` — on disconnect: clears the link columns so products become ordinary
@@ -154,8 +154,8 @@ create with source "KiotViet"), `removeExternalContacts`, `contactsAwaitingPush(
 
 | Route | Capability | Purpose |
 |---|---|---|
-| `GET /integrations` | `catalog.manage` | Providers with their state (KiotViet: connection summary or `null`; others `comingSoon`). |
-| `POST /integrations/kiotviet/test` | `settings.manage` | `{ retailer, clientId, clientSecret }` → token + `GET /branches`; answers `{ branches, preview: { matched, created, rapizOnly } }` or a typed error (§8). Stores nothing. |
+| `GET /integrations` | `catalog.manage` | Providers with their state (`{ provider, available, connection }`; KiotViet: connection or `null`; others `available: false`, shown "Sắp có"). |
+| `POST /integrations/kiotviet/test` | `settings.manage` | `{ retailer, clientId, clientSecret }` → token + `GET /branches`; answers `{ retailer, branches, preview: { matched, created, rapizOnly, scanned, total } }` or a typed error (§8). The preview reads at most 3 000 product codes (`scanned`; `total` = the store's product count, null if unknown) so the check answers quickly; when `scanned < total` the wizard says "trong N/M sản phẩm đầu" and hides `rapizOnly`. Stores nothing. |
 | `POST /integrations/kiotviet` | `settings.manage` | Connect: credentials + settings; seals the secret, registers webhooks, enqueues `full_import`. |
 | `PATCH /integrations/kiotviet` | `settings.manage` | Change branches/toggles (`version` for stale edits); a branch change enqueues `reconcile`. |
 | `POST /integrations/kiotviet/sync` | `settings.manage` | "Đồng bộ ngay": enqueues `reconcile` (409 if one is running). |
@@ -264,7 +264,8 @@ by polling every 3 s while syncing; the owner may leave.
 - Orders (PR 2): a "KiotViet" column state chip (Đang đẩy / Đã đẩy DH000123 / Lỗi + "Thử lại").
 - Customers (PR 3): a "KiotViet" badge on linked customers.
 
-All strings in `packages/i18n` (new file `integration.json`, vi + en). Layout must keep `e2e/responsive.spec.ts`
+All strings in `packages/i18n`: the hub, wizard and connection view in the new `integration.json` namespace
+(vi + en, loaded lazily by the route), the product list and form strings in `common.json` under `products.*`. Layout must keep `e2e/responsive.spec.ts`
 green; touch targets ≥ 44 px; focus moves to the first invalid field after a failed step.
 
 ## 7. Orders (PR 2)

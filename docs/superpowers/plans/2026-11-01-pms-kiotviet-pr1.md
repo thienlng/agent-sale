@@ -467,7 +467,7 @@ Follow `channel/infrastructure/persistence/channel.store.ts:137-221` for the lea
 
 **Behaviour (spec §4.5, §6.3, §8):**
 - `test(ws, creds)`: `parseRetailer` (null → `KiotVietRetailerError`), `gateway.branches`, then
-  `catalogSync.previewExternalMatch(ws, codes)` from `gateway.productCodes` (stop after 20 000 codes) →
+  `catalogSync.previewExternalMatch(ws, codes)` from `gateway.productCodes` (stop after 3 000 codes; the response also carries `scanned` and the store `total`) →
   `KiotVietTestResponse`. Stores nothing.
 - `connect(ws, user, req)`: refuse when a live connection exists (409); re-run the branch fetch (validates
   creds and branch ids); generate `webhookToken = randomBytes(32).toString('base64url')`, webhook secret

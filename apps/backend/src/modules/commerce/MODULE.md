@@ -42,6 +42,7 @@
 - `setExternalStock`: for each live variant linked to the source, `delta = available − on_hand` at the default warehouse (row locked, variant-id order); a non-zero delta goes through `inventory.apply` (reason `adjust`, `ref_type = 'external'`, no actor), so every change has a movement and a repeat writes nothing. No default warehouse → `NoWarehouseError`.
 - `removeExternalProducts` archives (never deletes) the linked products whose own external id is listed and the live variants of the source's products whose external id is listed (a PMS can delete one variant); `previewExternalMatch` counts distinct codes matching a live SKU (`matched`), the rest (`created`), and active unlinked products matching none (`rapizOnly`).
 - `importExternalImage` reuses `downloadImage` (public hosts, 10 MiB, JPEG/PNG only; WebP → `unsupported_format`) through the `EXTERNAL_IMAGE_DOWNLOADER` port and stores `products/<workspaceId>/<uuidv7>.<jpg|png>` in `PRODUCT_IMAGE_STORAGE`, like an upload.
+- `orders.external_source`, `external_id`, `external_code`, `external_status`, `external_state` (`pending | pushed | failed`), `external_error`, `external_pushed_at` exist since 0040 for the order push (PMS PR 2); nothing writes them yet and `OrderDto` does not expose them.
 
 **Do not:** read other modules' tables; compute money with floats; update `inventory` without a movement; delete orders or variants.
 
