@@ -538,6 +538,36 @@ export function catalogTx(
           .returning({ id: p.id });
         return rows.length;
       },
+      async archiveLinkedVariants(source, externalIds) {
+        if (!externalIds.length) return 0;
+        const linked = tx.select({ id: p.id }).from(p).where(eq(p.externalSource, source));
+        const rows = await tx
+          .update(v)
+          .set({ archivedAt: sql`now()`, updatedAt: new Date() })
+          .where(
+            and(
+              inArray(v.externalId, externalIds),
+              isNull(v.archivedAt),
+              inArray(v.productId, linked),
+            ),
+          )
+          .returning({ id: v.id });
+        return rows.length;
+      },
+      async linkedIds(source) {
+        const products = await tx
+          .select({ id: p.externalId })
+          .from(p)
+          .where(and(eq(p.externalSource, source), eq(p.status, 'active')));
+        const variants = await tx
+          .select({ id: v.externalId })
+          .from(v)
+          .innerJoin(p, eq(p.id, v.productId))
+          .where(and(eq(p.externalSource, source), isNull(v.archivedAt), isNotNull(v.externalId)));
+        const ids = (rows: Array<{ id: string | null }>) =>
+          rows.map((r) => r.id).filter((id): id is string => id !== null);
+        return { products: ids(products), variants: ids(variants) };
+      },
       async release(source) {
         const linked = tx.select({ id: p.id }).from(p).where(eq(p.externalSource, source));
         await tx

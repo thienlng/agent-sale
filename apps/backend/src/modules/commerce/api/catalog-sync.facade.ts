@@ -38,6 +38,14 @@ export interface UpsertExternalProductResult {
   skipped: string[];
 }
 
+export interface UpsertExternalProductOptions {
+  /**
+   * The item names only some of the product's variants (a PMS page or webhook carried part of the
+   * group): live variants missing from it are kept, not archived. Moved variants are still handled.
+   */
+  partial?: boolean;
+}
+
 /**
  * System-of-record writes of a PMS sync (the `integration` module). Every call runs in one tenant
  * transaction; Rapiz-owned fields (`visibleToBot`, `botInstructions`, the bot selection,
@@ -60,8 +68,12 @@ export interface CatalogSyncFacade {
     ws: WorkspaceId,
     source: ExternalSource,
     item: ExternalCatalogItem,
+    opts?: UpsertExternalProductOptions,
   ): Promise<UpsertExternalProductResult>;
-  /** Archives the linked products with these external ids; returns how many changed. */
+  /**
+   * Archives the linked products whose own external id is listed, and the linked variants (of the
+   * source's products) whose external id is listed; returns how many rows changed.
+   */
   removeExternalProducts(
     ws: WorkspaceId,
     source: ExternalSource,
@@ -78,6 +90,11 @@ export interface CatalogSyncFacade {
   /** Clears the links of every product and variant of the source; returns the products released. */
   releaseExternalSource(ws: WorkspaceId, source: ExternalSource): Promise<number>;
   countExternalProducts(ws: WorkspaceId, source: ExternalSource): Promise<number>;
+  /** External ids of the source's active linked products and of their live linked variants. */
+  linkedExternalIds(
+    ws: WorkspaceId,
+    source: ExternalSource,
+  ): Promise<{ products: string[]; variants: string[] }>;
 }
 
 export const CATALOG_SYNC_FACADE = Symbol('CATALOG_SYNC_FACADE');

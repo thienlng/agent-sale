@@ -17,5 +17,6 @@ export {
   ExternalLinkConflictError,
   type ExternalSource,
   type ExternalVariantInput,
+  type UpsertExternalProductOptions,
   type UpsertExternalProductResult,
 } from './catalog-sync.facade.js';

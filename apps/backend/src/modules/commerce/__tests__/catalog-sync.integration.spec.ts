@@ -426,11 +426,74 @@ describe('catalog sync facade on Postgres', () => {
     expect(await sync().countExternalProducts(ws, 'kiotviet')).toBe(5);
   });
 
+  it('keeps unnamed variants on a partial upsert and removes variants by external id', async () => {
+    const v = (externalId: string, sku: string, position: number) => ({
+      externalId,
+      sku,
+      name: sku,
+      price: 100_000,
+      weightGram: 0,
+      position,
+    });
+    const group = item({
+      externalId: '1100',
+      name: 'Váy',
+      variants: [v('1100', 'VAY-1', 0), v('1101', 'VAY-2', 1), v('1102', 'VAY-3', 2)],
+    });
+    const first = await sync().upsertExternalProduct(ws, 'kiotviet', group, { partial: true });
+    const id = String(first.productId);
+
+    // A webhook for one child carries the master and that child only: the sibling stays live.
+    const part = await sync().upsertExternalProduct(
+      ws,
+      'kiotviet',
+      item({
+        externalId: '1100',
+        name: 'Váy mới',
+        variants: [{ ...v('1100', 'VAY-1', 0) }, { ...v('1102', 'VAY-3', 1), price: 120_000 }],
+      }),
+      { partial: true },
+    );
+    expect(part).toMatchObject({ productId: id, applied: true });
+    let p = await get(id);
+    expect(p.name).toBe('Váy mới');
+    expect(p.variants.map((x) => [x.sku, x.price])).toEqual([
+      ['VAY-1', 100_000],
+      ['VAY-2', 100_000],
+      ['VAY-3', 120_000],
+    ]);
+    // A new child arrives after the known ones.
+    await sync().upsertExternalProduct(
+      ws,
+      'kiotviet',
+      item({ externalId: '1100', name: 'Váy mới', variants: [v('1103', 'VAY-4', 1)] }),
+      { partial: true },
+    );
+    p = await get(id);
+    expect(p.variants.map((x) => x.sku)).toEqual(['VAY-1', 'VAY-2', 'VAY-3', 'VAY-4']);
+
+    const linked = await sync().linkedExternalIds(ws, 'kiotviet');
+    expect(linked.products).toContain('1100');
+    expect(linked.variants).toEqual(expect.arrayContaining(['1100', '1101', '1102', '1103']));
+
+    // A deleted child archives that variant only; the product stays.
+    expect(await sync().removeExternalProducts(ws, 'kiotviet', ['1101'])).toBe(1);
+    p = await get(id);
+    expect(p.status).toBe('active');
+    expect(p.variants.map((x) => x.sku)).toEqual(['VAY-1', 'VAY-3', 'VAY-4']);
+    expect((await sync().linkedExternalIds(ws, 'kiotviet')).variants).not.toContain('1101');
+
+    // Deleting the master archives the product (and its master variant).
+    await sync().removeExternalProducts(ws, 'kiotviet', ['1100']);
+    expect((await get(id)).status).toBe('archived');
+    expect((await sync().linkedExternalIds(ws, 'kiotviet')).products).not.toContain('1100');
+  });
+
   it('archives removed products and releases the links on disconnect', async () => {
     expect(await sync().removeExternalProducts(ws, 'kiotviet', ['1003', 'missing'])).toBe(1);
     const p = await get(productId);
     const released = await sync().releaseExternalSource(ws, 'kiotviet');
-    expect(released).toBe(5);
+    expect(released).toBe(6);
     expect(await sync().countExternalProducts(ws, 'kiotviet')).toBe(0);
     const res = await call(h, 'PUT', `/products/${productId}`, { ...sameBody(p), name: 'Áo mới' });
     expect(res.statusCode).toBe(200);

@@ -7,6 +7,7 @@ import type {
   ExternalCatalogItem,
   ExternalSource,
   ExternalVariantInput,
+  UpsertExternalProductOptions,
   UpsertExternalProductResult,
 } from '../api/catalog-sync.facade.js';
 import { NoWarehouseError } from '../domain/commerce.errors.js';
@@ -63,6 +64,7 @@ export class CatalogSyncService implements CatalogSyncFacade {
     ws: WorkspaceId,
     source: ExternalSource,
     item: ExternalCatalogItem,
+    opts: UpsertExternalProductOptions = {},
   ): Promise<UpsertExternalProductResult> {
     const inputs = [...item.variants]
       .map((v) => ({ ...v, name: clip(v.name, LIMITS.variantName) }))
@@ -95,13 +97,27 @@ export class CatalogSyncService implements CatalogSyncFacade {
 
       await tx.catalogSync.archiveAndUnlinkVariants([...movedIds]);
       const all = found ? await tx.products.variantsOf([productId]) : [];
-      const existing = all.filter((v) => !v.archived);
-      const variants = this.#matchVariants(productId, kept, all);
-      const keptIds = new Set(variants.map((v) => v.id));
-      // Archive first so a SKU can move from a removed variant to another one.
-      await tx.products.archiveVariants(
-        existing.filter((v) => !keptIds.has(v.id)).map((v) => v.id),
-      );
+      const existing = all.filter((v) => !v.archived && !movedIds.has(v.id));
+      const named = this.#matchVariants(productId, kept, all);
+      const keptIds = new Set(named.map((v) => v.id));
+      const unnamed = existing.filter((v) => !keptIds.has(v.id));
+      let variants = named;
+      if (opts.partial) {
+        // The item is part of the group: the other live variants stay. Known variants keep their
+        // order, new ones follow in input order.
+        const before = new Map(existing.map((v) => [v.id, v.position]));
+        const tail = Math.max(-1, ...before.values()) + 1;
+        const rank = (v: VariantRecord, i: number) => before.get(v.id) ?? tail + i;
+        variants = [
+          ...named.map((v, i) => ({ v, r: rank(v, i) })),
+          ...unnamed.map((v) => ({ v, r: v.position })),
+        ]
+          .sort((a, b) => a.r - b.r)
+          .map(({ v }, position) => ({ ...v, position }));
+      } else {
+        // Archive first so a SKU can move from a removed variant to another one.
+        await tx.products.archiveVariants(unnamed.map((v) => v.id));
+      }
 
       const name = clip(item.name, LIMITS.name);
       const code = found?.code ?? (await this.#newCode(tx, kept[0]?.sku ?? '', item.externalId));
@@ -131,7 +147,7 @@ export class CatalogSyncService implements CatalogSyncFacade {
       const warehouse = await tx.warehouses.findDefault();
       if (warehouse) {
         const known = new Set(existing.map((v) => v.id));
-        for (const v of variants.filter((x) => !known.has(x.id)))
+        for (const v of named.filter((x) => !known.has(x.id)))
           await tx.inventory.ensureRow(ws, v.id, warehouse.id);
       }
       return { productId, created: !found, applied: true, skipped };
@@ -144,7 +160,12 @@ export class CatalogSyncService implements CatalogSyncFacade {
     externalIds: string[],
   ): Promise<number> {
     if (!externalIds.length) return Promise.resolve(0);
-    return this.store.run(ws, (tx) => tx.catalogSync.archiveProducts(source, externalIds));
+    return this.store.run(
+      ws,
+      async (tx) =>
+        (await tx.catalogSync.archiveProducts(source, externalIds)) +
+        (await tx.catalogSync.archiveLinkedVariants(source, externalIds)),
+    );
   }
 
   setExternalStock(
@@ -196,6 +217,13 @@ export class CatalogSyncService implements CatalogSyncFacade {
 
   countExternalProducts(ws: WorkspaceId, source: ExternalSource): Promise<number> {
     return this.store.run(ws, (tx) => tx.catalogSync.count(source));
+  }
+
+  linkedExternalIds(
+    ws: WorkspaceId,
+    source: ExternalSource,
+  ): Promise<{ products: string[]; variants: string[] }> {
+    return this.store.run(ws, (tx) => tx.catalogSync.linkedIds(source));
   }
 
   // ─── helpers ──────────────────────────────────────────────────────────────

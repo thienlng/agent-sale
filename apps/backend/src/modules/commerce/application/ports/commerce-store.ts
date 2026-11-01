@@ -392,6 +392,10 @@ export interface CommerceTx {
     codeTaken(code: string): Promise<boolean>;
     /** Archives the linked products with these external ids; returns how many changed. */
     archiveProducts(source: ExternalSource, externalIds: string[]): Promise<number>;
+    /** Archives the live variants of the source's products carrying these external ids. */
+    archiveLinkedVariants(source: ExternalSource, externalIds: string[]): Promise<number>;
+    /** External ids of the source's active products and of their live linked variants. */
+    linkedIds(source: ExternalSource): Promise<{ products: string[]; variants: string[] }>;
     /** Clears the links of the source's products and their variants; returns the products. */
     release(source: ExternalSource): Promise<number>;
     count(source: ExternalSource): Promise<number>;
