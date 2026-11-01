@@ -634,6 +634,75 @@ describe('CalendarPage notes, tags and quick view', () => {
     );
   });
 
+  it('edits from the tooltip only the note of the hovered room of a whole booking', async () => {
+    const BK3 = '0193a000-0000-7000-8000-000000000103';
+    const booked = structuredClone(calendar);
+    const h1 = booked.properties[1]!;
+    for (const row of h1.rows)
+      row.segments.push({
+        bookingId: BK3,
+        code: 'BK-0009',
+        kind: 'stay',
+        status: 'confirmed',
+        from: '2026-11-09',
+        to: '2026-11-11',
+        guestName: 'Anh Tú',
+        blockReason: '',
+        holdExpiresAt: null,
+        guestPhone: '',
+        party: { adults: 6, childAges: [] },
+        totalSell: 2_400_000,
+        tags: [],
+        note: '',
+      });
+    h1.notes.push(
+      { id: NOTE1, unitId: R1, night: '2026-11-09', text: 'Thay ga P101' },
+      { id: NOTE2, unitId: R2, night: '2026-11-09', text: 'Sửa vòi P102' },
+    );
+    const calls = stubApi({
+      'GET /lodging/calendar': { status: 200, body: booked },
+      [`GET /lodging/bookings/${BK3}`]: {
+        status: 200,
+        body: {
+          ...bookedA17,
+          id: BK3,
+          code: 'BK-0009',
+          propertyId: H1,
+          propertyCode: 'H1',
+          propertyName: 'Homestay Hoa Sứ',
+          unitIds: [R1, R2],
+          unitNames: ['P101', 'P102'],
+          checkIn: '2026-11-09',
+          checkOut: '2026-11-11',
+        },
+      },
+      [`PUT /lodging/properties/${H1}/notes`]: {
+        status: 200,
+        body: { note: { id: NOTE2, unitId: R2, night: '2026-11-09', text: 'Đã sửa vòi' } },
+      },
+    });
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: /Xem từng phòng của H1/ }));
+    await user.hover(await cell(/^H1 P102, Thứ Hai 09\/11, Đã đặt BK-0009/));
+    const tip = await screen.findByRole('tooltip');
+    const action = tip.querySelector<HTMLButtonElement>('[data-action="edit-night-note"]');
+    await user.click(action as HTMLButtonElement);
+    const sheet = await screen.findByRole('dialog');
+    const section = await within(sheet).findByRole('region', { name: 'Ghi chú ngày' });
+    expect(await within(section).findByText('Thay ga P101')).toBeInTheDocument();
+    const text = await within(section).findByRole('textbox', { name: 'Ghi chú cho đêm đã chọn' });
+    await waitFor(() => expect(text).toHaveValue('Sửa vòi P102'));
+    await user.clear(text);
+    await user.type(text, 'Đã sửa vòi');
+    await user.click(within(section).getByRole('button', { name: 'Lưu ghi chú' }));
+    await waitFor(() =>
+      expect(
+        calls.filter((c) => c.key === `PUT /lodging/properties/${H1}/notes`).map((c) => c.body),
+      ).toEqual([{ unitId: R2, night: '2026-11-09', text: 'Đã sửa vòi' }]),
+    );
+  });
+
   it('offers no "Sửa ghi chú" in the tooltip without orders.manage', async () => {
     can.value = false;
     stubApi();

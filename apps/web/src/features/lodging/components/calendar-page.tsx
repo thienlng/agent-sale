@@ -15,6 +15,7 @@ import type { BookingCreateInitial } from '../hooks/use-booking-draft';
 import { type CalendarSelection, useCalendarSelection } from '../hooks/use-calendar-selection';
 import { type AvailabilityOptionData, bestOptions, hasFreeNight } from '../lib/calendar-model';
 import { addDays, dayMonth, nightList, todayNight } from '../lib/format';
+import type { NoteFocus } from './booking-night-notes';
 import { BookingSheet } from './booking-sheet';
 import { CalendarGrid } from './calendar-grid';
 import { CalendarMobile } from './calendar-mobile';
@@ -24,7 +25,7 @@ import { FindAvailabilityBar } from './find-availability-bar';
 
 type SheetState =
   | { mode: 'create'; initial: BookingCreateInitial; key: number }
-  | { mode: 'view'; bookingId: string; noteNight?: string; key: number }
+  | { mode: 'view'; bookingId: string; noteAt?: NoteFocus; key: number }
   | null;
 
 /**
@@ -88,11 +89,11 @@ export function CalendarPage({ initialFrom }: { initialFrom?: string }) {
         }),
       ...(canManage
         ? {
-            onEditNightNote: (bookingId: string, night: string) =>
+            onEditNightNote: (bookingId: string, noteAt: NoteFocus) =>
               setSheet((s) => ({
                 mode: 'view',
                 bookingId,
-                noteNight: night,
+                noteAt,
                 key: (s?.key ?? 0) + 1,
               })),
             onHold: (o: AvailabilityOptionData) =>
@@ -249,7 +250,7 @@ export function CalendarPage({ initialFrom }: { initialFrom?: string }) {
           mode="view"
           open
           bookingId={sheet.bookingId}
-          {...(sheet.noteNight ? { noteNight: sheet.noteNight } : {})}
+          {...(sheet.noteAt ? { noteAt: sheet.noteAt } : {})}
           onOpenChange={(open) => !open && setSheet(null)}
         />
       )}

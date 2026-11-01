@@ -12,6 +12,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 import type { BookingCreateInitial } from '../hooks/use-booking-draft';
 import { BookingCreateForm } from './booking-create-form';
+import type { NoteFocus } from './booking-night-notes';
 import { BookingView, BookingViewTitle } from './booking-view';
 
 export type { BookingCreateInitial };
@@ -34,8 +35,8 @@ export type BookingSheetProps = {
   | {
       mode: 'view';
       bookingId: string;
-      /** Open the "Ghi chú ngày" editor on this night (the calendar's "Sửa ghi chú"). */
-      noteNight?: string;
+      /** Open the "Ghi chú ngày" editor on this night and unit (the calendar's "Sửa ghi chú"). */
+      noteAt?: NoteFocus;
     }
 );
 
@@ -73,7 +74,7 @@ export function BookingSheet(props: BookingSheetProps) {
             <BookingView
               key={props.bookingId}
               bookingId={props.bookingId}
-              focusNoteNight={props.noteNight}
+              focusNote={props.noteAt}
             />
           ))}
       </SheetContent>

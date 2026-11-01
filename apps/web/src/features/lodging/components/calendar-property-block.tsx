@@ -13,6 +13,7 @@ import type {
 } from '../lib/calendar-model';
 import { segmentSpans, takenByNight } from '../lib/calendar-model';
 import { clockTime, dayMonth, formatShortVnd, formatVnd, weekdayLong } from '../lib/format';
+import type { NoteFocus } from './booking-night-notes';
 import { STATUS_STYLE } from './booking-status-badge';
 import { BookingQuickView, CellTip, InternalNoteCard, NightNoteTip } from './calendar-quick-view';
 
@@ -21,8 +22,11 @@ export interface CellHandlers {
   onPointerDown: (cell: CellRef) => void;
   onPointerEnter: (cell: CellRef) => void;
   onOpenBooking: (bookingId: string) => void;
-  /** Opens the booking sheet on its "Ghi chú ngày" for that night; absent without orders.manage. */
-  onEditNightNote?: (bookingId: string, night: string) => void;
+  /**
+   * Opens the booking sheet on its "Ghi chú ngày" for that night and the cell's unit (a room, or
+   * null for the property); absent without orders.manage.
+   */
+  onEditNightNote?: (bookingId: string, at: NoteFocus) => void;
   onToggle: (propertyId: string) => void;
   /** Absent for members who cannot create bookings: no "Giữ chỗ" pill. */
   onHold?: (option: AvailabilityOptionData) => void;
@@ -117,7 +121,13 @@ function UnitRow({
                     segment={seg}
                     nightNote={note}
                     {...(p.handlers.onEditNightNote
-                      ? { onEditNote: () => p.handlers.onEditNightNote?.(seg.bookingId, night) }
+                      ? {
+                          onEditNote: () =>
+                            p.handlers.onEditNightNote?.(seg.bookingId, {
+                              night,
+                              unitId: room ? row.unitId : null,
+                            }),
+                        }
                       : {})}
                   />
                 }

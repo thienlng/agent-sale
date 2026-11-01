@@ -19,20 +19,25 @@ const MAX_CALENDAR_NIGHTS = 62;
 /** Element id of the section, so the calendar can scroll the booking sheet to it. */
 export const NIGHT_NOTES_SECTION_ID = 'booking-night-notes';
 
-type Editor = { nights: ReadonlySet<string>; text: string };
+/** The open editor: its nights, its text and the units it writes (null = the property). */
+type Editor = { nights: ReadonlySet<string>; text: string; targets: Array<string | null> };
+
+/** A night to edit from the calendar: the night and the unit of the clicked cell. */
+export type NoteFocus = { night: string; unitId: string | null };
 
 /**
  * "Ghi chú ngày" of a booking: the staff-only notes on its nights (its rooms, or the property
- * for a whole booking), with add / edit / delete for `orders.manage`. One text is written to
- * every chosen night, as in the create sheet. `focusNight` (from the calendar tooltip) opens
- * the editor on that night and moves focus here.
+ * for a whole booking, plus the room notes of its rooms on a rooms property), with add / edit /
+ * delete for `orders.manage`. A new note is written to every chosen night of every target, as
+ * in the create sheet; editing a note changes only that note's unit. `focus` (from the calendar
+ * tooltip) opens the editor on that night and cell unit and moves focus here.
  */
 export function BookingNightNotes({
   booking: b,
-  focusNight,
+  focus,
 }: {
   booking: BookingDetail;
-  focusNight?: string | undefined;
+  focus?: NoteFocus | undefined;
 }) {
   const { t } = useTranslation();
   const id = useId();
@@ -50,12 +55,18 @@ export function BookingNightNotes({
   });
   const property = calendar.data?.properties.find((p) => p.id === b.propertyId);
   const targets = useMemo(() => noteTargets(property, b), [property, b]);
+  /** Units whose notes are listed: the targets, and the rooms of a whole rooms booking. */
+  const listed = useMemo(() => {
+    if (property?.sellMode !== 'rooms' || !b.whole) return targets;
+    const rooms = b.unitIds.length ? b.unitIds : property.rows.map((r) => r.unitId);
+    return [...targets, ...rooms];
+  }, [property, b.whole, b.unitIds, targets]);
   const notes = useMemo(
     () =>
       (property?.notes ?? [])
-        .filter((n) => targets.includes(n.unitId) && nights.includes(n.night))
+        .filter((n) => listed.includes(n.unitId) && nights.includes(n.night))
         .sort((x, y) => x.night.localeCompare(y.night)),
-    [property, targets, nights],
+    [property, listed, nights],
   );
   const roomName = (unitId: string | null) =>
     unitId ? (property?.rows.find((r) => r.unitId === unitId)?.name ?? '') : '';
@@ -66,22 +77,28 @@ export function BookingNightNotes({
   const focusPending = useRef(false);
   const focused = useRef(false);
 
-  const open = (chosen: string[]) =>
-    setEditor({ nights: new Set(chosen), text: existingNotes(notes, targets, chosen).prefill });
+  const open = (chosen: string[], to: Array<string | null> = targets) =>
+    setEditor({
+      nights: new Set(chosen),
+      text: existingNotes(notes, to, chosen).prefill,
+      targets: to,
+    });
 
-  // Coming from the calendar's "Sửa ghi chú": scroll here and edit that night once loaded.
+  // Coming from the calendar's "Sửa ghi chú": scroll here and edit that cell's note once loaded.
   useEffect(() => {
-    if (!focusNight || focused.current || !property) return;
+    if (!focus || focused.current || !property) return;
     focused.current = true;
     section.current?.scrollIntoView?.({ block: 'start' });
-    if (canManage && nights.includes(focusNight)) {
+    if (canManage && nights.includes(focus.night)) {
       focusPending.current = true;
+      const to = listed.includes(focus.unitId) ? [focus.unitId] : targets;
       setEditor({
-        nights: new Set([focusNight]),
-        text: existingNotes(property.notes, targets, [focusNight]).prefill,
+        nights: new Set([focus.night]),
+        text: existingNotes(property.notes, to, [focus.night]).prefill,
+        targets: to,
       });
     } else section.current?.focus();
-  }, [focusNight, property, canManage, nights, targets]);
+  }, [focus, property, canManage, nights, listed, targets]);
 
   useEffect(() => {
     if (!editor || !focusPending.current) return;
@@ -106,7 +123,7 @@ export function BookingNightNotes({
   };
 
   const chosen = editor ? nights.filter((n) => editor.nights.has(n)) : [];
-  const existing = existingNotes(notes, targets, chosen);
+  const existing = existingNotes(notes, editor?.targets ?? targets, chosen);
   const toggleNight = (night: string, on: boolean) =>
     setEditor((e) => {
       if (!e) return e;
@@ -147,14 +164,11 @@ export function BookingNightNotes({
         <ul className="grid gap-1.5">
           {notes.map((n) => {
             const room = roomName(n.unitId);
-            const date = label(n.night);
+            const date = room ? `${label(n.night)} · ${room}` : label(n.night);
             return (
               <li key={n.id} className="flex items-start gap-2">
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs tabular-nums text-muted-foreground">
-                    {date}
-                    {room && ` · ${room}`}
-                  </p>
+                  <p className="text-xs tabular-nums text-muted-foreground">{date}</p>
                   <p className="whitespace-pre-wrap">{n.text}</p>
                 </div>
                 {canManage && (
@@ -166,7 +180,7 @@ export function BookingNightNotes({
                       disabled={save.isPending}
                       onClick={() => {
                         focusPending.current = true;
-                        open([n.night]);
+                        open([n.night], [n.unitId]);
                       }}
                     >
                       <Pencil aria-hidden />
@@ -194,7 +208,8 @@ export function BookingNightNotes({
           className="grid gap-2 rounded-md border border-border p-3"
           onSubmit={(e) => {
             e.preventDefault();
-            if (chosen.length && editor.text.trim()) write(targets, chosen, editor.text.trim());
+            if (chosen.length && editor.text.trim())
+              write(editor.targets, chosen, editor.text.trim());
           }}
         >
           <fieldset className="grid gap-1.5">
@@ -232,7 +247,7 @@ export function BookingNightNotes({
                 variant="ghost"
                 className="mr-auto text-destructive hover:text-destructive"
                 disabled={save.isPending}
-                onClick={() => write(targets, chosen, '')}
+                onClick={() => write(editor.targets, chosen, '')}
               >
                 {t('lodging.sheet.deleteNote')}
               </Button>
