@@ -215,11 +215,122 @@ describe('KiotVietClient', () => {
       now: () => clock,
       sleep: async (ms) => {
         sleeps.push(ms);
+        clock += ms;
       },
     });
 
     await expect(offline.branches(creds)).rejects.toBeInstanceOf(KiotVietUnavailableError);
     expect(fetchImpl).toHaveBeenCalledTimes(4);
+  });
+
+  /** A client whose fetch answers normally but fails reading the /branches body `times` times. */
+  const withBodyFailures = (times: number): KiotVietClient => {
+    let left = times;
+    const fetchImpl: typeof fetch = async (input, init) => {
+      const res = await fetch(input, init);
+      if (String(input).includes('/branches') && left > 0) {
+        left -= 1;
+        Object.defineProperty(res, 'text', {
+          value: () => Promise.reject(new TypeError('terminated')),
+        });
+      }
+      return res;
+    };
+    return new KiotVietClient({
+      tokenUrl: fake.tokenUrl,
+      apiUrl: fake.apiUrl,
+      fetchImpl,
+      now: () => clock,
+      sleep: async (ms) => {
+        sleeps.push(ms);
+        clock += ms;
+      },
+    });
+  };
+
+  it('retries when reading the body fails, then succeeds', async () => {
+    await expect(withBodyFailures(1).branches(creds)).resolves.toHaveLength(1);
+    expect(sleeps).toEqual([1_000]);
+  });
+
+  it('maps a body that never reads to KiotVietUnavailableError', async () => {
+    await expect(withBodyFailures(99).branches(creds)).rejects.toBeInstanceOf(
+      KiotVietUnavailableError,
+    );
+    expect(sleeps).toEqual([1_000, 4_000, 15_000]);
+  });
+
+  it('honours Retry-After in seconds or as a date, capped at 60 s', async () => {
+    fake.state.apiFailures = [
+      { status: 429, retryAfter: '7' },
+      { status: 503, retryAfter: new Date(clock + 7_000 + 20_000).toUTCString() },
+      { status: 429, retryAfter: '3600' },
+    ];
+
+    await expect(client.branches(creds)).resolves.toHaveLength(1);
+    expect(sleeps).toEqual([7_000, 20_000, 60_000]);
+  });
+
+  it('falls back to the schedule when Retry-After is unusable', async () => {
+    fake.state.apiFailures = [
+      { status: 429, retryAfter: 'soon' },
+      { status: 500, retryAfter: '9' },
+    ];
+
+    await expect(client.branches(creds)).resolves.toHaveLength(1);
+    expect(sleeps).toEqual([1_000, 4_000]);
+  });
+
+  it('retries a failing token endpoint, then succeeds', async () => {
+    fake.state.tokenFailures = [500, 502];
+
+    await expect(client.branches(creds)).resolves.toHaveLength(1);
+    expect(sleeps).toEqual([1_000, 4_000]);
+  });
+
+  it('maps a token endpoint that keeps failing to KiotVietUnavailableError', async () => {
+    fake.state.tokenFailures = [500, 500, 500, 500];
+
+    await expect(client.branches(creds)).rejects.toBeInstanceOf(KiotVietUnavailableError);
+    expect(fake.apiRequests()).toHaveLength(0);
+  });
+
+  it('maps a 404 on a list endpoint to KiotVietRetailerError', async () => {
+    fake.state.apiFailures = [404];
+
+    await expect(client.branches(creds)).rejects.toBeInstanceOf(KiotVietRetailerError);
+  });
+
+  it('keeps the new secret token when an old-secret token arrives late', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const fetchImpl: typeof fetch = async (input, init) => {
+      if (String(input) === fake.tokenUrl && String(init?.body).includes('client_secret=old')) {
+        await gate;
+        return Response.json({ access_token: 'tok-old', expires_in: 86_400 });
+      }
+      return fetch(input, init);
+    };
+    const racing = new KiotVietClient({
+      tokenUrl: fake.tokenUrl,
+      apiUrl: fake.apiUrl,
+      fetchImpl,
+      now: () => clock,
+      sleep: async (ms) => {
+        clock += ms;
+      },
+    });
+
+    const stale = racing.branches({ ...creds, clientSecret: 'old' }).catch(() => undefined);
+    await racing.branches(creds);
+    release();
+    await stale;
+    await racing.branches(creds);
+
+    expect(fake.tokensIssued()).toBe(1);
+    expect(fake.apiRequests('/branches').at(-1)?.authorization).toBe('Bearer tok-1');
   });
 
   it('maps a rejected token call to KiotVietAuthError', async () => {

@@ -41,8 +41,11 @@ export interface FakeKiotVietState {
   webhooks: FakeKvWebhook[];
   /** Statuses answered, in order, by the next token calls (then normal behaviour). */
   tokenFailures: number[];
-  /** Statuses answered, in order, by the next API calls (then normal behaviour). */
-  apiFailures: number[];
+  /**
+   * Statuses answered, in order, by the next API calls (then normal behaviour); an object form
+   * adds a `Retry-After` header.
+   */
+  apiFailures: Array<number | { status: number; retryAfter?: string }>;
   /** API path prefixes answered with 403 (e.g. `/customers`). */
   forbiddenPaths: string[];
 }
@@ -153,7 +156,9 @@ export async function startFakeKiotViet(
   const guard = (req: FastifyRequest, reply: FastifyReply): boolean => {
     const failure = state.apiFailures.shift();
     if (failure) {
-      void reply.code(failure).send({ responseStatus: { errorCode: 'Fake' } });
+      const f = typeof failure === 'number' ? { status: failure } : failure;
+      if (f.retryAfter !== undefined) void reply.header('retry-after', f.retryAfter);
+      void reply.code(f.status).send({ responseStatus: { errorCode: 'Fake' } });
       return true;
     }
     const token = (req.headers.authorization ?? '').replace(/^Bearer /, '');

@@ -37,6 +37,8 @@ const log = new Logger('KiotVietClient');
 
 const TIMEOUT_MS = 15_000;
 const RETRY_DELAYS_MS = [1_000, 4_000, 15_000] as const;
+/** Upper bound for a server-sent `Retry-After`. */
+const MAX_RETRY_AFTER_MS = 60_000;
 /** Tokens are renewed this long before KiotViet says they expire. */
 const TOKEN_MARGIN_MS = 300_000;
 const DEFAULT_TOKEN_TTL_S = 86_400;
@@ -56,8 +58,14 @@ export interface KiotVietClientOptions {
 
 interface CachedToken {
   token: string;
-  secretHash: string;
   expiresAt: number;
+}
+
+/** A response whose body was read inside the retried section. */
+interface Received {
+  status: number;
+  /** Empty unless the status is 2xx. */
+  body: string;
 }
 
 interface Bucket {
@@ -75,6 +83,8 @@ interface CallOptions {
 }
 
 const sha256 = (v: string): string => createHash('sha256').update(v).digest('hex');
+/** Token cache key: a rotated secret never reuses, or is overwritten by, the old secret's token. */
+const tokenKey = (c: KvCredentials): string => `${c.clientId}\u0000${sha256(c.clientSecret)}`;
 const retryable = (status: number): boolean => status === 429 || status >= 500;
 /** `/products/12` → `products`: the resource named in a permission error. */
 const resourceOf = (path: string): string => path.split('/').filter(Boolean)[0] ?? path;
@@ -264,8 +274,7 @@ export class KiotVietClient implements KiotVietGateway {
       );
 
       if (res.status === 401) {
-        await res.body?.cancel();
-        this.forget(c.clientId, token);
+        this.forget(c, token);
         if (renewed) {
           log.warn(`KiotViet ${label} → 401 with a fresh token: unknown store`);
           throw new KiotVietRetailerError();
@@ -274,27 +283,23 @@ export class KiotVietClient implements KiotVietGateway {
         continue;
       }
       if (res.status === 403) {
-        await res.body?.cancel();
         log.warn(`KiotViet ${label} → 403`);
         throw new KiotVietPermissionError([resourceOf(path)]);
       }
       if (res.status === 404) {
-        await res.body?.cancel();
         if (opts.allowNotFound) return null;
         log.warn(`KiotViet ${label} → 404: unknown store`);
         throw new KiotVietRetailerError();
       }
-      if (!res.ok) {
-        await res.body?.cancel();
+      if (res.status < 200 || res.status >= 300) {
         log.warn(`KiotViet ${label} → ${res.status}`);
         throw new KiotVietUnavailableError();
       }
-      return this.json(res, label);
+      return this.json(res.body, label);
     }
   }
 
-  private async json(res: Response, label: string): Promise<unknown> {
-    const body = await res.text();
+  private json(body: string, label: string): unknown {
     if (!body) return null;
     try {
       return JSON.parse(body) as unknown;
@@ -304,51 +309,69 @@ export class KiotVietClient implements KiotVietGateway {
     }
   }
 
-  /** Fetch with timeout and backoff on 429, 5xx and network errors. */
+  /**
+   * Fetch with timeout and backoff on 429, 5xx and network errors. The body is read inside the
+   * retried section, so a timeout or a dropped connection while it streams is retried too.
+   */
   private async send(
     label: string,
     url: string,
     init: RequestInit,
     budgetKey?: string,
-  ): Promise<Response> {
+  ): Promise<Received> {
     for (let attempt = 0; ; attempt += 1) {
       if (budgetKey !== undefined) await this.takeBudget(budgetKey);
       let outcome: string;
+      let retryAfterMs: number | undefined;
       try {
         const res = await this.fetchImpl(url, { ...init, signal: AbortSignal.timeout(TIMEOUT_MS) });
-        if (!retryable(res.status)) return res;
+        if (!retryable(res.status)) {
+          if (res.ok) return { status: res.status, body: await res.text() };
+          await res.body?.cancel();
+          return { status: res.status, body: '' };
+        }
         await res.body?.cancel();
         outcome = String(res.status);
+        if (res.status === 429 || res.status === 503) {
+          retryAfterMs = this.retryAfter(res.headers.get('retry-after'));
+        }
       } catch (error) {
         outcome = error instanceof Error ? error.name : 'network error';
       }
-      const delay = RETRY_DELAYS_MS[attempt];
-      if (delay === undefined) {
+      const scheduled = RETRY_DELAYS_MS[attempt];
+      if (scheduled === undefined) {
         log.warn(`KiotViet ${label} → ${outcome}; giving up after ${attempt} retries`);
         throw new KiotVietUnavailableError();
       }
+      const delay = retryAfterMs ?? scheduled;
       log.warn(`KiotViet ${label} → ${outcome}; retry ${attempt + 1} in ${delay} ms`);
       await this.sleep(delay);
     }
   }
 
-  /** Cached per client id; one token request in flight per client and secret. */
+  /** `Retry-After` in seconds or as an HTTP date, capped at 60 s; undefined when unusable. */
+  private retryAfter(header: string | null): number | undefined {
+    if (!header) return undefined;
+    const value = header.trim();
+    const ms = /^\d+$/.test(value) ? Number(value) * 1000 : Date.parse(value) - this.now();
+    if (!Number.isFinite(ms) || ms < 0) return undefined;
+    return Math.min(ms, MAX_RETRY_AFTER_MS);
+  }
+
+  /** Cached per client id and secret; one token request in flight per pair. */
   private token(c: KvCredentials): Promise<string> {
-    const secretHash = sha256(c.clientSecret);
-    const cached = this.tokens.get(c.clientId);
-    if (cached && cached.secretHash === secretHash && cached.expiresAt > this.now()) {
-      return Promise.resolve(cached.token);
-    }
-    const key = `${c.clientId}\u0000${secretHash}`;
+    const key = tokenKey(c);
+    const cached = this.tokens.get(key);
+    if (cached && cached.expiresAt > this.now()) return Promise.resolve(cached.token);
     let pending = this.pendingTokens.get(key);
     if (!pending) {
-      pending = this.requestToken(c, secretHash).finally(() => this.pendingTokens.delete(key));
+      pending = this.requestToken(c, key).finally(() => this.pendingTokens.delete(key));
       this.pendingTokens.set(key, pending);
     }
     return pending;
   }
 
-  private async requestToken(c: KvCredentials, secretHash: string): Promise<string> {
+  private async requestToken(c: KvCredentials, key: string): Promise<string> {
     const res = await this.send('POST /connect/token', this.options.tokenUrl, {
       method: 'POST',
       headers: {
@@ -363,27 +386,25 @@ export class KiotVietClient implements KiotVietGateway {
       }).toString(),
     });
     if (res.status === 400 || res.status === 401) {
-      await res.body?.cancel();
       log.warn(`KiotViet token → ${res.status}: client id or secret rejected`);
       throw new KiotVietAuthError();
     }
-    if (!res.ok) {
-      await res.body?.cancel();
+    if (res.status < 200 || res.status >= 300) {
       log.warn(`KiotViet token → ${res.status}`);
       throw new KiotVietUnavailableError();
     }
-    const parsed = this.parse(TokenSchema, await this.json(res, 'POST /connect/token'), 'token');
+    const parsed = this.parse(TokenSchema, this.json(res.body, 'POST /connect/token'), 'token');
     const ttlMs = (parsed.expires_in ?? DEFAULT_TOKEN_TTL_S) * 1000;
-    this.tokens.set(c.clientId, {
+    this.tokens.set(key, {
       token: parsed.access_token,
-      secretHash,
       expiresAt: this.now() + ttlMs - TOKEN_MARGIN_MS,
     });
     return parsed.access_token;
   }
 
-  private forget(clientId: string, token: string): void {
-    if (this.tokens.get(clientId)?.token === token) this.tokens.delete(clientId);
+  private forget(c: KvCredentials, token: string): void {
+    const key = tokenKey(c);
+    if (this.tokens.get(key)?.token === token) this.tokens.delete(key);
   }
 
   /** In-memory token bucket per store; waits instead of failing. */

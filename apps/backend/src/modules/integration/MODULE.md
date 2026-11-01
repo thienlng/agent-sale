@@ -27,9 +27,10 @@ truth (ADR-017, spec `docs/superpowers/specs/2026-11-01-pms-kiotviet-design.md`)
   onHand − reserved), missing branches count 0), webhook signature (`signature.ts`, constant-time HMAC-SHA256)
   and store-name parsing (`retailer.ts`).
 - `KIOTVIET_GATEWAY` (`application/ports/kiotviet-gateway.ts`) is the only way to KiotViet; the adapter
-  `infrastructure/clients/kiotviet-client.ts` caches one token per client id (renewed 300 s before expiry,
-  one request in flight), renews once on 401 (a second 401 → `kiotviet_retailer`), maps 403 to
-  `kiotviet_permission`, retries 429/5xx/timeouts (15 s) after 1 s/4 s/15 s, and spends an in-memory budget
+  `infrastructure/clients/kiotviet-client.ts` caches one token per client id and secret (renewed 300 s before
+  expiry, one request in flight), renews once on 401 (a second 401 → `kiotviet_retailer`), maps 403 to
+  `kiotviet_permission`, retries 429/5xx/timeouts (15 s, body read included) after 1 s/4 s/15 s or
+  `Retry-After` (≤ 60 s), and spends an in-memory budget
   of 4 500 requests/hour per store (bursts of 10). Payloads use tolerant Zod schemas
   (`kiotviet.schemas.ts`); malformed list items are dropped and counted. Tests run against
   `__tests__/fake-kiotviet.ts`.
