@@ -4,6 +4,7 @@ import {
   desc,
   eq,
   inArray,
+  isNotNull,
   isNull,
   schema,
   sql,
@@ -53,7 +54,7 @@ function foldedSql(expr: SQL): SQL {
 export function catalogTx(
   ws: WorkspaceId,
   tx: TenantTx,
-): Pick<CommerceTx, 'warehouses' | 'products' | 'botProducts' | 'inventory'> {
+): Pick<CommerceTx, 'warehouses' | 'products' | 'botProducts' | 'inventory' | 'catalogSync'> {
   /** Inserts selection rows; composite keys reject a bot or product of another workspace. */
   async function insertSelection(workspaceId: WorkspaceId, botId: string, productIds: string[]) {
     try {
@@ -139,9 +140,14 @@ export function catalogTx(
     },
 
     products: {
-      async list({ q, status, selectedFor, offset, limit }) {
+      async list({ q, status, selectedFor, source, offset, limit }) {
         const where = and(
           eq(p.status, status),
+          source === 'rapiz'
+            ? isNull(p.externalSource)
+            : source
+              ? eq(p.externalSource, source)
+              : undefined,
           q ? contains(p.searchText, q) : undefined,
           selectedFor
             ? inArray(
@@ -212,13 +218,20 @@ export function catalogTx(
         return r ? toProduct(r) : null;
       },
       async save(rec) {
+        // Undefined keeps the stored link; source and id are always written together.
+        const { external, ...fields } = rec;
+        const link =
+          external === undefined
+            ? {}
+            : { externalSource: external?.source ?? null, externalId: external?.id ?? null };
         try {
           await tx
             .insert(p)
-            .values({ ...rec, workspaceId: ws })
+            .values({ ...fields, ...link, workspaceId: ws })
             .onConflictDoUpdate({
               target: p.id,
               set: {
+                ...link,
                 code: rec.code,
                 name: rec.name,
                 description: rec.description,
@@ -261,13 +274,16 @@ export function catalogTx(
             archivedAt: null,
             updatedAt: new Date(),
           };
+          // Undefined keeps the stored external id; null clears it.
+          const link = rec.externalId === undefined ? {} : { externalId: rec.externalId };
           try {
             await tx
               .insert(v)
-              .values(row)
+              .values({ ...row, ...link })
               .onConflictDoUpdate({
                 target: v.id,
                 set: {
+                  ...link,
                   sku: row.sku,
                   name: row.name,
                   price: row.price,
@@ -385,6 +401,12 @@ export function catalogTx(
           reserved: r.reserved,
         }));
       },
+      async ensureRow(workspaceId, variantId, warehouseId) {
+        await tx
+          .insert(inv)
+          .values({ workspaceId, variantId, warehouseId, onHand: 0, reserved: 0 })
+          .onConflictDoNothing({ target: [inv.variantId, inv.warehouseId] });
+      },
       async apply(workspaceId, changes: StockChange[]) {
         if (!changes.length) return;
         // One upsert per (variant, warehouse) with the summed deltas, one movement per change.
@@ -445,6 +467,97 @@ export function catalogTx(
             actorUserId: c.actorUserId,
           })),
         );
+      },
+    },
+
+    catalogSync: {
+      async findProduct(source, externalId) {
+        const [r] = await tx
+          .select()
+          .from(p)
+          .where(and(eq(p.externalSource, source), eq(p.externalId, externalId)))
+          .limit(1);
+        return r ? toProduct(r) : null;
+      },
+      async variantsByExternalIds(externalIds) {
+        if (!externalIds.length) return [];
+        const rows = await tx
+          .select({ variant: v, productSource: p.externalSource })
+          .from(v)
+          .innerJoin(p, eq(p.id, v.productId))
+          .where(inArray(v.externalId, externalIds));
+        return rows.map((r) => ({ ...toVariant(r.variant), productSource: r.productSource }));
+      },
+      async archiveAndUnlinkVariants(ids) {
+        if (!ids.length) return;
+        await tx
+          .update(v)
+          .set({ archivedAt: sql`coalesce(${v.archivedAt}, now())`, externalId: null })
+          .where(inArray(v.id, ids));
+      },
+      async codeTaken(code) {
+        const [r] = await tx
+          .select({ x: sql`1` })
+          .from(p)
+          .where(sql`lower(${p.code}) = lower(${code})`)
+          .limit(1);
+        return Boolean(r);
+      },
+      async archiveProducts(source, externalIds) {
+        if (!externalIds.length) return 0;
+        const rows = await tx
+          .update(p)
+          .set({ status: 'archived', updatedAt: new Date() })
+          .where(
+            and(
+              eq(p.externalSource, source),
+              inArray(p.externalId, externalIds),
+              eq(p.status, 'active'),
+            ),
+          )
+          .returning({ id: p.id });
+        return rows.length;
+      },
+      async release(source) {
+        const linked = tx.select({ id: p.id }).from(p).where(eq(p.externalSource, source));
+        await tx
+          .update(v)
+          .set({ externalId: null, updatedAt: new Date() })
+          .where(and(isNotNull(v.externalId), inArray(v.productId, linked)));
+        const rows = await tx
+          .update(p)
+          .set({ externalSource: null, externalId: null, updatedAt: new Date() })
+          .where(eq(p.externalSource, source))
+          .returning({ id: p.id });
+        return rows.length;
+      },
+      async count(source) {
+        const [c] = await tx
+          .select({ c: sql<number>`count(*)` })
+          .from(p)
+          .where(eq(p.externalSource, source));
+        return n(c?.c);
+      },
+      async previewMatch(lowerCodes) {
+        const live = and(
+          isNull(v.archivedAt),
+          lowerCodes.length ? inArray(sql`lower(${v.sku})`, lowerCodes) : sql`false`,
+        );
+        const [matched] = await tx
+          .select({ c: sql<number>`count(distinct lower(${v.sku}))` })
+          .from(v)
+          .where(live);
+        const [rapizOnly] = await tx
+          .select({ c: sql<number>`count(*)` })
+          .from(p)
+          .where(
+            and(
+              eq(p.status, 'active'),
+              isNull(p.externalSource),
+              sql`not exists (select 1 from ${v} where ${v.productId} = ${p.id} and ${live})`,
+            ),
+          );
+        return { matched: n(matched?.c), rapizOnly: n(rapizOnly?.c) };
       },
     },
   };

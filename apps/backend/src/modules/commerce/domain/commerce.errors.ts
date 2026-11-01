@@ -172,3 +172,14 @@ export class ApprovalUndoNotAllowedError extends DomainError {
     super('This approval can no longer be undone', { reason: 'UNDO_NOT_ALLOWED' });
   }
 }
+
+/** A product synced from a PMS: its linked fields and its stock are edited in the PMS (ADR-017). */
+export class ExternalSourceLockedError extends DomainError {
+  readonly code = 'CONFLICT';
+  constructor(field: string) {
+    super('This product is synced from the PMS; change it there', {
+      reason: 'EXTERNAL_SOURCE',
+      field,
+    });
+  }
+}

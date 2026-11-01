@@ -10,6 +10,10 @@ import { IdentityModule } from '../identity/identity.module.js';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
 import { COMMERCE_FACADE } from './api/commerce.facade.js';
 import { CATALOG_FACADE } from './api/catalog.facade.js';
+import { CATALOG_SYNC_FACADE } from './api/catalog-sync.facade.js';
+import { CatalogSyncService } from './application/catalog-sync.service.js';
+import { EXTERNAL_IMAGE_DOWNLOADER } from './application/ports/external-image-downloader.js';
+import { downloadExternalImage } from './infrastructure/image-import/download-image.js';
 import { CatalogService } from './application/catalog.service.js';
 import { PRODUCT_IMAGE_STORAGE } from './application/ports/product-image-storage.js';
 import { ProductImageService } from './application/product-image.service.js';
@@ -69,7 +73,10 @@ import { CommerceUnavailableError } from './domain/commerce.errors.js';
     CommerceFacadeImpl,
     { provide: COMMERCE_FACADE, useExisting: CommerceFacadeImpl },
     { provide: CATALOG_FACADE, useExisting: CatalogService },
+    { provide: EXTERNAL_IMAGE_DOWNLOADER, useValue: downloadExternalImage },
+    CatalogSyncService,
+    { provide: CATALOG_SYNC_FACADE, useExisting: CatalogSyncService },
   ],
-  exports: [COMMERCE_FACADE, CATALOG_FACADE],
+  exports: [COMMERCE_FACADE, CATALOG_FACADE, CATALOG_SYNC_FACADE],
 })
 export class CommerceModule {}

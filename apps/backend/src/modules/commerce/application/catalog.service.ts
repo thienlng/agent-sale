@@ -28,8 +28,10 @@ import {
   WarehouseInUseError,
   WarehouseNotFoundError,
   CommerceUnavailableError,
+  ExternalSourceLockedError,
   ImageNotUploadedError,
 } from '../domain/commerce.errors.js';
+import { lockedChange } from '../domain/external-lock.js';
 import { ownImageProblem } from '../domain/own-image.js';
 import {
   COMMERCE_STORE,
@@ -83,8 +85,7 @@ function toProductDto(
     priceMin: prices.length ? Math.min(...prices) : 0,
     priceMax: prices.length ? Math.max(...prices) : 0,
     available: dtoVariants.reduce((n, v) => n + v.stock.reduce((m, s) => m + s.available, 0), 0),
-    // Filled from the external-link columns by the PMS sync work (ADR-017).
-    external: null,
+    external: p.external ?? null,
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),
   };
@@ -275,6 +276,8 @@ export class CatalogService {
       pageSize: number;
       /** Only the products selected for this bot (internal: bots in 'selected' mode). */
       selectedFor?: string | undefined;
+      /** `kiotviet`: synced from KiotViet; `rapiz`: managed in Rapiz. */
+      source?: 'kiotviet' | 'rapiz' | undefined;
     },
   ): Promise<ProductListResponse> {
     return this.store.run(ws, async (tx) => {
@@ -282,6 +285,7 @@ export class CatalogService {
         q: query.q ? foldVietnamese(query.q) : undefined,
         status: query.status,
         selectedFor: query.selectedFor,
+        source: query.source,
         offset: (query.page - 1) * query.pageSize,
         limit: query.pageSize,
       });
@@ -327,6 +331,7 @@ export class CatalogService {
         botInstructions: input.botInstructions,
         imageUrls: input.imageUrls,
         accommodation: input.accommodation ?? null,
+        external: null,
         searchText: productSearchText(input, input.variants),
         createdAt: now,
         updatedAt: now,
@@ -391,6 +396,11 @@ export class CatalogService {
       if (current.accommodation && input.variants.length !== 1)
         throw new LodgingError('VALIDATION_FAILED', 'An entire property has one catalog unit');
       const existing = (await tx.products.variantsOf([id])).filter((v) => !v.archived);
+      // A PMS-synced product: only the Rapiz-owned fields may change (ADR-017).
+      if (current.external) {
+        const field = lockedChange({ ...current, variants: existing }, input);
+        if (field) throw new ExternalSourceLockedError(field);
+      }
       const known = new Map(existing.map((v) => [v.id, v]));
       const kept = new Set<string>();
       const variants: VariantRecord[] = input.variants.map((v, position) => {
@@ -406,6 +416,8 @@ export class CatalogService {
           weightGram: v.weightGram,
           position,
           archived: false,
+          // A kept variant keeps its PMS link; a new one has none.
+          externalId: prior?.externalId ?? null,
         };
       });
       // Archive first so a SKU can move from a removed variant to a new one.
@@ -448,6 +460,8 @@ export class CatalogService {
         (v) => v.id === input.variantId && !v.archived,
       );
       if (!variant) throw new ProductNotFoundError(input.variantId);
+      // The PMS owns the stock of a synced product.
+      if (product.external) throw new ExternalSourceLockedError('stock');
       await this.#warehouse(tx, input.warehouseId);
       // Locked so an order shipping at the same moment cannot skew the counted value.
       const current = await tx.inventory.lockStock(variant.id, input.warehouseId);

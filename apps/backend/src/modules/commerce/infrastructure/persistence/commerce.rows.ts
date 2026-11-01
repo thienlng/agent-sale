@@ -59,6 +59,10 @@ export function toProduct(r: typeof p.$inferSelect): ProductRecord {
     botInstructions: r.botInstructions,
     imageUrls: r.imageUrls,
     accommodation: r.accommodation ? AccommodationDetails.parse(r.accommodation) : null,
+    external:
+      r.externalSource === 'kiotviet' && r.externalId
+        ? { source: r.externalSource, id: r.externalId }
+        : null,
     searchText: r.searchText,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
@@ -76,6 +80,7 @@ export function toVariant(r: typeof v.$inferSelect): VariantRecord {
     weightGram: r.weightGram,
     position: r.position,
     archived: r.archivedAt !== null,
+    externalId: r.externalId,
   };
 }
 

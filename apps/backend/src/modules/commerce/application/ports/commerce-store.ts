@@ -8,6 +8,7 @@ import type {
   OrderSummaryDto,
 } from '@agent-sales/contracts';
 
+import type { ExternalSource } from '../../api/catalog-sync.facade.js';
 import type { OrderStatus, StockState } from '../../domain/order-stock.js';
 
 /** Plain records the commerce use cases work with. Money is integer VND. */
@@ -31,6 +32,11 @@ export interface VariantRecord {
   weightGram: number;
   position: number;
   archived: boolean;
+  /**
+   * PMS id of this variant (ADR-017); its source is the product's. Undefined on a write keeps the
+   * stored value; null clears it.
+   */
+  externalId?: string | null | undefined;
 }
 
 export interface ProductRecord {
@@ -44,6 +50,11 @@ export interface ProductRecord {
   botInstructions: string;
   imageUrls: string[];
   accommodation?: AccommodationDetails | null;
+  /**
+   * The PMS record this product is synced from (ADR-017). Undefined on a write keeps the stored
+   * link; null clears it. Source and id are always set together.
+   */
+  external?: { source: ExternalSource; id: string } | null | undefined;
   searchText: string;
   createdAt: Date;
   updatedAt: Date;
@@ -64,7 +75,7 @@ export interface StockChange {
   onHandDelta: number;
   reservedDelta: number;
   reason: MovementReason;
-  refType: 'order' | 'stocktake';
+  refType: 'order' | 'stocktake' | 'external';
   refId: string | null;
   actorUserId: string | null;
 }
@@ -285,6 +296,8 @@ export interface CommerceTx {
       status: string;
       /** Only the products selected for this bot. */
       selectedFor?: string | undefined;
+      /** `kiotviet`: linked to that PMS; `rapiz`: not linked to any. */
+      source?: 'kiotviet' | 'rapiz' | undefined;
       offset: number;
       limit: number;
     }): Promise<{
@@ -350,6 +363,30 @@ export interface CommerceTx {
     lockStock(variantId: string, warehouseId: string): Promise<StockRecord | null>;
     /** Applies the deltas and appends one movement per change. */
     apply(workspaceId: WorkspaceId, changes: StockChange[]): Promise<void>;
+    /** Creates an empty stock row (on hand 0) when there is none; no movement (nothing moved). */
+    ensureRow(workspaceId: WorkspaceId, variantId: string, warehouseId: string): Promise<void>;
+  };
+  /** Link columns of PMS-synced products and variants (ADR-017). */
+  catalogSync: {
+    findProduct(source: ExternalSource, externalId: string): Promise<ProductRecord | null>;
+    /** Variants carrying these external ids, archived ones included, with their product's link. */
+    variantsByExternalIds(
+      externalIds: string[],
+    ): Promise<Array<VariantRecord & { productSource: string | null }>>;
+    /** Archives the variants and clears their external ids. */
+    archiveAndUnlinkVariants(ids: string[]): Promise<void>;
+    /** Whether a product (any status) already has this code, case-insensitive. */
+    codeTaken(code: string): Promise<boolean>;
+    /** Archives the linked products with these external ids; returns how many changed. */
+    archiveProducts(source: ExternalSource, externalIds: string[]): Promise<number>;
+    /** Clears the links of the source's products and their variants; returns the products. */
+    release(source: ExternalSource): Promise<number>;
+    count(source: ExternalSource): Promise<number>;
+    /**
+     * `matched`: distinct folded codes equal to a live variant SKU; `rapizOnly`: active, unlinked
+     * products none of whose live SKUs is among the codes.
+     */
+    previewMatch(lowerCodes: string[]): Promise<{ matched: number; rapizOnly: number }>;
   };
   orders: {
     nextCode(workspaceId: WorkspaceId): Promise<string>;
