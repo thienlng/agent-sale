@@ -154,6 +154,8 @@ export const ProductDto = z.object({
   priceMax: Money,
   /** Σ available over variants and warehouses. */
   available: z.number().int(),
+  /** The PMS record this product is synced from; null for a product managed in Rapiz. */
+  external: z.object({ source: z.literal('kiotviet'), id: z.string() }).nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });
@@ -201,6 +203,8 @@ export type UpsertProductRequest = z.input<typeof UpsertProductRequest>;
 export const ProductListQuery = z.object({
   q: z.string().trim().max(100).optional(),
   status: z.enum(['active', 'archived']).default('active'),
+  /** `kiotviet`: products synced from KiotViet; `rapiz`: products managed in Rapiz. */
+  source: z.enum(['kiotviet', 'rapiz']).optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });

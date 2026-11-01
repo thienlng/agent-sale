@@ -45,6 +45,8 @@ export * from './crm/contact-query.schema.js';
 export * from './crm/crm-settings.schema.js';
 export * from './crm/crm.events.js';
 export * from './crm/crm.routes.js';
+export * from './integration/integration.schema.js';
+export * from './integration/integration.routes.js';
 export * from './bot/bot.routes.js';
 export * from './knowledge/knowledge.schema.js';
 export * from './webchat/webchat.schema.js';

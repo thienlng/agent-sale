@@ -38,6 +38,7 @@ const product = (n: number, over: Partial<ProductDto> = {}): ProductDto => ({
   priceMin: 1000 * n,
   priceMax: 1000 * n,
   available: 2,
+  external: null,
   createdAt: new Date(0).toISOString(),
   updatedAt: new Date(0).toISOString(),
   ...over,
