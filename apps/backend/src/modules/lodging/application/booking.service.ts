@@ -19,7 +19,11 @@ import { quoteStay, resolveUnits } from '../domain/quote.js';
 import {
   expireHolds,
   loadContext,
+  keptTotals,
   manualTotalForEdit,
+  assertEditable,
+  sameSet,
+  shortenStay,
   publishStatus,
   toBookingDtos,
   totals,
@@ -53,18 +57,6 @@ const AUDIT_ACTIONS: Record<Action, string> = {
   extend_hold: 'lodging.booking.hold_extended',
   remove_block: 'lodging.booking.block_removed',
 };
-/** Fields a checked-in stay may still change (besides `version`). */
-const IN_HOUSE_FIELDS = new Set(['version', 'checkOut']);
-/** Fields that make no sense on a block. */
-const STAY_ONLY_FIELDS = [
-  'party',
-  'guestName',
-  'guestPhone',
-  'adjustment',
-  'adjustmentReason',
-  'manualTotalSell',
-] as const;
-
 /** Fields every new booking gets, stay or block. */
 type BookingBase = Pick<
   BookingRecord,
@@ -81,6 +73,13 @@ type BookingBase = Pick<
   | 'createdAt'
   | 'updatedAt'
 >;
+
+/** A hold that has expired (maybe lazily, in this very request) says so before any version check. */
+function assertNotExpired(b: BookingRecord): void {
+  if (b.status === 'expired') {
+    throw new LodgingError('CONFLICT', 'The hold has expired', { reason: 'HOLD_EXPIRED' });
+  }
+}
 
 function assertVersion(b: BookingRecord, version: number): void {
   if (b.version !== version) {
@@ -208,8 +207,9 @@ export class BookingService {
 
   /**
    * Edits a booking. Holds, confirmed stays and active blocks change freely; a checked-in stay
-   * only moves its check-out. Units and nights are re-taken in the same transaction, so a
-   * conflict leaves the old nights in place.
+   * only moves its check-out and corrects its price. Only a change of dates, units or party
+   * re-prices the stay; any other edit keeps the stored quote and nights. Units and nights are
+   * re-taken in the same transaction, so a conflict leaves the old nights in place.
    */
   async update(
     ws: WorkspaceId,
@@ -222,31 +222,28 @@ export class BookingService {
       const now = new Date();
       await expireHolds(tx, now);
       const b = await this.find(tx, id, true);
+      assertNotExpired(b);
       assertVersion(b, req.version);
       const inHouse = b.status === 'checked_in';
-      if (inHouse) {
-        const others = Object.keys(req).filter(
-          (k) => !IN_HOUSE_FIELDS.has(k) && req[k as keyof UpdateBookingRequest] !== undefined,
-        );
-        if (others.length > 0) {
-          throw new LodgingError('CONFLICT', 'A checked-in stay can only change its check-out', {
-            fields: others,
-          });
-        }
-      } else if (!['hold', 'confirmed', 'active'].includes(b.status)) {
-        throw new LodgingError('CONFLICT', `A ${b.status} booking cannot be edited`);
-      }
-      if (b.kind === 'block' && STAY_ONLY_FIELDS.some((k) => req[k] !== undefined)) {
-        throw new LodgingError('VALIDATION_FAILED', 'A block has no guest, party or price');
-      }
+      assertEditable(b, req);
       const ctx = await loadContext(tx, b.propertyId);
       const checkIn = req.checkIn ?? b.checkIn;
       const checkOut = req.checkOut ?? b.checkOut;
       const nights = nightsBetween(checkIn, checkOut);
       const whole = req.whole ?? b.whole;
-      const unitIds = inHouse
-        ? b.unitIds
-        : resolveUnits(ctx.property, ctx.units, { whole, unitIds: req.unitIds ?? b.unitIds });
+      const party = req.party ?? { adults: b.adults, childAges: b.childAges };
+      const datesChanged = checkIn !== b.checkIn || checkOut !== b.checkOut;
+      const unitsChanged =
+        !inHouse &&
+        (whole !== b.whole ||
+          (!whole && req.unitIds !== undefined && !sameSet(req.unitIds, b.unitIds)));
+      const partyChanged = party.adults !== b.adults || !sameSet(party.childAges, b.childAges);
+      // Only a change of dates or units re-takes nights (and re-resolves a whole rental's rooms).
+      const retake = datesChanged || unitsChanged;
+      const unitIds =
+        retake && !inHouse
+          ? resolveUnits(ctx.property, ctx.units, { whole, unitIds: req.unitIds ?? b.unitIds })
+          : b.unitIds;
       let next: BookingRecord = {
         ...b,
         checkIn,
@@ -258,21 +255,6 @@ export class BookingService {
         updatedAt: now.toISOString(),
       };
       if (b.kind === 'stay') {
-        const party = req.party ?? { adults: b.adults, childAges: b.childAges };
-        const quote = quoteStay(ctx.property, ctx.units, ctx.rates, {
-          whole,
-          unitIds,
-          checkIn,
-          checkOut,
-          adults: party.adults,
-          childAges: party.childAges,
-        });
-        const manual = manualTotalForEdit(
-          b,
-          { checkIn, checkOut, unitIds, ...party },
-          req.manualTotalSell,
-          inHouse,
-        );
         const adjustment = req.adjustment ?? b.adjustment;
         next = {
           ...next,
@@ -282,12 +264,28 @@ export class BookingService {
           guestPhone: req.guestPhone ?? b.guestPhone,
           adjustment,
           adjustmentReason: req.adjustmentReason ?? b.adjustmentReason,
-          quote,
-          ...totals(quote, manual, adjustment),
         };
+        if (retake || partyChanged) {
+          // The stay itself changed: price it at today's rates (or the manual price staff chose).
+          const quote = quoteStay(ctx.property, ctx.units, ctx.rates, {
+            whole,
+            unitIds,
+            checkIn,
+            checkOut,
+            adults: party.adults,
+            childAges: party.childAges,
+          });
+          const manual = manualTotalForEdit(b, req.manualTotalSell);
+          next = { ...next, quote, ...totals(quote, manual, adjustment) };
+        } else {
+          // Same stay: keep the agreed quote; only a new adjustment or manual price moves the total.
+          next = { ...next, ...keptTotals(b, req.manualTotalSell, adjustment) };
+        }
       }
-      await tx.releaseNights(b.id);
-      await tx.takeNights(b.id, unitIds, nights);
+      if (retake) {
+        await tx.releaseNights(b.id);
+        await tx.takeNights(b.id, unitIds, nights);
+      }
       await tx.updateBooking(next);
       await tx.audit(
         actor.id,
@@ -322,6 +320,7 @@ export class BookingService {
       const now = new Date();
       await expireHolds(tx, now);
       const b = await this.find(tx, id, true);
+      assertNotExpired(b);
       assertVersion(b, req.version);
       const status = nextStatus(b.kind, b.status, req.action, localToday(now), b.checkIn);
       let holdExpiresAt = b.holdExpiresAt;
@@ -331,13 +330,15 @@ export class BookingService {
       } else if (req.action === 'confirm') {
         holdExpiresAt = null;
       }
-      const next: BookingRecord = {
+      let next: BookingRecord = {
         ...b,
         status,
         holdExpiresAt,
         version: b.version + 1,
         updatedAt: now.toISOString(),
       };
+      const early = req.action === 'check_out' ? await shortenStay(tx, next, now) : null;
+      if (early) next = early;
       if (RELEASING.has(status)) await tx.releaseNights(b.id);
       await tx.updateBooking(next);
       await tx.audit(
@@ -350,6 +351,7 @@ export class BookingService {
           to: status,
           ...(req.reason ? { reason: req.reason } : {}),
           ...(req.action === 'extend_hold' ? { holdExpiresAt } : {}),
+          ...(early ? { checkOut: { from: b.checkOut, to: early.checkOut } } : {}),
         },
         actor.name,
       );

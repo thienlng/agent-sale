@@ -502,11 +502,35 @@ describe('lodging v2 bookings over HTTP', () => {
       await call(o.headers, 'POST', `${path}/status`, { version: 1, action: 'check_in' }),
       BookingDetail,
     );
+    const noChoice = await call(o.headers, 'PATCH', path, { version: 2, checkOut: night(3) });
+    expect(noChoice.statusCode, noChoice.body).toBe(400);
+    expect(noChoice.json()).toMatchObject({ error: { details: { field: 'manualTotalSell' } } });
     const longer = await ok(
-      await call(o.headers, 'PATCH', path, { version: 2, checkOut: night(3) }),
+      await call(o.headers, 'PATCH', path, {
+        version: 2,
+        checkOut: night(3),
+        manualTotalSell: 21_000_000,
+        adjustment: -500_000,
+        adjustmentReason: 'Loyal guest',
+      }),
       BookingDetail,
     );
-    expect(longer).toMatchObject({ checkOut: night(3), totalSell: 15_000_000 });
+    expect(longer).toMatchObject({
+      checkOut: night(3),
+      totalSell: 20_500_000,
+      adjustmentReason: 'Loyal guest',
+    });
+    const automatic = await ok(
+      await call(o.headers, 'PATCH', path, {
+        version: 3,
+        checkOut: night(2),
+        manualTotalSell: null,
+      }),
+      BookingDetail,
+    );
+    expect(automatic).toMatchObject({ checkOut: night(2), totalSell: 17_500_000 });
+    const guest = await call(o.headers, 'PATCH', path, { version: 4, guestName: 'Someone else' });
+    expect(guest.statusCode).toBe(409);
   });
 
   it('moving dates re-takes the nights atomically; a conflict keeps the old nights', async () => {
@@ -546,6 +570,257 @@ describe('lodging v2 bookings over HTTP', () => {
       [a.code, night(11), night(14)],
       [other.code, night(14), night(16)],
     ]);
+  });
+
+  it('an edit that keeps dates, units and party keeps the stored quote and nights', async () => {
+    const o = await signup();
+    const p = await villa(o.headers);
+    const b = await book(o.headers, stay(p.id, 10, 12, { status: 'confirmed' }));
+    expect(b.totalSell).toBe(18_000_000);
+    const path = `/lodging/bookings/${b.id}`;
+    const adjusted = await ok(
+      await call(o.headers, 'PATCH', path, {
+        version: 1,
+        adjustment: -1_000_000,
+        adjustmentReason: 'Repeat guest',
+      }),
+      BookingDetail,
+    );
+    expect(adjusted).toMatchObject({ totalSell: 17_000_000, adjustment: -1_000_000 });
+    expect(adjusted.quote).toEqual(b.quote);
+
+    // Today's rate changes: a note edit keeps the agreed totals.
+    const current = await ok(
+      await call(o.headers, 'GET', `/lodging/properties/${p.id}`),
+      PropertyDto,
+    );
+    await ok(
+      await call(o.headers, 'PUT', `/lodging/properties/${p.id}/rates`, {
+        version: current.version,
+        weekday: [{ unitId: null, weekdays: ALL_DAYS, sell: 11_000_000, cost: 9_000_000 }],
+        surcharges: NO_SURCHARGES,
+      }),
+      PropertyDto,
+    );
+    const noted = await ok(
+      await call(o.headers, 'PATCH', path, {
+        version: 2,
+        note: 'Late arrival',
+        guestPhone: '0911111111',
+      }),
+      BookingDetail,
+    );
+    expect(noted).toMatchObject({
+      totalSell: 17_000_000,
+      totalCost: 16_000_000,
+      note: 'Late arrival',
+    });
+    expect(noted.quote).toEqual(b.quote);
+    const cal = await calendar(o.headers, 9, 13);
+    expect(cal.properties[0]?.rows[0]?.segments.map((s) => [s.code, s.from, s.to])).toEqual([
+      [b.code, night(10), night(12)],
+    ]);
+    // A date change re-quotes at today's rate.
+    const moved = await ok(
+      await call(o.headers, 'PATCH', path, { version: 3, checkOut: night(13) }),
+      BookingDetail,
+    );
+    expect(moved.totalSell).toBe(32_000_000);
+  });
+
+  it('a note edit on a whole stay of a rooms property survives a room change', async () => {
+    const o = await signup();
+    const p = await homestay(o.headers);
+    const b = await book(o.headers, stay(p.id, 5, 7, { status: 'confirmed' }));
+    expect(b.unitIds).toHaveLength(2);
+    const [p1, p2] = p.units;
+    const current = await ok(
+      await call(o.headers, 'GET', `/lodging/properties/${p.id}`),
+      PropertyDto,
+    );
+    await ok(
+      await call(o.headers, 'PUT', `/lodging/properties/${p.id}/units`, {
+        version: current.version,
+        units: [
+          { id: p1?.id, name: 'P1', capacityAdults: 2 },
+          { id: p2?.id, name: 'P2', capacityAdults: 2, active: false },
+        ],
+      }),
+      PropertyDto,
+    );
+    const noted = await ok(
+      await call(o.headers, 'PATCH', `/lodging/bookings/${b.id}`, { version: 1, note: 'VIP' }),
+      BookingDetail,
+    );
+    expect(noted).toMatchObject({ note: 'VIP', unitIds: b.unitIds, totalSell: b.totalSell });
+  });
+
+  it('changing the rooms of a stay re-quotes and re-takes the nights', async () => {
+    const o = await signup();
+    const p = await homestay(o.headers);
+    const [p1, p2] = p.units;
+    const b = await book(o.headers, stay(p.id, 5, 7, { whole: false, unitIds: [p1?.id] }));
+    expect(b.totalSell).toBe(2_000_000);
+    const moved = await ok(
+      await call(o.headers, 'PATCH', `/lodging/bookings/${b.id}`, {
+        version: 1,
+        whole: false,
+        unitIds: [p2?.id],
+      }),
+      BookingDetail,
+    );
+    expect(moved).toMatchObject({ unitIds: [p2?.id], totalSell: 2_400_000 });
+    await book(o.headers, stay(p.id, 5, 7, { whole: false, unitIds: [p1?.id] }));
+  });
+
+  it('a missing nightly price asks for a manual price on the manualTotalSell field', async () => {
+    const o = await signup();
+    const unpriced = await homestay(o.headers, 'HS9', false);
+    const r = await call(o.headers, 'POST', '/lodging/bookings', stay(unpriced.id, 1, 2));
+    expect(r.statusCode, r.body).toBe(400);
+    expect(r.json()).toMatchObject({
+      error: { code: 'VALIDATION_FAILED', details: { field: 'manualTotalSell' } },
+    });
+  });
+
+  it('refuses adding or reactivating a room while a future whole booking holds the property', async () => {
+    const o = await signup();
+    const p = await homestay(o.headers);
+    const [p1, p2] = p.units;
+    let current = await ok(
+      await call(o.headers, 'GET', `/lodging/properties/${p.id}`),
+      PropertyDto,
+    );
+    current = await ok(
+      await call(o.headers, 'PUT', `/lodging/properties/${p.id}/units`, {
+        version: current.version,
+        units: [
+          { id: p1?.id, name: 'P1', capacityAdults: 2 },
+          { id: p2?.id, name: 'P2', capacityAdults: 2, active: false },
+        ],
+      }),
+      PropertyDto,
+    );
+    const whole = await book(o.headers, stay(p.id, 3, 5));
+    const units = [
+      { id: p1?.id, name: 'P1', capacityAdults: 2 },
+      { id: p2?.id, name: 'P2', capacityAdults: 2, active: false },
+    ];
+    for (const next of [
+      [...units, { name: 'P3', capacityAdults: 2 }],
+      [units[0], { ...units[1], active: true }],
+    ]) {
+      const r = await call(o.headers, 'PUT', `/lodging/properties/${p.id}/units`, {
+        version: current.version,
+        units: next,
+      });
+      expect(r.statusCode, r.body).toBe(409);
+      expect(r.json()).toMatchObject({
+        error: { code: 'CONFLICT', details: { codes: [whole.code] } },
+      });
+    }
+    // Renaming a room is still fine.
+    await ok(
+      await call(o.headers, 'PUT', `/lodging/properties/${p.id}/units`, {
+        version: current.version,
+        units: [{ ...units[0], name: 'Phòng 1' }, units[1]],
+      }),
+      PropertyDto,
+    );
+  });
+
+  it('checking out early shortens the stay, frees later nights and re-prices it', async () => {
+    const o = await signup();
+    const p = await villa(o.headers);
+    const auto = await book(
+      o.headers,
+      stay(p.id, 0, 3, { status: 'confirmed', adjustment: -1_000_000 }),
+    );
+    const path = `/lodging/bookings/${auto.id}/status`;
+    await ok(
+      await call(o.headers, 'POST', path, { version: 1, action: 'check_in' }),
+      BookingDetail,
+    );
+    const out = await ok(
+      await call(o.headers, 'POST', path, { version: 2, action: 'check_out' }),
+      BookingDetail,
+    );
+    // Left on the check-in day: one night is kept (check-in + 1).
+    expect(out).toMatchObject({ status: 'checked_out', checkOut: night(1), totalSell: 8_000_000 });
+    expect(out.history.at(-1)).toMatchObject({
+      action: 'lodging.booking.checked_out',
+      data: expect.objectContaining({ checkOut: { from: night(3), to: night(1) } }),
+    });
+    await book(o.headers, stay(p.id, 1, 3));
+  });
+
+  it('an early check-out of a manually priced stay keeps the manual total', async () => {
+    const o = await signup();
+    const p = await villa(o.headers);
+    const b = await book(
+      o.headers,
+      stay(p.id, 0, 4, { status: 'confirmed', manualTotalSell: 30_000_000 }),
+    );
+    const path = `/lodging/bookings/${b.id}/status`;
+    await ok(
+      await call(o.headers, 'POST', path, { version: 1, action: 'check_in' }),
+      BookingDetail,
+    );
+    const out = await ok(
+      await call(o.headers, 'POST', path, { version: 2, action: 'check_out' }),
+      BookingDetail,
+    );
+    expect(out).toMatchObject({ checkOut: night(1), totalSell: 30_000_000 });
+  });
+
+  it('a status move on a hold that just expired says the hold expired', async () => {
+    const o = await signup();
+    const p = await villa(o.headers);
+    const hold = await book(o.headers, stay(p.id, 4, 6));
+    await owner.db
+      .update(schema.lodgingBookings)
+      .set({ holdExpiresAt: new Date(Date.now() - 60_000) })
+      .where(eq(schema.lodgingBookings.id, hold.id));
+    const r = await call(o.headers, 'POST', `/lodging/bookings/${hold.id}/status`, {
+      version: hold.version,
+      action: 'confirm',
+    });
+    expect(r.statusCode, r.body).toBe(409);
+    expect(r.json()).toMatchObject({
+      error: { code: 'CONFLICT', details: { reason: 'HOLD_EXPIRED' } },
+    });
+    const edit = await call(o.headers, 'PATCH', `/lodging/bookings/${hold.id}`, {
+      version: hold.version,
+      note: 'x',
+    });
+    expect(edit.json()).toMatchObject({ error: { details: { reason: 'HOLD_EXPIRED' } } });
+  });
+
+  it('bookings of a paused property stay editable; new ones are refused', async () => {
+    const o = await signup();
+    const p = await villa(o.headers);
+    const b = await book(o.headers, stay(p.id, 4, 6));
+    const current = await ok(
+      await call(o.headers, 'GET', `/lodging/properties/${p.id}`),
+      PropertyDto,
+    );
+    await ok(
+      await call(o.headers, 'PATCH', `/lodging/properties/${p.id}`, {
+        version: current.version,
+        patch: { status: 'paused' },
+      }),
+      PropertyDto,
+    );
+    const edited = await ok(
+      await call(o.headers, 'PATCH', `/lodging/bookings/${b.id}`, {
+        version: 1,
+        checkOut: night(7),
+      }),
+      BookingDetail,
+    );
+    expect(edited.checkOut).toBe(night(7));
+    const created = await call(o.headers, 'POST', '/lodging/bookings', stay(p.id, 10, 11));
+    expect(created.statusCode, created.body).toBe(409);
   });
 
   it('blocks take nights without party or money and can be removed', async () => {

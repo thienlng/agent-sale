@@ -1,8 +1,9 @@
-import type { BookingDto, QuoteDto } from '@agent-sales/contracts';
+import type { BookingDto, QuoteDto, UpdateBookingRequest } from '@agent-sales/contracts';
 
 import type { LodgingEventType } from '../api/lodging.events.js';
 import { LodgingError } from '../domain/lodging.errors.js';
-import type { Quote } from '../domain/quote.js';
+import { addNights, localToday, nightsBetween } from '../domain/nights.js';
+import { quoteStay, type Quote } from '../domain/quote.js';
 import type { RateRule } from '../domain/rates.js';
 import type {
   BookingRecord,
@@ -114,7 +115,7 @@ export function totals(
     throw new LodgingError(
       'VALIDATION_FAILED',
       'Some nights have no price; enter a price for the stay',
-      { warnings: quote.warnings },
+      { field: 'manualTotalSell', warnings: quote.warnings },
     );
   }
   const totalSell = base + adjustment;
@@ -131,45 +132,125 @@ export function storedManualTotal(b: BookingRecord): number | null {
   return b.quote?.totalSell === base ? null : base;
 }
 
-/** What an edit may change about a stay: its dates, units and party. */
-export interface StayShape {
-  checkIn: string;
-  checkOut: string;
-  unitIds: string[];
-  adults: number;
-  childAges: number[];
+/** Same members, any order (duplicates ignored). */
+export function sameSet<T>(a: readonly T[], b: readonly T[]): boolean {
+  const x = [...a].sort();
+  const y = [...b].sort();
+  return x.length === y.length && x.every((v, i) => v === y[i]);
 }
 
-const sameList = <T>(a: readonly T[], b: readonly T[]) =>
-  a.length === b.length && a.every((x, i) => x === b[i]);
-
 /**
- * The manual price an edited stay is saved with. `requested` is the request's `manualTotalSell`
- * (undefined = not sent, null = use the quote). A stay saved with a manual price that changes its
- * dates, units or party must say which price applies: the old manual price was agreed for the old
- * stay. A checked-in stay sends no price and keeps its manual total when the check-out moves.
+ * The manual price a stay whose dates, units or party changed is saved with. `requested` is the
+ * request's `manualTotalSell` (undefined = not sent, null = use the quote). A stay saved with a
+ * manual price must say which price applies (checked-in stays too): the old manual price was
+ * agreed for the old stay.
  */
 export function manualTotalForEdit(
   b: BookingRecord,
-  next: StayShape,
   requested: number | null | undefined,
-  inHouse: boolean,
 ): number | null {
   if (requested !== undefined) return requested;
-  const stored = storedManualTotal(b);
-  if (stored === null || inHouse) return stored;
-  const changed =
-    next.checkIn !== b.checkIn ||
-    next.checkOut !== b.checkOut ||
-    next.adults !== b.adults ||
-    !sameList([...next.unitIds].sort(), [...b.unitIds].sort()) ||
-    !sameList(next.childAges, b.childAges);
-  if (changed) {
-    throw new LodgingError(
-      'VALIDATION_FAILED',
-      'The stay has a manual price; enter a price or use the automatic price',
-      { field: 'manualTotalSell' },
-    );
+  if (storedManualTotal(b) === null) return null;
+  throw new LodgingError(
+    'VALIDATION_FAILED',
+    'The stay has a manual price; enter a price or use the automatic price',
+    { field: 'manualTotalSell' },
+  );
+}
+
+/**
+ * Totals of an edit that keeps the dates, units and party: the stored base (manual price or the
+ * stored quote's total) plus the new adjustment; a requested manual price still overrides it.
+ */
+export function keptTotals(
+  b: BookingRecord,
+  requested: number | null | undefined,
+  adjustment: number,
+): { totalSell: number | null; totalCost: number | null } {
+  if (!b.quote) throw new LodgingError('CONFLICT', 'The booking has no stored quote');
+  const base =
+    requested !== undefined ? requested : b.totalSell === null ? null : b.totalSell - b.adjustment;
+  return totals(b.quote, base, adjustment);
+}
+
+/**
+ * Early check-out: a guest leaving before the booked check-out keeps the nights up to
+ * max(check-in + 1, today); later nights go back to the calendar. An automatic price is
+ * re-quoted for the shorter stay (kept when a night has no price); a manual price stays.
+ * Returns null when the guest leaves on (or after) the booked check-out.
+ */
+export async function shortenStay(
+  tx: LodgingTx,
+  b: BookingRecord,
+  now: Date,
+): Promise<BookingRecord | null> {
+  const today = localToday(now);
+  const minOut = addNights(b.checkIn, 1);
+  const checkOut = today > minOut ? today : minOut;
+  if (checkOut >= b.checkOut) return null;
+  await tx.releaseNights(b.id);
+  await tx.takeNights(b.id, b.unitIds, nightsBetween(b.checkIn, checkOut));
+  let next: BookingRecord = { ...b, checkOut };
+  if (b.kind === 'stay' && storedManualTotal(b) === null) {
+    const ctx = await loadContext(tx, b.propertyId);
+    const quote = quoteStay(ctx.property, ctx.units, ctx.rates, {
+      whole: b.whole,
+      unitIds: b.unitIds,
+      checkIn: b.checkIn,
+      checkOut,
+      adults: b.adults,
+      childAges: b.childAges,
+    });
+    if (quote.totalSell !== null) {
+      next = {
+        ...next,
+        quote,
+        totalSell: Math.max(0, quote.totalSell + b.adjustment),
+        totalCost: quote.totalCost,
+      };
+    }
   }
-  return stored;
+  return next;
+}
+
+/** Fields a checked-in stay may still change: its check-out and its price. */
+const IN_HOUSE_FIELDS = new Set([
+  'version',
+  'checkOut',
+  'manualTotalSell',
+  'adjustment',
+  'adjustmentReason',
+]);
+/** Fields that make no sense on a block. */
+const STAY_ONLY_FIELDS = [
+  'party',
+  'guestName',
+  'guestPhone',
+  'adjustment',
+  'adjustmentReason',
+  'manualTotalSell',
+] as const;
+
+/** Which bookings an edit may touch, and which fields (409 / 400 otherwise). */
+export function assertEditable(b: BookingRecord, req: UpdateBookingRequest): void {
+  const inHouse = b.status === 'checked_in';
+  if (inHouse) {
+    const others = Object.keys(req).filter(
+      (k) => !IN_HOUSE_FIELDS.has(k) && req[k as keyof UpdateBookingRequest] !== undefined,
+    );
+    if (others.length > 0) {
+      throw new LodgingError(
+        'CONFLICT',
+        'A checked-in stay can only change its check-out and price',
+        {
+          fields: others,
+        },
+      );
+    }
+  } else if (!['hold', 'confirmed', 'active'].includes(b.status)) {
+    throw new LodgingError('CONFLICT', `A ${b.status} booking cannot be edited`);
+  }
+  if (b.kind === 'block' && STAY_ONLY_FIELDS.some((k) => req[k] !== undefined)) {
+    throw new LodgingError('VALIDATION_FAILED', 'A block has no guest, party or price');
+  }
 }

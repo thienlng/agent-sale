@@ -210,7 +210,10 @@ export class PropertyService {
     });
   }
 
-  /** Replaces the rooms of a `rooms` property; a room that has bookings can only be deactivated. */
+  /**
+   * Replaces the rooms of a `rooms` property; a room that has bookings can only be deactivated,
+   * and no room is added or reactivated while a future whole-property booking exists (409).
+   */
   async replaceUnits(
     ws: WorkspaceId,
     id: string,
@@ -246,6 +249,10 @@ export class PropertyService {
         active: u.active,
         sortOrder: i,
       }));
+      const activeBefore = new Set(existing.filter((u) => u.active).map((u) => u.id));
+      if (rooms.some((u) => u.active && !activeBefore.has(u.id))) {
+        await this.assertNoFutureWholeBookings(tx, p.id);
+      }
       // The deactivated whole unit stays (it may hold past nights and is reused on a switch back).
       const units = [...existing.filter((u) => u.kind === 'whole'), ...rooms];
       await tx.replaceUnits(p.id, units);
@@ -255,6 +262,26 @@ export class PropertyService {
       });
       return toPropertyDto(saved, units, await tx.rates([p.id]));
     });
+  }
+
+  /**
+   * A whole rental took the rooms that were active when it was booked; a room added or
+   * reactivated under a future one would be sold twice, so staff must move those bookings first.
+   */
+  private async assertNoFutureWholeBookings(tx: LodgingTx, propertyId: string): Promise<void> {
+    const now = new Date();
+    await expireHolds(tx, now);
+    const today = localToday(now);
+    const whole = (await tx.bookingsInRange([propertyId], today, '9999-12-31')).filter(
+      (b) => b.whole && b.checkOut > today && b.status !== 'checked_out',
+    );
+    if (whole.length > 0) {
+      throw new LodgingError(
+        'CONFLICT',
+        'A room cannot be added or reactivated while whole-property bookings hold later nights',
+        { codes: whole.map((b) => b.code) },
+      );
+    }
   }
 
   private async assertNoFutureBookings(tx: LodgingTx, propertyId: string): Promise<void> {
