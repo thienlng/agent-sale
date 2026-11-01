@@ -21,6 +21,8 @@ export interface CellHandlers {
   onPointerDown: (cell: CellRef) => void;
   onPointerEnter: (cell: CellRef) => void;
   onOpenBooking: (bookingId: string) => void;
+  /** Opens the booking sheet on its "Ghi chú ngày" for that night; absent without orders.manage. */
+  onEditNightNote?: (bookingId: string, night: string) => void;
   onToggle: (propertyId: string) => void;
   /** Absent for members who cannot create bookings: no "Giữ chỗ" pill. */
   onHold?: (option: AvailabilityOptionData) => void;
@@ -109,7 +111,17 @@ function UnitRow({
             )}
           >
             {seg ? (
-              <CellTip content={<BookingQuickView segment={seg} nightNote={note} />}>
+              <CellTip
+                content={
+                  <BookingQuickView
+                    segment={seg}
+                    nightNote={note}
+                    {...(p.handlers.onEditNightNote
+                      ? { onEditNote: () => p.handlers.onEditNightNote?.(seg.bookingId, night) }
+                      : {})}
+                  />
+                }
+              >
                 <button
                   type="button"
                   tabIndex={-1}

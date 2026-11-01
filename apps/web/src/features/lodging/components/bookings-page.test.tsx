@@ -160,4 +160,41 @@ describe('BookingsPage tags', () => {
       ).toBe(true),
     );
   });
+
+  it('merges an NFD "Đã cọc" with the NFC suggestion and filters by the NFC tag', async () => {
+    const nfc = 'Đã cọc'.normalize('NFC');
+    const tagged = bookingFixture({
+      id: LODGING_IDS.bk1,
+      code: 'BK-0021',
+      status: 'confirmed',
+      guestName: 'Chị Lan',
+      holdExpiresAt: null,
+      tags: [nfc.normalize('NFD')],
+    });
+    const { fetchStub, calls } = stubLodgingApi({
+      'GET /lodging/bookings': { status: 200, body: { data: [tagged], nextOffset: null } },
+      'GET /lodging/properties': { status: 200, body: { data: [] } },
+      'GET /lodging/settings': { status: 200, body: { holdMinutes: 120 } },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    const user = userEvent.setup();
+    renderPage();
+    const row = (await screen.findByRole('button', { name: /BK-0021/ })).closest('tr');
+    screen.getByRole('combobox', { name: 'Nhãn' }).focus();
+    await user.keyboard('{ArrowDown}');
+    expect(await screen.findAllByRole('option', { name: nfc })).toHaveLength(1);
+    await user.keyboard('{Escape}');
+    await user.click(
+      within(row as HTMLElement).getByRole('button', { name: nfc.normalize('NFD') }),
+    );
+    await waitFor(() =>
+      expect(
+        calls.some(
+          (c) =>
+            c.key === 'GET /lodging/bookings' &&
+            new URLSearchParams(c.url.split('?')[1]).get('tag') === nfc,
+        ),
+      ).toBe(true),
+    );
+  });
 });

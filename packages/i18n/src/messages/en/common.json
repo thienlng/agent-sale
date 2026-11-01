@@ -1770,7 +1770,9 @@
       "internalNote": "Internal note of {{code}}",
       "internalNoteTitle": "Internal note",
       "quickTotal": "Total {{amount}}",
-      "quickNoPrice": "No price yet"
+      "quickNoPrice": "No price yet",
+      "editNightNote": "Edit note",
+      "addNightNote": "Add note"
     },
     "find": {
       "title": "Find availability",
@@ -1862,7 +1864,15 @@
       "deleteNote": "Delete note",
       "noteSaved": "Note saved",
       "noteDeleted": "Note deleted",
-      "noteError": "Could not save the note. Try again."
+      "noteError": "Could not save the note. Try again.",
+      "sectionNightNotes": "Night notes",
+      "nightNotesEmpty": "No notes on these nights yet.",
+      "addNightNote": "Add note",
+      "editNightNoteOf": "Edit the note of {{date}}",
+      "deleteNightNoteOf": "Delete the note of {{date}}",
+      "nightNoteNights": "Apply to nights",
+      "nightNoteNoNight": "Pick at least one night.",
+      "nightNotesLoadError": "Could not load the night notes."
     },
     "quote": {
       "date": "Date",

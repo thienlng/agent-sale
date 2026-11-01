@@ -1,5 +1,5 @@
-import { StickyNote } from 'lucide-react';
-import { type ReactElement, type ReactNode, useState } from 'react';
+import { Pencil, StickyNote } from 'lucide-react';
+import { type ReactElement, type ReactNode, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
@@ -31,11 +31,14 @@ export function CellTip({ content, children }: { content: ReactNode; children: R
   );
 }
 
-/** Night note line of a cell tooltip. */
+/**
+ * Night note line of a cell tooltip. Hidden from screen readers: the cell's aria-label already
+ * carries the note, and the tooltip is the cell's description, so it would be read twice.
+ */
 export function NightNoteTip({ text }: { text: string }) {
   const { t } = useTranslation();
   return (
-    <span className="whitespace-pre-wrap">
+    <span aria-hidden className="whitespace-pre-wrap">
       <span className="font-semibold">{t('lodging.cal.nightNote')}: </span>
       {text}
     </span>
@@ -44,14 +47,18 @@ export function NightNoteTip({ text }: { text: string }) {
 
 /**
  * Booking quick view on a taken cell: guest, phone, party, total, hold expiry, tags and the
- * start of the booking note (blocks: their reason). Read-only; a click opens the full sheet.
+ * start of the booking note (blocks: their reason). A click on the cell opens the full sheet;
+ * `onEditNote` adds a "Sửa ghi chú" action (mouse only: keyboard users reach the same
+ * "Ghi chú ngày" section from the sheet the cell opens).
  */
 export function BookingQuickView({
   segment: s,
   nightNote,
+  onEditNote,
 }: {
   segment: CalendarSegmentData;
   nightNote: string | undefined;
+  onEditNote?: () => void;
 }) {
   const { t } = useTranslation();
   const status = t(`lodging.bookingStatus.${s.status}`);
@@ -98,6 +105,23 @@ export function BookingQuickView({
         </>
       )}
       {nightNote && <NightNoteTip text={nightNote} />}
+      {onEditNote && (
+        <span aria-hidden className="mt-1">
+          <button
+            type="button"
+            tabIndex={-1}
+            data-action="edit-night-note"
+            className="inline-flex items-center gap-1 rounded-sm border border-background/40 px-1.5 py-0.5 font-medium hover:bg-background/15"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEditNote();
+            }}
+          >
+            <Pencil className="size-3" />
+            {t(nightNote ? 'lodging.cal.editNightNote' : 'lodging.cal.addNightNote')}
+          </button>
+        </span>
+      )}
     </>
   );
 }
@@ -117,6 +141,7 @@ export function InternalNoteCard({
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const noteId = useId();
   return (
     <HoverCard open={open} onOpenChange={setOpen} openDelay={300} closeDelay={100}>
       <HoverCardTrigger asChild>
@@ -126,11 +151,15 @@ export function InternalNoteCard({
             type="button"
             aria-label={t('lodging.cal.internalNote', { code })}
             aria-expanded={open}
+            aria-describedby={noteId}
             className="mr-1 shrink-0 rounded-sm p-1 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             onClick={() => setOpen((o) => !o)}
           >
             <StickyNote aria-hidden className="size-3.5" />
           </button>
+          <span id={noteId} className="sr-only">
+            {note}
+          </span>
         </div>
       </HoverCardTrigger>
       <HoverCardContent side="right" align="start" className="grid w-72 gap-1">

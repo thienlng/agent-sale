@@ -1,3 +1,4 @@
+import { normalizeBookingTag, normalizeBookingTags } from '@agent-sales/contracts';
 import { Tag, X } from 'lucide-react';
 import { type KeyboardEvent, useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -14,13 +15,14 @@ const SUGGESTED = ['deposit', 'regular', 'pickup', 'kids', 'company'] as const;
 /** The suggested tags in the UI language (labels only; stored as typed). */
 export function useSuggestedTags(): string[] {
   const { t } = useTranslation();
-  return useMemo(() => SUGGESTED.map((k) => t(`lodging.tags.suggested.${k}`)), [t]);
+  return useMemo(
+    () => SUGGESTED.map((k) => normalizeBookingTag(t(`lodging.tags.suggested.${k}`))),
+    [t],
+  );
 }
 
-/** Trimmed, without empties or duplicates, first occurrence first (as the server stores them). */
-export function cleanTags(tags: readonly string[]): string[] {
-  return [...new Set(tags.map((x) => x.trim()).filter(Boolean))];
-}
+/** NFC, trimmed, without empties or duplicates, first occurrence first (as the server stores them). */
+export const cleanTags: (tags: readonly string[]) => string[] = normalizeBookingTags;
 
 /** Read-only tag chips; `onSelect` turns each chip into a button (e.g. a list filter). */
 export function TagChips({
@@ -75,8 +77,12 @@ export function TagInput({
   const suggested = useSuggestedTags();
   const [text, setText] = useState('');
   const full = value.length >= MAX_TAGS;
+  // Compared NFC-normalised: an NFD "Đã cọc" is the same tag as the suggestion.
+  const has = (tag: string) => value.some((x) => normalizeBookingTag(x) === tag);
   const toggle = (tag: string) =>
-    onChange(value.includes(tag) ? value.filter((x) => x !== tag) : cleanTags([...value, tag]));
+    onChange(
+      has(tag) ? value.filter((x) => normalizeBookingTag(x) !== tag) : cleanTags([...value, tag]),
+    );
   const add = () => {
     const tag = text.trim();
     if (!tag || full) return;
@@ -92,7 +98,7 @@ export function TagInput({
       onChange(value.slice(0, -1));
     }
   };
-  const free = value.filter((tag) => !suggested.includes(tag));
+  const free = value.filter((tag) => !suggested.includes(normalizeBookingTag(tag)));
   const chip =
     'h-7 rounded-full border border-border px-3 text-xs data-[state=on]:border-primary data-[state=on]:bg-primary-soft data-[state=on]:text-primary-strong';
   return (
@@ -103,7 +109,7 @@ export function TagInput({
       </span>
       <div className="flex flex-wrap gap-1.5">
         {suggested.map((tag) => {
-          const on = value.includes(tag);
+          const on = has(tag);
           return (
             <Toggle
               key={tag}

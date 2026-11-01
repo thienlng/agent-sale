@@ -3,6 +3,8 @@ import {
   type BookingListQuery,
   BookingStatus as BookingStatusEnum,
   type BookingStatus,
+  normalizeBookingTag,
+  normalizeBookingTags,
 } from '@agent-sales/contracts';
 import { ChevronLeft, ChevronRight, CircleAlert, Plus, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -76,13 +78,12 @@ export function BookingsPage({ initialView = 'today' }: { initialView?: View }) 
   }, [bookings.data, view]);
   // Suggested tags, the tags on this page and the active filter, in that order.
   const tagOptions = useMemo(
-    () => [
-      ...new Set([
+    () =>
+      normalizeBookingTags([
         ...suggested,
         ...(bookings.data?.data ?? []).flatMap((b) => b.tags),
         ...(tag !== ANY_TAG ? [tag] : []),
       ]),
-    ],
     [suggested, bookings.data, tag],
   );
   const reset =
@@ -198,7 +199,7 @@ export function BookingsPage({ initialView = 'today' }: { initialView?: View }) 
           <BookingsTable
             bookings={rows}
             showExpiry={view === 'holds'}
-            onTag={reset(setTag)}
+            onTag={(t) => reset(setTag)(normalizeBookingTag(t))}
             onOpen={(bookingId) => setSheet({ key: Date.now(), mode: 'view', bookingId })}
           />
         </div>
