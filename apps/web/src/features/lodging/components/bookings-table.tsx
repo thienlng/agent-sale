@@ -1,6 +1,8 @@
 import type { BookingDto } from '@agent-sales/contracts';
+import { Bot } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { Badge } from '@/components/ui/badge';
 import {
   Table,
   TableBody,
@@ -11,6 +13,7 @@ import {
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 
+import { botHoldPending } from '../lib/bot-hold';
 import { clockTime, dayMonth, formatVnd, nightsBetween } from '../lib/format';
 import { BookingStatusBadge } from './booking-status-badge';
 import { TagChips } from './tag-input';
@@ -39,6 +42,23 @@ export function HoldExpiry({ at, now }: { at: string | null; now: number }) {
             time: clockTime(at),
           })}
     </span>
+  );
+}
+
+/** "Bot tạo": amber while the hold waits for staff, quiet once handled. */
+function BotBadge({ pending }: { pending: boolean }) {
+  const { t } = useTranslation();
+  return (
+    <Badge
+      variant="outline"
+      className={cn(
+        'gap-1',
+        pending ? 'border-warning/40 bg-warning-soft text-warning' : 'text-muted-foreground',
+      )}
+    >
+      <Bot className="size-3" aria-hidden />
+      {t('lodging.list.botBadge')}
+    </Badge>
   );
 }
 
@@ -88,6 +108,7 @@ export function BookingsTable({
                     {b.code}
                   </button>
                   <BookingStatusBadge status={b.status} />
+                  {b.source === 'bot' && <BotBadge pending={botHoldPending(b)} />}
                 </div>
               </TableCell>
               <TableCell className="max-w-48">

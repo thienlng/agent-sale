@@ -6,6 +6,7 @@ import type {
   BotAvailabilityOption,
   LodgingBotFacade,
   LodgingCatalogFacade,
+  LodgingFacade,
 } from '../../lodging/api/index.js';
 import type { MessageSink, OutgoingMessage, QuickReply } from '../api/reply-options.js';
 import { safeJson } from './action-tools.js';
@@ -99,6 +100,10 @@ export interface HoldToolContext {
   conversationId: string;
   /** The conversation's channel (the booking links the conversation for customer channels). */
   channel: string;
+  /** The conversation's contact, linked to the hold; null when unknown (playground). */
+  contactId: string | null;
+  /** Every property id the bot sells: resolves a code the catalog search misses (no cap). */
+  propertyIds?: () => Promise<string[]>;
   /** Absent: the summary is collected (playground), like `send_message`. */
   sink?: MessageSink;
   output: OutputState;
@@ -169,15 +174,33 @@ const isValidationFailure = (error: unknown): boolean =>
 /** A rejected stay (bad dates or party) the lodging module reports by throwing. */
 const INVALID_REQUEST = { ok: false, problems: ['invalid_request'] };
 
+/** The catalog search's row cap; also the bound of the exact-code candidates it returns. */
+const SEARCH_LIMIT = 300;
+/** `getBotProductsByIds` reads at most this many ids per call. */
+const ID_PAGE = 10;
+
+/**
+ * The property id of a catalog code (case-insensitive exact match). The catalog search matches the
+ * code against every property the bot sells; when it misses (more than SEARCH_LIMIT partial
+ * matches), the bot's property ids are paged through, so the lookup has no cap.
+ */
 async function propertyIdOf(ctx: HoldToolContext, code: string): Promise<string | null> {
   const wanted = code.trim().toLowerCase();
   const scope = { botId: ctx.botId };
   const matches = (rows: { id: string; code?: string | null }[]) =>
     rows.find((p) => (p.code ?? '').trim().toLowerCase() === wanted)?.id ?? null;
   const found = matches(
-    await ctx.catalog.searchBotCatalog(ctx.ws, scope, { query: code, limit: 10 }),
+    await ctx.catalog.searchBotCatalog(ctx.ws, scope, { query: code, limit: SEARCH_LIMIT }),
   );
-  return found ?? matches(await ctx.catalog.searchBotCatalog(ctx.ws, scope, { limit: 300 }));
+  if (found || !ctx.propertyIds) return found;
+  const ids = await ctx.propertyIds();
+  for (let i = 0; i < ids.length; i += ID_PAGE) {
+    const page = matches(
+      await ctx.catalog.getBotProductsByIds(ctx.ws, scope, ids.slice(i, i + ID_PAGE)),
+    );
+    if (page) return page;
+  }
+  return null;
 }
 
 const stayOf = (args: z.infer<typeof CheckInput>) => ({
@@ -295,6 +318,7 @@ export function holdTools(ctx: HoldToolContext): {
           botId: ctx.botId,
           conversationId,
           channel: ctx.channel,
+          contactId: ctx.contactId,
           propertyId,
           whole,
           unitIds,
@@ -407,6 +431,9 @@ export async function hotelHoldContext(input: {
   bot: { id: string; orderTaking?: boolean };
   conversationId: string;
   channel: string;
+  contactId: string | null;
+  /** Lists every property the bot sells (code lookup without a cap). */
+  lodging?: LodgingFacade;
   sink?: MessageSink;
   output: OutputState;
   privateChat: boolean;
@@ -414,7 +441,7 @@ export async function hotelHoldContext(input: {
   /** Logs a line; failures carry the error class only. */
   warn: (message: string) => void;
 }): Promise<HoldToolContext> {
-  const { facade, ws, conversationId } = input;
+  const { facade, ws, conversationId, lodging } = input;
   const errorName = (error: unknown) => (error instanceof Error ? error.name : 'unknown error');
   const takesHolds = input.bot.orderTaking === true && input.privateChat;
   return {
@@ -424,6 +451,8 @@ export async function hotelHoldContext(input: {
     botId: input.bot.id,
     conversationId,
     channel: input.channel,
+    contactId: input.contactId,
+    ...(lodging ? { propertyIds: () => lodging.listBotPropertyIds(ws, input.bot.id) } : {}),
     ...(input.sink ? { sink: input.sink } : {}),
     output: input.output,
     takesHolds,

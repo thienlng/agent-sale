@@ -125,7 +125,9 @@ function fakeCatalog(
 ) {
   return {
     searchBotCatalog: vi.fn(async (_ws, _bot, input: { query?: string }) =>
-      input.query ? rows.filter((r) => r.name.includes(input.query ?? '')) : rows,
+      input.query
+        ? rows.filter((r) => r.name.toLowerCase().includes((input.query ?? '').toLowerCase()))
+        : rows,
     ),
     getBotProductsByIds: vi.fn(async () => []),
     countBotCatalog: vi.fn(async () => rows.length),
@@ -154,6 +156,7 @@ function context(facade: LodgingBotFacade, extra: Partial<HoldToolContext> = {})
     output: newOutputState(),
     takesHolds: true,
     confirmable: false,
+    contactId: null,
     state: newHoldToolState(),
     ...extra,
   };
@@ -283,6 +286,7 @@ describe('prepare_hold', () => {
       childAges: [],
       guestName: 'Anh Nam',
       guestPhone: '0901234567',
+      contactId: null,
     });
     expect(sink.sent).toEqual([
       {
@@ -365,6 +369,38 @@ describe('prepare_hold', () => {
     expect(JSON.parse(out.content)).toEqual({ ok: false, error: 'not_delivered' });
     expect(facade.cancelBotHoldDraft).toHaveBeenCalledWith(ws, { conversationId });
     expect(ctx.output.sent).toEqual([]);
+  });
+});
+
+describe('prepare_hold: contact and property lookup', () => {
+  it('passes the conversation contact to the hold draft', async () => {
+    const contactId = newId();
+    const facade = fakeLodging();
+    await tool(context(facade, { contactId }), PREPARE_HOLD_TOOL).run(HOLD);
+    expect(facade.prepareBotHold).toHaveBeenCalledWith(ws, expect.objectContaining({ contactId }));
+  });
+
+  it('finds a code the search misses by paging through every property the bot sells', async () => {
+    const rows = [property(B02, 'B02', 'Garden'), property(A17, 'A17', 'Sky Villa')];
+    const catalog = {
+      searchBotCatalog: vi.fn(async () => []),
+      getBotProductsByIds: vi.fn(async (_ws, _bot, ids: readonly string[]) =>
+        rows.filter((r) => ids.includes(r.id)),
+      ),
+      countBotCatalog: vi.fn(async () => rows.length),
+    } as unknown as LodgingCatalogFacade;
+    const many = [...Array.from({ length: 23 }, () => newId()), B02, A17];
+    const facade = fakeLodging();
+    await tool(
+      context(facade, { catalog, propertyIds: async () => many }),
+      CHECK_AVAILABILITY_TOOL,
+    ).run({ ...STAY, propertyCode: 'A17' });
+    expect(facade.checkAvailabilityForBot).toHaveBeenCalledWith(
+      ws,
+      expect.objectContaining({ propertyId: A17 }),
+    );
+    // Pages of 10 ids (the catalog's maximum), until the code is found.
+    expect(catalog.getBotProductsByIds).toHaveBeenCalledTimes(3);
   });
 });
 
@@ -524,6 +560,30 @@ describe('hotel bot pipeline (spec §4)', () => {
     );
   });
 
+  it('passes the reply contact to prepare_hold (none in the playground)', async () => {
+    const lodging = fakeLodging();
+    const { svc } = pipeline(
+      (_req, round) => (round === 0 ? call(PREPARE_HOLD_TOOL, HOLD) : { text: '' }),
+      { lodging },
+    );
+    await svc.playground(ws, botId, ask('Giữ A17'));
+    expect(lodging.prepareBotHold).toHaveBeenLastCalledWith(
+      ws,
+      expect.objectContaining({ contactId: null }),
+    );
+    const contactId = newId();
+    await svc.reply(ws, botId, ask('Giữ A17'), {
+      conversationId: newId(),
+      isTest: false,
+      channel: 'facebook',
+      contactId,
+    });
+    expect(lodging.prepareBotHold).toHaveBeenLastCalledWith(
+      ws,
+      expect.objectContaining({ contactId, channel: 'facebook' }),
+    );
+  });
+
   it('keeps the hold summary the last message: a final after it is dropped', async () => {
     const { svc } = pipeline((_req, round) =>
       round === 0 ? call(PREPARE_HOLD_TOOL, HOLD) : { text: 'Dạ anh xem tóm tắt giúp em ạ' },
@@ -545,12 +605,26 @@ describe('hotel bot pipeline (spec §4)', () => {
     expect(res.reply).toBe(holdCreatedText('BK0042', '2026-11-01T09:30:00.000Z'));
     expect((res as { orderCreated?: boolean }).orderCreated).toBe(true);
 
+    // The code without the expiry time is not enough: the held line is still added.
     const echoed = pipeline(
       (_req, round) =>
         round === 0 ? call(CONFIRM_HOLD_TOOL) : { text: 'Dạ em đã giữ chỗ BK0042 ạ.' },
       { lodging: fakeLodging({ storedAt: new Date(Date.now() - 60_000) }) },
     );
     const again = await echoed.svc.playground(ws, botId, ask('ok'));
-    expect(again.reply.match(/BK0042/g)).toHaveLength(1);
+    expect(again.reply).toBe(
+      `Dạ em đã giữ chỗ BK0042 ạ.\n${holdCreatedText('BK0042', '2026-11-01T09:30:00.000Z')}`,
+    );
+
+    // Code and expiry time already stated: nothing is added.
+    const full = pipeline(
+      (_req, round) =>
+        round === 0
+          ? call(CONFIRM_HOLD_TOOL)
+          : { text: 'Dạ em đã giữ chỗ BK0042 đến 16:30 hôm nay ạ.' },
+      { lodging: fakeLodging({ storedAt: new Date(Date.now() - 60_000) }) },
+    );
+    const once = await full.svc.playground(ws, botId, ask('ok'));
+    expect(once.reply).toBe('Dạ em đã giữ chỗ BK0042 đến 16:30 hôm nay ạ.');
   });
 });

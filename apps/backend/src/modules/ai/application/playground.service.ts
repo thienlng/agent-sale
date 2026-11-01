@@ -21,8 +21,10 @@ import {
 import {
   LODGING_BOT_FACADE,
   LODGING_CATALOG_FACADE,
+  LODGING_FACADE,
   type LodgingBotFacade,
   type LodgingCatalogFacade,
+  type LodgingFacade,
 } from '../../lodging/api/index.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
 import type { AiFacade } from '../api/ai.facade.js';
@@ -56,7 +58,12 @@ import {
 } from './action-tools.js';
 import { type AgentLoopResult, type AgentStep, runAgentLoop } from './agent-loop.js';
 import { createHistorySummarizer } from './history-summarizer.js';
-import { HOLD_CONFIRM_PAYLOAD, holdCreatedText, hotelHoldContext } from './hold-tools.js';
+import {
+  HOLD_CONFIRM_PAYLOAD,
+  holdCreatedText,
+  hotelHoldContext,
+  localHoldTime,
+} from './hold-tools.js';
 import { LlmRuntime } from './llm-runtime.js';
 import {
   confirmableDraft,
@@ -135,6 +142,7 @@ export class PlaygroundService implements AiFacade {
     @Optional()
     private readonly lodgingCatalog?: LodgingCatalogFacade,
     @Inject(LODGING_BOT_FACADE) @Optional() private readonly lodgingBot?: LodgingBotFacade,
+    @Inject(LODGING_FACADE) @Optional() private readonly lodging?: LodgingFacade,
   ) {
     this.#forcedPrompt = promptVersion
       ? { name: 'sales-agent', version: promptVersion }
@@ -284,6 +292,8 @@ export class PlaygroundService implements AiFacade {
             bot,
             conversationId: conversationKey,
             channel: options.channel ?? PLAYGROUND_ORDER_CHANNEL,
+            contactId: options.contactId ?? null,
+            ...(this.lodging ? { lodging: this.lodging } : {}),
             ...(options.sink ? { sink: options.sink } : {}),
             output,
             privateChat: !isCommentReply,
@@ -427,6 +437,8 @@ export class PlaygroundService implements AiFacade {
         line: holdCreatedText(held.code, held.expiresAt),
         sentTexts: output.sent.map((m) => m.text),
         fallback: fallbackText(bot),
+        // The code alone is not enough: the customer must also read until when it is held.
+        alsoRequired: [localHoldTime(held.expiresAt).time],
       });
     }
     const messages = turnMessages(output, decision);

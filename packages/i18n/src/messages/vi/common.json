@@ -1867,7 +1867,10 @@
       "deleteNightNoteOf": "Xoá ghi chú đêm {{date}}",
       "nightNoteNights": "Áp dụng cho đêm",
       "nightNoteNoNight": "Chọn ít nhất một đêm.",
-      "nightNotesLoadError": "Không tải được ghi chú ngày."
+      "nightNotesLoadError": "Không tải được ghi chú ngày.",
+      "botLabel": "Bot tạo",
+      "botHoldHint": "Bot đã giữ chỗ theo yêu cầu khách — gọi xác nhận rồi bấm Xác nhận",
+      "botCreated": "Bot tạo booking này từ hội thoại với khách."
     },
     "quote": {
       "date": "Ngày",
@@ -1949,7 +1952,11 @@
       "next": "Trang sau",
       "create": "Tạo booking",
       "tag": "Nhãn",
-      "allTags": "Mọi nhãn"
+      "allTags": "Mọi nhãn",
+      "botBadge": "Bot tạo",
+      "source": "Nguồn",
+      "allSources": "Mọi nguồn",
+      "pendingBotHolds": "{{count}} giữ chỗ của bot chờ xử lý"
     },
     "holdSetting": {
       "label": "Giữ chỗ tự hết hạn sau",

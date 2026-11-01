@@ -10,7 +10,7 @@ import { useSession } from '@/lib/session';
 
 import { AccountMenu, type MenuDialogProps } from './layout/account-menu';
 import { AccountSidebar, ACCOUNT_PATHS } from './layout/account-sidebar';
-import { AppSidebar } from './layout/app-sidebar';
+import { AppSidebar, type NavCounts } from './layout/app-sidebar';
 import type { CreateBusinessDialogProps } from './layout/business-selector';
 
 /** shadcn's sidebar remembers open/closed in this cookie (written by the component itself). */
@@ -49,6 +49,7 @@ export function AppShell({
   planDialog,
   createBusinessDialog,
   industry,
+  navCounts,
 }: {
   children: ReactNode;
   /** Plan and billing popup for the account menu, composed by the route from `features/billing`. */
@@ -57,6 +58,8 @@ export function AppShell({
   createBusinessDialog?: ((props: CreateBusinessDialogProps) => ReactNode) | undefined;
   /** The current business's industry; hotels get lodging navigation. */
   industry?: string | undefined;
+  /** Waiting counts next to sidebar entries, composed by the route (e.g. bot holds to review). */
+  navCounts?: NavCounts | undefined;
 }) {
   const { t } = useTranslation();
   const session = useSession();
@@ -76,7 +79,11 @@ export function AppShell({
         {accountLayer ? (
           <AccountSidebar />
         ) : (
-          <AppSidebar createBusinessDialog={createBusinessDialog} industry={industry} />
+          <AppSidebar
+            createBusinessDialog={createBusinessDialog}
+            industry={industry}
+            navCounts={navCounts}
+          />
         )}
         <SidebarInset className="min-w-0 overflow-x-clip">
           <header

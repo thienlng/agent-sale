@@ -50,6 +50,7 @@ function stub() {
     'GET /lodging/properties': { status: 200, body: { data: [] } },
     'GET /lodging/settings': { status: 200, body: { holdMinutes: 120 } },
     'PATCH /lodging/settings': { status: 200, body: { holdMinutes: 30 } },
+    'GET /lodging/bookings/review-count': { status: 200, body: { pending: 0 } },
   });
   vi.stubGlobal('fetch', fetchStub);
   return calls;
@@ -91,6 +92,7 @@ describe('BookingsPage', () => {
         'GET /lodging/bookings': { status: 200, body: { data: [later], nextOffset: null } },
         'GET /lodging/properties': { status: 200, body: { data: [] } },
         'GET /lodging/settings': { status: 200, body: { holdMinutes: 120 } },
+        'GET /lodging/bookings/review-count': { status: 200, body: { pending: 0 } },
         [`GET /lodging/bookings/${LODGING_IDS.bk1}`]: {
           status: 200,
           body: { ...later, history: [] },
@@ -138,6 +140,7 @@ describe('BookingsPage tags', () => {
       'GET /lodging/bookings': { status: 200, body: { data: [tagged], nextOffset: null } },
       'GET /lodging/properties': { status: 200, body: { data: [] } },
       'GET /lodging/settings': { status: 200, body: { holdMinutes: 120 } },
+      'GET /lodging/bookings/review-count': { status: 200, body: { pending: 0 } },
     });
     vi.stubGlobal('fetch', fetchStub);
     const user = userEvent.setup();
@@ -175,6 +178,7 @@ describe('BookingsPage tags', () => {
       'GET /lodging/bookings': { status: 200, body: { data: [tagged], nextOffset: null } },
       'GET /lodging/properties': { status: 200, body: { data: [] } },
       'GET /lodging/settings': { status: 200, body: { holdMinutes: 120 } },
+      'GET /lodging/bookings/review-count': { status: 200, body: { pending: 0 } },
     });
     vi.stubGlobal('fetch', fetchStub);
     const user = userEvent.setup();
@@ -193,6 +197,83 @@ describe('BookingsPage tags', () => {
           (c) =>
             c.key === 'GET /lodging/bookings' &&
             new URLSearchParams(c.url.split('?')[1]).get('tag') === nfc,
+        ),
+      ).toBe(true),
+    );
+  });
+});
+
+describe('BookingsPage bot holds', () => {
+  const botHold = bookingFixture({
+    id: LODGING_IDS.bk1,
+    code: 'BK-0031',
+    status: 'hold',
+    guestName: 'Anh Nam',
+    source: 'bot',
+    conversationId: LODGING_IDS.conv,
+    holdExpiresAt: '2099-11-01T09:00:00.000Z',
+  });
+  const staffHold = bookingFixture({
+    id: LODGING_IDS.bk2,
+    code: 'BK-0032',
+    status: 'hold',
+    guestName: 'Chị Lan',
+    source: 'phone',
+    holdExpiresAt: '2099-11-01T10:00:00.000Z',
+  });
+
+  function stubBot(pending: number) {
+    const { fetchStub, calls } = stubLodgingApi({
+      'GET /lodging/bookings': {
+        status: 200,
+        body: { data: [botHold, staffHold], nextOffset: null },
+      },
+      'GET /lodging/properties': { status: 200, body: { data: [] } },
+      'GET /lodging/settings': { status: 200, body: { holdMinutes: 120 } },
+      'GET /lodging/bookings/review-count': { status: 200, body: { pending } },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    return calls;
+  }
+
+  it('marks bot bookings with "Bot tạo" and no other row', async () => {
+    stubBot(1);
+    renderPage();
+    const botRow = (await screen.findByRole('button', { name: /BK-0031/ })).closest('tr');
+    const staffRow = screen.getByRole('button', { name: /BK-0032/ }).closest('tr');
+    expect(within(botRow as HTMLElement).getByText('Bot tạo')).toBeInTheDocument();
+    expect(within(staffRow as HTMLElement).queryByText('Bot tạo')).toBeNull();
+  });
+
+  it('shows how many bot holds wait for staff on the Giữ chỗ tab', async () => {
+    stubBot(2);
+    renderPage();
+    const tab = await screen.findByRole('tab', { name: /^Giữ chỗ/ });
+    await waitFor(() => expect(tab).toHaveAccessibleName('Giữ chỗ 2 giữ chỗ của bot chờ xử lý'));
+  });
+
+  it('shows no count on the tab when nothing waits', async () => {
+    stubBot(0);
+    renderPage();
+    await screen.findByRole('button', { name: /BK-0031/ });
+    expect(screen.getByRole('tab', { name: 'Giữ chỗ' })).toBeInTheDocument();
+  });
+
+  it('filters the list to bookings made by the bot', async () => {
+    const calls = stubBot(1);
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByRole('button', { name: /BK-0031/ });
+    screen.getByRole('combobox', { name: 'Nguồn' }).focus();
+    await user.keyboard('{ArrowDown}');
+    (await screen.findByRole('option', { name: 'Bot' })).focus();
+    await user.keyboard('{Enter}');
+    await waitFor(() =>
+      expect(
+        calls.some(
+          (c) =>
+            c.key === 'GET /lodging/bookings' &&
+            new URLSearchParams(c.url.split('?')[1]).get('source') === 'bot',
         ),
       ).toBe(true),
     );

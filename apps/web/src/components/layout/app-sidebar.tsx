@@ -220,30 +220,47 @@ function NavGroup({
   );
 }
 
-function NavItems({ items }: { items: readonly NavItem[] }) {
+/** A number waiting behind a nav entry (e.g. bot holds to review), keyed by the entry's path. */
+export type NavCounts = Partial<Record<string, { count: number; label: string }>>;
+
+function NavItems({
+  items,
+  counts,
+}: {
+  items: readonly NavItem[];
+  counts?: NavCounts | undefined;
+}) {
   const { t } = useTranslation();
   const { isMobile, setOpenMobile } = useSidebar();
   return (
     <>
-      {items.map(({ to, key, icon: Icon, ready }) => (
-        <SidebarMenuItem key={to}>
-          <SidebarMenuButton asChild tooltip={t(key)}>
-            <Link
-              to={to}
-              onClick={() => isMobile && setOpenMobile(false)}
-              activeProps={{ 'data-active': true }}
-            >
-              <Icon />
-              <span>{t(key)}</span>
-            </Link>
-          </SidebarMenuButton>
-          {!ready ? (
-            <SidebarMenuBadge className="font-normal text-muted-foreground">
-              {t('nav.comingSoon')}
-            </SidebarMenuBadge>
-          ) : null}
-        </SidebarMenuItem>
-      ))}
+      {items.map(({ to, key, icon: Icon, ready }) => {
+        const waiting = counts?.[to];
+        return (
+          <SidebarMenuItem key={to}>
+            <SidebarMenuButton asChild tooltip={t(key)}>
+              <Link
+                to={to}
+                onClick={() => isMobile && setOpenMobile(false)}
+                activeProps={{ 'data-active': true }}
+              >
+                <Icon />
+                <span>{t(key)}</span>
+              </Link>
+            </SidebarMenuButton>
+            {!ready ? (
+              <SidebarMenuBadge className="font-normal text-muted-foreground">
+                {t('nav.comingSoon')}
+              </SidebarMenuBadge>
+            ) : waiting && waiting.count > 0 ? (
+              <SidebarMenuBadge className="bg-warning-soft text-warning">
+                <span aria-hidden>{waiting.count}</span>
+                <span className="sr-only">{waiting.label}</span>
+              </SidebarMenuBadge>
+            ) : null}
+          </SidebarMenuItem>
+        );
+      })}
     </>
   );
 }
@@ -252,9 +269,12 @@ function NavItems({ items }: { items: readonly NavItem[] }) {
 export function AppSidebar({
   createBusinessDialog,
   industry,
+  navCounts,
 }: {
   createBusinessDialog?: ((props: CreateBusinessDialogProps) => ReactNode) | undefined;
   industry?: string | undefined;
+  /** Waiting counts composed by the route from features (shared code may not import them). */
+  navCounts?: NavCounts | undefined;
 }) {
   const { t } = useTranslation();
   const session = useSession();
@@ -289,7 +309,7 @@ export function AppSidebar({
               paths={CONTACT_PATHS}
             />
             {industry === 'hotel' ? (
-              <NavItems items={LODGING} />
+              <NavItems items={LODGING} counts={navCounts} />
             ) : (
               <>
                 <SectionNav

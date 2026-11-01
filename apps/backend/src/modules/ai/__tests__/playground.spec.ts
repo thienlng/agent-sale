@@ -716,6 +716,10 @@ describe('prompts 15 and 16 (T-138)', () => {
     expect(system).toContain('call check_availability with checkIn and checkOut');
     expect(system).toContain('only from a check_availability result of this turn');
     expect(system).toContain('Only after confirm_hold succeeded say "đã giữ chỗ"');
+    expect(system).toContain('fits false without overStandard means the party is above');
+    expect(system).toContain('A party not clearly covered by the standard');
+    expect(system).toContain('do not say you do not have that information and do not call handoff');
+    expect(system).toContain('no_draft → the summary is gone, so prepare the hold again');
     // Outcomes are worded as actions, never as the old envelope's outcome words.
     expect(system).toContain('do not call handoff merely because the party exceeds the standard');
     expect(system).not.toMatch(/outcome "(answer|unknown|handoff)"/);

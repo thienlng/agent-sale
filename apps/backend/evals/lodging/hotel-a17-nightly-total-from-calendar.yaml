@@ -53,13 +53,13 @@
     [{ 'customer': 'A17 thuê 2 đêm từ thứ 7 tuần sau cho 20 người lớn thì tổng tiền bao nhiêu?' }],
   # Prompt 18 (T-161): a dated question goes to check_availability; the Saturday + Sunday nights
   # and the stay total are quoted from the server's result, never from the model's own arithmetic.
-  'expect':
-    {
+  'expect': {
       'outcome': 'answered',
       'guardrail': 'none',
       'steps_succeeded': ['check_availability'],
       'steps_exclude': ['prepare_hold', 'handoff'],
-      'contains_all': ['14.000.000', '13.000.000', '27.000.000'],
+      # The weekday labels are the server's (weekdayLabel), never the model's own date arithmetic.
+      'contains_all': ['Thứ Bảy', 'Chủ Nhật', '14.000.000', '13.000.000', '27.000.000'],
       'not_contains': ['đã giữ', 'đã đặt'],
     },
   fake_turns:

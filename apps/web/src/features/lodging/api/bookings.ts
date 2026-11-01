@@ -2,6 +2,7 @@ import {
   BookingDetail,
   BookingList,
   type BookingListQuery,
+  BookingReviewCount,
   type BookingStatusRequest,
   type CreateBookingRequest,
   type UpdateBookingRequest,
@@ -24,6 +25,22 @@ export function useBookings(query: Partial<BookingListQuery> = {}) {
       api(withQuery('/lodging/bookings', query), BookingList, { workspaceId: ws, signal }),
     enabled: Boolean(ws),
     placeholderData: keepPreviousData,
+  });
+}
+
+/**
+ * How many bot holds wait for staff (`source = bot`, on hold, not handled yet). Refreshed by
+ * every booking change (it lives under `lodging(ws)`) and polled each minute, since the bot
+ * places holds while the page stays open.
+ */
+export function useBookingReviewCount({ enabled = true }: { enabled?: boolean } = {}) {
+  const ws = useWorkspaceId();
+  return useQuery({
+    queryKey: lodgingKeys.reviewCount(ws),
+    queryFn: ({ signal }) =>
+      api('/lodging/bookings/review-count', BookingReviewCount, { workspaceId: ws, signal }),
+    enabled: Boolean(ws) && enabled,
+    refetchInterval: 60_000,
   });
 }
 

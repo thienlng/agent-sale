@@ -1872,7 +1872,10 @@
       "deleteNightNoteOf": "Delete the note of {{date}}",
       "nightNoteNights": "Apply to nights",
       "nightNoteNoNight": "Pick at least one night.",
-      "nightNotesLoadError": "Could not load the night notes."
+      "nightNotesLoadError": "Could not load the night notes.",
+      "botLabel": "By bot",
+      "botHoldHint": "The bot held this at the guest's request — call to confirm, then press Confirm",
+      "botCreated": "The bot made this booking from a guest conversation."
     },
     "quote": {
       "date": "Date",
@@ -1954,7 +1957,11 @@
       "next": "Next page",
       "create": "New booking",
       "tag": "Tag",
-      "allTags": "All tags"
+      "allTags": "All tags",
+      "botBadge": "By bot",
+      "source": "Source",
+      "allSources": "All sources",
+      "pendingBotHolds": "{{count}} bot holds to review"
     },
     "holdSetting": {
       "label": "Holds expire after",

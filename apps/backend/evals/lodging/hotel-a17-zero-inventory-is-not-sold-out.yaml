@@ -50,21 +50,25 @@
     ],
   'id': 'hotel-a17-zero-inventory-is-not-sold-out',
   'conversation': [{ 'customer': 'A17 còn trống cuối tuần này không?' }],
-  # Zero warehouse stock never means sold out. Prompt 18 (T-161): without the party the bot asks
-  # for it (or checks the calendar); it never claims a sold-out or booked stay on its own.
-  'expect':
-    {
+  # Zero warehouse stock never means sold out, and without the party (and a calendar result of
+  # this turn) the bot never claims the stay is free either: it asks for the details.
+  'expect': {
       'outcome': 'answered',
       'guardrail': 'none',
+      # Prompt 18 asks for the missing party / exact dates without a catalog search first, so the
+      # @17 `steps_succeeded: [search_products]` no longer applies; the guards below stay.
       'steps_exclude': ['prepare_hold', 'handoff'],
-      'contains_any':
-        ['mấy người', 'bao nhiêu người', 'số người', 'số khách', 'người lớn', 'còn trống'],
+      'numbers_only_from_sources': true,
+      'contains_any': ['chưa có lịch', 'kiểm tra'],
       'not_contains': ['hết hàng', 'hết phòng', 'đã kín', 'đã giữ', 'đã đặt'],
+      # "còn trống ạ" as a claim fails; "em chưa có xác nhận còn trống ạ" is the honest answer.
+      'not_matches': ['(?<!xác nhận )(?<!chưa )còn trống ạ'],
     },
   fake_turns:
     [
+      { tool_calls: [{ name: 'search_products', input: { query: 'A17' } }] },
       {
-        text: 'Dạ cuối tuần này anh/chị đi mấy người lớn và có bé nào không ạ? Em kiểm tra lịch A17 ngay ạ.',
+        text: 'Dạ em chưa có lịch trống thực tế của A17. Anh/chị cho em xin ngày nhận, ngày trả và số khách để em kiểm tra ạ.',
       },
     ],
 }

@@ -3,6 +3,8 @@ import {
   type BookingListQuery,
   BookingStatus as BookingStatusEnum,
   type BookingStatus,
+  BookingSource as BookingSourceEnum,
+  type BookingSource,
   normalizeBookingTag,
   normalizeBookingTags,
 } from '@agent-sales/contracts';
@@ -24,7 +26,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCan } from '@/lib/permissions';
 
-import { useBookings } from '../api/bookings';
+import { useBookingReviewCount, useBookings } from '../api/bookings';
 import { useProperties } from '../api/properties';
 import { useDebouncedValue } from '../hooks/use-debounced-value';
 import { BookingSheet } from './booking-sheet';
@@ -45,9 +47,9 @@ const byExpiry = (a: BookingDto, b: BookingDto) =>
 type SheetState = { key: number } & ({ mode: 'create' } | { mode: 'view'; bookingId: string });
 
 /**
- * "Booking": Hôm nay (arrivals + departures) · Giữ chỗ (by expiry, overdue in red) ·
- * Sắp tới · Tất cả, with place / status filters, search and 100-row pages. Rows open
- * the shared booking sheet.
+ * "Booking": Hôm nay (arrivals + departures) · Giữ chỗ (by expiry, overdue in red, with the
+ * count of bot holds waiting for staff) · Sắp tới · Tất cả, with place / tag / source / status
+ * filters, search and 100-row pages. Rows open the shared booking sheet.
  */
 export function BookingsPage({ initialView = 'today' }: { initialView?: View }) {
   const { t } = useTranslation();
@@ -57,6 +59,7 @@ export function BookingsPage({ initialView = 'today' }: { initialView?: View }) 
   const [propertyId, setPropertyId] = useState(ALL);
   const [status, setStatus] = useState(ALL);
   const [tag, setTag] = useState(ANY_TAG);
+  const [source, setSource] = useState(ALL);
   const suggested = useSuggestedTags();
   const [q, setQ] = useState('');
   const [offset, setOffset] = useState(0);
@@ -69,9 +72,11 @@ export function BookingsPage({ initialView = 'today' }: { initialView?: View }) 
     ...(view === 'all' && status !== ALL ? { status: status as BookingStatus } : {}),
     ...(search ? { q: search } : {}),
     ...(tag !== ANY_TAG ? { tag } : {}),
+    ...(source !== ALL ? { source: source as BookingSource } : {}),
     ...(offset ? { offset } : {}),
   };
   const bookings = useBookings(query);
+  const pendingBotHolds = useBookingReviewCount().data?.pending ?? 0;
   const rows = useMemo(() => {
     const data = bookings.data?.data ?? [];
     return view === 'holds' ? [...data].sort(byExpiry) : data;
@@ -112,6 +117,20 @@ export function BookingsPage({ initialView = 'today' }: { initialView?: View }) 
           {VIEWS.map((v) => (
             <TabsTrigger key={v} value={v} className="flex-none px-3">
               {t(`lodging.list.tabs.${v}`)}
+              {v === 'holds' && pendingBotHolds > 0 && (
+                <>
+                  {' '}
+                  <span
+                    aria-hidden
+                    className="rounded-full bg-warning-soft px-1.5 text-xs font-semibold tabular-nums text-warning"
+                  >
+                    {pendingBotHolds}
+                  </span>
+                  <span className="sr-only">
+                    {t('lodging.list.pendingBotHolds', { count: pendingBotHolds })}
+                  </span>
+                </>
+              )}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -154,6 +173,19 @@ export function BookingsPage({ initialView = 'today' }: { initialView?: View }) 
             {tagOptions.map((x) => (
               <SelectItem key={x} value={x}>
                 {x}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={source} onValueChange={reset(setSource)}>
+          <SelectTrigger size="sm" className="w-36" aria-label={t('lodging.list.source')}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>{t('lodging.list.allSources')}</SelectItem>
+            {BookingSourceEnum.options.map((s) => (
+              <SelectItem key={s} value={s}>
+                {t(`lodging.source.${s}`)}
               </SelectItem>
             ))}
           </SelectContent>

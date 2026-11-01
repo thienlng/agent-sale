@@ -6,6 +6,7 @@ import type { ActionFacade } from '../../action/api/index.js';
 import type { BotFacade, BotView } from '../../bot/api/index.js';
 import type { BotCatalogScope, CatalogFacade } from '../../commerce/api/index.js';
 import type { FaqHit, KnowledgeFacade, TrainingFacade } from '../../knowledge/api/index.js';
+import type { LodgingFacade } from '../../lodging/api/index.js';
 import type { WorkspaceFacade } from '../../workspace/api/index.js';
 import type { LlmRuntime } from '../application/llm-runtime.js';
 import { PlaygroundService } from '../application/playground.service.js';
@@ -269,6 +270,10 @@ export function buildService(c: EvalCase, llm: LlmRuntime) {
     commerce,
     catalog,
     lodging,
+    // Every property the bot sells (the code lookup's fallback when the search misses).
+    {
+      listBotPropertyIds: async () => products.filter((p) => p.accommodation).map((p) => p.id),
+    } as LodgingFacade,
   );
   return { service, botId, runs };
 }

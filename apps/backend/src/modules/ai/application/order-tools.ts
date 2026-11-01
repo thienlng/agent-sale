@@ -117,17 +117,24 @@ interface TurnDecision {
 
 /**
  * Makes a created record's code (an order, a lodging hold) reach the customer exactly once:
- * nothing is added when a sent message or the final already carries it; an empty or fallback
- * final is replaced by `line`, a hand-off gets the line first, and any other answer gets it as its
- * last line.
+ * nothing is added when the turn's texts (sent messages and the final) already carry the code and
+ * every `alsoRequired` text (a hold's expiry time); an empty or fallback final is replaced by
+ * `line`, a hand-off gets the line first, and any other answer gets it as its last line.
  */
 export function announceCreated<D extends TurnDecision>(
   decision: D,
-  opts: { code: string; line: string; sentTexts: readonly string[]; fallback: string },
+  opts: {
+    code: string;
+    line: string;
+    sentTexts: readonly string[];
+    fallback: string;
+    alsoRequired?: readonly string[];
+  },
 ): D {
   const { code, line } = opts;
   const final = decision.final ?? '';
-  if (final.includes(code) || opts.sentTexts.some((t) => t.includes(code))) return decision;
+  const told = [final, ...opts.sentTexts].join('\n');
+  if ([code, ...(opts.alsoRequired ?? [])].every((t) => told.includes(t))) return decision;
   if (decision.outcome === 'handoff') return { ...decision, final: `${line}\n${final}` };
   if (!final.trim() || final === opts.fallback)
     return { ...decision, outcome: 'answered', final: line };
