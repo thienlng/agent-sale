@@ -34,7 +34,7 @@ export function PoliciesTab({
   const { t } = useTranslation();
   const id = useId();
   const base = useMemo<Policies>(() => ({ ...p.policies }), [p]);
-  const { draft, setDraft, dirty } = useTabDraft(base);
+  const { draft, setDraft, dirty, discard } = useTabDraft(base);
   useReportDirty(dirty, onDirtyChange);
   const update = useUpdateProperty();
   const saveError = useSaveError();
@@ -53,7 +53,7 @@ export function PoliciesTab({
           setDraft({ ...saved.policies });
           toast.success(t('lodging.editor.saved'), { duration: 3500 });
         },
-        onError: (error) => saveError(error),
+        onError: (error) => saveError(error, { onStale: discard }),
       },
     );
   };

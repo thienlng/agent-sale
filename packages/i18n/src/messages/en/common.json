@@ -1686,7 +1686,6 @@
     "calendarTitle": "Calendar",
     "bookingsTitle": "Bookings",
     "propertiesTitle": "Properties",
-    "propertyTitle": "Property details",
     "sellMode": {
       "whole": "Whole property",
       "rooms": "By room"
@@ -1926,8 +1925,7 @@
       },
       "prev": "Previous page",
       "next": "Next page",
-      "create": "New booking",
-      "open": "Open {{code}}"
+      "create": "New booking"
     },
     "holdSetting": {
       "label": "Holds expire after",
@@ -1981,9 +1979,8 @@
       },
       "unsavedMark": "Unsaved",
       "save": "Save",
-      "saving": "Saving…",
       "saved": "Saved.",
-      "stale": "The data changed, reloading.",
+      "stale": "The data changed; the latest version was loaded.",
       "error": "Could not save. Check the details and try again.",
       "readOnly": "You can only view this place.",
       "notFound": "This place was not found.",
@@ -2033,8 +2030,10 @@
       "remove": "Remove room {{name}}",
       "save": "Save rooms",
       "needOne": "Add at least one room.",
-      "invalid": "Every room needs a name and at least 1 adult.",
-      "removeConflict": "The room has bookings and cannot be removed. Turn it off instead."
+      "removeConflict": "The room has bookings and cannot be removed. Turn it off instead.",
+      "nameRequired": "Enter the room name.",
+      "adultsInvalid": "At least 1 adult.",
+      "childrenInvalid": "Cannot be negative."
     },
     "rates": {
       "weekdayTitle": "Weekday prices",
@@ -2060,7 +2059,8 @@
       "childFreeBelow": "Free below (age)",
       "childAdultFrom": "Counts as adult from (age)",
       "childAgesInvalid": "The free age cannot be above the adult age.",
-      "save": "Save prices"
+      "save": "Save prices",
+      "empty": "No price to save. Turn on at least one room or enter a whole-place price."
     },
     "overrides": {
       "title": "Special dates",
@@ -2083,11 +2083,12 @@
       "target": "Applies to",
       "nights": "{{from}} – {{to}}",
       "minNightsShort": "≥ {{count}} nights",
-      "invalid": "Enter a name, a valid date range and a sell price.",
       "overlap": "These dates overlap another special date.",
       "saved": "Special dates saved.",
       "deleted": "Special dates deleted.",
-      "save": "Save"
+      "save": "Save",
+      "rangeInvalid": "The last night must not be before the first.",
+      "minInvalid": "Enter 1 to 60 nights."
     },
     "policies": {
       "checkInTime": "Check-in time",
@@ -2100,7 +2101,6 @@
       "save": "Save policies"
     },
     "photos": {
-      "title": "Photos",
       "hint": "Real photos with captions; the bot picks photos by caption.",
       "count": "{{count}}/{{max}} photos",
       "caption": "Caption of photo {{n}}",

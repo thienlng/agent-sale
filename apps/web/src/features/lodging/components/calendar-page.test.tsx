@@ -1,5 +1,5 @@
 import type { CalendarDto, PropertyDto, QuoteDto } from '@agent-sales/contracts';
-import { screen, waitFor, within } from '@testing-library/react';
+import { configure, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -10,6 +10,10 @@ import { CalendarPage } from './calendar-page';
 
 const toast = vi.hoisted(() => Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }));
 vi.mock('sonner', () => ({ toast }));
+// The grid renders hundreds of named cell buttons; its first render plus the accessible-name
+// scan of a role query takes ~0.6–1.2 s on a cold worker, so the default 1 s `findBy` timeout
+// flaked under load (e.g. inside `pnpm check`). Same assertions, a longer wait.
+configure({ asyncUtilTimeout: 5000 });
 vi.mock('@/lib/use-workspace', () => ({ useWorkspaceId: () => 'ws-1' }));
 afterEach(() => {
   vi.unstubAllGlobals();

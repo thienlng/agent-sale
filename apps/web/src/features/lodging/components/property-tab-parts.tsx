@@ -1,4 +1,14 @@
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import {
+  cloneElement,
+  isValidElement,
+  type ReactElement,
+  type ReactNode,
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
@@ -17,17 +27,30 @@ export function useReportDirty(dirty: boolean, onDirtyChange: (dirty: boolean) =
 /**
  * A tab's editable copy of `base` (memoised by the caller). When the property is
  * refetched and the copy was untouched, it follows the new data; edits are kept.
+ * `discard()` (after a 409 STALE_VERSION) drops the edits and follows the next refetch
+ * even though the copy was edited, so a later save never overwrites someone else's change.
  */
 export function useTabDraft<T>(base: T) {
-  const [draft, setDraft] = useState<T>(base);
+  const [draft, setRawDraft] = useState<T>(base);
   const previous = useRef(base);
+  const follow = useRef(false);
   useEffect(() => {
     const old = JSON.stringify(previous.current);
     previous.current = base;
-    setDraft((d) => (JSON.stringify(d) === old ? base : d));
+    const forced = follow.current;
+    follow.current = false;
+    setRawDraft((d) => (forced || JSON.stringify(d) === old ? base : d));
   }, [base]);
+  const setDraft = useCallback((value: SetStateAction<T>) => {
+    follow.current = false;
+    setRawDraft(value);
+  }, []);
+  const discard = useCallback(() => {
+    follow.current = true;
+    setRawDraft(previous.current);
+  }, []);
   const dirty = JSON.stringify(draft) !== JSON.stringify(base);
-  return { draft, setDraft, dirty };
+  return { draft, setDraft, dirty, discard };
 }
 
 /** Bottom bar of a tab: the submit button (spinner while saving) and an "unsaved" hint. */
@@ -73,11 +96,22 @@ export function Field({
   className?: string;
   children: ReactNode;
 }) {
+  const describedBy = error ? `${id}-error` : hint ? `${id}-hint` : undefined;
+  const control =
+    describedBy && isValidElement(children)
+      ? cloneElement(children as ReactElement<{ 'aria-describedby'?: string }>, {
+          'aria-describedby': describedBy,
+        })
+      : children;
   return (
     <div className={className ?? 'grid gap-1.5'}>
       <Label htmlFor={id}>{label}</Label>
-      {children}
-      {hint && !error && <p className="text-xs text-muted-foreground">{hint}</p>}
+      {control}
+      {hint && !error && (
+        <p id={`${id}-hint`} className="text-xs text-muted-foreground">
+          {hint}
+        </p>
+      )}
       {error && (
         <p id={`${id}-error`} className="text-xs text-destructive">
           {error}

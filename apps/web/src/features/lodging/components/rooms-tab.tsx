@@ -47,11 +47,18 @@ const roomsOf = (p: PropertyDto): RoomDraft[] =>
       active: u.active,
     }));
 
-const roomInvalid = (r: RoomDraft) => {
+/** Which fields of a room are wrong (shown under the field after a save attempt). */
+const roomErrors = (r: RoomDraft) => {
   const adults = intOrNull(r.adults);
   const children = intOrNull(r.children || '0');
-  return !r.name.trim() || adults === null || adults < 1 || children === null || children < 0;
+  return {
+    name: !r.name.trim(),
+    adults: adults === null || adults < 1,
+    children: children === null || children < 0,
+  };
 };
+
+const roomInvalid = (r: RoomDraft) => Object.values(roomErrors(r)).some(Boolean);
 
 /**
  * "Phòng" tab (rooms places only): the room list as a table. Rooms switched off
@@ -69,7 +76,7 @@ export function RoomsTab({
 }) {
   const { t } = useTranslation();
   const base = useMemo(() => roomsOf(p), [p]);
-  const { draft: rooms, setDraft, dirty } = useTabDraft(base);
+  const { draft: rooms, setDraft, dirty, discard } = useTabDraft(base);
   useReportDirty(dirty, onDirtyChange);
   const [submitted, setSubmitted] = useState(false);
   const replace = useReplaceUnits();
@@ -104,7 +111,8 @@ export function RoomsTab({
           setSubmitted(false);
           toast.success(t('lodging.editor.saved'), { duration: 3500 });
         },
-        onError: (error) => saveError(error, () => t('lodging.rooms.removeConflict')),
+        onError: (error) =>
+          saveError(error, { onStale: discard, conflict: () => t('lodging.rooms.removeConflict') }),
       },
     );
   };
@@ -138,7 +146,8 @@ export function RoomsTab({
         </TableHeader>
         <TableBody>
           {rooms.map((r) => {
-            const bad = submitted && roomInvalid(r);
+            const bad = submitted ? roomErrors(r) : { name: false, adults: false, children: false };
+            const errorId = (field: string) => `room-${r.key}-${field}-error`;
             return (
               <TableRow
                 key={r.key}
@@ -150,9 +159,15 @@ export function RoomsTab({
                     value={r.name}
                     maxLength={100}
                     disabled={!canEdit}
-                    aria-invalid={(bad && !r.name.trim()) || undefined}
+                    aria-invalid={bad.name || undefined}
+                    aria-describedby={bad.name ? errorId('name') : undefined}
                     onChange={(e) => setRoom(r.key, { name: e.target.value })}
                   />
+                  {bad.name && (
+                    <p id={errorId('name')} className="mt-1 text-xs text-destructive">
+                      {t('lodging.rooms.nameRequired')}
+                    </p>
+                  )}
                 </TableCell>
                 <TableCell>
                   <Input
@@ -170,9 +185,15 @@ export function RoomsTab({
                     min={1}
                     value={r.adults}
                     disabled={!canEdit}
-                    aria-invalid={bad || undefined}
+                    aria-invalid={bad.adults || undefined}
+                    aria-describedby={bad.adults ? errorId('adults') : undefined}
                     onChange={(e) => setRoom(r.key, { adults: e.target.value })}
                   />
+                  {bad.adults && (
+                    <p id={errorId('adults')} className="mt-1 text-xs text-destructive">
+                      {t('lodging.rooms.adultsInvalid')}
+                    </p>
+                  )}
                 </TableCell>
                 <TableCell>
                   <Input
@@ -181,8 +202,15 @@ export function RoomsTab({
                     min={0}
                     value={r.children}
                     disabled={!canEdit}
+                    aria-invalid={bad.children || undefined}
+                    aria-describedby={bad.children ? errorId('children') : undefined}
                     onChange={(e) => setRoom(r.key, { children: e.target.value })}
                   />
+                  {bad.children && (
+                    <p id={errorId('children')} className="mt-1 text-xs text-destructive">
+                      {t('lodging.rooms.childrenInvalid')}
+                    </p>
+                  )}
                 </TableCell>
                 <TableCell>
                   <span className="flex items-center gap-2">
@@ -237,9 +265,9 @@ export function RoomsTab({
           {t('lodging.rooms.add')}
         </Button>
       )}
-      {submitted && invalid && (
+      {submitted && rooms.length === 0 && (
         <p role="alert" className="text-sm text-destructive">
-          {t(rooms.length === 0 ? 'lodging.rooms.needOne' : 'lodging.rooms.invalid')}
+          {t('lodging.rooms.needOne')}
         </p>
       )}
       <TabSaveBar

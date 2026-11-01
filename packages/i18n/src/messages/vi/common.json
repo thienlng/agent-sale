@@ -1681,7 +1681,6 @@
     "calendarTitle": "Lịch",
     "bookingsTitle": "Booking",
     "propertiesTitle": "Căn",
-    "propertyTitle": "Chi tiết căn",
     "sellMode": {
       "whole": "Nguyên căn",
       "rooms": "Theo phòng"
@@ -1921,8 +1920,7 @@
       },
       "prev": "Trang trước",
       "next": "Trang sau",
-      "create": "Tạo booking",
-      "open": "Mở {{code}}"
+      "create": "Tạo booking"
     },
     "holdSetting": {
       "label": "Giữ chỗ tự hết hạn sau",
@@ -1976,9 +1974,8 @@
       },
       "unsavedMark": "Chưa lưu",
       "save": "Lưu",
-      "saving": "Đang lưu…",
       "saved": "Đã lưu.",
-      "stale": "Dữ liệu đã thay đổi, tải lại.",
+      "stale": "Dữ liệu đã thay đổi, đã tải lại bản mới nhất.",
       "error": "Không lưu được. Kiểm tra thông tin rồi thử lại.",
       "readOnly": "Bạn chỉ có quyền xem thông tin căn.",
       "notFound": "Không tìm thấy căn này.",
@@ -2028,8 +2025,10 @@
       "remove": "Xoá phòng {{name}}",
       "save": "Lưu phòng",
       "needOne": "Cần ít nhất một phòng.",
-      "invalid": "Mỗi phòng cần tên và ít nhất 1 người lớn.",
-      "removeConflict": "Phòng đã có booking nên không xoá được. Hãy tắt phòng thay vì xoá."
+      "removeConflict": "Phòng đã có booking nên không xoá được. Hãy tắt phòng thay vì xoá.",
+      "nameRequired": "Nhập tên phòng.",
+      "adultsInvalid": "Ít nhất 1 người lớn.",
+      "childrenInvalid": "Không được âm."
     },
     "rates": {
       "weekdayTitle": "Giá theo thứ",
@@ -2055,7 +2054,8 @@
       "childFreeBelow": "Miễn phí dưới (tuổi)",
       "childAdultFrom": "Tính người lớn từ (tuổi)",
       "childAgesInvalid": "Tuổi miễn phí không được lớn hơn tuổi tính người lớn.",
-      "save": "Lưu giá"
+      "save": "Lưu giá",
+      "empty": "Chưa có giá nào để lưu. Bật ít nhất một phòng hoặc nhập giá nguyên căn."
     },
     "overrides": {
       "title": "Ngày đặc biệt",
@@ -2078,11 +2078,12 @@
       "target": "Áp cho",
       "nights": "{{from}} – {{to}}",
       "minNightsShort": "≥ {{count}} đêm",
-      "invalid": "Nhập tên, khoảng ngày hợp lệ và giá bán.",
       "overlap": "Khoảng ngày trùng với ngày đặc biệt khác.",
       "saved": "Đã lưu ngày đặc biệt.",
       "deleted": "Đã xoá ngày đặc biệt.",
-      "save": "Lưu"
+      "save": "Lưu",
+      "rangeInvalid": "Đêm cuối phải từ đêm đầu trở đi.",
+      "minInvalid": "Nhập từ 1 đến 60 đêm."
     },
     "policies": {
       "checkInTime": "Giờ nhận phòng",
@@ -2095,7 +2096,6 @@
       "save": "Lưu chính sách"
     },
     "photos": {
-      "title": "Ảnh",
       "hint": "Ảnh thực tế kèm chú thích; Bot gửi ảnh theo chú thích.",
       "count": "{{count}}/{{max}} ảnh",
       "caption": "Chú thích ảnh {{n}}",

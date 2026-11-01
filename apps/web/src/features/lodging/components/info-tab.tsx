@@ -75,7 +75,7 @@ export function InfoTab({
   const { t } = useTranslation();
   const id = useId();
   const base = useMemo(() => infoOf(p), [p]);
-  const { draft: d, setDraft, dirty } = useTabDraft(base);
+  const { draft: d, setDraft, dirty, discard } = useTabDraft(base);
   useReportDirty(dirty, onDirtyChange);
   const update = useUpdateProperty();
   const saveError = useSaveError();
@@ -118,11 +118,16 @@ export function InfoTab({
           toast.success(t('lodging.editor.saved'), { duration: 3500 });
         },
         onError: (error) =>
-          saveError(error, (codes) =>
-            d.sellMode !== p.sellMode
-              ? t('lodging.info.sellModeConflict', { codes: codes.join(', ') })
-              : t('lodging.info.codeTaken'),
-          ),
+          saveError(error, {
+            onStale: discard,
+            // Sell-mode refusals list the blocking bookings; a taken code has no codes.
+            conflict: (e) => {
+              const codes = e.details?.['codes'];
+              return Array.isArray(codes)
+                ? t('lodging.info.sellModeConflict', { codes: codes.join(', ') })
+                : t('lodging.info.codeTaken');
+            },
+          }),
       },
     );
   };

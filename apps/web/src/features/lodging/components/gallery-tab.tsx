@@ -22,7 +22,7 @@ export function GalleryTab({
 }) {
   const { t } = useTranslation();
   const base = useMemo<GalleryPhoto[]>(() => p.gallery.map((g) => ({ ...g })), [p]);
-  const { draft, setDraft, dirty } = useTabDraft(base);
+  const { draft, setDraft, dirty, discard } = useTabDraft(base);
   useReportDirty(dirty, onDirtyChange);
   const [submitted, setSubmitted] = useState(false);
   const update = useUpdateProperty();
@@ -46,7 +46,7 @@ export function GalleryTab({
           setSubmitted(false);
           toast.success(t('lodging.editor.saved'), { duration: 3500 });
         },
-        onError: (error) => saveError(error),
+        onError: (error) => saveError(error, { onStale: discard }),
       },
     );
   };

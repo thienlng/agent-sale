@@ -26,6 +26,7 @@ import {
 import { useCreateOverride, useUpdateOverride } from '../api/properties';
 import { useSaveError } from '../hooks/use-save-error';
 import { SavingLabel } from './booking-fields';
+import { Field } from './property-tab-parts';
 
 const WHOLE = 'whole';
 
@@ -74,13 +75,16 @@ export function OverrideDialog({
   const rooms = p.sellMode === 'rooms' ? p.units.filter((u) => u.kind === 'room') : [];
   const unitId = d.target === WHOLE ? null : d.target;
   const minNights = d.minNights ? Number(d.minNights) : null;
-  const invalid =
-    !d.label.trim() ||
-    !d.dateFrom ||
-    !d.dateTo ||
-    d.dateFrom > d.dateTo ||
-    !d.sell ||
-    (minNights !== null && (!Number.isInteger(minNights) || minNights < 1 || minNights > 60));
+  const minInvalid =
+    minNights !== null && (!Number.isInteger(minNights) || minNights < 1 || minNights > 60);
+  const errors = {
+    label: !d.label.trim(),
+    from: !d.dateFrom,
+    to: !d.dateTo || (Boolean(d.dateFrom) && d.dateFrom > d.dateTo),
+    sell: !d.sell,
+    min: minInvalid,
+  };
+  const invalid = Object.values(errors).some(Boolean);
   const overlap =
     !invalid &&
     p.rates.some(
@@ -92,6 +96,8 @@ export function OverrideDialog({
         r.dateTo &&
         overlaps(d.dateFrom, d.dateTo, r.dateFrom, r.dateTo),
     );
+  const err = (bad: boolean, key: string) => (submitted && bad ? t(key) : undefined);
+  const required = 'lodging.places.required';
   const set = (patch: Partial<OverrideDraft>) => setD((v) => ({ ...v, ...patch }));
 
   const submit = (e: FormEvent) => {
@@ -129,36 +135,51 @@ export function OverrideDialog({
           <DialogDescription>{t('lodging.overrides.hint')}</DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} noValidate className="grid gap-3">
-          <div className="grid gap-1.5">
-            <Label htmlFor={`${id}-label`}>{t('lodging.overrides.label')}</Label>
+          <Field
+            id={`${id}-label`}
+            label={t('lodging.overrides.label')}
+            error={err(errors.label, required)}
+          >
             <Input
               id={`${id}-label`}
               value={d.label}
               maxLength={100}
               placeholder={t('lodging.overrides.labelPlaceholder')}
+              aria-invalid={(submitted && errors.label) || undefined}
               onChange={(e) => set({ label: e.target.value })}
             />
-          </div>
+          </Field>
           <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1.5">
-              <Label htmlFor={`${id}-from`}>{t('lodging.overrides.from')}</Label>
+            <Field
+              id={`${id}-from`}
+              label={t('lodging.overrides.from')}
+              error={err(errors.from, required)}
+            >
               <Input
                 id={`${id}-from`}
                 type="date"
                 value={d.dateFrom}
+                aria-invalid={(submitted && (errors.from || overlap)) || undefined}
                 onChange={(e) => set({ dateFrom: e.target.value })}
               />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor={`${id}-to`}>{t('lodging.overrides.to')}</Label>
+            </Field>
+            <Field
+              id={`${id}-to`}
+              label={t('lodging.overrides.to')}
+              error={
+                err(errors.to, 'lodging.overrides.rangeInvalid') ??
+                err(overlap, 'lodging.overrides.overlap')
+              }
+            >
               <Input
                 id={`${id}-to`}
                 type="date"
                 value={d.dateTo}
                 min={d.dateFrom || undefined}
+                aria-invalid={(submitted && (errors.to || overlap)) || undefined}
                 onChange={(e) => set({ dateTo: e.target.value })}
               />
-            </div>
+            </Field>
           </div>
           {rooms.length > 0 && (
             <div className="grid gap-1.5">
@@ -179,25 +200,32 @@ export function OverrideDialog({
             </div>
           )}
           <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1.5">
-              <Label htmlFor={`${id}-sell`}>{t('lodging.rates.sell')}</Label>
+            <Field
+              id={`${id}-sell`}
+              label={t('lodging.rates.sell')}
+              error={err(errors.sell, required)}
+            >
               <MoneyInput
                 id={`${id}-sell`}
                 value={d.sell}
+                aria-invalid={(submitted && errors.sell) || undefined}
                 onValueChange={(sell) => set({ sell })}
               />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor={`${id}-cost`}>{t('lodging.rates.cost')}</Label>
+            </Field>
+            <Field id={`${id}-cost`} label={t('lodging.rates.cost')}>
               <MoneyInput
                 id={`${id}-cost`}
                 value={d.cost}
                 onValueChange={(cost) => set({ cost })}
               />
-            </div>
+            </Field>
           </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor={`${id}-min`}>{t('lodging.overrides.minNights')}</Label>
+          <Field
+            id={`${id}-min`}
+            label={t('lodging.overrides.minNights')}
+            hint={t('lodging.overrides.minNightsHint')}
+            error={err(errors.min, 'lodging.overrides.minInvalid')}
+          >
             <Input
               id={`${id}-min`}
               type="number"
@@ -206,18 +234,10 @@ export function OverrideDialog({
               max={60}
               className="w-28"
               value={d.minNights}
-              aria-describedby={`${id}-min-hint`}
+              aria-invalid={(submitted && errors.min) || undefined}
               onChange={(e) => set({ minNights: e.target.value })}
             />
-            <p id={`${id}-min-hint`} className="text-xs text-muted-foreground">
-              {t('lodging.overrides.minNightsHint')}
-            </p>
-          </div>
-          {submitted && (invalid || overlap) && (
-            <p role="alert" className="text-sm text-destructive">
-              {t(invalid ? 'lodging.overrides.invalid' : 'lodging.overrides.overlap')}
-            </p>
-          )}
+          </Field>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose}>
               {t('lodging.overrides.keep')}

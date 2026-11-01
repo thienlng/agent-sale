@@ -95,6 +95,8 @@ export interface RatesErrors {
   /** Row index → missing weekdays. */
   rows: Map<number, number[]>;
   childAges: boolean;
+  /** No row has any price (e.g. every room off and no whole-place price): nothing to save. */
+  empty: boolean;
 }
 
 export function validateRates(d: RatesDraft): RatesErrors {
@@ -103,10 +105,11 @@ export function validateRates(d: RatesDraft): RatesErrors {
     const missing = missingDays(row);
     if (missing.length) rows.set(i, missing);
   });
-  return { rows, childAges: d.childFreeBelow > d.childAdultFrom };
+  const empty = d.rows.every((row) => WEEKDAYS.every((day) => !row.cells[day - 1]?.sell));
+  return { rows, childAges: d.childFreeBelow > d.childAdultFrom, empty };
 }
 
-export const hasRatesErrors = (e: RatesErrors) => e.rows.size > 0 || e.childAges;
+export const hasRatesErrors = (e: RatesErrors) => e.rows.size > 0 || e.childAges || e.empty;
 
 const priceOrNull = (p: PriceDraft) => (p.sell ? { sell: p.sell, cost: p.cost || p.sell } : null);
 

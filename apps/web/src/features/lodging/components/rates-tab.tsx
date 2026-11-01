@@ -38,7 +38,7 @@ export function RatesTab({
   const id = useId();
   const wholeName = t('lodging.rates.whole');
   const base = useMemo(() => ratesDraftOf(p, wholeName), [p, wholeName]);
-  const { draft, setDraft, dirty } = useTabDraft<RatesDraft>(base);
+  const { draft, setDraft, dirty, discard } = useTabDraft<RatesDraft>(base);
   const [submitted, setSubmitted] = useState(false);
   const putRates = usePutRates();
   const updateProperty = useUpdateProperty();
@@ -70,10 +70,10 @@ export function RatesTab({
                 },
               },
             },
-            { onSuccess: finish, onError: (error) => saveError(error) },
+            { onSuccess: finish, onError: (error) => saveError(error, { onStale: discard }) },
           );
         },
-        onError: (error) => saveError(error),
+        onError: (error) => saveError(error, { onStale: discard }),
       },
     );
   };
@@ -105,6 +105,11 @@ export function RatesTab({
             disabled={!canEdit}
             onChange={(rows) => set({ rows })}
           />
+          {submitted && errors.empty && (
+            <p role="alert" className="text-xs text-destructive">
+              {t('lodging.rates.empty')}
+            </p>
+          )}
         </section>
         <section className="grid gap-3">
           <div>

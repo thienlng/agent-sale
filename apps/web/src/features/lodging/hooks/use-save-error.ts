@@ -10,23 +10,30 @@ import { lodgingConflict } from '../api/bookings';
 import { lodgingKeys } from '../api/keys';
 
 /**
- * Toast for a failed property save. `STALE_VERSION` (someone else saved first) says
- * "Dữ liệu đã thay đổi, tải lại" and refetches; `conflict` maps other 409s of the tab
- * (taken code, rooms with bookings); 400 shows the editor's generic message.
+ * Toast for a failed property save. `STALE_VERSION` (someone else saved first) says so,
+ * calls `onStale` (the tab drops its edits and follows the refetch) and refetches;
+ * `conflict` maps other 409s of the tab (taken code, rooms with bookings); 400 shows the
+ * editor's generic message.
  */
 export function useSaveError() {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const ws = useWorkspaceId();
-  return (error: unknown, conflict?: (codes: string[]) => string) => {
-    const { reason, codes } = lodgingConflict(error);
-    if (reason === 'STALE_VERSION') {
+  return (
+    error: unknown,
+    options: {
+      conflict?: (error: ApiClientError) => string;
+      onStale?: () => void;
+    } = {},
+  ) => {
+    if (lodgingConflict(error).reason === 'STALE_VERSION') {
       toast.error(t('lodging.editor.stale'));
+      options.onStale?.();
       void qc.invalidateQueries({ queryKey: lodgingKeys.all(ws) });
       return;
     }
-    if (conflict && error instanceof ApiClientError && error.code === 'CONFLICT') {
-      toast.error(conflict(codes));
+    if (options.conflict && error instanceof ApiClientError && error.code === 'CONFLICT') {
+      toast.error(options.conflict(error));
       return;
     }
     toast.error(

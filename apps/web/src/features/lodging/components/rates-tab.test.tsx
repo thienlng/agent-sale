@@ -82,4 +82,21 @@ describe('RatesTab', () => {
     );
     expect(within(document.body).queryByText(/thiếu giá bán/)).toBeNull();
   });
+
+  it('refuses to save a rooms place with every room off and no whole price', async () => {
+    const calls = stub();
+    const allOff = {
+      ...rooms,
+      units: rooms.units.map((u) => ({ ...u, active: false })),
+      rates: [],
+    };
+    renderWithRouter(() => <RatesTab property={allOff} canEdit onDirtyChange={() => {}} />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Lưu giá' }));
+    expect(
+      await screen.findByText(
+        'Chưa có giá nào để lưu. Bật ít nhất một phòng hoặc nhập giá nguyên căn.',
+      ),
+    ).toBeInTheDocument();
+    expect(calls.some((c) => c.key.startsWith('PUT'))).toBe(false);
+  });
 });
