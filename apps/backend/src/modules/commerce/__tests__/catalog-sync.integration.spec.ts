@@ -548,4 +548,18 @@ describe('catalog sync facade on Postgres', () => {
     );
     expect(linked).toEqual([]);
   });
+
+  it('refuses a half link: the source and the id are set together or not at all', async () => {
+    const db = app.get<Database>(DB_TENANT, { strict: false });
+    for (const half of [
+      { externalSource: 'kiotviet', externalId: null },
+      { externalSource: null, externalId: '42' },
+    ]) {
+      await expect(
+        withTenant(db, ws, (tx) =>
+          tx.update(schema.products).set(half).where(eq(schema.products.id, productId)),
+        ),
+      ).rejects.toMatchObject({ cause: { constraint_name: 'products_external_pair_check' } });
+    }
+  });
 });

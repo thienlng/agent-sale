@@ -78,7 +78,9 @@ create table integration_sync_log (
 );
 create index integration_sync_log_recent on integration_sync_log (connection_id, at desc);
 
-alter table products add column external_source text, add column external_id text;
+alter table products add column external_source text, add column external_id text,
+  -- A link is the provider and its id together, or neither (a half link would lock a product nobody syncs).
+  add constraint products_external_pair_check check ((external_id is null) = (external_source is null));
 create unique index products_external on products (workspace_id, external_source, external_id)
   where external_id is not null;
 alter table product_variants add column external_id text;

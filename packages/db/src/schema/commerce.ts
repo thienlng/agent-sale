@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import {
   bigint,
   boolean,
+  check,
   date,
   foreignKey,
   index,
@@ -73,6 +74,10 @@ export const products = pgTable(
     uniqueIndex('products_external')
       .on(t.workspaceId, t.externalSource, t.externalId)
       .where(sql`${t.externalId} is not null`),
+    check(
+      'products_external_pair_check',
+      sql`(${t.externalId} is null) = (${t.externalSource} is null)`,
+    ),
     ...tenantPolicies('products'),
   ],
 );
