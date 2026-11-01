@@ -199,12 +199,14 @@ export interface CrmTx {
     setLink(contactId: string, link: { source: string; id: string } | null): Promise<void>;
     /**
      * Removes the links to these external ids (all of the source when null), bumping version and
-     * `updatedAt`; returns the customers unlinked.
+     * `updatedAt`; with `detach` (the PMS deleted them) the push state becomes 'detached', so the
+     * push never re-creates them. Returns the customers unlinked.
      */
     unlink(
       source: string,
       externalIds: readonly string[] | null,
       at: Date,
+      detach: boolean,
     ): Promise<Array<{ id: string; externalId: string }>>;
     /** Null → 'pending' for up to `limit` eligible customers (SKIP LOCKED), oldest first. */
     claim(since: Date, limit: number, at: Date): Promise<ContactRecord[]>;
@@ -212,7 +214,7 @@ export interface CrmTx {
     markFailed(contactId: string, code: string): Promise<boolean>;
     /** 'pending' → null (claimed before `olderThan` when given); returns how many. */
     releasePending(olderThan?: Date): Promise<number>;
-    /** 'pending' and 'failed' → null; returns how many. */
+    /** 'pending' and 'failed' → null ('detached' stays); returns how many. */
     clearPushStates(): Promise<number>;
     /** 'failed' → null (the next claim takes them again); returns how many. */
     releaseFailed(): Promise<number>;

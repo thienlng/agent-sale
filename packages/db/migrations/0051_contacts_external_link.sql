@@ -5,8 +5,9 @@
 alter table contacts add column if not exists external_source text;
 alter table contacts add column if not exists external_id text;
 -- Creating a Rapiz customer in the PMS: 'pending' while claimed by a push, 'failed' when the PMS
--- refused it. Null otherwise (also once linked). KiotViet is the only source, so the claim carries
--- no source of its own.
+-- refused it, 'detached' when the PMS deleted the customer it was linked to (never pushed again, so
+-- a delete in the PMS is not undone; a later import that links it again clears it). Null otherwise
+-- (also once linked). KiotViet is the only source, so the claim carries no source of its own.
 alter table contacts add column if not exists external_push_state text;
 alter table contacts add column if not exists external_push_at timestamptz;
 alter table contacts add column if not exists external_push_error text;
@@ -20,7 +21,7 @@ begin
   if not exists (select 1 from pg_constraint where conname = 'contacts_external_push_state_check') then
     alter table contacts add constraint contacts_external_push_state_check
       check (external_push_state is null
-        or (external_push_state in ('pending', 'failed') and external_id is null
+        or (external_push_state in ('pending', 'failed', 'detached') and external_id is null
           and external_push_at is not null));
   end if;
 end $$;

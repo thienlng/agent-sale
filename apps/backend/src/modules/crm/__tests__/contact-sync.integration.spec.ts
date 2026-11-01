@@ -263,6 +263,84 @@ describe('contact sync facade on Postgres', () => {
     expect((await all(a.h)).total).toBe(2);
   });
 
+  it('never pushes back a customer the PMS deleted, until an import links it again', async () => {
+    const a = await shop('sync-detached@shop.vn');
+    const since = new Date(Date.now() - 60_000);
+    const imported = await sync().upsertExternalContact(
+      a.ws,
+      'kiotviet',
+      kv({ externalId: '31', phone: '0912000031' }),
+    );
+    const id = 'contactId' in imported ? imported.contactId : '';
+    const kept = await sync().upsertExternalContact(
+      a.ws,
+      'kiotviet',
+      kv({ externalId: '32', phone: '0912000032' }),
+    );
+    const keptId = 'contactId' in kept ? kept.contactId : '';
+
+    // Deleted in KiotViet: unlinked, then never claimed, even after a release or a disconnect.
+    expect(await sync().unlinkExternalContacts(a.ws, 'kiotviet', ['31'])).toBe(1);
+    expect(await sync().claimContactsForPush(a.ws, 'kiotviet', since, 10)).toEqual([]);
+    expect(await sync().releaseFailedContactPushes(a.ws, 'kiotviet')).toBe(0);
+    expect(await sync().releasePendingContactPushes(a.ws, 'kiotviet')).toBe(0);
+    expect(await sync().releaseExternalSource(a.ws, 'kiotviet')).toBe(1);
+    // A disconnect unlink is not a delete: that customer may be pushed after a reconnect.
+    expect(
+      (await sync().claimContactsForPush(a.ws, 'kiotviet', since, 10)).map((c) => c.id),
+    ).toEqual([keptId]);
+    expect(
+      await sync().staleContactPushes(a.ws, 'kiotviet', since, new Date(Date.now() + 1000), 10),
+    ).toEqual([keptId]);
+
+    // The same phone created again in KiotViet: the import links it and clears the mark.
+    const again = await sync().upsertExternalContact(
+      a.ws,
+      'kiotviet',
+      kv({ externalId: '33', phone: '0912000031' }),
+    );
+    expect(again).toMatchObject({ contactId: id, matchedBy: 'phone' });
+    expect((await get(a.h, id)).external).toEqual({ source: 'kiotviet', id: '33' });
+    expect(await sync().unlinkExternalContacts(a.ws, 'kiotviet', ['33'])).toBe(1);
+    // The disconnect cleared the other claim; the detached customer is still never claimed.
+    expect(await sync().releaseExternalSource(a.ws, 'kiotviet')).toBe(0);
+    expect(
+      (await sync().claimContactsForPush(a.ws, 'kiotviet', since, 10)).map((c) => c.id),
+    ).toEqual([keptId]);
+  });
+
+  it('keeps the stored name when the PMS name is only the customer phone', async () => {
+    const a = await shop('sync-phone-name@shop.vn');
+    const since = new Date(Date.now() - 60_000);
+    const nameless = await contact(a.h, { phone: '0912000041' });
+    const named = await contact(a.h, { name: 'Lan', phone: '0912000042' });
+    await sync().claimContactsForPush(a.ws, 'kiotviet', since, 10);
+    await sync().markContactPushed(a.ws, nameless.id, 'kiotviet', '41');
+    await sync().markContactPushed(a.ws, named.id, 'kiotviet', '42');
+
+    // The echo of the push (named by its number), as KiotViet's `customer.update` sends it.
+    await sync().upsertExternalContact(
+      a.ws,
+      'kiotviet',
+      kv({ externalId: '41', name: '0912000041', phone: '0912000041' }),
+    );
+    await sync().upsertExternalContact(
+      a.ws,
+      'kiotviet',
+      kv({ externalId: '42', name: '+84 912 000 042', phone: '0912000042' }),
+    );
+    expect((await get(a.h, nameless.id)).name).toBeNull();
+    expect((await get(a.h, named.id)).name).toBe('Lan');
+
+    // A real name from KiotViet still wins.
+    await sync().upsertExternalContact(
+      a.ws,
+      'kiotviet',
+      kv({ externalId: '41', name: 'Minh', phone: '0912000041' }),
+    );
+    expect((await get(a.h, nameless.id)).name).toBe('Minh');
+  });
+
   it('ends with one customer when imports and a lead capture of one phone race', async () => {
     const a = await shop('sync-race@shop.vn');
     const results = await Promise.all([

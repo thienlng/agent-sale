@@ -54,8 +54,13 @@ export function contactSyncTx(tx: TenantTx): Pick<CrmTx, 'contactSync'> {
           throw e;
         }
       },
-      async unlink(source, externalIds, at) {
+      async unlink(source, externalIds, at, detach) {
         if (externalIds && !externalIds.length) return [];
+        // A PMS delete marks the customer 'detached' so the push scan never re-creates it there.
+        const pushState = detach
+          ? sql`, external_push_state = 'detached', external_push_at = ${at.toISOString()},
+              external_push_error = null`
+          : sql``;
         // The CTE keeps the old external id for the caller's history entries.
         const rows = await tx.execute<{ id: string; external_id: string }>(sql`
           with old as (
@@ -72,7 +77,7 @@ export function contactSyncTx(tx: TenantTx): Pick<CrmTx, 'contactSync'> {
             for update
           )
           update ${c} set external_source = null, external_id = null,
-            version = ${c}.version + 1, updated_at = ${at.toISOString()}
+            version = ${c}.version + 1, updated_at = ${at.toISOString()}${pushState}
           from old where ${c}.id = old.id
           returning ${c}.id as id, old.external_id as external_id`);
         return rows.map((r) => ({ id: r.id, externalId: r.external_id }));
@@ -130,7 +135,8 @@ export function contactSyncTx(tx: TenantTx): Pick<CrmTx, 'contactSync'> {
         const rows = await tx
           .update(c)
           .set({ externalPushState: null, externalPushAt: null, externalPushError: null })
-          .where(sql`${c.externalPushState} is not null`)
+          // 'detached' stays: a reconnect must not re-create customers the PMS deleted.
+          .where(inArray(c.externalPushState, ['pending', 'failed']))
           .returning({ id: c.id });
         return rows.length;
       },

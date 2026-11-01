@@ -49,7 +49,11 @@ export interface ContactSyncFacade {
     source: ContactExternalSource,
     c: ExternalContactInput,
   ): Promise<UpsertExternalContactResult>;
-  /** PMS deletes: the customers linked to these ids lose the link and stay. Returns how many. */
+  /**
+   * PMS deletes: the customers linked to these ids lose the link and stay, marked 'detached' so
+   * `claimContactsForPush` never re-creates them in the PMS (a later import that links one again
+   * clears the mark). Returns how many.
+   */
   unlinkExternalContacts(
     ws: WorkspaceId,
     source: ContactExternalSource,
@@ -58,7 +62,7 @@ export interface ContactSyncFacade {
   /**
    * Atomically claims up to `limit` customers to create in the PMS (push state null → 'pending'):
    * unlinked, live, with a usable phone, created since `since`, oldest first. A claimed customer is
-   * never returned again until released.
+   * never returned again until released; a 'detached' one (deleted in the PMS) never.
    */
   claimContactsForPush(
     ws: WorkspaceId,
@@ -115,7 +119,10 @@ export interface ContactSyncFacade {
     olderThan: Date,
     limit: number,
   ): Promise<string[]>;
-  /** Disconnect: every customer linked to the source is unlinked (data kept) and push states clear. */
+  /**
+   * Disconnect: every customer linked to the source is unlinked (data kept) and 'pending' /
+   * 'failed' push states clear ('detached' stays).
+   */
   releaseExternalSource(ws: WorkspaceId, source: ContactExternalSource): Promise<number>;
   linkedContactCount(ws: WorkspaceId, source: ContactExternalSource): Promise<number>;
   /** The PMS customer id of a Rapiz customer, if linked. */

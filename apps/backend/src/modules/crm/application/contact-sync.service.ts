@@ -16,6 +16,7 @@ import {
   cleanExternalContact,
   type ExternalContactFields,
   externalPatch,
+  isPhoneName,
   normalizeExternalId,
   rejectedFields,
 } from '../domain/external-contact.js';
@@ -60,13 +61,19 @@ export class ContactSyncService implements ContactSyncFacade {
       const now = new Date();
       const linked = await tx.contactSync.findByExternal(source, externalId);
       if (linked) {
-        await this.#update(tx, ws, linked, externalPatch(fields, 'linked', rejected), null, now);
+        const patch = externalPatch(
+          fields,
+          'linked',
+          keepName(fields, linked, phoneE164, rejected),
+        );
+        await this.#update(tx, ws, linked, patch, null, now);
         return { contactId: linked.id, created: false, matchedBy: 'external' };
       }
       const byPhone = phoneE164 ? await tx.contactSync.findUnlinkedByPhone(phoneE164) : null;
       const link = { source, id: externalId };
       if (byPhone) {
-        await this.#update(tx, ws, byPhone, externalPatch(fields, 'adopt'), link, now);
+        const patch = externalPatch(fields, 'adopt', keepName(fields, byPhone, phoneE164));
+        await this.#update(tx, ws, byPhone, patch, link, now);
         return { contactId: byPhone.id, created: false, matchedBy: 'phone' };
       }
       const contactId = await this.#create(tx, ws, fields, link, now);
@@ -293,7 +300,12 @@ export class ContactSyncService implements ContactSyncFacade {
     reason: 'external_deleted' | 'disconnected',
   ): Promise<number> {
     const now = new Date();
-    const unlinked = await tx.contactSync.unlink(source, externalIds, now);
+    const unlinked = await tx.contactSync.unlink(
+      source,
+      externalIds,
+      now,
+      reason === 'external_deleted',
+    );
     await tx.history.addMany(
       unlinked.map((u) =>
         history(u.id, 'contact.updated', { [LINK]: { from: source, to: null } }, now, {
@@ -304,6 +316,21 @@ export class ContactSyncService implements ContactSyncFacade {
     );
     return unlinked.length;
   }
+}
+
+/**
+ * `rejected` plus the name when the PMS name is only the customer's own number: a customer pushed
+ * without a name is named by its phone in the PMS, and that echo keeps the stored name.
+ */
+function keepName(
+  fields: ExternalContactFields,
+  c: ContactRecord,
+  phoneE164: string | null,
+  rejected: ReadonlyArray<keyof ExternalContactFields> = [],
+): Array<keyof ExternalContactFields> {
+  return isPhoneName(fields.name, [c.phoneNormalized, phoneE164])
+    ? [...rejected, 'name']
+    : [...rejected];
 }
 
 function pushable(c: ContactRecord): PushableContact {

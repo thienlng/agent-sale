@@ -79,8 +79,11 @@ export const contacts = pgTable(
     /** PMS link (0051, ADR-017): the provider and its customer id; both null when not linked. */
     externalSource: text('external_source'),
     externalId: text('external_id'),
-    /** Creating the customer in the PMS (0051): 'pending' while claimed, 'failed' when refused. */
-    externalPushState: text('external_push_state').$type<'pending' | 'failed'>(),
+    /**
+     * Creating the customer in the PMS (0051): 'pending' while claimed, 'failed' when refused,
+     * 'detached' once the PMS deleted the customer it was linked to (never pushed again).
+     */
+    externalPushState: text('external_push_state').$type<'pending' | 'failed' | 'detached'>(),
     externalPushAt: ts('external_push_at'),
     externalPushError: text('external_push_error'),
   },
@@ -94,7 +97,7 @@ export const contacts = pgTable(
     ),
     check(
       'contacts_external_push_state_check',
-      sql`${t.externalPushState} is null or (${t.externalPushState} in ('pending', 'failed') and ${t.externalId} is null and ${t.externalPushAt} is not null)`,
+      sql`${t.externalPushState} is null or (${t.externalPushState} in ('pending', 'failed', 'detached') and ${t.externalId} is null and ${t.externalPushAt} is not null)`,
     ),
     uniqueIndex('contacts_external')
       .on(t.workspaceId, t.externalSource, t.externalId)

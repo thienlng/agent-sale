@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   cleanExternalContact,
   externalPatch,
+  isPhoneName,
   normalizeExternalId,
   rejectedFields,
 } from './external-contact.js';
@@ -110,5 +111,16 @@ describe('normalizeExternalId', () => {
   it('rejects empty and too long ids', () => {
     expect(normalizeExternalId('  ')).toBeNull();
     expect(normalizeExternalId('x'.repeat(65))).toBeNull();
+  });
+});
+
+describe('isPhoneName', () => {
+  it('is true only for a name that is one of the given numbers', () => {
+    expect(isPhoneName('0912 345 678', ['+84912345678'])).toBe(true);
+    expect(isPhoneName('+84912345678', [null, '+84912345678'])).toBe(true);
+    expect(isPhoneName('0912 345 679', ['+84912345678'])).toBe(false);
+    expect(isPhoneName('Nguyễn Văn A', ['+84912345678'])).toBe(false);
+    expect(isPhoneName(null, ['+84912345678'])).toBe(false);
+    expect(isPhoneName('0912345678', [null])).toBe(false);
   });
 });

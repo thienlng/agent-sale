@@ -19,7 +19,7 @@ export interface MemContact {
   email: string | null;
   address: string | null;
   externalId: string | null;
-  push: 'pending' | 'failed' | null;
+  push: 'pending' | 'failed' | 'detached' | null;
   pushError: string | null;
   createdAt: Date;
 }
@@ -85,7 +85,8 @@ export class MemoryContacts {
 
   unlinkExternalContacts = vi.fn(async (_ws: unknown, _s: unknown, ids: readonly string[]) => {
     const hit = this.contacts.filter((c) => c.externalId !== null && ids.includes(c.externalId));
-    hit.forEach((c) => (c.externalId = null));
+    // A PMS delete: never pushed back (the crm 'detached' state).
+    hit.forEach((c) => Object.assign(c, { externalId: null, push: 'detached', pushError: null }));
     return hit.length;
   });
 
@@ -132,7 +133,9 @@ export class MemoryContacts {
 
   releaseExternalSource = vi.fn(async () => {
     const hit = this.contacts.filter((c) => c.externalId !== null);
-    this.contacts.forEach((c) => Object.assign(c, { externalId: null, push: null }));
+    this.contacts.forEach((c) =>
+      Object.assign(c, { externalId: null, push: c.push === 'detached' ? 'detached' : null }),
+    );
     return hit.length;
   });
 

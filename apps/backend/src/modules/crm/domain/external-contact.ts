@@ -85,3 +85,12 @@ export function externalPatch(
     ),
   ) as Partial<ExternalContactFields>;
 }
+
+/**
+ * Whether a PMS name is just one of these phone numbers (E.164). A customer pushed without a name
+ * is named by its number in the PMS; that name coming back must not replace the stored one.
+ */
+export function isPhoneName(name: string | null | undefined, phones: ReadonlyArray<string | null>) {
+  const asPhone = name ? normalizeAnyPhone(name) : null;
+  return asPhone !== null && phones.includes(asPhone);
+}

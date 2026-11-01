@@ -482,5 +482,14 @@ describe('KiotViet sync on the worker', () => {
     const unlinked = await contactOf(known.id);
     expect(unlinked.external).toBeNull();
     expect(unlinked.name).toBe('Chị A (KiotViet)');
+
+    // KiotViet no longer has it: the next push scans must not create it there again.
+    kv.state.customers = kv.state.customers.filter((c) => c.id !== 501);
+    await tickAhead(60_000);
+    await drain(ws, connection.id);
+    await tickAhead(120_000);
+    await drain(ws, connection.id);
+    expect(kv.apiRequests('/customers').filter((r) => r.method === 'POST')).toHaveLength(1);
+    expect((await contactOf(known.id)).external).toBeNull();
   });
 });
