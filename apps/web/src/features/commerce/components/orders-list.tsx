@@ -42,7 +42,7 @@ import {
   type OrderFilterContext,
 } from './order-column-filters';
 import { OrderColumnMenu } from './order-column-menu';
-import { type OrderColumn, useVisibleOrderColumns } from './order-columns';
+import { type OrderColumn, useVisibleOrderColumns, withPushColumn } from './order-columns';
 import { BotBadge, PendingReviewChip } from './order-created-by-cell';
 import { OrderExternalChip } from './order-external';
 import { OrderStatusBadge } from './order-status-badge';
@@ -191,10 +191,7 @@ export function OrdersList({
 
   const data = orders.data;
   const rows = data?.data ?? [];
-  // The KiotViet column only earns its space when an order on this page was pushed.
-  const columns = rows.some((o) => o.external)
-    ? visibleColumns
-    : visibleColumns.filter((c) => c.id !== 'kiotviet');
+  const columns = withPushColumn(visibleColumns, rows);
   const unavailable = orders.error instanceof ApiClientError && orders.error.status === 503;
   const allOnPage = rows.length > 0 && rows.every((o) => selected.includes(o.id));
   const colCount = columns.length + 2;
@@ -217,7 +214,7 @@ export function OrdersList({
     try {
       const { page: _page, pageSize: _size, ...filter } = search;
       const all = await fetchAllOrders(toOrderQuery(filter));
-      downloadOrdersCsv(all, columns, t);
+      downloadOrdersCsv(all, withPushColumn(visibleColumns, all), t);
       toast.success(t('orders.filters.exported', { count: all.length }));
     } catch (err) {
       toast.error(errorMessage(t, err));

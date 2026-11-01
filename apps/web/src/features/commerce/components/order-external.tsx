@@ -54,10 +54,13 @@ function useRetryPush(onRetry: RetryOrderPush | undefined) {
       await retry(orderId);
       toast.success(t('orders.push.retried'));
     } catch (err) {
+      const conflict = err instanceof ApiClientError && err.status === 409;
       toast.error(
-        err instanceof ApiClientError && err.status === 409
-          ? t('orders.push.notFailed')
-          : errorMessage(t, err),
+        !conflict
+          ? errorMessage(t, err)
+          : err.details?.['reason'] === 'not_pushing'
+            ? t('orders.push.notPushing')
+            : t('orders.push.notFailed'),
       );
     } finally {
       setPending(false);

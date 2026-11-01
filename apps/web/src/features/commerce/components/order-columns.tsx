@@ -236,6 +236,17 @@ export function resetOrderColumns(): void {
   listeners.forEach((l) => l());
 }
 
+/**
+ * The KiotViet column earns its space only when one of `rows` was pushed: the page's rows for the
+ * table, every exported row for the CSV (so the file's columns never depend on the page shown).
+ */
+export function withPushColumn(
+  columns: readonly OrderColumn[],
+  rows: ReadonlyArray<Pick<OrderSummaryDto, 'external'>>,
+): OrderColumn[] {
+  return rows.some((o) => o.external) ? [...columns] : columns.filter((c) => c.id !== 'kiotviet');
+}
+
 export function useVisibleOrderColumns(): OrderColumn[] {
   const ids = useSyncExternalStore(
     (cb) => {

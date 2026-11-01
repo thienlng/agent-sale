@@ -628,6 +628,7 @@
       "retry": "Retry",
       "retried": "Order sent to KiotViet again.",
       "notFailed": "This order no longer has a failed push — its state was reloaded.",
+      "notPushing": "KiotViet order push is off, or the order was created before connecting",
       "pendingNote": "The order is being sent to KiotViet. Products and amounts are locked for a few seconds.",
       "pushedNote": "The order is in KiotViet — update its status in KiotViet",
       "externalStatus": "Status in KiotViet: {{status}}",

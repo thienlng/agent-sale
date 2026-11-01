@@ -22,6 +22,8 @@ import { parseOrdersSearch } from './orders-search';
 const toast = vi.hoisted(() => Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }));
 vi.mock('sonner', () => ({ toast }));
 vi.mock('@/lib/use-workspace', () => ({ useWorkspaceId: () => 'ws-1' }));
+const csv = vi.hoisted(() => ({ download: vi.fn() }));
+vi.mock('../hooks/export-orders', () => ({ downloadOrdersCsv: csv.download }));
 const perms = vi.hoisted(() => ({ manage: true }));
 vi.mock('@/lib/permissions', () => ({ useCan: () => perms.manage }));
 afterEach(() => {
@@ -144,6 +146,21 @@ describe('KiotViet push chip', () => {
     );
   });
 
+  it('says why when no connection pushes the order (409 not_pushing)', async () => {
+    const retry = vi
+      .fn()
+      .mockRejectedValue(
+        new ApiClientError(409, 'CONFLICT', 'not pushing', undefined, { reason: 'not_pushing' }),
+      );
+    renderWithProviders(
+      withTooltips(<OrderExternalChip order={summary({ external: failed })} onRetry={retry} />),
+    );
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Thử lại' }));
+    expect(toast.error).toHaveBeenCalledWith(
+      'KiotViet chưa bật đẩy đơn hoặc đơn được tạo trước khi kết nối',
+    );
+  });
+
   it('hides "Thử lại" without orders.manage', () => {
     perms.manage = false;
     renderWithProviders(
@@ -244,10 +261,15 @@ const listBody = (rows: OrderSummaryDto[]) => ({
 });
 
 describe('orders list', () => {
-  function renderList(rows: OrderSummaryDto[], onRetryPush?: (id: string) => Promise<unknown>) {
+  function renderList(
+    rows: OrderSummaryDto[],
+    onRetryPush?: (id: string) => Promise<unknown>,
+    exported: OrderSummaryDto[] = rows,
+  ) {
     const { fetchStub } = stubFetch({
       ...settings,
       'GET /orders?page=1&pageSize=20': { status: 200, body: listBody(rows) },
+      'GET /orders?page=1&pageSize=100': { status: 200, body: listBody(exported) },
     });
     vi.stubGlobal('fetch', fetchStub);
     renderWithRouter(() =>
@@ -265,6 +287,36 @@ describe('orders list', () => {
     expect(await table.findByRole('columnheader', { name: 'KiotViet' })).toBeInTheDocument();
     expect(table.getByText('Lỗi')).toBeInTheDocument();
     expect(table.getByRole('button', { name: 'Thử lại' })).toBeInTheDocument();
+  });
+
+  it('exports the KiotViet column when an exported order was pushed, whatever the page shows', async () => {
+    renderList([summary()], undefined, [
+      summary(),
+      summary({ id: '4f0c1f0e-5b1c-4c1e-9d55-0a1b2c3d4e5f', external: pushed }),
+    ]);
+    const table = within(await screen.findByRole('table'));
+    await table.findByText('DH0001');
+    expect(table.queryByRole('columnheader', { name: 'KiotViet' })).toBeNull();
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Xuất Excel' }));
+    await vi.waitFor(() => expect(csv.download).toHaveBeenCalled());
+    const [rows, columns] = csv.download.mock.calls.at(-1) as [
+      OrderSummaryDto[],
+      Array<{ id: string }>,
+    ];
+    expect(rows).toHaveLength(2);
+    expect(columns.map((c) => c.id)).toContain('kiotviet');
+  });
+
+  it('exports no KiotViet column when no exported order was pushed', async () => {
+    renderList([summary({ external: pushed })], undefined, [summary()]);
+    const table = within(await screen.findByRole('table'));
+    expect(await table.findByRole('columnheader', { name: 'KiotViet' })).toBeInTheDocument();
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Xuất Excel' }));
+    await vi.waitFor(() => expect(csv.download).toHaveBeenCalled());
+    const [, columns] = csv.download.mock.calls.at(-1) as [unknown, Array<{ id: string }>];
+    expect(columns.map((c) => c.id)).not.toContain('kiotviet');
   });
 
   it('leaves the column out when nothing was pushed', async () => {

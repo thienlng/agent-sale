@@ -624,6 +624,7 @@
       "retry": "Thử lại",
       "retried": "Đã gửi lại đơn sang KiotViet.",
       "notFailed": "Đơn này không còn lỗi đẩy — trạng thái đã được tải lại.",
+      "notPushing": "KiotViet chưa bật đẩy đơn hoặc đơn được tạo trước khi kết nối",
       "pendingNote": "Đơn đang được đẩy sang KiotViet. Sản phẩm và số tiền tạm khoá trong vài giây.",
       "pushedNote": "Đơn đã ở KiotViet — cập nhật trạng thái trên KiotViet",
       "externalStatus": "Trạng thái trên KiotViet: {{status}}",
