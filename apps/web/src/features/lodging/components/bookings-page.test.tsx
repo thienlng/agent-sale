@@ -245,6 +245,34 @@ describe('BookingsPage bot holds', () => {
     expect(within(staffRow as HTMLElement).queryByText('Bot tạo')).toBeNull();
   });
 
+  it('styles the badge of a reviewed bot hold as handled, a pending one as waiting', async () => {
+    const reviewed = {
+      ...botHold,
+      id: LODGING_IDS.bk2,
+      code: 'BK-0033',
+      reviewedAt: '2099-10-31T00:00:00.000Z',
+    };
+    const { fetchStub } = stubLodgingApi({
+      'GET /lodging/bookings': {
+        status: 200,
+        body: { data: [botHold, reviewed], nextOffset: null },
+      },
+      'GET /lodging/properties': { status: 200, body: { data: [] } },
+      'GET /lodging/settings': { status: 200, body: { holdMinutes: 120 } },
+      'GET /lodging/bookings/review-count': { status: 200, body: { pending: 1 } },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderPage();
+    const badge = (code: string) =>
+      within(
+        screen.getByRole('button', { name: new RegExp(code) }).closest('tr') as HTMLElement,
+      ).getByText('Bot tạo');
+    await screen.findByRole('button', { name: /BK-0033/ });
+    expect(badge('BK-0031')).toHaveClass('bg-warning-soft');
+    expect(badge('BK-0033')).not.toHaveClass('bg-warning-soft');
+    expect(badge('BK-0033')).toHaveClass('text-muted-foreground');
+  });
+
   it('shows how many bot holds wait for staff on the Giữ chỗ tab', async () => {
     stubBot(2);
     renderPage();

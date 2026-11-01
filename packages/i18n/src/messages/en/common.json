@@ -1961,7 +1961,8 @@
       "botBadge": "By bot",
       "source": "Source",
       "allSources": "All sources",
-      "pendingBotHolds": "{{count}} bot holds to review"
+      "pendingBotHolds_one": "{{count}} bot hold to review",
+      "pendingBotHolds_other": "{{count}} bot holds to review"
     },
     "holdSetting": {
       "label": "Holds expire after",

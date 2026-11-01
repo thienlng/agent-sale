@@ -1956,7 +1956,7 @@
       "botBadge": "Bot tạo",
       "source": "Nguồn",
       "allSources": "Mọi nguồn",
-      "pendingBotHolds": "{{count}} giữ chỗ của bot chờ xử lý"
+      "pendingBotHolds_other": "{{count}} giữ chỗ của bot chờ xử lý"
     },
     "holdSetting": {
       "label": "Giữ chỗ tự hết hạn sau",

@@ -394,6 +394,22 @@ describe('BookingSheet view', () => {
     expect(within(banner).getByRole('link', { name: /Mở hội thoại/ })).toBeInTheDocument();
   });
 
+  it('shows the quiet bot line for a bot hold staff already reviewed (still on hold)', async () => {
+    stubApi({
+      [`GET /lodging/bookings/${BK}`]: {
+        status: 200,
+        body: booking({ source: 'bot', status: 'hold', reviewedAt: '2099-10-31T00:00:00.000Z' }),
+      },
+    });
+    renderSheet({ mode: 'view', bookingId: BK });
+    const sheet = await screen.findByRole('dialog');
+    const banner = await within(sheet).findByRole('region', { name: 'Bot tạo' });
+    expect(
+      within(banner).getByText('Bot tạo booking này từ hội thoại với khách.'),
+    ).toBeInTheDocument();
+    expect(within(banner).queryByText(/gọi xác nhận/)).toBeNull();
+  });
+
   it('shows no bot banner on a staff booking', async () => {
     stubApi({ [`GET /lodging/bookings/${BK}`]: { status: 200, body: booking() } });
     renderSheet({ mode: 'view', bookingId: BK });
