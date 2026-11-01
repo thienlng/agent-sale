@@ -78,6 +78,10 @@ export const EnvSchema = z
     S3_PUBLIC_URL: z.url({ protocol: /^https$/ }).optional(),
     S3_ACCESS_KEY: z.string().optional(),
     S3_SECRET_KEY: z.string().optional(),
+    /** KiotViet OAuth token endpoint (PMS integration); override only for a fake in tests. */
+    KIOTVIET_TOKEN_URL: z.url().default('https://id.kiotviet.vn/connect/token'),
+    /** KiotViet public API base URL (PMS integration). */
+    KIOTVIET_API_URL: z.url().default('https://public.kiotapi.com'),
   })
   .refine((env) => env.NODE_ENV !== 'production' || !!env.SECRETS_ENCRYPTION_KEY, {
     message: 'SECRETS_ENCRYPTION_KEY is required in production',
