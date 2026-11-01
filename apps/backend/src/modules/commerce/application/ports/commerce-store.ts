@@ -460,7 +460,7 @@ export interface CommerceTx {
   /** PMS push columns of orders (ADR-017); the push eligibility is `domain/order-push.ts`. */
   orderPush: {
     /**
-     * Moves up to `limit` eligible orders (bot orders approved at or before `settledBefore`) to
+     * Moves up to `limit` eligible orders (bot orders approved before `settledBefore`) to
      * `pending` with the source, skipping rows another claim holds; returns their ids.
      */
     claim(
@@ -469,12 +469,17 @@ export interface CommerceTx {
       settledBefore: Date,
       limit: number,
     ): Promise<string[]>;
+    /** The order, deleted ones included, row locked until the transaction ends. */
+    lock(orderId: string): Promise<(OrderRecord & { deleted: boolean }) | null>;
     /** The order pushed to the source as `externalId`, row locked until the transaction ends. */
     findByExternal(source: ExternalSource, externalId: string): Promise<OrderRecord | null>;
     /** The order's lines in position order; `externalVariantId` only when linked to `source`. */
     lines(orderId: string, source: ExternalSource): Promise<PushLineRecord[]>;
-    /** Writes the given push columns (`undefined` keeps a column). */
-    set(orderId: string, patch: Partial<Omit<OrderExternalRecord, 'source'>>): Promise<void>;
+    /**
+     * Writes the given push columns (`undefined` keeps a column). Throws
+     * OrderExternalLinkConflictError when another order already has the external id.
+     */
+    set(orderId: string, patch: Partial<OrderExternalRecord>): Promise<void>;
     countPushed(source: ExternalSource): Promise<number>;
   };
   /** Bot order drafts (one per conversation) and the SKU lookup the bot's orders need. */

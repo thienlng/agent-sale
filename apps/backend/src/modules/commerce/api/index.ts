@@ -22,6 +22,8 @@ export {
 } from './catalog-sync.facade.js';
 export {
   ORDER_PUSH_FACADE,
+  OrderAlreadyPushedError,
+  OrderExternalLinkConflictError,
   type OrderPushFacade,
   type PushableOrder,
   type PushProblem,

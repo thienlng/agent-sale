@@ -241,6 +241,18 @@ describe('order push facade on Postgres', () => {
       },
     });
 
+    // While the push is pending, lines and amounts are frozen; notes stay editable.
+    const items = await call(h, 'PATCH', `/orders/${ids['staff']}`, {
+      items: [{ variantId: linked.variants[0]!.id, qty: 3 }],
+    });
+    expect(items.statusCode).toBe(409);
+    expect(items.json().error.details).toMatchObject({ reason: 'PUSH_PENDING' });
+    for (const body of [{ discountValue: 10_000 }, { shippingFeeCharged: 1 }, { surcharge: 5 }]) {
+      expect((await call(h, 'PATCH', `/orders/${ids['staff']}`, body)).statusCode).toBe(409);
+    }
+    const note = await call(h, 'PATCH', `/orders/${ids['staff']}`, { notePrint: 'Cảm ơn' });
+    expect(note.statusCode).toBe(200);
+
     ids['unlinked'] = await staffOrder(rapizOnly.variants[0]!.id, 1);
     // botFresh may have settled by now: only the new order is certain.
     expect(await push().claimOrdersForPush(ws, 'kiotviet', since, 10)).toContain(ids['unlinked']);
@@ -256,6 +268,13 @@ describe('order push facade on Postgres', () => {
     const ref = { externalId: '9001', externalCode: 'DHKV0001', externalStatus: 'confirmed' };
     await push().markOrderPushed(ws, id, ref);
     await push().markOrderPushed(ws, id, ref);
+    // Another PMS order for the same Rapiz order: refused, the first refs stay.
+    await expect(
+      push().markOrderPushed(ws, id, { ...ref, externalId: '9999', externalCode: 'DHKV9999' }),
+    ).rejects.toMatchObject({
+      code: 'CONFLICT',
+      details: { reason: 'ALREADY_PUSHED', externalCode: 'DHKV0001' },
+    });
 
     const after = await stock();
     expect(after).toMatchObject({ onHand: before?.onHand, reserved: (before?.reserved ?? 0) - 2 });
@@ -363,7 +382,63 @@ describe('order push facade on Postgres', () => {
     await expect(push().requeueOrderPush(ws, newId())).rejects.toMatchObject({
       code: 'NOT_FOUND',
     });
+    // Only a pending push can fail: a requeued (null) or failed one is left as it is.
+    await push().markOrderPushFailed(ws, id, { code: 'timeout' });
+    expect((await order(id)).external).toBeNull();
     // Back in the queue: the next scan claims it again.
     expect(await push().claimOrdersForPush(ws, 'kiotviet', since, 10)).toContain(id);
+  });
+
+  it('drops the claim of an order cancelled before its push; reviving it queues it again', async () => {
+    const id = await staffOrder(linked.variants[0]!.id, 1);
+    expect(await push().claimOrdersForPush(ws, 'kiotviet', since, 10)).toContain(id);
+    await call(h, 'POST', `/orders/${id}/status`, { status: 'cancelled' });
+    expect(await push().pushableOrder(ws, id)).toBeNull();
+    expect((await order(id)).external).toBeNull();
+    const [row] = await withTenant(db(), ws, (tx) =>
+      tx.select().from(schema.orders).where(eq(schema.orders.id, id)),
+    );
+    expect(row).toMatchObject({ externalState: null, externalSource: null });
+
+    await call(h, 'POST', `/orders/${id}/status`, { status: 'new' });
+    expect(await push().claimOrdersForPush(ws, 'kiotviet', since, 10)).toContain(id);
+    expect(await push().pushableOrder(ws, id)).toMatchObject({ order: { id } });
+  });
+
+  it('records a push from no claim or of a cancelled order; one Rapiz order per PMS order', async () => {
+    const unclaimed = await staffOrder(linked.variants[0]!.id, 1);
+    await setOrder(unclaimed, { createdAt: new Date(since.getTime() - 5_000) });
+    await push().markOrderPushed(ws, unclaimed, {
+      externalId: '9100',
+      externalCode: 'DHKV0100',
+      externalStatus: 'draft',
+    });
+    expect((await order(unclaimed)).external?.state).toBe('pushed');
+
+    const cancelled = await staffOrder(linked.variants[0]!.id, 1);
+    await setOrder(cancelled, { createdAt: new Date(since.getTime() - 5_000) });
+    await call(h, 'POST', `/orders/${cancelled}/status`, { status: 'cancelled' });
+    await push().markOrderPushed(ws, cancelled, {
+      externalId: '9101',
+      externalCode: 'DHKV0101',
+      externalStatus: 'draft',
+    });
+    expect(await order(cancelled)).toMatchObject({
+      status: 'cancelled',
+      stockState: 'external',
+      external: { state: 'pushed', code: 'DHKV0101' },
+    });
+
+    const other = await staffOrder(linked.variants[0]!.id, 1);
+    await setOrder(other, { createdAt: new Date(since.getTime() - 5_000) });
+    await expect(
+      push().markOrderPushed(ws, other, {
+        externalId: '9100',
+        externalCode: 'DHKV0100',
+        externalStatus: 'draft',
+      }),
+    ).rejects.toMatchObject({ code: 'CONFLICT', details: { reason: 'EXTERNAL_ORDER_LINK_RACE' } });
+    expect((await order(other)).external).toBeNull();
+    expect((await order(other)).stockState).toBe('reserved');
   });
 });

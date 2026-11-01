@@ -8,6 +8,6 @@ alter table orders add constraint orders_stock_state_check
 -- One Rapiz order per PMS order; PMS webhooks look orders up by it.
 create unique index if not exists orders_external on orders (workspace_id, external_source, external_id)
   where external_id is not null;
--- The push scan: orders not yet claimed, newest connection window first.
+-- The push scan: orders not yet claimed, oldest first (it claims by created_at ascending).
 create index if not exists orders_push_unclaimed_idx on orders (workspace_id, created_at)
   where external_state is null and deleted_at is null;

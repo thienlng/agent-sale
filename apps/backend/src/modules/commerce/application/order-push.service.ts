@@ -2,7 +2,12 @@ import { isUuid, type WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
 import type { ExternalSource } from '../api/catalog-sync.facade.js';
-import type { OrderPushFacade, PushableOrder, PushProblem } from '../api/order-push.facade.js';
+import {
+  OrderAlreadyPushedError,
+  type OrderPushFacade,
+  type PushableOrder,
+  type PushProblem,
+} from '../api/order-push.facade.js';
 import { OrderNotFoundError, OrderPushNotFailedError } from '../domain/commerce.errors.js';
 import {
   EXTERNAL_CANCELLED_HISTORY_NOTE,
@@ -44,9 +49,15 @@ export class OrderPushService implements OrderPushFacade {
     orderId: string,
   ): Promise<{ order: PushableOrder } | { problem: PushProblem } | null> {
     return this.store.run(ws, async (tx) => {
-      const o = isUuid(orderId) ? await tx.orders.find(orderId) : null;
+      // Locked: a cancellation and the claim's release cannot interleave.
+      const o = isUuid(orderId) ? await tx.orderPush.lock(orderId) : null;
       if (!o || o.external?.state !== 'pending' || !o.external.source) return null;
-      if (o.status === 'cancelled') return null;
+      if (o.status === 'cancelled' || o.deleted) {
+        // Cancelled (or deleted) since the claim: nothing to push, and not a failure. Reviving the
+        // order makes it eligible again.
+        await tx.orderPush.set(o.id, { state: null, source: null });
+        return null;
+      }
       return pushPayload(o, await tx.orderPush.lines(o.id, o.external.source));
     });
   }
@@ -58,7 +69,10 @@ export class OrderPushService implements OrderPushFacade {
   ): Promise<void> {
     return this.store.run(ws, async (tx) => {
       const o = await this.#locked(tx, orderId);
-      if (o.external?.state === 'pushed' && o.external.id === ref.externalId) return;
+      if (o.external?.state === 'pushed') {
+        if (o.external.id === ref.externalId) return;
+        throw new OrderAlreadyPushedError(o.external.code);
+      }
       const now = new Date();
       if (o.stockState === 'reserved') {
         // The PMS takes the order's goods from here: Rapiz gives its hold back.
@@ -67,6 +81,8 @@ export class OrderPushService implements OrderPushFacade {
       }
       await tx.orders.update({ ...o, stockState: 'external', updatedAt: now });
       await tx.orderPush.set(o.id, {
+        // Kiotviet is the only source; an order pushed without a claim takes it.
+        source: o.external?.source ?? 'kiotviet',
         state: 'pushed',
         id: ref.externalId,
         code: ref.externalCode,
@@ -92,7 +108,7 @@ export class OrderPushService implements OrderPushFacade {
   ): Promise<void> {
     return this.store.run(ws, async (tx) => {
       const o = await this.#locked(tx, orderId);
-      if (o.external?.state === 'pushed') return;
+      if (o.external?.state !== 'pending') return;
       await tx.orderPush.set(o.id, {
         state: 'failed',
         error: error.params ? { code: error.code, params: error.params } : { code: error.code },
@@ -105,7 +121,7 @@ export class OrderPushService implements OrderPushFacade {
       const o = await this.#locked(tx, orderId);
       const state = o.external?.state ?? null;
       if (state !== 'failed') throw new OrderPushNotFailedError(state);
-      await tx.orderPush.set(o.id, { state: null, error: null });
+      await tx.orderPush.set(o.id, { state: null, source: null, error: null });
     });
   }
 

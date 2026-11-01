@@ -46,6 +46,9 @@ describe('isPushEligible', () => {
     ).toBe(false);
     expect(
       isPushEligible({ ...approved, reviewedAt: approvedAt(PUSH_SETTLE_MS) }, since, now),
+    ).toBe(false);
+    expect(
+      isPushEligible({ ...approved, reviewedAt: approvedAt(PUSH_SETTLE_MS + 1) }, since, now),
     ).toBe(true);
     expect(isPushEligible({ ...staff, createdByKind: 'import' }, since, now)).toBe(false);
   });

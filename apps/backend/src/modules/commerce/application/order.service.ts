@@ -64,6 +64,19 @@ import {
 } from './ports/commerce-store.js';
 
 const CLOSED: ReadonlySet<string> = new Set(CLOSED_ORDER_STATUSES);
+
+/** Fields of an edit that change what a PMS push sends: lines and amounts. */
+const PUSHED_FIELDS = [
+  'items',
+  'discountType',
+  'discountValue',
+  'shippingFee',
+  'shippingFeeCharged',
+  'freeShipping',
+  'surcharge',
+] as const;
+const changesPushedFields = (change: Record<string, unknown>) =>
+  PUSHED_FIELDS.some((f) => change[f] !== undefined);
 const FULFILMENT: ReadonlySet<string> = new Set(FULFILMENT_ORDER_STATUSES);
 
 /** Orders: creation with stock reservation, status flow, edits, list, overview (ORD-03/04/05/11). */
@@ -195,6 +208,10 @@ export class OrderService {
       const o = await this.#order(tx, id, { forUpdate: true });
       const current = await tx.orders.itemsOf(o.id);
       let items = current;
+      if (o.external?.state === 'pending' && changesPushedFields(change)) {
+        // The PMS push is reading this order: what it sends must not change underneath it.
+        throw new OrderItemsLockedError(o.stockState, 'PUSH_PENDING');
+      }
       if (change.items) {
         if (o.stockState !== 'reserved') throw new OrderItemsLockedError(o.stockState);
         items = await orderLines(tx, change.items, current);

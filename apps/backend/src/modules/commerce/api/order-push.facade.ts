@@ -1,4 +1,4 @@
-import type { WorkspaceId } from '@agent-sales/shared';
+import { DomainError, type WorkspaceId } from '@agent-sales/shared';
 
 import type { ExternalSource } from './catalog-sync.facade.js';
 
@@ -46,22 +46,27 @@ export interface OrderPushFacade {
   ): Promise<string[]>;
   /**
    * The push payload of a pending order, or a problem that makes it unpushable. Null when the
-   * order does not exist, is not pending, or was cancelled meanwhile (nothing to push).
+   * order does not exist or is not pending; a pending order cancelled or deleted since its claim
+   * also loses the claim (back to no push state, so reviving it queues it again).
    */
   pushableOrder(
     ws: WorkspaceId,
     orderId: string,
   ): Promise<{ order: PushableOrder } | { problem: PushProblem } | null>;
   /**
-   * Stores the PMS refs, `pushed`; a held order gives its hold back (one `release` movement per
-   * line) and its stock becomes the PMS's (`stock_state = 'external'`). Idempotent.
+   * Stores the PMS refs, `pushed`, from `pending`, `failed` or no claim; a held order gives its
+   * hold back (one `release` movement per line) and its stock becomes the PMS's
+   * (`stock_state = 'external'`). The same external id again is a no-op; another one throws
+   * OrderAlreadyPushedError (the first refs stay). An external id already on another order throws
+   * OrderExternalLinkConflictError. A cancelled order is still recorded: the caller must then
+   * cancel the PMS order or surface it.
    */
   markOrderPushed(
     ws: WorkspaceId,
     orderId: string,
     ref: { externalId: string; externalCode: string; externalStatus: string },
   ): Promise<void>;
-  /** `failed` with an i18n error code (PII-free params); a pushed order is left as it is. */
+  /** `pending` → `failed` with an i18n error code (PII-free params); any other state: no-op. */
   markOrderPushFailed(
     ws: WorkspaceId,
     orderId: string,
@@ -80,3 +85,21 @@ export interface OrderPushFacade {
 }
 
 export const ORDER_PUSH_FACADE = Symbol('ORDER_PUSH_FACADE');
+
+/** The order is already in the PMS as another order; the first refs are kept. */
+export class OrderAlreadyPushedError extends DomainError {
+  readonly code = 'CONFLICT';
+  constructor(readonly externalCode: string | null) {
+    super('The order was already pushed to the PMS', { reason: 'ALREADY_PUSHED', externalCode });
+  }
+}
+
+/** The PMS order is already linked to another Rapiz order (unique `orders_external`). */
+export class OrderExternalLinkConflictError extends DomainError {
+  readonly code = 'CONFLICT';
+  constructor() {
+    super('The PMS order is already linked to another order', {
+      reason: 'EXTERNAL_ORDER_LINK_RACE',
+    });
+  }
+}

@@ -117,13 +117,19 @@ export class OrderFieldsRequiredError extends DomainError {
   }
 }
 
-/** Lines can change only while the order holds its goods (not once shipped, cancelled or returned). */
+/**
+ * Lines can change only while the order holds its goods (not once shipped, cancelled, returned or
+ * pushed to a PMS); `PUSH_PENDING`: lines and amounts are frozen while a PMS push is pending.
+ */
 export class OrderItemsLockedError extends DomainError {
   readonly code = 'CONFLICT';
-  constructor(stockState: string) {
-    super('Products can only be changed while the order is still in the warehouse', {
-      stockState,
-    });
+  constructor(stockState: string, reason?: 'PUSH_PENDING') {
+    super(
+      reason
+        ? 'The order is being sent to the PMS; its products and amounts cannot change now'
+        : 'Products can only be changed while the order is still in the warehouse',
+      reason ? { stockState, reason } : { stockState },
+    );
   }
 }
 

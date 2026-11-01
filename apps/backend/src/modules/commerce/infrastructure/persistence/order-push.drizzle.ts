@@ -1,7 +1,8 @@
 import { and, asc, eq, isNull, sql, type TenantTx } from '@agent-sales/db';
 
+import { OrderExternalLinkConflictError } from '../../api/order-push.facade.js';
 import type { CommerceTx, PushLineRecord } from '../../application/ports/commerce-store.js';
-import { n, o, oi, p, toOrder, v } from './commerce.rows.js';
+import { n, o, oi, p, pgCode, toOrder, v } from './commerce.rows.js';
 
 /** PMS push columns of orders (ADR-017); eligibility mirrors `domain/order-push.ts`. */
 export function orderPushTx(tx: TenantTx): Pick<CommerceTx, 'orderPush'> {
@@ -18,13 +19,17 @@ export function orderPushTx(tx: TenantTx): Pick<CommerceTx, 'orderPush'> {
               and ${o.createdAt} >= ${since.toISOString()}
               and (${o.createdByKind} = 'agent' or (${o.createdByKind} = 'bot'
                 and ${o.reviewState} = 'approved'
-                and ${o.reviewedAt} <= ${settledBefore.toISOString()}))
+                and ${o.reviewedAt} < ${settledBefore.toISOString()}))
             order by ${o.createdAt}, ${o.id}
             limit ${limit}
             for update skip locked
           )
           returning ${o.id} as id`);
         return rows.map((r) => r.id);
+      },
+      async lock(orderId) {
+        const [r] = await tx.select().from(o).where(eq(o.id, orderId)).limit(1).for('update');
+        return r ? { ...toOrder(r), deleted: r.deletedAt !== null } : null;
       },
       async findByExternal(source, externalId) {
         const [r] = await tx
@@ -65,6 +70,7 @@ export function orderPushTx(tx: TenantTx): Pick<CommerceTx, 'orderPush'> {
       },
       async set(orderId, patch) {
         const row = {
+          ...(patch.source !== undefined ? { externalSource: patch.source } : {}),
           ...(patch.state !== undefined ? { externalState: patch.state } : {}),
           ...(patch.id !== undefined ? { externalId: patch.id } : {}),
           ...(patch.code !== undefined ? { externalCode: patch.code } : {}),
@@ -72,7 +78,15 @@ export function orderPushTx(tx: TenantTx): Pick<CommerceTx, 'orderPush'> {
           ...(patch.error !== undefined ? { externalError: patch.error } : {}),
           ...(patch.pushedAt !== undefined ? { externalPushedAt: patch.pushedAt } : {}),
         };
-        if (Object.keys(row).length) await tx.update(o).set(row).where(eq(o.id, orderId));
+        if (!Object.keys(row).length) return;
+        try {
+          await tx.update(o).set(row).where(eq(o.id, orderId));
+        } catch (e) {
+          const constraint = (e as { cause?: { constraint_name?: string } }).cause?.constraint_name;
+          if (pgCode(e) === '23505' && constraint === 'orders_external')
+            throw new OrderExternalLinkConflictError();
+          throw e;
+        }
       },
       async countPushed(source) {
         const [r] = await tx

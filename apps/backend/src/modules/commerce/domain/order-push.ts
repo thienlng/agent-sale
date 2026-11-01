@@ -25,7 +25,7 @@ export interface PushCandidate {
 
 /**
  * Not pushed or claimed yet, live, created since the connection, and either a staff order or a
- * bot order approved at least `PUSH_SETTLE_MS` ago.
+ * bot order approved more than `PUSH_SETTLE_MS` ago.
  */
 export function isPushEligible(o: PushCandidate, since: Date, now: Date): boolean {
   if (o.externalState !== null || o.deleted || o.status === 'cancelled') return false;
@@ -35,7 +35,7 @@ export function isPushEligible(o: PushCandidate, since: Date, now: Date): boolea
     o.createdByKind === 'bot' &&
     o.reviewState === 'approved' &&
     o.reviewedAt !== null &&
-    o.reviewedAt.getTime() <= now.getTime() - PUSH_SETTLE_MS
+    o.reviewedAt.getTime() < now.getTime() - PUSH_SETTLE_MS
   );
 }
 
