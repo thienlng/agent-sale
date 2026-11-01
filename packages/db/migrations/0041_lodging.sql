@@ -68,6 +68,9 @@ create table if not exists lodging_rates (
   min_nights int,
   constraint lodging_rates_property_fk foreign key (workspace_id, property_id)
     references lodging_properties (workspace_id, id) on delete cascade,
+  -- MATCH SIMPLE: a null unit_id (whole-property rate) is not checked.
+  constraint lodging_rates_unit_fk foreign key (workspace_id, unit_id)
+    references lodging_units (workspace_id, id) on delete cascade,
   constraint lodging_rates_kind_dates check (
     (kind = 'weekday' and date_from is null)
     or (kind = 'override' and date_from is not null and date_to >= date_from)
@@ -312,6 +315,18 @@ begin
         )
       order by s.created_at, s.id
     loop
+      -- Legacy data may overlap; the first stay keeps the nights, a colliding one is skipped
+      -- rather than aborting the deploy on lodging_unit_nights_pkey.
+      if exists (
+        select 1 from lodging_unit_nights un
+        where un.workspace_id = sr.workspace_id
+          and un.unit_id = v_unit_id
+          and un.night >= sr.check_in
+          and un.night < sr.check_out
+      ) then
+        continue;
+      end if;
+
       insert into lodging_settings (workspace_id, booking_seq) values (p.workspace_id, 1)
       on conflict (workspace_id) do update set booking_seq = lodging_settings.booking_seq + 1
       returning booking_seq into seq;

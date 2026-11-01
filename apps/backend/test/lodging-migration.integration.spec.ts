@@ -322,4 +322,65 @@ describe('migration 0041 lodging copy', () => {
       }),
     ).rejects.toThrow();
   });
+
+  it('skips a confirmed stay whose nights collide with an already copied one', async () => {
+    // Legacy rows are guarded by stay_requests_no_confirmed_overlap; drop it inside a
+    // rolled-back transaction to simulate overlapping data reaching the copy.
+    const villa = newId();
+    const first = newId();
+    const second = newId();
+    let seen: unknown;
+    await owner.db
+      .transaction(async (tx) => {
+        await tx.execute(
+          sql`alter table stay_requests drop constraint stay_requests_no_confirmed_overlap`,
+        );
+        await tx.execute(sql`insert into products
+            (id, workspace_id, code, name, description, accommodation, search_text)
+          values (${villa}, ${ws}, 'C-OVL', 'Villa chồng lịch', '',
+            ${JSON.stringify(accommodation)}::jsonb, '')`);
+        await tx.execute(sql`insert into stay_requests
+            (id, workspace_id, property_id, property_name, client_request_id, fingerprint,
+             guest_name, guest_phone, check_in, check_out, party, quote, status, agreed_total,
+             note, created_at)
+          values
+            (${first}, ${ws}, ${villa}, 'Villa', ${newId()}, 'fp-a', 'A', '', '2027-03-01',
+             '2027-03-03', '{"adults":2}'::jsonb, '{}'::jsonb, 'confirmed', 1, '',
+             now() - interval '1 hour'),
+            (${second}, ${ws}, ${villa}, 'Villa', ${newId()}, 'fp-b', 'B', '', '2027-03-02',
+             '2027-03-04', '{"adults":2}'::jsonb, '{}'::jsonb, 'confirmed', 1, '', now())`);
+        const [n] = (await tx.execute(
+          sql`select lodging_copy_accommodations() as n`,
+        )) as unknown as { n: number }[];
+        seen = {
+          copied: n!.n,
+          bookings: (
+            (await tx.execute(
+              sql`select id from lodging_bookings where id in (${first}, ${second})`,
+            )) as unknown as { id: string }[]
+          ).map((r) => r.id),
+          nights: (
+            (await tx.execute(
+              sql`select night::text from lodging_unit_nights where booking_id = ${first}
+                  order by night`,
+            )) as unknown as { night: string }[]
+          ).map((r) => r.night),
+          seq: (
+            (await tx.execute(
+              sql`select booking_seq from lodging_settings where workspace_id = ${ws}`,
+            )) as unknown as { booking_seq: number }[]
+          )[0]!.booking_seq,
+        };
+        tx.rollback();
+      })
+      .catch((e: unknown) => {
+        if (!(e instanceof Error && e.message === 'Rollback')) throw e;
+      });
+    expect(seen).toEqual({
+      copied: 1,
+      bookings: [first],
+      nights: ['2027-03-01', '2027-03-02'],
+      seq: 2,
+    });
+  });
 });

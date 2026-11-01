@@ -143,6 +143,11 @@ export const lodgingRates = pgTable(
       columns: [t.workspaceId, t.propertyId],
       foreignColumns: [lodgingProperties.workspaceId, lodgingProperties.id],
     }).onDelete('cascade'),
+    foreignKey({
+      name: 'lodging_rates_unit_fk',
+      columns: [t.workspaceId, t.unitId],
+      foreignColumns: [lodgingUnits.workspaceId, lodgingUnits.id],
+    }).onDelete('cascade'),
     index('lodging_rates_property_idx').on(t.workspaceId, t.propertyId),
     ...tenantPolicies('lodging_rates'),
   ],
