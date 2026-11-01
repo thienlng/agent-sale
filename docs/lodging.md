@@ -1,13 +1,13 @@
 # Lodging: properties, calendar and bookings (T-160)
 
-Hotel businesses sell places to stay: whole villas and per-room homestays. Rapiz is the only source of truth for their calendar: there is no sync with Google Sheets, iCal or OTAs. The backend module is `lodging` ([MODULE.md](../apps/backend/src/modules/lodging/MODULE.md)). The decision record is [ADR-018](adr/ADR-018-lodging-module.md), and the design is in the [part 1 spec](superpowers/specs/2026-11-01-lodging-calendar-design.md).
+Hotel businesses sell places to stay: whole villas and per-room homestays. Rapiz is the only source of truth for their calendar: there is no sync with Google Sheets, iCal or OTAs. The backend module is `lodging` ([MODULE.md](../apps/backend/src/modules/lodging/MODULE.md)). The decision records are [ADR-018](adr/ADR-018-lodging-module.md) (module) and [ADR-019](adr/ADR-019-bot-lodging-holds.md) (bot holds); the designs are the [part 1 spec](superpowers/specs/2026-11-01-lodging-calendar-design.md) and the [part 3 spec](superpowers/specs/2026-11-01-bot-lodging-holds-design.md).
 
 Screens (hotel businesses only; the sidebar shows **Lịch · Booking · Căn** instead of products):
 
 | Screen | Route | Purpose |
 | --- | --- | --- |
 | Lịch | `/app/calendar` | Nightly grid of every property and room, "Tìm trống" search, create holds, bookings and blocks |
-| Booking | `/app/bookings` | Lists: Hôm nay, Giữ chỗ, Sắp tới, Tất cả; the booking sheet with status actions, edits and history |
+| Booking | `/app/bookings` | Lists: Hôm nay, Giữ chỗ (with the count of bot holds waiting for staff), Sắp tới, Tất cả; filters by place, tag, source and status; the booking sheet with status actions, edits and history |
 | Căn | `/app/properties`, `/app/properties/$propertyId` | Property cards and the editor (Thông tin, Phòng, Giá, Chính sách, Ảnh) |
 | Căn & phòng (bot training) | `/app/bots/$botId/products` | Which properties the bot sells |
 
@@ -53,9 +53,10 @@ All routes are authenticated, workspace-scoped and answer `404 NOT_FOUND` outsid
 | PUT `/lodging/properties/{id}/notes` | `orders.manage` | Upsert the staff-only note of one night `{unitId (null = the property, else one of its rooms), night, text ≤ 300}`; an empty text deletes it; answers `{note}` (null when deleted) |
 | POST `/lodging/availability` | `orders.view` | Free whole properties and room sets for the nights, with `fits` and quotes; fitting first, then cheapest |
 | POST `/lodging/quote` | `orders.view` | Quote of one selection plus `takenBy` codes; writes nothing |
-| GET `/lodging/bookings?view&propertyId&status&q&tag&conversationId&offset` | `orders.view` | `today` / `holds` / `upcoming` (default) / `all`, 100 per page; `tag` keeps bookings carrying that exact tag |
+| GET `/lodging/bookings?view&propertyId&status&q&tag&source&conversationId&offset` | `orders.view` | `today` / `holds` / `upcoming` (default) / `all`, 100 per page; `tag` keeps bookings carrying that exact tag; `source` keeps one source (e.g. `bot`) |
+| GET `/lodging/bookings/review-count` | `orders.view` | `{pending}`: bot holds waiting for staff (`source = bot`, status `hold`, `reviewedAt` null) |
 | POST `/lodging/bookings` | `orders.manage` | Create a hold, confirmed stay or block (201); idempotent by `clientRequestId`; stays accept `tags` (≤ 8, each ≤ 30 chars; trimmed, duplicates dropped) |
-| GET `/lodging/bookings/{id}` | `orders.view` | Detail with history |
+| GET `/lodging/bookings/{id}` | `orders.view` | Detail with history; `reviewedAt` is the first staff action on a bot booking |
 | PATCH `/lodging/bookings/{id}` | `orders.manage` | Edit; re-quotes only when dates, units or party change, re-takes the nights atomically when dates or units change |
 | POST `/lodging/bookings/{id}/status` | `orders.manage` | `confirm`, `check_in`, `check_out`, `cancel`, `no_show`, `extend_hold`, `remove_block` |
 | GET / PATCH `/lodging/settings` | `orders.view` / `catalog.manage` | Hold minutes |
@@ -63,16 +64,24 @@ All routes are authenticated, workspace-scoped and answer `404 NOT_FOUND` outsid
 
 Booking events go to the outbox: `lodging.booking.created.v1` and `lodging.booking.{confirmed,cancelled,expired,checked_in,checked_out}.v1`. They carry ids, codes, dates, status and source, never the guest's name or phone.
 
-## What the bot does in part 1
+## What the bot does (parts 1 and 3)
 
-Hotel bots read the properties they sell from the lodging module, through `LODGING_CATALOG_FACADE` (the same shape as the commerce catalog). A property appears only when it is active and every weekday is priced. The bot sees sell prices only (weekday rates, upcoming date-range prices, surcharges, child age bands, room prices of a rooms property), the policies, amenities, layout and captioned gallery. Prompt `sales-agent@17` lets it quote nightly prices exactly; a stay total comes only from the `calculate` tool, never from the model's own arithmetic. It must never say a night is free, held or booked, because it cannot read the calendar yet. Hotel bots have no order tools.
+**Catalog (part 1).** Hotel bots read the properties they sell from the lodging module, through `LODGING_CATALOG_FACADE` (the same shape as the commerce catalog). A property appears only when it is active and every weekday is priced. The bot sees sell prices only (weekday rates, upcoming date-range prices, surcharges, child age bands, room prices of a rooms property), the policies, amenities, layout and captioned gallery. It never sees a cost, the internal property note, night notes or booking tags.
+
+**Calendar, quotes and holds (part 3, T-161, [ADR-019](adr/ADR-019-bot-lodging-holds.md)).** The bot reads the calendar through `LODGING_BOT_FACADE` and never computes dates, weekdays, totals or availability itself (prompt `sales-agent@18`; tools in [the AI engine doc](06-ai-engine.md) §3.5 "Lodging holds"):
+
+1. **Check.** For any dated question the bot calls `check_availability` with check-in, check-out, adults, children's ages and optionally a property code; it asks for whatever is missing first. The server answers the free options of the properties the bot sells (at most 5, fitting parties first, then cheapest) with nightly sell prices, Vietnamese weekday labels, surcharges and the total. When the asked place is full it says so (`requestedFull`) and the bot offers the other options. A place whose date-range price needs a longer stay comes back with its `minNights`. Past dates, stays over 60 nights and invalid parties come back as problems for the bot to explain.
+2. **Prepare.** When the customer wants to keep a place, the bot asks for a name and phone and calls `prepare_hold`. Nothing is written to the calendar yet: the server checks everything again, stores one draft per conversation (30 minutes, a new prepare replaces it), and sends its own summary (place, dates with weekdays, nights, party, total, guest, hold time) with the quick replies **✅ Giữ chỗ** and **✏️ Sửa thông tin**.
+3. **Confirm.** When the customer answers after the summary, `confirm_hold` re-quotes and creates a booking with status **Giữ chỗ**, source **Bot**, the conversation link and the business's hold time, through the same booking path as staff. The bot gives the code and the expiry ("đã giữ chỗ …"); it never says the stay is booked or confirmed. If the nights were taken meanwhile, the price changed or the draft expired, the bot apologises and offers alternatives. A retried confirm returns the same booking.
+4. **Staff review.** A bot hold waits for staff until someone acts on it (any status action or edit). The Booking page marks bot bookings **Bot tạo** (amber while waiting), shows the waiting count on the **Giữ chỗ** tab and next to **Booking** in the sidebar (refreshed every minute and after every booking change), and filters by **Nguồn → Bot**. The booking sheet of a waiting bot hold says "Bot đã giữ chỗ theo yêu cầu khách — gọi xác nhận rồi bấm Xác nhận" next to **Mở hội thoại**: read the chat, call the guest, then **Xác nhận**, **Gia hạn giữ** or **Huỷ**. An untouched hold expires like any other.
+
+`prepare_hold`, `confirm_hold` and `cancel_hold_draft` need the bot's **Chốt đơn** switch; without it the bot only checks availability. Hotel bots have no retail order tools.
 
 ## Not done yet
 
 Not planned: per-property owner accounts and a money ledger (deposits, payouts, commission) — decided 2026-11-01 as outside an AI sales agent.
 
-
-- Bot tools to check availability, quote and place holds (part 3).
+- Staff notifications for new bot holds; passing the contact to bot holds (the conversation link is kept).
 - The analytics conversion event `booking_confirmed` (deferred; the outbox already carries `lodging.booking.confirmed.v1`).
 - A periodic hold sweeper (needs worker job processors), OTA/iCal sync.
 - Removing the T-155 routes and tables (contract step).

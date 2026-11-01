@@ -38,7 +38,7 @@
 | | ↳ Warehouses | `/quan-ly/thiet-lap/kho-hang` | `/app/order-settings/warehouses` | ORD-02 | P0 |
 | Sản phẩm (Products) | Shared product catalog (top-level entry since T-112; Preny nests it under Orders) | `/quan-ly/quan-ly-san-pham` | `/app/products`, `/app/products/{id}` | ORD-01 | P0 |
 | Lưu trú (hotel businesses only, T-160; replace Sản phẩm in their sidebar) | Lịch — nightly calendar, find availability, holds, bookings, blocks | — | `/app/calendar` | VRT | P0 |
-| | Booking — today / holds / upcoming / all, booking sheet | — | `/app/bookings` | VRT | P0 |
+| | Booking — today / holds / upcoming / all, booking sheet; bot holds marked "Bot tạo" with a waiting count and a source filter (T-161) | — | `/app/bookings` | VRT | P0 |
 | | Căn — property cards and editor (info, rooms, prices, policies, photos) | — | `/app/properties`, `/app/properties/$propertyId` | VRT | P0 |
 | Thống kê (Analytics) | | `/quan-ly/tong-quan` | `/app/analytics` (`?tab=pages\|interactions\|tags\|current-tags\|statuses\|bot`) | ANA-01/02 | P1 |
 | Hạn mức sử dụng (Usage limits) | | `/quan-ly/han-muc-su-dung` | `/app/usage` | BIL-03 | P0 |
@@ -133,3 +133,4 @@ Dedicated layout: back button, bot name, **bot on/off switch**, left menu, **tes
 - A hotel business's sidebar shows **Lịch** (`/app/calendar`), **Booking** (`/app/bookings`) and **Căn** (`/app/properties`, detail `/app/properties/$propertyId`) instead of Sản phẩm. Each page renders only for a hotel business (`HotelOnly`).
 - Redirects: `/app/accommodations` → `/app/properties`, `/app/stays` → `/app/bookings` (T-155 addresses); `/app/products` and `/app/products/{id}` → `/app/properties` for a hotel business.
 - The Inbox sales panel of a hotel business opens the booking sheet with the contact prefilled and lists the conversation's bookings. Workflow and API: [lodging](lodging.md).
+- Bot holds (T-161, [ADR-019](adr/ADR-019-bot-lodging-holds.md)): the sidebar **Booking** item shows how many bot holds wait for staff (`GET /lodging/bookings/review-count`, polled every minute; composed in `routes/app.tsx` and passed through `AppShell` as `navCounts`). On `/app/bookings` the **Giữ chỗ** tab carries the same count, bot bookings carry a **Bot tạo** badge (amber while waiting), and the **Nguồn** filter sends `?source=`. The booking sheet of a bot booking opens with a banner: while the hold waits, "Bot đã giữ chỗ theo yêu cầu khách — gọi xác nhận rồi bấm Xác nhận"; afterwards a quiet "made by the bot" line; both with **Mở hội thoại** (`/app/inbox?conversation=`).
