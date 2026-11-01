@@ -667,11 +667,11 @@ describe('bot holds', () => {
       .update(schema.lodgingBotHoldDrafts)
       .set({ expiresAt: new Date(Date.now() - 1000) })
       .where(eq(schema.lodgingBotHoldDrafts.conversationId, conversationId));
-    expect((await facade().hasBotHoldDraft(o.ws, conversationId)).pending).toBe(false);
     const expired = await facade().confirmBotHold(o.ws, { conversationId });
     expect(expired.status).toBe('expired');
     // The drafted property is offered again when it is still free.
     if (expired.status !== 'held') expect(expired.alternatives[0]?.code).toBe('A17');
+    expect((await facade().hasBotHoldDraft(o.ws, conversationId)).pending).toBe(false);
 
     const other = newId();
     await facade().prepareBotHold(o.ws, holdInput(o.botId, a.id, other));
@@ -681,6 +681,79 @@ describe('bot holds', () => {
     expect(await facade().confirmBotHold(o.ws, { conversationId: other })).toMatchObject({
       status: 'no_draft',
     });
+  });
+
+  it('replays held only while the booking is still a hold, else answers expired', async () => {
+    const o = await hotel();
+    const a = await villa(o.headers, 'A17', 9_000_000);
+    const conversationId = newId();
+    await facade().prepareBotHold(o.ws, holdInput(o.botId, a.id, conversationId));
+    const held = await facade().confirmBotHold(o.ws, { conversationId });
+    expect(held.status).toBe('held');
+    const [b] = (
+      await ok(await call(o.headers, 'GET', '/lodging/bookings?source=bot'), BookingList)
+    ).data;
+    await ok(
+      await call(o.headers, 'POST', `/lodging/bookings/${b!.id}/status`, {
+        version: b!.version,
+        action: 'cancel',
+      }),
+      BookingDetail,
+    );
+    const again = await facade().confirmBotHold(o.ws, { conversationId });
+    // Cancelled by staff: not replayed; the freed property is offered again, as for expired.
+    expect(again.status).toBe('expired');
+    if (again.status !== 'held') expect(again.alternatives[0]?.code).toBe('A17');
+  });
+
+  it('drops the expired draft and the expired tombstone of the conversation it touches', async () => {
+    const o = await hotel();
+    const a = await villa(o.headers, 'A17', 9_000_000);
+    const rows = (conversationId: string) =>
+      owner.db
+        .select()
+        .from(schema.lodgingBotHoldDrafts)
+        .where(eq(schema.lodgingBotHoldDrafts.conversationId, conversationId));
+    const age = (conversationId: string) =>
+      owner.db
+        .update(schema.lodgingBotHoldDrafts)
+        .set({ expiresAt: new Date(Date.now() - 1000) })
+        .where(eq(schema.lodgingBotHoldDrafts.conversationId, conversationId));
+
+    // A confirmed draft (tombstone) older than the TTL: gone after the pending check.
+    const confirmed = newId();
+    await facade().prepareBotHold(o.ws, holdInput(o.botId, a.id, confirmed));
+    expect((await facade().confirmBotHold(o.ws, { conversationId: confirmed })).status).toBe(
+      'held',
+    );
+    expect(await rows(confirmed)).toHaveLength(1);
+    await age(confirmed);
+    expect(await facade().hasBotHoldDraft(o.ws, confirmed)).toEqual({
+      pending: false,
+      storedAt: null,
+    });
+    expect(await rows(confirmed)).toEqual([]);
+
+    // A draft never confirmed, expired: gone too.
+    const open = newId();
+    await facade().prepareBotHold(
+      o.ws,
+      holdInput(o.botId, a.id, open, { checkIn: night(10), checkOut: night(12) }),
+    );
+    await age(open);
+    expect((await facade().hasBotHoldDraft(o.ws, open)).pending).toBe(false);
+    expect(await rows(open)).toEqual([]);
+
+    // An expired tombstone is not replayed by a late confirm: expired, and the row is gone.
+    const late = newId();
+    await facade().prepareBotHold(
+      o.ws,
+      holdInput(o.botId, a.id, late, { checkIn: night(20), checkOut: night(22) }),
+    );
+    expect((await facade().confirmBotHold(o.ws, { conversationId: late })).status).toBe('held');
+    await age(late);
+    expect((await facade().confirmBotHold(o.ws, { conversationId: late })).status).toBe('expired');
+    expect(await rows(late)).toEqual([]);
   });
 
   it('keeps drafts inside their workspace (forced RLS)', async () => {

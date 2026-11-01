@@ -46,11 +46,6 @@ import {
   type LodgingTx,
 } from './ports/lodging-store.js';
 
-/**
- * The bot's calendar use cases (`LODGING_BOT_FACADE`, spec T-161 §3): availability and quotes
- * for the properties the bot sells, hold drafts the customer confirms, and the hold itself,
- * created through the staff create path (`BookingService.createIn`). The bot never confirms.
- */
 /** Problems of the input itself: nothing else is checked. */
 const INPUT_PROBLEMS: ReadonlySet<HoldProblem> = new Set([
   'invalid_dates',
@@ -59,6 +54,11 @@ const INPUT_PROBLEMS: ReadonlySet<HoldProblem> = new Set([
   'too_long',
 ]);
 
+/**
+ * The bot's calendar use cases (`LODGING_BOT_FACADE`, spec T-161 §3): availability and quotes
+ * for the properties the bot sells, hold drafts the customer confirms, and the hold itself,
+ * created through the staff create path (`BookingService.createIn`). The bot never confirms.
+ */
 @Injectable()
 export class LodgingBotHolds implements LodgingBotFacade {
   constructor(
@@ -256,11 +256,18 @@ export class LodgingBotHolds implements LodgingBotFacade {
     // Locked: a second confirmation of this draft waits, then replays the hold.
     const draft = await tx.botHoldDraft(conversationId, true);
     if (!draft) return { status: 'no_draft', alternatives: [] };
-    // A confirmed draft stays as a tombstone until it is swept (prepare) or replaced: its
-    // deterministic request id finds the hold again, so a retried confirm answers the same code.
+    // A confirmed draft stays as a tombstone until its TTL (then it is dropped like any expired
+    // draft): its deterministic request id finds the hold again, so a retried confirm answers
+    // the same code while that booking is still a hold. A hold staff already handled, or that
+    // lapsed, is not replayed.
     const clientRequestId = holdRequestId(draft.id);
     const existing = await tx.findBookingByRequest(clientRequestId);
-    if (existing) return held(existing);
+    if (existing) {
+      if (draft.expiresAt > now && existing.status === 'hold' && existing.holdExpiresAt) {
+        return held(existing);
+      }
+      throw new HoldNotConfirmable('expired', draft);
+    }
     if (draft.expiresAt <= now || draft.checkIn < localToday(now)) {
       throw new HoldNotConfirmable('expired', draft);
     }
@@ -339,7 +346,12 @@ export class LodgingBotHolds implements LodgingBotFacade {
     try {
       return await this.store.run(ws, async (tx) => {
         const draft = await tx.botHoldDraft(conversationId);
-        if (!draft || draft.expiresAt <= new Date()) return none;
+        if (!draft) return none;
+        if (draft.expiresAt <= new Date()) {
+          // Past its TTL (open or confirmed): the guest's name and phone are not kept longer.
+          await tx.deleteBotHoldDraft(conversationId, draft.id);
+          return none;
+        }
         // A confirmed draft (tombstone) is no longer pending.
         if (await tx.findBookingByRequest(holdRequestId(draft.id))) return none;
         return { pending: true, storedAt: draft.createdAt };
