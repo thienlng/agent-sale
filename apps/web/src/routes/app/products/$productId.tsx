@@ -20,7 +20,7 @@ export const Route = createFileRoute('/app/products/$productId')({
         <AccommodationForm
           key={product.data.updatedAt}
           product={product.data}
-          onSaved={() => void navigate({ to: '/app/accommodations' })}
+          onSaved={() => void navigate({ to: '/app/properties' })}
         />
       ) : (
         <ProductForm key={product.data.updatedAt} product={product.data} />

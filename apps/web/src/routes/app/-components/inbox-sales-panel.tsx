@@ -300,7 +300,7 @@ function HotelStayPanel({ name, phone }: { name: string; phone: string }) {
       <div className="space-y-3">
         <p className="text-xs text-muted-foreground">{t('lodging.requestsIntro')}</p>
         <Button asChild variant="outline" size="sm" className="w-full">
-          <Link to="/app/stays">{t('lodging.requestsTitle')}</Link>
+          <Link to="/app/bookings">{t('lodging.requestsTitle')}</Link>
         </Button>
         {canCreate && (
           <Button variant="outline" size="sm" className="w-full" onClick={() => setOpen(true)}>

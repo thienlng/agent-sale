@@ -50,18 +50,30 @@ function renderAt(path: string, industry?: 'hotel') {
 
 describe('AppSidebar', () => {
   it('uses lodging navigation for a hotel without retail stock or shipping orders', async () => {
-    renderAt('/app/accommodations', 'hotel');
+    renderAt('/app/calendar', 'hotel');
     const nav = await screen.findByRole('navigation', { name: 'Điều hướng chính' });
-    expect(within(nav).getByRole('link', { name: 'Căn lưu trú' })).toHaveAttribute(
+    expect(within(nav).getByRole('link', { name: 'Lịch' })).toHaveAttribute(
       'href',
-      '/app/accommodations',
+      '/app/calendar',
     );
-    expect(within(nav).getByRole('link', { name: 'Yêu cầu đặt căn' })).toHaveAttribute(
+    expect(within(nav).getByRole('link', { name: 'Booking' })).toHaveAttribute(
       'href',
-      '/app/stays',
+      '/app/bookings',
+    );
+    expect(within(nav).getByRole('link', { name: 'Căn' })).toHaveAttribute(
+      'href',
+      '/app/properties',
     );
     expect(within(nav).queryByRole('link', { name: 'Sản phẩm' })).toBeNull();
     expect(within(nav).queryByRole('button', { name: 'Đơn hàng' })).toBeNull();
+    expect(within(nav).queryByRole('link', { name: /Căn lưu trú|Yêu cầu đặt căn/ })).toBeNull();
+  });
+
+  it('marks Căn active on a property detail page', async () => {
+    renderAt('/app/properties/0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d01', 'hotel');
+    const properties = await screen.findByRole('link', { name: 'Căn' });
+    expect(properties).toHaveAttribute('data-active', 'true');
+    expect(screen.getByRole('link', { name: 'Lịch' })).not.toHaveAttribute('data-active', 'true');
   });
 
   it('shows no coming-soon badge on built pages such as products', async () => {

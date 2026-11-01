@@ -33,8 +33,9 @@
     "crmSettings": "Customer settings",
     "members": "Members",
     "settingsHome": "Settings",
-    "accommodations": "Accommodations",
-    "stayRequests": "Stay requests",
+    "calendar": "Calendar",
+    "bookings": "Bookings",
+    "properties": "Properties",
     "accountLabel": "Account navigation",
     "groupAccount": "Account",
     "groupBusinesses": "My businesses",
@@ -1780,6 +1781,27 @@
     "previous": "Previous page",
     "next": "Next page",
     "conflict": "Details changed, the request key was already used, or the dates overlap a confirmed stay. Reload the list and check the calendar before retrying.",
-    "photoAlt": "Property photo {{n}}"
+    "photoAlt": "Property photo {{n}}",
+    "calendarTitle": "Calendar",
+    "bookingsTitle": "Bookings",
+    "propertiesTitle": "Properties",
+    "propertyTitle": "Property details",
+    "sellMode": {
+      "whole": "Whole property",
+      "rooms": "By room"
+    },
+    "bookingStatus": {
+      "hold": "On hold",
+      "confirmed": "Booked",
+      "checked_in": "Staying",
+      "checked_out": "Checked out",
+      "cancelled": "Cancelled",
+      "expired": "Hold expired",
+      "no_show": "No-show",
+      "active": "Blocked",
+      "removed": "Unblocked"
+    },
+    "nightsTaken": "These nights are already taken by {{codes}}. Pick other dates or another property.",
+    "staleVersion": "Someone else just updated this. Reload and try again."
   }
 }

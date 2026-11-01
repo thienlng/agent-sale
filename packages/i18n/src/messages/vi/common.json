@@ -33,8 +33,9 @@
     "crmSettings": "Cài đặt khách hàng",
     "members": "Thành viên",
     "settingsHome": "Cài đặt",
-    "accommodations": "Căn lưu trú",
-    "stayRequests": "Yêu cầu đặt căn",
+    "calendar": "Lịch",
+    "bookings": "Booking",
+    "properties": "Căn",
     "accountLabel": "Điều hướng tài khoản",
     "groupAccount": "Tài khoản",
     "groupBusinesses": "Business của tôi",
@@ -1775,6 +1776,27 @@
     "previous": "Trang trước",
     "next": "Trang sau",
     "conflict": "Thông tin đã thay đổi, mã yêu cầu đã dùng hoặc ngày đã có booking xác nhận. Tải lại danh sách và kiểm tra lịch trước khi thử lại.",
-    "photoAlt": "Ảnh thực tế {{n}}"
+    "photoAlt": "Ảnh thực tế {{n}}",
+    "calendarTitle": "Lịch",
+    "bookingsTitle": "Booking",
+    "propertiesTitle": "Căn",
+    "propertyTitle": "Chi tiết căn",
+    "sellMode": {
+      "whole": "Nguyên căn",
+      "rooms": "Theo phòng"
+    },
+    "bookingStatus": {
+      "hold": "Giữ chỗ",
+      "confirmed": "Đã đặt",
+      "checked_in": "Đang ở",
+      "checked_out": "Đã trả phòng",
+      "cancelled": "Đã huỷ",
+      "expired": "Hết hạn giữ",
+      "no_show": "Không đến",
+      "active": "Khoá lịch",
+      "removed": "Đã mở khoá"
+    },
+    "nightsTaken": "Ngày này đã có booking {{codes}}. Chọn ngày hoặc căn khác.",
+    "staleVersion": "Dữ liệu vừa được người khác cập nhật. Tải lại rồi thử lại."
   }
 }
