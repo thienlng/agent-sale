@@ -346,6 +346,66 @@ describe('contact sync facade on Postgres', () => {
     ).toEqual([p3.id]);
   });
 
+  it('ends with one linked customer when a push result and a webhook import of it race', async () => {
+    const a = await shop('sync-push-race@shop.vn');
+    for (let i = 0; i < 5; i++) {
+      const phone = `09120001${String(i).padStart(2, '0')}`;
+      const c = await contact(a.h, { name: `Khách ${i}`, phone });
+      const [claimed] = await sync().claimContactsForPush(a.ws, 'kiotviet', new Date(0), 10);
+      expect(claimed?.id).toBe(c.id);
+      const externalId = `race-${i}`;
+      const results = await Promise.allSettled([
+        sync().markContactPushed(a.ws, c.id, 'kiotviet', externalId),
+        sync().upsertExternalContact(a.ws, 'kiotviet', kv({ externalId, phone })),
+      ]);
+      expect(results.map((r) => r.status)).toEqual(['fulfilled', 'fulfilled']);
+      expect((await get(a.h, c.id)).external).toEqual({ source: 'kiotviet', id: externalId });
+    }
+    expect((await all(a.h)).total).toBe(5);
+    expect(await sync().linkedContactCount(a.ws, 'kiotviet')).toBe(5);
+  });
+
+  it('keeps a stored value the PMS sent in a form the CRM cannot use', async () => {
+    const a = await shop('sync-keep@shop.vn');
+    const r = await sync().upsertExternalContact(
+      a.ws,
+      'kiotviet',
+      kv({ externalId: '40', phone: '0912000040', birthday: '1990-05-04 00:00:00' }),
+    );
+    const id = 'contactId' in r ? r.contactId : '';
+    expect(await get(a.h, id)).toMatchObject({ birthday: '1990-05-04', phone: '0912000040' });
+    await sync().upsertExternalContact(
+      a.ws,
+      'kiotviet',
+      kv({ externalId: '40', phone: '0123', birthday: '04/05/1990', address: null }),
+    );
+    // Rejected values keep what was stored; an explicit null still clears.
+    expect(await get(a.h, id)).toMatchObject({
+      birthday: '1990-05-04',
+      phone: '0912000040',
+      address: null,
+    });
+  });
+
+  it('refuses an empty or oversized external id', async () => {
+    const a = await shop('sync-extid@shop.vn');
+    await expect(
+      sync().upsertExternalContact(a.ws, 'kiotviet', kv({ externalId: '  ' })),
+    ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+    await expect(
+      sync().upsertExternalContact(a.ws, 'kiotviet', kv({ externalId: 'x'.repeat(65) })),
+    ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+    const c = await contact(a.h, { name: 'K', phone: '0912000050' });
+    await expect(sync().markContactPushed(a.ws, c.id, 'kiotviet', '')).rejects.toMatchObject({
+      code: 'VALIDATION_FAILED',
+    });
+    // A padded id is stored trimmed.
+    const r = await sync().upsertExternalContact(a.ws, 'kiotviet', kv({ externalId: ' 77 ' }));
+    expect(await sync().externalIdOf(a.ws, 'kiotviet', 'contactId' in r ? r.contactId : '')).toBe(
+      '77',
+    );
+  });
+
   it('keeps every business to its own customers (RLS)', async () => {
     const a = await shop('sync-rls-a@shop.vn');
     const b = await shop('sync-rls-b@shop.vn');

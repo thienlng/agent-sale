@@ -41,7 +41,8 @@ export interface ContactSyncFacade {
    * Match order: the external id; else the oldest live, unlinked customer with that normalized phone
    * (linked from now on); else a new customer with the built-in source "KiotViet" (auto-assignment,
    * history and events as any create, no actor). A record without a usable name, phone or email is
-   * skipped. Serialized per phone with lead capture (`upsertLeadByPhone`) and per external id.
+   * skipped. An empty or oversized `externalId` throws InvalidExternalContactIdError (it is
+   * trimmed otherwise). Serialized per phone with lead capture (`upsertLeadByPhone`) and per external id.
    */
   upsertExternalContact(
     ws: WorkspaceId,
@@ -68,7 +69,9 @@ export interface ContactSyncFacade {
   /**
    * Links the customer to the PMS customer the push created and clears its push state. The same id
    * again is a no-op; another id throws ContactAlreadyLinkedError; an id already linked to another
-   * customer throws ContactExternalLinkConflictError. NOT_FOUND for an unknown customer.
+   * customer throws ContactExternalLinkConflictError. NOT_FOUND for an unknown customer. Takes the
+   * same external-id lock as `upsertExternalContact`, so a webhook import of the new PMS customer
+   * racing this call finds the link instead of creating a second customer.
    */
   markContactPushed(
     ws: WorkspaceId,
@@ -126,5 +129,13 @@ export class ContactExternalLinkConflictError extends DomainError {
     super('The PMS customer is already linked to another customer', {
       reason: 'EXTERNAL_CONTACT_LINK_RACE',
     });
+  }
+}
+
+/** A PMS customer id must be non-empty and at most 64 characters (after trimming). */
+export class InvalidExternalContactIdError extends DomainError {
+  readonly code = 'VALIDATION_FAILED';
+  constructor() {
+    super('The PMS customer id is empty or too long', { fields: { externalId: 'invalid' } });
   }
 }

@@ -12,6 +12,7 @@ export {
   ContactExternalLinkConflictError,
   type ContactSyncFacade,
   type ExternalContactInput,
+  InvalidExternalContactIdError,
   type PushableContact,
   type UpsertExternalContactResult,
 } from './contact-sync.facade.js';

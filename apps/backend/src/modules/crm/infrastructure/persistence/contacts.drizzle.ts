@@ -7,6 +7,7 @@ import type {
   HistoryRecord,
   NoteRecord,
 } from '../../application/ports/crm-store.js';
+import { ContactExternalLinkConflictError } from '../../api/contact-sync.facade.js';
 import { DuplicateContactRequestError } from '../../domain/crm.errors.js';
 import { compileContactOrder, compileContactWhere } from './contact-filter.sql.js';
 
@@ -63,6 +64,9 @@ export function contactsTx(
         try {
           await tx.insert(c).values({ ...rec, workspaceId: ws });
         } catch (e) {
+          const constraint = (e as { cause?: { constraint_name?: string } }).cause?.constraint_name;
+          if (pgCode(e) === '23505' && constraint === 'contacts_external')
+            throw new ContactExternalLinkConflictError();
           if (pgCode(e) === '23505' && rec.clientRequestId)
             throw new DuplicateContactRequestError();
           throw e;

@@ -15,7 +15,8 @@ const NAME_MAX = 120;
 const ADDRESS_MAX = 300;
 const EMAIL_MAX = 254;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const DATE = /^(\d{4}-\d{2}-\d{2})(?:$|T)/;
+const DATE = /^(\d{4}-\d{2}-\d{2})(?:$|[T ])/;
+const EXTERNAL_ID_MAX = 64;
 
 const text = (v: string | null, max: number): string | null => {
   const t = v?.trim() ?? '';
@@ -48,17 +49,39 @@ export function cleanExternalContact(c: {
   return out.name || out.phone || out.email ? out : null;
 }
 
+/** A PMS id trimmed; null when empty or longer than 64 characters. */
+export function normalizeExternalId(id: string): string | null {
+  const t = id.trim();
+  return t && t.length <= EXTERNAL_ID_MAX ? t : null;
+}
+
+/**
+ * Fields the PMS sent a value for that the CRM could not use (an unusable phone, a malformed email
+ * or birthday): an overwrite keeps the stored value instead of clearing it.
+ */
+export function rejectedFields(
+  raw: Partial<Record<keyof ExternalContactFields, string | null>>,
+  clean: ExternalContactFields,
+): Array<keyof ExternalContactFields> {
+  return (Object.keys(clean) as Array<keyof ExternalContactFields>).filter(
+    (k) => Boolean(raw[k]?.trim()) && clean[k] === null,
+  );
+}
+
 /**
  * The fields to write. A linked customer takes every PMS-owned field, nulls included (the PMS is the
- * source of truth). A customer adopted by phone match keeps what the PMS does not know yet, so
+ * source of truth), except values it sent in an unusable form (`rejected`). A customer adopted by phone match keeps what the PMS does not know yet, so
  * linking never wipes data staff entered.
  */
 export function externalPatch(
   f: ExternalContactFields,
   mode: 'linked' | 'adopt',
+  rejected: ReadonlyArray<keyof ExternalContactFields> = [],
 ): Partial<ExternalContactFields> {
-  if (mode === 'linked') return { ...f };
   return Object.fromEntries(
-    Object.entries(f).filter(([, v]) => v !== null),
+    Object.entries(f).filter(
+      ([k, v]) =>
+        !rejected.includes(k as keyof ExternalContactFields) && (mode === 'linked' || v !== null),
+    ),
   ) as Partial<ExternalContactFields>;
 }

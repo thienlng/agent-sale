@@ -6,6 +6,7 @@ import {
   type ContactExternalSource,
   type ContactSyncFacade,
   type ExternalContactInput,
+  InvalidExternalContactIdError,
   type PushableContact,
   type UpsertExternalContactResult,
 } from '../api/contact-sync.facade.js';
@@ -15,6 +16,8 @@ import {
   cleanExternalContact,
   type ExternalContactFields,
   externalPatch,
+  normalizeExternalId,
+  rejectedFields,
 } from '../domain/external-contact.js';
 import { applyFields } from './contact-fields.js';
 import { emptyContact, event } from './contact.service.js';
@@ -43,22 +46,25 @@ export class ContactSyncService implements ContactSyncFacade {
     source: ContactExternalSource,
     input: ExternalContactInput,
   ): Promise<UpsertExternalContactResult> {
+    const externalId = normalizeExternalId(input.externalId);
+    if (!externalId) return Promise.reject(new InvalidExternalContactIdError());
     const fields = cleanExternalContact(input);
     if (!fields) return Promise.resolve({ skipped: 'no_identity' });
+    const rejected = rejectedFields(input, fields);
     const phoneE164 = fields.phone ? normalizeAnyPhone(fields.phone) : null;
     return this.store.run(ws, async (tx) => {
       // Fixed order (external id, then phone) so two imports never wait on each other in a cycle;
       // the phone lock is the one lead capture (`upsertLead`) takes.
-      await tx.lock(`external/${source}/${input.externalId}`);
+      await tx.lock(`external/${source}/${externalId}`);
       if (phoneE164) await tx.lock(`phone/${phoneE164}`);
       const now = new Date();
-      const linked = await tx.contactSync.findByExternal(source, input.externalId);
+      const linked = await tx.contactSync.findByExternal(source, externalId);
       if (linked) {
-        await this.#update(tx, ws, linked, externalPatch(fields, 'linked'), null, now);
+        await this.#update(tx, ws, linked, externalPatch(fields, 'linked', rejected), null, now);
         return { contactId: linked.id, created: false, matchedBy: 'external' };
       }
       const byPhone = phoneE164 ? await tx.contactSync.findUnlinkedByPhone(phoneE164) : null;
-      const link = { source, id: input.externalId };
+      const link = { source, id: externalId };
       if (byPhone) {
         await this.#update(tx, ws, byPhone, externalPatch(fields, 'adopt'), link, now);
         return { contactId: byPhone.id, created: false, matchedBy: 'phone' };
@@ -73,10 +79,9 @@ export class ContactSyncService implements ContactSyncFacade {
     source: ContactExternalSource,
     externalIds: readonly string[],
   ): Promise<number> {
-    if (!externalIds.length) return Promise.resolve(0);
-    return this.store.run(ws, (tx) =>
-      this.#unlink(tx, ws, source, externalIds, 'external_deleted'),
-    );
+    const ids = externalIds.map(normalizeExternalId).filter((x): x is string => x !== null);
+    if (!ids.length) return Promise.resolve(0);
+    return this.store.run(ws, (tx) => this.#unlink(tx, ws, source, ids, 'external_deleted'));
   }
 
   claimContactsForPush(
@@ -102,9 +107,14 @@ export class ContactSyncService implements ContactSyncFacade {
     ws: WorkspaceId,
     contactId: string,
     source: ContactExternalSource,
-    externalId: string,
+    rawExternalId: string,
   ): Promise<void> {
+    const externalId = normalizeExternalId(rawExternalId);
+    if (!externalId) return Promise.reject(new InvalidExternalContactIdError());
     return this.store.run(ws, async (tx) => {
+      // Before the row lock, in the upsert's order: a webhook import of this PMS customer waits
+      // for the link (and then matches by external id) instead of creating a second customer.
+      await tx.lock(`external/${source}/${externalId}`);
       const c = isUuid(contactId) ? await tx.contacts.find(contactId, { forUpdate: true }) : null;
       if (!c) throw new ContactNotFoundError(contactId);
       if (c.externalSource === source && c.externalId === externalId) return;

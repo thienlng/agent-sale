@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { cleanExternalContact, externalPatch } from './external-contact.js';
+import {
+  cleanExternalContact,
+  externalPatch,
+  normalizeExternalId,
+  rejectedFields,
+} from './external-contact.js';
 
 const raw = {
   externalId: '101',
@@ -36,6 +41,12 @@ describe('cleanExternalContact', () => {
     ).toMatchObject({ phone: null, email: null, birthday: null, address: null });
   });
 
+  it('accepts a space-separated date-time birthday', () => {
+    expect(cleanExternalContact({ ...raw, birthday: '1990-05-04 00:00:00' })?.birthday).toBe(
+      '1990-05-04',
+    );
+  });
+
   it('caps long text to what the CRM form accepts', () => {
     const c = cleanExternalContact({ ...raw, name: 'x'.repeat(200), address: 'y'.repeat(400) });
     expect(c?.name).toHaveLength(120);
@@ -69,5 +80,35 @@ describe('externalPatch', () => {
       birthday: '1990-05-04',
       gender: 'male',
     });
+  });
+});
+
+describe('rejectedFields', () => {
+  it('lists fields the PMS sent but the CRM could not use, not the empty ones', () => {
+    const input = { ...raw, phone: '0123', birthday: '04/05/1990', email: '  ', address: null };
+    expect(rejectedFields(input, cleanExternalContact(input)!).sort()).toEqual([
+      'birthday',
+      'phone',
+    ]);
+  });
+
+  it('keeps the stored value of a rejected field when a linked customer is overwritten', () => {
+    const input = { ...raw, phone: '0123', email: null };
+    const clean = cleanExternalContact(input)!;
+    const patch = externalPatch(clean, 'linked', rejectedFields(input, clean));
+    expect(patch).not.toHaveProperty('phone');
+    expect(patch).toMatchObject({ email: null, name: 'Nguyễn Văn A' });
+  });
+});
+
+describe('normalizeExternalId', () => {
+  it('trims and accepts up to 64 characters', () => {
+    expect(normalizeExternalId(' 101 ')).toBe('101');
+    expect(normalizeExternalId('x'.repeat(64))).toHaveLength(64);
+  });
+
+  it('rejects empty and too long ids', () => {
+    expect(normalizeExternalId('  ')).toBeNull();
+    expect(normalizeExternalId('x'.repeat(65))).toBeNull();
   });
 });
