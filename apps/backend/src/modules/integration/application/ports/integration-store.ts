@@ -90,7 +90,11 @@ export interface IntegrationStore {
     patch: Partial<ConnectionRecord>,
     expectedVersion?: number,
   ): Promise<ConnectionRecord>;
-  /** False when a full import or reconcile is already open for the connection. */
+  /**
+   * False when the job is already queued: a full import or reconcile open for the connection, or a
+   * `push_order` job open for the same `payload.orderId` (unique index, so two workers never both
+   * queue one).
+   */
   enqueue(
     ws: WorkspaceId,
     job: {

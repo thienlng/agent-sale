@@ -89,12 +89,14 @@ export interface OrderPushFacade {
    */
   releasePendingPushes(ws: WorkspaceId, source: ExternalSource): Promise<number>;
   /**
-   * Orders still `pending` whose claim (or last edit) is older than `olderThan`, oldest first: the
-   * caller re-queues those its own queue lost (a crash between claim and enqueue).
+   * Orders still `pending`, created since `since` (the connection), whose claim (or last edit) is
+   * older than `olderThan`, oldest first: the caller re-queues those its own queue lost (a crash
+   * between claim and enqueue). Orders from before `since` (an earlier connection) never come back.
    */
   stalePendingOrders(
     ws: WorkspaceId,
     source: ExternalSource,
+    since: Date,
     olderThan: Date,
     limit: number,
   ): Promise<string[]>;

@@ -11,3 +11,13 @@ create unique index if not exists orders_external on orders (workspace_id, exter
 -- The push scan: orders not yet claimed, oldest first (it claims by created_at ascending).
 create index if not exists orders_push_unclaimed_idx on orders (workspace_id, created_at)
   where external_state is null and deleted_at is null;
+
+-- Push jobs by order: the scan reads each order's newest push job (`latestPushJob`) every 15 s.
+create index if not exists integration_jobs_push_order_idx
+  on integration_jobs (workspace_id, (payload ->> 'orderId'), created_at desc)
+  where kind = 'push_order';
+-- At most one open push job per order: two scans (two workers) can never queue a second one, so
+-- an order is never sent twice at once. `enqueue` treats a conflict here as "already queued".
+create unique index if not exists integration_jobs_one_push_per_order
+  on integration_jobs ((payload ->> 'orderId'))
+  where kind = 'push_order' and done_at is null and failed_at is null;

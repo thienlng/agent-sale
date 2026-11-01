@@ -101,6 +101,12 @@ export const integrationJobs = pgTable(
       .where(
         sql`${t.kind} in ('full_import','reconcile') and ${t.doneAt} is null and ${t.failedAt} is null`,
       ),
+    index('integration_jobs_push_order_idx')
+      .on(t.workspaceId, sql`(${t.payload} ->> 'orderId')`, t.createdAt.desc())
+      .where(sql`${t.kind} = 'push_order'`),
+    uniqueIndex('integration_jobs_one_push_per_order')
+      .on(sql`(${t.payload} ->> 'orderId')`)
+      .where(sql`${t.kind} = 'push_order' and ${t.doneAt} is null and ${t.failedAt} is null`),
     ...tenantPolicies('integration_jobs'),
   ],
 );

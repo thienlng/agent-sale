@@ -1,10 +1,12 @@
 import {
+  and,
   createDb,
   type Database,
   ensureLoginRoles,
   eq,
   migrate,
   schema,
+  sql,
   withCredentials,
   withSystem,
   withTenant,
@@ -481,6 +483,34 @@ describe('integration store on Postgres', () => {
       cursor: { ambiguous: true, branchId: 1 },
     });
     expect(await store.latestPushJob(ws, 'none')).toBeNull();
+
+    // One open push job per order (unique index): a second enqueue is "already queued", even
+    // from two scans at once; once the job is closed, a new one can be queued.
+    const again = '0190f5c2-0000-7000-8000-0000000000e1';
+    const both = await Promise.all([
+      store.enqueue(ws, { connectionId: c.id, kind: 'push_order', payload: { orderId: again } }),
+      store.enqueue(ws, { connectionId: c.id, kind: 'push_order', payload: { orderId: again } }),
+    ]);
+    expect(both.sort()).toEqual([false, true]);
+    const open = await withTenant(tenant.db, ws, (tx) =>
+      tx
+        .select()
+        .from(schema.integrationJobs)
+        .where(
+          and(
+            eq(schema.integrationJobs.kind, 'push_order'),
+            sql`${schema.integrationJobs.payload} ->> 'orderId' = ${again}`,
+          ),
+        ),
+    );
+    expect(open).toHaveLength(1);
+    expect(
+      await store.enqueue(ws, {
+        connectionId: c.id,
+        kind: 'push_order',
+        payload: { orderId: orderId },
+      }),
+    ).toBe(true);
     expect(await store.latestPushJob(await workspace(), orderId)).toBeNull();
   });
 });

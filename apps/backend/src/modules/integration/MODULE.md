@@ -79,7 +79,7 @@ a 503 `UNAVAILABLE` stand-in when the process has no database).
 - Persistence: one live connection per workspace and provider (`ConnectionExistsError`); `version` counts
   owner edits only (`settings`, `retailer`, `clientId`, `clientSecretSealed`; runner writes such as status,
   progress, counts and errors leave it), and a stale `expectedVersion` is `ConnectionVersionConflictError` (409). At most one open
-  `full_import`/`reconcile` per connection (`enqueue` returns `false`). The worker claims jobs with
+  `full_import`/`reconcile` per connection and one open `push_order` per order (`enqueue` returns `false`). The worker claims jobs with
   `FOR UPDATE SKIP LOCKED` (ready `run_after`, free or expired lease; new `claim_token`); `attempts` counts
   recorded failures only (`retryJob` increments it), so a re-claim after a lapsed lease (worker restart, slow
   page) never spends a retry;
@@ -117,8 +117,12 @@ a 503 `UNAVAILABLE` stand-in when the process has no database).
 - Order push (spec §7, `application/order-push.ts`, `domain/kiotviet-order.ts`): every 15 s the tick
   claims up to 20 orders per connection with `pushOrders` on and status `connected|syncing`
   (`claimOrdersForPush(ws, 'kiotviet', connection.createdAt, 20)`), adds pending orders whose claim is more
-  than 2 min old (`stalePendingOrders`: a crash between claim and enqueue), and enqueues one `push_order` job
-  per order unless its newest job is still open (`latestPushJob`), with `payload { orderId, firstAttemptAt }`.
+  than 2 min old and created since the connection (`stalePendingOrders`: a crash between claim and enqueue;
+  orders of an earlier connection never come back), and enqueues one `push_order` job per order unless its
+  newest job is still open (`latestPushJob`), with `payload { orderId, firstAttemptAt }`. At most one open push
+  job per order is enforced by the unique index `integration_jobs_one_push_per_order` (migration 0043):
+  `enqueue` answers `false` on that conflict, so two workers scanning at once never queue a second job, and
+  `integration_jobs_push_order_idx` serves the per-order lookup.
   When that newest job's cursor or payload says `ambiguous` (a "Thử lại" after a possibly delivered create),
   the new job inherits `ambiguous`, the original `firstAttemptAt` and the `branchId` tried. The job reads `pushableOrder` (null → complete); a problem marks the
   order failed (`unlinked_product {name}` or `empty_order`). Otherwise it saves the cursor

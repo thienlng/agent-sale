@@ -83,6 +83,7 @@ export class OrderPusher {
         const stale = await this.orders.stalePendingOrders(
           ws,
           SOURCE,
+          c.createdAt,
           new Date(Date.now() - STALE_PENDING_MS),
           PUSH_BATCH,
         );

@@ -140,7 +140,8 @@ export class DrizzleIntegrationStore implements IntegrationStore {
     },
   ) {
     return withTenant(this.db, ws, async (tx) => {
-      // The only unique key a fresh id can hit is `integration_jobs_one_sync`.
+      // A fresh id can only hit `integration_jobs_one_sync` (one open sync per connection) or
+      // `integration_jobs_one_push_per_order` (one open push job per order): both mean "already queued".
       const rows = await tx
         .insert(j)
         .values({

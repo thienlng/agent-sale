@@ -170,11 +170,12 @@ export class OrderPushService implements OrderPushFacade {
   stalePendingOrders(
     ws: WorkspaceId,
     source: ExternalSource,
+    since: Date,
     olderThan: Date,
     limit: number,
   ): Promise<string[]> {
     return this.store.run(ws, (tx) =>
-      tx.orderPush.stalePending(source, olderThan, Math.max(0, Math.trunc(limit))),
+      tx.orderPush.stalePending(source, since, olderThan, Math.max(0, Math.trunc(limit))),
     );
   }
 

@@ -484,8 +484,16 @@ export interface CommerceTx {
     countPushed(source: ExternalSource): Promise<number>;
     /** Every `pending` claim of the source back to no push state; returns how many. */
     releasePending(source: ExternalSource): Promise<number>;
-    /** Pending orders of the source last updated before `olderThan` (the claim sets `updated_at`). */
-    stalePending(source: ExternalSource, olderThan: Date, limit: number): Promise<string[]>;
+    /**
+     * Pending orders of the source created since `since` and last updated before `olderThan` (the
+     * claim sets `updated_at`).
+     */
+    stalePending(
+      source: ExternalSource,
+      since: Date,
+      olderThan: Date,
+      limit: number,
+    ): Promise<string[]>;
   };
   /** Bot order drafts (one per conversation) and the SKU lookup the bot's orders need. */
   botOrders: {

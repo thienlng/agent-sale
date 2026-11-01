@@ -587,7 +587,13 @@ describe('push retries across jobs', () => {
     const jobs = store.jobs.filter((j) => j.kind === 'push_order');
     expect(jobs).toHaveLength(1);
     expect(jobs[0]!.payload).toMatchObject({ orderId: ORDER });
-    expect(orders.stalePendingOrders).toHaveBeenCalledWith(ws, 'kiotviet', expect.any(Date), 20);
+    expect(orders.stalePendingOrders).toHaveBeenCalledWith(
+      ws,
+      'kiotviet',
+      conn().createdAt,
+      expect.any(Date),
+      20,
+    );
 
     await sync.runJob(store.claimed(jobs[0]!.id));
     expect(order().state).toBe('pushed');

@@ -96,7 +96,7 @@ export function orderPushTx(tx: TenantTx): Pick<CommerceTx, 'orderPush'> {
           .returning({ id: o.id });
         return rows.length;
       },
-      async stalePending(source, olderThan, limit) {
+      async stalePending(source, since, olderThan, limit) {
         const rows = await tx
           .select({ id: o.id })
           .from(o)
@@ -104,6 +104,7 @@ export function orderPushTx(tx: TenantTx): Pick<CommerceTx, 'orderPush'> {
             and(
               eq(o.externalSource, source),
               eq(o.externalState, 'pending'),
+              sql`${o.createdAt} >= ${since.toISOString()}`,
               sql`${o.updatedAt} < ${olderThan.toISOString()}`,
             ),
           )

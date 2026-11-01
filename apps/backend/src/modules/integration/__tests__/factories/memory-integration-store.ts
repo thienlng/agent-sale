@@ -83,6 +83,13 @@ export class MemoryIntegrationStore implements IntegrationStore {
         (j.kind === 'full_import' || j.kind === 'reconcile'),
     );
     if (exclusive && busy) return Promise.resolve(false);
+    const orderId = job.payload?.['orderId'];
+    if (
+      job.kind === 'push_order' &&
+      this.jobs.some((j) => j.open && j.kind === 'push_order' && j.payload['orderId'] === orderId)
+    ) {
+      return Promise.resolve(false);
+    }
     this.jobs.push({
       id: `mem-job-${this.jobs.length + 1}`,
       workspaceId: ws,
