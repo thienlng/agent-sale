@@ -700,7 +700,8 @@
       "reserved": "Đang giữ hàng",
       "shipped": "Đã xuất kho",
       "released": "Đã trả hàng giữ",
-      "returned": "Đã nhập lại kho"
+      "returned": "Đã nhập lại kho",
+      "external": "Kho do KiotViet quản lý"
     },
     "createdBy": "Tạo bởi {{name}}",
     "by": "bởi {{name}}",

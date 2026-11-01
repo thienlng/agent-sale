@@ -20,3 +20,9 @@ export {
   type UpsertExternalProductOptions,
   type UpsertExternalProductResult,
 } from './catalog-sync.facade.js';
+export {
+  ORDER_PUSH_FACADE,
+  type OrderPushFacade,
+  type PushableOrder,
+  type PushProblem,
+} from './order-push.facade.js';

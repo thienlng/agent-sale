@@ -101,6 +101,27 @@ describe('bot orders and review', () => {
     expect(OrderSummaryDto.safeParse({ ...summary, createdByKind: 'robot' }).success).toBe(false);
   });
 
+  it('carries the PMS push state, null when absent (an older API)', () => {
+    expect(OrderSummaryDto.parse(summary).external).toBeNull();
+    const pushed = {
+      ...summary,
+      external: { state: 'pushed', code: 'DHKV0001', status: 'confirmed', error: null },
+    };
+    expect(OrderSummaryDto.parse(pushed).external).toEqual(pushed.external);
+    const failed = {
+      ...summary,
+      external: {
+        state: 'failed',
+        code: null,
+        status: null,
+        error: { code: 'unlinked_product', params: { name: 'Áo', count: 1 } },
+      },
+    };
+    expect(OrderSummaryDto.parse(failed).external?.error?.params).toEqual({ name: 'Áo', count: 1 });
+    const unknown = { ...summary, external: { ...pushed.external, state: 'sent' } };
+    expect(OrderSummaryDto.safeParse(unknown).success).toBe(false);
+  });
+
   it('filters the list by pending review only', () => {
     expect(OrderListQuery.parse({ review: 'pending' }).review).toBe('pending');
     expect(OrderListQuery.parse({}).review).toBeUndefined();

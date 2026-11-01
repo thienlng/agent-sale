@@ -704,7 +704,8 @@
       "reserved": "Goods held",
       "shipped": "Left the warehouse",
       "released": "Hold released",
-      "returned": "Back in stock"
+      "returned": "Back in stock",
+      "external": "Stock managed in KiotViet"
     },
     "createdBy": "Created by {{name}}",
     "by": "by {{name}}",

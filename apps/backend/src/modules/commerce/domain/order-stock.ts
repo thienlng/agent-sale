@@ -16,8 +16,11 @@ export type OrderStatus =
   | 'returned'
   | 'cancelled';
 
-/** Where an order's goods are. */
-export type StockState = 'reserved' | 'shipped' | 'released' | 'returned';
+/**
+ * Where an order's goods are. `external`: the order was pushed to a PMS (ADR-017), which owns its
+ * stock from then on; Rapiz moves none of it again, whatever the status.
+ */
+export type StockState = 'reserved' | 'shipped' | 'released' | 'returned' | 'external';
 
 /** What has to happen to inventory for a status change. */
 export type StockAction = 'reserve' | 'release' | 'ship' | 'return';
@@ -44,12 +47,14 @@ function requiredState(status: OrderStatus): StockState {
  * - `cancelled` gives held goods back (`release`); goods already out must come
  *   back as `returned` (`return`: on_hand += qty), not be cancelled;
  * - a cancelled or returned order can be revived, which reserves again.
+ * - an order pushed to a PMS (`external`) stays there: its stock is the PMS's.
  * Returns the actions to apply in order, and the new state.
  */
 export function stockTransition(
   current: StockState,
   to: OrderStatus,
 ): { next: StockState; actions: StockAction[] } {
+  if (current === 'external') return { next: 'external', actions: [] };
   const target = requiredState(to);
   if (current === target) return { next: current, actions: [] };
 

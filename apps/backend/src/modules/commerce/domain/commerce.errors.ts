@@ -183,3 +183,11 @@ export class ExternalSourceLockedError extends DomainError {
     });
   }
 }
+
+/** "Thử lại" applies only to an order whose push failed. */
+export class OrderPushNotFailedError extends DomainError {
+  readonly code = 'CONFLICT';
+  constructor(state: string | null) {
+    super('Only a failed push can be retried', { reason: 'PUSH_NOT_FAILED', state });
+  }
+}
