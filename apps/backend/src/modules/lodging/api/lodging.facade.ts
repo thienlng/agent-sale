@@ -61,10 +61,17 @@ export interface BotAvailabilityOption {
   unitIds: string[];
   /** Room names of a rooms property; empty for a property rented whole only. */
   unitNames: string[];
-  /** Nobody above the standard capacity or the maximum. */
+  /** No `overStandard` and nobody above the property's maximum. */
   fits: boolean;
-  /** More guests than the standard capacity: surcharges apply or staff must check. */
+  /**
+   * Guests above the standard capacity that no surcharge covers (no surcharge price set, or
+   * children above the standard with no child surcharge): staff must check.
+   */
   overStandard: boolean;
+  /** The minimum stay this option needs when the asked nights are fewer, else null. */
+  minNights: number | null;
+  /** `min_nights`: the asked stay is shorter than a date-range price requires. */
+  problems: 'min_nights'[];
   /** Null when some night has no price. */
   totalSell: number | null;
   nightly: { date: string; weekdayLabel: string; label: string; sell: number }[];
@@ -83,9 +90,10 @@ export interface BotAvailabilityResult {
   checkOutWeekdayLabel: string;
   /** A `propertyId` was asked for and it is not free: `options` are alternatives. */
   requestedFull: boolean;
-  /** Fitting first, then cheapest; at most 5. */
+  /** Fitting first, then cheapest; at most 5. Never throws for the customer's input. */
   options: BotAvailabilityOption[];
-  problems: ('past_date' | 'too_long' | 'not_sold')[];
+  /** `invalid_dates` / `invalid_party`: the input could not be read (nothing else checked). */
+  problems: ('invalid_dates' | 'invalid_party' | 'past_date' | 'too_long' | 'not_sold')[];
 }
 
 export interface PrepareBotHoldInput {
@@ -107,6 +115,9 @@ export interface PrepareBotHoldInput {
 }
 
 export type HoldProblem =
+  | 'invalid_dates'
+  | 'invalid_party'
+  | 'min_nights'
   | 'missing_name'
   | 'missing_phone'
   | 'invalid_phone'
@@ -139,7 +150,10 @@ export interface LodgingBotFacade {
   ): Promise<BotAvailabilityResult>;
   /** Validates, re-checks availability (no write to nights) and stores the conversation's draft. */
   prepareBotHold(ws: WorkspaceId, input: PrepareBotHoldInput): Promise<PrepareBotHoldResult>;
-  /** Turns the draft into a hold (source `bot`) when it is unexpired and its quote unchanged. */
+  /**
+   * Turns the draft into a hold (source `bot`) when it is unexpired and its quote unchanged. A
+   * retry of a confirmed draft answers the same hold (until the draft's 30 minutes are swept).
+   */
   confirmBotHold(ws: WorkspaceId, input: { conversationId: string }): Promise<ConfirmBotHoldResult>;
   cancelBotHoldDraft(ws: WorkspaceId, input: { conversationId: string }): Promise<void>;
   hasBotHoldDraft(

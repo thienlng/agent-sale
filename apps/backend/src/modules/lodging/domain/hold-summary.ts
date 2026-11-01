@@ -41,8 +41,10 @@ export function shortWeekdayLabel(night: string): string {
 
 /** '2 giờ', '30 phút', '1 giờ 30 phút'. */
 export function holdDurationText(minutes: number): string {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
+  const total = Math.max(0, Math.round(minutes));
+  if (total === 0) return '0 phút';
+  const h = Math.floor(total / 60);
+  const m = total % 60;
   return [h ? `${h} giờ` : '', m ? `${m} phút` : ''].filter(Boolean).join(' ');
 }
 

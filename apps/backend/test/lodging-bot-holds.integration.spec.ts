@@ -296,6 +296,84 @@ describe('checkAvailabilityForBot', () => {
     });
     expect(long).toMatchObject({ problems: ['too_long'], options: [] });
   });
+
+  it('answers invalid dates and an invalid party as problems, never throws', async () => {
+    const o = await hotel();
+    const ask = { botId: o.botId, checkIn: night(3), checkOut: night(5), ...party };
+    expect(
+      await facade().checkAvailabilityForBot(o.ws, {
+        ...ask,
+        checkIn: 'thứ 6',
+        checkOut: night(3),
+      }),
+    ).toMatchObject({ problems: ['invalid_dates'], options: [], nights: 0 });
+    expect(
+      await facade().checkAvailabilityForBot(o.ws, { ...ask, checkOut: night(3) }),
+    ).toMatchObject({ problems: ['invalid_dates'] });
+    expect(
+      await facade().checkAvailabilityForBot(o.ws, { ...ask, adults: 0, childAges: [] }),
+    ).toMatchObject({ problems: ['invalid_party'] });
+    expect(await facade().checkAvailabilityForBot(o.ws, { ...ask, childAges: [40] })).toMatchObject(
+      { problems: ['invalid_party'] },
+    );
+    const a = await villa(o.headers, 'A17', 9_000_000);
+    expect(
+      await facade().prepareBotHold(
+        o.ws,
+        holdInput(o.botId, a.id, newId(), { checkIn: '2026-02-30', adults: -1 }),
+      ),
+    ).toMatchObject({ status: 'problems', problems: ['invalid_dates', 'invalid_party'] });
+  });
+
+  it('checks the bot belongs to the workspace', async () => {
+    const o = await hotel();
+    await expect(
+      facade().checkAvailabilityForBot(o.ws, {
+        botId: newId(),
+        checkIn: night(3),
+        checkOut: night(5),
+        ...party,
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('returns options that break a minimum stay with their minimum, and prepare says min_nights', async () => {
+    const o = await hotel();
+    const a = await villa(o.headers, 'A17', 9_000_000);
+    const r = await call(o.headers, 'POST', `/lodging/properties/${a.id}/overrides`, {
+      version: a.version,
+      unitId: null,
+      dateFrom: night(3),
+      dateTo: night(4),
+      label: 'Lễ',
+      sell: 12_000_000,
+      cost: 10_000_000,
+      minNights: 2,
+    });
+    expect(r.statusCode, r.body).toBe(201);
+    const one = await facade().checkAvailabilityForBot(o.ws, {
+      botId: o.botId,
+      propertyId: a.id,
+      checkIn: night(3),
+      checkOut: night(4),
+      ...party,
+    });
+    expect(one.requestedFull).toBe(false);
+    expect(one.options[0]).toMatchObject({ code: 'A17', minNights: 2, problems: ['min_nights'] });
+    const two = await facade().checkAvailabilityForBot(o.ws, {
+      botId: o.botId,
+      propertyId: a.id,
+      checkIn: night(3),
+      checkOut: night(5),
+      ...party,
+    });
+    expect(two.options[0]).toMatchObject({ minNights: null, problems: [] });
+    const prepared = await facade().prepareBotHold(
+      o.ws,
+      holdInput(o.botId, a.id, newId(), { checkIn: night(3), checkOut: night(4) }),
+    );
+    expect(prepared).toMatchObject({ status: 'problems', problems: ['min_nights'] });
+  });
 });
 
 describe('bot holds', () => {
@@ -316,6 +394,104 @@ describe('bot holds', () => {
     expect(r2).toMatchObject({ status: 'problems', problems: ['missing_phone', 'past_date'] });
     const r3 = await facade().prepareBotHold(o.ws, holdInput(o.botId, newId(), newId()));
     expect(r3).toMatchObject({ status: 'problems', problems: ['not_sold'] });
+  });
+
+  it('a prepare that finds problems drops the earlier draft of the conversation', async () => {
+    const o = await hotel();
+    const a = await villa(o.headers, 'A17', 9_000_000);
+    const conversationId = newId();
+    await facade().prepareBotHold(o.ws, holdInput(o.botId, a.id, conversationId));
+    expect((await facade().hasBotHoldDraft(o.ws, conversationId)).pending).toBe(true);
+    const again = await facade().prepareBotHold(
+      o.ws,
+      holdInput(o.botId, a.id, conversationId, { guestPhone: '123' }),
+    );
+    expect(again).toMatchObject({ status: 'problems', problems: ['invalid_phone'] });
+    expect((await facade().hasBotHoldDraft(o.ws, conversationId)).pending).toBe(false);
+    expect(await facade().confirmBotHold(o.ws, { conversationId })).toMatchObject({
+      status: 'no_draft',
+    });
+  });
+
+  it('holds chosen rooms of a rooms property and takes only their nights', async () => {
+    const o = await hotel();
+    const created = await ok(
+      await call(o.headers, 'POST', '/lodging/properties', {
+        code: 'HS1',
+        name: 'Homestay HS1',
+        sellMode: 'rooms',
+        standardAdults: 4,
+        standardChildren: 0,
+      }),
+      PropertyDto,
+      201,
+    );
+    const withRooms = await ok(
+      await call(o.headers, 'PUT', `/lodging/properties/${created.id}/units`, {
+        version: created.version,
+        units: [
+          { name: 'P1', capacityAdults: 2 },
+          { name: 'P2', capacityAdults: 2 },
+          { name: 'P3', capacityAdults: 2 },
+        ],
+      }),
+      PropertyDto,
+    );
+    const [p1, p2, p3] = withRooms.units;
+    const hs = await ok(
+      await call(o.headers, 'PUT', `/lodging/properties/${created.id}/rates`, {
+        version: withRooms.version,
+        weekday: withRooms.units.map((u) => ({
+          unitId: u.id,
+          weekdays: ALL_DAYS,
+          sell: 500_000,
+          cost: 300_000,
+        })),
+        surcharges: { extraAdult: null, extraChild: null },
+      }),
+      PropertyDto,
+    );
+    const avail = await facade().checkAvailabilityForBot(o.ws, {
+      botId: o.botId,
+      propertyId: hs.id,
+      checkIn: night(3),
+      checkOut: night(5),
+      adults: 2,
+      childAges: [],
+    });
+    const rooms = avail.options.find((x) => !x.whole);
+    expect(rooms?.unitIds).toHaveLength(1);
+    const conversationId = newId();
+    const ready = await facade().prepareBotHold(
+      o.ws,
+      holdInput(o.botId, hs.id, conversationId, {
+        whole: false,
+        unitIds: [p1!.id, p2!.id],
+        adults: 4,
+      }),
+    );
+    expect(ready.status).toBe('ready');
+    if (ready.status !== 'ready') return;
+    expect(ready.summary.split('\n')[0]).toBe('Giữ chỗ Homestay HS1 · phòng P1, P2');
+    expect(ready.summary).toContain('Tổng: 2.000.000đ');
+    const held = await facade().confirmBotHold(o.ws, { conversationId });
+    expect(held.status).toBe('held');
+    const nights = await owner.db
+      .select()
+      .from(schema.lodgingUnitNights)
+      .where(eq(schema.lodgingUnitNights.workspaceId, o.ws));
+    expect(new Set(nights.map((n) => n.unitId))).toEqual(new Set([p1!.id, p2!.id]));
+    expect(nights).toHaveLength(4);
+    // P3 is still free for the same nights; the whole house is not.
+    const after = await facade().checkAvailabilityForBot(o.ws, {
+      botId: o.botId,
+      propertyId: hs.id,
+      checkIn: night(3),
+      checkOut: night(5),
+      adults: 2,
+      childAges: [],
+    });
+    expect(after.options.map((x) => [x.whole, x.unitIds])).toEqual([[false, [p3!.id]]]);
   });
 
   it('prepares a summary, confirms it into a bot hold and counts it for review', async () => {
@@ -357,10 +533,8 @@ describe('bot holds', () => {
       pending: false,
       storedAt: null,
     });
-    // A second confirm finds nothing to confirm.
-    expect(await facade().confirmBotHold(o.ws, { conversationId })).toMatchObject({
-      status: 'no_draft',
-    });
+    // A retried confirm replays the same hold instead of losing it.
+    expect(await facade().confirmBotHold(o.ws, { conversationId })).toEqual(held);
 
     const list = await ok(
       await call(o.headers, 'GET', '/lodging/bookings?view=holds&source=bot'),
@@ -494,9 +668,10 @@ describe('bot holds', () => {
       .set({ expiresAt: new Date(Date.now() - 1000) })
       .where(eq(schema.lodgingBotHoldDrafts.conversationId, conversationId));
     expect((await facade().hasBotHoldDraft(o.ws, conversationId)).pending).toBe(false);
-    expect(await facade().confirmBotHold(o.ws, { conversationId })).toMatchObject({
-      status: 'expired',
-    });
+    const expired = await facade().confirmBotHold(o.ws, { conversationId });
+    expect(expired.status).toBe('expired');
+    // The drafted property is offered again when it is still free.
+    if (expired.status !== 'held') expect(expired.alternatives[0]?.code).toBe('A17');
 
     const other = newId();
     await facade().prepareBotHold(o.ws, holdInput(o.botId, a.id, other));

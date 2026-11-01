@@ -39,6 +39,7 @@ describe('holdDurationText', () => {
     expect(holdDurationText(120)).toBe('2 giờ');
     expect(holdDurationText(30)).toBe('30 phút');
     expect(holdDurationText(90)).toBe('1 giờ 30 phút');
+    expect(holdDurationText(0)).toBe('0 phút');
   });
 });
 

@@ -68,8 +68,10 @@ describe('botStayProblems', () => {
     });
   });
 
-  it('refuses invalid dates and a check-out not after check-in', () => {
-    expect(() => botStayProblems('2026-11-31', '2026-12-02', '2026-11-01')).toThrow();
-    expect(() => botStayProblems('2026-11-05', '2026-11-05', '2026-11-01')).toThrow();
+  it('reports invalid dates and a check-out not after check-in as a problem, never throws', () => {
+    const invalid = { nights: 0, problems: ['invalid_dates'] };
+    expect(botStayProblems('2026-11-31', '2026-12-02', '2026-11-01')).toEqual(invalid);
+    expect(botStayProblems('2026-11-05', '2026-11-05', '2026-11-01')).toEqual(invalid);
+    expect(botStayProblems('cuối tuần', '2026-11-05', '2026-11-01')).toEqual(invalid);
   });
 });

@@ -21,7 +21,6 @@ import { freeOptions, type StayAsk } from './availability.js';
 import { BookingService } from './booking.service.js';
 import { expireHolds } from './booking-support.js';
 import {
-  assertParty,
   BOT_HOLD_DRAFT_TTL_MS,
   CUSTOMER_CHANNELS,
   held,
@@ -34,6 +33,7 @@ import {
   stayOf,
   tidy,
   toBotOption,
+  validParty,
   type FailCode,
   type SoldContext,
 } from './bot-hold-support.js';
@@ -51,6 +51,14 @@ import {
  * for the properties the bot sells, hold drafts the customer confirms, and the hold itself,
  * created through the staff create path (`BookingService.createIn`). The bot never confirms.
  */
+/** Problems of the input itself: nothing else is checked. */
+const INPUT_PROBLEMS: ReadonlySet<HoldProblem> = new Set([
+  'invalid_dates',
+  'invalid_party',
+  'past_date',
+  'too_long',
+]);
+
 @Injectable()
 export class LodgingBotHolds implements LodgingBotFacade {
   constructor(
@@ -64,20 +72,24 @@ export class LodgingBotHolds implements LodgingBotFacade {
     input: BotAvailabilityInput,
   ): Promise<BotAvailabilityResult> {
     const now = new Date();
-    assertParty(input.adults, input.childAges);
+    // Throws NOT_FOUND for a bot of another workspace (not the customer's input).
+    const bot = await this.bots.getBot(ws, input.botId);
     const { nights, problems } = botStayProblems(input.checkIn, input.checkOut, localToday(now));
+    const datesOk = !problems.includes('invalid_dates');
     const result: BotAvailabilityResult = {
       nights,
-      checkInWeekdayLabel: weekdayLabel(input.checkIn),
-      checkOutWeekdayLabel: weekdayLabel(input.checkOut),
+      checkInWeekdayLabel: datesOk ? weekdayLabel(input.checkIn) : '',
+      checkOutWeekdayLabel: datesOk ? weekdayLabel(input.checkOut) : '',
       requestedFull: false,
       options: [],
-      problems,
+      problems: validParty(input.adults, input.childAges)
+        ? problems
+        : [...problems, 'invalid_party'],
     };
-    if (problems.length) return result;
+    if (result.problems.length) return result;
     return this.store.run(ws, async (tx) => {
       await expireHolds(tx, now);
-      const ctx = await this.#sold(tx, input.botId, now);
+      const ctx = await this.#sold(tx, bot.id, now);
       const sold =
         input.propertyId === undefined || ctx.sold.some((p) => p.id === input.propertyId);
       const options = await this.#options(tx, ctx, input);
@@ -89,7 +101,6 @@ export class LodgingBotHolds implements LodgingBotFacade {
   async prepareBotHold(ws: WorkspaceId, input: PrepareBotHoldInput): Promise<PrepareBotHoldResult> {
     if (!isUuid(input.conversationId)) throw new TypeError('conversationId must be a uuid');
     const contactId = input.contactId && isUuid(input.contactId) ? input.contactId : null;
-    assertParty(input.adults, input.childAges);
     const now = new Date();
     const problems: HoldProblem[] = [];
     const guestName = tidy(input.guestName, MAX_NAME);
@@ -100,7 +111,10 @@ export class LodgingBotHolds implements LodgingBotFacade {
     else if (!e164) problems.push('invalid_phone');
     const stay = botStayProblems(input.checkIn, input.checkOut, localToday(now));
     problems.push(...stay.problems);
-    if (stay.problems.length) return { status: 'problems', problems, alternatives: [] };
+    if (!validParty(input.adults, input.childAges)) problems.push('invalid_party');
+    if (problems.some((p) => INPUT_PROBLEMS.has(p))) {
+      return { status: 'problems', problems, alternatives: [] };
+    }
     // Throws NOT_FOUND for a bot of another workspace.
     const bot = await this.bots.getBot(ws, input.botId);
 
@@ -128,14 +142,17 @@ export class LodgingBotHolds implements LodgingBotFacade {
         }
         if (quote) {
           const taken = await tx.takenNights(resolved, input.checkIn, input.checkOut);
-          if (taken.length || quote.warnings.includes('min_nights')) problems.push('not_available');
+          if (taken.length) problems.push('not_available');
+          else if (quote.warnings.includes('min_nights')) problems.push('min_nights');
           if (quote.warnings.includes('over_max')) problems.push('over_max');
           if (quote.totalSell === null) problems.push('missing_rate');
         }
       }
       if (problems.length || !quote || quote.totalSell === null || !e164 || !property) {
+        // A stale selection must not stay confirmable once the customer changed something.
+        await tx.deleteBotHoldDraft(input.conversationId);
         const needsAlternatives = problems.some((p) =>
-          ['not_available', 'not_sold', 'over_max'].includes(p),
+          ['not_available', 'not_sold', 'over_max', 'min_nights'].includes(p),
         );
         const alternatives = needsAlternatives
           ? rankForBot(
@@ -215,13 +232,15 @@ export class LodgingBotHolds implements LodgingBotFacade {
     const alternatives = await this.store.run(ws, async (tx) => {
       const now = new Date();
       await tx.deleteBotHoldDraft(failed.draft.conversationId, failed.draft.id);
+      // Check-in has passed since the summary: nothing to offer for those dates.
+      if (failed.draft.checkIn < localToday(now)) return [];
       await expireHolds(tx, now);
       const ctx = await this.#sold(tx, failed.draft.botId, now);
       const options = await this.#options(tx, ctx, failed.draft);
-      // A changed price shows the same property at its new price when it is still free.
-      return failed.code === 'price_changed'
-        ? rankForBot(options, failed.draft.propertyId).options
-        : rankForBot(options.filter((o) => o.propertyId !== failed.draft.propertyId)).options;
+      // Expired or re-priced: the same property again (new price) while it is free, else others.
+      return failed.code === 'not_available'
+        ? rankForBot(options.filter((o) => o.propertyId !== failed.draft.propertyId)).options
+        : rankForBot(options, failed.draft.propertyId).options;
     });
     return { status: failed.code, alternatives };
   }
@@ -234,15 +253,16 @@ export class LodgingBotHolds implements LodgingBotFacade {
   async #confirm(tx: LodgingTx, conversationId: string): Promise<ConfirmBotHoldResult> {
     const now = new Date();
     await expireHolds(tx, now);
-    // Locked: a second confirmation of this draft waits, then finds it gone.
+    // Locked: a second confirmation of this draft waits, then replays the hold.
     const draft = await tx.botHoldDraft(conversationId, true);
     if (!draft) return { status: 'no_draft', alternatives: [] };
-    if (draft.expiresAt <= now) throw new HoldNotConfirmable('expired', draft);
+    // A confirmed draft stays as a tombstone until it is swept (prepare) or replaced: its
+    // deterministic request id finds the hold again, so a retried confirm answers the same code.
     const clientRequestId = holdRequestId(draft.id);
     const existing = await tx.findBookingByRequest(clientRequestId);
-    if (existing) {
-      await tx.deleteBotHoldDraft(conversationId);
-      return held(existing);
+    if (existing) return held(existing);
+    if (draft.expiresAt <= now || draft.checkIn < localToday(now)) {
+      throw new HoldNotConfirmable('expired', draft);
     }
     const ctx = await this.#sold(tx, draft.botId, now);
     const property = ctx.sold.find((p) => p.id === draft.propertyId);
@@ -298,7 +318,6 @@ export class LodgingBotHolds implements LodgingBotFacade {
       }
       throw error;
     }
-    await tx.deleteBotHoldDraft(conversationId);
     return held(booking);
   }
 
@@ -318,10 +337,13 @@ export class LodgingBotHolds implements LodgingBotFacade {
     const none = { pending: false, storedAt: null };
     if (!isUuid(conversationId)) return none;
     try {
-      const draft = await this.store.run(ws, (tx) => tx.botHoldDraft(conversationId));
-      return draft && draft.expiresAt > new Date()
-        ? { pending: true, storedAt: draft.createdAt }
-        : none;
+      return await this.store.run(ws, async (tx) => {
+        const draft = await tx.botHoldDraft(conversationId);
+        if (!draft || draft.expiresAt <= new Date()) return none;
+        // A confirmed draft (tombstone) is no longer pending.
+        if (await tx.findBookingByRequest(holdRequestId(draft.id))) return none;
+        return { pending: true, storedAt: draft.createdAt };
+      });
     } catch (error) {
       if (error instanceof LodgingUnavailableError) return none;
       throw error;
@@ -343,9 +365,9 @@ export class LodgingBotHolds implements LodgingBotFacade {
     return { sold, units, ratesOf };
   }
 
-  /** Free options of the sold properties, as the bot sees them; a min-stay rule is not free. */
+  /** Free options of the sold properties, as the bot sees them (a min-stay breach is flagged). */
   async #options(tx: LodgingTx, ctx: SoldContext, ask: StayAsk): Promise<BotAvailabilityOption[]> {
     const free = await freeOptions(tx, ctx.sold, stayOf(ask), ctx);
-    return free.filter((o) => !o.quote.warnings.includes('min_nights')).map(toBotOption);
+    return free.map((o) => toBotOption(o, ctx.ratesOf.get(o.property.id) ?? []));
   }
 }

@@ -1,4 +1,3 @@
-import { LodgingError } from './lodging.errors.js';
 import { MAX_STAY_NIGHTS, nightToUtcMs } from './nights.js';
 
 const DAY_MS = 86_400_000;
@@ -43,24 +42,27 @@ export function rankForBot<T extends RankableOption>(
   return { requestedFull: true, options: ranked.slice(0, MAX_BOT_OPTIONS) };
 }
 
+/** A problem of the stay dates the bot asks about. */
+export type BotStayProblem = 'invalid_dates' | 'past_date' | 'too_long';
+
 /**
- * Date checks of a stay the bot asks about: check-in from local `today`, 1 to 60 nights. A
- * malformed date or a check-out not after check-in is a validation error (the tool schema
- * already refuses those); the rest are problems the bot explains to the customer.
+ * Date checks of a stay the bot asks about: real dates, check-out after check-in, check-in from
+ * local `today`, 1 to 60 nights. Never throws: the bot explains every problem to the customer.
+ * `nights` is 0 when the dates are invalid.
  */
 export function botStayProblems(
   checkIn: string,
   checkOut: string,
   today: string,
-): { nights: number; problems: ('past_date' | 'too_long')[] } {
-  const nights = (nightToUtcMs(checkOut) - nightToUtcMs(checkIn)) / DAY_MS;
-  if (nights < 1) {
-    throw new LodgingError('VALIDATION_FAILED', 'Check-out must be after check-in', {
-      checkIn,
-      checkOut,
-    });
+): { nights: number; problems: BotStayProblem[] } {
+  let nights: number;
+  try {
+    nights = (nightToUtcMs(checkOut) - nightToUtcMs(checkIn)) / DAY_MS;
+  } catch {
+    return { nights: 0, problems: ['invalid_dates'] };
   }
-  const problems: ('past_date' | 'too_long')[] = [];
+  if (nights < 1) return { nights: 0, problems: ['invalid_dates'] };
+  const problems: BotStayProblem[] = [];
   if (checkIn < today) problems.push('past_date');
   if (nights > MAX_STAY_NIGHTS) problems.push('too_long');
   return { nights, problems };

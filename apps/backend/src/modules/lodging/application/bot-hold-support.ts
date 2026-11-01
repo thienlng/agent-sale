@@ -2,8 +2,8 @@ import { createHash } from 'node:crypto';
 
 import type { BotAvailabilityOption, ConfirmBotHoldResult } from '../api/lodging.facade.js';
 import { weekdayLabel } from '../domain/hold-summary.js';
-import { LodgingError } from '../domain/lodging.errors.js';
 import type { Quote } from '../domain/quote.js';
+import { priceNight, type RateRule } from '../domain/rates.js';
 import type { FreeOption, StayAsk } from './availability.js';
 import type {
   BookingRecord,
@@ -62,7 +62,10 @@ export function holdRequestId(draftId: string): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
-/** sha256 of what the customer agreed to: selection, party, guest, note and the sell prices. */
+/**
+ * sha256 of what the customer agreed to: selection, party, guest, note, the sell prices and the
+ * quote warnings (a new min-stay rule or maximum also needs a new summary).
+ */
 type Agreed = Pick<
   BotHoldDraftRecord,
   | 'propertyId'
@@ -93,23 +96,40 @@ export function quoteHash(d: Agreed, resolved: string[], q: Quote): string {
         q.nights.map((n) => [n.date, n.sell]),
         q.surcharges.map((s) => [s.kind, s.persons, s.nights, s.sell]),
         q.totalSell,
+        q.warnings,
       ]),
     )
     .digest('hex');
 }
 
-export function assertParty(adults: number, childAges: number[]): void {
+/** A readable party: 0–1000 adults, child ages 0–17, at least one guest. */
+export function validParty(adults: number, childAges: unknown): boolean {
   const okAdults = Number.isInteger(adults) && adults >= 0 && adults <= 1000;
   const okKids =
-    childAges.length <= 1000 && childAges.every((a) => Number.isInteger(a) && a >= 0 && a <= 17);
-  if (!okAdults || !okKids || adults + childAges.length < 1) {
-    throw new LodgingError('VALIDATION_FAILED', 'Invalid party', { adults, childAges });
+    Array.isArray(childAges) &&
+    childAges.length <= 1000 &&
+    childAges.every((a) => Number.isInteger(a) && a >= 0 && a <= 17);
+  return okAdults && okKids && adults + (childAges as number[]).length >= 1;
+}
+
+/**
+ * The longest minimum stay of the date-range prices the option uses on the asked nights (whole
+ * target and its rooms), or null when the stay is long enough.
+ */
+export function requiredNights(o: FreeOption, rates: RateRule[]): number | null {
+  if (!o.quote.warnings.includes('min_nights')) return null;
+  const targets: (string | null)[] = [null, ...o.unitIds];
+  let most = 0;
+  for (const n of o.quote.nights) {
+    for (const t of targets) most = Math.max(most, priceNight(rates, t, n.date)?.minNights ?? 0);
   }
+  return most || null;
 }
 
 /** The bot view of a free option: sell prices only, Vietnamese weekday labels. */
-export function toBotOption(o: FreeOption): BotAvailabilityOption {
+export function toBotOption(o: FreeOption, rates: RateRule[]): BotAvailabilityOption {
   const names = new Map(o.units.map((u) => [u.id, u.name]));
+  const minNights = requiredNights(o, rates);
   return {
     propertyId: o.property.id,
     code: o.property.code,
@@ -119,6 +139,8 @@ export function toBotOption(o: FreeOption): BotAvailabilityOption {
     unitNames: o.property.sellMode === 'rooms' ? o.unitIds.map((id) => names.get(id) ?? '') : [],
     fits: o.fits,
     overStandard: o.quote.warnings.includes('over_standard'),
+    minNights,
+    problems: o.quote.warnings.includes('min_nights') ? ['min_nights'] : [],
     totalSell: o.quote.totalSell,
     nightly: o.quote.nights.map((n) => ({
       date: n.date,
