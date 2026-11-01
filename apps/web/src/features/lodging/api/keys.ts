@@ -10,6 +10,7 @@ export const lodgingKeys = {
   property: (ws: string, id: string) => ['ws', ws, 'lodging', 'properties', id] as const,
   bookings: (ws: string, query: Partial<BookingListQuery>) =>
     ['ws', ws, 'lodging', 'bookings', 'list', query] as const,
+  reviewCount: (ws: string) => ['ws', ws, 'lodging', 'bookings', 'review-count'] as const,
   booking: (ws: string, id: string) => ['ws', ws, 'lodging', 'bookings', 'detail', id] as const,
   calendar: (ws: string, from: string, to: string, propertyIds: readonly string[]) =>
     ['ws', ws, 'lodging', 'calendar', from, to, propertyIds] as const,

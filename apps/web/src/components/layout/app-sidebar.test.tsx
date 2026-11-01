@@ -30,12 +30,19 @@ beforeEach(() => {
   })) as unknown as typeof window.matchMedia;
 });
 
-function renderAt(path: string, industry?: 'hotel') {
+function renderAt(
+  path: string,
+  industry: 'hotel' | 'retail' | 'loading' = 'retail',
+  navCounts?: Record<string, { count: number; label: string }>,
+) {
   const root = createRootRoute({
     component: () => (
       <TooltipProvider>
         <SidebarProvider>
-          <AppSidebar industry={industry} />
+          <AppSidebar
+            industry={industry === 'loading' ? undefined : industry}
+            navCounts={navCounts}
+          />
         </SidebarProvider>
       </TooltipProvider>
     ),
@@ -49,6 +56,15 @@ function renderAt(path: string, industry?: 'hotel') {
 }
 
 describe('AppSidebar', () => {
+  it('shows placeholders, not retail entries, while the industry is still loading', async () => {
+    renderAt('/app/calendar', 'loading');
+    const nav = await screen.findByRole('navigation', { name: 'Điều hướng chính' });
+    expect(within(nav).getByTestId('industry-nav-loading')).toBeInTheDocument();
+    expect(within(nav).queryByRole('link', { name: 'Sản phẩm' })).toBeNull();
+    expect(within(nav).queryByRole('button', { name: 'Đơn hàng' })).toBeNull();
+    expect(within(nav).queryByRole('link', { name: 'Lịch' })).toBeNull();
+  });
+
   it('uses lodging navigation for a hotel without retail stock or shipping orders', async () => {
     renderAt('/app/calendar', 'hotel');
     const nav = await screen.findByRole('navigation', { name: 'Điều hướng chính' });
@@ -60,7 +76,7 @@ describe('AppSidebar', () => {
       'href',
       '/app/bookings',
     );
-    expect(within(nav).getByRole('link', { name: 'Căn' })).toHaveAttribute(
+    expect(within(nav).getByRole('link', { name: 'Căn hộ' })).toHaveAttribute(
       'href',
       '/app/properties',
     );
@@ -69,9 +85,27 @@ describe('AppSidebar', () => {
     expect(within(nav).queryByRole('link', { name: /Căn lưu trú|Yêu cầu đặt căn/ })).toBeNull();
   });
 
-  it('marks Căn active on a property detail page', async () => {
+  it('shows a waiting count next to an entry, with a spoken label', async () => {
+    renderAt('/app/calendar', 'hotel', {
+      '/app/bookings': { count: 3, label: '3 giữ chỗ của bot chờ xử lý' },
+    });
+    const booking = await screen.findByRole('link', { name: 'Booking' });
+    const item = booking.closest('li') as HTMLElement;
+    expect(within(item).getByText('3')).toBeVisible();
+    expect(within(item).getByText('3 giữ chỗ của bot chờ xử lý')).toHaveClass('sr-only');
+  });
+
+  it('hides a zero count', async () => {
+    renderAt('/app/calendar', 'hotel', {
+      '/app/bookings': { count: 0, label: '0 giữ chỗ của bot chờ xử lý' },
+    });
+    const booking = await screen.findByRole('link', { name: 'Booking' });
+    expect(within(booking.closest('li') as HTMLElement).queryByText('0')).toBeNull();
+  });
+
+  it('marks Căn hộ active on a property detail page', async () => {
     renderAt('/app/properties/0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9d01', 'hotel');
-    const properties = await screen.findByRole('link', { name: 'Căn' });
+    const properties = await screen.findByRole('link', { name: 'Căn hộ' });
     expect(properties).toHaveAttribute('data-active', 'true');
     expect(screen.getByRole('link', { name: 'Lịch' })).not.toHaveAttribute('data-active', 'true');
   });

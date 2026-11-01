@@ -179,6 +179,8 @@ function booking(
     note: '',
     tags: [],
     blockReason: '',
+    reviewedAt: null,
+    reviewedBy: null,
     clientRequestId: newId(),
     fingerprint: 'fp',
     version: 1,

@@ -88,7 +88,12 @@ const send = (...calls: string[][]): Partial<GenerateResponse> => ({
  */
 function build(
   reply: { sends?: string[][]; text?: string } | string,
-  options: { products?: ProductDto[]; focus?: string[]; searchFirst?: boolean } = {},
+  options: {
+    products?: ProductDto[];
+    focus?: string[];
+    searchFirst?: boolean;
+    mediaBase?: string;
+  } = {},
 ) {
   const { products = [oxford], focus = [], searchFirst = true } = options;
   const { sends = [], text = 'Dạ đây là hình ạ.' } =
@@ -126,6 +131,14 @@ function build(
         return products.filter((p) => ids.includes(p.id));
       },
     } as unknown as CatalogFacade,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    options.mediaBase,
   );
   const conversationId = newId();
   const askWith = async (messages: PlaygroundRequest['messages']) => {
@@ -163,6 +176,25 @@ const toolResult = (req: GenerateRequest | undefined, id = 's1') =>
 const requestText = (req: GenerateRequest | undefined) => JSON.stringify(req?.messages.slice(1));
 
 describe('bot-sent images', () => {
+  it('sends a stored /media/ picture as an absolute URL on the current public base', async () => {
+    const path = `/media/products/${ws}/0192f0a0-0000-7000-8000-0000000000aa.jpg`;
+    const old = `/media/products/${ws}/0192f0a0-0000-7000-8000-0000000000bb.jpg`;
+    const villa = product('villa', 'Villa A20', [
+      path,
+      `https://scholar-images-location-module.trycloudflare.com${old}`,
+    ]);
+    const { fake, ask } = build(answer(['p:villa:0', 'p:villa:1']), {
+      products: [villa],
+      mediaBase: 'https://now.trycloudflare.com/media',
+    });
+    const res = await ask('cho xem ảnh villa');
+    expect(res.images?.map((i) => i.url)).toEqual([
+      `https://now.trycloudflare.com${path}`,
+      `https://now.trycloudflare.com${old}`,
+    ]);
+    for (const call of fake.calls) expect(JSON.stringify(call)).not.toContain('/media/');
+  });
+
   it('resolves valid ids to stored URLs and shows the model ids and labels only', async () => {
     const { fake, ask } = build(answer(['p:oxford:1', 'm:size']));
     const res = await ask('cho xem ảnh giày Oxford và bảng size giày');

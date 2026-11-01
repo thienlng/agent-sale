@@ -63,6 +63,7 @@ const booking = (over: Partial<BookingDetail> = {}): BookingDetail => ({
   note: '',
   tags: [],
   blockReason: '',
+  reviewedAt: null,
   version: 3,
   createdAt: '2099-10-30T00:00:00.000Z',
   updatedAt: '2099-10-30T00:00:00.000Z',
@@ -351,6 +352,70 @@ describe('BookingSheet view', () => {
     expect(await within(sheet).findByText('Anh Nam')).toBeInTheDocument();
     for (const name of ['Xác nhận', 'Gia hạn giữ', 'Huỷ', 'Sửa'])
       expect(within(sheet).queryByRole('button', { name })).toBeNull();
+  });
+
+  it('tells staff to call and confirm a bot hold that waits for review, next to the conversation', async () => {
+    stubApi({
+      [`GET /lodging/bookings/${BK}`]: {
+        status: 200,
+        body: booking({ source: 'bot', reviewedAt: null }),
+      },
+    });
+    renderSheet({ mode: 'view', bookingId: BK });
+    const sheet = await screen.findByRole('dialog');
+    const hint = await within(sheet).findByRole('region', { name: 'Bot tạo' });
+    expect(
+      within(hint).getByText('Bot đã giữ chỗ theo yêu cầu khách — gọi xác nhận rồi bấm Xác nhận'),
+    ).toBeInTheDocument();
+    expect(within(hint).getByRole('link', { name: /Mở hội thoại/ })).toHaveAttribute(
+      'href',
+      `/app/inbox?conversation=${CONV}`,
+    );
+    // One conversation link only: the guest section does not repeat it.
+    expect(within(sheet).getAllByRole('link', { name: /Mở hội thoại/ })).toHaveLength(1);
+  });
+
+  it('drops the call hint once staff handled the bot hold but keeps the conversation button', async () => {
+    stubApi({
+      [`GET /lodging/bookings/${BK}`]: {
+        status: 200,
+        body: booking({
+          source: 'bot',
+          status: 'confirmed',
+          holdExpiresAt: null,
+          reviewedAt: '2099-10-31T00:00:00.000Z',
+        }),
+      },
+    });
+    renderSheet({ mode: 'view', bookingId: BK });
+    const sheet = await screen.findByRole('dialog');
+    const banner = await within(sheet).findByRole('region', { name: 'Bot tạo' });
+    expect(within(banner).queryByText(/gọi xác nhận/)).toBeNull();
+    expect(within(banner).getByRole('link', { name: /Mở hội thoại/ })).toBeInTheDocument();
+  });
+
+  it('shows the quiet bot line for a bot hold staff already reviewed (still on hold)', async () => {
+    stubApi({
+      [`GET /lodging/bookings/${BK}`]: {
+        status: 200,
+        body: booking({ source: 'bot', status: 'hold', reviewedAt: '2099-10-31T00:00:00.000Z' }),
+      },
+    });
+    renderSheet({ mode: 'view', bookingId: BK });
+    const sheet = await screen.findByRole('dialog');
+    const banner = await within(sheet).findByRole('region', { name: 'Bot tạo' });
+    expect(
+      within(banner).getByText('Bot tạo booking này từ hội thoại với khách.'),
+    ).toBeInTheDocument();
+    expect(within(banner).queryByText(/gọi xác nhận/)).toBeNull();
+  });
+
+  it('shows no bot banner on a staff booking', async () => {
+    stubApi({ [`GET /lodging/bookings/${BK}`]: { status: 200, body: booking() } });
+    renderSheet({ mode: 'view', bookingId: BK });
+    const sheet = await screen.findByRole('dialog');
+    await within(sheet).findByText('Anh Nam');
+    expect(within(sheet).queryByRole('region', { name: 'Bot tạo' })).toBeNull();
   });
 
   it('says the hold expired when a status move comes too late', async () => {

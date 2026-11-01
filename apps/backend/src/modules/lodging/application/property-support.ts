@@ -27,6 +27,30 @@ export function toPropertyDto(
   return { ...rest, units: currentUnits(p, units).map(toUnitDto), rates };
 }
 
+/**
+ * Whole-property sell price per ISO weekday (Monday first) from the weekday rates; overrides are
+ * ignored. A room-sold property without a whole rate sums its active rooms; null when a weekday
+ * is not fully priced.
+ */
+export function weekdaySell(
+  p: PropertyRecord,
+  units: UnitRecord[],
+  rates: RateRule[],
+): (number | null)[] {
+  const weekdayRules = rates.filter((r) => r.kind === 'weekday');
+  const priceOf = (unitId: string | null, day: number) =>
+    weekdayRules.find((r) => r.unitId === unitId && r.weekdays.includes(day))?.sell ?? null;
+  const rooms = p.sellMode === 'rooms' ? currentUnits(p, units).filter((u) => u.active) : [];
+  return [1, 2, 3, 4, 5, 6, 7].map((day) => {
+    const whole = priceOf(null, day);
+    if (whole !== null || rooms.length === 0) return whole;
+    const prices = rooms.map((u) => priceOf(u.id, day));
+    return prices.every((n) => n !== null)
+      ? prices.reduce<number>((a, n) => a + (n ?? 0), 0)
+      : null;
+  });
+}
+
 /** The property with its units and rates, as the API returns it. */
 export async function readProperty(tx: LodgingTx, p: PropertyRecord): Promise<PropertyDto> {
   const [units, rates] = [await tx.units([p.id]), await tx.rates([p.id])];

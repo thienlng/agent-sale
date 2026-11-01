@@ -1,6 +1,6 @@
 import type { BookingAction, BookingDetail } from '@agent-sales/contracts';
 import { Link } from '@tanstack/react-router';
-import { MessageCircle, Pencil } from 'lucide-react';
+import { Bot, MessageCircle, Pencil } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -32,6 +32,7 @@ import {
   todayNight,
   weekdayShort,
 } from '../lib/format';
+import { botHoldPending } from '../lib/bot-hold';
 import { BookingEditForm } from './booking-edit-form';
 import { BookingErrorAlert } from './booking-error-alert';
 import { BookingNightNotes, type NoteFocus } from './booking-night-notes';
@@ -109,6 +110,7 @@ export function BookingView({
     void booking.refetch();
   };
   const actions = canManage ? (ACTIONS[b.status] ?? []) : [];
+  const byBot = b.kind === 'stay' && b.source === 'bot';
   const tooEarly = b.checkIn > todayNight();
 
   return (
@@ -181,6 +183,7 @@ export function BookingView({
         />
       ) : (
         <div className="grid flex-1 content-start gap-5 overflow-y-auto px-4 py-4 text-sm">
+          {byBot && <BotBookingBanner booking={b} />}
           <SheetSection title={t('lodging.sheet.sectionDates')}>
             <p className="tabular-nums">
               {weekdayShort(t, b.checkIn)} {dayMonth(b.checkIn)} → {weekdayShort(t, b.checkOut)}{' '}
@@ -221,13 +224,8 @@ export function BookingView({
                   </span>
                 )}
               </p>
-              {b.conversationId && (
-                <Button asChild size="sm" variant="outline" className="w-fit">
-                  <Link to="/app/inbox" search={{ conversation: b.conversationId }}>
-                    <MessageCircle aria-hidden />
-                    {t('lodging.sheet.conversation')}
-                  </Link>
-                </Button>
+              {b.conversationId && !byBot && (
+                <ConversationButton conversationId={b.conversationId} />
               )}
             </SheetSection>
           )}
@@ -307,6 +305,49 @@ export function BookingView({
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+function ConversationButton({ conversationId }: { conversationId: string }) {
+  const { t } = useTranslation();
+  return (
+    <Button asChild size="sm" variant="outline" className="w-fit bg-background">
+      <Link to="/app/inbox" search={{ conversation: conversationId }}>
+        <MessageCircle aria-hidden />
+        {t('lodging.sheet.conversation')}
+      </Link>
+    </Button>
+  );
+}
+
+/**
+ * Top of a bot booking (T-161): while the hold waits for staff, what to do next (call the guest,
+ * then press Xác nhận); afterwards a quiet "made by the bot" line. "Mở hội thoại" sits here so
+ * staff read what the guest asked before calling.
+ */
+function BotBookingBanner({ booking: b }: { booking: BookingDetail }) {
+  const { t } = useTranslation();
+  const pending = botHoldPending(b);
+  return (
+    <section
+      aria-label={t('lodging.sheet.botLabel')}
+      className={
+        pending
+          ? 'flex flex-wrap items-center gap-3 rounded-lg border border-warning/40 bg-warning-soft px-3 py-2.5'
+          : 'flex flex-wrap items-center gap-x-3 gap-y-2 text-muted-foreground'
+      }
+    >
+      <p className="flex min-w-0 flex-1 basis-56 items-start gap-2">
+        <Bot
+          className={pending ? 'mt-0.5 size-4 shrink-0 text-warning' : 'mt-0.5 size-4 shrink-0'}
+          aria-hidden
+        />
+        <span className={pending ? 'font-medium text-foreground' : undefined}>
+          {pending ? t('lodging.sheet.botHoldHint') : t('lodging.sheet.botCreated')}
+        </span>
+      </p>
+      {b.conversationId && <ConversationButton conversationId={b.conversationId} />}
+    </section>
   );
 }
 

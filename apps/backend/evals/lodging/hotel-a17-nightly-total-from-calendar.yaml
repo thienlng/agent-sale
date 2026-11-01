@@ -48,24 +48,34 @@
           },
       },
     ],
-  'id': 'hotel-a17-nightly-total-uses-calculate',
-  'conversation': [{ 'customer': 'A17 thuê 2 đêm từ thứ 7 thì tổng tiền bao nhiêu?' }],
-  # Rates are per night (T-160): the Saturday + Sunday nights are quoted exactly, and the stay total
-  # comes from the calculate tool, never from the model's own arithmetic.
-  'expect':
-    {
+  'id': 'hotel-a17-nightly-total-from-calendar',
+  'conversation':
+    [{ 'customer': 'A17 thuê 2 đêm từ thứ 7 tuần sau cho 20 người lớn thì tổng tiền bao nhiêu?' }],
+  # Prompt 18 (T-161): a dated question goes to check_availability; the Saturday + Sunday nights
+  # and the stay total are quoted from the server's result, never from the model's own arithmetic.
+  'expect': {
       'outcome': 'answered',
       'guardrail': 'none',
-      'steps_succeeded': ['search_products', 'calculate'],
-      'contains_all': ['14.000.000', '13.000.000', '27.000.000'],
-      'not_contains': ['còn trống ạ', 'đã giữ', 'đã đặt'],
+      'steps_succeeded': ['check_availability'],
+      'steps_exclude': ['prepare_hold', 'handoff'],
+      # The weekday labels are the server's (weekdayLabel), never the model's own date arithmetic.
+      'contains_all': ['Thứ Bảy', 'Chủ Nhật', '14.000.000', '13.000.000', '27.000.000'],
+      'not_contains': ['đã giữ', 'đã đặt'],
     },
   fake_turns:
     [
-      { tool_calls: [{ name: 'search_products', input: { query: 'A17' } }] },
-      { tool_calls: [{ name: 'calculate', input: { expression: '14000000 + 13000000' } }] },
       {
-        text: 'Dạ A17 giá theo đêm: đêm thứ Bảy 14.000.000đ, đêm Chủ nhật 13.000.000đ, 2 đêm tổng 27.000.000đ ạ. Lịch trống và giá chốt cuối cùng bên em cần kiểm tra lại ạ.',
+        tool_calls:
+          [
+            {
+              name: 'check_availability',
+              input:
+                { checkIn: '2027-01-09', checkOut: '2027-01-11', adults: 20, propertyCode: 'A17' },
+            },
+          ],
+      },
+      {
+        text: 'Dạ A17 từ Thứ Bảy 09/01 đến Thứ Hai 11/01 còn trống ạ: đêm Thứ Bảy 14.000.000đ, đêm Chủ Nhật 13.000.000đ, tổng 2 đêm 27.000.000đ ạ.',
       },
     ],
 }

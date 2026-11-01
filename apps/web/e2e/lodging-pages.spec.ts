@@ -3,7 +3,7 @@ import { expect, type Page, test } from '@playwright/test';
 import { mockApi } from './support/mock-api';
 
 /**
- * Lodging Booking list, Căn grid and property editor (T-160) layout guard: long Vietnamese
+ * Lodging Booking list, Căn hộ grid and property editor (T-160) layout guard: long Vietnamese
  * names and a 7-day price table stay inside their own scroll areas from phone to desktop.
  */
 const VIEWPORTS = [375, 768, 1280, 1920];
@@ -87,6 +87,7 @@ const booking = (n: number) => ({
   note: '',
   tags: n % 3 ? [] : ['Đoàn công ty'],
   blockReason: '',
+  reviewedAt: null,
   version: 1,
   createdAt: STAMP,
   updatedAt: STAMP,
@@ -130,7 +131,15 @@ async function mockHotel(page: Page) {
       }));
       return route.fulfill(json({ ...found, rates }));
     }
-    return route.fulfill(json({ data: list.map((p) => ({ ...p, today: 'free' })) }));
+    return route.fulfill(
+      json({
+        data: list.map((p) => ({
+          ...p,
+          today: 'free',
+          weekdaySell: [12, 12, 12, 12, 14, 16, 14].map((m) => m * 1_000_000),
+        })),
+      }),
+    );
   });
   await page.route('**/api/v1/lodging/calendar**', (route) =>
     route.fulfill(

@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { PublicImageUrl } from '../common/media.js';
+
 /**
  * Lodging v2 (T-160, spec 2026-11-01-lodging-calendar): properties → units → rates →
  * nightly calendar → bookings. Money is integer VND; nights are local calendar dates.
@@ -60,12 +62,9 @@ export const Policies = z.object({
   other: z.string().max(2000).default(''),
 });
 export type Policies = z.infer<typeof Policies>;
-/** Same rule as the commerce `Image`: https links only (no http:, javascript:, data:). */
+/** Same rule as the commerce `Image`: a Rapiz `/media/…` path or an https link (no http:, javascript:, data:). */
 export const GalleryImage = z.object({
-  url: z
-    .url()
-    .max(2000)
-    .refine((v) => v.startsWith('https://'), 'must be an https link'),
+  url: PublicImageUrl,
   caption: z.string().trim().max(300).default(''),
 });
 
@@ -235,6 +234,12 @@ export const PropertyDto = PropertyFields.extend({
 export type PropertyDto = z.infer<typeof PropertyDto>;
 export const PropertySummary = PropertyDto.omit({ rates: true }).extend({
   today: z.enum(['free', 'hold', 'occupied', 'blocked', 'partial']),
+  /**
+   * Whole-property sell price per ISO weekday (index 0 = Monday … 6 = Sunday) from the weekday
+   * rates, without date overrides. A room-sold property without a whole rate sums its active
+   * rooms. Null = that weekday is not fully priced.
+   */
+  weekdaySell: z.array(Vnd.nullable()).length(7),
 });
 export type PropertySummary = z.infer<typeof PropertySummary>;
 export const PropertyList = z.object({ data: z.array(PropertySummary) });
@@ -394,6 +399,8 @@ export const BookingDto = z.object({
   note: z.string(),
   tags: z.array(z.string()),
   blockReason: z.string(),
+  /** First staff action on a bot booking; a bot hold with null here waits for staff (T-161). */
+  reviewedAt: z.iso.datetime().nullable(),
   version: z.number().int(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
@@ -415,6 +422,8 @@ export const BookingListQuery = z.object({
   conversationId: z.uuid().optional(),
   /** Bookings carrying exactly this tag. */
   tag: BookingTag.optional(),
+  /** Bookings from this source only (e.g. `bot`). */
+  source: BookingSource.optional(),
   offset: z.coerce.number().int().min(0).default(0),
 });
 export type BookingListQuery = z.infer<typeof BookingListQuery>;
@@ -423,6 +432,9 @@ export const BookingList = z.object({
   nextOffset: z.number().int().nullable(),
 });
 export type BookingList = z.infer<typeof BookingList>;
+/** Bot holds waiting for staff: `source = bot`, status `hold`, not reviewed yet. */
+export const BookingReviewCount = z.object({ pending: z.number().int().min(0) });
+export type BookingReviewCount = z.infer<typeof BookingReviewCount>;
 
 // ── Calendar & availability ──────────────────────────────────────────────────
 

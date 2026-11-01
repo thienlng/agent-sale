@@ -18,6 +18,7 @@ import type { WorkspaceId } from '@agent-sales/shared';
 import type { LodgingStore, LodgingTx } from '../../application/ports/lodging-store.js';
 import { LodgingError } from '../../domain/lodging.errors.js';
 import type { RateRule } from '../../domain/rates.js';
+import { botHoldPort } from './lodging-bot-holds.drizzle.js';
 import { bookingPort } from './lodging-bookings.drizzle.js';
 import {
   pgCode,
@@ -68,6 +69,7 @@ async function uniqueCode(write: () => Promise<unknown>): Promise<void> {
 function lodgingTx(tx: TenantTx, ws: WorkspaceId): LodgingTx {
   return {
     ...bookingPort(tx, ws),
+    ...botHoldPort(tx, ws),
     async properties(filter = {}) {
       if (filter.ids?.length === 0) return [];
       const rows = await tx

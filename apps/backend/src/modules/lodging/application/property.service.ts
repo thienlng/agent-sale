@@ -9,7 +9,9 @@ import { newId, type WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable } from '@nestjs/common';
 import type { z } from 'zod';
 
+import { mediaPath } from '../../../common/storage/media-url.js';
 import { LodgingError } from '../domain/lodging.errors.js';
+import type { RateRule } from '../domain/rates.js';
 import { addNights, localToday } from '../domain/nights.js';
 import { expireHolds } from './booking-support.js';
 import { LodgingAccess } from './lodging-access.js';
@@ -29,6 +31,7 @@ import {
   saveBumped,
   toPropertyDto,
   toUnitDto,
+  weekdaySell,
 } from './property-support.js';
 
 type PropertyFieldsOut = z.output<typeof PropertyInput>;
@@ -55,6 +58,21 @@ function fieldsOf(p: PropertyRecord): PropertyFieldsOut {
     gallery: p.gallery,
     internalNote: p.internalNote,
   };
+}
+
+/**
+ * Gallery photos that are Rapiz objects (a `/media/…` path, or such a URL on any host) must be
+ * this workspace's product pictures; external https links stay allowed.
+ */
+function assertOwnGallery(ws: WorkspaceId, gallery: readonly { url: string }[] | undefined): void {
+  gallery?.forEach((g, i) => {
+    const path = mediaPath(g.url);
+    if (path && !path.startsWith(`/media/products/${ws}/`))
+      throw new LodgingError('VALIDATION_FAILED', 'Gallery photo is not one of this business', {
+        reason: 'IMAGE_NOT_UPLOADED',
+        field: `gallery[${i}].url`,
+      });
+  });
 }
 
 function validationError(issues: z.core.$ZodIssue[]): LodgingError {
@@ -119,6 +137,7 @@ export class PropertyService {
       const props = await tx.properties();
       const ids = props.map((p) => p.id);
       const units = await tx.units(ids);
+      const rates = ids.length ? await tx.ratesByProperty(ids) : new Map<string, RateRule[]>();
       const today = localToday(now);
       const tomorrow = addNights(today, 1);
       const taken = await tx.takenNights(
@@ -137,6 +156,7 @@ export class PropertyService {
             ...rest,
             units: own.map(toUnitDto),
             today: todayStatus(own, taken, bookings, now),
+            weekdaySell: weekdaySell(p, units, rates.get(p.id) ?? []),
           };
         }),
       };
@@ -161,6 +181,7 @@ export class PropertyService {
     const parsed = PropertyInput.safeParse(input);
     if (!parsed.success) throw validationError(parsed.error.issues);
     const fields = parsed.data;
+    assertOwnGallery(ws, fields.gallery);
     return this.store.run(ws, async (tx) => {
       const now = new Date().toISOString();
       const p: PropertyRecord = {
@@ -196,6 +217,7 @@ export class PropertyService {
     actorId: string,
   ): Promise<PropertyDto> {
     await this.access.assertHotel(ws);
+    assertOwnGallery(ws, input.patch.gallery);
     return this.store.run(ws, async (tx) => {
       const p = await lockForWrite(tx, id, input.version);
       const merged = PropertyInput.safeParse({ ...fieldsOf(p), ...input.patch });

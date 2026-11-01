@@ -116,6 +116,8 @@ function booking(propertyId: string, unitIds: string[], over: Partial<BookingRec
     note: '',
     tags: [],
     blockReason: '',
+    reviewedAt: null,
+    reviewedBy: null,
     clientRequestId: newId(),
     fingerprint: 'fp',
     version: 1,

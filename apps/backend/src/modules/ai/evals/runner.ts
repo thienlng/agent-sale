@@ -6,6 +6,7 @@ import type { ActionFacade } from '../../action/api/index.js';
 import type { BotFacade, BotView } from '../../bot/api/index.js';
 import type { BotCatalogScope, CatalogFacade } from '../../commerce/api/index.js';
 import type { FaqHit, KnowledgeFacade, TrainingFacade } from '../../knowledge/api/index.js';
+import type { LodgingFacade } from '../../lodging/api/index.js';
 import type { WorkspaceFacade } from '../../workspace/api/index.js';
 import type { LlmRuntime } from '../application/llm-runtime.js';
 import { PlaygroundService } from '../application/playground.service.js';
@@ -13,6 +14,7 @@ import { DEV_FAKE_PROVIDER } from '../domain/llm-config.js';
 import { InMemoryAiRunRepository } from '../infrastructure/persistence/ai-run.repositories.js';
 import { type CheckResult, runChecks, type ToolStep } from './checks.js';
 import { evalCommerce } from './commerce.js';
+import { evalLodging } from './lodging.js';
 import type { EvalCase, EvalOutcome } from './case.js';
 
 export interface CaseResult {
@@ -252,6 +254,8 @@ export function buildService(c: EvalCase, llm: LlmRuntime) {
   // A hotel bot reads its catalog from lodging, any other bot from commerce: the case's products
   // stand for either one (lodging cases list properties in the bot-view product shape).
   const catalog = evalCatalog(products as unknown as ProductDto[]);
+  // The calendar of a hotel case; the pipeline gives its tools to hotel bots only.
+  const lodging = evalLodging(products as unknown as ProductDto[], c.lodging);
   const service = new PlaygroundService(
     { getBot: async () => bot } as BotFacade,
     { searchFaqs: async () => faqHits } as unknown as KnowledgeFacade,
@@ -265,6 +269,11 @@ export function buildService(c: EvalCase, llm: LlmRuntime) {
     undefined,
     commerce,
     catalog,
+    lodging,
+    // Every property the bot sells (the code lookup's fallback when the search misses).
+    {
+      listBotPropertyIds: async () => products.filter((p) => p.accommodation).map((p) => p.id),
+    } as LodgingFacade,
   );
   return { service, botId, runs };
 }

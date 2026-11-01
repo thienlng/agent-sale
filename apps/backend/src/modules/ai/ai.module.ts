@@ -13,7 +13,7 @@ import { WorkspaceModule } from '../workspace/workspace.module.js';
 import { AI_FACADE } from './api/ai.facade.js';
 import { HERMES_SUBSCRIPTION_LOGIN, LlmAdminService } from './application/llm-admin.service.js';
 import { LlmRuntime } from './application/llm-runtime.js';
-import { PlaygroundService } from './application/playground.service.js';
+import { MEDIA_PUBLIC_BASE, PlaygroundService } from './application/playground.service.js';
 import { LLM_PROVIDER_FACTORY } from './application/ports/llm-provider-factory.js';
 import { AI_RUN_REPOSITORY } from './domain/ports/ai-run.repository.js';
 import { CONVERSATION_SUMMARY_REPOSITORY } from './domain/ports/conversation-summary.repository.js';
@@ -81,6 +81,7 @@ import { LlmAdminController } from './interface/http/llm-admin.controller.js';
       provide: HERMES_SUBSCRIPTION_LOGIN,
       useFactory: () => hermesSubscriptionLoginEnabled(getEnv()),
     },
+    { provide: MEDIA_PUBLIC_BASE, useFactory: () => getEnv().S3_PUBLIC_URL ?? '' },
     LlmRuntime,
     LlmAdminService,
     PlaygroundService,

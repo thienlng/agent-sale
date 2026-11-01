@@ -41,7 +41,7 @@ describe('BotProperties', () => {
     renderWithRouter(() => <BotProperties botId={LODGING_IDS.bot} />);
     const h1Switch = await screen.findByRole('switch', { name: 'Bot bán H1 · Homestay Hoa Sứ' });
     await waitFor(() => expect(h1Switch).toBeChecked());
-    expect(screen.getByRole('switch', { name: 'Tất cả căn' })).toBeChecked();
+    expect(screen.getByRole('switch', { name: 'Tất cả căn hộ' })).toBeChecked();
     expect(document.body).not.toHaveTextContent(/sản phẩm/i);
 
     await userEvent.click(h1Switch);
@@ -55,7 +55,7 @@ describe('BotProperties', () => {
   it('turns "all places" back on with an empty list', async () => {
     const calls = stub([a17.id]);
     renderWithRouter(() => <BotProperties botId={LODGING_IDS.bot} />);
-    const all = await screen.findByRole('switch', { name: 'Tất cả căn' });
+    const all = await screen.findByRole('switch', { name: 'Tất cả căn hộ' });
     await waitFor(() => expect(all).not.toBeChecked());
     await userEvent.click(all);
     await waitFor(() =>

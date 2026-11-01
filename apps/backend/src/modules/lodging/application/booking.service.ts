@@ -4,6 +4,7 @@ import type {
   BookingDetail,
   BookingList,
   BookingListQuery,
+  BookingReviewCount,
   BookingStatusRequest,
   CreateBookingRequest,
   UpdateBookingRequest,
@@ -23,12 +24,15 @@ import {
   manualTotalForEdit,
   normalizeTags,
   assertEditable,
+  blockRecord,
+  reviewedBy,
   sameSet,
   shortenStay,
   publishStatus,
   toBookingDtos,
   totals,
   type Actor,
+  type BookingBase,
   type PropertyContext,
 } from './booking-support.js';
 import { LodgingAccess } from './lodging-access.js';
@@ -58,23 +62,6 @@ const AUDIT_ACTIONS: Record<Action, string> = {
   extend_hold: 'lodging.booking.hold_extended',
   remove_block: 'lodging.booking.block_removed',
 };
-/** Fields every new booking gets, stay or block. */
-type BookingBase = Pick<
-  BookingRecord,
-  | 'id'
-  | 'code'
-  | 'propertyId'
-  | 'whole'
-  | 'unitIds'
-  | 'checkIn'
-  | 'checkOut'
-  | 'clientRequestId'
-  | 'fingerprint'
-  | 'version'
-  | 'createdAt'
-  | 'updatedAt'
->;
-
 /** A hold that has expired (maybe lazily, in this very request) says so before any version check. */
 function assertNotExpired(b: BookingRecord): void {
   if (b.status === 'expired') {
@@ -125,85 +112,91 @@ export class BookingService {
    */
   async create(ws: WorkspaceId, input: CreateBookingRequest, actor: Actor): Promise<BookingDetail> {
     await this.access.assertHotel(ws);
-    const fingerprint = createHash('sha256').update(JSON.stringify(input)).digest('hex');
     return this.store.run(ws, async (tx) => {
       const now = new Date();
       await expireHolds(tx, now);
-      await tx.lockRequestKey(input.clientRequestId);
-      const existing = await tx.findBookingByRequest(input.clientRequestId);
-      if (existing) {
-        if (existing.fingerprint !== fingerprint) {
-          throw new LodgingError('CONFLICT', 'This request key was used for a different booking');
-        }
-        return this.detail(tx, existing);
+      return this.detail(tx, await this.createIn(tx, input, actor, now));
+    });
+  }
+
+  /**
+   * The create path inside the caller's transaction (staff create and the bot hold confirm):
+   * replays an earlier booking of the same `clientRequestId` and payload, else inserts the
+   * booking, takes its unit-nights (NIGHTS_TAKEN aborts the transaction), audits and publishes
+   * `lodging.booking.created.v1`. The caller runs `expireHolds` first.
+   */
+  async createIn(
+    tx: LodgingTx,
+    input: CreateBookingRequest,
+    actor: Actor,
+    now: Date,
+  ): Promise<BookingRecord> {
+    const fingerprint = createHash('sha256').update(JSON.stringify(input)).digest('hex');
+    await tx.lockRequestKey(input.clientRequestId);
+    const existing = await tx.findBookingByRequest(input.clientRequestId);
+    if (existing) {
+      if (existing.fingerprint !== fingerprint) {
+        throw new LodgingError('CONFLICT', 'This request key was used for a different booking');
       }
-      const ctx = await loadContext(tx, input.propertyId);
-      if (ctx.property.status !== 'active') {
-        throw new LodgingError('CONFLICT', 'The property is paused');
-      }
-      const nights = nightsBetween(input.checkIn, input.checkOut);
-      const unitIds = resolveUnits(ctx.property, ctx.units, input);
-      const base: BookingBase = {
-        id: newId(),
-        code: await tx.nextBookingCode(),
-        propertyId: ctx.property.id,
-        whole: input.whole,
-        unitIds,
-        checkIn: input.checkIn,
-        checkOut: input.checkOut,
-        clientRequestId: input.clientRequestId,
-        fingerprint,
-        version: 1,
-        createdAt: now.toISOString(),
-        updatedAt: now.toISOString(),
-      };
-      const b: BookingRecord =
-        input.kind === 'block'
-          ? {
-              ...base,
-              kind: 'block',
-              status: 'active',
-              adults: 0,
-              childAges: [],
-              guestName: '',
-              guestPhone: '',
-              contactId: null,
-              conversationId: null,
-              source: null,
-              holdExpiresAt: null,
-              quote: null,
-              adjustment: 0,
-              adjustmentReason: '',
-              totalSell: null,
-              totalCost: null,
-              note: '',
-              tags: [],
-              blockReason: input.blockReason,
-            }
-          : await this.newStay(tx, ctx, input, base, now);
-      await tx.insertBooking(b);
-      await tx.takeNights(b.id, unitIds, nights);
-      await tx.audit(
-        actor.id,
-        'lodging_booking',
-        b.id,
-        'lodging.booking.created',
-        { kind: b.kind, status: b.status, checkIn: b.checkIn, checkOut: b.checkOut },
-        actor.name,
-      );
-      await tx.publish({
-        name: 'lodging.booking.created.v1',
-        payload: {
-          bookingId: b.id,
-          code: b.code,
-          propertyId: b.propertyId,
-          status: b.status,
-          checkIn: b.checkIn,
-          checkOut: b.checkOut,
-          source: b.source,
-        },
-      });
-      return this.detail(tx, b);
+      return existing;
+    }
+    const ctx = await loadContext(tx, input.propertyId);
+    if (ctx.property.status !== 'active') {
+      throw new LodgingError('CONFLICT', 'The property is paused');
+    }
+    const nights = nightsBetween(input.checkIn, input.checkOut);
+    const unitIds = resolveUnits(ctx.property, ctx.units, input);
+    const base: BookingBase = {
+      id: newId(),
+      code: await tx.nextBookingCode(),
+      propertyId: ctx.property.id,
+      whole: input.whole,
+      unitIds,
+      checkIn: input.checkIn,
+      checkOut: input.checkOut,
+      clientRequestId: input.clientRequestId,
+      fingerprint,
+      reviewedAt: null,
+      reviewedBy: null,
+      version: 1,
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+    };
+    const b: BookingRecord =
+      input.kind === 'block'
+        ? blockRecord(base, input.blockReason)
+        : await this.newStay(tx, ctx, input, base, now);
+    await tx.insertBooking(b);
+    await tx.takeNights(b.id, unitIds, nights);
+    await tx.audit(
+      actor.id,
+      'lodging_booking',
+      b.id,
+      'lodging.booking.created',
+      { kind: b.kind, status: b.status, checkIn: b.checkIn, checkOut: b.checkOut },
+      actor.name,
+    );
+    await tx.publish({
+      name: 'lodging.booking.created.v1',
+      payload: {
+        bookingId: b.id,
+        code: b.code,
+        propertyId: b.propertyId,
+        status: b.status,
+        checkIn: b.checkIn,
+        checkOut: b.checkOut,
+        source: b.source,
+      },
+    });
+    return b;
+  }
+
+  /** Bot holds waiting for staff (source `bot`, status `hold`, not reviewed yet). */
+  async reviewCount(ws: WorkspaceId): Promise<BookingReviewCount> {
+    await this.access.assertHotel(ws);
+    return this.store.run(ws, async (tx) => {
+      await expireHolds(tx, new Date());
+      return { pending: await tx.countBotHoldsToReview() };
     });
   }
 
@@ -256,6 +249,7 @@ export class BookingService {
         whole,
         unitIds,
         note: req.note ?? b.note,
+        ...reviewedBy(b, actor, now),
         version: b.version + 1,
         updatedAt: now.toISOString(),
       };
@@ -340,6 +334,7 @@ export class BookingService {
         ...b,
         status,
         holdExpiresAt,
+        ...reviewedBy(b, actor, now),
         version: b.version + 1,
         updatedAt: now.toISOString(),
       };

@@ -16,8 +16,8 @@ import { useProperties } from '../api/properties';
 import { useBotProperties, useSetBotProperties } from '../api/settings';
 
 /**
- * Bot training "Căn & phòng" for a hotel bot: a sells / does not sell switch per place.
- * "Tất cả căn" stores an empty list, which means every place, including new ones.
+ * Bot training "Căn hộ & phòng" for a hotel bot: a sells / does not sell switch per place.
+ * "Tất cả căn hộ" stores an empty list, which means every place, including new ones.
  */
 export function BotProperties({ botId }: { botId: string }) {
   const { t } = useTranslation();

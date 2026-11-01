@@ -4,9 +4,14 @@ import { Module } from '@nestjs/common';
 import { DB_TENANT } from '../../common/db/db.module.js';
 import { BotModule } from '../bot/bot.module.js';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
-import { LODGING_CATALOG_FACADE, LODGING_FACADE } from './api/lodging.facade.js';
+import {
+  LODGING_BOT_FACADE,
+  LODGING_CATALOG_FACADE,
+  LODGING_FACADE,
+} from './api/lodging.facade.js';
 import { LodgingBotCatalog } from './application/bot-catalog.js';
 import { BookingService } from './application/booking.service.js';
+import { LodgingBotHolds } from './application/bot-hold.service.js';
 import { CalendarService } from './application/calendar.service.js';
 import { LodgingAccess } from './application/lodging-access.js';
 import { LodgingFacadeImpl } from './application/lodging.facade.impl.js';
@@ -43,7 +48,8 @@ import { PropertiesController } from './interface/http/properties.controller.js'
     NightNotesService,
     { provide: LODGING_FACADE, useClass: LodgingFacadeImpl },
     { provide: LODGING_CATALOG_FACADE, useClass: LodgingBotCatalog },
+    { provide: LODGING_BOT_FACADE, useClass: LodgingBotHolds },
   ],
-  exports: [LODGING_FACADE, LODGING_CATALOG_FACADE],
+  exports: [LODGING_FACADE, LODGING_CATALOG_FACADE, LODGING_BOT_FACADE],
 })
 export class LodgingModule {}

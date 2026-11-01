@@ -73,6 +73,9 @@ export interface BookingRecord {
   note: string;
   tags: string[];
   blockReason: string;
+  /** First staff status action or edit of a bot booking (ISO); null = not reviewed. */
+  reviewedAt: string | null;
+  reviewedBy: string | null;
   clientRequestId: string;
   fingerprint: string;
   version: number;
@@ -94,6 +97,33 @@ export interface NightNoteRecord {
   unitId: string | null;
   night: string;
   text: string;
+}
+
+/** The hold the bot summarised and the customer has not confirmed yet (one per conversation). */
+export interface BotHoldDraftRecord {
+  /** New on every prepare; the booking's `clientRequestId` is derived from it. */
+  id: string;
+  conversationId: string;
+  botId: string;
+  botName: string;
+  channel: string;
+  contactId: string | null;
+  propertyId: string;
+  whole: boolean;
+  /** The rooms asked for (empty for a whole rental). */
+  unitIds: string[];
+  checkIn: string;
+  checkOut: string;
+  adults: number;
+  childAges: number[];
+  guestName: string;
+  /** National form `0xxxxxxxxx`. */
+  guestPhone: string;
+  note: string;
+  /** sha256 of the selection, party, guest and sell totals the customer saw. */
+  quoteHash: string;
+  createdAt: Date;
+  expiresAt: Date;
 }
 
 export interface BookingHistoryRecord {
@@ -156,6 +186,16 @@ export interface LodgingTx {
   upsertNightNote(note: NightNoteRecord, updatedBy: string): Promise<NightNoteRecord>;
   /** Deletes the note of (property, unit, night) if any. */
   deleteNightNote(propertyId: string, unitId: string | null, night: string): Promise<void>;
+  /** Bot holds waiting for staff: source `bot`, status `hold`, `reviewedAt` null. */
+  countBotHoldsToReview(): Promise<number>;
+  /** `lock` = SELECT … FOR UPDATE (serializes confirmations of one draft). */
+  botHoldDraft(conversationId: string, lock?: boolean): Promise<BotHoldDraftRecord | null>;
+  /** Inserts or replaces the conversation's draft. */
+  saveBotHoldDraft(draft: BotHoldDraftRecord): Promise<void>;
+  /** Deletes the conversation's draft (only version `draftId` when given); true when one was. */
+  deleteBotHoldDraft(conversationId: string, draftId?: string): Promise<boolean>;
+  /** Deletes drafts expired at `now`. */
+  sweepBotHoldDrafts(now: Date): Promise<void>;
   /** Audit trail of one booking, oldest first. */
   history(bookingId: string): Promise<BookingHistoryRecord[]>;
   audit(

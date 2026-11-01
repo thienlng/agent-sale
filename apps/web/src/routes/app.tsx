@@ -7,6 +7,9 @@ import { PlanDialog } from '@/features/billing/components/plan-dialog';
 import { ACCOUNT_PATHS } from '@/lib/account-paths';
 import { ensureSession, selectWorkspace } from '@/lib/session';
 import { useCurrentWorkspace } from '@/features/workspace/api/use-current-workspace';
+import { useBookingReviewCount } from '@/features/lodging/api/bookings';
+import { useCan } from '@/lib/permissions';
+import { useTranslation } from 'react-i18next';
 
 /**
  * Authenticated area: restores the session from the refresh cookie or sends the user to /login.
@@ -31,12 +34,27 @@ export const Route = createFileRoute('/app')({
     }
   },
   component: function AppLayout() {
+    const { t } = useTranslation();
     const workspace = useCurrentWorkspace();
+    const canViewBookings = useCan('orders.view');
+    // Bot holds waiting for staff, next to "Booking" (T-161); hotels with booking access only.
+    const pendingHolds =
+      useBookingReviewCount({
+        enabled: workspace.data?.industry === 'hotel' && canViewBookings,
+      }).data?.pending ?? 0;
     return (
       <AppShell
         planDialog={(props) => <PlanDialog {...props} />}
         createBusinessDialog={(props) => <CreateBusinessDialog {...props} />}
-        industry={workspace.data?.industry}
+        // Undefined only while the business is loading, so the sidebar holds the industry entries
+        // instead of flashing retail ones; without a business (or on error) it falls back to retail.
+        industry={workspace.data?.industry ?? (workspace.isLoading ? undefined : '')}
+        navCounts={{
+          '/app/bookings': {
+            count: pendingHolds,
+            label: t('lodging.list.pendingBotHolds', { count: pendingHolds }),
+          },
+        }}
       >
         <MessageUsageBanner />
         <Outlet />

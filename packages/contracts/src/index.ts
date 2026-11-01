@@ -53,6 +53,7 @@ export * from './knowledge/knowledge.schema.js';
 export * from './webchat/webchat.schema.js';
 export * from './webchat/webchat.routes.js';
 export * from './common/errors.js';
+export * from './common/media.js';
 export * from './common/pagination.js';
 export * from './common/routes.js';
 export * from './health/health.schema.js';

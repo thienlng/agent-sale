@@ -1,6 +1,6 @@
 import type { PropertySummary } from '@agent-sales/contracts';
 import { Link } from '@tanstack/react-router';
-import { CircleAlert, House, ImageOff, Plus, TriangleAlert } from 'lucide-react';
+import { CircleAlert, House, ImageOff, LayoutGrid, List, Plus, TriangleAlert } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -8,14 +8,18 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useCan } from '@/lib/permissions';
 import { cn } from '@/lib/utils';
 
 import { useLodgingCalendar } from '../api/calendar';
 import { useProperties } from '../api/properties';
+import { usePropertiesView } from '../hooks/use-properties-view';
 import { addDays, todayNight } from '../lib/format';
 import { STATUS_STYLE } from './booking-status-badge';
+import { PropertiesTable, type PropertyWarning } from './properties-table';
 import { PropertyCreateDialog } from './property-create-dialog';
+import { CoverImage } from './cover-image';
 
 const TODAY_STYLE: Record<PropertySummary['today'], string> = {
   free: 'border-border text-muted-foreground',
@@ -41,7 +45,7 @@ function useUnpricedRooms(properties: PropertySummary[] | undefined) {
     propertyIds: ids,
   });
   return useMemo(() => {
-    const result = new Map<string, 'noActiveRooms' | 'missingRates'>();
+    const result = new Map<string, PropertyWarning>();
     for (const p of properties ?? []) {
       if (p.sellMode !== 'rooms') continue;
       if (!p.units.some((u) => u.kind === 'room' && u.active)) result.set(p.id, 'noActiveRooms');
@@ -55,13 +59,17 @@ function useUnpricedRooms(properties: PropertySummary[] | undefined) {
   }, [properties, calendar.data]);
 }
 
-/** "Căn": card grid of the places with today's state and a "Thêm căn" dialog. */
+/**
+ * "Căn hộ": the places as a card grid ("Thẻ") or a compact table ("Danh sách", remembered per
+ * user), with today's state and a "Thêm căn hộ" dialog.
+ */
 export function PropertiesPage() {
   const { t } = useTranslation();
   const properties = useProperties();
   const canManage = useCan('catalog.manage');
   const [creating, setCreating] = useState(false);
   const warnings = useUnpricedRooms(properties.data);
+  const [view, setView] = usePropertiesView();
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
@@ -70,12 +78,31 @@ export function PropertiesPage() {
           <h1 className="text-xl font-semibold">{t('lodging.propertiesTitle')}</h1>
           <p className="text-sm text-muted-foreground">{t('lodging.places.intro')}</p>
         </div>
-        {canManage && (
-          <Button onClick={() => setCreating(true)}>
-            <Plus aria-hidden />
-            {t('lodging.places.add')}
-          </Button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            size="sm"
+            aria-label={t('lodging.places.view')}
+            value={view}
+            onValueChange={(v) => (v === 'cards' || v === 'list') && setView(v)}
+          >
+            <ToggleGroupItem value="cards" aria-label={t('lodging.places.viewCards')}>
+              <LayoutGrid aria-hidden />
+              <span className="max-sm:sr-only">{t('lodging.places.viewCards')}</span>
+            </ToggleGroupItem>
+            <ToggleGroupItem value="list" aria-label={t('lodging.places.viewList')}>
+              <List aria-hidden />
+              <span className="max-sm:sr-only">{t('lodging.places.viewList')}</span>
+            </ToggleGroupItem>
+          </ToggleGroup>
+          {canManage && (
+            <Button onClick={() => setCreating(true)}>
+              <Plus aria-hidden />
+              {t('lodging.places.add')}
+            </Button>
+          )}
+        </div>
       </div>
       {properties.isPending ? (
         <div
@@ -109,6 +136,12 @@ export function PropertiesPage() {
             </Button>
           )}
         </div>
+      ) : view === 'list' ? (
+        <PropertiesTable
+          properties={properties.data}
+          warnings={warnings}
+          todayStyle={TODAY_STYLE}
+        />
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {properties.data.map((p) => (
@@ -128,7 +161,7 @@ function PropertyCard({
   warning,
 }: {
   property: PropertySummary;
-  warning: 'noActiveRooms' | 'missingRates' | undefined;
+  warning: PropertyWarning | undefined;
 }) {
   const { t } = useTranslation();
   const cover = p.gallery[0];
@@ -142,15 +175,10 @@ function PropertyCard({
         p.status === 'paused' && 'opacity-70',
       )}
     >
-      <div className="aspect-[16/9] bg-muted">
+      {/* Fixed 4:3 crop; the absolute image cannot stretch the box (aspect-ratio min-height). */}
+      <div className="relative aspect-[4/3] shrink-0 overflow-hidden bg-muted">
         {cover ? (
-          <img
-            src={cover.url}
-            alt={cover.caption}
-            loading="lazy"
-            referrerPolicy="no-referrer"
-            className="size-full object-cover"
-          />
+          <CoverImage src={cover.url} alt={cover.caption} />
         ) : (
           <div className="grid size-full place-items-center text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">

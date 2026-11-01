@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { AccommodationDetails } from '../commerce/lodging.schema.js';
 import {
   BookingListQuery,
+  BookingReviewCount,
   BookingStatusRequest,
   BookingTag,
   CreateBookingRequest,
@@ -78,8 +79,14 @@ describe('lodging v2 override patch', () => {
 });
 
 describe('lodging v2 gallery images', () => {
-  it('accepts https links only', () => {
+  it('accepts https links and Rapiz /media/ paths only', () => {
     expect(GalleryImage.safeParse({ url: 'https://cdn.example.com/a.jpg' }).success).toBe(true);
+    expect(
+      GalleryImage.safeParse({
+        url: '/media/products/0192f0a0-0000-7000-8000-000000000001/0192f0a0-0000-7000-8000-0000000000aa.jpg',
+      }).success,
+    ).toBe(true);
+    expect(GalleryImage.safeParse({ url: '/media/../etc/passwd.jpg' }).success).toBe(false);
     expect(GalleryImage.safeParse({ url: 'http://cdn.example.com/a.jpg' }).success).toBe(false);
     expect(GalleryImage.safeParse({ url: 'javascript:alert(1)' }).success).toBe(false);
   });
@@ -281,5 +288,14 @@ describe('lodging calendar polish: night notes, internal note, tags', () => {
     expect(UpdateBookingRequest.parse({ version: 1, tags: [nfd] }).tags).toEqual([nfc]);
     expect(normalizeBookingTag(` ${nfd}`)).toBe(nfc);
     expect(normalizeBookingTags([nfc, ` ${nfd} `, '', 'VIP'])).toEqual([nfc, 'VIP']);
+  });
+});
+
+describe('bot holds review (T-161)', () => {
+  it('filters bookings by source and counts bot holds to review', () => {
+    expect(BookingListQuery.parse({ source: 'bot' }).source).toBe('bot');
+    expect(BookingListQuery.safeParse({ source: 'robot' }).success).toBe(false);
+    expect(BookingReviewCount.parse({ pending: 2 })).toEqual({ pending: 2 });
+    expect(BookingReviewCount.safeParse({ pending: -1 }).success).toBe(false);
   });
 });

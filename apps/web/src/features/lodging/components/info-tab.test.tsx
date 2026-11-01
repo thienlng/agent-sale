@@ -65,7 +65,7 @@ describe('InfoTab', () => {
       ],
     });
     renderWithRouter(() => <Harness />);
-    const name = await screen.findByLabelText('Tên căn');
+    const name = await screen.findByLabelText('Tên căn hộ');
     await userEvent.clear(name);
     await userEvent.type(name, 'Tên của tôi');
     await userEvent.click(screen.getByRole('button', { name: 'Lưu' }));
@@ -74,7 +74,7 @@ describe('InfoTab', () => {
       expect(toast.error).toHaveBeenCalledWith('Dữ liệu đã thay đổi, đã tải lại bản mới nhất.'),
     );
     await waitFor(() =>
-      expect(screen.getByLabelText('Tên căn')).toHaveValue('Villa A17 (chủ đổi)'),
+      expect(screen.getByLabelText('Tên căn hộ')).toHaveValue('Villa A17 (chủ đổi)'),
     );
     expect(screen.getByLabelText('Khu vực')).toHaveValue('Hạ Long');
 
@@ -94,13 +94,13 @@ describe('InfoTab', () => {
       [`PATCH ${path}`]: [conflict({}), conflict({ codes: ['BK-0007'] })],
     });
     renderWithRouter(() => <Harness />);
-    await userEvent.type(await screen.findByLabelText('Mã căn'), 'X');
+    await userEvent.type(await screen.findByLabelText('Mã căn hộ'), 'X');
     await userEvent.click(screen.getByRole('button', { name: 'Lưu' }));
-    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Mã căn đã có. Chọn mã khác.'));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Mã căn hộ đã có. Chọn mã khác.'));
     await userEvent.click(screen.getByRole('button', { name: 'Lưu' }));
     await waitFor(() =>
       expect(toast.error).toHaveBeenCalledWith(
-        'Không đổi được cách bán vì căn còn booking BK-0007.',
+        'Không đổi được cách bán vì căn hộ còn booking BK-0007.',
       ),
     );
   });
