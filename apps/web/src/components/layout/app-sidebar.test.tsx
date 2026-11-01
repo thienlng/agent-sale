@@ -34,7 +34,7 @@ beforeEach(() => {
 
 function renderAt(
   path: string,
-  industry: 'hotel' | 'retail' | 'loading' = 'retail',
+  industry: 'hotel' | 'saas' | 'retail' | 'loading' = 'retail',
   navCounts?: Record<string, { count: number; label: string }>,
 ) {
   const root = createRootRoute({
@@ -110,6 +110,18 @@ describe('AppSidebar', () => {
     const properties = await screen.findByRole('link', { name: 'Căn hộ' });
     expect(properties).toHaveAttribute('data-active', 'true');
     expect(screen.getByRole('link', { name: 'Lịch' })).not.toHaveAttribute('data-active', 'true');
+  });
+
+  it('keeps a SaaS business on one customer list, without orders and products', async () => {
+    renderAt('/app/contacts', 'saas');
+    const nav = await screen.findByRole('navigation', { name: 'Điều hướng chính' });
+    const links = within(nav)
+      .getAllByRole('link')
+      .map((a) => a.getAttribute('href'))
+      .filter((h) => /^\/app\/(contacts|saas-)/.test(h ?? ''));
+    expect(links).toEqual(['/app/contacts']);
+    expect(within(nav).queryByRole('link', { name: 'Sản phẩm' })).toBeNull();
+    expect(within(nav).queryByRole('button', { name: 'Đơn hàng' })).toBeNull();
   });
 
   it('shows no coming-soon badge on built pages such as products', async () => {

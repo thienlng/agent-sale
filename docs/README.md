@@ -40,6 +40,7 @@ Input source: `../../preny/preny-research/` (Preny research dossier dated 23/10/
 | — | [Sales inbox workspace](18-sales-inbox-workspace.md) | Implementation | Sales queues, composer drafts, explicit CRM selection and order creation alongside chat (T-068) |
 
 - [Lodging](lodging.md) — T-160 properties, rooms, nightly rates, the calendar, holds and bookings for hotel businesses (T-155 stay requests deprecated).
+- [SaaS businesses](saas.md) — ADR-020 SaaS customer statuses, demo/trial requests recorded by the bot on the customer, subscriptions and MRR on the customer list.
 
 ## Inbox redesign business specification
 

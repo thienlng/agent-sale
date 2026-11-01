@@ -33,6 +33,15 @@ export function formatDate(iso: string): string {
   );
 }
 
+/** A yyyy-mm-dd calendar day with its year, e.g. 03/11/2026. */
+export function formatDay(iso: string): string {
+  return new Intl.DateTimeFormat(locale(), {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(new Date(`${iso}T00:00:00`));
+}
+
 /** yyyy-mm-dd of a local Date (the browser's day; the API buckets by the shop's time zone). */
 export function isoDate(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0');

@@ -17,6 +17,11 @@ describe('profileFieldForQuestion', () => {
     ['Huỷ phòng có mất phí không', 'hotel', 'cancellation'],
     ['Giá phòng cuối tuần', 'hotel', 'rates'],
     ['Có đưa đón sân bay không', 'hotel', 'directions'],
+    ['Có cho dùng thử không', 'saas', 'freeTrial'],
+    ['Đặt lịch demo được không', 'saas', 'demo'],
+    ['Bảng giá các gói thế nào', 'saas', 'plans'],
+    ['Có tích hợp Zalo không', 'saas', 'integrations'],
+    ['Huỷ gói có được hoàn tiền không', 'saas', 'refundPolicy'],
   ])('maps "%s" (%s) to %s', (question, industry, field) => {
     expect(profileFieldForQuestion(question, industry)).toBe(field);
   });

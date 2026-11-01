@@ -29,6 +29,14 @@ export const PROFILE_LABELS: Record<ProfileFieldKey, string> = {
   courseTrial: 'Trial classes',
   priceRange: 'Price range',
   payback: 'Payback period',
+  plans: 'Plans and prices',
+  freeTrial: 'Free trial',
+  demo: 'Product demo',
+  integrations: 'Integrations',
+  onboarding: 'Setup and onboarding',
+  support: 'Customer support',
+  dataSecurity: 'Data security',
+  refundPolicy: 'Refunds and cancellation',
 };
 
 const NOT_PROVIDED = '(not provided)';

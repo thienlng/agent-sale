@@ -43,13 +43,16 @@ describe('CreateBusinessDialog', () => {
     open();
     const dialog = screen.getByRole('dialog', { name: 'Tạo business mới' });
     const radios = within(dialog).getAllByRole('radio');
-    expect(radios).toHaveLength(9);
+    expect(radios).toHaveLength(10);
     expect(radios.some((r) => r.getAttribute('aria-checked') === 'true')).toBe(false);
     expect(
       within(dialog).getByText('Khách sạn, homestay, villa: phòng, giá, nhận/trả phòng, đặt cọc'),
     ).toBeInTheDocument();
     expect(
       within(dialog).getByText('Bán lẻ, online shop: sản phẩm, giao hàng, đổi trả'),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText('Phần mềm, SaaS: gói cước, dùng thử, demo, khách thuê bao'),
     ).toBeInTheDocument();
     expect(within(dialog).getByRole('button', { name: 'Tạo business' })).toBeDisabled();
   });

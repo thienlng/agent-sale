@@ -56,11 +56,33 @@ export interface CrmFacade {
     workspaceId: WorkspaceId,
     input: {
       phoneE164: string;
-      sourceKey: 'website' | 'facebook' | 'instagram';
+      /** `bot`: captured by the AI bot in a conversation; the customer gets no built-in source. */
+      sourceKey: 'website' | 'facebook' | 'instagram' | 'bot';
       displayName: string;
       firstUrl: string | null;
     },
   ): Promise<{ contactId: string; created: boolean }>;
+  /**
+   * Moves a customer to the status with this built-in `key` as the system (history entry and
+   * event, no staff actor). `forwardOnly` never moves a customer back in the pipeline order. An
+   * unknown or archived status changes nothing. Returns whether the status changed.
+   */
+  moveContactStatus(
+    workspaceId: WorkspaceId,
+    contactId: string,
+    statusKey: string,
+    opts: { forwardOnly: boolean },
+  ): Promise<boolean>;
+  /**
+   * Adds a note signed `authorName` (no staff author). A repeat of the customer's latest note is
+   * skipped. Returns whether it was added.
+   */
+  addContactNote(
+    workspaceId: WorkspaceId,
+    contactId: string,
+    body: string,
+    authorName: string,
+  ): Promise<boolean>;
   /**
    * Remembers that a bot answered a conversation linked to the customer (bot filter, history kept
    * across page reassignment). Idempotent. Throws NOT_FOUND for a customer of another business.

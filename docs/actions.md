@@ -44,6 +44,10 @@ Tokens of all rounds are summed into one `ai_runs` row (one billed AI message). 
 
 `POST /bots/{botId}/actions/test` with `{action, actionId?, args}` runs the form **as typed**, saved or not; the **Thử gọi** panel uses it, so the owner can iterate before saving. It stores nothing and records no run. A blank secret falls back to the stored secret of `actionId` (same bot only), so editing never forces retyping it.
 
+## Built-in actions
+
+Some industries get an action without declaring it: a SaaS bot has the built-in tool `record_saas_request` (ADR-020), which records a demo / trial / consultation request on the customer through the `saas` facade in-process (no HTTP, no run log, no confirmation). Its contact details are vouched by their own rule: the phone's last 9 digits or the whole email address must appear in what the customer wrote. See [SaaS businesses](saas.md#bot-behavior).
+
 ## Known limits (v1)
 
 No OAuth2/Basic auth, no per-action cross-conversation rate limit, no action templates, Hermes has no tools of its own (ADR-010), so it uses the emulated tool protocol of `packages/ai-core`. Each tool round adds one model call (3–8 s on the Hermes test provider).

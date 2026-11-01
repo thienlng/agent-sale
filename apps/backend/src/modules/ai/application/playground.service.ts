@@ -26,6 +26,7 @@ import {
   type LodgingCatalogFacade,
   type LodgingFacade,
 } from '../../lodging/api/index.js';
+import { SAAS_FACADE, type SaasFacade } from '../../saas/api/index.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
 import type { AiFacade } from '../api/ai.facade.js';
 import type { ReplyOptions, ReplyResult } from '../api/reply-options.js';
@@ -97,6 +98,7 @@ import {
   turnMessages,
   turnTools,
 } from './reply-pipeline.js';
+import type { SaasToolContext } from './saas-tools.js';
 
 export { PHONE_KNOWN_LINE };
 
@@ -158,6 +160,7 @@ export class PlaygroundService implements AiFacade {
     @Inject(LODGING_BOT_FACADE) @Optional() private readonly lodgingBot?: LodgingBotFacade,
     @Inject(LODGING_FACADE) @Optional() private readonly lodging?: LodgingFacade,
     @Inject(MEDIA_PUBLIC_BASE) @Optional() private readonly mediaBase?: string,
+    @Inject(SAAS_FACADE) @Optional() private readonly saas?: SaasFacade,
   ) {
     this.#forcedPrompt = promptVersion
       ? { name: 'sales-agent', version: promptVersion }
@@ -316,6 +319,18 @@ export class PlaygroundService implements AiFacade {
             warn: (message) => this.#logger.warn(message),
           })
         : null;
+    // A SaaS bot records demo / trial requests on the customer itself (ADR-020).
+    const saasTool: SaasToolContext | null =
+      this.saas && bot.industry === 'saas'
+        ? {
+            facade: this.saas,
+            ws,
+            isTest: options.isTest,
+            customerTexts,
+            calls: actionState.calls,
+            onError: (error) => this.#logger.warn(`SaaS request tool failed: ${errorClass(error)}`),
+          }
+        : null;
     const seenProducts = new Set<string>();
     const tools = turnTools({
       ...(catalog ? { catalog: { ws, scope, catalog } } : {}),
@@ -327,6 +342,7 @@ export class PlaygroundService implements AiFacade {
       actions: actionContext ? { definitions: actionDefinitions, context: actionContext } : null,
       orders,
       holds,
+      saas: saasTool,
     });
 
     const postRules = post ? await this.#prompts.load(POST_PROMPT) : '';

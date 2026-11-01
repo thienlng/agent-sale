@@ -5,7 +5,16 @@
 export type ModelTier = 'basic' | 'smart' | 'pro' | 'neo';
 
 export type IndustryKey =
-  'retail' | 'fashion' | 'cosmetics' | 'spa' | 'dental' | 'education' | 'hotel' | 'solar' | 'other';
+  | 'retail'
+  | 'fashion'
+  | 'cosmetics'
+  | 'spa'
+  | 'dental'
+  | 'education'
+  | 'hotel'
+  | 'solar'
+  | 'saas'
+  | 'other';
 
 export interface BotSettingsData {
   mission: string;

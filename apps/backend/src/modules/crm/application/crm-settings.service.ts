@@ -13,7 +13,7 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import { IDENTITY_FACADE, type IdentityFacade } from '../../identity/api/index.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
-import { DEFAULT_SOURCES, DEFAULT_STATUSES, DEFAULT_TAGS } from '../domain/crm-defaults.js';
+import { DEFAULT_SOURCES, DEFAULT_TAGS, defaultStatusesFor } from '../domain/crm-defaults.js';
 import {
   DuplicateOptionNameError,
   CrmOptionNotFoundError,
@@ -25,8 +25,6 @@ import {
 import type { TagField } from '../domain/tag-values.js';
 import { toOptionDto, toTagDto } from './crm.mappers.js';
 import { CRM_STORE, type CrmStore, type CrmTx, type OptionKind } from './ports/crm-store.js';
-
-const DEFAULTS = { source: DEFAULT_SOURCES, status: DEFAULT_STATUSES } as const;
 
 /**
  * Field schema evolution: fields keep their key and type forever (values on old
@@ -63,17 +61,25 @@ export class CrmSettingsService {
 
   // ─── sources and statuses ─────────────────────────────────────────────────
 
-  listOptions(ws: WorkspaceId, kind: OptionKind): Promise<CrmOptionDto[]> {
+  /** Sources are the same everywhere; statuses depend on the business's industry. */
+  async #defaults(ws: WorkspaceId, kind: OptionKind) {
+    if (kind === 'source') return DEFAULT_SOURCES;
+    return defaultStatusesFor((await this.workspaces.getById(ws)).industry);
+  }
+
+  async listOptions(ws: WorkspaceId, kind: OptionKind): Promise<CrmOptionDto[]> {
+    const defaults = await this.#defaults(ws, kind);
     return this.store.run(ws, async (tx) => {
-      await tx.options.ensureDefaults(ws, kind, DEFAULTS[kind]);
+      await tx.options.ensureDefaults(ws, kind, defaults);
       return (await tx.options.list(kind)).map(toOptionDto);
     });
   }
 
-  createOption(ws: WorkspaceId, kind: OptionKind, raw: unknown): Promise<CrmOptionDto> {
+  async createOption(ws: WorkspaceId, kind: OptionKind, raw: unknown): Promise<CrmOptionDto> {
     const input = CreateCrmOptionRequest.parse(raw);
+    const defaults = await this.#defaults(ws, kind);
     return this.store.run(ws, async (tx) => {
-      await tx.options.ensureDefaults(ws, kind, DEFAULTS[kind]);
+      await tx.options.ensureDefaults(ws, kind, defaults);
       const all = await tx.options.list(kind);
       assertUniqueName(kind, all, input.name);
       const last = all.at(-1);

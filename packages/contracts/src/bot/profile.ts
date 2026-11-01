@@ -31,7 +31,15 @@ export type ProfileFieldKey =
   | 'courseSchedule'
   | 'courseTrial'
   | 'priceRange'
-  | 'payback';
+  | 'payback'
+  | 'plans'
+  | 'freeTrial'
+  | 'demo'
+  | 'integrations'
+  | 'onboarding'
+  | 'support'
+  | 'dataSecurity'
+  | 'refundPolicy';
 
 export interface ProfileFieldDef {
   key: ProfileFieldKey;
@@ -67,7 +75,7 @@ export const PROFILE_FIELDS: readonly ProfileFieldDef[] = [
   basic('mapsUrl', 500),
   basic('hotline', 60),
   basic('hours', 200),
-  industry('payment', 500, [...SHOPS, 'spa', 'dental']),
+  industry('payment', 500, [...SHOPS, 'spa', 'dental', 'saas']),
   industry('shipping', 1000, SHOPS),
   industry('returns', 1000, SHOPS),
   industry('warranty', 500, [...SHOPS, 'solar']),
@@ -89,6 +97,14 @@ export const PROFILE_FIELDS: readonly ProfileFieldDef[] = [
   industry('courseTrial', 500, ['education']),
   industry('priceRange', 1000, ['solar']),
   industry('payback', 500, ['solar']),
+  industry('plans', 2000, ['saas']),
+  industry('freeTrial', 500, ['saas']),
+  industry('demo', 500, ['saas']),
+  industry('integrations', 1000, ['saas']),
+  industry('onboarding', 500, ['saas']),
+  industry('support', 500, ['saas']),
+  industry('dataSecurity', 1000, ['saas']),
+  industry('refundPolicy', 500, ['saas']),
 ];
 
 /** Fields shown for an industry: the basic group first, then its own. Unknown industry: basic only. */

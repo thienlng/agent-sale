@@ -35,6 +35,18 @@ describe('profileFieldsFor', () => {
     expect(keys('dental')).toEqual([...BASIC, 'payment', 'servicePrices', 'booking']);
     expect(keys('education')).toEqual([...BASIC, 'courseFees', 'courseSchedule', 'courseTrial']);
     expect(keys('solar')).toEqual([...BASIC, 'warranty', 'priceRange', 'payback']);
+    expect(keys('saas')).toEqual([
+      ...BASIC,
+      'payment',
+      'plans',
+      'freeTrial',
+      'demo',
+      'integrations',
+      'onboarding',
+      'support',
+      'dataSecurity',
+      'refundPolicy',
+    ]);
   });
 
   it('has unique keys', () => {

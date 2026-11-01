@@ -37,6 +37,19 @@ export class CrmFacadeImpl implements CrmFacade {
     return this.contacts.upsertLead(ws, input);
   }
 
+  moveContactStatus(
+    ws: WorkspaceId,
+    contactId: string,
+    statusKey: string,
+    opts: { forwardOnly: boolean },
+  ) {
+    return this.contacts.moveStatusByKey(ws, contactId, statusKey, opts);
+  }
+
+  addContactNote(ws: WorkspaceId, contactId: string, body: string, authorName: string) {
+    return this.contacts.addSystemNote(ws, contactId, { body }, authorName);
+  }
+
   recordContactBot(ws: WorkspaceId, contactId: string, botId: string) {
     return this.contacts.recordBot(ws, contactId, botId);
   }

@@ -56,7 +56,7 @@ export function AppShell({
   planDialog?: ((props: MenuDialogProps) => ReactNode) | undefined;
   /** Create-business popup for the business selector, composed by the route from `features/workspace`. */
   createBusinessDialog?: ((props: CreateBusinessDialogProps) => ReactNode) | undefined;
-  /** The current business's industry; hotels get lodging navigation. */
+  /** The current business's industry; hotels get lodging navigation, SaaS businesses their requests and subscribers. */
   industry?: string | undefined;
   /** Waiting counts next to sidebar entries, composed by the route (e.g. bot holds to review). */
   navCounts?: NavCounts | undefined;

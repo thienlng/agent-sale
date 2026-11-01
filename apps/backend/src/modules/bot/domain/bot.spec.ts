@@ -115,6 +115,7 @@ describe('Bot aggregate', () => {
       'education',
       'hotel',
       'solar',
+      'saas',
       'other',
     ] as const) {
       const pack = packFor(industry);
