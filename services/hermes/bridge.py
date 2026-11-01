@@ -275,10 +275,13 @@ def main():
     key = os.environ.get("HERMES_BRIDGE_KEY", "")
     home = Path(os.environ.get("RAPIZ_HERMES_HOME", "var/hermes-home"))
     runtime = HermesRuntime(home, os.environ.get("RAPIZ_HERMES_PROVIDER", "openai-codex"))
-    server = make_server("127.0.0.1", int(os.environ.get("HERMES_BRIDGE_PORT", "8788")), key, runtime,
+    # Loopback by default. A container on a private network sets HERMES_BRIDGE_HOST=0.0.0.0 so the
+    # api/agent containers can reach it; it must never be published to the internet.
+    host = os.environ.get("HERMES_BRIDGE_HOST", "127.0.0.1")
+    server = make_server(host, int(os.environ.get("HERMES_BRIDGE_PORT", "8788")), key, runtime,
                          ChatGptLogin(runtime.home) if runtime.provider == "openai-codex" else None)
     threading.Thread(target=runtime.warm_up, daemon=True).start()
-    print("Rapiz Hermes bridge listening on loopback", flush=True)
+    print(f"Rapiz Hermes bridge listening on {host}", flush=True)
     server.serve_forever()
 
 

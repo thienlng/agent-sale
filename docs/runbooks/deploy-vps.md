@@ -76,6 +76,18 @@ If the services do not become healthy, `deploy.sh` restarts the previous tag and
 
 Migrations only move forward, so they must stay backward compatible (docs/10 §3). The previous release then still works on the migrated schema.
 
+## Optional: ChatGPT-plan bridge (testing only)
+
+Bots can run on a ChatGPT-plan login through the Hermes bridge (`services/hermes`) instead of a paid API key. It handles one turn at a time and a personal plan is not meant for a hosted product (see `services/hermes/README.md`), so use it for testing only.
+
+1. Build the image on the server. The context is a staging folder with `hermes-agent/` (the Hermes source, without `.git`, `tests`, `website`, `apps`) and `bridge/` (a copy of `services/hermes` without `var/`):
+   `docker build -f hermes.Dockerfile -t rapiz-hermes:local <staging folder>`
+2. In `.env`: `COMPOSE_PROFILES=hermes`, `HERMES_BRIDGE_KEY=<random, 32+ characters>` and `HERMES_SUBSCRIPTION_LOGIN=true` (shows the sign-in panel in production).
+3. `docker compose --env-file .env up -d hermes api agent worker`.
+4. Admin → Mô hình AI: add a **Hermes** provider with address `http://hermes:8788` and the bridge key as API key, press "Đăng nhập ChatGPT" and approve the code, then route the tiers to a model from the list.
+
+The login lives in the `hermes` volume. Do not sign the same ChatGPT account in on another bridge (for example a developer machine) with a copied `auth.json`: two processes rotating one refresh token log each other out.
+
 ## Operations (as `deploy` in `/opt/apps/rapiz`)
 
 | Task | Command |
