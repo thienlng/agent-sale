@@ -13,6 +13,7 @@ import {
   ProductDto,
   ProductListResponse,
   type UpdateOrderRequest,
+  type UpdateProductBotSettingsRequest,
   type UpsertProductRequest,
   type UpsertWarehouseRequest,
   type UploadProductImageRequest,
@@ -70,6 +71,8 @@ export function useProducts(query: {
   q?: string;
   status: 'active' | 'archived';
   page: number;
+  /** `kiotviet`: only products synced from KiotViet; `rapiz`: only products managed here. */
+  source?: 'kiotviet' | 'rapiz';
   /** Defaults to 20 (the catalog screen); the bot products table lets the user pick. */
   pageSize?: number;
 }) {
@@ -107,6 +110,23 @@ export function useSaveProduct() {
       qc.setQueryData(queryKeys.product(ws, p.id), p);
       void qc.invalidateQueries({ queryKey: queryKeys.products(ws) });
       void qc.invalidateQueries({ queryKey: queryKeys.variants(ws) });
+    },
+  });
+}
+
+/**
+ * Saves only the bot's fields. A KiotViet-linked product saves through this, never the full PUT:
+ * its other fields are read-only and may not pass the form's rules (e.g. a code with a space).
+ */
+export function useSaveProductBotSettings(productId: string) {
+  const ws = useWorkspaceId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: UpdateProductBotSettingsRequest) =>
+      api(`/products/${productId}/bot-settings`, ProductDto, { method: 'PATCH', body }),
+    onSuccess: (p) => {
+      qc.setQueryData(queryKeys.product(ws, p.id), p);
+      void qc.invalidateQueries({ queryKey: queryKeys.products(ws) });
     },
   });
 }

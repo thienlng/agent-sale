@@ -150,6 +150,17 @@ export async function mockApi(page: Page) {
     if (settingsMock !== undefined) return route.fulfill(json(settingsMock));
     const crm = crmRoute(path);
     if (crm !== undefined) return route.fulfill(json(crm));
+    // KiotViet not connected: the products list shows its "Using KiotViet?" card.
+    if (path === '/integrations')
+      return route.fulfill(
+        json({
+          providers: ['kiotviet', 'sapo', 'haravan', 'pancake_pos'].map((provider) => ({
+            provider,
+            available: provider === 'kiotviet',
+            connection: null,
+          })),
+        }),
+      );
     const commerce = commerceRoute(path);
     if (commerce !== undefined) return route.fulfill(json(commerce));
     return route.fulfill(json({ error: { code: 'NOT_FOUND', message: 'not mocked' } }, 404));

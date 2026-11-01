@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react';
 import { z } from 'zod';
 
 import { api } from '@/lib/api-client';
+import { useCan } from '@/lib/permissions';
 import { queryKeys } from '@/lib/query-keys';
 import { useWorkspaceId } from '@/lib/use-workspace';
 
@@ -29,15 +30,28 @@ export function kiotVietConnection(
   return connection && connection.status !== 'disconnected' ? connection : null;
 }
 
-export function useIntegrations() {
+export function useIntegrations({ enabled = true }: { enabled?: boolean } = {}) {
   const ws = useWorkspaceId();
   return useQuery({
     queryKey: listKey(ws),
     queryFn: () => api('/integrations', IntegrationListResponse),
-    enabled: Boolean(ws),
+    enabled: Boolean(ws) && enabled,
     refetchInterval: (query) =>
       kiotVietConnection(query.state.data)?.status === 'syncing' ? SYNC_POLL_MS : false,
   });
+}
+
+/**
+ * The KiotViet store other screens link to (products list and form): the connection's retailer and
+ * last sync, `null` when not connected, `undefined` while unknown (loading, failed, or a member
+ * without `catalog.manage`, who may not read integrations).
+ */
+export function usePmsLink(): { retailer: string; lastSyncAt: string | null } | null | undefined {
+  const canView = useCan('catalog.manage');
+  const list = useIntegrations({ enabled: canView });
+  if (!list.data) return undefined;
+  const connection = kiotVietConnection(list.data);
+  return connection ? { retailer: connection.retailer, lastSyncAt: connection.lastSyncAt } : null;
 }
 
 export function useKiotVietLog(enabled: boolean, poll: boolean) {

@@ -2,7 +2,6 @@
 
 Mirrors the backend `commerce` module. `api/` = TanStack Query hooks calling `@/lib/api-client` with types from `@agent-sales/contracts`; `components/` = feature UI; `hooks/` = feature logic. Never import another feature; compose in `routes/`.
 
-
 Hotel workspaces use `AccommodationList`/`AccommodationForm` and `StayRequestsPage`/`StayRequestForm`, with captured-workspace API hooks in `api/lodging.ts`. Their navigation and Inbox stay CTA are composed at app routes; shared layout components receive the industry as a prop. Reference quotes are never physical availability guarantees, and staff confirmation requires both attestations plus an agreed total. See [lodging operations](../../../../../docs/lodging.md).
 
 ## Bot orders in the orders list (ADR-016)
@@ -13,3 +12,10 @@ Orders the bot created from a chat (`createdByKind: 'bot'`, `reviewState: 'pendi
 - **Review filter** (`orders-toolbar.tsx`): a "Bot · chờ duyệt" toggle chip after the search box, with a count pill from `GET /orders/review-count` (hidden at 0). It sets the `review=pending` search param, passed to `GET /orders?review=pending`. "Xoá bộ lọc" does not clear it.
 - **Approve and undo** (`hooks/use-approve-order.ts`): "Duyệt đơn" is the first row-menu item for a pending bot order and a button on the order detail banner (`order-review-banner.tsx`), both gated by `orders.manage`. Approving is optimistic (list pages, detail and count are patched, and restored on error), then a toast "Đã duyệt đơn {code}" offers "Hoàn tác" for 5 s; undo sends `approve: false` and is not offered after 5 s (the server also allows it only for the same user within 5 s). The detail banner shows the pending text with "Mở hội thoại", or "Bot tạo · duyệt bởi {name} lúc {time}" once approved; staff orders show no banner.
 - **Products preview** (`order-items-hover-card.tsx`): the products cell shows the first 3 lines and "+N"; hover or focus (300 ms open / 100 ms close delay) opens a 320 px card, at most 360 px tall, with "{n} sản phẩm", one row per line (40×40 thumbnail or a `Package` fallback, name, variant, `qty × price`), "+N sản phẩm khác" past the 10 lines the API sends (`itemsPreview` + `itemCount`) and the order total.
+
+## KiotViet-linked products (PMS integration, ADR-017)
+
+A product with `external` set is synced from KiotViet. The routes (`routes/app/products/*`) read the connection through `usePmsLink()` of the integration feature and pass `pmsLink: { retailer, lastSyncAt } | null | undefined` (undefined = not known yet, or a member without `catalog.manage`).
+
+- **List** (`products-list.tsx`): a "KiotViet" badge on linked rows; when connected, a slim "Đồng bộ với KiotViet · {time}" bar (links to `/app/integrations/kiotviet`) and a "Nguồn" filter (Tất cả / KiotViet / Rapiz → `GET /products?source=`). When not connected, catalog managers see a dismissible "Đang dùng KiotViet?" card linking to `/app/integrations`; the dismissal is stored per workspace under `rapiz.pmsHint.dismissed.<ws>` (`hooks/pms-hint.ts`). Hotel workspaces never see it.
+- **Form** (`product-form.tsx`, `locked-field.tsx`): code, name, category, description, status, pictures and variants are read-only (muted read-only style with a lock icon, not disabled) and described by a "Sửa trên KiotViet" hint linking to `https://<retailer>.kiotviet.vn`; the stock-take controls are hidden (`product-stock-editor.tsx`). The bot settings stay editable and save through `PATCH /products/{id}/bot-settings` (`useSaveProductBotSettings`), never the full `PUT`, which would re-validate data KiotViet owns.

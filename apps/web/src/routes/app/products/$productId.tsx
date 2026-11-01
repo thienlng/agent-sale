@@ -5,6 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useProduct } from '@/features/commerce/api/commerce';
 import { ProductForm } from '@/features/commerce/components/product-form';
 import { AccommodationForm } from '@/features/commerce/components/accommodation-form';
+import { usePmsLink } from '@/features/integration/api/integrations';
 import { useNavigate } from '@tanstack/react-router';
 import { ApiClientError } from '@/lib/api-client';
 
@@ -13,6 +14,7 @@ export const Route = createFileRoute('/app/products/$productId')({
     const { productId } = Route.useParams();
     const navigate = useNavigate();
     const product = useProduct(productId);
+    const pmsLink = usePmsLink();
     if (product.error instanceof ApiClientError && product.error.status === 404)
       return <NotFound />;
     return product.data ? (
@@ -23,7 +25,7 @@ export const Route = createFileRoute('/app/products/$productId')({
           onSaved={() => void navigate({ to: '/app/accommodations' })}
         />
       ) : (
-        <ProductForm key={product.data.updatedAt} product={product.data} />
+        <ProductForm key={product.data.updatedAt} product={product.data} pmsLink={pmsLink} />
       )
     ) : (
       <Skeleton className="h-96 rounded-xl" />
