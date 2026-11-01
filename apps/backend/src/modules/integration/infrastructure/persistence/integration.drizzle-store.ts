@@ -86,6 +86,11 @@ function patchColumns(patch: Partial<ConnectionRecord>): Partial<typeof c.$infer
   return set;
 }
 
+/** Owner-driven fields: changing one bumps `version`; runner writes do not. */
+const OWNER_FIELDS = ['settings', 'retailer', 'clientId', 'clientSecretSealed'] as const;
+const ownerEdit = (patch: Partial<ConnectionRecord>): boolean =>
+  OWNER_FIELDS.some((k) => patch[k] !== undefined);
+
 function uniqueViolation(e: unknown, constraint: string): boolean {
   const err = e as { code?: string; constraint_name?: string; cause?: unknown };
   const cause = (err.cause ?? err) as { code?: string; constraint_name?: string };
@@ -157,7 +162,11 @@ export class DrizzleIntegrationStore implements IntegrationStore {
       const scope = and(eq(c.workspaceId, ws), eq(c.id, id));
       const [r] = await tx
         .update(c)
-        .set({ ...patchColumns(patch), version: sql`${c.version} + 1`, updatedAt: new Date() })
+        .set({
+          ...patchColumns(patch),
+          ...(ownerEdit(patch) ? { version: sql`${c.version} + 1` } : {}),
+          updatedAt: new Date(),
+        })
         .where(expectedVersion === undefined ? scope : and(scope, eq(c.version, expectedVersion)))
         .returning();
       if (r) return toConnection(r);
@@ -315,36 +324,47 @@ export class DrizzleIntegrationStore implements IntegrationStore {
     );
   }
 
-  async saveCursor(jobId: string, claimToken: string, cursor: Record<string, unknown>) {
-    await withSystem(this.system, async (tx) => {
-      await tx.update(j).set({ cursor }).where(this.fenced(jobId, claimToken));
+  async saveCursor(
+    jobId: string,
+    claimToken: string,
+    cursor: Record<string, unknown>,
+    leaseMs: number,
+  ) {
+    return this.fencedUpdate(jobId, claimToken, {
+      cursor,
+      leaseUntil: sql`now() + ${leaseMs}::int * interval '1 millisecond'`,
     });
   }
 
-  async completeJob(jobId: string, claimToken: string) {
-    await withSystem(this.system, async (tx) => {
-      await tx
-        .update(j)
-        .set({ doneAt: new Date(), leaseUntil: null })
-        .where(this.fenced(jobId, claimToken));
+  completeJob(jobId: string, claimToken: string) {
+    return this.fencedUpdate(jobId, claimToken, { doneAt: new Date(), leaseUntil: null });
+  }
+
+  retryJob(jobId: string, claimToken: string, runAfter: Date, error: string) {
+    return this.fencedUpdate(jobId, claimToken, { runAfter, leaseUntil: null, lastError: error });
+  }
+
+  failJob(jobId: string, claimToken: string, error: string) {
+    return this.fencedUpdate(jobId, claimToken, {
+      failedAt: new Date(),
+      leaseUntil: null,
+      lastError: error,
     });
   }
 
-  async retryJob(jobId: string, claimToken: string, runAfter: Date, error: string) {
-    await withSystem(this.system, async (tx) => {
-      await tx
+  /** True when the claim token still owned the open job and the write applied. */
+  private fencedUpdate(
+    jobId: string,
+    claimToken: string,
+    set: Partial<Record<keyof typeof j.$inferInsert, unknown>>,
+  ): Promise<boolean> {
+    return withSystem(this.system, async (tx) => {
+      const rows = await tx
         .update(j)
-        .set({ runAfter, leaseUntil: null, lastError: error })
-        .where(this.fenced(jobId, claimToken));
-    });
-  }
-
-  async failJob(jobId: string, claimToken: string, error: string) {
-    await withSystem(this.system, async (tx) => {
-      await tx
-        .update(j)
-        .set({ failedAt: new Date(), leaseUntil: null, lastError: error })
-        .where(this.fenced(jobId, claimToken));
+        .set(set as Partial<typeof j.$inferInsert>)
+        .where(this.fenced(jobId, claimToken))
+        .returning({ id: j.id });
+      return rows.length > 0;
     });
   }
 

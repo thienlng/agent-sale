@@ -38,11 +38,13 @@ a 503 `UNAVAILABLE` stand-in when the process has no database).
   `__tests__/fake-kiotviet.ts`.
 - Connect errors are 400 `VALIDATION_FAILED` with `details.reason` (`kiotviet_auth`, `kiotviet_retailer`,
   `kiotviet_permission` + `missing`); an unreachable KiotViet is 503 `UNAVAILABLE`.
-- Persistence: one live connection per workspace and provider (`ConnectionExistsError`); every update bumps
-  `version`, and a stale `expectedVersion` is `ConnectionVersionConflictError` (409). At most one open
+- Persistence: one live connection per workspace and provider (`ConnectionExistsError`); `version` counts
+  owner edits only (`settings`, `retailer`, `clientId`, `clientSecretSealed`; runner writes such as status,
+  progress, counts and errors leave it), and a stale `expectedVersion` is `ConnectionVersionConflictError` (409). At most one open
   `full_import`/`reconcile` per connection (`enqueue` returns `false`). The worker claims jobs with
   `FOR UPDATE SKIP LOCKED` (ready `run_after`, free or expired lease; new `claim_token`, `attempts + 1`);
-  cursor/complete/retry/fail are fenced by the claim token. Only `full_import`, `reconcile` and `webhook`
+  cursor/complete/retry/fail are fenced by the claim token and return `false`
+  when the lease was lost (the runner then aborts); `saveCursor` is the heartbeat that extends the lease. Only `full_import`, `reconcile` and `webhook`
   are claimed in PR 1. Idle open jobs of a disconnected connection are closed (`done_at`,
   `last_error = 'connection_disconnected'`) instead of claimed. Webhook deliveries are claimed at most once
   (marked processed in the claiming statement; reconcile covers a loss); a disconnected connection's

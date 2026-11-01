@@ -72,8 +72,11 @@ export interface IntegrationStore {
   /** Throws `ConnectionExistsError` when the workspace already has a live connection. */
   insertConnection(ws: WorkspaceId, c: ConnectionRecord): Promise<void>;
   /**
-   * Bumps `version` and `updatedAt`; `id`, `workspaceId`, `provider`, `version`, `createdAt` and
-   * `updatedAt` in the patch are ignored. Setting status `disconnected` stamps `disconnected_at`. With `expectedVersion`, a stale version throws
+   * Always bumps `updatedAt`. `version` counts owner edits only: it increments when the patch touches
+   * `settings`, `retailer`, `clientId` or `clientSecretSealed`; runner writes (status, progress,
+   * counts, lastError, sync timestamps) leave it as is. `id`, `workspaceId`, `provider`, `version`,
+   * `createdAt` and `updatedAt` in the patch are ignored. Setting status `disconnected` stamps
+   * `disconnected_at`. With `expectedVersion` (any patch), a stale version throws
    * `ConnectionVersionConflictError`; an unknown id throws `ConnectionNotFoundError`.
    */
   updateConnection(
@@ -109,10 +112,23 @@ export interface IntegrationStore {
    * closed (`done_at`) instead of being claimed.
    */
   claimJobs(limit: number, leaseMs: number): Promise<JobRecord[]>;
-  saveCursor(jobId: string, claimToken: string, cursor: Record<string, unknown>): Promise<void>;
-  completeJob(jobId: string, claimToken: string): Promise<void>;
-  retryJob(jobId: string, claimToken: string, runAfter: Date, error: string): Promise<void>;
-  failJob(jobId: string, claimToken: string, error: string): Promise<void>;
+  /*
+   * Fenced writes: each one applies only while `claimToken` still owns the open job and returns
+   * whether it did. `false` means the lease was lost (the job was re-claimed, closed or finished
+   * elsewhere): the runner must abort the job at once, without further writes or side effects.
+   */
+  /** Stores the resume point and extends the lease to `now + leaseMs` (the runner's heartbeat). */
+  saveCursor(
+    jobId: string,
+    claimToken: string,
+    cursor: Record<string, unknown>,
+    leaseMs: number,
+  ): Promise<boolean>;
+  completeJob(jobId: string, claimToken: string): Promise<boolean>;
+  /** Releases the lease and makes the job ready again at `runAfter`. */
+  retryJob(jobId: string, claimToken: string, runAfter: Date, error: string): Promise<boolean>;
+  /** Dead-letters the job (`failed_at`). */
+  failJob(jobId: string, claimToken: string, error: string): Promise<boolean>;
   /**
    * Marks the oldest unprocessed deliveries processed in the same statement (at-most-once: the
    * periodic reconcile covers a lost one). Deliveries of disconnected connections are consumed

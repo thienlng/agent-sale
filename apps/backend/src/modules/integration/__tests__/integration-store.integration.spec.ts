@@ -152,23 +152,50 @@ describe('integration store on Postgres', () => {
     expect((await store.liveConnection(ws, 'kiotviet'))?.id).not.toBe(c.id);
   });
 
-  it('bumps the version on update and rejects a stale expected version', async () => {
+  it('bumps the version only on owner edits and enforces an expected version', async () => {
     const { ws, c } = await connected();
-    const updated = await store.updateConnection(
+    // Runner writes keep the version.
+    const syncing = await store.updateConnection(
       ws,
       c.id,
       { status: 'syncing', progress: { phase: 'products', done: 0, total: null } },
       1,
     );
-    expect(updated).toMatchObject({
+    expect(syncing).toMatchObject({
       status: 'syncing',
-      version: 2,
+      version: 1,
       progress: { phase: 'products', done: 0, total: null },
     });
+    const runner = await store.updateConnection(ws, c.id, {
+      counts: { products: 3 },
+      lastError: { code: 'kiotviet_unavailable', at: new Date().toISOString() },
+      lastFullSyncAt: new Date(),
+      lastReconcileAt: new Date(),
+    });
+    expect(runner.version).toBe(1);
+    expect(runner.updatedAt.getTime()).toBeGreaterThanOrEqual(syncing.updatedAt.getTime());
+
+    // Owner edits bump it, one per write.
+    const settings = { ...c.settings, pushOrders: true };
+    expect((await store.updateConnection(ws, c.id, { settings }, 1)).version).toBe(2);
+    expect((await store.updateConnection(ws, c.id, { retailer: 'shopmoi' })).version).toBe(3);
+    expect((await store.updateConnection(ws, c.id, { clientId: 'client-2' })).version).toBe(4);
+    expect(
+      (await store.updateConnection(ws, c.id, { clientSecretSealed: 'sealed-2' })).version,
+    ).toBe(5);
+
+    // A stale expected version is refused for any patch, and nothing is written.
     await expect(
       store.updateConnection(ws, c.id, { status: 'connected' }, 1),
     ).rejects.toBeInstanceOf(ConnectionVersionConflictError);
-    expect((await store.updateConnection(ws, c.id, { counts: { products: 3 } })).version).toBe(3);
+    await expect(
+      store.updateConnection(ws, c.id, { settings: c.settings }, 4),
+    ).rejects.toBeInstanceOf(ConnectionVersionConflictError);
+    expect(await store.connectionForSystem(c.id)).toMatchObject({
+      status: 'syncing',
+      version: 5,
+      settings,
+    });
     await expect(store.updateConnection(ws, newId(), { status: 'error' })).rejects.toBeInstanceOf(
       ConnectionNotFoundError,
     );
@@ -211,17 +238,26 @@ describe('integration store on Postgres', () => {
     // Leased: not claimable again.
     expect(await claimOne(id)).toBeUndefined();
 
-    await store.saveCursor(id, first!.claimToken, { entity: 'products', currentItem: 100 });
-    await store.saveCursor(id, newId(), { entity: 'x' });
+    expect(
+      await store.saveCursor(
+        id,
+        first!.claimToken,
+        { entity: 'products', currentItem: 100 },
+        60_000,
+      ),
+    ).toBe(true);
+    expect(await store.saveCursor(id, newId(), { entity: 'x' }, 60_000)).toBe(false);
     expect((await job(id)).cursor).toEqual({ entity: 'products', currentItem: 100 });
 
     // Retry later: not ready until run_after.
-    await store.retryJob(
-      id,
-      first!.claimToken,
-      new Date(Date.now() + 60_000),
-      'kiotviet_unavailable',
-    );
+    expect(
+      await store.retryJob(
+        id,
+        first!.claimToken,
+        new Date(Date.now() + 60_000),
+        'kiotviet_unavailable',
+      ),
+    ).toBe(true);
     expect(await claimOne(id)).toBeUndefined();
     expect(await job(id)).toMatchObject({ lastError: 'kiotviet_unavailable', leaseUntil: null });
 
@@ -235,15 +271,26 @@ describe('integration store on Postgres', () => {
     expect(second).toMatchObject({ attempts: 2, cursor: { entity: 'products', currentItem: 100 } });
     expect(second!.claimToken).not.toBe(first!.claimToken);
 
-    // The old token no longer owns the job.
-    await store.completeJob(id, first!.claimToken);
-    expect((await job(id)).doneAt).toBeNull();
+    // The old token no longer owns the job: every fenced write is refused and reports it.
+    const stale = first!.claimToken;
+    expect(await store.saveCursor(id, stale, { entity: 'stale' }, 60_000)).toBe(false);
+    expect(await store.completeJob(id, stale)).toBe(false);
+    expect(await store.retryJob(id, stale, new Date(), 'stale')).toBe(false);
+    expect(await store.failJob(id, stale, 'stale')).toBe(false);
+    expect(await job(id)).toMatchObject({
+      doneAt: null,
+      failedAt: null,
+      lastError: 'kiotviet_unavailable',
+      cursor: { entity: 'products', currentItem: 100 },
+    });
 
-    await store.failJob(id, second!.claimToken, 'kiotviet_auth');
+    expect(await store.failJob(id, second!.claimToken, 'kiotviet_auth')).toBe(true);
     const failed = await job(id);
     expect(failed.failedAt).toBeInstanceOf(Date);
     expect(failed.lastError).toBe('kiotviet_auth');
     expect(await claimOne(id)).toBeUndefined();
+    // A finished job refuses even its last owner.
+    expect(await store.completeJob(id, second!.claimToken)).toBe(false);
     // A failed sync no longer blocks a new one.
     expect(await store.enqueue(ws, { connectionId: c.id, kind: 'reconcile' })).toBe(true);
   });
@@ -256,9 +303,27 @@ describe('integration store on Postgres', () => {
     await new Promise((r) => setTimeout(r, 20));
     const second = await claimOne(id);
     expect(second?.attempts).toBe(2);
-    await store.completeJob(id, second!.claimToken);
+    expect(await store.completeJob(id, first!.claimToken)).toBe(false);
+    expect(await store.completeJob(id, second!.claimToken)).toBe(true);
     expect((await job(id)).doneAt).toBeInstanceOf(Date);
-    expect(first).toBeDefined();
+  });
+
+  it('extends the lease on saveCursor so a slow runner keeps its job', async () => {
+    const { ws, c } = await connected();
+    await store.enqueue(ws, { connectionId: c.id, kind: 'full_import' });
+    const { id } = await onlyJobOf(ws, c.id);
+    // A 300 ms lease that would run out during the page…
+    const claimed = await claimOne(id, 300);
+    expect(claimed).toBeDefined();
+    // …is renewed by the page's cursor save before it expires.
+    expect(await store.saveCursor(id, claimed!.claimToken, { currentItem: 100 }, 60_000)).toBe(
+      true,
+    );
+    await new Promise((r) => setTimeout(r, 400));
+    expect(await claimOne(id)).toBeUndefined();
+    const row = await job(id);
+    expect(row.leaseUntil!.getTime()).toBeGreaterThan(Date.now() + 50_000);
+    expect(await store.completeJob(id, claimed!.claimToken)).toBe(true);
   });
 
   it('never hands the same job to two concurrent claims', async () => {
