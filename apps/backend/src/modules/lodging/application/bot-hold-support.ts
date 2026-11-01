@@ -1,0 +1,153 @@
+import { createHash } from 'node:crypto';
+
+import type { BotAvailabilityOption, ConfirmBotHoldResult } from '../api/lodging.facade.js';
+import { weekdayLabel } from '../domain/hold-summary.js';
+import { LodgingError } from '../domain/lodging.errors.js';
+import type { Quote } from '../domain/quote.js';
+import type { FreeOption, StayAsk } from './availability.js';
+import type {
+  BookingRecord,
+  BotHoldDraftRecord,
+  LodgingTx,
+  PropertyRecord,
+  UnitRecord,
+} from './ports/lodging-store.js';
+
+/** Pure helpers of the bot hold use cases (`bot-hold.service.ts`, T-161). */
+
+export const BOT_HOLD_DRAFT_TTL_MS = 30 * 60 * 1000;
+export const MAX_NAME = 200;
+export const MAX_NOTE = 2000;
+/** Conversation channels with an inbox conversation to open; others (test chat) link nothing. */
+export const CUSTOMER_CHANNELS: ReadonlySet<string> = new Set([
+  'facebook',
+  'instagram',
+  'website',
+  'zalo',
+]);
+/** RFC 4122 namespace of bot hold request ids (uuid v5 of the draft id). */
+const HOLD_NAMESPACE = '6f1c2a54-8a0e-4c39-9b8e-3d4f5a6b7c8d';
+
+export type FailCode = 'expired' | 'not_available' | 'price_changed';
+
+/** Why a draft cannot become its hold; thrown so the confirming transaction rolls back. */
+export class HoldNotConfirmable extends Error {
+  readonly code: FailCode;
+  readonly draft: BotHoldDraftRecord;
+  constructor(code: FailCode, draft: BotHoldDraftRecord) {
+    super(code);
+    this.code = code;
+    this.draft = draft;
+  }
+}
+
+/** The properties a bot sells, with their units and rates (one query each). */
+export interface SoldContext {
+  sold: PropertyRecord[];
+  units: UnitRecord[];
+  ratesOf: Awaited<ReturnType<LodgingTx['ratesByProperty']>>;
+}
+
+export const tidy = (text: string | undefined, max: number) =>
+  (text ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
+
+/** Deterministic uuid v5 of `name` in HOLD_NAMESPACE: a retried confirm replays the same hold. */
+export function holdRequestId(draftId: string): string {
+  const ns = Buffer.from(HOLD_NAMESPACE.replace(/-/g, ''), 'hex');
+  const hash = createHash('sha1').update(ns).update(draftId).digest();
+  const bytes = hash.subarray(0, 16);
+  bytes[6] = ((bytes[6] ?? 0) & 0x0f) | 0x50;
+  bytes[8] = ((bytes[8] ?? 0) & 0x3f) | 0x80;
+  const hex = bytes.toString('hex');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+/** sha256 of what the customer agreed to: selection, party, guest, note and the sell prices. */
+type Agreed = Pick<
+  BotHoldDraftRecord,
+  | 'propertyId'
+  | 'whole'
+  | 'checkIn'
+  | 'checkOut'
+  | 'adults'
+  | 'childAges'
+  | 'guestName'
+  | 'guestPhone'
+  | 'note'
+>;
+
+export function quoteHash(d: Agreed, resolved: string[], q: Quote): string {
+  return createHash('sha256')
+    .update(
+      JSON.stringify([
+        d.propertyId,
+        d.whole,
+        [...resolved].sort(),
+        d.checkIn,
+        d.checkOut,
+        d.adults,
+        d.childAges,
+        d.guestName,
+        d.guestPhone,
+        d.note,
+        q.nights.map((n) => [n.date, n.sell]),
+        q.surcharges.map((s) => [s.kind, s.persons, s.nights, s.sell]),
+        q.totalSell,
+      ]),
+    )
+    .digest('hex');
+}
+
+export function assertParty(adults: number, childAges: number[]): void {
+  const okAdults = Number.isInteger(adults) && adults >= 0 && adults <= 1000;
+  const okKids =
+    childAges.length <= 1000 && childAges.every((a) => Number.isInteger(a) && a >= 0 && a <= 17);
+  if (!okAdults || !okKids || adults + childAges.length < 1) {
+    throw new LodgingError('VALIDATION_FAILED', 'Invalid party', { adults, childAges });
+  }
+}
+
+/** The bot view of a free option: sell prices only, Vietnamese weekday labels. */
+export function toBotOption(o: FreeOption): BotAvailabilityOption {
+  const names = new Map(o.units.map((u) => [u.id, u.name]));
+  return {
+    propertyId: o.property.id,
+    code: o.property.code,
+    name: o.property.name,
+    whole: o.whole,
+    unitIds: o.property.sellMode === 'rooms' ? o.unitIds : [],
+    unitNames: o.property.sellMode === 'rooms' ? o.unitIds.map((id) => names.get(id) ?? '') : [],
+    fits: o.fits,
+    overStandard: o.quote.warnings.includes('over_standard'),
+    totalSell: o.quote.totalSell,
+    nightly: o.quote.nights.map((n) => ({
+      date: n.date,
+      weekdayLabel: weekdayLabel(n.date),
+      label: n.label,
+      sell: n.sell,
+    })),
+    surcharges: o.quote.surcharges.map((s) => ({
+      kind: s.kind,
+      persons: s.persons,
+      nights: s.nights,
+      sell: s.sell,
+    })),
+  };
+}
+
+/** NIGHTS_TAKEN while confirming: the transaction is aborted; remembers the draft. */
+export class NightsTakenOnConfirm extends Error {
+  readonly draft: BotHoldDraftRecord;
+  constructor(draft: BotHoldDraftRecord) {
+    super('NIGHTS_TAKEN');
+    this.draft = draft;
+  }
+}
+
+export function stayOf(s: StayAsk): StayAsk {
+  return { checkIn: s.checkIn, checkOut: s.checkOut, adults: s.adults, childAges: s.childAges };
+}
+
+export function held(b: BookingRecord): ConfirmBotHoldResult {
+  return { status: 'held', code: b.code, holdExpiresAt: b.holdExpiresAt ?? '' };
+}

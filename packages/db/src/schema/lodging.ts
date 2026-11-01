@@ -21,7 +21,7 @@ import { tenantPolicies, workspaces } from './workspace.js';
  * Lodging v2 tables (migration 0041, T-160): properties → units → rates → bookings, with one
  * `lodging_unit_nights` row per occupied unit-night as the anti-double-booking key. Money is
  * bigint VND read as JS numbers; nights are local calendar dates ('YYYY-MM-DD' strings).
- * CHECK constraints live in the SQL migrations only (0041, 0042).
+ * CHECK constraints live in the SQL migrations only (0041, 0042, 0043).
  */
 const money = (name: string) => bigint(name, { mode: 'number' });
 const night = (name: string) => date(name, { mode: 'string' });
@@ -207,6 +207,9 @@ export const lodgingBookings = pgTable(
     clientRequestId: uuid('client_request_id').notNull(),
     fingerprint: text('fingerprint').notNull(),
     createdBy: uuid('created_by'),
+    /** First staff status action or edit of a bot booking (migration 0043). */
+    reviewedAt: ts('reviewed_at'),
+    reviewedBy: uuid('reviewed_by'),
     version: integer('version').notNull().default(1),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
@@ -228,6 +231,9 @@ export const lodgingBookings = pgTable(
     index('lodging_bookings_conversation_idx')
       .on(t.workspaceId, t.conversationId)
       .where(sql`${t.conversationId} is not null`),
+    index('lodging_bookings_review_idx')
+      .on(t.workspaceId)
+      .where(sql`${t.source} = 'bot' and ${t.status} = 'hold' and ${t.reviewedAt} is null`),
     ...tenantPolicies('lodging_bookings'),
   ],
 );
@@ -331,5 +337,52 @@ export const lodgingNightNotes = pgTable(
       .nullsNotDistinct(),
     index('lodging_night_notes_range_idx').on(t.workspaceId, t.propertyId, t.night),
     ...tenantPolicies('lodging_night_notes'),
+  ],
+);
+
+/**
+ * The hold the bot summarised and the customer has not confirmed yet (migration 0043, T-161):
+ * one per conversation, 30 minutes. `id` is new on every prepare; the booking's
+ * `client_request_id` is derived from it.
+ */
+export const lodgingBotHoldDrafts = pgTable(
+  'lodging_bot_hold_drafts',
+  {
+    workspaceId: workspaceRef(),
+    conversationId: uuid('conversation_id').notNull(),
+    id: uuid('id').notNull(),
+    botId: uuid('bot_id').notNull(),
+    botName: text('bot_name').notNull().default(''),
+    channel: text('channel').notNull(),
+    contactId: uuid('contact_id'),
+    propertyId: uuid('property_id').notNull(),
+    whole: boolean('whole').notNull(),
+    unitIds: uuid('unit_ids')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    checkIn: night('check_in').notNull(),
+    checkOut: night('check_out').notNull(),
+    adults: integer('adults').notNull(),
+    childAges: integer('child_ages')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    guestName: text('guest_name').notNull(),
+    guestPhone: text('guest_phone').notNull(),
+    note: text('note').notNull().default(''),
+    quoteHash: text('quote_hash').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    expiresAt: ts('expires_at').notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.workspaceId, t.conversationId] }),
+    foreignKey({
+      name: 'lodging_bot_hold_drafts_property_fk',
+      columns: [t.workspaceId, t.propertyId],
+      foreignColumns: [lodgingProperties.workspaceId, lodgingProperties.id],
+    }).onDelete('cascade'),
+    index('lodging_bot_hold_drafts_expiry_idx').on(t.workspaceId, t.expiresAt),
+    ...tenantPolicies('lodging_bot_hold_drafts'),
   ],
 );

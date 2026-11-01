@@ -5,6 +5,7 @@ import {
   UpdateBookingRequest,
   type BookingDetail,
   type BookingList,
+  type BookingReviewCount,
 } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
 import { Body, Controller, Get, HttpCode, Inject, Param, Patch, Post, Query } from '@nestjs/common';
@@ -29,7 +30,10 @@ const actorOf = async (u: AuthState): Promise<Actor> => ({
   name: (await u.displayName?.()) ?? null,
 });
 
-/** Lodging v2 bookings (`lodgingV2Routes`): lists, detail, create, edit and status moves. */
+/**
+ * Lodging v2 bookings (`lodgingV2Routes`): lists, the bot-hold review count, detail, create, edit
+ * and status moves.
+ */
 @WorkspaceScoped()
 @Controller('lodging')
 export class BookingsController {
@@ -42,6 +46,12 @@ export class BookingsController {
     @Query(new ZodValidationPipe(BookingListQuery)) q: BookingListQuery,
   ): Promise<BookingList> {
     return this.bookings.list(ws, q);
+  }
+
+  @Get('bookings/review-count')
+  @RequireCapability('orders.view')
+  reviewCount(@CurrentWorkspace() ws: WorkspaceId): Promise<BookingReviewCount> {
+    return this.bookings.reviewCount(ws);
   }
 
   @Post('bookings')

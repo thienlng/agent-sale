@@ -9,10 +9,12 @@ import type { WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable } from '@nestjs/common';
 import { z } from 'zod';
 
+import { compareFitThenPrice } from '../domain/availability-ranking.js';
 import { LodgingError } from '../domain/lodging.errors.js';
 import { addNights, localToday, nightsBetween, nightToUtcMs } from '../domain/nights.js';
-import { quoteStay, resolveUnits, type Quote } from '../domain/quote.js';
+import { quoteStay, resolveUnits } from '../domain/quote.js';
 import { priceNight, type RateRule } from '../domain/rates.js';
+import { freeOptions } from './availability.js';
 import { expireHolds, loadContext, toQuoteDto } from './booking-support.js';
 import { LodgingAccess } from './lodging-access.js';
 import {
@@ -69,20 +71,12 @@ function wholePrice(p: PropertyRecord, rooms: UnitRecord[], rates: RateRule[], n
   return { night, sell, label: '' };
 }
 
-/** `fits` = nobody above the standard capacity or the property's maximum. */
-const fits = (q: Quote) =>
-  !q.warnings.includes('over_max') && !q.warnings.includes('over_standard');
-
 /** Fits first, then cheapest; options without a total last. */
-function byFitThenPrice(a: AvailabilityOption, b: AvailabilityOption): number {
-  if (a.fits !== b.fits) return a.fits ? -1 : 1;
-  const x = a.quote.totalSell;
-  const y = b.quote.totalSell;
-  if (x === y) return 0;
-  if (x === null) return 1;
-  if (y === null) return -1;
-  return x - y;
-}
+const byFitThenPrice = (a: AvailabilityOption, b: AvailabilityOption): number =>
+  compareFitThenPrice(
+    { fits: a.fits, totalSell: a.quote.totalSell },
+    { fits: b.fits, totalSell: b.quote.totalSell },
+  );
 
 /** Calendar grid, free-unit search and quotes (spec §3.4–3.5, §4). Reads only. */
 @Injectable()
@@ -169,9 +163,8 @@ export class CalendarService {
   }
 
   /**
-   * Free options per active property for the nights: the whole property, and for a rooms
-   * property the free rooms (largest first until the party fits, or all free rooms when it does
-   * not). Only options free on every night are returned; fitting ones first, then cheapest.
+   * Free options per active property for the nights (`freeOptions`); fitting ones first, then
+   * cheapest.
    */
   async availability(ws: WorkspaceId, req: AvailabilityRequest): Promise<AvailabilityDto> {
     await this.access.assertHotel(ws);
@@ -182,62 +175,21 @@ export class CalendarService {
         activeOnly: true,
         ...(req.propertyIds ? { ids: req.propertyIds } : {}),
       });
-      const pids = props.map((p) => p.id);
-      const units = await tx.units(pids);
-      const ratesOf = await tx.ratesByProperty(pids);
-      const taken = new Set(
-        (
-          await tx.takenNights(
-            units.map((u) => u.id),
-            req.checkIn,
-            req.checkOut,
-          )
-        ).map((t) => t.unitId),
-      );
-      const persons = req.party.adults + req.party.childAges.length;
-      const options: AvailabilityOption[] = [];
-      for (const p of props) {
-        const own = units.filter((u) => u.propertyId === p.id);
-        const rates = ratesOf.get(p.id) ?? [];
-        const selections: { whole: boolean; unitIds: string[] }[] = [];
-        const bookable = currentUnits(p, own).filter((u) => u.active);
-        const wholeFree = bookable.length > 0 && bookable.every((u) => !taken.has(u.id));
-        if (wholeFree) selections.push({ whole: true, unitIds: [] });
-        if (p.sellMode === 'rooms') {
-          const free = bookable.filter((u) => !taken.has(u.id));
-          const rooms = free.length > 0 ? pickRooms(free, persons) : [];
-          // Every room of a free property is the whole rental already offered above.
-          const sameAsWhole = wholeFree && rooms.length === bookable.length;
-          if (rooms.length > 0 && !sameAsWhole) selections.push({ whole: false, unitIds: rooms });
-        }
-        for (const s of selections) {
-          const input = { ...s, checkIn: req.checkIn, checkOut: req.checkOut, ...req.party };
-          const quote = quoteStay(p, own, rates, input);
-          options.push({
-            propertyId: p.id,
-            whole: s.whole,
-            unitIds: resolveUnits(p, own, s),
-            fits: fits(quote),
-            quote: toQuoteDto(quote),
-          });
-        }
-      }
+      const free = await freeOptions(tx, props, {
+        checkIn: req.checkIn,
+        checkOut: req.checkOut,
+        ...req.party,
+      });
+      const options: AvailabilityOption[] = free.map((o) => ({
+        propertyId: o.property.id,
+        whole: o.whole,
+        unitIds: o.unitIds,
+        fits: o.fits,
+        quote: toQuoteDto(o.quote),
+      }));
       return { options: options.sort(byFitThenPrice) };
     });
   }
-}
-
-/** Largest rooms first until they hold `persons`; all of them when they never do. */
-function pickRooms(free: UnitRecord[], persons: number): string[] {
-  const size = (u: UnitRecord) => u.capacityAdults + u.capacityChildren;
-  const picked: string[] = [];
-  let room = 0;
-  for (const u of [...free].sort((a, b) => size(b) - size(a))) {
-    if (room >= persons && picked.length > 0) break;
-    picked.push(u.id);
-    room += size(u);
-  }
-  return picked;
 }
 
 function segment(b: BookingRecord, from: string, to: string) {

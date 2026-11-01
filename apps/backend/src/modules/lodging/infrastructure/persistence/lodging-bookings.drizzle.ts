@@ -149,6 +149,7 @@ export function bookingPort(tx: TenantTx, ws: WorkspaceId): BookingPort {
             q.status ? eq(B.status, q.status) : undefined,
             q.conversationId ? eq(B.conversationId, q.conversationId) : undefined,
             q.tag ? sql`${B.tags} @> array[${q.tag}]::text[]` : undefined,
+            q.source ? eq(B.source, q.source) : undefined,
             term
               ? or(
                   containsInsensitive(B.code, term),

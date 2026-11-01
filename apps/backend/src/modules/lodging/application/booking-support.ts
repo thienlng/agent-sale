@@ -12,9 +12,12 @@ import type {
   UnitRecord,
 } from './ports/lodging-store.js';
 
-/** Who did it: the user id for the audit row and their display name for the history. */
+/**
+ * Who did it: the user id for the audit row and their display name for the history. A bot has
+ * no user id (`null`) and its name as the display name.
+ */
 export interface Actor {
-  id: string;
+  id: string | null;
   name: string | null;
 }
 
@@ -72,6 +75,7 @@ export function toBookingDto(
   const {
     clientRequestId: _key,
     fingerprint: _fp,
+    reviewedBy: _reviewer,
     adults,
     childAges,
     quote,
@@ -268,4 +272,60 @@ export function assertEditable(b: BookingRecord, req: UpdateBookingRequest): voi
   if (b.kind === 'block' && STAY_ONLY_FIELDS.some((k) => req[k] !== undefined)) {
     throw new LodgingError('VALIDATION_FAILED', 'A block has no guest, party or price');
   }
+}
+
+/** Fields every new booking gets, stay or block. */
+export type BookingBase = Pick<
+  BookingRecord,
+  | 'id'
+  | 'code'
+  | 'propertyId'
+  | 'whole'
+  | 'unitIds'
+  | 'checkIn'
+  | 'checkOut'
+  | 'clientRequestId'
+  | 'fingerprint'
+  | 'reviewedAt'
+  | 'reviewedBy'
+  | 'version'
+  | 'createdAt'
+  | 'updatedAt'
+>;
+
+/** A new block: no guest, party or price. */
+export function blockRecord(base: BookingBase, blockReason: string): BookingRecord {
+  return {
+    ...base,
+    kind: 'block',
+    status: 'active',
+    adults: 0,
+    childAges: [],
+    guestName: '',
+    guestPhone: '',
+    contactId: null,
+    conversationId: null,
+    source: null,
+    holdExpiresAt: null,
+    quote: null,
+    adjustment: 0,
+    adjustmentReason: '',
+    totalSell: null,
+    totalCost: null,
+    note: '',
+    tags: [],
+    blockReason,
+  };
+}
+
+/** The first staff status action or edit of a bot booking reviews it (T-161); a bot never does. */
+export function reviewedBy(
+  b: BookingRecord,
+  actor: Actor,
+  now: Date,
+): Pick<BookingRecord, 'reviewedAt' | 'reviewedBy'> {
+  if (b.source !== 'bot' || b.reviewedAt !== null || actor.id === null) {
+    return { reviewedAt: b.reviewedAt, reviewedBy: b.reviewedBy };
+  }
+  return { reviewedAt: now.toISOString(), reviewedBy: actor.id };
 }
