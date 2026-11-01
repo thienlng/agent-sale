@@ -13,12 +13,12 @@ Owner decisions (2026-11-01):
 
 1. **Rapiz is the only source of truth for the calendar.** Google Sheets are dropped.
 2. **Sell mode per property**: whole property (villa, e.g. A17) or per room (homestay). A whole rental of a per-room property takes every room; room bookings block a whole rental.
-3. Property owners get a restricted Rapiz account limited to their properties (**part 2**).
+3. ~~Restricted owner accounts (part 2)~~ — dropped 2026-11-01: whoever runs the calendar in Rapiz (the owner, or the sales team after contacting the owner) keeps it up to date; no per-property roles.
 4. The bot looks up the real calendar, quotes exact prices and places expiring holds; only people confirm (**part 3**).
-5. Each booking gets a money ledger: deposits, payments, refunds, owner payout and commission (**part 4**).
+5. ~~Money ledger per booking (part 4)~~ — dropped 2026-11-01: deposits, payments, owner payout and commission are accounting/PMS work outside an AI sales agent; at most an export later.
 6. Rates: weekday base + date-range overrides (holidays, Tết, peak) + extra-guest surcharges, each with a sell price and a cost price (what the owner receives).
 
-This spec covers **part 1**: data foundation, rates, calendar, bookings operated by staff, A17 migration and keeping the bot working on the new model. Parts 2–4 get their own specs.
+This spec covers **part 1**: data foundation, rates, calendar, bookings operated by staff, A17 migration and keeping the bot working on the new model. Part 3 (bot tools) gets its own spec; parts 2 and 4 were dropped (see decisions 3 and 5).
 
 ## 2. Vocabulary (UI, i18n, prompts, docs)
 
@@ -167,4 +167,4 @@ For hotel bots the `ai` module uses a lodging-backed `CatalogFacade` (`LODGING_C
 
 ## 9. Out of scope (later parts)
 
-Owner role and mobile owner view (part 2) · bot availability/hold tools (part 3) · payments ledger, owner settlement, commission (part 4) · OTA/iCal sync · removing the T-155 tables/routes (follow-up contract step).
+Bot availability/quote/hold tools (part 3, next) · OTA/iCal/PMS sync · not planned: owner roles (part 2) and a money ledger (part 4) · removing the T-155 tables/routes (follow-up contract step).

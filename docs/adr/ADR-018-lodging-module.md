@@ -17,7 +17,7 @@ Owner decisions (2026-11-01):
 1. Rapiz is the only source of truth for the calendar. The Google Sheets are dropped.
 2. Each property is sold either as a whole (a villa) or per room (a homestay). A whole rental of a per-room property takes every room, and a room booking blocks a whole rental.
 3. Rates are weekday base prices plus date-range overrides (holidays, Tết, peak) and extra-guest surcharges. Every price has a sell and a cost price (what the owner receives).
-4. Later parts: owner accounts limited to their properties (part 2), bot calendar and hold tools (part 3), a money ledger per booking (part 4).
+4. Next: bot calendar, quote and hold tools (part 3). Not planned (owner, 2026-11-01): per-property owner accounts — whoever uses Rapiz keeps the calendar current — and a money ledger, which is accounting/PMS work outside an AI sales agent.
 
 ## Decision
 
@@ -41,5 +41,5 @@ Owner decisions (2026-11-01):
 - Double booking is impossible by construction, including under concurrent requests, as long as every writer goes through `takeNights`.
 - Without a sweeper an overdue hold is expired only by the next lodging transaction of its workspace. That is enough for the screens and the bot, which always read through such a transaction. When the worker gets job processors, add a periodic sweep so `lodging.booking.expired.v1` is emitted on time for consumers.
 - Event payloads (`lodging.booking.*.v1`) carry ids, codes, dates, status and source only, never the guest's name or phone.
-- Part 2 adds an owner role limited to their properties. Part 3 gives the bot availability, quote and hold tools. Part 4 adds the money ledger (deposits, payments, refunds, owner payout and commission). Each part gets its own spec and, where it changes boundaries or money flow, its own ADR.
+- Part 3 gives the bot availability, quote and hold tools, behind an availability source so an external PMS can feed the same tools later (ADR-017 pattern). Owner roles and a money ledger are out of scope; revisit only with a new ADR.
 - A follow-up contract step removes the T-155 routes, the `stay_requests` table and `products.accommodation`.

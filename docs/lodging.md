@@ -64,9 +64,10 @@ Hotel bots read the properties they sell from the lodging module, through `LODGI
 
 ## Not done yet
 
-- Owner accounts limited to their properties, and a mobile owner view (part 2).
+Not planned: per-property owner accounts and a money ledger (deposits, payouts, commission) — decided 2026-11-01 as outside an AI sales agent.
+
+
 - Bot tools to check availability, quote and place holds (part 3).
-- Deposits, payments, refunds, owner payout and commission (part 4).
 - The analytics conversion event `booking_confirmed` (deferred; the outbox already carries `lodging.booking.confirmed.v1`).
 - A periodic hold sweeper (needs worker job processors), OTA/iCal sync.
 - Removing the T-155 routes and tables (contract step).
