@@ -1,0 +1,68 @@
+id: tinymind-several-products-own-pictures
+group: catalog
+tags: [critical]
+bot:
+  industry: retail
+  name: TinyMind
+  profile:
+    fields:
+      displayName: TinyMind
+      shipping: 'Giao hàng toàn quốc, ship nội thành 30.000đ.'
+    notes: 'Shop bán đồ chơi gỗ Montessori cho bé.'
+products:
+  - name: 'Thú gỗ xếp thăng bằng — Wooden Animal Balancing Stacker Toy'
+    code: TM-001
+    description: 'Bộ thú gỗ xếp thăng bằng, phù hợp bé từ 1 tuổi trở lên. Rèn khéo tay và tư duy.'
+    images:
+      - 'https://example.com/thu-go-xep-thang-bang-1.jpg'
+      - 'https://example.com/thu-go-xep-thang-bang-2.jpg'
+      - 'https://example.com/thu-go-xep-thang-bang-3.jpg'
+    variants:
+      - { name: 'Mặc định', price: 340000, stock: 12 }
+  - name: 'Xương rồng gỗ xếp thăng bằng — Wooden Balancing Cactus Stacking Toy'
+    code: TM-002
+    description: 'Xương rồng gỗ xếp thăng bằng, phù hợp bé từ 2 tuổi trở lên.'
+    images:
+      - 'https://example.com/xuong-rong-go-1.jpg'
+      - 'https://example.com/xuong-rong-go-2.jpg'
+    variants:
+      - { name: 'Mặc định', price: 460000, stock: 6 }
+  - name: 'Tháp gỗ cầu vồng — Rainbow Wooden Tower'
+    code: TM-005
+    description: 'Tháp gỗ nhiều màu, phù hợp bé từ 1 tuổi trở lên.'
+    images:
+      - 'https://example.com/thap-go-cau-vong-1.jpg'
+    variants:
+      - { name: 'Mặc định', price: 390000, stock: 7 }
+  - name: 'Xe kéo gỗ — Wooden Pull Along Car'
+    code: TM-006
+    description: 'Xe kéo gỗ cho bé tập đi, từ 1 tuổi.'
+    variants:
+      - { name: 'Mặc định', price: 220000, stock: 15 }
+conversation:
+  - customer: 'Cho mình xem ảnh bộ thú gỗ xếp thăng bằng với xương rồng gỗ nhé, bé nhà mình 2 tuổi'
+expect:
+  outcome: answered
+  guardrail: none
+  # Each product goes out in its own message with its own pictures (send_message, max 3 each).
+  messages_min: 2
+  image_messages_min: 2
+  images_per_message_max: 3
+  images_min: 2
+  contains_all: ['Thú gỗ xếp thăng bằng', 'Xương rồng gỗ']
+  not_contains: ['chưa có ảnh', 'http']
+  numbers_only_from_sources: true
+fake_turns:
+  - tool_calls:
+      - { name: 'search_products', input: { query: 'thú gỗ xếp thăng bằng' } }
+      - { name: 'search_products', input: { query: 'xương rồng gỗ' } }
+  - tool_calls:
+      - name: 'send_message'
+        input:
+          text: 'Thú gỗ xếp thăng bằng, giá 340.000đ'
+          imageIds: ['p:eval-product-1:0', 'p:eval-product-1:1', 'p:eval-product-1:2']
+      - name: 'send_message'
+        input:
+          text: 'Xương rồng gỗ xếp thăng bằng, giá 460.000đ'
+          imageIds: ['p:eval-product-2:0', 'p:eval-product-2:1']
+  - text: "Dạ cả hai mẫu đều hợp với bé 2 tuổi ạ.\nBé thích con vật hay xương rồng hơn ạ?"

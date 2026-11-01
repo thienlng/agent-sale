@@ -1,4 +1,5 @@
 import type {
+  AccommodationDetails,
   AdjustStockRequest,
   BotProductsDto,
   ProductDto,
@@ -16,8 +17,12 @@ import {
 import { foldVietnamese, isUuid, newId, type WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
+import { toMediaPath } from '../../../common/storage/media-url.js';
+import type { PublicObjectStorage } from '../../../common/storage/public-object-storage.js';
+import { PRODUCT_IMAGE_STORAGE } from './ports/product-image-storage.js';
+
 import type { BotCatalogScope } from '../api/catalog.facade.js';
-import { botProductSearches } from '../domain/bot-product-search.js';
+import { catalogTerms } from '../domain/bot-catalog-query.js';
 import { LodgingError } from '../domain/lodging.js';
 import {
   BotNotFoundError,
@@ -25,7 +30,9 @@ import {
   WarehouseInUseError,
   WarehouseNotFoundError,
   CommerceUnavailableError,
+  ImageNotUploadedError,
 } from '../domain/commerce.errors.js';
+import { ownImageProblem } from '../domain/own-image.js';
 import {
   COMMERCE_STORE,
   type CommerceStore,
@@ -38,6 +45,27 @@ import {
 
 export function toWarehouseDto(w: WarehouseRecord): WarehouseDto {
   return { ...w };
+}
+
+/**
+ * Rapiz pictures as host-relative `/media/…` paths (stored that way from now on; older rows hold
+ * the absolute URL of a former public host). External links stay as they are.
+ */
+function withMediaPaths<
+  T extends { imageUrls: string[]; accommodation?: AccommodationDetails | null | undefined },
+>(p: T): T {
+  return {
+    ...p,
+    imageUrls: p.imageUrls.map(toMediaPath),
+    ...(p.accommodation
+      ? {
+          accommodation: {
+            ...p.accommodation,
+            gallery: p.accommodation.gallery.map((g) => ({ ...g, url: toMediaPath(g.url) })),
+          },
+        }
+      : {}),
+  };
 }
 
 function toProductDto(
@@ -72,8 +100,10 @@ function toProductDto(
     status: p.status,
     visibleToBot: p.visibleToBot,
     botInstructions: p.botInstructions,
-    imageUrls: p.imageUrls,
-    ...(p.accommodation ? { accommodation: p.accommodation } : {}),
+    ...withMediaPaths({
+      imageUrls: p.imageUrls,
+      ...(p.accommodation ? { accommodation: p.accommodation } : {}),
+    }),
     variants: dtoVariants,
     priceMin: prices.length ? Math.min(...prices) : 0,
     priceMax: prices.length ? Math.max(...prices) : 0,
@@ -91,6 +121,9 @@ function productSearchText(
   return foldVietnamese([p.code, p.name, ...variants.flatMap((v) => [v.sku, v.name])].join(' '));
 }
 
+/** Most rows a bot catalog search or browse returns (spec §5). */
+const BOT_CATALOG_CAP = 300;
+
 /** The bot_products filter for a bot in 'selected' mode; undefined sells every active product. */
 function selection(bot: BotCatalogScope): string | undefined {
   return bot.catalogMode === 'selected' ? bot.botId : undefined;
@@ -99,60 +132,102 @@ function selection(bot: BotCatalogScope): string | undefined {
 /** Warehouses, products with variants, stock adjustments and the order-form picker (ORD-01, ORD-02). */
 @Injectable()
 export class CatalogService {
-  constructor(@Inject(COMMERCE_STORE) private readonly store: CommerceStore) {}
+  constructor(
+    @Inject(COMMERCE_STORE) private readonly store: CommerceStore,
+    @Inject(PRODUCT_IMAGE_STORAGE) private readonly images: PublicObjectStorage,
+  ) {}
 
-  async getBotProducts(
-    ws: WorkspaceId,
-    bot: BotCatalogScope,
-    query: string,
-    limit: number,
-  ): Promise<ProductDto[]> {
-    const cap = Math.max(1, Math.min(limit, 20));
-    const { searches, words } = botProductSearches(query);
-    if (!searches.length) return [];
-    const selectedFor = selection(bot);
-    let matches: ProductListResponse[];
-    try {
-      matches = await Promise.all(
-        searches.map((q) =>
-          this.listProducts(ws, { q, status: 'active', page: 1, pageSize: cap, selectedFor }),
-        ),
-      );
-    } catch (error) {
-      // DB-less playgrounds still answer FAQs; real persistence failures must surface.
-      if (error instanceof CommerceUnavailableError) return [];
-      throw error;
-    }
-    const unique = new Map(
-      matches
-        .flatMap((result) => result.data)
-        .filter((product) => product.visibleToBot)
-        .map((product) => [product.id, product]),
-    );
-    const score = (product: ProductDto) =>
-      words.filter((word) => foldVietnamese(`${product.name} ${product.code}`).includes(word))
-        .length;
-    return [...unique.values()].sort((a, b) => score(b) - score(a)).slice(0, cap);
+  /** Pictures are files Rapiz stored for this workspace; links are refused, kept ones included. */
+  #assertOwnImages(ws: WorkspaceId, input: ReturnType<typeof UpsertProductSchema.parse>): void {
+    input.imageUrls.forEach((url, i) => {
+      if (ownImageProblem(url, ws, this.images)) throw new ImageNotUploadedError(`imageUrls[${i}]`);
+    });
+    input.accommodation?.gallery.forEach((g, i) => {
+      if (ownImageProblem(g.url, ws, this.images))
+        throw new ImageNotUploadedError(`gallery[${i}].url`);
+    });
   }
 
-  async listBotCatalog(
+  async searchBotCatalog(
     ws: WorkspaceId,
     bot: BotCatalogScope,
-    limit: number,
+    input: { query?: string; maxPriceVnd?: number; inStockOnly?: boolean; limit: number },
   ): Promise<ProductDto[]> {
-    const cap = Math.max(1, Math.min(limit, 30));
+    const limit = Math.max(1, Math.min(input.limit, BOT_CATALOG_CAP));
+    const terms = catalogTerms(input.query ?? '');
+    // A query with no usable term ("a", "?!") matches nothing; only a missing query browses.
+    if (!terms.length && (input.query ?? '').trim()) return [];
+    const query = terms.length
+      ? foldVietnamese(input.query ?? '')
+          .replace(/[^\p{L}\p{N}]+/gu, ' ')
+          .trim()
+      : '';
+    // Price and stock are computed from variants and stock rows, so they filter after the query.
+    const filtered = input.maxPriceVnd !== undefined || input.inStockOnly === true;
     try {
-      const page = await this.listProducts(ws, {
-        status: 'active',
-        page: 1,
-        pageSize: cap,
-        selectedFor: selection(bot),
+      return await this.store.run(ws, async (tx) => {
+        const rows = await tx.products.searchForBot({
+          terms,
+          query,
+          selectedFor: selection(bot),
+          limit: filtered ? BOT_CATALOG_CAP : limit,
+        });
+        const dtos = await this.#dtos(tx, rows);
+        // An accommodation has no stock and a rate reference rather than a price: neither filter applies.
+        return dtos
+          .filter(
+            (d) =>
+              d.accommodation !== undefined ||
+              input.maxPriceVnd === undefined ||
+              d.priceMin <= input.maxPriceVnd,
+          )
+          .filter((d) => d.accommodation !== undefined || !input.inStockOnly || d.available > 0)
+          .slice(0, limit);
       });
-      return page.data.filter((product) => product.visibleToBot);
     } catch (error) {
       if (error instanceof CommerceUnavailableError) return [];
       throw error;
     }
+  }
+
+  async getBotProductsByIds(
+    ws: WorkspaceId,
+    bot: BotCatalogScope,
+    ids: readonly string[],
+  ): Promise<ProductDto[]> {
+    const wanted = [...new Set(ids)].filter(isUuid).slice(0, 10);
+    if (!wanted.length) return [];
+    try {
+      return await this.store.run(ws, async (tx) => {
+        const rows = await tx.products.findForBot(wanted, selection(bot));
+        const dtos = new Map((await this.#dtos(tx, rows)).map((d) => [d.id, d]));
+        return wanted.flatMap((id) => dtos.get(id) ?? []);
+      });
+    } catch (error) {
+      if (error instanceof CommerceUnavailableError) return [];
+      throw error;
+    }
+  }
+
+  async countBotCatalog(ws: WorkspaceId, bot: BotCatalogScope): Promise<number> {
+    try {
+      return await this.store.run(ws, (tx) => tx.products.countForBot(selection(bot)));
+    } catch (error) {
+      if (error instanceof CommerceUnavailableError) return 0;
+      throw error;
+    }
+  }
+
+  async #dtos(tx: CommerceTx, rows: ProductRecord[]): Promise<ProductDto[]> {
+    const variants = await tx.products.variantsOf(rows.map((r) => r.id));
+    const stock = await tx.inventory.stockOf(variants.map((v) => v.id));
+    return rows.map((p) =>
+      toProductDto(
+        p,
+        variants.filter((v) => v.productId === p.id),
+        stock,
+      ),
+    );
   }
 
   // ─── Warehouses ───────────────────────────────────────────────────────────
@@ -255,7 +330,8 @@ export class CatalogService {
   }
 
   createProduct(ws: WorkspaceId, raw: UpsertProductRequest): Promise<ProductDto> {
-    const input = UpsertProductSchema.parse(raw);
+    const input = withMediaPaths(UpsertProductSchema.parse(raw));
+    this.#assertOwnImages(ws, input);
     if (input.accommodation && input.variants.length !== 1)
       throw new LodgingError(
         'VALIDATION_FAILED',
@@ -324,7 +400,8 @@ export class CatalogService {
    * added, the others are archived (never deleted — past orders reference them).
    */
   updateProduct(ws: WorkspaceId, id: string, raw: UpsertProductRequest): Promise<ProductDto> {
-    const input = UpsertProductSchema.parse(raw);
+    const input = withMediaPaths(UpsertProductSchema.parse(raw));
+    this.#assertOwnImages(ws, input);
     return this.store.run(ws, async (tx) => {
       const current = await this.#product(tx, id);
       if (current.accommodation && input.accommodation === null)

@@ -1,0 +1,39 @@
+id: tinymind-order-insufficient-stock
+group: orders
+tags: [critical]
+bot:
+  industry: retail
+  name: TinyMind
+  orderTaking: true
+  profile:
+    fields: { displayName: TinyMind }
+    notes: 'Shop bán đồ chơi gỗ Montessori cho bé.'
+products:
+  - name: 'Xương rồng gỗ xếp thăng bằng'
+    code: TM-002
+    description: 'Xương rồng gỗ xếp thăng bằng, phù hợp bé từ 2 tuổi trở lên.'
+    variants:
+      - { name: 'Mặc định', sku: TM-002-STD, price: 460000, stock: 2 }
+conversation:
+  - customer: 'Cho mình 5 bộ xương rồng gỗ. Trần Văn Minh, 0987 222 333, 45 Nguyễn Trãi, Thanh Xuân, Hà Nội'
+expect:
+  outcome: answered
+  guardrail: none
+  # 5 asked, 2 left: no summary, no buttons, and the bot offers the 2. Either the model sees the
+  # stock first, or the server refuses prepare_order; both are right, a successful prepare is not.
+  steps_not_succeeded: ['prepare_order']
+  steps_exclude: ['confirm_order', 'handoff']
+  contains_any: ['còn 2', '2 bộ']
+  not_contains: ['tóm tắt đơn', 'Đặt hàng', 'tạo đơn']
+fake_turns:
+  - tool_calls:
+      - { name: search_products, input: { query: 'xương rồng gỗ' } }
+  - tool_calls:
+      - name: prepare_order
+        input:
+          items: [{ sku: TM-002-STD, qty: 5 }]
+          recipient:
+            name: 'Trần Văn Minh'
+            phone: '0987 222 333'
+            address: '45 Nguyễn Trãi, Thanh Xuân, Hà Nội'
+  - text: 'Dạ Xương rồng gỗ xếp thăng bằng hiện chỉ còn 2 bộ ạ. Anh Minh lấy 2 bộ để em lên đơn luôn nhé?'

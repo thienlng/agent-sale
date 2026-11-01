@@ -1,9 +1,11 @@
+import { sql } from 'drizzle-orm';
 import {
   boolean,
   index,
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uuid,
@@ -34,6 +36,7 @@ export const aiRuns = pgTable(
     cachedTokens: integer('cached_tokens').notNull(),
     latencyMs: integer('latency_ms').notNull(),
     retrieved: jsonb('retrieved').notNull().default([]),
+    productIds: jsonb('product_ids').$type<string[]>().notNull().default([]),
     outcome: text('outcome').notNull(),
     guardrail: text('guardrail'),
     isTest: boolean('is_test').notNull().default(false),
@@ -42,7 +45,28 @@ export const aiRuns = pgTable(
   (t) => [
     index('ai_runs_workspace_idx').on(t.workspaceId, t.createdAt),
     index('ai_runs_bot_idx').on(t.workspaceId, t.botId, t.createdAt),
+    index('ai_runs_conversation_recent_idx')
+      .on(t.workspaceId, t.conversationId, t.createdAt.desc())
+      .where(sql`${t.conversationId} is not null`),
     ...tenantPolicies('ai_runs'),
+  ],
+);
+
+/** Tenant table (migration 0037). Summary of the older turns of a long conversation. */
+export const conversationSummaries = pgTable(
+  'conversation_summaries',
+  {
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id),
+    conversationId: uuid('conversation_id').notNull(),
+    coveredUntil: timestamp('covered_until', { withTimezone: true }).notNull(),
+    summary: text('summary').notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.workspaceId, t.conversationId] }),
+    ...tenantPolicies('conversation_summaries'),
   ],
 );
 

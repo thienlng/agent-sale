@@ -507,20 +507,23 @@ describe('HTTP: AI playground', () => {
     expect(metrics.body).toContain('ai_runs_total{outcome="answered",test="true"}');
   });
 
-  it("uses the bot's own fallback and handoff messages", async () => {
+  it("answers plainly without information and hands over with the bot's own message", async () => {
     const a = await app();
     const { h, bot } = await botWithFaq(a);
+    // Free text: the model says it has no information (the fallback message is for turns that
+    // end without any answer: tool loop limit, truncated or empty output; see the ai unit tests).
     const unknown = PlaygroundResponse.parse(
       (await ask(a, h, bot.id, 'shop có bán xe máy không')).json(),
     );
-    expect(unknown.outcome).toBe('fallback');
-    expect(unknown.reply).toBe(bot.settings.fallbackMessage);
+    expect(unknown.outcome).toBe('answered');
+    expect(unknown.reply).toBe('Dạ em chưa có thông tin này ạ.');
 
     const human = PlaygroundResponse.parse(
       (await ask(a, h, bot.id, 'cho mình gặp nhân viên')).json(),
     );
     expect(human.outcome).toBe('handoff');
-    // A handoff may open with one short vetted sentence, but always ends with the bot's own message.
+    expect(human.messages?.at(-1)?.via).toBe('final');
+    // A handoff may open with one short sentence, but always ends with the bot's own message.
     expect(human.reply.endsWith(bot.settings.handoffMessage)).toBe(true);
   });
 

@@ -26,6 +26,10 @@ export interface BotView {
   tone: 'friendly' | 'formal';
   allowEmoji: boolean;
   placeholders: Readonly<Record<string, string>>;
+  /** "Chốt đơn": offer the order tools. Absent means off. */
+  orderTaking?: boolean;
+  /** Shipping fee in the order summary (integer VND); null or absent: "shop báo sau". */
+  orderShippingFeeVnd?: number | null;
 }
 
 /** PUBLIC CONTRACT of the bot module. */

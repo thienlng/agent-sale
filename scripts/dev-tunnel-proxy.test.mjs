@@ -19,6 +19,7 @@ async function upstream(name) {
   const sockets = new Set();
   const server = http.createServer((req, res) => {
     res.setHeader('content-type', 'application/json');
+    res.setHeader('cache-control', 'public, max-age=60');
     res.end(JSON.stringify({ name, path: req.url, host: req.headers.host }));
   });
   server.on('connection', (socket) => {
@@ -75,7 +76,7 @@ function upgrade(port, path, protocol) {
 
 test('development tunnel preserves HTTP routing and dispatches WebSocket upgrades', async (t) => {
   const services = {};
-  for (const name of ['site', 'web', 'api', 'webhook']) services[name] = await upstream(name);
+  for (const name of ['site', 'web', 'api', 'webhook', 's3']) services[name] = await upstream(name);
   const reservation = net.createServer();
   const proxyPort = await listen(reservation);
   await new Promise((resolve) => reservation.close(resolve));
@@ -89,6 +90,8 @@ test('development tunnel preserves HTTP routing and dispatches WebSocket upgrade
         WEB_PORT: String(services.web.port),
         API_PORT: String(services.api.port),
         WEBHOOK_PORT: String(services.webhook.port),
+        S3_PORT: String(services.s3.port),
+        S3_BUCKET: 'rapiz-test',
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     },
@@ -146,5 +149,56 @@ test('development tunnel preserves HTTP routing and dispatches WebSocket upgrade
       assert.equal(response.name, name);
       assert.equal(response.path, target);
     }
+  });
+
+  await t.test('/media reads go to the object storage bucket; writes are refused', async () => {
+    const response = await read(proxyPort, '/media/products/ws/pic.jpg');
+    assert.equal(response.name, 's3');
+    assert.equal(response.path, '/rapiz-test/products/ws/pic.jpg');
+    const put = await globalThis.fetch(`http://127.0.0.1:${proxyPort}/media/products/ws/pic.jpg`, {
+      method: 'PUT',
+      body: 'x',
+      signal: globalThis.AbortSignal.timeout(5000),
+    });
+    assert.equal(put.status, 405);
+    const head = await globalThis.fetch(`http://127.0.0.1:${proxyPort}/media/products/ws/pic.jpg`, {
+      method: 'HEAD',
+      signal: globalThis.AbortSignal.timeout(5000),
+    });
+    assert.equal(head.status, 200);
+  });
+
+  await t.test('/media passes content headers and refuses unsafe keys or queries', async () => {
+    const ok = await globalThis.fetch(`http://127.0.0.1:${proxyPort}/media/products/ws/pic.jpg`);
+    assert.equal(ok.headers.get('content-type'), 'application/json');
+    assert.equal(ok.headers.get('cache-control'), 'public, max-age=60');
+    assert.ok(ok.headers.get('content-length'));
+    // The client normalizes literal dot segments, so those are sent as raw requests.
+    const raw = (path) =>
+      new Promise((resolve, reject) => {
+        const socket = net.connect(proxyPort, '127.0.0.1', () =>
+          socket.write(`GET ${path} HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n`),
+        );
+        let data = '';
+        socket.on('data', (chunk) => (data += chunk));
+        socket.on('close', () => resolve(data));
+        socket.on('error', reject);
+      });
+    for (const path of [
+      '/media/../x',
+      '/media/%2e%2e/x',
+      '/media/a/%2F../b',
+      '/media/a/%2f/b',
+      '/media/a//b',
+      '/media/a/b%5Cc',
+      '/media/',
+    ]) {
+      assert.match(await raw(path), /^HTTP\/1\.1 404/, path);
+    }
+    const query = await raw('/media/a/b.png?list-type=2&x=1');
+    assert.match(query, /^HTTP\/1\.1 200/);
+    assert.match(query, /"path":"\/rapiz-test\/a\/b\.png"/);
+    const encoded = await raw('/media/a/b%20c.png');
+    assert.match(encoded, /"path":"\/rapiz-test\/a\/b%20c\.png"/);
   });
 });

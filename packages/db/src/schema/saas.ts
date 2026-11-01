@@ -22,7 +22,7 @@ const workspaceRef = () =>
     .notNull()
     .references(() => workspaces.id);
 
-/** One subscription per customer: plan, stage, MRR in VND, dates (0036, ADR-014). */
+/** One subscription per customer: plan, stage, MRR in VND, dates (0052, ADR-020). */
 export const saasSubscriptions = pgTable(
   'saas_subscriptions',
   {

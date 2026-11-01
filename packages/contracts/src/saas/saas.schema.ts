@@ -13,7 +13,7 @@ const CalendarDate = z
 
 const Email = z.string().trim().toLowerCase().max(200).pipe(z.email());
 
-// ─── Demo / trial / consultation requests taken by the bot (ADR-014) ──────────
+// ─── Demo / trial / consultation requests taken by the bot (ADR-020) ──────────
 
 export const SaasRequestKind = z.enum(['demo', 'trial', 'consultation']);
 export type SaasRequestKind = z.infer<typeof SaasRequestKind>;

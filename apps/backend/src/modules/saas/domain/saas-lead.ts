@@ -2,7 +2,7 @@ import type { SaasLeadDetails, SaasRequestKind, SaasStage } from '@agent-sales/c
 
 /**
  * Built-in customer status (crm `SAAS_STATUSES` key) each subscription stage puts the customer
- * in. The subscription is the only writer of these four statuses (ADR-014).
+ * in. The subscription is the only writer of these four statuses (ADR-020).
  */
 export const STAGE_STATUS: Record<SaasStage, string> = {
   trial: 'trial',

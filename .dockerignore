@@ -1,0 +1,16 @@
+# Keep the image build context small and free of secrets.
+**/node_modules
+**/dist
+**/dist-tunnel
+**/.turbo
+**/test-results
+**/playwright-report
+**/coverage
+**/__pycache__
+.git
+.env
+.env.*
+!.env.example
+.dev-logs
+services/hermes/var
+docs

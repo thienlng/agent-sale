@@ -85,6 +85,67 @@ describe('Meta signed messaging adapter', () => {
       server.send({ externalId: 'page', token: 't' }, 'u', { text: 'Hi' }, { idempotencyKey: 'k' }),
     ).rejects.toBeInstanceOf(MetaRequestError);
   });
+  it('keeps Meta error code, subcode and type but never the message text', async () => {
+    const adapter = new MetaAdapter(
+      'facebook',
+      'v24.0',
+      vi.fn<typeof fetch>().mockResolvedValue(
+        Response.json(
+          {
+            error: {
+              code: 100,
+              error_subcode: 2018047,
+              type: 'OAuthException',
+              message: 'echo: chị Lan 0912',
+            },
+          },
+          { status: 400 },
+        ),
+      ),
+    );
+    const failure = await adapter
+      .send({ externalId: 'page', token: 't' }, 'u', { text: 'Hi' }, { idempotencyKey: 'k' })
+      .catch((e: unknown) => e);
+    expect(failure).toMatchObject({
+      code: 'provider_rejected',
+      meta: { code: 100, subcode: 2018047, type: 'OAuthException' },
+    });
+    expect(JSON.stringify((failure as MetaRequestError).meta)).not.toContain('0912');
+  });
+  it('retries an album once when Meta could not fetch one of its pictures', async () => {
+    const transport = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        Response.json({ error: { code: 100, error_subcode: 2018047 } }, { status: 400 }),
+      )
+      .mockResolvedValueOnce(Response.json({ message_id: 'm1' }));
+    const adapter = new MetaAdapter('facebook', 'v24.0', transport, 0);
+    const album = {
+      attachments: [
+        { type: 'image' as const, url: 'https://cdn.example.com/a.jpg' },
+        { type: 'image' as const, url: 'https://cdn.example.com/b.jpg' },
+      ],
+    };
+    await expect(
+      adapter.send({ externalId: 'page', token: 't' }, 'u', album, { idempotencyKey: 'k' }),
+    ).resolves.toEqual({ externalMessageId: 'm1' });
+    expect(transport).toHaveBeenCalledTimes(2);
+  });
+  it('does not retry other rejections or a single picture', async () => {
+    const reject = () =>
+      Response.json({ error: { code: 100, error_subcode: 2018047 } }, { status: 400 });
+    const transport = vi.fn<typeof fetch>().mockImplementation(async () => reject());
+    const adapter = new MetaAdapter('facebook', 'v24.0', transport, 0);
+    await expect(
+      adapter.send(
+        { externalId: 'page', token: 't' },
+        'u',
+        { attachments: [{ type: 'image', url: 'https://cdn.example.com/a.jpg' }] },
+        { idempotencyKey: 'k' },
+      ),
+    ).rejects.toMatchObject({ code: 'provider_rejected' });
+    expect(transport).toHaveBeenCalledTimes(1);
+  });
   it('keeps HTTPS media attachments and sends one attachment by URL', async () => {
     const a = new MetaAdapter('facebook');
     const body = payload();
@@ -117,6 +178,106 @@ describe('Meta signed messaging adapter', () => {
         payload: { url: 'https://cdn.example/a.jpg', is_reusable: true },
       },
     });
+  });
+  it('sends quick replies on a text message in the Graph shape (Messenger and Instagram)', async () => {
+    for (const kind of ['facebook', 'instagram'] as const) {
+      const transport = vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(Response.json({ message_id: 'm.q' }));
+      await new MetaAdapter(kind, 'v24.0', transport).send(
+        { externalId: 'page', token: 't' },
+        'u',
+        {
+          text: 'Tóm tắt đơn',
+          quickReplies: [
+            { title: '✅ Đặt hàng', payload: 'ORDER_CONFIRM' },
+            { title: '✏️ Sửa thông tin', payload: 'ORDER_EDIT' },
+          ],
+        },
+        { idempotencyKey: 'k' },
+      );
+      const body = JSON.parse(String(transport.mock.calls[0]?.[1]?.body));
+      expect(body.recipient).toEqual({ id: 'u' });
+      expect(body.message).toEqual({
+        text: 'Tóm tắt đơn',
+        quick_replies: [
+          { content_type: 'text', title: '✅ Đặt hàng', payload: 'ORDER_CONFIRM' },
+          { content_type: 'text', title: '✏️ Sửa thông tin', payload: 'ORDER_EDIT' },
+        ],
+      });
+    }
+  });
+  it('sends no quick_replies key for plain text and keeps at most 3 buttons', async () => {
+    const transport = vi
+      .fn<typeof fetch>()
+      .mockImplementation(() => Promise.resolve(Response.json({ message_id: 'm' })));
+    const a = new MetaAdapter('facebook', 'v24.0', transport);
+    await a.send({ externalId: 'p', token: 't' }, 'u', { text: 'Hi' }, { idempotencyKey: 'k' });
+    await a.send(
+      { externalId: 'p', token: 't' },
+      'u',
+      { text: 'Hi', quickReplies: [] },
+      { idempotencyKey: 'k2' },
+    );
+    const four = ['a', 'b', 'c', 'd'].map((x) => ({ title: x, payload: x.toUpperCase() }));
+    await a.send(
+      { externalId: 'p', token: 't' },
+      'u',
+      { text: 'Hi', quickReplies: four },
+      { idempotencyKey: 'k3' },
+    );
+    const sent = transport.mock.calls.map((c) => JSON.parse(String(c[1]?.body)).message);
+    expect(sent[0]).toEqual({ text: 'Hi' });
+    expect(sent[1]).toEqual({ text: 'Hi' });
+    expect(sent[2].quick_replies).toHaveLength(3);
+  });
+  it('clamps titles to 20 code points and payloads to 1000, dropping empty entries', async () => {
+    const transport = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ message_id: 'm' }));
+    const long = '✏️ Sửa thông tin giao hàng của đơn';
+    await new MetaAdapter('facebook', 'v24.0', transport).send(
+      { externalId: 'p', token: 't' },
+      'u',
+      {
+        text: 'Hi',
+        quickReplies: [
+          { title: '', payload: 'EMPTY_TITLE' },
+          { title: 'No payload', payload: '' },
+          { title: long, payload: 'x'.repeat(1500) },
+          { title: '✅ Đặt hàng', payload: 'ORDER_CONFIRM' },
+        ],
+      },
+      { idempotencyKey: 'k' },
+    );
+    const quick = JSON.parse(String(transport.mock.calls[0]?.[1]?.body)).message.quick_replies;
+    expect(quick).toEqual([
+      {
+        content_type: 'text',
+        title: Array.from(long).slice(0, 20).join(''),
+        payload: 'x'.repeat(1000),
+      },
+      { content_type: 'text', title: '✅ Đặt hàng', payload: 'ORDER_CONFIRM' },
+    ]);
+    expect(Array.from(quick[0].title)).toHaveLength(20);
+  });
+  it('keeps the button title as the text and the quick reply payload on the event', () => {
+    const body = payload();
+    Object.assign(body.entry[0]!.messaging[0]!.message, {
+      text: '✅ Đặt hàng',
+      quick_reply: { payload: 'ORDER_CONFIRM' },
+    });
+    const [event] = new MetaAdapter('facebook').parseWebhook(body);
+    expect(event).toMatchObject({ text: '✅ Đặt hàng', quickReplyPayload: 'ORDER_CONFIRM' });
+    expect(new MetaAdapter('facebook').parseWebhook(payload())[0]).not.toHaveProperty(
+      'quickReplyPayload',
+    );
+    const ig = { ...body, object: 'instagram' };
+    expect(new MetaAdapter('instagram').parseWebhook(ig)[0]?.quickReplyPayload).toBe(
+      'ORDER_CONFIRM',
+    );
+  });
+  it('declares quick reply support', () => {
+    expect(new MetaAdapter('facebook').capabilities().quickReplies).toBe(true);
+    expect(new MetaAdapter('instagram').capabilities().quickReplies).toBe(true);
   });
   it('sends several images as one album message', async () => {
     const transport = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ message_id: 'm.2' }));

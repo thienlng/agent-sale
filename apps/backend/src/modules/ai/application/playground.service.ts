@@ -1,88 +1,144 @@
-import {
-  type ChatMessage,
-  type GenerateRequest,
-  type GenerateResponse,
-  PROMPTS_DIR,
-  PromptRegistry,
-} from '@agent-sales/ai-core';
+import { type GenerateRequest, PROMPTS_DIR, PromptRegistry } from '@agent-sales/ai-core';
 import type { PlaygroundRequest, PlaygroundResponse } from '@agent-sales/contracts';
-import { newId, type WorkspaceId } from '@agent-sales/shared';
+import type { WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
 import { recordAiRun } from '../../../common/metrics.js';
 import { ACTION_FACADE, type ActionFacade } from '../../action/api/index.js';
+import { BOT_FACADE, type BotFacade } from '../../bot/api/index.js';
+import {
+  CATALOG_FACADE,
+  type CatalogFacade,
+  COMMERCE_FACADE,
+  type CommerceFacade,
+} from '../../commerce/api/index.js';
+import {
+  KNOWLEDGE_FACADE,
+  type KnowledgeFacade,
+  TRAINING_FACADE,
+  type TrainingFacade,
+} from '../../knowledge/api/index.js';
+import {
+  LODGING_BOT_FACADE,
+  LODGING_CATALOG_FACADE,
+  LODGING_FACADE,
+  type LodgingBotFacade,
+  type LodgingCatalogFacade,
+  type LodgingFacade,
+} from '../../lodging/api/index.js';
 import { SAAS_FACADE, type SaasFacade } from '../../saas/api/index.js';
-import { BOT_FACADE, type BotFacade, type BotView } from '../../bot/api/index.js';
-import { CATALOG_FACADE, type CatalogFacade } from '../../commerce/api/index.js';
-import { KNOWLEDGE_FACADE, type KnowledgeFacade } from '../../knowledge/api/index.js';
-import { renderBusinessProfile } from '../domain/business-profile.js';
-import { catalogProductContext, catalogOverviewContext } from '../domain/catalog-context.js';
-import { replyStyle } from '../domain/reply-style.js';
-import { situationsText } from '../domain/situations.js';
-import { TRAINING_FACADE, type TrainingFacade } from '../../knowledge/api/index.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
 import type { AiFacade } from '../api/ai.facade.js';
+import type { ReplyOptions, ReplyResult } from '../api/reply-options.js';
+import { renderBusinessProfile } from '../domain/business-profile.js';
+import { toSources } from '../domain/grounding.js';
 import {
   buildAllowlist,
   imagesBlock,
   libraryImages,
+  productIdOfImage,
   productImages,
-  resolveImageIds,
 } from '../domain/image-allowlist.js';
-import { knowledgeBlock, type KnowledgeSource, toSources } from '../domain/grounding.js';
 import {
-  ModelReply,
-  type ParsedModelReply,
-  parseModelReply,
-  salvageProse,
-} from '../domain/model-reply.js';
-import { AI_RUN_REPOSITORY, type AiRunRepository } from '../domain/ports/ai-run.repository.js';
+  AI_RUN_REPOSITORY,
+  type AiRunRecord,
+  type AiRunRepository,
+} from '../domain/ports/ai-run.repository.js';
 import {
-  type ActionCall,
+  CONVERSATION_SUMMARY_REPOSITORY,
+  type ConversationSummaryRepository,
+} from '../domain/ports/conversation-summary.repository.js';
+import { replyStyle } from '../domain/reply-style.js';
+import { quotedSources } from '../domain/reply-text.js';
+import { situationsText } from '../domain/situations.js';
+import {
+  actionTools,
   idempotencyKey,
+  newActionToolState,
   playgroundConversationId,
-  runActionLoop,
-} from './action-loop.js';
-import { actionsBlock } from './actions-block.js';
-import { builtinTools } from './builtin-tools.js';
-import { decide, fallbackDecision } from './decide-reply.js';
+} from './action-tools.js';
+import { type AgentLoopResult, type AgentStep, runAgentLoop } from './agent-loop.js';
+import { createHistorySummarizer } from './history-summarizer.js';
+import {
+  HOLD_CONFIRM_PAYLOAD,
+  holdCreatedText,
+  hotelHoldContext,
+  localHoldTime,
+} from './hold-tools.js';
 import { LlmRuntime } from './llm-runtime.js';
+import {
+  confirmableDraft,
+  answeredSince,
+  newOrderToolState,
+  announceCreated,
+  announceOrder,
+  keepSummaryLast,
+  ORDER_CONFIRM_PAYLOAD,
+  type OrderToolContext,
+  PLAYGROUND_ORDER_CHANNEL,
+} from './order-tools.js';
+import { HANDOFF_TOOL, ImageAllowlist, newOutputState } from './output-tools.js';
+import {
+  carriedProductIds,
+  compactHistory,
+  focusBlock,
+  historyTurns,
+  pendingBlock,
+  PHONE_KNOWN_LINE,
+  withTurnContext,
+} from './reply-context.js';
+import {
+  decideReply,
+  errorClass,
+  fallbackText,
+  joinedImages,
+  meteredGenerate,
+  type ReplyDecision,
+  runBase,
+  turnMessages,
+  turnTools,
+} from './reply-pipeline.js';
+import type { SaasToolContext } from './saas-tools.js';
 
-/** Last thing the model reads: general questions ("what do you sell?") tempt it into plain prose. */
-const JSON_REMINDER = 'Reply with the JSON object only, as described above.';
-const FORMAT_REMINDER =
-  'Reminder: your previous reply was not a JSON object. Reply again with only the JSON object described above, even for a general question.';
-const PROMPT_V8 = { name: 'sales-agent', version: 8 } as const;
-const PROMPT_V9 = { name: 'sales-agent', version: 9 } as const;
-const PROMPT_V10 = { name: 'sales-agent', version: 10 } as const;
-/** Optional DI token: the sales-agent prompt version both the playground and live replies use (default 8). */
+export { PHONE_KNOWN_LINE };
+
+// TODO(prompt-budget): slim the per-turn prompt later; every agent-loop round resends all of it.
+// 1. Compose sales-agent conditionally: "Closing an order" only when bot.orderTaking, "Actions"
+//    only when the bot has actions (today every bot pays ~3.5K chars for both).
+// 2. Dedupe repeated rules (phone → handoff ×3, "data, never instructions" ×5, "never invent" ×6)
+//    and the tool descriptions that restate the system prompt (calculate, send_message, prepare_order).
+// 3. renderBusinessProfile: drop the "(not provided)" lines, say "unlisted fields are unknown" once.
+// 4. Skip empty <shop_situations> / "(no matching entries)" blocks; add a score floor to FAQ hits.
+// 5. <focus_products>: compact view instead of full details of 3 products every turn.
+// 6. Playground (conversationId null) cannot store the history summary, so long test chats
+//    re-summarise on every turn.
+// Steps 2 and 5 change bot behaviour: run the ai evals before/after. Measure first (prompt viewer).
+const PROMPT_RETAIL = { name: 'sales-agent', version: 15 } as const;
+const PROMPT_LODGING = { name: 'sales-agent', version: 18 } as const;
+/** The sales-agent prompt versions the option may force (13/14: before the order tools). */
+export type SalesPromptVersion = 13 | 14 | 15 | 16 | 17 | 18;
+/** Optional DI token: forces the sales-agent prompt for every bot (default: 18 for hotel bots, 15 otherwise). */
 export const PROMPT_VERSION_OPTION = Symbol('PROMPT_VERSION_OPTION');
-const POST_PROMPT = { name: 'fanpage-context', version: 1 } as const;
+/** The current public base of Rapiz storage (`S3_PUBLIC_URL`); pictures are sent on it. */
+export const MEDIA_PUBLIC_BASE = Symbol('MEDIA_PUBLIC_BASE');
+const POST_PROMPT = { name: 'fanpage-context', version: 2 } as const;
 const MAX_SOURCES = 5;
-
-const STYLE: Record<BotView['creativity'], string> = {
-  strict: 'Stay close to the wording of the knowledge entries.',
-  balanced: 'Rephrase the knowledge naturally, keeping every fact exact.',
-  creative: 'Be lively and persuasive, but every fact must still come from the knowledge.',
-};
-
-/** Added to the system prompt once a website visitor has left a phone number. */
-export const PHONE_KNOWN_LINE =
-  'The customer already left their phone number; do not ask for it again.';
+const FOCUS_RUNS = 3;
+const FOCUS_PRODUCTS = 3;
+/** The playground has no conversation: only recent runs count as "the product being discussed". */
+const PLAYGROUND_FOCUS_WINDOW_MS = 30 * 60_000;
 
 /**
- * The bot's reply pipeline, single turn, for the dashboard playground:
- * retrieve FAQs → grounded LLM call (structured output) → guardrails
- * (number grounding, fallback/handoff messages) → ai_runs metering.
- * Runs in the api process for now because the playground is request/response;
- * channel conversations will run the same pipeline in the agent process (M3).
+ * The bot's reply pipeline, one customer turn: retrieve FAQs and focus products → agent loop
+ * (catalog, action and output tools, free-text answer, optional `send_message`) → outcome
+ * (handoff / answered / fallback) → ai_runs metering. Serves the dashboard playground, Messenger
+ * replies and fanpage comment replies.
  */
 @Injectable()
 export class PlaygroundService implements AiFacade {
   readonly #prompts = new PromptRegistry(PROMPTS_DIR);
   readonly #logger = new Logger(PlaygroundService.name);
-  readonly #prompt: typeof PROMPT_V8 | typeof PROMPT_V9;
-  readonly #automaticLodgingPrompt: boolean;
+  readonly #forcedPrompt: { name: 'sales-agent'; version: SalesPromptVersion } | undefined;
 
   constructor(
     @Inject(BOT_FACADE) private readonly bots: BotFacade,
@@ -93,11 +149,22 @@ export class PlaygroundService implements AiFacade {
     @Inject(TRAINING_FACADE) @Optional() private readonly training?: TrainingFacade,
     @Inject(CATALOG_FACADE) @Optional() private readonly catalog?: CatalogFacade,
     @Inject(ACTION_FACADE) @Optional() private readonly actions?: ActionFacade,
-    @Inject(PROMPT_VERSION_OPTION) @Optional() promptVersion?: 8 | 9,
+    @Inject(PROMPT_VERSION_OPTION) @Optional() promptVersion?: SalesPromptVersion,
+    @Inject(CONVERSATION_SUMMARY_REPOSITORY)
+    @Optional()
+    private readonly summaries?: ConversationSummaryRepository,
+    @Inject(COMMERCE_FACADE) @Optional() private readonly commerce?: CommerceFacade,
+    @Inject(LODGING_CATALOG_FACADE)
+    @Optional()
+    private readonly lodgingCatalog?: LodgingCatalogFacade,
+    @Inject(LODGING_BOT_FACADE) @Optional() private readonly lodgingBot?: LodgingBotFacade,
+    @Inject(LODGING_FACADE) @Optional() private readonly lodging?: LodgingFacade,
+    @Inject(MEDIA_PUBLIC_BASE) @Optional() private readonly mediaBase?: string,
     @Inject(SAAS_FACADE) @Optional() private readonly saas?: SaasFacade,
   ) {
-    this.#prompt = promptVersion === 8 ? PROMPT_V8 : PROMPT_V9;
-    this.#automaticLodgingPrompt = promptVersion === undefined;
+    this.#forcedPrompt = promptVersion
+      ? { name: 'sales-agent', version: promptVersion }
+      : undefined;
   }
 
   async playground(
@@ -105,27 +172,19 @@ export class PlaygroundService implements AiFacade {
     botId: string,
     input: PlaygroundRequest,
   ): Promise<PlaygroundResponse> {
-    return this.generateReply(ws, botId, input, { conversationId: null, isTest: true });
+    return this.reply(ws, botId, input, { conversationId: null, isTest: true });
   }
 
   async reply(
     ws: WorkspaceId,
     botId: string,
     input: PlaygroundRequest,
-    context: { conversationId: string | null; isTest: boolean },
-  ): Promise<PlaygroundResponse> {
-    return this.generateReply(ws, botId, input, context);
-  }
-
-  private async generateReply(
-    ws: WorkspaceId,
-    botId: string,
-    input: PlaygroundRequest,
-    context: { conversationId: string | null; isTest: boolean },
-  ): Promise<PlaygroundResponse> {
+    options: ReplyOptions = { conversationId: null, isTest: false },
+  ): Promise<ReplyResult> {
+    const startedAt = new Date();
     const bot = await this.bots.getBot(ws, botId);
     const prompt =
-      bot.industry === 'hotel' && this.#automaticLodgingPrompt ? PROMPT_V10 : this.#prompt;
+      this.#forcedPrompt ?? (bot.industry === 'hotel' ? PROMPT_LODGING : PROMPT_RETAIL);
     const workspace = await this.workspaces.getById(ws);
     const customerTexts = input.messages.filter((m) => m.role === 'customer').map((m) => m.content);
 
@@ -136,298 +195,351 @@ export class PlaygroundService implements AiFacade {
       .join('\n');
     const hits = await this.knowledge.searchFaqs(ws, botId, query, MAX_SOURCES);
     const sources = toSources(hits, bot.placeholders);
-    const scenarios = this.training
-      ? (await this.training.list(ws, botId)).filter((item) => item.kind === 'scenario')
-      : [];
-    const media = this.training
-      ? (await this.training.list(ws, botId)).filter((item) => item.kind === 'media')
-      : [];
-    const guidance = situationsText(scenarios);
-    // Variant names like "Size 41" match most products, so a follow-up ("size 41 thì sao?") only
-    // finds the product being discussed through the bot's own last reply, which names it.
-    const lastBotReply = input.messages.findLast((m) => m.role === 'bot')?.content.slice(0, 400);
-    const productQuery = lastBotReply ? `${query}\n${lastBotReply}` : query;
+    const trainingItems = this.training ? await this.training.list(ws, botId) : [];
+    const guidance = situationsText(trainingItems.filter((item) => item.kind === 'scenario'));
+    const media = trainingItems.filter((item) => item.kind === 'media');
     const scope = { botId, catalogMode: bot.catalogMode };
-    const products = this.catalog
-      ? await this.catalog.getBotProducts(ws, scope, productQuery, 5)
-      : [];
-    // The pictures the bot may send this turn. The model only gets ids and labels, never URLs.
-    const allowed = buildAllowlist(
-      productImages(products, query),
-      libraryImages(media, query),
-      products.some((p) => p.accommodation) ? query : '',
+    // Hotel bots sell lodging properties instead of commerce products (T-160): their selection
+    // lives in lodging and catalogMode is ignored.
+    const catalog: CatalogFacade | undefined =
+      bot.industry === 'hotel' ? this.lodgingCatalog : this.catalog;
+
+    // Products already discussed (the last runs of this conversation) need no new search.
+    // A comment reply has no conversation to remember, so it never shares one across customers.
+    const conversationKey = options.conversationId ?? playgroundConversationId(botId);
+    const remembers = options.conversationId !== null || options.isTest;
+    const focusIds =
+      catalog && remembers
+        ? await this.runs.recentProductIds(ws, conversationKey, {
+            runs: FOCUS_RUNS,
+            limit: FOCUS_PRODUCTS,
+            ...(options.conversationId === null
+              ? { since: new Date(Date.now() - PLAYGROUND_FOCUS_WINDOW_MS) }
+              : {}),
+          })
+        : [];
+    const focus =
+      catalog && focusIds.length ? await catalog.getBotProductsByIds(ws, scope, focusIds) : [];
+    // The pictures the bot may send. The model only gets ids and labels, never URLs; the list grows
+    // with every product whose details a tool returns this turn.
+    const libraryMatches = libraryImages(media, query);
+    const initialAllowed = buildAllowlist(
+      productImages(focus),
+      libraryMatches,
+      focus.some((p) => p.accommodation) ? query : '',
     );
-    const productContext = products.map(catalogProductContext);
-    // A short list of everything on sale, so general questions ("what do you sell?", "something
-    // under 500k") can be answered even when no product name matched the customer's words.
-    const overview = this.catalog ? await this.catalog.listBotCatalog(ws, scope, 15) : [];
-    const overviewContext = overview.map(catalogOverviewContext);
-    const contextData = [
+    const allowlist = new ImageAllowlist(initialAllowed, this.mediaBase);
+    const carryIds = carriedProductIds(options.carry ?? []);
+    if (catalog && carryIds.length)
+      allowlist.add(productImages(await catalog.getBotProductsByIds(ws, scope, carryIds)));
+
+    const situations = [
       post
         ? `<originating_post>\n${JSON.stringify({ text: post.text, media: post.media, parentText: post.parentText }).replace(/</g, '\\u003c').replace(/>/g, '\\u003e')}\n</originating_post>`
         : '',
       guidance,
-      overview.length
-        ? `<catalog_overview>\n${JSON.stringify(overviewContext)}\n</catalog_overview>`
-        : '',
-      products.length ? `<catalog>\n${JSON.stringify(productContext)}\n</catalog>` : '',
     ]
       .filter(Boolean)
       .join('\n\n');
-    // Figures the reply may state: the shop's own post, guidance and catalog. The parent comment is
-    // the customer's words, so a price in it is context, never a grounded source.
-    const groundingData = [
-      post ? JSON.stringify({ text: post.text, media: post.media }) : '',
-      guidance,
-      JSON.stringify(overviewContext),
-      JSON.stringify(productContext),
-    ].join('\n');
 
-    // The playground has no conversation: a stable id per bot lets confirmations work in the test chat.
-    const actionConversationId = context.conversationId ?? playgroundConversationId(botId);
-    const builtins = builtinTools({
-      industry: bot.industry,
-      saas: this.saas,
-      ws,
-      isTest: context.isTest,
-      customerTexts,
-    });
-    const ownActions = this.actions ? await this.actions.listForBot(ws, botId) : [];
-    const actionViews = [...ownActions, ...builtins.views];
-    const pendingAction =
-      this.actions && ownActions.length
-        ? await this.actions.getPending(ws, actionConversationId)
+    const actionViews = this.actions ? await this.actions.listForBot(ws, botId) : [];
+    // A public comment reply has no private conversation: it never reads (or writes) the pending
+    // key the owner's playground uses, confirm-required actions are refused for it, and it gets no
+    // send_message (one public reply per comment).
+    const isCommentReply = options.conversationId === null && !options.isTest;
+    const storedPending =
+      this.actions && actionViews.length && !isCommentReply
+        ? await this.actions.getPending(ws, conversationKey)
         : null;
-    const actionsBlockText = actionViews.length ? actionsBlock(actionViews, pendingAction) : '';
+    // A pending call whose action was disabled meanwhile cannot be confirmed.
+    const waiting = storedPending
+      ? actionViews.find((a) => a.id === storedPending.actionId)
+      : undefined;
+    const pending = storedPending && waiting ? storedPending : null;
+    const { definitions: actionDefinitions, byName } = actionTools(actionViews, pending);
+
+    const actionState = newActionToolState();
+    const actionContext = this.actions
+      ? {
+          facade: this.actions,
+          ws,
+          botId,
+          conversationId: conversationKey,
+          isTest: options.isTest,
+          customerTexts,
+          byName,
+          keyFor: (actionId: string, args: Parameters<typeof idempotencyKey>[2]) =>
+            idempotencyKey(conversationKey, actionId, args),
+          state: actionState,
+          // Only a call stored before this turn can be confirmed by it.
+          confirmable: pending !== null,
+          confirmationAvailable: !isCommentReply,
+        }
+      : null;
+    const output = newOutputState();
+    // Orders need a private conversation: never for a public comment reply. Hotel bots sell
+    // lodging properties, which commerce orders cannot hold (T-160).
+    const orders: OrderToolContext | null =
+      this.commerce && bot.orderTaking && !isCommentReply && bot.industry !== 'hotel'
+        ? {
+            facade: this.commerce,
+            ws,
+            bot,
+            conversationId: conversationKey,
+            channel: options.channel ?? PLAYGROUND_ORDER_CHANNEL,
+            ...(options.sink ? { sink: options.sink } : {}),
+            output,
+            confirmable: await confirmableDraft(
+              this.commerce,
+              ws,
+              conversationKey,
+              answeredSince(input.messages, options.turnTimes, startedAt),
+              (error) => this.#logger.warn(`Order draft check failed: ${errorClass(error)}`),
+            ),
+            state: newOrderToolState(),
+            onError: (error: unknown) =>
+              this.#logger.warn(`Order draft drop failed: ${errorClass(error)}`),
+          }
+        : null;
+    const holds =
+      this.lodgingBot && this.lodgingCatalog && bot.industry === 'hotel'
+        ? await hotelHoldContext({
+            facade: this.lodgingBot,
+            catalog: this.lodgingCatalog,
+            ws,
+            bot,
+            conversationId: conversationKey,
+            channel: options.channel ?? PLAYGROUND_ORDER_CHANNEL,
+            contactId: options.contactId ?? null,
+            ...(this.lodging ? { lodging: this.lodging } : {}),
+            ...(options.sink ? { sink: options.sink } : {}),
+            output,
+            privateChat: !isCommentReply,
+            answered: answeredSince(input.messages, options.turnTimes, startedAt),
+            warn: (message) => this.#logger.warn(message),
+          })
+        : null;
+    // A SaaS bot records demo / trial requests on the customer itself (ADR-020).
+    const saasTool: SaasToolContext | null =
+      this.saas && bot.industry === 'saas'
+        ? {
+            facade: this.saas,
+            ws,
+            isTest: options.isTest,
+            customerTexts,
+            calls: actionState.calls,
+            onError: (error) => this.#logger.warn(`SaaS request tool failed: ${errorClass(error)}`),
+          }
+        : null;
+    const seenProducts = new Set<string>();
+    const tools = turnTools({
+      ...(catalog ? { catalog: { ws, scope, catalog } } : {}),
+      allowlist,
+      onProducts: (products) => products.forEach((p) => seenProducts.add(p.id)),
+      output,
+      ...(options.sink ? { sink: options.sink } : {}),
+      sendMessage: !isCommentReply,
+      actions: actionContext ? { definitions: actionDefinitions, context: actionContext } : null,
+      orders,
+      holds,
+      saas: saasTool,
+    });
 
     const postRules = post ? await this.#prompts.load(POST_PROMPT) : '';
-    const v9 = prompt.version >= 9;
     const template = [await this.#prompts.load(prompt), postRules].filter(Boolean).join('\n\n');
+    // Byte-stable per bot: everything that changes per turn rides on the last user message.
     const system = this.#prompts.render(template, {
       'bot.name': bot.name,
-      // The shop's own name beats the account's workspace name (@9: the profile's display name first).
+      // The shop's own name beats the account's workspace name (the profile's display name first).
       'workspace.name':
-        (v9 ? bot.profile.fields.displayName : undefined) ||
-        bot.placeholders['store.name'] ||
-        workspace.name,
+        bot.profile.fields.displayName || bot.placeholders['store.name'] || workspace.name,
       'bot.language': bot.language === 'en' ? 'English' : 'Vietnamese',
       'bot.selfPronoun': bot.selfPronoun,
       'bot.customerPronoun': bot.customerPronoun,
-      'bot.style': v9 ? replyStyle(bot) : STYLE[bot.creativity],
+      'bot.style': replyStyle(bot),
       'bot.mission': bot.mission || '(not described yet)',
     });
 
-    const request = {
-      workspaceId: ws,
-      tier: bot.modelTier,
-      messages: [
-        {
-          role: 'system' as const,
-          content: input.phoneKnown ? `${system}\n\n${PHONE_KNOWN_LINE}` : system,
-        },
-        ...conversation(
-          input,
-          sources,
-          contextData,
-          [imagesBlock(allowed), actionsBlockText].filter(Boolean).join('\n\n'),
-          v9 ? renderBusinessProfile(bot) : '',
-        ),
-      ],
-      responseFormat: ModelReply,
-      maxOutputTokens: 2_000,
-      // Only the Hermes provider accepts images; any other provider throws, so a customer image
-      // is never silently dropped (the caller decides how to degrade).
-      ...(input.images?.length ? { images: input.images } : {}),
-    };
-    // Tokens and latency add up over every model call of the turn: one ai_run per customer turn.
-    const total = { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, latencyMs: 0 };
-    const complete = async (followUp: ChatMessage[]) => {
-      const turn = await this.completeTurn({
-        ...request,
-        messages: [...request.messages, ...followUp],
+    const meter = meteredGenerate((req) => this.llm.generate(req));
+    const promptVersion = [prompt, ...(post ? [POST_PROMPT] : [])]
+      .map((p) => `${p.name}@${p.version}`)
+      .join('+');
+    const history = historyTurns(input, options.turnTimes);
+    const summaryKey = options.conversationId;
+    const stored =
+      this.summaries && summaryKey && history.times
+        ? await this.summaries.get(ws, summaryKey)
+        : null;
+    const steps: AgentStep[] = [];
+    let loop: AgentLoopResult | null = null;
+    try {
+      const compact = await compactHistory(history.turns, {
+        times: history.times,
+        stored,
+        summarize: createHistorySummarizer(meter.generate, {
+          workspaceId: ws,
+          tier: bot.modelTier,
+        }),
+        onError: (error) =>
+          this.#logger.warn(
+            `History summary failed (${errorClass(error)}), using the full history`,
+          ),
       });
-      total.inputTokens += turn.res.usage.inputTokens;
-      total.outputTokens += turn.res.usage.outputTokens;
-      total.cachedInputTokens += turn.res.usage.cachedInputTokens;
-      total.latencyMs += turn.res.latencyMs;
-      return turn;
-    };
-    let last = await complete([]);
-    let calls: ActionCall[] = [];
-    let actionResults: string[] = [];
-    let readback: string[] = [];
-    let askedConfirmation = false;
-    let forced: { guardrail: string | null } | null = null;
-    if (actionViews.length) {
-      let current = last;
-      const loop = await runActionLoop({
-        facade: this.actions ?? null,
-        builtins: builtins.invokers,
-        ws,
-        botId,
-        conversationId: actionConversationId,
-        isTest: context.isTest,
-        actions: actionViews,
-        first: { text: last.res.text, output: last.output },
-        reminder: JSON_REMINDER,
-        customerTexts,
-        keyFor: (actionId, args) => idempotencyKey(actionConversationId, actionId, args),
-        ask: async (followUp) => {
-          current = await complete(followUp);
-          return { text: current.res.text, output: current.output };
-        },
-      });
-      calls = loop.calls;
-      if (loop.kind === 'fallback') forced = { guardrail: loop.guardrail };
-      else {
-        actionResults = loop.results;
-        readback = loop.readback;
-        askedConfirmation = loop.askedConfirmation;
-        // A confirmation question or a cancel answers with the model's own reply, not a new turn.
-        last = { res: current.res, output: loop.turn.output };
-      }
-    }
-    const res: GenerateResponse = {
-      ...last.res,
-      latencyMs: total.latencyMs,
-      usage: {
-        inputTokens: total.inputTokens,
-        outputTokens: total.outputTokens,
-        cachedInputTokens: total.cachedInputTokens,
-      },
-    };
-    const output = last.output;
+      if (compact.save && this.summaries && summaryKey)
+        await this.summaries.put(ws, summaryKey, compact.save);
 
-    const decision = forced
-      ? fallbackDecision(bot, forced.guardrail)
-      : decide(
-          res.stopReason,
-          output,
-          bot,
-          sources,
-          [...customerTexts, ...readback],
-          groundingData,
-          actionResults,
-        );
-    // A question the guardrails replaced never reached the customer: their "ok" must not confirm it.
-    if (this.actions && askedConfirmation && decision.outcome !== 'answered') {
-      await this.actions.clearPending(ws, actionConversationId);
+      const base: GenerateRequest = {
+        workspaceId: ws,
+        tier: bot.modelTier,
+        messages: [
+          { role: 'system', content: system },
+          ...withTurnContext(compact.turns, {
+            profile: renderBusinessProfile(bot),
+            sources,
+            situations,
+            focus: focusBlock(focus),
+            pending: pending && waiting ? pendingBlock(waiting, pending) : '',
+            images: imagesBlock(initialAllowed),
+            phoneKnown: input.phoneKnown === true,
+            now: new Date(),
+          }),
+        ],
+        maxOutputTokens: 2_000,
+        tools: tools.definitions,
+        promptCacheKey: `${botId}:${conversationKey}`,
+        // Only the Hermes provider accepts images; any other provider throws, so a customer image
+        // is never silently dropped (the caller decides how to degrade).
+        ...(input.images?.length ? { images: input.images } : {}),
+      };
+      loop = await runAgentLoop({
+        base,
+        tools: tools.runnable,
+        // Once a message went out, an empty final answer is fine: no gateway retry for it.
+        generate: (req) => meter.generate(output.sent.length ? { ...req, allowEmpty: true } : req),
+        onStep: (step) => steps.push(step),
+        isTerminal: (call) => call.name === HANDOFF_TOOL,
+        ...(options.shouldInterrupt ? { shouldInterrupt: options.shouldInterrupt } : {}),
+        ...(options.carry?.length ? { carry: options.carry } : {}),
+        // The tool name and the error class only: a DB error message can embed customer words.
+        onToolError: (name, error) =>
+          this.#logger.warn(`Tool ${name} failed: ${errorClass(error)}`),
+      });
+    } catch (error) {
+      // A created order (or hold) counts as delivered: its code must still reach the customer.
+      if (!output.sent.length && !orders?.state.orderCreated && !holds?.state.created) {
+        // Nothing reached the customer: their "ok" must not confirm an unasked question, the turn
+        // is billed for what it consumed, and the caller decides how to degrade.
+        if (this.actions && actionState.askedConfirmation)
+          await this.actions.clearPending(ws, conversationKey);
+        if (meter.last)
+          await this.#record(ws, {
+            ...runBase({ botId, tier: bot.modelTier, options, promptVersion, meter }),
+            retrieved: sources.map((s) => ({ faqId: s.faqId, score: s.score, used: false })),
+            outcome: 'fallback' as const,
+            guardrail: 'model_error',
+            productIds: [...seenProducts],
+          });
+        throw error;
+      }
+      // Messages were already delivered: report them, so the caller neither retries nor repeats them.
+      this.#logger.warn(`Model call failed after messages were sent (${errorClass(error)})`);
     }
-    const promptVersion = `${prompt.name}@${prompt.version}`;
+
+    let decision: ReplyDecision = loop
+      ? decideReply({ loop, output, bot, actionFallback: actionState.fallback })
+      : { outcome: 'answered', guardrail: 'model_error', final: fallbackText(bot) };
+    const droppedFinal = Boolean(decision.final);
+    decision = keepSummaryLast(
+      decision,
+      output.sent,
+      holds ? HOLD_CONFIRM_PAYLOAD : ORDER_CONFIRM_PAYLOAD,
+    );
+    const finalDropped = droppedFinal && !decision.final;
+    // An order was created: its code reaches the customer exactly once, whatever cut the turn short.
+    const orderCode = orders?.state.orderCode;
+    if (orderCode) {
+      const sentTexts = output.sent.map((m) => m.text);
+      decision = announceOrder(decision, { orderCode, sentTexts, fallback: fallbackText(bot) });
+    }
+    const held = holds?.state.created;
+    if (held) {
+      decision = announceCreated(decision, {
+        code: held.code,
+        line: holdCreatedText(held.code, held.expiresAt),
+        sentTexts: output.sent.map((m) => m.text),
+        fallback: fallbackText(bot),
+        // The code alone is not enough: the customer must also read until when it is held.
+        alsoRequired: [localHoldTime(held.expiresAt)?.time].filter((t) => t !== undefined),
+      });
+    }
+    const messages = turnMessages(output, decision);
+    const interrupted = loop?.outcome === 'interrupted';
+    // A question that never reached the customer must not be confirmed by their next "ok".
+    if (
+      this.actions &&
+      actionState.askedConfirmation &&
+      (decision.outcome !== 'answered' ||
+        decision.guardrail === 'model_error' ||
+        interrupted ||
+        finalDropped ||
+        !messages.length)
+    ) {
+      await this.actions.clearPending(ws, conversationKey);
+    }
+
+    const replyText = messages
+      .map((m) => m.text)
+      .filter(Boolean)
+      .join('\n');
+    const sentImages = messages.flatMap((m) => m.images);
+    const used = quotedSources(replyText, sources);
     const run = {
-      id: newId(),
-      botId,
-      conversationId: context.conversationId,
-      tier: bot.modelTier,
-      provider: res.provider,
-      model: res.model,
-      promptVersion: post
-        ? `${promptVersion}+${POST_PROMPT.name}@${POST_PROMPT.version}`
-        : promptVersion,
-      inputTokens: res.usage.inputTokens,
-      outputTokens: res.usage.outputTokens,
-      cachedTokens: res.usage.cachedInputTokens,
-      latencyMs: res.latencyMs,
-      retrieved: sources.map((s) => ({
-        faqId: s.faqId,
-        score: s.score,
-        used: decision.used.has(s.key),
-      })),
+      ...runBase({ botId, tier: bot.modelTier, options, promptVersion, meter }),
+      retrieved: sources.map((s) => ({ faqId: s.faqId, score: s.score, used: used.has(s.key) })),
       outcome: decision.outcome,
       guardrail: decision.guardrail,
-      isTest: context.isTest,
-      createdAt: new Date(),
+      productIds: [
+        ...new Set([
+          ...(loop?.productIds ?? seenProducts),
+          ...sentImages.flatMap((image) => productIdOfImage(image.id) ?? []),
+        ]),
+      ],
     };
-    await this.runs.record(ws, run);
-    recordAiRun(run);
-
-    // Pictures follow only a grounded answer, and only ids from this turn's allowlist.
-    const images =
-      decision.outcome === 'answered' && output.ok
-        ? resolveImageIds(output.value.imageIds, allowed)
-        : [];
+    await this.#record(ws, run);
 
     return {
       runId: run.id,
-      reply: decision.reply,
+      reply: replyText,
       outcome: decision.outcome,
       guardrail: decision.guardrail,
       sources: sources.map((s) => ({
         faqId: s.faqId,
         question: s.question,
         score: s.score,
-        used: decision.used.has(s.key),
+        used: used.has(s.key),
       })),
-      images,
-      usage: res.usage,
-      provider: res.provider,
-      model: res.model,
-      latencyMs: res.latencyMs,
-      ...(calls.length ? { actions: calls } : {}),
+      images: joinedImages(sentImages),
+      usage: meter.usage,
+      provider: run.provider,
+      model: run.model,
+      latencyMs: meter.latencyMs,
+      ...(actionState.calls.length ? { actions: actionState.calls } : {}),
+      messages,
+      steps,
+      ...(interrupted && loop ? { interrupted: true, carry: loop.followUps } : {}),
+      ...(actionState.askedConfirmation ? { askedConfirmation: true } : {}),
+      // A placed hold is binding like an order: the caller must never drop its final message.
+      ...(orders?.state.orderCreated || held ? { orderCreated: true } : {}),
     };
   }
 
-  /** One model call with the format retry and the prose salvage of the original single-turn pipeline. */
-  private async completeTurn(
-    request: GenerateRequest,
-  ): Promise<{ res: GenerateResponse; output: ParsedModelReply }> {
-    let res = await this.llm.generate(request);
-    let output = parseModelReply(res.text);
-    // One malformed output is usually a one-off: retry once before giving up on the question.
-    if (!output.ok && res.stopReason === 'end') {
-      this.#logger.warn(`AI output rejected (${output.reason}), retrying once`);
-      // The second attempt reminds the model of the output format (the first reply was prose).
-      const [system, ...rest] = request.messages;
-      const retry = await this.llm.generate({
-        ...request,
-        messages: system
-          ? [{ ...system, content: `${system.content}\n\n${FORMAT_REMINDER}` }, ...rest]
-          : request.messages,
-      });
-      res = {
-        ...retry,
-        latencyMs: res.latencyMs + retry.latencyMs,
-        usage: {
-          inputTokens: res.usage.inputTokens + retry.usage.inputTokens,
-          outputTokens: res.usage.outputTokens + retry.usage.outputTokens,
-          cachedInputTokens: res.usage.cachedInputTokens + retry.usage.cachedInputTokens,
-        },
-      };
-      output = parseModelReply(retry.text);
-      // Still prose after the reminder: keep a short, grounded, non-leaking answer rather than
-      // telling the customer "I have no information" about something the model did answer.
-      if (!output.ok && output.reason === 'not_json' && retry.stopReason === 'end') {
-        const salvaged = salvageProse(retry.text, system?.content ?? '');
-        if (salvaged) output = { ok: true, value: salvaged };
-      }
-    }
-    return { res, output };
+  async discardPendingConfirmation(ws: WorkspaceId, conversationId: string): Promise<void> {
+    await this.actions?.clearPending(ws, conversationId);
   }
-}
 
-/**
- * The test conversation as chat turns. Customer text is wrapped as data; the
- * knowledge block rides on the last customer turn so the cached prefix
- * (system prompt + earlier turns) stays stable.
- */
-function conversation(
-  input: PlaygroundRequest,
-  sources: KnowledgeSource[],
-  guidance: string,
-  images: string,
-  profile: string,
-): ChatMessage[] {
-  const firstCustomer = input.messages.findIndex((m) => m.role === 'customer');
-  const turns = input.messages.slice(firstCustomer);
-  return turns.map((m, i): ChatMessage => {
-    if (m.role === 'bot') return { role: 'assistant', content: m.content };
-    const customer = `<customer>\n${m.content}\n</customer>`;
-    return {
-      role: 'user',
-      content:
-        i === turns.length - 1
-          ? `${profile ? `${profile}\n\n` : ''}${knowledgeBlock(sources)}\n\n<shop_situations>\n${guidance}\n</shop_situations>\n\n${images ? `${images}\n\n` : ''}${customer}\n\n${JSON_REMINDER}`
-          : customer,
-    };
-  });
+  /** Writes the run; an interrupted one is not counted as a fallback in the outcome metric. */
+  async #record(ws: WorkspaceId, run: AiRunRecord): Promise<void> {
+    await this.runs.record(ws, run);
+    recordAiRun({ ...run, outcome: run.guardrail === 'interrupted' ? 'interrupted' : run.outcome });
+  }
 }

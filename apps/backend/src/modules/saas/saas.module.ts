@@ -14,7 +14,7 @@ import { SaasUnavailableError } from './domain/saas.errors.js';
 import { DrizzleSaasStore } from './infrastructure/persistence/saas.drizzle-store.js';
 import { SaasSubscriptionsController } from './interface/http/saas.controller.js';
 
-/** SaaS vertical (ADR-014): customer subscriptions and the bot's request capture. Needs a database. */
+/** SaaS vertical (ADR-020): customer subscriptions and the bot's request capture. Needs a database. */
 @Module({
   imports: [IdentityModule, WorkspaceModule, CrmModule],
   controllers: [SaasSubscriptionsController],

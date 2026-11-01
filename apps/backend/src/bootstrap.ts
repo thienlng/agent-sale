@@ -40,6 +40,12 @@ export async function createHttpApp(
     },
   });
   installHttpObservability(adapter.getInstance(), logger);
+  // Nest's @RouteConfig({ bodyLimit }) lands under the route `config` key, but Fastify reads the limit
+  // from the top-level route option, so copy it; routes without it keep the global default.
+  adapter.getInstance().addHook('onRoute', (route) => {
+    const limit = (route.config as { bodyLimit?: unknown } | undefined)?.bodyLimit;
+    if (typeof limit === 'number') route.bodyLimit = limit;
+  });
   const app = await NestFactory.create<NestFastifyApplication>(rootModule, adapter, {
     logger: new PinoNestLogger(logger),
     bufferLogs: true,

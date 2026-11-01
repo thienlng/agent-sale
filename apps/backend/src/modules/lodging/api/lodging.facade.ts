@@ -1,0 +1,166 @@
+import type { ProductDto } from '@agent-sales/contracts';
+import type { WorkspaceId } from '@agent-sales/shared';
+
+/** PUBLIC CONTRACT of the lodging module. Use-case shaped, returns DTOs from packages/contracts. */
+export interface LodgingFacade {
+  /** The properties a bot sells: its stored selection, or every active property when it has none. */
+  listBotPropertyIds(workspaceId: WorkspaceId, botId: string): Promise<string[]>;
+}
+
+export const LODGING_FACADE = Symbol('LODGING_FACADE');
+
+/** The bot whose catalog is read; any other field (e.g. the commerce `catalogMode`) is ignored. */
+export interface LodgingBotScope {
+  botId: string;
+}
+
+/**
+ * The bot catalog of a hotel business, read from lodging properties (T-160). Same method shapes as
+ * the commerce `CatalogFacade`, so the `ai` module uses it in its place for hotel bots. Each active
+ * property the bot sells (lodging_bot_properties; no rows = every active property) is one
+ * `ProductDto` with `id` = property id and an `accommodation` built from the property. Only sell
+ * prices: never a cost. A property whose weekdays are not all priced is left out.
+ */
+export interface LodgingCatalogFacade {
+  /** Accent-insensitive match on code, name, area and amenities; `inStockOnly` is ignored. */
+  searchBotCatalog(
+    workspaceId: WorkspaceId,
+    bot: LodgingBotScope,
+    input: { query?: string; maxPriceVnd?: number; inStockOnly?: boolean; limit: number },
+  ): Promise<ProductDto[]>;
+  /** Properties for these ids, in the order of `ids`; unknown or out-of-scope ids are skipped (max 10). */
+  getBotProductsByIds(
+    workspaceId: WorkspaceId,
+    bot: LodgingBotScope,
+    ids: readonly string[],
+  ): Promise<ProductDto[]>;
+  countBotCatalog(workspaceId: WorkspaceId, bot: LodgingBotScope): Promise<number>;
+}
+
+export const LODGING_CATALOG_FACADE = Symbol('LODGING_CATALOG_FACADE');
+
+// ── Bot availability and holds (T-161, spec 2026-11-01-bot-lodging-holds §3) ─────────────────
+
+export interface BotAvailabilityInput {
+  botId: string;
+  /** 'YYYY-MM-DD' local dates; check-out exclusive. */
+  checkIn: string;
+  checkOut: string;
+  adults: number;
+  childAges: number[];
+  propertyId?: string;
+}
+
+/** One free option, in sell prices only (never a cost, the internal note or night notes). */
+export interface BotAvailabilityOption {
+  propertyId: string;
+  code: string;
+  name: string;
+  whole: boolean;
+  /** The rooms of the option (`prepareBotHold` takes them back for a per-room hold). */
+  unitIds: string[];
+  /** Room names of a rooms property; empty for a property rented whole only. */
+  unitNames: string[];
+  /** No `overStandard` and nobody above the property's maximum. */
+  fits: boolean;
+  /**
+   * Guests above the standard capacity that no surcharge covers (no surcharge price set, or
+   * children above the standard with no child surcharge): staff must check. Always false when
+   * the party is above the property's maximum (`fits` false): that option is not offered.
+   */
+  overStandard: boolean;
+  /** The minimum stay this option needs when the asked nights are fewer, else null. */
+  minNights: number | null;
+  /** `min_nights`: the asked stay is shorter than a date-range price requires. */
+  problems: 'min_nights'[];
+  /** Null when some night has no price. */
+  totalSell: number | null;
+  nightly: { date: string; weekdayLabel: string; label: string; sell: number }[];
+  surcharges: {
+    kind: 'extra_adult' | 'extra_child';
+    persons: number;
+    nights: number;
+    sell: number;
+  }[];
+}
+
+export interface BotAvailabilityResult {
+  nights: number;
+  /** Vietnamese weekday of check-in / check-out ('Thứ Sáu', 'Chủ Nhật'). */
+  checkInWeekdayLabel: string;
+  checkOutWeekdayLabel: string;
+  /** A `propertyId` was asked for and it is not free: `options` are alternatives. */
+  requestedFull: boolean;
+  /** Fitting first, then cheapest; at most 5. Never throws for the customer's input. */
+  options: BotAvailabilityOption[];
+  /** `invalid_dates` / `invalid_party`: the input could not be read (nothing else checked). */
+  problems: ('invalid_dates' | 'invalid_party' | 'past_date' | 'too_long' | 'not_sold')[];
+}
+
+export interface PrepareBotHoldInput {
+  botId: string;
+  conversationId: string;
+  contactId?: string | null;
+  /** Conversation channel; only customer channels link the booking to the conversation. */
+  channel: string;
+  propertyId: string;
+  whole: boolean;
+  unitIds?: string[];
+  checkIn: string;
+  checkOut: string;
+  adults: number;
+  childAges: number[];
+  guestName: string;
+  guestPhone: string;
+  note?: string;
+}
+
+export type HoldProblem =
+  | 'invalid_dates'
+  | 'invalid_party'
+  | 'min_nights'
+  | 'missing_name'
+  | 'missing_phone'
+  | 'invalid_phone'
+  | 'not_available'
+  | 'not_sold'
+  | 'over_max'
+  | 'missing_rate'
+  | 'past_date'
+  | 'too_long';
+
+export type PrepareBotHoldResult =
+  | { status: 'ready'; summary: string; holdMinutes: number }
+  | { status: 'problems'; problems: HoldProblem[]; alternatives: BotAvailabilityOption[] };
+
+export type ConfirmBotHoldResult =
+  | { status: 'held'; code: string; holdExpiresAt: string }
+  | {
+      status: 'expired' | 'no_draft' | 'price_changed' | 'not_available';
+      alternatives: BotAvailabilityOption[];
+    };
+
+/**
+ * What the bot may do with the calendar (`ai` → `lodging`, ADR-019): read availability and quotes,
+ * and place an expiring hold the customer agreed to. It never confirms a booking; staff do.
+ */
+export interface LodgingBotFacade {
+  checkAvailabilityForBot(
+    ws: WorkspaceId,
+    input: BotAvailabilityInput,
+  ): Promise<BotAvailabilityResult>;
+  /** Validates, re-checks availability (no write to nights) and stores the conversation's draft. */
+  prepareBotHold(ws: WorkspaceId, input: PrepareBotHoldInput): Promise<PrepareBotHoldResult>;
+  /**
+   * Turns the draft into a hold (source `bot`) when it is unexpired and its quote unchanged. A
+   * retry of a confirmed draft answers the same hold (until the draft's 30 minutes are swept).
+   */
+  confirmBotHold(ws: WorkspaceId, input: { conversationId: string }): Promise<ConfirmBotHoldResult>;
+  cancelBotHoldDraft(ws: WorkspaceId, input: { conversationId: string }): Promise<void>;
+  hasBotHoldDraft(
+    ws: WorkspaceId,
+    conversationId: string,
+  ): Promise<{ pending: boolean; storedAt: Date | null }>;
+}
+
+export const LODGING_BOT_FACADE = Symbol('LODGING_BOT_FACADE');

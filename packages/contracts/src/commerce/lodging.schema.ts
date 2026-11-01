@@ -1,12 +1,12 @@
 import { z } from 'zod';
 
+import { PublicImageUrl } from '../common/media.js';
+
 const Amount = z.number().int().min(0).max(1_000_000_000_000);
 const text = (max: number) => z.string().trim().max(max);
+/** `url` must be a URL returned by POST /products/images (the API rejects other links). */
 const Image = z.object({
-  url: z
-    .url()
-    .max(2000)
-    .refine((v) => v.startsWith('https://')),
+  url: PublicImageUrl,
   caption: text(300).min(1),
 });
 
@@ -21,7 +21,10 @@ export const StayDate = z
 
 export const AccommodationDetails = z
   .object({
-    rentalType: z.literal('entire_property'),
+    /** `rooms` (T-160): a property rented per room; `roomLayout` may list fewer rows than bedrooms. */
+    rentalType: z.enum(['entire_property', 'rooms']),
+    /** Lodging v2 property code, e.g. `A17` (T-160). */
+    code: z.string().optional(),
     bedrooms: z.number().int().min(1).max(100),
     standardAdults: z.number().int().min(1).max(1000),
     standardChildren: z.number().int().min(0).max(1000),
@@ -51,8 +54,46 @@ export const AccommodationDetails = z
     holidayPolicy: text(1000).default(''),
     gallery: z.array(Image).max(30),
     notes: text(3000).default(''),
+    /** Lodging v2 (T-160): bookable rooms of a `rooms` property with their weekday rates. */
+    units: z
+      .array(
+        z.object({
+          name: z.string(),
+          beds: z.string(),
+          capacityAdults: z.number().int().min(0),
+          capacityChildren: z.number().int().min(0),
+          weekdayRates: z.array(
+            z.object({ days: z.array(z.number().int().min(1).max(7)), amount: Amount }),
+          ),
+        }),
+      )
+      .optional(),
+    /** Lodging v2 (T-160): date-range prices; inclusive nights; `unitName` null = whole property. */
+    overrides: z
+      .array(
+        z.object({
+          dateFrom: StayDate,
+          dateTo: StayDate,
+          label: z.string(),
+          amount: Amount,
+          unitName: z.string().nullable(),
+        }),
+      )
+      .optional(),
+    /** Lodging v2 (T-160): per person per night above the standard. */
+    surcharges: z
+      .object({
+        extraAdult: Amount.nullable(),
+        extraChild: Amount.nullable(),
+        childFreeBelow: z.number().int().min(0).max(18),
+        childAdultFrom: z.number().int().min(1).max(18),
+      })
+      .optional(),
   })
-  .refine((v) => v.roomLayout.length === v.bedrooms, 'room layout must describe every bedroom');
+  .refine(
+    (v) => v.rentalType !== 'entire_property' || v.roomLayout.length === v.bedrooms,
+    'room layout must describe every bedroom',
+  );
 export type AccommodationDetails = z.infer<typeof AccommodationDetails>;
 
 export const StayParty = z

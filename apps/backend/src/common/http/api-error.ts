@@ -21,21 +21,25 @@ export class ApiError extends Error {
     readonly code: ErrorCode,
     message: string,
     readonly details?: Record<string, unknown>,
+    private readonly statusOverride?: number,
   ) {
     super(message);
     this.name = 'ApiError';
   }
 
   get status(): number {
-    return STATUS[this.code];
+    return this.statusOverride ?? STATUS[this.code];
   }
 
-  /** Maps a typed domain error (packages/shared DomainError) to the HTTP envelope. */
+  /**
+   * Maps a typed domain error (packages/shared DomainError) to the HTTP envelope. A module code
+   * that is not a shared ErrorCode (e.g. lodging `NIGHTS_TAKEN`, `STALE_VERSION`) answers 409
+   * CONFLICT and keeps the module code in `details.reason` so clients can tell them apart.
+   */
   static fromDomain(error: DomainError): ApiError {
-    const code = (Object.keys(STATUS) as ErrorCode[]).includes(error.code as ErrorCode)
-      ? (error.code as ErrorCode)
-      : 'CONFLICT';
-    return new ApiError(code, error.message, error.details);
+    if ((Object.keys(STATUS) as ErrorCode[]).includes(error.code as ErrorCode))
+      return new ApiError(error.code as ErrorCode, error.message, error.details);
+    return new ApiError('CONFLICT', error.message, { ...error.details, reason: error.code });
   }
 }
 

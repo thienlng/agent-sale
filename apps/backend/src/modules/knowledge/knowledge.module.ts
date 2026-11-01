@@ -4,7 +4,7 @@ import { getEnv } from '../../common/config.js';
 import { MEDIA_FACADE } from './api/media.facade.js';
 import { MediaFacadeImpl } from './application/media.facade.impl.js';
 import { BOT_MEDIA_STORAGE } from './application/ports/bot-media-storage.js';
-import { S3BotMediaStorage } from './infrastructure/s3-bot-media-storage.js';
+import { S3PublicObjectStorage } from '../../common/storage/public-object-storage.js';
 
 import { TRAINING_FACADE } from './api/training.facade.js';
 import { TrainingFacadeImpl } from './application/training.facade.impl.js';
@@ -30,7 +30,7 @@ import {
       provide: BOT_MEDIA_STORAGE,
       useFactory: () => {
         const env = getEnv();
-        return new S3BotMediaStorage({
+        return new S3PublicObjectStorage({
           endpoint: env.S3_ENDPOINT,
           bucket: env.S3_BUCKET,
           publicUrl: env.S3_PUBLIC_URL,

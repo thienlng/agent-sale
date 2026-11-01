@@ -246,8 +246,15 @@ export const orders = pgTable(
     notePrint: text('note_print').notNull().default(''),
     createdByUserId: uuid('created_by_user_id'),
     createdByName: text('created_by_name'),
-    clientRequestId: uuid('client_request_id'),
+    /** A uuid from staff forms; `bot:<conversationId>:<amounts_hash>:<draft createdAt ms>` for bot orders (0039). */
+    clientRequestId: text('client_request_id'),
     createdByKind: text('created_by_kind').notNull().default('agent'),
+    /** Bot orders (0039): the source conversation and the staff review. */
+    conversationId: uuid('conversation_id'),
+    reviewState: text('review_state').$type<'pending' | 'approved'>(),
+    reviewedByUserId: uuid('reviewed_by_user_id'),
+    reviewedByName: text('reviewed_by_name'),
+    reviewedAt: ts('reviewed_at'),
     placedAt: ts('placed_at').notNull(),
     confirmedAt: ts('confirmed_at'),
     cancelledAt: ts('cancelled_at'),
@@ -317,4 +324,36 @@ export const orderSettings = pgTable(
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
   () => [...tenantPolicies('order_settings')],
+);
+
+/** Tenant table (migration 0039). The order the bot summarised, awaiting the customer's "đặt". */
+export const botOrderDrafts = pgTable(
+  'bot_order_drafts',
+  {
+    workspaceId: workspaceRef(),
+    conversationId: uuid('conversation_id').notNull(),
+    botId: uuid('bot_id').notNull(),
+    /** Conversation channel; becomes the order source. */
+    channel: text('channel').notNull(),
+    lines: jsonb('lines').notNull().$type<Array<{ variantId: string; sku: string; qty: number }>>(),
+    recipient: jsonb('recipient')
+      .notNull()
+      .$type<{ name: string; phone: string; address: string }>(),
+    note: text('note'),
+    /** Null: "Phí ship: shop báo sau". */
+    shippingVnd: money('shipping_vnd'),
+    amountsHash: text('amounts_hash').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    expiresAt: ts('expires_at').notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.workspaceId, t.conversationId] }),
+    foreignKey({
+      name: 'bot_order_drafts_bot_fk',
+      columns: [t.workspaceId, t.botId],
+      foreignColumns: [bots.workspaceId, bots.id],
+    }).onDelete('cascade'),
+    index('bot_order_drafts_expiry_idx').on(t.workspaceId, t.expiresAt),
+    ...tenantPolicies('bot_order_drafts'),
+  ],
 );

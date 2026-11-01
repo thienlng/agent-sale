@@ -6,7 +6,7 @@ import { formatDay, formatVnd } from '@/lib/format';
 
 import { useSubscriptionsOf } from '../api/saas';
 
-/** Customer status (crm built-in key) each subscription stage puts the customer in (ADR-014). */
+/** Customer status (crm built-in key) each subscription stage puts the customer in (ADR-020). */
 export const STAGE_STATUS_KEY: Record<SaasStage, string> = {
   trial: 'trial',
   active: 'paying',

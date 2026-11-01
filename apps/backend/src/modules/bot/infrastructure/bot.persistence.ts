@@ -18,7 +18,7 @@ import type { BotDeletionAudit, BotRepository } from '../domain/ports/bot.reposi
 type Row = typeof schema.bots.$inferSelect;
 const t = schema.bots;
 
-function toBot(r: Row): Bot {
+export function toBot(r: Row): Bot {
   return Bot.rehydrate({
     id: r.id,
     workspaceId: workspaceId(r.workspaceId),
@@ -26,10 +26,34 @@ function toBot(r: Row): Bot {
     industry: r.industry as IndustryKey,
     isActive: r.isActive,
     catalogMode: r.catalogMode,
-    settings: r.settings as unknown as BotSettingsData,
+    // The order settings live in columns (0039), the rest in the `settings` document.
+    settings: {
+      ...(r.settings as unknown as BotSettingsData),
+      orderTaking: r.orderTaking,
+      orderShippingFeeVnd: r.orderShippingFeeVnd,
+    },
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
   });
+}
+
+/** The stored row of a bot: the order settings go to their own columns (0039). */
+export function botRow(bot: Bot) {
+  const s = bot.snapshot();
+  const { orderTaking, orderShippingFeeVnd, ...settings } = s.settings;
+  return {
+    id: s.id,
+    workspaceId: s.workspaceId,
+    name: s.name,
+    industry: s.industry,
+    isActive: s.isActive,
+    catalogMode: s.catalogMode,
+    settings: settings as unknown as Record<string, unknown>,
+    orderTaking,
+    orderShippingFeeVnd,
+    createdAt: s.createdAt,
+    updatedAt: s.updatedAt,
+  };
 }
 
 export class DrizzleBotRepository implements BotRepository {
@@ -67,18 +91,7 @@ export class DrizzleBotRepository implements BotRepository {
   }
 
   async save(bot: Bot): Promise<void> {
-    const s = bot.snapshot();
-    const row = {
-      id: s.id,
-      workspaceId: s.workspaceId,
-      name: s.name,
-      industry: s.industry,
-      isActive: s.isActive,
-      catalogMode: s.catalogMode,
-      settings: s.settings as unknown as Record<string, unknown>,
-      createdAt: s.createdAt,
-      updatedAt: s.updatedAt,
-    };
+    const row = botRow(bot);
     await this.tx
       .insert(t)
       .values(row)
@@ -89,6 +102,8 @@ export class DrizzleBotRepository implements BotRepository {
           isActive: row.isActive,
           catalogMode: row.catalogMode,
           settings: row.settings,
+          orderTaking: row.orderTaking,
+          orderShippingFeeVnd: row.orderShippingFeeVnd,
           updatedAt: row.updatedAt,
         },
       });

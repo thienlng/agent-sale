@@ -2,6 +2,7 @@ import { type Database, withTenant } from '@agent-sales/db';
 import type { WorkspaceId } from '@agent-sales/shared';
 
 import type { CommerceStore, CommerceTx } from '../../application/ports/commerce-store.js';
+import { botOrdersTx } from './bot-order-draft.drizzle.js';
 import { catalogTx } from './catalog.drizzle.js';
 import { ordersTx } from './orders.drizzle.js';
 
@@ -12,7 +13,11 @@ export class DrizzleCommerceStore implements CommerceStore {
 
   run<T>(workspaceId: WorkspaceId, fn: (tx: CommerceTx) => Promise<T>): Promise<T> {
     return withTenant(this.db, workspaceId, (tx) =>
-      fn({ ...catalogTx(workspaceId, tx), ...ordersTx(workspaceId, tx) } satisfies CommerceTx),
+      fn({
+        ...catalogTx(workspaceId, tx),
+        ...ordersTx(workspaceId, tx),
+        ...botOrdersTx(workspaceId, tx),
+      } satisfies CommerceTx),
     );
   }
 }

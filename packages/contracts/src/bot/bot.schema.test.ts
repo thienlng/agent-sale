@@ -48,3 +48,23 @@ describe('ReplySchedule', () => {
     expect(rest.autoResumeAfterManual).toBe(true);
   });
 });
+
+describe('order taking settings', () => {
+  it('defaults to off with no shipping fee for stored settings that predate them', () => {
+    const parsed = UpdateBotRequest.parse({ settings: { orderTaking: true } });
+    expect(parsed.settings).toEqual({ orderTaking: true });
+    const fee = UpdateBotRequest.parse({ settings: { orderShippingFeeVnd: null } });
+    expect(fee.settings).toEqual({ orderShippingFeeVnd: null });
+    expect(BotSettings.shape.orderTaking.parse(undefined)).toBe(false);
+    expect(BotSettings.shape.orderShippingFeeVnd.parse(undefined)).toBeNull();
+  });
+
+  it('accepts a whole-VND shipping fee and rejects a negative or fractional one', () => {
+    const ok = UpdateBotRequest.parse({ settings: { orderShippingFeeVnd: 30000 } });
+    expect(ok.settings?.orderShippingFeeVnd).toBe(30000);
+    for (const bad of [-1, 1.5])
+      expect(UpdateBotRequest.safeParse({ settings: { orderShippingFeeVnd: bad } }).success).toBe(
+        false,
+      );
+  });
+});

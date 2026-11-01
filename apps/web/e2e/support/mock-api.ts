@@ -230,10 +230,22 @@ const summary = {
   noteInternal: LONG,
   amounts,
   itemsPreview: [
-    { name: `${LONG} – Màu xanh ngọc bích / Size XXXL`, qty: 6 },
-    { name: LONG, qty: 6 },
+    {
+      name: LONG,
+      variantName: 'Màu xanh ngọc bích / Size XXXL',
+      qty: 6,
+      unitPrice: 123_456_789,
+      imageUrl: null,
+    },
+    { name: LONG, variantName: null, qty: 6, unitPrice: 123_456_789, imageUrl: null },
   ],
+  itemCount: 2,
   createdByName: user.name,
+  createdByKind: 'agent',
+  reviewState: null,
+  reviewedByName: null,
+  reviewedAt: null,
+  conversationId: null,
   placedAt: now,
 };
 const order = {

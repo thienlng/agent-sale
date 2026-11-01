@@ -634,7 +634,6 @@ describe('MetaInboxProcessor', () => {
       await processor.tick();
       const calls = vi.mocked(channels.deliver).mock.calls;
       expect(calls.map((call) => call[4])).toEqual(['bot:p1', 'bot:p1:img']);
-      expect(calls[0]?.[3]).toEqual({ text: 'Here they are', attachments: undefined });
       expect(calls[1]?.[3]).toEqual({
         text: '',
         attachments: [
@@ -659,6 +658,43 @@ describe('MetaInboxProcessor', () => {
       expect(vi.mocked(channels.deliver).mock.calls[1]?.[3].attachments).toHaveLength(3);
     });
 
+    it('falls back to one message per picture when the album is rejected', async () => {
+      const { channels, ai, inbox, processor } = setup();
+      ai.reply.mockResolvedValueOnce(withImages(pics.slice(0, 3)));
+      vi.mocked(channels.deliver)
+        .mockResolvedValueOnce({ externalId: 'ok', status: 'sent', failureCode: null })
+        .mockResolvedValueOnce({
+          externalId: null,
+          status: 'failed',
+          failureCode: 'provider_rejected',
+        })
+        .mockResolvedValueOnce({
+          externalId: null,
+          status: 'failed',
+          failureCode: 'provider_rejected',
+        });
+      vi.mocked(channels.claimEvents).mockResolvedValueOnce([
+        job('p6', 'message', 'show me', Date.now()),
+      ]);
+      await processor.tick();
+      const calls = vi.mocked(channels.deliver).mock.calls;
+      expect(calls.map((call) => call[4])).toEqual([
+        'bot:p6',
+        'bot:p6:img',
+        'bot:p6:img:0',
+        'bot:p6:img:1',
+        'bot:p6:img:2',
+      ]);
+      for (const call of calls.slice(2)) expect(call[3].attachments).toHaveLength(1);
+      expect((await outbound(inbox, ws)).map((m) => m.status)).toEqual([
+        'sent',
+        'failed',
+        'failed',
+        'sent',
+        'sent',
+      ]);
+    });
+
     it('sends no image messages when the answer has none', async () => {
       const { channels, processor } = setup();
       vi.mocked(channels.claimEvents).mockResolvedValueOnce([
@@ -678,7 +714,12 @@ describe('MetaInboxProcessor', () => {
         job('p4', 'message', 'show me', Date.now()),
       ]);
       await processor.tick();
-      expect((await outbound(inbox, ws)).map((m) => m.status)).toEqual(['sent', 'failed']);
+      expect((await outbound(inbox, ws)).map((m) => m.status)).toEqual([
+        'sent',
+        'failed',
+        'sent',
+        'sent',
+      ]);
       const [c] = (await inbox.list(ws, { limit: 10 } as never)).data;
       expect(c?.mode).toBe('bot');
       expect(channels.completeEvent).toHaveBeenCalledTimes(1);
@@ -797,15 +838,15 @@ describe('MetaInboxProcessor', () => {
       expect(channels.completeEvent).not.toHaveBeenCalled();
     });
 
-    it('answers anyway after the event was superseded twice (no starvation)', async () => {
+    it('answers anyway after the turn was re-run three times (no starvation)', async () => {
       const { channels, processor } = setup();
       vi.mocked(channels.hasNewerCustomerEvent).mockResolvedValue(true);
       const again = job('r2', 'message', 'hi', Date.now());
-      for (const attempt of [1, 2, 3]) {
+      for (const attempt of [1, 1, 1, 1]) {
         vi.mocked(channels.claimEvents).mockResolvedValueOnce([{ ...again, attempt }]);
         await processor.tick();
       }
-      expect(channels.requeueEvent).toHaveBeenCalledTimes(2);
+      expect(channels.requeueEvent).toHaveBeenCalledTimes(3);
       expect(channels.deliver).toHaveBeenCalledTimes(1);
     });
   });

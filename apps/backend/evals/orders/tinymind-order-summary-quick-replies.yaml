@@ -1,0 +1,42 @@
+id: tinymind-order-summary-quick-replies
+group: orders
+tags: [critical]
+bot:
+  industry: retail
+  name: TinyMind
+  orderTaking: true
+  orderShippingFeeVnd: 30000
+  profile:
+    fields: { displayName: TinyMind }
+    notes: 'Shop bán đồ chơi gỗ Montessori cho bé.'
+products:
+  - name: 'Thú gỗ xếp thăng bằng'
+    code: TM-001
+    description: 'Bộ thú gỗ xếp thăng bằng, phù hợp bé từ 1 tuổi trở lên.'
+    variants:
+      - { name: 'Mặc định', sku: TM-001-STD, price: 340000, stock: 12 }
+conversation:
+  - customer: 'Thú gỗ xếp thăng bằng còn không shop'
+  - bot: 'Dạ Thú gỗ xếp thăng bằng còn hàng, giá 340.000đ ạ.'
+  - customer: 'Lấy mình 2 bộ nhé. Nguyễn Thị Lan, 0903 111 222, 12 Lê Lợi, phường Bến Nghé, quận 1, TP.HCM'
+expect:
+  outcome: answered
+  guardrail: none
+  steps_succeeded: ['prepare_order']
+  steps_exclude: ['confirm_order', 'handoff']
+  # The server's summary (catalog prices, the bot's shipping fee) with the two buttons.
+  quick_replies: ['✅ Đặt hàng', '✏️ Sửa thông tin']
+  contains_all: ['Tổng: 710.000đ', 'Phí ship: 30.000đ', '12 Lê Lợi']
+  order_created: false
+fake_turns:
+  - tool_calls:
+      - { name: search_products, input: { query: 'thú gỗ xếp thăng bằng' } }
+  - tool_calls:
+      - name: prepare_order
+        input:
+          items: [{ sku: TM-001-STD, qty: 2 }]
+          recipient:
+            name: 'Nguyễn Thị Lan'
+            phone: '0903 111 222'
+            address: '12 Lê Lợi, phường Bến Nghé, quận 1, TP.HCM'
+  - text: ''

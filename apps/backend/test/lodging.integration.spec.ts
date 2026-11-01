@@ -25,6 +25,11 @@ beforeAll(async () => {
     await createHttpApp(AppModule, {
       NODE_ENV: 'test',
       LOG_LEVEL: 'error',
+      S3_ENDPOINT: 'http://127.0.0.1:9',
+      S3_BUCKET: 'rapiz-test',
+      S3_PUBLIC_URL: 'https://media.rapiz.test',
+      S3_ACCESS_KEY: 'test',
+      S3_SECRET_KEY: 'test',
       DATABASE_URL: withCredentials(pg.ownerUrl, pg.tenantLogin.user, pg.tenantLogin.password),
       DATABASE_SYSTEM_URL: withCredentials(
         pg.ownerUrl,
@@ -123,6 +128,41 @@ const confirm = {
 };
 
 describe('lodging HTTP and PostgreSQL isolation', () => {
+  it('accepts only gallery photos Rapiz stored for the same workspace', async () => {
+    const { headers } = await owner();
+    const ws = headers['x-workspace-id'];
+    const create = (url: string) =>
+      call(headers, 'POST', '/products', {
+        code: `GAL-${newId()}`,
+        name: 'Gallery property',
+        accommodation: { ...accommodation, gallery: [{ url, caption: 'Living room' }] },
+        variants: [{ sku: `GAL-${newId()}`, price: 100000 }],
+      });
+    const ok = await create(`https://media.rapiz.test/products/${ws}/living.jpg`);
+    expect(ok.statusCode).toBe(201);
+    const product = ProductDto.parse(ok.json());
+    for (const url of [
+      'https://img.example.com/living.jpg',
+      'https://media.rapiz.test/products/0192f0a0-0000-7000-8000-000000000009/living.jpg',
+    ]) {
+      const bad = await create(url);
+      expect(bad.statusCode).toBe(400);
+      expect(bad.json().error).toMatchObject({
+        code: 'VALIDATION_FAILED',
+        details: { reason: 'IMAGE_NOT_UPLOADED', field: 'gallery[0].url' },
+      });
+    }
+    const update = await call(headers, 'PUT', `/products/${product.id}`, {
+      code: product.code,
+      name: product.name,
+      accommodation: {
+        ...accommodation,
+        gallery: [{ url: 'https://img.example.com/living.jpg', caption: 'Living room' }],
+      },
+      variants: product.variants.map((v) => ({ id: v.id, sku: v.sku, price: v.price })),
+    });
+    expect(update.statusCode).toBe(400);
+  });
   it('validates requests, replays idempotently, keeps price unbound and enforces tenant and capability boundaries', async () => {
     const a = await owner(),
       b = await owner();

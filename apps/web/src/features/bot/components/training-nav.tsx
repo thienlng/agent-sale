@@ -80,7 +80,7 @@ function NavLink({
       {Icon ? <Icon aria-hidden className="size-4 shrink-0" /> : null}
       {t(
         item.key === 'products' && industry === 'hotel'
-          ? 'space.nav.accommodations'
+          ? 'space.nav.properties'
           : `space.nav.${item.key}`,
       )}
     </Link>

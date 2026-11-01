@@ -25,7 +25,7 @@ export const DEFAULT_STATUSES = [
 ] as const;
 
 /**
- * A SaaS business tracks one customer from lead to subscriber (ADR-014): the subscription stage
+ * A SaaS business tracks one customer from lead to subscriber (ADR-020): the subscription stage
  * moves `trial` → `paying` / `past_due` / `churned`, the bot moves a lead to `requested`.
  */
 export const SAAS_STATUSES = [

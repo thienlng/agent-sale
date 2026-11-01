@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { errorMessage } from '@/lib/errors';
+import { productSaveErrorMessage } from '../hooks/lodging-errors';
 import { formatNumber } from '@/lib/format';
 
 import { useAdjustStock, useSaveProduct, useWarehouses } from '../api/commerce';
@@ -196,7 +197,7 @@ export function ProductForm({ product, botId }: { product?: ProductDto; botId?: 
           else if (!product)
             void navigate({ to: '/app/products/$productId', params: { productId: p.id } });
         },
-        onError: (err) => toast.error(errorMessage(t, err)),
+        onError: (err) => toast.error(productSaveErrorMessage(t, err)),
       },
     );
   }

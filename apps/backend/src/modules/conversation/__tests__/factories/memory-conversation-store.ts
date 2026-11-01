@@ -19,6 +19,10 @@ export class MemoryConversationStore implements ConversationStore {
       const result = await fn({
         lockPeer: async () => undefined,
         find: async (id) => rows.get(`${ws}/${id}`) ?? null,
+        peekControl: async (id) => {
+          const c = rows.get(`${ws}/${id}`);
+          return c ? { mode: c.mode, status: c.status } : null;
+        },
         findPeer: async (channel, customer) =>
           [...rows.entries()].find(
             ([key, c]) =>

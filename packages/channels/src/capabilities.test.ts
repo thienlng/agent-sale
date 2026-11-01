@@ -5,6 +5,11 @@ describe('capabilitiesOf', () => {
     expect(capabilitiesOf('facebook').replyWindowHours).toBe(24);
     expect(capabilitiesOf('instagram').replyWindowHours).toBe(24);
   });
+  it('lets Meta kinds and the website show quick replies', () => {
+    expect(capabilitiesOf('facebook').quickReplies).toBe(true);
+    expect(capabilitiesOf('instagram').quickReplies).toBe(true);
+    expect(capabilitiesOf('website').quickReplies).toBe(true);
+  });
   it('gives the website no window', () =>
     expect(capabilitiesOf('website').replyWindowHours).toBeNull());
   it('treats unknown kinds as 24 h', () =>

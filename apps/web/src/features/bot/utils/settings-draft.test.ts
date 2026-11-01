@@ -29,6 +29,8 @@ const settings: BotSettings = {
   tone: 'friendly',
   allowEmoji: false,
   placeholders: {},
+  orderTaking: false,
+  orderShippingFeeVnd: null,
 };
 const initial: SettingsDraft = { name: 'Shop Lan', settings };
 

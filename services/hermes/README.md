@@ -43,6 +43,8 @@ Each turn creates a fresh AIAgent with memory, context files, background review,
 
 Hermes enforces its configured 50-second run budget and iteration limit; the TypeScript caller also has a transport timeout. Subscription transports may not support a hard output-token cap. The bridge is single-flight; use bounded platform worker concurrency rather than opening it publicly. Production deployment needs service supervision and private network access, plus capacity testing.
 
+**Native tools (bridge contract v2, Agent harness v2 §5).** `POST /v1/generate` also accepts `tools: [{name, description, parameters}]` (max 32, JSON-schema `parameters`), `toolChoice` (`auto` | `none`), `promptCacheKey` (max 256 chars, forwarded to the Codex transport as `prompt_cache_key`), assistant messages with `toolCalls: [{id, name, arguments}]` (`arguments` is a JSON string) and `tool` messages `{role: 'tool', toolCallId, name?, content}`; the last turn may then be a `tool` message. With `tools` present the bridge makes exactly ONE Responses call through the same Hermes transport the agent uses (`_build_api_kwargs` then `_interruptible_api_call` then `normalize_response`) and never enters Hermes' own tool loop: the response is `{text, toolCalls: [{id, name, arguments}], stopReason: 'tool_use'|'end'|'max_tokens', usage}` and the bridge never executes a tool. The built-in toolset must still be empty (`TOOLSET_MISMATCH` otherwise). `GET /health` reports `nativeTools: true`; the backend only wraps Hermes in the JSON-text `EmulatedToolsProvider` when it does not.
+
 ## Verify
 
 ```bash

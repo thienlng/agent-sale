@@ -16,6 +16,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 
 import type { SettingsDraft } from '../utils/settings-draft';
+import { BotSettingsOrders } from './bot-settings-orders';
 
 type TextKey = 'fallbackMessage' | 'handoffMessage';
 type Update = (change: (draft: SettingsDraft) => SettingsDraft) => void;
@@ -46,7 +47,7 @@ function Field({
 
 /**
  * "Cài đặt nâng cao": technical items only (fallback and handoff messages,
- * creativity, takeover). Personality lives on "Hướng dẫn trả lời" and facts on
+ * creativity, order taking, takeover). Personality lives on "Hướng dẫn trả lời" and facts on
  * "Thông tin doanh nghiệp".
  */
 export function BotSettingsAdvanced({
@@ -122,6 +123,8 @@ export function BotSettingsAdvanced({
           </Select>
         </Field>
       </section>
+
+      <BotSettingsOrders draft={draft} update={update} />
 
       <section className="flex flex-col gap-5">
         <h2 className="text-base font-semibold">{training('handoverTitle')}</h2>

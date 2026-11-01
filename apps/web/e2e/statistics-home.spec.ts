@@ -71,7 +71,7 @@ test('opens business statistics as home while preserving existing module navigat
   );
   const nav = page.getByRole('navigation', { name: 'Điều hướng chính' });
   await expect(nav.getByRole('link').first()).toHaveText('Thống kê');
-  await expect(nav.getByRole('button', { name: 'Chat đa kênh', exact: true })).toBeVisible();
+  await expect(nav.getByRole('button', { name: 'Chat đa kênh', exact: true })).toHaveCount(0);
   await expect(nav.getByRole('link', { name: 'Tin nhắn đa kênh', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Nhãn được gắn', exact: true })).not.toBeVisible();
   await page.getByRole('button', { name: 'Phân tích chi tiết', exact: true }).click();

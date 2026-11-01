@@ -65,7 +65,7 @@ export function useContactSubscription(contactId: string) {
   });
 }
 
-/** Saving a plan also moves the customer's status (ADR-014), so customers reload too. */
+/** Saving a plan also moves the customer's status (ADR-020), so customers reload too. */
 export function usePutContactSubscription(contactId: string) {
   const ws = useWorkspaceId(),
     qc = useQueryClient();

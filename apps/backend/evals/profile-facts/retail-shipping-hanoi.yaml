@@ -26,9 +26,5 @@ expect:
   contains_all: ['500.000đ']
   not_contains: ["\\n"]
   numbers_only_from_sources: true
-  fake_reply:
-    {
-      outcome: answer,
-      reply: "Dạ shop giao hàng toàn quốc ạ, ra các tỉnh mất 3-5 ngày ạ.\nPhí ship nội thành 30.000đ, miễn phí cho đơn từ 500.000đ ạ.",
-      sources: [],
-    }
+fake_turns:
+  - text: "Dạ shop giao hàng toàn quốc ạ, ra các tỉnh mất 3-5 ngày ạ.\nPhí ship nội thành 30.000đ, miễn phí cho đơn từ 500.000đ ạ."

@@ -1,0 +1,83 @@
+id: hotel-holds-free-dates-quote
+group: lodging-holds
+tags: [critical]
+bot:
+  industry: hotel
+  name: Villa Lan
+  orderTaking: true
+  profile:
+    fields: { displayName: 'Villas Vũng Tàu' }
+    notes: ''
+products:
+  - name: 'A17 – Sky Villa A17'
+    code: A17
+    description: 'Villa nguyên căn 8 phòng ngủ, hồ bơi riêng. Tiêu chuẩn 24 người lớn, tối đa 40 khách.'
+    variants: [{ name: 'Nguyên căn', price: 12000000, stock: 0 }]
+    accommodation:
+      rentalType: entire_property
+      code: A17
+      bedrooms: 8
+      standardAdults: 24
+      standardChildren: 8
+      childAgeBelow: 6
+      maxGuests: 40
+      roomLayout:
+        - { name: 'Phòng 1', beds: '2 giường đôi' }
+        - { name: 'Phòng 2', beds: '2 giường đôi' }
+        - { name: 'Phòng 3', beds: '2 giường đôi' }
+        - { name: 'Phòng 4', beds: '2 giường đôi' }
+        - { name: 'Phòng 5', beds: '2 giường đôi' }
+        - { name: 'Phòng 6', beds: '2 giường đôi' }
+        - { name: 'Phòng 7', beds: '2 giường đôi' }
+        - { name: 'Phòng 8', beds: '2 giường đôi' }
+      amenities: ['Hồ bơi', 'BBQ']
+      rateBasis: night
+      rates:
+        - { days: [1, 2, 3, 4], amount: 12000000 }
+        - { days: [5, 7], amount: 13000000 }
+        - { days: [6], amount: 14000000 }
+      gallery: []
+      surcharges: { extraAdult: 300000, extraChild: null, childFreeBelow: 6, childAdultFrom: 12 }
+  - name: 'B05 – Garden Villa B05'
+    code: B05
+    description: 'Villa nguyên căn 6 phòng ngủ, sân vườn. Tiêu chuẩn 20 người lớn.'
+    variants: [{ name: 'Nguyên căn', price: 9000000, stock: 0 }]
+    accommodation:
+      rentalType: entire_property
+      code: B05
+      bedrooms: 6
+      standardAdults: 20
+      standardChildren: 6
+      childAgeBelow: 6
+      maxGuests: 30
+      roomLayout:
+        - { name: 'Phòng 1', beds: '2 giường đôi' }
+        - { name: 'Phòng 2', beds: '2 giường đôi' }
+        - { name: 'Phòng 3', beds: '2 giường đôi' }
+        - { name: 'Phòng 4', beds: '2 giường đôi' }
+        - { name: 'Phòng 5', beds: '2 giường đôi' }
+        - { name: 'Phòng 6', beds: '2 giường đôi' }
+      amenities: ['Sân vườn', 'BBQ']
+      rateBasis: night
+      rates:
+        - { days: [1, 2, 3, 4], amount: 9000000 }
+        - { days: [5, 7], amount: 10000000 }
+        - { days: [6], amount: 11000000 }
+      gallery: []
+      surcharges: { extraAdult: 250000, extraChild: null, childFreeBelow: 6, childAdultFrom: 12 }
+conversation:
+  - customer: 'A17 ngày 8/1/2027 đến 10/1/2027, 20 người lớn còn trống không, giá bao nhiêu?'
+expect:
+  outcome: answered
+  guardrail: none
+  # Free dates: the bot checks the calendar and quotes the server's nightly prices and total.
+  steps_succeeded: ['check_availability']
+  steps_exclude: ['prepare_hold', 'handoff']
+  contains_all: ['27.000.000']
+  contains_any: ['còn trống', 'trống']
+  not_contains: ['đã giữ', 'đã đặt', 'đã xác nhận']
+fake_turns:
+  - tool_calls:
+      - name: check_availability
+        input: { checkIn: '2027-01-08', checkOut: '2027-01-10', adults: 20, propertyCode: A17 }
+  - text: 'Dạ A17 từ Thứ Sáu 08/01 đến Chủ Nhật 10/01 còn trống ạ.\nĐêm Thứ Sáu 13.000.000đ, đêm Thứ Bảy 14.000.000đ, tổng 2 đêm 27.000.000đ ạ.'

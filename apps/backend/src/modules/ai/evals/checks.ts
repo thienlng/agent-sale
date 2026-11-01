@@ -7,11 +7,34 @@ export interface CheckResult {
   detail: string;
 }
 
+/** One message the bot delivered this turn: its text and how many pictures it carried. */
+export interface DeliveredMessage {
+  text: string;
+  images: number;
+  /** The titles of the quick replies under the message (the order summary's buttons). */
+  quickReplies?: readonly string[];
+}
+
+/** One tool the loop ran this turn and whether its result was ok. */
+export interface ToolStep {
+  name: string;
+  ok: boolean;
+}
+
 export interface CheckInput {
+  /** Every delivered message's text, joined by line breaks (what the customer read). */
   reply: string;
   outcome: EvalOutcome;
-  /** The guardrail the pipeline fired (e.g. `ungrounded_figure:299k`), null when none. */
+  /** The guardrail the pipeline fired (e.g. `interrupted`), null when none. */
   guardrail?: string | null;
+  /** Pictures sent in the turn, every message together. */
+  images?: number;
+  /** The delivered messages in order (`send_message` ones, then the final one). */
+  messages?: readonly DeliveredMessage[];
+  /** The tools the loop ran this turn, in order. */
+  steps?: readonly ToolStep[];
+  /** The turn created an order. */
+  orderCreated?: boolean;
   customerTexts: readonly string[];
   /** Everything the reply may state figures from: profile, notes, FAQs, situations, products. */
   trusted: readonly string[];
@@ -34,6 +57,60 @@ export function runChecks(expected: EvalExpect, input: CheckInput): CheckResult[
       expected.outcome === input.outcome,
       `expected ${expected.outcome}, got ${input.outcome}`,
     );
+  if (expected.outcome_not)
+    add(
+      'outcome_not',
+      expected.outcome_not !== input.outcome,
+      `must not be ${expected.outcome_not}, got ${input.outcome}`,
+    );
+  if (expected.images_min !== undefined) {
+    const sent = input.images ?? 0;
+    add(
+      'images_min',
+      sent >= expected.images_min,
+      `${sent} pictures sent, min ${expected.images_min}`,
+    );
+  }
+  const messages = input.messages ?? [];
+  if (expected.messages_min !== undefined)
+    add(
+      'messages_min',
+      messages.length >= expected.messages_min,
+      `${messages.length} messages delivered, min ${expected.messages_min}`,
+    );
+  if (expected.image_messages_min !== undefined) {
+    const withImages = messages.filter((m) => m.images > 0).length;
+    add(
+      'image_messages_min',
+      withImages >= expected.image_messages_min,
+      `${withImages} messages with pictures, min ${expected.image_messages_min}`,
+    );
+  }
+  if (expected.images_per_message_max !== undefined) {
+    const max = expected.images_per_message_max;
+    const most = Math.max(0, ...messages.map((m) => m.images));
+    add('images_per_message_max', most <= max, `at most ${most} pictures in a message, max ${max}`);
+  }
+  stepChecks(expected, input.steps ?? [], add);
+  if (expected.quick_replies) {
+    const want = JSON.stringify(expected.quick_replies);
+    const found = messages.map((m) => JSON.stringify(m.quickReplies ?? []));
+    add(
+      'quick_replies',
+      found.includes(want),
+      found.includes(want)
+        ? `a message carries ${want}`
+        : `no message carries ${want} (got ${found.filter((f) => f !== '[]').join(', ') || 'none'})`,
+    );
+  }
+  if (expected.order_created !== undefined) {
+    const created = input.orderCreated === true;
+    add(
+      'order_created',
+      created === expected.order_created,
+      `expected orderCreated ${expected.order_created}, got ${created}`,
+    );
+  }
   if (expected.contains_any) {
     const hit = expected.contains_any.find((s) => reply.includes(norm(s)));
     add(
@@ -59,6 +136,13 @@ export function runChecks(expected: EvalExpect, input: CheckInput): CheckResult[
       found.length === 0,
       found.length ? `forbidden text in the reply: ${JSON.stringify(found)}` : 'none present',
     );
+  }
+  if (expected.max_occurrences) {
+    const over = Object.entries(expected.max_occurrences).flatMap(([text, max]) => {
+      const count = reply.split(norm(text)).length - 1;
+      return count > max ? [`"${text}" ${count}× (max ${max})`] : [];
+    });
+    add('max_occurrences', over.length === 0, over.length ? over.join(', ') : 'within limits');
   }
   if (expected.not_matches) {
     const found = expected.not_matches.filter((p) =>
@@ -98,4 +182,24 @@ export function runChecks(expected: EvalExpect, input: CheckInput): CheckResult[
     add('no_greeting', !GREETING.test(input.reply), 'checks the reply for a greeting');
   }
   return results;
+}
+
+/** The tool-step expectations: which tools ran, and which returned an ok result. */
+function stepChecks(
+  expected: EvalExpect,
+  steps: readonly ToolStep[],
+  add: (name: string, pass: boolean, detail: string) => void,
+): void {
+  const ran = steps.map((s) => s.name);
+  const succeeded = steps.filter((s) => s.ok).map((s) => s.name);
+  const seen = `tools run: ${steps.map((s) => `${s.name}${s.ok ? '' : ' (failed)'}`).join(', ') || 'none'}`;
+  const rule = (name: string, names: string[] | undefined, pass: (n: string) => boolean) => {
+    if (!names) return;
+    const bad = names.filter((n) => !pass(n));
+    add(name, bad.length === 0, bad.length ? `${JSON.stringify(bad)}; ${seen}` : seen);
+  };
+  rule('steps_include', expected.steps_include, (n) => ran.includes(n));
+  rule('steps_exclude', expected.steps_exclude, (n) => !ran.includes(n));
+  rule('steps_succeeded', expected.steps_succeeded, (n) => succeeded.includes(n));
+  rule('steps_not_succeeded', expected.steps_not_succeeded, (n) => !succeeded.includes(n));
 }

@@ -136,10 +136,13 @@ flowchart LR
 - Pack content (seed FAQs, scenarios, workflow copy, KPIs) is product work owned by the Product Owner and the chatbot trainer; engineering ships the mechanism.
 
 
-## Current lodging slice (T-155)
+## Current lodging slice (T-160)
 
-One whole property can now carry accommodation metadata and staff-confirmed stay requests inside commerce. This bounded implementation precedes the generic resource/appointment architecture described above; it is not a PMS/external calendar. See [ADR-013](adr/ADR-013-lodging-catalog-and-stay-requests.md) and [lodging operations](lodging.md).
+Hotel businesses have their own tier-2 module `lodging` ([ADR-018](adr/ADR-018-lodging-module.md), [lodging operations](lodging.md)): properties sold whole or per room → units → weekday and date-range rates with sell and cost prices → a nightly calendar → holds, bookings and blocks. One row per occupied unit-night with primary key `(workspace_id, unit_id, night)` makes double booking impossible; a whole rental of a rooms property takes every room. Holds expire lazily inside every lodging transaction. Rapiz is the calendar's source of truth (no Sheets, iCal or OTA sync). Hotel bots read the properties through `LODGING_CATALOG_FACADE` and quote nightly prices, but cannot read the calendar or place holds yet (part 3).
 
-## Current SaaS slice (ADR-014)
+This is still a lodging-specific model, not the generic `resources` / `availability_rules` / `appointments` objects of §4; a later generic model can migrate these tenant-owned rows. The T-155 slice (accommodation metadata on commerce products and staff-confirmed `stay_requests`, [ADR-013](adr/ADR-013-lodging-catalog-and-stay-requests.md)) is still served but deprecated and is removed in a later contract step.
 
-Industry `saas` has its own built-in customer statuses, a tier-2 module `saas` (customer subscriptions) and the first per-vertical bot tool, a built-in `builtin.saas.request` action routed in-process that records a demo / trial request on the customer. See [ADR-014](adr/ADR-014-saas-vertical-requests-subscriptions-builtin-tool.md) and [SaaS businesses](saas.md).
+
+## Current SaaS slice (ADR-020)
+
+Industry `saas` has its own built-in customer statuses, a tier-2 module `saas` (customer subscriptions) and a per-vertical bot tool, the built-in agent-loop tool `record_saas_request` run in-process that records a demo / trial request on the customer. See [ADR-020](adr/ADR-020-saas-vertical-requests-subscriptions-builtin-tool.md) and [SaaS businesses](saas.md).

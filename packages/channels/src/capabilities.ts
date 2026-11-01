@@ -3,7 +3,7 @@ import { WEBSITE_CAPABILITIES } from './website.js';
 
 export const META_CAPABILITIES: ChannelCapabilities = {
   richCards: false,
-  quickReplies: false,
+  quickReplies: true,
   media: true,
   replyWindowHours: 24,
 };

@@ -110,12 +110,20 @@ function InboxWorkspace({
   const [selected, setSelected] = useState<{ id: string; channelId: string } | null>(null);
   // The deep-linked conversation is looked up by id once; closing it afterwards stays closed.
   const [deepLink, setDeepLink] = useState(openConversationId);
-  const linked = useConversation(deepLink ?? null).data?.conversation;
+  const linkedQuery = useConversation(deepLink ?? null);
+  const linked = linkedQuery.data?.conversation;
+  const linkFailed = Boolean(deepLink) && linkedQuery.isError;
   useEffect(() => {
     if (!linked) return;
     setSelected({ id: linked.id, channelId: linked.channelId });
     setDeepLink(undefined);
   }, [linked]);
+  // A link to a conversation that is gone (or another shop's) must not just show the list.
+  useEffect(() => {
+    if (!linkFailed) return;
+    toast.error(t('channelInbox.v2.row.linkMissing'));
+    setDeepLink(undefined);
+  }, [linkFailed, t]);
   const [state, setState] = useState<ListState>(DEFAULT_LIST_STATE);
   const [comments, setComments] = useState(false);
   const [managing, setManaging] = useState(false);

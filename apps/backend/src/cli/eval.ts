@@ -19,7 +19,7 @@ import { runCase, runCaseFake } from '../modules/ai/evals/runner.js';
  *
  * T-145: runs the cases in `apps/backend/evals/` through the production reply pipeline
  * (`PlaygroundService`, the default prompt) and checks the outcome. Fake mode (default)
- * replays each case's `expect.fake_reply` and needs no network. `--live` uses the LLM
+ * replays each case's `fake_turns` (scripted model turns) and needs no network. `--live` uses the LLM
  * configured in the database (DATABASE_SYSTEM_URL; the tier of each case's bot, `smart` by
  * default) and never falls back to the development fake. Writes report.json and report.md to
  * `--out` (default: a new temp directory). Exit code 1 when a critical case fails.

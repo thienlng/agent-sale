@@ -553,6 +553,7 @@
       "assignMe": "Assign to me",
       "unassign": "Unassign",
       "actionError": "Could not update the conversation. Try again.",
+      "linkMissing": "This conversation was not found. It may have been deleted or belong to another shop.",
       "newLead": "New number",
       "newLeadLabel": "The visitor just left a phone number"
     },

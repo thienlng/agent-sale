@@ -30,4 +30,5 @@ expect:
   contains_all: ['14h', '12h']
   not_contains: ["\\n"]
   numbers_only_from_sources: true
-  fake_reply: { outcome: answer, reply: 'Dạ nhận phòng 14h, trả phòng 12h ạ.', sources: [] }
+fake_turns:
+  - text: 'Dạ nhận phòng 14h, trả phòng 12h ạ.'

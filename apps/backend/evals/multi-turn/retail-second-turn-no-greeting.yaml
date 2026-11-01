@@ -38,4 +38,8 @@ expect:
   no_greeting: true
   not_contains: ["\\n"]
   numbers_only_from_sources: true
-  fake_reply: { outcome: answer, reply: 'Dạ giày thể thao Classic giá 590.000đ ạ.', sources: [] }
+fake_turns:
+  - tool_calls:
+      - name: 'search_products'
+        input: {}
+  - text: 'Dạ giày thể thao Classic giá 590.000đ ạ.'

@@ -1,13 +1,22 @@
 import type { Database } from '@agent-sales/db';
 import { Module } from '@nestjs/common';
 
+import { getEnv } from '../../common/config.js';
+import { S3PublicObjectStorage } from '../../common/storage/public-object-storage.js';
 import { DB_TENANT } from '../../common/db/db.module.js';
+import { BotModule } from '../bot/bot.module.js';
+import { CrmModule } from '../crm/crm.module.js';
 import { IdentityModule } from '../identity/identity.module.js';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
 import { COMMERCE_FACADE } from './api/commerce.facade.js';
 import { CATALOG_FACADE } from './api/catalog.facade.js';
 import { CatalogService } from './application/catalog.service.js';
+import { PRODUCT_IMAGE_STORAGE } from './application/ports/product-image-storage.js';
+import { ProductImageService } from './application/product-image.service.js';
 import { OrderService } from './application/order.service.js';
+import { BotOrderService } from './application/bot-order.service.js';
+import { CommerceFacadeImpl } from './application/commerce.facade.impl.js';
+import { OrderReviewService } from './application/order-review.service.js';
 import { COMMERCE_STORE } from './application/ports/commerce-store.js';
 import { DrizzleCommerceStore } from './infrastructure/persistence/commerce.drizzle-store.js';
 import { UnavailableCommerceStore } from './infrastructure/persistence/unavailable-store.js';
@@ -21,7 +30,7 @@ import { CommerceUnavailableError } from './domain/commerce.errors.js';
 
 /** Products, warehouses, inventory and orders (docs/02 ORD-*). Needs a database. */
 @Module({
-  imports: [IdentityModule, WorkspaceModule],
+  imports: [IdentityModule, WorkspaceModule, BotModule, CrmModule],
   controllers: [CatalogController, OrdersController, LodgingController],
   providers: [
     {
@@ -34,6 +43,20 @@ import { CommerceUnavailableError } from './domain/commerce.errors.js';
     },
     LodgingService,
     {
+      provide: PRODUCT_IMAGE_STORAGE,
+      useFactory: () => {
+        const env = getEnv();
+        return new S3PublicObjectStorage({
+          endpoint: env.S3_ENDPOINT,
+          bucket: env.S3_BUCKET,
+          publicUrl: env.S3_PUBLIC_URL,
+          accessKey: env.S3_ACCESS_KEY,
+          secretKey: env.S3_SECRET_KEY,
+        });
+      },
+    },
+    ProductImageService,
+    {
       provide: COMMERCE_STORE,
       inject: [{ token: DB_TENANT, optional: true }],
       useFactory: (db: Database | null | undefined) =>
@@ -41,7 +64,10 @@ import { CommerceUnavailableError } from './domain/commerce.errors.js';
     },
     CatalogService,
     OrderService,
-    { provide: COMMERCE_FACADE, useExisting: OrderService },
+    BotOrderService,
+    OrderReviewService,
+    CommerceFacadeImpl,
+    { provide: COMMERCE_FACADE, useExisting: CommerceFacadeImpl },
     { provide: CATALOG_FACADE, useExisting: CatalogService },
   ],
   exports: [COMMERCE_FACADE, CATALOG_FACADE],

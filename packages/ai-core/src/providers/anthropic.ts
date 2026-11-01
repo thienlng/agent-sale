@@ -1,12 +1,14 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
+import { z } from 'zod';
 
-import type {
-  GenerateRequest,
-  GenerateResponse,
-  LlmProvider,
-  ModelTarget,
-  StopReason,
+import {
+  LlmCallError,
+  type GenerateRequest,
+  type GenerateResponse,
+  type LlmProvider,
+  type ModelTarget,
+  type StopReason,
 } from '../gateway.js';
 
 /**
@@ -55,34 +57,50 @@ export class AnthropicProvider implements LlmProvider {
         ...(options.apiKey ? { apiKey: options.apiKey } : {}),
         ...(options.baseURL ? { baseURL: options.baseURL } : {}),
         timeout: options.timeoutMs ?? 20_000,
-        maxRetries: options.maxRetries ?? 1,
+        maxRetries: options.maxRetries ?? 0,
       });
   }
 
   async generate(request: GenerateRequest, target: ModelTarget): Promise<GenerateResponse> {
-    if (request.images?.length) throw new Error('anthropic provider: images are not supported');
-    if (request.tools?.length) throw new Error('anthropic provider: tools are not wired yet');
+    if (request.images?.length)
+      throw new LlmCallError('invalid_request', 'anthropic provider: images are not supported');
     const { system, messages } = toAnthropicMessages(request);
     const started = performance.now();
     const fallback = SERVER_FALLBACK_MODELS.has(target.model);
 
-    const response = await this.#client.beta.messages.create({
-      model: target.model,
-      max_tokens: request.maxOutputTokens ?? 2_000,
-      ...(system.length ? { system } : {}),
-      messages,
-      ...(target.effort || request.responseFormat
-        ? {
-            output_config: {
-              ...(target.effort ? { effort: target.effort } : {}),
-              ...(request.responseFormat
-                ? { format: zodOutputFormat(request.responseFormat) }
-                : {}),
-            },
-          }
-        : {}),
-      ...(fallback ? { betas: [SERVER_FALLBACK_BETA], fallbacks: 'default' as const } : {}),
-    });
+    const response = await this.#client.beta.messages.create(
+      {
+        model: target.model,
+        max_tokens: request.maxOutputTokens ?? 2_000,
+        ...(system.length ? { system } : {}),
+        messages,
+        ...(request.tools?.length
+          ? {
+              tools: request.tools.map((t) => ({
+                name: t.name,
+                description: t.description,
+                input_schema: z.toJSONSchema(t.input) as Anthropic.Beta.BetaTool.InputSchema,
+              })),
+              tool_choice: { type: request.toolChoice ?? 'auto' },
+            }
+          : {}),
+        ...(target.effort || request.responseFormat
+          ? {
+              output_config: {
+                ...(target.effort ? { effort: target.effort } : {}),
+                ...(request.responseFormat
+                  ? { format: zodOutputFormat(request.responseFormat) }
+                  : {}),
+              },
+            }
+          : {}),
+        ...(fallback ? { betas: [SERVER_FALLBACK_BETA], fallbacks: 'default' as const } : {}),
+      },
+      {
+        ...(request.signal ? { signal: request.signal } : {}),
+        ...(request.timeoutMs ? { timeout: request.timeoutMs } : {}),
+      },
+    );
 
     const text = response.content
       .flatMap((block) => (block.type === 'text' ? [block.text] : []))
@@ -90,7 +108,9 @@ export class AnthropicProvider implements LlmProvider {
     const usage = response.usage;
     return {
       text,
-      toolCalls: [],
+      toolCalls: response.content.flatMap((block) =>
+        block.type === 'tool_use' ? [{ id: block.id, name: block.name, input: block.input }] : [],
+      ),
       stopReason: toStopReason(response.stop_reason),
       usage: {
         inputTokens: usage.input_tokens + (usage.cache_creation_input_tokens ?? 0),
@@ -125,14 +145,69 @@ function toAnthropicMessages(request: GenerateRequest): {
       if (messages.length) throw new Error('anthropic provider: system messages must come first');
       system.push({ type: 'text', text: m.content });
     } else if (m.role === 'tool') {
-      throw new Error('anthropic provider: tool messages are not wired yet');
+      if (!m.toolCallId) throw new Error('anthropic provider: tool message without toolCallId');
+      const block: Anthropic.Beta.BetaToolResultBlockParam = {
+        type: 'tool_result',
+        tool_use_id: m.toolCallId,
+        content: m.content,
+      };
+      const prev = messages.at(-1);
+      // Results of one assistant turn must share a single user message.
+      if (prev?.role === 'user' && Array.isArray(prev.content) && isToolResults(prev.content)) {
+        prev.content.push(block);
+      } else {
+        messages.push({ role: 'user', content: [block] });
+      }
+    } else if (m.role === 'assistant' && m.toolCalls?.length) {
+      messages.push({
+        role: 'assistant',
+        content: [
+          ...(m.content ? [{ type: 'text' as const, text: m.content }] : []),
+          ...m.toolCalls.map((c) => ({
+            type: 'tool_use' as const,
+            id: c.id,
+            name: c.name,
+            input: c.input ?? {},
+          })),
+        ],
+      });
     } else {
       messages.push({ role: m.role, content: m.content });
     }
   }
   const last = system.at(-1);
-  if (last) last.cache_control = { type: 'ephemeral' };
+  if (last?.text) last.cache_control = { type: 'ephemeral' };
+  // Rolling breakpoints on the last two user/tool-result messages (≤ 4 in total).
+  let marked = 0;
+  for (let i = messages.length - 1; i >= 0 && marked < 2; i--) {
+    const m = messages[i];
+    if (m?.role !== 'user') continue;
+    if (markCacheBreakpoint(m)) marked++;
+  }
   return { system, messages };
+}
+
+/** Marks the last non-empty block (the API rejects cache_control on empty text); false if none. */
+function markCacheBreakpoint(message: Anthropic.Beta.BetaMessageParam): boolean {
+  if (typeof message.content === 'string') {
+    if (!message.content) return false;
+    message.content = [
+      { type: 'text', text: message.content, cache_control: { type: 'ephemeral' } },
+    ];
+    return true;
+  }
+  const content = message.content ?? [];
+  for (let i = content.length - 1; i >= 0; i--) {
+    const block = content[i];
+    if (!block || (block.type === 'text' && !block.text)) continue;
+    (block as { cache_control?: unknown }).cache_control = { type: 'ephemeral' };
+    return true;
+  }
+  return false;
+}
+
+function isToolResults(content: Anthropic.Beta.BetaContentBlockParam[]): boolean {
+  return content.every((b) => b.type === 'tool_result');
 }
 
 function toStopReason(reason: string | null): StopReason {

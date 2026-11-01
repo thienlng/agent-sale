@@ -304,17 +304,22 @@ export class ChannelFacadeImpl implements ChannelFacade, OnModuleInit {
     if (!c || c.status !== 'connected' || (c.expiresAt && Date.parse(c.expiresAt) <= Date.now()))
       return { externalId: null, status: 'failed' as const, failureCode: 'reauth_required' };
     try {
-      const result = await new MetaAdapter(c.provider, getEnv().META_GRAPH_VERSION).send(
+      const meta = new MetaAdapter(c.provider, getEnv().META_GRAPH_VERSION, this.transport);
+      const result = await meta.send(
         { externalId: c.externalId, token: this.box.open(c.tokenSealed) },
         recipient,
         message.attachments?.length
           ? { attachments: [...message.attachments] }
-          : { text: message.text },
+          : { text: message.text, quickReplies: [...(message.quickReplies ?? [])] },
         { idempotencyKey: key },
       );
       return { externalId: result.externalMessageId, status: 'sent' as const, failureCode: null };
     } catch (error) {
       const code = error instanceof MetaRequestError ? error.code : 'delivery_unknown';
+      if (error instanceof MetaRequestError)
+        log.warn(
+          `Send on channel ${id} failed: ${code} (meta ${JSON.stringify(error.meta)}, ${message.attachments?.length ? `${message.attachments.length} attachment(s)` : 'text'})`,
+        );
       if (code === 'auth_expired') await this.store.update(ws, id, { status: 'reauth_required' });
       return {
         externalId: null,

@@ -30,4 +30,5 @@ expect:
   contains_all: ['bể bơi', 'karaoke']
   not_contains: ["\\n"]
   numbers_only_from_sources: true
-  fake_reply: { outcome: answer, reply: 'Dạ villa có bể bơi, BBQ, karaoke và bida ạ.', sources: [] }
+fake_turns:
+  - text: 'Dạ villa có bể bơi, BBQ, karaoke và bida ạ.'

@@ -11,7 +11,7 @@ import {
   VariantSearchResponse,
   WarehouseDto,
 } from '@agent-sales/contracts';
-import { ensureLoginRoles, migrate, withCredentials } from '@agent-sales/db';
+import { createDb, ensureLoginRoles, migrate, sql, withCredentials } from '@agent-sales/db';
 import { workspaceId } from '@agent-sales/shared';
 import { startTestPostgres, type TestPostgres } from '@agent-sales/testing';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
@@ -22,6 +22,7 @@ import { createHttpApp } from '../src/bootstrap.js';
 import { CATALOG_FACADE, type CatalogFacade } from '../src/modules/commerce/api/index.js';
 
 /** Products, stock and the order lifecycle on a real Postgres (RLS, SQL search, aggregates). */
+const MEDIA_URL = 'https://media.rapiz.test';
 let pg: TestPostgres;
 let app: NestFastifyApplication;
 
@@ -32,6 +33,12 @@ beforeAll(async () => {
   const booted = await createHttpApp(AppModule, {
     NODE_ENV: 'test',
     LOG_LEVEL: 'error',
+    // Pictures must live under this public URL; nothing is uploaded in these tests.
+    S3_ENDPOINT: 'http://127.0.0.1:9',
+    S3_BUCKET: 'rapiz-test',
+    S3_PUBLIC_URL: MEDIA_URL,
+    S3_ACCESS_KEY: 'test',
+    S3_SECRET_KEY: 'test',
     DATABASE_URL: withCredentials(pg.ownerUrl, pg.tenantLogin.user, pg.tenantLogin.password),
     DATABASE_SYSTEM_URL: withCredentials(pg.ownerUrl, pg.systemLogin.user, pg.systemLogin.password),
   });
@@ -166,14 +173,16 @@ describe('commerce on Postgres', () => {
     });
   });
 
-  it('stores up to five https product images and refuses anything else', async () => {
+  it('stores up to five uploaded product images and refuses anything else', async () => {
     const headers = await owner('product-images@example.test');
     const body = {
       code: 'IMG-1',
       name: 'Image product',
       variants: [{ sku: 'IMG-SKU', price: 90000 }],
     };
-    const urls = ['https://cdn.example.com/a.jpg', 'https://cdn.example.com/b.jpg'];
+    const wsId = headers['x-workspace-id']!;
+    const stored = (name: string, ws = wsId) => `${MEDIA_URL}/products/${ws}/${name}`;
+    const urls = [stored('a.jpg'), stored('b.jpg')];
     const created = await call(headers, 'POST', '/products', { ...body, imageUrls: urls });
     expect(created.statusCode).toBe(201);
     const product = ProductDto.parse(created.json());
@@ -190,11 +199,33 @@ describe('commerce on Postgres', () => {
     expect(ProductDto.parse((await update(urls.slice(0, 1))).json()).imageUrls).toEqual(
       urls.slice(0, 1),
     );
-    expect((await update(['http://cdn.example.com/a.jpg'])).statusCode).toBe(400);
-    expect(
-      (await update(Array.from({ length: 6 }, (_, i) => `https://cdn.example.com/${i}.jpg`)))
-        .statusCode,
-    ).toBe(400);
+    expect((await update([stored('a.jpg').replace('https:', 'http:')])).statusCode).toBe(400);
+    expect((await update(Array.from({ length: 6 }, (_, i) => stored(`${i}.jpg`)))).statusCode).toBe(
+      400,
+    );
+    // Links are refused, a kept stored picture is not exempt, another shop's file is refused.
+    const notUploaded = async (res: Awaited<ReturnType<typeof update>>, field: string) => {
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error).toMatchObject({
+        code: 'VALIDATION_FAILED',
+        details: { reason: 'IMAGE_NOT_UPLOADED', field },
+      });
+    };
+    await notUploaded(await update(['https://cdn.example.com/a.jpg']), 'imageUrls[0]');
+    await notUploaded(await update([urls[0]!, 'https://cdn.example.com/a.jpg']), 'imageUrls[1]');
+    await notUploaded(
+      await update([stored('a.jpg', '0192f0a0-0000-7000-8000-000000000009')]),
+      'imageUrls[0]',
+    );
+    await notUploaded(
+      await call(headers, 'POST', '/products', {
+        ...body,
+        code: 'IMG-2',
+        variants: [{ sku: 'IMG-SKU-2', price: 1 }],
+        imageUrls: ['https://cdn.example.com/a.jpg'],
+      }),
+      'imageUrls[0]',
+    );
     expect(ProductDto.parse((await update([])).json()).imageUrls).toEqual([]);
   });
 
@@ -644,6 +675,133 @@ describe('commerce on Postgres', () => {
     expect((await call(h, 'GET', '/orders?status=bogus')).statusCode).toBe(400);
   });
 
+  it('filters, sorts and counts by the Excel-style column menus', async () => {
+    const h = await owner('columns@shop.vn');
+    const { warehouse, l, m } = await setup(h);
+    const create = async (body: object) => {
+      const r = await call(h, 'POST', '/orders', body);
+      expect(r.statusCode).toBe(201);
+      return OrderDto.parse(r.json());
+    };
+    const a = await create({
+      ...orderBody(warehouse.id, [{ variantId: l.id, qty: 2 }]),
+      carrier: 'GHN',
+      trackingCode: 'GHN-ABC123',
+    });
+    const b = await create({
+      ...orderBody(warehouse.id, [{ variantId: m.id, qty: 1 }]),
+      source: 'zalo',
+      carrier: 'GHTK',
+      transferAmount: 0,
+      customer: { name: 'Lê Thị Hoa', phone: '+84 912 345 678' },
+      recipient: { name: 'Lê Thị Hoa', phone: '+84 912 345 678', address: 'Đà Nẵng' },
+      noteInternal: '',
+      notePrint: 'Gọi trước khi giao',
+    });
+    const c = await create({
+      ...orderBody(warehouse.id, [{ variantId: m.id, qty: 1 }]),
+      source: 'hotline',
+      freeShipping: true,
+      customer: { name: 'Đỗ Đức', phone: '0987 654 321' },
+      recipient: { name: 'Đỗ Đức', phone: '0987 654 321', address: 'Huế' },
+    });
+    const d = await create({
+      ...orderBody(warehouse.id, [{ variantId: l.id, qty: 1 }]),
+      customer: { name: 'Phạm An', phone: '0933 000 111' },
+      recipient: { name: 'Phạm An', phone: '0933 000 111', address: 'Cần Thơ' },
+    });
+    // C and D become bot orders (pending and approved); the HTTP path for them is in bot-orders.
+    const owner_ = createDb({ url: pg.ownerUrl, max: 1 });
+    try {
+      for (const [id, bot, review] of [
+        [c.id, 'Bot Lan', 'pending'],
+        [d.id, 'Bot Mai', 'approved'],
+      ] as const) {
+        await owner_.db.execute(
+          sql`update orders set created_by_kind = 'bot', created_by_user_id = null,
+              created_by_name = ${bot}, review_state = ${review} where id = ${id}`,
+        );
+      }
+    } finally {
+      await owner_.close();
+    }
+    const list = async (query: string) => {
+      const r = await call(h, 'GET', `/orders?${query}`);
+      expect(r.statusCode).toBe(200);
+      return OrderListResponse.parse(r.json());
+    };
+    const staff = (await list('')).facets.creators;
+    expect(staff).toHaveLength(1);
+    const userId = staff[0]?.id ?? '';
+    const ids = async (query: string) => (await list(query)).data.map((o) => o.id);
+    const sorted = async (query: string) => (await ids(query)).sort();
+    const set = (...xs: Array<{ id: string }>) => xs.map((x) => x.id).sort();
+
+    // Lists: OR within a column, AND across columns.
+    expect(await sorted('source=facebook,zalo')).toEqual(set(a, b, d));
+    expect(await sorted('source=facebook,zalo&carrier=GHN')).toEqual(set(a));
+    expect(await sorted('carrier=GHN,GHTK')).toEqual(set(a, b));
+    expect(await sorted(`creator=${userId}`)).toEqual(set(a, b));
+    expect(await sorted('creator=bot_pending')).toEqual(set(c));
+    expect(await sorted('creator=bot_approved')).toEqual(set(d));
+    expect(await sorted(`creator=${userId},bot_pending`)).toEqual(set(a, b, c));
+    // Deprecated aliases still work.
+    expect(await sorted(`createdBy=${userId}`)).toEqual(set(a, b));
+    expect(await sorted('review=pending')).toEqual(set(c));
+
+    // Column texts: contains, accent- and case-insensitive, đ folded to d.
+    expect(await sorted('customer=LE%20THI')).toEqual(set(b));
+    expect(await sorted('customer=do%20duc')).toEqual(set(c));
+    expect(await sorted(`code=${a.code.toLowerCase()}`)).toEqual(set(a));
+    expect(await sorted('tracking=abc1')).toEqual(set(a));
+    expect(await sorted('address=da%20nang')).toEqual(set(b));
+    expect(await sorted('address=c%E1%BA%A7n')).toEqual(set(d));
+    expect(await sorted('product=trang%20%2F%20m')).toEqual(set(b, c));
+    expect(await sorted('product=AO%20THUN')).toEqual(set(a, b, c, d));
+    expect(await sorted('note=goi%20truoc')).toEqual(set(b));
+    expect(await sorted('note=khach%20quen')).toEqual(set(a, c, d));
+    expect(await sorted('code=%25')).toEqual([]);
+    // Phones compare on digits; 0… and +84… find each other.
+    expect(await sorted('phone=0912%20345')).toEqual(set(b));
+    expect(await sorted('phone=%2B84%20901')).toEqual(set(a));
+    expect(await sorted('phone=000%20111')).toEqual(set(d));
+    expect(await sorted('phone=abc')).toEqual([]);
+    expect(await sorted('customer=hoa&phone=0901')).toEqual([]);
+
+    // Money ranges are inclusive.
+    expect(await sorted(`totalMin=${a.amounts.total}`)).toEqual(set(a));
+    expect(await sorted(`grossMin=170000&grossMax=170000`)).toEqual(set(b));
+    expect(await sorted('subtotalMax=140000')).toEqual(set(b, c));
+    expect(await sorted('shippingMax=0')).toEqual(set(c));
+    expect(await sorted('paidMax=0')).toEqual(set(b));
+    expect(await sorted(`codMin=${b.amounts.cod}&codMax=${b.amounts.cod}`)).toEqual(set(b));
+
+    // Sorting, ties by placed time descending.
+    expect(await ids('sort=placed_desc')).toEqual([d, c, b, a].map((x) => x.id));
+    expect(await ids('sort=placed_asc')).toEqual([a, b, c, d].map((x) => x.id));
+    expect(await ids('sort=gross_asc')).toEqual([c, b, d, a].map((x) => x.id));
+    expect(await ids('sort=creator_asc')).toEqual([c, d, b, a].map((x) => x.id));
+    expect(await ids('sort=carrier_asc')).toEqual([a, b, d, c].map((x) => x.id));
+    expect(await ids('sort=carrier_desc')).toEqual([b, a, d, c].map((x) => x.id));
+    expect(await ids('sort=source_desc')).toEqual([b, c, d, a].map((x) => x.id));
+    expect((await call(h, 'GET', '/orders?sort=bogus_asc')).statusCode).toBe(400);
+    expect((await call(h, 'GET', `/orders?code=${'x'.repeat(101)}`)).statusCode).toBe(400);
+
+    // Facet counts ignore only their own column's filter.
+    const fb = await list('source=facebook');
+    expect(fb.facets.counts).toEqual({
+      source: { facebook: 2, zalo: 1, hotline: 1 },
+      creator: { [userId]: 1, bot_approved: 1 },
+      carrier: { GHN: 1 },
+    });
+    const ghn = await list('carrier=GHN&status=new');
+    expect(ghn.facets.counts?.carrier).toEqual({ GHN: 1, GHTK: 1 });
+    expect(ghn.facets.counts?.source).toEqual({ facebook: 1 });
+    const bots = await list('creator=bot_pending&q=khach');
+    expect(bots.facets.counts?.creator).toEqual({ [userId]: 1, bot_pending: 1, bot_approved: 1 });
+    expect(bots.counts).toMatchObject({ all: 1, new: 1 });
+  });
+
   it('keeps drafts movable when a policy tightens, keeps unsent fields, and asks for the fee when free shipping ends', async () => {
     const h = await owner('review-fixes@shop.vn');
     const { warehouse, product, l } = await setup(h);
@@ -743,13 +901,20 @@ describe('commerce on Postgres', () => {
     const names = (list: ProductDto[]) => list.map((p) => p.name).sort();
     const all = { botId: shirts.id, catalogMode: 'all' as const };
     const only = { botId: shoes.id, catalogMode: 'selected' as const };
-    expect(names(await catalog.listBotCatalog(ws, all, 10))).toEqual(
+    expect(names(await catalog.searchBotCatalog(ws, all, { limit: 10 }))).toEqual(
       ['Giày da', 'Giày sneaker', 'Sơ mi trắng'].sort(),
     );
     // Archived products stay out even when selected.
-    expect(names(await catalog.listBotCatalog(ws, only, 10))).toEqual(['Giày da', 'Giày sneaker']);
-    expect(names(await catalog.getBotProducts(ws, only, 'sơ mi trắng', 5))).toEqual([]);
-    expect(names(await catalog.getBotProducts(ws, all, 'sơ mi trắng', 5))).toEqual(['Sơ mi trắng']);
+    expect(names(await catalog.searchBotCatalog(ws, only, { limit: 10 }))).toEqual([
+      'Giày da',
+      'Giày sneaker',
+    ]);
+    expect(
+      names(await catalog.searchBotCatalog(ws, only, { query: 'sơ mi trắng', limit: 5 })),
+    ).toEqual([]);
+    expect(
+      names(await catalog.searchBotCatalog(ws, all, { query: 'sơ mi trắng', limit: 5 })),
+    ).toEqual(['Sơ mi trắng']);
 
     // Another business can neither change this bot's selection nor select its products.
     const foreignProduct = ProductDto.parse(

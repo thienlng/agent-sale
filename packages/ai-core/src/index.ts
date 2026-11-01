@@ -1,4 +1,5 @@
 export * from './gateway.js';
+export * from './emulated-tools.js';
 export * from './prompts.js';
 export * from './providers/fake.js';
 export * from './providers/anthropic.js';
@@ -6,3 +7,5 @@ export * from './providers/openai-compatible.js';
 export * from './providers/hermes.js';
 export * from './providers/hermes-login.js';
 export * from './providers/model-list.js';
+export * from './llm-errors.js';
+export * from './retry.js';

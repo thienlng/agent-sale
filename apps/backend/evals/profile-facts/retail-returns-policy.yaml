@@ -23,9 +23,5 @@ expect:
   contains_any: ['7 ngày']
   not_contains: ["\\n"]
   numbers_only_from_sources: true
-  fake_reply:
-    {
-      outcome: answer,
-      reply: 'Dạ shop đổi trả trong 7 ngày kể từ khi nhận hàng, sản phẩm còn nguyên tem mác, chưa qua sử dụng ạ. Đổi size lần đầu miễn phí ạ.',
-      sources: [],
-    }
+fake_turns:
+  - text: 'Dạ shop đổi trả trong 7 ngày kể từ khi nhận hàng, sản phẩm còn nguyên tem mác, chưa qua sử dụng ạ. Đổi size lần đầu miễn phí ạ.'

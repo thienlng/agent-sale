@@ -1,4 +1,5 @@
 import {
+  ApproveOrderRequest,
   ChangeOrderStatusRequest,
   CreateOrderRequest,
   type OrderDto,
@@ -6,6 +7,7 @@ import {
   type OrderListResponse,
   OrderOverviewQuery,
   type OrderOverviewResponse,
+  type OrderReviewCountResponse,
   OrderSettingsDto,
   UpdateOrderRequest,
 } from '@agent-sales/contracts';
@@ -32,13 +34,17 @@ import {
   WorkspaceScoped,
 } from '../../../../common/http/auth-context.js';
 import { ZodValidationPipe } from '../../../../common/http/zod-validation.pipe.js';
+import { OrderReviewService } from '../../application/order-review.service.js';
 import { OrderService } from '../../application/order.service.js';
 
 /** Thin controller: orders, overview and order settings. */
 @WorkspaceScoped()
 @Controller()
 export class OrdersController {
-  constructor(@Inject(OrderService) private readonly orders: OrderService) {}
+  constructor(
+    @Inject(OrderService) private readonly orders: OrderService,
+    @Inject(OrderReviewService) private readonly reviews: OrderReviewService,
+  ) {}
 
   @RequireCapability('orders.view')
   @Get('orders')
@@ -70,6 +76,13 @@ export class OrdersController {
     return this.orders.overview(ws, query);
   }
 
+  // Declared before orders/:orderId so "review-count" is not taken for an id.
+  @RequireCapability('orders.view')
+  @Get('orders/review-count')
+  reviewCount(@CurrentWorkspace() ws: WorkspaceId): Promise<OrderReviewCountResponse> {
+    return this.reviews.reviewCount(ws);
+  }
+
   @RequireCapability('orders.view')
   @Get('orders/:orderId')
   get(@CurrentWorkspace() ws: WorkspaceId, @Param('orderId') id: string): Promise<OrderDto> {
@@ -97,6 +110,19 @@ export class OrdersController {
     @Body(new ZodValidationPipe(ChangeOrderStatusRequest)) body: ChangeOrderStatusRequest,
   ): Promise<OrderDto> {
     return this.orders.changeStatus(ws, id, body, user.userId);
+  }
+
+  /** Staff review of a bot order; `approve:false` undoes a fresh approval (ADR-016). */
+  @RequireCapability('orders.manage')
+  @Post('orders/:orderId/approve')
+  @HttpCode(200)
+  approve(
+    @CurrentWorkspace() ws: WorkspaceId,
+    @CurrentUser() user: AuthState,
+    @Param('orderId') id: string,
+    @Body(new ZodValidationPipe(ApproveOrderRequest)) body: ApproveOrderRequest,
+  ): Promise<OrderDto> {
+    return this.reviews.approve(ws, id, body.approve, user.userId);
   }
 
   @Get('order-settings')

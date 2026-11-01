@@ -23,9 +23,5 @@ expect:
   contains_any: ['kiểm tra']
   not_contains: ["\\n"]
   numbers_only_from_sources: true
-  fake_reply:
-    {
-      outcome: answer,
-      reply: 'Dạ đơn COD anh/chị được kiểm tra giày trước khi thanh toán ạ.',
-      sources: [],
-    }
+fake_turns:
+  - text: 'Dạ đơn COD anh/chị được kiểm tra giày trước khi thanh toán ạ.'

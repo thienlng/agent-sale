@@ -40,9 +40,10 @@ vi.mock('../api/inbox', () => ({
   useAssignConversation: () => ({ mutate: vi.fn() }),
   useBulkConversations: () => ({ mutate: fixtures.bulk, isPending: false }),
   // A deep-linked conversation is looked up by id, whatever the list shows.
-  useConversation: (id: string | null) => ({
-    data: id ? { conversation: { id, channelId: 'page-9' } } : undefined,
-  }),
+  useConversation: (id: string | null) =>
+    id === 'conv-gone'
+      ? { data: undefined, isError: true }
+      : { data: id ? { conversation: { id, channelId: 'page-9' } } : undefined, isError: false },
 }));
 vi.mock('sonner', () => ({
   toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn(), info: vi.fn() }),
@@ -131,6 +132,13 @@ describe('inbox page', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Close conversation' }));
     });
     expect(screen.queryByLabelText('Open conversation')).toBeNull();
+  });
+
+  it('says so when the deep-linked conversation is not found, instead of only showing the list', async () => {
+    const { toast } = await import('sonner');
+    render(<InboxPage openConversationId="conv-gone" />);
+    expect(screen.queryByLabelText('Open conversation')).toBeNull();
+    expect(toast.error).toHaveBeenCalledTimes(1);
   });
 
   it('opens an old conversation of a removed page with its name and marked removed (T-133)', () => {

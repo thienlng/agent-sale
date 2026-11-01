@@ -1,7 +1,7 @@
 import type { SaasRequestKind } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
 
-/** What the bot's built-in `builtin.saas.request` tool did (ADR-014 §3). */
+/** What the bot's built-in `record_saas_request` tool did (ADR-020 §4). */
 export type BotSaasRequestResult =
   /** The customer (found or created by phone) carries the request as its status and a note. */
   | { outcome: 'recorded'; contactId: string; created: boolean }

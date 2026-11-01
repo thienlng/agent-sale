@@ -30,4 +30,5 @@ expect:
   contains_any: ['8.000.000', '8 triệu', '8tr']
   not_contains: ['6.000.000', "\\n"]
   numbers_only_from_sources: true
-  fake_reply: { outcome: answer, reply: 'Dạ giá cuối tuần từ 8.000.000đ/đêm ạ.', sources: [] }
+fake_turns:
+  - text: 'Dạ giá cuối tuần từ 8.000.000đ/đêm ạ.'

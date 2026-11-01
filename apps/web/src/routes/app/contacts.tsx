@@ -38,7 +38,7 @@ export const Route = createFileRoute('/app/contacts')({
     const search = Route.useSearch();
     const navigate = useNavigate({ from: '/app/contacts' });
     const saas = useCurrentWorkspace().data?.industry === 'saas';
-    // A SaaS business keeps its subscribers on the same list (ADR-014): figures on top,
+    // A SaaS business keeps its subscribers on the same list (ADR-020): figures on top,
     // plan columns per row, the plan card in the customer sheet.
     const canViewAll = useCan('contacts.view_all');
     const revenue = saas && canViewAll;
