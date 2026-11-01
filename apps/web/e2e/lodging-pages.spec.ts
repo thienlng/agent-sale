@@ -87,6 +87,7 @@ const booking = (n: number) => ({
   note: '',
   tags: n % 3 ? [] : ['Đoàn công ty'],
   blockReason: '',
+  reviewedAt: null,
   version: 1,
   createdAt: STAMP,
   updatedAt: STAMP,
@@ -130,7 +131,15 @@ async function mockHotel(page: Page) {
       }));
       return route.fulfill(json({ ...found, rates }));
     }
-    return route.fulfill(json({ data: list.map((p) => ({ ...p, today: 'free' })) }));
+    return route.fulfill(
+      json({
+        data: list.map((p) => ({
+          ...p,
+          today: 'free',
+          weekdaySell: [12, 12, 12, 12, 14, 16, 14].map((m) => m * 1_000_000),
+        })),
+      }),
+    );
   });
   await page.route('**/api/v1/lodging/calendar**', (route) =>
     route.fulfill(
