@@ -649,6 +649,29 @@ const notesCalendar = (
   ],
 });
 const savedNote = { status: 200, body: { note: null } };
+const R1 = '0193a000-0000-7000-8000-000000000021';
+const R2 = '0193a000-0000-7000-8000-000000000022';
+const NOTE_B = '0193a000-0000-7000-8000-000000000302';
+/** The same nights on a rooms property (P101, P102). */
+const roomsNotesCalendar = (
+  notes: Array<{ id: string; unitId: string | null; night: string; text: string }>,
+) => {
+  const c = notesCalendar(notes);
+  const p = c.properties[0]!;
+  return {
+    ...c,
+    properties: [
+      {
+        ...p,
+        sellMode: 'rooms',
+        rows: [
+          { unitId: R1, name: 'P101', kind: 'room', prices: [], segments: [] },
+          { unitId: R2, name: 'P102', kind: 'room', prices: [], segments: [] },
+        ],
+      },
+    ],
+  };
+};
 
 describe('BookingSheet night notes', () => {
   it('lists the notes on the booking nights and edits one night', async () => {
@@ -740,6 +763,83 @@ describe('BookingSheet night notes', () => {
         text: '',
       }),
     );
+  });
+
+  it('edits only the room of the note, while a new note still goes to every room', async () => {
+    const calls = stubApi({
+      [`GET /lodging/bookings/${BK}`]: {
+        status: 200,
+        body: booking({ whole: false, unitIds: [R1, R2], unitNames: ['P101', 'P102'] }),
+      },
+      'GET /lodging/calendar': {
+        status: 200,
+        body: roomsNotesCalendar([
+          { id: NOTE, unitId: R1, night: '2099-11-02', text: 'Dọn P101' },
+          { id: NOTE_B, unitId: R2, night: '2099-11-02', text: 'Dọn P102' },
+        ]),
+      },
+      [`PUT /lodging/properties/${PROP}/notes`]: savedNote,
+    });
+    const user = userEvent.setup();
+    renderSheet({ mode: 'view', bookingId: BK });
+    const sheet = await screen.findByRole('dialog');
+    const section = await within(sheet).findByRole('region', { name: 'Ghi chú ngày' });
+    await user.click(
+      await within(section).findByRole('button', { name: 'Sửa ghi chú đêm T2 02/11 · P101' }),
+    );
+    const text = within(section).getByRole('textbox', { name: 'Ghi chú cho đêm đã chọn' });
+    expect(text).toHaveValue('Dọn P101');
+    await user.clear(text);
+    await user.type(text, 'Dọn P101 xong');
+    await user.click(within(section).getByRole('button', { name: 'Lưu ghi chú' }));
+    await waitFor(() =>
+      expect(
+        calls.filter((c) => c.key === `PUT /lodging/properties/${PROP}/notes`).map((c) => c.body),
+      ).toEqual([{ unitId: R1, night: '2099-11-02', text: 'Dọn P101 xong' }]),
+    );
+
+    await user.click(await within(section).findByRole('button', { name: 'Thêm ghi chú' }));
+    await user.click(within(section).getByRole('checkbox', { name: 'T3 03/11' }));
+    await user.type(
+      within(section).getByRole('textbox', { name: 'Ghi chú cho đêm đã chọn' }),
+      'Khách cần nôi',
+    );
+    await user.click(within(section).getByRole('button', { name: 'Lưu ghi chú' }));
+    await waitFor(() =>
+      expect(
+        calls
+          .filter((c) => c.key === `PUT /lodging/properties/${PROP}/notes`)
+          .slice(1)
+          .map((c) => c.body),
+      ).toEqual([
+        { unitId: R1, night: '2099-11-02', text: 'Khách cần nôi' },
+        { unitId: R2, night: '2099-11-02', text: 'Khách cần nôi' },
+      ]),
+    );
+  });
+
+  it('lists the room notes of a whole booking on a rooms property', async () => {
+    stubApi({
+      [`GET /lodging/bookings/${BK}`]: {
+        status: 200,
+        body: booking({ whole: true, unitIds: [R1, R2], unitNames: ['P101', 'P102'] }),
+      },
+      'GET /lodging/calendar': {
+        status: 200,
+        body: roomsNotesCalendar([
+          { id: NOTE, unitId: R2, night: '2099-11-03', text: 'Hỏng điều hoà' },
+          { id: NOTE_B, unitId: null, night: '2099-11-02', text: 'Cắt điện' },
+        ]),
+      },
+    });
+    renderSheet({ mode: 'view', bookingId: BK });
+    const sheet = await screen.findByRole('dialog');
+    const section = await within(sheet).findByRole('region', { name: 'Ghi chú ngày' });
+    expect(await within(section).findByText('Hỏng điều hoà')).toBeInTheDocument();
+    expect(within(section).getByText('Cắt điện')).toBeInTheDocument();
+    expect(
+      within(section).getByRole('button', { name: 'Sửa ghi chú đêm T3 03/11 · P102' }),
+    ).toBeInTheDocument();
   });
 
   it('only lists the notes without orders.manage', async () => {

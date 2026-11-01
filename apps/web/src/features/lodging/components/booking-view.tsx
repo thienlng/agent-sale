@@ -34,7 +34,7 @@ import {
 } from '../lib/format';
 import { BookingEditForm } from './booking-edit-form';
 import { BookingErrorAlert } from './booking-error-alert';
-import { BookingNightNotes } from './booking-night-notes';
+import { BookingNightNotes, type NoteFocus } from './booking-night-notes';
 import { SheetSection } from './booking-fields';
 import { BookingStatusBadge } from './booking-status-badge';
 import { QuoteSummary } from './quote-breakdown';
@@ -51,14 +51,14 @@ const EDITABLE = new Set(['hold', 'confirmed', 'checked_in', 'active']);
 
 /**
  * View mode of the booking sheet: status actions, details, price, night notes, history and
- * editing. `focusNoteNight` opens the night-note editor on that night (calendar tooltip).
+ * editing. `focusNote` opens the night-note editor on that night and unit (calendar tooltip).
  */
 export function BookingView({
   bookingId,
-  focusNoteNight,
+  focusNote,
 }: {
   bookingId: string;
-  focusNoteNight?: string | undefined;
+  focusNote?: NoteFocus | undefined;
 }) {
   const { t } = useTranslation();
   const booking = useBooking(bookingId);
@@ -247,7 +247,7 @@ export function BookingView({
               {b.note && <p className="whitespace-pre-wrap">{b.note}</p>}
             </SheetSection>
           )}
-          <BookingNightNotes booking={b} focusNight={focusNoteNight} />
+          <BookingNightNotes booking={b} focus={focusNote} />
           <SheetSection title={t('lodging.sheet.sectionHistory')}>
             {b.history.length === 0 ? (
               <p className="text-muted-foreground">{t('lodging.history.empty')}</p>
