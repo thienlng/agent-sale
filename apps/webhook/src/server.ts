@@ -1,7 +1,9 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 
 import type { ChannelKind, ChannelRegistry, NormalizedEvent } from '@agent-sales/channels';
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
+
+import { redactUrl, registerKiotVietRoute, type KiotVietIngressStore } from './kiotviet.js';
 
 /**
  * Ingress ports. Production adapters: Postgres `inbound_events` (+ key table for
@@ -28,6 +30,8 @@ export interface ServerDeps {
   secrets: Partial<Record<ChannelKind, string>>;
   logLevel?: string;
   verifyToken?: string;
+  /** KiotViet deliveries per connection (`POST /webhooks/kiotviet/:token`); route omitted when absent. */
+  kiotviet?: KiotVietIngressStore;
 }
 
 const KINDS: ChannelKind[] = [
@@ -41,7 +45,20 @@ const KINDS: ChannelKind[] = [
 ];
 
 export function buildServer(deps: ServerDeps): FastifyInstance {
-  const app = Fastify({ logger: { level: deps.logLevel ?? 'info' }, trustProxy: true });
+  const app = Fastify({
+    logger: {
+      level: deps.logLevel ?? 'info',
+      serializers: {
+        req: (req: FastifyRequest) => ({
+          method: req.method,
+          url: redactUrl(req.url),
+          host: req.host,
+          remoteAddress: req.ip,
+        }),
+      },
+    },
+    trustProxy: true,
+  });
 
   // Keep the raw body for signature verification.
   app.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) => {
@@ -64,6 +81,8 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
       return reply.code(400).send({ error: 'invalid challenge' });
     return reply.type('text/plain').send(challenge);
   });
+
+  if (deps.kiotviet) registerKiotVietRoute(app, deps.kiotviet);
 
   app.get('/health', async () => ({ status: 'ok' }));
 

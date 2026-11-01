@@ -1,5 +1,6 @@
 import { ChannelRegistry, MetaAdapter } from '@agent-sales/channels';
 import { createDb } from '@agent-sales/db';
+import { DrizzleKiotVietIngressStore } from './infrastructure/kiotviet-ingress.store.js';
 import { MetaIngressStore } from './infrastructure/meta-ingress.store.js';
 import { buildServer } from './server.js';
 const url = process.env['DATABASE_SYSTEM_URL'];
@@ -18,6 +19,7 @@ const app = buildServer({
     instagram: process.env['INSTAGRAM_APP_SECRET'] ?? '',
   },
   verifyToken: process.env['META_WEBHOOK_VERIFY_TOKEN'] ?? '',
+  kiotviet: new DrizzleKiotVietIngressStore(handle.db),
   logLevel: process.env['LOG_LEVEL'] ?? 'info',
 });
 app.addHook('onClose', async () => handle.close());
