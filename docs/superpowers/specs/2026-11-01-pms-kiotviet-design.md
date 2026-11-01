@@ -150,9 +150,18 @@ Owned by `crm`: `contacts.external_source text, contacts.external_id text`, uniq
 
 `crm` — new `CONTACT_SYNC_FACADE` (`api/contact-sync.facade.ts`, PR 3): `upsertExternalContact(ws, source,
 contact)` (match by external id, then the oldest live unlinked customer with that normalized phone, else create
-with source "KiotViet"), `unlinkExternalContacts`, `claimContactsForPush(ws, source, since, limit)`,
-`markContactPushed(ws, contactId, source, externalId)`, `markContactPushFailed`, `releasePendingContactPushes`,
-`staleContactPushes`, `releaseExternalSource(ws, source)`, `linkedContactCount`, `externalIdOf`.
+with source "KiotViet"), `unlinkExternalContacts(ws, source, externalIds)`, `claimContactsForPush(ws, source,
+since, limit)`, `pushableContact(ws, source, contactId)`, `markContactPushed(ws, contactId, source,
+externalId)`, `markContactPushFailed(ws, contactId, code)`, `releasePendingContactPushes(ws, source, …)`,
+`releaseFailedContactPushes(ws, source)`, `staleContactPushes(ws, source, since, …, limit)`,
+`releaseExternalSource(ws, source)`, `linkedContactCount(ws, source)`, `externalIdOf(ws, source, …)`
+(exact signatures and rules in `apps/backend/src/modules/crm/MODULE.md`).
+
+**No lock on linked customers (owner decision).** Unlike products, a linked customer stays fully editable in
+the CRM, because sales staff keep working on its notes, status, owners and tags. KiotViet owns name, phone,
+email, address, birthday and gender: its next change of the customer overwrites them (with history). The edit
+form shows the hint "Đồng bộ từ KiotViet — sửa trên KiotViet để giữ thay đổi" on those fields instead of a
+read-only style. A KiotViet delete only unlinks.
 
 ### 4.5 HTTP API (`packages/contracts/src/integration/`), workspace-scoped
 
@@ -240,7 +249,7 @@ KiotViet → "Kết nối" (primary) or its status badge; Sapo, Haravan, Pancake
    ticked ones.
 3. **Xem trước & bắt đầu** — the preview counts: "120 sản phẩm khớp theo mã · 30 sản phẩm mới · 5 sản phẩm chỉ
    có trên Rapiz (giữ nguyên)"; switches "Đẩy đơn sang KiotViet" and "Đồng bộ khách hàng" (on by default; order push is a real
-   switch since PR 2, customer sync stays "Sắp có" until PR 3); a note that KiotViet becomes the source of truth for linked products.
+   switch since PR 2, customer sync since PR 3); a note that KiotViet becomes the source of truth for linked products.
    Button "Bắt đầu đồng bộ".
 
 Then the page becomes the connection view with a progress card ("Đang nhập sản phẩm 300/1 240") that updates
@@ -269,7 +278,10 @@ by polling every 3 s while syncing; the owner may leave.
   when no order on the page was pushed; on the order page a "KiotViet" card with the reason of a failure and
   "Thử lại", or "Đơn đã ở KiotViet — cập nhật trạng thái trên KiotViet" once pushed. Strings in `common.json`
   under `orders.push.*` (the orders pages do not load the `integration` namespace).
-- Customers (PR 3): a "KiotViet" badge on linked customers.
+- Customers (PR 3): a "KiotViet" badge on linked customers in the list (table and phone cards) and in the
+  customer drawer; in the drawer's edit form, the hint "Đồng bộ từ KiotViet — sửa trên KiotViet để giữ thay
+  đổi" on name, phone, email, address, birthday and gender (fields stay editable, see §4.4). Strings in the
+  lazy `integration` namespace under `crm.*`, loaded by the `/app/contacts` and `/app/inbox` routes.
 
 All strings in `packages/i18n`: the hub, wizard and connection view in the new `integration.json` namespace
 (vi + en, loaded lazily by the route), the product list and form strings in `common.json` under `products.*`. Layout must keep `e2e/responsive.spec.ts`

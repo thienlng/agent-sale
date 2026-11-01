@@ -27,8 +27,8 @@ describe('wizard review step', () => {
         result={TEST_RESPONSE}
         banner={null}
         starting={false}
-        pushOrders
-        onPushOrdersChange={noop}
+        toggles={{ pushOrders: true, syncCustomers: true }}
+        onTogglesChange={noop}
         onBack={noop}
         onStart={noop}
       />,
@@ -40,9 +40,9 @@ describe('wizard review step', () => {
     ).toBeInTheDocument();
     expect(screen.getByRole('switch', { name: 'Đẩy đơn sang KiotViet' })).toBeEnabled();
     expect(screen.getByRole('switch', { name: 'Đẩy đơn sang KiotViet' })).toBeChecked();
-    expect(screen.getByRole('switch', { name: 'Đồng bộ khách hàng' })).toBeDisabled();
+    expect(screen.getByRole('switch', { name: 'Đồng bộ khách hàng' })).toBeEnabled();
     expect(screen.getByRole('switch', { name: 'Đồng bộ khách hàng' })).toBeChecked();
-    expect(screen.getAllByText('Sắp có')).toHaveLength(1);
+    expect(screen.queryByText('Sắp có')).toBeNull();
     expect(screen.getByRole('button', { name: 'Bắt đầu đồng bộ' })).toBeInTheDocument();
   });
 
@@ -53,8 +53,8 @@ describe('wizard review step', () => {
         result={{ ...TEST_RESPONSE, preview }}
         banner={null}
         starting={false}
-        pushOrders
-        onPushOrdersChange={noop}
+        toggles={{ pushOrders: true, syncCustomers: true }}
+        onTogglesChange={noop}
         onBack={noop}
         onStart={noop}
       />,
@@ -89,7 +89,7 @@ describe('wizard start', () => {
     return { user, calls };
   }
 
-  it('connects with the chosen branches and the coming-soon switches on', async () => {
+  it('connects with the chosen branches and both sync switches on', async () => {
     const { user, calls } = await toReview({ status: 201, body: connection() });
     await user.click(screen.getByRole('button', { name: 'Bắt đầu đồng bộ' }));
     await vi.waitFor(() => expect(toasts.success).toHaveBeenCalled());
@@ -108,6 +108,16 @@ describe('wizard start', () => {
     await vi.waitFor(() => expect(toasts.success).toHaveBeenCalled());
     expect(calls.find((c) => c.key === 'POST /integrations/kiotviet')?.body).toMatchObject({
       settings: { pushOrders: false, syncCustomers: true },
+    });
+  });
+
+  it('connects without customer sync when the owner turns it off', async () => {
+    const { user, calls } = await toReview({ status: 201, body: connection() });
+    await user.click(screen.getByRole('switch', { name: 'Đồng bộ khách hàng' }));
+    await user.click(screen.getByRole('button', { name: 'Bắt đầu đồng bộ' }));
+    await vi.waitFor(() => expect(toasts.success).toHaveBeenCalled());
+    expect(calls.find((c) => c.key === 'POST /integrations/kiotviet')?.body).toMatchObject({
+      settings: { pushOrders: true, syncCustomers: false },
     });
   });
 

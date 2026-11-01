@@ -59,6 +59,7 @@ export function ContactDetailsTab({
             onChange={setDraft}
             lookups={lookups}
             invalid={invalid}
+            synced={Boolean(contact.external)}
           />
         </fieldset>
         <div className={readOnly ? 'hidden' : 'flex justify-end gap-2'}>

@@ -20,6 +20,7 @@ import { OptionBadge, TagChips } from './crm-badges';
 import { ContactDetailsTab } from './contact-details';
 import { ContactHistoryTab } from './contact-history';
 import { ContactOverviewTab } from './contact-overview';
+import { KiotVietBadge } from './kiotviet-link';
 
 /** Customer detail drawer: Overview / Details / History / Files (CRM-01). */
 export function ContactSheet({
@@ -47,6 +48,7 @@ export function ContactSheet({
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
               {c ? (
                 <>
+                  <KiotVietBadge contact={c} />
                   {c.phone ? <span className="tabular-nums">{c.phone}</span> : null}
                   <OptionBadge option={lookups.status(c.statusId)} />
                   <span className="text-muted-foreground">

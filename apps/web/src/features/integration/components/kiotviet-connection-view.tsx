@@ -34,7 +34,7 @@ import { KiotVietLogo } from './kiotviet-logo';
 import { LastError } from './last-error';
 import { SyncLogList } from './sync-log-list';
 import { UpdateCredentialsDialog } from './update-credentials-dialog';
-import { SyncToggles } from './wizard-review-step';
+import { type SyncToggleValues, SyncToggles } from './wizard-review-step';
 
 /** The KiotViet connection (spec §6.4). Without `settings.manage` everything is read-only. */
 export function KiotVietConnectionView({
@@ -238,11 +238,15 @@ function SettingsCard({
     saleBranchIds: connection.settings.saleBranchIds,
     orderBranchId: connection.settings.orderBranchId,
   });
-  const [pushOrders, setPushOrders] = useState(connection.settings.pushOrders);
+  const [toggles, setToggles] = useState<SyncToggleValues>({
+    pushOrders: connection.settings.pushOrders,
+    syncCustomers: connection.settings.syncCustomers,
+  });
   const [errors, setErrors] = useState<BranchErrors>({});
   const [attempt, setAttempt] = useState(0);
   const dirty =
-    pushOrders !== connection.settings.pushOrders ||
+    toggles.pushOrders !== connection.settings.pushOrders ||
+    toggles.syncCustomers !== connection.settings.syncCustomers ||
     selection.orderBranchId !== connection.settings.orderBranchId ||
     selection.saleBranchIds.length !== connection.settings.saleBranchIds.length ||
     selection.saleBranchIds.some((id) => !connection.settings.saleBranchIds.includes(id));
@@ -257,19 +261,21 @@ function SettingsCard({
       setAttempt((n) => n + 1);
       return;
     }
-    update.mutate(
-      {
+    // `mutateAsync`, not `mutate` callbacks: the refreshed connection has a new version, which
+    // remounts this card (its key) before per-call callbacks would run, and the toast would be lost.
+    update
+      .mutateAsync({
         settings: {
           ...connection.settings,
           saleBranchIds: selection.saleBranchIds,
           orderBranchId: selection.orderBranchId,
-          pushOrders,
+          ...toggles,
         },
         version: connection.version,
-      },
-      {
-        onSuccess: () => toast.success(t('connection.saved')),
-        onError: (error) => {
+      })
+      .then(
+        () => toast.success(t('connection.saved')),
+        (error: unknown) => {
           const failure = describeFailure(t, error);
           if (failure.branches) {
             setErrors({ branches: failure.branches });
@@ -277,8 +283,7 @@ function SettingsCard({
           } else if (failure.conflict) toast.error(t('connection.conflict'));
           else toast.error(failure.banner ?? t('wizard.errors.generic'));
         },
-      },
-    );
+      );
   }
 
   return (
@@ -301,8 +306,8 @@ function SettingsCard({
           }}
         />
         <SyncToggles
-          pushOrders={pushOrders}
-          onPushOrdersChange={setPushOrders}
+          value={toggles}
+          onChange={setToggles}
           disabled={!canManage || update.isPending}
         />
         {canManage ? (

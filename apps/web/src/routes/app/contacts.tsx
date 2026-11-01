@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { ContactsList } from '@/features/crm/components/contacts-list';
 import { ContactConversations } from './-components/contact-conversations';
 import { SORT_KEYS } from '@/features/crm/components/contacts-search';
+import { loadNamespace } from '@/lib/i18n';
 
 /** List state lives in the URL; anything malformed falls back to "none". */
 const Search = z.object({
@@ -24,6 +25,8 @@ const Search = z.object({
 
 export const Route = createFileRoute('/app/contacts')({
   validateSearch: Search,
+  // The KiotViet badge and field hint read the `integration` namespace (kept out of common.json).
+  loader: () => loadNamespace('integration'),
   component: function ContactsPage() {
     const search = Route.useSearch();
     const navigate = useNavigate({ from: '/app/contacts' });

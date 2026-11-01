@@ -84,7 +84,6 @@
     "previewPartial": "{{matched}} sản phẩm khớp theo mã · {{created}} sản phẩm mới (trong {{scanned}}/{{total}} sản phẩm đầu)",
     "pushOrders": "Đẩy đơn sang KiotViet",
     "syncCustomers": "Đồng bộ khách hàng",
-    "soon": "Sắp có",
     "sourceNote": "Sau khi kết nối, tên, giá, ảnh và tồn kho của sản phẩm liên kết được sửa trên KiotViet. Cài đặt riêng cho bot vẫn sửa trên Rapiz.",
     "start": "Bắt đầu đồng bộ",
     "back": "Quay lại",
@@ -160,5 +159,10 @@
       "warning": "Cảnh báo",
       "error": "Lỗi"
     }
+  },
+  "crm": {
+    "badge": "KiotViet",
+    "badgeLabel": "Khách hàng liên kết với KiotViet",
+    "fieldHint": "Đồng bộ từ KiotViet — sửa trên KiotViet để giữ thay đổi"
   }
 }

@@ -8,12 +8,12 @@ Code: backend module `apps/backend/src/modules/integration` (see its `MODULE.md`
 
 | Shipped | Next |
 |---|---|
-| Products, variants (units and attributes), categories, pictures, stock of the chosen sale branches (PR 1); bot and staff orders pushed to KiotViet with their status read back (PR 2) | Customer sync (PR 3) |
+| Products, variants (units and attributes), categories, pictures, stock of the chosen sale branches (PR 1); bot and staff orders pushed to KiotViet with their status read back (PR 2); customers synced both ways with the CRM (PR 3) | Sapo, Haravan, Pancake POS |
 
-The wizard asks for the order branch and shows "Đẩy đơn sang KiotViet" as a switch (on by default; the
-connection page's "Cài đặt đồng bộ" turns it off or on again, saved with the other settings through
-`PATCH /integrations/kiotviet`). "Đồng bộ khách hàng" is still "Sắp có": shown on and locked, so PR 3 starts
-working without the owner saving again.
+The wizard asks for the order branch and shows two switches, "Đẩy đơn sang KiotViet" and "Đồng bộ khách
+hàng" (both on by default; the connection page's "Cài đặt đồng bộ" turns each off or on again, saved with the
+other settings through `PATCH /integrations/kiotviet` as `pushOrders` / `syncCustomers`). The connection
+page's "Khách hàng" tile counts the Rapiz customers linked to KiotViet (`counts.customers`).
 
 ## Owner setup
 
@@ -124,6 +124,22 @@ KiotViet ──webhook──▶ apps/webhook  POST /webhooks/kiotviet/:token ─
   can leave a stray KiotViet customer (the next customer pass imports and links it by phone). A full
   customer import does not sweep: customers deleted in KiotViet while customer sync was off stay linked
   until a `customer.update` for them finds them gone, or until disconnect.
+
+## Customers in the CRM
+
+A customer linked to a KiotViet customer (`ContactDto.external`) carries a "KiotViet" badge next to its name
+in the customer list (table and phone cards) and in the customer drawer header (customers page and the
+inbox sales panel). Linked customers are **not locked** (owner decision): sales staff keep editing notes,
+status, owners and tags, and may still edit the KiotViet-owned fields. Those fields (name, phone, email,
+address, birthday, gender) carry the hint "Đồng bộ từ KiotViet — sửa trên KiotViet để giữ thay đổi",
+because the next KiotViet change of that customer overwrites them. Ward, province, source, status, owners,
+ad code and the profile note are Rapiz's only. The strings live in the lazily loaded `integration`
+namespace (`crm.*`), which the `/app/contacts` and `/app/inbox` routes load (not in `common.json`: bundle
+budget).
+
+Matching (in this order, `upsertExternalContact`): the customer already linked to that KiotViet id; else the
+oldest live, unlinked Rapiz customer with the same normalized phone (it becomes linked); else a new customer
+with the source "KiotViet". A KiotViet delete or a disconnect only unlinks: the badge goes, the customer stays.
 
 ## Order push on the orders pages
 
