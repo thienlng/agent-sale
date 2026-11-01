@@ -63,19 +63,21 @@ export function useUpdateProperty() {
 
 /** Replace the room list of a `rooms` property. */
 export function useReplaceUnits() {
-  return usePropertyMutation((ws, { id, body }: { id: string; body: ReplaceUnitsRequest }) =>
-    api(`/lodging/properties/${id}/units`, PropertyDto, {
-      method: 'PUT',
-      body,
-      workspaceId: ws,
-    }),
+  return usePropertyMutation(
+    (ws, { id, body }: { id: string; body: z.input<typeof ReplaceUnitsRequest> }) =>
+      api(`/lodging/properties/${id}/units`, PropertyDto, {
+        method: 'PUT',
+        body,
+        workspaceId: ws,
+      }),
   );
 }
 
 /** Replace the weekday rates and surcharges as a whole. */
 export function usePutRates() {
-  return usePropertyMutation((ws, { id, body }: { id: string; body: PutRatesRequest }) =>
-    api(`/lodging/properties/${id}/rates`, PropertyDto, { method: 'PUT', body, workspaceId: ws }),
+  return usePropertyMutation(
+    (ws, { id, body }: { id: string; body: z.input<typeof PutRatesRequest> }) =>
+      api(`/lodging/properties/${id}/rates`, PropertyDto, { method: 'PUT', body, workspaceId: ws }),
   );
 }
 

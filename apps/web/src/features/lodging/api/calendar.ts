@@ -6,6 +6,7 @@ import {
   type QuoteRequest,
 } from '@agent-sales/contracts';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import type { z } from 'zod';
 
 import { api } from '@/lib/api-client';
 import { withQuery } from '@/lib/url';
@@ -42,7 +43,7 @@ export function useLodgingCalendar(range: {
 }
 
 /** Free whole properties or rooms with fit flags and quotes; idle while `body` is null. */
-export function useAvailability(body: AvailabilityRequest | null) {
+export function useAvailability(body: z.input<typeof AvailabilityRequest> | null) {
   const ws = useWorkspaceId();
   return useQuery({
     queryKey: lodgingKeys.availability(ws, body),
@@ -58,7 +59,7 @@ export function useAvailability(body: AvailabilityRequest | null) {
 }
 
 /** Quote a concrete selection without writing anything; idle while `body` is null. */
-export function useQuote(body: QuoteRequest | null) {
+export function useQuote(body: z.input<typeof QuoteRequest> | null) {
   const ws = useWorkspaceId();
   return useQuery({
     queryKey: lodgingKeys.quote(ws, body),
