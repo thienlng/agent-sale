@@ -102,7 +102,9 @@ KiotViet ──webhook──▶ apps/webhook  POST /webhooks/kiotviet/:token ─
   customer is created with the source "KiotViet". The import ends with `customers_synced {count}` and
   `counts.customers`. Each reconcile then reads the customers changed since the previous one and unlinks the
   ones KiotViet reports deleted; `customer.update` (re-read by id) and `customer.delete` webhooks are
-  registered while the switch is on. A KiotViet delete only unlinks: the Rapiz customer stays. Every 30 s the
+  registered while the switch is on. A reconcile that finds no customer watermark (no import ever finished,
+  e.g. a connection whose switch was on before customer sync shipped) queues the full import instead. A
+  KiotViet delete only unlinks: the Rapiz customer stays. Every 30 s the
   worker claims Rapiz customers with a usable phone created since the connection and queues one
   `customer_import` job each (`payload.contactId`): it looks KiotViet up by phone and adopts the customer
   found, else creates one in the order branch (`POST /customers`, never sent twice; the next attempt looks
@@ -114,7 +116,12 @@ KiotViet ──webhook──▶ apps/webhook  POST /webhooks/kiotviet/:token ─
   carries the buyer inline as before. Orders do not record their CRM customer, so the lookup is by phone.
   A customer failure never fails the catalog reconcile: the pass logs it and reads the same window again
   next time (the customer watermark `counts.lastCustomerSyncAt` moves only on success). A 403 on the
-  customer API turns customer sync off (`customers_permission_missing`). A claimed customer that can no
+  customer API turns customer sync off (`customers_permission_missing`), also when the order path meets it.
+  The switch turned off while an import or a pass runs stops it at the next page. A full import that gives
+  up after its retries logs `customers_import_failed` (once until an import succeeds) and leaves the
+  connection status alone; the next reconcile queues it again. A Rapiz customer without a name is created
+  in KiotViet under its phone number; that name coming back from KiotViet does not replace the (empty or
+  other) Rapiz name. A claimed customer that can no
   longer be pushed (archived, phone removed) is marked failed (`not_pushable`, no log entry). Failure
   entries are logged once per reason between two push scans.
 - **Customer caveats.** The phone lookup before every create is not a lock: with several worker replicas,
@@ -123,7 +130,17 @@ KiotViet ──webhook──▶ apps/webhook  POST /webhooks/kiotviet/:token ─
   there). On the order path a `POST /customers` whose answer is lost falls back to the inline buyer, so it
   can leave a stray KiotViet customer (the next customer pass imports and links it by phone). A full
   customer import does not sweep: customers deleted in KiotViet while customer sync was off stay linked
-  until a `customer.update` for them finds them gone, or until disconnect.
+  until a KiotViet report of the delete (`removedIds` of an import or pass, a `customer.update` finding
+  them gone), or until disconnect. Disconnecting unlinks every customer inside the owner's request (one
+  statement plus one history entry per customer): slow for shops with very many linked customers; moving
+  it to the worker is a later step.
+- **Detached customers.** A customer unlinked because KiotViet deleted it (`customer.delete`, `removedIds`
+  of an import or a pass, `customer.update` finding it gone) is marked `detached`
+  (`contacts.external_push_state`): the push scan never claims it, so a delete in KiotViet is not undone by
+  creating the customer there again 30 s later. Releases of pending or failed pushes and a disconnect leave
+  the mark. It clears only when an import links the customer again (the same phone created again in
+  KiotViet). A disconnect unlink is not a delete: those customers are not marked and may be pushed after a
+  reconnect.
 
 ## Customers in the CRM
 
@@ -139,7 +156,8 @@ budget).
 
 Matching (in this order, `upsertExternalContact`): the customer already linked to that KiotViet id; else the
 oldest live, unlinked Rapiz customer with the same normalized phone (it becomes linked); else a new customer
-with the source "KiotViet". A KiotViet delete or a disconnect only unlinks: the badge goes, the customer stays.
+with the source "KiotViet". A KiotViet delete or a disconnect only unlinks: the badge goes, the customer stays
+(after a KiotViet delete it is also never created in KiotViet again, see "Detached customers").
 
 ## Order push on the orders pages
 
@@ -221,6 +239,7 @@ The activity list on the connection page shows these codes (i18n `integration.js
 | `order_pushed_cancelled` | The order was cancelled (or deleted) in Rapiz while it was being pushed; KiotViet has it. | Cancel the order in KiotViet. |
 | `customers_synced` | A customer import finished; `count` = Rapiz customers now linked to KiotViet. | — |
 | `customers_permission_missing` | KiotViet answered 403 to the customer API (the API account lacks the customer permission). Customer sync was turned off (logged once); products, stock and order push go on and the connection stays connected. Turning the switch off this way is a settings write, so a settings form open at that moment answers 409 and reloads. | In KiotViet → Thiết lập kết nối API, tick the Customers permission, then turn **Đồng bộ khách hàng** back on. |
+| `customers_import_failed` | A full customer import gave up after its retries (`reason`: `kiotviet_unavailable` or `sync_failed`). Logged once until an import succeeds. The connection stays connected; products, stock and order push go on. | Nothing: the next reconcile queues the import again. If it keeps failing, check KiotViet's status. |
 | `customer_push_failed` | A new Rapiz customer could not be created in KiotViet (`reason`: `kiotviet_rejected`, `link_conflict`: another Rapiz customer is already linked to the KiotViet customer with that phone, `kiotviet_unavailable` after the retries, `auth_failed`, `sync_failed`). The customer stays failed. | Fix the customer (phone, name) and turn **Đồng bộ khách hàng** off and on again: that retries every failed customer (a full customer import does too). |
 
 Wizard errors: wrong Client ID / secret (`kiotviet_auth`), unknown store name (`kiotviet_retailer`), missing

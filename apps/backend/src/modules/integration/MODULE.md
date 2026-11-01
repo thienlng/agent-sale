@@ -165,20 +165,29 @@ pushedOrderCount`, then the stock refresh: `markOrderPushed` released the Rapiz 
   `releaseFailedContactPushes` and enqueues `customer_import`; turning it off calls
   `releasePendingContactPushes`. The `customer_import` job without `payload.contactId` is the full import:
   a fresh run releases failed pushes, then pages `GET /customers` (100, `orderBy=id`, cursor
-  `{ currentItem, startedAt }` saved after every page, the connection re-read before every upsert), upserts
+  `{ currentItem, startedAt }` saved after every page, the connection re-read before every upsert; paging
+  stops on `currentItem ≥ total`, never on a page that parsed empty), upserts
   each (`InvalidExternalContactIdError` / `ContactExternalLinkConflictError` skip the record, counted in the
-  process log), then writes `counts.customers = linkedContactCount` and logs `customers_synced {count}`; with
-  the switch off it completes with no work. A `reconcile` with the switch on
+  process log), unlinks the page's `removedIds`, then writes `counts.customers = linkedContactCount` and logs `customers_synced {count}`; with
+  the switch off it completes with no work. A full import that gives up after its retries
+  (`sync_failed` / `kiotviet_unavailable`) calls `CustomerSync.importFailed`: `customers_import_failed
+  {reason}` unless the newest customer entry of the last 50 log entries already says so, connection status
+  untouched (auth/retailer errors keep the connection-wide path). A `reconcile` with the switch on
   (`CustomerSync.reconcilePass`) reads customers modified since the customer watermark
-  `counts.lastCustomerSyncAt` (else the previous `lastReconcileAt`) − 2 min (`includeRemoveIds`; removed ids
-  unlink), heartbeating with the catalog's `finish` cursor. On success the watermark becomes the pass start
+  `counts.lastCustomerSyncAt` − 2 min (`includeRemoveIds`; removed ids
+  unlink), heartbeating with the catalog's `finish` cursor; without a watermark it enqueues `customer_import`
+  (deduped) instead. On success the watermark becomes the pass start
   (the import sets it to its own start); any failure except auth/store/lease/disconnect/no-database is
-  process-logged and swallowed so the catalog reconcile commits, and the watermark is pinned at the old
-  value. A `KiotVietPermissionError` (403) in the import, the pass or a push job calls
+  process-logged and swallowed so the catalog reconcile commits, and the watermark stays. The import's and
+  the pass's `live()` also throw `CustomerSyncOffError` once the switch is off: the work stops quietly (job
+  completed, reconcile committed). A `KiotVietPermissionError` (403) in the import, the pass or a push job calls
   `disableCustomerSync` (`customer-switch.ts`): `settings.syncCustomers = false` against the version read
   (an owner field, so `version` bumps), `releasePendingContactPushes`, `customers_permission_missing` logged
-  once; the job completes and the connection status is untouched. The connection is re-read once per page. `customer.update` re-reads each id (`customerById`; gone → unlink), `customer.delete` unlinks;
-  both are ignored while the switch is off. The push scan (30 s) claims up to 20 customers created since the
+  once; the job completes and the connection status is untouched. On the order path
+  (`customerIdForOrder`) a 403 calls it too and the order goes inline. The connection is re-read once per page. `customer.update` re-reads each id (`customerById`; gone → unlink), `customer.delete` unlinks;
+  both are ignored while the switch is off. Every unlink for a KiotViet delete (webhooks, `removedIds`)
+  goes through `unlinkExternalContacts`, which marks the customer `detached` in the crm module: never
+  claimed for a push again until an import links it. The push scan (30 s) claims up to 20 customers created since the
   connection (`claimContactsForPush`) plus pending ones claimed > 2 min ago (`staleContactPushes`) and
   enqueues one `customer_import {contactId}` each (switch off: `releasePendingContactPushes(olderThan
   2 min)`). The push job reads `pushableContact` (null with the switch on → `markContactPushFailed('not_pushable')`,

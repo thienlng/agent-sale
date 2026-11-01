@@ -51,7 +51,8 @@ function connection(over: Partial<ConnectionRecord> = {}): ConnectionRecord {
     settings: { saleBranchIds: [1, 3], orderBranchId: 3, pushOrders: false, syncCustomers: true },
     version: 1,
     progress: null,
-    counts: { products: 12 },
+    // A full customer import finished before (the reconcile pass reads from this watermark).
+    counts: { products: 12, lastCustomerSyncAt: '2026-11-01T02:00:00.000Z' },
     lastError: null,
     lastFullSyncAt: null,
     lastReconcileAt: new Date('2026-11-01T02:00:00.000Z'),
@@ -208,10 +209,95 @@ describe('customer_import job (full import)', () => {
     await sync.runJob(j);
     expect(store.retried.map((r) => [r.id, r.error])).toEqual([[j.id, 'kiotviet_unavailable']]);
   });
+
+  it('gives up without touching the connection, logging once until an import succeeds', async () => {
+    gateway.fail.customers = new KiotVietUnavailableError();
+    const j = job({ attempts: 3 });
+    await sync.runJob(j);
+    expect(store.failed).toEqual([{ id: j.id, error: 'kiotviet_unavailable' }]);
+    expect(conn().status).toBe('connected');
+    expect(conn().lastError).toBeNull();
+    expect(logOf('customers_import_failed').map((l) => [l.level, l.params])).toEqual([
+      ['warning', { reason: 'kiotviet_unavailable' }],
+    ]);
+    expect(logOf('kiotviet_unavailable')).toEqual([]);
+
+    // Re-queued by the next reconcile and failing the same way: no second entry.
+    await sync.runJob(job({ attempts: 3 }));
+    expect(logOf('customers_import_failed')).toHaveLength(1);
+    // Another reason is news.
+    gateway.fail.customers = new Error('boom');
+    await sync.runJob(job({ attempts: 3 }));
+    expect(logOf('customers_import_failed').map((l) => l.params)).toEqual([
+      { reason: 'kiotviet_unavailable' },
+      { reason: 'sync_failed' },
+    ]);
+    // After a successful import the next failure is logged again.
+    delete gateway.fail.customers;
+    await sync.runJob(job());
+    gateway.fail.customers = new Error('boom');
+    await sync.runJob(job({ attempts: 3 }));
+    expect(logOf('customers_import_failed')).toHaveLength(3);
+    expect(conn().status).toBe('connected');
+  });
+
+  it('an auth error of the import still takes the connection path', async () => {
+    gateway.fail.customers = new KiotVietAuthError();
+    await sync.runJob(job());
+    expect(conn().status).toBe('error');
+    expect(conn().lastError?.code).toBe('auth_failed');
+    expect(logOf('customers_import_failed')).toEqual([]);
+  });
+
+  it('unlinks the customers KiotViet reports removed, so they are never pushed back', async () => {
+    const gone = contacts.add({ externalId: '77', phoneE164: e164Of(77) });
+    gateway.customerList = [kvCustomer(5, { contactNumber: phoneOf(5) })];
+    gateway.removedCustomerIds = [77];
+    await sync.runJob(job());
+    expect(contacts.unlinkExternalContacts).toHaveBeenCalledWith(ws, 'kiotviet', ['77']);
+    expect(gone).toMatchObject({ externalId: null, push: 'detached' });
+
+    await pusher.scan();
+    expect(store.jobs.filter((x) => x.payload['contactId'] === gone.id)).toEqual([]);
+  });
+
+  it('pages by total, so a page of malformed records does not end the import', async () => {
+    gateway.customerList = Array.from({ length: 150 }, (_, i) =>
+      kvCustomer(i + 1, { contactNumber: phoneOf(i + 1) }),
+    );
+    const read = gateway.customers.bind(gateway);
+    // The first page parses empty (every record malformed); KiotViet still says 150.
+    gateway.customers = vi.fn(async (c, q) => {
+      const page = await read(c, q);
+      return q.currentItem === 0 ? { ...page, data: [] } : page;
+    });
+    await sync.runJob(job());
+    expect(contacts.upserts.map((u) => u.externalId)).toEqual(
+      Array.from({ length: 50 }, (_, i) => String(i + 101)),
+    );
+    expect(logOf('customers_synced')).toHaveLength(1);
+  });
+
+  it('stops when the switch is turned off during the import', async () => {
+    gateway.customerList = Array.from({ length: 150 }, (_, i) => kvCustomer(i + 1));
+    const read = gateway.customers.bind(gateway);
+    gateway.customers = vi.fn(async (c, q) => {
+      const page = await read(c, q);
+      const now = store.connections[0]!;
+      store.connections[0] = { ...now, settings: { ...now.settings, syncCustomers: false } };
+      return page;
+    });
+    const j = job();
+    await sync.runJob(j);
+    expect(contacts.upserts).toEqual([]);
+    expect(store.completed).toEqual([j.id]);
+    expect(store.retried).toEqual([]);
+    expect(logOf('customers_synced')).toEqual([]);
+  });
 });
 
 describe('reconcile customer pass', () => {
-  it('reads customers changed since the last reconcile and unlinks deleted ones', async () => {
+  it('reads customers changed since the customer watermark and unlinks deleted ones', async () => {
     contacts.add({ externalId: '77' });
     gateway.customerList = [kvCustomer(5, { contactNumber: phoneOf(5) })];
     gateway.removedCustomerIds = [77];
@@ -225,6 +311,40 @@ describe('reconcile customer pass', () => {
     expect(contacts.upserts.map((u) => u.externalId)).toEqual(['5']);
     expect(contacts.unlinkExternalContacts).toHaveBeenCalledWith(ws, 'kiotviet', ['77']);
     expect(conn().counts).toMatchObject({ customers: 1 });
+  });
+
+  it('queues the full import instead when no customer import ever finished', async () => {
+    // E.g. a connection whose switch was on before customer sync shipped.
+    store.connections[0] = connection({ counts: { products: 12 } });
+    const calls = vi.spyOn(gateway, 'customers');
+    const j = job({ kind: 'reconcile' });
+    await sync.runJob(j);
+    expect(calls).not.toHaveBeenCalled();
+    expect(store.completed).toContain(j.id);
+    const imports = () =>
+      store.jobs.filter((x) => x.kind === 'customer_import' && !x.payload['contactId']);
+    expect(imports()).toHaveLength(1);
+    await sync.runJob(job({ kind: 'reconcile' }));
+    expect(imports()).toHaveLength(1);
+  });
+
+  it('stops when the switch is turned off during the pass, and the reconcile commits', async () => {
+    gateway.customerList = Array.from({ length: 150 }, (_, i) => kvCustomer(i + 1));
+    const read = gateway.customers.bind(gateway);
+    gateway.customers = vi.fn(async (c, q) => {
+      const page = await read(c, q);
+      const now = store.connections[0]!;
+      store.connections[0] = { ...now, settings: { ...now.settings, syncCustomers: false } };
+      return page;
+    });
+    const before = conn().lastReconcileAt!;
+    const j = job({ kind: 'reconcile' });
+    await sync.runJob(j);
+    expect(contacts.upserts).toEqual([]);
+    expect(store.completed).toContain(j.id);
+    expect(conn().status).toBe('connected');
+    expect(conn().lastReconcileAt!.getTime()).toBeGreaterThan(before.getTime());
+    expect(conn().counts.lastCustomerSyncAt).toBe('2026-11-01T02:00:00.000Z');
   });
 
   it('leaves customers alone while the switch is off', async () => {
@@ -301,7 +421,7 @@ describe('a failing customer pass', () => {
     expect(store.completed).toContain(j.id);
     expect(store.retried).toEqual([]);
     expect(conn().status).toBe('connected');
-    // Pinned at the previous reconcile, although lastReconcileAt moved on.
+    // The watermark stays, although lastReconcileAt moved on.
     expect(conn().counts.lastCustomerSyncAt).toBe('2026-11-01T02:00:00.000Z');
 
     delete gateway.fail.customers;
@@ -351,6 +471,23 @@ describe('customer webhooks', () => {
     );
     expect(c.externalId).toBeNull();
     expect(contacts.contacts).toHaveLength(1);
+  });
+
+  it('a customer imported then deleted in KiotViet is never created there again', async () => {
+    gateway.customerList = [kvCustomer(8, { contactNumber: phoneOf(8) })];
+    await sync.runJob(job());
+    const c = contacts.byExternal('8')!;
+    gateway.customerList = [];
+    await webhooks.apply(
+      delivery({ Notifications: [{ Action: 'customer.delete', Data: [{ RemoveId: [8] }] }] }),
+    );
+    expect(c).toMatchObject({ externalId: null, push: 'detached' });
+
+    await pusher.scan();
+    for (const queued of store.jobs.filter((x) => x.kind === 'customer_import'))
+      await sync.runJob(job({ payload: queued.payload }));
+    expect(gateway.calls.filter((x) => x.method === 'createCustomer')).toEqual([]);
+    expect(c.externalId).toBeNull();
   });
 
   it('is ignored while the switch is off', async () => {

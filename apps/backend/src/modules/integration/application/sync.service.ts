@@ -200,12 +200,11 @@ export class SyncService {
    * A reconcile with `syncCustomers` on also reads the customers changed since the customer
    * watermark (`CustomerSync.reconcilePass`: a customer failure never fails the catalog reconcile,
    * and the watermark does not move). Heartbeats with the catalog's `finish` cursor. The first
-   * sync of customers is the `customer_import` job.
+   * sync of customers is the `customer_import` job (queued by the pass while there is no watermark).
    */
   private async customerPass(ctx: SyncContext, cursor: ImportCursor): Promise<void> {
     if (ctx.job.kind !== 'reconcile') return;
     await this.customers.reconcilePass(
-      ctx.connection,
       ctx.creds,
       { live: ctx.live, heartbeat: () => ctx.checkpoint(cursor) },
       RECONCILE_OVERLAP_MS,
@@ -285,7 +284,8 @@ export class SyncService {
   /**
    * Auth errors stop at once (the owner must update the code); others retry, then dead-letter. A
    * push job that gives up marks its order failed (`orderCode`: the order's, when it was read) and
-   * leaves the connection status alone: one order's failure is not the connection's.
+   * leaves the connection status alone: one order's failure is not the connection's. A customer
+   * import or push that gives up leaves it alone too.
    */
   private async failed(job: JobRecord, error: unknown, orderCode: string | null): Promise<void> {
     const ws = job.workspaceId;
@@ -334,6 +334,12 @@ export class SyncService {
     if (isContactPush(job)) {
       // One customer's failure is not the connection's.
       await this.contacts.abandon(job, code);
+      return;
+    }
+    if (job.kind === 'customer_import') {
+      // Nor is the customer import's: the catalog and order push go on (auth errors took the
+      // connection path above). The next reconcile queues the import again.
+      await this.customers.importFailed(ws, c.id, code);
       return;
     }
     await this.store.updateConnection(ws, c.id, {

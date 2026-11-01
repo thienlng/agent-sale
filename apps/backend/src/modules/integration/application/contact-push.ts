@@ -177,6 +177,7 @@ export class ContactPusher {
    * The KiotViet customer an order push names (`customerId`), only while `syncCustomers` is on:
    * the one with the buyer's phone, else a new one. Null without a usable phone or on any failure,
    * so the order goes with the inline customer instead: a customer problem never blocks an order.
+   * A 403 also turns customer sync off (`disableCustomerSync`), so later orders skip the lookup.
    */
   async customerIdForOrder(
     connection: ConnectionRecord,
@@ -199,10 +200,27 @@ export class ContactPusher {
       return created.id;
     } catch (error) {
       if (error instanceof IntegrationUnavailableError) throw error;
+      if (error instanceof KiotVietPermissionError) {
+        // No customer permission: customer sync stops (logged once), the order goes on inline.
+        await this.disableQuietly(connection);
+        return null;
+      }
       this.logger.warn(
         `Connection ${connection.id}: order customer not resolved (${errorName(error)})`,
       );
       return null;
+    }
+  }
+
+  /** `disableCustomerSync` on the order path: a failure there never blocks the order. */
+  private async disableQuietly(connection: ConnectionRecord): Promise<void> {
+    try {
+      await disableCustomerSync(this.store, this.contacts, connection.workspaceId, connection.id);
+    } catch (error) {
+      if (error instanceof IntegrationUnavailableError) throw error;
+      this.logger.warn(
+        `Connection ${connection.id}: customer sync not turned off (${errorName(error)})`,
+      );
     }
   }
 

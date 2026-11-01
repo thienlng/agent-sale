@@ -43,7 +43,7 @@ export class FakeKiotVietGateway implements KiotVietGateway {
   productsById: KvProduct[] = [];
   /** The store's customers (`customers`, `customerById`, `customersByPhone`, `createCustomer`). */
   customerList: KvCustomer[] = [];
-  /** Answered as `removedIds` by `customers` when `lastModifiedFrom` is given. */
+  /** Answered as `removedIds` by every `customers` page (`includeRemoveIds`). */
   removedCustomerIds: number[] = [];
   /** Bodies `createCustomer` received. */
   createdCustomers: KvCustomerBody[] = [];
@@ -191,7 +191,7 @@ export class FakeKiotVietGateway implements KiotVietGateway {
     return Promise.resolve({
       data: structuredClone(this.customerList.slice(q.currentItem, q.currentItem + q.pageSize)),
       total: this.customerList.length,
-      removedIds: q.lastModifiedFrom ? [...this.removedCustomerIds] : [],
+      removedIds: [...this.removedCustomerIds],
     });
   }
 

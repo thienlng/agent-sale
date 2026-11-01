@@ -23,6 +23,7 @@ import { WebhookApplier } from '../application/webhook-apply.js';
 import { WebhookSet } from '../application/webhook-set.js';
 import {
   KiotVietAuthError,
+  KiotVietPermissionError,
   KiotVietRejectedError,
   KiotVietUnavailableError,
 } from '../domain/integration.errors.js';
@@ -542,6 +543,29 @@ describe('the KiotViet customer of a pushed order', () => {
     expect(sent.customerId).toBeUndefined();
     expect(sent.customer).toEqual({ name: 'Lan', contactNumber: '0901234567' });
     expect(order().state).toBe('pushed');
+  });
+
+  it('a 403 on the customer lookup turns customer sync off once and pushes the order inline', async () => {
+    customersOn();
+    const stale = store.connections[0]!;
+    gateway.fail.customersByPhone = new KiotVietPermissionError(['customers']);
+    orders.add(ORDER, { state: 'pending' });
+    await sync.runJob(pushJob());
+
+    expect(gateway.orders[0]!.body.customerId).toBeUndefined();
+    expect(order().state).toBe('pushed');
+    const now = store.connections[0]!;
+    expect(now.settings.syncCustomers).toBe(false);
+    expect(now.status).toBe('connected');
+    expect(contacts.releasePendingContactPushes).toHaveBeenCalledWith(ws, 'kiotviet');
+    expect(logOf('customers_permission_missing').map((l) => l.level)).toEqual(['warning']);
+
+    // An order job that read the connection before the switch went off: no second entry.
+    const creds = { retailer: 'shopdemo', clientId: 'client-1', clientSecret: 'secret-1' };
+    expect(
+      await contactPusher.customerIdForOrder(stale, creds, { name: 'Lan', phone: '0901234567' }),
+    ).toBeNull();
+    expect(logOf('customers_permission_missing')).toHaveLength(1);
   });
 
   it('keeps the inline customer while customer sync is off', async () => {

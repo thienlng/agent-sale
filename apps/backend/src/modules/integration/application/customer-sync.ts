@@ -43,6 +43,17 @@ const isCustomerCursor = (v: unknown): v is CustomerCursor =>
   typeof (v as CustomerCursor).currentItem === 'number' &&
   typeof (v as CustomerCursor).startedAt === 'string';
 
+/**
+ * Customer sync was turned off while customer work ran (`CustomerPassHooks.live`): the work stops
+ * quietly, with nothing to retry and nothing to report.
+ */
+export class CustomerSyncOffError extends Error {
+  constructor() {
+    super('Customer sync was turned off');
+    this.name = 'CustomerSyncOffError';
+  }
+}
+
 /** A job's liveness and heartbeat, as the job runner hands them over. */
 export interface CustomerPassHooks {
   /** Throws `ConnectionGoneError` once the connection is disconnected. */
@@ -81,44 +92,69 @@ export class CustomerSync {
     try {
       await this.importPages(job, connection, creds);
     } catch (error) {
-      if (!(error instanceof KiotVietPermissionError)) throw error;
-      await disableCustomerSync(this.store, this.contacts, ws, connection.id);
+      if (error instanceof KiotVietPermissionError) {
+        await disableCustomerSync(this.store, this.contacts, ws, connection.id);
+      } else if (!(error instanceof CustomerSyncOffError)) throw error;
     }
     await this.store.completeJob(job.id, job.claimToken);
   }
 
   /**
+   * A full import gave up after its retries (`sync_failed` / `kiotviet_unavailable`): customer
+   * sync is not the connection, so its status stays and order push goes on. Logs
+   * `customers_import_failed {reason}` unless the newest customer entry of the log already says so
+   * (a reconcile re-queues the import while there is no customer watermark).
+   */
+  async importFailed(ws: WorkspaceId, connectionId: string, reason: string): Promise<void> {
+    const recent = await this.store.recentLog(ws, connectionId, RECENT_LOG_SCAN);
+    const last = recent.find(
+      (e) => e.code === 'customers_import_failed' || e.code === 'customers_synced',
+    );
+    if (last?.code === 'customers_import_failed' && last.params['reason'] === reason) return;
+    await this.store.log(ws, connectionId, {
+      level: 'warning',
+      code: 'customers_import_failed',
+      params: { reason } satisfies SyncLogParams['customers_import_failed'],
+    });
+  }
+
+  /**
    * A reconcile's customer pass (switch on): customers changed since the customer watermark
-   * (`counts.lastCustomerSyncAt`, else the previous `lastReconcileAt`) minus `overlapMs`. A 403
-   * turns customer sync off; any other failure but a connection-wide one (auth, store, lease,
-   * disconnect, no database) is logged and swallowed so the catalog reconcile still commits, and
-   * the watermark stays (pinned at its old value), so the next pass reads the same window again.
+   * (`counts.lastCustomerSyncAt`) minus `overlapMs`. Without a watermark no full import has
+   * finished yet (also a connection whose switch was on before customer sync shipped): the pass
+   * queues `customer_import` instead (at most one is open). A 403 turns customer sync off; the
+   * switch turned off meanwhile stops the pass; any other failure but a connection-wide one (auth,
+   * store, lease, disconnect, no database) is logged and swallowed so the catalog reconcile still
+   * commits, and the watermark stays, so the next pass reads the same window again.
    */
   async reconcilePass(
-    start: ConnectionRecord,
     creds: KvCredentials,
     hooks: CustomerPassHooks,
     overlapMs: number,
   ): Promise<void> {
     const live = await hooks.live();
     if (!live.settings.syncCustomers) return;
-    const mark = live.counts.lastCustomerSyncAt
-      ? new Date(live.counts.lastCustomerSyncAt)
-      : start.lastReconcileAt;
-    if (!mark || Number.isNaN(mark.getTime())) return;
+    const mark = live.counts.lastCustomerSyncAt ? new Date(live.counts.lastCustomerSyncAt) : null;
+    if (!mark || Number.isNaN(mark.getTime())) {
+      await this.store.enqueue(live.workspaceId, {
+        connectionId: live.id,
+        kind: 'customer_import',
+      });
+      return;
+    }
     const startedAt = new Date();
     try {
-      await this.incremental(live, creds, new Date(mark.getTime() - overlapMs), hooks);
+      await this.incremental(live, creds, new Date(mark.getTime() - overlapMs), switchedOn(hooks));
       await this.updateCount(live.workspaceId, live.id, startedAt);
     } catch (error) {
+      if (error instanceof CustomerSyncOffError) return;
       if (error instanceof KiotVietPermissionError) {
         await disableCustomerSync(this.store, this.contacts, live.workspaceId, live.id);
         return;
       }
       if (connectionWide(error)) throw error;
       this.logger.warn(`Connection ${live.id}: customer pass failed (${errorName(error)})`);
-      // Pin the window: without a watermark the next pass would start at the new lastReconcileAt.
-      await this.updateCount(live.workspaceId, live.id, null, mark);
+      await this.updateCount(live.workspaceId, live.id);
     }
   }
 
@@ -146,7 +182,8 @@ export class CustomerSync {
         await this.contacts.unlinkExternalContacts(ws, SOURCE, page.removedIds.map(String));
       }
       await hooks.heartbeat();
-      if (page.data.length === 0 || currentItem + PAGE_SIZE >= page.total) break;
+      // By `total`, not by an empty page: a page of malformed records parses empty.
+      if (currentItem + PAGE_SIZE >= page.total) break;
     }
   }
 
@@ -194,23 +231,21 @@ export class CustomerSync {
 
   /**
    * `counts.customers` = linked customers, on the latest connection row; `syncedAt` moves the
-   * customer watermark, `keepAt` sets it only when there is none yet. Returns the count.
+   * customer watermark. Returns the count.
    */
   async updateCount(
     ws: WorkspaceId,
     connectionId: string,
     syncedAt: Date | null = null,
-    keepAt: Date | null = null,
   ): Promise<number> {
     const count = await this.contacts.linkedContactCount(ws, SOURCE);
     const latest = await this.store.connectionForSystem(connectionId);
     if (latest && latest.status !== 'disconnected') {
-      const mark = syncedAt ?? (latest.counts.lastCustomerSyncAt ? null : keepAt);
       await this.store.updateConnection(ws, connectionId, {
         counts: {
           ...latest.counts,
           customers: count,
-          ...(mark ? { lastCustomerSyncAt: mark.toISOString() } : {}),
+          ...(syncedAt ? { lastCustomerSyncAt: syncedAt.toISOString() } : {}),
         },
       });
     }
@@ -220,8 +255,9 @@ export class CustomerSync {
   // ── internals ──────────────────────────────────────────────────────────────
 
   /**
-   * The full import's pages: the cursor is saved after every page, the watermark set to the start
-   * of the import when it ends.
+   * The full import's pages: the cursor is saved after every page, the ids KiotViet reports
+   * removed are unlinked (detached, never pushed back), the watermark is set to the start of the
+   * import when it ends.
    */
   private async importPages(job: JobRecord, connection: ConnectionRecord, creds: KvCredentials) {
     const ws = job.workspaceId;
@@ -240,9 +276,13 @@ export class CustomerSync {
       });
       await hooks.live();
       await this.upsertAll(ws, page.data);
+      if (page.removedIds.length) {
+        await this.contacts.unlinkExternalContacts(ws, SOURCE, page.removedIds.map(String));
+      }
       cursor.currentItem += PAGE_SIZE;
       await this.checkpoint(job, cursor);
-      if (page.data.length === 0 || cursor.currentItem >= page.total) break;
+      // By `total`, not by an empty page: a page of malformed records parses empty.
+      if (cursor.currentItem >= page.total) break;
     }
     await hooks.live();
     const count = await this.updateCount(ws, connection.id, new Date(cursor.startedAt));
@@ -276,20 +316,35 @@ export class CustomerSync {
   }
 
   private hooks(job: JobRecord, connection: ConnectionRecord): CustomerPassHooks {
-    return {
+    return switchedOn({
       live: async () => {
         const now = await this.store.connectionForSystem(connection.id);
         if (!now || now.status === 'disconnected') throw new ConnectionGoneError();
         return now;
       },
       heartbeat: () => this.checkpoint(job, job.cursor ?? {}),
-    };
+    });
   }
 
   private async checkpoint(job: JobRecord, cursor: object): Promise<void> {
     const saved = await this.store.saveCursor(job.id, job.claimToken, { ...cursor }, JOB_LEASE_MS);
     if (!saved) throw new LeaseLostError();
   }
+}
+
+/** Log entries read to de-duplicate `customers_import_failed`. */
+const RECENT_LOG_SCAN = 50;
+
+/** The hooks, with `live()` also throwing `CustomerSyncOffError` once the switch is off. */
+function switchedOn(hooks: CustomerPassHooks): CustomerPassHooks {
+  return {
+    live: async () => {
+      const c = await hooks.live();
+      if (!c.settings.syncCustomers) throw new CustomerSyncOffError();
+      return c;
+    },
+    heartbeat: hooks.heartbeat,
+  };
 }
 
 /** Errors that concern the whole connection (or the job), never swallowed by the customer pass. */

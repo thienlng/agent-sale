@@ -153,6 +153,7 @@
     "customers_synced": "Synced {{count}} customers with KiotViet",
     "customer_push_failed": "Could not create a customer in KiotViet — turn customer sync off and on again to retry",
     "customers_permission_missing": "The API account has no customer permission, so customer sync was turned off — in KiotViet open API connection settings (Thiết lập kết nối API), tick the Customers permission, then turn customer sync back on",
+    "customers_import_failed": "Could not sync customers from KiotViet — Rapiz tries again at the next sync; orders and stock carry on",
     "unknown": "Other sync event",
     "level": {
       "info": "Info",
