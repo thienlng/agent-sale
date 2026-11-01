@@ -148,6 +148,48 @@ describe('KiotVietConnectionView', () => {
     expect(calls.some((c) => c.key === 'POST /integrations/kiotviet/sync')).toBe(true);
   });
 
+  it('explains a sync refused because the connect step failed', async () => {
+    const { user } = setup({
+      'POST /integrations/kiotviet/sync': {
+        status: 409,
+        body: {
+          error: { code: 'CONFLICT', message: 'x', details: { reason: 'connect_failed' } },
+        },
+      },
+    });
+    renderWithProviders(<KiotVietConnectionView connection={connection()} canManage />);
+    await user.click(screen.getByRole('button', { name: 'Đồng bộ ngay' }));
+    await vi.waitFor(() =>
+      expect(toasts.error).toHaveBeenCalledWith(
+        'Kết nối chưa hoàn tất nên không đồng bộ được. Ngắt kết nối rồi kết nối lại để thử lại.',
+      ),
+    );
+    expect(toasts.success).not.toHaveBeenCalled();
+  });
+
+  it('offers disconnect in the error card when the connect step failed', async () => {
+    const { user, calls } = setup({ 'DELETE /integrations/kiotviet': { status: 204 } });
+    renderWithProviders(
+      <KiotVietConnectionView
+        connection={connection({
+          status: 'error',
+          lastError: { code: 'connect_failed', at: new Date().toISOString() },
+        })}
+        canManage
+      />,
+    );
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent('Ngắt kết nối rồi kết nối lại');
+    expect(alert).not.toHaveTextContent('Bấm Đồng bộ ngay');
+    await user.click(within(alert).getByRole('button', { name: 'Ngắt kết nối' }));
+    const dialog = await screen.findByRole('alertdialog', { name: 'Ngắt kết nối KiotViet?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Ngắt kết nối' }));
+    await vi.waitFor(() =>
+      expect(toasts.success).toHaveBeenCalledWith('Đã ngắt kết nối KiotViet.'),
+    );
+    expect(calls.some((c) => c.key === 'DELETE /integrations/kiotviet')).toBe(true);
+  });
+
   it('disconnects only after confirming in a dialog', async () => {
     const { user, calls } = setup({ 'DELETE /integrations/kiotviet': { status: 204 } });
     renderWithProviders(<KiotVietConnectionView connection={connection()} canManage />);

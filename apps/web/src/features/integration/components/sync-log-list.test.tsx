@@ -1,4 +1,5 @@
-import type { SyncLogEntry } from '@agent-sales/contracts';
+import { type SyncLogEntry, SyncLogParams } from '@agent-sales/contracts';
+import { integration } from '@agent-sales/i18n/integration';
 import { screen } from '@testing-library/react';
 import { beforeAll, describe, expect, it } from 'vitest';
 
@@ -28,7 +29,11 @@ describe('SyncLogList', () => {
         loading={false}
         failed={false}
         entries={[
-          entry('connected', { retailer: 'shopabc' }),
+          // The params the backend logs (`SyncLogParams`), not just the ones the copy uses.
+          entry('connected', {
+            retailer: 'shopabc',
+            branches: 2,
+          } satisfies SyncLogParams['connected']),
           entry('image_failed', { count: 3 }, 'warning'),
           entry('sku_conflict', { sku: 'SP001' }, 'warning'),
           entry('auth_failed', {}, 'error'),
@@ -40,6 +45,20 @@ describe('SyncLogList', () => {
     expect(screen.getByText(/Mã SP001 trùng với một sản phẩm khác/)).toBeInTheDocument();
     expect(screen.getByText(/KiotViet từ chối mã bảo mật/)).toBeInTheDocument();
     expect(screen.getAllByText('Cảnh báo:')).toHaveLength(2);
+  });
+
+  it('every log copy uses only params its code carries, and every code has copy', () => {
+    for (const messages of [integration.vi.log, integration.en.log] as Array<
+      Record<string, unknown>
+    >) {
+      for (const [code, schema] of Object.entries(SyncLogParams)) {
+        const copy = messages[code];
+        expect(typeof copy, `log.${code}`).toBe('string');
+        const used = [...String(copy).matchAll(/\{\{\s*(\w+)\s*\}\}/g)].map((m) => m[1]);
+        const known = Object.keys(schema.shape);
+        for (const name of used) expect(known, `log.${code} uses {{${name}}}`).toContain(name);
+      }
+    }
   });
 
   it('shows a generic line for an unknown code instead of failing', () => {

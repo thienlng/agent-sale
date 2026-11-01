@@ -82,7 +82,8 @@ async function mockIntegrations(page: Page): Promise<Calls> {
                   id: '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9f10',
                   level: 'info',
                   code: 'connected',
-                  params: { retailer: 'shopabc' },
+                  // What the backend logs (`SyncLogParams['connected']`).
+                  params: { retailer: 'shopabc', branches: 1 },
                   at: new Date().toISOString(),
                 },
               ]

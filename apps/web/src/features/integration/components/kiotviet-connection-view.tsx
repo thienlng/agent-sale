@@ -1,10 +1,9 @@
 import type { ConnectionDto } from '@agent-sales/contracts';
-import { CircleAlert, KeyRound, LoaderCircle, RefreshCw } from 'lucide-react';
+import { KeyRound, LoaderCircle, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
-import { Alert, AlertAction, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,7 +31,8 @@ import { describeFailure } from '../lib/errors';
 import { BranchPicker } from './branch-picker';
 import { ConnectionStatusBadge } from './connection-status-badge';
 import { KiotVietLogo } from './kiotviet-logo';
-import { SyncLogList, useLogMessage } from './sync-log-list';
+import { LastError } from './last-error';
+import { SyncLogList } from './sync-log-list';
 import { UpdateCredentialsDialog } from './update-credentials-dialog';
 import { ComingSoonToggles } from './wizard-review-step';
 
@@ -48,8 +48,12 @@ export function KiotVietConnectionView({
   const syncing = connection.status === 'syncing';
   const log = useKiotVietLog(true, syncing);
   const [updatingCredentials, setUpdatingCredentials] = useState(false);
+  const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
   const showError = connection.lastError !== null && connection.status === 'error';
   const showAuthFix = showError && canManage && connection.lastError?.code === 'auth_failed';
+  // A half-made connection never syncs: the only fix is to disconnect and connect again.
+  const showReconnectFix =
+    showError && canManage && connection.lastError?.code === 'connect_failed';
 
   return (
     <div className="flex flex-col gap-6">
@@ -62,8 +66,8 @@ export function KiotVietConnectionView({
       {showError && connection.lastError ? (
         <LastError
           code={connection.lastError.code}
-          canFix={showAuthFix}
-          onFix={() => setUpdatingCredentials(true)}
+          fix={showAuthFix ? 'credentials' : showReconnectFix ? 'disconnect' : null}
+          onFix={() => (showAuthFix ? setUpdatingCredentials(true) : setConfirmingDisconnect(true))}
         />
       ) : null}
       {syncing ? <SyncProgressCard progress={connection.progress} /> : null}
@@ -83,7 +87,12 @@ export function KiotVietConnectionView({
           <SyncLogList entries={log.data} loading={log.isPending} failed={log.isError} />
         </CardContent>
       </Card>
-      {canManage ? <DangerCard /> : null}
+      {canManage ? (
+        <DangerCard
+          confirming={confirmingDisconnect}
+          onConfirmingChange={setConfirmingDisconnect}
+        />
+      ) : null}
       {canManage ? (
         <UpdateCredentialsDialog
           connection={connection}
@@ -110,13 +119,17 @@ function StatusHeader({
   const syncNow = () =>
     sync.mutate(undefined, {
       onSuccess: () => toast.success(t('connection.syncStarted')),
-      onError: (error) =>
-        toast.error(
-          error instanceof ApiClientError && error.status === 409
-            ? t('connection.syncRunning')
-            : (describeFailure(t, error).banner ?? t('wizard.errors.generic')),
-        ),
+      onError: (error) => toast.error(syncFailure(error)),
     });
+  function syncFailure(error: unknown): string {
+    if (error instanceof ApiClientError && error.status === 409) {
+      // A connection whose connect step failed cannot sync; anything else is a sync in progress.
+      return error.details?.['reason'] === 'connect_failed'
+        ? t('log.connect_failed')
+        : t('connection.syncRunning');
+    }
+    return describeFailure(t, error).banner ?? t('wizard.errors.generic');
+  }
   return (
     <Card>
       <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -156,32 +169,6 @@ function StatusHeader({
         ) : null}
       </CardContent>
     </Card>
-  );
-}
-
-function LastError({ code, canFix, onFix }: { code: string; canFix: boolean; onFix: () => void }) {
-  const { t } = useTranslation('integration');
-  const message = useLogMessage();
-  const text =
-    code === 'kiotviet_unavailable'
-      ? t('wizard.errors.unavailable')
-      : message({ code, params: {} });
-  return (
-    <Alert variant="destructive" className="flex flex-col gap-3 sm:flex-row sm:items-center">
-      <CircleAlert className="hidden sm:block" />
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <AlertTitle>{t('connection.lastErrorTitle')}</AlertTitle>
-        <AlertDescription>{text}</AlertDescription>
-      </div>
-      {canFix ? (
-        <AlertAction className="static">
-          <Button className="h-11 w-full sm:w-auto" onClick={onFix}>
-            <KeyRound aria-hidden />
-            {t('connection.updateCredentials')}
-          </Button>
-        </AlertAction>
-      ) : null}
-    </Alert>
   );
 }
 
@@ -324,10 +311,16 @@ function SettingsCard({
   );
 }
 
-function DangerCard() {
+/** The confirm dialog is controlled by the view, so the `connect_failed` error card can open it. */
+function DangerCard({
+  confirming,
+  onConfirmingChange: setConfirming,
+}: {
+  confirming: boolean;
+  onConfirmingChange: (open: boolean) => void;
+}) {
   const { t } = useTranslation('integration');
   const disconnect = useDisconnectKiotViet();
-  const [confirming, setConfirming] = useState(false);
   const confirm = () =>
     disconnect.mutate(undefined, {
       onSuccess: () => {
