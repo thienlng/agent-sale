@@ -21,6 +21,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatDateTime } from '@/lib/format';
+import { useCan } from '@/lib/permissions';
 
 import { useBooking, useChangeBookingStatus } from '../api/bookings';
 import {
@@ -54,6 +55,8 @@ export function BookingView({ bookingId }: { bookingId: string }) {
   const [editing, setEditing] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [reason, setReason] = useState('');
+  // View-only members read the booking; status moves and edits need orders.manage.
+  const canManage = useCan('orders.manage');
 
   if (booking.isPending)
     return (
@@ -94,65 +97,71 @@ export function BookingView({ bookingId }: { bookingId: string }) {
     change.reset();
     void booking.refetch();
   };
-  const actions = ACTIONS[b.status] ?? [];
+  const actions = canManage ? (ACTIONS[b.status] ?? []) : [];
   const tooEarly = b.checkIn > todayNight();
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 pb-3">
-        {actions
-          .filter((a) => a !== 'cancel')
-          .map((a, i) =>
-            a === 'check_in' && tooEarly ? (
-              <Tooltip key={a}>
-                <TooltipTrigger asChild>
-                  <span tabIndex={0}>
-                    <Button size="sm" disabled>
-                      {t(`lodging.sheet.action.${a}`)}
-                    </Button>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {t('lodging.sheet.checkInTooEarly', { date: dayMonth(b.checkIn) })}
-                </TooltipContent>
-              </Tooltip>
-            ) : (
-              <Button
-                key={a}
-                size="sm"
-                variant={i === 0 ? 'default' : 'outline'}
-                disabled={change.isPending}
-                onClick={() => run(a)}
-              >
-                {t(`lodging.sheet.action.${a}`)}
-              </Button>
-            ),
+      {canManage && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 pb-3">
+          {actions
+            .filter((a) => a !== 'cancel')
+            .map((a, i) =>
+              a === 'check_in' && tooEarly ? (
+                <Tooltip key={a}>
+                  <TooltipTrigger asChild>
+                    <span tabIndex={0}>
+                      <Button size="sm" disabled>
+                        {t(`lodging.sheet.action.${a}`)}
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {t('lodging.sheet.checkInTooEarly', { date: dayMonth(b.checkIn) })}
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                <Button
+                  key={a}
+                  size="sm"
+                  variant={i === 0 ? 'default' : 'outline'}
+                  disabled={change.isPending}
+                  onClick={() => run(a)}
+                >
+                  {t(`lodging.sheet.action.${a}`)}
+                </Button>
+              ),
+            )}
+          {EDITABLE.has(b.status) && !editing && (
+            <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
+              <Pencil aria-hidden />
+              {t('lodging.sheet.edit')}
+            </Button>
           )}
-        {EDITABLE.has(b.status) && !editing && (
-          <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
-            <Pencil aria-hidden />
-            {t('lodging.sheet.edit')}
-          </Button>
-        )}
-        {actions.includes('cancel') && (
-          <Button
-            size="sm"
-            variant="ghost"
-            className="ml-auto text-destructive hover:text-destructive"
-            disabled={change.isPending}
-            onClick={() => setCancelOpen(true)}
-          >
-            {t('lodging.sheet.action.cancel')}
-          </Button>
-        )}
-      </div>
+          {actions.includes('cancel') && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="ml-auto text-destructive hover:text-destructive"
+              disabled={change.isPending}
+              onClick={() => {
+                // A previous failure (e.g. a stale confirm) must not show up in the new dialog.
+                change.reset();
+                setCancelOpen(true);
+              }}
+            >
+              {t('lodging.sheet.action.cancel')}
+            </Button>
+          )}
+        </div>
+      )}
       {change.error && !cancelOpen && (
         <div className="px-4 pt-3">
           <BookingErrorAlert error={change.error} onReload={reload} />
         </div>
       )}
 
-      {editing ? (
+      {editing && canManage ? (
         <BookingEditForm
           key={b.version}
           booking={b}

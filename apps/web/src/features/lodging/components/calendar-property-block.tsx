@@ -21,7 +21,8 @@ export interface CellHandlers {
   onPointerEnter: (cell: CellRef) => void;
   onOpenBooking: (bookingId: string) => void;
   onToggle: (propertyId: string) => void;
-  onHold: (option: AvailabilityOptionData) => void;
+  /** Absent for members who cannot create bookings: no "Giữ chỗ" pill. */
+  onHold?: (option: AvailabilityOptionData) => void;
 }
 
 const HOLD_WARN_MS = 15 * 60_000;
@@ -143,6 +144,7 @@ function UnitRow({
         const expiresSoon =
           s.holdExpiresAt !== null && new Date(s.holdExpiresAt).getTime() - now < HOLD_WARN_MS;
         const label = s.kind === 'block' ? s.blockReason || s.code : `${s.guestName} · ${s.code}`;
+        const urgent = expiresSoon && s.status === 'hold';
         return (
           <div
             key={s.bookingId}
@@ -152,14 +154,17 @@ function UnitRow({
             className={cn(
               '@container pointer-events-none z-[2] mx-0.5 flex h-7 min-w-0 items-center gap-1 self-center overflow-hidden rounded-md border px-1.5 text-xs',
               style.className,
+              // Short bars hide the status text, so the urgency stays on the border and icon.
+              urgent && 'border-destructive',
             )}
           >
-            <Icon className="size-3 shrink-0" />
-            <span className="min-w-0 truncate font-medium">{label}</span>
+            <Icon className={cn('size-3 shrink-0', urgent && 'text-destructive')} />
+            {/* The guest · code keeps ~6rem; the status text hides first. */}
+            <span className="min-w-[min(6rem,100%)] shrink truncate font-medium">{label}</span>
             <span
               className={cn(
-                'hidden shrink-0 @min-[10rem]:inline',
-                expiresSoon && s.status === 'hold' && 'font-semibold text-destructive',
+                'hidden min-w-0 shrink-[999] truncate @min-[10rem]:inline',
+                urgent && 'font-semibold text-destructive',
               )}
             >
               {t(`lodging.bookingStatus.${s.status}`)}
@@ -330,11 +335,11 @@ export const PropertyBlock = memo(function PropertyBlock({
       ) : (
         title
       )}
-      {fits && fit && (
+      {fits && fit && handlers.onHold && (
         <Button
           size="xs"
           className="mx-2 mb-1 w-fit tabular-nums"
-          onClick={() => handlers.onHold(fit)}
+          onClick={() => handlers.onHold?.(fit)}
         >
           {fit.quote.totalSell === null
             ? t('lodging.find.holdNoPrice')

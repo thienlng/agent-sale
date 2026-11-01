@@ -1703,6 +1703,7 @@
     },
     "nightsTaken": "These nights are already taken by {{codes}}. Pick other dates or another property.",
     "staleVersion": "Someone else just updated this. Reload and try again.",
+    "holdExpired": "The hold has expired. Place a new hold if the nights are still free.",
     "nightsTakenUnknown": "Some nights were just booked. Reload the calendar to see them.",
     "weekdayShort": {
       "1": "Mon",
@@ -1861,6 +1862,7 @@
       "manualTotal": "Manual price (rooms)",
       "manualHint": "Leave empty to use the calculated price.",
       "manualRequired": "Dates, rooms or guests changed. Enter a new manual price or use the calculated price.",
+      "missingPrice": "Some nights have no price. Enter a manual price for the stay.",
       "useAuto": "Use the calculated price",
       "total": "Total",
       "noTotal": "No total yet",

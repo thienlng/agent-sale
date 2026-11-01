@@ -24,6 +24,13 @@ describe('lodgingConflict', () => {
     expect(lodgingConflict(error)).toEqual({ reason: 'STALE_VERSION', codes: [] });
   });
 
+  it('reads an expired hold', () => {
+    const error = new ApiClientError(409, 'CONFLICT', 'expired', undefined, {
+      reason: 'HOLD_EXPIRED',
+    });
+    expect(lodgingConflict(error)).toEqual({ reason: 'HOLD_EXPIRED', codes: [] });
+  });
+
   it('has no reason for other conflicts and other errors', () => {
     expect(lodgingConflict(new ApiClientError(409, 'CONFLICT', 'illegal move'))).toEqual({
       reason: null,

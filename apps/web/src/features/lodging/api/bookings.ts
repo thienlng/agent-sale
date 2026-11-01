@@ -73,11 +73,13 @@ export function useChangeBookingStatus() {
   );
 }
 
-export type LodgingConflictReason = 'NIGHTS_TAKEN' | 'STALE_VERSION';
+export type LodgingConflictReason = 'NIGHTS_TAKEN' | 'STALE_VERSION' | 'HOLD_EXPIRED';
+const REASONS: readonly string[] = ['NIGHTS_TAKEN', 'STALE_VERSION', 'HOLD_EXPIRED'];
 
 /**
  * Reads a lodging 409: `NIGHTS_TAKEN` (with the blocking booking codes) or
- * `STALE_VERSION` (someone else saved first). `reason` is null for any other
+ * `STALE_VERSION` (someone else saved first) or `HOLD_EXPIRED` (the hold lapsed before the
+ * action). `reason` is null for any other
  * error, including a 409 without a reason (illegal status move, reused key).
  */
 export function lodgingConflict(error: unknown): {
@@ -87,7 +89,8 @@ export function lodgingConflict(error: unknown): {
   if (!(error instanceof ApiClientError) || error.code !== 'CONFLICT')
     return { reason: null, codes: [] };
   const raw = error.details?.['reason'];
-  const reason = raw === 'NIGHTS_TAKEN' || raw === 'STALE_VERSION' ? raw : null;
+  const reason =
+    typeof raw === 'string' && REASONS.includes(raw) ? (raw as LodgingConflictReason) : null;
   const codes = error.details?.['codes'];
   return {
     reason,

@@ -39,7 +39,8 @@ export function CalendarMobile({
   properties: CalendarPropertyData[];
   nights: string[];
   today: string;
-  onCreate: (propertyId: string, night?: string) => void;
+  /** Absent for members who cannot create bookings (view only). */
+  onCreate?: (propertyId: string, night?: string) => void;
   /** A full night opens the booking that takes it. */
   onOpenBooking: (bookingId: string) => void;
 }) {
@@ -96,7 +97,7 @@ export function CalendarMobile({
                       onClick={() => {
                         const taken = state === 'taken' ? firstRow[i] : null;
                         if (taken) onOpenBooking(taken.bookingId);
-                        else onCreate(p.id, night);
+                        else onCreate?.(p.id, night);
                       }}
                     >
                       {Number(night.slice(8, 10))}
@@ -104,10 +105,12 @@ export function CalendarMobile({
                   );
                 })}
               </div>
-              <Button variant="outline" className="h-11" onClick={() => onCreate(p.id)}>
-                <Plus aria-hidden />
-                {t('lodging.cal.createBooking')}
-              </Button>
+              {onCreate && (
+                <Button variant="outline" className="h-11" onClick={() => onCreate(p.id)}>
+                  <Plus aria-hidden />
+                  {t('lodging.cal.createBooking')}
+                </Button>
+              )}
             </CardContent>
           </Card>
         );

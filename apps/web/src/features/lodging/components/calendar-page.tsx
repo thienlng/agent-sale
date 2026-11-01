@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useCan } from '@/lib/permissions';
 
 import { useAvailability, useLodgingCalendar } from '../api/calendar';
 import type { BookingCreateInitial } from '../hooks/use-booking-draft';
@@ -40,6 +41,8 @@ export function CalendarPage({ initialFrom }: { initialFrom?: string }) {
   const [search, setSearch] = useState<AvailabilityRequest | null>(null);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const [sheet, setSheet] = useState<SheetState>(null);
+  // View-only members read the calendar and open bookings, but cannot select or hold.
+  const canManage = useCan('orders.manage');
 
   const nightsCount = mobile ? 31 : rangeNights;
   const from = start ?? todayNight();
@@ -71,9 +74,9 @@ export function CalendarPage({ initialFrom }: { initialFrom?: string }) {
 
   const handlers = useMemo<CellHandlers>(
     () => ({
-      onCell: select,
-      onPointerDown: pointerDown,
-      onPointerEnter: pointerEnter,
+      onCell: canManage ? select : () => {},
+      onPointerDown: canManage ? pointerDown : () => {},
+      onPointerEnter: canManage ? pointerEnter : () => {},
       onOpenBooking: (bookingId) =>
         setSheet((s) => ({ mode: 'view', bookingId, key: (s?.key ?? 0) + 1 })),
       onToggle: (id) =>
@@ -82,18 +85,22 @@ export function CalendarPage({ initialFrom }: { initialFrom?: string }) {
           if (!next.delete(id)) next.add(id);
           return next;
         }),
-      onHold: (o: AvailabilityOptionData) =>
-        search &&
-        openCreate({
-          propertyId: o.propertyId,
-          checkIn: search.checkIn,
-          checkOut: search.checkOut,
-          whole: o.whole,
-          unitIds: o.whole ? [] : o.unitIds,
-          party: { adults: search.party.adults, childAges: search.party.childAges ?? [] },
-        }),
+      ...(canManage
+        ? {
+            onHold: (o: AvailabilityOptionData) =>
+              search &&
+              openCreate({
+                propertyId: o.propertyId,
+                checkIn: search.checkIn,
+                checkOut: search.checkOut,
+                whole: o.whole,
+                unitIds: o.whole ? [] : o.unitIds,
+                party: { adults: search.party.adults, childAges: search.party.childAges ?? [] },
+              }),
+          }
+        : {}),
     }),
-    [select, pointerDown, pointerEnter, openCreate, search],
+    [canManage, select, pointerDown, pointerEnter, openCreate, search],
   );
 
   const all = useMemo(() => calendar.data?.properties ?? [], [calendar.data]);
@@ -190,11 +197,16 @@ export function CalendarPage({ initialFrom }: { initialFrom?: string }) {
           properties={visible}
           nights={nights}
           today={calendar.data.today}
-          onCreate={(propertyId, night) =>
-            openCreate(
-              night ? { propertyId, checkIn: night, checkOut: addDays(night, 1) } : { propertyId },
-            )
-          }
+          {...(canManage
+            ? {
+                onCreate: (propertyId: string, night?: string) =>
+                  openCreate(
+                    night
+                      ? { propertyId, checkIn: night, checkOut: addDays(night, 1) }
+                      : { propertyId },
+                  ),
+              }
+            : {})}
           onOpenBooking={handlers.onOpenBooking}
         />
       ) : (
@@ -209,7 +221,7 @@ export function CalendarPage({ initialFrom }: { initialFrom?: string }) {
         />
       )}
 
-      {sheet?.mode === 'create' && (
+      {sheet?.mode === 'create' && canManage && (
         <BookingSheet
           key={sheet.key}
           mode="create"

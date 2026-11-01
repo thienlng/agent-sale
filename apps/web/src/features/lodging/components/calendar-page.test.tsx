@@ -15,7 +15,10 @@ vi.mock('sonner', () => ({ toast }));
 // flaked under load (e.g. inside `pnpm check`). Same assertions, a longer wait.
 configure({ asyncUtilTimeout: 5000 });
 vi.mock('@/lib/use-workspace', () => ({ useWorkspaceId: () => 'ws-1' }));
+const can = vi.hoisted(() => ({ value: true }));
+vi.mock('@/lib/permissions', () => ({ useCan: () => can.value }));
 afterEach(() => {
+  can.value = true;
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
@@ -265,6 +268,52 @@ describe('CalendarPage', () => {
     await userEvent.click(await screen.findByRole('button', { name: /Xem từng phòng của H1/ }));
     expect(screen.getByText('Chị Lan · BK-0002')).toBeInTheDocument();
     expect(screen.getByText(/Giữ chỗ · hết hạn/)).toBeInTheDocument();
+  });
+
+  it('keeps the expiring-soon cue on a short hold bar and the guest label readable', async () => {
+    const soon = structuredClone(calendar);
+    const seg = soon.properties[1]?.rows[0]?.segments[0];
+    if (seg) seg.holdExpiresAt = new Date(Date.now() + 5 * 60_000).toISOString();
+    stubApi({ 'GET /lodging/calendar': { status: 200, body: soon } });
+    renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: /Xem từng phòng của H1/ }));
+    const label = screen.getByText('Chị Lan · BK-0002');
+    expect(label).toHaveClass('min-w-[min(6rem,100%)]');
+    const bar = label.parentElement;
+    expect(bar).toHaveClass('border-destructive');
+    expect(bar?.querySelector('svg')).toHaveClass('text-destructive');
+    // The status text gives way first.
+    expect(label.nextElementSibling).toHaveClass('shrink-[999]');
+  });
+
+  it('lets a view-only member open bookings but not select nights or hold', async () => {
+    can.value = false;
+    const calls = stubApi({
+      [`GET /lodging/bookings/${BK1}`]: { status: 200, body: created },
+      'POST /lodging/availability': {
+        status: 200,
+        body: {
+          options: [{ propertyId: A17, whole: true, unitIds: [A17_UNIT], fits: true, quote }],
+        },
+      },
+    });
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await cell(/^A17, Thứ Hai 02\/11, trống/));
+    await user.click(await cell(/^A17, Thứ Tư 04\/11, trống/));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    const find = screen.getByRole('search');
+    await user.type(within(find).getByLabelText('Nhận phòng'), '2026-11-09');
+    await user.type(within(find).getByLabelText('Trả phòng'), '2026-11-11');
+    await user.click(within(find).getByRole('button', { name: 'Tìm' }));
+    await waitFor(() =>
+      expect(calls.some((c) => c.key === 'POST /lodging/availability')).toBe(true),
+    );
+    expect(screen.queryByRole('button', { name: /Giữ chỗ ·/ })).toBeNull();
+    await user.click(screen.getByRole('button', { name: /^A17, Thứ Sáu 06\/11, Đã đặt BK-0001/ }));
+    const sheet = await screen.findByRole('dialog');
+    expect(await within(sheet).findByText(/BK-/)).toBeInTheDocument();
+    expect(within(sheet).queryByRole('button', { name: 'Sửa' })).toBeNull();
   });
 
   it('selects two nights, opens the sheet and posts a hold', async () => {

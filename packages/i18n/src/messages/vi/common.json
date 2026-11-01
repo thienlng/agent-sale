@@ -1698,6 +1698,7 @@
     },
     "nightsTaken": "Ngày này đã có booking {{codes}}. Chọn ngày hoặc căn khác.",
     "staleVersion": "Dữ liệu vừa được người khác cập nhật. Tải lại rồi thử lại.",
+    "holdExpired": "Giữ chỗ đã hết hạn. Tạo giữ chỗ mới nếu vẫn còn đêm trống.",
     "nightsTakenUnknown": "Một số đêm vừa có người đặt. Tải lại lịch để xem.",
     "weekdayShort": {
       "1": "T2",
@@ -1856,6 +1857,7 @@
       "manualTotal": "Giá nhập tay (tiền phòng)",
       "manualHint": "Để trống để dùng giá tính tự động.",
       "manualRequired": "Ngày, phòng hoặc số khách đã đổi. Nhập giá thủ công mới hoặc chọn dùng giá tính tự động.",
+      "missingPrice": "Một số đêm chưa có giá. Nhập giá thủ công cho cả kỳ ở.",
       "useAuto": "Dùng giá tính tự động",
       "total": "Tổng",
       "noTotal": "Chưa có tổng",

@@ -32,7 +32,9 @@ export function storedManualTotal(b: BookingDetail): number | null {
 
 /**
  * Edit mode of the booking sheet. Hold/confirmed stays edit dates, rooms, guests, price and
- * note; active blocks edit dates, rooms and note; checked-in stays only the check-out date.
+ * note; active blocks edit dates, rooms and note; checked-in stays the check-out date (and then
+ * the price). An edit that keeps dates, rooms and guests shows the stored quote, as the server
+ * keeps it: only the adjustment or a new manual price moves the total.
  * A manual price never silently survives a change of dates/rooms/guests: staff must type a
  * new one or explicitly choose the calculated price.
  */
@@ -78,8 +80,10 @@ export function BookingEditForm({
     (!whole && !sameList(unitIds, booking.unitIds)) ||
     party.adults !== booking.party.adults ||
     !sameList(party.childAges, booking.party.childAges);
-  // Checked-in stays only move check-out and never send price fields, so no manual-price choice.
-  const manualRequired = stay && originalManual !== null && stayChanged;
+  // A checked-in stay only moves its check-out; when it does, its price is shown (and a manual
+  // price needs the same explicit choice as before arrival).
+  const priced = stay || (checkedIn && stayChanged);
+  const manualRequired = priced && originalManual !== null && stayChanged;
   const manualMissing =
     manualRequired && !useAuto && (!manualTouched || price.manualTotal === null);
 
@@ -117,6 +121,8 @@ export function BookingEditForm({
       if (p && stayChanged) out.party = p;
       if (guestName.trim() !== booking.guestName) out.guestName = guestName.trim();
       if (guestPhone.trim() !== booking.guestPhone) out.guestPhone = guestPhone.trim();
+    }
+    if (priced) {
       if (price.adjustment !== booking.adjustment) out.adjustment = price.adjustment;
       if (price.adjustmentReason !== booking.adjustmentReason)
         out.adjustmentReason = price.adjustmentReason;
@@ -196,7 +202,7 @@ export function BookingEditForm({
             </div>
           </SheetSection>
         )}
-        {stay && (
+        {priced && (
           <SheetSection title={t('lodging.sheet.sectionPrice')}>
             <QuoteBreakdown
               quote={stayChanged ? quote.data : (booking.quote ?? undefined)}

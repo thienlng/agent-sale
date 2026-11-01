@@ -11,7 +11,10 @@ import { BookingSheet, type BookingSheetProps } from './booking-sheet';
 const toast = vi.hoisted(() => Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }));
 vi.mock('sonner', () => ({ toast }));
 vi.mock('@/lib/use-workspace', () => ({ useWorkspaceId: () => 'ws-1' }));
+const can = vi.hoisted(() => ({ value: true }));
+vi.mock('@/lib/permissions', () => ({ useCan: () => can.value }));
 afterEach(() => {
+  can.value = true;
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
@@ -208,7 +211,7 @@ describe('BookingSheet view', () => {
     );
   });
 
-  it('lets a checked-in booking with a manual price extend its check-out', async () => {
+  it('asks a checked-in booking with a manual price which price applies when its check-out moves', async () => {
     const stayed = booking({ status: 'checked_in', holdExpiresAt: null, totalSell: 20_000_000 });
     const calls = stubApi({
       [`GET /lodging/bookings/${BK}`]: { status: 200, body: stayed },
@@ -221,17 +224,102 @@ describe('BookingSheet view', () => {
     const sheet = await screen.findByRole('dialog');
     await user.click(await within(sheet).findByRole('button', { name: 'Sửa' }));
     expect(within(sheet).getByLabelText('Nhận phòng')).toBeDisabled();
+    expect(within(sheet).queryByLabelText('Giá thủ công')).toBeNull();
     const out = within(sheet).getByLabelText('Trả phòng');
     await user.clear(out);
     await user.type(out, '2099-11-06');
-    expect(within(sheet).queryByText(/Nhập giá thủ công mới/)).toBeNull();
+    expect(within(sheet).getByText(/Nhập giá thủ công mới/)).toBeInTheDocument();
+    await user.click(within(sheet).getByRole('button', { name: 'Lưu' }));
+    expect(calls.some((c) => c.key.startsWith('PATCH'))).toBe(false);
+    const manual = within(sheet).getByLabelText('Giá nhập tay (tiền phòng)');
+    await user.clear(manual);
+    await user.type(manual, '30000000');
     await user.click(within(sheet).getByRole('button', { name: 'Lưu' }));
     await waitFor(() =>
       expect(calls.find((c) => c.key.startsWith('PATCH'))?.body).toEqual({
         version: 3,
         checkOut: '2099-11-06',
+        manualTotalSell: 30_000_000,
       }),
     );
+  });
+
+  it('an adjustment-only edit shows the stored total plus the new adjustment and sends no price', async () => {
+    const manual = booking({ totalSell: 20_000_000, status: 'confirmed', holdExpiresAt: null });
+    const calls = stubApi({
+      [`GET /lodging/bookings/${BK}`]: { status: 200, body: manual },
+      [`GET /lodging/properties/${PROP}`]: { status: 200, body: property },
+      [`PATCH /lodging/bookings/${BK}`]: { status: 200, body: manual },
+    });
+    const user = userEvent.setup();
+    renderSheet({ mode: 'view', bookingId: BK });
+    const sheet = await screen.findByRole('dialog');
+    await user.click(await within(sheet).findByRole('button', { name: 'Sửa' }));
+    const adjustment = within(sheet).getByLabelText('Điều chỉnh (+/−)');
+    await user.clear(adjustment);
+    await user.type(adjustment, '-1000000');
+    await waitFor(() =>
+      expect(within(sheet).getByTestId('quote-total')).toHaveTextContent(/19\.000\.000/),
+    );
+    await user.click(within(sheet).getByRole('button', { name: 'Lưu' }));
+    await waitFor(() =>
+      expect(calls.find((c) => c.key.startsWith('PATCH'))?.body).toEqual({
+        version: 3,
+        adjustment: -1_000_000,
+      }),
+    );
+    expect(calls.some((c) => c.key === 'POST /lodging/quote')).toBe(false);
+  });
+
+  it('lets a view-only member read a booking without actions or editing', async () => {
+    can.value = false;
+    stubApi({ [`GET /lodging/bookings/${BK}`]: { status: 200, body: booking() } });
+    renderSheet({ mode: 'view', bookingId: BK });
+    const sheet = await screen.findByRole('dialog');
+    expect(await within(sheet).findByText('Anh Nam')).toBeInTheDocument();
+    for (const name of ['Xác nhận', 'Gia hạn giữ', 'Huỷ', 'Sửa'])
+      expect(within(sheet).queryByRole('button', { name })).toBeNull();
+  });
+
+  it('says the hold expired when a status move comes too late', async () => {
+    stubApi({
+      [`GET /lodging/bookings/${BK}`]: { status: 200, body: booking() },
+      [`POST /lodging/bookings/${BK}/status`]: {
+        status: 409,
+        body: {
+          error: {
+            code: 'CONFLICT',
+            message: 'The hold has expired',
+            details: { reason: 'HOLD_EXPIRED' },
+          },
+        },
+      },
+    });
+    const user = userEvent.setup();
+    renderSheet({ mode: 'view', bookingId: BK });
+    const sheet = await screen.findByRole('dialog');
+    await user.click(await within(sheet).findByRole('button', { name: 'Xác nhận' }));
+    expect(await within(sheet).findByText(/Giữ chỗ đã hết hạn/)).toBeInTheDocument();
+  });
+
+  it('opens the cancel dialog without the error of an earlier action', async () => {
+    stubApi({
+      [`GET /lodging/bookings/${BK}`]: { status: 200, body: booking() },
+      [`POST /lodging/bookings/${BK}/status`]: {
+        status: 409,
+        body: {
+          error: { code: 'CONFLICT', message: 'stale', details: { reason: 'STALE_VERSION' } },
+        },
+      },
+    });
+    const user = userEvent.setup();
+    renderSheet({ mode: 'view', bookingId: BK });
+    const sheet = await screen.findByRole('dialog');
+    await user.click(await within(sheet).findByRole('button', { name: 'Xác nhận' }));
+    expect(await within(sheet).findByText(/vừa được người khác cập nhật/)).toBeInTheDocument();
+    await user.click(within(sheet).getByRole('button', { name: 'Huỷ' }));
+    const confirm = await screen.findByRole('alertdialog');
+    expect(within(confirm).queryByText(/vừa được người khác cập nhật/)).toBeNull();
   });
 
   it('shows a failed cancel inside the dialog and reloads on a stale version', async () => {
