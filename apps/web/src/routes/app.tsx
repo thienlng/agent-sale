@@ -46,7 +46,9 @@ export const Route = createFileRoute('/app')({
       <AppShell
         planDialog={(props) => <PlanDialog {...props} />}
         createBusinessDialog={(props) => <CreateBusinessDialog {...props} />}
-        industry={workspace.data?.industry}
+        // Undefined only while the business is loading, so the sidebar holds the industry entries
+        // instead of flashing retail ones; without a business (or on error) it falls back to retail.
+        industry={workspace.data?.industry ?? (workspace.isLoading ? undefined : '')}
         navCounts={{
           '/app/bookings': {
             count: pendingHolds,

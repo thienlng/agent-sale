@@ -32,14 +32,17 @@ beforeEach(() => {
 
 function renderAt(
   path: string,
-  industry?: 'hotel',
+  industry: 'hotel' | 'retail' | 'loading' = 'retail',
   navCounts?: Record<string, { count: number; label: string }>,
 ) {
   const root = createRootRoute({
     component: () => (
       <TooltipProvider>
         <SidebarProvider>
-          <AppSidebar industry={industry} navCounts={navCounts} />
+          <AppSidebar
+            industry={industry === 'loading' ? undefined : industry}
+            navCounts={navCounts}
+          />
         </SidebarProvider>
       </TooltipProvider>
     ),
@@ -53,6 +56,15 @@ function renderAt(
 }
 
 describe('AppSidebar', () => {
+  it('shows placeholders, not retail entries, while the industry is still loading', async () => {
+    renderAt('/app/calendar', 'loading');
+    const nav = await screen.findByRole('navigation', { name: 'Điều hướng chính' });
+    expect(within(nav).getByTestId('industry-nav-loading')).toBeInTheDocument();
+    expect(within(nav).queryByRole('link', { name: 'Sản phẩm' })).toBeNull();
+    expect(within(nav).queryByRole('button', { name: 'Đơn hàng' })).toBeNull();
+    expect(within(nav).queryByRole('link', { name: 'Lịch' })).toBeNull();
+  });
+
   it('uses lodging navigation for a hotel without retail stock or shipping orders', async () => {
     renderAt('/app/calendar', 'hotel');
     const nav = await screen.findByRole('navigation', { name: 'Điều hướng chính' });

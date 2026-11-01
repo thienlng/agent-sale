@@ -31,6 +31,7 @@ import {
   SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSkeleton,
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
@@ -272,6 +273,7 @@ export function AppSidebar({
   navCounts,
 }: {
   createBusinessDialog?: ((props: CreateBusinessDialogProps) => ReactNode) | undefined;
+  /** The business's industry; undefined while it loads (industry entries show placeholders). */
   industry?: string | undefined;
   /** Waiting counts composed by the route from features (shared code may not import them). */
   navCounts?: NavCounts | undefined;
@@ -308,7 +310,18 @@ export function AppSidebar({
               items={CONTACTS.filter((i) => canSettings || i.to !== '/app/crm-settings')}
               paths={CONTACT_PATHS}
             />
-            {industry === 'hotel' ? (
+            {industry === undefined ? (
+              // Until the business loads its industry is unknown: hold the place instead of
+              // flashing retail entries a hotel never has.
+              <>
+                <SidebarMenuItem>
+                  <SidebarMenuSkeleton showIcon data-testid="industry-nav-loading" />
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuSkeleton showIcon />
+                </SidebarMenuItem>
+              </>
+            ) : industry === 'hotel' ? (
               <NavItems items={LODGING} counts={navCounts} />
             ) : (
               <>
