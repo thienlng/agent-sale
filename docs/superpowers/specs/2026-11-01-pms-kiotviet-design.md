@@ -284,9 +284,11 @@ green; touch targets ≥ 44 px; focus moves to the first invalid field after a f
 - On success: `markOrderPushed` stores `external_id/code/status`, releases the Rapiz hold and sets
   `stock_state = 'external'` (new state: later status changes move no Rapiz stock).
 - `order.update` webhooks update `external_status`; a cancellation in KiotViet cancels the Rapiz order
-  (history "Đơn đã huỷ trên KiotViet").
+  (history "Đơn đã huỷ trên KiotViet"); each reconcile re-reads the order branch's orders changed since the last
+  one, so a lost delivery is repaired. Disconnecting releases orders still waiting to be pushed.
 - Failures retry with backoff (1 min, 5 min, 30 min), then stay `failed` with a "Thử lại" action
-  (`POST /orders/{id}/external-push`).
+  (`POST /integrations/kiotviet/orders/{orderId}/push`, `orders.manage`; the integration owns pushing and
+  commerce never calls it, so the route lives under `/integrations`).
 
 ## 8. Errors and states
 

@@ -163,6 +163,21 @@ export class OrderPushService implements OrderPushFacade {
     });
   }
 
+  releasePendingPushes(ws: WorkspaceId, source: ExternalSource): Promise<number> {
+    return this.store.run(ws, (tx) => tx.orderPush.releasePending(source));
+  }
+
+  stalePendingOrders(
+    ws: WorkspaceId,
+    source: ExternalSource,
+    olderThan: Date,
+    limit: number,
+  ): Promise<string[]> {
+    return this.store.run(ws, (tx) =>
+      tx.orderPush.stalePending(source, olderThan, Math.max(0, Math.trunc(limit))),
+    );
+  }
+
   pushedOrderCount(ws: WorkspaceId, source: ExternalSource): Promise<number> {
     return this.store.run(ws, (tx) => tx.orderPush.countPushed(source));
   }

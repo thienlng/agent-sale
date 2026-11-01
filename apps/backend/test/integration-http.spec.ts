@@ -9,7 +9,7 @@ import {
 } from '@agent-sales/contracts';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Test } from '@nestjs/testing';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AppModule } from '../src/app.module.js';
 import { configureEnv } from '../src/common/config.js';
 import { HttpExceptionFilter } from '../src/common/http/http-exception.filter.js';
@@ -18,6 +18,7 @@ import { DomainError } from '@agent-sales/shared';
 import { CATALOG_SYNC_FACADE, ORDER_PUSH_FACADE } from '../src/modules/commerce/api/index.js';
 import { INTEGRATION_STORE } from '../src/modules/integration/application/ports/integration-store.js';
 import { KIOTVIET_GATEWAY } from '../src/modules/integration/application/ports/kiotviet-gateway.js';
+import { WORKSPACE_FACADE, type WorkspaceFacade } from '../src/modules/workspace/api/index.js';
 import {
   KiotVietAuthError,
   KiotVietPermissionError,
@@ -120,6 +121,7 @@ const orders = {
     if (orderId !== FAILED_ORDER) throw new PushNotFailedError();
     requeued.push(orderId);
   },
+  releasePendingPushes: async () => 0,
 };
 
 describe('HTTP: KiotViet order push retry', () => {
@@ -129,12 +131,33 @@ describe('HTTP: KiotViet order push retry', () => {
     expect(ok.statusCode, ok.body).toBe(202);
     expect(requeued).toEqual([FAILED_ORDER]);
 
+    const malformed = await call('POST', '/kiotviet/orders/not-a-uuid/push');
+    expect(malformed.statusCode).toBe(400);
+    expect(requeued).toEqual([FAILED_ORDER]);
+
     const refused = await call(
       'POST',
       '/kiotviet/orders/0190f5c2-0000-7000-8000-0000000000f2/push',
     );
     expect(refused.statusCode).toBe(409);
     expect(refused.json()).toMatchObject({ error: { details: { reason: 'PUSH_NOT_FAILED' } } });
+  });
+
+  it('refuses a member without orders.manage with 403', async () => {
+    const { call } = await setup();
+    const workspaces = app?.get<WorkspaceFacade>(WORKSPACE_FACADE, { strict: false });
+    const real = workspaces?.findMembership.bind(workspaces);
+    const spy = vi
+      .spyOn(workspaces as WorkspaceFacade, 'findMembership')
+      .mockImplementation(async (...args) => {
+        const membership = await real?.(...args);
+        return membership ? { ...membership, role: 'analyst' } : null;
+      });
+    const before = requeued.length;
+    const forbidden = await call('POST', `/kiotviet/orders/${FAILED_ORDER}/push`);
+    spy.mockRestore();
+    expect(forbidden.statusCode).toBe(403);
+    expect(requeued).toHaveLength(before);
   });
 });
 

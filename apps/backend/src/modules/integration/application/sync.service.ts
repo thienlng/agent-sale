@@ -168,7 +168,12 @@ export class SyncService {
     // The owner changed the sale branches while this ran: recompute stock with the new ones.
     const latest = await this.store.connectionForSystem(connection.id);
     if (latest && latest.status !== 'disconnected') {
-      if (job.kind === 'reconcile') await this.ensureWebhooks(latest);
+      if (job.kind === 'reconcile') {
+        await this.ensureWebhooks(latest);
+        // Statuses changed since the previous run (`connection` is this job's start view).
+        const since = connection.lastReconcileAt ?? connection.createdAt;
+        await this.repairOrderStatuses(latest, new Date(since.getTime() - RECONCILE_OVERLAP_MS));
+      }
       if (!sameIds(latest.settings.saleBranchIds, cursor.saleBranchIds)) {
         await this.store.enqueue(ws, {
           connectionId: connection.id,
@@ -200,6 +205,20 @@ export class SyncService {
       if (error instanceof IntegrationUnavailableError) throw error;
       if (error instanceof ConnectionVersionConflictError) return;
       this.logger.warn(`Connection ${c.id}: webhooks not ensured (${errorName(error)})`);
+    }
+  }
+
+  /**
+   * Once per reconcile while push is on: applies the status of KiotViet orders changed since the
+   * last run, so a lost `order.update` is repaired. Best effort, like the webhook set.
+   */
+  private async repairOrderStatuses(c: ConnectionRecord, since: Date): Promise<void> {
+    if (!c.settings.pushOrders) return;
+    try {
+      await this.pusher.reconcileStatuses(c, openCredentials(this.secrets, c), since);
+    } catch (error) {
+      if (error instanceof IntegrationUnavailableError) throw error;
+      this.logger.warn(`Connection ${c.id}: order statuses not reconciled (${errorName(error)})`);
     }
   }
 

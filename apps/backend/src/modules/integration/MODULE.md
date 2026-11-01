@@ -116,23 +116,29 @@ a 503 `UNAVAILABLE` stand-in when the process has no database).
   any fenced job write stops the job at once.
 - Order push (spec §7, `application/order-push.ts`, `domain/kiotviet-order.ts`): every 15 s the tick
   claims up to 20 orders per connection with `pushOrders` on and status `connected|syncing`
-  (`claimOrdersForPush(ws, 'kiotviet', connection.createdAt, 20)`) and enqueues one `push_order` job each
-  (`payload { orderId, firstAttemptAt }`). The job reads `pushableOrder` (null → complete); a problem marks the
+  (`claimOrdersForPush(ws, 'kiotviet', connection.createdAt, 20)`), adds pending orders whose claim is more
+  than 2 min old (`stalePendingOrders`: a crash between claim and enqueue), and enqueues one `push_order` job
+  per order unless its newest job is still open (`latestPushJob`), with `payload { orderId, firstAttemptAt }`.
+  When that newest job's cursor or payload says `ambiguous` (a "Thử lại" after a possibly delivered create),
+  the new job inherits `ambiguous`, the original `firstAttemptAt` and the `branchId` tried. The job reads `pushableOrder` (null → complete); a problem marks the
   order failed (`unlinked_product {name}` or `empty_order`). Otherwise it saves the cursor
-  `{ ambiguous: true }` and sends `kiotVietOrderBody` (branch `orderBranchId`, description `Rapiz <code>` +
+  `{ ambiguous: true, branchId }` and sends `kiotVietOrderBody` (branch `orderBranchId`, description `Rapiz <code>` +
   note, lines by KiotViet id, order discount, `customer`, `orderDelivery` whose price carries the shipping
   fee plus whatever Rapiz's total adds — the surcharge — so the KiotViet total equals Rapiz's); an attempt
-  that finds `ambiguous` first reads the branch's orders modified since `firstAttemptAt − 1 min` (≤ 10 pages)
+  that finds `ambiguous` (cursor or payload) first reads the tried branch's orders modified since `firstAttemptAt − 1 min` (≤ 10 pages)
   and adopts the one whose description carries the code as a whole token (`carriesRapizCode`). Then
   `markOrderPushed` (status via `orderStatusOf`, `KV_ORDER_STATUS`), log `order_pushed {code}` (or
   `order_pushed_cancelled {code}` when Rapiz cancelled or deleted it meanwhile), `counts.ordersPushed =
 pushedOrderCount`. `KiotVietRejectedError` → `kiotviet_rejected`, `OrderAlreadyPushedError` → log
-  `order_push_failed {code, reason: 'duplicate'}`, `OrderExternalLinkConflictError` → `kiotviet_link_conflict`:
+  `order_push_duplicate {code}` (staff cancel the extra KiotViet order), `OrderExternalLinkConflictError` → `kiotviet_link_conflict`:
   all complete without a retry. Other errors take the shared job path (`PushAttemptError` carries the order
   code): auth → connection `error` + order `auth_failed`; others retry +1/+5/+30 min, then the order fails
   with `kiotviet_unavailable`/`sync_failed` and the connection status is left alone; a job whose connection
   is gone (disconnected, connect failed) fails its order with `not_connected`. Every give-up logs
-  `order_push_failed {code, reason}` (warning). A full import or reconcile writes `counts` from the latest
+  `order_push_failed {code, reason}` (warning). Each reconcile with push on pages `GET /orders` of the order
+  branch since the previous `lastReconcileAt` (else `createdAt`) − 2 min (≤ 20 pages) and applies every
+  status (`reconcileStatuses`), repairing lost `order.update` deliveries; best effort. `disconnect` calls
+  `releasePendingPushes` after the status write, so claimed orders go back to unclaimed. A full import or reconcile writes `counts` from the latest
   connection, so it never undoes `ordersPushed`.
 - Webhook deliveries: signature = HMAC-SHA256 keyed by the registered secret text (`webhookSigningKey`, one
   line to change); bad → dropped, `webhook_bad_signature` logged once per connection per process (the

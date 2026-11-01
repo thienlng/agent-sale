@@ -15,7 +15,12 @@ import { newId, type WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { SECRET_BOX, type SecretBox } from '../../../common/security/secret-box.js';
-import { CATALOG_SYNC_FACADE, type CatalogSyncFacade } from '../../commerce/api/index.js';
+import {
+  CATALOG_SYNC_FACADE,
+  type CatalogSyncFacade,
+  ORDER_PUSH_FACADE,
+  type OrderPushFacade,
+} from '../../commerce/api/index.js';
 import {
   ConnectFailedError,
   ConnectionExistsError,
@@ -73,6 +78,7 @@ export class ConnectionService {
     @Inject(CATALOG_SYNC_FACADE) private readonly catalog: CatalogSyncFacade,
     @Inject(SECRET_BOX) private readonly secrets: SecretBox,
     @Inject(WebhookSet) private readonly webhooks: WebhookSet,
+    @Inject(ORDER_PUSH_FACADE) private readonly orders: OrderPushFacade,
   ) {}
 
   async list(ws: WorkspaceId): Promise<IntegrationListResponse> {
@@ -247,7 +253,8 @@ export class ConnectionService {
   }
 
   /**
-   * Deletes the webhooks at KiotViet (best effort), disconnects, then releases the linked products.
+   * Deletes the webhooks at KiotViet (best effort), disconnects, then releases the linked products
+   * and the orders still waiting to be pushed.
    * The status goes first so a running job or webhook stops writing before the release; one that
    * still lands a write releases again when it sees the disconnect (`SyncService`, `WebhookApplier`).
    */
@@ -260,6 +267,8 @@ export class ConnectionService {
     }
     await this.store.updateConnection(ws, current.id, { status: 'disconnected' });
     await this.catalog.releaseExternalSource(ws, PROVIDER);
+    // Claimed orders no job will push any more: back to unclaimed, so a later connection takes them.
+    await this.orders.releasePendingPushes(ws, PROVIDER);
   }
 
   // ── internals ──────────────────────────────────────────────────────────────

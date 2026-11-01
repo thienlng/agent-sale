@@ -4,7 +4,7 @@ import { Logger } from '@nestjs/common';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SecretBox } from '../../../common/security/secret-box.js';
-import type { CatalogSyncFacade } from '../../commerce/api/index.js';
+import type { CatalogSyncFacade, OrderPushFacade } from '../../commerce/api/index.js';
 import { ConnectionService } from '../application/connection.service.js';
 import { WebhookSet } from '../application/webhook-set.js';
 import {
@@ -61,6 +61,8 @@ describe('ConnectionService', () => {
   let store: MemoryIntegrationStore;
   let gateway: FakeKiotVietGateway;
   let catalog: ReturnType<typeof fakeCatalog>;
+  let pushOrders: OrderPushFacade;
+  let statusAtRelease: string | undefined;
   let box: SecretBox;
   let service: ConnectionService;
   let warn: ReturnType<typeof vi.spyOn>;
@@ -72,12 +74,19 @@ describe('ConnectionService', () => {
       catalog as unknown as CatalogSyncFacade,
       box,
       new WebhookSet(gateway, box, { webhookBaseUrl: webhookBaseUrl ?? undefined }),
+      pushOrders,
     );
 
   beforeEach(() => {
     store = new MemoryIntegrationStore();
     gateway = new FakeKiotVietGateway();
     catalog = fakeCatalog();
+    pushOrders = {
+      releasePendingPushes: vi.fn(async () => {
+        statusAtRelease = store.connections[0]?.status;
+        return 2;
+      }),
+    } as unknown as OrderPushFacade;
     box = SecretBox.insecureDevelopmentBox();
     service = make();
     warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
@@ -497,6 +506,9 @@ describe('ConnectionService', () => {
         clientSecret: 'secret-xyz',
       });
       expect(catalog.releaseExternalSource).toHaveBeenCalledWith(ws, 'kiotviet');
+      // Orders claimed for a push no job will run any more go back to unclaimed, after the status.
+      expect(pushOrders.releasePendingPushes).toHaveBeenCalledWith(ws, 'kiotviet');
+      expect(statusAtRelease).toBe('disconnected');
       expect(store.connections[0]!.status).toBe('disconnected');
       expect(await store.liveConnection(ws, 'kiotviet')).toBeNull();
       // A new connection is allowed afterwards.

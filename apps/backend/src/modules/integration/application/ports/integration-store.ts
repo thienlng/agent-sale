@@ -107,6 +107,15 @@ export interface IntegrationStore {
     e: { level: SyncLogLevel; code: string; params?: Record<string, string | number> },
   ): Promise<void>;
   recentLog(ws: WorkspaceId, connectionId: string, limit: number): Promise<SyncLogEntry[]>;
+  /** The newest `push_order` job of an order (open or not), or null. */
+  latestPushJob(
+    ws: WorkspaceId,
+    orderId: string,
+  ): Promise<{
+    open: boolean;
+    payload: Record<string, unknown>;
+    cursor: Record<string, unknown> | null;
+  } | null>;
   cachedImage(ws: WorkspaceId, sourceUrl: string): Promise<string | null>;
   cacheImage(ws: WorkspaceId, sourceUrl: string, storedUrl: string): Promise<void>;
 

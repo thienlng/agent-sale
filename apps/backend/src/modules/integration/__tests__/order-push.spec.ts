@@ -48,6 +48,8 @@ interface MemOrder {
 class MemoryOrders implements OrderPushFacade {
   orders = new Map<string, MemOrder>();
   claims: Array<{ since: Date; limit: number }> = [];
+  /** What `stalePendingOrders` answers. */
+  stale: string[] = [];
 
   add(id: string, over: Partial<MemOrder> = {}): MemOrder {
     const o: MemOrder = {
@@ -114,7 +116,15 @@ class MemoryOrders implements OrderPushFacade {
     },
   );
 
-  requeueOrderPush = vi.fn(async () => undefined);
+  requeueOrderPush = vi.fn(async (_ws: unknown, id: string) => {
+    const o = this.orders.get(id)!;
+    if (o.state !== 'failed') throw new Error('not failed');
+    Object.assign(o, { state: null, error: null });
+  });
+
+  stalePendingOrders = vi.fn(async () => [...this.stale]);
+
+  releasePendingPushes = vi.fn(async () => 0);
 
   applyExternalOrderStatus = vi.fn(
     async (
@@ -307,10 +317,10 @@ describe('push_order job', () => {
     expect(store.retried).toEqual([
       { id: first.id, runAfter: expect.any(Date), error: 'kiotviet_unavailable' },
     ]);
-    expect(store.cursors.at(-1)).toEqual({ ambiguous: true });
+    expect(store.cursors.at(-1)).toEqual({ ambiguous: true, branchId: 3 });
     expect(order().state).toBe('pending');
 
-    await sync.runJob(pushJob({ cursor: { ambiguous: true }, attempts: 1 }));
+    await sync.runJob(pushJob({ cursor: { ambiguous: true, branchId: 3 }, attempts: 1 }));
     expect(gateway.calls.filter((c) => c.method === 'createOrder')).toHaveLength(1);
     expect(gateway.orders).toHaveLength(2);
     expect(order()).toMatchObject({ state: 'pushed', externalId: String(gateway.orders[1]!.id) });
@@ -377,10 +387,10 @@ describe('push_order job', () => {
 
     expect(store.retried).toEqual([]);
     expect(store.completed).toEqual([j.id]);
-    expect(logOf('order_push_failed')[0]?.params).toEqual({
-      code: 'DH0012',
-      reason: 'duplicate',
-    });
+    expect(logOf('order_push_failed')).toEqual([]);
+    expect(logOf('order_push_duplicate').map((l) => [l.level, l.params])).toEqual([
+      ['warning', { code: 'DH0012' }],
+    ]);
   });
 
   it('an order cancelled meanwhile is recorded and flagged for staff', async () => {
@@ -539,5 +549,83 @@ describe('reconcile', () => {
     await sync.runJob(j);
     expect(store.completed).toContain(j.id);
     expect(conn().status).toBe('connected');
+  });
+});
+
+describe('push retries across jobs', () => {
+  const createCalls = () => gateway.calls.filter((c) => c.method === 'createOrder');
+
+  it('"Thử lại" after an ambiguous last attempt looks before creating: one POST in total', async () => {
+    orders.add(ORDER);
+    await pusher.scan();
+    const first = store.jobs.at(-1)!;
+    const firstAttemptAt = first.payload['firstAttemptAt'];
+    // The owner moves the order branch after the attempt: the lookup still searches branch 3.
+    gateway.lostCreates = [new KiotVietUnavailableError()];
+    await sync.runJob(store.claimed(first.id, { attempts: 3 }));
+    expect(order()).toMatchObject({ state: 'failed', error: { code: 'kiotviet_unavailable' } });
+    conn().settings.orderBranchId = 1;
+
+    await orders.requeueOrderPush(ws, ORDER);
+    await pusher.scan();
+    const again = store.jobs.at(-1)!;
+    expect(again.id).not.toBe(first.id);
+    expect(again.payload).toEqual({ orderId: ORDER, firstAttemptAt, ambiguous: true, branchId: 3 });
+
+    await sync.runJob(store.claimed(again.id));
+    expect(createCalls()).toHaveLength(1);
+    expect(gateway.orders).toHaveLength(1);
+    expect(gateway.calls.find((c) => c.method === 'recentOrders')).toBeDefined();
+    expect(order()).toMatchObject({ state: 'pushed', externalId: String(gateway.orders[0]!.id) });
+  });
+
+  it('re-queues a stale pending order once, never while its job is open', async () => {
+    orders.add(ORDER, { state: 'pending' });
+    orders.stale = [ORDER];
+    await pusher.scan();
+    await pusher.scan();
+    const jobs = store.jobs.filter((j) => j.kind === 'push_order');
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0]!.payload).toMatchObject({ orderId: ORDER });
+    expect(orders.stalePendingOrders).toHaveBeenCalledWith(ws, 'kiotviet', expect.any(Date), 20);
+
+    await sync.runJob(store.claimed(jobs[0]!.id));
+    expect(order().state).toBe('pushed');
+  });
+});
+
+describe('reconcile order statuses', () => {
+  it('repairs a missed order.update from the order branch since the last reconcile', async () => {
+    const last = new Date('2026-11-01T02:00:00.000Z');
+    conn().lastReconcileAt = last;
+    orders.add(ORDER, { state: 'pushed', externalId: '7001' });
+    gateway.orders.push(
+      {
+        id: 7001,
+        code: 'DH7001',
+        status: KV_ORDER_STATUS.cancelled,
+        description: 'Rapiz DH0012',
+        branchId: 3,
+        body: {} as never,
+      },
+      { id: 7002, code: 'DH7002', status: 1, description: null, branchId: 3, body: {} as never },
+    );
+    const recent = vi.spyOn(gateway, 'recentOrders');
+    await sync.runJob(pushJob({ kind: 'reconcile', payload: {} }));
+
+    expect(order()).toMatchObject({ cancelled: true, externalStatus: 'cancelled' });
+    expect(recent).toHaveBeenCalledWith(expect.anything(), {
+      branchId: 3,
+      since: new Date(last.getTime() - 120_000),
+      currentItem: 0,
+      pageSize: 100,
+    });
+  });
+
+  it('skips the repair while push is off', async () => {
+    conn().settings.pushOrders = false;
+    const recent = vi.spyOn(gateway, 'recentOrders');
+    await sync.runJob(pushJob({ kind: 'reconcile', payload: {} }));
+    expect(recent).not.toHaveBeenCalled();
   });
 });

@@ -461,7 +461,8 @@ export interface CommerceTx {
   orderPush: {
     /**
      * Moves up to `limit` eligible orders (bot orders approved before `settledBefore`) to
-     * `pending` with the source, skipping rows another claim holds; returns their ids.
+     * `pending` with the source (stamping `updated_at`), skipping rows another claim holds; returns
+     * their ids.
      */
     claim(
       source: ExternalSource,
@@ -481,6 +482,10 @@ export interface CommerceTx {
      */
     set(orderId: string, patch: Partial<OrderExternalRecord>): Promise<void>;
     countPushed(source: ExternalSource): Promise<number>;
+    /** Every `pending` claim of the source back to no push state; returns how many. */
+    releasePending(source: ExternalSource): Promise<number>;
+    /** Pending orders of the source last updated before `olderThan` (the claim sets `updated_at`). */
+    stalePending(source: ExternalSource, olderThan: Date, limit: number): Promise<string[]>;
   };
   /** Bot order drafts (one per conversation) and the SKU lookup the bot's orders need. */
   botOrders: {

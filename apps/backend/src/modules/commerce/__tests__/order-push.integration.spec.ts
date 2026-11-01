@@ -444,4 +444,27 @@ describe('order push facade on Postgres', () => {
     expect((await order(other)).external).toBeNull();
     expect((await order(other)).stockState).toBe('reserved');
   });
+
+  it('finds stale pending claims and releases every pending claim of a source', async () => {
+    const id = await staffOrder(linked.variants[0]!.id, 1);
+    expect(await push().claimOrdersForPush(ws, 'kiotviet', since, 50)).toContain(id);
+    // The claim stamps updated_at: not stale yet, stale once the threshold passes it.
+    expect(
+      await push().stalePendingOrders(ws, 'kiotviet', new Date(Date.now() - 60_000), 50),
+    ).not.toContain(id);
+    expect(
+      await push().stalePendingOrders(ws, 'kiotviet', new Date(Date.now() + 60_000), 50),
+    ).toContain(id);
+    expect(
+      await push().stalePendingOrders(ws, 'sapo' as 'kiotviet', new Date(Date.now() + 60_000), 50),
+    ).toEqual([]);
+
+    expect(await push().releasePendingPushes(ws, 'kiotviet')).toBeGreaterThanOrEqual(1);
+    expect((await order(id)).external).toBeNull();
+    expect(
+      await push().stalePendingOrders(ws, 'kiotviet', new Date(Date.now() + 60_000), 50),
+    ).toEqual([]);
+    // Released, it is claimed again by a later connection.
+    expect(await push().claimOrdersForPush(ws, 'kiotviet', since, 50)).toContain(id);
+  });
 });

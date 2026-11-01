@@ -83,6 +83,21 @@ export interface OrderPushFacade {
     status: { code: string; cancelled: boolean },
   ): Promise<'updated' | 'cancelled' | 'unknown'>;
   pushedOrderCount(ws: WorkspaceId, source: ExternalSource): Promise<number>;
+  /**
+   * Disconnect: every `pending` claim of the source goes back to no push state (so a later
+   * connection claims it again); returns how many.
+   */
+  releasePendingPushes(ws: WorkspaceId, source: ExternalSource): Promise<number>;
+  /**
+   * Orders still `pending` whose claim (or last edit) is older than `olderThan`, oldest first: the
+   * caller re-queues those its own queue lost (a crash between claim and enqueue).
+   */
+  stalePendingOrders(
+    ws: WorkspaceId,
+    source: ExternalSource,
+    olderThan: Date,
+    limit: number,
+  ): Promise<string[]>;
 }
 
 export const ORDER_PUSH_FACADE = Symbol('ORDER_PUSH_FACADE');

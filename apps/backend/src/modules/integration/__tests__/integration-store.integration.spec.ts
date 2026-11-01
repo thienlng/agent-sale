@@ -455,9 +455,32 @@ describe('integration store on Postgres', () => {
     );
     const push = rows.filter((r) => r.kind === 'push_order');
     expect(push).toHaveLength(2);
-    expect(await claimOne(push[0]!.id)).toMatchObject({
+    const claimed = await claimOne(push[0]!.id);
+    expect(claimed).toMatchObject({
       kind: 'push_order',
       payload: { orderId: push[0]!.payload['orderId'] },
     });
+
+    // The newest job of an order, open or not, with its cursor.
+    const orderId = String(push[0]!.payload['orderId']);
+    expect(await store.latestPushJob(ws, orderId)).toEqual({
+      open: true,
+      payload: { orderId },
+      cursor: null,
+    });
+    await store.saveCursor(
+      claimed!.id,
+      claimed!.claimToken,
+      { ambiguous: true, branchId: 1 },
+      60_000,
+    );
+    await store.failJob(claimed!.id, claimed!.claimToken, 'kiotviet_unavailable');
+    expect(await store.latestPushJob(ws, orderId)).toEqual({
+      open: false,
+      payload: { orderId },
+      cursor: { ambiguous: true, branchId: 1 },
+    });
+    expect(await store.latestPushJob(ws, 'none')).toBeNull();
+    expect(await store.latestPushJob(await workspace(), orderId)).toBeNull();
   });
 });

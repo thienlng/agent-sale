@@ -84,7 +84,10 @@ KiotViet ──webhook──▶ apps/webhook  POST /webhooks/kiotviet/:token ─
   stock (`stock_state = 'external'`, the Rapiz hold is released).
 - **Order status**: the `order.update` webhook (registered while push is on; each settings save and each
   reconcile add or remove it) re-reads the order from KiotViet and stores its status; a KiotViet
-  cancellation cancels the Rapiz order.
+  cancellation cancels the Rapiz order. Each reconcile also re-reads the order branch's orders changed since
+  the previous one, so a lost delivery is repaired within 10 minutes. **Thử lại** after an attempt whose
+  answer was lost looks for the KiotViet order first, too. A pending order whose job was lost is queued again
+  after 2 minutes; disconnecting returns orders still waiting to "not pushed".
 
 ## What is locked on a linked product
 
@@ -129,7 +132,8 @@ The activity list on the connection page shows these codes (i18n `integration.js
 | `webhook_bad_signature` | A delivery failed the HMAC check and was dropped. Logged once per connection per worker process; the worker log keeps the count. | Check the worker log count; if it keeps rising, check the base URL and reconnect. |
 | `webhook_unknown` | A webhook type Rapiz does not handle. | Nothing. |
 | `order_pushed` | An order (`code`) is now in KiotViet. | — |
-| `order_push_failed` | An order (`code`) was not pushed (`reason`: `unlinked_product`, `empty`, `kiotviet_rejected`, `kiotviet_unavailable` after the retries, `auth_failed`, `sync_failed`, `link_conflict`, `not_connected`: the connection was gone when the job ran), or `duplicate`: it was already pushed, so KiotViet now holds a second order for it. | Fix the cause (link the product, check the order) and click **Thử lại** on the order; for `duplicate`, cancel the extra order in KiotViet. |
+| `order_push_failed` | An order (`code`) was not pushed (`reason`: `unlinked_product`, `empty`, `kiotviet_rejected`, `kiotviet_unavailable` after the retries, `auth_failed`, `sync_failed`, `link_conflict`, `not_connected`: the connection was gone when the job ran). | Fix the cause (link the product, check the order) and click **Thử lại** on the order. |
+| `order_push_duplicate` | The order (`code`) was already pushed, so KiotViet now holds an extra order for it. | Cancel the extra order in KiotViet; no **Thử lại**. |
 | `order_pushed_cancelled` | The order was cancelled (or deleted) in Rapiz while it was being pushed; KiotViet has it. | Cancel the order in KiotViet. |
 
 Wizard errors: wrong Client ID / secret (`kiotviet_auth`), unknown store name (`kiotviet_retailer`), missing

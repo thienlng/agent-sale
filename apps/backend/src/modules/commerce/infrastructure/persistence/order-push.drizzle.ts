@@ -11,7 +11,7 @@ export function orderPushTx(tx: TenantTx): Pick<CommerceTx, 'orderPush'> {
       async claim(source, since, settledBefore, limit) {
         // SKIP LOCKED: two scans at once take disjoint rows, so no order is claimed twice.
         const rows = await tx.execute<{ id: string }>(sql`
-          update ${o} set external_state = 'pending', external_source = ${source}
+          update ${o} set external_state = 'pending', external_source = ${source}, updated_at = now()
           where ${o.id} in (
             select ${o.id} from ${o}
             where ${o.externalState} is null and ${o.deletedAt} is null
@@ -87,6 +87,29 @@ export function orderPushTx(tx: TenantTx): Pick<CommerceTx, 'orderPush'> {
             throw new OrderExternalLinkConflictError();
           throw e;
         }
+      },
+      async releasePending(source) {
+        const rows = await tx
+          .update(o)
+          .set({ externalState: null, externalSource: null })
+          .where(and(eq(o.externalSource, source), eq(o.externalState, 'pending')))
+          .returning({ id: o.id });
+        return rows.length;
+      },
+      async stalePending(source, olderThan, limit) {
+        const rows = await tx
+          .select({ id: o.id })
+          .from(o)
+          .where(
+            and(
+              eq(o.externalSource, source),
+              eq(o.externalState, 'pending'),
+              sql`${o.updatedAt} < ${olderThan.toISOString()}`,
+            ),
+          )
+          .orderBy(asc(o.updatedAt), asc(o.id))
+          .limit(limit);
+        return rows.map((r) => r.id);
       },
       async countPushed(source) {
         const [r] = await tx

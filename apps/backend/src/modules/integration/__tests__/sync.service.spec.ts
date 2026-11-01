@@ -227,7 +227,9 @@ let pusher: OrderPusher;
 /** No order to push: these specs cover the catalog; `order-push.spec.ts` covers pushes. */
 const noOrders = {
   claimOrdersForPush: async () => [],
+  stalePendingOrders: async () => [],
   applyExternalOrderStatus: async () => 'unknown',
+  releasePendingPushes: async () => 0,
 } as unknown as OrderPushFacade;
 
 beforeEach(() => {
@@ -258,6 +260,7 @@ const connections = () =>
     catalog as unknown as CatalogSyncFacade,
     box,
     new WebhookSet(gateway, box, { webhookBaseUrl: undefined }),
+    noOrders,
   );
 
 describe('SyncService full import', () => {

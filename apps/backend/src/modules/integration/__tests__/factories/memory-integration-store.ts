@@ -18,11 +18,13 @@ const OWNER_FIELDS = ['settings', 'retailer', 'clientId', 'clientSecretSealed'] 
 const IGNORED = ['id', 'workspaceId', 'provider', 'version', 'createdAt', 'updatedAt'] as const;
 
 export interface MemoryJob {
+  id: string;
   workspaceId: WorkspaceId;
   connectionId: string;
   kind: SyncJobKind;
   payload: Record<string, unknown>;
   open: boolean;
+  cursor?: Record<string, unknown> | null;
 }
 
 /**
@@ -82,6 +84,7 @@ export class MemoryIntegrationStore implements IntegrationStore {
     );
     if (exclusive && busy) return Promise.resolve(false);
     this.jobs.push({
+      id: `mem-job-${this.jobs.length + 1}`,
       workspaceId: ws,
       connectionId: job.connectionId,
       kind: job.kind,
@@ -119,6 +122,23 @@ export class MemoryIntegrationStore implements IntegrationStore {
         .map(({ id, level, code, params, at }) => ({ id, level, code, params, at })),
     );
   }
+
+  latestPushJob: IntegrationStore['latestPushJob'] = (ws, orderId) => {
+    const found = this.jobs
+      .filter(
+        (j) => j.workspaceId === ws && j.kind === 'push_order' && j.payload['orderId'] === orderId,
+      )
+      .at(-1);
+    return Promise.resolve(
+      found
+        ? {
+            open: found.open,
+            payload: structuredClone(found.payload),
+            cursor: found.cursor ?? null,
+          }
+        : null,
+    );
+  };
 
   cachedImage: IntegrationStore['cachedImage'] = () => Promise.resolve(null);
   cacheImage: IntegrationStore['cacheImage'] = () => Promise.resolve();

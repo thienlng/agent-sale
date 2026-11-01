@@ -4,6 +4,7 @@ import {
   UpdateKiotVietRequest,
 } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
+import { z } from 'zod';
 import {
   Body,
   Controller,
@@ -101,7 +102,7 @@ export class IntegrationController {
   @HttpCode(202)
   retryOrderPush(
     @CurrentWorkspace() ws: WorkspaceId,
-    @Param('orderId') orderId: string,
+    @Param('orderId', new ZodValidationPipe(z.uuid())) orderId: string,
   ): Promise<void> {
     return this.pusher.retry(ws, orderId);
   }

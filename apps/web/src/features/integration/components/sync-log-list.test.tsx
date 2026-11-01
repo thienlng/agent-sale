@@ -48,6 +48,11 @@ describe('SyncLogList', () => {
             'warning',
           ),
           entry(
+            'order_push_duplicate',
+            { code: 'DH0015' } satisfies SyncLogParams['order_push_duplicate'],
+            'warning',
+          ),
+          entry(
             'order_pushed_cancelled',
             { code: 'DH0014' } satisfies SyncLogParams['order_pushed_cancelled'],
             'warning',
@@ -62,7 +67,8 @@ describe('SyncLogList', () => {
     expect(screen.getByText('Đã đẩy đơn DH0012 sang KiotViet')).toBeInTheDocument();
     expect(screen.getByText(/Chưa đẩy được đơn DH0013 sang KiotViet/)).toBeInTheDocument();
     expect(screen.getByText(/Đơn DH0014 đã huỷ trên Rapiz/)).toBeInTheDocument();
-    expect(screen.getAllByText('Cảnh báo:')).toHaveLength(4);
+    expect(screen.getByText(/huỷ đơn thừa trên KiotViet/)).toBeInTheDocument();
+    expect(screen.getAllByText('Cảnh báo:')).toHaveLength(5);
   });
 
   it('every log copy uses only params its code carries, and every code has copy', () => {

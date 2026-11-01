@@ -36,6 +36,10 @@ export const PUSH_BATCH = 20;
 const LOOKUP_SLACK_MS = 60_000;
 /** Pages of recent orders read when looking for one already stored. */
 const LOOKUP_MAX_PAGES = 10;
+/** A pending order with no open job this long after its claim lost its job (crash between claim and enqueue). */
+export const STALE_PENDING_MS = 2 * 60_000;
+/** Pages of KiotViet orders a reconcile reads to repair missed `order.update` deliveries. */
+const STATUS_MAX_PAGES = 20;
 
 /**
  * A push attempt failed after the order was read: carries the order code so the failure path can
@@ -67,29 +71,77 @@ export class OrderPusher {
     @Inject(ORDER_PUSH_FACADE) private readonly orders: OrderPushFacade,
   ) {}
 
-  /** Claims eligible orders of every pushing connection and queues one job per order. */
+  /**
+   * Claims eligible orders of every pushing connection and queues one job per order; also re-queues
+   * pending orders whose job was lost (claimed more than `STALE_PENDING_MS` ago, no open job).
+   */
   async scan(): Promise<void> {
     for (const c of await this.store.connectionsPushingOrders()) {
       try {
-        const ids = await this.orders.claimOrdersForPush(
-          c.workspaceId,
+        const ws = c.workspaceId;
+        const claimed = await this.orders.claimOrdersForPush(ws, SOURCE, c.createdAt, PUSH_BATCH);
+        const stale = await this.orders.stalePendingOrders(
+          ws,
           SOURCE,
-          c.createdAt,
+          new Date(Date.now() - STALE_PENDING_MS),
           PUSH_BATCH,
         );
-        const firstAttemptAt = new Date().toISOString();
-        for (const orderId of ids) {
-          await this.store.enqueue(c.workspaceId, {
-            connectionId: c.connectionId,
-            kind: 'push_order',
-            payload: { orderId, firstAttemptAt },
-          });
+        for (const orderId of new Set([...claimed, ...stale])) {
+          await this.queue(ws, c.connectionId, orderId);
         }
       } catch (error) {
         if (error instanceof IntegrationUnavailableError) throw error;
         this.logger.warn(`Connection ${c.connectionId}: push scan failed (${errorName(error)})`);
       }
     }
+  }
+
+  /**
+   * One `push_order` job for the order, unless one is still open (never two at once for an order).
+   * When an earlier attempt may have reached KiotViet (its job cursor or payload says `ambiguous`),
+   * the new job inherits that, with the first attempt time and branch, so it looks before creating:
+   * "Thử lại" after a lost answer never duplicates the order.
+   */
+  private async queue(ws: WorkspaceId, connectionId: string, orderId: string): Promise<void> {
+    const last = await this.store.latestPushJob(ws, orderId);
+    if (last?.open) return;
+    const payload: Record<string, unknown> = {
+      orderId,
+      firstAttemptAt: new Date().toISOString(),
+    };
+    if (last && (last.cursor?.['ambiguous'] === true || last.payload['ambiguous'] === true)) {
+      payload['ambiguous'] = true;
+      payload['firstAttemptAt'] = last.payload['firstAttemptAt'] ?? payload['firstAttemptAt'];
+      const branchId = last.cursor?.['branchId'] ?? last.payload['branchId'];
+      if (typeof branchId === 'number') payload['branchId'] = branchId;
+    }
+    await this.store.enqueue(ws, { connectionId, kind: 'push_order', payload });
+  }
+
+  /**
+   * Reconcile: re-reads the order branch's KiotViet orders modified since `since` and applies their
+   * status, so a lost `order.update` delivery is repaired (orders Rapiz did not push are ignored).
+   */
+  async reconcileStatuses(c: ConnectionRecord, creds: KvCredentials, since: Date): Promise<void> {
+    for (let page = 0; page < STATUS_MAX_PAGES; page += 1) {
+      const currentItem = page * PAGE_SIZE;
+      const res = await this.gateway.recentOrders(creds, {
+        branchId: c.settings.orderBranchId,
+        since,
+        currentItem,
+        pageSize: PAGE_SIZE,
+      });
+      for (const o of res.data) {
+        await this.orders.applyExternalOrderStatus(
+          c.workspaceId,
+          SOURCE,
+          String(o.id),
+          orderStatusOf(o.status),
+        );
+      }
+      if (res.data.length === 0 || currentItem + PAGE_SIZE >= res.total) return;
+    }
+    this.logger.warn(`Connection ${c.id}: order statuses stopped after ${STATUS_MAX_PAGES} pages`);
   }
 
   /** "Thử lại": a failed push goes back to the queue (409 when it is not failed). */
@@ -177,18 +229,21 @@ export class OrderPusher {
     order: PushableOrder,
   ): Promise<KvOrderRef> {
     const branchId = connection.settings.orderBranchId;
-    if (job.cursor?.['ambiguous'] === true) {
-      const stored = await this.findStored(creds, branchId, order.code, lookupSince(job));
+    const cursor = job.cursor ?? {};
+    if (cursor['ambiguous'] === true || job.payload['ambiguous'] === true) {
+      // Where the earlier attempt sent it (the owner may have changed the order branch since).
+      const tried = cursor['branchId'] ?? job.payload['branchId'];
+      const lookIn = typeof tried === 'number' ? tried : branchId;
+      const stored = await this.findStored(creds, lookIn, order.code, lookupSince(job));
       if (stored) return stored;
-    } else {
-      const saved = await this.store.saveCursor(
-        job.id,
-        job.claimToken,
-        { ambiguous: true },
-        JOB_LEASE_MS,
-      );
-      if (!saved) throw new LeaseLostError();
     }
+    const saved = await this.store.saveCursor(
+      job.id,
+      job.claimToken,
+      { ambiguous: true, branchId },
+      JOB_LEASE_MS,
+    );
+    if (!saved) throw new LeaseLostError();
     return this.gateway.createOrder(creds, kiotVietOrderBody(order, branchId));
   }
 
@@ -231,7 +286,11 @@ export class OrderPusher {
     } catch (error) {
       if (error instanceof OrderAlreadyPushedError) {
         // KiotViet now holds a second order for it: staff cancel that one there.
-        await this.logFailed(ws, connection.id, order.code, 'duplicate');
+        await this.store.log(ws, connection.id, {
+          level: 'warning',
+          code: 'order_push_duplicate',
+          params: { code: order.code },
+        });
         await this.complete(job);
         return;
       }

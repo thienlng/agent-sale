@@ -199,6 +199,30 @@ export class DrizzleIntegrationStore implements IntegrationStore {
     );
   }
 
+  latestPushJob(ws: WorkspaceId, orderId: string) {
+    return withTenant(this.db, ws, async (tx) => {
+      const [r] = await tx
+        .select({ payload: j.payload, cursor: j.cursor, doneAt: j.doneAt, failedAt: j.failedAt })
+        .from(j)
+        .where(
+          and(
+            eq(j.workspaceId, ws),
+            eq(j.kind, 'push_order'),
+            sql`${j.payload} ->> 'orderId' = ${orderId}`,
+          ),
+        )
+        .orderBy(desc(j.createdAt), desc(j.id))
+        .limit(1);
+      return r
+        ? {
+            open: r.doneAt === null && r.failedAt === null,
+            payload: r.payload ?? {},
+            cursor: r.cursor ?? null,
+          }
+        : null;
+    });
+  }
+
   cachedImage(ws: WorkspaceId, sourceUrl: string) {
     return withTenant(this.db, ws, async (tx) => {
       const [r] = await tx
