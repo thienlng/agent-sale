@@ -130,3 +130,46 @@ export function storedManualTotal(b: BookingRecord): number | null {
   const base = b.totalSell - b.adjustment;
   return b.quote?.totalSell === base ? null : base;
 }
+
+/** What an edit may change about a stay: its dates, units and party. */
+export interface StayShape {
+  checkIn: string;
+  checkOut: string;
+  unitIds: string[];
+  adults: number;
+  childAges: number[];
+}
+
+const sameList = <T>(a: readonly T[], b: readonly T[]) =>
+  a.length === b.length && a.every((x, i) => x === b[i]);
+
+/**
+ * The manual price an edited stay is saved with. `requested` is the request's `manualTotalSell`
+ * (undefined = not sent, null = use the quote). A stay saved with a manual price that changes its
+ * dates, units or party must say which price applies: the old manual price was agreed for the old
+ * stay. A checked-in stay sends no price and keeps its manual total when the check-out moves.
+ */
+export function manualTotalForEdit(
+  b: BookingRecord,
+  next: StayShape,
+  requested: number | null | undefined,
+  inHouse: boolean,
+): number | null {
+  if (requested !== undefined) return requested;
+  const stored = storedManualTotal(b);
+  if (stored === null || inHouse) return stored;
+  const changed =
+    next.checkIn !== b.checkIn ||
+    next.checkOut !== b.checkOut ||
+    next.adults !== b.adults ||
+    !sameList([...next.unitIds].sort(), [...b.unitIds].sort()) ||
+    !sameList(next.childAges, b.childAges);
+  if (changed) {
+    throw new LodgingError(
+      'VALIDATION_FAILED',
+      'The stay has a manual price; enter a price or use the automatic price',
+      { field: 'manualTotalSell' },
+    );
+  }
+  return stored;
+}

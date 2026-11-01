@@ -220,13 +220,20 @@ describe('DrizzleLodgingStore', () => {
       minNights: 2,
       sell: 20_000_000,
     });
+    const { p: bare } = await seedProperty(ws, { code: 'RT2' });
+    const grouped = await store.run(ws, (tx) => tx.ratesByProperty([p.id, bare.id]));
+    expect([...grouped.keys()]).toEqual([p.id, bare.id]);
+    expect(grouped.get(p.id)).toEqual(got.rates);
+    expect(grouped.get(bare.id)).toEqual([]);
 
     const other = await store.run(otherWs, async (tx) => ({
       all: await tx.properties(),
       one: await tx.property(p.id),
+      rates: await tx.ratesByProperty([p.id]),
     }));
     expect(other.all).toHaveLength(0);
     expect(other.one).toBeNull();
+    expect(other.rates.get(p.id)).toEqual([]);
   });
 
   it('updates a property and replaces weekday rates without touching overrides', async () => {

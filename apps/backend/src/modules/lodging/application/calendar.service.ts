@@ -131,9 +131,10 @@ export class CalendarService {
       const pids = props.map((p) => p.id);
       const units = await tx.units(pids);
       const bookings = await tx.bookingsInRange(pids, query.from, query.to);
+      const ratesOf = await tx.ratesByProperty(pids);
       const properties: CalendarProperty[] = [];
       for (const p of props) {
-        const rates = await tx.rates([p.id]);
+        const rates = ratesOf.get(p.id) ?? [];
         const rows = currentUnits(p, units).filter((u) => u.active);
         const rooms = rows.filter((u) => u.kind === 'room');
         const own = bookings.filter((b) => b.propertyId === p.id);
@@ -178,7 +179,9 @@ export class CalendarService {
         activeOnly: true,
         ...(req.propertyIds ? { ids: req.propertyIds } : {}),
       });
-      const units = await tx.units(props.map((p) => p.id));
+      const pids = props.map((p) => p.id);
+      const units = await tx.units(pids);
+      const ratesOf = await tx.ratesByProperty(pids);
       const taken = new Set(
         (
           await tx.takenNights(
@@ -192,15 +195,17 @@ export class CalendarService {
       const options: AvailabilityOption[] = [];
       for (const p of props) {
         const own = units.filter((u) => u.propertyId === p.id);
-        const rates = await tx.rates([p.id]);
+        const rates = ratesOf.get(p.id) ?? [];
         const selections: { whole: boolean; unitIds: string[] }[] = [];
         const bookable = currentUnits(p, own).filter((u) => u.active);
-        if (bookable.length > 0 && bookable.every((u) => !taken.has(u.id))) {
-          selections.push({ whole: true, unitIds: [] });
-        }
+        const wholeFree = bookable.length > 0 && bookable.every((u) => !taken.has(u.id));
+        if (wholeFree) selections.push({ whole: true, unitIds: [] });
         if (p.sellMode === 'rooms') {
           const free = bookable.filter((u) => !taken.has(u.id));
-          if (free.length > 0) selections.push({ whole: false, unitIds: pickRooms(free, persons) });
+          const rooms = free.length > 0 ? pickRooms(free, persons) : [];
+          // Every room of a free property is the whole rental already offered above.
+          const sameAsWhole = wholeFree && rooms.length === bookable.length;
+          if (rooms.length > 0 && !sameAsWhole) selections.push({ whole: false, unitIds: rooms });
         }
         for (const s of selections) {
           const input = { ...s, checkIn: req.checkIn, checkOut: req.checkOut, ...req.party };

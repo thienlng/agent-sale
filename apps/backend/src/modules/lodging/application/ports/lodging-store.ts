@@ -103,6 +103,8 @@ export interface LodgingTx {
   /** Upserts by id and deletes missing units; a deleted unit holding nights → CONFLICT. */
   replaceUnits(propertyId: string, units: UnitRecord[]): Promise<void>;
   rates(propertyIds: string[]): Promise<RateRule[]>;
+  /** The rules of several properties in one query, keyed by property id (every id present). */
+  ratesByProperty(propertyIds: string[]): Promise<Map<string, RateRule[]>>;
   /** Replaces the weekday rules only; overrides stay. */
   replaceWeekdayRates(propertyId: string, rules: RateRule[]): Promise<void>;
   insertOverride(propertyId: string, r: RateRule): Promise<void>;

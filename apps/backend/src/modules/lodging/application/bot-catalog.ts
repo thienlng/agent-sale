@@ -104,12 +104,13 @@ export class LodgingBotCatalog implements LodgingCatalogFacade {
       activeOnly: true,
     });
     if (!properties.length) return [];
-    const units = await tx.units(properties.map((p) => p.id));
+    const pids = properties.map((p) => p.id);
+    const units = await tx.units(pids);
+    const ratesOf = await tx.ratesByProperty(pids);
     const today = localToday(new Date());
     const products: ProductDto[] = [];
-    // Rate rules carry no property id, so they are read per property (a business has a handful).
     for (const p of properties) {
-      const dto = toBotProduct(p, units, await tx.rates([p.id]), today);
+      const dto = toBotProduct(p, units, ratesOf.get(p.id) ?? [], today);
       if (dto) products.push(dto);
     }
     return products;

@@ -14,6 +14,7 @@ import type { WorkspaceId } from '@agent-sales/shared';
 
 import type { LodgingStore, LodgingTx } from '../../application/ports/lodging-store.js';
 import { LodgingError } from '../../domain/lodging.errors.js';
+import type { RateRule } from '../../domain/rates.js';
 import { bookingPort } from './lodging-bookings.drizzle.js';
 import {
   pgCode,
@@ -149,6 +150,18 @@ function lodgingTx(tx: TenantTx, ws: WorkspaceId): LodgingTx {
         .where(and(eq(R.workspaceId, ws), inArray(R.propertyId, propertyIds)))
         .orderBy(asc(R.kind), asc(R.dateFrom), asc(R.id));
       return rows.map(toRate);
+    },
+
+    async ratesByProperty(propertyIds) {
+      const byProperty = new Map<string, RateRule[]>(propertyIds.map((id) => [id, []]));
+      if (propertyIds.length === 0) return byProperty;
+      const rows = await tx
+        .select()
+        .from(R)
+        .where(and(eq(R.workspaceId, ws), inArray(R.propertyId, propertyIds)))
+        .orderBy(asc(R.kind), asc(R.dateFrom), asc(R.id));
+      for (const row of rows) byProperty.get(row.propertyId)?.push(toRate(row));
+      return byProperty;
     },
 
     async replaceWeekdayRates(propertyId, rules) {

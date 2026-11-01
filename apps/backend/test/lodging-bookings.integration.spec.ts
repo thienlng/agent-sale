@@ -442,6 +442,73 @@ describe('lodging v2 bookings over HTTP', () => {
     expect(todays.data.map((x) => x.id)).toEqual([b.id]);
   });
 
+  it('a manually priced stay needs a price, or explicit null, when its stay changes', async () => {
+    const o = await signup();
+    const p = await villa(o.headers);
+    const b = await book(o.headers, stay(p.id, 20, 22, { manualTotalSell: 15_000_000 }));
+    expect(b.totalSell).toBe(15_000_000);
+    const path = `/lodging/bookings/${b.id}`;
+    const changes = [
+      { checkOut: night(23) },
+      { checkIn: night(19) },
+      { party: { adults: 3, childAges: [] } },
+      { whole: true, unitIds: [p.units[0]?.id] },
+    ];
+    // An unchanged unit selection is not a change; every other edit above needs a price.
+    for (const change of changes.slice(0, 3)) {
+      const r = await call(o.headers, 'PATCH', path, { version: 1, ...change });
+      expect(r.statusCode, JSON.stringify(change)).toBe(400);
+      expect(r.json()).toMatchObject({ error: { code: 'VALIDATION_FAILED' } });
+    }
+    const sameUnits = await ok(
+      await call(o.headers, 'PATCH', path, { version: 1, ...changes[3], note: 'late arrival' }),
+      BookingDetail,
+    );
+    expect(sameUnits).toMatchObject({ version: 2, totalSell: 15_000_000, note: 'late arrival' });
+    const repriced = await ok(
+      await call(o.headers, 'PATCH', path, {
+        version: 2,
+        checkOut: night(23),
+        manualTotalSell: 20_000_000,
+      }),
+      BookingDetail,
+    );
+    expect(repriced).toMatchObject({ checkOut: night(23), totalSell: 20_000_000 });
+    const automatic = await ok(
+      await call(o.headers, 'PATCH', path, {
+        version: 3,
+        checkIn: night(21),
+        manualTotalSell: null,
+      }),
+      BookingDetail,
+    );
+    expect(automatic).toMatchObject({ checkIn: night(21), totalSell: 18_000_000 });
+    const followsQuote = await ok(
+      await call(o.headers, 'PATCH', path, { version: 4, checkOut: night(24) }),
+      BookingDetail,
+    );
+    expect(followsQuote.totalSell).toBe(27_000_000);
+  });
+
+  it('a checked-in stay with a manual price keeps it when its check-out moves', async () => {
+    const o = await signup();
+    const p = await villa(o.headers);
+    const b = await book(
+      o.headers,
+      stay(p.id, 0, 2, { status: 'confirmed', manualTotalSell: 15_000_000 }),
+    );
+    const path = `/lodging/bookings/${b.id}`;
+    await ok(
+      await call(o.headers, 'POST', `${path}/status`, { version: 1, action: 'check_in' }),
+      BookingDetail,
+    );
+    const longer = await ok(
+      await call(o.headers, 'PATCH', path, { version: 2, checkOut: night(3) }),
+      BookingDetail,
+    );
+    expect(longer).toMatchObject({ checkOut: night(3), totalSell: 15_000_000 });
+  });
+
   it('moving dates re-takes the nights atomically; a conflict keeps the old nights', async () => {
     const o = await signup();
     const p = await villa(o.headers);

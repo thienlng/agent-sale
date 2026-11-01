@@ -255,6 +255,8 @@ function storeWith(opts: {
   units: UnitRecord[];
   rates: Map<string, RateRule[]>;
   botIds?: string[] | null;
+  /** Records the property ids of every rate read. */
+  rateReads?: string[][];
 }): LodgingStore {
   const tx = {
     botPropertyIds: async () => opts.botIds ?? null,
@@ -263,7 +265,10 @@ function storeWith(opts: {
         (p) => (!f.ids || f.ids.includes(p.id)) && (!f.activeOnly || p.status === 'active'),
       ),
     units: async (ids: string[]) => opts.units.filter((u) => ids.includes(u.propertyId)),
-    rates: async (ids: string[]) => ids.flatMap((id) => opts.rates.get(id) ?? []),
+    ratesByProperty: async (ids: string[]) => {
+      opts.rateReads?.push(ids);
+      return new Map(ids.map((id) => [id, opts.rates.get(id) ?? []]));
+    },
   };
   return { run: (_ws, fn) => fn(tx as never) } as LodgingStore;
 }
@@ -292,6 +297,15 @@ describe('LodgingBotCatalog', () => {
     const rows = await catalog().searchBotCatalog(ws, scope, { limit: 300 });
     expect(rows.map((r) => r.code)).toEqual(['A17', 'C03']);
     expect(await catalog().countBotCatalog(ws, scope)).toBe(2);
+  });
+
+  it('reads the rates of every offered property in one query', async () => {
+    const rateReads: string[][] = [];
+    const c = new LodgingBotCatalog(
+      storeWith({ properties: [villa, paused, other], units, rates, rateReads }),
+    );
+    expect(await c.countBotCatalog(ws, scope)).toBe(2);
+    expect(rateReads).toEqual([[villa.id, other.id]]);
   });
 
   it('respects the bot selection (and still hides paused properties)', async () => {

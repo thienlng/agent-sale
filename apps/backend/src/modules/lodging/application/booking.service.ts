@@ -19,8 +19,8 @@ import { quoteStay, resolveUnits } from '../domain/quote.js';
 import {
   expireHolds,
   loadContext,
+  manualTotalForEdit,
   publishStatus,
-  storedManualTotal,
   toBookingDtos,
   totals,
   type Actor,
@@ -267,8 +267,12 @@ export class BookingService {
           adults: party.adults,
           childAges: party.childAges,
         });
-        const manual =
-          req.manualTotalSell !== undefined ? req.manualTotalSell : storedManualTotal(b);
+        const manual = manualTotalForEdit(
+          b,
+          { checkIn, checkOut, unitIds, ...party },
+          req.manualTotalSell,
+          inHouse,
+        );
         const adjustment = req.adjustment ?? b.adjustment;
         next = {
           ...next,
