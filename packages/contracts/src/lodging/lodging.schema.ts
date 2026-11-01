@@ -60,16 +60,17 @@ export const Policies = z.object({
   other: z.string().max(2000).default(''),
 });
 export type Policies = z.infer<typeof Policies>;
+/** Same rule as the commerce `Image`: https links only (no http:, javascript:, data:). */
 export const GalleryImage = z.object({
-  url: z.url().max(2000),
+  url: z
+    .url()
+    .max(2000)
+    .refine((v) => v.startsWith('https://'), 'must be an https link'),
   caption: z.string().trim().max(300).default(''),
 });
 
-/**
- * Property fields without the cross-field refinement. Zod 4 forbids `.partial()` /
- * `.extend()` on refined objects, so derived schemas start from this one.
- */
-export const PropertyFields = z.object({
+/** Property field validators without defaults; shared by create (with defaults) and patch. */
+const propertyShape = {
   code: z
     .string()
     .trim()
@@ -77,23 +78,49 @@ export const PropertyFields = z.object({
     .max(20)
     .regex(/^[A-Za-z0-9-]+$/),
   name: z.string().trim().min(1).max(200),
-  area: z.string().trim().max(200).default(''),
-  address: z.string().trim().max(500).default(''),
-  description: z.string().trim().max(5000).default(''),
+  area: z.string().trim().max(200),
+  address: z.string().trim().max(500),
+  description: z.string().trim().max(5000),
   sellMode: SellMode,
-  status: PropertyStatus.default('active'),
+  status: PropertyStatus,
   standardAdults: z.number().int().min(1).max(1000),
   standardChildren: z.number().int().min(0).max(1000),
-  maxGuests: z.number().int().min(1).max(2000).nullable().default(null),
+  maxGuests: z.number().int().min(1).max(2000).nullable(),
   /** Children younger than this are free within `standardChildren`. */
-  childFreeBelow: z.number().int().min(0).max(18).default(6),
+  childFreeBelow: z.number().int().min(0).max(18),
   /** From this age a child counts as an adult. */
-  childAdultFrom: z.number().int().min(1).max(18).default(12),
-  amenities: z.array(z.string().trim().min(1).max(200)).max(80).default([]),
-  layout: z.array(LayoutRoom).max(100).default([]),
-  policies: Policies.prefault({}),
-  gallery: z.array(GalleryImage).max(30).default([]),
+  childAdultFrom: z.number().int().min(1).max(18),
+  amenities: z.array(z.string().trim().min(1).max(200)).max(80),
+  layout: z.array(LayoutRoom).max(100),
+  policies: Policies,
+  gallery: z.array(GalleryImage).max(30),
+};
+
+/**
+ * Property fields with create defaults, without the cross-field refinement. Zod 4 forbids
+ * `.partial()` / `.extend()` on refined objects, so derived schemas start from this one.
+ */
+export const PropertyFields = z.object({
+  ...propertyShape,
+  area: propertyShape.area.default(''),
+  address: propertyShape.address.default(''),
+  description: propertyShape.description.default(''),
+  status: propertyShape.status.default('active'),
+  maxGuests: propertyShape.maxGuests.default(null),
+  childFreeBelow: propertyShape.childFreeBelow.default(6),
+  childAdultFrom: propertyShape.childAdultFrom.default(12),
+  amenities: propertyShape.amenities.default([]),
+  layout: propertyShape.layout.default([]),
+  policies: propertyShape.policies.prefault({}),
+  gallery: propertyShape.gallery.default([]),
 });
+/**
+ * PATCH fields: every field optional and WITHOUT defaults, so omitted fields stay absent
+ * and never overwrite stored values. A given `policies` / `layout` / `gallery` replaces the
+ * stored value as a whole (inner item defaults still apply to what is sent).
+ */
+export const PropertyPatchFields = z.object(propertyShape).partial();
+export type PropertyPatchFields = z.infer<typeof PropertyPatchFields>;
 export const PropertyInput = PropertyFields.refine(
   (v) => v.childFreeBelow <= v.childAdultFrom,
   'childFreeBelow must not exceed childAdultFrom',
@@ -101,7 +128,7 @@ export const PropertyInput = PropertyFields.refine(
 export type PropertyInput = z.input<typeof PropertyInput>;
 export const UpdatePropertyRequest = z.object({
   version: z.number().int().positive(),
-  patch: PropertyFields.partial(),
+  patch: PropertyPatchFields,
 });
 export type UpdatePropertyRequest = z.infer<typeof UpdatePropertyRequest>;
 

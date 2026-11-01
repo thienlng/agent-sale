@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { AccommodationDetails } from '../commerce/lodging.schema.js';
-import { BookingStatusRequest, CreateBookingRequest, PropertyInput } from './lodging.schema.js';
+import {
+  BookingStatusRequest,
+  CreateBookingRequest,
+  GalleryImage,
+  PropertyInput,
+  UpdatePropertyRequest,
+} from './lodging.schema.js';
 
 const propertyId = '01a1882d-b598-7ac1-a3af-b5bf03bc4b06';
 const unitId = '01a1882d-b598-7ac1-a3af-b5bf03bc4b07';
@@ -32,6 +38,31 @@ describe('lodging v2 property input', () => {
 
   it('rejects codes with spaces or symbols', () => {
     expect(PropertyInput.safeParse({ ...base, code: 'A 17' }).success).toBe(false);
+  });
+});
+
+describe('lodging v2 property patch', () => {
+  it('keeps omitted fields absent instead of filling create defaults', () => {
+    expect(UpdatePropertyRequest.parse({ version: 1, patch: { name: 'X' } }).patch).toEqual({
+      name: 'X',
+    });
+  });
+
+  it('still validates the fields that are sent', () => {
+    expect(UpdatePropertyRequest.safeParse({ version: 1, patch: { code: 'A 17' } }).success).toBe(
+      false,
+    );
+    expect(UpdatePropertyRequest.parse({ version: 1, patch: { maxGuests: null } }).patch).toEqual({
+      maxGuests: null,
+    });
+  });
+});
+
+describe('lodging v2 gallery images', () => {
+  it('accepts https links only', () => {
+    expect(GalleryImage.safeParse({ url: 'https://cdn.example.com/a.jpg' }).success).toBe(true);
+    expect(GalleryImage.safeParse({ url: 'http://cdn.example.com/a.jpg' }).success).toBe(false);
+    expect(GalleryImage.safeParse({ url: 'javascript:alert(1)' }).success).toBe(false);
   });
 });
 

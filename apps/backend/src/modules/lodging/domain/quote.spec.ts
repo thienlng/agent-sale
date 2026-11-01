@@ -232,6 +232,19 @@ describe('quoteStay', () => {
     expect(q.totalSell).toBe(2_000_000);
   });
 
+  it('sums rooms outside a whole-only override when no whole weekday rates exist', () => {
+    const rules = [...roomRates, override(null, '2026-12-31', '2026-12-31', 5_000_000, 'NYE')];
+    const q = quoteStay(homestay, rooms, rules, {
+      ...whole,
+      checkIn: '2026-11-09',
+      checkOut: '2026-11-10',
+      adults: 4,
+      childAges: [],
+    });
+    expect(q.warnings).toEqual([]);
+    expect(q.totalSell).toBe(2_200_000);
+  });
+
   it('uses the first override label when summing rooms', () => {
     const q = quoteStay(
       homestay,
