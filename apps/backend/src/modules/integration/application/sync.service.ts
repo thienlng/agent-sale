@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { SECRET_BOX, type SecretBox } from '../../../common/security/secret-box.js';
 import {
+  ConnectionVersionConflictError,
   IntegrationUnavailableError,
   KiotVietAuthError,
   KiotVietPermissionError,
@@ -10,6 +11,7 @@ import {
 } from '../domain/integration.errors.js';
 import { CatalogImport } from './catalog-import.js';
 import { CatalogWriter } from './catalog-writer.js';
+import { OrderPusher, PushAttemptError } from './order-push.js';
 import {
   type ConnectionRecord,
   INTEGRATION_STORE,
@@ -25,6 +27,7 @@ import {
   type SyncContext,
 } from './sync-context.js';
 import { openCredentials } from './sync-credentials.js';
+import { sameWebhookIds, WebhookSet } from './webhook-set.js';
 
 /**
  * Retry delays of a failing job, by failures recorded so far (`job.attempts`); past the last one the
@@ -35,9 +38,10 @@ const RETRY_MINUTES = [1, 5, 30] as const;
 const RECONCILE_OVERLAP_MS = 2 * 60_000;
 
 /**
- * Runs one claimed job (spec §4.2, §5.3, §8): a full import, or a reconcile (incremental from
- * `lastReconcileAt − 2 min`, full on request or when there was none). Every job write is fenced by
- * the claim token: a lost lease stops the job at once. Logs codes and counts only (rule 07).
+ * Runs one claimed job (spec §4.2, §5.3, §7, §8): a full import, a reconcile (incremental from
+ * `lastReconcileAt − 2 min`, full on request or when there was none) or an order push
+ * (`OrderPusher`). Every job write is fenced by the claim token: a lost lease stops the job at once.
+ * Logs codes and counts only (rule 07).
  */
 @Injectable()
 export class SyncService {
@@ -48,6 +52,8 @@ export class SyncService {
     @Inject(CatalogImport) private readonly importer: CatalogImport,
     @Inject(SECRET_BOX) private readonly secrets: SecretBox,
     @Inject(CatalogWriter) private readonly writer: CatalogWriter,
+    @Inject(OrderPusher) private readonly pusher: OrderPusher,
+    @Inject(WebhookSet) private readonly webhooks: WebhookSet,
   ) {}
 
   /** Never throws, except `IntegrationUnavailableError` (no database: the runner skips). */
@@ -61,11 +67,20 @@ export class SyncService {
         connection.lastError?.code === 'connect_failed' ||
         job.kind === 'webhook'
       ) {
-        await this.store.completeJob(job.id, job.claimToken);
+        const done = await this.store.completeJob(job.id, job.claimToken);
+        // A claimed order must not stay "pending" with no job left to push it.
+        if (done && job.kind === 'push_order')
+          await this.pusher.abandon(job, 'not_connected', null);
+        return;
+      }
+      if (job.kind === 'push_order') {
+        await this.pusher.run(job, connection, () => openCredentials(this.secrets, connection));
         return;
       }
       await this.sync(job, connection);
-    } catch (error) {
+    } catch (thrown) {
+      const error = thrown instanceof PushAttemptError ? thrown.cause : thrown;
+      const orderCode = thrown instanceof PushAttemptError ? thrown.orderCode : null;
       if (error instanceof IntegrationUnavailableError) throw error;
       if (error instanceof LeaseLostError) return;
       if (error instanceof ConnectionGoneError) {
@@ -77,7 +92,7 @@ export class SyncService {
         `Job ${job.id} (${job.kind}) attempt ${job.attempts + 1}: ${errorName(error)}`,
       );
       try {
-        await this.failed(job, error);
+        await this.failed(job, error, orderCode);
       } catch (inner) {
         if (inner instanceof IntegrationUnavailableError) throw inner;
         // The lease expires and the job is claimed again.
@@ -124,12 +139,13 @@ export class SyncService {
     cursor = { ...cursor, imagesFailed: outcome.imagesFailed };
     const startedAt = new Date(cursor.startedAt);
 
-    await ctx.live();
+    // The latest counts: order pushes update theirs while this runs.
+    const live = await ctx.live();
     await this.store.updateConnection(ws, connection.id, {
       status: 'connected',
       progress: null,
       lastError: null,
-      counts: { ...connection.counts, products: outcome.products },
+      counts: { ...live.counts, products: outcome.products },
       lastReconcileAt: startedAt,
       ...(cursor.mode === 'full' ? { lastFullSyncAt: new Date() } : {}),
     });
@@ -152,6 +168,12 @@ export class SyncService {
     // The owner changed the sale branches while this ran: recompute stock with the new ones.
     const latest = await this.store.connectionForSystem(connection.id);
     if (latest && latest.status !== 'disconnected') {
+      if (job.kind === 'reconcile') {
+        await this.ensureWebhooks(latest);
+        // Statuses changed since the previous run (`connection` is this job's start view).
+        const since = connection.lastReconcileAt ?? connection.createdAt;
+        await this.repairOrderStatuses(latest, new Date(since.getTime() - RECONCILE_OVERLAP_MS));
+      }
       if (!sameIds(latest.settings.saleBranchIds, cursor.saleBranchIds)) {
         await this.store.enqueue(ws, {
           connectionId: connection.id,
@@ -159,6 +181,44 @@ export class SyncService {
           payload: { full: true },
         });
       }
+    }
+  }
+
+  /**
+   * Once per reconcile: the webhook set the settings need (a lost one comes back; `order.update`
+   * follows `pushOrders`). Best effort: the sync already succeeded, the next reconcile tries again.
+   * The ids are saved only when they changed, against the version read (an owner edit wins).
+   */
+  private async ensureWebhooks(c: ConnectionRecord): Promise<void> {
+    try {
+      const ensured = await this.webhooks.ensure(c, openCredentials(this.secrets, c), {
+        interactive: false,
+      });
+      if (!ensured || sameWebhookIds(ensured.webhookIds, c.settings.webhookIds ?? [])) return;
+      await this.store.updateConnection(
+        c.workspaceId,
+        c.id,
+        { settings: { ...c.settings, webhookIds: ensured.webhookIds } },
+        c.version,
+      );
+    } catch (error) {
+      if (error instanceof IntegrationUnavailableError) throw error;
+      if (error instanceof ConnectionVersionConflictError) return;
+      this.logger.warn(`Connection ${c.id}: webhooks not ensured (${errorName(error)})`);
+    }
+  }
+
+  /**
+   * Once per reconcile while push is on: applies the status of KiotViet orders changed since the
+   * last run, so a lost `order.update` is repaired. Best effort, like the webhook set.
+   */
+  private async repairOrderStatuses(c: ConnectionRecord, since: Date): Promise<void> {
+    if (!c.settings.pushOrders) return;
+    try {
+      await this.pusher.reconcileStatuses(c, openCredentials(this.secrets, c), since);
+    } catch (error) {
+      if (error instanceof IntegrationUnavailableError) throw error;
+      this.logger.warn(`Connection ${c.id}: order statuses not reconciled (${errorName(error)})`);
     }
   }
 
@@ -193,8 +253,12 @@ export class SyncService {
     };
   }
 
-  /** Auth errors stop at once (the owner must update the code); others retry, then dead-letter. */
-  private async failed(job: JobRecord, error: unknown): Promise<void> {
+  /**
+   * Auth errors stop at once (the owner must update the code); others retry, then dead-letter. A
+   * push job that gives up marks its order failed (`orderCode`: the order's, when it was read) and
+   * leaves the connection status alone: one order's failure is not the connection's.
+   */
+  private async failed(job: JobRecord, error: unknown, orderCode: string | null): Promise<void> {
     const ws = job.workspaceId;
     const at = new Date().toISOString();
     const c = await this.store.connectionForSystem(job.connectionId);
@@ -217,6 +281,7 @@ export class SyncService {
         lastError: { code: 'auth_failed', at },
       });
       if (!already) await this.store.log(ws, c.id, { level: 'error', code: 'auth_failed' });
+      if (job.kind === 'push_order') await this.pusher.abandon(job, 'auth_failed', orderCode);
       return;
     }
 
@@ -232,6 +297,10 @@ export class SyncService {
       return;
     }
     if (!(await this.store.failJob(job.id, job.claimToken, code))) return;
+    if (job.kind === 'push_order') {
+      await this.pusher.abandon(job, code, orderCode);
+      return;
+    }
     await this.store.updateConnection(ws, c.id, {
       status: 'error',
       progress: null,

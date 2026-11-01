@@ -288,7 +288,23 @@ export const orders = pgTable(
     updatedAt: ts('updated_at').notNull().defaultNow(),
     deletedAt: ts('deleted_at'),
   },
-  () => [...tenantPolicies('orders')],
+  // Mirrors migration 0050 (order push): `external` = pushed to a PMS, which owns the goods.
+  (t) => [
+    check(
+      'orders_stock_state_check',
+      sql`${t.stockState} in ('reserved', 'shipped', 'released', 'returned', 'external')`,
+    ),
+    uniqueIndex('orders_external')
+      .on(t.workspaceId, t.externalSource, t.externalId)
+      .where(sql`${t.externalId} is not null`),
+    index('orders_push_unclaimed_idx')
+      .on(t.workspaceId, t.createdAt)
+      .where(sql`${t.externalState} is null and ${t.deletedAt} is null`),
+    index('orders_push_pending_idx')
+      .on(t.workspaceId, t.updatedAt)
+      .where(sql`${t.externalState} = 'pending'`),
+    ...tenantPolicies('orders'),
+  ],
 );
 
 export const orderItems = pgTable(

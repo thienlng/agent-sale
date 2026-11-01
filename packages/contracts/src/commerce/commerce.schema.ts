@@ -421,6 +421,27 @@ export const OrderHistoryEntry = z.object({
   at: z.iso.datetime(),
 });
 
+/**
+ * The order's push to a PMS (ADR-017): `pending` while queued or sending, `pushed` with the PMS
+ * order code and status, `failed` with an i18n error code. Null: never pushed (default, so an
+ * older API still parses).
+ */
+export const OrderExternalDto = z
+  .object({
+    state: z.enum(['pending', 'pushed', 'failed']),
+    code: z.string().nullable(),
+    status: z.string().nullable(),
+    error: z
+      .object({
+        code: z.string(),
+        params: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
+      })
+      .nullable(),
+  })
+  .nullable()
+  .default(null);
+export type OrderExternalDto = z.infer<typeof OrderExternalDto>;
+
 export const OrderSummaryDto = z.object({
   id: z.uuid(),
   code: z.string(),
@@ -435,6 +456,7 @@ export const OrderSummaryDto = z.object({
   ...OrderItemsPreviewFields,
   createdByName: z.string().nullable(),
   ...OrderOriginFields,
+  external: OrderExternalDto,
   placedAt: z.iso.datetime(),
 });
 export type OrderSummaryDto = z.infer<typeof OrderSummaryDto>;
@@ -446,7 +468,8 @@ export const OrderDto = OrderSummaryDto.extend({
   notePrint: z.string(),
   items: z.array(OrderItemDto),
   history: z.array(OrderHistoryEntry),
-  stockState: z.enum(['reserved', 'shipped', 'released', 'returned']),
+  /** `external`: pushed to a PMS, which owns the order's stock from then on. */
+  stockState: z.enum(['reserved', 'shipped', 'released', 'returned', 'external']),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });

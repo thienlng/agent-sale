@@ -36,6 +36,7 @@ export function useKiotVietWizard() {
   const [result, setResult] = useState<KiotVietTestResponse | null>(null);
   const [selection, setSelection] = useState<BranchSelection>(defaultSelection([]));
   const [branchErrors, setBranchErrors] = useState<BranchErrors>({});
+  const [pushOrders, setPushOrders] = useState(true);
   const [attempt, setAttempt] = useState(0);
   const fail = () => setAttempt((n) => n + 1);
 
@@ -123,8 +124,8 @@ export function useKiotVietWizard() {
         settings: {
           saleBranchIds: selection.saleBranchIds,
           orderBranchId: selection.orderBranchId,
-          // Shipped as "Sắp có" in PR 1; on by default so PR 2/3 start pushing without a re-save.
-          pushOrders: true,
+          pushOrders,
+          // Still "Sắp có" (PR 3); on by default so it starts without a re-save.
           syncCustomers: true,
         },
       });
@@ -162,6 +163,8 @@ export function useKiotVietWizard() {
     changeSelection,
     branchErrors,
     attempt,
+    pushOrders,
+    setPushOrders,
     check,
     testing: test.isPending,
     reloadBranches,

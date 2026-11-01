@@ -2,6 +2,7 @@ import { AccommodationDetails, CLOSED_ORDER_STATUSES } from '@agent-sales/contra
 import { schema, sql } from '@agent-sales/db';
 
 import type {
+  OrderExternalRecord,
   OrderRecord,
   ProductRecord,
   VariantRecord,
@@ -129,10 +130,20 @@ export function toOrder(r: typeof o.$inferSelect): OrderRecord {
     searchText: r.searchText,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
+    external: {
+      source: r.externalSource === 'kiotviet' ? r.externalSource : null,
+      state: r.externalState,
+      id: r.externalId,
+      code: r.externalCode,
+      status: r.externalStatus,
+      error: (r.externalError as OrderExternalRecord['error']) ?? null,
+      pushedAt: r.externalPushedAt,
+    },
   };
 }
 
+/** The row of an order; the push columns are left out (written only by `orderPush`). */
 export function orderRow(ws: string, r: OrderRecord) {
-  const { id: _id, ...rest } = r;
+  const { id: _id, external: _external, ...rest } = r;
   return { id: r.id, workspaceId: ws, ...rest };
 }

@@ -9,14 +9,16 @@ import {
 } from '@agent-sales/contracts';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Test } from '@nestjs/testing';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AppModule } from '../src/app.module.js';
 import { configureEnv } from '../src/common/config.js';
 import { HttpExceptionFilter } from '../src/common/http/http-exception.filter.js';
 import { createLogger } from '../src/common/logger.js';
-import { CATALOG_SYNC_FACADE } from '../src/modules/commerce/api/index.js';
+import { DomainError } from '@agent-sales/shared';
+import { CATALOG_SYNC_FACADE, ORDER_PUSH_FACADE } from '../src/modules/commerce/api/index.js';
 import { INTEGRATION_STORE } from '../src/modules/integration/application/ports/integration-store.js';
 import { KIOTVIET_GATEWAY } from '../src/modules/integration/application/ports/kiotviet-gateway.js';
+import { WORKSPACE_FACADE, type WorkspaceFacade } from '../src/modules/workspace/api/index.js';
 import {
   KiotVietAuthError,
   KiotVietPermissionError,
@@ -57,6 +59,8 @@ async function setup() {
     .useValue(gateway)
     .overrideProvider(CATALOG_SYNC_FACADE)
     .useValue(catalog)
+    .overrideProvider(ORDER_PUSH_FACADE)
+    .useValue(orders)
     .compile();
   app = module.createNestApplication<NestFastifyApplication>(new FastifyAdapter(), {
     logger: false,
@@ -99,8 +103,90 @@ async function setup() {
       headers,
       ...(payload ? { payload } : {}),
     });
-  return { http, call, store, gateway };
+  return { http, call, store, gateway, orders };
 }
+
+/** What commerce answers when the push of an order has not failed. */
+class PushNotFailedError extends DomainError {
+  readonly code = 'CONFLICT';
+  constructor() {
+    super('The push of this order has not failed', { reason: 'PUSH_NOT_FAILED' });
+  }
+}
+
+const FAILED_ORDER = '0190f5c2-0000-7000-8000-0000000000f1';
+const requeued: string[] = [];
+const orders = {
+  requeueOrderPush: async (_ws: unknown, orderId: string) => {
+    if (orderId !== FAILED_ORDER) throw new PushNotFailedError();
+    requeued.push(orderId);
+    return 'requeued';
+  },
+  releasePendingPushes: async () => 0,
+};
+
+describe('HTTP: KiotViet order push retry', () => {
+  /** A live connection that pushes orders (connected, push on). */
+  const pushing = async (call: Awaited<ReturnType<typeof setup>>['call']) => {
+    const connected = await call('POST', '/kiotviet', {
+      ...creds,
+      settings: { ...settings, pushOrders: true },
+    });
+    expect(connected.statusCode, connected.body).toBe(201);
+  };
+
+  it('answers 409 not_pushing when no connection pushes orders', async () => {
+    const { call, store } = await setup();
+    const none = await call('POST', `/kiotviet/orders/${FAILED_ORDER}/push`);
+    expect(none.statusCode).toBe(409);
+    expect(none.json()).toMatchObject({
+      error: { code: 'CONFLICT', details: { reason: 'not_pushing' } },
+    });
+
+    await pushing(call);
+    store.connections[0]!.settings.pushOrders = false;
+    const off = await call('POST', `/kiotviet/orders/${FAILED_ORDER}/push`);
+    expect(off.json()).toMatchObject({ error: { details: { reason: 'not_pushing' } } });
+    expect(requeued).toEqual([]);
+  });
+
+  it('requeues a failed push with 202 and refuses any other with 409', async () => {
+    const { call } = await setup();
+    await pushing(call);
+    const ok = await call('POST', `/kiotviet/orders/${FAILED_ORDER}/push`);
+    expect(ok.statusCode, ok.body).toBe(202);
+    expect(requeued).toEqual([FAILED_ORDER]);
+
+    const malformed = await call('POST', '/kiotviet/orders/not-a-uuid/push');
+    expect(malformed.statusCode).toBe(400);
+    expect(requeued).toEqual([FAILED_ORDER]);
+
+    const refused = await call(
+      'POST',
+      '/kiotviet/orders/0190f5c2-0000-7000-8000-0000000000f2/push',
+    );
+    expect(refused.statusCode).toBe(409);
+    expect(refused.json()).toMatchObject({ error: { details: { reason: 'PUSH_NOT_FAILED' } } });
+  });
+
+  it('refuses a member without orders.manage with 403', async () => {
+    const { call } = await setup();
+    await pushing(call);
+    const workspaces = app?.get<WorkspaceFacade>(WORKSPACE_FACADE, { strict: false });
+    const real = workspaces?.findMembership.bind(workspaces);
+    const spy = vi
+      .spyOn(workspaces as WorkspaceFacade, 'findMembership')
+      .mockImplementation(async (...args) => {
+        const membership = await real?.(...args);
+        return membership ? { ...membership, role: 'analyst' } : null;
+      });
+    const before = requeued.length;
+    const forbidden = await call('POST', `/kiotviet/orders/${FAILED_ORDER}/push`);
+    spy.mockRestore();
+    expect(forbidden.statusCode).toBe(403);
+    expect(requeued).toHaveLength(before);
+  });
+});
 
 describe('HTTP: KiotViet integration', () => {
   it('tests, connects, edits, syncs, reads the log and disconnects', async () => {

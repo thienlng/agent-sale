@@ -140,6 +140,32 @@ describe('KiotVietConnectionView', () => {
     });
   });
 
+  it('turns order push off and saves it', async () => {
+    const { user, calls } = setup({
+      'PATCH /integrations/kiotviet': { status: 200, body: connection({ version: 4 }) },
+    });
+    renderWithProviders(<KiotVietConnectionView connection={connection()} canManage />);
+    const push = screen.getByRole('switch', { name: 'Đẩy đơn sang KiotViet' });
+    expect(push).toBeChecked();
+    expect(push).toBeEnabled();
+    // Customer sync ships in PR 3: still locked and marked "Sắp có".
+    expect(screen.getByRole('switch', { name: 'Đồng bộ khách hàng' })).toBeDisabled();
+    expect(screen.getAllByText('Sắp có')).toHaveLength(1);
+    await user.click(push);
+    await user.click(screen.getByRole('button', { name: 'Lưu' }));
+    await vi.waitFor(() => expect(toasts.success).toHaveBeenCalledWith('Đã lưu cài đặt đồng bộ.'));
+    expect(calls.find((c) => c.key === 'PATCH /integrations/kiotviet')?.body).toEqual({
+      settings: { saleBranchIds: [11], orderBranchId: 11, pushOrders: false, syncCustomers: true },
+      version: 3,
+    });
+  });
+
+  it('keeps the order push switch read-only without settings.manage', () => {
+    setup();
+    renderWithProviders(<KiotVietConnectionView connection={connection()} canManage={false} />);
+    expect(screen.getByRole('switch', { name: 'Đẩy đơn sang KiotViet' })).toBeDisabled();
+  });
+
   it('queues a sync', async () => {
     const { user, calls } = setup({ 'POST /integrations/kiotviet/sync': { status: 202 } });
     renderWithProviders(<KiotVietConnectionView connection={connection()} canManage />);

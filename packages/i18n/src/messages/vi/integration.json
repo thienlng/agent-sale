@@ -147,6 +147,10 @@
     "sync_failed": "Đồng bộ thất bại, sẽ thử lại",
     "sweep_capped": "Còn {{count}} sản phẩm cần kiểm tra lại ở lần đồng bộ sau",
     "connect_failed": "Kết nối chưa hoàn tất nên không đồng bộ được. Ngắt kết nối rồi kết nối lại để thử lại.",
+    "order_pushed": "Đã đẩy đơn {{code}} sang KiotViet",
+    "order_push_failed": "Chưa đẩy được đơn {{code}} sang KiotViet — mở đơn để xem lý do và bấm Thử lại",
+    "order_push_duplicate": "Đơn {{code}} đã có trên KiotViet nên KiotViet vừa nhận thêm một đơn trùng — hãy huỷ đơn thừa trên KiotViet (không cần Thử lại)",
+    "order_pushed_cancelled": "Đơn {{code}} đã huỷ trên Rapiz nhưng đã có trên KiotViet — hãy huỷ đơn đó trên KiotViet",
     "unknown": "Sự kiện đồng bộ khác",
     "level": {
       "info": "Thông tin",

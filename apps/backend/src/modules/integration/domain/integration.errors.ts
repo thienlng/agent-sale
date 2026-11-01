@@ -40,6 +40,14 @@ export class KiotVietUnavailableError extends DomainError {
   }
 }
 
+/** KiotViet refused a write as invalid (4xx other than auth): retrying the same body cannot help. */
+export class KiotVietRejectedError extends DomainError {
+  readonly code = 'VALIDATION_FAILED';
+  constructor(readonly status: number) {
+    super('KiotViet rejected the request', { reason: 'kiotviet_rejected', status });
+  }
+}
+
 /** The settings name branches the KiotViet store does not have. */
 export class KiotVietBranchError extends DomainError {
   readonly code = 'VALIDATION_FAILED';
@@ -111,6 +119,17 @@ export class ConnectionVersionConflictError extends DomainError {
 }
 
 /** The process runs without a database, so the integration cannot store anything. */
+/**
+ * "Thử lại" on an order no scan would push: no live connection pushing orders (none, push off, or
+ * not `connected`/`syncing`), or the order was created before the current connection.
+ */
+export class OrderPushOffError extends DomainError {
+  readonly code = 'CONFLICT';
+  constructor() {
+    super('No KiotViet connection pushes this order', { reason: 'not_pushing' });
+  }
+}
+
 export class IntegrationUnavailableError extends DomainError {
   readonly code = 'UNAVAILABLE';
   constructor() {

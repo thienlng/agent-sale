@@ -15,7 +15,12 @@ import { newId, type WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { SECRET_BOX, type SecretBox } from '../../../common/security/secret-box.js';
-import { CATALOG_SYNC_FACADE, type CatalogSyncFacade } from '../../commerce/api/index.js';
+import {
+  CATALOG_SYNC_FACADE,
+  type CatalogSyncFacade,
+  ORDER_PUSH_FACADE,
+  type OrderPushFacade,
+} from '../../commerce/api/index.js';
 import {
   ConnectFailedError,
   ConnectionExistsError,
@@ -29,7 +34,6 @@ import {
   SyncAlreadyRunningError,
 } from '../domain/integration.errors.js';
 import { parseRetailer } from '../domain/retailer.js';
-import { INTEGRATION_OPTIONS, type IntegrationOptions } from './integration-options.js';
 import {
   type ConnectionRecord,
   type ConnectionSettings,
@@ -42,6 +46,7 @@ import {
   type KvBranch,
   type KvCredentials,
 } from './ports/kiotviet-gateway.js';
+import { WebhookSet } from './webhook-set.js';
 
 const PROVIDER = 'kiotviet';
 /**
@@ -49,8 +54,6 @@ const PROVIDER = 'kiotviet';
  * well inside the proxy timeout and spends little of the store's hourly budget.
  */
 const MAX_PREVIEW_CODES = 3_000;
-/** Events that keep the catalog fresh between reconciles (spec §5.3). */
-const WEBHOOK_TYPES = ['product.update', 'product.delete', 'stock.update'] as const;
 const COMING_SOON = ['sapo', 'haravan', 'pancake_pos'] as const;
 const LOG_LIMIT = 200;
 const PROGRESS_PHASES: ReadonlySet<string> = new Set([
@@ -74,7 +77,8 @@ export class ConnectionService {
     @Inject(KIOTVIET_GATEWAY) private readonly gateway: KiotVietGateway,
     @Inject(CATALOG_SYNC_FACADE) private readonly catalog: CatalogSyncFacade,
     @Inject(SECRET_BOX) private readonly secrets: SecretBox,
-    @Inject(INTEGRATION_OPTIONS) private readonly options: IntegrationOptions,
+    @Inject(WebhookSet) private readonly webhooks: WebhookSet,
+    @Inject(ORDER_PUSH_FACADE) private readonly orders: OrderPushFacade,
   ) {}
 
   async list(ws: WorkspaceId): Promise<IntegrationListResponse> {
@@ -194,7 +198,26 @@ export class ConnectionService {
     }
 
     patch.settings = { ...current.settings, ...req.settings, branches };
+    const ensured = req.settings
+      ? await this.ensureWebhooks({ ...current, settings: patch.settings }, req.credentials)
+      : null;
+    if (ensured) patch.settings.webhookIds = ensured.webhookIds;
     const saved = await this.store.updateConnection(ws, current.id, patch, req.version);
+    if (ensured?.missing) {
+      await this.store.log(ws, current.id, {
+        level: 'warning',
+        code: 'webhook_register_failed',
+        params: {
+          registered: ensured.expected - ensured.missing,
+          expected: ensured.expected,
+        } satisfies SyncLogParams['webhook_register_failed'],
+      });
+    }
+    if (current.settings.pushOrders && req.settings && !req.settings.pushOrders) {
+      // Push turned off: claimed orders no scan will push go back to unclaimed (not "Đang đẩy"
+      // forever, lines locked); turning push on again claims them anew.
+      await this.orders.releasePendingPushes(ws, PROVIDER);
+    }
     if (salesChanged) {
       const queued = await this.store.enqueue(ws, {
         connectionId: current.id,
@@ -235,15 +258,22 @@ export class ConnectionService {
   }
 
   /**
-   * Deletes the webhooks at KiotViet (best effort), disconnects, then releases the linked products.
+   * Deletes the webhooks at KiotViet (best effort), disconnects, then releases the linked products
+   * and the orders still waiting to be pushed.
    * The status goes first so a running job or webhook stops writing before the release; one that
    * still lands a write releases again when it sees the disconnect (`SyncService`, `WebhookApplier`).
    */
   async disconnect(ws: WorkspaceId): Promise<void> {
     const current = await this.live(ws);
-    await this.deleteWebhooks(current);
+    try {
+      await this.webhooks.deleteAll(current, this.storedCredentials(current));
+    } catch {
+      this.logger.warn(`Connection ${current.id}: webhooks left at KiotViet`);
+    }
     await this.store.updateConnection(ws, current.id, { status: 'disconnected' });
     await this.catalog.releaseExternalSource(ws, PROVIDER);
+    // Claimed orders no job will push any more: back to unclaimed, so a later connection takes them.
+    await this.orders.releasePendingPushes(ws, PROVIDER);
   }
 
   // ── internals ──────────────────────────────────────────────────────────────
@@ -293,64 +323,37 @@ export class ConnectionService {
     creds: KvCredentials,
     secretBase64: string,
   ): Promise<ConnectionRecord> {
-    const base = this.options.webhookBaseUrl?.replace(/\/+$/, '');
-    const ids: number[] = [];
     let saved = c;
-    let failure = base ? '' : 'no_public_webhook_base_url';
-    if (base) {
-      const url = `${base}/webhooks/kiotviet/${c.webhookToken}`;
-      const kv = this.gateway.interactive();
-      for (const type of WEBHOOK_TYPES) {
-        let id: number;
-        try {
-          id = await kv.registerWebhook(creds, { type, url, secretBase64 });
-        } catch (error) {
-          failure = errorName(error);
-          break;
-        }
-        ids.push(id);
-        saved = await this.store.updateConnection(ws, c.id, {
-          settings: { ...saved.settings, webhookIds: [...ids] },
-        });
-      }
-    }
-    if (failure) {
-      this.logger.warn(`Connection ${c.id}: webhook registration failed (${failure})`);
+    const result = await this.webhooks.register(c, creds, secretBase64, async (webhookIds) => {
+      saved = await this.store.updateConnection(ws, c.id, {
+        settings: { ...saved.settings, webhookIds },
+      });
+    });
+    if (result.failure) {
+      this.logger.warn(`Connection ${c.id}: webhook registration failed (${result.failure})`);
       await this.store.log(ws, c.id, {
         level: 'warning',
         code: 'webhook_register_failed',
-        params: { registered: ids.length, expected: WEBHOOK_TYPES.length },
+        params: {
+          registered: result.registered,
+          expected: result.expected,
+        } satisfies SyncLogParams['webhook_register_failed'],
       });
     }
     return saved;
   }
 
   /**
-   * Deletes the saved webhook ids plus any webhook KiotViet lists at this connection's URL (one
-   * registered but never saved). Best effort throughout.
+   * The webhook set the new settings need (`order.update` follows `pushOrders`). Best effort: when
+   * KiotViet cannot list them the save goes on and the next reconcile ensures the set.
    */
-  private async deleteWebhooks(c: ConnectionRecord): Promise<void> {
-    let creds: KvCredentials;
+  private async ensureWebhooks(c: ConnectionRecord, newCredentials?: KiotVietCredentials) {
     try {
-      creds = this.storedCredentials(c);
-    } catch {
-      this.logger.warn(`Connection ${c.id}: webhooks left at KiotViet`);
-      return;
-    }
-    const kv = this.gateway.interactive();
-    const ids = new Set(c.settings.webhookIds ?? []);
-    try {
-      const suffix = `/webhooks/kiotviet/${c.webhookToken}`;
-      for (const h of await kv.listWebhooks(creds)) if (h.url.endsWith(suffix)) ids.add(h.id);
+      const creds = newCredentials ? credentials(newCredentials) : this.storedCredentials(c);
+      return await this.webhooks.ensure(c, creds, { interactive: true });
     } catch (error) {
-      this.logger.warn(`Connection ${c.id}: webhooks not listed (${errorName(error)})`);
-    }
-    for (const id of ids) {
-      try {
-        await kv.deleteWebhook(creds, id);
-      } catch (error) {
-        this.logger.warn(`Connection ${c.id}: webhook ${id} not deleted (${errorName(error)})`);
-      }
+      this.logger.warn(`Connection ${c.id}: webhooks not checked (${errorName(error)})`);
+      return null;
     }
   }
 }

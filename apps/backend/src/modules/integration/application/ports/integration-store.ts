@@ -2,7 +2,7 @@ import type { WorkspaceId } from '@agent-sales/shared';
 
 export type IntegrationProvider = 'kiotviet';
 export type ConnectionStatus = 'connected' | 'syncing' | 'error' | 'disconnected';
-export type SyncJobKind = 'full_import' | 'reconcile' | 'webhook';
+export type SyncJobKind = 'full_import' | 'reconcile' | 'webhook' | 'push_order';
 export type SyncLogLevel = 'info' | 'warning' | 'error';
 
 export interface ConnectionSettings {
@@ -90,7 +90,11 @@ export interface IntegrationStore {
     patch: Partial<ConnectionRecord>,
     expectedVersion?: number,
   ): Promise<ConnectionRecord>;
-  /** False when a full import or reconcile is already open for the connection. */
+  /**
+   * False when the job is already queued: a full import or reconcile open for the connection, or a
+   * `push_order` job open for the same `payload.orderId` (unique index, so two workers never both
+   * queue one).
+   */
   enqueue(
     ws: WorkspaceId,
     job: {
@@ -107,6 +111,15 @@ export interface IntegrationStore {
     e: { level: SyncLogLevel; code: string; params?: Record<string, string | number> },
   ): Promise<void>;
   recentLog(ws: WorkspaceId, connectionId: string, limit: number): Promise<SyncLogEntry[]>;
+  /** The newest `push_order` job of an order (open or not), or null. */
+  latestPushJob(
+    ws: WorkspaceId,
+    orderId: string,
+  ): Promise<{
+    open: boolean;
+    payload: Record<string, unknown>;
+    cursor: Record<string, unknown> | null;
+  } | null>;
   cachedImage(ws: WorkspaceId, sourceUrl: string): Promise<string | null>;
   cacheImage(ws: WorkspaceId, sourceUrl: string, storedUrl: string): Promise<void>;
 
@@ -144,6 +157,13 @@ export interface IntegrationStore {
   connectionsDueForReconcile(
     olderThan: Date,
   ): Promise<Array<{ workspaceId: WorkspaceId; connectionId: string }>>;
+  /**
+   * Connections the push scan looks at: status `connected` or `syncing`, with `pushOrders` from
+   * their settings (those with it on push; the others only have stale claims released).
+   */
+  connectionsForPushScan(): Promise<
+    Array<{ workspaceId: WorkspaceId; connectionId: string; createdAt: Date; pushOrders: boolean }>
+  >;
   connectionForSystem(id: string): Promise<ConnectionRecord | null>;
 }
 

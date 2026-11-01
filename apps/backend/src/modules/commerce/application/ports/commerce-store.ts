@@ -93,6 +93,17 @@ export interface OrderItemRecord {
   position: number;
 }
 
+/** An order's push to a PMS (ADR-017); written only through `CommerceTx.orderPush`. */
+export interface OrderExternalRecord {
+  source: ExternalSource | null;
+  state: 'pending' | 'pushed' | 'failed' | null;
+  id: string | null;
+  code: string | null;
+  status: string | null;
+  error: { code: string; params?: Record<string, string | number> } | null;
+  pushedAt: Date | null;
+}
+
 export interface OrderRecord {
   id: string;
   code: string;
@@ -138,6 +149,21 @@ export interface OrderRecord {
   searchText: string;
   createdAt: Date;
   updatedAt: Date;
+  /**
+   * Read only: set when the order is read from the store. `orders.update` never writes it, so an
+   * edit cannot undo a push; the push columns change only through `orderPush`.
+   */
+  external?: OrderExternalRecord | undefined;
+}
+
+/** One line of an order with what a push needs: the variant's PMS id when linked to the source. */
+export interface PushLineRecord {
+  externalVariantId: string | null;
+  sku: string;
+  productName: string;
+  variantName: string;
+  qty: number;
+  unitPrice: number;
 }
 
 /** One line of the list's product column. */
@@ -430,6 +456,47 @@ export interface CommerceTx {
       todayTo: Date;
       timezone: string;
     }): Promise<OverviewAggregates>;
+  };
+  /** PMS push columns of orders (ADR-017); the push eligibility is `domain/order-push.ts`. */
+  orderPush: {
+    /**
+     * Moves up to `limit` eligible orders (bot orders approved before `settledBefore`) to
+     * `pending` with the source (stamping `updated_at`), skipping rows another claim holds; returns
+     * their ids.
+     */
+    claim(
+      source: ExternalSource,
+      since: Date,
+      settledBefore: Date,
+      limit: number,
+    ): Promise<string[]>;
+    /** The order, deleted ones included, row locked until the transaction ends. */
+    lock(orderId: string): Promise<(OrderRecord & { deleted: boolean }) | null>;
+    /** The order pushed to the source as `externalId`, row locked until the transaction ends. */
+    findByExternal(source: ExternalSource, externalId: string): Promise<OrderRecord | null>;
+    /** The order's lines in position order; `externalVariantId` only when linked to `source`. */
+    lines(orderId: string, source: ExternalSource): Promise<PushLineRecord[]>;
+    /**
+     * Writes the given push columns (`undefined` keeps a column). Throws
+     * OrderExternalLinkConflictError when another order already has the external id.
+     */
+    set(orderId: string, patch: Partial<OrderExternalRecord>): Promise<void>;
+    countPushed(source: ExternalSource): Promise<number>;
+    /**
+     * Every `pending` claim of the source (with `olderThan`, only those last updated before it)
+     * back to no push state; returns how many.
+     */
+    releasePending(source: ExternalSource, olderThan?: Date): Promise<number>;
+    /**
+     * Pending orders of the source created since `since` and last updated before `olderThan` (the
+     * claim sets `updated_at`).
+     */
+    stalePending(
+      source: ExternalSource,
+      since: Date,
+      olderThan: Date,
+      limit: number,
+    ): Promise<string[]>;
   };
   /** Bot order drafts (one per conversation) and the SKU lookup the bot's orders need. */
   botOrders: {

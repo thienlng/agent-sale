@@ -66,6 +66,14 @@ export const integrationRoutes = defineRoutes([
     responses: { 200: SyncLogResponse },
   }),
   route({
+    method: 'post',
+    path: '/integrations/kiotviet/orders/{orderId}/push',
+    summary:
+      'Retry pushing an order to KiotViet after its push failed (404 unknown order, 409 if the push has not failed)',
+    tag: 'integration',
+    responses: { 202: null },
+  }),
+  route({
     method: 'delete',
     path: '/integrations/kiotviet',
     summary: 'Disconnect KiotViet; synced products stay as Rapiz products (404 if not connected)',

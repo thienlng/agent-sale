@@ -191,6 +191,9 @@ export function useVariantSearch(query: { q: string; warehouseId: string; inStoc
 
 // ─── Orders ───────────────────────────────────────────────────────────────────
 
+/** How often an order list or page re-reads while a KiotViet push is pending. */
+export const PUSH_POLL_MS = 3000;
+
 export function useOrders(query: OrderListQuery) {
   const ws = useWorkspaceId();
   return useQuery({
@@ -198,6 +201,9 @@ export function useOrders(query: OrderListQuery) {
     queryFn: () => api(withQuery('/orders', query), OrderListResponse),
     placeholderData: keepPreviousData,
     enabled: Boolean(ws),
+    // A KiotViet push takes seconds: follow it until it is pushed or failed.
+    refetchInterval: (q) =>
+      q.state.data?.data.some((o) => o.external?.state === 'pending') ? PUSH_POLL_MS : false,
   });
 }
 
@@ -207,6 +213,7 @@ export function useOrder(id: string) {
     queryKey: queryKeys.order(ws, id),
     queryFn: () => api(`/orders/${id}`, OrderDto),
     enabled: Boolean(ws),
+    refetchInterval: (q) => (q.state.data?.external?.state === 'pending' ? PUSH_POLL_MS : false),
   });
 }
 

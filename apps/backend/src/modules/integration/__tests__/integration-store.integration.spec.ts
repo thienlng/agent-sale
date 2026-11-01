@@ -1,10 +1,12 @@
 import {
+  and,
   createDb,
   type Database,
   ensureLoginRoles,
   eq,
   migrate,
   schema,
+  sql,
   withCredentials,
   withSystem,
   withTenant,
@@ -416,5 +418,111 @@ describe('integration store on Postgres', () => {
     expect(ids).toContain(errored.c.id);
     expect(ids).not.toContain(fresh.c.id);
     expect(ids).not.toContain(gone.c.id);
+  });
+
+  it('lists connections for the push scan: connected or syncing, with pushOrders', async () => {
+    const on = { saleBranchIds: [1], orderBranchId: 1, pushOrders: true, syncCustomers: false };
+    const make = async (over: Partial<ConnectionRecord>) => {
+      const ws = await workspace();
+      const c = record(ws, over);
+      await store.insertConnection(ws, c);
+      return c;
+    };
+    const pushing = await make({ settings: on });
+    const syncing = await make({ settings: on, status: 'syncing' });
+    const off = await make({});
+    const errored = await make({ settings: on, status: 'error' });
+    const rows = await store.connectionsForPushScan();
+    const ids = rows.map((r) => r.connectionId);
+    expect(ids).toEqual(expect.arrayContaining([pushing.id, syncing.id, off.id]));
+    expect(ids).not.toContain(errored.id);
+    expect(rows.find((r) => r.connectionId === pushing.id)).toEqual({
+      workspaceId: pushing.workspaceId,
+      connectionId: pushing.id,
+      createdAt: pushing.createdAt,
+      pushOrders: true,
+    });
+    expect(rows.find((r) => r.connectionId === off.id)?.pushOrders).toBe(false);
+  });
+
+  it('claims push_order jobs, any number per connection', async () => {
+    const { ws, c } = await connected();
+    await store.enqueue(ws, { connectionId: c.id, kind: 'full_import' });
+    for (const orderId of ['a', 'b']) {
+      expect(
+        await store.enqueue(ws, { connectionId: c.id, kind: 'push_order', payload: { orderId } }),
+      ).toBe(true);
+    }
+    const rows = await withTenant(tenant.db, ws, (tx) =>
+      tx.select().from(schema.integrationJobs).where(eq(schema.integrationJobs.connectionId, c.id)),
+    );
+    const push = rows.filter((r) => r.kind === 'push_order');
+    expect(push).toHaveLength(2);
+    const claimed = await claimOne(push[0]!.id);
+    expect(claimed).toMatchObject({
+      kind: 'push_order',
+      payload: { orderId: push[0]!.payload['orderId'] },
+    });
+
+    // The newest job of an order, open or not, with its cursor.
+    const orderId = String(push[0]!.payload['orderId']);
+    expect(await store.latestPushJob(ws, orderId)).toEqual({
+      open: true,
+      payload: { orderId },
+      cursor: null,
+    });
+    await store.saveCursor(
+      claimed!.id,
+      claimed!.claimToken,
+      { ambiguous: true, branchId: 1 },
+      60_000,
+    );
+    await store.failJob(claimed!.id, claimed!.claimToken, 'kiotviet_unavailable');
+    expect(await store.latestPushJob(ws, orderId)).toEqual({
+      open: false,
+      payload: { orderId },
+      cursor: { ambiguous: true, branchId: 1 },
+    });
+    expect(await store.latestPushJob(ws, 'none')).toBeNull();
+
+    // One open push job per order (unique index): a second enqueue is "already queued", even
+    // from two scans at once; once the job is closed, a new one can be queued.
+    const again = '0190f5c2-0000-7000-8000-0000000000e1';
+    const both = await Promise.all([
+      store.enqueue(ws, { connectionId: c.id, kind: 'push_order', payload: { orderId: again } }),
+      store.enqueue(ws, { connectionId: c.id, kind: 'push_order', payload: { orderId: again } }),
+    ]);
+    expect(both.sort()).toEqual([false, true]);
+    const open = await withTenant(tenant.db, ws, (tx) =>
+      tx
+        .select()
+        .from(schema.integrationJobs)
+        .where(
+          and(
+            eq(schema.integrationJobs.kind, 'push_order'),
+            sql`${schema.integrationJobs.payload} ->> 'orderId' = ${again}`,
+          ),
+        ),
+    );
+    expect(open).toHaveLength(1);
+    expect(
+      await store.enqueue(ws, {
+        connectionId: c.id,
+        kind: 'push_order',
+        payload: { orderId: orderId },
+      }),
+    ).toBe(true);
+    expect(await store.latestPushJob(await workspace(), orderId)).toBeNull();
+
+    // The index is per workspace: another workspace's open job for the same order id never makes
+    // this one "already queued" (no cross-tenant interference).
+    const other = await connected();
+    expect(
+      await store.enqueue(other.ws, {
+        connectionId: other.c.id,
+        kind: 'push_order',
+        payload: { orderId: again },
+      }),
+    ).toBe(true);
   });
 });

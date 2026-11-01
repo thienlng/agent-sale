@@ -147,6 +147,10 @@
     "sync_failed": "Sync failed, will retry",
     "sweep_capped": "{{count}} more products will be checked again on the next sync",
     "connect_failed": "The connection did not finish setting up, so it cannot sync. Disconnect, then connect again to retry.",
+    "order_pushed": "Pushed order {{code}} to KiotViet",
+    "order_push_failed": "Could not push order {{code}} to KiotViet — open the order to see why, then Retry",
+    "order_push_duplicate": "Order {{code}} was already in KiotViet, so KiotViet now has an extra copy — cancel the extra order in KiotViet (no need to Retry)",
+    "order_pushed_cancelled": "Order {{code}} was cancelled in Rapiz but is already in KiotViet — cancel it in KiotViet",
     "unknown": "Other sync event",
     "level": {
       "info": "Info",

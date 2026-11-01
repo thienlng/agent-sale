@@ -10,14 +10,16 @@ import {
   type ExternalCatalogItem,
   ExternalImageError,
   ExternalLinkConflictError,
+  type OrderPushFacade,
 } from '../../commerce/api/index.js';
 import { CatalogImport, SWEEP_CAP } from '../application/catalog-import.js';
 import { CatalogWriter } from '../application/catalog-writer.js';
 import { ConnectionService } from '../application/connection.service.js';
+import { WebhookSet } from '../application/webhook-set.js';
+import { OrderPusher } from '../application/order-push.js';
 import type {
   ClaimedWebhookEvent,
   ConnectionRecord,
-  IntegrationStore,
   JobRecord,
 } from '../application/ports/integration-store.js';
 import type { KvOnHand } from '../application/ports/kiotviet-gateway.js';
@@ -28,52 +30,11 @@ import { KiotVietAuthError, KiotVietUnavailableError } from '../domain/integrati
 import type { KvProduct } from '../domain/kiotviet-mapping.js';
 import { UnavailableIntegrationStore } from '../infrastructure/persistence/unavailable-store.js';
 import { FakeKiotVietGateway } from './factories/fake-gateway.js';
-import { MemoryIntegrationStore } from './factories/memory-integration-store.js';
+import { JobStore } from './factories/job-store.js';
 
 const ws = workspaceId('0190f5c2-0000-7000-8000-000000000001');
 const box = SecretBox.insecureDevelopmentBox();
 const WEBHOOK_SECRET = Buffer.from('webhook-secret-24-bytes!').toString('base64');
-
-/** The memory store plus the system-role job methods, recording every fenced write. */
-class JobStore extends MemoryIntegrationStore {
-  cursors: Array<Record<string, unknown>> = [];
-  completed: string[] = [];
-  retried: Array<{ id: string; runAfter: Date; error: string }> = [];
-  failed: Array<{ id: string; error: string }> = [];
-  leaseOk = true;
-  events: ClaimedWebhookEvent[] = [];
-  images = new Map<string, string>();
-
-  override connectionForSystem = (id: string) =>
-    Promise.resolve(structuredClone(this.connections.find((c) => c.id === id) ?? null));
-  override saveCursor = (_id: string, _t: string, cursor: Record<string, unknown>) => {
-    if (this.leaseOk) this.cursors.push(structuredClone(cursor));
-    return Promise.resolve(this.leaseOk);
-  };
-  override completeJob = (id: string) => (this.completed.push(id), Promise.resolve(this.leaseOk));
-  override retryJob = (id: string, _t: string, runAfter: Date, error: string) => {
-    this.retried.push({ id, runAfter, error });
-    return Promise.resolve(this.leaseOk);
-  };
-  override failJob = (id: string, _t: string, error: string) => {
-    this.failed.push({ id, error });
-    return Promise.resolve(this.leaseOk);
-  };
-  override claimJobs = () => Promise.resolve([] as JobRecord[]);
-  override claimWebhookEvents = () => Promise.resolve(this.events.splice(0));
-  override connectionsDueForReconcile: IntegrationStore['connectionsDueForReconcile'] = () =>
-    Promise.resolve([]);
-  override cachedImage = (_ws: string, url: string) =>
-    Promise.resolve(this.images.get(url) ?? null);
-  override cacheImage = (_ws: string, url: string, stored: string) => {
-    this.images.set(url, stored);
-    return Promise.resolve();
-  };
-
-  codes(): string[] {
-    return this.logs.map((l) => l.code);
-  }
-}
 
 /** In-memory CatalogSyncFacade: products by external id, variant links, stock by variant id. */
 class MemoryCatalog {
@@ -262,6 +223,14 @@ let gateway: CatalogGateway;
 let catalog: MemoryCatalog;
 let sync: SyncService;
 let webhooks: WebhookApplier;
+let pusher: OrderPusher;
+/** No order to push: these specs cover the catalog; `order-push.spec.ts` covers pushes. */
+const noOrders = {
+  claimOrdersForPush: async () => [],
+  stalePendingOrders: async () => [],
+  applyExternalOrderStatus: async () => 'unknown',
+  releasePendingPushes: async () => 0,
+} as unknown as OrderPushFacade;
 
 beforeEach(() => {
   vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
@@ -270,16 +239,29 @@ beforeEach(() => {
   catalog = new MemoryCatalog();
   const facade = catalog as unknown as CatalogSyncFacade;
   const writer = new CatalogWriter(store, gateway, facade);
-  sync = new SyncService(store, new CatalogImport(store, gateway, facade, writer), box, writer);
-  webhooks = new WebhookApplier(store, gateway, facade, writer, box);
+  pusher = new OrderPusher(store, gateway, noOrders, facade);
+  sync = new SyncService(
+    store,
+    new CatalogImport(store, gateway, facade, writer),
+    box,
+    writer,
+    pusher,
+    new WebhookSet(gateway, box, { webhookBaseUrl: undefined }),
+  );
+  webhooks = new WebhookApplier(store, gateway, facade, writer, box, noOrders);
   store.connections.push(connection());
 });
 
 const conn = () => store.connections[0]!;
 const connections = () =>
-  new ConnectionService(store, gateway, catalog as unknown as CatalogSyncFacade, box, {
-    webhookBaseUrl: undefined,
-  });
+  new ConnectionService(
+    store,
+    gateway,
+    catalog as unknown as CatalogSyncFacade,
+    box,
+    new WebhookSet(gateway, box, { webhookBaseUrl: undefined }),
+    noOrders,
+  );
 
 describe('SyncService full import', () => {
   it('imports every page, then stock, then marks the connection connected', async () => {
@@ -760,16 +742,16 @@ describe('WebhookApplier', () => {
         Notifications: [
           { Action: 'stock.update.9', Data: [{ ProductId: 1, OnHand: 999 }] },
           { Action: 'product.delete.9', Data: [{ RemoveId: [5, 6] }] },
-          { Action: 'order.update.9', Data: [{ Id: 1 }] },
+          { Action: 'invoice.update.9', Data: [{ Id: 1 }] },
         ],
       }),
     );
-    await webhooks.apply(delivery({ Notifications: [{ Action: 'order.update.9', Data: [] }] }));
+    await webhooks.apply(delivery({ Notifications: [{ Action: 'invoice.update.9', Data: [] }] }));
     expect(catalog.stock.get('1')).toBe(6);
     expect(catalog.upsertExternalProduct).not.toHaveBeenCalled();
     expect(catalog.removed).toEqual([['5', '6']]);
     expect(store.logs.filter((l) => l.code === 'webhook_unknown').map((l) => l.params)).toEqual([
-      { type: 'order.update' },
+      { type: 'invoice.update' },
     ]);
   });
 
@@ -793,7 +775,7 @@ describe('WebhookApplier', () => {
 
 describe('SyncRunner', () => {
   it('skips cleanly without a database', async () => {
-    const runner = new SyncRunner(new UnavailableIntegrationStore(), sync, webhooks);
+    const runner = new SyncRunner(new UnavailableIntegrationStore(), sync, webhooks, pusher);
     await expect(runner.tick()).resolves.toBeUndefined();
   });
 
@@ -806,7 +788,7 @@ describe('SyncRunner', () => {
     store.events = [
       delivery({ Notifications: [{ Action: 'product.delete', Data: [{ RemoveId: [9] }] }] }),
     ];
-    const runner = new SyncRunner(store, sync, webhooks);
+    const runner = new SyncRunner(store, sync, webhooks, pusher);
     await runner.tick();
     await runner.tick();
     expect(due).toHaveBeenCalledTimes(1);

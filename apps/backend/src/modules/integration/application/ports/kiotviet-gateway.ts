@@ -1,4 +1,5 @@
 import type { KvProduct } from '../../domain/kiotviet-mapping.js';
+import type { KvOrderBody } from '../../domain/kiotviet-order.js';
 
 /** What a KiotViet API connection needs; the secret never leaves the client or the log. */
 export interface KvCredentials {
@@ -25,6 +26,16 @@ export interface KvOnHand {
   inventories: Array<{ branchId: number; onHand: number; reserved: number }>;
 }
 
+export interface KvOrderRef {
+  id: number;
+  code: string;
+  status: number;
+}
+
+export interface KvOrderSummary extends KvOrderRef {
+  description: string | null;
+}
+
 export interface KvWebhook {
   id: number;
   type: string;
@@ -34,7 +45,8 @@ export interface KvWebhook {
 /**
  * KiotViet public API (spec §3). Errors: `KiotVietAuthError` (token rejected),
  * `KiotVietRetailerError` (store unknown), `KiotVietPermissionError` (403),
- * `KiotVietUnavailableError` (down, timing out or rate limited beyond retries).
+ * `KiotVietUnavailableError` (down, timing out or rate limited beyond retries),
+ * `KiotVietRejectedError` (a write refused as invalid).
  */
 export interface KiotVietGateway {
   /**
@@ -68,6 +80,19 @@ export interface KiotVietGateway {
   ): Promise<number>;
   deleteWebhook(c: KvCredentials, id: number): Promise<void>;
   listWebhooks(c: KvCredentials): Promise<KvWebhook[]>;
+  /**
+   * `POST /orders`. Not idempotent: only a rate-limited (429) or token-rejected (401) call is sent
+   * again. A timeout, network error or 5xx throws `KiotVietUnavailableError` and the order may exist
+   * (the caller looks it up by its description before trying again); a 4xx throws
+   * `KiotVietRejectedError`.
+   */
+  createOrder(c: KvCredentials, body: KvOrderBody): Promise<KvOrderRef>;
+  /** Orders of a branch modified since `since` (pageSize ≤ 100). */
+  recentOrders(
+    c: KvCredentials,
+    q: { branchId: number; since: Date; currentItem: number; pageSize: number },
+  ): Promise<KvPage<KvOrderSummary>>;
+  orderById(c: KvCredentials, id: number): Promise<KvOrderRef | null>;
 }
 
 export const KIOTVIET_GATEWAY = Symbol('KIOTVIET_GATEWAY');

@@ -508,7 +508,8 @@
       "shipping": "Shipping charged",
       "paid": "Paid",
       "note": "Note",
-      "gross": "Gross total"
+      "gross": "Gross total",
+      "kiotviet": "KiotViet"
     },
     "footer": {
       "qty": "Product qty",
@@ -619,6 +620,37 @@
       "mobile": "Filter & sort",
       "mobileHint": "Pick a column to sort or filter by",
       "activeCount": "{{count}} filtered columns"
+    },
+    "push": {
+      "pending": "Sending",
+      "pushed": "Sent · {{code}}",
+      "pushedNoCode": "Sent",
+      "failed": "Failed",
+      "retry": "Retry",
+      "retried": "Order sent to KiotViet again.",
+      "notFailed": "This order no longer has a failed push — its state was reloaded.",
+      "notPushing": "KiotViet order push is off, or the order was created before connecting",
+      "pendingNote": "The order is being sent to KiotViet. Products and amounts are locked for a few seconds.",
+      "pushedNote": "The order is in KiotViet — update its status in KiotViet",
+      "externalStatus": "Status in KiotViet: {{status}}",
+      "status": {
+        "draft": "Draft",
+        "confirmed": "Confirmed",
+        "delivering": "Delivering",
+        "completed": "Completed",
+        "cancelled": "Cancelled"
+      },
+      "errors": {
+        "unlinked_product": "Product {{name}} is not in KiotViet",
+        "empty_order": "The order has no products to send",
+        "kiotviet_rejected": "KiotViet rejected the order — check the order details",
+        "kiotviet_unavailable": "KiotViet is not responding — try again in a few minutes",
+        "kiotviet_link_conflict": "The KiotViet order found is linked to another Rapiz order — check in KiotViet",
+        "auth_failed": "KiotViet rejected the connection keys — update them in PMS integrations, then retry",
+        "not_connected": "This business is not connected to KiotViet",
+        "sync_failed": "The order could not be sent, try again later",
+        "generic": "The order could not be sent to KiotViet"
+      }
     }
   },
   "orderForm": {
@@ -705,7 +737,8 @@
       "reserved": "Goods held",
       "shipped": "Left the warehouse",
       "released": "Hold released",
-      "returned": "Back in stock"
+      "returned": "Back in stock",
+      "external": "Stock managed in KiotViet"
     },
     "createdBy": "Created by {{name}}",
     "by": "by {{name}}",
@@ -720,7 +753,8 @@
     "itemsLocked": "The goods have left the warehouse or the order was cancelled/returned: products can no longer change.",
     "itemsSaved": "Order products updated",
     "conflict": "Not possible: the order is no longer in a state that allows this. Reload and try again.",
-    "peopleSaved": "Customer and delivery details updated"
+    "peopleSaved": "Customer and delivery details updated",
+    "pushPending": "The order is being sent to KiotViet, wait a few seconds and edit again."
   },
   "overview": {
     "title": "Order overview",

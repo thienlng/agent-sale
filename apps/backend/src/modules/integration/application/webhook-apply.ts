@@ -1,8 +1,14 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { SECRET_BOX, type SecretBox } from '../../../common/security/secret-box.js';
-import { CATALOG_SYNC_FACADE, type CatalogSyncFacade } from '../../commerce/api/index.js';
+import {
+  CATALOG_SYNC_FACADE,
+  type CatalogSyncFacade,
+  ORDER_PUSH_FACADE,
+  type OrderPushFacade,
+} from '../../commerce/api/index.js';
 import type { KvProduct } from '../domain/kiotviet-mapping.js';
+import { orderStatusOf } from '../domain/kiotviet-order.js';
 import { validKiotVietSignature } from '../domain/signature.js';
 import { CatalogWriter, SOURCE, type WriteStats } from './catalog-writer.js';
 import {
@@ -25,13 +31,19 @@ import { openCredentials } from './sync-credentials.js';
  */
 export const webhookSigningKey = (registeredSecret: string): string => registeredSecret;
 
-type Action = 'product.update' | 'product.delete' | 'stock.update';
-const ACTIONS: ReadonlySet<string> = new Set(['product.update', 'product.delete', 'stock.update']);
+type Action = 'product.update' | 'product.delete' | 'stock.update' | 'order.update';
+const ACTIONS: ReadonlySet<string> = new Set([
+  'product.update',
+  'product.delete',
+  'stock.update',
+  'order.update',
+]);
 /** Where each event names its products, best guess first (KiotViet's casing varies). */
 const ID_KEYS: Record<string, readonly string[]> = {
   'product.update': ['Id', 'ProductId'],
   'product.delete': ['RemoveId', 'Id', 'ProductId'],
   'stock.update': ['ProductId', 'Id'],
+  'order.update': ['Id', 'OrderId'],
 };
 
 interface Notification {
@@ -62,6 +74,7 @@ export class WebhookApplier {
     @Inject(CATALOG_SYNC_FACADE) private readonly catalog: CatalogSyncFacade,
     @Inject(CatalogWriter) private readonly writer: CatalogWriter,
     @Inject(SECRET_BOX) private readonly secrets: SecretBox,
+    @Inject(ORDER_PUSH_FACADE) private readonly orders: OrderPushFacade,
   ) {}
 
   async apply(event: ClaimedWebhookEvent): Promise<void> {
@@ -84,6 +97,23 @@ export class WebhookApplier {
       }
       // The reconcile repairs what this delivery missed; auth errors surface on the next job.
       this.logger.warn(`Connection ${c.id}: webhook not applied (${errorName(error)})`);
+    }
+  }
+
+  /**
+   * Re-reads each order from KiotViet (never the payload) and applies its status to the Rapiz order
+   * pushed as it; an order KiotViet no longer has, or one Rapiz did not push, is ignored.
+   */
+  private async orderUpdate(c: ConnectionRecord, creds: KvCredentials, ids: number[]) {
+    for (const id of ids) {
+      const order = await this.gateway.orderById(creds, id);
+      if (!order) continue;
+      await this.orders.applyExternalOrderStatus(
+        c.workspaceId,
+        SOURCE,
+        String(order.id),
+        orderStatusOf(order.status),
+      );
     }
   }
 
@@ -125,6 +155,10 @@ export class WebhookApplier {
     }
     if (!n.ids.length) return;
     const action = n.action as Action;
+    if (action === 'order.update') {
+      await this.orderUpdate(c, creds, n.ids);
+      return;
+    }
     if (action === 'product.delete') {
       await this.catalog.removeExternalProducts(c.workspaceId, SOURCE, n.ids.map(String));
       return;

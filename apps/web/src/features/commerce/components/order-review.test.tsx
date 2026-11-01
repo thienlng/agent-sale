@@ -67,6 +67,7 @@ const summary = (over: Partial<OrderSummaryDto>): OrderSummaryDto => ({
   reviewedAt: null,
   conversationId: CONVERSATION,
   itemCount: 1,
+  external: null,
   placedAt: '2026-10-31T08:00:00.000Z',
   ...over,
 });

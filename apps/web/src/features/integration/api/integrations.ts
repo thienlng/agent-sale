@@ -129,3 +129,31 @@ export function useDisconnectKiotViet() {
     onSettled: refresh,
   });
 }
+
+/**
+ * After "Thử lại" the worker pushes within a scan (≤ 15 s) plus the job: the orders are read again
+ * at these delays so the list moves from "Đang đẩy" to its result without a reload.
+ */
+export const RETRY_REFRESH_MS = [3_000, 15_000] as const;
+
+/**
+ * "Thử lại" on an order whose KiotViet push failed: queues the push again (202; 409 when the push is
+ * not failed any more, or no connection pushes it). Lives here because it is an integration route;
+ * the orders pages get it from their routes, since features do not import each other.
+ */
+export function useRetryOrderPush() {
+  const ws = useWorkspaceId();
+  const qc = useQueryClient();
+  const refresh = () => qc.invalidateQueries({ queryKey: queryKeys.orders(ws) });
+  return useMutation({
+    mutationFn: (orderId: string) =>
+      api(`/integrations/kiotviet/orders/${encodeURIComponent(orderId)}/push`, z.null(), {
+        method: 'POST',
+      }),
+    onSuccess: () => {
+      for (const ms of RETRY_REFRESH_MS) setTimeout(() => void refresh(), ms);
+    },
+    // Either way the order's push state changed (or was stale): read it again.
+    onSettled: refresh,
+  });
+}

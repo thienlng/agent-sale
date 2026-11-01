@@ -6,12 +6,14 @@ pictures and stock, and staff stop keeping two catalogs. For linked products Kio
 Code: backend module `apps/backend/src/modules/integration` (see its `MODULE.md`), webhook ingress
 `apps/webhook/src/kiotviet.ts`, web feature `apps/web/src/features/integration`.
 
-| Shipped (PR 1) | Next |
+| Shipped | Next |
 |---|---|
-| Products, variants (units and attributes), categories, pictures, stock of the chosen sale branches | Push bot and staff orders to KiotViet (PR 2), customer sync (PR 3) |
+| Products, variants (units and attributes), categories, pictures, stock of the chosen sale branches (PR 1); bot and staff orders pushed to KiotViet with their status read back (PR 2) | Customer sync (PR 3) |
 
-The wizard already asks for the order branch and shows "Đẩy đơn sang KiotViet" and "Đồng bộ khách hàng" as
-"Sắp có" (on by default), so PR 2 and PR 3 start working without the owner saving again.
+The wizard asks for the order branch and shows "Đẩy đơn sang KiotViet" as a switch (on by default; the
+connection page's "Cài đặt đồng bộ" turns it off or on again, saved with the other settings through
+`PATCH /integrations/kiotviet`). "Đồng bộ khách hàng" is still "Sắp có": shown on and locked, so PR 3 starts
+working without the owner saving again.
 
 ## Owner setup
 
@@ -47,7 +49,7 @@ recent activity and **Ngắt kết nối**.
 KiotViet ──webhook──▶ apps/webhook  POST /webhooks/kiotviet/:token ──▶ integration_webhook_events (raw)
     ▲                                                                        │
     │ REST (token, 4 500 req/h budget)                                       ▼
-    └──────────────── worker: integration tick every 2 s ◀── integration_jobs (full_import, reconcile)
+    └──────────────── worker: integration tick every 2 s ◀── integration_jobs (full_import, reconcile, push_order)
                               │
                               ▼ CATALOG_SYNC_FACADE (commerce)
                        products, product_variants, inventory (+ movements), pictures
@@ -69,6 +71,61 @@ KiotViet ──webhook──▶ apps/webhook  POST /webhooks/kiotviet/:token ─
   and archives the ones KiotViet reports as removed. It also catches lost webhooks.
 - **Stock** = Σ max(0, on hand − reserved) over the sale branches (a missing branch counts 0), written to the
   default Rapiz warehouse as an `adjust` movement with `ref_type = 'external'`.
+- **Order push** (PR 2, `settings.pushOrders`, `application/order-push.ts`): every 15 s the worker claims
+  orders created since the connection — staff orders at once, bot orders 5 s after their approval — and
+  queues one `push_order` job each. The job sends `POST /orders` to the order branch: lines by KiotViet
+  product id and code, the order discount, `customer` (name, phone) and `orderDelivery` (receiver, phone,
+  address, price), and a description starting `Rapiz <order code>`. Rapiz's surcharge has no free field in
+  KiotViet (`surchages` needs a surcharge set up in the store), so it is added to the delivery price: the
+  KiotViet total always equals the Rapiz total. Before the call the job marks itself ambiguous; any retry
+  (lost answer, timeout, 5xx, crash) first lists the branch's orders modified since a minute before the
+  first attempt and adopts the one carrying the code, so a retry never creates a second KiotViet order.
+  Retries: +1, +5, +30 min, then the order shows "Lỗi" with **Thử lại**
+  (`POST /integrations/kiotviet/orders/{orderId}/push`, `orders.manage`). An order with a product not
+  linked to KiotViet, or one KiotViet refuses (4xx), fails at once. Once pushed, KiotViet owns the order's
+  stock (`stock_state = 'external'`, the Rapiz hold is released) and the job re-reads the lines' KiotViet
+  products (`GET /products/{id}`) and sets their Rapiz stock to KiotViet's available over the sale
+  branches, which now counts the order as `reserved`: the units are never sellable twice in between (best
+  effort; a failure only logs, the next reconcile repairs it).
+- **Order status**: the `order.update` webhook (registered while push is on; each settings save and each
+  reconcile add or remove it) re-reads the order from KiotViet and stores its status; a KiotViet
+  cancellation cancels the Rapiz order. Each reconcile also re-reads the order branch's orders changed since
+  the previous one, so a lost delivery is repaired within 10 minutes. **Thử lại** after an attempt whose
+  answer was lost looks for the KiotViet order first, too. A pending order whose job was lost is queued again
+  after 2 minutes; disconnecting, or turning push off, returns orders still waiting to "not pushed" (while
+  push is off the worker also returns any claim older than 2 minutes).
+
+## Order push on the orders pages
+
+Each order carries `external` (`OrderSummaryDto` / `OrderDto`): `null` when it was never pushed, else
+`{ state, code, status, error }`.
+
+| `state` | Orders list ("KiotViet" column; chip on the mobile card) | Order page ("KiotViet" card) |
+|---|---|---|
+| `pending` | "Đang đẩy" | "Đang đẩy" and a note that products and amounts are locked for a few seconds |
+| `pushed` | "Đã đẩy · <KiotViet code>" | the chip, "Trạng thái trên KiotViet: …" (from `status`) and "Đơn đã ở KiotViet — cập nhật trạng thái trên KiotViet" |
+| `failed` | "Lỗi" (the reason on hover/focus) and **Thử lại** | "Lỗi", the reason and **Thử lại** |
+
+- The "KiotViet" column is always on (not in the column picker) but left out when no order on the page has
+  been pushed, so a workspace without KiotViet never sees it. The CSV export carries the chip text; it has
+  the column when any exported order was pushed (whatever page is on screen).
+- **Thử lại** shows only with `orders.manage`. It calls `POST /integrations/kiotviet/orders/{orderId}/push`
+  (202; 409 `PUSH_NOT_FAILED` when the push is no longer failed, which the page explains and reloads; 409
+  `not_pushing` when no connection pushes orders — none, push off, not connected — or the order was created
+  before the current connection: "KiotViet chưa bật đẩy đơn hoặc đơn được tạo trước khi kết nối"). After a
+  202 the orders are read again after 3 s and 15 s, so the list shows the new state without a reload. The hook lives in
+  `apps/web/src/features/integration/api/integrations.ts` (`useRetryOrderPush`); the orders routes pass it
+  to the commerce components, since web features do not import each other.
+- While a push is pending, the list and the order page re-read every 3 s until it is pushed or failed.
+  An edit that touches what the push sends (lines, discount, shipping fees, surcharge; the shipping panel
+  sends its carrier fee only when changed, so notes and payment stay editable) answers 409
+  `details.reason = 'PUSH_PENDING'` meanwhile; the editors say "Đơn đang được đẩy sang KiotViet, chờ vài giây rồi sửa lại."
+- `error.code` → copy (`common.json` → `orders.push.errors.*`): `unlinked_product` ("Sản phẩm {{name}}
+  không có trên KiotViet"), `empty_order`, `kiotviet_rejected` ("KiotViet từ chối đơn — kiểm tra lại thông
+  tin đơn"), `kiotviet_unavailable`, `kiotviet_link_conflict`, `auth_failed`, `not_connected`,
+  `sync_failed`; an unknown code falls back to "Chưa đẩy được đơn sang KiotViet".
+- `status` names (`orders.push.status.*`): `draft` "Phiếu tạm", `confirmed` "Đã xác nhận", `delivering`
+  "Đang giao hàng", `completed` "Hoàn thành", `cancelled` "Đã huỷ"; an unknown value is shown as is.
 
 ## What is locked on a linked product
 
@@ -112,6 +169,10 @@ The activity list on the connection page shows these codes (i18n `integration.js
 | `webhook_register_failed` | Webhooks could not be registered (or `PUBLIC_WEBHOOK_BASE_URL` is unset). | Data still refreshes every 10 minutes; set the base URL and reconnect for instant updates. |
 | `webhook_bad_signature` | A delivery failed the HMAC check and was dropped. Logged once per connection per worker process; the worker log keeps the count. | Check the worker log count; if it keeps rising, check the base URL and reconnect. |
 | `webhook_unknown` | A webhook type Rapiz does not handle. | Nothing. |
+| `order_pushed` | An order (`code`) is now in KiotViet. | — |
+| `order_push_failed` | An order (`code`) was not pushed (`reason`: `unlinked_product`, `empty`, `kiotviet_rejected`, `kiotviet_unavailable` after the retries, `auth_failed`, `sync_failed`, `link_conflict`, `not_connected`: the connection was gone when the job ran). | Fix the cause (link the product, check the order) and click **Thử lại** on the order. |
+| `order_push_duplicate` | The order (`code`) was already pushed, so KiotViet now holds an extra order for it. | Cancel the extra order in KiotViet; no **Thử lại**. |
+| `order_pushed_cancelled` | The order was cancelled (or deleted) in Rapiz while it was being pushed; KiotViet has it. | Cancel the order in KiotViet. |
 
 Wizard errors: wrong Client ID / secret (`kiotviet_auth`), unknown store name (`kiotviet_retailer`), missing
 API permissions (`kiotviet_permission`, lists them), a branch no longer in KiotViet (`kiotviet_branch`), new
@@ -135,4 +196,11 @@ store: the `branchIds` query format for on-hands, the status code for an unknown
 webhook HMAC key is the registered base64 secret text or its decoded bytes (`webhookSigningKey`, one line),
 the field names in webhook `Notifications[].Data` (`ID_KEYS` in `webhook-apply.ts`), that `/products`
 accepts `orderBy=id&orderDirection=Asc` (`PRODUCT_ORDER` in `kiotviet-client.ts`, one constant), whether
-`GET /webhooks` is paginated, and (for PR 2) the order status codes.
+`GET /webhooks` is paginated, and for the order push (PR 2; the constants live in `domain/kiotviet-order.ts`): the order
+status numbers (`KV_ORDER_STATUS = { draft: 1, delivering: 2, completed: 3, cancelled: 4, confirmed: 5 }`,
+not in the guide), the `customer` and `orderDelivery` field names (`KV_ORDER_CUSTOMER_FIELD`,
+`KV_ORDER_DELIVERY_FIELD`), whether `orderDelivery.price` adds to the order total (the surcharge is folded
+into it), whether `orderDetails[].discount` is per unit, the `GET /orders` filters (`branchIds`,
+`lastModifiedFrom`) and the `order.update` delivery's id field (`ID_KEYS` in `webhook-apply.ts`), and
+whether creating an order emits `stock.update` (its `reserved` changes; the push re-reads the lines'
+products right after `POST /orders` either way, so this only tells whether that read is redundant).

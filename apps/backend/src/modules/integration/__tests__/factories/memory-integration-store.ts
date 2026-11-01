@@ -18,11 +18,13 @@ const OWNER_FIELDS = ['settings', 'retailer', 'clientId', 'clientSecretSealed'] 
 const IGNORED = ['id', 'workspaceId', 'provider', 'version', 'createdAt', 'updatedAt'] as const;
 
 export interface MemoryJob {
+  id: string;
   workspaceId: WorkspaceId;
   connectionId: string;
   kind: SyncJobKind;
   payload: Record<string, unknown>;
   open: boolean;
+  cursor?: Record<string, unknown> | null;
 }
 
 /**
@@ -81,7 +83,15 @@ export class MemoryIntegrationStore implements IntegrationStore {
         (j.kind === 'full_import' || j.kind === 'reconcile'),
     );
     if (exclusive && busy) return Promise.resolve(false);
+    const orderId = job.payload?.['orderId'];
+    if (
+      job.kind === 'push_order' &&
+      this.jobs.some((j) => j.open && j.kind === 'push_order' && j.payload['orderId'] === orderId)
+    ) {
+      return Promise.resolve(false);
+    }
     this.jobs.push({
+      id: `mem-job-${this.jobs.length + 1}`,
       workspaceId: ws,
       connectionId: job.connectionId,
       kind: job.kind,
@@ -120,6 +130,23 @@ export class MemoryIntegrationStore implements IntegrationStore {
     );
   }
 
+  latestPushJob: IntegrationStore['latestPushJob'] = (ws, orderId) => {
+    const found = this.jobs
+      .filter(
+        (j) => j.workspaceId === ws && j.kind === 'push_order' && j.payload['orderId'] === orderId,
+      )
+      .at(-1);
+    return Promise.resolve(
+      found
+        ? {
+            open: found.open,
+            payload: structuredClone(found.payload),
+            cursor: found.cursor ?? null,
+          }
+        : null,
+    );
+  };
+
   cachedImage: IntegrationStore['cachedImage'] = () => Promise.resolve(null);
   cacheImage: IntegrationStore['cacheImage'] = () => Promise.resolve();
 
@@ -131,6 +158,18 @@ export class MemoryIntegrationStore implements IntegrationStore {
   claimWebhookEvents: IntegrationStore['claimWebhookEvents'] = notModelled;
   connectionsDueForReconcile: IntegrationStore['connectionsDueForReconcile'] = notModelled;
   connectionForSystem: IntegrationStore['connectionForSystem'] = notModelled;
+
+  connectionsForPushScan: IntegrationStore['connectionsForPushScan'] = () =>
+    Promise.resolve(
+      this.connections
+        .filter((c) => c.status === 'connected' || c.status === 'syncing')
+        .map((c) => ({
+          workspaceId: c.workspaceId,
+          connectionId: c.id,
+          createdAt: c.createdAt,
+          pushOrders: c.settings.pushOrders,
+        })),
+    );
 }
 
 function notModelled(): Promise<never> {

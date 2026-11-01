@@ -15,6 +15,7 @@ export class UnavailableIntegrationStore implements IntegrationStore {
   enqueue = unavailable;
   log = unavailable;
   recentLog = unavailable;
+  latestPushJob = unavailable;
   cachedImage = unavailable;
   cacheImage = unavailable;
   claimJobs = unavailable;
@@ -24,5 +25,6 @@ export class UnavailableIntegrationStore implements IntegrationStore {
   failJob = unavailable;
   claimWebhookEvents = unavailable;
   connectionsDueForReconcile = unavailable;
+  connectionsForPushScan = unavailable;
   connectionForSystem = unavailable;
 }
