@@ -30,7 +30,7 @@ import { useCan } from '@/lib/permissions';
 import { ContactConversations } from './contact-conversations';
 import { InboxContactControls } from './inbox-contact-controls';
 import { useCurrentWorkspace } from '@/features/workspace/api/use-current-workspace';
-import { StayRequestForm } from '@/features/commerce/components/stay-request-form';
+import { ConversationBookings } from '@/features/lodging/components/conversation-bookings';
 
 /** Orders created in this session; the linked customer is stored on the conversation (T-088). */
 export interface InboxCustomerContext {
@@ -188,10 +188,15 @@ export function InboxSalesPanel({
       {slots.tags}
       <NotesBlock conversation={c} />
       {workspace.data?.industry === 'hotel' ? (
-        <HotelStayPanel
-          name={contact?.name ?? c.customerName}
-          phone={contact?.phone ?? c.customerPhone ?? ''}
-        />
+        <PanelBlock title={t('lodging.conv.title')}>
+          <ConversationBookings
+            conversationId={c.id}
+            contactId={c.contactId ?? null}
+            guestName={contact?.name ?? c.customerName}
+            guestPhone={contact?.phone ?? c.customerPhone ?? ''}
+            source={c.provider === 'facebook' ? 'messenger' : 'other'}
+          />
+        </PanelBlock>
       ) : (
         <PanelBlock
           title={t('channelInbox.v2.panel.orders')}
@@ -288,43 +293,6 @@ export function InboxSalesPanel({
         renderConversations={(contactId) => <ContactConversations contactId={contactId} />}
       />
     </div>
-  );
-}
-
-function HotelStayPanel({ name, phone }: { name: string; phone: string }) {
-  const { t } = useTranslation(),
-    canCreate = useCan('orders.manage');
-  const [open, setOpen] = useState(false);
-  return (
-    <PanelBlock title={t('lodging.requestsTitle')}>
-      <div className="space-y-3">
-        <p className="text-xs text-muted-foreground">{t('lodging.requestsIntro')}</p>
-        <Button asChild variant="outline" size="sm" className="w-full">
-          <Link to="/app/bookings">{t('lodging.requestsTitle')}</Link>
-        </Button>
-        {canCreate && (
-          <Button variant="outline" size="sm" className="w-full" onClick={() => setOpen(true)}>
-            <Plus />
-            {t('lodging.newRequest')}
-          </Button>
-        )}
-      </div>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{t('lodging.newRequest')}</DialogTitle>
-            <DialogDescription>{t('lodging.requestsIntro')}</DialogDescription>
-          </DialogHeader>
-          {open && (
-            <StayRequestForm
-              initialName={name}
-              initialPhone={phone}
-              onSaved={() => setOpen(false)}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
-    </PanelBlock>
   );
 }
 

@@ -22,6 +22,8 @@ export interface BookingCreateInitial {
   guestPhone?: string;
   contactId?: string | null;
   conversationId?: string | null;
+  /** Where the guest came from; default `phone`. */
+  source?: BookingSource;
 }
 
 export interface BookingDraft extends PriceFields {
@@ -50,7 +52,7 @@ export function draftFrom(initial: BookingCreateInitial = {}): BookingDraft {
     party: initial.party ?? EMPTY_PARTY,
     guestName: initial.guestName ?? '',
     guestPhone: initial.guestPhone ?? '',
-    source: 'phone',
+    source: initial.source ?? 'phone',
     note: '',
     blockReason: '',
     adjustment: 0,
