@@ -305,6 +305,7 @@ export class MetaInboxProcessor {
           conversationId: c.id,
           isTest: false,
           channel: c.provider,
+          contactId: c.contactId ?? null,
           sink: delivery.sink(),
           // The last allowed re-run gets no interrupt check: it runs to completion.
           ...(finishing ? {} : { shouldInterrupt: () => this.shouldInterrupt(turn, delivery) }),

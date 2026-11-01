@@ -72,6 +72,6 @@ Known effects of the backfill, valid for one release:
 The bot list and bot training menu use the same named on/off switch. Users need bots.manage; pending changes disable the switch. List/detail caches update together and revert when the API rejects a save. Switching off keeps page assignments intact and uses the existing runtime stop checks. Existing basic and advanced settings remain under Bot settings.
 
 
-## Hotel accommodations (T-155)
+## Hotel properties (T-160; replaces T-155 accommodations)
 
-Hotel product routes show the whole-property accommodation editor, including guest standards, bedroom layout, weekday references, unknown policies and a captioned gallery of up to 30 photos. The five-image retail limit remains unchanged. Hotel bots default to sales-agent@12, and lodging requires no warehouse stock. See [lodging operations](lodging.md).
+For a hotel bot the training menu item "Sản phẩm" is **Căn & phòng** (`/app/bots/{id}/products`): one sells/doesn't-sell switch per lodging property (`lodging_bot_properties`; no selection = every property). Properties, rooms, prices, policies and the captioned gallery are edited under Căn (`/app/properties`), not in the product editor. Hotel bots default to `sales-agent@17` and read only lodging properties. See [lodging operations](lodging.md).
