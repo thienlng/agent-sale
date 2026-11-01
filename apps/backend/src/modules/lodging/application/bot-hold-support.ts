@@ -130,6 +130,7 @@ export function requiredNights(o: FreeOption, rates: RateRule[]): number | null 
 export function toBotOption(o: FreeOption, rates: RateRule[]): BotAvailabilityOption {
   const names = new Map(o.units.map((u) => [u.id, u.name]));
   const minNights = requiredNights(o, rates);
+  const warnings = o.quote.warnings;
   return {
     propertyId: o.property.id,
     code: o.property.code,
@@ -138,7 +139,8 @@ export function toBotOption(o: FreeOption, rates: RateRule[]): BotAvailabilityOp
     unitIds: o.property.sellMode === 'rooms' ? o.unitIds : [],
     unitNames: o.property.sellMode === 'rooms' ? o.unitIds.map((id) => names.get(id) ?? '') : [],
     fits: o.fits,
-    overStandard: o.quote.warnings.includes('over_standard'),
+    // Above the maximum the option is not offered at all: never "fits with staff approval".
+    overStandard: warnings.includes('over_standard') && !warnings.includes('over_max'),
     minNights,
     problems: o.quote.warnings.includes('min_nights') ? ['min_nights'] : [],
     totalSell: o.quote.totalSell,

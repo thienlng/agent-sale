@@ -65,7 +65,8 @@ export interface BotAvailabilityOption {
   fits: boolean;
   /**
    * Guests above the standard capacity that no surcharge covers (no surcharge price set, or
-   * children above the standard with no child surcharge): staff must check.
+   * children above the standard with no child surcharge): staff must check. Always false when
+   * the party is above the property's maximum (`fits` false): that option is not offered.
    */
   overStandard: boolean;
   /** The minimum stay this option needs when the asked nights are fewer, else null. */
