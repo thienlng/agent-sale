@@ -19,6 +19,7 @@ import { addDays, todayNight } from '../lib/format';
 import { STATUS_STYLE } from './booking-status-badge';
 import { PropertiesTable, type PropertyWarning } from './properties-table';
 import { PropertyCreateDialog } from './property-create-dialog';
+import { CoverImage } from './cover-image';
 
 const TODAY_STYLE: Record<PropertySummary['today'], string> = {
   free: 'border-border text-muted-foreground',
@@ -177,13 +178,7 @@ function PropertyCard({
       {/* Fixed 4:3 crop; the absolute image cannot stretch the box (aspect-ratio min-height). */}
       <div className="relative aspect-[4/3] shrink-0 overflow-hidden bg-muted">
         {cover ? (
-          <img
-            src={cover.url}
-            alt={cover.caption}
-            loading="lazy"
-            referrerPolicy="no-referrer"
-            className="absolute inset-0 size-full object-cover"
-          />
+          <CoverImage src={cover.url} alt={cover.caption} />
         ) : (
           <div className="grid size-full place-items-center text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">
