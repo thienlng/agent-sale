@@ -13,13 +13,15 @@ a 503 `UNAVAILABLE` stand-in when the process has no database).
 **Public API (`api/`):**
 
 - `INTEGRATION_FACADE` → `IntegrationFacade` _(use cases planned)_
+- `INTEGRATION_RUNNER` → `IntegrationRunner.tick()`, run every 2 s by the `worker` entry (guarded against overlap,
+  like the analytics projector): `application/sync-runner.ts`.
 - HTTP and DTOs: `packages/contracts/src/integration/` — `GET /integrations`, `POST /integrations/kiotviet/test`,
   `POST|PATCH|DELETE /integrations/kiotviet`, `POST /integrations/kiotviet/sync`, `GET /integrations/kiotviet/log`
   (`interface/http/integration.controller.ts` → `application/connection.service.ts`). GETs need
   `catalog.manage`, writes `settings.manage`.
 - Events: none yet.
 
-**Depends on:** the `commerce` (`CATALOG_SYNC_FACADE`), `crm` and `workspace` facades. Nothing depends on
+**Depends on:** the `commerce` (`CATALOG_SYNC_FACADE`: partial upserts, removals, stock, pictures, linked ids), `crm` and `workspace` facades. Nothing depends on
 `integration` (tier 3, docs/ARCHITECTURE.md §3).
 
 **Events consumed:** none.
@@ -67,6 +69,30 @@ a 503 `UNAVAILABLE` stand-in when the process has no database).
   `last_error = 'connection_disconnected'`) instead of claimed. Webhook deliveries are claimed at most once
   (marked processed in the claiming statement; reconcile covers a loss); a disconnected connection's
   deliveries are consumed but not returned. The sync log keeps the newest 200 entries per connection.
+- Sync (`SyncService` → `CatalogImport` / `CatalogWriter`, `WebhookApplier`): the tick queues a `reconcile` for
+  connections due (last one > 10 min ago, scanned once a minute), runs ≤ 5 claimed jobs (lease 5 min) one after
+  the other, then applies ≤ 50 webhook deliveries; without a database it does nothing. A `full_import` (or a
+  `reconcile` with `payload.full`, or one with no `lastReconcileAt`) sets `syncing` + `progress` and reads
+  products (pages of 100), then on-hands of the sale branches, saving the cursor (`phase`, `currentItem`, the
+  sale branches used, start time, seen KiotViet ids as sorted number arrays) after every page; a retry resumes
+  there. A plain `reconcile` reads changes since `lastReconcileAt − 2 min` and archives `removeId`s. Before
+  each page and write batch the connection is re-read: disconnected → the job completes without writing. Jobs
+  of a connection whose connect failed, and `webhook` jobs, complete with no work. Groups whose master is not
+  in the page fetch it by id (a vanished master drops the group). Every upsert is `{ partial: true }`; a full
+  import that read every page in full archives linked products and variants it did not see. Pictures go
+  through the image cache; failures are counted (`image_failed {count}` once per run). An item's link or
+  code race (`CONFLICT`) is retried once, then logged `sku_conflict {sku}`, as is every skipped SKU. Success:
+  `connected`, `progress` null, `lastError` null, `counts.products`, `lastReconcileAt` = run start (and
+  `lastFullSyncAt`, `full_sync_done {products, images_failed}` for full runs); a sale-branch change during the
+  run queues `reconcile {full: true}`. Errors: auth/retailer/permission (or a secret that no longer opens) →
+  `error` + `lastError.code = 'auth_failed'`, `failJob`, `auth_failed` logged once; anything else retries at
+  +1/+5/+30 min, then fails with `error` status and `kiotviet_unavailable` or `sync_failed`. A `false` from
+  any fenced job write stops the job at once.
+- Webhook deliveries: signature = HMAC-SHA256 keyed by the registered secret text (`webhookSigningKey`, one
+  line to change); bad → `webhook_bad_signature`, dropped. `Notifications[].Action` loses its retailer
+  suffix; `product.update` / `stock.update` re-read the products by id (never the payload) and upsert the
+  group / set stock from their inventories; `product.delete` archives the `RemoveId`s; other actions log
+  `webhook_unknown {type}` once per type and process.
 - Never log secrets, tokens or customer data: log codes and counts (rule 07).
 
 **Do not:** read `commerce`/`crm` tables (use their facades); put HTTP, Zod or Drizzle types in `domain/`.

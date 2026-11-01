@@ -6,11 +6,17 @@ import { DB_SYSTEM, DB_TENANT } from '../../common/db/db.module.js';
 import { SECRET_BOX, SecretBox } from '../../common/security/secret-box.js';
 import { CommerceModule } from '../commerce/commerce.module.js';
 import { INTEGRATION_FACADE } from './api/integration.facade.js';
+import { INTEGRATION_RUNNER } from './api/integration.runner.js';
+import { CatalogImport } from './application/catalog-import.js';
+import { CatalogWriter } from './application/catalog-writer.js';
 import { ConnectionService } from './application/connection.service.js';
 import { IntegrationFacadeImpl } from './application/integration.facade.impl.js';
 import { INTEGRATION_OPTIONS } from './application/integration-options.js';
 import { INTEGRATION_STORE } from './application/ports/integration-store.js';
 import { KIOTVIET_GATEWAY } from './application/ports/kiotviet-gateway.js';
+import { SyncService } from './application/sync.service.js';
+import { SyncRunner } from './application/sync-runner.js';
+import { WebhookApplier } from './application/webhook-apply.js';
 import { KiotVietClient } from './infrastructure/clients/kiotviet-client.js';
 import { DrizzleIntegrationStore } from './infrastructure/persistence/integration.drizzle-store.js';
 import { UnavailableIntegrationStore } from './infrastructure/persistence/unavailable-store.js';
@@ -44,7 +50,13 @@ import { IntegrationController } from './interface/http/integration.controller.j
       useFactory: () => ({ webhookBaseUrl: getEnv().PUBLIC_WEBHOOK_BASE_URL }),
     },
     ConnectionService,
+    CatalogWriter,
+    CatalogImport,
+    SyncService,
+    WebhookApplier,
+    SyncRunner,
+    { provide: INTEGRATION_RUNNER, useExisting: SyncRunner },
   ],
-  exports: [INTEGRATION_FACADE],
+  exports: [INTEGRATION_FACADE, INTEGRATION_RUNNER],
 })
 export class IntegrationModule {}

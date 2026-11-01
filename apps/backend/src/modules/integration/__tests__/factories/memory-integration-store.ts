@@ -120,17 +120,17 @@ export class MemoryIntegrationStore implements IntegrationStore {
     );
   }
 
-  cachedImage = () => Promise.resolve(null);
-  cacheImage = () => Promise.resolve();
+  cachedImage: IntegrationStore['cachedImage'] = () => Promise.resolve(null);
+  cacheImage: IntegrationStore['cacheImage'] = () => Promise.resolve();
 
-  claimJobs = notModelled;
-  saveCursor = notModelled;
-  completeJob = notModelled;
-  retryJob = notModelled;
-  failJob = notModelled;
-  claimWebhookEvents = notModelled;
-  connectionsDueForReconcile = notModelled;
-  connectionForSystem = notModelled;
+  claimJobs: IntegrationStore['claimJobs'] = notModelled;
+  saveCursor: IntegrationStore['saveCursor'] = notModelled;
+  completeJob: IntegrationStore['completeJob'] = notModelled;
+  retryJob: IntegrationStore['retryJob'] = notModelled;
+  failJob: IntegrationStore['failJob'] = notModelled;
+  claimWebhookEvents: IntegrationStore['claimWebhookEvents'] = notModelled;
+  connectionsDueForReconcile: IntegrationStore['connectionsDueForReconcile'] = notModelled;
+  connectionForSystem: IntegrationStore['connectionForSystem'] = notModelled;
 }
 
 function notModelled(): Promise<never> {
