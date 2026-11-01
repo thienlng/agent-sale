@@ -62,6 +62,17 @@ describe('ProductsList', () => {
     expect(otherRow).not.toHaveTextContent('KiotViet');
   });
 
+  it('renders products from an API that predates the PMS link (no `external` key)', async () => {
+    const { external: _ignored, ...legacy } = SHOE;
+    const { fetchStub } = stubFetch({
+      'GET /products?status=active&page=1&pageSize=20': page([legacy]),
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithRouter(() => <ProductsList pmsLink={null} />);
+    const row = (await screen.findByText('Giày sneaker')).closest('tr');
+    expect(row).not.toHaveTextContent('KiotViet');
+  });
+
   it('filters by source once connected', async () => {
     const { calls } = setup(LINK);
     await screen.findByText('Giày sneaker');

@@ -154,8 +154,14 @@ export const ProductDto = z.object({
   priceMax: Money,
   /** Σ available over variants and warehouses. */
   available: z.number().int(),
-  /** The PMS record this product is synced from; null for a product managed in Rapiz. */
-  external: z.object({ source: z.literal('kiotviet'), id: z.string() }).nullable(),
+  /**
+   * The PMS record this product is synced from; null for a product managed in Rapiz. A response
+   * from an API older than the field (web deployed first) reads as null.
+   */
+  external: z
+    .object({ source: z.literal('kiotviet'), id: z.string() })
+    .nullable()
+    .default(null),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 });

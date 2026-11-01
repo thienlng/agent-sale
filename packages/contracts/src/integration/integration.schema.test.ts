@@ -92,8 +92,9 @@ describe('integration routes', () => {
 });
 
 describe('product external link', () => {
-  it('requires the external key and allows null', () => {
+  it('allows null and reads a missing key (older API) as null', () => {
     expect(ProductDto.shape.external.parse(null)).toBeNull();
+    expect(ProductDto.shape.external.parse(undefined)).toBeNull();
     expect(ProductDto.shape.external.parse({ source: 'kiotviet', id: '42' })).toEqual({
       source: 'kiotviet',
       id: '42',
