@@ -628,6 +628,56 @@ describe('lodging v2 bookings over HTTP', () => {
     expect(moved.totalSell).toBe(32_000_000);
   });
 
+  it('a migrated stay without a stored quote keeps its totals on a note edit', async () => {
+    const o = await signup();
+    const p = await villa(o.headers);
+    const b = await book(
+      o.headers,
+      stay(p.id, 10, 12, { status: 'confirmed', manualTotalSell: 15_000_000 }),
+    );
+    // T-155 stay requests were copied by migration 0041 without a quote.
+    await owner.db
+      .update(schema.lodgingBookings)
+      .set({ quote: null })
+      .where(eq(schema.lodgingBookings.id, b.id));
+    const noted = await ok(
+      await call(o.headers, 'PATCH', `/lodging/bookings/${b.id}`, {
+        version: 1,
+        note: 'Migrated',
+      }),
+      BookingDetail,
+    );
+    expect(noted).toMatchObject({
+      note: 'Migrated',
+      quote: null,
+      totalSell: b.totalSell,
+      totalCost: b.totalCost,
+    });
+    const adjusted = await ok(
+      await call(o.headers, 'PATCH', `/lodging/bookings/${b.id}`, {
+        version: 2,
+        adjustment: -1_000_000,
+      }),
+      BookingDetail,
+    );
+    expect(adjusted).toMatchObject({ quote: null, totalSell: 14_000_000 });
+  });
+
+  it('reordered child ages are a party change, like on the web', async () => {
+    const o = await signup();
+    const p = await villa(o.headers);
+    const b = await book(
+      o.headers,
+      stay(p.id, 10, 12, { manualTotalSell: 15_000_000, party: { adults: 2, childAges: [3, 8] } }),
+    );
+    const r = await call(o.headers, 'PATCH', `/lodging/bookings/${b.id}`, {
+      version: 1,
+      party: { adults: 2, childAges: [8, 3] },
+    });
+    expect(r.statusCode, r.body).toBe(400);
+    expect(r.json()).toMatchObject({ error: { details: { field: 'manualTotalSell' } } });
+  });
+
   it('a note edit on a whole stay of a rooms property survives a room change', async () => {
     const o = await signup();
     const p = await homestay(o.headers);

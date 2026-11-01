@@ -161,16 +161,24 @@ export function manualTotalForEdit(
 /**
  * Totals of an edit that keeps the dates, units and party: the stored base (manual price or the
  * stored quote's total) plus the new adjustment; a requested manual price still overrides it.
+ * Without a stored quote (migrated stays) the stored total and cost are kept as the base.
  */
 export function keptTotals(
   b: BookingRecord,
   requested: number | null | undefined,
   adjustment: number,
 ): { totalSell: number | null; totalCost: number | null } {
-  if (!b.quote) throw new LodgingError('CONFLICT', 'The booking has no stored quote');
-  const base =
-    requested !== undefined ? requested : b.totalSell === null ? null : b.totalSell - b.adjustment;
-  return totals(b.quote, base, adjustment);
+  const stored = b.totalSell === null ? null : b.totalSell - b.adjustment;
+  if (!b.quote) {
+    // Stays copied from T-155 stay requests (migration 0041) have no stored quote.
+    const base = requested ?? stored;
+    if (base === null) return { totalSell: null, totalCost: b.totalCost };
+    if (base + adjustment < 0) {
+      throw new LodgingError('VALIDATION_FAILED', 'The adjustment makes the total negative');
+    }
+    return { totalSell: base + adjustment, totalCost: b.totalCost };
+  }
+  return totals(b.quote, requested !== undefined ? requested : stored, adjustment);
 }
 
 /**

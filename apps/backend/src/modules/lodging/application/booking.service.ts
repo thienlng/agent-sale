@@ -237,7 +237,10 @@ export class BookingService {
         !inHouse &&
         (whole !== b.whole ||
           (!whole && req.unitIds !== undefined && !sameSet(req.unitIds, b.unitIds)));
-      const partyChanged = party.adults !== b.adults || !sameSet(party.childAges, b.childAges);
+      const partyChanged =
+        party.adults !== b.adults ||
+        party.childAges.length !== b.childAges.length ||
+        party.childAges.some((age, i) => age !== b.childAges[i]);
       // Only a change of dates or units re-takes nights (and re-resolves a whole rental's rooms).
       const retake = datesChanged || unitsChanged;
       const unitIds =

@@ -271,6 +271,77 @@ describe('BookingSheet view', () => {
     expect(calls.some((c) => c.key === 'POST /lodging/quote')).toBe(false);
   });
 
+  it('treats re-picked rooms in another order as the same rooms', async () => {
+    const R1 = '0193a000-0000-7000-8000-000000000021';
+    const R2 = '0193a000-0000-7000-8000-000000000022';
+    const room = (id: string, name: string, sortOrder: number) => ({
+      id,
+      kind: 'room',
+      name,
+      beds: '',
+      capacityAdults: 2,
+      capacityChildren: 0,
+      active: true,
+      sortOrder,
+    });
+    const homestay = {
+      ...property,
+      area: '',
+      address: '',
+      description: '',
+      sellMode: 'rooms',
+      status: 'active',
+      maxGuests: null,
+      childFreeBelow: 6,
+      childAdultFrom: 12,
+      amenities: [],
+      layout: [],
+      policies: {
+        checkInTime: '',
+        checkOutTime: '',
+        deposit: '',
+        cancellation: '',
+        houseRules: '',
+        other: '',
+      },
+      gallery: [],
+      units: [room(R1, 'P101', 0), room(R2, 'P102', 1)],
+      rates: [],
+      surcharges: { extraAdult: null, extraChild: null },
+      version: 1,
+      createdAt: '2099-10-30T00:00:00.000Z',
+      updatedAt: '2099-10-30T00:00:00.000Z',
+    } as unknown as PropertyDto;
+    const manual = booking({
+      whole: false,
+      unitIds: [R1, R2],
+      unitNames: ['P101', 'P102'],
+      totalSell: 20_000_000,
+    });
+    const calls = stubApi({
+      [`GET /lodging/bookings/${BK}`]: { status: 200, body: manual },
+      [`GET /lodging/properties/${PROP}`]: { status: 200, body: homestay },
+      [`PATCH /lodging/bookings/${BK}`]: { status: 200, body: manual },
+    });
+    const user = userEvent.setup();
+    renderSheet({ mode: 'view', bookingId: BK });
+    const sheet = await screen.findByRole('dialog');
+    await user.click(await within(sheet).findByRole('button', { name: 'Sửa' }));
+    const p101 = await within(sheet).findByRole('button', { name: 'P101' });
+    await user.click(p101);
+    await user.click(p101); // now [R2, R1]
+    expect(within(sheet).queryByText(/Nhập giá thủ công mới/)).toBeNull();
+    await user.type(within(sheet).getByLabelText('Ghi chú'), 'Tầng 2');
+    await user.click(within(sheet).getByRole('button', { name: 'Lưu' }));
+    await waitFor(() =>
+      expect(calls.find((c) => c.key.startsWith('PATCH'))?.body).toEqual({
+        version: 3,
+        note: 'Tầng 2',
+      }),
+    );
+    expect(calls.some((c) => c.key === 'POST /lodging/quote')).toBe(false);
+  });
+
   it('lets a view-only member read a booking without actions or editing', async () => {
     can.value = false;
     stubApi({ [`GET /lodging/bookings/${BK}`]: { status: 200, body: booking() } });

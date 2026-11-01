@@ -22,6 +22,9 @@ import { QuoteBreakdown } from './quote-breakdown';
 
 const sameList = (a: readonly unknown[], b: readonly unknown[]) =>
   a.length === b.length && a.every((x, i) => x === b[i]);
+/** Rooms are a set (the server compares them so); child ages stay ordered on both sides. */
+const sameSet = (a: readonly string[], b: readonly string[]) =>
+  sameList([...new Set(a)].sort(), [...new Set(b)].sort());
 
 /** The room total typed by staff when the booking was saved, or null when it used the quote. */
 export function storedManualTotal(b: BookingDetail): number | null {
@@ -77,7 +80,7 @@ export function BookingEditForm({
     checkIn !== booking.checkIn ||
     checkOut !== booking.checkOut ||
     whole !== booking.whole ||
-    (!whole && !sameList(unitIds, booking.unitIds)) ||
+    (!whole && !sameSet(unitIds, booking.unitIds)) ||
     party.adults !== booking.party.adults ||
     !sameList(party.childAges, booking.party.childAges);
   // A checked-in stay only moves its check-out; when it does, its price is shown (and a manual
@@ -110,7 +113,7 @@ export function BookingEditForm({
     if (checkOut !== booking.checkOut) out.checkOut = checkOut;
     if (!checkedIn) {
       if (checkIn !== booking.checkIn) out.checkIn = checkIn;
-      if (whole !== booking.whole || !sameList(unitIds, booking.unitIds)) {
+      if (whole !== booking.whole || (!whole && !sameSet(unitIds, booking.unitIds))) {
         out.whole = whole;
         out.unitIds = whole ? [] : unitIds;
       }
