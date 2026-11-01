@@ -11,8 +11,9 @@ import {
   ExternalImageError,
   ExternalLinkConflictError,
 } from '../../commerce/api/index.js';
-import { CatalogImport } from '../application/catalog-import.js';
+import { CatalogImport, SWEEP_CAP } from '../application/catalog-import.js';
 import { CatalogWriter } from '../application/catalog-writer.js';
+import { ConnectionService } from '../application/connection.service.js';
 import type {
   ClaimedWebhookEvent,
   ConnectionRecord,
@@ -138,8 +139,24 @@ class MemoryCatalog {
   }));
   archiveUnlinkedVariants = vi.fn(async () => 0);
   previewExternalMatch = vi.fn();
-  releaseExternalSource = vi.fn();
+  /** Unlinks every product, as commerce clears the link columns. */
+  releaseExternalSource = vi.fn(async () => {
+    const n = this.products.size;
+    this.products.clear();
+    return n;
+  });
 }
+
+/** A product already linked in Rapiz under this KiotViet id. */
+const linkedItem = (id: string): ExternalCatalogItem => ({
+  externalId: id,
+  name: `Old ${id}`,
+  description: '',
+  category: null,
+  active: true,
+  imageUrls: [],
+  variants: [{ externalId: id, sku: `OLD${id}`, name: '', price: 1, weightGram: 0, position: 0 }],
+});
 
 const product = (id: number, over: Partial<KvProduct> = {}): KvProduct => ({
   id,
@@ -234,7 +251,7 @@ function job(over: Partial<JobRecord> = {}): JobRecord {
     kind: 'full_import',
     payload: {},
     cursor: null,
-    attempts: 1,
+    attempts: 0,
     claimToken: `claim-${jobSeq}`,
     ...over,
   };
@@ -253,12 +270,16 @@ beforeEach(() => {
   catalog = new MemoryCatalog();
   const facade = catalog as unknown as CatalogSyncFacade;
   const writer = new CatalogWriter(store, gateway, facade);
-  sync = new SyncService(store, new CatalogImport(store, gateway, facade, writer), box);
+  sync = new SyncService(store, new CatalogImport(store, gateway, facade, writer), box, writer);
   webhooks = new WebhookApplier(store, gateway, facade, writer, box);
   store.connections.push(connection());
 });
 
 const conn = () => store.connections[0]!;
+const connections = () =>
+  new ConnectionService(store, gateway, catalog as unknown as CatalogSyncFacade, box, {
+    webhookBaseUrl: undefined,
+  });
 
 describe('SyncService full import', () => {
   it('imports every page, then stock, then marks the connection connected', async () => {
@@ -315,7 +336,7 @@ describe('SyncService full import', () => {
     expect(saved).toMatchObject({ phase: 'products', currentItem: 100 });
 
     gateway.productCalls = [];
-    await sync.runJob(job({ id: first.id, cursor: saved, attempts: 2 }));
+    await sync.runJob(job({ id: first.id, cursor: saved, attempts: 1 }));
     expect(gateway.productCalls.map((c) => c.currentItem)).toEqual([100]);
     expect(store.completed).toEqual([first.id]);
     expect(conn().status).toBe('connected');
@@ -382,6 +403,48 @@ describe('SyncService full import', () => {
     await sync.runJob(job());
     expect(catalog.removed).toEqual([]);
     expect(catalog.archiveUnlinkedVariants).not.toHaveBeenCalled();
+    expect(conn().status).toBe('connected');
+  });
+
+  it('does not sweep when the product total changed between pages', async () => {
+    catalog.products.set('900', linkedItem('900'));
+    gateway.catalog = Array.from({ length: 150 }, (_, i) => product(i + 1));
+    const products = gateway.products.bind(gateway);
+    gateway.products = async (c, q) => {
+      const page = await products(c, q);
+      // A product created in KiotViet while the import ran shifts the pages.
+      if (q.currentItem === 0) gateway.catalog.unshift(product(5000));
+      return page;
+    };
+    await sync.runJob(job());
+    expect(store.cursors.at(-1)).toMatchObject({ incomplete: true, productTotal: 150 });
+    expect(catalog.removed).toEqual([]);
+    expect(catalog.archiveUnlinkedVariants).not.toHaveBeenCalled();
+  });
+
+  it('keeps a stale product KiotViet still has (missed by the paging, not deleted)', async () => {
+    catalog.products.set('900', linkedItem('900'));
+    catalog.products.set('901', linkedItem('901'));
+    gateway.catalog = [product(1)];
+    const byId = gateway.productById.bind(gateway);
+    gateway.productById = async (c, id) => (id === 901 ? product(901) : byId(c, id));
+    await sync.runJob(job());
+    expect(catalog.removed).toEqual([['900']]);
+  });
+
+  it(`confirms and archives at most ${SWEEP_CAP} stale ids per run, then logs the rest`, async () => {
+    for (let id = 1000; id < 1000 + SWEEP_CAP + 5; id++) {
+      catalog.products.set(String(id), linkedItem(String(id)));
+    }
+    gateway.catalog = [product(1)];
+    const byId = vi.spyOn(gateway, 'productById');
+    await sync.runJob(job());
+    expect(byId).toHaveBeenCalledTimes(SWEEP_CAP);
+    expect(catalog.removed.flat()).toHaveLength(SWEEP_CAP);
+    expect(store.logs.find((l) => l.code === 'sweep_capped')).toMatchObject({
+      level: 'warning',
+      params: { count: 5 },
+    });
     expect(conn().status).toBe('connected');
   });
 
@@ -519,12 +582,12 @@ describe('SyncService errors and races', () => {
   it('KiotViet unavailable: retries at +1, +5, +30 min, then fails and logs', async () => {
     gateway.fail.products = new KiotVietUnavailableError();
     const now = Date.now();
-    for (const attempts of [1, 2, 3]) await sync.runJob(job({ attempts }));
+    for (const attempts of [0, 1, 2]) await sync.runJob(job({ attempts }));
     expect(store.retried.map((r) => Math.round((r.runAfter.getTime() - now) / 60_000))).toEqual([
       1, 5, 30,
     ]);
     expect(store.retried.every((r) => r.error === 'kiotviet_unavailable')).toBe(true);
-    await sync.runJob(job({ attempts: 4 }));
+    await sync.runJob(job({ attempts: 3 }));
     expect(store.failed.map((f) => f.error)).toEqual(['kiotviet_unavailable']);
     expect(store.codes()).toContain('kiotviet_unavailable');
     expect(conn()).toMatchObject({ status: 'error', lastError: { code: 'kiotviet_unavailable' } });
@@ -543,6 +606,51 @@ describe('SyncService errors and races', () => {
     expect(catalog.upserts).toEqual([]);
     expect(store.completed).toEqual([j.id]);
     expect(conn().status).toBe('disconnected');
+  });
+
+  it('a disconnect mid-page leaves no product linked', async () => {
+    gateway.catalog = Array.from({ length: 5 }, (_, i) => product(i + 1));
+    const upsert = catalog.upsertExternalProduct.getMockImplementation()!;
+    catalog.upsertExternalProduct.mockImplementationOnce(async (...args) => {
+      const res = await upsert(...args);
+      // The owner disconnects while the page is being written.
+      await connections().disconnect(ws);
+      return res;
+    });
+    const j = job();
+    await sync.runJob(j);
+    expect(conn().status).toBe('disconnected');
+    // The rest of the page stopped at the next item…
+    expect(catalog.upsertExternalProduct).toHaveBeenCalledTimes(1);
+    // …and nothing written before or after the release keeps its KiotViet link.
+    expect(catalog.products.size).toBe(0);
+    expect(store.completed).toEqual([j.id]);
+  });
+
+  it('releases again when a write lands between the release and the disconnected status', async () => {
+    gateway.catalog = [product(1), product(2)];
+    const upsert = catalog.upsertExternalProduct.getMockImplementation()!;
+    catalog.upsertExternalProduct.mockImplementationOnce(async (...args) => {
+      await catalog.releaseExternalSource();
+      const res = await upsert(...args);
+      conn().status = 'disconnected';
+      return res;
+    });
+    await sync.runJob(job());
+    expect(catalog.products.size).toBe(0);
+  });
+
+  it('does not release the links of a connection made again meanwhile', async () => {
+    gateway.catalog = [product(1), product(2)];
+    const upsert = catalog.upsertExternalProduct.getMockImplementation()!;
+    catalog.upsertExternalProduct.mockImplementationOnce(async (...args) => {
+      const res = await upsert(...args);
+      conn().status = 'disconnected';
+      store.connections.push(connection({ id: '0190f5c2-0000-7000-8000-0000000000c2' }));
+      return res;
+    });
+    await sync.runJob(job());
+    expect(catalog.releaseExternalSource).not.toHaveBeenCalled();
   });
 
   it('stops at once when the lease is lost', async () => {
@@ -584,13 +692,51 @@ describe('WebhookApplier', () => {
     store.connections[0] = connection({ status: 'connected' });
   });
 
-  it('drops a delivery with a bad signature', async () => {
+  it('drops deliveries with a bad signature, logging the first one per connection only', async () => {
     gateway.catalog = [product(1)];
     const body = { Id: 'd1', Notifications: [{ Action: 'product.update.1', Data: [{ Id: 1 }] }] };
     await webhooks.apply(delivery(body, 'sha256=00'));
     await webhooks.apply({ ...delivery(body), signature: null });
-    expect(store.codes()).toEqual(['webhook_bad_signature', 'webhook_bad_signature']);
+    for (let i = 0; i < 5; i++) await webhooks.apply(delivery(body, 'sha256=00'));
+    expect(store.codes()).toEqual(['webhook_bad_signature']);
     expect(catalog.upsertExternalProduct).not.toHaveBeenCalled();
+    // The process log keeps the count instead.
+    expect(vi.mocked(Logger.prototype.warn)).toHaveBeenCalledWith(
+      expect.stringContaining('1 webhook deliveries with a bad signature'),
+    );
+  });
+
+  it('a disconnect while a delivery applies releases what it wrote', async () => {
+    gateway.catalog = [product(1), product(2)];
+    const upsert = catalog.upsertExternalProduct.getMockImplementation()!;
+    catalog.upsertExternalProduct.mockImplementationOnce(async (...args) => {
+      const res = await upsert(...args);
+      // The owner disconnects right after the first write; the second must not stay linked.
+      await connections().disconnect(ws);
+      return res;
+    });
+    await webhooks.apply(
+      delivery({ Notifications: [{ Action: 'product.update.1', Data: [{ Id: 1 }, { Id: 2 }] }] }),
+    );
+    expect(conn().status).toBe('disconnected');
+    expect(catalog.upsertExternalProduct).toHaveBeenCalledTimes(1);
+    expect(catalog.products.size).toBe(0);
+  });
+
+  it('a disconnect landing after the last item check still releases the write', async () => {
+    gateway.catalog = [product(1)];
+    const upsert = catalog.upsertExternalProduct.getMockImplementation()!;
+    catalog.upsertExternalProduct.mockImplementationOnce(async (...args) => {
+      // Old order: release first, then status — the in-flight write lands in between.
+      await catalog.releaseExternalSource();
+      const res = await upsert(...args);
+      conn().status = 'disconnected';
+      return res;
+    });
+    await webhooks.apply(
+      delivery({ Notifications: [{ Action: 'product.update.1', Data: [{ Id: 1 }] }] }),
+    );
+    expect(catalog.products.size).toBe(0);
   });
 
   it('product.update refetches the product (not the payload) and writes its stock', async () => {

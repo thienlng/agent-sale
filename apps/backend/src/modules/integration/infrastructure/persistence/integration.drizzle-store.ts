@@ -297,8 +297,7 @@ export class DrizzleIntegrationStore implements IntegrationStore {
           for update skip locked)
         update integration_jobs j
         set lease_until = now() + ${leaseMs}::int * interval '1 millisecond',
-            claim_token = gen_random_uuid(),
-            attempts = j.attempts + 1
+            claim_token = gen_random_uuid()
         from picked where j.id = picked.id
         returning j.id, j.workspace_id, j.connection_id, j.kind, j.payload, j.cursor, j.attempts,
                   j.claim_token`);
@@ -340,8 +339,14 @@ export class DrizzleIntegrationStore implements IntegrationStore {
     return this.fencedUpdate(jobId, claimToken, { doneAt: new Date(), leaseUntil: null });
   }
 
+  /** Counts the failed attempt: only recorded failures count, never a re-claim after a lapsed lease. */
   retryJob(jobId: string, claimToken: string, runAfter: Date, error: string) {
-    return this.fencedUpdate(jobId, claimToken, { runAfter, leaseUntil: null, lastError: error });
+    return this.fencedUpdate(jobId, claimToken, {
+      runAfter,
+      leaseUntil: null,
+      lastError: error,
+      attempts: sql`${j.attempts} + 1`,
+    });
   }
 
   failJob(jobId: string, claimToken: string, error: string) {

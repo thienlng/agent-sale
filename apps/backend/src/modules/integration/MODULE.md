@@ -57,8 +57,11 @@ a 503 `UNAVAILABLE` stand-in when the process has no database).
   `lastError.code = 'connect_failed'` (best effort) and rethrows. `update` needs settings or credentials (`nothing_to_update`), checks `version`, accepts
   credentials only for the same store (`kiotviet_retailer_changed`), re-tests them, reseals and clears the error;
   a sale-branch change enqueues `reconcile` with `payload.full = true`. `syncNow` enqueues `reconcile` (409
-  `sync_running`). `disconnect` deletes the saved webhooks plus any KiotViet lists at the connection URL (best effort), releases the commerce links and sets
-  `disconnected`. Calls the owner waits on use `KIOTVIET_GATEWAY.interactive()`: one try, 10 s timeout, no
+  `sync_running`; 409 `connect_failed` when `lastError.code = 'connect_failed'`, whose jobs the runner never
+  runs: the owner must disconnect and connect again). `connected` is logged with `{ retailer, branches }`
+  (`SyncLogParams` in the contracts lists every code's params). `disconnect` deletes the saved webhooks plus
+  any KiotViet lists at the connection URL (best effort), sets `disconnected`, then releases the commerce
+  links (status first, so running writers stop before the release). Calls the owner waits on use `KIOTVIET_GATEWAY.interactive()`: one try, 10 s timeout, no
   retries or `Retry-After` waits, budget spent without waiting (background calls repay the debt; past 60
   calls of debt an interactive call fails fast with 503). A stored secret that no longer opens is
   `kiotviet_auth` (the "update the code" path), not a 500.
@@ -68,7 +71,9 @@ a 503 `UNAVAILABLE` stand-in when the process has no database).
   owner edits only (`settings`, `retailer`, `clientId`, `clientSecretSealed`; runner writes such as status,
   progress, counts and errors leave it), and a stale `expectedVersion` is `ConnectionVersionConflictError` (409). At most one open
   `full_import`/`reconcile` per connection (`enqueue` returns `false`). The worker claims jobs with
-  `FOR UPDATE SKIP LOCKED` (ready `run_after`, free or expired lease; new `claim_token`, `attempts + 1`);
+  `FOR UPDATE SKIP LOCKED` (ready `run_after`, free or expired lease; new `claim_token`); `attempts` counts
+  recorded failures only (`retryJob` increments it), so a re-claim after a lapsed lease (worker restart, slow
+  page) never spends a retry;
   cursor/complete/retry/fail are fenced by the claim token and return `false`
   when the lease was lost (the runner then aborts); `saveCursor` is the heartbeat that extends the lease. Only `full_import`, `reconcile` and `webhook`
   are claimed in PR 1. Idle open jobs of a disconnected connection are closed (`done_at`,
@@ -82,11 +87,15 @@ a 503 `UNAVAILABLE` stand-in when the process has no database).
   products (pages of 100), then on-hands of the sale branches, saving the cursor (`phase`, `currentItem`, the
   sale branches used, start time, seen KiotViet ids as sorted number arrays) after every page; a retry resumes
   there. A plain `reconcile` reads changes since `lastReconcileAt − 2 min` and archives `removeId`s. Before
-  each page and write batch the connection is re-read: disconnected → the job completes without writing. Jobs
+  each page, write batch and item upsert (`CatalogWriter.write`) the connection is re-read: disconnected →
+  `ConnectionGoneError`, the job completes, and the links are released again unless the workspace has a
+  live connection (a write may have landed after the disconnect's release). Jobs
   of a connection whose connect failed, and `webhook` jobs, complete with no work. Groups whose master is not
-  in the page fetch it by id (a vanished master drops the group). Every upsert is `{ partial: true }`; a full
-  import that read every page in full archives linked products and variants it did not see, and the
-  unlinked (Rapiz-only) variants left on linked products. Product pages are read without inventory
+  in the page fetch it by id (a vanished master drops the group). Every upsert is `{ partial: true }`; product pages are read
+  `orderBy=id` ascending (`PRODUCT_ORDER`); a full import that read every page in full, with the product
+  `total` unchanged since its first page (`cursor.productTotal`), archives linked products and variants it
+  did not see once `productById` confirms each is gone (at most `SWEEP_CAP` = 200 checked per run, the rest
+  logged `sweep_capped {count}`), and the unlinked (Rapiz-only) variants left on linked products. Product pages are read without inventory
   (`includeInventory` off); stock comes from the on-hands phase. Pictures go
   through the image cache; failures are counted (`image_failed {count}` once per run). An item's link or
   code race (`CONFLICT`) is retried once, then logged `sku_conflict {sku}`, as is every skipped SKU. Success:
@@ -94,10 +103,12 @@ a 503 `UNAVAILABLE` stand-in when the process has no database).
   `lastFullSyncAt`, `full_sync_done {products, images_failed}` for full runs); a sale-branch change during the
   run queues `reconcile {full: true}`. Errors: auth/retailer/permission (or a secret that no longer opens) →
   `error` + `lastError.code = 'auth_failed'`, `failJob`, `auth_failed` logged once; anything else retries at
-  +1/+5/+30 min, then fails with `error` status and `kiotviet_unavailable` or `sync_failed`. A `false` from
+  +1/+5/+30 min (by `attempts` = failures so far), then fails with `error` status and `kiotviet_unavailable` or `sync_failed`. A `false` from
   any fenced job write stops the job at once.
 - Webhook deliveries: signature = HMAC-SHA256 keyed by the registered secret text (`webhookSigningKey`, one
-  line to change); bad → `webhook_bad_signature`, dropped. `Notifications[].Action` loses its retailer
+  line to change); bad → dropped, `webhook_bad_signature` logged once per connection per process (the
+  process log counts them, warning at the 1st and every 100th). A disconnect seen while applying (per item,
+  and once more after the last) releases the links again, as for jobs. `Notifications[].Action` loses its retailer
   suffix; `product.update` / `stock.update` re-read the products by id (never the payload) and upsert the
   group / set stock from their inventories; `product.delete` archives the `RemoveId`s; other actions log
   `webhook_unknown {type}` once per type and process.

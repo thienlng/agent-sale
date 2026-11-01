@@ -16,6 +16,7 @@ import {
   type KiotVietGateway,
   type KvCredentials,
 } from './ports/kiotviet-gateway.js';
+import { ConnectionGoneError } from './sync-context.js';
 import { openCredentials } from './sync-credentials.js';
 
 /**
@@ -48,6 +49,12 @@ export class WebhookApplier {
   private readonly logger = new Logger(WebhookApplier.name);
   /** `connectionId:type` already reported as unknown by this process. */
   private readonly unknownSeen = new Set<string>();
+  /**
+   * Bad-signature deliveries per connection seen by this process. Only the first one reaches the
+   * owner's sync log (a misconfigured or hostile sender must not flood it); the process log keeps
+   * the running count.
+   */
+  private readonly badSignatures = new Map<string, number>();
 
   constructor(
     @Inject(INTEGRATION_STORE) private readonly store: IntegrationStore,
@@ -61,19 +68,33 @@ export class WebhookApplier {
     const c = await this.store.connectionForSystem(event.connectionId);
     if (!c || c.status === 'disconnected' || c.workspaceId !== event.workspaceId) return;
     if (!this.signed(c, event)) {
-      await this.store.log(c.workspaceId, c.id, {
-        level: 'warning',
-        code: 'webhook_bad_signature',
-      });
+      await this.badSignature(c);
       return;
     }
     try {
       const creds = openCredentials(this.secrets, c);
       for (const n of parseNotifications(event.body)) await this.notification(c, creds, n);
+      // A disconnect that landed between the last item check and its write: catch it here.
+      await this.writer.assertLive(c.id);
     } catch (error) {
+      if (error instanceof ConnectionGoneError) {
+        // Disconnected while applying: what was written after the release must not stay linked.
+        await this.writer.releaseIfDisconnected(c.workspaceId);
+        return;
+      }
       // The reconcile repairs what this delivery missed; auth errors surface on the next job.
       this.logger.warn(`Connection ${c.id}: webhook not applied (${errorName(error)})`);
     }
+  }
+
+  private async badSignature(c: ConnectionRecord): Promise<void> {
+    const count = (this.badSignatures.get(c.id) ?? 0) + 1;
+    this.badSignatures.set(c.id, count);
+    if (count === 1 || count % 100 === 0) {
+      this.logger.warn(`Connection ${c.id}: ${count} webhook deliveries with a bad signature`);
+    }
+    if (count > 1) return;
+    await this.store.log(c.workspaceId, c.id, { level: 'warning', code: 'webhook_bad_signature' });
   }
 
   private signed(c: ConnectionRecord, event: ClaimedWebhookEvent): boolean {

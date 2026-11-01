@@ -54,11 +54,13 @@ KiotViet ──webhook──▶ apps/webhook  POST /webhooks/kiotviet/:token ─
 ```
 
 - **Full import** (on connect, after a sale-branch change, and when "Đồng bộ ngay" finds no earlier
-  reconcile): reads every product page (100 per page), then the on-hand stock of the sale branches. The
-  cursor is saved after each page, so a restarted worker resumes. Matching the first time: a KiotViet code
-  equal to a Rapiz variant SKU (case-insensitive) links that Rapiz product (its bot settings stay); otherwise
-  a new product is created. After a complete import, linked products and variants that KiotViet no longer has
-  are archived, never deleted.
+  reconcile): reads every product page (100 per page, in a stable `orderBy=id` ascending order), then the
+  on-hand stock of the sale branches. The cursor is saved after each page, so a restarted worker resumes.
+  Matching the first time: a KiotViet code equal to a Rapiz variant SKU (case-insensitive) links that Rapiz
+  product (its bot settings stay); otherwise a new product is created. After a complete import (no short
+  page, and the product total unchanged from the first page to the last), linked products and variants the
+  import did not see are archived, never deleted, once KiotViet confirms each is gone (`GET /products/{id}`
+  → not found); at most 200 per run, the rest are checked on the next full import (`sweep_capped`).
 - **Webhooks** (`product.update`, `product.delete`, `stock.update`, registered on connect when
   `PUBLIC_WEBHOOK_BASE_URL` is set): the ingress stores the raw body; the worker checks the HMAC-SHA256
   signature (`X-Hub-Signature`), re-reads the products by id from KiotViet (the payload is never trusted)
@@ -77,8 +79,10 @@ read-only, with a "Sửa trên KiotViet" link to `https://<store>.kiotviet.vn`. 
 instructions** and the bots' product selection (`PATCH /products/{id}/bot-settings`). Products that exist only
 in Rapiz stay fully editable.
 
-**Disconnecting** deletes the webhooks at KiotViet (best effort), keeps every synced product, picture and
-stock figure, and removes the links: the products become ordinary Rapiz products, editable again.
+**Disconnecting** deletes the webhooks at KiotViet (best effort), marks the connection disconnected, then
+keeps every synced product, picture and stock figure and removes the links: the products become ordinary
+Rapiz products, editable again. A sync or webhook running at that moment stops at its next product; if it
+still wrote one after the links were removed, it removes the links again when it sees the disconnect.
 
 ## Limits
 
@@ -103,9 +107,10 @@ The activity list on the connection page shows these codes (i18n `integration.js
 | `auth_failed` | KiotViet rejected the credentials (secret rotated, API access revoked) or the stored secret cannot be decrypted (`SECRETS_ENCRYPTION_KEY` changed). Status `error`, sync stops. | **Cập nhật mã** with a fresh Client ID / secret of the same store. |
 | `kiotviet_unavailable` | KiotViet did not answer after retries (+1, +5, +30 min). | Nothing; the job retries. If it lasts, check KiotViet status. |
 | `sync_failed` | Another error after the retries. | Click **Đồng bộ ngay**; check the worker logs (codes only). |
-| `connect_failed` | The connect step failed after the connection row was created. | Disconnect, then connect again. |
+| `sweep_capped` | A full import found more than 200 linked products it did not see; 200 were checked with KiotViet, `count` wait for the next full import. | Nothing, unless it repeats (then check the worker logs). |
+| `connect_failed` | The connect step failed after the connection row was created. Such a connection never syncs: **Đồng bộ ngay** answers 409 `connect_failed`. | Disconnect (the error card has the button), then connect again. |
 | `webhook_register_failed` | Webhooks could not be registered (or `PUBLIC_WEBHOOK_BASE_URL` is unset). | Data still refreshes every 10 minutes; set the base URL and reconnect for instant updates. |
-| `webhook_bad_signature` | A delivery failed the HMAC check and was dropped. | Nothing, unless it repeats (then check the base URL and reconnect). |
+| `webhook_bad_signature` | A delivery failed the HMAC check and was dropped. Logged once per connection per worker process; the worker log keeps the count. | Check the worker log count; if it keeps rising, check the base URL and reconnect. |
 | `webhook_unknown` | A webhook type Rapiz does not handle. | Nothing. |
 
 Wizard errors: wrong Client ID / secret (`kiotviet_auth`), unknown store name (`kiotviet_retailer`), missing
@@ -128,5 +133,6 @@ The worker process must run (it executes the integration tick); see `docs/10-ope
 PR 1 was built against the public docs and a fake. Before relying on it in production, check on a trial
 store: the `branchIds` query format for on-hands, the status code for an unknown store name, whether the
 webhook HMAC key is the registered base64 secret text or its decoded bytes (`webhookSigningKey`, one line),
-the field names in webhook `Notifications[].Data`, whether `GET /webhooks` is paginated, and (for PR 2) the
-order status codes.
+the field names in webhook `Notifications[].Data` (`ID_KEYS` in `webhook-apply.ts`), that `/products`
+accepts `orderBy=id&orderDirection=Asc` (`PRODUCT_ORDER` in `kiotviet-client.ts`, one constant), whether
+`GET /webhooks` is paginated, and (for PR 2) the order status codes.

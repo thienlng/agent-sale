@@ -19,6 +19,7 @@ import {
   type KiotVietGateway,
   type KvCredentials,
 } from './ports/kiotviet-gateway.js';
+import { ConnectionGoneError } from './sync-context.js';
 
 export const SOURCE = 'kiotviet';
 
@@ -62,7 +63,11 @@ export class CatalogWriter {
     );
   }
 
-  /** Imports the pictures and upserts one item; conflicts are logged, never thrown. */
+  /**
+   * Imports the pictures and upserts one item; conflicts are logged, never thrown. The connection is
+   * re-read right before the upsert, so a disconnect stops the writes at the next item
+   * (`ConnectionGoneError`) instead of at the next page.
+   */
   async write(
     ws: WorkspaceId,
     connectionId: string,
@@ -70,6 +75,7 @@ export class CatalogWriter {
     stats: WriteStats,
   ): Promise<void> {
     const imageUrls = await this.images(ws, item.sourceImageUrls, stats);
+    await this.assertLive(connectionId);
     const input = {
       externalId: item.externalId,
       name: item.name,
@@ -93,6 +99,22 @@ export class CatalogWriter {
         }
       }
     }
+  }
+
+  /**
+   * After a disconnect raced a running job or webhook: writes that landed after the disconnect
+   * released the links would leave products linked (and locked) with no connection. Releases them
+   * again, unless the business has connected again meanwhile (its links belong to the new connection).
+   */
+  async releaseIfDisconnected(ws: WorkspaceId): Promise<void> {
+    if (await this.store.liveConnection(ws, SOURCE)) return;
+    await this.catalog.releaseExternalSource(ws, SOURCE);
+  }
+
+  /** Throws `ConnectionGoneError` once the connection is disconnected (or gone). */
+  async assertLive(connectionId: string): Promise<void> {
+    const c = await this.store.connectionForSystem(connectionId);
+    if (!c || c.status === 'disconnected') throw new ConnectionGoneError();
   }
 
   /** Stock rows for commerce: what the sale branches can sell of each KiotViet product. */

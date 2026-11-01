@@ -145,7 +145,8 @@
     "webhook_bad_signature": "Ignored an invalid notification",
     "webhook_unknown": "Ignored an unknown notification from KiotViet",
     "sync_failed": "Sync failed, will retry",
-    "connect_failed": "The first sync failed. Click Sync now to retry.",
+    "sweep_capped": "{{count}} more products will be checked again on the next sync",
+    "connect_failed": "The connection did not finish setting up, so it cannot sync. Disconnect, then connect again to retry.",
     "unknown": "Other sync event",
     "level": {
       "info": "Info",

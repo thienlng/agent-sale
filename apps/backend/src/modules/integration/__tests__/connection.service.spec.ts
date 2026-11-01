@@ -1,4 +1,4 @@
-import { ConnectionDto, KiotVietTestResponse } from '@agent-sales/contracts';
+import { ConnectionDto, KiotVietTestResponse, SyncLogParams } from '@agent-sales/contracts';
 import { workspaceId } from '@agent-sales/shared';
 import { Logger } from '@nestjs/common';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -7,6 +7,7 @@ import { SecretBox } from '../../../common/security/secret-box.js';
 import type { CatalogSyncFacade } from '../../commerce/api/index.js';
 import { ConnectionService } from '../application/connection.service.js';
 import {
+  ConnectFailedError,
   ConnectionExistsError,
   ConnectionNotFoundError,
   ConnectionVersionConflictError,
@@ -174,6 +175,11 @@ describe('ConnectionService', () => {
 
       expect(store.jobs).toMatchObject([{ kind: 'full_import', connectionId: row!.id }]);
       expect(store.logs.map((l) => l.code)).toEqual(['connected']);
+      // The params `log.connected` interpolates ("Đã kết nối gian hàng {{retailer}}").
+      expect(SyncLogParams.connected.parse(store.logs[0]!.params)).toEqual({
+        retailer: 'shopdemo',
+        branches: 2,
+      });
       expect(gateway.calls.every((c) => c.interactive)).toBe(true);
     });
 
@@ -395,9 +401,33 @@ describe('ConnectionService', () => {
       await service.syncNow(ws);
       expect(store.jobs.filter((j) => j.open)).toMatchObject([{ kind: 'reconcile', payload: {} }]);
     });
+
+    it('refuses with 409 connect_failed when the connect step failed (the runner would skip it)', async () => {
+      await service.connect(ws, USER, { ...creds, settings });
+      store.jobs.forEach((j) => (j.open = false));
+      await store.updateConnection(ws, store.connections[0]!.id, {
+        status: 'error',
+        lastError: { code: 'connect_failed', at: new Date().toISOString() },
+      });
+      const error = await service.syncNow(ws).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(ConnectFailedError);
+      expect(error).toMatchObject({ code: 'CONFLICT', details: { reason: 'connect_failed' } });
+      expect(store.jobs.filter((j) => j.open)).toEqual([]);
+    });
   });
 
   describe('disconnect', () => {
+    it('marks the connection disconnected before releasing the links', async () => {
+      await service.connect(ws, USER, { ...creds, settings });
+      // A running job re-reads the status: it must already be `disconnected` when the release runs.
+      catalog.releaseExternalSource.mockImplementation(async () => {
+        expect(store.connections[0]!.status).toBe('disconnected');
+        return 0;
+      });
+      await service.disconnect(ws);
+      expect(catalog.releaseExternalSource).toHaveBeenCalledTimes(1);
+    });
+
     it('deletes webhooks, releases products and marks the connection disconnected', async () => {
       await service.connect(ws, USER, { ...creds, settings });
       await service.disconnect(ws);

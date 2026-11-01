@@ -56,6 +56,12 @@ const MAX_RETRY_AFTER_MS = 60_000;
 const TOKEN_MARGIN_MS = 300_000;
 const DEFAULT_TOKEN_TTL_S = 86_400;
 const PAGE_SIZE = 100;
+/**
+ * A stable order for paging `/products` by `currentItem`: without it, products edited during a long
+ * import can shift between pages and be skipped, and the full-import sweep would archive them.
+ * One constant, so a trial store can adjust it.
+ */
+export const PRODUCT_ORDER = { orderBy: 'id', orderDirection: 'Asc' } as const;
 
 export interface KiotVietClientOptions {
   tokenUrl: string;
@@ -169,6 +175,7 @@ export class KiotVietClient implements KiotVietGateway {
         includeInventory: q.includeInventory ? true : undefined,
         includeRemoveIds: true,
         lastModifiedFrom: q.lastModifiedFrom?.toISOString(),
+        ...PRODUCT_ORDER,
       },
       KvProductSchema,
     );
@@ -208,7 +215,7 @@ export class KiotVietClient implements KiotVietGateway {
       const page = await this.list(
         c,
         '/products',
-        { currentItem, pageSize: PAGE_SIZE },
+        { currentItem, pageSize: PAGE_SIZE, ...PRODUCT_ORDER },
         KvProductSchema,
       );
       for (const p of page.data) yield p.code;

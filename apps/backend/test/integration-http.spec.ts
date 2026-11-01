@@ -165,6 +165,14 @@ describe('HTTP: KiotViet integration', () => {
     expect(log.statusCode, log.body).toBe(200);
     expect(SyncLogResponse.parse(log.json()).entries.map((e) => e.code)).toEqual(['connected']);
 
+    // A connection whose connect step failed cannot sync: 409 connect_failed, nothing queued.
+    store.jobs.forEach((j) => (j.open = false));
+    store.connections[0]!.lastError = { code: 'connect_failed', at: new Date().toISOString() };
+    const refused = await call('POST', '/kiotviet/sync');
+    expect(refused.statusCode).toBe(409);
+    expect(refused.json()).toMatchObject({ error: { details: { reason: 'connect_failed' } } });
+    expect(store.jobs.filter((j) => j.open)).toEqual([]);
+
     expect((await call('DELETE', '/kiotviet')).statusCode).toBe(204);
     expect((await call('DELETE', '/kiotviet')).statusCode).toBe(404);
     expect((await call('POST', '/kiotviet/sync')).statusCode).toBe(404);

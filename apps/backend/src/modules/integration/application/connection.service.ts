@@ -6,6 +6,7 @@ import type {
   IntegrationListResponse,
   KiotVietCredentials,
   KiotVietTestResponse,
+  SyncLogParams,
   SyncLogResponse,
   SyncProgress,
   UpdateKiotVietRequest,
@@ -16,6 +17,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { SECRET_BOX, type SecretBox } from '../../../common/security/secret-box.js';
 import { CATALOG_SYNC_FACADE, type CatalogSyncFacade } from '../../commerce/api/index.js';
 import {
+  ConnectFailedError,
   ConnectionExistsError,
   ConnectionNotFoundError,
   ConnectionVersionConflictError,
@@ -148,7 +150,10 @@ export class ConnectionService {
       await this.store.log(ws, record.id, {
         level: 'info',
         code: 'connected',
-        params: { branches: req.settings.saleBranchIds.length },
+        params: {
+          retailer: creds.retailer,
+          branches: req.settings.saleBranchIds.length,
+        } satisfies SyncLogParams['connected'],
       });
       return toDto(saved);
     } catch (error) {
@@ -203,9 +208,14 @@ export class ConnectionService {
     return toDto(saved);
   }
 
-  /** "Đồng bộ ngay": queues a reconcile. */
+  /**
+   * "Đồng bộ ngay": queues a reconcile. A connection whose connect step failed never syncs (the
+   * runner closes its jobs), so it is refused with 409 `connect_failed`: the owner must disconnect
+   * and connect again.
+   */
   async syncNow(ws: WorkspaceId): Promise<void> {
     const current = await this.live(ws);
+    if (current.lastError?.code === 'connect_failed') throw new ConnectFailedError();
     const queued = await this.store.enqueue(ws, { connectionId: current.id, kind: 'reconcile' });
     if (!queued) throw new SyncAlreadyRunningError();
   }
@@ -224,12 +234,16 @@ export class ConnectionService {
     };
   }
 
-  /** Deletes the webhooks at KiotViet (best effort), releases the linked products, then disconnects. */
+  /**
+   * Deletes the webhooks at KiotViet (best effort), disconnects, then releases the linked products.
+   * The status goes first so a running job or webhook stops writing before the release; one that
+   * still lands a write releases again when it sees the disconnect (`SyncService`, `WebhookApplier`).
+   */
   async disconnect(ws: WorkspaceId): Promise<void> {
     const current = await this.live(ws);
     await this.deleteWebhooks(current);
-    await this.catalog.releaseExternalSource(ws, PROVIDER);
     await this.store.updateConnection(ws, current.id, { status: 'disconnected' });
+    await this.catalog.releaseExternalSource(ws, PROVIDER);
   }
 
   // ── internals ──────────────────────────────────────────────────────────────

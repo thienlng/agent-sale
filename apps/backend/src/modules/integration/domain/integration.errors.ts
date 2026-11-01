@@ -90,6 +90,16 @@ export class SyncAlreadyRunningError extends DomainError {
   }
 }
 
+/** The connect step failed after the connection was stored: only disconnect + connect again fixes it. */
+export class ConnectFailedError extends DomainError {
+  readonly code = 'CONFLICT';
+  constructor() {
+    super('The connection did not finish connecting; disconnect and connect again', {
+      reason: 'connect_failed',
+    });
+  }
+}
+
 /** The connection changed since it was read (optimistic `version` check). */
 export class ConnectionVersionConflictError extends DomainError {
   readonly code = 'CONFLICT';

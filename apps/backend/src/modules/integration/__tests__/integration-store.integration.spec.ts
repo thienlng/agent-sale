@@ -233,7 +233,7 @@ describe('integration store on Postgres', () => {
       kind: 'full_import',
       payload: { by: 'owner' },
       cursor: null,
-      attempts: 1,
+      attempts: 0,
     });
     // Leased: not claimable again.
     expect(await claimOne(id)).toBeUndefined();
@@ -268,7 +268,8 @@ describe('integration store on Postgres', () => {
         .where(eq(schema.integrationJobs.id, id)),
     );
     const second = await claimOne(id);
-    expect(second).toMatchObject({ attempts: 2, cursor: { entity: 'products', currentItem: 100 } });
+    // The recorded failure counts; the re-claim itself does not.
+    expect(second).toMatchObject({ attempts: 1, cursor: { entity: 'products', currentItem: 100 } });
     expect(second!.claimToken).not.toBe(first!.claimToken);
 
     // The old token no longer owns the job: every fenced write is refused and reports it.
@@ -302,7 +303,8 @@ describe('integration store on Postgres', () => {
     const first = await claimOne(id, 1);
     await new Promise((r) => setTimeout(r, 20));
     const second = await claimOne(id);
-    expect(second?.attempts).toBe(2);
+    // A lapsed lease is not a failure: a long import is never dead-lettered for taking long.
+    expect(second?.attempts).toBe(0);
     expect(await store.completeJob(id, first!.claimToken)).toBe(false);
     expect(await store.completeJob(id, second!.claimToken)).toBe(true);
     expect((await job(id)).doneAt).toBeInstanceOf(Date);

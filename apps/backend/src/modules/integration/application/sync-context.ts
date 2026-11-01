@@ -49,8 +49,13 @@ export interface ImportCursor {
   /** ISO `lastModifiedFrom` of an incremental run. */
   since: string | null;
   imagesFailed: number;
-  /** A page came back short (malformed items dropped): the sweep must not trust `seen`. */
+  /**
+   * The sweep must not trust `seen`: a page came back short (malformed items dropped) or the
+   * product total changed between pages (items may have shifted past the cursor).
+   */
   incomplete: boolean;
+  /** `total` of the first product page of a full run; a different total later marks it incomplete. */
+  productTotal?: number | null;
   seenProducts: number[];
   seenVariants: number[];
 }

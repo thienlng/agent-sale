@@ -80,8 +80,9 @@ added as more providers later without changing callers.
 The repo has no BullMQ consumers yet; background work uses Postgres leases and ticks (channel ingress,
 analytics projector). The integration follows that pattern:
 
-- Table `integration_jobs` (lease-claimed with `FOR UPDATE SKIP LOCKED`, `lease_until`, `attempts`,
-  `failed_at` dead letter, `run_after` for backoff). Kinds: `full_import`, `reconcile`, `webhook`,
+- Table `integration_jobs` (lease-claimed with `FOR UPDATE SKIP LOCKED`, `lease_until`, `attempts` =
+  recorded failures (a re-claim after a lapsed lease does not count), `failed_at` dead letter, `run_after`
+  for backoff). Kinds: `full_import`, `reconcile`, `webhook`,
   `push_order`, `customer_import`. At most one `full_import`/`reconcile` per connection at a time
   (partial unique index on open jobs).
 - The **worker** entry imports `IntegrationModule` and runs `SyncRunner.tick()` every 2 s (next to the
@@ -134,8 +135,9 @@ Owned by `crm`: `contacts.external_source text, contacts.external_id text`, uniq
 - `removeExternalProducts(ws, source, externalIds)` — archives the linked products whose own external id is
   listed and the linked variants whose external id is listed (KiotViet deletes single variants too).
 - `linkedExternalIds(ws, source)` and `archiveUnlinkedVariants(ws, source)` — the sweep at the end of a full
-  import that read every page: linked products and variants it did not see are archived through
-  `removeExternalProducts`, and the live variants without an external id left on linked products (Rapiz-only
+  import that read every page (pages ordered by id; the product total unchanged between pages): linked
+  products and variants it did not see are archived through `removeExternalProducts` once KiotViet confirms
+  each is gone (`GET /products/{id}` → 404; at most 200 per run, the rest logged `sweep_capped`), and the live variants without an external id left on linked products (Rapiz-only
   variants of an adopted product) are archived, since staff cannot edit the variants of a linked product.
 - `setExternalStock(ws, source, [{ externalVariantId, available }])` — sets `on_hand = available` at the
   default warehouse, writing an `adjust` movement with `ref_type = 'external'` (no actor) when it changes.
@@ -158,9 +160,9 @@ create with source "KiotViet"), `removeExternalContacts`, `contactsAwaitingPush(
 | `POST /integrations/kiotviet/test` | `settings.manage` | `{ retailer, clientId, clientSecret }` → token + `GET /branches`; answers `{ retailer, branches, preview: { matched, created, rapizOnly, scanned, total } }` or a typed error (§8). The preview reads at most 3 000 product codes (`scanned`; `total` = the store's product count, null if unknown) so the check answers quickly; when `scanned < total` the wizard says "trong N/M sản phẩm đầu" and hides `rapizOnly`. Stores nothing. |
 | `POST /integrations/kiotviet` | `settings.manage` | Connect: credentials + settings; seals the secret, registers webhooks, enqueues `full_import`. |
 | `PATCH /integrations/kiotviet` | `settings.manage` | Change branches/toggles (`version` for stale edits); a branch change enqueues `reconcile`. |
-| `POST /integrations/kiotviet/sync` | `settings.manage` | "Đồng bộ ngay": enqueues `reconcile` (409 if one is running). |
+| `POST /integrations/kiotviet/sync` | `settings.manage` | "Đồng bộ ngay": enqueues `reconcile` (409 `sync_running` if one is running; 409 `connect_failed` when the connect step failed: disconnect and connect again). |
 | `GET /integrations/kiotviet/log` | `catalog.manage` | Last 200 log rows. |
-| `DELETE /integrations/kiotviet` | `settings.manage` | Disconnect: deletes webhooks at KiotViet (best effort), releases external links, status `disconnected`. |
+| `DELETE /integrations/kiotviet` | `settings.manage` | Disconnect: deletes webhooks at KiotViet (best effort), status `disconnected`, then releases external links (a writer that raced the release releases again). |
 
 The client secret is never returned; the API answers `clientIdMasked` (last 4 characters).
 

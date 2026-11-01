@@ -45,6 +45,11 @@ export interface JobRecord {
   kind: SyncJobKind;
   payload: Record<string, unknown>;
   cursor: Record<string, unknown> | null;
+  /**
+   * Failed attempts recorded so far (`retryJob`); 0 on the first run. A re-claim after a lapsed
+   * lease (worker restart, slow page) does not count, so a long import is never dead-lettered for
+   * taking long.
+   */
   attempts: number;
   claimToken: string;
 }
@@ -108,7 +113,7 @@ export interface IntegrationStore {
   // System role (DB_SYSTEM): work across tenants.
   /**
    * Leases ready jobs (`run_after <= now`, lease free or expired) with `FOR UPDATE SKIP LOCKED`,
-   * rotating the claim token and counting the attempt. Open jobs of disconnected connections are
+   * rotating the claim token (attempts are counted by `retryJob`, not here). Open jobs of disconnected connections are
    * closed (`done_at`) instead of being claimed.
    */
   claimJobs(limit: number, leaseMs: number): Promise<JobRecord[]>;
@@ -125,7 +130,7 @@ export interface IntegrationStore {
     leaseMs: number,
   ): Promise<boolean>;
   completeJob(jobId: string, claimToken: string): Promise<boolean>;
-  /** Releases the lease and makes the job ready again at `runAfter`. */
+  /** Releases the lease, counts the failed attempt and makes the job ready again at `runAfter`. */
   retryJob(jobId: string, claimToken: string, runAfter: Date, error: string): Promise<boolean>;
   /** Dead-letters the job (`failed_at`). */
   failJob(jobId: string, claimToken: string, error: string): Promise<boolean>;

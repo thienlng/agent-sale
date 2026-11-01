@@ -9,6 +9,7 @@ import {
   KiotVietUnavailableError,
 } from '../domain/integration.errors.js';
 import { CatalogImport } from './catalog-import.js';
+import { CatalogWriter } from './catalog-writer.js';
 import {
   type ConnectionRecord,
   INTEGRATION_STORE,
@@ -25,7 +26,10 @@ import {
 } from './sync-context.js';
 import { openCredentials } from './sync-credentials.js';
 
-/** Retry delays of a failing job, by attempt; past the last one the job is dead-lettered. */
+/**
+ * Retry delays of a failing job, by failures recorded so far (`job.attempts`); past the last one the
+ * job is dead-lettered.
+ */
 const RETRY_MINUTES = [1, 5, 30] as const;
 /** A reconcile re-reads changes from slightly before the last one, against clock skew. */
 const RECONCILE_OVERLAP_MS = 2 * 60_000;
@@ -43,6 +47,7 @@ export class SyncService {
     @Inject(INTEGRATION_STORE) private readonly store: IntegrationStore,
     @Inject(CatalogImport) private readonly importer: CatalogImport,
     @Inject(SECRET_BOX) private readonly secrets: SecretBox,
+    @Inject(CatalogWriter) private readonly writer: CatalogWriter,
   ) {}
 
   /** Never throws, except `IntegrationUnavailableError` (no database: the runner skips). */
@@ -64,10 +69,13 @@ export class SyncService {
       if (error instanceof IntegrationUnavailableError) throw error;
       if (error instanceof LeaseLostError) return;
       if (error instanceof ConnectionGoneError) {
+        await this.releaseAfterDisconnect(job);
         await this.store.completeJob(job.id, job.claimToken);
         return;
       }
-      this.logger.warn(`Job ${job.id} (${job.kind}) attempt ${job.attempts}: ${errorName(error)}`);
+      this.logger.warn(
+        `Job ${job.id} (${job.kind}) attempt ${job.attempts + 1}: ${errorName(error)}`,
+      );
       try {
         await this.failed(job, error);
       } catch (inner) {
@@ -154,6 +162,19 @@ export class SyncService {
     }
   }
 
+  /**
+   * The connection was disconnected while this job wrote: items written after the disconnect
+   * released the links would stay linked (and locked), so release them again (spec §8).
+   */
+  private async releaseAfterDisconnect(job: JobRecord): Promise<void> {
+    try {
+      await this.writer.releaseIfDisconnected(job.workspaceId);
+    } catch (error) {
+      if (error instanceof IntegrationUnavailableError) throw error;
+      this.logger.warn(`Job ${job.id}: links not released after disconnect (${errorName(error)})`);
+    }
+  }
+
   private firstCursor(job: JobRecord, c: ConnectionRecord): ImportCursor {
     const last = c.lastReconcileAt;
     const full = job.kind === 'full_import' || job.payload['full'] === true || !last;
@@ -178,6 +199,7 @@ export class SyncService {
     const at = new Date().toISOString();
     const c = await this.store.connectionForSystem(job.connectionId);
     if (!c || c.status === 'disconnected') {
+      await this.releaseAfterDisconnect(job);
       await this.store.completeJob(job.id, job.claimToken);
       return;
     }
@@ -199,7 +221,7 @@ export class SyncService {
     }
 
     const code = error instanceof KiotVietUnavailableError ? 'kiotviet_unavailable' : 'sync_failed';
-    const delay = RETRY_MINUTES[job.attempts - 1];
+    const delay = RETRY_MINUTES[job.attempts];
     if (delay !== undefined) {
       await this.store.retryJob(
         job.id,

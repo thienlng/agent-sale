@@ -137,6 +137,10 @@ describe('KiotVietClient', () => {
       includeRemoveIds: 'true',
       lastModifiedFrom: '2026-10-01T00:00:00.000Z',
     });
+    // A stable order, so items edited during a long import cannot shift between pages.
+    for (const r of fake.apiRequests('/products')) {
+      expect(r.query).toMatchObject({ orderBy: 'id', orderDirection: 'Asc' });
+    }
     // Inventory only on request: the sync reads stock from /productOnHands.
     expect(q?.includeInventory).toBeUndefined();
   });
@@ -171,6 +175,10 @@ describe('KiotVietClient', () => {
     expect(codes).toHaveLength(150);
     expect(codes[149]).toBe('SP150');
     expect(fake.apiRequests('/products')).toHaveLength(2);
+    expect(fake.apiRequests('/products')[1]?.query).toMatchObject({
+      orderBy: 'id',
+      orderDirection: 'Asc',
+    });
 
     const early: string[] = [];
     for await (const code of client.productCodes(creds)) {

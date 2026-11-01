@@ -1,10 +1,18 @@
-import { Inject, Injectable } from '@nestjs/common';
+import type { SyncLogParams } from '@agent-sales/contracts';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { CATALOG_SYNC_FACADE, type CatalogSyncFacade } from '../../commerce/api/index.js';
 import { CatalogWriter, SOURCE, type WriteStats } from './catalog-writer.js';
 import { INTEGRATION_STORE, type IntegrationStore } from './ports/integration-store.js';
 import { KIOTVIET_GATEWAY, type KiotVietGateway } from './ports/kiotviet-gateway.js';
 import { addSorted, type ImportCursor, PAGE_SIZE, type SyncContext } from './sync-context.js';
+
+/**
+ * At most this many stale ids are confirmed with KiotViet (one call each) and archived per full run;
+ * the rest wait for the next one (`sweep_capped {count}`), so a paging glitch cannot archive a whole
+ * catalog and the check stays inside the hourly budget.
+ */
+export const SWEEP_CAP = 200;
 
 /** What a finished run reports back to the job runner. */
 export interface ImportOutcome {
@@ -19,6 +27,8 @@ export interface ImportOutcome {
  */
 @Injectable()
 export class CatalogImport {
+  private readonly logger = new Logger(CatalogImport.name);
+
   constructor(
     @Inject(INTEGRATION_STORE) private readonly store: IntegrationStore,
     @Inject(KIOTVIET_GATEWAY) private readonly gateway: KiotVietGateway,
@@ -59,6 +69,11 @@ export class CatalogImport {
 
       const expected = Math.min(PAGE_SIZE, Math.max(0, page.total - cursor.currentItem));
       cursor.incomplete ||= page.data.length < expected;
+      if (cursor.mode === 'full') {
+        // Products added or deleted mid-import shift the pages: some may have been skipped.
+        cursor.productTotal ??= page.total;
+        cursor.incomplete ||= page.total !== cursor.productTotal;
+      }
       cursor.imagesFailed += stats.imagesFailed;
       if (cursor.mode === 'full') {
         cursor.seenProducts = addSorted(
@@ -108,7 +123,8 @@ export class CatalogImport {
   }
 
   /**
-   * Archives linked products and variants the completed full import did not see, and the unlinked
+   * Archives linked products and variants the completed full import did not see, once KiotViet
+   * confirms each is gone (`productById` → null; at most `SWEEP_CAP` per run), and the unlinked
    * variants left on linked products.
    */
   private async sweep(ctx: SyncContext, cursor: ImportCursor): Promise<void> {
@@ -116,11 +132,27 @@ export class CatalogImport {
     const products = new Set(cursor.seenProducts.map(String));
     const variants = new Set(cursor.seenVariants.map(String));
     const stale = [
-      ...linked.products.filter((id) => !products.has(id)),
-      ...linked.variants.filter((id) => !variants.has(id)),
+      ...new Set([
+        ...linked.products.filter((id) => !products.has(id)),
+        ...linked.variants.filter((id) => !variants.has(id)),
+      ]),
     ];
-    if (stale.length) {
-      await this.catalog.removeExternalProducts(ctx.ws, SOURCE, [...new Set(stale)]);
+    const checked = stale.slice(0, SWEEP_CAP);
+    const gone: string[] = [];
+    for (const id of checked) {
+      // A product KiotViet still has was missed by the paging, not deleted: keep it.
+      if (!(await this.gateway.productById(ctx.creds, Number(id)))) gone.push(id);
+    }
+    await ctx.live();
+    if (gone.length) await this.catalog.removeExternalProducts(ctx.ws, SOURCE, gone);
+    const left = stale.length - checked.length;
+    if (left > 0) {
+      this.logger.warn(`Connection ${ctx.connection.id}: sweep capped, ${left} ids left`);
+      await this.store.log(ctx.ws, ctx.connection.id, {
+        level: 'warning',
+        code: 'sweep_capped',
+        params: { count: left } satisfies SyncLogParams['sweep_capped'],
+      });
     }
     // Every KiotViet variant now carries its link: Rapiz-only variants of adopted products go.
     await this.catalog.archiveUnlinkedVariants(ctx.ws, SOURCE);

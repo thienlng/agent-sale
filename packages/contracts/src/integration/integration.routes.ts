@@ -53,7 +53,8 @@ export const integrationRoutes = defineRoutes([
   route({
     method: 'post',
     path: '/integrations/kiotviet/sync',
-    summary: 'Queue a full KiotViet sync (404 if not connected, 409 while one is running)',
+    summary:
+      'Queue a KiotViet sync (404 if not connected, 409 while one is running or when the connect step failed)',
     tag: 'integration',
     responses: { 202: null },
   }),

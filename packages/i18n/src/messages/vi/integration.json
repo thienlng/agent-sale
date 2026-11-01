@@ -145,7 +145,8 @@
     "webhook_bad_signature": "Bỏ qua một thông báo không hợp lệ",
     "webhook_unknown": "Bỏ qua một thông báo không rõ từ KiotViet",
     "sync_failed": "Đồng bộ thất bại, sẽ thử lại",
-    "connect_failed": "Lần đồng bộ đầu tiên thất bại. Bấm Đồng bộ ngay để thử lại.",
+    "sweep_capped": "Còn {{count}} sản phẩm cần kiểm tra lại ở lần đồng bộ sau",
+    "connect_failed": "Kết nối chưa hoàn tất nên không đồng bộ được. Ngắt kết nối rồi kết nối lại để thử lại.",
     "unknown": "Sự kiện đồng bộ khác",
     "level": {
       "info": "Thông tin",

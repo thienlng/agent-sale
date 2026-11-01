@@ -115,5 +115,30 @@ export const SyncLogEntry = z.object({
 });
 export type SyncLogEntry = z.infer<typeof SyncLogEntry>;
 
+/**
+ * The params each sync log code carries: the backend writes them, `integration.json` → `log.<code>`
+ * interpolates them. Codes without params are listed with an empty object.
+ */
+export const SyncLogParams = {
+  connected: z.object({ retailer: z.string(), branches: z.number().int() }),
+  full_sync_done: z.object({ products: z.number().int(), images_failed: z.number().int() }),
+  image_failed: z.object({ count: z.number().int() }),
+  sku_conflict: z.object({ sku: z.string() }),
+  sweep_capped: z.object({ count: z.number().int() }),
+  auth_failed: z.object({}),
+  kiotviet_unavailable: z.object({}),
+  sync_failed: z.object({}),
+  connect_failed: z.object({}),
+  webhook_register_failed: z.object({
+    registered: z.number().int(),
+    expected: z.number().int(),
+  }),
+  webhook_bad_signature: z.object({}),
+  webhook_unknown: z.object({ type: z.string() }),
+} as const;
+export type SyncLogParams = {
+  [Code in keyof typeof SyncLogParams]: z.infer<(typeof SyncLogParams)[Code]>;
+};
+
 export const SyncLogResponse = z.object({ entries: z.array(SyncLogEntry) });
 export type SyncLogResponse = z.infer<typeof SyncLogResponse>;
