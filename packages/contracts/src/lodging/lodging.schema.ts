@@ -383,6 +383,8 @@ export const BookingDto = z.object({
   note: z.string(),
   tags: z.array(z.string()),
   blockReason: z.string(),
+  /** First staff action on a bot booking; a bot hold with null here waits for staff (T-161). */
+  reviewedAt: z.iso.datetime().nullable(),
   version: z.number().int(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
@@ -404,6 +406,8 @@ export const BookingListQuery = z.object({
   conversationId: z.uuid().optional(),
   /** Bookings carrying exactly this tag. */
   tag: BookingTag.optional(),
+  /** Bookings from this source only (e.g. `bot`). */
+  source: BookingSource.optional(),
   offset: z.coerce.number().int().min(0).default(0),
 });
 export type BookingListQuery = z.infer<typeof BookingListQuery>;
@@ -412,6 +416,9 @@ export const BookingList = z.object({
   nextOffset: z.number().int().nullable(),
 });
 export type BookingList = z.infer<typeof BookingList>;
+/** Bot holds waiting for staff: `source = bot`, status `hold`, not reviewed yet. */
+export const BookingReviewCount = z.object({ pending: z.number().int().min(0) });
+export type BookingReviewCount = z.infer<typeof BookingReviewCount>;
 
 // ── Calendar & availability ──────────────────────────────────────────────────
 

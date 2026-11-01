@@ -63,6 +63,7 @@ const booking = (over: Partial<BookingDetail> = {}): BookingDetail => ({
   note: '',
   tags: [],
   blockReason: '',
+  reviewedAt: null,
   version: 3,
   createdAt: '2099-10-30T00:00:00.000Z',
   updatedAt: '2099-10-30T00:00:00.000Z',

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { AccommodationDetails } from '../commerce/lodging.schema.js';
 import {
   BookingListQuery,
+  BookingReviewCount,
   BookingStatusRequest,
   CreateBookingRequest,
   GalleryImage,
@@ -267,5 +268,14 @@ describe('lodging calendar polish: night notes, internal note, tags', () => {
       true,
     );
     expect(BookingListQuery.parse({ tag: 'Đã cọc' }).tag).toBe('Đã cọc');
+  });
+});
+
+describe('bot holds review (T-161)', () => {
+  it('filters bookings by source and counts bot holds to review', () => {
+    expect(BookingListQuery.parse({ source: 'bot' }).source).toBe('bot');
+    expect(BookingListQuery.safeParse({ source: 'robot' }).success).toBe(false);
+    expect(BookingReviewCount.parse({ pending: 2 })).toEqual({ pending: 2 });
+    expect(BookingReviewCount.safeParse({ pending: -1 }).success).toBe(false);
   });
 });

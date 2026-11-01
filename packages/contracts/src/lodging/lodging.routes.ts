@@ -5,6 +5,7 @@ import {
   BookingDetail,
   BookingList,
   BookingListQuery,
+  BookingReviewCount,
   BookingStatusRequest,
   BotPropertiesDto,
   CalendarDto,
@@ -140,6 +141,13 @@ export const lodgingV2Routes = defineRoutes([
     summary: 'Booking lists: today, holds, upcoming or all',
     query: BookingListQuery,
     responses: { 200: BookingList },
+  },
+  {
+    ...scoped,
+    method: 'get',
+    path: '/lodging/bookings/review-count',
+    summary: 'How many bot holds wait for staff (not reviewed yet)',
+    responses: { 200: BookingReviewCount },
   },
   {
     ...scoped,

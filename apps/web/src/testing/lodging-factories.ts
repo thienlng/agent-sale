@@ -124,6 +124,7 @@ export function bookingFixture(over: Partial<BookingDto> = {}): BookingDto {
     note: '',
     tags: [],
     blockReason: '',
+    reviewedAt: null,
     version: 1,
     createdAt: STAMP,
     updatedAt: STAMP,
