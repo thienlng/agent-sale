@@ -60,3 +60,21 @@ export class SyncAlreadyRunningError extends DomainError {
     super('A sync is already running for this connection', { reason: 'sync_running' });
   }
 }
+
+/** The connection changed since it was read (optimistic `version` check). */
+export class ConnectionVersionConflictError extends DomainError {
+  readonly code = 'CONFLICT';
+  constructor() {
+    super('The connection was changed by someone else; reload and retry', {
+      reason: 'connection_version',
+    });
+  }
+}
+
+/** The process runs without a database, so the integration cannot store anything. */
+export class IntegrationUnavailableError extends DomainError {
+  readonly code = 'UNAVAILABLE';
+  constructor() {
+    super('PMS integrations need a database (DATABASE_URL is not configured)');
+  }
+}

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ConnectionExistsError,
   ConnectionNotFoundError,
+  ConnectionVersionConflictError,
   KiotVietAuthError,
   KiotVietPermissionError,
   KiotVietRetailerError,
@@ -24,6 +25,7 @@ describe('integration errors', () => {
     [new ConnectionExistsError('kiotviet'), 'CONFLICT', { provider: 'kiotviet' }],
     [new ConnectionNotFoundError('kiotviet'), 'NOT_FOUND', { provider: 'kiotviet' }],
     [new SyncAlreadyRunningError(), 'CONFLICT', { reason: 'sync_running' }],
+    [new ConnectionVersionConflictError(), 'CONFLICT', { reason: 'connection_version' }],
   ])('%s carries its code and details', (error, code, details) => {
     expect(error).toBeInstanceOf(DomainError);
     expect(error.code).toBe(code);
