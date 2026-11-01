@@ -28,6 +28,7 @@ interface InfoDraft {
   maxGuests: string;
   amenities: string;
   layout: Array<{ name: string; beds: string; note: string }>;
+  internalNote: string;
 }
 
 const infoOf = (p: PropertyDto): InfoDraft => ({
@@ -43,6 +44,7 @@ const infoOf = (p: PropertyDto): InfoDraft => ({
   maxGuests: p.maxGuests === null ? '' : String(p.maxGuests),
   amenities: p.amenities.join('\n'),
   layout: p.layout,
+  internalNote: p.internalNote,
 });
 
 type InfoErrors = Partial<
@@ -109,6 +111,7 @@ export function InfoTab({
             layout: d.layout
               .filter((l) => l.name.trim())
               .map((l) => ({ name: l.name.trim(), beds: l.beds.trim(), note: l.note.trim() })),
+            internalNote: d.internalNote.trim(),
           },
         },
       },
@@ -232,6 +235,20 @@ export function InfoTab({
         />
       </Field>
       <LayoutEditor value={d.layout} disabled={!canEdit} onChange={(layout) => set({ layout })} />
+      <Field
+        id={`${id}-internalNote`}
+        label={t('lodging.info.internalNote')}
+        hint={t('lodging.info.internalNoteHint')}
+      >
+        <Textarea
+          id={`${id}-internalNote`}
+          rows={3}
+          maxLength={2000}
+          value={d.internalNote}
+          disabled={!canEdit}
+          onChange={(e) => set({ internalNote: e.target.value })}
+        />
+      </Field>
       <TabSaveBar
         dirty={dirty}
         pending={update.isPending}

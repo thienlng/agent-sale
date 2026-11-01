@@ -37,6 +37,7 @@ import { BookingErrorAlert } from './booking-error-alert';
 import { SheetSection } from './booking-fields';
 import { BookingStatusBadge } from './booking-status-badge';
 import { QuoteSummary } from './quote-breakdown';
+import { TagChips } from './tag-input';
 
 /** Primary action first; "cancel" is drawn apart in red. */
 const ACTIONS: Partial<Record<BookingDetail['status'], BookingAction[]>> = {
@@ -230,9 +231,10 @@ export function BookingView({ bookingId }: { bookingId: string }) {
               />
             </SheetSection>
           )}
-          {b.note && (
+          {(b.note || b.tags.length > 0) && (
             <SheetSection title={t('lodging.sheet.sectionNote')}>
-              <p className="whitespace-pre-wrap">{b.note}</p>
+              <TagChips tags={b.tags} />
+              {b.note && <p className="whitespace-pre-wrap">{b.note}</p>}
             </SheetSection>
           )}
           <SheetSection title={t('lodging.sheet.sectionHistory')}>

@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 
 import { clockTime, dayMonth, formatVnd, nightsBetween } from '../lib/format';
 import { BookingStatusBadge } from './booking-status-badge';
+import { TagChips } from './tag-input';
 
 const SOON_MS = 15 * 60_000;
 
@@ -46,10 +47,13 @@ export function BookingsTable({
   bookings,
   showExpiry,
   onOpen,
+  onTag,
 }: {
   bookings: BookingDto[];
   showExpiry: boolean;
   onOpen: (id: string) => void;
+  /** Clicking a tag chip filters the list by that tag. */
+  onTag?: (tag: string) => void;
 }) {
   const { t } = useTranslation();
   const now = Date.now();
@@ -101,6 +105,11 @@ export function BookingsTable({
                         {b.guestPhone}
                       </span>
                     )}
+                    <TagChips
+                      tags={b.tags}
+                      className="mt-1"
+                      {...(onTag ? { onSelect: onTag } : {})}
+                    />
                   </>
                 )}
               </TableCell>

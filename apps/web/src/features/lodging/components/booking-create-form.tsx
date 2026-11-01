@@ -20,6 +20,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useWorkspaceId } from '@/lib/use-workspace';
 
 import { lodgingConflict, useCreateBooking } from '../api/bookings';
+import { useSaveNightNotes } from '../api/calendar';
 import { lodgingKeys } from '../api/keys';
 import { useProperties, useProperty } from '../api/properties';
 import {
@@ -31,8 +32,12 @@ import {
 } from '../hooks/use-booking-draft';
 import { BookingErrorAlert } from './booking-error-alert';
 import { SavingLabel, SheetSection, StayDates, TakenAlert, UnitPicker } from './booking-fields';
+import { existingNotes, NightNoteFields, noteNights, noteTargets } from './night-note-fields';
 import { PartyInput } from './party-input';
 import { QuoteBreakdown } from './quote-breakdown';
+import { TagInput } from './tag-input';
+
+type SheetTab = CreateKind | 'note';
 
 const SUBMIT_LABEL: Record<CreateKind, string> = {
   hold: 'lodging.sheet.submitHold',
@@ -40,13 +45,19 @@ const SUBMIT_LABEL: Record<CreateKind, string> = {
   block: 'lodging.sheet.submitBlock',
 };
 
-/** Create mode of the booking sheet: Giữ chỗ / Đặt luôn / Khoá lịch with a live quote. */
+/**
+ * Create mode of the booking sheet: Giữ chỗ / Đặt luôn / Khoá lịch with a live quote, and
+ * "Ghi chú" to write a staff-only note on each selected night instead of a booking.
+ */
 export function BookingCreateForm({
   initial,
   onCreated,
+  onClose,
 }: {
   initial: BookingCreateInitial | undefined;
   onCreated: (booking: BookingDetail) => void;
+  /** Closes the sheet after a night note was saved. */
+  onClose: () => void;
 }) {
   const { t } = useTranslation();
   const id = useId();
@@ -56,6 +67,9 @@ export function BookingCreateForm({
   const properties = useProperties();
   const property = useProperty(draft.propertyId || undefined);
   const create = useCreateBooking();
+  const saveNotes = useSaveNightNotes();
+  const [tab, setTab] = useState<SheetTab>(draft.kind);
+  const [noteText, setNoteText] = useState('');
   // One id per attempt until it succeeds, so a retried submit cannot create two bookings.
   const [clientRequestId, setClientRequestId] = useState(() => crypto.randomUUID());
   const [submitted, setSubmitted] = useState(false);
@@ -65,11 +79,47 @@ export function BookingCreateForm({
     Boolean(errors[field]) && (submitted || touched.has(field));
   const blur = (field: string) => () => setTouched((s) => new Set(s).add(field));
   const block = draft.kind === 'block';
+  const noteMode = tab === 'note';
   const p = property.data;
+  const targets = noteTargets(p, draft);
+  const nights = noteNights(draft.checkIn, draft.checkOut);
+  const existing = existingNotes(
+    draft.propertyId === initial?.propertyId ? (initial?.nightNotes ?? []) : [],
+    targets,
+    nights,
+  );
+
+  const openTab = (next: SheetTab) => {
+    // Entering "Ghi chú" starts from the note already on those nights (when they agree).
+    if (next === 'note') setNoteText(existing.prefill);
+    else patch({ kind: next });
+    setTab(next);
+  };
+
+  const writeNote = (text: string) => {
+    if (saveNotes.isPending || !draft.propertyId || nights.length === 0 || targets.length === 0)
+      return;
+    saveNotes.mutate(
+      { propertyId: draft.propertyId, unitIds: targets, nights, text },
+      {
+        onSuccess: () => {
+          toast.success(t(text ? 'lodging.sheet.noteSaved' : 'lodging.sheet.noteDeleted'), {
+            duration: 3500,
+          });
+          onClose();
+        },
+        onError: () => toast.error(t('lodging.sheet.noteError')),
+      },
+    );
+  };
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     setSubmitted(true);
+    if (noteMode) {
+      if (!errors.property && !errors.range && !errors.units) writeNote(noteText.trim());
+      return;
+    }
     if (Object.keys(errors).length > 0 || create.isPending) return;
     create.mutate(
       createRequest(draft, clientRequestId, {
@@ -94,11 +144,12 @@ export function BookingCreateForm({
   return (
     <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col" noValidate>
       <div className="grid flex-1 gap-5 overflow-y-auto px-4 pb-4">
-        <Tabs value={draft.kind} onValueChange={(v) => patch({ kind: v as CreateKind })}>
+        <Tabs value={tab} onValueChange={(v) => openTab(v as SheetTab)}>
           <TabsList aria-label={t('lodging.sheet.kind')} className="w-full">
             <TabsTrigger value="hold">{t('lodging.sheet.tabHold')}</TabsTrigger>
             <TabsTrigger value="confirmed">{t('lodging.sheet.tabConfirmed')}</TabsTrigger>
             <TabsTrigger value="block">{t('lodging.sheet.tabBlock')}</TabsTrigger>
+            <TabsTrigger value="note">{t('lodging.sheet.tabNote')}</TabsTrigger>
           </TabsList>
         </Tabs>
 
@@ -145,10 +196,14 @@ export function BookingCreateForm({
             onChange={patch}
             showError={show('units')}
           />
-          <TakenAlert quote={quote.data} />
+          {!noteMode && <TakenAlert quote={quote.data} />}
         </SheetSection>
 
-        {block ? (
+        {noteMode ? (
+          <SheetSection title={t('lodging.sheet.sectionNote')}>
+            <NightNoteFields value={noteText} onChange={setNoteText} mixed={existing.mixed} />
+          </SheetSection>
+        ) : block ? (
           <SheetSection title={t('lodging.sheet.blockReason')}>
             <Input
               aria-label={t('lodging.sheet.blockReason')}
@@ -239,15 +294,35 @@ export function BookingCreateForm({
                 value={draft.note}
                 onChange={(e) => patch({ note: e.target.value })}
               />
+              <TagInput value={draft.tags} onChange={(tags) => patch({ tags })} />
             </SheetSection>
           </>
         )}
-        <BookingErrorAlert error={create.error} />
+        {!noteMode && <BookingErrorAlert error={create.error} />}
       </div>
       <div className="flex justify-end gap-2 border-t border-border px-4 py-3">
-        <Button type="submit" disabled={create.isPending}>
-          <SavingLabel saving={create.isPending}>{t(SUBMIT_LABEL[draft.kind])}</SavingLabel>
-        </Button>
+        {noteMode ? (
+          <>
+            {existing.any && (
+              <Button
+                type="button"
+                variant="ghost"
+                className="mr-auto text-destructive hover:text-destructive"
+                disabled={saveNotes.isPending}
+                onClick={() => writeNote('')}
+              >
+                {t('lodging.sheet.deleteNote')}
+              </Button>
+            )}
+            <Button type="submit" disabled={saveNotes.isPending || !noteText.trim()}>
+              <SavingLabel saving={saveNotes.isPending}>{t('lodging.sheet.saveNote')}</SavingLabel>
+            </Button>
+          </>
+        ) : (
+          <Button type="submit" disabled={create.isPending}>
+            <SavingLabel saving={create.isPending}>{t(SUBMIT_LABEL[draft.kind])}</SavingLabel>
+          </Button>
+        )}
       </div>
     </form>
   );

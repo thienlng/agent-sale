@@ -1,4 +1,9 @@
-import type { BookingSource, CreateBookingRequest, QuoteRequest } from '@agent-sales/contracts';
+import type {
+  BookingSource,
+  CreateBookingRequest,
+  NightNoteDto,
+  QuoteRequest,
+} from '@agent-sales/contracts';
 import { useMemo, useState } from 'react';
 import type { z } from 'zod';
 
@@ -24,6 +29,8 @@ export interface BookingCreateInitial {
   conversationId?: string | null;
   /** Where the guest came from; default `phone`. */
   source?: BookingSource;
+  /** The property's night notes known to the calendar (prefills the "Ghi chú" tab). */
+  nightNotes?: NightNoteDto[];
 }
 
 export interface BookingDraft extends PriceFields {
@@ -38,6 +45,7 @@ export interface BookingDraft extends PriceFields {
   guestPhone: string;
   source: BookingSource;
   note: string;
+  tags: string[];
   blockReason: string;
 }
 
@@ -54,6 +62,7 @@ export function draftFrom(initial: BookingCreateInitial = {}): BookingDraft {
     guestPhone: initial.guestPhone ?? '',
     source: initial.source ?? 'phone',
     note: '',
+    tags: [],
     blockReason: '',
     adjustment: 0,
     adjustmentReason: '',
@@ -129,6 +138,7 @@ export function createRequest(
     adjustmentReason: d.adjustmentReason,
     manualTotalSell: d.manualTotal,
     note: d.note,
+    tags: d.tags,
   };
 }
 

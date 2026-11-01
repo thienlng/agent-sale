@@ -66,9 +66,10 @@ export function CalendarPage({ initialFrom }: { initialFrom?: string }) {
         checkOut: addDays(sel.end, 1),
         whole: sel.whole,
         unitIds: sel.unitIds,
+        nightNotes: calendar.data?.properties.find((p) => p.id === sel.propertyId)?.notes ?? [],
         ...(search ? { party: search.party } : {}),
       }),
-    [openCreate, search],
+    [openCreate, search, calendar.data],
   );
   const { selection, select, pointerDown, pointerEnter, clear } = useCalendarSelection(onComplete);
 

@@ -1759,7 +1759,13 @@
       "legendPartial": "Còn một số phòng",
       "legendTaken": "Đã kín",
       "createBooking": "Tạo booking",
-      "monthLabel": "Tháng {{month}}"
+      "monthLabel": "Tháng {{month}}",
+      "cellNote": "{{base}}, có ghi chú: {{text}}",
+      "nightNote": "Ghi chú đêm",
+      "internalNote": "Ghi chú nội bộ của {{code}}",
+      "internalNoteTitle": "Ghi chú nội bộ",
+      "quickTotal": "Tổng {{amount}}",
+      "quickNoPrice": "Chưa có giá"
     },
     "find": {
       "title": "Tìm trống",
@@ -1842,7 +1848,16 @@
         "check_out": "Trả phòng",
         "remove_block": "Mở khoá"
       },
-      "permission": "Bạn không có quyền thực hiện thao tác này."
+      "permission": "Bạn không có quyền thực hiện thao tác này.",
+      "tabNote": "Ghi chú",
+      "nightNoteLabel": "Ghi chú cho đêm đã chọn",
+      "nightNoteHint": "Chỉ nhân viên thấy, bot không đọc. Lưu cho từng đêm trong khoảng đã chọn.",
+      "nightNoteMixed": "Một số đêm đã chọn đang có ghi chú khác; lưu sẽ thay ghi chú của tất cả các đêm.",
+      "saveNote": "Lưu ghi chú",
+      "deleteNote": "Xoá ghi chú",
+      "noteSaved": "Đã lưu ghi chú",
+      "noteDeleted": "Đã xoá ghi chú",
+      "noteError": "Không lưu được ghi chú. Thử lại."
     },
     "quote": {
       "date": "Ngày",
@@ -1922,7 +1937,9 @@
       },
       "prev": "Trang trước",
       "next": "Trang sau",
-      "create": "Tạo booking"
+      "create": "Tạo booking",
+      "tag": "Nhãn",
+      "allTags": "Mọi nhãn"
     },
     "holdSetting": {
       "label": "Giữ chỗ tự hết hạn sau",
@@ -2010,7 +2027,9 @@
       "layoutNote": "Ghi chú",
       "addLayout": "Thêm phòng ngủ",
       "removeLayout": "Xoá phòng ngủ {{name}}",
-      "codeTaken": "Mã căn đã có. Chọn mã khác."
+      "codeTaken": "Mã căn đã có. Chọn mã khác.",
+      "internalNote": "Ghi chú nội bộ — bot không thấy",
+      "internalNoteHint": "Chỉ nhân viên đọc (hiện khi rê chuột vào tên căn trên Lịch). Bot không bao giờ thấy ghi chú này."
     },
     "rooms": {
       "intro": "Mỗi phòng bán riêng. Thuê nguyên căn sẽ lấy mọi phòng đang bán.",
@@ -2126,6 +2145,20 @@
       "openProperties": "Mở trang Căn",
       "error": "Không lưu được lựa chọn. Vui lòng thử lại.",
       "readOnly": "Bạn chỉ có quyền xem."
+    },
+    "tags": {
+      "label": "Nhãn",
+      "add": "Thêm nhãn",
+      "addPlaceholder": "Nhập nhãn rồi nhấn Enter",
+      "remove": "Bỏ nhãn {{tag}}",
+      "limit": "Tối đa 8 nhãn, mỗi nhãn tối đa 30 ký tự.",
+      "suggested": {
+        "deposit": "Đã cọc",
+        "regular": "Khách quen",
+        "pickup": "Cần xe đón",
+        "kids": "Có trẻ nhỏ",
+        "company": "Đoàn công ty"
+      }
     }
   }
 }

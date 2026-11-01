@@ -1,5 +1,5 @@
-import { ChevronRight } from 'lucide-react';
-import { memo, type MouseEvent, type ReactNode } from 'react';
+import { ChevronRight, StickyNote, Tag } from 'lucide-react';
+import { memo, type MouseEvent, type ReactNode, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ import type {
 import { segmentSpans, takenByNight } from '../lib/calendar-model';
 import { clockTime, dayMonth, formatShortVnd, formatVnd, weekdayLong } from '../lib/format';
 import { STATUS_STYLE } from './booking-status-badge';
+import { BookingQuickView, CellTip, InternalNoteCard, NightNoteTip } from './calendar-quick-view';
 
 export interface CellHandlers {
   onCell: (cell: CellRef, mods: SelectModifiers) => void;
@@ -37,6 +38,20 @@ function modifiers(e: MouseEvent): SelectModifiers {
   return { shift: e.shiftKey, multi: e.ctrlKey || e.metaKey };
 }
 
+/** Night note text of a row by night (undefined = no note). */
+type NoteOf = (night: string) => string | undefined;
+
+/** Small dot in the corner of a cell that has a night note (above the booking bar). */
+function NoteDot() {
+  return (
+    <span
+      aria-hidden
+      data-note-dot=""
+      className="pointer-events-none absolute top-0.5 right-0.5 z-[3] size-1.5 rounded-full bg-primary"
+    />
+  );
+}
+
 interface RowProps {
   label: string;
   rowIndex: number;
@@ -47,6 +62,7 @@ interface RowProps {
   selected: (night: string) => boolean;
   header: ReactNode;
   headerClassName?: string;
+  noteOf: NoteOf;
 }
 
 /** One unit row: a free night is a button with its price, an occupied night opens its booking. */
@@ -78,6 +94,9 @@ function UnitRow({
         const day = weekdayLong(t, night);
         const date = dayMonth(night);
         const sell = prices.get(night) ?? null;
+        const note = p.noteOf(night);
+        const withNote = (base: string) =>
+          note ? t('lodging.cal.cellNote', { base, text: note }) : base;
         return (
           <div
             key={night}
@@ -90,50 +109,58 @@ function UnitRow({
             )}
           >
             {seg ? (
-              <button
-                type="button"
-                tabIndex={-1}
-                data-r={p.rowIndex}
-                data-c={i}
-                className={cellClass}
-                title={seg.kind === 'block' ? seg.blockReason : `${seg.guestName} · ${seg.code}`}
-                aria-label={t('lodging.cal.cellTaken', {
-                  unit: p.label,
-                  day,
-                  date,
-                  status: t(`lodging.bookingStatus.${seg.status}`),
-                  code: seg.code,
-                })}
-                onClick={() => p.handlers.onOpenBooking(seg.bookingId)}
-              />
+              <CellTip content={<BookingQuickView segment={seg} nightNote={note} />}>
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  data-r={p.rowIndex}
+                  data-c={i}
+                  className={cellClass}
+                  aria-label={withNote(
+                    t('lodging.cal.cellTaken', {
+                      unit: p.label,
+                      day,
+                      date,
+                      status: t(`lodging.bookingStatus.${seg.status}`),
+                      code: seg.code,
+                    }),
+                  )}
+                  onClick={() => p.handlers.onOpenBooking(seg.bookingId)}
+                >
+                  {note && <NoteDot />}
+                </button>
+              </CellTip>
             ) : (
-              <button
-                type="button"
-                tabIndex={-1}
-                data-r={p.rowIndex}
-                data-c={i}
-                className={cn(
-                  cellClass,
-                  'text-muted-foreground hover:text-foreground hover:ring-1 hover:ring-primary/60 hover:ring-inset',
-                  p.selected(night) &&
-                    'bg-primary/15 text-foreground ring-1 ring-primary ring-inset',
-                )}
-                aria-label={
-                  sell === null
-                    ? t('lodging.cal.cellNoPrice', { unit: p.label, day, date })
-                    : t('lodging.cal.cellFree', {
-                        unit: p.label,
-                        day,
-                        date,
-                        price: formatVnd(sell),
-                      })
-                }
-                onPointerDown={(e) => e.button === 0 && p.handlers.onPointerDown(ref)}
-                onPointerEnter={() => p.handlers.onPointerEnter(ref)}
-                onClick={(e) => p.handlers.onCell(ref, modifiers(e))}
-              >
-                {sell === null ? '–' : formatShortVnd(sell)}
-              </button>
+              <CellTip content={note && <NightNoteTip text={note} />}>
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  data-r={p.rowIndex}
+                  data-c={i}
+                  className={cn(
+                    cellClass,
+                    'text-muted-foreground hover:text-foreground hover:ring-1 hover:ring-primary/60 hover:ring-inset',
+                    p.selected(night) &&
+                      'bg-primary/15 text-foreground ring-1 ring-primary ring-inset',
+                  )}
+                  aria-label={withNote(
+                    sell === null
+                      ? t('lodging.cal.cellNoPrice', { unit: p.label, day, date })
+                      : t('lodging.cal.cellFree', {
+                          unit: p.label,
+                          day,
+                          date,
+                          price: formatVnd(sell),
+                        }),
+                  )}
+                  onPointerDown={(e) => e.button === 0 && p.handlers.onPointerDown(ref)}
+                  onPointerEnter={() => p.handlers.onPointerEnter(ref)}
+                  onClick={(e) => p.handlers.onCell(ref, modifiers(e))}
+                >
+                  {sell === null ? '–' : formatShortVnd(sell)}
+                  {note && <NoteDot />}
+                </button>
+              </CellTip>
             )}
           </div>
         );
@@ -172,6 +199,16 @@ function UnitRow({
                 ? ` · ${t('lodging.cal.holdExpires', { time: clockTime(s.holdExpiresAt) })}`
                 : ''}
             </span>
+            {s.note && <StickyNote data-marker="note" className="size-3 shrink-0" />}
+            {s.tags.length > 0 && (
+              <span
+                data-marker="tags"
+                className="inline-flex shrink-0 items-center gap-0.5 text-[11px] tabular-nums"
+              >
+                <Tag className="size-3" />
+                {s.tags.length}
+              </span>
+            )}
           </div>
         );
       })}
@@ -204,6 +241,9 @@ function RoomsSummaryRow({ property, ...p }: RowProps & { property: CalendarProp
         const sell = prices.get(night) ?? null;
         const ref: CellRef = { propertyId: property.id, unitId: null, night, room: false };
         const allFree = free === total && total > 0;
+        const note = p.noteOf(night);
+        const withNote = (base: string) =>
+          note ? t('lodging.cal.cellNote', { base, text: note }) : base;
         return (
           <div
             key={night}
@@ -215,52 +255,58 @@ function RoomsSummaryRow({ property, ...p }: RowProps & { property: CalendarProp
               night === p.today && 'bg-primary-soft/50',
             )}
           >
-            {allFree ? (
-              <button
-                type="button"
-                tabIndex={-1}
-                data-r={p.rowIndex}
-                data-c={i}
-                className={cn(
-                  cellClass,
-                  'text-muted-foreground hover:text-foreground hover:ring-1 hover:ring-primary/60 hover:ring-inset',
-                  p.selected(night) &&
-                    'bg-primary/15 text-foreground ring-1 ring-primary ring-inset',
-                )}
-                aria-label={
-                  sell === null
-                    ? t('lodging.cal.cellNoPrice', { unit: p.label, day, date })
-                    : t('lodging.cal.cellFree', {
-                        unit: p.label,
-                        day,
-                        date,
-                        price: formatVnd(sell),
-                      })
-                }
-                onPointerDown={(e) => e.button === 0 && p.handlers.onPointerDown(ref)}
-                onPointerEnter={() => p.handlers.onPointerEnter(ref)}
-                onClick={(e) => p.handlers.onCell(ref, modifiers(e))}
-              >
-                {sell === null ? '–' : formatShortVnd(sell)}
-              </button>
-            ) : (
-              <button
-                type="button"
-                tabIndex={-1}
-                data-r={p.rowIndex}
-                data-c={i}
-                className={cn(
-                  cellClass,
-                  free === 0
-                    ? 'bg-hatch-muted text-muted-foreground'
-                    : 'bg-primary-soft text-primary-strong',
-                )}
-                aria-label={t('lodging.cal.cellPartial', { unit: p.label, day, date, free, total })}
-                onClick={() => p.handlers.onToggle(property.id)}
-              >
-                {free}/{total}
-              </button>
-            )}
+            <CellTip content={note && <NightNoteTip text={note} />}>
+              {allFree ? (
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  data-r={p.rowIndex}
+                  data-c={i}
+                  className={cn(
+                    cellClass,
+                    'text-muted-foreground hover:text-foreground hover:ring-1 hover:ring-primary/60 hover:ring-inset',
+                    p.selected(night) &&
+                      'bg-primary/15 text-foreground ring-1 ring-primary ring-inset',
+                  )}
+                  aria-label={withNote(
+                    sell === null
+                      ? t('lodging.cal.cellNoPrice', { unit: p.label, day, date })
+                      : t('lodging.cal.cellFree', {
+                          unit: p.label,
+                          day,
+                          date,
+                          price: formatVnd(sell),
+                        }),
+                  )}
+                  onPointerDown={(e) => e.button === 0 && p.handlers.onPointerDown(ref)}
+                  onPointerEnter={() => p.handlers.onPointerEnter(ref)}
+                  onClick={(e) => p.handlers.onCell(ref, modifiers(e))}
+                >
+                  {sell === null ? '–' : formatShortVnd(sell)}
+                  {note && <NoteDot />}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  data-r={p.rowIndex}
+                  data-c={i}
+                  className={cn(
+                    cellClass,
+                    free === 0
+                      ? 'bg-hatch-muted text-muted-foreground'
+                      : 'bg-primary-soft text-primary-strong',
+                  )}
+                  aria-label={withNote(
+                    t('lodging.cal.cellPartial', { unit: p.label, day, date, free, total }),
+                  )}
+                  onClick={() => p.handlers.onToggle(property.id)}
+                >
+                  {free}/{total}
+                  {note && <NoteDot />}
+                </button>
+              )}
+            </CellTip>
           </div>
         );
       })}
@@ -300,6 +346,14 @@ export const PropertyBlock = memo(function PropertyBlock({
   const inRange = (night: string) =>
     Boolean(selection && night >= selection.start && night <= selection.end);
   const rooms = property.sellMode === 'rooms';
+  const notes = useMemo(
+    () => new Map(property.notes.map((n) => [`${n.unitId ?? ''}|${n.night}`, n.text])),
+    [property.notes],
+  );
+  const noteFor =
+    (unitId: string | null): NoteOf =>
+    (night) =>
+      notes.get(`${unitId ?? ''}|${night}`);
   const capacity = t('lodging.cal.capacity', {
     adults: property.standardAdults,
     children: property.standardChildren,
@@ -316,24 +370,31 @@ export const PropertyBlock = memo(function PropertyBlock({
       </div>
     </div>
   );
+  const name = rooms ? (
+    <button
+      type="button"
+      className="flex w-full min-w-0 items-center text-left hover:bg-muted/60"
+      aria-expanded={expanded}
+      aria-label={t('lodging.cal.expand', { code: property.code })}
+      onClick={() => handlers.onToggle(property.id)}
+    >
+      <ChevronRight
+        aria-hidden
+        className={cn('ml-1 size-4 shrink-0 transition-transform', expanded && 'rotate-90')}
+      />
+      {title}
+    </button>
+  ) : (
+    title
+  );
   const header = (
     <div className="flex w-full min-w-0 flex-col">
-      {rooms ? (
-        <button
-          type="button"
-          className="flex w-full min-w-0 items-center text-left hover:bg-muted/60"
-          aria-expanded={expanded}
-          aria-label={t('lodging.cal.expand', { code: property.code })}
-          onClick={() => handlers.onToggle(property.id)}
-        >
-          <ChevronRight
-            aria-hidden
-            className={cn('ml-1 size-4 shrink-0 transition-transform', expanded && 'rotate-90')}
-          />
-          {title}
-        </button>
+      {property.internalNote ? (
+        <InternalNoteCard code={property.code} note={property.internalNote}>
+          {name}
+        </InternalNoteCard>
       ) : (
-        title
+        name
       )}
       {fits && fit && handlers.onHold && (
         <Button
@@ -349,7 +410,15 @@ export const PropertyBlock = memo(function PropertyBlock({
     </div>
   );
   const headerClassName = cn(fits && 'border-l-2 border-primary');
-  const common = { nights, weekend, today, handlers, header, headerClassName };
+  const common = {
+    nights,
+    weekend,
+    today,
+    handlers,
+    header,
+    headerClassName,
+    noteOf: noteFor(null),
+  };
   const wholeRow = property.rows[0];
   return (
     <div
@@ -387,6 +456,7 @@ export const PropertyBlock = memo(function PropertyBlock({
             {...common}
             header={<span className="truncate py-2 pr-2 pl-9 text-sm">{row.name}</span>}
             headerClassName=""
+            noteOf={noteFor(row.unitId)}
             row={row}
             propertyId={property.id}
             room

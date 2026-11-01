@@ -61,6 +61,7 @@ const booking = (over: Partial<BookingDetail> = {}): BookingDetail => ({
   totalSell: 24_000_000,
   totalCost: 20_000_000,
   note: '',
+  tags: [],
   blockReason: '',
   version: 3,
   createdAt: '2099-10-30T00:00:00.000Z',
@@ -537,6 +538,87 @@ describe('BookingSheet create', () => {
         whole: true,
         checkIn: '2099-11-02',
         checkOut: '2099-11-04',
+      }),
+    );
+  });
+});
+
+describe('BookingSheet tags', () => {
+  it('adds suggested and free tags when creating a stay', async () => {
+    const calls = stubApi({
+      'GET /lodging/properties': { status: 200, body: { data: [] } },
+      [`GET /lodging/properties/${PROP}`]: { status: 200, body: property },
+      'POST /lodging/quote': { status: 200, body: quote },
+      'POST /lodging/bookings': { status: 201, body: booking() },
+    });
+    const user = userEvent.setup();
+    renderSheet({
+      mode: 'create',
+      initial: {
+        propertyId: PROP,
+        checkIn: '2099-11-02',
+        checkOut: '2099-11-04',
+        guestName: 'Chị Lan',
+      },
+    });
+    const sheet = await screen.findByRole('dialog');
+    await user.click(within(sheet).getByRole('button', { name: 'Đã cọc', pressed: false }));
+    const free = within(sheet).getByRole('textbox', { name: 'Thêm nhãn' });
+    await user.type(free, 'VIP{Enter}');
+    expect(free).toHaveValue('');
+    expect(within(sheet).getByRole('button', { name: 'Bỏ nhãn VIP' })).toBeInTheDocument();
+    // Enter in the tag field adds a tag; it never submits the form.
+    expect(calls.some((c) => c.key === 'POST /lodging/bookings')).toBe(false);
+    await user.click(within(sheet).getByRole('button', { name: 'Giữ chỗ' }));
+    await waitFor(() =>
+      expect(calls.find((c) => c.key === 'POST /lodging/bookings')?.body).toMatchObject({
+        tags: ['Đã cọc', 'VIP'],
+      }),
+    );
+  });
+
+  it('shows tags in the view and sends only the tags when they are edited', async () => {
+    const tagged = booking({ tags: ['Khách quen'] });
+    const calls = stubApi({
+      [`GET /lodging/bookings/${BK}`]: { status: 200, body: tagged },
+      [`GET /lodging/properties/${PROP}`]: { status: 200, body: property },
+      'POST /lodging/quote': { status: 200, body: quote },
+      [`PATCH /lodging/bookings/${BK}`]: { status: 200, body: tagged },
+    });
+    const user = userEvent.setup();
+    renderSheet({ mode: 'view', bookingId: BK });
+    const sheet = await screen.findByRole('dialog');
+    expect(await within(sheet).findByText('Khách quen')).toBeInTheDocument();
+    await user.click(within(sheet).getByRole('button', { name: 'Sửa' }));
+    await user.click(within(sheet).getByRole('button', { name: 'Khách quen', pressed: true }));
+    await user.click(within(sheet).getByRole('button', { name: 'Cần xe đón', pressed: false }));
+    await user.click(within(sheet).getByRole('button', { name: 'Lưu' }));
+    await waitFor(() =>
+      expect(calls.find((c) => c.key.startsWith('PATCH'))?.body).toEqual({
+        version: 3,
+        tags: ['Cần xe đón'],
+      }),
+    );
+  });
+
+  it('lets a checked-in stay change its tags', async () => {
+    const stayed = booking({ status: 'checked_in', holdExpiresAt: null });
+    const calls = stubApi({
+      [`GET /lodging/bookings/${BK}`]: { status: 200, body: stayed },
+      [`GET /lodging/properties/${PROP}`]: { status: 200, body: property },
+      'POST /lodging/quote': { status: 200, body: quote },
+      [`PATCH /lodging/bookings/${BK}`]: { status: 200, body: stayed },
+    });
+    const user = userEvent.setup();
+    renderSheet({ mode: 'view', bookingId: BK });
+    const sheet = await screen.findByRole('dialog');
+    await user.click(await within(sheet).findByRole('button', { name: 'Sửa' }));
+    await user.click(within(sheet).getByRole('button', { name: 'Có trẻ nhỏ', pressed: false }));
+    await user.click(within(sheet).getByRole('button', { name: 'Lưu' }));
+    await waitFor(() =>
+      expect(calls.find((c) => c.key.startsWith('PATCH'))?.body).toEqual({
+        version: 3,
+        tags: ['Có trẻ nhỏ'],
       }),
     );
   });

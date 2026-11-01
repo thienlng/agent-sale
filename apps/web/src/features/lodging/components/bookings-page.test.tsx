@@ -123,3 +123,41 @@ describe('BookingsPage', () => {
     expect(screen.queryByLabelText('Giữ chỗ tự hết hạn sau')).toBeNull();
   });
 });
+
+describe('BookingsPage tags', () => {
+  it('shows tag chips and filters the list by a tag', async () => {
+    const tagged = bookingFixture({
+      id: LODGING_IDS.bk1,
+      code: 'BK-0021',
+      status: 'confirmed',
+      guestName: 'Chị Lan',
+      holdExpiresAt: null,
+      tags: ['Đoàn công ty', 'Đã cọc'],
+    });
+    const { fetchStub, calls } = stubLodgingApi({
+      'GET /lodging/bookings': { status: 200, body: { data: [tagged], nextOffset: null } },
+      'GET /lodging/properties': { status: 200, body: { data: [] } },
+      'GET /lodging/settings': { status: 200, body: { holdMinutes: 120 } },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    const user = userEvent.setup();
+    renderPage();
+    const row = (await screen.findByRole('button', { name: /BK-0021/ })).closest('tr');
+    expect(row).not.toBeNull();
+    expect(within(row as HTMLElement).getByText('Đoàn công ty')).toBeInTheDocument();
+    expect(within(row as HTMLElement).getByText('Đã cọc')).toBeInTheDocument();
+    screen.getByRole('combobox', { name: 'Nhãn' }).focus();
+    await user.keyboard('{ArrowDown}');
+    (await screen.findByRole('option', { name: 'Đoàn công ty' })).focus();
+    await user.keyboard('{Enter}');
+    await waitFor(() =>
+      expect(
+        calls.some(
+          (c) =>
+            c.key === 'GET /lodging/bookings' &&
+            new URLSearchParams(c.url.split('?')[1]).get('tag') === 'Đoàn công ty',
+        ),
+      ).toBe(true),
+    );
+  });
+});

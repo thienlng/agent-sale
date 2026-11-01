@@ -104,4 +104,22 @@ describe('InfoTab', () => {
       ),
     );
   });
+
+  it('saves the internal note and says the bot never sees it', async () => {
+    const calls = stubSequence({
+      [`GET ${path}`]: [{ status: 200, body: propertyFixture() }],
+      [`PATCH ${path}`]: [
+        { status: 200, body: propertyFixture({ internalNote: 'Chìa khoá ở bảo vệ', version: 2 }) },
+      ],
+    });
+    renderWithRouter(() => <Harness />);
+    const note = await screen.findByLabelText('Ghi chú nội bộ — bot không thấy');
+    await userEvent.type(note, 'Chìa khoá ở bảo vệ');
+    await userEvent.click(screen.getByRole('button', { name: 'Lưu' }));
+    await waitFor(() => expect(calls.filter((c) => c.key === `PATCH ${path}`)).toHaveLength(1));
+    const body = calls.find((c) => c.key === `PATCH ${path}`)?.body as {
+      patch: { internalNote: string };
+    };
+    expect(body.patch.internalNote).toBe('Chìa khoá ở bảo vệ');
+  });
 });

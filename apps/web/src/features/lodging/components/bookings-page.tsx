@@ -28,10 +28,13 @@ import { useDebouncedValue } from '../hooks/use-debounced-value';
 import { BookingSheet } from './booking-sheet';
 import { BookingsTable } from './bookings-table';
 import { HoldMinutesControl } from './hold-minutes-control';
+import { useSuggestedTags } from './tag-input';
 
 type View = BookingListQuery['view'];
 const VIEWS: View[] = ['today', 'holds', 'upcoming', 'all'];
 const ALL = 'all';
+/** Tag filter "any tag" (not a valid tag value in practice). */
+const ANY_TAG = '__any__';
 
 /** Holds first by expiry (overdue first), so the list reads as a to-do. */
 const byExpiry = (a: BookingDto, b: BookingDto) =>
@@ -51,6 +54,8 @@ export function BookingsPage({ initialView = 'today' }: { initialView?: View }) 
   const [view, setView] = useState<View>(initialView);
   const [propertyId, setPropertyId] = useState(ALL);
   const [status, setStatus] = useState(ALL);
+  const [tag, setTag] = useState(ANY_TAG);
+  const suggested = useSuggestedTags();
   const [q, setQ] = useState('');
   const [offset, setOffset] = useState(0);
   const [sheet, setSheet] = useState<SheetState | null>(null);
@@ -61,6 +66,7 @@ export function BookingsPage({ initialView = 'today' }: { initialView?: View }) 
     ...(propertyId !== ALL ? { propertyId } : {}),
     ...(view === 'all' && status !== ALL ? { status: status as BookingStatus } : {}),
     ...(search ? { q: search } : {}),
+    ...(tag !== ANY_TAG ? { tag } : {}),
     ...(offset ? { offset } : {}),
   };
   const bookings = useBookings(query);
@@ -68,6 +74,17 @@ export function BookingsPage({ initialView = 'today' }: { initialView?: View }) 
     const data = bookings.data?.data ?? [];
     return view === 'holds' ? [...data].sort(byExpiry) : data;
   }, [bookings.data, view]);
+  // Suggested tags, the tags on this page and the active filter, in that order.
+  const tagOptions = useMemo(
+    () => [
+      ...new Set([
+        ...suggested,
+        ...(bookings.data?.data ?? []).flatMap((b) => b.tags),
+        ...(tag !== ANY_TAG ? [tag] : []),
+      ]),
+    ],
+    [suggested, bookings.data, tag],
+  );
   const reset =
     <T,>(set: (v: T) => void) =>
     (v: T) => {
@@ -127,6 +144,19 @@ export function BookingsPage({ initialView = 'today' }: { initialView?: View }) 
             ))}
           </SelectContent>
         </Select>
+        <Select value={tag} onValueChange={reset(setTag)}>
+          <SelectTrigger size="sm" className="w-40" aria-label={t('lodging.list.tag')}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ANY_TAG}>{t('lodging.list.allTags')}</SelectItem>
+            {tagOptions.map((x) => (
+              <SelectItem key={x} value={x}>
+                {x}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         {view === 'all' && (
           <Select value={status} onValueChange={reset(setStatus)}>
             <SelectTrigger size="sm" className="w-40" aria-label={t('lodging.list.status')}>
@@ -168,6 +198,7 @@ export function BookingsPage({ initialView = 'today' }: { initialView?: View }) 
           <BookingsTable
             bookings={rows}
             showExpiry={view === 'holds'}
+            onTag={reset(setTag)}
             onOpen={(bookingId) => setSheet({ key: Date.now(), mode: 'view', bookingId })}
           />
         </div>

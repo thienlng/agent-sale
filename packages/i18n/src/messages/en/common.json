@@ -1764,7 +1764,13 @@
       "legendPartial": "Some rooms free",
       "legendTaken": "Full",
       "createBooking": "New booking",
-      "monthLabel": "Month {{month}}"
+      "monthLabel": "Month {{month}}",
+      "cellNote": "{{base}}, note: {{text}}",
+      "nightNote": "Night note",
+      "internalNote": "Internal note of {{code}}",
+      "internalNoteTitle": "Internal note",
+      "quickTotal": "Total {{amount}}",
+      "quickNoPrice": "No price yet"
     },
     "find": {
       "title": "Find availability",
@@ -1847,7 +1853,16 @@
         "check_out": "Check out",
         "remove_block": "Unblock"
       },
-      "permission": "You do not have permission to do this."
+      "permission": "You do not have permission to do this.",
+      "tabNote": "Note",
+      "nightNoteLabel": "Note for the selected nights",
+      "nightNoteHint": "Staff only; the bot never reads it. Saved on each night of the selected range.",
+      "nightNoteMixed": "Some selected nights already have another note; saving replaces the note on every night.",
+      "saveNote": "Save note",
+      "deleteNote": "Delete note",
+      "noteSaved": "Note saved",
+      "noteDeleted": "Note deleted",
+      "noteError": "Could not save the note. Try again."
     },
     "quote": {
       "date": "Date",
@@ -1927,7 +1942,9 @@
       },
       "prev": "Previous page",
       "next": "Next page",
-      "create": "New booking"
+      "create": "New booking",
+      "tag": "Tag",
+      "allTags": "All tags"
     },
     "holdSetting": {
       "label": "Holds expire after",
@@ -2015,7 +2032,9 @@
       "layoutNote": "Note",
       "addLayout": "Add bedroom",
       "removeLayout": "Remove bedroom {{name}}",
-      "codeTaken": "This code is taken. Choose another."
+      "codeTaken": "This code is taken. Choose another.",
+      "internalNote": "Internal note — hidden from the bot",
+      "internalNoteHint": "Staff only (shown when hovering the property name on the calendar). The bot never sees this note."
     },
     "rooms": {
       "intro": "Each room is sold on its own. Renting the whole place takes every room on sale.",
@@ -2131,6 +2150,20 @@
       "openProperties": "Open Places",
       "error": "Could not save the selection. Please try again.",
       "readOnly": "You can only view this."
+    },
+    "tags": {
+      "label": "Tags",
+      "add": "Add tag",
+      "addPlaceholder": "Type a tag and press Enter",
+      "remove": "Remove tag {{tag}}",
+      "limit": "Up to 8 tags of at most 30 characters.",
+      "suggested": {
+        "deposit": "Deposit paid",
+        "regular": "Regular guest",
+        "pickup": "Needs pick-up",
+        "kids": "Young children",
+        "company": "Company group"
+      }
     }
   }
 }

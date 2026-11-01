@@ -62,6 +62,7 @@ export function BookingSheet(props: BookingSheetProps) {
             <BookingCreateForm
               initial={props.initial}
               onCreated={(b) => (props.onCreated ? props.onCreated(b) : props.onOpenChange(false))}
+              onClose={() => props.onOpenChange(false)}
             />
           ) : (
             <BookingView key={props.bookingId} bookingId={props.bookingId} />

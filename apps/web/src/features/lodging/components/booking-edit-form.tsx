@@ -19,6 +19,7 @@ import { BookingErrorAlert } from './booking-error-alert';
 import { SavingLabel, SheetSection, StayDates, TakenAlert, UnitPicker } from './booking-fields';
 import { PartyInput } from './party-input';
 import { QuoteBreakdown } from './quote-breakdown';
+import { TagInput } from './tag-input';
 
 const sameList = (a: readonly unknown[], b: readonly unknown[]) =>
   a.length === b.length && a.every((x, i) => x === b[i]);
@@ -67,6 +68,7 @@ export function BookingEditForm({
   const [guestName, setGuestName] = useState(booking.guestName);
   const [guestPhone, setGuestPhone] = useState(booking.guestPhone);
   const [note, setNote] = useState(booking.note);
+  const [tags, setTags] = useState(booking.tags);
   const [price, setPrice] = useState<PriceFields>({
     adjustment: booking.adjustment,
     adjustmentReason: booking.adjustmentReason,
@@ -119,6 +121,7 @@ export function BookingEditForm({
       }
       if (note !== booking.note) out.note = note;
     }
+    if (!block && !sameList(tags, booking.tags)) out.tags = tags;
     if (stay) {
       const p = toParty(party);
       if (p && stayChanged) out.party = p;
@@ -232,15 +235,18 @@ export function BookingEditForm({
             />
           </SheetSection>
         )}
-        {!checkedIn && (
+        {(!checkedIn || !block) && (
           <SheetSection title={t('lodging.sheet.sectionNote')}>
-            <Textarea
-              aria-label={t('lodging.sheet.note')}
-              rows={2}
-              maxLength={2000}
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-            />
+            {!checkedIn && (
+              <Textarea
+                aria-label={t('lodging.sheet.note')}
+                rows={2}
+                maxLength={2000}
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+              />
+            )}
+            {!block && <TagInput value={tags} onChange={setTags} />}
           </SheetSection>
         )}
         <BookingErrorAlert error={update.error} onReload={onReload} />
