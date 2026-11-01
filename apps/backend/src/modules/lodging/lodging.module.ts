@@ -4,7 +4,8 @@ import { Module } from '@nestjs/common';
 import { DB_TENANT } from '../../common/db/db.module.js';
 import { BotModule } from '../bot/bot.module.js';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
-import { LODGING_FACADE } from './api/lodging.facade.js';
+import { LODGING_CATALOG_FACADE, LODGING_FACADE } from './api/lodging.facade.js';
+import { LodgingBotCatalog } from './application/bot-catalog.js';
 import { BookingService } from './application/booking.service.js';
 import { CalendarService } from './application/calendar.service.js';
 import { LodgingAccess } from './application/lodging-access.js';
@@ -39,7 +40,8 @@ import { PropertiesController } from './interface/http/properties.controller.js'
     BookingService,
     CalendarService,
     { provide: LODGING_FACADE, useClass: LodgingFacadeImpl },
+    { provide: LODGING_CATALOG_FACADE, useClass: LodgingBotCatalog },
   ],
-  exports: [LODGING_FACADE],
+  exports: [LODGING_FACADE, LODGING_CATALOG_FACADE],
 })
 export class LodgingModule {}

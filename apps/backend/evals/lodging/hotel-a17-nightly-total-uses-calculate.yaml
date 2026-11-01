@@ -10,14 +10,14 @@
   'products':
     [
       {
-        'name': 'Villa A17',
+        'name': 'A17 – Villa A17',
         'code': 'A17',
         'description': 'Một căn nguyên căn có 8 phòng ngủ. Tiêu chuẩn 24 người lớn và 8 trẻ dưới 6 tuổi.',
-        'instructions': 'Không khẳng định lịch trống, không bịa đơn vị giá, không tạo booking khi chỉ trao đổi.',
         'variants': [{ 'name': 'Nguyên căn, giá tham khảo', 'price': 12000000, 'stock': 0 }],
         'accommodation':
           {
             'rentalType': 'entire_property',
+            'code': 'A17',
             'bedrooms': 8,
             'standardAdults': 24,
             'standardChildren': 8,
@@ -35,7 +35,7 @@
                 { 'name': 'Room 8', 'beds': 'Beds described by owner' },
               ],
             'amenities': ['Bể bơi', 'BBQ'],
-            'rateBasis': 'unconfirmed',
+            'rateBasis': 'night',
             'rates':
               [
                 { 'days': [1, 2, 3, 4], 'amount': 12000000 },
@@ -43,24 +43,29 @@
                 { 'days': [6], 'amount': 14000000 },
               ],
             'gallery': [],
+            'surcharges':
+              { 'extraAdult': null, 'extraChild': null, 'childFreeBelow': 6, 'childAdultFrom': 12 },
           },
       },
     ],
-  'id': 'hotel-a17-unconfirmed-price-unit',
+  'id': 'hotel-a17-nightly-total-uses-calculate',
   'conversation': [{ 'customer': 'A17 thuê 2 đêm từ thứ 7 thì tổng tiền bao nhiêu?' }],
+  # Rates are per night (T-160): the Saturday + Sunday nights are quoted exactly, and the stay total
+  # comes from the calculate tool, never from the model's own arithmetic.
   'expect':
     {
       'outcome': 'answered',
       'guardrail': 'none',
-      'numbers_only_from_sources': true,
-      'contains_all': ['14.000.000', '13.000.000', 'chưa'],
-      'not_contains': ['27.000.000', 'mỗi đêm'],
+      'steps_succeeded': ['search_products', 'calculate'],
+      'contains_all': ['14.000.000', '13.000.000', '27.000.000'],
+      'not_contains': ['còn trống ạ', 'đã giữ', 'đã đặt'],
     },
   fake_turns:
     [
       { tool_calls: [{ name: 'search_products', input: { query: 'A17' } }] },
+      { tool_calls: [{ name: 'calculate', input: { expression: '14000000 + 13000000' } }] },
       {
-        text: 'Dạ A17 có giá tham khảo thứ Bảy là 14.000.000đ, thứ Sáu và Chủ nhật là 13.000.000đ; đơn vị tính chưa được xác nhận nên em chưa tính tổng ạ.',
+        text: 'Dạ A17 giá theo đêm: đêm thứ Bảy 14.000.000đ, đêm Chủ nhật 13.000.000đ, 2 đêm tổng 27.000.000đ ạ. Lịch trống và giá chốt cuối cùng bên em cần kiểm tra lại ạ.',
       },
     ],
 }

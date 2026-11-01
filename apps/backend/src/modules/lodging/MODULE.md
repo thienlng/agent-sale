@@ -2,7 +2,7 @@
 
 **Purpose:** Lodging v2 for hotel businesses (T-160): properties (whole villas or per-room homestays) → units → rates → nightly calendar → bookings and blocks. Spec: `docs/superpowers/specs/2026-11-01-lodging-calendar-design.md`.
 
-**Status:** being built. Done: the pure domain (`domain/`: nights, rate rules, quote, booking status machine), the persistence port `application/ports/lodging-store.ts` (`LODGING_STORE`) with its Drizzle adapter (`infrastructure/persistence/`), the setup API (`interface/http/properties.controller.ts`: properties, rooms, weekday rates + surcharges, date-range overrides, settings, bot properties), bookings (`bookings.controller.ts` → `BookingService`: holds, confirmed stays, blocks, edits, status moves, lists) and reads (`calendar.controller.ts` → `CalendarService`: calendar grid, availability, quote). The AI facade use cases follow in later T-160 steps.
+**Status:** being built. Done: the pure domain (`domain/`: nights, rate rules, quote, booking status machine), the persistence port `application/ports/lodging-store.ts` (`LODGING_STORE`) with its Drizzle adapter (`infrastructure/persistence/`), the setup API (`interface/http/properties.controller.ts`: properties, rooms, weekday rates + surcharges, date-range overrides, settings, bot properties), bookings (`bookings.controller.ts` → `BookingService`: holds, confirmed stays, blocks, edits, status moves, lists) and reads (`calendar.controller.ts` → `CalendarService`: calendar grid, availability, quote). The bot catalog of hotel bots (`application/bot-catalog.ts` + the pure mapping `application/bot-product.ts`) serves the `ai` module.
 
 **HTTP:** `lodgingV2Routes` in `packages/contracts/src/lodging/lodging.routes.ts`. Hotel businesses only (`LodgingAccess.assertHotel` → 404 otherwise). Setup writes need `catalog.manage` (bot properties: `bots.manage`); booking writes need `orders.manage`; reads (incl. `POST /lodging/availability` and `POST /lodging/quote`) need `orders.view`. Errors: `NOT_FOUND` 404, `VALIDATION_FAILED` 400, `CONFLICT` 409; `NIGHTS_TAKEN` / `STALE_VERSION` answer 409 `CONFLICT` with `details.reason` (and `details.codes` for taken nights).
 
@@ -10,7 +10,8 @@
 
 **Public API (`api/`):**
 
-- `LODGING_FACADE` → `LodgingFacade` (no use cases yet)
+- `LODGING_FACADE` → `LodgingFacade`: `listBotPropertyIds(ws, botId)` — the bot's stored selection, or every active property id when it has none.
+- `LODGING_CATALOG_FACADE` → `LodgingCatalogFacade` (`LodgingBotCatalog`): `searchBotCatalog` / `getBotProductsByIds` / `countBotCatalog`, the same shapes as the commerce `CatalogFacade` (structural typing; lodging never imports commerce). Each active, fully priced property the bot sells (no `lodging_bot_properties` rows = every active property) is a `ProductDto`: `id` = property id, `name` = `<code> – <name>`, `category` = area, price range = the lowest/highest weekday sell price, first 5 gallery URLs, no variants, and an `accommodation` (`rentalType` entire_property | rooms, `rateBasis: 'night'`, weekday `rates` of the whole place or else the cheapest room, the active rooms as `units`, upcoming overrides (max 20), surcharges, policies, gallery with a caption on every picture). Sell prices only, never a cost. Search: accent-folded words matched against code, name, area and amenities; `maxPriceVnd` against the lowest price; `inStockOnly` ignored. Without a database every read answers empty.
 - Events (outbox, `api/lodging.events.ts`): `lodging.booking.created.v1` `{bookingId, code, propertyId, status, checkIn, checkOut, source}`; `lodging.booking.{confirmed,cancelled,expired,checked_in,checked_out}.v1` `{bookingId, code, propertyId}`. No guest name or phone in any payload.
 
 **Events consumed:** none.
