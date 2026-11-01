@@ -129,3 +129,21 @@ export function useDisconnectKiotViet() {
     onSettled: refresh,
   });
 }
+
+/**
+ * "Thử lại" on an order whose KiotViet push failed: queues the push again (202; 409 when the push is
+ * not failed any more). Lives here because it is an integration route; the orders pages get it from
+ * their routes, since features do not import each other.
+ */
+export function useRetryOrderPush() {
+  const ws = useWorkspaceId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (orderId: string) =>
+      api(`/integrations/kiotviet/orders/${encodeURIComponent(orderId)}/push`, z.null(), {
+        method: 'POST',
+      }),
+    // Either way the order's push state changed (or was stale): read it again.
+    onSettled: () => qc.invalidateQueries({ queryKey: queryKeys.orders(ws) }),
+  });
+}

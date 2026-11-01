@@ -29,21 +29,39 @@ export function usePreviewSentence() {
   };
 }
 
-/** Toggles that ship in PR 2/3: shown on and locked, with a "Sắp có" badge. */
-export function ComingSoonToggles() {
+/**
+ * What the connection syncs besides the catalog: "Đẩy đơn sang KiotViet" (on by default, saved with
+ * the settings) and "Đồng bộ khách hàng", which ships in PR 3 — shown on and locked as "Sắp có".
+ */
+export function SyncToggles({
+  pushOrders,
+  onPushOrdersChange,
+  disabled = false,
+}: {
+  pushOrders: boolean;
+  onPushOrdersChange: (next: boolean) => void;
+  disabled?: boolean;
+}) {
   const { t } = useTranslation('integration');
   const id = useId();
   return (
     <ul className="flex flex-col divide-y rounded-lg border">
-      {(['pushOrders', 'syncCustomers'] as const).map((key) => (
-        <li key={key} className="flex min-h-11 items-center justify-between gap-3 px-3 py-2">
-          <span className="flex flex-wrap items-center gap-2">
-            <Label htmlFor={`${id}-${key}`}>{t(`wizard.${key}`)}</Label>
-            <Badge variant="secondary">{t('wizard.soon')}</Badge>
-          </span>
-          <Switch id={`${id}-${key}`} checked disabled />
-        </li>
-      ))}
+      <li className="flex min-h-11 items-center justify-between gap-3 px-3 py-2">
+        <Label htmlFor={`${id}-pushOrders`}>{t('wizard.pushOrders')}</Label>
+        <Switch
+          id={`${id}-pushOrders`}
+          checked={pushOrders}
+          disabled={disabled}
+          onCheckedChange={onPushOrdersChange}
+        />
+      </li>
+      <li className="flex min-h-11 items-center justify-between gap-3 px-3 py-2">
+        <span className="flex flex-wrap items-center gap-2">
+          <Label htmlFor={`${id}-syncCustomers`}>{t('wizard.syncCustomers')}</Label>
+          <Badge variant="secondary">{t('wizard.soon')}</Badge>
+        </span>
+        <Switch id={`${id}-syncCustomers`} checked disabled />
+      </li>
     </ul>
   );
 }
@@ -53,12 +71,16 @@ export function WizardReviewStep({
   result,
   banner,
   starting,
+  pushOrders,
+  onPushOrdersChange,
   onBack,
   onStart,
 }: {
   result: KiotVietTestResponse;
   banner: string | null;
   starting: boolean;
+  pushOrders: boolean;
+  onPushOrdersChange: (next: boolean) => void;
   onBack: () => void;
   onStart: () => void;
 }) {
@@ -82,7 +104,11 @@ export function WizardReviewStep({
         </h3>
         <p className="text-base font-medium tabular-nums">{sentence(result.preview)}</p>
       </section>
-      <ComingSoonToggles />
+      <SyncToggles
+        pushOrders={pushOrders}
+        onPushOrdersChange={onPushOrdersChange}
+        disabled={starting}
+      />
       <Alert role="note">
         <Info />
         <AlertDescription>{t('wizard.sourceNote')}</AlertDescription>

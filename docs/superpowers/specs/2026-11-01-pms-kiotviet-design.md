@@ -237,8 +237,8 @@ KiotViet → "Kết nối" (primary) or its status badge; Sapo, Haravan, Pancake
    one branch, none pre-ticked otherwise; at least one required), then a select "Chi nhánh nhận đơn" among the
    ticked ones.
 3. **Xem trước & bắt đầu** — the preview counts: "120 sản phẩm khớp theo mã · 30 sản phẩm mới · 5 sản phẩm chỉ
-   có trên Rapiz (giữ nguyên)"; switches "Đẩy đơn sang KiotViet" and "Đồng bộ khách hàng" (on by default, shown
-   as "Sắp có" until PR 2/3 ship); a note that KiotViet becomes the source of truth for linked products.
+   có trên Rapiz (giữ nguyên)"; switches "Đẩy đơn sang KiotViet" and "Đồng bộ khách hàng" (on by default; order push is a real
+   switch since PR 2, customer sync stays "Sắp có" until PR 3); a note that KiotViet becomes the source of truth for linked products.
    Button "Bắt đầu đồng bộ".
 
 Then the page becomes the connection view with a progress card ("Đang nhập sản phẩm 300/1 240") that updates
@@ -263,7 +263,10 @@ by polling every 3 s while syncing; the owner may leave.
 - Product form of a linked product: locked fields use the read-only style (not the disabled style) with a
   lock icon and a hint "Sửa trên KiotViet" linking to `https://<retailer>.kiotviet.vn`; the bot section stays
   editable.
-- Orders (PR 2): a "KiotViet" column state chip (Đang đẩy / Đã đẩy DH000123 / Lỗi + "Thử lại").
+- Orders (PR 2): a "KiotViet" column state chip (Đang đẩy / Đã đẩy · DH000123 / Lỗi + "Thử lại"), left out
+  when no order on the page was pushed; on the order page a "KiotViet" card with the reason of a failure and
+  "Thử lại", or "Đơn đã ở KiotViet — cập nhật trạng thái trên KiotViet" once pushed. Strings in `common.json`
+  under `orders.push.*` (the orders pages do not load the `integration` namespace).
 - Customers (PR 3): a "KiotViet" badge on linked customers.
 
 All strings in `packages/i18n`: the hub, wizard and connection view in the new `integration.json` namespace

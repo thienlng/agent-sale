@@ -44,6 +44,7 @@ import {
 import { OrderColumnMenu } from './order-column-menu';
 import { type OrderColumn, useVisibleOrderColumns } from './order-columns';
 import { BotBadge, PendingReviewChip } from './order-created-by-cell';
+import { OrderExternalChip } from './order-external';
 import { OrderStatusBadge } from './order-status-badge';
 import { OrdersBulkBar } from './orders-bulk-bar';
 import { type OrdersSearch, toOrderQuery } from './orders-search';
@@ -94,7 +95,10 @@ function OrderCards({ rows }: { rows: OrderSummaryDto[] }) {
                   <PendingReviewChip />
                 ) : null}
               </span>
-              <OrderStatusBadge status={o.status} />
+              <span className="flex shrink-0 items-center gap-1.5">
+                <OrderExternalChip order={o} withRetry={false} />
+                <OrderStatusBadge status={o.status} />
+              </span>
             </div>
             <div className="flex items-center justify-between gap-3 text-sm">
               <span className="min-w-0 truncate">{o.customer.name}</span>
@@ -175,7 +179,7 @@ export function OrdersList({
   const navigate = useNavigate();
   const canAdd = useCan('orders.manage');
   const { statuses, requireNote } = useOrderStatuses();
-  const columns = useVisibleOrderColumns();
+  const visibleColumns = useVisibleOrderColumns();
   const page = search.page ?? 1;
   const pageSize = search.pageSize ?? 20;
   const orders = useOrders(toOrderQuery({ ...search, page, pageSize }));
@@ -187,6 +191,10 @@ export function OrdersList({
 
   const data = orders.data;
   const rows = data?.data ?? [];
+  // The KiotViet column only earns its space when an order on this page was pushed.
+  const columns = rows.some((o) => o.external)
+    ? visibleColumns
+    : visibleColumns.filter((c) => c.id !== 'kiotviet');
   const unavailable = orders.error instanceof ApiClientError && orders.error.status === 503;
   const allOnPage = rows.length > 0 && rows.every((o) => selected.includes(o.id));
   const colCount = columns.length + 2;

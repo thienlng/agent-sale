@@ -7,6 +7,7 @@ import { formatDateTime, formatVnd } from '@/lib/format';
 import { storage } from '@/lib/storage';
 
 import { OrderCreatedByCell } from './order-created-by-cell';
+import { OrderExternalChip, pushStateLabel } from './order-external';
 import { OrderItemsHoverCard } from './order-items-hover-card';
 import { OrderStatusBadge } from './order-status-badge';
 
@@ -177,6 +178,16 @@ export const ORDER_COLUMNS: readonly OrderColumn[] = [
       <span className="text-muted-foreground tabular-nums">{formatDateTime(o.placedAt)}</span>
     ),
     csv: (o) => o.placedAt,
+  },
+  {
+    // The KiotViet push state. Fixed (not in the column picker), and the list leaves it out when no
+    // order on the page was pushed, so workspaces without KiotViet never see it.
+    id: 'kiotviet',
+    header: 'orders.col.kiotviet',
+    defaultVisible: true,
+    fixed: true,
+    cell: (o) => <OrderExternalChip order={o} />,
+    csv: (o, t) => (o.external ? pushStateLabel(t, o.external) : ''),
   },
   {
     id: 'status',

@@ -6,12 +6,14 @@ pictures and stock, and staff stop keeping two catalogs. For linked products Kio
 Code: backend module `apps/backend/src/modules/integration` (see its `MODULE.md`), webhook ingress
 `apps/webhook/src/kiotviet.ts`, web feature `apps/web/src/features/integration`.
 
-| Shipped (PR 1) | Next |
+| Shipped | Next |
 |---|---|
-| Products, variants (units and attributes), categories, pictures, stock of the chosen sale branches | Push bot and staff orders to KiotViet (PR 2), customer sync (PR 3) |
+| Products, variants (units and attributes), categories, pictures, stock of the chosen sale branches (PR 1); bot and staff orders pushed to KiotViet with their status read back (PR 2) | Customer sync (PR 3) |
 
-The wizard already asks for the order branch and shows "Đẩy đơn sang KiotViet" and "Đồng bộ khách hàng" as
-"Sắp có" (on by default), so PR 2 and PR 3 start working without the owner saving again.
+The wizard asks for the order branch and shows "Đẩy đơn sang KiotViet" as a switch (on by default; the
+connection page's "Cài đặt đồng bộ" turns it off or on again, saved with the other settings through
+`PATCH /integrations/kiotviet`). "Đồng bộ khách hàng" is still "Sắp có": shown on and locked, so PR 3 starts
+working without the owner saving again.
 
 ## Owner setup
 
@@ -88,6 +90,34 @@ KiotViet ──webhook──▶ apps/webhook  POST /webhooks/kiotviet/:token ─
   the previous one, so a lost delivery is repaired within 10 minutes. **Thử lại** after an attempt whose
   answer was lost looks for the KiotViet order first, too. A pending order whose job was lost is queued again
   after 2 minutes; disconnecting returns orders still waiting to "not pushed".
+
+## Order push on the orders pages
+
+Each order carries `external` (`OrderSummaryDto` / `OrderDto`): `null` when it was never pushed, else
+`{ state, code, status, error }`.
+
+| `state` | Orders list ("KiotViet" column; chip on the mobile card) | Order page ("KiotViet" card) |
+|---|---|---|
+| `pending` | "Đang đẩy" | "Đang đẩy" and a note that products and amounts are locked for a few seconds |
+| `pushed` | "Đã đẩy · <KiotViet code>" | the chip, "Trạng thái trên KiotViet: …" (from `status`) and "Đơn đã ở KiotViet — cập nhật trạng thái trên KiotViet" |
+| `failed` | "Lỗi" (the reason on hover/focus) and **Thử lại** | "Lỗi", the reason and **Thử lại** |
+
+- The "KiotViet" column is always on (not in the column picker) but left out when no order on the page has
+  been pushed, so a workspace without KiotViet never sees it. The CSV export carries the chip text.
+- **Thử lại** shows only with `orders.manage`. It calls `POST /integrations/kiotviet/orders/{orderId}/push`
+  (202; 409 when the push is no longer failed, which the page explains and reloads). The hook lives in
+  `apps/web/src/features/integration/api/integrations.ts` (`useRetryOrderPush`); the orders routes pass it
+  to the commerce components, since web features do not import each other.
+- While a push is pending, the list and the order page re-read every 3 s until it is pushed or failed.
+  An edit that touches what the push sends (lines, discount, shipping fees, surcharge; the shipping panel
+  sends its carrier fee only when changed, so notes and payment stay editable) answers 409
+  `details.reason = 'PUSH_PENDING'` meanwhile; the editors say "Đơn đang được đẩy sang KiotViet, chờ vài giây rồi sửa lại."
+- `error.code` → copy (`common.json` → `orders.push.errors.*`): `unlinked_product` ("Sản phẩm {{name}}
+  không có trên KiotViet"), `empty_order`, `kiotviet_rejected` ("KiotViet từ chối đơn — kiểm tra lại thông
+  tin đơn"), `kiotviet_unavailable`, `kiotviet_link_conflict`, `auth_failed`, `not_connected`,
+  `sync_failed`; an unknown code falls back to "Chưa đẩy được đơn sang KiotViet".
+- `status` names (`orders.push.status.*`): `draft` "Phiếu tạm", `confirmed` "Đã xác nhận", `delivering`
+  "Đang giao hàng", `completed` "Hoàn thành", `cancelled` "Đã huỷ"; an unknown value is shown as is.
 
 ## What is locked on a linked product
 

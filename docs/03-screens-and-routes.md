@@ -27,9 +27,9 @@
 | Automation Workflow | | `/quan-ly/automation-workflow` | `/app/workflows` (`?tab=workflows\|zalo-templates`) | WFL-* | P1 |
 | | Workflow form | `/quan-ly/automation-workflow/soft-follow-up?industry=retail` | `/app/workflows/new?template=soft-follow-up&industry=retail`, `/app/workflows/{id}` | WFL-02 | P1 |
 | Đơn hàng (Orders) | Overview | `/quan-ly/don-hang/thong-ke` | `/app/orders/overview` | ORD-11 | P1 |
-| | Order list | `/quan-ly/don-hang` | `/app/orders` | ORD-04 | P0 |
+| | Order list. With KiotViet push on, a "KiotViet" column (left out when no order on the page was pushed) shows the push chip: "Đang đẩy", "Đã đẩy · <code>" or "Lỗi" (reason on hover) with **Thử lại** (`orders.manage`); mobile cards show the chip only. See [integrations/kiotviet.md](integrations/kiotviet.md#order-push-on-the-orders-pages) | `/quan-ly/don-hang` | `/app/orders` | ORD-04, ORD-15 | P0 |
 | | Create order | `/quan-ly/don-hang/tao-moi` | `/app/orders/new` | ORD-03 | P0 |
-| | Order detail | (not observed) | `/app/orders/{id}` | ORD-05 | P0 |
+| | Order detail. A pushed order has a "KiotViet" card: the chip, the failure reason and **Thử lại**, or the KiotViet status and "Đơn đã ở KiotViet — cập nhật trạng thái trên KiotViet" | (not observed) | `/app/orders/{id}` | ORD-05, ORD-15 | P0 |
 | | Settings (hub, choose source) | `/quan-ly/thiet-lap` | `/app/order-settings` | — | P0 |
 | | ↳ Order settings | `/quan-ly/thiet-lap/cai-dat-don-hang?tab=…` | `/app/order-settings/orders?tab=statuses\|conditions\|gsheet\|chat-order` | ORD-05/06/07/10 | P0–P1 |
 | | ↳ Ad optimization | `/quan-ly/thiet-lap/toi-uu-quang-cao` | `/app/order-settings/ads-optimization` | ORD-12 | P1 |
@@ -38,7 +38,7 @@
 | | ↳ Warehouses | `/quan-ly/thiet-lap/kho-hang` | `/app/order-settings/warehouses` | ORD-02 | P0 |
 | Sản phẩm (Products) | Shared product catalog (top-level entry since T-112; Preny nests it under Orders) | `/quan-ly/quan-ly-san-pham` | `/app/products`, `/app/products/{id}` | ORD-01 | P0 |
 | Tích hợp PMS (PMS integrations) | Hub of point-of-sale / inventory software (icon `Blocks`; right after Products, or after Platform integrations for hotels; shown with `catalog.manage`): KiotViet live, Sapo / Haravan / Pancake POS "Sắp có" | (name only) | `/app/integrations` | ORD-15 | P1 |
-| | KiotViet: 3-step connect wizard (credentials → branches → preview & start) until connected, then the connection view (status, sync progress polled every 3 s, counts, sync settings, "Cập nhật mã", recent activity, disconnect). Changes need `settings.manage`; others see it read-only. Guide: [integrations/kiotviet.md](integrations/kiotviet.md) | — | `/app/integrations/kiotviet` | ORD-15 | P1 |
+| | KiotViet: 3-step connect wizard (credentials → branches → preview & start) until connected, then the connection view (status, sync progress polled every 3 s, counts, sync settings incl. the "Đẩy đơn sang KiotViet" switch ("Đồng bộ khách hàng" still "Sắp có"), "Cập nhật mã", recent activity, disconnect). Changes need `settings.manage`; others see it read-only. Guide: [integrations/kiotviet.md](integrations/kiotviet.md) | — | `/app/integrations/kiotviet` | ORD-15 | P1 |
 | Thống kê (Analytics) | | `/quan-ly/tong-quan` | `/app/analytics` (`?tab=pages\|interactions\|tags\|current-tags\|statuses\|bot`) | ANA-01/02 | P1 |
 | Hạn mức sử dụng (Usage limits) | | `/quan-ly/han-muc-su-dung` | `/app/usage` | BIL-03 | P0 |
 | Nâng cấp (Upgrade) | | `/quan-ly/nang-cap` | `/app/upgrade` | BIL-01/08 | P0 |

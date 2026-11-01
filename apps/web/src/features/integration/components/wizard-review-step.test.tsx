@@ -27,6 +27,8 @@ describe('wizard review step', () => {
         result={TEST_RESPONSE}
         banner={null}
         starting={false}
+        pushOrders
+        onPushOrdersChange={noop}
         onBack={noop}
         onStart={noop}
       />,
@@ -36,9 +38,11 @@ describe('wizard review step', () => {
         '120 sản phẩm khớp theo mã · 30 sản phẩm mới · 5 sản phẩm chỉ có trên Rapiz (giữ nguyên)',
       ),
     ).toBeInTheDocument();
-    expect(screen.getByRole('switch', { name: 'Đẩy đơn sang KiotViet' })).toBeDisabled();
+    expect(screen.getByRole('switch', { name: 'Đẩy đơn sang KiotViet' })).toBeEnabled();
+    expect(screen.getByRole('switch', { name: 'Đẩy đơn sang KiotViet' })).toBeChecked();
+    expect(screen.getByRole('switch', { name: 'Đồng bộ khách hàng' })).toBeDisabled();
     expect(screen.getByRole('switch', { name: 'Đồng bộ khách hàng' })).toBeChecked();
-    expect(screen.getAllByText('Sắp có')).toHaveLength(2);
+    expect(screen.getAllByText('Sắp có')).toHaveLength(1);
     expect(screen.getByRole('button', { name: 'Bắt đầu đồng bộ' })).toBeInTheDocument();
   });
 
@@ -49,6 +53,8 @@ describe('wizard review step', () => {
         result={{ ...TEST_RESPONSE, preview }}
         banner={null}
         starting={false}
+        pushOrders
+        onPushOrdersChange={noop}
         onBack={noop}
         onStart={noop}
       />,
@@ -92,6 +98,16 @@ describe('wizard start', () => {
       clientId: 'client-1',
       clientSecret: 'secret-1',
       settings: { saleBranchIds: [12], orderBranchId: 12, pushOrders: true, syncCustomers: true },
+    });
+  });
+
+  it('connects without order push when the owner turns it off', async () => {
+    const { user, calls } = await toReview({ status: 201, body: connection() });
+    await user.click(screen.getByRole('switch', { name: 'Đẩy đơn sang KiotViet' }));
+    await user.click(screen.getByRole('button', { name: 'Bắt đầu đồng bộ' }));
+    await vi.waitFor(() => expect(toasts.success).toHaveBeenCalled());
+    expect(calls.find((c) => c.key === 'POST /integrations/kiotviet')?.body).toMatchObject({
+      settings: { pushOrders: false, syncCustomers: true },
     });
   });
 

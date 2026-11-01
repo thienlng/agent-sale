@@ -28,6 +28,7 @@ import { orderErrorMessage } from '../hooks/order-errors';
 import { useOrderStatuses } from '../hooks/use-order-statuses';
 import { OrderItemsEditor } from './order-items-editor';
 import { Panel, Row } from './order-detail-parts';
+import { OrderPushPanel, type RetryOrderPush } from './order-external';
 import { OrderPeoplePanel } from './order-people-editor';
 import { OrderReviewBanner } from './order-review-banner';
 import { OrderStatusBadge } from './order-status-badge';
@@ -211,7 +212,8 @@ function EditablePanel({ order }: { order: OrderDto }) {
               {
                 carrier: carrier.trim() || null,
                 trackingCode: trackingCode.trim() || null,
-                shippingFee,
+                // Only when changed: the fee is an amount, frozen while a KiotViet push is pending.
+                ...(shippingFee !== order.amounts.shippingFee ? { shippingFee } : {}),
                 transferAmount,
                 noteInternal,
                 notePrint,
@@ -233,7 +235,14 @@ function EditablePanel({ order }: { order: OrderDto }) {
   );
 }
 
-export function OrderDetail({ orderId }: { orderId: string }) {
+export function OrderDetail({
+  orderId,
+  onRetryPush,
+}: {
+  orderId: string;
+  /** "Thử lại" for a failed KiotViet push (from the route: the integration feature owns it). */
+  onRetryPush?: RetryOrderPush;
+}) {
   const { t } = useTranslation();
   const query = useOrder(orderId);
   const [editingItems, setEditingItems] = useState(false);
@@ -344,6 +353,7 @@ export function OrderDetail({ orderId }: { orderId: string }) {
         </div>
 
         <div className="flex min-w-0 flex-col gap-5">
+          <OrderPushPanel order={order} {...(onRetryPush ? { onRetry: onRetryPush } : {})} />
           <Panel title={t('orderDetail.changeStatus')}>
             <StatusChanger order={order} />
             <p className="mt-3 text-xs text-muted-foreground">

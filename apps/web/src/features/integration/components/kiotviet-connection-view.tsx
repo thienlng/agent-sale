@@ -34,7 +34,7 @@ import { KiotVietLogo } from './kiotviet-logo';
 import { LastError } from './last-error';
 import { SyncLogList } from './sync-log-list';
 import { UpdateCredentialsDialog } from './update-credentials-dialog';
-import { ComingSoonToggles } from './wizard-review-step';
+import { SyncToggles } from './wizard-review-step';
 
 /** The KiotViet connection (spec §6.4). Without `settings.manage` everything is read-only. */
 export function KiotVietConnectionView({
@@ -238,9 +238,11 @@ function SettingsCard({
     saleBranchIds: connection.settings.saleBranchIds,
     orderBranchId: connection.settings.orderBranchId,
   });
+  const [pushOrders, setPushOrders] = useState(connection.settings.pushOrders);
   const [errors, setErrors] = useState<BranchErrors>({});
   const [attempt, setAttempt] = useState(0);
   const dirty =
+    pushOrders !== connection.settings.pushOrders ||
     selection.orderBranchId !== connection.settings.orderBranchId ||
     selection.saleBranchIds.length !== connection.settings.saleBranchIds.length ||
     selection.saleBranchIds.some((id) => !connection.settings.saleBranchIds.includes(id));
@@ -261,6 +263,7 @@ function SettingsCard({
           ...connection.settings,
           saleBranchIds: selection.saleBranchIds,
           orderBranchId: selection.orderBranchId,
+          pushOrders,
         },
         version: connection.version,
       },
@@ -297,7 +300,11 @@ function SettingsCard({
             setErrors({});
           }}
         />
-        <ComingSoonToggles />
+        <SyncToggles
+          pushOrders={pushOrders}
+          onPushOrdersChange={setPushOrders}
+          disabled={!canManage || update.isPending}
+        />
         {canManage ? (
           <Button className="h-11 self-start" disabled={!dirty || update.isPending} onClick={save}>
             {update.isPending ? (
