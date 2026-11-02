@@ -494,7 +494,7 @@ export class PlaygroundService implements AiFacade {
             guardrail: 'model_error',
             productIds: [...seenProducts],
           };
-          await this.#record(ws, failed, traceOf(failed, 'error', '', 0));
+          await this.#record(ws, failed, () => traceOf(failed, 'error', '', 0));
         }
         throw error;
       }
@@ -562,7 +562,9 @@ export class PlaygroundService implements AiFacade {
         ]),
       ],
     };
-    await this.#record(ws, run, traceOf(run, loop?.outcome ?? 'error', replyText, messages.length));
+    await this.#record(ws, run, () =>
+      traceOf(run, loop?.outcome ?? 'error', replyText, messages.length),
+    );
 
     return {
       runId: run.id,
@@ -597,17 +599,19 @@ export class PlaygroundService implements AiFacade {
   /**
    * Writes the run; an interrupted one is not counted as a fallback in the outcome metric. Then the
    * turn trace, best-effort in its own transaction: a failure is logged (error class only) and
-   * counted, never thrown (Ruling C5-R5).
+   * counted, never thrown (Ruling C5-R5). The trace is built inside the guard too, so a failure
+   * while building it never fails a reply or hides the original model error.
    */
   async #record(
     ws: WorkspaceId,
     run: AiRunRecord,
-    trace?: { trace: TurnTraceRecord; steps: TurnStepRecord[] },
+    buildTrace?: () => { trace: TurnTraceRecord; steps: TurnStepRecord[] },
   ): Promise<void> {
     await this.runs.record(ws, run);
     recordAiRun({ ...run, outcome: run.guardrail === 'interrupted' ? 'interrupted' : run.outcome });
-    if (!trace || !this.traces) return;
+    if (!buildTrace || !this.traces) return;
     try {
+      const trace = buildTrace();
       await this.traces.record(ws, trace.trace, trace.steps);
     } catch (error) {
       aiTraceWriteFailures.inc();

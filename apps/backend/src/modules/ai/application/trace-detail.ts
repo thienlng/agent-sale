@@ -13,7 +13,7 @@ import { HANDOFF_TOOL, SEND_MESSAGE_TOOL } from './output-tools.js';
 import { SAAS_REQUEST_TOOL } from './saas-tools.js';
 
 /**
- * Per-tool step details of a shop-bot turn trace (spec 2026-11-02-owner-assistant-doctor §4.2).
+ * Per-tool step details of a shop-bot turn trace (spec 2026-11-02-owner-assistant-5-design §4.2).
  * An allowlist: ids, counts, codes, booleans and redacted excerpts only, never raw arguments or
  * results, never a recipient's or guest's name, phone or address, never action arguments or data.
  * Pure. Lives in `application/` because it uses the ai-core redactor (domain/ may not import it).

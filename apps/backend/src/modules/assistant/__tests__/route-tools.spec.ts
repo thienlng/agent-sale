@@ -215,6 +215,51 @@ describe('bot API action drafts (narrowed body)', () => {
     expect(t.invoke).not.toHaveBeenCalled();
   });
 
+  it('refuses a nested secret (auth.token, an unknown param key) and never stores it', async () => {
+    const t = await setup();
+    for (const body of [
+      { ...DRAFT, auth: { kind: 'bearer', token: 'sk-live-0123456789abcdef' } },
+      { ...DRAFT, params: [{ ...DRAFT.params[0], value: 'sk-live-0123456789abcdef' }] },
+    ]) {
+      const out = await t.call(draft(body));
+      expect(out.json.errorCode).toBe('invalid_input');
+    }
+    expect(await t.repo.listProposals(t.scope, t.thread.id)).toEqual([]);
+    expect(t.invoke).not.toHaveBeenCalled();
+  });
+
+  it('refuses secret-looking URL query keys and header params with secret_in_draft', async () => {
+    const t = await setup();
+    const header = (name: string) => ({
+      ...DRAFT,
+      params: [
+        ...DRAFT.params,
+        { name, type: 'string', location: 'header', required: true, description: 'x' },
+      ],
+    });
+    for (const body of [
+      { ...DRAFT, url: `${DRAFT.url}?api_key=abc123` },
+      { ...DRAFT, url: `${DRAFT.url}?token=abc123` },
+      { ...DRAFT, url: `${DRAFT.url}?sig=abc` },
+      header('X-Access-Token'),
+      header('X-Shop-Secret'),
+      header('Authorization-Ext'),
+      header('X-Password'),
+    ]) {
+      const out = await t.call(draft(body));
+      expect(out.json.errorCode).toBe('secret_in_draft');
+    }
+    expect(await t.repo.listProposals(t.scope, t.thread.id)).toEqual([]);
+    // A plain query key and header param are fine.
+    const ok = await t.call(
+      draft({
+        ...header('X-Shop-Id'),
+        url: `${DRAFT.url}?lang=vi`,
+      }),
+    );
+    expect(ok.json).toMatchObject({ status: 'awaiting_owner_approval' });
+  });
+
   it('turns a valid draft into a pending proposal that previews the body as is', async () => {
     const t = await setup();
     const out = await t.call(draft(DRAFT));
@@ -353,6 +398,18 @@ describe('tool_call', () => {
     expect(stored?.expiresAt.getTime()).toBe(NOW.getTime() + PROPOSAL_TTL_MS);
   });
 
+  it('stores the parsed body of every write: unknown keys never reach the proposal', async () => {
+    const t = await setup();
+    await t.call({
+      key: 'POST /products',
+      body: { ...PRODUCT, apiToken: 'sk-live-0123456789abcdef' },
+      summary: 'Thêm sản phẩm Áo thun',
+    });
+    const [stored] = await t.repo.listProposals(t.scope, t.thread.id);
+    expect(JSON.stringify(stored?.body)).not.toContain('apiToken');
+    expect(JSON.stringify(stored?.preview)).not.toContain('sk-live');
+  });
+
   it('refuses a proposal body over the size cap', async () => {
     // A write whose body schema takes anything, so only the cap stops it.
     const entry = { ...ROUTE_CATALOG.get('POST /products')!, body: z.unknown() };
@@ -409,7 +466,9 @@ describe('tool_call', () => {
       authorization: AUTH,
     });
     const [stored] = await t.repo.listProposals(t.scope, t.thread.id);
-    expect(stored?.preview).toEqual({ body: PRODUCT, query: null, before });
+    // The preview shows the parsed body (defaults applied), the one the approval will run.
+    expect(stored?.preview).toMatchObject({ body: PRODUCT, query: null, before });
+    expect(stored?.preview).toEqual({ body: stored?.body, query: null, before });
     expect(stored?.path).toBe(`/products/${id}`);
   });
 });

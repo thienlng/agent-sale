@@ -5,6 +5,8 @@ import {
   ActionDto,
   ActionInput,
   ActionTestRequest,
+  looksLikeSecretName,
+  SECRET_IN_DRAFT,
   UpdateActionRequest,
 } from './index.js';
 
@@ -48,6 +50,44 @@ describe('ActionAssistantDraft', () => {
   it('rejects an enabled draft and unknown keys', () => {
     expect(ActionAssistantDraft.safeParse({ ...draft, enabled: true }).success).toBe(false);
     expect(ActionAssistantDraft.safeParse({ ...draft, extra: 1 }).success).toBe(false);
+  });
+
+  it('is strict all the way down: a nested auth.token or unknown param key is rejected', () => {
+    for (const body of [
+      { ...draft, auth: { kind: 'bearer', token: 'x' } },
+      { ...draft, auth: { kind: 'api_key', headerName: 'X-Api-Key', value: 'x' } },
+      { ...draft, params: [{ ...draft.params[0], value: 'x' }] },
+      { ...draft, responses: [{ ...draft.responses[0], secret: 'x' }] },
+    ])
+      expect(ActionAssistantDraft.safeParse(body).success).toBe(false);
+  });
+
+  it('refuses secret-looking URL query keys and header params with secret_in_draft', () => {
+    const messages = (body: unknown) =>
+      ActionAssistantDraft.safeParse(body).error?.issues.map((i) => i.message) ?? [];
+    expect(messages({ ...draft, url: `${draft.url}?access_token=abc` })).toContain(SECRET_IN_DRAFT);
+    expect(
+      messages({
+        ...draft,
+        params: [
+          ...draft.params,
+          {
+            name: 'X-Signature',
+            type: 'string',
+            location: 'header',
+            required: true,
+            description: 'x',
+          },
+        ],
+      }),
+    ).toContain(SECRET_IN_DRAFT);
+    expect(messages({ ...draft, url: `${draft.url}?lang=vi&page=1` })).toEqual([]);
+    // The api_key header name is where the form puts the secret, so it stays allowed.
+    expect(messages({ ...draft, auth: { kind: 'api_key', headerName: 'X-Api-Key' } })).toEqual([]);
+    expect(['apiKey', 'X-Auth', 'client_secret', 'pwd_password'].every(looksLikeSecretName)).toBe(
+      true,
+    );
+    expect(['X-Shop-Id', 'monkey', 'lang', 'author'].some(looksLikeSecretName)).toBe(false);
   });
 
   it('keeps the cross-field rules of ActionInput', () => {
