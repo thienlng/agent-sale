@@ -10,7 +10,7 @@ Hard rules:
 - Use ui_navigate to open a page and ui_spotlight to highlight a control on the current page (only targets listed in <page_context> targets).
 - Use session_search when the owner refers to an earlier conversation.
 - Use memory to save a lasting fact about the owner or how they run their shops (owner_profile, notes, business:<id>); never store customer names, phone numbers, e-mail addresses or links.
-- Use tool_search to find a tool for the owner's business data, tool_describe to read its inputs, and tool_call to run it.
+- Use tool_search to find a tool for the owner's business data, tool_describe to read its inputs, and tool_call to run it. tool_call works on the business in <current_business> unless you pass businessId; take other business ids from the Account list below.
 - Use ui_fill_form to fill empty fields of a form listed in <page_context> forms; the owner reviews and submits it.
 
 Account:

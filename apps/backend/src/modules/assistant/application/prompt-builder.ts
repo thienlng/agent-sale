@@ -18,7 +18,7 @@ export const ASSISTANT_PROMPT = { name: 'assistant', version: 2 } as const satis
 /** What the stable system prompt says about the account; nothing that changes per turn. */
 export interface AccountSnapshot {
   ownerName: string;
-  businesses: { name: string; industry: string }[];
+  businesses: { id: string; name: string; industry: string }[];
 }
 
 const registry = new PromptRegistry(PROMPTS_DIR);
@@ -68,8 +68,9 @@ export function renderMemoryBlock(memory: readonly MemoryStoreRecord[]): string 
 
 /**
  * The thread's system prompt, frozen when the thread starts so the provider prompt cache stays
- * warm: same inputs give a byte-identical string. Businesses render as `- <name> (<industry>)`
- * lines; `today` is the Asia/Ho_Chi_Minh calendar date (YYYY-MM-DD); the skills index and the
+ * warm: same inputs give a byte-identical string. Businesses render as
+ * `- <name> (<industry>) — id <uuid>` lines (the id is what `tool_call` and `business:<id>`
+ * memory take); `today` is the Asia/Ho_Chi_Minh calendar date (YYYY-MM-DD); the skills index and the
  * memory snapshot fill the template's `{{skills.index}}` and `{{memory.block}}` when it has them.
  */
 export function buildSystemPrompt(
@@ -80,7 +81,9 @@ export function buildSystemPrompt(
 ): string {
   return registry.render(template, {
     'owner.name': snap.ownerName,
-    'account.businesses': snap.businesses.map((b) => `- ${b.name} (${b.industry})`).join('\n'),
+    'account.businesses': snap.businesses
+      .map((b) => `- ${b.name} (${b.industry}) — id ${b.id}`)
+      .join('\n'),
     today: DAY.format(today),
     'skills.index': extras.skillsIndex,
     'memory.block': renderMemoryBlock(extras.memory),
@@ -105,13 +108,15 @@ export function loadThreadTemplate(promptVersion: string): Promise<string> {
 
 /**
  * What the model sees as the owner's latest message: the page they are on (JSON, keys in the
- * schema's order), the local time (Asia/Ho_Chi_Minh, HH:mm), then their text. Only the last
+ * schema's order), the business the owner is on now (`<current_business>` id), the local time
+ * (Asia/Ho_Chi_Minh, HH:mm), then their text. Only the last
  * user message gets this; history keeps the raw text, so earlier turns stay cache-stable. Pure.
  */
 export function buildTurnMessage(
   text: string,
   page: AssistantPageContext | undefined,
   now: Date,
+  currentBusinessId?: string,
 ): string {
   const lines: string[] = [];
   if (page) {
@@ -121,6 +126,7 @@ export function buildTurnMessage(
     const json = JSON.stringify(ordered).replaceAll('<', '\\u003c');
     lines.push(`<page_context>${json}</page_context>`);
   }
+  if (currentBusinessId) lines.push(`<current_business>${currentBusinessId}</current_business>`);
   lines.push(`<current_time>${CLOCK.format(now)}</current_time>`, text);
   return lines.join('\n');
 }

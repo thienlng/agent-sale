@@ -172,14 +172,16 @@ export function useAssistantProposals(threadId: string | null) {
  * expired) so the card shows the truth. The mutation is keyed by the proposal id, so its busy
  * state (`useProposalDecisionInFlight`) survives the card unmounting while the owner switches
  * panel views. `onError` lives on the mutation, so it still runs after the card is gone.
+ * An approval also refetches the proposal's business queries (`['ws', businessId]`, not the
+ * assistant's own), so the page behind the panel shows the change.
  */
 export function useDecideAssistantProposal(
-  proposal: { id: string; threadId: string },
+  proposal: { id: string; threadId: string; businessId: string },
   onError?: (error: Error) => void,
 ) {
   const ws = useWorkspaceId();
   const queryClient = useQueryClient();
-  const { id: proposalId, threadId } = proposal;
+  const { id: proposalId, threadId, businessId } = proposal;
   return useMutation({
     mutationKey: assistantKeys.decision(ws, proposalId),
     mutationFn: (decision: ProposalDecision) =>
@@ -188,11 +190,19 @@ export function useDecideAssistantProposal(
         body: {},
         workspaceId: ws,
       }),
-    onSuccess: (proposal) => {
+    onSuccess: (proposal, decision) => {
       queryClient.setQueryData<AssistantProposalDto[]>(
         assistantKeys.proposals(ws, threadId),
         (old) => old?.map((p) => (p.id === proposal.id ? proposal : p)),
       );
+      // Every feature key starts with ['ws', businessId]: the dashboard behind the panel refreshes.
+      // The assistant's own queries are left to onSettled, so they are not fetched twice.
+      if (decision === 'approve') {
+        void queryClient.invalidateQueries({
+          queryKey: ['ws', businessId],
+          predicate: (q) => q.queryKey[2] !== 'assistant',
+        });
+      }
     },
     ...(onError ? { onError } : {}),
     onSettled: () => {

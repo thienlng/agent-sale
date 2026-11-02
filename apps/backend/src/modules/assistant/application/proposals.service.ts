@@ -13,6 +13,7 @@ import {
   type ProposalRecord,
 } from '../domain/ports/assistant.repository.js';
 import { ROUTE_INVOKER, type RouteInvoker } from '../domain/ports/route-invoker.port.js';
+import { ROUTE_CATALOG, type RouteCatalog } from './route-catalog.js';
 
 /** The stored result shown on a done proposal is at most this long. */
 export const RESULT_PREVIEW_CHARS = 1_000;
@@ -53,6 +54,9 @@ export class ProposalService {
     @Inject(ROUTE_INVOKER) private readonly invoker: RouteInvoker,
   ) {}
 
+  /** The routes the assistant may use; tests replace it. */
+  catalog: RouteCatalog = ROUTE_CATALOG;
+
   /** Stale pending proposals expire first, then the thread's proposals, oldest first. */
   async list(scope: OwnerScope, threadId: string): Promise<AssistantProposalDto[]> {
     if (!isUuid(threadId)) throw new AssistantNotFoundError('thread', threadId);
@@ -75,6 +79,10 @@ export class ProposalService {
       });
       throw new AssistantProposalConflictError('proposal_expired');
     }
+    // The route may have left the catalog (or stopped being a write) since it was proposed.
+    if (this.catalog.get(proposal.routeKey)?.use !== 'write') {
+      return this.#finish(scope, proposal, { ok: false, errorCode: 'route_not_allowed' });
+    }
 
     let status: number;
     let body: unknown;
@@ -95,26 +103,40 @@ export class ProposalService {
     }
 
     const ok = status >= 200 && status < 300;
-    const errorCode = ok ? null : status === 0 ? 'invoke_failed' : `http_${status}`;
+    return this.#finish(
+      scope,
+      proposal,
+      ok ? { ok, body } : { ok, errorCode: status === 0 ? 'invoke_failed' : `http_${status}` },
+    );
+  }
+
+  /** executing → done | failed, then the event message the next turn sees. */
+  async #finish(
+    scope: OwnerScope,
+    proposal: ProposalRecord,
+    outcome: { ok: true; body: unknown } | { ok: false; errorCode: string },
+  ): Promise<AssistantProposalDto> {
     const done = await this.repo.transitionProposal(
       scope,
-      id,
+      proposal.id,
       ['executing'],
-      ok ? 'done' : 'failed',
+      outcome.ok ? 'done' : 'failed',
       {
         decidedAt: new Date(),
-        errorCode,
-        resultPreview: ok ? (JSON.stringify(body) ?? '').slice(0, RESULT_PREVIEW_CHARS) : null,
+        errorCode: outcome.ok ? null : outcome.errorCode,
+        resultPreview: outcome.ok
+          ? (JSON.stringify(outcome.body) ?? '').slice(0, RESULT_PREVIEW_CHARS)
+          : null,
       },
     );
     await this.#event(
       scope,
       proposal,
-      ok
+      outcome.ok
         ? `Đã áp dụng: ${proposal.summary}`
-        : `Không áp dụng được: ${proposal.summary} (${errorCode})`,
+        : `Không áp dụng được: ${proposal.summary} (${outcome.errorCode})`,
     );
-    if (!done) throw new AssistantNotFoundError('proposal', id);
+    if (!done) throw new AssistantNotFoundError('proposal', proposal.id);
     return toProposalDto(done);
   }
 

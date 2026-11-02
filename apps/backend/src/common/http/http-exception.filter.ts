@@ -27,7 +27,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     const apiError = this.#normalize(exception);
     if (apiError.code === 'INTERNAL') {
-      this.logger.error({ err: exception, traceId, url: request.url }, 'unhandled error');
+      // The path only: a query string can carry personal data (a phone number search).
+      const path = request.url.split('?', 1)[0];
+      this.logger.error({ err: exception, traceId, url: path }, 'unhandled error');
     }
     void reply.status(apiError.status).send({
       error: {

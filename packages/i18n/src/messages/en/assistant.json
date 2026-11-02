@@ -45,8 +45,16 @@
   "proposals": {
     "label": "Proposed change",
     "business": "For {{name}}",
+    "verbs": {
+      "post": "Create",
+      "patch": "Change",
+      "put": "Change",
+      "delete": "Delete"
+    },
     "showPreview": "Show details",
     "hidePreview": "Hide details",
+    "before": "Current",
+    "changes": "Changes",
     "apply": "Apply",
     "reject": "Dismiss",
     "applying": "Applying…",

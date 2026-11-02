@@ -156,7 +156,7 @@ describe('ChatTurnService', () => {
     const last = first.messages.at(-1)!;
     expect(last.role).toBe('user');
     expect(last.content).toMatch(
-      /^<page_context>\{"route":"\/app\/overview","targets":\["overview\.add"\]\}<\/page_context>\n<current_time>\d{2}:\d{2}<\/current_time>\nMở trang sản phẩm giúp em$/,
+      /^<page_context>\{"route":"\/app\/overview","targets":\["overview\.add"\]\}<\/page_context>\n<current_business>[0-9a-f-]{36}<\/current_business>\n<current_time>\d{2}:\d{2}<\/current_time>\nMở trang sản phẩm giúp em$/,
     );
 
     // The tool exchange is stored but never shown; the thread is titled from the first text.
@@ -198,7 +198,9 @@ describe('ChatTurnService', () => {
     expect(messages[2]?.toolCalls).toEqual(NAVIGATE.toolCalls);
     expect(messages[3]).toMatchObject({ toolCallId: 'call_1', name: 'ui_navigate' });
     expect(messages[5]?.content).toBe('[event] Đơn #12 đã giao');
-    expect(messages[6]?.content).toMatch(/^<current_time>\d{2}:\d{2}<\/current_time>\nCâu hai$/);
+    expect(messages[6]?.content).toMatch(
+      /^<current_business>[0-9a-f-]{36}<\/current_business>\n<current_time>\d{2}:\d{2}<\/current_time>\nCâu hai$/,
+    );
     // The title stays the first message's.
     expect((await repo.getThread(scope, thread.id))?.title).toBe('Câu một');
   });

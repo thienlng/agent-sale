@@ -100,7 +100,7 @@ function setup() {
     proposals,
   );
   const me = { userId: world.owner, businessId: world.business };
-  return { ...world, repo, facade, me, generate, invoke };
+  return { ...world, repo, facade, me, generate, invoke, proposals };
 }
 
 /** Contract test: the public API behaves as MODULE.md promises. */
@@ -121,7 +121,7 @@ describe('AssistantFacade (contract)', () => {
       promptVersion: 'assistant@2',
     });
     expect(stored.systemPrompt).toContain('personal assistant of Lan,');
-    expect(stored.systemPrompt).toContain('- Thời trang Mây (retail)');
+    expect(stored.systemPrompt).toContain(`- Thời trang Mây (retail) — id ${me.businessId}`);
     expect(stored.systemPrompt).not.toContain('Elsewhere');
     expect(stored.systemPrompt).toMatch(/Today is \d{4}-\d{2}-\d{2} \(Asia\/Ho_Chi_Minh\)\./);
   });
@@ -404,6 +404,25 @@ describe('AssistantFacade (contract)', () => {
       });
       const { data } = await facade.listMessages(me, t.id);
       expect(data.at(-1)?.content).toBe('Không áp dụng được: Thêm sản phẩm Áo thun (http_403)');
+    });
+
+    it('fails a proposal whose route is no longer a write, without running it', async () => {
+      const { facade, me, p, t, invoke, proposals } = await withProposal();
+      // A deploy since the proposal turned POST /products into a route the assistant may not use.
+      const real = proposals.catalog;
+      proposals.catalog = {
+        ...real,
+        get: (key) => (key === p.routeKey ? undefined : real.get(key)),
+      };
+      expect(await facade.approveProposal(me, p.id, AUTH)).toMatchObject({
+        status: 'failed',
+        errorCode: 'route_not_allowed',
+      });
+      expect(invoke).not.toHaveBeenCalled();
+      const { data } = await facade.listMessages(me, t.id);
+      expect(data.at(-1)?.content).toBe(
+        'Không áp dụng được: Thêm sản phẩm Áo thun (route_not_allowed)',
+      );
     });
 
     it('expires a stale proposal instead of running it', async () => {

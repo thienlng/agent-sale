@@ -6,6 +6,7 @@ import {
   Outlet,
   RouterProvider,
 } from '@tanstack/react-router';
+import { useQuery } from '@tanstack/react-query';
 import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
@@ -425,13 +426,25 @@ describe('AssistantPanel', () => {
     };
     const held = holdRequest(routes, approve);
     vi.stubGlobal('fetch', held.fetch);
-    renderApp();
+    // The page behind the panel: a business-scoped query that must refetch after the approval.
+    const productsFetch = vi.fn(() => Promise.resolve(['Áo thun']));
+    function ProductsPage() {
+      useQuery({ queryKey: ['ws', WS, 'products', 'list'], queryFn: productsFetch });
+      return <p>products</p>;
+    }
+    renderApp(ProductsPage, '/app/products');
     const user = userEvent.setup();
 
     expect(await screen.findByText('Đổi giá Áo thun thành 150.000đ')).toBeInTheDocument();
     expect(screen.getByText('Cho Shop An')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Xem chi tiết' }));
+    // What will run comes from the route, not the summary; a PATCH shows its preview at once.
+    expect(screen.getByTestId('proposal-action')).toHaveTextContent('Sửa/products/{productId}');
+    expect(screen.getByRole('button', { name: 'Ẩn chi tiết' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
     expect(screen.getByText(/"to": 150000/)).toBeInTheDocument();
+    expect(productsFetch).toHaveBeenCalledTimes(1);
 
     await user.click(screen.getByRole('button', { name: 'Áp dụng' }));
     await held.waiting;
@@ -474,6 +487,77 @@ describe('AssistantPanel', () => {
     expect(screen.getByText('Đã áp dụng')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Áp dụng' })).not.toBeInTheDocument();
     expect(held.calls.filter((c) => c.key === listMessages)).toHaveLength(2);
+    await waitFor(() => expect(productsFetch).toHaveBeenCalledTimes(2));
+  });
+
+  it('marks a delete as destructive and shows the record next to the change', async () => {
+    useAssistantUi.setState({ open: true, workspaceId: WS, threadId: ASSISTANT_IDS.thread });
+    const proposal = proposalFixture({
+      routeKey: 'DELETE /warehouses/{warehouseId}',
+      summary: 'Cập nhật ghi chú',
+      preview: { body: null, query: null, before: { name: 'Kho Quận 1' } },
+    });
+    const { fetchStub } = stubFetch({
+      [`GET /assistant/threads/${ASSISTANT_IDS.thread}/messages`]: {
+        status: 200,
+        body: { data: turnFixture('ghi chú').messages },
+      },
+      [`GET /assistant/threads/${ASSISTANT_IDS.thread}/proposals`]: {
+        status: 200,
+        body: { items: [proposal] },
+      },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderApp();
+
+    // The innocent summary cannot hide that this deletes a warehouse.
+    expect(await screen.findByText('Cập nhật ghi chú')).toBeInTheDocument();
+    expect(screen.getByTestId('proposal-action')).toHaveTextContent('Xoá/warehouses/{warehouseId}');
+    expect(screen.getByRole('listitem', { name: 'Đề xuất thay đổi' })).toHaveAttribute(
+      'data-destructive',
+      'true',
+    );
+    expect(screen.getByRole('button', { name: 'Áp dụng' })).toHaveAttribute(
+      'data-variant',
+      'destructive',
+    );
+    expect(screen.getByText('Hiện tại')).toBeInTheDocument();
+    expect(screen.getByText(/"name": "Kho Quận 1"/)).toBeInTheDocument();
+  });
+
+  it('keeps the preview of a create closed and the apply button plain', async () => {
+    useAssistantUi.setState({ open: true, workspaceId: WS, threadId: ASSISTANT_IDS.thread });
+    const { fetchStub } = stubFetch({
+      [`GET /assistant/threads/${ASSISTANT_IDS.thread}/messages`]: {
+        status: 200,
+        body: { data: turnFixture('thêm').messages },
+      },
+      [`GET /assistant/threads/${ASSISTANT_IDS.thread}/proposals`]: {
+        status: 200,
+        body: {
+          items: [
+            proposalFixture({
+              routeKey: 'POST /products',
+              summary: 'Thêm Áo len',
+              preview: { body: { name: 'Áo len' }, query: null },
+            }),
+          ],
+        },
+      },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderApp();
+
+    expect(await screen.findByText('Thêm Áo len')).toBeInTheDocument();
+    expect(screen.getByTestId('proposal-action')).toHaveTextContent('Tạo/products');
+    expect(screen.getByRole('button', { name: 'Xem chi tiết' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    expect(screen.getByRole('button', { name: 'Áp dụng' })).toHaveAttribute(
+      'data-variant',
+      'default',
+    );
   });
 
   it('shows why a proposal can no longer be applied (409 expired)', async () => {

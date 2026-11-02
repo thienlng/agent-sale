@@ -1,9 +1,12 @@
 import { newId, userId, workspaceId } from '@agent-sales/shared';
 import { describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 
-import { ROUTE_CATALOG, searchCatalog } from '../application/route-catalog.js';
+import { ROUTE_CATALOG, type RouteCatalog, searchCatalog } from '../application/route-catalog.js';
 import {
   FORBIDDEN_MESSAGE,
+  MAX_PENDING_PROPOSALS,
+  MAX_PROPOSAL_BODY_CHARS,
   MAX_ROUTE_RESULT_CHARS,
   PROPOSAL_TTL_MS,
   routeTools,
@@ -27,6 +30,7 @@ const PRODUCT = {
 async function setup(
   respond: (i: RouteInvocation) => RouteInvocationResult = () => ({ status: 200, body: {} }),
   page?: { route: string },
+  catalog: RouteCatalog = ROUTE_CATALOG,
 ) {
   const repo = new InMemoryAssistantRepository();
   const scope: OwnerScope = {
@@ -48,7 +52,7 @@ async function setup(
     scope,
     repo,
     invoker: { invoke },
-    catalog: ROUTE_CATALOG,
+    catalog,
     authorization: AUTH,
     threadId: thread.id,
     runId,
@@ -261,6 +265,43 @@ describe('tool_call', () => {
       preview: { body: PRODUCT, query: null },
     });
     expect(stored?.expiresAt.getTime()).toBe(NOW.getTime() + PROPOSAL_TTL_MS);
+  });
+
+  it('refuses a proposal body over the size cap', async () => {
+    // A write whose body schema takes anything, so only the cap stops it.
+    const entry = { ...ROUTE_CATALOG.get('POST /products')!, body: z.unknown() };
+    const catalog: RouteCatalog = {
+      ...ROUTE_CATALOG,
+      get: (key) => (key === entry.key ? entry : ROUTE_CATALOG.get(key)),
+    };
+    const t = await setup(undefined, undefined, catalog);
+    const big = { note: 'x'.repeat(MAX_PROPOSAL_BODY_CHARS) };
+    const out = await t.call({ key: 'POST /products', body: big, summary: 'Thêm' });
+    expect(out.json).toEqual({
+      ok: false,
+      errorCode: 'body_too_large',
+      maxChars: MAX_PROPOSAL_BODY_CHARS,
+    });
+    expect(await t.repo.listProposals(t.scope, t.thread.id)).toEqual([]);
+  });
+
+  it('stops at the cap of pending proposals in a thread', async () => {
+    const t = await setup();
+    const propose = () => t.call({ key: 'POST /products', body: PRODUCT, summary: 'Thêm áo' });
+    for (let i = 0; i < MAX_PENDING_PROPOSALS; i++) {
+      expect((await propose()).json.status).toBe('awaiting_owner_approval');
+    }
+    expect((await propose()).json).toEqual({
+      ok: false,
+      errorCode: 'too_many_pending',
+      max: MAX_PENDING_PROPOSALS,
+    });
+    // A decided one makes room again.
+    const [first] = await t.repo.listProposals(t.scope, t.thread.id);
+    await t.repo.transitionProposal(t.scope, first!.id, ['pending'], 'rejected', {
+      decidedAt: NOW,
+    });
+    expect((await propose()).json.status).toBe('awaiting_owner_approval');
   });
 
   it('shows the current state next to the body of a whole replace', async () => {

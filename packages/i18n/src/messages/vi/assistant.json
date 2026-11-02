@@ -45,8 +45,16 @@
   "proposals": {
     "label": "Đề xuất thay đổi",
     "business": "Cho {{name}}",
+    "verbs": {
+      "post": "Tạo",
+      "patch": "Sửa",
+      "put": "Sửa",
+      "delete": "Xoá"
+    },
     "showPreview": "Xem chi tiết",
     "hidePreview": "Ẩn chi tiết",
+    "before": "Hiện tại",
+    "changes": "Thay đổi",
     "apply": "Áp dụng",
     "reject": "Bỏ",
     "applying": "Đang áp dụng…",

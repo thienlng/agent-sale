@@ -11,11 +11,55 @@ import { cn } from '@/lib/utils';
 
 import { useDecideAssistantProposal, useProposalDecisionInFlight } from '../api/assistant';
 
-/** Preview text for the card: the server's preview as indented JSON, capped for the panel. */
+/** Preview text for the card: a value as indented JSON, capped for the panel. */
 function previewText(preview: unknown): string {
   if (preview === undefined || preview === null) return '';
   const text = typeof preview === 'string' ? preview : JSON.stringify(preview, null, 2);
   return text.length > 4000 ? `${text.slice(0, 4000)}…` : text;
+}
+
+type ProposalVerb = 'post' | 'patch' | 'put' | 'delete';
+const VERBS = new Set<string>(['post', 'patch', 'put', 'delete']);
+
+/**
+ * What will run, read from `routeKey` (`METHOD /path`), never from the model's summary: the
+ * method (as a verb key), the route path, whether it removes or replaces data (DELETE, PUT) and
+ * whether it changes an existing record (preview open by default).
+ */
+function proposalAction(routeKey: string): {
+  verb: ProposalVerb | null;
+  method: string;
+  path: string;
+  destructive: boolean;
+  changesExisting: boolean;
+} {
+  const [rawMethod = '', ...rest] = routeKey.trim().split(/\s+/);
+  const method = rawMethod.toLowerCase();
+  const verb = VERBS.has(method) ? (method as ProposalVerb) : null;
+  return {
+    verb,
+    method: rawMethod.toUpperCase(),
+    path: rest.join(' '),
+    destructive: verb === 'delete' || verb === 'put',
+    changesExisting: verb === 'patch' || verb === 'put' || verb === 'delete',
+  };
+}
+
+/** The preview split for the card: the record now (`before`) and what is sent (body/query). */
+function previewParts(preview: unknown): { before: string; changes: string } {
+  if (preview && typeof preview === 'object' && !Array.isArray(preview)) {
+    const p = preview as Record<string, unknown>;
+    if ('body' in p || 'query' in p || 'before' in p) {
+      const sent =
+        p['body'] !== undefined && p['body'] !== null
+          ? p['body']
+          : p['query'] !== undefined && p['query'] !== null
+            ? p['query']
+            : null;
+      return { before: previewText(p['before']), changes: previewText(sent) };
+    }
+  }
+  return { before: '', changes: previewText(preview) };
 }
 
 function useBusinessName(businessId: string): string | null {
@@ -49,11 +93,29 @@ function ProposalStatus({ proposal }: { proposal: AssistantProposalDto }) {
   );
 }
 
-/** A pending proposal: summary, business, a collapsible preview and Áp dụng / Bỏ. */
+/** One labelled JSON block of the preview. */
+function PreviewBlock({ label, text }: { label: string | null; text: string }) {
+  return (
+    <div className="min-w-0">
+      {label ? <p className="mb-0.5 text-xs text-muted-foreground">{label}</p> : null}
+      <pre className="max-h-48 overflow-auto rounded-md bg-background px-2 py-1.5 font-mono text-xs break-words whitespace-pre-wrap">
+        {text}
+      </pre>
+    </div>
+  );
+}
+
+/**
+ * A pending proposal: what will run (verb + route path, red for DELETE/PUT), the model's summary,
+ * the business, the preview (open by default when it changes an existing record) and
+ * Áp dụng / Bỏ.
+ */
 function PendingProposal({ proposal }: { proposal: AssistantProposalDto }) {
   const { t } = useTranslation('assistant');
   const business = useBusinessName(proposal.businessId);
-  const [showPreview, setShowPreview] = useState(false);
+  const action = proposalAction(proposal.routeKey);
+  // A change to an existing record shows what it touches without a click.
+  const [showPreview, setShowPreview] = useState(action.changesExisting);
   const decide = useDecideAssistantProposal(proposal, (error) => {
     // 409: decided elsewhere or expired; the refetch shows its real status.
     if (!(error instanceof ApiClientError) || error.status !== 409)
@@ -63,7 +125,8 @@ function PendingProposal({ proposal }: { proposal: AssistantProposalDto }) {
   });
   // Keyed by the proposal id, so a card mounted again (another panel view and back) stays busy.
   const inFlight = useProposalDecisionInFlight(proposal.id);
-  const preview = previewText(proposal.preview);
+  const { before, changes } = previewParts(proposal.preview);
+  const hasPreview = Boolean(before || changes);
   const previewId = `proposal-preview-${proposal.id}`;
 
   function run(decision: 'approve' | 'reject'): void {
@@ -75,21 +138,44 @@ function PendingProposal({ proposal }: { proposal: AssistantProposalDto }) {
   const applying = inFlight === 'approve';
   return (
     <li
-      className="flex w-[92%] min-w-0 flex-col gap-2 self-start rounded-xl border border-primary/30 bg-primary-soft/40 px-3 py-2.5"
+      className={cn(
+        'flex w-[92%] min-w-0 flex-col gap-2 self-start rounded-xl border px-3 py-2.5',
+        action.destructive
+          ? 'border-destructive/50 bg-destructive/5'
+          : 'border-primary/30 bg-primary-soft/40',
+      )}
       aria-label={t('proposals.label')}
+      data-destructive={action.destructive || undefined}
     >
       <div className="min-w-0">
-        <p className="text-xs font-medium tracking-wide text-primary uppercase">
+        <p
+          className={cn(
+            'text-xs font-medium tracking-wide uppercase',
+            action.destructive ? 'text-destructive' : 'text-primary',
+          )}
+        >
           {t('proposals.label')}
         </p>
-        <p className="mt-0.5 font-medium break-words">{proposal.summary}</p>
+        <p
+          className={cn(
+            'mt-1 flex min-w-0 items-baseline gap-1.5 text-xs',
+            action.destructive && 'text-destructive',
+          )}
+          data-testid="proposal-action"
+        >
+          <span className="shrink-0 font-semibold">
+            {action.verb ? t(`proposals.verbs.${action.verb}`) : action.method}
+          </span>
+          <code className="min-w-0 font-mono break-all">{action.path}</code>
+        </p>
+        <p className="mt-1 font-medium break-words">{proposal.summary}</p>
         {business ? (
           <p className="text-xs text-muted-foreground">
             {t('proposals.business', { name: business })}
           </p>
         ) : null}
       </div>
-      {preview ? (
+      {hasPreview ? (
         <>
           <button
             type="button"
@@ -105,17 +191,22 @@ function PendingProposal({ proposal }: { proposal: AssistantProposalDto }) {
             />
           </button>
           {showPreview ? (
-            <pre
-              id={previewId}
-              className="max-h-48 overflow-auto rounded-md bg-background px-2 py-1.5 font-mono text-xs break-words whitespace-pre-wrap"
-            >
-              {preview}
-            </pre>
+            <div id={previewId} className="flex min-w-0 flex-col gap-1.5">
+              {before ? <PreviewBlock label={t('proposals.before')} text={before} /> : null}
+              {changes ? (
+                <PreviewBlock label={before ? t('proposals.changes') : null} text={changes} />
+              ) : null}
+            </div>
           ) : null}
         </>
       ) : null}
       <div className="flex gap-2">
-        <Button size="sm" disabled={busy} onClick={() => run('approve')}>
+        <Button
+          size="sm"
+          variant={action.destructive ? 'destructive' : 'default'}
+          disabled={busy}
+          onClick={() => run('approve')}
+        >
           {applying ? <Loader2 className="animate-spin" aria-hidden /> : null}
           {applying ? t('proposals.applying') : t('proposals.apply')}
         </Button>

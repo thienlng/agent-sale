@@ -241,7 +241,7 @@ export class ChatTurnService {
     thread = (await this.#compact(scope, thread, ownerName)) ?? thread;
 
     const stored = await this.repo.listMessages(scope, thread.id, { activeOnly: true });
-    const turnText = buildTurnMessage(req.text, req.pageContext, new Date());
+    const turnText = buildTurnMessage(req.text, req.pageContext, new Date(), scope.businessId);
     const history = capHistory(stored).map((m) =>
       m.id === user.id ? { role: 'user' as const, content: turnText } : toChatMessage(m),
     );

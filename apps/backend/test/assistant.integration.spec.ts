@@ -141,7 +141,7 @@ describe('assistant threads on Postgres', () => {
       .where(eq(schema.assistantThreads.id, thread.id));
     expect(stored).toMatchObject({ ownerUserId: lan.userId, promptVersion: 'assistant@2' });
     expect(stored?.systemPrompt).toContain('personal assistant of Lan,');
-    expect(stored?.systemPrompt).toContain('- Shop Lan (fashion)');
+    expect(stored?.systemPrompt).toContain(`- Shop Lan (fashion) — id ${lan.ownWorkspace}`);
     expect(stored?.systemPrompt).not.toContain('{{');
 
     const untitled = AssistantThreadDto.parse(

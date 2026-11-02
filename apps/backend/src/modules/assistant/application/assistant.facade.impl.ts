@@ -45,7 +45,7 @@ function knownId(what: 'thread' | 'run', id: string): string {
   return id;
 }
 
-/** Owner check first, then the repository; no business data is stored (ADR-022). */
+/** Owner check first, then the repository; only proposals keep business data (1b-R10). */
 @Injectable()
 export class AssistantFacadeImpl implements AssistantFacade {
   constructor(

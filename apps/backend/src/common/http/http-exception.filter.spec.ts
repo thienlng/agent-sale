@@ -4,13 +4,13 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { HttpExceptionFilter } from './http-exception.filter.js';
 
-function run(exception: unknown) {
+function run(exception: unknown, url = '/x') {
   const send = vi.fn((_body: { error: Record<string, unknown> }) => undefined);
   const status = vi.fn((_code: number) => ({ send }));
   const host = {
     switchToHttp: () => ({
       getResponse: () => ({ status }),
-      getRequest: () => ({ id: 'trace-1', url: '/x' }),
+      getRequest: () => ({ id: 'trace-1', url }),
     }),
   } as unknown as ArgumentsHost;
   const logger = { error: vi.fn() };
@@ -51,5 +51,13 @@ describe('HttpExceptionFilter', () => {
     const { status, body } = run(new Error('boom'));
     expect(status).toBe(500);
     expect(body?.error.code).toBe('INTERNAL');
+  });
+
+  it('logs the path of a 500 without its query string', () => {
+    const { logger } = run(new Error('boom'), '/api/v1/contacts?q=0901234567&page=2');
+    expect(logger.error).toHaveBeenCalledTimes(1);
+    const [fields] = logger.error.mock.calls[0] as unknown as [Record<string, unknown>];
+    expect(fields).toMatchObject({ traceId: 'trace-1', url: '/api/v1/contacts' });
+    expect(JSON.stringify(fields)).not.toContain('0901234567');
   });
 });

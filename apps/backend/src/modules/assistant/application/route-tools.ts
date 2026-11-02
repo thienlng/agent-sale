@@ -17,6 +17,10 @@ export const MAX_ROUTE_RESULT_CHARS = 8_000;
 export const TURN_READ_BUDGET_CHARS = 40_000;
 /** A proposal waits this long for the owner. */
 export const PROPOSAL_TTL_MS = 24 * 60 * 60_000;
+/** A proposal's body is at most this long as JSON (`body_too_large`). */
+export const MAX_PROPOSAL_BODY_CHARS = 20_000;
+/** At most this many proposals wait for the owner in one thread (`too_many_pending`). */
+export const MAX_PENDING_PROPOSALS = 20;
 export const TRUNCATED = '…[truncated]';
 /** Said to the model with a 403, so it tells the owner why. */
 export const FORBIDDEN_MESSAGE = 'Tài khoản của anh/chị không có quyền này';
@@ -196,6 +200,16 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
   }
 
   async function propose(p: Extract<Prepared, { ok: true }>, summary: string) {
+    if ((JSON.stringify(p.body ?? null) ?? '').length > MAX_PROPOSAL_BODY_CHARS) {
+      return fail('body_too_large', { maxChars: MAX_PROPOSAL_BODY_CHARS });
+    }
+    const at = now().getTime();
+    const waiting = (await ctx.repo.listProposals(ctx.scope, ctx.threadId)).filter(
+      (x) => x.status === 'pending' && x.expiresAt.getTime() > at,
+    );
+    if (waiting.length >= MAX_PENDING_PROPOSALS) {
+      return fail('too_many_pending', { max: MAX_PENDING_PROPOSALS });
+    }
     let before: unknown;
     const reader = MUTATING_WITH_STATE.has(p.entry.method)
       ? ctx.catalog.readerOf(p.entry)

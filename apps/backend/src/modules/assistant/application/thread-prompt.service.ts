@@ -40,8 +40,13 @@ export class ThreadPromptService {
       this.repo.getMemory(scope),
     ]);
     const businesses = memberships
-      .map((ms) => ({ name: ms.workspaceName, industry: ms.industry }))
-      .sort((a, b) => a.name.localeCompare(b.name, 'vi') || a.industry.localeCompare(b.industry));
+      .map((ms) => ({ id: ms.workspaceId, name: ms.workspaceName, industry: ms.industry }))
+      .sort(
+        (a, b) =>
+          a.name.localeCompare(b.name, 'vi') ||
+          a.industry.localeCompare(b.industry) ||
+          a.id.localeCompare(b.id),
+      );
     return buildSystemPrompt(
       template,
       { ownerName: ownerName?.trim() || FALLBACK_OWNER_NAME, businesses },
