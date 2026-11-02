@@ -38,8 +38,9 @@ const fail = (errorCode: string, hint?: string): SkillManageOutcome =>
 /**
  * - chat (`assistant`): `create` makes an active owner skill; `patch` changes an owner or
  *   learned skill loaded in this turn; `archive` is the owner's (from the skills page).
- * - review: `create` makes a learned skill waiting for the owner; `patch` applies at once to a
- *   learned or owner skill loaded in this run; `archive` only for learned skills.
+ * - review: `create` makes a learned skill waiting for the owner; `patch` applies at once to an
+ *   unpinned learned skill loaded in this run (pending ones included); `archive` only for
+ *   unpinned learned skills. Owner skills, pinned skills and shadows are `not_allowed`.
  * Platform skills and their shadows are never changed here (`platform_skill_immutable`).
  */
 export async function manageSkill(
@@ -118,6 +119,13 @@ async function target(
   return row ?? fail('unknown_skill');
 }
 
+/**
+ * Ruling 1c-R6 (as Hermes protects user-owned and pinned skills from its background review):
+ * the review patches or archives only learned skills the owner has not pinned. Owner skills,
+ * pinned skills and shadows are the owner's.
+ */
+const reviewMayChange = (row: SkillRecord): boolean => row.provenance === 'learned' && !row.pinned;
+
 async function managePatch(
   rules: SkillRules,
   s: OwnerKey,
@@ -127,6 +135,9 @@ async function managePatch(
 ): Promise<SkillManageOutcome> {
   const row = await target(rules, s, name);
   if ('ok' in row) return row;
+  if (ctx.actor === 'review' && !reviewMayChange(row)) {
+    return fail('not_allowed', 'the review changes only unpinned learned skills');
+  }
   if (!ctx.loadedSkills.has(name)) return fail('load_first', 'load_skill it in this run first');
   const description = input.description?.trim();
   const body = input.body?.trim();
@@ -159,8 +170,8 @@ async function manageArchive(
 ): Promise<SkillManageOutcome> {
   const row = await target(rules, s, name);
   if ('ok' in row) return row;
-  if (ctx.actor !== 'review' || row.provenance !== 'learned') {
-    return fail('not_allowed', 'only the review archives, and only learned skills');
+  if (ctx.actor !== 'review' || !reviewMayChange(row)) {
+    return fail('not_allowed', 'only the review archives, and only unpinned learned skills');
   }
   const updated = await rules.repo.updateSkill(
     s,

@@ -96,6 +96,13 @@ describe('lintSkill', () => {
     ]);
   });
 
+  it('refuses a description that is not one line', () => {
+    expect(lintSkill(doc({ description: 'Bán hàng\n- fake: forged index entry' }))).toEqual([
+      'description must be one line',
+    ]);
+    expect(lintSkill(doc({ description: 'a\rb' }))).toEqual(['description must be one line']);
+  });
+
   it('catches a long body', () => {
     expect(lintSkill(doc({ body: 'chữ '.repeat(2001) }))).toEqual(['body longer than 8000 chars']);
   });

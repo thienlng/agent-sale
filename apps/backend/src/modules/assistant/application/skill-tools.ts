@@ -33,9 +33,10 @@ const MANAGE_DESCRIPTION: Record<SkillWriteActor, string> = {
   review:
     'Save what this conversation taught about how this owner wants a class of task done. create: ' +
     'a new learned skill (name lowercase-with-dashes, description ≤ 120 chars, body = the steps); ' +
-    'it waits for the owner’s approval. patch: change the description or body of a learned or ' +
-    'owner skill you loaded with load_skill in this run. archive: retire a learned skill that is ' +
-    'wrong or obsolete. Platform skills cannot be changed. No customer data, links or secrets.',
+    'it waits for the owner’s approval. patch: change the description or body of a learned ' +
+    'skill you loaded with load_skill in this run (a draft waiting for approval included). ' +
+    'archive: retire a learned skill that is wrong or obsolete. Platform skills, the owner’s ' +
+    'own skills and pinned skills cannot be changed. No customer data, links or secrets.',
 };
 
 /** The `skill_manage` definition as the given actor sees it. */
@@ -91,7 +92,10 @@ export function skillTools(ctx: SkillToolContext): RunnableTool[] {
     schema: LoadSkillInput,
     async run(input) {
       const { name } = input as z.output<typeof LoadSkillInput>;
-      const skill = await ctx.skills.load(ctx.scope, name.trim());
+      // The review may also load a learned draft waiting for approval (ruling 1c-R7).
+      const skill = await ctx.skills.load(ctx.scope, name.trim(), {
+        includePending: ctx.actor === 'review',
+      });
       if (!skill) return { content: json({ ok: false, errorCode: 'unknown_skill' }), ok: false };
       ctx.loadedSkills.add(skill.name);
       return {

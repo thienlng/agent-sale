@@ -201,6 +201,14 @@ export const AssistantSkillName = z
   .max(64)
   .regex(/^[a-z0-9][a-z0-9-]*$/, 'lowercase letters, digits and dashes');
 
+/** One line of the prompt's skill index: a line break would forge index entries. */
+export const AssistantSkillDescription = z
+  .string()
+  .trim()
+  .min(1)
+  .max(120)
+  .regex(/^[^\r\n]*$/, 'invalid_skill: description must be one line');
+
 export const AssistantSkillProvenance = z.enum(['platform', 'owner', 'learned', 'shadow']);
 export type AssistantSkillProvenance = z.infer<typeof AssistantSkillProvenance>;
 
@@ -246,14 +254,14 @@ export type AssistantSkillDto = z.infer<typeof AssistantSkillDto>;
 /** The owner writes a procedure of their own; it is active at once. */
 export const CreateAssistantSkillRequest = z.object({
   name: AssistantSkillName,
-  description: z.string().trim().min(1).max(120),
+  description: AssistantSkillDescription,
   body: z.string().trim().min(1).max(8000),
 });
 export type CreateAssistantSkillRequest = z.infer<typeof CreateAssistantSkillRequest>;
 
 export const UpdateAssistantSkillRequest = z
   .object({
-    description: z.string().trim().min(1).max(120),
+    description: AssistantSkillDescription,
     body: z.string().trim().min(1).max(8000),
     pinned: z.boolean(),
   })

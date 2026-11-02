@@ -1,7 +1,7 @@
 import { newId, userId, workspaceId } from '@agent-sales/shared';
 import { describe, expect, it } from 'vitest';
 
-import { SkillCatalog } from '../application/skill-tools.js';
+import { SkillCatalog, skillTools } from '../application/skill-tools.js';
 import {
   SKILL_LIMIT,
   SkillsService,
@@ -170,7 +170,7 @@ describe('skill_manage', () => {
 
   it('patches only a skill loaded in this run (read-before-write), counting the patch', async () => {
     const { manage, ctx, repo, scope } = setup();
-    await manage(ctx('assistant'), SAVE);
+    await manage(ctx('review'), SAVE);
     const patch = { action: 'patch' as const, name: SAVE.name, body: '1. Lower prices by 15%.' };
     expect(await manage(ctx('review'), patch)).toMatchObject({ errorCode: 'load_first' });
     expect(await manage(ctx('assistant'), patch)).toMatchObject({ errorCode: 'load_first' });
@@ -227,6 +227,64 @@ describe('skill_manage', () => {
     expect((await repo.listSkills(scope, { states: ['archived'] })).map((x) => x.name)).toEqual([
       'learned-one',
     ]);
+  });
+
+  it('lets the review change only unpinned learned skills (ruling 1c-R6)', async () => {
+    const { manage, ctx, repo, scope, service } = setup();
+    await manage(ctx('assistant'), SAVE);
+    await manage(ctx('review'), { ...SAVE, name: 'learned-one' });
+    const learned = await repo.getSkillByName(scope, 'learned-one');
+    await service.approve(scope, learned!.id);
+    const loaded = [SAVE.name, 'learned-one'];
+    const patch = { action: 'patch' as const, body: '1. Something else.' };
+
+    // An owner skill: the chat may patch it after loading, the review never.
+    expect(await manage(ctx('review', loaded), { ...patch, name: SAVE.name })).toMatchObject({
+      errorCode: 'not_allowed',
+    });
+    expect(await manage(ctx('assistant', loaded), { ...patch, name: SAVE.name })).toMatchObject({
+      ok: true,
+    });
+    // A pinned learned skill is the owner's too.
+    await service.update(scope, learned!.id, { pinned: true });
+    expect(await manage(ctx('review', loaded), { ...patch, name: 'learned-one' })).toMatchObject({
+      errorCode: 'not_allowed',
+    });
+    expect(await manage(ctx('review'), { action: 'archive', name: 'learned-one' })).toMatchObject({
+      errorCode: 'not_allowed',
+    });
+    await service.update(scope, learned!.id, { pinned: false });
+    expect(await manage(ctx('review', loaded), { ...patch, name: 'learned-one' })).toMatchObject({
+      ok: true,
+    });
+  });
+
+  it('lets only the review load a learned draft waiting for approval (ruling 1c-R7)', async () => {
+    const { manage, ctx, repo, scope, service } = setup();
+    await manage(ctx('review'), SAVE);
+    await manage(ctx('assistant'), { ...SAVE, name: 'owner-one' });
+    const load = async (actor: 'assistant' | 'review', name: string) => {
+      const c = ctx(actor);
+      const tools = skillTools({ ...c, scope, skills: service });
+      const out = await tools.find((t) => t.name === 'load_skill')!.run({ name });
+      return { out: JSON.parse(out.content) as { ok: boolean; body?: string }, c };
+    };
+
+    const chat = await load('assistant', SAVE.name);
+    expect(chat.out).toMatchObject({ ok: false });
+    const review = await load('review', SAVE.name);
+    expect(review.out).toMatchObject({ ok: true, body: SAVE.body });
+    expect(review.c.loadedSkills.has(SAVE.name)).toBe(true);
+    // A draft load is not a use.
+    expect(await repo.getSkillByName(scope, SAVE.name)).toMatchObject({ useCount: 0 });
+    // The review can now refine the draft; it stays pending.
+    expect(
+      await manage(review.c, { action: 'patch', name: SAVE.name, body: '1. Lower by 5%.' }),
+    ).toMatchObject({ ok: true, state: 'pending_approval' });
+    // Only learned drafts: a rejected (archived) one is not found.
+    const row = await repo.getSkillByName(scope, SAVE.name);
+    await service.reject(scope, row!.id);
+    expect((await load('review', SAVE.name)).out).toMatchObject({ ok: false });
   });
 
   it(`stops at ${SKILL_LIMIT} live owner and learned skills`, async () => {
@@ -296,7 +354,7 @@ describe('owner skill routes', () => {
   it('undoes a patch: the body comes back; a second undo or a stale snapshot is refused', async () => {
     const { service, scope, manage, ctx } = setup();
     await manage(ctx('assistant'), SAVE);
-    await manage(ctx('review', [SAVE.name]), {
+    await manage(ctx('assistant', [SAVE.name]), {
       action: 'patch',
       name: SAVE.name,
       body: 'A worse procedure',
@@ -333,6 +391,18 @@ describe('owner skill routes', () => {
       details: { reason: 'stale_skill' },
     });
     await expect(service.undo(scope, newId())).rejects.toBeInstanceOf(AssistantNotFoundError);
+  });
+
+  it('re-lints the snapshot an undo restores', async () => {
+    const { service, scope, repo } = setup();
+    const created = await service.create(scope, { name: 'a', description: 'd', body: 'one' });
+    await service.update(scope, created.id!, { body: 'two' });
+    const [patch] = (await service.events(scope, created.id!)).items;
+    // A ledger row written before the one-line rule existed.
+    const event = repo.skillEvents.find((e) => e.id === patch!.id);
+    event!.before!.description = 'Bán hàng\n- forged: entry';
+    await expect(service.undo(scope, patch!.id)).rejects.toBeInstanceOf(AssistantSkillInvalidError);
+    expect((await repo.getSkill(scope, created.id!))!.body).toBe('two');
   });
 
   it("hides another owner's skills and ledger (404)", async () => {

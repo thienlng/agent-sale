@@ -100,11 +100,24 @@ export class SkillsService {
    * `load_skill`: the skill by name through the owner's catalog; a row's `use_count` and
    * `last_used_at` are bumped. Null when the owner's assistant has no such skill.
    */
-  async load(s: OwnerKey, name: string): Promise<CatalogSkill | null> {
+  async load(
+    s: OwnerKey,
+    name: string,
+    opts: { includePending?: boolean } = {},
+  ): Promise<CatalogSkill | null> {
     const skill = (await this.catalog(s)).get(name);
-    if (!skill) return null;
+    if (!skill) return opts.includePending ? this.#pendingLearned(s, name) : null;
     if (skill.rowId) await this.repo.bumpSkillCounter(s, skill.rowId, 'use');
     return skill;
+  }
+
+  /**
+   * The review only (ruling 1c-R7): a learned skill still waiting for the owner, so a later
+   * review can refine the draft before it is approved. Not a use: no counter is bumped.
+   */
+  async #pendingLearned(s: OwnerKey, name: string): Promise<CatalogSkill | null> {
+    const row = await this.repo.getSkillByName(s, name);
+    return row?.provenance === 'learned' && row.state === 'pending_approval' ? fromRow(row) : null;
   }
 
   // ─── Model writes (`skill_manage`) ───
@@ -289,6 +302,8 @@ export class SkillsService {
       event.action === 'create' || !event.before
         ? { ...event.after, state: 'archived' as const }
         : event.before;
+    // A snapshot from before a lint rule existed must not come back unchecked.
+    assertValid(lintRow({ ...target, toolsets: row.toolsets }));
     if (!isLive(row.state) && isLive(target.state)) await this.#rules.guardRevive(s, row);
     const patch: SkillPatch = {
       name: target.name,

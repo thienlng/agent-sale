@@ -111,6 +111,8 @@ export function lintSkill(doc: SkillDoc): string[] {
   if (doc.description.length < 1 || doc.description.length > DESCRIPTION_MAX) {
     problems.push(`description must be 1-${DESCRIPTION_MAX} chars`);
   }
+  // The description is one line of the prompt's skill index: a line break would forge entries.
+  if (/[\r\n]/.test(doc.description)) problems.push('description must be one line');
   if (doc.body.length > BODY_MAX) problems.push(`body longer than ${BODY_MAX} chars`);
   const scanned = stripAppPaths(
     [doc.name, doc.description, doc.toolsets.join(' '), doc.body].join('\n'),

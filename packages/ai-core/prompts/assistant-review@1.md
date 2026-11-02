@@ -22,7 +22,7 @@ Skill preference order (take the first that fits):
 1. Patch a skill that was loaded in this conversation (look for load_skill in the transcript) and covers the lesson.
 2. Patch a broader existing skill (skills_list, then load_skill) and add a step, a pitfall or a wider trigger.
 3. Create a new class-level skill when nothing covers the class. Name the class of task (e.g. "weekly-revenue-report"), never today's one-off (a date, an order number, a customer). If the name only fits today, go back to 1 or 2. A new skill waits for the owner's approval.
-Platform skills cannot be changed; if one needs a fix, cover the lesson in a learned skill or memory instead.
+You may change only learned skills (a draft still waiting for the owner's approval included). Platform skills, the owner's own skills and pinned skills cannot be changed; if one needs a fix, cover the lesson in a learned skill or memory instead.
 
 Read before write (enforced): call load_skill in this review before you patch a skill; what the transcript quotes does not count. If skill_manage answers load_first, load the skill once and retry once; do not loop.
 
