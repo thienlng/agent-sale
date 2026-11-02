@@ -98,6 +98,16 @@ describe('assistantRoutes', () => {
       'post /assistant/skills/platform/{name}/shadow',
       'get /assistant/skills/{skillId}/events',
       'post /assistant/skill-events/{eventId}/undo',
+      'get /assistant/schedules',
+      'post /assistant/schedules',
+      'post /assistant/schedules/preview',
+      'patch /assistant/schedules/{scheduleId}',
+      'post /assistant/schedules/{scheduleId}/pause',
+      'post /assistant/schedules/{scheduleId}/resume',
+      'post /assistant/schedules/{scheduleId}/run',
+      'delete /assistant/schedules/{scheduleId}',
+      'get /assistant/schedules/{scheduleId}/runs',
+      'post /assistant/schedule-runs/{runId}/thread',
     ]);
     for (const r of assistantRoutes) {
       expect(r).toMatchObject({

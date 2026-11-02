@@ -147,6 +147,10 @@ export const AssistantProposalStatus = z.enum([
 ]);
 export type AssistantProposalStatus = z.infer<typeof AssistantProposalStatus>;
 
+/** What a proposal does: call a declared route, change a schedule (T-172), import products. */
+export const AssistantProposalKind = z.enum(['route', 'schedule', 'product_import']);
+export type AssistantProposalKind = z.infer<typeof AssistantProposalKind>;
+
 /** A write the assistant prepared; it runs only when the owner approves it. */
 export const AssistantProposalDto = z.object({
   id: z.uuid(),

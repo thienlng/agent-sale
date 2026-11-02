@@ -64,6 +64,7 @@ export * from './saas/saas.schema.js';
 export * from './saas/saas.routes.js';
 export * from './assistant/assistant.schema.js';
 export * from './assistant/assistant.routes.js';
+export * from './assistant/schedule.schema.js';
 export * from './notification/notification.schema.js';
 export * from './notification/notification.routes.js';
 export * from './saas/saas.events.js';
