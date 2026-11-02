@@ -21,8 +21,10 @@ import {
   useCreateAssistantThread,
   useSendAssistantMessage,
 } from '../api/assistant';
+import { useCreateImportBatch } from '../api/imports';
 import { useAssistantThreadId, useAssistantUi } from '../stores/assistant-ui.store';
 import { safeAppPath } from '../utils/safe-app-path';
+import { useAssistantAttachments } from './assistant-attachments';
 import { AssistantComposer } from './assistant-composer';
 import { AssistantMemory } from './assistant-memory';
 import { AssistantMessages } from './assistant-messages';
@@ -42,7 +44,8 @@ export function AssistantPanel() {
   const { t } = useTranslation('assistant');
   const router = useRouter();
   const { open, setOpen, setThread, setSpotlight } = useAssistantUi();
-  const threadId = useAssistantThreadId(useWorkspaceId());
+  const workspaceId = useWorkspaceId();
+  const threadId = useAssistantThreadId(workspaceId);
   const [view, setView] = useState<'chat' | 'threads' | 'memory'>('chat');
   const [pendingTurn, setPendingTurn] = useState<string | null>(null);
   const [unavailable, setUnavailable] = useState(false);
@@ -50,7 +53,11 @@ export function AssistantPanel() {
   const proposals = useAssistantProposals(threadId);
   const createThread = useCreateAssistantThread();
   const sendMessage = useSendAssistantMessage();
-  const sending = pendingTurn !== null || createThread.isPending;
+  const createImport = useCreateImportBatch();
+  // The batch is for the business the owner is on (the dashboard always has one).
+  const attachments = useAssistantAttachments(workspaceId);
+  const [dragging, setDragging] = useState(false);
+  const sending = pendingTurn !== null || createThread.isPending || attachments.creating;
 
   /**
    * UI actions run in order: navigate inside the dashboard, point at a control, fill a form on
@@ -106,8 +113,47 @@ export function AssistantPanel() {
         if (switched()) return false;
         setThread(id);
       }
+      let importBatchId: string | undefined;
+      let body = text;
+      if (attachments.active) {
+        const prepared = attachments.request();
+        if ('key' in prepared) {
+          attachments.setError(prepared);
+          return false;
+        }
+        attachments.setCreating(true);
+        try {
+          importBatchId = (await createImport.mutateAsync({ threadId: id, ...prepared.body })).id;
+        } catch (error) {
+          attachments.setError({
+            key:
+              error instanceof ApiClientError && error.status === 409
+                ? 'import.errors.busy'
+                : error instanceof ApiClientError && error.details?.['reason'] === 'import_empty'
+                  ? 'import.errors.empty'
+                  : 'import.errors.batch',
+          });
+          return false;
+        } finally {
+          attachments.setCreating(false);
+        }
+        if (switched()) return false;
+        body =
+          text ||
+          (prepared.body.kind === 'sheet'
+            ? t('import.defaultSheetText', { file: prepared.label })
+            : t('import.defaultPhotoText', { count: prepared.count }));
+      }
       setPendingTurn(turnId);
-      const res = await sendMessage.mutateAsync({ threadId: id, turnId, text, pageContext });
+      const res = await sendMessage.mutateAsync({
+        threadId: id,
+        turnId,
+        text: body,
+        pageContext,
+        ...(importBatchId ? { importBatchId } : {}),
+      });
+      // Sent: the batch now belongs to the message (a failed send keeps the tray for a retry).
+      if (importBatchId) attachments.clear();
       // Not awaited: a fill may wait for the next page, and the composer is free meanwhile.
       if (!switched()) void apply(res.messages, switched);
       return true;
@@ -135,8 +181,32 @@ export function AssistantPanel() {
           showCloseButton={false}
           // Non-modal: clicks on the page must not close the conversation.
           onInteractOutside={(event) => event.preventDefault()}
-          className="gap-0 p-0 data-[side=right]:w-full data-[side=right]:sm:w-[420px] data-[side=right]:sm:max-w-[420px]"
+          className="relative gap-0 p-0 data-[side=right]:w-full data-[side=right]:sm:w-[420px] data-[side=right]:sm:max-w-[420px]"
+          // Files dropped on the panel are attached to the next message (📎 does the same).
+          onDragOver={(event) => {
+            if (view !== 'chat' || !event.dataTransfer.types.includes('Files')) return;
+            event.preventDefault();
+            setDragging(true);
+          }}
+          onDragLeave={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null))
+              setDragging(false);
+          }}
+          onDrop={(event) => {
+            if (view !== 'chat') return;
+            event.preventDefault();
+            setDragging(false);
+            if (!sending) attachments.addFiles(event.dataTransfer.files);
+          }}
         >
+          {dragging ? (
+            <div
+              className="pointer-events-none absolute inset-2 z-10 grid place-items-center rounded-xl border-2 border-dashed border-primary bg-background/90 text-sm font-medium text-primary"
+              aria-hidden
+            >
+              {t('import.dropHere')}
+            </div>
+          ) : null}
           <header className="flex items-center gap-1 border-b py-2 pr-2 pl-4">
             <div className="min-w-0 flex-1">
               <SheetTitle className="truncate font-semibold">{t('title')}</SheetTitle>
@@ -192,7 +262,7 @@ export function AssistantPanel() {
                 pendingTurn={pendingTurn}
                 unavailable={unavailable}
               />
-              <AssistantComposer sending={sending} onSend={send} />
+              <AssistantComposer sending={sending} onSend={send} attachments={attachments} />
             </>
           )}
         </SheetContent>
