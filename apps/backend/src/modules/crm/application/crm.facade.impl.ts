@@ -25,6 +25,10 @@ export class CrmFacadeImpl implements CrmFacade {
     return this.ownership.ownedContactCounts(ws, userId);
   }
 
+  contactsCreated(ws: WorkspaceId, q: { since: Date; until: Date }) {
+    return this.ownership.contactsCreated(ws, q);
+  }
+
   contactNames(ws: WorkspaceId, ids: readonly string[]) {
     return this.ownership.namesOf(ws, ids);
   }

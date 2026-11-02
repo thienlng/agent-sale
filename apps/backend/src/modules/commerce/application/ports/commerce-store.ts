@@ -258,6 +258,26 @@ export interface OrderSettingsRecord {
   version: number;
 }
 
+/** An order as an owner report lists it: no customer data (T-172, S3-R9). */
+export interface PlacedOrderRecord {
+  id: string;
+  code: string;
+  total: number;
+  status: string;
+  source: string;
+  placedAt: Date;
+}
+
+/** A low-stock variant as an owner report lists it. */
+export interface LowStockRecord {
+  productId: string;
+  variantId: string;
+  /** The product name, with the variant name after ` - ` when it has one. */
+  name: string;
+  sku: string | null;
+  available: number;
+}
+
 /** Aggregates for the overview, bucketed in the workspace time zone. */
 export interface OverviewAggregates {
   byDay: Array<{
@@ -408,6 +428,15 @@ export interface CommerceTx {
     apply(workspaceId: WorkspaceId, changes: StockChange[]): Promise<void>;
     /** Creates an empty stock row (on hand 0) when there is none; no movement (nothing moved). */
     ensureRow(workspaceId: WorkspaceId, variantId: string, warehouseId: string): Promise<void>;
+    /**
+     * Live variants of active products that have stock rows and whose available stock (Σ on hand
+     * − reserved over warehouses) is at most `threshold`: how many, and the first `limit` by
+     * available then name (owner reports, T-172).
+     */
+    lowStock(q: { threshold: number; limit: number }): Promise<{
+      count: number;
+      items: LowStockRecord[];
+    }>;
   };
   /** Link columns of PMS-synced products and variants (ADR-017). */
   catalogSync: {
@@ -466,6 +495,15 @@ export interface CommerceTx {
       todayTo: Date;
       timezone: string;
     }): Promise<OverviewAggregates>;
+    /**
+     * Orders placed in `[since, until)`, deleted and cancelled ones left out: how many, their
+     * summed total, and the newest `limit` (owner reports, T-172).
+     */
+    placedSummary(q: { since: Date; until: Date; limit: number }): Promise<{
+      count: number;
+      total: number;
+      items: PlacedOrderRecord[];
+    }>;
   };
   /** PMS push columns of orders (ADR-017); the push eligibility is `domain/order-push.ts`. */
   orderPush: {

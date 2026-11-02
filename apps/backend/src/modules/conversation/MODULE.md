@@ -6,7 +6,7 @@
 
 **Public API (`api/`):**
 
-- `CONVERSATION_FACADE` → `list(ws, query, viewerId)` (filters, tabs, counts), `get`, `update` (incl. `assigneeId`), `markRead`, `markUnread`, `linkLead`, `setContact` (HTTP only), `addNote`, `refreshCustomerProfile`, `listTags`, `addTag`, `send`, `receive`, `getReplyContext`, `botHolds` (bot still holds the conversation; the agent loop's interrupt check), `commitBotReply`, `commitBotFollowUp`, `handOff`, `commitBotImages`
+- `CONVERSATION_FACADE` → `list(ws, query, viewerId)` (filters, tabs, counts), `get`, `update` (incl. `assigneeId`), `markRead`, `markUnread`, `linkLead`, `setContact` (HTTP only), `addNote`, `refreshCustomerProfile`, `listTags`, `addTag`, `send`, `receive`, `getReplyContext`, `botHolds` (bot still holds the conversation; the agent loop's interrupt check), `commitBotReply`, `commitBotFollowUp`, `handOff`, `commitBotImages`, `awaitingReply(ws, {olderThan, limit ≤ 200})` (owner reports, T-172: open conversations with `awaiting_since <= olderThan` on the waiting index; the count, the oldest wait, the split by channel kind (`data.provider`) and the oldest ids for an alert fingerprint; no customer data)
 - `CONVERSATION_RUNNER` (`MetaInboxProcessor.tick`) — run only by the `agent` entry.
 - HTTP: `/conversations`, `/conversations/{id}`, `/conversations/{id}/messages`, `/conversations/{id}/read`, `/conversations/{id}/unread`, `/conversations/{id}/notes`, `/conversations/{id}/tags` (GET, POST; the tag library is crm's, removal via crm's `/tag-assignments/{id}/remove`).
 
