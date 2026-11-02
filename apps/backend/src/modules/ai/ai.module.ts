@@ -12,6 +12,7 @@ import { LodgingModule } from '../lodging/lodging.module.js';
 import { SaasModule } from '../saas/saas.module.js';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
 import { AI_FACADE } from './api/ai.facade.js';
+import { AI_LLM_GATEWAY } from './api/llm-gateway.port.js';
 import { HERMES_SUBSCRIPTION_LOGIN, LlmAdminService } from './application/llm-admin.service.js';
 import { LlmRuntime } from './application/llm-runtime.js';
 import { MEDIA_PUBLIC_BASE, PlaygroundService } from './application/playground.service.js';
@@ -85,10 +86,11 @@ import { LlmAdminController } from './interface/http/llm-admin.controller.js';
     },
     { provide: MEDIA_PUBLIC_BASE, useFactory: () => getEnv().S3_PUBLIC_URL ?? '' },
     LlmRuntime,
+    { provide: AI_LLM_GATEWAY, useExisting: LlmRuntime },
     LlmAdminService,
     PlaygroundService,
     { provide: AI_FACADE, useExisting: PlaygroundService },
   ],
-  exports: [AI_FACADE],
+  exports: [AI_FACADE, AI_LLM_GATEWAY],
 })
 export class AiModule {}
