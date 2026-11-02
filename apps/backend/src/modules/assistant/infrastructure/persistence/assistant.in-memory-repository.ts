@@ -12,10 +12,12 @@ import {
   type ProposalPatch,
   type ProposalRecord,
   type ProposalStatus,
+  type RecordedRun,
   type RunRecord,
   RUN_BUSY_WINDOW_MS,
   type SearchHit,
   type StepRecord,
+  summarySortSeq,
   THREAD_LIST_LIMIT,
   type ThreadRecord,
 } from '../../domain/ports/assistant.repository.js';
@@ -86,6 +88,7 @@ export class InMemoryAssistantRepository implements AssistantRepository {
             .filter(
               (m) =>
                 mine(s, m) &&
+                !m.isSummary &&
                 (m.role === 'user' || m.role === 'assistant') &&
                 foldText(m.content).includes(text),
             )
@@ -196,7 +199,7 @@ export class InMemoryAssistantRepository implements AssistantRepository {
       return origin === 'schedule' || origin === 'review' ? 1 : 0;
     };
     const hits = this.messages
-      .filter((m) => mine(s, m) && (m.role === 'user' || m.role === 'assistant'))
+      .filter((m) => mine(s, m) && !m.isSummary && (m.role === 'user' || m.role === 'assistant'))
       .filter((m) => {
         const text = foldText(m.content);
         return words.every((w) => text.includes(w));
@@ -277,6 +280,30 @@ export class InMemoryAssistantRepository implements AssistantRepository {
       .sort((a, b) => a.idx - b.idx)
       .map(({ accountId: _x, ...step }) => step);
     return { ...structuredClone(rest), steps };
+  }
+
+  async getLastChatRun(s: OwnerScope, threadId: string): Promise<RunRecord | null> {
+    this.#thread(s, threadId);
+    const last = [...this.runs.values()]
+      .filter((x) => mine(s, x) && x.threadId === threadId && x.kind === 'chat')
+      .filter((x) => x.status === 'done')
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+    if (!last) return null;
+    const { accountId: _a, ownerUserId: _o, ...rest } = last;
+    return structuredClone(rest);
+  }
+
+  async recordRun(s: OwnerScope, r: RecordedRun): Promise<void> {
+    if (r.threadId) this.#thread(s, r.threadId);
+    if (this.runs.has(r.id)) throw new AssistantRunIdTakenError();
+    const now = this.#now();
+    this.runs.set(r.id, {
+      ...r,
+      accountId: s.accountId,
+      ownerUserId: s.ownerUserId,
+      createdAt: now,
+      finishedAt: now,
+    });
   }
 
   // ─── Memory ───
@@ -418,7 +445,7 @@ export class InMemoryAssistantRepository implements AssistantRepository {
       ...structuredClone(c.summary),
       threadId,
       seq: last + 1,
-      sortSeq: Math.min(...middle.map((m) => m.seq)) - 0.5,
+      sortSeq: summarySortSeq(middle),
       isSummary: true,
       createdAt: this.#now(),
       accountId: s.accountId,

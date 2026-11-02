@@ -94,9 +94,10 @@ export const assistantMessages = pgTable(
     compacted: boolean('compacted').notNull().default(false),
     isSummary: boolean('is_summary').notNull().default(false),
     /**
-     * Order of the active history: `seq` for ordinary rows; a compaction summary gets the first
-     * summarised seq − 0.5 so it sorts before the kept tail. A trigger fills it from `seq` when an
-     * insert omits it.
+     * Order of the active history: `seq` for ordinary rows; a compaction summary sorts just
+     * before the rows it summarised (their lowest sort_seq − 0.5, or the folded summary's own), so
+     * it stays between the head and the kept tail. A trigger fills it from `seq` when an insert
+     * omits it.
      */
     sortSeq: numeric('sort_seq', { mode: 'number' }).notNull(),
     createdAt: ts('created_at').notNull().defaultNow(),

@@ -5,8 +5,10 @@ import type { AccountFacade, AccountMembership } from '../../account/api/index.j
 import type { WorkspaceFacade, WorkspaceMembership } from '../../workspace/api/index.js';
 import { AssistantFacadeImpl } from '../application/assistant.facade.impl.js';
 import { ChatTurnService } from '../application/chat-turn.service.js';
+import { CompactionService } from '../application/compaction.service.js';
 import { ProposalService } from '../application/proposals.service.js';
 import { SkillCatalog } from '../application/skill-tools.js';
+import { ThreadPromptService } from '../application/thread-prompt.service.js';
 import {
   AssistantBusyError,
   AssistantForbiddenError,
@@ -85,14 +87,16 @@ function setup() {
     Promise.resolve({ status: 200, body: { id: 'p1' } }),
   );
   const invoker = { invoke };
-  const chat = new ChatTurnService(repo, { generate }, skills, invoker);
+  const prompts = new ThreadPromptService(world.workspace, repo, skills);
+  const compaction = new CompactionService(repo, { generate }, prompts);
+  const chat = new ChatTurnService(repo, { generate }, skills, invoker, compaction);
   const proposals = new ProposalService(repo, invoker);
   const facade = new AssistantFacadeImpl(
     world.account,
     world.workspace,
     repo,
     chat,
-    skills,
+    prompts,
     proposals,
   );
   const me = { userId: world.owner, businessId: world.business };

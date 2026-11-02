@@ -93,6 +93,17 @@ export function loadAssistantTemplate(): Promise<string> {
 }
 
 /**
+ * The template of a thread's own prompt version (`assistant@<n>`), so a rebuilt prompt keeps the
+ * version the thread started with; an unknown version falls back to the pinned one.
+ */
+export function loadThreadTemplate(promptVersion: string): Promise<string> {
+  const match = /^assistant@(\d+)$/.exec(promptVersion);
+  return match
+    ? registry.load({ name: ASSISTANT_PROMPT.name, version: Number(match[1]) })
+    : loadAssistantTemplate();
+}
+
+/**
  * What the model sees as the owner's latest message: the page they are on (JSON, keys in the
  * schema's order), the local time (Asia/Ho_Chi_Minh, HH:mm), then their text. Only the last
  * user message gets this; history keeps the raw text, so earlier turns stay cache-stable. Pure.

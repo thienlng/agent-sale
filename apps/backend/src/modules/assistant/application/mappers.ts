@@ -26,10 +26,11 @@ export function toThreadDto(t: ThreadRecord): AssistantThreadDto {
 
 /**
  * Whether the owner sees a message: tool rows stay internal (ruling R1), and so does an
- * assistant row that only asked for tools (no text of its own).
+ * assistant row that only asked for tools (no text of its own) and a compaction summary (it is
+ * for the model only, ruling 1b-R9).
  */
 export function isVisibleMessage(msg: MessageRecord): boolean {
-  if (msg.role === 'tool') return false;
+  if (msg.role === 'tool' || msg.isSummary) return false;
   return !(msg.role === 'assistant' && msg.toolCalls?.length && !msg.content.trim());
 }
 

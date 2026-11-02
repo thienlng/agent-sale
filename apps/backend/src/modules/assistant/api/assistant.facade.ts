@@ -42,9 +42,10 @@ export interface AssistantFacade {
   /**
    * `authorization` is the caller's own `Authorization` header: route tools read with it
    * (ruling 1b-R2). It is held in memory for the turn only, never stored or logged.
+   * `displayName` (lazy) is read only when the turn compacts the thread and rebuilds its prompt.
    */
   sendMessage(
-    actor: AssistantActor,
+    actor: AssistantActor & { displayName?: () => Promise<string | null> },
     threadId: string,
     input: SendAssistantMessageRequest,
     authorization: string,

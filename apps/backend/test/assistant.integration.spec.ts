@@ -752,6 +752,17 @@ describe('assistant memory, proposals and compaction on Postgres (1b)', () => {
       savedPct: 8,
       systemPrompt: 'p3',
     });
+    // The second summary folds the first (high seq, low sort_seq) and still sorts before the tail.
+    const contents = async () =>
+      (await repo().listMessages(scope, thread.id, { activeOnly: true })).map((m) => m.content);
+    expect(await contents()).toEqual([
+      'head 1',
+      'head 2',
+      'second',
+      PRUNED_TOOL_TEXT,
+      'tail 8',
+      'after',
+    ]);
     await repo().applyCompaction(scope, thread.id, {
       deactivateIds: [id(6)],
       prunedToolIds: [],
@@ -759,6 +770,7 @@ describe('assistant memory, proposals and compaction on Postgres (1b)', () => {
       savedPct: 9,
       systemPrompt: 'p4',
     });
+    expect(await contents()).toEqual(['head 1', 'head 2', 'second', 'third', 'tail 8', 'after']);
     const at = new Date();
     await repo().markCompactionFailed(scope, thread.id, at);
     expect(await repo().getThread(scope, thread.id)).toMatchObject({
@@ -766,6 +778,50 @@ describe('assistant memory, proposals and compaction on Postgres (1b)', () => {
       compactionFailedAt: at,
       cacheRootId: thread.id,
     });
+
+    // The trigger reads the last finished chat run; compaction runs are recorded beside it.
+    expect(await repo().getLastChatRun(scope, thread.id)).toBeNull();
+    const chatRun = newId();
+    await repo().startRun(scope, {
+      id: chatRun,
+      threadId: thread.id,
+      tier: 'pro',
+      promptVersion: 'assistant@2',
+    });
+    await repo().finishRun(scope, chatRun, {
+      status: 'done',
+      inputTokens: 900,
+      cachedTokens: 100,
+      rounds: 2,
+    });
+    const compactionRun = newId();
+    await repo().recordRun(scope, {
+      id: compactionRun,
+      threadId: thread.id,
+      kind: 'compaction',
+      tier: 'basic',
+      promptVersion: 'assistant@2',
+      status: 'done',
+      provider: 'fake',
+      model: 'fake-basic',
+      inputTokens: 500,
+      cachedTokens: 0,
+      outputTokens: 80,
+      latencyMs: 12,
+      rounds: 1,
+      outcome: 'done',
+      guardrail: null,
+    });
+    expect(await repo().getLastChatRun(scope, thread.id)).toMatchObject({
+      id: chatRun,
+      kind: 'chat',
+      inputTokens: 900,
+      cachedTokens: 100,
+      rounds: 2,
+    });
+    const recorded = await repo().getRun(scope, compactionRun);
+    expect(recorded).toMatchObject({ kind: 'compaction', tier: 'basic', status: 'done' });
+    expect(recorded?.finishedAt).toBeInstanceOf(Date);
 
     const other = await ownerScope('compact-other@assistant.vn', 'CompactOther');
     await expect(
@@ -778,6 +834,9 @@ describe('assistant memory, proposals and compaction on Postgres (1b)', () => {
       }),
     ).rejects.toBeInstanceOf(AssistantNotFoundError);
     await expect(repo().markCompactionFailed(other.scope, thread.id, at)).rejects.toBeInstanceOf(
+      AssistantNotFoundError,
+    );
+    await expect(repo().getLastChatRun(other.scope, thread.id)).rejects.toBeInstanceOf(
       AssistantNotFoundError,
     );
   });

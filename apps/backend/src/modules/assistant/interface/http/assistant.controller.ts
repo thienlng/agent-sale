@@ -103,7 +103,14 @@ export class AssistantController {
     @Headers('authorization') authorization: string,
   ): Promise<SendAssistantMessageResponse> {
     // The caller's own bearer token, for route tools during this turn only (ruling 1b-R2).
-    return this.facade.sendMessage(actor(user, ws), threadId, body, authorization);
+    // The display name is read lazily, only if the turn compacts the thread.
+    const displayName = user.displayName;
+    return this.facade.sendMessage(
+      { ...actor(user, ws), ...(displayName ? { displayName } : {}) },
+      threadId,
+      body,
+      authorization,
+    );
   }
 
   @Get('threads/:threadId/proposals')

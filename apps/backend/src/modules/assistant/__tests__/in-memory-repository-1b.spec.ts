@@ -173,6 +173,16 @@ describe('InMemoryAssistantRepository (1b)', () => {
       savedPct: 8,
       systemPrompt: 'p3',
     });
+    // The second summary folds the first (high seq, low sort_seq) and still sorts before the tail.
+    const contents = async () =>
+      (await repo.listMessages(s, t.id, { activeOnly: true })).map((m) => m.content.slice(0, 14));
+    expect(await contents()).toEqual([
+      'head 1',
+      'head 2',
+      'second summary',
+      PRUNED_TOOL_TEXT.slice(0, 14),
+      'tail 8',
+    ]);
     await repo.applyCompaction(s, t.id, {
       deactivateIds: [id(6)],
       prunedToolIds: [],
@@ -180,6 +190,13 @@ describe('InMemoryAssistantRepository (1b)', () => {
       savedPct: 9,
       systemPrompt: 'p4',
     });
+    expect(await contents()).toEqual([
+      'head 1',
+      'head 2',
+      'second summary',
+      'third summary',
+      'tail 8',
+    ]);
     expect((await repo.getThread(s, t.id))?.compactionSavedPcts).toEqual([8, 9]);
 
     const at = new Date();

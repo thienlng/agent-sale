@@ -23,8 +23,10 @@ import {
   type NewMessage,
   type RunRecord,
   type StepRecord,
+  type ThreadRecord,
 } from '../domain/ports/assistant.repository.js';
 import { ROUTE_INVOKER, type RouteInvoker } from '../domain/ports/route-invoker.port.js';
+import { CompactionService, threadCacheKey } from './compaction.service.js';
 import { CORE_TOOL_DEFINITIONS, coreTools, type ToolContext } from './core-tools.js';
 import { isVisibleMessage } from './mappers.js';
 import { MEMORY_TOOL_DEFINITION, memoryTool } from './memory-tools.js';
@@ -43,10 +45,13 @@ export const TITLE_CHARS = 60;
 /** Said when the turn ends without a usable answer, or the model failed. */
 export const FALLBACK_REPLY = 'Dạ em chưa trả lời được lúc này, anh/chị thử lại giúp em nhé.';
 /**
- * The model sees at most this many active messages of the thread (1a cap; compaction is 1b). The
- * window starts at a user message, so an assistant tool call and its results are never split.
+ * Safety cap on the active messages the model sees; compaction normally keeps the history far
+ * shorter (ruling 1b-R5). The window starts at a user, event or summary message, so an assistant
+ * tool call and its results are never split.
  */
-export const HISTORY_MAX_MESSAGES = 40;
+export const HISTORY_MAX_MESSAGES = 200;
+/** However long a compaction took, the model keeps at least this much of the turn budget. */
+export const MIN_ANSWER_BUDGET_MS = 30_000;
 /** Appended to the last tool result at 80% of the turn budget (the shop bot's text says customer). */
 export const OWNER_WRAP_UP_NOTICE = 'Time is almost up: answer the owner now with what you have.';
 /** Every tool the model is offered, sorted by name so the tool list stays cache-stable. */
@@ -127,25 +132,30 @@ const toStepRecord = (runId: string, idx: number, s: AgentStep): StepRecord => (
   errorCode: null,
 });
 
-/** The last `max` messages, from the first user (or event) message on. */
+/** The last `max` messages, from the first user, event or compaction summary message on. */
 export function capHistory(messages: MessageRecord[], max = HISTORY_MAX_MESSAGES): MessageRecord[] {
   const window = messages.slice(-max);
-  const start = window.findIndex((m) => m.role === 'user' || m.role === 'event');
+  const start = window.findIndex((m) => m.role === 'user' || m.role === 'event' || m.isSummary);
   return start < 0 ? [] : window.slice(start);
 }
 
-/** At most the last navigate and the last spotlight of the turn, navigate first. */
+/**
+ * At most the last navigate, the last fill_form and the last spotlight of the turn, in that
+ * order: the page opens, its form is filled, then a control is highlighted.
+ */
 export function finalUiActions(actions: AssistantUiAction[]): AssistantUiAction[] {
-  const navigate = actions.findLast((a) => a.type === 'navigate');
-  const spotlight = actions.findLast((a) => a.type === 'spotlight');
-  return [...(navigate ? [navigate] : []), ...(spotlight ? [spotlight] : [])];
+  return (['navigate', 'fill_form', 'spotlight'] as const).flatMap((type) => {
+    const last = actions.findLast((a) => a.type === type);
+    return last ? [last] : [];
+  });
 }
 
 const errorClass = (e: unknown): string => (e instanceof Error ? e.name : typeof e);
 
 /**
  * One chat turn of the owner assistant: start the run (one at a time per owner, idempotent by
- * the client `turnId`), store the owner's message, run the shared agent loop on the `pro` tier
+ * the client `turnId`), store the owner's message, compact the thread when due (never failing the
+ * turn), run the shared agent loop on the `pro` tier
  * with the core, memory, skill and route tools, store the tool exchange and the answer, and finish
  * the run with its usage. Route tools read with the owner's own `authorization` (memory only);
  * writes become proposals. Steps are written as they happen so `GET /assistant/runs/{id}` shows progress.
@@ -159,6 +169,7 @@ export class ChatTurnService {
     @Inject(AI_LLM_GATEWAY) private readonly gateway: LlmGatewayPort,
     @Inject(SkillCatalog) private readonly skills: SkillCatalog,
     @Inject(ROUTE_INVOKER) private readonly invoker: RouteInvoker,
+    @Inject(CompactionService) private readonly compaction: CompactionService,
   ) {}
 
   /** The routes the assistant may use; tests replace it. */
@@ -169,6 +180,7 @@ export class ChatTurnService {
     threadId: string,
     req: SendAssistantMessageRequest,
     authorization: string,
+    ownerName?: () => Promise<string | null>,
   ): Promise<TurnResult> {
     const thread = await this.repo.getThread(scope, threadId);
     if (!thread) throw new AssistantNotFoundError('thread', threadId);
@@ -182,7 +194,7 @@ export class ChatTurnService {
     if (started === 'busy') throw new AssistantBusyError();
     if (started === 'duplicate') return this.#replay(scope, threadId, req.turnId);
     try {
-      return await this.#answer(scope, thread, req, authorization);
+      return await this.#answer(scope, thread, req, authorization, ownerName);
     } catch (error) {
       await this.repo
         .finishRun(scope, req.turnId, { status: 'failed', finishedAt: new Date() })
@@ -208,11 +220,14 @@ export class ChatTurnService {
 
   async #answer(
     scope: OwnerScope,
-    thread: { id: string; title: string; systemPrompt: string },
+    initial: ThreadRecord,
     req: SendAssistantMessageRequest,
     authorization: string,
+    ownerName: (() => Promise<string | null>) | undefined,
   ): Promise<TurnResult> {
+    const startedAt = Date.now();
     const runId = req.turnId;
+    let thread = initial;
     const [user] = await this.repo.appendMessages(scope, thread.id, [
       row({ role: 'user', content: req.text, pageContext: req.pageContext ?? null, runId }),
     ]);
@@ -221,6 +236,8 @@ export class ChatTurnService {
       const title = Array.from(req.text).slice(0, TITLE_CHARS).join('').trim();
       await this.repo.updateThread(scope, thread.id, { title });
     }
+
+    thread = (await this.#compact(scope, thread, ownerName)) ?? thread;
 
     const stored = await this.repo.listMessages(scope, thread.id, { activeOnly: true });
     const turnText = buildTurnMessage(req.text, req.pageContext, new Date());
@@ -247,7 +264,8 @@ export class ChatTurnService {
           tier: TURN_TIER,
           messages: [{ role: 'system', content: thread.systemPrompt }, ...history],
           tools: TURN_TOOL_DEFINITIONS,
-          promptCacheKey: `asst:${scope.ownerUserId}:${thread.id}`,
+          // Stable across compactions: the root is the thread id, kept in cache_root_id.
+          promptCacheKey: threadCacheKey(scope, thread),
           timeoutMs: TURN_CALL_TIMEOUT_MS,
         },
         tools: [
@@ -268,7 +286,8 @@ export class ChatTurnService {
         ],
         generate: (r) => this.gateway.generate(r),
         maxRounds: TURN_MAX_ROUNDS,
-        budgetMs: TURN_BUDGET_MS,
+        // A compaction at the start of the turn spends part of the turn's budget.
+        budgetMs: Math.max(TURN_BUDGET_MS - (Date.now() - startedAt), MIN_ANSWER_BUDGET_MS),
         wrapUpNotice: OWNER_WRAP_UP_NOTICE,
         onStep: (s) => {
           // Written at once so polling sees the run progress; awaited after the loop.
@@ -334,6 +353,23 @@ export class ChatTurnService {
       finishedAt: new Date(),
     });
     return this.#result(scope, runId, [user, ...added]);
+  }
+
+  /** Compacts the thread when due; any failure keeps the full history and the turn goes on. */
+  async #compact(
+    scope: OwnerScope,
+    thread: ThreadRecord,
+    ownerName: (() => Promise<string | null>) | undefined,
+  ): Promise<ThreadRecord | null> {
+    try {
+      const lastRun = await this.repo.getLastChatRun(scope, thread.id);
+      return await this.compaction.maybeCompact(scope, thread, lastRun, {
+        ...(ownerName ? { ownerName } : {}),
+      });
+    } catch (error) {
+      this.#log.warn(`assistant thread ${thread.id}: compaction skipped (${errorClass(error)})`);
+      return null;
+    }
   }
 
   async #result(scope: OwnerScope, runId: string, rows: MessageRecord[]): Promise<TurnResult> {

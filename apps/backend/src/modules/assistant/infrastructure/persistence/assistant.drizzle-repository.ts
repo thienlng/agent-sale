@@ -27,10 +27,12 @@ import {
   type ProposalPatch,
   type ProposalRecord,
   type ProposalStatus,
+  type RecordedRun,
   type RunRecord,
   RUN_BUSY_WINDOW_MS,
   type SearchHit,
   type StepRecord,
+  summarySortSeq,
   THREAD_LIST_LIMIT,
   type ThreadRecord,
 } from '../../domain/ports/assistant.repository.js';
@@ -190,7 +192,7 @@ export class DrizzleAssistantRepository implements AssistantRepository {
               select 1 from assistant_messages am
               where am.thread_id = ${t.id}
                 and am.account_id = ${s.accountId} and am.owner_user_id = ${s.ownerUserId}
-                and am.role in ('user', 'assistant')
+                and am.role in ('user', 'assistant') and not am.is_summary
                 and (am.search @@ plainto_tsquery('simple', assistant_unaccent(${text}))
                   or assistant_unaccent(am.content) ilike assistant_unaccent(${pattern})))`,
           )
@@ -339,7 +341,7 @@ export class DrizzleAssistantRepository implements AssistantRepository {
         join assistant_threads at on at.id = am.thread_id
         where am.account_id = ${s.accountId} and am.owner_user_id = ${s.ownerUserId}
           and at.account_id = ${s.accountId} and at.owner_user_id = ${s.ownerUserId}
-          and am.role in ('user', 'assistant')
+          and am.role in ('user', 'assistant') and not am.is_summary
           and (am.search @@ plainto_tsquery('simple', assistant_unaccent(${text}))
             or assistant_unaccent(am.content) ilike assistant_unaccent(${pattern}))
         order by (at.origin in ('schedule', 'review')),
@@ -450,6 +452,34 @@ export class DrizzleAssistantRepository implements AssistantRepository {
         .where(and(eq(st.runId, runId), eq(st.accountId, s.accountId)))
         .orderBy(asc(st.idx));
       return { ...toRun(row), steps };
+    });
+  }
+
+  getLastChatRun(s: OwnerScope, threadId: string): Promise<RunRecord | null> {
+    return this.#in(s, async (tx) => {
+      await this.#ownThread(tx, s, threadId);
+      const [row] = await tx
+        .select()
+        .from(r)
+        .where(and(ownsRun(s), eq(r.threadId, threadId), eq(r.kind, 'chat'), eq(r.status, 'done')))
+        .orderBy(desc(r.createdAt))
+        .limit(1);
+      return row ? toRun(row) : null;
+    });
+  }
+
+  recordRun(s: OwnerScope, run: RecordedRun): Promise<void> {
+    return this.#in(s, async (tx) => {
+      if (run.threadId) await this.#ownThread(tx, s, run.threadId);
+      await tx.insert(r).values({
+        ...run,
+        accountId: s.accountId,
+        ownerUserId: s.ownerUserId,
+        finishedAt: sql`now()`,
+      });
+    }).catch((e: unknown) => {
+      if (pgCode(e) === '23505') throw new AssistantRunIdTakenError();
+      throw e;
     });
   }
 
@@ -578,7 +608,7 @@ export class DrizzleAssistantRepository implements AssistantRepository {
             inArray(m.id, c.deactivateIds),
           ),
         )
-        .returning({ seq: m.seq });
+        .returning({ sortSeq: m.sortSeq, isSummary: m.isSummary });
       // A stale plan (rows already compacted, or not in this thread) changes nothing.
       if (middle.length !== new Set(c.deactivateIds).size) {
         throw new Error('assistant compaction plan is stale');
@@ -601,7 +631,7 @@ export class DrizzleAssistantRepository implements AssistantRepository {
         .select({ last: sql<number>`coalesce(max(${m.seq}), 0)::int` })
         .from(m)
         .where(eq(m.threadId, threadId));
-      const firstSummarised = Math.min(...middle.map((x) => x.seq));
+      const sortSeq = summarySortSeq(middle.map((x) => ({ ...x, sortSeq: Number(x.sortSeq) })));
       const [row] = await tx
         .insert(m)
         .values({
@@ -610,7 +640,7 @@ export class DrizzleAssistantRepository implements AssistantRepository {
           ownerUserId: s.ownerUserId,
           threadId,
           seq: last + 1,
-          sortSeq: firstSummarised - 0.5,
+          sortSeq,
           role: c.summary.role,
           content: c.summary.content,
           toolCalls: c.summary.toolCalls,

@@ -5,11 +5,16 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   ChatTurnService,
   FALLBACK_REPLY,
+  capHistory,
+  finalUiActions,
   HISTORY_MAX_MESSAGES,
   OWNER_WRAP_UP_NOTICE,
 } from '../application/chat-turn.service.js';
+import type { WorkspaceFacade } from '../../workspace/api/index.js';
+import { CompactionService } from '../application/compaction.service.js';
 import { toMessageDtos } from '../application/mappers.js';
 import { SkillCatalog } from '../application/skill-tools.js';
+import { ThreadPromptService } from '../application/thread-prompt.service.js';
 import {
   AssistantBusyError,
   AssistantNotFoundError,
@@ -62,7 +67,14 @@ async function setup(script: (GenerateResponse | Error)[] = [NAVIGATE, ANSWER]) 
   const invoke = vi.fn((_i: RouteInvocation): Promise<RouteInvocationResult> =>
     Promise.resolve({ status: 200, body: {} }),
   );
-  const service = new ChatTurnService(repo, { generate }, new SkillCatalog([]), { invoke });
+  const skills = new SkillCatalog([]);
+  const workspace = { listMemberships: () => Promise.resolve([]) } as unknown as WorkspaceFacade;
+  const compaction = new CompactionService(
+    repo,
+    { generate },
+    new ThreadPromptService(workspace, repo, skills),
+  );
+  const service = new ChatTurnService(repo, { generate }, skills, { invoke }, compaction);
   const thread = await repo.createThread(scope, {
     id: newId(),
     title: '',
@@ -136,6 +148,7 @@ describe('ChatTurnService', () => {
       'tool_call',
       'tool_describe',
       'tool_search',
+      'ui_fill_form',
       'ui_navigate',
       'ui_spotlight',
     ]);
@@ -304,6 +317,52 @@ describe('ChatTurnService', () => {
     ]);
   });
 
+  it('keeps the last navigate, fill_form and spotlight, in that order', () => {
+    const fill = (name: string) => ({
+      type: 'fill_form' as const,
+      formId: 'product.form',
+      values: { name },
+    });
+    expect(
+      finalUiActions([
+        { type: 'spotlight', target: 'a', hint: 'A' },
+        fill('first'),
+        { type: 'navigate', to: '/app/orders' },
+        fill('second'),
+        { type: 'spotlight', target: 'b', hint: 'B' },
+        { type: 'navigate', to: '/app/products' },
+      ]),
+    ).toEqual([
+      { type: 'navigate', to: '/app/products' },
+      fill('second'),
+      { type: 'spotlight', target: 'b', hint: 'B' },
+    ]);
+    expect(finalUiActions([fill('only')])).toEqual([fill('only')]);
+    expect(finalUiActions([])).toEqual([]);
+  });
+
+  it('a capped window may start at a compaction summary', () => {
+    const at = (role: 'user' | 'assistant' | 'tool', isSummary = false, seq = 0) => ({
+      id: newId(),
+      threadId: 't',
+      seq,
+      role,
+      content: role,
+      toolCalls: null,
+      toolCallId: null,
+      toolName: null,
+      pageContext: null,
+      uiActions: [],
+      runId: null,
+      isSummary,
+      createdAt: new Date(),
+    });
+    const summary = at('user', true);
+    const rows = [at('assistant'), at('tool'), summary, at('assistant'), at('user')];
+    expect(capHistory(rows, 5)[0]).toBe(summary);
+    expect(capHistory([at('tool'), at('assistant')], 5)).toEqual([]);
+  });
+
   it('stores no UI actions when the turn did not answer', async () => {
     // The model failed after a navigation.
     const failed = await setup([NAVIGATE, new Error('provider down')]);
@@ -368,7 +427,7 @@ describe('ChatTurnService', () => {
     );
   });
 
-  it(`sends the model at most the last ${HISTORY_MAX_MESSAGES} messages, starting at a user message`, async () => {
+  it(`sends the whole active history under the cap of ${HISTORY_MAX_MESSAGES}; a capped window starts at a user message`, async () => {
     const { service, scope, thread, generate, repo } = await setup();
     const msg = (role: 'user' | 'assistant' | 'tool', i: number) => ({
       id: newId(),
@@ -397,11 +456,17 @@ describe('ChatTurnService', () => {
     const sent = generate.mock.calls[0]![0].messages;
     expect(sent[0]).toEqual({ role: 'system', content: 'SYSTEM PROMPT' });
     const history = sent.slice(1);
-    expect(history.length).toBeLessThanOrEqual(HISTORY_MAX_MESSAGES);
-    // 61 stored rows: the last 40 start inside a turn, so its leading rows are dropped.
-    expect(history).toHaveLength(37);
+    expect(HISTORY_MAX_MESSAGES).toBe(200);
+    // 61 stored rows, no compaction due (≤ 80 messages): all of them go to the model.
+    expect(history).toHaveLength(61);
     expect(history[0]).toMatchObject({ role: 'user' });
     expect(history.at(-1)?.content).toMatch(/Câu mới$/);
+    // A capped window that starts inside a turn drops that turn's leading rows.
+    const stored = await repo.listMessages(scope, thread.id, { activeOnly: true });
+    // The 61 rows the turn saw (before its answer): the last 40 start inside a turn.
+    const window = capHistory(stored.slice(0, 61), 40);
+    expect(window).toHaveLength(37);
+    expect(window[0]?.role).toBe('user');
     // Every tool result still follows the assistant message that asked for it.
     history.forEach((m, i) => {
       if (m.role === 'tool') expect(history[i - 1]?.toolCalls?.[0]?.id).toBe(m.toolCallId);

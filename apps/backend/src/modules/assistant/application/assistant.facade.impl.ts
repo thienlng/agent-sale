@@ -36,17 +36,14 @@ import { ChatTurnService } from './chat-turn.service.js';
 import { toMessageDtos, toRunDto, toThreadDto } from './mappers.js';
 import { type OwnerScope, resolveOwnerScope } from './owner-access.js';
 import { ProposalService } from './proposals.service.js';
-import { ASSISTANT_PROMPT, buildSystemPrompt, loadAssistantTemplate } from './prompt-builder.js';
-import { SkillCatalog } from './skill-tools.js';
+import { ASSISTANT_PROMPT } from './prompt-builder.js';
+import { ThreadPromptService } from './thread-prompt.service.js';
 
 /** A malformed id names nothing the owner has. */
 function knownId(what: 'thread' | 'run', id: string): string {
   if (!isUuid(id)) throw new AssistantNotFoundError(what, id);
   return id;
 }
-
-/** Used in the prompt when the owner has no display name. */
-const FALLBACK_OWNER_NAME = 'anh/chị';
 
 /** Owner check first, then the repository; no business data is stored (ADR-022). */
 @Injectable()
@@ -56,7 +53,7 @@ export class AssistantFacadeImpl implements AssistantFacade {
     @Inject(WORKSPACE_FACADE) private readonly workspace: WorkspaceFacade,
     @Inject(ASSISTANT_REPOSITORY) private readonly repo: AssistantRepository,
     @Inject(ChatTurnService) private readonly chat: ChatTurnService,
-    @Inject(SkillCatalog) private readonly skills: SkillCatalog,
+    @Inject(ThreadPromptService) private readonly prompts: ThreadPromptService,
     @Inject(ProposalService) private readonly proposals: ProposalService,
   ) {}
 
@@ -86,29 +83,13 @@ export class AssistantFacadeImpl implements AssistantFacade {
   ): Promise<AssistantThreadDto> {
     const scope = await this.#scope(actor);
     // The memory snapshot is read once here: the prompt stays frozen for the thread (1b-R6).
-    const [template, memberships, memory] = await Promise.all([
-      loadAssistantTemplate(),
-      this.workspace.listMemberships(actor.userId),
-      this.repo.getMemory(scope),
-    ]);
-    const businesses = memberships
-      .filter((ms) => ms.accountId === scope.accountId)
-      .map((ms) => ({ name: ms.workspaceName, industry: ms.industry }))
-      .sort((a, b) => a.name.localeCompare(b.name, 'vi') || a.industry.localeCompare(b.industry));
-    const systemPrompt = buildSystemPrompt(
-      template,
-      { ownerName: actor.ownerName?.trim() || FALLBACK_OWNER_NAME, businesses },
-      new Date(),
-      {
-        skillsIndex: this.skills.index(),
-        memory: memory.filter((m) => isKnownStore(m.store, scope.businessIds)),
-      },
-    );
+    const promptVersion = `${ASSISTANT_PROMPT.name}@${ASSISTANT_PROMPT.version}`;
+    const systemPrompt = await this.prompts.build(scope, actor.ownerName, promptVersion);
     const thread = await this.repo.createThread(scope, {
       id: newId(),
       title: input.title ?? '',
       systemPrompt,
-      promptVersion: `${ASSISTANT_PROMPT.name}@${ASSISTANT_PROMPT.version}`,
+      promptVersion,
     });
     return toThreadDto(thread);
   }
@@ -137,13 +118,19 @@ export class AssistantFacadeImpl implements AssistantFacade {
 
   /** One chat turn (`ChatTurnService`); a retried `turnId` returns the first result. */
   async sendMessage(
-    actor: AssistantActor,
+    actor: AssistantActor & { displayName?: () => Promise<string | null> },
     threadId: string,
     input: SendAssistantMessageRequest,
     authorization: string,
   ): Promise<SendAssistantMessageResponse> {
     const scope = await this.#scope(actor);
-    const turn = await this.chat.send(scope, knownId('thread', threadId), input, authorization);
+    const turn = await this.chat.send(
+      scope,
+      knownId('thread', threadId),
+      input,
+      authorization,
+      actor.displayName,
+    );
     return { messages: toMessageDtos(turn.messages), run: toRunDto(turn.run) };
   }
 

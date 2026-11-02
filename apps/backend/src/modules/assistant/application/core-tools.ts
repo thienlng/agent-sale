@@ -16,6 +16,12 @@ export interface ToolContext {
 export const SESSION_SEARCH_TOOL = 'session_search';
 export const UI_NAVIGATE_TOOL = 'ui_navigate';
 export const UI_SPOTLIGHT_TOOL = 'ui_spotlight';
+export const UI_FILL_FORM_TOOL = 'ui_fill_form';
+/** The longest text value `ui_fill_form` puts into one field. */
+export const MAX_FILL_VALUE_CHARS = 4_000;
+/** What the model is told after a fill: nothing is saved until the owner saves it. */
+export const FILL_FORM_DRAFT_MESSAGE =
+  'filled as a draft; the owner reviews and saves it themselves';
 /** A tool result the model sees is never longer than this. */
 export const MAX_CORE_RESULT_CHARS = 8_000;
 const MAX_HIT_TITLE_CHARS = 120;
@@ -26,6 +32,10 @@ const SessionSearchInput = z.object({
 });
 const UiNavigateInput = z.object({ to: z.string().max(200) });
 const UiSpotlightInput = z.object({ target: z.string().max(60), hint: z.string().max(200) });
+const UiFillFormInput = z.object({
+  formId: z.string().max(60),
+  values: z.record(z.string().max(60), z.union([z.string(), z.number()])),
+});
 
 export const CORE_TOOL_DEFINITIONS: ToolDefinition[] = [
   {
@@ -45,6 +55,12 @@ export const CORE_TOOL_DEFINITIONS: ToolDefinition[] = [
     description:
       'Highlight a control on the current page with a short hint. `target` must be one of the targets listed in <page_context>.',
     input: UiSpotlightInput,
+  },
+  {
+    name: UI_FILL_FORM_TOOL,
+    description:
+      'Fill fields of a form on the current page as a draft. `formId` and every key of `values` must come from the forms listed in <page_context>; a select field takes one of its options. It never saves or submits: tell the owner to review the form and save it themselves.',
+    input: UiFillFormInput,
   },
 ];
 
@@ -76,7 +92,7 @@ export function isAppPath(to: string): boolean {
   return !decoded.split('/').some((seg) => seg === '..' || seg === '.');
 }
 
-/** session_search, ui_navigate and ui_spotlight for one turn. */
+/** session_search, ui_navigate, ui_spotlight and ui_fill_form for one turn. */
 export function coreTools(ctx: ToolContext): RunnableTool[] {
   const sessionSearch: RunnableTool = {
     name: SESSION_SEARCH_TOOL,
@@ -135,5 +151,35 @@ export function coreTools(ctx: ToolContext): RunnableTool[] {
     },
   };
 
-  return [sessionSearch, navigate, spotlight];
+  const fillForm: RunnableTool = {
+    name: UI_FILL_FORM_TOOL,
+    readOnly: false,
+    schema: UiFillFormInput,
+    run(input) {
+      const { formId, values } = input as z.output<typeof UiFillFormInput>;
+      const fail = (errorCode: string) =>
+        Promise.resolve({ content: json({ ok: false, errorCode }), ok: false });
+      const form = ctx.page?.forms?.find((f) => f.id === formId);
+      if (!form) return fail('unknown_form');
+      const names = Object.keys(values);
+      if (names.length === 0) return fail('no_values');
+      for (const name of names) {
+        const field = form.fields.find((f) => f.name === name);
+        if (!field) return fail(`unknown_field:${name}`);
+        const value = values[name] as string | number;
+        if (typeof value === 'string' && value.length > MAX_FILL_VALUE_CHARS) {
+          return fail(`too_long:${name}`);
+        }
+        if (field.type === 'select' && !(field.options ?? []).includes(String(value))) {
+          return fail(`invalid_option:${name}`);
+        }
+      }
+      const action = AssistantUiAction.safeParse({ type: 'fill_form', formId, values });
+      if (!action.success) return fail('invalid_values');
+      ctx.uiActions.push(action.data);
+      return Promise.resolve({ content: json({ ok: true, message: FILL_FORM_DRAFT_MESSAGE }) });
+    },
+  };
+
+  return [sessionSearch, navigate, spotlight, fillForm];
 }

@@ -3,7 +3,12 @@ import type { RunnableTool } from '@agent-sales/ai-core';
 import { newId, userId, workspaceId } from '@agent-sales/shared';
 import { describe, expect, it } from 'vitest';
 
-import { CORE_TOOL_DEFINITIONS, coreTools } from '../application/core-tools.js';
+import {
+  CORE_TOOL_DEFINITIONS,
+  coreTools,
+  FILL_FORM_DRAFT_MESSAGE,
+  MAX_FILL_VALUE_CHARS,
+} from '../application/core-tools.js';
 import type { OwnerScope } from '../domain/owner-scope.js';
 import { InMemoryAssistantRepository } from '../infrastructure/persistence/assistant.in-memory-repository.js';
 
@@ -37,9 +42,14 @@ function setup(page?: AssistantPageContext) {
 }
 
 describe('coreTools', () => {
-  it('offers session_search, ui_navigate and ui_spotlight, with a definition for each', () => {
+  it('offers session_search and the UI tools, with a definition for each', () => {
     const { tools } = setup();
-    expect(tools.map((t) => t.name)).toEqual(['session_search', 'ui_navigate', 'ui_spotlight']);
+    expect(tools.map((t) => t.name)).toEqual([
+      'session_search',
+      'ui_navigate',
+      'ui_spotlight',
+      'ui_fill_form',
+    ]);
     expect(CORE_TOOL_DEFINITIONS.map((d) => d.name)).toEqual(tools.map((t) => t.name));
     expect(tools.find((t) => t.name === 'session_search')?.readOnly).toBe(true);
   });
@@ -175,5 +185,79 @@ describe('coreTools', () => {
     const out = await run('session_search', { query: 'gia ao', limit: 10 });
     expect(out.content.length).toBeLessThanOrEqual(8_000);
     expect(Array.isArray(out.json.hits)).toBe(true);
+  });
+
+  describe('ui_fill_form', () => {
+    const FORM_PAGE: AssistantPageContext = {
+      route: '/app/products/new',
+      forms: [
+        {
+          id: 'product.form',
+          fields: [
+            { name: 'name', label: 'Tên', type: 'text', empty: true },
+            { name: 'price', label: 'Giá', type: 'number', empty: true },
+            { name: 'notes', label: 'Ghi chú', type: 'textarea', empty: true },
+            {
+              name: 'status',
+              label: 'Trạng thái',
+              type: 'select',
+              options: ['draft', 'active'],
+              empty: false,
+            },
+          ],
+        },
+      ],
+    };
+
+    it('fills declared fields as a draft and records the action', async () => {
+      const { run, uiActions } = setup(FORM_PAGE);
+      const values = { name: 'Áo thun', price: 120_000, status: 'active' };
+      const out = await run('ui_fill_form', { formId: 'product.form', values });
+      expect(out.json).toEqual({ ok: true, message: FILL_FORM_DRAFT_MESSAGE });
+      expect(FILL_FORM_DRAFT_MESSAGE).toBe(
+        'filled as a draft; the owner reviews and saves it themselves',
+      );
+      expect(uiActions).toEqual([{ type: 'fill_form', formId: 'product.form', values }]);
+    });
+
+    it.each([
+      ['an unknown form', { formId: 'other.form', values: { name: 'x' } }, 'unknown_form'],
+      [
+        'an undeclared field',
+        { formId: 'product.form', values: { sku: 'x' } },
+        'unknown_field:sku',
+      ],
+      [
+        'a select value outside its options',
+        { formId: 'product.form', values: { status: 'deleted' } },
+        'invalid_option:status',
+      ],
+      [
+        'a text longer than 4 000 chars',
+        { formId: 'product.form', values: { notes: 'x'.repeat(MAX_FILL_VALUE_CHARS + 1) } },
+        'too_long:notes',
+      ],
+      ['no values', { formId: 'product.form', values: {} }, 'no_values'],
+    ])('refuses %s', async (_what, input, errorCode) => {
+      const { run, uiActions } = setup(FORM_PAGE);
+      const out = await run('ui_fill_form', input);
+      expect(out).toMatchObject({ ok: false, json: { ok: false, errorCode } });
+      expect(uiActions).toEqual([]);
+    });
+
+    it('accepts a text of exactly 4 000 chars, and refuses every form when the page has none', async () => {
+      const page = setup(FORM_PAGE);
+      const notes = 'x'.repeat(MAX_FILL_VALUE_CHARS);
+      expect(
+        (await page.run('ui_fill_form', { formId: 'product.form', values: { notes } })).json,
+      ).toMatchObject({ ok: true });
+      const bare = setup({ route: '/app' });
+      expect(
+        (await bare.run('ui_fill_form', { formId: 'product.form', values: { name: 'x' } })).json,
+      ).toEqual({ ok: false, errorCode: 'unknown_form' });
+      expect(
+        (await setup().run('ui_fill_form', { formId: 'product.form', values: { name: 'x' } })).json,
+      ).toEqual({ ok: false, errorCode: 'unknown_form' });
+    });
   });
 });

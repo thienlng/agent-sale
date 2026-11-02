@@ -41,7 +41,8 @@ export type NewMessage = Omit<MessageRecord, 'seq' | 'createdAt' | 'threadId' | 
 export interface RunRecord {
   id: string;
   threadId: string | null;
-  kind: 'chat';
+  /** `chat` = an owner turn; `compaction` = one summariser call (tier `basic`). */
+  kind: 'chat' | 'compaction';
   status: 'running' | 'done' | 'failed';
   tier: string;
   provider: string | null;
@@ -57,6 +58,21 @@ export interface RunRecord {
   createdAt: Date;
   finishedAt: Date | null;
 }
+
+/** A run recorded after the fact (no busy check, never `running`), e.g. a compaction call. */
+export type RecordedRun = Pick<RunRecord, 'id' | 'threadId' | 'kind' | 'tier' | 'promptVersion'> &
+  Pick<
+    RunRecord,
+    | 'provider'
+    | 'model'
+    | 'inputTokens'
+    | 'cachedTokens'
+    | 'outputTokens'
+    | 'latencyMs'
+    | 'rounds'
+    | 'outcome'
+    | 'guardrail'
+  > & { status: 'done' | 'failed' };
 
 export interface StepRecord {
   runId: string;
@@ -146,12 +162,30 @@ export interface CompactionInput {
   deactivateIds: string[];
   /** Tool results that stay active but whose content becomes `PRUNED_TOOL_TEXT`. */
   prunedToolIds: string[];
-  /** Stored with `is_summary=true`, seq = max+1, sort_seq = min seq of the middle − 0.5. */
+  /**
+   * Stored with `is_summary=true`, seq = max+1 and sort_seq = `summarySortSeq` of the summarised
+   * rows, so every later compaction's summary still sorts after the head and before the tail.
+   */
   summary: NewMessage;
   /** Percent of the context this compaction saved; the thread keeps the last two. */
   savedPct: number;
   /** The rebuilt (frozen) system prompt. */
   systemPrompt: string;
+}
+
+/**
+ * Where a new compaction summary sorts in the active history: (min sort_seq of the summarised
+ * ordinary rows) − 0.5, so it sits right after the head and before the tail. A folded earlier
+ * summary is left out of the minimum: it sorts before the rows it once replaced, and counting it
+ * would let the position drift down one step per compaction until it sank into the head. Only
+ * when nothing but summaries is summarised does the lowest of their sort_seq count.
+ */
+export function summarySortSeq(summarised: { sortSeq: number; isSummary: boolean }[]): number {
+  if (summarised.length === 0) throw new Error('assistant compaction needs a middle to summarise');
+  const ordinary = summarised.filter((x) => !x.isSummary);
+  return ordinary.length > 0
+    ? Math.min(...ordinary.map((x) => x.sortSeq)) - 0.5
+    : Math.min(...summarised.map((x) => x.sortSeq));
 }
 
 /** Threads listed per page. */
@@ -200,6 +234,10 @@ export interface AssistantRepository {
   addStep(s: OwnerScope, step: StepRecord): Promise<void>;
   finishRun(s: OwnerScope, runId: string, patch: Partial<RunRecord>): Promise<void>;
   getRun(s: OwnerScope, runId: string): Promise<(RunRecord & { steps: StepRecord[] }) | null>;
+  /** The thread's newest finished (`done`) chat run, for the compaction trigger; null if none. */
+  getLastChatRun(s: OwnerScope, threadId: string): Promise<RunRecord | null>;
+  /** Inserts a finished run (`finished_at` = now); the thread must be the owner's. */
+  recordRun(s: OwnerScope, r: RecordedRun): Promise<void>;
 
   // ─── Memory ───
   /** The owner's stores, by store name. */
