@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { checkSql, MAX_SQL_CHARS } from '../domain/sql-guard.js';
+import {
+  checkSql,
+  MAX_CTES,
+  MAX_SQL_CHARS,
+  MAX_STRING_LITERAL_CHARS,
+} from '../domain/sql-guard.js';
 
 const views = new Set([
   'businesses',
@@ -169,6 +174,9 @@ describe('checkSql: rejected', () => {
     ['select current_user', 'keyword:current_user'],
     ['select session_user, 1', 'keyword:session_user'],
     ['select user', 'keyword:user'],
+    ['select system_user', 'keyword:system_user'],
+    ['select current_catalog', 'keyword:current_catalog'],
+    ['select current_schema', 'keyword:current_schema'],
     // GUCs and functions that run SQL, sleep or lock.
     ["select current_setting('app.account_id')", 'function_not_allowed:current_setting'],
     [
@@ -213,6 +221,20 @@ describe('checkSql: rejected', () => {
     ['select a[1] from orders', 'operator:['],
     ['select x:y', 'operator::'],
     ['select 1 # 2', 'operator:#'],
+    // Strings that grow (final review C1): no concatenation, no string-building function.
+    ["select customer_name || 'x' from orders", 'operator:||'],
+    ["select 'a'||'b'", 'operator:||'],
+    ["select concat(customer_name, 'x') from orders", 'function_not_allowed:concat'],
+    ["select replace(customer_name, 'a', 'aaaa') from orders", 'function_not_allowed:replace'],
+    ["select repeat('x', 1000000)", 'function_not_allowed:repeat'],
+    ["select lpad('x', 1000000, 'y')", 'function_not_allowed:lpad'],
+    ["select rpad('x', 1000000)", 'function_not_allowed:rpad'],
+    ["select string_agg(customer_name, ',') from orders", 'function_not_allowed:string_agg'],
+    ['select array_agg(total) from orders', 'function_not_allowed:array_agg'],
+    ["select format('%s%s', 'a', 'b')", 'function_not_allowed:format'],
+    ["select overlay('a' placing 'bbb' from 1)", 'function_not_allowed:overlay'],
+    ["select translate('a', 'a', 'b')", 'function_not_allowed:translate'],
+    [`select '${'x'.repeat(MAX_STRING_LITERAL_CHARS - 1)}'`, 'string_too_long'],
     // Shape.
     ['select 1) union (select 2', 'unbalanced'],
     ['select (1', 'unbalanced'],
@@ -233,6 +255,41 @@ describe('checkSql: rejected', () => {
 
   it.each(rejected)('%s → %s', (sql, reason) => {
     expect(check(sql)).toEqual({ ok: false, reason });
+  });
+
+  it('rejects the exploding-CTE pattern of the final review (C1)', () => {
+    const levels = Array.from(
+      { length: 12 },
+      (_, i) => `a${i + 1} as (select ${Array(10).fill('s').join('||')} s from a${i})`,
+    );
+    const exploding = `with a0 as (select '${'x'.repeat(1000)}' s), ${levels.join(', ')} select length(s) from a12`;
+    expect(exploding.length).toBeLessThan(MAX_SQL_CHARS);
+    expect(check(exploding).ok).toBe(false);
+    // Each part is refused on its own: the long literal, and the concatenation.
+    expect(check(exploding.replace('x'.repeat(1000), 'x'))).toEqual({
+      ok: false,
+      reason: 'operator:||',
+    });
+    expect(check(`with a0 as (select '${'x'.repeat(1000)}' s) select s from a0`)).toEqual({
+      ok: false,
+      reason: 'string_too_long',
+    });
+  });
+
+  it('caps string literals at 200 chars, quotes included', () => {
+    const at = `'${'x'.repeat(MAX_STRING_LITERAL_CHARS - 2)}'`;
+    expect(check(`select ${at}`).ok).toBe(true);
+    expect(check(`select '${'x'.repeat(MAX_STRING_LITERAL_CHARS - 1)}'`)).toEqual({
+      ok: false,
+      reason: 'string_too_long',
+    });
+  });
+
+  it(`caps the CTEs at ${MAX_CTES}`, () => {
+    const ctes = (n: number) =>
+      `with ${Array.from({ length: n }, (_, i) => `c${i} as (select ${i} as n)`).join(', ')} select 1`;
+    expect(check(ctes(MAX_CTES)).ok).toBe(true);
+    expect(check(ctes(MAX_CTES + 1))).toEqual({ ok: false, reason: 'too_many_ctes' });
   });
 
   it('measures the length after trimming: 4 000 chars pass the length rule, 4 001 do not', () => {

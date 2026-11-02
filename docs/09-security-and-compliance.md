@@ -64,13 +64,15 @@ The owner assistant answers number questions with one model-written `SELECT` ove
 | Base tables, secrets, PII, catalogs | `SELECT` on the views only; column-level grants for the view owner leave the PII columns out; the guard rejects `pg_*`, `information_schema`, `public.`, quoted identifiers and comments; `search_path = assistant_sql` |
 | Functions with side effects, sleeps, catalog casts | Function and cast allow-lists in the guard; typed literals only for date and time types |
 | Load on the primary | 3 s statement timeout, 1 s lock timeout, 5 s idle-in-transaction timeout, 16 MB `work_mem`, at most 501 rows by cursor, pool 4, 8 queries per turn |
+| Memory blow-up from one query (strings grown through chained CTEs) | The guard allows no string-building operator or function (`\|\|`, `concat`, `replace`, `repeat`, `lpad`, `string_agg`, …), caps string literals at 200 chars and CTEs at 10; the login has `work_mem = 16MB` and `temp_file_limit = 256MB` (superuser-only, read back before every query). Postgres has no per-backend memory cap, so the guard, `work_mem` and the 3 s timeout are the bound |
+| Reading another session's query text in `pg_stat_activity` | The login has `track_activities = off` (superuser-only, read back before every query), so no assistant session publishes its query text; the guard also rejects `pg_*` |
 | Prompt injection through data | Results are tool output; `<` is escaped and cells are cut to 200 chars |
 | Query text or rows in logs | Logs carry the run id, error code, SQL state and a hash fingerprint only; no SQL or rows in logs or run steps |
 | Multi-statement smuggling | The guard rejects `;`; the driver uses the extended protocol |
 
 **PII exclusion list** (never in a view, never granted to the view owner): phone, email, address, birthday and gender of customers and recipients; `orders.recipient`; free-text notes (`note_internal`, `profile_note`, `note`); conversation and message text and `data` documents; `customer_phone` and the platform `customer_id`; sealed tokens, settings and external ids; staff names and user ids; anything billing, identity, assistant or audit. Names of customers, guests, products, bots, channels and businesses are allowed; `customers.has_phone` is a boolean.
 
-**Known gap:** the login can read the `PUBLIC` system catalog, including `pg_stat_activity`. All owners share the one login, so the SQL guard is the only layer against reading another session's concurrent query text. `PUBLIC`-executable built-ins (`query_to_xml`, `set_config`) are also blocked by the guard only; at the database level they run as the login and are bounded by its grants.
+**Known gap:** the login can read the `PUBLIC` system catalog, including `pg_stat_activity` (pid, state and timing, but no query text, because of `track_activities = off`). `PUBLIC`-executable built-ins (`query_to_xml`, `set_config`) are also blocked by the guard only; at the database level they run as the login and are bounded by its grants.
 
 ## 5. Secrets & channel tokens
 

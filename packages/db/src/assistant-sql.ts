@@ -101,6 +101,8 @@ interface AppliedSettings {
   statement_timeout: string;
   idle_timeout: string;
   read_only: string;
+  temp_file_limit: string;
+  track_activities: string;
 }
 
 interface RawColumn {
@@ -119,8 +121,9 @@ const isPostgresError = (e: unknown): e is { code: string; message: string } =>
  * Runs one query for an owner: inside a `READ ONLY` transaction, with `app.account_id` and
  * `app.assistant_business_ids` set transaction-locally (`set_config(…, true)`, the same as
  * `SET LOCAL`), a 3 s statement timeout, a 5 s idle-in-transaction timeout, the Asia/Ho_Chi_Minh
- * time zone and `search_path = assistant_sql`. The scope, both timeouts and the read-only flag are
- * read back before the query runs (like `withAccount`); any mismatch throws.
+ * time zone and `search_path = assistant_sql`. The scope, both timeouts, the read-only flag and the
+ * login's `temp_file_limit` (256MB) and `track_activities` (off) role defaults are read back before
+ * the query runs (like `withAccount`); any mismatch throws.
  * At most `maxRows + 1` rows are fetched through a cursor (the model's `ORDER BY` holds and the
  * text runs unchanged); `truncated` says there were more. Postgres errors become
  * `AssistantSqlError`. The SQL text and the rows are never logged here.
@@ -158,13 +161,19 @@ export async function runAssistantSql(
         current_setting('app.assistant_business_ids', true) as businesses,
         current_setting('statement_timeout') as statement_timeout,
         current_setting('idle_in_transaction_session_timeout') as idle_timeout,
-        current_setting('transaction_read_only') as read_only`;
+        current_setting('transaction_read_only') as read_only,
+        current_setting('temp_file_limit') as temp_file_limit,
+        current_setting('track_activities') as track_activities`;
       if (
         applied?.account !== input.accountId ||
         applied.businesses !== businessIds ||
         applied.statement_timeout !== '3s' ||
         applied.idle_timeout !== '5s' ||
-        applied.read_only !== 'on'
+        applied.read_only !== 'on' ||
+        // Role defaults from `ensureLoginRoles` (superuser-only, the login cannot change them):
+        // without them a query could fill the disk or publish its text (final review C1, I1).
+        applied.temp_file_limit !== '256MB' ||
+        applied.track_activities !== 'off'
       ) {
         throw new Error('assistant_sql: context was not applied');
       }

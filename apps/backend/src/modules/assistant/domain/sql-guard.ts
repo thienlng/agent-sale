@@ -18,14 +18,18 @@ export interface SqlGuardOptions {
 export const MAX_SQL_CHARS = 4_000;
 const MAX_TOKENS = 1_000;
 const MAX_DEPTH = 10;
+/** Longest string literal, quotes included: names and dates, never bulk text (final review C1). */
+export const MAX_STRING_LITERAL_CHARS = 200;
+/** Most CTEs in one query. */
+export const MAX_CTES = 10;
 
 const DENIED_WORDS = new Set(
   (
     'insert update delete merge into copy create alter drop grant revoke truncate set reset lock ' +
     'for call do execute prepare deallocate listen notify unlisten vacuum analyze explain refresh ' +
     'cluster reindex checkpoint load import discard declare fetch move close cursor returning ' +
-    'table only tablesample current_user session_user current_role user public assistant_sql ' +
-    'information_schema'
+    'table only tablesample current_user session_user current_role user system_user ' +
+    'current_catalog current_schema public assistant_sql information_schema'
   ).split(' '),
 );
 
@@ -50,8 +54,9 @@ const ALLOWED_FUNCTIONS = new Set(
     'coalesce nullif',
     // dates
     'date_trunc date_part extract to_char make_date make_interval age now generate_series',
-    // strings
-    'lower upper length btrim trim ltrim rtrim substr replace concat left right split_part initcap position',
+    // strings: none that builds a longer string (`concat`, `replace`, `repeat`, `lpad`, `||`, …),
+    // so an expression can never grow past its inputs (final review C1)
+    'lower upper length btrim trim ltrim rtrim substr left right split_part initcap position',
   ]
     .join(' ')
     .split(' '),
@@ -82,21 +87,7 @@ const EXPRESSION_KEYWORDS = new Set(
 );
 
 const STRING_PREFIXES = new Set(['e', 'u', 'b', 'x', 'n']);
-const ALLOWED_OPERATORS = new Set([
-  '=',
-  '<>',
-  '!=',
-  '<',
-  '>',
-  '<=',
-  '>=',
-  '+',
-  '-',
-  '*',
-  '/',
-  '%',
-  '||',
-]);
+const ALLOWED_OPERATORS = new Set(['=', '<>', '!=', '<', '>', '<=', '>=', '+', '-', '*', '/', '%']);
 /** Postgres operator characters: a run of them lexes as one operator. */
 const OPERATOR_CHARS = new Set('+-*/<>=~!@#%^&|`?'.split(''));
 /** In a run ending with `+`/`-`, these keep the trailing sign part of the operator (PG lexer). */
@@ -179,6 +170,7 @@ function lex(text: string): Lexed {
         j += 1;
       }
       if (!closed) return fail('syntax');
+      if (j + 1 - i > MAX_STRING_LITERAL_CHARS) return fail('string_too_long');
       tokens.push({ kind: 'string', value: text.slice(i, j + 1), start: i, end: j + 1 });
       i = j + 1;
       continue;
@@ -309,6 +301,7 @@ export function checkSql(text: string, opts: SqlGuardOptions): SqlGuardResult {
 
   // 7. Relations after FROM / JOIN.
   const ctes = cteNames(tokens);
+  if (ctes.size > MAX_CTES) return fail('too_many_ctes');
   const relations = new Set<string>();
   /** For each open parenthesis, the identifier before it (a function name or keyword), if any. */
   const parens: (string | null)[] = [];

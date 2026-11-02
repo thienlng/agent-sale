@@ -339,8 +339,103 @@ describe('assistant SQL lane: privileges (0059)', () => {
         'statement_timeout=3s',
         'search_path=assistant_sql',
         'idle_in_transaction_session_timeout=5s',
+        'temp_file_limit=256MB',
+        'work_mem=16MB',
+        'track_activities=off',
       ]),
     );
+  });
+
+  it('the login runs with those settings and cannot change the superuser-only ones', async () => {
+    const direct = postgres(
+      withCredentials(pg.ownerUrl, pg.assistantSqlLogin.user, pg.assistantSqlLogin.password),
+      { max: 1, onnotice: () => undefined },
+    );
+    try {
+      const [s] = await direct`select current_setting('temp_file_limit') as tfl,
+        current_setting('work_mem') as wm, current_setting('track_activities') as ta`;
+      expect([s?.['tfl'], s?.['wm'], s?.['ta']]).toEqual(['256MB', '16MB', 'off']);
+      for (const stmt of ["set temp_file_limit = '-1'", 'set track_activities = on']) {
+        const code = await direct.unsafe(stmt).then(
+          () => 'ok',
+          (e: { code: string }) => e.code,
+        );
+        expect([stmt, code]).toEqual([stmt, '42501']);
+      }
+    } finally {
+      await direct.end();
+    }
+  });
+
+  it("another assistant session cannot read this session's query text", async () => {
+    const reader = postgres(
+      withCredentials(pg.ownerUrl, pg.assistantSqlLogin.user, pg.assistantSqlLogin.password),
+      { max: 1, onnotice: () => undefined },
+    );
+    const other = createAssistantSqlClient(
+      withCredentials(pg.ownerUrl, pg.assistantSqlLogin.user, pg.assistantSqlLogin.password),
+      1,
+    );
+    try {
+      const marker = `secret_${newId().slice(0, 8)}`;
+      const slow = runAssistantSql(other.sql, {
+        accountId: accountA,
+        businessIds: [A1],
+        sql: `select '${marker}' as m, pg_sleep(1.5)`,
+      });
+      // Wait until the slow query is running, seen by the owner (a superuser, so it would see the
+      // text if the backend published it), then read pg_stat_activity as the login.
+      let seen: postgres.Row[] = [];
+      for (let i = 0; i < 40 && seen.length === 0; i += 1) {
+        await new Promise((r) => setTimeout(r, 25));
+        seen = await owner`select pid, state, query from pg_stat_activity
+          where usename = ${login} and backend_type = 'client backend' and state = 'disabled'`;
+      }
+      expect(seen.length).toBeGreaterThan(0);
+      const rows = await reader`select pid, state, query from pg_stat_activity
+        where usename = ${login} and pid <> pg_backend_pid()`;
+      expect(rows.length).toBeGreaterThan(0);
+      for (const r of rows) {
+        expect(String(r['query'])).not.toContain(marker);
+        expect(r['state']).toBe('disabled');
+      }
+      // Even the superuser sees no text: the session never published it.
+      const all =
+        await owner`select query from pg_stat_activity where query like ${'%' + marker + '%'}
+        and pid <> pg_backend_pid()`;
+      expect(all).toEqual([]);
+      await slow;
+    } finally {
+      await reader.end();
+      await other.close();
+    }
+  });
+
+  it('repairs an existing login: grants the group again and revokes any other membership', async () => {
+    const reused = { user: `assistant_reused_${newId().slice(0, 8)}`, password: 'x-pass' };
+    await owner.unsafe(`create role "${reused.user}" login password 'old' in role app_tenant`);
+    await ensureLoginRoles(pg.ownerUrl, {
+      tenant: pg.tenantLogin,
+      system: pg.systemLogin,
+      assistantSql: reused,
+    });
+    for (const [role, expected] of [
+      ['app_assistant_sql', true],
+      ['app_tenant', false],
+      ['app_system', false],
+    ] as const) {
+      const [r] = await owner`select pg_has_role(${reused.user}, ${role}, 'MEMBER') as m`;
+      expect([role, r?.['m']]).toEqual([role, expected]);
+    }
+    const [settings] = await owner`
+      select r.rolconnlimit, s.setconfig from pg_roles r
+      left join pg_db_role_setting s on s.setrole = r.oid and s.setdatabase = 0
+      where r.rolname = ${reused.user}`;
+    expect(settings?.['rolconnlimit']).toBe(10);
+    expect(settings?.['setconfig']).toEqual(
+      expect.arrayContaining(['temp_file_limit=256MB', 'track_activities=off']),
+    );
+    await owner.unsafe(`drop role "${reused.user}"`);
   });
 
   it('the reader cannot read a PII, note, token or settings column, nor write anything', async () => {

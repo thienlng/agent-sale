@@ -159,6 +159,18 @@ describe('buildChart', () => {
       'chart_duplicate_column:revenue',
     );
     expect(error(bar({ y: ['note'] }), daily())).toBe('chart_not_numeric:note');
+    // A `__proto__` alias would vanish from a plain object row: refused, never dropped silently.
+    const proto = daily({
+      columns: [
+        { name: 'day', type: 'text' },
+        { name: '__proto__', type: 'number' },
+      ],
+      rows: [['2026-11-02', 1]],
+    });
+    expect(error(bar({ y: ['__proto__'] }), proto)).toBe('chart_reserved_column:__proto__');
+    expect(error(bar({ x: '__proto__', y: ['day'] }), proto)).toBe(
+      'chart_reserved_column:__proto__',
+    );
     expect(error(bar(), daily({ rows: [['2026-11-02', '9007199254740993', 1, 'x']] }))).toBe(
       'chart_not_numeric:revenue',
     );

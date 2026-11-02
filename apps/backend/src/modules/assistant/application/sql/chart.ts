@@ -40,7 +40,8 @@ const cut = (text: string, max: number): string => {
 
 /**
  * Builds a chart from the **full** fetched rows of a query (never the cut view the model reads).
- * Errors: `chart_unknown_column:<c>`, `chart_duplicate_column:<c>`, `chart_bad_pie`,
+ * Errors: `chart_unknown_column:<c>`, `chart_duplicate_column:<c>`, `chart_reserved_column:<c>`
+ * (`__proto__`, which a plain object row would drop silently), `chart_bad_pie`,
  * `chart_needs_full_result`, `chart_empty`, `chart_too_many_points`, `chart_not_numeric:<c>`.
  */
 export function buildChart(req: ChartRequest, result: SqlRunResult): BuildChartResult {
@@ -52,6 +53,7 @@ export function buildChart(req: ChartRequest, result: SqlRunResult): BuildChartR
   });
 
   for (const c of [req.x, ...req.y]) {
+    if (c === '__proto__') return fail(`chart_reserved_column:${c}`);
     if (!index.has(c)) return fail(`chart_unknown_column:${c}`);
   }
   // Every name is known from here on.

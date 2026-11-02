@@ -33,9 +33,9 @@ Out of scope: schedules and reports (capability 3), exports and downloads, write
 | Reading another account's or another business's rows | The views run as `app_assistant_reader`, which has its own RLS policy on every base table. The policy is `workspace_id = ANY(<business filter>)`, an inlined sub-select (§4.2) that keeps only ids that are in `app.assistant_business_ids` **and** belong to `app.account_id`. Both values are set with `set_config(…, true)` by our code, from the owner scope. |
 | The model forges the GUCs (`set_config`, `SET`) | `SET`/`RESET` are rejected statements, and `set_config`/`current_setting` are not allow-listed functions. Even with a forged value, the business filter needs the target account id together with business ids of that account. These are UUIDv7 values the model never sees for other accounts. |
 | Escalating to the tenant role (`SET ROLE`, `RESET ROLE`) | The SQL lane uses its **own login** (`rapiz_assistant`, a member of `app_assistant_sql` only), not `SET ROLE` from the tenant login. That login is a member of nothing else, so there is no role to switch back to. |
-| Reading base tables, secrets, PII columns or system catalogs | The login has `USAGE` on schema `assistant_sql` and `SELECT` on its views. It has no grant on any `public` table. The view owner has **column-level** grants that leave out phone, email, address, birthday, notes, tokens and settings, so even a wrong view cannot select them. The guard rejects `pg_*` identifiers, `information_schema`, `public.`, quoted identifiers and comments. `search_path` is `assistant_sql`. **Gap:** the login can still read the `PUBLIC` system catalog (`pg_stat_activity` included). All owners share the one login, so the guard is the only layer against reading another session's concurrent query text (§14). |
+| Reading base tables, secrets, PII columns or system catalogs | The login has `USAGE` on schema `assistant_sql` and `SELECT` on its views. It has no grant on any `public` table. The view owner has **column-level** grants that leave out phone, email, address, birthday, notes, tokens and settings, so even a wrong view cannot select them. The guard rejects `pg_*` identifiers, `information_schema`, `public.`, quoted identifiers and comments. `search_path` is `assistant_sql`. The login can still read the `PUBLIC` system catalog, but it runs with `track_activities = off` (superuser-only, set on the role), so no assistant session publishes its query text in `pg_stat_activity` for another session on the same login to read (§14). |
 | Executing SQL through functions (`query_to_xml`, `dblink`), side effects (`pg_advisory_lock`, `pg_notify`), sleeping, catalog casts (`::regclass`) | A function allow-list: aggregates, window functions, and date, math and string helpers. A cast-type allow-list. Typed literals are allowed only for date and time types. |
-| Load on the shared primary | `statement_timeout` 3 s, `lock_timeout` 1 s, `idle_in_transaction_session_timeout` 5 s and `work_mem` 16 MB per transaction. At most 501 rows are fetched through a cursor. Pool of 4 connections per process. At most 8 queries per turn, and one turn per owner (core §7). |
+| Load on the shared primary | `statement_timeout` 3 s, `lock_timeout` 1 s, `idle_in_transaction_session_timeout` 5 s and `work_mem` 16 MB per transaction. Memory: the guard allows no string-building function or operator (`||`, `concat`, `replace`, …) and caps string literals at 200 chars, so no expression grows past its inputs; the login has `work_mem = 16MB` and `temp_file_limit = 256MB` as role defaults (Postgres has no per-backend memory cap, so these, the guard and the timeout are the bound, §14). At most 501 rows are fetched through a cursor. Pool of 4 connections per process. At most 8 queries per turn, and one turn per owner (core §7). |
 | Prompt injection through data (a customer name that says "ignore instructions") | Results are tool output, which the persona already treats as data. `<` is escaped as in the route tools, and cells are cut to 200 characters. |
 | Leaking query text or results into logs | Logs carry the run id, `sqlstate` and error class only. The SQL text and the rows are never logged or stored in run steps. |
 | Multi-statement smuggling | The guard rejects `;` (except one trailing), and the driver uses the extended protocol (never `.simple()`), which refuses more than one statement. |
@@ -48,7 +48,7 @@ Out of scope: schedules and reports (capability 3), exports and downloads, write
 |---|---|---|
 | `app_assistant_reader` | NOLOGIN, nobody is a member | Owns the views. Has column-level `SELECT` on the 15 base tables listed in §4.3, and a `FOR SELECT` RLS policy on each of them that inlines the business filter (§4.2). |
 | `app_assistant_sql` | NOLOGIN group | `USAGE` on schema `assistant_sql` and `SELECT` on all its views. Nothing else. |
-| `rapiz_assistant` (any name) | LOGIN, `IN ROLE app_assistant_sql` only | Created by `ensureLoginRoles` from `DATABASE_ASSISTANT_SQL_URL` (dev `--dev-roles`, deploy `--login-roles`). Role defaults: `default_transaction_read_only = on`, `statement_timeout = 3s`, `search_path = assistant_sql`, `idle_in_transaction_session_timeout = 5s`, `CONNECTION LIMIT 10`. |
+| `rapiz_assistant` (any name) | LOGIN, `IN ROLE app_assistant_sql` only | Created by `ensureLoginRoles` from `DATABASE_ASSISTANT_SQL_URL` (dev `--dev-roles`, deploy `--login-roles`). Role defaults: `default_transaction_read_only = on`, `statement_timeout = 3s`, `search_path = assistant_sql`, `idle_in_transaction_session_timeout = 5s`, `temp_file_limit = 256MB`, `work_mem = 16MB`, `track_activities = off`, `CONNECTION LIMIT 10`. An existing login is repaired: its group is granted again and any other membership is revoked. |
 
 The views use the default `security_invoker = false`, so the reads behind a view are checked as the view owner (`app_assistant_reader`). This is why the login needs grants on the views only. Every view is `WITH (security_barrier = true)`, so the view's own filters (deleted rows, allowed fact kinds) run before any predicate the model writes.
 
@@ -157,16 +157,17 @@ The repo has no SQL parser, so the guard is a lexer plus allow-lists. It is stri
    - `"` (quoted identifiers);
    - string prefixes `E' U&' B' X' N'`;
    - `;`;
-   - any operator outside `= <> != < > <= >= + - * / % || ( ) , . ::`.
+   - any operator outside `= <> != < > <= >= + - * / % ( ) , . ::` (no `||`: final review C1);
+   - a string literal longer than 200 chars, quotes included (`string_too_long`).
 3. The first token is `select` or `with`. Reject `with recursive`.
-4. Denied words anywhere: `insert update delete merge into copy create alter drop grant revoke truncate set reset lock for call do execute prepare deallocate listen notify unlisten vacuum analyze explain refresh cluster reindex checkpoint load import discard declare fetch move close cursor returning table only tablesample`. Also denied: identifiers starting with `pg_`, and `information_schema`, `public`, `assistant_sql`, `current_user`, `session_user`, `current_role`, `user`.
+4. Denied words anywhere: `insert update delete merge into copy create alter drop grant revoke truncate set reset lock for call do execute prepare deallocate listen notify unlisten vacuum analyze explain refresh cluster reindex checkpoint load import discard declare fetch move close cursor returning table only tablesample`. Also denied: identifiers starting with `pg_`, and `information_schema`, `public`, `assistant_sql`, `current_user`, `session_user`, `current_role`, `user`, `system_user`, `current_catalog`, `current_schema`.
 5. A function call is an identifier followed by `(`, unless it is a SQL keyword that takes parentheses (`in exists any all some over filter as values using on and or not select from where join when then else case by having union intersect except between is like ilike distinct within group partition`). Such a call must be in the allow-list:
    - aggregates: `count sum avg min max bool_and bool_or every percentile_cont percentile_disc mode`;
    - window functions: `row_number rank dense_rank percent_rank cume_dist ntile lag lead first_value last_value`;
    - math: `round trunc floor ceil ceiling abs greatest least`;
    - null handling: `coalesce nullif`;
    - dates: `date_trunc date_part extract to_char make_date make_interval age now generate_series`;
-   - strings: `lower upper length btrim trim ltrim rtrim substr replace concat left right split_part initcap position`.
+   - strings: `lower upper length btrim trim ltrim rtrim substr left right split_part initcap position`. None of them builds a longer string; `concat`, `replace`, `repeat`, `lpad`/`rpad`, `format`, `overlay`, `translate`, `string_agg` and `array_agg` are not allowed (final review C1).
 
    A qualified call (`x.f(`) is rejected.
 6. A cast (`::t`) and a typed literal (`t '…'`) must name an allowed type:
@@ -175,7 +176,7 @@ The repo has no SQL parser, so the guard is a lexer plus allow-lists. It is stri
 
    `cast(` is rejected (the error says to use `::`).
 7. A relation right after `from` or `join` must be a view name or a CTE name of this query, or a `(` subquery. Otherwise the call fails with `unknown_view:<name>`. A comma-joined relation is not checked by the guard; the database refuses it (no grant).
-8. Parentheses must balance, depth ≤ 10, tokens ≤ 1 000.
+8. Parentheses must balance, depth ≤ 10, tokens ≤ 1 000, CTEs ≤ 10 (`too_many_ctes`).
 
 Error codes are `sql_rejected:<reason>`, for example `sql_rejected:function_not_allowed:pg_sleep`. The guard returns the trimmed SQL text, which runs unchanged.
 
@@ -185,6 +186,7 @@ Error codes are `sql_rejected:<reason>`, for example `sql_rejected:function_not_
 - `application/sql/chart.ts` builds the chart from the **full** fetched rows (not the cut model view):
   - `x` and every `y` must exist (`chart_unknown_column:<c>`);
   - every `y` must be numeric or null (`chart_not_numeric:<c>`);
+  - no column may be `__proto__` (`chart_reserved_column:__proto__`), which a plain object row would drop silently;
   - the result must not be truncated (`chart_needs_full_result`);
   - bar and line charts take at most 60 rows, pie charts at most 12 rows and exactly one non-negative `y` (`chart_too_many_points`, `chart_bad_pie`);
   - at most 3 charts per turn (`chart_limit`).
@@ -273,14 +275,23 @@ Each ruling lists its cost if it is wrong. The plan repeats them as 2-R1…R12.
 ### Runner and tools (`apps/backend`)
 
 - **The guard runs twice:** in `sql_query`, and again in `PostgresSqlRunner` right before `runAssistantSql`. A runner-level rejection throws `SqlRunError('42501', …)` without reaching the database.
-- **Session options are read back.** Before the query runs, the transaction must report `statement_timeout = 3s`, `idle_in_transaction_session_timeout = 5s`, `transaction_read_only = on` and the two scope GUCs; any mismatch is `sql_unavailable` and nothing runs.
+- **Session options are read back.** Before the query runs, the transaction must report `statement_timeout = 3s`, `idle_in_transaction_session_timeout = 5s`, `transaction_read_only = on`, the two scope GUCs and the login's `temp_file_limit = 256MB` and `track_activities = off`; any mismatch is `sql_unavailable` and nothing runs.
 - **Logs** carry the error code, SQL state, run id and a fingerprint `sql=<sha256 first 12 hex> len=<n>`, never the SQL text or rows.
 - **The guard** goes slightly beyond §7, always strictly or neutrally: `from generate_series(…)` passes the relation check; `extract(… from …)`, `trim(… from …)` and `is distinct from` are not relations; an identifier followed by a string is a typed literal unless it is an expression keyword (`ilike '%x%'`, `at time zone '…'`); CTE names include `as [not] materialized (`; operators are lexed like Postgres (a run of operator characters is one operator, a trailing `+`/`-` is trimmed).
 - **The `sql` toolset is registered in the tool wiring only.** The 1c toolset list (with label keys) was built on another branch at the same time. `ChatTurnService` checks `sql` against `assistant_settings.disabled_toolsets`; adding `sql` (2 tools, label `assistant.toolsets.sql`, already in i18n) to the 1c list is waiting on 1c. SQL calls count under `routes` in 1c's usage counter (ruling 2-R5).
 - **Charts** add the error `chart_duplicate_column:<c>` (x and a y, or two y, naming the same column), because a chart row is keyed by column name. Chart errors keep `ok: true`. The web chart keys its series `s0`…`s3`, because a column name such as `?column?` is not a valid CSS custom property; pie slices cycle through `--chart-1`…`--chart-5`.
 
-### Known gap (for the final review)
+### Final review fixes (2026-11-02)
 
-- The login can read Postgres's `PUBLIC` system catalog (`pg_class`, `pg_proc`, `pg_stat_activity`). Every owner's lane runs as the same login, so a guard bypass could show another owner's **concurrent query text** in `pg_stat_activity` (the bound GUC values are not visible, but literals in the model's SQL are). Today the guard (`pg_*` and `information_schema` are rejected) is the only layer against it. Options: `REVOKE SELECT ON pg_catalog.pg_stat_activity FROM PUBLIC` (cluster-wide side effects) or a per-account login; neither is done.
-- `PUBLIC`-executable built-ins (`query_to_xml`, `current_setting`, `set_config`) and attribute notation (`t.f` calling `f(t)`) are blocked only by the guard; at the database level they run as the login and are bounded by its grants.
+- **C1, memory.** Chained CTEs with `||` or `concat` grew a string exponentially from linear SQL text: one guarded query took a backend past 1.4 GB in under 3 s. `statement_timeout` bounds time, not memory, and `work_mem` does not cover expression values. Fixes:
+  - The guard drops `||`, `concat` and `replace` (no allowed function builds a longer string), caps string literals at 200 chars and CTEs at 10 (§7).
+  - `ensureLoginRoles` sets `temp_file_limit = '256MB'` (superuser-only, so the login cannot raise it; it also bounds spilled sorts and hashes of `generate_series` cross joins) and `work_mem = '16MB'` on the login. The runner reads `temp_file_limit` back and refuses to run without it.
+  - Postgres 16 has no role-level setting that caps a backend's total memory, so memory is bounded by the guard, `work_mem` (with spills capped by `temp_file_limit`) and the 3 s timeout.
+- **I1, `pg_stat_activity`.** `ensureLoginRoles` sets `track_activities = off` on the login (superuser-only, so the login cannot turn it back on; the migrator is a superuser). No assistant session publishes its query text, so even a guard bypass shows another session's pid, user and timing, but no text. The runner reads the setting back and refuses to run without it. An integration test runs a query in one session and reads `pg_stat_activity` from another session on the login.
+- **Attribute notation.** The guard does **not** block it: `select o.row_to_json from orders o` passes, because the guard does not know the view columns. Postgres accepts the notation only for a function with a single composite argument, so it can reach only serializers of a row the owner may already read; the grants still apply.
+- `system_user`, `current_catalog` and `current_schema` are denied words. `ensureLoginRoles` repairs an existing login (group re-granted, other memberships revoked). A chart column named `__proto__` is refused (`chart_reserved_column`).
 
+### Remaining gap
+
+- The login can read Postgres's `PUBLIC` system catalog (`pg_class`, `pg_proc`, `pg_stat_activity` without query text). The guard rejects `pg_*` and `information_schema`.
+- `PUBLIC`-executable built-ins (`query_to_xml`, `current_setting`, `set_config`) are blocked only by the guard; at the database level they run as the login and are bounded by its grants. Attribute notation (`t.f` calling `f(t)`) is not blocked (see above).
