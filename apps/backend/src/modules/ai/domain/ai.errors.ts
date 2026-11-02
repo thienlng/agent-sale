@@ -71,3 +71,19 @@ export class AiProviderFailedError extends DomainError {
     super('The AI model is temporarily unavailable');
   }
 }
+
+/** No turn with this run id for this bot in the workspace (or not a uuid). */
+export class TurnNotFoundError extends DomainError {
+  readonly code = 'NOT_FOUND';
+  constructor() {
+    super('Bot turn not found');
+  }
+}
+
+/** A `cursor` of GET /bots/{botId}/turns that this server did not issue. */
+export class InvalidTurnCursorError extends DomainError {
+  readonly code = 'VALIDATION_FAILED';
+  constructor() {
+    super('Invalid turns cursor');
+  }
+}

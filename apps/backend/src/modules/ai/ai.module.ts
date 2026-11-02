@@ -12,11 +12,14 @@ import { LodgingModule } from '../lodging/lodging.module.js';
 import { SaasModule } from '../saas/saas.module.js';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
 import { AI_FACADE } from './api/ai.facade.js';
+import { AI_TRACE_RUNNER } from './api/ai-trace-runner.js';
 import { AI_LLM_GATEWAY } from './api/llm-gateway.port.js';
+import { AiTraceRunnerImpl } from './application/ai-trace.runner.js';
 import { HERMES_SUBSCRIPTION_LOGIN, LlmAdminService } from './application/llm-admin.service.js';
 import { LlmRuntime } from './application/llm-runtime.js';
 import { MEDIA_PUBLIC_BASE, PlaygroundService } from './application/playground.service.js';
 import { LLM_PROVIDER_FACTORY } from './application/ports/llm-provider-factory.js';
+import { TurnTraceService } from './application/turn-trace.service.js';
 import { AI_RUN_REPOSITORY, type AiRunRepository } from './domain/ports/ai-run.repository.js';
 import { CONVERSATION_SUMMARY_REPOSITORY } from './domain/ports/conversation-summary.repository.js';
 import { LLM_CONFIG_REPOSITORY } from './domain/ports/llm-config.repository.js';
@@ -38,6 +41,7 @@ import {
 } from './infrastructure/persistence/turn-trace.repositories.js';
 import { AiController } from './interface/http/ai.controller.js';
 import { LlmAdminController } from './interface/http/llm-admin.controller.js';
+import { TurnTraceController } from './interface/http/turn-trace.controller.js';
 
 /** LLM configuration (platform admin), runtime gateway, playground and ai_runs metering. */
 @Module({
@@ -50,7 +54,7 @@ import { LlmAdminController } from './interface/http/llm-admin.controller.js';
     LodgingModule,
     SaasModule,
   ],
-  controllers: [AiController, LlmAdminController],
+  controllers: [AiController, LlmAdminController, TurnTraceController],
   providers: [
     {
       provide: SECRET_BOX,
@@ -111,7 +115,10 @@ import { LlmAdminController } from './interface/http/llm-admin.controller.js';
     LlmAdminService,
     PlaygroundService,
     { provide: AI_FACADE, useExisting: PlaygroundService },
+    TurnTraceService,
+    AiTraceRunnerImpl,
+    { provide: AI_TRACE_RUNNER, useExisting: AiTraceRunnerImpl },
   ],
-  exports: [AI_FACADE, AI_LLM_GATEWAY],
+  exports: [AI_FACADE, AI_LLM_GATEWAY, AI_TRACE_RUNNER],
 })
 export class AiModule {}
