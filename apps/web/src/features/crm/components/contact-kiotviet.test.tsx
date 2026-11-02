@@ -101,7 +101,7 @@ describe('KiotViet customers in the CRM', () => {
         value={draftOf(c)}
         onChange={() => {}}
         lookups={lookups}
-        synced
+        synced="kiotviet"
       />,
     );
     expect(screen.getByText(HINT)).toBeInTheDocument();
@@ -121,5 +121,28 @@ describe('KiotViet customers in the CRM', () => {
       <ContactFields idPrefix="t" value={draftOf(c)} onChange={() => {}} lookups={lookups} />,
     );
     expect(screen.queryByText(HINT)).toBeNull();
+  });
+
+  it('locks the phone and email of a customer linked to a Rapiz account, not the name', () => {
+    const c = { ...contact(true), external: { source: 'rapiz' as const, id: 'acct' } };
+    renderWithProviders(
+      <ContactFields
+        idPrefix="t"
+        value={draftOf(c)}
+        onChange={() => {}}
+        lookups={lookups}
+        synced="rapiz"
+      />,
+    );
+    const hint = 'Số điện thoại và email lấy từ tài khoản Rapiz, không sửa được ở đây';
+    expect(screen.getByText(hint)).toBeInTheDocument();
+    for (const label of ['Số điện thoại', 'Email']) {
+      const field = screen.getByLabelText(label, { selector: 'input' });
+      expect(field).toHaveAttribute('readonly');
+      expect(field).toHaveAccessibleDescription(hint);
+    }
+    const name = screen.getByLabelText('Họ và tên', { selector: 'input' });
+    expect(name).not.toHaveAttribute('readonly');
+    expect(name).not.toHaveAccessibleDescription(hint);
   });
 });

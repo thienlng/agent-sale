@@ -2250,7 +2250,7 @@
     "unnamed": "Khách chưa có tên",
     "saveSubscription": "Lưu gói",
     "subscriptionSaved": "Đã lưu gói thuê bao",
-    "subscriptionInvalid": "Kiểm tra lại: cần tên gói, MRR là số nguyên ≥ 0; dùng thử cần ngày hết hạn, đã huỷ cần ngày huỷ.",
+    "subscriptionInvalid": "Kiểm tra lại: cần tên gói, MRR là số nguyên ≥ 0 (gói trong danh mục cần có giá cho chu kỳ này); dùng thử cần ngày hết hạn, đã huỷ cần ngày huỷ và lý do.",
     "cancel": "Huỷ",
     "loading": "Đang tải…",
     "loadError": "Không tải được dữ liệu.",
@@ -2259,12 +2259,14 @@
       "trial": "Dùng thử",
       "active": "Đang dùng",
       "past_due": "Quá hạn thanh toán",
-      "canceled": "Đã huỷ"
+      "canceled": "Đã huỷ",
+      "free": "Gói miễn phí"
     },
     "period": {
       "monthly": "Hằng tháng",
       "quarterly": "Hằng quý",
-      "yearly": "Hằng năm"
+      "yearly": "Hằng năm",
+      "semiannual": "6 tháng"
     },
     "sub": {
       "title": "Gói thuê bao",
@@ -2283,7 +2285,18 @@
       "canceledOn": "Ngày huỷ",
       "externalRef": "Mã bên ngoài",
       "nextDate": "Mốc tiếp theo",
-      "note": "Ghi chú"
+      "note": "Ghi chú",
+      "catalogPlan": "Gói trong danh mục",
+      "customPlan": "Khác (tự nhập tên và MRR)",
+      "noPrice": "Gói này chưa có giá cho chu kỳ này",
+      "linkedHint": "Đồng bộ từ tài khoản Rapiz: gói, giai đoạn, chu kỳ, MRR và các ngày chỉ xem được.",
+      "linked": "Rapiz",
+      "linkedLabel": "Đồng bộ từ tài khoản Rapiz",
+      "upsell": "Nên nâng cấp",
+      "usage": "Lượt trả lời AI đã dùng",
+      "churnReason": "Lý do huỷ",
+      "churnReasonPick": "Chọn lý do",
+      "churnNote": "Ghi chú lý do huỷ"
     },
     "summary": {
       "mrr": "MRR",
@@ -2291,13 +2304,48 @@
       "trial": "Dùng thử",
       "trialsEndingSoon": "Hết dùng thử trong 7 ngày",
       "past_due": "Quá hạn thanh toán",
-      "canceled": "Rời bỏ"
+      "canceled": "Rời bỏ",
+      "free": "Gói miễn phí"
     },
     "col": {
       "plan": "Gói",
       "mrr": "MRR",
       "next": "Mốc tiếp theo"
     },
-    "noTrialsEndingSoon": "Không có khách nào hết dùng thử trong 7 ngày tới."
+    "noTrialsEndingSoon": "Không có khách nào hết dùng thử trong 7 ngày tới.",
+    "churn": {
+      "price": "Giá cao",
+      "missing_feature": "Thiếu tính năng",
+      "competitor": "Chuyển sang đối thủ",
+      "no_longer_needed": "Không còn nhu cầu",
+      "poor_support": "Hỗ trợ chưa tốt",
+      "business_closed": "Ngừng kinh doanh",
+      "other": "Khác"
+    },
+    "history": {
+      "toggle": "Lịch sử",
+      "title": "Lịch sử gói",
+      "none": "Chưa có thay đổi.",
+      "source": {
+        "staff": "Nhân viên",
+        "sync": "Đồng bộ Rapiz",
+        "system": "Hệ thống"
+      }
+    },
+    "plans": {
+      "tab": "Gói dịch vụ",
+      "hint": "Các gói bạn bán và giá của chúng. Gói của khách lấy MRR từ giá theo chu kỳ thanh toán. Lưu trữ gói để ngừng bán; khách đang dùng vẫn giữ gói.",
+      "none": "Chưa có gói nào.",
+      "name": "Tên gói",
+      "newName": "Tên gói mới",
+      "add": "Thêm gói",
+      "save": "Lưu",
+      "saved": "Đã lưu gói",
+      "archived": "Đã lưu trữ",
+      "archive": "Lưu trữ",
+      "restore": "Khôi phục",
+      "price": "Giá {{period}} (VND)",
+      "from": "từ {{mrr}}/tháng"
+    }
   }
 }

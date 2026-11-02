@@ -1,9 +1,14 @@
 import {
   ContactSaasSubscription,
+  type CreateSaasPlan,
   type PutSaasSubscription,
+  SaasPlanDto,
+  SaasPlanList,
   SaasSubscriptionDto,
+  SaasSubscriptionHistory,
   SaasSubscriptionList,
   SaasSummary,
+  type UpdateSaasPlan,
 } from '@agent-sales/contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -82,4 +87,46 @@ export function usePutContactSubscription(contactId: string) {
         qc.invalidateQueries({ queryKey: queryKeys.contacts(ws) }),
       ]),
   });
+}
+
+/** Plan, stage and MRR changes of the customer's subscription, newest first. */
+export function useSubscriptionHistory(contactId: string, enabled: boolean) {
+  const ws = useWorkspaceId();
+  return useQuery({
+    queryKey: ['ws', ws, 'saas-subscriptions', 'history', contactId],
+    queryFn: ({ signal }) =>
+      api(`/contacts/${contactId}/saas-subscription/history`, SaasSubscriptionHistory, {
+        workspaceId: ws,
+        signal,
+      }),
+    enabled: Boolean(ws) && enabled,
+  });
+}
+
+/** The business's plan catalog, archived plans included. */
+export function useSaasPlans() {
+  const ws = useWorkspaceId();
+  return useQuery({
+    queryKey: ['ws', ws, 'saas-plans'],
+    queryFn: ({ signal }) => api('/saas-plans', SaasPlanList, { workspaceId: ws, signal }),
+    enabled: Boolean(ws),
+  });
+}
+
+export function useSaasPlanMutations() {
+  const ws = useWorkspaceId(),
+    qc = useQueryClient();
+  const onSuccess = () => qc.invalidateQueries({ queryKey: ['ws', ws, 'saas-plans'] });
+  return {
+    create: useMutation({
+      mutationFn: (body: CreateSaasPlan) =>
+        api('/saas-plans', SaasPlanDto, { method: 'POST', body, workspaceId: ws }),
+      onSuccess,
+    }),
+    update: useMutation({
+      mutationFn: ({ id, body }: { id: string; body: UpdateSaasPlan }) =>
+        api(`/saas-plans/${id}`, SaasPlanDto, { method: 'PATCH', body, workspaceId: ws }),
+      onSuccess,
+    }),
+  };
 }
