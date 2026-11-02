@@ -18,7 +18,7 @@ It is harder than the shop bot: the shop bot answers one bounded customer turn. 
 | 1b | Proposals, route-derived tools, memory, platform skills, auto-compaction, `ui_fill_form` (shipped, see §19) | this document |
 | 1c | Background review, learned skills, skill ledger, curator, proactive suggestions | this document |
 | 2 | Data questions: read-only SQL over a curated view schema, charts | own spec |
-| 3 | Schedules (reports, alerts) and the `notification` module (in-app, email; mobile push later) | own spec (§11 fixes the shape) |
+| 3 | Schedules (reports, alerts) and the `notification` module (in-app, email; mobile push later) (shipped, T-172) | [own spec](2026-11-02-owner-assistant-schedules-design.md) (§12 here fixes the shape) |
 | 4 | Bulk product import (Excel/CSV + images) | own spec |
 | 5 | Bot doctor (shop-bot turn traces, diagnosis, fix drafts) and API action autofill | own spec |
 | 6 | Shop information and scenario autofill | own spec |
