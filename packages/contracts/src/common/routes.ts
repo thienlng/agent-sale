@@ -3,22 +3,25 @@ import { z } from 'zod';
 import { ErrorResponse } from './errors.js';
 
 /**
- * Route contracts: the single source for the OpenAPI document and for the
- * backend-vs-contract consistency test. Every HTTP route under /api/v1 must be
- * declared here (per module file) — the backend test fails otherwise.
- */
-/**
  * How the owner assistant may use a route (T-170, spec §6). `read`: a GET the assistant may call
- * as a tool. `write`: a change the assistant may only propose; it runs when the owner approves.
- * `never`: not a tool (auth, members, channel connections, secrets, uploads, deletions, …).
- * `when` (English, at most 160 chars) tells the model when to use the route; required for
- * `read` and `write`.
+ * as a tool, or a side-effect-free query sent as POST (`queryPost: true`, ruling 1b-R7).
+ * `write`: a change the assistant may only propose; it runs when the owner approves. `never`:
+ * not a tool (auth, members, channel connections, secrets, uploads, deletions, …). `when`
+ * (English, at most 160 chars) tells the model when to use the route; required for `read` and
+ * `write`.
  */
 export interface RouteAssistantUse {
   use: 'read' | 'write' | 'never';
   when?: string;
+  /** A POST that only reads (search, statistics, quotes); only with `use: 'read'`. */
+  queryPost?: true;
 }
 
+/**
+ * Route contracts: the single source for the OpenAPI document and for the
+ * backend-vs-contract consistency test. Every HTTP route under /api/v1 must be
+ * declared here (per module file) — the backend test fails otherwise.
+ */
 export interface RouteContract {
   method: 'get' | 'post' | 'patch' | 'put' | 'delete';
   /** OpenAPI-style path relative to /api/v1, e.g. `/workspaces/{id}`. */

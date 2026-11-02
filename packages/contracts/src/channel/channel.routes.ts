@@ -39,10 +39,8 @@ export const channelRoutes = defineRoutes([
     ...scoped,
     method: 'patch',
     path: '/channels/{id}/fanpage/settings',
-    assistant: {
-      use: 'write',
-      when: 'The owner asks to turn Facebook comment auto-replies or hiding on or off, or to change hide keywords or excluded posts.',
-    },
+    // Turning on auto replies posts publicly and DMs every commenter: never on the assistant's say.
+    assistant: { use: 'never' },
     summary: 'Configure Facebook comment automation',
     body: FanpageSettings,
     responses: { 200: FanpageSettings },
@@ -51,10 +49,8 @@ export const channelRoutes = defineRoutes([
     ...scoped,
     method: 'get',
     path: '/channels/{id}/fanpage/posts',
-    assistant: {
-      use: 'read',
-      when: 'The owner asks about the latest posts of a connected Facebook Page.',
-    },
+    // A live Graph call with the Page token: the stored comment posts cover the same need.
+    assistant: { use: 'never' },
     summary: 'Latest 50 Page-owned posts',
     responses: { 200: z.object({ data: z.array(FanpagePost) }) },
   },

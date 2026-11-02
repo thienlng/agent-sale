@@ -71,7 +71,7 @@ describe('AssistantMessageDto', () => {
 });
 
 describe('assistantRoutes', () => {
-  it('declares the eight workspace-scoped assistant routes', () => {
+  it('declares the eleven workspace-scoped assistant routes', () => {
     expect(assistantRoutes.map((r) => `${r.method} ${r.path}`)).toEqual([
       'get /assistant/threads',
       'post /assistant/threads',
@@ -81,6 +81,9 @@ describe('assistantRoutes', () => {
       'get /assistant/runs/{runId}',
       'get /assistant/memory',
       'delete /assistant/memory/{store}/entries/{entryId}',
+      'get /assistant/threads/{threadId}/proposals',
+      'post /assistant/proposals/{proposalId}/approve',
+      'post /assistant/proposals/{proposalId}/reject',
     ]);
     for (const r of assistantRoutes) {
       expect(r).toMatchObject({
@@ -150,6 +153,14 @@ describe('fill_form action', () => {
     expect(
       AssistantUiAction.safeParse({ ...base, formId: 'f'.repeat(61), values: {} }).success,
     ).toBe(false);
+  });
+
+  it('accepts at most 30 values, like a form', () => {
+    const values = (n: number) =>
+      Object.fromEntries(Array.from({ length: n }, (_, i) => [`f${i}`, i]));
+    const base = { type: 'fill_form', formId: 'product.form' };
+    expect(AssistantUiAction.safeParse({ ...base, values: values(30) }).success).toBe(true);
+    expect(AssistantUiAction.safeParse({ ...base, values: values(31) }).success).toBe(false);
   });
 });
 

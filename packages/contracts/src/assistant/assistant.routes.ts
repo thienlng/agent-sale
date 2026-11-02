@@ -2,6 +2,8 @@ import { defineRoutes } from '../common/routes.js';
 import {
   AssistantMemoryDto,
   AssistantMessageList,
+  AssistantProposalDto,
+  AssistantProposalList,
   AssistantRunDto,
   AssistantThreadDto,
   AssistantThreadList,
@@ -81,5 +83,29 @@ export const assistantRoutes = defineRoutes([
     assistant: { use: 'never' },
     summary: 'Forget one memory entry; returns the remaining memory',
     responses: { 200: AssistantMemoryDto },
+  },
+  {
+    ...scoped,
+    method: 'get',
+    path: '/assistant/threads/{threadId}/proposals',
+    assistant: { use: 'never' },
+    summary: "The thread's proposals, oldest first (stale pending ones expire first)",
+    responses: { 200: AssistantProposalList },
+  },
+  {
+    ...scoped,
+    method: 'post',
+    path: '/assistant/proposals/{proposalId}/approve',
+    assistant: { use: 'never' },
+    summary: "Approve a pending proposal: it runs with the approver's own session",
+    responses: { 200: AssistantProposalDto },
+  },
+  {
+    ...scoped,
+    method: 'post',
+    path: '/assistant/proposals/{proposalId}/reject',
+    assistant: { use: 'never' },
+    summary: 'Reject a pending proposal',
+    responses: { 200: AssistantProposalDto },
   },
 ]);

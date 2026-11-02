@@ -1,6 +1,8 @@
 import type {
   AssistantMemoryDto,
   AssistantMessageList,
+  AssistantProposalDto,
+  AssistantProposalList,
   AssistantRunDto,
   AssistantThreadDto,
   AssistantThreadList,
@@ -37,10 +39,15 @@ export interface AssistantFacade {
   ): Promise<AssistantThreadDto>;
   /** Visible messages only (user, assistant, event); tool rows never leave the backend. */
   listMessages(actor: AssistantActor, threadId: string): Promise<AssistantMessageList>;
+  /**
+   * `authorization` is the caller's own `Authorization` header: route tools read with it
+   * (ruling 1b-R2). It is held in memory for the turn only, never stored or logged.
+   */
   sendMessage(
     actor: AssistantActor,
     threadId: string,
     input: SendAssistantMessageRequest,
+    authorization: string,
   ): Promise<SendAssistantMessageResponse>;
   getRun(actor: AssistantActor, runId: string): Promise<AssistantRunDto>;
   /**
@@ -55,6 +62,21 @@ export interface AssistantFacade {
     store: string,
     entryId: string,
   ): Promise<AssistantMemoryDto>;
+  /** The thread's proposals, oldest first; stale pending ones expire first. */
+  listProposals(actor: AssistantActor, threadId: string): Promise<AssistantProposalList>;
+  /**
+   * Runs a pending proposal with the approver's own `authorization` (idempotency key
+   * `asst:<id>`) and appends the outcome to the thread as an event. CONFLICT
+   * `proposal_not_pending` / `proposal_expired`; NOT_FOUND when the proposal's business is no
+   * longer in the owner's scope.
+   */
+  approveProposal(
+    actor: AssistantActor,
+    proposalId: string,
+    authorization: string,
+  ): Promise<AssistantProposalDto>;
+  /** Pending → rejected, with an event message; CONFLICT as for approve. */
+  rejectProposal(actor: AssistantActor, proposalId: string): Promise<AssistantProposalDto>;
 }
 
 export const ASSISTANT_FACADE = Symbol('ASSISTANT_FACADE');

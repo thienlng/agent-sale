@@ -1,0 +1,167 @@
+import type { AssistantProposalDto } from '@agent-sales/contracts';
+import { isUuid, newId } from '@agent-sales/shared';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+
+import {
+  AssistantNotFoundError,
+  AssistantProposalConflictError,
+} from '../domain/assistant.errors.js';
+import type { OwnerScope } from '../domain/owner-scope.js';
+import {
+  ASSISTANT_REPOSITORY,
+  type AssistantRepository,
+  type ProposalRecord,
+} from '../domain/ports/assistant.repository.js';
+import { ROUTE_INVOKER, type RouteInvoker } from '../domain/ports/route-invoker.port.js';
+
+/** The stored result shown on a done proposal is at most this long. */
+export const RESULT_PREVIEW_CHARS = 1_000;
+
+export function toProposalDto(p: ProposalRecord): AssistantProposalDto {
+  return {
+    id: p.id,
+    threadId: p.threadId,
+    businessId: p.businessId,
+    routeKey: p.routeKey,
+    summary: p.summary,
+    preview: p.preview,
+    status: p.status,
+    errorCode: p.errorCode,
+    createdAt: p.createdAt.toISOString(),
+    expiresAt: p.expiresAt.toISOString(),
+    decidedAt: p.decidedAt?.toISOString() ?? null,
+  };
+}
+
+const errorClass = (e: unknown): string => (e instanceof Error ? e.name : typeof e);
+
+/** `PATCH /products/{productId}` → `patch`. */
+const methodOf = (routeKey: string): string => (routeKey.split(' ')[0] ?? '').toLowerCase();
+
+/**
+ * Owner decisions on proposals (spec §6). A proposal runs only on approval, through the same
+ * in-process route path as a read, with the approver's own bearer token and idempotency key
+ * `asst:<id>`. The outcome is appended to the thread as an `event` message, so the next turn sees
+ * it. The pending → executing transition is the atomic guard: of two approvals, one wins.
+ */
+@Injectable()
+export class ProposalService {
+  readonly #log = new Logger(ProposalService.name);
+
+  constructor(
+    @Inject(ASSISTANT_REPOSITORY) private readonly repo: AssistantRepository,
+    @Inject(ROUTE_INVOKER) private readonly invoker: RouteInvoker,
+  ) {}
+
+  /** Stale pending proposals expire first, then the thread's proposals, oldest first. */
+  async list(scope: OwnerScope, threadId: string): Promise<AssistantProposalDto[]> {
+    if (!isUuid(threadId)) throw new AssistantNotFoundError('thread', threadId);
+    await this.repo.expireProposals(scope, new Date());
+    return (await this.repo.listProposals(scope, threadId)).map(toProposalDto);
+  }
+
+  async approve(
+    scope: OwnerScope,
+    id: string,
+    authorization: string,
+  ): Promise<AssistantProposalDto> {
+    const proposal = await this.#decidable(scope, id);
+    const started = await this.repo.transitionProposal(scope, id, ['pending'], 'executing');
+    if (!started) throw await this.#conflict(scope, id);
+    // It may have expired between the sweep and the transition.
+    if (started.expiresAt.getTime() <= Date.now()) {
+      await this.repo.transitionProposal(scope, id, ['executing'], 'expired', {
+        decidedAt: new Date(),
+      });
+      throw new AssistantProposalConflictError('proposal_expired');
+    }
+
+    let status: number;
+    let body: unknown;
+    try {
+      ({ status, body } = await this.invoker.invoke({
+        method: methodOf(proposal.routeKey),
+        path: proposal.path,
+        ...(proposal.query ? { query: proposal.query as Record<string, unknown> } : {}),
+        ...(proposal.body !== null ? { body: proposal.body } : {}),
+        businessId: proposal.businessId,
+        authorization,
+        idempotencyKey: `asst:${id}`,
+      }));
+    } catch (e) {
+      this.#log.warn(`assistant proposal ${id}: execution failed (${errorClass(e)})`);
+      status = 0;
+      body = null;
+    }
+
+    const ok = status >= 200 && status < 300;
+    const errorCode = ok ? null : status === 0 ? 'invoke_failed' : `http_${status}`;
+    const done = await this.repo.transitionProposal(
+      scope,
+      id,
+      ['executing'],
+      ok ? 'done' : 'failed',
+      {
+        decidedAt: new Date(),
+        errorCode,
+        resultPreview: ok ? (JSON.stringify(body) ?? '').slice(0, RESULT_PREVIEW_CHARS) : null,
+      },
+    );
+    await this.#event(
+      scope,
+      proposal,
+      ok
+        ? `Đã áp dụng: ${proposal.summary}`
+        : `Không áp dụng được: ${proposal.summary} (${errorCode})`,
+    );
+    if (!done) throw new AssistantNotFoundError('proposal', id);
+    return toProposalDto(done);
+  }
+
+  async reject(scope: OwnerScope, id: string): Promise<AssistantProposalDto> {
+    const proposal = await this.#decidable(scope, id);
+    const rejected = await this.repo.transitionProposal(scope, id, ['pending'], 'rejected', {
+      decidedAt: new Date(),
+    });
+    if (!rejected) throw await this.#conflict(scope, id);
+    await this.#event(scope, proposal, `Anh/chị đã bỏ: ${proposal.summary}`);
+    return toProposalDto(rejected);
+  }
+
+  /**
+   * The owner's proposal for a business still in their scope (else 404), after stale pending
+   * proposals expired.
+   */
+  async #decidable(scope: OwnerScope, id: string): Promise<ProposalRecord> {
+    if (!isUuid(id)) throw new AssistantNotFoundError('proposal', id);
+    await this.repo.expireProposals(scope, new Date());
+    const proposal = await this.repo.getProposal(scope, id);
+    if (!proposal || !scope.businessIds.some((b) => b === proposal.businessId)) {
+      throw new AssistantNotFoundError('proposal', id);
+    }
+    return proposal;
+  }
+
+  async #conflict(scope: OwnerScope, id: string): Promise<AssistantProposalConflictError> {
+    const now = await this.repo.getProposal(scope, id);
+    return new AssistantProposalConflictError(
+      now?.status === 'expired' ? 'proposal_expired' : 'proposal_not_pending',
+    );
+  }
+
+  async #event(scope: OwnerScope, proposal: ProposalRecord, content: string): Promise<void> {
+    await this.repo.appendMessages(scope, proposal.threadId, [
+      {
+        id: newId(),
+        role: 'event',
+        content,
+        toolCalls: null,
+        toolCallId: null,
+        toolName: null,
+        pageContext: null,
+        uiActions: [],
+        runId: null,
+      },
+    ]);
+  }
+}

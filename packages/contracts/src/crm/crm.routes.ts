@@ -101,7 +101,11 @@ export const crmRoutes = defineRoutes([
   route({
     method: 'post',
     path: '/contacts/query',
-    assistant: { use: 'never' },
+    assistant: {
+      use: 'read',
+      queryPost: true,
+      when: 'Search or filter customers by name, phone, status, source, tag, owner or date.',
+    },
     summary: 'Search and filter customers (typed filter)',
     body: ContactQueryRequest,
     responses: { 200: ContactListResponse },

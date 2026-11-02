@@ -33,7 +33,11 @@ export const lodgingRoutes = defineRoutes([
     ...scoped,
     method: 'post',
     path: '/stay-requests/quote',
-    assistant: { use: 'never' },
+    assistant: {
+      use: 'read',
+      queryPost: true,
+      when: 'Reference rates and conflicts for a stay request; never a guarantee of availability.',
+    },
     summary: 'Reference rates and internal conflict check; never guarantees availability',
     body: StayQuoteRequest,
     responses: { 200: StayQuote },

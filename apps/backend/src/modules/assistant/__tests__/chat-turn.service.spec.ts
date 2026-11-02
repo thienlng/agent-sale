@@ -16,6 +16,7 @@ import {
   AssistantRunIdTakenError,
 } from '../domain/assistant.errors.js';
 import type { OwnerScope } from '../domain/owner-scope.js';
+import type { RouteInvocation, RouteInvocationResult } from '../domain/ports/route-invoker.port.js';
 import { InMemoryAssistantRepository } from '../infrastructure/persistence/assistant.in-memory-repository.js';
 
 /** Same name and code as the ai module's error (detected by `isAiNotConfiguredError`). */
@@ -43,6 +44,7 @@ const call = (id: string, name: string, input: unknown) =>
 const PAGE = { route: '/app/overview', targets: ['overview.add', 'overview.help'] };
 
 const BUSINESS = workspaceId(newId());
+const AUTH = 'Bearer owner-token';
 
 async function setup(script: (GenerateResponse | Error)[] = [NAVIGATE, ANSWER]) {
   const repo = new InMemoryAssistantRepository();
@@ -57,25 +59,33 @@ async function setup(script: (GenerateResponse | Error)[] = [NAVIGATE, ANSWER]) 
     const next = queue.shift() ?? ANSWER;
     return next instanceof Error ? Promise.reject(next) : Promise.resolve(next);
   });
-  const service = new ChatTurnService(repo, { generate }, new SkillCatalog([]));
+  const invoke = vi.fn((_i: RouteInvocation): Promise<RouteInvocationResult> =>
+    Promise.resolve({ status: 200, body: {} }),
+  );
+  const service = new ChatTurnService(repo, { generate }, new SkillCatalog([]), { invoke });
   const thread = await repo.createThread(scope, {
     id: newId(),
     title: '',
     systemPrompt: 'SYSTEM PROMPT',
     promptVersion: 'assistant@1',
   });
-  return { repo, scope, generate, service, thread };
+  return { repo, scope, generate, service, thread, invoke };
 }
 
 describe('ChatTurnService', () => {
   it('runs the turn with tools, records the UI actions and traces every step', async () => {
     const { service, scope, thread, generate, repo } = await setup();
     const turnId = newId();
-    const out = await service.send(scope, thread.id, {
-      turnId,
-      text: 'Mở trang sản phẩm giúp em',
-      pageContext: { route: '/app/overview', targets: ['overview.add'] },
-    });
+    const out = await service.send(
+      scope,
+      thread.id,
+      {
+        turnId,
+        text: 'Mở trang sản phẩm giúp em',
+        pageContext: { route: '/app/overview', targets: ['overview.add'] },
+      },
+      AUTH,
+    );
 
     expect(out.messages.map((m) => [m.role, m.content])).toEqual([
       ['user', 'Mở trang sản phẩm giúp em'],
@@ -123,6 +133,9 @@ describe('ChatTurnService', () => {
       'memory',
       'session_search',
       'skills_list',
+      'tool_call',
+      'tool_describe',
+      'tool_search',
       'ui_navigate',
       'ui_spotlight',
     ]);
@@ -142,7 +155,7 @@ describe('ChatTurnService', () => {
 
   it('sends history with raw user text, tool rows and events', async () => {
     const { service, scope, thread, generate, repo } = await setup();
-    await service.send(scope, thread.id, { turnId: newId(), text: 'Câu một' });
+    await service.send(scope, thread.id, { turnId: newId(), text: 'Câu một' }, AUTH);
     await repo.appendMessages(scope, thread.id, [
       {
         id: newId(),
@@ -157,7 +170,7 @@ describe('ChatTurnService', () => {
       },
     ]);
     generate.mockClear();
-    await service.send(scope, thread.id, { turnId: newId(), text: 'Câu hai' });
+    await service.send(scope, thread.id, { turnId: newId(), text: 'Câu hai' }, AUTH);
     const messages = generate.mock.calls[0]![0].messages;
     expect(messages.map((m) => m.role)).toEqual([
       'system',
@@ -183,10 +196,10 @@ describe('ChatTurnService', () => {
     generate.mockImplementationOnce(
       () => new Promise<GenerateResponse>((resolve) => (release = resolve)),
     );
-    const first = service.send(scope, thread.id, { turnId: newId(), text: 'Một' });
+    const first = service.send(scope, thread.id, { turnId: newId(), text: 'Một' }, AUTH);
     await vi.waitFor(() => expect(generate).toHaveBeenCalledTimes(1));
     await expect(
-      service.send(scope, thread.id, { turnId: newId(), text: 'Hai' }),
+      service.send(scope, thread.id, { turnId: newId(), text: 'Hai' }, AUTH),
     ).rejects.toBeInstanceOf(AssistantBusyError);
     release(ANSWER);
     expect((await first).run.status).toBe('done');
@@ -195,8 +208,8 @@ describe('ChatTurnService', () => {
   it('answers a retried turn id with the first result, without calling the model again', async () => {
     const { service, scope, thread, generate } = await setup();
     const turnId = newId();
-    const first = await service.send(scope, thread.id, { turnId, text: 'Mở sản phẩm' });
-    const again = await service.send(scope, thread.id, { turnId, text: 'Mở sản phẩm' });
+    const first = await service.send(scope, thread.id, { turnId, text: 'Mở sản phẩm' }, AUTH);
+    const again = await service.send(scope, thread.id, { turnId, text: 'Mở sản phẩm' }, AUTH);
     expect(generate).toHaveBeenCalledTimes(2);
     expect(again).toEqual(first);
   });
@@ -210,15 +223,15 @@ describe('ChatTurnService', () => {
       promptVersion: 'assistant@1',
     });
     const turnId = newId();
-    await service.send(scope, thread.id, { turnId, text: 'Một' });
-    await expect(service.send(scope, other.id, { turnId, text: 'Một' })).rejects.toBeInstanceOf(
-      AssistantRunIdTakenError,
-    );
+    await service.send(scope, thread.id, { turnId, text: 'Một' }, AUTH);
+    await expect(
+      service.send(scope, other.id, { turnId, text: 'Một' }, AUTH),
+    ).rejects.toBeInstanceOf(AssistantRunIdTakenError);
   });
 
   it('answers with an apology and fails the run when the model throws', async () => {
     const { service, scope, thread } = await setup([new Error('provider down')]);
-    const out = await service.send(scope, thread.id, { turnId: newId(), text: 'Chào em' });
+    const out = await service.send(scope, thread.id, { turnId: newId(), text: 'Chào em' }, AUTH);
     expect(out.messages.map((m) => [m.role, m.content])).toEqual([
       ['user', 'Chào em'],
       ['assistant', FALLBACK_REPLY],
@@ -227,21 +240,26 @@ describe('ChatTurnService', () => {
     expect(out.run.finishedAt).toBeInstanceOf(Date);
     // The owner is free to try again.
     expect(
-      (await service.send(scope, thread.id, { turnId: newId(), text: 'Lại' })).run.status,
+      (await service.send(scope, thread.id, { turnId: newId(), text: 'Lại' }, AUTH)).run.status,
     ).toBe('done');
   });
 
   it('apologises when the loop ends without a usable answer', async () => {
     const { service, scope, thread } = await setup([reply({ text: '   ' })]);
-    const out = await service.send(scope, thread.id, { turnId: newId(), text: 'Chào em' });
+    const out = await service.send(scope, thread.id, { turnId: newId(), text: 'Chào em' }, AUTH);
     expect(out.messages.at(-1)?.content).toBe(FALLBACK_REPLY);
     expect(out.run).toMatchObject({ status: 'done', outcome: 'done', rounds: 1 });
 
     const loop = await setup(Array.from({ length: 30 }, () => NAVIGATE));
-    const limited = await loop.service.send(loop.scope, loop.thread.id, {
-      turnId: newId(),
-      text: 'Mở mãi',
-    });
+    const limited = await loop.service.send(
+      loop.scope,
+      loop.thread.id,
+      {
+        turnId: newId(),
+        text: 'Mở mãi',
+      },
+      AUTH,
+    );
     expect(limited.messages.at(-1)?.content).toBe(FALLBACK_REPLY);
     expect(limited.run).toMatchObject({ status: 'done', outcome: 'limit', rounds: 26 });
   });
@@ -250,7 +268,7 @@ describe('ChatTurnService', () => {
     const { service, scope, thread, repo } = await setup([new AiNotConfiguredError('no route')]);
     const turnId = newId();
     await expect(
-      service.send(scope, thread.id, { turnId, text: 'Chào em' }),
+      service.send(scope, thread.id, { turnId, text: 'Chào em' }, AUTH),
     ).rejects.toBeInstanceOf(AiNotConfiguredError);
     expect(await repo.getRun(scope, turnId)).toMatchObject({ status: 'failed' });
   });
@@ -258,7 +276,7 @@ describe('ChatTurnService', () => {
   it('is NOT_FOUND for a thread the owner does not have', async () => {
     const { service, scope } = await setup();
     await expect(
-      service.send(scope, newId(), { turnId: newId(), text: 'x' }),
+      service.send(scope, newId(), { turnId: newId(), text: 'x' }, AUTH),
     ).rejects.toBeInstanceOf(AssistantNotFoundError);
   });
 
@@ -270,11 +288,16 @@ describe('ChatTurnService', () => {
       call('c4', 'ui_navigate', { to: '/app/products' }),
       ANSWER,
     ]);
-    const out = await service.send(scope, thread.id, {
-      turnId: newId(),
-      text: 'Chỉ em với',
-      pageContext: PAGE,
-    });
+    const out = await service.send(
+      scope,
+      thread.id,
+      {
+        turnId: newId(),
+        text: 'Chỉ em với',
+        pageContext: PAGE,
+      },
+      AUTH,
+    );
     expect(out.messages.at(-1)?.uiActions).toEqual([
       { type: 'navigate', to: '/app/products' },
       { type: 'spotlight', target: 'overview.help', hint: 'Xem trợ giúp' },
@@ -284,28 +307,43 @@ describe('ChatTurnService', () => {
   it('stores no UI actions when the turn did not answer', async () => {
     // The model failed after a navigation.
     const failed = await setup([NAVIGATE, new Error('provider down')]);
-    const a = await failed.service.send(failed.scope, failed.thread.id, {
-      turnId: newId(),
-      text: 'Mở sản phẩm',
-    });
+    const a = await failed.service.send(
+      failed.scope,
+      failed.thread.id,
+      {
+        turnId: newId(),
+        text: 'Mở sản phẩm',
+      },
+      AUTH,
+    );
     expect(a.run).toMatchObject({ status: 'failed', guardrail: 'model_error' });
     expect(a.messages.at(-1)).toMatchObject({ content: FALLBACK_REPLY, uiActions: [] });
 
     // The loop hit the round limit.
     const loop = await setup(Array.from({ length: 30 }, () => NAVIGATE));
-    const b = await loop.service.send(loop.scope, loop.thread.id, {
-      turnId: newId(),
-      text: 'Mở mãi',
-    });
+    const b = await loop.service.send(
+      loop.scope,
+      loop.thread.id,
+      {
+        turnId: newId(),
+        text: 'Mở mãi',
+      },
+      AUTH,
+    );
     expect(b.run).toMatchObject({ outcome: 'limit' });
     expect(b.messages.at(-1)).toMatchObject({ content: FALLBACK_REPLY, uiActions: [] });
 
     // Done, but with an empty answer.
     const empty = await setup([NAVIGATE, reply({ text: ' ' })]);
-    const c = await empty.service.send(empty.scope, empty.thread.id, {
-      turnId: newId(),
-      text: 'Mở sản phẩm',
-    });
+    const c = await empty.service.send(
+      empty.scope,
+      empty.thread.id,
+      {
+        turnId: newId(),
+        text: 'Mở sản phẩm',
+      },
+      AUTH,
+    );
     expect(c.run).toMatchObject({ outcome: 'done' });
     expect(c.messages.at(-1)).toMatchObject({ content: FALLBACK_REPLY, uiActions: [] });
   });
@@ -317,15 +355,17 @@ describe('ChatTurnService', () => {
       () => new Promise<GenerateResponse>((resolve) => (release = resolve)),
     );
     const turnId = newId();
-    const first = service.send(scope, thread.id, { turnId, text: 'Một' });
+    const first = service.send(scope, thread.id, { turnId, text: 'Một' }, AUTH);
     await vi.waitFor(() => expect(generate).toHaveBeenCalledTimes(1));
-    await expect(service.send(scope, thread.id, { turnId, text: 'Một' })).rejects.toBeInstanceOf(
-      AssistantBusyError,
-    );
+    await expect(
+      service.send(scope, thread.id, { turnId, text: 'Một' }, AUTH),
+    ).rejects.toBeInstanceOf(AssistantBusyError);
     release(ANSWER);
     expect((await first).run.status).toBe('done');
     // Once finished, the same turn id replays the result.
-    expect((await service.send(scope, thread.id, { turnId, text: 'Một' })).run.status).toBe('done');
+    expect((await service.send(scope, thread.id, { turnId, text: 'Một' }, AUTH)).run.status).toBe(
+      'done',
+    );
   });
 
   it(`sends the model at most the last ${HISTORY_MAX_MESSAGES} messages, starting at a user message`, async () => {
@@ -353,7 +393,7 @@ describe('ChatTurnService', () => {
     ]).flat();
     await repo.appendMessages(scope, thread.id, rows);
     generate.mockClear();
-    await service.send(scope, thread.id, { turnId: newId(), text: 'Câu mới' });
+    await service.send(scope, thread.id, { turnId: newId(), text: 'Câu mới' }, AUTH);
     const sent = generate.mock.calls[0]![0].messages;
     expect(sent[0]).toEqual({ role: 'system', content: 'SYSTEM PROMPT' });
     const history = sent.slice(1);
@@ -377,7 +417,7 @@ describe('ChatTurnService', () => {
         t += 40_000;
         return Promise.resolve(generate.mock.calls.length < 3 ? NAVIGATE : ANSWER);
       });
-      await service.send(scope, thread.id, { turnId: newId(), text: 'Mở sản phẩm' });
+      await service.send(scope, thread.id, { turnId: newId(), text: 'Mở sản phẩm' }, AUTH);
       const tools = (await repo.listMessages(scope, thread.id)).filter((m) => m.role === 'tool');
       expect(tools.at(-1)?.content).toMatch(new RegExp(`${OWNER_WRAP_UP_NOTICE}$`));
       expect(OWNER_WRAP_UP_NOTICE).toMatch(/owner/);
@@ -385,5 +425,39 @@ describe('ChatTurnService', () => {
     } finally {
       now.mockRestore();
     }
+  });
+
+  it('reads through route tools with the owner’s token and turns writes into proposals', async () => {
+    const product = { code: 'AO-1', name: 'Áo thun', variants: [{ sku: 'AO-1-M', price: 1 }] };
+    const { service, scope, thread, repo, invoke } = await setup([
+      call('c1', 'tool_call', { key: 'GET /products', query: { q: 'áo' } }),
+      call('c2', 'tool_call', { key: 'POST /products', body: product, summary: 'Thêm Áo thun' }),
+      reply({ text: 'Dạ em đã soạn đề xuất, anh/chị bấm Áp dụng nhé' }),
+    ]);
+    invoke.mockResolvedValue({ status: 200, body: { data: [] } });
+    const turnId = newId();
+    const out = await service.send(scope, thread.id, { turnId, text: 'Thêm áo thun' }, AUTH);
+
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(invoke.mock.calls[0]?.[0]).toMatchObject({
+      method: 'get',
+      path: '/products',
+      authorization: AUTH,
+      businessId: scope.businessId,
+    });
+    const proposals = await repo.listProposals(scope, thread.id);
+    expect(proposals).toMatchObject([
+      { status: 'pending', runId: turnId, routeKey: 'POST /products', summary: 'Thêm Áo thun' },
+    ]);
+    // The answer carries no proposal field; the web reads proposals per thread.
+    expect(toMessageDtos(out.messages).at(-1)).toMatchObject({
+      role: 'assistant',
+      content: 'Dạ em đã soạn đề xuất, anh/chị bấm Áp dụng nhé',
+      uiActions: [],
+    });
+    // The token never reaches a stored message or step.
+    const stored = await repo.listMessages(scope, thread.id);
+    expect(JSON.stringify(stored)).not.toContain('owner-token');
+    expect(JSON.stringify(out.run)).not.toContain('owner-token');
   });
 });

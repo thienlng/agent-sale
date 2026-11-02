@@ -1,23 +1,31 @@
-import { PRUNED_TOOL_TEXT } from '@agent-sales/ai-core';
+import {
+  PRUNED_TOOL_TEXT,
+  type GenerateRequest,
+  type GenerateResponse,
+} from '@agent-sales/ai-core';
 import {
   AssistantMemoryDto,
   AssistantMessageList,
+  AssistantProposalDto,
+  AssistantProposalList,
   AssistantRunDto,
   AssistantThreadDto,
   AssistantThreadList,
   AuthResponse,
   BootstrapResponse,
   CreatedInvitation,
+  ProductListResponse,
   SendAssistantMessageResponse,
 } from '@agent-sales/contracts';
 import { createDb, ensureLoginRoles, eq, migrate, schema, withCredentials } from '@agent-sales/db';
 import { newId, userId, workspaceId } from '@agent-sales/shared';
 import { startTestPostgres, type TestPostgres } from '@agent-sales/testing';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
 import { createHttpApp } from '../src/bootstrap.js';
+import { AI_LLM_GATEWAY, type LlmGatewayPort } from '../src/modules/ai/api/index.js';
 import {
   AssistantNotFoundError,
   AssistantRunIdTakenError,
@@ -772,5 +780,175 @@ describe('assistant memory, proposals and compaction on Postgres (1b)', () => {
     await expect(repo().markCompactionFailed(other.scope, thread.id, at)).rejects.toBeInstanceOf(
       AssistantNotFoundError,
     );
+  });
+});
+
+describe('assistant route tools and proposals on Postgres (1b)', () => {
+  const answer = (over: Partial<GenerateResponse>): GenerateResponse => ({
+    text: '',
+    toolCalls: [],
+    stopReason: 'end',
+    usage: { inputTokens: 10, outputTokens: 5, cachedInputTokens: 0 },
+    provider: 'fake',
+    model: 'fake-pro',
+    latencyMs: 1,
+    ...over,
+  });
+  const toolCall = (id: string, input: unknown) =>
+    answer({ stopReason: 'tool_use', toolCalls: [{ id, name: 'tool_call', input }] });
+  const product = (code: string, name: string) => ({
+    code,
+    name,
+    variants: [{ sku: `${code}-M`, price: 150_000 }],
+  });
+
+  /** One turn where the (fake) model answers from `script`, in order. */
+  async function turn(u: User, threadId: string, text: string, script: GenerateResponse[]) {
+    const gateway = app.get<LlmGatewayPort>(AI_LLM_GATEWAY, { strict: false });
+    const queue = [...script];
+    const spy = vi
+      .spyOn(gateway, 'generate')
+      .mockImplementation((_r: GenerateRequest) =>
+        Promise.resolve(queue.shift() ?? answer({ text: 'Dạ xong ạ' })),
+      );
+    try {
+      const res = await call(u.h, 'POST', `/assistant/threads/${threadId}/messages`, {
+        turnId: newId(),
+        text,
+        pageContext: { route: '/app/products' },
+      });
+      expect(res.statusCode, res.body).toBe(200);
+      return SendAssistantMessageResponse.parse(res.json());
+    } finally {
+      spy.mockRestore();
+    }
+  }
+
+  it('reads through real auth, proposes a write, and runs it only on approval', async () => {
+    const mai = await user('route-tools@assistant.vn', 'Mai');
+    const created = await call(mai.h, 'POST', '/products', product('AO-1', 'Áo thun trắng'));
+    expect(created.statusCode, created.body).toBe(201);
+    const thread = AssistantThreadDto.parse(
+      (await call(mai.h, 'POST', '/assistant/threads', {})).json(),
+    );
+
+    const out = await turn(mai, thread.id, 'Shop có áo gì?', [
+      toolCall('c1', { key: 'GET /products', query: { q: 'Áo' } }),
+      answer({ text: 'Dạ shop có Áo thun trắng ạ' }),
+    ]);
+    expect(out.messages.at(-1)?.content).toBe('Dạ shop có Áo thun trắng ạ');
+    const repo = app.get<AssistantRepository>(ASSISTANT_REPOSITORY);
+    const scope: OwnerScope = {
+      accountId: await accountOf(mai.ownWorkspace),
+      ownerUserId: userId(mai.userId),
+      businessId: workspaceId(mai.ownWorkspace),
+      businessIds: [workspaceId(mai.ownWorkspace)],
+    };
+    const toolRows = (await repo.listMessages(scope, thread.id)).filter((m) => m.role === 'tool');
+    expect(toolRows).toHaveLength(1);
+    const read = JSON.parse(toolRows[0]?.content ?? '{}') as { status: number; body: unknown };
+    expect(read.status).toBe(200);
+    expect(ProductListResponse.parse(read.body).data.map((p) => p.name)).toEqual(['Áo thun trắng']);
+
+    // A write only makes a pending proposal; nothing changed yet.
+    await turn(mai, thread.id, 'Thêm áo khoác', [
+      toolCall('c2', {
+        key: 'POST /products',
+        body: product('AK-1', 'Áo khoác gió'),
+        summary: 'Thêm sản phẩm Áo khoác gió giá 150.000đ',
+      }),
+      answer({ text: 'Dạ anh/chị bấm Áp dụng giúp em nhé' }),
+    ]);
+    const listed = await call(mai.h, 'GET', `/assistant/threads/${thread.id}/proposals`);
+    expect(listed.statusCode, listed.body).toBe(200);
+    const [pending] = AssistantProposalList.parse(listed.json()).items;
+    expect(pending).toMatchObject({
+      status: 'pending',
+      routeKey: 'POST /products',
+      businessId: mai.ownWorkspace,
+      summary: 'Thêm sản phẩm Áo khoác gió giá 150.000đ',
+    });
+    const names = async () =>
+      ProductListResponse.parse((await call(mai.h, 'GET', '/products')).json()).data.map(
+        (p) => p.name,
+      );
+    expect(await names()).toEqual(['Áo thun trắng']);
+    // The bearer token is stored nowhere.
+    const [row] = await owner.db
+      .select()
+      .from(schema.assistantProposals)
+      .where(eq(schema.assistantProposals.id, pending?.id ?? ''));
+    expect(JSON.stringify(row)).not.toContain(mai.h.authorization?.slice(7) ?? 'x');
+
+    const approved = await call(mai.h, 'POST', `/assistant/proposals/${pending?.id}/approve`);
+    expect(approved.statusCode, approved.body).toBe(200);
+    expect(AssistantProposalDto.parse(approved.json())).toMatchObject({
+      status: 'done',
+      errorCode: null,
+    });
+    expect((await names()).sort()).toEqual(['Áo khoác gió', 'Áo thun trắng']);
+    const again = await call(mai.h, 'POST', `/assistant/proposals/${pending?.id}/approve`);
+    expect(again.statusCode).toBe(409);
+    expect(again.json().error).toMatchObject({ details: { reason: 'proposal_not_pending' } });
+    const visible = AssistantMessageList.parse(
+      (await call(mai.h, 'GET', `/assistant/threads/${thread.id}/messages`)).json(),
+    );
+    expect(visible.data.at(-1)).toMatchObject({
+      role: 'event',
+      content: 'Đã áp dụng: Thêm sản phẩm Áo khoác gió giá 150.000đ',
+    });
+  });
+
+  it('rejects a proposal, and refuses staff on every proposal route', async () => {
+    const hoa = await user('route-reject@assistant.vn', 'Hoa');
+    const thread = AssistantThreadDto.parse(
+      (await call(hoa.h, 'POST', '/assistant/threads', {})).json(),
+    );
+    await turn(hoa, thread.id, 'Thêm quần', [
+      toolCall('c1', {
+        key: 'POST /products',
+        body: product('Q-1', 'Quần jean'),
+        summary: 'Thêm sản phẩm Quần jean',
+      }),
+    ]);
+    const [proposal] = AssistantProposalList.parse(
+      (await call(hoa.h, 'GET', `/assistant/threads/${thread.id}/proposals`)).json(),
+    ).items;
+    expect(proposal?.status).toBe('pending');
+
+    const staff = await user('route-staff@assistant.vn', 'Staff');
+    await invite(hoa, staff, 'route-staff@assistant.vn', 'admin');
+    const asStaff = staff.in(hoa.ownWorkspace);
+    expect(
+      (await call(asStaff, 'GET', `/assistant/threads/${thread.id}/proposals`)).statusCode,
+    ).toBe(403);
+    expect(
+      (await call(asStaff, 'POST', `/assistant/proposals/${proposal?.id}/approve`)).statusCode,
+    ).toBe(403);
+    expect(
+      (await call(asStaff, 'POST', `/assistant/proposals/${proposal?.id}/reject`)).statusCode,
+    ).toBe(403);
+
+    const rejected = await call(hoa.h, 'POST', `/assistant/proposals/${proposal?.id}/reject`);
+    expect(rejected.statusCode, rejected.body).toBe(200);
+    expect(AssistantProposalDto.parse(rejected.json()).status).toBe('rejected');
+    expect(
+      (await call(hoa.h, 'POST', `/assistant/proposals/${proposal?.id}/approve`)).statusCode,
+    ).toBe(409);
+    expect(ProductListResponse.parse((await call(hoa.h, 'GET', '/products')).json()).data).toEqual(
+      [],
+    );
+    const visible = AssistantMessageList.parse(
+      (await call(hoa.h, 'GET', `/assistant/threads/${thread.id}/messages`)).json(),
+    );
+    expect(visible.data.at(-1)).toMatchObject({
+      role: 'event',
+      content: 'Anh/chị đã bỏ: Thêm sản phẩm Quần jean',
+    });
+    // Another account never sees the proposal.
+    const other = await user('route-other@assistant.vn', 'Other');
+    expect(
+      (await call(other.h, 'POST', `/assistant/proposals/${proposal?.id}/approve`)).statusCode,
+    ).toBe(404);
   });
 });

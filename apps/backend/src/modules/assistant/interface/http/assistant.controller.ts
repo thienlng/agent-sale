@@ -5,6 +5,8 @@ import {
   UpdateAssistantThreadRequest,
   type AssistantMemoryDto,
   type AssistantMessageList,
+  type AssistantProposalDto,
+  type AssistantProposalList,
   type AssistantRunDto,
   type AssistantThreadDto,
   type AssistantThreadList,
@@ -16,6 +18,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpCode,
   Inject,
   Param,
@@ -97,8 +100,41 @@ export class AssistantController {
     @CurrentWorkspace() ws: WorkspaceId,
     @Param('threadId') threadId: string,
     @Body(new ZodValidationPipe(SendAssistantMessageRequest)) body: SendAssistantMessageRequest,
+    @Headers('authorization') authorization: string,
   ): Promise<SendAssistantMessageResponse> {
-    return this.facade.sendMessage(actor(user, ws), threadId, body);
+    // The caller's own bearer token, for route tools during this turn only (ruling 1b-R2).
+    return this.facade.sendMessage(actor(user, ws), threadId, body, authorization);
+  }
+
+  @Get('threads/:threadId/proposals')
+  listProposals(
+    @CurrentUser() user: AuthState,
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Param('threadId') threadId: string,
+  ): Promise<AssistantProposalList> {
+    return this.facade.listProposals(actor(user, ws), threadId);
+  }
+
+  @Post('proposals/:proposalId/approve')
+  @HttpCode(200)
+  approveProposal(
+    @CurrentUser() user: AuthState,
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Param('proposalId') proposalId: string,
+    @Headers('authorization') authorization: string,
+  ): Promise<AssistantProposalDto> {
+    // Runs with the approver's own session, never a stored one.
+    return this.facade.approveProposal(actor(user, ws), proposalId, authorization);
+  }
+
+  @Post('proposals/:proposalId/reject')
+  @HttpCode(200)
+  rejectProposal(
+    @CurrentUser() user: AuthState,
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Param('proposalId') proposalId: string,
+  ): Promise<AssistantProposalDto> {
+    return this.facade.rejectProposal(actor(user, ws), proposalId);
   }
 
   @Get('runs/:runId')

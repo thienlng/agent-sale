@@ -24,10 +24,13 @@ import {
   type RunRecord,
   type StepRecord,
 } from '../domain/ports/assistant.repository.js';
+import { ROUTE_INVOKER, type RouteInvoker } from '../domain/ports/route-invoker.port.js';
 import { CORE_TOOL_DEFINITIONS, coreTools, type ToolContext } from './core-tools.js';
 import { isVisibleMessage } from './mappers.js';
 import { MEMORY_TOOL_DEFINITION, memoryTool } from './memory-tools.js';
 import { buildTurnMessage } from './prompt-builder.js';
+import { ROUTE_CATALOG, type RouteCatalog } from './route-catalog.js';
+import { ROUTE_TOOL_DEFINITIONS, routeTools } from './route-tools.js';
 import { SKILL_TOOL_DEFINITIONS, SkillCatalog, skillTools } from './skill-tools.js';
 
 /** The assistant answers on the `pro` tier (ADR-022). */
@@ -51,6 +54,7 @@ export const TURN_TOOL_DEFINITIONS = [
   ...CORE_TOOL_DEFINITIONS,
   MEMORY_TOOL_DEFINITION,
   ...SKILL_TOOL_DEFINITIONS,
+  ...ROUTE_TOOL_DEFINITIONS,
 ].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 
 export interface TurnResult {
@@ -142,8 +146,9 @@ const errorClass = (e: unknown): string => (e instanceof Error ? e.name : typeof
 /**
  * One chat turn of the owner assistant: start the run (one at a time per owner, idempotent by
  * the client `turnId`), store the owner's message, run the shared agent loop on the `pro` tier
- * with the core, memory and skill tools, store the tool exchange and the answer, and finish the run with its
- * usage. Steps are written as they happen so `GET /assistant/runs/{id}` shows progress.
+ * with the core, memory, skill and route tools, store the tool exchange and the answer, and finish
+ * the run with its usage. Route tools read with the owner's own `authorization` (memory only);
+ * writes become proposals. Steps are written as they happen so `GET /assistant/runs/{id}` shows progress.
  */
 @Injectable()
 export class ChatTurnService {
@@ -153,12 +158,17 @@ export class ChatTurnService {
     @Inject(ASSISTANT_REPOSITORY) private readonly repo: AssistantRepository,
     @Inject(AI_LLM_GATEWAY) private readonly gateway: LlmGatewayPort,
     @Inject(SkillCatalog) private readonly skills: SkillCatalog,
+    @Inject(ROUTE_INVOKER) private readonly invoker: RouteInvoker,
   ) {}
+
+  /** The routes the assistant may use; tests replace it. */
+  catalog: RouteCatalog = ROUTE_CATALOG;
 
   async send(
     scope: OwnerScope,
     threadId: string,
     req: SendAssistantMessageRequest,
+    authorization: string,
   ): Promise<TurnResult> {
     const thread = await this.repo.getThread(scope, threadId);
     if (!thread) throw new AssistantNotFoundError('thread', threadId);
@@ -172,7 +182,7 @@ export class ChatTurnService {
     if (started === 'busy') throw new AssistantBusyError();
     if (started === 'duplicate') return this.#replay(scope, threadId, req.turnId);
     try {
-      return await this.#answer(scope, thread, req);
+      return await this.#answer(scope, thread, req, authorization);
     } catch (error) {
       await this.repo
         .finishRun(scope, req.turnId, { status: 'failed', finishedAt: new Date() })
@@ -200,6 +210,7 @@ export class ChatTurnService {
     scope: OwnerScope,
     thread: { id: string; title: string; systemPrompt: string },
     req: SendAssistantMessageRequest,
+    authorization: string,
   ): Promise<TurnResult> {
     const runId = req.turnId;
     const [user] = await this.repo.appendMessages(scope, thread.id, [
@@ -223,6 +234,8 @@ export class ChatTurnService {
       uiActions: [],
       ...(req.pageContext ? { page: req.pageContext } : {}),
     };
+    // The turn's proposals; the web reads them per thread, so the answer carries no field.
+    const proposalIds: string[] = [];
     const pending: Promise<void>[] = [];
     let idx = 0;
     let result: AgentLoopResult | undefined;
@@ -241,6 +254,17 @@ export class ChatTurnService {
           ...coreTools(ctx),
           memoryTool({ scope, repo: this.repo }),
           ...skillTools(this.skills),
+          ...routeTools({
+            scope,
+            repo: this.repo,
+            invoker: this.invoker,
+            catalog: this.catalog,
+            authorization,
+            threadId: thread.id,
+            runId,
+            proposalIds,
+            ...(req.pageContext ? { page: req.pageContext } : {}),
+          }),
         ],
         generate: (r) => this.gateway.generate(r),
         maxRounds: TURN_MAX_ROUNDS,

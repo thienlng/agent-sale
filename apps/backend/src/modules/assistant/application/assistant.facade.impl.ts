@@ -1,6 +1,8 @@
 import type {
   AssistantMemoryDto,
   AssistantMessageList,
+  AssistantProposalDto,
+  AssistantProposalList,
   AssistantRunDto,
   AssistantThreadDto,
   AssistantThreadList,
@@ -33,6 +35,7 @@ import {
 import { ChatTurnService } from './chat-turn.service.js';
 import { toMessageDtos, toRunDto, toThreadDto } from './mappers.js';
 import { type OwnerScope, resolveOwnerScope } from './owner-access.js';
+import { ProposalService } from './proposals.service.js';
 import { ASSISTANT_PROMPT, buildSystemPrompt, loadAssistantTemplate } from './prompt-builder.js';
 import { SkillCatalog } from './skill-tools.js';
 
@@ -54,6 +57,7 @@ export class AssistantFacadeImpl implements AssistantFacade {
     @Inject(ASSISTANT_REPOSITORY) private readonly repo: AssistantRepository,
     @Inject(ChatTurnService) private readonly chat: ChatTurnService,
     @Inject(SkillCatalog) private readonly skills: SkillCatalog,
+    @Inject(ProposalService) private readonly proposals: ProposalService,
   ) {}
 
   #scope(actor: AssistantActor): Promise<OwnerScope> {
@@ -136,9 +140,10 @@ export class AssistantFacadeImpl implements AssistantFacade {
     actor: AssistantActor,
     threadId: string,
     input: SendAssistantMessageRequest,
+    authorization: string,
   ): Promise<SendAssistantMessageResponse> {
     const scope = await this.#scope(actor);
-    const turn = await this.chat.send(scope, knownId('thread', threadId), input);
+    const turn = await this.chat.send(scope, knownId('thread', threadId), input, authorization);
     return { messages: toMessageDtos(turn.messages), run: toRunDto(turn.run) };
   }
 
@@ -147,6 +152,23 @@ export class AssistantFacadeImpl implements AssistantFacade {
     const run = await this.repo.getRun(scope, knownId('run', runId));
     if (!run) throw new AssistantNotFoundError('run', runId);
     return toRunDto(run);
+  }
+
+  async listProposals(actor: AssistantActor, threadId: string): Promise<AssistantProposalList> {
+    const scope = await this.#scope(actor);
+    return { items: await this.proposals.list(scope, threadId) };
+  }
+
+  async approveProposal(
+    actor: AssistantActor,
+    proposalId: string,
+    authorization: string,
+  ): Promise<AssistantProposalDto> {
+    return this.proposals.approve(await this.#scope(actor), proposalId, authorization);
+  }
+
+  async rejectProposal(actor: AssistantActor, proposalId: string): Promise<AssistantProposalDto> {
+    return this.proposals.reject(await this.#scope(actor), proposalId);
   }
 
   async getMemory(actor: AssistantActor): Promise<AssistantMemoryDto> {

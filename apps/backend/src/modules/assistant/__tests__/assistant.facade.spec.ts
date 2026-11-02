@@ -5,13 +5,18 @@ import type { AccountFacade, AccountMembership } from '../../account/api/index.j
 import type { WorkspaceFacade, WorkspaceMembership } from '../../workspace/api/index.js';
 import { AssistantFacadeImpl } from '../application/assistant.facade.impl.js';
 import { ChatTurnService } from '../application/chat-turn.service.js';
+import { ProposalService } from '../application/proposals.service.js';
 import { SkillCatalog } from '../application/skill-tools.js';
 import {
   AssistantBusyError,
   AssistantForbiddenError,
   AssistantNotFoundError,
+  AssistantProposalConflictError,
 } from '../domain/assistant.errors.js';
+import type { RouteInvocation, RouteInvocationResult } from '../domain/ports/route-invoker.port.js';
 import { InMemoryAssistantRepository } from '../infrastructure/persistence/assistant.in-memory-repository.js';
+
+const AUTH = 'Bearer owner-token';
 
 /** One account with one business, and facades that answer like the real ones for it. */
 function ownerWorld() {
@@ -76,10 +81,22 @@ function setup() {
     }),
   );
   const skills = new SkillCatalog([SKILL]);
-  const chat = new ChatTurnService(repo, { generate }, skills);
-  const facade = new AssistantFacadeImpl(world.account, world.workspace, repo, chat, skills);
+  const invoke = vi.fn((_i: RouteInvocation): Promise<RouteInvocationResult> =>
+    Promise.resolve({ status: 200, body: { id: 'p1' } }),
+  );
+  const invoker = { invoke };
+  const chat = new ChatTurnService(repo, { generate }, skills, invoker);
+  const proposals = new ProposalService(repo, invoker);
+  const facade = new AssistantFacadeImpl(
+    world.account,
+    world.workspace,
+    repo,
+    chat,
+    skills,
+    proposals,
+  );
   const me = { userId: world.owner, businessId: world.business };
-  return { ...world, repo, facade, me, generate };
+  return { ...world, repo, facade, me, generate, invoke };
 }
 
 /** Contract test: the public API behaves as MODULE.md promises. */
@@ -176,7 +193,7 @@ describe('AssistantFacade (contract)', () => {
     const { facade, me, generate, addAccountMember, repo, accountId } = setup();
     const t = await facade.createThread({ ...me, ownerName: null }, {});
     const turnId = newId();
-    const out = await facade.sendMessage(me, t.id, { turnId, text: 'Chào em' });
+    const out = await facade.sendMessage(me, t.id, { turnId, text: 'Chào em' }, AUTH);
     expect(out.messages.map((m) => [m.role, m.content])).toEqual([
       ['user', 'Chào em'],
       ['assistant', 'Dạ em chào anh/chị ạ'],
@@ -192,7 +209,7 @@ describe('AssistantFacade (contract)', () => {
         errorCode: null,
       },
     ]);
-    expect(await facade.sendMessage(me, t.id, { turnId, text: 'Chào em' })).toEqual(out);
+    expect(await facade.sendMessage(me, t.id, { turnId, text: 'Chào em' }, AUTH)).toEqual(out);
     expect(generate).toHaveBeenCalledTimes(1);
     expect((await facade.getRun(me, turnId)).status).toBe('done');
 
@@ -210,19 +227,19 @@ describe('AssistantFacade (contract)', () => {
       promptVersion: 'assistant@1',
     });
     await expect(
-      facade.sendMessage(me, t.id, { turnId: newId(), text: 'Nữa' }),
+      facade.sendMessage(me, t.id, { turnId: newId(), text: 'Nữa' }, AUTH),
     ).rejects.toBeInstanceOf(AssistantBusyError);
 
     const billing = { ...me, userId: addAccountMember('billing') };
     await expect(
-      facade.sendMessage(billing, t.id, { turnId: newId(), text: 'x' }),
+      facade.sendMessage(billing, t.id, { turnId: newId(), text: 'x' }, AUTH),
     ).rejects.toBeInstanceOf(AssistantForbiddenError);
     const second = { ...me, userId: addAccountMember('owner') };
     await expect(
-      facade.sendMessage(second, t.id, { turnId: newId(), text: 'x' }),
+      facade.sendMessage(second, t.id, { turnId: newId(), text: 'x' }, AUTH),
     ).rejects.toBeInstanceOf(AssistantNotFoundError);
     await expect(
-      facade.sendMessage(me, 'not-a-uuid', { turnId: newId(), text: 'x' }),
+      facade.sendMessage(me, 'not-a-uuid', { turnId: newId(), text: 'x' }, AUTH),
     ).rejects.toBeInstanceOf(AssistantNotFoundError);
   });
 
@@ -310,5 +327,118 @@ describe('AssistantFacade (contract)', () => {
       { id: newId(), text: 'Nghỉ CN', origin: 'owner', createdAt: '2026-11-01T00:00:00.000Z' },
     ]);
     expect(repo.threads.get(t.id)!.systemPrompt).toBe(prompt);
+  });
+
+  describe('proposals', () => {
+    async function withProposal(over: { expiresAt?: Date; businessId?: string } = {}) {
+      const ctx = setup();
+      const scope = {
+        accountId: ctx.accountId,
+        ownerUserId: ctx.me.userId,
+        businessId: ctx.me.businessId,
+        businessIds: [ctx.me.businessId],
+      };
+      const t = await ctx.facade.createThread({ ...ctx.me, ownerName: null }, {});
+      const p = await ctx.repo.createProposal(scope, {
+        id: newId(),
+        threadId: t.id,
+        runId: null,
+        businessId: over.businessId ?? ctx.me.businessId,
+        routeKey: 'POST /products',
+        path: '/products',
+        query: null,
+        body: { name: 'Áo thun' },
+        summary: 'Thêm sản phẩm Áo thun',
+        preview: { body: { name: 'Áo thun' }, query: null },
+        expiresAt: over.expiresAt ?? new Date(Date.now() + 86_400_000),
+      });
+      return { ...ctx, scope, t, p };
+    }
+
+    it('approves with the approver’s token, records the result and tells the thread', async () => {
+      const { facade, me, p, t, invoke } = await withProposal();
+      const done = await facade.approveProposal(me, p.id, AUTH);
+      expect(done).toMatchObject({ id: p.id, status: 'done', errorCode: null });
+      expect(done.decidedAt).not.toBeNull();
+      expect(invoke).toHaveBeenCalledWith({
+        method: 'post',
+        path: '/products',
+        body: { name: 'Áo thun' },
+        businessId: me.businessId,
+        authorization: AUTH,
+        idempotencyKey: `asst:${p.id}`,
+      });
+      const { data } = await facade.listMessages(me, t.id);
+      expect(data.map((m) => [m.role, m.content])).toEqual([
+        ['event', 'Đã áp dụng: Thêm sản phẩm Áo thun'],
+      ]);
+      // A second approval finds it decided.
+      await expect(facade.approveProposal(me, p.id, AUTH)).rejects.toMatchObject({
+        code: 'CONFLICT',
+        details: { reason: 'proposal_not_pending' },
+      });
+      expect(invoke).toHaveBeenCalledTimes(1);
+      expect((await facade.listProposals(me, t.id)).items.map((x) => x.status)).toEqual(['done']);
+    });
+
+    it('marks a refused execution failed with the HTTP status', async () => {
+      const { facade, me, p, t, invoke } = await withProposal();
+      invoke.mockResolvedValueOnce({ status: 403, body: { error: { code: 'FORBIDDEN' } } });
+      expect(await facade.approveProposal(me, p.id, AUTH)).toMatchObject({
+        status: 'failed',
+        errorCode: 'http_403',
+      });
+      const { data } = await facade.listMessages(me, t.id);
+      expect(data.at(-1)?.content).toBe('Không áp dụng được: Thêm sản phẩm Áo thun (http_403)');
+    });
+
+    it('expires a stale proposal instead of running it', async () => {
+      const { facade, me, p, t, invoke } = await withProposal({
+        expiresAt: new Date(Date.now() - 1000),
+      });
+      const err: unknown = await facade.approveProposal(me, p.id, AUTH).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(AssistantProposalConflictError);
+      expect(err).toMatchObject({ details: { reason: 'proposal_expired' } });
+      expect(invoke).not.toHaveBeenCalled();
+      expect((await facade.listProposals(me, t.id)).items[0]?.status).toBe('expired');
+    });
+
+    it('rejects a pending proposal once, with an event message', async () => {
+      const { facade, me, p, t, invoke } = await withProposal();
+      expect(await facade.rejectProposal(me, p.id)).toMatchObject({ status: 'rejected' });
+      expect(invoke).not.toHaveBeenCalled();
+      const { data } = await facade.listMessages(me, t.id);
+      expect(data.map((m) => m.content)).toEqual(['Anh/chị đã bỏ: Thêm sản phẩm Áo thun']);
+      await expect(facade.rejectProposal(me, p.id)).rejects.toBeInstanceOf(
+        AssistantProposalConflictError,
+      );
+    });
+
+    it('hides proposals of another owner or of a business out of scope', async () => {
+      const outside = await withProposal({ businessId: newId() });
+      await expect(
+        outside.facade.approveProposal(outside.me, outside.p.id, AUTH),
+      ).rejects.toBeInstanceOf(AssistantNotFoundError);
+      expect(outside.invoke).not.toHaveBeenCalled();
+
+      const { facade, me, p, t, addAccountMember } = await withProposal();
+      const second = { ...me, userId: addAccountMember('owner') };
+      await expect(facade.approveProposal(second, p.id, AUTH)).rejects.toBeInstanceOf(
+        AssistantNotFoundError,
+      );
+      await expect(facade.rejectProposal(second, p.id)).rejects.toBeInstanceOf(
+        AssistantNotFoundError,
+      );
+      await expect(facade.listProposals(second, t.id)).rejects.toBeInstanceOf(
+        AssistantNotFoundError,
+      );
+      const billing = { ...me, userId: addAccountMember('billing') };
+      await expect(facade.approveProposal(billing, p.id, AUTH)).rejects.toBeInstanceOf(
+        AssistantForbiddenError,
+      );
+      await expect(facade.approveProposal(me, 'not-a-uuid', AUTH)).rejects.toBeInstanceOf(
+        AssistantNotFoundError,
+      );
+    });
   });
 });

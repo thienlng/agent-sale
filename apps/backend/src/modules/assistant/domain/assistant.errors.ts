@@ -1,9 +1,9 @@
 import { DomainError } from '@agent-sales/shared';
 
-/** A thread, run or memory entry the owner does not have (another owner's rows look absent, never forbidden). */
+/** A thread, run, memory entry or proposal the owner does not have (another owner's rows look absent, never forbidden). */
 export class AssistantNotFoundError extends DomainError {
   readonly code = 'NOT_FOUND';
-  constructor(what: 'thread' | 'run' | 'memory entry', id: string) {
+  constructor(what: 'thread' | 'run' | 'memory entry' | 'proposal', id: string) {
     super(`Assistant ${what} not found`, { id });
   }
 }
@@ -32,5 +32,19 @@ export class AssistantRunIdTakenError extends DomainError {
   readonly code = 'CONFLICT';
   constructor() {
     super('This turn id is already used', { reason: 'turn_id_taken' });
+  }
+}
+
+/**
+ * The proposal cannot be decided: 409 CONFLICT with `details.reason` `proposal_not_pending`
+ * (already approved, rejected or running) or `proposal_expired` (older than its 24 h).
+ */
+export class AssistantProposalConflictError extends DomainError {
+  readonly code = 'CONFLICT';
+  constructor(reason: 'proposal_not_pending' | 'proposal_expired') {
+    super(
+      reason === 'proposal_expired' ? 'This proposal has expired' : 'This proposal is not pending',
+      { reason },
+    );
   }
 }

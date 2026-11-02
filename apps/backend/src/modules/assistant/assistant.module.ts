@@ -8,8 +8,11 @@ import { WorkspaceModule } from '../workspace/workspace.module.js';
 import { ASSISTANT_FACADE } from './api/assistant.facade.js';
 import { AssistantFacadeImpl } from './application/assistant.facade.impl.js';
 import { ChatTurnService } from './application/chat-turn.service.js';
+import { ProposalService } from './application/proposals.service.js';
 import { SkillCatalog } from './application/skill-tools.js';
 import { ASSISTANT_REPOSITORY } from './domain/ports/assistant.repository.js';
+import { ROUTE_INVOKER } from './domain/ports/route-invoker.port.js';
+import { FastifyRouteInvoker } from './infrastructure/http/fastify-route-invoker.js';
 import { DrizzleAssistantRepository } from './infrastructure/persistence/assistant.drizzle-repository.js';
 import { InMemoryAssistantRepository } from './infrastructure/persistence/assistant.in-memory-repository.js';
 import { AssistantController } from './interface/http/assistant.controller.js';
@@ -31,7 +34,10 @@ import { AssistantController } from './interface/http/assistant.controller.js';
     },
     // Platform skills are parsed and linted once at boot; a bad SKILL.md fails the start.
     { provide: SkillCatalog, useFactory: () => SkillCatalog.load() },
+    // Route tools and approved proposals run in process through Fastify inject (spec §6).
+    { provide: ROUTE_INVOKER, useClass: FastifyRouteInvoker },
     ChatTurnService,
+    ProposalService,
     { provide: ASSISTANT_FACADE, useClass: AssistantFacadeImpl },
   ],
   exports: [ASSISTANT_FACADE],

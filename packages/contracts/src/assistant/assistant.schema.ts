@@ -42,7 +42,9 @@ export const AssistantUiAction = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('fill_form'),
     formId: z.string().max(60),
-    values: z.record(z.string().max(60), z.union([z.string().max(4000), z.number()])),
+    values: z
+      .record(z.string().max(60), z.union([z.string().max(4000), z.number()]))
+      .refine((v) => Object.keys(v).length <= 30, { message: 'At most 30 fields' }),
   }),
 ]);
 export type AssistantUiAction = z.infer<typeof AssistantUiAction>;
