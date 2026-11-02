@@ -36,7 +36,7 @@ Techniques (mandatory patterns, enforced in review):
 | Owner assistant chat turn (T-170, 1a) | ≤ 90 s hard budget, ≤ 25 rounds | synchronous request below the proxy read timeout; steps polled once a second (`GET /assistant/runs/{id}`); SSE streaming later |
 | AI reply under burst (degradation mode) | ack + holding message ≤ 1 s; reply ≤ 5 min p95 for standard tier, ≤ 1 min for priority tier | admission controller (§2b); SLO is explicitly a degradation SLO during ad campaigns |
 
-Rules: every list endpoint supports cursor pagination, server-side filter/sort, `fields` selection and `ETag`; every query has an index plan reviewed (`EXPLAIN` attached to the PR for new heavy queries); per-tenant rate limits; response compression; no synchronous third-party calls in request handlers.
+Rules: every list endpoint supports cursor pagination, server-side filter/sort, `fields` selection and `ETag`; every query has an index plan reviewed (`EXPLAIN` attached to the PR for new heavy queries); per-tenant rate limits; response compression; no synchronous third-party calls in request handlers. Exception (T-170, 1a): the owner assistant turn runs synchronously within 90 s, owners only, one turn per owner; it moves off the request with streaming in 1b.
 
 ## 2b. LLM admission control (the real bottleneck)
 

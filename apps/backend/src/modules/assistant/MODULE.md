@@ -16,7 +16,7 @@
 
 **Core tools (`application/core-tools.ts`, results ≤ 8 000 chars):** `session_search({query, limit≤10=3})` over the owner's earlier user/assistant messages; `ui_navigate({to})` only for `/app` or `/app/…` without a `..` segment (ruling R6), else `invalid_path`; `ui_spotlight({target, hint})` only for a target listed in the page context, else `unknown_target`. Both UI tools add to the answer's `uiActions`; none of them changes data.
 
-**Web client:** `apps/web/src/features/assistant` (launcher in `routes/app.tsx`, owners only; panel and `assistant` i18n namespace lazy-loaded; steps polled from `GET /assistant/runs/{runId}` every second while a turn runs; `ui_navigate` re-checked client-side by `safeAppPath`). Not in 1a: proposals and any write tool, route-derived tools, memory, skills, compaction, SSE streaming (spec §18).
+**Web client:** `apps/web/src/features/assistant` (launcher in `routes/app.tsx`, owners only; panel and `assistant` i18n namespace lazy-loaded; steps polled from `GET /assistant/runs/{runId}` every second while a turn runs; `ui_navigate` re-checked client-side by `safeAppPath`). Not in 1a: proposals and any write tool, `ui_fill_form`, route-derived tools, memory, skills, compaction, SSE streaming (spec §18).
 
 **Invariants:**
 
