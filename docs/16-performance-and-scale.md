@@ -34,6 +34,7 @@ Techniques (mandatory patterns, enforced in review):
 | Realtime fan-out | ≤ 50 ms server-side | Redis pub/sub → SSE |
 | AI reply (end-to-end, normal load) | ≤ 8 s p95 | external; streamed only to the website widget (SSE); Messenger/Zalo cannot stream |
 | Shop-bot turn trace write (T-174) | ≤ 5 ms p95 | one insert transaction (one `ai_run_traces` row, ≤ 61 `ai_run_steps` rows) after the `ai_runs` row, before `reply` returns: it delays only the final message (`send_message` output already went out); best-effort, a failure is logged and counted (`ai_trace_write_failures_total`), never thrown |
+| Shop-bot turn trace purge (T-174) | ≤ 20 batches of 5 000 rows per hourly pass | `AiTraceRunner.purgeExpired` in the `agent` process (first pass 5 min after start, a busy flag skips an overlapping tick), `app_system`, under an advisory lock so one replica works at a time; deletes by the `created_at` indexes, never touches `ai_runs` |
 | Owner assistant chat turn (T-170, 1a/1b) | ≤ 90 s hard budget, ≤ 25 rounds, ≤ 40 000 chars of tool output | synchronous request below the proxy read timeout; route tool reads (in-process `inject`) and a compaction at the start of the turn (≤ 30 s, the model keeps ≥ 30 s) run inside the same 90 s; steps polled once a second (`GET /assistant/runs/{id}`); SSE streaming later |
 | AI reply under burst (degradation mode) | ack + holding message ≤ 1 s; reply ≤ 5 min p95 for standard tier, ≤ 1 min for priority tier | admission controller (§2b); SLO is explicitly a degradation SLO during ad campaigns |
 

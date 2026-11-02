@@ -58,6 +58,7 @@ Default roles (custom roles can be created on Pro+ plans):
 - Application secrets in Vault/KMS/Secret Manager, never in the repo or committed env files.
 - Secrets that admins enter in the product (LLM provider API keys today, channel tokens later) are sealed with AES-256-GCM (`SecretBox`, `v1.` format leaves room for key rotation) using `SECRETS_ENCRYPTION_KEY`, which lives outside the database; required in production. APIs never return them — only a 4-character hint.
 - Shop-declared API actions (T-055): the API key/Bearer secret is sealed with `SecretBox`, write-only (`hasSecret`), never sent to the model or written to logs/`action_runs`. Outbound calls go through an SSRF-safe executor (public addresses only, pinned IP, no redirects, 8 s / 256 KB limits) — see [actions.md](actions.md).
+- Owner assistant (T-174): keys an owner pastes into the assistant chat (headers, query/JSON keys, `-u user:pass`, `sk-…`, `Bearer …`, long mixed hex/base64 runs) are replaced by `[secret removed]` before the message is stored or sent to the model. A route body that can carry a secret becomes an assistant `write` only through a narrowed `assistant.body` that rejects it (contract test), so an assistant-drafted API action never holds its secret; the owner types it in the form.
 - Platform admin (`users.is_platform_admin`) is granted only from the CLI (`pnpm --filter @agent-sales/backend platform-admin grant <email>`), checked against the database on every admin request, and admin routes answer 404 to everyone else.
 - Webhooks: verify signatures 100% of the time; reject replays older than 5 minutes when a timestamp is present.
 
@@ -92,6 +93,7 @@ Mandatory events: login/2FA, permission changes/inviting/removing members, conne
 - Send to the LLM only the data needed for the answer; mask national ID numbers/card numbers/passwords if detected.
 - Choose providers/endpoints that **do not use data for training**, with a DPA; publish the list of sub-processors.
 - Never use tenant A's conversation data to improve tenant B's bot.
+- Shop-bot turn traces (T-174, `ai_run_traces` / `ai_run_steps`): forced RLS per workspace, readable only with `bots.manage`, deleted after **30 days**. The customer and reply excerpts (≤ 300 chars) are redacted (phones, e-mails, URLs and secrets replaced); step details are allowlisted ids, counts and codes, never tool arguments, action responses, recipient or guest names, phones or addresses. Logs carry the run id and error class only.
 - State clearly in the policy: where data is processed (Vietnam / abroad), and retention periods.
 - **Do not advertise "end-to-end encryption (E2EE)"** as Preny does — server-side AI must read the content; say it accurately: encryption in transit (TLS) and at rest.
 

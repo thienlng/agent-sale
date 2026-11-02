@@ -4,7 +4,7 @@ import { AiOutcome } from './ai.schema.js';
 
 /**
  * Shop-bot turn traces (T-174): the read side of `ai_run_traces` / `ai_run_steps` for the owner
- * assistant's bot doctor. Spec `2026-11-02-owner-assistant-doctor-design` §5.
+ * assistant's bot doctor. Spec `2026-11-02-owner-assistant-5-design` §5.
  */
 
 /** Query-string booleans arrive as text. */

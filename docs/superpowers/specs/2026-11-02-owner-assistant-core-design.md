@@ -20,7 +20,7 @@ It is harder than the shop bot: the shop bot answers one bounded customer turn. 
 | 2 | Data questions: read-only SQL over a curated view schema, charts | own spec |
 | 3 | Schedules (reports, alerts) and the `notification` module (in-app, email; mobile push later) | own spec (§11 fixes the shape) |
 | 4 | Bulk product import (Excel/CSV + images) | own spec |
-| 5 | Bot doctor (shop-bot turn traces, diagnosis, fix drafts) and API action autofill | own spec |
+| 5 | Bot doctor (shop-bot turn traces, diagnosis, fix drafts) and API action autofill (shipped, see capability 5 spec) | [capability 5 spec](2026-11-02-owner-assistant-5-design.md) |
 | 6 | Shop information and scenario autofill | own spec |
 
 ### Fixed constraints (owner decisions, 2026-11-02)
@@ -163,7 +163,7 @@ One `schedule` tool with actions `create | list | edit | pause | resume | run | 
 - `assistant_runs` + `assistant_run_steps` for every run (§4). Under each answer: "Xem các bước" (tool names, short argument summary, duration, ok/error; no raw secrets).
 - Back-office: per-account tokens, cost, cache-hit %, review outcomes, guardrail counts; OpenTelemetry spans and Langfuse traces for model calls (existing stack).
 - Logs: run id, tool name, error class only — never prompts, messages, memory or arguments (rule 07).
-- The same trace tables' shape (`runs` + `run_steps`) is reused for shop-bot turn traces in capability 5.
+- Shop-bot turn traces (capability 5) follow the same shape in the `ai` module: `ai_run_traces` (one row per `ai_runs` row) and `ai_run_steps` (migration 0062, 30 days), served by `GET /bots/{botId}/turns` and `GET /bots/{botId}/turns/{runId}`.
 
 ## 14. Cost and limits
 

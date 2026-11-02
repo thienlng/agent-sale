@@ -1,9 +1,9 @@
 # Owner assistant capability 5 — bot doctor and API action autofill
 
-- Task: T-174 · Date: 2026-11-02 · Status: draft; rulings taken by the agent while the owner is unavailable (§12)
+- Task: T-174 · Date: 2026-11-02 · Status: shipped (T-174, migration 0062); rulings taken by the agent while the owner is unavailable (§12); what changed while building: §14
 - Parent: [owner assistant core design](2026-11-02-owner-assistant-core-design.md) (§6 proposals, §10 platform skills, §13 "the same `runs` + `run_steps` shape is reused for shop-bot turn traces"), [ADR-023](../../adr/ADR-023-owner-assistant.md)
 - Related: ADR-014 / ADR-015 (shop-bot agent harness), `docs/actions.md`, spec `2026-10-25-bot-api-actions-design.md`
-- Migration: `0062` · One PR, 8 tasks (plan `docs/superpowers/plans/2026-11-02-owner-assistant-5.md`)
+- Migration: `0062` · One PR, 8 tasks (plan `docs/superpowers/plans/2026-11-02-owner-assistant-doctor.md`)
 
 ## 1. Goal
 
@@ -243,3 +243,17 @@ Recording adds one insert transaction per turn (one trace row, ≤ ~30 step rows
 ## 13. Out of scope
 
 Replaying a turn against a fixed config; a trace viewer page for staff in the inbox; automatic regression evals from diagnosed turns; fetching docs URLs; editing existing actions through the assistant; OpenAPI import of many actions; enabling an action without its secret being blocked server-side (follow-up); storing raw prompts.
+
+## 14. Adjustments made while building
+
+The design above is kept as drafted; the shipped code differs here (T-174, tasks 1–8):
+
+- **File names.** This spec was drafted as `2026-11-02-owner-assistant-doctor-design.md` (migration 0062's header comment still cites that name). `trace-detail.ts` lives in `ai/application/`, not `ai/domain/`: the architecture test bans `@agent-sales/ai-core` in `domain/` and the detail calls `redactSensitive`.
+- **Trace recording** (§4): the 60-step cap writes one `limit` step with error code `trace_steps_dropped`; undelivered counts come from the recorder's `send_message` details; an action's HTTP status is read from the turn's action state. Trace `created_at` is the DB time of the write (the purge key). Query datetimes accept offsets (`+07:00`). With `around`, the cursor is ignored and rows come nearest first. `problemsOnly` ignores the two informational `*_changed_since` signals. Full list: the Task 1–4 report.
+- **Playground link** (§6 step 5): the dashboard has no `/app/bots/{botId}/playground` page; the test chat ("Chat thử") is docked on every bot page. The `bot-doctor` skill navigates to `/app/bots/{botId}` and tells the owner to press "Chat thử".
+- **Route ranking** (§6 step 1): `tool_search` boosts routes of the page's section (1b). A page section can now map to routes under other paths (`route-catalog.ts#SECTION_ROUTES`): `/app/inbox` boosts `/conversations…` and `/bots/{botId}/turns…`, so "why did the bot answer" ranks `GET /bots/{botId}/turns` first on the inbox and on bot pages.
+- **Approval re-validation** (§7.1): a stored body that no longer passes the catalog's (narrowed) body fails the proposal with `invalid_stored_body` and runs nothing; this covers every `write` route, not only actions.
+- **Proposal DTO**: besides `resultId`, `AssistantProposalDto` gains `path` (the concrete path that runs), so the web reads the bot id of a created action without parsing the preview.
+- **Secret guard** (§7.1): the contracts test reads each `write` body's top-level properties through `z.toJSONSchema` (every union variant included) and needs a valid sample per secret-bearing route (`VALID_ASSISTANT_BODIES`); a route without a sample fails with "add a sample". `assistant.body` is allowed only on `write` routes that have a body, and the action routes' rulings are pinned by a test (only `POST /bots/{botId}/actions` is a `write`).
+- **Web hand-off** (§8): features may not import `features/assistant`, so the bubble registers an opener in `apps/web/src/lib/assistant-launch.ts` while it is shown (owners only); the inbox's "Vì sao bot trả lời vậy?" item exists only while that opener is registered. The prefilled question goes into the composer (the owner presses send); `messageAt` rides on that one message's page context. The composer limit follows `ASSISTANT_MESSAGE_MAX` (12 000).
+
