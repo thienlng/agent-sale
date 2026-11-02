@@ -57,7 +57,7 @@ interface Owned {
   accountId: string;
   ownerUserId: string;
 }
-type StoredThread = ThreadRecord & Owned & { origin: 'chat' | 'schedule' | 'review' };
+type StoredThread = ThreadRecord & Owned;
 type StoredMessage = MessageRecord &
   Owned & { active: boolean; compacted: boolean; sortSeq: number };
 type StoredRun = RunRecord & Owned;
@@ -120,7 +120,7 @@ export class InMemoryAssistantRepository implements AssistantRepository {
   }
 
   #publicThread(t: StoredThread): ThreadRecord {
-    const { accountId: _a, ownerUserId: _o, origin: _g, ...rest } = t;
+    const { accountId: _a, ownerUserId: _o, ...rest } = t;
     return structuredClone(rest);
   }
 
@@ -159,7 +159,7 @@ export class InMemoryAssistantRepository implements AssistantRepository {
     return rows.map((t) => this.#publicThread(t));
   }
 
-  async getThread(s: OwnerScope, threadId: string): Promise<ThreadRecord | null> {
+  async getThread(s: OwnerKey, threadId: string): Promise<ThreadRecord | null> {
     const t = this.threads.get(threadId);
     return t && mine(s, t) ? this.#publicThread(t) : null;
   }
@@ -819,6 +819,7 @@ export class InMemoryAssistantRepository implements AssistantRepository {
     if (queued) {
       queued.runAfter = j.runAfter;
       queued.reviewScope = j.reviewScope;
+      queued.createdAt = this.#now();
       return structuredClone(queued);
     }
     if (this.jobs.has(j.id)) throw new Error('assistant job id already used');
@@ -879,6 +880,33 @@ export class InMemoryAssistantRepository implements AssistantRepository {
     x.errorCode = outcome.errorCode ?? null;
     x.finishedAt = this.#now();
     x.leaseUntil = null;
+    return true;
+  }
+
+  async retryJob(
+    s: OwnerKey,
+    job: { id: string; attempts: number },
+    retry: { runAfter: Date; errorCode: string },
+  ): Promise<boolean> {
+    const x = this.jobs.get(job.id);
+    if (!x || !mine(s, x) || x.status !== 'running' || x.attempts !== job.attempts) return false;
+    const sibling = [...this.jobs.values()].some(
+      (y) =>
+        y !== x &&
+        mine(s, y) &&
+        y.status === 'queued' &&
+        y.kind === x.kind &&
+        y.threadId === x.threadId,
+    );
+    x.errorCode = retry.errorCode;
+    x.leaseUntil = null;
+    if (sibling) {
+      x.status = 'failed';
+      x.finishedAt = this.#now();
+    } else {
+      x.status = 'queued';
+      x.runAfter = retry.runAfter;
+    }
     return true;
   }
 

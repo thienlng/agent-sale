@@ -1,4 +1,6 @@
 import type {
+  AssistantLearningFeed,
+  AssistantLearningQuery,
   AssistantMemoryDto,
   AssistantMessageList,
   AssistantProposalDto,
@@ -68,6 +70,12 @@ export interface AssistantFacade {
     store: string,
     entryId: string,
   ): Promise<AssistantMemoryDto>;
+  /**
+   * What the background review and the curator learned in the last `days` days (ruling 1c-R2):
+   * skill ledger rows and memory entries with origin `review`, newest first, at most 20, each
+   * with its undo handle.
+   */
+  getLearning(actor: AssistantActor, query: AssistantLearningQuery): Promise<AssistantLearningFeed>;
   /** The thread's proposals, oldest first; stale pending ones expire first. */
   listProposals(actor: AssistantActor, threadId: string): Promise<AssistantProposalList>;
   /**

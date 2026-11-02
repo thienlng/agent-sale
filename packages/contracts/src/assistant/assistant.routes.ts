@@ -1,5 +1,7 @@
 import { defineRoutes } from '../common/routes.js';
 import {
+  AssistantLearningFeed,
+  AssistantLearningQuery,
   AssistantMemoryDto,
   AssistantMessageList,
   AssistantProposalDto,
@@ -80,6 +82,16 @@ export const assistantRoutes = defineRoutes([
     assistant: { use: 'never' },
     summary: 'What the assistant remembers about the caller: every store with its limit and use',
     responses: { 200: AssistantMemoryDto },
+  },
+  {
+    ...scoped,
+    method: 'get',
+    path: '/assistant/learning',
+    assistant: { use: 'never' },
+    summary:
+      'What the background review and the curator learned lately (skill changes, memory entries), newest first, each with its undo handle',
+    query: AssistantLearningQuery,
+    responses: { 200: AssistantLearningFeed },
   },
   {
     ...scoped,

@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import { assistantRoutes } from './assistant.routes.js';
 import {
+  AssistantLearningFeed,
+  AssistantLearningQuery,
   AssistantMemoryDto,
   AssistantMessageDto,
   AssistantPageContext,
@@ -82,6 +84,7 @@ describe('assistantRoutes', () => {
       'post /assistant/threads/{threadId}/messages',
       'get /assistant/runs/{runId}',
       'get /assistant/memory',
+      'get /assistant/learning',
       'delete /assistant/memory/{store}/entries/{entryId}',
       'get /assistant/threads/{threadId}/proposals',
       'post /assistant/proposals/{proposalId}/approve',
@@ -228,5 +231,39 @@ describe('skill requests', () => {
     ).toBe(false);
     expect(UpdateAssistantSkillRequest.safeParse({}).success).toBe(false);
     expect(UpdateAssistantSkillRequest.parse({ pinned: true })).toEqual({ pinned: true });
+  });
+});
+
+describe('learning feed', () => {
+  it('defaults to 7 days and caps the window at 30', () => {
+    expect(AssistantLearningQuery.parse({})).toEqual({ days: 7 });
+    expect(AssistantLearningQuery.parse({ days: '3' })).toEqual({ days: 3 });
+    expect(AssistantLearningQuery.safeParse({ days: '31' }).success).toBe(false);
+  });
+
+  it('parses skill and memory items, each with its undo handle', () => {
+    const at = '2026-11-02T00:00:00.000Z';
+    const feed = {
+      items: [
+        {
+          kind: 'skill',
+          actor: 'review',
+          action: 'create',
+          skillEventId: '0192f0c6-0000-7000-8000-000000000001',
+          skillId: '0192f0c6-0000-7000-8000-000000000002',
+          name: 'weekly-revenue',
+          description: 'Báo cáo doanh thu tuần',
+          state: 'pending_approval',
+          undone: false,
+          at,
+        },
+        { kind: 'memory', actor: 'review', store: 'notes', entryId: 'e1', text: 'x', at },
+      ],
+    };
+    expect(AssistantLearningFeed.safeParse(feed).success).toBe(true);
+    expect(
+      AssistantLearningFeed.safeParse({ items: [{ ...feed.items[1], actor: 'assistant' }] })
+        .success,
+    ).toBe(false);
   });
 });

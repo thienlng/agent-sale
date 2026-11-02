@@ -1,4 +1,6 @@
 import type {
+  AssistantLearningFeed,
+  AssistantLearningQuery,
   AssistantMemoryDto,
   AssistantMessageList,
   AssistantProposalDto,
@@ -38,6 +40,7 @@ import {
   type MemoryStoreRecord,
 } from '../domain/ports/assistant.repository.js';
 import { ChatTurnService } from './chat-turn.service.js';
+import { learningFeed } from './learning-feed.js';
 import { toMessageDtos, toRunDto, toThreadDto } from './mappers.js';
 import { accountMemberships, type OwnerScope, resolveOwnerScope } from './owner-access.js';
 import { ProposalService } from './proposals.service.js';
@@ -218,6 +221,14 @@ export class AssistantFacadeImpl implements AssistantFacade {
 
   async undoSkillEvent(actor: AssistantActor, eventId: string): Promise<AssistantSkillDto> {
     return this.skills.undo(await this.#scope(actor), eventId);
+  }
+
+  async getLearning(
+    actor: AssistantActor,
+    query: AssistantLearningQuery,
+  ): Promise<AssistantLearningFeed> {
+    const scope = await this.#scope(actor);
+    return learningFeed(this.repo, scope, query.days);
   }
 
   async getMemory(actor: AssistantActor): Promise<AssistantMemoryDto> {

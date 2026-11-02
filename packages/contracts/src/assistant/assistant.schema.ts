@@ -285,3 +285,55 @@ export type AssistantSkillEventDto = z.infer<typeof AssistantSkillEventDto>;
 /** Newest first. */
 export const AssistantSkillEventList = z.object({ items: z.array(AssistantSkillEventDto) });
 export type AssistantSkillEventList = z.infer<typeof AssistantSkillEventList>;
+
+// ─── Learning feed (1c, ruling 1c-R2) ─────────────────────────────────────────
+
+/** `days` back from now (default 7). */
+export const AssistantLearningQuery = z.object({
+  days: z.coerce.number().int().min(1).max(30).default(7),
+});
+export type AssistantLearningQuery = z.infer<typeof AssistantLearningQuery>;
+
+/**
+ * A skill change the background review or the curator made. Undo:
+ * `POST /assistant/skill-events/{skillEventId}/undo`.
+ */
+export const AssistantLearnedSkillDto = z.object({
+  kind: z.literal('skill'),
+  actor: z.enum(['review', 'curator']),
+  action: AssistantSkillEventDto.shape.action,
+  skillEventId: z.uuid(),
+  skillId: z.uuid(),
+  /** The skill's name and description after the change (before it, for a change with no after). */
+  name: z.string(),
+  description: z.string(),
+  /** The skill's state after the change. */
+  state: AssistantSkillState.nullable(),
+  undone: z.boolean(),
+  at: z.iso.datetime(),
+});
+export type AssistantLearnedSkillDto = z.infer<typeof AssistantLearnedSkillDto>;
+
+/**
+ * A memory entry the background review saved or rewrote. Undo:
+ * `DELETE /assistant/memory/{store}/entries/{entryId}`.
+ */
+export const AssistantLearnedMemoryDto = z.object({
+  kind: z.literal('memory'),
+  actor: z.literal('review'),
+  store: z.string(),
+  entryId: z.string(),
+  text: z.string(),
+  at: z.iso.datetime(),
+});
+export type AssistantLearnedMemoryDto = z.infer<typeof AssistantLearnedMemoryDto>;
+
+export const AssistantLearningItemDto = z.discriminatedUnion('kind', [
+  AssistantLearnedSkillDto,
+  AssistantLearnedMemoryDto,
+]);
+export type AssistantLearningItemDto = z.infer<typeof AssistantLearningItemDto>;
+
+/** "Trợ lý vừa học": newest first, at most 20. */
+export const AssistantLearningFeed = z.object({ items: z.array(AssistantLearningItemDto) });
+export type AssistantLearningFeed = z.infer<typeof AssistantLearningFeed>;

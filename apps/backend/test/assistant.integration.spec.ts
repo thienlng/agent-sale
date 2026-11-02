@@ -4,6 +4,7 @@ import {
   type GenerateResponse,
 } from '@agent-sales/ai-core';
 import {
+  AssistantLearningFeed,
   AssistantMemoryDto,
   AssistantMessageList,
   AssistantProposalDto,
@@ -33,6 +34,7 @@ import {
   AssistantNotFoundError,
   AssistantRunIdTakenError,
 } from '../src/modules/assistant/domain/assistant.errors.js';
+import { ASSISTANT_RUNNER, type AssistantRunner } from '../src/modules/assistant/api/index.js';
 import type { OwnerScope } from '../src/modules/assistant/domain/owner-scope.js';
 import {
   ASSISTANT_REPOSITORY,
@@ -1189,5 +1191,122 @@ describe('assistant skills over HTTP on Postgres (1c)', () => {
     }
     const theirs = AssistantSkillList.parse((await call(vy.h, 'GET', '/assistant/skills')).json());
     expect(theirs.items.every((i) => i.provenance === 'platform')).toBe(true);
+  });
+});
+
+describe('assistant background review over Postgres (1c)', () => {
+  const answer = (over: Partial<GenerateResponse>): GenerateResponse => ({
+    text: '',
+    toolCalls: [],
+    stopReason: 'end',
+    usage: { inputTokens: 10, outputTokens: 5, cachedInputTokens: 0 },
+    provider: 'fake',
+    model: 'fake-pro',
+    latencyMs: 1,
+    ...over,
+  });
+  const tool = (name: string, input: unknown) =>
+    answer({ stopReason: 'tool_use', toolCalls: [{ id: newId(), name, input }] });
+
+  it('runs a queued review in the worker runner and shows what it learned in the feed', async () => {
+    const lan = await user('review@assistant.vn', 'Lan');
+    const thread = AssistantThreadDto.parse(
+      (await call(lan.h, 'POST', '/assistant/threads', {})).json(),
+    );
+    // Three answered turns: the counters call for an idle (combined) review in 30 minutes.
+    for (const text of ['Doanh thu tuần?', 'Sai rồi, chỉ cần con số tổng', 'Cảm ơn em']) {
+      const res = await call(lan.h, 'POST', `/assistant/threads/${thread.id}/messages`, {
+        turnId: newId(),
+        text,
+      });
+      expect(res.statusCode, res.body).toBe(200);
+    }
+    const jobs = await owner.db
+      .select()
+      .from(schema.assistantJobs)
+      .where(eq(schema.assistantJobs.threadId, thread.id));
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0]).toMatchObject({ kind: 'review', reviewScope: 'combined', status: 'queued' });
+    // Only this job is due: other tests' queued jobs are moved out of the way.
+    await owner.db
+      .update(schema.assistantJobs)
+      .set({ status: 'cancelled' })
+      .where(eq(schema.assistantJobs.status, 'queued'));
+    await owner.db
+      .update(schema.assistantJobs)
+      .set({ status: 'queued', runAfter: new Date(Date.now() - 1000) })
+      .where(eq(schema.assistantJobs.id, jobs[0]!.id));
+
+    const gateway = app.get<LlmGatewayPort>(AI_LLM_GATEWAY, { strict: false });
+    const queue = [
+      tool('memory', { action: 'add', store: 'owner_profile', text: 'Chỉ cần con số tổng' }),
+      tool('skill_manage', {
+        action: 'create',
+        name: 'weekly-revenue',
+        description: 'Báo doanh thu tuần',
+        body: '1. Lấy doanh thu tuần.\n2. Chỉ trả con số tổng.',
+      }),
+      answer({ text: 'Saved.' }),
+    ];
+    const spy = vi
+      .spyOn(gateway, 'generate')
+      .mockImplementation((_r: GenerateRequest) => Promise.resolve(queue.shift() ?? answer({})));
+    try {
+      await app.get<AssistantRunner>(ASSISTANT_RUNNER, { strict: false }).tick();
+    } finally {
+      spy.mockRestore();
+    }
+
+    const [job] = await owner.db
+      .select()
+      .from(schema.assistantJobs)
+      .where(eq(schema.assistantJobs.id, jobs[0]!.id));
+    expect(job).toMatchObject({ status: 'done', attempts: 1 });
+    const runs = await owner.db
+      .select()
+      .from(schema.assistantRuns)
+      .where(eq(schema.assistantRuns.threadId, thread.id));
+    expect(runs.filter((r) => r.kind === 'review')).toEqual([
+      expect.objectContaining({ status: 'done', tier: 'pro', rounds: 3 }),
+    ]);
+    // The review never writes to the transcript.
+    const visible = AssistantMessageList.parse(
+      (await call(lan.h, 'GET', `/assistant/threads/${thread.id}/messages`)).json(),
+    );
+    expect(visible.data).toHaveLength(6);
+
+    const feedRes = await call(lan.h, 'GET', '/assistant/learning?days=7');
+    expect(feedRes.statusCode, feedRes.body).toBe(200);
+    const feed = AssistantLearningFeed.parse(feedRes.json());
+    expect(feed.items.map((i) => i.kind).sort()).toEqual(['memory', 'skill']);
+    const skill = feed.items.find((i) => i.kind === 'skill');
+    const memory = feed.items.find((i) => i.kind === 'memory');
+    expect(skill).toMatchObject({
+      actor: 'review',
+      name: 'weekly-revenue',
+      state: 'pending_approval',
+    });
+
+    // Both undo handles work through the existing routes.
+    if (skill?.kind !== 'skill' || memory?.kind !== 'memory') throw new Error('feed items');
+    const undo = await call(lan.h, 'POST', `/assistant/skill-events/${skill.skillEventId}/undo`);
+    expect(undo.statusCode, undo.body).toBe(200);
+    const forget = await call(
+      lan.h,
+      'DELETE',
+      `/assistant/memory/${memory.store}/entries/${memory.entryId}`,
+    );
+    expect(forget.statusCode, forget.body).toBe(200);
+    const after = AssistantLearningFeed.parse(
+      (await call(lan.h, 'GET', '/assistant/learning')).json(),
+    );
+    expect(after.items.map((i) => (i.kind === 'skill' ? i.undone : i.entryId))).toEqual([true]);
+
+    expect((await call(lan.h, 'GET', '/assistant/learning?days=99')).statusCode).toBe(400);
+    const staff = await user('review-staff@assistant.vn', 'ReviewStaff');
+    await invite(lan, staff, 'review-staff@assistant.vn', 'admin');
+    expect((await call(staff.in(lan.ownWorkspace), 'GET', '/assistant/learning')).statusCode).toBe(
+      403,
+    );
   });
 });

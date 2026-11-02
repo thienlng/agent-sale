@@ -66,6 +66,7 @@ import {
   type StepRecord,
   summarySortSeq,
   THREAD_LIST_LIMIT,
+  type ThreadOrigin,
   type ThreadRecord,
 } from '../../domain/ports/assistant.repository.js';
 import { snippetAround } from '../../domain/search-text.js';
@@ -124,6 +125,7 @@ function toThread(row: typeof t.$inferSelect): ThreadRecord {
   return {
     id: row.id,
     title: row.title,
+    origin: row.origin as ThreadOrigin,
     pinned: row.pinned,
     archived: row.archived,
     businessId: row.businessId,
@@ -395,7 +397,7 @@ export class DrizzleAssistantRepository implements AssistantRepository {
     });
   }
 
-  getThread(s: OwnerScope, threadId: string): Promise<ThreadRecord | null> {
+  getThread(s: OwnerKey, threadId: string): Promise<ThreadRecord | null> {
     return this.#in(s, async (tx) => {
       const [row] = await tx
         .select()
@@ -1213,7 +1215,8 @@ export class DrizzleAssistantRepository implements AssistantRepository {
         values (${j.id}, ${s.accountId}, ${s.ownerUserId}, ${j.threadId}, ${j.kind},
                 ${j.reviewScope}, 'queued', ${j.runAfter.toISOString()}::timestamptz)
         on conflict (account_id, owner_user_id, kind, thread_id) where status = 'queued'
-        do update set run_after = excluded.run_after, review_scope = excluded.review_scope
+        do update set run_after = excluded.run_after, review_scope = excluded.review_scope,
+          created_at = now()
         returning *`);
       const [row] = [...rows];
       if (!row) throw new Error('assistant job upsert returned no row');
@@ -1282,6 +1285,59 @@ export class DrizzleAssistantRepository implements AssistantRepository {
         )
         .returning({ id: jb.id });
       return rows.length > 0;
+    });
+  }
+
+  retryJob(
+    s: OwnerKey,
+    job: { id: string; attempts: number },
+    retry: { runAfter: Date; errorCode: string },
+  ): Promise<boolean> {
+    return this.#in(s, async (tx) => {
+      const [row] = await tx
+        .select({ threadId: jb.threadId, kind: jb.kind })
+        .from(jb)
+        .where(
+          and(
+            eq(jb.id, job.id),
+            ownsJob(s),
+            eq(jb.status, 'running'),
+            eq(jb.attempts, job.attempts),
+          ),
+        )
+        .for('update');
+      if (!row) return false;
+      // The queued-job unique index allows one queued job per owner, thread and kind.
+      const [sibling] = await tx
+        .select({ id: jb.id })
+        .from(jb)
+        .where(
+          and(
+            ownsJob(s),
+            eq(jb.status, 'queued'),
+            eq(jb.kind, row.kind),
+            row.threadId === null ? isNull(jb.threadId) : eq(jb.threadId, row.threadId),
+          ),
+        );
+      await tx
+        .update(jb)
+        .set(
+          sibling
+            ? {
+                status: 'failed',
+                errorCode: retry.errorCode,
+                finishedAt: sql`now()`,
+                leaseUntil: null,
+              }
+            : {
+                status: 'queued',
+                errorCode: retry.errorCode,
+                runAfter: retry.runAfter,
+                leaseUntil: null,
+              },
+        )
+        .where(eq(jb.id, job.id));
+      return true;
     });
   }
 

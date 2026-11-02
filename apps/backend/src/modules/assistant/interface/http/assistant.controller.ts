@@ -1,10 +1,12 @@
 import {
+  AssistantLearningQuery,
   AssistantThreadListQuery,
   CreateAssistantSkillRequest,
   CreateAssistantThreadRequest,
   SendAssistantMessageRequest,
   UpdateAssistantSkillRequest,
   UpdateAssistantThreadRequest,
+  type AssistantLearningFeed,
   type AssistantMemoryDto,
   type AssistantMessageList,
   type AssistantProposalDto,
@@ -156,6 +158,15 @@ export class AssistantController {
     @Param('runId') runId: string,
   ): Promise<AssistantRunDto> {
     return this.facade.getRun(actor(user, ws), runId);
+  }
+
+  @Get('learning')
+  getLearning(
+    @CurrentUser() user: AuthState,
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Query(new ZodValidationPipe(AssistantLearningQuery)) query: AssistantLearningQuery,
+  ): Promise<AssistantLearningFeed> {
+    return this.facade.getLearning(actor(user, ws), query);
   }
 
   @Get('memory')

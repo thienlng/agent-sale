@@ -29,11 +29,12 @@ import { ROUTE_INVOKER, type RouteInvoker } from '../domain/ports/route-invoker.
 import { CompactionService, threadCacheKey } from './compaction.service.js';
 import { CORE_TOOL_DEFINITIONS, coreTools, type ToolContext } from './core-tools.js';
 import { isVisibleMessage } from './mappers.js';
-import { MEMORY_TOOL_DEFINITION, memoryTool } from './memory-tools.js';
+import { MEMORY_TOOL, MEMORY_TOOL_DEFINITION, memoryTool } from './memory-tools.js';
 import { buildTurnMessage } from './prompt-builder.js';
 import { ROUTE_CATALOG, type RouteCatalog } from './route-catalog.js';
 import { ROUTE_TOOL_DEFINITIONS, routeTools } from './route-tools.js';
-import { SKILL_TOOL_DEFINITIONS, skillTools } from './skill-tools.js';
+import { planReview } from './review-trigger.js';
+import { SKILL_MANAGE_TOOL, SKILL_TOOL_DEFINITIONS, skillTools } from './skill-tools.js';
 import { SkillsService } from './skills.service.js';
 import { withTurnOutputBudget } from './turn-budget.js';
 
@@ -362,7 +363,56 @@ export class ChatTurnService {
       model: result.res?.model ?? null,
       finishedAt: new Date(),
     });
+    // Only a turn that answered counts toward the background review (spec §11).
+    if (answered) await this.#scheduleReview(scope, thread, result);
     return this.#result(scope, runId, [user, ...added]);
+  }
+
+  /**
+   * The review triggers (spec §11), after a turn that answered: +1 owner turn and the turn's
+   * tool rounds on the thread's counters; a turn in which the assistant itself wrote memory or a
+   * skill resets them instead. `planReview` then enqueues at most one review job (an existing
+   * queued one is updated, so each turn pushes an idle review back); a review that runs now
+   * resets the counters. Never for schedule threads or when the owner turned review off. A
+   * failure here is logged and never fails the turn.
+   */
+  async #scheduleReview(
+    scope: OwnerScope,
+    thread: ThreadRecord,
+    result: AgentLoopResult,
+  ): Promise<void> {
+    if (thread.origin === 'schedule') return;
+    try {
+      const settings = await this.repo.getSettings(scope);
+      if (!settings.reviewEnabled) return;
+      const wrote = result.steps.some(
+        (s) =>
+          s.kind === 'tool' &&
+          s.ok === true &&
+          (s.name === MEMORY_TOOL || s.name === SKILL_MANAGE_TOOL),
+      );
+      if (wrote) {
+        await this.repo.resetReviewCounters(scope, thread.id);
+        return;
+      }
+      const toolRounds = result.followUps.filter((m) => m.role === 'assistant').length;
+      const counters = await this.repo.bumpReviewCounters(scope, thread.id, {
+        ownerTurns: 1,
+        toolRounds,
+      });
+      const plan = planReview(counters);
+      if (!plan) return;
+      await this.repo.enqueueJob(scope, {
+        id: newId(),
+        threadId: thread.id,
+        kind: 'review',
+        reviewScope: plan.scope,
+        runAfter: new Date(Date.now() + plan.delayMs),
+      });
+      if (plan.delayMs === 0) await this.repo.resetReviewCounters(scope, thread.id);
+    } catch (error) {
+      this.#log.warn(`assistant thread ${thread.id}: review not scheduled (${errorClass(error)})`);
+    }
   }
 
   /** Compacts the thread when due; any failure keeps the full history and the turn goes on. */

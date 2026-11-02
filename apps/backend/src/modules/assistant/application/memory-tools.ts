@@ -4,7 +4,11 @@ import { z } from 'zod';
 
 import { isKnownStore, memoryLimit, memoryUsed } from '../domain/memory-store.js';
 import type { OwnerScope } from '../domain/owner-scope.js';
-import type { AssistantRepository, MemoryEntry } from '../domain/ports/assistant.repository.js';
+import type {
+  AssistantRepository,
+  MemoryEntry,
+  MemoryOrigin,
+} from '../domain/ports/assistant.repository.js';
 
 export const MEMORY_TOOL = 'memory';
 /** After this many failed memory calls in one turn, every further call answers `stop_retrying`. */
@@ -32,6 +36,8 @@ export const MEMORY_TOOL_DEFINITION: ToolDefinition = {
 export interface MemoryToolContext {
   scope: OwnerScope;
   repo: AssistantRepository;
+  /** Who writes: the chat turn (`assistant`, the default) or the background review. */
+  origin?: Extract<MemoryOrigin, 'assistant' | 'review'>;
 }
 
 /** `<` is escaped so a result cannot open or close a prompt tag. */
@@ -55,10 +61,12 @@ type Outcome =
  * The `memory` tool for one turn (spec §10): bounded stores, exact duplicates refused, every
  * new text scanned (`unsafe:<issues>`), `match` must hit exactly one entry. A full store answers
  * `store_full` with the entries and a consolidate hint. After 3 failed calls in the turn the tool
- * answers `stop_retrying`. The text is stored; it never reaches the logs.
+ * answers `stop_retrying`. A new or replaced entry takes the context's `origin` (a replace also
+ * stamps `updatedAt`). The text is stored; it never reaches the logs.
  */
 export function memoryTool(ctx: MemoryToolContext): RunnableTool {
   let failures = 0;
+  const origin = ctx.origin ?? 'assistant';
 
   async function apply(input: z.output<typeof MemoryInput>): Promise<Outcome> {
     const { action, store } = input;
@@ -92,12 +100,10 @@ export function memoryTool(ctx: MemoryToolContext): RunnableTool {
     } else if (!text) {
       return { ok: false, errorCode: 'missing_text' }; // checked above; narrows the type
     } else if (action === 'add') {
-      next = [
-        ...entries,
-        { id: newId(), text, origin: 'assistant', createdAt: new Date().toISOString() },
-      ];
+      next = [...entries, { id: newId(), text, origin, createdAt: new Date().toISOString() }];
     } else {
-      next = entries.map((e) => (e === target ? { ...e, text, origin: 'assistant' } : e));
+      const updatedAt = new Date().toISOString();
+      next = entries.map((e) => (e === target ? { ...e, text, origin, updatedAt } : e));
     }
 
     const used = memoryUsed(next);

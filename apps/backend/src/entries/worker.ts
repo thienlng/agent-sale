@@ -7,6 +7,8 @@ import { configureEnv } from '../common/config.js';
 import { DbModule } from '../common/db/db.module.js';
 import { createLogger, PinoNestLogger } from '../common/logger.js';
 import { ANALYTICS_RUNNER, type AnalyticsRunner } from '../modules/analytics/api/index.js';
+import { ASSISTANT_RUNNER, type AssistantRunner } from '../modules/assistant/api/index.js';
+import { AssistantModule } from '../modules/assistant/assistant.module.js';
 import { AnalyticsModule } from '../modules/analytics/analytics.module.js';
 import { BILLING_RUNNER, type BillingRunner } from '../modules/billing/api/index.js';
 import { BillingModule } from '../modules/billing/billing.module.js';
@@ -31,6 +33,7 @@ import { SaasModule } from '../modules/saas/saas.module.js';
     BillingModule,
     SaasModule,
     DeveloperModule,
+    AssistantModule,
   ],
 })
 class WorkerModule {}
@@ -110,6 +113,19 @@ const webhookTimer = setInterval(() => {
       webhooksBusy = false;
     });
 }, 2000);
+// Owner assistant background jobs (the review): Postgres-leased, up to 3 per tick (ruling 1c-R1).
+const assistant = ctx.get<AssistantRunner>(ASSISTANT_RUNNER);
+let assistantBusy = false;
+const assistantTimer = setInterval(() => {
+  if (assistantBusy) return;
+  assistantBusy = true;
+  void assistant
+    .tick()
+    .catch(() => logger.error('Assistant jobs tick failed'))
+    .finally(() => {
+      assistantBusy = false;
+    });
+}, 15_000);
 let dailyRunning = false;
 const runDaily = () => {
   if (dailyRunning) return;
@@ -132,8 +148,9 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const)
     clearInterval(hqTimer);
     clearInterval(dailyTimer);
     clearInterval(webhookTimer);
+    clearInterval(assistantTimer);
   });
 logger.info(
   { queues },
-  'worker started (analytics projection, PMS sync, billing lifecycle, HQ sync, webhooks; no queue processors registered yet)',
+  'worker started (analytics projection, PMS sync, billing lifecycle, HQ sync, webhooks, assistant jobs; no queue processors registered yet)',
 );

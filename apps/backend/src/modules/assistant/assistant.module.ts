@@ -6,10 +6,13 @@ import { AccountModule } from '../account/account.module.js';
 import { AiModule } from '../ai/ai.module.js';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
 import { ASSISTANT_FACADE } from './api/assistant.facade.js';
+import { ASSISTANT_RUNNER } from './api/assistant.runner.js';
+import { AssistantJobRunner } from './application/assistant-runner.js';
 import { AssistantFacadeImpl } from './application/assistant.facade.impl.js';
 import { ChatTurnService } from './application/chat-turn.service.js';
 import { CompactionService } from './application/compaction.service.js';
 import { ProposalService } from './application/proposals.service.js';
+import { ReviewService } from './application/review.service.js';
 import { SkillCatalog } from './application/skill-catalog.js';
 import { SkillsService } from './application/skills.service.js';
 import { ThreadPromptService } from './application/thread-prompt.service.js';
@@ -23,7 +26,8 @@ import { AssistantController } from './interface/http/assistant.controller.js';
 /**
  * Owner assistant (ADR-023): account-scoped threads of one owner. With a database the
  * repository is Drizzle-backed (`withAccount`); otherwise in-memory. Exports ONLY what api/
- * declares. `AiModule` provides the LLM gateway `ChatTurnService` runs chat turns on.
+ * declares. `AiModule` provides the LLM gateway `ChatTurnService` runs chat turns on and the
+ * worker's review runs on; the worker needs both `DB_TENANT` and `DB_SYSTEM` (job claims).
  */
 @Module({
   imports: [AccountModule, WorkspaceModule, AiModule],
@@ -48,8 +52,12 @@ import { AssistantController } from './interface/http/assistant.controller.js';
     CompactionService,
     ChatTurnService,
     ProposalService,
+    ReviewService,
+    AssistantJobRunner,
     { provide: ASSISTANT_FACADE, useClass: AssistantFacadeImpl },
+    // The worker ticks it: the background review (and later the curator), ruling 1c-R1.
+    { provide: ASSISTANT_RUNNER, useExisting: AssistantJobRunner },
   ],
-  exports: [ASSISTANT_FACADE],
+  exports: [ASSISTANT_FACADE, ASSISTANT_RUNNER],
 })
 export class AssistantModule {}

@@ -9,6 +9,8 @@ export type OwnerKey = Pick<OwnerScope, 'accountId' | 'ownerUserId'>;
 export interface ThreadRecord {
   id: string;
   title: string;
+  /** `chat` = the owner's own thread; `schedule` / `review` threads are made by the system. */
+  origin: ThreadOrigin;
   pinned: boolean;
   archived: boolean;
   businessId: string | null;
@@ -28,6 +30,8 @@ export interface ThreadRecord {
   reviewToolRounds: number;
   lastReviewAt: Date | null;
 }
+
+export type ThreadOrigin = 'chat' | 'schedule' | 'review';
 
 export interface MessageRecord {
   id: string;
@@ -59,8 +63,11 @@ export type NewMessage = Omit<
 export interface RunRecord {
   id: string;
   threadId: string | null;
-  /** `chat` = an owner turn; `compaction` = one summariser call (tier `basic`). */
-  kind: 'chat' | 'compaction';
+  /**
+   * `chat` = an owner turn; `compaction` = one summariser call (tier `basic`); `review` = one
+   * background review (worker, never in the transcript).
+   */
+  kind: 'chat' | 'compaction' | 'review';
   status: 'running' | 'done' | 'failed';
   tier: string;
   provider: string | null;
@@ -112,11 +119,19 @@ export interface SearchHit {
   createdAt: Date;
 }
 
+/**
+ * Who wrote a memory entry: the chat turn (`assistant`), the background review (`review`) or the
+ * owner. Entries saved before 1c have no `review` origin; the learning feed reads `review` ones.
+ */
+export type MemoryOrigin = 'assistant' | 'review' | 'owner';
+
 export interface MemoryEntry {
   id: string;
   text: string;
-  origin: 'assistant' | 'owner';
+  origin: MemoryOrigin;
   createdAt: string;
+  /** Set when the text was replaced (ISO); absent for an entry never changed. */
+  updatedAt?: string;
 }
 
 /** One bounded memory store: `owner_profile`, `notes` or `business:<uuid>`. */
@@ -407,7 +422,8 @@ export const RUN_BUSY_WINDOW_MS = 3 * 60_000;
 export interface AssistantRepository {
   /** ≤ 50, pinned first, then last_message_at desc; `text` matches the title or a message. */
   listThreads(s: OwnerScope, q: { archived: boolean; text?: string }): Promise<ThreadRecord[]>;
-  getThread(s: OwnerScope, threadId: string): Promise<ThreadRecord | null>;
+  /** Takes an `OwnerKey`: the worker reads the thread before it can build a full scope. */
+  getThread(s: OwnerKey, threadId: string): Promise<ThreadRecord | null>;
   createThread(
     s: OwnerScope,
     t: { id: string; title: string; systemPrompt: string; promptVersion: string },
@@ -573,8 +589,9 @@ export interface AssistantRepository {
 
   /**
    * At most one `queued` job per owner, thread and kind: when one exists its `run_after` and
-   * `review_scope` are updated (its id is kept); otherwise `j` is inserted. The thread, when
-   * given, must be the owner's.
+   * `review_scope` are updated and its `created_at` moves to now (its id is kept); otherwise `j`
+   * is inserted. `created_at` is therefore the last enqueue: the runner cancels a review whose
+   * thread got a message after it. The thread, when given, must be the owner's.
    */
   enqueueJob(s: OwnerKey, j: NewJob): Promise<JobRecord>;
   getJob(s: OwnerKey, id: string): Promise<JobRecord | null>;
@@ -593,6 +610,17 @@ export interface AssistantRepository {
     s: OwnerKey,
     job: { id: string; attempts: number },
     outcome: { status: 'done' | 'failed'; errorCode?: string | null },
+  ): Promise<boolean>;
+  /**
+   * Fenced like `finishJob`: puts a failed attempt back in the queue (`queued`, `run_after`,
+   * `error_code`, no lease). When the owner already has another queued job of that thread and
+   * kind, this one is failed instead (the queued one covers it). False when the job was
+   * cancelled or re-claimed meanwhile.
+   */
+  retryJob(
+    s: OwnerKey,
+    job: { id: string; attempts: number },
+    retry: { runAfter: Date; errorCode: string },
   ): Promise<boolean>;
   /**
    * Cancels `queued` or `running` jobs: one by id, or every one of a thread and kind (a new

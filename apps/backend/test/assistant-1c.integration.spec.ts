@@ -511,3 +511,65 @@ describe('assistant jobs and the curator on Postgres (1c)', () => {
     await expect(tenantOnly.claimJobs(new Date(), 1, 1_000)).rejects.toThrow(/system connection/);
   });
 });
+
+describe('review job retry and enqueue time on Postgres (1c)', () => {
+  const running = (id: string, attempts: number) =>
+    withSystem(system, (tx) =>
+      tx.execute(sql`update assistant_jobs set status = 'running', attempts = ${attempts},
+        lease_until = now() + interval '5 minutes' where id = ${id}`),
+    );
+
+  it('moves created_at on a re-enqueue, and reads the thread origin', async () => {
+    const { s, threadId } = await owner();
+    expect((await repo.getThread(s, threadId))?.origin).toBe('chat');
+    const runAfter = new Date('2100-01-01T00:00:00.000Z');
+    const job = { threadId, kind: 'review' as const, reviewScope: 'combined' as const, runAfter };
+    const first = await repo.enqueueJob(s, { id: newId(), ...job });
+    await new Promise((r) => setTimeout(r, 5));
+    const again = await repo.enqueueJob(s, { id: newId(), ...job });
+    expect(again.id).toBe(first.id);
+    expect(again.createdAt.getTime()).toBeGreaterThan(first.createdAt.getTime());
+    await repo.cancelJob(s, { id: first.id });
+  });
+
+  it('re-queues a failed attempt once (fenced), or fails it when another job is queued', async () => {
+    const { s, threadId } = await owner();
+    const runAfter = new Date('2100-01-01T00:00:00.000Z');
+    const retryAt = new Date('2100-01-01T00:10:00.000Z');
+    const job = await repo.enqueueJob(s, {
+      id: newId(),
+      threadId,
+      kind: 'review',
+      reviewScope: 'memory',
+      runAfter,
+    });
+    await running(job.id, 1);
+    const retry = { runAfter: retryAt, errorCode: 'review_failed' };
+    expect(await repo.retryJob(s, { id: job.id, attempts: 2 }, retry)).toBe(false);
+    const other = await owner();
+    expect(await repo.retryJob(other.s, { id: job.id, attempts: 1 }, retry)).toBe(false);
+    expect(await repo.retryJob(s, { id: job.id, attempts: 1 }, retry)).toBe(true);
+    expect(await repo.getJob(s, job.id)).toMatchObject({
+      status: 'queued',
+      attempts: 1,
+      errorCode: 'review_failed',
+      leaseUntil: null,
+      runAfter: retryAt,
+    });
+
+    // Running again while a newer job of the thread is queued: failed, not a second queued row.
+    await running(job.id, 2);
+    const newer = await repo.enqueueJob(s, {
+      id: newId(),
+      threadId,
+      kind: 'review',
+      reviewScope: 'combined',
+      runAfter,
+    });
+    expect(newer.id).not.toBe(job.id);
+    expect(await repo.retryJob(s, { id: job.id, attempts: 2 }, retry)).toBe(true);
+    expect(await repo.getJob(s, job.id)).toMatchObject({ status: 'failed', leaseUntil: null });
+    expect((await repo.getJob(s, newer.id))?.status).toBe('queued');
+    await repo.cancelJob(s, { id: newer.id });
+  });
+});
