@@ -297,3 +297,41 @@ A later `import_propose` on the same batch covers only drafts without a `created
 ## 12. Out of scope
 
 Updating existing products by import (C4-R2). Pictures from URLs in sheets (C4-R7). `.xls`/`.ods`. More than one sheet. Imports over 300 rows in one batch, which the owner splits. Structured attributes (C4-R8). Importing other entities (contacts, FAQ). Pushing imported products to KiotViet, which follows the integration module's existing rules for Rapiz-created products. Moving the vision drafting to a worker (C4-R4).
+
+## 13. Adjustments made while building
+
+The rulings above stand. These details changed or were settled while building it.
+
+**Engine and data (Tasks 2–4)**
+
+- Transforms are accepted on all three source kinds (`col`, `const`, `concat`), at most 10 per source. Spec objects are strict: an unknown key is `invalid_spec`. `skipRows` indexes go up to 400.
+- Price, cost, weight and stock are read with their field's own parser even without a transform, so `{col: 1}` with "150k" works. `money_vnd` also takes `nghìn`/`ngàn`, `tỷ`, `m`, `1k5` and `2tr05`, and refuses other units.
+- `code_generated` is added to every draft whose code was derived, not only on collisions. Excluded drafts do not claim codes or SKUs. Overrides for unknown draft keys are ignored.
+- Variant names, when no `variantName` is mapped, are made from up to 3 columns that differ across the group's rows, leaving out the mapped and `groupBy` columns.
+- The batch table has its own `excluded jsonb` column (instead of a key inside `overrides`) and a `row_count` column. The `assistant_runs` kind check is re-created dynamically from the current list plus `import_vision`, so it survives the other capabilities' migrations in any order.
+- `POST /products/match-codes` uses the `orders.view` capability, the same one as `GET /products`.
+
+**Backend (Tasks 5–6)**
+
+- **Turn lock.** The first vision call's run row is the lock: it is started with `startRun({kind: 'import_vision'})`, which takes the same per-owner busy check as a chat turn. The other calls are recorded with `recordRun`, so there is exactly one `import_vision` run per call. `startRun` gained an optional `kind`. There is no separate Redis lock.
+- **Where the block lives.** The `<import_batch>` block is stored in front of the owner's text in the same message row. `toMessageDtos` strips it, so the owner sees only their own words.
+- A sheet needs at least two non-empty rows (a header and data); otherwise `import_empty`.
+- The vision reply is parsed leniently: text over a limit is cut, not refused. Attributes are scanned as `name: value` and dropped as `unsafe_text:attributes`.
+- `import_preview` merges `overrides` into the stored ones by draft key (`{}` clears a key) and replaces `exclude`. It adds the errors `invalid_overrides` and `invalid_exclude`, and the result also has `excluded`, `alreadyCreated` and, when the existence check fails, `batchWarnings: ['exists_check_failed']`. It skips `match-codes` when the drafts have no valid code.
+- The rejection event of a replaced import proposal is `Đã thay bằng bản xem trước mới: <summary>`.
+- `import_propose` counts the thread's other pending proposals for `too_many_pending` (the batch's own pending proposal is replaced). `visibleToBotDefault` is true only when every chosen draft is visible to the bot.
+- The executor answers 400 as `invalid:<first issue path>`, skips drafts that are already created, fails with `not_run` when nothing ran before the deadline, and stores `result_preview` on a failed import too. A failed hash check appends `Không áp dụng được: <summary> (import_changed)`.
+- `ImportExecutor` is built inside `ProposalService`, not as a Nest provider. Its clock and deadline can be replaced in tests.
+
+**Web (Task 7)**
+
+- The batch is always for the business the owner is on. The dashboard always has a current business, so the tray has no business select.
+- The CSV reader keeps blank rows, so row numbers match the file. The xlsx reader skips cells with no value and rows with no cell, and refuses a value past row 10 000 or column 1 000 (`too_large`). `.ods` is refused by its name, with the `.xls` message.
+- A send that fails after the batch was created keeps the tray. A retry creates a new batch; the old one is purged after 30 days.
+- The thumbnail is re-encoded at quality 0.6 when it would be over the import's limit.
+- The import card replaces the status line for a decided import proposal. It shows the report instead.
+- The approve and reject logic of a proposal card moved to `proposal-decision.ts`, shared by both cards.
+
+**Not built in this PR**
+
+- The evals of §11 (`evals/assistant/import-*.yaml`).
