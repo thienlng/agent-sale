@@ -17,7 +17,6 @@ import { AppSidebar } from './app-sidebar';
 
 const denied = vi.hoisted(() => new Set<string>());
 vi.mock('@/lib/permissions', () => ({ useCan: (capability: string) => !denied.has(capability) }));
-vi.mock('@/lib/session', () => ({ useSession: () => ({ user: { isPlatformAdmin: false } }) }));
 // The business selector needs a full session; these tests cover the navigation only.
 vi.mock('./business-selector', () => ({ BusinessSelector: () => null }));
 
@@ -58,6 +57,13 @@ function renderAt(
 }
 
 describe('AppSidebar', () => {
+  it('never shows the platform back-office, which has its own sidebar', async () => {
+    renderAt('/app/analytics');
+    const nav = await screen.findByRole('navigation', { name: 'Điều hướng chính' });
+    expect(within(nav).queryByText('Quản trị hệ thống')).toBeNull();
+    expect(within(nav).queryByRole('link', { name: 'Gói cước' })).toBeNull();
+  });
+
   it('shows placeholders, not retail entries, while the industry is still loading', async () => {
     renderAt('/app/calendar', 'loading');
     const nav = await screen.findByRole('navigation', { name: 'Điều hướng chính' });

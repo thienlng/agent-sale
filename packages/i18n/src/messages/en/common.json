@@ -29,6 +29,8 @@
     "adminPlans": "Plans",
     "adminSettings": "Billing settings",
     "adminLlm": "AI models",
+    "platform": "Platform",
+    "backToBusinesses": "Back to businesses",
     "toggleSidebar": "Open or collapse the sidebar",
     "ordersOverview": "Overview",
     "ordersList": "Order list",
