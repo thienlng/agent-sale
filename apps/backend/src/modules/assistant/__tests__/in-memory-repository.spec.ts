@@ -1,7 +1,7 @@
 import { newId, userId, workspaceId } from '@agent-sales/shared';
 import { describe, expect, it } from 'vitest';
 
-import { AssistantNotFoundError } from '../domain/assistant.errors.js';
+import { AssistantNotFoundError, AssistantRunIdTakenError } from '../domain/assistant.errors.js';
 import type { OwnerScope } from '../domain/owner-scope.js';
 import { InMemoryAssistantRepository } from '../infrastructure/persistence/assistant.in-memory-repository.js';
 
@@ -16,7 +16,7 @@ const run = (threadId: string) => ({
   tier: 'pro',
   promptVersion: 'assistant@1',
 });
-const msg = (role: 'user' | 'assistant', content: string) => ({
+const msg = (role: 'user' | 'assistant' | 'tool', content: string) => ({
   id: newId(),
   role,
   content,
@@ -86,5 +86,49 @@ describe('InMemoryAssistantRepository', () => {
       AssistantNotFoundError,
     );
     await expect(repo.startRun(b, run(t.id))).rejects.toBeInstanceOf(AssistantNotFoundError);
+  });
+
+  it('matches thread text on user and assistant rows only, and trims the query', async () => {
+    const repo = new InMemoryAssistantRepository();
+    const s = scope(newId());
+    const t = await repo.createThread(s, {
+      id: newId(),
+      title: 'Đơn',
+      systemPrompt: 'p',
+      promptVersion: 'assistant@1',
+    });
+    await repo.appendMessages(s, t.id, [msg('tool', '{"hits":["bí mật"]}')]);
+    expect(await repo.listThreads(s, { archived: false, text: 'bi mat' })).toEqual([]);
+    await repo.appendMessages(s, t.id, [msg('assistant', 'Dạ, bí mật ạ')]);
+    expect(
+      (await repo.listThreads(s, { archived: false, text: '  bi mat  ' })).map((x) => x.id),
+    ).toEqual([t.id]);
+    // Whitespace only is no filter.
+    expect((await repo.listThreads(s, { archived: false, text: '   ' })).map((x) => x.id)).toEqual([
+      t.id,
+    ]);
+  });
+
+  it('refuses a run id another owner already used', async () => {
+    const repo = new InMemoryAssistantRepository();
+    const a = scope(newId());
+    const b = scope(a.accountId);
+    const ta = await repo.createThread(a, {
+      id: newId(),
+      title: '',
+      systemPrompt: 'p',
+      promptVersion: 'assistant@1',
+    });
+    const tb = await repo.createThread(b, {
+      id: newId(),
+      title: '',
+      systemPrompt: 'p',
+      promptVersion: 'assistant@1',
+    });
+    const first = run(ta.id);
+    expect(await repo.startRun(a, first)).toBe('started');
+    await expect(repo.startRun(b, { ...first, threadId: tb.id })).rejects.toBeInstanceOf(
+      AssistantRunIdTakenError,
+    );
   });
 });

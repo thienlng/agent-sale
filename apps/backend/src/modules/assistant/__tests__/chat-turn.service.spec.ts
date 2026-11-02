@@ -1,0 +1,248 @@
+import type { GenerateRequest, GenerateResponse } from '@agent-sales/ai-core';
+import { DomainError, newId, userId, workspaceId } from '@agent-sales/shared';
+import { describe, expect, it, vi } from 'vitest';
+
+import { ChatTurnService, FALLBACK_REPLY } from '../application/chat-turn.service.js';
+import { toMessageDtos } from '../application/mappers.js';
+import {
+  AssistantBusyError,
+  AssistantNotFoundError,
+  AssistantRunIdTakenError,
+} from '../domain/assistant.errors.js';
+import type { OwnerScope } from '../domain/owner-scope.js';
+import { InMemoryAssistantRepository } from '../infrastructure/persistence/assistant.in-memory-repository.js';
+
+/** Same name and code as the ai module's error (detected by `isAiNotConfiguredError`). */
+class AiNotConfiguredError extends DomainError {
+  readonly code = 'AI_UNAVAILABLE';
+}
+
+const reply = (over: Partial<GenerateResponse>): GenerateResponse => ({
+  text: '',
+  toolCalls: [],
+  stopReason: 'end',
+  usage: { inputTokens: 100, outputTokens: 10, cachedInputTokens: 40 },
+  provider: 'fake',
+  model: 'fake-pro',
+  latencyMs: 5,
+  ...over,
+});
+const NAVIGATE = reply({
+  stopReason: 'tool_use',
+  toolCalls: [{ id: 'call_1', name: 'ui_navigate', input: { to: '/app/products' } }],
+});
+const ANSWER = reply({ text: 'Dạ em mở trang Sản phẩm rồi ạ' });
+
+async function setup(script: (GenerateResponse | Error)[] = [NAVIGATE, ANSWER]) {
+  const repo = new InMemoryAssistantRepository();
+  const scope: OwnerScope = {
+    accountId: newId(),
+    ownerUserId: userId(newId()),
+    businessId: workspaceId(newId()),
+  };
+  const queue = [...script];
+  const generate = vi.fn((_req: GenerateRequest): Promise<GenerateResponse> => {
+    const next = queue.shift() ?? ANSWER;
+    return next instanceof Error ? Promise.reject(next) : Promise.resolve(next);
+  });
+  const service = new ChatTurnService(repo, { generate });
+  const thread = await repo.createThread(scope, {
+    id: newId(),
+    title: '',
+    systemPrompt: 'SYSTEM PROMPT',
+    promptVersion: 'assistant@1',
+  });
+  return { repo, scope, generate, service, thread };
+}
+
+describe('ChatTurnService', () => {
+  it('runs the turn with tools, records the UI actions and traces every step', async () => {
+    const { service, scope, thread, generate, repo } = await setup();
+    const turnId = newId();
+    const out = await service.send(scope, thread.id, {
+      turnId,
+      text: 'Mở trang sản phẩm giúp em',
+      pageContext: { route: '/app/overview', targets: ['overview.add'] },
+    });
+
+    expect(out.messages.map((m) => [m.role, m.content])).toEqual([
+      ['user', 'Mở trang sản phẩm giúp em'],
+      ['assistant', 'Dạ em mở trang Sản phẩm rồi ạ'],
+    ]);
+    expect(out.messages[0]).toMatchObject({
+      runId: turnId,
+      pageContext: { route: '/app/overview', targets: ['overview.add'] },
+    });
+    expect(out.messages[1]).toMatchObject({
+      runId: turnId,
+      uiActions: [{ type: 'navigate', to: '/app/products' }],
+    });
+    expect(out.run).toMatchObject({
+      id: turnId,
+      status: 'done',
+      outcome: 'done',
+      rounds: 2,
+      tier: 'pro',
+      promptVersion: 'assistant@1',
+      provider: 'fake',
+      model: 'fake-pro',
+      inputTokens: 200,
+      cachedTokens: 80,
+      outputTokens: 20,
+      latencyMs: 10,
+    });
+    expect(out.run.finishedAt).toBeInstanceOf(Date);
+    expect(out.run.steps.map((s) => [s.idx, s.kind, s.toolName, s.ok])).toEqual([
+      [0, 'model_call', null, null],
+      [1, 'tool', 'ui_navigate', true],
+      [2, 'model_call', null, null],
+    ]);
+
+    // The model got the frozen system prompt, the tools and the wrapped last user message.
+    const first = generate.mock.calls[0]![0];
+    expect(first).toMatchObject({
+      workspaceId: scope.businessId,
+      tier: 'pro',
+      promptCacheKey: `asst:${scope.ownerUserId}:${thread.id}`,
+    });
+    expect(first.tools?.map((t) => t.name)).toEqual([
+      'session_search',
+      'ui_navigate',
+      'ui_spotlight',
+    ]);
+    expect(first.messages[0]).toEqual({ role: 'system', content: 'SYSTEM PROMPT' });
+    const last = first.messages.at(-1)!;
+    expect(last.role).toBe('user');
+    expect(last.content).toMatch(
+      /^<page_context>\{"route":"\/app\/overview","targets":\["overview\.add"\]\}<\/page_context>\n<current_time>\d{2}:\d{2}<\/current_time>\nMở trang sản phẩm giúp em$/,
+    );
+
+    // The tool exchange is stored but never shown; the thread is titled from the first text.
+    const stored = await repo.listMessages(scope, thread.id);
+    expect(stored.map((m) => m.role)).toEqual(['user', 'assistant', 'tool', 'assistant']);
+    expect(toMessageDtos(stored).map((m) => m.role)).toEqual(['user', 'assistant']);
+    expect((await repo.getThread(scope, thread.id))?.title).toBe('Mở trang sản phẩm giúp em');
+  });
+
+  it('sends history with raw user text, tool rows and events', async () => {
+    const { service, scope, thread, generate, repo } = await setup();
+    await service.send(scope, thread.id, { turnId: newId(), text: 'Câu một' });
+    await repo.appendMessages(scope, thread.id, [
+      {
+        id: newId(),
+        role: 'event',
+        content: 'Đơn #12 đã giao',
+        toolCalls: null,
+        toolCallId: null,
+        toolName: null,
+        pageContext: null,
+        uiActions: [],
+        runId: null,
+      },
+    ]);
+    generate.mockClear();
+    await service.send(scope, thread.id, { turnId: newId(), text: 'Câu hai' });
+    const messages = generate.mock.calls[0]![0].messages;
+    expect(messages.map((m) => m.role)).toEqual([
+      'system',
+      'user',
+      'assistant',
+      'tool',
+      'assistant',
+      'user',
+      'user',
+    ]);
+    expect(messages[1]?.content).toBe('Câu một');
+    expect(messages[2]?.toolCalls).toEqual(NAVIGATE.toolCalls);
+    expect(messages[3]).toMatchObject({ toolCallId: 'call_1', name: 'ui_navigate' });
+    expect(messages[5]?.content).toBe('[event] Đơn #12 đã giao');
+    expect(messages[6]?.content).toMatch(/^<current_time>\d{2}:\d{2}<\/current_time>\nCâu hai$/);
+    // The title stays the first message's.
+    expect((await repo.getThread(scope, thread.id))?.title).toBe('Câu một');
+  });
+
+  it('refuses a second turn while the first is still running', async () => {
+    const { service, scope, thread, generate } = await setup();
+    let release: (r: GenerateResponse) => void = () => undefined;
+    generate.mockImplementationOnce(
+      () => new Promise<GenerateResponse>((resolve) => (release = resolve)),
+    );
+    const first = service.send(scope, thread.id, { turnId: newId(), text: 'Một' });
+    await vi.waitFor(() => expect(generate).toHaveBeenCalledTimes(1));
+    await expect(
+      service.send(scope, thread.id, { turnId: newId(), text: 'Hai' }),
+    ).rejects.toBeInstanceOf(AssistantBusyError);
+    release(ANSWER);
+    expect((await first).run.status).toBe('done');
+  });
+
+  it('answers a retried turn id with the first result, without calling the model again', async () => {
+    const { service, scope, thread, generate } = await setup();
+    const turnId = newId();
+    const first = await service.send(scope, thread.id, { turnId, text: 'Mở sản phẩm' });
+    const again = await service.send(scope, thread.id, { turnId, text: 'Mở sản phẩm' });
+    expect(generate).toHaveBeenCalledTimes(2);
+    expect(again).toEqual(first);
+  });
+
+  it('refuses a retried turn id on another thread', async () => {
+    const { service, scope, thread, repo } = await setup();
+    const other = await repo.createThread(scope, {
+      id: newId(),
+      title: 'x',
+      systemPrompt: 'p',
+      promptVersion: 'assistant@1',
+    });
+    const turnId = newId();
+    await service.send(scope, thread.id, { turnId, text: 'Một' });
+    await expect(service.send(scope, other.id, { turnId, text: 'Một' })).rejects.toBeInstanceOf(
+      AssistantRunIdTakenError,
+    );
+  });
+
+  it('answers with an apology and fails the run when the model throws', async () => {
+    const { service, scope, thread } = await setup([new Error('provider down')]);
+    const out = await service.send(scope, thread.id, { turnId: newId(), text: 'Chào em' });
+    expect(out.messages.map((m) => [m.role, m.content])).toEqual([
+      ['user', 'Chào em'],
+      ['assistant', FALLBACK_REPLY],
+    ]);
+    expect(out.run).toMatchObject({ status: 'failed', guardrail: 'model_error' });
+    expect(out.run.finishedAt).toBeInstanceOf(Date);
+    // The owner is free to try again.
+    expect(
+      (await service.send(scope, thread.id, { turnId: newId(), text: 'Lại' })).run.status,
+    ).toBe('done');
+  });
+
+  it('apologises when the loop ends without a usable answer', async () => {
+    const { service, scope, thread } = await setup([reply({ text: '   ' })]);
+    const out = await service.send(scope, thread.id, { turnId: newId(), text: 'Chào em' });
+    expect(out.messages.at(-1)?.content).toBe(FALLBACK_REPLY);
+    expect(out.run).toMatchObject({ status: 'done', outcome: 'done', rounds: 1 });
+
+    const loop = await setup(Array.from({ length: 30 }, () => NAVIGATE));
+    const limited = await loop.service.send(loop.scope, loop.thread.id, {
+      turnId: newId(),
+      text: 'Mở mãi',
+    });
+    expect(limited.messages.at(-1)?.content).toBe(FALLBACK_REPLY);
+    expect(limited.run).toMatchObject({ status: 'done', outcome: 'limit', rounds: 26 });
+  });
+
+  it('lets "no model for this tier" through, and frees the owner', async () => {
+    const { service, scope, thread, repo } = await setup([new AiNotConfiguredError('no route')]);
+    const turnId = newId();
+    await expect(
+      service.send(scope, thread.id, { turnId, text: 'Chào em' }),
+    ).rejects.toBeInstanceOf(AiNotConfiguredError);
+    expect(await repo.getRun(scope, turnId)).toMatchObject({ status: 'failed' });
+  });
+
+  it('is NOT_FOUND for a thread the owner does not have', async () => {
+    const { service, scope } = await setup();
+    await expect(
+      service.send(scope, newId(), { turnId: newId(), text: 'x' }),
+    ).rejects.toBeInstanceOf(AssistantNotFoundError);
+  });
+});

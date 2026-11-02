@@ -15,14 +15,12 @@ import { Inject, Injectable } from '@nestjs/common';
 import { ACCOUNT_FACADE, type AccountFacade } from '../../account/api/index.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
 import type { AssistantActor, AssistantFacade } from '../api/assistant.facade.js';
-import {
-  AssistantNotFoundError,
-  AssistantNotImplementedError,
-} from '../domain/assistant.errors.js';
+import { AssistantNotFoundError } from '../domain/assistant.errors.js';
 import {
   ASSISTANT_REPOSITORY,
   type AssistantRepository,
 } from '../domain/ports/assistant.repository.js';
+import { ChatTurnService } from './chat-turn.service.js';
 import { toMessageDtos, toRunDto, toThreadDto } from './mappers.js';
 import { type OwnerScope, resolveOwnerScope } from './owner-access.js';
 import { ASSISTANT_PROMPT, buildSystemPrompt, loadAssistantTemplate } from './prompt-builder.js';
@@ -43,6 +41,7 @@ export class AssistantFacadeImpl implements AssistantFacade {
     @Inject(ACCOUNT_FACADE) private readonly account: AccountFacade,
     @Inject(WORKSPACE_FACADE) private readonly workspace: WorkspaceFacade,
     @Inject(ASSISTANT_REPOSITORY) private readonly repo: AssistantRepository,
+    @Inject(ChatTurnService) private readonly chat: ChatTurnService,
   ) {}
 
   #scope(actor: AssistantActor): Promise<OwnerScope> {
@@ -114,16 +113,15 @@ export class AssistantFacadeImpl implements AssistantFacade {
     };
   }
 
-  /** The chat turn arrives with the next slice (T-170 task 6); answers 500 until then. */
+  /** One chat turn (`ChatTurnService`); a retried `turnId` returns the first result. */
   async sendMessage(
     actor: AssistantActor,
     threadId: string,
-    _input: SendAssistantMessageRequest,
+    input: SendAssistantMessageRequest,
   ): Promise<SendAssistantMessageResponse> {
     const scope = await this.#scope(actor);
-    if (!(await this.repo.getThread(scope, knownId('thread', threadId))))
-      throw new AssistantNotFoundError('thread', threadId);
-    throw new AssistantNotImplementedError();
+    const turn = await this.chat.send(scope, knownId('thread', threadId), input);
+    return { messages: toMessageDtos(turn.messages), run: toRunDto(turn.run) };
   }
 
   async getRun(actor: AssistantActor, runId: string): Promise<AssistantRunDto> {

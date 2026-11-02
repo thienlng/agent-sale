@@ -16,10 +16,21 @@ export class AssistantForbiddenError extends DomainError {
   }
 }
 
-/** Placeholder for a use case a later slice adds (answers 500 INTERNAL). */
-export class AssistantNotImplementedError extends DomainError {
-  readonly code = 'INTERNAL';
+/** Another run of this owner is still answering (409 CONFLICT, `details.reason = assistant_busy`). */
+export class AssistantBusyError extends DomainError {
+  readonly code = 'CONFLICT';
   constructor() {
-    super('not implemented');
+    super('The assistant is still answering the previous message', { reason: 'assistant_busy' });
+  }
+}
+
+/**
+ * The client turn id is already the id of a run the owner does not have (another owner's, or
+ * another account's, invisible under RLS): 409 CONFLICT, never a 500.
+ */
+export class AssistantRunIdTakenError extends DomainError {
+  readonly code = 'CONFLICT';
+  constructor() {
+    super('This turn id is already used', { reason: 'turn_id_taken' });
   }
 }

@@ -1,13 +1,14 @@
 import { newId, userId, workspaceId, type UserId, type WorkspaceId } from '@agent-sales/shared';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { AccountFacade, AccountMembership } from '../../account/api/index.js';
 import type { WorkspaceFacade, WorkspaceMembership } from '../../workspace/api/index.js';
 import { AssistantFacadeImpl } from '../application/assistant.facade.impl.js';
+import { ChatTurnService } from '../application/chat-turn.service.js';
 import {
+  AssistantBusyError,
   AssistantForbiddenError,
   AssistantNotFoundError,
-  AssistantNotImplementedError,
 } from '../domain/assistant.errors.js';
 import { InMemoryAssistantRepository } from '../infrastructure/persistence/assistant.in-memory-repository.js';
 
@@ -54,9 +55,21 @@ function ownerWorld() {
 function setup() {
   const world = ownerWorld();
   const repo = new InMemoryAssistantRepository();
-  const facade = new AssistantFacadeImpl(world.account, world.workspace, repo);
+  const generate = vi.fn(() =>
+    Promise.resolve({
+      text: 'Dạ em chào anh/chị ạ',
+      toolCalls: [],
+      stopReason: 'end' as const,
+      usage: { inputTokens: 10, outputTokens: 5, cachedInputTokens: 0 },
+      provider: 'fake',
+      model: 'fake-pro',
+      latencyMs: 1,
+    }),
+  );
+  const chat = new ChatTurnService(repo, { generate });
+  const facade = new AssistantFacadeImpl(world.account, world.workspace, repo, chat);
   const me = { userId: world.owner, businessId: world.business };
-  return { ...world, repo, facade, me };
+  return { ...world, repo, facade, me, generate };
 }
 
 /** Contract test: the public API behaves as MODULE.md promises. */
@@ -144,11 +157,52 @@ describe('AssistantFacade (contract)', () => {
     );
   });
 
-  it('does not run chat turns yet (next slice)', async () => {
-    const { facade, me } = setup();
+  it('runs a chat turn for the owner only, idempotent by turnId', async () => {
+    const { facade, me, generate, addAccountMember, repo, accountId } = setup();
     const t = await facade.createThread({ ...me, ownerName: null }, {});
+    const turnId = newId();
+    const out = await facade.sendMessage(me, t.id, { turnId, text: 'Chào em' });
+    expect(out.messages.map((m) => [m.role, m.content])).toEqual([
+      ['user', 'Chào em'],
+      ['assistant', 'Dạ em chào anh/chị ạ'],
+    ]);
+    expect(out.run).toMatchObject({ id: turnId, status: 'done', outcome: 'done', rounds: 1 });
+    expect(out.run.steps).toEqual([
+      {
+        idx: 0,
+        kind: 'model_call',
+        toolName: null,
+        ok: null,
+        ms: expect.any(Number) as unknown,
+        errorCode: null,
+      },
+    ]);
+    expect(await facade.sendMessage(me, t.id, { turnId, text: 'Chào em' })).toEqual(out);
+    expect(generate).toHaveBeenCalledTimes(1);
+    expect((await facade.getRun(me, turnId)).status).toBe('done');
+
+    // Busy while another run of the owner is running.
+    const scope = { accountId, ownerUserId: me.userId, businessId: me.businessId };
+    await repo.startRun(scope, {
+      id: newId(),
+      threadId: t.id,
+      tier: 'pro',
+      promptVersion: 'assistant@1',
+    });
     await expect(
-      facade.sendMessage(me, t.id, { turnId: newId(), text: 'hi' }),
-    ).rejects.toBeInstanceOf(AssistantNotImplementedError);
+      facade.sendMessage(me, t.id, { turnId: newId(), text: 'Nữa' }),
+    ).rejects.toBeInstanceOf(AssistantBusyError);
+
+    const billing = { ...me, userId: addAccountMember('billing') };
+    await expect(
+      facade.sendMessage(billing, t.id, { turnId: newId(), text: 'x' }),
+    ).rejects.toBeInstanceOf(AssistantForbiddenError);
+    const second = { ...me, userId: addAccountMember('owner') };
+    await expect(
+      facade.sendMessage(second, t.id, { turnId: newId(), text: 'x' }),
+    ).rejects.toBeInstanceOf(AssistantNotFoundError);
+    await expect(
+      facade.sendMessage(me, 'not-a-uuid', { turnId: newId(), text: 'x' }),
+    ).rejects.toBeInstanceOf(AssistantNotFoundError);
   });
 });

@@ -1,10 +1,12 @@
 import {
   AssistantMessageList,
+  AssistantRunDto,
   AssistantThreadDto,
   AssistantThreadList,
   AuthResponse,
   BootstrapResponse,
   CreatedInvitation,
+  SendAssistantMessageResponse,
 } from '@agent-sales/contracts';
 import { createDb, ensureLoginRoles, eq, migrate, schema, withCredentials } from '@agent-sales/db';
 import { newId, userId, workspaceId } from '@agent-sales/shared';
@@ -14,7 +16,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
 import { createHttpApp } from '../src/bootstrap.js';
-import { AssistantNotFoundError } from '../src/modules/assistant/domain/assistant.errors.js';
+import {
+  AssistantNotFoundError,
+  AssistantRunIdTakenError,
+} from '../src/modules/assistant/domain/assistant.errors.js';
 import type { OwnerScope } from '../src/modules/assistant/domain/owner-scope.js';
 import {
   ASSISTANT_REPOSITORY,
@@ -392,10 +397,132 @@ describe('assistant repository on Postgres', () => {
         AssistantNotFoundError,
       );
     }
+    // Hoa's run id cannot be reused by another owner of the account, nor by another account
+    // (where RLS hides the row and only the primary key collides): 409, never a 500.
+    for (const s of [sameAccount, otherAccount]) {
+      const own = await repo.createThread(s, {
+        id: newId(),
+        title: '',
+        systemPrompt: 'p',
+        promptVersion: 'assistant@1',
+      });
+      await expect(
+        repo.startRun(s, {
+          id: runId,
+          threadId: own.id,
+          tier: 'pro',
+          promptVersion: 'assistant@1',
+        }),
+      ).rejects.toBeInstanceOf(AssistantRunIdTakenError);
+    }
     expect((await repo.listMessages(scope, thread.id)).map((m) => m.content)).not.toContain(
       'injected',
     );
     expect((await repo.getThread(scope, thread.id))?.title).toBe('Sản phẩm');
     expect((await repo.getRun(scope, runId))?.status).toBe('done');
+  });
+});
+
+describe('assistant chat turns on Postgres', () => {
+  it('answers the owner, traces the run, replays a retried turn and refuses staff', async () => {
+    const tu = await user('tu@assistant.vn', 'Tu');
+    const thread = AssistantThreadDto.parse(
+      (await call(tu.h, 'POST', '/assistant/threads', {})).json(),
+    );
+    const turnId = newId();
+    const body = {
+      turnId,
+      text: 'Xin chào em',
+      pageContext: { route: '/app/products', targets: ['products.import'] },
+    };
+    const sent = await call(tu.h, 'POST', `/assistant/threads/${thread.id}/messages`, body);
+    expect(sent.statusCode, sent.body).toBe(200);
+    const turn = SendAssistantMessageResponse.parse(sent.json());
+    // The development fake model answers on the `pro` tier when no route is configured.
+    expect(turn.messages.map((m) => [m.role, m.content])).toEqual([
+      ['user', 'Xin chào em'],
+      ['assistant', 'Dạ em chưa có thông tin này ạ.'],
+    ]);
+    expect(turn.messages.every((m) => m.runId === turnId)).toBe(true);
+    expect(turn.run).toMatchObject({ id: turnId, status: 'done', outcome: 'done', rounds: 1 });
+
+    const run = await call(tu.h, 'GET', `/assistant/runs/${turnId}`);
+    expect(run.statusCode, run.body).toBe(200);
+    expect(AssistantRunDto.parse(run.json())).toMatchObject({
+      status: 'done',
+      steps: [{ idx: 0, kind: 'model_call', toolName: null }],
+    });
+    const [stored] = await owner.db
+      .select()
+      .from(schema.assistantRuns)
+      .where(eq(schema.assistantRuns.id, turnId));
+    expect(stored).toMatchObject({ tier: 'pro', promptVersion: 'assistant@1', status: 'done' });
+    expect(stored?.finishedAt).toBeInstanceOf(Date);
+
+    // A retried turn returns the first answer; the thread took its title from the first text.
+    const again = await call(tu.h, 'POST', `/assistant/threads/${thread.id}/messages`, body);
+    expect(again.statusCode, again.body).toBe(200);
+    expect(again.json()).toEqual(sent.json());
+    const listed = AssistantMessageList.parse(
+      (await call(tu.h, 'GET', `/assistant/threads/${thread.id}/messages`)).json(),
+    );
+    expect(listed.data).toHaveLength(2);
+    const threads = AssistantThreadList.parse(
+      (await call(tu.h, 'GET', '/assistant/threads')).json(),
+    );
+    expect(threads.data.find((t) => t.id === thread.id)?.title).toBe('Xin chào em');
+
+    // Busy while another run of the owner is running: 409 assistant_busy.
+    const repo = app.get<AssistantRepository>(ASSISTANT_REPOSITORY);
+    const scope: OwnerScope = {
+      accountId: await accountOf(tu.ownWorkspace),
+      ownerUserId: userId(tu.userId),
+      businessId: workspaceId(tu.ownWorkspace),
+    };
+    const stuck = newId();
+    await repo.startRun(scope, {
+      id: stuck,
+      threadId: thread.id,
+      tier: 'pro',
+      promptVersion: 'assistant@1',
+    });
+    const busy = await call(tu.h, 'POST', `/assistant/threads/${thread.id}/messages`, {
+      turnId: newId(),
+      text: 'Còn đó không?',
+    });
+    expect(busy.statusCode, busy.body).toBe(409);
+    expect(busy.json().error).toMatchObject({
+      code: 'CONFLICT',
+      details: { reason: 'assistant_busy' },
+    });
+    await repo.finishRun(scope, stuck, { status: 'failed' });
+
+    // Another account reusing the turn id on its own thread: 409, not a 500.
+    const vy = await user('vy@assistant.vn', 'Vy');
+    const vyThread = AssistantThreadDto.parse(
+      (await call(vy.h, 'POST', '/assistant/threads', {})).json(),
+    );
+    const reused = await call(vy.h, 'POST', `/assistant/threads/${vyThread.id}/messages`, body);
+    expect(reused.statusCode, reused.body).toBe(409);
+    expect(
+      (
+        await call(vy.h, 'POST', `/assistant/threads/${thread.id}/messages`, {
+          turnId: newId(),
+          text: 'x',
+        })
+      ).statusCode,
+    ).toBe(404);
+
+    // Staff of the business are refused.
+    const yen = await user('yen@assistant.vn', 'Yen');
+    await invite(tu, yen, 'yen@assistant.vn', 'admin');
+    expect(
+      (
+        await call(yen.in(tu.ownWorkspace), 'POST', `/assistant/threads/${thread.id}/messages`, {
+          turnId: newId(),
+          text: 'x',
+        })
+      ).statusCode,
+    ).toBe(403);
   });
 });

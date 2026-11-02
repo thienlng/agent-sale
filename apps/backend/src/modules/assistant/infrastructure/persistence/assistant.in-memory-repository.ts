@@ -8,7 +8,7 @@ import {
   THREAD_LIST_LIMIT,
   type ThreadRecord,
 } from '../../domain/ports/assistant.repository.js';
-import { AssistantNotFoundError } from '../../domain/assistant.errors.js';
+import { AssistantNotFoundError, AssistantRunIdTakenError } from '../../domain/assistant.errors.js';
 import type { OwnerScope } from '../../domain/owner-scope.js';
 import { foldText, snippetAround } from '../../domain/search-text.js';
 
@@ -63,11 +63,16 @@ export class InMemoryAssistantRepository implements AssistantRepository {
     s: OwnerScope,
     q: { archived: boolean; text?: string },
   ): Promise<ThreadRecord[]> {
-    const text = q.text ? foldText(q.text) : '';
+    const text = foldText(q.text?.trim() ?? '');
     const matchingThreads = new Set(
       text
         ? this.messages
-            .filter((m) => mine(s, m) && foldText(m.content).includes(text))
+            .filter(
+              (m) =>
+                mine(s, m) &&
+                (m.role === 'user' || m.role === 'assistant') &&
+                foldText(m.content).includes(text),
+            )
             .map((m) => m.threadId)
         : [],
     );
@@ -195,7 +200,7 @@ export class InMemoryAssistantRepository implements AssistantRepository {
     const existing = this.runs.get(r.id);
     if (existing) {
       if (mine(s, existing)) return 'duplicate';
-      throw new Error('assistant run id already used');
+      throw new AssistantRunIdTakenError();
     }
     const now = this.#now();
     const busy = [...this.runs.values()].some(

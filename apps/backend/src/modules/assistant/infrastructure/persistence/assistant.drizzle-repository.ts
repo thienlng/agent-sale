@@ -11,7 +11,7 @@ import {
   type TenantTx,
 } from '@agent-sales/db';
 
-import { AssistantNotFoundError } from '../../domain/assistant.errors.js';
+import { AssistantNotFoundError, AssistantRunIdTakenError } from '../../domain/assistant.errors.js';
 import type { OwnerScope } from '../../domain/owner-scope.js';
 import {
   type AssistantRepository,
@@ -29,6 +29,10 @@ const t = schema.assistantThreads;
 const m = schema.assistantMessages;
 const r = schema.assistantRuns;
 const st = schema.assistantRunSteps;
+
+/** SQLSTATE of a driver error (drizzle wraps the postgres error in `cause`). */
+const pgCode = (e: unknown): string | undefined =>
+  (e as { cause?: { code?: string } } | null)?.cause?.code ?? (e as { code?: string } | null)?.code;
 
 /** `%text%` for ILIKE, with the wildcards the owner typed taken literally. */
 const containsPattern = (text: string) => `%${text.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
@@ -322,7 +326,7 @@ export class DrizzleAssistantRepository implements AssistantRepository {
         .where(eq(r.id, run.id));
       if (existing) {
         if (existing.ownerUserId === s.ownerUserId) return 'duplicate';
-        throw new Error('assistant run id already used');
+        throw new AssistantRunIdTakenError();
       }
       const [busy] = await tx
         .select({ id: r.id })
@@ -347,6 +351,10 @@ export class DrizzleAssistantRepository implements AssistantRepository {
         promptVersion: run.promptVersion,
       });
       return 'started';
+    }).catch((e: unknown) => {
+      // The id is a run of another account, invisible under RLS: the primary key still collides.
+      if (pgCode(e) === '23505') throw new AssistantRunIdTakenError();
+      throw e;
     });
   }
 

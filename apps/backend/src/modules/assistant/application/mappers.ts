@@ -24,26 +24,29 @@ export function toThreadDto(t: ThreadRecord): AssistantThreadDto {
   };
 }
 
-/** Visible messages only: tool rows stay internal (ruling R1). */
+/**
+ * Whether the owner sees a message: tool rows stay internal (ruling R1), and so does an
+ * assistant row that only asked for tools (no text of its own).
+ */
+export function isVisibleMessage(msg: MessageRecord): boolean {
+  if (msg.role === 'tool') return false;
+  return !(msg.role === 'assistant' && msg.toolCalls?.length && !msg.content.trim());
+}
+
+/** Visible messages only (see `isVisibleMessage`). */
 export function toMessageDtos(messages: MessageRecord[]): AssistantMessageDto[] {
-  return messages.flatMap((msg) =>
-    msg.role === 'tool'
-      ? []
-      : [
-          {
-            id: msg.id,
-            seq: msg.seq,
-            role: msg.role,
-            content: msg.content,
-            uiActions: msg.uiActions.flatMap((a) => {
-              const parsed = AssistantUiAction.safeParse(a);
-              return parsed.success ? [parsed.data] : [];
-            }),
-            runId: msg.runId,
-            createdAt: msg.createdAt.toISOString(),
-          },
-        ],
-  );
+  return messages.filter(isVisibleMessage).map((msg) => ({
+    id: msg.id,
+    seq: msg.seq,
+    role: msg.role as AssistantMessageDto['role'],
+    content: msg.content,
+    uiActions: msg.uiActions.flatMap((a) => {
+      const parsed = AssistantUiAction.safeParse(a);
+      return parsed.success ? [parsed.data] : [];
+    }),
+    runId: msg.runId,
+    createdAt: msg.createdAt.toISOString(),
+  }));
 }
 
 export function toRunDto(run: RunRecord & { steps: StepRecord[] }): AssistantRunDto {
