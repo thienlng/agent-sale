@@ -91,6 +91,7 @@ describe('assistantRoutes', () => {
       'get /assistant/memory',
       'get /assistant/learning',
       'delete /assistant/memory/{store}/entries/{entryId}',
+      'post /assistant/memory/{store}/entries/{entryId}/undo',
       'get /assistant/threads/{threadId}/proposals',
       'post /assistant/proposals/{proposalId}/approve',
       'post /assistant/proposals/{proposalId}/reject',
@@ -339,7 +340,24 @@ describe('learning feed', () => {
           undone: false,
           at,
         },
-        { kind: 'memory', actor: 'review', store: 'notes', entryId: 'e1', text: 'x', at },
+        {
+          kind: 'memory',
+          actor: 'review',
+          store: 'notes',
+          entryId: 'e1',
+          text: 'x',
+          previousText: null,
+          at,
+        },
+        {
+          kind: 'memory',
+          actor: 'review',
+          store: 'notes',
+          entryId: 'e2',
+          text: 'y',
+          previousText: 'the owner said z',
+          at,
+        },
       ],
     };
     expect(AssistantLearningFeed.safeParse(feed).success).toBe(true);
