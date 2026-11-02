@@ -1,7 +1,7 @@
 import { scanUntrustedText } from '@agent-sales/ai-core';
 import {
   type AssistantThreadDto,
-  type ScheduleDraft,
+  ScheduleDraft,
   type ScheduleDto,
   type ScheduleList,
   scheduleParamsSchema,
@@ -50,6 +50,48 @@ function normaliseParams(d: Pick<ScheduleDraftInput, 'template' | 'mode' | 'para
   const parsed = scheduleParamsSchema(d.template, d.mode).safeParse(d.params);
   if (!parsed.success) throw new AssistantScheduleInvalidError(['invalid_params']);
   return parsed.data as Record<string, unknown>;
+}
+
+/** The stored `body` of a `schedule` proposal (S3-R11). */
+export type ScheduleProposalBody =
+  | { op: 'create'; draft: ScheduleDraft }
+  | { op: 'edit'; scheduleId: string; patch: SchedulePatchRequest }
+  | { op: 'remove'; scheduleId: string };
+
+/** The result of applying a schedule proposal: the schedule, or the code it failed with. */
+export type ScheduleApplyOutcome =
+  { ok: true; id: string; name: string } | { ok: false; errorCode: string };
+
+/** Accepting a 1c `schedule` suggestion (S3-R12). */
+export type ScheduleSuggestionOutcome =
+  | { ok: true; scheduleDraft: ScheduleDraft }
+  | { ok: false; errorCode: 'invalid_schedule_draft' | 'unknown_suggestion' };
+
+/** A schedule as the assistant's `schedule` tool lists it. */
+export interface ScheduleToolItem {
+  id: string;
+  name: string;
+  business: string;
+  template: string;
+  mode: string;
+  cadence: unknown;
+  channels: string[];
+  status: string;
+  pausedReason: string | null;
+  nextRunAt: string | null;
+  lastRun: { status: string; finishedAt: string | null } | null;
+}
+
+/** The code a schedule action failed with, for the tool and proposals; other errors rethrow. */
+export function scheduleErrorCode(e: unknown): string {
+  if (e instanceof AssistantScheduleInvalidError) {
+    return String((e.details as { reason?: unknown } | undefined)?.reason ?? 'invalid_draft');
+  }
+  if (e instanceof AssistantScheduleConflictError) {
+    return String((e.details as { reason?: unknown } | undefined)?.reason ?? 'conflict');
+  }
+  if (e instanceof AssistantNotFoundError) return 'unknown_schedule';
+  throw e;
 }
 
 const isNewOrdersAlert = (d: Pick<ScheduleDraftInput, 'template' | 'mode'>) =>
@@ -117,6 +159,90 @@ export class SchedulesService {
     const ids = notificationIds.filter((x): x is string => x !== null);
     if (ids.length === 0) return new Map();
     return this.notifications.deliverySummary(scope.accountId, scope.ownerUserId, ids);
+  }
+
+  /**
+   * The problems of a draft (`invalid_params` included) with its params normalised; the limit
+   * counts `existingCount` (null skips it). For the tool, before a proposal is made.
+   */
+  check(
+    scope: OwnerScope,
+    draft: ScheduleDraftInput,
+    existingCount: number | null,
+    opts: { email?: boolean } = {},
+  ): { draft: ScheduleDraftInput; problems: (ScheduleProblem | 'invalid_params')[] } {
+    const d: ScheduleDraftInput = { ...draft, name: draft.name.trim() };
+    const parsed = scheduleParamsSchema(d.template, d.mode).safeParse(d.params);
+    if (!parsed.success) return { draft: d, problems: ['invalid_params'] };
+    d.params = parsed.data as Record<string, unknown>;
+    const problems = validateDraft(d, {
+      businessIds: scope.businessIds,
+      existingCount,
+      emailAvailable: opts.email ?? this.notifications.emailAvailable(),
+      isSafeText: (text) => scanUntrustedText(text).ok,
+    });
+    return { draft: d, problems };
+  }
+
+  /**
+   * An edit merged onto the owner's schedule (404 when not theirs). Email already on the
+   * schedule stays allowed while SMTP is off; only adding it needs the channel.
+   */
+  async merge(
+    scope: OwnerScope,
+    id: string,
+    patch: SchedulePatchRequest,
+  ): Promise<{ current: ScheduleRecord; merged: ScheduleDraftInput; email: boolean | undefined }> {
+    const current = await this.#own(scope, id);
+    const merged: ScheduleDraftInput = {
+      name: (patch.name ?? current.name).trim(),
+      businessId: patch.businessId ?? current.businessId,
+      template: patch.template ?? current.template,
+      mode: patch.mode ?? current.mode,
+      params: patch.params ?? current.params,
+      cadence: patch.cadence ?? current.cadence,
+      channels: [...new Set(patch.channels ?? current.channels)],
+      commentary: patch.commentary ?? current.commentary,
+    };
+    const addsEmail = merged.channels.includes('email') && !current.channels.includes('email');
+    return { current, merged, email: addsEmail ? undefined : true };
+  }
+
+  /** The owner's schedule, or null (the tool's `unknown_schedule`). */
+  find(scope: OwnerScope, id: string): Promise<ScheduleRecord | null> {
+    return isUuid(id) ? this.repo.getSchedule(scope, id) : Promise.resolve(null);
+  }
+
+  /** At most 10 schedules as the `schedule` tool lists them, with the business name. */
+  async toolList(scope: OwnerScope): Promise<ScheduleToolItem[]> {
+    const schedules = (await this.repo.listSchedules(scope)).slice(0, MAX_SCHEDULES);
+    const names = new Map<string, string>();
+    await Promise.all(
+      [...new Set(schedules.map((s) => s.businessId))].map(async (b) => {
+        const w = await this.workspace.getById(b as WorkspaceId).catch(() => null);
+        names.set(b, w?.name ?? b);
+      }),
+    );
+    return Promise.all(
+      schedules.map(async (s) => {
+        const [last] = await this.repo.listScheduleRuns(scope, s.id, 1);
+        return {
+          id: s.id,
+          name: s.name,
+          business: names.get(s.businessId) ?? s.businessId,
+          template: s.template,
+          mode: s.mode,
+          cadence: s.cadence,
+          channels: s.channels,
+          status: s.status,
+          pausedReason: s.pausedReason,
+          nextRunAt: s.nextRunAt?.toISOString() ?? null,
+          lastRun: last
+            ? { status: last.status, finishedAt: last.finishedAt?.toISOString() ?? null }
+            : null,
+        };
+      }),
+    );
   }
 
   async #dto(scope: OwnerScope, s: ScheduleRecord): Promise<ScheduleDto> {
@@ -196,21 +322,9 @@ export class SchedulesService {
     patch: SchedulePatchRequest,
     now = new Date(),
   ): Promise<ScheduleRecord> {
-    const current = await this.#own(scope, id);
-    const merged: ScheduleDraftInput = {
-      name: (patch.name ?? current.name).trim(),
-      businessId: patch.businessId ?? current.businessId,
-      template: patch.template ?? current.template,
-      mode: patch.mode ?? current.mode,
-      params: patch.params ?? current.params,
-      cadence: patch.cadence ?? current.cadence,
-      channels: [...new Set(patch.channels ?? current.channels)],
-      commentary: patch.commentary ?? current.commentary,
-    };
+    const { current, merged, email } = await this.merge(scope, id, patch);
     merged.params = normaliseParams(merged);
-    // Email already chosen stays allowed while SMTP is off; only adding it needs the channel.
-    const addsEmail = merged.channels.includes('email') && !current.channels.includes('email');
-    this.#validate(scope, merged, null, addsEmail ? {} : { email: true });
+    this.#validate(scope, merged, null, email === undefined ? {} : { email });
     const changes: SchedulePatch = { ...merged };
     if (current.status === 'active') changes.nextRunAt = nextRunAt(merged.cadence, now);
     if (changesAlertState(current, merged)) {
@@ -225,7 +339,10 @@ export class SchedulesService {
   }
 
   async pause(actor: AssistantActor, id: string): Promise<ScheduleDto> {
-    const scope = await this.scope(actor);
+    return this.pauseFor(await this.scope(actor), id);
+  }
+
+  async pauseFor(scope: OwnerScope, id: string): Promise<ScheduleDto> {
     await this.#own(scope, id);
     const s = await this.repo.updateSchedule(scope, id, {
       status: 'paused',
@@ -238,7 +355,10 @@ export class SchedulesService {
   }
 
   async resume(actor: AssistantActor, id: string, now = new Date()): Promise<ScheduleDto> {
-    const scope = await this.scope(actor);
+    return this.resumeFor(await this.scope(actor), id, now);
+  }
+
+  async resumeFor(scope: OwnerScope, id: string, now = new Date()): Promise<ScheduleDto> {
     const current = await this.#own(scope, id);
     const s = await this.repo.updateSchedule(scope, id, {
       status: 'active',
@@ -254,7 +374,10 @@ export class SchedulesService {
 
   /** "Chạy ngay": 409 `run_too_soon` within 5 minutes of the last manual run (or one pending). */
   async requestRun(actor: AssistantActor, id: string, now = new Date()): Promise<ScheduleDto> {
-    const scope = await this.scope(actor);
+    return this.requestRunFor(await this.scope(actor), id, now);
+  }
+
+  async requestRunFor(scope: OwnerScope, id: string, now = new Date()): Promise<ScheduleDto> {
     const current = await this.#own(scope, id);
     if (current.status !== 'active') throw new AssistantScheduleConflictError('schedule_paused');
     if (current.runRequestedAt) throw new AssistantScheduleConflictError('run_too_soon');
@@ -277,6 +400,75 @@ export class SchedulesService {
     if (!isUuid(id) || !(await this.repo.deleteSchedule(scope, id))) {
       throw new AssistantNotFoundError('schedule', id);
     }
+  }
+
+  /**
+   * Applies an approved `schedule` proposal in-process (S3-R11): re-validates against the
+   * current limit, business scope and email availability, then creates (`created_by
+   * 'assistant'`), updates or removes.
+   */
+  async applyProposal(
+    scope: OwnerScope,
+    body: ScheduleProposalBody,
+    now = new Date(),
+  ): Promise<ScheduleApplyOutcome> {
+    try {
+      switch (body.op) {
+        case 'create': {
+          const draft = ScheduleDraft.safeParse(body.draft);
+          if (!draft.success) return { ok: false, errorCode: 'invalid_params' };
+          const s = await this.createFor(scope, draft.data, 'assistant', now);
+          return { ok: true, id: s.id, name: s.name };
+        }
+        case 'edit': {
+          const s = await this.updateFor(scope, body.scheduleId, body.patch, now);
+          return { ok: true, id: s.id, name: s.name };
+        }
+        case 'remove': {
+          const current = await this.#own(scope, body.scheduleId);
+          await this.removeFor(scope, body.scheduleId);
+          return { ok: true, id: current.id, name: current.name };
+        }
+        default:
+          return { ok: false, errorCode: 'invalid_proposal' };
+      }
+    } catch (e) {
+      return { ok: false, errorCode: scheduleErrorCode(e) };
+    }
+  }
+
+  /**
+   * Accepting a 1c `schedule` suggestion (S3-R12): its payload must be a `ScheduleDraft`
+   * (`businessId` defaults to the current business). Valid → `accepted` with the draft, which the
+   * web opens in the editor (saving it is the approval); invalid → `dismissed`, answered as 422
+   * `invalid_schedule_draft` by the suggestions route.
+   */
+  async acceptSuggestion(
+    scope: OwnerScope,
+    suggestionId: string,
+    now = new Date(),
+  ): Promise<ScheduleSuggestionOutcome> {
+    const suggestion = isUuid(suggestionId)
+      ? (await this.repo.listSuggestions(scope, { status: 'pending' })).find(
+          (x) => x.id === suggestionId && x.kind === 'schedule',
+        )
+      : undefined;
+    if (!suggestion) return { ok: false, errorCode: 'unknown_suggestion' };
+    const draft = ScheduleDraft.safeParse({
+      businessId: scope.businessId,
+      ...suggestion.payload,
+    });
+    const valid = draft.success && scope.businessIds.some((b) => b === draft.data.businessId);
+    const decided = await this.repo.decideSuggestion(
+      scope,
+      suggestion.id,
+      valid ? 'accepted' : 'dismissed',
+      now,
+    );
+    if (!decided) return { ok: false, errorCode: 'unknown_suggestion' };
+    return valid && draft.success
+      ? { ok: true, scheduleDraft: draft.data }
+      : { ok: false, errorCode: 'invalid_schedule_draft' };
   }
 
   async runs(actor: AssistantActor, id: string, limit: number): Promise<ScheduleRunList> {

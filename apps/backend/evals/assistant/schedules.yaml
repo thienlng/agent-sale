@@ -1,0 +1,31 @@
+# Owner assistant evals (T-172): one owner message through the real chat turn (assistant@3, the
+# schedule tool, in-memory stores); the check reads the proposal it left. Run with
+# `pnpm --filter @agent-sales/backend eval:assistant [--live]`. Format: src/modules/assistant/evals/.
+cases:
+  - id: schedule-weekly-revenue-email
+    tags: [critical]
+    message: 'mỗi sáng thứ Hai 8h gửi doanh thu tuần trước qua email'
+    expect:
+      proposal:
+        routeKey: SCHEDULE create
+        draft:
+          template: revenue_summary
+          mode: report
+          params: { period: week, window: previous }
+          cadence: { kind: weekly, days: [1], at: '08:00' }
+          channels: [in_app, email]
+    fake_turns:
+      - tool_calls:
+          - name: schedule
+            input:
+              action: create
+              summary: 'Gửi doanh thu tuần trước mỗi sáng thứ Hai lúc 8h, trong ứng dụng và qua email'
+              draft:
+                name: Doanh thu tuần trước
+                template: revenue_summary
+                mode: report
+                params: { period: week, window: previous }
+                cadence: { kind: weekly, days: [1], at: '08:00' }
+                channels: [in_app, email]
+                commentary: false
+      - text: 'Dạ em đã soạn lịch gửi doanh thu tuần trước mỗi sáng thứ Hai 8h qua ứng dụng và email, anh/chị bấm Duyệt giúp em nhé.'

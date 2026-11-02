@@ -65,7 +65,7 @@ interface Owned {
   accountId: string;
   ownerUserId: string;
 }
-type StoredThread = ThreadRecord & Owned & { origin: 'chat' | 'schedule' | 'review' };
+type StoredThread = ThreadRecord & Owned;
 type StoredMessage = MessageRecord &
   Owned & { active: boolean; compacted: boolean; sortSeq: number };
 type StoredRun = RunRecord & Owned;
@@ -135,7 +135,7 @@ export class InMemoryAssistantRepository implements AssistantRepository {
   }
 
   #publicThread(t: StoredThread): ThreadRecord {
-    const { accountId: _a, ownerUserId: _o, origin: _g, ...rest } = t;
+    const { accountId: _a, ownerUserId: _o, ...rest } = t;
     return structuredClone(rest);
   }
 

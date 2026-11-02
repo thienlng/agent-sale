@@ -25,6 +25,7 @@
     "hq-backfill": "tsx --env-file-if-exists=../../.env src/cli/hq-backfill.ts",
     "mfa-reset": "tsx --env-file-if-exists=../../.env src/cli/mfa-reset.ts",
     "eval": "tsx --env-file-if-exists=../../.env src/cli/eval.ts",
+    "eval:assistant": "tsx --env-file-if-exists=../../.env src/cli/eval-assistant.ts",
     "workspace-plan": "tsx --env-file-if-exists=../../.env src/cli/workspace-plan.ts"
   },
   "dependencies": {

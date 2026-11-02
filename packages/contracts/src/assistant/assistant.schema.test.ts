@@ -194,6 +194,7 @@ describe('proposal and memory DTOs', () => {
   it('parses a pending proposal and rejects an unknown status', () => {
     const proposal = {
       id: TURN,
+      kind: 'route',
       threadId: TURN,
       businessId: TURN,
       routeKey: 'PATCH /products/{productId}',
@@ -206,6 +207,7 @@ describe('proposal and memory DTOs', () => {
       decidedAt: null,
     };
     expect(AssistantProposalDto.safeParse(proposal).success).toBe(true);
+    expect(AssistantProposalDto.safeParse({ ...proposal, kind: 'cron' }).success).toBe(false);
     expect(AssistantProposalDto.safeParse({ ...proposal, status: 'approved' }).success).toBe(false);
   });
 

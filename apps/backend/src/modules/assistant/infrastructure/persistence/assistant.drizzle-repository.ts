@@ -204,6 +204,7 @@ function toThread(row: typeof t.$inferSelect): ThreadRecord {
     businessId: row.businessId,
     systemPrompt: row.systemPrompt,
     promptVersion: row.promptVersion,
+    origin: row.origin as ThreadRecord['origin'],
     createdAt: row.createdAt,
     lastMessageAt: row.lastMessageAt,
     cacheRootId: row.cacheRootId,

@@ -115,8 +115,11 @@ const draftShape = {
   commentary: z.boolean().default(false),
 };
 
+/** The draft fields without the per-template params check (the assistant tool's input shape). */
+export const ScheduleDraftFields = z.object(draftShape);
+
 /** A schedule as the owner (or the assistant) drafts it. */
-export const ScheduleDraft = z.object(draftShape).superRefine((d, ctx) => {
+export const ScheduleDraft = ScheduleDraftFields.superRefine((d, ctx) => {
   const params = scheduleParamsSchema(d.template, d.mode).safeParse(d.params);
   if (!params.success) {
     for (const issue of params.error.issues) {
@@ -126,22 +129,26 @@ export const ScheduleDraft = z.object(draftShape).superRefine((d, ctx) => {
 });
 export type ScheduleDraft = z.infer<typeof ScheduleDraft>;
 
+/** The edit fields without the "something changes" check (the assistant tool's input shape). */
+export const SchedulePatchFields = z.object({
+  name: draftShape.name.optional(),
+  businessId: draftShape.businessId.optional(),
+  template: ScheduleTemplate.optional(),
+  mode: ScheduleMode.optional(),
+  params: Params.optional(),
+  cadence: Cadence.optional(),
+  channels: draftShape.channels.optional(),
+  commentary: z.boolean().optional(),
+  expectedUpdatedAt: z.iso.datetime().optional(),
+});
+
 /** An edit: any draft field; `expectedUpdatedAt` refuses a stale edit (409). */
-export const SchedulePatch = z
-  .object({
-    name: draftShape.name.optional(),
-    businessId: draftShape.businessId.optional(),
-    template: ScheduleTemplate.optional(),
-    mode: ScheduleMode.optional(),
-    params: Params.optional(),
-    cadence: Cadence.optional(),
-    channels: draftShape.channels.optional(),
-    commentary: z.boolean().optional(),
-    expectedUpdatedAt: z.iso.datetime().optional(),
-  })
-  .refine((p) => Object.keys(p).some((k) => k !== 'expectedUpdatedAt'), {
+export const SchedulePatch = SchedulePatchFields.refine(
+  (p) => Object.keys(p).some((k) => k !== 'expectedUpdatedAt'),
+  {
     message: 'nothing to change',
-  });
+  },
+);
 export type SchedulePatch = z.infer<typeof SchedulePatch>;
 
 export const ScheduleStatus = z.enum(['active', 'paused']);
@@ -228,3 +235,11 @@ export const SchedulePreview = z.object({
   nextRuns: z.array(z.iso.datetime()),
 });
 export type SchedulePreview = z.infer<typeof SchedulePreview>;
+
+/**
+ * What accepting a 1c `schedule` suggestion answers (S3-R12): the validated draft the web opens
+ * in the schedule editor; saving it there is the owner's approval. An invalid payload answers
+ * 422 `invalid_schedule_draft` and the suggestion is dismissed.
+ */
+export const ScheduleSuggestionAccept = z.object({ scheduleDraft: ScheduleDraft.optional() });
+export type ScheduleSuggestionAccept = z.infer<typeof ScheduleSuggestionAccept>;

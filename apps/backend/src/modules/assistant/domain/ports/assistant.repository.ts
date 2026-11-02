@@ -25,6 +25,8 @@ export interface ThreadRecord {
   businessId: string | null;
   systemPrompt: string;
   promptVersion: string;
+  /** `chat` = the owner's thread; `schedule` = a report thread (S3-R10); `review` = 1c review. */
+  origin: 'chat' | 'schedule' | 'review';
   createdAt: Date;
   lastMessageAt: Date;
   /** Prompt-cache key root, set on the first compaction (null before). */

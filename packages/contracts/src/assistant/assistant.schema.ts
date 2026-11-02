@@ -154,6 +154,8 @@ export type AssistantProposalKind = z.infer<typeof AssistantProposalKind>;
 /** A write the assistant prepared; it runs only when the owner approves it. */
 export const AssistantProposalDto = z.object({
   id: z.uuid(),
+  /** `schedule` proposals carry `routeKey` `SCHEDULE create|edit|remove` (T-172). */
+  kind: AssistantProposalKind,
   threadId: z.uuid(),
   businessId: z.uuid(),
   /** `METHOD /path` of the target route, e.g. `PATCH /products/{productId}`. */

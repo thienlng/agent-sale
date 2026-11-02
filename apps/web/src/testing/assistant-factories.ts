@@ -85,6 +85,7 @@ export function turnFixture(
 export function proposalFixture(over: Partial<AssistantProposalDto> = {}): AssistantProposalDto {
   return {
     id: ASSISTANT_IDS.proposal,
+    kind: 'route',
     threadId: ASSISTANT_IDS.thread,
     businessId: '3f0c1f0e-5b1c-4c1e-9d55-0a1b2c3d4e5f',
     routeKey: 'PATCH /products/{productId}',

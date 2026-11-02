@@ -19,6 +19,7 @@ const PLATFORM_SKILLS = [
   'handle-orders',
   'read-revenue',
   'set-up-bot',
+  'set-up-schedules',
 ];
 
 describe('platform skills', () => {
@@ -28,7 +29,9 @@ describe('platform skills', () => {
     for (const skill of skills) {
       expect(lintSkill(skill)).toEqual([]);
       expect(skill.toolsets.length).toBeGreaterThan(0);
-      expect(skill.toolsets.every((t) => t === 'ui' || t === 'routes')).toBe(true);
+      expect(skill.toolsets.every((t) => t === 'ui' || t === 'routes' || t === 'schedule')).toBe(
+        true,
+      );
       // Every page a skill names is a dashboard path.
       for (const path of skill.body.match(/\/app[^\s,.;)]*/g) ?? []) {
         expect(path).toMatch(/^\/app(\/[a-z{}A-Z-]+)*$/);

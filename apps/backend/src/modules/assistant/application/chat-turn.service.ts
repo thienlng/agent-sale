@@ -33,6 +33,8 @@ import { MEMORY_TOOL_DEFINITION, memoryTool } from './memory-tools.js';
 import { buildTurnMessage } from './prompt-builder.js';
 import { ROUTE_CATALOG, type RouteCatalog } from './route-catalog.js';
 import { ROUTE_TOOL_DEFINITIONS, routeTools } from './route-tools.js';
+import { SCHEDULE_TOOL_DEFINITION, SCHEDULE_TOOLSET, scheduleTool } from './schedule-tools.js';
+import { SchedulesService } from './schedules.service.js';
 import { SKILL_TOOL_DEFINITIONS, skillTools } from './skill-tools.js';
 import { SkillsService } from './skills.service.js';
 import { withTurnOutputBudget } from './turn-budget.js';
@@ -56,13 +58,23 @@ export const HISTORY_MAX_MESSAGES = 200;
 export const MIN_ANSWER_BUDGET_MS = 30_000;
 /** Appended to the last tool result at 80% of the turn budget (the shop bot's text says customer). */
 export const OWNER_WRAP_UP_NOTICE = 'Time is almost up: answer the owner now with what you have.';
+const byName = (a: { name: string }, b: { name: string }) =>
+  a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
 /** Every tool the model is offered, sorted by name so the tool list stays cache-stable. */
 export const TURN_TOOL_DEFINITIONS = [
   ...CORE_TOOL_DEFINITIONS,
   MEMORY_TOOL_DEFINITION,
   ...SKILL_TOOL_DEFINITIONS,
   ...ROUTE_TOOL_DEFINITIONS,
-].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  SCHEDULE_TOOL_DEFINITION,
+].sort(byName);
+/**
+ * The turn's tools without `schedule` (a report thread, or the toolset disabled in the 1c
+ * settings): no schedule created from a schedule (core §12).
+ */
+export const TURN_TOOL_DEFINITIONS_NO_SCHEDULE = TURN_TOOL_DEFINITIONS.filter(
+  (t) => t.name !== SCHEDULE_TOOL_DEFINITION.name,
+);
 
 export interface TurnResult {
   /** The visible messages of the turn (the owner's text, then the answer). */
@@ -172,6 +184,7 @@ export class ChatTurnService {
     @Inject(SkillsService) private readonly skills: SkillsService,
     @Inject(ROUTE_INVOKER) private readonly invoker: RouteInvoker,
     @Inject(CompactionService) private readonly compaction: CompactionService,
+    @Inject(SchedulesService) private readonly schedules: SchedulesService,
   ) {}
 
   /** The routes the assistant may use; tests replace it. */
@@ -255,6 +268,7 @@ export class ChatTurnService {
     };
     // The turn's proposals; the web reads them per thread, so the answer carries no field.
     const proposalIds: string[] = [];
+    const withSchedule = await this.#scheduleToolOn(scope, thread);
     const pending: Promise<void>[] = [];
     let idx = 0;
     let result: AgentLoopResult | undefined;
@@ -265,7 +279,7 @@ export class ChatTurnService {
           workspaceId: scope.businessId,
           tier: TURN_TIER,
           messages: [{ role: 'system', content: thread.systemPrompt }, ...history],
-          tools: TURN_TOOL_DEFINITIONS,
+          tools: withSchedule ? TURN_TOOL_DEFINITIONS : TURN_TOOL_DEFINITIONS_NO_SCHEDULE,
           // Stable across compactions: the root is the thread id, kept in cache_root_id.
           promptCacheKey: threadCacheKey(scope, thread),
           timeoutMs: TURN_CALL_TIMEOUT_MS,
@@ -293,6 +307,18 @@ export class ChatTurnService {
             proposalIds,
             ...(req.pageContext ? { page: req.pageContext } : {}),
           }),
+          ...(withSchedule
+            ? [
+                scheduleTool({
+                  scope,
+                  repo: this.repo,
+                  schedules: this.schedules,
+                  threadId: thread.id,
+                  runId,
+                  proposalIds,
+                }),
+              ]
+            : []),
         ]),
         generate: (r) => this.gateway.generate(r),
         maxRounds: TURN_MAX_ROUNDS,
@@ -363,6 +389,13 @@ export class ChatTurnService {
       finishedAt: new Date(),
     });
     return this.#result(scope, runId, [user, ...added]);
+  }
+
+  /** No `schedule` tool in a report thread or when the owner disabled the toolset. */
+  async #scheduleToolOn(scope: OwnerScope, thread: ThreadRecord): Promise<boolean> {
+    if (thread.origin === 'schedule') return false;
+    const settings = await this.repo.getSettings(scope);
+    return !settings.disabledToolsets.includes(SCHEDULE_TOOLSET);
   }
 
   /** Compacts the thread when due; any failure keeps the full history and the turn goes on. */

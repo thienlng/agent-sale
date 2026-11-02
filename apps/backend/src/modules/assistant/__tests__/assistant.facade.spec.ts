@@ -8,6 +8,7 @@ import { ChatTurnService } from '../application/chat-turn.service.js';
 import { CompactionService } from '../application/compaction.service.js';
 import { ProposalService } from '../application/proposals.service.js';
 import { SkillCatalog } from '../application/skill-tools.js';
+import type { SchedulesService } from '../application/schedules.service.js';
 import { SkillsService } from '../application/skills.service.js';
 import { ThreadPromptService } from '../application/thread-prompt.service.js';
 import {
@@ -90,8 +91,9 @@ function setup() {
   const invoker = { invoke };
   const prompts = new ThreadPromptService(world.workspace, repo, skills);
   const compaction = new CompactionService(repo, { generate }, prompts);
-  const chat = new ChatTurnService(repo, { generate }, skills, invoker, compaction);
-  const proposals = new ProposalService(repo, invoker);
+  const schedules = {} as SchedulesService;
+  const chat = new ChatTurnService(repo, { generate }, skills, invoker, compaction, schedules);
+  const proposals = new ProposalService(repo, invoker, schedules);
   const facade = new AssistantFacadeImpl(
     world.account,
     world.workspace,
@@ -120,7 +122,7 @@ describe('AssistantFacade (contract)', () => {
     expect(stored).toMatchObject({
       accountId,
       ownerUserId: me.userId,
-      promptVersion: 'assistant@2',
+      promptVersion: 'assistant@3',
     });
     expect(stored.systemPrompt).toContain('personal assistant of Lan,');
     expect(stored.systemPrompt).toContain(`- Thời trang Mây (retail) — id ${me.businessId}`);
