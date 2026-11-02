@@ -33,7 +33,8 @@ import { MEMORY_TOOL_DEFINITION, memoryTool } from './memory-tools.js';
 import { buildTurnMessage } from './prompt-builder.js';
 import { ROUTE_CATALOG, type RouteCatalog } from './route-catalog.js';
 import { ROUTE_TOOL_DEFINITIONS, routeTools } from './route-tools.js';
-import { SKILL_TOOL_DEFINITIONS, SkillCatalog, skillTools } from './skill-tools.js';
+import { SKILL_TOOL_DEFINITIONS, skillTools } from './skill-tools.js';
+import { SkillsService } from './skills.service.js';
 import { withTurnOutputBudget } from './turn-budget.js';
 
 /** The assistant answers on the `pro` tier (ADR-023). */
@@ -168,7 +169,7 @@ export class ChatTurnService {
   constructor(
     @Inject(ASSISTANT_REPOSITORY) private readonly repo: AssistantRepository,
     @Inject(AI_LLM_GATEWAY) private readonly gateway: LlmGatewayPort,
-    @Inject(SkillCatalog) private readonly skills: SkillCatalog,
+    @Inject(SkillsService) private readonly skills: SkillsService,
     @Inject(ROUTE_INVOKER) private readonly invoker: RouteInvoker,
     @Inject(CompactionService) private readonly compaction: CompactionService,
   ) {}
@@ -273,7 +274,14 @@ export class ChatTurnService {
         tools: withTurnOutputBudget([
           ...coreTools(ctx),
           memoryTool({ scope, repo: this.repo }),
-          ...skillTools(this.skills),
+          // skill_manage as the chat actor; patches need a load_skill in this same turn.
+          ...skillTools({
+            scope,
+            skills: this.skills,
+            actor: 'assistant',
+            runId,
+            loadedSkills: new Set<string>(),
+          }),
           ...routeTools({
             scope,
             repo: this.repo,

@@ -8,6 +8,7 @@ import { ChatTurnService } from '../application/chat-turn.service.js';
 import { CompactionService } from '../application/compaction.service.js';
 import { ProposalService } from '../application/proposals.service.js';
 import { SkillCatalog } from '../application/skill-tools.js';
+import { SkillsService } from '../application/skills.service.js';
 import { ThreadPromptService } from '../application/thread-prompt.service.js';
 import {
   AssistantBusyError,
@@ -82,7 +83,7 @@ function setup() {
       latencyMs: 1,
     }),
   );
-  const skills = new SkillCatalog([SKILL]);
+  const skills = new SkillsService(repo, new SkillCatalog([SKILL]));
   const invoke = vi.fn((_i: RouteInvocation): Promise<RouteInvocationResult> =>
     Promise.resolve({ status: 200, body: { id: 'p1' } }),
   );
@@ -98,6 +99,7 @@ function setup() {
     chat,
     prompts,
     proposals,
+    skills,
   );
   const me = { userId: world.owner, businessId: world.business };
   return { ...world, repo, facade, me, generate, invoke, proposals };
@@ -124,6 +126,23 @@ describe('AssistantFacade (contract)', () => {
     expect(stored.systemPrompt).toContain(`- Thời trang Mây (retail) — id ${me.businessId}`);
     expect(stored.systemPrompt).not.toContain('Elsewhere');
     expect(stored.systemPrompt).toMatch(/Today is \d{4}-\d{2}-\d{2} \(Asia\/Ho_Chi_Minh\)\./);
+  });
+
+  it('freezes the owner skills index in a new thread: a shadow replaces its platform skill', async () => {
+    const { facade, me, repo, addAccountMember } = setup();
+    const shadow = await facade.shadowSkill(me, 'add-products');
+    await facade.updateSkill(me, shadow.id!, { description: 'Add products with a sale price' });
+    await facade.createSkill(me, { name: 'weekly-sale', description: 'Run the sale', body: 'Go.' });
+    const thread = await facade.createThread({ ...me, ownerName: 'Lan' }, {});
+    const prompt = repo.threads.get(thread.id)!.systemPrompt;
+    expect(prompt).toContain(
+      '- add-products: Add products with a sale price\n- weekly-sale: Run the sale',
+    );
+    expect(prompt).not.toContain('Add products to the catalog');
+
+    // Billing members are refused like every assistant call.
+    const billing = { userId: addAccountMember('billing'), businessId: me.businessId };
+    await expect(facade.listSkills(billing)).rejects.toBeInstanceOf(AssistantForbiddenError);
   });
 
   it('reads the owner memberships once per request', async () => {

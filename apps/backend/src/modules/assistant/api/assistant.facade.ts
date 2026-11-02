@@ -4,12 +4,17 @@ import type {
   AssistantProposalDto,
   AssistantProposalList,
   AssistantRunDto,
+  AssistantSkillDto,
+  AssistantSkillEventList,
+  AssistantSkillList,
   AssistantThreadDto,
   AssistantThreadList,
   AssistantThreadListQuery,
+  CreateAssistantSkillRequest,
   CreateAssistantThreadRequest,
   SendAssistantMessageRequest,
   SendAssistantMessageResponse,
+  UpdateAssistantSkillRequest,
   UpdateAssistantThreadRequest,
 } from '@agent-sales/contracts';
 import type { UserId, WorkspaceId } from '@agent-sales/shared';
@@ -78,6 +83,41 @@ export interface AssistantFacade {
   ): Promise<AssistantProposalDto>;
   /** Pending → rejected, with an event message; CONFLICT as for approve. */
   rejectProposal(actor: AssistantActor, proposalId: string): Promise<AssistantProposalDto>;
+
+  // ─── Skills (1c) ───
+  // Every change is recorded in the skill's ledger (actor `owner`) and can be undone.
+
+  /** Platform skills (`shadowed` when the owner's active shadow replaces one), then every row. */
+  listSkills(actor: AssistantActor): Promise<AssistantSkillList>;
+  /** `skillRef` = a skill id or `platform:<name>`; NOT_FOUND otherwise. */
+  getSkill(actor: AssistantActor, skillRef: string): Promise<AssistantSkillDto>;
+  /**
+   * An owner skill, active at once. VALIDATION_FAILED when the linter refuses it; CONFLICT
+   * `skill_name_taken` (a platform or live skill has the name) or `skill_limit` (50 live skills).
+   */
+  createSkill(
+    actor: AssistantActor,
+    input: CreateAssistantSkillRequest,
+  ): Promise<AssistantSkillDto>;
+  updateSkill(
+    actor: AssistantActor,
+    skillId: string,
+    patch: UpdateAssistantSkillRequest,
+  ): Promise<AssistantSkillDto>;
+  /** Shadow skills only (CONFLICT `not_a_shadow`): the platform skill comes back. */
+  deleteSkill(actor: AssistantActor, skillId: string): Promise<void>;
+  /** `pending_approval` → `active`; CONFLICT `skill_not_pending`. */
+  approveSkill(actor: AssistantActor, skillId: string): Promise<AssistantSkillDto>;
+  /** `pending_approval` → `archived`; CONFLICT `skill_not_pending`. */
+  rejectSkill(actor: AssistantActor, skillId: string): Promise<AssistantSkillDto>;
+  archiveSkill(actor: AssistantActor, skillId: string): Promise<AssistantSkillDto>;
+  /** `stale` / `archived` → `active`; CONFLICT `skill_not_restorable`, `skill_limit`, `shadow_exists`. */
+  restoreSkill(actor: AssistantActor, skillId: string): Promise<AssistantSkillDto>;
+  /** Copies a platform skill into a shadow that replaces it; CONFLICT `shadow_exists`. */
+  shadowSkill(actor: AssistantActor, platformName: string): Promise<AssistantSkillDto>;
+  listSkillEvents(actor: AssistantActor, skillId: string): Promise<AssistantSkillEventList>;
+  /** CONFLICT `event_already_undone`, `event_not_undoable` or `stale_skill`. */
+  undoSkillEvent(actor: AssistantActor, eventId: string): Promise<AssistantSkillDto>;
 }
 
 export const ASSISTANT_FACADE = Symbol('ASSISTANT_FACADE');

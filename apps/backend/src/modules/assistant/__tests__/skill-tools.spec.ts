@@ -1,13 +1,17 @@
 import { ASSISTANT_SKILLS_DIR, lintSkill, loadSkillDir } from '@agent-sales/ai-core';
+import { newId, userId, workspaceId } from '@agent-sales/shared';
 import { describe, expect, it } from 'vitest';
 
 import {
   LOAD_SKILL_TOOL,
+  SKILL_MANAGE_TOOL,
   SKILL_TOOL_DEFINITIONS,
   SKILLS_LIST_TOOL,
   SkillCatalog,
   skillTools,
 } from '../application/skill-tools.js';
+import { SkillsService } from '../application/skills.service.js';
+import { InMemoryAssistantRepository } from '../infrastructure/persistence/assistant.in-memory-repository.js';
 
 const PLATFORM_SKILLS = [
   'add-products',
@@ -36,7 +40,21 @@ describe('platform skills', () => {
 describe('skill tools', () => {
   async function setup() {
     const catalog = await SkillCatalog.load();
-    const tools = skillTools(catalog);
+    const repo = new InMemoryAssistantRepository();
+    const business = workspaceId(newId());
+    const scope = {
+      accountId: newId(),
+      ownerUserId: userId(newId()),
+      businessId: business,
+      businessIds: [business],
+    };
+    const tools = skillTools({
+      scope,
+      skills: new SkillsService(repo, catalog),
+      actor: 'assistant',
+      runId: null,
+      loadedSkills: new Set(),
+    });
     const run = async (name: string, input: unknown) => {
       const tool = tools.find((t) => t.name === name)!;
       const out = await tool.run(tool.schema.parse(input));
@@ -49,11 +67,18 @@ describe('skill tools', () => {
     return { catalog, tools, run };
   }
 
-  it('offers skills_list and load_skill, with a definition for each', async () => {
+  it('offers skills_list, load_skill and skill_manage, with a definition for each', async () => {
     const { tools } = await setup();
-    expect(tools.map((t) => t.name)).toEqual([SKILLS_LIST_TOOL, LOAD_SKILL_TOOL]);
+    expect(tools.map((t) => t.name)).toEqual([
+      SKILLS_LIST_TOOL,
+      LOAD_SKILL_TOOL,
+      SKILL_MANAGE_TOOL,
+    ]);
     expect(SKILL_TOOL_DEFINITIONS.map((d) => d.name)).toEqual(tools.map((t) => t.name));
-    expect(tools.every((t) => t.readOnly)).toBe(true);
+    expect(tools.filter((t) => t.readOnly).map((t) => t.name)).toEqual([
+      SKILLS_LIST_TOOL,
+      LOAD_SKILL_TOOL,
+    ]);
   });
 
   it('lists the skills and loads one body, or answers unknown_skill', async () => {

@@ -14,6 +14,7 @@ import type { WorkspaceFacade } from '../../workspace/api/index.js';
 import { CompactionService } from '../application/compaction.service.js';
 import { toMessageDtos } from '../application/mappers.js';
 import { SkillCatalog } from '../application/skill-tools.js';
+import { SkillsService } from '../application/skills.service.js';
 import { ThreadPromptService } from '../application/thread-prompt.service.js';
 import {
   AssistantBusyError,
@@ -67,7 +68,7 @@ async function setup(script: (GenerateResponse | Error)[] = [NAVIGATE, ANSWER]) 
   const invoke = vi.fn((_i: RouteInvocation): Promise<RouteInvocationResult> =>
     Promise.resolve({ status: 200, body: {} }),
   );
-  const skills = new SkillCatalog([]);
+  const skills = new SkillsService(repo, new SkillCatalog([]));
   const workspace = { listMemberships: () => Promise.resolve([]) } as unknown as WorkspaceFacade;
   const compaction = new CompactionService(
     repo,
@@ -144,6 +145,7 @@ describe('ChatTurnService', () => {
       'load_skill',
       'memory',
       'session_search',
+      'skill_manage',
       'skills_list',
       'tool_call',
       'tool_describe',
@@ -555,6 +557,49 @@ describe('ChatTurnService', () => {
     expect(tools.slice(5).map((m) => JSON.parse(m.content) as unknown)).toEqual([
       { ok: false, errorCode: 'turn_budget_exhausted' },
       { ok: false, errorCode: 'turn_budget_exhausted' },
+    ]);
+  });
+  it('patches an owner skill only after load_skill in the same turn (read-before-write)', async () => {
+    const save = {
+      action: 'create',
+      name: 'weekly-sale',
+      description: 'Run the weekly sale',
+      body: '1. Lower prices by 10%.',
+    };
+    const patch = { action: 'patch', name: 'weekly-sale', body: '1. Lower prices by 15%.' };
+    const { service, scope, thread, repo } = await setup([
+      call('c1', 'skill_manage', save),
+      reply({ text: 'Dạ em lưu quy trình rồi ạ' }),
+      // Next turn: a patch before loading is refused, then load, then patch.
+      call('c2', 'skill_manage', patch),
+      call('c3', 'load_skill', { name: 'weekly-sale' }),
+      call('c4', 'skill_manage', patch),
+      reply({ text: 'Dạ em sửa rồi ạ' }),
+    ]);
+    const first = newId();
+    await service.send(scope, thread.id, { turnId: first, text: 'Lưu thành quy trình' }, AUTH);
+    const second = newId();
+    await service.send(scope, thread.id, { turnId: second, text: 'Giảm 15% nhé' }, AUTH);
+
+    const results = (await repo.listMessages(scope, thread.id))
+      .filter((m) => m.role === 'tool' && m.toolName === 'skill_manage')
+      .map((m) => JSON.parse(m.content) as { ok: boolean; errorCode?: string });
+    expect(results).toMatchObject([
+      { ok: true },
+      { ok: false, errorCode: 'load_first' },
+      { ok: true },
+    ]);
+    const [skill] = await repo.listSkills(scope);
+    expect(skill).toMatchObject({
+      provenance: 'owner',
+      state: 'active',
+      body: '1. Lower prices by 15%.',
+      useCount: 1,
+    });
+    const events = await repo.listSkillEvents(scope, { skillId: skill!.id });
+    expect(events.map((e) => [e.actor, e.action, e.runId])).toEqual([
+      ['assistant', 'patch', second],
+      ['assistant', 'create', first],
     ]);
   });
 });

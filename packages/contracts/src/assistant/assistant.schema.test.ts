@@ -8,7 +8,9 @@ import {
   AssistantPageForm,
   AssistantProposalDto,
   AssistantUiAction,
+  CreateAssistantSkillRequest,
   SendAssistantMessageRequest,
+  UpdateAssistantSkillRequest,
   UpdateAssistantThreadRequest,
 } from './assistant.schema.js';
 
@@ -71,7 +73,7 @@ describe('AssistantMessageDto', () => {
 });
 
 describe('assistantRoutes', () => {
-  it('declares the eleven workspace-scoped assistant routes', () => {
+  it('declares the workspace-scoped assistant routes, all `never`', () => {
     expect(assistantRoutes.map((r) => `${r.method} ${r.path}`)).toEqual([
       'get /assistant/threads',
       'post /assistant/threads',
@@ -84,6 +86,18 @@ describe('assistantRoutes', () => {
       'get /assistant/threads/{threadId}/proposals',
       'post /assistant/proposals/{proposalId}/approve',
       'post /assistant/proposals/{proposalId}/reject',
+      'get /assistant/skills',
+      'get /assistant/skills/{skillRef}',
+      'post /assistant/skills',
+      'patch /assistant/skills/{skillId}',
+      'delete /assistant/skills/{skillId}',
+      'post /assistant/skills/{skillId}/approve',
+      'post /assistant/skills/{skillId}/reject',
+      'post /assistant/skills/{skillId}/archive',
+      'post /assistant/skills/{skillId}/restore',
+      'post /assistant/skills/platform/{name}/shadow',
+      'get /assistant/skills/{skillId}/events',
+      'post /assistant/skill-events/{eventId}/undo',
     ]);
     for (const r of assistantRoutes) {
       expect(r).toMatchObject({
@@ -199,5 +213,20 @@ describe('proposal and memory DTOs', () => {
         ],
       }).success,
     ).toBe(true);
+  });
+});
+
+describe('skill requests', () => {
+  it('accepts an owner skill and refuses a bad name or an empty update', () => {
+    expect(
+      CreateAssistantSkillRequest.safeParse({ name: 'weekly-sale', description: 'd', body: 'b' })
+        .success,
+    ).toBe(true);
+    expect(
+      CreateAssistantSkillRequest.safeParse({ name: 'Weekly Sale', description: 'd', body: 'b' })
+        .success,
+    ).toBe(false);
+    expect(UpdateAssistantSkillRequest.safeParse({}).success).toBe(false);
+    expect(UpdateAssistantSkillRequest.parse({ pinned: true })).toEqual({ pinned: true });
   });
 });

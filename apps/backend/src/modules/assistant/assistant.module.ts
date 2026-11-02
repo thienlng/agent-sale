@@ -10,7 +10,8 @@ import { AssistantFacadeImpl } from './application/assistant.facade.impl.js';
 import { ChatTurnService } from './application/chat-turn.service.js';
 import { CompactionService } from './application/compaction.service.js';
 import { ProposalService } from './application/proposals.service.js';
-import { SkillCatalog } from './application/skill-tools.js';
+import { SkillCatalog } from './application/skill-catalog.js';
+import { SkillsService } from './application/skills.service.js';
 import { ThreadPromptService } from './application/thread-prompt.service.js';
 import { ASSISTANT_REPOSITORY } from './domain/ports/assistant.repository.js';
 import { ROUTE_INVOKER } from './domain/ports/route-invoker.port.js';
@@ -42,6 +43,7 @@ import { AssistantController } from './interface/http/assistant.controller.js';
     { provide: SkillCatalog, useFactory: () => SkillCatalog.load() },
     // Route tools and approved proposals run in process through Fastify inject (spec §6).
     { provide: ROUTE_INVOKER, useClass: FastifyRouteInvoker },
+    SkillsService,
     ThreadPromptService,
     CompactionService,
     ChatTurnService,

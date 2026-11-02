@@ -9,6 +9,9 @@ import {
   AssistantProposalDto,
   AssistantProposalList,
   AssistantRunDto,
+  AssistantSkillDto,
+  AssistantSkillEventList,
+  AssistantSkillList,
   AssistantThreadDto,
   AssistantThreadList,
   AuthResponse,
@@ -1059,5 +1062,132 @@ describe('assistant route tools and proposals on Postgres (1b)', () => {
     expect(
       (await call(other.h, 'POST', `/assistant/proposals/${proposal?.id}/approve`)).statusCode,
     ).toBe(404);
+  });
+});
+
+describe('assistant skills over HTTP on Postgres (1c)', () => {
+  it('shadows a platform skill, edits, undoes and restores through the ledger', async () => {
+    const hoa = await user('hoa-skills@assistant.vn', 'Hoa');
+    const list = AssistantSkillList.parse((await call(hoa.h, 'GET', '/assistant/skills')).json());
+    expect(list.items.filter((i) => i.provenance === 'platform').map((i) => i.name)).toContain(
+      'add-products',
+    );
+
+    const shadowRes = await call(hoa.h, 'POST', '/assistant/skills/platform/add-products/shadow');
+    expect(shadowRes.statusCode, shadowRes.body).toBe(201);
+    const shadow = AssistantSkillDto.parse(shadowRes.json());
+    expect(shadow).toMatchObject({ provenance: 'shadow', shadowOf: 'add-products' });
+    const again = await call(hoa.h, 'POST', '/assistant/skills/platform/add-products/shadow');
+    expect(again.statusCode).toBe(409);
+    expect(again.json()).toMatchObject({ error: { details: { reason: 'shadow_exists' } } });
+    expect((await call(hoa.h, 'POST', '/assistant/skills/platform/nope/shadow')).statusCode).toBe(
+      404,
+    );
+    const platform = AssistantSkillDto.parse(
+      (await call(hoa.h, 'GET', '/assistant/skills/platform:add-products')).json(),
+    );
+    expect(platform).toMatchObject({ provenance: 'platform', shadowed: true, body: shadow.body });
+
+    // An owner skill: create, patch, then undo the patch.
+    const created = await call(hoa.h, 'POST', '/assistant/skills', {
+      name: 'weekly-sale',
+      description: 'Run the weekly sale',
+      body: 'Lower prices by 10%.',
+    });
+    expect(created.statusCode, created.body).toBe(201);
+    const skill = AssistantSkillDto.parse(created.json());
+    expect(
+      (
+        await call(hoa.h, 'POST', '/assistant/skills', {
+          name: 'add-products',
+          description: 'd',
+          body: 'b',
+        })
+      ).statusCode,
+    ).toBe(409);
+    const unsafe = await call(hoa.h, 'POST', '/assistant/skills', {
+      name: 'call-me',
+      description: 'd',
+      body: 'Call 0912345678',
+    });
+    expect(unsafe.statusCode).toBe(400);
+
+    const patched = await call(hoa.h, 'PATCH', `/assistant/skills/${skill.id}`, {
+      body: 'Lower prices by 50%.',
+    });
+    expect(patched.statusCode, patched.body).toBe(200);
+    expect(AssistantSkillDto.parse(patched.json())).toMatchObject({ patchCount: 1 });
+    const events = AssistantSkillEventList.parse(
+      (await call(hoa.h, 'GET', `/assistant/skills/${skill.id}/events`)).json(),
+    );
+    expect(events.items.map((e) => e.action)).toEqual(['patch', 'create']);
+    const undo = await call(hoa.h, 'POST', `/assistant/skill-events/${events.items[0]!.id}/undo`);
+    expect(undo.statusCode, undo.body).toBe(200);
+    expect(AssistantSkillDto.parse(undo.json()).body).toBe('Lower prices by 10%.');
+    const twice = await call(hoa.h, 'POST', `/assistant/skill-events/${events.items[0]!.id}/undo`);
+    expect(twice.statusCode).toBe(409);
+
+    // Archive and restore; delete is for shadows only.
+    expect((await call(hoa.h, 'POST', `/assistant/skills/${skill.id}/archive`)).statusCode).toBe(
+      200,
+    );
+    const restored = await call(hoa.h, 'POST', `/assistant/skills/${skill.id}/restore`);
+    expect(AssistantSkillDto.parse(restored.json()).state).toBe('active');
+    expect((await call(hoa.h, 'DELETE', `/assistant/skills/${skill.id}`)).statusCode).toBe(409);
+    expect((await call(hoa.h, 'POST', `/assistant/skills/${skill.id}/approve`)).statusCode).toBe(
+      409,
+    );
+    expect((await call(hoa.h, 'DELETE', `/assistant/skills/${shadow.id}`)).statusCode).toBe(204);
+    const after = AssistantSkillDto.parse(
+      (await call(hoa.h, 'GET', '/assistant/skills/platform:add-products')).json(),
+    );
+    expect(after.shadowed).toBe(false);
+  });
+
+  it("refuses staff (403) and hides one owner's skills from another (404)", async () => {
+    const tam = await user('tam@assistant.vn', 'Tam');
+    const skill = AssistantSkillDto.parse(
+      (
+        await call(tam.h, 'POST', '/assistant/skills', {
+          name: 'reply-reviews',
+          description: 'Reply to reviews',
+          body: 'Thank the customer first.',
+        })
+      ).json(),
+    );
+    const [event] = AssistantSkillEventList.parse(
+      (await call(tam.h, 'GET', `/assistant/skills/${skill.id}/events`)).json(),
+    ).items;
+
+    const staff = await user('staff-skills@assistant.vn', 'Staff');
+    await invite(tam, staff, 'staff-skills@assistant.vn', 'admin');
+    const asStaff = staff.in(tam.ownWorkspace);
+    const routes: [Method, string, object?][] = [
+      ['GET', '/assistant/skills'],
+      ['GET', `/assistant/skills/${skill.id}`],
+      ['POST', '/assistant/skills', { name: 'x', description: 'd', body: 'b' }],
+      ['PATCH', `/assistant/skills/${skill.id}`, { pinned: true }],
+      ['DELETE', `/assistant/skills/${skill.id}`],
+      ['POST', `/assistant/skills/${skill.id}/approve`],
+      ['POST', `/assistant/skills/${skill.id}/reject`],
+      ['POST', `/assistant/skills/${skill.id}/archive`],
+      ['POST', `/assistant/skills/${skill.id}/restore`],
+      ['POST', '/assistant/skills/platform/add-products/shadow'],
+      ['GET', `/assistant/skills/${skill.id}/events`],
+      ['POST', `/assistant/skill-events/${event!.id}/undo`],
+    ];
+    for (const [method, url, body] of routes) {
+      expect((await call(asStaff, method, url, body)).statusCode, `${method} ${url}`).toBe(403);
+    }
+
+    // Another owner (their own account) sees none of it.
+    const vy = await user('vy-skills@assistant.vn', 'Vy');
+    for (const [method, url, body] of routes.filter(
+      ([, u]) => u.includes(skill.id!) || u.includes(event!.id),
+    )) {
+      expect((await call(vy.h, method, url, body)).statusCode, `${method} ${url}`).toBe(404);
+    }
+    const theirs = AssistantSkillList.parse((await call(vy.h, 'GET', '/assistant/skills')).json());
+    expect(theirs.items.every((i) => i.provenance === 'platform')).toBe(true);
   });
 });

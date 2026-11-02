@@ -190,3 +190,98 @@ export type AssistantMemoryStoreDto = z.infer<typeof AssistantMemoryStoreDto>;
 
 export const AssistantMemoryDto = z.object({ stores: z.array(AssistantMemoryStoreDto) });
 export type AssistantMemoryDto = z.infer<typeof AssistantMemoryDto>;
+
+// ─── Skills (1c) ──────────────────────────────────────────────────────────────
+
+/** Same rule as a SKILL.md name: lowercase letters, digits and dashes. */
+export const AssistantSkillName = z
+  .string()
+  .trim()
+  .min(1)
+  .max(64)
+  .regex(/^[a-z0-9][a-z0-9-]*$/, 'lowercase letters, digits and dashes');
+
+export const AssistantSkillProvenance = z.enum(['platform', 'owner', 'learned', 'shadow']);
+export type AssistantSkillProvenance = z.infer<typeof AssistantSkillProvenance>;
+
+export const AssistantSkillState = z.enum(['pending_approval', 'active', 'stale', 'archived']);
+export type AssistantSkillState = z.infer<typeof AssistantSkillState>;
+
+/**
+ * One skill on the owner's skills page. `ref` is the row id, or `platform:<name>` for a platform
+ * skill (a file: always `active`, no counters, `shadowed` when the owner's shadow replaces it).
+ */
+export const AssistantSkillSummaryDto = z.object({
+  ref: z.string(),
+  id: z.uuid().nullable(),
+  name: z.string(),
+  description: z.string(),
+  provenance: AssistantSkillProvenance,
+  /** The platform skill a `shadow` replaces; null otherwise. */
+  shadowOf: z.string().nullable(),
+  /** Platform skills only: the owner's active shadow replaces it. */
+  shadowed: z.boolean(),
+  state: AssistantSkillState,
+  pinned: z.boolean(),
+  useCount: z.number().int(),
+  viewCount: z.number().int(),
+  patchCount: z.number().int(),
+  lastUsedAt: z.iso.datetime().nullable(),
+  lastPatchedAt: z.iso.datetime().nullable(),
+  createdAt: z.iso.datetime().nullable(),
+  updatedAt: z.iso.datetime().nullable(),
+});
+export type AssistantSkillSummaryDto = z.infer<typeof AssistantSkillSummaryDto>;
+
+/** Platform skills first (by name), then the owner's rows (by name), every state. */
+export const AssistantSkillList = z.object({ items: z.array(AssistantSkillSummaryDto) });
+export type AssistantSkillList = z.infer<typeof AssistantSkillList>;
+
+export const AssistantSkillDto = AssistantSkillSummaryDto.extend({
+  body: z.string(),
+  toolsets: z.array(z.string()),
+});
+export type AssistantSkillDto = z.infer<typeof AssistantSkillDto>;
+
+/** The owner writes a procedure of their own; it is active at once. */
+export const CreateAssistantSkillRequest = z.object({
+  name: AssistantSkillName,
+  description: z.string().trim().min(1).max(120),
+  body: z.string().trim().min(1).max(8000),
+});
+export type CreateAssistantSkillRequest = z.infer<typeof CreateAssistantSkillRequest>;
+
+export const UpdateAssistantSkillRequest = z
+  .object({
+    description: z.string().trim().min(1).max(120),
+    body: z.string().trim().min(1).max(8000),
+    pinned: z.boolean(),
+  })
+  .partial()
+  .refine((v) => Object.keys(v).length > 0, 'empty update');
+export type UpdateAssistantSkillRequest = z.infer<typeof UpdateAssistantSkillRequest>;
+
+/** What the ledger keeps of a skill before and after a change. */
+export const AssistantSkillSnapshotDto = z.object({
+  name: z.string(),
+  description: z.string(),
+  body: z.string(),
+  state: AssistantSkillState,
+});
+export type AssistantSkillSnapshotDto = z.infer<typeof AssistantSkillSnapshotDto>;
+
+export const AssistantSkillEventDto = z.object({
+  id: z.uuid(),
+  skillId: z.uuid(),
+  actor: z.enum(['owner', 'assistant', 'review', 'curator']),
+  action: z.enum(['create', 'patch', 'archive', 'restore', 'approve', 'reject', 'undo']),
+  before: AssistantSkillSnapshotDto.nullable(),
+  after: AssistantSkillSnapshotDto.nullable(),
+  undoneAt: z.iso.datetime().nullable(),
+  createdAt: z.iso.datetime(),
+});
+export type AssistantSkillEventDto = z.infer<typeof AssistantSkillEventDto>;
+
+/** Newest first. */
+export const AssistantSkillEventList = z.object({ items: z.array(AssistantSkillEventDto) });
+export type AssistantSkillEventList = z.infer<typeof AssistantSkillEventList>;

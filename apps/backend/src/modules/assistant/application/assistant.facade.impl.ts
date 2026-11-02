@@ -4,12 +4,17 @@ import type {
   AssistantProposalDto,
   AssistantProposalList,
   AssistantRunDto,
+  AssistantSkillDto,
+  AssistantSkillEventList,
+  AssistantSkillList,
   AssistantThreadDto,
   AssistantThreadList,
   AssistantThreadListQuery,
+  CreateAssistantSkillRequest,
   CreateAssistantThreadRequest,
   SendAssistantMessageRequest,
   SendAssistantMessageResponse,
+  UpdateAssistantSkillRequest,
   UpdateAssistantThreadRequest,
 } from '@agent-sales/contracts';
 import { isUuid, newId } from '@agent-sales/shared';
@@ -36,6 +41,7 @@ import { ChatTurnService } from './chat-turn.service.js';
 import { toMessageDtos, toRunDto, toThreadDto } from './mappers.js';
 import { accountMemberships, type OwnerScope, resolveOwnerScope } from './owner-access.js';
 import { ProposalService } from './proposals.service.js';
+import { SkillsService } from './skills.service.js';
 import { ASSISTANT_PROMPT } from './prompt-builder.js';
 import { ThreadPromptService } from './thread-prompt.service.js';
 
@@ -55,6 +61,7 @@ export class AssistantFacadeImpl implements AssistantFacade {
     @Inject(ChatTurnService) private readonly chat: ChatTurnService,
     @Inject(ThreadPromptService) private readonly prompts: ThreadPromptService,
     @Inject(ProposalService) private readonly proposals: ProposalService,
+    @Inject(SkillsService) private readonly skills: SkillsService,
   ) {}
 
   #scope(actor: AssistantActor): Promise<OwnerScope> {
@@ -156,6 +163,61 @@ export class AssistantFacadeImpl implements AssistantFacade {
 
   async rejectProposal(actor: AssistantActor, proposalId: string): Promise<AssistantProposalDto> {
     return this.proposals.reject(await this.#scope(actor), proposalId);
+  }
+
+  async listSkills(actor: AssistantActor): Promise<AssistantSkillList> {
+    return this.skills.list(await this.#scope(actor));
+  }
+
+  async getSkill(actor: AssistantActor, skillRef: string): Promise<AssistantSkillDto> {
+    return this.skills.read(await this.#scope(actor), skillRef);
+  }
+
+  async createSkill(
+    actor: AssistantActor,
+    input: CreateAssistantSkillRequest,
+  ): Promise<AssistantSkillDto> {
+    return this.skills.create(await this.#scope(actor), input);
+  }
+
+  async updateSkill(
+    actor: AssistantActor,
+    skillId: string,
+    patch: UpdateAssistantSkillRequest,
+  ): Promise<AssistantSkillDto> {
+    return this.skills.update(await this.#scope(actor), skillId, patch);
+  }
+
+  async deleteSkill(actor: AssistantActor, skillId: string): Promise<void> {
+    await this.skills.deleteShadow(await this.#scope(actor), skillId);
+  }
+
+  async approveSkill(actor: AssistantActor, skillId: string): Promise<AssistantSkillDto> {
+    return this.skills.approve(await this.#scope(actor), skillId);
+  }
+
+  async rejectSkill(actor: AssistantActor, skillId: string): Promise<AssistantSkillDto> {
+    return this.skills.reject(await this.#scope(actor), skillId);
+  }
+
+  async archiveSkill(actor: AssistantActor, skillId: string): Promise<AssistantSkillDto> {
+    return this.skills.archive(await this.#scope(actor), skillId);
+  }
+
+  async restoreSkill(actor: AssistantActor, skillId: string): Promise<AssistantSkillDto> {
+    return this.skills.restore(await this.#scope(actor), skillId);
+  }
+
+  async shadowSkill(actor: AssistantActor, platformName: string): Promise<AssistantSkillDto> {
+    return this.skills.shadow(await this.#scope(actor), platformName);
+  }
+
+  async listSkillEvents(actor: AssistantActor, skillId: string): Promise<AssistantSkillEventList> {
+    return this.skills.events(await this.#scope(actor), skillId);
+  }
+
+  async undoSkillEvent(actor: AssistantActor, eventId: string): Promise<AssistantSkillDto> {
+    return this.skills.undo(await this.#scope(actor), eventId);
   }
 
   async getMemory(actor: AssistantActor): Promise<AssistantMemoryDto> {

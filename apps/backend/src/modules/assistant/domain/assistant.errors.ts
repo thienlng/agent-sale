@@ -59,3 +59,31 @@ export class AssistantSkillNameTakenError extends DomainError {
     super('A skill with this name already exists', { reason: 'skill_name_taken' });
   }
 }
+
+/** Why a skill change is refused (409 CONFLICT, `details.reason`). */
+export type SkillConflictReason =
+  | 'shadow_exists'
+  | 'skill_limit'
+  | 'skill_not_pending'
+  | 'skill_not_restorable'
+  | 'skill_archived'
+  | 'not_a_shadow'
+  | 'stale_skill'
+  | 'event_already_undone'
+  | 'event_not_undoable';
+
+/** A skill change that does not apply to the skill's current state (409 CONFLICT). */
+export class AssistantSkillConflictError extends DomainError {
+  readonly code = 'CONFLICT';
+  constructor(reason: SkillConflictReason) {
+    super('This skill change cannot be applied', { reason });
+  }
+}
+
+/** The skill text fails the linter or the safety scan (400, `details.problems`). */
+export class AssistantSkillInvalidError extends DomainError {
+  readonly code = 'VALIDATION_FAILED';
+  constructor(problems: string[]) {
+    super('The skill is not valid', { problems });
+  }
+}

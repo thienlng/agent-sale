@@ -17,6 +17,7 @@ import {
 } from '../application/compaction.service.js';
 import { isVisibleMessage, toMessageDtos } from '../application/mappers.js';
 import { SkillCatalog } from '../application/skill-tools.js';
+import { SkillsService } from '../application/skills.service.js';
 import { ThreadPromptService } from '../application/thread-prompt.service.js';
 import type { OwnerScope } from '../domain/owner-scope.js';
 import type { NewMessage, RunRecord } from '../domain/ports/assistant.repository.js';
@@ -96,7 +97,7 @@ async function setup(opts: { summary?: () => Promise<GenerateResponse> } = {}) {
         { accountId: scope.accountId, workspaceName: 'Shop Lan', industry: 'fashion' },
       ]),
   } as unknown as WorkspaceFacade;
-  const skills = new SkillCatalog([]);
+  const skills = new SkillsService(repo, new SkillCatalog([]));
   const prompts = new ThreadPromptService(workspace, repo, skills);
   const compaction = new CompactionService(repo, { generate }, prompts);
   const chat = new ChatTurnService(repo, { generate }, skills, { invoke: vi.fn() }, compaction);

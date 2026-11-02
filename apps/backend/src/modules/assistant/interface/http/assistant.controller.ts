@@ -1,13 +1,18 @@
 import {
   AssistantThreadListQuery,
+  CreateAssistantSkillRequest,
   CreateAssistantThreadRequest,
   SendAssistantMessageRequest,
+  UpdateAssistantSkillRequest,
   UpdateAssistantThreadRequest,
   type AssistantMemoryDto,
   type AssistantMessageList,
   type AssistantProposalDto,
   type AssistantProposalList,
   type AssistantRunDto,
+  type AssistantSkillDto,
+  type AssistantSkillEventList,
+  type AssistantSkillList,
   type AssistantThreadDto,
   type AssistantThreadList,
   type SendAssistantMessageResponse,
@@ -170,5 +175,123 @@ export class AssistantController {
     @Param('entryId') entryId: string,
   ): Promise<AssistantMemoryDto> {
     return this.facade.deleteMemoryEntry(actor(user, ws), store, entryId);
+  }
+
+  // ─── Skills (1c) ───
+
+  @Get('skills')
+  listSkills(
+    @CurrentUser() user: AuthState,
+    @CurrentWorkspace() ws: WorkspaceId,
+  ): Promise<AssistantSkillList> {
+    return this.facade.listSkills(actor(user, ws));
+  }
+
+  @Get('skills/:skillRef')
+  getSkill(
+    @CurrentUser() user: AuthState,
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Param('skillRef') skillRef: string,
+  ): Promise<AssistantSkillDto> {
+    return this.facade.getSkill(actor(user, ws), skillRef);
+  }
+
+  @Post('skills')
+  @HttpCode(201)
+  createSkill(
+    @CurrentUser() user: AuthState,
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Body(new ZodValidationPipe(CreateAssistantSkillRequest)) body: CreateAssistantSkillRequest,
+  ): Promise<AssistantSkillDto> {
+    return this.facade.createSkill(actor(user, ws), body);
+  }
+
+  @Patch('skills/:skillId')
+  updateSkill(
+    @CurrentUser() user: AuthState,
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Param('skillId') skillId: string,
+    @Body(new ZodValidationPipe(UpdateAssistantSkillRequest)) body: UpdateAssistantSkillRequest,
+  ): Promise<AssistantSkillDto> {
+    return this.facade.updateSkill(actor(user, ws), skillId, body);
+  }
+
+  @Delete('skills/:skillId')
+  @HttpCode(204)
+  async deleteSkill(
+    @CurrentUser() user: AuthState,
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Param('skillId') skillId: string,
+  ): Promise<void> {
+    await this.facade.deleteSkill(actor(user, ws), skillId);
+  }
+
+  @Post('skills/:skillId/approve')
+  @HttpCode(200)
+  approveSkill(
+    @CurrentUser() user: AuthState,
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Param('skillId') skillId: string,
+  ): Promise<AssistantSkillDto> {
+    return this.facade.approveSkill(actor(user, ws), skillId);
+  }
+
+  @Post('skills/:skillId/reject')
+  @HttpCode(200)
+  rejectSkill(
+    @CurrentUser() user: AuthState,
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Param('skillId') skillId: string,
+  ): Promise<AssistantSkillDto> {
+    return this.facade.rejectSkill(actor(user, ws), skillId);
+  }
+
+  @Post('skills/:skillId/archive')
+  @HttpCode(200)
+  archiveSkill(
+    @CurrentUser() user: AuthState,
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Param('skillId') skillId: string,
+  ): Promise<AssistantSkillDto> {
+    return this.facade.archiveSkill(actor(user, ws), skillId);
+  }
+
+  @Post('skills/:skillId/restore')
+  @HttpCode(200)
+  restoreSkill(
+    @CurrentUser() user: AuthState,
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Param('skillId') skillId: string,
+  ): Promise<AssistantSkillDto> {
+    return this.facade.restoreSkill(actor(user, ws), skillId);
+  }
+
+  @Post('skills/platform/:name/shadow')
+  @HttpCode(201)
+  shadowSkill(
+    @CurrentUser() user: AuthState,
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Param('name') name: string,
+  ): Promise<AssistantSkillDto> {
+    return this.facade.shadowSkill(actor(user, ws), name);
+  }
+
+  @Get('skills/:skillId/events')
+  listSkillEvents(
+    @CurrentUser() user: AuthState,
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Param('skillId') skillId: string,
+  ): Promise<AssistantSkillEventList> {
+    return this.facade.listSkillEvents(actor(user, ws), skillId);
+  }
+
+  @Post('skill-events/:eventId/undo')
+  @HttpCode(200)
+  undoSkillEvent(
+    @CurrentUser() user: AuthState,
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Param('eventId') eventId: string,
+  ): Promise<AssistantSkillDto> {
+    return this.facade.undoSkillEvent(actor(user, ws), eventId);
   }
 }

@@ -9,14 +9,15 @@ import {
 } from '../domain/ports/assistant.repository.js';
 import { accountMemberships } from './owner-access.js';
 import { buildSystemPrompt, loadThreadTemplate } from './prompt-builder.js';
-import { SkillCatalog } from './skill-tools.js';
+import { SkillsService } from './skills.service.js';
 
 /** Used in the prompt when the owner has no display name. */
 export const FALLBACK_OWNER_NAME = 'anh/chị';
 
 /**
  * Builds a thread's frozen system prompt from what is true now: the account's businesses the
- * owner is a member of, the platform skills index and a fresh memory snapshot (stores of other
+ * owner is a member of, the owner's skills index (platform skills, shadows in their place, the
+ * owner's active rows) and a fresh memory snapshot (stores of other
  * accounts' businesses are left out). Used when a thread starts and after each compaction
  * (spec §5: rebuilt only after compaction, memory re-read).
  */
@@ -25,7 +26,7 @@ export class ThreadPromptService {
   constructor(
     @Inject(WORKSPACE_FACADE) private readonly workspace: WorkspaceFacade,
     @Inject(ASSISTANT_REPOSITORY) private readonly repo: AssistantRepository,
-    @Inject(SkillCatalog) private readonly skills: SkillCatalog,
+    @Inject(SkillsService) private readonly skills: SkillsService,
   ) {}
 
   async build(
@@ -34,10 +35,11 @@ export class ThreadPromptService {
     promptVersion: string,
     today = new Date(),
   ): Promise<string> {
-    const [template, memberships, memory] = await Promise.all([
+    const [template, memberships, memory, skills] = await Promise.all([
       loadThreadTemplate(promptVersion),
       accountMemberships(this.workspace, scope),
       this.repo.getMemory(scope),
+      this.skills.catalog(scope),
     ]);
     const businesses = memberships
       .map((ms) => ({ id: ms.workspaceId, name: ms.workspaceName, industry: ms.industry }))
@@ -52,7 +54,7 @@ export class ThreadPromptService {
       { ownerName: ownerName?.trim() || FALLBACK_OWNER_NAME, businesses },
       today,
       {
-        skillsIndex: this.skills.index(),
+        skillsIndex: skills.index(),
         memory: memory.filter((m) => isKnownStore(m.store, scope.businessIds)),
       },
     );
