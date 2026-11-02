@@ -43,12 +43,12 @@ function Strip({
         </Button>
       </div>
     );
-  const stages: SaasStage[] = ['active', 'trial', 'past_due', 'canceled'];
+  const stages: SaasStage[] = ['active', 'trial', 'free', 'past_due', 'canceled'];
   const cell = 'rounded-xl border bg-card px-4 py-3 text-left';
   return (
     <div className="space-y-2">
       <div
-        className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6"
+        className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7"
         aria-busy={summary.isPending}
       >
         <div className={cell}>

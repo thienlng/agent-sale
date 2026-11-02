@@ -31,6 +31,18 @@ export function contactSyncTx(tx: TenantTx): Pick<CrmTx, 'contactSync'> {
           .for('update');
         return r ? toContact(r) : null;
       },
+      async findUnlinkedByEmail(emailNormalized) {
+        const [r] = await tx
+          .select()
+          .from(c)
+          .where(
+            and(eq(c.emailNormalized, emailNormalized), isNull(c.externalId), isNull(c.archivedAt)),
+          )
+          .orderBy(asc(c.createdAt), asc(c.id))
+          .limit(1)
+          .for('update');
+        return r ? toContact(r) : null;
+      },
       async setLink(contactId, link) {
         try {
           await tx

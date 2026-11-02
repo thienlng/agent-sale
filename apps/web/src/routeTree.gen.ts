@@ -41,6 +41,7 @@ import { Route as AppBotsBotIdRouteImport } from './routes/app/bots/$botId'
 import { Route as AppBusinessesNewRouteImport } from './routes/app/businesses/new'
 import { Route as AppCrmSettingsIndexRouteImport } from './routes/app/crm-settings/index'
 import { Route as AppCrmSettingsDistributionRouteImport } from './routes/app/crm-settings/distribution'
+import { Route as AppCrmSettingsSaasPlansRouteImport } from './routes/app/crm-settings/saas-plans'
 import { Route as AppCrmSettingsSourcesRouteImport } from './routes/app/crm-settings/sources'
 import { Route as AppCrmSettingsStatusesRouteImport } from './routes/app/crm-settings/statuses'
 import { Route as AppCrmSettingsTagsRouteImport } from './routes/app/crm-settings/tags'
@@ -238,6 +239,11 @@ const AppCrmSettingsDistributionRoute =
     path: '/distribution',
     getParentRoute: () => AppCrmSettingsRoute,
   } as any)
+const AppCrmSettingsSaasPlansRoute = AppCrmSettingsSaasPlansRouteImport.update({
+  id: '/saas-plans',
+  path: '/saas-plans',
+  getParentRoute: () => AppCrmSettingsRoute,
+} as any)
 const AppCrmSettingsSourcesRoute = AppCrmSettingsSourcesRouteImport.update({
   id: '/sources',
   path: '/sources',
@@ -451,6 +457,7 @@ export interface FileRoutesByFullPath {
   '/app/bots/$botId': typeof AppBotsBotIdRouteWithChildren
   '/app/businesses/new': typeof AppBusinessesNewRoute
   '/app/crm-settings/distribution': typeof AppCrmSettingsDistributionRoute
+  '/app/crm-settings/saas-plans': typeof AppCrmSettingsSaasPlansRoute
   '/app/crm-settings/sources': typeof AppCrmSettingsSourcesRoute
   '/app/crm-settings/statuses': typeof AppCrmSettingsStatusesRoute
   '/app/crm-settings/tags': typeof AppCrmSettingsTagsRoute
@@ -514,6 +521,7 @@ export interface FileRoutesByTo {
   '/admin/accounts/$accountId': typeof AdminAccountsAccountIdRoute
   '/app/businesses/new': typeof AppBusinessesNewRoute
   '/app/crm-settings/distribution': typeof AppCrmSettingsDistributionRoute
+  '/app/crm-settings/saas-plans': typeof AppCrmSettingsSaasPlansRoute
   '/app/crm-settings/sources': typeof AppCrmSettingsSourcesRoute
   '/app/crm-settings/statuses': typeof AppCrmSettingsStatusesRoute
   '/app/crm-settings/tags': typeof AppCrmSettingsTagsRoute
@@ -584,6 +592,7 @@ export interface FileRoutesById {
   '/app/bots/$botId': typeof AppBotsBotIdRouteWithChildren
   '/app/businesses/new': typeof AppBusinessesNewRoute
   '/app/crm-settings/distribution': typeof AppCrmSettingsDistributionRoute
+  '/app/crm-settings/saas-plans': typeof AppCrmSettingsSaasPlansRoute
   '/app/crm-settings/sources': typeof AppCrmSettingsSourcesRoute
   '/app/crm-settings/statuses': typeof AppCrmSettingsStatusesRoute
   '/app/crm-settings/tags': typeof AppCrmSettingsTagsRoute
@@ -655,6 +664,7 @@ export interface FileRouteTypes {
     | '/app/bots/$botId'
     | '/app/businesses/new'
     | '/app/crm-settings/distribution'
+    | '/app/crm-settings/saas-plans'
     | '/app/crm-settings/sources'
     | '/app/crm-settings/statuses'
     | '/app/crm-settings/tags'
@@ -718,6 +728,7 @@ export interface FileRouteTypes {
     | '/admin/accounts/$accountId'
     | '/app/businesses/new'
     | '/app/crm-settings/distribution'
+    | '/app/crm-settings/saas-plans'
     | '/app/crm-settings/sources'
     | '/app/crm-settings/statuses'
     | '/app/crm-settings/tags'
@@ -787,6 +798,7 @@ export interface FileRouteTypes {
     | '/app/bots/$botId'
     | '/app/businesses/new'
     | '/app/crm-settings/distribution'
+    | '/app/crm-settings/saas-plans'
     | '/app/crm-settings/sources'
     | '/app/crm-settings/statuses'
     | '/app/crm-settings/tags'
@@ -1062,6 +1074,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCrmSettingsDistributionRouteImport
       parentRoute: typeof AppCrmSettingsRoute
     }
+    '/app/crm-settings/saas-plans': {
+      id: '/app/crm-settings/saas-plans'
+      path: '/saas-plans'
+      fullPath: '/app/crm-settings/saas-plans'
+      preLoaderRoute: typeof AppCrmSettingsSaasPlansRouteImport
+      parentRoute: typeof AppCrmSettingsRoute
+    }
     '/app/crm-settings/sources': {
       id: '/app/crm-settings/sources'
       path: '/sources'
@@ -1334,6 +1353,7 @@ const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 interface AppCrmSettingsRouteChildren {
   AppCrmSettingsDistributionRoute: typeof AppCrmSettingsDistributionRoute
+  AppCrmSettingsSaasPlansRoute: typeof AppCrmSettingsSaasPlansRoute
   AppCrmSettingsSourcesRoute: typeof AppCrmSettingsSourcesRoute
   AppCrmSettingsStatusesRoute: typeof AppCrmSettingsStatusesRoute
   AppCrmSettingsTagsRoute: typeof AppCrmSettingsTagsRoute
@@ -1342,6 +1362,7 @@ interface AppCrmSettingsRouteChildren {
 
 const AppCrmSettingsRouteChildren: AppCrmSettingsRouteChildren = {
   AppCrmSettingsDistributionRoute: AppCrmSettingsDistributionRoute,
+  AppCrmSettingsSaasPlansRoute: AppCrmSettingsSaasPlansRoute,
   AppCrmSettingsSourcesRoute: AppCrmSettingsSourcesRoute,
   AppCrmSettingsStatusesRoute: AppCrmSettingsStatusesRoute,
   AppCrmSettingsTagsRoute: AppCrmSettingsTagsRoute,

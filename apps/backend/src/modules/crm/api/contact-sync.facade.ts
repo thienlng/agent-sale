@@ -1,7 +1,11 @@
 import { DomainError, type WorkspaceId } from '@agent-sales/shared';
 
-/** A PMS a customer can be linked to (ADR-017). */
-export type ContactExternalSource = 'kiotviet';
+/**
+ * A system a customer can be linked to: a PMS (`kiotviet`, ADR-017) or the Rapiz platform itself
+ * (`rapiz`: a platform account in the Rapiz HQ workspace, ADR-021). Per-source rules:
+ * `domain/external-contact.ts` (`EXTERNAL_SOURCE_RULES`).
+ */
+export type ContactExternalSource = 'kiotviet' | 'rapiz';
 
 /** A customer as the PMS knows it (PMS-neutral). Raw values: the crm module normalizes them. */
 export interface ExternalContactInput {
@@ -16,7 +20,7 @@ export interface ExternalContactInput {
 }
 
 export type UpsertExternalContactResult =
-  | { contactId: string; created: boolean; matchedBy: 'external' | 'phone' | 'new' }
+  | { contactId: string; created: boolean; matchedBy: 'external' | 'phone' | 'email' | 'new' }
   | { skipped: 'no_identity' };
 
 /** What a push to the PMS needs of a claimed customer. */
@@ -39,7 +43,8 @@ export interface PushableContact {
 export interface ContactSyncFacade {
   /**
    * Match order: the external id; else the oldest live, unlinked customer with that normalized phone
-   * (linked from now on); else a new customer with the built-in source "KiotViet" (auto-assignment,
+   * (linked from now on); else, for `rapiz`, the oldest live, unlinked customer with that email;
+   * else a new customer with the source's built-in source ("KiotViet", "Rapiz") (auto-assignment,
    * history and events as any create, no actor). A record without a usable name, phone or email is
    * skipped. An empty or oversized `externalId` throws InvalidExternalContactIdError (it is
    * trimmed otherwise). Serialized per phone with lead capture (`upsertLeadByPhone`) and per external id.

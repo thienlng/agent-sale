@@ -2256,7 +2256,7 @@
     "unnamed": "Unnamed customer",
     "saveSubscription": "Save plan",
     "subscriptionSaved": "Subscription saved",
-    "subscriptionInvalid": "Check the form: a plan name and a whole MRR ≥ 0 are required; a trial needs its end date, a cancellation its date.",
+    "subscriptionInvalid": "Check the form: a plan name and a whole MRR ≥ 0 are required (a catalog plan needs a price for the period); a trial needs its end date, a cancellation its date and reason.",
     "cancel": "Cancel",
     "loading": "Loading…",
     "loadError": "Could not load the data.",
@@ -2265,12 +2265,14 @@
       "trial": "Trial",
       "active": "Active",
       "past_due": "Past due",
-      "canceled": "Canceled"
+      "canceled": "Canceled",
+      "free": "Free plan"
     },
     "period": {
       "monthly": "Monthly",
       "quarterly": "Quarterly",
-      "yearly": "Yearly"
+      "yearly": "Yearly",
+      "semiannual": "Every 6 months"
     },
     "sub": {
       "title": "Subscription",
@@ -2289,7 +2291,18 @@
       "canceledOn": "Canceled on",
       "externalRef": "External reference",
       "nextDate": "Next date",
-      "note": "Note"
+      "note": "Note",
+      "catalogPlan": "Catalog plan",
+      "customPlan": "Other (type the name and MRR)",
+      "noPrice": "This plan has no price for this period",
+      "linkedHint": "Synced from the Rapiz account: plan, stage, period, MRR and dates are read-only.",
+      "linked": "Rapiz",
+      "linkedLabel": "Synced from a Rapiz account",
+      "upsell": "Upsell",
+      "usage": "AI replies used",
+      "churnReason": "Churn reason",
+      "churnReasonPick": "Choose a reason",
+      "churnNote": "Churn note"
     },
     "summary": {
       "mrr": "MRR",
@@ -2297,13 +2310,48 @@
       "trial": "On trial",
       "trialsEndingSoon": "Trials ending in 7 days",
       "past_due": "Past due",
-      "canceled": "Churned"
+      "canceled": "Churned",
+      "free": "Free plan"
     },
     "col": {
       "plan": "Plan",
       "mrr": "MRR",
       "next": "Next date"
     },
-    "noTrialsEndingSoon": "No trial ends in the next 7 days."
+    "noTrialsEndingSoon": "No trial ends in the next 7 days.",
+    "churn": {
+      "price": "Price",
+      "missing_feature": "Missing feature",
+      "competitor": "Moved to a competitor",
+      "no_longer_needed": "No longer needed",
+      "poor_support": "Poor support",
+      "business_closed": "Business closed",
+      "other": "Other"
+    },
+    "history": {
+      "toggle": "History",
+      "title": "Subscription history",
+      "none": "No changes yet.",
+      "source": {
+        "staff": "Staff",
+        "sync": "Rapiz sync",
+        "system": "System"
+      }
+    },
+    "plans": {
+      "tab": "Plans",
+      "hint": "Your plans and their prices. A subscription on a plan gets its MRR from the price of its billing period. Archive a plan to stop selling it; current subscribers keep it.",
+      "none": "No plans yet.",
+      "name": "Plan name",
+      "newName": "New plan name",
+      "add": "Add plan",
+      "save": "Save",
+      "saved": "Plan saved",
+      "archived": "Archived",
+      "archive": "Archive",
+      "restore": "Restore",
+      "price": "{{period}} price (VND)",
+      "from": "from {{mrr}}/month"
+    }
   }
 }

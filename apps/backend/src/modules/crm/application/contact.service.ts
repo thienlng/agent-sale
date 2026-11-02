@@ -19,9 +19,11 @@ import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/inde
 import {
   ContactNotFoundError,
   DuplicateContactRequestError,
+  InvalidContactError,
   NoteNotFoundError,
   StaleVersionError,
 } from '../domain/crm.errors.js';
+import { lockedFields } from '../domain/external-contact.js';
 import { DEFAULT_SOURCES, defaultStatusesFor } from '../domain/crm-defaults.js';
 import { toContactDto, toHistoryDto, toNoteDto } from './crm.mappers.js';
 import { applyFields } from './contact-fields.js';
@@ -268,6 +270,7 @@ export class ContactService {
       await assertChoosable(tx, fields, before);
       const now = new Date();
       const after = applyFields(before, fields, now);
+      assertUnlocked(before, after);
       const changes = diff(before, after);
       if (!Object.keys(changes).length) return this.#dto(tx, before);
 
@@ -630,4 +633,17 @@ export function emptyContact(
     createdAt: now,
     updatedAt: now,
   };
+}
+
+/**
+ * The link keys of a customer linked to Rapiz HQ (phone, email) belong to the platform (ADR-021
+ * §3): staff may resend them unchanged (compared normalized) but not change them.
+ */
+function assertUnlocked(before: ContactRecord, after: ContactRecord): void {
+  const locked = lockedFields(before.externalId ? before.externalSource : null);
+  const key = { phone: 'phoneNormalized', email: 'emailNormalized' } as const;
+  const changed = locked.filter((f) => (before[key[f]] ?? null) !== (after[key[f]] ?? null));
+  if (changed.length) {
+    throw new InvalidContactError(Object.fromEntries(changed.map((f) => [f, 'LINKED_READ_ONLY'])));
+  }
 }

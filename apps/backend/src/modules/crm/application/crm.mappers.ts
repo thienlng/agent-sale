@@ -71,7 +71,7 @@ export function toContactDto(c: ContactRecord, tags: AssignmentRecord[]): Contac
     profileNote: c.profileNote,
     tags: tags.filter((t) => !t.removedAt).map(toAssignmentDto),
     external:
-      c.externalSource === 'kiotviet' && c.externalId
+      (c.externalSource === 'kiotviet' || c.externalSource === 'rapiz') && c.externalId
         ? { source: c.externalSource, id: c.externalId }
         : null,
     version: c.version,

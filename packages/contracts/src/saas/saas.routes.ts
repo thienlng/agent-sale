@@ -1,6 +1,11 @@
 import { defineRoutes } from '../common/routes.js';
 import {
   ContactSaasSubscription,
+  CreateSaasPlan,
+  SaasPlanDto,
+  SaasPlanList,
+  SaasSubscriptionHistory,
+  UpdateSaasPlan,
   PutSaasSubscription,
   SaasSubscriptionDto,
   SaasSubscriptionList,
@@ -40,5 +45,35 @@ export const saasRoutes = defineRoutes([
     summary: "Create or replace the customer's subscription (optimistic version)",
     body: PutSaasSubscription,
     responses: { 200: SaasSubscriptionDto },
+  },
+  {
+    ...scoped,
+    method: 'get',
+    path: '/contacts/{id}/saas-subscription/history',
+    summary: "Plan, stage and MRR changes of the customer's subscription, newest first",
+    responses: { 200: SaasSubscriptionHistory },
+  },
+  {
+    ...scoped,
+    method: 'get',
+    path: '/saas-plans',
+    summary: "The business's plan catalog (archived plans included)",
+    responses: { 200: SaasPlanList },
+  },
+  {
+    ...scoped,
+    method: 'post',
+    path: '/saas-plans',
+    summary: 'Add a plan with its period prices (needs settings.manage)',
+    body: CreateSaasPlan,
+    responses: { 201: SaasPlanDto },
+  },
+  {
+    ...scoped,
+    method: 'patch',
+    path: '/saas-plans/{planId}',
+    summary: 'Rename, reprice, reorder or archive a plan (optimistic version)',
+    body: UpdateSaasPlan,
+    responses: { 200: SaasPlanDto },
   },
 ]);

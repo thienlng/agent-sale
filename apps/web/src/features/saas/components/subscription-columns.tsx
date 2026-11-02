@@ -9,6 +9,7 @@ import { useSubscriptionsOf } from '../api/saas';
 /** Customer status (crm built-in key) each subscription stage puts the customer in (ADR-020). */
 export const STAGE_STATUS_KEY: Record<SaasStage, string> = {
   trial: 'trial',
+  free: 'free_plan',
   active: 'paying',
   past_due: 'past_due',
   canceled: 'churned',
