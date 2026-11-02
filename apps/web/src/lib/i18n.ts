@@ -51,6 +51,7 @@ if (saved !== 'vi') void switchTo(saved);
 /** Namespaces kept out of the initial bundle; a route loads its own before rendering (docs/16 §1). */
 const lazyNamespaces = {
   integration: () => import('@agent-sales/i18n/integration').then((m) => m.integration),
+  backoffice: () => import('@agent-sales/i18n/backoffice').then((m) => m.backoffice),
 } satisfies Record<string, () => Promise<Record<Locale, unknown>>>;
 
 /** Adds a lazy namespace in every locale, so a later language switch needs no extra fetch. */

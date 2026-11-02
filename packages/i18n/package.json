@@ -26,6 +26,10 @@
     "./integration": {
       "types": "./dist/integration.d.ts",
       "import": "./dist/integration.js"
+    },
+    "./backoffice": {
+      "types": "./dist/backoffice.d.ts",
+      "import": "./dist/backoffice.js"
     }
   },
   "files": [

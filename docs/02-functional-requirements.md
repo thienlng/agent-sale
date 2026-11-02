@@ -226,6 +226,8 @@ The Preny inbox layout could not be captured → we design it on the standard 3-
 | ADM-07 | Business dashboard: MRR, sign-ups, activation, trial→paid, churn, AI COGS | P1 |
 | ADM-08 | Per-workspace feature flags | P1 |
 
+Implemented (ADR-021, `/admin`): ADM-01 for accounts (search by name or owner email/phone, filters by status, plan, subscription status and ending date; account page with businesses, members, subscription, overrides, usage, payments and audit); ADM-02 without credits (manual VietQR confirmation, set plan and period, extend trial, entitlement overrides, suspend/reactivate, reason required and audited); ADM-03 for plans and prices (versioned catalog editor, trial and lifecycle settings), vouchers and affiliate rules still open. ADM-06 covers the LLM model map (`/admin/llm`).
+
 ## 14. Public marketing site (`WEB`)
 
 | ID | Feature | Priority |

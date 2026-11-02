@@ -1,15 +1,18 @@
 /* eslint-disable no-console -- CLI entrypoint */
-import { createDb, eq, schema, sql, withSystem, writeAudit } from '@agent-sales/db';
-import { workspaceId } from '@agent-sales/shared';
+import { createDb, eq, schema, sql, withSystem } from '@agent-sales/db';
+
+import { DrizzleBillingAdminStore } from '../modules/billing/infrastructure/persistence/billing-admin.drizzle-store.js';
+import { addMonths } from '../modules/billing/domain/plan-catalog.js';
 
 /**
  * `pnpm --filter @agent-sales/backend workspace-plan set <owner-email> <plan-code> [months]`
  * `pnpm --filter @agent-sales/backend workspace-plan show <owner-email>`
  *
- * The operator's way to put the workspaces a user owns on a plan until payment
- * approval exists (docs/08 §6, T-059). Uses DATABASE_SYSTEM_URL; the change is
- * audited in each workspace. A business under an account also puts its account on the plan:
- * the account's subscription is what entitlements and the AI-message allowance use (T-091).
+ * Scripted twin of "set plan" in /admin (ADR-021 §6): puts the accounts of the workspaces a user
+ * owns on the latest version of a plan. Uses DATABASE_SYSTEM_URL and the same write path as the
+ * admin (event `billing.subscription.changed.v1` with reason `cli`, platform audit, `billing.plan_set`
+ * audit in each business). The account's subscription is what entitlements and the AI-message
+ * allowance use (T-091).
  */
 const [action, email, planCode, months] = process.argv.slice(2);
 const url = process.env['DATABASE_SYSTEM_URL'];
@@ -21,6 +24,7 @@ if ((action !== 'set' && action !== 'show') || !email || (action === 'set' && !p
 }
 
 const { db, close } = createDb({ url, max: 1 });
+const accountsSet = new Set<string>();
 try {
   await withSystem(db, async (tx) => {
     const owned = await tx
@@ -37,7 +41,6 @@ try {
       process.exitCode = 1;
       return;
     }
-    const accountsSet = new Set<string>();
     for (const w of owned) {
       if (action === 'show') {
         const [sub] = await tx
@@ -58,89 +61,49 @@ try {
         );
         continue;
       }
-      const [plan] = await tx
-        .select()
-        .from(schema.plans)
-        .where(eq(schema.plans.code, planCode as string))
-        .orderBy(sql`${schema.plans.version} desc`)
-        .limit(1);
-      if (!plan) {
-        console.error(`unknown plan ${planCode}`);
+      if (!w.accountId) {
+        console.error(`${w.name}: no account yet, run account-backfill first`);
         process.exitCode = 1;
-        return;
+        continue;
       }
-      const period = months ? Number(months) : null;
-      if (period !== null && ![1, 3, 6, 12].includes(period)) {
-        console.error('months must be 1, 3, 6 or 12');
-        process.exitCode = 1;
-        return;
-      }
-      const end = period ? new Date(new Date().setMonth(new Date().getMonth() + period)) : null;
-      await tx
-        .insert(schema.subscriptions)
-        .values({
-          workspaceId: w.id,
-          planCode: plan.code,
-          planVersion: plan.version,
-          periodMonths: period,
-          currentPeriodEnd: end,
-        })
-        .onConflictDoUpdate({
-          target: schema.subscriptions.workspaceId,
-          set: {
+      accountsSet.add(w.accountId);
+    }
+  });
+  if (action === 'set' && process.exitCode !== 1) {
+    const admin = new DrizzleBillingAdminStore(db);
+    const plan = await admin.latestPlan(planCode as string);
+    const period = months ? Number(months) : null;
+    if (!plan) {
+      console.error(`unknown plan ${planCode}`);
+      process.exitCode = 1;
+    } else if (period !== null && ![1, 3, 6, 12].includes(period)) {
+      console.error('months must be 1, 3, 6 or 12');
+      process.exitCode = 1;
+    } else {
+      // The same write path as /admin: the subscription event, the platform audit and the
+      // `billing.plan_set` audit in every business of the account.
+      for (const accountId of accountsSet) {
+        const now = new Date();
+        await admin.changeSubscription({
+          accountId,
+          expectedVersion: 'any',
+          next: () => ({
             planCode: plan.code,
             planVersion: plan.version,
             periodMonths: period,
             status: 'active',
-            currentPeriodStart: new Date(),
-            currentPeriodEnd: end,
-            version: sql`${schema.subscriptions.version} + 1`,
-            updatedAt: new Date(),
-          },
-        });
-      await writeAudit(tx, {
-        workspaceId: workspaceId(w.id),
-        actorUserId: null,
-        actorName: 'operator (CLI)',
-        action: 'billing.plan_set',
-        targetType: 'subscription',
-        targetId: w.id,
-        data: { plan: plan.code, months: period },
-      });
-      if (w.accountId && !accountsSet.has(w.accountId)) {
-        accountsSet.add(w.accountId);
-        const now = new Date();
-        await tx
-          .insert(schema.accountSubscriptions)
-          .values({
-            accountId: w.accountId,
-            planCode: plan.code,
-            planVersion: plan.version,
-            periodMonths: period,
             currentPeriodStart: now,
-            currentPeriodEnd: end,
+            currentPeriodEnd: period ? addMonths(now, period) : null,
             cycleAnchor: now,
-            sourceWorkspaceId: w.id,
-          })
-          .onConflictDoUpdate({
-            target: schema.accountSubscriptions.accountId,
-            set: {
-              planCode: plan.code,
-              planVersion: plan.version,
-              periodMonths: period,
-              status: 'active',
-              currentPeriodStart: now,
-              currentPeriodEnd: end,
-              cycleAnchor: now,
-              version: sql`${schema.accountSubscriptions.version} + 1`,
-              updatedAt: now,
-            },
-          });
-        console.log(`account ${w.accountId}: now on ${plan.code} v${plan.version}`);
+          }),
+          reason: 'cli',
+          action: { actorUserId: null, actorName: 'operator (CLI)', reason: 'workspace-plan CLI' },
+          auditAction: 'billing.subscription.set',
+        });
+        console.log(`account ${accountId}: now on ${plan.code} v${plan.version}`);
       }
-      console.log(`${w.name}: now on ${plan.code} v${plan.version}`);
     }
-  });
+  }
 } finally {
   await close();
 }

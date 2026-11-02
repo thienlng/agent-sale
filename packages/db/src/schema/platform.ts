@@ -49,3 +49,26 @@ export const inboxEvents = pgTable('inbox_events', {
   eventId: text('event_id').notNull(),
   processedAt: timestamp('processed_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * GLOBAL (0053, ADR-021): append-only trail of platform-operator actions (plans, billing settings,
+ * accounts, payments). System role may select and insert only.
+ */
+export const platformAuditEvents = pgTable(
+  'platform_audit_events',
+  {
+    id: uuid('id').primaryKey(),
+    actorUserId: uuid('actor_user_id'),
+    actorName: text('actor_name'),
+    action: text('action').notNull(),
+    targetType: text('target_type').notNull(),
+    targetId: text('target_id'),
+    reason: text('reason').notNull().default(''),
+    data: jsonb('data').notNull().default({}).$type<Record<string, unknown>>(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('platform_audit_created_idx').on(t.createdAt),
+    index('platform_audit_target_idx').on(t.targetType, t.targetId, t.createdAt),
+  ],
+);

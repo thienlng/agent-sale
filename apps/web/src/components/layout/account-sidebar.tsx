@@ -1,8 +1,9 @@
 import { Link, useRouterState } from '@tanstack/react-router';
-import { LayoutDashboard, Plus, ShieldCheck } from 'lucide-react';
+import { LayoutDashboard, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { BusinessAvatar } from '@/components/business-avatar';
+import { ADMIN_NAV } from '@/components/layout/admin-nav';
 import { Logo } from '@/components/logo';
 import {
   Sidebar,
@@ -120,14 +121,20 @@ export function AccountSidebar() {
             <SidebarGroup>
               <SidebarGroupLabel>{t('nav.admin')}</SidebarGroupLabel>
               <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild tooltip={t('nav.adminLlm')}>
-                    <Link to="/admin/llm" onClick={close}>
-                      <ShieldCheck />
-                      <span>{t('nav.adminLlm')}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                {ADMIN_NAV.map((item) => (
+                  <SidebarMenuItem key={item.to}>
+                    <SidebarMenuButton
+                      asChild
+                      tooltip={t(item.key)}
+                      isActive={pathname.startsWith(item.to)}
+                    >
+                      <Link to={item.to} onClick={close}>
+                        <item.icon />
+                        <span>{t(item.key)}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
               </SidebarMenu>
             </SidebarGroup>
           ) : null}

@@ -4,10 +4,11 @@ import type {
   SignupRequest,
   UserDto,
 } from '@agent-sales/contracts';
-import type { UserId } from '@agent-sales/shared';
-import { Inject, Injectable } from '@nestjs/common';
+import { type UserId, workspaceId } from '@agent-sales/shared';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { ACCOUNT_FACADE, type AccountFacade } from '../../../account/api/index.js';
+import { BILLING_FACADE, type BillingFacade } from '../../../billing/api/index.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../../workspace/api/index.js';
 import {
   EmailTakenError,
@@ -25,7 +26,7 @@ import {
   PASSWORD_HASHER,
   type PasswordHasher,
 } from '../ports/security.js';
-import type { IdentityFacade } from '../../api/identity.facade.js';
+import type { IdentityAdminFacade, IdentityFacade, UserRef } from '../../api/identity.facade.js';
 import { MfaService } from '../mfa.service.js';
 import { type ClientMeta, type IssuedSession, SessionService, toUserDto } from '../sessions.js';
 
@@ -37,12 +38,15 @@ import { type ClientMeta, type IssuedSession, SessionService, toUserDto } from '
  */
 @Injectable()
 export class SignupHandler {
+  readonly #log = new Logger(SignupHandler.name);
+
   constructor(
     @Inject(USER_REPOSITORY) private readonly users: UserRepository,
     @Inject(PASSWORD_HASHER) private readonly hasher: PasswordHasher,
     @Inject(ATTEMPT_LIMITER) private readonly limiter: AttemptLimiter,
     @Inject(WORKSPACE_FACADE) private readonly workspaces: WorkspaceFacade,
     @Inject(SessionService) private readonly sessions: SessionService,
+    @Inject(BILLING_FACADE) private readonly billing: BillingFacade,
   ) {}
 
   async execute(input: SignupRequest, meta: ClientMeta): Promise<IssuedSession> {
@@ -57,12 +61,25 @@ export class SignupHandler {
       passwordHash: await this.hasher.hash(input.password),
     });
     await this.users.insert(user);
-    await this.workspaces.createWorkspace({
+    const snapshot = user.snapshot();
+    const workspace = await this.workspaces.createWorkspace({
       name: input.workspaceName,
       industry: input.industry,
       ownerUserId: user.id,
+      owner: { name: snapshot.name, email: snapshot.email, phone: snapshot.phone },
     });
+    await this.#startTrial(workspace.id);
     return this.sessions.start(user, meta);
+  }
+
+  /** The signup trial (ADR-021 §6) never blocks signup: an operator can start it from /admin. */
+  async #startTrial(ws: string): Promise<void> {
+    try {
+      const accountId = await this.workspaces.accountOf(workspaceId(ws));
+      if (accountId) await this.billing.startSignupTrial(accountId);
+    } catch {
+      this.#log.error(`Workspace ${ws}: signup trial failed`);
+    }
   }
 }
 
@@ -115,7 +132,7 @@ export class RefreshHandler {
 }
 
 @Injectable()
-export class AccountQueries implements IdentityFacade {
+export class AccountQueries implements IdentityFacade, IdentityAdminFacade {
   constructor(
     @Inject(USER_REPOSITORY) private readonly users: UserRepository,
     @Inject(WORKSPACE_FACADE) private readonly workspaces: WorkspaceFacade,
@@ -135,6 +152,14 @@ export class AccountQueries implements IdentityFacade {
   async profile(userId: UserId): Promise<{ name: string; email: string } | null> {
     const user = (await this.users.findById(userId))?.snapshot();
     return user ? { name: user.name, email: user.email } : null;
+  }
+
+  async usersByIds(ids: readonly string[]): Promise<UserRef[]> {
+    return (await this.users.findByIds(ids.map((id) => id as UserId))).map(toUserRef);
+  }
+
+  async searchUsers(q: string, limit: number): Promise<UserRef[]> {
+    return (await this.users.search(q, limit)).map(toUserRef);
   }
 
   /** Read on every admin request (not from the token) so revoking takes effect immediately. */
@@ -161,4 +186,9 @@ export class AccountQueries implements IdentityFacade {
       })),
     };
   }
+}
+
+function toUserRef(user: User): UserRef {
+  const s = user.snapshot();
+  return { id: s.id, name: s.name, email: s.email, phone: s.phone };
 }

@@ -1,6 +1,10 @@
 import type { UserId } from '@agent-sales/shared';
 
-import { AccountChoiceRequiredError, AccountNotFoundError } from './account.errors.js';
+import {
+  AccountChoiceRequiredError,
+  AccountNotFoundError,
+  AccountStatusUnchangedError,
+} from './account.errors.js';
 
 export type AccountRole = 'owner' | 'billing';
 
@@ -36,4 +40,64 @@ export interface NewAccount {
   id: string;
   name: string;
   ownerUserId: UserId;
+  /** Integration event written with the account (`account.account.created.v1`, ADR-021 §2). */
+  createdEvent?: Record<string, unknown>;
+}
+
+export const ACCOUNT_STATUSES = ['active', 'suspended'] as const;
+export type AccountStatus = (typeof ACCOUNT_STATUSES)[number];
+
+/** Who the account belongs to, for the account-created event (HQ adoption keys, ADR-021 §4). */
+export interface AccountOwnerInfo {
+  name: string;
+  email: string;
+  phone: string | null;
+}
+
+/** An account as the platform admin sees it (no business data). */
+export interface AdminAccount {
+  id: string;
+  name: string;
+  status: AccountStatus;
+  statusReason: string;
+  statusChangedAt: Date | null;
+  createdAt: Date;
+  /** The oldest active owner; null for a broken account. */
+  ownerUserId: string | null;
+}
+
+export interface AdminAccountMember {
+  userId: string;
+  role: AccountRole;
+}
+
+export interface AdminAccountQuery {
+  /** Case-insensitive substring of the account name… */
+  q?: string | undefined;
+  /** …or an account owned by one of these users (owner search by email/phone, resolved upstream). */
+  ownerUserIds?: readonly string[] | undefined;
+  /** Restrict to these accounts (billing filters, resolved upstream). */
+  accountIds?: readonly string[] | undefined;
+  /** Leave out these accounts (e.g. "on the free plan" = every account without a paid row). */
+  excludeAccountIds?: readonly string[] | undefined;
+  status?: AccountStatus | undefined;
+  cursor?: string | undefined;
+  limit: number;
+}
+
+/** Status change by a platform operator. Suspending twice is a no-op error, not a silent success. */
+export function assertStatusChange(from: AccountStatus, to: AccountStatus): void {
+  if (from === to) throw new AccountStatusUnchangedError(to);
+}
+
+/** Opaque keyset cursor: newest first by creation time, then id. */
+export function encodeAccountCursor(createdAt: Date, id: string): string {
+  return Buffer.from(`${createdAt.toISOString()}|${id}`).toString('base64url');
+}
+
+export function decodeAccountCursor(cursor: string): { createdAt: Date; id: string } | null {
+  const [iso, id] = Buffer.from(cursor, 'base64url').toString('utf8').split('|');
+  const createdAt = iso ? new Date(iso) : null;
+  if (!createdAt || Number.isNaN(createdAt.getTime()) || !id) return null;
+  return { createdAt, id };
 }

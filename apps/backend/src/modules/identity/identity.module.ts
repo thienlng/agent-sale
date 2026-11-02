@@ -6,8 +6,9 @@ import { DB_SYSTEM } from '../../common/db/db.module.js';
 import { getEnv } from '../../common/config.js';
 import { SECRET_BOX, SecretBox } from '../../common/security/secret-box.js';
 import { AccountModule } from '../account/account.module.js';
+import { BillingModule } from '../billing/billing.module.js';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
-import { IDENTITY_FACADE } from './api/identity.facade.js';
+import { IDENTITY_ADMIN_FACADE, IDENTITY_FACADE } from './api/identity.facade.js';
 import {
   AccountQueries,
   LoginHandler,
@@ -42,7 +43,7 @@ import { AuthGuard } from './interface/http/auth.guard.js';
  * app_system connection (identity is cross-tenant); in-memory without a DB.
  */
 @Module({
-  imports: [WorkspaceModule, AccountModule],
+  imports: [WorkspaceModule, AccountModule, BillingModule],
   controllers: [AuthController],
   providers: [
     SessionService,
@@ -93,7 +94,8 @@ import { AuthGuard } from './interface/http/auth.guard.js';
     },
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: IDENTITY_FACADE, useExisting: AccountQueries },
+    { provide: IDENTITY_ADMIN_FACADE, useExisting: AccountQueries },
   ],
-  exports: [IDENTITY_FACADE],
+  exports: [IDENTITY_FACADE, IDENTITY_ADMIN_FACADE],
 })
 export class IdentityModule {}

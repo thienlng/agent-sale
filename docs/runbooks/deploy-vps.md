@@ -59,6 +59,7 @@ The server follows `/opt/infra/README.md` on the host: apps live in `/opt/apps/<
 7. **First platform admin.** Sign up in the dashboard, then make that account a platform admin:
    `docker compose exec api node apps/backend/dist/cli/platform-admin.js grant <email>`
 8. **LLM provider.** Add one in Admin → LLM. Without it, production answers 503 for bot turns.
+9. **Plans and trial.** In Admin (`/admin/plans` for the catalog, `/admin/settings` for trial, lifecycle and bank account): check the plan catalog and prices, set the VietQR bank account, then turn the signup trial on (it ships off, so a deploy alone changes nothing for new signups). The `worker` service runs the subscription lifecycle (trial end, past due, suspension) every 5 minutes; keep it running.
 
 ## Every change
 
@@ -97,6 +98,7 @@ The login lives in the `hermes` volume. Do not sign the same ChatGPT account in 
 | Roll back to the previous release | `./deploy.sh rollback` |
 | Deploy a specific commit | `./deploy.sh <sha>` (requires `docker login ghcr.io` with a token that can read packages) |
 | Change domain | Point the new domain's DNS at the server, add it to the NPM proxy host with a certificate, run `./set-host.sh <new-host>`, then update the Meta app's webhook URL, OAuth redirect URIs and app domains |
+| Put an account on a plan from the shell | `docker compose exec api node apps/backend/dist/cli/workspace-plan.js set <owner-email> <plan> [months]` (audited like an `/admin` change, reason `cli`) |
 | Backup now | `./backup.sh` (daily at 03:15 UTC by cron, 14 days kept in `backups/`) |
 
 ### Restore

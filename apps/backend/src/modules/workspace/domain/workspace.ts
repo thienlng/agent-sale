@@ -35,9 +35,11 @@ export class Workspace extends AggregateRoot {
     ownerUserId: UserId;
     accountId: string;
     timezone?: string | undefined;
+    /** Chosen up front when other records must name the business before it exists. */
+    id?: WorkspaceId | undefined;
   }): Workspace {
     const { name, industry } = Workspace.validate(input);
-    const id = workspaceId(newId());
+    const id = input.id ?? workspaceId(newId());
     const ws = new Workspace({
       id,
       name,

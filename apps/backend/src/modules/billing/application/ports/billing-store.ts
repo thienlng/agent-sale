@@ -15,11 +15,20 @@ export interface BillingState {
    */
   accountSubscription: SubscriptionRecord | null;
   accountOverrides: OverrideRecord[];
+  /** `suspended` = an operator suspended the account; `null` = no account. */
+  accountStatus: 'active' | 'suspended' | null;
 }
+
+export type AccountBillingState = Pick<
+  BillingState,
+  'accountSubscription' | 'accountOverrides' | 'accountStatus'
+>;
 
 export interface BillingStore {
   /** Business state under tenant RLS; account state (when `accountId`) with the system role. */
   state(ws: WorkspaceId, accountId: string | null): Promise<BillingState>;
+  /** The account part of `state` alone (admin views, daily usage snapshot). */
+  accountState(accountId: string): Promise<AccountBillingState>;
   /** One version of a plan (platform catalog, system role). */
   plan(code: string, version: number): Promise<PlanRecord | null>;
   /**

@@ -1,4 +1,4 @@
-import { and, type Database, eq, isNull, schema, sql, withSystem } from '@agent-sales/db';
+import { and, type Database, eq, inArray, isNull, schema, sql, withSystem } from '@agent-sales/db';
 import { type UserId, userId } from '@agent-sales/shared';
 
 import { EmailTakenError } from '../../domain/identity.errors.js';
@@ -44,6 +44,35 @@ export class DrizzleUserRepository implements UserRepository {
       const [row] = await tx.select().from(schema.users).where(eq(schema.users.id, id)).limit(1);
       return row ? toUser(row) : null;
     });
+  }
+
+  findByIds(ids: readonly UserId[]): Promise<User[]> {
+    if (!ids.length) return Promise.resolve([]);
+    return withSystem(this.systemDb, async (tx) =>
+      (
+        await tx
+          .select()
+          .from(schema.users)
+          .where(inArray(schema.users.id, [...ids]))
+      ).map(toUser),
+    );
+  }
+
+  search(q: string, limit: number): Promise<User[]> {
+    const like = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+    const u = schema.users;
+    return withSystem(this.systemDb, async (tx) =>
+      (
+        await tx
+          .select()
+          .from(u)
+          .where(
+            sql`${u.email} ilike ${like} or ${u.phone} ilike ${like} or ${u.name} ilike ${like}`,
+          )
+          .orderBy(sql`${u.createdAt} desc`)
+          .limit(limit)
+      ).map(toUser),
+    );
   }
 
   async insert(user: User): Promise<void> {
