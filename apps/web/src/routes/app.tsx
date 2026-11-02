@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
 
 import { AppShell } from '@/components/app-shell';
+import { AssistantBubble } from '@/features/assistant/components/assistant-bubble';
 import { MessageUsageBanner } from '@/features/billing/components/message-usage-banner';
 import { CreateBusinessDialog } from '@/features/workspace/components/create-business-dialog';
 import { PlanDialog } from '@/features/billing/components/plan-dialog';
@@ -58,6 +59,8 @@ export const Route = createFileRoute('/app')({
       >
         <MessageUsageBanner />
         <Outlet />
+        {/* Owner assistant (ADR-021): owners of the account only; the panel loads on open. */}
+        <AssistantBubble />
       </AppShell>
     );
   },

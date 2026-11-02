@@ -1,0 +1,140 @@
+import {
+  AssistantMessageList,
+  type AssistantMessageDto,
+  AssistantRunDto,
+  AssistantThreadDto,
+  AssistantThreadList,
+  type SendAssistantMessageRequest,
+  SendAssistantMessageResponse,
+} from '@agent-sales/contracts';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+
+import { api } from '@/lib/api-client';
+import { useWorkspaceId } from '@/lib/use-workspace';
+
+export const assistantKeys = {
+  all: (ws: string) => ['ws', ws, 'assistant'] as const,
+  threads: (ws: string, q: string) => ['ws', ws, 'assistant', 'threads', q] as const,
+  messages: (ws: string, threadId: string) =>
+    ['ws', ws, 'assistant', 'messages', threadId] as const,
+  run: (ws: string, runId: string) => ['ws', ws, 'assistant', 'runs', runId] as const,
+};
+
+/** The owner's open threads, pinned first (search by `q`). */
+export function useAssistantThreads(q: string) {
+  const ws = useWorkspaceId();
+  return useQuery({
+    queryKey: assistantKeys.threads(ws, q),
+    queryFn: ({ signal }) =>
+      api(`/assistant/threads${q ? `?q=${encodeURIComponent(q)}` : ''}`, AssistantThreadList, {
+        workspaceId: ws,
+        signal,
+      }),
+    // The server orders pinned first already; keep it stable whatever the source.
+    select: (list) => [...list.data].sort((a, b) => Number(b.pinned) - Number(a.pinned)),
+    enabled: Boolean(ws),
+  });
+}
+
+export function useAssistantMessages(threadId: string | null) {
+  const ws = useWorkspaceId();
+  return useQuery({
+    queryKey: assistantKeys.messages(ws, threadId ?? ''),
+    queryFn: ({ signal }) =>
+      api(`/assistant/threads/${threadId}/messages`, AssistantMessageList, {
+        workspaceId: ws,
+        signal,
+      }).then((list) => list.data),
+    enabled: Boolean(ws && threadId),
+  });
+}
+
+/**
+ * One run with its steps. `poll` refetches every second while a turn runs; the run may not
+ * exist for the first moment, so errors are not retried and simply wait for the next poll.
+ */
+export function useAssistantRun(runId: string | null, { poll = false } = {}) {
+  const ws = useWorkspaceId();
+  return useQuery({
+    queryKey: assistantKeys.run(ws, runId ?? ''),
+    queryFn: ({ signal }) =>
+      api(`/assistant/runs/${runId}`, AssistantRunDto, { workspaceId: ws, signal }),
+    enabled: Boolean(ws && runId),
+    retry: false,
+    refetchInterval: poll ? 1000 : false,
+  });
+}
+
+export function useCreateAssistantThread() {
+  const ws = useWorkspaceId();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      api('/assistant/threads', AssistantThreadDto, {
+        method: 'POST',
+        body: {},
+        workspaceId: ws,
+      }),
+    // A new thread has no messages: no fetch needed, and the first send stays optimistic.
+    onSuccess: (thread) => {
+      queryClient.setQueryData<AssistantMessageDto[]>(assistantKeys.messages(ws, thread.id), []);
+    },
+  });
+}
+
+/** Optimistic owner message, replaced by the server's rows when the turn answers. */
+function pendingMessage(turnId: string, text: string): AssistantMessageDto {
+  return {
+    id: `pending-${turnId}`,
+    seq: Number.MAX_SAFE_INTEGER,
+    role: 'user',
+    content: text,
+    uiActions: [],
+    runId: null,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+export function useSendAssistantMessage() {
+  const ws = useWorkspaceId();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ threadId, ...body }: SendAssistantMessageRequest & { threadId: string }) =>
+      api(`/assistant/threads/${threadId}/messages`, SendAssistantMessageResponse, {
+        method: 'POST',
+        body,
+        workspaceId: ws,
+      }),
+    onMutate: async ({ threadId, turnId, text }) => {
+      const key = assistantKeys.messages(ws, threadId);
+      // A refetch landing now would drop the optimistic row.
+      await queryClient.cancelQueries({ queryKey: key });
+      queryClient.setQueryData<AssistantMessageDto[]>(key, (old = []) => [
+        ...old,
+        pendingMessage(turnId, text),
+      ]);
+    },
+    onSuccess: (res, { threadId, turnId }) => {
+      const key = assistantKeys.messages(ws, threadId);
+      queryClient.setQueryData<AssistantMessageDto[]>(key, (old = []) => {
+        const fresh = new Set(res.messages.map((m) => m.id));
+        return [
+          ...old.filter((m) => m.id !== `pending-${turnId}` && !fresh.has(m.id)),
+          ...res.messages,
+        ];
+      });
+      queryClient.setQueryData(assistantKeys.run(ws, res.run.id), res.run);
+    },
+    onError: (_error, { threadId, turnId }) => {
+      const key = assistantKeys.messages(ws, threadId);
+      queryClient.setQueryData<AssistantMessageDto[]>(key, (old = []) =>
+        old.filter((m) => m.id !== `pending-${turnId}`),
+      );
+      // The owner's message may have been stored before the model failed: show the truth.
+      void queryClient.invalidateQueries({ queryKey: key });
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: [...assistantKeys.all(ws), 'threads'] });
+    },
+  });
+}

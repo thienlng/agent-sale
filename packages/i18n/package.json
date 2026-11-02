@@ -26,6 +26,10 @@
     "./integration": {
       "types": "./dist/integration.d.ts",
       "import": "./dist/integration.js"
+    },
+    "./assistant": {
+      "types": "./dist/assistant.d.ts",
+      "import": "./dist/assistant.js"
     }
   },
   "files": [

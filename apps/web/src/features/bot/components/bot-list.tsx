@@ -32,7 +32,7 @@ export function BotList({ business }: { business?: BotBusinessContext }) {
             <p className="mt-1 text-muted-foreground">{t('bots.subtitle')}</p>
           </div>
           {canManage ? (
-            <Button size="lg" onClick={() => setCreating(true)}>
+            <Button size="lg" data-assistant-target="bots.new" onClick={() => setCreating(true)}>
               <Plus />
               {t('bots.create')}
             </Button>
@@ -132,7 +132,12 @@ export function BotList({ business }: { business?: BotBusinessContext }) {
               <h2 className="mt-4 text-lg font-semibold">{t('bots.emptyTitle')}</h2>
               <p className="mt-1 max-w-sm text-muted-foreground">{t('bots.emptyBody')}</p>
               {canManage ? (
-                <Button size="lg" className="mt-6" onClick={() => setCreating(true)}>
+                <Button
+                  size="lg"
+                  className="mt-6"
+                  data-assistant-target="bots.new"
+                  onClick={() => setCreating(true)}
+                >
                   <Plus />
                   {t('bots.create')}
                 </Button>
