@@ -1,4 +1,3 @@
-import { useRouterState } from '@tanstack/react-router';
 import { Rabbit } from 'lucide-react';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -17,9 +16,6 @@ const AssistantPanel = lazy(() =>
   })),
 );
 
-/** Bot training pages keep their own "Chat thử" button bottom-right; the launcher sits above it. */
-const BOT_PAGE = /^\/app\/bots\/[^/]+/;
-
 /** The owner assistant ("Thỏ Rapiz"): a round launcher bottom-right, owners of the account only. */
 export function AssistantBubble() {
   const { t } = useTranslation();
@@ -30,7 +26,6 @@ export function AssistantBubble() {
   const syncWorkspace = useAssistantUi((s) => s.syncWorkspace);
   // Another business, another conversation: drop the thread and any spotlight on a switch.
   useEffect(() => syncWorkspace(workspaceId || null), [workspaceId, syncWorkspace]);
-  const onBotPage = useRouterState({ select: (s) => BOT_PAGE.test(s.location.pathname) });
   // Once loaded the panel stays mounted, so a spotlight survives closing it.
   const [loaded, setLoaded] = useState(open);
   if (!isOwner) return null;
@@ -47,7 +42,6 @@ export function AssistantBubble() {
           }}
           className={cn(
             'fixed right-4 bottom-4 z-40 grid size-14 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg transition hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
-            onBotPage && 'bottom-20',
           )}
         >
           <Rabbit className="size-7" aria-hidden />
