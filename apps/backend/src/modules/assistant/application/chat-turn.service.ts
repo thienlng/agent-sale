@@ -29,6 +29,7 @@ import { ROUTE_INVOKER, type RouteInvoker } from '../domain/ports/route-invoker.
 import { CompactionService, threadCacheKey } from './compaction.service.js';
 import { CORE_TOOL_DEFINITIONS, coreTools, type ToolContext } from './core-tools.js';
 import { buildImportBlock } from './import-block.js';
+import { IMPORT_TOOL_DEFINITIONS, importTools } from './import-tools.js';
 import { isVisibleMessage } from './mappers.js';
 import { MEMORY_TOOL_DEFINITION, memoryTool } from './memory-tools.js';
 import { buildTurnMessage } from './prompt-builder.js';
@@ -63,6 +64,7 @@ export const TURN_TOOL_DEFINITIONS = [
   MEMORY_TOOL_DEFINITION,
   ...SKILL_TOOL_DEFINITIONS,
   ...ROUTE_TOOL_DEFINITIONS,
+  ...IMPORT_TOOL_DEFINITIONS,
 ].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 
 export interface TurnResult {
@@ -325,6 +327,16 @@ export class ChatTurnService {
             runId,
             proposalIds,
             ...(req.pageContext ? { page: req.pageContext } : {}),
+          }),
+          // Product import (T-173): previews read; a proposal waits for the owner.
+          ...importTools({
+            scope,
+            repo: this.repo,
+            invoker: this.invoker,
+            authorization,
+            threadId: thread.id,
+            runId,
+            proposalIds,
           }),
         ]),
         generate: (r) => this.gateway.generate(r),

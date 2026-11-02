@@ -142,6 +142,8 @@ describe('ChatTurnService', () => {
     });
     // Sorted by name so the tool list stays cache-stable.
     expect(first.tools?.map((t) => t.name)).toEqual([
+      'import_preview',
+      'import_propose',
       'load_skill',
       'memory',
       'session_search',

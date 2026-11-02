@@ -17,6 +17,7 @@ const PLATFORM_SKILLS = [
   'add-products',
   'connect-channels',
   'handle-orders',
+  'import-products',
   'read-revenue',
   'set-up-bot',
 ];

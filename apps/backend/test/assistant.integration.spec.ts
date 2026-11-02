@@ -15,6 +15,7 @@ import {
   AssistantThreadDto,
   AssistantThreadList,
   AuthResponse,
+  ImportBatchDto,
   BootstrapResponse,
   CreatedInvitation,
   ProductListResponse,
@@ -1062,6 +1063,133 @@ describe('assistant route tools and proposals on Postgres (1b)', () => {
     expect(
       (await call(other.h, 'POST', `/assistant/proposals/${proposal?.id}/approve`)).statusCode,
     ).toBe(404);
+  });
+});
+
+describe('assistant product import on Postgres (T-173)', () => {
+  const answer = (over: Partial<GenerateResponse>): GenerateResponse => ({
+    text: '',
+    toolCalls: [],
+    stopReason: 'end',
+    usage: { inputTokens: 10, outputTokens: 5, cachedInputTokens: 0 },
+    provider: 'fake',
+    model: 'fake-pro',
+    latencyMs: 1,
+    ...over,
+  });
+  const tool = (id: string, name: string, input: unknown) =>
+    answer({ stopReason: 'tool_use', toolCalls: [{ id, name, input }] });
+
+  it('previews a sheet, proposes it, and creates the ready products on approval', async () => {
+    const lan = await user('import-sheet@assistant.vn', 'Lan');
+    const thread = AssistantThreadDto.parse(
+      (await call(lan.h, 'POST', '/assistant/threads', {})).json(),
+    );
+    const created = await call(lan.h, 'POST', `/assistant/threads/${thread.id}/imports`, {
+      kind: 'sheet',
+      businessId: lan.ownWorkspace,
+      fileName: 'hang.csv',
+      rows: [
+        ['Tên', 'Giá', 'Mã'],
+        ['Áo thun', '150k', 'AT-1'],
+        ['Quần jean', '', 'QJ-1'],
+        ['Mũ lưỡi trai', '50.000đ', 'ML-1'],
+      ],
+    });
+    expect(created.statusCode, created.body).toBe(201);
+    const batch = ImportBatchDto.parse(created.json());
+    expect(batch).toMatchObject({ kind: 'sheet', rowCount: 4, drafts: null });
+
+    const gateway = app.get<LlmGatewayPort>(AI_LLM_GATEWAY, { strict: false });
+    const queue = [
+      tool('c1', 'import_preview', {
+        batchId: batch.id,
+        spec: {
+          headerRow: 0,
+          fields: {
+            name: { col: 0 },
+            price: { col: 1, transforms: ['money_vnd'] },
+            code: { col: 2 },
+          },
+        },
+      }),
+      tool('c2', 'import_propose', { batchId: batch.id, summary: 'Tạo 2 sản phẩm từ hang.csv' }),
+      answer({ text: 'Dạ có 2 sản phẩm sẵn sàng, anh/chị bấm Áp dụng nhé' }),
+    ];
+    const seen: GenerateRequest[] = [];
+    const spy = vi.spyOn(gateway, 'generate').mockImplementation((r: GenerateRequest) => {
+      seen.push(r);
+      return Promise.resolve(queue.shift() ?? answer({ text: 'Dạ xong ạ' }));
+    });
+    try {
+      const res = await call(lan.h, 'POST', `/assistant/threads/${thread.id}/messages`, {
+        turnId: newId(),
+        text: 'Nhập giúp em',
+        importBatchId: batch.id,
+      });
+      expect(res.statusCode, res.body).toBe(200);
+      // The owner sees their own text; the model saw the batch block.
+      expect(SendAssistantMessageResponse.parse(res.json()).messages[0]?.content).toBe(
+        'Nhập giúp em',
+      );
+    } finally {
+      spy.mockRestore();
+    }
+    expect(seen[0]?.messages.at(-1)?.content).toContain(`<import_batch id="${batch.id}"`);
+
+    const [proposal] = AssistantProposalList.parse(
+      (await call(lan.h, 'GET', `/assistant/threads/${thread.id}/proposals`)).json(),
+    ).items;
+    expect(proposal).toMatchObject({
+      kind: 'product_import',
+      importBatchId: batch.id,
+      status: 'pending',
+    });
+    const names = async () =>
+      ProductListResponse.parse((await call(lan.h, 'GET', '/products')).json())
+        .data.map((p) => p.name)
+        .sort();
+    expect(await names()).toEqual([]);
+
+    // Staff are refused on the import routes and on approve.
+    const staff = await user('import-staff@assistant.vn', 'Staff');
+    await invite(lan, staff, 'import-staff@assistant.vn', 'admin');
+    const asStaff = staff.in(lan.ownWorkspace);
+    expect((await call(asStaff, 'GET', `/assistant/imports/${batch.id}`)).statusCode).toBe(403);
+    expect(
+      (
+        await call(asStaff, 'POST', `/assistant/threads/${thread.id}/imports`, {
+          kind: 'sheet',
+          businessId: lan.ownWorkspace,
+          fileName: 'x.csv',
+          rows: [['Tên'], ['A']],
+        })
+      ).statusCode,
+    ).toBe(403);
+    expect(
+      (await call(asStaff, 'POST', `/assistant/proposals/${proposal?.id}/approve`)).statusCode,
+    ).toBe(403);
+
+    const approved = await call(lan.h, 'POST', `/assistant/proposals/${proposal?.id}/approve`);
+    expect(approved.statusCode, approved.body).toBe(200);
+    expect(AssistantProposalDto.parse(approved.json()).status).toBe('done');
+    expect(await names()).toEqual(['Mũ lưỡi trai', 'Áo thun']);
+
+    const after = ImportBatchDto.parse(
+      (await call(lan.h, 'GET', `/assistant/imports/${batch.id}`)).json(),
+    );
+    expect(Object.values(after.results).map((r) => r.status)).toEqual(['created', 'created']);
+    expect(after.results.r2).toBeUndefined();
+    const visible = AssistantMessageList.parse(
+      (await call(lan.h, 'GET', `/assistant/threads/${thread.id}/messages`)).json(),
+    );
+    expect(visible.data.at(-1)).toMatchObject({
+      role: 'event',
+      content: 'Đã tạo 2/2 sản phẩm từ hang.csv',
+    });
+    expect(
+      (await call(lan.h, 'POST', `/assistant/proposals/${proposal?.id}/approve`)).statusCode,
+    ).toBe(409);
   });
 });
 
