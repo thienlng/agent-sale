@@ -6,6 +6,7 @@ import { ApiClientError } from '@/lib/api-client';
 /** 409 reasons of the skill routes that get their own sentence. */
 const KNOWN_REASONS = new Set([
   'stale_skill',
+  'skill_changed',
   'shadow_exists',
   'skill_limit',
   'skill_not_pending',

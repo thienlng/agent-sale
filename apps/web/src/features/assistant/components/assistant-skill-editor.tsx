@@ -152,7 +152,7 @@ function SkillActions({
   const busy = action.isPending || shadow.isPending || dropShadow.isPending;
   const id = skill.id ?? '';
   const run = (a: 'approve' | 'reject' | 'archive' | 'restore') =>
-    action.mutate({ skillId: id, action: a }, { onError });
+    action.mutate({ skillId: id, action: a, expectedUpdatedAt: skill.updatedAt }, { onError });
 
   if (skill.provenance === 'platform')
     return (

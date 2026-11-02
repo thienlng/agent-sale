@@ -132,6 +132,12 @@ export interface MemoryEntry {
   createdAt: string;
   /** Set when the text was replaced (ISO); absent for an entry never changed. */
   updatedAt?: string;
+  /**
+   * Only on an entry the background review rewrote: the text and origin before its first
+   * rewrite, so the owner's undo restores them. Cleared by any later non-review write.
+   */
+  previousText?: string;
+  previousOrigin?: MemoryOrigin;
 }
 
 /** One bounded memory store: `owner_profile`, `notes` or `business:<uuid>`. */
@@ -630,11 +636,13 @@ export interface AssistantRepository {
   ): Promise<boolean>;
   /**
    * Cancels `queued` or `running` jobs: one by id, or every one of a thread and kind (a new
-   * owner message cancels the thread's pending review). Returns how many changed.
+   * owner message cancels the thread's pending review). Returns how many changed. With
+   * `attempts`, only while the job is still at that attempt (a worker cancelling its own claim
+   * cannot cancel a later attempt's run).
    */
   cancelJob(
     s: OwnerKey,
-    target: { id: string } | { threadId: string; kind: JobKind },
+    target: { id: string; attempts?: number } | { threadId: string; kind: JobKind },
   ): Promise<number>;
 
   // ─── Curator (1c) ───

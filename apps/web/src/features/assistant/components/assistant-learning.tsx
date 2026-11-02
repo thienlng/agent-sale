@@ -40,7 +40,10 @@ function itemKey(item: AssistantLearningItemDto): string {
 /** The notice's wording: what was learned, or what the curator put away. */
 function useNoticeText(item: AssistantLearningItemDto): string {
   const { t } = useTranslation('assistant');
-  if (item.kind === 'memory') return t('learning.memory', { text: item.text });
+  if (item.kind === 'memory')
+    return item.previousText === null
+      ? t('learning.memory', { text: item.text })
+      : t('learning.memoryRewritten', { text: item.text, previous: item.previousText });
   if (item.actor === 'curator')
     return item.state === 'stale'
       ? t('learning.stale', { name: item.name })

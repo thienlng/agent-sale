@@ -447,6 +447,9 @@ describe('assistant jobs and the curator on Postgres (1c)', () => {
     const reclaimed = await repo2.claimJobs(lapsed, 10, 60_000);
     expect(reclaimed).toHaveLength(ids.length);
     const key = { accountId: job.accountId, ownerUserId: holder.s.ownerUserId };
+    // The old holder cannot cancel the new attempt's run either.
+    expect(await repo.cancelJob(key, { id: job.id, attempts: 1 })).toBe(0);
+    expect(await repo.getJob(key, job.id)).toMatchObject({ status: 'running', attempts: 2 });
     expect(await repo.finishJob(key, { id: job.id, attempts: 1 }, { status: 'done' })).toBe(false);
     expect(
       await repo.finishJob(key, { id: job.id, attempts: 2 }, { status: 'failed', errorCode: 'x' }),

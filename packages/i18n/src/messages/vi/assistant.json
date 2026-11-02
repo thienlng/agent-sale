@@ -102,13 +102,14 @@
     "undo": "Hoàn tác",
     "close": "Ẩn các thông báo này",
     "undone": "Đã hoàn tác.",
-    "undoError": "Không hoàn tác được. Thử lại."
+    "undoError": "Không hoàn tác được. Thử lại.",
+    "memoryRewritten": "💡 Trợ lý vừa sửa: \"{{previous}}\" → \"{{text}}\""
   },
   "suggestions": {
     "label": "Gợi ý của trợ lý",
     "accept": "Đồng ý",
     "dismiss": "Bỏ qua",
-    "skillSaved": "Đã lưu kỹ năng {{name}}.",
+    "skillSaved": "Đã lưu bản nháp kỹ năng {{name}}. Duyệt nó trong mục Kỹ năng.",
     "conflict": "Gợi ý này đã được xử lý hoặc không áp dụng được nữa.",
     "error": "Không thực hiện được. Thử lại."
   },
@@ -182,7 +183,8 @@
       "event_already_undone": "Thay đổi này đã được hoàn tác rồi.",
       "name_taken": "Đã có kỹ năng trùng tên.",
       "invalid": "Nội dung kỹ năng chưa hợp lệ. Kiểm tra lại mô tả và nội dung.",
-      "generic": "Không thực hiện được. Thử lại."
+      "generic": "Không thực hiện được. Thử lại.",
+      "skill_changed": "Kỹ năng vừa được sửa sau khi bạn mở. Xem bản mới rồi quyết định."
     }
   },
   "settings": {

@@ -42,7 +42,16 @@ function owner(): OwnerScope {
 function setup() {
   const repo = new InMemoryAssistantRepository();
   const skills = new SkillsService(repo, new SkillCatalog([]));
-  const curator = new CuratorService(repo);
+  const scope = owner();
+  /** Users who are active owners of the scope's account (the curator checks). */
+  const owners = new Set<string>([scope.ownerUserId]);
+  const account = {
+    listForUser: (u: string) =>
+      Promise.resolve(
+        owners.has(u) ? [{ accountId: scope.accountId, name: 'A', role: 'owner' }] : [],
+      ),
+  } as unknown as AccountFacade;
+  const curator = new CuratorService(repo, account);
   const generate = vi.fn((_r: GenerateRequest): Promise<GenerateResponse> => {
     throw new Error('no model call expected');
   });
@@ -56,7 +65,7 @@ function setup() {
   const runner = new AssistantJobRunner(repo, review, curator);
   const settings = new AssistantSettingsService(repo);
   const suggestions = new SuggestionsService(repo, skills);
-  return { repo, skills, curator, runner, settings, suggestions, scope: owner(), generate };
+  return { repo, skills, curator, runner, settings, suggestions, scope, owners, generate };
 }
 
 /** A learned skill whose clocks (created, last used, updated) are set back. */
@@ -217,6 +226,28 @@ describe('curator', () => {
     await s.runner.tick(new Date(t0.getTime() + DAY + 1));
     expect(curatorJobs()).toHaveLength(2);
   });
+
+  it('leaves alone a user who is no longer an owner of the account', async () => {
+    const s = setup();
+    await learned(s, 'idle', { created: 40 });
+    // A job enqueued while they were still the owner runs after they lost the role.
+    const job = await s.repo.enqueueJob(s.scope, {
+      id: newId(),
+      threadId: null,
+      kind: 'curator',
+      reviewScope: null,
+      runAfter: NOW,
+    });
+    s.owners.clear();
+    const [claimed] = await s.repo.claimJobs(new Date(), 1, 60_000);
+    expect(await s.curator.run(claimed!, NOW)).toBe('done');
+    expect((await s.repo.getSkillByName(s.scope, 'idle'))?.state).toBe('active');
+    expect(await s.repo.getJob(s.scope, job.id)).toMatchObject({ status: 'done' });
+
+    // And the schedule neither enqueues a job nor writes a settings row for them.
+    expect(await s.curator.schedule(new Date(NOW.getTime() + 2 * DAY))).toBe(0);
+    expect((await s.repo.getSettings(s.scope)).curatorRanAt).toBeNull();
+  });
 });
 
 describe('settings and toolsets', () => {
@@ -355,7 +386,7 @@ describe('suggestions', () => {
       payload,
     });
 
-  it('accepts a skill card as an owner skill, a setup card with its page, a schedule card as is', async () => {
+  it('accepts a skill card as a learned draft for approval, a setup card with its page, a schedule card as is', async () => {
     const s = setup();
     await add(s, 'skill', 'skill:weekly-sale', {
       name: 'weekly-sale',
@@ -371,9 +402,13 @@ describe('suggestions', () => {
     const skill = await s.suggestions.accept(s.scope, byKind('skill').id);
     expect(skill).toMatchObject({
       suggestion: { status: 'accepted' },
-      skill: { name: 'weekly-sale', provenance: 'owner', state: 'active' },
+      skill: { name: 'weekly-sale', provenance: 'learned', state: 'pending_approval' },
       path: null,
     });
+    // Not an active owner skill: it waits on the normal approval card, written by the review.
+    const [created] = await s.repo.listSkillEvents(s.scope, { skillId: skill.skill!.id! });
+    expect(created).toMatchObject({ actor: 'review', action: 'create' });
+    expect((await s.skills.catalog(s.scope)).get('weekly-sale')).toBeUndefined();
     expect(await s.suggestions.accept(s.scope, byKind('setup').id)).toMatchObject({
       skill: null,
       path: '/app/channels',

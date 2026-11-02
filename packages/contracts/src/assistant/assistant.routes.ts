@@ -10,6 +10,7 @@ import {
   AssistantProposalList,
   AssistantRunDto,
   AssistantSettingsDto,
+  AssistantSkillDecisionRequest,
   AssistantSkillDto,
   AssistantSkillEventList,
   AssistantSkillList,
@@ -109,6 +110,15 @@ export const assistantRoutes = defineRoutes([
   },
   {
     ...scoped,
+    method: 'post',
+    path: '/assistant/memory/{store}/entries/{entryId}/undo',
+    assistant: { use: 'never' },
+    summary:
+      "Undo the review's change to a memory entry: a rewritten entry gets its previous text back, a saved one is forgotten; returns the memory",
+    responses: { 200: AssistantMemoryDto },
+  },
+  {
+    ...scoped,
     method: 'get',
     path: '/assistant/threads/{threadId}/proposals',
     assistant: { use: 'never' },
@@ -178,7 +188,9 @@ export const assistantRoutes = defineRoutes([
     method: 'post',
     path: '/assistant/skills/{skillId}/approve',
     assistant: { use: 'never' },
-    summary: 'Approve a learned skill waiting for the owner (it becomes active)',
+    summary:
+      'Approve a learned skill waiting for the owner (it becomes active); 409 skill_changed when it changed since the owner saw it',
+    body: AssistantSkillDecisionRequest,
     responses: { 200: AssistantSkillDto },
   },
   {
@@ -186,7 +198,9 @@ export const assistantRoutes = defineRoutes([
     method: 'post',
     path: '/assistant/skills/{skillId}/reject',
     assistant: { use: 'never' },
-    summary: 'Reject a learned skill waiting for the owner (it is archived)',
+    summary:
+      'Reject a learned skill waiting for the owner (it is archived); 409 skill_changed when it changed since the owner saw it',
+    body: AssistantSkillDecisionRequest,
     responses: { 200: AssistantSkillDto },
   },
   {
@@ -269,7 +283,7 @@ export const assistantRoutes = defineRoutes([
     path: '/assistant/suggestions/{suggestionId}/accept',
     assistant: { use: 'never' },
     summary:
-      'Accept a suggestion: a skill suggestion becomes an owner skill, a setup one returns its page',
+      'Accept a suggestion: a skill suggestion becomes a learned skill waiting for approval, a setup one returns its page',
     responses: { 200: AcceptAssistantSuggestionResponse },
   },
   {

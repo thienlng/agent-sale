@@ -271,6 +271,14 @@ export const UpdateAssistantSkillRequest = z
   .refine((v) => Object.keys(v).length > 0, 'empty update');
 export type UpdateAssistantSkillRequest = z.infer<typeof UpdateAssistantSkillRequest>;
 
+/**
+ * Approve or reject a pending learned skill: `expectedUpdatedAt` is the skill's `updatedAt` as
+ * the owner saw it; a skill changed since (e.g. the review patched the draft) answers 409
+ * `skill_changed`, so the owner never approves a body they did not see.
+ */
+export const AssistantSkillDecisionRequest = z.object({ expectedUpdatedAt: z.iso.datetime() });
+export type AssistantSkillDecisionRequest = z.infer<typeof AssistantSkillDecisionRequest>;
+
 /** What the ledger keeps of a skill before and after a change. */
 export const AssistantSkillSnapshotDto = z.object({
   name: z.string(),
@@ -326,7 +334,8 @@ export type AssistantLearnedSkillDto = z.infer<typeof AssistantLearnedSkillDto>;
 
 /**
  * A memory entry the background review saved or rewrote. Undo:
- * `DELETE /assistant/memory/{store}/entries/{entryId}`.
+ * `POST /assistant/memory/{store}/entries/{entryId}/undo` (a rewritten entry gets its previous
+ * text back; a saved one is forgotten).
  */
 export const AssistantLearnedMemoryDto = z.object({
   kind: z.literal('memory'),
@@ -334,6 +343,8 @@ export const AssistantLearnedMemoryDto = z.object({
   store: z.string(),
   entryId: z.string(),
   text: z.string(),
+  /** The text the review replaced (undo restores it); null when the review added the entry. */
+  previousText: z.string().nullable(),
   at: z.iso.datetime(),
 });
 export type AssistantLearnedMemoryDto = z.infer<typeof AssistantLearnedMemoryDto>;
@@ -424,7 +435,8 @@ export const AssistantSuggestionList = z.object({ items: z.array(AssistantSugges
 export type AssistantSuggestionList = z.infer<typeof AssistantSuggestionList>;
 
 /**
- * An accepted suggestion: `skill` carries the owner skill it created; `path` is the in-app page
+ * An accepted suggestion: `skill` carries the learned skill it drafted (`pending_approval`: the
+ * owner still approves it on its card); `path` is the in-app page
  * a `setup` suggestion leads to (the web navigates there), null otherwise.
  */
 export const AcceptAssistantSuggestionResponse = z.object({

@@ -77,6 +77,7 @@ export type SkillConflictReason =
   | 'skill_archived'
   | 'not_a_shadow'
   | 'stale_skill'
+  | 'skill_changed'
   | 'event_already_undone'
   | 'event_not_undoable';
 

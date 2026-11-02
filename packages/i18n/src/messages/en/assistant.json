@@ -102,13 +102,14 @@
     "undo": "Undo",
     "close": "Hide these notices",
     "undone": "Undone.",
-    "undoError": "Could not undo. Try again."
+    "undoError": "Could not undo. Try again.",
+    "memoryRewritten": "💡 The assistant reworded: \"{{previous}}\" → \"{{text}}\""
   },
   "suggestions": {
     "label": "Assistant suggestions",
     "accept": "Accept",
     "dismiss": "Dismiss",
-    "skillSaved": "Saved the skill {{name}}.",
+    "skillSaved": "Saved {{name}} as a draft. Approve it under Skills.",
     "conflict": "This suggestion was already handled or no longer applies.",
     "error": "Could not do that. Try again."
   },
@@ -182,7 +183,8 @@
       "event_already_undone": "This change was already undone.",
       "name_taken": "A skill with this name already exists.",
       "invalid": "The skill is not valid. Check the description and content.",
-      "generic": "Could not do that. Try again."
+      "generic": "Could not do that. Try again.",
+      "skill_changed": "This skill changed since you opened it. Check the new version, then decide."
     }
   },
   "settings": {

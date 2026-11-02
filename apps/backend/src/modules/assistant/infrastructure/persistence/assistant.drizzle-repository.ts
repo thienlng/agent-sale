@@ -1366,12 +1366,14 @@ export class DrizzleAssistantRepository implements AssistantRepository {
 
   cancelJob(
     s: OwnerKey,
-    target: { id: string } | { threadId: string; kind: JobKind },
+    target: { id: string; attempts?: number } | { threadId: string; kind: JobKind },
   ): Promise<number> {
     return this.#in(s, async (tx) => {
       const which =
         'id' in target
-          ? eq(jb.id, target.id)
+          ? target.attempts === undefined
+            ? eq(jb.id, target.id)
+            : and(eq(jb.id, target.id), eq(jb.attempts, target.attempts))
           : and(eq(jb.threadId, target.threadId), eq(jb.kind, target.kind));
       const rows = await tx
         .update(jb)

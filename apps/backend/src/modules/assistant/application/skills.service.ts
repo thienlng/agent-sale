@@ -169,6 +169,34 @@ export class SkillsService {
     return toSkillDto(created);
   }
 
+  /**
+   * An accepted `skill` suggestion (ruling 1c-R3, final review): the review wrote it, so it is
+   * a learned skill waiting for the owner (ledger actor `review`), approved on its own card
+   * like any review draft, never an active owner skill installed from a headline.
+   */
+  async draftFromSuggestion(
+    s: OwnerKey,
+    input: CreateAssistantSkillRequest,
+  ): Promise<AssistantSkillDto> {
+    const skill = { name: input.name, description: input.description, body: input.body };
+    assertValid(lintRow({ ...skill, toolsets: [] }));
+    if (await this.#rules.nameTaken(s, skill.name)) throw new AssistantSkillNameTakenError();
+    if (await this.#rules.atLimit(s)) throw new AssistantSkillConflictError('skill_limit');
+    const created = await this.repo.createSkill(
+      s,
+      {
+        id: newId(),
+        ...skill,
+        toolsets: [],
+        provenance: 'learned',
+        shadowOf: null,
+        state: 'pending_approval',
+      },
+      { id: newId(), actor: 'review', action: 'create', runId: null },
+    );
+    return toSkillDto(created);
+  }
+
   /** Description, body or pin; a content change is a ledger `patch`, a pin alone is not. */
   async update(
     s: OwnerKey,
@@ -198,12 +226,28 @@ export class SkillsService {
     return toSkillDto(updated);
   }
 
-  approve(s: OwnerKey, id: string): Promise<AssistantSkillDto> {
-    return this.#transition(s, id, ['pending_approval'], 'active', 'approve', 'skill_not_pending');
+  /**
+   * The owner's decision on a pending learned skill, for the version they saw: a skill changed
+   * since `expectedUpdatedAt` (e.g. a review patched the draft) answers `skill_changed`.
+   */
+  approve(s: OwnerKey, id: string, expectedUpdatedAt: Date): Promise<AssistantSkillDto> {
+    return this.#transition(s, id, ['pending_approval'], 'active', 'approve', 'skill_not_pending', {
+      expectedUpdatedAt,
+    });
   }
 
-  reject(s: OwnerKey, id: string): Promise<AssistantSkillDto> {
-    return this.#transition(s, id, ['pending_approval'], 'archived', 'reject', 'skill_not_pending');
+  reject(s: OwnerKey, id: string, expectedUpdatedAt: Date): Promise<AssistantSkillDto> {
+    return this.#transition(
+      s,
+      id,
+      ['pending_approval'],
+      'archived',
+      'reject',
+      'skill_not_pending',
+      {
+        expectedUpdatedAt,
+      },
+    );
   }
 
   archive(s: OwnerKey, id: string): Promise<AssistantSkillDto> {
@@ -335,8 +379,12 @@ export class SkillsService {
     to: SkillState,
     action: SkillAction,
     refused: 'skill_not_pending' | 'skill_archived' | 'skill_not_restorable',
+    seen?: { expectedUpdatedAt: Date },
   ): Promise<AssistantSkillDto> {
     const row = await this.#row(s, id);
+    if (seen && row.updatedAt.getTime() !== seen.expectedUpdatedAt.getTime()) {
+      throw new AssistantSkillConflictError('skill_changed');
+    }
     if (!from.includes(row.state)) throw new AssistantSkillConflictError(refused);
     if (!isLive(row.state) && isLive(to)) await this.#rules.guardRevive(s, row);
     const updated = await this.repo.updateSkill(
@@ -345,7 +393,7 @@ export class SkillsService {
       { state: to },
       { expectedUpdatedAt: row.updatedAt, event: ownerEvent(action) },
     );
-    if (!updated) throw new AssistantSkillConflictError('stale_skill');
+    if (!updated) throw new AssistantSkillConflictError(seen ? 'skill_changed' : 'stale_skill');
     return toSkillDto(updated);
   }
 }

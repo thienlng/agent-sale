@@ -619,13 +619,14 @@ describe('AssistantPanel', () => {
   it('shows what the assistant just learned, with undo and a way to the pending skill', async () => {
     useAssistantUi.setState({ open: true, workspaceId: WS, threadId: null });
     const undo = `POST /assistant/skill-events/${ASSISTANT_IDS.skillEvent}/undo`;
-    const forget = `DELETE /assistant/memory/owner_profile/entries/e9`;
+    const forget = `POST /assistant/memory/owner_profile/entries/e9/undo`;
     const memoryItem = {
       kind: 'memory' as const,
       actor: 'review' as const,
       store: 'owner_profile',
       entryId: 'e9',
       text: 'Thích báo giá theo thùng.',
+      previousText: 'Thích báo giá theo cái.',
       at: '2026-11-02T07:00:00.000Z',
     };
     const routes: Parameters<typeof stubFetch>[0] = {
@@ -647,7 +648,9 @@ describe('AssistantPanel', () => {
       within(notices).getByText('💡 Trợ lý vừa học kỹ năng mới: bao-gia-si'),
     ).toBeInTheDocument();
     expect(
-      within(notices).getByText('💡 Trợ lý vừa học: Thích báo giá theo thùng.'),
+      within(notices).getByText(
+        '💡 Trợ lý vừa sửa: "Thích báo giá theo cái." → "Thích báo giá theo thùng."',
+      ),
     ).toBeInTheDocument();
 
     // Undo the skill: it is archived, and the feed now flags it undone.
@@ -667,7 +670,7 @@ describe('AssistantPanel', () => {
     expect(calls.filter((c) => c.key === undo)).toHaveLength(1);
     expect(toast.success).toHaveBeenCalledWith('Đã hoàn tác.');
 
-    // Undo the memory entry: it is forgotten.
+    // Undo the rewritten memory entry: the server gives the old text back.
     routes['GET /assistant/learning'] = { status: 200, body: { items: [] } };
     await user.click(within(notices).getByRole('button', { name: 'Hoàn tác' }));
     await waitFor(() =>
@@ -688,6 +691,52 @@ describe('AssistantPanel', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Xem' }));
     expect(await screen.findByRole('region', { name: 'Đang chờ duyệt' })).toBeInTheDocument();
+  });
+
+  it('shows the skill a suggestion would draft, body on demand, and accepts it as a draft', async () => {
+    useAssistantUi.setState({ open: true, workspaceId: WS, threadId: null });
+    const card = suggestionFixture({
+      kind: 'skill',
+      title: 'Lưu cách báo giá sỉ thành kỹ năng',
+      payload: {
+        name: 'bao-gia-si',
+        description: 'Báo giá cho khách sỉ',
+        body: '1. Giảm 10% khi mua từ 10 sản phẩm.',
+      },
+    });
+    const accept = `POST /assistant/suggestions/${ASSISTANT_IDS.suggestion}/accept`;
+    const routes: Parameters<typeof stubFetch>[0] = {
+      'GET /assistant/suggestions': { status: 200, body: { items: [card] } },
+      [accept]: {
+        status: 200,
+        body: {
+          suggestion: { ...card, status: 'accepted' },
+          skill: skillFixture(),
+          path: null,
+        },
+      },
+    };
+    const { fetchStub, calls } = stubFetch(routes);
+    vi.stubGlobal('fetch', fetchStub);
+    renderApp();
+    const user = userEvent.setup();
+
+    const cards = await screen.findByRole('region', { name: 'Gợi ý của trợ lý' });
+    expect(within(cards).getByText('bao-gia-si')).toBeInTheDocument();
+    expect(
+      within(cards).queryByText('1. Giảm 10% khi mua từ 10 sản phẩm.'),
+    ).not.toBeInTheDocument();
+    await user.click(within(cards).getByRole('button', { name: 'Xem nội dung' }));
+    expect(within(cards).getByText('1. Giảm 10% khi mua từ 10 sản phẩm.')).toBeInTheDocument();
+
+    routes['GET /assistant/suggestions'] = { status: 200, body: { items: [] } };
+    await user.click(within(cards).getByRole('button', { name: 'Đồng ý' }));
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith(
+        'Đã lưu bản nháp kỹ năng bao-gia-si. Duyệt nó trong mục Kỹ năng.',
+      ),
+    );
+    expect(calls.filter((c) => c.key === accept)).toHaveLength(1);
   });
 
   it('accepts a setup suggestion and opens its page; dismisses another', async () => {

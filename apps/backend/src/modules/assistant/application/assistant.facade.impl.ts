@@ -9,6 +9,7 @@ import type {
   AssistantProposalList,
   AssistantRunDto,
   AssistantSettingsDto,
+  AssistantSkillDecisionRequest,
   AssistantSkillDto,
   AssistantSkillEventList,
   AssistantSkillList,
@@ -46,7 +47,7 @@ import {
   type MemoryStoreRecord,
 } from '../domain/ports/assistant.repository.js';
 import { ChatTurnService } from './chat-turn.service.js';
-import { learningFeed } from './learning-feed.js';
+import { learningFeed, undoReviewEntry } from './learning-feed.js';
 import { toMessageDtos, toRunDto, toThreadDto } from './mappers.js';
 import { accountMemberships, type OwnerScope, resolveOwnerScope } from './owner-access.js';
 import { ProposalService } from './proposals.service.js';
@@ -205,12 +206,22 @@ export class AssistantFacadeImpl implements AssistantFacade {
     await this.skills.deleteShadow(await this.#scope(actor), skillId);
   }
 
-  async approveSkill(actor: AssistantActor, skillId: string): Promise<AssistantSkillDto> {
-    return this.skills.approve(await this.#scope(actor), skillId);
+  async approveSkill(
+    actor: AssistantActor,
+    skillId: string,
+    input: AssistantSkillDecisionRequest,
+  ): Promise<AssistantSkillDto> {
+    const seen = new Date(input.expectedUpdatedAt);
+    return this.skills.approve(await this.#scope(actor), skillId, seen);
   }
 
-  async rejectSkill(actor: AssistantActor, skillId: string): Promise<AssistantSkillDto> {
-    return this.skills.reject(await this.#scope(actor), skillId);
+  async rejectSkill(
+    actor: AssistantActor,
+    skillId: string,
+    input: AssistantSkillDecisionRequest,
+  ): Promise<AssistantSkillDto> {
+    const seen = new Date(input.expectedUpdatedAt);
+    return this.skills.reject(await this.#scope(actor), skillId, seen);
   }
 
   async archiveSkill(actor: AssistantActor, skillId: string): Promise<AssistantSkillDto> {
@@ -307,6 +318,23 @@ export class AssistantFacadeImpl implements AssistantFacade {
       store,
       entries.filter((e) => e.id !== entryId),
     );
+    return this.#memoryDto(scope, [...memory.filter((m) => m.store !== store), saved]);
+  }
+
+  async undoLearnedMemory(
+    actor: AssistantActor,
+    store: string,
+    entryId: string,
+  ): Promise<AssistantMemoryDto> {
+    const scope = await this.#scope(actor);
+    if (!isKnownStore(store, scope.businessIds)) {
+      throw new AssistantNotFoundError('memory entry', entryId);
+    }
+    const memory = await this.repo.getMemory(scope);
+    const entries = memory.find((m) => m.store === store)?.entries ?? [];
+    const next = undoReviewEntry(entries, entryId);
+    if (!next) throw new AssistantNotFoundError('memory entry', entryId);
+    const saved = await this.repo.saveMemoryStore(scope, store, next);
     return this.#memoryDto(scope, [...memory.filter((m) => m.store !== store), saved]);
   }
 

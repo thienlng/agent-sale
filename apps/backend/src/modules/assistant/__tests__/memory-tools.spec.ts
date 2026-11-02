@@ -7,6 +7,7 @@ import {
   MEMORY_TOOL_DEFINITION,
   memoryTool,
 } from '../application/memory-tools.js';
+import { learningFeed, undoReviewEntry } from '../application/learning-feed.js';
 import { BUSINESS_MEMORY_LIMIT, NOTES_LIMIT, OWNER_PROFILE_LIMIT } from '../domain/memory-store.js';
 import type { OwnerScope } from '../domain/owner-scope.js';
 import { InMemoryAssistantRepository } from '../infrastructure/persistence/assistant.in-memory-repository.js';
@@ -168,5 +169,61 @@ describe('memory tool', () => {
     expect(await turn()({ action: 'add', store: 'notes', text: 'Hợp lệ' })).toMatchObject({
       ok: true,
     });
+  });
+});
+
+describe('memory undo of a review rewrite', () => {
+  const run = async (tool: ReturnType<typeof memoryTool>, input: unknown) =>
+    JSON.parse((await tool.run(tool.schema.parse(input))).content) as { ok: boolean };
+
+  it('keeps the text the review replaced, across rewrites, and undo restores it', async () => {
+    const { scope, repo } = setup();
+    const chat = memoryTool({ scope, repo });
+    const review = memoryTool({ scope, repo, origin: 'review' });
+    await run(chat, { action: 'add', store: 'notes', text: 'Giao hàng buổi chiều' });
+    await run(review, { action: 'replace', store: 'notes', match: 'Giao', text: 'Giao buổi sáng' });
+    await run(review, { action: 'replace', store: 'notes', match: 'Giao', text: 'Giao lúc 9h' });
+    await run(review, { action: 'add', store: 'notes', text: 'Thích báo cáo ngắn' });
+
+    const [rewritten, added] = (await repo.getMemory(scope))[0]!.entries;
+    expect(rewritten).toMatchObject({
+      text: 'Giao lúc 9h',
+      origin: 'review',
+      previousText: 'Giao hàng buổi chiều',
+      previousOrigin: 'assistant',
+    });
+    expect(added).not.toHaveProperty('previousText');
+
+    // The learning feed carries the old text; undo restores it and forgets the added entry.
+    const feed = await learningFeed(repo, scope, 7);
+    expect(feed.items.map((i) => (i.kind === 'memory' ? i.previousText : 'skill')).sort()).toEqual(
+      ['Giao hàng buổi chiều', null].sort(),
+    );
+    const restored = undoReviewEntry([rewritten!, added!], rewritten!.id)!;
+    expect(restored[0]).toMatchObject({ text: 'Giao hàng buổi chiều', origin: 'assistant' });
+    expect(restored[0]).not.toHaveProperty('previousText');
+    expect(undoReviewEntry([rewritten!, added!], added!.id)).toEqual([rewritten]);
+    expect(undoReviewEntry([rewritten!], 'nope')).toBeNull();
+  });
+
+  it('drops the kept text when the chat rewrites the entry again', async () => {
+    const { scope, repo } = setup();
+    await run(memoryTool({ scope, repo }), { action: 'add', store: 'notes', text: 'A một' });
+    await run(memoryTool({ scope, repo, origin: 'review' }), {
+      action: 'replace',
+      store: 'notes',
+      match: 'A',
+      text: 'B hai',
+    });
+    await run(memoryTool({ scope, repo }), {
+      action: 'replace',
+      store: 'notes',
+      match: 'B',
+      text: 'C ba',
+    });
+    const [entry] = (await repo.getMemory(scope))[0]!.entries;
+    expect(entry).toMatchObject({ text: 'C ba', origin: 'assistant' });
+    expect(entry).not.toHaveProperty('previousText');
+    expect(entry).not.toHaveProperty('previousOrigin');
   });
 });

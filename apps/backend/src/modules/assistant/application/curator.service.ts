@@ -2,6 +2,7 @@ import type { UserId } from '@agent-sales/shared';
 import { newId } from '@agent-sales/shared';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
+import { ACCOUNT_FACADE, type AccountFacade } from '../../account/api/index.js';
 import {
   ASSISTANT_REPOSITORY,
   type AssistantRepository,
@@ -61,11 +62,21 @@ export function curatorStep(skill: SkillRecord, now: Date): SkillState | null {
 export class CuratorService {
   readonly #log = new Logger(CuratorService.name);
 
-  constructor(@Inject(ASSISTANT_REPOSITORY) private readonly repo: AssistantRepository) {}
+  constructor(
+    @Inject(ASSISTANT_REPOSITORY) private readonly repo: AssistantRepository,
+    @Inject(ACCOUNT_FACADE) private readonly account: AccountFacade,
+  ) {}
+
+  /** The curator works for active owners of the account only (as the review checks). */
+  async #isOwner(key: OwnerKey): Promise<boolean> {
+    const accounts = await this.account.listForUser(key.ownerUserId);
+    return accounts.some((a) => a.accountId === key.accountId && a.role === 'owner');
+  }
 
   /**
    * Enqueues a curator job for every owner with active or stale learned skills whose curator
-   * did not run in the last day, and records the run day at once (`curator_ran_at = now`), so
+   * did not run in the last day (users who are no longer an owner of the account are skipped,
+   * and get no settings row), and records the run day at once (`curator_ran_at = now`), so
    * the next tick does not enqueue it again. Returns how many were enqueued.
    */
   async schedule(now = new Date()): Promise<number> {
@@ -75,6 +86,7 @@ export class CuratorService {
     let enqueued = 0;
     for (const owner of owners) {
       try {
+        if (!(await this.#isOwner(owner))) continue;
         await this.repo.enqueueJob(owner, {
           id: newId(),
           threadId: null,
@@ -91,10 +103,16 @@ export class CuratorService {
     return enqueued;
   }
 
-  /** Runs a claimed `curator` job; a skill changed meanwhile (optimistic lock) is skipped. */
+  /**
+   * Runs a claimed `curator` job; a skill changed meanwhile (optimistic lock) is skipped. A user
+   * who is no longer an owner of the account gets no change (the job ends `done`).
+   */
   async run(job: JobRecord, now = new Date()): Promise<CuratorOutcome> {
     const key: OwnerKey = { accountId: job.accountId, ownerUserId: job.ownerUserId as UserId };
     try {
+      if (!(await this.#isOwner(key))) {
+        return (await this.repo.finishJob(key, job, { status: 'done' })) ? 'done' : 'lost';
+      }
       let changed = 0;
       for (const skill of await this.repo.listLearnedSkillsForCurator(key)) {
         const to = curatorStep(skill, now);

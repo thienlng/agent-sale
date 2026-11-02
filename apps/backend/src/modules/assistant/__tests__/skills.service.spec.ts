@@ -202,10 +202,22 @@ describe('skill_manage', () => {
       await manage(review, { action: 'patch', name: SAVE.name, description: 'Weekly sale' }),
     ).toMatchObject({ ok: true });
 
-    const approved = await service.approve(scope, row!.id);
+    // The owner saw the draft before the review patched it: approving that version is refused.
+    await expect(service.approve(scope, row!.id, row!.updatedAt)).rejects.toMatchObject({
+      details: { reason: 'skill_changed' },
+    });
+    await expect(service.reject(scope, row!.id, row!.updatedAt)).rejects.toMatchObject({
+      details: { reason: 'skill_changed' },
+    });
+    expect((await repo.getSkill(scope, row!.id))?.state).toBe('pending_approval');
+
+    const seen = (await service.read(scope, row!.id)).updatedAt!;
+    const approved = await service.approve(scope, row!.id, new Date(seen));
     expect(approved.state).toBe('active');
     expect((await service.catalog(scope)).index()).toContain('- weekly-sale: Weekly sale');
-    await expect(service.approve(scope, row!.id)).rejects.toMatchObject({
+    await expect(
+      service.approve(scope, row!.id, new Date(approved.updatedAt!)),
+    ).rejects.toMatchObject({
       details: { reason: 'skill_not_pending' },
     });
   });
@@ -234,7 +246,7 @@ describe('skill_manage', () => {
     await manage(ctx('assistant'), SAVE);
     await manage(ctx('review'), { ...SAVE, name: 'learned-one' });
     const learned = await repo.getSkillByName(scope, 'learned-one');
-    await service.approve(scope, learned!.id);
+    await service.approve(scope, learned!.id, learned!.updatedAt);
     const loaded = [SAVE.name, 'learned-one'];
     const patch = { action: 'patch' as const, body: '1. Something else.' };
 
@@ -283,7 +295,7 @@ describe('skill_manage', () => {
     ).toMatchObject({ ok: true, state: 'pending_approval' });
     // Only learned drafts: a rejected (archived) one is not found.
     const row = await repo.getSkillByName(scope, SAVE.name);
-    await service.reject(scope, row!.id);
+    await service.reject(scope, row!.id, row!.updatedAt);
     expect((await load('review', SAVE.name)).out).toMatchObject({ ok: false });
   });
 
@@ -345,8 +357,11 @@ describe('owner skill routes', () => {
     const { service, scope, manage, ctx, repo } = setup();
     await manage(ctx('review'), SAVE);
     const [row] = await repo.listSkills(scope);
-    expect((await service.reject(scope, row!.id)).state).toBe('archived');
-    await expect(service.reject(scope, row!.id)).rejects.toMatchObject({
+    const rejected = await service.reject(scope, row!.id, row!.updatedAt);
+    expect(rejected.state).toBe('archived');
+    await expect(
+      service.reject(scope, row!.id, new Date(rejected.updatedAt!)),
+    ).rejects.toMatchObject({
       details: { reason: 'skill_not_pending' },
     });
   });
@@ -415,7 +430,7 @@ describe('owner skill routes', () => {
       AssistantNotFoundError,
     );
     await expect(other.undo(otherScope, event!.id)).rejects.toBeInstanceOf(AssistantNotFoundError);
-    await expect(other.approve(otherScope, created.id!)).rejects.toBeInstanceOf(
+    await expect(other.approve(otherScope, created.id!, new Date())).rejects.toBeInstanceOf(
       AssistantNotFoundError,
     );
     expect((await other.list(otherScope)).items.every((i) => i.provenance === 'platform')).toBe(

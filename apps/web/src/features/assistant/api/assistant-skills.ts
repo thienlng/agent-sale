@@ -67,17 +67,28 @@ function useRefreshSkills() {
 
 export type SkillAction = 'approve' | 'reject' | 'archive' | 'restore';
 
+export interface SkillActionInput {
+  skillId: string;
+  action: SkillAction;
+  /**
+   * Approve and reject only: the skill's `updatedAt` as the owner saw it. A skill changed since
+   * (the review patched the draft) answers 409 `skill_changed`, and the web refetches it.
+   */
+  expectedUpdatedAt?: string | null;
+}
+
 /** Approve or reject a pending learned skill, archive or restore a skill. */
 export function useSkillAction() {
   const ws = useWorkspaceId();
   const refresh = useRefreshSkills();
   return useMutation({
-    mutationFn: ({ skillId, action }: { skillId: string; action: SkillAction }) =>
+    mutationFn: ({ skillId, action, expectedUpdatedAt }: SkillActionInput) =>
       api(`/assistant/skills/${skillId}/${action}`, AssistantSkillDto, {
         method: 'POST',
-        body: {},
+        body: action === 'approve' || action === 'reject' ? { expectedUpdatedAt } : {},
         workspaceId: ws,
       }),
+    // Refetches the list and the open skill (a `skill_changed` 409 loads the new version).
     onSettled: refresh,
   });
 }
@@ -150,16 +161,19 @@ export function useAssistantLearning() {
   });
 }
 
-/** Undo a memory entry the review saved: forget it. */
+/**
+ * Undo the review's change to a memory entry: a rewritten entry gets its previous text back,
+ * an entry it saved is forgotten.
+ */
 export function useUndoLearnedMemory() {
   const ws = useWorkspaceId();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ store, entryId }: { store: string; entryId: string }) =>
       api(
-        `/assistant/memory/${encodeURIComponent(store)}/entries/${encodeURIComponent(entryId)}`,
+        `/assistant/memory/${encodeURIComponent(store)}/entries/${encodeURIComponent(entryId)}/undo`,
         AssistantMemoryDto,
-        { method: 'DELETE', workspaceId: ws },
+        { method: 'POST', body: {}, workspaceId: ws },
       ),
     onSuccess: (memory) => queryClient.setQueryData(assistantKeys.memory(ws), memory),
     onSettled: () => {

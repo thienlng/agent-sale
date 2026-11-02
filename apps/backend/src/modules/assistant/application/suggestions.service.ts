@@ -45,8 +45,9 @@ export function toSuggestionDto(x: SuggestionRecord): AssistantSuggestionDto {
 }
 
 /**
- * Suggestion cards the background review saved (ruling 1c-R3). Accepting a `skill` card saves
- * its payload as an owner skill (linted, limited and recorded like any owner skill); a `setup`
+ * Suggestion cards the background review saved (ruling 1c-R3). Accepting a `skill` card drafts
+ * its payload as a learned skill waiting for approval (linted, limited, ledger actor `review`),
+ * so the owner approves the body on the normal approval card; a `setup`
  * card returns its in-app page for the web to open; a `schedule` card is only marked accepted
  * until schedules exist. A dismissal is permanent: the review's `suggest` never reuses the key.
  */
@@ -71,7 +72,7 @@ export class SuggestionsService {
         throw new AssistantSkillInvalidError(parsed.error.issues.map((i) => i.message));
       }
       // The skill first: a refused skill leaves the card pending, so the owner can dismiss it.
-      skill = await this.skills.create(s, parsed.data);
+      skill = await this.skills.draftFromSuggestion(s, parsed.data);
     }
     const decided = await this.repo.decideSuggestion(s, suggestion.id, 'accepted', new Date());
     if (!decided) throw new AssistantSuggestionConflictError();

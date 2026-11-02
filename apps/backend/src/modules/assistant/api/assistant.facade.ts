@@ -9,6 +9,7 @@ import type {
   AssistantProposalList,
   AssistantRunDto,
   AssistantSettingsDto,
+  AssistantSkillDecisionRequest,
   AssistantSkillDto,
   AssistantSkillEventList,
   AssistantSkillList,
@@ -77,6 +78,15 @@ export interface AssistantFacade {
     entryId: string,
   ): Promise<AssistantMemoryDto>;
   /**
+   * Undoes the review's change to one memory entry: an entry it rewrote gets its previous text
+   * (and origin) back, an entry it added is forgotten. NOT_FOUND for an unknown store or entry.
+   */
+  undoLearnedMemory(
+    actor: AssistantActor,
+    store: string,
+    entryId: string,
+  ): Promise<AssistantMemoryDto>;
+  /**
    * What the background review and the curator learned in the last `days` days (ruling 1c-R2):
    * skill ledger rows and memory entries with origin `review`, newest first, at most 20, each
    * with its undo handle.
@@ -120,10 +130,21 @@ export interface AssistantFacade {
   ): Promise<AssistantSkillDto>;
   /** Shadow skills only (CONFLICT `not_a_shadow`): the platform skill comes back. */
   deleteSkill(actor: AssistantActor, skillId: string): Promise<void>;
-  /** `pending_approval` → `active`; CONFLICT `skill_not_pending`. */
-  approveSkill(actor: AssistantActor, skillId: string): Promise<AssistantSkillDto>;
-  /** `pending_approval` → `archived`; CONFLICT `skill_not_pending`. */
-  rejectSkill(actor: AssistantActor, skillId: string): Promise<AssistantSkillDto>;
+  /**
+   * `pending_approval` → `active`, for the version the owner saw; CONFLICT `skill_not_pending`,
+   * or `skill_changed` when the skill's `updatedAt` is no longer `expectedUpdatedAt`.
+   */
+  approveSkill(
+    actor: AssistantActor,
+    skillId: string,
+    input: AssistantSkillDecisionRequest,
+  ): Promise<AssistantSkillDto>;
+  /** `pending_approval` → `archived`; CONFLICT as for approve. */
+  rejectSkill(
+    actor: AssistantActor,
+    skillId: string,
+    input: AssistantSkillDecisionRequest,
+  ): Promise<AssistantSkillDto>;
   archiveSkill(actor: AssistantActor, skillId: string): Promise<AssistantSkillDto>;
   /** `stale` / `archived` → `active`; CONFLICT `skill_not_restorable`, `skill_limit`, `shadow_exists`. */
   restoreSkill(actor: AssistantActor, skillId: string): Promise<AssistantSkillDto>;

@@ -46,6 +46,26 @@ const json = (value: unknown): string => JSON.stringify(value).replaceAll('<', '
 /** One line, trimmed: an entry never spans lines in the prompt. */
 const clean = (text: string): string => text.replace(/\s+/g, ' ').trim();
 
+/**
+ * A replaced entry. A review rewrite keeps the text and origin it replaced (the first ones,
+ * across repeated review rewrites), so undo gives the owner their text back; any other write
+ * drops them.
+ */
+function replaced(
+  e: MemoryEntry,
+  text: string,
+  origin: MemoryOrigin,
+  updatedAt: string,
+): MemoryEntry {
+  const { previousText, previousOrigin, ...rest } = e;
+  if (origin !== 'review') return { ...rest, text, origin, updatedAt };
+  const keep =
+    e.origin === 'review' && previousText !== undefined
+      ? { previousText, previousOrigin: previousOrigin ?? 'assistant' }
+      : { previousText: e.text, previousOrigin: e.origin };
+  return { ...rest, text, origin, updatedAt, ...keep };
+}
+
 type Outcome =
   | { ok: true; message: string; used: number; limit: number }
   | {
@@ -62,7 +82,7 @@ type Outcome =
  * new text scanned (`unsafe:<issues>`), `match` must hit exactly one entry. A full store answers
  * `store_full` with the entries and a consolidate hint. After 3 failed calls in the turn the tool
  * answers `stop_retrying`. A new or replaced entry takes the context's `origin` (a replace also
- * stamps `updatedAt`). The text is stored; it never reaches the logs.
+ * stamps `updatedAt`; a review replace keeps the previous text for undo). The text is stored; it never reaches the logs.
  */
 export function memoryTool(ctx: MemoryToolContext): RunnableTool {
   let failures = 0;
@@ -103,7 +123,7 @@ export function memoryTool(ctx: MemoryToolContext): RunnableTool {
       next = [...entries, { id: newId(), text, origin, createdAt: new Date().toISOString() }];
     } else {
       const updatedAt = new Date().toISOString();
-      next = entries.map((e) => (e === target ? { ...e, text, origin, updatedAt } : e));
+      next = entries.map((e) => (e === target ? replaced(e, text, origin, updatedAt) : e));
     }
 
     const used = memoryUsed(next);

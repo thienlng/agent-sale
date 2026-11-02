@@ -924,13 +924,13 @@ export class InMemoryAssistantRepository implements AssistantRepository {
 
   async cancelJob(
     s: OwnerKey,
-    target: { id: string } | { threadId: string; kind: JobKind },
+    target: { id: string; attempts?: number } | { threadId: string; kind: JobKind },
   ): Promise<number> {
     let n = 0;
     for (const x of this.jobs.values()) {
       const hit =
         'id' in target
-          ? x.id === target.id
+          ? x.id === target.id && (target.attempts === undefined || x.attempts === target.attempts)
           : x.threadId === target.threadId && x.kind === target.kind;
       if (hit && mine(s, x) && (x.status === 'queued' || x.status === 'running')) {
         x.status = 'cancelled';

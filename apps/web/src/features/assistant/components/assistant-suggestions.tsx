@@ -1,19 +1,65 @@
 import type { AssistantSuggestionDto } from '@agent-sales/contracts';
 import { useRouter } from '@tanstack/react-router';
-import { Lightbulb } from 'lucide-react';
+import { ChevronDown, Lightbulb } from 'lucide-react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { ApiClientError } from '@/lib/api-client';
+import { cn } from '@/lib/utils';
 
 import { useAssistantSuggestions, useDecideSuggestion } from '../api/assistant-settings';
 import { safeAppPath } from '../utils/safe-app-path';
+
+/** The skill a `skill` card would draft, when its payload has one. */
+function draftOf(
+  suggestion: AssistantSuggestionDto,
+): { name: string; description: string; body: string } | null {
+  if (suggestion.kind !== 'skill') return null;
+  const { name, description, body } = suggestion.payload;
+  if (typeof name !== 'string' || typeof body !== 'string') return null;
+  return { name, description: typeof description === 'string' ? description : '', body };
+}
+
+/**
+ * What a `skill` card would save, before the owner accepts: name, description and the body
+ * (collapsed). Accepting only drafts it; the owner still approves it under Skills.
+ */
+function SkillDraft({ draft }: { draft: { name: string; description: string; body: string } }) {
+  const { t } = useTranslation('assistant');
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="flex flex-col gap-1 pl-6">
+      <p className="text-xs break-words">
+        <span className="font-medium">{draft.name}</span>
+        {draft.description ? (
+          <span className="text-muted-foreground"> — {draft.description}</span>
+        ) : null}
+      </p>
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex w-fit items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+      >
+        {open ? t('skills.hideBody') : t('skills.showBody')}
+        <ChevronDown className={cn('size-3 transition-transform', open && 'rotate-180')} />
+      </button>
+      {open ? (
+        <pre className="max-h-32 overflow-y-auto rounded bg-muted p-2 text-xs whitespace-pre-wrap">
+          {draft.body}
+        </pre>
+      ) : null}
+    </div>
+  );
+}
 
 function SuggestionCard({ suggestion }: { suggestion: AssistantSuggestionDto }) {
   const { t } = useTranslation('assistant');
   const router = useRouter();
   const decide = useDecideSuggestion();
+  const draft = draftOf(suggestion);
 
   function accept(): void {
     decide.mutate(
@@ -36,25 +82,28 @@ function SuggestionCard({ suggestion }: { suggestion: AssistantSuggestionDto }) 
   }
 
   return (
-    <li className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2">
-      <Lightbulb className="size-4 shrink-0 text-primary" aria-hidden />
-      <span className="min-w-0 flex-1 text-sm break-words">{suggestion.title}</span>
-      <Button size="sm" disabled={decide.isPending} onClick={accept}>
-        {t('suggestions.accept')}
-      </Button>
-      <Button
-        size="sm"
-        variant="ghost"
-        disabled={decide.isPending}
-        onClick={() =>
-          decide.mutate(
-            { id: suggestion.id, decision: 'dismiss' },
-            { onError: () => toast.error(t('suggestions.error')) },
-          )
-        }
-      >
-        {t('suggestions.dismiss')}
-      </Button>
+    <li className="flex flex-col gap-1 rounded-lg border bg-background px-3 py-2">
+      <div className="flex items-center gap-2">
+        <Lightbulb className="size-4 shrink-0 text-primary" aria-hidden />
+        <span className="min-w-0 flex-1 text-sm break-words">{suggestion.title}</span>
+        <Button size="sm" disabled={decide.isPending} onClick={accept}>
+          {t('suggestions.accept')}
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={decide.isPending}
+          onClick={() =>
+            decide.mutate(
+              { id: suggestion.id, decision: 'dismiss' },
+              { onError: () => toast.error(t('suggestions.error')) },
+            )
+          }
+        >
+          {t('suggestions.dismiss')}
+        </Button>
+      </div>
+      {draft ? <SkillDraft draft={draft} /> : null}
     </li>
   );
 }

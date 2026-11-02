@@ -17,11 +17,13 @@ import { ACCOUNT_FACADE, type AccountFacade } from '../../account/api/index.js';
 import { AI_LLM_GATEWAY, type LlmGatewayPort } from '../../ai/api/index.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
 import { AssistantForbiddenError } from '../domain/assistant.errors.js';
+import { isKnownStore } from '../domain/memory-store.js';
 import type { OwnerScope } from '../domain/owner-scope.js';
 import {
   ASSISTANT_REPOSITORY,
   type AssistantRepository,
   type JobRecord,
+  type MemoryStoreRecord,
   type MessageRecord,
   type OwnerKey,
   type ReviewScope,
@@ -32,13 +34,19 @@ import { threadCacheKey } from './compaction.service.js';
 import { CORE_TOOL_DEFINITIONS, coreTools, SESSION_SEARCH_TOOL } from './core-tools.js';
 import { MEMORY_TOOL_DEFINITION, memoryTool } from './memory-tools.js';
 import { resolveOwnerScope } from './owner-access.js';
+import { renderMemoryBlock } from './prompt-builder.js';
 import { SKILL_TOOL_DEFINITIONS, skillManageDefinition, skillTools } from './skill-tools.js';
 import { SkillsService } from './skills.service.js';
 
 /** The pinned review instruction (`packages/ai-core/prompts/assistant-review@1.md`). */
 export const REVIEW_PROMPT = { name: 'assistant-review', version: 1 } as const satisfies PromptRef;
-/** The review runs on the chat tier, so it can reuse the thread's prompt cache (spec §11). */
+/** The review runs on the chat tier (spec §11). */
 export const REVIEW_TIER = 'pro' as const;
+/**
+ * Appended to the thread's cache key: the review sends the thread's system prompt but its own
+ * tool list, so it keeps a cache bucket of its own across reviews of the thread.
+ */
+export const REVIEW_CACHE_SUFFIX = ':review';
 export const REVIEW_MAX_ROUNDS = 8;
 export const REVIEW_BUDGET_MS = 120_000;
 /** The run stops before its next model call once its input tokens (cached included) reach this. */
@@ -81,20 +89,38 @@ const errorClass = (e: unknown): string => (e instanceof Error ? e.name : typeof
 const cut = (text: string, max: number): string =>
   text.length > max ? `${text.slice(0, max)}…` : text;
 
-/** One transcript line per message: role and text; tool calls by name, tool results cut short. */
+/** A role tag such as `[owner]` or `[tool result x]` anywhere in a line. */
+const ROLE_TAG = /\[(\s*(?:owner|assistant|summary|event|tool)\b[^\]\r\n]*)\]/gi;
+
+/**
+ * Text that is data, not the owner speaking (assistant replies, summaries, events, tool output,
+ * all of which may quote customers): one line (line breaks become ` ⏎ `) and every role tag
+ * turned into `(…)`, so nothing in it can pass for an `[owner]` line.
+ */
+export function asData(text: string): string {
+  return text.replace(/\r\n|[\r\n\u2028\u2029]/g, ' ⏎ ').replace(ROLE_TAG, '($1)');
+}
+
+/**
+ * One transcript line per message: role and text; tool calls by name, tool results cut short.
+ * Only owner messages keep their text as written; everything else is flattened by `asData`.
+ */
 function transcriptLine(m: MessageRecord): string {
   switch (m.role) {
     case 'user':
-      return m.isSummary ? `[summary of earlier messages] ${m.content}` : `[owner] ${m.content}`;
+      return m.isSummary
+        ? `[summary of earlier messages] ${asData(m.content)}`
+        : `[owner] ${m.content}`;
     case 'event':
-      return `[event] ${m.content}`;
+      return `[event] ${asData(m.content)}`;
     case 'tool':
-      return `[tool result ${m.toolName ?? ''}] ${cut(m.content, REVIEW_TOOL_RESULT_CHARS)}`;
+      return `[tool result ${asData(m.toolName ?? '')}] ${asData(cut(m.content, REVIEW_TOOL_RESULT_CHARS))}`;
     case 'assistant': {
       const calls = ((m.toolCalls ?? []) as ToolCall[]).map(
-        (c) => `${c.name}(${cut(JSON.stringify(c.input ?? {}), REVIEW_TOOL_ARGS_CHARS)})`,
+        (c) =>
+          `${asData(c.name)}(${asData(cut(JSON.stringify(c.input ?? {}), REVIEW_TOOL_ARGS_CHARS))})`,
       );
-      const text = m.content.trim();
+      const text = asData(m.content.trim());
       return [`[assistant]${text ? ` ${text}` : ''}`, ...calls.map((c) => `  called ${c}`)].join(
         '\n',
       );
@@ -114,13 +140,23 @@ export function reviewTranscript(active: MessageRecord[]): string {
     .replaceAll('</transcript', '<\\/transcript');
 }
 
-/** The review's user instruction: the transcript and the focus of the job's scope. */
+/**
+ * The review's user instruction: the transcript, the owner's memory as it is now (the thread's
+ * system prompt holds a snapshot from thread start or the last compaction) and the focus of the
+ * job's scope.
+ */
 export async function buildReviewInstruction(
   active: MessageRecord[],
   scope: ReviewScope,
+  memory: readonly MemoryStoreRecord[] = [],
 ): Promise<string> {
   const template = await registry.load(REVIEW_PROMPT);
-  return registry.render(template, { transcript: reviewTranscript(active), focus: FOCUS[scope] });
+  const block = renderMemoryBlock(memory).replaceAll('</memory', '<\\/memory');
+  return registry.render(template, {
+    transcript: reviewTranscript(active),
+    memory: block || '(nothing yet)',
+    focus: FOCUS[scope],
+  });
 }
 
 const SuggestInput = z.object({
@@ -210,7 +246,8 @@ export type ReviewOutcome = 'done' | 'cancelled' | 'retry' | 'failed' | 'lost';
  * The background review (spec §11), one claimed job at a time: checks the job is still wanted
  * (review on, thread not newer than the job, owner still an active owner), then runs the agent
  * loop on the thread's frozen system prompt plus `assistant-review@1` (the last 24 messages as a
- * digest) with memory (origin `review`), skills_list, load_skill, skill_manage (actor `review`),
+ * digest, non-owner text flattened so it cannot pass for an owner line, and the memory as it is
+ * now) with memory (origin `review`), skills_list, load_skill, skill_manage (actor `review`),
  * session_search and suggest. 8 rounds, 120 s, 200 000 input tokens. Every write first checks
  * that this attempt still holds the job (`attempts` and a live lease). Recorded as an
  * `assistant_runs` row of kind `review` with its steps; never writes to the transcript. Logs
@@ -234,7 +271,7 @@ export class ReviewService {
     try {
       const ready = await this.#prepare(key, job);
       if (!ready) {
-        await this.repo.cancelJob(key, { id: job.id });
+        await this.repo.cancelJob(key, { id: job.id, attempts: job.attempts });
         return 'cancelled';
       }
       const held = await this.#review(key, job, ready.scope, ready.thread);
@@ -322,8 +359,15 @@ export class ReviewService {
     scope: OwnerScope,
     thread: ThreadRecord,
   ): Promise<boolean> {
-    const active = await this.repo.listMessages(scope, thread.id, { activeOnly: true });
-    const instruction = await buildReviewInstruction(active, job.reviewScope ?? 'combined');
+    const [active, memory] = await Promise.all([
+      this.repo.listMessages(scope, thread.id, { activeOnly: true }),
+      this.repo.getMemory(scope),
+    ]);
+    const instruction = await buildReviewInstruction(
+      active,
+      job.reviewScope ?? 'combined',
+      memory.filter((m) => isKnownStore(m.store, scope.businessIds)),
+    );
 
     let lost = false;
     let inputTokens = 0;
@@ -361,8 +405,9 @@ export class ReviewService {
             { role: 'user', content: instruction },
           ],
           tools: REVIEW_TOOL_DEFINITIONS,
-          // Cache parity with the thread's chat turns (same system prompt and key).
-          promptCacheKey: threadCacheKey(scope, thread),
+          // Its own bucket: the review's tool list differs from the chat's, and providers cache
+          // tools with the prefix, so sharing the chat's key would only churn both.
+          promptCacheKey: `${threadCacheKey(scope, thread)}${REVIEW_CACHE_SUFFIX}`,
         },
         tools,
         generate: async (r) => {

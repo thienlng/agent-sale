@@ -634,12 +634,36 @@ describe('assistant memory, proposals and compaction on Postgres (1b)', () => {
       (await call(ha.h, 'DELETE', `/assistant/memory/notes/entries/${drop.id}`)).statusCode,
     ).toBe(404);
 
+    // Undo of an entry the review rewrote gives the owner's text back.
+    const rewritten = {
+      ...entry('Thích báo cáo thật dài'),
+      origin: 'review' as const,
+      previousText: 'Báo cáo sáng thứ Ba',
+      previousOrigin: 'owner' as const,
+    };
+    await repo().saveMemoryStore(scope, 'notes', [keep, rewritten]);
+    const undone = await call(ha.h, 'POST', `/assistant/memory/notes/entries/${rewritten.id}/undo`);
+    expect(undone.statusCode, undone.body).toBe(200);
+    expect(AssistantMemoryDto.parse(undone.json()).stores[1]?.entries.map((e) => e.text)).toEqual([
+      'Báo cáo sáng thứ Hai',
+      'Báo cáo sáng thứ Ba',
+    ]);
+    const notes = (await repo().getMemory(scope)).find((m) => m.store === 'notes');
+    expect(notes?.entries[1]).toMatchObject({ id: rewritten.id, origin: 'owner' });
+    expect(notes?.entries[1]).not.toHaveProperty('previousText');
+    expect(
+      (await call(ha.h, 'POST', `/assistant/memory/notes/entries/${newId()}/undo`)).statusCode,
+    ).toBe(404);
+
     const staff = await user('mem-staff@assistant.vn', 'MemStaff');
     await invite(ha, staff, 'mem-staff@assistant.vn', 'admin');
     const asStaff = staff.in(ha.ownWorkspace);
     expect((await call(asStaff, 'GET', '/assistant/memory')).statusCode).toBe(403);
     expect(
       (await call(asStaff, 'DELETE', `/assistant/memory/notes/entries/${keep.id}`)).statusCode,
+    ).toBe(403);
+    expect(
+      (await call(asStaff, 'POST', `/assistant/memory/notes/entries/${keep.id}/undo`)).statusCode,
     ).toBe(403);
   });
 
@@ -1140,8 +1164,16 @@ describe('assistant skills over HTTP on Postgres (1c)', () => {
     const restored = await call(hoa.h, 'POST', `/assistant/skills/${skill.id}/restore`);
     expect(AssistantSkillDto.parse(restored.json()).state).toBe('active');
     expect((await call(hoa.h, 'DELETE', `/assistant/skills/${skill.id}`)).statusCode).toBe(409);
+    const restoredAt = AssistantSkillDto.parse(restored.json()).updatedAt;
+    expect(
+      (
+        await call(hoa.h, 'POST', `/assistant/skills/${skill.id}/approve`, {
+          expectedUpdatedAt: restoredAt,
+        })
+      ).statusCode,
+    ).toBe(409);
     expect((await call(hoa.h, 'POST', `/assistant/skills/${skill.id}/approve`)).statusCode).toBe(
-      409,
+      400,
     );
     expect((await call(hoa.h, 'DELETE', `/assistant/skills/${shadow.id}`)).statusCode).toBe(204);
     const after = AssistantSkillDto.parse(
@@ -1174,8 +1206,8 @@ describe('assistant skills over HTTP on Postgres (1c)', () => {
       ['POST', '/assistant/skills', { name: 'x', description: 'd', body: 'b' }],
       ['PATCH', `/assistant/skills/${skill.id}`, { pinned: true }],
       ['DELETE', `/assistant/skills/${skill.id}`],
-      ['POST', `/assistant/skills/${skill.id}/approve`],
-      ['POST', `/assistant/skills/${skill.id}/reject`],
+      ['POST', `/assistant/skills/${skill.id}/approve`, { expectedUpdatedAt: skill.updatedAt }],
+      ['POST', `/assistant/skills/${skill.id}/reject`, { expectedUpdatedAt: skill.updatedAt }],
       ['POST', `/assistant/skills/${skill.id}/archive`],
       ['POST', `/assistant/skills/${skill.id}/restore`],
       ['POST', '/assistant/skills/platform/add-products/shadow'],
@@ -1291,14 +1323,27 @@ describe('assistant background review over Postgres (1c)', () => {
       state: 'pending_approval',
     });
 
-    // Both undo handles work through the existing routes.
+    // Approving a version the owner did not see is refused (409 skill_changed).
+    const stale = await call(
+      lan.h,
+      'POST',
+      `/assistant/skills/${skill?.kind === 'skill' ? skill.skillId : ''}/approve`,
+      {
+        expectedUpdatedAt: '2000-01-01T00:00:00.000Z',
+      },
+    );
+    expect(stale.statusCode, stale.body).toBe(409);
+    expect(stale.json()).toMatchObject({ error: { details: { reason: 'skill_changed' } } });
+
+    // Both undo handles work: the ledger undo, and the memory undo (an added entry is forgotten).
     if (skill?.kind !== 'skill' || memory?.kind !== 'memory') throw new Error('feed items');
+    expect(memory.previousText).toBeNull();
     const undo = await call(lan.h, 'POST', `/assistant/skill-events/${skill.skillEventId}/undo`);
     expect(undo.statusCode, undo.body).toBe(200);
     const forget = await call(
       lan.h,
-      'DELETE',
-      `/assistant/memory/${memory.store}/entries/${memory.entryId}`,
+      'POST',
+      `/assistant/memory/${memory.store}/entries/${memory.entryId}/undo`,
     );
     expect(forget.statusCode, forget.body).toBe(200);
     const after = AssistantLearningFeed.parse(
@@ -1406,7 +1451,7 @@ describe('assistant settings, feedback, suggestions and the curator on Postgres 
     const accepted = await call(mai.h, 'POST', `/assistant/suggestions/${skillCard.id}/accept`);
     expect(accepted.statusCode, accepted.body).toBe(200);
     expect(AcceptAssistantSuggestionResponse.parse(accepted.json())).toMatchObject({
-      skill: { name: 'weekly-sale', provenance: 'owner', state: 'active' },
+      skill: { name: 'weekly-sale', provenance: 'learned', state: 'pending_approval' },
       path: null,
     });
     const again = await call(mai.h, 'POST', `/assistant/suggestions/${skillCard.id}/accept`);

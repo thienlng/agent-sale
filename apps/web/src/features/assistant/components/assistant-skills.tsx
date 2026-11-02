@@ -62,6 +62,8 @@ function PendingSkillCard({ skill }: { skill: AssistantSkillSummaryDto }) {
   const action = useSkillAction();
   const onError = useSkillErrorToast();
   const skillId = skill.id ?? '';
+  // The version on screen: the opened body's, else the list row's (a newer one answers 409).
+  const expectedUpdatedAt = detail.data?.updatedAt ?? skill.updatedAt;
   return (
     <li className="flex flex-col gap-2 rounded-lg border border-primary/40 bg-primary-soft/40 px-3 py-2">
       <div className="min-w-0">
@@ -92,7 +94,7 @@ function PendingSkillCard({ skill }: { skill: AssistantSkillSummaryDto }) {
           disabled={action.isPending}
           onClick={() =>
             action.mutate(
-              { skillId, action: 'approve' },
+              { skillId, action: 'approve', expectedUpdatedAt },
               { onSuccess: () => toast.success(t('skills.approved')), onError },
             )
           }
@@ -103,7 +105,9 @@ function PendingSkillCard({ skill }: { skill: AssistantSkillSummaryDto }) {
           size="sm"
           variant="ghost"
           disabled={action.isPending}
-          onClick={() => action.mutate({ skillId, action: 'reject' }, { onError })}
+          onClick={() =>
+            action.mutate({ skillId, action: 'reject', expectedUpdatedAt }, { onError })
+          }
         >
           {t('skills.reject')}
         </Button>

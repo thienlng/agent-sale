@@ -61,8 +61,66 @@ describe('AssistantSkills', () => {
     const learned = await screen.findByRole('region', { name: 'Đã học' });
     expect(within(learned).getByText('bao-gia-si')).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Đang chờ duyệt' })).not.toBeInTheDocument();
-    expect(calls.filter((c) => c.key.endsWith('/approve'))).toHaveLength(1);
+    const approvals = calls.filter((c) => c.key.endsWith('/approve'));
+    expect(approvals).toHaveLength(1);
+    // The version the owner saw goes with the decision.
+    expect(approvals[0]?.body).toEqual({ expectedUpdatedAt: pending.updatedAt });
     expect(toast.success).toHaveBeenCalledWith('Đã duyệt kỹ năng.');
+  });
+
+  it('refetches a draft the review changed meanwhile and says so (409 skill_changed)', async () => {
+    const seen = skillFixture();
+    const newer = skillFixture({
+      body: '1. Giảm 15% khi mua từ 20 sản phẩm.',
+      updatedAt: '2026-11-02T09:00:00.000Z',
+    });
+    const reject = `POST /assistant/skills/${ASSISTANT_IDS.skill}/reject`;
+    const routes: Routes = {
+      'GET /assistant/skills': list(seen),
+      [`GET /assistant/skills/${ASSISTANT_IDS.skill}`]: { status: 200, body: seen },
+      [reject]: {
+        status: 409,
+        body: {
+          error: {
+            code: 'CONFLICT',
+            message: 'x',
+            traceId: 't',
+            details: { reason: 'skill_changed' },
+          },
+        },
+      },
+    };
+    const { fetchStub, calls } = stubFetch(routes);
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithProviders(<AssistantSkills />);
+    const user = userEvent.setup();
+
+    const waiting = await screen.findByRole('region', { name: 'Đang chờ duyệt' });
+    await user.click(within(waiting).getByRole('button', { name: 'Xem nội dung' }));
+    await within(waiting).findByText('Giảm 10% khi mua từ 10 sản phẩm.');
+
+    routes['GET /assistant/skills'] = list(newer);
+    routes[`GET /assistant/skills/${ASSISTANT_IDS.skill}`] = { status: 200, body: newer };
+    await user.click(within(waiting).getByRole('button', { name: 'Bỏ' }));
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        'Kỹ năng vừa được sửa sau khi bạn mở. Xem bản mới rồi quyết định.',
+      ),
+    );
+    expect(calls.find((c) => c.key === reject)?.body).toEqual({
+      expectedUpdatedAt: seen.updatedAt,
+    });
+    // The new body is on screen, and the next decision carries its version.
+    expect(
+      await within(waiting).findByText('1. Giảm 15% khi mua từ 20 sản phẩm.'),
+    ).toBeInTheDocument();
+    routes[reject] = { status: 200, body: skillFixture({ state: 'archived' }) };
+    await user.click(within(waiting).getByRole('button', { name: 'Bỏ' }));
+    await waitFor(() => expect(calls.filter((c) => c.key === reject)).toHaveLength(2));
+    expect(calls.filter((c) => c.key === reject)[1]?.body).toEqual({
+      expectedUpdatedAt: newer.updatedAt,
+    });
   });
 
   it('undoes a change from the skill ledger', async () => {

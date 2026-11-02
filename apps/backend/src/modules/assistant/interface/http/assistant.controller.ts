@@ -1,5 +1,6 @@
 import {
   AssistantLearningQuery,
+  AssistantSkillDecisionRequest,
   AssistantThreadListQuery,
   CreateAssistantSkillRequest,
   CreateAssistantThreadRequest,
@@ -188,6 +189,17 @@ export class AssistantController {
     return this.facade.deleteMemoryEntry(actor(user, ws), store, entryId);
   }
 
+  @Post('memory/:store/entries/:entryId/undo')
+  @HttpCode(200)
+  undoLearnedMemory(
+    @CurrentUser() user: AuthState,
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Param('store') store: string,
+    @Param('entryId') entryId: string,
+  ): Promise<AssistantMemoryDto> {
+    return this.facade.undoLearnedMemory(actor(user, ws), store, entryId);
+  }
+
   // ─── Skills (1c) ───
 
   @Get('skills')
@@ -243,8 +255,9 @@ export class AssistantController {
     @CurrentUser() user: AuthState,
     @CurrentWorkspace() ws: WorkspaceId,
     @Param('skillId') skillId: string,
+    @Body(new ZodValidationPipe(AssistantSkillDecisionRequest)) body: AssistantSkillDecisionRequest,
   ): Promise<AssistantSkillDto> {
-    return this.facade.approveSkill(actor(user, ws), skillId);
+    return this.facade.approveSkill(actor(user, ws), skillId, body);
   }
 
   @Post('skills/:skillId/reject')
@@ -253,8 +266,9 @@ export class AssistantController {
     @CurrentUser() user: AuthState,
     @CurrentWorkspace() ws: WorkspaceId,
     @Param('skillId') skillId: string,
+    @Body(new ZodValidationPipe(AssistantSkillDecisionRequest)) body: AssistantSkillDecisionRequest,
   ): Promise<AssistantSkillDto> {
-    return this.facade.rejectSkill(actor(user, ws), skillId);
+    return this.facade.rejectSkill(actor(user, ws), skillId, body);
   }
 
   @Post('skills/:skillId/archive')
