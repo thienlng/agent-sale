@@ -24,3 +24,14 @@ export async function writeOutbox(tx: TenantTx, record: OutboxRecord): Promise<v
     payload: record.payload,
   });
 }
+
+/**
+ * Same as `writeOutbox`, for platform-level events (account, billing) written inside `withSystem`.
+ * They carry no workspace; consumers filter by `type`.
+ */
+export async function writeSystemOutbox(
+  tx: TenantTx,
+  record: Omit<OutboxRecord, 'workspaceId'> & { workspaceId?: WorkspaceId | null },
+): Promise<void> {
+  await writeOutbox(tx, { ...record, workspaceId: record.workspaceId ?? null });
+}
