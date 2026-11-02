@@ -13,6 +13,7 @@ import { lodgingRoutes } from './commerce/lodging.routes.js';
 import { lodgingV2Routes } from './lodging/lodging.routes.js';
 import { crmRoutes } from './crm/crm.routes.js';
 import { saasRoutes } from './saas/saas.routes.js';
+import { assistantRoutes } from './assistant/assistant.routes.js';
 import { integrationRoutes } from './integration/integration.routes.js';
 import { healthRoutes } from './health/health.routes.js';
 import { identityRoutes } from './identity/identity.routes.js';
@@ -52,7 +53,6 @@ export * from './crm/crm.events.js';
 export * from './crm/crm.routes.js';
 export * from './saas/saas.schema.js';
 export * from './saas/saas.routes.js';
-// assistantRoutes join allRoutes with the backend controller (T-170 task 5).
 export * from './assistant/assistant.schema.js';
 export * from './assistant/assistant.routes.js';
 export * from './integration/integration.schema.js';
@@ -100,6 +100,7 @@ export const allRoutes = [
   ...saasRoutes,
   ...webchatRoutes,
   ...integrationRoutes,
+  ...assistantRoutes,
 ] as const;
 
 export * from './knowledge/media.schema.js';

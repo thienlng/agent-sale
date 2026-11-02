@@ -71,7 +71,7 @@ Dependency injection: every constructor parameter of a Nest provider/controller 
 
 Units of work: a module that writes more than one row (or a row + an event) exposes a `<Module>UnitOfWork` port in `application/ports/`; the Drizzle adapter runs one `withTenant` transaction and hands out repositories + the outbox publisher bound to it (see `workspace`).
 
-Tenancy: every repository method and every query takes a `WorkspaceId`; persistence runs inside `withTenant()` from `packages/db` (transaction-scoped `set_config`, RLS backstop — ADR-004). `WorkspaceId` is a branded type from `packages/shared`.
+Tenancy: every repository method and every query takes a `WorkspaceId`; persistence runs inside `withTenant()` from `packages/db` (transaction-scoped `set_config`, RLS backstop — ADR-004). `WorkspaceId` is a branded type from `packages/shared`. Exception: the `assistant` module's tables are account-scoped; its repository takes an `OwnerScope` (account + owner) and runs inside `withAccount()` (ADR-021, ADR-004 amendment).
 
 ## 3. Allowed module graph (lower rows may not import higher rows)
 
@@ -80,7 +80,7 @@ Tenancy: every repository method and every query takes a `WorkspaceId`; persiste
 | 0 — leaf consumers | `audit`, `notification` | Only consume events; everyone may emit to them |
 | 1 — platform | `identity`, `account`, `workspace`, `billing` | `account` owns businesses (ADR-012); `workspace` uses the `account` facade when a business is created. Entitlements/quota are a `billing` facade |
 | 2 — capabilities | `bot`, `knowledge`, `action`, `channel`, `ai`, `crm`, `commerce`, `lodging`, `saas` | `ai` depends on `knowledge`, `bot`, `action`, `commerce` (bot product grounding, and the bot order write path `prepareBotOrder` / `confirmBotOrder`, ADR-016), `lodging` (the catalog of hotel bots, `LODGING_CATALOG_FACADE`, T-160) and `saas` (built-in demo/trial request tool, ADR-020); `lodging` on `workspace` and `bot` and never on `commerce`; `channel` on `bot`; `commerce` on `crm` (leads from bot orders) and `bot` (the bot's catalog mode when it prepares an order, ADR-016); `saas` on `crm` and `workspace`; `bot` depends on no tier-2 module, so there is no cycle |
-| 3 — flows | `conversation`, `webchat`, `team`, `integration`, `shipping`, `marketing`, `automation`, `support`, `affiliate` | Orchestrate tier 1–2 facades; `webchat` (website chat) uses the `channel`, `conversation` and `bot` facades; `team` (members, invitations, seats) uses the `identity`, `workspace`, `billing` and `crm` facades; `integration` (PMS sync, KiotViet first) uses the `commerce`, `crm` and `workspace` facades and nothing depends on it (ADR-017) |
+| 3 — flows | `conversation`, `webchat`, `team`, `integration`, `assistant`, `shipping`, `marketing`, `automation`, `support`, `affiliate` | Orchestrate tier 1–2 facades; `webchat` (website chat) uses the `channel`, `conversation` and `bot` facades; `team` (members, invitations, seats) uses the `identity`, `workspace`, `billing` and `crm` facades; `integration` (PMS sync, KiotViet first) uses the `commerce`, `crm` and `workspace` facades and nothing depends on it (ADR-017); `assistant` (owner assistant, account-scoped via `withAccount`, ADR-021) uses the `account`, `workspace` and `ai` facades and nothing depends on it |
 | 4 — read models | `analytics` | Consumes events only; owns rollup tables |
 
 Golden module: **`workspace`** — copy its shape. `health` is the minimal example of an interface-only module.

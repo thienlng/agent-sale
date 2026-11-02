@@ -1,0 +1,47 @@
+import type {
+  AssistantMessageList,
+  AssistantRunDto,
+  AssistantThreadDto,
+  AssistantThreadList,
+  AssistantThreadListQuery,
+  CreateAssistantThreadRequest,
+  SendAssistantMessageRequest,
+  SendAssistantMessageResponse,
+  UpdateAssistantThreadRequest,
+} from '@agent-sales/contracts';
+import type { UserId, WorkspaceId } from '@agent-sales/shared';
+
+/** The caller and the business the request came from; the facade checks they own its account. */
+export interface AssistantActor {
+  userId: UserId;
+  businessId: WorkspaceId;
+}
+
+/**
+ * PUBLIC CONTRACT of the assistant module (owner assistant, ADR-021). Every method first
+ * resolves the owner scope: FORBIDDEN unless the actor is an active owner of the business's
+ * account; another owner's thread or run is NOT_FOUND. No other module consumes it yet.
+ */
+export interface AssistantFacade {
+  listThreads(actor: AssistantActor, query: AssistantThreadListQuery): Promise<AssistantThreadList>;
+  /** `ownerName` (the display name) goes into the thread's frozen system prompt. */
+  createThread(
+    actor: AssistantActor & { ownerName: string | null },
+    input: CreateAssistantThreadRequest,
+  ): Promise<AssistantThreadDto>;
+  updateThread(
+    actor: AssistantActor,
+    threadId: string,
+    patch: UpdateAssistantThreadRequest,
+  ): Promise<AssistantThreadDto>;
+  /** Visible messages only (user, assistant, event); tool rows never leave the backend. */
+  listMessages(actor: AssistantActor, threadId: string): Promise<AssistantMessageList>;
+  sendMessage(
+    actor: AssistantActor,
+    threadId: string,
+    input: SendAssistantMessageRequest,
+  ): Promise<SendAssistantMessageResponse>;
+  getRun(actor: AssistantActor, runId: string): Promise<AssistantRunDto>;
+}
+
+export const ASSISTANT_FACADE = Symbol('ASSISTANT_FACADE');
