@@ -43,12 +43,13 @@ export class ReportService {
     @Inject(REPORT_STRINGS) private readonly strings: ReportStringsSource,
   ) {}
 
-  async compute(s: ReportSpec, now: Date): Promise<ComputedReport> {
+  /** `periodAt` resolves the report period (a cadence slot's time); `now` bounds alert reads. */
+  async compute(s: ReportSpec, now: Date, periodAt: Date = now): Promise<ComputedReport> {
     const ws = s.businessId;
     const period = (): PeriodRef & { since: Date; until: Date } => {
       const p = (s.params['period'] ?? 'day') as ReportPeriod;
       const w = (s.params['window'] ?? 'previous') as ReportWindow;
-      return { period: p, window: w, ...resolvePeriod(p, w, now) };
+      return { period: p, window: w, ...resolvePeriod(p, w, periodAt) };
     };
     const ref = ({ period: p, window: w, from, to }: PeriodRef): PeriodRef => ({
       period: p,

@@ -256,6 +256,12 @@ export class DrizzleNotificationRepository implements NotificationRepository {
     });
   }
 
+  recordAttempt(id: string, attempts: number): Promise<void> {
+    return this.#sys(async (tx) => {
+      await tx.update(d).set({ attempts }).where(eq(d.id, id));
+    });
+  }
+
   finishDelivery(id: string, patch: DeliveryPatch): Promise<void> {
     return this.#sys(async (tx) => {
       const values: Partial<typeof d.$inferInsert> = { status: patch.status, leaseUntil: null };

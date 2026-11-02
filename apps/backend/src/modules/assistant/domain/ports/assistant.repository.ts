@@ -2,6 +2,7 @@ import type { OwnerScope } from '../owner-scope.js';
 import type {
   Cadence,
   ScheduleChannel,
+  ScheduleClaimOutcome,
   ScheduleCreatedBy,
   ScheduleMode,
   SchedulePausedReason,
@@ -487,14 +488,13 @@ export type SchedulePatch = Partial<
   >
 >;
 
-/** The runner's bookkeeping; `saveScheduleState` also clears the lease. */
+/**
+ * The run outcome the runner writes as is; the schedule's status, next run and manual request go
+ * through `ScheduleClaimOutcome` instead, against the row as stored at write time.
+ */
 export type ScheduleStatePatch = Partial<
   Pick<
     ScheduleRecord,
-    | 'status'
-    | 'pausedReason'
-    | 'nextRunAt'
-    | 'runRequestedAt'
     | 'consecutiveFailures'
     | 'lastRunAt'
     | 'lastCheckedAt'
@@ -824,8 +824,16 @@ export interface AssistantRepository {
   getScheduleRunAt(scheduleId: string, scheduledFor: Date): Promise<ScheduleRunRecord | null>;
   /** Worker: patches a run by id. */
   finishScheduleRun(id: string, patch: ScheduleRunPatch): Promise<void>;
-  /** Worker: patches the schedule's runner state and clears `lease_until`. */
-  saveScheduleState(id: string, patch: ScheduleStatePatch): Promise<void>;
+  /**
+   * Worker: writes the run outcome and clears `lease_until`, in one locked update. The status,
+   * `next_run_at` and `run_requested_at` follow `scheduleOutcomeChanges(row as stored now, claim)`,
+   * so an owner's change made during the lease is never overwritten.
+   */
+  saveScheduleState(
+    id: string,
+    patch: ScheduleStatePatch,
+    claim: ScheduleClaimOutcome,
+  ): Promise<void>;
   /** Worker: deletes runs started before `before`; returns how many. */
   purgeOldScheduleRuns(before: Date): Promise<number>;
 }

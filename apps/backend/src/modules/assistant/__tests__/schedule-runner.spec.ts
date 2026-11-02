@@ -180,7 +180,72 @@ describe('ScheduleRunner', () => {
     expect(t.runsOf(s.id)).toMatchObject([{ status: 'done', trigger: 'manual' }]);
     const after = t.repo.schedules.get(s.id)!;
     expect(after.runRequestedAt).toBeNull();
-    expect(after.nextRunAt?.toISOString()).toBe('2026-11-03T01:00:00.000Z');
+    expect(after.nextRunAt).toEqual(at(HOUR));
+  });
+
+  it('runs a cadence slot claimed with a manual request on the next tick', async () => {
+    const t = setup();
+    const s = await t.create({ nextRunAt: NOW });
+    await t.repo.updateSchedule(t.key, s.id, { runRequestedAt: at(-MIN) });
+    const runner = t.runner();
+    await runner.tick(NOW);
+    expect(t.repo.schedules.get(s.id)).toMatchObject({ runRequestedAt: null, nextRunAt: NOW });
+    await runner.tick(at(MIN));
+    expect(t.runsOf(s.id)).toMatchObject([
+      { trigger: 'manual', status: 'done', scheduledFor: at(-MIN) },
+      { trigger: 'cadence', status: 'done', scheduledFor: NOW },
+    ]);
+    expect(t.repo.schedules.get(s.id)!.nextRunAt?.toISOString()).toBe('2026-11-03T01:00:00.000Z');
+    expect(t.sent).toHaveLength(2);
+  });
+
+  it('keeps a "run now" and a cadence edit made while the run is in flight', async () => {
+    const t = setup();
+    const s = await t.create();
+    const requested = at(30_000);
+    t.notify.mockImplementationOnce(async () => {
+      await t.repo.updateSchedule(t.key, s.id, {
+        runRequestedAt: requested,
+        cadence: { kind: 'weekly', days: [3], at: '09:00' },
+      });
+      return { id: newId(), deduped: false };
+    });
+    const runner = t.runner();
+    await runner.tick(NOW);
+    const after = t.repo.schedules.get(s.id)!;
+    expect(after).toMatchObject({ runRequestedAt: requested, leaseUntil: null, lastRunAt: NOW });
+    // Wednesday 09:00 local, from the edited cadence.
+    expect(after.nextRunAt?.toISOString()).toBe('2026-11-04T02:00:00.000Z');
+    await runner.tick(at(MIN));
+    expect(t.runsOf(s.id)).toMatchObject([
+      { trigger: 'cadence', status: 'done' },
+      { trigger: 'manual', status: 'done', scheduledFor: requested },
+    ]);
+  });
+
+  it('resolves a late cadence report period from its slot, not the tick', async () => {
+    const t = setup();
+    const slot = new Date('2026-11-01T15:00:00Z'); // 22:00 local, Sunday 1 November
+    const late = new Date('2026-11-01T19:00:00Z'); // 02:00 local, Monday 2 November
+    const today = await t.create({
+      params: { period: 'day', window: 'to_date' },
+      cadence: { kind: 'daily', at: '22:00' },
+      nextRunAt: slot,
+    });
+    await t.runner().tick(late);
+    expect(t.data.revenue).toHaveBeenLastCalledWith(t.business, '2026-11-01', '2026-11-01');
+    expect(t.runsOf(today.id)[0]?.report).toMatchObject({
+      period: { from: '2026-11-01', to: '2026-11-01' },
+    });
+
+    const u = setup();
+    // Slot 23:50 local on 1 November, run at 00:10 local on 2 November: "yesterday" is 31 October.
+    await u.create({
+      cadence: { kind: 'daily', at: '23:50' },
+      nextRunAt: at(-8 * HOUR - 10 * MIN),
+    });
+    await u.runner().tick(at(-8 * HOUR + 10 * MIN));
+    expect(u.data.revenue).toHaveBeenLastCalledWith(u.business, '2026-10-31', '2026-10-31');
   });
 
   it('pauses on a gone business and tells the owner', async () => {
@@ -259,6 +324,22 @@ describe('ScheduleRunner', () => {
     expect(t.repo.schedules.get(s.id)).toMatchObject({ lastCheckedAt: NOW, leaseUntil: null });
     expect(t.repo.schedules.get(s.id)!.nextRunAt?.getTime()).toBe(at(HOUR).getTime());
     expect(t.notify).not.toHaveBeenCalled();
+  });
+
+  it('resets the failure count on a quiet alert check', async () => {
+    const t = setup();
+    const s = await t.lowStockAlert();
+    const runner = t.runner();
+    t.data.lowStock.mockRejectedValueOnce(new Error('db down'));
+    await runner.tick(NOW);
+    t.data.lowStock.mockRejectedValueOnce(new Error('db down'));
+    await runner.tick(at(HOUR));
+    expect(t.repo.schedules.get(s.id)!.consecutiveFailures).toBe(2);
+    await runner.tick(at(2 * HOUR)); // quiet: no hit
+    expect(t.repo.schedules.get(s.id)!.consecutiveFailures).toBe(0);
+    t.data.lowStock.mockRejectedValueOnce(new Error('db down'));
+    await runner.tick(at(3 * HOUR));
+    expect(t.repo.schedules.get(s.id)).toMatchObject({ status: 'active', consecutiveFailures: 1 });
   });
 
   it('fires an unchanged alert once, not again at 23 h, again at 24 h', async () => {

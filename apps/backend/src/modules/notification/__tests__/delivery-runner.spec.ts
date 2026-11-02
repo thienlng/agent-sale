@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DeliveryRunner } from '../application/delivery-runner.js';
 import { NotificationService } from '../application/notification.service.js';
-import { EMAIL_DAILY_CAP } from '../domain/notification.js';
+import { EMAIL_DAILY_CAP, MAX_DELIVERY_ATTEMPTS } from '../domain/notification.js';
 import type {
   NotificationChannel,
   OutgoingMessage,
@@ -95,6 +95,24 @@ describe('DeliveryRunner', () => {
     expect(delivery()).toMatchObject({ attempts: 4, status: 'failed', errorCode: 'TypeError' });
     await runner.tick(at(1000 + 120 * 60_000));
     expect(send).toHaveBeenCalledTimes(4);
+  });
+
+  it('counts an attempt before sending, so a send that crashes the worker stops', async () => {
+    const { repo, runner, send, notify, delivery } = setup();
+    // Each send "crashes" the worker: its outcome is never written and the lease lapses.
+    const finish = repo.finishDelivery.bind(repo);
+    vi.spyOn(repo, 'finishDelivery').mockImplementation(async (id, patch) => {
+      if (patch.errorCode !== 'send_interrupted') throw new Error('worker crashed');
+      return finish(id, patch);
+    });
+    await notify();
+    for (let i = 0; i < 8; i++) await runner.tick(at(1000 + i * 3 * 60_000));
+    expect(send).toHaveBeenCalledTimes(MAX_DELIVERY_ATTEMPTS);
+    expect(delivery()).toMatchObject({
+      status: 'failed',
+      attempts: MAX_DELIVERY_ATTEMPTS,
+      errorCode: 'send_interrupted',
+    });
   });
 
   it('skips the 21st email of a user within 24 h', async () => {

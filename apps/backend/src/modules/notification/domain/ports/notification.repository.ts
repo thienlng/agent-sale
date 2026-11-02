@@ -102,6 +102,11 @@ export interface NotificationRepository {
   claimDeliveries(now: Date, limit: number, leaseMs: number): Promise<DeliveryRecord[]>;
   /** Worker: the notifications of claimed deliveries (their title, body and target). */
   notificationsForDelivery(ids: string[]): Promise<NotificationRecord[]>;
+  /**
+   * Worker: stores the attempt count of a claimed delivery before it is sent, keeping the lease,
+   * so a send that crashes the worker still uses up an attempt.
+   */
+  recordAttempt(id: string, attempts: number): Promise<void>;
   /** Worker: writes the outcome and clears the lease. */
   finishDelivery(id: string, patch: DeliveryPatch): Promise<void>;
   /** Worker: the user's `sent` emails with `sent_at >= since`, across accounts. */

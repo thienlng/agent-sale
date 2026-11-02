@@ -187,7 +187,11 @@ describe('SchedulesService', () => {
       details: { reason: 'run_too_soon' },
     });
     // The runner took the request and ran it: a manual run 4 minutes ago still blocks.
-    await repo.saveScheduleState(s.id, { runRequestedAt: null });
+    await repo.saveScheduleState(
+      s.id,
+      {},
+      { runRequestedAt: repo.schedules.get(s.id)!.runRequestedAt, advanceFrom: null },
+    );
     await repo.insertScheduleRun({
       id: newId(),
       accountId,

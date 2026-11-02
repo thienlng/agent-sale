@@ -116,3 +116,48 @@ function stableJson(v: unknown): string {
   }
   return JSON.stringify(v);
 }
+
+/** The schedule columns the runner's final write may touch (see `scheduleOutcomeChanges`). */
+export interface ScheduleRunnerColumns {
+  status: ScheduleStatus;
+  pausedReason: SchedulePausedReason | null;
+  cadence: Cadence;
+  nextRunAt: Date | null;
+  runRequestedAt: Date | null;
+}
+
+/**
+ * What the runner claimed and decided. The final write is applied to the row as it is at write
+ * time, so an owner's "run now" or cadence edit made during the lease is kept (spec §6).
+ */
+export interface ScheduleClaimOutcome {
+  /** The manual request the run took; cleared only while it is still the stored one. */
+  runRequestedAt: Date | null;
+  /** Set when a cadence slot was taken: the next slot is computed after it from the stored cadence. */
+  advanceFrom: Date | null;
+  /** The runner pauses the schedule; applied only while the schedule is still active. */
+  pause?: Extract<SchedulePausedReason, 'failures' | 'business_unavailable' | 'owner_not_active'>;
+}
+
+/**
+ * The runner-owned column changes for a claim outcome against the row as stored now. Pure; both
+ * repositories apply it inside the same locked update.
+ */
+export function scheduleOutcomeChanges(
+  stored: ScheduleRunnerColumns,
+  claim: ScheduleClaimOutcome,
+  next: (c: Cadence, after: Date) => Date,
+): Partial<ScheduleRunnerColumns> {
+  const changes: Partial<ScheduleRunnerColumns> = {};
+  const sameRequest =
+    claim.runRequestedAt !== null &&
+    stored.runRequestedAt !== null &&
+    stored.runRequestedAt.getTime() === claim.runRequestedAt.getTime();
+  if (sameRequest) changes.runRequestedAt = null;
+  if (stored.status !== 'active') return changes;
+  if (claim.pause) {
+    return { status: 'paused', pausedReason: claim.pause, nextRunAt: null, runRequestedAt: null };
+  }
+  if (claim.advanceFrom) changes.nextRunAt = next(stored.cadence, claim.advanceFrom);
+  return changes;
+}

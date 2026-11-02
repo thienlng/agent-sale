@@ -59,6 +59,8 @@ import {
   AssistantSkillNameTakenError,
 } from '../../domain/assistant.errors.js';
 import type { OwnerScope } from '../../domain/owner-scope.js';
+import { nextRunAt } from '../../domain/cadence.js';
+import { type ScheduleClaimOutcome, scheduleOutcomeChanges } from '../../domain/schedule.js';
 import { foldText, snippetAround } from '../../domain/search-text.js';
 
 interface Owned {
@@ -1124,9 +1126,15 @@ export class InMemoryAssistantRepository implements AssistantRepository {
     if (r) Object.assign(r, definedOnly(structuredClone(patch)));
   }
 
-  async saveScheduleState(id: string, patch: ScheduleStatePatch): Promise<void> {
+  async saveScheduleState(
+    id: string,
+    patch: ScheduleStatePatch,
+    claim: ScheduleClaimOutcome,
+  ): Promise<void> {
     const x = this.schedules.get(id);
-    if (x) Object.assign(x, definedOnly(structuredClone(patch)), { leaseUntil: null });
+    if (!x) return;
+    const changes = scheduleOutcomeChanges(x, claim, nextRunAt);
+    Object.assign(x, definedOnly(structuredClone(patch)), changes, { leaseUntil: null });
   }
 
   async purgeOldScheduleRuns(before: Date): Promise<number> {

@@ -12,7 +12,7 @@ import {
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
 import type { AssistantScheduleRunner } from '../api/assistant.runner.js';
 import { decideAlert } from '../domain/alert-decision.js';
-import { isMissed, nextRunAt } from '../domain/cadence.js';
+import { isMissed } from '../domain/cadence.js';
 import {
   ASSISTANT_REPOSITORY,
   type AssistantRepository,
@@ -23,6 +23,7 @@ import {
 import { fill } from '../domain/report-render.js';
 import type {
   ScheduleChannel,
+  ScheduleClaimOutcome,
   SchedulePausedReason,
   ScheduleTemplate,
 } from '../domain/schedule.js';
@@ -90,10 +91,13 @@ export class ScheduleRunner implements AssistantScheduleRunner {
   async #runOne(s: ScheduleRecord, now: Date): Promise<void> {
     const manual = s.runRequestedAt !== null;
     const scheduledFor = s.runRequestedAt ?? s.nextRunAt ?? now;
-    // Whatever happens below, the slot is taken: the next one is after now (S3-R15).
-    const state: ScheduleStatePatch = {
-      nextRunAt: nextRunAt(s.cadence, now),
-      runRequestedAt: null,
+    const state: ScheduleStatePatch = {};
+    // Whatever happens below, the slot is taken: a cadence run moves the next one after now
+    // (S3-R15). A manual run leaves `next_run_at` alone, so a cadence slot due at the same time
+    // runs on the next tick instead of being dropped.
+    const claim: ScheduleClaimOutcome = {
+      runRequestedAt: s.runRequestedAt,
+      advanceFrom: manual ? null : now,
     };
     try {
       if (!manual && isMissed(scheduledFor, now)) {
@@ -114,14 +118,14 @@ export class ScheduleRunner implements AssistantScheduleRunner {
 
       const blocked = await this.#preflight(s);
       if (blocked) {
-        await this.#block(s, run, scheduledFor, manual, blocked, now, state);
+        await this.#block(s, run, scheduledFor, manual, blocked, now, claim);
         return;
       }
 
-      await this.#execute(s, run, scheduledFor, manual, now, state);
+      await this.#execute(s, run, scheduledFor, manual, now, state, claim);
     } finally {
-      // Always releases the lease.
-      await this.repo.saveScheduleState(s.id, state);
+      // Always releases the lease; applied to the row as stored now (owner edits win).
+      await this.repo.saveScheduleState(s.id, state, claim);
     }
   }
 
@@ -174,7 +178,7 @@ export class ScheduleRunner implements AssistantScheduleRunner {
     manual: boolean,
     reason: PreflightBlock,
     now: Date,
-    state: ScheduleStatePatch,
+    claim: ScheduleClaimOutcome,
   ): Promise<void> {
     if (run) {
       await this.repo.finishScheduleRun(run.id, {
@@ -190,7 +194,7 @@ export class ScheduleRunner implements AssistantScheduleRunner {
         finishedAt: now,
       });
     }
-    Object.assign(state, { status: 'paused', pausedReason: reason, nextRunAt: null });
+    claim.pause = reason;
     if (reason === 'owner_not_active') return;
     await this.#notifyPaused(s, reason, ['in_app'], scheduledFor, null);
   }
@@ -202,9 +206,12 @@ export class ScheduleRunner implements AssistantScheduleRunner {
     manual: boolean,
     now: Date,
     state: ScheduleStatePatch,
+    claim: ScheduleClaimOutcome,
   ): Promise<void> {
     let run = taken;
     try {
+      // A cadence report covers the period of its slot, even when it runs late (S3-R15).
+      const periodAt = s.mode === 'report' && !manual ? scheduledFor : now;
       const computed = await this.reports.compute(
         {
           businessId: s.businessId,
@@ -214,15 +221,17 @@ export class ScheduleRunner implements AssistantScheduleRunner {
           alertCursor: s.alertCursor,
         },
         now,
+        periodAt,
       );
       // The alert state is kept only once the alert is delivered, so a failed delivery neither
       // loses new orders behind a moved cursor nor silences a changed set.
       const alert: ScheduleStatePatch = {};
       if (s.mode === 'alert') {
         const fire = this.#alertState(s, computed, now, alert);
-        // A quiet check leaves no run row (S3-R13); a manual run always reports.
+        // A quiet check leaves no run row (S3-R13) but is a success (S3-R14); a manual run
+        // always reports.
         if (!fire && !manual) {
-          Object.assign(state, alert);
+          Object.assign(state, alert, { consecutiveFailures: 0 });
           return;
         }
       }
@@ -233,7 +242,7 @@ export class ScheduleRunner implements AssistantScheduleRunner {
     } catch (e) {
       if (s.mode === 'alert') state.lastCheckedAt = now;
       this.#log.warn(`schedule ${s.id}: compute failed (${errorClass(e)})`);
-      await this.#fail(s, run, scheduledFor, manual, now, state);
+      await this.#fail(s, run, scheduledFor, manual, now, state, claim);
     }
   }
 
@@ -333,6 +342,7 @@ export class ScheduleRunner implements AssistantScheduleRunner {
     manual: boolean,
     now: Date,
     state: ScheduleStatePatch,
+    claim: ScheduleClaimOutcome,
   ): Promise<void> {
     const failed = { status: 'failed' as const, errorCode: 'compute_failed', finishedAt: now };
     if (run) await this.repo.finishScheduleRun(run.id, failed);
@@ -345,7 +355,7 @@ export class ScheduleRunner implements AssistantScheduleRunner {
     const failures = s.consecutiveFailures + 1;
     state.consecutiveFailures = failures;
     if (failures < MAX_SCHEDULE_FAILURES) return;
-    Object.assign(state, { status: 'paused', pausedReason: 'failures', nextRunAt: null });
+    claim.pause = 'failures';
     await this.#notifyPaused(s, 'failures', this.#channels(s.channels), scheduledFor, s.businessId);
   }
 

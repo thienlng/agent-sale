@@ -22,7 +22,7 @@
 - A user only ever reads or changes their own rows; another user's (or account's) id behaves as absent (404).
 - One delivery per notification and channel; in-app delivery is the notification row itself.
 - Email goes only to the user's own login address, at most 20 per user per 24 h (`daily_cap`).
-- A failed send is retried 1, 5 and 30 minutes later, then `failed` with the error class as `error_code`. Delivery is at-least-once (a crash between a send and the status write can resend once).
+- A failed send is retried 1, 5 and 30 minutes later, then `failed` with the error class as `error_code`. Delivery is at-least-once (a crash between a send and the status write can resend once). The attempt is counted before the send; a reclaimed `sending` delivery whose 4 attempts are used up is `failed` (`send_interrupted`) without another send.
 - A channel with no adapter (push today) gives `skipped` (`channel_unavailable`); no address gives `skipped` (`no_recipient`).
 - Notifications are purged after 90 days (deliveries cascade).
 

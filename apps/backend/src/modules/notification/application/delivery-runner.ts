@@ -4,6 +4,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { NotificationRunner } from '../api/notification.runner.js';
 import {
   EMAIL_DAILY_CAP,
+  MAX_DELIVERY_ATTEMPTS,
   NOTIFICATION_RETENTION_DAYS,
   nextAttemptAt,
   type NotificationTarget,
@@ -37,7 +38,8 @@ function errorClass(e: unknown): string {
  * One worker pass of notification deliveries (S3-R7, S3-R8): claims due deliveries, resolves
  * the recipient through `identity`, applies the daily email cap and sends through the
  * registered channel, retrying 1, 5 and 30 minutes later before `failed`. Delivery is
- * at-least-once: a crash between a send and the status write can resend once. Once a day it
+ * at-least-once: a crash between a send and the status write can resend once. The attempt is
+ * counted before the send, so a send that keeps crashing the worker still ends `failed`. Once a day it
  * also purges notifications older than 90 days. Logs carry ids and error classes only.
  */
 @Injectable()
@@ -93,7 +95,13 @@ export class DeliveryRunner implements NotificationRunner {
       const sentToday = await this.repo.countSentEmails(d.userId, new Date(now.getTime() - DAY_MS));
       if (sentToday >= EMAIL_DAILY_CAP) return skip('daily_cap');
     }
+    // A lapsed `sending` lease whose attempts are used up: the earlier sends crashed the worker.
+    if (d.attempts >= MAX_DELIVERY_ATTEMPTS) {
+      await this.repo.finishDelivery(d.id, { status: 'failed', errorCode: 'send_interrupted' });
+      return false;
+    }
     const attempts = d.attempts + 1;
+    await this.repo.recordAttempt(d.id, attempts);
     try {
       const res = await channel.send({
         to: profile.email,

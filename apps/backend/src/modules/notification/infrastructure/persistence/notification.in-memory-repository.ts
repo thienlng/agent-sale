@@ -166,6 +166,11 @@ export class InMemoryNotificationRepository implements NotificationRepository {
       .map((x) => structuredClone(x));
   }
 
+  async recordAttempt(id: string, attempts: number): Promise<void> {
+    const x = this.deliveries.get(id);
+    if (x) x.attempts = attempts;
+  }
+
   async finishDelivery(id: string, patch: DeliveryPatch): Promise<void> {
     const x = this.deliveries.get(id);
     if (!x) return;

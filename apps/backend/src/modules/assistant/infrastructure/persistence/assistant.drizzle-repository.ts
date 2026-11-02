@@ -77,7 +77,8 @@ import {
   THREAD_LIST_LIMIT,
   type ThreadRecord,
 } from '../../domain/ports/assistant.repository.js';
-import type { Cadence } from '../../domain/cadence.js';
+import { type Cadence, nextRunAt } from '../../domain/cadence.js';
+import { type ScheduleClaimOutcome, scheduleOutcomeChanges } from '../../domain/schedule.js';
 import { snippetAround } from '../../domain/search-text.js';
 
 const t = schema.assistantThreads;
@@ -1600,11 +1601,39 @@ export class DrizzleAssistantRepository implements AssistantRepository {
     });
   }
 
-  saveScheduleState(id: string, patch: ScheduleStatePatch): Promise<void> {
+  saveScheduleState(
+    id: string,
+    patch: ScheduleStatePatch,
+    claim: ScheduleClaimOutcome,
+  ): Promise<void> {
     return this.#sys(async (tx) => {
+      // Locked re-read: an owner edit or "run now" committed during the lease is applied first.
+      const [row] = await tx
+        .select({
+          status: sc.status,
+          pausedReason: sc.pausedReason,
+          cadence: sc.cadence,
+          nextRunAt: sc.nextRunAt,
+          runRequestedAt: sc.runRequestedAt,
+        })
+        .from(sc)
+        .where(eq(sc.id, id))
+        .for('update');
+      if (!row) return;
+      const changes = scheduleOutcomeChanges(
+        {
+          status: row.status as ScheduleRecord['status'],
+          pausedReason: row.pausedReason as ScheduleRecord['pausedReason'],
+          cadence: row.cadence as Cadence,
+          nextRunAt: row.nextRunAt,
+          runRequestedAt: row.runRequestedAt,
+        },
+        claim,
+        nextRunAt,
+      );
       await tx
         .update(sc)
-        .set({ ...defined(patch), leaseUntil: null })
+        .set({ ...defined(patch), ...changes, leaseUntil: null })
         .where(eq(sc.id, id));
     });
   }

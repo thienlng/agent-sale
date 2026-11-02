@@ -241,16 +241,43 @@ describe('assistant schedules on Postgres (T-172)', () => {
     expect(again.filter((x) => ids.has(x.id))).toEqual([]);
 
     // Saving the state clears the lease; the row is due again only when its time comes.
-    await repo.saveScheduleState(requested.id, {
-      runRequestedAt: null,
-      lastRunAt: now,
-      nextRunAt: new Date(Date.now() + 3_600_000),
-    });
+    const claimedRequest = [...c1, ...c2].find((x) => x.id === requested.id)!.runRequestedAt;
+    await repo.saveScheduleState(
+      requested.id,
+      { lastRunAt: now },
+      { runRequestedAt: claimedRequest, advanceFrom: null },
+    );
     const later = await repo.claimDueSchedules(new Date(), 50, 300_000);
     expect(later.map((x) => x.id)).not.toContain(requested.id);
     const saved = await repo.getSchedule(o, requested.id);
     expect(saved?.leaseUntil).toBeNull();
     expect(saved?.runRequestedAt).toBeNull();
+    expect(saved?.nextRunAt).toEqual(requested.nextRunAt);
+  });
+
+  it('keeps a run request and a cadence edit made during the lease', async () => {
+    const o = await owner();
+    const s = await repo.createSchedule(o, draft(o));
+    await repo.updateSchedule(o, s.id, { runRequestedAt: new Date(Date.now() - 60_000) });
+    const now = new Date();
+    const claimed = (await repo.claimDueSchedules(now, 50, 300_000)).find((x) => x.id === s.id);
+    expect(claimed).toBeDefined();
+    const again = new Date(now.getTime() + 1_000);
+    await repo.updateSchedule(o, s.id, {
+      runRequestedAt: again,
+      cadence: { kind: 'weekly', days: [1], at: '08:00' },
+    });
+    await repo.saveScheduleState(
+      s.id,
+      { lastRunAt: now, consecutiveFailures: 0 },
+      { runRequestedAt: claimed!.runRequestedAt, advanceFrom: now },
+    );
+    const saved = await repo.getSchedule(o, s.id);
+    expect(saved?.runRequestedAt).toEqual(again);
+    expect(saved?.leaseUntil).toBeNull();
+    expect(saved?.lastRunAt).toEqual(now);
+    expect(saved?.nextRunAt?.getUTCDay()).toBe(1);
+    expect(saved?.nextRunAt?.toISOString().slice(11)).toBe('01:00:00.000Z');
   });
 
   it('counts only pending, unexpired schedule create proposals', async () => {

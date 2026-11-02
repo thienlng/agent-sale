@@ -115,10 +115,67 @@ describe('InMemoryAssistantRepository schedules', () => {
     const lapsed = await repo.claimDueSchedules(new Date(now.getTime() + 301_000), 10, 300_000);
     expect(lapsed).toHaveLength(2);
 
-    await repo.saveScheduleState(future.id, { runRequestedAt: null, lastRunAt: now });
+    const claimed = first.find((x) => x.id === future.id)!;
+    await repo.saveScheduleState(
+      future.id,
+      { lastRunAt: now },
+      { runRequestedAt: claimed.runRequestedAt, advanceFrom: null },
+    );
     const saved = await repo.getSchedule(a, future.id);
     expect(saved?.leaseUntil).toBeNull();
     expect(saved?.runRequestedAt).toBeNull();
+    expect(saved?.nextRunAt).toEqual(future.nextRunAt);
+  });
+
+  it('keeps a run request and a cadence edit made during the lease', async () => {
+    const repo = new InMemoryAssistantRepository();
+    const a = scope();
+    const s = await repo.createSchedule(a, draft());
+    await repo.updateSchedule(a, s.id, { runRequestedAt: new Date(Date.now() - 60_000) });
+    const now = new Date();
+    const [claimed] = await repo.claimDueSchedules(now, 10, 300_000);
+    // During the lease: a new "run now" and a weekly cadence.
+    const again = new Date(now.getTime() + 1_000);
+    await repo.updateSchedule(a, s.id, {
+      runRequestedAt: again,
+      cadence: { kind: 'weekly', days: [1], at: '08:00' },
+    });
+    await repo.saveScheduleState(
+      s.id,
+      { lastRunAt: now },
+      { runRequestedAt: claimed!.runRequestedAt, advanceFrom: now },
+    );
+    const saved = repo.schedules.get(s.id)!;
+    expect(saved.runRequestedAt).toEqual(again);
+    expect(saved.cadence).toEqual({ kind: 'weekly', days: [1], at: '08:00' });
+    // The next run follows the weekly cadence (a Monday, 08:00 local = 01:00Z).
+    expect(saved.nextRunAt!.getUTCDay()).toBe(1);
+    expect(saved.nextRunAt!.toISOString().slice(11)).toBe('01:00:00.000Z');
+    expect(saved.leaseUntil).toBeNull();
+  });
+
+  it('does not pause or reschedule a schedule the owner paused during the lease', async () => {
+    const repo = new InMemoryAssistantRepository();
+    const a = scope();
+    const s = await repo.createSchedule(a, draft());
+    const now = new Date();
+    await repo.claimDueSchedules(now, 10, 300_000);
+    await repo.updateSchedule(a, s.id, {
+      status: 'paused',
+      pausedReason: 'owner',
+      nextRunAt: null,
+    });
+    await repo.saveScheduleState(
+      s.id,
+      { consecutiveFailures: 3 },
+      { runRequestedAt: null, advanceFrom: now, pause: 'failures' },
+    );
+    expect(repo.schedules.get(s.id)).toMatchObject({
+      status: 'paused',
+      pausedReason: 'owner',
+      nextRunAt: null,
+      consecutiveFailures: 3,
+    });
   });
 
   it('counts pending schedule create proposals and purges old runs', async () => {
