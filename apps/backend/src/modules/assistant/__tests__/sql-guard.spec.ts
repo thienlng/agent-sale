@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   checkSql,
   MAX_CTES,
+  MAX_FROM_ITEMS,
   MAX_SQL_CHARS,
   MAX_STRING_LITERAL_CHARS,
 } from '../domain/sql-guard.js';
@@ -162,7 +163,12 @@ describe('checkSql: rejected', () => {
     ['explain select 1', 'not_select'],
     ['(select 1)', 'not_select'],
     ['', 'not_select'],
-    ['with recursive r as (select 1) select * from r', 'recursive'],
+    ['with recursive r as (select 1) select * from r', 'keyword:recursive'],
+    [
+      'with orders as (select 1 n) select (with recursive orders as ' +
+        '(select 1 n union all select n+1 from orders) select count(*) from orders)',
+      'keyword:recursive',
+    ],
     ['select 1 from orders o where exists (select 1 from only orders)', 'keyword:only'],
     ['select * from orders tablesample system (10)', 'keyword:tablesample'],
     // Catalogs, schemas and session identity.
@@ -290,6 +296,54 @@ describe('checkSql: rejected', () => {
       `with ${Array.from({ length: n }, (_, i) => `c${i} as (select ${i} as n)`).join(', ')} select 1`;
     expect(check(ctes(MAX_CTES)).ok).toBe(true);
     expect(check(ctes(MAX_CTES + 1))).toEqual({ ok: false, reason: 'too_many_ctes' });
+  });
+
+  it(`caps the FROM / JOIN items at ${MAX_FROM_ITEMS}, comma-joined ones included`, () => {
+    const names = [...views].slice(0, MAX_FROM_ITEMS + 1);
+    const commas = (n: number) => `select count(*) from ${names.slice(0, n).join(', ')}`;
+    expect(check(commas(MAX_FROM_ITEMS)).ok).toBe(true);
+    expect(check(commas(MAX_FROM_ITEMS + 1))).toEqual({ ok: false, reason: 'too_many_relations' });
+    const joins = (n: number) =>
+      `select count(*) from orders o0 ${Array.from({ length: n - 1 }, (_, i) => `join orders o${i + 1} on true`).join(' ')}`;
+    expect(check(joins(MAX_FROM_ITEMS)).ok).toBe(true);
+    expect(check(joins(MAX_FROM_ITEMS + 1))).toEqual({ ok: false, reason: 'too_many_relations' });
+    // Items in subqueries and CTEs count towards the same total.
+    expect(
+      check(
+        'with a as (select 1 n from orders, customers, products) ' +
+          'select count(*) from a, orders, (select 1 from customers, bots) s',
+      ),
+    ).toEqual({ ok: false, reason: 'too_many_relations' });
+  });
+
+  it('checks every comma-joined FROM item against the views', () => {
+    expect(check('select 1 from orders, secrets')).toEqual({
+      ok: false,
+      reason: 'unknown_view:secrets',
+    });
+    expect(check('select 1 from orders o, lateral x')).toEqual({
+      ok: false,
+      reason: 'unknown_view:lateral',
+    });
+    // Commas outside a FROM list are not items.
+    expect(
+      check(
+        'select a, b from (select 1 a, 2 b) s, orders where total in (1, 2) group by a, b ' +
+          'order by a, b',
+      ).ok,
+    ).toBe(true);
+  });
+
+  it('allows one generate_series call per query', () => {
+    const cross = (n: number) =>
+      `select count(*) from ${Array.from({ length: n }, (_, i) => `generate_series(1,300000) a${i}`).join(', ')}`;
+    expect(check(cross(1)).ok).toBe(true);
+    expect(check(cross(60))).toEqual({ ok: false, reason: 'too_many_generate_series' });
+    expect(check(cross(2))).toEqual({ ok: false, reason: 'too_many_generate_series' });
+    expect(check('select generate_series(1,3), generate_series(1,3)')).toEqual({
+      ok: false,
+      reason: 'too_many_generate_series',
+    });
   });
 
   it('measures the length after trimming: 4 000 chars pass the length rule, 4 001 do not', () => {

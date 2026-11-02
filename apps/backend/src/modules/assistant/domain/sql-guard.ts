@@ -22,6 +22,18 @@ const MAX_DEPTH = 10;
 export const MAX_STRING_LITERAL_CHARS = 200;
 /** Most CTEs in one query. */
 export const MAX_CTES = 10;
+/**
+ * Most FROM / JOIN items in one query, comma-joined ones included. `work_mem` caps each plan node,
+ * not the query, so a long cross join of in-memory nodes adds up (final re-review I-A).
+ */
+export const MAX_FROM_ITEMS = 6;
+/** Most `generate_series` calls in one query: each one materializes its rows (re-review I-A). */
+export const MAX_GENERATE_SERIES = 1;
+
+/** Words that end a FROM list at the same parenthesis level. */
+const FROM_END_WORDS = new Set(
+  'where group having order limit offset window union intersect except fetch'.split(' '),
+);
 
 const DENIED_WORDS = new Set(
   (
@@ -29,7 +41,7 @@ const DENIED_WORDS = new Set(
     'for call do execute prepare deallocate listen notify unlisten vacuum analyze explain refresh ' +
     'cluster reindex checkpoint load import discard declare fetch move close cursor returning ' +
     'table only tablesample current_user session_user current_role user system_user ' +
-    'current_catalog current_schema public assistant_sql information_schema'
+    'current_catalog current_schema public assistant_sql information_schema recursive'
   ).split(' '),
 );
 
@@ -250,8 +262,6 @@ export function checkSql(text: string, opts: SqlGuardOptions): SqlGuardResult {
 
   // 3. One SELECT or WITH … SELECT.
   if (!isWord(first, 'select') && !isWord(first, 'with')) return fail('not_select');
-  if (isWord(first, 'with') && isWord(tokens[1], 'recursive')) return fail('recursive');
-
   // 4. Denied words and catalog names.
   for (const [i, t] of tokens.entries()) {
     if (t.kind !== 'ident') continue;
@@ -299,38 +309,67 @@ export function checkSql(text: string, opts: SqlGuardOptions): SqlGuardResult {
     }
   }
 
-  // 7. Relations after FROM / JOIN.
+  // 7. Relations after FROM / JOIN, and after each comma of a FROM list.
   const ctes = cteNames(tokens);
   if (ctes.size > MAX_CTES) return fail('too_many_ctes');
+  const seriesCalls = tokens.filter(
+    (t, i) => isWord(t, 'generate_series') && isPunct(tokens[i + 1], '('),
+  ).length;
+  if (seriesCalls > MAX_GENERATE_SERIES) return fail('too_many_generate_series');
   const relations = new Set<string>();
-  /** For each open parenthesis, the identifier before it (a function name or keyword), if any. */
-  const parens: (string | null)[] = [];
+  let fromItems = 0;
+  /**
+   * One frame per open parenthesis, plus the top level: the identifier before the parenthesis, if
+   * any, and whether a FROM list is open at that level (so a comma there starts another item).
+   */
+  const frames: { before: string | null; inFrom: boolean }[] = [{ before: null, inFrom: false }];
+  /** Checks the FROM item that starts at `tokens[k]`; returns a failure reason, or null. */
+  const fromItem = (k: number): string | null => {
+    fromItems += 1;
+    if (fromItems > MAX_FROM_ITEMS) return 'too_many_relations';
+    const next = tokens[k];
+    if (isPunct(next, '(')) return null;
+    if (next?.kind === 'ident') {
+      if (RELATION_FUNCTIONS.has(next.value) && isPunct(tokens[k + 1], '(')) return null;
+      if (opts.views.has(next.value) || ctes.has(next.value)) {
+        relations.add(next.value);
+        return null;
+      }
+    }
+    return `unknown_view:${next?.value ?? ''}`;
+  };
   for (const [i, t] of tokens.entries()) {
     if (isPunct(t, '(')) {
       const before = tokens[i - 1];
-      parens.push(before?.kind === 'ident' ? before.value : null);
+      frames.push({ before: before?.kind === 'ident' ? before.value : null, inFrom: false });
       continue;
     }
     if (isPunct(t, ')')) {
-      parens.pop();
+      frames.pop();
+      if (frames.length === 0) return fail('unbalanced');
       continue;
     }
-    if (!isWord(t, 'from') && !isWord(t, 'join')) continue;
-    // `extract(dow from x)`, `trim(both 'a' from x)`: an argument, not a FROM clause.
-    const enclosing = parens.at(-1);
-    if (enclosing && ALLOWED_FUNCTIONS.has(enclosing)) continue;
-    // `a is distinct from b`.
-    if (isWord(t, 'from') && isWord(tokens[i - 1], 'distinct')) continue;
-    const next = tokens[i + 1];
-    if (isPunct(next, '(')) continue;
-    if (next?.kind === 'ident') {
-      if (RELATION_FUNCTIONS.has(next.value) && isPunct(tokens[i + 2], '(')) continue;
-      if (opts.views.has(next.value) || ctes.has(next.value)) {
-        relations.add(next.value);
-        continue;
-      }
+    const frame = frames.at(-1);
+    if (!frame) return fail('unbalanced');
+    if (isPunct(t, ',')) {
+      if (!frame.inFrom) continue;
+      const reason = fromItem(i + 1);
+      if (reason) return fail(reason);
+      continue;
     }
-    return fail(`unknown_view:${next?.value ?? ''}`);
+    if (t.kind !== 'ident') continue;
+    if (FROM_END_WORDS.has(t.value)) {
+      frame.inFrom = false;
+      continue;
+    }
+    if (t.value !== 'from' && t.value !== 'join') continue;
+    // `extract(dow from x)`, `trim(both 'a' from x)`: an argument, not a FROM clause.
+    if (frame.before && ALLOWED_FUNCTIONS.has(frame.before)) continue;
+    // `a is distinct from b`.
+    if (t.value === 'from' && isWord(tokens[i - 1], 'distinct')) continue;
+    frame.inFrom = true;
+    const reason = fromItem(i + 1);
+    if (reason) return fail(reason);
   }
 
   // 8. Shape.
