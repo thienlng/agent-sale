@@ -106,9 +106,15 @@ describe('useAssistantForm', () => {
   });
 
   it('reports a form that is not on screen, or not enabled', () => {
-    expect(fillAssistantForm('product', { name: 'x' })).toEqual({ ok: false });
+    expect(fillAssistantForm('product', { name: 'x' })).toEqual({
+      ok: false,
+      reason: 'form_not_found',
+    });
     render(<FormPage enabled={false} />);
-    expect(fillAssistantForm('product', { name: 'x' })).toEqual({ ok: false });
+    expect(fillAssistantForm('product', { name: 'x' })).toEqual({
+      ok: false,
+      reason: 'form_not_found',
+    });
     expect(collectPageContext('/app/products/1').forms).toBeUndefined();
   });
 
@@ -176,7 +182,10 @@ describe('useAssistantForm stack', () => {
     rerender(<FaqListPage dialogOpen list={false} />);
     expect(labelOf()).toBe('Câu hỏi (hộp thoại)');
     unmount();
-    expect(fillAssistantForm('faq', { question: 'x' })).toEqual({ ok: false });
+    expect(fillAssistantForm('faq', { question: 'x' })).toEqual({
+      ok: false,
+      reason: 'form_not_found',
+    });
   });
 
   it('says a fill opens a dialog when the list registered the form', () => {

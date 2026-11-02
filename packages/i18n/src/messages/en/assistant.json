@@ -40,7 +40,8 @@
   "hideMemory": "Back to the conversation",
   "fill": {
     "notOnPage": "The form Thỏ Rapiz wanted to fill is not on this page. Open the right page and ask again.",
-    "reviewHint": "I filled it in. Check it, then press Save."
+    "reviewHint": "I filled it in. Check it, then press Save.",
+    "busyEditing": "You are editing an item, so Thỏ Rapiz did not fill over it. Save or close the dialog, then ask again."
   },
   "proposals": {
     "label": "Proposed change",

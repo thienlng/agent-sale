@@ -38,12 +38,19 @@ export interface AssistantFormOptions {
   enabled?: boolean;
   /** The fill opens a dialog: the panel steps aside and nothing is spotlighted (T175-R5). */
   opensDialog?: boolean;
+  /**
+   * The owner is editing an existing item of this form (its edit dialog is open): a fill is
+   * ignored with `form_busy_editing`, so it never lands in the edit, and the form is left out of
+   * the page context so the model does not offer to fill it. Read at fill and send time.
+   */
+  busy?: boolean;
 }
 
 interface RegisteredForm {
   /** Read at send time, so `empty` reflects what the owner has typed so far. */
   fields: () => AssistantFormField[];
   fill: (values: AssistantFormValues) => void;
+  busy: () => boolean;
   submitTarget: string | undefined;
   opensDialog: boolean;
 }
@@ -77,16 +84,17 @@ export function useAssistantForm(
   options: AssistantFormOptions = {},
 ): void {
   // The registry calls the latest closures, so the page may pass inline functions.
-  const latest = useRef({ fields, onFill });
+  const { submitTarget, enabled = true, opensDialog = false, busy = false } = options;
+  const latest = useRef({ fields, onFill, busy });
   useEffect(() => {
-    latest.current = { fields, onFill };
+    latest.current = { fields, onFill, busy };
   });
-  const { submitTarget, enabled = true, opensDialog = false } = options;
   useEffect(() => {
     if (!enabled) return;
     const entry: RegisteredForm = {
       fields: () => latest.current.fields(),
       fill: (values) => latest.current.onFill(values),
+      busy: () => latest.current.busy,
       submitTarget,
       opensDialog,
     };
@@ -142,12 +150,17 @@ function coerce(fields: AssistantFormField[], values: AssistantFormValues): Assi
 }
 
 export type FillResult =
-  { ok: true; submitTarget: string | undefined; opensDialog: boolean } | { ok: false };
+  | { ok: true; submitTarget: string | undefined; opensDialog: boolean }
+  | { ok: false; reason: 'form_not_found' | 'form_busy_editing' };
 
-/** Fills the active registration of a form; `ok: false` when none is on screen. Never submits. */
+/**
+ * Fills the active registration of a form. Never submits. `form_not_found` when none is on
+ * screen; `form_busy_editing` when the owner is editing an existing item of it (nothing changes).
+ */
 export function fillAssistantForm(formId: string, values: AssistantFormValues): FillResult {
   const form = activeForm(formId);
-  if (!form) return { ok: false };
+  if (!form) return { ok: false, reason: 'form_not_found' };
+  if (form.busy()) return { ok: false, reason: 'form_busy_editing' };
   form.fill(coerce(form.fields(), values));
   return { ok: true, submitTarget: form.submitTarget, opensDialog: form.opensDialog };
 }
@@ -187,7 +200,7 @@ export function collectPageContext(route: string): AssistantPageContext {
   ].slice(0, MAX_TARGETS);
   const onScreen = [...forms.keys()].slice(0, MAX_FORMS).flatMap((id) => {
     const form = activeForm(id);
-    return form ? [{ id, fields: form.fields().slice(0, MAX_FIELDS) }] : [];
+    return form && !form.busy() ? [{ id, fields: form.fields().slice(0, MAX_FIELDS) }] : [];
   });
   const info = usePageInfo.getState().info;
   return {

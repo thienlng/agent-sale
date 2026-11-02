@@ -56,8 +56,8 @@ export function AssistantPanel() {
   /** A request that arrived while a turn ran: it waits in the composer for the owner to send. */
   const [draft, setDraft] = useState<AssistantRequest | null>(null);
 
-  // A page asked on the owner's behalf (the ask button): take it once, now and whenever another
-  // arrives. Idle → send it; busy → leave it in the composer. Refs keep the subscription stable.
+  // A page asked on the owner's behalf (the ask button): open the panel and take it once, now
+  // and whenever another arrives. Idle → send it; busy → leave it in the composer. Refs keep the subscription stable.
   const latest = useRef({ sending, send });
   useEffect(() => {
     latest.current = { sending, send };
@@ -66,6 +66,8 @@ export function AssistantPanel() {
     function takeRequest(): void {
       const request = useAssistantRequest.getState().take();
       if (!request) return;
+      // Once loaded the panel stays mounted while closed, so taking the request must open it.
+      useAssistantUi.getState().setOpen(true);
       setView('chat');
       if (latest.current.sending) setDraft(request);
       else void latest.current.send(request.text);
@@ -105,7 +107,8 @@ export function AssistantPanel() {
         if (switched()) return;
         const filled = fillAssistantForm(action.formId, action.values);
         if (!filled.ok) {
-          toast(t('fill.notOnPage'));
+          // An open edit of an existing item is never overwritten by a draft.
+          toast(t(filled.reason === 'form_busy_editing' ? 'fill.busyEditing' : 'fill.notOnPage'));
         } else if (filled.opensDialog) {
           // The fill opened a modal dialog: a spotlight would sit under it (T175-R5). The panel
           // steps aside and the dialog's own focus leads the owner.

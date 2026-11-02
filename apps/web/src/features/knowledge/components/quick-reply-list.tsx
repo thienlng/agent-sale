@@ -111,7 +111,8 @@ export function QuickReplyList({ botId }: { botId: string }) {
     'quick-reply',
     () => quickReplyFormFields(t),
     (values) => setEditor({ item: null, prefill: quickReplyPrefill(values) }),
-    { opensDialog: true },
+    // An open edit of an existing item is never overwritten: the fill is ignored (busy).
+    { opensDialog: true, busy: Boolean(editor?.item) },
   );
 
   const all = items.data ?? [];

@@ -170,7 +170,8 @@ export function RulesList({ botId, introduction }: { botId: string; introduction
     'scenario',
     () => scenarioFormFields(t),
     (values) => setEditor({ item: null, prefill: scenarioPrefill(values) }),
-    { opensDialog: true },
+    // An open edit of an existing item is never overwritten: the fill is ignored (busy).
+    { opensDialog: true, busy: Boolean(editor?.item) },
   );
   const rules = (items.data ?? []).filter((item) => item.kind === 'scenario').sort(byCreation);
   const bySection = (section: TrainingSection) => rules.filter((r) => r.section === section);

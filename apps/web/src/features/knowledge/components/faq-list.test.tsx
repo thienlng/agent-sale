@@ -113,11 +113,22 @@ describe('FaqList and the owner assistant', () => {
     expect(stub.calls.some((c) => c.key.startsWith('POST'))).toBe(false);
   });
 
-  it('keeps the list registration while an existing FAQ is edited', async () => {
-    await setup([faq]);
+  it('ignores a fill while an existing FAQ is edited, so the edit stays a PATCH', async () => {
+    const stub = await setup([faq]);
     await userEvent.click(screen.getByText(`- ${faq.question}`));
     expect(await screen.findByLabelText('Câu hỏi của khách')).toHaveValue(faq.question);
-    expect(faqForm()?.fields.every((f) => f.empty)).toBe(true);
+    // The model is not offered the busy form, and a fill that lands anyway changes nothing.
+    expect(faqForm()).toBeUndefined();
+    let result: ReturnType<typeof fillAssistantForm> | undefined;
+    act(() => {
+      result = fillAssistantForm('faq', { question: 'Có giao hàng không?', answer: 'Có ạ.' });
+    });
+    expect(result).toEqual({ ok: false, reason: 'form_busy_editing' });
+    expect(screen.getByLabelText('Câu hỏi của khách')).toHaveValue(faq.question);
+    expect(screen.getByLabelText('Câu trả lời của bot')).toHaveValue(faq.answer);
+    await userEvent.click(screen.getByRole('button', { name: 'Lưu' }));
+    await waitFor(() => expect(stub.calls.some((c) => c.key.startsWith('PATCH'))).toBe(true));
+    expect(stub.calls.some((c) => c.key.startsWith('POST'))).toBe(false);
   });
 
   it('offers the ask button in the empty FAQ list and the incomplete profile', async () => {

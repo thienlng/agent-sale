@@ -40,7 +40,8 @@
   "hideMemory": "Quay lại cuộc trò chuyện",
   "fill": {
     "notOnPage": "Biểu mẫu Thỏ Rapiz định điền không có trên trang này. Mở đúng trang rồi hỏi lại nhé.",
-    "reviewHint": "Mình đã điền sẵn. Anh/chị kiểm tra lại rồi bấm Lưu nhé."
+    "reviewHint": "Mình đã điền sẵn. Anh/chị kiểm tra lại rồi bấm Lưu nhé.",
+    "busyEditing": "Anh/chị đang sửa một mục nên Thỏ Rapiz không điền đè. Lưu hoặc đóng hộp thoại rồi nhờ lại nhé."
   },
   "proposals": {
     "label": "Đề xuất thay đổi",

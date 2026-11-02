@@ -117,11 +117,21 @@ describe('QuickReplyList and the owner assistant', () => {
     expect(stub.calls.some((c) => c.key.startsWith('POST'))).toBe(false);
   });
 
-  it('keeps the list registration while an existing quick reply is edited', async () => {
-    await setup([reply]);
+  it('ignores a fill while an existing quick reply is edited, so the edit stays a PATCH', async () => {
+    const stub = await setup([reply]);
     await userEvent.click(screen.getByRole('button', { name: 'Chỉnh sửa /ship' }));
     expect(await screen.findByLabelText('Từ viết tắt')).toHaveValue('ship');
-    expect(form()?.fields.every((f) => f.empty)).toBe(true);
+    expect(form()).toBeUndefined();
+    let result: ReturnType<typeof fillAssistantForm> | undefined;
+    act(() => {
+      result = fillAssistantForm('quick-reply', { shortcut: 'phiship', content: 'Phí ship 25k.' });
+    });
+    expect(result).toEqual({ ok: false, reason: 'form_busy_editing' });
+    expect(screen.getByLabelText('Từ viết tắt')).toHaveValue('ship');
+    expect(screen.getByLabelText('Nội dung')).toHaveValue('Phí ship 30k.');
+    await userEvent.click(screen.getByRole('button', { name: 'Lưu' }));
+    await waitFor(() => expect(stub.calls.some((c) => c.key.startsWith('PATCH'))).toBe(true));
+    expect(stub.calls.some((c) => c.key.startsWith('POST'))).toBe(false);
   });
 
   it('offers the ask button on an empty list to the owner only', async () => {

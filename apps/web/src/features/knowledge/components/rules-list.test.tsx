@@ -352,16 +352,21 @@ describe('RulesList', () => {
       expect(stub.calls.some((c) => c.key.startsWith('POST'))).toBe(false);
     });
 
-    it('keeps the list registration while an existing scenario is edited', async () => {
+    it('ignores a fill while an existing scenario is edited, so the edit stays a PATCH', async () => {
       n = 0;
-      await setup([rule({ title: 'Cảm ơn' })]);
+      const stub = await setup([rule({ title: 'Cảm ơn' })]);
       await userEvent.click(await screen.findByRole('button', { name: /^Cảm ơn/ }));
       expect(await screen.findByLabelText('Tiêu đề')).toHaveValue('Cảm ơn');
-      expect(
-        scenarioForm()
-          ?.fields.slice(0, 3)
-          .every((f) => f.empty),
-      ).toBe(true);
+      expect(scenarioForm()).toBeUndefined();
+      let result: ReturnType<typeof fillAssistantForm> | undefined;
+      act(() => {
+        result = fillAssistantForm('scenario', { title: 'Hỏi giờ nhận phòng', content: 'x' });
+      });
+      expect(result).toEqual({ ok: false, reason: 'form_busy_editing' });
+      expect(screen.getByLabelText('Tiêu đề')).toHaveValue('Cảm ơn');
+      await userEvent.click(screen.getByRole('button', { name: 'Lưu' }));
+      await waitFor(() => expect(stub.calls.some((c) => c.key.startsWith('PATCH'))).toBe(true));
+      expect(stub.calls.some((c) => c.key.startsWith('POST'))).toBe(false);
     });
 
     it('offers the ask button on an empty scenario list, to the owner only', async () => {

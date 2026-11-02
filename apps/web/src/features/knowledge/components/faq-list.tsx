@@ -79,7 +79,8 @@ export function FaqList({ botId }: { botId: string }) {
         ...(typeof values['question'] === 'string' ? { question: values['question'] } : {}),
         ...(typeof values['answer'] === 'string' ? { answer: values['answer'] } : {}),
       }),
-    { opensDialog: true },
+    // An open edit of an existing FAQ is never overwritten: the fill is ignored (busy).
+    { opensDialog: true, busy: dialogOpen && editing !== null },
   );
   const toggle = (id: string) =>
     setSelected((prev) => {

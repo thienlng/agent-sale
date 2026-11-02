@@ -649,6 +649,42 @@ describe('AssistantPanel', () => {
     expect(useAssistantRequest.getState().request).toBeNull();
   });
 
+  it('opens the panel again when a page asks after it was loaded and closed', async () => {
+    const { fetchStub, calls } = stubFetch({
+      'POST /assistant/threads': { status: 201, body: threadFixture() },
+      [`POST /assistant/threads/${ASSISTANT_IDS.thread}/messages`]: {
+        status: 200,
+        body: turnFixture('Điền mẫu FAQ giúp mình', { content: 'Mình soạn rồi.' }),
+      },
+      [`GET /assistant/runs/${ASSISTANT_IDS.turn}`]: { status: 200, body: runFixture() },
+      [`GET /assistant/threads/${ASSISTANT_IDS.thread}/proposals`]: {
+        status: 200,
+        body: { items: [] },
+      },
+      'GET /assistant/threads': { status: 200, body: { data: [] } },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderApp(EmptyFaqPage, '/app/bots/b1/knowledge');
+    const user = userEvent.setup();
+
+    // Load the panel, then close it: it stays mounted and takes the next request itself.
+    await user.click(await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' }));
+    await screen.findByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' });
+    act(() => useAssistantUi.getState().setOpen(false));
+    await waitFor(() =>
+      expect(screen.queryByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' })).not.toBeInTheDocument(),
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Nhờ trợ lý điền mẫu' }));
+
+    expect(await screen.findByText('Mình soạn rồi.')).toBeInTheDocument();
+    expect(useAssistantUi.getState().open).toBe(true);
+    expect(calls.filter((c) => c.key.endsWith('/messages'))).toHaveLength(1);
+    expect(calls.find((c) => c.key.endsWith('/messages'))?.body).toMatchObject({
+      text: 'Điền mẫu FAQ giúp mình',
+    });
+  });
+
   it('leaves a request in the composer while a turn runs', async () => {
     const send = `POST /assistant/threads/${ASSISTANT_IDS.thread}/messages`;
     const held = holdRequest(

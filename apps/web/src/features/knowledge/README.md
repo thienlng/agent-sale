@@ -4,7 +4,7 @@ Mirrors the backend `knowledge` module. `api/` = TanStack Query hooks calling `@
 
 ## Owner assistant forms (T-175)
 
-Components register forms with `useAssistantForm` (`@/lib/assistant-context`); a fill sets draft state and never saves. Editing an existing row never registers.
+Components register forms with `useAssistantForm` (`@/lib/assistant-context`); a fill sets draft state and never saves. Editing an existing row never registers, and while its edit dialog is open the list passes `busy`, so a fill is ignored (`form_busy_editing`) and never lands in the edit.
 
 | Form id | Registered by | Fill |
 |---|---|---|
