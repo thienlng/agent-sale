@@ -13,6 +13,8 @@ import {
   AssistantThreadListQuery,
   CreateAssistantSkillRequest,
   CreateAssistantThreadRequest,
+  CreateImportBatchRequest,
+  ImportBatchDto,
   SendAssistantMessageRequest,
   SendAssistantMessageResponse,
   UpdateAssistantSkillRequest,
@@ -112,6 +114,24 @@ export const assistantRoutes = defineRoutes([
     assistant: { use: 'never' },
     summary: 'Reject a pending proposal',
     responses: { 200: AssistantProposalDto },
+  },
+  {
+    ...scoped,
+    method: 'post',
+    path: '/assistant/threads/{threadId}/imports',
+    assistant: { use: 'never' },
+    summary:
+      'Start a product import: a sheet the browser read, or uploaded photos the assistant drafts',
+    body: CreateImportBatchRequest,
+    responses: { 201: ImportBatchDto },
+  },
+  {
+    ...scoped,
+    method: 'get',
+    path: '/assistant/imports/{batchId}',
+    assistant: { use: 'never' },
+    summary: 'A product import: its drafts, their problems and the results so far',
+    responses: { 200: ImportBatchDto },
   },
   {
     ...scoped,

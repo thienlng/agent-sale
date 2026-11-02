@@ -6,6 +6,7 @@ import type { WorkspaceFacade, WorkspaceMembership } from '../../workspace/api/i
 import { AssistantFacadeImpl } from '../application/assistant.facade.impl.js';
 import { ChatTurnService } from '../application/chat-turn.service.js';
 import { CompactionService } from '../application/compaction.service.js';
+import { ImportBatchService } from '../application/import-batch.service.js';
 import { ProposalService } from '../application/proposals.service.js';
 import { SkillCatalog } from '../application/skill-tools.js';
 import { SkillsService } from '../application/skills.service.js';
@@ -100,6 +101,7 @@ function setup() {
     prompts,
     proposals,
     skills,
+    new ImportBatchService(repo, { generate }),
   );
   const me = { userId: world.owner, businessId: world.business };
   return { ...world, repo, facade, me, generate, invoke, proposals };
@@ -143,6 +145,35 @@ describe('AssistantFacade (contract)', () => {
     // Billing members are refused like every assistant call.
     const billing = { userId: addAccountMember('billing'), businessId: me.businessId };
     await expect(facade.listSkills(billing)).rejects.toBeInstanceOf(AssistantForbiddenError);
+  });
+
+  it('creates and reads an import batch for the owner only', async () => {
+    const { facade, me, addAccountMember } = setup();
+    const t = await facade.createThread({ ...me, ownerName: null }, {});
+    const sheet = {
+      kind: 'sheet' as const,
+      businessId: me.businessId,
+      fileName: 'hang.csv',
+      rows: [
+        ['Tên', 'Giá'],
+        ['Áo', '100k'],
+      ],
+    };
+    const batch = await facade.createImportBatch(me, t.id, sheet);
+    expect(batch).toMatchObject({ threadId: t.id, kind: 'sheet', rowCount: 2, drafts: null });
+    expect(await facade.getImportBatch(me, batch.id)).toEqual(batch);
+
+    const billing = { ...me, userId: addAccountMember('billing') };
+    await expect(facade.createImportBatch(billing, t.id, sheet)).rejects.toBeInstanceOf(
+      AssistantForbiddenError,
+    );
+    await expect(facade.getImportBatch(billing, batch.id)).rejects.toBeInstanceOf(
+      AssistantForbiddenError,
+    );
+    const second = { ...me, userId: addAccountMember('owner') };
+    await expect(facade.getImportBatch(second, batch.id)).rejects.toBeInstanceOf(
+      AssistantNotFoundError,
+    );
   });
 
   it('reads the owner memberships once per request', async () => {

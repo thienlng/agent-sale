@@ -12,6 +12,8 @@ import type {
   AssistantThreadListQuery,
   CreateAssistantSkillRequest,
   CreateAssistantThreadRequest,
+  CreateImportBatchRequest,
+  ImportBatchDto,
   SendAssistantMessageRequest,
   SendAssistantMessageResponse,
   UpdateAssistantSkillRequest,
@@ -38,6 +40,7 @@ import {
   type MemoryStoreRecord,
 } from '../domain/ports/assistant.repository.js';
 import { ChatTurnService } from './chat-turn.service.js';
+import { ImportBatchService } from './import-batch.service.js';
 import { toMessageDtos, toRunDto, toThreadDto } from './mappers.js';
 import { accountMemberships, type OwnerScope, resolveOwnerScope } from './owner-access.js';
 import { ProposalService } from './proposals.service.js';
@@ -62,6 +65,7 @@ export class AssistantFacadeImpl implements AssistantFacade {
     @Inject(ThreadPromptService) private readonly prompts: ThreadPromptService,
     @Inject(ProposalService) private readonly proposals: ProposalService,
     @Inject(SkillsService) private readonly skills: SkillsService,
+    @Inject(ImportBatchService) private readonly imports: ImportBatchService,
   ) {}
 
   #scope(actor: AssistantActor): Promise<OwnerScope> {
@@ -163,6 +167,18 @@ export class AssistantFacadeImpl implements AssistantFacade {
 
   async rejectProposal(actor: AssistantActor, proposalId: string): Promise<AssistantProposalDto> {
     return this.proposals.reject(await this.#scope(actor), proposalId);
+  }
+
+  async createImportBatch(
+    actor: AssistantActor,
+    threadId: string,
+    input: CreateImportBatchRequest,
+  ): Promise<ImportBatchDto> {
+    return this.imports.create(await this.#scope(actor), knownId('thread', threadId), input);
+  }
+
+  async getImportBatch(actor: AssistantActor, batchId: string): Promise<ImportBatchDto> {
+    return this.imports.get(await this.#scope(actor), batchId);
   }
 
   async listSkills(actor: AssistantActor): Promise<AssistantSkillList> {

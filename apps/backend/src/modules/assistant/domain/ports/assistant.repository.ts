@@ -495,11 +495,18 @@ export interface AssistantRepository {
   searchMessages(s: OwnerScope, query: string, limit: number): Promise<SearchHit[]>;
   /**
    * `busy` = another run of this owner is running and younger than 3 min; `duplicate` = this
-   * owner already has a run with this id.
+   * owner already has a run with this id. `kind` defaults to `chat`; a photo import's first
+   * vision call starts as `import_vision`, so it holds the same per-owner lock as a turn.
    */
   startRun(
     s: OwnerScope,
-    r: { id: string; threadId: string; tier: string; promptVersion: string },
+    r: {
+      id: string;
+      threadId: string;
+      tier: string;
+      promptVersion: string;
+      kind?: 'chat' | 'import_vision';
+    },
   ): Promise<'started' | 'busy' | 'duplicate'>;
   addStep(s: OwnerScope, step: StepRecord): Promise<void>;
   finishRun(s: OwnerScope, runId: string, patch: Partial<RunRecord>): Promise<void>;

@@ -586,7 +586,13 @@ export class DrizzleAssistantRepository implements AssistantRepository {
 
   startRun(
     s: OwnerScope,
-    run: { id: string; threadId: string; tier: string; promptVersion: string },
+    run: {
+      id: string;
+      threadId: string;
+      tier: string;
+      promptVersion: string;
+      kind?: 'chat' | 'import_vision';
+    },
   ): Promise<'started' | 'busy' | 'duplicate'> {
     return this.#in(s, async (tx) => {
       await this.#ownThread(tx, s, run.threadId);
@@ -619,7 +625,7 @@ export class DrizzleAssistantRepository implements AssistantRepository {
         accountId: s.accountId,
         ownerUserId: s.ownerUserId,
         threadId: run.threadId,
-        kind: 'chat',
+        kind: run.kind ?? 'chat',
         status: 'running',
         tier: run.tier,
         promptVersion: run.promptVersion,

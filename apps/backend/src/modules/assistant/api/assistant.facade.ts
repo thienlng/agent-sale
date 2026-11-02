@@ -12,6 +12,8 @@ import type {
   AssistantThreadListQuery,
   CreateAssistantSkillRequest,
   CreateAssistantThreadRequest,
+  CreateImportBatchRequest,
+  ImportBatchDto,
   SendAssistantMessageRequest,
   SendAssistantMessageResponse,
   UpdateAssistantSkillRequest,
@@ -83,6 +85,22 @@ export interface AssistantFacade {
   ): Promise<AssistantProposalDto>;
   /** Pending → rejected, with an event message; CONFLICT as for approve. */
   rejectProposal(actor: AssistantActor, proposalId: string): Promise<AssistantProposalDto>;
+
+  // ─── Product import (T-173) ───
+
+  /**
+   * A sheet the browser read, or photos already uploaded through `POST /products/images` that a
+   * vision model drafts now (under the owner's turn lock: CONFLICT `assistant_busy`). NOT_FOUND
+   * for a thread or business outside the scope; VALIDATION_FAILED `import_empty` /
+   * `import_bad_image`. Purges the owner's batches older than 30 days.
+   */
+  createImportBatch(
+    actor: AssistantActor,
+    threadId: string,
+    input: CreateImportBatchRequest,
+  ): Promise<ImportBatchDto>;
+  /** The batch's drafts, problems and results; NOT_FOUND when not the owner's or out of scope. */
+  getImportBatch(actor: AssistantActor, batchId: string): Promise<ImportBatchDto>;
 
   // ─── Skills (1c) ───
   // Every change is recorded in the skill's ledger (actor `owner`) and can be undone.

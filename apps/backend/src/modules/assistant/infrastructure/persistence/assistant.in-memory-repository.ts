@@ -282,7 +282,13 @@ export class InMemoryAssistantRepository implements AssistantRepository {
 
   async startRun(
     s: OwnerScope,
-    r: { id: string; threadId: string; tier: string; promptVersion: string },
+    r: {
+      id: string;
+      threadId: string;
+      tier: string;
+      promptVersion: string;
+      kind?: 'chat' | 'import_vision';
+    },
   ): Promise<'started' | 'busy' | 'duplicate'> {
     this.#thread(s, r.threadId);
     const existing = this.runs.get(r.id);
@@ -302,7 +308,7 @@ export class InMemoryAssistantRepository implements AssistantRepository {
       ...r,
       accountId: s.accountId,
       ownerUserId: s.ownerUserId,
-      kind: 'chat',
+      kind: r.kind ?? 'chat',
       status: 'running',
       provider: null,
       model: null,

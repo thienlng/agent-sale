@@ -9,6 +9,7 @@ import { ASSISTANT_FACADE } from './api/assistant.facade.js';
 import { AssistantFacadeImpl } from './application/assistant.facade.impl.js';
 import { ChatTurnService } from './application/chat-turn.service.js';
 import { CompactionService } from './application/compaction.service.js';
+import { ImportBatchService } from './application/import-batch.service.js';
 import { ProposalService } from './application/proposals.service.js';
 import { SkillCatalog } from './application/skill-catalog.js';
 import { SkillsService } from './application/skills.service.js';
@@ -48,6 +49,7 @@ import { AssistantController } from './interface/http/assistant.controller.js';
     CompactionService,
     ChatTurnService,
     ProposalService,
+    ImportBatchService,
     { provide: ASSISTANT_FACADE, useClass: AssistantFacadeImpl },
   ],
   exports: [ASSISTANT_FACADE],

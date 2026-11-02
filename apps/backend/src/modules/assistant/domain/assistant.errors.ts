@@ -95,3 +95,19 @@ export class AssistantSkillInvalidError extends DomainError {
     super('The skill is not valid', { problems });
   }
 }
+
+/** Why an import batch is refused (400 VALIDATION_FAILED, `details.reason`). */
+export type ImportInvalidReason = 'import_empty' | 'import_bad_image';
+
+/** A sheet with no data left after trimming, or a photo path outside the business (400). */
+export class AssistantImportInvalidError extends DomainError {
+  readonly code = 'VALIDATION_FAILED';
+  constructor(reason: ImportInvalidReason) {
+    super(
+      reason === 'import_empty'
+        ? 'The sheet has no data rows'
+        : "A photo is not one of this business's uploaded product images",
+      { reason },
+    );
+  }
+}

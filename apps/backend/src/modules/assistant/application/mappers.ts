@@ -17,6 +17,7 @@ import type {
   StepRecord,
   ThreadRecord,
 } from '../domain/ports/assistant.repository.js';
+import { IMPORT_BLOCK_PREFIX } from './import-block.js';
 
 export function toThreadDto(t: ThreadRecord): AssistantThreadDto {
   return {
@@ -46,7 +47,8 @@ export function toMessageDtos(messages: MessageRecord[]): AssistantMessageDto[] 
     id: msg.id,
     seq: msg.seq,
     role: msg.role as AssistantMessageDto['role'],
-    content: msg.content,
+    // An import message's `<import_batch>` block is for the model only.
+    content: msg.role === 'user' ? msg.content.replace(IMPORT_BLOCK_PREFIX, '') : msg.content,
     uiActions: msg.uiActions.flatMap((a) => {
       const parsed = AssistantUiAction.safeParse(a);
       return parsed.success ? [parsed.data] : [];
