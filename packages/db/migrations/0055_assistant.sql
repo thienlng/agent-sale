@@ -2,7 +2,9 @@
 CREATE EXTENSION IF NOT EXISTS unaccent;
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
--- unaccent() is STABLE; generated columns and indexes need an IMMUTABLE wrapper.
+-- unaccent() is STABLE; generated columns and indexes need an IMMUTABLE wrapper. The wrapper
+-- assumes the unaccent extension (function and dictionary) lives in schema public, where the
+-- CREATE EXTENSION above puts it on a default search_path.
 CREATE OR REPLACE FUNCTION assistant_unaccent(text) RETURNS text
   LANGUAGE sql IMMUTABLE PARALLEL SAFE STRICT
   AS $$ SELECT public.unaccent('public.unaccent'::regdictionary, $1) $$;

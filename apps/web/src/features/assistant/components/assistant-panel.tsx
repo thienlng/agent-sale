@@ -61,15 +61,20 @@ export function AssistantPanel() {
     // Read before anything renders: the route and the targets the owner is looking at.
     const pageContext = collectPageContext(router.state.location.pathname);
     const turnId = crypto.randomUUID();
+    // The business this message is for: if the owner switches business while it is on its way,
+    // the store has started over for the new one and the result must not land there.
+    const sentFor = useAssistantUi.getState().workspaceId;
+    const switched = () => useAssistantUi.getState().workspaceId !== sentFor;
     try {
       let id = threadId;
       if (!id) {
         id = (await createThread.mutateAsync()).id;
+        if (switched()) return false;
         setThread(id);
       }
       setPendingTurn(turnId);
       const res = await sendMessage.mutateAsync({ threadId: id, turnId, text, pageContext });
-      apply(res.messages);
+      if (!switched()) apply(res.messages);
       return true;
     } catch (error) {
       if (error instanceof ApiClientError && error.status === 409) toast.error(t('busy'));

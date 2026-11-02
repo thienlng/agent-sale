@@ -47,15 +47,45 @@ describe('coreTools', () => {
     expect(uiActions).toEqual([{ type: 'navigate', to: '/app/products' }]);
   });
 
-  it.each(['https://x', '/application', '/app/../admin', '/apps', '//evil.test/app'])(
-    'refuses to navigate to %s',
+  it.each(['/app', '/app/products', '/app/bots/abc', '/app/%70roducts'])(
+    'navigates to the in-app path %s',
     async (to) => {
       const { run, uiActions } = setup();
-      const out = await run('ui_navigate', { to });
-      expect(out).toMatchObject({ ok: false, json: { ok: false, errorCode: 'invalid_path' } });
-      expect(uiActions).toEqual([]);
+      expect((await run('ui_navigate', { to })).json).toEqual({ ok: true });
+      expect(uiActions).toEqual([{ type: 'navigate', to }]);
     },
   );
+
+  it.each([
+    'https://x',
+    '/application',
+    '/app/../admin',
+    '/apps',
+    '//evil.test/app',
+    // The same rule as the web app's safeAppPath (decoded until stable, then checked).
+    '/apple',
+    '/app/../x',
+    '/app/%2e%2e/x',
+    '/app/%2E%2E/x',
+    '/app/%252e%252e/login',
+    '/app/%25252e%25252e/login',
+    '/app/%2525252e%2525252e/login',
+    '/app/%2f%2e%2e/login',
+    '/app//evil.test',
+    '/app?x=1',
+    '/app/orders#x',
+    '/app/products%3Fx=1',
+    '/app/%E0%A4%A',
+    '/app\\..\\login',
+    '/app/%5c..%5clogin',
+    '/app/\u0000x',
+    '/app/./products',
+  ])('refuses to navigate to %s', async (to) => {
+    const { run, uiActions } = setup();
+    const out = await run('ui_navigate', { to });
+    expect(out).toMatchObject({ ok: false, json: { ok: false, errorCode: 'invalid_path' } });
+    expect(uiActions).toEqual([]);
+  });
 
   it('spotlights only a target listed in the page context', async () => {
     const { run, uiActions } = setup({ route: '/app/products', targets: ['products.import'] });

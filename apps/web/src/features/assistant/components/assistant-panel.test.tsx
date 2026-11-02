@@ -6,7 +6,7 @@ import {
   Outlet,
   RouterProvider,
 } from '@tanstack/react-router';
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -27,7 +27,9 @@ const ACCOUNT = '0b9c3a52-5e3f-4c55-9a51-6a0f4b7d2c01';
 const WS = '3f0c1f0e-5b1c-4c1e-9d55-0a1b2c3d4e5f';
 const toast = vi.hoisted(() => Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }));
 vi.mock('sonner', () => ({ toast }));
-vi.mock('@/lib/use-workspace', () => ({ useWorkspaceId: () => WS }));
+const OTHER_WS = '9d8c7b6a-5f4e-4d3c-8b2a-1f0e9d8c7b6a';
+const current = vi.hoisted(() => ({ ws: '3f0c1f0e-5b1c-4c1e-9d55-0a1b2c3d4e5f' }));
+vi.mock('@/lib/use-workspace', () => ({ useWorkspaceId: () => current.ws }));
 vi.mock('@/lib/session', () => ({
   useSession: (): Session => ({
     user: { id: 'u1' } as Session['user'],
@@ -72,6 +74,7 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
+  current.ws = WS;
   useAssistantUi.setState({ open: false, workspaceId: null, threadId: null, spotlight: null });
   vi.spyOn(crypto, 'randomUUID').mockReturnValue(ASSISTANT_IDS.turn);
 });
@@ -198,5 +201,97 @@ describe('AssistantPanel', () => {
     expect(
       await screen.findByText('Thỏ Rapiz tạm thời không trả lời được. Thử lại sau ít phút.'),
     ).toBeInTheDocument();
+  });
+
+  /** A fetch stub whose `held` request waits until `release()` is called. */
+  function holdRequest(routes: Parameters<typeof stubFetch>[0], held: string) {
+    const { fetchStub, calls } = stubFetch(routes);
+    let release: () => void = () => undefined;
+    let reached: () => void = () => undefined;
+    const waiting = new Promise<void>((resolve) => (reached = resolve));
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const fetch = async (input: string, init: RequestInit = {}) => {
+      if (`${init.method ?? 'GET'} ${input.replace('/api/v1', '')}` === held) {
+        reached();
+        await gate;
+      }
+      return fetchStub(input, init);
+    };
+    return { fetch, calls, waiting, release: () => release() };
+  }
+
+  /** The owner switches business (the bubble resets the assistant to the new one). */
+  function switchBusiness(): void {
+    act(() => {
+      current.ws = OTHER_WS;
+      useAssistantUi.getState().syncWorkspace(OTHER_WS);
+    });
+  }
+
+  it('drops the answer when the business changed while the turn ran', async () => {
+    const send = `POST /assistant/threads/${ASSISTANT_IDS.thread}/messages`;
+    const held = holdRequest(
+      {
+        'POST /assistant/threads': { status: 201, body: threadFixture() },
+        [send]: {
+          status: 200,
+          body: turnFixture('mở trang sản phẩm', {
+            content: 'Đây là trang sản phẩm.',
+            uiActions: [
+              { type: 'navigate', to: '/app/products' },
+              { type: 'spotlight', target: 'orders.new', hint: 'Ở đây' },
+            ],
+          }),
+        },
+        [`GET /assistant/runs/${ASSISTANT_IDS.turn}`]: { status: 200, body: runFixture() },
+        'GET /assistant/threads': { status: 200, body: { data: [] } },
+      },
+      send,
+    );
+    vi.stubGlobal('fetch', held.fetch);
+    const router = renderApp();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' }));
+    await user.type(
+      await screen.findByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' }),
+      'mở trang sản phẩm{Enter}',
+    );
+    await held.waiting;
+    switchBusiness();
+    held.release();
+
+    await waitFor(() => expect(held.calls.some((c) => c.key === send)).toBe(true));
+    // Give the answer time to arrive, then check nothing was applied to the new business.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(router.state.location.pathname).toBe('/app/orders');
+    expect(useAssistantUi.getState()).toMatchObject({
+      workspaceId: OTHER_WS,
+      threadId: null,
+      spotlight: null,
+    });
+  });
+
+  it('does not keep a thread created for the business the owner just left', async () => {
+    const held = holdRequest(
+      {
+        'POST /assistant/threads': { status: 201, body: threadFixture() },
+        'GET /assistant/threads': { status: 200, body: { data: [] } },
+      },
+      'POST /assistant/threads',
+    );
+    vi.stubGlobal('fetch', held.fetch);
+    renderApp();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' }));
+    await user.type(await screen.findByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' }), 'chào{Enter}');
+    await held.waiting;
+    switchBusiness();
+    held.release();
+
+    await new Promise((r) => setTimeout(r, 50));
+    expect(useAssistantUi.getState()).toMatchObject({ workspaceId: OTHER_WS, threadId: null });
+    expect(held.calls.some((c) => c.key.endsWith('/messages'))).toBe(false);
   });
 });

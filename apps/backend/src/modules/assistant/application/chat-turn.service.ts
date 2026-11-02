@@ -5,7 +5,7 @@ import {
   type ChatMessage,
   type ToolCall,
 } from '@agent-sales/ai-core';
-import type { SendAssistantMessageRequest } from '@agent-sales/contracts';
+import type { AssistantUiAction, SendAssistantMessageRequest } from '@agent-sales/contracts';
 import { newId } from '@agent-sales/shared';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 
@@ -36,6 +36,13 @@ export const TURN_CALL_TIMEOUT_MS = 60_000;
 export const TITLE_CHARS = 60;
 /** Said when the turn ends without a usable answer, or the model failed. */
 export const FALLBACK_REPLY = 'Dạ em chưa trả lời được lúc này, anh/chị thử lại giúp em nhé.';
+/**
+ * The model sees at most this many active messages of the thread (1a cap; compaction is 1b). The
+ * window starts at a user message, so an assistant tool call and its results are never split.
+ */
+export const HISTORY_MAX_MESSAGES = 40;
+/** Appended to the last tool result at 80% of the turn budget (the shop bot's text says customer). */
+export const OWNER_WRAP_UP_NOTICE = 'Time is almost up: answer the owner now with what you have.';
 const PROMPT_VERSION = `${ASSISTANT_PROMPT.name}@${ASSISTANT_PROMPT.version}`;
 
 export interface TurnResult {
@@ -110,6 +117,20 @@ const toStepRecord = (runId: string, idx: number, s: AgentStep): StepRecord => (
   errorCode: null,
 });
 
+/** The last `max` messages, from the first user (or event) message on. */
+export function capHistory(messages: MessageRecord[], max = HISTORY_MAX_MESSAGES): MessageRecord[] {
+  const window = messages.slice(-max);
+  const start = window.findIndex((m) => m.role === 'user' || m.role === 'event');
+  return start < 0 ? [] : window.slice(start);
+}
+
+/** At most the last navigate and the last spotlight of the turn, navigate first. */
+export function finalUiActions(actions: AssistantUiAction[]): AssistantUiAction[] {
+  const navigate = actions.findLast((a) => a.type === 'navigate');
+  const spotlight = actions.findLast((a) => a.type === 'spotlight');
+  return [...(navigate ? [navigate] : []), ...(spotlight ? [spotlight] : [])];
+}
+
 const errorClass = (e: unknown): string => (e instanceof Error ? e.name : typeof e);
 
 /**
@@ -152,10 +173,15 @@ export class ChatTurnService {
     }
   }
 
-  /** A retried turn: the first attempt's visible messages and run, nothing runs again. */
+  /**
+   * A retried turn: the first attempt's visible messages and run, nothing runs again. While the
+   * first attempt still runs, 409 `assistant_busy`.
+   */
   async #replay(scope: OwnerScope, threadId: string, runId: string): Promise<TurnResult> {
     const run = await this.repo.getRun(scope, runId);
     if (!run || run.threadId !== threadId) throw new AssistantRunIdTakenError();
+    // The first attempt is still answering: its messages are not complete yet.
+    if (run.status === 'running') throw new AssistantBusyError();
     const messages = (await this.repo.listMessages(scope, threadId)).filter(
       (m) => m.runId === runId && isVisibleMessage(m),
     );
@@ -179,7 +205,7 @@ export class ChatTurnService {
 
     const stored = await this.repo.listMessages(scope, thread.id, { activeOnly: true });
     const turnText = buildTurnMessage(req.text, req.pageContext, new Date());
-    const history = stored.map((m) =>
+    const history = capHistory(stored).map((m) =>
       m.id === user.id ? { role: 'user' as const, content: turnText } : toChatMessage(m),
     );
 
@@ -207,6 +233,7 @@ export class ChatTurnService {
         generate: (r) => this.gateway.generate(r),
         maxRounds: TURN_MAX_ROUNDS,
         budgetMs: TURN_BUDGET_MS,
+        wrapUpNotice: OWNER_WRAP_UP_NOTICE,
         onStep: (s) => {
           // Written at once so polling sees the run progress; awaited after the loop.
           pending.push(
@@ -236,7 +263,8 @@ export class ChatTurnService {
         throw failure;
       }
       const [answer] = await this.repo.appendMessages(scope, thread.id, [
-        row({ role: 'assistant', content: FALLBACK_REPLY, uiActions: ctx.uiActions, runId }),
+        // No answer, so no UI action: the owner sees the apology only.
+        row({ role: 'assistant', content: FALLBACK_REPLY, runId }),
       ]);
       await this.repo.finishRun(scope, runId, {
         status: 'failed',
@@ -253,7 +281,7 @@ export class ChatTurnService {
       row({
         role: 'assistant',
         content: answered ? text : FALLBACK_REPLY,
-        uiActions: ctx.uiActions,
+        uiActions: answered ? finalUiActions(ctx.uiActions) : [],
         runId,
       }),
     ]);

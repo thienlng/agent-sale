@@ -157,6 +157,29 @@ describe('runAgentLoop', () => {
     expect(tools[2]!.content).toBe(`found\n\n${WRAP_UP_NOTICE}`);
   });
 
+  it('keeps the customer wrap-up text by default and uses a caller wrap-up notice when given', async () => {
+    expect(WRAP_UP_NOTICE).toBe(
+      '[System: time is almost up — answer the customer now with what you have.]',
+    );
+    let t = 0;
+    const generate = vi.fn(async (_r: GenerateRequest) => {
+      t += 50_000;
+      return generate.mock.calls.length < 4 ? reply('', [tc(String(t))]) : reply('done');
+    });
+    const notice = 'Time is almost up: answer the owner now with what you have.';
+    const out = await runAgentLoop({
+      base,
+      tools: [lookup],
+      generate,
+      now: () => t,
+      budgetMs: 180_000,
+      wrapUpNotice: notice,
+    });
+    const tools = out.followUps.filter((m) => m.role === 'tool');
+    expect(tools[2]!.content).toBe(`found\n\n${notice}`);
+    expect(tools.some((m) => m.content.includes(WRAP_UP_NOTICE))).toBe(false);
+  });
+
   it('starts no new call once the budget is spent', async () => {
     let t = 0;
     const generate = vi.fn(async (_r: GenerateRequest) => {

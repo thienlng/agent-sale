@@ -51,14 +51,29 @@ export const CORE_TOOL_DEFINITIONS: ToolDefinition[] = [
 /** `<` is escaped so a result cannot open or close a prompt tag. */
 const json = (value: unknown): string => JSON.stringify(value).replaceAll('<', '\\u003c');
 
+const MAX_DECODE_PASSES = 3;
+
 /**
- * An in-app path only (ruling R6): `/app` or `/app/…`, no `..` segment and no backslash, so a
- * navigation can never leave the dashboard.
+ * An in-app path only (ruling R6), the same rule as the web app's `safeAppPath`: decoded until
+ * stable (at most 3 passes, so `%252e%252e` cannot hide a dot segment; a bad escape is refused),
+ * then no `%`, query, hash, backslash, `//` or control character may remain, no `.` or `..`
+ * segment, and it must be `/app` or `/app/…`. A navigation can never leave the dashboard.
  */
 export function isAppPath(to: string): boolean {
-  if (!/^\/app(\/|$|\?|#)/.test(to) || to.includes('\\')) return false;
-  const path = to.split(/[?#]/, 1)[0] ?? '';
-  return !path.split('/').some((seg) => seg === '..' || seg === '.');
+  let decoded = to;
+  try {
+    for (let pass = 0; pass < MAX_DECODE_PASSES; pass++) {
+      const next = decodeURIComponent(decoded);
+      if (next === decoded) break;
+      decoded = next;
+    }
+  } catch {
+    return false;
+  }
+  if (/[%?#\\]/.test(decoded) || decoded.includes('//')) return false;
+  if ([...decoded].some((c) => c.charCodeAt(0) < 0x20 || c.charCodeAt(0) === 0x7f)) return false;
+  if (!/^\/app(\/|$)/.test(decoded)) return false;
+  return !decoded.split('/').some((seg) => seg === '..' || seg === '.');
 }
 
 /** session_search, ui_navigate and ui_spotlight for one turn. */

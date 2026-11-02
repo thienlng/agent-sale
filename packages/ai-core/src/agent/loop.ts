@@ -42,6 +42,8 @@ export interface AgentLoopInput {
   isTerminal?(call: ToolCall): boolean;
   maxRounds?: number;
   budgetMs?: number;
+  /** Appended to the last tool result at 80% of the budget; defaults to `WRAP_UP_NOTICE`. */
+  wrapUpNotice?: string;
   now?: () => number;
   onStep?(s: AgentStep): void;
   onToolError?(name: string, e: unknown): void;
@@ -233,7 +235,7 @@ export async function runAgentLoop(input: AgentLoopInput): Promise<AgentLoopResu
     if (!wrapped && now() - start >= budgetMs * WRAP_UP_FRACTION) {
       wrapped = true;
       const last = toolMessages[toolMessages.length - 1];
-      if (last) last.content = `${last.content}\n\n${WRAP_UP_NOTICE}`;
+      if (last) last.content = `${last.content}\n\n${input.wrapUpNotice ?? WRAP_UP_NOTICE}`;
       step({ kind: 'wrap_up' });
     }
     followUps.push(...toolMessages);

@@ -2,7 +2,12 @@ import type { GenerateRequest, GenerateResponse } from '@agent-sales/ai-core';
 import { DomainError, newId, userId, workspaceId } from '@agent-sales/shared';
 import { describe, expect, it, vi } from 'vitest';
 
-import { ChatTurnService, FALLBACK_REPLY } from '../application/chat-turn.service.js';
+import {
+  ChatTurnService,
+  FALLBACK_REPLY,
+  HISTORY_MAX_MESSAGES,
+  OWNER_WRAP_UP_NOTICE,
+} from '../application/chat-turn.service.js';
 import { toMessageDtos } from '../application/mappers.js';
 import {
   AssistantBusyError,
@@ -32,6 +37,9 @@ const NAVIGATE = reply({
   toolCalls: [{ id: 'call_1', name: 'ui_navigate', input: { to: '/app/products' } }],
 });
 const ANSWER = reply({ text: 'Dạ em mở trang Sản phẩm rồi ạ' });
+const call = (id: string, name: string, input: unknown) =>
+  reply({ stopReason: 'tool_use', toolCalls: [{ id, name, input }] });
+const PAGE = { route: '/app/overview', targets: ['overview.add', 'overview.help'] };
 
 async function setup(script: (GenerateResponse | Error)[] = [NAVIGATE, ANSWER]) {
   const repo = new InMemoryAssistantRepository();
@@ -244,5 +252,130 @@ describe('ChatTurnService', () => {
     await expect(
       service.send(scope, newId(), { turnId: newId(), text: 'x' }),
     ).rejects.toBeInstanceOf(AssistantNotFoundError);
+  });
+
+  it('keeps only the last navigate and the last spotlight, navigate first', async () => {
+    const { service, scope, thread } = await setup([
+      call('c1', 'ui_spotlight', { target: 'overview.add', hint: 'Bấm đây' }),
+      call('c2', 'ui_navigate', { to: '/app/orders' }),
+      call('c3', 'ui_spotlight', { target: 'overview.help', hint: 'Xem trợ giúp' }),
+      call('c4', 'ui_navigate', { to: '/app/products' }),
+      ANSWER,
+    ]);
+    const out = await service.send(scope, thread.id, {
+      turnId: newId(),
+      text: 'Chỉ em với',
+      pageContext: PAGE,
+    });
+    expect(out.messages.at(-1)?.uiActions).toEqual([
+      { type: 'navigate', to: '/app/products' },
+      { type: 'spotlight', target: 'overview.help', hint: 'Xem trợ giúp' },
+    ]);
+  });
+
+  it('stores no UI actions when the turn did not answer', async () => {
+    // The model failed after a navigation.
+    const failed = await setup([NAVIGATE, new Error('provider down')]);
+    const a = await failed.service.send(failed.scope, failed.thread.id, {
+      turnId: newId(),
+      text: 'Mở sản phẩm',
+    });
+    expect(a.run).toMatchObject({ status: 'failed', guardrail: 'model_error' });
+    expect(a.messages.at(-1)).toMatchObject({ content: FALLBACK_REPLY, uiActions: [] });
+
+    // The loop hit the round limit.
+    const loop = await setup(Array.from({ length: 30 }, () => NAVIGATE));
+    const b = await loop.service.send(loop.scope, loop.thread.id, {
+      turnId: newId(),
+      text: 'Mở mãi',
+    });
+    expect(b.run).toMatchObject({ outcome: 'limit' });
+    expect(b.messages.at(-1)).toMatchObject({ content: FALLBACK_REPLY, uiActions: [] });
+
+    // Done, but with an empty answer.
+    const empty = await setup([NAVIGATE, reply({ text: ' ' })]);
+    const c = await empty.service.send(empty.scope, empty.thread.id, {
+      turnId: newId(),
+      text: 'Mở sản phẩm',
+    });
+    expect(c.run).toMatchObject({ outcome: 'done' });
+    expect(c.messages.at(-1)).toMatchObject({ content: FALLBACK_REPLY, uiActions: [] });
+  });
+
+  it('refuses a retried turn id while its first attempt is still running', async () => {
+    const { service, scope, thread, generate } = await setup();
+    let release: (r: GenerateResponse) => void = () => undefined;
+    generate.mockImplementationOnce(
+      () => new Promise<GenerateResponse>((resolve) => (release = resolve)),
+    );
+    const turnId = newId();
+    const first = service.send(scope, thread.id, { turnId, text: 'Một' });
+    await vi.waitFor(() => expect(generate).toHaveBeenCalledTimes(1));
+    await expect(service.send(scope, thread.id, { turnId, text: 'Một' })).rejects.toBeInstanceOf(
+      AssistantBusyError,
+    );
+    release(ANSWER);
+    expect((await first).run.status).toBe('done');
+    // Once finished, the same turn id replays the result.
+    expect((await service.send(scope, thread.id, { turnId, text: 'Một' })).run.status).toBe('done');
+  });
+
+  it(`sends the model at most the last ${HISTORY_MAX_MESSAGES} messages, starting at a user message`, async () => {
+    const { service, scope, thread, generate, repo } = await setup();
+    const msg = (role: 'user' | 'assistant' | 'tool', i: number) => ({
+      id: newId(),
+      role,
+      content: `${role} ${i}`,
+      toolCalls:
+        role === 'assistant' && i % 2 === 0
+          ? [{ id: `call_${i}`, name: 'session_search', input: { query: 'x' } }]
+          : null,
+      toolCallId: role === 'tool' ? `call_${i - 1}` : null,
+      toolName: role === 'tool' ? 'session_search' : null,
+      pageContext: null,
+      uiActions: [],
+      runId: null,
+    });
+    // 15 turns of user, assistant (tool call), tool, assistant: 60 rows.
+    const rows = Array.from({ length: 15 }, (_, t) => [
+      msg('user', t * 4),
+      msg('assistant', t * 4 + 2),
+      msg('tool', t * 4 + 3),
+      msg('assistant', t * 4 + 5),
+    ]).flat();
+    await repo.appendMessages(scope, thread.id, rows);
+    generate.mockClear();
+    await service.send(scope, thread.id, { turnId: newId(), text: 'Câu mới' });
+    const sent = generate.mock.calls[0]![0].messages;
+    expect(sent[0]).toEqual({ role: 'system', content: 'SYSTEM PROMPT' });
+    const history = sent.slice(1);
+    expect(history.length).toBeLessThanOrEqual(HISTORY_MAX_MESSAGES);
+    // 61 stored rows: the last 40 start inside a turn, so its leading rows are dropped.
+    expect(history).toHaveLength(37);
+    expect(history[0]).toMatchObject({ role: 'user' });
+    expect(history.at(-1)?.content).toMatch(/Câu mới$/);
+    // Every tool result still follows the assistant message that asked for it.
+    history.forEach((m, i) => {
+      if (m.role === 'tool') expect(history[i - 1]?.toolCalls?.[0]?.id).toBe(m.toolCallId);
+    });
+  });
+
+  it('tells the model to answer the owner when time is almost up', async () => {
+    let t = 0;
+    const now = vi.spyOn(Date, 'now').mockImplementation(() => t);
+    try {
+      const { service, scope, thread, generate, repo } = await setup();
+      generate.mockImplementation((_req: GenerateRequest) => {
+        t += 40_000;
+        return Promise.resolve(generate.mock.calls.length < 3 ? NAVIGATE : ANSWER);
+      });
+      await service.send(scope, thread.id, { turnId: newId(), text: 'Mở sản phẩm' });
+      const tools = (await repo.listMessages(scope, thread.id)).filter((m) => m.role === 'tool');
+      expect(tools.at(-1)?.content).toMatch(new RegExp(`${OWNER_WRAP_UP_NOTICE}$`));
+      expect(OWNER_WRAP_UP_NOTICE).toMatch(/owner/);
+      expect(tools.some((m) => m.content.includes('customer'))).toBe(false);
+    } finally {
+      now.mockRestore();
+    }
   });
 });
