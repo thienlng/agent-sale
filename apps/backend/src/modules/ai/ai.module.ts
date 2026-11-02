@@ -17,9 +17,10 @@ import { HERMES_SUBSCRIPTION_LOGIN, LlmAdminService } from './application/llm-ad
 import { LlmRuntime } from './application/llm-runtime.js';
 import { MEDIA_PUBLIC_BASE, PlaygroundService } from './application/playground.service.js';
 import { LLM_PROVIDER_FACTORY } from './application/ports/llm-provider-factory.js';
-import { AI_RUN_REPOSITORY } from './domain/ports/ai-run.repository.js';
+import { AI_RUN_REPOSITORY, type AiRunRepository } from './domain/ports/ai-run.repository.js';
 import { CONVERSATION_SUMMARY_REPOSITORY } from './domain/ports/conversation-summary.repository.js';
 import { LLM_CONFIG_REPOSITORY } from './domain/ports/llm-config.repository.js';
+import { TURN_TRACE_REPOSITORY } from './domain/ports/turn-trace.repository.js';
 import { SdkLlmProviderFactory } from './infrastructure/llm/sdk-provider-factory.js';
 import {
   DrizzleAiRunRepository,
@@ -31,6 +32,10 @@ import {
 } from './infrastructure/persistence/conversation-summary.drizzle.js';
 import { DrizzleLlmConfigRepository } from './infrastructure/persistence/llm-config.drizzle-repository.js';
 import { InMemoryLlmConfigRepository } from './infrastructure/persistence/llm-config.in-memory-repository.js';
+import {
+  DrizzleTurnTraceRepository,
+  InMemoryTurnTraceRepository,
+} from './infrastructure/persistence/turn-trace.repositories.js';
 import { AiController } from './interface/http/ai.controller.js';
 import { LlmAdminController } from './interface/http/llm-admin.controller.js';
 
@@ -65,6 +70,22 @@ import { LlmAdminController } from './interface/http/llm-admin.controller.js';
       inject: [{ token: DB_TENANT, optional: true }],
       useFactory: (db: Database | null | undefined) =>
         db ? new DrizzleAiRunRepository(db) : new InMemoryAiRunRepository(),
+    },
+    {
+      provide: TURN_TRACE_REPOSITORY,
+      inject: [
+        { token: DB_TENANT, optional: true },
+        { token: DB_SYSTEM, optional: true },
+        AI_RUN_REPOSITORY,
+      ],
+      useFactory: (
+        db: Database | null | undefined,
+        systemDb: Database | null | undefined,
+        runs: AiRunRepository,
+      ) =>
+        db
+          ? new DrizzleTurnTraceRepository(db, systemDb)
+          : new InMemoryTurnTraceRepository(runs as InMemoryAiRunRepository),
     },
     {
       provide: CONVERSATION_SUMMARY_REPOSITORY,

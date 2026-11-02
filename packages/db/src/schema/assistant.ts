@@ -223,6 +223,8 @@ export const assistantProposals = pgTable(
     status: text('status').notNull().default('pending'),
     errorCode: text('error_code'),
     resultPreview: text('result_preview'),
+    /** The `id` of the row the approved call created (2xx JSON body with a uuid `id`), migration 0062. */
+    resultId: uuid('result_id'),
     expiresAt: ts('expires_at').notNull(),
     decidedAt: ts('decided_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
