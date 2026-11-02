@@ -8,20 +8,34 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useAssistantForm } from '@/lib/assistant-context';
 import { useCan } from '@/lib/permissions';
 
 import { useBots } from '../api/bots';
 import { BotActiveSwitch } from './bot-active-switch';
-import { CreateBotDialog, type BotBusinessContext } from './create-bot-dialog';
+import { botIndustryOf, CreateBotDialog, type BotBusinessContext } from './create-bot-dialog';
 import { DeleteBotDialog } from './delete-bot-dialog';
 
 export function BotList({ business }: { business?: BotBusinessContext }) {
   const { t, i18n } = useTranslation();
   const bots = useBots();
   const [creating, setCreating] = useState(false);
+  const [prefill, setPrefill] = useState<{ name?: string } | null>(null);
   const [deleting, setDeleting] = useState<BotDto | null>(null);
   const canManage = useCan('bots.manage');
   const date = new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium' });
+  const create = (draft: { name?: string } | null = null) => {
+    setPrefill(draft);
+    setCreating(true);
+  };
+  // The create dialog is closed most of the time: a fill opens it with the draft name, and the
+  // open dialog registers the same form itself (T175-R4). Only when a bot can be created here.
+  useAssistantForm(
+    'bot',
+    () => [{ name: 'name', label: t('bots.name'), type: 'text', empty: true }],
+    (values) => create(typeof values['name'] === 'string' ? { name: values['name'] } : {}),
+    { opensDialog: true, enabled: canManage && botIndustryOf(business) !== null },
+  );
 
   return (
     <TooltipProvider>
@@ -32,7 +46,7 @@ export function BotList({ business }: { business?: BotBusinessContext }) {
             <p className="mt-1 text-muted-foreground">{t('bots.subtitle')}</p>
           </div>
           {canManage ? (
-            <Button size="lg" data-assistant-target="bots.new" onClick={() => setCreating(true)}>
+            <Button size="lg" data-assistant-target="bots.new" onClick={() => create()}>
               <Plus />
               {t('bots.create')}
             </Button>
@@ -136,7 +150,7 @@ export function BotList({ business }: { business?: BotBusinessContext }) {
                   size="lg"
                   className="mt-6"
                   data-assistant-target="bots.new"
-                  onClick={() => setCreating(true)}
+                  onClick={() => create()}
                 >
                   <Plus />
                   {t('bots.create')}
@@ -145,7 +159,12 @@ export function BotList({ business }: { business?: BotBusinessContext }) {
             </div>
           )}
         </div>
-        <CreateBotDialog business={business} open={creating} onOpenChange={setCreating} />
+        <CreateBotDialog
+          business={business}
+          open={creating}
+          prefill={prefill}
+          onOpenChange={setCreating}
+        />
         <DeleteBotDialog bot={deleting} onOpenChange={(open) => !open && setDeleting(null)} />
       </section>
     </TooltipProvider>
