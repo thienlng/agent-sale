@@ -204,6 +204,9 @@ describe('assistant schedules on Postgres (T-172)', () => {
       repo2.insertScheduleRun(row()),
     ]);
     expect([x, y].filter(Boolean)).toHaveLength(1);
+    // The runner finds the slot's run again (resuming a crashed worker's run).
+    expect((await repo.getScheduleRunAt(s.id, slot))?.id).toBe((x ?? y)!.id);
+    expect(await repo.getScheduleRunAt(s.id, new Date(slot.getTime() + 1))).toBeNull();
   });
 
   it('gives two concurrent claimers disjoint schedules and honours the lease', async () => {

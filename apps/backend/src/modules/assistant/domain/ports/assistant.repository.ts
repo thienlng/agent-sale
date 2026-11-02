@@ -70,8 +70,11 @@ export type NewMessage = Omit<
 export interface RunRecord {
   id: string;
   threadId: string | null;
-  /** `chat` = an owner turn; `compaction` = one summariser call (tier `basic`). */
-  kind: 'chat' | 'compaction';
+  /**
+   * `chat` = an owner turn; `compaction` = one summariser call (tier `basic`); `schedule` = one
+   * report commentary call (tier `basic`, no thread).
+   */
+  kind: 'chat' | 'compaction' | 'schedule';
   status: 'running' | 'done' | 'failed';
   tier: string;
   provider: string | null;
@@ -812,6 +815,11 @@ export interface AssistantRepository {
   claimDueSchedules(now: Date, limit: number, leaseMs: number): Promise<ScheduleRecord[]>;
   /** Worker: `ON CONFLICT (schedule_id, scheduled_for) DO NOTHING`; null on conflict. */
   insertScheduleRun(row: NewScheduleRun): Promise<ScheduleRunRecord | null>;
+  /**
+   * Worker: the run of a slot, whatever its status; null when the slot has none. The runner
+   * resumes a `running` one a crashed worker left behind.
+   */
+  getScheduleRunAt(scheduleId: string, scheduledFor: Date): Promise<ScheduleRunRecord | null>;
   /** Worker: patches a run by id. */
   finishScheduleRun(id: string, patch: ScheduleRunPatch): Promise<void>;
   /** Worker: patches the schedule's runner state and clears `lease_until`. */

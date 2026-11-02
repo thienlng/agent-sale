@@ -1109,6 +1109,16 @@ export class InMemoryAssistantRepository implements AssistantRepository {
     return structuredClone(r);
   }
 
+  async getScheduleRunAt(
+    scheduleId: string,
+    scheduledFor: Date,
+  ): Promise<ScheduleRunRecord | null> {
+    const r = [...this.scheduleRuns.values()].find(
+      (x) => x.scheduleId === scheduleId && x.scheduledFor.getTime() === scheduledFor.getTime(),
+    );
+    return r ? structuredClone(r) : null;
+  }
+
   async finishScheduleRun(id: string, patch: ScheduleRunPatch): Promise<void> {
     const r = this.scheduleRuns.get(id);
     if (r) Object.assign(r, definedOnly(structuredClone(patch)));

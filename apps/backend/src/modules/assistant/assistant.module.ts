@@ -10,11 +10,13 @@ import { CrmModule } from '../crm/crm.module.js';
 import { NotificationModule } from '../notification/notification.module.js';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
 import { ASSISTANT_FACADE } from './api/assistant.facade.js';
+import { ASSISTANT_SCHEDULE_RUNNER } from './api/assistant.runner.js';
 import { AssistantFacadeImpl } from './application/assistant.facade.impl.js';
 import { ChatTurnService } from './application/chat-turn.service.js';
 import { CompactionService } from './application/compaction.service.js';
 import { ProposalService } from './application/proposals.service.js';
 import { ReportService } from './application/report.service.js';
+import { ScheduleRunner } from './application/schedule-runner.js';
 import { SchedulesService } from './application/schedules.service.js';
 import { SkillCatalog } from './application/skill-catalog.js';
 import { SkillsService } from './application/skills.service.js';
@@ -73,7 +75,9 @@ import { SchedulesController } from './interface/http/schedules.controller.js';
     ReportService,
     SchedulesService,
     { provide: ASSISTANT_FACADE, useClass: AssistantFacadeImpl },
+    // The worker runs due schedules (T-172); the api process never ticks it.
+    { provide: ASSISTANT_SCHEDULE_RUNNER, useClass: ScheduleRunner },
   ],
-  exports: [ASSISTANT_FACADE],
+  exports: [ASSISTANT_FACADE, ASSISTANT_SCHEDULE_RUNNER],
 })
 export class AssistantModule {}

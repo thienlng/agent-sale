@@ -8,6 +8,11 @@ import { DbModule } from '../common/db/db.module.js';
 import { createLogger, PinoNestLogger } from '../common/logger.js';
 import { ANALYTICS_RUNNER, type AnalyticsRunner } from '../modules/analytics/api/index.js';
 import { AnalyticsModule } from '../modules/analytics/analytics.module.js';
+import {
+  ASSISTANT_SCHEDULE_RUNNER,
+  type AssistantScheduleRunner,
+} from '../modules/assistant/api/index.js';
+import { AssistantModule } from '../modules/assistant/assistant.module.js';
 import { BILLING_RUNNER, type BillingRunner } from '../modules/billing/api/index.js';
 import { BillingModule } from '../modules/billing/billing.module.js';
 import { DEVELOPER_RUNNER, type DeveloperRunner } from '../modules/developer/api/index.js';
@@ -34,6 +39,7 @@ import { SaasModule } from '../modules/saas/saas.module.js';
     SaasModule,
     DeveloperModule,
     NotificationModule,
+    AssistantModule,
   ],
 })
 class WorkerModule {}
@@ -126,6 +132,19 @@ const notificationTimer = setInterval(() => {
       notifying = false;
     });
 }, 5000);
+// Owner assistant schedules (T-172): due reports and alerts; one tick at a time.
+const schedules = ctx.get<AssistantScheduleRunner>(ASSISTANT_SCHEDULE_RUNNER);
+let scheduling = false;
+const scheduleTimer = setInterval(() => {
+  if (scheduling) return;
+  scheduling = true;
+  void schedules
+    .tick()
+    .catch(() => logger.error('Assistant schedule tick failed'))
+    .finally(() => {
+      scheduling = false;
+    });
+}, 15_000);
 let dailyRunning = false;
 const runDaily = () => {
   if (dailyRunning) return;
@@ -149,8 +168,9 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const)
     clearInterval(dailyTimer);
     clearInterval(webhookTimer);
     clearInterval(notificationTimer);
+    clearInterval(scheduleTimer);
   });
 logger.info(
   { queues },
-  'worker started (analytics projection, PMS sync, billing lifecycle, HQ sync, webhooks, notifications; no queue processors registered yet)',
+  'worker started (analytics projection, PMS sync, billing lifecycle, HQ sync, webhooks, notifications, assistant schedules; no queue processors registered yet)',
 );

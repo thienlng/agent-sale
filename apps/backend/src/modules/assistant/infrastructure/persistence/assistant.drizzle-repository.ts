@@ -1580,6 +1580,17 @@ export class DrizzleAssistantRepository implements AssistantRepository {
     });
   }
 
+  getScheduleRunAt(scheduleId: string, scheduledFor: Date): Promise<ScheduleRunRecord | null> {
+    return this.#sys(async (tx) => {
+      const [row] = await tx
+        .select()
+        .from(sr)
+        .where(and(eq(sr.scheduleId, scheduleId), eq(sr.scheduledFor, scheduledFor)))
+        .limit(1);
+      return row ? toScheduleRun(row) : null;
+    });
+  }
+
   finishScheduleRun(id: string, patch: ScheduleRunPatch): Promise<void> {
     return this.#sys(async (tx) => {
       const values = defined(patch);
