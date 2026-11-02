@@ -73,7 +73,7 @@ export const THREAD_LIST_LIMIT = 50;
 export const RUN_BUSY_WINDOW_MS = 3 * 60_000;
 
 /**
- * Account-scoped storage of one owner's assistant data (ADR-021). Every method is limited to
+ * Account-scoped storage of one owner's assistant data (ADR-022). Every method is limited to
  * `s.accountId` AND `s.ownerUserId`: a thread or run of another owner, even in the same
  * account, behaves as absent. Methods taking a `threadId` or `runId` verify, in the same
  * transaction, that it is the owner's (the `thread_id` foreign keys alone do not carry the

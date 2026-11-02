@@ -18,7 +18,7 @@ export interface AssistantActor {
 }
 
 /**
- * PUBLIC CONTRACT of the assistant module (owner assistant, ADR-021). Every method first
+ * PUBLIC CONTRACT of the assistant module (owner assistant, ADR-022). Every method first
  * resolves the owner scope: FORBIDDEN unless the actor is an active owner of the business's
  * account; another owner's thread or run is NOT_FOUND. No other module consumes it yet.
  */

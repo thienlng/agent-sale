@@ -3,7 +3,7 @@ import { sql } from 'drizzle-orm';
 import type { Database } from './client.js';
 import type { TenantTx } from './tenant.js';
 
-/** Statement that scopes the current transaction to one account (ADR-021, assistant data). */
+/** Statement that scopes the current transaction to one account (ADR-022, assistant data). */
 export function accountContextSql(accountId: string) {
   // `true` = transaction-local; safe behind PgBouncer transaction pooling.
   return sql`select set_config('app.account_id', ${accountId}, true)`;

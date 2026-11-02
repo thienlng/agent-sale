@@ -382,9 +382,9 @@ Global tables (no `workspace_id`, no tenant grant; `app_system` only), owned by 
 - `platform_audit_events` (written by every operator action through `writePlatformAudit`, read by `backoffice`): actor id and name, action, target type and id, reason, `data`. `app_system` has select and insert only (append-only).
 - `account_subscriptions` gains `status_changed_at` (grace and suspension are counted from it) and `reminders_sent` (reminder keys sent for the current period). `accounts` gains `status_reason`, `status_changed_at`.
 
-## Implemented owner assistant tables (T-170, ADR-021)
+## Implemented owner assistant tables (T-170, ADR-022)
 
-Migration 0053 adds four forced-RLS tables scoped by **account**, not workspace: each row carries `account_id`, `app_tenant` sees rows only for `app.account_id` (set by `withAccount`, ADR-004 amendment 2026-11-02), `app_system` sees all.
+Migration 0055 adds four forced-RLS tables scoped by **account**, not workspace: each row carries `account_id`, `app_tenant` sees rows only for `app.account_id` (set by `withAccount`, ADR-004 amendment 2026-11-02), `app_system` sees all.
 
 - `assistant_threads`: one conversation of an owner with the assistant. `owner_user_id`, `title` (≤ 120 chars), `origin` (`chat` | `schedule` | `review`), optional `business_id` (a workspace), `pinned`, `archived`, the frozen `system_prompt` + `prompt_version`, `last_message_at`. Indexed by `(account_id, owner_user_id, archived, last_message_at desc)`.
 - `assistant_messages`: ordered by `seq`, unique per thread; `role` (`user` | `assistant` | `tool` | `event`), `content`, `tool_calls`, `tool_call_id`, `tool_name`, `page_context`, `ui_actions`, `run_id`, flags `active` / `compacted` / `is_summary`. `search` is a generated `tsvector` (`'simple'` config over `assistant_unaccent(content)`) with a GIN index, plus a trigram GIN index on `assistant_unaccent(content)`, so Vietnamese search ignores diacritics. `assistant_unaccent` is an `IMMUTABLE` wrapper over `unaccent`. `search` is not in the Drizzle table; repositories query it with `sql`.

@@ -1,4 +1,4 @@
--- Owner assistant (ADR-021): account-scoped threads, messages, runs and their steps.
+-- Owner assistant (ADR-022): account-scoped threads, messages, runs and their steps.
 CREATE EXTENSION IF NOT EXISTS unaccent;
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 

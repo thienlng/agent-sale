@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, NestJS 12 on Fastify, Drizzle + PostgreSQL 16 (RLS), Zod 4 contracts, Vitest, React 19 + TanStack Query/Router, shadcn/ui, i18next (`packages/i18n`).
 
-**Spec:** `docs/superpowers/specs/2026-11-02-owner-assistant-core-design.md` · ADR: `docs/adr/ADR-021-owner-assistant.md`
+**Spec:** `docs/superpowers/specs/2026-11-02-owner-assistant-core-design.md` · ADR: `docs/adr/ADR-022-owner-assistant.md`
 
 ## Global Constraints
 
@@ -38,7 +38,7 @@ packages/ai-core/prompts/assistant@1.md   identity + Rapiz map (stable tier)
 packages/db/src/account.ts                withAccount, accountContextSql
 packages/db/src/account.integration.test.ts
 packages/db/src/schema/assistant.ts       Drizzle tables
-packages/db/migrations/0053_assistant.sql
+packages/db/migrations/0055_assistant.sql
 packages/contracts/src/assistant/assistant.schema.ts
 packages/contracts/src/assistant/assistant.routes.ts
 apps/backend/src/modules/ai/api/llm-gateway.port.ts      AI_LLM_GATEWAY + LlmGatewayPort
@@ -126,7 +126,7 @@ export const AI_LLM_GATEWAY = Symbol('AI_LLM_GATEWAY');
 ### Task 3: Account-scoped tenancy and assistant tables
 
 **Files:**
-- Create: `packages/db/src/account.ts`, `packages/db/src/account.integration.test.ts`, `packages/db/src/schema/assistant.ts`, `packages/db/migrations/0053_assistant.sql`
+- Create: `packages/db/src/account.ts`, `packages/db/src/account.integration.test.ts`, `packages/db/src/schema/assistant.ts`, `packages/db/migrations/0055_assistant.sql`
 - Modify: `packages/db/src/index.ts` (export `withAccount`, `accountContextSql`), `packages/db/src/schema/index.ts` (export assistant tables), `packages/db/README.md` (tenancy section), `docs/adr/ADR-004-multi-tenant-rls.md` (amendment line), `docs/05-data-model.md` (assistant tables section)
 
 **Interfaces:**
@@ -141,7 +141,7 @@ import { sql } from 'drizzle-orm';
 import type { Database } from './client.js';
 import type { TenantTx } from './tenant.js';
 
-/** Statement that scopes the current transaction to one account (ADR-021, assistant data). */
+/** Statement that scopes the current transaction to one account (ADR-022, assistant data). */
 export function accountContextSql(accountId: string) {
   return sql`select set_config('app.account_id', ${accountId}, true)`;
 }
@@ -163,10 +163,10 @@ export async function withAccount<T>(
 }
 ```
 
-Migration `0053_assistant.sql` (check `ls packages/db/migrations` and every remote branch first; take the next free number):
+Migration `0055_assistant.sql` (check `ls packages/db/migrations` and every remote branch first; take the next free number):
 
 ```sql
--- Owner assistant (ADR-021): account-scoped threads, messages, runs and their steps.
+-- Owner assistant (ADR-022): account-scoped threads, messages, runs and their steps.
 CREATE EXTENSION IF NOT EXISTS unaccent;
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
@@ -270,7 +270,7 @@ Drizzle schema `schema/assistant.ts` mirrors the SQL (follow `schema/saas.ts` st
 - [ ] **Step 2:** Run `pnpm --filter @agent-sales/db test -- account` → FAIL (module/migration missing).
 - [ ] **Step 3:** Add `account.ts`, migration, schema, exports.
 - [ ] **Step 4:** Run the test → PASS; run `pnpm --filter @agent-sales/db test` → all PASS.
-- [ ] **Step 5:** Docs: ADR-004 amendment ("2026-11-02 (T-170, ADR-021): assistant tables are account-scoped; `withAccount` sets `app.account_id` per transaction; same rules as `withTenant`"), `packages/db/README.md`, `docs/05` table list. Commit: `feat(db): account-scoped tenancy and assistant tables (T-170)`.
+- [ ] **Step 5:** Docs: ADR-004 amendment ("2026-11-02 (T-170, ADR-022): assistant tables are account-scoped; `withAccount` sets `app.account_id` per transaction; same rules as `withTenant`"), `packages/db/README.md`, `docs/05` table list. Commit: `feat(db): account-scoped tenancy and assistant tables (T-170)`.
 
 ---
 

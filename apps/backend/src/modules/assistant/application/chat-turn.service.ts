@@ -27,7 +27,7 @@ import { CORE_TOOL_DEFINITIONS, coreTools, type ToolContext } from './core-tools
 import { isVisibleMessage } from './mappers.js';
 import { ASSISTANT_PROMPT, buildTurnMessage } from './prompt-builder.js';
 
-/** The assistant answers on the `pro` tier (ADR-021). */
+/** The assistant answers on the `pro` tier (ADR-022). */
 export const TURN_TIER = 'pro' as const;
 export const TURN_MAX_ROUNDS = 25;
 export const TURN_BUDGET_MS = 90_000;

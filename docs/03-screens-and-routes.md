@@ -150,4 +150,4 @@ Dedicated layout: back button, bot name, **bot on/off switch**, left menu, **tes
 - Every `/app` page shows a round rabbit launcher bottom-right for an active **owner** of the account; billing members and business staff never see it. It is composed in `routes/app.tsx`. On bot pages (`/app/bots/{botId}/…`) it sits higher so it does not cover the **Chat thử** button.
 - The launcher opens a side panel ("Thỏ Rapiz"): the owner's threads (searchable, pinned first; pinning and archiving exist in the API only), the conversation, and **Xem các bước** under an answer (tool names, ok/error, duration). While a turn runs the panel shows the steps so far. Switching business starts a fresh conversation.
 - The assistant can move the owner to another `/app` page and highlight a control on the current page. Controls it may point at carry `data-assistant-target`: `products.new`, `orders.new`, `bots.new`, `channels.connect`.
-- Backend and flow: [04 §5](04-system-architecture.md), [ADR-021](adr/ADR-021-owner-assistant.md).
+- Backend and flow: [04 §5](04-system-architecture.md), [ADR-022](adr/ADR-022-owner-assistant.md).

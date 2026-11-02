@@ -1,8 +1,8 @@
 # assistant
 
-**Purpose:** the owner assistant "Thỏ Rapiz" (ADR-021, T-170): an account owner's private chat threads, the runs that answer them and their steps. Owner-only and account-scoped, not business-scoped.
+**Purpose:** the owner assistant "Thỏ Rapiz" (ADR-022, T-170): an account owner's private chat threads, the runs that answer them and their steps. Owner-only and account-scoped, not business-scoped.
 
-**Owned tables:** `assistant_threads`, `assistant_messages`, `assistant_runs`, `assistant_run_steps` (migration 0053; schema in `packages/db/src/schema/assistant.ts`). Every row carries `account_id`; RLS reads `app.account_id`, set by `withAccount`. `assistant_messages.search` (generated tsvector, GIN + trigram indexes) exists only in SQL and is queried with `sql`.
+**Owned tables:** `assistant_threads`, `assistant_messages`, `assistant_runs`, `assistant_run_steps` (migration 0055; schema in `packages/db/src/schema/assistant.ts`). Every row carries `account_id`; RLS reads `app.account_id`, set by `withAccount`. `assistant_messages.search` (generated tsvector, GIN + trigram indexes) exists only in SQL and is queried with `sql`.
 
 **Public API (`api/`):**
 

@@ -1,7 +1,7 @@
 # Owner assistant ("Thỏ Rapiz") — agent core design
 
 - Task: T-170 · Date: 2026-11-02 · Status: approved in brainstorming by the product owner (2026-11-02), awaiting review
-- ADR: [ADR-021](../../adr/ADR-021-owner-assistant.md)
+- ADR: [ADR-022](../../adr/ADR-022-owner-assistant.md)
 - Reference: Nous Research hermes-agent (local copy `~/Workspace/NetClaw_1.1.0/hermes-agent`, read 2026-11-02). Patterns are ported, the runtime is not reused. Dify was reviewed for ideas only: its licence (condition 1a) forbids using its source to operate a multi-tenant service.
 
 ## 1. Goal
@@ -55,7 +55,7 @@ The shop bot (`modules/ai`) switches to `ai-core/agent/loop.ts` in PR 1a with **
 ## 3. Tenancy and access
 
 - **Assistant data is account-scoped**, not workspace-scoped (an owner works across businesses). New tables carry `account_id` and `owner_user_id`.
-- **New helper `withAccount(accountId, fn)`** in `packages/db`: transaction-scoped `set_config('app.account_id', …, true)`, same rules as `withTenant` (ADR-004). New policy template `accountPolicies(table)` for role `app_tenant` with predicate `account_id = current_setting('app.account_id')`; `app_system` policy for workers as today. Every repository method also filters by `account_id` and `owner_user_id` explicitly. Amendment to ADR-004 (ADR-021 §Decision 2).
+- **New helper `withAccount(accountId, fn)`** in `packages/db`: transaction-scoped `set_config('app.account_id', …, true)`, same rules as `withTenant` (ADR-004). New policy template `accountPolicies(table)` for role `app_tenant` with predicate `account_id = current_setting('app.account_id')`; `app_system` policy for workers as today. Every repository method also filters by `account_id` and `owner_user_id` explicitly. Amendment to ADR-004 (ADR-022 §Decision 2).
 - **Owner guard** (`@AccountOwner()`): resolves the account from the current business, checks the active owner membership through the `account` facade, and rejects everyone else with 403. Applied to every assistant route, every SSE stream, every proposal execution and every scheduled run (preflight).
 - **Business data** is never read from assistant tables: route tools call the real routes (membership + capabilities + RLS apply), the SQL lane uses its own role (capability 2).
 
@@ -200,6 +200,6 @@ What slice 1a shipped differs from the sections above in these points; the rest 
 - **Polling instead of SSE.** A chat turn runs synchronously inside `POST /assistant/threads/{threadId}/messages`; the bubble polls `GET /assistant/runs/{runId}` once a second for the steps while it waits. The `realtime` channel (§7) comes later.
 - **Synchronous turn (exception to docs/16 §2).** Exception (T-170, 1a): the owner assistant turn runs synchronously within 90 s, owners only, one turn per owner; it moves off the request with streaming in 1b.
 - **Turn budget 90 s in 1a**, not 180 s, so a synchronous turn ends before the reverse proxy's read timeout. Rounds (25), the wrap-up notice at 80 % and the per-call timeout (60 s) are unchanged. A newer message does not interrupt a running turn yet; a second turn of the same owner answers 409 `assistant_busy` at once instead of queueing.
-- **Tables:** 1a creates only `assistant_threads`, `assistant_messages`, `assistant_runs` and `assistant_run_steps` (migration 0053). `assistant_run_steps` has no `owner_user_id` (it is reached through its run) and stores no arguments or results in 1a: kind, tool name, ok, error code, duration only. `promptCacheKey` is `asst:<ownerUserId>:<threadId>` (no `cache_root_id` until compaction exists).
+- **Tables:** 1a creates only `assistant_threads`, `assistant_messages`, `assistant_runs` and `assistant_run_steps` (migration 0055). `assistant_run_steps` has no `owner_user_id` (it is reached through its run) and stores no arguments or results in 1a: kind, tool name, ok, error code, duration only. `promptCacheKey` is `asst:<ownerUserId>:<threadId>` (no `cache_root_id` until compaction exists).
 - **Owner check** is a facade-level `resolveOwnerScope` on every call, not a route decorator; the effect (403 for everyone but an active owner) is the same.
 - **`useAssistantContext`** lives in `apps/web/src/features/assistant/hooks` in 1a and no page calls it yet; it moves to `apps/web/src/lib/` in 1b, before pages adopt it, because features may not import each other. The page context in 1a is the route plus the `data-assistant-target` ids on screen.

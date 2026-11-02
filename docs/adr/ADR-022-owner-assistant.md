@@ -1,4 +1,4 @@
-# ADR-021: Owner assistant — account-scoped, self-improving agent with three access lanes
+# ADR-022: Owner assistant — account-scoped, self-improving agent with three access lanes
 
 - Status: Proposed
 - Date: 2026-11-02

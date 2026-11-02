@@ -98,7 +98,7 @@ function toRun(row: typeof r.$inferSelect): RunRecord {
 }
 
 /**
- * Assistant storage on PostgreSQL (ADR-021): every call runs in one `withAccount` transaction
+ * Assistant storage on PostgreSQL (ADR-022): every call runs in one `withAccount` transaction
  * (RLS on `account_id`) and filters by account AND owner explicitly, so a second owner of the
  * same account sees nothing of the first. Thread/run ownership is checked in the same
  * transaction before any read or write by id.

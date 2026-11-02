@@ -18,7 +18,7 @@ import { users } from './identity.js';
 import { accountPolicies, workspaces } from './workspace.js';
 
 /*
- * Owner assistant (0053, ADR-021). ACCOUNT-scoped, not workspace-scoped: every row carries
+ * Owner assistant (0055, ADR-022). ACCOUNT-scoped, not workspace-scoped: every row carries
  * `account_id` and RLS reads `app.account_id`, set by `withAccount`. `assistant_messages.search`
  * (a generated tsvector) and its GIN/trigram indexes exist only in SQL; repositories query them
  * with `sql`, so Drizzle never selects or writes the generated column.

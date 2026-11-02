@@ -34,7 +34,7 @@ function knownId(what: 'thread' | 'run', id: string): string {
 /** Used in the prompt when the owner has no display name. */
 const FALLBACK_OWNER_NAME = 'anh/chị';
 
-/** Owner check first, then the repository; no business data is stored (ADR-021). */
+/** Owner check first, then the repository; no business data is stored (ADR-022). */
 @Injectable()
 export class AssistantFacadeImpl implements AssistantFacade {
   constructor(
