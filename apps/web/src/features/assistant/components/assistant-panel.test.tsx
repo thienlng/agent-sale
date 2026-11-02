@@ -8,12 +8,16 @@ import {
 } from '@tanstack/react-router';
 import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { useAssistantForm } from '@/lib/assistant-context';
 import { loadNamespace } from '@/lib/i18n';
 import type { Session } from '@/lib/session';
 import {
   ASSISTANT_IDS,
+  messageFixture,
+  proposalFixture,
   runFixture,
   threadFixture,
   turnFixture,
@@ -293,5 +297,215 @@ describe('AssistantPanel', () => {
     await new Promise((r) => setTimeout(r, 50));
     expect(useAssistantUi.getState()).toMatchObject({ workspaceId: OTHER_WS, threadId: null });
     expect(held.calls.some((c) => c.key.endsWith('/messages'))).toBe(false);
+  });
+
+  /** A product page in small: two fields registered as form `product`, and its save button. */
+  function ProductFormPage() {
+    const [name, setName] = useState('');
+    const [price, setPrice] = useState('');
+    useAssistantForm(
+      'product',
+      () => [
+        { name: 'name', label: 'Tên', type: 'text', empty: !name },
+        { name: 'price', label: 'Giá', type: 'number', empty: !price },
+      ],
+      (values) => {
+        if (values['name'] !== undefined) setName(String(values['name']));
+        if (values['price'] !== undefined) setPrice(String(values['price']));
+      },
+      { submitTarget: 'products.save' },
+    );
+    return (
+      <form>
+        <input aria-label="Tên" value={name} onChange={(e) => setName(e.target.value)} />
+        <input aria-label="Giá" value={price} onChange={(e) => setPrice(e.target.value)} />
+        <button type="submit" data-assistant-target="products.save">
+          Lưu
+        </button>
+      </form>
+    );
+  }
+
+  function fillTurn(formId: string) {
+    return stubFetch({
+      'POST /assistant/threads': { status: 201, body: threadFixture() },
+      [`POST /assistant/threads/${ASSISTANT_IDS.thread}/messages`]: {
+        status: 200,
+        body: turnFixture('điền giúp', {
+          content: 'Mình điền rồi nhé.',
+          uiActions: [
+            { type: 'fill_form', formId, values: { name: 'Áo thun', price: 150000, color: 'đỏ' } },
+          ],
+        }),
+      },
+      [`GET /assistant/runs/${ASSISTANT_IDS.turn}`]: { status: 200, body: runFixture() },
+      [`GET /assistant/threads/${ASSISTANT_IDS.thread}/proposals`]: {
+        status: 200,
+        body: { items: [] },
+      },
+      'GET /assistant/threads': { status: 200, body: { data: [] } },
+    });
+  }
+
+  it('sends the form with the page context, fills it from the answer and points at Save', async () => {
+    const { fetchStub, calls } = fillTurn('product');
+    vi.stubGlobal('fetch', fetchStub);
+    renderApp(ProductFormPage, '/app/products/new');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' }));
+    await user.type(
+      await screen.findByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' }),
+      'điền giúp{Enter}',
+    );
+
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: 'Tên' })).toHaveValue('Áo thun'),
+    );
+    expect(screen.getByRole('textbox', { name: 'Giá' })).toHaveValue('150000');
+    expect(useAssistantUi.getState().spotlight).toEqual({
+      target: 'products.save',
+      hint: 'Mình đã điền sẵn. Anh/chị kiểm tra lại rồi bấm Lưu nhé.',
+    });
+    expect(calls.find((c) => c.key.endsWith('/messages'))?.body).toMatchObject({
+      pageContext: {
+        route: '/app/products/new',
+        targets: ['products.save'],
+        forms: [
+          {
+            id: 'product',
+            fields: [
+              { name: 'name', label: 'Tên', type: 'text', empty: true },
+              { name: 'price', label: 'Giá', type: 'number', empty: true },
+            ],
+          },
+        ],
+      },
+    });
+    // Filled, never submitted.
+    expect(calls.some((c) => c.key.startsWith('POST /products'))).toBe(false);
+  });
+
+  it('says so when the form to fill is not on the page', async () => {
+    const { fetchStub } = fillTurn('order');
+    vi.stubGlobal('fetch', fetchStub);
+    renderApp();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' }));
+    await user.type(
+      await screen.findByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' }),
+      'điền giúp{Enter}',
+    );
+
+    await waitFor(() =>
+      expect(toast).toHaveBeenCalledWith(
+        'Biểu mẫu Thỏ Rapiz định điền không có trên trang này. Mở đúng trang rồi hỏi lại nhé.',
+      ),
+    );
+    expect(useAssistantUi.getState().spotlight).toBeNull();
+  });
+
+  it('applies a proposal: buttons wait for the answer, then the status and event show', async () => {
+    useAssistantUi.setState({ open: true, workspaceId: WS, threadId: ASSISTANT_IDS.thread });
+    const listMessages = `GET /assistant/threads/${ASSISTANT_IDS.thread}/messages`;
+    const listProposals = `GET /assistant/threads/${ASSISTANT_IDS.thread}/proposals`;
+    const approve = `POST /assistant/proposals/${ASSISTANT_IDS.proposal}/approve`;
+    const conversation = turnFixture('tăng giá áo thun', {
+      content: 'Mình đã chuẩn bị đề xuất, anh/chị bấm Áp dụng nhé.',
+    }).messages;
+    const routes: Parameters<typeof stubFetch>[0] = {
+      [listMessages]: { status: 200, body: { data: conversation } },
+      [listProposals]: { status: 200, body: { items: [proposalFixture()] } },
+      [approve]: {
+        status: 200,
+        body: proposalFixture({ status: 'done', decidedAt: '2026-11-02T08:01:00.000Z' }),
+      },
+    };
+    const held = holdRequest(routes, approve);
+    vi.stubGlobal('fetch', held.fetch);
+    renderApp();
+    const user = userEvent.setup();
+
+    expect(await screen.findByText('Đổi giá Áo thun thành 150.000đ')).toBeInTheDocument();
+    expect(screen.getByText('Cho Shop An')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Xem chi tiết' }));
+    expect(screen.getByText(/"to": 150000/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Áp dụng' }));
+    await held.waiting;
+    expect(screen.getByRole('button', { name: 'Đang áp dụng…' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Bỏ' })).toBeDisabled();
+
+    // After the decision the thread has an event message, and the proposal is done.
+    routes[listMessages] = {
+      status: 200,
+      body: {
+        data: [
+          ...conversation,
+          messageFixture({
+            id: ASSISTANT_IDS.event,
+            seq: 3,
+            role: 'event',
+            content: 'Đã áp dụng: Đổi giá Áo thun thành 150.000đ',
+            runId: null,
+            createdAt: '2026-11-02T08:01:00.000Z',
+          }),
+        ],
+      },
+    };
+    routes[listProposals] = {
+      status: 200,
+      body: { items: [proposalFixture({ status: 'done', decidedAt: '2026-11-02T08:01:00.000Z' })] },
+    };
+    held.release();
+
+    expect(
+      await screen.findByText('Đã áp dụng: Đổi giá Áo thun thành 150.000đ'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Đã áp dụng')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Áp dụng' })).not.toBeInTheDocument();
+    expect(held.calls.filter((c) => c.key === listMessages)).toHaveLength(2);
+  });
+
+  it('shows why a proposal can no longer be applied (409 expired)', async () => {
+    useAssistantUi.setState({ open: true, workspaceId: WS, threadId: ASSISTANT_IDS.thread });
+    const listProposals = `GET /assistant/threads/${ASSISTANT_IDS.thread}/proposals`;
+    const routes: Parameters<typeof stubFetch>[0] = {
+      [`GET /assistant/threads/${ASSISTANT_IDS.thread}/messages`]: {
+        status: 200,
+        body: { data: turnFixture('đổi giá').messages },
+      },
+      [listProposals]: { status: 200, body: { items: [proposalFixture()] } },
+      [`POST /assistant/proposals/${ASSISTANT_IDS.proposal}/approve`]: {
+        status: 409,
+        body: {
+          error: {
+            code: 'CONFLICT',
+            message: 'This proposal has expired',
+            traceId: 't',
+            details: { reason: 'proposal_expired' },
+          },
+        },
+      },
+    };
+    const { fetchStub } = stubFetch(routes);
+    vi.stubGlobal('fetch', fetchStub);
+    renderApp();
+    const user = userEvent.setup();
+
+    const apply = await screen.findByRole('button', { name: 'Áp dụng' });
+    // Meanwhile the proposal expired on the server.
+    routes[listProposals] = {
+      status: 200,
+      body: { items: [proposalFixture({ status: 'expired' })] },
+    };
+    await user.click(apply);
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        'Đề xuất này đã hết hạn. Hỏi lại Thỏ Rapiz nếu vẫn cần.',
+      ),
+    );
+    expect(await screen.findByText('Đã hết hạn')).toBeInTheDocument();
   });
 });

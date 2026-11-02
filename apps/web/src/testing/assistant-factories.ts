@@ -1,5 +1,7 @@
 import type {
+  AssistantMemoryDto,
   AssistantMessageDto,
+  AssistantProposalDto,
   AssistantRunDto,
   AssistantThreadDto,
   SendAssistantMessageResponse,
@@ -12,6 +14,8 @@ export const ASSISTANT_IDS = {
   turn: '0193b000-0000-7000-8000-000000000101',
   userMessage: '0193b000-0000-7000-8000-000000000201',
   answer: '0193b000-0000-7000-8000-000000000202',
+  event: '0193b000-0000-7000-8000-000000000203',
+  proposal: '0193b000-0000-7000-8000-000000000301',
 } as const;
 
 const STAMP = '2026-11-02T08:00:00.000Z';
@@ -74,5 +78,47 @@ export function turnFixture(
       messageFixture(answer),
     ],
     run: runFixture(),
+  };
+}
+
+/** A pending proposal prepared by the turn above (created just before its answer). */
+export function proposalFixture(over: Partial<AssistantProposalDto> = {}): AssistantProposalDto {
+  return {
+    id: ASSISTANT_IDS.proposal,
+    threadId: ASSISTANT_IDS.thread,
+    businessId: '3f0c1f0e-5b1c-4c1e-9d55-0a1b2c3d4e5f',
+    routeKey: 'PATCH /products/{productId}',
+    summary: 'Đổi giá Áo thun thành 150.000đ',
+    preview: { price: { from: 120000, to: 150000 } },
+    status: 'pending',
+    errorCode: null,
+    createdAt: '2026-11-02T07:59:59.000Z',
+    expiresAt: '2026-11-03T07:59:59.000Z',
+    decidedAt: null,
+    ...over,
+  };
+}
+
+/** The owner's memory: a profile entry, empty notes and one business store. */
+export function memoryFixture(over: Partial<AssistantMemoryDto> = {}): AssistantMemoryDto {
+  return {
+    stores: [
+      {
+        store: 'owner_profile',
+        label: 'owner_profile',
+        limit: 1400,
+        used: 26,
+        entries: [{ id: 'e1', text: 'Thích trả lời ngắn gọn.', createdAt: STAMP }],
+      },
+      { store: 'notes', label: 'notes', limit: 2200, used: 0, entries: [] },
+      {
+        store: 'business:3f0c1f0e-5b1c-4c1e-9d55-0a1b2c3d4e5f',
+        label: 'Shop An',
+        limit: 1000,
+        used: 30,
+        entries: [{ id: 'e2', text: 'Giao hàng trong ngày ở Hà Nội.', createdAt: STAMP }],
+      },
+    ],
+    ...over,
   };
 }

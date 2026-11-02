@@ -1,8 +1,9 @@
 import type { ProductDto } from '@agent-sales/contracts';
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { collectPageContext, fillAssistantForm } from '@/lib/assistant-context';
 import { renderWithRouter, stubFetch } from '@/testing/render';
 
 import { ProductForm } from './product-form';
@@ -130,5 +131,53 @@ describe('ProductForm of a Rapiz product', () => {
     expect(await screen.findByLabelText('Tên sản phẩm')).not.toHaveAttribute('readonly');
     expect(screen.getByRole('button', { name: 'Thêm mẫu mã' })).toBeInTheDocument();
     expect(screen.queryByText('Sửa trên KiotViet')).toBeNull();
+  });
+});
+
+describe('ProductForm and the owner assistant', () => {
+  it('lets the assistant fill a new product, never submitting it', async () => {
+    const { fetchStub, calls } = stubFetch({});
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithRouter(() => <ProductForm />);
+    const save = await screen.findByRole('button', { name: 'Lưu sản phẩm' });
+    expect(save).toHaveAttribute('data-assistant-target', 'products.save');
+    expect(collectPageContext('/app/products/new').forms?.[0]).toMatchObject({
+      id: 'product',
+      fields: expect.arrayContaining([
+        expect.objectContaining({ name: 'name', type: 'text', empty: true }),
+        expect.objectContaining({ name: 'price', type: 'number', empty: true }),
+      ]),
+    });
+
+    let result: ReturnType<typeof fillAssistantForm> | undefined;
+    act(() => {
+      result = fillAssistantForm('product', {
+        code: 'AT01',
+        name: 'Áo thun',
+        category: 'Áo',
+        description: 'Cotton 100%',
+        sku: 'AT01-M',
+        price: 150000,
+      });
+    });
+
+    expect(result).toEqual({ ok: true, submitTarget: 'products.save' });
+    expect(screen.getByLabelText('Tên sản phẩm')).toHaveValue('Áo thun');
+    expect(screen.getByLabelText(/^Mã sản phẩm/)).toHaveValue('AT01');
+    expect(screen.getByLabelText(/^Danh mục/)).toHaveValue('Áo');
+    expect(screen.getByLabelText(/^Mô tả/)).toHaveValue('Cotton 100%');
+    expect(screen.getByLabelText(/^SKU/)).toHaveValue('AT01-M');
+    expect(screen.getByLabelText(/^Giá bán/)).toHaveValue('150.000');
+    expect(collectPageContext('/app/products/new').forms?.[0]?.fields).not.toContainEqual(
+      expect.objectContaining({ empty: true }),
+    );
+    expect(calls).toHaveLength(0);
+  });
+
+  it('does not offer an existing product to fill', async () => {
+    setup(product(false), LINK);
+    await screen.findByLabelText('Tên sản phẩm');
+    expect(collectPageContext('/app/products/1').forms).toBeUndefined();
+    expect(fillAssistantForm('product', { name: 'x' })).toEqual({ ok: false });
   });
 });

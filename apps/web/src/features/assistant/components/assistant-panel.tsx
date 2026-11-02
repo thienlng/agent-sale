@@ -1,6 +1,6 @@
-import type { AssistantMessageDto } from '@agent-sales/contracts';
+import type { AssistantMessageDto, AssistantProposalDto } from '@agent-sales/contracts';
 import { useRouter } from '@tanstack/react-router';
-import { ArrowLeft, List, SquarePen, X } from 'lucide-react';
+import { ArrowLeft, Brain, List, SquarePen, X } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -8,22 +8,31 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
 import { ApiClientError } from '@/lib/api-client';
+import {
+  collectPageContext,
+  fillAssistantForm,
+  waitForAssistantForm,
+} from '@/lib/assistant-context';
 import { useWorkspaceId } from '@/lib/use-workspace';
 
 import {
   useAssistantMessages,
+  useAssistantProposals,
   useCreateAssistantThread,
   useSendAssistantMessage,
 } from '../api/assistant';
-import { collectPageContext } from '../hooks/use-assistant-context';
 import { useAssistantThreadId, useAssistantUi } from '../stores/assistant-ui.store';
 import { safeAppPath } from '../utils/safe-app-path';
 import { AssistantComposer } from './assistant-composer';
+import { AssistantMemory } from './assistant-memory';
 import { AssistantMessages } from './assistant-messages';
 import { AssistantSpotlight } from './assistant-spotlight';
 import { AssistantThreadList } from './assistant-thread-list';
 
 const NO_MESSAGES: AssistantMessageDto[] = [];
+const NO_PROPOSALS: AssistantProposalDto[] = [];
+/** How long a `fill_form` after a `navigate` waits for the new page to register its form. */
+const FORM_WAIT_MS = 3000;
 
 /**
  * The assistant panel (lazy chunk): a non-modal right-side sheet, 420 px on desktop and full
@@ -34,27 +43,49 @@ export function AssistantPanel() {
   const router = useRouter();
   const { open, setOpen, setThread, setSpotlight } = useAssistantUi();
   const threadId = useAssistantThreadId(useWorkspaceId());
-  const [view, setView] = useState<'chat' | 'threads'>('chat');
+  const [view, setView] = useState<'chat' | 'threads' | 'memory'>('chat');
   const [pendingTurn, setPendingTurn] = useState<string | null>(null);
   const [unavailable, setUnavailable] = useState(false);
   const messages = useAssistantMessages(threadId);
+  const proposals = useAssistantProposals(threadId);
   const createThread = useCreateAssistantThread();
   const sendMessage = useSendAssistantMessage();
   const sending = pendingTurn !== null || createThread.isPending;
 
   /**
-   * UI actions run in order: navigate inside the dashboard, then point at a control.
-   * `fill_form` is not applied here yet; the backend does not emit it until form filling lands.
+   * UI actions run in order: navigate inside the dashboard, point at a control, fill a form on
+   * screen. A fill never submits: the owner reviews the values and presses the form's own button,
+   * which is spotlighted when the form names one. `switched` drops what is left of the answer
+   * when the owner changed business meanwhile.
    */
-  function apply(answer: readonly AssistantMessageDto[]): void {
+  async function apply(
+    answer: readonly AssistantMessageDto[],
+    switched: () => boolean,
+  ): Promise<void> {
+    let navigated = false;
     for (const action of answer.flatMap((m) => (m.role === 'assistant' ? m.uiActions : []))) {
+      if (switched()) return;
       if (action.type === 'navigate') {
         const to = safeAppPath(action.to);
-        if (to) void router.navigate({ href: to });
+        if (to) {
+          navigated = true;
+          void router.navigate({ href: to });
+        }
       } else if (action.type === 'spotlight') {
         // The sheet would cover the control, so it steps aside; the hint carries the answer.
         setOpen(false);
         setSpotlight({ target: action.target, hint: action.hint });
+      } else {
+        // After a navigate the target page mounts a moment later: give it time to register.
+        if (navigated) await waitForAssistantForm(action.formId, FORM_WAIT_MS);
+        if (switched()) return;
+        const filled = fillAssistantForm(action.formId, action.values);
+        if (!filled.ok) {
+          toast(t('fill.notOnPage'));
+        } else if (filled.submitTarget) {
+          setOpen(false);
+          setSpotlight({ target: filled.submitTarget, hint: t('fill.reviewHint') });
+        }
       }
     }
   }
@@ -77,7 +108,8 @@ export function AssistantPanel() {
       }
       setPendingTurn(turnId);
       const res = await sendMessage.mutateAsync({ threadId: id, turnId, text, pageContext });
-      if (!switched()) apply(res.messages);
+      // Not awaited: a fill may wait for the next page, and the composer is free meanwhile.
+      if (!switched()) void apply(res.messages, switched);
       return true;
     } catch (error) {
       if (error instanceof ApiClientError && error.status === 409) toast.error(t('busy'));
@@ -119,6 +151,15 @@ export function AssistantPanel() {
             >
               {view === 'threads' ? <ArrowLeft /> : <List />}
             </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={view === 'memory' ? t('hideMemory') : t('showMemory')}
+              aria-pressed={view === 'memory'}
+              onClick={() => setView((v) => (v === 'memory' ? 'chat' : 'memory'))}
+            >
+              {view === 'memory' ? <ArrowLeft /> : <Brain />}
+            </Button>
             <Button variant="ghost" size="icon" aria-label={t('newThread')} onClick={newThread}>
               <SquarePen />
             </Button>
@@ -140,10 +181,13 @@ export function AssistantPanel() {
                 setView('chat');
               }}
             />
+          ) : view === 'memory' ? (
+            <AssistantMemory />
           ) : (
             <>
               <AssistantMessages
                 messages={threadId ? (messages.data ?? NO_MESSAGES) : NO_MESSAGES}
+                proposals={threadId ? (proposals.data ?? NO_PROPOSALS) : NO_PROPOSALS}
                 loading={Boolean(threadId) && messages.isPending}
                 pendingTurn={pendingTurn}
                 unavailable={unavailable}

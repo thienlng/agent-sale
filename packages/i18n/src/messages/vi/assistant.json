@@ -35,5 +35,46 @@
   "busy": "Thỏ Rapiz đang trả lời câu trước, đợi chút nhé.",
   "unavailable": "Thỏ Rapiz tạm thời không trả lời được. Thử lại sau ít phút.",
   "sendError": "Không gửi được tin nhắn. Thử lại.",
-  "spotlightDismiss": "Bấm bất kỳ đâu hoặc nhấn Esc để đóng"
+  "spotlightDismiss": "Bấm bất kỳ đâu hoặc nhấn Esc để đóng",
+  "showMemory": "Trợ lý nhớ gì",
+  "hideMemory": "Quay lại cuộc trò chuyện",
+  "fill": {
+    "notOnPage": "Biểu mẫu Thỏ Rapiz định điền không có trên trang này. Mở đúng trang rồi hỏi lại nhé.",
+    "reviewHint": "Mình đã điền sẵn. Anh/chị kiểm tra lại rồi bấm Lưu nhé."
+  },
+  "proposals": {
+    "label": "Đề xuất thay đổi",
+    "business": "Cho {{name}}",
+    "showPreview": "Xem chi tiết",
+    "hidePreview": "Ẩn chi tiết",
+    "apply": "Áp dụng",
+    "reject": "Bỏ",
+    "applying": "Đang áp dụng…",
+    "status": {
+      "executing": "Đang áp dụng…",
+      "done": "Đã áp dụng",
+      "failed": "Không áp dụng được ({{code}})",
+      "rejected": "Đã bỏ",
+      "expired": "Đã hết hạn"
+    },
+    "notPending": "Đề xuất này đã được xử lý rồi.",
+    "expired": "Đề xuất này đã hết hạn. Hỏi lại Thỏ Rapiz nếu vẫn cần.",
+    "decideError": "Không thực hiện được. Thử lại."
+  },
+  "memory": {
+    "title": "Trợ lý nhớ gì",
+    "hint": "Thỏ Rapiz ghi nhớ những điều này để trả lời đúng ý anh/chị hơn. Mục nào không đúng thì xoá đi.",
+    "stores": {
+      "owner_profile": "Về anh/chị",
+      "notes": "Ghi chú chung"
+    },
+    "usage": "{{used}}/{{limit}} ký tự",
+    "empty": "Chưa nhớ gì.",
+    "forget": "Quên mục này",
+    "confirm": "Quên mục này?",
+    "confirmYes": "Quên",
+    "confirmNo": "Giữ lại",
+    "forgotten": "Đã quên mục này.",
+    "forgetError": "Không xoá được. Thử lại."
+  }
 }

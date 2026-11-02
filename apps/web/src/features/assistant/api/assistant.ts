@@ -1,5 +1,8 @@
 import {
+  AssistantMemoryDto,
   AssistantMessageList,
+  AssistantProposalDto,
+  AssistantProposalList,
   type AssistantMessageDto,
   AssistantRunDto,
   AssistantThreadDto,
@@ -18,6 +21,9 @@ export const assistantKeys = {
   messages: (ws: string, threadId: string) =>
     ['ws', ws, 'assistant', 'messages', threadId] as const,
   run: (ws: string, runId: string) => ['ws', ws, 'assistant', 'runs', runId] as const,
+  proposals: (ws: string, threadId: string) =>
+    ['ws', ws, 'assistant', 'proposals', threadId] as const,
+  memory: (ws: string) => ['ws', ws, 'assistant', 'memory'] as const,
 };
 
 /** The owner's open threads, pinned first (search by `q`). */
@@ -133,8 +139,84 @@ export function useSendAssistantMessage() {
       // The owner's message may have been stored before the model failed: show the truth.
       void queryClient.invalidateQueries({ queryKey: key });
     },
-    onSettled: () => {
+    onSettled: (_res, _error, { threadId }) => {
       void queryClient.invalidateQueries({ queryKey: [...assistantKeys.all(ws), 'threads'] });
+      // A turn may have prepared proposals (writes waiting for the owner).
+      void queryClient.invalidateQueries({ queryKey: assistantKeys.proposals(ws, threadId) });
     },
+  });
+}
+
+/** The thread's proposals, oldest first: writes the assistant prepared for the owner to decide. */
+export function useAssistantProposals(threadId: string | null) {
+  const ws = useWorkspaceId();
+  return useQuery({
+    queryKey: assistantKeys.proposals(ws, threadId ?? ''),
+    queryFn: ({ signal }) =>
+      api(`/assistant/threads/${threadId}/proposals`, AssistantProposalList, {
+        workspaceId: ws,
+        signal,
+      }).then((list) => list.items),
+    enabled: Boolean(ws && threadId),
+  });
+}
+
+/**
+ * Approve or reject a proposal. Either way the server appends an event message to the thread,
+ * so the thread's messages and proposals are refetched, also after a 409 (already decided or
+ * expired) so the card shows the truth.
+ */
+export function useDecideAssistantProposal(threadId: string) {
+  const ws = useWorkspaceId();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      proposalId,
+      decision,
+    }: {
+      proposalId: string;
+      decision: 'approve' | 'reject';
+    }) =>
+      api(`/assistant/proposals/${proposalId}/${decision}`, AssistantProposalDto, {
+        method: 'POST',
+        body: {},
+        workspaceId: ws,
+      }),
+    onSuccess: (proposal) => {
+      queryClient.setQueryData<AssistantProposalDto[]>(
+        assistantKeys.proposals(ws, threadId),
+        (old) => old?.map((p) => (p.id === proposal.id ? proposal : p)),
+      );
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: assistantKeys.proposals(ws, threadId) });
+      void queryClient.invalidateQueries({ queryKey: assistantKeys.messages(ws, threadId) });
+    },
+  });
+}
+
+/** What the assistant remembers about the owner, their notes and each business. */
+export function useAssistantMemory() {
+  const ws = useWorkspaceId();
+  return useQuery({
+    queryKey: assistantKeys.memory(ws),
+    queryFn: ({ signal }) =>
+      api('/assistant/memory', AssistantMemoryDto, { workspaceId: ws, signal }),
+    enabled: Boolean(ws),
+  });
+}
+
+/** Forget one entry; the server answers with the remaining memory. */
+export function useForgetAssistantMemory() {
+  const ws = useWorkspaceId();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ store, entryId }: { store: string; entryId: string }) =>
+      api(
+        `/assistant/memory/${encodeURIComponent(store)}/entries/${encodeURIComponent(entryId)}`,
+        AssistantMemoryDto,
+        { method: 'DELETE', workspaceId: ws },
+      ),
+    onSuccess: (memory) => queryClient.setQueryData(assistantKeys.memory(ws), memory),
   });
 }

@@ -1,12 +1,13 @@
-import type { AssistantMessageDto } from '@agent-sales/contracts';
+import type { AssistantMessageDto, AssistantProposalDto } from '@agent-sales/contracts';
 import { ChevronDown, Loader2, Rabbit } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
 import { useAssistantRun } from '../api/assistant';
+import { AssistantProposal } from './assistant-proposals';
 import { AssistantStepList, AssistantSteps } from './assistant-steps';
 
 function AssistantAnswer({ message }: { message: AssistantMessageDto }) {
@@ -42,6 +43,28 @@ function AssistantAnswer({ message }: { message: AssistantMessageDto }) {
   );
 }
 
+const NO_PROPOSALS: readonly AssistantProposalDto[] = [];
+
+/**
+ * Where each proposal shows: right after the answer of the turn that prepared it (the first
+ * assistant message stored at or after it), so the answer explains the card and the decision's
+ * event message follows it. Proposals with no such answer yet go at the end.
+ */
+function placeProposals(
+  messages: readonly AssistantMessageDto[],
+  proposals: readonly AssistantProposalDto[],
+): { after: Map<string, AssistantProposalDto[]>; trailing: AssistantProposalDto[] } {
+  const after = new Map<string, AssistantProposalDto[]>();
+  const trailing: AssistantProposalDto[] = [];
+  for (const proposal of proposals) {
+    const at = Date.parse(proposal.createdAt);
+    const answer = messages.find((m) => m.role === 'assistant' && Date.parse(m.createdAt) >= at);
+    if (answer) after.set(answer.id, [...(after.get(answer.id) ?? []), proposal]);
+    else trailing.push(proposal);
+  }
+  return { after, trailing };
+}
+
 /** While a turn runs: "Đang tra cứu…" and the steps so far (polled every second). */
 function LiveTurn({ turnId }: { turnId: string }) {
   const { t } = useTranslation('assistant');
@@ -59,11 +82,14 @@ function LiveTurn({ turnId }: { turnId: string }) {
 
 export function AssistantMessages({
   messages,
+  proposals = NO_PROPOSALS,
   loading,
   pendingTurn,
   unavailable,
 }: {
   messages: readonly AssistantMessageDto[];
+  /** The thread's proposals (writes waiting for, or past, the owner's decision). */
+  proposals?: readonly AssistantProposalDto[];
   loading: boolean;
   pendingTurn: string | null;
   unavailable: boolean;
@@ -72,7 +98,9 @@ export function AssistantMessages({
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => {
     end.current?.scrollIntoView({ block: 'end' });
-  }, [messages.length, pendingTurn, unavailable]);
+  }, [messages.length, proposals.length, pendingTurn, unavailable]);
+
+  const placed = placeProposals(messages, proposals);
 
   if (loading)
     return (
@@ -84,7 +112,7 @@ export function AssistantMessages({
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-      {messages.length === 0 && !pendingTurn ? (
+      {messages.length === 0 && proposals.length === 0 && !pendingTurn ? (
         <div className="flex flex-col items-center px-6 py-12 text-center">
           <span className="grid size-14 place-items-center rounded-full bg-primary-soft text-primary">
             <Rabbit className="size-7" aria-hidden />
@@ -94,25 +122,27 @@ export function AssistantMessages({
         </div>
       ) : (
         <ol className="flex flex-col gap-3 p-4">
-          {messages.map((m) =>
-            m.role === 'user' ? (
-              <li
-                key={m.id}
-                className="max-w-[85%] self-end rounded-2xl rounded-br-sm bg-primary px-3 py-2 break-words whitespace-pre-line text-primary-foreground"
-              >
-                {m.content}
-              </li>
-            ) : m.role === 'assistant' ? (
-              <AssistantAnswer key={m.id} message={m} />
-            ) : (
-              <li
-                key={m.id}
-                className="self-center text-center text-xs whitespace-pre-line text-muted-foreground"
-              >
-                {m.content}
-              </li>
-            ),
-          )}
+          {messages.map((m) => (
+            <Fragment key={m.id}>
+              {m.role === 'user' ? (
+                <li className="max-w-[85%] self-end rounded-2xl rounded-br-sm bg-primary px-3 py-2 break-words whitespace-pre-line text-primary-foreground">
+                  {m.content}
+                </li>
+              ) : m.role === 'assistant' ? (
+                <AssistantAnswer message={m} />
+              ) : (
+                <li className="self-center text-center text-xs whitespace-pre-line text-muted-foreground">
+                  {m.content}
+                </li>
+              )}
+              {placed.after.get(m.id)?.map((p) => (
+                <AssistantProposal key={p.id} proposal={p} />
+              ))}
+            </Fragment>
+          ))}
+          {placed.trailing.map((p) => (
+            <AssistantProposal key={p.id} proposal={p} />
+          ))}
           {pendingTurn ? <LiveTurn turnId={pendingTurn} /> : null}
         </ol>
       )}

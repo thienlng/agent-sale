@@ -35,5 +35,46 @@
   "busy": "Thỏ Rapiz is still answering your last question, please wait.",
   "unavailable": "Thỏ Rapiz can't answer right now. Try again in a few minutes.",
   "sendError": "Could not send the message. Try again.",
-  "spotlightDismiss": "Click anywhere or press Esc to close"
+  "spotlightDismiss": "Click anywhere or press Esc to close",
+  "showMemory": "What the assistant remembers",
+  "hideMemory": "Back to the conversation",
+  "fill": {
+    "notOnPage": "The form Thỏ Rapiz wanted to fill is not on this page. Open the right page and ask again.",
+    "reviewHint": "I filled it in. Check it, then press Save."
+  },
+  "proposals": {
+    "label": "Proposed change",
+    "business": "For {{name}}",
+    "showPreview": "Show details",
+    "hidePreview": "Hide details",
+    "apply": "Apply",
+    "reject": "Dismiss",
+    "applying": "Applying…",
+    "status": {
+      "executing": "Applying…",
+      "done": "Applied",
+      "failed": "Could not apply ({{code}})",
+      "rejected": "Dismissed",
+      "expired": "Expired"
+    },
+    "notPending": "This proposal was already handled.",
+    "expired": "This proposal has expired. Ask Thỏ Rapiz again if you still need it.",
+    "decideError": "Could not do that. Try again."
+  },
+  "memory": {
+    "title": "What the assistant remembers",
+    "hint": "Thỏ Rapiz keeps these to answer the way you like. Delete anything that is wrong.",
+    "stores": {
+      "owner_profile": "About you",
+      "notes": "General notes"
+    },
+    "usage": "{{used}}/{{limit}} characters",
+    "empty": "Nothing yet.",
+    "forget": "Forget this entry",
+    "confirm": "Forget this entry?",
+    "confirmYes": "Forget",
+    "confirmNo": "Keep",
+    "forgotten": "Entry forgotten.",
+    "forgetError": "Could not delete it. Try again."
+  }
 }
