@@ -1,8 +1,11 @@
+import { PRUNED_TOOL_TEXT } from '@agent-sales/ai-core';
 import {
   and,
   asc,
   desc,
   eq,
+  inArray,
+  lt,
   or,
   schema,
   sql,
@@ -15,7 +18,15 @@ import { AssistantNotFoundError, AssistantRunIdTakenError } from '../../domain/a
 import type { OwnerScope } from '../../domain/owner-scope.js';
 import {
   type AssistantRepository,
+  type CompactionInput,
+  type MemoryEntry,
+  type MemoryStoreRecord,
   type MessageRecord,
+  type NewMessage,
+  type NewProposal,
+  type ProposalPatch,
+  type ProposalRecord,
+  type ProposalStatus,
   type RunRecord,
   RUN_BUSY_WINDOW_MS,
   type SearchHit,
@@ -29,6 +40,8 @@ const t = schema.assistantThreads;
 const m = schema.assistantMessages;
 const r = schema.assistantRuns;
 const st = schema.assistantRunSteps;
+const mem = schema.assistantMemory;
+const pr = schema.assistantProposals;
 
 /** SQLSTATE of a driver error (drizzle wraps the postgres error in `cause`). */
 const pgCode = (e: unknown): string | undefined =>
@@ -43,6 +56,10 @@ const ownsMessage = (s: OwnerScope) =>
   and(eq(m.accountId, s.accountId), eq(m.ownerUserId, s.ownerUserId));
 const ownsRun = (s: OwnerScope) =>
   and(eq(r.accountId, s.accountId), eq(r.ownerUserId, s.ownerUserId));
+const ownsMemory = (s: OwnerScope) =>
+  and(eq(mem.accountId, s.accountId), eq(mem.ownerUserId, s.ownerUserId));
+const ownsProposal = (s: OwnerScope) =>
+  and(eq(pr.accountId, s.accountId), eq(pr.ownerUserId, s.ownerUserId));
 
 function toThread(row: typeof t.$inferSelect): ThreadRecord {
   return {
@@ -55,6 +72,10 @@ function toThread(row: typeof t.$inferSelect): ThreadRecord {
     promptVersion: row.promptVersion,
     createdAt: row.createdAt,
     lastMessageAt: row.lastMessageAt,
+    cacheRootId: row.cacheRootId,
+    compactedAt: row.compactedAt,
+    compactionFailedAt: row.compactionFailedAt,
+    compactionSavedPcts: row.compactionSavedPcts,
   };
 }
 
@@ -71,6 +92,36 @@ function toMessage(row: typeof m.$inferSelect): MessageRecord {
     pageContext: row.pageContext ?? null,
     uiActions: (row.uiActions as unknown[] | null) ?? [],
     runId: row.runId,
+    isSummary: row.isSummary,
+    createdAt: row.createdAt,
+  };
+}
+
+function toMemory(row: typeof mem.$inferSelect): MemoryStoreRecord {
+  return {
+    store: row.store,
+    entries: (row.entries as MemoryEntry[] | null) ?? [],
+    updatedAt: row.updatedAt,
+  };
+}
+
+function toProposal(row: typeof pr.$inferSelect): ProposalRecord {
+  return {
+    id: row.id,
+    threadId: row.threadId,
+    runId: row.runId,
+    businessId: row.businessId,
+    routeKey: row.routeKey,
+    path: row.path,
+    query: row.query ?? null,
+    body: row.body ?? null,
+    summary: row.summary,
+    preview: row.preview ?? null,
+    status: row.status as ProposalStatus,
+    errorCode: row.errorCode,
+    resultPreview: row.resultPreview,
+    expiresAt: row.expiresAt,
+    decidedAt: row.decidedAt,
     createdAt: row.createdAt,
   };
 }
@@ -226,16 +277,12 @@ export class DrizzleAssistantRepository implements AssistantRepository {
             opts?.activeOnly ? eq(m.active, true) : undefined,
           ),
         )
-        .orderBy(asc(m.seq));
+        .orderBy(...(opts?.activeOnly ? [asc(m.sortSeq), asc(m.seq)] : [asc(m.seq)]));
       return rows.map(toMessage);
     });
   }
 
-  appendMessages(
-    s: OwnerScope,
-    threadId: string,
-    msgs: Omit<MessageRecord, 'seq' | 'createdAt' | 'threadId'>[],
-  ): Promise<MessageRecord[]> {
+  appendMessages(s: OwnerScope, threadId: string, msgs: NewMessage[]): Promise<MessageRecord[]> {
     return this.#in(s, async (tx) => {
       // The row lock serialises appends to one thread, so seq numbers never collide.
       await this.#ownThread(tx, s, threadId, true);
@@ -253,6 +300,7 @@ export class DrizzleAssistantRepository implements AssistantRepository {
             ownerUserId: s.ownerUserId,
             threadId,
             seq: last + i + 1,
+            sortSeq: last + i + 1,
             role: msg.role,
             content: msg.content,
             toolCalls: msg.toolCalls,
@@ -402,6 +450,200 @@ export class DrizzleAssistantRepository implements AssistantRepository {
         .where(and(eq(st.runId, runId), eq(st.accountId, s.accountId)))
         .orderBy(asc(st.idx));
       return { ...toRun(row), steps };
+    });
+  }
+
+  // ─── Memory ───
+
+  getMemory(s: OwnerScope): Promise<MemoryStoreRecord[]> {
+    return this.#in(s, async (tx) => {
+      const rows = await tx.select().from(mem).where(ownsMemory(s)).orderBy(asc(mem.store));
+      return rows.map(toMemory);
+    });
+  }
+
+  saveMemoryStore(
+    s: OwnerScope,
+    store: string,
+    entries: MemoryEntry[],
+  ): Promise<MemoryStoreRecord> {
+    return this.#in(s, async (tx) => {
+      const [row] = await tx
+        .insert(mem)
+        .values({ accountId: s.accountId, ownerUserId: s.ownerUserId, store, entries })
+        .onConflictDoUpdate({
+          target: [mem.accountId, mem.ownerUserId, mem.store],
+          set: { entries, updatedAt: sql`now()` },
+        })
+        .returning();
+      if (!row) throw new Error('assistant memory upsert returned no row');
+      return toMemory(row);
+    });
+  }
+
+  // ─── Proposals ───
+
+  createProposal(s: OwnerScope, p: NewProposal): Promise<ProposalRecord> {
+    return this.#in(s, async (tx) => {
+      await this.#ownThread(tx, s, p.threadId);
+      const [row] = await tx
+        .insert(pr)
+        .values({ ...p, accountId: s.accountId, ownerUserId: s.ownerUserId, status: 'pending' })
+        .returning();
+      if (!row) throw new Error('assistant proposal insert returned no row');
+      return toProposal(row);
+    });
+  }
+
+  listProposals(s: OwnerScope, threadId: string): Promise<ProposalRecord[]> {
+    return this.#in(s, async (tx) => {
+      await this.#ownThread(tx, s, threadId);
+      const rows = await tx
+        .select()
+        .from(pr)
+        .where(and(eq(pr.threadId, threadId), ownsProposal(s)))
+        .orderBy(asc(pr.createdAt), asc(pr.id));
+      return rows.map(toProposal);
+    });
+  }
+
+  getProposal(s: OwnerScope, id: string): Promise<ProposalRecord | null> {
+    return this.#in(s, async (tx) => {
+      const [row] = await tx
+        .select()
+        .from(pr)
+        .where(and(eq(pr.id, id), ownsProposal(s)));
+      return row ? toProposal(row) : null;
+    });
+  }
+
+  transitionProposal(
+    s: OwnerScope,
+    id: string,
+    from: ProposalStatus[],
+    to: ProposalStatus,
+    patch: ProposalPatch = {},
+  ): Promise<ProposalRecord | null> {
+    if (from.length === 0) return Promise.resolve(null);
+    return this.#in(s, async (tx) => {
+      const set: Partial<typeof pr.$inferInsert> = { status: to };
+      if (patch.errorCode !== undefined) set.errorCode = patch.errorCode;
+      if (patch.resultPreview !== undefined) set.resultPreview = patch.resultPreview;
+      if (patch.decidedAt !== undefined) set.decidedAt = patch.decidedAt;
+      // One conditional UPDATE: a concurrent transaction blocks on the row lock, then re-checks
+      // the status and changes nothing, so exactly one caller wins.
+      const [row] = await tx
+        .update(pr)
+        .set(set)
+        .where(and(eq(pr.id, id), ownsProposal(s), inArray(pr.status, from)))
+        .returning();
+      return row ? toProposal(row) : null;
+    });
+  }
+
+  expireProposals(s: OwnerScope, now: Date): Promise<number> {
+    return this.#in(s, async (tx) => {
+      const rows = await tx
+        .update(pr)
+        .set({ status: 'expired' })
+        .where(and(ownsProposal(s), eq(pr.status, 'pending'), lt(pr.expiresAt, now)))
+        .returning({ id: pr.id });
+      return rows.length;
+    });
+  }
+
+  // ─── Compaction ───
+
+  applyCompaction(s: OwnerScope, threadId: string, c: CompactionInput): Promise<MessageRecord> {
+    if (c.deactivateIds.length === 0) {
+      return Promise.reject(new Error('assistant compaction needs a middle to summarise'));
+    }
+    return this.#in(s, async (tx) => {
+      // The thread lock serialises this with appends, so seq stays unique.
+      const [thread] = await tx
+        .select({ savedPcts: t.compactionSavedPcts })
+        .from(t)
+        .where(and(eq(t.id, threadId), ownsThread(s)))
+        .for('update');
+      if (!thread) throw new AssistantNotFoundError('thread', threadId);
+
+      const middle = await tx
+        .update(m)
+        .set({ active: false, compacted: true })
+        .where(
+          and(
+            eq(m.threadId, threadId),
+            ownsMessage(s),
+            eq(m.active, true),
+            inArray(m.id, c.deactivateIds),
+          ),
+        )
+        .returning({ seq: m.seq });
+      // A stale plan (rows already compacted, or not in this thread) changes nothing.
+      if (middle.length !== new Set(c.deactivateIds).size) {
+        throw new Error('assistant compaction plan is stale');
+      }
+      if (c.prunedToolIds.length > 0) {
+        await tx
+          .update(m)
+          .set({ content: PRUNED_TOOL_TEXT })
+          .where(
+            and(
+              eq(m.threadId, threadId),
+              ownsMessage(s),
+              eq(m.active, true),
+              eq(m.role, 'tool'),
+              inArray(m.id, c.prunedToolIds),
+            ),
+          );
+      }
+      const [{ last } = { last: 0 }] = await tx
+        .select({ last: sql<number>`coalesce(max(${m.seq}), 0)::int` })
+        .from(m)
+        .where(eq(m.threadId, threadId));
+      const firstSummarised = Math.min(...middle.map((x) => x.seq));
+      const [row] = await tx
+        .insert(m)
+        .values({
+          id: c.summary.id,
+          accountId: s.accountId,
+          ownerUserId: s.ownerUserId,
+          threadId,
+          seq: last + 1,
+          sortSeq: firstSummarised - 0.5,
+          role: c.summary.role,
+          content: c.summary.content,
+          toolCalls: c.summary.toolCalls,
+          toolCallId: c.summary.toolCallId,
+          toolName: c.summary.toolName,
+          pageContext: c.summary.pageContext,
+          uiActions: c.summary.uiActions,
+          runId: c.summary.runId,
+          isSummary: true,
+        })
+        .returning();
+      if (!row) throw new Error('assistant summary insert returned no row');
+      await tx
+        .update(t)
+        .set({
+          systemPrompt: c.systemPrompt,
+          compactedAt: sql`now()`,
+          compactionSavedPcts: [...thread.savedPcts, c.savedPct].slice(-2),
+          cacheRootId: sql`coalesce(${t.cacheRootId}, ${t.id})`,
+        })
+        .where(and(eq(t.id, threadId), ownsThread(s)));
+      return toMessage(row);
+    });
+  }
+
+  markCompactionFailed(s: OwnerScope, threadId: string, at: Date): Promise<void> {
+    return this.#in(s, async (tx) => {
+      const rows = await tx
+        .update(t)
+        .set({ compactionFailedAt: at })
+        .where(and(eq(t.id, threadId), ownsThread(s)))
+        .returning({ id: t.id });
+      if (rows.length === 0) throw new AssistantNotFoundError('thread', threadId);
     });
   }
 }

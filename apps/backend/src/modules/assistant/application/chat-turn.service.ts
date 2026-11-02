@@ -20,6 +20,7 @@ import {
   ASSISTANT_REPOSITORY,
   type AssistantRepository,
   type MessageRecord,
+  type NewMessage,
   type RunRecord,
   type StepRecord,
 } from '../domain/ports/assistant.repository.js';
@@ -50,8 +51,6 @@ export interface TurnResult {
   messages: MessageRecord[];
   run: RunRecord & { steps: StepRecord[] };
 }
-
-type NewMessage = Omit<MessageRecord, 'seq' | 'createdAt' | 'threadId'>;
 
 const row = (over: Partial<NewMessage> & Pick<NewMessage, 'role' | 'content'>): NewMessage => ({
   id: newId(),

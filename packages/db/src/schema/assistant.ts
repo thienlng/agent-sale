@@ -5,8 +5,10 @@ import {
   index,
   integer,
   jsonb,
+  numeric,
   pgTable,
   primaryKey,
+  real,
   text,
   timestamp,
   unique,
@@ -18,7 +20,7 @@ import { users } from './identity.js';
 import { accountPolicies, workspaces } from './workspace.js';
 
 /*
- * Owner assistant (0055, ADR-022). ACCOUNT-scoped, not workspace-scoped: every row carries
+ * Owner assistant (0055 and 0056, ADR-022). ACCOUNT-scoped, not workspace-scoped: every row carries
  * `account_id` and RLS reads `app.account_id`, set by `withAccount`. `assistant_messages.search`
  * (a generated tsvector) and its GIN/trigram indexes exist only in SQL; repositories query them
  * with `sql`, so Drizzle never selects or writes the generated column.
@@ -47,6 +49,15 @@ export const assistantThreads = pgTable(
     promptVersion: text('prompt_version').notNull(),
     createdAt: ts('created_at').notNull().defaultNow(),
     lastMessageAt: ts('last_message_at').notNull().defaultNow(),
+    /** Prompt-cache key root; set on the first compaction and never changed after. */
+    cacheRootId: uuid('cache_root_id'),
+    compactedAt: ts('compacted_at'),
+    compactionFailedAt: ts('compaction_failed_at'),
+    /** Savings (%) of the last two compactions, for the anti-thrash rule. */
+    compactionSavedPcts: real('compaction_saved_pcts')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
   },
   (t) => [
     check('assistant_threads_title_check', sql`char_length(${t.title}) <= 120`),
@@ -82,10 +93,17 @@ export const assistantMessages = pgTable(
     active: boolean('active').notNull().default(true),
     compacted: boolean('compacted').notNull().default(false),
     isSummary: boolean('is_summary').notNull().default(false),
+    /**
+     * Order of the active history: `seq` for ordinary rows; a compaction summary gets the first
+     * summarised seq − 0.5 so it sorts before the kept tail. A trigger fills it from `seq` when an
+     * insert omits it.
+     */
+    sortSeq: numeric('sort_seq', { mode: 'number' }).notNull(),
     createdAt: ts('created_at').notNull().defaultNow(),
   },
   (t) => [
     unique('assistant_messages_seq_unique').on(t.threadId, t.seq),
+    index('assistant_messages_sort_idx').on(t.threadId, t.sortSeq),
     check('assistant_messages_role_check', sql`${t.role} in ('user','assistant','tool','event')`),
     ...accountPolicies('assistant_messages'),
   ],
@@ -145,4 +163,66 @@ export const assistantRunSteps = pgTable(
     createdAt: ts('created_at').notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.runId, t.idx] }), ...accountPolicies('assistant_run_steps')],
+);
+
+export const assistantMemory = pgTable(
+  'assistant_memory',
+  {
+    accountId: accountRef(),
+    ownerUserId: uuid('owner_user_id')
+      .notNull()
+      .references(() => users.id),
+    /** `owner_profile`, `notes` or `business:<uuid>`. */
+    store: text('store').notNull(),
+    /** Ordered `{ id, text, origin, createdAt }[]`. */
+    entries: jsonb('entries').notNull().default([]),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.accountId, t.ownerUserId, t.store] }),
+    check(
+      'assistant_memory_store_check',
+      sql`${t.store} ~ '^(owner_profile|notes|business:[0-9a-f-]{36})$'`,
+    ),
+    ...accountPolicies('assistant_memory'),
+  ],
+);
+
+export const assistantProposals = pgTable(
+  'assistant_proposals',
+  {
+    id: uuid('id').primaryKey(),
+    accountId: accountRef(),
+    ownerUserId: uuid('owner_user_id').notNull(),
+    threadId: uuid('thread_id')
+      .notNull()
+      .references(() => assistantThreads.id, { onDelete: 'cascade' }),
+    runId: uuid('run_id'),
+    businessId: uuid('business_id')
+      .notNull()
+      .references(() => workspaces.id),
+    /** `METHOD /path` of the route contract, e.g. `PATCH /products/{productId}`. */
+    routeKey: text('route_key').notNull(),
+    /** Concrete path with the params filled in, relative to `/api/v1`. */
+    path: text('path').notNull(),
+    query: jsonb('query'),
+    body: jsonb('body'),
+    summary: text('summary').notNull(),
+    preview: jsonb('preview'),
+    status: text('status').notNull().default('pending'),
+    errorCode: text('error_code'),
+    resultPreview: text('result_preview'),
+    expiresAt: ts('expires_at').notNull(),
+    decidedAt: ts('decided_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    check('assistant_proposals_summary_check', sql`char_length(${t.summary}) <= 300`),
+    check(
+      'assistant_proposals_status_check',
+      sql`${t.status} in ('pending','executing','done','failed','rejected','expired')`,
+    ),
+    index('assistant_proposals_thread_idx').on(t.accountId, t.ownerUserId, t.threadId, t.createdAt),
+    ...accountPolicies('assistant_proposals'),
+  ],
 );

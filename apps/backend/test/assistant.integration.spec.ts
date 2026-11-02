@@ -1,3 +1,4 @@
+import { PRUNED_TOOL_TEXT } from '@agent-sales/ai-core';
 import {
   AssistantMessageList,
   AssistantRunDto,
@@ -524,5 +525,207 @@ describe('assistant chat turns on Postgres', () => {
         })
       ).statusCode,
     ).toBe(403);
+  });
+});
+
+describe('assistant memory, proposals and compaction on Postgres (1b)', () => {
+  const repo = () => app.get<AssistantRepository>(ASSISTANT_REPOSITORY);
+  const message = (role: 'user' | 'assistant' | 'tool', content: string) => ({
+    id: newId(),
+    role,
+    content,
+    toolCalls: null,
+    toolCallId: role === 'tool' ? 'call_1' : null,
+    toolName: role === 'tool' ? 'session_search' : null,
+    pageContext: null,
+    uiActions: [],
+    runId: null,
+  });
+  const entry = (text: string) => ({
+    id: newId(),
+    text,
+    origin: 'owner' as const,
+    createdAt: new Date().toISOString(),
+  });
+  async function ownerScope(email: string, name: string) {
+    const u = await user(email, name);
+    const scope: OwnerScope = {
+      accountId: await accountOf(u.ownWorkspace),
+      ownerUserId: userId(u.userId),
+      businessId: workspaceId(u.ownWorkspace),
+    };
+    const thread = await repo().createThread(scope, {
+      id: newId(),
+      title: '',
+      systemPrompt: 'p1',
+      promptVersion: 'assistant@1',
+    });
+    return { scope, thread };
+  }
+
+  it('upserts memory per owner; another account sees none of it', async () => {
+    const a = await ownerScope('mem-a@assistant.vn', 'MemA');
+    const b = await ownerScope('mem-b@assistant.vn', 'MemB');
+    await repo().saveMemoryStore(a.scope, 'notes', [entry('Thích báo cáo ngắn')]);
+    const saved = await repo().saveMemoryStore(a.scope, 'notes', [entry('Báo cáo sáng thứ Hai')]);
+    await repo().saveMemoryStore(a.scope, `business:${a.scope.businessId}`, [entry('Thời trang')]);
+    await repo().saveMemoryStore(b.scope, 'notes', [entry('B')]);
+
+    expect(saved.entries.map((e) => e.text)).toEqual(['Báo cáo sáng thứ Hai']);
+    const mine = await repo().getMemory(a.scope);
+    expect(mine.map((m) => m.store)).toEqual([`business:${a.scope.businessId}`, 'notes']);
+    expect(mine[1]?.entries[0]).toMatchObject({ text: 'Báo cáo sáng thứ Hai', origin: 'owner' });
+    expect((await repo().getMemory(b.scope)).map((m) => m.entries[0]?.text)).toEqual(['B']);
+    // Same owner id under the other account: RLS and the explicit filter both hide A's rows.
+    expect(await repo().getMemory({ ...b.scope, ownerUserId: a.scope.ownerUserId })).toEqual([]);
+    await expect(repo().saveMemoryStore(a.scope, 'secrets', [])).rejects.toThrow();
+  });
+
+  it('lets exactly one of two concurrent approvals win and expires stale proposals', async () => {
+    const { scope, thread } = await ownerScope('prop@assistant.vn', 'Prop');
+    const draft = (expiresAt: Date) => ({
+      id: newId(),
+      threadId: thread.id,
+      runId: null,
+      businessId: scope.businessId,
+      routeKey: 'PATCH /products/{productId}',
+      path: '/products/p1',
+      query: null,
+      body: { price: 120_000 },
+      summary: 'Đổi giá áo thun thành 120.000đ',
+      preview: { before: { price: 100_000 } },
+      expiresAt,
+    });
+    const p = await repo().createProposal(scope, draft(new Date(Date.now() + 86_400_000)));
+    expect(p).toMatchObject({ status: 'pending', body: { price: 120_000 }, errorCode: null });
+
+    const results = await Promise.all([
+      repo().transitionProposal(scope, p.id, ['pending'], 'executing'),
+      repo().transitionProposal(scope, p.id, ['pending'], 'executing'),
+    ]);
+    expect(results.filter((x) => x !== null)).toHaveLength(1);
+    const decidedAt = new Date();
+    expect(
+      await repo().transitionProposal(scope, p.id, ['executing'], 'failed', {
+        errorCode: 'VALIDATION',
+        decidedAt,
+      }),
+    ).toMatchObject({ status: 'failed', errorCode: 'VALIDATION', decidedAt });
+
+    const stale = await repo().createProposal(scope, draft(new Date(Date.now() - 1000)));
+    expect(await repo().expireProposals(scope, new Date())).toBe(1);
+    expect((await repo().getProposal(scope, stale.id))?.status).toBe('expired');
+    expect((await repo().listProposals(scope, thread.id)).map((x) => x.id)).toEqual([
+      p.id,
+      stale.id,
+    ]);
+
+    const other = await ownerScope('prop-other@assistant.vn', 'PropOther');
+    expect(await repo().getProposal(other.scope, p.id)).toBeNull();
+    expect(
+      await repo().transitionProposal(other.scope, stale.id, ['expired'], 'pending'),
+    ).toBeNull();
+    await expect(repo().listProposals(other.scope, thread.id)).rejects.toBeInstanceOf(
+      AssistantNotFoundError,
+    );
+    await expect(
+      repo().createProposal(other.scope, draft(new Date(Date.now() + 1000))),
+    ).rejects.toBeInstanceOf(AssistantNotFoundError);
+  });
+
+  it('applies a compaction: the summary sorts before the tail, tool output is pruned', async () => {
+    const { scope, thread } = await ownerScope('compact@assistant.vn', 'Compact');
+    const rows = await repo().appendMessages(scope, thread.id, [
+      message('user', 'head 1'),
+      message('assistant', 'head 2'),
+      message('user', 'mid 3'),
+      message('tool', 'x'.repeat(500)),
+      message('assistant', 'mid 5'),
+      message('user', 'tail 6'),
+      message('tool', 'y'.repeat(500)),
+      message('assistant', 'tail 8'),
+    ]);
+    const id = (i: number) => rows[i]?.id ?? '';
+    const summary = await repo().applyCompaction(scope, thread.id, {
+      deactivateIds: [id(2), id(3), id(4)],
+      prunedToolIds: [id(6)],
+      summary: message('user', 'REFERENCE ONLY — tóm tắt'),
+      savedPct: 40,
+      systemPrompt: 'p2',
+    });
+    expect(summary).toMatchObject({ seq: 9, isSummary: true });
+
+    const active = await repo().listMessages(scope, thread.id, { activeOnly: true });
+    expect(active.map((m) => m.content)).toEqual([
+      'head 1',
+      'head 2',
+      'REFERENCE ONLY — tóm tắt',
+      'tail 6',
+      PRUNED_TOOL_TEXT,
+      'tail 8',
+    ]);
+    // Compacted rows stay in the thread and in search.
+    expect((await repo().listMessages(scope, thread.id)).map((m) => m.seq)).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8, 9,
+    ]);
+    expect((await repo().searchMessages(scope, 'mid 3', 5)).map((h) => h.messageId)).toContain(
+      id(2),
+    );
+    expect(await repo().getThread(scope, thread.id)).toMatchObject({
+      systemPrompt: 'p2',
+      cacheRootId: thread.id,
+      compactionSavedPcts: [40],
+    });
+
+    // The thread's next message still gets seq = max + 1 and sorts last.
+    const [next] = await repo().appendMessages(scope, thread.id, [message('user', 'after')]);
+    expect(next?.seq).toBe(10);
+    const after = await repo().listMessages(scope, thread.id, { activeOnly: true });
+    expect(after.at(-1)?.content).toBe('after');
+
+    await expect(
+      repo().applyCompaction(scope, thread.id, {
+        deactivateIds: [id(2)],
+        prunedToolIds: [],
+        summary: message('user', 'stale'),
+        savedPct: 1,
+        systemPrompt: 'p3',
+      }),
+    ).rejects.toThrow('stale');
+    await repo().applyCompaction(scope, thread.id, {
+      deactivateIds: [summary.id, id(5)],
+      prunedToolIds: [],
+      summary: message('user', 'second'),
+      savedPct: 8,
+      systemPrompt: 'p3',
+    });
+    await repo().applyCompaction(scope, thread.id, {
+      deactivateIds: [id(6)],
+      prunedToolIds: [],
+      summary: message('user', 'third'),
+      savedPct: 9,
+      systemPrompt: 'p4',
+    });
+    const at = new Date();
+    await repo().markCompactionFailed(scope, thread.id, at);
+    expect(await repo().getThread(scope, thread.id)).toMatchObject({
+      compactionSavedPcts: [8, 9],
+      compactionFailedAt: at,
+      cacheRootId: thread.id,
+    });
+
+    const other = await ownerScope('compact-other@assistant.vn', 'CompactOther');
+    await expect(
+      repo().applyCompaction(other.scope, thread.id, {
+        deactivateIds: [id(7)],
+        prunedToolIds: [],
+        summary: message('user', 'x'),
+        savedPct: 1,
+        systemPrompt: 'stolen',
+      }),
+    ).rejects.toBeInstanceOf(AssistantNotFoundError);
+    await expect(repo().markCompactionFailed(other.scope, thread.id, at)).rejects.toBeInstanceOf(
+      AssistantNotFoundError,
+    );
   });
 });

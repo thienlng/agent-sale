@@ -1,6 +1,17 @@
+import { PRUNED_TOOL_TEXT } from '@agent-sales/ai-core';
+
 import {
   type AssistantRepository,
+  type CompactionInput,
+  MEMORY_STORE_PATTERN,
+  type MemoryEntry,
+  type MemoryStoreRecord,
   type MessageRecord,
+  type NewMessage,
+  type NewProposal,
+  type ProposalPatch,
+  type ProposalRecord,
+  type ProposalStatus,
   type RunRecord,
   RUN_BUSY_WINDOW_MS,
   type SearchHit,
@@ -17,8 +28,11 @@ interface Owned {
   ownerUserId: string;
 }
 type StoredThread = ThreadRecord & Owned & { origin: 'chat' | 'schedule' | 'review' };
-type StoredMessage = MessageRecord & Owned & { active: boolean };
+type StoredMessage = MessageRecord &
+  Owned & { active: boolean; compacted: boolean; sortSeq: number };
 type StoredRun = RunRecord & Owned;
+type StoredMemory = MemoryStoreRecord & Owned;
+type StoredProposal = ProposalRecord & Owned;
 
 const mine = (s: OwnerScope, row: Owned) =>
   row.accountId === s.accountId && row.ownerUserId === s.ownerUserId;
@@ -29,6 +43,8 @@ export class InMemoryAssistantRepository implements AssistantRepository {
   readonly messages: StoredMessage[] = [];
   readonly runs = new Map<string, StoredRun>();
   readonly steps: (StepRecord & { accountId: string })[] = [];
+  readonly memory: StoredMemory[] = [];
+  readonly proposals = new Map<string, StoredProposal>();
   #clock = 0;
 
   /** Strictly increasing timestamps so ordering is deterministic in tests. */
@@ -55,7 +71,7 @@ export class InMemoryAssistantRepository implements AssistantRepository {
   }
 
   #publicMessage(m: StoredMessage): MessageRecord {
-    const { accountId: _a, ownerUserId: _o, active: _v, ...rest } = m;
+    const { accountId: _a, ownerUserId: _o, active: _v, compacted: _c, sortSeq: _s, ...rest } = m;
     return structuredClone(rest);
   }
 
@@ -108,6 +124,10 @@ export class InMemoryAssistantRepository implements AssistantRepository {
       businessId: s.businessId,
       createdAt: now,
       lastMessageAt: now,
+      cacheRootId: null,
+      compactedAt: null,
+      compactionFailedAt: null,
+      compactionSavedPcts: [],
     };
     this.threads.set(t.id, row);
     return this.#publicThread(row);
@@ -134,14 +154,14 @@ export class InMemoryAssistantRepository implements AssistantRepository {
     this.#thread(s, threadId);
     const rows = this.messages
       .filter((m) => m.threadId === threadId && mine(s, m) && (!opts?.activeOnly || m.active))
-      .sort((a, b) => a.seq - b.seq);
+      .sort((a, b) => (opts?.activeOnly ? a.sortSeq - b.sortSeq : 0) || a.seq - b.seq);
     return rows.map((m) => this.#publicMessage(m));
   }
 
   async appendMessages(
     s: OwnerScope,
     threadId: string,
-    msgs: Omit<MessageRecord, 'seq' | 'createdAt' | 'threadId'>[],
+    msgs: NewMessage[],
   ): Promise<MessageRecord[]> {
     const thread = this.#thread(s, threadId);
     let seq = Math.max(
@@ -153,10 +173,13 @@ export class InMemoryAssistantRepository implements AssistantRepository {
         ...structuredClone(m),
         threadId,
         seq: ++seq,
+        sortSeq: seq,
+        isSummary: false,
         createdAt: this.#now(),
         accountId: s.accountId,
         ownerUserId: s.ownerUserId,
         active: true,
+        compacted: false,
       };
       this.messages.push(row);
       return row;
@@ -254,5 +277,164 @@ export class InMemoryAssistantRepository implements AssistantRepository {
       .sort((a, b) => a.idx - b.idx)
       .map(({ accountId: _x, ...step }) => step);
     return { ...structuredClone(rest), steps };
+  }
+
+  // ─── Memory ───
+
+  async getMemory(s: OwnerScope): Promise<MemoryStoreRecord[]> {
+    return this.memory
+      .filter((x) => mine(s, x))
+      .sort((a, b) => (a.store < b.store ? -1 : a.store > b.store ? 1 : 0))
+      .map(({ accountId: _a, ownerUserId: _o, ...rest }) => structuredClone(rest));
+  }
+
+  async saveMemoryStore(
+    s: OwnerScope,
+    store: string,
+    entries: MemoryEntry[],
+  ): Promise<MemoryStoreRecord> {
+    // Mirrors the table's CHECK constraint.
+    if (!MEMORY_STORE_PATTERN.test(store)) throw new Error(`invalid assistant memory store`);
+    let row = this.memory.find((x) => mine(s, x) && x.store === store);
+    if (!row) {
+      row = {
+        accountId: s.accountId,
+        ownerUserId: s.ownerUserId,
+        store,
+        entries: [],
+        updatedAt: this.#now(),
+      };
+      this.memory.push(row);
+    }
+    row.entries = structuredClone(entries);
+    row.updatedAt = this.#now();
+    const { accountId: _a, ownerUserId: _o, ...rest } = row;
+    return structuredClone(rest);
+  }
+
+  // ─── Proposals ───
+
+  #publicProposal(p: StoredProposal): ProposalRecord {
+    const { accountId: _a, ownerUserId: _o, ...rest } = p;
+    return structuredClone(rest);
+  }
+
+  async createProposal(s: OwnerScope, p: NewProposal): Promise<ProposalRecord> {
+    this.#thread(s, p.threadId);
+    if (this.proposals.has(p.id)) throw new Error('assistant proposal id already used');
+    if (p.summary.length > 300) throw new Error('assistant proposal summary too long');
+    const row: StoredProposal = {
+      ...structuredClone(p),
+      accountId: s.accountId,
+      ownerUserId: s.ownerUserId,
+      status: 'pending',
+      errorCode: null,
+      resultPreview: null,
+      decidedAt: null,
+      createdAt: this.#now(),
+    };
+    this.proposals.set(p.id, row);
+    return this.#publicProposal(row);
+  }
+
+  async listProposals(s: OwnerScope, threadId: string): Promise<ProposalRecord[]> {
+    this.#thread(s, threadId);
+    return [...this.proposals.values()]
+      .filter((p) => p.threadId === threadId && mine(s, p))
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+      .map((p) => this.#publicProposal(p));
+  }
+
+  async getProposal(s: OwnerScope, id: string): Promise<ProposalRecord | null> {
+    const p = this.proposals.get(id);
+    return p && mine(s, p) ? this.#publicProposal(p) : null;
+  }
+
+  async transitionProposal(
+    s: OwnerScope,
+    id: string,
+    from: ProposalStatus[],
+    to: ProposalStatus,
+    patch: ProposalPatch = {},
+  ): Promise<ProposalRecord | null> {
+    // No await between the check and the write: atomic within this process.
+    const p = this.proposals.get(id);
+    if (!p || !mine(s, p) || !from.includes(p.status)) return null;
+    p.status = to;
+    if (patch.errorCode !== undefined) p.errorCode = patch.errorCode;
+    if (patch.resultPreview !== undefined) p.resultPreview = patch.resultPreview;
+    if (patch.decidedAt !== undefined) p.decidedAt = patch.decidedAt;
+    return this.#publicProposal(p);
+  }
+
+  async expireProposals(s: OwnerScope, now: Date): Promise<number> {
+    let n = 0;
+    for (const p of this.proposals.values()) {
+      if (mine(s, p) && p.status === 'pending' && p.expiresAt.getTime() < now.getTime()) {
+        p.status = 'expired';
+        n++;
+      }
+    }
+    return n;
+  }
+
+  // ─── Compaction ───
+
+  async applyCompaction(
+    s: OwnerScope,
+    threadId: string,
+    c: CompactionInput,
+  ): Promise<MessageRecord> {
+    const thread = this.#thread(s, threadId);
+    if (c.deactivateIds.length === 0) {
+      throw new Error('assistant compaction needs a middle to summarise');
+    }
+    const ids = new Set(c.deactivateIds);
+    const middle = this.messages.filter(
+      (m) => m.threadId === threadId && mine(s, m) && m.active && ids.has(m.id),
+    );
+    if (middle.length !== ids.size) throw new Error('assistant compaction plan is stale');
+    for (const m of middle) {
+      m.active = false;
+      m.compacted = true;
+    }
+    const pruned = new Set(c.prunedToolIds);
+    for (const m of this.messages) {
+      if (
+        m.threadId === threadId &&
+        mine(s, m) &&
+        m.active &&
+        m.role === 'tool' &&
+        pruned.has(m.id)
+      ) {
+        m.content = PRUNED_TOOL_TEXT;
+      }
+    }
+    const last = Math.max(
+      0,
+      ...this.messages.filter((m) => m.threadId === threadId).map((m) => m.seq),
+    );
+    const row: StoredMessage = {
+      ...structuredClone(c.summary),
+      threadId,
+      seq: last + 1,
+      sortSeq: Math.min(...middle.map((m) => m.seq)) - 0.5,
+      isSummary: true,
+      createdAt: this.#now(),
+      accountId: s.accountId,
+      ownerUserId: s.ownerUserId,
+      active: true,
+      compacted: false,
+    };
+    this.messages.push(row);
+    thread.systemPrompt = c.systemPrompt;
+    thread.compactedAt = this.#now();
+    thread.compactionSavedPcts = [...thread.compactionSavedPcts, c.savedPct].slice(-2);
+    thread.cacheRootId ??= thread.id;
+    return this.#publicMessage(row);
+  }
+
+  async markCompactionFailed(s: OwnerScope, threadId: string, at: Date): Promise<void> {
+    this.#thread(s, threadId).compactionFailedAt = at;
   }
 }

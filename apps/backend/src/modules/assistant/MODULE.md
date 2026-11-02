@@ -2,7 +2,7 @@
 
 **Purpose:** the owner assistant "Thỏ Rapiz" (ADR-022, T-170): an account owner's private chat threads, the runs that answer them and their steps. Owner-only and account-scoped, not business-scoped.
 
-**Owned tables:** `assistant_threads`, `assistant_messages`, `assistant_runs`, `assistant_run_steps` (migration 0055; schema in `packages/db/src/schema/assistant.ts`). Every row carries `account_id`; RLS reads `app.account_id`, set by `withAccount`. `assistant_messages.search` (generated tsvector, GIN + trigram indexes) exists only in SQL and is queried with `sql`.
+**Owned tables:** `assistant_threads`, `assistant_messages`, `assistant_runs`, `assistant_run_steps` (migration 0055), `assistant_memory`, `assistant_proposals` and the compaction columns (`assistant_threads.cache_root_id`, `compacted_at`, `compaction_failed_at`, `compaction_saved_pcts`; `assistant_messages.sort_seq`) (migration 0056); schema in `packages/db/src/schema/assistant.ts`. Every row carries `account_id`; RLS reads `app.account_id`, set by `withAccount`. `assistant_messages.search` (generated tsvector, GIN + trigram indexes) exists only in SQL and is queried with `sql`.
 
 **Public API (`api/`):**
 
@@ -27,6 +27,7 @@
 - No business data is stored: the assistant reads other modules through their facades at answer time; only the conversation and run traces are kept.
 - No monthly allowance or quota in 1a: tokens are recorded on `assistant_runs`; the cap arrives with billing in a later slice (spec §18).
 - One running run per owner (younger than 3 min); a run id is the client `turnId`, so a retried turn is a duplicate, not a second run.
+- Repository (1b storage): `getMemory` / `saveMemoryStore` (upsert of one store's entries); `createProposal` / `listProposals` / `getProposal`, `transitionProposal(from[], to)` is one conditional UPDATE (null when no row changed: the atomic approve guard), `expireProposals(now)`; `applyCompaction` in one transaction (middle → `active=false, compacted=true`; pruned tool rows → `PRUNED_TOOL_TEXT`; summary row `is_summary`, `seq = max+1`, `sort_seq = first summarised seq − 0.5`; thread `system_prompt`, `compacted_at`, last two `compaction_saved_pcts`, `cache_root_id` set to the thread id when null; a stale plan throws and changes nothing), `markCompactionFailed`. `listMessages({ activeOnly })` orders by `sort_seq`.
 
 **Do not:** read other modules' tables; use `withTenant` for assistant tables; put HTTP/Drizzle types in `domain/`; call LLMs outside `ai-core`.
 

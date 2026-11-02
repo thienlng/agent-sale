@@ -10,6 +10,12 @@ export interface ThreadRecord {
   promptVersion: string;
   createdAt: Date;
   lastMessageAt: Date;
+  /** Prompt-cache key root, set on the first compaction (null before). */
+  cacheRootId: string | null;
+  compactedAt: Date | null;
+  compactionFailedAt: Date | null;
+  /** Savings (%) of the last two compactions, oldest first. */
+  compactionSavedPcts: number[];
 }
 
 export interface MessageRecord {
@@ -24,8 +30,13 @@ export interface MessageRecord {
   pageContext: unknown | null;
   uiActions: unknown[];
   runId: string | null;
+  /** A compaction summary (sorts before the tail it precedes in the active history). */
+  isSummary: boolean;
   createdAt: Date;
 }
+
+/** A message to append: the repository assigns `seq`, `createdAt` and the thread. */
+export type NewMessage = Omit<MessageRecord, 'seq' | 'createdAt' | 'threadId' | 'isSummary'>;
 
 export interface RunRecord {
   id: string;
@@ -67,6 +78,82 @@ export interface SearchHit {
   createdAt: Date;
 }
 
+export interface MemoryEntry {
+  id: string;
+  text: string;
+  origin: 'assistant' | 'owner';
+  createdAt: string;
+}
+
+/** One bounded memory store: `owner_profile`, `notes` or `business:<uuid>`. */
+export interface MemoryStoreRecord {
+  store: string;
+  entries: MemoryEntry[];
+  updatedAt: Date;
+}
+
+/** Valid store names (the table's CHECK constraint). */
+export const MEMORY_STORE_PATTERN = /^(owner_profile|notes|business:[0-9a-f-]{36})$/;
+
+export type ProposalStatus = 'pending' | 'executing' | 'done' | 'failed' | 'rejected' | 'expired';
+
+/** A write the model drafted; it runs only when the owner approves it. */
+export interface ProposalRecord {
+  id: string;
+  threadId: string;
+  runId: string | null;
+  businessId: string;
+  /** `METHOD /path` of the route contract. */
+  routeKey: string;
+  /** Concrete path with params filled, relative to `/api/v1`. */
+  path: string;
+  query: unknown | null;
+  body: unknown | null;
+  /** ≤ 300 chars. */
+  summary: string;
+  preview: unknown | null;
+  status: ProposalStatus;
+  errorCode: string | null;
+  resultPreview: string | null;
+  expiresAt: Date;
+  decidedAt: Date | null;
+  createdAt: Date;
+}
+
+export type NewProposal = Pick<
+  ProposalRecord,
+  | 'id'
+  | 'threadId'
+  | 'runId'
+  | 'businessId'
+  | 'routeKey'
+  | 'path'
+  | 'query'
+  | 'body'
+  | 'summary'
+  | 'preview'
+  | 'expiresAt'
+>;
+
+export interface ProposalPatch {
+  errorCode?: string | null;
+  resultPreview?: string | null;
+  decidedAt?: Date | null;
+}
+
+export interface CompactionInput {
+  /** The summarised middle: becomes `active=false, compacted=true` (still searchable). */
+  deactivateIds: string[];
+  /** Tool results that stay active but whose content becomes `PRUNED_TOOL_TEXT`. */
+  prunedToolIds: string[];
+  /** Stored with `is_summary=true`, seq = max+1, sort_seq = min seq of the middle − 0.5. */
+  summary: NewMessage;
+  /** Percent of the context this compaction saved; the thread keeps the last two. */
+  savedPct: number;
+  /** The rebuilt (frozen) system prompt. */
+  systemPrompt: string;
+}
+
 /** Threads listed per page. */
 export const THREAD_LIST_LIMIT = 50;
 /** A running run older than this no longer blocks a new one (crashed process). */
@@ -92,18 +179,14 @@ export interface AssistantRepository {
     threadId: string,
     patch: Partial<Pick<ThreadRecord, 'title' | 'pinned' | 'archived'>>,
   ): Promise<ThreadRecord | null>;
-  /** seq asc. */
+  /** seq asc; with `activeOnly`, the active history in `sort_seq` order (summary before the tail). */
   listMessages(
     s: OwnerScope,
     threadId: string,
     opts?: { activeOnly?: boolean },
   ): Promise<MessageRecord[]>;
   /** Assigns seq = max+1…, bumps last_message_at. */
-  appendMessages(
-    s: OwnerScope,
-    threadId: string,
-    msgs: Omit<MessageRecord, 'seq' | 'createdAt' | 'threadId'>[],
-  ): Promise<MessageRecord[]>;
+  appendMessages(s: OwnerScope, threadId: string, msgs: NewMessage[]): Promise<MessageRecord[]>;
   /** Accent-insensitive full text (fallback: substring) over user/assistant rows; schedule and review threads last. */
   searchMessages(s: OwnerScope, query: string, limit: number): Promise<SearchHit[]>;
   /**
@@ -117,6 +200,42 @@ export interface AssistantRepository {
   addStep(s: OwnerScope, step: StepRecord): Promise<void>;
   finishRun(s: OwnerScope, runId: string, patch: Partial<RunRecord>): Promise<void>;
   getRun(s: OwnerScope, runId: string): Promise<(RunRecord & { steps: StepRecord[] }) | null>;
+
+  // ─── Memory ───
+  /** The owner's stores, by store name. */
+  getMemory(s: OwnerScope): Promise<MemoryStoreRecord[]>;
+  /** Replaces the store's entries (upsert); limits and the safety scan are the caller's job. */
+  saveMemoryStore(s: OwnerScope, store: string, entries: MemoryEntry[]): Promise<MemoryStoreRecord>;
+
+  // ─── Proposals ───
+  /** Status `pending`; the thread must be the owner's. */
+  createProposal(s: OwnerScope, p: NewProposal): Promise<ProposalRecord>;
+  /** created_at asc; the thread must be the owner's. */
+  listProposals(s: OwnerScope, threadId: string): Promise<ProposalRecord[]>;
+  getProposal(s: OwnerScope, id: string): Promise<ProposalRecord | null>;
+  /**
+   * Atomic guard: moves the proposal to `to` only if its status is one of `from` (one
+   * conditional UPDATE). Null when no row changed (absent, another owner's, or another status),
+   * so of two concurrent approvals exactly one wins.
+   */
+  transitionProposal(
+    s: OwnerScope,
+    id: string,
+    from: ProposalStatus[],
+    to: ProposalStatus,
+    patch?: ProposalPatch,
+  ): Promise<ProposalRecord | null>;
+  /** Pending proposals with `expires_at < now` become `expired`; returns how many. */
+  expireProposals(s: OwnerScope, now: Date): Promise<number>;
+
+  // ─── Compaction ───
+  /**
+   * In one transaction: deactivates the middle, prunes tool results, inserts the summary row,
+   * and updates the thread's system prompt, `compacted_at`, `compaction_saved_pcts` (last two)
+   * and `cache_root_id` (set to the thread id when still null). Returns the summary row.
+   */
+  applyCompaction(s: OwnerScope, threadId: string, c: CompactionInput): Promise<MessageRecord>;
+  markCompactionFailed(s: OwnerScope, threadId: string, at: Date): Promise<void>;
 }
 
 export const ASSISTANT_REPOSITORY = Symbol('ASSISTANT_REPOSITORY');

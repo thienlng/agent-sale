@@ -106,6 +106,7 @@ describe('account-scoped assistant tables (ADR-022)', () => {
         ownerUserId: ownerIds[0]!,
         threadId: threadIds[0]!,
         seq: 1,
+        sortSeq: 1,
         role: 'user',
         content: 'Báo cáo doanh thu',
       });
