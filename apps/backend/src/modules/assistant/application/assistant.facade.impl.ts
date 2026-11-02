@@ -1,4 +1,5 @@
 import type {
+  AssistantMemoryDto,
   AssistantMessageList,
   AssistantRunDto,
   AssistantThreadDto,
@@ -17,13 +18,23 @@ import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/inde
 import type { AssistantActor, AssistantFacade } from '../api/assistant.facade.js';
 import { AssistantNotFoundError } from '../domain/assistant.errors.js';
 import {
+  businessOfStore,
+  businessStore,
+  compareStores,
+  isKnownStore,
+  memoryLimit,
+  memoryUsed,
+} from '../domain/memory-store.js';
+import {
   ASSISTANT_REPOSITORY,
   type AssistantRepository,
+  type MemoryStoreRecord,
 } from '../domain/ports/assistant.repository.js';
 import { ChatTurnService } from './chat-turn.service.js';
 import { toMessageDtos, toRunDto, toThreadDto } from './mappers.js';
 import { type OwnerScope, resolveOwnerScope } from './owner-access.js';
 import { ASSISTANT_PROMPT, buildSystemPrompt, loadAssistantTemplate } from './prompt-builder.js';
+import { SkillCatalog } from './skill-tools.js';
 
 /** A malformed id names nothing the owner has. */
 function knownId(what: 'thread' | 'run', id: string): string {
@@ -42,6 +53,7 @@ export class AssistantFacadeImpl implements AssistantFacade {
     @Inject(WORKSPACE_FACADE) private readonly workspace: WorkspaceFacade,
     @Inject(ASSISTANT_REPOSITORY) private readonly repo: AssistantRepository,
     @Inject(ChatTurnService) private readonly chat: ChatTurnService,
+    @Inject(SkillCatalog) private readonly skills: SkillCatalog,
   ) {}
 
   #scope(actor: AssistantActor): Promise<OwnerScope> {
@@ -69,9 +81,11 @@ export class AssistantFacadeImpl implements AssistantFacade {
     input: CreateAssistantThreadRequest,
   ): Promise<AssistantThreadDto> {
     const scope = await this.#scope(actor);
-    const [template, memberships] = await Promise.all([
+    // The memory snapshot is read once here: the prompt stays frozen for the thread (1b-R6).
+    const [template, memberships, memory] = await Promise.all([
       loadAssistantTemplate(),
       this.workspace.listMemberships(actor.userId),
+      this.repo.getMemory(scope),
     ]);
     const businesses = memberships
       .filter((ms) => ms.accountId === scope.accountId)
@@ -81,6 +95,10 @@ export class AssistantFacadeImpl implements AssistantFacade {
       template,
       { ownerName: actor.ownerName?.trim() || FALLBACK_OWNER_NAME, businesses },
       new Date(),
+      {
+        skillsIndex: this.skills.index(),
+        memory: memory.filter((m) => isKnownStore(m.store, scope.businessIds)),
+      },
     );
     const thread = await this.repo.createThread(scope, {
       id: newId(),
@@ -129,5 +147,60 @@ export class AssistantFacadeImpl implements AssistantFacade {
     const run = await this.repo.getRun(scope, knownId('run', runId));
     if (!run) throw new AssistantNotFoundError('run', runId);
     return toRunDto(run);
+  }
+
+  async getMemory(actor: AssistantActor): Promise<AssistantMemoryDto> {
+    const scope = await this.#scope(actor);
+    return this.#memoryDto(scope, await this.repo.getMemory(scope));
+  }
+
+  async deleteMemoryEntry(
+    actor: AssistantActor,
+    store: string,
+    entryId: string,
+  ): Promise<AssistantMemoryDto> {
+    const scope = await this.#scope(actor);
+    if (!isKnownStore(store, scope.businessIds)) {
+      throw new AssistantNotFoundError('memory entry', entryId);
+    }
+    const memory = await this.repo.getMemory(scope);
+    const entries = memory.find((m) => m.store === store)?.entries ?? [];
+    if (!entries.some((e) => e.id === entryId)) {
+      throw new AssistantNotFoundError('memory entry', entryId);
+    }
+    const saved = await this.repo.saveMemoryStore(
+      scope,
+      store,
+      entries.filter((e) => e.id !== entryId),
+    );
+    return this.#memoryDto(scope, [...memory.filter((m) => m.store !== store), saved]);
+  }
+
+  /**
+   * owner_profile, notes, then one store per business of the scope (business stores in id
+   * order), empty ones included; stores of businesses outside the scope are not shown.
+   */
+  async #memoryDto(scope: OwnerScope, memory: MemoryStoreRecord[]): Promise<AssistantMemoryDto> {
+    const names = new Map(
+      (await this.workspace.listMemberships(scope.ownerUserId))
+        .filter((ms) => ms.accountId === scope.accountId)
+        .map((ms) => [ms.workspaceId as string, ms.workspaceName]),
+    );
+    const stores = ['owner_profile', 'notes', ...scope.businessIds.map(businessStore)].sort(
+      compareStores,
+    );
+    return {
+      stores: stores.map((store) => {
+        const entries = memory.find((m) => m.store === store)?.entries ?? [];
+        const business = businessOfStore(store);
+        return {
+          store,
+          label: business === null ? store : (names.get(business) ?? store),
+          limit: memoryLimit(store),
+          used: memoryUsed(entries),
+          entries: entries.map((e) => ({ id: e.id, text: e.text, createdAt: e.createdAt })),
+        };
+      }),
+    };
   }
 }

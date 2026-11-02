@@ -9,6 +9,7 @@ import {
   OWNER_WRAP_UP_NOTICE,
 } from '../application/chat-turn.service.js';
 import { toMessageDtos } from '../application/mappers.js';
+import { SkillCatalog } from '../application/skill-tools.js';
 import {
   AssistantBusyError,
   AssistantNotFoundError,
@@ -41,19 +42,22 @@ const call = (id: string, name: string, input: unknown) =>
   reply({ stopReason: 'tool_use', toolCalls: [{ id, name, input }] });
 const PAGE = { route: '/app/overview', targets: ['overview.add', 'overview.help'] };
 
+const BUSINESS = workspaceId(newId());
+
 async function setup(script: (GenerateResponse | Error)[] = [NAVIGATE, ANSWER]) {
   const repo = new InMemoryAssistantRepository();
   const scope: OwnerScope = {
     accountId: newId(),
     ownerUserId: userId(newId()),
-    businessId: workspaceId(newId()),
+    businessId: BUSINESS,
+    businessIds: [BUSINESS],
   };
   const queue = [...script];
   const generate = vi.fn((_req: GenerateRequest): Promise<GenerateResponse> => {
     const next = queue.shift() ?? ANSWER;
     return next instanceof Error ? Promise.reject(next) : Promise.resolve(next);
   });
-  const service = new ChatTurnService(repo, { generate });
+  const service = new ChatTurnService(repo, { generate }, new SkillCatalog([]));
   const thread = await repo.createThread(scope, {
     id: newId(),
     title: '',
@@ -113,8 +117,12 @@ describe('ChatTurnService', () => {
       tier: 'pro',
       promptCacheKey: `asst:${scope.ownerUserId}:${thread.id}`,
     });
+    // Sorted by name so the tool list stays cache-stable.
     expect(first.tools?.map((t) => t.name)).toEqual([
+      'load_skill',
+      'memory',
       'session_search',
+      'skills_list',
       'ui_navigate',
       'ui_spotlight',
     ]);

@@ -7,10 +7,13 @@ import { CORE_TOOL_DEFINITIONS, coreTools } from '../application/core-tools.js';
 import type { OwnerScope } from '../domain/owner-scope.js';
 import { InMemoryAssistantRepository } from '../infrastructure/persistence/assistant.in-memory-repository.js';
 
+const BUSINESS = workspaceId(newId());
+
 const scope: OwnerScope = {
   accountId: newId(),
   ownerUserId: userId(newId()),
-  businessId: workspaceId(newId()),
+  businessId: BUSINESS,
+  businessIds: [BUSINESS],
 };
 
 function setup(page?: AssistantPageContext) {

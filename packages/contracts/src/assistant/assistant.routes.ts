@@ -1,5 +1,6 @@
 import { defineRoutes } from '../common/routes.js';
 import {
+  AssistantMemoryDto,
   AssistantMessageList,
   AssistantRunDto,
   AssistantThreadDto,
@@ -64,5 +65,21 @@ export const assistantRoutes = defineRoutes([
     assistant: { use: 'never' },
     summary: 'An assistant run with its steps',
     responses: { 200: AssistantRunDto },
+  },
+  {
+    ...scoped,
+    method: 'get',
+    path: '/assistant/memory',
+    assistant: { use: 'never' },
+    summary: 'What the assistant remembers about the caller: every store with its limit and use',
+    responses: { 200: AssistantMemoryDto },
+  },
+  {
+    ...scoped,
+    method: 'delete',
+    path: '/assistant/memory/{store}/entries/{entryId}',
+    assistant: { use: 'never' },
+    summary: 'Forget one memory entry; returns the remaining memory',
+    responses: { 200: AssistantMemoryDto },
   },
 ]);

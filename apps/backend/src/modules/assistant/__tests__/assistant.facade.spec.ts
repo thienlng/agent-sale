@@ -5,6 +5,7 @@ import type { AccountFacade, AccountMembership } from '../../account/api/index.j
 import type { WorkspaceFacade, WorkspaceMembership } from '../../workspace/api/index.js';
 import { AssistantFacadeImpl } from '../application/assistant.facade.impl.js';
 import { ChatTurnService } from '../application/chat-turn.service.js';
+import { SkillCatalog } from '../application/skill-tools.js';
 import {
   AssistantBusyError,
   AssistantForbiddenError,
@@ -52,6 +53,14 @@ function ownerWorld() {
   return { accountId, owner, business, account, workspace, addAccountMember };
 }
 
+const SKILL = {
+  name: 'add-products',
+  description: 'Add products to the catalog',
+  toolsets: ['ui'],
+  version: 1,
+  body: 'Open /app/products/new.',
+};
+
 function setup() {
   const world = ownerWorld();
   const repo = new InMemoryAssistantRepository();
@@ -66,8 +75,9 @@ function setup() {
       latencyMs: 1,
     }),
   );
-  const chat = new ChatTurnService(repo, { generate });
-  const facade = new AssistantFacadeImpl(world.account, world.workspace, repo, chat);
+  const skills = new SkillCatalog([SKILL]);
+  const chat = new ChatTurnService(repo, { generate }, skills);
+  const facade = new AssistantFacadeImpl(world.account, world.workspace, repo, chat, skills);
   const me = { userId: world.owner, businessId: world.business };
   return { ...world, repo, facade, me, generate };
 }
@@ -87,7 +97,7 @@ describe('AssistantFacade (contract)', () => {
     expect(stored).toMatchObject({
       accountId,
       ownerUserId: me.userId,
-      promptVersion: 'assistant@1',
+      promptVersion: 'assistant@2',
     });
     expect(stored.systemPrompt).toContain('personal assistant of Lan,');
     expect(stored.systemPrompt).toContain('- Thời trang Mây (retail)');
@@ -111,7 +121,12 @@ describe('AssistantFacade (contract)', () => {
   it('hides tool rows from the visible messages', async () => {
     const { facade, me, repo, accountId } = setup();
     const t = await facade.createThread({ ...me, ownerName: null }, {});
-    const scope = { accountId, ownerUserId: me.userId, businessId: me.businessId };
+    const scope = {
+      accountId,
+      ownerUserId: me.userId,
+      businessId: me.businessId,
+      businessIds: [me.businessId],
+    };
     const row = {
       toolCalls: null,
       toolCallId: null,
@@ -182,7 +197,12 @@ describe('AssistantFacade (contract)', () => {
     expect((await facade.getRun(me, turnId)).status).toBe('done');
 
     // Busy while another run of the owner is running.
-    const scope = { accountId, ownerUserId: me.userId, businessId: me.businessId };
+    const scope = {
+      accountId,
+      ownerUserId: me.userId,
+      businessId: me.businessId,
+      businessIds: [me.businessId],
+    };
     await repo.startRun(scope, {
       id: newId(),
       threadId: t.id,
@@ -204,5 +224,91 @@ describe('AssistantFacade (contract)', () => {
     await expect(
       facade.sendMessage(me, 'not-a-uuid', { turnId: newId(), text: 'x' }),
     ).rejects.toBeInstanceOf(AssistantNotFoundError);
+  });
+
+  it('serves the memory to the owner only, and forgets one entry', async () => {
+    const { facade, me, repo, accountId, addAccountMember } = setup();
+    const scope = {
+      accountId,
+      ownerUserId: me.userId,
+      businessId: me.businessId,
+      businessIds: [me.businessId],
+    };
+    const entry = (id: string, text: string) => ({
+      id,
+      text,
+      origin: 'assistant' as const,
+      createdAt: '2026-11-01T00:00:00.000Z',
+    });
+    const a = newId();
+    const b = newId();
+    await repo.saveMemoryStore(scope, 'notes', [
+      entry(a, 'Giao hàng buổi chiều'),
+      entry(b, 'Nghỉ CN'),
+    ]);
+    await repo.saveMemoryStore(scope, `business:${me.businessId}`, [entry(newId(), 'Bán đồ len')]);
+    // A store of a business the owner is not a member of is not shown.
+    await repo.saveMemoryStore(scope, `business:${newId()}`, [entry(newId(), 'x')]);
+
+    const memory = await facade.getMemory(me);
+    expect(memory.stores.map((st) => [st.store, st.label, st.limit, st.used])).toEqual([
+      ['owner_profile', 'owner_profile', 1400, 0],
+      ['notes', 'notes', 2200, 27],
+      [`business:${me.businessId}`, 'Thời trang Mây', 1000, 10],
+    ]);
+    expect(memory.stores[1]?.entries).toEqual([
+      { id: a, text: 'Giao hàng buổi chiều', createdAt: '2026-11-01T00:00:00.000Z' },
+      { id: b, text: 'Nghỉ CN', createdAt: '2026-11-01T00:00:00.000Z' },
+    ]);
+
+    const after = await facade.deleteMemoryEntry(me, 'notes', a);
+    expect(after.stores[1]).toMatchObject({ used: 7, entries: [{ id: b, text: 'Nghỉ CN' }] });
+    expect((await facade.getMemory(me)).stores[1]?.entries.map((e) => e.id)).toEqual([b]);
+    await expect(facade.deleteMemoryEntry(me, 'notes', a)).rejects.toBeInstanceOf(
+      AssistantNotFoundError,
+    );
+    await expect(facade.deleteMemoryEntry(me, `business:${newId()}`, b)).rejects.toBeInstanceOf(
+      AssistantNotFoundError,
+    );
+
+    // Staff (no account role) and billing members are refused; another owner sees nothing.
+    const staff = { ...me, userId: userId(newId()) };
+    await expect(facade.getMemory(staff)).rejects.toBeInstanceOf(AssistantForbiddenError);
+    await expect(facade.deleteMemoryEntry(staff, 'notes', b)).rejects.toBeInstanceOf(
+      AssistantForbiddenError,
+    );
+    const billing = { ...me, userId: addAccountMember('billing') };
+    await expect(facade.getMemory(billing)).rejects.toBeInstanceOf(AssistantForbiddenError);
+    const second = { ...me, userId: addAccountMember('owner') };
+    expect((await facade.getMemory(second)).stores.every((st) => st.entries.length === 0)).toBe(
+      true,
+    );
+  });
+
+  it('freezes the skills index and the memory snapshot into a new thread', async () => {
+    const { facade, me, repo, accountId } = setup();
+    const scope = {
+      accountId,
+      ownerUserId: me.userId,
+      businessId: me.businessId,
+      businessIds: [me.businessId],
+    };
+    await repo.saveMemoryStore(scope, 'owner_profile', [
+      {
+        id: newId(),
+        text: 'Thích trả lời ngắn',
+        origin: 'owner',
+        createdAt: '2026-11-01T00:00:00.000Z',
+      },
+    ]);
+    const t = await facade.createThread({ ...me, ownerName: 'Lan' }, {});
+    const prompt = repo.threads.get(t.id)!.systemPrompt;
+    expect(prompt).toContain('- add-products: Add products to the catalog');
+    expect(prompt).toContain('owner_profile [1% — 18/1400]\n- Thích trả lời ngắn');
+    // Memory saved later joins new threads only (1b-R6).
+    await repo.saveMemoryStore(scope, 'notes', [
+      { id: newId(), text: 'Nghỉ CN', origin: 'owner', createdAt: '2026-11-01T00:00:00.000Z' },
+    ]);
+    expect(repo.threads.get(t.id)!.systemPrompt).toBe(prompt);
   });
 });

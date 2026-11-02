@@ -8,6 +8,7 @@ import { WorkspaceModule } from '../workspace/workspace.module.js';
 import { ASSISTANT_FACADE } from './api/assistant.facade.js';
 import { AssistantFacadeImpl } from './application/assistant.facade.impl.js';
 import { ChatTurnService } from './application/chat-turn.service.js';
+import { SkillCatalog } from './application/skill-tools.js';
 import { ASSISTANT_REPOSITORY } from './domain/ports/assistant.repository.js';
 import { DrizzleAssistantRepository } from './infrastructure/persistence/assistant.drizzle-repository.js';
 import { InMemoryAssistantRepository } from './infrastructure/persistence/assistant.in-memory-repository.js';
@@ -28,6 +29,8 @@ import { AssistantController } from './interface/http/assistant.controller.js';
       useFactory: (db: Database | null | undefined) =>
         db ? new DrizzleAssistantRepository(db) : new InMemoryAssistantRepository(),
     },
+    // Platform skills are parsed and linted once at boot; a bad SKILL.md fails the start.
+    { provide: SkillCatalog, useFactory: () => SkillCatalog.load() },
     ChatTurnService,
     { provide: ASSISTANT_FACADE, useClass: AssistantFacadeImpl },
   ],

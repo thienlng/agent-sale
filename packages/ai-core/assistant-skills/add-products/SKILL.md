@@ -1,0 +1,19 @@
+---
+name: add-products
+description: Add or update products in the catalog, set stock, and choose which products a bot sells
+toolsets: [ui, routes]
+version: 1
+---
+# Add products
+
+Use this when the owner wants to add a product, change one, set its stock, or decide what a bot may sell.
+
+1. Ask which business it is for when the owner has more than one.
+2. Check what already exists before adding: search the catalog with the products read tool, so the same product is not added twice.
+3. To add one product with the owner, open /app/products/new with ui_navigate. When the page lists a product form in <page_context> forms, offer ui_fill_form with the name, price and variants the owner gave; the owner checks the form and saves it.
+4. To add or change products for the owner, draft the change with the product write tool (create a product with its variants, or replace a product and its variants). It becomes a proposal; tell the owner to approve it in the chat. Replacing a product archives the variants that are left out, so always start from the current product.
+5. Pictures are uploaded by the owner on the product page; you cannot upload files.
+6. Stock: the counted stock of a variant is set per warehouse. List the warehouses first and use the default one unless the owner names another.
+7. What the bot may say about a product (visible to the bot, extra bot instructions) is changed on its own, without touching price or variants.
+8. Which products a bot sells: a bot sells every active product, or only the products selected for it. Open /app/bots/{botId}/products to show or change the selection.
+9. After the owner approved, confirm from the event message only, then offer to open /app/products.

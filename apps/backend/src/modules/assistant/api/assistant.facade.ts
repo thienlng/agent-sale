@@ -1,4 +1,5 @@
 import type {
+  AssistantMemoryDto,
   AssistantMessageList,
   AssistantRunDto,
   AssistantThreadDto,
@@ -42,6 +43,18 @@ export interface AssistantFacade {
     input: SendAssistantMessageRequest,
   ): Promise<SendAssistantMessageResponse>;
   getRun(actor: AssistantActor, runId: string): Promise<AssistantRunDto>;
+  /**
+   * Every memory store of the owner (owner_profile, notes, one per business of the account they
+   * are a member of), with its limit and use, even when empty. Labels are English keys
+   * (`owner_profile`, `notes`) or the business name; the web translates them.
+   */
+  getMemory(actor: AssistantActor): Promise<AssistantMemoryDto>;
+  /** Forgets one entry and returns the remaining memory; NOT_FOUND for an unknown store or entry. */
+  deleteMemoryEntry(
+    actor: AssistantActor,
+    store: string,
+    entryId: string,
+  ): Promise<AssistantMemoryDto>;
 }
 
 export const ASSISTANT_FACADE = Symbol('ASSISTANT_FACADE');

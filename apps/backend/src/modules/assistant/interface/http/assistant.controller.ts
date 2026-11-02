@@ -3,6 +3,7 @@ import {
   CreateAssistantThreadRequest,
   SendAssistantMessageRequest,
   UpdateAssistantThreadRequest,
+  type AssistantMemoryDto,
   type AssistantMessageList,
   type AssistantRunDto,
   type AssistantThreadDto,
@@ -10,7 +11,18 @@ import {
   type SendAssistantMessageResponse,
 } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
-import { Body, Controller, Get, HttpCode, Inject, Param, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Inject,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 
 import {
   type AuthState,
@@ -96,5 +108,24 @@ export class AssistantController {
     @Param('runId') runId: string,
   ): Promise<AssistantRunDto> {
     return this.facade.getRun(actor(user, ws), runId);
+  }
+
+  @Get('memory')
+  getMemory(
+    @CurrentUser() user: AuthState,
+    @CurrentWorkspace() ws: WorkspaceId,
+  ): Promise<AssistantMemoryDto> {
+    return this.facade.getMemory(actor(user, ws));
+  }
+
+  @Delete('memory/:store/entries/:entryId')
+  @HttpCode(200)
+  deleteMemoryEntry(
+    @CurrentUser() user: AuthState,
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Param('store') store: string,
+    @Param('entryId') entryId: string,
+  ): Promise<AssistantMemoryDto> {
+    return this.facade.deleteMemoryEntry(actor(user, ws), store, entryId);
   }
 }

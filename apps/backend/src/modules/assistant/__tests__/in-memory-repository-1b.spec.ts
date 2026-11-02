@@ -7,10 +7,13 @@ import type { OwnerScope } from '../domain/owner-scope.js';
 import type { NewMessage, NewProposal } from '../domain/ports/assistant.repository.js';
 import { InMemoryAssistantRepository } from '../infrastructure/persistence/assistant.in-memory-repository.js';
 
+const BUSINESS = workspaceId(newId());
+
 const scope = (accountId: string): OwnerScope => ({
   accountId,
   ownerUserId: userId(newId()),
-  businessId: workspaceId(newId()),
+  businessId: BUSINESS,
+  businessIds: [BUSINESS],
 });
 const msg = (role: NewMessage['role'], content: string): NewMessage => ({
   id: newId(),

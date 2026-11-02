@@ -1,5 +1,6 @@
 import { PRUNED_TOOL_TEXT } from '@agent-sales/ai-core';
 import {
+  AssistantMemoryDto,
   AssistantMessageList,
   AssistantRunDto,
   AssistantThreadDto,
@@ -54,7 +55,7 @@ afterAll(async () => {
   await pg?.stop();
 });
 
-type Method = 'GET' | 'POST' | 'PATCH';
+type Method = 'GET' | 'POST' | 'PATCH' | 'DELETE';
 type Headers = Record<string, string>;
 const call = (h: Headers, method: Method, url: string, payload?: object) =>
   app
@@ -130,7 +131,7 @@ describe('assistant threads on Postgres', () => {
       .select()
       .from(schema.assistantThreads)
       .where(eq(schema.assistantThreads.id, thread.id));
-    expect(stored).toMatchObject({ ownerUserId: lan.userId, promptVersion: 'assistant@1' });
+    expect(stored).toMatchObject({ ownerUserId: lan.userId, promptVersion: 'assistant@2' });
     expect(stored?.systemPrompt).toContain('personal assistant of Lan,');
     expect(stored?.systemPrompt).toContain('- Shop Lan (fashion)');
     expect(stored?.systemPrompt).not.toContain('{{');
@@ -256,6 +257,7 @@ describe('assistant repository on Postgres', () => {
       accountId,
       ownerUserId: userId(hoa.userId),
       businessId: workspaceId(hoa.ownWorkspace),
+      businessIds: [workspaceId(hoa.ownWorkspace)],
     };
     const thread = AssistantThreadDto.parse(
       (await call(hoa.h, 'POST', '/assistant/threads', { title: 'Sản phẩm' })).json(),
@@ -365,6 +367,7 @@ describe('assistant repository on Postgres', () => {
       accountId: await accountOf(dung.ownWorkspace),
       ownerUserId: userId(dung.userId),
       businessId: workspaceId(dung.ownWorkspace),
+      businessIds: [workspaceId(dung.ownWorkspace)],
     };
     for (const s of [sameAccount, otherAccount]) {
       expect(await repo.getThread(s, thread.id)).toBeNull();
@@ -457,7 +460,7 @@ describe('assistant chat turns on Postgres', () => {
       .select()
       .from(schema.assistantRuns)
       .where(eq(schema.assistantRuns.id, turnId));
-    expect(stored).toMatchObject({ tier: 'pro', promptVersion: 'assistant@1', status: 'done' });
+    expect(stored).toMatchObject({ tier: 'pro', promptVersion: 'assistant@2', status: 'done' });
     expect(stored?.finishedAt).toBeInstanceOf(Date);
 
     // A retried turn returns the first answer; the thread took its title from the first text.
@@ -479,6 +482,7 @@ describe('assistant chat turns on Postgres', () => {
       accountId: await accountOf(tu.ownWorkspace),
       ownerUserId: userId(tu.userId),
       businessId: workspaceId(tu.ownWorkspace),
+      businessIds: [workspaceId(tu.ownWorkspace)],
     };
     const stuck = newId();
     await repo.startRun(scope, {
@@ -553,6 +557,7 @@ describe('assistant memory, proposals and compaction on Postgres (1b)', () => {
       accountId: await accountOf(u.ownWorkspace),
       ownerUserId: userId(u.userId),
       businessId: workspaceId(u.ownWorkspace),
+      businessIds: [workspaceId(u.ownWorkspace)],
     };
     const thread = await repo().createThread(scope, {
       id: newId(),
@@ -579,6 +584,46 @@ describe('assistant memory, proposals and compaction on Postgres (1b)', () => {
     // Same owner id under the other account: RLS and the explicit filter both hide A's rows.
     expect(await repo().getMemory({ ...b.scope, ownerUserId: a.scope.ownerUserId })).toEqual([]);
     await expect(repo().saveMemoryStore(a.scope, 'secrets', [])).rejects.toThrow();
+  });
+
+  it('serves GET and DELETE /assistant/memory to the owner and refuses staff', async () => {
+    const ha = await user('mem-http@assistant.vn', 'MemHttp');
+    const scope: OwnerScope = {
+      accountId: await accountOf(ha.ownWorkspace),
+      ownerUserId: userId(ha.userId),
+      businessId: workspaceId(ha.ownWorkspace),
+      businessIds: [workspaceId(ha.ownWorkspace)],
+    };
+    const keep = entry('Báo cáo sáng thứ Hai');
+    const drop = entry('Thích báo cáo ngắn');
+    await repo().saveMemoryStore(scope, 'notes', [drop, keep]);
+
+    const got = await call(ha.h, 'GET', '/assistant/memory');
+    expect(got.statusCode, got.body).toBe(200);
+    const memory = AssistantMemoryDto.parse(got.json());
+    expect(memory.stores.map((st) => [st.store, st.label])).toEqual([
+      ['owner_profile', 'owner_profile'],
+      ['notes', 'notes'],
+      [`business:${ha.ownWorkspace}`, 'Shop MemHttp'],
+    ]);
+    expect(memory.stores[1]?.entries.map((e) => e.id)).toEqual([drop.id, keep.id]);
+
+    const deleted = await call(ha.h, 'DELETE', `/assistant/memory/notes/entries/${drop.id}`);
+    expect(deleted.statusCode, deleted.body).toBe(200);
+    expect(AssistantMemoryDto.parse(deleted.json()).stores[1]?.entries.map((e) => e.text)).toEqual([
+      'Báo cáo sáng thứ Hai',
+    ]);
+    expect(
+      (await call(ha.h, 'DELETE', `/assistant/memory/notes/entries/${drop.id}`)).statusCode,
+    ).toBe(404);
+
+    const staff = await user('mem-staff@assistant.vn', 'MemStaff');
+    await invite(ha, staff, 'mem-staff@assistant.vn', 'admin');
+    const asStaff = staff.in(ha.ownWorkspace);
+    expect((await call(asStaff, 'GET', '/assistant/memory')).statusCode).toBe(403);
+    expect(
+      (await call(asStaff, 'DELETE', `/assistant/memory/notes/entries/${keep.id}`)).statusCode,
+    ).toBe(403);
   });
 
   it('lets exactly one of two concurrent approvals win and expires stale proposals', async () => {

@@ -71,7 +71,7 @@ describe('AssistantMessageDto', () => {
 });
 
 describe('assistantRoutes', () => {
-  it('declares the six workspace-scoped assistant routes', () => {
+  it('declares the eight workspace-scoped assistant routes', () => {
     expect(assistantRoutes.map((r) => `${r.method} ${r.path}`)).toEqual([
       'get /assistant/threads',
       'post /assistant/threads',
@@ -79,6 +79,8 @@ describe('assistantRoutes', () => {
       'get /assistant/threads/{threadId}/messages',
       'post /assistant/threads/{threadId}/messages',
       'get /assistant/runs/{runId}',
+      'get /assistant/memory',
+      'delete /assistant/memory/{store}/entries/{entryId}',
     ]);
     for (const r of assistantRoutes) {
       expect(r).toMatchObject({

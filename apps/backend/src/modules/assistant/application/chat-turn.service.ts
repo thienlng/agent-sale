@@ -26,7 +26,9 @@ import {
 } from '../domain/ports/assistant.repository.js';
 import { CORE_TOOL_DEFINITIONS, coreTools, type ToolContext } from './core-tools.js';
 import { isVisibleMessage } from './mappers.js';
-import { ASSISTANT_PROMPT, buildTurnMessage } from './prompt-builder.js';
+import { MEMORY_TOOL_DEFINITION, memoryTool } from './memory-tools.js';
+import { buildTurnMessage } from './prompt-builder.js';
+import { SKILL_TOOL_DEFINITIONS, SkillCatalog, skillTools } from './skill-tools.js';
 
 /** The assistant answers on the `pro` tier (ADR-022). */
 export const TURN_TIER = 'pro' as const;
@@ -44,7 +46,12 @@ export const FALLBACK_REPLY = 'Dạ em chưa trả lời được lúc này, anh
 export const HISTORY_MAX_MESSAGES = 40;
 /** Appended to the last tool result at 80% of the turn budget (the shop bot's text says customer). */
 export const OWNER_WRAP_UP_NOTICE = 'Time is almost up: answer the owner now with what you have.';
-const PROMPT_VERSION = `${ASSISTANT_PROMPT.name}@${ASSISTANT_PROMPT.version}`;
+/** Every tool the model is offered, sorted by name so the tool list stays cache-stable. */
+export const TURN_TOOL_DEFINITIONS = [
+  ...CORE_TOOL_DEFINITIONS,
+  MEMORY_TOOL_DEFINITION,
+  ...SKILL_TOOL_DEFINITIONS,
+].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 
 export interface TurnResult {
   /** The visible messages of the turn (the owner's text, then the answer). */
@@ -135,7 +142,7 @@ const errorClass = (e: unknown): string => (e instanceof Error ? e.name : typeof
 /**
  * One chat turn of the owner assistant: start the run (one at a time per owner, idempotent by
  * the client `turnId`), store the owner's message, run the shared agent loop on the `pro` tier
- * with the core tools, store the tool exchange and the answer, and finish the run with its
+ * with the core, memory and skill tools, store the tool exchange and the answer, and finish the run with its
  * usage. Steps are written as they happen so `GET /assistant/runs/{id}` shows progress.
  */
 @Injectable()
@@ -145,6 +152,7 @@ export class ChatTurnService {
   constructor(
     @Inject(ASSISTANT_REPOSITORY) private readonly repo: AssistantRepository,
     @Inject(AI_LLM_GATEWAY) private readonly gateway: LlmGatewayPort,
+    @Inject(SkillCatalog) private readonly skills: SkillCatalog,
   ) {}
 
   async send(
@@ -158,7 +166,8 @@ export class ChatTurnService {
       id: req.turnId,
       threadId,
       tier: TURN_TIER,
-      promptVersion: PROMPT_VERSION,
+      // The thread's own (frozen) prompt version: older threads keep assistant@1.
+      promptVersion: thread.promptVersion,
     });
     if (started === 'busy') throw new AssistantBusyError();
     if (started === 'duplicate') return this.#replay(scope, threadId, req.turnId);
@@ -224,11 +233,15 @@ export class ChatTurnService {
           workspaceId: scope.businessId,
           tier: TURN_TIER,
           messages: [{ role: 'system', content: thread.systemPrompt }, ...history],
-          tools: CORE_TOOL_DEFINITIONS,
+          tools: TURN_TOOL_DEFINITIONS,
           promptCacheKey: `asst:${scope.ownerUserId}:${thread.id}`,
           timeoutMs: TURN_CALL_TIMEOUT_MS,
         },
-        tools: coreTools(ctx),
+        tools: [
+          ...coreTools(ctx),
+          memoryTool({ scope, repo: this.repo }),
+          ...skillTools(this.skills),
+        ],
         generate: (r) => this.gateway.generate(r),
         maxRounds: TURN_MAX_ROUNDS,
         budgetMs: TURN_BUDGET_MS,

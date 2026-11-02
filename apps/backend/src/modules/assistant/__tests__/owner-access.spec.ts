@@ -10,12 +10,20 @@ const ACCOUNT = '0190a0a0-0000-7000-8000-000000000001';
 const OTHER_ACCOUNT = '0190a0a0-0000-7000-8000-000000000002';
 const USER = userId('0190a0a0-0000-7000-8000-0000000000a1');
 const BUSINESS = workspaceId('0190a0a0-0000-7000-8000-0000000000b1');
+const OTHER_BUSINESS = workspaceId('0190a0a0-0000-7000-8000-0000000000b0');
+const FOREIGN_BUSINESS = workspaceId('0190a0a0-0000-7000-8000-0000000000c1');
 
 function deps(accounts: AccountMembership[], businessAccount: string | null) {
   return {
     account: { listForUser: () => Promise.resolve(accounts) } as unknown as AccountFacade,
     workspace: {
       accountOf: () => Promise.resolve(businessAccount),
+      listMemberships: () =>
+        Promise.resolve([
+          { workspaceId: OTHER_BUSINESS, accountId: ACCOUNT },
+          { workspaceId: BUSINESS, accountId: ACCOUNT },
+          { workspaceId: FOREIGN_BUSINESS, accountId: OTHER_ACCOUNT },
+        ]),
     } as unknown as WorkspaceFacade,
   };
 }
@@ -27,7 +35,13 @@ describe('resolveOwnerScope', () => {
       USER,
       BUSINESS,
     );
-    expect(scope).toEqual({ accountId: ACCOUNT, ownerUserId: USER, businessId: BUSINESS });
+    // The account's businesses the owner belongs to, sorted; another account's are left out.
+    expect(scope).toEqual({
+      accountId: ACCOUNT,
+      ownerUserId: USER,
+      businessId: BUSINESS,
+      businessIds: [OTHER_BUSINESS, BUSINESS],
+    });
   });
 
   it('refuses a billing member of the account', async () => {

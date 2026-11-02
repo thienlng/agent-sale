@@ -1,9 +1,9 @@
 import { DomainError } from '@agent-sales/shared';
 
-/** A thread or run the owner does not have (another owner's rows look absent, never forbidden). */
+/** A thread, run or memory entry the owner does not have (another owner's rows look absent, never forbidden). */
 export class AssistantNotFoundError extends DomainError {
   readonly code = 'NOT_FOUND';
-  constructor(what: 'thread' | 'run', id: string) {
+  constructor(what: 'thread' | 'run' | 'memory entry', id: string) {
     super(`Assistant ${what} not found`, { id });
   }
 }

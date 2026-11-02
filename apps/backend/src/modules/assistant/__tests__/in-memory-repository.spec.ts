@@ -5,10 +5,13 @@ import { AssistantNotFoundError, AssistantRunIdTakenError } from '../domain/assi
 import type { OwnerScope } from '../domain/owner-scope.js';
 import { InMemoryAssistantRepository } from '../infrastructure/persistence/assistant.in-memory-repository.js';
 
+const BUSINESS = workspaceId(newId());
+
 const scope = (accountId: string): OwnerScope => ({
   accountId,
   ownerUserId: userId(newId()),
-  businessId: workspaceId(newId()),
+  businessId: BUSINESS,
+  businessIds: [BUSINESS],
 });
 const run = (threadId: string) => ({
   id: newId(),
