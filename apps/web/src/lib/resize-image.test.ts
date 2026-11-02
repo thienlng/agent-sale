@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { decodedBytes, fitWithin, resizeImage } from './resize-image';
+import { decodedBytes, fitWithin, resizeImage, thumbnail } from './resize-image';
 
 describe('fitWithin', () => {
   it('keeps small pictures and scales the longest side down to 1600', () => {
@@ -62,5 +62,16 @@ describe('resizeImage', () => {
   it('throws ImageUnreadableError when the browser cannot decode the file', async () => {
     vi.stubGlobal('createImageBitmap', vi.fn().mockRejectedValue(new Error('decode')));
     await expect(resizeImage(new File(['x'], 'a.heic'))).rejects.toThrow('IMAGE_UNREADABLE');
+  });
+
+  it('makes a 512 px JPEG thumbnail at 0.8, and retries at 0.6 when too big', async () => {
+    const m = stubCanvas({ 0.8: 'A'.repeat(300_000), 0.6: 'QUJD' });
+    const out = await thumbnail(new File(['x'], 'a.png', { type: 'image/png' }));
+    expect(out).toEqual({ mimeType: 'image/jpeg', base64: 'QUJD' });
+    expect(m.canvas.width).toBe(512);
+    expect(m.canvas.height).toBe(256);
+    expect(m.toDataURL).toHaveBeenNthCalledWith(1, 'image/jpeg', 0.8);
+    expect(m.toDataURL).toHaveBeenNthCalledWith(2, 'image/jpeg', 0.6);
+    expect(m.close).toHaveBeenCalled();
   });
 });

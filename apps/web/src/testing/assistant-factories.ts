@@ -9,6 +9,8 @@ import type {
   AssistantProposalDto,
   AssistantRunDto,
   AssistantThreadDto,
+  ImportBatchDto,
+  ImportDraftDto,
   SendAssistantMessageResponse,
 } from '@agent-sales/contracts';
 
@@ -25,6 +27,8 @@ export const ASSISTANT_IDS = {
   skill2: '0193b000-0000-7000-8000-000000000402',
   skillEvent: '0193b000-0000-7000-8000-000000000501',
   suggestion: '0193b000-0000-7000-8000-000000000601',
+  batch: '0193b000-0000-7000-8000-000000000701',
+  product: '0193b000-0000-7000-8000-000000000801',
 } as const;
 
 const STAMP = '2026-11-02T08:00:00.000Z';
@@ -105,6 +109,8 @@ export function proposalFixture(over: Partial<AssistantProposalDto> = {}): Assis
     createdAt: '2026-11-02T07:59:59.000Z',
     expiresAt: '2026-11-03T07:59:59.000Z',
     decidedAt: null,
+    kind: 'route',
+    importBatchId: null,
     ...over,
   };
 }
@@ -195,6 +201,33 @@ export function skillEventFixture(
   };
 }
 
+/** One sheet draft (`r<row>`): a product with one variant, no problems. */
+export function draftFixture(
+  row: number,
+  name: string,
+  over: Partial<ImportDraftDto> = {},
+): ImportDraftDto {
+  const code = `SP-${row}`;
+  return {
+    key: `r${row}`,
+    rows: [row],
+    product: {
+      code,
+      name,
+      description: '',
+      category: null,
+      visibleToBot: true,
+      imageUrls: [],
+      variants: [
+        { sku: code, name: '', price: 150_000, cost: null, weightGram: null, stock: null },
+      ],
+    },
+    problems: [],
+    excluded: false,
+    ...over,
+  };
+}
+
 /** A learning-feed item: a new learned skill waiting for approval. */
 export function learnedSkillFixture(
   over: Partial<Extract<AssistantLearningItemDto, { kind: 'skill' }>> = {},
@@ -249,4 +282,51 @@ export function settingsFixture(over: Partial<AssistantSettingsDto> = {}): Assis
     ],
     ...over,
   };
+}
+
+/** A sheet batch with two ready drafts and one draft missing its price. */
+export function importBatchFixture(over: Partial<ImportBatchDto> = {}): ImportBatchDto {
+  return {
+    id: ASSISTANT_IDS.batch,
+    threadId: ASSISTANT_IDS.thread,
+    businessId: '3f0c1f0e-5b1c-4c1e-9d55-0a1b2c3d4e5f',
+    kind: 'sheet',
+    fileName: 'hang.xlsx',
+    status: 'ready',
+    rowCount: 4,
+    drafts: [
+      draftFixture(1, 'Áo thun', {
+        problems: [{ field: 'code', code: 'code_generated', severity: 'warning', row: 1 }],
+      }),
+      draftFixture(2, 'Quần jean', {
+        problems: [{ field: 'price', code: 'missing_price', severity: 'error', row: 2 }],
+      }),
+      draftFixture(3, 'Mũ lưỡi trai'),
+    ],
+    results: {},
+    draftsHash: 'abc',
+    createdAt: STAMP,
+    ...over,
+  };
+}
+
+/** The pending import proposal of `importBatchFixture` (drafts r1 and r3). */
+export function importProposalFixture(
+  over: Partial<AssistantProposalDto> = {},
+): AssistantProposalDto {
+  return proposalFixture({
+    kind: 'product_import',
+    importBatchId: ASSISTANT_IDS.batch,
+    routeKey: 'POST /products',
+    summary: 'Nhập áo, mũ từ tệp của anh/chị',
+    preview: {
+      fileName: 'hang.xlsx',
+      batchKind: 'sheet',
+      draftKeys: ['r1', 'r3'],
+      draftsHash: 'abc',
+      counts: { products: 2, variants: 2, skippedWithErrors: 1, alreadyCreated: 0 },
+      visibleToBotDefault: true,
+    },
+    ...over,
+  });
 }

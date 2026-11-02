@@ -66,6 +66,7 @@ describe('route assistant annotations', () => {
         'POST /contacts/query',
         'POST /lodging/availability',
         'POST /lodging/quote',
+        'POST /products/match-codes',
         'POST /stay-requests/quote',
       ].sort(),
     );

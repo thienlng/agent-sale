@@ -22,7 +22,7 @@ import { users } from './identity.js';
 import { accountPolicies, workspaces } from './workspace.js';
 
 /*
- * Owner assistant (0056, 0057 and 0058, ADR-023). ACCOUNT-scoped, not workspace-scoped: every row carries
+ * Owner assistant (0056, 0057, 0058 and 0061, ADR-023). ACCOUNT-scoped, not workspace-scoped: every row carries
  * `account_id` and RLS reads `app.account_id`, set by `withAccount`. `assistant_messages.search`
  * (a generated tsvector) and its GIN/trigram indexes exist only in SQL; repositories query them
  * with `sql`, so Drizzle never selects or writes the generated column.
@@ -147,7 +147,7 @@ export const assistantRuns = pgTable(
   (t) => [
     check(
       'assistant_runs_kind_check',
-      sql`${t.kind} in ('chat','review','compaction','schedule','curator','title')`,
+      sql`${t.kind} in ('chat','compaction','curator','import_vision','review','schedule','title')`,
     ),
     check('assistant_runs_status_check', sql`${t.status} in ('running','done','failed')`),
     index('assistant_runs_owner_idx').on(t.accountId, t.ownerUserId, t.createdAt.desc()),
@@ -199,6 +199,54 @@ export const assistantMemory = pgTable(
   ],
 );
 
+/**
+ * An owner's product import (0061, T-173): the sheet rows or photo drafts, the model's mapping
+ * spec, the computed drafts and the per-draft results. Purged lazily after 30 days.
+ */
+export const assistantImportBatches = pgTable(
+  'assistant_import_batches',
+  {
+    id: uuid('id').primaryKey(),
+    accountId: accountRef(),
+    ownerUserId: uuid('owner_user_id').notNull(),
+    threadId: uuid('thread_id')
+      .notNull()
+      .references(() => assistantThreads.id, { onDelete: 'cascade' }),
+    businessId: uuid('business_id')
+      .notNull()
+      .references(() => workspaces.id),
+    kind: text('kind').notNull(),
+    fileName: text('file_name').notNull(),
+    status: text('status').notNull().default('ready'),
+    /** Sheet `{kind, rows}` or photos `{kind, grouping, groups}`; never sent to the web. */
+    source: jsonb('source').notNull(),
+    spec: jsonb('spec'),
+    overrides: jsonb('overrides').notNull().default({}),
+    excluded: jsonb('excluded').notNull().default([]),
+    drafts: jsonb('drafts'),
+    draftsHash: text('drafts_hash'),
+    /** `{[draftKey]: ImportRowResult}`. */
+    results: jsonb('results').notNull().default({}),
+    rowCount: integer('row_count').notNull().default(0),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    check('assistant_import_batches_kind_check', sql`${t.kind} in ('sheet','photos')`),
+    check('assistant_import_batches_status_check', sql`${t.status} in ('drafting','ready')`),
+    check('assistant_import_batches_file_name_check', sql`char_length(${t.fileName}) <= 200`),
+    check('assistant_import_batches_source_check', sql`octet_length(${t.source}::text) <= 2000000`),
+    check('assistant_import_batches_row_count_check', sql`${t.rowCount} >= 0`),
+    index('assistant_import_batches_thread_idx').on(
+      t.accountId,
+      t.ownerUserId,
+      t.threadId,
+      t.createdAt,
+    ),
+    ...accountPolicies('assistant_import_batches'),
+  ],
+);
+
 export const assistantProposals = pgTable(
   'assistant_proposals',
   {
@@ -226,9 +274,26 @@ export const assistantProposals = pgTable(
     expiresAt: ts('expires_at').notNull(),
     decidedAt: ts('decided_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
+    /** `route` (1b), `schedule` (capability 3) or `product_import` (0061). */
+    kind: text('kind').notNull().default('route'),
+    /** The batch a `product_import` proposal imports; its data lives there, not in `body`. */
+    importBatchId: uuid('import_batch_id').references(() => assistantImportBatches.id, {
+      onDelete: 'cascade',
+    }),
   },
   (t) => [
     check('assistant_proposals_summary_check', sql`char_length(${t.summary}) <= 300`),
+    check(
+      'assistant_proposals_kind_check',
+      sql`${t.kind} in ('route','schedule','product_import')`,
+    ),
+    check(
+      'assistant_proposals_import_batch_check',
+      sql`(${t.kind} = 'product_import') = (${t.importBatchId} is not null)`,
+    ),
+    index('assistant_proposals_import_batch_idx')
+      .on(t.importBatchId)
+      .where(sql`import_batch_id is not null`),
     check(
       'assistant_proposals_status_check',
       sql`${t.status} in ('pending','executing','done','failed','rejected','expired')`,

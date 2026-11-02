@@ -109,7 +109,8 @@ export function loadThreadTemplate(promptVersion: string): Promise<string> {
 /**
  * What the model sees as the owner's latest message: the page they are on (JSON, keys in the
  * schema's order), the business the owner is on now (`<current_business>` id), the local time
- * (Asia/Ho_Chi_Minh, HH:mm), then their text. Only the last
+ * (Asia/Ho_Chi_Minh, HH:mm), then their text. A message that carries a product import gets its
+ * `<import_batch>` block (already escaped) right after `<current_business>`. Only the last
  * user message gets this; history keeps the raw text, so earlier turns stay cache-stable. Pure.
  */
 export function buildTurnMessage(
@@ -117,6 +118,7 @@ export function buildTurnMessage(
   page: AssistantPageContext | undefined,
   now: Date,
   currentBusinessId?: string,
+  importBlock?: string,
 ): string {
   const lines: string[] = [];
   if (page) {
@@ -127,6 +129,7 @@ export function buildTurnMessage(
     lines.push(`<page_context>${json}</page_context>`);
   }
   if (currentBusinessId) lines.push(`<current_business>${currentBusinessId}</current_business>`);
+  if (importBlock) lines.push(importBlock);
   lines.push(`<current_time>${CLOCK.format(now)}</current_time>`, text);
   return lines.join('\n');
 }

@@ -31,6 +31,8 @@ import { ROUTE_INVOKER, type RouteInvoker } from '../domain/ports/route-invoker.
 import { ASSISTANT_SQL_RUNNER, type SqlRunner } from '../domain/ports/sql-runner.port.js';
 import { CompactionService, threadCacheKey } from './compaction.service.js';
 import { CORE_TOOL_DEFINITIONS, coreTools, type ToolContext } from './core-tools.js';
+import { buildImportBlock } from './import-block.js';
+import { IMPORT_TOOL_DEFINITIONS, importTools } from './import-tools.js';
 import { isVisibleMessage } from './mappers.js';
 import { MEMORY_TOOL, MEMORY_TOOL_DEFINITION, memoryTool } from './memory-tools.js';
 import { buildTurnMessage } from './prompt-builder.js';
@@ -69,6 +71,7 @@ export const TURN_TOOL_DEFINITIONS = [
   MEMORY_TOOL_DEFINITION,
   ...SKILL_TOOL_DEFINITIONS,
   ...ROUTE_TOOL_DEFINITIONS,
+  ...IMPORT_TOOL_DEFINITIONS,
 ].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 
 export interface TurnResult {
@@ -222,6 +225,7 @@ export class ChatTurnService {
   ): Promise<TurnResult> {
     const thread = await this.repo.getThread(scope, threadId);
     if (!thread) throw new AssistantNotFoundError('thread', threadId);
+    const importBlock = await this.#importBlock(scope, threadId, req.importBatchId);
     const started = await this.repo.startRun(scope, {
       id: req.turnId,
       threadId,
@@ -232,7 +236,7 @@ export class ChatTurnService {
     if (started === 'busy') throw new AssistantBusyError();
     if (started === 'duplicate') return this.#replay(scope, threadId, req.turnId);
     try {
-      return await this.#answer(scope, thread, req, authorization, ownerName);
+      return await this.#answer(scope, thread, req, authorization, ownerName, importBlock);
     } catch (error) {
       await this.repo
         .finishRun(scope, req.turnId, { status: 'failed', finishedAt: new Date() })
@@ -256,18 +260,43 @@ export class ChatTurnService {
     return { messages, run };
   }
 
+  /**
+   * The `<import_batch>` block of a message that carries a batch; the batch must be the owner's,
+   * of this thread and of a business in scope (404 before the turn starts).
+   */
+  async #importBlock(
+    scope: OwnerScope,
+    threadId: string,
+    batchId: string | undefined,
+  ): Promise<string | undefined> {
+    if (!batchId) return undefined;
+    const batch = await this.repo.getImportBatch(scope, batchId);
+    if (
+      !batch ||
+      batch.threadId !== threadId ||
+      !scope.businessIds.some((b) => b === batch.businessId)
+    ) {
+      throw new AssistantNotFoundError('import batch', batchId);
+    }
+    return buildImportBlock(batch);
+  }
+
   async #answer(
     scope: OwnerScope,
     initial: ThreadRecord,
     req: SendAssistantMessageRequest,
     authorization: string,
     ownerName: (() => Promise<string | null>) | undefined,
+    importBlock: string | undefined,
   ): Promise<TurnResult> {
     const startedAt = Date.now();
     const runId = req.turnId;
     let thread = initial;
+    // The import block is stored with the owner's text, so later turns replay it unchanged;
+    // the web never sees it (`toMessageDtos`).
+    const content = importBlock ? `${importBlock}\n${req.text}` : req.text;
     const [user] = await this.repo.appendMessages(scope, thread.id, [
-      row({ role: 'user', content: req.text, pageContext: req.pageContext ?? null, runId }),
+      row({ role: 'user', content, pageContext: req.pageContext ?? null, runId }),
     ]);
     if (!user) throw new Error('assistant user message was not stored');
     if (!thread.title.trim()) {
@@ -280,7 +309,13 @@ export class ChatTurnService {
     const off = disabledTools(settings.disabledToolsets);
 
     const stored = await this.repo.listMessages(scope, thread.id, { activeOnly: true });
-    const turnText = buildTurnMessage(req.text, req.pageContext, new Date(), scope.businessId);
+    const turnText = buildTurnMessage(
+      req.text,
+      req.pageContext,
+      new Date(),
+      scope.businessId,
+      importBlock,
+    );
     const history = capHistory(stored).map((m) =>
       m.id === user.id ? { role: 'user' as const, content: turnText } : toChatMessage(m),
     );
@@ -336,6 +371,16 @@ export class ChatTurnService {
               proposalIds,
               native,
               ...(req.pageContext ? { page: req.pageContext } : {}),
+            }),
+            // Product import (T-173): previews read; a proposal waits for the owner.
+            ...importTools({
+              scope,
+              repo: this.repo,
+              invoker: this.invoker,
+              authorization,
+              threadId: thread.id,
+              runId,
+              proposalIds,
             }),
           ].filter((tool) => !off.has(tool.name)),
         ),

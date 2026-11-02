@@ -21,6 +21,7 @@ const PLATFORM_SKILLS = [
   'fill-sample-data',
   'fill-shop-info',
   'handle-orders',
+  'import-products',
   'industry-hotel',
   'industry-retail',
   'industry-saas',

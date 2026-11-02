@@ -363,6 +363,11 @@ export interface CommerceTx {
     save(p: ProductRecord): Promise<void>;
     variantsOf(productIds: string[]): Promise<VariantRecord[]>;
     /**
+     * The given codes that a product (active or archived) uses and the given SKUs that a live
+     * variant uses, compared case-insensitively and returned as given (deduplicated).
+     */
+    matchCodes(codes: string[], skus: string[]): Promise<{ codes: string[]; skus: string[] }>;
+    /**
      * Insert or update; throws DuplicateCodeError('sku') on an SKU clash, ExternalLinkConflictError
      * on an external id clash.
      */

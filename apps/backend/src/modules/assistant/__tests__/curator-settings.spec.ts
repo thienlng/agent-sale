@@ -292,6 +292,7 @@ describe('settings and toolsets', () => {
       { id: 'memory', labelKey: 'toolsets.memory', toolCount: 1, uses30d: 1, locked: false },
       { id: 'skills', labelKey: 'toolsets.skills', toolCount: 3, uses30d: 0, locked: false },
       { id: 'routes', labelKey: 'toolsets.routes', toolCount: 3, uses30d: 2, locked: false },
+      { id: 'import', labelKey: 'toolsets.import', toolCount: 2, uses30d: 0, locked: false },
       { id: 'sql', labelKey: 'toolsets.sql', toolCount: 2, uses30d: 0, locked: false },
     ]);
   });
@@ -366,6 +367,8 @@ describe('settings and toolsets', () => {
     await send();
     const second = generate.mock.calls[1]![0];
     expect(second.tools?.map((t) => t.name)).toEqual([
+      'import_preview',
+      'import_propose',
       'memory',
       'session_search',
       'ui_fill_form',

@@ -12,6 +12,7 @@ import { AssistantFacadeImpl } from './application/assistant.facade.impl.js';
 import { ChatTurnService } from './application/chat-turn.service.js';
 import { CompactionService } from './application/compaction.service.js';
 import { CuratorService } from './application/curator.service.js';
+import { ImportBatchService } from './application/import-batch.service.js';
 import { ProposalService } from './application/proposals.service.js';
 import { ReviewService } from './application/review.service.js';
 import { AssistantSettingsService } from './application/settings.service.js';
@@ -71,6 +72,7 @@ import { AssistantController } from './interface/http/assistant.controller.js';
     AssistantSettingsService,
     SuggestionsService,
     AssistantJobRunner,
+    ImportBatchService,
     { provide: ASSISTANT_FACADE, useClass: AssistantFacadeImpl },
     // The worker ticks it: the background review and the daily curator, ruling 1c-R1.
     { provide: ASSISTANT_RUNNER, useExisting: AssistantJobRunner },

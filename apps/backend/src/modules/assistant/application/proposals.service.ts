@@ -13,6 +13,7 @@ import {
   type ProposalRecord,
 } from '../domain/ports/assistant.repository.js';
 import { ROUTE_INVOKER, type RouteInvoker } from '../domain/ports/route-invoker.port.js';
+import { ImportExecutor, type ImportOutcome, ImportRunError } from './import-executor.js';
 import { ROUTE_CATALOG, type RouteCatalog } from './route-catalog.js';
 
 /** The stored result shown on a done proposal is at most this long. */
@@ -31,6 +32,8 @@ export function toProposalDto(p: ProposalRecord): AssistantProposalDto {
     createdAt: p.createdAt.toISOString(),
     expiresAt: p.expiresAt.toISOString(),
     decidedAt: p.decidedAt?.toISOString() ?? null,
+    kind: p.kind,
+    importBatchId: p.importBatchId,
   };
 }
 
@@ -38,6 +41,12 @@ const errorClass = (e: unknown): string => (e instanceof Error ? e.name : typeof
 
 /** `PATCH /products/{productId}` → `patch`. */
 const methodOf = (routeKey: string): string => (routeKey.split(' ')[0] ?? '').toLowerCase();
+
+/** How a proposal ended; an import brings its own result preview and event text. */
+type Outcome = ({ ok: true; body?: unknown } | { ok: false; errorCode: string }) & {
+  resultPreview?: string;
+  event?: string;
+};
 
 /**
  * Owner decisions on proposals (spec §6). A proposal runs only on approval, through the same
@@ -52,10 +61,14 @@ export class ProposalService {
   constructor(
     @Inject(ASSISTANT_REPOSITORY) private readonly repo: AssistantRepository,
     @Inject(ROUTE_INVOKER) private readonly invoker: RouteInvoker,
-  ) {}
+  ) {
+    this.importExecutor = new ImportExecutor(repo, invoker);
+  }
 
   /** The routes the assistant may use; tests replace it. */
   catalog: RouteCatalog = ROUTE_CATALOG;
+  /** Runs approved `product_import` proposals (C4-R1); tests replace its clock. */
+  readonly importExecutor: ImportExecutor;
 
   /** Stale pending proposals expire first, then the thread's proposals, oldest first. */
   async list(scope: OwnerScope, threadId: string): Promise<AssistantProposalDto[]> {
@@ -82,6 +95,40 @@ export class ProposalService {
     // The route may have left the catalog (or stopped being a write) since it was proposed.
     if (this.catalog.get(proposal.routeKey)?.use !== 'write') {
       return this.#finish(scope, proposal, { ok: false, errorCode: 'route_not_allowed' });
+    }
+    if (proposal.kind === 'product_import') {
+      let outcome: ImportOutcome;
+      try {
+        outcome = await this.importExecutor.run(scope, proposal, authorization);
+      } catch (e) {
+        // Never leave the proposal `executing`: finish it failed, with how far it got.
+        const counts =
+          e instanceof ImportRunError ? e.counts : { created: 0, failed: 0, notRun: 0 };
+        this.#log.warn(
+          `assistant proposal ${id}: import stopped (${errorClass(e instanceof ImportRunError ? e.cause : e)}) ` +
+            `created=${counts.created} failed=${counts.failed} notRun=${counts.notRun}`,
+        );
+        return this.#finish(scope, proposal, {
+          ok: false,
+          errorCode: 'import_failed',
+          resultPreview: JSON.stringify(counts),
+          event:
+            `Không áp dụng xong: ${proposal.summary} (import_failed); ` +
+            `đã tạo ${counts.created} sản phẩm trước khi dừng`,
+        });
+      }
+      return this.#finish(
+        scope,
+        proposal,
+        outcome.ok
+          ? { ok: true, resultPreview: outcome.resultPreview, event: outcome.event }
+          : {
+              ok: false,
+              errorCode: outcome.errorCode ?? 'import_failed',
+              resultPreview: outcome.resultPreview,
+              event: outcome.event,
+            },
+      );
     }
 
     let status: number;
@@ -110,11 +157,14 @@ export class ProposalService {
     );
   }
 
-  /** executing → done | failed, then the event message the next turn sees. */
+  /**
+   * executing → done | failed, then the event message the next turn sees. An import passes its
+   * own result preview and event text; a route proposal's are derived from the answer.
+   */
   async #finish(
     scope: OwnerScope,
     proposal: ProposalRecord,
-    outcome: { ok: true; body: unknown } | { ok: false; errorCode: string },
+    outcome: Outcome,
   ): Promise<AssistantProposalDto> {
     const done = await this.repo.transitionProposal(
       scope,
@@ -124,17 +174,21 @@ export class ProposalService {
       {
         decidedAt: new Date(),
         errorCode: outcome.ok ? null : outcome.errorCode,
-        resultPreview: outcome.ok
-          ? (JSON.stringify(outcome.body) ?? '').slice(0, RESULT_PREVIEW_CHARS)
-          : null,
+        resultPreview:
+          outcome.resultPreview !== undefined
+            ? outcome.resultPreview.slice(0, RESULT_PREVIEW_CHARS)
+            : outcome.ok
+              ? (JSON.stringify(outcome.body) ?? '').slice(0, RESULT_PREVIEW_CHARS)
+              : null,
       },
     );
     await this.#event(
       scope,
       proposal,
-      outcome.ok
-        ? `Đã áp dụng: ${proposal.summary}`
-        : `Không áp dụng được: ${proposal.summary} (${outcome.errorCode})`,
+      outcome.event ??
+        (outcome.ok
+          ? `Đã áp dụng: ${proposal.summary}`
+          : `Không áp dụng được: ${proposal.summary} (${outcome.errorCode})`),
     );
     if (!done) throw new AssistantNotFoundError('proposal', proposal.id);
     return toProposalDto(done);

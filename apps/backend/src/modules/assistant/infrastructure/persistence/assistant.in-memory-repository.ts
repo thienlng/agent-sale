@@ -14,6 +14,10 @@ import {
   type NewSkillEvent,
   type NewSuggestion,
   type OwnerKey,
+  type ImportBatchRecord,
+  type ImportPreview,
+  type ImportRowResult,
+  type NewImportBatch,
   type ReviewCounters,
   type SettingsPatch,
   SKILL_EVENT_LIST_LIMIT,
@@ -67,6 +71,23 @@ type StoredSkill = SkillRecord & Owned;
 type StoredSkillEvent = SkillEventRecord & Owned;
 type StoredSuggestion = SuggestionRecord & Owned;
 type StoredSettings = AssistantSettingsRecord & Owned;
+type StoredImportBatch = ImportBatchRecord & Owned;
+
+/** Equal as `jsonb` compares them: key order and undefined members do not count. */
+function sameJson(a: unknown, b: unknown): boolean {
+  const norm = (v: unknown): unknown => {
+    if (Array.isArray(v)) return v.map(norm);
+    if (v && typeof v === 'object') {
+      return Object.fromEntries(
+        Object.keys(v)
+          .sort()
+          .map((k) => [k, norm((v as Record<string, unknown>)[k])]),
+      );
+    }
+    return v;
+  };
+  return JSON.stringify(norm(a)) === JSON.stringify(norm(b));
+}
 
 /** Mirrors the table's CHECK constraints on a skill row. */
 const SKILL_NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
@@ -99,6 +120,7 @@ export class InMemoryAssistantRepository implements AssistantRepository {
   readonly suggestions: StoredSuggestion[] = [];
   readonly settings: StoredSettings[] = [];
   readonly jobs = new Map<string, JobRecord>();
+  readonly importBatches = new Map<string, StoredImportBatch>();
   #clock = 0;
 
   /** Strictly increasing timestamps so ordering is deterministic in tests. */
@@ -276,7 +298,13 @@ export class InMemoryAssistantRepository implements AssistantRepository {
 
   async startRun(
     s: OwnerScope,
-    r: { id: string; threadId: string; tier: string; promptVersion: string },
+    r: {
+      id: string;
+      threadId: string;
+      tier: string;
+      promptVersion: string;
+      kind?: 'chat' | 'import_vision';
+    },
   ): Promise<'started' | 'busy' | 'duplicate'> {
     this.#thread(s, r.threadId);
     const existing = this.runs.get(r.id);
@@ -296,7 +324,7 @@ export class InMemoryAssistantRepository implements AssistantRepository {
       ...r,
       accountId: s.accountId,
       ownerUserId: s.ownerUserId,
-      kind: 'chat',
+      kind: r.kind ?? 'chat',
       status: 'running',
       provider: null,
       model: null,
@@ -406,8 +434,19 @@ export class InMemoryAssistantRepository implements AssistantRepository {
     this.#thread(s, p.threadId);
     if (this.proposals.has(p.id)) throw new Error('assistant proposal id already used');
     if (p.summary.length > 300) throw new Error('assistant proposal summary too long');
+    const kind = p.kind ?? 'route';
+    const importBatchId = p.importBatchId ?? null;
+    // Mirrors assistant_proposals_import_batch_check and the batch foreign key.
+    if ((kind === 'product_import') !== (importBatchId !== null)) {
+      throw new Error('a product_import proposal needs an import batch, and only it');
+    }
+    if (importBatchId !== null && !this.importBatches.has(importBatchId)) {
+      throw new Error('assistant import batch does not exist');
+    }
     const row: StoredProposal = {
       ...structuredClone(p),
+      kind,
+      importBatchId,
       accountId: s.accountId,
       ownerUserId: s.ownerUserId,
       status: 'pending',
@@ -962,5 +1001,88 @@ export class InMemoryAssistantRepository implements AssistantRepository {
       });
     }
     return [...owners.entries()].sort(([a], [b]) => (a < b ? -1 : 1)).map(([, v]) => v);
+  }
+
+  // ─── Product import (T-173) ───
+
+  async createImportBatch(s: OwnerScope, b: NewImportBatch): Promise<ImportBatchRecord> {
+    this.#thread(s, b.threadId);
+    if (this.importBatches.has(b.id)) throw new Error('assistant import batch id already used');
+    if (b.fileName.length > 200) throw new Error('assistant import file name too long');
+    const now = this.#now();
+    const row: StoredImportBatch = {
+      ...structuredClone(b),
+      accountId: s.accountId,
+      ownerUserId: s.ownerUserId,
+      spec: null,
+      overrides: {},
+      excluded: [],
+      drafts: null,
+      draftsHash: null,
+      results: {},
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.importBatches.set(b.id, row);
+    return strip(row);
+  }
+
+  async getImportBatch(s: OwnerScope, id: string): Promise<ImportBatchRecord | null> {
+    const b = this.importBatches.get(id);
+    return b && mine(s, b) ? strip(b) : null;
+  }
+
+  #importBatch(s: OwnerScope, id: string): StoredImportBatch {
+    const b = this.importBatches.get(id);
+    if (!b || !mine(s, b)) throw new AssistantNotFoundError('import batch', id);
+    return b;
+  }
+
+  async saveImportPreview(
+    s: OwnerScope,
+    id: string,
+    p: ImportPreview,
+    opts: { lockSpec?: boolean } = {},
+  ): Promise<boolean> {
+    const b = this.#importBatch(s, id);
+    if (
+      opts.lockSpec &&
+      !sameJson(b.spec, p.spec) &&
+      Object.values(b.results).some((r) => r.status === 'created')
+    ) {
+      return false;
+    }
+    Object.assign(b, structuredClone(p), { updatedAt: this.#now() });
+    return true;
+  }
+
+  async recordImportResult(
+    s: OwnerScope,
+    id: string,
+    draftKey: string,
+    result: ImportRowResult,
+  ): Promise<void> {
+    const b = this.#importBatch(s, id);
+    b.results = { ...b.results, [draftKey]: structuredClone(result) };
+    b.updatedAt = this.#now();
+  }
+
+  async purgeImportBatches(s: OwnerScope, olderThan: Date): Promise<number> {
+    let n = 0;
+    for (const [id, b] of this.importBatches) {
+      if (!mine(s, b) || b.createdAt.getTime() >= olderThan.getTime()) continue;
+      this.importBatches.delete(id);
+      // ON DELETE CASCADE of assistant_proposals.import_batch_id.
+      for (const [pid, p] of this.proposals) if (p.importBatchId === id) this.proposals.delete(pid);
+      n++;
+    }
+    return n;
+  }
+
+  async pendingImportProposals(s: OwnerScope, batchId: string): Promise<ProposalRecord[]> {
+    return [...this.proposals.values()]
+      .filter((p) => mine(s, p) && p.importBatchId === batchId && p.status === 'pending')
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+      .map((p) => this.#publicProposal(p));
   }
 }

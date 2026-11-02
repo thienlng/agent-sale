@@ -7,6 +7,7 @@ import {
   UI_NAVIGATE_TOOL,
   UI_SPOTLIGHT_TOOL,
 } from './core-tools.js';
+import { IMPORT_PREVIEW_TOOL, IMPORT_PROPOSE_TOOL } from './import-tools.js';
 import { MEMORY_TOOL } from './memory-tools.js';
 import { TOOL_CALL_TOOL, TOOL_DESCRIBE_TOOL, TOOL_SEARCH_TOOL } from './route-tools.js';
 import { LOAD_SKILL_TOOL, SKILL_MANAGE_TOOL, SKILLS_LIST_TOOL } from './skill-tools.js';
@@ -44,6 +45,8 @@ export const TOOLSETS: readonly Toolset[] = [
     labelKey: 'toolsets.routes',
     tools: [TOOL_SEARCH_TOOL, TOOL_DESCRIBE_TOOL, TOOL_CALL_TOOL],
   },
+  // Capability 4 (T-173): bulk product import from an attached sheet or photos.
+  { id: 'import', labelKey: 'toolsets.import', tools: [IMPORT_PREVIEW_TOOL, IMPORT_PROPOSE_TOOL] },
   // Capability 2: the SQL lane's deferred tools (ChatTurnService leaves them out when off).
   {
     id: SQL_TOOLSET,

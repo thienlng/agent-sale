@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+import { MAX_PRODUCT_IMAGES } from '../commerce/commerce.schema.js';
+import { PublicImageUrl } from '../common/media.js';
+
 // ─── Page context and UI actions ──────────────────────────────────────────────
 
 /** A form on screen the assistant may fill (`fill_form`); `empty` marks fields with no value yet. */
@@ -149,6 +152,8 @@ export const SendAssistantMessageRequest = z.object({
   turnId: z.uuid(),
   text: z.string().trim().min(1).max(4000),
   pageContext: AssistantPageContext.optional(),
+  /** An import batch the owner attached to this message (T-173); it must be in the thread. */
+  importBatchId: z.uuid().optional(),
 });
 export type SendAssistantMessageRequest = z.infer<typeof SendAssistantMessageRequest>;
 
@@ -192,6 +197,13 @@ export const AssistantProposalStatus = z.enum([
 ]);
 export type AssistantProposalStatus = z.infer<typeof AssistantProposalStatus>;
 
+/**
+ * What a proposal does: `route` runs one declared route (1b), `schedule` creates a schedule
+ * (capability 3), `product_import` creates the products of an import batch (T-173).
+ */
+export const AssistantProposalKind = z.enum(['route', 'schedule', 'product_import']);
+export type AssistantProposalKind = z.infer<typeof AssistantProposalKind>;
+
 /** A write the assistant prepared; it runs only when the owner approves it. */
 export const AssistantProposalDto = z.object({
   id: z.uuid(),
@@ -207,6 +219,10 @@ export const AssistantProposalDto = z.object({
   createdAt: z.iso.datetime(),
   expiresAt: z.iso.datetime(),
   decidedAt: z.iso.datetime().nullable(),
+  /** Defaults keep responses from servers that predate the kind readable. */
+  kind: AssistantProposalKind.default('route'),
+  /** Set when `kind` is `product_import`: read the batch for the products. */
+  importBatchId: z.uuid().nullable().default(null),
 });
 export type AssistantProposalDto = z.infer<typeof AssistantProposalDto>;
 
@@ -405,7 +421,15 @@ export type AssistantLearningFeed = z.infer<typeof AssistantLearningFeed>;
 // ─── Owner settings and toolsets (1c) ─────────────────────────────────────────
 
 /** The groups of tools the assistant has; the owner may turn some off (spec §6). */
-export const AssistantToolsetId = z.enum(['core', 'ui', 'memory', 'skills', 'routes', 'sql']);
+export const AssistantToolsetId = z.enum([
+  'core',
+  'ui',
+  'memory',
+  'skills',
+  'routes',
+  'sql',
+  'import',
+]);
 export type AssistantToolsetId = z.infer<typeof AssistantToolsetId>;
 
 /** Toolsets the owner cannot turn off. */
@@ -488,3 +512,143 @@ export const AcceptAssistantSuggestionResponse = z.object({
   path: z.string().startsWith('/app').max(200).nullable(),
 });
 export type AcceptAssistantSuggestionResponse = z.infer<typeof AcceptAssistantSuggestionResponse>;
+
+// ─── Product import (T-173) ───────────────────────────────────────────────────
+
+export const IMPORT_MAX_SHEET_ROWS = 310;
+export const IMPORT_MAX_SHEET_COLUMNS = 40;
+export const IMPORT_MAX_CELL_CHARS = 1_000;
+/**
+ * The sheet's rows as JSON, in UTF-8 bytes (the web refuses bigger files and says to split
+ * them). Bytes, not characters: the route body limit and the DB check count bytes.
+ */
+export const IMPORT_MAX_SHEET_JSON_BYTES = 1_500_000;
+
+/** The UTF-8 size of the rows as JSON, as the sheet guard counts it. */
+export const sheetJsonBytes = (rows: readonly (readonly string[])[]): number =>
+  new TextEncoder().encode(JSON.stringify(rows)).length;
+export const IMPORT_MAX_PHOTOS = 8;
+/** One small JPEG/PNG thumbnail for the vision call (≤ 150 KB decoded). */
+export const IMPORT_MAX_THUMBNAIL_BASE64 = 204_800;
+
+/** One problem of a draft; `code` is a problem code such as `missing_price` or `cut:name`. */
+export const ImportProblemDto = z.object({
+  field: z.string(),
+  code: z.string(),
+  severity: z.enum(['error', 'warning']),
+  row: z.number().int().optional(),
+});
+export type ImportProblemDto = z.infer<typeof ImportProblemDto>;
+
+export const ImportDraftVariantDto = z.object({
+  sku: z.string(),
+  name: z.string(),
+  price: z.number().int().nullable(),
+  cost: z.number().int().nullable(),
+  weightGram: z.number().int().nullable(),
+  stock: z.number().int().nullable(),
+});
+export type ImportDraftVariantDto = z.infer<typeof ImportDraftVariantDto>;
+
+/** One product the import would create: `r<row>` for a sheet, `p<group>` for photos. */
+export const ImportDraftDto = z.object({
+  key: z.string(),
+  rows: z.array(z.number().int()),
+  product: z
+    .object({
+      code: z.string(),
+      name: z.string(),
+      description: z.string(),
+      category: z.string().nullable(),
+      visibleToBot: z.boolean(),
+      imageUrls: z.array(z.string()),
+      variants: z.array(ImportDraftVariantDto),
+    })
+    .nullable(),
+  problems: z.array(ImportProblemDto),
+  excluded: z.boolean(),
+});
+export type ImportDraftDto = z.infer<typeof ImportDraftDto>;
+
+export const ImportRowResultDto = z.discriminatedUnion('status', [
+  z.object({
+    status: z.literal('created'),
+    productId: z.uuid(),
+    warnings: z.array(z.string()).optional(),
+  }),
+  z.object({ status: z.literal('failed'), errorCode: z.string() }),
+  z.object({ status: z.literal('not_run') }),
+]);
+export type ImportRowResultDto = z.infer<typeof ImportRowResultDto>;
+
+/** An import batch as the web sees it; the raw rows (`source`) never leave the server. */
+export const ImportBatchDto = z.object({
+  id: z.uuid(),
+  threadId: z.uuid(),
+  businessId: z.uuid(),
+  kind: z.enum(['sheet', 'photos']),
+  fileName: z.string(),
+  status: z.enum(['drafting', 'ready']),
+  rowCount: z.number().int(),
+  drafts: z.array(ImportDraftDto).nullable(),
+  /** `{[draftKey]: result}` of the approved imports so far. */
+  results: z.record(z.string(), ImportRowResultDto),
+  /**
+   * The hash of the current drafts. A `product_import` proposal pins the hash it was made from;
+   * when they differ, the drafts shown are not the ones the proposal would create.
+   */
+  draftsHash: z.string().nullable(),
+  createdAt: z.iso.datetime(),
+});
+export type ImportBatchDto = z.infer<typeof ImportBatchDto>;
+
+/** A sheet the browser has read into rows (titles, the header row, then ≤ 300 data rows). */
+export const CreateSheetImportRequest = z
+  .object({
+    kind: z.literal('sheet'),
+    businessId: z.uuid(),
+    fileName: z.string().trim().min(1).max(200),
+    rows: z
+      .array(z.array(z.string().max(IMPORT_MAX_CELL_CHARS)).max(IMPORT_MAX_SHEET_COLUMNS))
+      .min(1)
+      .max(IMPORT_MAX_SHEET_ROWS),
+  })
+  .refine((r) => sheetJsonBytes(r.rows) <= IMPORT_MAX_SHEET_JSON_BYTES, {
+    message: 'the sheet is too large; split it into parts of 300 rows',
+    path: ['rows'],
+  });
+
+/**
+ * Photos already uploaded through POST /products/images, each with a small thumbnail for the
+ * vision call (never stored). `one_product` makes one product of all of them (≤ 5 pictures).
+ */
+export const CreatePhotoImportRequest = z
+  .object({
+    kind: z.literal('photos'),
+    businessId: z.uuid(),
+    grouping: z.enum(['per_photo', 'one_product']),
+    items: z
+      .array(
+        z.object({
+          imageUrl: PublicImageUrl,
+          mimeType: z.enum(['image/jpeg', 'image/png']),
+          base64: z
+            .string()
+            .min(1)
+            .max(IMPORT_MAX_THUMBNAIL_BASE64)
+            .regex(/^[A-Za-z0-9+/]+={0,2}$/),
+        }),
+      )
+      .min(1)
+      .max(IMPORT_MAX_PHOTOS),
+  })
+  .refine((r) => r.grouping !== 'one_product' || r.items.length <= MAX_PRODUCT_IMAGES, {
+    message: `one product takes at most ${MAX_PRODUCT_IMAGES} photos`,
+    path: ['items'],
+  });
+
+export const CreateImportBatchRequest = z.discriminatedUnion('kind', [
+  CreateSheetImportRequest,
+  CreatePhotoImportRequest,
+]);
+export type CreateImportBatchRequest = z.infer<typeof CreateImportBatchRequest>;

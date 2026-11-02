@@ -12,7 +12,8 @@ export class AssistantNotFoundError extends DomainError {
       | 'message'
       | 'skill'
       | 'skill event'
-      | 'suggestion',
+      | 'suggestion'
+      | 'import batch',
     id: string,
   ) {
     super(`Assistant ${what} not found`, { id });
@@ -110,5 +111,21 @@ export class AssistantSettingsInvalidError extends DomainError {
   readonly code = 'VALIDATION_FAILED';
   constructor(toolsets: string[]) {
     super('These toolsets cannot be disabled', { toolsets });
+  }
+}
+
+/** Why an import batch is refused (400 VALIDATION_FAILED, `details.reason`). */
+export type ImportInvalidReason = 'import_empty' | 'import_bad_image';
+
+/** A sheet with no data left after trimming, or a photo path outside the business (400). */
+export class AssistantImportInvalidError extends DomainError {
+  readonly code = 'VALIDATION_FAILED';
+  constructor(reason: ImportInvalidReason) {
+    super(
+      reason === 'import_empty'
+        ? 'The sheet has no data rows'
+        : "A photo is not one of this business's uploaded product images",
+      { reason },
+    );
   }
 }

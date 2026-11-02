@@ -4,6 +4,7 @@ import {
   AssistantThreadListQuery,
   CreateAssistantSkillRequest,
   CreateAssistantThreadRequest,
+  CreateImportBatchRequest,
   SendAssistantMessageRequest,
   UpdateAssistantSkillRequest,
   UpdateAssistantThreadRequest,
@@ -18,6 +19,7 @@ import {
   type AssistantSkillList,
   type AssistantThreadDto,
   type AssistantThreadList,
+  type ImportBatchDto,
   type SendAssistantMessageResponse,
 } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
@@ -34,6 +36,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import { RouteConfig } from '@nestjs/platform-fastify';
 
 import {
   type AuthState,
@@ -150,6 +153,30 @@ export class AssistantController {
     @Param('proposalId') proposalId: string,
   ): Promise<AssistantProposalDto> {
     return this.facade.rejectProposal(actor(user, ws), proposalId);
+  }
+
+  // ─── Product import (T-173) ───
+
+  @Post('threads/:threadId/imports')
+  @HttpCode(201)
+  // Up to 300 rows of sheet JSON, or 8 thumbnails (≈ 1.6 MB of base64).
+  @RouteConfig({ bodyLimit: 2_097_152 })
+  createImportBatch(
+    @CurrentUser() user: AuthState,
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Param('threadId') threadId: string,
+    @Body(new ZodValidationPipe(CreateImportBatchRequest)) body: CreateImportBatchRequest,
+  ): Promise<ImportBatchDto> {
+    return this.facade.createImportBatch(actor(user, ws), threadId, body);
+  }
+
+  @Get('imports/:batchId')
+  getImportBatch(
+    @CurrentUser() user: AuthState,
+    @CurrentWorkspace() ws: WorkspaceId,
+    @Param('batchId') batchId: string,
+  ): Promise<ImportBatchDto> {
+    return this.facade.getImportBatch(actor(user, ws), batchId);
   }
 
   @Get('runs/:runId')

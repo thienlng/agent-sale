@@ -19,7 +19,7 @@ It is harder than the shop bot: the shop bot answers one bounded customer turn. 
 | 1c | Background review, learned skills, skill ledger, curator, proactive suggestions, 👍/👎, owner settings (shipped, see §20) | this document |
 | 2 | Data questions: read-only SQL over a curated view schema, charts (shipped, migration 0059) | [own spec](2026-11-02-owner-assistant-data-questions-design.md) |
 | 3 | Schedules (reports, alerts) and the `notification` module (in-app, email; mobile push later) | own spec (§11 fixes the shape) |
-| 4 | Bulk product import (Excel/CSV + images) | own spec |
+| 4 | Bulk product import (Excel/CSV + images) (shipped, T-173) | [own spec](2026-11-02-owner-assistant-import-design.md) |
 | 5 | Bot doctor (shop-bot turn traces, diagnosis, fix drafts) and API action autofill | own spec |
 | 6 | Shop information and scenario autofill (shipped, T-175) | [own spec](2026-11-02-owner-assistant-shop-autofill-design.md) |
 

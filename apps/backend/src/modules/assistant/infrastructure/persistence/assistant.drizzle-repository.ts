@@ -37,6 +37,10 @@ import {
   type NewSkillEvent,
   type NewSuggestion,
   type OwnerKey,
+  type ImportBatchRecord,
+  type ImportPreview,
+  type ImportRowResult,
+  type NewImportBatch,
   type ReviewCounters,
   type SettingsPatch,
   SKILL_EVENT_LIST_LIMIT,
@@ -69,6 +73,12 @@ import {
   type ThreadOrigin,
   type ThreadRecord,
 } from '../../domain/ports/assistant.repository.js';
+import type {
+  ImportDraft,
+  ImportOverrides,
+  ImportSourceData,
+  ImportSpec,
+} from '../../domain/product-import.js';
 import { snippetAround } from '../../domain/search-text.js';
 
 const t = schema.assistantThreads;
@@ -82,6 +92,7 @@ const se = schema.assistantSkillEvents;
 const sg = schema.assistantSuggestions;
 const set_ = schema.assistantSettings;
 const jb = schema.assistantJobs;
+const ib = schema.assistantImportBatches;
 
 /** SQLSTATE of a driver error (drizzle wraps the postgres error in `cause`). */
 const pgCode = (e: unknown): string | undefined =>
@@ -110,6 +121,8 @@ const ownsSettings = (s: OwnerKey) =>
   and(eq(set_.accountId, s.accountId), eq(set_.ownerUserId, s.ownerUserId));
 const ownsJob = (s: OwnerKey) =>
   and(eq(jb.accountId, s.accountId), eq(jb.ownerUserId, s.ownerUserId));
+const ownsImportBatch = (s: OwnerKey) =>
+  and(eq(ib.accountId, s.accountId), eq(ib.ownerUserId, s.ownerUserId));
 
 /** Strictly increasing, millisecond-precise `updated_at`: the optimistic-lock token round-trips. */
 const nextSkillVersion = sql`greatest(date_trunc('milliseconds', now()), ${sk.updatedAt} + interval '1 millisecond')`;
@@ -300,6 +313,29 @@ function toProposal(row: typeof pr.$inferSelect): ProposalRecord {
     expiresAt: row.expiresAt,
     decidedAt: row.decidedAt,
     createdAt: row.createdAt,
+    kind: row.kind as ProposalRecord['kind'],
+    importBatchId: row.importBatchId,
+  };
+}
+
+function toImportBatch(row: typeof ib.$inferSelect): ImportBatchRecord {
+  return {
+    id: row.id,
+    threadId: row.threadId,
+    businessId: row.businessId,
+    kind: row.kind as ImportBatchRecord['kind'],
+    fileName: row.fileName,
+    status: row.status as ImportBatchRecord['status'],
+    source: row.source as ImportSourceData,
+    spec: (row.spec ?? null) as ImportSpec | null,
+    overrides: row.overrides as ImportOverrides,
+    excluded: row.excluded as string[],
+    drafts: (row.drafts ?? null) as ImportDraft[] | null,
+    draftsHash: row.draftsHash,
+    results: row.results as Record<string, ImportRowResult>,
+    rowCount: row.rowCount,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
   };
 }
 
@@ -552,7 +588,13 @@ export class DrizzleAssistantRepository implements AssistantRepository {
 
   startRun(
     s: OwnerScope,
-    run: { id: string; threadId: string; tier: string; promptVersion: string },
+    run: {
+      id: string;
+      threadId: string;
+      tier: string;
+      promptVersion: string;
+      kind?: 'chat' | 'import_vision';
+    },
   ): Promise<'started' | 'busy' | 'duplicate'> {
     return this.#in(s, async (tx) => {
       await this.#ownThread(tx, s, run.threadId);
@@ -585,7 +627,7 @@ export class DrizzleAssistantRepository implements AssistantRepository {
         accountId: s.accountId,
         ownerUserId: s.ownerUserId,
         threadId: run.threadId,
-        kind: 'chat',
+        kind: run.kind ?? 'chat',
         status: 'running',
         tier: run.tier,
         promptVersion: run.promptVersion,
@@ -1407,6 +1449,109 @@ export class DrizzleAssistantRepository implements AssistantRepository {
         accountId: r.account_id,
         ownerUserId: r.owner_user_id as OwnerKey['ownerUserId'],
       }));
+    });
+  }
+
+  // ─── Product import (T-173) ───
+
+  createImportBatch(s: OwnerScope, b: NewImportBatch): Promise<ImportBatchRecord> {
+    return this.#in(s, async (tx) => {
+      await this.#ownThread(tx, s, b.threadId);
+      const [row] = await tx
+        .insert(ib)
+        .values({ ...b, accountId: s.accountId, ownerUserId: s.ownerUserId })
+        .returning();
+      if (!row) throw new Error('assistant import batch insert returned no row');
+      return toImportBatch(row);
+    });
+  }
+
+  getImportBatch(s: OwnerScope, id: string): Promise<ImportBatchRecord | null> {
+    return this.#in(s, async (tx) => {
+      const [row] = await tx
+        .select()
+        .from(ib)
+        .where(and(eq(ib.id, id), ownsImportBatch(s)));
+      return row ? toImportBatch(row) : null;
+    });
+  }
+
+  saveImportPreview(
+    s: OwnerScope,
+    id: string,
+    p: ImportPreview,
+    opts: { lockSpec?: boolean } = {},
+  ): Promise<boolean> {
+    return this.#in(s, async (tx) => {
+      // The spec lock is part of the UPDATE's WHERE: a concurrent `recordImportResult` holds the
+      // row lock, and READ COMMITTED re-checks the WHERE on the row it commits (C4-R11).
+      const sameSpec =
+        p.spec === null
+          ? sql`${ib.spec} IS NULL`
+          : sql`${ib.spec} = ${JSON.stringify(p.spec)}::jsonb`;
+      const unlocked = sql`(${sameSpec} OR NOT EXISTS (
+        SELECT 1 FROM jsonb_each(${ib.results}) AS r WHERE r.value->>'status' = 'created'))`;
+      const rows = await tx
+        .update(ib)
+        .set({
+          spec: p.spec,
+          overrides: p.overrides,
+          excluded: p.excluded,
+          drafts: p.drafts,
+          draftsHash: p.draftsHash,
+          updatedAt: sql`now()`,
+        })
+        .where(and(eq(ib.id, id), ownsImportBatch(s), opts.lockSpec ? unlocked : undefined))
+        .returning({ id: ib.id });
+      if (rows.length > 0) return true;
+      const [found] = await tx
+        .select({ id: ib.id })
+        .from(ib)
+        .where(and(eq(ib.id, id), ownsImportBatch(s)));
+      if (!found) throw new AssistantNotFoundError('import batch', id);
+      return false;
+    });
+  }
+
+  recordImportResult(
+    s: OwnerScope,
+    id: string,
+    draftKey: string,
+    result: ImportRowResult,
+  ): Promise<void> {
+    return this.#in(s, async (tx) => {
+      // One UPDATE that merges the key into the current value under the row lock, so a
+      // concurrent write of another key is kept.
+      const rows = await tx
+        .update(ib)
+        .set({
+          results: sql`${ib.results} || jsonb_build_object(${draftKey}::text, ${JSON.stringify(result)}::jsonb)`,
+          updatedAt: sql`now()`,
+        })
+        .where(and(eq(ib.id, id), ownsImportBatch(s)))
+        .returning({ id: ib.id });
+      if (rows.length === 0) throw new AssistantNotFoundError('import batch', id);
+    });
+  }
+
+  purgeImportBatches(s: OwnerScope, olderThan: Date): Promise<number> {
+    return this.#in(s, async (tx) => {
+      const rows = await tx
+        .delete(ib)
+        .where(and(ownsImportBatch(s), lt(ib.createdAt, olderThan)))
+        .returning({ id: ib.id });
+      return rows.length;
+    });
+  }
+
+  pendingImportProposals(s: OwnerScope, batchId: string): Promise<ProposalRecord[]> {
+    return this.#in(s, async (tx) => {
+      const rows = await tx
+        .select()
+        .from(pr)
+        .where(and(eq(pr.importBatchId, batchId), ownsProposal(s), eq(pr.status, 'pending')))
+        .orderBy(asc(pr.createdAt), asc(pr.id));
+      return rows.map(toProposal);
     });
   }
 }
