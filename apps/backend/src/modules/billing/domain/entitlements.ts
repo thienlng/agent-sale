@@ -1,4 +1,4 @@
-import type { EntitlementsDto } from '@agent-sales/contracts';
+import { ENTITLEMENT_KEYS, type EntitlementsDto } from '@agent-sales/contracts';
 
 /** A plan version as stored: entitlement key → value (see migration 0015). */
 export interface PlanRecord {
@@ -26,7 +26,10 @@ export interface OverrideRecord {
 /** What a workspace without a subscription row gets (the free plan, version 1). */
 export const FREE_PLAN = { code: 'free', version: 1 } as const;
 
-const isLimitKey = (key: string) => key.endsWith('.max') || key.endsWith('.bytes');
+const isLimitKey = (key: string) =>
+  key.endsWith('.max') ||
+  key.endsWith('.bytes') ||
+  ENTITLEMENT_KEYS[key as keyof typeof ENTITLEMENT_KEYS] === 'limit';
 
 /**
  * Effective entitlements = plan values, replaced key by key by overrides that

@@ -67,7 +67,11 @@
     "feature": {
       "website_widget": "Chat trên website",
       "lazada": "Kênh Lazada",
-      "facebook_posts": "Bình luận Facebook"
+      "facebook_posts": "Bình luận Facebook",
+      "public_api": "API công khai & webhook"
+    },
+    "api": {
+      "requests_per_minute": "Số request mỗi phút mỗi khóa"
     },
     "amount": "Số tin",
     "periodDays": "Chu kỳ (ngày)"

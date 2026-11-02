@@ -14,6 +14,7 @@ import { lodgingRoutes } from './commerce/lodging.routes.js';
 import { lodgingV2Routes } from './lodging/lodging.routes.js';
 import { crmRoutes } from './crm/crm.routes.js';
 import { saasRoutes } from './saas/saas.routes.js';
+import { developerRoutes } from './developer/developer.routes.js';
 import { integrationRoutes } from './integration/integration.routes.js';
 import { healthRoutes } from './health/health.routes.js';
 import { identityRoutes } from './identity/identity.routes.js';
@@ -51,6 +52,7 @@ export * from './commerce/order-review.schema.js';
 export * from './commerce/product-images.schema.js';
 export * from './commerce/order-settings.schema.js';
 export * from './commerce/commerce.routes.js';
+export * from './commerce/commerce.events.js';
 export * from './crm/contact.schema.js';
 export * from './crm/contact-query.schema.js';
 export * from './crm/crm-settings.schema.js';
@@ -58,6 +60,10 @@ export * from './crm/crm.events.js';
 export * from './crm/crm.routes.js';
 export * from './saas/saas.schema.js';
 export * from './saas/saas.routes.js';
+export * from './saas/saas.events.js';
+export * from './developer/developer.schema.js';
+export * from './developer/developer.routes.js';
+export * from './developer/public-events.js';
 export * from './integration/integration.schema.js';
 export * from './integration/integration.routes.js';
 export * from './bot/bot.routes.js';
@@ -104,6 +110,7 @@ export const allRoutes = [
   ...saasRoutes,
   ...webchatRoutes,
   ...integrationRoutes,
+  ...developerRoutes,
 ] as const;
 
 export * from './knowledge/media.schema.js';

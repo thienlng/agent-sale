@@ -40,6 +40,8 @@ export const CAPABILITIES = [
   'audit.view',
   /** Statistics: your own customers' numbers (every customer's with `contacts.view_all`). */
   'analytics.view',
+  /** API keys and webhooks of the shop (ADR-022). */
+  'developer.manage',
 ] as const;
 export const Capability = z.enum(CAPABILITIES);
 export type Capability = z.infer<typeof Capability>;
@@ -61,6 +63,24 @@ export const ROLE_CAPABILITIES: Record<WorkspaceRole, readonly Capability[]> = {
   care: WORKER,
   analyst: ['orders.view', 'contacts.view', 'contacts.view_all', 'analytics.view'],
 };
+
+/**
+ * Capabilities an API key may be given as scopes (ADR-022 §3). Managing members, settings, keys,
+ * webhooks or the audit trail stays with people in the dashboard.
+ */
+export const API_KEY_SCOPES = [
+  'bots.manage',
+  'catalog.manage',
+  'orders.view',
+  'orders.manage',
+  'contacts.view_all',
+  'contacts.view',
+  'contacts.edit',
+  'contacts.assign',
+  'analytics.view',
+] as const satisfies readonly Capability[];
+export const ApiKeyScope = z.enum(API_KEY_SCOPES);
+export type ApiKeyScope = z.infer<typeof ApiKeyScope>;
 
 export function roleCan(role: string | null | undefined, capability: Capability): boolean {
   const caps = role && role in ROLE_CAPABILITIES ? ROLE_CAPABILITIES[role as WorkspaceRole] : [];

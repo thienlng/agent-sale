@@ -18,6 +18,10 @@ export const ENTITLEMENT_KEYS = {
   'feature.website_widget': 'flag',
   'feature.lazada': 'flag',
   'feature.facebook_posts': 'flag',
+  /** Public API keys and webhooks (ADR-022). */
+  'feature.public_api': 'flag',
+  /** Requests per minute per API key. */
+  'api.requests_per_minute': 'limit',
 } as const;
 export type EntitlementKey = keyof typeof ENTITLEMENT_KEYS;
 export type EntitlementKind = (typeof ENTITLEMENT_KEYS)[EntitlementKey];
