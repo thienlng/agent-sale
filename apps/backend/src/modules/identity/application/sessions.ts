@@ -104,6 +104,11 @@ export class SessionService {
     return this.sessions.revoke(sessionId, new Date());
   }
 
+  /** Signs the user out everywhere (password reset). */
+  revokeAll(userId: UserId): Promise<void> {
+    return this.sessions.revokeOtherFamilies(userId, newId(), new Date());
+  }
+
   /** Signs the user out everywhere except the session making the request (its rotations stay valid). */
   revokeOthers(userId: UserId, currentSessionId: string): Promise<void> {
     return this.sessions.revokeOtherFamilies(userId, currentSessionId, new Date());

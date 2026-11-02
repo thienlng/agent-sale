@@ -8,6 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../../../app.module.js';
 import { createHttpApp } from '../../../bootstrap.js';
 import { CATALOG_FACADE, type CatalogFacade } from '../api/index.js';
+import { signUpVerified } from '../../../../test/support/signup.js';
 
 /** Ranked, accent-insensitive, typo-tolerant bot catalog search on a real Postgres. */
 let pg: TestPostgres;
@@ -38,18 +39,17 @@ type Headers = Record<string, string>;
 let signups = 0;
 
 async function owner(email: string): Promise<Headers> {
-  const signup = await http().inject({
-    method: 'POST',
-    url: '/api/v1/auth/signup',
-    remoteAddress: `10.1.0.${++signups}`,
-    payload: {
+  const signup = await signUpVerified(
+    app,
+    {
       name: 'Chủ shop',
       email,
       password: 'a long enough password',
       workspaceName: 'Shop đồ chơi',
       industry: 'fashion',
     },
-  });
+    { remoteAddress: `10.1.0.${++signups}` },
+  );
   const { accessToken } = AuthResponse.parse(signup.json());
   const boot = BootstrapResponse.parse(
     (

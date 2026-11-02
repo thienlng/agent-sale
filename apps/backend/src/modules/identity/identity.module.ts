@@ -4,6 +4,7 @@ import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 
 import { DB_SYSTEM } from '../../common/db/db.module.js';
 import { getEnv } from '../../common/config.js';
+import { createMailer, MAILER } from '../../common/email/mailer.js';
 import { SECRET_BOX, SecretBox } from '../../common/security/secret-box.js';
 import { AccountModule } from '../account/account.module.js';
 import { BILLING_FACADE, type BillingFacade } from '../billing/api/index.js';
@@ -19,9 +20,12 @@ import { BillingApiPlanGate } from './application/api-plan-gate.js';
 import {
   AccountQueries,
   LoginHandler,
+  PasswordResetHandler,
   RefreshHandler,
+  SignupBusinessHandler,
   SignupHandler,
 } from './application/commands/auth.handlers.js';
+import { EmailCodeService } from './application/email-codes.js';
 import {
   API_KEY_STORE,
   API_PLAN_GATE,
@@ -31,15 +35,18 @@ import {
 import { ACCESS_TOKENS, ATTEMPT_LIMITER, PASSWORD_HASHER } from './application/ports/security.js';
 import { MfaService } from './application/mfa.service.js';
 import { SessionService } from './application/sessions.js';
+import { EMAIL_CODE_REPOSITORY } from './domain/ports/email-code.repository.js';
 import { MFA_REPOSITORY } from './domain/ports/mfa.repository.js';
 import { SESSION_REPOSITORY } from './domain/ports/session.repository.js';
 import { USER_REPOSITORY } from './domain/ports/user.repository.js';
 import {
+  DrizzleEmailCodeRepository,
   DrizzleMfaRepository,
   DrizzleSessionRepository,
   DrizzleUserRepository,
 } from './infrastructure/persistence/identity.drizzle-repositories.js';
 import {
+  InMemoryEmailCodeRepository,
   InMemoryMfaRepository,
   InMemorySessionRepository,
   InMemoryUserRepository,
@@ -73,9 +80,19 @@ import { IdempotencyInterceptor } from './interface/http/idempotency.interceptor
     SessionService,
     MfaService,
     SignupHandler,
+    SignupBusinessHandler,
+    PasswordResetHandler,
+    EmailCodeService,
     LoginHandler,
     RefreshHandler,
     AccountQueries,
+    { provide: MAILER, useFactory: () => createMailer(getEnv()) },
+    {
+      provide: EMAIL_CODE_REPOSITORY,
+      inject: [{ token: DB_SYSTEM, optional: true }],
+      useFactory: (db: Database | null | undefined) =>
+        db ? new DrizzleEmailCodeRepository(db) : new InMemoryEmailCodeRepository(),
+    },
     {
       provide: USER_REPOSITORY,
       inject: [{ token: DB_SYSTEM, optional: true }],

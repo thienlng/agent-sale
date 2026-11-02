@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+import { signUpOwner } from './support/signup';
+
 /**
  * Statistics through the UI against the real backend: customers created in the CRM show up in the
  * numbers, a card opens exactly the rows it counts, the source filter is honest about what it
@@ -16,14 +18,12 @@ const email = `stat-${Date.now()}-${Math.round(Math.random() * 1e6)}@e2e.rapiz.t
 test('numbers come from what was done in the CRM, and a card opens its own rows', async ({
   page,
 }) => {
-  const signup = await page.request.post('/api/v1/auth/signup', {
-    data: {
-      name: 'Chủ shop Thống kê',
-      email,
-      password,
-      workspaceName: 'Shop Thống kê',
-      industry: 'fashion',
-    },
+  const signup = await signUpOwner(page.request, {
+    name: 'Chủ shop Thống kê',
+    email,
+    password,
+    workspaceName: 'Shop Thống kê',
+    industry: 'fashion',
   });
   expect(signup.ok(), await signup.text()).toBe(true);
   const { accessToken } = (await signup.json()) as { accessToken: string };

@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import { makePng } from './support/png';
+import { signUpOwner } from './support/signup';
 
 /** Shop profile, logo and the audit trail through the UI against the real backend (ADM-02). */
 
@@ -8,14 +9,12 @@ const password = 'live e2e password 2026';
 const email = `profile-${Date.now()}-${Math.round(Math.random() * 1e6)}@e2e.rapiz.test`;
 
 test('edit the profile, upload and remove a logo, see it in the audit trail', async ({ page }) => {
-  const signup = await page.request.post('/api/v1/auth/signup', {
-    data: {
-      name: 'Chủ shop Hồ sơ',
-      email,
-      password,
-      workspaceName: 'Shop Hồ sơ',
-      industry: 'fashion',
-    },
+  const signup = await signUpOwner(page.request, {
+    name: 'Chủ shop Hồ sơ',
+    email,
+    password,
+    workspaceName: 'Shop Hồ sơ',
+    industry: 'fashion',
   });
   expect(signup.ok(), await signup.text()).toBe(true);
   await page.goto('/login');

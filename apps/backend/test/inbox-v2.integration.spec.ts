@@ -23,6 +23,7 @@ import {
   CONVERSATION_FACADE,
   type ConversationFacade,
 } from '../src/modules/conversation/api/index.js';
+import { signUpVerified } from './support/signup.js';
 
 /** Inbox v2 over HTTP on a real Postgres: read state, notes, assignee, tags and tag filters. */
 let pg: TestPostgres;
@@ -67,21 +68,17 @@ const call = (
 
 let signups = 0;
 async function shop(email: string, name: string) {
-  const signup = await app
-    .getHttpAdapter()
-    .getInstance()
-    .inject({
-      method: 'POST',
-      url: '/api/v1/auth/signup',
-      remoteAddress: `10.2.0.${++signups}`,
-      payload: {
-        name,
-        email,
-        password: 'a long enough password',
-        workspaceName: 'Shop',
-        industry: 'fashion',
-      },
-    });
+  const signup = await signUpVerified(
+    app,
+    {
+      name,
+      email,
+      password: 'a long enough password',
+      workspaceName: 'Shop',
+      industry: 'fashion',
+    },
+    { remoteAddress: `10.2.0.${++signups}` },
+  );
   const { accessToken } = AuthResponse.parse(signup.json());
   const authorization = `Bearer ${accessToken}`;
   const boot = BootstrapResponse.parse((await call({ authorization }, 'GET', '/bootstrap')).json());

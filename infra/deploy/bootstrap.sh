@@ -63,6 +63,10 @@ META_APP_ORIGIN=https://$HOST
 # INSTAGRAM_APP_SECRET=
 # META_WEBHOOK_VERIFY_TOKEN=
 # SMTP_URL=
+
+# Signup and password codes (ADR-023). Without it no email is sent and signup cannot finish.
+# RESEND_API_KEY=
+EMAIL_FROM="Rapiz <noreply@rapiz.io>"
 ENV
   rm -f "$key"
   echo "wrote $DIR/.env"

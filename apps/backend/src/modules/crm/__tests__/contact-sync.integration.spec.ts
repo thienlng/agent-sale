@@ -33,6 +33,7 @@ import {
   type CrmFacade,
   type ExternalContactInput,
 } from '../api/index.js';
+import { signUpVerified } from '../../../../test/support/signup.js';
 
 /** Customer sync with a PMS on a real Postgres: match, link, overwrite, unlink, push claim, RLS. */
 let pg: TestPostgres;
@@ -69,18 +70,17 @@ const db = () => app.get<Database>(DB_TENANT, { strict: false });
 
 let signups = 0;
 async function shop(email: string): Promise<{ h: Headers; ws: WorkspaceId }> {
-  const signup = await http().inject({
-    method: 'POST',
-    url: '/api/v1/auth/signup',
-    remoteAddress: `10.5.0.${++signups}`,
-    payload: {
+  const signup = await signUpVerified(
+    app,
+    {
       name: 'Chủ shop',
       email,
       password: 'a long enough password',
       workspaceName: 'Shop',
       industry: 'fashion',
     },
-  });
+    { remoteAddress: `10.5.0.${++signups}` },
+  );
   const { accessToken } = AuthResponse.parse(signup.json());
   const authorization = `Bearer ${accessToken}`;
   const boot = BootstrapResponse.parse(

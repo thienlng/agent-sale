@@ -9,6 +9,7 @@ import {
 } from '../src/modules/bot/application/ports/bot-unit-of-work.js';
 import { AppModule } from '../src/app.module.js';
 import { createHttpApp } from '../src/bootstrap.js';
+import { signUpVerified } from './support/signup.js';
 
 let app: NestFastifyApplication | undefined;
 afterEach(async () => {
@@ -22,16 +23,12 @@ async function setup(industry: string) {
   await app.init();
   const http = app.getHttpAdapter().getInstance();
   await http.ready();
-  const registered = await http.inject({
-    method: 'POST',
-    url: '/api/v1/auth/signup',
-    payload: {
-      name: 'Industry Owner',
-      email: 'industry@example.test',
-      password: 'correct horse battery',
-      workspaceName: 'Hotel business',
-      industry,
-    },
+  const registered = await signUpVerified(app, {
+    name: 'Industry Owner',
+    email: 'industry@example.test',
+    password: 'correct horse battery',
+    workspaceName: 'Hotel business',
+    industry,
   });
   const auth = AuthResponse.parse(registered.json());
   const authorization = `Bearer ${auth.accessToken}`;

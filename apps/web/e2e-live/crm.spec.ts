@@ -6,6 +6,8 @@ import {
   test,
 } from '@playwright/test';
 
+import { signUpOwner } from './support/signup';
+
 /**
  * Customers against the real backend (CRM-01..04, BA cases C01–C11): create,
  * edit source/status/address, notes, tags and filters, each checked after a
@@ -55,14 +57,12 @@ test.describe.configure({ mode: 'serial' });
 test.beforeAll(async ({ baseURL, browser }) => {
   const anon = await playwrightRequest.newContext({ baseURL: baseURL ?? '' });
   const auth = await json<{ accessToken: string }>(
-    await anon.post('/api/v1/auth/signup', {
-      data: {
-        name: 'Chủ shop CRM',
-        email,
-        password,
-        workspaceName: 'Shop CRM E2E',
-        industry: 'fashion',
-      },
+    await signUpOwner(anon, {
+      name: 'Chủ shop CRM',
+      email,
+      password,
+      workspaceName: 'Shop CRM E2E',
+      industry: 'fashion',
     }),
   );
   const boot = await json<{ memberships: Array<{ workspaceId: string }> }>(

@@ -42,7 +42,7 @@ The server follows `/opt/infra/README.md` on the host: apps live in `/opt/apps/<
    ```bash
    bash deploy/bootstrap.sh <host>
    ```
-   It copies the server files to `/opt/apps/rapiz`, writes `.env` with generated secrets (mode 600; an existing file is never overwritten) and adds the daily backup to deploy's crontab. Add the Meta values to `.env` if the inbox should connect Pages.
+   It copies the server files to `/opt/apps/rapiz`, writes `.env` with generated secrets (mode 600; an existing file is never overwritten) and adds the daily backup to deploy's crontab. Add the Meta values to `.env` if the inbox should connect Pages. Add `RESEND_API_KEY` (a send-only key from Resend, with the `rapiz.io` domain verified there): signup emails a code and cannot finish without it (ADR-023).
 4. **First deploy.** Run `./deploy.sh <sha>` on the server after `docker login ghcr.io`, or use the workflow (step 6).
 5. **NPM proxy host.** In the NPM admin UI (`ssh -N -L 8181:127.0.0.1:81 deploy@<ip>`, then http://127.0.0.1:8181), add a proxy host:
    - Domain: `<host>`.

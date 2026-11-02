@@ -8,6 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module.js';
 import { createHttpApp } from '../src/bootstrap.js';
 import { KNOWLEDGE_FACADE, type KnowledgeFacade } from '../src/modules/knowledge/api/index.js';
+import { signUpVerified } from './support/signup.js';
 
 /** Bots + FAQ search on a real Postgres (pg_trgm over folded text, RLS on new tables). */
 let pg: TestPostgres;
@@ -42,16 +43,12 @@ const inject = (opts: {
 
 describe('bot + knowledge on Postgres', () => {
   it('seeds no placeholder FAQs and finds FAQs from unaccented customer text', async () => {
-    const signup = await inject({
-      method: 'POST',
-      url: '/api/v1/auth/signup',
-      payload: {
-        name: 'An',
-        email: 'an@shop.vn',
-        password: 'a long enough password',
-        workspaceName: 'An Shop',
-        industry: 'retail',
-      },
+    const signup = await signUpVerified(app, {
+      name: 'An',
+      email: 'an@shop.vn',
+      password: 'a long enough password',
+      workspaceName: 'An Shop',
+      industry: 'retail',
     });
     const { accessToken } = AuthResponse.parse(signup.json());
     const boot = BootstrapResponse.parse(
