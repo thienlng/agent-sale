@@ -48,6 +48,8 @@ location /webhooks/ {
 }
 location /media/ {
   include conf.d/include/proxy.conf;
+  # Browsers resend the Basic credentials; the bucket would read them as a bad S3 signature.
+  proxy_set_header Authorization \"\";
 }
 location ~ ^/api(/v1)?/channels/oauth/[^/]+/callback\$ {
   include conf.d/include/proxy.conf;
@@ -59,7 +61,12 @@ location /api/ {
   include conf.d/include/proxy.conf;
 }
 location / {
-  auth_basic \"Rapiz private beta\";
+  # bcrypt (cost 12) costs ~0.25 s of CPU per request; once the gate cookie is valid, skip it.
+  set \$rapiz_realm \"Rapiz private beta\";
+  if (\$cookie_rapiz_beta = \$rapiz_gate) {
+    set \$rapiz_realm off;
+  }
+  auth_basic \$rapiz_realm;
   auth_basic_user_file /data/rapiz-beta/htpasswd;
   add_header Set-Cookie \"rapiz_beta=\$rapiz_gate; Path=/; Max-Age=604800; Secure; HttpOnly; SameSite=Lax\";
   include conf.d/include/proxy.conf;

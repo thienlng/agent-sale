@@ -117,11 +117,11 @@ Backups live on the same disk. Copy `backups/` off the server regularly; off-sit
 
 | Path | Access |
 |---|---|
-| Pages and static files | HTTP Basic auth. The bcrypt hash (cost 12) lives in `/data/rapiz-beta/htpasswd` in the NPM data volume |
+| Pages and static files | HTTP Basic auth. The bcrypt hash (cost 12) lives in `/data/rapiz-beta/htpasswd` in the NPM data volume. Requests that already carry a valid gate cookie skip the bcrypt check, which otherwise costs about 0.25 s of CPU per file and made the dashboard load in ~10 s |
 | `/api/*` | Requires the HttpOnly `rapiz_beta` cookie, which a successful Basic login sets (7 days). The dashboard already sends `Authorization: Bearer` to the API, so Basic auth cannot share that header |
 | `/webhooks/*` | Public. The webhook app rejects requests without a valid `X-Hub-Signature-256` |
 | `/api[/v1]/channels/oauth/<provider>/callback` | Public. The API checks the OAuth `state` |
-| `/media/*` | Public, read-only, so Meta can download product pictures |
+| `/media/*` | Public, read-only, so Meta can download product pictures. The `Authorization` header is dropped: browsers resend the Basic credentials and the bucket rejects them as a bad S3 signature (broken images) |
 
 The gate also blocks the chat widget on customer websites. Turn it off before testing the widget on an external site.
 
