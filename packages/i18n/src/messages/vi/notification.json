@@ -69,5 +69,17 @@
     "business_unavailable": "Doanh nghiệp của lịch này không còn khả dụng nên lịch đã tạm dừng."
   },
   "commentary": "Nhận xét của trợ lý:",
-  "emailUnavailable": "Không gửi được email lần này: email chưa được cấu hình hoặc tài khoản chưa có địa chỉ email."
+  "emailUnavailable": "Không gửi được email lần này: email chưa được cấu hình hoặc tài khoản chưa có địa chỉ email.",
+  "bell": {
+    "title": "Thông báo",
+    "markAll": "Đánh dấu tất cả đã đọc",
+    "empty": "Chưa có thông báo nào.",
+    "loading": "Đang tải thông báo",
+    "error": "Không tải được thông báo.",
+    "retry": "Thử lại",
+    "loadMore": "Xem thêm thông báo",
+    "more": "Xem thêm",
+    "less": "Thu gọn",
+    "unread": "chưa đọc"
+  }
 }

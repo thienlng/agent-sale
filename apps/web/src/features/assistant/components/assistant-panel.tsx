@@ -1,7 +1,7 @@
 import type { AssistantMessageDto, AssistantProposalDto } from '@agent-sales/contracts';
 import { useRouter } from '@tanstack/react-router';
-import { ArrowLeft, Brain, List, SquarePen, X } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowLeft, Brain, CalendarClock, List, SquarePen, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
@@ -22,10 +22,11 @@ import {
   useSendAssistantMessage,
 } from '../api/assistant';
 import { useAssistantThreadId, useAssistantUi } from '../stores/assistant-ui.store';
-import { safeAppPath } from '../utils/safe-app-path';
+import { safeAppPath } from '@/lib/safe-app-path';
 import { AssistantComposer } from './assistant-composer';
 import { AssistantMemory } from './assistant-memory';
 import { AssistantMessages } from './assistant-messages';
+import { AssistantSchedules } from './assistant-schedules';
 import { AssistantSpotlight } from './assistant-spotlight';
 import { AssistantThreadList } from './assistant-thread-list';
 
@@ -43,7 +44,14 @@ export function AssistantPanel() {
   const router = useRouter();
   const { open, setOpen, setThread, setSpotlight } = useAssistantUi();
   const threadId = useAssistantThreadId(useWorkspaceId());
-  const [view, setView] = useState<'chat' | 'threads' | 'memory'>('chat');
+  const [view, setView] = useState<'chat' | 'threads' | 'memory' | 'schedules'>('chat');
+  // A thread opened from elsewhere (a report notification) shows the conversation.
+  useEffect(() => setView('chat'), [threadId]);
+  // An accepted schedule suggestion opens the schedule editor.
+  const scheduleDraft = useAssistantUi((s) => s.scheduleDraft);
+  useEffect(() => {
+    if (scheduleDraft) setView('schedules');
+  }, [scheduleDraft]);
   const [pendingTurn, setPendingTurn] = useState<string | null>(null);
   const [unavailable, setUnavailable] = useState(false);
   const messages = useAssistantMessages(threadId);
@@ -160,6 +168,15 @@ export function AssistantPanel() {
             >
               {view === 'memory' ? <ArrowLeft /> : <Brain />}
             </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={view === 'schedules' ? t('hideSchedules') : t('showSchedules')}
+              aria-pressed={view === 'schedules'}
+              onClick={() => setView((v) => (v === 'schedules' ? 'chat' : 'schedules'))}
+            >
+              {view === 'schedules' ? <ArrowLeft /> : <CalendarClock />}
+            </Button>
             <Button variant="ghost" size="icon" aria-label={t('newThread')} onClick={newThread}>
               <SquarePen />
             </Button>
@@ -183,6 +200,8 @@ export function AssistantPanel() {
             />
           ) : view === 'memory' ? (
             <AssistantMemory />
+          ) : view === 'schedules' ? (
+            <AssistantSchedules />
           ) : (
             <>
               <AssistantMessages

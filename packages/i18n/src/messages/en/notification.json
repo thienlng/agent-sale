@@ -69,5 +69,17 @@
     "business_unavailable": "The business of this schedule is no longer available, so the schedule was paused."
   },
   "commentary": "Assistant's comment:",
-  "emailUnavailable": "No email this time: email is not set up or the account has no email address."
+  "emailUnavailable": "No email this time: email is not set up or the account has no email address.",
+  "bell": {
+    "title": "Notifications",
+    "markAll": "Mark all as read",
+    "empty": "No notifications yet.",
+    "loading": "Loading notifications",
+    "error": "Could not load notifications.",
+    "retry": "Try again",
+    "loadMore": "Show more notifications",
+    "more": "Show more",
+    "less": "Show less",
+    "unread": "unread"
+  }
 }

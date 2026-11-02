@@ -1,7 +1,10 @@
 {
   "app": {
     "name": "Rapiz",
-    "assistantLauncher": "Hỏi Thỏ Rapiz"
+    "assistantLauncher": "Hỏi Thỏ Rapiz",
+    "notifications": "Thông báo",
+    "notificationsUnread": "Thông báo, {{count}} chưa đọc",
+    "reportThreadError": "Không mở được báo cáo trong trợ lý. Thử lại."
   },
   "nav": {
     "bots": "Đào tạo Bot",

@@ -84,5 +84,171 @@
     "confirmNo": "Giữ lại",
     "forgotten": "Đã quên mục này.",
     "forgetError": "Không xoá được. Thử lại."
+  },
+  "showSchedules": "Lịch báo cáo",
+  "hideSchedules": "Quay lại trò chuyện",
+  "schedules": {
+    "title": "Lịch báo cáo",
+    "used": "Đã dùng {{used}}/{{limit}} lịch",
+    "add": "Thêm lịch",
+    "empty": "Chưa có lịch nào. Bấm Thêm lịch, hoặc nhắn Thỏ Rapiz: \"mỗi sáng 8h gửi doanh thu hôm qua\".",
+    "loading": "Đang tải lịch",
+    "loadError": "Không tải được lịch. Thử lại sau.",
+    "newTitle": "Lịch mới",
+    "editTitle": "Sửa lịch",
+    "templates": {
+      "revenue_summary": "Doanh thu",
+      "new_orders": "Đơn hàng mới",
+      "low_stock": "Sắp hết hàng",
+      "unanswered_conversations": "Khách chờ trả lời",
+      "new_customers": "Khách hàng mới"
+    },
+    "modes": {
+      "report": "Báo cáo định kỳ",
+      "alert": "Cảnh báo"
+    },
+    "channels": {
+      "in_app": "Trong ứng dụng",
+      "email": "Email",
+      "push": "Thông báo đẩy"
+    },
+    "fields": {
+      "name": "Tên lịch",
+      "business": "Doanh nghiệp",
+      "template": "Nội dung",
+      "mode": "Kiểu",
+      "cadence": "Lịch gửi",
+      "channels": "Gửi qua",
+      "period": "Khoảng thời gian",
+      "window": "Phạm vi",
+      "minCount": "Số lượng tối thiểu",
+      "threshold": "Ngưỡng tồn kho",
+      "minutes": "Chờ quá (phút)",
+      "at": "Giờ gửi",
+      "days": "Các ngày trong tuần",
+      "day": "Ngày trong tháng",
+      "interval": "Mỗi",
+      "commentary": "Thêm nhận xét của trợ lý"
+    },
+    "periods": {
+      "day": "Ngày",
+      "week": "Tuần",
+      "month": "Tháng"
+    },
+    "windows": {
+      "previous": "Kỳ trước (đã hết)",
+      "to_date": "Kỳ này đến hiện tại"
+    },
+    "cadenceKinds": {
+      "daily": "Hằng ngày",
+      "weekly": "Hằng tuần",
+      "monthly": "Hằng tháng",
+      "every": "Lặp lại"
+    },
+    "weekdays": {
+      "1": "Thứ Hai",
+      "2": "Thứ Ba",
+      "3": "Thứ Tư",
+      "4": "Thứ Năm",
+      "5": "Thứ Sáu",
+      "6": "Thứ Bảy",
+      "7": "Chủ Nhật"
+    },
+    "weekdaysShort": {
+      "1": "T2",
+      "2": "T3",
+      "3": "T4",
+      "4": "T5",
+      "5": "T6",
+      "6": "T7",
+      "7": "CN"
+    },
+    "lastDay": "Ngày cuối tháng",
+    "cadence": {
+      "daily": "Hằng ngày lúc {{at}}",
+      "weekly": "{{days}} hằng tuần lúc {{at}}",
+      "monthly": "Ngày {{day}} hằng tháng lúc {{at}}",
+      "monthlyLast": "Ngày cuối tháng lúc {{at}}",
+      "every": "Mỗi {{interval}}",
+      "activeHours": "{{every}} ({{from}}–{{to}})",
+      "minutes_other": "{{count}} phút",
+      "hours_other": "{{count}} giờ",
+      "days_other": "{{count}} ngày"
+    },
+    "inAppLocked": "Luôn bật",
+    "emailUnavailable": "Chưa gửi được email: email chưa được cấu hình hoặc tài khoản chưa có địa chỉ email.",
+    "commentaryNote": "Trợ lý viết vài dòng nhận xét dưới số liệu; mỗi lần gửi dùng thêm một lượt AI.",
+    "preview": "Xem thử",
+    "save": "Lưu",
+    "cancel": "Huỷ",
+    "saved": "Đã lưu lịch.",
+    "nextRun": "Lần tới",
+    "lastRun": "Lần trước",
+    "never": "Chưa chạy",
+    "manual": "chạy tay",
+    "runStatus": {
+      "running": "Đang chạy",
+      "done": "Đã gửi",
+      "failed": "Lỗi",
+      "blocked": "Bị chặn",
+      "skipped": "Bỏ qua"
+    },
+    "delivery": {
+      "queued": "Email đang chờ gửi",
+      "sending": "Đang gửi email",
+      "sent": "Đã gửi email",
+      "failed": "Gửi email lỗi",
+      "skipped": "Không gửi email"
+    },
+    "pausedReasons": {
+      "owner": "Đang tạm dừng",
+      "failures": "Tạm dừng vì lỗi 3 lần liên tiếp",
+      "business_unavailable": "Tạm dừng vì doanh nghiệp không còn khả dụng",
+      "owner_not_active": "Tạm dừng vì bạn không còn là chủ doanh nghiệp này"
+    },
+    "pause": "Tạm dừng lịch",
+    "resume": "Bật lại lịch",
+    "runNow": "Chạy ngay",
+    "runRequested": "Đã yêu cầu chạy. Kết quả sẽ có trong vài phút.",
+    "edit": "Sửa",
+    "remove": "Xoá",
+    "removeTitle": "Xoá lịch \"{{name}}\"?",
+    "removeBody": "Lịch và lịch sử chạy sẽ bị xoá. Các thông báo đã gửi vẫn giữ lại.",
+    "removeConfirm": "Xoá lịch",
+    "removed": "Đã xoá lịch.",
+    "runs": "Lần chạy",
+    "noRuns": "Chưa có lần chạy nào.",
+    "errors": {
+      "generic": "Không lưu được lịch. Kiểm tra lại rồi thử lại.",
+      "schedule_limit": "Đã đủ 10 lịch. Xoá bớt một lịch để thêm mới.",
+      "interval_too_short": "Khoảng lặp quá ngắn cho kiểu này.",
+      "alert_needs_every": "Cảnh báo chỉ chạy theo kiểu Lặp lại.",
+      "invalid_mode": "Nội dung này không có kiểu cảnh báo.",
+      "unknown_business": "Bạn không còn quản lý doanh nghiệp này.",
+      "unsafe_name": "Tên lịch không được chứa đường dẫn, số điện thoại hay email.",
+      "email_unavailable": "Chưa gửi được email lúc này.",
+      "in_app_required": "Lịch luôn gửi trong ứng dụng.",
+      "invalid_params": "Thông số chưa hợp lệ.",
+      "stale_schedule": "Lịch vừa được thay đổi ở nơi khác. Mở lại để sửa.",
+      "run_too_soon": "Vừa chạy rồi. Thử lại sau 5 phút.",
+      "schedule_paused": "Lịch đang tạm dừng.",
+      "field": {
+        "name": "Nhập tên lịch (tối đa 80 ký tự).",
+        "params": "Thông số chưa hợp lệ.",
+        "cadence": "Lịch gửi chưa hợp lệ.",
+        "channels": "Chọn kênh gửi.",
+        "businessId": "Chọn doanh nghiệp."
+      }
+    },
+    "proposal": {
+      "label": "Đề xuất lịch báo cáo",
+      "ops": {
+        "create": "Tạo lịch",
+        "edit": "Sửa lịch",
+        "remove": "Xoá lịch"
+      },
+      "before": "Hiện tại: {{cadence}}",
+      "nextRuns": "Các lần tới"
+    }
   }
 }

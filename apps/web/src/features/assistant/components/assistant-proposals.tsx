@@ -2,14 +2,13 @@ import type { AssistantProposalDto } from '@agent-sales/contracts';
 import { Check, ChevronDown, Clock, Loader2, X } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
-import { ApiClientError } from '@/lib/api-client';
-import { useSession } from '@/lib/session';
 import { cn } from '@/lib/utils';
 
-import { useDecideAssistantProposal, useProposalDecisionInFlight } from '../api/assistant';
+import { useBusinessName } from '../hooks/use-businesses';
+import { useProposalDecider } from '../hooks/use-proposal-decider';
+import { ScheduleProposalCard } from './schedule-proposal-card';
 
 /** Preview text for the card: a value as indented JSON, capped for the panel. */
 function previewText(preview: unknown): string {
@@ -62,11 +61,6 @@ function previewParts(preview: unknown): { before: string; changes: string } {
   return { before: '', changes: previewText(preview) };
 }
 
-function useBusinessName(businessId: string): string | null {
-  const session = useSession();
-  return session?.memberships.find((m) => m.workspaceId === businessId)?.workspaceName ?? null;
-}
-
 /** A decided (or running) proposal: one quiet status line. */
 function ProposalStatus({ proposal }: { proposal: AssistantProposalDto }) {
   const { t } = useTranslation('assistant');
@@ -116,26 +110,11 @@ function PendingProposal({ proposal }: { proposal: AssistantProposalDto }) {
   const action = proposalAction(proposal.routeKey);
   // A change to an existing record shows what it touches without a click.
   const [showPreview, setShowPreview] = useState(action.changesExisting);
-  const decide = useDecideAssistantProposal(proposal, (error) => {
-    // 409: decided elsewhere or expired; the refetch shows its real status.
-    if (!(error instanceof ApiClientError) || error.status !== 409)
-      toast.error(t('proposals.decideError'));
-    else if (error.details?.['reason'] === 'proposal_expired') toast.error(t('proposals.expired'));
-    else toast.error(t('proposals.notPending'));
-  });
-  // Keyed by the proposal id, so a card mounted again (another panel view and back) stays busy.
-  const inFlight = useProposalDecisionInFlight(proposal.id);
+  const { busy, applying, run } = useProposalDecider(proposal);
   const { before, changes } = previewParts(proposal.preview);
   const hasPreview = Boolean(before || changes);
   const previewId = `proposal-preview-${proposal.id}`;
 
-  function run(decision: 'approve' | 'reject'): void {
-    if (inFlight) return;
-    decide.mutate(decision);
-  }
-
-  const busy = inFlight !== null;
-  const applying = inFlight === 'approve';
   return (
     <li
       className={cn(
@@ -220,6 +199,9 @@ function PendingProposal({ proposal }: { proposal: AssistantProposalDto }) {
 
 /** One proposal in the conversation: a card while pending, a status line once decided. */
 export function AssistantProposal({ proposal }: { proposal: AssistantProposalDto }) {
+  if (proposal.status === 'pending' && proposal.kind === 'schedule') {
+    return <ScheduleProposalCard proposal={proposal} />;
+  }
   return proposal.status === 'pending' ? (
     <PendingProposal proposal={proposal} />
   ) : (

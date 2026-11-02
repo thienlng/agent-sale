@@ -3,10 +3,14 @@ import { Rabbit } from 'lucide-react';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { toast } from 'sonner';
+
+import { useAssistantOpenRequests } from '@/lib/assistant-context';
 import { loadNamespace } from '@/lib/i18n';
 import { useWorkspaceId } from '@/lib/use-workspace';
 import { cn } from '@/lib/utils';
 
+import { openReportThread } from '../api/report-thread';
 import { useIsAccountOwner } from '../hooks/use-is-account-owner';
 import { useAssistantUi } from '../stores/assistant-ui.store';
 
@@ -33,6 +37,23 @@ export function AssistantBubble() {
   const onBotPage = useRouterState({ select: (s) => BOT_PAGE.test(s.location.pathname) });
   // Once loaded the panel stays mounted, so a spotlight survives closing it.
   const [loaded, setLoaded] = useState(open);
+  const setThread = useAssistantUi((s) => s.setThread);
+  const { request, consume } = useAssistantOpenRequests();
+  // Another feature asked to open a thread (the bell's report notification, T-172).
+  useEffect(() => {
+    if (!request || !isOwner || !workspaceId) return;
+    consume(request.seq);
+    setLoaded(true);
+    setOpen(true);
+    if ('threadId' in request) {
+      setThread(request.threadId);
+      return;
+    }
+    openReportThread(workspaceId, request.reportRunId).then(
+      (thread) => setThread(thread.id),
+      () => toast.error(t('app.reportThreadError')),
+    );
+  }, [request, isOwner, workspaceId, consume, setOpen, setThread, t]);
   if (!isOwner) return null;
   return (
     <>
