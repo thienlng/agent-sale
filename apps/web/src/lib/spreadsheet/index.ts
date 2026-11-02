@@ -1,8 +1,9 @@
 import {
   IMPORT_MAX_CELL_CHARS,
   IMPORT_MAX_SHEET_COLUMNS,
-  IMPORT_MAX_SHEET_JSON_CHARS,
+  IMPORT_MAX_SHEET_JSON_BYTES,
   IMPORT_MAX_SHEET_ROWS,
+  sheetJsonBytes,
 } from '@agent-sales/contracts';
 
 import { readCsv } from './csv';
@@ -79,7 +80,7 @@ export async function readSpreadsheet(file: File): Promise<SpreadsheetResult> {
     trimmed.length > IMPORT_MAX_SHEET_ROWS ||
     (trimmed[0]?.length ?? 0) > IMPORT_MAX_SHEET_COLUMNS ||
     trimmed.some((r) => r.some((c) => c.length > IMPORT_MAX_CELL_CHARS)) ||
-    JSON.stringify(trimmed).length > IMPORT_MAX_SHEET_JSON_CHARS
+    sheetJsonBytes(trimmed) > IMPORT_MAX_SHEET_JSON_BYTES
   ) {
     return { error: 'too_large' };
   }

@@ -176,6 +176,7 @@ export function importBatchFixture(over: Partial<ImportBatchDto> = {}): ImportBa
       draftFixture(3, 'Mũ lưỡi trai'),
     ],
     results: {},
+    draftsHash: 'abc',
     createdAt: STAMP,
     ...over,
   };

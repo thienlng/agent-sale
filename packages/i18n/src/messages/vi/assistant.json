@@ -134,7 +134,8 @@
       "created": "Đã tạo",
       "failed": "Không tạo được",
       "notRun": "Chưa chạy (đề nghị lại)",
-      "open": "Mở {{name}}"
+      "open": "Mở {{name}}",
+      "changed": "Bản xem trước đã thay đổi sau đề nghị này. Hãy nhờ trợ lý đề nghị lại."
     },
     "table": {
       "caption": "Các sản phẩm sẽ được tạo",

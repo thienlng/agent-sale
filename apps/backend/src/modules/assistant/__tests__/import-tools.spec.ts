@@ -184,6 +184,27 @@ describe('import_preview', () => {
     });
   });
 
+  it('refuses a spec change when an approval creates a row after the batch was loaded', async () => {
+    const { run, sheet, repo, scope } = await setup();
+    const batch = await sheet();
+    await run(IMPORT_PREVIEW_TOOL, { batchId: batch.id, spec: SPEC });
+    const load = repo.getImportBatch.bind(repo);
+    // The tool loads the batch, then a running approval records a created row.
+    vi.spyOn(repo, 'getImportBatch').mockImplementationOnce(async (...args) => {
+      const loaded = await load(...args);
+      await repo.recordImportResult(scope, batch.id, 'r2', {
+        status: 'created',
+        productId: newId(),
+      });
+      return loaded;
+    });
+    const changed = { ...SPEC, skipRows: [3] };
+    expect(await run(IMPORT_PREVIEW_TOOL, { batchId: batch.id, spec: changed })).toMatchObject({
+      errorCode: 'spec_locked',
+    });
+    expect((await load(scope, batch.id))?.spec).toEqual(SPEC);
+  });
+
   it('refuses a spec for a photo batch', async () => {
     const { run, repo, scope, thread } = await setup();
     const batch = await repo.createImportBatch(scope, {

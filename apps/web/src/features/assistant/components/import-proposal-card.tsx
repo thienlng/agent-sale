@@ -16,6 +16,8 @@ interface ImportPreview {
   fileName: string;
   batchKind: 'sheet' | 'photos';
   draftKeys: string[];
+  /** The hash of the drafts the proposal was made from; approval refuses any other. */
+  draftsHash: string | null;
   counts: { products: number; variants: number; skippedWithErrors: number; alreadyCreated: number };
   visibleToBotDefault: boolean;
 }
@@ -27,6 +29,7 @@ function readPreview(preview: unknown): ImportPreview {
     fileName: typeof p.fileName === 'string' ? p.fileName : '',
     batchKind: p.batchKind === 'photos' ? 'photos' : 'sheet',
     draftKeys: Array.isArray(p.draftKeys) ? p.draftKeys.filter((k) => typeof k === 'string') : [],
+    draftsHash: typeof p.draftsHash === 'string' ? p.draftsHash : null,
     counts: {
       products: n(p.counts?.products),
       variants: n(p.counts?.variants),
@@ -150,7 +153,9 @@ function ImportReport({ batch, keys }: { batch: ImportBatchDto; keys: readonly s
 /**
  * A `product_import` proposal (T-173): "Tạo N sản phẩm từ <file>", the counts, the bot-visibility
  * note, the table of products and the skipped rows; Áp dụng / Bỏ while pending, then the report
- * of what was created. The batch is refetched after a decision.
+ * of what was created. The batch is refetched after a decision. While the batch's drafts are not
+ * the ones the proposal pinned (another preview came after it, or the cached batch is older than
+ * the proposal), Áp dụng stays blocked: the card must never show rows the approval would not create.
  */
 export function ImportProposalCard({ proposal }: { proposal: AssistantProposalDto }) {
   const { t } = useTranslation('assistant');
@@ -166,6 +171,13 @@ export function ImportProposalCard({ proposal }: { proposal: AssistantProposalDt
   useEffect(() => {
     if (decided) void refetch();
   }, [decided, refetch]);
+
+  // The drafts on screen differ from the ones the proposal pinned: read the batch again, and
+  // block Áp dụng until they match.
+  const stale = pending && batch.data !== undefined && batch.data.draftsHash !== preview.draftsHash;
+  useEffect(() => {
+    if (stale) void refetch();
+  }, [stale, refetch]);
 
   const drafts = batch.data?.drafts ?? [];
   const chosen = new Set(preview.draftKeys);
@@ -245,9 +257,18 @@ export function ImportProposalCard({ proposal }: { proposal: AssistantProposalDt
         </>
       )}
 
+      {stale ? (
+        <p className="text-xs text-muted-foreground" role="status">
+          {t('import.card.changed')}
+        </p>
+      ) : null}
       {pending ? (
         <div className="flex gap-2">
-          <Button size="sm" disabled={busy} onClick={() => run('approve')}>
+          <Button
+            size="sm"
+            disabled={busy || stale || batch.data === undefined}
+            onClick={() => run('approve')}
+          >
             {applying ? <Loader2 className="animate-spin" aria-hidden /> : null}
             {applying ? t('proposals.applying') : t('proposals.apply')}
           </Button>

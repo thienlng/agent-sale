@@ -74,6 +74,26 @@ describe('ImportProposalCard', () => {
     expect(await screen.findByText(/ẩn với bot/)).toBeInTheDocument();
   });
 
+  it('blocks Áp dụng while the batch drafts are not the ones the proposal pinned', async () => {
+    // The cached batch is from a newer preview than this proposal.
+    const { fetchStub, calls } = stubFetch({
+      [BATCH_URL]: { status: 200, body: importBatchFixture({ draftsHash: 'newer' }) },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    render(importProposalFixture());
+
+    expect(
+      await screen.findByText(
+        'Bản xem trước đã thay đổi sau đề nghị này. Hãy nhờ trợ lý đề nghị lại.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Áp dụng' })).toBeDisabled();
+    // It reads the batch again, in case only the cache was old.
+    await vi.waitFor(() =>
+      expect(calls.filter((c) => c.key === BATCH_URL).length).toBeGreaterThanOrEqual(2),
+    );
+  });
+
   it('approves, then shows the report with links to the created products', async () => {
     const done = importBatchFixture({
       results: {

@@ -86,6 +86,8 @@ describe('assistantRoutes', () => {
       'get /assistant/threads/{threadId}/proposals',
       'post /assistant/proposals/{proposalId}/approve',
       'post /assistant/proposals/{proposalId}/reject',
+      'post /assistant/threads/{threadId}/imports',
+      'get /assistant/imports/{batchId}',
       'get /assistant/skills',
       'get /assistant/skills/{skillRef}',
       'post /assistant/skills',

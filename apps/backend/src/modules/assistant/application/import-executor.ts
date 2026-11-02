@@ -22,6 +22,27 @@ export interface ImportOutcome {
   event: string;
 }
 
+/** How far an import got: the rows created, failed and not run so far. */
+export interface ImportCounts {
+  created: number;
+  failed: number;
+  notRun: number;
+}
+
+/**
+ * An import stopped by an unexpected error (a failed DB write, say), with the counts it had
+ * reached, so the proposal can still finish `failed` with them.
+ */
+export class ImportRunError extends Error {
+  constructor(
+    readonly counts: ImportCounts,
+    cause: unknown,
+  ) {
+    super('the product import stopped', { cause });
+    this.name = 'ImportRunError';
+  }
+}
+
 /** What a `product_import` proposal pins in its preview. */
 interface ImportProposalPreview {
   fileName?: string;
@@ -112,23 +133,27 @@ export class ImportExecutor {
     let notRun = 0;
     const failures: string[] = [];
     let forbidden = false;
-    for (const key of keys) {
-      let result: ImportRowResult;
-      if (forbidden) {
-        result = { status: 'failed', errorCode: 'forbidden' };
-      } else if (this.clock() - started >= this.deadlineMs) {
-        result = { status: 'not_run' };
-      } else {
-        result = await this.#create(proposal, batch.businessId, key, drafts.get(key), {
-          authorization,
-          warehouseId,
-        });
-        if (result.status === 'failed' && result.errorCode === 'forbidden') forbidden = true;
+    try {
+      for (const key of keys) {
+        let result: ImportRowResult;
+        if (forbidden) {
+          result = { status: 'failed', errorCode: 'forbidden' };
+        } else if (this.clock() - started >= this.deadlineMs) {
+          result = { status: 'not_run' };
+        } else {
+          result = await this.#create(proposal, batch.businessId, key, drafts.get(key), {
+            authorization,
+            warehouseId,
+          });
+          if (result.status === 'failed' && result.errorCode === 'forbidden') forbidden = true;
+        }
+        if (result.status === 'created') created++;
+        else if (result.status === 'failed') failures.push(result.errorCode);
+        else notRun++;
+        await this.repo.recordImportResult(scope, batch.id, key, result);
       }
-      if (result.status === 'created') created++;
-      else if (result.status === 'failed') failures.push(result.errorCode);
-      else notRun++;
-      await this.repo.recordImportResult(scope, batch.id, key, result);
+    } catch (e) {
+      throw new ImportRunError({ created, failed: failures.length, notRun }, e);
     }
 
     const failed = failures.length;

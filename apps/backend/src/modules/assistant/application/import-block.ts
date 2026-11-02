@@ -47,6 +47,7 @@ export function toImportBatchDto(b: ImportBatchRecord): ImportBatchDto {
     rowCount: b.rowCount,
     drafts: b.drafts,
     results: b.results,
+    draftsHash: b.draftsHash,
     createdAt: b.createdAt.toISOString(),
   };
 }

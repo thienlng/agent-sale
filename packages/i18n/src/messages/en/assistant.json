@@ -134,7 +134,8 @@
       "created": "Created",
       "failed": "Not created",
       "notRun": "Not run (propose again)",
-      "open": "Open {{name}}"
+      "open": "Open {{name}}",
+      "changed": "The preview changed after this proposal. Ask the assistant to propose again."
     },
     "table": {
       "caption": "Products to create",

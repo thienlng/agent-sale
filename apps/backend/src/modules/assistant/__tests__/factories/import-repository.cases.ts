@@ -124,6 +124,29 @@ export function importRepositoryCases(harness: () => ImportRepositoryHarness): v
     ).rejects.toThrow(AssistantNotFoundError);
   });
 
+  it('with lockSpec, refuses a spec change once a draft is created, in the write itself', async () => {
+    const { repo, owner } = harness();
+    const a = await owner();
+    const b = await repo.createImportBatch(a.s, newBatch(a.s, a.threadId));
+    const spec = { headerRow: 0, fields: { name: { col: 0 }, price: { col: 1 } } };
+    const preview = { spec, overrides: {}, excluded: [], drafts: [draft], draftsHash: 'h1' };
+    const changed = { ...preview, spec: { ...spec, headerRow: 1 }, draftsHash: 'h2' };
+    // No row created yet: the spec may change.
+    expect(await repo.saveImportPreview(a.s, b.id, preview, { lockSpec: true })).toBe(true);
+    await repo.recordImportResult(a.s, b.id, 'r1', { status: 'created', productId: newId() });
+    expect(await repo.saveImportPreview(a.s, b.id, changed, { lockSpec: true })).toBe(false);
+    expect((await repo.getImportBatch(a.s, b.id))?.draftsHash).toBe('h1');
+    // The same spec (keys in another order) still saves new overrides.
+    const same = {
+      ...preview,
+      spec: { fields: { price: { col: 1 }, name: { col: 0 } }, headerRow: 0 },
+      overrides: { r1: { name: 'Áo thun' } },
+      draftsHash: 'h3',
+    };
+    expect(await repo.saveImportPreview(a.s, b.id, same, { lockSpec: true })).toBe(true);
+    expect((await repo.getImportBatch(a.s, b.id))?.draftsHash).toBe('h3');
+  });
+
   it('keeps both results of two concurrent writes on different keys', async () => {
     const { repo, repo2, owner } = harness();
     const a = await owner();

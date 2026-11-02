@@ -53,6 +53,10 @@ describe('CreateImportBatchRequest', () => {
     expect(
       ok(Array.from({ length: 300 }, () => Array.from({ length: 6 }, () => 'x'.repeat(1000)))),
     ).toBe(false);
+    // 600 000 characters, but 1.8 MB in UTF-8: the limit counts bytes.
+    expect(
+      ok(Array.from({ length: 300 }, () => Array.from({ length: 2 }, () => 'ệ'.repeat(1000)))),
+    ).toBe(false);
     expect(
       CreateImportBatchRequest.safeParse({ ...sheet([['x']]), fileName: 'f'.repeat(201) }).success,
     ).toBe(false);
@@ -114,6 +118,7 @@ describe('import DTOs', () => {
         },
       ],
       results: { r1: { status: 'created', productId: ID }, r2: { status: 'not_run' } },
+      draftsHash: 'abc',
       createdAt: '2026-11-02T00:00:00.000Z',
     };
     expect(ImportBatchDto.parse(dto)).toEqual(dto);

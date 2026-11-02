@@ -258,13 +258,14 @@ export function importTools(ctx: ImportToolContext): RunnableTool[] {
       const first = buildDrafts({ ...base, existing: null });
       const found = await existing(batch, first);
       const drafts = found ? buildDrafts({ ...base, existing: found }) : first;
-      await ctx.repo.saveImportPreview(ctx.scope, batch.id, {
-        spec,
-        overrides,
-        excluded,
-        drafts,
-        draftsHash: draftsHash(drafts),
-      });
+      const saved = await ctx.repo.saveImportPreview(
+        ctx.scope,
+        batch.id,
+        { spec, overrides, excluded, drafts, draftsHash: draftsHash(drafts) },
+        // Checked again in the write itself: an approval may have created rows since the load.
+        { lockSpec: true },
+      );
+      if (!saved) return fail('spec_locked');
       await rejectPendingImports(ctx.scope, ctx.repo, batch);
 
       const live = drafts.filter((d) => !d.excluded);

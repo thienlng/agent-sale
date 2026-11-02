@@ -250,6 +250,35 @@ describe('ImportExecutor (through ProposalService.approve)', () => {
     expect(productCalls(invoke)).toHaveLength(0);
   });
 
+  it('finishes failed with import_failed and the partial counts when a write throws', async () => {
+    const { proposals, scope, propose, repo, events, invoke } = await setup();
+    const id = await propose();
+    const record = repo.recordImportResult.bind(repo);
+    let writes = 0;
+    vi.spyOn(repo, 'recordImportResult').mockImplementation(async (...args) => {
+      if (++writes === 2) throw new Error('connection lost');
+      return record(...args);
+    });
+    const dto = await proposals.approve(scope, id, 'B');
+    expect(dto).toMatchObject({ status: 'failed', errorCode: 'import_failed' });
+    const stored = await repo.getProposal(scope, id);
+    expect(JSON.parse(stored?.resultPreview ?? '{}')).toEqual({ created: 2, failed: 0, notRun: 0 });
+    expect(productCalls(invoke)).toHaveLength(2);
+    expect((await events()).at(-1)).toBe(
+      'Không áp dụng xong: Nhập hàng (import_failed); đã tạo 2 sản phẩm trước khi dừng',
+    );
+  });
+
+  it('finishes failed with import_failed when the batch cannot be read', async () => {
+    const { proposals, scope, propose, repo } = await setup();
+    const id = await propose();
+    vi.spyOn(repo, 'getImportBatch').mockRejectedValueOnce(new Error('connection lost'));
+    const dto = await proposals.approve(scope, id, 'B');
+    expect(dto).toMatchObject({ status: 'failed', errorCode: 'import_failed' });
+    const stored = await repo.getProposal(scope, id);
+    expect(JSON.parse(stored?.resultPreview ?? '{}')).toEqual({ created: 0, failed: 0, notRun: 0 });
+  });
+
   it('refuses a second approval (409)', async () => {
     const { proposals, scope, propose } = await setup();
     const id = await propose();

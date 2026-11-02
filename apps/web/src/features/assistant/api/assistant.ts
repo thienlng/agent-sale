@@ -148,6 +148,8 @@ export function useSendAssistantMessage() {
       void queryClient.invalidateQueries({ queryKey: [...assistantKeys.all(ws), 'threads'] });
       // A turn may have prepared proposals (writes waiting for the owner).
       void queryClient.invalidateQueries({ queryKey: assistantKeys.proposals(ws, threadId) });
+      // A turn may have previewed an import again: the cached drafts can be stale.
+      void queryClient.invalidateQueries({ queryKey: [...assistantKeys.all(ws), 'imports'] });
     },
   });
 }

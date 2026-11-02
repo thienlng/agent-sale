@@ -57,6 +57,13 @@ describe('readSpreadsheet', () => {
     expect(await readSpreadsheet(big)).toEqual({ error: 'too_large' });
   });
 
+  it('counts the size in UTF-8 bytes, not characters', async () => {
+    // 600 000 characters but 1.8 MB: Vietnamese letters such as ệ take 3 bytes each.
+    const cell = 'ệ'.repeat(1000);
+    const rows = Array.from({ length: 300 }, () => `${cell},${cell}`).join('\n');
+    expect(await readSpreadsheet(file([rows], 'dau.csv'))).toEqual({ error: 'too_large' });
+  });
+
   it('refuses an unknown format', async () => {
     expect(await readSpreadsheet(file(['hello'], 'a.txt'))).toEqual({ error: 'format' });
   });

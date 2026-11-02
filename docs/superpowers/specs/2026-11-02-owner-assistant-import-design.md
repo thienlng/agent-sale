@@ -43,7 +43,7 @@ The owner drops an Excel/CSV file or some product photos into the assistant bubb
 ### 3.1 Sheet
 
 1. The owner clicks 📎 in the composer, or drops a file on the panel. Accepted: `.xlsx` and `.csv`, up to 5 MB.
-2. The browser reads the first sheet into `string[][]` (`readSpreadsheet`). Empty rows at the end are trimmed. Limits: ≤ 310 rows (up to 10 rows of titles above the header, then ≤ 300 data rows), ≤ 40 columns, ≤ 1 000 chars per cell, and ≤ 1.5 MB as JSON. Anything larger is refused with "split the file into parts of 300 rows".
+2. The browser reads the first sheet into `string[][]` (`readSpreadsheet`). Empty rows at the end are trimmed. Limits: ≤ 310 rows (up to 10 rows of titles above the header, then ≤ 300 data rows), ≤ 40 columns, ≤ 1 000 chars per cell, and ≤ 1.5 MB as JSON (UTF-8 bytes). Anything larger is refused with "split the file into parts of 300 rows".
 3. `POST /assistant/threads/{threadId}/imports` with `{kind: 'sheet', businessId, fileName, rows}` returns the batch DTO.
 4. The composer sends the chat message with `importBatchId`. The text is the owner's own, or by default "Nhập sản phẩm từ tệp <file>".
 5. The turn message carries an `<import_batch>` block (§6.3). The model loads `import-products`, then calls `import_preview` with a mapping spec, then reads the summary and problems back. It asks the owner about anything unclear, for example a missing price column, and calls `import_preview` again with overrides as needed. Finally it calls `import_propose`.
@@ -322,6 +322,9 @@ The rulings above stand. These details changed or were settled while building it
 - `import_propose` counts the thread's other pending proposals for `too_many_pending` (the batch's own pending proposal is replaced). `visibleToBotDefault` is true only when every chosen draft is visible to the bot.
 - The executor answers 400 as `invalid:<first issue path>`, skips drafts that are already created, fails with `not_run` when nothing ran before the deadline, and stores `result_preview` on a failed import too. A failed hash check appends `Không áp dụng được: <summary> (import_changed)`.
 - `ImportExecutor` is built inside `ProposalService`, not as a Nest provider. Its clock and deadline can be replaced in tests.
+- An unexpected error during an approved import (a batch read or a result write that throws) finishes the proposal `failed` with `import_failed` and the counts so far; it never stays `executing`.
+- `spec_locked` is checked again in the preview's UPDATE (`spec` unchanged, or no `created` result), so a row an approval creates after `import_preview` loaded the batch still locks the spec.
+- The existence check sends only the first 500 distinct codes and 1 000 distinct SKUs (the route's limits), without a warning. Drafts past those caps get no `exists_*` error in the preview; the approval's 409 still refuses them.
 
 **Web (Task 7)**
 
@@ -331,6 +334,8 @@ The rulings above stand. These details changed or were settled while building it
 - The thumbnail is re-encoded at quality 0.6 when it would be over the import's limit.
 - The import card replaces the status line for a decided import proposal. It shows the report instead.
 - The approve and reject logic of a proposal card moved to `proposal-decision.ts`, shared by both cards.
+- `ImportBatchDto` carries `draftsHash`. The web marks every cached batch stale after a turn, and the import card blocks Áp dụng (and reads the batch again) while the batch's hash differs from the proposal's `preview.draftsHash`, so it never shows drafts other than the ones the approval creates.
+- The 1.5 MB sheet limit counts UTF-8 bytes (`sheetJsonBytes`), like the route body limit and the DB check, not characters.
 
 **Not built in this PR**
 

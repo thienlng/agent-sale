@@ -73,6 +73,22 @@ type StoredSuggestion = SuggestionRecord & Owned;
 type StoredSettings = AssistantSettingsRecord & Owned;
 type StoredImportBatch = ImportBatchRecord & Owned;
 
+/** Equal as `jsonb` compares them: key order and undefined members do not count. */
+function sameJson(a: unknown, b: unknown): boolean {
+  const norm = (v: unknown): unknown => {
+    if (Array.isArray(v)) return v.map(norm);
+    if (v && typeof v === 'object') {
+      return Object.fromEntries(
+        Object.keys(v)
+          .sort()
+          .map((k) => [k, norm((v as Record<string, unknown>)[k])]),
+      );
+    }
+    return v;
+  };
+  return JSON.stringify(norm(a)) === JSON.stringify(norm(b));
+}
+
 /** Mirrors the table's CHECK constraints on a skill row. */
 const SKILL_NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 function checkSkill(x: Pick<SkillRecord, 'name' | 'description' | 'body'>): void {
@@ -982,9 +998,22 @@ export class InMemoryAssistantRepository implements AssistantRepository {
     return b;
   }
 
-  async saveImportPreview(s: OwnerScope, id: string, p: ImportPreview): Promise<void> {
+  async saveImportPreview(
+    s: OwnerScope,
+    id: string,
+    p: ImportPreview,
+    opts: { lockSpec?: boolean } = {},
+  ): Promise<boolean> {
     const b = this.#importBatch(s, id);
+    if (
+      opts.lockSpec &&
+      !sameJson(b.spec, p.spec) &&
+      Object.values(b.results).some((r) => r.status === 'created')
+    ) {
+      return false;
+    }
     Object.assign(b, structuredClone(p), { updatedAt: this.#now() });
+    return true;
   }
 
   async recordImportResult(

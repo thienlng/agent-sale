@@ -1395,8 +1395,21 @@ export class DrizzleAssistantRepository implements AssistantRepository {
     });
   }
 
-  saveImportPreview(s: OwnerScope, id: string, p: ImportPreview): Promise<void> {
+  saveImportPreview(
+    s: OwnerScope,
+    id: string,
+    p: ImportPreview,
+    opts: { lockSpec?: boolean } = {},
+  ): Promise<boolean> {
     return this.#in(s, async (tx) => {
+      // The spec lock is part of the UPDATE's WHERE: a concurrent `recordImportResult` holds the
+      // row lock, and READ COMMITTED re-checks the WHERE on the row it commits (C4-R11).
+      const sameSpec =
+        p.spec === null
+          ? sql`${ib.spec} IS NULL`
+          : sql`${ib.spec} = ${JSON.stringify(p.spec)}::jsonb`;
+      const unlocked = sql`(${sameSpec} OR NOT EXISTS (
+        SELECT 1 FROM jsonb_each(${ib.results}) AS r WHERE r.value->>'status' = 'created'))`;
       const rows = await tx
         .update(ib)
         .set({
@@ -1407,9 +1420,15 @@ export class DrizzleAssistantRepository implements AssistantRepository {
           draftsHash: p.draftsHash,
           updatedAt: sql`now()`,
         })
-        .where(and(eq(ib.id, id), ownsImportBatch(s)))
+        .where(and(eq(ib.id, id), ownsImportBatch(s), opts.lockSpec ? unlocked : undefined))
         .returning({ id: ib.id });
-      if (rows.length === 0) throw new AssistantNotFoundError('import batch', id);
+      if (rows.length > 0) return true;
+      const [found] = await tx
+        .select({ id: ib.id })
+        .from(ib)
+        .where(and(eq(ib.id, id), ownsImportBatch(s)));
+      if (!found) throw new AssistantNotFoundError('import batch', id);
+      return false;
     });
   }
 

@@ -10,7 +10,11 @@ import type { ImportDraft } from './product-import.schema.js';
 const MATCH_MAX_CODES = 500;
 const MATCH_MAX_SKUS = 1_000;
 
-/** The valid, distinct codes and SKUs of the drafts, for POST /products/match-codes. */
+/**
+ * The valid, distinct codes and SKUs of the drafts, for POST /products/match-codes. Capped at the
+ * route's limits (the first 500 codes and 1 000 SKUs), silently: drafts past the caps get no
+ * `exists_*` error in the preview, and the approval's 409 still refuses a duplicate.
+ */
 export function codesOf(drafts: ImportDraft[]): { codes: string[]; skus: string[] } {
   const codes = new Map<string, string>();
   const skus = new Map<string, string>();

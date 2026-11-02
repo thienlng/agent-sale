@@ -307,8 +307,15 @@ export type AssistantSkillEventList = z.infer<typeof AssistantSkillEventList>;
 export const IMPORT_MAX_SHEET_ROWS = 310;
 export const IMPORT_MAX_SHEET_COLUMNS = 40;
 export const IMPORT_MAX_CELL_CHARS = 1_000;
-/** The sheet's rows as JSON (the web refuses bigger files and says to split them). */
-export const IMPORT_MAX_SHEET_JSON_CHARS = 1_500_000;
+/**
+ * The sheet's rows as JSON, in UTF-8 bytes (the web refuses bigger files and says to split
+ * them). Bytes, not characters: the route body limit and the DB check count bytes.
+ */
+export const IMPORT_MAX_SHEET_JSON_BYTES = 1_500_000;
+
+/** The UTF-8 size of the rows as JSON, as the sheet guard counts it. */
+export const sheetJsonBytes = (rows: readonly (readonly string[])[]): number =>
+  new TextEncoder().encode(JSON.stringify(rows)).length;
 export const IMPORT_MAX_PHOTOS = 8;
 /** One small JPEG/PNG thumbnail for the vision call (≤ 150 KB decoded). */
 export const IMPORT_MAX_THUMBNAIL_BASE64 = 204_800;
@@ -375,6 +382,11 @@ export const ImportBatchDto = z.object({
   drafts: z.array(ImportDraftDto).nullable(),
   /** `{[draftKey]: result}` of the approved imports so far. */
   results: z.record(z.string(), ImportRowResultDto),
+  /**
+   * The hash of the current drafts. A `product_import` proposal pins the hash it was made from;
+   * when they differ, the drafts shown are not the ones the proposal would create.
+   */
+  draftsHash: z.string().nullable(),
   createdAt: z.iso.datetime(),
 });
 export type ImportBatchDto = z.infer<typeof ImportBatchDto>;
@@ -390,7 +402,7 @@ export const CreateSheetImportRequest = z
       .min(1)
       .max(IMPORT_MAX_SHEET_ROWS),
   })
-  .refine((r) => JSON.stringify(r.rows).length <= IMPORT_MAX_SHEET_JSON_CHARS, {
+  .refine((r) => sheetJsonBytes(r.rows) <= IMPORT_MAX_SHEET_JSON_BYTES, {
     message: 'the sheet is too large; split it into parts of 300 rows',
     path: ['rows'],
   });

@@ -13,7 +13,7 @@ import {
   type ProposalRecord,
 } from '../domain/ports/assistant.repository.js';
 import { ROUTE_INVOKER, type RouteInvoker } from '../domain/ports/route-invoker.port.js';
-import { ImportExecutor } from './import-executor.js';
+import { ImportExecutor, type ImportOutcome, ImportRunError } from './import-executor.js';
 import { ROUTE_CATALOG, type RouteCatalog } from './route-catalog.js';
 
 /** The stored result shown on a done proposal is at most this long. */
@@ -97,7 +97,26 @@ export class ProposalService {
       return this.#finish(scope, proposal, { ok: false, errorCode: 'route_not_allowed' });
     }
     if (proposal.kind === 'product_import') {
-      const outcome = await this.importExecutor.run(scope, proposal, authorization);
+      let outcome: ImportOutcome;
+      try {
+        outcome = await this.importExecutor.run(scope, proposal, authorization);
+      } catch (e) {
+        // Never leave the proposal `executing`: finish it failed, with how far it got.
+        const counts =
+          e instanceof ImportRunError ? e.counts : { created: 0, failed: 0, notRun: 0 };
+        this.#log.warn(
+          `assistant proposal ${id}: import stopped (${errorClass(e instanceof ImportRunError ? e.cause : e)}) ` +
+            `created=${counts.created} failed=${counts.failed} notRun=${counts.notRun}`,
+        );
+        return this.#finish(scope, proposal, {
+          ok: false,
+          errorCode: 'import_failed',
+          resultPreview: JSON.stringify(counts),
+          event:
+            `Không áp dụng xong: ${proposal.summary} (import_failed); ` +
+            `đã tạo ${counts.created} sản phẩm trước khi dừng`,
+        });
+      }
       return this.#finish(
         scope,
         proposal,

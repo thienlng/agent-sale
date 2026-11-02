@@ -692,8 +692,18 @@ export interface AssistantRepository {
   createImportBatch(s: OwnerScope, b: NewImportBatch): Promise<ImportBatchRecord>;
   /** Null when absent or another owner's. */
   getImportBatch(s: OwnerScope, id: string): Promise<ImportBatchRecord | null>;
-  /** Stores a computed preview (spec, overrides, excluded, drafts, hash); NOT_FOUND if not the owner's. */
-  saveImportPreview(s: OwnerScope, id: string, p: ImportPreview): Promise<void>;
+  /**
+   * Stores a computed preview (spec, overrides, excluded, drafts, hash); NOT_FOUND if not the
+   * owner's. With `lockSpec`, it refuses (returns false, stores nothing) when the spec would change
+   * while a draft of the batch is `created`, checked in the same UPDATE as the write, so an
+   * approval running at the same time cannot slip a created row in between (C4-R11).
+   */
+  saveImportPreview(
+    s: OwnerScope,
+    id: string,
+    p: ImportPreview,
+    opts?: { lockSpec?: boolean },
+  ): Promise<boolean>;
   /**
    * Sets one draft's result in one UPDATE (`results || {key: result}`), so concurrent writes of
    * different keys keep each other's. NOT_FOUND if not the owner's.
