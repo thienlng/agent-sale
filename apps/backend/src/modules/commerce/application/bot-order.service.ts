@@ -43,6 +43,7 @@ import {
   type OrderRecord,
   type SkuVariantRecord,
 } from './ports/commerce-store.js';
+import { publishOrderCreated } from './order-events.js';
 
 const log = new Logger('BotOrderService');
 const LEAD_SOURCES: ReadonlySet<string> = new Set(['facebook', 'instagram', 'website']);
@@ -305,6 +306,7 @@ export class BotOrderService {
       actorName: input.botName,
       createdAt: now,
     });
+    await publishOrderCreated(tx, ws, order, null);
     await tx.botOrders.deleteDraft(input.conversationId);
     return { result: { ok: true, orderId: order.id, orderCode: order.code }, lead: draft };
   }

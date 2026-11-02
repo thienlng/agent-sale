@@ -62,6 +62,7 @@ import { Route as AppPropertiesIndexRouteImport } from './routes/app/properties/
 import { Route as AppPropertiesPropertyIdRouteImport } from './routes/app/properties/$propertyId'
 import { Route as AppSettingsIndexRouteImport } from './routes/app/settings/index'
 import { Route as AppSettingsAuditRouteImport } from './routes/app/settings/audit'
+import { Route as AppSettingsDevelopersRouteImport } from './routes/app/settings/developers'
 import { Route as AppSettingsProfileRouteImport } from './routes/app/settings/profile'
 import { Route as AppSettingsSecurityRouteImport } from './routes/app/settings/security'
 import { Route as AppBotsBotIdIndexRouteImport } from './routes/app/bots/$botId/index'
@@ -346,6 +347,11 @@ const AppSettingsAuditRoute = AppSettingsAuditRouteImport.update({
   path: '/audit',
   getParentRoute: () => AppSettingsRoute,
 } as any)
+const AppSettingsDevelopersRoute = AppSettingsDevelopersRouteImport.update({
+  id: '/developers',
+  path: '/developers',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
 const AppSettingsProfileRoute = AppSettingsProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -472,6 +478,7 @@ export interface FileRoutesByFullPath {
   '/app/products/new': typeof AppProductsNewRoute
   '/app/properties/$propertyId': typeof AppPropertiesPropertyIdRoute
   '/app/settings/audit': typeof AppSettingsAuditRoute
+  '/app/settings/developers': typeof AppSettingsDevelopersRoute
   '/app/settings/profile': typeof AppSettingsProfileRoute
   '/app/settings/security': typeof AppSettingsSecurityRoute
   '/admin/accounts/': typeof AdminAccountsIndexRoute
@@ -536,6 +543,7 @@ export interface FileRoutesByTo {
   '/app/products/new': typeof AppProductsNewRoute
   '/app/properties/$propertyId': typeof AppPropertiesPropertyIdRoute
   '/app/settings/audit': typeof AppSettingsAuditRoute
+  '/app/settings/developers': typeof AppSettingsDevelopersRoute
   '/app/settings/profile': typeof AppSettingsProfileRoute
   '/app/settings/security': typeof AppSettingsSecurityRoute
   '/admin/accounts': typeof AdminAccountsIndexRoute
@@ -607,6 +615,7 @@ export interface FileRoutesById {
   '/app/products/new': typeof AppProductsNewRoute
   '/app/properties/$propertyId': typeof AppPropertiesPropertyIdRoute
   '/app/settings/audit': typeof AppSettingsAuditRoute
+  '/app/settings/developers': typeof AppSettingsDevelopersRoute
   '/app/settings/profile': typeof AppSettingsProfileRoute
   '/app/settings/security': typeof AppSettingsSecurityRoute
   '/admin/accounts/': typeof AdminAccountsIndexRoute
@@ -679,6 +688,7 @@ export interface FileRouteTypes {
     | '/app/products/new'
     | '/app/properties/$propertyId'
     | '/app/settings/audit'
+    | '/app/settings/developers'
     | '/app/settings/profile'
     | '/app/settings/security'
     | '/admin/accounts/'
@@ -743,6 +753,7 @@ export interface FileRouteTypes {
     | '/app/products/new'
     | '/app/properties/$propertyId'
     | '/app/settings/audit'
+    | '/app/settings/developers'
     | '/app/settings/profile'
     | '/app/settings/security'
     | '/admin/accounts'
@@ -813,6 +824,7 @@ export interface FileRouteTypes {
     | '/app/products/new'
     | '/app/properties/$propertyId'
     | '/app/settings/audit'
+    | '/app/settings/developers'
     | '/app/settings/profile'
     | '/app/settings/security'
     | '/admin/accounts/'
@@ -1221,6 +1233,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsAuditRouteImport
       parentRoute: typeof AppSettingsRoute
     }
+    '/app/settings/developers': {
+      id: '/app/settings/developers'
+      path: '/developers'
+      fullPath: '/app/settings/developers'
+      preLoaderRoute: typeof AppSettingsDevelopersRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
     '/app/settings/profile': {
       id: '/app/settings/profile'
       path: '/profile'
@@ -1392,6 +1411,7 @@ const AppOrderSettingsRouteWithChildren =
 
 interface AppSettingsRouteChildren {
   AppSettingsAuditRoute: typeof AppSettingsAuditRoute
+  AppSettingsDevelopersRoute: typeof AppSettingsDevelopersRoute
   AppSettingsProfileRoute: typeof AppSettingsProfileRoute
   AppSettingsSecurityRoute: typeof AppSettingsSecurityRoute
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute
@@ -1399,6 +1419,7 @@ interface AppSettingsRouteChildren {
 
 const AppSettingsRouteChildren: AppSettingsRouteChildren = {
   AppSettingsAuditRoute: AppSettingsAuditRoute,
+  AppSettingsDevelopersRoute: AppSettingsDevelopersRoute,
   AppSettingsProfileRoute: AppSettingsProfileRoute,
   AppSettingsSecurityRoute: AppSettingsSecurityRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,

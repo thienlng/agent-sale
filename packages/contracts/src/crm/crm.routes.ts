@@ -83,6 +83,7 @@ export const crmRoutes = defineRoutes([
   route({
     method: 'post',
     path: '/contacts',
+    apiKey: true,
     summary: 'Create a customer',
     body: CreateContactRequest,
     responses: { 201: ContactDto },
@@ -90,6 +91,7 @@ export const crmRoutes = defineRoutes([
   route({
     method: 'post',
     path: '/contacts/query',
+    apiKey: true,
     summary: 'Search and filter customers (typed filter)',
     body: ContactQueryRequest,
     responses: { 200: ContactListResponse },
@@ -97,12 +99,14 @@ export const crmRoutes = defineRoutes([
   route({
     method: 'get',
     path: '/contacts/{contactId}',
+    apiKey: true,
     summary: 'One customer',
     responses: { 200: ContactDto },
   }),
   route({
     method: 'patch',
     path: '/contacts/{contactId}',
+    apiKey: true,
     summary: 'Edit a customer (version-checked)',
     body: UpdateContactRequest,
     responses: { 200: ContactDto },
@@ -110,12 +114,14 @@ export const crmRoutes = defineRoutes([
   route({
     method: 'get',
     path: '/contacts/{contactId}/notes',
+    apiKey: true,
     summary: 'Notes, newest first',
     responses: { 200: ContactNoteList },
   }),
   route({
     method: 'post',
     path: '/contacts/{contactId}/notes',
+    apiKey: true,
     summary: 'Add a note (never messages the customer)',
     body: CreateContactNoteRequest,
     responses: { 201: ContactNoteDto },
@@ -130,6 +136,7 @@ export const crmRoutes = defineRoutes([
   route({
     method: 'get',
     path: '/contacts/{contactId}/history',
+    apiKey: true,
     summary: 'Audit timeline',
     query: ContactHistoryQuery,
     responses: { 200: ContactHistoryList },
@@ -137,12 +144,14 @@ export const crmRoutes = defineRoutes([
   route({
     method: 'get',
     path: '/contacts/{contactId}/tags',
+    apiKey: true,
     summary: 'Tag assignments (active and removed)',
     responses: { 200: TagAssignmentList },
   }),
   route({
     method: 'post',
     path: '/contacts/{contactId}/tags',
+    apiKey: true,
     summary: 'Tag a customer (idempotent per tag)',
     body: AssignTagRequest,
     responses: { 200: TagAssignmentDto, 201: TagAssignmentDto },
@@ -157,6 +166,7 @@ export const crmRoutes = defineRoutes([
   route({
     method: 'post',
     path: '/tag-assignments/{assignmentId}/remove',
+    apiKey: true,
     summary: 'Remove a tag (idempotent)',
     body: RemoveTagAssignmentRequest,
     responses: { 200: TagAssignmentDto },

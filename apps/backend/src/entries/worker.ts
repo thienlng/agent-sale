@@ -10,6 +10,8 @@ import { ANALYTICS_RUNNER, type AnalyticsRunner } from '../modules/analytics/api
 import { AnalyticsModule } from '../modules/analytics/analytics.module.js';
 import { BILLING_RUNNER, type BillingRunner } from '../modules/billing/api/index.js';
 import { BillingModule } from '../modules/billing/billing.module.js';
+import { DEVELOPER_RUNNER, type DeveloperRunner } from '../modules/developer/api/index.js';
+import { DeveloperModule } from '../modules/developer/developer.module.js';
 import { INTEGRATION_RUNNER, type IntegrationRunner } from '../modules/integration/api/index.js';
 import { IntegrationModule } from '../modules/integration/integration.module.js';
 import { SAAS_RUNNER, type SaasRunner } from '../modules/saas/api/index.js';
@@ -21,7 +23,16 @@ import { SaasModule } from '../modules/saas/saas.module.js';
  * (outbound, campaign, workflow, indexer, scheduler). Processors live in each
  * module's application/jobs and are wired here as modules land.
  */
-@Module({ imports: [DbModule, AnalyticsModule, IntegrationModule, BillingModule, SaasModule] })
+@Module({
+  imports: [
+    DbModule,
+    AnalyticsModule,
+    IntegrationModule,
+    BillingModule,
+    SaasModule,
+    DeveloperModule,
+  ],
+})
 class WorkerModule {}
 
 const env = configureEnv();
@@ -86,6 +97,19 @@ const hqTimer = setInterval(() => {
       hqSyncing = false;
     });
 }, 2000);
+// Outbound webhooks (ADR-022): dispatch new public events, send due deliveries with retries.
+const developer = ctx.get<DeveloperRunner>(DEVELOPER_RUNNER);
+let webhooksBusy = false;
+const webhookTimer = setInterval(() => {
+  if (webhooksBusy) return;
+  webhooksBusy = true;
+  void developer
+    .tick()
+    .catch(() => logger.error('Webhook delivery tick failed'))
+    .finally(() => {
+      webhooksBusy = false;
+    });
+}, 2000);
 let dailyRunning = false;
 const runDaily = () => {
   if (dailyRunning) return;
@@ -107,8 +131,9 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const)
     clearInterval(billingTimer);
     clearInterval(hqTimer);
     clearInterval(dailyTimer);
+    clearInterval(webhookTimer);
   });
 logger.info(
   { queues },
-  'worker started (analytics projection, PMS sync, billing lifecycle, HQ sync; no queue processors registered yet)',
+  'worker started (analytics projection, PMS sync, billing lifecycle, HQ sync, webhooks; no queue processors registered yet)',
 );

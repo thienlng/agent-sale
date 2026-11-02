@@ -77,7 +77,7 @@ Every route returns 404 when the workspace is not a SaaS business.
 | POST `/saas-plans` | Add a plan (`name`, `prices`, `position`). |
 | PATCH `/saas-plans/{planId}` | Rename, reprice, archive or restore (`expectedVersion`). |
 
-Writes and their audit events (`saas.subscription.created|updated`, no PII in metadata) share the tenant transaction. Table: [data model](05-data-model.md#implemented-saas-extension-adr-020).
+Writes and their audit events (`saas.subscription.created|updated`, no PII in metadata) share the tenant transaction. A created subscription, or a change of plan, stage, period, MRR or one of its dates, also writes `saas.subscription.changed.v1` to the outbox in that transaction; it is the source of the public `saas.subscription.changed` webhook (ADR-022). The subscription routes above, except the summary and plan writes, accept workspace API keys with the `contacts.view_all` scope. Table: [data model](05-data-model.md#implemented-saas-extension-adr-020).
 
 ## Bot behavior
 

@@ -24,6 +24,7 @@ import {
   type SubscriptionRecord,
 } from './ports/saas-store.js';
 import { SaasLeadService } from './saas-lead.service.js';
+import { publishSubscriptionChanged } from './subscription-events.js';
 
 const PAGE = 100;
 const SOON_DAYS = 7;
@@ -148,6 +149,7 @@ export class SaasSubscriptionService {
       if (existing) await tx.updateSubscription(next);
       else await tx.insertSubscription(next);
       await recordHistory(tx, existing, next, 'staff', actor.userId, now);
+      await publishSubscriptionChanged(tx, ws, existing, next, actor.userId, now);
       await tx.audit(
         actor,
         existing ? 'saas.subscription.updated' : 'saas.subscription.created',
@@ -220,6 +222,7 @@ export class SaasSubscriptionService {
       if (existing) await tx.updateSubscription(next);
       else await tx.insertSubscription(next);
       await recordHistory(tx, existing, next, 'sync', null, now);
+      await publishSubscriptionChanged(tx, ws, existing, next, null, now);
       await tx.audit(
         SYNC_ACTOR,
         'saas.subscription.synced',

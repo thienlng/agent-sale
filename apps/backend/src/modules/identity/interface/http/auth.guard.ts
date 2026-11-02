@@ -1,8 +1,8 @@
-import { type Capability, roleCan } from '@agent-sales/contracts';
-import { workspaceId as toWorkspaceId } from '@agent-sales/shared';
+import { API_KEY_PREFIX, apiKeyRole, type Capability, roleCan } from '@agent-sales/contracts';
+import { type WorkspaceId, workspaceId as toWorkspaceId } from '@agent-sales/shared';
 import { type CanActivate, type ExecutionContext, Inject, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import type { FastifyRequest } from 'fastify';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import { ApiError } from '../../../../common/http/api-error.js';
 import {
@@ -12,8 +12,13 @@ import {
   REQUIRED_CAPABILITY,
 } from '../../../../common/http/auth-context.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../../workspace/api/index.js';
+import { ApiKeyService } from '../../application/api-key.service.js';
 import { AccountQueries } from '../../application/commands/auth.handlers.js';
+import { API_RATE_LIMITER, type ApiRateLimiter } from '../../application/ports/api-keys.js';
 import { ACCESS_TOKENS, type AccessTokens } from '../../application/ports/security.js';
+import { apiKeyRouteSet } from './api-key-routes.js';
+
+const RATE_WINDOW_MS = 60_000;
 
 /**
  * The ONE global guard (registered as APP_GUARD by IdentityModule):
@@ -22,6 +27,11 @@ import { ACCESS_TOKENS, type AccessTokens } from '../../application/ports/securi
  *    the user is an active member of — otherwise 404 (never 403, Rule 07);
  * 3. @PlatformAdmin() routes require users.is_platform_admin — otherwise 404;
  * 4. @RequireCapability() routes require the member's role to have it — otherwise 403.
+ *
+ * A `Bearer rpz_live_…` workspace API key (ADR-022) is accepted only on routes whose contract
+ * says `apiKey: true` (any other route answers 404); the request then acts for the key's creator
+ * in the key's workspace with the capabilities `scopes ∩ creator's role`, within the plan's
+ * per-minute rate limit.
  */
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -30,7 +40,11 @@ export class AuthGuard implements CanActivate {
     @Inject(ACCESS_TOKENS) private readonly tokens: AccessTokens,
     @Inject(WORKSPACE_FACADE) private readonly workspaces: WorkspaceFacade,
     @Inject(AccountQueries) private readonly accounts: AccountQueries,
+    @Inject(ApiKeyService) private readonly apiKeys: ApiKeyService,
+    @Inject(API_RATE_LIMITER) private readonly limiter: ApiRateLimiter,
   ) {}
+
+  readonly #apiKeyRoutes = apiKeyRouteSet();
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
     const targets = [ctx.getHandler(), ctx.getClass()];
@@ -39,6 +53,7 @@ export class AuthGuard implements CanActivate {
     const req = ctx.switchToHttp().getRequest<FastifyRequest>();
     const header = req.headers.authorization;
     const token = header?.startsWith('Bearer ') ? header.slice(7) : undefined;
+    if (token?.startsWith(API_KEY_PREFIX)) return this.#apiKey(ctx, req, token);
     const claims = token ? await this.tokens.verify(token) : null;
     if (!claims) throw new ApiError('UNAUTHENTICATED', 'Authentication required');
     let name: Promise<string | null> | undefined;
@@ -79,5 +94,61 @@ export class AuthGuard implements CanActivate {
       }
     }
     return true;
+  }
+
+  async #apiKey(ctx: ExecutionContext, req: FastifyRequest, token: string): Promise<boolean> {
+    const targets = [ctx.getHandler(), ctx.getClass()];
+    // Only routes marked `apiKey: true` exist for a key; this also keeps every key off
+    // platform-admin, session and settings routes.
+    if (!this.#apiKeyRoutes.has(`${req.method} ${req.routeOptions.url ?? ''}`))
+      throw new ApiError('NOT_FOUND', 'Not found');
+    const verified = await this.apiKeys.verify(token);
+    if (!verified.ok) throw new ApiError('UNAUTHENTICATED', 'Invalid API key');
+    const key = verified.principal;
+    const raw = req.headers['x-workspace-id'];
+    const sent = Array.isArray(raw) ? raw[0] : raw;
+    if (sent && sent !== key.workspaceId)
+      throw new ApiError('NOT_FOUND', 'Workspace not found', { reason: 'workspace_access' });
+    if (!(await this.apiKeys.enabled(key.workspaceId)))
+      throw new ApiError('FEATURE_LOCKED', 'The public API is not included in this plan', {
+        feature: 'feature.public_api',
+      });
+    await this.#rateLimit(ctx, key.id, key.perMinute);
+
+    const role = apiKeyRole(key.capabilities, key.creatorRole);
+    const name = `API: ${key.name}`;
+    req.auth = {
+      userId: key.userId,
+      sessionId: `api-key:${key.id}`,
+      role,
+      displayName: () => Promise.resolve(name),
+      apiKey: { id: key.id, name: key.name },
+    };
+    req.workspaceId = key.workspaceId as WorkspaceId;
+    const needed = this.reflector.getAllAndOverride<Capability | undefined>(
+      REQUIRED_CAPABILITY,
+      targets,
+    );
+    // An API-key route without a capability is a contract error (http.spec checks it): refuse.
+    if (!needed) throw new ApiError('NOT_FOUND', 'Not found');
+    if (!roleCan(role, needed))
+      throw new ApiError('FORBIDDEN', 'This API key cannot do this', { capability: needed });
+    return true;
+  }
+
+  async #rateLimit(ctx: ExecutionContext, keyId: string, perMinute: number | null) {
+    if (perMinute === null) return;
+    const r = await this.limiter.hit(`api-key:${keyId}`, perMinute, RATE_WINDOW_MS);
+    const reply = ctx.switchToHttp().getResponse<FastifyReply>();
+    const reset = Math.ceil(r.resetMs / 1000);
+    void reply.header('X-RateLimit-Limit', String(perMinute));
+    void reply.header('X-RateLimit-Remaining', String(r.remaining));
+    void reply.header('X-RateLimit-Reset', String(reset));
+    if (!r.ok) {
+      void reply.header('Retry-After', String(reset));
+      throw new ApiError('RATE_LIMITED', 'Too many requests for this API key', {
+        retryAfterSeconds: reset,
+      });
+    }
   }
 }

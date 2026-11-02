@@ -208,6 +208,31 @@ describe('saas HTTP and PostgreSQL isolation', () => {
     );
   });
 
+  it('publishes saas.subscription.changed when plan, stage, period, MRR or dates change (ADR-022)', async () => {
+    const a = await owner();
+    const contactId = await contact(a.headers);
+    const path = `/contacts/${contactId}/saas-subscription`;
+    await call(a.headers, 'PUT', path, subscription);
+    await call(a.headers, 'PUT', path, { ...subscription, version: 1, note: 'Only a note' });
+    await call(a.headers, 'PUT', path, { ...subscription, version: 2, stage: 'past_due' });
+    const { db, close } = createDb({ url: pg.ownerUrl, max: 1 });
+    try {
+      const events = await db
+        .select()
+        .from(schema.outboxEvents)
+        .where(eq(schema.outboxEvents.workspaceId, workspaceId(a.ws)))
+        .orderBy(schema.outboxEvents.id);
+      const changed = events.filter((e) => e.type === 'saas.subscription.changed.v1');
+      expect(changed.map((e) => e.payload)).toEqual([
+        expect.objectContaining({ contactId, stage: 'active', fromStage: null, mrr: 990000 }),
+        expect.objectContaining({ contactId, stage: 'past_due', fromStage: 'active' }),
+      ]);
+      expect(changed.every((e) => e.aggregateType === 'saas_subscription')).toBe(true);
+    } finally {
+      await close();
+    }
+  });
+
   it('lets the bot record a request on the customer: found or created by phone, moved forward, noted', async () => {
     const a = await owner();
     const saas = app.get<SaasFacade>(SAAS_FACADE);

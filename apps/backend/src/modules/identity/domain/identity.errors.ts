@@ -65,3 +65,22 @@ export class MfaStateError extends DomainError {
     super('Two-factor authentication is not in the right state for this', { reason });
   }
 }
+
+export class ApiKeyNotFoundError extends DomainError {
+  readonly code = 'NOT_FOUND';
+  constructor() {
+    super('API key not found');
+  }
+}
+
+export class InvalidApiKeyInputError extends DomainError {
+  readonly code = 'VALIDATION_FAILED';
+}
+
+/** The plan of the workspace does not include the public API (ADR-022 §4). */
+export class PublicApiLockedError extends DomainError {
+  readonly code = 'FEATURE_LOCKED';
+  constructor() {
+    super('The public API is not included in this plan', { feature: 'feature.public_api' });
+  }
+}

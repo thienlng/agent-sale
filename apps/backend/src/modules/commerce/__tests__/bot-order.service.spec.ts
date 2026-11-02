@@ -1,3 +1,4 @@
+import { OrderCreatedV1 } from '@agent-sales/contracts';
 import { newId, workspaceId } from '@agent-sales/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -261,6 +262,26 @@ describe('confirmBotOrder', () => {
         actorName: 'Bot Lan',
       }),
     ]);
+    // The order's integration event carries no customer name or phone (ADR-022 §7).
+    expect(db.events).toEqual([
+      {
+        type: 'commerce.order.created.v1',
+        aggregateId: order.id,
+        payload: OrderCreatedV1.omit({ type: true }).parse({
+          workspaceId: ws,
+          orderId: order.id,
+          code: 'DH000001',
+          actorUserId: null,
+          occurredAt: order.createdAt.toISOString(),
+          status: 'new',
+          source: 'facebook',
+          contactId: null,
+          total: 1_790_000,
+          itemQty: order.itemQty,
+        }),
+      },
+    ]);
+    expect(JSON.stringify(db.events)).not.toContain('0912345678');
     expect(db.drafts.size).toBe(0);
     expect(crm.upsertLeadByPhone).toHaveBeenCalledWith(ws, {
       phoneE164: '+84912345678',

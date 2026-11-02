@@ -2,6 +2,7 @@ import type { WorkspaceId } from '@agent-sales/shared';
 
 import type {
   BotOrderDraftRecord,
+  CommerceOutboxEvent,
   CommerceStore,
   CommerceTx,
   HistoryRecord,
@@ -32,6 +33,7 @@ export class InMemoryCommerce implements CommerceStore {
   orders: OrderRecord[] = [];
   items = new Map<string, OrderItemRecord[]>();
   history = new Map<string, HistoryRecord[]>();
+  events: CommerceOutboxEvent[] = [];
   drafts = new Map<string, BotOrderDraftRecord>();
   lastListFilter: OrderListFilter | null = null;
   codeCounter = 0;
@@ -43,6 +45,7 @@ export class InMemoryCommerce implements CommerceStore {
       orders: this.orders,
       items: this.items,
       history: this.history,
+      events: this.events,
       drafts: this.drafts,
       codeCounter: this.codeCounter,
     });
@@ -74,6 +77,11 @@ export class InMemoryCommerce implements CommerceStore {
 
   #tx(): CommerceTx {
     const tx = {
+      outbox: {
+        write: async (_ws: WorkspaceId, e: CommerceOutboxEvent) => {
+          this.events.push(clone(e));
+        },
+      },
       warehouses: {
         find: async (id: string) => this.warehouses.find((w) => w.id === id) ?? null,
         findDefault: async () => this.warehouses.find((w) => w.isDefault) ?? null,

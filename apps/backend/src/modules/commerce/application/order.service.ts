@@ -62,6 +62,7 @@ import {
   type CommerceTx,
   type OrderRecord,
 } from './ports/commerce-store.js';
+import { publishOrderCreated, publishOrderStatusChanged } from './order-events.js';
 
 const CLOSED: ReadonlySet<string> = new Set(CLOSED_ORDER_STATUSES);
 
@@ -183,6 +184,7 @@ export class OrderService {
         actorName,
         createdAt: now,
       });
+      await publishOrderCreated(tx, ws, order, actorUserId);
       return this.#dto(tx, order);
     });
   }
@@ -318,6 +320,7 @@ export class OrderService {
         actorName,
         createdAt: now,
       });
+      await publishOrderStatusChanged(tx, ws, next, o.status, actorUserId, now);
       return this.#dto(tx, next);
     });
   }

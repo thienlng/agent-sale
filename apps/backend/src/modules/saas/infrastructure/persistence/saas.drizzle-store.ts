@@ -12,6 +12,7 @@ import {
   sql,
   withTenant,
   writeAudit,
+  writeOutbox,
   type Database,
 } from '@agent-sales/db';
 import type { WorkspaceId } from '@agent-sales/shared';
@@ -326,6 +327,15 @@ export class DrizzleSaasStore implements SaasStore {
             targetType: target.type,
             targetId: target.id,
             data,
+          });
+        },
+        async outbox(type, aggregateId, payload) {
+          await writeOutbox(tx, {
+            workspaceId: ws,
+            type,
+            aggregateType: 'saas_subscription',
+            aggregateId,
+            payload,
           });
         },
       };
