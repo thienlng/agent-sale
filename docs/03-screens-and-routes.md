@@ -138,3 +138,10 @@ Dedicated layout: back button, bot name, **bot on/off switch**, left menu, **tes
 - Redirects: `/app/accommodations` → `/app/properties`, `/app/stays` → `/app/bookings` (T-155 addresses); `/app/products` and `/app/products/{id}` → `/app/properties` for a hotel business.
 - The Inbox sales panel of a hotel business opens the booking sheet with the contact prefilled and lists the conversation's bookings. Workflow and API: [lodging](lodging.md).
 - Bot holds (T-161, [ADR-019](adr/ADR-019-bot-lodging-holds.md)): the sidebar **Booking** item shows how many bot holds wait for staff (`GET /lodging/bookings/review-count`, polled every minute; composed in `routes/app.tsx` and passed through `AppShell` as `navCounts`). On `/app/bookings` the **Giữ chỗ** tab carries the same count, bot bookings carry a **Bot tạo** badge (amber while waiting), and the **Nguồn** filter sends `?source=`. The booking sheet of a bot booking opens with a banner: while the hold waits, "Bot đã giữ chỗ theo yêu cầu khách — gọi xác nhận rồi bấm Xác nhận"; afterwards a quiet "made by the bot" line; both with **Mở hội thoại** (`/app/inbox?conversation=`).
+
+## Owner assistant bubble (T-170)
+
+- Every `/app` page shows a round rabbit launcher bottom-right for an active **owner** of the account; billing members and business staff never see it. It is composed in `routes/app.tsx`. On bot pages (`/app/bots/{botId}/…`) it sits higher so it does not cover the **Chat thử** button.
+- The launcher opens a side panel ("Thỏ Rapiz"): the owner's threads (searchable, pinned first; pinning and archiving exist in the API only), the conversation, and **Xem các bước** under an answer (tool names, ok/error, duration). While a turn runs the panel shows the steps so far. Switching business starts a fresh conversation.
+- The assistant can move the owner to another `/app` page and highlight a control on the current page. Controls it may point at carry `data-assistant-target`: `products.new`, `orders.new`, `bots.new`, `channels.connect`.
+- Backend and flow: [04 §5](04-system-architecture.md), [ADR-021](adr/ADR-021-owner-assistant.md).

@@ -8,8 +8,9 @@ import {
 } from '@tanstack/react-router';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { loadNamespace } from '@/lib/i18n';
 import type { Session } from '@/lib/session';
 import {
   ASSISTANT_IDS,
@@ -63,6 +64,12 @@ function renderApp(page: () => React.ReactElement = () => <p>page</p>, path = '/
   renderWithProviders(<RouterProvider router={router} />);
   return router;
 }
+
+// The bubble lazy-loads the panel and its namespace. Load both once up front so the first test
+// does not race a cold dynamic import against `findBy*`'s 1 s window on a busy machine.
+beforeAll(async () => {
+  await Promise.all([import('./assistant-panel'), loadNamespace('assistant')]);
+});
 
 beforeEach(() => {
   useAssistantUi.setState({ open: false, workspaceId: null, threadId: null, spotlight: null });

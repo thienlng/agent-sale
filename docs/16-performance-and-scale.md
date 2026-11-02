@@ -6,7 +6,7 @@
 
 | Metric | Budget | How it is measured |
 |---|---|---|
-| Initial JS (app shell, gzip) | ≤ 250 KB; each route chunk ≤ 100 KB (charts, `motion`, extra i18n namespaces lazy-loaded — only the Vietnamese catalog is bundled, English loads on first switch via `@agent-sales/i18n/en`; a page-only namespace such as `integration` ships as its own entry (`@agent-sales/i18n/integration`, both locales) that the route loader adds through `loadNamespace` in `apps/web/src/lib/i18n.ts`; realtime via SSE/`ws`, not `socket.io-client`, in the shell) | `size-limit` in CI (fails at > 5 % over budget) |
+| Initial JS (app shell, gzip) | ≤ 250 KB; each route chunk ≤ 100 KB (charts, `motion`, extra i18n namespaces lazy-loaded — only the Vietnamese catalog is bundled, English loads on first switch via `@agent-sales/i18n/en`; a page-only namespace such as `integration` ships as its own entry (`@agent-sales/i18n/integration`, both locales) that the route loader adds through `loadNamespace` in `apps/web/src/lib/i18n.ts`; the owner assistant panel and its `assistant` namespace load only when the owner first opens the bubble; realtime via SSE/`ws`, not `socket.io-client`, in the shell) | `size-limit` in CI (fails at > 5 % over budget) |
 | First load on 4G, mid-range laptop | LCP ≤ 2.5 s, INP ≤ 200 ms, CLS ≤ 0.1 at p75 (Core Web Vitals); static shell with skeleton + inline critical CSS; one `/bootstrap` call (session, workspace, entitlements, flags) after cookie refresh, no auth flash | Lighthouse CI on `/login` and an authenticated `/app/inbox` run (staging); RUM `web-vitals` in production |
 | Route navigation | ≤ 100 ms to render skeleton; ≤ 300 ms p75 to data (cached/prefetched) | TanStack Router preload on hover/intent; Query cache |
 | User action feedback | ≤ 100 ms visual response for every click/keypress | Optimistic updates; never block on the network for local state |
@@ -33,6 +33,7 @@ Techniques (mandatory patterns, enforced in review):
 | Auth/entitlement checks | ≤ 5 ms | Redis cache (60 s) + in-process LRU |
 | Realtime fan-out | ≤ 50 ms server-side | Redis pub/sub → SSE |
 | AI reply (end-to-end, normal load) | ≤ 8 s p95 | external; streamed only to the website widget (SSE); Messenger/Zalo cannot stream |
+| Owner assistant chat turn (T-170, 1a) | ≤ 90 s hard budget, ≤ 25 rounds | synchronous request below the proxy read timeout; steps polled once a second (`GET /assistant/runs/{id}`); SSE streaming later |
 | AI reply under burst (degradation mode) | ack + holding message ≤ 1 s; reply ≤ 5 min p95 for standard tier, ≤ 1 min for priority tier | admission controller (§2b); SLO is explicitly a degradation SLO during ad campaigns |
 
 Rules: every list endpoint supports cursor pagination, server-side filter/sort, `fields` selection and `ETag`; every query has an index plan reviewed (`EXPLAIN` attached to the PR for new heavy queries); per-tenant rate limits; response compression; no synchronous third-party calls in request handlers.

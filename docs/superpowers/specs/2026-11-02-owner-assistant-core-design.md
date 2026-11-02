@@ -14,8 +14,8 @@ It is harder than the shop bot: the shop bot answers one bounded customer turn. 
 
 | # | Capability | Spec |
 |---|---|---|
-| 1a | Core harness extracted to `ai-core`, threads, messages, search, traces, owner-only bubble, proposals | this document |
-| 1b | Memory, platform skills, auto-compaction, route-derived tools, UI actions, page context | this document |
+| 1a | Core harness extracted to `ai-core`, threads, messages, search, traces, owner-only bubble, core UI actions (`ui_navigate`, `ui_spotlight`) and page context (shipped, see §18) | this document |
+| 1b | Proposals, route-derived tools, memory, platform skills, auto-compaction, `ui_fill_form` | this document |
 | 1c | Background review, learned skills, skill ledger, curator, proactive suggestions | this document |
 | 2 | Data questions: read-only SQL over a curated view schema, charts | own spec |
 | 3 | Schedules (reports, alerts) and the `notification` module (in-app, email; mobile push later) | own spec (§11 fixes the shape) |
@@ -106,7 +106,7 @@ Per-turn data rides on the **last user message**, never in the system prompt: `<
 
 ## 7. Agent loop
 
-`runAgentLoop` from `ai-core` with assistant limits: 25 rounds, 180 s budget, wrap-up notice at 80 %, per-call timeout 60 s. A new owner message interrupts the running turn (same mechanism as the shop bot's `shouldInterrupt`). One running turn per owner (Redis lock); a second request queues for ≤ 10 s, then 409. Streaming: token and step events over the `realtime` SSE channel `assistant:<ownerUserId>`. No sub-agents in v1; heavy jobs (import, diagnosis) are worker jobs that report back as `event` messages. Models: tier `pro` for chat, tier `basic` for compaction, review digests and thread titles (tier → provider mapping stays in the database, ADR-005).
+`runAgentLoop` from `ai-core` with assistant limits: 25 rounds, 180 s budget (90 s in 1a, see §18), wrap-up notice at 80 %, per-call timeout 60 s. A new owner message interrupts the running turn (same mechanism as the shop bot's `shouldInterrupt`). One running turn per owner (Redis lock); a second request queues for ≤ 10 s, then 409. Streaming: token and step events over the `realtime` SSE channel `assistant:<ownerUserId>` (from 1b; 1a polls the run, see §18). No sub-agents in v1; heavy jobs (import, diagnosis) are worker jobs that report back as `event` messages. Models: tier `pro` for chat, tier `basic` for compaction, review digests and thread titles (tier → provider mapping stays in the database, ADR-005).
 
 ## 8. Sessions and search
 
@@ -191,3 +191,14 @@ One `schedule` tool with actions `create | list | edit | pause | resume | run | 
 ## 17. Out of scope (this core)
 
 SQL lane, schedules and notifications, import, bot doctor, autofill (own specs); sub-agents; LLM skill consolidation; voice; mobile push; any external MCP/connector (excluded by decision).
+
+## 18. Adjustments made while building 1a (2026-11-02)
+
+What slice 1a shipped differs from the sections above in these points; the rest of the design stands.
+
+- **No write tool in 1a.** Proposals (`assistant_proposals`, the approval flow, `propose`) and route-derived tools move to 1b. 1a's tools are `session_search`, `ui_navigate` and `ui_spotlight`; none of them changes data.
+- **Polling instead of SSE.** A chat turn runs synchronously inside `POST /assistant/threads/{threadId}/messages`; the bubble polls `GET /assistant/runs/{runId}` once a second for the steps while it waits. The `realtime` channel (§7) comes later.
+- **Turn budget 90 s in 1a**, not 180 s, so a synchronous turn ends before the reverse proxy's read timeout. Rounds (25), the wrap-up notice at 80 % and the per-call timeout (60 s) are unchanged. A newer message does not interrupt a running turn yet; a second turn of the same owner answers 409 `assistant_busy` at once instead of queueing.
+- **Tables:** 1a creates only `assistant_threads`, `assistant_messages`, `assistant_runs` and `assistant_run_steps` (migration 0053). `assistant_run_steps` has no `owner_user_id` (it is reached through its run) and stores no arguments or results in 1a: kind, tool name, ok, error code, duration only. `promptCacheKey` is `asst:<ownerUserId>:<threadId>` (no `cache_root_id` until compaction exists).
+- **Owner check** is a facade-level `resolveOwnerScope` on every call, not a route decorator; the effect (403 for everyone but an active owner) is the same.
+- **`useAssistantContext`** lives in `apps/web/src/features/assistant/hooks` in 1a and no page calls it yet; it moves to `apps/web/src/lib/` in 1b, before pages adopt it, because features may not import each other. The page context in 1a is the route plus the `data-assistant-target` ids on screen.
