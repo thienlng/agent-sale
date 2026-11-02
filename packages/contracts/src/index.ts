@@ -52,6 +52,9 @@ export * from './crm/crm.events.js';
 export * from './crm/crm.routes.js';
 export * from './saas/saas.schema.js';
 export * from './saas/saas.routes.js';
+// assistantRoutes join allRoutes with the backend controller (T-170 task 5).
+export * from './assistant/assistant.schema.js';
+export * from './assistant/assistant.routes.js';
 export * from './integration/integration.schema.js';
 export * from './integration/integration.routes.js';
 export * from './bot/bot.routes.js';
