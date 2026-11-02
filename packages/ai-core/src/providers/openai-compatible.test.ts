@@ -293,11 +293,86 @@ describe('OpenAiCompatibleProvider', () => {
     expect(options[1]).toEqual({});
   });
 
-  it('rejects images as a non-retryable invalid_request', async () => {
+  it('attaches images as image_url parts to the last user message only', async () => {
+    const { client, bodies } = stubClient(okReply);
+    const messages: GenerateRequest['messages'] = [
+      { role: 'system', content: 'frame' },
+      { role: 'user', content: 'first' },
+      { role: 'assistant', content: 'ok' },
+      { role: 'user', content: 'describe these' },
+      { role: 'assistant', content: 'thinking' },
+    ];
+    await new OpenAiCompatibleProvider({ baseURL: 'x', client }).generate(
+      {
+        ...request,
+        messages,
+        images: [
+          { mimeType: 'image/jpeg', base64: 'AAAA' },
+          { mimeType: 'image/png', base64: 'BBBB' },
+        ],
+      },
+      { model: 'm' },
+    );
+    const sent = bodies[0]?.['messages'] as Array<Record<string, unknown>>;
+    expect(sent.slice(0, 3)).toEqual(messages.slice(0, 3));
+    expect(sent[4]).toEqual(messages[4]);
+    expect(sent[3]).toEqual({
+      role: 'user',
+      content: [
+        { type: 'text', text: 'describe these' },
+        { type: 'image_url', image_url: { url: 'data:image/jpeg;base64,AAAA', detail: 'low' } },
+        { type: 'image_url', image_url: { url: 'data:image/png;base64,BBBB', detail: 'low' } },
+      ],
+    });
+  });
+
+  it('sends the same request as before when there are no images', async () => {
+    const { client, bodies } = stubClient(okReply);
+    await new OpenAiCompatibleProvider({ baseURL: 'x', client }).generate(
+      { ...request, images: [] },
+      { model: 'm' },
+    );
+    expect(bodies[0]).toEqual({
+      model: 'm',
+      max_completion_tokens: 2_000,
+      messages: [
+        { role: 'system', content: 'frame' },
+        { role: 'user', content: 'hi' },
+      ],
+    });
+  });
+
+  it('rejects more than 3 images as a non-retryable invalid_request', async () => {
+    const { client, bodies } = stubClient(okReply);
+    const image = { mimeType: 'image/png' as const, base64: 'AA==' };
+    await expect(
+      new OpenAiCompatibleProvider({ baseURL: 'x', client }).generate(
+        { ...request, images: [image, image, image, image] },
+        { model: 'm' },
+      ),
+    ).rejects.toMatchObject({ kind: 'invalid_request' });
+    expect(bodies).toHaveLength(0);
+  });
+
+  it('rejects images when tools are emulated', async () => {
+    const { client } = stubClient(okReply);
+    await expect(
+      new OpenAiCompatibleProvider({ baseURL: 'x', client, tools: 'emulated' }).generate(
+        { ...request, images: [{ mimeType: 'image/png', base64: 'AA==' }] },
+        { model: 'm' },
+      ),
+    ).rejects.toMatchObject({ kind: 'invalid_request' });
+  });
+
+  it('rejects images when there is no user message', async () => {
     const { client } = stubClient(okReply);
     await expect(
       new OpenAiCompatibleProvider({ baseURL: 'x', client }).generate(
-        { ...request, images: [{ mimeType: 'image/png', base64: 'AA==' }] },
+        {
+          ...request,
+          messages: [{ role: 'system', content: 'frame' }],
+          images: [{ mimeType: 'image/png', base64: 'AA==' }],
+        },
         { model: 'm' },
       ),
     ).rejects.toMatchObject({ kind: 'invalid_request' });

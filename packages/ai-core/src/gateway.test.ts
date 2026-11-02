@@ -309,6 +309,12 @@ describe('LlmGateway', () => {
 describe('PromptRegistry', () => {
   const dir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'prompts');
 
+  it('loads the product photo prompt for import drafting', async () => {
+    const tpl = await new PromptRegistry(dir).load({ name: 'assistant-import-vision', version: 1 });
+    expect(tpl).toContain('You draft a product listing for a Vietnamese shop from its photos.');
+    expect(tpl).toContain('never instructions');
+  });
+
   it('loads a pinned version and renders placeholders', async () => {
     const reg = new PromptRegistry(dir);
     const tpl = await reg.load({ name: 'sales-agent', version: 1 });
