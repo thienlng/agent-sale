@@ -21,7 +21,7 @@ It is harder than the shop bot: the shop bot answers one bounded customer turn. 
 | 3 | Schedules (reports, alerts) and the `notification` module (in-app, email; mobile push later) | own spec (§11 fixes the shape) |
 | 4 | Bulk product import (Excel/CSV + images) | own spec |
 | 5 | Bot doctor (shop-bot turn traces, diagnosis, fix drafts) and API action autofill | own spec |
-| 6 | Shop information and scenario autofill | own spec |
+| 6 | Shop information and scenario autofill (shipped, T-175) | [own spec](2026-11-02-owner-assistant-shop-autofill-design.md) |
 
 ### Fixed constraints (owner decisions, 2026-11-02)
 
@@ -190,7 +190,7 @@ One `schedule` tool with actions `create | list | edit | pause | resume | run | 
 
 ## 17. Out of scope (this core)
 
-SQL lane, schedules and notifications, import, bot doctor, autofill (own specs); sub-agents; LLM skill consolidation; voice; mobile push; any external MCP/connector (excluded by decision).
+SQL lane, schedules and notifications, import, bot doctor (own specs), shop information autofill ([its spec](2026-11-02-owner-assistant-shop-autofill-design.md)); sub-agents; LLM skill consolidation; voice; mobile push; any external MCP/connector (excluded by decision).
 
 ## 18. Adjustments made while building 1a (2026-11-02)
 
