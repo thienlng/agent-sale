@@ -16,7 +16,13 @@ import { InMemoryAssistantRepository } from '../infrastructure/persistence/assis
 const PLATFORM_SKILLS = [
   'add-products',
   'connect-channels',
+  'draft-reply-guidance',
+  'fill-sample-data',
+  'fill-shop-info',
   'handle-orders',
+  'industry-hotel',
+  'industry-retail',
+  'industry-saas',
   'read-revenue',
   'set-up-bot',
 ];
