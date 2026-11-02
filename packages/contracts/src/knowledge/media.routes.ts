@@ -6,6 +6,7 @@ export const mediaRoutes = defineRoutes([
   {
     method: 'post',
     path: '/bots/{botId}/media-upload',
+    assistant: { use: 'never' },
     tag: 'knowledge',
     summary: 'Upload a verified bot image to configured S3-compatible storage',
     auth: true,

@@ -2,6 +2,23 @@ import { z } from 'zod';
 
 // ─── Page context and UI actions ──────────────────────────────────────────────
 
+/** A form on screen the assistant may fill (`fill_form`); `empty` marks fields with no value yet. */
+export const AssistantPageForm = z.object({
+  id: z.string().max(60),
+  fields: z
+    .array(
+      z.object({
+        name: z.string().max(60),
+        label: z.string().max(120),
+        type: z.enum(['text', 'textarea', 'number', 'select']),
+        options: z.array(z.string().max(80)).max(30).optional(),
+        empty: z.boolean(),
+      }),
+    )
+    .max(30),
+});
+export type AssistantPageForm = z.infer<typeof AssistantPageForm>;
+
 /** What the owner is looking at when they ask; sent by the web app with each message. */
 export const AssistantPageContext = z.object({
   route: z.string().max(200),
@@ -12,6 +29,8 @@ export const AssistantPageContext = z.object({
   errors: z.array(z.string().max(200)).max(10).optional(),
   /** `data-assistant-target` ids present on screen. */
   targets: z.array(z.string().max(60)).max(40).optional(),
+  /** Forms on screen the assistant may fill; it never submits them. */
+  forms: z.array(AssistantPageForm).max(5).optional(),
 });
 export type AssistantPageContext = z.infer<typeof AssistantPageContext>;
 
@@ -19,6 +38,12 @@ export type AssistantPageContext = z.infer<typeof AssistantPageContext>;
 export const AssistantUiAction = z.discriminatedUnion('type', [
   z.object({ type: z.literal('navigate'), to: z.string().startsWith('/app').max(200) }),
   z.object({ type: z.literal('spotlight'), target: z.string().max(60), hint: z.string().max(200) }),
+  /** Fill fields of an on-screen form; the owner reviews and submits it themselves. */
+  z.object({
+    type: z.literal('fill_form'),
+    formId: z.string().max(60),
+    values: z.record(z.string().max(60), z.union([z.string().max(4000), z.number()])),
+  }),
 ]);
 export type AssistantUiAction = z.infer<typeof AssistantUiAction>;
 
@@ -107,3 +132,59 @@ export const SendAssistantMessageResponse = z.object({
   run: AssistantRunDto,
 });
 export type SendAssistantMessageResponse = z.infer<typeof SendAssistantMessageResponse>;
+
+// ─── Proposals ────────────────────────────────────────────────────────────────
+
+export const AssistantProposalStatus = z.enum([
+  'pending',
+  'executing',
+  'done',
+  'failed',
+  'rejected',
+  'expired',
+]);
+export type AssistantProposalStatus = z.infer<typeof AssistantProposalStatus>;
+
+/** A write the assistant prepared; it runs only when the owner approves it. */
+export const AssistantProposalDto = z.object({
+  id: z.uuid(),
+  threadId: z.uuid(),
+  businessId: z.uuid(),
+  /** `METHOD /path` of the target route, e.g. `PATCH /products/{productId}`. */
+  routeKey: z.string(),
+  summary: z.string(),
+  /** What the card shows (a diff or the new values); its shape depends on the route. */
+  preview: z.unknown(),
+  status: AssistantProposalStatus,
+  errorCode: z.string().nullable(),
+  createdAt: z.iso.datetime(),
+  expiresAt: z.iso.datetime(),
+  decidedAt: z.iso.datetime().nullable(),
+});
+export type AssistantProposalDto = z.infer<typeof AssistantProposalDto>;
+
+export const AssistantProposalList = z.object({ items: z.array(AssistantProposalDto) });
+export type AssistantProposalList = z.infer<typeof AssistantProposalList>;
+
+// ─── Memory ───────────────────────────────────────────────────────────────────
+
+export const AssistantMemoryEntryDto = z.object({
+  /** Opaque id, used by `DELETE /assistant/memory/{store}/entries/{entryId}`. */
+  id: z.string(),
+  text: z.string(),
+  createdAt: z.iso.datetime(),
+});
+export type AssistantMemoryEntryDto = z.infer<typeof AssistantMemoryEntryDto>;
+
+/** One memory store (`owner_profile`, `notes`, `business:<id>`) with its char limit and use. */
+export const AssistantMemoryStoreDto = z.object({
+  store: z.string(),
+  label: z.string(),
+  limit: z.number().int(),
+  used: z.number().int(),
+  entries: z.array(AssistantMemoryEntryDto),
+});
+export type AssistantMemoryStoreDto = z.infer<typeof AssistantMemoryStoreDto>;
+
+export const AssistantMemoryDto = z.object({ stores: z.array(AssistantMemoryStoreDto) });
+export type AssistantMemoryDto = z.infer<typeof AssistantMemoryDto>;

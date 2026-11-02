@@ -7,6 +7,18 @@ import { ErrorResponse } from './errors.js';
  * backend-vs-contract consistency test. Every HTTP route under /api/v1 must be
  * declared here (per module file) — the backend test fails otherwise.
  */
+/**
+ * How the owner assistant may use a route (T-170, spec §6). `read`: a GET the assistant may call
+ * as a tool. `write`: a change the assistant may only propose; it runs when the owner approves.
+ * `never`: not a tool (auth, members, channel connections, secrets, uploads, deletions, …).
+ * `when` (English, at most 160 chars) tells the model when to use the route; required for
+ * `read` and `write`.
+ */
+export interface RouteAssistantUse {
+  use: 'read' | 'write' | 'never';
+  when?: string;
+}
+
 export interface RouteContract {
   method: 'get' | 'post' | 'patch' | 'put' | 'delete';
   /** OpenAPI-style path relative to /api/v1, e.g. `/workspaces/{id}`. */
@@ -20,6 +32,13 @@ export interface RouteContract {
   query?: z.ZodObject;
   /** Success responses by status code. */
   responses: Record<number, z.ZodType | null>;
+  /** Required on every workspace-scoped route (architecture test `routes.assistant.test.ts`). */
+  assistant?: RouteAssistantUse;
+}
+
+/** Stable key of a route, e.g. `PATCH /products/{productId}`. */
+export function routeKey(r: Pick<RouteContract, 'method' | 'path'>): string {
+  return `${r.method.toUpperCase()} ${r.path}`;
 }
 
 export function defineRoutes<const T extends readonly RouteContract[]>(routes: T): T {

@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import { assistantRoutes } from './assistant.routes.js';
 import {
+  AssistantMemoryDto,
   AssistantMessageDto,
+  AssistantPageContext,
+  AssistantPageForm,
+  AssistantProposalDto,
   AssistantUiAction,
   SendAssistantMessageRequest,
   UpdateAssistantThreadRequest,
@@ -77,7 +81,110 @@ describe('assistantRoutes', () => {
       'get /assistant/runs/{runId}',
     ]);
     for (const r of assistantRoutes) {
-      expect(r).toMatchObject({ tag: 'assistant', auth: true, workspaceScoped: true });
+      expect(r).toMatchObject({
+        tag: 'assistant',
+        auth: true,
+        workspaceScoped: true,
+        assistant: { use: 'never' },
+      });
     }
+  });
+});
+
+describe('AssistantPageForm', () => {
+  const field = { name: 'price', label: 'Giá bán', type: 'number', empty: true } as const;
+
+  it('accepts a form with typed fields and select options', () => {
+    const form = {
+      id: 'product.form',
+      fields: [
+        field,
+        { name: 'unit', label: 'Đơn vị', type: 'select', options: ['cái', 'hộp'], empty: false },
+      ],
+    };
+    expect(AssistantPageForm.safeParse(form).success).toBe(true);
+    expect(
+      AssistantPageContext.safeParse({ route: '/app/products/new', forms: [form] }).success,
+    ).toBe(true);
+  });
+
+  it('rejects an unknown field type, a missing `empty` flag and more than 30 fields', () => {
+    expect(
+      AssistantPageForm.safeParse({ id: 'f', fields: [{ ...field, type: 'date' }] }).success,
+    ).toBe(false);
+    expect(
+      AssistantPageForm.safeParse({ id: 'f', fields: [{ name: 'a', label: 'A', type: 'text' }] })
+        .success,
+    ).toBe(false);
+    expect(
+      AssistantPageForm.safeParse({ id: 'f', fields: Array.from({ length: 31 }, () => field) })
+        .success,
+    ).toBe(false);
+  });
+
+  it('caps the page at 5 forms', () => {
+    const forms = Array.from({ length: 6 }, (_, i) => ({ id: `f${i}`, fields: [] }));
+    expect(AssistantPageContext.safeParse({ route: '/app', forms }).success).toBe(false);
+  });
+});
+
+describe('fill_form action', () => {
+  it('accepts string and number values', () => {
+    expect(
+      AssistantUiAction.safeParse({
+        type: 'fill_form',
+        formId: 'product.form',
+        values: { name: 'Áo thun', price: 150000 },
+      }).success,
+    ).toBe(true);
+  });
+
+  it('rejects other value types, a long value and a long form id', () => {
+    const base = { type: 'fill_form', formId: 'product.form' };
+    expect(AssistantUiAction.safeParse({ ...base, values: { active: true } }).success).toBe(false);
+    expect(
+      AssistantUiAction.safeParse({ ...base, values: { notes: 'x'.repeat(4001) } }).success,
+    ).toBe(false);
+    expect(
+      AssistantUiAction.safeParse({ ...base, formId: 'f'.repeat(61), values: {} }).success,
+    ).toBe(false);
+  });
+});
+
+describe('proposal and memory DTOs', () => {
+  const now = '2026-11-02T10:00:00.000Z';
+
+  it('parses a pending proposal and rejects an unknown status', () => {
+    const proposal = {
+      id: TURN,
+      threadId: TURN,
+      businessId: TURN,
+      routeKey: 'PATCH /products/{productId}',
+      summary: 'Đổi giá áo thun',
+      preview: { price: { from: 120000, to: 150000 } },
+      status: 'pending',
+      errorCode: null,
+      createdAt: now,
+      expiresAt: now,
+      decidedAt: null,
+    };
+    expect(AssistantProposalDto.safeParse(proposal).success).toBe(true);
+    expect(AssistantProposalDto.safeParse({ ...proposal, status: 'approved' }).success).toBe(false);
+  });
+
+  it('parses memory stores with entries', () => {
+    expect(
+      AssistantMemoryDto.safeParse({
+        stores: [
+          {
+            store: 'notes',
+            label: 'Ghi chú',
+            limit: 2200,
+            used: 12,
+            entries: [{ id: 'e1', text: 'Shop nghỉ Chủ nhật', createdAt: now }],
+          },
+        ],
+      }).success,
+    ).toBe(true);
   });
 });

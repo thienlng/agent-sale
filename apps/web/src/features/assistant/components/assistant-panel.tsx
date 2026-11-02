@@ -42,13 +42,16 @@ export function AssistantPanel() {
   const sendMessage = useSendAssistantMessage();
   const sending = pendingTurn !== null || createThread.isPending;
 
-  /** UI actions run in order: navigate inside the dashboard, then point at a control. */
+  /**
+   * UI actions run in order: navigate inside the dashboard, then point at a control.
+   * `fill_form` is not applied here yet; the backend does not emit it until form filling lands.
+   */
   function apply(answer: readonly AssistantMessageDto[]): void {
     for (const action of answer.flatMap((m) => (m.role === 'assistant' ? m.uiActions : []))) {
       if (action.type === 'navigate') {
         const to = safeAppPath(action.to);
         if (to) void router.navigate({ href: to });
-      } else {
+      } else if (action.type === 'spotlight') {
         // The sheet would cover the control, so it steps aside; the hint carries the answer.
         setOpen(false);
         setSpotlight({ target: action.target, hint: action.hint });

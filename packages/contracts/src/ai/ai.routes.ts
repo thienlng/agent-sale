@@ -5,6 +5,7 @@ export const aiRoutes = defineRoutes([
   {
     method: 'post',
     path: '/bots/{botId}/playground',
+    assistant: { use: 'never' },
     summary: 'Test the bot: one grounded reply to a test conversation (not sent to any channel)',
     tag: 'ai',
     auth: true,

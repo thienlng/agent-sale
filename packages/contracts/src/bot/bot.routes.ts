@@ -21,6 +21,10 @@ export const botRoutes = defineRoutes([
   {
     method: 'post',
     path: '/bots/{botId}/faqs/import',
+    assistant: {
+      use: 'write',
+      when: 'The owner gives a list of questions and answers to add to a bot in one go (up to 100).',
+    },
     summary: 'Atomically import up to 100 FAQ rows',
     tag: 'knowledge',
     auth: true,
@@ -31,6 +35,7 @@ export const botRoutes = defineRoutes([
   {
     method: 'get',
     path: '/bots/{botId}/training-items',
+    assistant: { use: 'read', when: "A bot's training scenarios, quick replies and rules." },
     summary: 'Training scenarios, quick replies and media references',
     tag: 'knowledge',
     auth: true,
@@ -40,6 +45,10 @@ export const botRoutes = defineRoutes([
   {
     method: 'post',
     path: '/bots/{botId}/training-items',
+    assistant: {
+      use: 'write',
+      when: 'The owner asks to teach a bot a new scenario, quick reply or rule.',
+    },
     summary: 'Create training material',
     tag: 'knowledge',
     auth: true,
@@ -50,6 +59,10 @@ export const botRoutes = defineRoutes([
   {
     method: 'post',
     path: '/bots/{botId}/training-items/starter-rules',
+    assistant: {
+      use: 'write',
+      when: 'The owner asks to add the standard Vietnamese starter rules a bot is missing.',
+    },
     summary: 'Add the Vietnamese starter rules the bot is missing; returns the created items',
     tag: 'knowledge',
     auth: true,
@@ -59,6 +72,10 @@ export const botRoutes = defineRoutes([
   {
     method: 'patch',
     path: '/bots/{botId}/training-items/{itemId}',
+    assistant: {
+      use: 'write',
+      when: 'The owner asks to change an existing bot scenario, quick reply or rule.',
+    },
     summary: 'Update training material',
     tag: 'knowledge',
     auth: true,
@@ -69,6 +86,10 @@ export const botRoutes = defineRoutes([
   {
     method: 'delete',
     path: '/bots/{botId}/training-items/{itemId}',
+    assistant: {
+      use: 'write',
+      when: 'The owner asks to remove a bot scenario, quick reply or rule.',
+    },
     summary: 'Delete training material',
     tag: 'knowledge',
     auth: true,
@@ -78,6 +99,10 @@ export const botRoutes = defineRoutes([
   {
     method: 'get',
     path: '/bots/{botId}/training-history',
+    assistant: {
+      use: 'read',
+      when: 'Recent training changes of a bot: who changed which material, FAQ or setting.',
+    },
     summary: 'Latest 200 training changes (materials, FAQs, settings) with actor and fields',
     tag: 'knowledge',
     auth: true,
@@ -87,6 +112,7 @@ export const botRoutes = defineRoutes([
   {
     method: 'post',
     path: '/bots/{botId}/training-history/{historyId}/restore',
+    assistant: { use: 'write', when: 'The owner asks to undo a recent bot training change.' },
     summary: 'Put back the state before a restorable history entry',
     tag: 'knowledge',
     auth: true,
@@ -96,6 +122,10 @@ export const botRoutes = defineRoutes([
   {
     method: 'get',
     path: '/bots',
+    assistant: {
+      use: 'read',
+      when: 'List the bots of the business with their state and settings.',
+    },
     summary: 'Bots of the current workspace',
     tag: 'bot',
     auth: true,
@@ -105,6 +135,7 @@ export const botRoutes = defineRoutes([
   {
     method: 'post',
     path: '/bots',
+    assistant: { use: 'write', when: 'The owner asks to create a new bot for the business.' },
     summary: 'Create a bot; seeds FAQs and settings from the industry pack',
     tag: 'bot',
     auth: true,
@@ -115,6 +146,10 @@ export const botRoutes = defineRoutes([
   {
     method: 'get',
     path: '/bots/{botId}',
+    assistant: {
+      use: 'read',
+      when: "One bot's settings: mission, greeting, pronouns, tone, reply length, schedule and profile facts.",
+    },
     summary: 'One bot',
     tag: 'bot',
     auth: true,
@@ -124,6 +159,10 @@ export const botRoutes = defineRoutes([
   {
     method: 'patch',
     path: '/bots/{botId}',
+    assistant: {
+      use: 'write',
+      when: 'The owner asks to rename a bot, turn it on or off, or change its mission, greeting, pronouns, tone or catalog mode.',
+    },
     summary: 'Update name, active flag or settings (partial)',
     tag: 'bot',
     auth: true,
@@ -134,6 +173,7 @@ export const botRoutes = defineRoutes([
   {
     method: 'delete',
     path: '/bots/{botId}',
+    assistant: { use: 'never' },
     summary:
       'Soft-delete a bot (bots.manage): it disappears from every read and its pages are unbound',
     tag: 'bot',
@@ -144,6 +184,10 @@ export const botRoutes = defineRoutes([
   {
     method: 'get',
     path: '/bots/{botId}/readiness',
+    assistant: {
+      use: 'read',
+      when: 'What a bot still misses before it can answer well (onboarding checklist, missing placeholders).',
+    },
     summary: 'Onboarding checklist and missing placeholders',
     tag: 'bot',
     auth: true,
@@ -153,6 +197,7 @@ export const botRoutes = defineRoutes([
   {
     method: 'get',
     path: '/bots/{botId}/faqs',
+    assistant: { use: 'read', when: "A bot's FAQs." },
     summary: 'FAQs of a bot',
     tag: 'knowledge',
     auth: true,
@@ -162,6 +207,7 @@ export const botRoutes = defineRoutes([
   {
     method: 'post',
     path: '/bots/{botId}/faqs',
+    assistant: { use: 'write', when: 'The owner asks to add a question and answer to a bot.' },
     summary: 'Add a FAQ',
     tag: 'knowledge',
     auth: true,
@@ -172,6 +218,10 @@ export const botRoutes = defineRoutes([
   {
     method: 'patch',
     path: '/bots/{botId}/faqs/{faqId}',
+    assistant: {
+      use: 'write',
+      when: 'The owner asks to change an existing FAQ answer or question.',
+    },
     summary: 'Edit a FAQ',
     tag: 'knowledge',
     auth: true,
@@ -182,6 +232,7 @@ export const botRoutes = defineRoutes([
   {
     method: 'delete',
     path: '/bots/{botId}/faqs/{faqId}',
+    assistant: { use: 'write', when: 'The owner asks to remove an FAQ from a bot.' },
     summary: 'Delete a FAQ',
     tag: 'knowledge',
     auth: true,
