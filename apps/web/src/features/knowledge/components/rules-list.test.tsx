@@ -1,12 +1,15 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { collectPageContext, fillAssistantForm } from '@/lib/assistant-context';
 import { renderWithRouter, stubFetch } from '@/testing/render';
 
 import { RulesList } from './rules-list';
 
 vi.mock('@/lib/use-workspace', () => ({ useWorkspaceId: () => 'ws-1' }));
+const owner = vi.hoisted(() => ({ value: true }));
+vi.mock('@/lib/use-is-account-owner', () => ({ useIsAccountOwner: () => owner.value }));
 afterEach(() => vi.unstubAllGlobals());
 beforeAll(() => {
   globalThis.ResizeObserver ??= class {
@@ -41,11 +44,38 @@ function rule(over: Record<string, unknown> = {}) {
   };
 }
 
+const botBody = {
+  id: BOT,
+  name: 'Bot',
+  industry: 'hotel',
+  isActive: true,
+  createdAt: '2026-10-01T00:00:00.000Z',
+  updatedAt: '2026-10-01T00:00:00.000Z',
+  settings: {
+    mission: '',
+    greeting: '',
+    selfPronoun: 'em',
+    customerPronoun: 'anh/chị',
+    useCustomerName: true,
+    fallbackMessage: 'x',
+    handoffMessage: 'x',
+    creativity: 'balanced',
+    modelTier: 'smart',
+    language: 'vi',
+    placeholders: {},
+    profile: { fields: {}, notes: '' },
+  },
+};
+
 async function setup(
   data: unknown[],
   extra: Record<string, { status: number; body?: unknown }> = {},
 ) {
-  const stub = stubFetch({ [list]: { status: 200, body: { data } }, ...extra });
+  const stub = stubFetch({
+    [list]: { status: 200, body: { data } },
+    [`GET /bots/${BOT}`]: { status: 200, body: botBody },
+    ...extra,
+  });
   vi.stubGlobal('fetch', stub.fetchStub);
   renderWithRouter(() => <RulesList botId={BOT} introduction={<p>intro-row</p>} />);
   await screen.findByRole('heading', { name: 'Hướng dẫn trả lời' }, { timeout: 10_000 });
@@ -269,5 +299,85 @@ describe('RulesList', () => {
       expect(stub.calls.filter((c) => c.key === list).length).toBeGreaterThanOrEqual(2),
     );
     expect(stub.calls.some((c) => c.key.endsWith('/starter-rules'))).toBe(true);
+  });
+
+  describe('owner assistant', () => {
+    const scenarioForm = () =>
+      collectPageContext('/app/bots/b/instructions').forms?.find((f) => f.id === 'scenario');
+
+    it('registers a closed new-scenario form and names the add and starter buttons', async () => {
+      owner.value = true;
+      await setup([]);
+      expect(scenarioForm()?.fields).toEqual([
+        { name: 'title', label: 'Tiêu đề', type: 'text', empty: true },
+        { name: 'trigger', label: 'Tình huống hoặc phím tắt', type: 'text', empty: true },
+        { name: 'content', label: 'Nội dung / Hướng dẫn xử lý', type: 'textarea', empty: true },
+        {
+          name: 'section',
+          label: 'Nhóm quy tắc',
+          type: 'select',
+          options: ['general', 'after_order'],
+          empty: false,
+        },
+      ]);
+      const context = collectPageContext('/app/bots/b/instructions');
+      expect(context.targets).toEqual(expect.arrayContaining(['scenario.new', 'scenario.starter']));
+      expect(context.title).toBe('Hướng dẫn trả lời');
+      await waitFor(() =>
+        expect(collectPageContext('/x').entity).toEqual({ botId: BOT, industry: 'hotel' }),
+      );
+    });
+
+    it('opens the editor for a new scenario with the draft, without saving', async () => {
+      const stub = await setup([]);
+      let result: ReturnType<typeof fillAssistantForm> | undefined;
+      act(() => {
+        result = fillAssistantForm('scenario', {
+          title: 'Hỏi giờ nhận phòng',
+          trigger: 'Khi khách hỏi giờ nhận phòng',
+          content: 'Trả lời theo giờ nhận phòng trong thông tin doanh nghiệp.',
+          section: 'after_order',
+        });
+      });
+      expect(result).toMatchObject({ ok: true, opensDialog: true });
+      expect(await screen.findByLabelText('Tiêu đề')).toHaveValue('Hỏi giờ nhận phòng');
+      expect(screen.getByLabelText('Tình huống hoặc phím tắt')).toHaveValue(
+        'Khi khách hỏi giờ nhận phòng',
+      );
+      expect(screen.getByRole('combobox', { name: 'Nhóm quy tắc' })).toHaveTextContent(
+        'Sau khi chốt đơn',
+      );
+      // The open editor now holds the form.
+      await waitFor(() => expect(scenarioForm()?.fields[0]?.empty).toBe(false));
+      expect(stub.calls.some((c) => c.key.startsWith('POST'))).toBe(false);
+    });
+
+    it('keeps the list registration while an existing scenario is edited', async () => {
+      n = 0;
+      await setup([rule({ title: 'Cảm ơn' })]);
+      await userEvent.click(await screen.findByRole('button', { name: /^Cảm ơn/ }));
+      expect(await screen.findByLabelText('Tiêu đề')).toHaveValue('Cảm ơn');
+      expect(
+        scenarioForm()
+          ?.fields.slice(0, 3)
+          .every((f) => f.empty),
+      ).toBe(true);
+    });
+
+    it('offers the ask button on an empty scenario list, to the owner only', async () => {
+      owner.value = true;
+      await setup([]);
+      expect(
+        await screen.findByRole('button', { name: 'Nhờ trợ lý điền mẫu' }),
+      ).toBeInTheDocument();
+    });
+
+    it('hides the ask button from anyone but the owner', async () => {
+      owner.value = false;
+      await setup([]);
+      await screen.findByText(/Chưa có tình huống nào/);
+      expect(screen.queryByRole('button', { name: 'Nhờ trợ lý điền mẫu' })).not.toBeInTheDocument();
+      owner.value = true;
+    });
   });
 });

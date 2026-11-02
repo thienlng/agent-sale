@@ -18,10 +18,9 @@ import {
 import { AssistantAskButton } from '@/components/assistant-ask-button';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useAssistantContext, useAssistantForm } from '@/lib/assistant-context';
+import { useAssistantForm } from '@/lib/assistant-context';
 import { errorMessage } from '@/lib/errors';
 
-import { useBotProfile } from '../api/bot-profile';
 import { useDeleteFaqs, useFaqs } from '../api/faqs';
 import { downloadFaqCsv } from '../utils/faq-csv';
 import { matchesText, paginate } from '../utils/table-data';
@@ -38,6 +37,7 @@ import {
 import { FaqDialog, faqFormFields, type FaqPrefill } from './faq-dialog';
 import { FaqTable } from './faq-table';
 import { FaqImportDialog } from './faq-transfer';
+import { useBotPageContext } from './training-items';
 
 /** "Thông tin" page: the bot's FAQ table with search, selection, import/export. */
 export function FaqList({ botId }: { botId: string }) {
@@ -68,11 +68,7 @@ export function FaqList({ botId }: { botId: string }) {
     setDialogOpen(true);
   };
 
-  const bot = useBotProfile(botId);
-  useAssistantContext({
-    title: t('assistantPage.knowledge'),
-    ...(bot.data ? { entity: { botId, industry: bot.data.industry } } : {}),
-  });
+  useBotPageContext(botId, t('assistantPage.knowledge'));
   // The add dialog is closed most of the time: the list registers its form and a fill opens the
   // dialog with the draft; the open dialog then registers the same form itself (T175-R4).
   useAssistantForm(

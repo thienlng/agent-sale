@@ -13,6 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { AssistantAskButton } from '@/components/assistant-ask-button';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -20,6 +21,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useAssistantForm } from '@/lib/assistant-context';
 import { errorMessage } from '@/lib/errors';
 
 import { useDeleteTrainingItem, useTrainingItems } from '../api/training';
@@ -33,8 +35,14 @@ import {
   DataSearch,
   tableFrame,
 } from './data-page';
-import { QuickReplyDialog } from './quick-reply-dialog';
+import {
+  QuickReplyDialog,
+  quickReplyFormFields,
+  type QuickReplyPrefill,
+  quickReplyPrefill,
+} from './quick-reply-dialog';
 import { QuickReplyTable } from './quick-reply-table';
+import { useBotPageContext } from './training-items';
 
 /** The footer only appears once there is more than the smallest page to browse. */
 const PAGE_SIZE_THRESHOLD = 10;
@@ -91,8 +99,20 @@ export function QuickReplyList({ botId }: { botId: string }) {
   const [filter, setFilter] = useState<ImageFilter>('all');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [editor, setEditor] = useState<{ item: TrainingItemDto | null } | null>(null);
+  const [editor, setEditor] = useState<{
+    item: TrainingItemDto | null;
+    prefill?: QuickReplyPrefill;
+  } | null>(null);
   const [deleting, setDeleting] = useState<TrainingItemDto | null>(null);
+  useBotPageContext(botId, t('assistantPage.quickReplies'));
+  // The dialog is closed most of the time: a fill opens it for a new quick reply with the draft,
+  // and the open dialog registers the same form itself (T175-R4).
+  useAssistantForm(
+    'quick-reply',
+    () => quickReplyFormFields(t),
+    (values) => setEditor({ item: null, prefill: quickReplyPrefill(values) }),
+    { opensDialog: true },
+  );
 
   const all = items.data ?? [];
   const total = all.filter((i) => i.kind === 'quick_reply').length;
@@ -127,7 +147,11 @@ export function QuickReplyList({ botId }: { botId: string }) {
             />
           </div>
         </div>
-        <Button className="ml-auto h-9" onClick={() => setEditor({ item: null })}>
+        <Button
+          className="ml-auto h-9"
+          data-assistant-target="quick-reply.new"
+          onClick={() => setEditor({ item: null })}
+        >
           <Plus />
           {t('data.quick.add')}
         </Button>
@@ -150,7 +174,9 @@ export function QuickReplyList({ botId }: { botId: string }) {
                 />
               </div>
             ) : (
-              <DataEmptyState message={t('data.quick.empty')} />
+              <DataEmptyState message={t('data.quick.empty')}>
+                {total ? null : <AssistantAskButton text={t('data.quick.askSample')} />}
+              </DataEmptyState>
             )}
           </div>
           {visible.length > PAGE_SIZE_THRESHOLD ? (
@@ -174,6 +200,7 @@ export function QuickReplyList({ botId }: { botId: string }) {
           <QuickReplyDialog
             botId={botId}
             item={editor.item}
+            prefill={editor.prefill ?? null}
             images={images}
             onClose={() => setEditor(null)}
           />
