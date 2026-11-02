@@ -43,6 +43,7 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'get',
     path: '/warehouses',
+    apiKey: true,
     summary: 'Warehouses',
     tag: 'commerce',
     responses: { 200: WarehouseList },
@@ -74,6 +75,7 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'get',
     path: '/products',
+    apiKey: true,
     summary: 'Product catalog (search, pages)',
     tag: 'commerce',
     query: ProductListQuery,
@@ -91,6 +93,7 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'get',
     path: '/products/{productId}',
+    apiKey: true,
     summary: 'One product with variants and stock',
     tag: 'commerce',
     responses: { 200: ProductDto },
@@ -139,6 +142,7 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'get',
     path: '/product-variants',
+    apiKey: true,
     summary: 'Variant picker for the order form',
     tag: 'commerce',
     query: VariantSearchQuery,

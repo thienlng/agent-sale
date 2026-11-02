@@ -192,6 +192,12 @@ describe('public API keys', () => {
     const r = await call(k, 'POST', '/contacts/query', {});
     expect(r.statusCode).toBe(429);
     expect(Number(r.headers['retry-after'])).toBeGreaterThan(0);
+    // The window lives in Postgres, so every API process counts the same requests.
+    const [row] = await owner.db
+      .select({ count: schema.apiKeys.rateWindowCount })
+      .from(schema.apiKeys)
+      .where(eq(schema.apiKeys.workspaceId, s.ws));
+    expect(row?.count).toBe(3);
   });
 
   it('serves the public OpenAPI document with apiKey routes only', async () => {

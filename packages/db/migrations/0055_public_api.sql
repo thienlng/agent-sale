@@ -13,6 +13,9 @@ create table if not exists api_keys (
   expires_at timestamptz,
   last_used_at timestamptz,
   revoked_at timestamptz,
+  -- Fixed-window rate limit shared by every API process (ADR-022 §4).
+  rate_window_start timestamptz,
+  rate_window_count integer not null default 0,
   created_at timestamptz not null default now()
 );
 create index if not exists api_keys_workspace_idx on api_keys (workspace_id, created_at desc);

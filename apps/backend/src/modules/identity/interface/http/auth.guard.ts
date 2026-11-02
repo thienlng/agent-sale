@@ -138,7 +138,7 @@ export class AuthGuard implements CanActivate {
 
   async #rateLimit(ctx: ExecutionContext, keyId: string, perMinute: number | null) {
     if (perMinute === null) return;
-    const r = await this.limiter.hit(`api-key:${keyId}`, perMinute, RATE_WINDOW_MS);
+    const r = await this.limiter.hit(keyId, perMinute, RATE_WINDOW_MS);
     const reply = ctx.switchToHttp().getResponse<FastifyReply>();
     const reset = Math.ceil(r.resetMs / 1000);
     void reply.header('X-RateLimit-Limit', String(perMinute));

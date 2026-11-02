@@ -42,6 +42,9 @@ export const apiKeys = pgTable(
     expiresAt: ts('expires_at'),
     lastUsedAt: ts('last_used_at'),
     revokedAt: ts('revoked_at'),
+    /** Fixed-window rate limit shared by every API process (ADR-022 §4). */
+    rateWindowStart: ts('rate_window_start'),
+    rateWindowCount: integer('rate_window_count').notNull().default(0),
     createdAt: ts('created_at').notNull().defaultNow(),
   },
   (t) => [

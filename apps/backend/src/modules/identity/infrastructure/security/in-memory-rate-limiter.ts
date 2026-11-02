@@ -3,9 +3,9 @@ import type { ApiRateLimiter, RateLimitResult } from '../../application/ports/ap
 const MAX_KEYS = 50_000;
 
 /**
- * Fixed-window counter per API key, in process (ADR-022 §4 names Redis: same deviation as the
- * webchat limiter — one API process today; a Redis adapter replaces this behind the port when
- * the API scales out). Memory stays bounded: at `MAX_KEYS` the oldest window is evicted.
+ * Fixed-window counter per API key, in process: for tests and a backend running without a
+ * database. Production uses `PostgresApiRateLimiter`, shared by every API process. Memory stays
+ * bounded: at `MAX_KEYS` the oldest window is evicted.
  */
 export class InMemoryApiRateLimiter implements ApiRateLimiter {
   readonly #windows = new Map<string, { start: number; count: number }>();

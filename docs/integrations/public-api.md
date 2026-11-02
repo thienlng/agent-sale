@@ -25,6 +25,9 @@ workspace.
 - A request runs as the key's creator with `scopes ∩ creator's role`. When the creator leaves the workspace
   the key answers 401. Audit rows name the actor `API: <key name>`. `last_used_at` is written at most once
   a minute.
+- A key creator who is CSKH (`care`) owns the customers their key creates as CSKH, like in the app.
+- Lookups for integrations (all members can read them in the app): products, warehouses and variants
+  need `orders.view`; customer sources, statuses, tags and assignees need `contacts.view`.
 - Errors: 401 unknown, revoked or expired key; 402 plan; 403 capability outside the scopes; 404 route not
   public or wrong workspace; 429 rate limit.
 
@@ -33,8 +36,9 @@ workspace.
 Fixed 60 s window per key. Every answer carries `X-RateLimit-Limit`, `X-RateLimit-Remaining`,
 `X-RateLimit-Reset`; a 429 adds `Retry-After` (seconds).
 
-**Deviation from ADR-022 §4:** the counter is in process memory behind a port (same as webchat), not
-Redis, so with N API instances a key gets up to N × the limit. Moving it to Redis is one adapter.
+The window lives on the key's row in Postgres (`api_keys.rate_window_start` / `rate_window_count`,
+one atomic update per request), so every API process shares it. Without a database (tests) an
+in-process counter takes its place.
 
 ### Idempotency
 
@@ -81,6 +85,5 @@ advisory lock so one worker dispatches) and inserts one delivery per endpoint an
 ## Not yet
 
 - Owner notification when an endpoint is disabled (logged only; there is no notification module yet).
-- Redis rate limiter (see above).
 - Audit events for webhook endpoint changes.
 - OAuth apps (ADR-022 option 2).

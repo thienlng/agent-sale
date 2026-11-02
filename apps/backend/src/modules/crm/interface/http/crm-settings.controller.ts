@@ -63,6 +63,7 @@ export class CrmSettingsController {
     return { data: await this.settings.reorder(ws, 'status', body) };
   }
 
+  @RequireCapability('contacts.view')
   @Get('crm/sources')
   async listSources(@CurrentWorkspace() ws: WorkspaceId) {
     return { data: await this.settings.listOptions(ws, 'source') };
@@ -88,6 +89,7 @@ export class CrmSettingsController {
     return this.settings.updateOption(ws, 'source', id, body);
   }
 
+  @RequireCapability('contacts.view')
   @Get('crm/statuses')
   async listStatuses(@CurrentWorkspace() ws: WorkspaceId) {
     return { data: await this.settings.listOptions(ws, 'status') };
@@ -113,6 +115,7 @@ export class CrmSettingsController {
     return this.settings.updateOption(ws, 'status', id, body);
   }
 
+  @RequireCapability('contacts.view')
   @Get('crm/tags')
   async tags(@CurrentWorkspace() ws: WorkspaceId) {
     return { data: await this.settings.listTags(ws) };
@@ -155,6 +158,7 @@ export class CrmSettingsController {
     return this.distribution.put(ws, sourceId, body);
   }
 
+  @RequireCapability('contacts.view')
   @Get('crm/assignees')
   async assignees(@CurrentWorkspace() ws: WorkspaceId) {
     return { data: await this.settings.assignees(ws) };

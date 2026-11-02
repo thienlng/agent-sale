@@ -53,6 +53,7 @@ const options = (kind: 'sources' | 'statuses', label: string) =>
     route({
       method: 'get',
       path: `/crm/${kind}`,
+      apiKey: true,
       summary: `${label} (archived included)`,
       responses: { 200: CrmOptionList },
     }),
@@ -177,6 +178,7 @@ export const crmRoutes = defineRoutes([
   route({
     method: 'get',
     path: '/crm/tags',
+    apiKey: true,
     summary: 'Tag definitions',
     responses: { 200: TagList },
   }),
@@ -210,6 +212,7 @@ export const crmRoutes = defineRoutes([
   route({
     method: 'get',
     path: '/crm/assignees',
+    apiKey: true,
     summary: 'Members who can be Sales or CSKH',
     responses: { 200: CrmAssigneeList },
   }),

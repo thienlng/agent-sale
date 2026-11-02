@@ -32,7 +32,9 @@ and route contracts in `packages/contracts` already generate an OpenAPI document
    any other (without it a key sees only the creator's customers, same rule as the SPA).
 4. **Plan gate and limits.** New entitlement keys: `feature.public_api` (flag) and
    `api.requests_per_minute` (limit). Seed: Pro and Neo on (120/min), Free and Smart off; operators
-   grant overrides in `/admin`. Rate limiting is per key in Redis (fixed 60 s window) with `429`,
+   grant overrides in `/admin`. Rate limiting is per key in a fixed 60 s window shared by every API
+   process (a counter on the key's row in Postgres: the guard already reads the key there; Redis
+   is not wired into the backend yet and can replace it behind the same port) with `429`,
    `Retry-After` and `X-RateLimit-*` headers. Write routes accept `Idempotency-Key` (24 h replay of
    the first response, per key).
 5. **Webhooks.** Workspace endpoints (HTTPS only), each with a subscribed event list and a signing

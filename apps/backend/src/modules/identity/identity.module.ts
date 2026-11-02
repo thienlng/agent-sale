@@ -55,6 +55,7 @@ import {
 import { Argon2PasswordHasher } from './infrastructure/security/argon2-password-hasher.js';
 import { InMemoryAttemptLimiter } from './infrastructure/security/in-memory-attempt-limiter.js';
 import { InMemoryApiRateLimiter } from './infrastructure/security/in-memory-rate-limiter.js';
+import { PostgresApiRateLimiter } from './infrastructure/security/postgres-rate-limiter.js';
 import { JoseAccessTokens } from './infrastructure/security/jose-access-tokens.js';
 import { AUTH_HTTP_OPTIONS } from './interface/http/auth-http.options.js';
 import { AuthController } from './interface/http/auth.controller.js';
@@ -127,7 +128,12 @@ import { IdempotencyInterceptor } from './interface/http/idempotency.interceptor
       useFactory: (db: Database | null | undefined) =>
         db ? new DrizzleIdempotencyStore(db) : new InMemoryIdempotencyStore(),
     },
-    { provide: API_RATE_LIMITER, useFactory: () => new InMemoryApiRateLimiter() },
+    {
+      provide: API_RATE_LIMITER,
+      inject: [{ token: DB_SYSTEM, optional: true }],
+      useFactory: (db: Database | null | undefined) =>
+        db ? new PostgresApiRateLimiter(db) : new InMemoryApiRateLimiter(),
+    },
     {
       provide: API_PLAN_GATE,
       inject: [BILLING_FACADE],
