@@ -1,6 +1,8 @@
+import type { AssistantUiAction } from '@agent-sales/contracts';
 import { newId, userId, workspaceId } from '@agent-sales/shared';
 import { describe, expect, it } from 'vitest';
 
+import { MAX_CHARTS_PER_TURN } from '../application/sql/chart.js';
 import {
   MAX_SQL_CALLS_PER_TURN,
   MAX_SQL_CELL_CHARS,
@@ -36,11 +38,13 @@ function setup(respond?: ConstructorParameters<typeof FakeSqlRunner>[0]) {
   };
   const runner = new FakeSqlRunner(respond);
   const logs: string[] = [];
+  const uiActions: AssistantUiAction[] = [];
+  const charts = { count: 0 };
   const [schema, query] = sqlTools({
     scope,
     runner,
-    uiActions: [],
-    charts: { count: 0 },
+    uiActions,
+    charts,
     runId: 'run-1',
     log: (l) => logs.push(l),
   });
@@ -52,6 +56,8 @@ function setup(respond?: ConstructorParameters<typeof FakeSqlRunner>[0]) {
     scope,
     runner,
     logs,
+    uiActions,
+    charts,
     schema: (input: unknown = {}) => run(schema, input),
     query: (input: unknown) => run(query, input),
     entries: [schema!, query!],
@@ -221,7 +227,92 @@ describe('sql_query', () => {
     expect(input.safeParse({ sql: SQL, businessIds: [] }).success).toBe(false);
     const many = Array.from({ length: 51 }, () => newId());
     expect(input.safeParse({ sql: SQL, businessIds: many }).success).toBe(false);
-    expect(input.safeParse({ sql: SQL, chart: { kind: 'bar' } }).success).toBe(true);
+    const chart = { kind: 'bar', title: 'Doanh thu', x: 'day', y: ['revenue'] };
+    expect(input.safeParse({ sql: SQL, chart }).success).toBe(true);
+    expect(input.safeParse({ sql: SQL, chart: { kind: 'bar' } }).success).toBe(false);
+    expect(input.safeParse({ sql: SQL, chart: { ...chart, y: [] } }).success).toBe(false);
+    expect(input.safeParse({ sql: SQL, chart: { ...chart, title: ' ' } }).success).toBe(false);
+  });
+});
+
+describe('sql_query charts', () => {
+  const daily = () => ({
+    columns: [
+      { name: 'day', type: 'text' as const },
+      { name: 'revenue', type: 'number' as const },
+    ],
+    rows: [
+      ['2026-11-01', 100_000],
+      ['2026-11-02', 250_000],
+    ],
+    truncated: false,
+  });
+  const chart = { kind: 'bar', title: 'Doanh thu', x: 'day', y: ['revenue'], unit: 'vnd' };
+
+  it('pushes the chart built from the rows to the turn UI actions', async () => {
+    const t = setup(daily);
+    const out = await t.query({ sql: SQL, chart });
+    expect(out.ok).toBeUndefined();
+    expect(out.json).toMatchObject({ ok: true, rowCount: 2, chart: 'shown' });
+    expect(t.uiActions).toEqual([
+      {
+        type: 'chart',
+        chart: {
+          kind: 'bar',
+          title: 'Doanh thu',
+          x: { key: 'day', label: 'day' },
+          series: [{ key: 'revenue', label: 'revenue' }],
+          unit: 'vnd',
+          rows: [
+            { day: '2026-11-01', revenue: 100_000 },
+            { day: '2026-11-02', revenue: 250_000 },
+          ],
+        },
+      },
+    ]);
+    expect(t.charts.count).toBe(1);
+  });
+
+  it('answers chart_limit for the 4th chart of a turn and still returns the rows', async () => {
+    const t = setup(daily);
+    for (let i = 0; i < MAX_CHARTS_PER_TURN; i += 1) {
+      expect((await t.query({ sql: SQL, chart })).json.chart).toBe('shown');
+    }
+    const fourth = await t.query({ sql: SQL, chart });
+    expect(fourth.ok).toBeUndefined();
+    expect(fourth.json).toMatchObject({
+      ok: true,
+      rowCount: 2,
+      chart: { errorCode: 'chart_limit' },
+    });
+    expect(t.uiActions).toHaveLength(MAX_CHARTS_PER_TURN);
+  });
+
+  it('keeps ok: true when the chart cannot be built', async () => {
+    const t = setup(daily);
+    const out = await t.query({ sql: SQL, chart: { ...chart, y: ['nope'] } });
+    expect(out.ok).toBeUndefined();
+    expect(out.json).toMatchObject({
+      ok: true,
+      rows: daily().rows,
+      chart: { errorCode: 'chart_unknown_column:nope' },
+    });
+    const cut = setup(() => ({ ...daily(), truncated: true }));
+    const out2 = await cut.query({ sql: SQL, chart });
+    expect(out2.json).toMatchObject({ ok: true, chart: { errorCode: 'chart_needs_full_result' } });
+    expect(t.uiActions).toEqual([]);
+    expect(cut.uiActions).toEqual([]);
+    expect(t.charts.count).toBe(0);
+  });
+
+  it('builds the chart from the full rows when the model view is cut', async () => {
+    const rows = Array.from({ length: 60 }, (_, i) => [`${'p'.repeat(190)}${i}`, i]);
+    const t = setup(() => ({ ...daily(), rows }));
+    const out = await t.query({ sql: SQL, chart });
+    expect(out.json.rowsShown).toBeLessThan(60);
+    expect(out.json.chart).toBe('shown');
+    const action = t.uiActions[0];
+    expect(action?.type === 'chart' && action.chart.rows).toHaveLength(60);
   });
 });
 

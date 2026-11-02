@@ -1,4 +1,5 @@
 import type { GenerateRequest, GenerateResponse } from '@agent-sales/ai-core';
+import type { AssistantUiAction } from '@agent-sales/contracts';
 import { DomainError, newId, userId, workspaceId } from '@agent-sales/shared';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -352,6 +353,35 @@ describe('ChatTurnService', () => {
       { type: 'spotlight', target: 'b', hint: 'B' },
     ]);
     expect(finalUiActions([fill('only')])).toEqual([fill('only')]);
+    const chart = (title: string): AssistantUiAction => ({
+      type: 'chart',
+      chart: {
+        kind: 'bar',
+        title,
+        x: { key: 'day', label: 'day' },
+        series: [{ key: 'n', label: 'n' }],
+        unit: 'count',
+        rows: [{ day: '2026-11-02', n: 1 }],
+      },
+    });
+    expect(
+      finalUiActions([
+        { type: 'spotlight', target: 'a', hint: 'A' },
+        chart('c1'),
+        fill('only'),
+        chart('c2'),
+        { type: 'navigate', to: '/app/orders' },
+        chart('c3'),
+        chart('c4'),
+      ]),
+    ).toEqual([
+      { type: 'navigate', to: '/app/orders' },
+      fill('only'),
+      chart('c1'),
+      chart('c2'),
+      chart('c3'),
+      { type: 'spotlight', target: 'a', hint: 'A' },
+    ]);
     expect(finalUiActions([])).toEqual([]);
   });
 
@@ -609,6 +639,51 @@ describe('ChatTurnService with the SQL lane', () => {
     await t.service.send(t.scope, t.thread.id, { turnId: newId(), text: 'Bao nhiêu đơn?' }, AUTH);
     expect(toolResult(t.generate)).toEqual({ ok: false, errorCode: 'unknown_key' });
     expect(runner.calls).toHaveLength(0);
+  });
+
+  it('stores the chart on the answer, and none when the turn did not answer', async () => {
+    const CHART_CALL = call('c1', 'tool_call', {
+      key: 'sql_query',
+      body: {
+        sql: 'select count(*) as n from orders',
+        chart: { kind: 'bar', title: 'Đơn', x: 'n', y: ['n2'] },
+      },
+    });
+    const respond = () => ({
+      columns: [
+        { name: 'n', type: 'text' as const },
+        { name: 'n2', type: 'number' as const },
+      ],
+      rows: [['a', 1]],
+      truncated: false,
+    });
+    const t = await setup([CHART_CALL, ANSWER], new FakeSqlRunner(respond));
+    const ok = await t.service.send(t.scope, t.thread.id, { turnId: newId(), text: 'Vẽ' }, AUTH);
+    expect(ok.messages.at(-1)?.uiActions).toEqual([
+      {
+        type: 'chart',
+        chart: {
+          kind: 'bar',
+          title: 'Đơn',
+          x: { key: 'n', label: 'n' },
+          series: [{ key: 'n2', label: 'n2' }],
+          unit: 'number',
+          rows: [{ n: 'a', n2: 1 }],
+        },
+      },
+    ]);
+
+    const failed = await setup(
+      [CHART_CALL, new Error('provider down')],
+      new FakeSqlRunner(respond),
+    );
+    const bad = await failed.service.send(
+      failed.scope,
+      failed.thread.id,
+      { turnId: newId(), text: 'Vẽ' },
+      AUTH,
+    );
+    expect(bad.messages.at(-1)).toMatchObject({ content: FALLBACK_REPLY, uiActions: [] });
   });
 
   it('has no SQL tools without a runner', async () => {

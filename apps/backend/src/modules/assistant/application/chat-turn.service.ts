@@ -35,6 +35,7 @@ import { buildTurnMessage } from './prompt-builder.js';
 import { ROUTE_CATALOG, type RouteCatalog } from './route-catalog.js';
 import { ROUTE_TOOL_DEFINITIONS, routeTools } from './route-tools.js';
 import { SKILL_TOOL_DEFINITIONS, SkillCatalog, skillTools } from './skill-tools.js';
+import { MAX_CHARTS_PER_TURN } from './sql/chart.js';
 import { type NativeToolEntry, SQL_TOOLSET, sqlTools } from './sql/sql-tools.js';
 import { withTurnOutputBudget } from './turn-budget.js';
 
@@ -143,14 +144,17 @@ export function capHistory(messages: MessageRecord[], max = HISTORY_MAX_MESSAGES
 }
 
 /**
- * At most the last navigate, the last fill_form and the last spotlight of the turn, in that
- * order: the page opens, its form is filled, then a control is highlighted.
+ * The answer's UI actions: the last navigate, the last fill_form, up to `MAX_CHARTS_PER_TURN`
+ * charts in call order, then the last spotlight. The page opens, its form is filled, the charts
+ * show inside the answer, then a control is highlighted.
  */
 export function finalUiActions(actions: AssistantUiAction[]): AssistantUiAction[] {
-  return (['navigate', 'fill_form', 'spotlight'] as const).flatMap((type) => {
-    const last = actions.findLast((a) => a.type === type);
-    return last ? [last] : [];
-  });
+  const last = (type: AssistantUiAction['type']) => {
+    const found = actions.findLast((a) => a.type === type);
+    return found ? [found] : [];
+  };
+  const charts = actions.filter((a) => a.type === 'chart').slice(0, MAX_CHARTS_PER_TURN);
+  return [...last('navigate'), ...last('fill_form'), ...charts, ...last('spotlight')];
 }
 
 const errorClass = (e: unknown): string => (e instanceof Error ? e.name : typeof e);

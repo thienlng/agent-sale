@@ -84,5 +84,13 @@
     "confirmNo": "Keep",
     "forgotten": "Entry forgotten.",
     "forgetError": "Could not delete it. Try again."
+  },
+  "chart": {
+    "showTable": "Show table",
+    "showChart": "Show chart",
+    "empty": "No data to chart."
+  },
+  "toolsets": {
+    "sql": "Shop data questions (read-only SQL)"
   }
 }

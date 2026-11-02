@@ -6,6 +6,7 @@ import { z, type ZodType } from 'zod';
 import type { OwnerScope } from '../../domain/owner-scope.js';
 import { SqlRunError, type SqlRunner } from '../../domain/ports/sql-runner.port.js';
 import { checkSql, MAX_SQL_CHARS } from '../../domain/sql-guard.js';
+import { buildChart, ChartRequest, MAX_CHARTS_PER_TURN } from './chart.js';
 import { renderSqlOverview, renderSqlView, SQL_VIEW_NAMES } from './sql-views.js';
 
 /**
@@ -38,8 +39,7 @@ const SqlSchemaInput = z.object({ view: z.string().trim().min(1).max(63).optiona
 const SqlQueryInput = z.object({
   sql: z.string().min(1).max(MAX_SQL_CHARS),
   businessIds: z.array(z.uuid()).min(1).max(MAX_SQL_BUSINESS_IDS).optional(),
-  // The chart request arrives with the chart builder (T-171 Task 4); ignored until then.
-  chart: z.unknown().optional(),
+  chart: ChartRequest.optional(),
 });
 
 /** `<` is escaped so a result cannot open or close a prompt tag (as in the route tools). */
@@ -82,11 +82,14 @@ type Cell = string | number | boolean | null;
  * The result as the model reads it: string cells cut to 200 chars, at most 8 000 chars of JSON
  * (rows dropped from the end, `rowsShown` says how many are kept, with a note).
  */
-export function renderSqlResult(r: {
-  columns: { name: string; type: string }[];
-  rows: Cell[][];
-  truncated: boolean;
-}): string {
+export function renderSqlResult(
+  r: {
+    columns: { name: string; type: string }[];
+    rows: Cell[][];
+    truncated: boolean;
+  },
+  extra: Record<string, unknown> = {},
+): string {
   const rows = r.rows.map((row) =>
     row.map((c) => (typeof c === 'string' ? cutText(c, MAX_SQL_CELL_CHARS) : c)),
   );
@@ -100,6 +103,7 @@ export function renderSqlResult(r: {
       rowsShown: shown,
       truncated: r.truncated,
       ...(shown < rows.length ? { note: ROWS_DROPPED_NOTE } : {}),
+      ...extra,
     });
   const all = build(rows.length);
   if (all.length <= MAX_SQL_RESULT_CHARS) return all;
@@ -117,9 +121,9 @@ export function renderSqlResult(r: {
 export interface SqlToolContext {
   scope: OwnerScope;
   runner: SqlRunner;
-  /** The turn's UI actions (charts join them in Task 4). */
+  /** The turn's UI actions: a chart built from a query's rows is pushed here. */
   uiActions: AssistantUiAction[];
-  /** Charts made during the turn. */
+  /** Charts made during the turn (at most `MAX_CHARTS_PER_TURN`). */
   charts: { count: number };
   /** For the failure log line only. */
   runId?: string;
@@ -135,6 +139,22 @@ export function sqlTools(ctx: SqlToolContext): NativeToolEntry[] {
     ctx.log?.(
       `assistant sql: ${errorCode} sqlstate=${sqlstate ?? '-'} run=${ctx.runId ?? '-'} ${sqlFingerprint(sql)}`,
     );
+
+  /** A chart error never fails the query: the rows come back with `chart: {errorCode}`. */
+  const chartOutcome = (
+    req: ChartRequest | undefined,
+    result: Parameters<typeof buildChart>[1],
+  ): Record<string, unknown> => {
+    if (!req) return {};
+    if (ctx.charts.count >= MAX_CHARTS_PER_TURN) {
+      return { chart: { errorCode: 'chart_limit' } };
+    }
+    const built = buildChart(req, result);
+    if (!built.ok) return { chart: { errorCode: built.errorCode } };
+    ctx.uiActions.push({ type: 'chart', chart: built.chart });
+    ctx.charts.count += 1;
+    return { chart: 'shown' };
+  };
 
   const schema: NativeToolEntry = {
     key: SQL_SCHEMA_KEY,
@@ -157,8 +177,8 @@ export function sqlTools(ctx: SqlToolContext): NativeToolEntry[] {
     key: SQL_QUERY_KEY,
     toolset: 'sql',
     summary:
-      'Run one read-only SELECT over the SQL views and get the rows (figures for the answer)',
-    when: 'Count, sum or compare shop figures for a date range: revenue today, this week, this month or last month, sales, profit, order count, top products by quantity, stock, new customers by source, inbound and outbound messages per day, conversations per channel, lodging nights. Write the SQL after sql_schema.',
+      'Run one read-only SELECT over the SQL views and get the rows (figures for the answer). Pass `chart` to show a bar, line or pie chart built from the result rows; do not repeat every point in the answer.',
+    when: 'Count, sum or compare shop figures for a date range: revenue today, this week, this month or last month, sales, profit, order count, top products by quantity, stock, new customers by source, inbound and outbound messages per day, conversations per channel, lodging nights. Write the SQL after sql_schema. Pass chart to show a bar, line or pie chart of the rows (a series over days or a ranking).',
     input: SqlQueryInput,
     async run(raw) {
       const input = raw as z.output<typeof SqlQueryInput>;
@@ -181,7 +201,7 @@ export function sqlTools(ctx: SqlToolContext): NativeToolEntry[] {
           businessIds,
           sql: guard.sql,
         });
-        return { content: renderSqlResult(result) };
+        return { content: renderSqlResult(result, chartOutcome(input.chart, result)) };
       } catch (e) {
         const sqlstate = e instanceof SqlRunError ? e.sqlstate : '08000';
         const errorCode = sqlErrorCode(sqlstate);

@@ -84,5 +84,13 @@
     "confirmNo": "Giữ lại",
     "forgotten": "Đã quên mục này.",
     "forgetError": "Không xoá được. Thử lại."
+  },
+  "chart": {
+    "showTable": "Xem bảng",
+    "showChart": "Xem biểu đồ",
+    "empty": "Không có dữ liệu để vẽ biểu đồ."
+  },
+  "toolsets": {
+    "sql": "Hỏi số liệu cửa hàng (SQL chỉ đọc)"
   }
 }

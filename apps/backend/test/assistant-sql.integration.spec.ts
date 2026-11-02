@@ -152,6 +152,9 @@ const answer = (over: Partial<GenerateResponse>): GenerateResponse => ({
 const toolCall = (id: string, name: string, input: unknown) =>
   answer({ stopReason: 'tool_use', toolCalls: [{ id, name, input }] });
 
+/** The response of the last `turn` (its messages, with the answer's UI actions). */
+let lastTurn: SendAssistantMessageResponse | null = null;
+
 /** One turn on `on` with a scripted model; returns every request the model received. */
 async function turn(
   on: NestFastifyApplication,
@@ -178,7 +181,7 @@ async function turn(
         payload: { turnId: newId(), text: 'Doanh thu tuần này bao nhiêu?' },
       });
     expect(res.statusCode, res.body).toBe(200);
-    SendAssistantMessageResponse.parse(res.json());
+    lastTurn = SendAssistantMessageResponse.parse(res.json());
     return requests;
   } finally {
     spy.mockRestore();
@@ -237,6 +240,48 @@ describe('assistant SQL lane on Postgres', () => {
     ]);
     expect(JSON.stringify(requests)).not.toContain('999000');
     expect(JSON.stringify(requests)).not.toContain('Shop Binh');
+  });
+
+  it('stores a chart built from the query rows on the answer', async () => {
+    const requests = await turn(app, a.h, thread, [
+      toolCall('c1', 'tool_call', {
+        key: 'sql_query',
+        body: {
+          sql: `${REVENUE_SQL} order by 1`,
+          chart: {
+            kind: 'bar',
+            title: 'Doanh thu theo cửa hàng',
+            x: 'name',
+            y: ['sum'],
+            unit: 'vnd',
+            labels: { sum: 'Doanh thu' },
+          },
+        },
+      }),
+      answer({ text: 'Dạ biểu đồ ạ' }),
+    ]);
+    expect(toolResultIn(requests, 1)).toMatchObject({ ok: true, chart: 'shown' });
+    // The DB totals, read by the owner connection.
+    const totals = (await owner.db.execute(sql`select w.name, sum(o.total)::int as total
+      from orders o join workspaces w on w.id = o.workspace_id
+      where o.workspace_id in (${a.ownWorkspace}, ${a2}) and o.status = 'delivered'
+      group by 1 order by 1`)) as unknown as { name: string; total: number }[];
+    const last = lastTurn?.messages.at(-1);
+    expect(last).toMatchObject({ role: 'assistant', content: 'Dạ biểu đồ ạ' });
+    expect(last?.uiActions).toEqual([
+      {
+        type: 'chart',
+        chart: {
+          kind: 'bar',
+          title: 'Doanh thu theo cửa hàng',
+          x: { key: 'name', label: 'name' },
+          series: [{ key: 'sum', label: 'Doanh thu' }],
+          unit: 'vnd',
+          rows: totals.map((t) => ({ name: t.name, sum: t.total })),
+        },
+      },
+    ]);
+    expect(totals).toHaveLength(2);
   });
 
   it("refuses another owner's business", async () => {
