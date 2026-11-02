@@ -4,21 +4,53 @@ import {
   asc,
   desc,
   eq,
+  gte,
   inArray,
+  isNull,
   lt,
   or,
   schema,
   sql,
   withAccount,
+  withSystem,
   type Database,
   type TenantTx,
 } from '@agent-sales/db';
 
-import { AssistantNotFoundError, AssistantRunIdTakenError } from '../../domain/assistant.errors.js';
+import {
+  AssistantNotFoundError,
+  AssistantRunIdTakenError,
+  AssistantSkillNameTakenError,
+} from '../../domain/assistant.errors.js';
 import type { OwnerScope } from '../../domain/owner-scope.js';
 import {
   type AssistantRepository,
+  type AssistantSettingsRecord,
   type CompactionInput,
+  DEFAULT_ASSISTANT_SETTINGS,
+  JOB_MAX_ATTEMPTS,
+  type JobKind,
+  type JobRecord,
+  type MessageFeedback,
+  type NewJob,
+  type NewSkill,
+  type NewSkillEvent,
+  type NewSuggestion,
+  type OwnerKey,
+  type ReviewCounters,
+  type SettingsPatch,
+  SKILL_EVENT_LIST_LIMIT,
+  type SkillEventInput,
+  type SkillEventQuery,
+  type SkillEventRecord,
+  type SkillPatch,
+  type SkillProvenance,
+  type SkillRecord,
+  type SkillSnapshot,
+  type SkillState,
+  skillSnapshot,
+  type SuggestionRecord,
+  type SuggestionStatus,
   type MemoryEntry,
   type MemoryStoreRecord,
   type MessageRecord,
@@ -44,6 +76,11 @@ const r = schema.assistantRuns;
 const st = schema.assistantRunSteps;
 const mem = schema.assistantMemory;
 const pr = schema.assistantProposals;
+const sk = schema.assistantSkills;
+const se = schema.assistantSkillEvents;
+const sg = schema.assistantSuggestions;
+const set_ = schema.assistantSettings;
+const jb = schema.assistantJobs;
 
 /** SQLSTATE of a driver error (drizzle wraps the postgres error in `cause`). */
 const pgCode = (e: unknown): string | undefined =>
@@ -52,9 +89,9 @@ const pgCode = (e: unknown): string | undefined =>
 /** `%text%` for ILIKE, with the wildcards the owner typed taken literally. */
 const containsPattern = (text: string) => `%${text.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 
-const ownsThread = (s: OwnerScope) =>
+const ownsThread = (s: OwnerKey) =>
   and(eq(t.accountId, s.accountId), eq(t.ownerUserId, s.ownerUserId));
-const ownsMessage = (s: OwnerScope) =>
+const ownsMessage = (s: OwnerKey) =>
   and(eq(m.accountId, s.accountId), eq(m.ownerUserId, s.ownerUserId));
 const ownsRun = (s: OwnerScope) =>
   and(eq(r.accountId, s.accountId), eq(r.ownerUserId, s.ownerUserId));
@@ -62,6 +99,26 @@ const ownsMemory = (s: OwnerScope) =>
   and(eq(mem.accountId, s.accountId), eq(mem.ownerUserId, s.ownerUserId));
 const ownsProposal = (s: OwnerScope) =>
   and(eq(pr.accountId, s.accountId), eq(pr.ownerUserId, s.ownerUserId));
+const ownsSkill = (s: OwnerKey) =>
+  and(eq(sk.accountId, s.accountId), eq(sk.ownerUserId, s.ownerUserId));
+const ownsSkillEvent = (s: OwnerKey) =>
+  and(eq(se.accountId, s.accountId), eq(se.ownerUserId, s.ownerUserId));
+const ownsSuggestion = (s: OwnerKey) =>
+  and(eq(sg.accountId, s.accountId), eq(sg.ownerUserId, s.ownerUserId));
+const ownsSettings = (s: OwnerKey) =>
+  and(eq(set_.accountId, s.accountId), eq(set_.ownerUserId, s.ownerUserId));
+const ownsJob = (s: OwnerKey) =>
+  and(eq(jb.accountId, s.accountId), eq(jb.ownerUserId, s.ownerUserId));
+
+/** Strictly increasing, millisecond-precise `updated_at`: the optimistic-lock token round-trips. */
+const nextSkillVersion = sql`greatest(date_trunc('milliseconds', now()), ${sk.updatedAt} + interval '1 millisecond')`;
+
+/** A unique violation of the non-archived skill name index. */
+function skillNameTaken(e: unknown): boolean {
+  const err = e as { code?: string; constraint_name?: string; cause?: unknown } | null;
+  const cause = (err?.cause ?? err) as { code?: string; constraint_name?: string } | null;
+  return cause?.code === '23505' && cause.constraint_name === 'assistant_skills_name_unique';
+}
 
 function toThread(row: typeof t.$inferSelect): ThreadRecord {
   return {
@@ -78,6 +135,9 @@ function toThread(row: typeof t.$inferSelect): ThreadRecord {
     compactedAt: row.compactedAt,
     compactionFailedAt: row.compactionFailedAt,
     compactionSavedPcts: row.compactionSavedPcts,
+    reviewOwnerTurns: row.reviewOwnerTurns,
+    reviewToolRounds: row.reviewToolRounds,
+    lastReviewAt: row.lastReviewAt,
   };
 }
 
@@ -95,7 +155,120 @@ function toMessage(row: typeof m.$inferSelect): MessageRecord {
     uiActions: (row.uiActions as unknown[] | null) ?? [],
     runId: row.runId,
     isSummary: row.isSummary,
+    feedback: (row.feedback as MessageFeedback | null) ?? null,
     createdAt: row.createdAt,
+  };
+}
+
+function toSkill(row: typeof sk.$inferSelect): SkillRecord {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    body: row.body,
+    toolsets: row.toolsets,
+    provenance: row.provenance as SkillProvenance,
+    shadowOf: row.shadowOf,
+    state: row.state as SkillState,
+    pinned: row.pinned,
+    useCount: row.useCount,
+    viewCount: row.viewCount,
+    patchCount: row.patchCount,
+    lastUsedAt: row.lastUsedAt,
+    lastPatchedAt: row.lastPatchedAt,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+function toSkillEvent(row: typeof se.$inferSelect): SkillEventRecord {
+  return {
+    id: row.id,
+    skillId: row.skillId,
+    actor: row.actor as SkillEventRecord['actor'],
+    action: row.action as SkillEventRecord['action'],
+    before: (row.before as SkillSnapshot | null) ?? null,
+    after: (row.after as SkillSnapshot | null) ?? null,
+    runId: row.runId,
+    undoneAt: row.undoneAt,
+    createdAt: row.createdAt,
+  };
+}
+
+function toSuggestion(row: typeof sg.$inferSelect): SuggestionRecord {
+  return {
+    id: row.id,
+    kind: row.kind as SuggestionRecord['kind'],
+    dedupKey: row.dedupKey,
+    title: row.title,
+    payload: (row.payload as Record<string, unknown> | null) ?? {},
+    status: row.status as SuggestionStatus,
+    createdAt: row.createdAt,
+    decidedAt: row.decidedAt,
+  };
+}
+
+function toSettings(row: typeof set_.$inferSelect): AssistantSettingsRecord {
+  return {
+    reviewEnabled: row.reviewEnabled,
+    disabledToolsets: row.disabledToolsets,
+    curatorRanAt: row.curatorRanAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+function toJob(row: typeof jb.$inferSelect): JobRecord {
+  return {
+    id: row.id,
+    accountId: row.accountId,
+    ownerUserId: row.ownerUserId,
+    threadId: row.threadId,
+    kind: row.kind as JobKind,
+    reviewScope: row.reviewScope as JobRecord['reviewScope'],
+    status: row.status as JobRecord['status'],
+    runAfter: row.runAfter,
+    leaseUntil: row.leaseUntil,
+    attempts: row.attempts,
+    errorCode: row.errorCode,
+    createdAt: row.createdAt,
+    finishedAt: row.finishedAt,
+  };
+}
+
+/** A raw `assistant_jobs` row (snake_case) from `tx.execute`. */
+type RawJob = {
+  id: string;
+  account_id: string;
+  owner_user_id: string;
+  thread_id: string | null;
+  kind: string;
+  review_scope: string | null;
+  status: string;
+  run_after: string | Date;
+  lease_until: string | Date | null;
+  attempts: number;
+  error_code: string | null;
+  created_at: string | Date;
+  finished_at: string | Date | null;
+};
+
+const dateOrNull = (v: string | Date | null) => (v === null ? null : new Date(v));
+
+function rawJob(row: RawJob): JobRecord {
+  return {
+    id: row.id,
+    accountId: row.account_id,
+    ownerUserId: row.owner_user_id,
+    threadId: row.thread_id,
+    kind: row.kind as JobKind,
+    reviewScope: row.review_scope as JobRecord['reviewScope'],
+    status: row.status as JobRecord['status'],
+    runAfter: new Date(row.run_after),
+    leaseUntil: dateOrNull(row.lease_until),
+    attempts: Number(row.attempts),
+    errorCode: row.error_code,
+    createdAt: new Date(row.created_at),
+    finishedAt: dateOrNull(row.finished_at),
   };
 }
 
@@ -157,14 +330,29 @@ function toRun(row: typeof r.$inferSelect): RunRecord {
  * transaction before any read or write by id.
  */
 export class DrizzleAssistantRepository implements AssistantRepository {
-  constructor(private readonly db: Database) {}
+  /**
+   * @param db tenant connection (`app_tenant`): every owner call, under `withAccount`.
+   * @param system cross-account connection (`app_system`), only for the worker's `claimJobs`
+   *   and `ownersWithLearnedSkills`; null where the process has none (they then throw).
+   */
+  constructor(
+    private readonly db: Database,
+    private readonly system: Database | null = null,
+  ) {}
 
-  #in<T>(s: OwnerScope, fn: (tx: TenantTx) => Promise<T>): Promise<T> {
+  #in<T>(s: OwnerKey, fn: (tx: TenantTx) => Promise<T>): Promise<T> {
     return withAccount(this.db, s.accountId, fn);
   }
 
+  #sys<T>(fn: (tx: TenantTx) => Promise<T>): Promise<T> {
+    if (!this.system) {
+      return Promise.reject(new Error('assistant worker calls need the system connection'));
+    }
+    return withSystem(this.system, fn);
+  }
+
   /** The owner's thread row, locked for update when asked; NOT_FOUND otherwise. */
-  async #ownThread(tx: TenantTx, s: OwnerScope, threadId: string, lock = false) {
+  async #ownThread(tx: TenantTx, s: OwnerKey, threadId: string, lock = false) {
     const query = tx
       .select({ id: t.id })
       .from(t)
@@ -674,6 +862,470 @@ export class DrizzleAssistantRepository implements AssistantRepository {
         .where(and(eq(t.id, threadId), ownsThread(s)))
         .returning({ id: t.id });
       if (rows.length === 0) throw new AssistantNotFoundError('thread', threadId);
+    });
+  }
+  // ─── Skills ───
+
+  listSkills(
+    s: OwnerKey,
+    q: { states?: SkillState[]; provenance?: SkillProvenance[] } = {},
+  ): Promise<SkillRecord[]> {
+    if (q.states?.length === 0 || q.provenance?.length === 0) return Promise.resolve([]);
+    return this.#in(s, async (tx) => {
+      const rows = await tx
+        .select()
+        .from(sk)
+        .where(
+          and(
+            ownsSkill(s),
+            q.states ? inArray(sk.state, q.states) : undefined,
+            q.provenance ? inArray(sk.provenance, q.provenance) : undefined,
+          ),
+        )
+        .orderBy(asc(sk.name), asc(sk.createdAt));
+      return rows.map(toSkill);
+    });
+  }
+
+  getSkill(s: OwnerKey, id: string): Promise<SkillRecord | null> {
+    return this.#in(s, async (tx) => {
+      const [row] = await tx
+        .select()
+        .from(sk)
+        .where(and(eq(sk.id, id), ownsSkill(s)));
+      return row ? toSkill(row) : null;
+    });
+  }
+
+  getSkillByName(s: OwnerKey, name: string): Promise<SkillRecord | null> {
+    return this.#in(s, async (tx) => {
+      const [row] = await tx
+        .select()
+        .from(sk)
+        .where(and(eq(sk.name, name), ownsSkill(s), sql`${sk.state} <> 'archived'`));
+      return row ? toSkill(row) : null;
+    });
+  }
+
+  createSkill(s: OwnerKey, skill: NewSkill, event?: SkillEventInput): Promise<SkillRecord> {
+    return this.#in(s, async (tx) => {
+      const [row] = await tx
+        .insert(sk)
+        .values({ ...skill, accountId: s.accountId, ownerUserId: s.ownerUserId })
+        .returning();
+      if (!row) throw new Error('assistant skill insert returned no row');
+      const created = toSkill(row);
+      if (event) {
+        await tx.insert(se).values({
+          ...event,
+          accountId: s.accountId,
+          ownerUserId: s.ownerUserId,
+          skillId: created.id,
+          before: null,
+          after: skillSnapshot(created),
+        });
+      }
+      return created;
+    }).catch((e: unknown) => {
+      if (skillNameTaken(e)) throw new AssistantSkillNameTakenError();
+      throw e;
+    });
+  }
+
+  updateSkill(
+    s: OwnerKey,
+    id: string,
+    patch: SkillPatch,
+    opts: { expectedUpdatedAt?: Date; event?: SkillEventInput } = {},
+  ): Promise<SkillRecord | null> {
+    return this.#in(s, async (tx) => {
+      const [current] = await tx
+        .select()
+        .from(sk)
+        .where(and(eq(sk.id, id), ownsSkill(s)))
+        .for('update');
+      if (!current) return null;
+      if (
+        opts.expectedUpdatedAt &&
+        current.updatedAt.getTime() !== opts.expectedUpdatedAt.getTime()
+      ) {
+        return null;
+      }
+      const values: Partial<Record<keyof typeof sk.$inferInsert, unknown>> = {
+        updatedAt: nextSkillVersion,
+      };
+      if (patch.name !== undefined) values.name = patch.name;
+      if (patch.description !== undefined) values.description = patch.description;
+      if (patch.body !== undefined) values.body = patch.body;
+      if (patch.toolsets !== undefined) values.toolsets = patch.toolsets;
+      if (patch.state !== undefined) values.state = patch.state;
+      if (patch.pinned !== undefined) values.pinned = patch.pinned;
+      if (patch.countPatch) {
+        values.patchCount = sql`${sk.patchCount} + 1`;
+        values.lastPatchedAt = sql`now()`;
+      }
+      const [row] = await tx
+        .update(sk)
+        .set(values as Partial<typeof sk.$inferInsert>)
+        .where(and(eq(sk.id, id), ownsSkill(s)))
+        .returning();
+      if (!row) return null;
+      const updated = toSkill(row);
+      if (opts.event) {
+        await tx.insert(se).values({
+          ...opts.event,
+          accountId: s.accountId,
+          ownerUserId: s.ownerUserId,
+          skillId: id,
+          before: skillSnapshot(toSkill(current)),
+          after: skillSnapshot(updated),
+        });
+      }
+      return updated;
+    }).catch((e: unknown) => {
+      if (skillNameTaken(e)) throw new AssistantSkillNameTakenError();
+      throw e;
+    });
+  }
+
+  bumpSkillCounter(s: OwnerKey, id: string, counter: 'use' | 'view'): Promise<void> {
+    return this.#in(s, async (tx) => {
+      const rows = await tx
+        .update(sk)
+        .set(
+          counter === 'use'
+            ? { useCount: sql`${sk.useCount} + 1`, lastUsedAt: sql`now()` }
+            : { viewCount: sql`${sk.viewCount} + 1` },
+        )
+        .where(and(eq(sk.id, id), ownsSkill(s)))
+        .returning({ id: sk.id });
+      if (rows.length === 0) throw new AssistantNotFoundError('skill', id);
+    });
+  }
+
+  appendSkillEvent(s: OwnerKey, e: NewSkillEvent): Promise<SkillEventRecord> {
+    return this.#in(s, async (tx) => {
+      const [owned] = await tx
+        .select({ id: sk.id })
+        .from(sk)
+        .where(and(eq(sk.id, e.skillId), ownsSkill(s)));
+      if (!owned) throw new AssistantNotFoundError('skill', e.skillId);
+      const [row] = await tx
+        .insert(se)
+        .values({ ...e, accountId: s.accountId, ownerUserId: s.ownerUserId })
+        .returning();
+      if (!row) throw new Error('assistant skill event insert returned no row');
+      return toSkillEvent(row);
+    });
+  }
+
+  listSkillEvents(s: OwnerKey, q: SkillEventQuery): Promise<SkillEventRecord[]> {
+    const limit = Math.min(q.limit ?? SKILL_EVENT_LIST_LIMIT, SKILL_EVENT_LIST_LIMIT);
+    return this.#in(s, async (tx) => {
+      const rows = await tx
+        .select()
+        .from(se)
+        .where(
+          and(
+            ownsSkillEvent(s),
+            q.skillId ? eq(se.skillId, q.skillId) : undefined,
+            q.since ? gte(se.createdAt, q.since) : undefined,
+            q.actor ? eq(se.actor, q.actor) : undefined,
+          ),
+        )
+        .orderBy(desc(se.createdAt), desc(se.id))
+        .limit(limit);
+      return rows.map(toSkillEvent);
+    });
+  }
+
+  getSkillEvent(s: OwnerKey, id: string): Promise<SkillEventRecord | null> {
+    return this.#in(s, async (tx) => {
+      const [row] = await tx
+        .select()
+        .from(se)
+        .where(and(eq(se.id, id), ownsSkillEvent(s)));
+      return row ? toSkillEvent(row) : null;
+    });
+  }
+
+  markSkillEventUndone(s: OwnerKey, id: string, at: Date): Promise<SkillEventRecord | null> {
+    return this.#in(s, async (tx) => {
+      const [row] = await tx
+        .update(se)
+        .set({ undoneAt: at })
+        .where(and(eq(se.id, id), ownsSkillEvent(s), isNull(se.undoneAt)))
+        .returning();
+      return row ? toSkillEvent(row) : null;
+    });
+  }
+
+  // ─── Suggestions ───
+
+  listSuggestions(s: OwnerKey, q: { status?: SuggestionStatus } = {}): Promise<SuggestionRecord[]> {
+    return this.#in(s, async (tx) => {
+      const rows = await tx
+        .select()
+        .from(sg)
+        .where(and(ownsSuggestion(s), q.status ? eq(sg.status, q.status) : undefined))
+        .orderBy(desc(sg.createdAt), desc(sg.id));
+      return rows.map(toSuggestion);
+    });
+  }
+
+  upsertSuggestion(s: OwnerKey, x: NewSuggestion): Promise<SuggestionRecord | null> {
+    return this.#in(s, async (tx) => {
+      const [row] = await tx
+        .insert(sg)
+        .values({ ...x, accountId: s.accountId, ownerUserId: s.ownerUserId, status: 'pending' })
+        .onConflictDoNothing({ target: [sg.accountId, sg.ownerUserId, sg.dedupKey] })
+        .returning();
+      return row ? toSuggestion(row) : null;
+    });
+  }
+
+  decideSuggestion(
+    s: OwnerKey,
+    id: string,
+    status: 'accepted' | 'dismissed',
+    at: Date,
+  ): Promise<SuggestionRecord | null> {
+    return this.#in(s, async (tx) => {
+      const [row] = await tx
+        .update(sg)
+        .set({ status, decidedAt: at })
+        .where(and(eq(sg.id, id), ownsSuggestion(s), eq(sg.status, 'pending')))
+        .returning();
+      return row ? toSuggestion(row) : null;
+    });
+  }
+
+  // ─── Settings ───
+
+  getSettings(s: OwnerKey): Promise<AssistantSettingsRecord> {
+    return this.#in(s, async (tx) => {
+      const [row] = await tx.select().from(set_).where(ownsSettings(s));
+      return row ? toSettings(row) : { ...DEFAULT_ASSISTANT_SETTINGS, disabledToolsets: [] };
+    });
+  }
+
+  saveSettings(s: OwnerKey, patch: SettingsPatch): Promise<AssistantSettingsRecord> {
+    return this.#in(s, async (tx) => {
+      const values: Partial<typeof set_.$inferInsert> = {};
+      if (patch.reviewEnabled !== undefined) values.reviewEnabled = patch.reviewEnabled;
+      if (patch.disabledToolsets !== undefined) values.disabledToolsets = patch.disabledToolsets;
+      if (patch.curatorRanAt !== undefined) values.curatorRanAt = patch.curatorRanAt;
+      const [row] = await tx
+        .insert(set_)
+        .values({ ...values, accountId: s.accountId, ownerUserId: s.ownerUserId })
+        .onConflictDoUpdate({
+          target: [set_.accountId, set_.ownerUserId],
+          set: { ...values, updatedAt: sql`now()` },
+        })
+        .returning();
+      if (!row) throw new Error('assistant settings upsert returned no row');
+      return toSettings(row);
+    });
+  }
+
+  // ─── Feedback ───
+
+  setFeedback(s: OwnerKey, messageId: string, value: MessageFeedback | null): Promise<void> {
+    return this.#in(s, async (tx) => {
+      // The thread join re-checks the owner on the thread row, not only on the message.
+      const rows = await tx
+        .update(m)
+        .set({ feedback: value })
+        .where(
+          and(
+            eq(m.id, messageId),
+            ownsMessage(s),
+            eq(m.role, 'assistant'),
+            eq(m.isSummary, false),
+            sql`exists (select 1 from assistant_threads at where at.id = ${m.threadId}
+              and at.account_id = ${s.accountId} and at.owner_user_id = ${s.ownerUserId})`,
+          ),
+        )
+        .returning({ id: m.id });
+      if (rows.length === 0) throw new AssistantNotFoundError('message', messageId);
+    });
+  }
+
+  // ─── Review counters ───
+
+  bumpReviewCounters(
+    s: OwnerKey,
+    threadId: string,
+    by: { ownerTurns: number; toolRounds: number },
+  ): Promise<ReviewCounters> {
+    return this.#in(s, async (tx) => {
+      const [row] = await tx
+        .update(t)
+        .set({
+          reviewOwnerTurns: sql`${t.reviewOwnerTurns} + ${by.ownerTurns}`,
+          reviewToolRounds: sql`${t.reviewToolRounds} + ${by.toolRounds}`,
+        })
+        .where(and(eq(t.id, threadId), ownsThread(s)))
+        .returning({
+          ownerTurns: t.reviewOwnerTurns,
+          toolRounds: t.reviewToolRounds,
+          lastReviewAt: t.lastReviewAt,
+        });
+      if (!row) throw new AssistantNotFoundError('thread', threadId);
+      return row;
+    });
+  }
+
+  resetReviewCounters(
+    s: OwnerKey,
+    threadId: string,
+    opts: { only?: 'ownerTurns' | 'toolRounds'; reviewedAt?: Date } = {},
+  ): Promise<ReviewCounters> {
+    return this.#in(s, async (tx) => {
+      const values: Partial<typeof t.$inferInsert> = {};
+      if (opts.only !== 'toolRounds') values.reviewOwnerTurns = 0;
+      if (opts.only !== 'ownerTurns') values.reviewToolRounds = 0;
+      if (opts.reviewedAt) values.lastReviewAt = opts.reviewedAt;
+      const [row] = await tx
+        .update(t)
+        .set(values)
+        .where(and(eq(t.id, threadId), ownsThread(s)))
+        .returning({
+          ownerTurns: t.reviewOwnerTurns,
+          toolRounds: t.reviewToolRounds,
+          lastReviewAt: t.lastReviewAt,
+        });
+      if (!row) throw new AssistantNotFoundError('thread', threadId);
+      return row;
+    });
+  }
+
+  // ─── Jobs ───
+
+  enqueueJob(s: OwnerKey, j: NewJob): Promise<JobRecord> {
+    return this.#in(s, async (tx) => {
+      if (j.threadId) await this.#ownThread(tx, s, j.threadId);
+      // The partial unique index (NULLS NOT DISTINCT) keeps one queued job per owner, thread
+      // and kind; a concurrent enqueue lands on the conflict branch instead of a second row.
+      const rows = await tx.execute<RawJob>(sql`
+        insert into assistant_jobs
+          (id, account_id, owner_user_id, thread_id, kind, review_scope, status, run_after)
+        values (${j.id}, ${s.accountId}, ${s.ownerUserId}, ${j.threadId}, ${j.kind},
+                ${j.reviewScope}, 'queued', ${j.runAfter.toISOString()}::timestamptz)
+        on conflict (account_id, owner_user_id, kind, thread_id) where status = 'queued'
+        do update set run_after = excluded.run_after, review_scope = excluded.review_scope
+        returning *`);
+      const [row] = [...rows];
+      if (!row) throw new Error('assistant job upsert returned no row');
+      return rawJob(row);
+    });
+  }
+
+  getJob(s: OwnerKey, id: string): Promise<JobRecord | null> {
+    return this.#in(s, async (tx) => {
+      const [row] = await tx
+        .select()
+        .from(jb)
+        .where(and(eq(jb.id, id), ownsJob(s)));
+      return row ? toJob(row) : null;
+    });
+  }
+
+  claimJobs(now: Date, limit: number, leaseMs: number): Promise<JobRecord[]> {
+    const at = now.toISOString();
+    return this.#sys(async (tx) => {
+      // A job whose holder died JOB_MAX_ATTEMPTS times is not retried forever.
+      await tx.execute(sql`
+        update assistant_jobs set status = 'failed', error_code = 'lease_expired',
+          finished_at = ${at}::timestamptz, lease_until = null
+        where status = 'running' and lease_until < ${at}::timestamptz
+          and attempts >= ${JOB_MAX_ATTEMPTS}`);
+      const rows = await tx.execute<RawJob>(sql`
+        with picked as (
+          select id from assistant_jobs
+          where (status = 'queued' and run_after <= ${at}::timestamptz)
+             or (status = 'running' and lease_until < ${at}::timestamptz)
+          order by run_after, id
+          limit ${limit}
+          for update skip locked)
+        update assistant_jobs j
+        set status = 'running',
+            lease_until = ${at}::timestamptz + ${leaseMs}::int * interval '1 millisecond',
+            attempts = j.attempts + 1
+        from picked where j.id = picked.id
+        returning j.*`);
+      return [...rows].map(rawJob).sort((a, b) => a.runAfter.getTime() - b.runAfter.getTime());
+    });
+  }
+
+  finishJob(
+    s: OwnerKey,
+    job: { id: string; attempts: number },
+    outcome: { status: 'done' | 'failed'; errorCode?: string | null },
+  ): Promise<boolean> {
+    return this.#in(s, async (tx) => {
+      const rows = await tx
+        .update(jb)
+        .set({
+          status: outcome.status,
+          errorCode: outcome.errorCode ?? null,
+          finishedAt: sql`now()`,
+          leaseUntil: null,
+        })
+        .where(
+          and(
+            eq(jb.id, job.id),
+            ownsJob(s),
+            eq(jb.status, 'running'),
+            eq(jb.attempts, job.attempts),
+          ),
+        )
+        .returning({ id: jb.id });
+      return rows.length > 0;
+    });
+  }
+
+  cancelJob(
+    s: OwnerKey,
+    target: { id: string } | { threadId: string; kind: JobKind },
+  ): Promise<number> {
+    return this.#in(s, async (tx) => {
+      const which =
+        'id' in target
+          ? eq(jb.id, target.id)
+          : and(eq(jb.threadId, target.threadId), eq(jb.kind, target.kind));
+      const rows = await tx
+        .update(jb)
+        .set({ status: 'cancelled', finishedAt: sql`now()`, leaseUntil: null })
+        .where(and(which, ownsJob(s), inArray(jb.status, ['queued', 'running'])))
+        .returning({ id: jb.id });
+      return rows.length;
+    });
+  }
+
+  // ─── Curator ───
+
+  listLearnedSkillsForCurator(s: OwnerKey): Promise<SkillRecord[]> {
+    return this.listSkills(s, { provenance: ['learned'], states: ['active', 'stale'] });
+  }
+
+  ownersWithLearnedSkills(opts: { ranBefore?: Date } = {}): Promise<OwnerKey[]> {
+    return this.#sys(async (tx) => {
+      const ranBefore = opts.ranBefore
+        ? sql`and (st.curator_ran_at is null
+            or st.curator_ran_at < ${opts.ranBefore.toISOString()}::timestamptz)`
+        : sql``;
+      const rows = await tx.execute<{ account_id: string; owner_user_id: string }>(sql`
+        select distinct s.account_id, s.owner_user_id
+        from assistant_skills s
+        left join assistant_settings st
+          on st.account_id = s.account_id and st.owner_user_id = s.owner_user_id
+        where s.provenance = 'learned' and s.state in ('active', 'stale') ${ranBefore}
+        order by s.account_id, s.owner_user_id`);
+      return [...rows].map((r) => ({
+        accountId: r.account_id,
+        ownerUserId: r.owner_user_id as OwnerKey['ownerUserId'],
+      }));
     });
   }
 }

@@ -3,7 +3,10 @@ import { DomainError } from '@agent-sales/shared';
 /** A thread, run, memory entry or proposal the owner does not have (another owner's rows look absent, never forbidden). */
 export class AssistantNotFoundError extends DomainError {
   readonly code = 'NOT_FOUND';
-  constructor(what: 'thread' | 'run' | 'memory entry' | 'proposal', id: string) {
+  constructor(
+    what: 'thread' | 'run' | 'memory entry' | 'proposal' | 'message' | 'skill' | 'skill event',
+    id: string,
+  ) {
     super(`Assistant ${what} not found`, { id });
   }
 }
@@ -46,5 +49,13 @@ export class AssistantProposalConflictError extends DomainError {
       reason === 'proposal_expired' ? 'This proposal has expired' : 'This proposal is not pending',
       { reason },
     );
+  }
+}
+
+/** Another non-archived skill of this owner already has the name (409 CONFLICT). */
+export class AssistantSkillNameTakenError extends DomainError {
+  readonly code = 'CONFLICT';
+  constructor() {
+    super('A skill with this name already exists', { reason: 'skill_name_taken' });
   }
 }

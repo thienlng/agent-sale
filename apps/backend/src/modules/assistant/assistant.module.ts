@@ -1,7 +1,7 @@
 import type { Database } from '@agent-sales/db';
 import { Module } from '@nestjs/common';
 
-import { DB_TENANT } from '../../common/db/db.module.js';
+import { DB_SYSTEM, DB_TENANT } from '../../common/db/db.module.js';
 import { AccountModule } from '../account/account.module.js';
 import { AiModule } from '../ai/ai.module.js';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
@@ -30,9 +30,13 @@ import { AssistantController } from './interface/http/assistant.controller.js';
   providers: [
     {
       provide: ASSISTANT_REPOSITORY,
-      inject: [{ token: DB_TENANT, optional: true }],
-      useFactory: (db: Database | null | undefined) =>
-        db ? new DrizzleAssistantRepository(db) : new InMemoryAssistantRepository(),
+      inject: [
+        { token: DB_TENANT, optional: true },
+        { token: DB_SYSTEM, optional: true },
+      ],
+      // The system connection serves only the worker's cross-account job claim and curator scan.
+      useFactory: (db: Database | null | undefined, system: Database | null | undefined) =>
+        db ? new DrizzleAssistantRepository(db, system ?? null) : new InMemoryAssistantRepository(),
     },
     // Platform skills are parsed and linted once at boot; a bad SKILL.md fails the start.
     { provide: SkillCatalog, useFactory: () => SkillCatalog.load() },

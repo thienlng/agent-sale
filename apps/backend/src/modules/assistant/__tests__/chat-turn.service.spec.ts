@@ -357,6 +357,7 @@ describe('ChatTurnService', () => {
       uiActions: [],
       runId: null,
       isSummary,
+      feedback: null,
       createdAt: new Date(),
     });
     const summary = at('user', true);
