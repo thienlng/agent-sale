@@ -17,6 +17,7 @@ import {
 } from '../application/compaction.service.js';
 import { isVisibleMessage, toMessageDtos } from '../application/mappers.js';
 import { SkillCatalog } from '../application/skill-tools.js';
+import type { SchedulesService } from '../application/schedules.service.js';
 import { SkillsService } from '../application/skills.service.js';
 import { ThreadPromptService } from '../application/thread-prompt.service.js';
 import type { OwnerScope } from '../domain/owner-scope.js';
@@ -100,7 +101,14 @@ async function setup(opts: { summary?: () => Promise<GenerateResponse> } = {}) {
   const skills = new SkillsService(repo, new SkillCatalog([]));
   const prompts = new ThreadPromptService(workspace, repo, skills);
   const compaction = new CompactionService(repo, { generate }, prompts);
-  const chat = new ChatTurnService(repo, { generate }, skills, { invoke: vi.fn() }, compaction);
+  const chat = new ChatTurnService(
+    repo,
+    { generate },
+    skills,
+    { invoke: vi.fn() },
+    compaction,
+    {} as SchedulesService,
+  );
   const thread = await repo.createThread(scope, {
     id: newId(),
     title: 'Áo thun',

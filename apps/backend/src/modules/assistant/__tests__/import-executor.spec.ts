@@ -7,6 +7,7 @@ import {
   IMPORT_PROPOSE_TOOL,
 } from '../application/import-tools.js';
 import { ProposalService } from '../application/proposals.service.js';
+import type { SchedulesService } from '../application/schedules.service.js';
 import { AssistantProposalConflictError } from '../domain/assistant.errors.js';
 import type { OwnerScope } from '../domain/owner-scope.js';
 import type { RouteInvocation, RouteInvocationResult } from '../domain/ports/route-invoker.port.js';
@@ -74,7 +75,7 @@ async function setup(api: Responder = fakeApi(), rows = ROWS) {
     promptVersion: 'assistant@2',
   });
   const invoke = vi.fn((i: RouteInvocation) => Promise.resolve(api(i)));
-  const proposals = new ProposalService(repo, { invoke });
+  const proposals = new ProposalService(repo, { invoke }, {} as SchedulesService);
   const tools = importTools({
     scope,
     repo,

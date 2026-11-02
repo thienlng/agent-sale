@@ -38,6 +38,10 @@
     "./developer": {
       "types": "./dist/developer.d.ts",
       "import": "./dist/developer.js"
+    },
+    "./notification": {
+      "types": "./dist/notification.d.ts",
+      "import": "./dist/notification.js"
     }
   },
   "files": [

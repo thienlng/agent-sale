@@ -2,7 +2,10 @@
   "app": {
     "name": "Rapiz",
     "assistantLauncher": "Ask Thỏ Rapiz",
-    "assistantAskSample": "Ask the assistant to fill it in"
+    "assistantAskSample": "Ask the assistant to fill it in",
+    "notifications": "Notifications",
+    "notificationsUnread": "Notifications, {{count}} unread",
+    "reportThreadError": "Could not open the report in the assistant. Try again."
   },
   "nav": {
     "bots": "Bot training",

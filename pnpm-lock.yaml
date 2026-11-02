@@ -74,6 +74,9 @@ importers:
       '@agent-sales/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@agent-sales/i18n':
+        specifier: workspace:*
+        version: link:../../packages/i18n
       '@agent-sales/queue':
         specifier: workspace:*
         version: link:../../packages/queue
@@ -110,6 +113,9 @@ importers:
       mathjs:
         specifier: ^15.2.0
         version: 15.2.0
+      nodemailer:
+        specifier: ^7.0.13
+        version: 7.0.13
       pino:
         specifier: ^10.0.0
         version: 10.4.0
@@ -141,6 +147,9 @@ importers:
       '@types/node':
         specifier: ^24.0.0
         version: 24.19.2
+      '@types/nodemailer':
+        specifier: ^8.0.2
+        version: 8.0.2
       tsx:
         specifier: ^4.20.0
         version: 4.23.15
@@ -3569,6 +3578,9 @@ packages:
   '@types/node@24.19.2':
     resolution: {integrity: sha512-93d49wCWJkCyN87MxLpNN6KXPCwFw7bVUg79mGUV1OS40JGWwVCr8n61DXCSqz7CV6/VfPkb7xec7uP2M+QHWQ==}
 
+  '@types/nodemailer@8.0.2':
+    resolution: {integrity: sha512-c7M5ox8p0nEOfbJ2E9Qcmt8/QCu/VzsiAhzBiZbvky2PhKZDHpKB3sQHBM5MEZNkCfBOaS6S9//AGPRTNB7IaA==}
+
   '@types/qrcode@1.5.6':
     resolution: {integrity: sha512-te7NQcV2BOvdj2b1hCAHzAoMNuj65kNBMz0KBaxM6c3VGBOhU0dURQKOtH8CFNI/dsKkwlv32p26qYQTWoB5bw==}
 
@@ -6056,6 +6068,10 @@ packages:
   node-releases@2.0.60:
     resolution: {integrity: sha512-OmO8+GM1JUZqXET720VrJCwkjUCXmCMQm0Z3UDDRbfNLHS4NEAvY60j5jiFv0tkKw2PNNlqOLhahVmwJIOLDIQ==}
     engines: {node: '>=18'}
+
+  nodemailer@7.0.13:
+    resolution: {integrity: sha512-PNDFSJdP+KFgdsG3ZzMXCgquO7I6McjY2vlqILjtJd0hy8wEvtugS9xKRF2NWlPNGxvLCXlTNIae4serI7dinw==}
+    engines: {node: '>=6.0.0'}
 
   normalize-path@3.0.0:
     resolution: {integrity: sha512-6eZs5Ls3WtCisHWp9S2GUy8dqkpGi4BVSz3GaqiE6ezub0512ESztXUwUB6C6IKbQkY2Pnb/mD4WYojCRwcwLA==}
@@ -10584,6 +10600,10 @@ snapshots:
     dependencies:
       undici-types: 7.24.6
 
+  '@types/nodemailer@8.0.2':
+    dependencies:
+      '@types/node': 24.19.2
+
   '@types/qrcode@1.5.6':
     dependencies:
       '@types/node': 24.19.2
@@ -12981,6 +13001,8 @@ snapshots:
   node-mock-http@1.0.5: {}
 
   node-releases@2.0.60: {}
+
+  nodemailer@7.0.13: {}
 
   normalize-path@3.0.0: {}
 

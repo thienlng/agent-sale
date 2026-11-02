@@ -23,6 +23,7 @@ import {
 import { SkillCatalog } from '../application/skill-tools.js';
 import { SkillsService } from '../application/skills.service.js';
 import { ThreadPromptService } from '../application/thread-prompt.service.js';
+import type { SchedulesService } from '../application/schedules.service.js';
 import type { OwnerScope } from '../domain/owner-scope.js';
 import type {
   JobKind,
@@ -101,7 +102,14 @@ function setup(script: (GenerateResponse | Error)[] = []) {
     new ThreadPromptService(w.workspace, repo, skills),
   );
   const invoker = { invoke: vi.fn(() => Promise.resolve({ status: 200, body: {} })) };
-  const chat = new ChatTurnService(repo, { generate }, skills, invoker, compaction);
+  const chat = new ChatTurnService(
+    repo,
+    { generate },
+    skills,
+    invoker,
+    compaction,
+    {} as SchedulesService,
+  );
   return { ...w, repo, generate, skills, review, runner, chat, queue };
 }
 

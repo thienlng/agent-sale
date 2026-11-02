@@ -149,9 +149,13 @@ export class AccountQueries implements IdentityFacade, IdentityAdminFacade {
     return (await this.users.findById(userId))?.snapshot().name ?? null;
   }
 
-  async profile(userId: UserId): Promise<{ name: string; email: string } | null> {
+  async profile(
+    userId: UserId,
+  ): Promise<{ name: string; email: string; locale: 'vi' | 'en' } | null> {
     const user = (await this.users.findById(userId))?.snapshot();
-    return user ? { name: user.name, email: user.email } : null;
+    return user
+      ? { name: user.name, email: user.email, locale: user.locale === 'en' ? 'en' : 'vi' }
+      : null;
   }
 
   async usersByIds(ids: readonly string[]): Promise<UserRef[]> {

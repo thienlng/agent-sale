@@ -51,6 +51,7 @@ export function AppShell({
   createBusinessDialog,
   industry,
   navCounts,
+  headerActions,
 }: {
   children: ReactNode;
   /** Plan and billing popup for the account menu, composed by the route from `features/billing`. */
@@ -61,6 +62,8 @@ export function AppShell({
   industry?: string | undefined;
   /** Waiting counts next to sidebar entries, composed by the route (e.g. bot holds to review). */
   navCounts?: NavCounts | undefined;
+  /** Header controls before the account menu (e.g. the notification bell), composed by the route. */
+  headerActions?: ReactNode;
 }) {
   const { t } = useTranslation();
   const session = useSession();
@@ -105,7 +108,8 @@ export function AppShell({
             <SidebarTrigger className="-ml-1" aria-label={t('nav.toggleSidebar')} />
             <Separator orientation="vertical" className="mx-1 data-[orientation=vertical]:h-4" />
             {section ? <span className="truncate text-base font-medium">{t(section)}</span> : null}
-            <div className="ml-auto flex items-center">
+            <div className="ml-auto flex items-center gap-1">
+              {headerActions}
               <AccountMenu planDialog={planDialog} />
             </div>
           </header>

@@ -1164,4 +1164,53 @@ describe('AssistantPanel', () => {
       `/app/bots/${BOT}/actions/${ACTION}`,
     );
   });
+
+  it('opens an accepted schedule suggestion in the schedule editor (T-172 wiring)', async () => {
+    useAssistantUi.setState({ open: true, workspaceId: WS, threadId: null, scheduleDraft: null });
+    const card = suggestionFixture({
+      kind: 'schedule',
+      title: 'Báo khi khách chờ lâu?',
+      payload: {},
+    });
+    const draft = {
+      businessId: '3f0c1f0e-5b1c-4c1e-9d55-0a1b2c3d4e5f',
+      name: 'Khách chờ lâu',
+      template: 'unanswered_conversations',
+      mode: 'alert',
+      params: { minutes: 30, minCount: 1 },
+      cadence: { kind: 'every', minutes: 60 },
+      channels: ['in_app'],
+      commentary: false,
+    };
+    const accept = `POST /assistant/suggestions/${ASSISTANT_IDS.suggestion}/accept`;
+    const routes: Parameters<typeof stubFetch>[0] = {
+      'GET /assistant/suggestions': { status: 200, body: { items: [card] } },
+      [accept]: {
+        status: 200,
+        body: {
+          suggestion: { ...card, status: 'accepted' },
+          skill: null,
+          path: null,
+          scheduleDraft: draft,
+        },
+      },
+      'GET /assistant/schedules': {
+        status: 200,
+        body: { items: [], limit: 10, used: 0, emailAvailable: true },
+      },
+    };
+    const { fetchStub, calls } = stubFetch(routes);
+    vi.stubGlobal('fetch', fetchStub);
+    renderApp();
+    const user = userEvent.setup();
+
+    const cards = await screen.findByRole('region', { name: 'Gợi ý của trợ lý' });
+    routes['GET /assistant/suggestions'] = { status: 200, body: { items: [] } };
+    await user.click(within(cards).getByRole('button', { name: 'Đồng ý' }));
+
+    const form = await screen.findByRole('form', { name: 'Lịch mới' });
+    expect(within(form).getByRole('textbox', { name: 'Tên lịch' })).toHaveValue('Khách chờ lâu');
+    expect(calls.filter((c) => c.key === accept)).toHaveLength(1);
+    expect(useAssistantUi.getState().scheduleDraft).toBeNull();
+  });
 });

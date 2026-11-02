@@ -17,6 +17,7 @@ import { isUuid, newId, userId, type WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable } from '@nestjs/common';
 import type { z } from 'zod';
 
+import type { LowStock, OrdersPlaced } from '../api/commerce.facade.js';
 import { IDENTITY_FACADE, type IdentityFacade } from '../../identity/api/index.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
 import {
@@ -345,6 +346,31 @@ export class OrderService {
         facets: result.facets,
       };
     });
+  }
+
+  /** Orders placed in `[since, until)` for owner reports: no customer data (T-172). */
+  async placedSummary(
+    ws: WorkspaceId,
+    q: { since: Date; until: Date; limit: number },
+  ): Promise<OrdersPlaced> {
+    const res = await this.store.run(ws, (tx) =>
+      tx.orders.placedSummary({ ...q, limit: Math.max(0, Math.min(q.limit, 10)) }),
+    );
+    return {
+      count: res.count,
+      total: res.total,
+      items: res.items.map((x) => ({ ...x, placedAt: x.placedAt.toISOString() })),
+    };
+  }
+
+  /** Low-stock variants for owner reports and alerts (T-172). */
+  lowStock(ws: WorkspaceId, q: { threshold: number; limit: number }): Promise<LowStock> {
+    return this.store.run(ws, (tx) =>
+      tx.inventory.lowStock({
+        threshold: q.threshold,
+        limit: Math.max(0, Math.min(q.limit, 20)),
+      }),
+    );
   }
 
   async overview(

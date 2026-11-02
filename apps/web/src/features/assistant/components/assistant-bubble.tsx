@@ -2,13 +2,16 @@ import { Rabbit } from 'lucide-react';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useAssistantRequest } from '@/lib/assistant-context';
+import { toast } from 'sonner';
+
+import { useAssistantOpenRequests, useAssistantRequest } from '@/lib/assistant-context';
 import { registerAssistantOpener } from '@/lib/assistant-launch';
 import { loadNamespace } from '@/lib/i18n';
+import { useIsAccountOwner } from '@/lib/use-is-account-owner';
 import { useWorkspaceId } from '@/lib/use-workspace';
 import { cn } from '@/lib/utils';
 
-import { useIsAccountOwner } from '@/lib/use-is-account-owner';
+import { openReportThread } from '../api/report-thread';
 import { useAssistantUi } from '../stores/assistant-ui.store';
 
 // The panel (Sheet, chat, steps, spotlight) and its strings load on first open (docs/16 §1).
@@ -45,6 +48,23 @@ export function AssistantBubble() {
       openWith(text, entity);
     });
   }, [isOwner, openWith]);
+  const setThread = useAssistantUi((s) => s.setThread);
+  const { request, consume } = useAssistantOpenRequests();
+  // Another feature asked to open a thread (the bell's report notification, T-172).
+  useEffect(() => {
+    if (!request || !isOwner || !workspaceId) return;
+    consume(request.seq);
+    setLoaded(true);
+    setOpen(true);
+    if ('threadId' in request) {
+      setThread(request.threadId);
+      return;
+    }
+    openReportThread(workspaceId, request.reportRunId).then(
+      (thread) => setThread(thread.id),
+      () => toast.error(t('app.reportThreadError')),
+    );
+  }, [request, isOwner, workspaceId, consume, setOpen, setThread, t]);
   if (!isOwner) return null;
   return (
     <>

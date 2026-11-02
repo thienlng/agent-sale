@@ -15,6 +15,7 @@ import type { WorkspaceFacade } from '../../workspace/api/index.js';
 import { CompactionService } from '../application/compaction.service.js';
 import { toMessageDtos } from '../application/mappers.js';
 import { SkillCatalog } from '../application/skill-tools.js';
+import type { SchedulesService } from '../application/schedules.service.js';
 import { SkillsService } from '../application/skills.service.js';
 import { ThreadPromptService } from '../application/thread-prompt.service.js';
 import {
@@ -88,6 +89,7 @@ async function setup(
     skills,
     { invoke },
     compaction,
+    {} as SchedulesService,
     sqlRunner,
   );
   const thread = await repo.createThread(scope, {
@@ -160,6 +162,7 @@ describe('ChatTurnService', () => {
       'import_propose',
       'load_skill',
       'memory',
+      'schedule',
       'session_search',
       'skill_manage',
       'skills_list',
@@ -667,6 +670,25 @@ describe('ChatTurnService', () => {
       ['assistant', 'patch', second],
       ['assistant', 'create', first],
     ]);
+  });
+
+  it('leaves the schedule tool out of a report thread and when its toolset is disabled', async () => {
+    const t = await setup([ANSWER, ANSWER]);
+    const names = () => t.generate.mock.calls.at(-1)![0].tools?.map((x) => x.name) ?? [];
+    const report = await t.repo.createThread(t.scope, {
+      id: newId(),
+      title: 'Báo cáo',
+      systemPrompt: 'SYSTEM PROMPT',
+      promptVersion: 'assistant@3',
+      origin: 'schedule',
+    });
+    await t.service.send(t.scope, report.id, { turnId: newId(), text: 'Vì sao giảm?' }, AUTH);
+    expect(names()).not.toContain('schedule');
+    expect(names()).toContain('tool_call');
+
+    await t.repo.saveSettings(t.scope, { disabledToolsets: ['schedule'] });
+    await t.service.send(t.scope, t.thread.id, { turnId: newId(), text: 'Chào em' }, AUTH);
+    expect(names()).not.toContain('schedule');
   });
 });
 

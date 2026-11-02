@@ -16,6 +16,7 @@ import { toMessageDtos } from '../application/mappers.js';
 import { SkillCatalog } from '../application/skill-tools.js';
 import { SkillsService } from '../application/skills.service.js';
 import { ThreadPromptService } from '../application/thread-prompt.service.js';
+import type { SchedulesService } from '../application/schedules.service.js';
 import {
   AssistantBusyError,
   AssistantImportInvalidError,
@@ -310,6 +311,7 @@ describe('the turn that carries a batch', () => {
       skills,
       { invoke: vi.fn() },
       compaction,
+      {} as SchedulesService,
     );
     return { ...base, chat, chatGenerate: generate };
   }

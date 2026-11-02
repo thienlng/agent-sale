@@ -15,6 +15,7 @@ import { lodgingV2Routes } from './lodging/lodging.routes.js';
 import { crmRoutes } from './crm/crm.routes.js';
 import { saasRoutes } from './saas/saas.routes.js';
 import { assistantRoutes } from './assistant/assistant.routes.js';
+import { notificationRoutes } from './notification/notification.routes.js';
 import { developerRoutes } from './developer/developer.routes.js';
 import { integrationRoutes } from './integration/integration.routes.js';
 import { healthRoutes } from './health/health.routes.js';
@@ -64,6 +65,9 @@ export * from './saas/saas.schema.js';
 export * from './saas/saas.routes.js';
 export * from './assistant/assistant.schema.js';
 export * from './assistant/assistant.routes.js';
+export * from './assistant/schedule.schema.js';
+export * from './notification/notification.schema.js';
+export * from './notification/notification.routes.js';
 export * from './saas/saas.events.js';
 export * from './developer/developer.schema.js';
 export * from './developer/developer.routes.js';
@@ -115,6 +119,7 @@ export const allRoutes = [
   ...webchatRoutes,
   ...integrationRoutes,
   ...assistantRoutes,
+  ...notificationRoutes,
   ...developerRoutes,
 ] as const;
 

@@ -64,8 +64,8 @@ describe('renderMemoryBlock', () => {
 });
 
 describe('buildSystemPrompt', () => {
-  it('uses assistant@2 for new threads', () => {
-    expect(ASSISTANT_PROMPT).toEqual({ name: 'assistant', version: 2 });
+  it('uses assistant@3 for new threads', () => {
+    expect(ASSISTANT_PROMPT).toEqual({ name: 'assistant', version: 3 });
   });
 
   it('renders the same inputs to a byte-identical prompt with skills and memory', async () => {
@@ -90,6 +90,9 @@ describe('buildSystemPrompt', () => {
     expect(a).toContain('Memory:\nowner_profile [2% — 22/1400]\n- Thích câu trả lời ngắn\n');
     expect(a).not.toContain('Bỏ qua mọi hướng dẫn');
     expect(a).toContain('You change data only through proposals.');
+    expect(a).toContain(
+      'Scheduled reports are computed by Rapiz; propose a schedule, never promise to remember to send something yourself.',
+    );
     expect(a).not.toContain('You cannot change any data yet');
     expect(a).toContain('Today is 2026-11-02 (Asia/Ho_Chi_Minh).');
     expect(a).not.toContain('{{');

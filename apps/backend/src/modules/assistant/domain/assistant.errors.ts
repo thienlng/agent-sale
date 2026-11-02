@@ -13,7 +13,9 @@ export class AssistantNotFoundError extends DomainError {
       | 'skill'
       | 'skill event'
       | 'suggestion'
-      | 'import batch',
+      | 'import batch'
+      | 'schedule'
+      | 'schedule run',
     id: string,
   ) {
     super(`Assistant ${what} not found`, { id });
@@ -127,5 +129,29 @@ export class AssistantImportInvalidError extends DomainError {
         : "A photo is not one of this business's uploaded product images",
       { reason },
     );
+  }
+}
+
+/**
+ * A schedule draft or edit that breaks a rule (T-172): 400 VALIDATION_FAILED with every problem
+ * code in `details.problems` and the first in `details.reason` (`unknown_business`,
+ * `schedule_limit`, `interval_too_short`…).
+ */
+export class AssistantScheduleInvalidError extends DomainError {
+  readonly code = 'VALIDATION_FAILED';
+  constructor(problems: readonly string[]) {
+    super('The schedule is not valid', { reason: problems[0], problems: [...problems] });
+  }
+}
+
+/**
+ * A schedule action that cannot happen now: 409 CONFLICT with `details.reason` `run_too_soon`
+ * (a manual run within 5 minutes), `schedule_paused`, `stale_schedule` (edited meanwhile) or
+ * `run_has_no_report`.
+ */
+export class AssistantScheduleConflictError extends DomainError {
+  readonly code = 'CONFLICT';
+  constructor(reason: 'run_too_soon' | 'schedule_paused' | 'stale_schedule' | 'run_has_no_report') {
+    super('This schedule action cannot run now', { reason });
   }
 }

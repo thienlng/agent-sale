@@ -1,3 +1,4 @@
+import type { ScheduleDraft } from '@agent-sales/contracts';
 import { create } from 'zustand';
 
 export interface AssistantSpotlightTarget {
@@ -17,6 +18,11 @@ interface AssistantUiState {
   draft: string | null;
   /** Entity ids added to the next message's page context (e.g. `messageAt`); taken at send. */
   entityExtras: Record<string, string> | null;
+  /**
+   * A schedule draft waiting to open in the editor (an accepted `schedule` suggestion, S3-R12);
+   * the schedules view takes it and clears it.
+   */
+  scheduleDraft: Partial<ScheduleDraft> | null;
   setOpen: (open: boolean) => void;
   /** Opens the panel with `text` in the composer and `entity` for the next message. */
   openWith: (text: string, entity?: Record<string, string>) => void;
@@ -24,6 +30,9 @@ interface AssistantUiState {
   takeEntityExtras: () => Record<string, string> | null;
   setThread: (threadId: string | null) => void;
   setSpotlight: (spotlight: AssistantSpotlightTarget | null) => void;
+  /** Opens the panel on the schedule editor, prefilled with `draft`. */
+  openScheduleEditor: (draft: Partial<ScheduleDraft>) => void;
+  takeScheduleDraft: () => Partial<ScheduleDraft> | null;
   /** Called with the current business: switching business starts over (no thread, no spotlight). */
   syncWorkspace: (workspaceId: string | null) => void;
 }
@@ -36,6 +45,7 @@ export const useAssistantUi = create<AssistantUiState>()((set, get) => ({
   spotlight: null,
   draft: null,
   entityExtras: null,
+  scheduleDraft: null,
   setOpen: (open) => set({ open }),
   openWith: (text, entity = {}) =>
     set({
@@ -56,6 +66,12 @@ export const useAssistantUi = create<AssistantUiState>()((set, get) => ({
   },
   setThread: (threadId) => set({ threadId }),
   setSpotlight: (spotlight) => set({ spotlight }),
+  openScheduleEditor: (draft) => set({ open: true, scheduleDraft: draft }),
+  takeScheduleDraft: () => {
+    const draft = get().scheduleDraft;
+    if (draft) set({ scheduleDraft: null });
+    return draft;
+  },
   syncWorkspace: (workspaceId) => {
     if (get().workspaceId !== workspaceId) {
       set({ workspaceId, threadId: null, spotlight: null, draft: null, entityExtras: null });

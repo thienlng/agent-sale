@@ -19,5 +19,6 @@ export * from './audit.js';
 export * from './webchat.js';
 export * from './integration.js';
 export * from './assistant.js';
+export * from './notification.js';
 export * from './api-key.js';
 export * from './developer.js';

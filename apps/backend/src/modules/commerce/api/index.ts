@@ -5,6 +5,8 @@ export {
   COMMERCE_FACADE,
   type CommerceFacade,
   type ConfirmBotOrderResult,
+  type LowStock,
+  type OrdersPlaced,
   type PrepareBotOrderResult,
 } from './commerce.facade.js';
 export * from './commerce.events.js';

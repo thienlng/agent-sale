@@ -1,6 +1,16 @@
 import type { AssistantMessageDto, AssistantProposalDto } from '@agent-sales/contracts';
 import { useRouter } from '@tanstack/react-router';
-import { ArrowLeft, Brain, KeyRound, List, Settings, Sparkles, SquarePen, X } from 'lucide-react';
+import {
+  ArrowLeft,
+  Brain,
+  CalendarClock,
+  KeyRound,
+  List,
+  Settings,
+  Sparkles,
+  SquarePen,
+  X,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -15,6 +25,7 @@ import {
   useAssistantRequest,
   waitForAssistantForm,
 } from '@/lib/assistant-context';
+import { safeAppPath } from '@/lib/safe-app-path';
 import { useWorkspaceId } from '@/lib/use-workspace';
 
 import {
@@ -25,12 +36,12 @@ import {
 } from '../api/assistant';
 import { useCreateImportBatch } from '../api/imports';
 import { useAssistantThreadId, useAssistantUi } from '../stores/assistant-ui.store';
-import { safeAppPath } from '../utils/safe-app-path';
 import { useAssistantAttachments } from './assistant-attachments';
 import { AssistantComposer } from './assistant-composer';
 import { AssistantLearning } from './assistant-learning';
 import { AssistantMemory } from './assistant-memory';
 import { AssistantMessages } from './assistant-messages';
+import { AssistantSchedules } from './assistant-schedules';
 import { AssistantSettings } from './assistant-settings';
 import { AssistantSkills } from './assistant-skills';
 import { AssistantSpotlight } from './assistant-spotlight';
@@ -42,10 +53,11 @@ const NO_PROPOSALS: AssistantProposalDto[] = [];
 /** How long a `fill_form` after a `navigate` waits for the new page to register its form. */
 const FORM_WAIT_MS = 3000;
 
-type PanelView = 'chat' | 'threads' | 'memory' | 'skills' | 'settings';
+type PanelView = 'chat' | 'threads' | 'schedules' | 'memory' | 'skills' | 'settings';
 /** The header's view toggles: icon, and the label to open the view. Pressed, each goes back. */
 const VIEW_TOGGLES = [
   { view: 'threads', Icon: List, label: 'showThreads' },
+  { view: 'schedules', Icon: CalendarClock, label: 'showSchedules' },
   { view: 'skills', Icon: Sparkles, label: 'showSkills' },
   { view: 'memory', Icon: Brain, label: 'showMemory' },
   { view: 'settings', Icon: Settings, label: 'showSettings' },
@@ -62,6 +74,13 @@ export function AssistantPanel() {
   const workspaceId = useWorkspaceId();
   const threadId = useAssistantThreadId(workspaceId);
   const [view, setView] = useState<PanelView>('chat');
+  // A thread opened from elsewhere (a report notification) shows the conversation.
+  useEffect(() => setView('chat'), [threadId]);
+  // An accepted schedule suggestion opens the schedule editor.
+  const scheduleDraft = useAssistantUi((s) => s.scheduleDraft);
+  useEffect(() => {
+    if (scheduleDraft) setView('schedules');
+  }, [scheduleDraft]);
   const [pendingTurn, setPendingTurn] = useState<string | null>(null);
   const [unavailable, setUnavailable] = useState(false);
   // The last message carried keys; they were masked before storage (T-174).
@@ -310,6 +329,8 @@ export function AssistantPanel() {
             <AssistantSkills />
           ) : view === 'settings' ? (
             <AssistantSettings onOpenMemory={() => setView('memory')} />
+          ) : view === 'schedules' ? (
+            <AssistantSchedules />
           ) : (
             <>
               <AssistantLearning onOpenSkills={() => setView('skills')} />

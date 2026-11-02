@@ -243,3 +243,37 @@ export function requestAssistant(text: string): void {
   if (!value) return;
   useAssistantRequest.setState({ request: { id: crypto.randomUUID(), text: value } });
 }
+
+// ─── Open requests (T-172) ────────────────────────────────────────────────────
+
+/** What another feature asks the assistant to open: a report run's thread, or a thread. */
+export type AssistantOpenRequest = { reportRunId: string } | { threadId: string };
+
+const useOpenRequest = create<{ request: (AssistantOpenRequest & { seq: number }) | null }>()(
+  () => ({ request: null }),
+);
+let openSeq = 0;
+
+/**
+ * Asks the owner assistant to open (e.g. the bell's report notification). The bubble consumes
+ * the request; a later request replaces one not consumed yet.
+ */
+export function requestAssistantOpen(request: AssistantOpenRequest): void {
+  openSeq += 1;
+  useOpenRequest.setState({ request: { ...request, seq: openSeq } });
+}
+
+/** The pending open request (or null) and `consume`, which clears it once handled. */
+export function useAssistantOpenRequests(): {
+  request: (AssistantOpenRequest & { seq: number }) | null;
+  consume: (seq: number) => void;
+} {
+  const request = useOpenRequest((s) => s.request);
+  return {
+    request,
+    consume: (seq) => {
+      if (useOpenRequest.getState().request?.seq === seq)
+        useOpenRequest.setState({ request: null });
+    },
+  };
+}

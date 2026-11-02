@@ -1,8 +1,12 @@
-import { screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { requestAssistantOpen } from '@/lib/assistant-context';
 import type { Session } from '@/lib/session';
-import { renderWithRouter } from '@/testing/render';
+import { threadFixture } from '@/testing/assistant-factories';
+import { renderWithRouter, stubFetch } from '@/testing/render';
+
+import { useAssistantUi } from '../stores/assistant-ui.store';
 
 import { AssistantBubble } from './assistant-bubble';
 
@@ -63,5 +67,29 @@ describe('AssistantBubble launcher', () => {
     renderPage();
     await screen.findByText('page');
     expect(screen.queryByRole('button', { name: 'Hỏi Thỏ Rapiz' })).not.toBeInTheDocument();
+  });
+});
+
+describe('AssistantBubble open requests', () => {
+  const RUN = '01a19d25-57b8-7082-bbf9-35da4e0c3001';
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("opens a report run's thread when the bell asks for it", async () => {
+    state.session = sessionWith('owner', ACCOUNT);
+    useAssistantUi.setState({ open: false, workspaceId: null, threadId: null, spotlight: null });
+    const thread = threadFixture();
+    const { fetchStub, calls } = stubFetch({
+      [`POST /assistant/schedule-runs/${RUN}/thread`]: { status: 200, body: thread },
+      [`GET /assistant/threads/${thread.id}/messages`]: { status: 200, body: { data: [] } },
+      [`GET /assistant/threads/${thread.id}/proposals`]: { status: 200, body: { items: [] } },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderPage();
+    await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' });
+    act(() => requestAssistantOpen({ reportRunId: RUN }));
+    await waitFor(() =>
+      expect(useAssistantUi.getState()).toMatchObject({ open: true, threadId: thread.id }),
+    );
+    expect(calls.map((c) => c.key)).toContain(`POST /assistant/schedule-runs/${RUN}/thread`);
   });
 });

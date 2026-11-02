@@ -15,6 +15,7 @@ import {
 import { ROUTE_INVOKER, type RouteInvoker } from '../domain/ports/route-invoker.port.js';
 import { ImportExecutor, type ImportOutcome, ImportRunError } from './import-executor.js';
 import { ROUTE_CATALOG, type RouteCatalog } from './route-catalog.js';
+import { type ScheduleProposalBody, SchedulesService } from './schedules.service.js';
 
 /** The stored result shown on a done proposal is at most this long. */
 export const RESULT_PREVIEW_CHARS = 1_000;
@@ -22,6 +23,7 @@ export const RESULT_PREVIEW_CHARS = 1_000;
 export function toProposalDto(p: ProposalRecord): AssistantProposalDto {
   return {
     id: p.id,
+    kind: p.kind,
     threadId: p.threadId,
     businessId: p.businessId,
     routeKey: p.routeKey,
@@ -34,7 +36,6 @@ export function toProposalDto(p: ProposalRecord): AssistantProposalDto {
     createdAt: p.createdAt.toISOString(),
     expiresAt: p.expiresAt.toISOString(),
     decidedAt: p.decidedAt?.toISOString() ?? null,
-    kind: p.kind,
     importBatchId: p.importBatchId,
   };
 }
@@ -70,6 +71,7 @@ export class ProposalService {
   constructor(
     @Inject(ASSISTANT_REPOSITORY) private readonly repo: AssistantRepository,
     @Inject(ROUTE_INVOKER) private readonly invoker: RouteInvoker,
+    @Inject(SchedulesService) private readonly schedules: SchedulesService,
   ) {
     this.importExecutor = new ImportExecutor(repo, invoker);
   }
@@ -100,6 +102,21 @@ export class ProposalService {
         decidedAt: new Date(),
       });
       throw new AssistantProposalConflictError('proposal_expired');
+    }
+    // A schedule change applies in-process, not through a route (S3-R11: /assistant is `never`).
+    if (proposal.kind === 'schedule') {
+      let outcome;
+      try {
+        outcome = await this.schedules.applyProposal(scope, proposal.body as ScheduleProposalBody);
+      } catch (e) {
+        this.#log.warn(`assistant proposal ${id}: schedule change failed (${errorClass(e)})`);
+        outcome = { ok: false as const, errorCode: 'apply_failed' };
+      }
+      return this.#finish(
+        scope,
+        proposal,
+        outcome.ok ? { ok: true, body: { id: outcome.id, name: outcome.name } } : outcome,
+      );
     }
     // The route may have left the catalog (or stopped being a write) since it was proposed.
     const entry = this.catalog.get(proposal.routeKey);

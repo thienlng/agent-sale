@@ -10,6 +10,14 @@ import {
   type JobRecord,
   type MessageFeedback,
   type NewJob,
+  type NewSchedule,
+  type NewScheduleRun,
+  SCHEDULE_RUN_LIST_LIMIT,
+  type ScheduleRecord,
+  type SchedulePatch,
+  type ScheduleRunPatch,
+  type ScheduleRunRecord,
+  type ScheduleStatePatch,
   type NewSkill,
   type NewSkillEvent,
   type NewSuggestion,
@@ -55,6 +63,8 @@ import {
   AssistantSkillNameTakenError,
 } from '../../domain/assistant.errors.js';
 import type { OwnerScope } from '../../domain/owner-scope.js';
+import { nextRunAt } from '../../domain/cadence.js';
+import { type ScheduleClaimOutcome, scheduleOutcomeChanges } from '../../domain/schedule.js';
 import { foldText, snippetAround } from '../../domain/search-text.js';
 
 interface Owned {
@@ -104,6 +114,11 @@ const strip = <T extends Owned>(row: T): Omit<T, keyof Owned> => {
   return structuredClone(rest);
 };
 
+/** The keys of a patch that are set (`undefined` = leave as is). */
+function definedOnly<T extends object>(patch: T): Partial<T> {
+  return Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined)) as Partial<T>;
+}
+
 const mine = (s: Owned, row: Owned) =>
   row.accountId === s.accountId && row.ownerUserId === s.ownerUserId;
 
@@ -121,6 +136,8 @@ export class InMemoryAssistantRepository implements AssistantRepository {
   readonly settings: StoredSettings[] = [];
   readonly jobs = new Map<string, JobRecord>();
   readonly importBatches = new Map<string, StoredImportBatch>();
+  readonly schedules = new Map<string, ScheduleRecord>();
+  readonly scheduleRuns = new Map<string, ScheduleRunRecord>();
   #clock = 0;
 
   /** Strictly increasing timestamps so ordering is deterministic in tests. */
@@ -188,14 +205,21 @@ export class InMemoryAssistantRepository implements AssistantRepository {
 
   async createThread(
     s: OwnerScope,
-    t: { id: string; title: string; systemPrompt: string; promptVersion: string },
+    t: {
+      id: string;
+      title: string;
+      systemPrompt: string;
+      promptVersion: string;
+      origin?: 'chat' | 'schedule';
+    },
   ): Promise<ThreadRecord> {
     const now = this.#now();
+    const { origin = 'chat', ...fields } = t;
     const row: StoredThread = {
-      ...t,
+      ...fields,
       accountId: s.accountId,
       ownerUserId: s.ownerUserId,
-      origin: 'chat',
+      origin,
       pinned: false,
       archived: false,
       businessId: s.businessId,
@@ -1086,5 +1110,204 @@ export class InMemoryAssistantRepository implements AssistantRepository {
       .filter((p) => mine(s, p) && p.importBatchId === batchId && p.status === 'pending')
       .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
       .map((p) => this.#publicProposal(p));
+  }
+  // ─── Schedules (T-172) ───
+
+  /** Mirrors the table's CHECK constraints on a schedule row. */
+  #checkSchedule(x: Pick<ScheduleRecord, 'name' | 'template' | 'mode' | 'channels'>): void {
+    if (x.name.length > 80) throw new Error('assistant schedule name too long');
+    const known = ['in_app', 'email', 'push'];
+    if (!x.channels.includes('in_app') || x.channels.some((c) => !known.includes(c))) {
+      throw new Error('invalid assistant schedule channels');
+    }
+    if (
+      x.mode === 'alert' &&
+      !['new_orders', 'low_stock', 'unanswered_conversations'].includes(x.template)
+    ) {
+      throw new Error('invalid assistant schedule mode for the template');
+    }
+  }
+
+  #nextScheduleVersion(prev: Date): Date {
+    return new Date(Math.max(this.#now().getTime(), prev.getTime() + 1));
+  }
+
+  async listSchedules(s: OwnerKey): Promise<ScheduleRecord[]> {
+    return [...this.schedules.values()]
+      .filter((x) => mine(s, x))
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || (a.id < b.id ? -1 : 1))
+      .map((x) => structuredClone(x));
+  }
+
+  async getSchedule(s: OwnerKey, id: string): Promise<ScheduleRecord | null> {
+    const x = this.schedules.get(id);
+    return x && mine(s, x) ? structuredClone(x) : null;
+  }
+
+  async countSchedules(s: OwnerKey): Promise<number> {
+    return [...this.schedules.values()].filter((x) => mine(s, x)).length;
+  }
+
+  async createSchedule(s: OwnerKey, row: NewSchedule): Promise<ScheduleRecord> {
+    if (this.schedules.has(row.id)) throw new Error('assistant schedule id already used');
+    this.#checkSchedule(row);
+    const now = this.#now();
+    const x: ScheduleRecord = {
+      ...structuredClone(row),
+      accountId: s.accountId,
+      ownerUserId: s.ownerUserId,
+      status: row.status ?? 'active',
+      pausedReason: row.pausedReason ?? null,
+      alertCursor: row.alertCursor ?? null,
+      runRequestedAt: null,
+      leaseUntil: null,
+      consecutiveFailures: 0,
+      lastRunAt: null,
+      lastCheckedAt: null,
+      alertFingerprint: null,
+      lastAlertedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.schedules.set(x.id, x);
+    return structuredClone(x);
+  }
+
+  async updateSchedule(
+    s: OwnerKey,
+    id: string,
+    patch: SchedulePatch,
+    expectedUpdatedAt?: Date,
+  ): Promise<ScheduleRecord | null> {
+    const x = this.schedules.get(id);
+    if (!x || !mine(s, x)) return null;
+    if (expectedUpdatedAt && x.updatedAt.getTime() !== expectedUpdatedAt.getTime()) return null;
+    const next = { ...x, ...definedOnly(structuredClone(patch)) };
+    this.#checkSchedule(next);
+    Object.assign(x, next, { updatedAt: this.#nextScheduleVersion(x.updatedAt) });
+    return structuredClone(x);
+  }
+
+  async deleteSchedule(s: OwnerKey, id: string): Promise<boolean> {
+    const x = this.schedules.get(id);
+    if (!x || !mine(s, x)) return false;
+    this.schedules.delete(id);
+    for (const [runId, r] of this.scheduleRuns) {
+      if (r.scheduleId === id) this.scheduleRuns.delete(runId);
+    }
+    return true;
+  }
+
+  async listScheduleRuns(
+    s: OwnerKey,
+    scheduleId: string,
+    limit: number,
+  ): Promise<ScheduleRunRecord[]> {
+    return [...this.scheduleRuns.values()]
+      .filter((r) => r.scheduleId === scheduleId && mine(s, r))
+      .sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime() || (a.id < b.id ? 1 : -1))
+      .slice(0, Math.max(1, Math.min(limit, SCHEDULE_RUN_LIST_LIMIT)))
+      .map((r) => structuredClone(r));
+  }
+
+  async getScheduleRun(s: OwnerKey, runId: string): Promise<ScheduleRunRecord | null> {
+    const r = this.scheduleRuns.get(runId);
+    return r && mine(s, r) ? structuredClone(r) : null;
+  }
+
+  async setRunThread(s: OwnerKey, runId: string, threadId: string): Promise<string | null> {
+    this.#thread(s, threadId);
+    const r = this.scheduleRuns.get(runId);
+    if (!r || !mine(s, r)) return null;
+    if (r.threadId === null) r.threadId = threadId;
+    return r.threadId;
+  }
+
+  async countPendingScheduleProposals(s: OwnerKey, now: Date = new Date()): Promise<number> {
+    return [...this.proposals.values()].filter(
+      (p) =>
+        mine(s, p) &&
+        p.kind === 'schedule' &&
+        p.routeKey === 'SCHEDULE create' &&
+        p.status === 'pending' &&
+        p.expiresAt.getTime() >= now.getTime(),
+    ).length;
+  }
+
+  async claimDueSchedules(now: Date, limit: number, leaseMs: number): Promise<ScheduleRecord[]> {
+    const at = now.getTime();
+    const slot = (x: ScheduleRecord) => (x.runRequestedAt ?? x.nextRunAt ?? now).getTime();
+    const due = [...this.schedules.values()]
+      .filter(
+        (x) =>
+          x.status === 'active' &&
+          ((x.nextRunAt !== null && x.nextRunAt.getTime() <= at) || x.runRequestedAt !== null) &&
+          (x.leaseUntil === null || x.leaseUntil.getTime() < at),
+      )
+      .sort((a, b) => slot(a) - slot(b) || (a.id < b.id ? -1 : 1))
+      .slice(0, limit);
+    for (const x of due) x.leaseUntil = new Date(at + leaseMs);
+    return due.map((x) => structuredClone(x));
+  }
+
+  async insertScheduleRun(row: NewScheduleRun): Promise<ScheduleRunRecord | null> {
+    const taken = [...this.scheduleRuns.values()].some(
+      (r) =>
+        r.scheduleId === row.scheduleId && r.scheduledFor.getTime() === row.scheduledFor.getTime(),
+    );
+    if (taken) return null;
+    if (!this.schedules.has(row.scheduleId)) throw new Error('assistant schedule not found');
+    const r: ScheduleRunRecord = {
+      ...structuredClone(row),
+      status: row.status ?? 'running',
+      errorCode: row.errorCode ?? null,
+      finishedAt: row.finishedAt ?? null,
+      report: null,
+      title: null,
+      body: null,
+      commentaryRunId: null,
+      notificationId: null,
+      threadId: null,
+      startedAt: this.#now(),
+    };
+    this.scheduleRuns.set(r.id, r);
+    return structuredClone(r);
+  }
+
+  async getScheduleRunAt(
+    scheduleId: string,
+    scheduledFor: Date,
+  ): Promise<ScheduleRunRecord | null> {
+    const r = [...this.scheduleRuns.values()].find(
+      (x) => x.scheduleId === scheduleId && x.scheduledFor.getTime() === scheduledFor.getTime(),
+    );
+    return r ? structuredClone(r) : null;
+  }
+
+  async finishScheduleRun(id: string, patch: ScheduleRunPatch): Promise<void> {
+    const r = this.scheduleRuns.get(id);
+    if (r) Object.assign(r, definedOnly(structuredClone(patch)));
+  }
+
+  async saveScheduleState(
+    id: string,
+    patch: ScheduleStatePatch,
+    claim: ScheduleClaimOutcome,
+  ): Promise<void> {
+    const x = this.schedules.get(id);
+    if (!x) return;
+    const changes = scheduleOutcomeChanges(x, claim, nextRunAt);
+    Object.assign(x, definedOnly(structuredClone(patch)), changes, { leaseUntil: null });
+  }
+
+  async purgeOldScheduleRuns(before: Date): Promise<number> {
+    let n = 0;
+    for (const [id, r] of this.scheduleRuns) {
+      if (r.startedAt.getTime() < before.getTime()) {
+        this.scheduleRuns.delete(id);
+        n++;
+      }
+    }
+    return n;
   }
 }

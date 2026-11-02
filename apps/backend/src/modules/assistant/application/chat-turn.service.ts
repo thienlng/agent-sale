@@ -41,6 +41,8 @@ import { buildTurnMessage } from './prompt-builder.js';
 import { ROUTE_CATALOG, type RouteCatalog } from './route-catalog.js';
 import { ROUTE_TOOL_DEFINITIONS, routeTools } from './route-tools.js';
 import { planReview } from './review-trigger.js';
+import { SCHEDULE_TOOL_DEFINITION, scheduleTool } from './schedule-tools.js';
+import { SchedulesService } from './schedules.service.js';
 import { SKILL_MANAGE_TOOL, SKILL_TOOL_DEFINITIONS, skillTools } from './skill-tools.js';
 import { SkillsService } from './skills.service.js';
 import { MAX_CHARTS_PER_TURN } from './sql/chart.js';
@@ -67,6 +69,8 @@ export const HISTORY_MAX_MESSAGES = 200;
 export const MIN_ANSWER_BUDGET_MS = 30_000;
 /** Appended to the last tool result at 80% of the turn budget (the shop bot's text says customer). */
 export const OWNER_WRAP_UP_NOTICE = 'Time is almost up: answer the owner now with what you have.';
+const byName = (a: { name: string }, b: { name: string }) =>
+  a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
 /** Every tool the model is offered, sorted by name so the tool list stays cache-stable. */
 export const TURN_TOOL_DEFINITIONS = [
   ...CORE_TOOL_DEFINITIONS,
@@ -74,7 +78,12 @@ export const TURN_TOOL_DEFINITIONS = [
   ...SKILL_TOOL_DEFINITIONS,
   ...ROUTE_TOOL_DEFINITIONS,
   ...IMPORT_TOOL_DEFINITIONS,
-].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  SCHEDULE_TOOL_DEFINITION,
+].sort(byName);
+/** The turn's tools without `schedule` (a report thread): no schedule created from a schedule (core §12). */
+export const TURN_TOOL_DEFINITIONS_NO_SCHEDULE = TURN_TOOL_DEFINITIONS.filter(
+  (t) => t.name !== SCHEDULE_TOOL_DEFINITION.name,
+);
 
 export interface TurnResult {
   /** The visible messages of the turn (the owner's text, then the answer). */
@@ -189,6 +198,7 @@ export class ChatTurnService {
     @Inject(SkillsService) private readonly skills: SkillsService,
     @Inject(ROUTE_INVOKER) private readonly invoker: RouteInvoker,
     @Inject(CompactionService) private readonly compaction: CompactionService,
+    @Inject(SchedulesService) private readonly schedules: SchedulesService,
     @Inject(ASSISTANT_SQL_RUNNER)
     @Optional()
     private readonly sqlRunner: SqlRunner | null = null,
@@ -339,6 +349,8 @@ export class ChatTurnService {
     // The turn's proposals; the web reads them per thread, so the answer carries no field.
     const proposalIds: string[] = [];
     const native = this.#nativeTools(scope, runId, ctx.uiActions, settings.disabledToolsets);
+    // No schedule created from a schedule (core §12); the `schedule` toolset setting applies too.
+    const withSchedule = thread.origin !== 'schedule';
     const pending: Promise<void>[] = [];
     let idx = 0;
     let result: AgentLoopResult | undefined;
@@ -350,7 +362,10 @@ export class ChatTurnService {
           tier: TURN_TIER,
           messages: [{ role: 'system', content: thread.systemPrompt }, ...history],
           // The owner's disabled toolsets are left out (spec §6); the rest keep their order.
-          tools: enabledDefinitions(TURN_TOOL_DEFINITIONS, settings.disabledToolsets),
+          tools: enabledDefinitions(
+            withSchedule ? TURN_TOOL_DEFINITIONS : TURN_TOOL_DEFINITIONS_NO_SCHEDULE,
+            settings.disabledToolsets,
+          ),
           // Stable across compactions: the root is the thread id, kept in cache_root_id. The
           // disabled set is a sorted suffix, so a smaller tool list gets its own cache entry.
           promptCacheKey:
@@ -392,6 +407,18 @@ export class ChatTurnService {
               runId,
               proposalIds,
             }),
+            ...(withSchedule
+              ? [
+                  scheduleTool({
+                    scope,
+                    repo: this.repo,
+                    schedules: this.schedules,
+                    threadId: thread.id,
+                    runId,
+                    proposalIds,
+                  }),
+                ]
+              : []),
           ].filter((tool) => !off.has(tool.name)),
         ),
         generate: (r) => this.gateway.generate(r),

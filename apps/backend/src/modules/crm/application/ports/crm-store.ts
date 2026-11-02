@@ -177,6 +177,14 @@ export interface CrmTx {
       to: string | null,
       at: Date,
     ): Promise<string[]>;
+    /**
+     * Non-archived customers created in `[since, until)`, counted per first source name (the
+     * current source when no first source is recorded; null = none), most first.
+     */
+    createdBySource(q: {
+      since: Date;
+      until: Date;
+    }): Promise<{ source: string | null; count: number }[]>;
   };
   notes: {
     list(contactId: string): Promise<NoteRecord[]>;

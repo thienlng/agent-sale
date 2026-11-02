@@ -52,6 +52,7 @@ if (saved !== 'vi') void switchTo(saved);
 const lazyNamespaces = {
   integration: () => import('@agent-sales/i18n/integration').then((m) => m.integration),
   assistant: () => import('@agent-sales/i18n/assistant').then((m) => m.assistant),
+  notification: () => import('@agent-sales/i18n/notification').then((m) => m.notification),
   backoffice: () => import('@agent-sales/i18n/backoffice').then((m) => m.backoffice),
   developer: () => import('@agent-sales/i18n/developer').then((m) => m.developer),
 } satisfies Record<string, () => Promise<Record<Locale, unknown>>>;

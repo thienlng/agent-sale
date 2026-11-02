@@ -22,7 +22,7 @@ import { users } from './identity.js';
 import { accountPolicies, workspaces } from './workspace.js';
 
 /*
- * Owner assistant (0056, 0057, 0058 and 0061, ADR-023). ACCOUNT-scoped, not workspace-scoped: every row carries
+ * Owner assistant (0056, 0057, 0058, 0060 and 0061, ADR-023). ACCOUNT-scoped, not workspace-scoped: every row carries
  * `account_id` and RLS reads `app.account_id`, set by `withAccount`. `assistant_messages.search`
  * (a generated tsvector) and its GIN/trigram indexes exist only in SQL; repositories query them
  * with `sql`, so Drizzle never selects or writes the generated column.
@@ -276,7 +276,7 @@ export const assistantProposals = pgTable(
     expiresAt: ts('expires_at').notNull(),
     decidedAt: ts('decided_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
-    /** `route` (1b), `schedule` (capability 3) or `product_import` (0061). */
+    /** `route` (1b), `schedule` (T-172, 0060) or `product_import` (T-173, 0061). */
     kind: text('kind').notNull().default('route'),
     /** The batch a `product_import` proposal imports; its data lives there, not in `body`. */
     importBatchId: uuid('import_batch_id').references(() => assistantImportBatches.id, {
@@ -284,6 +284,10 @@ export const assistantProposals = pgTable(
     }),
   },
   (t) => [
+    check(
+      'assistant_proposals_kind_check',
+      sql`${t.kind} in ('route','schedule','product_import')`,
+    ),
     check('assistant_proposals_summary_check', sql`char_length(${t.summary}) <= 300`),
     check(
       'assistant_proposals_kind_check',
@@ -491,5 +495,126 @@ export const assistantJobs = pgTable(
       .on(t.accountId, t.ownerUserId, t.kind, t.threadId)
       .where(sql`status = 'queued'`),
     ...accountPolicies('assistant_jobs'),
+  ],
+);
+
+/**
+ * Code-computed scheduled reports and alerts of an owner (0060, T-172). `cadence` and `params`
+ * are validated by the assistant domain; the runner leases due rows (`lease_until`).
+ */
+export const assistantSchedules = pgTable(
+  'assistant_schedules',
+  {
+    id: uuid('id').primaryKey(),
+    accountId: accountRef(),
+    ownerUserId: uuid('owner_user_id')
+      .notNull()
+      .references(() => users.id),
+    businessId: uuid('business_id')
+      .notNull()
+      .references(() => workspaces.id),
+    name: text('name').notNull(),
+    template: text('template').notNull(),
+    mode: text('mode').notNull(),
+    params: jsonb('params').notNull().default({}),
+    cadence: jsonb('cadence').notNull(),
+    channels: text('channels')
+      .array()
+      .notNull()
+      .default(sql`ARRAY['in_app']`),
+    commentary: boolean('commentary').notNull().default(false),
+    status: text('status').notNull().default('active'),
+    pausedReason: text('paused_reason'),
+    nextRunAt: ts('next_run_at'),
+    runRequestedAt: ts('run_requested_at'),
+    leaseUntil: ts('lease_until'),
+    consecutiveFailures: integer('consecutive_failures').notNull().default(0),
+    lastRunAt: ts('last_run_at'),
+    lastCheckedAt: ts('last_checked_at'),
+    alertFingerprint: text('alert_fingerprint'),
+    lastAlertedAt: ts('last_alerted_at'),
+    alertCursor: ts('alert_cursor'),
+    createdBy: text('created_by').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    /** Optimistic-concurrency token, kept at millisecond precision so a JS Date matches it. */
+    updatedAt: ts('updated_at')
+      .notNull()
+      .default(sql`date_trunc('milliseconds', now())`),
+  },
+  (t) => [
+    check('assistant_schedules_name_check', sql`char_length(${t.name}) <= 80`),
+    check(
+      'assistant_schedules_template_check',
+      sql`${t.template} in ('revenue_summary','new_orders','low_stock','unanswered_conversations','new_customers')`,
+    ),
+    check('assistant_schedules_mode_check', sql`${t.mode} in ('report','alert')`),
+    check('assistant_schedules_status_check', sql`${t.status} in ('active','paused')`),
+    check(
+      'assistant_schedules_paused_reason_check',
+      sql`${t.pausedReason} in ('owner','failures','business_unavailable','owner_not_active')`,
+    ),
+    check(
+      'assistant_schedules_created_by_check',
+      sql`${t.createdBy} in ('owner','assistant','suggestion')`,
+    ),
+    check(
+      'assistant_schedules_channels_check',
+      sql`${t.channels} <@ ARRAY['in_app','email','push'] and 'in_app' = any(${t.channels})`,
+    ),
+    check(
+      'assistant_schedules_mode_template_check',
+      sql`${t.mode} = 'report' or ${t.template} in ('new_orders','low_stock','unanswered_conversations')`,
+    ),
+    index('assistant_schedules_due_idx').on(t.status, t.nextRunAt),
+    index('assistant_schedules_requested_idx')
+      .on(t.status, t.runRequestedAt)
+      .where(sql`run_requested_at is not null`),
+    index('assistant_schedules_owner_idx').on(t.accountId, t.ownerUserId),
+    ...accountPolicies('assistant_schedules'),
+  ],
+);
+
+/** One execution of a schedule (0060): unique per `(schedule_id, scheduled_for)`; no PII in `report`. */
+export const assistantScheduleRuns = pgTable(
+  'assistant_schedule_runs',
+  {
+    id: uuid('id').primaryKey(),
+    accountId: accountRef(),
+    ownerUserId: uuid('owner_user_id').notNull(),
+    scheduleId: uuid('schedule_id')
+      .notNull()
+      .references(() => assistantSchedules.id, { onDelete: 'cascade' }),
+    trigger: text('trigger').notNull(),
+    scheduledFor: ts('scheduled_for').notNull(),
+    status: text('status').notNull().default('running'),
+    errorCode: text('error_code'),
+    report: jsonb('report'),
+    title: text('title'),
+    body: text('body'),
+    commentaryRunId: uuid('commentary_run_id'),
+    notificationId: uuid('notification_id'),
+    threadId: uuid('thread_id').references(() => assistantThreads.id, { onDelete: 'set null' }),
+    startedAt: ts('started_at').notNull().defaultNow(),
+    finishedAt: ts('finished_at'),
+  },
+  (t) => [
+    check('assistant_schedule_runs_trigger_check', sql`${t.trigger} in ('cadence','manual')`),
+    check(
+      'assistant_schedule_runs_status_check',
+      sql`${t.status} in ('running','done','failed','blocked','skipped')`,
+    ),
+    check(
+      'assistant_schedule_runs_report_check',
+      sql`${t.report} is null or octet_length(${t.report}::text) <= 16384`,
+    ),
+    unique('assistant_schedule_runs_slot_unique').on(t.scheduleId, t.scheduledFor),
+    index('assistant_schedule_runs_owner_idx').on(
+      t.accountId,
+      t.ownerUserId,
+      t.scheduleId,
+      t.startedAt.desc(),
+    ),
+    index('assistant_schedule_runs_started_idx').on(t.startedAt),
+    ...accountPolicies('assistant_schedule_runs'),
   ],
 );

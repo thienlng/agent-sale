@@ -28,6 +28,34 @@ export class MemoryConversationStore implements ConversationStore {
             ([key, c]) =>
               key.startsWith(`${ws}/`) && c.channelId === channel && c.customerId === customer,
           )?.[1] ?? null,
+        awaitingReply: async ({ olderThan, limit }) => {
+          const waiting = [...rows.entries()]
+            .filter(([key]) => key.startsWith(`${ws}/`))
+            .map(([, c]) => c)
+            .filter(
+              (c) =>
+                c.status === 'open' &&
+                c.awaitingSince !== null &&
+                Date.parse(c.awaitingSince) <= olderThan.getTime(),
+            )
+            .sort(
+              (a, b) =>
+                Date.parse(a.awaitingSince ?? '') - Date.parse(b.awaitingSince ?? '') ||
+                (a.id < b.id ? -1 : 1),
+            );
+          const byChannel = new Map<string, number>();
+          for (const c of waiting) byChannel.set(c.provider, (byChannel.get(c.provider) ?? 0) + 1);
+          return {
+            count: waiting.length,
+            oldestSince: waiting[0]?.awaitingSince
+              ? new Date(waiting[0].awaitingSince).toISOString()
+              : null,
+            byChannel: [...byChannel]
+              .map(([channel, count]) => ({ channel, count }))
+              .sort((a, b) => b.count - a.count || a.channel.localeCompare(b.channel)),
+            ids: waiting.slice(0, Math.max(0, Math.min(limit, 200))).map((c) => c.id),
+          };
+        },
         query: async (filter) =>
           filterConversations(
             [...rows.entries()].filter(([key]) => key.startsWith(`${ws}/`)).map(([, c]) => c),

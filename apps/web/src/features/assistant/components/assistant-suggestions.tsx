@@ -10,7 +10,8 @@ import { ApiClientError } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 
 import { useAssistantSuggestions, useDecideSuggestion } from '../api/assistant-settings';
-import { safeAppPath } from '../utils/safe-app-path';
+import { useAssistantUi } from '../stores/assistant-ui.store';
+import { safeAppPath } from '@/lib/safe-app-path';
 
 /** The skill a `skill` card would draft, when its payload has one. */
 function draftOf(
@@ -67,6 +68,8 @@ function SuggestionCard({ suggestion }: { suggestion: AssistantSuggestionDto }) 
       {
         onSuccess: (res) => {
           if (res.skill) toast.success(t('suggestions.skillSaved', { name: res.skill.name }));
+          // A schedule card opens its draft in the schedule editor; saving it is the approval.
+          if (res.scheduleDraft) useAssistantUi.getState().openScheduleEditor(res.scheduleDraft);
           // The server checked the path already; the web checks again before leaving the page.
           const to = res.path ? safeAppPath(res.path) : null;
           if (to) void router.navigate({ href: to });
@@ -75,7 +78,10 @@ function SuggestionCard({ suggestion }: { suggestion: AssistantSuggestionDto }) 
           toast.error(
             error instanceof ApiClientError && error.status === 409
               ? t('suggestions.conflict')
-              : t('suggestions.error'),
+              : error instanceof ApiClientError &&
+                  error.details?.['reason'] === 'invalid_schedule_draft'
+                ? t('suggestions.invalidSchedule')
+                : t('suggestions.error'),
           ),
       },
     );

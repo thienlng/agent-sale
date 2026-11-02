@@ -13,6 +13,7 @@ import { SkillsService } from '../application/skills.service.js';
 import { setupPath, SuggestionsService } from '../application/suggestions.service.js';
 import { ThreadPromptService } from '../application/thread-prompt.service.js';
 import { TOOLSETS, toolsetCacheSuffix } from '../application/toolsets.js';
+import type { SchedulesService } from '../application/schedules.service.js';
 import type { AccountFacade } from '../../account/api/index.js';
 import type { WorkspaceFacade } from '../../workspace/api/index.js';
 import {
@@ -293,6 +294,7 @@ describe('settings and toolsets', () => {
       { id: 'skills', labelKey: 'toolsets.skills', toolCount: 3, uses30d: 0, locked: false },
       { id: 'routes', labelKey: 'toolsets.routes', toolCount: 3, uses30d: 2, locked: false },
       { id: 'import', labelKey: 'toolsets.import', toolCount: 2, uses30d: 0, locked: false },
+      { id: 'schedule', labelKey: 'toolsets.schedule', toolCount: 1, uses30d: 0, locked: false },
       { id: 'sql', labelKey: 'toolsets.sql', toolCount: 2, uses30d: 0, locked: false },
     ]);
   });
@@ -349,6 +351,7 @@ describe('settings and toolsets', () => {
       s.skills,
       { invoke: vi.fn() },
       compaction,
+      {} as SchedulesService,
     );
     const thread = await s.repo.createThread(s.scope, {
       id: newId(),
@@ -370,6 +373,7 @@ describe('settings and toolsets', () => {
       'import_preview',
       'import_propose',
       'memory',
+      'schedule',
       'session_search',
       'ui_fill_form',
       'ui_navigate',

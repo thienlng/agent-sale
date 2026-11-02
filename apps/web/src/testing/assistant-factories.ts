@@ -100,6 +100,7 @@ export function turnFixture(
 export function proposalFixture(over: Partial<AssistantProposalDto> = {}): AssistantProposalDto {
   return {
     id: ASSISTANT_IDS.proposal,
+    kind: 'route',
     threadId: ASSISTANT_IDS.thread,
     businessId: '3f0c1f0e-5b1c-4c1e-9d55-0a1b2c3d4e5f',
     routeKey: 'PATCH /products/{productId}',
@@ -112,7 +113,6 @@ export function proposalFixture(over: Partial<AssistantProposalDto> = {}): Assis
     createdAt: '2026-11-02T07:59:59.000Z',
     expiresAt: '2026-11-03T07:59:59.000Z',
     decidedAt: null,
-    kind: 'route',
     importBatchId: null,
     ...over,
   };

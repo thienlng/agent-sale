@@ -5,12 +5,13 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
-import { useSession } from '@/lib/session';
 import { cn } from '@/lib/utils';
 
 import { ImportProposalCard } from './import-proposal-card';
 import { useProposalDecision } from './proposal-decision';
+import { useBusinessName } from '../hooks/use-businesses';
 import { ACTION_DRAFT_ROUTE, openLinkFor } from '../utils/proposal-links';
+import { ScheduleProposalCard } from './schedule-proposal-card';
 
 /** Preview text for the card: a value as indented JSON, capped for the panel. */
 function previewText(preview: unknown): string {
@@ -61,11 +62,6 @@ function previewParts(preview: unknown): { before: string; changes: string } {
     }
   }
   return { before: '', changes: previewText(preview) };
-}
-
-function useBusinessName(businessId: string): string | null {
-  const session = useSession();
-  return session?.memberships.find((m) => m.workspaceId === businessId)?.workspaceName ?? null;
 }
 
 /**
@@ -236,6 +232,9 @@ function PendingProposal({ proposal }: { proposal: AssistantProposalDto }) {
  */
 export function AssistantProposal({ proposal }: { proposal: AssistantProposalDto }) {
   if (proposal.kind === 'product_import') return <ImportProposalCard proposal={proposal} />;
+  if (proposal.status === 'pending' && proposal.kind === 'schedule') {
+    return <ScheduleProposalCard proposal={proposal} />;
+  }
   return proposal.status === 'pending' ? (
     <PendingProposal proposal={proposal} />
   ) : (

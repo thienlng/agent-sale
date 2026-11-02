@@ -135,6 +135,16 @@ describe('assistantRoutes', () => {
       'get /assistant/suggestions',
       'post /assistant/suggestions/{suggestionId}/accept',
       'post /assistant/suggestions/{suggestionId}/dismiss',
+      'get /assistant/schedules',
+      'post /assistant/schedules',
+      'post /assistant/schedules/preview',
+      'patch /assistant/schedules/{scheduleId}',
+      'post /assistant/schedules/{scheduleId}/pause',
+      'post /assistant/schedules/{scheduleId}/resume',
+      'post /assistant/schedules/{scheduleId}/run',
+      'delete /assistant/schedules/{scheduleId}',
+      'get /assistant/schedules/{scheduleId}/runs',
+      'post /assistant/schedule-runs/{runId}/thread',
     ]);
     for (const r of assistantRoutes) {
       expect(r).toMatchObject({
@@ -280,6 +290,7 @@ describe('proposal and memory DTOs', () => {
   it('parses a pending proposal and rejects an unknown status', () => {
     const proposal = {
       id: TURN,
+      kind: 'route',
       threadId: TURN,
       businessId: TURN,
       routeKey: 'PATCH /products/{productId}',
@@ -294,6 +305,7 @@ describe('proposal and memory DTOs', () => {
       decidedAt: null,
     };
     expect(AssistantProposalDto.safeParse(proposal).success).toBe(true);
+    expect(AssistantProposalDto.safeParse({ ...proposal, kind: 'cron' }).success).toBe(false);
     expect(AssistantProposalDto.safeParse({ ...proposal, status: 'approved' }).success).toBe(false);
     expect(AssistantProposalDto.safeParse({ ...proposal, resultId: TURN }).success).toBe(true);
     expect(AssistantProposalDto.safeParse({ ...proposal, resultId: 'x' }).success).toBe(false);

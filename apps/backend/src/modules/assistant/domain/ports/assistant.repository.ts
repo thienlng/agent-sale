@@ -7,6 +7,18 @@ import type {
   ImportSourceData,
   ImportSpec,
 } from '../product-import.js';
+import type {
+  Cadence,
+  ScheduleChannel,
+  ScheduleClaimOutcome,
+  ScheduleCreatedBy,
+  ScheduleMode,
+  SchedulePausedReason,
+  ScheduleRunStatus,
+  ScheduleRunTrigger,
+  ScheduleStatus,
+  ScheduleTemplate,
+} from '../schedule.js';
 
 /**
  * The account and owner a repository call is limited to. Every `OwnerScope` is one; the worker
@@ -17,7 +29,10 @@ export type OwnerKey = Pick<OwnerScope, 'accountId' | 'ownerUserId'>;
 export interface ThreadRecord {
   id: string;
   title: string;
-  /** `chat` = the owner's own thread; `schedule` / `review` threads are made by the system. */
+  /**
+   * `chat` = the owner's own thread; `schedule` = a report thread (S3-R10); `review` = a 1c
+   * review thread. `schedule` / `review` threads are made by the system.
+   */
   origin: ThreadOrigin;
   pinned: boolean;
   archived: boolean;
@@ -74,9 +89,10 @@ export interface RunRecord {
   /**
    * `chat` = an owner turn; `compaction` = one summariser call (tier `basic`); `review` = one
    * background review (worker, never in the transcript); `import_vision` = one photo-drafting
-   * call of a product import (T-173).
+   * call of a product import (T-173); `schedule` = one report commentary call (tier `basic`, no
+   * thread).
    */
-  kind: 'chat' | 'compaction' | 'review' | 'import_vision';
+  kind: 'chat' | 'compaction' | 'review' | 'import_vision' | 'schedule';
   status: 'running' | 'done' | 'failed';
   tier: string;
   provider: string | null;
@@ -161,6 +177,12 @@ export const MEMORY_STORE_PATTERN = /^(owner_profile|notes|business:[0-9a-f-]{36
 
 export type ProposalStatus = 'pending' | 'executing' | 'done' | 'failed' | 'rejected' | 'expired';
 
+/**
+ * `route` = a declared route; `schedule` = a schedule create/edit/remove (T-172);
+ * `product_import` = an import batch's products (T-173).
+ */
+export type ProposalKind = AssistantProposalKind;
+
 /** A write the model drafted; it runs only when the owner approves it. */
 export interface ProposalRecord {
   id: string;
@@ -184,8 +206,8 @@ export interface ProposalRecord {
   expiresAt: Date;
   decidedAt: Date | null;
   createdAt: Date;
-  /** `route` (1b), `schedule` or `product_import` (T-173). */
-  kind: AssistantProposalKind;
+  /** `route` (1b), `schedule` (T-172) or `product_import` (T-173). */
+  kind: ProposalKind;
   /** Set exactly when `kind` is `product_import`. */
   importBatchId: string | null;
 }
@@ -480,6 +502,141 @@ export interface NewJob {
 /** A job whose lease lapsed this many times is failed (`lease_expired`), not claimed again. */
 export const JOB_MAX_ATTEMPTS = 3;
 
+// ─── Schedules (T-172) ───
+
+export interface ScheduleRecord {
+  id: string;
+  accountId: string;
+  ownerUserId: string;
+  businessId: string;
+  /** ≤ 80 chars, safety-scanned before it is stored. */
+  name: string;
+  template: ScheduleTemplate;
+  mode: ScheduleMode;
+  params: Record<string, unknown>;
+  cadence: Cadence;
+  /** Always contains `in_app`. */
+  channels: ScheduleChannel[];
+  commentary: boolean;
+  status: ScheduleStatus;
+  pausedReason: SchedulePausedReason | null;
+  /** Null while paused. */
+  nextRunAt: Date | null;
+  /** Set by "Chạy ngay"; the runner clears it. */
+  runRequestedAt: Date | null;
+  leaseUntil: Date | null;
+  consecutiveFailures: number;
+  lastRunAt: Date | null;
+  lastCheckedAt: Date | null;
+  alertFingerprint: string | null;
+  lastAlertedAt: Date | null;
+  /** `new_orders` alerts: orders placed at or after it are new. */
+  alertCursor: Date | null;
+  createdBy: ScheduleCreatedBy;
+  createdAt: Date;
+  /** Millisecond precision; the optimistic-concurrency token of `updateSchedule`. */
+  updatedAt: Date;
+}
+
+export type NewSchedule = Pick<
+  ScheduleRecord,
+  | 'id'
+  | 'businessId'
+  | 'name'
+  | 'template'
+  | 'mode'
+  | 'params'
+  | 'cadence'
+  | 'channels'
+  | 'commentary'
+  | 'createdBy'
+  | 'nextRunAt'
+> &
+  Partial<Pick<ScheduleRecord, 'status' | 'pausedReason' | 'alertCursor'>>;
+
+/** An owner edit (or the service on their behalf); bumps `updated_at`. */
+export type SchedulePatch = Partial<
+  Pick<
+    ScheduleRecord,
+    | 'businessId'
+    | 'name'
+    | 'template'
+    | 'mode'
+    | 'params'
+    | 'cadence'
+    | 'channels'
+    | 'commentary'
+    | 'status'
+    | 'pausedReason'
+    | 'nextRunAt'
+    | 'runRequestedAt'
+    | 'consecutiveFailures'
+    | 'alertFingerprint'
+    | 'lastAlertedAt'
+    | 'alertCursor'
+  >
+>;
+
+/**
+ * The run outcome the runner writes as is; the schedule's status, next run and manual request go
+ * through `ScheduleClaimOutcome` instead, against the row as stored at write time.
+ */
+export type ScheduleStatePatch = Partial<
+  Pick<
+    ScheduleRecord,
+    | 'consecutiveFailures'
+    | 'lastRunAt'
+    | 'lastCheckedAt'
+    | 'alertFingerprint'
+    | 'lastAlertedAt'
+    | 'alertCursor'
+  >
+>;
+
+export interface ScheduleRunRecord {
+  id: string;
+  accountId: string;
+  ownerUserId: string;
+  scheduleId: string;
+  trigger: ScheduleRunTrigger;
+  scheduledFor: Date;
+  status: ScheduleRunStatus;
+  errorCode: string | null;
+  /** Template id, period and figures; no customer PII (S3-R9), ≤ 16 KB. */
+  report: Record<string, unknown> | null;
+  title: string | null;
+  body: string | null;
+  commentaryRunId: string | null;
+  notificationId: string | null;
+  /** The `origin: schedule` thread "Hỏi trợ lý" created (S3-R10). */
+  threadId: string | null;
+  startedAt: Date;
+  finishedAt: Date | null;
+}
+
+export type NewScheduleRun = Pick<
+  ScheduleRunRecord,
+  'id' | 'accountId' | 'ownerUserId' | 'scheduleId' | 'trigger' | 'scheduledFor'
+> &
+  Partial<Pick<ScheduleRunRecord, 'status' | 'errorCode' | 'finishedAt'>>;
+
+export type ScheduleRunPatch = Partial<
+  Pick<
+    ScheduleRunRecord,
+    | 'status'
+    | 'errorCode'
+    | 'report'
+    | 'title'
+    | 'body'
+    | 'commentaryRunId'
+    | 'notificationId'
+    | 'finishedAt'
+  >
+>;
+
+/** Runs listed per schedule at most. */
+export const SCHEDULE_RUN_LIST_LIMIT = 50;
+
 /** Threads listed per page. */
 export const THREAD_LIST_LIMIT = 50;
 /** A running run older than this no longer blocks a new one (crashed process). */
@@ -497,9 +654,16 @@ export interface AssistantRepository {
   listThreads(s: OwnerScope, q: { archived: boolean; text?: string }): Promise<ThreadRecord[]>;
   /** Takes an `OwnerKey`: the worker reads the thread before it can build a full scope. */
   getThread(s: OwnerKey, threadId: string): Promise<ThreadRecord | null>;
+  /** `origin` defaults to `chat`; a report thread is `schedule` (S3-R10). */
   createThread(
     s: OwnerScope,
-    t: { id: string; title: string; systemPrompt: string; promptVersion: string },
+    t: {
+      id: string;
+      title: string;
+      systemPrompt: string;
+      promptVersion: string;
+      origin?: 'chat' | 'schedule';
+    },
   ): Promise<ThreadRecord>;
   updateThread(
     s: OwnerScope,
@@ -761,6 +925,67 @@ export interface AssistantRepository {
   purgeImportBatches(s: OwnerScope, olderThan: Date): Promise<number>;
   /** The batch's `pending` proposals, created_at asc. */
   pendingImportProposals(s: OwnerScope, batchId: string): Promise<ProposalRecord[]>;
+
+  // ─── Schedules (T-172) ───
+  // Owner methods filter on the account AND the owner; another owner's schedule is absent.
+
+  /** Oldest first. */
+  listSchedules(s: OwnerKey): Promise<ScheduleRecord[]>;
+  getSchedule(s: OwnerKey, id: string): Promise<ScheduleRecord | null>;
+  /** Active and paused alike. */
+  countSchedules(s: OwnerKey): Promise<number>;
+  createSchedule(s: OwnerKey, row: NewSchedule): Promise<ScheduleRecord>;
+  /**
+   * Applies the patch and bumps `updated_at`. With `expectedUpdatedAt`, only if the row still
+   * has it. Null when absent, another owner's, or stale.
+   */
+  updateSchedule(
+    s: OwnerKey,
+    id: string,
+    patch: SchedulePatch,
+    expectedUpdatedAt?: Date,
+  ): Promise<ScheduleRecord | null>;
+  /** Hard delete (runs cascade). False when absent or another owner's. */
+  deleteSchedule(s: OwnerKey, id: string): Promise<boolean>;
+  /** Newest first (`started_at` desc), at most `limit` (capped at `SCHEDULE_RUN_LIST_LIMIT`). */
+  listScheduleRuns(s: OwnerKey, scheduleId: string, limit: number): Promise<ScheduleRunRecord[]>;
+  getScheduleRun(s: OwnerKey, runId: string): Promise<ScheduleRunRecord | null>;
+  /**
+   * Sets the run's thread only while it is null, and returns the stored thread id (the earlier
+   * one when it was already set). Null when the run is absent or another owner's.
+   */
+  setRunThread(s: OwnerKey, runId: string, threadId: string): Promise<string | null>;
+  /** The owner's pending, unexpired `schedule` proposals that create a schedule. */
+  countPendingScheduleProposals(s: OwnerKey, now?: Date): Promise<number>;
+
+  /**
+   * Worker, across accounts (`app_system`): leases up to `limit` due schedules with
+   * `FOR UPDATE SKIP LOCKED` and `lease_until = now + leaseMs`, so two claimers never get the
+   * same one. Due = `active` and (`next_run_at <= now` or `run_requested_at` set) with no live
+   * lease. Ordered by `next_run_at`.
+   */
+  claimDueSchedules(now: Date, limit: number, leaseMs: number): Promise<ScheduleRecord[]>;
+  /** Worker: `ON CONFLICT (schedule_id, scheduled_for) DO NOTHING`; null on conflict. */
+  insertScheduleRun(row: NewScheduleRun): Promise<ScheduleRunRecord | null>;
+  /**
+   * Worker: the run of a slot, whatever its status; null when the slot has none. The runner
+   * resumes a `running` one a crashed worker left behind.
+   */
+  getScheduleRunAt(scheduleId: string, scheduledFor: Date): Promise<ScheduleRunRecord | null>;
+  /** Worker: patches a run by id. */
+  finishScheduleRun(id: string, patch: ScheduleRunPatch): Promise<void>;
+  /**
+   * Worker: writes the run outcome and clears `lease_until`, in one locked update. The status,
+   * `next_run_at` and `run_requested_at` follow `scheduleOutcomeChanges(row as stored now, claim)`,
+   * so an owner's change made during the lease is never overwritten.
+   */
+  saveScheduleState(
+    id: string,
+    patch: ScheduleStatePatch,
+    claim: ScheduleClaimOutcome,
+  ): Promise<void>;
+  /** Worker: deletes runs started before `before`; returns how many. */
+  purgeOldScheduleRuns(before: Date): Promise<number>;
 }
 
 export const ASSISTANT_REPOSITORY = Symbol('ASSISTANT_REPOSITORY');

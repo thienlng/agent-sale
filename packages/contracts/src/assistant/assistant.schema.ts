@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { MAX_PRODUCT_IMAGES } from '../commerce/commerce.schema.js';
 import { PublicImageUrl } from '../common/media.js';
+import { ScheduleDraft } from './schedule.schema.js';
 
 // ─── Page context and UI actions ──────────────────────────────────────────────
 
@@ -228,7 +229,10 @@ export const AssistantProposalDto = z.object({
   createdAt: z.iso.datetime(),
   expiresAt: z.iso.datetime(),
   decidedAt: z.iso.datetime().nullable(),
-  /** Defaults keep responses from servers that predate the kind readable. */
+  /**
+   * Defaults keep responses from servers that predate the kind readable. `schedule` proposals
+   * carry `routeKey` `SCHEDULE create|edit|remove` (T-172).
+   */
   kind: AssistantProposalKind.default('route'),
   /** Set when `kind` is `product_import`: read the batch for the products. */
   importBatchId: z.uuid().nullable().default(null),
@@ -438,6 +442,7 @@ export const AssistantToolsetId = z.enum([
   'routes',
   'sql',
   'import',
+  'schedule',
 ]);
 export type AssistantToolsetId = z.infer<typeof AssistantToolsetId>;
 
@@ -519,6 +524,8 @@ export const AcceptAssistantSuggestionResponse = z.object({
   suggestion: AssistantSuggestionDto,
   skill: AssistantSkillDto.nullable(),
   path: z.string().startsWith('/app').max(200).nullable(),
+  /** A `schedule` card's validated draft (T-172): the web opens it in the schedule editor. */
+  scheduleDraft: ScheduleDraft.optional(),
 });
 export type AcceptAssistantSuggestionResponse = z.infer<typeof AcceptAssistantSuggestionResponse>;
 

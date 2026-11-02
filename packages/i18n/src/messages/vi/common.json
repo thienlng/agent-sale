@@ -2,7 +2,10 @@
   "app": {
     "name": "Rapiz",
     "assistantLauncher": "Hỏi Thỏ Rapiz",
-    "assistantAskSample": "Nhờ trợ lý điền mẫu"
+    "assistantAskSample": "Nhờ trợ lý điền mẫu",
+    "notifications": "Thông báo",
+    "notificationsUnread": "Thông báo, {{count}} chưa đọc",
+    "reportThreadError": "Không mở được báo cáo trong trợ lý. Thử lại."
   },
   "nav": {
     "bots": "Đào tạo Bot",

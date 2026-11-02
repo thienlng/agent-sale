@@ -1,8 +1,8 @@
-import type { OrderDto } from '@agent-sales/contracts';
+import type { OrderDto, OrderOverviewResponse } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
-import type { CommerceFacade } from '../api/commerce.facade.js';
+import type { CommerceFacade, LowStock, OrdersPlaced } from '../api/commerce.facade.js';
 import { BotOrderService } from './bot-order.service.js';
 import { OrderService } from './order.service.js';
 
@@ -41,5 +41,20 @@ export class CommerceFacadeImpl implements CommerceFacade {
     conversationId: string,
   ): ReturnType<CommerceFacade['hasBotOrderDraft']> {
     return this.botOrders.hasBotOrderDraft(ws, conversationId);
+  }
+
+  orderOverview(ws: WorkspaceId, q: { from: string; to: string }): Promise<OrderOverviewResponse> {
+    return this.orders.overview(ws, q);
+  }
+
+  ordersPlaced(
+    ws: WorkspaceId,
+    q: { since: Date; until: Date; limit: number },
+  ): Promise<OrdersPlaced> {
+    return this.orders.placedSummary(ws, q);
+  }
+
+  lowStock(ws: WorkspaceId, q: { threshold: number; limit: number }): Promise<LowStock> {
+    return this.orders.lowStock(ws, q);
   }
 }

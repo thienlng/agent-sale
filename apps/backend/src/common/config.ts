@@ -99,6 +99,15 @@ export const EnvSchema = z
      * with `pnpm --filter @agent-sales/backend hq-init <owner email>`.
      */
     RAPIZ_HQ_WORKSPACE_ID: z.uuid().optional(),
+    /**
+     * SMTP server for notification emails (T-172), e.g. `smtp://user:pass@host:587`. Unset turns
+     * email off: email deliveries are skipped and the UI says email is unavailable. Secret.
+     */
+    SMTP_URL: z.url({ protocol: /^smtps?$/ }).optional(),
+    /** Sender of notification emails. */
+    MAIL_FROM: z.string().min(3).max(200).default('Rapiz <no-reply@rapiz.io>'),
+    /** Public HTTPS origin of the dashboard, for links in emails; unset leaves links out. */
+    APP_PUBLIC_URL: z.url({ protocol: /^https$/ }).optional(),
   })
   .refine((env) => env.NODE_ENV !== 'production' || !!env.SECRETS_ENCRYPTION_KEY, {
     message: 'SECRETS_ENCRYPTION_KEY is required in production',
