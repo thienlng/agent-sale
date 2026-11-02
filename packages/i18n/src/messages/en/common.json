@@ -1325,7 +1325,8 @@
     "tabs": {
       "profile": "Business profile",
       "security": "Security",
-      "audit": "Change log"
+      "audit": "Change log",
+      "developers": "Developers"
     },
     "profile": {
       "title": "Business information",

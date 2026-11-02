@@ -18,6 +18,8 @@ const entitlements = {
   'feature.website_widget': true,
   'feature.lazada': false,
   'feature.facebook_posts': true,
+  'feature.public_api': false,
+  'api.requests_per_minute': 0,
 };
 
 const plan = (

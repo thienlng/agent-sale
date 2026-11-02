@@ -8,7 +8,7 @@
 - `SAAS_FACADE` → `SaasFacade.recordBotRequest(ws, { kind, details, preview })` — the bot's built-in `record_saas_request` tool (`ai/application/saas-tools.ts`). Finds or creates the customer by phone, moves it forward to the `requested` status (never back) and adds a note with the details; `preview` validates without writing; bad arguments return `invalid`, never throw.
 - `SAAS_RUNNER` → `SaasRunner` for the worker and the CLIs: `tick()` (HQ outbox consumer), `daily(now)` (reminders and the nightly HQ reconcile, each claimed once per day), `reconcile({ dryRun })` (`hq-backfill`).
 - HTTP: `/saas-subscriptions` (filters `stage`, `contactIds`, `endingSoon`), `/saas-subscriptions/summary`, `/contacts/{id}/saas-subscription` (get, put) and `/history` with `contacts.view_all` (put also needs `contacts.edit`); `/saas-plans` (get: `contacts.view_all`; post, patch: `settings.manage`).
-- Events: none yet.
+- Events: `saas.subscription.changed.v1` (outbox, aggregate `saas_subscription`, same transaction) when a subscription is created or its plan, stage, period, MRR or trial/renewal/cancellation date changes, by staff or by the HQ sync; a change of note, seats, usage or reminders is quiet (`application/subscription-events.ts`, ADR-022 §7).
 
 **Events consumed:** the platform's `account.account.created.v1`, `account.account.status_changed.v1`, `billing.subscription.changed.v1`, `billing.usage.snapshot.v1`, `billing.subscription.reminder.v1` (outbox, `workspace_id` null), by `application/event-handlers/hq-sync.handler.ts`, only when `RAPIZ_HQ_WORKSPACE_ID` is set. Projector pattern: one consumer under an advisory lock, `xid8` horizon window, checkpoint row, a failing event goes to the dead-letter table by id and code.
 

@@ -67,7 +67,11 @@
     "feature": {
       "website_widget": "Website chat",
       "lazada": "Lazada channel",
-      "facebook_posts": "Facebook comments"
+      "facebook_posts": "Facebook comments",
+      "public_api": "Public API & webhooks"
+    },
+    "api": {
+      "requests_per_minute": "Requests per minute per key"
     },
     "amount": "Replies",
     "periodDays": "Cycle (days)"

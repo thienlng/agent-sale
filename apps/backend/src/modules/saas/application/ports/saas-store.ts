@@ -85,6 +85,8 @@ export interface SaasTx {
     target: { type: string; id: string },
     data: Record<string, unknown>,
   ): Promise<void>;
+  /** An integration event, written in the same transaction as the change. */
+  outbox(type: string, aggregateId: string, payload: Record<string, unknown>): Promise<void>;
 }
 export interface SaasStore {
   run<T>(workspaceId: WorkspaceId, fn: (tx: SaasTx) => Promise<T>): Promise<T>;

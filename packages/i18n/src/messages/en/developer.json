@@ -1,0 +1,143 @@
+{
+  "title": "Developers",
+  "subtitle": "Connect your own systems (ERP, POS, PMS, n8n, Make, Zapier…) to Rapiz with the API and webhooks.",
+  "docs": "API reference (OpenAPI)",
+  "noAccess": "Only the business owner or an admin can manage API keys and webhooks.",
+  "upgrade": {
+    "title": "Your plan does not include the public API",
+    "body": "Upgrade to Pro or Neo to create API keys and receive webhooks."
+  },
+  "common": {
+    "cancel": "Cancel",
+    "close": "Close",
+    "copy": "Copy",
+    "copied": "Copied",
+    "loadError": "Could not load the data. Reload the page to try again.",
+    "never": "Never used"
+  },
+  "keys": {
+    "title": "API keys",
+    "hint": "A key acts on behalf of its creator: it can only do what its scopes and the creator's role allow.",
+    "create": "Create API key",
+    "empty": "No API keys yet.",
+    "createdBy": "Created by {{name}}",
+    "lastUsed": "Last used: {{when}}",
+    "expires": "Expires: {{when}}",
+    "noExpiry": "No expiry",
+    "scopes": "Scopes",
+    "status": {
+      "active": "Active",
+      "expired": "Expired",
+      "revoked": "Revoked"
+    },
+    "revoke": "Revoke",
+    "revokeTitle": "Revoke the key “{{name}}”?",
+    "revokeBody": "Every system using this key is refused at once. This cannot be undone.",
+    "revoked": "Key revoked",
+    "form": {
+      "title": "Create API key",
+      "description": "Grant only the scopes your system really needs.",
+      "name": "Key name",
+      "namePlaceholder": "e.g. ERP sync",
+      "nameRequired": "Enter a key name",
+      "scopesRequired": "Pick at least one scope",
+      "expiresAt": "Expiry date (optional)",
+      "expiryPast": "The expiry date must be in the future",
+      "submit": "Create key"
+    },
+    "reveal": {
+      "title": "New API key",
+      "warning": "Copy this key and store it somewhere safe. Rapiz shows it only once.",
+      "done": "I have saved the key"
+    }
+  },
+  "scopes": {
+    "bots.manage": "Manage bots",
+    "catalog.manage": "Manage products",
+    "orders.view": "View orders",
+    "orders.manage": "Create and edit orders",
+    "contacts.view_all": "View all customers",
+    "contacts.view": "View assigned customers",
+    "contacts.edit": "Create and edit customers",
+    "contacts.assign": "Assign customers",
+    "analytics.view": "View reports"
+  },
+  "webhooks": {
+    "title": "Webhooks",
+    "hint": "Rapiz sends a signed POST to your HTTPS URL for every event. Verify the Rapiz-Signature header and ignore event ids you have already seen.",
+    "add": "Add webhook",
+    "empty": "No webhooks yet.",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "disabledFailing": "Disabled after repeated failures",
+    "failingSince": "Failing since {{when}}",
+    "eventCount_one": "{{count}} event",
+    "eventCount_other": "{{count}} events",
+    "edit": "Edit",
+    "deliveries": "Deliveries",
+    "rotate": "Rotate secret",
+    "rotateTitle": "Rotate the signing secret?",
+    "rotateBody": "The old secret keeps signing for 24 hours so you have time to update your receiver.",
+    "test": "Send test",
+    "testSent": "Test event sent",
+    "delete": "Delete",
+    "deleteTitle": "Delete this webhook?",
+    "deleteBody": "Rapiz stops sending events to {{url}} and deletes its delivery log.",
+    "deleted": "Webhook deleted",
+    "saved": "Webhook saved",
+    "actions": "Actions",
+    "form": {
+      "createTitle": "Add webhook",
+      "editTitle": "Edit webhook",
+      "url": "Endpoint URL (HTTPS)",
+      "urlInvalid": "Enter a URL starting with https://",
+      "description": "Description (optional)",
+      "events": "Events",
+      "eventsRequired": "Pick at least one event",
+      "enabled": "Enable webhook",
+      "save": "Save"
+    },
+    "secret": {
+      "title": "Webhook signing secret",
+      "warning": "Use this secret to verify the Rapiz-Signature header. Rapiz shows it only once.",
+      "done": "I have saved the secret"
+    }
+  },
+  "events": {
+    "crm.contact.created": "Customer created",
+    "crm.contact.updated": "Customer updated",
+    "crm.contact.status_changed": "Customer status changed",
+    "crm.contact.assigned": "Customer assigned",
+    "crm.tag.assigned": "Tag added",
+    "crm.tag.removed": "Tag removed",
+    "lodging.booking.created": "Booking created",
+    "lodging.booking.confirmed": "Booking confirmed",
+    "lodging.booking.cancelled": "Booking cancelled",
+    "lodging.booking.expired": "Booking hold expired",
+    "lodging.booking.checked_in": "Guest checked in",
+    "lodging.booking.checked_out": "Guest checked out",
+    "commerce.order.created": "Order created",
+    "commerce.order.status_changed": "Order status changed",
+    "saas.subscription.changed": "Subscription changed",
+    "webhook.test": "Test event"
+  },
+  "deliveries": {
+    "title": "Deliveries",
+    "description": "Deliveries to {{url}}, newest first.",
+    "empty": "No deliveries yet.",
+    "all": "All",
+    "status": {
+      "pending": "Pending",
+      "succeeded": "Succeeded",
+      "failed": "Failed"
+    },
+    "attempts_one": "{{count}} attempt",
+    "attempts_other": "{{count}} attempts",
+    "httpStatus": "HTTP {{code}}",
+    "nextAttempt": "Next attempt at {{when}}",
+    "resend": "Resend",
+    "resent": "Resend queued",
+    "more": "Load more",
+    "payload": "Payload"
+  }
+}

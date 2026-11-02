@@ -68,6 +68,7 @@ export class CatalogController {
     @Inject(ProductImageService) private readonly images: ProductImageService,
   ) {}
 
+  @RequireCapability('orders.view')
   @Get('warehouses')
   async warehouses(@CurrentWorkspace() ws: WorkspaceId): Promise<{ data: WarehouseDto[] }> {
     return { data: await this.catalog.listWarehouses(ws) };
@@ -103,6 +104,7 @@ export class CatalogController {
     return this.catalog.deleteWarehouse(ws, id);
   }
 
+  @RequireCapability('orders.view')
   @Get('products')
   products(
     @CurrentWorkspace() ws: WorkspaceId,
@@ -133,6 +135,7 @@ export class CatalogController {
     return this.images.upload(ws, body);
   }
 
+  @RequireCapability('orders.view')
   @Get('products/:productId')
   product(
     @CurrentWorkspace() ws: WorkspaceId,
@@ -193,6 +196,7 @@ export class CatalogController {
     return this.catalog.setBotProducts(ws, botId, body);
   }
 
+  @RequireCapability('orders.view')
   @Get('product-variants')
   async variants(
     @CurrentWorkspace() ws: WorkspaceId,

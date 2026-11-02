@@ -303,8 +303,18 @@ export type SkuVariantRecord = VariantRecord & {
   productVisibleToBot: boolean;
 };
 
+/** An integration event for the outbox (aggregate `order`), written in the same transaction. */
+export interface CommerceOutboxEvent {
+  type: string;
+  aggregateId: string;
+  payload: Record<string, unknown>;
+}
+
 /** Everything one use case reads and writes, inside one tenant transaction (RLS-scoped). */
 export interface CommerceTx {
+  outbox: {
+    write(workspaceId: WorkspaceId, e: CommerceOutboxEvent): Promise<void>;
+  };
   warehouses: {
     list(): Promise<WarehouseRecord[]>;
     find(id: string): Promise<WarehouseRecord | null>;

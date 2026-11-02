@@ -1321,7 +1321,8 @@
     "tabs": {
       "profile": "Hồ sơ business",
       "security": "Bảo mật",
-      "audit": "Nhật ký"
+      "audit": "Nhật ký",
+      "developers": "Nhà phát triển"
     },
     "profile": {
       "title": "Thông tin business",
