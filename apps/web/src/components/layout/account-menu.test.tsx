@@ -7,10 +7,16 @@ import { renderWithRouter } from '@/testing/render';
 import { AccountMenu } from './account-menu';
 
 const logout = vi.fn(() => Promise.resolve());
+const admin = vi.hoisted(() => ({ value: false }));
 
 vi.mock('@/lib/session', () => ({
   useSession: () => ({
-    user: { id: 'u1', name: 'Nguyễn Thị Lan', email: 'lan.nguyen.very.long.address@example.com' },
+    user: {
+      id: 'u1',
+      name: 'Nguyễn Thị Lan',
+      email: 'lan.nguyen.very.long.address@example.com',
+      isPlatformAdmin: admin.value,
+    },
     workspaceId: 'w1',
     memberships: [
       { workspaceId: 'w1', workspaceName: 'Lan Fashion', accountId: 'a1', accountName: 'Lan' },
@@ -32,6 +38,17 @@ describe('AccountMenu', () => {
     localStorage.clear();
     document.documentElement.classList.remove('dark');
     logout.mockClear();
+    admin.value = false;
+  });
+
+  it('leads a platform admin to the back-office', async () => {
+    admin.value = true;
+    renderWithRouter(() => <AccountMenu />);
+    const { menu } = await openMenu();
+    expect(within(menu).getByRole('menuitem', { name: 'Quản trị hệ thống' })).toHaveAttribute(
+      'href',
+      '/admin/accounts',
+    );
   });
 
   it('shows who is signed in and a short list of account actions', async () => {

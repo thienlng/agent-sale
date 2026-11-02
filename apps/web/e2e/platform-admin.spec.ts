@@ -10,6 +10,9 @@ test('/admin opens the accounts list, and an account opens its detail', async ({
   await expect(page.getByRole('heading', { name: 'Tài khoản' })).toBeVisible();
   for (const entry of ['Thanh toán', 'Gói cước', 'Cài đặt thanh toán', 'Mô hình AI'])
     await expect(page.getByRole('link', { name: entry, exact: true }).first()).toBeAttached();
+  // The back-office has its own sidebar: no business menus, and a way back to the businesses.
+  await expect(page.getByRole('link', { name: 'Thống kê', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Về các business' })).toBeAttached();
 
   await page.getByRole('link', { name: /Phương Thảo 1$/ }).click();
   await expect(page).toHaveURL(new RegExp(`/admin/accounts/${ADMIN_ACCOUNT_ID}$`));
