@@ -151,7 +151,7 @@ describe('assistant threads on Postgres', () => {
       .select()
       .from(schema.assistantThreads)
       .where(eq(schema.assistantThreads.id, thread.id));
-    expect(stored).toMatchObject({ ownerUserId: lan.userId, promptVersion: 'assistant@2' });
+    expect(stored).toMatchObject({ ownerUserId: lan.userId, promptVersion: 'assistant@3' });
     expect(stored?.systemPrompt).toContain('personal assistant of Lan,');
     expect(stored?.systemPrompt).toContain(`- Shop Lan (fashion) — id ${lan.ownWorkspace}`);
     expect(stored?.systemPrompt).not.toContain('{{');
@@ -480,7 +480,7 @@ describe('assistant chat turns on Postgres', () => {
       .select()
       .from(schema.assistantRuns)
       .where(eq(schema.assistantRuns.id, turnId));
-    expect(stored).toMatchObject({ tier: 'pro', promptVersion: 'assistant@2', status: 'done' });
+    expect(stored).toMatchObject({ tier: 'pro', promptVersion: 'assistant@3', status: 'done' });
     expect(stored?.finishedAt).toBeInstanceOf(Date);
 
     // A retried turn returns the first answer; the thread took its title from the first text.
@@ -1604,6 +1604,9 @@ describe('assistant settings, feedback, suggestions and the curator on Postgres 
       ['memory', false],
       ['skills', false],
       ['routes', false],
+      ['import', false],
+      ['schedule', false],
+      ['sql', false],
     ]);
     expect(settings.toolsets.find((t) => t.id === 'routes')?.uses30d).toBe(1);
     const refused = await call(mai.h, 'PATCH', '/assistant/settings', {

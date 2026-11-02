@@ -233,7 +233,16 @@ describe('assistant import tables (0061)', () => {
           promptVersion: 'assistant-import-vision@1',
         }),
       );
-    for (const kind of ['import_vision', 'chat', 'compaction', 'review', 'curator', 'title']) {
+    // All migrations (0058–0062) applied in order: every capability's run kind is accepted.
+    for (const kind of [
+      'import_vision',
+      'chat',
+      'compaction',
+      'review',
+      'curator',
+      'title',
+      'schedule',
+    ]) {
       await run(kind);
     }
     await expect(run('bogus')).rejects.toThrow();

@@ -420,9 +420,13 @@ describe('settings, feedback and suggestions', () => {
     expect(UpdateAssistantSettingsRequest.safeParse({ disabledToolsets: ['ui'] }).success).toBe(
       false,
     );
-    expect(UpdateAssistantSettingsRequest.safeParse({ disabledToolsets: ['sql'] }).success).toBe(
+    expect(UpdateAssistantSettingsRequest.safeParse({ disabledToolsets: ['bogus'] }).success).toBe(
       false,
     );
+    // Capabilities 2–4 add switchable toolsets.
+    expect(
+      UpdateAssistantSettingsRequest.parse({ disabledToolsets: ['sql', 'import', 'schedule'] }),
+    ).toEqual({ disabledToolsets: ['sql', 'import', 'schedule'] });
     expect(UpdateAssistantSettingsRequest.safeParse({}).success).toBe(false);
   });
 

@@ -133,6 +133,9 @@ describe('additive fields', () => {
       threadId: ID,
       businessId: BUSINESS,
       routeKey: 'PATCH /products/{productId}',
+      // `path` and `resultId` (T-174) are required; only `kind` and `importBatchId` default.
+      path: `/products/${ID}`,
+      resultId: null,
       summary: 'Đổi giá',
       preview: null,
       status: 'pending',
