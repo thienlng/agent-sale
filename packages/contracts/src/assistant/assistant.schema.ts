@@ -34,6 +34,47 @@ export const AssistantPageContext = z.object({
 });
 export type AssistantPageContext = z.infer<typeof AssistantPageContext>;
 
+/** How a chart's values are formatted: money (VND), a count, a percentage or a plain number. */
+export const AssistantChartUnit = z.enum(['vnd', 'count', 'percent', 'number']);
+export type AssistantChartUnit = z.infer<typeof AssistantChartUnit>;
+
+/** Most points a pie chart shows; bar and line charts take up to the 60-row cap. */
+export const ASSISTANT_PIE_MAX_ROWS = 12;
+
+/**
+ * A small chart the bubble renders inside an answer. It is built by our code from the rows of a
+ * read-only query, never from numbers the model types. `x` names the category column, `series`
+ * the numeric columns, and `rows` holds only those columns. A pie has one series and ≤ 12 rows.
+ */
+export const AssistantChart = z
+  .object({
+    kind: z.enum(['bar', 'line', 'pie']),
+    title: z.string().max(120),
+    x: z.object({ key: z.string().max(63), label: z.string().max(60) }),
+    series: z
+      .array(z.object({ key: z.string().max(63), label: z.string().max(60) }))
+      .min(1)
+      .max(4),
+    unit: AssistantChartUnit,
+    rows: z
+      .array(z.record(z.string().max(63), z.union([z.string().max(80), z.number(), z.null()])))
+      .max(60),
+  })
+  .superRefine((chart, ctx) => {
+    if (chart.kind !== 'pie') return;
+    if (chart.series.length !== 1) {
+      ctx.addIssue({ code: 'custom', path: ['series'], message: 'A pie chart has one series' });
+    }
+    if (chart.rows.length > ASSISTANT_PIE_MAX_ROWS) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['rows'],
+        message: `A pie chart has at most ${ASSISTANT_PIE_MAX_ROWS} rows`,
+      });
+    }
+  });
+export type AssistantChart = z.infer<typeof AssistantChart>;
+
 /** Something the web app does for the owner; navigation never leaves the app. */
 export const AssistantUiAction = z.discriminatedUnion('type', [
   z.object({ type: z.literal('navigate'), to: z.string().startsWith('/app').max(200) }),
@@ -46,6 +87,8 @@ export const AssistantUiAction = z.discriminatedUnion('type', [
       .record(z.string().max(60), z.union([z.string().max(4000), z.number()]))
       .refine((v) => Object.keys(v).length <= 30, { message: 'At most 30 fields' }),
   }),
+  /** A chart shown inside the answer; the web app renders it and never "runs" it. */
+  z.object({ type: z.literal('chart'), chart: AssistantChart }),
 ]);
 export type AssistantUiAction = z.infer<typeof AssistantUiAction>;
 
@@ -362,7 +405,7 @@ export type AssistantLearningFeed = z.infer<typeof AssistantLearningFeed>;
 // ─── Owner settings and toolsets (1c) ─────────────────────────────────────────
 
 /** The groups of tools the assistant has; the owner may turn some off (spec §6). */
-export const AssistantToolsetId = z.enum(['core', 'ui', 'memory', 'skills', 'routes']);
+export const AssistantToolsetId = z.enum(['core', 'ui', 'memory', 'skills', 'routes', 'sql']);
 export type AssistantToolsetId = z.infer<typeof AssistantToolsetId>;
 
 /** Toolsets the owner cannot turn off. */

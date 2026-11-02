@@ -202,6 +202,14 @@
     "ui": "Chỉ dẫn trên màn hình",
     "memory": "Trí nhớ",
     "skills": "Kỹ năng",
-    "routes": "Tra cứu và thao tác dữ liệu"
+    "routes": "Tra cứu và thao tác dữ liệu",
+    "sql": "Hỏi số liệu cửa hàng (SQL chỉ đọc)"
+  },
+  "hideThreads": "Quay lại cuộc trò chuyện",
+  "hideMemory": "Quay lại cuộc trò chuyện",
+  "chart": {
+    "showTable": "Xem bảng",
+    "showChart": "Xem biểu đồ",
+    "empty": "Không có dữ liệu để vẽ biểu đồ."
   }
 }

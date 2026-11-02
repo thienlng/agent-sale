@@ -397,3 +397,26 @@ Migration 0056 adds four forced-RLS tables scoped by **account**, not workspace,
 - `assistant_suggestions` (0058): proactive cards. `kind` (`schedule` | `skill` | `setup`), `dedup_key` (≤ 120), `title` (≤ 200), `payload jsonb`, `status` (`pending` | `accepted` | `dismissed`), `created_at`, `decided_at`. Unique `(account_id, owner_user_id, dedup_key)` in every status, so a dismissal is permanent; an insert with a taken key does nothing.
 - `assistant_settings` (0058): primary key `(account_id, owner_user_id)`; `review_enabled` (default true), `disabled_toolsets text[]` (default empty), `curator_ran_at`, `updated_at`. No row means the defaults.
 - `assistant_jobs` (0058): Postgres-leased background jobs of the worker (no BullMQ). `thread_id` (nullable, cascade), `kind` (`review` | `curator`), `review_scope` (`memory` | `skills` | `combined`, set exactly for reviews), `status` (`queued` | `running` | `done` | `failed` | `cancelled`), `run_after`, `lease_until`, `attempts`, `error_code`, `created_at`, `finished_at`. Index `(status, run_after)`; unique `(account_id, owner_user_id, kind, thread_id) NULLS NOT DISTINCT WHERE status = 'queued'`, so an owner has at most one queued job per thread and kind (one queued curator job), and enqueuing again moves its `run_after` and `review_scope` and sets `created_at` to now (so `created_at` means "last enqueued": a review is cancelled when the thread's last message is newer). The worker claims due jobs across accounts as `app_system` with `FOR UPDATE SKIP LOCKED` (`queued` and due, or `running` with a lapsed lease): `running`, `lease_until = now + lease`, `attempts + 1`. A job whose lease lapsed 3 times is failed with `lease_expired`. Finishing is fenced by `attempts`, so a re-claimed or cancelled job ignores its old holder.
+
+## Implemented owner assistant SQL views (T-171, ADR-023 lane a, migration 0059)
+
+Schema `assistant_sql`: 11 read-only views for the owner assistant's SQL lane ([spec](superpowers/specs/2026-11-02-owner-assistant-data-questions-design.md) §4). Every view is `WITH (security_barrier = true)`, owned by `app_assistant_reader`, and has `business_id`. Money is integer VND, times `timestamptz` (read in Asia/Ho_Chi_Minh).
+
+| View | Columns |
+|---|---|
+| `businesses` | business_id, name, industry, timezone, created_at |
+| `orders` | order_id, business_id, code, status, counts_as_revenue, is_cancelled, source, created_by_kind, item_qty, subtotal, discount_amount, shipping_fee, shipping_fee_charged, total, paid, remaining, cod_amount, cost_total, profit, customer_name, carrier, conversation_id, placed_at, confirmed_at, cancelled_at |
+| `order_items` | order_item_id, business_id, order_id, product_id, variant_id, product_name, variant_name, sku, qty, unit_price, unit_cost, line_total, order_status, counts_as_revenue, placed_at |
+| `products` | product_id, business_id, code, name, category, status, visible_to_bot, created_at |
+| `product_variants` | variant_id, business_id, product_id, sku, name, price, cost, archived, stock_on_hand, stock_reserved |
+| `customers` | customer_id, business_id, name, province, source_name, first_source_name, status_name, has_phone, archived, created_at |
+| `conversations` | conversation_id, business_id, channel_id, channel_provider, bot_id, customer_id, status, mode, created_at, last_activity_at |
+| `channels` | channel_id, business_id, provider, name, status, bot_id, created_at |
+| `bots` | bot_id, business_id, name, industry, is_active, order_taking, created_at |
+| `activity_events` | business_id, kind, occurred_at, origin, customer_id, conversation_id, channel_id, bot_id |
+| `lodging_bookings` | booking_id, business_id, property_id, property_name, code, status, source, check_in, check_out, nights, adults, children, guest_name, total_sell, adjustment, total_cost, counts_as_revenue, created_at |
+
+- `counts_as_revenue` on orders = status in `CLOSED_ORDER_STATUSES`; `profit` uses the dashboard formula; lodging `counts_as_revenue` = `kind = 'stay'` and status `confirmed`, `checked_in` or `checked_out` (ruling 2-R9, not yet checked against a dashboard figure).
+- Never exposed: phone, email, address, birthday and gender of customers and recipients, `orders.recipient`, free-text notes, conversation and message text, `customer_phone` and the platform `customer_id`, tokens, settings, external ids, staff names and user ids, anything billing, identity, assistant or audit. `customers.has_phone` is a boolean.
+- Roles: `app_assistant_reader` (NOLOGIN, no members) owns the views, has column-level `SELECT` on the base columns they read and one `FOR SELECT` policy per base table with the inlined business filter (ADR-004 amendment, T-171); it has no write privilege. `app_assistant_sql` (NOLOGIN group) has `USAGE` on the schema and `SELECT` on the views only; its login is `DATABASE_ASSISTANT_SQL_URL` (`packages/db/README.md`).
+- **Rule:** a migration that changes or drops a base column a view reads must recreate that view (and its column grant) in the same migration; Postgres refuses to drop a column a view depends on. An integration test compares the views with the catalog in `apps/backend/src/modules/assistant/application/sql/sql-views.ts`.

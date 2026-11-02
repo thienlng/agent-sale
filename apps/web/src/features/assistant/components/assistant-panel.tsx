@@ -68,8 +68,9 @@ export function AssistantPanel() {
   /**
    * UI actions run in order: navigate inside the dashboard, point at a control, fill a form on
    * screen. A fill never submits: the owner reviews the values and presses the form's own button,
-   * which is spotlighted when the form names one. `switched` drops what is left of the answer
-   * when the owner changed business meanwhile.
+   * which is spotlighted when the form names one. A `chart` is rendered inside its message and is
+   * not run here, nor is any action type this build does not know. `switched` drops what is left
+   * of the answer when the owner changed business meanwhile.
    */
   async function apply(
     answer: readonly AssistantMessageDto[],
@@ -88,7 +89,7 @@ export function AssistantPanel() {
         // The sheet would cover the control, so it steps aside; the hint carries the answer.
         setOpen(false);
         setSpotlight({ target: action.target, hint: action.hint });
-      } else {
+      } else if (action.type === 'fill_form') {
         // After a navigate the target page mounts a moment later: give it time to register.
         if (navigated) await waitForAssistantForm(action.formId, FORM_WAIT_MS);
         if (switched()) return;

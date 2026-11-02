@@ -7,7 +7,7 @@ import {
 } from '@agent-sales/ai-core';
 import type { AssistantUiAction, SendAssistantMessageRequest } from '@agent-sales/contracts';
 import { newId } from '@agent-sales/shared';
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
 import { AI_LLM_GATEWAY, isAiNotConfiguredError, type LlmGatewayPort } from '../../ai/api/index.js';
 import {
@@ -28,6 +28,7 @@ import {
   type ThreadRecord,
 } from '../domain/ports/assistant.repository.js';
 import { ROUTE_INVOKER, type RouteInvoker } from '../domain/ports/route-invoker.port.js';
+import { ASSISTANT_SQL_RUNNER, type SqlRunner } from '../domain/ports/sql-runner.port.js';
 import { CompactionService, threadCacheKey } from './compaction.service.js';
 import { CORE_TOOL_DEFINITIONS, coreTools, type ToolContext } from './core-tools.js';
 import { isVisibleMessage } from './mappers.js';
@@ -38,6 +39,8 @@ import { ROUTE_TOOL_DEFINITIONS, routeTools } from './route-tools.js';
 import { planReview } from './review-trigger.js';
 import { SKILL_MANAGE_TOOL, SKILL_TOOL_DEFINITIONS, skillTools } from './skill-tools.js';
 import { SkillsService } from './skills.service.js';
+import { MAX_CHARTS_PER_TURN } from './sql/chart.js';
+import { type NativeToolEntry, SQL_TOOLSET, sqlTools } from './sql/sql-tools.js';
 import { disabledTools, enabledDefinitions, toolsetCacheSuffix } from './toolsets.js';
 import { withTurnOutputBudget } from './turn-budget.js';
 
@@ -146,14 +149,17 @@ export function capHistory(messages: MessageRecord[], max = HISTORY_MAX_MESSAGES
 }
 
 /**
- * At most the last navigate, the last fill_form and the last spotlight of the turn, in that
- * order: the page opens, its form is filled, then a control is highlighted.
+ * The answer's UI actions: the last navigate, the last fill_form, up to `MAX_CHARTS_PER_TURN`
+ * charts in call order, then the last spotlight. The page opens, its form is filled, the charts
+ * show inside the answer, then a control is highlighted.
  */
 export function finalUiActions(actions: AssistantUiAction[]): AssistantUiAction[] {
-  return (['navigate', 'fill_form', 'spotlight'] as const).flatMap((type) => {
-    const last = actions.findLast((a) => a.type === type);
-    return last ? [last] : [];
-  });
+  const last = (type: AssistantUiAction['type']) => {
+    const found = actions.findLast((a) => a.type === type);
+    return found ? [found] : [];
+  };
+  const charts = actions.filter((a) => a.type === 'chart').slice(0, MAX_CHARTS_PER_TURN);
+  return [...last('navigate'), ...last('fill_form'), ...charts, ...last('spotlight')];
 }
 
 const errorClass = (e: unknown): string => (e instanceof Error ? e.name : typeof e);
@@ -176,7 +182,33 @@ export class ChatTurnService {
     @Inject(SkillsService) private readonly skills: SkillsService,
     @Inject(ROUTE_INVOKER) private readonly invoker: RouteInvoker,
     @Inject(CompactionService) private readonly compaction: CompactionService,
+    @Inject(ASSISTANT_SQL_RUNNER)
+    @Optional()
+    private readonly sqlRunner: SqlRunner | null = null,
   ) {}
+
+  /**
+   * The native entries of the deferred catalog for this turn: `sql_schema` and `sql_query` when
+   * the SQL lane is configured (`sqlRunner` is null without DATABASE_ASSISTANT_SQL_URL) and the owner has not turned the `sql` toolset off (1c settings).
+   * They are reached through tool_search / tool_describe / tool_call, so the tool list is unchanged.
+   */
+  #nativeTools(
+    scope: OwnerScope,
+    runId: string,
+    uiActions: AssistantUiAction[],
+    disabledToolsets: readonly string[],
+  ): NativeToolEntry[] {
+    if (!this.sqlRunner) return [];
+    if (disabledToolsets.includes(SQL_TOOLSET)) return [];
+    return sqlTools({
+      scope,
+      runner: this.sqlRunner,
+      uiActions,
+      charts: { count: 0 },
+      runId,
+      log: (line) => this.#log.warn(line),
+    });
+  }
 
   /** The routes the assistant may use; tests replace it. */
   catalog: RouteCatalog = ROUTE_CATALOG;
@@ -261,6 +293,7 @@ export class ChatTurnService {
     };
     // The turn's proposals; the web reads them per thread, so the answer carries no field.
     const proposalIds: string[] = [];
+    const native = this.#nativeTools(scope, runId, ctx.uiActions, settings.disabledToolsets);
     const pending: Promise<void>[] = [];
     let idx = 0;
     let result: AgentLoopResult | undefined;
@@ -301,6 +334,7 @@ export class ChatTurnService {
               threadId: thread.id,
               runId,
               proposalIds,
+              native,
               ...(req.pageContext ? { page: req.pageContext } : {}),
             }),
           ].filter((tool) => !off.has(tool.name)),

@@ -204,6 +204,14 @@
     "ui": "On-screen guidance",
     "memory": "Memory",
     "skills": "Skills",
-    "routes": "Look up and change data"
+    "routes": "Look up and change data",
+    "sql": "Shop data questions (read-only SQL)"
+  },
+  "hideThreads": "Back to the conversation",
+  "hideMemory": "Back to the conversation",
+  "chart": {
+    "showTable": "Show table",
+    "showChart": "Show chart",
+    "empty": "No data to chart."
   }
 }

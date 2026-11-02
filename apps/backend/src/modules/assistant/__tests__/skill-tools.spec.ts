@@ -15,6 +15,7 @@ import { InMemoryAssistantRepository } from '../infrastructure/persistence/assis
 
 const PLATFORM_SKILLS = [
   'add-products',
+  'answer-data-questions',
   'connect-channels',
   'handle-orders',
   'read-revenue',
@@ -28,7 +29,7 @@ describe('platform skills', () => {
     for (const skill of skills) {
       expect(lintSkill(skill)).toEqual([]);
       expect(skill.toolsets.length).toBeGreaterThan(0);
-      expect(skill.toolsets.every((t) => t === 'ui' || t === 'routes')).toBe(true);
+      expect(skill.toolsets.every((t) => t === 'ui' || t === 'routes' || t === 'sql')).toBe(true);
       // Every page a skill names is a dashboard path.
       for (const path of skill.body.match(/\/app[^\s,.;)]*/g) ?? []) {
         expect(path).toMatch(/^\/app(\/[a-z{}A-Z-]+)*$/);

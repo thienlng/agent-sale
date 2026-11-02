@@ -7,6 +7,7 @@ import type { OwnerScope } from '../domain/owner-scope.js';
 import type { AssistantRepository } from '../domain/ports/assistant.repository.js';
 import type { RouteInvoker } from '../domain/ports/route-invoker.port.js';
 import { type CatalogEntry, type RouteCatalog, searchCatalog } from './route-catalog.js';
+import type { NativeToolEntry } from './sql/sql-tools.js';
 
 export const TOOL_SEARCH_TOOL = 'tool_search';
 export const TOOL_DESCRIBE_TOOL = 'tool_describe';
@@ -55,7 +56,7 @@ export const ROUTE_TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: TOOL_CALL_TOOL,
     description:
-      'Run a route by key. A read returns { status, body }. A write is never run: it becomes a proposal the owner approves in the chat; give `summary` (Vietnamese, ≤ 300 chars: what will change). businessId defaults to the current business.',
+      'Run a route by key. A read returns { status, body }. A write is never run: it becomes a proposal the owner approves in the chat; give `summary` (Vietnamese, ≤ 300 chars: what will change). businessId defaults to the current business. Native tools (sql_schema, sql_query) take their input in `body`.',
     input: ToolCallInput,
   },
 ];
@@ -74,6 +75,11 @@ export interface RouteToolContext {
   /** Proposals made during the turn, in order. */
   proposalIds: string[];
   now?: () => Date;
+  /**
+   * Native entries of the deferred catalog (T-171: `sql_schema`, `sql_query`), searched,
+   * described and called next to the routes. Their keys never start with an HTTP method.
+   */
+  native?: readonly NativeToolEntry[];
 }
 
 /** `<` is escaped so a result cannot open or close a prompt tag. */
@@ -133,6 +139,28 @@ type Prepared =
 export function routeTools(ctx: RouteToolContext): RunnableTool[] {
   const now = ctx.now ?? (() => new Date());
   let readChars = 0;
+  const native = new Map((ctx.native ?? []).map((e) => [e.key, e]));
+
+  /** Cuts a read result to what is left of the turn's read budget and counts it. */
+  function spend(out: { content: string; ok?: boolean }) {
+    const room = Math.min(MAX_ROUTE_RESULT_CHARS, TURN_READ_BUDGET_CHARS - readChars);
+    if (room <= TRUNCATED.length) return fail('turn_budget_exhausted');
+    const content = cut(out.content, room);
+    readChars += content.length;
+    return { ...out, content };
+  }
+
+  /** A native entry: `body` is its input; businessId, params and query are ignored. */
+  async function callNative(entry: NativeToolEntry, body: unknown) {
+    if (Math.min(MAX_ROUTE_RESULT_CHARS, TURN_READ_BUDGET_CHARS - readChars) <= TRUNCATED.length) {
+      return fail('turn_budget_exhausted');
+    }
+    const parsed = entry.input.safeParse(body ?? {});
+    if (!parsed.success) {
+      return spend(fail('invalid_input', { issues: issuesOf(parsed.error) }));
+    }
+    return spend(await entry.run(parsed.data));
+  }
 
   function prepare(input: z.output<typeof ToolCallInput>): Prepared {
     const entry = ctx.catalog.get(input.key);
@@ -251,7 +279,7 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
     schema: ToolSearchInput,
     run(input) {
       const { query } = input as z.output<typeof ToolSearchInput>;
-      const hits = searchCatalog(ctx.catalog, query, ctx.page?.route).map((e) => ({
+      const hits = searchCatalog(ctx.catalog, query, ctx.page?.route, ctx.native).map((e) => ({
         key: e.key,
         use: e.use,
         summary: e.summary,
@@ -267,6 +295,16 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
     schema: ToolDescribeInput,
     run(input) {
       const { key } = input as z.output<typeof ToolDescribeInput>;
+      const nativeEntry = native.get(key);
+      if (nativeEntry) {
+        const out = {
+          key: nativeEntry.key,
+          use: 'read',
+          pathParams: [],
+          body: jsonSchema(nativeEntry.input),
+        };
+        return Promise.resolve({ content: cut(json(out), MAX_ROUTE_RESULT_CHARS) });
+      }
       const entry = ctx.catalog.get(key);
       if (!entry) return Promise.resolve(fail('unknown_key'));
       const out = {
@@ -287,6 +325,9 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
     schema: ToolCallInput,
     async run(raw) {
       const input = raw as z.output<typeof ToolCallInput>;
+      // Native keys first; a route key always starts with an HTTP method, so none collides.
+      const nativeEntry = native.get(input.key);
+      if (nativeEntry) return callNative(nativeEntry, input.body);
       const p = prepare(input);
       if (!p.ok) return fail(p.errorCode, p.extra);
       if (p.entry.use === 'read') return read(p);

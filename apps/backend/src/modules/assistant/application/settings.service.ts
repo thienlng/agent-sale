@@ -58,8 +58,8 @@ export class AssistantSettingsService {
       toolsets: TOOLSETS.map((t) => ({
         id: t.id,
         labelKey: t.labelKey,
-        toolCount: t.tools.length,
-        uses30d: t.tools.reduce((n, tool) => n + (uses[tool] ?? 0), 0),
+        toolCount: t.tools.length + (t.deferred?.length ?? 0),
+        uses30d: [...t.tools, ...(t.deferred ?? [])].reduce((n, tool) => n + (uses[tool] ?? 0), 0),
         locked: isLockedToolset(t.id),
       })),
     };

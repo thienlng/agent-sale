@@ -1,7 +1,7 @@
-import type { Database } from '@agent-sales/db';
+import type { AssistantSqlClient, Database } from '@agent-sales/db';
 import { Module } from '@nestjs/common';
 
-import { DB_SYSTEM, DB_TENANT } from '../../common/db/db.module.js';
+import { DB_ASSISTANT_SQL, DB_SYSTEM, DB_TENANT } from '../../common/db/db.module.js';
 import { AccountModule } from '../account/account.module.js';
 import { AiModule } from '../ai/ai.module.js';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
@@ -21,9 +21,11 @@ import { SuggestionsService } from './application/suggestions.service.js';
 import { ThreadPromptService } from './application/thread-prompt.service.js';
 import { ASSISTANT_REPOSITORY } from './domain/ports/assistant.repository.js';
 import { ROUTE_INVOKER } from './domain/ports/route-invoker.port.js';
+import { ASSISTANT_SQL_RUNNER } from './domain/ports/sql-runner.port.js';
 import { FastifyRouteInvoker } from './infrastructure/http/fastify-route-invoker.js';
 import { DrizzleAssistantRepository } from './infrastructure/persistence/assistant.drizzle-repository.js';
 import { InMemoryAssistantRepository } from './infrastructure/persistence/assistant.in-memory-repository.js';
+import { PostgresSqlRunner } from './infrastructure/sql/postgres-sql-runner.js';
 import { AssistantSettingsController } from './interface/http/assistant-settings.controller.js';
 import { AssistantController } from './interface/http/assistant.controller.js';
 
@@ -52,6 +54,14 @@ import { AssistantController } from './interface/http/assistant.controller.js';
     // Route tools and approved proposals run in process through Fastify inject (spec §6).
     { provide: ROUTE_INVOKER, useClass: FastifyRouteInvoker },
     SkillsService,
+    // The read-only SQL lane (T-171); null without DATABASE_ASSISTANT_SQL_URL, and then the SQL
+    // tools are not in the catalog.
+    {
+      provide: ASSISTANT_SQL_RUNNER,
+      inject: [{ token: DB_ASSISTANT_SQL, optional: true }],
+      useFactory: (client: AssistantSqlClient | null | undefined) =>
+        client ? new PostgresSqlRunner(client) : null,
+    },
     ThreadPromptService,
     CompactionService,
     ChatTurnService,

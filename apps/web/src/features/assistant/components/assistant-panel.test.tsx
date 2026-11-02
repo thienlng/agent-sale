@@ -422,6 +422,55 @@ describe('AssistantPanel', () => {
     expect(useAssistantUi.getState().spotlight).toBeNull();
   });
 
+  it('does not run a chart action: no navigate, no fill, no spotlight', async () => {
+    const { fetchStub } = stubFetch({
+      'POST /assistant/threads': { status: 201, body: threadFixture() },
+      [`POST /assistant/threads/${ASSISTANT_IDS.thread}/messages`]: {
+        status: 200,
+        body: turnFixture('doanh thu tuần này', {
+          content: 'Doanh thu tuần này là 1.250.000đ.',
+          uiActions: [
+            {
+              type: 'chart',
+              chart: {
+                kind: 'bar',
+                title: 'Doanh thu theo ngày',
+                x: { key: 'product', label: 'Ngày' },
+                series: [{ key: 'name', label: 'Doanh thu' }],
+                unit: 'vnd',
+                rows: [{ product: '2026-11-02', name: 1_250_000 }],
+              },
+            },
+          ],
+        }),
+      },
+      [`GET /assistant/runs/${ASSISTANT_IDS.turn}`]: { status: 200, body: runFixture() },
+      [`GET /assistant/threads/${ASSISTANT_IDS.thread}/proposals`]: {
+        status: 200,
+        body: { items: [] },
+      },
+      'GET /assistant/threads': { status: 200, body: { data: [] } },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    // A form is on screen, named like the chart's keys: a chart must never be read as a fill.
+    const router = renderApp(ProductFormPage, '/app/products/new');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' }));
+    await user.type(
+      await screen.findByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' }),
+      'doanh thu tuần này{Enter}',
+    );
+
+    expect(await screen.findByText('Doanh thu tuần này là 1.250.000đ.')).toBeInTheDocument();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(router.state.location.pathname).toBe('/app/products/new');
+    expect(screen.getByRole('textbox', { name: 'Tên' })).toHaveValue('');
+    expect(screen.getByRole('textbox', { name: 'Giá' })).toHaveValue('');
+    expect(toast).not.toHaveBeenCalled();
+    expect(useAssistantUi.getState().spotlight).toBeNull();
+  });
+
   it('applies a proposal: buttons wait for the answer, then the status and event show', async () => {
     useAssistantUi.setState({ open: true, workspaceId: WS, threadId: ASSISTANT_IDS.thread });
     const listMessages = `GET /assistant/threads/${ASSISTANT_IDS.thread}/messages`;

@@ -15,7 +15,11 @@ const botId = newId();
 beforeAll(async () => {
   pg = await startTestPostgres();
   await migrate(pg.ownerUrl);
-  await ensureLoginRoles(pg.ownerUrl, { tenant: pg.tenantLogin, system: pg.systemLogin });
+  await ensureLoginRoles(pg.ownerUrl, {
+    tenant: pg.tenantLogin,
+    system: pg.systemLogin,
+    assistantSql: pg.assistantSqlLogin,
+  });
   tenant = createDb({
     url: withCredentials(pg.ownerUrl, pg.tenantLogin.user, pg.tenantLogin.password),
     max: 1,

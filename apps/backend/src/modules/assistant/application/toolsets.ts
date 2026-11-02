@@ -10,12 +10,19 @@ import {
 import { MEMORY_TOOL } from './memory-tools.js';
 import { TOOL_CALL_TOOL, TOOL_DESCRIBE_TOOL, TOOL_SEARCH_TOOL } from './route-tools.js';
 import { LOAD_SKILL_TOOL, SKILL_MANAGE_TOOL, SKILLS_LIST_TOOL } from './skill-tools.js';
+import { SQL_QUERY_KEY, SQL_SCHEMA_KEY, SQL_TOOLSET } from './sql/sql-tools.js';
 
 export interface Toolset {
   id: AssistantToolsetId;
   /** i18n key in the web's `assistant` namespace. */
   labelKey: string;
+  /** The always-loaded tools of the turn's tool list. */
   tools: readonly string[];
+  /**
+   * Deferred native tools (found by tool_search, run by tool_call). Turning the toolset off
+   * drops them from the deferred catalog; they are not in the tool list.
+   */
+  deferred?: readonly string[];
 }
 
 /** The chat turn's tools by toolset (spec §6). `core` and `ui` cannot be turned off. */
@@ -36,6 +43,13 @@ export const TOOLSETS: readonly Toolset[] = [
     id: 'routes',
     labelKey: 'toolsets.routes',
     tools: [TOOL_SEARCH_TOOL, TOOL_DESCRIBE_TOOL, TOOL_CALL_TOOL],
+  },
+  // Capability 2: the SQL lane's deferred tools (ChatTurnService leaves them out when off).
+  {
+    id: SQL_TOOLSET,
+    labelKey: 'toolsets.sql',
+    tools: [],
+    deferred: [SQL_SCHEMA_KEY, SQL_QUERY_KEY],
   },
 ];
 

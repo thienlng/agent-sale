@@ -31,7 +31,11 @@ const fixtures: { account: string; owner: string; thread: string; business: stri
 beforeAll(async () => {
   pg = await startTestPostgres();
   await migrate(pg.ownerUrl);
-  await ensureLoginRoles(pg.ownerUrl, { tenant: pg.tenantLogin, system: pg.systemLogin });
+  await ensureLoginRoles(pg.ownerUrl, {
+    tenant: pg.tenantLogin,
+    system: pg.systemLogin,
+    assistantSql: pg.assistantSqlLogin,
+  });
   const tenantUrl = withCredentials(pg.ownerUrl, pg.tenantLogin.user, pg.tenantLogin.password);
   tenantDb = createDb({ url: tenantUrl, max: 1 });
   tenantDb2 = createDb({ url: tenantUrl, max: 1 });

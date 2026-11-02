@@ -13,9 +13,11 @@ import {
   TRUNCATED,
   TURN_READ_BUDGET_CHARS,
 } from '../application/route-tools.js';
+import { type NativeToolEntry, sqlTools } from '../application/sql/sql-tools.js';
 import type { OwnerScope } from '../domain/owner-scope.js';
 import type { RouteInvocation, RouteInvocationResult } from '../domain/ports/route-invoker.port.js';
 import { InMemoryAssistantRepository } from '../infrastructure/persistence/assistant.in-memory-repository.js';
+import { FakeSqlRunner } from './factories/fake-sql-runner.js';
 
 const AUTH = 'Bearer owner-token';
 const BUSINESS = workspaceId(newId());
@@ -31,6 +33,7 @@ async function setup(
   respond: (i: RouteInvocation) => RouteInvocationResult = () => ({ status: 200, body: {} }),
   page?: { route: string },
   catalog: RouteCatalog = ROUTE_CATALOG,
+  native?: (scope: OwnerScope) => readonly NativeToolEntry[],
 ) {
   const repo = new InMemoryAssistantRepository();
   const scope: OwnerScope = {
@@ -59,6 +62,7 @@ async function setup(
     proposalIds,
     now: () => NOW,
     ...(page ? { page } : {}),
+    ...(native ? { native: native(scope) } : {}),
   });
   const run = async (tool: typeof call, input: unknown) => {
     const parsed = tool!.schema.parse(input);
@@ -325,5 +329,100 @@ describe('tool_call', () => {
     const [stored] = await t.repo.listProposals(t.scope, t.thread.id);
     expect(stored?.preview).toEqual({ body: PRODUCT, query: null, before });
     expect(stored?.path).toBe(`/products/${id}`);
+  });
+});
+
+describe('native entries (sql_schema, sql_query)', () => {
+  const withSql = (runner: FakeSqlRunner) => (scope: OwnerScope) =>
+    sqlTools({ scope, runner, uiActions: [], charts: { count: 0 } });
+
+  it('are found by tool_search for a number question', async () => {
+    const t = await setup(undefined, undefined, ROUTE_CATALOG, withSql(new FakeSqlRunner()));
+    const out = await t.search({ query: 'revenue this week' });
+    const top3 = (out.json as { key: string }[]).slice(0, 3).map((h) => h.key);
+    expect(top3.some((k) => k === 'sql_query' || k === 'sql_schema')).toBe(true);
+    const hit = (out.json as { key: string; use: string }[]).find((h) => h.key === 'sql_query');
+    expect(hit?.use).toBe('read');
+  });
+
+  it('get no page boost', () => {
+    const extra = [{ key: 'sql_query', summary: 'orders', when: '' }];
+    const onPage = searchCatalog(ROUTE_CATALOG, 'orders', '/app/orders', extra);
+    const plain = searchCatalog(ROUTE_CATALOG, 'orders', undefined, extra);
+    expect(onPage.findIndex((e) => e.key === 'sql_query')).toBeGreaterThanOrEqual(
+      plain.findIndex((e) => e.key === 'sql_query'),
+    );
+  });
+
+  it('are described with their body schema', async () => {
+    const t = await setup(undefined, undefined, ROUTE_CATALOG, withSql(new FakeSqlRunner()));
+    const out = await t.describe({ key: 'sql_query' });
+    expect(out.json).toMatchObject({ key: 'sql_query', use: 'read', pathParams: [] });
+    expect(out.json.body).toMatchObject({
+      type: 'object',
+      properties: { sql: { type: 'string', maxLength: 4000 } },
+      required: ['sql'],
+    });
+  });
+
+  it('run through tool_call with the input in body, ignoring businessId, params and query', async () => {
+    const runner = new FakeSqlRunner();
+    const t = await setup(undefined, undefined, ROUTE_CATALOG, withSql(runner));
+    const out = await t.call({
+      key: 'sql_query',
+      body: { sql: 'select 1 from orders' },
+      businessId: 'not-a-business',
+      params: { x: '1' },
+      query: { q: 'x' },
+    });
+    expect(out.json).toMatchObject({ ok: true, columns: ['n'], rows: [[1]] });
+    expect(runner.calls).toEqual([
+      { accountId: t.scope.accountId, businessIds: [BUSINESS, OTHER], sql: 'select 1 from orders' },
+    ]);
+    expect(t.invoke).not.toHaveBeenCalled();
+    const schema = await t.call({ key: 'sql_schema' });
+    expect(typeof schema.json).toBe('string');
+  });
+
+  it('check the body against the entry input', async () => {
+    const runner = new FakeSqlRunner();
+    const t = await setup(undefined, undefined, ROUTE_CATALOG, withSql(runner));
+    const out = await t.call({ key: 'sql_query', body: { sql: 42 } });
+    expect(out.ok).toBe(false);
+    expect(out.json).toMatchObject({ ok: false, errorCode: 'invalid_input' });
+    expect((out.json.issues as { path: string }[])[0]?.path).toBe('sql');
+    expect(runner.calls).toHaveLength(0);
+  });
+
+  it('count against the turn read budget', async () => {
+    const big = 'x'.repeat(150);
+    const runner = new FakeSqlRunner(() => ({
+      columns: [{ name: 'v', type: 'text' }],
+      rows: Array.from({ length: 200 }, () => [big]),
+      truncated: false,
+    }));
+    const t = await setup(undefined, undefined, ROUTE_CATALOG, withSql(runner));
+    let used = 0;
+    // Each result is close to 8 000 chars: the sixth is cut to what is left of the 40 000.
+    for (let i = 0; i < 6; i++) {
+      const out = await t.call({ key: 'sql_query', body: { sql: 'select 1 from orders' } });
+      used += out.content.length;
+    }
+    expect(used).toBe(TURN_READ_BUDGET_CHARS);
+    const after = await t.call({ key: 'sql_query', body: { sql: 'select 1 from orders' } });
+    expect(after.json).toEqual({ ok: false, errorCode: 'turn_budget_exhausted' });
+  });
+
+  it('do not exist without native entries', async () => {
+    const t = await setup();
+    expect(
+      (await t.call({ key: 'sql_query', body: { sql: 'select 1 from orders' } })).json,
+    ).toEqual({ ok: false, errorCode: 'unknown_key' });
+    expect((await t.describe({ key: 'sql_query' })).json).toEqual({
+      ok: false,
+      errorCode: 'unknown_key',
+    });
+    const hits = (await t.search({ query: 'revenue this week' })).json as { key: string }[];
+    expect(hits.some((h) => h.key.startsWith('sql_'))).toBe(false);
   });
 });
