@@ -1,0 +1,143 @@
+{
+  "title": "Nhà phát triển",
+  "subtitle": "Kết nối hệ thống của bạn (ERP, POS, PMS, n8n, Make, Zapier…) với Rapiz qua API và webhook.",
+  "docs": "Tài liệu API (OpenAPI)",
+  "noAccess": "Chỉ chủ doanh nghiệp hoặc quản trị viên mới quản lý được khóa API và webhook.",
+  "upgrade": {
+    "title": "Gói hiện tại chưa có API công khai",
+    "body": "Nâng cấp lên gói Pro hoặc Neo để tạo khóa API và nhận webhook."
+  },
+  "common": {
+    "cancel": "Hủy",
+    "close": "Đóng",
+    "copy": "Sao chép",
+    "copied": "Đã sao chép",
+    "loadError": "Không tải được dữ liệu. Tải lại trang để thử lại.",
+    "never": "Chưa dùng"
+  },
+  "keys": {
+    "title": "Khóa API",
+    "hint": "Mỗi khóa thay mặt người tạo, chỉ làm được những việc được cấp quyền và vai trò của người đó cho phép.",
+    "create": "Tạo khóa API",
+    "empty": "Chưa có khóa API nào.",
+    "createdBy": "Tạo bởi {{name}}",
+    "lastUsed": "Dùng lần cuối: {{when}}",
+    "expires": "Hết hạn: {{when}}",
+    "noExpiry": "Không hết hạn",
+    "scopes": "Quyền",
+    "status": {
+      "active": "Đang dùng",
+      "expired": "Hết hạn",
+      "revoked": "Đã thu hồi"
+    },
+    "revoke": "Thu hồi",
+    "revokeTitle": "Thu hồi khóa “{{name}}”?",
+    "revokeBody": "Mọi hệ thống đang dùng khóa này sẽ bị từ chối ngay. Không thể hoàn tác.",
+    "revoked": "Đã thu hồi khóa",
+    "form": {
+      "title": "Tạo khóa API",
+      "description": "Chỉ cấp những quyền mà hệ thống của bạn thật sự cần.",
+      "name": "Tên khóa",
+      "namePlaceholder": "VD: Đồng bộ ERP",
+      "nameRequired": "Nhập tên khóa",
+      "scopesRequired": "Chọn ít nhất một quyền",
+      "expiresAt": "Ngày hết hạn (không bắt buộc)",
+      "expiryPast": "Ngày hết hạn phải ở tương lai",
+      "submit": "Tạo khóa"
+    },
+    "reveal": {
+      "title": "Khóa API mới",
+      "warning": "Sao chép và lưu khóa này ở nơi an toàn. Rapiz chỉ hiện khóa một lần duy nhất.",
+      "done": "Tôi đã lưu khóa"
+    }
+  },
+  "scopes": {
+    "bots.manage": "Quản lý bot",
+    "catalog.manage": "Quản lý sản phẩm",
+    "orders.view": "Xem đơn hàng",
+    "orders.manage": "Tạo và sửa đơn hàng",
+    "contacts.view_all": "Xem mọi khách hàng",
+    "contacts.view": "Xem khách hàng được giao",
+    "contacts.edit": "Tạo và sửa khách hàng",
+    "contacts.assign": "Phân công khách hàng",
+    "analytics.view": "Xem báo cáo"
+  },
+  "webhooks": {
+    "title": "Webhook",
+    "hint": "Rapiz gửi POST có chữ ký tới địa chỉ HTTPS của bạn mỗi khi có sự kiện. Hãy kiểm tra chữ ký Rapiz-Signature và bỏ qua sự kiện trùng id.",
+    "add": "Thêm webhook",
+    "empty": "Chưa có webhook nào.",
+    "enabled": "Đang bật",
+    "disabled": "Đã tắt",
+    "disabledFailing": "Tự tắt do lỗi liên tục",
+    "failingSince": "Lỗi từ {{when}}",
+    "eventCount_one": "{{count}} sự kiện",
+    "eventCount_other": "{{count}} sự kiện",
+    "edit": "Sửa",
+    "deliveries": "Lịch sử gửi",
+    "rotate": "Đổi khóa ký",
+    "rotateTitle": "Đổi khóa ký của webhook?",
+    "rotateBody": "Khóa ký cũ vẫn ký thêm 24 giờ để bạn kịp cập nhật hệ thống nhận.",
+    "test": "Gửi thử",
+    "testSent": "Đã gửi sự kiện thử",
+    "delete": "Xóa",
+    "deleteTitle": "Xóa webhook này?",
+    "deleteBody": "Rapiz sẽ ngừng gửi sự kiện tới {{url}} và xóa lịch sử gửi.",
+    "deleted": "Đã xóa webhook",
+    "saved": "Đã lưu webhook",
+    "actions": "Thao tác",
+    "form": {
+      "createTitle": "Thêm webhook",
+      "editTitle": "Sửa webhook",
+      "url": "Địa chỉ nhận (HTTPS)",
+      "urlInvalid": "Nhập địa chỉ bắt đầu bằng https://",
+      "description": "Mô tả (không bắt buộc)",
+      "events": "Sự kiện",
+      "eventsRequired": "Chọn ít nhất một sự kiện",
+      "enabled": "Bật webhook",
+      "save": "Lưu"
+    },
+    "secret": {
+      "title": "Khóa ký webhook",
+      "warning": "Dùng khóa này để kiểm tra chữ ký Rapiz-Signature. Rapiz chỉ hiện khóa một lần duy nhất.",
+      "done": "Tôi đã lưu khóa"
+    }
+  },
+  "events": {
+    "crm.contact.created": "Khách hàng mới",
+    "crm.contact.updated": "Khách hàng được cập nhật",
+    "crm.contact.status_changed": "Khách hàng đổi trạng thái",
+    "crm.contact.assigned": "Khách hàng được phân công",
+    "crm.tag.assigned": "Gắn thẻ",
+    "crm.tag.removed": "Gỡ thẻ",
+    "lodging.booking.created": "Đặt phòng mới",
+    "lodging.booking.confirmed": "Đặt phòng được xác nhận",
+    "lodging.booking.cancelled": "Đặt phòng bị hủy",
+    "lodging.booking.expired": "Đặt phòng hết hạn giữ chỗ",
+    "lodging.booking.checked_in": "Khách nhận phòng",
+    "lodging.booking.checked_out": "Khách trả phòng",
+    "commerce.order.created": "Đơn hàng mới",
+    "commerce.order.status_changed": "Đơn hàng đổi trạng thái",
+    "saas.subscription.changed": "Thuê bao thay đổi",
+    "webhook.test": "Sự kiện thử"
+  },
+  "deliveries": {
+    "title": "Lịch sử gửi",
+    "description": "Các lần gửi tới {{url}}, mới nhất trước.",
+    "empty": "Chưa có lần gửi nào.",
+    "all": "Tất cả",
+    "status": {
+      "pending": "Đang chờ",
+      "succeeded": "Thành công",
+      "failed": "Thất bại"
+    },
+    "attempts_one": "{{count}} lần thử",
+    "attempts_other": "{{count}} lần thử",
+    "httpStatus": "HTTP {{code}}",
+    "nextAttempt": "Thử lại lúc {{when}}",
+    "resend": "Gửi lại",
+    "resent": "Đã xếp lịch gửi lại",
+    "more": "Xem thêm",
+    "payload": "Nội dung"
+  }
+}

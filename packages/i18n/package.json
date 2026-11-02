@@ -34,6 +34,10 @@
     "./backoffice": {
       "types": "./dist/backoffice.d.ts",
       "import": "./dist/backoffice.js"
+    },
+    "./developer": {
+      "types": "./dist/developer.d.ts",
+      "import": "./dist/developer.js"
     }
   },
   "files": [

@@ -10,6 +10,8 @@ import { useSession } from '@/lib/session';
 
 import { AccountMenu, type MenuDialogProps } from './layout/account-menu';
 import { AccountSidebar, ACCOUNT_PATHS } from './layout/account-sidebar';
+import { ADMIN_NAV } from './layout/admin-nav';
+import { AdminSidebar } from './layout/admin-sidebar';
 import { AppSidebar, type NavCounts } from './layout/app-sidebar';
 import type { CreateBusinessDialogProps } from './layout/business-selector';
 
@@ -29,7 +31,6 @@ const SECTION: Record<string, string> = {
   'order-settings': 'nav.orderSettings',
   analytics: 'nav.analytics',
   settings: 'nav.settings',
-  llm: 'nav.adminLlm',
   calendar: 'nav.calendar',
   bookings: 'nav.bookings',
   properties: 'nav.properties',
@@ -66,8 +67,13 @@ export function AppShell({
   const segment = useRouterState({
     select: (s) => s.location.pathname.split('/').filter(Boolean)[1] ?? '',
   });
-  const section = SECTION[segment];
-  const accountLayer = useRouterState({ select: (s) => ACCOUNT_PATHS.test(s.location.pathname) });
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  // The platform back-office has its own sidebar and section names (ADR-021 §6).
+  const adminLayer = /^\/admin(\/|$)/.test(pathname);
+  const section = adminLayer
+    ? ADMIN_NAV.find((item) => pathname.startsWith(item.to))?.key
+    : SECTION[segment];
+  const accountLayer = ACCOUNT_PATHS.test(pathname);
 
   return (
     // Collapsed-sidebar items show their label as a tooltip; only the dashboard needs tooltips.
@@ -76,7 +82,9 @@ export function AppShell({
         defaultOpen={sidebarOpenByDefault()}
         style={{ '--header-height': '3.25rem' } as CSSProperties}
       >
-        {accountLayer ? (
+        {adminLayer ? (
+          <AdminSidebar />
+        ) : accountLayer ? (
           <AccountSidebar />
         ) : (
           <AppSidebar

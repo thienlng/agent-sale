@@ -2,8 +2,10 @@
 // user via @CurrentUser() (common/http/auth-context) and names via IDENTITY_FACADE.
 export {
   IDENTITY_ADMIN_FACADE,
+  IDENTITY_API_KEYS_FACADE,
   IDENTITY_FACADE,
   type IdentityAdminFacade,
+  type IdentityApiKeysFacade,
   type IdentityFacade,
   type UserRef,
 } from './identity.facade.js';

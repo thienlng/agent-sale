@@ -36,7 +36,7 @@ import { ROUTE_TOOL_DEFINITIONS, routeTools } from './route-tools.js';
 import { SKILL_TOOL_DEFINITIONS, SkillCatalog, skillTools } from './skill-tools.js';
 import { withTurnOutputBudget } from './turn-budget.js';
 
-/** The assistant answers on the `pro` tier (ADR-022). */
+/** The assistant answers on the `pro` tier (ADR-023). */
 export const TURN_TIER = 'pro' as const;
 export const TURN_MAX_ROUNDS = 25;
 export const TURN_BUDGET_MS = 90_000;

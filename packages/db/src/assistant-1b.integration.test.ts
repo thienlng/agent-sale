@@ -18,7 +18,7 @@ import {
 import { withSystem } from './tenant.js';
 
 /**
- * Owner assistant 1b tables (0056, ADR-022): account RLS on `assistant_memory` and
+ * Owner assistant 1b tables (0057, ADR-023): account RLS on `assistant_memory` and
  * `assistant_proposals`, the store CHECK, the proposal status guard under concurrency, and
  * `assistant_messages.sort_seq`. One connection per client (`max: 1`) mimics PgBouncer.
  */
@@ -84,7 +84,7 @@ const proposalRow = (f: (typeof fixtures)[number]) => ({
   expiresAt: new Date(Date.now() + 86_400_000),
 });
 
-describe('assistant 1b tables (0056)', () => {
+describe('assistant 1b tables (0057)', () => {
   it('keeps memory per account under RLS and checks the store name', async () => {
     const [a, b] = fixtures as [(typeof fixtures)[0], (typeof fixtures)[0]];
     for (const f of [a, b]) {

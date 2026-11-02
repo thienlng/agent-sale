@@ -7,6 +7,7 @@ import {
   ContactQueryRequest,
   CreateContactNoteRequest,
   CreateContactRequest,
+  memberRoleOf,
   UpdateContactNoteRequest,
   UpdateContactRequest,
 } from '@agent-sales/contracts';
@@ -97,7 +98,7 @@ export class ContactService {
       // A scoped creator (Sales, CSKH) owns what they create, so they keep seeing it.
       const me = scopeOf(viewer);
       if (me && !fields.salesUserId && !fields.careUserId) {
-        if (viewer.role === 'care') fields.careUserId = me;
+        if (memberRoleOf(viewer.role) === 'care') fields.careUserId = me;
         else fields.salesUserId = me;
       }
       // No Sales given: the source's auto-assignment policy may pick one (T-033).

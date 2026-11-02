@@ -1,8 +1,8 @@
 # assistant
 
-**Purpose:** the owner assistant "Thỏ Rapiz" (ADR-022, T-170): an account owner's private chat threads, the runs that answer them and their steps. Owner-only and account-scoped, not business-scoped.
+**Purpose:** the owner assistant "Thỏ Rapiz" (ADR-023, T-170): an account owner's private chat threads, the runs that answer them and their steps. Owner-only and account-scoped, not business-scoped.
 
-**Owned tables:** `assistant_threads`, `assistant_messages`, `assistant_runs`, `assistant_run_steps` (migration 0055), `assistant_memory`, `assistant_proposals` and the compaction columns (`assistant_threads.cache_root_id`, `compacted_at`, `compaction_failed_at`, `compaction_saved_pcts`; `assistant_messages.sort_seq`) (migration 0056); schema in `packages/db/src/schema/assistant.ts`. Every row carries `account_id`; RLS reads `app.account_id`, set by `withAccount`. `assistant_messages.search` (generated tsvector, GIN + trigram indexes) exists only in SQL and is queried with `sql`.
+**Owned tables:** `assistant_threads`, `assistant_messages`, `assistant_runs`, `assistant_run_steps` (migration 0056), `assistant_memory`, `assistant_proposals` and the compaction columns (`assistant_threads.cache_root_id`, `compacted_at`, `compaction_failed_at`, `compaction_saved_pcts`; `assistant_messages.sort_seq`) (migration 0057); schema in `packages/db/src/schema/assistant.ts`. Every row carries `account_id`; RLS reads `app.account_id`, set by `withAccount`. `assistant_messages.search` (generated tsvector, GIN + trigram indexes) exists only in SQL and is queried with `sql`.
 
 **Public API (`api/`):**
 

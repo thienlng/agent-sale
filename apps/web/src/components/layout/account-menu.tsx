@@ -10,6 +10,7 @@ import {
   ExternalLink,
   LogOut,
   MonitorCog,
+  ServerCog,
   ShieldCheck,
   SlidersHorizontal,
 } from 'lucide-react';
@@ -182,6 +183,16 @@ export function AccountMenu({
                   {t('account.security')}
                 </Link>
               </DropdownMenuItem>
+              {session?.user.isPlatformAdmin ? (
+                <DropdownMenuItem asChild className="gap-3 py-1.5">
+                  <Link to="/admin/accounts">
+                    <RowIcon>
+                      <ServerCog />
+                    </RowIcon>
+                    {t('nav.admin')}
+                  </Link>
+                </DropdownMenuItem>
+              ) : null}
               <DropdownMenuItem
                 className="gap-3 py-1.5"
                 onSelect={(e) => {

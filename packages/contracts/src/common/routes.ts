@@ -31,6 +31,11 @@ export interface RouteContract {
   /** Requires `Authorization: Bearer` (and workspace membership when `workspaceScoped`). */
   auth: boolean;
   workspaceScoped?: boolean;
+  /**
+   * Also reachable with a workspace API key (`Bearer rpz_live_…`, ADR-022). Only for
+   * workspace-scoped routes guarded by a capability; every other route answers 404 to a key.
+   */
+  apiKey?: boolean;
   body?: z.ZodType;
   query?: z.ZodObject;
   /** Success responses by status code. */
@@ -59,6 +64,11 @@ function schemaOf(s: z.ZodType): Record<string, unknown> {
 function inputSchemaOf(s: z.ZodType): Record<string, unknown> {
   const { $schema: _ignored, ...rest } = z.toJSONSchema(s, { io: 'input', unrepresentable: 'any' });
   return rest;
+}
+
+/** The routes a workspace API key may call (the public API, ADR-022). */
+export function apiKeyRoutes<T extends RouteContract>(routes: readonly T[]): T[] {
+  return routes.filter((r) => r.apiKey === true);
 }
 
 /** Builds an OpenAPI 3.1 document from route contracts. */
@@ -105,7 +115,9 @@ export function buildOpenApiDocument(
     (paths[r.path] ??= {})[r.method] = {
       summary: r.summary,
       tags: [r.tag],
-      ...(r.auth ? { security: [{ bearer: [] }] } : {}),
+      ...(r.auth
+        ? { security: r.apiKey ? [{ bearer: [] }, { apiKey: [] }] : [{ bearer: [] }] }
+        : {}),
       ...(parameters.length ? { parameters } : {}),
       ...(r.body
         ? {
@@ -123,7 +135,10 @@ export function buildOpenApiDocument(
     info,
     servers: [{ url: '/api/v1' }],
     components: {
-      securitySchemes: { bearer: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' } },
+      securitySchemes: {
+        bearer: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+        apiKey: { type: 'http', scheme: 'bearer', bearerFormat: 'rpz_live_<id>_<secret>' },
+      },
     },
     paths,
   };

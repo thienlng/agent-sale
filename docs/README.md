@@ -59,6 +59,7 @@ Input source: `../../preny/preny-research/` (Preny research dossier dated 23/10/
 
 - [Facebook post/comment automation](integrations/facebook-comments.md) — T-069 configuration, source context, moderation policy, delivery guarantees and provider verification limits.
 - [KiotViet integration ("Tích hợp PMS")](integrations/kiotviet.md) — owner setup, data flow (full import, webhooks, 10-minute reconcile), locked fields, limits, sync log troubleshooting and env vars (ADR-017).
+- [Public API and webhooks](integrations/public-api.md) — API keys, scopes, plan, rate limit, idempotency, signed webhooks, retries, SSRF guard, worker (ADR-022).
 
 ## Documentation conventions
 

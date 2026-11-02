@@ -276,6 +276,27 @@ describe('commerce on Postgres', () => {
     expect(returned.history.at(-1)?.note).toBe('Khách không nhận');
     expect(await stockOf(h, product.id, l.id)).toMatchObject({ onHand: 10, reserved: 0 });
 
+    // Each change wrote its integration event in the same transaction (ADR-022 §7).
+    const owner_ = createDb({ url: pg.ownerUrl, max: 1 });
+    try {
+      const events = (await owner_.db.execute(
+        sql`select type, payload from outbox_events where aggregate_id = ${order.id} order by id`,
+      )) as unknown as Array<{ type: string; payload: Record<string, unknown> }>;
+      expect(events.map((e) => e.type)).toEqual([
+        'commerce.order.created.v1',
+        'commerce.order.status_changed.v1',
+        'commerce.order.status_changed.v1',
+      ]);
+      expect(events[0]?.payload).toMatchObject({ code: 'DH000001', status: 'new', total: 480_000 });
+      expect(events.slice(1).map((e) => [e.payload.fromStatus, e.payload.toStatus])).toEqual([
+        ['new', 'delivering'],
+        ['delivering', 'returned'],
+      ]);
+      expect(JSON.stringify(events)).not.toContain('0901234567');
+    } finally {
+      await owner_.close();
+    }
+
     const second = OrderDto.parse(
       (
         await call(h, 'POST', '/orders', orderBody(warehouse.id, [{ variantId: l.id, qty: 1 }]))

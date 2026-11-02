@@ -42,7 +42,7 @@ export function tenantPolicies(table: string) {
   ];
 }
 
-/** Account-scoped predicate (ADR-022): the owner assistant tables carry `account_id`, not `workspace_id`. */
+/** Account-scoped predicate (ADR-023): the owner assistant tables carry `account_id`, not `workspace_id`. */
 export const accountPredicate = sql`account_id = (select nullif(current_setting('app.account_id', true), '')::uuid)`;
 
 export function accountPolicies(table: string) {

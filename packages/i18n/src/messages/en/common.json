@@ -30,6 +30,8 @@
     "adminPlans": "Plans",
     "adminSettings": "Billing settings",
     "adminLlm": "AI models",
+    "platform": "Platform",
+    "backToBusinesses": "Back to businesses",
     "toggleSidebar": "Open or collapse the sidebar",
     "ordersOverview": "Overview",
     "ordersList": "Order list",
@@ -1324,7 +1326,8 @@
     "tabs": {
       "profile": "Business profile",
       "security": "Security",
-      "audit": "Change log"
+      "audit": "Change log",
+      "developers": "Developers"
     },
     "profile": {
       "title": "Business information",

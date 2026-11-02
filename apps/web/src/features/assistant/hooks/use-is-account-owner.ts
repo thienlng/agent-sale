@@ -1,7 +1,7 @@
 import { useSession } from '@/lib/session';
 
 /**
- * Whether the user owns the account that owns the current business (ADR-022): only they may
+ * Whether the user owns the account that owns the current business (ADR-023): only they may
  * use the owner assistant. The server refuses everyone else; the bubble is simply not shown.
  */
 export function useIsAccountOwner(): boolean {

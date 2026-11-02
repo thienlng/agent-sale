@@ -1,4 +1,5 @@
-import type { UserId } from '@agent-sales/shared';
+import type { ApiKeyDto, CreateApiKeyRequest, CreatedApiKey } from '@agent-sales/contracts';
+import type { UserId, WorkspaceId } from '@agent-sales/shared';
 
 /** PUBLIC CONTRACT of the identity module for other modules. */
 export interface IdentityFacade {
@@ -27,3 +28,22 @@ export interface UserRef {
 }
 
 export const IDENTITY_FACADE = Symbol('IDENTITY_FACADE');
+
+/**
+ * Workspace API keys (ADR-022 §2): identity owns them (they are credentials); the developer
+ * module serves Settings → Developers through this facade. Callers check `developer.manage`.
+ */
+export interface IdentityApiKeysFacade {
+  /** Keys of the workspace, newest first (never the secret). */
+  list(workspaceId: WorkspaceId): Promise<ApiKeyDto[]>;
+  /** Creates a key acting for `actor`; the full key is in the result only. FEATURE_LOCKED without the plan. */
+  create(
+    workspaceId: WorkspaceId,
+    actor: UserId,
+    input: CreateApiKeyRequest,
+  ): Promise<CreatedApiKey>;
+  /** Revokes a key (idempotent); NOT_FOUND outside the workspace. */
+  revoke(workspaceId: WorkspaceId, id: string): Promise<ApiKeyDto>;
+}
+
+export const IDENTITY_API_KEYS_FACADE = Symbol('IDENTITY_API_KEYS_FACADE');

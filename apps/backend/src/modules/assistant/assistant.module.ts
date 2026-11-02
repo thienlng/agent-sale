@@ -20,7 +20,7 @@ import { InMemoryAssistantRepository } from './infrastructure/persistence/assist
 import { AssistantController } from './interface/http/assistant.controller.js';
 
 /**
- * Owner assistant (ADR-022): account-scoped threads of one owner. With a database the
+ * Owner assistant (ADR-023): account-scoped threads of one owner. With a database the
  * repository is Drizzle-backed (`withAccount`); otherwise in-memory. Exports ONLY what api/
  * declares. `AiModule` provides the LLM gateway `ChatTurnService` runs chat turns on.
  */

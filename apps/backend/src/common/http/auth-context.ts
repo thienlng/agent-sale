@@ -20,6 +20,12 @@ export interface AuthState {
    * Mutations use it to stamp audit events without importing the identity module.
    */
   displayName?: (() => Promise<string | null>) | undefined;
+  /**
+   * Set when the request authenticated with a workspace API key (ADR-022): `userId` is then the
+   * key's creator, `role` the key's effective capabilities (`apiKeyRole`) and `displayName`
+   * answers `API: <key name>`.
+   */
+  apiKey?: { id: string; name: string } | undefined;
 }
 
 declare module 'fastify' {
