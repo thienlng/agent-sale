@@ -164,6 +164,9 @@
   "crm": {
     "badge": "KiotViet",
     "badgeLabel": "Khách hàng liên kết với KiotViet",
-    "fieldHint": "Đồng bộ từ KiotViet — sửa trên KiotViet để giữ thay đổi"
+    "fieldHint": "Đồng bộ từ KiotViet — sửa trên KiotViet để giữ thay đổi",
+    "rapizBadge": "Rapiz",
+    "rapizBadgeLabel": "Khách hàng liên kết với tài khoản Rapiz",
+    "rapizFieldHint": "Số điện thoại và email lấy từ tài khoản Rapiz, không sửa được ở đây"
   }
 }

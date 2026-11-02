@@ -30,6 +30,10 @@
     "./assistant": {
       "types": "./dist/assistant.d.ts",
       "import": "./dist/assistant.js"
+    },
+    "./backoffice": {
+      "types": "./dist/backoffice.d.ts",
+      "import": "./dist/backoffice.js"
     }
   },
   "files": [

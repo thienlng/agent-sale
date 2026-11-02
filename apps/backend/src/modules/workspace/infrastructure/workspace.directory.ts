@@ -1,7 +1,21 @@
-import { and, type Database, eq, isNull, schema, sql, withSystem } from '@agent-sales/db';
+import {
+  and,
+  asc,
+  type Database,
+  eq,
+  inArray,
+  isNull,
+  schema,
+  sql,
+  withSystem,
+} from '@agent-sales/db';
 import { type UserId, userId, workspaceId, type WorkspaceId } from '@agent-sales/shared';
 
-import type { WorkspaceMember, WorkspaceMembership } from '../api/workspace.facade.js';
+import type {
+  AccountBusiness,
+  WorkspaceMember,
+  WorkspaceMembership,
+} from '../api/workspace.facade.js';
 import type { WorkspaceDirectory } from '../application/ports/workspace-directory.js';
 import type { InMemoryWorkspaceUnitOfWork } from './workspace.unit-of-work.js';
 
@@ -40,6 +54,31 @@ export class DrizzleWorkspaceDirectory implements WorkspaceDirectory {
         role: r.role,
         status: r.status === 'active' ? ('active' as const) : ('removed' as const),
         joinedAt: r.joinedAt,
+      }));
+    });
+  }
+
+  listByAccounts(accountIds: readonly string[]): Promise<AccountBusiness[]> {
+    return withSystem(this.systemDb, async (tx) => {
+      const w = schema.workspaces;
+      const rows = await tx
+        .select({
+          workspaceId: w.id,
+          accountId: w.accountId,
+          name: w.name,
+          industry: w.industry,
+          status: w.status,
+          createdAt: w.createdAt,
+          memberCount: sql<number>`(select count(*)::int from ${schema.members} m
+            where m.workspace_id = ${w.id} and m.status = 'active')`,
+        })
+        .from(w)
+        .where(and(inArray(w.accountId, [...accountIds]), isNull(w.deletedAt)))
+        .orderBy(asc(w.createdAt));
+      return rows.map((r) => ({
+        ...r,
+        workspaceId: workspaceId(r.workspaceId),
+        accountId: r.accountId ?? '',
       }));
     });
   }
@@ -89,6 +128,24 @@ export class InMemoryWorkspaceDirectory implements WorkspaceDirectory {
     return this.store.members.rows
       .filter((m) => m.workspaceId === ws && (includeRemoved || m.status === 'active'))
       .map((m) => ({ userId: m.userId, role: m.role, status: m.status, joinedAt: new Date(0) }));
+  }
+
+  async listByAccounts(accountIds: readonly string[]): Promise<AccountBusiness[]> {
+    return this.store.workspaces
+      .all()
+      .map((w) => w.snapshot())
+      .filter((s) => s.accountId !== null && accountIds.includes(s.accountId))
+      .map((s) => ({
+        workspaceId: s.id,
+        accountId: s.accountId ?? '',
+        name: s.name,
+        industry: s.industry,
+        status: s.status,
+        createdAt: s.createdAt,
+        memberCount: this.store.members.rows.filter(
+          (m) => m.workspaceId === s.id && m.status === 'active',
+        ).length,
+      }));
   }
 
   async listMemberships(user: UserId): Promise<WorkspaceMembership[]> {

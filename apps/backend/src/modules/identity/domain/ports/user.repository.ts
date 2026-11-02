@@ -7,6 +7,13 @@ export interface UserRepository {
   findById(id: UserId): Promise<User | null>;
   /** Throws EmailTakenError when the email already exists (race-safe via unique index). */
   insert(user: User): Promise<void>;
+  /** Users by id, in no particular order (unknown ids are skipped). */
+  findByIds(ids: readonly UserId[]): Promise<User[]>;
+  /**
+   * Platform admin lookup: users whose email, phone or name contains `q` (case-insensitive),
+   * newest first.
+   */
+  search(q: string, limit: number): Promise<User[]>;
   /** Grants or revokes platform admin (CLI only). False when no user has that email. */
   setPlatformAdmin(email: string, value: boolean): Promise<boolean>;
 }

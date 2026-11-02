@@ -6,6 +6,7 @@ import { aiRoutes } from './ai/ai.routes.js';
 import { analyticsRoutes } from './analytics/analytics.routes.js';
 import { auditRoutes } from './audit/audit.routes.js';
 import { billingRoutes } from './billing/billing.routes.js';
+import { backofficeRoutes } from './backoffice/backoffice.routes.js';
 import { llmAdminRoutes } from './ai/llm-admin.routes.js';
 import { botRoutes } from './bot/bot.routes.js';
 import { commerceRoutes } from './commerce/commerce.routes.js';
@@ -34,6 +35,11 @@ export * from './audit/audit.schema.js';
 export * from './audit/audit.routes.js';
 export * from './billing/billing.schema.js';
 export * from './billing/billing.routes.js';
+export * from './billing/billing.events.js';
+export * from './billing/entitlement-keys.js';
+export * from './account/account.events.js';
+export * from './backoffice/backoffice.schema.js';
+export * from './backoffice/backoffice.routes.js';
 export * from './bot/bot.schema.js';
 export * from './bot/profile.js';
 export * from './commerce/commerce.schema.js';
@@ -93,6 +99,7 @@ export const allRoutes = [
   ...actionRoutes,
   ...aiRoutes,
   ...llmAdminRoutes,
+  ...backofficeRoutes,
   ...commerceRoutes,
   ...lodgingRoutes,
   ...lodgingV2Routes,

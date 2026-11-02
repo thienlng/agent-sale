@@ -1,4 +1,10 @@
-import { isUuid, newId, normalizeAnyPhone, type WorkspaceId } from '@agent-sales/shared';
+import {
+  isUuid,
+  newId,
+  normalizeAnyPhone,
+  normalizeEmail,
+  type WorkspaceId,
+} from '@agent-sales/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
 import {
@@ -11,13 +17,15 @@ import {
   type UpsertExternalContactResult,
 } from '../api/contact-sync.facade.js';
 import { ContactNotFoundError } from '../domain/crm.errors.js';
-import { DEFAULT_SOURCES, KIOTVIET_SOURCE } from '../domain/crm-defaults.js';
+import { DEFAULT_SOURCES, EXTERNAL_SOURCE_OPTION } from '../domain/crm-defaults.js';
 import {
   cleanExternalContact,
+  EXTERNAL_SOURCE_RULES,
   type ExternalContactFields,
   externalPatch,
   isPhoneName,
   normalizeExternalId,
+  ownedPatch,
   rejectedFields,
 } from '../domain/external-contact.js';
 import { applyFields } from './contact-fields.js';
@@ -53,28 +61,37 @@ export class ContactSyncService implements ContactSyncFacade {
     if (!fields) return Promise.resolve({ skipped: 'no_identity' });
     const rejected = rejectedFields(input, fields);
     const phoneE164 = fields.phone ? normalizeAnyPhone(fields.phone) : null;
+    const rules = EXTERNAL_SOURCE_RULES[source];
+    const email = rules.matchEmail && fields.email ? normalizeEmail(fields.email) : null;
     return this.store.run(ws, async (tx) => {
-      // Fixed order (external id, then phone) so two imports never wait on each other in a cycle;
-      // the phone lock is the one lead capture (`upsertLead`) takes.
+      // Fixed order (external id, then phone, then email) so two imports never wait on each other
+      // in a cycle; the phone lock is the one lead capture (`upsertLead`) takes.
       await tx.lock(`external/${source}/${externalId}`);
       if (phoneE164) await tx.lock(`phone/${phoneE164}`);
+      if (email) await tx.lock(`email/${email}`);
       const now = new Date();
       const linked = await tx.contactSync.findByExternal(source, externalId);
       if (linked) {
-        const patch = externalPatch(
-          fields,
-          'linked',
-          keepName(fields, linked, phoneE164, rejected),
+        const patch = ownedPatch(
+          source,
+          externalPatch(fields, 'linked', keepName(fields, linked, phoneE164, rejected)),
+          linked.name !== null,
         );
         await this.#update(tx, ws, linked, patch, null, now);
         return { contactId: linked.id, created: false, matchedBy: 'external' };
       }
-      const byPhone = phoneE164 ? await tx.contactSync.findUnlinkedByPhone(phoneE164) : null;
       const link = { source, id: externalId };
-      if (byPhone) {
-        const patch = externalPatch(fields, 'adopt', keepName(fields, byPhone, phoneE164));
-        await this.#update(tx, ws, byPhone, patch, link, now);
-        return { contactId: byPhone.id, created: false, matchedBy: 'phone' };
+      const byPhone = phoneE164 ? await tx.contactSync.findUnlinkedByPhone(phoneE164) : null;
+      const byEmail = !byPhone && email ? await tx.contactSync.findUnlinkedByEmail(email) : null;
+      const adopted = byPhone ?? byEmail;
+      if (adopted) {
+        const patch = ownedPatch(
+          source,
+          externalPatch(fields, 'adopt', keepName(fields, adopted, phoneE164)),
+          adopted.name !== null,
+        );
+        await this.#update(tx, ws, adopted, patch, link, now);
+        return { contactId: adopted.id, created: false, matchedBy: byPhone ? 'phone' : 'email' };
       }
       const contactId = await this.#create(tx, ws, fields, link, now);
       return { contactId, created: true, matchedBy: 'new' };
@@ -232,16 +249,20 @@ export class ContactSyncService implements ContactSyncFacade {
     }
   }
 
-  /** A new customer from the PMS: source "KiotViet", auto-assignment, history and events, no actor. */
+  /**
+   * A new customer from a linked system: its built-in source ("KiotViet", "Rapiz"),
+   * auto-assignment, history and events, no actor.
+   */
   async #create(
     tx: CrmTx,
     ws: WorkspaceId,
     fields: ExternalContactFields,
-    link: { source: string; id: string },
+    link: { source: ContactExternalSource; id: string },
     now: Date,
   ): Promise<string> {
-    await tx.options.ensureDefaults(ws, 'source', [...DEFAULT_SOURCES, KIOTVIET_SOURCE]);
-    const source = (await tx.options.list('source')).find((o) => o.key === KIOTVIET_SOURCE.key);
+    const option = EXTERNAL_SOURCE_OPTION[link.source];
+    await tx.options.ensureDefaults(ws, 'source', [...DEFAULT_SOURCES, option]);
+    const source = (await tx.options.list('source')).find((o) => o.key === option.key);
     const autoSales = source ? await this.distribution.pick(tx, ws, source.id) : null;
     const empty = emptyContact(null, now);
     const contact: ContactRecord = {

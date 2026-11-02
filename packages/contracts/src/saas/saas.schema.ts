@@ -36,17 +36,102 @@ export type SaasLeadDetails = z.infer<typeof SaasLeadDetails>;
 
 // ─── Customer subscriptions ───────────────────────────────────────────────────
 
-export const SaasStage = z.enum(['trial', 'active', 'past_due', 'canceled']);
+/** `free`: on a free plan (signed up, not paying; not churned either). */
+export const SaasStage = z.enum(['trial', 'free', 'active', 'past_due', 'canceled']);
 export type SaasStage = z.infer<typeof SaasStage>;
-export const SaasBillingPeriod = z.enum(['monthly', 'quarterly', 'yearly']);
+export const SaasBillingPeriod = z.enum(['monthly', 'quarterly', 'semiannual', 'yearly']);
 export type SaasBillingPeriod = z.infer<typeof SaasBillingPeriod>;
+/** Months in each billing period: MRR = period price / months. */
+export const SAAS_PERIOD_MONTHS: Record<SaasBillingPeriod, number> = {
+  monthly: 1,
+  quarterly: 3,
+  semiannual: 6,
+  yearly: 12,
+};
+
+/** Why a customer canceled (spec §6.3). */
+export const SaasChurnReason = z.enum([
+  'price',
+  'missing_feature',
+  'competitor',
+  'no_longer_needed',
+  'poor_support',
+  'business_closed',
+  'other',
+]);
+export type SaasChurnReason = z.infer<typeof SaasChurnReason>;
+
+/**
+ * Fields a sync owns on a linked subscription (Rapiz HQ, ADR-021 §3): read-only for staff. Note,
+ * seats and churn reason stay editable.
+ */
+export const SAAS_LINKED_FIELDS = [
+  'planId',
+  'planName',
+  'stage',
+  'billingPeriod',
+  'mrr',
+  'trialEndsOn',
+  'startedOn',
+  'renewsOn',
+  'canceledOn',
+  'externalRef',
+] as const;
+
+// ─── Plan catalog per business (spec §6.1) ────────────────────────────────────
+
+/** Price of a whole period in VND, by billing period; at least one. */
+export const SaasPlanPrices = z
+  .strictObject({
+    monthly: Amount.optional(),
+    quarterly: Amount.optional(),
+    semiannual: Amount.optional(),
+    yearly: Amount.optional(),
+  })
+  .refine((p) => Object.values(p).some((v) => v !== undefined), 'at least one price');
+export type SaasPlanPrices = z.infer<typeof SaasPlanPrices>;
+
+export const SaasPlanDto = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  prices: z.record(z.string(), z.number().int()),
+  position: z.number().int(),
+  archived: z.boolean(),
+  version: z.number().int(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+export type SaasPlanDto = z.infer<typeof SaasPlanDto>;
+export const SaasPlanList = z.object({ data: z.array(SaasPlanDto) });
+export type SaasPlanList = z.infer<typeof SaasPlanList>;
+
+export const CreateSaasPlan = z.object({
+  name: text(120).min(1),
+  prices: SaasPlanPrices,
+  position: z.number().int().min(0).max(10_000).default(0),
+});
+export type CreateSaasPlan = z.input<typeof CreateSaasPlan>;
+
+/** Only the fields sent change. Archived plans stay on current subscriptions. */
+export const UpdateSaasPlan = z.object({
+  name: text(120).min(1).optional(),
+  prices: SaasPlanPrices.optional(),
+  position: z.number().int().min(0).max(10_000).optional(),
+  archived: z.boolean().optional(),
+  expectedVersion: z.number().int().min(1),
+});
+export type UpdateSaasPlan = z.input<typeof UpdateSaasPlan>;
 
 const SubscriptionFields = z.object({
   planName: text(120).min(1),
   stage: SaasStage,
   billingPeriod: SaasBillingPeriod,
-  /** Monthly recurring revenue in VND (a yearly plan counts its price / 12). */
-  mrr: Amount,
+  /**
+   * Monthly recurring revenue in VND (a yearly plan counts its price / 12). With `planId` the
+   * server computes it from the plan's price for `billingPeriod` (and takes the plan's name).
+   */
+  mrr: Amount.default(0),
+  planId: z.uuid().nullable().default(null),
   seats: z.number().int().min(1).max(1_000_000).nullable().default(null),
   trialEndsOn: CalendarDate.nullable().default(null),
   startedOn: CalendarDate.nullable().default(null),
@@ -54,6 +139,8 @@ const SubscriptionFields = z.object({
   canceledOn: CalendarDate.nullable().default(null),
   externalRef: text(200).nullable().default(null),
   note: text(2000).default(''),
+  churnReason: SaasChurnReason.nullable().default(null),
+  churnNote: text(1000).default(''),
 });
 
 /** `version` null creates the customer's subscription; otherwise it must match. */
@@ -66,6 +153,14 @@ export type PutSaasSubscription = z.infer<typeof PutSaasSubscription>;
 
 export const SaasSubscriptionDto = SubscriptionFields.extend({
   id: z.uuid(),
+  /** Set by a sync: the synced fields (`SAAS_LINKED_FIELDS`) are read-only (ADR-021 §3). */
+  linked: z.object({ source: z.literal('rapiz') }).nullable(),
+  /** Latest AI-reply usage from the platform (Rapiz HQ only). */
+  usage: z
+    .object({ used: z.number().int(), limit: z.number().int(), at: z.iso.datetime() })
+    .nullable(),
+  /** Usage at 80% of the allowance or more: a candidate for an upgrade. */
+  upsell: z.boolean(),
   contactId: z.uuid(),
   /** Display name of the customer; null when unnamed. */
   contactName: z.string().nullable(),
@@ -106,6 +201,7 @@ export const SaasSummary = z.object({
   mrr: Amount,
   stages: z.object({
     trial: z.number().int(),
+    free: z.number().int(),
     active: z.number().int(),
     past_due: z.number().int(),
     canceled: z.number().int(),
@@ -114,3 +210,22 @@ export const SaasSummary = z.object({
   trialsEndingSoon: z.number().int(),
 });
 export type SaasSummary = z.infer<typeof SaasSummary>;
+
+// ─── Subscription history (spec §6.2) ─────────────────────────────────────────
+
+export const SaasHistorySource = z.enum(['staff', 'sync', 'system']);
+export const SaasSubscriptionHistoryEntry = z.object({
+  id: z.uuid(),
+  fromStage: SaasStage.nullable(),
+  toStage: SaasStage,
+  fromPlan: z.string().nullable(),
+  toPlan: z.string(),
+  fromMrr: z.number().int().nullable(),
+  toMrr: z.number().int(),
+  churnReason: SaasChurnReason.nullable(),
+  source: SaasHistorySource,
+  changedAt: z.iso.datetime(),
+});
+export type SaasSubscriptionHistoryEntry = z.infer<typeof SaasSubscriptionHistoryEntry>;
+export const SaasSubscriptionHistory = z.object({ data: z.array(SaasSubscriptionHistoryEntry) });
+export type SaasSubscriptionHistory = z.infer<typeof SaasSubscriptionHistory>;

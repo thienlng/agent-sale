@@ -4,7 +4,9 @@ import {
   cleanExternalContact,
   externalPatch,
   isPhoneName,
+  lockedFields,
   normalizeExternalId,
+  ownedPatch,
   rejectedFields,
 } from './external-contact.js';
 
@@ -122,5 +124,29 @@ describe('isPhoneName', () => {
     expect(isPhoneName('Nguyễn Văn A', ['+84912345678'])).toBe(false);
     expect(isPhoneName(null, ['+84912345678'])).toBe(false);
     expect(isPhoneName('0912345678', [null])).toBe(false);
+  });
+});
+
+describe('Rapiz HQ ownership (ADR-021 §3)', () => {
+  const patch = { name: 'Rapiz name', phone: '0912345678', email: 'a@b.vn', address: 'x' };
+
+  it('owns only phone and email, and fills the name only when the customer has none', () => {
+    expect(ownedPatch('rapiz', patch, true)).toEqual({ phone: '0912345678', email: 'a@b.vn' });
+    expect(ownedPatch('rapiz', patch, false)).toEqual({
+      name: 'Rapiz name',
+      phone: '0912345678',
+      email: 'a@b.vn',
+    });
+  });
+
+  it('leaves a PMS patch whole', () => {
+    expect(ownedPatch('kiotviet', patch, true)).toEqual(patch);
+  });
+
+  it('locks phone and email of a Rapiz-linked customer only', () => {
+    expect(lockedFields('rapiz')).toEqual(['phone', 'email']);
+    expect(lockedFields('kiotviet')).toEqual([]);
+    expect(lockedFields(null)).toEqual([]);
+    expect(lockedFields('unknown')).toEqual([]);
   });
 });

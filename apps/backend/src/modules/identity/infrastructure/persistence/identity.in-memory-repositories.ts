@@ -19,6 +19,20 @@ export class InMemoryUserRepository implements UserRepository {
     return this.#byId.get(id) ?? null;
   }
 
+  async findByIds(ids: readonly UserId[]): Promise<User[]> {
+    return ids.map((id) => this.#byId.get(id)).filter((u): u is User => u !== undefined);
+  }
+
+  async search(q: string, limit: number): Promise<User[]> {
+    const needle = q.toLowerCase();
+    return [...this.#byId.values()]
+      .filter((u) => {
+        const s = u.snapshot();
+        return [s.email, s.phone ?? '', s.name].some((v) => v.toLowerCase().includes(needle));
+      })
+      .slice(0, limit);
+  }
+
   async insert(user: User): Promise<void> {
     if (await this.findByEmail(user.snapshot().email)) throw new EmailTakenError();
     this.#byId.set(user.id, user);

@@ -6,6 +6,7 @@ import { ACCOUNT_FACADE } from './api/account.facade.js';
 import { AccountFacadeImpl } from './application/account.facade.impl.js';
 import { ListAccountsHandler } from './application/queries/list-accounts/list-accounts.handler.js';
 import { ResolveBusinessAccountHandler } from './application/commands/resolve-business-account/resolve-business-account.handler.js';
+import { SetAccountStatusHandler } from './application/commands/set-account-status/set-account-status.handler.js';
 import { ACCOUNT_REPOSITORY } from './domain/ports/account.repository.js';
 import { DrizzleAccountRepository } from './infrastructure/persistence/account.drizzle-repository.js';
 import { InMemoryAccountRepository } from './infrastructure/persistence/account.in-memory-repository.js';
@@ -20,6 +21,7 @@ import { AccountController } from './interface/http/account.controller.js';
   controllers: [AccountController],
   providers: [
     ResolveBusinessAccountHandler,
+    SetAccountStatusHandler,
     ListAccountsHandler,
     {
       provide: ACCOUNT_REPOSITORY,

@@ -1,5 +1,5 @@
 import type { WorkspaceCreatedV1, WorkspaceDto } from '@agent-sales/contracts';
-import { newId } from '@agent-sales/shared';
+import { newId, workspaceId } from '@agent-sales/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
 import { ACCOUNT_FACADE, type AccountFacade } from '../../../../account/api/index.js';
@@ -20,13 +20,16 @@ export class CreateWorkspaceHandler {
   ) {}
 
   async execute(command: CreateWorkspaceCommand): Promise<WorkspaceDto> {
-    Workspace.validate(command);
+    const { industry } = Workspace.validate(command);
+    const id = workspaceId(newId());
     const accountId = await this.accounts.resolveForNewBusiness({
       userId: command.ownerUserId,
       accountId: command.accountId,
       businessName: command.name,
+      owner: command.owner,
+      firstBusiness: { workspaceId: id, industry },
     });
-    const workspace = Workspace.create({ ...command, accountId });
+    const workspace = Workspace.create({ ...command, accountId, id });
     await this.uow.run(workspace.id, async ({ workspaces, members, events }) => {
       await workspaces.save(workspace);
       await members.add({

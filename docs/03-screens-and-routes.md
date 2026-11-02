@@ -132,6 +132,12 @@ Dedicated layout: back button, bot name, **bot on/off switch**, left menu, **tes
 - After a rename the session memberships (selector), the current-business query and the profile query are refreshed without a reload.
 - The settings tab strips (`/app/settings`, `/app/crm-settings`, `/app/order-settings`) share `components/settings-tabs.tsx`: horizontal scroll only, baseline drawn as an inset shadow so the strip never scrolls vertically.
 
+## SaaS routes (ADR-020, ADR-021)
+
+- A SaaS business has no pages of its own: subscriptions live on the customer sheet (**Subscription** card, with a **History** toggle) and in the customer list's summary strip and columns. Workflow and API: [SaaS businesses](saas.md).
+- `/app/crm-settings/saas-plans` (tab **Gói dịch vụ**, shown only for a SaaS business): the plan catalog — name, a price per billing period, archive / restore.
+- A customer or subscription synced from a Rapiz account (Rapiz HQ) carries a **Rapiz** badge; its phone and email, and the subscription's plan, stage, period, MRR and dates, are read-only with a lock hint.
+
 ## Hotel routes (T-160)
 
 - A hotel business's sidebar shows **Lịch** (`/app/calendar`), **Booking** (`/app/bookings`) and **Căn hộ** (`/app/properties`, detail `/app/properties/$propertyId`) instead of Sản phẩm. Each page renders only for a hotel business (`HotelOnly`).
