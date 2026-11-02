@@ -558,6 +558,12 @@ export interface AssistantRepository {
   /** Upsert; fields left out keep their value (or the default). */
   saveSettings(s: OwnerKey, patch: SettingsPatch): Promise<AssistantSettingsRecord>;
 
+  /**
+   * Tool steps of the owner's chat runs created at or after `since`, counted per tool name
+   * (the settings page's last-30-day use per toolset).
+   */
+  countToolUses(s: OwnerKey, since: Date): Promise<Record<string, number>>;
+
   // ─── Feedback (1c) ───
 
   /**

@@ -19,6 +19,8 @@ import type { OwnerScope } from '../domain/owner-scope.js';
 import {
   ASSISTANT_REPOSITORY,
   type AssistantRepository,
+  type AssistantSettingsRecord,
+  DEFAULT_ASSISTANT_SETTINGS,
   type MessageRecord,
   type NewMessage,
   type RunRecord,
@@ -36,6 +38,7 @@ import { ROUTE_TOOL_DEFINITIONS, routeTools } from './route-tools.js';
 import { planReview } from './review-trigger.js';
 import { SKILL_MANAGE_TOOL, SKILL_TOOL_DEFINITIONS, skillTools } from './skill-tools.js';
 import { SkillsService } from './skills.service.js';
+import { disabledTools, enabledDefinitions, toolsetCacheSuffix } from './toolsets.js';
 import { withTurnOutputBudget } from './turn-budget.js';
 
 /** The assistant answers on the `pro` tier (ADR-023). */
@@ -241,6 +244,8 @@ export class ChatTurnService {
     }
 
     thread = (await this.#compact(scope, thread, ownerName)) ?? thread;
+    const settings = await this.#settings(scope);
+    const off = disabledTools(settings.disabledToolsets);
 
     const stored = await this.repo.listMessages(scope, thread.id, { activeOnly: true });
     const turnText = buildTurnMessage(req.text, req.pageContext, new Date(), scope.businessId);
@@ -266,35 +271,40 @@ export class ChatTurnService {
           workspaceId: scope.businessId,
           tier: TURN_TIER,
           messages: [{ role: 'system', content: thread.systemPrompt }, ...history],
-          tools: TURN_TOOL_DEFINITIONS,
-          // Stable across compactions: the root is the thread id, kept in cache_root_id.
-          promptCacheKey: threadCacheKey(scope, thread),
+          // The owner's disabled toolsets are left out (spec §6); the rest keep their order.
+          tools: enabledDefinitions(TURN_TOOL_DEFINITIONS, settings.disabledToolsets),
+          // Stable across compactions: the root is the thread id, kept in cache_root_id. The
+          // disabled set is a sorted suffix, so a smaller tool list gets its own cache entry.
+          promptCacheKey:
+            threadCacheKey(scope, thread) + toolsetCacheSuffix(settings.disabledToolsets),
           timeoutMs: TURN_CALL_TIMEOUT_MS,
         },
         // One output budget for the whole turn, shared by every tool and its validation errors.
-        tools: withTurnOutputBudget([
-          ...coreTools(ctx),
-          memoryTool({ scope, repo: this.repo }),
-          // skill_manage as the chat actor; patches need a load_skill in this same turn.
-          ...skillTools({
-            scope,
-            skills: this.skills,
-            actor: 'assistant',
-            runId,
-            loadedSkills: new Set<string>(),
-          }),
-          ...routeTools({
-            scope,
-            repo: this.repo,
-            invoker: this.invoker,
-            catalog: this.catalog,
-            authorization,
-            threadId: thread.id,
-            runId,
-            proposalIds,
-            ...(req.pageContext ? { page: req.pageContext } : {}),
-          }),
-        ]),
+        tools: withTurnOutputBudget(
+          [
+            ...coreTools(ctx),
+            memoryTool({ scope, repo: this.repo }),
+            // skill_manage as the chat actor; patches need a load_skill in this same turn.
+            ...skillTools({
+              scope,
+              skills: this.skills,
+              actor: 'assistant',
+              runId,
+              loadedSkills: new Set<string>(),
+            }),
+            ...routeTools({
+              scope,
+              repo: this.repo,
+              invoker: this.invoker,
+              catalog: this.catalog,
+              authorization,
+              threadId: thread.id,
+              runId,
+              proposalIds,
+              ...(req.pageContext ? { page: req.pageContext } : {}),
+            }),
+          ].filter((tool) => !off.has(tool.name)),
+        ),
         generate: (r) => this.gateway.generate(r),
         maxRounds: TURN_MAX_ROUNDS,
         // A compaction at the start of the turn spends part of the turn's budget.
@@ -364,7 +374,7 @@ export class ChatTurnService {
       finishedAt: new Date(),
     });
     // Only a turn that answered counts toward the background review (spec §11).
-    if (answered) await this.#scheduleReview(scope, thread, result);
+    if (answered) await this.#scheduleReview(scope, thread, result, settings);
     return this.#result(scope, runId, [user, ...added]);
   }
 
@@ -380,11 +390,10 @@ export class ChatTurnService {
     scope: OwnerScope,
     thread: ThreadRecord,
     result: AgentLoopResult,
+    settings: AssistantSettingsRecord,
   ): Promise<void> {
-    if (thread.origin === 'schedule') return;
+    if (thread.origin === 'schedule' || !settings.reviewEnabled) return;
     try {
-      const settings = await this.repo.getSettings(scope);
-      if (!settings.reviewEnabled) return;
       const wrote = result.steps.some(
         (s) =>
           s.kind === 'tool' &&
@@ -412,6 +421,16 @@ export class ChatTurnService {
       if (plan.delayMs === 0) await this.repo.resetReviewCounters(scope, thread.id);
     } catch (error) {
       this.#log.warn(`assistant thread ${thread.id}: review not scheduled (${errorClass(error)})`);
+    }
+  }
+
+  /** The owner's settings; when they cannot be read, the defaults (every toolset on). */
+  async #settings(scope: OwnerScope): Promise<AssistantSettingsRecord> {
+    try {
+      return await this.repo.getSettings(scope);
+    } catch (error) {
+      this.#log.warn(`assistant settings not read (${errorClass(error)})`);
+      return DEFAULT_ASSISTANT_SETTINGS;
     }
   }
 

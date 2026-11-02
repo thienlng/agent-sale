@@ -732,6 +732,18 @@ export class InMemoryAssistantRepository implements AssistantRepository {
 
   // ─── Settings ───
 
+  async countToolUses(s: OwnerKey, since: Date): Promise<Record<string, number>> {
+    const counts: Record<string, number> = {};
+    for (const step of this.steps) {
+      const run = this.runs.get(step.runId);
+      if (!run || !mine(s, run) || run.kind !== 'chat') continue;
+      if (run.createdAt.getTime() < since.getTime()) continue;
+      if (step.kind !== 'tool' || !step.toolName) continue;
+      counts[step.toolName] = (counts[step.toolName] ?? 0) + 1;
+    }
+    return counts;
+  }
+
   async getSettings(s: OwnerKey): Promise<AssistantSettingsRecord> {
     const x = this.settings.find((r) => mine(s, r));
     return x ? strip(x) : { ...DEFAULT_ASSISTANT_SETTINGS, disabledToolsets: [] };

@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import { assistantRoutes } from './assistant.routes.js';
 import {
+  AcceptAssistantSuggestionResponse,
+  AssistantMessageFeedbackRequest,
+  UpdateAssistantSettingsRequest,
   AssistantLearningFeed,
   AssistantLearningQuery,
   AssistantMemoryDto,
@@ -67,6 +70,7 @@ describe('AssistantMessageDto', () => {
       content: '{}',
       uiActions: [],
       runId: null,
+      feedback: null,
       createdAt: '2026-11-02T00:00:00.000Z',
     };
     expect(AssistantMessageDto.safeParse(msg).success).toBe(false);
@@ -101,6 +105,12 @@ describe('assistantRoutes', () => {
       'post /assistant/skills/platform/{name}/shadow',
       'get /assistant/skills/{skillId}/events',
       'post /assistant/skill-events/{eventId}/undo',
+      'get /assistant/settings',
+      'patch /assistant/settings',
+      'post /assistant/messages/{messageId}/feedback',
+      'get /assistant/suggestions',
+      'post /assistant/suggestions/{suggestionId}/accept',
+      'post /assistant/suggestions/{suggestionId}/dismiss',
     ]);
     for (const r of assistantRoutes) {
       expect(r).toMatchObject({
@@ -275,6 +285,54 @@ describe('learning feed', () => {
     expect(AssistantLearningFeed.safeParse(feed).success).toBe(true);
     expect(
       AssistantLearningFeed.safeParse({ items: [{ ...feed.items[1], actor: 'assistant' }] })
+        .success,
+    ).toBe(false);
+  });
+});
+
+describe('settings, feedback and suggestions', () => {
+  it('lets the owner turn toolsets off, except core and ui', () => {
+    expect(
+      UpdateAssistantSettingsRequest.parse({ disabledToolsets: ['routes', 'memory'] }),
+    ).toEqual({ disabledToolsets: ['routes', 'memory'] });
+    expect(UpdateAssistantSettingsRequest.parse({ reviewEnabled: false })).toEqual({
+      reviewEnabled: false,
+    });
+    expect(UpdateAssistantSettingsRequest.safeParse({ disabledToolsets: ['core'] }).success).toBe(
+      false,
+    );
+    expect(UpdateAssistantSettingsRequest.safeParse({ disabledToolsets: ['ui'] }).success).toBe(
+      false,
+    );
+    expect(UpdateAssistantSettingsRequest.safeParse({ disabledToolsets: ['sql'] }).success).toBe(
+      false,
+    );
+    expect(UpdateAssistantSettingsRequest.safeParse({}).success).toBe(false);
+  });
+
+  it('takes 1, -1 or 0 as feedback', () => {
+    for (const value of [1, -1, 0]) {
+      expect(AssistantMessageFeedbackRequest.parse({ value })).toEqual({ value });
+    }
+    expect(AssistantMessageFeedbackRequest.safeParse({ value: 2 }).success).toBe(false);
+  });
+
+  it('accepts only an in-app path for a setup suggestion', () => {
+    const suggestion = {
+      id: '0190a000-0000-7000-8000-000000000001',
+      kind: 'setup',
+      title: 'Kết nối Zalo',
+      payload: { path: '/app/channels' },
+      status: 'accepted',
+      createdAt: '2026-11-02T00:00:00.000Z',
+      decidedAt: '2026-11-02T00:00:00.000Z',
+    };
+    expect(
+      AcceptAssistantSuggestionResponse.safeParse({ suggestion, skill: null, path: '/app/x' })
+        .success,
+    ).toBe(true);
+    expect(
+      AcceptAssistantSuggestionResponse.safeParse({ suggestion, skill: null, path: 'https://x' })
         .success,
     ).toBe(false);
   });

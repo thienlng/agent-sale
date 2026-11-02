@@ -1104,6 +1104,29 @@ export class DrizzleAssistantRepository implements AssistantRepository {
 
   // ─── Settings ───
 
+  countToolUses(s: OwnerKey, since: Date): Promise<Record<string, number>> {
+    return this.#in(s, async (tx) => {
+      const rows = await tx
+        .select({ tool: st.toolName, n: sql<number>`count(*)::int` })
+        .from(st)
+        .innerJoin(r, eq(r.id, st.runId))
+        .where(
+          and(
+            eq(r.accountId, s.accountId),
+            eq(r.ownerUserId, s.ownerUserId),
+            eq(r.kind, 'chat'),
+            gte(r.createdAt, since),
+            eq(st.accountId, s.accountId),
+            eq(st.kind, 'tool'),
+          ),
+        )
+        .groupBy(st.toolName);
+      const counts: Record<string, number> = {};
+      for (const row of rows) if (row.tool) counts[row.tool] = Number(row.n);
+      return counts;
+    });
+  }
+
   getSettings(s: OwnerKey): Promise<AssistantSettingsRecord> {
     return this.#in(s, async (tx) => {
       const [row] = await tx.select().from(set_).where(ownsSettings(s));

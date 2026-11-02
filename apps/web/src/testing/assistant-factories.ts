@@ -41,6 +41,7 @@ export function messageFixture(over: Partial<AssistantMessageDto> = {}): Assista
     content: 'Đây là trang sản phẩm.',
     uiActions: [],
     runId: ASSISTANT_IDS.turn,
+    feedback: null,
     createdAt: STAMP,
     ...over,
   };

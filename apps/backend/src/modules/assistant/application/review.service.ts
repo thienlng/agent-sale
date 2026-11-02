@@ -143,8 +143,10 @@ export const SUGGEST_TOOL_DEFINITION: ToolDefinition = {
     'Save one suggestion card for the owner (they accept or dismiss it). kind: schedule (a report ' +
     'or check they ask for repeatedly), skill (a procedure worth saving) or setup (something to ' +
     'set up once). dedup_key: a stable lowercase key for the idea (e.g. "schedule:weekly-revenue"); ' +
-    'a key used before is ignored. title: one short Vietnamese line. payload: small JSON details. ' +
-    'At most 5 pending per owner. No customer data or links.',
+    'a key used before is ignored. title: one short Vietnamese line. payload: for skill ' +
+    '{name, description, body} (the skill the owner saves on accept); for setup {path} (the /app ' +
+    'page to open); for schedule small JSON details. At most 5 pending per owner. No customer ' +
+    'data or outside links.',
   input: SuggestInput,
 };
 

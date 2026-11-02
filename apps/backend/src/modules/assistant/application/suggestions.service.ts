@@ -1,0 +1,101 @@
+import {
+  type AcceptAssistantSuggestionResponse,
+  type AssistantSkillDto,
+  type AssistantSuggestionDto,
+  type AssistantSuggestionList,
+  CreateAssistantSkillRequest,
+} from '@agent-sales/contracts';
+import { isUuid } from '@agent-sales/shared';
+import { Inject, Injectable } from '@nestjs/common';
+
+import {
+  AssistantNotFoundError,
+  AssistantSkillInvalidError,
+  AssistantSuggestionConflictError,
+} from '../domain/assistant.errors.js';
+import {
+  ASSISTANT_REPOSITORY,
+  type AssistantRepository,
+  type OwnerKey,
+  type SuggestionRecord,
+} from '../domain/ports/assistant.repository.js';
+import { SkillsService } from './skills.service.js';
+
+/** An in-app page: `/app`, then path, query or hash characters only (no `//`, `\`, scheme). */
+const APP_PATH = /^\/app(?:[/?#][\w\-./?#=&%~+,:@]*)?$/;
+
+/** A `setup` suggestion's page when it is a safe in-app path (≤ 200 chars), else null. */
+export function setupPath(payload: Record<string, unknown>): string | null {
+  const path = payload.path;
+  if (typeof path !== 'string' || path.length > 200) return null;
+  if (!APP_PATH.test(path) || path.includes('//') || path.includes('..')) return null;
+  return path;
+}
+
+export function toSuggestionDto(x: SuggestionRecord): AssistantSuggestionDto {
+  return {
+    id: x.id,
+    kind: x.kind,
+    title: x.title,
+    payload: x.payload,
+    status: x.status,
+    createdAt: x.createdAt.toISOString(),
+    decidedAt: x.decidedAt?.toISOString() ?? null,
+  };
+}
+
+/**
+ * Suggestion cards the background review saved (ruling 1c-R3). Accepting a `skill` card saves
+ * its payload as an owner skill (linted, limited and recorded like any owner skill); a `setup`
+ * card returns its in-app page for the web to open; a `schedule` card is only marked accepted
+ * until schedules exist. A dismissal is permanent: the review's `suggest` never reuses the key.
+ */
+@Injectable()
+export class SuggestionsService {
+  constructor(
+    @Inject(ASSISTANT_REPOSITORY) private readonly repo: AssistantRepository,
+    @Inject(SkillsService) private readonly skills: SkillsService,
+  ) {}
+
+  async listPending(s: OwnerKey): Promise<AssistantSuggestionList> {
+    const items = await this.repo.listSuggestions(s, { status: 'pending' });
+    return { items: items.map(toSuggestionDto) };
+  }
+
+  async accept(s: OwnerKey, id: string): Promise<AcceptAssistantSuggestionResponse> {
+    const suggestion = await this.#pending(s, id);
+    let skill: AssistantSkillDto | null = null;
+    if (suggestion.kind === 'skill') {
+      const parsed = CreateAssistantSkillRequest.safeParse(suggestion.payload);
+      if (!parsed.success) {
+        throw new AssistantSkillInvalidError(parsed.error.issues.map((i) => i.message));
+      }
+      // The skill first: a refused skill leaves the card pending, so the owner can dismiss it.
+      skill = await this.skills.create(s, parsed.data);
+    }
+    const decided = await this.repo.decideSuggestion(s, suggestion.id, 'accepted', new Date());
+    if (!decided) throw new AssistantSuggestionConflictError();
+    return {
+      suggestion: toSuggestionDto(decided),
+      skill,
+      path: decided.kind === 'setup' ? setupPath(decided.payload) : null,
+    };
+  }
+
+  async dismiss(s: OwnerKey, id: string): Promise<AssistantSuggestionDto> {
+    const suggestion = await this.#pending(s, id);
+    const decided = await this.repo.decideSuggestion(s, suggestion.id, 'dismissed', new Date());
+    if (!decided) throw new AssistantSuggestionConflictError();
+    return toSuggestionDto(decided);
+  }
+
+  /** The owner's suggestion (404 otherwise), still pending (409 `suggestion_not_pending`). */
+  async #pending(s: OwnerKey, id: string): Promise<SuggestionRecord> {
+    const found = isUuid(id)
+      ? (await this.repo.listSuggestions(s)).find((x) => x.id === id)
+      : undefined;
+    if (!found) throw new AssistantNotFoundError('suggestion', id);
+    if (found.status !== 'pending') throw new AssistantSuggestionConflictError();
+    return found;
+  }
+}

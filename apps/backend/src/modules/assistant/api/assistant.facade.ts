@@ -1,14 +1,19 @@
 import type {
+  AcceptAssistantSuggestionResponse,
   AssistantLearningFeed,
   AssistantLearningQuery,
   AssistantMemoryDto,
+  AssistantMessageFeedbackRequest,
   AssistantMessageList,
   AssistantProposalDto,
   AssistantProposalList,
   AssistantRunDto,
+  AssistantSettingsDto,
   AssistantSkillDto,
   AssistantSkillEventList,
   AssistantSkillList,
+  AssistantSuggestionDto,
+  AssistantSuggestionList,
   AssistantThreadDto,
   AssistantThreadList,
   AssistantThreadListQuery,
@@ -16,6 +21,7 @@ import type {
   CreateAssistantThreadRequest,
   SendAssistantMessageRequest,
   SendAssistantMessageResponse,
+  UpdateAssistantSettingsRequest,
   UpdateAssistantSkillRequest,
   UpdateAssistantThreadRequest,
 } from '@agent-sales/contracts';
@@ -126,6 +132,34 @@ export interface AssistantFacade {
   listSkillEvents(actor: AssistantActor, skillId: string): Promise<AssistantSkillEventList>;
   /** CONFLICT `event_already_undone`, `event_not_undoable` or `stale_skill`. */
   undoSkillEvent(actor: AssistantActor, eventId: string): Promise<AssistantSkillDto>;
+
+  // ─── Settings, feedback and suggestions (1c) ───
+
+  /** Review on/off, the disabled toolsets and every toolset with its last-30-day use. */
+  getSettings(actor: AssistantActor): Promise<AssistantSettingsDto>;
+  /** VALIDATION_FAILED when `core` or `ui` is in `disabledToolsets`. */
+  updateSettings(
+    actor: AssistantActor,
+    patch: UpdateAssistantSettingsRequest,
+  ): Promise<AssistantSettingsDto>;
+  /** 👍/👎 (0 clears) on an assistant answer of the owner's own thread; NOT_FOUND otherwise. */
+  setMessageFeedback(
+    actor: AssistantActor,
+    messageId: string,
+    input: AssistantMessageFeedbackRequest,
+  ): Promise<void>;
+  /** Pending suggestion cards, newest first. */
+  listSuggestions(actor: AssistantActor): Promise<AssistantSuggestionList>;
+  /**
+   * `skill` → an owner skill from the payload (as `createSkill`); `setup` → its in-app `path`;
+   * `schedule` → accepted only. CONFLICT `suggestion_not_pending`.
+   */
+  acceptSuggestion(
+    actor: AssistantActor,
+    suggestionId: string,
+  ): Promise<AcceptAssistantSuggestionResponse>;
+  /** Permanent: the same `dedup_key` is never suggested again. CONFLICT `suggestion_not_pending`. */
+  dismissSuggestion(actor: AssistantActor, suggestionId: string): Promise<AssistantSuggestionDto>;
 }
 
 export const ASSISTANT_FACADE = Symbol('ASSISTANT_FACADE');

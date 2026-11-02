@@ -8,7 +8,9 @@ import { ChatTurnService } from '../application/chat-turn.service.js';
 import { CompactionService } from '../application/compaction.service.js';
 import { ProposalService } from '../application/proposals.service.js';
 import { SkillCatalog } from '../application/skill-tools.js';
+import { AssistantSettingsService } from '../application/settings.service.js';
 import { SkillsService } from '../application/skills.service.js';
+import { SuggestionsService } from '../application/suggestions.service.js';
 import { ThreadPromptService } from '../application/thread-prompt.service.js';
 import {
   AssistantBusyError,
@@ -100,6 +102,8 @@ function setup() {
     prompts,
     proposals,
     skills,
+    new AssistantSettingsService(repo),
+    new SuggestionsService(repo, skills),
   );
   const me = { userId: world.owner, businessId: world.business };
   return { ...world, repo, facade, me, generate, invoke, proposals };
@@ -220,6 +224,36 @@ describe('AssistantFacade (contract)', () => {
     await expect(facade.listMessages(me, 'not-a-uuid')).rejects.toBeInstanceOf(
       AssistantNotFoundError,
     );
+  });
+
+  it('keeps 👍/👎 on the owner’s own answers; another owner’s message is 404', async () => {
+    const { facade, me, addAccountMember } = setup();
+    const t = await facade.createThread({ ...me, ownerName: null }, {});
+    const out = await facade.sendMessage(me, t.id, { turnId: newId(), text: 'Chào em' }, AUTH);
+    const [question, answer] = out.messages;
+    expect(answer).toMatchObject({ role: 'assistant', feedback: null });
+
+    await facade.setMessageFeedback(me, answer!.id, { value: -1 });
+    expect((await facade.listMessages(me, t.id)).data[1]?.feedback).toBe(-1);
+    await facade.setMessageFeedback(me, answer!.id, { value: 1 });
+    expect((await facade.listMessages(me, t.id)).data[1]?.feedback).toBe(1);
+    await facade.setMessageFeedback(me, answer!.id, { value: 0 });
+    expect((await facade.listMessages(me, t.id)).data[1]?.feedback).toBeNull();
+
+    const second = { ...me, userId: addAccountMember('owner') };
+    await expect(
+      facade.setMessageFeedback(second, answer!.id, { value: 1 }),
+    ).rejects.toBeInstanceOf(AssistantNotFoundError);
+    // Only assistant answers are rated.
+    await expect(facade.setMessageFeedback(me, question!.id, { value: 1 })).rejects.toBeInstanceOf(
+      AssistantNotFoundError,
+    );
+    await expect(facade.setMessageFeedback(me, 'nope', { value: 1 })).rejects.toBeInstanceOf(
+      AssistantNotFoundError,
+    );
+    const billing = { ...me, userId: addAccountMember('billing') };
+    await expect(facade.getSettings(billing)).rejects.toBeInstanceOf(AssistantForbiddenError);
+    await expect(facade.listSuggestions(billing)).rejects.toBeInstanceOf(AssistantForbiddenError);
   });
 
   it('runs a chat turn for the owner only, idempotent by turnId', async () => {

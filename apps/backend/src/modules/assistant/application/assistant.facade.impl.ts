@@ -1,14 +1,19 @@
 import type {
+  AcceptAssistantSuggestionResponse,
   AssistantLearningFeed,
   AssistantLearningQuery,
   AssistantMemoryDto,
+  AssistantMessageFeedbackRequest,
   AssistantMessageList,
   AssistantProposalDto,
   AssistantProposalList,
   AssistantRunDto,
+  AssistantSettingsDto,
   AssistantSkillDto,
   AssistantSkillEventList,
   AssistantSkillList,
+  AssistantSuggestionDto,
+  AssistantSuggestionList,
   AssistantThreadDto,
   AssistantThreadList,
   AssistantThreadListQuery,
@@ -16,6 +21,7 @@ import type {
   CreateAssistantThreadRequest,
   SendAssistantMessageRequest,
   SendAssistantMessageResponse,
+  UpdateAssistantSettingsRequest,
   UpdateAssistantSkillRequest,
   UpdateAssistantThreadRequest,
 } from '@agent-sales/contracts';
@@ -44,12 +50,14 @@ import { learningFeed } from './learning-feed.js';
 import { toMessageDtos, toRunDto, toThreadDto } from './mappers.js';
 import { accountMemberships, type OwnerScope, resolveOwnerScope } from './owner-access.js';
 import { ProposalService } from './proposals.service.js';
+import { AssistantSettingsService } from './settings.service.js';
 import { SkillsService } from './skills.service.js';
+import { SuggestionsService } from './suggestions.service.js';
 import { ASSISTANT_PROMPT } from './prompt-builder.js';
 import { ThreadPromptService } from './thread-prompt.service.js';
 
 /** A malformed id names nothing the owner has. */
-function knownId(what: 'thread' | 'run', id: string): string {
+function knownId(what: 'thread' | 'run' | 'message', id: string): string {
   if (!isUuid(id)) throw new AssistantNotFoundError(what, id);
   return id;
 }
@@ -65,6 +73,8 @@ export class AssistantFacadeImpl implements AssistantFacade {
     @Inject(ThreadPromptService) private readonly prompts: ThreadPromptService,
     @Inject(ProposalService) private readonly proposals: ProposalService,
     @Inject(SkillsService) private readonly skills: SkillsService,
+    @Inject(AssistantSettingsService) private readonly settings: AssistantSettingsService,
+    @Inject(SuggestionsService) private readonly suggestions: SuggestionsService,
   ) {}
 
   #scope(actor: AssistantActor): Promise<OwnerScope> {
@@ -221,6 +231,48 @@ export class AssistantFacadeImpl implements AssistantFacade {
 
   async undoSkillEvent(actor: AssistantActor, eventId: string): Promise<AssistantSkillDto> {
     return this.skills.undo(await this.#scope(actor), eventId);
+  }
+
+  async getSettings(actor: AssistantActor): Promise<AssistantSettingsDto> {
+    return this.settings.get(await this.#scope(actor));
+  }
+
+  async updateSettings(
+    actor: AssistantActor,
+    patch: UpdateAssistantSettingsRequest,
+  ): Promise<AssistantSettingsDto> {
+    return this.settings.update(await this.#scope(actor), patch);
+  }
+
+  async setMessageFeedback(
+    actor: AssistantActor,
+    messageId: string,
+    input: AssistantMessageFeedbackRequest,
+  ): Promise<void> {
+    const scope = await this.#scope(actor);
+    await this.repo.setFeedback(
+      scope,
+      knownId('message', messageId),
+      input.value === 0 ? null : input.value,
+    );
+  }
+
+  async listSuggestions(actor: AssistantActor): Promise<AssistantSuggestionList> {
+    return this.suggestions.listPending(await this.#scope(actor));
+  }
+
+  async acceptSuggestion(
+    actor: AssistantActor,
+    suggestionId: string,
+  ): Promise<AcceptAssistantSuggestionResponse> {
+    return this.suggestions.accept(await this.#scope(actor), suggestionId);
+  }
+
+  async dismissSuggestion(
+    actor: AssistantActor,
+    suggestionId: string,
+  ): Promise<AssistantSuggestionDto> {
+    return this.suggestions.dismiss(await this.#scope(actor), suggestionId);
   }
 
   async getLearning(

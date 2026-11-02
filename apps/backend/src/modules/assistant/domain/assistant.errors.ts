@@ -4,7 +4,15 @@ import { DomainError } from '@agent-sales/shared';
 export class AssistantNotFoundError extends DomainError {
   readonly code = 'NOT_FOUND';
   constructor(
-    what: 'thread' | 'run' | 'memory entry' | 'proposal' | 'message' | 'skill' | 'skill event',
+    what:
+      | 'thread'
+      | 'run'
+      | 'memory entry'
+      | 'proposal'
+      | 'message'
+      | 'skill'
+      | 'skill event'
+      | 'suggestion',
     id: string,
   ) {
     super(`Assistant ${what} not found`, { id });
@@ -85,5 +93,21 @@ export class AssistantSkillInvalidError extends DomainError {
   readonly code = 'VALIDATION_FAILED';
   constructor(problems: string[]) {
     super('The skill is not valid', { problems });
+  }
+}
+
+/** The suggestion was accepted or dismissed already (409 CONFLICT, `suggestion_not_pending`). */
+export class AssistantSuggestionConflictError extends DomainError {
+  readonly code = 'CONFLICT';
+  constructor() {
+    super('This suggestion is not pending', { reason: 'suggestion_not_pending' });
+  }
+}
+
+/** `core` and `ui` cannot be turned off (400, `details.toolsets`). */
+export class AssistantSettingsInvalidError extends DomainError {
+  readonly code = 'VALIDATION_FAILED';
+  constructor(toolsets: string[]) {
+    super('These toolsets cannot be disabled', { toolsets });
   }
 }

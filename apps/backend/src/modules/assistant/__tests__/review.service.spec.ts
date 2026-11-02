@@ -7,6 +7,7 @@ import type { WorkspaceFacade, WorkspaceMembership } from '../../workspace/api/i
 import { AssistantJobRunner, JOB_LEASE_MS } from '../application/assistant-runner.js';
 import { ChatTurnService } from '../application/chat-turn.service.js';
 import { CompactionService } from '../application/compaction.service.js';
+import { CuratorService } from '../application/curator.service.js';
 import { learningFeed } from '../application/learning-feed.js';
 import { planReview, REVIEW_IDLE_MS } from '../application/review-trigger.js';
 import {
@@ -21,7 +22,12 @@ import { SkillCatalog } from '../application/skill-tools.js';
 import { SkillsService } from '../application/skills.service.js';
 import { ThreadPromptService } from '../application/thread-prompt.service.js';
 import type { OwnerScope } from '../domain/owner-scope.js';
-import type { JobRecord, MessageRecord, NewMessage } from '../domain/ports/assistant.repository.js';
+import type {
+  JobKind,
+  JobRecord,
+  MessageRecord,
+  NewMessage,
+} from '../domain/ports/assistant.repository.js';
 import { InMemoryAssistantRepository } from '../infrastructure/persistence/assistant.in-memory-repository.js';
 
 const reply = (over: Partial<GenerateResponse>): GenerateResponse => ({
@@ -86,7 +92,7 @@ function setup(script: (GenerateResponse | Error)[] = []) {
   });
   const skills = new SkillsService(repo, new SkillCatalog([]));
   const review = new ReviewService(repo, { generate }, skills, w.account, w.workspace);
-  const runner = new AssistantJobRunner(repo, review);
+  const runner = new AssistantJobRunner(repo, review, new CuratorService(repo));
   const compaction = new CompactionService(
     repo,
     { generate },
@@ -453,7 +459,7 @@ describe('ReviewService and the runner', () => {
     });
   });
 
-  it('fails a job of a kind it does not run yet', async () => {
+  it('fails a job of a kind it does not run', async () => {
     const s = setup();
     const job = await s.repo.enqueueJob(s.scope, {
       id: newId(),
@@ -462,6 +468,8 @@ describe('ReviewService and the runner', () => {
       reviewScope: null,
       runAfter: new Date(),
     });
+    // A kind written by a newer binary.
+    s.repo.jobs.get(job.id)!.kind = 'mystery' as JobKind;
     await s.runner.tick();
     expect(await s.repo.getJob(s.scope, job.id)).toMatchObject({
       status: 'failed',

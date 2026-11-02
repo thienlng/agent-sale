@@ -92,6 +92,8 @@ export const AssistantMessageDto = z.object({
   content: z.string(),
   uiActions: z.array(AssistantUiAction),
   runId: z.uuid().nullable(),
+  /** The owner's 👍 (1) or 👎 (-1) on an assistant answer; null when none. */
+  feedback: z.union([z.literal(1), z.literal(-1)]).nullable(),
   createdAt: z.iso.datetime(),
 });
 export type AssistantMessageDto = z.infer<typeof AssistantMessageDto>;
@@ -345,3 +347,89 @@ export type AssistantLearningItemDto = z.infer<typeof AssistantLearningItemDto>;
 /** "Trợ lý vừa học": newest first, at most 20. */
 export const AssistantLearningFeed = z.object({ items: z.array(AssistantLearningItemDto) });
 export type AssistantLearningFeed = z.infer<typeof AssistantLearningFeed>;
+
+// ─── Owner settings and toolsets (1c) ─────────────────────────────────────────
+
+/** The groups of tools the assistant has; the owner may turn some off (spec §6). */
+export const AssistantToolsetId = z.enum(['core', 'ui', 'memory', 'skills', 'routes']);
+export type AssistantToolsetId = z.infer<typeof AssistantToolsetId>;
+
+/** Toolsets the owner cannot turn off. */
+export const ASSISTANT_LOCKED_TOOLSETS: readonly AssistantToolsetId[] = ['core', 'ui'];
+
+export const AssistantToolsetDto = z.object({
+  id: AssistantToolsetId,
+  /** i18n key of the toolset's name (the web's `assistant` namespace). */
+  labelKey: z.string(),
+  toolCount: z.number().int(),
+  /** Tool calls of the owner's chat turns in the last 30 days. */
+  uses30d: z.number().int(),
+  /** `core` and `ui` cannot be turned off. */
+  locked: z.boolean(),
+});
+export type AssistantToolsetDto = z.infer<typeof AssistantToolsetDto>;
+
+export const AssistantSettingsDto = z.object({
+  reviewEnabled: z.boolean(),
+  disabledToolsets: z.array(AssistantToolsetId),
+  toolsets: z.array(AssistantToolsetDto),
+});
+export type AssistantSettingsDto = z.infer<typeof AssistantSettingsDto>;
+
+export const UpdateAssistantSettingsRequest = z
+  .object({
+    reviewEnabled: z.boolean(),
+    disabledToolsets: z
+      .array(AssistantToolsetId)
+      .max(AssistantToolsetId.options.length)
+      .refine((ids) => !ids.some((id) => ASSISTANT_LOCKED_TOOLSETS.includes(id)), {
+        message: 'core and ui cannot be disabled',
+      }),
+  })
+  .partial()
+  .refine((v) => Object.keys(v).length > 0, 'empty update');
+export type UpdateAssistantSettingsRequest = z.infer<typeof UpdateAssistantSettingsRequest>;
+
+// ─── Feedback (1c) ────────────────────────────────────────────────────────────
+
+/** 👍 = 1, 👎 = -1, 0 clears it. */
+export const AssistantMessageFeedbackRequest = z.object({
+  value: z.union([z.literal(1), z.literal(-1), z.literal(0)]),
+});
+export type AssistantMessageFeedbackRequest = z.infer<typeof AssistantMessageFeedbackRequest>;
+
+// ─── Suggestions (1c, ruling 1c-R3) ───────────────────────────────────────────
+
+export const AssistantSuggestionKind = z.enum(['schedule', 'skill', 'setup']);
+export type AssistantSuggestionKind = z.infer<typeof AssistantSuggestionKind>;
+
+/**
+ * A card the background review saved for the owner. Payload by kind: `skill` →
+ * `{ name, description, body }`; `setup` → `{ path }` (an `/app` page); `schedule` → free-form
+ * details (accepting only records the choice until schedules exist).
+ */
+export const AssistantSuggestionDto = z.object({
+  id: z.uuid(),
+  kind: AssistantSuggestionKind,
+  title: z.string(),
+  payload: z.record(z.string(), z.unknown()),
+  status: z.enum(['pending', 'accepted', 'dismissed']),
+  createdAt: z.iso.datetime(),
+  decidedAt: z.iso.datetime().nullable(),
+});
+export type AssistantSuggestionDto = z.infer<typeof AssistantSuggestionDto>;
+
+/** Pending suggestions, newest first. */
+export const AssistantSuggestionList = z.object({ items: z.array(AssistantSuggestionDto) });
+export type AssistantSuggestionList = z.infer<typeof AssistantSuggestionList>;
+
+/**
+ * An accepted suggestion: `skill` carries the owner skill it created; `path` is the in-app page
+ * a `setup` suggestion leads to (the web navigates there), null otherwise.
+ */
+export const AcceptAssistantSuggestionResponse = z.object({
+  suggestion: AssistantSuggestionDto,
+  skill: AssistantSkillDto.nullable(),
+  path: z.string().startsWith('/app').max(200).nullable(),
+});
+export type AcceptAssistantSuggestionResponse = z.infer<typeof AcceptAssistantSuggestionResponse>;

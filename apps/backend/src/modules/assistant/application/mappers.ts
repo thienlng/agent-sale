@@ -52,6 +52,7 @@ export function toMessageDtos(messages: MessageRecord[]): AssistantMessageDto[] 
       return parsed.success ? [parsed.data] : [];
     }),
     runId: msg.runId,
+    feedback: msg.feedback,
     createdAt: msg.createdAt.toISOString(),
   }));
 }

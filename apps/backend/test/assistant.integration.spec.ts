@@ -4,15 +4,18 @@ import {
   type GenerateResponse,
 } from '@agent-sales/ai-core';
 import {
+  AcceptAssistantSuggestionResponse,
   AssistantLearningFeed,
   AssistantMemoryDto,
   AssistantMessageList,
   AssistantProposalDto,
   AssistantProposalList,
   AssistantRunDto,
+  AssistantSettingsDto,
   AssistantSkillDto,
   AssistantSkillEventList,
   AssistantSkillList,
+  AssistantSuggestionList,
   AssistantThreadDto,
   AssistantThreadList,
   AuthResponse,
@@ -35,6 +38,7 @@ import {
   AssistantRunIdTakenError,
 } from '../src/modules/assistant/domain/assistant.errors.js';
 import { ASSISTANT_RUNNER, type AssistantRunner } from '../src/modules/assistant/api/index.js';
+import { CuratorService } from '../src/modules/assistant/application/curator.service.js';
 import type { OwnerScope } from '../src/modules/assistant/domain/owner-scope.js';
 import {
   ASSISTANT_REPOSITORY,
@@ -1308,5 +1312,189 @@ describe('assistant background review over Postgres (1c)', () => {
     expect((await call(staff.in(lan.ownWorkspace), 'GET', '/assistant/learning')).statusCode).toBe(
       403,
     );
+  });
+});
+
+describe('assistant settings, feedback, suggestions and the curator on Postgres (1c)', () => {
+  const key = async (u: User) => ({
+    accountId: await accountOf(u.ownWorkspace),
+    ownerUserId: userId(u.userId),
+  });
+
+  it('serves settings, feedback and suggestions to the owner only', async () => {
+    const mai = await user('settings@assistant.vn', 'Mai');
+    const thread = AssistantThreadDto.parse(
+      (await call(mai.h, 'POST', '/assistant/threads', {})).json(),
+    );
+    const turn = SendAssistantMessageResponse.parse(
+      (
+        await call(mai.h, 'POST', `/assistant/threads/${thread.id}/messages`, {
+          turnId: newId(),
+          text: 'Chào em',
+        })
+      ).json(),
+    );
+    // One route tool call of this chat run, counted on the settings page.
+    await owner.db.insert(schema.assistantRunSteps).values({
+      runId: turn.run.id,
+      idx: 100,
+      accountId: await accountOf(mai.ownWorkspace),
+      kind: 'tool',
+      toolName: 'tool_call',
+      ok: true,
+      ms: 1,
+    });
+
+    // Settings.
+    const settings = AssistantSettingsDto.parse(
+      (await call(mai.h, 'GET', '/assistant/settings')).json(),
+    );
+    expect(settings).toMatchObject({ reviewEnabled: true, disabledToolsets: [] });
+    expect(settings.toolsets.map((t) => [t.id, t.locked])).toEqual([
+      ['core', true],
+      ['ui', true],
+      ['memory', false],
+      ['skills', false],
+      ['routes', false],
+    ]);
+    expect(settings.toolsets.find((t) => t.id === 'routes')?.uses30d).toBe(1);
+    const refused = await call(mai.h, 'PATCH', '/assistant/settings', {
+      disabledToolsets: ['core'],
+    });
+    expect(refused.statusCode, refused.body).toBe(400);
+    const saved = await call(mai.h, 'PATCH', '/assistant/settings', {
+      reviewEnabled: false,
+      disabledToolsets: ['routes'],
+    });
+    expect(saved.statusCode, saved.body).toBe(200);
+    expect(AssistantSettingsDto.parse(saved.json())).toMatchObject({
+      reviewEnabled: false,
+      disabledToolsets: ['routes'],
+    });
+
+    // Feedback.
+    const answer = turn.messages.find((m) => m.role === 'assistant')!;
+    const rate = (h: Headers, value: number, id = answer.id) =>
+      call(h, 'POST', `/assistant/messages/${id}/feedback`, { value });
+    expect((await rate(mai.h, 1)).statusCode).toBe(204);
+    const listed = AssistantMessageList.parse(
+      (await call(mai.h, 'GET', `/assistant/threads/${thread.id}/messages`)).json(),
+    );
+    expect(listed.data.find((m) => m.id === answer.id)?.feedback).toBe(1);
+    expect((await rate(mai.h, 2)).statusCode).toBe(400);
+    expect((await rate(mai.h, 0)).statusCode).toBe(204);
+    const cleared = AssistantMessageList.parse(
+      (await call(mai.h, 'GET', `/assistant/threads/${thread.id}/messages`)).json(),
+    );
+    expect(cleared.data.find((m) => m.id === answer.id)?.feedback).toBeNull();
+
+    // Suggestions, as the review saves them.
+    const repo = app.get<AssistantRepository>(ASSISTANT_REPOSITORY, { strict: false });
+    const mine = await key(mai);
+    for (const [kind, dedupKey, payload] of [
+      ['skill', 'skill:weekly-sale', { name: 'weekly-sale', description: 'Sale', body: '1. Go.' }],
+      ['setup', 'setup:zalo', { path: '/app/channels' }],
+    ] as const) {
+      await repo.upsertSuggestion(mine, { id: newId(), kind, dedupKey, title: 'Gợi ý', payload });
+    }
+    const pending = AssistantSuggestionList.parse(
+      (await call(mai.h, 'GET', '/assistant/suggestions')).json(),
+    ).items;
+    expect(pending.map((x) => x.kind).sort()).toEqual(['setup', 'skill']);
+    const skillCard = pending.find((x) => x.kind === 'skill')!;
+    const setupCard = pending.find((x) => x.kind === 'setup')!;
+    const accepted = await call(mai.h, 'POST', `/assistant/suggestions/${skillCard.id}/accept`);
+    expect(accepted.statusCode, accepted.body).toBe(200);
+    expect(AcceptAssistantSuggestionResponse.parse(accepted.json())).toMatchObject({
+      skill: { name: 'weekly-sale', provenance: 'owner', state: 'active' },
+      path: null,
+    });
+    const again = await call(mai.h, 'POST', `/assistant/suggestions/${skillCard.id}/accept`);
+    expect(again.statusCode).toBe(409);
+    const dismissed = await call(mai.h, 'POST', `/assistant/suggestions/${setupCard.id}/dismiss`);
+    expect(dismissed.statusCode, dismissed.body).toBe(200);
+    // A dismissed key stays taken.
+    expect(
+      await repo.upsertSuggestion(mine, {
+        id: newId(),
+        kind: 'setup',
+        dedupKey: 'setup:zalo',
+        title: 'Gợi ý',
+        payload: {},
+      }),
+    ).toBeNull();
+    expect(
+      AssistantSuggestionList.parse((await call(mai.h, 'GET', '/assistant/suggestions')).json())
+        .items,
+    ).toEqual([]);
+
+    // Staff are refused on every route; another owner finds nothing.
+    const staff = await user('settings-staff@assistant.vn', 'SettingsStaff');
+    await invite(mai, staff, 'settings-staff@assistant.vn', 'admin');
+    const asStaff = staff.in(mai.ownWorkspace);
+    const routes: [Method, string, object?][] = [
+      ['GET', '/assistant/settings'],
+      ['PATCH', '/assistant/settings', { reviewEnabled: true }],
+      ['POST', `/assistant/messages/${answer.id}/feedback`, { value: 1 }],
+      ['GET', '/assistant/suggestions'],
+      ['POST', `/assistant/suggestions/${setupCard.id}/accept`],
+      ['POST', `/assistant/suggestions/${setupCard.id}/dismiss`],
+    ];
+    for (const [method, url, body] of routes) {
+      expect((await call(asStaff, method, url, body)).statusCode, `${method} ${url}`).toBe(403);
+    }
+    const kha = await user('settings-other@assistant.vn', 'Kha');
+    for (const [method, url, body] of routes.filter(([, u]) => /messages|suggestions\//.test(u))) {
+      expect((await call(kha.h, method, url, body)).statusCode, `${method} ${url}`).toBe(404);
+    }
+  });
+
+  it('runs the daily curator from the worker on Postgres', async () => {
+    const ngoc = await user('curator@assistant.vn', 'Ngoc');
+    const mine = await key(ngoc);
+    const repo = app.get<AssistantRepository>(ASSISTANT_REPOSITORY, { strict: false });
+    const skill = await repo.createSkill(mine, {
+      id: newId(),
+      name: 'old-habit',
+      description: 'An old habit',
+      body: '1. Do it.',
+      toolsets: [],
+      provenance: 'learned',
+      shadowOf: null,
+      state: 'active',
+    });
+    const longAgo = new Date(Date.now() - 45 * 24 * 60 * 60_000);
+    await owner.db
+      .update(schema.assistantSkills)
+      .set({ createdAt: longAgo, updatedAt: longAgo })
+      .where(eq(schema.assistantSkills.id, skill.id));
+    // Only this test's jobs are due.
+    await owner.db
+      .update(schema.assistantJobs)
+      .set({ status: 'cancelled' })
+      .where(eq(schema.assistantJobs.status, 'queued'));
+
+    const curator = app.get(CuratorService, { strict: false });
+    const now = new Date();
+    expect(await curator.schedule(now)).toBeGreaterThanOrEqual(1);
+    expect((await repo.getSettings(mine)).curatorRanAt).toEqual(now);
+    // Once a day: the owner is not picked again.
+    const owners = await repo.ownersWithLearnedSkills({ ranBefore: new Date(now.getTime() - 1) });
+    expect(owners.some((o) => o.ownerUserId === mine.ownerUserId)).toBe(false);
+
+    await app.get<AssistantRunner>(ASSISTANT_RUNNER, { strict: false }).tick();
+    expect((await repo.getSkill(mine, skill.id))?.state).toBe('stale');
+    const jobs = await owner.db
+      .select()
+      .from(schema.assistantJobs)
+      .where(eq(schema.assistantJobs.ownerUserId, mine.ownerUserId));
+    expect(jobs).toEqual([expect.objectContaining({ kind: 'curator', status: 'done' })]);
+
+    const feed = AssistantLearningFeed.parse(
+      (await call(ngoc.h, 'GET', '/assistant/learning')).json(),
+    );
+    expect(feed.items).toEqual([
+      expect.objectContaining({ kind: 'skill', actor: 'curator', state: 'stale' }),
+    ]);
   });
 });

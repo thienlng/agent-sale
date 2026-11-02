@@ -102,6 +102,7 @@ function pendingMessage(turnId: string, text: string): AssistantMessageDto {
     content: text,
     uiActions: [],
     runId: null,
+    feedback: null,
     createdAt: new Date().toISOString(),
   };
 }
