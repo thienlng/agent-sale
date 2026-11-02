@@ -1,5 +1,10 @@
 import type {
+  AssistantLearningItemDto,
   AssistantMemoryDto,
+  AssistantSettingsDto,
+  AssistantSkillDto,
+  AssistantSkillEventDto,
+  AssistantSuggestionDto,
   AssistantMessageDto,
   AssistantProposalDto,
   AssistantRunDto,
@@ -16,6 +21,10 @@ export const ASSISTANT_IDS = {
   answer: '0193b000-0000-7000-8000-000000000202',
   event: '0193b000-0000-7000-8000-000000000203',
   proposal: '0193b000-0000-7000-8000-000000000301',
+  skill: '0193b000-0000-7000-8000-000000000401',
+  skill2: '0193b000-0000-7000-8000-000000000402',
+  skillEvent: '0193b000-0000-7000-8000-000000000501',
+  suggestion: '0193b000-0000-7000-8000-000000000601',
 } as const;
 
 const STAMP = '2026-11-02T08:00:00.000Z';
@@ -119,6 +128,124 @@ export function memoryFixture(over: Partial<AssistantMemoryDto> = {}): Assistant
         used: 30,
         entries: [{ id: 'e2', text: 'Giao hàng trong ngày ở Hà Nội.', createdAt: STAMP }],
       },
+    ],
+    ...over,
+  };
+}
+
+/** A skill row (a learned skill waiting for approval unless overridden), with its body. */
+export function skillFixture(over: Partial<AssistantSkillDto> = {}): AssistantSkillDto {
+  return {
+    ref: over.id ?? ASSISTANT_IDS.skill,
+    id: ASSISTANT_IDS.skill,
+    name: 'bao-gia-si',
+    description: 'Báo giá sỉ cho khách mua từ 10 sản phẩm',
+    provenance: 'learned',
+    shadowOf: null,
+    shadowed: false,
+    state: 'pending_approval',
+    pinned: false,
+    useCount: 0,
+    viewCount: 0,
+    patchCount: 0,
+    lastUsedAt: null,
+    lastPatchedAt: null,
+    createdAt: STAMP,
+    updatedAt: STAMP,
+    body: 'Giảm 10% khi mua từ 10 sản phẩm.',
+    toolsets: [],
+    ...over,
+  };
+}
+
+/** A platform skill (a file): no id, no counters. */
+export function platformSkillFixture(over: Partial<AssistantSkillDto> = {}): AssistantSkillDto {
+  return skillFixture({
+    ref: 'platform:tao-don',
+    id: null,
+    name: 'tao-don',
+    description: 'Tạo đơn hàng mới',
+    provenance: 'platform',
+    state: 'active',
+    createdAt: null,
+    updatedAt: null,
+    body: 'Mở trang Đơn hàng rồi bấm Tạo đơn.',
+    ...over,
+  });
+}
+
+export function skillEventFixture(
+  over: Partial<AssistantSkillEventDto> = {},
+): AssistantSkillEventDto {
+  return {
+    id: ASSISTANT_IDS.skillEvent,
+    skillId: ASSISTANT_IDS.skill,
+    actor: 'review',
+    action: 'patch',
+    before: { name: 'bao-gia-si', description: 'Báo giá sỉ', body: 'Giảm 5%.', state: 'active' },
+    after: {
+      name: 'bao-gia-si',
+      description: 'Báo giá sỉ',
+      body: 'Giảm 10% khi mua từ 10 sản phẩm.',
+      state: 'active',
+    },
+    undoneAt: null,
+    createdAt: STAMP,
+    ...over,
+  };
+}
+
+/** A learning-feed item: a new learned skill waiting for approval. */
+export function learnedSkillFixture(
+  over: Partial<Extract<AssistantLearningItemDto, { kind: 'skill' }>> = {},
+): AssistantLearningItemDto {
+  return {
+    kind: 'skill',
+    actor: 'review',
+    action: 'create',
+    skillEventId: ASSISTANT_IDS.skillEvent,
+    skillId: ASSISTANT_IDS.skill,
+    name: 'bao-gia-si',
+    description: 'Báo giá sỉ cho khách mua từ 10 sản phẩm',
+    state: 'pending_approval',
+    undone: false,
+    at: STAMP,
+    ...over,
+  };
+}
+
+export function suggestionFixture(
+  over: Partial<AssistantSuggestionDto> = {},
+): AssistantSuggestionDto {
+  return {
+    id: ASSISTANT_IDS.suggestion,
+    kind: 'setup',
+    title: 'Bật thông báo đơn mới',
+    payload: { path: '/app/settings/notifications' },
+    status: 'pending',
+    createdAt: STAMP,
+    decidedAt: null,
+    ...over,
+  };
+}
+
+export function settingsFixture(over: Partial<AssistantSettingsDto> = {}): AssistantSettingsDto {
+  const toolset = (id: AssistantSettingsDto['toolsets'][number]['id'], uses30d: number) => ({
+    id,
+    labelKey: `toolsets.${id}`,
+    toolCount: 1,
+    uses30d,
+    locked: id === 'core' || id === 'ui',
+  });
+  return {
+    reviewEnabled: true,
+    disabledToolsets: [],
+    toolsets: [
+      toolset('core', 2),
+      toolset('ui', 14),
+      toolset('memory', 3),
+      toolset('skills', 5),
+      toolset('routes', 21),
     ],
     ...over,
   };

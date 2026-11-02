@@ -3,7 +3,7 @@
   "subtitle": "Trợ lý riêng của chủ shop",
   "threads": "Cuộc trò chuyện",
   "showThreads": "Xem các cuộc trò chuyện",
-  "hideThreads": "Quay lại cuộc trò chuyện",
+  "backToChat": "Quay lại cuộc trò chuyện",
   "newThread": "Cuộc trò chuyện mới",
   "close": "Đóng",
   "search": "Tìm trong cuộc trò chuyện",
@@ -37,7 +37,6 @@
   "sendError": "Không gửi được tin nhắn. Thử lại.",
   "spotlightDismiss": "Bấm bất kỳ đâu hoặc nhấn Esc để đóng",
   "showMemory": "Trợ lý nhớ gì",
-  "hideMemory": "Quay lại cuộc trò chuyện",
   "fill": {
     "notOnPage": "Biểu mẫu Thỏ Rapiz định điền không có trên trang này. Mở đúng trang rồi hỏi lại nhé.",
     "reviewHint": "Mình đã điền sẵn. Anh/chị kiểm tra lại rồi bấm Lưu nhé."
@@ -84,5 +83,123 @@
     "confirmNo": "Giữ lại",
     "forgotten": "Đã quên mục này.",
     "forgetError": "Không xoá được. Thử lại."
+  },
+  "showSkills": "Kỹ năng của trợ lý",
+  "showSettings": "Cài đặt trợ lý",
+  "feedback": {
+    "up": "Câu trả lời hữu ích",
+    "down": "Câu trả lời chưa tốt",
+    "error": "Không lưu được đánh giá. Thử lại."
+  },
+  "learning": {
+    "label": "Trợ lý vừa học",
+    "memory": "💡 Trợ lý vừa học: {{text}}",
+    "newSkill": "💡 Trợ lý vừa học kỹ năng mới: {{name}}",
+    "patchedSkill": "💡 Trợ lý vừa cập nhật kỹ năng: {{name}}",
+    "stale": "Trợ lý tạm cất kỹ năng lâu không dùng: {{name}}",
+    "archived": "Trợ lý đã lưu trữ kỹ năng lâu không dùng: {{name}}",
+    "view": "Xem",
+    "undo": "Hoàn tác",
+    "close": "Ẩn các thông báo này",
+    "undone": "Đã hoàn tác.",
+    "undoError": "Không hoàn tác được. Thử lại."
+  },
+  "suggestions": {
+    "label": "Gợi ý của trợ lý",
+    "accept": "Đồng ý",
+    "dismiss": "Bỏ qua",
+    "skillSaved": "Đã lưu kỹ năng {{name}}.",
+    "conflict": "Gợi ý này đã được xử lý hoặc không áp dụng được nữa.",
+    "error": "Không thực hiện được. Thử lại."
+  },
+  "skills": {
+    "title": "Kỹ năng",
+    "hint": "Những cách làm Thỏ Rapiz dùng để giúp anh/chị. Mọi thay đổi đều có thể hoàn tác.",
+    "sections": {
+      "pending": "Đang chờ duyệt",
+      "owner": "Của anh/chị",
+      "learned": "Đã học",
+      "platform": "Có sẵn",
+      "archived": "Lưu trữ"
+    },
+    "ownerEmpty": "Chưa có. Dặn Thỏ Rapiz ghi nhớ một cách làm, nó sẽ hiện ở đây.",
+    "showBody": "Xem nội dung",
+    "hideBody": "Ẩn nội dung",
+    "approve": "Duyệt",
+    "reject": "Bỏ",
+    "approved": "Đã duyệt kỹ năng.",
+    "customised": "Đã tinh chỉnh",
+    "stale": "Ít dùng",
+    "back": "Tất cả kỹ năng",
+    "provenance": {
+      "platform": "Có sẵn",
+      "owner": "Của anh/chị",
+      "learned": "Trợ lý tự học",
+      "shadow": "Bản tinh chỉnh của kỹ năng có sẵn"
+    },
+    "states": {
+      "pending_approval": "Đang chờ duyệt",
+      "active": "Đang dùng",
+      "stale": "Ít dùng",
+      "archived": "Đã lưu trữ"
+    },
+    "platformHint": "Kỹ năng có sẵn không sửa trực tiếp được. Bấm Tinh chỉnh để có bản riêng của anh/chị.",
+    "description": "Mô tả ngắn",
+    "body": "Nội dung",
+    "save": "Lưu",
+    "saved": "Đã lưu kỹ năng.",
+    "customise": "Tinh chỉnh",
+    "shadowCreated": "Đã tạo bản tinh chỉnh. Trợ lý sẽ dùng bản này.",
+    "restoreOriginal": "Khôi phục bản gốc",
+    "originalRestored": "Trợ lý dùng lại bản gốc.",
+    "archive": "Lưu trữ",
+    "restore": "Khôi phục",
+    "ledger": "Lịch sử thay đổi",
+    "ledgerEmpty": "Chưa có thay đổi nào.",
+    "undo": "Hoàn tác",
+    "undone": "Đã hoàn tác",
+    "undoneToast": "Đã hoàn tác thay đổi.",
+    "actors": {
+      "owner": "Anh/chị",
+      "assistant": "Trợ lý",
+      "review": "Trợ lý (tự học)",
+      "curator": "Trợ lý (dọn dẹp)"
+    },
+    "actions": {
+      "create": "đã tạo",
+      "patch": "đã sửa",
+      "archive": "đã cất",
+      "restore": "đã khôi phục",
+      "approve": "đã duyệt",
+      "reject": "đã bỏ",
+      "undo": "đã hoàn tác một thay đổi"
+    },
+    "errors": {
+      "stale_skill": "Kỹ năng đã đổi sau thay đổi này nên không hoàn tác được.",
+      "shadow_exists": "Kỹ năng này đã có bản tinh chỉnh.",
+      "skill_limit": "Đã đủ 50 kỹ năng. Lưu trữ bớt rồi thử lại.",
+      "skill_not_pending": "Kỹ năng này đã được xử lý rồi.",
+      "event_already_undone": "Thay đổi này đã được hoàn tác rồi.",
+      "name_taken": "Đã có kỹ năng trùng tên.",
+      "invalid": "Nội dung kỹ năng chưa hợp lệ. Kiểm tra lại mô tả và nội dung.",
+      "generic": "Không thực hiện được. Thử lại."
+    }
+  },
+  "settings": {
+    "title": "Cài đặt trợ lý",
+    "review": "Cho trợ lý tự học từ các cuộc trò chuyện",
+    "reviewHint": "Sau mỗi cuộc trò chuyện, trợ lý ghi nhớ điều cần nhớ và học cách làm. Anh/chị luôn hoàn tác được.",
+    "toolsets": "Nhóm công cụ",
+    "toolsetsHint": "Tắt nhóm nào thì trợ lý không dùng nhóm đó nữa.",
+    "uses_other": "{{count}} lần dùng trong 30 ngày",
+    "locked_other": "Luôn bật · {{count}} lần dùng trong 30 ngày",
+    "saveError": "Không lưu được cài đặt. Thử lại."
+  },
+  "toolsets": {
+    "core": "Cơ bản",
+    "ui": "Chỉ dẫn trên màn hình",
+    "memory": "Trí nhớ",
+    "skills": "Kỹ năng",
+    "routes": "Tra cứu và thao tác dữ liệu"
   }
 }

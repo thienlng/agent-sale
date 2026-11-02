@@ -24,6 +24,13 @@ export const assistantKeys = {
   proposals: (ws: string, threadId: string) =>
     ['ws', ws, 'assistant', 'proposals', threadId] as const,
   memory: (ws: string) => ['ws', ws, 'assistant', 'memory'] as const,
+  skills: (ws: string) => ['ws', ws, 'assistant', 'skills'] as const,
+  skill: (ws: string, ref: string) => ['ws', ws, 'assistant', 'skills', 'one', ref] as const,
+  skillEvents: (ws: string, skillId: string) =>
+    ['ws', ws, 'assistant', 'skills', 'events', skillId] as const,
+  learning: (ws: string) => ['ws', ws, 'assistant', 'learning'] as const,
+  settings: (ws: string) => ['ws', ws, 'assistant', 'settings'] as const,
+  suggestions: (ws: string) => ['ws', ws, 'assistant', 'suggestions'] as const,
   /** Mutation key of the approve/reject call of one proposal (its busy state outlives the card). */
   decision: (ws: string, proposalId: string) =>
     ['ws', ws, 'assistant', 'proposal-decision', proposalId] as const,

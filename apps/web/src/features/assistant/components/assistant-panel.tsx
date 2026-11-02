@@ -1,6 +1,6 @@
 import type { AssistantMessageDto, AssistantProposalDto } from '@agent-sales/contracts';
 import { useRouter } from '@tanstack/react-router';
-import { ArrowLeft, Brain, List, SquarePen, X } from 'lucide-react';
+import { ArrowLeft, Brain, List, Settings, Sparkles, SquarePen, X } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -24,15 +24,28 @@ import {
 import { useAssistantThreadId, useAssistantUi } from '../stores/assistant-ui.store';
 import { safeAppPath } from '../utils/safe-app-path';
 import { AssistantComposer } from './assistant-composer';
+import { AssistantLearning } from './assistant-learning';
 import { AssistantMemory } from './assistant-memory';
 import { AssistantMessages } from './assistant-messages';
+import { AssistantSettings } from './assistant-settings';
+import { AssistantSkills } from './assistant-skills';
 import { AssistantSpotlight } from './assistant-spotlight';
+import { AssistantSuggestions } from './assistant-suggestions';
 import { AssistantThreadList } from './assistant-thread-list';
 
 const NO_MESSAGES: AssistantMessageDto[] = [];
 const NO_PROPOSALS: AssistantProposalDto[] = [];
 /** How long a `fill_form` after a `navigate` waits for the new page to register its form. */
 const FORM_WAIT_MS = 3000;
+
+type PanelView = 'chat' | 'threads' | 'memory' | 'skills' | 'settings';
+/** The header's view toggles: icon, and the label to open the view. Pressed, each goes back. */
+const VIEW_TOGGLES = [
+  { view: 'threads', Icon: List, label: 'showThreads' },
+  { view: 'skills', Icon: Sparkles, label: 'showSkills' },
+  { view: 'memory', Icon: Brain, label: 'showMemory' },
+  { view: 'settings', Icon: Settings, label: 'showSettings' },
+] as const;
 
 /**
  * The assistant panel (lazy chunk): a non-modal right-side sheet, 420 px on desktop and full
@@ -43,7 +56,7 @@ export function AssistantPanel() {
   const router = useRouter();
   const { open, setOpen, setThread, setSpotlight } = useAssistantUi();
   const threadId = useAssistantThreadId(useWorkspaceId());
-  const [view, setView] = useState<'chat' | 'threads' | 'memory'>('chat');
+  const [view, setView] = useState<PanelView>('chat');
   const [pendingTurn, setPendingTurn] = useState<string | null>(null);
   const [unavailable, setUnavailable] = useState(false);
   const messages = useAssistantMessages(threadId);
@@ -142,24 +155,18 @@ export function AssistantPanel() {
               <SheetTitle className="truncate font-semibold">{t('title')}</SheetTitle>
               <SheetDescription className="truncate text-xs">{t('subtitle')}</SheetDescription>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label={view === 'threads' ? t('hideThreads') : t('showThreads')}
-              aria-pressed={view === 'threads'}
-              onClick={() => setView((v) => (v === 'threads' ? 'chat' : 'threads'))}
-            >
-              {view === 'threads' ? <ArrowLeft /> : <List />}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label={view === 'memory' ? t('hideMemory') : t('showMemory')}
-              aria-pressed={view === 'memory'}
-              onClick={() => setView((v) => (v === 'memory' ? 'chat' : 'memory'))}
-            >
-              {view === 'memory' ? <ArrowLeft /> : <Brain />}
-            </Button>
+            {VIEW_TOGGLES.map(({ view: target, Icon, label }) => (
+              <Button
+                key={target}
+                variant="ghost"
+                size="icon"
+                aria-label={view === target ? t('backToChat') : t(label)}
+                aria-pressed={view === target}
+                onClick={() => setView((v) => (v === target ? 'chat' : target))}
+              >
+                {view === target ? <ArrowLeft /> : <Icon />}
+              </Button>
+            ))}
             <Button variant="ghost" size="icon" aria-label={t('newThread')} onClick={newThread}>
               <SquarePen />
             </Button>
@@ -183,8 +190,13 @@ export function AssistantPanel() {
             />
           ) : view === 'memory' ? (
             <AssistantMemory />
+          ) : view === 'skills' ? (
+            <AssistantSkills />
+          ) : view === 'settings' ? (
+            <AssistantSettings onOpenMemory={() => setView('memory')} />
           ) : (
             <>
+              <AssistantLearning onOpenSkills={() => setView('skills')} />
               <AssistantMessages
                 messages={threadId ? (messages.data ?? NO_MESSAGES) : NO_MESSAGES}
                 proposals={threadId ? (proposals.data ?? NO_PROPOSALS) : NO_PROPOSALS}
@@ -192,6 +204,7 @@ export function AssistantPanel() {
                 pendingTurn={pendingTurn}
                 unavailable={unavailable}
               />
+              <AssistantSuggestions />
               <AssistantComposer sending={sending} onSend={send} />
             </>
           )}

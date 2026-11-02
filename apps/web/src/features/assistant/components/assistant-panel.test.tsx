@@ -7,7 +7,7 @@ import {
   RouterProvider,
 } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
-import { act, screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -17,13 +17,16 @@ import { loadNamespace } from '@/lib/i18n';
 import type { Session } from '@/lib/session';
 import {
   ASSISTANT_IDS,
+  learnedSkillFixture,
   messageFixture,
   proposalFixture,
   runFixture,
+  skillFixture,
+  suggestionFixture,
   threadFixture,
   turnFixture,
 } from '@/testing/assistant-factories';
-import { renderWithProviders, stubFetch } from '@/testing/render';
+import { renderWithProviders, stubFetch as baseStubFetch } from '@/testing/render';
 
 import { useAssistantUi } from '../stores/assistant-ui.store';
 import { AssistantBubble } from './assistant-bubble';
@@ -52,6 +55,18 @@ vi.mock('@/lib/session', () => ({
     workspaceId: WS,
   }),
 }));
+
+/** The chat view also asks for learning notices and suggestions: none, unless a test says so. */
+function stubFetch(routes: Parameters<typeof baseStubFetch>[0]) {
+  // Mutates `routes` so tests that change a route later still reach the stub.
+  return baseStubFetch(
+    Object.assign(routes, {
+      'GET /assistant/learning': { status: 200, body: { items: [] } },
+      'GET /assistant/suggestions': { status: 200, body: { items: [] } },
+      ...routes,
+    }),
+  );
+}
 
 /** The app layout in small: any page, with the bubble after the outlet (routes/app.tsx). */
 function renderApp(page: () => React.ReactElement = () => <p>page</p>, path = '/app/orders') {
@@ -109,7 +124,7 @@ describe('AssistantPanel', () => {
       spotlight: null,
     });
     // The other business's thread is never fetched under this one.
-    expect(calls).toHaveLength(0);
+    expect(calls.filter((c) => c.key.includes('/threads'))).toHaveLength(0);
   });
 
   it('sends the message with the page context, renders the answer and navigates', async () => {
@@ -599,5 +614,196 @@ describe('AssistantPanel', () => {
       ),
     );
     expect(await screen.findByText('Đã hết hạn')).toBeInTheDocument();
+  });
+
+  it('shows what the assistant just learned, with undo and a way to the pending skill', async () => {
+    useAssistantUi.setState({ open: true, workspaceId: WS, threadId: null });
+    const undo = `POST /assistant/skill-events/${ASSISTANT_IDS.skillEvent}/undo`;
+    const forget = `DELETE /assistant/memory/owner_profile/entries/e9`;
+    const memoryItem = {
+      kind: 'memory' as const,
+      actor: 'review' as const,
+      store: 'owner_profile',
+      entryId: 'e9',
+      text: 'Thích báo giá theo thùng.',
+      at: '2026-11-02T07:00:00.000Z',
+    };
+    const routes: Parameters<typeof stubFetch>[0] = {
+      'GET /assistant/learning': {
+        status: 200,
+        body: { items: [learnedSkillFixture(), memoryItem] },
+      },
+      [undo]: { status: 200, body: skillFixture({ state: 'archived' }) },
+      [forget]: { status: 200, body: { stores: [] } },
+      'GET /assistant/skills': { status: 200, body: { items: [skillFixture()] } },
+    };
+    const { fetchStub, calls } = stubFetch(routes);
+    vi.stubGlobal('fetch', fetchStub);
+    renderApp();
+    const user = userEvent.setup();
+
+    const notices = await screen.findByRole('region', { name: 'Trợ lý vừa học' });
+    expect(
+      within(notices).getByText('💡 Trợ lý vừa học kỹ năng mới: bao-gia-si'),
+    ).toBeInTheDocument();
+    expect(
+      within(notices).getByText('💡 Trợ lý vừa học: Thích báo giá theo thùng.'),
+    ).toBeInTheDocument();
+
+    // Undo the skill: it is archived, and the feed now flags it undone.
+    routes['GET /assistant/learning'] = {
+      status: 200,
+      body: { items: [learnedSkillFixture({ undone: true, state: 'archived' }), memoryItem] },
+    };
+    const skillLine = within(notices)
+      .getByText('💡 Trợ lý vừa học kỹ năng mới: bao-gia-si')
+      .closest('li') as HTMLElement;
+    await user.click(within(skillLine).getByRole('button', { name: 'Hoàn tác' }));
+    await waitFor(() =>
+      expect(
+        screen.queryByText('💡 Trợ lý vừa học kỹ năng mới: bao-gia-si'),
+      ).not.toBeInTheDocument(),
+    );
+    expect(calls.filter((c) => c.key === undo)).toHaveLength(1);
+    expect(toast.success).toHaveBeenCalledWith('Đã hoàn tác.');
+
+    // Undo the memory entry: it is forgotten.
+    routes['GET /assistant/learning'] = { status: 200, body: { items: [] } };
+    await user.click(within(notices).getByRole('button', { name: 'Hoàn tác' }));
+    await waitFor(() =>
+      expect(screen.queryByRole('region', { name: 'Trợ lý vừa học' })).not.toBeInTheDocument(),
+    );
+    expect(calls.filter((c) => c.key === forget)).toHaveLength(1);
+  });
+
+  it('opens the skills view from a pending skill notice', async () => {
+    useAssistantUi.setState({ open: true, workspaceId: WS, threadId: null });
+    const { fetchStub } = stubFetch({
+      'GET /assistant/learning': { status: 200, body: { items: [learnedSkillFixture()] } },
+      'GET /assistant/skills': { status: 200, body: { items: [skillFixture()] } },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderApp();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Xem' }));
+    expect(await screen.findByRole('region', { name: 'Đang chờ duyệt' })).toBeInTheDocument();
+  });
+
+  it('accepts a setup suggestion and opens its page; dismisses another', async () => {
+    useAssistantUi.setState({ open: true, workspaceId: WS, threadId: null });
+    const other = suggestionFixture({
+      id: '0193b000-0000-7000-8000-000000000602',
+      kind: 'schedule',
+      title: 'Gửi báo cáo doanh thu mỗi sáng',
+      payload: {},
+    });
+    const accept = `POST /assistant/suggestions/${ASSISTANT_IDS.suggestion}/accept`;
+    const dismiss = `POST /assistant/suggestions/${other.id}/dismiss`;
+    const routes: Parameters<typeof stubFetch>[0] = {
+      'GET /assistant/suggestions': {
+        status: 200,
+        body: { items: [suggestionFixture(), other] },
+      },
+      [accept]: {
+        status: 200,
+        body: {
+          suggestion: suggestionFixture({ status: 'accepted' }),
+          skill: null,
+          path: '/app/settings/notifications',
+        },
+      },
+      [dismiss]: { status: 200, body: { ...other, status: 'dismissed' } },
+    };
+    const { fetchStub, calls } = stubFetch(routes);
+    vi.stubGlobal('fetch', fetchStub);
+    const router = renderApp();
+    const user = userEvent.setup();
+
+    const cards = await screen.findByRole('region', { name: 'Gợi ý của trợ lý' });
+    const setupCard = within(cards).getByText('Bật thông báo đơn mới').closest('li') as HTMLElement;
+    routes['GET /assistant/suggestions'] = { status: 200, body: { items: [other] } };
+    await user.click(within(setupCard).getByRole('button', { name: 'Đồng ý' }));
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/app/settings/notifications'));
+    expect(calls.filter((c) => c.key === accept)).toHaveLength(1);
+    await waitFor(() =>
+      expect(screen.queryByText('Bật thông báo đơn mới')).not.toBeInTheDocument(),
+    );
+
+    routes['GET /assistant/suggestions'] = { status: 200, body: { items: [] } };
+    await user.click(screen.getByRole('button', { name: 'Bỏ qua' }));
+    await waitFor(() =>
+      expect(screen.queryByRole('region', { name: 'Gợi ý của trợ lý' })).not.toBeInTheDocument(),
+    );
+    expect(calls.filter((c) => c.key === dismiss)).toHaveLength(1);
+  });
+
+  it('never leaves the dashboard for an accepted suggestion path', async () => {
+    useAssistantUi.setState({ open: true, workspaceId: WS, threadId: null });
+    const accept = `POST /assistant/suggestions/${ASSISTANT_IDS.suggestion}/accept`;
+    const routes: Parameters<typeof stubFetch>[0] = {
+      'GET /assistant/suggestions': { status: 200, body: { items: [suggestionFixture()] } },
+      [accept]: {
+        status: 200,
+        body: {
+          suggestion: suggestionFixture({ status: 'accepted' }),
+          skill: null,
+          path: '/app/%2e%2e/login',
+        },
+      },
+    };
+    const { fetchStub, calls } = stubFetch(routes);
+    vi.stubGlobal('fetch', fetchStub);
+    const router = renderApp();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Đồng ý' }));
+    await waitFor(() => expect(calls.some((c) => c.key === accept)).toBe(true));
+    // The list refetches after the decision, so its handling (and any navigation) is over.
+    await waitFor(() =>
+      expect(calls.filter((c) => c.key === 'GET /assistant/suggestions')).toHaveLength(2),
+    );
+    expect(router.state.location.pathname).toBe('/app/orders');
+  });
+
+  it('toggles 👍/👎 under an answer', async () => {
+    useAssistantUi.setState({ open: true, workspaceId: WS, threadId: ASSISTANT_IDS.thread });
+    const feedback = `POST /assistant/messages/${ASSISTANT_IDS.answer}/feedback`;
+    const { fetchStub, calls } = stubFetch({
+      [`GET /assistant/threads/${ASSISTANT_IDS.thread}/messages`]: {
+        status: 200,
+        body: { data: turnFixture('chào').messages },
+      },
+      [`GET /assistant/threads/${ASSISTANT_IDS.thread}/proposals`]: {
+        status: 200,
+        body: { items: [] },
+      },
+      [feedback]: { status: 204 },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderApp();
+    const user = userEvent.setup();
+
+    const up = await screen.findByRole('button', { name: 'Câu trả lời hữu ích' });
+    const down = screen.getByRole('button', { name: 'Câu trả lời chưa tốt' });
+    expect(up).toHaveAttribute('aria-pressed', 'false');
+
+    await user.click(up);
+    await waitFor(() => expect(up).toHaveAttribute('aria-pressed', 'true'));
+    await user.click(down);
+    await waitFor(() => expect(down).toHaveAttribute('aria-pressed', 'true'));
+    expect(up).toHaveAttribute('aria-pressed', 'false');
+    // Pressing the chosen one again clears it.
+    await user.click(down);
+    await waitFor(() => expect(down).toHaveAttribute('aria-pressed', 'false'));
+
+    await waitFor(() =>
+      expect(calls.filter((c) => c.key === feedback).map((c) => c.body)).toEqual([
+        { value: 1 },
+        { value: -1 },
+        { value: 0 },
+      ]),
+    );
   });
 });

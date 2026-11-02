@@ -3,7 +3,7 @@
   "subtitle": "The shop owner's own assistant",
   "threads": "Conversations",
   "showThreads": "Show conversations",
-  "hideThreads": "Back to the conversation",
+  "backToChat": "Back to the conversation",
   "newThread": "New conversation",
   "close": "Close",
   "search": "Search conversations",
@@ -37,7 +37,6 @@
   "sendError": "Could not send the message. Try again.",
   "spotlightDismiss": "Click anywhere or press Esc to close",
   "showMemory": "What the assistant remembers",
-  "hideMemory": "Back to the conversation",
   "fill": {
     "notOnPage": "The form Thỏ Rapiz wanted to fill is not on this page. Open the right page and ask again.",
     "reviewHint": "I filled it in. Check it, then press Save."
@@ -84,5 +83,125 @@
     "confirmNo": "Keep",
     "forgotten": "Entry forgotten.",
     "forgetError": "Could not delete it. Try again."
+  },
+  "showSkills": "Assistant skills",
+  "showSettings": "Assistant settings",
+  "feedback": {
+    "up": "Helpful answer",
+    "down": "Not a good answer",
+    "error": "Could not save your rating. Try again."
+  },
+  "learning": {
+    "label": "The assistant just learned",
+    "memory": "💡 The assistant just learned: {{text}}",
+    "newSkill": "💡 The assistant learned a new skill: {{name}}",
+    "patchedSkill": "💡 The assistant updated a skill: {{name}}",
+    "stale": "The assistant set aside a skill unused for a while: {{name}}",
+    "archived": "The assistant archived a skill unused for a while: {{name}}",
+    "view": "View",
+    "undo": "Undo",
+    "close": "Hide these notices",
+    "undone": "Undone.",
+    "undoError": "Could not undo. Try again."
+  },
+  "suggestions": {
+    "label": "Assistant suggestions",
+    "accept": "Accept",
+    "dismiss": "Dismiss",
+    "skillSaved": "Saved the skill {{name}}.",
+    "conflict": "This suggestion was already handled or no longer applies.",
+    "error": "Could not do that. Try again."
+  },
+  "skills": {
+    "title": "Skills",
+    "hint": "The procedures Rapiz uses to help you. Every change can be undone.",
+    "sections": {
+      "pending": "Waiting for approval",
+      "owner": "Yours",
+      "learned": "Learned",
+      "platform": "Built in",
+      "archived": "Archived"
+    },
+    "ownerEmpty": "None yet. Ask Rapiz to remember a procedure and it shows here.",
+    "showBody": "Show content",
+    "hideBody": "Hide content",
+    "approve": "Approve",
+    "reject": "Drop",
+    "approved": "Skill approved.",
+    "customised": "Customised",
+    "stale": "Rarely used",
+    "back": "All skills",
+    "provenance": {
+      "platform": "Built in",
+      "owner": "Yours",
+      "learned": "Learned by the assistant",
+      "shadow": "Your customised copy of a built-in skill"
+    },
+    "states": {
+      "pending_approval": "Waiting for approval",
+      "active": "In use",
+      "stale": "Rarely used",
+      "archived": "Archived"
+    },
+    "platformHint": "Built-in skills cannot be edited directly. Press Customise to get your own copy.",
+    "description": "Short description",
+    "body": "Content",
+    "save": "Save",
+    "saved": "Skill saved.",
+    "customise": "Customise",
+    "shadowCreated": "Customised copy created. The assistant uses it now.",
+    "restoreOriginal": "Restore the original",
+    "originalRestored": "The assistant uses the original again.",
+    "archive": "Archive",
+    "restore": "Restore",
+    "ledger": "Change history",
+    "ledgerEmpty": "No changes yet.",
+    "undo": "Undo",
+    "undone": "Undone",
+    "undoneToast": "Change undone.",
+    "actors": {
+      "owner": "You",
+      "assistant": "Assistant",
+      "review": "Assistant (learning)",
+      "curator": "Assistant (clean-up)"
+    },
+    "actions": {
+      "create": "created it",
+      "patch": "edited it",
+      "archive": "put it away",
+      "restore": "restored it",
+      "approve": "approved it",
+      "reject": "dropped it",
+      "undo": "undid a change"
+    },
+    "errors": {
+      "stale_skill": "The skill changed after this change, so it cannot be undone.",
+      "shadow_exists": "This skill already has a customised copy.",
+      "skill_limit": "You have 50 skills already. Archive some and try again.",
+      "skill_not_pending": "This skill was already handled.",
+      "event_already_undone": "This change was already undone.",
+      "name_taken": "A skill with this name already exists.",
+      "invalid": "The skill is not valid. Check the description and content.",
+      "generic": "Could not do that. Try again."
+    }
+  },
+  "settings": {
+    "title": "Assistant settings",
+    "review": "Let the assistant learn from conversations",
+    "reviewHint": "After a conversation, the assistant saves what to remember and learns procedures. You can always undo.",
+    "toolsets": "Toolsets",
+    "toolsetsHint": "Turn a toolset off and the assistant stops using it.",
+    "uses_one": "{{count}} use in the last 30 days",
+    "uses_other": "{{count}} uses in the last 30 days",
+    "locked_one": "Always on · {{count}} use in the last 30 days",
+    "locked_other": "Always on · {{count}} uses in the last 30 days",
+    "saveError": "Could not save the settings. Try again."
+  },
+  "toolsets": {
+    "core": "Basics",
+    "ui": "On-screen guidance",
+    "memory": "Memory",
+    "skills": "Skills",
+    "routes": "Look up and change data"
   }
 }

@@ -1,14 +1,52 @@
 import type { AssistantMessageDto, AssistantProposalDto } from '@agent-sales/contracts';
-import { ChevronDown, Loader2, Rabbit } from 'lucide-react';
+import { ChevronDown, Loader2, Rabbit, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
 import { useAssistantRun } from '../api/assistant';
+import { useMessageFeedback } from '../api/assistant-settings';
 import { AssistantProposal } from './assistant-proposals';
 import { AssistantStepList, AssistantSteps } from './assistant-steps';
+
+/** 👍/👎 under an answer: pressing the chosen one again clears it. */
+function AnswerFeedback({ message }: { message: AssistantMessageDto }) {
+  const { t } = useTranslation('assistant');
+  const feedback = useMessageFeedback();
+  function press(value: 1 | -1): void {
+    feedback.mutate(
+      { messageId: message.id, value: message.feedback === value ? 0 : value },
+      { onError: () => toast.error(t('feedback.error')) },
+    );
+  }
+  const base =
+    'inline-flex size-6 items-center justify-center rounded text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none aria-pressed:text-primary';
+  return (
+    <span className="ml-auto inline-flex items-center gap-0.5">
+      <button
+        type="button"
+        className={base}
+        aria-label={t('feedback.up')}
+        aria-pressed={message.feedback === 1}
+        onClick={() => press(1)}
+      >
+        <ThumbsUp className="size-3.5" aria-hidden />
+      </button>
+      <button
+        type="button"
+        className={base}
+        aria-label={t('feedback.down')}
+        aria-pressed={message.feedback === -1}
+        onClick={() => press(-1)}
+      >
+        <ThumbsDown className="size-3.5" aria-hidden />
+      </button>
+    </span>
+  );
+}
 
 function AssistantAnswer({ message }: { message: AssistantMessageDto }) {
   const { t } = useTranslation('assistant');
@@ -18,8 +56,8 @@ function AssistantAnswer({ message }: { message: AssistantMessageDto }) {
       <div className="rounded-2xl rounded-bl-sm bg-muted px-3 py-2 break-words whitespace-pre-line">
         {message.content}
       </div>
-      {message.runId ? (
-        <>
+      <div className="flex items-center gap-2">
+        {message.runId ? (
           <button
             type="button"
             aria-expanded={showSteps}
@@ -32,12 +70,13 @@ function AssistantAnswer({ message }: { message: AssistantMessageDto }) {
               aria-hidden
             />
           </button>
-          {showSteps ? (
-            <div className="rounded-lg border px-3 py-2">
-              <AssistantSteps runId={message.runId} />
-            </div>
-          ) : null}
-        </>
+        ) : null}
+        <AnswerFeedback message={message} />
+      </div>
+      {message.runId && showSteps ? (
+        <div className="rounded-lg border px-3 py-2">
+          <AssistantSteps runId={message.runId} />
+        </div>
       ) : null}
     </li>
   );
