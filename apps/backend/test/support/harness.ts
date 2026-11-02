@@ -57,6 +57,11 @@ export async function startHarness(): Promise<Harness> {
     LOG_LEVEL: 'error',
     DATABASE_URL: withCredentials(pg.ownerUrl, pg.tenantLogin.user, pg.tenantLogin.password),
     DATABASE_SYSTEM_URL: withCredentials(pg.ownerUrl, pg.systemLogin.user, pg.systemLogin.password),
+    DATABASE_ASSISTANT_SQL_URL: withCredentials(
+      pg.ownerUrl,
+      pg.assistantSqlLogin.user,
+      pg.assistantSqlLogin.password,
+    ),
   });
   const app = booted.app;
   await app.init();

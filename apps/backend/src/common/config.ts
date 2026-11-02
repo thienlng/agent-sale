@@ -13,6 +13,11 @@ export const EnvSchema = z
     DATABASE_SYSTEM_URL: z.string().url().optional(),
     /** Direct (non-PgBouncer) connection for LISTEN; defaults to DATABASE_SYSTEM_URL. */
     DATABASE_LISTEN_URL: z.string().url().optional(),
+    /**
+     * The owner assistant's read-only SQL lane (T-171): its own login, a member of
+     * `app_assistant_sql` only. Unset = no SQL tools in the assistant's catalog.
+     */
+    DATABASE_ASSISTANT_SQL_URL: z.string().url().optional(),
     REDIS_URL: z.string().url().optional(),
     META_APP_ID: z.string().optional(),
     META_APP_SECRET: z.string().optional(),

@@ -7,7 +7,7 @@ import {
 } from '@agent-sales/ai-core';
 import type { AssistantUiAction, SendAssistantMessageRequest } from '@agent-sales/contracts';
 import { newId } from '@agent-sales/shared';
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
 import { AI_LLM_GATEWAY, isAiNotConfiguredError, type LlmGatewayPort } from '../../ai/api/index.js';
 import {
@@ -26,6 +26,7 @@ import {
   type ThreadRecord,
 } from '../domain/ports/assistant.repository.js';
 import { ROUTE_INVOKER, type RouteInvoker } from '../domain/ports/route-invoker.port.js';
+import { ASSISTANT_SQL_RUNNER, type SqlRunner } from '../domain/ports/sql-runner.port.js';
 import { CompactionService, threadCacheKey } from './compaction.service.js';
 import { CORE_TOOL_DEFINITIONS, coreTools, type ToolContext } from './core-tools.js';
 import { isVisibleMessage } from './mappers.js';
@@ -34,6 +35,7 @@ import { buildTurnMessage } from './prompt-builder.js';
 import { ROUTE_CATALOG, type RouteCatalog } from './route-catalog.js';
 import { ROUTE_TOOL_DEFINITIONS, routeTools } from './route-tools.js';
 import { SKILL_TOOL_DEFINITIONS, SkillCatalog, skillTools } from './skill-tools.js';
+import { type NativeToolEntry, SQL_TOOLSET, sqlTools } from './sql/sql-tools.js';
 import { withTurnOutputBudget } from './turn-budget.js';
 
 /** The assistant answers on the `pro` tier (ADR-023). */
@@ -171,7 +173,33 @@ export class ChatTurnService {
     @Inject(SkillCatalog) private readonly skills: SkillCatalog,
     @Inject(ROUTE_INVOKER) private readonly invoker: RouteInvoker,
     @Inject(CompactionService) private readonly compaction: CompactionService,
+    @Inject(ASSISTANT_SQL_RUNNER)
+    @Optional()
+    private readonly sqlRunner: SqlRunner | null = null,
   ) {}
+
+  /**
+   * The native entries of the deferred catalog for this turn: `sql_schema` and `sql_query` when
+   * the SQL lane is configured (`sqlRunner` is null without DATABASE_ASSISTANT_SQL_URL) and the owner has not turned the `sql` toolset off (1c settings).
+   * They are reached through tool_search / tool_describe / tool_call, so the tool list is unchanged.
+   */
+  async #nativeTools(
+    scope: OwnerScope,
+    runId: string,
+    uiActions: AssistantUiAction[],
+  ): Promise<NativeToolEntry[]> {
+    if (!this.sqlRunner) return [];
+    const settings = await this.repo.getSettings(scope);
+    if (settings.disabledToolsets.includes(SQL_TOOLSET)) return [];
+    return sqlTools({
+      scope,
+      runner: this.sqlRunner,
+      uiActions,
+      charts: { count: 0 },
+      runId,
+      log: (line) => this.#log.warn(line),
+    });
+  }
 
   /** The routes the assistant may use; tests replace it. */
   catalog: RouteCatalog = ROUTE_CATALOG;
@@ -254,6 +282,7 @@ export class ChatTurnService {
     };
     // The turn's proposals; the web reads them per thread, so the answer carries no field.
     const proposalIds: string[] = [];
+    const native = await this.#nativeTools(scope, runId, ctx.uiActions);
     const pending: Promise<void>[] = [];
     let idx = 0;
     let result: AgentLoopResult | undefined;
@@ -283,6 +312,7 @@ export class ChatTurnService {
             threadId: thread.id,
             runId,
             proposalIds,
+            native,
             ...(req.pageContext ? { page: req.pageContext } : {}),
           }),
         ]),

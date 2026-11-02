@@ -88,27 +88,47 @@ function pageSection(pageRoute: string | undefined): string | null {
   return m?.[1] ?? null;
 }
 
+/** A non-route entry of the deferred catalog (a native tool, T-171) as search sees it. */
+export interface ExtraSearchEntry {
+  key: string;
+  summary: string;
+  when: string;
+}
+
+/** A search hit: a route entry, or an extra entry (always a read). */
+export type SearchHit = CatalogEntry | (ExtraSearchEntry & { use: 'read' });
+
 /**
  * The best entries for `query`: the number of its (unaccented, lowercased) words found in the
  * entry's key, summary and `when`, plus a boost when the route's first path segment is the
- * section of the page the owner is on (`/app/<section>/…`). Entries with no matching word are
- * left out; ties keep the key order, so the result is stable.
+ * section of the page the owner is on (`/app/<section>/…`). `extra` entries (native tools) are
+ * scored with the same words and get no page boost. Entries with no matching word are left out;
+ * ties keep the key order, so the result is stable.
  */
 export function searchCatalog(
   catalog: RouteCatalog,
   query: string,
   pageRoute?: string,
-): CatalogEntry[] {
+  extra: readonly ExtraSearchEntry[] = [],
+): SearchHit[] {
   const words = [...new Set(tokens(query))];
   if (words.length === 0) return [];
   const section = pageSection(pageRoute);
-  return catalog.entries
-    .map((e) => {
-      const have = new Set(tokens(`${e.key} ${e.summary} ${e.when}`));
-      const hits = words.filter((w) => have.has(w)).length;
-      const boost = section && e.path.split('/')[1] === section ? PAGE_BOOST : 0;
-      return { e, hits, score: hits + boost };
-    })
+  const hitsOf = (e: ExtraSearchEntry) => {
+    const have = new Set(tokens(`${e.key} ${e.summary} ${e.when}`));
+    return words.filter((w) => have.has(w)).length;
+  };
+  const routes = catalog.entries.map((e) => {
+    const hits = hitsOf(e);
+    const boost = section && e.path.split('/')[1] === section ? PAGE_BOOST : 0;
+    return { e: e as SearchHit, hits, score: hits + boost };
+  });
+  const natives = extra.map((x) => {
+    const hits = hitsOf(x);
+    const e: SearchHit = { key: x.key, summary: x.summary, when: x.when, use: 'read' };
+    return { e, hits, score: hits };
+  });
+  return [...routes, ...natives]
     .filter((s) => s.hits > 0)
     .sort((a, b) => b.score - a.score || (a.e.key < b.e.key ? -1 : a.e.key > b.e.key ? 1 : 0))
     .slice(0, SEARCH_LIMIT)

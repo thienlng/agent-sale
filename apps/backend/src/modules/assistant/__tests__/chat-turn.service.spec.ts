@@ -22,7 +22,9 @@ import {
 } from '../domain/assistant.errors.js';
 import type { OwnerScope } from '../domain/owner-scope.js';
 import type { RouteInvocation, RouteInvocationResult } from '../domain/ports/route-invoker.port.js';
+import type { SqlRunner } from '../domain/ports/sql-runner.port.js';
 import { InMemoryAssistantRepository } from '../infrastructure/persistence/assistant.in-memory-repository.js';
+import { FakeSqlRunner } from './factories/fake-sql-runner.js';
 
 /** Same name and code as the ai module's error (detected by `isAiNotConfiguredError`). */
 class AiNotConfiguredError extends DomainError {
@@ -51,7 +53,10 @@ const PAGE = { route: '/app/overview', targets: ['overview.add', 'overview.help'
 const BUSINESS = workspaceId(newId());
 const AUTH = 'Bearer owner-token';
 
-async function setup(script: (GenerateResponse | Error)[] = [NAVIGATE, ANSWER]) {
+async function setup(
+  script: (GenerateResponse | Error)[] = [NAVIGATE, ANSWER],
+  sqlRunner: SqlRunner | null = null,
+) {
   const repo = new InMemoryAssistantRepository();
   const scope: OwnerScope = {
     accountId: newId(),
@@ -74,7 +79,14 @@ async function setup(script: (GenerateResponse | Error)[] = [NAVIGATE, ANSWER]) 
     { generate },
     new ThreadPromptService(workspace, repo, skills),
   );
-  const service = new ChatTurnService(repo, { generate }, skills, { invoke }, compaction);
+  const service = new ChatTurnService(
+    repo,
+    { generate },
+    skills,
+    { invoke },
+    compaction,
+    sqlRunner,
+  );
   const thread = await repo.createThread(scope, {
     id: newId(),
     title: '',
@@ -556,5 +568,52 @@ describe('ChatTurnService', () => {
       { ok: false, errorCode: 'turn_budget_exhausted' },
       { ok: false, errorCode: 'turn_budget_exhausted' },
     ]);
+  });
+});
+
+describe('ChatTurnService with the SQL lane', () => {
+  const SQL_CALL = call('c1', 'tool_call', {
+    key: 'sql_query',
+    body: { sql: 'select count(*) as n from orders' },
+  });
+  /** The tool result the model reads on its second call. */
+  const toolResult = (generate: ReturnType<typeof vi.fn>) => {
+    const req = generate.mock.calls[1]?.[0] as GenerateRequest;
+    return JSON.parse(req.messages.at(-1)?.content ?? '{}') as Record<string, unknown>;
+  };
+
+  it('offers sql_query through tool_call when a runner is configured; the tool list is unchanged', async () => {
+    const runner = new FakeSqlRunner();
+    const t = await setup([SQL_CALL, ANSWER], runner);
+    await t.service.send(t.scope, t.thread.id, { turnId: newId(), text: 'Bao nhiêu đơn?' }, AUTH);
+    expect(runner.calls).toEqual([
+      {
+        accountId: t.scope.accountId,
+        businessIds: [BUSINESS],
+        sql: 'select count(*) as n from orders',
+      },
+    ]);
+    expect(toolResult(t.generate)).toMatchObject({ ok: true, columns: ['n'], rows: [[1]] });
+
+    const plain = await setup([ANSWER]);
+    await plain.service.send(plain.scope, plain.thread.id, { turnId: newId(), text: 'x' }, AUTH);
+    const names = (g: ReturnType<typeof vi.fn>) =>
+      (g.mock.calls[0]?.[0] as GenerateRequest).tools?.map((d) => d.name);
+    expect(names(t.generate)).toEqual(names(plain.generate));
+  });
+
+  it('leaves the SQL tools out when the owner turned the sql toolset off', async () => {
+    const runner = new FakeSqlRunner();
+    const t = await setup([SQL_CALL, ANSWER], runner);
+    await t.repo.saveSettings(t.scope, { disabledToolsets: ['sql'] });
+    await t.service.send(t.scope, t.thread.id, { turnId: newId(), text: 'Bao nhiêu đơn?' }, AUTH);
+    expect(toolResult(t.generate)).toEqual({ ok: false, errorCode: 'unknown_key' });
+    expect(runner.calls).toHaveLength(0);
+  });
+
+  it('has no SQL tools without a runner', async () => {
+    const t = await setup([SQL_CALL, ANSWER]);
+    await t.service.send(t.scope, t.thread.id, { turnId: newId(), text: 'Bao nhiêu đơn?' }, AUTH);
+    expect(toolResult(t.generate)).toEqual({ ok: false, errorCode: 'unknown_key' });
   });
 });

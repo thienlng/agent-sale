@@ -95,6 +95,14 @@ function cell(x: unknown, type: AssistantSqlColumn['type']): string | number | b
   }
 }
 
+interface AppliedSettings {
+  account: string | null;
+  businesses: string | null;
+  statement_timeout: string;
+  idle_timeout: string;
+  read_only: string;
+}
+
 interface RawColumn {
   name: string;
   type: number;
@@ -109,8 +117,10 @@ const isPostgresError = (e: unknown): e is { code: string; message: string } =>
 
 /**
  * Runs one query for an owner: inside a `READ ONLY` transaction, with `app.account_id` and
- * `app.assistant_business_ids` set transaction-locally (verified after set, like `withAccount`),
- * a 3 s statement timeout, the Asia/Ho_Chi_Minh time zone and `search_path = assistant_sql`.
+ * `app.assistant_business_ids` set transaction-locally (`set_config(…, true)`, the same as
+ * `SET LOCAL`), a 3 s statement timeout, a 5 s idle-in-transaction timeout, the Asia/Ho_Chi_Minh
+ * time zone and `search_path = assistant_sql`. The scope, both timeouts and the read-only flag are
+ * read back before the query runs (like `withAccount`); any mismatch throws.
  * At most `maxRows + 1` rows are fetched through a cursor (the model's `ORDER BY` holds and the
  * text runs unchanged); `truncated` says there were more. Postgres errors become
  * `AssistantSqlError`. The SQL text and the rows are never logged here.
@@ -141,10 +151,21 @@ export async function runAssistantSql(
         set_config('search_path', 'assistant_sql', true),
         set_config('TimeZone', ${ASSISTANT_SQL_TIMEZONE}, true),
         set_config('work_mem', '16MB', true)`;
-      const [applied] = await tx<{ account: string | null; businesses: string | null }[]>`select
+      // Read back the scope and the limits: the query never runs without them, nor outside a
+      // read-only transaction.
+      const [applied] = await tx<AppliedSettings[]>`select
         current_setting('app.account_id', true) as account,
-        current_setting('app.assistant_business_ids', true) as businesses`;
-      if (applied?.account !== input.accountId || applied.businesses !== businessIds) {
+        current_setting('app.assistant_business_ids', true) as businesses,
+        current_setting('statement_timeout') as statement_timeout,
+        current_setting('idle_in_transaction_session_timeout') as idle_timeout,
+        current_setting('transaction_read_only') as read_only`;
+      if (
+        applied?.account !== input.accountId ||
+        applied.businesses !== businessIds ||
+        applied.statement_timeout !== '3s' ||
+        applied.idle_timeout !== '5s' ||
+        applied.read_only !== 'on'
+      ) {
         throw new Error('assistant_sql: context was not applied');
       }
 
