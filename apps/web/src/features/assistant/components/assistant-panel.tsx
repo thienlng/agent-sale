@@ -1,7 +1,7 @@
 import type { AssistantMessageDto, AssistantProposalDto } from '@agent-sales/contracts';
 import { useRouter } from '@tanstack/react-router';
 import { ArrowLeft, Brain, List, SquarePen, X } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
@@ -9,8 +9,10 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
 import { ApiClientError } from '@/lib/api-client';
 import {
+  type AssistantRequest,
   collectPageContext,
   fillAssistantForm,
+  useAssistantRequest,
   waitForAssistantForm,
 } from '@/lib/assistant-context';
 import { useWorkspaceId } from '@/lib/use-workspace';
@@ -51,6 +53,28 @@ export function AssistantPanel() {
   const createThread = useCreateAssistantThread();
   const sendMessage = useSendAssistantMessage();
   const sending = pendingTurn !== null || createThread.isPending;
+  /** A request that arrived while a turn ran: it waits in the composer for the owner to send. */
+  const [draft, setDraft] = useState<AssistantRequest | null>(null);
+
+  // A page asked on the owner's behalf (the ask button): take it once, now and whenever another
+  // arrives. Idle → send it; busy → leave it in the composer. Refs keep the subscription stable.
+  const latest = useRef({ sending, send });
+  useEffect(() => {
+    latest.current = { sending, send };
+  });
+  useEffect(() => {
+    function takeRequest(): void {
+      const request = useAssistantRequest.getState().take();
+      if (!request) return;
+      setView('chat');
+      if (latest.current.sending) setDraft(request);
+      else void latest.current.send(request.text);
+    }
+    takeRequest();
+    return useAssistantRequest.subscribe((state) => {
+      if (state.request) takeRequest();
+    });
+  }, []);
 
   /**
    * UI actions run in order: navigate inside the dashboard, point at a control, fill a form on
@@ -82,6 +106,10 @@ export function AssistantPanel() {
         const filled = fillAssistantForm(action.formId, action.values);
         if (!filled.ok) {
           toast(t('fill.notOnPage'));
+        } else if (filled.opensDialog) {
+          // The fill opened a modal dialog: a spotlight would sit under it (T175-R5). The panel
+          // steps aside and the dialog's own focus leads the owner.
+          setOpen(false);
         } else if (filled.submitTarget) {
           setOpen(false);
           setSpotlight({ target: filled.submitTarget, hint: t('fill.reviewHint') });
@@ -192,7 +220,7 @@ export function AssistantPanel() {
                 pendingTurn={pendingTurn}
                 unavailable={unavailable}
               />
-              <AssistantComposer sending={sending} onSend={send} />
+              <AssistantComposer sending={sending} onSend={send} draft={draft} />
             </>
           )}
         </SheetContent>

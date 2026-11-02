@@ -12,7 +12,8 @@ import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useAssistantForm } from '@/lib/assistant-context';
+import { AssistantAskButton } from '@/components/assistant-ask-button';
+import { useAssistantForm, useAssistantRequest } from '@/lib/assistant-context';
 import { loadNamespace } from '@/lib/i18n';
 import type { Session } from '@/lib/session';
 import {
@@ -81,6 +82,7 @@ beforeAll(async () => {
 beforeEach(() => {
   current.ws = WS;
   useAssistantUi.setState({ open: false, workspaceId: null, threadId: null, spotlight: null });
+  useAssistantRequest.setState({ request: null });
   vi.spyOn(crypto, 'randomUUID').mockReturnValue(ASSISTANT_IDS.turn);
 });
 afterEach(() => {
@@ -599,5 +601,102 @@ describe('AssistantPanel', () => {
       ),
     );
     expect(await screen.findByText('Đã hết hạn')).toBeInTheDocument();
+  });
+
+  /** An empty list page with the ask button and a dialog form registered by the list. */
+  function EmptyFaqPage() {
+    const [prefill, setPrefill] = useState<string | null>(null);
+    useAssistantForm(
+      'faq',
+      () => [{ name: 'question', label: 'Câu hỏi', type: 'textarea', empty: true }],
+      (values) => setPrefill(String(values['question'] ?? '')),
+      { opensDialog: true },
+    );
+    return (
+      <>
+        <AssistantAskButton text="Điền mẫu FAQ giúp mình" />
+        {prefill === null ? null : <p>dialog:{prefill}</p>}
+      </>
+    );
+  }
+
+  it('opens and sends what a page asked for when no turn runs', async () => {
+    const { fetchStub, calls } = stubFetch({
+      'POST /assistant/threads': { status: 201, body: threadFixture() },
+      [`POST /assistant/threads/${ASSISTANT_IDS.thread}/messages`]: {
+        status: 200,
+        body: turnFixture('Điền mẫu FAQ giúp mình', { content: 'Mình soạn rồi.' }),
+      },
+      [`GET /assistant/runs/${ASSISTANT_IDS.turn}`]: { status: 200, body: runFixture() },
+      [`GET /assistant/threads/${ASSISTANT_IDS.thread}/proposals`]: {
+        status: 200,
+        body: { items: [] },
+      },
+      'GET /assistant/threads': { status: 200, body: { data: [] } },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderApp(EmptyFaqPage, '/app/bots/b1/knowledge');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Nhờ trợ lý điền mẫu' }));
+
+    expect(await screen.findByText('Mình soạn rồi.')).toBeInTheDocument();
+    expect(useAssistantUi.getState().open).toBe(true);
+    expect(calls.find((c) => c.key.endsWith('/messages'))?.body).toMatchObject({
+      text: 'Điền mẫu FAQ giúp mình',
+      pageContext: { route: '/app/bots/b1/knowledge' },
+    });
+    expect(useAssistantRequest.getState().request).toBeNull();
+  });
+
+  it('leaves a request in the composer while a turn runs', async () => {
+    const send = `POST /assistant/threads/${ASSISTANT_IDS.thread}/messages`;
+    const held = holdRequest(
+      {
+        'POST /assistant/threads': { status: 201, body: threadFixture() },
+        [send]: { status: 200, body: turnFixture('xin chào', { content: 'Chào anh.' }) },
+        [`GET /assistant/runs/${ASSISTANT_IDS.turn}`]: { status: 200, body: runFixture() },
+        [`GET /assistant/threads/${ASSISTANT_IDS.thread}/proposals`]: {
+          status: 200,
+          body: { items: [] },
+        },
+        'GET /assistant/threads': { status: 200, body: { data: [] } },
+      },
+      send,
+    );
+    vi.stubGlobal('fetch', held.fetch);
+    renderApp(EmptyFaqPage, '/app/bots/b1/knowledge');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' }));
+    const box = await screen.findByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' });
+    await user.type(box, 'xin chào{Enter}');
+    await held.waiting;
+    await user.click(screen.getByRole('button', { name: 'Nhờ trợ lý điền mẫu' }));
+    await waitFor(() => expect(box).toHaveValue('Điền mẫu FAQ giúp mình'));
+    held.release();
+
+    expect(await screen.findByText('Chào anh.')).toBeInTheDocument();
+    // Only the owner's own message was sent; the request waits for them.
+    expect(held.calls.filter((c) => c.key === send)).toHaveLength(1);
+    expect(box).toHaveValue('Điền mẫu FAQ giúp mình');
+  });
+
+  it('steps aside without a spotlight after a fill that opens a dialog', async () => {
+    const { fetchStub } = fillTurn('faq');
+    vi.stubGlobal('fetch', fetchStub);
+    renderApp(EmptyFaqPage, '/app/bots/b1/knowledge');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' }));
+    await user.type(
+      await screen.findByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' }),
+      'điền giúp{Enter}',
+    );
+
+    // `faq` has no `question` in the fixture values: the dialog opens with an empty prefill.
+    expect(await screen.findByText('dialog:')).toBeInTheDocument();
+    await waitFor(() => expect(useAssistantUi.getState().open).toBe(false));
+    expect(useAssistantUi.getState().spotlight).toBeNull();
   });
 });

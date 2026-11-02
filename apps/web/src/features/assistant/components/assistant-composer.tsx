@@ -7,17 +7,25 @@ import { Textarea } from '@/components/ui/textarea';
 
 /**
  * Message box: Enter sends, Shift+Enter adds a line, disabled while a turn runs. `onSend`
- * resolves false when the message was not sent, and the text comes back for another try.
+ * resolves false when the message was not sent, and the text comes back for another try. A new
+ * `draft` (a page's request that arrived while a turn ran) replaces the text for the owner to send.
  */
 export function AssistantComposer({
   sending,
   onSend,
+  draft = null,
 }: {
   sending: boolean;
   onSend: (text: string) => Promise<boolean>;
+  draft?: { id: string; text: string } | null;
 }) {
   const { t } = useTranslation('assistant');
-  const [text, setText] = useState('');
+  const [text, setText] = useState(draft?.text ?? '');
+  const [draftId, setDraftId] = useState(draft?.id);
+  if (draft && draft.id !== draftId) {
+    setDraftId(draft.id);
+    setText(draft.text);
+  }
 
   function submit(): void {
     const value = text.trim();

@@ -161,7 +161,7 @@ describe('ProductForm and the owner assistant', () => {
       });
     });
 
-    expect(result).toEqual({ ok: true, submitTarget: 'products.save' });
+    expect(result).toEqual({ ok: true, submitTarget: 'products.save', opensDialog: false });
     expect(screen.getByLabelText('Tên sản phẩm')).toHaveValue('Áo thun');
     expect(screen.getByLabelText(/^Mã sản phẩm/)).toHaveValue('AT01');
     expect(screen.getByLabelText(/^Danh mục/)).toHaveValue('Áo');

@@ -36,6 +36,8 @@ export interface AssistantFormOptions {
   submitTarget?: string;
   /** False keeps the form out of the registry (e.g. an edit page, or a read-only form). */
   enabled?: boolean;
+  /** The fill opens a dialog: the panel steps aside and nothing is spotlighted (T175-R5). */
+  opensDialog?: boolean;
 }
 
 interface RegisteredForm {
@@ -43,12 +45,21 @@ interface RegisteredForm {
   fields: () => AssistantFormField[];
   fill: (values: AssistantFormValues) => void;
   submitTarget: string | undefined;
+  opensDialog: boolean;
 }
 
-/** Forms on screen by id; a later registration of the same id wins until it unmounts. */
-const forms = new Map<string, RegisteredForm>();
+/**
+ * Forms on screen by id, as a stack: the last registration of an id is the active one. A list
+ * registers its add dialog's form while the dialog is closed; the open dialog registers the same
+ * id on top, and closing it gives the list's registration back (T175-R4).
+ */
+const forms = new Map<string, RegisteredForm[]>();
 const listeners = new Set<() => void>();
 
+/** The active (last) registration of `formId`, if any. */
+function activeForm(formId: string): RegisteredForm | undefined {
+  return forms.get(formId)?.at(-1);
+}
 function changed(): void {
   for (const listener of listeners) listener();
 }
@@ -70,21 +81,24 @@ export function useAssistantForm(
   useEffect(() => {
     latest.current = { fields, onFill };
   });
-  const { submitTarget, enabled = true } = options;
+  const { submitTarget, enabled = true, opensDialog = false } = options;
   useEffect(() => {
     if (!enabled) return;
     const entry: RegisteredForm = {
       fields: () => latest.current.fields(),
       fill: (values) => latest.current.onFill(values),
       submitTarget,
+      opensDialog,
     };
-    forms.set(formId, entry);
+    forms.set(formId, [...(forms.get(formId) ?? []), entry]);
     changed();
     return () => {
-      if (forms.get(formId) === entry) forms.delete(formId);
+      const rest = (forms.get(formId) ?? []).filter((e) => e !== entry);
+      if (rest.length) forms.set(formId, rest);
+      else forms.delete(formId);
       changed();
     };
-  }, [formId, submitTarget, enabled]);
+  }, [formId, submitTarget, enabled, opensDialog]);
 }
 
 /**
@@ -127,14 +141,15 @@ function coerce(fields: AssistantFormField[], values: AssistantFormValues): Assi
   return out;
 }
 
-export type FillResult = { ok: true; submitTarget: string | undefined } | { ok: false };
+export type FillResult =
+  { ok: true; submitTarget: string | undefined; opensDialog: boolean } | { ok: false };
 
-/** Fills a registered form; `ok: false` when no such form is on screen. Never submits. */
+/** Fills the active registration of a form; `ok: false` when none is on screen. Never submits. */
 export function fillAssistantForm(formId: string, values: AssistantFormValues): FillResult {
-  const form = forms.get(formId);
+  const form = activeForm(formId);
   if (!form) return { ok: false };
   form.fill(coerce(form.fields(), values));
-  return { ok: true, submitTarget: form.submitTarget };
+  return { ok: true, submitTarget: form.submitTarget, opensDialog: form.opensDialog };
 }
 
 /** Resolves true once `formId` is registered (e.g. after a navigate), false after `timeoutMs`. */
@@ -170,9 +185,10 @@ export function collectPageContext(route: string): AssistantPageContext {
         .filter((id) => id && id.length <= 60),
     ),
   ].slice(0, MAX_TARGETS);
-  const onScreen = [...forms.entries()]
-    .slice(0, MAX_FORMS)
-    .map(([id, form]) => ({ id, fields: form.fields().slice(0, MAX_FIELDS) }));
+  const onScreen = [...forms.keys()].slice(0, MAX_FORMS).flatMap((id) => {
+    const form = activeForm(id);
+    return form ? [{ id, fields: form.fields().slice(0, MAX_FIELDS) }] : [];
+  });
   const info = usePageInfo.getState().info;
   return {
     ...info,
@@ -180,4 +196,37 @@ export function collectPageContext(route: string): AssistantPageContext {
     ...(targets.length ? { targets } : {}),
     ...(onScreen.length ? { forms: onScreen } : {}),
   };
+}
+
+// ─── Asking on the owner's behalf (the ask button) ────────────────────────────
+
+/** Longest text a page may ask with; the composer allows more, a fixed sentence never needs it. */
+const MAX_REQUEST = 500;
+
+export interface AssistantRequest {
+  id: string;
+  text: string;
+}
+
+/**
+ * One pending question a page asked on the owner's behalf. The bubble opens the panel when one
+ * appears; the panel `take()`s it once and sends it, or puts it in the composer while a turn runs.
+ */
+export const useAssistantRequest = create<{
+  request: AssistantRequest | null;
+  take: () => AssistantRequest | null;
+}>()((set, get) => ({
+  request: null,
+  take: () => {
+    const request = get().request;
+    if (request) set({ request: null });
+    return request;
+  },
+}));
+
+/** Asks the assistant on the owner's behalf (the ask button); the bubble takes it once. */
+export function requestAssistant(text: string): void {
+  const value = text.trim().slice(0, MAX_REQUEST);
+  if (!value) return;
+  useAssistantRequest.setState({ request: { id: crypto.randomUUID(), text: value } });
 }
