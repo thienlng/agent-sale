@@ -8,6 +8,7 @@ import {
   AssistantPageForm,
   AssistantProposalDto,
   AssistantUiAction,
+  AssistantChart,
   SendAssistantMessageRequest,
   UpdateAssistantThreadRequest,
 } from './assistant.schema.js';
@@ -161,6 +162,65 @@ describe('fill_form action', () => {
     const base = { type: 'fill_form', formId: 'product.form' };
     expect(AssistantUiAction.safeParse({ ...base, values: values(30) }).success).toBe(true);
     expect(AssistantUiAction.safeParse({ ...base, values: values(31) }).success).toBe(false);
+  });
+});
+
+describe('chart action', () => {
+  const chart = {
+    kind: 'bar',
+    title: 'Doanh thu 7 ngày',
+    x: { key: 'day', label: 'Ngày' },
+    series: [{ key: 'revenue', label: 'Doanh thu' }],
+    unit: 'vnd',
+    rows: [
+      { day: '2026-11-01', revenue: 1_250_000 },
+      { day: '2026-11-02', revenue: null },
+    ],
+  };
+
+  it('parses a chart action', () => {
+    expect(AssistantUiAction.safeParse({ type: 'chart', chart }).success).toBe(true);
+  });
+
+  it('still parses the older actions next to it', () => {
+    const actions = [
+      { type: 'navigate', to: '/app/orders' },
+      { type: 'chart', chart },
+      { type: 'spotlight', target: 'orders.new', hint: 'Ở đây' },
+    ];
+    expect(actions.every((a) => AssistantUiAction.safeParse(a).success)).toBe(true);
+  });
+
+  it('accepts a pie with one series and up to 12 rows', () => {
+    const rows = Array.from({ length: 12 }, (_, i) => ({ day: `d${i}`, revenue: i }));
+    expect(AssistantChart.safeParse({ ...chart, kind: 'pie', rows }).success).toBe(true);
+  });
+
+  it('rejects a pie with 2 series or 13 rows', () => {
+    const two = [...chart.series, { key: 'profit', label: 'Lợi nhuận' }];
+    expect(AssistantChart.safeParse({ ...chart, kind: 'pie', series: two }).success).toBe(false);
+    const rows = Array.from({ length: 13 }, (_, i) => ({ day: `d${i}`, revenue: i }));
+    expect(AssistantChart.safeParse({ ...chart, kind: 'pie', rows }).success).toBe(false);
+    // The same two series are fine on a bar chart.
+    expect(AssistantChart.safeParse({ ...chart, series: two }).success).toBe(true);
+  });
+
+  it('rejects 61 rows, 5 series, no series, a long cell and a bad unit', () => {
+    const rows = (n: number) => Array.from({ length: n }, (_, i) => ({ day: `d${i}`, revenue: i }));
+    expect(AssistantChart.safeParse({ ...chart, rows: rows(60) }).success).toBe(true);
+    expect(AssistantChart.safeParse({ ...chart, rows: rows(61) }).success).toBe(false);
+    const series = (n: number) =>
+      Array.from({ length: n }, (_, i) => ({ key: `s${i}`, label: 'S' }));
+    expect(AssistantChart.safeParse({ ...chart, series: series(5) }).success).toBe(false);
+    expect(AssistantChart.safeParse({ ...chart, series: series(0) }).success).toBe(false);
+    expect(
+      AssistantChart.safeParse({ ...chart, rows: [{ day: 'x'.repeat(81), revenue: 1 }] }).success,
+    ).toBe(false);
+    expect(AssistantChart.safeParse({ ...chart, rows: [{ day: true, revenue: 1 }] }).success).toBe(
+      false,
+    );
+    expect(AssistantChart.safeParse({ ...chart, unit: 'usd' }).success).toBe(false);
+    expect(AssistantChart.safeParse({ ...chart, title: 't'.repeat(121) }).success).toBe(false);
   });
 });
 
