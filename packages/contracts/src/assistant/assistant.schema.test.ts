@@ -207,6 +207,7 @@ describe('proposal and memory DTOs', () => {
       threadId: TURN,
       businessId: TURN,
       routeKey: 'PATCH /products/{productId}',
+      path: '/products/p1',
       summary: 'Đổi giá áo thun',
       preview: { price: { from: 120000, to: 150000 } },
       status: 'pending',

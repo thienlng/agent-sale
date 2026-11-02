@@ -599,7 +599,10 @@
     },
     "thread": {
       "newDivider": "Tin mới",
-      "bot": "Bot"
+      "bot": "Bot",
+      "askWhy": "Vì sao bot trả lời vậy?",
+      "askWhyPrompt": "Vì sao bot trả lời tin nhắn lúc {{time}} như vậy?",
+      "messageMenu": "Tuỳ chọn tin nhắn"
     },
     "tagBar": {
       "label": "Tag của hội thoại",

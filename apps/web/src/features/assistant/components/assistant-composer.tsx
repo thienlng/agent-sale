@@ -1,9 +1,12 @@
+import { ASSISTANT_MESSAGE_MAX } from '@agent-sales/contracts';
 import { SendHorizontal } from 'lucide-react';
-import { type FormEvent, type KeyboardEvent, useState } from 'react';
+import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+
+import { useAssistantUi } from '../stores/assistant-ui.store';
 
 /**
  * Message box: Enter sends, Shift+Enter adds a line, disabled while a turn runs. `onSend`
@@ -18,6 +21,16 @@ export function AssistantComposer({
 }) {
   const { t } = useTranslation('assistant');
   const [text, setText] = useState('');
+  const input = useRef<HTMLTextAreaElement>(null);
+  // A page opened the panel with a question ("Vì sao bot trả lời vậy?"): the owner reviews it.
+  const draft = useAssistantUi((s) => s.draft);
+  useEffect(() => {
+    if (draft === null) return;
+    const value = useAssistantUi.getState().takeDraft();
+    if (value === null) return;
+    setText(value);
+    input.current?.focus();
+  }, [draft]);
 
   function submit(): void {
     const value = text.trim();
@@ -44,11 +57,12 @@ export function AssistantComposer({
       }}
     >
       <Textarea
+        ref={input}
         aria-label={t('placeholder')}
         placeholder={t('placeholder')}
         value={text}
         disabled={sending}
-        maxLength={4000}
+        maxLength={ASSISTANT_MESSAGE_MAX}
         rows={1}
         className="max-h-40 min-h-10 resize-none"
         onChange={(event) => setText(event.target.value)}

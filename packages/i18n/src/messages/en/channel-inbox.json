@@ -599,7 +599,10 @@
     },
     "thread": {
       "newDivider": "New messages",
-      "bot": "Bot"
+      "bot": "Bot",
+      "askWhy": "Why did the bot answer that?",
+      "askWhyPrompt": "Why did the bot answer the message at {{time}} like that?",
+      "messageMenu": "Message options"
     },
     "tagBar": {
       "label": "Conversation tags",

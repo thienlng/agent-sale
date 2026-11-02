@@ -1,5 +1,6 @@
 import type { InboxMessageDto } from '@agent-sales/contracts';
 import { fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { MessageThread } from './message-thread';
 
@@ -130,5 +131,33 @@ describe('MessageThread', () => {
     render(<MessageThread messages={[human('one', 'Lan'), human('two'), human('three', ' ')]} />);
     expect(screen.getByText(/· Lan$/)).toBeInTheDocument();
     expect(screen.getAllByText(/· channelInbox\.humanSent$/)).toHaveLength(2);
+  });
+
+  it('asks the assistant why the bot answered, from a bot message only', async () => {
+    const bot: InboxMessageDto = {
+      ...message('bot-reply'),
+      direction: 'outbound',
+      sender: 'bot',
+      status: 'sent',
+      createdAt: '2026-10-25T10:01:00.000Z',
+    };
+    const onAskWhy = vi.fn();
+    render(<MessageThread messages={[message('customer'), bot]} onAskWhy={onAskWhy} />);
+    const menus = screen.getAllByRole('button', { name: 'channelInbox.v2.thread.messageMenu' });
+    expect(menus).toHaveLength(1);
+    const user = userEvent.setup();
+    await user.click(menus[0]!);
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'channelInbox.v2.thread.askWhy' }),
+    );
+    expect(onAskWhy).toHaveBeenCalledWith(bot);
+  });
+
+  it('offers no menu when the assistant is not available', () => {
+    const bot: InboxMessageDto = { ...message('bot'), direction: 'outbound', sender: 'bot' };
+    render(<MessageThread messages={[bot]} />);
+    expect(
+      screen.queryByRole('button', { name: 'channelInbox.v2.thread.messageMenu' }),
+    ).not.toBeInTheDocument();
   });
 });

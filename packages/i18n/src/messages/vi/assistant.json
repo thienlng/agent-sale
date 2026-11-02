@@ -67,7 +67,9 @@
     },
     "notPending": "Đề xuất này đã được xử lý rồi.",
     "expired": "Đề xuất này đã hết hạn. Hỏi lại Thỏ Rapiz nếu vẫn cần.",
-    "decideError": "Không thực hiện được. Thử lại."
+    "decideError": "Không thực hiện được. Thử lại.",
+    "openAction": "Mở để nhập khoá",
+    "actionDisabled": "Đang tắt — bật sau khi thử gọi"
   },
   "memory": {
     "title": "Trợ lý nhớ gì",
@@ -84,5 +86,6 @@
     "confirmNo": "Giữ lại",
     "forgotten": "Đã quên mục này.",
     "forgetError": "Không xoá được. Thử lại."
-  }
+  },
+  "secretsRemoved": "Đã ẩn khoá bí mật trong tin nhắn. Hãy nhập khoá trực tiếp vào form API."
 }

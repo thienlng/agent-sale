@@ -3,6 +3,7 @@ import { Rabbit } from 'lucide-react';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { registerAssistantOpener } from '@/lib/assistant-launch';
 import { loadNamespace } from '@/lib/i18n';
 import { useWorkspaceId } from '@/lib/use-workspace';
 import { cn } from '@/lib/utils';
@@ -33,6 +34,15 @@ export function AssistantBubble() {
   const onBotPage = useRouterState({ select: (s) => BOT_PAGE.test(s.location.pathname) });
   // Once loaded the panel stays mounted, so a spotlight survives closing it.
   const [loaded, setLoaded] = useState(open);
+  // Other features open the panel through lib/assistant-launch, only while the bubble is shown.
+  const openWith = useAssistantUi((s) => s.openWith);
+  useEffect(() => {
+    if (!isOwner) return;
+    return registerAssistantOpener((text, entity) => {
+      setLoaded(true);
+      openWith(text, entity);
+    });
+  }, [isOwner, openWith]);
   if (!isOwner) return null;
   return (
     <>

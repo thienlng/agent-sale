@@ -89,6 +89,7 @@ export function proposalFixture(over: Partial<AssistantProposalDto> = {}): Assis
     threadId: ASSISTANT_IDS.thread,
     businessId: '3f0c1f0e-5b1c-4c1e-9d55-0a1b2c3d4e5f',
     routeKey: 'PATCH /products/{productId}',
+    path: '/products/0193b000-0000-7000-8000-000000000401',
     summary: 'Đổi giá Áo thun thành 150.000đ',
     preview: { price: { from: 120000, to: 150000 } },
     status: 'pending',

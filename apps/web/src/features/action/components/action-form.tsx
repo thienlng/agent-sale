@@ -71,6 +71,7 @@ function AuthFields({
         >
           <Input
             id="action-secret"
+            data-assistant-target="actions.secret"
             type="password"
             autoComplete="new-password"
             value={form.secret}
@@ -207,6 +208,7 @@ export function ActionFormView({ botId, action }: { botId: string; action?: Acti
         <div className="flex items-center gap-3">
           <Switch
             id="action-enabled"
+            data-assistant-target="actions.enabled"
             checked={form.enabled}
             onCheckedChange={(enabled) => set({ enabled })}
           />

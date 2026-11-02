@@ -53,6 +53,27 @@ describe('ActionList', () => {
     expect(screen.getByRole('link', { name: /Thêm hành động/ })).toBeInTheDocument();
   });
 
+  it('flags an action that needs its key (auth set, no secret stored)', async () => {
+    const draft = actionDto({
+      id: '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9a03',
+      name: 'Tích điểm',
+      hasSecret: false,
+      enabled: false,
+    });
+    const open = actionDto({
+      id: '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9a04',
+      name: 'Giờ mở cửa',
+      auth: { kind: 'none' },
+      hasSecret: false,
+    });
+    await setup([orders, draft, open]);
+    const row = (name: string) => screen.getByText(name).closest('tr')!;
+    await screen.findByText('Tích điểm');
+    expect(within(row('Tích điểm')).getByText('Cần nhập khoá')).toBeInTheDocument();
+    expect(within(row('Tra cứu đơn hàng')).queryByText('Cần nhập khoá')).not.toBeInTheDocument();
+    expect(within(row('Giờ mở cửa')).queryByText('Cần nhập khoá')).not.toBeInTheDocument();
+  });
+
   it('searches by name', async () => {
     await setup();
     await screen.findByText('Tra cứu đơn hàng');

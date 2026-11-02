@@ -195,4 +195,13 @@ describe('ActionFormView', () => {
       expect(within(document.body).queryByDisplayValue('•••• đã lưu')).not.toBeInTheDocument();
     });
   });
+
+  it('marks the key, "Thử gọi" and the on switch for the assistant spotlight', async () => {
+    vi.stubGlobal('fetch', stubFetch({}).fetchStub);
+    await renderForm(actionDto({ hasSecret: false, enabled: false }));
+    const target = (id: string) => document.querySelector(`[data-assistant-target="${id}"]`);
+    expect(target('actions.secret')).toBe(screen.getByLabelText('Khóa bí mật'));
+    expect(target('actions.test')).toHaveTextContent('Thử gọi');
+    expect(target('actions.enabled')).toHaveAttribute('id', 'action-enabled');
+  });
 });

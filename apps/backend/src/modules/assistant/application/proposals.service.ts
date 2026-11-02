@@ -24,6 +24,7 @@ export function toProposalDto(p: ProposalRecord): AssistantProposalDto {
     threadId: p.threadId,
     businessId: p.businessId,
     routeKey: p.routeKey,
+    path: p.path,
     summary: p.summary,
     preview: p.preview,
     status: p.status,

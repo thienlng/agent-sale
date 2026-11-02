@@ -67,7 +67,9 @@
     },
     "notPending": "This proposal was already handled.",
     "expired": "This proposal has expired. Ask Thỏ Rapiz again if you still need it.",
-    "decideError": "Could not do that. Try again."
+    "decideError": "Could not do that. Try again.",
+    "openAction": "Open to enter the key",
+    "actionDisabled": "Off — turn it on after a test call"
   },
   "memory": {
     "title": "What the assistant remembers",
@@ -84,5 +86,6 @@
     "confirmNo": "Keep",
     "forgotten": "Entry forgotten.",
     "forgetError": "Could not delete it. Try again."
-  }
+  },
+  "secretsRemoved": "Secret keys were hidden from your message. Type the key directly in the API form."
 }

@@ -7,12 +7,13 @@ import {
   RouterProvider,
 } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
-import { act, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useAssistantForm } from '@/lib/assistant-context';
+import { useAssistantContext, useAssistantForm } from '@/lib/assistant-context';
+import { openAssistantWith } from '@/lib/assistant-launch';
 import { loadNamespace } from '@/lib/i18n';
 import type { Session } from '@/lib/session';
 import {
@@ -80,7 +81,14 @@ beforeAll(async () => {
 
 beforeEach(() => {
   current.ws = WS;
-  useAssistantUi.setState({ open: false, workspaceId: null, threadId: null, spotlight: null });
+  useAssistantUi.setState({
+    open: false,
+    workspaceId: null,
+    threadId: null,
+    spotlight: null,
+    draft: null,
+    entityExtras: null,
+  });
   vi.spyOn(crypto, 'randomUUID').mockReturnValue(ASSISTANT_IDS.turn);
 });
 afterEach(() => {
@@ -599,5 +607,118 @@ describe('AssistantPanel', () => {
       ),
     );
     expect(await screen.findByText('Đã hết hạn')).toBeInTheDocument();
+  });
+
+  it('opens from a page with a prefilled question and sends its messageAt once (T-174)', async () => {
+    const send = `POST /assistant/threads/${ASSISTANT_IDS.thread}/messages`;
+    const { fetchStub, calls } = stubFetch({
+      'POST /assistant/threads': { status: 201, body: threadFixture() },
+      [send]: { status: 200, body: turnFixture('Vì sao', { content: 'Dạ do thiếu FAQ ạ.' }) },
+      [`GET /assistant/runs/${ASSISTANT_IDS.turn}`]: { status: 200, body: runFixture() },
+      'GET /assistant/threads': { status: 200, body: { data: [threadFixture()] } },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    const MESSAGE_AT = '2026-11-02T08:04:00.000Z';
+    function Inbox() {
+      useAssistantContext({ entity: { conversationId: 'c1', botId: 'b1' } });
+      return (
+        <button
+          onClick={() =>
+            openAssistantWith('Vì sao bot trả lời tin nhắn lúc 15:04 như vậy?', {
+              messageAt: MESSAGE_AT,
+            })
+          }
+        >
+          Hỏi vì sao
+        </button>
+      );
+    }
+    renderApp(Inbox, '/app/inbox');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Hỏi vì sao' }));
+    const box = await screen.findByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' });
+    await waitFor(() => expect(box).toHaveValue('Vì sao bot trả lời tin nhắn lúc 15:04 như vậy?'));
+    await user.type(box, '{Enter}');
+    expect(await screen.findByText('Dạ do thiếu FAQ ạ.')).toBeInTheDocument();
+    const sent = calls.filter((c) => c.key === send);
+    expect(sent[0]?.body).toMatchObject({
+      text: 'Vì sao bot trả lời tin nhắn lúc 15:04 như vậy?',
+      pageContext: {
+        route: '/app/inbox',
+        entity: { conversationId: 'c1', botId: 'b1', messageAt: MESSAGE_AT },
+      },
+    });
+    // The time belongs to that question only.
+    await user.type(box, 'còn gì nữa{Enter}');
+    await waitFor(() => expect(calls.filter((c) => c.key === send)).toHaveLength(2));
+    expect(calls.filter((c) => c.key === send)[1]?.body).toMatchObject({
+      pageContext: { entity: { conversationId: 'c1', botId: 'b1' } },
+    });
+    expect(
+      (calls.filter((c) => c.key === send)[1]?.body as { pageContext: { entity: object } })
+        .pageContext.entity,
+    ).not.toHaveProperty('messageAt');
+  });
+
+  it('says when keys were hidden from the message', async () => {
+    const { fetchStub } = stubFetch({
+      'POST /assistant/threads': { status: 201, body: threadFixture() },
+      [`POST /assistant/threads/${ASSISTANT_IDS.thread}/messages`]: {
+        status: 200,
+        body: { ...turnFixture('curl', { content: 'Dạ em đọc được rồi.' }), secretsRemoved: true },
+      },
+      [`GET /assistant/runs/${ASSISTANT_IDS.turn}`]: { status: 200, body: runFixture() },
+      'GET /assistant/threads': { status: 200, body: { data: [threadFixture()] } },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderApp();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' }));
+    await user.type(await screen.findByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' }), 'curl{Enter}');
+    expect(await screen.findByText('Dạ em đọc được rồi.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Đã ẩn khoá bí mật trong tin nhắn. Hãy nhập khoá trực tiếp vào form API.'),
+    ).toBeInTheDocument();
+  });
+
+  it('labels a drafted API action as off, and opens it to type the key once created', async () => {
+    const BOT = '0193b000-0000-7000-8000-000000000501';
+    const ACTION = '0193b000-0000-7000-8000-000000000601';
+    const draft = proposalFixture({
+      routeKey: 'POST /bots/{botId}/actions',
+      path: `/bots/${BOT}/actions`,
+      summary: 'Thêm API tra cứu đơn',
+      preview: { body: { name: 'Tra cứu đơn', enabled: false }, query: null },
+    });
+    const show = async (proposal: typeof draft) => {
+      useAssistantUi.setState({ open: true, workspaceId: WS, threadId: ASSISTANT_IDS.thread });
+      vi.stubGlobal(
+        'fetch',
+        stubFetch({
+          [`GET /assistant/threads/${ASSISTANT_IDS.thread}/messages`]: {
+            status: 200,
+            body: { data: turnFixture('thêm api').messages },
+          },
+          [`GET /assistant/threads/${ASSISTANT_IDS.thread}/proposals`]: {
+            status: 200,
+            body: { items: [proposal] },
+          },
+        }).fetchStub,
+      );
+      return renderApp();
+    };
+
+    await show(draft);
+    expect(await screen.findByText('Đang tắt — bật sau khi thử gọi')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Mở để nhập khoá' })).not.toBeInTheDocument();
+    cleanup();
+
+    await show({ ...draft, status: 'done', resultId: ACTION, decidedAt: draft.createdAt });
+    expect(await screen.findByRole('link', { name: 'Mở để nhập khoá' })).toHaveAttribute(
+      'href',
+      `/app/bots/${BOT}/actions/${ACTION}`,
+    );
   });
 });

@@ -159,6 +159,8 @@ export const AssistantProposalDto = z.object({
   businessId: z.uuid(),
   /** `METHOD /path` of the target route, e.g. `PATCH /products/{productId}`. */
   routeKey: z.string(),
+  /** The concrete path that runs, relative to `/api/v1` (`/bots/<id>/actions`). */
+  path: z.string(),
   summary: z.string(),
   /** What the card shows (a diff or the new values); its shape depends on the route. */
   preview: z.unknown(),

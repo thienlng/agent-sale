@@ -123,6 +123,7 @@ export function ActionTestPanel({
           type="button"
           variant="outline"
           className="self-start"
+          data-assistant-target="actions.test"
           disabled={test.isPending}
           onClick={() => {
             const action = buildDraft();
