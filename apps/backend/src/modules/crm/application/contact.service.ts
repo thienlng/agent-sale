@@ -155,13 +155,43 @@ export class ContactService {
    */
   async upsertLead(
     ws: WorkspaceId,
-    input: { phoneE164: string; sourceKey: string; displayName: string; firstUrl: string | null },
+    input: {
+      phoneE164: string;
+      sourceKey: string;
+      displayName: string;
+      firstUrl: string | null;
+      renameFrom?: string;
+    },
   ): Promise<{ contactId: string; created: boolean }> {
     return this.store.run(ws, async (tx) => {
       await tx.lock(`phone/${input.phoneE164}`);
       const now = new Date();
       const found = await tx.contacts.findByPhone(input.phoneE164);
       if (found) {
+        const name = input.displayName.trim();
+        if (input.renameFrom !== undefined && found.name === input.renameFrom && name) {
+          // A placeholder an earlier capture generated gives way to the name the customer gave.
+          const next = { ...found, name, version: found.version + 1, updatedAt: now };
+          if (!(await tx.contacts.update(next, found.version))) {
+            throw new StaleVersionError('contact', next.version);
+          }
+          await this.#record(
+            tx,
+            ws,
+            next,
+            'contact.updated',
+            { name: { from: found.name, to: name } },
+            null,
+            null,
+            now,
+            { channel: input.sourceKey },
+          );
+          await tx.outbox(ws, {
+            type: 'crm.contact.updated.v1',
+            aggregateId: found.id,
+            payload: event(ws, found.id, null, now, { fields: ['name'], phoneCaptured: false }),
+          });
+        }
         // Repeated or racing captures from the same page leave one entry.
         const marker = input.firstUrl ?? input.sourceKey;
         const earlier = await tx.history.list(found.id, {

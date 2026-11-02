@@ -15,7 +15,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { BOT_FACADE, type BotFacade } from '../../bot/api/index.js';
 import { CHANNEL_FACADE, type ChannelFacade, type WebsiteSite } from '../../channel/api/index.js';
 import { CONVERSATION_FACADE, type ConversationFacade } from '../../conversation/api/index.js';
-import { CRM_FACADE, type CrmFacade } from '../../crm/api/index.js';
+import { CRM_FACADE, type CrmFacade, websiteLeadName } from '../../crm/api/index.js';
 import { sniffUpload, UPLOAD_EXTENSIONS } from '../domain/image-sniff.js';
 import { WebchatStorageUnavailableError } from '../domain/webchat.errors.js';
 import { WidgetError } from './widget-error.js';
@@ -319,7 +319,7 @@ export class WebchatService {
       const lead = await this.crm.upsertLeadByPhone(site.workspaceId, {
         phoneE164: phone,
         sourceKey: 'website',
-        displayName: `Khách website ${phone.slice(-4)}`,
+        displayName: websiteLeadName(phone),
         firstUrl,
       });
       contactId = lead.contactId;

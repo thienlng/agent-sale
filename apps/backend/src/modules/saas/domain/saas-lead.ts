@@ -26,6 +26,7 @@ const KIND_LABEL: Record<SaasRequestKind, string> = {
  */
 export function leadNote(kind: SaasRequestKind, lead: SaasLeadDetails): string {
   const lines: [string, string | null][] = [
+    ['Tên', lead.name],
     ['Công ty', lead.company],
     ['Quy mô', lead.teamSize],
     ['Nhu cầu', lead.need],

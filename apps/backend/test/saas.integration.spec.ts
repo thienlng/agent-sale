@@ -248,7 +248,7 @@ describe('saas HTTP and PostgreSQL isolation', () => {
     expect(notes).toHaveLength(1);
     expect(notes[0]).toMatchObject({
       authorName: 'Bot AI',
-      body: 'Xin dùng thử (bot ghi nhận)\nNhu cầu: Quản lý bán hàng',
+      body: 'Xin dùng thử (bot ghi nhận)\nTên: Synthetic lead\nNhu cầu: Quản lý bán hàng',
     });
 
     // A paying customer asking for a demo stays paying; the note still lands.
@@ -262,7 +262,7 @@ describe('saas HTTP and PostgreSQL isolation', () => {
     expect(demo).toEqual({ outcome: 'recorded', contactId: paying, created: false });
     expect(await statusKey(a.headers, paying)).toBe('paying');
     expect((await call(a.headers, 'GET', `/contacts/${paying}/notes`)).json().data[0].body).toBe(
-      'Xin demo (bot ghi nhận)',
+      'Xin demo (bot ghi nhận)\nTên: Synthetic customer',
     );
   });
 });

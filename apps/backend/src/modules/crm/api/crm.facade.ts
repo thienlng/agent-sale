@@ -60,6 +60,11 @@ export interface CrmFacade {
       sourceKey: 'website' | 'facebook' | 'instagram' | 'bot';
       displayName: string;
       firstUrl: string | null;
+      /**
+       * When the customer found by phone still has exactly this name (a placeholder an earlier
+       * capture generated, e.g. `websiteLeadName`), it is renamed to `displayName`.
+       */
+      renameFrom?: string;
     },
   ): Promise<{ contactId: string; created: boolean }>;
   /**
@@ -117,3 +122,8 @@ export interface CrmFacade {
 }
 
 export const CRM_FACADE = Symbol('CRM_FACADE');
+
+/** Name a website visitor's phone gives a new customer until the customer says their name. */
+export function websiteLeadName(phoneE164: string): string {
+  return `Khách website ${phoneE164.slice(-4)}`;
+}
