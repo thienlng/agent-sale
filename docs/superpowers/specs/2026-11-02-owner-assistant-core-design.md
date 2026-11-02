@@ -17,7 +17,7 @@ It is harder than the shop bot: the shop bot answers one bounded customer turn. 
 | 1a | Core harness extracted to `ai-core`, threads, messages, search, traces, owner-only bubble, core UI actions (`ui_navigate`, `ui_spotlight`) and page context (shipped, see §18) | this document |
 | 1b | Proposals, route-derived tools, memory, platform skills, auto-compaction, `ui_fill_form` (shipped, see §19) | this document |
 | 1c | Background review, learned skills, skill ledger, curator, proactive suggestions | this document |
-| 2 | Data questions: read-only SQL over a curated view schema, charts | own spec |
+| 2 | Data questions: read-only SQL over a curated view schema, charts (shipped, migration 0059) | [own spec](2026-11-02-owner-assistant-data-questions-design.md) |
 | 3 | Schedules (reports, alerts) and the `notification` module (in-app, email; mobile push later) | own spec (§11 fixes the shape) |
 | 4 | Bulk product import (Excel/CSV + images) | own spec |
 | 5 | Bot doctor (shop-bot turn traces, diagnosis, fix drafts) and API action autofill | own spec |
@@ -190,7 +190,7 @@ One `schedule` tool with actions `create | list | edit | pause | resume | run | 
 
 ## 17. Out of scope (this core)
 
-SQL lane, schedules and notifications, import, bot doctor, autofill (own specs); sub-agents; LLM skill consolidation; voice; mobile push; any external MCP/connector (excluded by decision).
+The SQL lane (out of scope of the core only; shipped by capability 2, [its spec](2026-11-02-owner-assistant-data-questions-design.md)), schedules and notifications, import, bot doctor, autofill (own specs); sub-agents; LLM skill consolidation; voice; mobile push; any external MCP/connector (excluded by decision).
 
 ## 18. Adjustments made while building 1a (2026-11-02)
 

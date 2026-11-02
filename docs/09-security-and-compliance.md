@@ -52,6 +52,26 @@ Default roles (custom roles can be created on Pro+ plans):
 - Object storage: keys prefixed `ws/{workspace_id}/…`, accessed via **short-lived signed URLs**; private buckets.
 - Automated "cross-tenant" tests: for every endpoint, a user in workspace A calling a resource in workspace B → must get 404.
 
+### Owner assistant SQL lane (T-171)
+
+The owner assistant answers number questions with one model-written `SELECT` over the read-only `assistant_sql` views ([spec](superpowers/specs/2026-11-02-owner-assistant-data-questions-design.md) §3, ADR-004 amendment T-171). Each defence holds even if the others fail:
+
+| Threat | Defence |
+|---|---|
+| Writes (`DELETE`, `UPDATE`, DDL, `SELECT … INTO`, `FOR UPDATE`) | The SQL guard allows one `SELECT`/`WITH`; the login has no write grant; the transaction is `READ ONLY` and the login defaults to `default_transaction_read_only`; the view owner has no write grant |
+| Another account's or business's rows | The view owner's own `FOR SELECT` policies keep only the businesses in `app.assistant_business_ids` that belong to `app.account_id`; both are set transaction-locally from the owner scope and read back before the query runs |
+| Forged GUCs, `SET ROLE` | `SET`/`RESET` and `set_config`/`current_setting` are rejected by the guard; a forged list needs the other account's id and business ids together; the lane has its own login (member of `app_assistant_sql` only), so there is no role to switch back to |
+| Base tables, secrets, PII, catalogs | `SELECT` on the views only; column-level grants for the view owner leave the PII columns out; the guard rejects `pg_*`, `information_schema`, `public.`, quoted identifiers and comments; `search_path = assistant_sql` |
+| Functions with side effects, sleeps, catalog casts | Function and cast allow-lists in the guard; typed literals only for date and time types |
+| Load on the primary | 3 s statement timeout, 1 s lock timeout, 5 s idle-in-transaction timeout, 16 MB `work_mem`, at most 501 rows by cursor, pool 4, 8 queries per turn |
+| Prompt injection through data | Results are tool output; `<` is escaped and cells are cut to 200 chars |
+| Query text or rows in logs | Logs carry the run id, error code, SQL state and a hash fingerprint only; no SQL or rows in logs or run steps |
+| Multi-statement smuggling | The guard rejects `;`; the driver uses the extended protocol |
+
+**PII exclusion list** (never in a view, never granted to the view owner): phone, email, address, birthday and gender of customers and recipients; `orders.recipient`; free-text notes (`note_internal`, `profile_note`, `note`); conversation and message text and `data` documents; `customer_phone` and the platform `customer_id`; sealed tokens, settings and external ids; staff names and user ids; anything billing, identity, assistant or audit. Names of customers, guests, products, bots, channels and businesses are allowed; `customers.has_phone` is a boolean.
+
+**Known gap:** the login can read the `PUBLIC` system catalog, including `pg_stat_activity`. All owners share the one login, so the SQL guard is the only layer against reading another session's concurrent query text. `PUBLIC`-executable built-ins (`query_to_xml`, `set_config`) are also blocked by the guard only; at the database level they run as the login and are bounded by its grants.
+
 ## 5. Secrets & channel tokens
 
 - Meta/Zalo/TikTok/carrier tokens: **envelope encryption** (AES-256-GCM data key, master key in KMS/Vault); never logged; only connectors can read them.

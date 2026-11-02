@@ -1,6 +1,6 @@
 # Owner assistant capability 2: data questions (read-only SQL lane and charts)
 
-- Task: T-171 · Date: 2026-11-02 · Status: drafted by an agent with rulings (owner unavailable), awaiting review
+- Task: T-171 · Date: 2026-11-02 · Status: built (see §14 for what changed while building), awaiting review
 - Parent design: [owner assistant core](2026-11-02-owner-assistant-core-design.md) (§1 capability 2, §3, §6). ADR: [ADR-023](../../adr/ADR-023-owner-assistant.md) decision 4 (lane a), [ADR-004](../../adr/ADR-004-multi-tenant-rls.md) (amended by this slice, §11).
 - Builds on 1a, 1b and 1c (migrations 0056–0058). New migration: `0059`.
 
@@ -30,10 +30,10 @@ Out of scope: schedules and reports (capability 3), exports and downloads, write
 | Threat | Defence (each line stands even if the others fail) |
 |---|---|
 | The model writes data (`DELETE`, `UPDATE`, DDL, `SELECT … INTO`, `FOR UPDATE`) | The SQL guard allows one `SELECT`/`WITH` statement only. The login has no write grant anywhere. The transaction is `READ ONLY` and `default_transaction_read_only` is on for the login. |
-| Reading another account's or another business's rows | The views run as `app_assistant_reader`, which has its own RLS policy on every base table. The policy is `workspace_id = ANY(assistant_sql_business_ids())`, and that function keeps only ids that are in `app.assistant_business_ids` **and** belong to `app.account_id`. Both values are set with `set_config(…, true)` by our code, from the owner scope. |
-| The model forges the GUCs (`set_config`, `SET`) | `SET`/`RESET` are rejected statements, and `set_config`/`current_setting` are not allow-listed functions. Even with a forged value, the function needs the target account id together with business ids of that account. These are UUIDv7 values the model never sees for other accounts. |
+| Reading another account's or another business's rows | The views run as `app_assistant_reader`, which has its own RLS policy on every base table. The policy is `workspace_id = ANY(<business filter>)`, an inlined sub-select (§4.2) that keeps only ids that are in `app.assistant_business_ids` **and** belong to `app.account_id`. Both values are set with `set_config(…, true)` by our code, from the owner scope. |
+| The model forges the GUCs (`set_config`, `SET`) | `SET`/`RESET` are rejected statements, and `set_config`/`current_setting` are not allow-listed functions. Even with a forged value, the business filter needs the target account id together with business ids of that account. These are UUIDv7 values the model never sees for other accounts. |
 | Escalating to the tenant role (`SET ROLE`, `RESET ROLE`) | The SQL lane uses its **own login** (`rapiz_assistant`, a member of `app_assistant_sql` only), not `SET ROLE` from the tenant login. That login is a member of nothing else, so there is no role to switch back to. |
-| Reading base tables, secrets, PII columns or system catalogs | The login has `USAGE` on schema `assistant_sql` and `SELECT` on its views. It has no grant on any `public` table. The view owner has **column-level** grants that leave out phone, email, address, birthday, notes, tokens and settings, so even a wrong view cannot select them. The guard rejects `pg_*` identifiers, `information_schema`, `public.`, quoted identifiers and comments. `search_path` is `assistant_sql`. |
+| Reading base tables, secrets, PII columns or system catalogs | The login has `USAGE` on schema `assistant_sql` and `SELECT` on its views. It has no grant on any `public` table. The view owner has **column-level** grants that leave out phone, email, address, birthday, notes, tokens and settings, so even a wrong view cannot select them. The guard rejects `pg_*` identifiers, `information_schema`, `public.`, quoted identifiers and comments. `search_path` is `assistant_sql`. **Gap:** the login can still read the `PUBLIC` system catalog (`pg_stat_activity` included). All owners share the one login, so the guard is the only layer against reading another session's concurrent query text (§14). |
 | Executing SQL through functions (`query_to_xml`, `dblink`), side effects (`pg_advisory_lock`, `pg_notify`), sleeping, catalog casts (`::regclass`) | A function allow-list: aggregates, window functions, and date, math and string helpers. A cast-type allow-list. Typed literals are allowed only for date and time types. |
 | Load on the shared primary | `statement_timeout` 3 s, `lock_timeout` 1 s, `idle_in_transaction_session_timeout` 5 s and `work_mem` 16 MB per transaction. At most 501 rows are fetched through a cursor. Pool of 4 connections per process. At most 8 queries per turn, and one turn per owner (core §7). |
 | Prompt injection through data (a customer name that says "ignore instructions") | Results are tool output, which the persona already treats as data. `<` is escaped as in the route tools, and cells are cut to 200 characters. |
@@ -46,7 +46,7 @@ Out of scope: schedules and reports (capability 3), exports and downloads, write
 
 | Role | Kind | Privileges |
 |---|---|---|
-| `app_assistant_reader` | NOLOGIN, nobody is a member | Owns the views. Has column-level `SELECT` on the 15 base tables listed in §4.3, a `FOR SELECT` RLS policy on each of them, and `EXECUTE` on `assistant_sql_business_ids()`. |
+| `app_assistant_reader` | NOLOGIN, nobody is a member | Owns the views. Has column-level `SELECT` on the 15 base tables listed in §4.3, and a `FOR SELECT` RLS policy on each of them that inlines the business filter (§4.2). |
 | `app_assistant_sql` | NOLOGIN group | `USAGE` on schema `assistant_sql` and `SELECT` on all its views. Nothing else. |
 | `rapiz_assistant` (any name) | LOGIN, `IN ROLE app_assistant_sql` only | Created by `ensureLoginRoles` from `DATABASE_ASSISTANT_SQL_URL` (dev `--dev-roles`, deploy `--login-roles`). Role defaults: `default_transaction_read_only = on`, `statement_timeout = 3s`, `search_path = assistant_sql`, `idle_in_transaction_session_timeout = 5s`, `CONNECTION LIMIT 10`. |
 
@@ -54,18 +54,20 @@ The views use the default `security_invoker = false`, so the reads behind a view
 
 ### 4.2 Business filter
 
+As built (§14): every reader policy inlines the same uncorrelated sub-select. There is no `assistant_sql_business_ids()` function.
+
 ```sql
--- SECURITY INVOKER, STABLE. Runs as app_assistant_reader, whose policy on workspaces checks both GUCs.
-CREATE FUNCTION assistant_sql_business_ids() RETURNS uuid[] ...
-  SELECT coalesce(array_agg(w.id), '{}') FROM workspaces w
+USING (workspace_id = ANY ((SELECT coalesce(array_agg(w.id), '{}'::uuid[])
+  FROM public.workspaces w
   WHERE w.id = ANY (nullif(current_setting('app.assistant_business_ids', true), '')::uuid[])
     AND w.account_id = nullif(current_setting('app.account_id', true), '')::uuid
-    AND w.deleted_at IS NULL;
+    AND w.deleted_at IS NULL)::uuid[]))
 ```
 
-- Policy on `workspaces` for the reader: the same three predicates inline (no function call, so there is no recursion).
-- Policy on every other base table: `workspace_id = ANY ((SELECT assistant_sql_business_ids()))`. The `(SELECT …)` makes it an InitPlan that is evaluated once.
-- If either GUC is missing, the function returns `{}` and every view is empty. The runner also checks that both GUCs read back as set (the same rule as `withAccount`).
+- Policy on `workspaces` for the reader: the same three predicates on its own row (no sub-select, so there is no recursion).
+- Relation access inside a policy sub-select is checked as the view owner, so the login needs no grant on `workspaces`. Postgres plans the sub-select as an InitPlan, evaluated once per query (a test checks the plan).
+- The `::uuid[]` cast is needed: without it `ANY ((SELECT …))` is parsed as `ANY (subquery)` and compares a uuid with a uuid[].
+- If either GUC is missing, the filter is `{}` and every view is empty. The runner also checks that both GUCs read back as set (the same rule as `withAccount`).
 
 ### 4.3 Views (schema `assistant_sql`)
 
@@ -218,7 +220,7 @@ Error codes are `sql_rejected:<reason>`, for example `sql_rejected:function_not_
 
 ## 11. ADR changes
 
-- **ADR-004 amendment:** two new roles (`app_assistant_reader`, view owner, NOLOGIN; `app_assistant_sql`, SELECT on views only) and a third login. A multi-business predicate through `assistant_sql_business_ids()`, set by `app.account_id` + `app.assistant_business_ids`, both transaction-local. Reader policies are `FOR SELECT` only.
+- **ADR-004 amendment:** two new roles (`app_assistant_reader`, view owner, NOLOGIN; `app_assistant_sql`, SELECT on views only) and a third login. A multi-business predicate inlined in each policy, set by `app.account_id` + `app.assistant_business_ids`, both transaction-local. Reader policies are `FOR SELECT` only.
 - **ADR-023 consequence line:** lane (a) shipped. Like an analytics read model, the `assistant_sql` views are the one place where the `assistant` module reads other modules' data without their routes. The views are a published read contract in `packages/db`. A migration that changes a column a view reads must recreate the view in the same migration (Postgres refuses to drop it otherwise).
 
 ## 12. Testing
@@ -248,7 +250,7 @@ Each ruling lists its cost if it is wrong. The plan repeats them as 2-R1…R12.
 |---|---|---|
 | 2-R1 | Own login (`DATABASE_ASSISTANT_SQL_URL`) instead of `SET LOCAL ROLE` from the tenant login. `RESET ROLE` / `set_config('role', …)` would lead back to `app_tenant`, which can read any workspace by setting `app.workspace_id`. | One more secret and one deploy step; a second small pool. |
 | 2-R2 | No SQL parser dependency. The guard is a lexer with allow-lists, and the DB privileges are the boundary. | Some valid SQL is rejected (quoted identifiers, `CAST(…)`, `substring(… from … for …)`); the model rewrites it. |
-| 2-R3 | Views owned by a NOLOGIN `app_assistant_reader` with column-level grants and `FOR SELECT` policies through `assistant_sql_business_ids()`. | 15 extra policies; a base-column change must recreate its view in the same migration. |
+| 2-R3 | Views owned by a NOLOGIN `app_assistant_reader` with column-level grants and `FOR SELECT` policies with an inlined business filter (the designed `assistant_sql_business_ids()` function was dropped, §14). | 15 extra policies; a base-column change must recreate its view in the same migration. |
 | 2-R4 | No phone, email, address, birthday, gender, notes or free text. Names of customers, guests and products are allowed; `has_phone` is a boolean. | The owner cannot list phone numbers through the assistant; the assistant can open the CRM page instead. |
 | 2-R5 | `sql_schema` and `sql_query` are native entries of the deferred catalog, called through `tool_call`. No prompt version bump; a new platform skill teaches the flow. | One extra hop per question; run steps show `tool_call`, not `sql_query`, and 1c's usage counter counts SQL calls under `routes`. |
 | 2-R6 | Charts are built only from `sql_query` rows; the model cannot type chart numbers. Chart rows are stored on the message. | No chart from route-tool results; aggregates stay on an account-scoped row. |
@@ -258,3 +260,27 @@ Each ruling lists its cost if it is wrong. The plan repeats them as 2-R1…R12.
 | 2-R10 | The lane runs in `api` only (synchronous turn) on the primary, with pool 4 and 8 queries per turn. | Schedules (capability 3) must add the worker as a caller. |
 | 2-R11 | SQL text and rows are never shown in steps, logs or the UI, except as a chart or the answer. | The owner cannot audit the query itself. |
 | 2-R12 | ADR-004 and ADR-023 are amended in this PR (rule 05 requires it for a tenant-model change), flagged for the maintainer in the PR body. | The maintainer may ask for a separate ADR. |
+
+## 14. Adjustments made while building (2026-11-02)
+
+### Database (migration 0059, `packages/db`)
+
+- **The business filter is inlined, not a function.** With `assistant_sql_business_ids()` as designed, every view query failed with `permission denied for function`: Postgres runs a function in an RLS policy as the **calling login**, not as the view owner. The two fixes that follow from the design both break the model: grant the login `EXECUTE` and `SELECT` on `workspaces` (the function is `SECURITY INVOKER`), or make it `SECURITY DEFINER`, which the tests forbid. Each of the 14 policies now inlines the same sub-select (§4.2). It is checked as the view owner and planned as one InitPlan. The policy also needs a `::uuid[]` cast.
+- **2-R7: the cursor is used.** `tx.unsafe(sql).cursor(501)` works in postgres.js 3.4.9, so the `LIMIT` wrapper fallback is not used, and the model's SQL runs unchanged. Rows are read as arrays (`.values()`), so two output columns with the same name both survive. Under a cursor, postgres.js drops the rows of commands whose tag has no row count (`EXPLAIN`, `SHOW`); the guard only lets `SELECT`/`WITH` through.
+- **Optional joins are `LEFT JOIN`** (variant → product, channel → provider, CRM sources and statuses, lodging property), so a missing row never hides a fact. `conversations.customer_id` is the CRM contact (`contact_id`), `conversations.last_activity_at` is `updated_at`, and `activity_events.customer_id` is `analytics_facts.contact_id`.
+- **Types.** A bigint beyond 2^53 comes back as a string; dates and times are local text with `+07`; an interval is `other`.
+
+### Runner and tools (`apps/backend`)
+
+- **The guard runs twice:** in `sql_query`, and again in `PostgresSqlRunner` right before `runAssistantSql`. A runner-level rejection throws `SqlRunError('42501', …)` without reaching the database.
+- **Session options are read back.** Before the query runs, the transaction must report `statement_timeout = 3s`, `idle_in_transaction_session_timeout = 5s`, `transaction_read_only = on` and the two scope GUCs; any mismatch is `sql_unavailable` and nothing runs.
+- **Logs** carry the error code, SQL state, run id and a fingerprint `sql=<sha256 first 12 hex> len=<n>`, never the SQL text or rows.
+- **The guard** goes slightly beyond §7, always strictly or neutrally: `from generate_series(…)` passes the relation check; `extract(… from …)`, `trim(… from …)` and `is distinct from` are not relations; an identifier followed by a string is a typed literal unless it is an expression keyword (`ilike '%x%'`, `at time zone '…'`); CTE names include `as [not] materialized (`; operators are lexed like Postgres (a run of operator characters is one operator, a trailing `+`/`-` is trimmed).
+- **The `sql` toolset is registered in the tool wiring only.** The 1c toolset list (with label keys) was built on another branch at the same time. `ChatTurnService` checks `sql` against `assistant_settings.disabled_toolsets`; adding `sql` (2 tools, label `assistant.toolsets.sql`, already in i18n) to the 1c list is waiting on 1c. SQL calls count under `routes` in 1c's usage counter (ruling 2-R5).
+- **Charts** add the error `chart_duplicate_column:<c>` (x and a y, or two y, naming the same column), because a chart row is keyed by column name. Chart errors keep `ok: true`. The web chart keys its series `s0`…`s3`, because a column name such as `?column?` is not a valid CSS custom property; pie slices cycle through `--chart-1`…`--chart-5`.
+
+### Known gap (for the final review)
+
+- The login can read Postgres's `PUBLIC` system catalog (`pg_class`, `pg_proc`, `pg_stat_activity`). Every owner's lane runs as the same login, so a guard bypass could show another owner's **concurrent query text** in `pg_stat_activity` (the bound GUC values are not visible, but literals in the model's SQL are). Today the guard (`pg_*` and `information_schema` are rejected) is the only layer against it. Options: `REVOKE SELECT ON pg_catalog.pg_stat_activity FROM PUBLIC` (cluster-wide side effects) or a per-account login; neither is done.
+- `PUBLIC`-executable built-ins (`query_to_xml`, `current_setting`, `set_config`) and attribute notation (`t.f` calling `f(t)`) are blocked only by the guard; at the database level they run as the login and are bounded by its grants.
+
