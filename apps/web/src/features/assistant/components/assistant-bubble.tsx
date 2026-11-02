@@ -1,9 +1,10 @@
 import { useRouterState } from '@tanstack/react-router';
 import { Rabbit } from 'lucide-react';
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { loadNamespace } from '@/lib/i18n';
+import { useWorkspaceId } from '@/lib/use-workspace';
 import { cn } from '@/lib/utils';
 
 import { useIsAccountOwner } from '../hooks/use-is-account-owner';
@@ -25,6 +26,10 @@ export function AssistantBubble() {
   const isOwner = useIsAccountOwner();
   const open = useAssistantUi((s) => s.open);
   const setOpen = useAssistantUi((s) => s.setOpen);
+  const workspaceId = useWorkspaceId();
+  const syncWorkspace = useAssistantUi((s) => s.syncWorkspace);
+  // Another business, another conversation: drop the thread and any spotlight on a switch.
+  useEffect(() => syncWorkspace(workspaceId || null), [workspaceId, syncWorkspace]);
   const onBotPage = useRouterState({ select: (s) => BOT_PAGE.test(s.location.pathname) });
   // Once loaded the panel stays mounted, so a spotlight survives closing it.
   const [loaded, setLoaded] = useState(open);

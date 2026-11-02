@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
 import { ApiClientError } from '@/lib/api-client';
+import { useWorkspaceId } from '@/lib/use-workspace';
 
 import {
   useAssistantMessages,
@@ -15,7 +16,7 @@ import {
   useSendAssistantMessage,
 } from '../api/assistant';
 import { collectPageContext } from '../hooks/use-assistant-context';
-import { useAssistantUi } from '../stores/assistant-ui.store';
+import { useAssistantThreadId, useAssistantUi } from '../stores/assistant-ui.store';
 import { safeAppPath } from '../utils/safe-app-path';
 import { AssistantComposer } from './assistant-composer';
 import { AssistantMessages } from './assistant-messages';
@@ -31,7 +32,8 @@ const NO_MESSAGES: AssistantMessageDto[] = [];
 export function AssistantPanel() {
   const { t } = useTranslation('assistant');
   const router = useRouter();
-  const { open, threadId, setOpen, setThread, setSpotlight } = useAssistantUi();
+  const { open, setOpen, setThread, setSpotlight } = useAssistantUi();
+  const threadId = useAssistantThreadId(useWorkspaceId());
   const [view, setView] = useState<'chat' | 'threads'>('chat');
   const [pendingTurn, setPendingTurn] = useState<string | null>(null);
   const [unavailable, setUnavailable] = useState(false);

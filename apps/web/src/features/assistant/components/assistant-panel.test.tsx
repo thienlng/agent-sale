@@ -65,7 +65,7 @@ function renderApp(page: () => React.ReactElement = () => <p>page</p>, path = '/
 }
 
 beforeEach(() => {
-  useAssistantUi.setState({ open: false, threadId: null, spotlight: null });
+  useAssistantUi.setState({ open: false, workspaceId: null, threadId: null, spotlight: null });
   vi.spyOn(crypto, 'randomUUID').mockReturnValue(ASSISTANT_IDS.turn);
 });
 afterEach(() => {
@@ -76,6 +76,27 @@ afterEach(() => {
 });
 
 describe('AssistantPanel', () => {
+  it('starts over when the business changed: no stale thread, no spotlight', async () => {
+    useAssistantUi.setState({
+      open: true,
+      workspaceId: '9d8c7b6a-5f4e-4d3c-8b2a-1f0e9d8c7b6a',
+      threadId: ASSISTANT_IDS.thread,
+      spotlight: { target: 'orders.new', hint: 'Ở đây' },
+    });
+    const { fetchStub, calls } = stubFetch({});
+    vi.stubGlobal('fetch', fetchStub);
+    renderApp();
+
+    expect(await screen.findByText('Mình là Thỏ Rapiz')).toBeInTheDocument();
+    expect(useAssistantUi.getState()).toMatchObject({
+      workspaceId: WS,
+      threadId: null,
+      spotlight: null,
+    });
+    // The other business's thread is never fetched under this one.
+    expect(calls).toHaveLength(0);
+  });
+
   it('sends the message with the page context, renders the answer and navigates', async () => {
     const { fetchStub, calls } = stubFetch({
       'POST /assistant/threads': { status: 201, body: threadFixture() },
