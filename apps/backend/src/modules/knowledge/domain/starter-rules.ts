@@ -117,7 +117,8 @@ const SAAS_RULES: readonly StarterRule[] = [
   {
     title: 'Sau khi ghi nhận yêu cầu',
     trigger: 'Ngay sau khi yêu cầu demo hoặc dùng thử vừa được ghi nhận thành công',
-    content: 'Cảm ơn khách thật ngắn gọn và nói nhân viên sẽ liên hệ sớm, tối đa 25 từ.',
+    content:
+      'Cảm ơn khách thật ngắn gọn và nói nhân viên sẽ liên hệ sớm, tối đa 25 từ. Không chuyển cho nhân viên chỉ vì đã ghi nhận yêu cầu; khách hỏi thêm thì vẫn trả lời tiếp.',
     section: 'after_order',
   },
 ];
