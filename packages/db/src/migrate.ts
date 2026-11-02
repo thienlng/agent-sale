@@ -67,31 +67,56 @@ export async function migrate(
   }
 }
 
+export interface LoginCredentials {
+  user: string;
+  password: string;
+}
+
 /**
- * Dev/test only: creates login users for the two application roles.
- * Production users and passwords are provisioned by deploy tooling (T-008).
+ * Creates (or updates the password of) the app logins: the tenant and system logins, and the
+ * optional owner assistant SQL login (T-171). Used by `migrate --dev-roles` / `--login-roles` and
+ * by the integration tests. The assistant login is a member of `app_assistant_sql` only, with at
+ * most 10 connections, read-only transactions by default, a 3 s statement timeout and
+ * `search_path = assistant_sql`; it must be a different login from the tenant and system ones.
  */
 export async function ensureLoginRoles(
   ownerUrl: string,
   logins: {
-    tenant: { user: string; password: string };
-    system: { user: string; password: string };
+    tenant: LoginCredentials;
+    system: LoginCredentials;
+    assistantSql?: LoginCredentials;
   },
 ): Promise<void> {
+  const assistantSql = logins.assistantSql;
+  if (
+    assistantSql &&
+    (assistantSql.user === logins.tenant.user || assistantSql.user === logins.system.user)
+  ) {
+    throw new Error('the assistant SQL login must differ from the tenant and system logins');
+  }
   const sql = postgres(ownerUrl, { max: 1, onnotice: () => undefined });
   try {
-    for (const [login, role] of [
-      [logins.tenant, 'app_tenant'],
-      [logins.system, 'app_system'],
-    ] as const) {
+    const all: (readonly [LoginCredentials, string, string])[] = [
+      [logins.tenant, 'app_tenant', ''],
+      [logins.system, 'app_system', ''],
+    ];
+    if (assistantSql) all.push([assistantSql, 'app_assistant_sql', ' connection limit 10']);
+    for (const [login, role, extra] of all) {
       const exists = await sql`select 1 from pg_roles where rolname = ${login.user}`;
       const ident = sql.unsafe(`"${login.user.replace(/"/g, '')}"`);
       const pwd = login.password.replace(/'/g, "''");
       if (exists.length === 0) {
-        await sql`create role ${ident} login password ${sql.unsafe(`'${pwd}'`)} in role ${sql.unsafe(role)}`;
+        await sql`create role ${ident} login password ${sql.unsafe(`'${pwd}'`)}${sql.unsafe(extra)} in role ${sql.unsafe(role)}`;
       } else {
-        await sql`alter role ${ident} login password ${sql.unsafe(`'${pwd}'`)}`;
+        await sql`alter role ${ident} login password ${sql.unsafe(`'${pwd}'`)}${sql.unsafe(extra)}`;
       }
+    }
+    if (assistantSql) {
+      const ident = sql.unsafe(`"${assistantSql.user.replace(/"/g, '')}"`);
+      await sql`alter role ${ident} set default_transaction_read_only = on`;
+      await sql`alter role ${ident} set statement_timeout = '3s'`;
+      await sql`alter role ${ident} set search_path = assistant_sql`;
+      await sql`alter role ${ident} set idle_in_transaction_session_timeout = '5s'`;
     }
   } finally {
     await sql.end();

@@ -46,7 +46,11 @@ let signups = 0;
 export async function startHarness(): Promise<Harness> {
   const pg: TestPostgres = await startTestPostgres();
   await migrate(pg.ownerUrl);
-  await ensureLoginRoles(pg.ownerUrl, { tenant: pg.tenantLogin, system: pg.systemLogin });
+  await ensureLoginRoles(pg.ownerUrl, {
+    tenant: pg.tenantLogin,
+    system: pg.systemLogin,
+    assistantSql: pg.assistantSqlLogin,
+  });
   const owner = createDb({ url: pg.ownerUrl, max: 2 });
   const booted = await createHttpApp(AppModule, {
     NODE_ENV: 'test',

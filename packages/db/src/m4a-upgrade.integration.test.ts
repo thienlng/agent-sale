@@ -62,7 +62,11 @@ beforeAll(async () => {
   await migrate(pg.ownerUrl, await migrationsUpTo('0019_billing_tenant_read_only.sql'));
   after = await shop();
   await migrate(pg.ownerUrl);
-  await ensureLoginRoles(pg.ownerUrl, { tenant: pg.tenantLogin, system: pg.systemLogin });
+  await ensureLoginRoles(pg.ownerUrl, {
+    tenant: pg.tenantLogin,
+    system: pg.systemLogin,
+    assistantSql: pg.assistantSqlLogin,
+  });
   systemDb = createDb({
     url: withCredentials(pg.ownerUrl, pg.systemLogin.user, pg.systemLogin.password),
     max: 1,

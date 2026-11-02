@@ -81,7 +81,11 @@ beforeAll(async () => {
   pg = await startTestPostgres();
   owner = createDb({ url: pg.ownerUrl, max: 1 });
   await migrate(pg.ownerUrl);
-  await ensureLoginRoles(pg.ownerUrl, { tenant: pg.tenantLogin, system: pg.systemLogin });
+  await ensureLoginRoles(pg.ownerUrl, {
+    tenant: pg.tenantLogin,
+    system: pg.systemLogin,
+    assistantSql: pg.assistantSqlLogin,
+  });
   system = createDb({
     url: withCredentials(pg.ownerUrl, pg.systemLogin.user, pg.systemLogin.password),
     max: 1,
