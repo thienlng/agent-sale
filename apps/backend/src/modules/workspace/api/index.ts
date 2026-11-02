@@ -1,5 +1,6 @@
 export {
   WORKSPACE_FACADE,
+  type AccountBusiness,
   type WorkspaceFacade,
   type GivenRole,
   type MemberActor,

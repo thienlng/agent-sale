@@ -1,20 +1,23 @@
 import type { EntitlementsDto, MessageUsageDto } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
 import type { BillingFacade, ReplyMeterKey, ReserveOutcome } from '../api/billing.facade.js';
 import {
   FREE_PLAN,
   limitOf,
-  type PlanRecord,
+  type OverrideRecord,
   resolveEntitlements,
+  type SubscriptionRecord,
 } from '../domain/entitlements.js';
-import { PlanNotFoundError } from '../domain/billing.errors.js';
+import { trialEnded } from '../domain/lifecycle.js';
+import { addDays } from '../domain/plan-catalog.js';
 import { cycleOf, FREE_CYCLE_ANCHOR } from '../domain/usage.js';
+import { BillingCatalog } from './billing-catalog.js';
+import { BILLING_ADMIN_STORE, type BillingAdminStore } from './ports/billing-admin-store.js';
 import { BILLING_STORE, type BillingStore } from './ports/billing-store.js';
 
-const PLAN_CACHE_MS = 60_000;
 /** A business never changes account, so its account id is cached once known. */
 const ACCOUNT_CACHE_MAX = 10_000;
 /** When the plan defines no cycle length. */
@@ -24,17 +27,29 @@ interface Resolved {
   accountId: string | null;
   entitlements: EntitlementsDto;
   anchor: Date;
+  /** The account or its subscription is suspended: no AI reply (the bot hands off). */
+  suspended: boolean;
+}
+
+/** An account's allowance in the current cycle (admin views, daily snapshot). */
+export interface AccountAllowance {
+  used: number;
+  limit: number;
+  cycleStart: Date;
+  cycleEnd: Date;
 }
 
 /** Plans, entitlements and the account's message allowance (docs/08 §3, ADR-012 §5). */
 @Injectable()
 export class BillingService implements BillingFacade {
-  readonly #plans = new Map<string, { at: number; plan: PlanRecord }>();
   readonly #accounts = new Map<string, string>();
+  readonly #log = new Logger('BillingService');
 
   constructor(
     @Inject(BILLING_STORE) private readonly store: BillingStore,
+    @Inject(BILLING_ADMIN_STORE) private readonly admin: BillingAdminStore,
     @Inject(WORKSPACE_FACADE) private readonly workspaces: WorkspaceFacade,
+    @Inject(BillingCatalog) private readonly catalog: BillingCatalog,
   ) {}
 
   async entitlements(ws: WorkspaceId): Promise<EntitlementsDto> {
@@ -66,6 +81,7 @@ export class BillingService implements BillingFacade {
     // A business the account backfill has not linked yet has no allowance to count against.
     if (!r.accountId) return { allowed: true, metered: false };
     const { limit, cycle } = this.#allowance(r, now);
+    if (r.suspended) return { allowed: false, reason: 'account_suspended', cycleEnd: cycle.end };
     const result = await this.store.reserve({
       accountId: r.accountId,
       workspaceId: ws,
@@ -89,6 +105,47 @@ export class BillingService implements BillingFacade {
     return this.store.release(ws, idempotencyKey, new Date());
   }
 
+  async startSignupTrial(accountId: string): Promise<boolean> {
+    const settings = await this.admin.settings();
+    if (!settings.trialEnabled || !settings.trialPlanCode || !settings.trialDays) return false;
+    const plan = await this.admin.latestPlan(settings.trialPlanCode);
+    if (!plan || plan.archivedAt) {
+      this.#log.warn(`Account ${accountId}: signup trial skipped, the trial plan is unavailable`);
+      return false;
+    }
+    const days = settings.trialDays;
+    const now = new Date();
+    const saved = await this.admin.changeSubscription({
+      accountId,
+      expectedVersion: 'any',
+      // Idempotent: an account that already has a subscription keeps it.
+      next: (current) =>
+        current
+          ? null
+          : {
+              planCode: plan.code,
+              planVersion: plan.version,
+              periodMonths: null,
+              status: 'trialing',
+              currentPeriodStart: now,
+              currentPeriodEnd: addDays(now, days),
+              cycleAnchor: now,
+            },
+      reason: 'signup_trial',
+      action: { actorUserId: null, actorName: 'system', reason: 'signup trial' },
+    });
+    return saved !== null;
+  }
+
+  /** The account's use of its allowance in the current cycle. */
+  async accountAllowance(accountId: string, now: Date = new Date()): Promise<AccountAllowance> {
+    const s = await this.store.accountState(accountId);
+    const r = await this.#resolved(accountId, s.accountSubscription, s.accountOverrides, now);
+    const { limit, cycle } = this.#allowance(r, now);
+    const used = await this.store.used(accountId, cycle.start, now);
+    return { used, limit, cycleStart: cycle.start, cycleEnd: cycle.end };
+  }
+
   /** A plan without `ai.included_messages` allows no AI reply (deny by default, like limits). */
   #allowance(r: Resolved, now: Date) {
     const included = r.entitlements.aiIncludedMessages;
@@ -106,18 +163,49 @@ export class BillingService implements BillingFacade {
   async #resolve(ws: WorkspaceId): Promise<Resolved> {
     const accountId = await this.#accountOf(ws);
     const s = await this.store.state(ws, accountId);
-    const subscription = s.accountSubscription ?? s.subscription;
-    const plan = await this.#plan(
+    const r = await this.#resolved(accountId, s.accountSubscription ?? s.subscription, [
+      ...s.accountOverrides,
+      ...s.overrides,
+    ]);
+    return { ...r, suspended: r.suspended || s.accountStatus === 'suspended' };
+  }
+
+  async #resolved(
+    accountId: string | null,
+    stored: SubscriptionRecord | null,
+    overrides: OverrideRecord[],
+    now: Date = new Date(),
+  ): Promise<Resolved> {
+    const subscription = await this.#effective(stored, now);
+    const plan = await this.catalog.plan(
       subscription?.planCode ?? FREE_PLAN.code,
       subscription?.planVersion ?? FREE_PLAN.version,
     );
     return {
       accountId,
-      entitlements: resolveEntitlements(plan, subscription, [
-        ...s.accountOverrides,
-        ...s.overrides,
-      ]),
+      entitlements: resolveEntitlements(plan, subscription, overrides, now),
       anchor: subscription?.cycleAnchor ?? FREE_CYCLE_ANCHOR,
+      suspended: subscription?.status === 'suspended',
+    };
+  }
+
+  /**
+   * Lazy trial expiry: a trial that ended gets the plan after the trial at once, the way the
+   * lifecycle job will write it (cycles restart at the trial end), without waiting for the job.
+   */
+  async #effective(sub: SubscriptionRecord | null, now: Date): Promise<SubscriptionRecord | null> {
+    if (!sub || !trialEnded(sub, now)) return sub;
+    const settings = await this.catalog.settings();
+    const after =
+      (await this.catalog.latest(settings.afterTrialPlanCode)) ??
+      (await this.catalog.latest(FREE_PLAN.code));
+    const end = sub.currentPeriodEnd ?? now;
+    return {
+      planCode: after?.code ?? FREE_PLAN.code,
+      planVersion: after?.version ?? FREE_PLAN.version,
+      status: 'active',
+      currentPeriodEnd: null,
+      cycleAnchor: end,
     };
   }
 
@@ -130,16 +218,5 @@ export class BillingService implements BillingFacade {
       this.#accounts.set(ws, accountId);
     }
     return accountId;
-  }
-
-  /** Plan versions never change once published, so a short cache is always correct. */
-  async #plan(code: string, version: number): Promise<PlanRecord> {
-    const key = `${code}@${version}`;
-    const hit = this.#plans.get(key);
-    if (hit && Date.now() - hit.at < PLAN_CACHE_MS) return hit.plan;
-    const plan = await this.store.plan(code, version);
-    if (!plan) throw new PlanNotFoundError(code, version);
-    this.#plans.set(key, { at: Date.now(), plan });
-    return plan;
   }
 }

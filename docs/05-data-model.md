@@ -363,3 +363,13 @@ Superseded in part by the lodging module above; the table and column stay until 
 ## Implemented SaaS extension (ADR-020)
 
 Migration 0052 adds one forced-RLS tenant table owned by the `saas` module. `saas_subscriptions`: one row per customer (unique `(workspace_id, contact_id)`, composite FK cascading with the contact), stage / billing period checks, `mrr bigint >= 0`, seats, trial / start / renewal / cancellation dates (a trial needs its end, a cancellation its date), optional `external_ref` unique per workspace when set, optimistic `version`. Demo / trial requests have no table: they are a customer status (`requested`, from the SaaS set of built-in `crm_statuses`) and a note. See [SaaS businesses](saas.md).
+
+## Implemented platform admin (ADR-021, migration 0053)
+
+Global tables (no `workspace_id`, no tenant grant; `app_system` only), owned by `billing` unless noted:
+
+- `plans` gains `description`, `sort_order`, `archived_at`, `created_by`. Rows are append-only versions: an edit inserts `(code, version + 1)`. `price_by_period` holds the monthly price of each term in VND.
+- `billing_settings`: one row (`id = 'default'`): trial on/off, trial plan and days (required when on), after-trial plan, HQ contact scope, `grace_days`, `suspend_days`, VietQR bank BIN / account number / holder, optimistic `version`, `updated_by`.
+- `payments` (replaces the planned shape above for v1): one VietQR request per row, `account_id`, unique transfer `code`, `(plan_code, plan_version)` FK, `period_months` in 1/3/6/12, `amount_vnd > 0`, `method = 'vietqr'`, `status` `pending | confirmed | canceled`, requester, confirmer, `confirmed_at`, `bank_reference`, `note`.
+- `platform_audit_events` (written by every operator action through `writePlatformAudit`, read by `backoffice`): actor id and name, action, target type and id, reason, `data`. `app_system` has select and insert only (append-only).
+- `account_subscriptions` gains `status_changed_at` (grace and suspension are counted from it) and `reminders_sent` (reminder keys sent for the current period). `accounts` gains `status_reason`, `status_changed_at`.

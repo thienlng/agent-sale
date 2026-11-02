@@ -3,6 +3,7 @@ import type { UserId, WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
 import type {
+  AccountBusiness,
   GivenRole,
   MemberActor,
   WorkspaceFacade,
@@ -38,8 +39,15 @@ export class WorkspaceFacadeImpl implements WorkspaceFacade {
     ownerUserId: UserId;
     accountId?: string | undefined;
     timezone?: string | undefined;
+    owner?: { name: string; email: string; phone: string | null } | undefined;
   }): Promise<WorkspaceDto> {
     return this.create.execute(input);
+  }
+
+  listByAccounts(accountIds: readonly string[]): Promise<AccountBusiness[]> {
+    return accountIds.length
+      ? this.directory.listByAccounts([...new Set(accountIds)])
+      : Promise.resolve([]);
   }
 
   findMembership(workspaceId: WorkspaceId, userId: UserId): Promise<WorkspaceMembership | null> {

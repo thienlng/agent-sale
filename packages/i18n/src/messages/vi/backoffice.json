@@ -1,0 +1,244 @@
+{
+  "common": {
+    "reason": "Lý do",
+    "reasonHint": "Bắt buộc, ít nhất 3 ký tự. Được ghi vào nhật ký quản trị.",
+    "reasonPlaceholder": "VD: Khách chuyển khoản gói 12 tháng",
+    "save": "Lưu",
+    "cancel": "Huỷ",
+    "close": "Đóng",
+    "saved": "Đã lưu",
+    "conflict": "Dữ liệu vừa được người khác thay đổi. Đã tải lại, vui lòng kiểm tra và thử lại.",
+    "loadError": "Không tải được dữ liệu.",
+    "retry": "Thử lại",
+    "loadMore": "Tải thêm",
+    "empty": "Chưa có dữ liệu",
+    "unlimited": "Không giới hạn",
+    "yes": "Có",
+    "no": "Không",
+    "all": "Tất cả",
+    "none": "—",
+    "months_one": "{{count}} tháng",
+    "months_other": "{{count}} tháng",
+    "days_one": "{{count}} ngày",
+    "days_other": "{{count}} ngày"
+  },
+  "accountStatus": {
+    "active": "Hoạt động",
+    "suspended": "Tạm khoá"
+  },
+  "subStatus": {
+    "trialing": "Dùng thử",
+    "active": "Đang dùng",
+    "past_due": "Quá hạn",
+    "suspended": "Tạm ngưng",
+    "canceled": "Đã huỷ",
+    "free": "Miễn phí (chưa có gói)"
+  },
+  "paymentStatus": {
+    "pending": "Chờ xác nhận",
+    "confirmed": "Đã xác nhận",
+    "canceled": "Đã huỷ"
+  },
+  "entitlements": {
+    "members": {
+      "max": "Số thành viên"
+    },
+    "channels": {
+      "max": "Số kênh"
+    },
+    "contacts": {
+      "max": "Số khách hàng"
+    },
+    "storage": {
+      "bytes": "Dung lượng (byte)"
+    },
+    "media": {
+      "max": "Số ảnh/tệp"
+    },
+    "knowledge_items": {
+      "max": "Mục kiến thức"
+    },
+    "ai": {
+      "models": {
+        "allowed": "Mô hình AI"
+      },
+      "included_messages": "Tin AI kèm gói"
+    },
+    "feature": {
+      "website_widget": "Chat trên website",
+      "lazada": "Kênh Lazada",
+      "facebook_posts": "Bình luận Facebook"
+    },
+    "amount": "Số tin",
+    "periodDays": "Chu kỳ (ngày)"
+  },
+  "plans": {
+    "title": "Gói cước",
+    "subtitle": "Sửa gói sẽ tạo phiên bản mới. Khách đang dùng giữ nguyên phiên bản cũ.",
+    "add": "Thêm gói",
+    "name": "Tên gói",
+    "code": "Mã gói",
+    "codeHint": "Chữ thường, số và _. Không đổi được sau khi tạo.",
+    "version": "Phiên bản",
+    "prices": "Giá theo kỳ (VND/tháng)",
+    "priceHint": "Để trống nếu không bán kỳ này.",
+    "limits": "Giới hạn chính",
+    "subscribers": "Khách đang dùng",
+    "public": "Công khai",
+    "hidden": "Ẩn",
+    "archived": "Ngừng bán",
+    "description": "Mô tả",
+    "sortOrder": "Thứ tự hiển thị",
+    "isPublic": "Hiện trên trang bảng giá",
+    "entitlementsTitle": "Quyền lợi",
+    "edit": "Sửa",
+    "publish": "Phát hành phiên bản {{version}}",
+    "publishNote": "{{count}} khách đang dùng phiên bản {{version}} sẽ giữ nguyên quyền lợi cũ.",
+    "create": "Tạo gói",
+    "archive": "Ngừng bán",
+    "unarchive": "Mở bán lại",
+    "archiveTitle": "Ngừng bán gói {{name}}?",
+    "unarchiveTitle": "Mở bán lại gói {{name}}?",
+    "archiveHint": "Khách đang dùng không bị ảnh hưởng; gói không còn được chọn cho khách mới.",
+    "invalidCode": "Mã gói không hợp lệ",
+    "invalidNumber": "Nhập số nguyên không âm",
+    "needModel": "Chọn ít nhất một mô hình",
+    "published": "Đã phát hành phiên bản mới",
+    "created": "Đã tạo gói",
+    "oldVersion": "Phiên bản cũ"
+  },
+  "settings": {
+    "title": "Cài đặt thanh toán",
+    "subtitle": "Dùng thử khi đăng ký, vòng đời gói và tài khoản nhận chuyển khoản.",
+    "trial": "Dùng thử khi đăng ký",
+    "trialEnabled": "Bật dùng thử cho tài khoản mới",
+    "trialEnabledHint": "Không cần thẻ. Chỉ áp dụng cho tài khoản đăng ký sau khi bật.",
+    "trialPlan": "Gói dùng thử",
+    "trialDays": "Số ngày dùng thử",
+    "afterTrialPlan": "Gói sau khi hết dùng thử",
+    "lifecycle": "Vòng đời gói",
+    "graceDays": "Số ngày quá hạn trước khi tạm ngưng",
+    "suspendDays": "Số ngày tạm ngưng trước khi về gói miễn phí",
+    "bank": "Tài khoản nhận chuyển khoản (VietQR)",
+    "bankHint": "Dùng để tạo mã QR cho yêu cầu thanh toán.",
+    "bankName": "Ngân hàng",
+    "bankNone": "Chưa chọn",
+    "bankAccountNo": "Số tài khoản",
+    "bankAccountName": "Tên chủ tài khoản",
+    "hq": "Đồng bộ sang Rapiz HQ",
+    "hqScope": "Ai được đồng bộ",
+    "hqOwner": "Chủ tài khoản",
+    "hqOwnerAndBilling": "Chủ tài khoản và người thanh toán (sắp có)",
+    "needTrialPlan": "Chọn gói và số ngày khi bật dùng thử",
+    "invalidAccountNo": "Số tài khoản 4–30 chữ hoặc số"
+  },
+  "accounts": {
+    "title": "Tài khoản",
+    "subtitle": "Mọi tài khoản khách hàng trên hệ thống.",
+    "search": "Tìm theo tên, email hoặc SĐT chủ tài khoản",
+    "status": "Trạng thái",
+    "subStatus": "Trạng thái gói",
+    "plan": "Gói",
+    "endingWithin": "Sắp hết hạn",
+    "endingWithinDays": "Trong {{count}} ngày",
+    "account": "Tài khoản",
+    "owner": "Chủ tài khoản",
+    "periodEnd": "Hết hạn",
+    "businesses": "Doanh nghiệp",
+    "createdAt": "Ngày tạo",
+    "empty": "Không có tài khoản nào khớp bộ lọc"
+  },
+  "account": {
+    "back": "Tất cả tài khoản",
+    "notFound": "Không tìm thấy tài khoản",
+    "subscription": "Gói cước",
+    "noSubscription": "Chưa có gói — đang dùng miễn phí",
+    "effectivePlan": "Đang áp dụng: {{name}} (dùng thử đã hết)",
+    "period": "Kỳ",
+    "periodStart": "Bắt đầu",
+    "periodEnd": "Kết thúc",
+    "usage": "Tin AI trong chu kỳ",
+    "usageValue": "{{used}} / {{limit}}",
+    "cycleEnds": "Chu kỳ kết thúc {{date}}",
+    "businesses": "Doanh nghiệp",
+    "members": "thành viên",
+    "accountMembers": "Người quản lý tài khoản",
+    "overrides": "Quyền lợi riêng",
+    "noOverrides": "Không có quyền lợi riêng",
+    "expires": "Hết hạn {{date}}",
+    "noExpiry": "Không hết hạn",
+    "payments": "Thanh toán",
+    "noPayments": "Chưa có yêu cầu thanh toán",
+    "audit": "Nhật ký quản trị",
+    "noAudit": "Chưa có thao tác nào",
+    "statusReason": "Lý do: {{reason}}",
+    "actions": {
+      "changePlan": "Đổi gói",
+      "extendTrial": "Gia hạn dùng thử",
+      "addOverride": "Thêm quyền lợi",
+      "editOverride": "Sửa",
+      "removeOverride": "Xoá",
+      "suspend": "Tạm khoá",
+      "reactivate": "Mở khoá",
+      "createPayment": "Tạo yêu cầu thanh toán"
+    },
+    "planDialog": {
+      "title": "Đổi gói cho {{name}}",
+      "plan": "Gói",
+      "period": "Kỳ thanh toán",
+      "periodNone": "Không (gói miễn phí)",
+      "startsAt": "Bắt đầu từ",
+      "startsAtHint": "Để trống để bắt đầu ngay.",
+      "status": "Trạng thái",
+      "needPeriod": "Gói có phí cần chọn kỳ thanh toán"
+    },
+    "trialDialog": {
+      "title": "Gia hạn dùng thử",
+      "until": "Dùng thử đến hết ngày",
+      "mustBeLater": "Chọn ngày sau ngày kết thúc hiện tại"
+    },
+    "overrideDialog": {
+      "title": "Quyền lợi riêng",
+      "key": "Quyền lợi",
+      "value": "Giá trị",
+      "expiresAt": "Hết hạn ngày",
+      "expiresAtHint": "Để trống nếu không hết hạn.",
+      "removeTitle": "Xoá quyền lợi riêng {{key}}?"
+    },
+    "statusDialog": {
+      "suspendTitle": "Tạm khoá tài khoản {{name}}?",
+      "reactivateTitle": "Mở khoá tài khoản {{name}}?",
+      "pendingEnforcement": "Trạng thái được ghi nhận ngay; việc dừng bot và chuyển sang chỉ xem sẽ áp dụng khi tính năng vòng đời gói được bật."
+    }
+  },
+  "payments": {
+    "title": "Thanh toán",
+    "subtitle": "Yêu cầu chuyển khoản VietQR. Xác nhận khi đã thấy tiền vào tài khoản.",
+    "code": "Nội dung CK",
+    "account": "Tài khoản",
+    "plan": "Gói",
+    "period": "Kỳ",
+    "amount": "Số tiền",
+    "status": "Trạng thái",
+    "createdAt": "Ngày tạo",
+    "empty": "Chưa có yêu cầu thanh toán",
+    "confirm": "Xác nhận đã nhận tiền",
+    "cancel": "Huỷ yêu cầu",
+    "confirmTitle": "Xác nhận đã nhận {{amount}}?",
+    "confirmHint": "Gói {{plan}} sẽ được áp dụng ngay, hoặc nối tiếp sau kỳ hiện tại nếu kỳ đó còn hạn.",
+    "cancelTitle": "Huỷ yêu cầu {{code}}?",
+    "bankReference": "Mã giao dịch ngân hàng",
+    "bankReferenceHint": "Không bắt buộc. Giúp đối soát sau này.",
+    "createTitle": "Yêu cầu thanh toán",
+    "amountHint": "Để trống để dùng giá của gói: {{amount}}.",
+    "note": "Ghi chú",
+    "created": "Đã tạo yêu cầu. Gửi mã QR cho khách.",
+    "qrTitle": "Quét mã để chuyển khoản",
+    "qrMissing": "Chưa cài tài khoản nhận tiền nên không tạo được mã QR. Vào Cài đặt thanh toán để thêm.",
+    "transferContent": "Nội dung chuyển khoản",
+    "copy": "Sao chép",
+    "copied": "Đã sao chép",
+    "confirmed": "Đã xác nhận thanh toán",
+    "canceled": "Đã huỷ yêu cầu"
+  }
+}

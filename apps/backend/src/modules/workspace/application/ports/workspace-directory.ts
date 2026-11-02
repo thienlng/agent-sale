@@ -1,6 +1,10 @@
 import type { UserId, WorkspaceId } from '@agent-sales/shared';
 
-import type { WorkspaceMember, WorkspaceMembership } from '../../api/workspace.facade.js';
+import type {
+  AccountBusiness,
+  WorkspaceMember,
+  WorkspaceMembership,
+} from '../../api/workspace.facade.js';
 
 /**
  * Cross-tenant, read-only lookups about memberships. Runs as the system role
@@ -11,6 +15,8 @@ export interface WorkspaceDirectory {
   findMembership(workspaceId: WorkspaceId, userId: UserId): Promise<WorkspaceMembership | null>;
   listMemberships(userId: UserId): Promise<WorkspaceMembership[]>;
   listMembers(workspaceId: WorkspaceId, includeRemoved: boolean): Promise<WorkspaceMember[]>;
+  /** Businesses of these accounts with their active member count (platform admin). */
+  listByAccounts(accountIds: readonly string[]): Promise<AccountBusiness[]>;
 }
 
 export const WORKSPACE_DIRECTORY = Symbol('WORKSPACE_DIRECTORY');

@@ -10,7 +10,6 @@ import {
   MessagesSquare,
   Package,
   Settings,
-  ShieldCheck,
   ShoppingBag,
   House,
   CalendarDays,
@@ -21,6 +20,7 @@ import { type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Logo } from '@/components/logo';
+import { ADMIN_NAV } from '@/components/layout/admin-nav';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Sidebar,
@@ -156,9 +156,7 @@ function SectionNav({
   );
 }
 
-const PLATFORM: readonly NavItem[] = [
-  { to: '/admin/llm', key: 'nav.adminLlm', icon: ShieldCheck, ready: true },
-];
+const PLATFORM: readonly NavItem[] = ADMIN_NAV.map((item) => ({ ...item, ready: true }));
 
 function NavGroup({
   label,

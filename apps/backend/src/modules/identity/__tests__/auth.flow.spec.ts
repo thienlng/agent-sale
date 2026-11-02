@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { SecretBox } from '../../../common/security/secret-box.js';
 
+import type { BillingFacade } from '../../billing/api/index.js';
 import type { WorkspaceFacade } from '../../workspace/api/index.js';
 import {
   LoginHandler,
@@ -43,12 +44,29 @@ async function setup() {
   const tokens = await JoseAccessTokens.create({ NODE_ENV: 'test' });
   const sessions = new SessionService(sessionRepo, tokens);
   const created: string[] = [];
+  const owners: unknown[] = [];
   const workspaces = {
-    createWorkspace: async (i: { name: string }) => {
+    createWorkspace: async (i: { name: string; owner?: unknown }) => {
       created.push(i.name);
-      return { id: '0', name: i.name, industry: 'retail', timezone: 'x', createdAt: '' };
+      owners.push(i.owner);
+      return {
+        id: '00000000-0000-4000-8000-000000000001',
+        name: i.name,
+        industry: 'retail',
+        timezone: 'x',
+        createdAt: '',
+      };
     },
+    accountOf: async () => 'acc-1',
   } as unknown as WorkspaceFacade;
+  const trials: string[] = [];
+  const billing = {
+    startSignupTrial: async (accountId: string) => {
+      if (accountId === 'boom') throw new Error('db down');
+      trials.push(accountId);
+      return true;
+    },
+  } as unknown as BillingFacade;
   const limiter = new InMemoryAttemptLimiter(3, 60_000);
   const mfa = new MfaService(
     new InMemoryMfaRepository(),
@@ -64,7 +82,10 @@ async function setup() {
     sessionRepo,
     tokens,
     created,
-    signup: new SignupHandler(users, hasher, limiter, workspaces, sessions),
+    owners,
+    trials,
+    workspaces,
+    signup: new SignupHandler(users, hasher, limiter, workspaces, sessions, billing),
     login: new LoginHandler(users, hasher, limiter, sessions, mfa),
     refresh: new RefreshHandler(users, sessions),
   };
@@ -85,8 +106,19 @@ describe('auth flow (in-memory)', () => {
     const s = await setup();
     const issued = await s.signup.execute(input, meta);
     expect(s.created).toEqual(['Shop Lan']);
+    expect(s.owners).toEqual([{ name: 'Lan', email: 'lan@shop.vn', phone: null }]);
+    expect(s.trials).toEqual(['acc-1']);
     expect(issued.user.email).toBe('lan@shop.vn');
     expect(await s.tokens.verify(issued.accessToken)).toMatchObject({ userId: issued.user.id });
+  });
+
+  it('signs up even when the signup trial fails', async () => {
+    const s = await setup();
+    (s.workspaces as unknown as { accountOf: () => Promise<string> }).accountOf = async () =>
+      'boom';
+    const issued = await s.signup.execute(input, meta);
+    expect(issued.user.email).toBe('lan@shop.vn');
+    expect(s.trials).toEqual([]);
   });
 
   it('rejects weak passwords and duplicate emails', async () => {

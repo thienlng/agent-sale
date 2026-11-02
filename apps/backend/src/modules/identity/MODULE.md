@@ -4,9 +4,9 @@
 
 **Owned tables:** `users`, `sessions` (global, app_system only — migration 0001), `user_mfa` (migration 0018; schema in `packages/db/src/schema/identity.ts`).
 
-**Public API (`api/`):** none yet. Other modules use `@Public()`, `@WorkspaceScoped()`, `@CurrentUser()`, `@CurrentWorkspace()` from `common/http/auth-context.ts`. HTTP: `/auth/signup|login|refresh|logout`, `/me`, `/bootstrap`, `/auth/mfa`, `/auth/mfa/setup|enable|disable|recovery-codes` (contracts in `packages/contracts/src/identity/`).
+**Public API (`api/`):** `IDENTITY_FACADE` (bootstrap helpers) and, for the platform admin only, `IDENTITY_ADMIN_FACADE` → `usersByIds(ids)`, `searchUsers(q, limit)` (email/phone/name substring) returning `{ id, name, email, phone }`. Other modules use `@Public()`, `@WorkspaceScoped()`, `@CurrentUser()`, `@CurrentWorkspace()` from `common/http/auth-context.ts`. HTTP: `/auth/signup|login|refresh|logout`, `/me`, `/bootstrap`, `/auth/mfa`, `/auth/mfa/setup|enable|disable|recovery-codes` (contracts in `packages/contracts/src/identity/`).
 
-**Events consumed:** none. Uses the `workspace` facade (create first workspace at signup, membership lookups) and the `account` facade (bootstrap lists the user's accounts and the account name of every business, so the web groups businesses by account; a member sees the owning account's name, nothing else about it).
+**Events consumed:** none. Uses the `workspace` facade (create first workspace at signup, membership lookups) the `billing` facade (signup starts the account's trial; a failure is logged and never blocks signup) and the `account` facade (bootstrap lists the user's accounts and the account name of every business, so the web groups businesses by account; a member sees the owning account's name, nothing else about it).
 
 **Invariants:**
 

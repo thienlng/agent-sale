@@ -26,7 +26,7 @@ export const SubscriptionChangedV1 = z.object({
   status: z.enum(SUBSCRIPTION_STATUSES),
   periodStart: z.iso.datetime().nullable(),
   periodEnd: z.iso.datetime().nullable(),
-  /** Monthly recurring revenue in VND (price of the period / months); 0 for free and trials. */
+  /** Monthly recurring revenue in VND (`price_by_period` holds the monthly price of each term); 0 for free, trials, suspended and canceled. */
   mrrVnd: z.number().int().min(0),
   reason: z.enum(SUBSCRIPTION_CHANGE_REASONS),
   occurredAt: z.iso.datetime(),

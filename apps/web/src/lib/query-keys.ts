@@ -37,4 +37,10 @@ export const queryKeys = {
   hermesLogin: (providerId: string) => ['admin', 'llm', 'hermes-login', providerId] as const,
   providerModels: (providerId: string) => ['admin', 'llm', 'models', providerId] as const,
   llmTiers: ['admin', 'llm', 'tiers'] as const,
+  adminPlans: ['admin', 'plans'] as const,
+  adminBillingSettings: ['admin', 'billing-settings'] as const,
+  adminAccounts: ['admin', 'accounts'] as const,
+  adminAccount: (id: string) => ['admin', 'accounts', 'detail', id] as const,
+  adminPayments: ['admin', 'payments'] as const,
+  adminAudit: ['admin', 'audit'] as const,
 };

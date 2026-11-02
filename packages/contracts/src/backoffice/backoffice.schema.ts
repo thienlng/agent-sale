@@ -46,7 +46,10 @@ export const PlanEntitlements = z.strictObject(
 );
 export type PlanEntitlements = z.infer<typeof PlanEntitlements>;
 
-/** Price per billing period in VND, keyed by months as a string (`"1"`, `"3"`, `"6"`, `"12"`). */
+/**
+ * Monthly price in VND for each billing term, keyed by months as a string (`"1"`, `"3"`, `"6"`,
+ * `"12"`). A term costs price × months (e.g. 12 months of Sales Smart = 785,000 × 12).
+ */
 export const PlanPrices = z.strictObject({
   '1': z.number().int().positive().optional(),
   '3': z.number().int().positive().optional(),

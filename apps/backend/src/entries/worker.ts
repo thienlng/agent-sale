@@ -8,6 +8,8 @@ import { DbModule } from '../common/db/db.module.js';
 import { createLogger, PinoNestLogger } from '../common/logger.js';
 import { ANALYTICS_RUNNER, type AnalyticsRunner } from '../modules/analytics/api/index.js';
 import { AnalyticsModule } from '../modules/analytics/analytics.module.js';
+import { BILLING_RUNNER, type BillingRunner } from '../modules/billing/api/index.js';
+import { BillingModule } from '../modules/billing/billing.module.js';
 import { INTEGRATION_RUNNER, type IntegrationRunner } from '../modules/integration/api/index.js';
 import { IntegrationModule } from '../modules/integration/integration.module.js';
 
@@ -17,7 +19,7 @@ import { IntegrationModule } from '../modules/integration/integration.module.js'
  * (outbound, campaign, workflow, indexer, scheduler). Processors live in each
  * module's application/jobs and are wired here as modules land.
  */
-@Module({ imports: [DbModule, AnalyticsModule, IntegrationModule] })
+@Module({ imports: [DbModule, AnalyticsModule, IntegrationModule, BillingModule] })
 class WorkerModule {}
 
 const env = configureEnv();
@@ -54,13 +56,28 @@ const syncTimer = setInterval(() => {
       syncing = false;
     });
 }, 2000);
+// Subscription lifecycle, reminders and the daily usage snapshot (ADR-021); the runner throttles
+// itself to one pass every few minutes.
+const billing = ctx.get<BillingRunner>(BILLING_RUNNER);
+let billingBusy = false;
+const billingTimer = setInterval(() => {
+  if (billingBusy) return;
+  billingBusy = true;
+  void billing
+    .tick()
+    .catch(() => logger.error('Billing lifecycle tick failed'))
+    .finally(() => {
+      billingBusy = false;
+    });
+}, 2000);
 for (const signal of ['SIGINT', 'SIGTERM'] as const)
   // The intervals keep the worker alive; clearing them lets the process drain and exit.
   process.once(signal, () => {
     clearInterval(timer);
     clearInterval(syncTimer);
+    clearInterval(billingTimer);
   });
 logger.info(
   { queues },
-  'worker started (analytics projection, PMS sync; no queue processors registered yet)',
+  'worker started (analytics projection, PMS sync, billing lifecycle; no queue processors registered yet)',
 );

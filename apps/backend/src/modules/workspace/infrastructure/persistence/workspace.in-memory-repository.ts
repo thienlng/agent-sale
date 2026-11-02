@@ -16,6 +16,11 @@ export class InMemoryWorkspaceRepository implements WorkspaceRepository {
   async save(workspace: Workspace): Promise<void> {
     this.#rows.set(workspace.id, workspace.snapshot());
   }
+
+  /** Every stored workspace (DB-less admin reads). */
+  all(): Workspace[] {
+    return [...this.#rows.values()].map((row) => Workspace.rehydrate({ ...row }));
+  }
 }
 
 export class InMemoryMemberRepository implements MemberRepository {

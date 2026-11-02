@@ -8,6 +8,7 @@ import { ActionModule } from './modules/action/action.module.js';
 import { AiModule } from './modules/ai/ai.module.js';
 import { AnalyticsModule } from './modules/analytics/analytics.module.js';
 import { AuditModule } from './modules/audit/audit.module.js';
+import { BackofficeModule } from './modules/backoffice/backoffice.module.js';
 import { BillingModule } from './modules/billing/billing.module.js';
 import { CommerceModule } from './modules/commerce/commerce.module.js';
 import { CrmModule } from './modules/crm/crm.module.js';
@@ -47,6 +48,7 @@ import { WorkspaceModule } from './modules/workspace/workspace.module.js';
     BillingModule,
     AnalyticsModule,
     AuditModule,
+    BackofficeModule,
   ],
 })
 export class AppModule {}
