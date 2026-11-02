@@ -18,3 +18,4 @@ export * from './billing.js';
 export * from './audit.js';
 export * from './webchat.js';
 export * from './integration.js';
+export * from './assistant.js';

@@ -363,3 +363,12 @@ Superseded in part by the lodging module above; the table and column stay until 
 ## Implemented SaaS extension (ADR-020)
 
 Migration 0052 adds one forced-RLS tenant table owned by the `saas` module. `saas_subscriptions`: one row per customer (unique `(workspace_id, contact_id)`, composite FK cascading with the contact), stage / billing period checks, `mrr bigint >= 0`, seats, trial / start / renewal / cancellation dates (a trial needs its end, a cancellation its date), optional `external_ref` unique per workspace when set, optimistic `version`. Demo / trial requests have no table: they are a customer status (`requested`, from the SaaS set of built-in `crm_statuses`) and a note. See [SaaS businesses](saas.md).
+
+## Implemented owner assistant tables (T-170, ADR-021)
+
+Migration 0053 adds four forced-RLS tables scoped by **account**, not workspace: each row carries `account_id`, `app_tenant` sees rows only for `app.account_id` (set by `withAccount`, ADR-004 amendment 2026-11-02), `app_system` sees all.
+
+- `assistant_threads`: one conversation of an owner with the assistant. `owner_user_id`, `title` (≤ 120 chars), `origin` (`chat` | `schedule` | `review`), optional `business_id` (a workspace), `pinned`, `archived`, the frozen `system_prompt` + `prompt_version`, `last_message_at`. Indexed by `(account_id, owner_user_id, archived, last_message_at desc)`.
+- `assistant_messages`: ordered by `seq`, unique per thread; `role` (`user` | `assistant` | `tool` | `event`), `content`, `tool_calls`, `tool_call_id`, `tool_name`, `page_context`, `ui_actions`, `run_id`, flags `active` / `compacted` / `is_summary`. `search` is a generated `tsvector` (`'simple'` config over `assistant_unaccent(content)`) with a GIN index, plus a trigram GIN index on `assistant_unaccent(content)`, so Vietnamese search ignores diacritics. `assistant_unaccent` is an `IMMUTABLE` wrapper over `unaccent`. `search` is not in the Drizzle table; repositories query it with `sql`.
+- `assistant_runs`: one model run (id = client turn id, idempotent); `kind` (`chat` | `review` | `compaction` | `schedule` | `curator` | `title`), `status` (`running` | `done` | `failed`), tier / provider / model / `prompt_version`, token counts, latency, rounds, `outcome`, `guardrail`, `finished_at`. Partial index on running runs per owner.
+- `assistant_run_steps`: `(run_id, idx)` steps of a run — `kind`, `tool_name`, `ok`, `ms`, `error_code`. No arguments or result text in 1a.
