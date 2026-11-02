@@ -12,7 +12,7 @@
 
 **Events consumed:** the platform's `account.account.created.v1`, `account.account.status_changed.v1`, `billing.subscription.changed.v1`, `billing.usage.snapshot.v1`, `billing.subscription.reminder.v1` (outbox, `workspace_id` null), by `application/event-handlers/hq-sync.handler.ts`, only when `RAPIZ_HQ_WORKSPACE_ID` is set. Projector pattern: one consumer under an advisory lock, `xid8` horizon window, checkpoint row, a failing event goes to the dead-letter table by id and code.
 
-**Depends on:** `workspace` (industry, timezone, the HQ business), `crm` (customer exists, names, lead capture by phone, system status move, system note; `CONTACT_SYNC_FACADE` with source `rapiz` for HQ adoption).
+**Depends on:** `workspace` (industry, timezone, the HQ business), the platform admin facades `account` (`listForAdmin`), `billing` (`BILLING_ADMIN_FACADE`: `subscriptionsOf`, `listPlans`) and `identity` (`IDENTITY_ADMIN_FACADE`: `usersByIds`) for the HQ backfill and reconcile only (`application/platform-directory.ts`, read only), `crm` (customer exists, names, lead capture by phone, system status move, system note; `CONTACT_SYNC_FACADE` with source `rapiz` for HQ adoption).
 
 **Invariants:**
 - Every route and the bot tool answer 404 for a business whose industry is not `saas`.
@@ -24,10 +24,8 @@
 - HQ sync: one customer per platform account (`saas_hq_links`), adopted by phone, then email, else created. Events of one account and kind apply in order (`applied` timestamps): stale and replayed events change nothing. Reminders, suspensions and the 80% usage crossing become notes, each once.
 - Writes use optimistic `version` and leave an audit event (`saas.subscription.*`, `saas.plan.*`) with ids only. Logs carry codes and counts, never names, phones or emails.
 
-**Boundary exception (ADR-021, temporary):** `infrastructure/platform-directory.drizzle.ts` (`PlatformDirectory` port) reads the account and billing tables read-only with the system role, for the backfill and the nightly reconcile only. Replace it with account / billing list facades when they exist. The live sync reads events only.
-
 **Not yet:** several contacts per customer company (spec §6.7); a task object for follow-ups (they are notes).
 
-**Do not:** read other modules' tables (beyond the exception above); write platform data; put HTTP/Drizzle types in `domain/`; call LLMs outside `ai-core`.
+**Do not:** read other modules' tables; write platform data (the admin facades are read here, never their operator writes); put HTTP/Drizzle types in `domain/`; call LLMs outside `ai-core`.
 
 **Test:** `pnpm --filter @agent-sales/backend test -- saas`; integration: `test/saas.integration.spec.ts`, `test/saas-hq.integration.spec.ts`.

@@ -31,7 +31,7 @@ function currentSubscription(a: PlatformAccount, now: string): HqSubscriptionInp
       occurredAt: now,
     };
   }
-  return { ...s, occurredAt: s.updatedAt };
+  return { ...s, occurredAt: s.since };
 }
 
 /**
@@ -74,11 +74,11 @@ export class HqReconcileService {
     const links = new Map(
       (await this.store.run(ws, (tx) => tx.listHqLinks())).map((l) => [l.accountId, l]),
     );
-    let after: string | null = null;
-    for (;;) {
-      const page = await this.directory.listAccounts(after, PAGE);
-      if (!page.length) break;
-      for (const a of page) {
+    let cursor: string | null = null;
+    do {
+      const page: Awaited<ReturnType<PlatformDirectory['listAccounts']>> =
+        await this.directory.listAccounts(cursor, PAGE);
+      for (const a of page.data) {
         report.accounts++;
         const now = new Date().toISOString();
         const facts = hqSubscriptionFacts(currentSubscription(a, now), toDate);
@@ -128,8 +128,8 @@ export class HqReconcileService {
           });
         }
       }
-      after = page.at(-1)?.accountId ?? null;
-    }
+      cursor = page.nextCursor;
+    } while (cursor);
     this.#log.log(`hq reconcile${dryRun ? ' (dry run)' : ''}: ${JSON.stringify(report)}`);
     return report;
   }

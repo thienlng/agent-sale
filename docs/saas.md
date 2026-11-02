@@ -104,6 +104,6 @@ Rapiz runs its own sales and success team as a normal SaaS business, the **HQ wo
 - **Nightly reconcile.** Once per day the worker compares every account with HQ (the same code as `hq-backfill`) and fixes drift; a run with nothing to fix writes nothing.
 - **Logs.** Codes and counts only, never names, phones or emails.
 
-The backfill and the reconcile read accounts through `PlatformDirectory` (`saas/infrastructure/platform-directory.drizzle.ts`), a read-only `app_system` query of the account and billing tables. It is the one place `saas` reads platform tables, until the account and billing modules expose a list facade.
+The backfill and the reconcile read accounts through the platform admin facades (`account.listForAdmin`, `billing.subscriptionsOf` / `listPlans`, `identity.usersByIds`; `saas/application/platform-directory.ts`), read only; MRR follows billing's rule (the period's monthly price while active or past due, else 0).
 
 **Future work (spec §6.7):** more than one contact per customer company (a company entity, or "contact belongs to account").

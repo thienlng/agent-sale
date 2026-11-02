@@ -299,7 +299,8 @@ billing facts behind it, so most work is on the platform side, not in the CRM.
 **Progress (2026-11-02, branch `feat/saas-hq`).**
 - Phase 1 done: `hq-init`, `RAPIZ_HQ_WORKSPACE_ID`, `ContactExternalSource += 'rapiz'`; the consumer in `saas/application/event-handlers/hq-sync.handler.ts` (projector pattern, worker tick) writing through the CRM and SaaS facades; adoption by phone, then email; read-only linked fields (API and web); `hq-backfill [--dry-run]` and the nightly reconcile; usage snapshot → upsell flag and note at 80%; logs by code and count. Migration 0054.
 - From phase 2 / §6, done in the same branch: plan catalog per SaaS business with computed MRR (§6.1), subscription history (§6.2), churn reason (§6.3), `demo_scheduled` status (§6.4), trial-ending and renewal reminders as notes (§6.5; the CRM has no task object yet), read-only linked rows (§6.6).
-- Not done: §6.7 (several contacts per customer company); the backfill / reconcile read platform tables through `PlatformDirectory` (saas infrastructure, read-only, `app_system`) until `account` / `billing` expose list facades; status enforcement and payments (phase 2) belong to the platform admin lane.
+- The backfill / reconcile read accounts through the platform admin facades (`account`, `billing`, `identity`); an integration test runs the real producers (signup trial, an operator plan change) through the HQ consumer.
+- Not done: §6.7 (several contacts per customer company).
 
 ## 8. Non-goals (for now)
 - HQ editing billing facts; two-way sync.

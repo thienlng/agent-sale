@@ -1,17 +1,15 @@
 /**
  * The platform accounts Rapiz HQ mirrors, as the backfill and the nightly reconcile need them.
  *
- * Boundary (ADR-021, spec R7): the live path reads only the account and billing events. A backfill
- * has to see accounts that never emitted an event (created before 0053) and the reconcile has to
- * compare against the current state, which events cannot give. The account and billing modules
- * expose no list facade yet (planned with the platform admin: `listForAdmin`, `accountSubscription`),
- * so the adapter is a read-only `app_system` query in saas infrastructure. It is the one place saas
- * reads platform tables; swap it for those facades when they land. It never writes.
+ * The live path reads only the account and billing events. A backfill has to see accounts that
+ * never emitted an event (created before 0053) and the reconcile has to compare against the
+ * current state, which events cannot give; both read it through the `account`, `billing` and
+ * `identity` admin facades (`application/platform-directory.ts`). Read only.
  */
 export interface PlatformAccount {
   accountId: string;
   ownerName: string;
-  /** Link keys for adoption. Never logged. */
+  /** Link keys for adoption. Never logged. Empty when the account has no owner. */
   ownerEmail: string;
   ownerPhone: string | null;
   status: 'active' | 'suspended';
@@ -24,12 +22,16 @@ export interface PlatformAccount {
     periodStart: string | null;
     periodEnd: string | null;
     mrrVnd: number;
-    updatedAt: string;
+    /** A stable date of the current state (the period start): the reconcile's `occurredAt`. */
+    since: string;
   } | null;
 }
 
 export interface PlatformDirectory {
-  /** Accounts ordered by id, after `afterId` (exclusive), at most `limit`. */
-  listAccounts(afterId: string | null, limit: number): Promise<PlatformAccount[]>;
+  /** One page of accounts (newest first) and the cursor of the next, null after the last. */
+  listAccounts(
+    cursor: string | null,
+    limit: number,
+  ): Promise<{ data: PlatformAccount[]; nextCursor: string | null }>;
 }
 export const PLATFORM_DIRECTORY = Symbol('PLATFORM_DIRECTORY');

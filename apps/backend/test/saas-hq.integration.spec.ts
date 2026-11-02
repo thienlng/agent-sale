@@ -8,6 +8,7 @@ import {
   type ContactSyncFacade,
   type CrmFacade,
 } from '../src/modules/crm/api/index.js';
+import { BILLING_ADMIN_FACADE, type BillingAdminFacade } from '../src/modules/billing/api/index.js';
 import { SAAS_RUNNER, type SaasRunner } from '../src/modules/saas/api/index.js';
 import { HqSyncHandler } from '../src/modules/saas/application/event-handlers/hq-sync.handler.js';
 import { HqContext } from '../src/modules/saas/application/hq-context.js';
@@ -425,10 +426,14 @@ describe('backfill and reconcile', () => {
       .where(eq(schema.users.email, 'hq-boss@rapiz.test'));
     const free = crypto.randomUUID();
     const paid = crypto.randomUUID();
-    for (const id of [free, paid])
+    for (const id of [free, paid]) {
       await t.owner.db
         .insert(schema.accounts)
         .values({ id, name: 'Backfill shop', createdByUserId: owner?.id ?? '' });
+      await t.owner.db
+        .insert(schema.accountMembers)
+        .values({ accountId: id, userId: owner?.id ?? '', role: 'owner' });
+    }
     await t.owner.db.insert(schema.accountSubscriptions).values({
       accountId: paid,
       planCode: 'sales_smart',
@@ -468,6 +473,64 @@ describe('backfill and reconcile', () => {
     const again = await reconcile.run({ dryRun: false });
     expect(again).toMatchObject({ linked: 0, subscriptionsCreated: 0, subscriptionsUpdated: 0 });
     expect(again.unchanged).toBe(again.accounts - again.skipped);
+  });
+});
+
+describe('real producers (signup trial, admin plan change)', () => {
+  it('mirrors a signup trial into HQ, then the plan an operator sets', async () => {
+    const billing = t.app.get<BillingAdminFacade>(BILLING_ADMIN_FACADE);
+    const actor = { userId: null, name: 'HQ test' };
+    const { version, updatedAt: _updatedAt, ...settings } = await billing.settings();
+    await billing.putSettings(
+      {
+        ...settings,
+        hqContactScope: 'owner',
+        trialEnabled: true,
+        trialPlanCode: 'sales_pro',
+        trialDays: 14,
+        expectedVersion: version,
+        reason: 'HQ end-to-end test',
+      },
+      actor,
+    );
+    const user = await t.user('trial-owner@shop.test', 'Chị Trial');
+    const [account] = await t.owner.db
+      .select({ id: schema.accounts.id })
+      .from(schema.accounts)
+      .where(eq(schema.accounts.createdByUserId, user.userId));
+    const accountId = account?.id ?? '';
+    while ((await sync.tick()) > 0);
+
+    const contact = await contactOf(accountId);
+    expect(contact).toMatchObject({ name: 'Chị Trial', email: 'trial-owner@shop.test' });
+    expect(await subscriptionOf(contact?.id ?? '')).toMatchObject({
+      stage: 'trial',
+      mrr: 0,
+      externalRef: accountId,
+    });
+
+    const current = (await billing.subscriptionsOf([accountId])).get(accountId);
+    await billing.setAccountPlan(
+      accountId,
+      {
+        planCode: 'sales_smart',
+        periodMonths: 12,
+        status: 'active',
+        expectedVersion: current?.version ?? null,
+        reason: 'HQ end-to-end test',
+      },
+      actor,
+    );
+    while ((await sync.tick()) > 0);
+    expect(await subscriptionOf(contact?.id ?? '')).toMatchObject({
+      planName: 'Sales Smart',
+      stage: 'active',
+      billingPeriod: 'yearly',
+      mrr: 785_000,
+    });
+    // The reconcile reads the same state through the admin facades: nothing to repair.
+    const report = await reconcile.run({ dryRun: false });
+    expect(report.subscriptionsUpdated).toBe(0);
   });
 });
 
