@@ -32,6 +32,14 @@ import {
   type JobKind,
   type JobRecord,
   type MessageFeedback,
+  type NewSchedule,
+  type NewScheduleRun,
+  SCHEDULE_RUN_LIST_LIMIT,
+  type ScheduleRecord,
+  type SchedulePatch,
+  type ScheduleRunPatch,
+  type ScheduleRunRecord,
+  type ScheduleStatePatch,
   type NewJob,
   type NewSkill,
   type NewSkillEvent,
@@ -57,6 +65,7 @@ import {
   type NewMessage,
   type NewProposal,
   type ProposalPatch,
+  type ProposalKind,
   type ProposalRecord,
   type ProposalStatus,
   type RecordedRun,
@@ -68,6 +77,7 @@ import {
   THREAD_LIST_LIMIT,
   type ThreadRecord,
 } from '../../domain/ports/assistant.repository.js';
+import type { Cadence } from '../../domain/cadence.js';
 import { snippetAround } from '../../domain/search-text.js';
 
 const t = schema.assistantThreads;
@@ -81,6 +91,8 @@ const se = schema.assistantSkillEvents;
 const sg = schema.assistantSuggestions;
 const set_ = schema.assistantSettings;
 const jb = schema.assistantJobs;
+const sc = schema.assistantSchedules;
+const sr = schema.assistantScheduleRuns;
 
 /** SQLSTATE of a driver error (drizzle wraps the postgres error in `cause`). */
 const pgCode = (e: unknown): string | undefined =>
@@ -109,6 +121,69 @@ const ownsSettings = (s: OwnerKey) =>
   and(eq(set_.accountId, s.accountId), eq(set_.ownerUserId, s.ownerUserId));
 const ownsJob = (s: OwnerKey) =>
   and(eq(jb.accountId, s.accountId), eq(jb.ownerUserId, s.ownerUserId));
+const ownsSchedule = (s: OwnerKey) =>
+  and(eq(sc.accountId, s.accountId), eq(sc.ownerUserId, s.ownerUserId));
+const ownsScheduleRun = (s: OwnerKey) =>
+  and(eq(sr.accountId, s.accountId), eq(sr.ownerUserId, s.ownerUserId));
+
+/** Strictly increasing, millisecond-precise `updated_at` of a schedule. */
+const nextScheduleVersion = sql`greatest(date_trunc('milliseconds', now()), ${sc.updatedAt} + interval '1 millisecond')`;
+
+function toSchedule(row: typeof sc.$inferSelect): ScheduleRecord {
+  return {
+    id: row.id,
+    accountId: row.accountId,
+    ownerUserId: row.ownerUserId,
+    businessId: row.businessId,
+    name: row.name,
+    template: row.template as ScheduleRecord['template'],
+    mode: row.mode as ScheduleRecord['mode'],
+    params: (row.params as Record<string, unknown> | null) ?? {},
+    cadence: row.cadence as Cadence,
+    channels: row.channels as ScheduleRecord['channels'],
+    commentary: row.commentary,
+    status: row.status as ScheduleRecord['status'],
+    pausedReason: row.pausedReason as ScheduleRecord['pausedReason'],
+    nextRunAt: row.nextRunAt,
+    runRequestedAt: row.runRequestedAt,
+    leaseUntil: row.leaseUntil,
+    consecutiveFailures: row.consecutiveFailures,
+    lastRunAt: row.lastRunAt,
+    lastCheckedAt: row.lastCheckedAt,
+    alertFingerprint: row.alertFingerprint,
+    lastAlertedAt: row.lastAlertedAt,
+    alertCursor: row.alertCursor,
+    createdBy: row.createdBy as ScheduleRecord['createdBy'],
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+function toScheduleRun(row: typeof sr.$inferSelect): ScheduleRunRecord {
+  return {
+    id: row.id,
+    accountId: row.accountId,
+    ownerUserId: row.ownerUserId,
+    scheduleId: row.scheduleId,
+    trigger: row.trigger as ScheduleRunRecord['trigger'],
+    scheduledFor: row.scheduledFor,
+    status: row.status as ScheduleRunRecord['status'],
+    errorCode: row.errorCode,
+    report: (row.report as Record<string, unknown> | null) ?? null,
+    title: row.title,
+    body: row.body,
+    commentaryRunId: row.commentaryRunId,
+    notificationId: row.notificationId,
+    threadId: row.threadId,
+    startedAt: row.startedAt,
+    finishedAt: row.finishedAt,
+  };
+}
+
+/** Only the defined keys of a patch (Drizzle would write `undefined` as nothing anyway). */
+function defined<T extends object>(patch: T): Partial<T> {
+  return Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined)) as Partial<T>;
+}
 
 /** Strictly increasing, millisecond-precise `updated_at`: the optimistic-lock token round-trips. */
 const nextSkillVersion = sql`greatest(date_trunc('milliseconds', now()), ${sk.updatedAt} + interval '1 millisecond')`;
@@ -283,6 +358,7 @@ function toMemory(row: typeof mem.$inferSelect): MemoryStoreRecord {
 function toProposal(row: typeof pr.$inferSelect): ProposalRecord {
   return {
     id: row.id,
+    kind: row.kind as ProposalKind,
     threadId: row.threadId,
     runId: row.runId,
     businessId: row.businessId,
@@ -407,7 +483,13 @@ export class DrizzleAssistantRepository implements AssistantRepository {
 
   createThread(
     s: OwnerScope,
-    input: { id: string; title: string; systemPrompt: string; promptVersion: string },
+    input: {
+      id: string;
+      title: string;
+      systemPrompt: string;
+      promptVersion: string;
+      origin?: 'chat' | 'schedule';
+    },
   ): Promise<ThreadRecord> {
     return this.#in(s, async (tx) => {
       const [row] = await tx
@@ -1326,6 +1408,199 @@ export class DrizzleAssistantRepository implements AssistantRepository {
         accountId: r.account_id,
         ownerUserId: r.owner_user_id as OwnerKey['ownerUserId'],
       }));
+    });
+  }
+  // ─── Schedules (T-172) ───
+
+  listSchedules(s: OwnerKey): Promise<ScheduleRecord[]> {
+    return this.#in(s, async (tx) => {
+      const rows = await tx
+        .select()
+        .from(sc)
+        .where(ownsSchedule(s))
+        .orderBy(asc(sc.createdAt), asc(sc.id));
+      return rows.map(toSchedule);
+    });
+  }
+
+  getSchedule(s: OwnerKey, id: string): Promise<ScheduleRecord | null> {
+    return this.#in(s, async (tx) => {
+      const [row] = await tx
+        .select()
+        .from(sc)
+        .where(and(eq(sc.id, id), ownsSchedule(s)));
+      return row ? toSchedule(row) : null;
+    });
+  }
+
+  countSchedules(s: OwnerKey): Promise<number> {
+    return this.#in(s, async (tx) => {
+      const [row] = await tx
+        .select({ n: sql<number>`count(*)::int` })
+        .from(sc)
+        .where(ownsSchedule(s));
+      return Number(row?.n ?? 0);
+    });
+  }
+
+  createSchedule(s: OwnerKey, input: NewSchedule): Promise<ScheduleRecord> {
+    return this.#in(s, async (tx) => {
+      const [row] = await tx
+        .insert(sc)
+        .values({ ...input, accountId: s.accountId, ownerUserId: s.ownerUserId })
+        .returning();
+      if (!row) throw new Error('assistant schedule insert returned no row');
+      return toSchedule(row);
+    });
+  }
+
+  updateSchedule(
+    s: OwnerKey,
+    id: string,
+    patch: SchedulePatch,
+    expectedUpdatedAt?: Date,
+  ): Promise<ScheduleRecord | null> {
+    return this.#in(s, async (tx) => {
+      const version = expectedUpdatedAt ? eq(sc.updatedAt, expectedUpdatedAt) : undefined;
+      const [row] = await tx
+        .update(sc)
+        .set({ ...defined(patch), updatedAt: nextScheduleVersion } as Partial<
+          Record<keyof typeof sc.$inferInsert, unknown>
+        > as Partial<typeof sc.$inferInsert>)
+        .where(and(eq(sc.id, id), ownsSchedule(s), version))
+        .returning();
+      return row ? toSchedule(row) : null;
+    });
+  }
+
+  deleteSchedule(s: OwnerKey, id: string): Promise<boolean> {
+    return this.#in(s, async (tx) => {
+      const rows = await tx
+        .delete(sc)
+        .where(and(eq(sc.id, id), ownsSchedule(s)))
+        .returning({ id: sc.id });
+      return rows.length > 0;
+    });
+  }
+
+  listScheduleRuns(s: OwnerKey, scheduleId: string, limit: number): Promise<ScheduleRunRecord[]> {
+    return this.#in(s, async (tx) => {
+      const rows = await tx
+        .select()
+        .from(sr)
+        .where(and(eq(sr.scheduleId, scheduleId), ownsScheduleRun(s)))
+        .orderBy(desc(sr.startedAt), desc(sr.id))
+        .limit(Math.max(1, Math.min(limit, SCHEDULE_RUN_LIST_LIMIT)));
+      return rows.map(toScheduleRun);
+    });
+  }
+
+  getScheduleRun(s: OwnerKey, runId: string): Promise<ScheduleRunRecord | null> {
+    return this.#in(s, async (tx) => {
+      const [row] = await tx
+        .select()
+        .from(sr)
+        .where(and(eq(sr.id, runId), ownsScheduleRun(s)));
+      return row ? toScheduleRun(row) : null;
+    });
+  }
+
+  setRunThread(s: OwnerKey, runId: string, threadId: string): Promise<string | null> {
+    return this.#in(s, async (tx) => {
+      await this.#ownThread(tx, s, threadId);
+      const [set] = await tx
+        .update(sr)
+        .set({ threadId })
+        .where(and(eq(sr.id, runId), ownsScheduleRun(s), isNull(sr.threadId)))
+        .returning({ threadId: sr.threadId });
+      if (set) return set.threadId;
+      const [row] = await tx
+        .select({ threadId: sr.threadId })
+        .from(sr)
+        .where(and(eq(sr.id, runId), ownsScheduleRun(s)));
+      return row?.threadId ?? null;
+    });
+  }
+
+  countPendingScheduleProposals(s: OwnerKey, now: Date = new Date()): Promise<number> {
+    return this.#in(s, async (tx) => {
+      const [row] = await tx
+        .select({ n: sql<number>`count(*)::int` })
+        .from(pr)
+        .where(
+          and(
+            eq(pr.accountId, s.accountId),
+            eq(pr.ownerUserId, s.ownerUserId),
+            eq(pr.kind, 'schedule'),
+            eq(pr.routeKey, 'SCHEDULE create'),
+            eq(pr.status, 'pending'),
+            gte(pr.expiresAt, now),
+          ),
+        );
+      return Number(row?.n ?? 0);
+    });
+  }
+
+  claimDueSchedules(now: Date, limit: number, leaseMs: number): Promise<ScheduleRecord[]> {
+    const at = now.toISOString();
+    return this.#sys(async (tx) => {
+      const picked = await tx.execute<{ id: string }>(sql`
+        update assistant_schedules
+        set lease_until = ${at}::timestamptz + ${leaseMs}::int * interval '1 millisecond'
+        where id in (
+          select id from assistant_schedules
+          where status = 'active'
+            and (next_run_at <= ${at}::timestamptz or run_requested_at is not null)
+            and (lease_until is null or lease_until < ${at}::timestamptz)
+          order by coalesce(run_requested_at, next_run_at), id
+          limit ${limit}
+          for update skip locked)
+        returning id`);
+      const ids = [...picked].map((r) => r.id);
+      if (ids.length === 0) return [];
+      const rows = await tx.select().from(sc).where(inArray(sc.id, ids));
+      return rows
+        .map(toSchedule)
+        .sort(
+          (a, b) =>
+            (a.runRequestedAt ?? a.nextRunAt ?? now).getTime() -
+            (b.runRequestedAt ?? b.nextRunAt ?? now).getTime(),
+        );
+    });
+  }
+
+  insertScheduleRun(input: NewScheduleRun): Promise<ScheduleRunRecord | null> {
+    return this.#sys(async (tx) => {
+      const [row] = await tx
+        .insert(sr)
+        .values(input)
+        .onConflictDoNothing({ target: [sr.scheduleId, sr.scheduledFor] })
+        .returning();
+      return row ? toScheduleRun(row) : null;
+    });
+  }
+
+  finishScheduleRun(id: string, patch: ScheduleRunPatch): Promise<void> {
+    return this.#sys(async (tx) => {
+      const values = defined(patch);
+      if (Object.keys(values).length === 0) return;
+      await tx.update(sr).set(values).where(eq(sr.id, id));
+    });
+  }
+
+  saveScheduleState(id: string, patch: ScheduleStatePatch): Promise<void> {
+    return this.#sys(async (tx) => {
+      await tx
+        .update(sc)
+        .set({ ...defined(patch), leaseUntil: null })
+        .where(eq(sc.id, id));
+    });
+  }
+
+  purgeOldScheduleRuns(before: Date): Promise<number> {
+    return this.#sys(async (tx) => {
+      const rows = await tx.delete(sr).where(lt(sr.startedAt, before)).returning({ id: sr.id });
+      return rows.length;
     });
   }
 }

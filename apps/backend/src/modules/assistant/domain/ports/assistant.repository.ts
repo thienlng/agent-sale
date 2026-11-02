@@ -1,4 +1,15 @@
 import type { OwnerScope } from '../owner-scope.js';
+import type {
+  Cadence,
+  ScheduleChannel,
+  ScheduleCreatedBy,
+  ScheduleMode,
+  SchedulePausedReason,
+  ScheduleRunStatus,
+  ScheduleRunTrigger,
+  ScheduleStatus,
+  ScheduleTemplate,
+} from '../schedule.js';
 
 /**
  * The account and owner a repository call is limited to. Every `OwnerScope` is one; the worker
@@ -131,9 +142,13 @@ export const MEMORY_STORE_PATTERN = /^(owner_profile|notes|business:[0-9a-f-]{36
 
 export type ProposalStatus = 'pending' | 'executing' | 'done' | 'failed' | 'rejected' | 'expired';
 
+/** `route` = a declared route; `schedule` = a schedule create/edit/remove (T-172). */
+export type ProposalKind = 'route' | 'schedule' | 'product_import';
+
 /** A write the model drafted; it runs only when the owner approves it. */
 export interface ProposalRecord {
   id: string;
+  kind: ProposalKind;
   threadId: string;
   runId: string | null;
   businessId: string;
@@ -167,7 +182,7 @@ export type NewProposal = Pick<
   | 'summary'
   | 'preview'
   | 'expiresAt'
->;
+> & { kind?: ProposalKind };
 
 export interface ProposalPatch {
   errorCode?: string | null;
@@ -392,6 +407,142 @@ export interface NewJob {
 /** A job whose lease lapsed this many times is failed (`lease_expired`), not claimed again. */
 export const JOB_MAX_ATTEMPTS = 3;
 
+// ─── Schedules (T-172) ───
+
+export interface ScheduleRecord {
+  id: string;
+  accountId: string;
+  ownerUserId: string;
+  businessId: string;
+  /** ≤ 80 chars, safety-scanned before it is stored. */
+  name: string;
+  template: ScheduleTemplate;
+  mode: ScheduleMode;
+  params: Record<string, unknown>;
+  cadence: Cadence;
+  /** Always contains `in_app`. */
+  channels: ScheduleChannel[];
+  commentary: boolean;
+  status: ScheduleStatus;
+  pausedReason: SchedulePausedReason | null;
+  /** Null while paused. */
+  nextRunAt: Date | null;
+  /** Set by "Chạy ngay"; the runner clears it. */
+  runRequestedAt: Date | null;
+  leaseUntil: Date | null;
+  consecutiveFailures: number;
+  lastRunAt: Date | null;
+  lastCheckedAt: Date | null;
+  alertFingerprint: string | null;
+  lastAlertedAt: Date | null;
+  /** `new_orders` alerts: orders placed at or after it are new. */
+  alertCursor: Date | null;
+  createdBy: ScheduleCreatedBy;
+  createdAt: Date;
+  /** Millisecond precision; the optimistic-concurrency token of `updateSchedule`. */
+  updatedAt: Date;
+}
+
+export type NewSchedule = Pick<
+  ScheduleRecord,
+  | 'id'
+  | 'businessId'
+  | 'name'
+  | 'template'
+  | 'mode'
+  | 'params'
+  | 'cadence'
+  | 'channels'
+  | 'commentary'
+  | 'createdBy'
+  | 'nextRunAt'
+> &
+  Partial<Pick<ScheduleRecord, 'status' | 'pausedReason' | 'alertCursor'>>;
+
+/** An owner edit (or the service on their behalf); bumps `updated_at`. */
+export type SchedulePatch = Partial<
+  Pick<
+    ScheduleRecord,
+    | 'businessId'
+    | 'name'
+    | 'template'
+    | 'mode'
+    | 'params'
+    | 'cadence'
+    | 'channels'
+    | 'commentary'
+    | 'status'
+    | 'pausedReason'
+    | 'nextRunAt'
+    | 'runRequestedAt'
+    | 'consecutiveFailures'
+    | 'alertFingerprint'
+    | 'lastAlertedAt'
+    | 'alertCursor'
+  >
+>;
+
+/** The runner's bookkeeping; `saveScheduleState` also clears the lease. */
+export type ScheduleStatePatch = Partial<
+  Pick<
+    ScheduleRecord,
+    | 'status'
+    | 'pausedReason'
+    | 'nextRunAt'
+    | 'runRequestedAt'
+    | 'consecutiveFailures'
+    | 'lastRunAt'
+    | 'lastCheckedAt'
+    | 'alertFingerprint'
+    | 'lastAlertedAt'
+    | 'alertCursor'
+  >
+>;
+
+export interface ScheduleRunRecord {
+  id: string;
+  accountId: string;
+  ownerUserId: string;
+  scheduleId: string;
+  trigger: ScheduleRunTrigger;
+  scheduledFor: Date;
+  status: ScheduleRunStatus;
+  errorCode: string | null;
+  /** Template id, period and figures; no customer PII (S3-R9), ≤ 16 KB. */
+  report: Record<string, unknown> | null;
+  title: string | null;
+  body: string | null;
+  commentaryRunId: string | null;
+  notificationId: string | null;
+  /** The `origin: schedule` thread "Hỏi trợ lý" created (S3-R10). */
+  threadId: string | null;
+  startedAt: Date;
+  finishedAt: Date | null;
+}
+
+export type NewScheduleRun = Pick<
+  ScheduleRunRecord,
+  'id' | 'accountId' | 'ownerUserId' | 'scheduleId' | 'trigger' | 'scheduledFor'
+> &
+  Partial<Pick<ScheduleRunRecord, 'status' | 'errorCode' | 'finishedAt'>>;
+
+export type ScheduleRunPatch = Partial<
+  Pick<
+    ScheduleRunRecord,
+    | 'status'
+    | 'errorCode'
+    | 'report'
+    | 'title'
+    | 'body'
+    | 'commentaryRunId'
+    | 'notificationId'
+    | 'finishedAt'
+  >
+>;
+
+/** Runs listed per schedule at most. */
+export const SCHEDULE_RUN_LIST_LIMIT = 50;
+
 /** Threads listed per page. */
 export const THREAD_LIST_LIMIT = 50;
 /** A running run older than this no longer blocks a new one (crashed process). */
@@ -408,9 +559,16 @@ export interface AssistantRepository {
   /** ≤ 50, pinned first, then last_message_at desc; `text` matches the title or a message. */
   listThreads(s: OwnerScope, q: { archived: boolean; text?: string }): Promise<ThreadRecord[]>;
   getThread(s: OwnerScope, threadId: string): Promise<ThreadRecord | null>;
+  /** `origin` defaults to `chat`; a report thread is `schedule` (S3-R10). */
   createThread(
     s: OwnerScope,
-    t: { id: string; title: string; systemPrompt: string; promptVersion: string },
+    t: {
+      id: string;
+      title: string;
+      systemPrompt: string;
+      promptVersion: string;
+      origin?: 'chat' | 'schedule';
+    },
   ): Promise<ThreadRecord>;
   updateThread(
     s: OwnerScope,
@@ -612,6 +770,54 @@ export interface AssistantRepository {
    * state. With `ranBefore`, only owners whose curator last ran before it (or never).
    */
   ownersWithLearnedSkills(opts?: { ranBefore?: Date }): Promise<OwnerKey[]>;
+
+  // ─── Schedules (T-172) ───
+  // Owner methods filter on the account AND the owner; another owner's schedule is absent.
+
+  /** Oldest first. */
+  listSchedules(s: OwnerKey): Promise<ScheduleRecord[]>;
+  getSchedule(s: OwnerKey, id: string): Promise<ScheduleRecord | null>;
+  /** Active and paused alike. */
+  countSchedules(s: OwnerKey): Promise<number>;
+  createSchedule(s: OwnerKey, row: NewSchedule): Promise<ScheduleRecord>;
+  /**
+   * Applies the patch and bumps `updated_at`. With `expectedUpdatedAt`, only if the row still
+   * has it. Null when absent, another owner's, or stale.
+   */
+  updateSchedule(
+    s: OwnerKey,
+    id: string,
+    patch: SchedulePatch,
+    expectedUpdatedAt?: Date,
+  ): Promise<ScheduleRecord | null>;
+  /** Hard delete (runs cascade). False when absent or another owner's. */
+  deleteSchedule(s: OwnerKey, id: string): Promise<boolean>;
+  /** Newest first (`started_at` desc), at most `limit` (capped at `SCHEDULE_RUN_LIST_LIMIT`). */
+  listScheduleRuns(s: OwnerKey, scheduleId: string, limit: number): Promise<ScheduleRunRecord[]>;
+  getScheduleRun(s: OwnerKey, runId: string): Promise<ScheduleRunRecord | null>;
+  /**
+   * Sets the run's thread only while it is null, and returns the stored thread id (the earlier
+   * one when it was already set). Null when the run is absent or another owner's.
+   */
+  setRunThread(s: OwnerKey, runId: string, threadId: string): Promise<string | null>;
+  /** The owner's pending, unexpired `schedule` proposals that create a schedule. */
+  countPendingScheduleProposals(s: OwnerKey, now?: Date): Promise<number>;
+
+  /**
+   * Worker, across accounts (`app_system`): leases up to `limit` due schedules with
+   * `FOR UPDATE SKIP LOCKED` and `lease_until = now + leaseMs`, so two claimers never get the
+   * same one. Due = `active` and (`next_run_at <= now` or `run_requested_at` set) with no live
+   * lease. Ordered by `next_run_at`.
+   */
+  claimDueSchedules(now: Date, limit: number, leaseMs: number): Promise<ScheduleRecord[]>;
+  /** Worker: `ON CONFLICT (schedule_id, scheduled_for) DO NOTHING`; null on conflict. */
+  insertScheduleRun(row: NewScheduleRun): Promise<ScheduleRunRecord | null>;
+  /** Worker: patches a run by id. */
+  finishScheduleRun(id: string, patch: ScheduleRunPatch): Promise<void>;
+  /** Worker: patches the schedule's runner state and clears `lease_until`. */
+  saveScheduleState(id: string, patch: ScheduleStatePatch): Promise<void>;
+  /** Worker: deletes runs started before `before`; returns how many. */
+  purgeOldScheduleRuns(before: Date): Promise<number>;
 }
 
 export const ASSISTANT_REPOSITORY = Symbol('ASSISTANT_REPOSITORY');
