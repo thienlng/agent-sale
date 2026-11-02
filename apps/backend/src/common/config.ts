@@ -88,6 +88,12 @@ export const EnvSchema = z
      * none are registered and the 10-minute reconcile alone keeps synced data fresh.
      */
     PUBLIC_WEBHOOK_BASE_URL: z.url({ protocol: /^https?$/ }).optional(),
+    /**
+     * The Rapiz HQ business (ADR-021): the SaaS workspace where Rapiz sells Rapiz. Platform accounts
+     * are mirrored into it as customers with subscriptions. Unset turns the HQ sync off. Create it
+     * with `pnpm --filter @agent-sales/backend hq-init <owner email>`.
+     */
+    RAPIZ_HQ_WORKSPACE_ID: z.uuid().optional(),
   })
   .refine((env) => env.NODE_ENV !== 'production' || !!env.SECRETS_ENCRYPTION_KEY, {
     message: 'SECRETS_ENCRYPTION_KEY is required in production',

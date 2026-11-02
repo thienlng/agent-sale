@@ -12,6 +12,8 @@ import { BILLING_RUNNER, type BillingRunner } from '../modules/billing/api/index
 import { BillingModule } from '../modules/billing/billing.module.js';
 import { INTEGRATION_RUNNER, type IntegrationRunner } from '../modules/integration/api/index.js';
 import { IntegrationModule } from '../modules/integration/integration.module.js';
+import { SAAS_RUNNER, type SaasRunner } from '../modules/saas/api/index.js';
+import { SaasModule } from '../modules/saas/saas.module.js';
 
 /**
  * Worker entry: boots an application context (no HTTP) and registers the
@@ -19,7 +21,7 @@ import { IntegrationModule } from '../modules/integration/integration.module.js'
  * (outbound, campaign, workflow, indexer, scheduler). Processors live in each
  * module's application/jobs and are wired here as modules land.
  */
-@Module({ imports: [DbModule, AnalyticsModule, IntegrationModule, BillingModule] })
+@Module({ imports: [DbModule, AnalyticsModule, IntegrationModule, BillingModule, SaasModule] })
 class WorkerModule {}
 
 const env = configureEnv();
@@ -70,14 +72,43 @@ const billingTimer = setInterval(() => {
       billingBusy = false;
     });
 }, 2000);
+// Rapiz HQ sync (no-op unless RAPIZ_HQ_WORKSPACE_ID is set), and the saas daily jobs (reminders,
+// nightly HQ reconcile), each claimed once per day across workers.
+const saas = ctx.get<SaasRunner>(SAAS_RUNNER);
+let hqSyncing = false;
+const hqTimer = setInterval(() => {
+  if (hqSyncing) return;
+  hqSyncing = true;
+  void saas
+    .tick()
+    .catch(() => logger.error('HQ sync tick failed'))
+    .finally(() => {
+      hqSyncing = false;
+    });
+}, 2000);
+let dailyRunning = false;
+const runDaily = () => {
+  if (dailyRunning) return;
+  dailyRunning = true;
+  void saas
+    .daily()
+    .catch(() => logger.error('SaaS daily jobs failed'))
+    .finally(() => {
+      dailyRunning = false;
+    });
+};
+const dailyTimer = setInterval(runDaily, 15 * 60_000);
+runDaily();
 for (const signal of ['SIGINT', 'SIGTERM'] as const)
   // The intervals keep the worker alive; clearing them lets the process drain and exit.
   process.once(signal, () => {
     clearInterval(timer);
     clearInterval(syncTimer);
     clearInterval(billingTimer);
+    clearInterval(hqTimer);
+    clearInterval(dailyTimer);
   });
 logger.info(
   { queues },
-  'worker started (analytics projection, PMS sync, billing lifecycle; no queue processors registered yet)',
+  'worker started (analytics projection, PMS sync, billing lifecycle, HQ sync; no queue processors registered yet)',
 );

@@ -19,6 +19,15 @@ export const DEFAULT_SOURCES = [
  */
 export const KIOTVIET_SOURCE = { key: 'kiotviet', name: 'KiotViet', color: '#0070f4' } as const;
 
+/**
+ * The source of customers that signed up on the Rapiz platform (Rapiz HQ, ADR-021). Seeded by key
+ * on the first synced account only, like KiotViet.
+ */
+export const RAPIZ_SOURCE = { key: 'rapiz', name: 'Đăng ký Rapiz', color: '#7c3aed' } as const;
+
+/** The built-in source a linked system's new customers get. */
+export const EXTERNAL_SOURCE_OPTION = { kiotviet: KIOTVIET_SOURCE, rapiz: RAPIZ_SOURCE } as const;
+
 export const DEFAULT_STATUSES = [
   { key: 'new_data', name: 'New data', color: '#64748b' },
   { key: 'call', name: 'Cuộc gọi', color: '#0ea5e9' },
@@ -32,13 +41,17 @@ export const DEFAULT_STATUSES = [
 
 /**
  * A SaaS business tracks one customer from lead to subscriber (ADR-020): the subscription stage
- * moves `trial` → `paying` / `past_due` / `churned`, the bot moves a lead to `requested`.
+ * moves `trial` → `free_plan` / `paying` / `past_due` / `churned`, the bot moves a lead to
+ * `requested`; staff move it to `demo_scheduled` (spec §6.4). Migration 0054 adds the two later
+ * statuses to businesses seeded before.
  */
 export const SAAS_STATUSES = [
   { key: 'new_lead', name: 'Lead mới', color: '#64748b' },
   { key: 'contacted', name: 'Đã liên hệ', color: '#0ea5e9' },
   { key: 'requested', name: 'Xin demo / dùng thử', color: '#6366f1' },
+  { key: 'demo_scheduled', name: 'Đã hẹn demo', color: '#8b5cf6' },
   { key: 'trial', name: 'Dùng thử', color: '#f59e0b' },
+  { key: 'free_plan', name: 'Dùng gói miễn phí', color: '#94a3b8' },
   { key: 'paying', name: 'Khách trả phí', color: '#16a34a' },
   { key: 'past_due', name: 'Quá hạn thanh toán', color: '#f97316' },
   { key: 'churned', name: 'Rời bỏ', color: '#ef4444' },
