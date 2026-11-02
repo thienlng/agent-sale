@@ -87,6 +87,28 @@ export class InMemoryCommerce implements CommerceStore {
         findDefault: async () => this.warehouses.find((w) => w.isDefault) ?? null,
       },
       products: {
+        matchCodes: async (codes: string[], skus: string[]) => {
+          const found = (values: string[], known: string[]) => {
+            const lower = new Set(known.map((k) => k.toLowerCase()));
+            const seen = new Set<string>();
+            return values.filter((x) => {
+              const key = x.toLowerCase();
+              if (!lower.has(key) || seen.has(key)) return false;
+              seen.add(key);
+              return true;
+            });
+          };
+          return {
+            codes: found(
+              codes,
+              this.products.map((p) => p.code),
+            ),
+            skus: found(
+              skus,
+              this.variants.filter((v) => !v.archived).map((v) => v.sku),
+            ),
+          };
+        },
         findForBot: async (ids: string[], selectedFor?: string) =>
           this.#botVisible(selectedFor).filter((p) => ids.includes(p.id)),
         variantsByIds: async (ids: string[]) =>

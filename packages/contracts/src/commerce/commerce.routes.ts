@@ -4,6 +4,8 @@ import {
   BotProductsDto,
   ChangeOrderStatusRequest,
   CreateOrderRequest,
+  MatchProductCodesRequest,
+  MatchProductCodesResponse,
   OrderDto,
   OrderListQuery,
   OrderListResponse,
@@ -108,6 +110,19 @@ export const commerceRoutes = defineRoutes([
     tag: 'commerce',
     body: UpsertProductRequest,
     responses: { 201: ProductDto },
+  }),
+  route({
+    method: 'post',
+    path: '/products/match-codes',
+    assistant: {
+      use: 'read',
+      queryPost: true,
+      when: 'Check which product codes or SKUs already exist, for example before importing products.',
+    },
+    summary: 'Which of these product codes and SKUs already exist',
+    tag: 'commerce',
+    body: MatchProductCodesRequest,
+    responses: { 200: MatchProductCodesResponse },
   }),
   route({
     method: 'get',

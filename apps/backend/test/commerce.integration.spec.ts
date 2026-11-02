@@ -7,12 +7,13 @@ import {
   OrderListResponse,
   OrderOverviewResponse,
   OrderSettingsDto,
+  MatchProductCodesResponse,
   ProductDto,
   VariantSearchResponse,
   WarehouseDto,
 } from '@agent-sales/contracts';
 import { createDb, ensureLoginRoles, migrate, sql, withCredentials } from '@agent-sales/db';
-import { workspaceId } from '@agent-sales/shared';
+import { newId, workspaceId } from '@agent-sales/shared';
 import { startTestPostgres, type TestPostgres } from '@agent-sales/testing';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -352,6 +353,82 @@ describe('commerce on Postgres', () => {
     expect(overview.kpis.profit).toBe(120_000);
     expect(overview.today).toMatchObject({ created: 2, closedOrders: 1 });
     expect(overview.series).toHaveLength(1);
+  });
+
+  it('tells which product codes and SKUs exist, as sent, per shop and per capability', async () => {
+    const h1 = await owner('match-a@shop.vn');
+    const h2 = await owner('match-b@shop.vn');
+    const { product } = await setup(h1);
+    // An archived product still holds its code; an archived variant frees its SKU.
+    const old = await call(h1, 'POST', '/products', {
+      code: 'CU01',
+      name: 'Hàng cũ',
+      status: 'archived',
+      variants: [{ sku: 'CU01-A', price: 1 }],
+    });
+    expect(old.statusCode).toBe(201);
+    const edited = await call(h1, 'PUT', `/products/${product.id}`, {
+      code: product.code,
+      name: product.name,
+      variants: [product.variants[0]].map((v) => ({
+        id: v!.id,
+        sku: v!.sku,
+        name: v!.name,
+        price: v!.price,
+        cost: v!.cost,
+      })),
+    });
+    expect(edited.statusCode).toBe(200);
+    const archivedSku = product.variants[1]!.sku;
+
+    const body = {
+      codes: ['at01', 'CU01', 'NEW-1', 'At01'],
+      skus: ['at01-l', archivedSku, 'cu01-a', 'nope'],
+    };
+    const r1 = await call(h1, 'POST', '/products/match-codes', body);
+    expect(r1.statusCode, r1.body).toBe(200);
+    expect(MatchProductCodesResponse.parse(r1.json())).toEqual({
+      codes: ['at01', 'CU01'],
+      skus: ['at01-l', 'cu01-a'],
+    });
+    const r2 = await call(h2, 'POST', '/products/match-codes', body);
+    expect(r2.json()).toEqual({ codes: [], skus: [] });
+    expect((await call(h1, 'POST', '/products/match-codes', {})).statusCode).toBe(400);
+
+    // A member whose (legacy) role has no capability may not ask.
+    const signup = await app
+      .getHttpAdapter()
+      .getInstance()
+      .inject({
+        method: 'POST',
+        url: '/api/v1/auth/signup',
+        remoteAddress: `10.0.1.${++signups}`,
+        payload: {
+          name: 'Nhân viên',
+          email: 'match-staff@shop.vn',
+          password: 'a long enough password',
+          workspaceName: 'Shop NV',
+          industry: 'fashion',
+        },
+      });
+    const staff = AuthResponse.parse(signup.json());
+    const ws = h1['x-workspace-id'];
+    const owner_ = createDb({ url: pg.ownerUrl, max: 1 });
+    try {
+      await owner_.db.execute(
+        sql`insert into members (id, workspace_id, user_id, role, status)
+            values (${newId()}, ${ws}, ${staff.user.id}, 'viewer', 'active')`,
+      );
+    } finally {
+      await owner_.close();
+    }
+    const denied = await call(
+      { authorization: `Bearer ${staff.accessToken}`, 'x-workspace-id': ws ?? '' },
+      'POST',
+      '/products/match-codes',
+      body,
+    );
+    expect(denied.statusCode).toBe(403);
   });
 
   it('keeps catalogs and orders of different shops apart, and rejects duplicate SKUs', async () => {

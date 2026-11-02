@@ -1,5 +1,6 @@
 import type {
   AccommodationDetails,
+  MatchProductCodesResponse,
   AdjustStockRequest,
   BotProductsDto,
   ProductDto,
@@ -293,6 +294,14 @@ export class CatalogService {
   }
 
   // ─── Products ─────────────────────────────────────────────────────────────
+
+  /** Which of these codes and SKUs exist in the workspace, spelled as sent (case-insensitive). */
+  matchCodes(
+    ws: WorkspaceId,
+    req: { codes: string[]; skus: string[] },
+  ): Promise<MatchProductCodesResponse> {
+    return this.store.run(ws, (tx) => tx.products.matchCodes(req.codes, req.skus));
+  }
 
   listProducts(
     ws: WorkspaceId,

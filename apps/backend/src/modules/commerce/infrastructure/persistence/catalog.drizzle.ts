@@ -62,6 +62,17 @@ function foldedSql(expr: SQL): SQL {
 }
 
 /** Warehouses, products/variants and inventory inside one tenant transaction. */
+/** The values whose lowercase form is in `found`, as the caller spelled them, without repeats. */
+function asSent(values: string[], found: Set<string>): string[] {
+  const seen = new Set<string>();
+  return values.filter((x) => {
+    const key = x.toLowerCase();
+    if (!found.has(key) || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export function catalogTx(
   ws: WorkspaceId,
   tx: TenantTx,
@@ -151,6 +162,28 @@ export function catalogTx(
     },
 
     products: {
+      async matchCodes(codes, skus) {
+        const lowerCodes = [...new Set(codes.map((c) => c.toLowerCase()))];
+        const lowerSkus = [...new Set(skus.map((x) => x.toLowerCase()))];
+        const [codeRows, skuRows] = await Promise.all([
+          lowerCodes.length
+            ? tx
+                .selectDistinct({ k: sql<string>`lower(${p.code})` })
+                .from(p)
+                .where(inArray(sql`lower(${p.code})`, lowerCodes))
+            : [],
+          lowerSkus.length
+            ? tx
+                .selectDistinct({ k: sql<string>`lower(${v.sku})` })
+                .from(v)
+                .where(and(isNull(v.archivedAt), inArray(sql`lower(${v.sku})`, lowerSkus)))
+            : [],
+        ]);
+        return {
+          codes: asSent(codes, new Set(codeRows.map((r) => r.k))),
+          skus: asSent(skus, new Set(skuRows.map((r) => r.k))),
+        };
+      },
       async list({ q, status, selectedFor, source, offset, limit }) {
         const where = and(
           eq(p.status, status),
