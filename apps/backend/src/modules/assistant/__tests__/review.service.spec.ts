@@ -459,7 +459,10 @@ describe('ReviewService and the runner', () => {
     const later = await enqueue(s, threads[0]!.id, new Date(Date.now() + 60 * 60_000));
     const cancelled = await enqueue(s, threads[1]!.id);
     await s.repo.cancelJob(s.scope, { id: cancelled.id });
-    const due = await Promise.all(threads.slice(2).map((t) => enqueue(s, t.id)));
+    // Strictly older than `fourth`: claims order by runAfter, and ids within one ms do not.
+    const due = await Promise.all(
+      threads.slice(2).map((t) => enqueue(s, t.id, new Date(Date.now() - 1000))),
+    );
     const extra = await threadWithTalk(s);
     const fourth = await enqueue(s, extra.id);
 
