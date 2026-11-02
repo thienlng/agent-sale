@@ -116,6 +116,16 @@ describe('route catalog', () => {
     expect(onOrders).not.toEqual(plain);
   });
 
+  it('ranks the bot turn traces first for "why did the bot answer" on the inbox and bot pages', () => {
+    const query = 'why did the bot answer like that';
+    for (const page of ['/app/inbox', '/app/inbox/c1', '/app/bots/b1/playground']) {
+      expect(searchCatalog(ROUTE_CATALOG, query, page)[0]?.key).toBe('GET /bots/{botId}/turns');
+    }
+    // The inbox also boosts the conversation routes it shows.
+    const onInbox = searchCatalog(ROUTE_CATALOG, 'conversation messages', '/app/inbox');
+    expect(onInbox.slice(0, 3).map((e) => e.key)).toContain('GET /conversations/{id}');
+  });
+
   it('finds the GET twin of a write on the same path', () => {
     const put = ROUTE_CATALOG.get('PUT /products/{productId}');
     expect(put && ROUTE_CATALOG.readerOf(put)?.key).toBe('GET /products/{productId}');

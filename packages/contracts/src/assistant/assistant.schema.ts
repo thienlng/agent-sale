@@ -99,10 +99,13 @@ export type AssistantMessageDto = z.infer<typeof AssistantMessageDto>;
 export const AssistantMessageList = z.object({ data: z.array(AssistantMessageDto) });
 export type AssistantMessageList = z.infer<typeof AssistantMessageList>;
 
+/** Longest owner message; fits an endpoint's docs pasted for the API action autofill (T-174). */
+export const ASSISTANT_MESSAGE_MAX = 12_000;
+
 /** `turnId` is client-generated so a retried send does not run twice. */
 export const SendAssistantMessageRequest = z.object({
   turnId: z.uuid(),
-  text: z.string().trim().min(1).max(4000),
+  text: z.string().trim().min(1).max(ASSISTANT_MESSAGE_MAX),
   pageContext: AssistantPageContext.optional(),
 });
 export type SendAssistantMessageRequest = z.infer<typeof SendAssistantMessageRequest>;
@@ -132,6 +135,8 @@ export type AssistantRunDto = z.infer<typeof AssistantRunDto>;
 export const SendAssistantMessageResponse = z.object({
   messages: z.array(AssistantMessageDto),
   run: AssistantRunDto,
+  /** The owner's text carried secrets (keys, tokens, passwords); they were masked before storage. */
+  secretsRemoved: z.boolean().default(false),
 });
 export type SendAssistantMessageResponse = z.infer<typeof SendAssistantMessageResponse>;
 

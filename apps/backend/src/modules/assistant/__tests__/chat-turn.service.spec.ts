@@ -231,6 +231,27 @@ describe('ChatTurnService', () => {
     expect(again).toEqual(first);
   });
 
+  it('masks a pasted key before it is stored or sent to the model', async () => {
+    const { service, scope, thread, generate, repo } = await setup([ANSWER]);
+    const token = 'abcd1234efgh5678ijkl9012mnop3456';
+    const curl = `curl -H 'Authorization: Bearer ${token}' https://api.shop.vn/orders`;
+    const turnId = newId();
+    const out = await service.send(scope, thread.id, { turnId, text: curl }, AUTH);
+    expect(out.secretsRemoved).toBe(true);
+    const stored = (await repo.listMessages(scope, thread.id)).find((m) => m.role === 'user');
+    expect(stored?.content).toContain('Authorization: Bearer [secret removed]');
+    expect(stored?.content).not.toContain(token);
+    const sent = JSON.stringify(generate.mock.calls[0]![0].messages);
+    expect(sent).toContain('[secret removed]');
+    expect(sent).not.toContain(token);
+    expect((await repo.getThread(scope, thread.id))?.title).not.toContain(token);
+    // A retried turn id recomputes the flag from the stored (masked) text.
+    const again = await service.send(scope, thread.id, { turnId, text: curl }, AUTH);
+    expect(again.secretsRemoved).toBe(true);
+    const plain = await service.send(scope, thread.id, { turnId: newId(), text: 'Chào em' }, AUTH);
+    expect(plain.secretsRemoved).toBe(false);
+  });
+
   it('refuses a retried turn id on another thread', async () => {
     const { service, scope, thread, repo } = await setup();
     const other = await repo.createThread(scope, {

@@ -138,7 +138,11 @@ export class AssistantFacadeImpl implements AssistantFacade {
       authorization,
       actor.displayName,
     );
-    return { messages: toMessageDtos(turn.messages), run: toRunDto(turn.run) };
+    return {
+      messages: toMessageDtos(turn.messages),
+      run: toRunDto(turn.run),
+      secretsRemoved: turn.secretsRemoved,
+    };
   }
 
   async getRun(actor: AssistantActor, runId: string): Promise<AssistantRunDto> {

@@ -31,6 +31,22 @@ export interface RouteCatalog {
 export const SEARCH_LIMIT = 8;
 /** Added to the score of a route of the section the owner is looking at. */
 const PAGE_BOOST = 1.5;
+/**
+ * Pages whose routes live under other path sections: the inbox shows conversations, and its
+ * questions about a bot reply are answered from the bot's turn traces (T-174).
+ */
+const SECTION_ROUTES: Readonly<Record<string, readonly string[]>> = {
+  inbox: ['/conversations', '/bots/{botId}/turns'],
+};
+
+/** The page boosts a route of its own section, or a route its section maps to. */
+function onPage(entry: CatalogEntry, section: string | null): boolean {
+  if (!section) return false;
+  if (entry.path.split('/')[1] === section) return true;
+  return (SECTION_ROUTES[section] ?? []).some(
+    (p) => entry.path === p || entry.path.startsWith(`${p}/`),
+  );
+}
 
 /** Defensive: these never become tools, whatever their annotation says (extra ruling 3). */
 const EXCLUDED_PREFIXES = ['/assistant', '/auth'];
@@ -91,7 +107,8 @@ function pageSection(pageRoute: string | undefined): string | null {
 /**
  * The best entries for `query`: the number of its (unaccented, lowercased) words found in the
  * entry's key, summary and `when`, plus a boost when the route's first path segment is the
- * section of the page the owner is on (`/app/<section>/…`). Entries with no matching word are
+ * section of the page the owner is on (`/app/<section>/…`), or a path that section maps to
+ * (`SECTION_ROUTES`). Entries with no matching word are
  * left out; ties keep the key order, so the result is stable.
  */
 export function searchCatalog(
@@ -106,7 +123,7 @@ export function searchCatalog(
     .map((e) => {
       const have = new Set(tokens(`${e.key} ${e.summary} ${e.when}`));
       const hits = words.filter((w) => have.has(w)).length;
-      const boost = section && e.path.split('/')[1] === section ? PAGE_BOOST : 0;
+      const boost = onPage(e, section) ? PAGE_BOOST : 0;
       return { e, hits, score: hits + boost };
     })
     .filter((s) => s.hits > 0)
