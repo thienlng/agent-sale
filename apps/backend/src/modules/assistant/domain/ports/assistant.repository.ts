@@ -1,4 +1,12 @@
+import type { AssistantProposalKind } from '@agent-sales/contracts';
+
 import type { OwnerScope } from '../owner-scope.js';
+import type {
+  ImportDraft,
+  ImportOverrides,
+  ImportSourceData,
+  ImportSpec,
+} from '../product-import.js';
 
 /**
  * The account and owner a repository call is limited to. Every `OwnerScope` is one; the worker
@@ -59,8 +67,11 @@ export type NewMessage = Omit<
 export interface RunRecord {
   id: string;
   threadId: string | null;
-  /** `chat` = an owner turn; `compaction` = one summariser call (tier `basic`). */
-  kind: 'chat' | 'compaction';
+  /**
+   * `chat` = an owner turn; `compaction` = one summariser call (tier `basic`);
+   * `import_vision` = one photo-drafting call of a product import (T-173).
+   */
+  kind: 'chat' | 'compaction' | 'import_vision';
   status: 'running' | 'done' | 'failed';
   tier: string;
   provider: string | null;
@@ -152,22 +163,77 @@ export interface ProposalRecord {
   expiresAt: Date;
   decidedAt: Date | null;
   createdAt: Date;
+  /** `route` (1b), `schedule` or `product_import` (T-173). */
+  kind: AssistantProposalKind;
+  /** Set exactly when `kind` is `product_import`. */
+  importBatchId: string | null;
 }
 
-export type NewProposal = Pick<
-  ProposalRecord,
-  | 'id'
-  | 'threadId'
-  | 'runId'
-  | 'businessId'
-  | 'routeKey'
-  | 'path'
-  | 'query'
-  | 'body'
-  | 'summary'
-  | 'preview'
-  | 'expiresAt'
+export type NewProposal = Partial<Pick<ProposalRecord, 'kind' | 'importBatchId'>> &
+  Pick<
+    ProposalRecord,
+    | 'id'
+    | 'threadId'
+    | 'runId'
+    | 'businessId'
+    | 'routeKey'
+    | 'path'
+    | 'query'
+    | 'body'
+    | 'summary'
+    | 'preview'
+    | 'expiresAt'
+  >;
+
+// ─── Product import (T-173) ───
+
+export type ImportBatchKind = 'sheet' | 'photos';
+export type ImportBatchStatus = 'drafting' | 'ready';
+
+/** The outcome of one draft of an approved import. */
+export type ImportRowResult =
+  | { status: 'created'; productId: string; warnings?: string[] }
+  | { status: 'failed'; errorCode: string }
+  | { status: 'not_run' };
+
+/** An owner's product import: the source data, the last preview and the results so far. */
+export interface ImportBatchRecord {
+  id: string;
+  threadId: string;
+  businessId: string;
+  kind: ImportBatchKind;
+  /** ≤ 200 chars; `"<n> ảnh"` for photos. */
+  fileName: string;
+  status: ImportBatchStatus;
+  /** The raw rows or photo drafts; never sent to the web. */
+  source: ImportSourceData;
+  /** The last mapping spec that applied (sheets only). */
+  spec: ImportSpec | null;
+  overrides: ImportOverrides;
+  excluded: string[];
+  /** The last computed preview; null until the first one. */
+  drafts: ImportDraft[] | null;
+  draftsHash: string | null;
+  /** `{[draftKey]: result}`. */
+  results: Record<string, ImportRowResult>;
+  rowCount: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type NewImportBatch = Pick<
+  ImportBatchRecord,
+  'id' | 'threadId' | 'businessId' | 'kind' | 'fileName' | 'status' | 'source' | 'rowCount'
 >;
+
+/** A computed preview, stored in one write. */
+export type ImportPreview = Pick<
+  ImportBatchRecord,
+  'spec' | 'overrides' | 'excluded' | 'drafts' | 'draftsHash'
+>;
+
+/** Batches older than this are purged when the owner creates a new one (C4-R13). */
+export const IMPORT_BATCH_RETENTION_MS = 30 * 86_400_000;
 
 export interface ProposalPatch {
   errorCode?: string | null;
@@ -612,6 +678,29 @@ export interface AssistantRepository {
    * state. With `ranBefore`, only owners whose curator last ran before it (or never).
    */
   ownersWithLearnedSkills(opts?: { ranBefore?: Date }): Promise<OwnerKey[]>;
+
+  // ─── Product import (T-173) ───
+
+  /** The thread must be the owner's; results start empty, the preview null. */
+  createImportBatch(s: OwnerScope, b: NewImportBatch): Promise<ImportBatchRecord>;
+  /** Null when absent or another owner's. */
+  getImportBatch(s: OwnerScope, id: string): Promise<ImportBatchRecord | null>;
+  /** Stores a computed preview (spec, overrides, excluded, drafts, hash); NOT_FOUND if not the owner's. */
+  saveImportPreview(s: OwnerScope, id: string, p: ImportPreview): Promise<void>;
+  /**
+   * Sets one draft's result in one UPDATE (`results || {key: result}`), so concurrent writes of
+   * different keys keep each other's. NOT_FOUND if not the owner's.
+   */
+  recordImportResult(
+    s: OwnerScope,
+    id: string,
+    draftKey: string,
+    result: ImportRowResult,
+  ): Promise<void>;
+  /** Deletes the owner's batches created before `olderThan` (and their proposals); returns how many. */
+  purgeImportBatches(s: OwnerScope, olderThan: Date): Promise<number>;
+  /** The batch's `pending` proposals, created_at asc. */
+  pendingImportProposals(s: OwnerScope, batchId: string): Promise<ProposalRecord[]>;
 }
 
 export const ASSISTANT_REPOSITORY = Symbol('ASSISTANT_REPOSITORY');

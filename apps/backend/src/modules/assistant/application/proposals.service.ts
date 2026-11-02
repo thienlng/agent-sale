@@ -31,6 +31,8 @@ export function toProposalDto(p: ProposalRecord): AssistantProposalDto {
     createdAt: p.createdAt.toISOString(),
     expiresAt: p.expiresAt.toISOString(),
     decidedAt: p.decidedAt?.toISOString() ?? null,
+    kind: p.kind,
+    importBatchId: p.importBatchId,
   };
 }
 

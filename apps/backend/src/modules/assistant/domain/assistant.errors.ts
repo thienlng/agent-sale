@@ -4,7 +4,15 @@ import { DomainError } from '@agent-sales/shared';
 export class AssistantNotFoundError extends DomainError {
   readonly code = 'NOT_FOUND';
   constructor(
-    what: 'thread' | 'run' | 'memory entry' | 'proposal' | 'message' | 'skill' | 'skill event',
+    what:
+      | 'thread'
+      | 'run'
+      | 'memory entry'
+      | 'proposal'
+      | 'message'
+      | 'skill'
+      | 'skill event'
+      | 'import batch',
     id: string,
   ) {
     super(`Assistant ${what} not found`, { id });
