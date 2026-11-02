@@ -77,9 +77,23 @@ export function hqSubscriptionFacts(
   };
 }
 
-/** Same facts? (the reconcile repairs only drift, so a clean run writes nothing). */
+const FACT_KEYS = [
+  'planName',
+  'stage',
+  'billingPeriod',
+  'mrr',
+  'trialEndsOn',
+  'startedOn',
+  'renewsOn',
+  'canceledOn',
+] as const satisfies ReadonlyArray<keyof HqSubscriptionFacts>;
+
+/**
+ * Same synced facts? Other fields of either side (a stored row's id, seats…) are ignored. The
+ * reconcile repairs only drift, so a clean run writes nothing.
+ */
 export function sameFacts(a: HqSubscriptionFacts, b: HqSubscriptionFacts): boolean {
-  return (Object.keys(a) as (keyof HqSubscriptionFacts)[]).every((k) => a[k] === b[k]);
+  return FACT_KEYS.every((k) => a[k] === b[k]);
 }
 
 export type ReminderKind = SubscriptionReminderV1['kind'];
