@@ -39,11 +39,15 @@ function open(onOpenChange = vi.fn()) {
 }
 
 describe('CreateBusinessDialog', () => {
-  it('offers every template with a one-line description and no default choice', () => {
+  it('offers only the verified templates with a one-line description and no default choice', () => {
     open();
     const dialog = screen.getByRole('dialog', { name: 'Tạo business mới' });
     const radios = within(dialog).getAllByRole('radio');
-    expect(radios).toHaveLength(10);
+    expect(radios.map((r) => r.id)).toEqual([
+      'business-template-retail',
+      'business-template-hotel',
+      'business-template-saas',
+    ]);
     expect(radios.some((r) => r.getAttribute('aria-checked') === 'true')).toBe(false);
     expect(
       within(dialog).getByText('Khách sạn, homestay, villa: phòng, giá, nhận/trả phòng, đặt cọc'),

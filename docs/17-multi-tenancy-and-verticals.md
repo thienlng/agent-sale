@@ -50,6 +50,8 @@ manifest = {
 
 ### Industry groups and initial packs
 
+Sign-up and business creation offer only the verticals with a verified product flow: `retail`, `hotel` (villa/homestay) and `saas` (`SELECTABLE_INDUSTRIES` in `packages/contracts`). The other `Industry` values stay valid for existing businesses and for the seed packs.
+
 | Group | Packs (initial) | Primary object | Conversion event | Typical tools |
 |---|---|---|---|---|
 | Retail & returning customers | e-commerce, fashion, phone/electronics, restaurant (menu + table request) | `order` (+ `appointment` for tables) | order confirmed / delivered; repeat order | `search_products`, `show_product`, `create_order_draft`, `get_customer_orders` |

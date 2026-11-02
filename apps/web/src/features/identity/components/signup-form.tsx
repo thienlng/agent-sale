@@ -1,4 +1,4 @@
-import { Industry } from '@agent-sales/contracts';
+import { type Industry, SELECTABLE_INDUSTRIES } from '@agent-sales/contracts';
 import { Link } from '@tanstack/react-router';
 import { type FormEvent, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -115,7 +115,7 @@ export function SignupForm({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {Industry.options.map((i) => (
+              {SELECTABLE_INDUSTRIES.map((i) => (
                 <SelectItem key={i} value={i}>
                   {t(`industries.${i}`)}
                 </SelectItem>

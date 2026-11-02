@@ -7,7 +7,7 @@ import { BotProfile } from './profile.js';
 export const ModelTier = z.enum(['basic', 'smart', 'pro', 'neo']);
 export type ModelTier = z.infer<typeof ModelTier>;
 
-export { Industry } from './industry.js';
+export { Industry, SELECTABLE_INDUSTRIES } from './industry.js';
 
 const ClockTime = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 /** Daily reply window in Vietnam time (Asia/Ho_Chi_Minh); `end` before `start` spans midnight. */
