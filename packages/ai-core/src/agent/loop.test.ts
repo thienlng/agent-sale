@@ -1,13 +1,8 @@
-import type { GenerateRequest, GenerateResponse, ToolCall } from '@agent-sales/ai-core';
+import type { GenerateRequest, GenerateResponse, ToolCall } from '../gateway.js';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import {
-  AGENT_BUDGET_MS,
-  AGENT_MAX_ROUNDS,
-  WRAP_UP_NOTICE,
-  runAgentLoop,
-} from '../application/agent-loop.js';
-import type { RunnableTool } from '../application/tool-runner.js';
+import { AGENT_BUDGET_MS, AGENT_MAX_ROUNDS, WRAP_UP_NOTICE, runAgentLoop } from './loop.js';
+import type { RunnableTool } from './tool-runner.js';
 
 const usage = { inputTokens: 1, outputTokens: 2, cachedInputTokens: 0 };
 const reply = (text: string, toolCalls: ToolCall[] = []): GenerateResponse => ({

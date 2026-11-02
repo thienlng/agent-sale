@@ -1,6 +1,8 @@
 import type {
+  AgentLoopResult,
   GenerateRequest,
   GenerateResponse,
+  RunnableTool,
   ToolDefinition,
   Usage,
 } from '@agent-sales/ai-core';
@@ -13,7 +15,6 @@ import { defaultFallbackMessage, defaultHandoffMessage } from '../domain/default
 import { normalizeReplyText } from '../domain/reply-text.js';
 import { productImages } from '../domain/image-allowlist.js';
 import { type ActionToolContext, playgroundConversationId, runActionTool } from './action-tools.js';
-import type { AgentLoopResult } from './agent-loop.js';
 import { CALCULATE_TOOL, calculateTool } from './calculator.js';
 import { type HoldToolContext, holdTools } from './hold-tools.js';
 import { type OrderToolContext, orderTools } from './order-tools.js';
@@ -25,7 +26,6 @@ import {
   outputTools,
   type SentMessage,
 } from './output-tools.js';
-import type { RunnableTool } from './tool-runner.js';
 
 /** A model's tool set for the loop: definitions for the request, executors for the runner. */
 export interface ToolSet {

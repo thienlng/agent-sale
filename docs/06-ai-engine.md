@@ -78,7 +78,7 @@ The flowchart is the target design. **Implemented now (agent harness v2, [ADR-01
 
 Tool availability per workspace is declared by its vertical pack (`docs/17` §3); tools not in the pack are not exposed to the model.
 
-**Implemented now (agent harness v2, `sales-agent@15` / `@18` for hotel bots; §3.5):** the reply agent runs the Hermes-style agent loop (`apps/backend/src/modules/ai/application/agent-loop.ts`: at most 10 rounds, a 120 s budget with a wrap-up notice at 80 %, interrupt checks; 3 action executions per customer turn) with these tools only:
+**Implemented now (agent harness v2, `sales-agent@15` / `@18` for hotel bots; §3.5):** the reply agent runs the Hermes-style agent loop (`runAgentLoop` in `packages/ai-core/src/agent/loop.ts`: at most 10 rounds, a 120 s budget with a wrap-up notice at 80 %, interrupt checks; 3 action executions per customer turn) with these tools only:
 
 | Tool | Result |
 |---|---|

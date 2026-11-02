@@ -1,12 +1,16 @@
 import { z } from 'zod';
-import { INVALID_JSON_INPUT_KEY, type ToolCall, type ToolDefinition } from '@agent-sales/ai-core';
+import {
+  INVALID_JSON_INPUT_KEY,
+  type RunnableTool,
+  type ToolCall,
+  type ToolDefinition,
+} from '@agent-sales/ai-core';
 import type { ProductDto } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
 
 import type { BotCatalogScope, CatalogFacade } from '../../commerce/api/catalog.facade.js';
 import { compactProduct, productDetails } from '../domain/product-view.js';
 import { safeJson } from './action-tools.js';
-import type { RunnableTool } from './tool-runner.js';
 
 export interface ToolResult {
   /** The JSON the model receives. */

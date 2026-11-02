@@ -4,7 +4,7 @@ import type {
   GenerateResponse,
   ToolCall,
   Usage,
-} from '@agent-sales/ai-core';
+} from '../gateway.js';
 import { repairToolName } from './tool-repair.js';
 import { runToolBatch, type RunnableTool } from './tool-runner.js';
 

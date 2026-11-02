@@ -1,4 +1,4 @@
-import type { ToolCall } from '@agent-sales/ai-core';
+import type { ToolCall } from '../gateway.js';
 import type { ZodType } from 'zod';
 import { repairArguments, repairToolName } from './tool-repair.js';
 

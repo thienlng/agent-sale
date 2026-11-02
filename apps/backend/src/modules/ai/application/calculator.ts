@@ -1,4 +1,4 @@
-import type { ToolDefinition } from '@agent-sales/ai-core';
+import type { RunnableTool, ToolDefinition } from '@agent-sales/ai-core';
 import {
   all,
   type BigNumber,
@@ -10,8 +10,6 @@ import {
   type ParenthesisNode,
 } from 'mathjs';
 import { z } from 'zod';
-
-import type { RunnableTool } from './tool-runner.js';
 
 export const MAX_EXPRESSION_CHARS = 300;
 const MAX_EXPONENT = 15;

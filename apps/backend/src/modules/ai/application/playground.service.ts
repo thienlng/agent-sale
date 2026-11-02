@@ -1,4 +1,11 @@
-import { type GenerateRequest, PROMPTS_DIR, PromptRegistry } from '@agent-sales/ai-core';
+import {
+  type AgentLoopResult,
+  type AgentStep,
+  type GenerateRequest,
+  PROMPTS_DIR,
+  PromptRegistry,
+  runAgentLoop,
+} from '@agent-sales/ai-core';
 import type { PlaygroundRequest, PlaygroundResponse } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
@@ -57,7 +64,6 @@ import {
   newActionToolState,
   playgroundConversationId,
 } from './action-tools.js';
-import { type AgentLoopResult, type AgentStep, runAgentLoop } from './agent-loop.js';
 import { createHistorySummarizer } from './history-summarizer.js';
 import {
   HOLD_CONFIRM_PAYLOAD,

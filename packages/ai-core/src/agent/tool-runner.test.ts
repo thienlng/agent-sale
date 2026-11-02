@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { runToolBatch, type RunnableTool } from '../application/tool-runner.js';
+import { runToolBatch, type RunnableTool } from './tool-runner.js';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const call = (id: string, name: string, input: unknown = {}) => ({ id, name, input });

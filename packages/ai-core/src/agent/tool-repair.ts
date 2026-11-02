@@ -1,4 +1,4 @@
-import { INVALID_JSON_INPUT_KEY } from '@agent-sales/ai-core';
+import { INVALID_JSON_INPUT_KEY } from '../gateway.js';
 
 const MAX_NAME_DISTANCE = 2;
 
