@@ -364,6 +364,14 @@ Superseded in part by the lodging module above; the table and column stay until 
 
 Migration 0052 adds one forced-RLS tenant table owned by the `saas` module. `saas_subscriptions`: one row per customer (unique `(workspace_id, contact_id)`, composite FK cascading with the contact), stage / billing period checks, `mrr bigint >= 0`, seats, trial / start / renewal / cancellation dates (a trial needs its end, a cancellation its date), optional `external_ref` unique per workspace when set, optimistic `version`. Demo / trial requests have no table: they are a customer status (`requested`, from the SaaS set of built-in `crm_statuses`) and a note. See [SaaS businesses](saas.md).
 
+Migration 0054 (SaaS v2 and Rapiz HQ, ADR-021) is additive:
+- `saas_plans(id, workspace_id, name, prices JSONB {monthly?, quarterly?, semiannual?, yearly?: whole-period VND}, position, archived_at, version, created_at, updated_at)` — forced RLS; active names unique per workspace (case-insensitive, partial index); archived, never deleted.
+- `saas_subscriptions` gains stage `free`, period `semiannual`, `plan_id` (composite FK to `saas_plans`), `churn_reason` (enum check) and `churn_note`, `external_source` (`rapiz` or null: the platform owns plan, stage, dates and MRR), `usage_used` / `usage_limit` / `usage_at` (last platform usage snapshot) and `reminders_sent JSONB` (reminder keys already turned into notes); partial indexes on trial end and renewal dates for the reminder scan.
+- `saas_subscription_history(id, workspace_id, subscription_id, contact_id, from_stage, to_stage, from_plan, to_plan, from_mrr, to_mrr, churn_reason, source (staff|sync|system), actor_user_id, changed_at)` — forced RLS, append-only for the app roles (select, insert).
+- `saas_hq_links(workspace_id, account_id, contact_id, applied JSONB, created_at, updated_at, PK(workspace_id, account_id))` — forced RLS; which HQ customer mirrors a platform account and the last applied event time per kind (ordering, idempotency).
+- `saas_hq_checkpoints(consumer PK, horizon, updated_at)` and `saas_hq_dead_letters(outbox_id PK, type, error, created_at)` — platform data, `app_system` only (no tenant grant).
+- `crm_statuses`: SaaS businesses already seeded get `demo_scheduled` after `requested` and `free_plan` after `trial`. `contacts`: partial index `(workspace_id, email_normalized, created_at)` over live, unlinked customers for adoption by email.
+
 ## Implemented platform admin (ADR-021, migration 0053)
 
 Global tables (no `workspace_id`, no tenant grant; `app_system` only), owned by `billing` unless noted:
