@@ -28,7 +28,7 @@ if [[ ! -f $DIR/.env ]]; then
   pem() { awk '{printf "%s\\n", $0}'; }
   key=$(mktemp)
   openssl genpkey -algorithm ed25519 -out "$key"
-  owner=$(pw) tenant=$(pw) system=$(pw)
+  owner=$(pw) tenant=$(pw) system=$(pw) assistant=$(pw)
   umask 077
   cat > "$DIR/.env" <<ENV
 # Rapiz production environment. Secrets: never commit, never paste into chat or logs.
@@ -39,6 +39,8 @@ POSTGRES_OWNER_PASSWORD=$owner
 DATABASE_OWNER_URL=postgres://rapiz_owner:$owner@postgres:5432/rapiz
 DATABASE_URL=postgres://rapiz_tenant:$tenant@postgres:5432/rapiz
 DATABASE_SYSTEM_URL=postgres://rapiz_system:$system@postgres:5432/rapiz
+# Read-only SQL lane of the owner assistant (T-171); unset = lane off.
+DATABASE_ASSISTANT_SQL_URL=postgres://rapiz_assistant:$assistant@postgres:5432/rapiz
 REDIS_URL=redis://redis:6379
 
 S3_ENDPOINT=http://object-storage:8333

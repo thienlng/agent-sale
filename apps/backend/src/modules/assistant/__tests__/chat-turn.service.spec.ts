@@ -57,6 +57,7 @@ const AUTH = 'Bearer owner-token';
 async function setup(
   script: (GenerateResponse | Error)[] = [NAVIGATE, ANSWER],
   sqlRunner: SqlRunner | null = null,
+  skills = new SkillCatalog([]),
 ) {
   const repo = new InMemoryAssistantRepository();
   const scope: OwnerScope = {
@@ -73,7 +74,6 @@ async function setup(
   const invoke = vi.fn((_i: RouteInvocation): Promise<RouteInvocationResult> =>
     Promise.resolve({ status: 200, body: {} }),
   );
-  const skills = new SkillCatalog([]);
   const workspace = { listMemberships: () => Promise.resolve([]) } as unknown as WorkspaceFacade;
   const compaction = new CompactionService(
     repo,
@@ -684,6 +684,22 @@ describe('ChatTurnService with the SQL lane', () => {
       AUTH,
     );
     expect(bad.messages.at(-1)).toMatchObject({ content: FALLBACK_REPLY, uiActions: [] });
+  });
+
+  it('loads the answer-data-questions platform skill in a turn', async () => {
+    const catalog = await SkillCatalog.load();
+    const t = await setup(
+      [call('c1', 'load_skill', { name: 'answer-data-questions' }), ANSWER],
+      new FakeSqlRunner(),
+      catalog,
+    );
+    await t.service.send(t.scope, t.thread.id, { turnId: newId(), text: 'Doanh thu?' }, AUTH);
+    expect(toolResult(t.generate)).toMatchObject({
+      name: 'answer-data-questions',
+      body: catalog.get('answer-data-questions')?.body,
+    });
+    expect(catalog.get('answer-data-questions')?.toolsets).toEqual(['sql']);
+    expect(catalog.get('read-revenue')).toMatchObject({ version: 2, toolsets: ['sql', 'routes'] });
   });
 
   it('has no SQL tools without a runner', async () => {

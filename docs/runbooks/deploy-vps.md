@@ -77,6 +77,23 @@ If the services do not become healthy, `deploy.sh` restarts the previous tag and
 
 Migrations only move forward, so they must stay backward compatible (docs/10 §3). The previous release then still works on the migrated schema.
 
+## Owner assistant SQL lane (existing installs)
+
+The owner assistant answers number questions through a read-only SQL login (`rapiz_assistant`, member of `app_assistant_sql` only; T-171). `bootstrap.sh` writes `DATABASE_ASSISTANT_SQL_URL` for new installs. On a server whose `.env` predates it, add the line once, as `deploy` in `/opt/apps/rapiz`:
+
+```bash
+echo "DATABASE_ASSISTANT_SQL_URL=postgres://rapiz_assistant:$(openssl rand -hex 24)@postgres:5432/rapiz" >> .env
+./deploy.sh <sha>
+```
+
+The `migrate` service (`--login-roles`) creates the login with that password, and `api` reads the URL from `.env`. Check the login exists:
+
+```bash
+docker compose exec postgres psql -U rapiz_owner -d rapiz -c "select rolname from pg_roles where rolname = 'rapiz_assistant'"
+```
+
+Without the line, the SQL lane is off: the assistant falls back to the sales overview route for revenue questions.
+
 ## Optional: ChatGPT-plan bridge (testing only)
 
 Bots can run on a ChatGPT-plan login through the Hermes bridge (`services/hermes`) instead of a paid API key. It handles one turn at a time and a personal plan is not meant for a hosted product (see `services/hermes/README.md`), so use it for testing only.
