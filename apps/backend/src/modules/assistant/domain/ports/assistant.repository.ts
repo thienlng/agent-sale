@@ -179,6 +179,8 @@ export interface ProposalRecord {
   status: ProposalStatus;
   errorCode: string | null;
   resultPreview: string | null;
+  /** The `id` (uuid) of what a done proposal created, from its 2xx response body. */
+  resultId: string | null;
   expiresAt: Date;
   decidedAt: Date | null;
   createdAt: Date;
@@ -257,6 +259,7 @@ export const IMPORT_BATCH_RETENTION_MS = 30 * 86_400_000;
 export interface ProposalPatch {
   errorCode?: string | null;
   resultPreview?: string | null;
+  resultId?: string | null;
   decidedAt?: Date | null;
 }
 

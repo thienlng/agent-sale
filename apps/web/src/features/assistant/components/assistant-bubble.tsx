@@ -3,6 +3,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useAssistantRequest } from '@/lib/assistant-context';
+import { registerAssistantOpener } from '@/lib/assistant-launch';
 import { loadNamespace } from '@/lib/i18n';
 import { useWorkspaceId } from '@/lib/use-workspace';
 import { cn } from '@/lib/utils';
@@ -35,6 +36,15 @@ export function AssistantBubble() {
   // Once loaded the panel stays mounted, so a spotlight survives closing it.
   const [loaded, setLoaded] = useState(open);
   if (open && !loaded) setLoaded(true);
+  // Other features open the panel through lib/assistant-launch, only while the bubble is shown.
+  const openWith = useAssistantUi((s) => s.openWith);
+  useEffect(() => {
+    if (!isOwner) return;
+    return registerAssistantOpener((text, entity) => {
+      setLoaded(true);
+      openWith(text, entity);
+    });
+  }, [isOwner, openWith]);
   if (!isOwner) return null;
   return (
     <>

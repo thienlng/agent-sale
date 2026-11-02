@@ -1,5 +1,7 @@
 import {
+  maskOwnerSecrets,
   runAgentLoop,
+  SECRET_REMOVED,
   type AgentLoopResult,
   type AgentStep,
   type ChatMessage,
@@ -78,6 +80,8 @@ export interface TurnResult {
   /** The visible messages of the turn (the owner's text, then the answer). */
   messages: MessageRecord[];
   run: RunRecord & { steps: StepRecord[] };
+  /** The owner's text carried secrets; the stored message and the model saw them masked. */
+  secretsRemoved: boolean;
 }
 
 const row = (over: Partial<NewMessage> & Pick<NewMessage, 'role' | 'content'>): NewMessage => ({
@@ -257,7 +261,9 @@ export class ChatTurnService {
     const messages = (await this.repo.listMessages(scope, threadId)).filter(
       (m) => m.runId === runId && isVisibleMessage(m),
     );
-    return { messages, run };
+    // Recomputed from the stored (already masked) owner message.
+    const owner = messages.find((m) => m.role === 'user');
+    return { messages, run, secretsRemoved: owner?.content.includes(SECRET_REMOVED) ?? false };
   }
 
   /**
@@ -292,15 +298,19 @@ export class ChatTurnService {
     const startedAt = Date.now();
     const runId = req.turnId;
     let thread = initial;
+    // Pasted keys never reach storage or the model (spec C5 §7.2): only the masked text is used.
+    const masked = maskOwnerSecrets(req.text);
+    const text = masked.text;
+    const secretsRemoved = masked.removed > 0;
     // The import block is stored with the owner's text, so later turns replay it unchanged;
     // the web never sees it (`toMessageDtos`).
-    const content = importBlock ? `${importBlock}\n${req.text}` : req.text;
+    const content = importBlock ? `${importBlock}\n${text}` : text;
     const [user] = await this.repo.appendMessages(scope, thread.id, [
       row({ role: 'user', content, pageContext: req.pageContext ?? null, runId }),
     ]);
     if (!user) throw new Error('assistant user message was not stored');
     if (!thread.title.trim()) {
-      const title = Array.from(req.text).slice(0, TITLE_CHARS).join('').trim();
+      const title = Array.from(text).slice(0, TITLE_CHARS).join('').trim();
       await this.repo.updateThread(scope, thread.id, { title });
     }
 
@@ -310,7 +320,7 @@ export class ChatTurnService {
 
     const stored = await this.repo.listMessages(scope, thread.id, { activeOnly: true });
     const turnText = buildTurnMessage(
-      req.text,
+      text,
       req.pageContext,
       new Date(),
       scope.businessId,
@@ -426,16 +436,16 @@ export class ChatTurnService {
         guardrail: 'model_error',
         finishedAt: new Date(),
       });
-      return this.#result(scope, runId, [user, ...(answer ? [answer] : [])]);
+      return this.#result(scope, runId, [user, ...(answer ? [answer] : [])], secretsRemoved);
     }
 
-    const text = result.res?.text.trim() ?? '';
-    const answered = result.outcome === 'done' && text.length > 0;
+    const replyText = result.res?.text.trim() ?? '';
+    const answered = result.outcome === 'done' && replyText.length > 0;
     const added = await this.repo.appendMessages(scope, thread.id, [
       ...result.followUps.map((m) => toRow(m, runId)),
       row({
         role: 'assistant',
-        content: answered ? text : FALLBACK_REPLY,
+        content: answered ? replyText : FALLBACK_REPLY,
         uiActions: answered ? finalUiActions(ctx.uiActions) : [],
         runId,
       }),
@@ -454,7 +464,7 @@ export class ChatTurnService {
     });
     // Only a turn that answered counts toward the background review (spec §11).
     if (answered) await this.#scheduleReview(scope, thread, result, settings);
-    return this.#result(scope, runId, [user, ...added]);
+    return this.#result(scope, runId, [user, ...added], secretsRemoved);
   }
 
   /**
@@ -530,9 +540,14 @@ export class ChatTurnService {
     }
   }
 
-  async #result(scope: OwnerScope, runId: string, rows: MessageRecord[]): Promise<TurnResult> {
+  async #result(
+    scope: OwnerScope,
+    runId: string,
+    rows: MessageRecord[],
+    secretsRemoved: boolean,
+  ): Promise<TurnResult> {
     const run = await this.repo.getRun(scope, runId);
     if (!run) throw new AssistantNotFoundError('run', runId);
-    return { messages: rows.filter(isVisibleMessage), run };
+    return { messages: rows.filter(isVisibleMessage), run, secretsRemoved };
   }
 }

@@ -120,6 +120,16 @@ describe('route catalog', () => {
     expect(onOrders).not.toEqual(plain);
   });
 
+  it('ranks the bot turn traces first for "why did the bot answer" on the inbox and bot pages', () => {
+    const query = 'why did the bot answer like that';
+    for (const page of ['/app/inbox', '/app/inbox/c1', '/app/bots/b1/playground']) {
+      expect(searchCatalog(ROUTE_CATALOG, query, page)[0]?.key).toBe('GET /bots/{botId}/turns');
+    }
+    // The inbox also boosts the conversation routes it shows.
+    const onInbox = searchCatalog(ROUTE_CATALOG, 'conversation messages', '/app/inbox');
+    expect(onInbox.slice(0, 3).map((e) => e.key)).toContain('GET /conversations/{id}');
+  });
+
   it('finds the GET twin of a write on the same path', () => {
     const put = ROUTE_CATALOG.get('PUT /products/{productId}');
     expect(put && ROUTE_CATALOG.readerOf(put)?.key).toBe('GET /products/{productId}');
@@ -157,6 +167,127 @@ describe('tool_search and tool_describe', () => {
       ok: false,
       errorCode: 'unknown_key',
     });
+  });
+});
+
+describe('bot API action drafts (narrowed body)', () => {
+  const BOT = newId();
+  const DRAFT = {
+    name: 'Tra cứu đơn',
+    description: 'Gọi khi khách hỏi tình trạng đơn và đã cho mã đơn.',
+    url: 'https://shop.example.com/api/orders/{code}',
+    method: 'GET',
+    params: [
+      { name: 'code', type: 'string', location: 'path', required: true, description: 'Mã đơn' },
+    ],
+    responses: [
+      {
+        statusCode: 200,
+        fields: [{ name: 'data.status', type: 'string', description: 'Tình trạng' }],
+      },
+    ],
+    auth: { kind: 'bearer' },
+    requiresConfirm: false,
+    enabled: false,
+  };
+  const draft = (body: unknown) => ({
+    key: 'POST /bots/{botId}/actions',
+    params: { botId: BOT },
+    body,
+    summary: 'Thêm API tra cứu đơn',
+  });
+
+  it('describes the draft schema: no authSecret, enabled false', async () => {
+    const t = await setup();
+    const body = (await t.describe({ key: 'POST /bots/{botId}/actions' })).json.body as {
+      properties: Record<string, unknown>;
+    };
+    expect(Object.keys(body.properties)).not.toContain('authSecret');
+    expect(body.properties.enabled).toMatchObject({ const: false });
+  });
+
+  it('refuses a draft with a secret or enabled, and creates no proposal', async () => {
+    const t = await setup();
+    for (const body of [
+      { ...DRAFT, authSecret: 'sk-live-0123456789abcdef' },
+      { ...DRAFT, enabled: true },
+    ]) {
+      const out = await t.call(draft(body));
+      expect(out.json.errorCode).toBe('invalid_input');
+    }
+    expect(await t.repo.listProposals(t.scope, t.thread.id)).toEqual([]);
+    expect(t.invoke).not.toHaveBeenCalled();
+  });
+
+  it('refuses a nested secret (auth.token, an unknown param key) and never stores it', async () => {
+    const t = await setup();
+    for (const body of [
+      { ...DRAFT, auth: { kind: 'bearer', token: 'sk-live-0123456789abcdef' } },
+      { ...DRAFT, params: [{ ...DRAFT.params[0], value: 'sk-live-0123456789abcdef' }] },
+    ]) {
+      const out = await t.call(draft(body));
+      expect(out.json.errorCode).toBe('invalid_input');
+    }
+    expect(await t.repo.listProposals(t.scope, t.thread.id)).toEqual([]);
+    expect(t.invoke).not.toHaveBeenCalled();
+  });
+
+  it('refuses secret-looking URL query keys and header params with secret_in_draft', async () => {
+    const t = await setup();
+    const header = (name: string) => ({
+      ...DRAFT,
+      params: [
+        ...DRAFT.params,
+        { name, type: 'string', location: 'header', required: true, description: 'x' },
+      ],
+    });
+    for (const body of [
+      { ...DRAFT, url: `${DRAFT.url}?api_key=abc123` },
+      { ...DRAFT, url: `${DRAFT.url}?token=abc123` },
+      { ...DRAFT, url: `${DRAFT.url}?sig=abc` },
+      header('X-Access-Token'),
+      header('X-Shop-Secret'),
+      header('Authorization-Ext'),
+      header('X-Password'),
+    ]) {
+      const out = await t.call(draft(body));
+      expect(out.json.errorCode).toBe('secret_in_draft');
+    }
+    expect(await t.repo.listProposals(t.scope, t.thread.id)).toEqual([]);
+    // A plain query key and header param are fine.
+    const ok = await t.call(
+      draft({
+        ...header('X-Shop-Id'),
+        url: `${DRAFT.url}?lang=vi`,
+      }),
+    );
+    expect(ok.json).toMatchObject({ status: 'awaiting_owner_approval' });
+  });
+
+  it('turns a valid draft into a pending proposal that previews the body as is', async () => {
+    const t = await setup();
+    const out = await t.call(draft(DRAFT));
+    expect(out.json.status).toBe('awaiting_owner_approval');
+    const [p] = await t.repo.listProposals(t.scope, t.thread.id);
+    expect(p).toMatchObject({
+      routeKey: 'POST /bots/{botId}/actions',
+      path: `/bots/${BOT}/actions`,
+      status: 'pending',
+      body: DRAFT,
+      preview: { body: DRAFT, query: null },
+      resultId: null,
+    });
+    // A POST reads no current state first.
+    expect(t.invoke).not.toHaveBeenCalled();
+  });
+
+  it('keeps editing, deleting and testing actions out of the catalog', () => {
+    const keys = ROUTE_CATALOG.entries.map((e) => e.key);
+    expect(keys).toContain('POST /bots/{botId}/actions');
+    expect(keys).not.toContain('PATCH /bots/{botId}/actions/{actionId}');
+    expect(keys).not.toContain('DELETE /bots/{botId}/actions/{actionId}');
+    expect(keys).not.toContain('POST /bots/{botId}/actions/test');
+    expect(keys).not.toContain('POST /bots/{botId}/actions/{actionId}/test');
   });
 });
 
@@ -271,6 +402,18 @@ describe('tool_call', () => {
     expect(stored?.expiresAt.getTime()).toBe(NOW.getTime() + PROPOSAL_TTL_MS);
   });
 
+  it('stores the parsed body of every write: unknown keys never reach the proposal', async () => {
+    const t = await setup();
+    await t.call({
+      key: 'POST /products',
+      body: { ...PRODUCT, apiToken: 'sk-live-0123456789abcdef' },
+      summary: 'Thêm sản phẩm Áo thun',
+    });
+    const [stored] = await t.repo.listProposals(t.scope, t.thread.id);
+    expect(JSON.stringify(stored?.body)).not.toContain('apiToken');
+    expect(JSON.stringify(stored?.preview)).not.toContain('sk-live');
+  });
+
   it('refuses a proposal body over the size cap', async () => {
     // A write whose body schema takes anything, so only the cap stops it.
     const entry = { ...ROUTE_CATALOG.get('POST /products')!, body: z.unknown() };
@@ -327,7 +470,9 @@ describe('tool_call', () => {
       authorization: AUTH,
     });
     const [stored] = await t.repo.listProposals(t.scope, t.thread.id);
-    expect(stored?.preview).toEqual({ body: PRODUCT, query: null, before });
+    // The preview shows the parsed body (defaults applied), the one the approval will run.
+    expect(stored?.preview).toMatchObject({ body: PRODUCT, query: null, before });
+    expect(stored?.preview).toEqual({ body: stored?.body, query: null, before });
     expect(stored?.path).toBe(`/products/${id}`);
   });
 });

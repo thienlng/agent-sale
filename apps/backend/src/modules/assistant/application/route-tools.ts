@@ -1,5 +1,5 @@
 import type { RunnableTool, ToolDefinition } from '@agent-sales/ai-core';
-import type { AssistantPageContext } from '@agent-sales/contracts';
+import { type AssistantPageContext, SECRET_IN_DRAFT } from '@agent-sales/contracts';
 import { newId } from '@agent-sales/shared';
 import { z } from 'zod';
 
@@ -185,11 +185,18 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
         return { ok: false, errorCode: 'invalid_input', extra: { issues: issuesOf(parsed.error) } };
       }
     }
+    // The parsed body, not the raw one, is what is stored and run: unknown keys never reach a
+    // proposal (a narrowed, strict schema rejects them; others strip them).
+    let body: unknown;
     if (entry.body) {
       const parsed = entry.body.safeParse(input.body);
       if (!parsed.success) {
-        return { ok: false, errorCode: 'invalid_input', extra: { issues: issuesOf(parsed.error) } };
+        const errorCode = parsed.error.issues.some((i) => i.message === SECRET_IN_DRAFT)
+          ? SECRET_IN_DRAFT
+          : 'invalid_input';
+        return { ok: false, errorCode, extra: { issues: issuesOf(parsed.error) } };
       }
+      body = parsed.data;
     }
     return {
       ok: true,
@@ -197,7 +204,7 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
       businessId,
       path,
       ...(query && Object.keys(query).length ? { query } : {}),
-      ...(entry.body ? { body: input.body } : {}),
+      ...(entry.body ? { body } : {}),
     };
   }
 

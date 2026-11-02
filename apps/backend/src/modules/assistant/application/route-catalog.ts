@@ -15,6 +15,7 @@ export interface CatalogEntry {
   path: string;
   pathParams: string[];
   query?: ZodObject;
+  /** The assistant's body: the route's `assistant.body` when it narrows it, else its `body`. */
   body?: ZodType;
   /** A side-effect-free query sent as POST with a body (ruling 1b-R7). */
   queryPost?: true;
@@ -31,6 +32,22 @@ export interface RouteCatalog {
 export const SEARCH_LIMIT = 8;
 /** Added to the score of a route of the section the owner is looking at. */
 const PAGE_BOOST = 1.5;
+/**
+ * Pages whose routes live under other path sections: the inbox shows conversations, and its
+ * questions about a bot reply are answered from the bot's turn traces (T-174).
+ */
+const SECTION_ROUTES: Readonly<Record<string, readonly string[]>> = {
+  inbox: ['/conversations', '/bots/{botId}/turns'],
+};
+
+/** The page boosts a route of its own section, or a route its section maps to. */
+function onPage(entry: CatalogEntry, section: string | null): boolean {
+  if (!section) return false;
+  if (entry.path.split('/')[1] === section) return true;
+  return (SECTION_ROUTES[section] ?? []).some(
+    (p) => entry.path === p || entry.path.startsWith(`${p}/`),
+  );
+}
 
 /** Defensive: these never become tools, whatever their annotation says (extra ruling 3). */
 const EXCLUDED_PREFIXES = ['/assistant', '/auth'];
@@ -49,18 +66,21 @@ const usable = (
 
 /** Only workspace-scoped routes marked `read` or `write`; a missing field means unusable. */
 export function buildRouteCatalog(routes: readonly RouteContract[]): RouteCatalog {
-  const entries: CatalogEntry[] = routes.filter(usable).map((r) => ({
-    key: routeKey(r),
-    use: r.assistant.use,
-    summary: r.summary,
-    when: r.assistant.when ?? '',
-    method: r.method,
-    path: r.path,
-    pathParams: [...r.path.matchAll(/\{(\w+)\}/g)].map((m) => m[1] ?? ''),
-    ...(r.query ? { query: r.query } : {}),
-    ...(r.body ? { body: r.body } : {}),
-    ...(r.assistant.use === 'read' && r.assistant.queryPost ? { queryPost: true as const } : {}),
-  }));
+  const entries: CatalogEntry[] = routes.filter(usable).map((r) => {
+    const body = r.assistant.body ?? r.body;
+    return {
+      key: routeKey(r),
+      use: r.assistant.use,
+      summary: r.summary,
+      when: r.assistant.when ?? '',
+      method: r.method,
+      path: r.path,
+      pathParams: [...r.path.matchAll(/\{(\w+)\}/g)].map((m) => m[1] ?? ''),
+      ...(r.query ? { query: r.query } : {}),
+      ...(body ? { body } : {}),
+      ...(r.assistant.use === 'read' && r.assistant.queryPost ? { queryPost: true as const } : {}),
+    };
+  });
   const byKey = new Map(entries.map((e) => [e.key, e]));
   return {
     entries,
@@ -101,7 +121,8 @@ export type SearchHit = CatalogEntry | (ExtraSearchEntry & { use: 'read' });
 /**
  * The best entries for `query`: the number of its (unaccented, lowercased) words found in the
  * entry's key, summary and `when`, plus a boost when the route's first path segment is the
- * section of the page the owner is on (`/app/<section>/…`). `extra` entries (native tools) are
+ * section of the page the owner is on (`/app/<section>/…`), or a path that section maps to
+ * (`SECTION_ROUTES`). `extra` entries (native tools) are
  * scored with the same words and get no page boost. Entries with no matching word are left out;
  * ties keep the key order, so the result is stable.
  */
@@ -120,7 +141,7 @@ export function searchCatalog(
   };
   const routes = catalog.entries.map((e) => {
     const hits = hitsOf(e);
-    const boost = section && e.path.split('/')[1] === section ? PAGE_BOOST : 0;
+    const boost = onPage(e, section) ? PAGE_BOOST : 0;
     return { e: e as SearchHit, hits, score: hits + boost };
   });
   const natives = extra.map((x) => {

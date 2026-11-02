@@ -6,6 +6,7 @@ import {
 import {
   AcceptAssistantSuggestionResponse,
   AssistantLearningFeed,
+  ActionDto,
   AssistantMemoryDto,
   AssistantMessageList,
   AssistantProposalDto,
@@ -20,6 +21,7 @@ import {
   AssistantThreadList,
   AuthResponse,
   ImportBatchDto,
+  BotDto,
   BootstrapResponse,
   CreatedInvitation,
   ProductListResponse,
@@ -990,6 +992,79 @@ describe('assistant route tools and proposals on Postgres (1b)', () => {
       role: 'event',
       content: 'Đã áp dụng: Thêm sản phẩm Áo khoác gió giá 150.000đ',
     });
+  });
+
+  it('drafts a bot API action without its secret; approval creates it disabled (T-174)', async () => {
+    const lan = await user('action-draft@assistant.vn', 'Lan');
+    const bot = await call(lan.h, 'POST', '/bots', { name: 'Bot Lan', industry: 'fashion' });
+    expect(bot.statusCode, bot.body).toBe(201);
+    const botId = BotDto.parse(bot.json()).id;
+    const thread = AssistantThreadDto.parse(
+      (await call(lan.h, 'POST', '/assistant/threads', {})).json(),
+    );
+    const draft = {
+      name: 'Tra cứu đơn hàng',
+      description: 'Gọi khi khách hỏi tình trạng đơn và đã cho mã đơn.',
+      url: 'https://shop.example.com/api/orders/{code}',
+      method: 'GET',
+      params: [
+        { name: 'code', type: 'string', location: 'path', required: true, description: 'Mã đơn' },
+      ],
+      responses: [
+        {
+          statusCode: 200,
+          fields: [{ name: 'data.status', type: 'string', description: 'Tình trạng' }],
+        },
+      ],
+      auth: { kind: 'bearer' },
+      requiresConfirm: false,
+      enabled: false,
+    };
+    const key = 'abcd1234efgh5678ijkl9012mnop3456';
+    const out = await turn(
+      lan,
+      thread.id,
+      `curl -H 'Authorization: Bearer ${key}' https://shop.example.com/api/orders/A1`,
+      [
+        // A secret in the body is refused before any proposal exists (the model only ever saw
+        // the masked text, so it can only echo the mask).
+        toolCall('c1', {
+          key: 'POST /bots/{botId}/actions',
+          params: { botId },
+          body: { ...draft, authSecret: '[secret removed]' },
+          summary: 'Thêm API tra cứu đơn',
+        }),
+        toolCall('c2', {
+          key: 'POST /bots/{botId}/actions',
+          params: { botId },
+          body: draft,
+          summary: 'Thêm API tra cứu đơn',
+        }),
+        answer({ text: 'Dạ anh/chị duyệt giúp em, rồi nhập khoá trong form nhé' }),
+      ],
+    );
+    expect(out.secretsRemoved).toBe(true);
+    const [pending, ...more] = AssistantProposalList.parse(
+      (await call(lan.h, 'GET', `/assistant/threads/${thread.id}/proposals`)).json(),
+    ).items;
+    expect(more).toEqual([]);
+    expect(pending).toMatchObject({ status: 'pending', resultId: null });
+    // The pasted key is stored nowhere: not in a message, not in a proposal.
+    const messages = await owner.db.select().from(schema.assistantMessages);
+    expect(JSON.stringify(messages)).not.toContain(key);
+    const proposals = await owner.db.select().from(schema.assistantProposals);
+    expect(JSON.stringify(proposals)).not.toContain(key);
+
+    const approved = await call(lan.h, 'POST', `/assistant/proposals/${pending?.id}/approve`);
+    expect(approved.statusCode, approved.body).toBe(200);
+    const done = AssistantProposalDto.parse(approved.json());
+    expect(done.status).toBe('done');
+    const listed = (await call(lan.h, 'GET', `/bots/${botId}/actions`)).json() as {
+      data: unknown[];
+    };
+    const [action] = listed.data.map((a) => ActionDto.parse(a));
+    expect(action).toMatchObject({ enabled: false, hasSecret: false, auth: { kind: 'bearer' } });
+    expect(done.resultId).toBe(action?.id);
   });
 
   it('runs an approved proposal on its own business, not on the business the request names', async () => {

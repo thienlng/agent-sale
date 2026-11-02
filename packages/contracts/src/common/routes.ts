@@ -15,6 +15,13 @@ export interface RouteAssistantUse {
   when?: string;
   /** A POST that only reads (search, statistics, quotes); only with `use: 'read'`. */
   queryPost?: true;
+  /**
+   * A narrower body the assistant must use instead of the route's own `body` (T-174): it validates
+   * `tool_call`, is what `tool_describe` shows, and is re-checked on approval. The route itself
+   * still validates its full body when the proposal runs. Required on a `write` route whose body
+   * can carry a secret (guard in `routes.assistant.test.ts`).
+   */
+  body?: z.ZodType;
 }
 
 /**

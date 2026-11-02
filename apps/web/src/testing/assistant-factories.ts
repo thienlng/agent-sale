@@ -92,6 +92,7 @@ export function turnFixture(
       messageFixture(answer),
     ],
     run: runFixture(),
+    secretsRemoved: false,
   };
 }
 
@@ -102,10 +103,12 @@ export function proposalFixture(over: Partial<AssistantProposalDto> = {}): Assis
     threadId: ASSISTANT_IDS.thread,
     businessId: '3f0c1f0e-5b1c-4c1e-9d55-0a1b2c3d4e5f',
     routeKey: 'PATCH /products/{productId}',
+    path: '/products/0193b000-0000-7000-8000-000000000401',
     summary: 'Đổi giá Áo thun thành 150.000đ',
     preview: { price: { from: 120000, to: 150000 } },
     status: 'pending',
     errorCode: null,
+    resultId: null,
     createdAt: '2026-11-02T07:59:59.000Z',
     expiresAt: '2026-11-03T07:59:59.000Z',
     decidedAt: null,

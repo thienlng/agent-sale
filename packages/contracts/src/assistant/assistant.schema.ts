@@ -147,10 +147,13 @@ export type AssistantMessageDto = z.infer<typeof AssistantMessageDto>;
 export const AssistantMessageList = z.object({ data: z.array(AssistantMessageDto) });
 export type AssistantMessageList = z.infer<typeof AssistantMessageList>;
 
+/** Longest owner message; fits an endpoint's docs pasted for the API action autofill (T-174). */
+export const ASSISTANT_MESSAGE_MAX = 12_000;
+
 /** `turnId` is client-generated so a retried send does not run twice. */
 export const SendAssistantMessageRequest = z.object({
   turnId: z.uuid(),
-  text: z.string().trim().min(1).max(4000),
+  text: z.string().trim().min(1).max(ASSISTANT_MESSAGE_MAX),
   pageContext: AssistantPageContext.optional(),
   /** An import batch the owner attached to this message (T-173); it must be in the thread. */
   importBatchId: z.uuid().optional(),
@@ -182,6 +185,8 @@ export type AssistantRunDto = z.infer<typeof AssistantRunDto>;
 export const SendAssistantMessageResponse = z.object({
   messages: z.array(AssistantMessageDto),
   run: AssistantRunDto,
+  /** The owner's text carried secrets (keys, tokens, passwords); they were masked before storage. */
+  secretsRemoved: z.boolean().default(false),
 });
 export type SendAssistantMessageResponse = z.infer<typeof SendAssistantMessageResponse>;
 
@@ -211,11 +216,15 @@ export const AssistantProposalDto = z.object({
   businessId: z.uuid(),
   /** `METHOD /path` of the target route, e.g. `PATCH /products/{productId}`. */
   routeKey: z.string(),
+  /** The concrete path that runs, relative to `/api/v1` (`/bots/<id>/actions`). */
+  path: z.string(),
   summary: z.string(),
   /** What the card shows (a diff or the new values); its shape depends on the route. */
   preview: z.unknown(),
   status: AssistantProposalStatus,
   errorCode: z.string().nullable(),
+  /** The `id` of what a done proposal created (a uuid in the 2xx response body), else null. */
+  resultId: z.uuid().nullable(),
   createdAt: z.iso.datetime(),
   expiresAt: z.iso.datetime(),
   decidedAt: z.iso.datetime().nullable(),

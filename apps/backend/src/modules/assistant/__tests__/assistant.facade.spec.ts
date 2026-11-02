@@ -428,7 +428,35 @@ describe('AssistantFacade (contract)', () => {
   });
 
   describe('proposals', () => {
-    async function withProposal(over: { expiresAt?: Date; businessId?: string } = {}) {
+    /** A body `POST /products` accepts (approval re-validates the stored body). */
+    const PRODUCT = {
+      code: 'AO-1',
+      name: 'Áo thun',
+      variants: [{ sku: 'AO-1-M', price: 150_000 }],
+    };
+    const DRAFT = {
+      name: 'Tra cứu đơn',
+      description: 'Gọi khi khách hỏi tình trạng đơn và đã cho mã đơn.',
+      url: 'https://shop.example.com/api/orders/{code}',
+      method: 'GET',
+      params: [
+        { name: 'code', type: 'string', location: 'path', required: true, description: 'Mã đơn' },
+      ],
+      responses: [],
+      auth: { kind: 'bearer' },
+      requiresConfirm: false,
+      enabled: false,
+    };
+
+    async function withProposal(
+      over: {
+        expiresAt?: Date;
+        businessId?: string;
+        routeKey?: string;
+        path?: string;
+        body?: unknown;
+      } = {},
+    ) {
       const ctx = setup();
       const scope = {
         accountId: ctx.accountId,
@@ -442,12 +470,12 @@ describe('AssistantFacade (contract)', () => {
         threadId: t.id,
         runId: null,
         businessId: over.businessId ?? ctx.me.businessId,
-        routeKey: 'POST /products',
-        path: '/products',
+        routeKey: over.routeKey ?? 'POST /products',
+        path: over.path ?? '/products',
         query: null,
-        body: { name: 'Áo thun' },
+        body: over.body ?? PRODUCT,
         summary: 'Thêm sản phẩm Áo thun',
-        preview: { body: { name: 'Áo thun' }, query: null },
+        preview: { body: over.body ?? PRODUCT, query: null },
         expiresAt: over.expiresAt ?? new Date(Date.now() + 86_400_000),
       });
       return { ...ctx, scope, t, p };
@@ -456,12 +484,12 @@ describe('AssistantFacade (contract)', () => {
     it('approves with the approver’s token, records the result and tells the thread', async () => {
       const { facade, me, p, t, invoke } = await withProposal();
       const done = await facade.approveProposal(me, p.id, AUTH);
-      expect(done).toMatchObject({ id: p.id, status: 'done', errorCode: null });
+      expect(done).toMatchObject({ id: p.id, status: 'done', errorCode: null, resultId: null });
       expect(done.decidedAt).not.toBeNull();
       expect(invoke).toHaveBeenCalledWith({
         method: 'post',
         path: '/products',
-        body: { name: 'Áo thun' },
+        body: PRODUCT,
         businessId: me.businessId,
         authorization: AUTH,
         idempotencyKey: `asst:${p.id}`,
@@ -488,6 +516,46 @@ describe('AssistantFacade (contract)', () => {
       });
       const { data } = await facade.listMessages(me, t.id);
       expect(data.at(-1)?.content).toBe('Không áp dụng được: Thêm sản phẩm Áo thun (http_403)');
+    });
+
+    it('stores the created id as resultId when the response body has a uuid id', async () => {
+      const botId = newId();
+      const { facade, me, p, invoke } = await withProposal({
+        routeKey: 'POST /bots/{botId}/actions',
+        path: `/bots/${botId}/actions`,
+        body: DRAFT,
+      });
+      const actionId = newId();
+      invoke.mockResolvedValueOnce({ status: 201, body: { id: actionId, enabled: false } });
+      expect(await facade.approveProposal(me, p.id, AUTH)).toMatchObject({
+        status: 'done',
+        resultId: actionId,
+      });
+    });
+
+    it('keeps resultId null when the response id is not a uuid', async () => {
+      const { facade, me, p, invoke } = await withProposal();
+      invoke.mockResolvedValueOnce({ status: 201, body: { id: 'AO-1' } });
+      expect(await facade.approveProposal(me, p.id, AUTH)).toMatchObject({ resultId: null });
+    });
+
+    it('fails a proposal whose stored body no longer passes the assistant schema', async () => {
+      const botId = newId();
+      const { facade, me, p, t, invoke, repo } = await withProposal({
+        routeKey: 'POST /bots/{botId}/actions',
+        path: `/bots/${botId}/actions`,
+        body: DRAFT,
+      });
+      // Edited in storage after the proposal: a secret must never reach the route.
+      repo.proposals.get(p.id)!.body = { ...DRAFT, authSecret: 'sk-live-key' };
+      expect(await facade.approveProposal(me, p.id, AUTH)).toMatchObject({
+        status: 'failed',
+        errorCode: 'invalid_stored_body',
+        resultId: null,
+      });
+      expect(invoke).not.toHaveBeenCalled();
+      const { data } = await facade.listMessages(me, t.id);
+      expect(data.at(-1)?.content).toContain('(invalid_stored_body)');
     });
 
     it('fails a proposal whose route is no longer a write, without running it', async () => {

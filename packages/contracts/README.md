@@ -27,4 +27,18 @@ Every workspace-scoped route in a `<module>.routes.ts` must carry `assistant` (`
 - `when` is required for `read` and `write`: English, at most 160 chars, saying when the model should use the route. `tool_search` matches English words of the key, `summary` and `when`, so write it in the words an owner's question maps to.
 - A route that is not workspace-scoped may only be `never` (or have no `assistant` field).
 
+### A `write` whose body can carry a secret (T-174)
+
+A body property named like `secret`, `password`, `token`, `api_key`/`apikey` or `credential` makes a route `never`, unless it declares a narrower body for the assistant:
+
+```ts
+assistant: {
+  use: 'write',
+  when: 'Draft a new API action for a bot …; it is created disabled and without its secret.',
+  body: ActionAssistantDraft, // ActionBase.omit({ authSecret: true }).extend({ enabled: z.literal(false) }).strict()
+},
+```
+
+The assistant validates `tool_call` against `assistant.body`, `tool_describe` shows it, and approval re-checks the stored body with it; the route itself still validates its full `body` when the proposal runs. `routes.assistant.test.ts` reads every `write` body's top-level properties: a secret-like one needs `assistant.body`, a valid sample in `VALID_ASSISTANT_BODIES`, and the narrowed body must reject the sample with each secret key added (use `.strict()` so the key is refused, not stripped).
+
 Test: `pnpm --filter @agent-sales/contracts test`.

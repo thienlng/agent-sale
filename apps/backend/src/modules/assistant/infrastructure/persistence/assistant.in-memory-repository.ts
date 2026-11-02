@@ -452,6 +452,7 @@ export class InMemoryAssistantRepository implements AssistantRepository {
       status: 'pending',
       errorCode: null,
       resultPreview: null,
+      resultId: null,
       decidedAt: null,
       createdAt: this.#now(),
     };
@@ -485,6 +486,7 @@ export class InMemoryAssistantRepository implements AssistantRepository {
     p.status = to;
     if (patch.errorCode !== undefined) p.errorCode = patch.errorCode;
     if (patch.resultPreview !== undefined) p.resultPreview = patch.resultPreview;
+    if (patch.resultId !== undefined) p.resultId = patch.resultId;
     if (patch.decidedAt !== undefined) p.decidedAt = patch.decidedAt;
     return this.#publicProposal(p);
   }

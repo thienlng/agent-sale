@@ -90,7 +90,8 @@ describe('shop autofill skills (T-175)', () => {
   it('keeps links, template placeholders and phone numbers out of every platform skill', () => {
     for (const skill of skills.values()) {
       const text = [skill.description, skill.body].join('\n');
-      expect(text, skill.name).not.toMatch(/http/i);
+      // No links ("HTTPS only" in set-up-api-action names the scheme, not a link).
+      expect(text, skill.name).not.toMatch(/https?:\/\/|www\./i);
       expect(text, skill.name).not.toContain('{{');
       expect(text, skill.name).not.toMatch(VN_PHONE);
     }

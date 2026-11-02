@@ -135,6 +135,12 @@ export function ActionList({ botId }: { botId: string }) {
                 <TableRow key={a.id}>
                   <TableCell className="font-medium break-words whitespace-normal">
                     {a.name}
+                    {a.auth.kind !== 'none' && !a.hasSecret ? (
+                      // Drafted by the assistant (or saved without it): it cannot call yet.
+                      <Badge variant="secondary" className="ml-2 bg-warning-soft text-warning">
+                        {t('needsSecret')}
+                      </Badge>
+                    ) : null}
                   </TableCell>
                   <TableCell>
                     <Badge variant="secondary">{a.method}</Badge>

@@ -28,6 +28,7 @@ export * from './action/index.js';
 export * from './action/action.routes.js';
 export * from './ai/ai.schema.js';
 export * from './ai/ai.routes.js';
+export * from './ai/turn-trace.schema.js';
 export * from './ai/llm-admin.schema.js';
 export * from './ai/llm-admin.routes.js';
 export * from './analytics/analytics.schema.js';

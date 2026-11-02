@@ -16,6 +16,7 @@ import {
   AssistantChart,
   CreateAssistantSkillRequest,
   SendAssistantMessageRequest,
+  SendAssistantMessageResponse,
   UpdateAssistantSkillRequest,
   UpdateAssistantThreadRequest,
 } from './assistant.schema.js';
@@ -59,6 +60,25 @@ describe('SendAssistantMessageRequest', () => {
     expect(SendAssistantMessageRequest.safeParse({ turnId: TURN, text: '   ' }).success).toBe(
       false,
     );
+  });
+
+  it('accepts pasted API docs up to 12 000 chars', () => {
+    const ok = (n: number) =>
+      SendAssistantMessageRequest.safeParse({ turnId: TURN, text: 'a'.repeat(n) }).success;
+    expect(ok(11_000)).toBe(true);
+    expect(ok(12_000)).toBe(true);
+    expect(ok(12_001)).toBe(false);
+  });
+});
+
+describe('SendAssistantMessageResponse', () => {
+  it('defaults secretsRemoved to false', () => {
+    const run = { id: TURN, status: 'done', outcome: 'done', rounds: 1, latencyMs: 5, steps: [] };
+    expect(SendAssistantMessageResponse.parse({ messages: [], run }).secretsRemoved).toBe(false);
+    expect(
+      SendAssistantMessageResponse.parse({ messages: [], run, secretsRemoved: true })
+        .secretsRemoved,
+    ).toBe(true);
   });
 });
 
@@ -263,16 +283,20 @@ describe('proposal and memory DTOs', () => {
       threadId: TURN,
       businessId: TURN,
       routeKey: 'PATCH /products/{productId}',
+      path: '/products/p1',
       summary: 'Đổi giá áo thun',
       preview: { price: { from: 120000, to: 150000 } },
       status: 'pending',
       errorCode: null,
+      resultId: null,
       createdAt: now,
       expiresAt: now,
       decidedAt: null,
     };
     expect(AssistantProposalDto.safeParse(proposal).success).toBe(true);
     expect(AssistantProposalDto.safeParse({ ...proposal, status: 'approved' }).success).toBe(false);
+    expect(AssistantProposalDto.safeParse({ ...proposal, resultId: TURN }).success).toBe(true);
+    expect(AssistantProposalDto.safeParse({ ...proposal, resultId: 'x' }).success).toBe(false);
   });
 
   it('parses memory stores with entries', () => {

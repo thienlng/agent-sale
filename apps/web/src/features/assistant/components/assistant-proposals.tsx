@@ -1,5 +1,6 @@
 import type { AssistantProposalDto } from '@agent-sales/contracts';
-import { Check, ChevronDown, Clock, Loader2, X } from 'lucide-react';
+import { Link } from '@tanstack/react-router';
+import { Check, ChevronDown, Clock, KeyRound, Loader2, PowerOff, X } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -9,6 +10,7 @@ import { cn } from '@/lib/utils';
 
 import { ImportProposalCard } from './import-proposal-card';
 import { useProposalDecision } from './proposal-decision';
+import { ACTION_DRAFT_ROUTE, openLinkFor } from '../utils/proposal-links';
 
 /** Preview text for the card: a value as indented JSON, capped for the panel. */
 function previewText(preview: unknown): string {
@@ -66,28 +68,45 @@ function useBusinessName(businessId: string): string | null {
   return session?.memberships.find((m) => m.workspaceId === businessId)?.workspaceName ?? null;
 }
 
-/** A decided (or running) proposal: one quiet status line. */
+/**
+ * A decided (or running) proposal: one quiet status line; a created API action adds
+ * "Mở để nhập khoá", since it was created disabled and without its key.
+ */
 function ProposalStatus({ proposal }: { proposal: AssistantProposalDto }) {
   const { t } = useTranslation('assistant');
   const { status } = proposal;
   const Icon =
     status === 'done' ? Check : status === 'executing' ? Loader2 : status === 'expired' ? Clock : X;
+  const open = openLinkFor(proposal);
   return (
-    <li
-      className={cn(
-        'flex max-w-[85%] items-center gap-1.5 self-start text-xs',
-        status === 'failed' ? 'text-destructive' : 'text-muted-foreground',
-      )}
-    >
-      <Icon
-        className={cn('size-3.5 shrink-0', status === 'executing' && 'animate-spin')}
-        aria-hidden
-      />
-      <span className="truncate font-medium">{proposal.summary}</span>
-      <span aria-hidden>·</span>
-      <span className="shrink-0">
-        {t(`proposals.status.${status}`, { code: proposal.errorCode ?? '' })}
+    <li className="flex max-w-[85%] flex-col items-start gap-1.5 self-start">
+      <span
+        className={cn(
+          'flex max-w-full items-center gap-1.5 text-xs',
+          status === 'failed' ? 'text-destructive' : 'text-muted-foreground',
+        )}
+      >
+        <Icon
+          className={cn('size-3.5 shrink-0', status === 'executing' && 'animate-spin')}
+          aria-hidden
+        />
+        <span className="truncate font-medium">{proposal.summary}</span>
+        <span aria-hidden>·</span>
+        <span className="shrink-0">
+          {t(`proposals.status.${status}`, { code: proposal.errorCode ?? '' })}
+        </span>
       </span>
+      {open ? (
+        <Button asChild size="sm" variant="outline">
+          <Link
+            to="/app/bots/$botId/actions/$actionId"
+            params={{ botId: open.botId, actionId: open.actionId }}
+          >
+            <KeyRound aria-hidden />
+            {t('proposals.openAction')}
+          </Link>
+        </Button>
+      ) : null}
     </li>
   );
 }
@@ -156,6 +175,12 @@ function PendingProposal({ proposal }: { proposal: AssistantProposalDto }) {
           <code className="min-w-0 font-mono break-all">{action.path}</code>
         </p>
         <p className="mt-1 font-medium break-words">{proposal.summary}</p>
+        {proposal.routeKey === ACTION_DRAFT_ROUTE ? (
+          <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+            <PowerOff className="size-3 shrink-0" aria-hidden />
+            {t('proposals.actionDisabled')}
+          </p>
+        ) : null}
         {business ? (
           <p className="text-xs text-muted-foreground">
             {t('proposals.business', { name: business })}

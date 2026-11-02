@@ -1,5 +1,5 @@
 import type { ChannelProvider } from '@agent-sales/contracts';
-import type { InboxConversation, InboxUpdateBody } from '../lib/inbox-v2-types';
+import type { InboxConversation, InboxMessage, InboxUpdateBody } from '../lib/inbox-v2-types';
 import { Link } from '@tanstack/react-router';
 import { CircleAlert, Loader2, X } from 'lucide-react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
@@ -12,6 +12,8 @@ import { Button } from '@/components/ui/button';
 import { useConversation, useInboxActions, useInboxBot, useInboxMembers } from '../api/inbox';
 import { useSession } from '@/lib/session';
 import { useCan } from '@/lib/permissions';
+import { useAssistantContext } from '@/lib/assistant-context';
+import { openAssistantWith, useAssistantAvailable } from '@/lib/assistant-launch';
 import { customerDisplayName } from '../lib/inbox-list';
 import { useReadOnOpen } from '../hooks/use-read-on-open';
 import { ConversationHeader, externalInboxUrl, type HeaderChannel } from './conversation-header';
@@ -74,6 +76,22 @@ export function ConversationView({
   const userId = session?.user.id ?? '';
   const [pickerOpen, setPickerOpen] = useState(false);
   const c = detail.data?.conversation;
+  // The owner assistant sees which conversation and bot are open ("vì sao bot trả lời vậy?").
+  useAssistantContext({ entity: { conversationId: id, ...(botId ? { botId } : {}) } });
+  const assistant = useAssistantAvailable();
+  const askWhy =
+    assistant && botId
+      ? (message: InboxMessage) => {
+          const time = new Intl.DateTimeFormat('vi-VN', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+          }).format(new Date(message.createdAt));
+          openAssistantWith(tr('v2.thread.askWhyPrompt', { time }), {
+            messageAt: message.createdAt,
+          });
+        }
+      : undefined;
   const canEdit = useCan('contacts.edit');
   const read = useReadOnOpen(id, canEdit ? c : undefined);
   const root = useRef<HTMLDivElement>(null);
@@ -250,6 +268,7 @@ export function ConversationView({
         </p>
       ) : null}
       <MessageThread
+        onAskWhy={askWhy}
         newAfter={divider.at}
         newUnread={divider.unread}
         customer={{ conversation: c, name }}

@@ -1,6 +1,6 @@
 import type { AssistantMessageDto, AssistantProposalDto } from '@agent-sales/contracts';
 import { useRouter } from '@tanstack/react-router';
-import { ArrowLeft, Brain, List, Settings, Sparkles, SquarePen, X } from 'lucide-react';
+import { ArrowLeft, Brain, KeyRound, List, Settings, Sparkles, SquarePen, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -64,6 +64,13 @@ export function AssistantPanel() {
   const [view, setView] = useState<PanelView>('chat');
   const [pendingTurn, setPendingTurn] = useState<string | null>(null);
   const [unavailable, setUnavailable] = useState(false);
+  // The last message carried keys; they were masked before storage (T-174).
+  const [secretsRemoved, setSecretsRemoved] = useState(false);
+  // Opened from a page with a question: show the conversation, where the composer takes it.
+  const launchDraft = useAssistantUi((s) => s.draft);
+  useEffect(() => {
+    if (launchDraft !== null) setView('chat');
+  }, [launchDraft]);
   const messages = useAssistantMessages(threadId);
   const proposals = useAssistantProposals(threadId);
   const createThread = useCreateAssistantThread();
@@ -144,8 +151,12 @@ export function AssistantPanel() {
 
   async function send(text: string): Promise<boolean> {
     setUnavailable(false);
+    setSecretsRemoved(false);
     // Read before anything renders: the route and the targets the owner is looking at.
-    const pageContext = collectPageContext(router.state.location.pathname);
+    const page = collectPageContext(router.state.location.pathname);
+    // Ids a page added when it opened the panel (e.g. the bot message's time), for this send only.
+    const extras = useAssistantUi.getState().takeEntityExtras();
+    const pageContext = extras ? { ...page, entity: { ...page.entity, ...extras } } : page;
     const turnId = crypto.randomUUID();
     // The business this message is for: if the owner switches business while it is on its way,
     // the store has started over for the new one and the result must not land there.
@@ -199,6 +210,7 @@ export function AssistantPanel() {
       });
       // Sent: the batch now belongs to the message (a failed send keeps the tray for a retry).
       if (importBatchId) attachments.clear();
+      if (!switched()) setSecretsRemoved(res.secretsRemoved);
       // Not awaited: a fill may wait for the next page, and the composer is free meanwhile.
       if (!switched()) void apply(res.messages, switched);
       return true;
@@ -215,6 +227,7 @@ export function AssistantPanel() {
   function newThread(): void {
     setThread(null);
     setUnavailable(false);
+    setSecretsRemoved(false);
     setView('chat');
   }
 
@@ -287,6 +300,7 @@ export function AssistantPanel() {
               onPick={(id) => {
                 setThread(id);
                 setUnavailable(false);
+                setSecretsRemoved(false);
                 setView('chat');
               }}
             />
@@ -307,6 +321,15 @@ export function AssistantPanel() {
                 unavailable={unavailable}
               />
               <AssistantSuggestions />
+              {secretsRemoved ? (
+                <p
+                  role="status"
+                  className="flex items-start gap-2 border-t bg-muted/50 px-4 py-2 text-xs text-muted-foreground"
+                >
+                  <KeyRound className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                  {t('secretsRemoved')}
+                </p>
+              ) : null}
               <AssistantComposer
                 sending={sending}
                 onSend={send}

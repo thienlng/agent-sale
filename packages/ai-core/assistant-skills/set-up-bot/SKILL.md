@@ -6,7 +6,7 @@ version: 2
 ---
 # Set up a bot
 
-Use this when the owner creates a bot, asks why the bot answers badly, or asks what the bot still needs.
+Use this when the owner creates a bot or asks what the bot still needs. When the owner asks why the bot answered a customer badly, use the bot-doctor skill instead; to connect the bot to the owner's own API, use set-up-api-action.
 
 1. List the bots of the business. If there is none, a new bot needs a name and the industry; creating it is a proposal the owner approves, and it starts with the FAQs and settings of its industry.
 2. Read the bot's readiness: the onboarding checklist and the missing placeholders. Go through the missing items one at a time, most important first.

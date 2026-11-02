@@ -169,6 +169,8 @@ describe('loadSkillDir', () => {
 
   it('ships a loadable platform skills folder', async () => {
     expect(existsSync(ASSISTANT_SKILLS_DIR)).toBe(true);
-    await expect(loadSkillDir(ASSISTANT_SKILLS_DIR)).resolves.toBeInstanceOf(Array);
+    const names = (await loadSkillDir(ASSISTANT_SKILLS_DIR)).map((s) => s.name);
+    expect(names).toContain('bot-doctor');
+    expect(names).toContain('set-up-api-action');
   });
 });

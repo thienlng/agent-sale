@@ -1,10 +1,12 @@
+import { ASSISTANT_MESSAGE_MAX } from '@agent-sales/contracts';
 import { Paperclip, SendHorizontal } from 'lucide-react';
-import { type FormEvent, type KeyboardEvent, useRef, useState } from 'react';
+import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 
+import { useAssistantUi } from '../stores/assistant-ui.store';
 import { ATTACH_ACCEPT, type AssistantAttachments, AttachmentTray } from './assistant-attachments';
 
 /**
@@ -35,6 +37,16 @@ export function AssistantComposer({
   const picker = useRef<HTMLInputElement>(null);
   const attached = attachments?.active ?? false;
   const canSend = !sending && (attached ? !attachments?.busy : Boolean(text.trim()));
+  const input = useRef<HTMLTextAreaElement>(null);
+  // A page opened the panel with a question ("Vì sao bot trả lời vậy?"): the owner reviews it.
+  const launchDraft = useAssistantUi((s) => s.draft);
+  useEffect(() => {
+    if (launchDraft === null) return;
+    const value = useAssistantUi.getState().takeDraft();
+    if (value === null) return;
+    setText(value);
+    input.current?.focus();
+  }, [launchDraft]);
 
   function submit(): void {
     const value = text.trim();
@@ -90,11 +102,12 @@ export function AssistantComposer({
           </>
         ) : null}
         <Textarea
+          ref={input}
           aria-label={t('placeholder')}
           placeholder={t('placeholder')}
           value={text}
           disabled={sending}
-          maxLength={4000}
+          maxLength={ASSISTANT_MESSAGE_MAX}
           rows={1}
           className="max-h-40 min-h-10 resize-none"
           onChange={(event) => setText(event.target.value)}

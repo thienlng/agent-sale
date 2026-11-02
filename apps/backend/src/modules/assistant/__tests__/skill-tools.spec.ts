@@ -16,6 +16,7 @@ import { InMemoryAssistantRepository } from '../infrastructure/persistence/assis
 const PLATFORM_SKILLS = [
   'add-products',
   'answer-data-questions',
+  'bot-doctor',
   'connect-channels',
   'draft-reply-guidance',
   'fill-sample-data',
@@ -26,6 +27,7 @@ const PLATFORM_SKILLS = [
   'industry-retail',
   'industry-saas',
   'read-revenue',
+  'set-up-api-action',
   'set-up-bot',
 ];
 
@@ -42,6 +44,20 @@ describe('platform skills', () => {
         expect(path).toMatch(/^\/app(\/[a-z{}A-Z-]+)*$/);
       }
     }
+  });
+});
+
+describe('capability 5 skills', () => {
+  it('bot-doctor and set-up-api-action drive the route and ui tools', async () => {
+    const skills = await loadSkillDir(ASSISTANT_SKILLS_DIR);
+    const doctor = skills.find((s) => s.name === 'bot-doctor')!;
+    const action = skills.find((s) => s.name === 'set-up-api-action')!;
+    for (const s of [doctor, action]) expect([...s.toolsets].sort()).toEqual(['routes', 'ui']);
+    expect(doctor.body).toContain('GET /bots/{botId}/turns');
+    expect(doctor.body).toContain('Rapiz chỉ giữ chi tiết 30 ngày');
+    expect(action.body).toContain('enabled: always false');
+    expect(action.body).toContain('actions.secret');
+    expect(skills.find((s) => s.name === 'set-up-bot')).toMatchObject({ version: 2 });
   });
 });
 
