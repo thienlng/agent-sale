@@ -1,5 +1,6 @@
 import { defineRoutes } from '../common/routes.js';
 import {
+  ActionAssistantDraft,
   ActionDraftTestRequest,
   ActionDto,
   ActionInput,
@@ -27,7 +28,11 @@ export const actionRoutes = defineRoutes([
     ...base,
     method: 'post',
     path: '/bots/{botId}/actions',
-    assistant: { use: 'never' },
+    assistant: {
+      use: 'write',
+      when: 'Draft a new API action for a bot from docs or a curl example the owner pasted; it is created disabled and without its secret.',
+      body: ActionAssistantDraft,
+    },
     summary: 'Create an API action',
     body: ActionInput,
     responses: { 201: ActionDto },

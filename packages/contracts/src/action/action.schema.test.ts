@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { ActionDto, ActionInput, ActionTestRequest, UpdateActionRequest } from './index.js';
+import {
+  ActionAssistantDraft,
+  ActionDto,
+  ActionInput,
+  ActionTestRequest,
+  UpdateActionRequest,
+} from './index.js';
 
 const valid = {
   name: 'Order lookup',
@@ -26,6 +32,28 @@ const valid = {
   requiresConfirm: false,
   enabled: true,
 };
+
+describe('ActionAssistantDraft', () => {
+  const draft = { ...valid, enabled: false };
+
+  it('accepts a disabled draft without a secret', () => {
+    expect(ActionAssistantDraft.safeParse(draft).success).toBe(true);
+  });
+
+  it('rejects a secret, even an empty one, instead of stripping it', () => {
+    expect(ActionAssistantDraft.safeParse({ ...draft, authSecret: 'k' }).success).toBe(false);
+    expect(ActionAssistantDraft.safeParse({ ...draft, authSecret: '' }).success).toBe(false);
+  });
+
+  it('rejects an enabled draft and unknown keys', () => {
+    expect(ActionAssistantDraft.safeParse({ ...draft, enabled: true }).success).toBe(false);
+    expect(ActionAssistantDraft.safeParse({ ...draft, extra: 1 }).success).toBe(false);
+  });
+
+  it('keeps the cross-field rules of ActionInput', () => {
+    expect(ActionAssistantDraft.safeParse({ ...draft, params: [] }).success).toBe(false);
+  });
+});
 
 describe('ActionInput', () => {
   it('accepts a valid action and applies no secret by default', () => {

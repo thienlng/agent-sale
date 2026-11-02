@@ -28,6 +28,7 @@ export function toProposalDto(p: ProposalRecord): AssistantProposalDto {
     preview: p.preview,
     status: p.status,
     errorCode: p.errorCode,
+    resultId: p.resultId,
     createdAt: p.createdAt.toISOString(),
     expiresAt: p.expiresAt.toISOString(),
     decidedAt: p.decidedAt?.toISOString() ?? null,
@@ -35,6 +36,13 @@ export function toProposalDto(p: ProposalRecord): AssistantProposalDto {
 }
 
 const errorClass = (e: unknown): string => (e instanceof Error ? e.name : typeof e);
+
+/** The `id` of a 2xx JSON response body when it is a uuid (what the proposal created), else null. */
+export function resultIdOf(body: unknown): string | null {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) return null;
+  const id = (body as { id?: unknown }).id;
+  return typeof id === 'string' && isUuid(id) ? id : null;
+}
 
 /** `PATCH /products/{productId}` → `patch`. */
 const methodOf = (routeKey: string): string => (routeKey.split(' ')[0] ?? '').toLowerCase();
@@ -80,8 +88,14 @@ export class ProposalService {
       throw new AssistantProposalConflictError('proposal_expired');
     }
     // The route may have left the catalog (or stopped being a write) since it was proposed.
-    if (this.catalog.get(proposal.routeKey)?.use !== 'write') {
+    const entry = this.catalog.get(proposal.routeKey);
+    if (entry?.use !== 'write') {
       return this.#finish(scope, proposal, { ok: false, errorCode: 'route_not_allowed' });
+    }
+    // The stored body must still pass the assistant's (possibly narrowed) schema: a body edited
+    // after the proposal, or a schema narrowed since, never runs (no secret reaches a route).
+    if (entry.body && !entry.body.safeParse(proposal.body ?? undefined).success) {
+      return this.#finish(scope, proposal, { ok: false, errorCode: 'invalid_stored_body' });
     }
 
     let status: number;
@@ -127,6 +141,7 @@ export class ProposalService {
         resultPreview: outcome.ok
           ? (JSON.stringify(outcome.body) ?? '').slice(0, RESULT_PREVIEW_CHARS)
           : null,
+        resultId: outcome.ok ? resultIdOf(outcome.body) : null,
       },
     );
     await this.#event(

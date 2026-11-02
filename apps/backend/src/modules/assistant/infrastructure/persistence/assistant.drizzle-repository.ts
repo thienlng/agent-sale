@@ -295,6 +295,7 @@ function toProposal(row: typeof pr.$inferSelect): ProposalRecord {
     status: row.status as ProposalStatus,
     errorCode: row.errorCode,
     resultPreview: row.resultPreview,
+    resultId: row.resultId,
     expiresAt: row.expiresAt,
     decidedAt: row.decidedAt,
     createdAt: row.createdAt,
@@ -747,6 +748,7 @@ export class DrizzleAssistantRepository implements AssistantRepository {
       const set: Partial<typeof pr.$inferInsert> = { status: to };
       if (patch.errorCode !== undefined) set.errorCode = patch.errorCode;
       if (patch.resultPreview !== undefined) set.resultPreview = patch.resultPreview;
+      if (patch.resultId !== undefined) set.resultId = patch.resultId;
       if (patch.decidedAt !== undefined) set.decidedAt = patch.decidedAt;
       // One conditional UPDATE: a concurrent transaction blocks on the row lock, then re-checks
       // the status and changes nothing, so exactly one caller wins.

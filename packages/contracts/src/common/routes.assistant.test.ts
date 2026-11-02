@@ -1,7 +1,58 @@
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 
 import { allRoutes } from '../index.js';
 import { routeKey, type RouteContract } from './routes.js';
+
+/** A body property named like this can carry a secret (T-174, spec C5 §7.1). */
+const SECRET_KEY = /secret|password|token|api_?key|credential/i;
+
+/** The top-level property names of a body schema (all variants of a union, all parts of an intersection). */
+function topLevelKeys(schema: z.ZodType): string[] {
+  const json = z.toJSONSchema(schema, { io: 'input', unrepresentable: 'any' }) as JsonNode;
+  const keys = new Set<string>();
+  const walk = (node: JsonNode | undefined): void => {
+    if (!node || typeof node !== 'object') return;
+    for (const k of Object.keys(node.properties ?? {})) keys.add(k);
+    for (const sub of [...(node.anyOf ?? []), ...(node.oneOf ?? []), ...(node.allOf ?? [])]) {
+      walk(sub);
+    }
+  };
+  walk(json);
+  return [...keys];
+}
+interface JsonNode {
+  properties?: Record<string, unknown>;
+  anyOf?: JsonNode[];
+  oneOf?: JsonNode[];
+  allOf?: JsonNode[];
+}
+
+/**
+ * A valid assistant body per secret-bearing `write` route: the guard adds each secret-like key
+ * to it and expects the narrowed body to reject the result.
+ */
+const VALID_ASSISTANT_BODIES: Record<string, Record<string, unknown>> = {
+  'POST /bots/{botId}/actions': {
+    name: 'Tra cứu đơn hàng',
+    description: 'Gọi khi khách hỏi tình trạng đơn và đã cho mã đơn.',
+    url: 'https://shop.example.com/api/orders/{orderCode}',
+    method: 'GET',
+    params: [
+      {
+        name: 'orderCode',
+        type: 'string',
+        location: 'path',
+        required: true,
+        description: 'Mã đơn hàng',
+      },
+    ],
+    responses: [{ statusCode: 200, fields: [] }],
+    auth: { kind: 'bearer' },
+    requiresConfirm: false,
+    enabled: false,
+  },
+};
 
 /**
  * Architecture test for the owner assistant (T-170): every workspace-scoped
@@ -79,6 +130,52 @@ describe('route assistant annotations', () => {
         r.assistant.use !== 'never',
     );
     expect(bad.map(routeKey)).toEqual([]);
+  });
+
+  it('lets a secret-bearing route be a `write` only through a narrowed body that rejects the secret', () => {
+    const problems: string[] = [];
+    for (const r of routes) {
+      if (r.assistant?.use !== 'write' || !r.body) continue;
+      const secretKeys = topLevelKeys(r.body).filter((k) => SECRET_KEY.test(k));
+      if (secretKeys.length === 0) continue;
+      const key = routeKey(r);
+      const narrowed = r.assistant.body;
+      if (!narrowed) {
+        problems.push(`${key}: declare assistant.body without ${secretKeys.join(', ')}`);
+        continue;
+      }
+      const sample = VALID_ASSISTANT_BODIES[key];
+      if (!sample) {
+        problems.push(`${key}: add a sample to VALID_ASSISTANT_BODIES`);
+        continue;
+      }
+      if (!narrowed.safeParse(sample).success) problems.push(`${key}: the sample is not valid`);
+      for (const secret of secretKeys) {
+        if (narrowed.safeParse({ ...sample, [secret]: 'x' }).success) {
+          problems.push(`${key}: assistant.body accepts ${secret}`);
+        }
+      }
+    }
+    expect(problems).toEqual([]);
+  });
+
+  it('declares assistant.body only on `write` routes with a body', () => {
+    const bad = routes.filter((r) => r.assistant?.body && (r.assistant.use !== 'write' || !r.body));
+    expect(bad.map(routeKey)).toEqual([]);
+  });
+
+  it('keeps every other action route away from the assistant', () => {
+    const actionRoutes = routes.filter((r) => r.path.startsWith('/bots/{botId}/actions'));
+    const uses = Object.fromEntries(actionRoutes.map((r) => [routeKey(r), r.assistant?.use]));
+    expect(uses).toEqual({
+      'GET /bots/{botId}/actions': 'read',
+      'POST /bots/{botId}/actions': 'write',
+      'POST /bots/{botId}/actions/test': 'never',
+      'GET /bots/{botId}/actions/{actionId}': 'read',
+      'PATCH /bots/{botId}/actions/{actionId}': 'never',
+      'DELETE /bots/{botId}/actions/{actionId}': 'never',
+      'POST /bots/{botId}/actions/{actionId}/test': 'never',
+    });
   });
 
   it('builds route keys as `METHOD /path`', () => {

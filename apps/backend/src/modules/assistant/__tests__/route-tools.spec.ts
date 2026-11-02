@@ -166,6 +166,82 @@ describe('tool_search and tool_describe', () => {
   });
 });
 
+describe('bot API action drafts (narrowed body)', () => {
+  const BOT = newId();
+  const DRAFT = {
+    name: 'Tra cứu đơn',
+    description: 'Gọi khi khách hỏi tình trạng đơn và đã cho mã đơn.',
+    url: 'https://shop.example.com/api/orders/{code}',
+    method: 'GET',
+    params: [
+      { name: 'code', type: 'string', location: 'path', required: true, description: 'Mã đơn' },
+    ],
+    responses: [
+      {
+        statusCode: 200,
+        fields: [{ name: 'data.status', type: 'string', description: 'Tình trạng' }],
+      },
+    ],
+    auth: { kind: 'bearer' },
+    requiresConfirm: false,
+    enabled: false,
+  };
+  const draft = (body: unknown) => ({
+    key: 'POST /bots/{botId}/actions',
+    params: { botId: BOT },
+    body,
+    summary: 'Thêm API tra cứu đơn',
+  });
+
+  it('describes the draft schema: no authSecret, enabled false', async () => {
+    const t = await setup();
+    const body = (await t.describe({ key: 'POST /bots/{botId}/actions' })).json.body as {
+      properties: Record<string, unknown>;
+    };
+    expect(Object.keys(body.properties)).not.toContain('authSecret');
+    expect(body.properties.enabled).toMatchObject({ const: false });
+  });
+
+  it('refuses a draft with a secret or enabled, and creates no proposal', async () => {
+    const t = await setup();
+    for (const body of [
+      { ...DRAFT, authSecret: 'sk-live-0123456789abcdef' },
+      { ...DRAFT, enabled: true },
+    ]) {
+      const out = await t.call(draft(body));
+      expect(out.json.errorCode).toBe('invalid_input');
+    }
+    expect(await t.repo.listProposals(t.scope, t.thread.id)).toEqual([]);
+    expect(t.invoke).not.toHaveBeenCalled();
+  });
+
+  it('turns a valid draft into a pending proposal that previews the body as is', async () => {
+    const t = await setup();
+    const out = await t.call(draft(DRAFT));
+    expect(out.json.status).toBe('awaiting_owner_approval');
+    const [p] = await t.repo.listProposals(t.scope, t.thread.id);
+    expect(p).toMatchObject({
+      routeKey: 'POST /bots/{botId}/actions',
+      path: `/bots/${BOT}/actions`,
+      status: 'pending',
+      body: DRAFT,
+      preview: { body: DRAFT, query: null },
+      resultId: null,
+    });
+    // A POST reads no current state first.
+    expect(t.invoke).not.toHaveBeenCalled();
+  });
+
+  it('keeps editing, deleting and testing actions out of the catalog', () => {
+    const keys = ROUTE_CATALOG.entries.map((e) => e.key);
+    expect(keys).toContain('POST /bots/{botId}/actions');
+    expect(keys).not.toContain('PATCH /bots/{botId}/actions/{actionId}');
+    expect(keys).not.toContain('DELETE /bots/{botId}/actions/{actionId}');
+    expect(keys).not.toContain('POST /bots/{botId}/actions/test');
+    expect(keys).not.toContain('POST /bots/{botId}/actions/{actionId}/test');
+  });
+});
+
 describe('tool_call', () => {
   it('refuses unknown keys, businesses, bad params and invalid input', async () => {
     const t = await setup();

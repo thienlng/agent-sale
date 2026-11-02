@@ -15,6 +15,7 @@ export interface CatalogEntry {
   path: string;
   pathParams: string[];
   query?: ZodObject;
+  /** The assistant's body: the route's `assistant.body` when it narrows it, else its `body`. */
   body?: ZodType;
   /** A side-effect-free query sent as POST with a body (ruling 1b-R7). */
   queryPost?: true;
@@ -65,18 +66,21 @@ const usable = (
 
 /** Only workspace-scoped routes marked `read` or `write`; a missing field means unusable. */
 export function buildRouteCatalog(routes: readonly RouteContract[]): RouteCatalog {
-  const entries: CatalogEntry[] = routes.filter(usable).map((r) => ({
-    key: routeKey(r),
-    use: r.assistant.use,
-    summary: r.summary,
-    when: r.assistant.when ?? '',
-    method: r.method,
-    path: r.path,
-    pathParams: [...r.path.matchAll(/\{(\w+)\}/g)].map((m) => m[1] ?? ''),
-    ...(r.query ? { query: r.query } : {}),
-    ...(r.body ? { body: r.body } : {}),
-    ...(r.assistant.use === 'read' && r.assistant.queryPost ? { queryPost: true as const } : {}),
-  }));
+  const entries: CatalogEntry[] = routes.filter(usable).map((r) => {
+    const body = r.assistant.body ?? r.body;
+    return {
+      key: routeKey(r),
+      use: r.assistant.use,
+      summary: r.summary,
+      when: r.assistant.when ?? '',
+      method: r.method,
+      path: r.path,
+      pathParams: [...r.path.matchAll(/\{(\w+)\}/g)].map((m) => m[1] ?? ''),
+      ...(r.query ? { query: r.query } : {}),
+      ...(body ? { body } : {}),
+      ...(r.assistant.use === 'read' && r.assistant.queryPost ? { queryPost: true as const } : {}),
+    };
+  });
   const byKey = new Map(entries.map((e) => [e.key, e]));
   return {
     entries,

@@ -211,12 +211,15 @@ describe('proposal and memory DTOs', () => {
       preview: { price: { from: 120000, to: 150000 } },
       status: 'pending',
       errorCode: null,
+      resultId: null,
       createdAt: now,
       expiresAt: now,
       decidedAt: null,
     };
     expect(AssistantProposalDto.safeParse(proposal).success).toBe(true);
     expect(AssistantProposalDto.safeParse({ ...proposal, status: 'approved' }).success).toBe(false);
+    expect(AssistantProposalDto.safeParse({ ...proposal, resultId: TURN }).success).toBe(true);
+    expect(AssistantProposalDto.safeParse({ ...proposal, resultId: 'x' }).success).toBe(false);
   });
 
   it('parses memory stores with entries', () => {

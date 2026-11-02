@@ -64,7 +64,6 @@ const RESERVED_HEADERS = new Set([
 const RESERVED_HEADER_PREFIXES = ['proxy-', 'sec-'];
 
 /** Rules that need several fields at once; the facade re-applies them to the merged result of a patch. */
-/** Rules that need several fields at once; the facade re-applies them to the merged result of a patch. */
 function checkAction(
   a: { url: string; method: string; params: ActionParam[]; auth: ActionAuth },
   ctx: z.RefinementCtx,
@@ -135,6 +134,17 @@ const ActionBase = z.object({
 
 export const ActionInput = ActionBase.superRefine(checkAction);
 export type ActionInput = z.infer<typeof ActionInput>;
+
+/**
+ * What the owner assistant may draft: disabled, no secret (T-174, spec C5 §7.1). `strict` rejects
+ * an `authSecret` key instead of stripping it; the owner types the secret in the form, tests the
+ * action and turns it on.
+ */
+export const ActionAssistantDraft = ActionBase.omit({ authSecret: true })
+  .extend({ enabled: z.literal(false) })
+  .strict()
+  .superRefine(checkAction);
+export type ActionAssistantDraft = z.infer<typeof ActionAssistantDraft>;
 
 /** Shape of a patch; the facade validates the merged result with `ActionInput`. */
 export const UpdateActionRequest = ActionBase.partial();

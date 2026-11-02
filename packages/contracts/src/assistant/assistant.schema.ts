@@ -164,6 +164,8 @@ export const AssistantProposalDto = z.object({
   preview: z.unknown(),
   status: AssistantProposalStatus,
   errorCode: z.string().nullable(),
+  /** The `id` of what a done proposal created (a uuid in the 2xx response body), else null. */
+  resultId: z.uuid().nullable(),
   createdAt: z.iso.datetime(),
   expiresAt: z.iso.datetime(),
   decidedAt: z.iso.datetime().nullable(),

@@ -78,6 +78,7 @@ export function turnFixture(
       messageFixture(answer),
     ],
     run: runFixture(),
+    secretsRemoved: false,
   };
 }
 
@@ -92,6 +93,7 @@ export function proposalFixture(over: Partial<AssistantProposalDto> = {}): Assis
     preview: { price: { from: 120000, to: 150000 } },
     status: 'pending',
     errorCode: null,
+    resultId: null,
     createdAt: '2026-11-02T07:59:59.000Z',
     expiresAt: '2026-11-03T07:59:59.000Z',
     decidedAt: null,
