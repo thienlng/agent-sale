@@ -178,6 +178,9 @@ describe('ProductForm and the owner assistant', () => {
     setup(product(false), LINK);
     await screen.findByLabelText('Tên sản phẩm');
     expect(collectPageContext('/app/products/1').forms).toBeUndefined();
-    expect(fillAssistantForm('product', { name: 'x' })).toEqual({ ok: false });
+    expect(fillAssistantForm('product', { name: 'x' })).toEqual({
+      ok: false,
+      reason: 'form_not_found',
+    });
   });
 });
