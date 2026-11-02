@@ -6,6 +6,8 @@ import {
   test,
 } from '@playwright/test';
 
+import { signUpOwner } from './support/signup';
+
 /**
  * Orders against the real backend (#23): what the mocked smoke tests cannot prove —
  * persistence, stock reservations, snapshot prices, cancellation and the source
@@ -76,14 +78,12 @@ test.beforeAll(async ({ baseURL, browser }) => {
   // A new shop with one warehouse and one product holding 10 in stock.
   const anon = await playwrightRequest.newContext({ baseURL: baseURL ?? '' });
   const auth = await json<{ accessToken: string }>(
-    await anon.post('/api/v1/auth/signup', {
-      data: {
-        name: 'Chủ shop E2E',
-        email,
-        password,
-        workspaceName: 'Shop E2E',
-        industry: 'fashion',
-      },
+    await signUpOwner(anon, {
+      name: 'Chủ shop E2E',
+      email,
+      password,
+      workspaceName: 'Shop E2E',
+      industry: 'fashion',
     }),
   );
   const boot = await json<{ memberships: Array<{ workspaceId: string }> }>(

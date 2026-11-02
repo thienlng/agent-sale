@@ -2,6 +2,8 @@ import { createHmac } from 'node:crypto';
 
 import { expect, test } from '@playwright/test';
 
+import { signUpOwner } from './support/signup';
+
 /**
  * Two-step verification through the UI against the real backend (ADM-04):
  * turn it on with an authenticator code, sign in again with a code, use a
@@ -36,14 +38,12 @@ test('two-step verification: enable, sign in with a code, recovery code, disable
   page,
 }) => {
   // The account comes from the API; everything about two-step verification goes through the UI.
-  const signup = await page.request.post('/api/v1/auth/signup', {
-    data: {
-      name: 'Chủ shop Bảo mật',
-      email,
-      password,
-      workspaceName: 'Shop Bảo mật',
-      industry: 'fashion',
-    },
+  const signup = await signUpOwner(page.request, {
+    name: 'Chủ shop Bảo mật',
+    email,
+    password,
+    workspaceName: 'Shop Bảo mật',
+    industry: 'fashion',
   });
   expect(signup.ok(), await signup.text()).toBe(true);
   await page.goto('/login');

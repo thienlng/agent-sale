@@ -1,3 +1,6 @@
+import { mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+
 import { Logger } from '@nestjs/common';
 
 export interface EmailMessage {
@@ -48,13 +51,17 @@ export class ResendMailer implements Mailer {
 
 /**
  * No provider configured. Tests read `sent`; development also prints the text (it carries the
- * code) so a local signup can be finished; production logs a warning without any content.
+ * code) so a local signup can be finished, and with `outboxDir` writes each message there as JSON
+ * (the live-backend e2e suite reads codes from it); production logs a warning without any content.
  */
 export class LocalMailer implements Mailer {
   readonly #log = new Logger(LocalMailer.name);
   readonly sent: EmailMessage[] = [];
 
-  constructor(private readonly nodeEnv: string) {}
+  constructor(
+    private readonly nodeEnv: string,
+    private readonly outboxDir?: string | undefined,
+  ) {}
 
   async send(message: EmailMessage): Promise<void> {
     if (this.nodeEnv === 'test') {
@@ -62,6 +69,11 @@ export class LocalMailer implements Mailer {
       return;
     }
     if (this.nodeEnv === 'development') {
+      if (this.outboxDir) {
+        await mkdir(this.outboxDir, { recursive: true });
+        const name = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.json`;
+        await writeFile(join(this.outboxDir, name), JSON.stringify(message));
+      }
       this.#log.log(`Email (not sent, no RESEND_API_KEY): ${message.subject}\n${message.text}`);
       return;
     }
@@ -73,8 +85,9 @@ export function createMailer(env: {
   NODE_ENV: string;
   RESEND_API_KEY?: string | undefined;
   EMAIL_FROM: string;
+  MAIL_OUTBOX_DIR?: string | undefined;
 }): Mailer {
   return env.RESEND_API_KEY
     ? new ResendMailer(env.RESEND_API_KEY, env.EMAIL_FROM)
-    : new LocalMailer(env.NODE_ENV);
+    : new LocalMailer(env.NODE_ENV, env.MAIL_OUTBOX_DIR);
 }
