@@ -13,11 +13,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { AssistantAskButton } from '@/components/assistant-ask-button';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Dialog } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
+import { useAssistantForm } from '@/lib/assistant-context';
 import { errorMessage } from '@/lib/errors';
 import { cn } from '@/lib/utils';
 import {
@@ -29,7 +31,13 @@ import {
 } from '../api/training';
 import { matchesText } from '../utils/table-data';
 import { DataError, DataPageHeader, DataSearch, tableFrame } from './data-page';
-import { TrainingItemEditor } from './training-items';
+import {
+  type ScenarioPrefill,
+  scenarioFormFields,
+  scenarioPrefill,
+  TrainingItemEditor,
+  useBotPageContext,
+} from './training-items';
 
 const SYSTEM_RULES = ['sources', 'handover', 'secrecy', 'noInvent', 'actions'] as const;
 
@@ -150,8 +158,21 @@ export function RulesList({ botId, introduction }: { botId: string; introduction
   const remove = useDeleteTrainingItem(botId);
   const starter = useAddStarterRules(botId);
   const [search, setSearch] = useState('');
-  const [editor, setEditor] = useState<{ item: TrainingItemDto | null } | null>(null);
+  const [editor, setEditor] = useState<{
+    item: TrainingItemDto | null;
+    prefill?: ScenarioPrefill;
+  } | null>(null);
   const [deleting, setDeleting] = useState<TrainingItemDto | null>(null);
+  useBotPageContext(botId, t('assistantPage.instructions'));
+  // The editor is closed most of the time: a fill opens it for a new scenario with the draft,
+  // and the open editor registers the same form itself (T175-R4).
+  useAssistantForm(
+    'scenario',
+    () => scenarioFormFields(t),
+    (values) => setEditor({ item: null, prefill: scenarioPrefill(values) }),
+    // An open edit of an existing item is never overwritten: the fill is ignored (busy).
+    { opensDialog: true, busy: Boolean(editor?.item) },
+  );
   const rules = (items.data ?? []).filter((item) => item.kind === 'scenario').sort(byCreation);
   const bySection = (section: TrainingSection) => rules.filter((r) => r.section === section);
   const searching = search.trim() !== '';
@@ -252,13 +273,18 @@ export function RulesList({ botId, introduction }: { botId: string; introduction
             <Button
               variant="outline"
               className="h-9"
+              data-assistant-target="scenario.starter"
               disabled={starter.isPending}
               onClick={addStarter}
             >
               <Sparkles />
               {t('rules.starter')}
             </Button>
-            <Button className="h-9" onClick={() => setEditor({ item: null })}>
+            <Button
+              className="h-9"
+              data-assistant-target="scenario.new"
+              onClick={() => setEditor({ item: null })}
+            >
               <Plus />
               {t('rules.add')}
             </Button>
@@ -271,7 +297,10 @@ export function RulesList({ botId, introduction }: { botId: string; introduction
         ) : (
           <>
             {!rules.length ? (
-              <p className="text-sm text-muted-foreground">{t('rules.empty')}</p>
+              <div className="flex flex-wrap items-center gap-3">
+                <p className="text-sm text-muted-foreground">{t('rules.empty')}</p>
+                <AssistantAskButton text={t('rules.askSample')} />
+              </div>
             ) : null}
             {noMatches ? (
               <p className="text-sm text-muted-foreground">{t('rules.noResults')}</p>
@@ -326,6 +355,7 @@ export function RulesList({ botId, introduction }: { botId: string; introduction
             botId={botId}
             kind="scenario"
             item={editor.item}
+            prefill={editor.prefill ?? null}
             onClose={() => setEditor(null)}
           />
         ) : null}

@@ -1,7 +1,8 @@
 {
   "app": {
     "name": "Rapiz",
-    "assistantLauncher": "Ask Thỏ Rapiz"
+    "assistantLauncher": "Ask Thỏ Rapiz",
+    "assistantAskSample": "Ask the assistant to fill it in"
   },
   "nav": {
     "bots": "Bot training",

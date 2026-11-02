@@ -17,7 +17,13 @@ const PLATFORM_SKILLS = [
   'add-products',
   'answer-data-questions',
   'connect-channels',
+  'draft-reply-guidance',
+  'fill-sample-data',
+  'fill-shop-info',
   'handle-orders',
+  'industry-hotel',
+  'industry-retail',
+  'industry-saas',
   'read-revenue',
   'set-up-bot',
 ];

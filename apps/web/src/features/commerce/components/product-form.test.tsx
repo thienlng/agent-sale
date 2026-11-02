@@ -161,7 +161,7 @@ describe('ProductForm and the owner assistant', () => {
       });
     });
 
-    expect(result).toEqual({ ok: true, submitTarget: 'products.save' });
+    expect(result).toEqual({ ok: true, submitTarget: 'products.save', opensDialog: false });
     expect(screen.getByLabelText('Tên sản phẩm')).toHaveValue('Áo thun');
     expect(screen.getByLabelText(/^Mã sản phẩm/)).toHaveValue('AT01');
     expect(screen.getByLabelText(/^Danh mục/)).toHaveValue('Áo');
@@ -178,6 +178,9 @@ describe('ProductForm and the owner assistant', () => {
     setup(product(false), LINK);
     await screen.findByLabelText('Tên sản phẩm');
     expect(collectPageContext('/app/products/1').forms).toBeUndefined();
-    expect(fillAssistantForm('product', { name: 'x' })).toEqual({ ok: false });
+    expect(fillAssistantForm('product', { name: 'x' })).toEqual({
+      ok: false,
+      reason: 'form_not_found',
+    });
   });
 });

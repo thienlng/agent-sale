@@ -3,6 +3,7 @@ import {
   type ProfileFieldKey,
   PROFILE_NOTES_MAX,
   profileFieldsFor,
+  REQUIRED_PROFILE_FIELDS,
 } from '@agent-sales/contracts';
 import { useBlocker } from '@tanstack/react-router';
 import { TriangleAlert } from 'lucide-react';
@@ -10,8 +11,9 @@ import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
+import { AssistantAskButton } from '@/components/assistant-ask-button';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -24,6 +26,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
+import { type AssistantFormField, useAssistantForm } from '@/lib/assistant-context';
 import { errorMessage } from '@/lib/errors';
 import { useCan } from '@/lib/permissions';
 
@@ -86,6 +89,41 @@ function ProfileForm({ bot }: { bot: BotDto }) {
     shown.current = draftOf(bot);
     setDraft((d) => rebase(d, old, shown.current, keys));
   }, [bot]);
+
+  // The owner assistant may fill every fact but the map link (T175-R6); a fill never saves.
+  const fillable = defs.filter((d) => d.key !== 'mapsUrl');
+  useAssistantForm(
+    'bot-profile',
+    (): AssistantFormField[] => [
+      ...fillable.map((def) => ({
+        name: def.key,
+        label: t(`profile.fields.${def.key}`),
+        type: def.max > 200 ? ('textarea' as const) : ('text' as const),
+        empty: !value(draft.fields, def.key),
+      })),
+      {
+        name: 'notes',
+        label: t('profile.notesLabel'),
+        type: 'textarea',
+        empty: !draft.notes.trim(),
+      },
+    ],
+    (values) =>
+      setDraft((d) => {
+        const fields: Values = { ...d.fields };
+        for (const def of fillable) {
+          const next = values[def.key];
+          if (typeof next === 'string') fields[def.key] = next.slice(0, def.max);
+        }
+        const notes = values['notes'];
+        return {
+          fields,
+          notes: typeof notes === 'string' ? notes.slice(0, PROFILE_NOTES_MAX) : d.notes,
+        };
+      }),
+    { enabled: canEdit, submitTarget: 'bot-profile.save' },
+  );
+  const missingRequired = REQUIRED_PROFILE_FIELDS.some((k) => !value(draft.fields, k));
 
   const filled = keys.filter((k) => value(draft.fields, k)).length;
   const setField = (key: ProfileFieldKey, next: string) =>
@@ -181,7 +219,11 @@ function ProfileForm({ bot }: { bot: BotDto }) {
           >
             {t('profile.reset')}
           </Button>
-          <Button type="submit" disabled={!dirty || save.isPending || mapsInvalid}>
+          <Button
+            type="submit"
+            data-assistant-target="bot-profile.save"
+            disabled={!dirty || save.isPending || mapsInvalid}
+          >
             {t('profile.save')}
           </Button>
         </div>
@@ -189,6 +231,11 @@ function ProfileForm({ bot }: { bot: BotDto }) {
       <Card>
         <CardHeader>
           <CardTitle className="text-base font-semibold">{t('profile.title')}</CardTitle>
+          {canEdit && missingRequired ? (
+            <CardAction>
+              <AssistantAskButton text={t('profile.askFill')} />
+            </CardAction>
+          ) : null}
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
             <span>{t('profile.template', { industry: common(`industries.${bot.industry}`) })}</span>
             <span className="font-medium text-foreground">

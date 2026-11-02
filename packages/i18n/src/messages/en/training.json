@@ -373,7 +373,8 @@
       "bulkDeleted": "Deleted {{count}} questions",
       "empty": "No matching questions",
       "emptyStart": "No questions yet. Add the first one so the Bot can answer customers.",
-      "total": "{{count}} questions & answers in total"
+      "total": "{{count}} questions & answers in total",
+      "askSample": "Draft a few sample FAQs for my shop."
     },
     "quick": {
       "title": "Quick replies",
@@ -403,7 +404,8 @@
       "imageInvalid": "The image link must start with https://",
       "deleteConfirm": "Delete quick reply “/{{shortcut}}”?",
       "saved": "Quick reply saved",
-      "deleted": "Quick reply deleted"
+      "deleted": "Quick reply deleted",
+      "askSample": "Draft a few sample quick replies for my shop."
     },
     "media": {
       "title": "Image library",
@@ -500,7 +502,8 @@
     "then": "Bot will {{content}}",
     "thenOnly": "Bot will {{content}}",
     "showSystem": "Show system principles",
-    "hideSystem": "Hide system principles"
+    "hideSystem": "Hide system principles",
+    "askSample": "Draft a few sample scenarios for my bot."
   },
   "purpose": {
     "facts": {
@@ -615,7 +618,8 @@
       "support": "e.g. Zalo and hotline 8:00-22:00 every day, answer within 15 minutes",
       "dataSecurity": "e.g. Servers in Vietnam, daily backups, no data shared with third parties",
       "refundPolicy": "e.g. Cancel any time; refund within the first 7 days if unused"
-    }
+    },
+    "askFill": "Fill in the missing business information for me."
   },
   "personality": {
     "title": "Bot personality",
@@ -646,5 +650,10 @@
     "leave": "Leaving this page discards your unsaved changes.",
     "stay": "Stay",
     "leaveConfirm": "Leave page"
+  },
+  "assistantPage": {
+    "knowledge": "Information & FAQ",
+    "instructions": "Reply guidance",
+    "quickReplies": "Quick replies"
   }
 }

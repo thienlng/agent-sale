@@ -148,7 +148,7 @@ export const botRoutes = defineRoutes([
     path: '/bots/{botId}',
     assistant: {
       use: 'read',
-      when: "One bot's settings: mission, greeting, pronouns, tone, reply length, schedule and profile facts.",
+      when: "One bot's settings and business information: mission, greeting, pronouns, tone, reply length, schedule, profile facts and notes.",
     },
     summary: 'One bot',
     tag: 'bot',
@@ -161,7 +161,7 @@ export const botRoutes = defineRoutes([
     path: '/bots/{botId}',
     assistant: {
       use: 'write',
-      when: 'The owner asks to rename a bot, turn it on or off, or change its mission, greeting, pronouns, tone or catalog mode.',
+      when: 'Rename a bot, turn it on or off, change its mission, greeting, pronouns, tone or catalog mode, or fill its business information (profile facts, notes).',
     },
     summary: 'Update name, active flag or settings (partial)',
     tag: 'bot',

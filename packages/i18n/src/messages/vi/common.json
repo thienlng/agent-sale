@@ -1,7 +1,8 @@
 {
   "app": {
     "name": "Rapiz",
-    "assistantLauncher": "Hỏi Thỏ Rapiz"
+    "assistantLauncher": "Hỏi Thỏ Rapiz",
+    "assistantAskSample": "Nhờ trợ lý điền mẫu"
   },
   "nav": {
     "bots": "Đào tạo Bot",

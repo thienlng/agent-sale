@@ -15,8 +15,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { AssistantAskButton } from '@/components/assistant-ask-button';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useAssistantForm } from '@/lib/assistant-context';
 import { errorMessage } from '@/lib/errors';
 
 import { useDeleteFaqs, useFaqs } from '../api/faqs';
@@ -32,9 +34,10 @@ import {
   DataSearch,
   tableFrame,
 } from './data-page';
-import { FaqDialog } from './faq-dialog';
+import { FaqDialog, faqFormFields, type FaqPrefill } from './faq-dialog';
 import { FaqTable } from './faq-table';
 import { FaqImportDialog } from './faq-transfer';
+import { useBotPageContext } from './training-items';
 
 /** "Thông tin" page: the bot's FAQ table with search, selection, import/export. */
 export function FaqList({ botId }: { botId: string }) {
@@ -49,6 +52,7 @@ export function FaqList({ botId }: { botId: string }) {
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [editing, setEditing] = useState<FaqDto | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [prefill, setPrefill] = useState<FaqPrefill | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [confirmBulk, setConfirmBulk] = useState(false);
 
@@ -58,10 +62,26 @@ export function FaqList({ botId }: { botId: string }) {
   );
   const current = paginate(visible, page, pageSize);
 
-  const open = (faq: FaqDto | null) => {
+  const open = (faq: FaqDto | null, draft: FaqPrefill | null = null) => {
     setEditing(faq);
+    setPrefill(draft);
     setDialogOpen(true);
   };
+
+  useBotPageContext(botId, t('assistantPage.knowledge'));
+  // The add dialog is closed most of the time: the list registers its form and a fill opens the
+  // dialog with the draft; the open dialog then registers the same form itself (T175-R4).
+  useAssistantForm(
+    'faq',
+    () => faqFormFields((key) => common(`faq.${key}`)),
+    (values) =>
+      open(null, {
+        ...(typeof values['question'] === 'string' ? { question: values['question'] } : {}),
+        ...(typeof values['answer'] === 'string' ? { answer: values['answer'] } : {}),
+      }),
+    // An open edit of an existing FAQ is never overwritten: the fill is ignored (busy).
+    { opensDialog: true, busy: dialogOpen && editing !== null },
+  );
   const toggle = (id: string) =>
     setSelected((prev) => {
       const next = new Set(prev);
@@ -121,6 +141,7 @@ export function FaqList({ botId }: { botId: string }) {
           </Button>
           <AddMenuButton
             label={t('data.faq.add')}
+            target="faq.new"
             onManual={() => open(null)}
             onImport={() => setImportOpen(true)}
           />
@@ -148,7 +169,9 @@ export function FaqList({ botId }: { botId: string }) {
             ) : (
               <DataEmptyState
                 message={faqs.data.length ? t('data.faq.empty') : t('data.faq.emptyStart')}
-              />
+              >
+                {faqs.data.length ? null : <AssistantAskButton text={t('data.faq.askSample')} />}
+              </DataEmptyState>
             )}
           </div>
           <DataPagination
@@ -165,7 +188,13 @@ export function FaqList({ botId }: { botId: string }) {
         </>
       )}
 
-      <FaqDialog botId={botId} open={dialogOpen} faq={editing} onOpenChange={setDialogOpen} />
+      <FaqDialog
+        botId={botId}
+        open={dialogOpen}
+        faq={editing}
+        prefill={prefill}
+        onOpenChange={setDialogOpen}
+      />
       <FaqImportDialog botId={botId} open={importOpen} onOpenChange={setImportOpen} />
       <AlertDialog open={confirmBulk} onOpenChange={setConfirmBulk}>
         <AlertDialogContent>

@@ -1,7 +1,10 @@
-import { screen } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { Industry } from '@agent-sales/contracts';
+
+import { collectPageContext, fillAssistantForm } from '@/lib/assistant-context';
 import type * as SessionModule from '@/lib/session';
 import type { Session } from '@/lib/session';
 import { renderWithRouter, stubFetch } from '@/testing/render';
@@ -18,6 +21,11 @@ vi.mock('@/lib/session', async (importOriginal) => ({
   ...(await importOriginal<typeof SessionModule>()),
   useSession: () => current,
 }));
+beforeAll(() => {
+  Element.prototype.hasPointerCapture ??= () => false;
+  Element.prototype.releasePointerCapture ??= () => undefined;
+  Element.prototype.scrollIntoView ??= () => undefined;
+});
 afterEach(() => {
   current = null;
   vi.unstubAllGlobals();
@@ -130,5 +138,47 @@ describe('CreateBusinessPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /tạo business/i }));
     expect(await screen.findByRole('alert')).toBeInTheDocument();
     expect(calls[0]?.body).toEqual({ name: 'Hoa Spa', industry: 'retail', accountId: X });
+  });
+
+  describe('owner assistant', () => {
+    const form = () =>
+      collectPageContext('/app/businesses/new').forms?.find((f) => f.id === 'business');
+
+    it('offers the name and exactly the industries the select renders, never the account', async () => {
+      current = session({
+        accounts: [
+          { accountId: X, name: 'Hoa Group', role: 'owner' },
+          { accountId: Y, name: 'Hoa Two', role: 'owner' },
+        ],
+      });
+      vi.stubGlobal('fetch', stubFetch({}).fetchStub);
+      renderWithRouter(() => <CreateBusinessPage />);
+      await screen.findByLabelText(/tên business/i);
+      const fields = form()?.fields ?? [];
+      expect(fields.map((f) => f.name)).toEqual(['name', 'industry']);
+      await userEvent.click(screen.getByRole('combobox', { name: 'Lĩnh vực kinh doanh' }));
+      const rendered = (await screen.findAllByRole('option')).length;
+      expect(fields[1]?.options).toEqual([...Industry.options]);
+      expect(fields[1]?.options).toHaveLength(rendered);
+      const context = collectPageContext('/app/businesses/new');
+      expect(context.title).toBe('Tạo business mới');
+      expect(context.targets).toContain('business.create');
+    });
+
+    it('fills the name and industry without creating the business', async () => {
+      current = session();
+      const { fetchStub, calls } = stubFetch({});
+      vi.stubGlobal('fetch', fetchStub);
+      renderWithRouter(() => <CreateBusinessPage />);
+      await screen.findByLabelText(/tên business/i);
+      act(() => {
+        fillAssistantForm('business', { name: 'Homestay Đà Lạt', industry: 'hotel' });
+      });
+      expect(screen.getByLabelText(/tên business/i)).toHaveValue('Homestay Đà Lạt');
+      expect(screen.getByRole('combobox', { name: 'Lĩnh vực kinh doanh' })).toHaveTextContent(
+        'Khách sạn / homestay',
+      );
+      expect(calls).toHaveLength(0);
+    });
   });
 });

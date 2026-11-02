@@ -1,20 +1,24 @@
 import { Link } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { collectPageContext, fillAssistantForm } from '@/lib/assistant-context';
 import { renderWithRouter, stubFetch } from '@/testing/render';
 
 import { BusinessProfileForm } from './business-profile-form';
 
 const can = vi.hoisted(() => ({ value: true }));
+const owner = vi.hoisted(() => ({ value: true }));
+vi.mock('@/lib/use-is-account-owner', () => ({ useIsAccountOwner: () => owner.value }));
 const toastError = vi.hoisted(() => vi.fn());
 vi.mock('sonner', () => ({ toast: { error: toastError, success: vi.fn() } }));
 vi.mock('@/lib/use-workspace', () => ({ useWorkspaceId: () => 'ws-1' }));
 vi.mock('@/lib/permissions', () => ({ useCan: () => can.value }));
 beforeEach(() => {
   can.value = true;
+  owner.value = true;
   toastError.mockClear();
 });
 afterEach(() => vi.unstubAllGlobals());
@@ -247,5 +251,74 @@ describe('BusinessProfileForm', () => {
     await setup(bot({}, '', 'other'));
     expect(screen.queryByRole('group', { name: 'Theo ngành' })).not.toBeInTheDocument();
     expect(screen.getByText('Đã điền 0/5')).toBeInTheDocument();
+  });
+
+  describe('owner assistant', () => {
+    const form = () =>
+      collectPageContext('/app/bots/b/knowledge').forms?.find((f) => f.id === 'bot-profile');
+
+    it('offers every hotel field but the map link, plus the notes', async () => {
+      await setup(bot({ address: '12 Lê Lợi' }));
+      const fields = form()?.fields ?? [];
+      expect(fields.map((f) => f.name)).toEqual([
+        'displayName',
+        'address',
+        'hotline',
+        'hours',
+        'unitTypes',
+        'rates',
+        'checkInOut',
+        'deposit',
+        'cancellation',
+        'amenities',
+        'childrenPets',
+        'directions',
+        'notes',
+      ]);
+      expect(fields.find((f) => f.name === 'address')).toMatchObject({
+        label: 'Địa chỉ',
+        empty: false,
+      });
+      expect(fields.find((f) => f.name === 'hotline')).toMatchObject({ type: 'text', empty: true });
+      expect(fields.find((f) => f.name === 'notes')).toMatchObject({
+        type: 'textarea',
+        empty: true,
+      });
+    });
+
+    it('fills the draft, clamped, and leaves saving to the owner', async () => {
+      const stub = await setup();
+      act(() => {
+        fillAssistantForm('bot-profile', {
+          hotline: '0901 234 567',
+          mapsUrl: 'https://evil.example',
+          notes: 'x'.repeat(4000),
+        });
+      });
+      expect(screen.getByLabelText(/Hotline \/ Zalo/)).toHaveValue('0901 234 567');
+      expect(screen.getByLabelText(/Link Google Maps/)).toHaveValue('');
+      expect(screen.getByLabelText('Ghi chú thêm')).toHaveValue('x'.repeat(3000));
+      expect(screen.getByText('Có thay đổi chưa lưu')).toBeInTheDocument();
+      expect(document.querySelector('[data-assistant-target="bot-profile.save"]')).not.toBeNull();
+      expect(stub.calls.some((c) => c.key.startsWith('PATCH'))).toBe(false);
+    });
+
+    it('registers nothing for a read-only member', async () => {
+      can.value = false;
+      await setup();
+      expect(form()).toBeUndefined();
+    });
+
+    it('offers the ask button while a required field is missing', async () => {
+      await setup(bot({ address: '12 Lê Lợi' }));
+      expect(screen.getByRole('button', { name: 'Nhờ trợ lý điền mẫu' })).toBeInTheDocument();
+    });
+
+    it('hides the ask button once the required fields are filled', async () => {
+      await setup(
+        bot({ displayName: 'An', address: '12 Lê Lợi', hotline: '0901', hours: '8-22h' }),
+      );
+      expect(screen.queryByRole('button', { name: 'Nhờ trợ lý điền mẫu' })).not.toBeInTheDocument();
+    });
   });
 });

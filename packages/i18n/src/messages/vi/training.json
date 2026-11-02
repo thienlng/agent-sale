@@ -373,7 +373,8 @@
       "bulkDeleted": "Đã xoá {{count}} câu hỏi",
       "empty": "Không tìm thấy câu hỏi phù hợp",
       "emptyStart": "Chưa có câu hỏi nào. Thêm câu hỏi đầu tiên để Bot trả lời khách hàng.",
-      "total": "Tổng số {{count}} câu hỏi & trả lời"
+      "total": "Tổng số {{count}} câu hỏi & trả lời",
+      "askSample": "Soạn giúp mình vài câu hỏi thường gặp mẫu cho shop."
     },
     "quick": {
       "title": "Quản lý tin nhắn nhanh",
@@ -403,7 +404,8 @@
       "imageInvalid": "Liên kết ảnh phải bắt đầu bằng https://",
       "deleteConfirm": "Xoá tin nhắn nhanh “/{{shortcut}}”?",
       "saved": "Đã lưu tin nhắn nhanh",
-      "deleted": "Đã xoá tin nhắn nhanh"
+      "deleted": "Đã xoá tin nhắn nhanh",
+      "askSample": "Soạn giúp mình vài tin nhắn nhanh mẫu cho shop."
     },
     "media": {
       "title": "Thư viện ảnh",
@@ -500,7 +502,8 @@
     "then": "Bot sẽ {{content}}",
     "thenOnly": "Bot sẽ {{content}}",
     "showSystem": "Hiện các nguyên tắc hệ thống",
-    "hideSystem": "Ẩn các nguyên tắc hệ thống"
+    "hideSystem": "Ẩn các nguyên tắc hệ thống",
+    "askSample": "Soạn giúp mình vài tình huống mẫu cho bot."
   },
   "purpose": {
     "facts": {
@@ -615,7 +618,8 @@
       "support": "Ví dụ: Zalo và hotline 8:00-22:00 hằng ngày, phản hồi trong 15 phút",
       "dataSecurity": "Ví dụ: Máy chủ tại Việt Nam, sao lưu hằng ngày, không chia sẻ dữ liệu cho bên thứ ba",
       "refundPolicy": "Ví dụ: Huỷ gói bất kỳ lúc nào; hoàn tiền trong 7 ngày đầu nếu chưa dùng"
-    }
+    },
+    "askFill": "Điền giúp mình các thông tin doanh nghiệp còn thiếu."
   },
   "personality": {
     "title": "Tính cách của Bot",
@@ -646,5 +650,10 @@
     "leave": "Rời trang sẽ mất các thay đổi chưa lưu.",
     "stay": "Ở lại",
     "leaveConfirm": "Rời trang"
+  },
+  "assistantPage": {
+    "knowledge": "Thông tin & FAQ",
+    "instructions": "Hướng dẫn trả lời",
+    "quickReplies": "Tin nhắn nhanh"
   }
 }

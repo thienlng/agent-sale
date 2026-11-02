@@ -56,6 +56,16 @@ The instructions page ("Hướng dẫn trả lời") has three parts. **Personal
 
 Since T-143 the bot answers with prompt `sales-agent@11` (`@12` for hotel bots) (the profile block and reply style) in the playground and live. Readiness and the bot home setup guide no longer ask for placeholders: a "Thông tin doanh nghiệp" step is done when display name, address, hotline and opening hours are filled (Google Maps link is optional), shows how many of the industry's fields are still empty, and links to the information page.
 
+## Owner assistant drafts (T-175)
+
+The owner assistant ("Thỏ Rapiz", [shop autofill spec](superpowers/specs/2026-11-02-owner-assistant-shop-autofill-design.md)) can draft the content of these pages for the account owner. A fill only sets the form's draft state: the page's dirty bar, leave guard and **Lưu** button work as for typing, and nothing is saved until the owner saves. Several records at once, or a page the owner is not on, become proposals the owner approves in the chat (FAQ import of at most 15 rows; starter rules first, then at most 5 scenario or quick-reply proposals per turn).
+
+- **Information page** (`/app/bots/{botId}/knowledge`): the business profile form (`bot-profile`: the industry's profile fields and notes, never the Google Maps link) and a new FAQ (`faq`: question and answer; the fill opens the add dialog with the draft).
+- **Instructions page** (`/app/bots/{botId}/instructions`): the personality (`bot-personality`: mission, greeting, pronouns, reply length, tone, emoji) and a new scenario (`scenario`: title, trigger, instruction, section; the fill opens the editor).
+- **Quick replies** (`/app/bots/{botId}/quick-replies`): a new quick reply (`quick-reply`: shortcut and content; never the image).
+
+Editing an existing FAQ, scenario or quick reply is never filled; the assistant proposes the change instead. Facts (address, hotline, hours, prices, fees, policies) come only from what the owner says or pastes and from Rapiz data (products, SaaS plans, lodging properties); the industry template gives wording only, and the assistant lists the facts still missing. It does not open websites: the owner pastes the page text. The empty FAQ, scenario and quick-reply lists, and the profile card while a required basic field is empty, show the owner a **Nhờ trợ lý điền mẫu** button that asks the assistant for a sample.
+
 ## Backfill of legacy bot data (T-141)
 
 `pnpm --filter @agent-sales/backend bot-profile-backfill --dry-run` (needs `DATABASE_SYSTEM_URL`) prints, per bot, how many placeholder values would be copied into `settings.profile.fields` (only into empty fields, never overwriting), how many seeded FAQs and seeded "every reply" style rules would be deleted, and which personality settings would be set (the deleted "Trả lời ngắn gọn" rule sets `replyLength: short` when the bot has none; pronouns stay as the bot has them). Review it, then run without `--dry-run`. Only FAQs whose question and answer, and rules whose title, trigger and content, still equal the legacy seed exactly are deleted; edited and user-written items are kept. `settings.placeholders` is not touched. Each bot is migrated in its own transaction, the run is idempotent (a second run lists no bots), and the report holds ids and counts only. The legacy seed is a frozen copy inside `packages/db/src/bot-profile-backfill.ts`.

@@ -9,6 +9,7 @@ import { DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/compon
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { type AssistantFormField, useAssistantForm } from '@/lib/assistant-context';
 import { errorMessage } from '@/lib/errors';
 import { cn } from '@/lib/utils';
 
@@ -57,23 +58,80 @@ function LibraryPicker({
   );
 }
 
+const CONTENT_MAX = 8000;
+
+/** The owner assistant's draft of one new quick reply; the image is never drafted (T175-R6). */
+export interface QuickReplyPrefill {
+  shortcut?: string;
+  content?: string;
+}
+
+/** The `quick-reply` form: the shortcut and the content of one new quick reply. */
+export function quickReplyFormFields(
+  t: (key: string) => string,
+  current: QuickReplyPrefill = {},
+): AssistantFormField[] {
+  return [
+    {
+      name: 'shortcut',
+      label: t('data.quick.shortcut'),
+      type: 'text',
+      empty: !current.shortcut?.trim(),
+    },
+    {
+      name: 'content',
+      label: t('data.quick.content'),
+      type: 'textarea',
+      empty: !current.content?.trim(),
+    },
+  ];
+}
+
+/** Reads a fill of the `quick-reply` form: a normalised shortcut and clamped content. */
+export function quickReplyPrefill(values: Record<string, string | number>): QuickReplyPrefill {
+  const { shortcut, content } = values;
+  return {
+    // As typed in the input: no slash, no whitespace.
+    ...(typeof shortcut === 'string'
+      ? { shortcut: normalizeShortcut(shortcut).replace(/\s/g, '').slice(0, MAX_SHORTCUT_LENGTH) }
+      : {}),
+    ...(typeof content === 'string' ? { content: content.slice(0, CONTENT_MAX) } : {}),
+  };
+}
+
 /** Add (item = null) or edit a quick reply: shortcut, content and an optional image. */
 export function QuickReplyDialog({
   botId,
   item,
+  prefill,
   images,
   onClose,
 }: {
   botId: string;
   item: TrainingItemDto | null;
+  /** Initial values of a new quick reply (the owner assistant's draft). */
+  prefill?: QuickReplyPrefill | null;
   images: TrainingItemDto[];
   onClose: () => void;
 }) {
   const { t } = useTranslation('training');
   const { t: common } = useTranslation();
   const save = useSaveTrainingItem(botId);
-  const [shortcut, setShortcut] = useState(normalizeShortcut(item?.trigger || item?.title || ''));
-  const [content, setContent] = useState(item?.content ?? '');
+  const [shortcut, setShortcut] = useState(
+    normalizeShortcut(item?.trigger || item?.title || prefill?.shortcut || ''),
+  );
+  const [content, setContent] = useState(item?.content ?? prefill?.content ?? '');
+  // A new quick reply on screen is the assistant's `quick-reply` form; an edit never is.
+  useAssistantForm(
+    'quick-reply',
+    () => quickReplyFormFields(t, { shortcut, content }),
+    (values) => {
+      const next = quickReplyPrefill(values);
+      if (next.shortcut !== undefined) setShortcut(next.shortcut);
+      if (next.content !== undefined) setContent(next.content);
+    },
+    { enabled: !item },
+  );
   const [mediaUrl, setMediaUrl] = useState(item?.mediaUrl ?? '');
   const [touched, setTouched] = useState(false);
   const key = normalizeShortcut(shortcut);
@@ -150,7 +208,7 @@ export function QuickReplyDialog({
             id="quick-content"
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            maxLength={8000}
+            maxLength={CONTENT_MAX}
             rows={5}
             aria-invalid={touched && !content.trim()}
             required
