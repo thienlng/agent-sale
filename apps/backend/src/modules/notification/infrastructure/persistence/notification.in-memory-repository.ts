@@ -159,6 +159,13 @@ export class InMemoryNotificationRepository implements NotificationRepository {
     return due.map((x) => structuredClone(x));
   }
 
+  async notificationsForDelivery(ids: string[]): Promise<NotificationRecord[]> {
+    return [...new Set(ids)]
+      .map((id) => this.notifications.get(id))
+      .filter((x): x is NotificationRecord => x !== undefined)
+      .map((x) => structuredClone(x));
+  }
+
   async finishDelivery(id: string, patch: DeliveryPatch): Promise<void> {
     const x = this.deliveries.get(id);
     if (!x) return;

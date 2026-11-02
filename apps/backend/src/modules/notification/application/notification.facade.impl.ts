@@ -1,23 +1,35 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
-import type { NotificationFacade } from '../api/notification.facade.js';
+import type {
+  DeliveryStatus,
+  NotificationChannelKind,
+  NotificationFacade,
+  NotifyInput,
+} from '../api/notification.facade.js';
+import { NotificationService } from './notification.service.js';
 
-/** Filled in with the notification service (T-172, task 2). */
+/** Delegates to the notification service; no logic of its own. */
 @Injectable()
 export class NotificationFacadeImpl implements NotificationFacade {
-  notify(): Promise<{ id: string; deduped: boolean }> {
-    return Promise.reject(new Error('notification facade not wired yet'));
+  constructor(@Inject(NotificationService) private readonly service: NotificationService) {}
+
+  notify(i: NotifyInput): Promise<{ id: string; deduped: boolean }> {
+    return this.service.notify(i);
   }
 
-  recipientLocale(): Promise<'vi' | 'en'> {
-    return Promise.resolve('vi');
+  recipientLocale(userId: string): Promise<'vi' | 'en'> {
+    return this.service.recipientLocale(userId);
   }
 
   emailAvailable(): boolean {
-    return false;
+    return this.service.emailAvailable();
   }
 
-  deliverySummary(): Promise<Map<string, Record<string, never>>> {
-    return Promise.resolve(new Map());
+  deliverySummary(
+    accountId: string,
+    userId: string,
+    ids: string[],
+  ): Promise<Map<string, Partial<Record<NotificationChannelKind, DeliveryStatus>>>> {
+    return this.service.deliverySummary(accountId, userId, ids);
   }
 }

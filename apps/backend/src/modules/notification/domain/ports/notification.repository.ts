@@ -100,6 +100,8 @@ export interface NotificationRepository {
    * Each becomes `sending` with `lease_until = now + leaseMs`.
    */
   claimDeliveries(now: Date, limit: number, leaseMs: number): Promise<DeliveryRecord[]>;
+  /** Worker: the notifications of claimed deliveries (their title, body and target). */
+  notificationsForDelivery(ids: string[]): Promise<NotificationRecord[]>;
   /** Worker: writes the outcome and clears the lease. */
   finishDelivery(id: string, patch: DeliveryPatch): Promise<void>;
   /** Worker: the user's `sent` emails with `sent_at >= since`, across accounts. */

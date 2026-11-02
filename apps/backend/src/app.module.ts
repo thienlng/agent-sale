@@ -21,6 +21,7 @@ import { HealthModule } from './modules/health/health.module.js';
 import { IdentityModule } from './modules/identity/identity.module.js';
 import { IntegrationModule } from './modules/integration/integration.module.js';
 import { LodgingModule } from './modules/lodging/lodging.module.js';
+import { NotificationModule } from './modules/notification/notification.module.js';
 import { WebchatModule } from './modules/webchat/webchat.module.js';
 import { WorkspaceModule } from './modules/workspace/workspace.module.js';
 
@@ -50,6 +51,7 @@ import { WorkspaceModule } from './modules/workspace/workspace.module.js';
     BillingModule,
     AnalyticsModule,
     AssistantModule,
+    NotificationModule,
     AuditModule,
     BackofficeModule,
     DeveloperModule,

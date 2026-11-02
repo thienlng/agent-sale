@@ -245,6 +245,17 @@ export class DrizzleNotificationRepository implements NotificationRepository {
     });
   }
 
+  notificationsForDelivery(ids: string[]): Promise<NotificationRecord[]> {
+    if (ids.length === 0) return Promise.resolve([]);
+    return this.#sys(async (tx) => {
+      const rows = await tx
+        .select()
+        .from(n)
+        .where(inArray(n.id, [...new Set(ids)]));
+      return rows.map(toNotification);
+    });
+  }
+
   finishDelivery(id: string, patch: DeliveryPatch): Promise<void> {
     return this.#sys(async (tx) => {
       const values: Partial<typeof d.$inferInsert> = { status: patch.status, leaseUntil: null };

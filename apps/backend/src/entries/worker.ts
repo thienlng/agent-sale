@@ -14,6 +14,8 @@ import { DEVELOPER_RUNNER, type DeveloperRunner } from '../modules/developer/api
 import { DeveloperModule } from '../modules/developer/developer.module.js';
 import { INTEGRATION_RUNNER, type IntegrationRunner } from '../modules/integration/api/index.js';
 import { IntegrationModule } from '../modules/integration/integration.module.js';
+import { NOTIFICATION_RUNNER, type NotificationRunner } from '../modules/notification/api/index.js';
+import { NotificationModule } from '../modules/notification/notification.module.js';
 import { SAAS_RUNNER, type SaasRunner } from '../modules/saas/api/index.js';
 import { SaasModule } from '../modules/saas/saas.module.js';
 
@@ -31,6 +33,7 @@ import { SaasModule } from '../modules/saas/saas.module.js';
     BillingModule,
     SaasModule,
     DeveloperModule,
+    NotificationModule,
   ],
 })
 class WorkerModule {}
@@ -110,6 +113,19 @@ const webhookTimer = setInterval(() => {
       webhooksBusy = false;
     });
 }, 2000);
+// Notification deliveries (T-172): email over SMTP with retries; one tick at a time.
+const notifications = ctx.get<NotificationRunner>(NOTIFICATION_RUNNER);
+let notifying = false;
+const notificationTimer = setInterval(() => {
+  if (notifying) return;
+  notifying = true;
+  void notifications
+    .tick()
+    .catch(() => logger.error('Notification delivery tick failed'))
+    .finally(() => {
+      notifying = false;
+    });
+}, 5000);
 let dailyRunning = false;
 const runDaily = () => {
   if (dailyRunning) return;
@@ -132,8 +148,9 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const)
     clearInterval(hqTimer);
     clearInterval(dailyTimer);
     clearInterval(webhookTimer);
+    clearInterval(notificationTimer);
   });
 logger.info(
   { queues },
-  'worker started (analytics projection, PMS sync, billing lifecycle, HQ sync, webhooks; no queue processors registered yet)',
+  'worker started (analytics projection, PMS sync, billing lifecycle, HQ sync, webhooks, notifications; no queue processors registered yet)',
 );
