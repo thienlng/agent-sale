@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
 import { createHttpApp } from '../src/bootstrap.js';
+import { signUpVerified } from './support/signup.js';
 
 let app: NestFastifyApplication | undefined;
 afterEach(async () => {
@@ -19,16 +20,12 @@ async function setup() {
   await app.init();
   const http = app.getHttpAdapter().getInstance();
   await http.ready();
-  const registered = await http.inject({
-    method: 'POST',
-    url: '/api/v1/auth/signup',
-    payload: {
-      name: 'Image Owner',
-      email: 'product-image@example.test',
-      password: 'correct horse battery',
-      workspaceName: 'Image shop',
-      industry: 'retail',
-    },
+  const registered = await signUpVerified(app, {
+    name: 'Image Owner',
+    email: 'product-image@example.test',
+    password: 'correct horse battery',
+    workspaceName: 'Image shop',
+    industry: 'retail',
   });
   const auth = AuthResponse.parse(registered.json());
   const authorization = `Bearer ${auth.accessToken}`;

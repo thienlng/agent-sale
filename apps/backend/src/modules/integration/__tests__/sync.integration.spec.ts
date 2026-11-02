@@ -33,6 +33,7 @@ import { createHttpApp } from '../../../bootstrap.js';
 import { DB_SYSTEM, DB_TENANT } from '../../../common/db/db.module.js';
 import { INTEGRATION_RUNNER, type IntegrationRunner } from '../api/index.js';
 import { type FakeKiotViet, type FakeKvProduct, startFakeKiotViet } from './fake-kiotviet.js';
+import { signUpVerified } from '../../../../test/support/signup.js';
 
 /**
  * The worker's sync end to end: real Postgres, the real KiotViet client against the fake KiotViet
@@ -108,16 +109,12 @@ const call = (h: Headers, method: 'GET' | 'POST' | 'PATCH', url: string, payload
 const runner = () => app.get<IntegrationRunner>(INTEGRATION_RUNNER, { strict: false });
 
 async function owner(): Promise<Headers> {
-  const signup = await http().inject({
-    method: 'POST',
-    url: '/api/v1/auth/signup',
-    payload: {
-      name: 'Chủ shop',
-      email: 'kiotviet-sync@shop.vn',
-      password: 'a long enough password',
-      workspaceName: 'Shop KiotViet',
-      industry: 'fashion',
-    },
+  const signup = await signUpVerified(app, {
+    name: 'Chủ shop',
+    email: 'kiotviet-sync@shop.vn',
+    password: 'a long enough password',
+    workspaceName: 'Shop KiotViet',
+    industry: 'fashion',
   });
   const { accessToken } = AuthResponse.parse(signup.json());
   const boot = BootstrapResponse.parse(

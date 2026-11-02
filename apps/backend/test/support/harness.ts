@@ -1,6 +1,6 @@
 import { deflateSync } from 'node:zlib';
 
-import { AuthResponse, BootstrapResponse } from '@agent-sales/contracts';
+import { BootstrapResponse } from '@agent-sales/contracts';
 import { createDb, ensureLoginRoles, migrate, withCredentials } from '@agent-sales/db';
 import { startTestPostgres, type TestPostgres } from '@agent-sales/testing';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
@@ -8,6 +8,7 @@ import type { LightMyRequestResponse } from 'fastify';
 
 import { AppModule } from '../../src/app.module.js';
 import { createHttpApp } from '../../src/bootstrap.js';
+import { signUpVerified } from './signup.js';
 
 export type Method = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
 export type Headers = Record<string, string>;
@@ -75,14 +76,13 @@ export async function startHarness(): Promise<Harness> {
     call,
     raw,
     async user(email, name, password = 'a long enough password') {
-      const signup = await server().inject({
-        method: 'POST',
-        url: '/api/v1/auth/signup',
+      const signup = await signUpVerified(
+        app,
+        { name, email, password, workspaceName: `Shop ${name}`, industry: 'fashion' },
         // Signup is rate-limited per address: every test user comes from its own.
-        remoteAddress: `10.3.${Math.floor(signups / 250)}.${(signups++ % 250) + 1}`,
-        payload: { name, email, password, workspaceName: `Shop ${name}`, industry: 'fashion' },
-      });
-      const { accessToken } = AuthResponse.parse(signup.json());
+        { remoteAddress: `10.3.${Math.floor(signups / 250)}.${(signups++ % 250) + 1}` },
+      );
+      const { accessToken } = signup.json();
       const authorization = `Bearer ${accessToken}`;
       const boot = BootstrapResponse.parse(
         (await call({ authorization }, 'GET', '/bootstrap')).json(),

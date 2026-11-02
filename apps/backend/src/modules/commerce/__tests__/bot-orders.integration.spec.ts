@@ -26,6 +26,7 @@ import { AppModule } from '../../../app.module.js';
 import { createHttpApp } from '../../../bootstrap.js';
 import { DB_TENANT } from '../../../common/db/db.module.js';
 import { COMMERCE_FACADE, type CommerceFacade } from '../api/index.js';
+import { signUpVerified } from '../../../../test/support/signup.js';
 
 /** Bot orders on a real Postgres: forced RLS on drafts, confirmation in one transaction, review. */
 const MEDIA_URL = 'https://media.rapiz.test';
@@ -66,18 +67,17 @@ const facade = () => app.get<CommerceFacade>(COMMERCE_FACADE, { strict: false })
 
 let signups = 0;
 async function owner(email: string): Promise<Headers> {
-  const signup = await http().inject({
-    method: 'POST',
-    url: '/api/v1/auth/signup',
-    remoteAddress: `10.2.0.${++signups}`,
-    payload: {
+  const signup = await signUpVerified(
+    app,
+    {
       name: 'Chủ shop',
       email,
       password: 'a long enough password',
       workspaceName: 'Shop đồ chơi',
       industry: 'fashion',
     },
-  });
+    { remoteAddress: `10.2.0.${++signups}` },
+  );
   const { accessToken } = AuthResponse.parse(signup.json());
   const boot = BootstrapResponse.parse(
     (

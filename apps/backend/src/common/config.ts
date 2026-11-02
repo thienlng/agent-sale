@@ -94,6 +94,13 @@ export const EnvSchema = z
      * with `pnpm --filter @agent-sales/backend hq-init <owner email>`.
      */
     RAPIZ_HQ_WORKSPACE_ID: z.uuid().optional(),
+    /**
+     * Resend API key for transactional email (sign-up and password-reset codes, ADR-023). Unset,
+     * no email leaves: development prints it to the log, production logs a warning.
+     */
+    RESEND_API_KEY: z.string().min(1).optional(),
+    /** Sender of transactional email; its domain must be verified in Resend. */
+    EMAIL_FROM: z.string().min(3).default('Rapiz <noreply@rapiz.io>'),
   })
   .refine((env) => env.NODE_ENV !== 'production' || !!env.SECRETS_ENCRYPTION_KEY, {
     message: 'SECRETS_ENCRYPTION_KEY is required in production',

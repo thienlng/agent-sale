@@ -63,6 +63,7 @@ describe('CreateBusinessPage', () => {
       'POST /workspaces': { status: 201, body: WORKSPACE },
     });
     vi.stubGlobal('fetch', fetchStub);
+    current = session();
     renderWithRouter(() => <CreateBusinessPage />);
 
     await userEvent.type(await screen.findByLabelText(/tên business/i), '  Shop Hoa ');
@@ -83,6 +84,7 @@ describe('CreateBusinessPage', () => {
       },
     });
     vi.stubGlobal('fetch', fetchStub);
+    current = session();
     renderWithRouter(() => <CreateBusinessPage />);
 
     await userEvent.type(await screen.findByLabelText(/tên business/i), 'Shop B');
@@ -108,6 +110,23 @@ describe('CreateBusinessPage', () => {
       await screen.findByRole('heading', { name: 'Tạo business đầu tiên' }),
     ).toBeInTheDocument();
     expect(screen.queryByLabelText('Tài khoản')).not.toBeInTheDocument();
+  });
+
+  it('creates the first business through the signup step when the user owns no account', async () => {
+    const { fetchStub, calls } = stubFetch({
+      'POST /auth/signup/business': { status: 201, body: { workspaceId: WORKSPACE.id } },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    current = session({ accounts: [], memberships: [], workspaceId: null });
+    renderWithRouter(() => <CreateBusinessPage />);
+
+    await userEvent.type(await screen.findByLabelText(/tên business/i), 'Shop Hoa');
+    await userEvent.click(screen.getByRole('button', { name: /tạo business/i }));
+
+    await vi.waitFor(() => expect(calls.length).toBeGreaterThan(0));
+    expect(calls[0]?.key).toBe('POST /auth/signup/business');
+    expect(calls[0]?.body).toEqual({ workspaceName: 'Shop Hoa', industry: 'retail' });
+    expect(calls.some((c) => c.key === 'POST /workspaces')).toBe(false);
   });
 
   it('asks which account when the user owns several, and sends it (ADR-012 §3)', async () => {

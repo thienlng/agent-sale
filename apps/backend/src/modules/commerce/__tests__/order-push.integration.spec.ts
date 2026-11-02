@@ -33,6 +33,7 @@ import {
   ORDER_PUSH_FACADE,
   type OrderPushFacade,
 } from '../api/index.js';
+import { signUpVerified } from '../../../../test/support/signup.js';
 
 /** Pushing orders to a PMS on a real Postgres: claim, payload, stock hand-over, PMS status. */
 const MEDIA_URL = 'https://media.rapiz.test';
@@ -75,18 +76,17 @@ const commerce = () => app.get<CommerceFacade>(COMMERCE_FACADE, { strict: false 
 const db = () => app.get<Database>(DB_TENANT, { strict: false });
 
 async function owner(email: string): Promise<Headers> {
-  const signup = await http().inject({
-    method: 'POST',
-    url: '/api/v1/auth/signup',
-    remoteAddress: '10.4.0.1',
-    payload: {
+  const signup = await signUpVerified(
+    app,
+    {
       name: 'Chủ shop',
       email,
       password: 'a long enough password',
       workspaceName: 'Shop áo',
       industry: 'fashion',
     },
-  });
+    { remoteAddress: '10.4.0.1' },
+  );
   const { accessToken } = AuthResponse.parse(signup.json());
   const boot = BootstrapResponse.parse(
     (

@@ -25,6 +25,7 @@ import { createHttpApp } from '../src/bootstrap.js';
 import type { BookingRecord } from '../src/modules/lodging/application/ports/lodging-store.js';
 import { addNights, localToday } from '../src/modules/lodging/domain/nights.js';
 import { DrizzleLodgingStore } from '../src/modules/lodging/infrastructure/persistence/lodging.drizzle-store.js';
+import { signUpVerified } from './support/signup.js';
 
 /** T-160 lodging v2 HTTP: properties, rooms, rates, overrides, settings and bot properties. */
 let pg: TestPostgres;
@@ -79,22 +80,18 @@ const call = (h: Headers, method: Method, path: string, payload?: object) =>
 let signups = 0;
 async function signup(industry = 'hotel') {
   const n = ++signups;
-  const r = await app
-    .getHttpAdapter()
-    .getInstance()
-    .inject({
-      method: 'POST',
-      url: '/api/v1/auth/signup',
-      remoteAddress: `10.88.0.${n}`,
-      payload: {
-        name: 'Test owner',
-        email: `lodging-props-${n}@example.test`,
-        password: 'a long synthetic password',
-        workspaceName: 'Test lodging business',
-        industry,
-      },
-    });
-  expect(r.statusCode, r.body).toBe(201);
+  const r = await signUpVerified(
+    app,
+    {
+      name: 'Test owner',
+      email: `lodging-props-${n}@example.test`,
+      password: 'a long synthetic password',
+      workspaceName: 'Test lodging business',
+      industry,
+    },
+    { remoteAddress: `10.88.0.${n}` },
+  );
+  expect(r.statusCode).toBe(201);
   const auth = AuthResponse.parse(r.json());
   const authorization = `Bearer ${auth.accessToken}`;
   const boot = BootstrapResponse.parse((await call({ authorization }, 'GET', '/bootstrap')).json());
@@ -123,7 +120,7 @@ const ALL_DAYS = [1, 2, 3, 4, 5, 6, 7];
 
 async function create(h: Headers, body: object): Promise<PropertyDto> {
   const r = await call(h, 'POST', '/lodging/properties', body);
-  expect(r.statusCode, r.body).toBe(201);
+  expect(r.statusCode).toBe(201);
   return PropertyDto.parse(r.json());
 }
 const villa = (code = 'A17') => ({

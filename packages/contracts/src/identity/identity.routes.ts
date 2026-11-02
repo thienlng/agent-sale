@@ -9,7 +9,12 @@ import {
   MfaSetupRequest,
   MfaStatus,
   RecoveryCodes,
+  ForgotPasswordRequest,
   RefreshRequest,
+  ResetPasswordRequest,
+  SignupBusinessRequest,
+  SignupBusinessResponse,
+  SignupCodeRequest,
   SignupRequest,
   UserDto,
 } from './identity.schema.js';
@@ -17,12 +22,52 @@ import {
 export const identityRoutes = defineRoutes([
   {
     method: 'post',
+    path: '/auth/signup/code',
+    summary: 'Email a signup code to an address without an account (one per minute)',
+    tag: 'auth',
+    auth: false,
+    body: SignupCodeRequest,
+    responses: { 204: null },
+    // 409 when the address already has an account; 429 with retryAfterSeconds within the minute.
+  },
+  {
+    method: 'post',
     path: '/auth/signup',
-    summary: 'Create a user, their first workspace (owner) and a session',
+    summary: 'Create a user (email verified by the emailed code) and a session',
     tag: 'auth',
     auth: false,
     body: SignupRequest,
     responses: { 201: AuthResponse },
+    // 400 with details.reason = code_invalid | code_expired.
+  },
+  {
+    method: 'post',
+    path: '/auth/password/forgot',
+    summary: 'Email a password reset code when the address has an account (always 204)',
+    tag: 'auth',
+    auth: false,
+    body: ForgotPasswordRequest,
+    responses: { 204: null },
+  },
+  {
+    method: 'post',
+    path: '/auth/password/reset',
+    summary: 'Set a new password with the emailed code; signs out every session',
+    tag: 'auth',
+    auth: false,
+    body: ResetPasswordRequest,
+    responses: { 204: null },
+    // 400 with details.reason = code_invalid | code_expired.
+  },
+  {
+    method: 'post',
+    path: '/auth/signup/business',
+    summary: 'Create the first business of a user who owns no account, and start the signup trial',
+    tag: 'auth',
+    auth: true,
+    body: SignupBusinessRequest,
+    responses: { 201: SignupBusinessResponse },
+    // 409 when the user already owns an account (create businesses with POST /workspaces).
   },
   {
     method: 'post',

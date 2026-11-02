@@ -9,6 +9,7 @@ import { AppModule } from '../src/app.module.js';
 import { createHttpApp } from '../src/bootstrap.js';
 import { TRAINING_FACADE, type TrainingFacade } from '../src/modules/knowledge/api/index.js';
 import { STARTER_RULES } from '../src/modules/knowledge/domain/starter-rules.js';
+import { signUpVerified } from './support/signup.js';
 
 /** Instruction rules v2 (T-070) on a real Postgres: columns, CHECK constraint, starter pack. */
 let pg: TestPostgres;
@@ -39,16 +40,12 @@ const http = () => app.getHttpAdapter().getInstance();
 async function newBot(email: string) {
   const auth = AuthResponse.parse(
     (
-      await http().inject({
-        method: 'POST',
-        url: '/api/v1/auth/signup',
-        payload: {
-          name: 'Rules Owner',
-          email,
-          password: 'a long enough password',
-          workspaceName: 'Rules Shop',
-          industry: 'retail',
-        },
+      await signUpVerified(app, {
+        name: 'Rules Owner',
+        email,
+        password: 'a long enough password',
+        workspaceName: 'Rules Shop',
+        industry: 'retail',
       })
     ).json(),
   );
