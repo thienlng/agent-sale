@@ -33,10 +33,10 @@ Techniques (mandatory patterns, enforced in review):
 | Auth/entitlement checks | ≤ 5 ms | Redis cache (60 s) + in-process LRU |
 | Realtime fan-out | ≤ 50 ms server-side | Redis pub/sub → SSE |
 | AI reply (end-to-end, normal load) | ≤ 8 s p95 | external; streamed only to the website widget (SSE); Messenger/Zalo cannot stream |
-| Owner assistant chat turn (T-170, 1a) | ≤ 90 s hard budget, ≤ 25 rounds | synchronous request below the proxy read timeout; steps polled once a second (`GET /assistant/runs/{id}`); SSE streaming later |
+| Owner assistant chat turn (T-170, 1a/1b) | ≤ 90 s hard budget, ≤ 25 rounds, ≤ 40 000 chars of tool output | synchronous request below the proxy read timeout; route tool reads (in-process `inject`) and a compaction at the start of the turn (≤ 30 s, the model keeps ≥ 30 s) run inside the same 90 s; steps polled once a second (`GET /assistant/runs/{id}`); SSE streaming later |
 | AI reply under burst (degradation mode) | ack + holding message ≤ 1 s; reply ≤ 5 min p95 for standard tier, ≤ 1 min for priority tier | admission controller (§2b); SLO is explicitly a degradation SLO during ad campaigns |
 
-Rules: every list endpoint supports cursor pagination, server-side filter/sort, `fields` selection and `ETag`; every query has an index plan reviewed (`EXPLAIN` attached to the PR for new heavy queries); per-tenant rate limits; response compression; no synchronous third-party calls in request handlers. Exception (T-170, 1a): the owner assistant turn runs synchronously within 90 s, owners only, one turn per owner; it moves off the request with streaming in 1b.
+Rules: every list endpoint supports cursor pagination, server-side filter/sort, `fields` selection and `ETag`; every query has an index plan reviewed (`EXPLAIN` attached to the PR for new heavy queries); per-tenant rate limits; response compression; no synchronous third-party calls in request handlers. Exception (T-170, 1a, kept in 1b): the owner assistant turn runs synchronously within 90 s, owners only, one turn per owner; route tool reads and a compaction run inside the same 90 s budget. It moves off the request with streaming in a later slice (spec §19).
 
 ## 2b. LLM admission control (the real bottleneck)
 

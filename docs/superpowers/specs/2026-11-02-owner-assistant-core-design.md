@@ -15,7 +15,7 @@ It is harder than the shop bot: the shop bot answers one bounded customer turn. 
 | # | Capability | Spec |
 |---|---|---|
 | 1a | Core harness extracted to `ai-core`, threads, messages, search, traces, owner-only bubble, core UI actions (`ui_navigate`, `ui_spotlight`) and page context (shipped, see §18) | this document |
-| 1b | Proposals, route-derived tools, memory, platform skills, auto-compaction, `ui_fill_form` | this document |
+| 1b | Proposals, route-derived tools, memory, platform skills, auto-compaction, `ui_fill_form` (shipped, see §19) | this document |
 | 1c | Background review, learned skills, skill ledger, curator, proactive suggestions | this document |
 | 2 | Data questions: read-only SQL over a curated view schema, charts | own spec |
 | 3 | Schedules (reports, alerts) and the `notification` module (in-app, email; mobile push later) | own spec (§11 fixes the shape) |
@@ -208,3 +208,34 @@ What slice 1a shipped differs from the sections above in these points; the rest 
 - **Replay while running.** Retrying a `turnId` whose run is still running answers 409 `assistant_busy`; once the run finished, the retry returns its result.
 - **Owner check** is a facade-level `resolveOwnerScope` on every call, not a route decorator; the effect (403 for everyone but an active owner) is the same.
 - **`useAssistantContext`** lives in `apps/web/src/features/assistant/hooks` in 1a and no page calls it yet; it moves to `apps/web/src/lib/` in 1b, before pages adopt it, because features may not import each other. The page context in 1a is the route plus the `data-assistant-target` ids on screen.
+
+## 19. Adjustments made while building 1b (2026-11-02)
+
+What slice 1b shipped differs from the sections above in these points; §18 still holds where this section does not change it.
+
+### Decisions taken while building
+
+- **Still no streaming.** The turn stays synchronous inside `POST …/messages` with the 90 s budget, and the bubble still polls the run (§18). Moving the turn to a worker needs a delegated-session design of its own, so it is a separate slice; the docs/16 exception lives on until then.
+- **Route tools act with the owner's own session.** The controller hands the caller's `Authorization` header to the facade, in memory only, and route reads and proposal execution send it on. For a synchronous turn this is the "delegated owner session" of §6; an asynchronous turn will need a short-lived minted token instead. The token is never stored, logged or put in a step.
+- **Platform skills live in `packages/ai-core/assistant-skills/<name>/SKILL.md`**, next to `prompts/`, exported as `ASSISTANT_SKILLS_DIR`, because the backend's `tsc` build does not copy `.md` files out of the module folder named in §10. Five ship: `add-products`, `connect-channels`, `handle-orders`, `read-revenue`, `set-up-bot`. A skill that fails the lint (name, length, safety scan; in-app `/app/…` paths are the only links allowed, and the path ends at whitespace, `?`, `=`, `:`, `@`, `#` or `&`) stops the backend from starting.
+- **Platform skills only.** Owner, learned and shadow skills (the `assistant_skills` table, `skill_manage`, the review loop) move to 1c. Owners cannot save their own procedure until then.
+- **Compaction trigger constants.** The context window is a constant, 128 000 tokens with 16 000 reserved for output, not read from the model metadata. Compaction also runs above 80 active messages. The 1a history cap of 40 messages becomes a safety cap of 200.
+- **The trigger uses the average prompt size per model call.** Runs store tokens summed over every model call of the turn, so the trigger divides input plus cached tokens by the number of calls. Storing the last call's input tokens on the run would be exact; the average is accepted for now.
+- **Memory written during a thread joins its prompt later.** The system prompt stays frozen; a new memory entry appears in it after the next compaction or in a new thread, as in Hermes. The `memory` tool tells the model the entry is saved.
+- **Read-only POST routes are reads.** Routes that only query but use POST (`POST /analytics/query`, `/analytics/drilldown`, `/contacts/query`, `/lodging/availability`, `/lodging/quote`, `/stay-requests/quote`) are `read` with `assistant.queryPost: true`. The architecture test allows `read` only on a GET or on a POST flagged this way.
+- **KiotViet sync and push stay writes.** They change an external system, so the owner approves each one. Sending messages to customers stays `never`.
+- **Compaction summaries are hidden from the owner.** The summary row is for the model only: the owner's message list and session search skip it.
+- **Proposals keep the request and a short result.** A proposal row stores the owner's own request body and query, the `before` snapshot read for PATCH/PUT/DELETE, and a result preview of at most 1 000 chars. This is the owner's own data on an account-scoped row behind RLS; it is the one place the assistant keeps business data.
+- **Pruning targets tool results that stay in the history.** Step (1) of §9 prunes tool results longer than 200 chars that stay active after the compaction: those in the head, and those in the tail except its last 10 messages. Results in the summarised middle are not pruned; they leave the active history anyway.
+- **`ui_fill_form` may overwrite a filled field.** The form is filled as a draft that the owner reviews and saves, so the tool does not refuse fields that already hold a value.
+
+### Other differences from the design
+
+- **Tables.** Migration 0056 adds `assistant_memory`, `assistant_proposals` and the compaction columns (`assistant_threads.cache_root_id`, `compacted_at`, `compaction_failed_at`, `compaction_saved_pcts`; `assistant_messages.sort_seq`, filled by a trigger for older binaries). `assistant_skills`, `assistant_skill_events`, `assistant_suggestions` and `assistant_settings` are not created. Proposals have no `message_id` or `params`; they store the concrete `path`, `query`, `body`, `preview`, `summary` and `result_preview`. Their status set is `pending`, `executing`, `done`, `failed`, `rejected`, `expired`: `executing` replaces `approved`, and the `pending → executing` step is the atomic approval guard. Run steps still store no arguments or results.
+- **Tools.** No generic registry, `todo` or `propose` tool, and no generated tool per route. The model gets `session_search`, `memory`, `skills_list`, `load_skill`, `tool_search`, `tool_describe`, `tool_call`, `ui_navigate`, `ui_spotlight` and `ui_fill_form`, sorted by name. The route catalog is built from `allRoutes` (workspace-scoped `read`/`write` routes, never `/assistant` or `/auth`). `tool_search` matches words of the route key, summary and `when`; those texts are English, so its description tells the model to search in English words. A `write` through `tool_call` becomes a pending proposal; the owner's approval runs it on the proposal's own business, whatever business the approving request names.
+- **Results are cut, not spilled.** A tool result is cut at 8 000 chars. One counter per turn covers the output of every tool and the validation errors the loop writes for bad arguments: the result that crosses 40 000 chars is cut to what is left, and every later call answers `{ok:false, errorCode:'turn_budget_exhausted'}` without running. There is no `resultRef` or full-table rendering for the owner yet.
+- **`Idempotency-Key` is sent but not enforced.** An approved proposal runs with `Idempotency-Key: asst:<id>`, but no route deduplicates on it yet. The atomic `pending → executing` transition is what prevents a double execution.
+- **Anti-thrash expires.** The "two compactions each saved under 10 %" skip ends 24 h after the last compaction, or once the thread has more than 160 active messages. A failure to read the thread back after a compaction was saved does not start the 10-minute failure cooldown.
+- **One membership read per request.** The owner check reads the owner's memberships once and the same request reuses them for the business list in the prompt and the memory labels.
+- **Form filling.** Pages register fillable forms through `useAssistantForm` in `apps/web/src/lib/assistant-context.ts`; only the product create page does so in 1b. A number sent as text is read the Vietnamese way: dots followed by exactly three digits are thousands separators (`150.000` is 150 000), any other dot is the decimal point (`12.5`), and a comma followed by one or two final digits is the decimal comma. The proposal card's busy state is keyed by the proposal id, so it survives switching panel views.
+

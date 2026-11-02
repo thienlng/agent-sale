@@ -46,6 +46,7 @@ Inside `apps/backend/src/modules/<name>/`: the fixed shape from `docs/ARCHITECTU
 - OpenAPI is generated automatically from NestJS (Swagger) → generates a TypeScript client for the FE (orval/openapi-typescript). The public API (P2) shares the same spec, with separate scopes.
 - Outbound webhooks for customers (P2): HMAC-SHA256 signed, progressive retry for 24h, delivery log.
 - WebSocket events are named `domain.action` (`message.new`).
+- Every workspace-scoped route contract declares `assistant: { use: 'read' | 'write' | 'never', when, queryPost? }`, which decides whether the owner assistant may read it, only propose it for the owner's approval, or never touch it (`when` in English, ≤ 160 chars). How to choose: [contracts README](../packages/contracts/README.md#declaring-a-route-for-the-owner-assistant-t-170); enforced by `packages/contracts/src/common/routes.assistant.test.ts`.
 
 ## 3. Code conventions
 
