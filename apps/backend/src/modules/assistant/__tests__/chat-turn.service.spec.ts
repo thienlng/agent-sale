@@ -525,4 +525,33 @@ describe('ChatTurnService', () => {
     expect(JSON.stringify(stored)).not.toContain('owner-token');
     expect(JSON.stringify(out.run)).not.toContain('owner-token');
   });
+
+  it('shares one 40 000-char tool output budget across route reads and every other tool', async () => {
+    const read = (id: string) => call(id, 'tool_call', { key: 'GET /products' });
+    const { service, scope, thread, repo, invoke } = await setup([
+      // Five reads, each cut to 8 000 chars, use the whole turn budget …
+      ...['r1', 'r2', 'r3', 'r4', 'r5'].map(read),
+      // … so a core tool and a call with bad arguments get the budget error.
+      reply({
+        stopReason: 'tool_use',
+        toolCalls: [
+          { id: 'n1', name: 'ui_navigate', input: { to: '/app/products' } },
+          { id: 'n2', name: 'ui_navigate', input: { to: 42 } },
+        ],
+      }),
+      reply({ text: 'Dạ em tóm tắt rồi ạ' }),
+    ]);
+    invoke.mockResolvedValue({ status: 200, body: { data: 'z'.repeat(20_000) } });
+    await service.send(scope, thread.id, { turnId: newId(), text: 'Xem sản phẩm' }, AUTH);
+
+    const tools = (await repo.listMessages(scope, thread.id)).filter((m) => m.role === 'tool');
+    expect(tools).toHaveLength(7);
+    expect(tools.slice(0, 5).reduce((sum, m) => sum + m.content.length, 0)).toBeLessThanOrEqual(
+      40_000,
+    );
+    expect(tools.slice(5).map((m) => JSON.parse(m.content) as unknown)).toEqual([
+      { ok: false, errorCode: 'turn_budget_exhausted' },
+      { ok: false, errorCode: 'turn_budget_exhausted' },
+    ]);
+  });
 });

@@ -34,7 +34,7 @@ import {
 } from '../domain/ports/assistant.repository.js';
 import { ChatTurnService } from './chat-turn.service.js';
 import { toMessageDtos, toRunDto, toThreadDto } from './mappers.js';
-import { type OwnerScope, resolveOwnerScope } from './owner-access.js';
+import { accountMemberships, type OwnerScope, resolveOwnerScope } from './owner-access.js';
 import { ProposalService } from './proposals.service.js';
 import { ASSISTANT_PROMPT } from './prompt-builder.js';
 import { ThreadPromptService } from './thread-prompt.service.js';
@@ -191,9 +191,10 @@ export class AssistantFacadeImpl implements AssistantFacade {
    */
   async #memoryDto(scope: OwnerScope, memory: MemoryStoreRecord[]): Promise<AssistantMemoryDto> {
     const names = new Map(
-      (await this.workspace.listMemberships(scope.ownerUserId))
-        .filter((ms) => ms.accountId === scope.accountId)
-        .map((ms) => [ms.workspaceId as string, ms.workspaceName]),
+      (await accountMemberships(this.workspace, scope)).map((ms) => [
+        ms.workspaceId as string,
+        ms.workspaceName,
+      ]),
     );
     const stores = ['owner_profile', 'notes', ...scope.businessIds.map(businessStore)].sort(
       compareStores,

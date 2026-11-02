@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   collectPageContext,
   fillAssistantForm,
+  parseFormNumber,
   useAssistantContext,
   useAssistantForm,
   waitForAssistantForm,
@@ -114,5 +115,27 @@ describe('useAssistantForm', () => {
     render(<FormPage />);
     await expect(waiting).resolves.toBe(true);
     await expect(waitForAssistantForm('order', 10)).resolves.toBe(false);
+  });
+});
+
+describe('parseFormNumber', () => {
+  it.each([
+    ['150.000', 150_000],
+    ['1.234.567', 1_234_567],
+    ['150.000đ', 150_000],
+    ['12.5', 12.5],
+    ['0.75', 0.75],
+    ['12,5', 12.5],
+    ['1.234,56', 1234.56],
+    ['150,000', 150_000],
+    ['1 500 000 ₫', 1_500_000],
+    ['-2.5', -2.5],
+    ['42', 42],
+  ])('reads %s as %s', (raw, n) => {
+    expect(parseFormNumber(raw)).toBe(n);
+  });
+
+  it.each(['', 'abc', '1.2.3'])('refuses %j', (raw) => {
+    expect(parseFormNumber(raw)).toBeNaN();
   });
 });

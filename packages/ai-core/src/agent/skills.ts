@@ -89,9 +89,18 @@ export function parseSkill(source: string): SkillDoc {
   return { name, description, toolsets, version: Number(versionText), body };
 }
 
-/** Removes in-app paths (`/app/...`), the only links a skill may contain. */
+/**
+ * Neutralises in-app paths (`/app/...`), the only links a skill may contain.
+ * The path ends at whitespace, quotes, brackets and at `?`, `=`, `:`, `@`,
+ * `#`, `&`, so a query string or anything glued after it is still scanned.
+ * The path segments stay in the text (split on `/`), so a phone number or an
+ * email hidden in a segment is still flagged.
+ */
 function stripAppPaths(text: string): string {
-  return text.replace(/(^|[\s(`'"[])\/app(?:\/[^\s)`'"\]]*)?/g, '$1');
+  return text.replace(
+    /(^|[\s(`'"[])\/app((?:\/[^\s)`'"\]?=:@#&]*)?)/g,
+    (_match, lead: string, path: string) => `${lead}${path.split('/').join(' ')}`,
+  );
 }
 
 /** Returns the problems with a skill; empty when it is clean. */

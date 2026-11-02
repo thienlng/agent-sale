@@ -421,6 +421,7 @@ describe('AssistantPanel', () => {
         status: 200,
         body: proposalFixture({ status: 'done', decidedAt: '2026-11-02T08:01:00.000Z' }),
       },
+      'GET /assistant/threads': { status: 200, body: { data: [threadFixture()] } },
     };
     const held = holdRequest(routes, approve);
     vi.stubGlobal('fetch', held.fetch);
@@ -435,6 +436,13 @@ describe('AssistantPanel', () => {
     await user.click(screen.getByRole('button', { name: 'Áp dụng' }));
     await held.waiting;
     expect(screen.getByRole('button', { name: 'Đang áp dụng…' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Bỏ' })).toBeDisabled();
+
+    // The owner looks at the thread list and comes back: the card is new, still busy.
+    await user.click(screen.getByRole('button', { name: 'Xem các cuộc trò chuyện' }));
+    expect(screen.queryByRole('button', { name: 'Bỏ' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Quay lại cuộc trò chuyện' }));
+    expect(await screen.findByRole('button', { name: 'Đang áp dụng…' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Bỏ' })).toBeDisabled();
 
     // After the decision the thread has an event message, and the proposal is done.

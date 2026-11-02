@@ -245,6 +245,19 @@ describe('coreTools', () => {
       expect(uiActions).toEqual([]);
     });
 
+    it('refuses values the ui action schema rejects (invalid_values), as a last check', async () => {
+      // The loop's input schema already refuses these; the tool re-checks the ui action itself.
+      const { tools, uiActions } = setup(FORM_PAGE);
+      const fill = tools.find((t) => t.name === 'ui_fill_form')!;
+      const out = await fill.run({
+        formId: 'product.form',
+        values: { price: Number.POSITIVE_INFINITY },
+      });
+      expect(out.ok).toBe(false);
+      expect(JSON.parse(out.content)).toEqual({ ok: false, errorCode: 'invalid_values' });
+      expect(uiActions).toEqual([]);
+    });
+
     it('accepts a text of exactly 4 000 chars, and refuses every form when the page has none', async () => {
       const page = setup(FORM_PAGE);
       const notes = 'x'.repeat(MAX_FILL_VALUE_CHARS);

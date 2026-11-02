@@ -87,6 +87,27 @@ export function useAssistantForm(
   }, [formId, submitTarget, enabled]);
 }
 
+/**
+ * Reads a number the model sent as text, Vietnamese style. Dots followed by exactly three digits
+ * are thousands separators ("150.000" is 150000); any other dot is the decimal point ("12.5").
+ * A comma followed by one or two final digits is the decimal comma ("12,5"); other commas are
+ * thousands separators. Units and spaces are ignored. NaN when nothing sensible is left.
+ */
+export function parseFormNumber(raw: string): number {
+  let text = raw.replace(/[^\d.,-]/g, '');
+  const negative = text.startsWith('-');
+  text = text.replace(/-/g, '');
+  if (/,\d{1,2}$/.test(text)) {
+    const at = text.lastIndexOf(',');
+    text = `${text.slice(0, at).replace(/[.,]/g, '')}.${text.slice(at + 1)}`;
+  } else {
+    text = text.replace(/,/g, '').replace(/\.(?=\d{3}(?!\d))/g, '');
+  }
+  if (!/^\d+(\.\d+)?$/.test(text)) return Number.NaN;
+  const n = Number(text);
+  return negative ? -n : n;
+}
+
 /** Keeps the values of known fields, as numbers for `number` fields and strings otherwise. */
 function coerce(fields: AssistantFormField[], values: AssistantFormValues): AssistantFormValues {
   const out: AssistantFormValues = {};
@@ -94,9 +115,7 @@ function coerce(fields: AssistantFormField[], values: AssistantFormValues): Assi
     const raw = values[field.name];
     if (raw === undefined) continue;
     if (field.type === 'number') {
-      // A string is read like Vietnamese money: separators drop, so "150.000" is 150000.
-      const digits = String(raw).replace(/\D/g, '');
-      const n = typeof raw === 'number' ? raw : digits ? Number(digits) : Number.NaN;
+      const n = typeof raw === 'number' ? raw : parseFormNumber(raw);
       if (Number.isFinite(n)) out[field.name] = n;
     } else if (field.type === 'select') {
       const value = String(raw);

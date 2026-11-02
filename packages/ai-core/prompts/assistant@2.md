@@ -22,7 +22,7 @@ Dashboard map (path — what it is for):
 /app/contacts — customers (CRM)
 /app/orders — orders; /app/orders/new — create an order
 /app/products — product catalog; /app/products/new — add a product
-/app/bots — bots; /app/bots/{botId}/instructions — reply guidance; /app/bots/{botId}/knowledge — business information and FAQ; /app/bots/{botId}/products — products the bot sells; /app/bots/{botId}/integrations — connect channels; /app/bots/{botId}/actions — API actions
+/app/bots — bots; /app/bots/{botId}/instructions — reply guidance; /app/bots/{botId}/quick-replies — quick replies; /app/bots/{botId}/knowledge — business information and FAQ; /app/bots/{botId}/products — products the bot sells; /app/bots/{botId}/integrations — connect channels; /app/bots/{botId}/actions — API actions
 /app/channels — connected pages and channels
 /app/analytics — statistics
 /app/integrations — external systems (KiotViet)

@@ -29,6 +29,7 @@ const DEFAULT_HEAD_KEEP = 3;
 const DEFAULT_TAIL_MIN = 20;
 const MIN_MIDDLE = 6;
 const PRUNE_OVER_CHARS = 200;
+const PRUNE_KEEP_RECENT = 10;
 const TRANSCRIPT_TOOL_CHARS = 500;
 
 export function shouldCompact(i: {
@@ -94,13 +95,21 @@ export function planCompaction(
       : last.content
     : null;
 
+  // Prune long tool results that stay active (Ruling 1b-R11): those in the
+  // head, and those in the tail except its last `PRUNE_KEEP_RECENT` messages.
+  // Summarised messages are folded away, so they are never listed.
+  const tail = messages.slice(tailStart);
+  const stayActive = [
+    ...messages.slice(0, headEnd).filter((m) => !m.isSummary),
+    ...tail.slice(0, Math.max(0, tail.length - PRUNE_KEEP_RECENT)),
+  ];
   return {
-    pruneToolIds: middle
+    pruneToolIds: stayActive
       .filter((m) => m.role === 'tool' && m.content.length > PRUNE_OVER_CHARS)
       .map((m) => m.id),
     summarizeIds: middle.map((m) => m.id),
     keepHeadIds: headIds,
-    keepTailIds: messages.slice(tailStart).map((m) => m.id),
+    keepTailIds: tail.map((m) => m.id),
     previousSummary,
   };
 }

@@ -1,5 +1,6 @@
 import {
   COMPACTION_SUMMARY_PREFIX,
+  PRUNED_TOOL_TEXT,
   type GenerateRequest,
   type GenerateResponse,
 } from '@agent-sales/ai-core';
@@ -10,6 +11,7 @@ import type { WorkspaceFacade } from '../../workspace/api/index.js';
 import { ChatTurnService, FALLBACK_REPLY } from '../application/chat-turn.service.js';
 import {
   COMPACTION_COOLDOWN_MS,
+  COMPACTION_THRASH_EXPIRES_MS,
   CompactionService,
   lastPromptTokens,
 } from '../application/compaction.service.js';
@@ -236,14 +238,102 @@ describe('CompactionService', () => {
   it('skips when the last two compactions each saved under 10 %', async () => {
     const { repo, scope, thread, compaction, basicCalls } = await setup();
     await repo.appendMessages(scope, thread.id, conversation(42));
+    const now = new Date();
     repo.threads.get(thread.id)!.compactionSavedPcts = [5, 9];
+    repo.threads.get(thread.id)!.compactedAt = new Date(now.getTime() - 60_000);
     const stale = (await repo.getThread(scope, thread.id))!;
-    expect(await compaction.maybeCompact(scope, stale, null)).toBeNull();
+    expect(await compaction.maybeCompact(scope, stale, null, { now })).toBeNull();
     expect(basicCalls()).toHaveLength(0);
 
     repo.threads.get(thread.id)!.compactionSavedPcts = [5, 40];
     const ok = (await repo.getThread(scope, thread.id))!;
-    expect(await compaction.maybeCompact(scope, ok, null)).not.toBeNull();
+    expect(await compaction.maybeCompact(scope, ok, null, { now })).not.toBeNull();
+  });
+
+  it('the low-savings skip expires 24 h after the last compaction', async () => {
+    const { repo, scope, thread, compaction, basicCalls } = await setup();
+    await repo.appendMessages(scope, thread.id, conversation(42));
+    const compactedAt = new Date();
+    repo.threads.get(thread.id)!.compactionSavedPcts = [5, 9];
+    repo.threads.get(thread.id)!.compactedAt = compactedAt;
+    const stale = (await repo.getThread(scope, thread.id))!;
+    const almost = new Date(compactedAt.getTime() + COMPACTION_THRASH_EXPIRES_MS - 1_000);
+    expect(await compaction.maybeCompact(scope, stale, null, { now: almost })).toBeNull();
+    expect(basicCalls()).toHaveLength(0);
+    const after = new Date(compactedAt.getTime() + COMPACTION_THRASH_EXPIRES_MS + 1_000);
+    expect(await compaction.maybeCompact(scope, stale, null, { now: after })).not.toBeNull();
+    expect(basicCalls()).toHaveLength(1);
+  });
+
+  it('the low-savings skip expires when the thread has more than 160 active messages', async () => {
+    const { repo, scope, thread, compaction, basicCalls } = await setup();
+    await repo.appendMessages(scope, thread.id, conversation(80)); // 160 messages
+    const now = new Date();
+    repo.threads.get(thread.id)!.compactionSavedPcts = [5, 9];
+    repo.threads.get(thread.id)!.compactedAt = now;
+    const stale = (await repo.getThread(scope, thread.id))!;
+    expect(await compaction.maybeCompact(scope, stale, null, { now })).toBeNull();
+    await repo.appendMessages(scope, thread.id, [msg('user', 'thêm một câu')]); // 161
+    expect(await compaction.maybeCompact(scope, stale, null, { now })).not.toBeNull();
+    expect(basicCalls()).toHaveLength(1);
+  });
+
+  it('a failed read-back after a saved compaction does not start the cooldown', async () => {
+    const { repo, scope, thread, compaction, active } = await setup();
+    await repo.appendMessages(scope, thread.id, conversation(42));
+    const getThread = vi
+      .spyOn(repo, 'getThread')
+      .mockRejectedValueOnce(new Error('connection reset'));
+    const now = new Date();
+
+    const updated = await compaction.maybeCompact(scope, thread, null, { now });
+
+    expect(getThread).toHaveBeenCalledTimes(1);
+    expect((await active()).some((m) => m.isSummary)).toBe(true);
+    // The turn still gets the new prompt from what was just saved.
+    expect(updated?.systemPrompt).not.toBe('OLD PROMPT');
+    expect(updated?.compactedAt).toEqual(now);
+    expect((await repo.getThread(scope, thread.id))?.compactionFailedAt).toBeNull();
+  });
+
+  it('prunes long tool results that stay active and leaves recent ones whole', async () => {
+    const { repo, scope, thread, compaction, active } = await setup();
+    const tool = (content: string): NewMessage => ({
+      ...msg('tool', content),
+      toolCallId: 'c1',
+      toolName: 'x',
+    });
+    const call = (): NewMessage => ({
+      ...msg('assistant', ''),
+      toolCalls: [{ id: 'c1', name: 'x', arguments: {} }],
+    });
+    const middleTool = tool(`middle ${'m'.repeat(300)}`);
+    const olderTailTool = tool(`older ${'o'.repeat(300)}`);
+    const recentTailTool = tool(`recent ${'r'.repeat(300)}`);
+    await repo.appendMessages(scope, thread.id, [
+      ...conversation(20),
+      msg('user', 'xem tồn kho'),
+      call(),
+      middleTool,
+      ...conversation(20, 100),
+      // The tail: ≥ 20 messages from here.
+      msg('user', 'xem đơn'),
+      call(),
+      olderTailTool,
+      ...conversation(4, 200),
+      msg('user', 'xem khách'),
+      call(),
+      recentTailTool,
+      ...conversation(3, 300),
+    ]);
+
+    await compaction.maybeCompact(scope, thread, null);
+
+    const after = await active();
+    const byId = (id: string) => after.find((m) => m.id === id);
+    expect(byId(middleTool.id)).toBeUndefined();
+    expect(byId(olderTailTool.id)?.content).toBe(PRUNED_TOOL_TEXT);
+    expect(byId(recentTailTool.id)?.content).toBe(recentTailTool.content);
   });
 
   it('on failure keeps the history, records the failed run and cools down for 10 minutes', async () => {

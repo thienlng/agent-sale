@@ -82,13 +82,19 @@ describe('planCompaction', () => {
     expect(plan.summarizeIds).toEqual(middle.map((x) => x.id));
   });
 
-  it('accepts an event message as the tail start and requires a user message in the tail', () => {
+  it('accepts an event message as the tail start', () => {
+    const msgs = [...pairs(8), m('event'), m('user'), ...pairs(9)]; // 36 messages, n - 20 = the event
+    const plan = planCompaction(msgs)!;
+    expect(msgs[16]!.role).toBe('event');
+    expect(plan.keepTailIds).toEqual(msgs.slice(16).map((x) => x.id));
+  });
+
+  it('walks back past an event when the tail after it has no user message', () => {
     const msgs = [...pairs(8), m('event'), ...Array.from({ length: 19 }, () => m('assistant'))];
-    // the tail would be all assistant messages after the event: no user → walks back further
     const plan = planCompaction(msgs)!;
     const tail = msgs.filter((x) => plan.keepTailIds.includes(x.id));
     expect(tail.some((x) => x.role === 'user')).toBe(true);
-    expect(['user', 'event']).toContain(tail[0]!.role);
+    expect(tail[0]!.role).toBe('user');
   });
 
   it('folds an existing summary into the middle', () => {
@@ -110,14 +116,32 @@ describe('planCompaction', () => {
     expect(plan.previousSummary).toBe('old summary');
   });
 
-  it('lists long tool messages in the middle for pruning', () => {
-    const head = [m('user'), m('assistant'), m('user')];
-    const longTool = m('tool', 'x'.repeat(201));
-    const shortTool = m('tool', 'x'.repeat(200));
-    const middle = [m('assistant', '', { toolCalls: [] }), longTool, shortTool, ...pairs(3)];
-    const msgs = [...head, ...middle, ...pairs(10)];
-    const plan = planCompaction(msgs)!;
-    expect(plan.pruneToolIds).toEqual([longTool.id]);
+  it('prunes long tool results that stay active, not the summarised ones', () => {
+    const long = () => m('tool', 'x'.repeat(201));
+    const headTool = long();
+    const head = [m('user'), m('assistant', '', { toolCalls: [] }), headTool];
+    const middleTool = long();
+    const middle = [m('user'), m('assistant', '', { toolCalls: [] }), middleTool, ...pairs(3)];
+    const olderTailTool = long();
+    const shortTailTool = m('tool', 'x'.repeat(200));
+    const recentTailTool = long();
+    const tail = [
+      m('user'),
+      m('assistant', '', { toolCalls: [] }),
+      olderTailTool,
+      shortTailTool,
+      ...pairs(4), // 12 messages so far; the last 10 of the tail start below
+      m('user'),
+      m('assistant', '', { toolCalls: [] }),
+      recentTailTool,
+      ...pairs(3),
+      m('assistant'),
+    ];
+    const msgs = [...head, ...middle, ...tail];
+    const plan = planCompaction(msgs, { tailMinMessages: tail.length })!;
+    expect(plan.keepTailIds).toEqual(tail.map((x) => x.id));
+    expect(plan.summarizeIds).toContain(middleTool.id);
+    expect(plan.pruneToolIds).toEqual([headTool.id, olderTailTool.id]);
   });
 });
 

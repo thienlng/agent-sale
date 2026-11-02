@@ -9,7 +9,7 @@ import { ApiClientError } from '@/lib/api-client';
 import { useSession } from '@/lib/session';
 import { cn } from '@/lib/utils';
 
-import { useDecideAssistantProposal } from '../api/assistant';
+import { useDecideAssistantProposal, useProposalDecisionInFlight } from '../api/assistant';
 
 /** Preview text for the card: the server's preview as indented JSON, capped for the panel. */
 function previewText(preview: unknown): string {
@@ -54,28 +54,25 @@ function PendingProposal({ proposal }: { proposal: AssistantProposalDto }) {
   const { t } = useTranslation('assistant');
   const business = useBusinessName(proposal.businessId);
   const [showPreview, setShowPreview] = useState(false);
-  const decide = useDecideAssistantProposal(proposal.threadId);
+  const decide = useDecideAssistantProposal(proposal, (error) => {
+    // 409: decided elsewhere or expired; the refetch shows its real status.
+    if (!(error instanceof ApiClientError) || error.status !== 409)
+      toast.error(t('proposals.decideError'));
+    else if (error.details?.['reason'] === 'proposal_expired') toast.error(t('proposals.expired'));
+    else toast.error(t('proposals.notPending'));
+  });
+  // Keyed by the proposal id, so a card mounted again (another panel view and back) stays busy.
+  const inFlight = useProposalDecisionInFlight(proposal.id);
   const preview = previewText(proposal.preview);
   const previewId = `proposal-preview-${proposal.id}`;
 
   function run(decision: 'approve' | 'reject'): void {
-    decide.mutate(
-      { proposalId: proposal.id, decision },
-      {
-        onError: (error) => {
-          // 409: decided elsewhere or expired; the refetch shows its real status.
-          if (!(error instanceof ApiClientError) || error.status !== 409)
-            toast.error(t('proposals.decideError'));
-          else if (error.details?.['reason'] === 'proposal_expired')
-            toast.error(t('proposals.expired'));
-          else toast.error(t('proposals.notPending'));
-        },
-      },
-    );
+    if (inFlight) return;
+    decide.mutate(decision);
   }
 
-  const busy = decide.isPending;
-  const applying = busy && decide.variables?.decision === 'approve';
+  const busy = inFlight !== null;
+  const applying = inFlight === 'approve';
   return (
     <li
       className="flex w-[92%] min-w-0 flex-col gap-2 self-start rounded-xl border border-primary/30 bg-primary-soft/40 px-3 py-2.5"

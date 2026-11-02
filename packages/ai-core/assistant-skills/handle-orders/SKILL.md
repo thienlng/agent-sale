@@ -14,5 +14,5 @@ Use this when the owner asks about orders, wants to move an order along, or want
 4. Changing a status moves stock as needed, so say which status you will set and why, then draft it as a proposal.
 5. Editing people, shipping, payment received or notes of an order is a separate proposal from changing its status.
 6. New order: open /app/orders/new for the owner, or draft it with the order write tool when the owner gave the customer, the products (variants) and the quantities. Creating an order reserves stock.
-7. Orders can be sent to KiotViet from /app/integrations when the business uses it; check the integration status first.
+7. KiotViet: when the switch on /app/integrations/kiotviet is on, every order is pushed to KiotViet automatically; there is nothing to send by hand. A failed push is retried with "Thử lại" on the order list or on the order detail; read the order's KiotViet status first and tell the owner why it failed.
 8. Never say an order changed before the event message confirms the proposal was applied.

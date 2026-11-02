@@ -7,6 +7,7 @@ import {
   ASSISTANT_REPOSITORY,
   type AssistantRepository,
 } from '../domain/ports/assistant.repository.js';
+import { accountMemberships } from './owner-access.js';
 import { buildSystemPrompt, loadThreadTemplate } from './prompt-builder.js';
 import { SkillCatalog } from './skill-tools.js';
 
@@ -35,11 +36,10 @@ export class ThreadPromptService {
   ): Promise<string> {
     const [template, memberships, memory] = await Promise.all([
       loadThreadTemplate(promptVersion),
-      this.workspace.listMemberships(scope.ownerUserId),
+      accountMemberships(this.workspace, scope),
       this.repo.getMemory(scope),
     ]);
     const businesses = memberships
-      .filter((ms) => ms.accountId === scope.accountId)
       .map((ms) => ({ name: ms.workspaceName, industry: ms.industry }))
       .sort((a, b) => a.name.localeCompare(b.name, 'vi') || a.industry.localeCompare(b.industry));
     return buildSystemPrompt(

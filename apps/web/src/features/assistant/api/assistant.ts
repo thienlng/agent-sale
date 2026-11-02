@@ -10,7 +10,7 @@ import {
   type SendAssistantMessageRequest,
   SendAssistantMessageResponse,
 } from '@agent-sales/contracts';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useMutationState, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api } from '@/lib/api-client';
 import { useWorkspaceId } from '@/lib/use-workspace';
@@ -24,7 +24,12 @@ export const assistantKeys = {
   proposals: (ws: string, threadId: string) =>
     ['ws', ws, 'assistant', 'proposals', threadId] as const,
   memory: (ws: string) => ['ws', ws, 'assistant', 'memory'] as const,
+  /** Mutation key of the approve/reject call of one proposal (its busy state outlives the card). */
+  decision: (ws: string, proposalId: string) =>
+    ['ws', ws, 'assistant', 'proposal-decision', proposalId] as const,
 };
+
+export type ProposalDecision = 'approve' | 'reject';
 
 /** The owner's open threads, pinned first (search by `q`). */
 export function useAssistantThreads(q: string) {
@@ -162,21 +167,22 @@ export function useAssistantProposals(threadId: string | null) {
 }
 
 /**
- * Approve or reject a proposal. Either way the server appends an event message to the thread,
+ * Approve or reject one proposal. Either way the server appends an event message to the thread,
  * so the thread's messages and proposals are refetched, also after a 409 (already decided or
- * expired) so the card shows the truth.
+ * expired) so the card shows the truth. The mutation is keyed by the proposal id, so its busy
+ * state (`useProposalDecisionInFlight`) survives the card unmounting while the owner switches
+ * panel views. `onError` lives on the mutation, so it still runs after the card is gone.
  */
-export function useDecideAssistantProposal(threadId: string) {
+export function useDecideAssistantProposal(
+  proposal: { id: string; threadId: string },
+  onError?: (error: Error) => void,
+) {
   const ws = useWorkspaceId();
   const queryClient = useQueryClient();
+  const { id: proposalId, threadId } = proposal;
   return useMutation({
-    mutationFn: ({
-      proposalId,
-      decision,
-    }: {
-      proposalId: string;
-      decision: 'approve' | 'reject';
-    }) =>
+    mutationKey: assistantKeys.decision(ws, proposalId),
+    mutationFn: (decision: ProposalDecision) =>
       api(`/assistant/proposals/${proposalId}/${decision}`, AssistantProposalDto, {
         method: 'POST',
         body: {},
@@ -188,11 +194,22 @@ export function useDecideAssistantProposal(threadId: string) {
         (old) => old?.map((p) => (p.id === proposal.id ? proposal : p)),
       );
     },
+    ...(onError ? { onError } : {}),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: assistantKeys.proposals(ws, threadId) });
       void queryClient.invalidateQueries({ queryKey: assistantKeys.messages(ws, threadId) });
     },
   });
+}
+
+/** The decision being sent for this proposal right now, from any card instance; null if none. */
+export function useProposalDecisionInFlight(proposalId: string): ProposalDecision | null {
+  const ws = useWorkspaceId();
+  const pending = useMutationState({
+    filters: { mutationKey: assistantKeys.decision(ws, proposalId), status: 'pending' },
+    select: (m) => m.state.variables as ProposalDecision,
+  });
+  return pending[0] ?? null;
 }
 
 /** What the assistant remembers about the owner, their notes and each business. */

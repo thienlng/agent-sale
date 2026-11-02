@@ -126,6 +126,16 @@ describe('AssistantFacade (contract)', () => {
     expect(stored.systemPrompt).toMatch(/Today is \d{4}-\d{2}-\d{2} \(Asia\/Ho_Chi_Minh\)\./);
   });
 
+  it('reads the owner memberships once per request', async () => {
+    const { facade, me, workspace } = setup();
+    const list = vi.spyOn(workspace, 'listMemberships');
+    await facade.createThread({ ...me, ownerName: 'Lan' }, {});
+    expect(list).toHaveBeenCalledTimes(1);
+    list.mockClear();
+    await facade.getMemory(me);
+    expect(list).toHaveBeenCalledTimes(1);
+  });
+
   it('lists, searches and updates the owner threads', async () => {
     const { facade, me } = setup();
     const a = await facade.createThread({ ...me, ownerName: null }, { title: 'Giá áo' });

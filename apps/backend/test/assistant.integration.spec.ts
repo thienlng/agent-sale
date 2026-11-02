@@ -958,6 +958,56 @@ describe('assistant route tools and proposals on Postgres (1b)', () => {
     });
   });
 
+  it('runs an approved proposal on its own business, not on the business the request names', async () => {
+    const vy = await user('route-two-shops@assistant.vn', 'Vy');
+    const second = await call(vy.auth, 'POST', '/workspaces', {
+      name: 'Shop Vy thứ hai',
+      industry: 'fashion',
+    });
+    expect(second.statusCode, second.body).toBe(201);
+    const shopB = (second.json() as { id: string }).id;
+    expect(await accountOf(shopB)).toBe(await accountOf(vy.ownWorkspace));
+
+    // The thread and both requests below name business A; the proposal is for business B.
+    const thread = AssistantThreadDto.parse(
+      (await call(vy.h, 'POST', '/assistant/threads', {})).json(),
+    );
+    const proposeIn = async (code: string, name: string) => {
+      await turn(vy, thread.id, `Thêm ${name} cho shop thứ hai`, [
+        toolCall(`c-${code}`, {
+          key: 'POST /products',
+          businessId: shopB,
+          body: product(code, name),
+          summary: `Thêm ${name} vào Shop Vy thứ hai`,
+        }),
+        answer({ text: 'Dạ anh/chị bấm Áp dụng giúp em nhé' }),
+      ]);
+      const items = AssistantProposalList.parse(
+        (await call(vy.h, 'GET', `/assistant/threads/${thread.id}/proposals`)).json(),
+      ).items;
+      const p = items.find((x) => x.summary.includes(name));
+      expect(p).toMatchObject({ status: 'pending', businessId: shopB });
+      return p?.id ?? '';
+    };
+    const names = async (ws: string) =>
+      ProductListResponse.parse((await call(vy.in(ws), 'GET', '/products')).json()).data.map(
+        (p) => p.name,
+      );
+
+    const toApprove = await proposeIn('B-1', 'Váy hoa');
+    const approved = await call(vy.h, 'POST', `/assistant/proposals/${toApprove}/approve`);
+    expect(approved.statusCode, approved.body).toBe(200);
+    expect(AssistantProposalDto.parse(approved.json()).status).toBe('done');
+    expect(await names(shopB)).toEqual(['Váy hoa']);
+    expect(await names(vy.ownWorkspace)).toEqual([]);
+
+    const toReject = await proposeIn('B-2', 'Áo len');
+    const rejected = await call(vy.h, 'POST', `/assistant/proposals/${toReject}/reject`);
+    expect(rejected.statusCode, rejected.body).toBe(200);
+    expect(await names(shopB)).toEqual(['Váy hoa']);
+    expect(await names(vy.ownWorkspace)).toEqual([]);
+  });
+
   it('rejects a proposal, and refuses staff on every proposal route', async () => {
     const hoa = await user('route-reject@assistant.vn', 'Hoa');
     const thread = AssistantThreadDto.parse(

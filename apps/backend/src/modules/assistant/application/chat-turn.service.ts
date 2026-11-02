@@ -34,6 +34,7 @@ import { buildTurnMessage } from './prompt-builder.js';
 import { ROUTE_CATALOG, type RouteCatalog } from './route-catalog.js';
 import { ROUTE_TOOL_DEFINITIONS, routeTools } from './route-tools.js';
 import { SKILL_TOOL_DEFINITIONS, SkillCatalog, skillTools } from './skill-tools.js';
+import { withTurnOutputBudget } from './turn-budget.js';
 
 /** The assistant answers on the `pro` tier (ADR-022). */
 export const TURN_TIER = 'pro' as const;
@@ -268,7 +269,8 @@ export class ChatTurnService {
           promptCacheKey: threadCacheKey(scope, thread),
           timeoutMs: TURN_CALL_TIMEOUT_MS,
         },
-        tools: [
+        // One output budget for the whole turn, shared by every tool and its validation errors.
+        tools: withTurnOutputBudget([
           ...coreTools(ctx),
           memoryTool({ scope, repo: this.repo }),
           ...skillTools(this.skills),
@@ -283,7 +285,7 @@ export class ChatTurnService {
             proposalIds,
             ...(req.pageContext ? { page: req.pageContext } : {}),
           }),
-        ],
+        ]),
         generate: (r) => this.gateway.generate(r),
         maxRounds: TURN_MAX_ROUNDS,
         // A compaction at the start of the turn spends part of the turn's budget.

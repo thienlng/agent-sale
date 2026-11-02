@@ -104,6 +104,15 @@ describe('lintSkill', () => {
     expect(lintSkill(doc({ body: 'Gọi 0912 345 678 nếu lỗi.' }))).toEqual(['safety: phone']);
     expect(lintSkill(doc({ body: 'Xem https://evil.example/app/x' }))).toEqual(['safety: url']);
   });
+
+  it('still scans what follows or hides inside an /app path', () => {
+    expect(lintSkill(doc({ body: 'Mở /app/login?next=https://evil.example' }))).toEqual([
+      'safety: url',
+    ]);
+    expect(lintSkill(doc({ body: 'Mở /app/0912345678' }))).toEqual(['safety: phone']);
+    expect(lintSkill(doc({ body: 'Mở /app/x#a@evil.example' }))).toEqual(['safety: email']);
+    expect(lintSkill(doc({ body: 'Mở /app/bots/{botId}/quick-replies rồi lưu.' }))).toEqual([]);
+  });
 });
 
 describe('renderSkillIndex', () => {

@@ -31,6 +31,10 @@ export const COMPACTION_TIER = 'basic' as const;
 export const COMPACTION_COOLDOWN_MS = 10 * 60_000;
 /** Anti-thrash: skip when the last two compactions each saved less than this (%). */
 export const COMPACTION_MIN_SAVED_PCT = 10;
+/** The anti-thrash skip expires this long after the last compaction (`compacted_at`). */
+export const COMPACTION_THRASH_EXPIRES_MS = 24 * 60 * 60_000;
+/** The anti-thrash skip also expires when the thread has more active messages than this. */
+export const COMPACTION_THRASH_MAX_ACTIVE = 160;
 /**
  * The summariser call (with the gateway's retries) is cut after this, so the owner's turn still
  * has most of its 90 s budget.
@@ -102,10 +106,8 @@ export class CompactionService {
     ) {
       return null;
     }
-    const pcts = thread.compactionSavedPcts.slice(-2);
-    if (pcts.length === 2 && pcts.every((p) => p < COMPACTION_MIN_SAVED_PCT)) return null;
-
     const active = await this.repo.listMessages(scope, thread.id, { activeOnly: true });
+    if (this.#thrashing(thread, active.length, now)) return null;
     const due = shouldCompact({
       lastInputTokens: lastPromptTokens(lastRun),
       activeMessages: active.length,
@@ -116,6 +118,7 @@ export class CompactionService {
     const plan = planCompaction(active.map(toCompactionMessage));
     if (!plan) return null;
 
+    let saved: ThreadRecord;
     try {
       const summarised = new Set(plan.summarizeIds);
       const transcript = active.filter((m) => summarised.has(m.id)).map(toCompactionMessage);
@@ -166,7 +169,13 @@ export class CompactionService {
         savedPct,
         systemPrompt,
       });
-      return await this.repo.getThread(scope, thread.id);
+      saved = {
+        ...thread,
+        systemPrompt,
+        compactedAt: now,
+        cacheRootId: thread.cacheRootId ?? thread.id,
+        compactionSavedPcts: [...thread.compactionSavedPcts, savedPct].slice(-2),
+      };
     } catch (error) {
       this.#log.warn(`assistant thread ${thread.id}: compaction failed (${errorClass(error)})`);
       await this.repo.markCompactionFailed(scope, thread.id, now).catch((e: unknown) => {
@@ -176,6 +185,28 @@ export class CompactionService {
       });
       return null;
     }
+
+    // The compaction is saved: a failed read-back must not start the failure cooldown.
+    try {
+      return (await this.repo.getThread(scope, thread.id)) ?? saved;
+    } catch (error) {
+      this.#log.warn(
+        `assistant thread ${thread.id}: compacted thread not read back (${errorClass(error)})`,
+      );
+      return saved;
+    }
+  }
+
+  /**
+   * Anti-thrash (spec §9): the last two compactions each saved under 10 %. The skip expires
+   * 24 h after the last compaction, or once the thread has more than 160 active messages.
+   */
+  #thrashing(thread: ThreadRecord, activeMessages: number, now: Date): boolean {
+    const pcts = thread.compactionSavedPcts.slice(-2);
+    if (pcts.length < 2 || !pcts.every((p) => p < COMPACTION_MIN_SAVED_PCT)) return false;
+    if (activeMessages > COMPACTION_THRASH_MAX_ACTIVE) return false;
+    if (!thread.compactedAt) return false;
+    return now.getTime() - thread.compactedAt.getTime() < COMPACTION_THRASH_EXPIRES_MS;
   }
 
   /** One summariser call on tier `basic`, recorded as a `compaction` run; empty text throws. */
