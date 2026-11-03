@@ -6,6 +6,7 @@ import {
   IMPORT_PREVIEW_TOOL,
   IMPORT_PROPOSE_TOOL,
 } from '../application/import-tools.js';
+import { rememberMemberships } from '../application/owner-access.js';
 import { ProposalService } from '../application/proposals.service.js';
 import type { SchedulesService } from '../application/schedules.service.js';
 import { AssistantProposalConflictError } from '../domain/assistant.errors.js';
@@ -141,6 +142,44 @@ describe('ImportExecutor (through ProposalService.approve)', () => {
     const r = await results();
     expect(Object.values(r).map((x) => x.status)).toEqual(['created', 'created', 'created']);
     expect((await events()).at(-1)).toBe('Đã tạo 3/3 sản phẩm từ hang.xlsx');
+  });
+
+  it('creates courses or services in a request business, retail for rows with stock', async () => {
+    const { proposals, scope, propose, invoke } = await setup();
+    rememberMemberships(scope, [
+      {
+        workspaceId: BUSINESS,
+        workspaceName: 'Trung tâm',
+        role: 'owner',
+        industry: 'education',
+        accountId: null,
+      },
+    ]);
+    expect((await proposals.approve(scope, await propose(), 'B')).status).toBe('done');
+    const bodies = productCalls(invoke).map((c) => c.body as { code: string; offering?: unknown });
+    expect(
+      bodies.map((b) => [b.code, (b.offering as { kind?: string } | undefined)?.kind]),
+    ).toEqual([
+      ['A-1', 'course'],
+      ['Q-1', undefined],
+      ['M-1', 'course'],
+    ]);
+    expect(bodies[0]?.offering).toMatchObject({ sessions: null, priceNote: '', outcomes: [] });
+  });
+
+  it('keeps a retail business import without offering', async () => {
+    const { proposals, scope, propose, invoke } = await setup();
+    rememberMemberships(scope, [
+      {
+        workspaceId: BUSINESS,
+        workspaceName: 'Shop',
+        role: 'owner',
+        industry: 'retail',
+        accountId: null,
+      },
+    ]);
+    await proposals.approve(scope, await propose(), 'B');
+    expect(productCalls(invoke).every((c) => !('offering' in (c.body as object)))).toBe(true);
   });
 
   it('records per-row results for a mix of 201, 409 and 400', async () => {
