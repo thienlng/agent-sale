@@ -1,10 +1,13 @@
 import type { EntitlementsDto, MessageUsageDto } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
 
-/** What a reservation attempt decided. `metered: false` = the business has no account yet. */
+/**
+ * What a reservation attempt decided. `metered: false` = the business has no account yet.
+ * `account_suspended` = an operator or the lifecycle suspended the account or its subscription.
+ */
 export type ReserveOutcome =
   | { allowed: true; metered: boolean }
-  | { allowed: false; reason: 'allowance_exhausted'; cycleEnd: Date };
+  | { allowed: false; reason: 'allowance_exhausted' | 'account_suspended'; cycleEnd: Date };
 
 /** One AI reply to a customer, identified by its outbound idempotency key. */
 export interface ReplyMeterKey {
@@ -37,6 +40,12 @@ export interface BillingFacade {
   captureReply(workspaceId: WorkspaceId, idempotencyKey: string): Promise<void>;
   /** The reserved reply was not delivered (failure, superseded, staff took over). */
   releaseReply(workspaceId: WorkspaceId, idempotencyKey: string): Promise<void>;
+  /**
+   * Puts a new account on the signup trial when the billing settings enable it (ADR-021 §6).
+   * Idempotent: an account that already has a subscription keeps it. False = nothing started
+   * (trial off, trial plan missing, or a subscription already exists).
+   */
+  startSignupTrial(accountId: string): Promise<boolean>;
 }
 
 export const BILLING_FACADE = Symbol('BILLING_FACADE');

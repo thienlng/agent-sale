@@ -4,8 +4,9 @@ export class SaasError extends DomainError {
   constructor(
     readonly code: 'NOT_FOUND' | 'CONFLICT' | 'VALIDATION_FAILED',
     message: string,
+    details?: Record<string, unknown>,
   ) {
-    super(message);
+    super(message, details);
   }
 }
 

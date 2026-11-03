@@ -21,6 +21,17 @@ export interface WorkspaceMember {
   joinedAt: Date;
 }
 
+/** A business of an account, as the platform admin sees it (no business data). */
+export interface AccountBusiness {
+  workspaceId: WorkspaceId;
+  accountId: string;
+  name: string;
+  industry: string;
+  status: string;
+  memberCount: number;
+  createdAt: Date;
+}
+
 /** Who is acting, for the audit trail. */
 export interface MemberActor {
   userId: string;
@@ -44,7 +55,11 @@ export interface WorkspaceFacade {
     ownerUserId: UserId;
     accountId?: string | undefined;
     timezone?: string | undefined;
+    /** The owner's contact (signup), for `account.account.created.v1` (ADR-021). */
+    owner?: { name: string; email: string; phone: string | null } | undefined;
   }): Promise<WorkspaceDto>;
+  /** Businesses of an account (platform admin), oldest first. */
+  listByAccounts(accountIds: readonly string[]): Promise<AccountBusiness[]>;
   /** Active membership of `userId` in `workspaceId`, or null (used by the auth guard). */
   findMembership(workspaceId: WorkspaceId, userId: UserId): Promise<WorkspaceMembership | null>;
   /** All active memberships of a user across workspaces (bootstrap, workspace switcher). */

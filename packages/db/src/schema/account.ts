@@ -10,7 +10,10 @@ import { users } from './identity.js';
 export const accounts = pgTable('accounts', {
   id: uuid('id').primaryKey(),
   name: text('name').notNull(),
-  status: text('status').notNull().default('active'),
+  status: text('status').notNull().default('active').$type<'active' | 'suspended'>(),
+  /** Why the operator last changed `status` (0053). */
+  statusReason: text('status_reason').notNull().default(''),
+  statusChangedAt: timestamp('status_changed_at', { withTimezone: true }),
   createdByUserId: uuid('created_by_user_id')
     .notNull()
     .references(() => users.id),

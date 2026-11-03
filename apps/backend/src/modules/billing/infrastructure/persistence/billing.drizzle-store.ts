@@ -13,7 +13,11 @@ import {
 } from '@agent-sales/db';
 import type { WorkspaceId } from '@agent-sales/shared';
 
-import type { BillingState, BillingStore } from '../../application/ports/billing-store.js';
+import type {
+  AccountBillingState,
+  BillingState,
+  BillingStore,
+} from '../../application/ports/billing-store.js';
 import type { PlanRecord, SubscriptionRecord } from '../../domain/entitlements.js';
 import { RESERVATION_TTL_MS, type ReserveResult } from '../../domain/usage.js';
 
@@ -90,8 +94,19 @@ export class DrizzleBillingStore implements BillingStore {
         overrides: overrides.map((o) => ({ key: o.key, value: o.value, expiresAt: o.expiresAt })),
       };
     });
-    if (!accountId) return { ...business, accountSubscription: null, accountOverrides: [] };
+    if (!accountId) {
+      return { ...business, accountSubscription: null, accountOverrides: [], accountStatus: null };
+    }
+    return { ...business, ...(await this.accountState(accountId)) };
+  }
+
+  accountState(accountId: string): Promise<AccountBillingState> {
     return withSystem(this.systemDb, async (tx) => {
+      const [account] = await tx
+        .select({ status: schema.accounts.status })
+        .from(schema.accounts)
+        .where(eq(schema.accounts.id, accountId))
+        .limit(1);
       const [sub] = await tx
         .select()
         .from(schema.accountSubscriptions)
@@ -103,7 +118,7 @@ export class DrizzleBillingStore implements BillingStore {
         .where(eq(schema.accountEntitlementOverrides.accountId, accountId));
       const best = sub ? null : await bestPaidBusinessSubscription(tx, accountId);
       return {
-        ...business,
+        accountStatus: account?.status ?? null,
         accountSubscription: sub
           ? toSubscription(sub, sub.cycleAnchor)
           : best

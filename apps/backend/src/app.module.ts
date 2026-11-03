@@ -8,9 +8,11 @@ import { ActionModule } from './modules/action/action.module.js';
 import { AiModule } from './modules/ai/ai.module.js';
 import { AnalyticsModule } from './modules/analytics/analytics.module.js';
 import { AuditModule } from './modules/audit/audit.module.js';
+import { BackofficeModule } from './modules/backoffice/backoffice.module.js';
 import { BillingModule } from './modules/billing/billing.module.js';
 import { CommerceModule } from './modules/commerce/commerce.module.js';
 import { CrmModule } from './modules/crm/crm.module.js';
+import { DeveloperModule } from './modules/developer/developer.module.js';
 import { SaasModule } from './modules/saas/saas.module.js';
 import { TeamModule } from './modules/team/team.module.js';
 import { BotModule } from './modules/bot/bot.module.js';
@@ -47,6 +49,8 @@ import { WorkspaceModule } from './modules/workspace/workspace.module.js';
     BillingModule,
     AnalyticsModule,
     AuditModule,
+    BackofficeModule,
+    DeveloperModule,
   ],
 })
 export class AppModule {}

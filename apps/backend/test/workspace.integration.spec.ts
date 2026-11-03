@@ -15,6 +15,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { AccountFacadeImpl } from '../src/modules/account/application/account.facade.impl.js';
 import { ListAccountsHandler } from '../src/modules/account/application/queries/list-accounts/list-accounts.handler.js';
+import { SetAccountStatusHandler } from '../src/modules/account/application/commands/set-account-status/set-account-status.handler.js';
 import { ResolveBusinessAccountHandler } from '../src/modules/account/application/commands/resolve-business-account/resolve-business-account.handler.js';
 import { DrizzleAccountRepository } from '../src/modules/account/infrastructure/persistence/account.drizzle-repository.js';
 import { CreateWorkspaceHandler } from '../src/modules/workspace/application/commands/create-workspace/create-workspace.handler.js';
@@ -50,6 +51,8 @@ const accounts = () => {
   return new AccountFacadeImpl(
     new ResolveBusinessAccountHandler(repo),
     new ListAccountsHandler(repo),
+    new SetAccountStatusHandler(repo),
+    repo,
   );
 };
 

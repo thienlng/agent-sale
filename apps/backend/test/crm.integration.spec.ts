@@ -18,6 +18,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
 import { createHttpApp } from '../src/bootstrap.js';
+import { signUpVerified } from './support/signup.js';
 
 /** Customers, sources/statuses, tags and saved views on a real Postgres (RLS, SQL filters). */
 let pg: TestPostgres;
@@ -57,21 +58,17 @@ const call = (h: Headers, method: Method, url: string, payload?: object) =>
 let signups = 0;
 /** A new user owning a new shop. */
 async function shop(email: string, name = 'Chủ shop Lan') {
-  const signup = await app
-    .getHttpAdapter()
-    .getInstance()
-    .inject({
-      method: 'POST',
-      url: '/api/v1/auth/signup',
-      remoteAddress: `10.1.0.${++signups}`,
-      payload: {
-        name,
-        email,
-        password: 'a long enough password',
-        workspaceName: 'Shop',
-        industry: 'fashion',
-      },
-    });
+  const signup = await signUpVerified(
+    app,
+    {
+      name,
+      email,
+      password: 'a long enough password',
+      workspaceName: 'Shop',
+      industry: 'fashion',
+    },
+    { remoteAddress: `10.1.0.${++signups}` },
+  );
   const { accessToken } = AuthResponse.parse(signup.json());
   const authorization = `Bearer ${accessToken}`;
   const boot = BootstrapResponse.parse((await call({ authorization }, 'GET', '/bootstrap')).json());

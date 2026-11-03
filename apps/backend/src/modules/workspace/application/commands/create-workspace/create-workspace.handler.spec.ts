@@ -17,6 +17,10 @@ function fakeAccounts() {
     },
     listForUser: async () => [],
     namesOf: async () => new Map(),
+    listForAdmin: async () => ({ data: [], nextCursor: null }),
+    getForAdmin: async () => [],
+    membersForAdmin: async () => [],
+    setStatus: async () => undefined,
   };
   return { facade, calls, accountId };
 }
@@ -37,7 +41,13 @@ describe('CreateWorkspaceHandler', () => {
       accounts.accountId,
     );
     expect(accounts.calls).toEqual([
-      { userId: owner, accountId: undefined, businessName: 'Shop ABC' },
+      {
+        userId: owner,
+        accountId: undefined,
+        businessName: 'Shop ABC',
+        owner: undefined,
+        firstBusiness: { workspaceId: dto.id, industry: 'retail' },
+      },
     ]);
     expect(WorkspaceCreatedV1.safeParse(uow.events.published[0]?.event).success).toBe(true);
   });

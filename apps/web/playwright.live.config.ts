@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
+import { MAIL_OUTBOX_DIR } from './e2e-live/support/signup';
+
 /**
  * Live-backend regression suite (#23): the real API and Postgres behind the built
  * web app, no mocks. Each run signs up a new shop, so runs never share data and
@@ -32,6 +34,8 @@ export default defineConfig({
           Object.entries(process.env).filter((e): e is [string, string] => e[1] !== undefined),
         ),
         APP_ORIGINS: 'http://localhost:4174,http://localhost:5173',
+        // Signup codes: the suite reads them from the files the development mailer writes.
+        MAIL_OUTBOX_DIR,
       },
       reuseExistingServer: !CI,
       timeout: 60_000,

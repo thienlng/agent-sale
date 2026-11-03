@@ -1,4 +1,4 @@
-import { SaasStage, SaasBillingPeriod } from '@agent-sales/contracts';
+import { SaasBillingPeriod, SaasChurnReason, SaasStage } from '@agent-sales/contracts';
 import {
   and,
   asc,
@@ -6,19 +6,31 @@ import {
   eq,
   gte,
   inArray,
+  isNull,
   lt,
   schema,
   sql,
   withTenant,
   writeAudit,
+  writeOutbox,
   type Database,
 } from '@agent-sales/db';
 import type { WorkspaceId } from '@agent-sales/shared';
 
-import type { SaasStore, SaasTx, SubscriptionRecord } from '../../application/ports/saas-store.js';
+import type {
+  HistoryRecord,
+  HqLinkRecord,
+  PlanRecord,
+  SaasStore,
+  SaasTx,
+  SubscriptionRecord,
+} from '../../application/ports/saas-store.js';
 import { SaasError } from '../../domain/saas.errors.js';
 
 const s = schema.saasSubscriptions;
+const p = schema.saasPlans;
+const h = schema.saasSubscriptionHistory;
+const l = schema.saasHqLinks;
 
 type PgError = { code?: string; constraint_name?: string };
 const pgError = (e: unknown): PgError => (e as { cause?: PgError }).cause ?? (e as PgError);
@@ -33,7 +45,9 @@ async function conflictOnDuplicate(write: () => Promise<unknown>): Promise<void>
         'CONFLICT',
         pg.constraint_name === 'saas_subscriptions_external_ref_unique'
           ? 'This external reference is already used'
-          : 'This customer already has a subscription',
+          : pg.constraint_name === 'saas_plans_name_active'
+            ? 'A plan with this name already exists'
+            : 'This customer already has a subscription',
       );
     throw e;
   }
@@ -47,6 +61,7 @@ function toSubscription(row: typeof s.$inferSelect): SubscriptionRecord {
     stage: SaasStage.parse(row.stage),
     billingPeriod: SaasBillingPeriod.parse(row.billingPeriod),
     mrr: row.mrr,
+    planId: row.planId,
     seats: row.seats,
     trialEndsOn: row.trialEndsOn,
     startedOn: row.startedOn,
@@ -54,16 +69,55 @@ function toSubscription(row: typeof s.$inferSelect): SubscriptionRecord {
     canceledOn: row.canceledOn,
     externalRef: row.externalRef,
     note: row.note,
+    churnReason: row.churnReason ? SaasChurnReason.parse(row.churnReason) : null,
+    churnNote: row.churnNote,
+    externalSource: row.externalSource ?? null,
+    usage:
+      row.usageUsed !== null && row.usageLimit !== null && row.usageAt
+        ? { used: row.usageUsed, limit: row.usageLimit, at: row.usageAt.toISOString() }
+        : null,
+    remindersSent: row.remindersSent,
     version: row.version,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
 }
+const toPlan = (row: typeof p.$inferSelect): PlanRecord => ({
+  id: row.id,
+  name: row.name,
+  prices: row.prices,
+  position: row.position,
+  archivedAt: row.archivedAt?.toISOString() ?? null,
+  version: row.version,
+  createdAt: row.createdAt.toISOString(),
+  updatedAt: row.updatedAt.toISOString(),
+});
+const toHistory = (row: typeof h.$inferSelect): HistoryRecord => ({
+  id: row.id,
+  subscriptionId: row.subscriptionId,
+  contactId: row.contactId,
+  fromStage: row.fromStage ? SaasStage.parse(row.fromStage) : null,
+  toStage: SaasStage.parse(row.toStage),
+  fromPlan: row.fromPlan,
+  toPlan: row.toPlan,
+  fromMrr: row.fromMrr,
+  toMrr: row.toMrr,
+  churnReason: row.churnReason ? SaasChurnReason.parse(row.churnReason) : null,
+  source: row.source,
+  actorUserId: row.actorUserId,
+  changedAt: row.changedAt.toISOString(),
+});
+const toLink = (row: typeof l.$inferSelect): HqLinkRecord => ({
+  accountId: row.accountId,
+  contactId: row.contactId,
+  applied: row.applied,
+});
 const subscriptionValues = (x: SubscriptionRecord) => ({
   planName: x.planName,
   stage: x.stage,
   billingPeriod: x.billingPeriod,
   mrr: x.mrr,
+  planId: x.planId,
   seats: x.seats,
   trialEndsOn: x.trialEndsOn,
   startedOn: x.startedOn,
@@ -71,6 +125,13 @@ const subscriptionValues = (x: SubscriptionRecord) => ({
   canceledOn: x.canceledOn,
   externalRef: x.externalRef,
   note: x.note,
+  churnReason: x.churnReason,
+  churnNote: x.churnNote,
+  externalSource: x.externalSource,
+  usageUsed: x.usage?.used ?? null,
+  usageLimit: x.usage?.limit ?? null,
+  usageAt: x.usage ? new Date(x.usage.at) : null,
+  remindersSent: x.remindersSent,
   version: x.version,
   updatedAt: new Date(x.updatedAt),
 });
@@ -91,6 +152,15 @@ export class DrizzleSaasStore implements SaasStore {
             .select()
             .from(s)
             .where(and(eq(s.workspaceId, ws), eq(s.contactId, contactId)))
+            .limit(1);
+          const [row] = await (lock ? q.for('update') : q);
+          return row ? toSubscription(row) : null;
+        },
+        async findSubscriptionByExternalRef(ref, lock) {
+          const q = tx
+            .select()
+            .from(s)
+            .where(and(eq(s.workspaceId, ws), eq(s.externalRef, ref)))
             .limit(1);
           const [row] = await (lock ? q.for('update') : q);
           return row ? toSubscription(row) : null;
@@ -142,6 +212,7 @@ export class DrizzleSaasStore implements SaasStore {
             .select({
               mrr: sql<string>`coalesce(sum(${s.mrr}) filter (where ${s.stage} in ('active','past_due')), 0)`,
               trial: sql<number>`count(*) filter (where ${s.stage} = 'trial')::int`,
+              free: sql<number>`count(*) filter (where ${s.stage} = 'free')::int`,
               active: sql<number>`count(*) filter (where ${s.stage} = 'active')::int`,
               pastDue: sql<number>`count(*) filter (where ${s.stage} = 'past_due')::int`,
               canceled: sql<number>`count(*) filter (where ${s.stage} = 'canceled')::int`,
@@ -153,12 +224,99 @@ export class DrizzleSaasStore implements SaasStore {
             mrr: Number(sub?.mrr ?? 0),
             stages: {
               trial: sub?.trial ?? 0,
+              free: sub?.free ?? 0,
               active: sub?.active ?? 0,
               past_due: sub?.pastDue ?? 0,
               canceled: sub?.canceled ?? 0,
             },
             trialsEndingSoon: sub?.soon ?? 0,
           };
+        },
+        async listPlans(withArchived) {
+          const rows = await tx
+            .select()
+            .from(p)
+            .where(and(eq(p.workspaceId, ws), withArchived ? undefined : isNull(p.archivedAt)))
+            .orderBy(asc(p.position), asc(p.name), asc(p.id));
+          return rows.map(toPlan);
+        },
+        async findPlan(id, lock) {
+          const q = tx
+            .select()
+            .from(p)
+            .where(and(eq(p.workspaceId, ws), eq(p.id, id)))
+            .limit(1);
+          const [row] = await (lock ? q.for('update') : q);
+          return row ? toPlan(row) : null;
+        },
+        async insertPlan(x) {
+          await conflictOnDuplicate(() =>
+            tx.insert(p).values({
+              id: x.id,
+              workspaceId: ws,
+              name: x.name,
+              prices: x.prices,
+              position: x.position,
+              archivedAt: x.archivedAt ? new Date(x.archivedAt) : null,
+              version: x.version,
+              createdAt: new Date(x.createdAt),
+              updatedAt: new Date(x.updatedAt),
+            }),
+          );
+        },
+        async updatePlan(x) {
+          await conflictOnDuplicate(() =>
+            tx
+              .update(p)
+              .set({
+                name: x.name,
+                prices: x.prices,
+                position: x.position,
+                archivedAt: x.archivedAt ? new Date(x.archivedAt) : null,
+                version: x.version,
+                updatedAt: new Date(x.updatedAt),
+              })
+              .where(and(eq(p.workspaceId, ws), eq(p.id, x.id))),
+          );
+        },
+        async insertHistory(x) {
+          await tx.insert(h).values({ ...x, workspaceId: ws, changedAt: new Date(x.changedAt) });
+        },
+        async listHistory(subscriptionId) {
+          const rows = await tx
+            .select()
+            .from(h)
+            .where(and(eq(h.workspaceId, ws), eq(h.subscriptionId, subscriptionId)))
+            .orderBy(desc(h.changedAt), desc(h.id))
+            .limit(200);
+          return rows.map(toHistory);
+        },
+        async findHqLink(accountId, lock) {
+          const q = tx
+            .select()
+            .from(l)
+            .where(and(eq(l.workspaceId, ws), eq(l.accountId, accountId)))
+            .limit(1);
+          const [row] = await (lock ? q.for('update') : q);
+          return row ? toLink(row) : null;
+        },
+        async saveHqLink(x) {
+          await tx
+            .insert(l)
+            .values({
+              workspaceId: ws,
+              accountId: x.accountId,
+              contactId: x.contactId,
+              applied: x.applied,
+            })
+            .onConflictDoUpdate({
+              target: [l.workspaceId, l.accountId],
+              set: { contactId: x.contactId, applied: x.applied, updatedAt: new Date() },
+            });
+        },
+        async listHqLinks() {
+          const rows = await tx.select().from(l).where(eq(l.workspaceId, ws));
+          return rows.map(toLink);
         },
         async audit(actor, action, target, data) {
           await writeAudit(tx, {
@@ -169,6 +327,15 @@ export class DrizzleSaasStore implements SaasStore {
             targetType: target.type,
             targetId: target.id,
             data,
+          });
+        },
+        async outbox(type, aggregateId, payload) {
+          await writeOutbox(tx, {
+            workspaceId: ws,
+            type,
+            aggregateType: 'saas_subscription',
+            aggregateId,
+            payload,
           });
         },
       };

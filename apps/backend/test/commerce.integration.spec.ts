@@ -20,6 +20,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module.js';
 import { createHttpApp } from '../src/bootstrap.js';
 import { CATALOG_FACADE, type CatalogFacade } from '../src/modules/commerce/api/index.js';
+import { signUpVerified } from './support/signup.js';
 
 /** Products, stock and the order lifecycle on a real Postgres (RLS, SQL search, aggregates). */
 const MEDIA_URL = 'https://media.rapiz.test';
@@ -62,19 +63,17 @@ const call = (h: Record<string, string>, method: Method, url: string, payload?: 
 let signups = 0;
 async function owner(email: string) {
   const inject = app.getHttpAdapter().getInstance().inject.bind(app.getHttpAdapter().getInstance());
-  const signup = await inject({
-    method: 'POST',
-    url: '/api/v1/auth/signup',
-    // A different client address per shop: signup is rate-limited per address.
-    remoteAddress: `10.0.0.${++signups}`,
-    payload: {
+  const signup = await signUpVerified(
+    app,
+    {
       name: 'Chủ shop Lan',
       email,
       password: 'a long enough password',
       workspaceName: 'Shop Lan',
       industry: 'fashion',
     },
-  });
+    { remoteAddress: `10.0.0.${++signups}` },
+  );
   const { accessToken } = AuthResponse.parse(signup.json());
   const boot = BootstrapResponse.parse(
     (
@@ -275,6 +274,27 @@ describe('commerce on Postgres', () => {
     expect(returned.history.map((x) => x.toStatus)).toEqual(['new', 'delivering', 'returned']);
     expect(returned.history.at(-1)?.note).toBe('Khách không nhận');
     expect(await stockOf(h, product.id, l.id)).toMatchObject({ onHand: 10, reserved: 0 });
+
+    // Each change wrote its integration event in the same transaction (ADR-022 §7).
+    const owner_ = createDb({ url: pg.ownerUrl, max: 1 });
+    try {
+      const events = (await owner_.db.execute(
+        sql`select type, payload from outbox_events where aggregate_id = ${order.id} order by id`,
+      )) as unknown as Array<{ type: string; payload: Record<string, unknown> }>;
+      expect(events.map((e) => e.type)).toEqual([
+        'commerce.order.created.v1',
+        'commerce.order.status_changed.v1',
+        'commerce.order.status_changed.v1',
+      ]);
+      expect(events[0]?.payload).toMatchObject({ code: 'DH000001', status: 'new', total: 480_000 });
+      expect(events.slice(1).map((e) => [e.payload.fromStatus, e.payload.toStatus])).toEqual([
+        ['new', 'delivering'],
+        ['delivering', 'returned'],
+      ]);
+      expect(JSON.stringify(events)).not.toContain('0901234567');
+    } finally {
+      await owner_.close();
+    }
 
     const second = OrderDto.parse(
       (

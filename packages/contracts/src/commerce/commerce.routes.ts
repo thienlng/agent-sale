@@ -43,6 +43,7 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'get',
     path: '/warehouses',
+    apiKey: true,
     summary: 'Warehouses',
     tag: 'commerce',
     responses: { 200: WarehouseList },
@@ -74,6 +75,7 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'get',
     path: '/products',
+    apiKey: true,
     summary: 'Product catalog (search, pages)',
     tag: 'commerce',
     query: ProductListQuery,
@@ -82,6 +84,7 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'post',
     path: '/products',
+    apiKey: true,
     summary: 'Create a product with its variants',
     tag: 'commerce',
     body: UpsertProductRequest,
@@ -90,6 +93,7 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'get',
     path: '/products/{productId}',
+    apiKey: true,
     summary: 'One product with variants and stock',
     tag: 'commerce',
     responses: { 200: ProductDto },
@@ -97,6 +101,7 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'put',
     path: '/products/{productId}',
+    apiKey: true,
     summary: 'Replace a product and its variants (missing variants are archived)',
     tag: 'commerce',
     body: UpsertProductRequest,
@@ -113,6 +118,7 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'post',
     path: '/products/{productId}/stock',
+    apiKey: true,
     summary: 'Set the counted stock of a variant in a warehouse',
     tag: 'commerce',
     body: AdjustStockRequest,
@@ -136,6 +142,7 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'get',
     path: '/product-variants',
+    apiKey: true,
     summary: 'Variant picker for the order form',
     tag: 'commerce',
     query: VariantSearchQuery,
@@ -145,6 +152,7 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'get',
     path: '/orders',
+    apiKey: true,
     summary: 'Orders with status counts and totals',
     tag: 'commerce',
     query: OrderListQuery,
@@ -153,6 +161,7 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'post',
     path: '/orders',
+    apiKey: true,
     summary: 'Create an order (reserves stock)',
     tag: 'commerce',
     body: CreateOrderRequest,
@@ -176,6 +185,7 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'get',
     path: '/orders/{orderId}',
+    apiKey: true,
     summary: 'One order with items and status history',
     tag: 'commerce',
     responses: { 200: OrderDto },
@@ -183,6 +193,7 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'patch',
     path: '/orders/{orderId}',
+    apiKey: true,
     summary: 'Edit people, shipping, payment received or notes',
     tag: 'commerce',
     body: UpdateOrderRequest,
@@ -191,6 +202,7 @@ export const commerceRoutes = defineRoutes([
   route({
     method: 'post',
     path: '/orders/{orderId}/status',
+    apiKey: true,
     summary: 'Change the status (moves stock as needed)',
     tag: 'commerce',
     body: ChangeOrderStatusRequest,

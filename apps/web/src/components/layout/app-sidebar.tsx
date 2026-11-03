@@ -10,7 +10,6 @@ import {
   MessagesSquare,
   Package,
   Settings,
-  ShieldCheck,
   ShoppingBag,
   House,
   CalendarDays,
@@ -41,7 +40,6 @@ import {
 } from '@/components/ui/sidebar';
 import { useCan } from '@/lib/permissions';
 import { usePreferences } from '@/lib/preferences/preferences';
-import { useSession } from '@/lib/session';
 
 import { BusinessSelector, type CreateBusinessDialogProps } from './business-selector';
 
@@ -156,10 +154,6 @@ function SectionNav({
   );
 }
 
-const PLATFORM: readonly NavItem[] = [
-  { to: '/admin/llm', key: 'nav.adminLlm', icon: ShieldCheck, ready: true },
-];
-
 function NavGroup({
   label,
   items,
@@ -245,7 +239,6 @@ export function AppSidebar({
   navCounts?: NavCounts | undefined;
 }) {
   const { t } = useTranslation();
-  const session = useSession();
   const prefs = usePreferences();
   const canSettings = useCan('settings.manage');
   const canCatalog = useCan('catalog.manage');
@@ -307,9 +300,6 @@ export function AppSidebar({
             )}
             <NavItems items={WORK} />
           </NavGroup>
-          {session?.user.isPlatformAdmin ? (
-            <NavGroup label={t('nav.admin')} items={PLATFORM} />
-          ) : null}
         </nav>
       </SidebarContent>
       <SidebarRail />

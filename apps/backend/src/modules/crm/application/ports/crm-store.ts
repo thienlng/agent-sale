@@ -192,6 +192,8 @@ export interface CrmTx {
     findByExternal(source: string, externalId: string): Promise<ContactRecord | null>;
     /** Oldest live (not archived), unlinked customer with this E.164 phone. */
     findUnlinkedByPhone(phoneNormalized: string): Promise<ContactRecord | null>;
+    /** Oldest live, unlinked customer with this normalized email (Rapiz HQ adoption). */
+    findUnlinkedByEmail(emailNormalized: string): Promise<ContactRecord | null>;
     /**
      * Sets (and clears the push state) or removes the link; the version is the caller's. Throws
      * ContactExternalLinkConflictError when the external id is on another customer.

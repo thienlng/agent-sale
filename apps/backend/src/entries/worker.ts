@@ -8,8 +8,14 @@ import { DbModule } from '../common/db/db.module.js';
 import { createLogger, PinoNestLogger } from '../common/logger.js';
 import { ANALYTICS_RUNNER, type AnalyticsRunner } from '../modules/analytics/api/index.js';
 import { AnalyticsModule } from '../modules/analytics/analytics.module.js';
+import { BILLING_RUNNER, type BillingRunner } from '../modules/billing/api/index.js';
+import { BillingModule } from '../modules/billing/billing.module.js';
+import { DEVELOPER_RUNNER, type DeveloperRunner } from '../modules/developer/api/index.js';
+import { DeveloperModule } from '../modules/developer/developer.module.js';
 import { INTEGRATION_RUNNER, type IntegrationRunner } from '../modules/integration/api/index.js';
 import { IntegrationModule } from '../modules/integration/integration.module.js';
+import { SAAS_RUNNER, type SaasRunner } from '../modules/saas/api/index.js';
+import { SaasModule } from '../modules/saas/saas.module.js';
 
 /**
  * Worker entry: boots an application context (no HTTP) and registers the
@@ -17,7 +23,16 @@ import { IntegrationModule } from '../modules/integration/integration.module.js'
  * (outbound, campaign, workflow, indexer, scheduler). Processors live in each
  * module's application/jobs and are wired here as modules land.
  */
-@Module({ imports: [DbModule, AnalyticsModule, IntegrationModule] })
+@Module({
+  imports: [
+    DbModule,
+    AnalyticsModule,
+    IntegrationModule,
+    BillingModule,
+    SaasModule,
+    DeveloperModule,
+  ],
+})
 class WorkerModule {}
 
 const env = configureEnv();
@@ -54,13 +69,71 @@ const syncTimer = setInterval(() => {
       syncing = false;
     });
 }, 2000);
+// Subscription lifecycle, reminders and the daily usage snapshot (ADR-021); the runner throttles
+// itself to one pass every few minutes.
+const billing = ctx.get<BillingRunner>(BILLING_RUNNER);
+let billingBusy = false;
+const billingTimer = setInterval(() => {
+  if (billingBusy) return;
+  billingBusy = true;
+  void billing
+    .tick()
+    .catch(() => logger.error('Billing lifecycle tick failed'))
+    .finally(() => {
+      billingBusy = false;
+    });
+}, 2000);
+// Rapiz HQ sync (no-op unless RAPIZ_HQ_WORKSPACE_ID is set), and the saas daily jobs (reminders,
+// nightly HQ reconcile), each claimed once per day across workers.
+const saas = ctx.get<SaasRunner>(SAAS_RUNNER);
+let hqSyncing = false;
+const hqTimer = setInterval(() => {
+  if (hqSyncing) return;
+  hqSyncing = true;
+  void saas
+    .tick()
+    .catch(() => logger.error('HQ sync tick failed'))
+    .finally(() => {
+      hqSyncing = false;
+    });
+}, 2000);
+// Outbound webhooks (ADR-022): dispatch new public events, send due deliveries with retries.
+const developer = ctx.get<DeveloperRunner>(DEVELOPER_RUNNER);
+let webhooksBusy = false;
+const webhookTimer = setInterval(() => {
+  if (webhooksBusy) return;
+  webhooksBusy = true;
+  void developer
+    .tick()
+    .catch(() => logger.error('Webhook delivery tick failed'))
+    .finally(() => {
+      webhooksBusy = false;
+    });
+}, 2000);
+let dailyRunning = false;
+const runDaily = () => {
+  if (dailyRunning) return;
+  dailyRunning = true;
+  void saas
+    .daily()
+    .catch(() => logger.error('SaaS daily jobs failed'))
+    .finally(() => {
+      dailyRunning = false;
+    });
+};
+const dailyTimer = setInterval(runDaily, 15 * 60_000);
+runDaily();
 for (const signal of ['SIGINT', 'SIGTERM'] as const)
   // The intervals keep the worker alive; clearing them lets the process drain and exit.
   process.once(signal, () => {
     clearInterval(timer);
     clearInterval(syncTimer);
+    clearInterval(billingTimer);
+    clearInterval(hqTimer);
+    clearInterval(dailyTimer);
+    clearInterval(webhookTimer);
   });
 logger.info(
   { queues },
-  'worker started (analytics projection, PMS sync; no queue processors registered yet)',
+  'worker started (analytics projection, PMS sync, billing lifecycle, HQ sync, webhooks; no queue processors registered yet)',
 );

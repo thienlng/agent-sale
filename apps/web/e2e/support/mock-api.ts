@@ -1,6 +1,7 @@
 import { defaultOrderPolicy, OrderSource } from '@agent-sales/contracts';
 import type { Page } from '@playwright/test';
 
+import { backofficeRoute } from './mock-backoffice';
 import { crmRoute } from './mock-crm';
 import { analyticsRoute } from './mock-analytics';
 import { settingsRoute } from './mock-settings';
@@ -146,6 +147,8 @@ export async function mockApi(page: Page) {
       route.request().postDataJSON() as Record<string, unknown> | null,
     );
     if (analyticsMock !== undefined) return route.fulfill(json(analyticsMock));
+    const backoffice = backofficeRoute(path);
+    if (backoffice !== undefined) return route.fulfill(json(backoffice));
     const settingsMock = settingsRoute(path);
     if (settingsMock !== undefined) return route.fulfill(json(settingsMock));
     const crm = crmRoute(path);

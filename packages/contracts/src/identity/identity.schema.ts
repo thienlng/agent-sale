@@ -6,17 +6,51 @@ const email = z
   .transform((v) => v.trim().toLowerCase());
 const password = z.string().min(8).max(128);
 
+/** A 6-digit code sent by email (signup, password reset). */
+const emailCode = z
+  .string()
+  .trim()
+  .regex(/^\d{6}$/);
+
+/** Signup, before the form is sent: emails a code to the address (one per minute). */
+export const SignupCodeRequest = z.object({
+  email,
+  /** Greets the reader of the email when the form already has it. */
+  name: z.string().trim().max(120).optional(),
+});
+export type SignupCodeRequest = z.infer<typeof SignupCodeRequest>;
+
+/**
+ * Creates the user, its email already verified by `code` (from `POST /auth/signup/code`). The first
+ * business (name, industry) is chosen afterwards (`POST /auth/signup/business`). Unknown fields are
+ * ignored.
+ */
 export const SignupRequest = z.object({
   name: z.string().trim().min(1).max(120),
   email,
   password,
+  code: emailCode,
   phone: z.string().trim().max(32).optional(),
-  workspaceName: z.string().trim().min(1).max(120),
-  industry: z.string().trim().min(1).max(64),
   /** `native` returns the refresh token in the body instead of a cookie (mobile/desktop clients). */
   client: z.enum(['web', 'native']).default('web'),
 });
 export type SignupRequest = z.infer<typeof SignupRequest>;
+
+export const ForgotPasswordRequest = z.object({ email });
+export type ForgotPasswordRequest = z.infer<typeof ForgotPasswordRequest>;
+
+export const ResetPasswordRequest = z.object({ email, code: emailCode, password });
+export type ResetPasswordRequest = z.infer<typeof ResetPasswordRequest>;
+
+/** The second signup step: the user's first business, with the signup trial. */
+export const SignupBusinessRequest = z.object({
+  workspaceName: z.string().trim().min(1).max(120),
+  industry: z.string().trim().min(1).max(64),
+});
+export type SignupBusinessRequest = z.infer<typeof SignupBusinessRequest>;
+
+export const SignupBusinessResponse = z.object({ workspaceId: z.uuid() });
+export type SignupBusinessResponse = z.infer<typeof SignupBusinessResponse>;
 
 export const LoginRequest = z.object({
   email,

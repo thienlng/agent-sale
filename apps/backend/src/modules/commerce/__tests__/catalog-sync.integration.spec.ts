@@ -27,6 +27,7 @@ import {
   type CatalogSyncFacade,
   type ExternalCatalogItem,
 } from '../api/index.js';
+import { signUpVerified } from '../../../../test/support/signup.js';
 
 /** The PMS sync's writes on a real Postgres: links, adoption by SKU, stock movements, locks. */
 const MEDIA_URL = 'https://media.rapiz.test';
@@ -67,18 +68,17 @@ const sync = () => app.get<CatalogSyncFacade>(CATALOG_SYNC_FACADE, { strict: fal
 
 let signups = 0;
 async function owner(email: string): Promise<Headers> {
-  const signup = await http().inject({
-    method: 'POST',
-    url: '/api/v1/auth/signup',
-    remoteAddress: `10.3.0.${++signups}`,
-    payload: {
+  const signup = await signUpVerified(
+    app,
+    {
       name: 'Chủ shop',
       email,
       password: 'a long enough password',
       workspaceName: 'Shop áo',
       industry: 'fashion',
     },
-  });
+    { remoteAddress: `10.3.0.${++signups}` },
+  );
   const { accessToken } = AuthResponse.parse(signup.json());
   const boot = BootstrapResponse.parse(
     (

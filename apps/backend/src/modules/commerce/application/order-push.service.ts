@@ -17,6 +17,7 @@ import {
 } from '../domain/order-push.js';
 import { stockTransition } from '../domain/order-stock.js';
 import { stockChanges } from './order.mappers.js';
+import { publishOrderStatusChanged } from './order-events.js';
 import {
   COMMERCE_STORE,
   type CommerceStore,
@@ -150,13 +151,14 @@ export class OrderPushService implements OrderPushFacade {
       const items = stock.actions.length ? await tx.orders.itemsOf(o.id) : [];
       await tx.inventory.apply(ws, stockChanges(stock.actions, o, items, null));
       const now = new Date();
-      await tx.orders.update({
+      const next: OrderRecord = {
         ...o,
         status: 'cancelled',
         stockState: stock.next,
         cancelledAt: now,
         updatedAt: now,
-      });
+      };
+      await tx.orders.update(next);
       await tx.orders.addHistory(ws, o.id, {
         fromStatus: o.status,
         toStatus: 'cancelled',
@@ -165,6 +167,7 @@ export class OrderPushService implements OrderPushFacade {
         actorName: null,
         createdAt: now,
       });
+      await publishOrderStatusChanged(tx, ws, next, o.status, null, now);
       return 'cancelled';
     });
   }

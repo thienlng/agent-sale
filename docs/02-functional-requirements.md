@@ -17,15 +17,15 @@ Personas: **Shop owner** (Owner), **Sales manager**, **Sales staff**, **Bot conf
 
 | ID | Feature | Priority | Acceptance criteria |
 |---|---|---|---|
-| ACC-01 | Sign-up: full name, email, phone number, password; email verification | P0 | Cannot log in to the dashboard until the email is verified; link/OTP expires in 15' |
+| ACC-01 | Sign-up: full name, email, phone number, password; email verification | P0 | Cannot log in to the dashboard until the email is verified; link/OTP expires in 15'. **Implemented (ADR-023):** the signup page emails a 6-digit code and creates the account only with it; no phone on the form yet |
 | ACC-02 | Email/password login, forgot password (same route, 2 states) | P0 | Rate limit 5 attempts/15'; error messages do not reveal whether the email exists |
 | ACC-03 | Google login | P1 | Linked to the account with the same verified email |
 | ACC-04 | Phone number verification via OTP (badge "Chưa xác thực" (Not verified)) | P1 | Required before creating a messaging campaign |
 | ACC-05 | 2FA TOTP + recovery codes | P1 | Enabling/disabling requires password + current code |
 | ACC-06 | Personal profile: avatar (≤1MB, 720×720), name, ID, password, email, phone number, time zone (default GMT+7), invoicing information | P0 | |
-| ACC-07 | Auto-create a workspace on sign-up (`{tên}-workspace`); workspace information: logo, name, company name, business services, product description | P0 | The product/service description **is fed into the bot context** [+] |
+| ACC-07 | Auto-create a workspace on sign-up (`{tên}-workspace`); workspace information: logo, name, company name, business services, product description | P0 | The product/service description **is fed into the bot context** [+]. Since ADR-023 the workspace is created at the first-business step of onboarding, not at signup |
 | ACC-08 | Multiple workspaces / switch workspace | P2 | For agencies managing many shops [+] |
-| ACC-09 | Post-sign-up onboarding wizard: choose industry → create a template bot → test chat → connect a channel | P0 | Measure time to "first value" (the bot correctly answers 1 question from the shop's data) |
+| ACC-09 | Post-sign-up onboarding wizard: choose industry → create a template bot → test chat → connect a channel | P0 | Measure time to "first value" (the bot correctly answers 1 question from the shop's data). **Implemented step 1 (ADR-023):** after signup the user names the first business and picks its industry |
 | ACC-10 | Session management, remote logout | P1 | |
 | ACC-11 | Multilingual UI (vi, en) | P1 | i18next in the SPA, Astro i18n on the site; no VI metadata on EN pages (a Preny bug) [+] |
 
@@ -225,6 +225,8 @@ The Preny inbox layout could not be captured → we design it on the standard 3-
 | ADM-06 | Manage industry templates (template FAQs/scenarios/workflows), model map by tier, prompt versions | P0 |
 | ADM-07 | Business dashboard: MRR, sign-ups, activation, trial→paid, churn, AI COGS | P1 |
 | ADM-08 | Per-workspace feature flags | P1 |
+
+Implemented (ADR-021, `/admin`): ADM-01 for accounts (search by name or owner email/phone, filters by status, plan, subscription status and ending date; account page with businesses, members, subscription, overrides, usage, payments and audit); ADM-02 without credits (manual VietQR confirmation, set plan and period, extend trial, entitlement overrides, suspend/reactivate, reason required and audited); ADM-03 for plans and prices (versioned catalog editor, trial and lifecycle settings), vouchers and affiliate rules still open. ADM-06 covers the LLM model map (`/admin/llm`).
 
 ## 14. Public marketing site (`WEB`)
 

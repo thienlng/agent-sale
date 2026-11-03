@@ -26,4 +26,12 @@ export const healthRoutes = defineRoutes([
     auth: false,
     responses: { 200: null },
   },
+  {
+    method: 'get',
+    path: '/public/openapi.json',
+    summary: 'The public API (routes callable with an API key, ADR-022)',
+    tag: 'meta',
+    auth: false,
+    responses: { 200: null },
+  },
 ]);

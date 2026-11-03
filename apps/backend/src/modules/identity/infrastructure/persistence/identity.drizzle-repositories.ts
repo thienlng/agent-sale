@@ -1,7 +1,12 @@
-import { and, type Database, eq, isNull, schema, sql, withSystem } from '@agent-sales/db';
+import { and, type Database, eq, inArray, isNull, schema, sql, withSystem } from '@agent-sales/db';
 import { type UserId, userId } from '@agent-sales/shared';
 
 import { EmailTakenError } from '../../domain/identity.errors.js';
+import type {
+  EmailCodePurpose,
+  EmailCodeRecord,
+  EmailCodeRepository,
+} from '../../domain/ports/email-code.repository.js';
 import type { MfaRecord, MfaRepository } from '../../domain/ports/mfa.repository.js';
 import type { SessionRecord, SessionRepository } from '../../domain/ports/session.repository.js';
 import type { UserRepository } from '../../domain/ports/user.repository.js';
@@ -46,6 +51,35 @@ export class DrizzleUserRepository implements UserRepository {
     });
   }
 
+  findByIds(ids: readonly UserId[]): Promise<User[]> {
+    if (!ids.length) return Promise.resolve([]);
+    return withSystem(this.systemDb, async (tx) =>
+      (
+        await tx
+          .select()
+          .from(schema.users)
+          .where(inArray(schema.users.id, [...ids]))
+      ).map(toUser),
+    );
+  }
+
+  search(q: string, limit: number): Promise<User[]> {
+    const like = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+    const u = schema.users;
+    return withSystem(this.systemDb, async (tx) =>
+      (
+        await tx
+          .select()
+          .from(u)
+          .where(
+            sql`${u.email} ilike ${like} or ${u.phone} ilike ${like} or ${u.name} ilike ${like}`,
+          )
+          .orderBy(sql`${u.createdAt} desc`)
+          .limit(limit)
+      ).map(toUser),
+    );
+  }
+
   async insert(user: User): Promise<void> {
     const s = user.snapshot();
     try {
@@ -58,6 +92,7 @@ export class DrizzleUserRepository implements UserRepository {
           passwordHash: s.passwordHash,
           locale: s.locale,
           timezone: s.timezone,
+          emailVerifiedAt: s.emailVerifiedAt,
           createdAt: s.createdAt,
         }),
       );
@@ -68,6 +103,19 @@ export class DrizzleUserRepository implements UserRepository {
       if (code === '23505') throw new EmailTakenError();
       throw e;
     }
+  }
+
+  async setPassword(id: UserId, passwordHash: string, at: Date): Promise<void> {
+    await withSystem(this.systemDb, (tx) =>
+      tx
+        .update(schema.users)
+        .set({
+          passwordHash,
+          emailVerifiedAt: sql`coalesce(${schema.users.emailVerifiedAt}, ${at.toISOString()}::timestamptz)`,
+          updatedAt: at,
+        })
+        .where(eq(schema.users.id, id)),
+    );
   }
 
   setPlatformAdmin(email: string, value: boolean): Promise<boolean> {
@@ -237,5 +285,51 @@ export class DrizzleMfaRepository implements MfaRepository {
         .returning({ id: schema.userMfa.userId });
       return rows.length === 1;
     });
+  }
+}
+
+export class DrizzleEmailCodeRepository implements EmailCodeRepository {
+  constructor(private readonly systemDb: Database) {}
+
+  find(email: string, purpose: EmailCodePurpose): Promise<EmailCodeRecord | null> {
+    const c = schema.emailCodes;
+    return withSystem(this.systemDb, async (tx) => {
+      const [row] = await tx
+        .select()
+        .from(c)
+        .where(and(eq(c.email, email), eq(c.purpose, purpose)))
+        .limit(1);
+      return row ?? null;
+    });
+  }
+
+  async put(record: EmailCodeRecord): Promise<void> {
+    const { codeHash, attempts, sentAt, expiresAt } = record;
+    await withSystem(this.systemDb, (tx) =>
+      tx
+        .insert(schema.emailCodes)
+        .values({ ...record })
+        .onConflictDoUpdate({
+          target: [schema.emailCodes.email, schema.emailCodes.purpose],
+          set: { codeHash, attempts, sentAt, expiresAt },
+        }),
+    );
+  }
+
+  async addAttempt(email: string, purpose: EmailCodePurpose): Promise<void> {
+    const c = schema.emailCodes;
+    await withSystem(this.systemDb, (tx) =>
+      tx
+        .update(c)
+        .set({ attempts: sql`${c.attempts} + 1` })
+        .where(and(eq(c.email, email), eq(c.purpose, purpose))),
+    );
+  }
+
+  async delete(email: string, purpose: EmailCodePurpose): Promise<void> {
+    const c = schema.emailCodes;
+    await withSystem(this.systemDb, (tx) =>
+      tx.delete(c).where(and(eq(c.email, email), eq(c.purpose, purpose))),
+    );
   }
 }

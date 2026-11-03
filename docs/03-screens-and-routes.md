@@ -9,7 +9,7 @@
 - **Banner** when on the free plan / plan about to expire / wallet empty / channel error.
   - Implemented (T-091): the AI-message banner on every `/app` page, from `GET /api/v1/billing/usage` — amber from 80% of the account's allowance, red once it is spent (bots hand customers to staff until the cycle renews). Not shown for a business that is not metered yet.
 - **Sidebar** is collapsible; items carry badges ("Miễn phí" (Free), "Hot", unread count).
-- **Two layers.** The *account layer* (`/app/overview`, `/app/businesses/new`) lists every business of the signed-in account with summary statistics and lets the owner create a business; it has its own sidebar (overview, new business, a shortcut per business, platform admin). The *business layer* (everything else under `/app`) is one business's management area with the sidebar below. The logo always returns to the account layer; choosing a business (overview, sidebar shortcut or the business selector) enters its statistics page. A new business is created with `POST /workspaces` and opened right after.
+- **Two layers, plus the back-office.** The *account layer* (`/app/overview`, `/app/businesses/new`) lists every business of the signed-in account with summary statistics and lets the owner create a business; it has its own sidebar (overview, new business, a shortcut per business, and for platform admins one "Platform admin" entry). The *business layer* (everything else under `/app`) is one business's management area with the sidebar below; it never shows platform pages, even for a platform admin running Rapiz HQ. The *platform back-office* (`/admin/*`) has its own sidebar with only the platform pages and a way back to the businesses; platform admins also reach it from the account menu. The logo always returns to the account layer; choosing a business (overview, sidebar shortcut or the business selector) enters its statistics page. A new business is created with `POST /workspaces` and opened right after.
 - Common patterns: empty states with an illustration + CTA; tables with column resizing, row selection, pagination + page size; date range `dd/mm/yyyy – dd/mm/yyyy` with presets; plan-gated screens ("Nâng cấp để sử dụng" (Upgrade to use)) reuse a single component `<UpgradeGate feature=... />`.
 
 ## 2. Main sidebar
@@ -93,7 +93,7 @@ Dedicated layout: back button, bot name, **bot on/off switch**, left menu, **tes
 
 | Screen | Route |
 |---|---|
-| Sign up / Log in / Forgot password / Verify email / Accept invitation | `/signup`, `/login`, `/login?mode=forgot`, `/verify-email`, `/invite/{token}` |
+| Sign up (email code on the same page) / Log in / Forgot password / Accept invitation | `/signup`, `/login`, `/forgot-password`, `/join?token=…` |
 | Choose a business (several, none remembered, or the current one lost) / Create a business | Account layer: `/app/overview` (`?lost=true` shows the notice; its sidebar lists businesses by account), `/app/businesses/new` (also the welcome step for a user with no business) (T-079, T-126, T-127) |
 | Channel OAuth callback | `/oauth/{provider}/callback` |
 | Payment: VNPAY result | `/billing/return` |
@@ -131,6 +131,12 @@ Dedicated layout: back button, bot name, **bot on/off switch**, left menu, **tes
 - `/app/settings/profile` is one card: logo, a single editable business name, the template as a read-only summary (chosen at creation, never changed afterwards), and an optional company name in a collapsed section. Facts the AI uses (address, policies…) are entered per bot under Business information. The workspace fields `businessServices` and `productDescription` are deprecated: no longer shown, still accepted by the API.
 - After a rename the session memberships (selector), the current-business query and the profile query are refreshed without a reload.
 - The settings tab strips (`/app/settings`, `/app/crm-settings`, `/app/order-settings`) share `components/settings-tabs.tsx`: horizontal scroll only, baseline drawn as an inset shadow so the strip never scrolls vertically.
+
+## SaaS routes (ADR-020, ADR-021)
+
+- A SaaS business has no pages of its own: subscriptions live on the customer sheet (**Subscription** card, with a **History** toggle) and in the customer list's summary strip and columns. Workflow and API: [SaaS businesses](saas.md).
+- `/app/crm-settings/saas-plans` (tab **Gói dịch vụ**, shown only for a SaaS business): the plan catalog — name, a price per billing period, archive / restore.
+- A customer or subscription synced from a Rapiz account (Rapiz HQ) carries a **Rapiz** badge; its phone and email, and the subscription's plan, stage, period, MRR and dates, are read-only with a lock hint.
 
 ## Hotel routes (T-160)
 

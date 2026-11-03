@@ -164,6 +164,9 @@
   "crm": {
     "badge": "KiotViet",
     "badgeLabel": "Customer linked to KiotViet",
-    "fieldHint": "Synced from KiotViet — edit it in KiotViet to keep the change"
+    "fieldHint": "Synced from KiotViet — edit it in KiotViet to keep the change",
+    "rapizBadge": "Rapiz",
+    "rapizBadgeLabel": "Customer linked to a Rapiz account",
+    "rapizFieldHint": "Phone and email come from the Rapiz account and cannot be edited here"
   }
 }

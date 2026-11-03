@@ -1,6 +1,7 @@
 import { expect, type Page, test } from '@playwright/test';
 
 import { BOT_ID, mockApi, ORDER_ID, PRODUCT_ID } from './support/mock-api';
+import { ADMIN_ACCOUNT_ID } from './support/mock-backoffice';
 import { CONTACT_ID } from './support/mock-crm';
 
 /**
@@ -16,6 +17,11 @@ const PAGES = [
   ['faq', `/app/bots/${BOT_ID}/knowledge`, 'Thông tin doanh nghiệp'],
   ['bot settings', `/app/bots/${BOT_ID}/settings`, 'Thiết lập Bot'],
   ['admin llm', '/admin/llm', 'Mô hình AI'],
+  ['admin accounts', '/admin/accounts', 'Tài khoản'],
+  ['admin account', `/admin/accounts/${ADMIN_ACCOUNT_ID}`, 'Phương Thảo 1'],
+  ['admin plans', '/admin/plans', 'Gói cước'],
+  ['admin payments', '/admin/payments', 'Thanh toán'],
+  ['admin billing settings', '/admin/settings', 'Cài đặt thanh toán'],
   ['orders', '/app/orders', 'Danh sách đơn hàng'],
   ['order detail', `/app/orders/${ORDER_ID}`, 'DH000123'],
   ['new order', '/app/orders/new', 'Tạo đơn hàng mới'],

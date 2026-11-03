@@ -14,14 +14,16 @@ import {
 } from '@/components/ui/select';
 import { useBusinessSwitch } from '@/hooks/use-business-switch';
 import { ApiClientError } from '@/lib/api-client';
-import { reloadSession, useSession } from '@/lib/session';
+import { createFirstBusiness, reloadSession, useSession } from '@/lib/session';
 
 import { useCreateBusiness } from '../api/create-business';
 
 /**
  * Account-level form: a new business is created, then opened in its own management area. It goes
  * under the account the user owns; with several owned accounts the user picks one (ADR-012 §3).
- * A user without any business sees it as the welcome step (T-079).
+ * A user without any business sees it as the welcome step (T-079). A user who owns no account yet
+ * (just signed up, or only a member elsewhere) creates the first one through the signup step,
+ * which also starts the trial.
  */
 export function CreateBusinessPage() {
   const { t } = useTranslation();
@@ -33,6 +35,8 @@ export function CreateBusinessPage() {
   const [industry, setIndustry] = useState<Industry>('retail');
   const [accountId, setAccountId] = useState(owned[0]?.accountId ?? '');
   const [error, setError] = useState<string | null>(null);
+  const [firstPending, setFirstPending] = useState(false);
+  const pending = create.isPending || firstPending;
 
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -40,13 +44,21 @@ export function CreateBusinessPage() {
     if (!name) return;
     setError(null);
     try {
-      const created = await create.mutateAsync({
-        name,
-        industry,
-        ...(owned.length > 1 && accountId ? { accountId } : {}),
-      });
+      let id: string;
+      if (owned.length === 0) {
+        setFirstPending(true);
+        id = await createFirstBusiness({ workspaceName: name, industry });
+      } else {
+        id = (
+          await create.mutateAsync({
+            name,
+            industry,
+            ...(owned.length > 1 && accountId ? { accountId } : {}),
+          })
+        ).id;
+      }
       await reloadSession();
-      await choose(created.id);
+      await choose(id);
     } catch (err) {
       const code = err instanceof ApiClientError ? err.code : '';
       setError(
@@ -54,6 +66,8 @@ export function CreateBusinessPage() {
           ? t('business.create.denied')
           : t('business.create.error'),
       );
+    } finally {
+      setFirstPending(false);
     }
   }
 
@@ -109,8 +123,8 @@ export function CreateBusinessPage() {
             {error}
           </p>
         ) : null}
-        <Button type="submit" disabled={create.isPending || busy} className="self-start">
-          {create.isPending ? t('business.create.creating') : t('business.create.submit')}
+        <Button type="submit" disabled={pending || busy} className="self-start">
+          {pending ? t('business.create.creating') : t('business.create.submit')}
         </Button>
       </form>
     </section>

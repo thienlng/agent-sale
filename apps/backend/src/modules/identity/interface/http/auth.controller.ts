@@ -1,6 +1,7 @@
 import {
   type AuthResponse,
   type BootstrapResponse,
+  ForgotPasswordRequest,
   LoginRequest,
   MfaEnableRequest,
   type MfaSetup,
@@ -9,6 +10,10 @@ import {
   type MfaStatus,
   type RecoveryCodes,
   RefreshRequest,
+  ResetPasswordRequest,
+  SignupBusinessRequest,
+  type SignupBusinessResponse,
+  SignupCodeRequest,
   SignupRequest,
   type UserDto,
 } from '@agent-sales/contracts';
@@ -21,7 +26,9 @@ import { ZodValidationPipe } from '../../../../common/http/zod-validation.pipe.j
 import {
   AccountQueries,
   LoginHandler,
+  PasswordResetHandler,
   RefreshHandler,
+  SignupBusinessHandler,
   SignupHandler,
 } from '../../application/commands/auth.handlers.js';
 import { MfaService } from '../../application/mfa.service.js';
@@ -42,11 +49,23 @@ export class AuthController {
     @Inject(SignupHandler) private readonly signupHandler: SignupHandler,
     @Inject(LoginHandler) private readonly loginHandler: LoginHandler,
     @Inject(RefreshHandler) private readonly refreshHandler: RefreshHandler,
+    @Inject(PasswordResetHandler) private readonly passwordReset: PasswordResetHandler,
+    @Inject(SignupBusinessHandler) private readonly signupBusiness: SignupBusinessHandler,
     @Inject(SessionService) private readonly sessions: SessionService,
     @Inject(AccountQueries) private readonly account: AccountQueries,
     @Inject(MfaService) private readonly mfa: MfaService,
     @Inject(AUTH_HTTP_OPTIONS) private readonly options: AuthHttpOptions,
   ) {}
+
+  @Public()
+  @Post('auth/signup/code')
+  @HttpCode(204)
+  async signupCode(
+    @Body(new ZodValidationPipe(SignupCodeRequest)) body: SignupCodeRequest,
+    @Req() req: FastifyRequest,
+  ): Promise<void> {
+    await this.signupHandler.requestCode(body, meta(req));
+  }
 
   @Public()
   @Post('auth/signup')
@@ -57,6 +76,35 @@ export class AuthController {
     @Res({ passthrough: true }) reply: FastifyReply,
   ): Promise<AuthResponse> {
     return this.respond(await this.signupHandler.execute(body, meta(req)), body.client, reply);
+  }
+
+  @Public()
+  @Post('auth/password/forgot')
+  @HttpCode(204)
+  async forgotPassword(
+    @Body(new ZodValidationPipe(ForgotPasswordRequest)) body: ForgotPasswordRequest,
+    @Req() req: FastifyRequest,
+  ): Promise<void> {
+    await this.passwordReset.forgot(body, meta(req));
+  }
+
+  @Public()
+  @Post('auth/password/reset')
+  @HttpCode(204)
+  async resetPassword(
+    @Body(new ZodValidationPipe(ResetPasswordRequest)) body: ResetPasswordRequest,
+    @Req() req: FastifyRequest,
+  ): Promise<void> {
+    await this.passwordReset.reset(body, meta(req));
+  }
+
+  @Post('auth/signup/business')
+  @HttpCode(201)
+  createFirstBusiness(
+    @CurrentUser() user: AuthState,
+    @Body(new ZodValidationPipe(SignupBusinessRequest)) body: SignupBusinessRequest,
+  ): Promise<SignupBusinessResponse> {
+    return this.signupBusiness.execute(user.userId, body);
   }
 
   @Public()

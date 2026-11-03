@@ -10,6 +10,7 @@ The product processes end-customer messages (containing phone numbers, addresses
 ## 2. Authentication
 
 - Sign-up: full name, email, phone number, password (as in Preny) → email verification (OTP/link); **phone number verification via OTP** (Zalo ZNS OTP or SMS) before using campaign-sending features (Preny also gates email campaigns behind phone number verification — anti-spam).
+- **Implemented (ADR-023):** the signup page asks for name, email and password; "Send code" emails a 6-digit code through Resend (`noreply@rapiz.io`) and the account is created only with that code, so every user has a verified email. The code is stored as a sha256, lives 15 minutes, allows 5 wrong tries and can be resent every 60 s. The business comes next, in onboarding (`POST /auth/signup/business`, which also starts the trial). Forgot password: an emailed code sets a new password and revokes every session. Phone OTP is not built yet.
 - Passwords: Argon2id; minimum length policy ≥ 8; optional breach check (HIBP k-anonymity).
 - Google OAuth login.
 - TOTP 2FA (+ recovery codes) — implemented (T-057, ADM-04): see `apps/backend/src/modules/identity/MODULE.md`. 2FA required for the Owner on paid plans is still a recommendation, not enforced. Turning 2FA on or off, or regenerating recovery codes, revokes every other refresh-token family of the user (T-064), so a session stolen before the change does not outlive it.

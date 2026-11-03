@@ -1,0 +1,248 @@
+{
+  "common": {
+    "reason": "Reason",
+    "reasonHint": "Required, at least 3 characters. Saved to the admin audit log.",
+    "reasonPlaceholder": "E.g. Customer paid for 12 months",
+    "save": "Save",
+    "cancel": "Cancel",
+    "close": "Close",
+    "saved": "Saved",
+    "conflict": "Someone else just changed this. Reloaded; please check and try again.",
+    "loadError": "Could not load data.",
+    "retry": "Retry",
+    "loadMore": "Load more",
+    "empty": "Nothing here yet",
+    "unlimited": "Unlimited",
+    "yes": "Yes",
+    "no": "No",
+    "all": "All",
+    "none": "—",
+    "months_one": "{{count}} month",
+    "months_other": "{{count}} months",
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days"
+  },
+  "accountStatus": {
+    "active": "Active",
+    "suspended": "Suspended"
+  },
+  "subStatus": {
+    "trialing": "Trial",
+    "active": "Active",
+    "past_due": "Past due",
+    "suspended": "Suspended",
+    "canceled": "Canceled",
+    "free": "Free (no plan)"
+  },
+  "paymentStatus": {
+    "pending": "Pending",
+    "confirmed": "Confirmed",
+    "canceled": "Canceled"
+  },
+  "entitlements": {
+    "members": {
+      "max": "Members"
+    },
+    "channels": {
+      "max": "Channels"
+    },
+    "contacts": {
+      "max": "Customers"
+    },
+    "storage": {
+      "bytes": "Storage (bytes)"
+    },
+    "media": {
+      "max": "Media files"
+    },
+    "knowledge_items": {
+      "max": "Knowledge items"
+    },
+    "ai": {
+      "models": {
+        "allowed": "AI models"
+      },
+      "included_messages": "Included AI replies"
+    },
+    "feature": {
+      "website_widget": "Website chat",
+      "lazada": "Lazada channel",
+      "facebook_posts": "Facebook comments",
+      "public_api": "Public API & webhooks"
+    },
+    "api": {
+      "requests_per_minute": "Requests per minute per key"
+    },
+    "amount": "Replies",
+    "periodDays": "Cycle (days)"
+  },
+  "plans": {
+    "title": "Plans",
+    "subtitle": "Editing a plan publishes a new version. Current subscribers keep theirs.",
+    "add": "Add plan",
+    "name": "Name",
+    "code": "Code",
+    "codeHint": "Lowercase letters, digits and _. Cannot change later.",
+    "version": "Version",
+    "prices": "Price per period (VND/month)",
+    "priceHint": "Leave empty if this period is not sold.",
+    "limits": "Key limits",
+    "subscribers": "Subscribers",
+    "public": "Public",
+    "hidden": "Hidden",
+    "archived": "Archived",
+    "description": "Description",
+    "sortOrder": "Sort order",
+    "isPublic": "Show on the pricing page",
+    "entitlementsTitle": "Entitlements",
+    "edit": "Edit",
+    "publish": "Publish version {{version}}",
+    "publishNote": "{{count}} subscribers on version {{version}} keep their current entitlements.",
+    "create": "Create plan",
+    "archive": "Archive",
+    "unarchive": "Unarchive",
+    "archiveTitle": "Archive plan {{name}}?",
+    "unarchiveTitle": "Unarchive plan {{name}}?",
+    "archiveHint": "Current subscribers are not affected; the plan can no longer be chosen for new customers.",
+    "invalidCode": "Invalid plan code",
+    "invalidNumber": "Enter a whole number, 0 or more",
+    "needModel": "Choose at least one model",
+    "published": "New version published",
+    "created": "Plan created",
+    "oldVersion": "Older version"
+  },
+  "settings": {
+    "title": "Billing settings",
+    "subtitle": "Signup trial, plan lifecycle and the bank account for transfers.",
+    "trial": "Signup trial",
+    "trialEnabled": "Give new accounts a trial",
+    "trialEnabledHint": "No card needed. Applies to accounts that sign up after it is on.",
+    "trialPlan": "Trial plan",
+    "trialDays": "Trial length (days)",
+    "afterTrialPlan": "Plan after the trial",
+    "lifecycle": "Plan lifecycle",
+    "graceDays": "Days past due before suspension",
+    "suspendDays": "Days suspended before the free plan",
+    "bank": "Receiving bank account (VietQR)",
+    "bankHint": "Used to build the QR code of payment requests.",
+    "bankName": "Bank",
+    "bankNone": "Not set",
+    "bankAccountNo": "Account number",
+    "bankAccountName": "Account holder",
+    "hq": "Sync to Rapiz HQ",
+    "hqScope": "Who is synced",
+    "hqOwner": "Account owner",
+    "hqOwnerAndBilling": "Owner and billing contacts (coming later)",
+    "needTrialPlan": "Choose a plan and length when the trial is on",
+    "invalidAccountNo": "4–30 letters or digits"
+  },
+  "accounts": {
+    "title": "Accounts",
+    "subtitle": "Every customer account on the platform.",
+    "search": "Search by name, owner email or phone",
+    "status": "Status",
+    "subStatus": "Plan status",
+    "plan": "Plan",
+    "endingWithin": "Ending soon",
+    "endingWithinDays": "Within {{count}} days",
+    "account": "Account",
+    "owner": "Owner",
+    "periodEnd": "Ends",
+    "businesses": "Businesses",
+    "createdAt": "Created",
+    "empty": "No accounts match these filters"
+  },
+  "account": {
+    "back": "All accounts",
+    "notFound": "Account not found",
+    "subscription": "Plan",
+    "noSubscription": "No plan yet — on the free plan",
+    "effectivePlan": "In effect: {{name}} (trial ended)",
+    "period": "Period",
+    "periodStart": "Starts",
+    "periodEnd": "Ends",
+    "usage": "AI replies this cycle",
+    "usageValue": "{{used}} / {{limit}}",
+    "cycleEnds": "Cycle ends {{date}}",
+    "businesses": "Businesses",
+    "members": "members",
+    "accountMembers": "Account managers",
+    "overrides": "Overrides",
+    "noOverrides": "No overrides",
+    "expires": "Expires {{date}}",
+    "noExpiry": "No expiry",
+    "payments": "Payments",
+    "noPayments": "No payment requests yet",
+    "audit": "Admin log",
+    "noAudit": "No actions yet",
+    "statusReason": "Reason: {{reason}}",
+    "actions": {
+      "changePlan": "Change plan",
+      "extendTrial": "Extend trial",
+      "addOverride": "Add override",
+      "editOverride": "Edit",
+      "removeOverride": "Remove",
+      "suspend": "Suspend",
+      "reactivate": "Reactivate",
+      "createPayment": "Request payment"
+    },
+    "planDialog": {
+      "title": "Change plan for {{name}}",
+      "plan": "Plan",
+      "period": "Billing period",
+      "periodNone": "None (free plan)",
+      "startsAt": "Starts on",
+      "startsAtHint": "Leave empty to start now.",
+      "status": "Status",
+      "needPeriod": "Paid plans need a billing period"
+    },
+    "trialDialog": {
+      "title": "Extend trial",
+      "until": "Trial until the end of",
+      "mustBeLater": "Choose a day after the current end"
+    },
+    "overrideDialog": {
+      "title": "Override",
+      "key": "Entitlement",
+      "value": "Value",
+      "expiresAt": "Expires on",
+      "expiresAtHint": "Leave empty for no expiry.",
+      "removeTitle": "Remove override {{key}}?"
+    },
+    "statusDialog": {
+      "suspendTitle": "Suspend account {{name}}?",
+      "reactivateTitle": "Reactivate account {{name}}?",
+      "pendingEnforcement": "The status is recorded now; stopping the bot and read-only mode take effect once plan lifecycle enforcement ships."
+    }
+  },
+  "payments": {
+    "title": "Payments",
+    "subtitle": "VietQR transfer requests. Confirm once the money is in the account.",
+    "code": "Transfer content",
+    "account": "Account",
+    "plan": "Plan",
+    "period": "Period",
+    "amount": "Amount",
+    "status": "Status",
+    "createdAt": "Created",
+    "empty": "No payment requests yet",
+    "confirm": "Confirm received",
+    "cancel": "Cancel request",
+    "confirmTitle": "Confirm {{amount}} received?",
+    "confirmHint": "Plan {{plan}} applies now, or after the current period if it is still running.",
+    "cancelTitle": "Cancel request {{code}}?",
+    "bankReference": "Bank transaction id",
+    "bankReferenceHint": "Optional. Helps reconciliation later.",
+    "createTitle": "Payment request",
+    "amountHint": "Leave empty to use the plan price: {{amount}}.",
+    "note": "Note",
+    "created": "Request created. Send the QR code to the customer.",
+    "qrTitle": "Scan to transfer",
+    "qrMissing": "No receiving bank account is set, so no QR code. Add one in Billing settings.",
+    "transferContent": "Transfer content",
+    "copy": "Copy",
+    "copied": "Copied",
+    "confirmed": "Payment confirmed",
+    "canceled": "Request canceled"
+  }
+}

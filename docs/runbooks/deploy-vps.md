@@ -42,7 +42,7 @@ The server follows `/opt/infra/README.md` on the host: apps live in `/opt/apps/<
    ```bash
    bash deploy/bootstrap.sh <host>
    ```
-   It copies the server files to `/opt/apps/rapiz`, writes `.env` with generated secrets (mode 600; an existing file is never overwritten) and adds the daily backup to deploy's crontab. Add the Meta values to `.env` if the inbox should connect Pages.
+   It copies the server files to `/opt/apps/rapiz`, writes `.env` with generated secrets (mode 600; an existing file is never overwritten) and adds the daily backup to deploy's crontab. Add the Meta values to `.env` if the inbox should connect Pages. Add `RESEND_API_KEY` (a send-only key from Resend, with the `rapiz.io` domain verified there): signup emails a code and cannot finish without it (ADR-023).
 4. **First deploy.** Run `./deploy.sh <sha>` on the server after `docker login ghcr.io`, or use the workflow (step 6).
 5. **NPM proxy host.** In the NPM admin UI (`ssh -N -L 8181:127.0.0.1:81 deploy@<ip>`, then http://127.0.0.1:8181), add a proxy host:
    - Domain: `<host>`.
@@ -59,6 +59,7 @@ The server follows `/opt/infra/README.md` on the host: apps live in `/opt/apps/<
 7. **First platform admin.** Sign up in the dashboard, then make that account a platform admin:
    `docker compose exec api node apps/backend/dist/cli/platform-admin.js grant <email>`
 8. **LLM provider.** Add one in Admin → LLM. Without it, production answers 503 for bot turns.
+9. **Plans and trial.** In Admin (`/admin/plans` for the catalog, `/admin/settings` for trial, lifecycle and bank account): check the plan catalog and prices, set the VietQR bank account, then turn the signup trial on (it ships off, so a deploy alone changes nothing for new signups). The `worker` service runs the subscription lifecycle (trial end, past due, suspension) every 5 minutes; keep it running.
 
 ## Every change
 
@@ -97,6 +98,7 @@ The login lives in the `hermes` volume. Do not sign the same ChatGPT account in 
 | Roll back to the previous release | `./deploy.sh rollback` |
 | Deploy a specific commit | `./deploy.sh <sha>` (requires `docker login ghcr.io` with a token that can read packages) |
 | Change domain | Point the new domain's DNS at the server, add it to the NPM proxy host with a certificate, run `./set-host.sh <new-host>`, then update the Meta app's webhook URL, OAuth redirect URIs and app domains |
+| Put an account on a plan from the shell | `docker compose exec api node apps/backend/dist/cli/workspace-plan.js set <owner-email> <plan> [months]` (audited like an `/admin` change, reason `cli`) |
 | Backup now | `./backup.sh` (daily at 03:15 UTC by cron, 14 days kept in `backups/`) |
 
 ### Restore
@@ -115,11 +117,11 @@ Backups live on the same disk. Copy `backups/` off the server regularly; off-sit
 
 | Path | Access |
 |---|---|
-| Pages and static files | HTTP Basic auth. The bcrypt hash (cost 12) lives in `/data/rapiz-beta/htpasswd` in the NPM data volume |
+| Pages and static files | HTTP Basic auth. The bcrypt hash (cost 12) lives in `/data/rapiz-beta/htpasswd` in the NPM data volume. Requests that already carry a valid gate cookie skip the bcrypt check, which otherwise costs about 0.25 s of CPU per file and made the dashboard load in ~10 s |
 | `/api/*` | Requires the HttpOnly `rapiz_beta` cookie, which a successful Basic login sets (7 days). The dashboard already sends `Authorization: Bearer` to the API, so Basic auth cannot share that header |
 | `/webhooks/*` | Public. The webhook app rejects requests without a valid `X-Hub-Signature-256` |
 | `/api[/v1]/channels/oauth/<provider>/callback` | Public. The API checks the OAuth `state` |
-| `/media/*` | Public, read-only, so Meta can download product pictures |
+| `/media/*` | Public, read-only, so Meta can download product pictures. The `Authorization` header is dropped: browsers resend the Basic credentials and the bucket rejects them as a bad S3 signature (broken images) |
 
 The gate also blocks the chat widget on customer websites. Turn it off before testing the widget on an external site.
 

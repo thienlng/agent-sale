@@ -12,11 +12,15 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AppRouteImport } from './routes/app'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as JoinRouteImport } from './routes/join'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminLlmRouteImport } from './routes/admin/llm'
+import { Route as AdminPaymentsRouteImport } from './routes/admin/payments'
+import { Route as AdminPlansRouteImport } from './routes/admin/plans'
+import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as AppAccommodationsRouteImport } from './routes/app/accommodations'
 import { Route as AppAnalyticsRouteImport } from './routes/app/analytics'
@@ -31,11 +35,14 @@ import { Route as AppOrderSettingsRouteImport } from './routes/app/order-setting
 import { Route as AppOverviewRouteImport } from './routes/app/overview'
 import { Route as AppSettingsRouteImport } from './routes/app/settings'
 import { Route as AppStaysRouteImport } from './routes/app/stays'
+import { Route as AdminAccountsIndexRouteImport } from './routes/admin/accounts/index'
+import { Route as AdminAccountsAccountIdRouteImport } from './routes/admin/accounts/$accountId'
 import { Route as AppBotsIndexRouteImport } from './routes/app/bots/index'
 import { Route as AppBotsBotIdRouteImport } from './routes/app/bots/$botId'
 import { Route as AppBusinessesNewRouteImport } from './routes/app/businesses/new'
 import { Route as AppCrmSettingsIndexRouteImport } from './routes/app/crm-settings/index'
 import { Route as AppCrmSettingsDistributionRouteImport } from './routes/app/crm-settings/distribution'
+import { Route as AppCrmSettingsSaasPlansRouteImport } from './routes/app/crm-settings/saas-plans'
 import { Route as AppCrmSettingsSourcesRouteImport } from './routes/app/crm-settings/sources'
 import { Route as AppCrmSettingsStatusesRouteImport } from './routes/app/crm-settings/statuses'
 import { Route as AppCrmSettingsTagsRouteImport } from './routes/app/crm-settings/tags'
@@ -56,6 +63,7 @@ import { Route as AppPropertiesIndexRouteImport } from './routes/app/properties/
 import { Route as AppPropertiesPropertyIdRouteImport } from './routes/app/properties/$propertyId'
 import { Route as AppSettingsIndexRouteImport } from './routes/app/settings/index'
 import { Route as AppSettingsAuditRouteImport } from './routes/app/settings/audit'
+import { Route as AppSettingsDevelopersRouteImport } from './routes/app/settings/developers'
 import { Route as AppSettingsProfileRouteImport } from './routes/app/settings/profile'
 import { Route as AppSettingsSecurityRouteImport } from './routes/app/settings/security'
 import { Route as AppBotsBotIdIndexRouteImport } from './routes/app/bots/$botId/index'
@@ -87,6 +95,11 @@ const AppRoute = AppRouteImport.update({
   path: '/app',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const JoinRoute = JoinRouteImport.update({
   id: '/join',
   path: '/join',
@@ -110,6 +123,21 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
 const AdminLlmRoute = AdminLlmRouteImport.update({
   id: '/llm',
   path: '/llm',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminPaymentsRoute = AdminPaymentsRouteImport.update({
+  id: '/payments',
+  path: '/payments',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminPlansRoute = AdminPlansRouteImport.update({
+  id: '/plans',
+  path: '/plans',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSettingsRoute = AdminSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => AdminRoute,
 } as any)
 const AppIndexRoute = AppIndexRouteImport.update({
@@ -182,6 +210,16 @@ const AppStaysRoute = AppStaysRouteImport.update({
   path: '/stays',
   getParentRoute: () => AppRoute,
 } as any)
+const AdminAccountsIndexRoute = AdminAccountsIndexRouteImport.update({
+  id: '/accounts/',
+  path: '/accounts/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminAccountsAccountIdRoute = AdminAccountsAccountIdRouteImport.update({
+  id: '/accounts/$accountId',
+  path: '/accounts/$accountId',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AppBotsIndexRoute = AppBotsIndexRouteImport.update({
   id: '/bots/',
   path: '/bots/',
@@ -208,6 +246,11 @@ const AppCrmSettingsDistributionRoute =
     path: '/distribution',
     getParentRoute: () => AppCrmSettingsRoute,
   } as any)
+const AppCrmSettingsSaasPlansRoute = AppCrmSettingsSaasPlansRouteImport.update({
+  id: '/saas-plans',
+  path: '/saas-plans',
+  getParentRoute: () => AppCrmSettingsRoute,
+} as any)
 const AppCrmSettingsSourcesRoute = AppCrmSettingsSourcesRouteImport.update({
   id: '/sources',
   path: '/sources',
@@ -310,6 +353,11 @@ const AppSettingsAuditRoute = AppSettingsAuditRouteImport.update({
   path: '/audit',
   getParentRoute: () => AppSettingsRoute,
 } as any)
+const AppSettingsDevelopersRoute = AppSettingsDevelopersRouteImport.update({
+  id: '/developers',
+  path: '/developers',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
 const AppSettingsProfileRoute = AppSettingsProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -395,10 +443,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/app': typeof AppRouteWithChildren
+  '/forgot-password': typeof ForgotPasswordRoute
   '/join': typeof JoinRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/admin/llm': typeof AdminLlmRoute
+  '/admin/payments': typeof AdminPaymentsRoute
+  '/admin/plans': typeof AdminPlansRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/app/accommodations': typeof AppAccommodationsRoute
   '/app/analytics': typeof AppAnalyticsRoute
   '/app/bookings': typeof AppBookingsRoute
@@ -414,9 +466,11 @@ export interface FileRoutesByFullPath {
   '/app/stays': typeof AppStaysRoute
   '/admin/': typeof AdminIndexRoute
   '/app/': typeof AppIndexRoute
+  '/admin/accounts/$accountId': typeof AdminAccountsAccountIdRoute
   '/app/bots/$botId': typeof AppBotsBotIdRouteWithChildren
   '/app/businesses/new': typeof AppBusinessesNewRoute
   '/app/crm-settings/distribution': typeof AppCrmSettingsDistributionRoute
+  '/app/crm-settings/saas-plans': typeof AppCrmSettingsSaasPlansRoute
   '/app/crm-settings/sources': typeof AppCrmSettingsSourcesRoute
   '/app/crm-settings/statuses': typeof AppCrmSettingsStatusesRoute
   '/app/crm-settings/tags': typeof AppCrmSettingsTagsRoute
@@ -431,8 +485,10 @@ export interface FileRoutesByFullPath {
   '/app/products/new': typeof AppProductsNewRoute
   '/app/properties/$propertyId': typeof AppPropertiesPropertyIdRoute
   '/app/settings/audit': typeof AppSettingsAuditRoute
+  '/app/settings/developers': typeof AppSettingsDevelopersRoute
   '/app/settings/profile': typeof AppSettingsProfileRoute
   '/app/settings/security': typeof AppSettingsSecurityRoute
+  '/admin/accounts/': typeof AdminAccountsIndexRoute
   '/app/bots/': typeof AppBotsIndexRoute
   '/app/crm-settings/': typeof AppCrmSettingsIndexRoute
   '/app/integrations/': typeof AppIntegrationsIndexRoute
@@ -457,10 +513,14 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/forgot-password': typeof ForgotPasswordRoute
   '/join': typeof JoinRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/admin/llm': typeof AdminLlmRoute
+  '/admin/payments': typeof AdminPaymentsRoute
+  '/admin/plans': typeof AdminPlansRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/app/accommodations': typeof AppAccommodationsRoute
   '/app/analytics': typeof AppAnalyticsRoute
   '/app/bookings': typeof AppBookingsRoute
@@ -473,8 +533,10 @@ export interface FileRoutesByTo {
   '/app/stays': typeof AppStaysRoute
   '/admin': typeof AdminIndexRoute
   '/app': typeof AppIndexRoute
+  '/admin/accounts/$accountId': typeof AdminAccountsAccountIdRoute
   '/app/businesses/new': typeof AppBusinessesNewRoute
   '/app/crm-settings/distribution': typeof AppCrmSettingsDistributionRoute
+  '/app/crm-settings/saas-plans': typeof AppCrmSettingsSaasPlansRoute
   '/app/crm-settings/sources': typeof AppCrmSettingsSourcesRoute
   '/app/crm-settings/statuses': typeof AppCrmSettingsStatusesRoute
   '/app/crm-settings/tags': typeof AppCrmSettingsTagsRoute
@@ -489,8 +551,10 @@ export interface FileRoutesByTo {
   '/app/products/new': typeof AppProductsNewRoute
   '/app/properties/$propertyId': typeof AppPropertiesPropertyIdRoute
   '/app/settings/audit': typeof AppSettingsAuditRoute
+  '/app/settings/developers': typeof AppSettingsDevelopersRoute
   '/app/settings/profile': typeof AppSettingsProfileRoute
   '/app/settings/security': typeof AppSettingsSecurityRoute
+  '/admin/accounts': typeof AdminAccountsIndexRoute
   '/app/bots': typeof AppBotsIndexRoute
   '/app/crm-settings': typeof AppCrmSettingsIndexRoute
   '/app/integrations': typeof AppIntegrationsIndexRoute
@@ -518,10 +582,14 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/app': typeof AppRouteWithChildren
+  '/forgot-password': typeof ForgotPasswordRoute
   '/join': typeof JoinRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/admin/llm': typeof AdminLlmRoute
+  '/admin/payments': typeof AdminPaymentsRoute
+  '/admin/plans': typeof AdminPlansRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/app/accommodations': typeof AppAccommodationsRoute
   '/app/analytics': typeof AppAnalyticsRoute
   '/app/bookings': typeof AppBookingsRoute
@@ -537,9 +605,11 @@ export interface FileRoutesById {
   '/app/stays': typeof AppStaysRoute
   '/admin/': typeof AdminIndexRoute
   '/app/': typeof AppIndexRoute
+  '/admin/accounts/$accountId': typeof AdminAccountsAccountIdRoute
   '/app/bots/$botId': typeof AppBotsBotIdRouteWithChildren
   '/app/businesses/new': typeof AppBusinessesNewRoute
   '/app/crm-settings/distribution': typeof AppCrmSettingsDistributionRoute
+  '/app/crm-settings/saas-plans': typeof AppCrmSettingsSaasPlansRoute
   '/app/crm-settings/sources': typeof AppCrmSettingsSourcesRoute
   '/app/crm-settings/statuses': typeof AppCrmSettingsStatusesRoute
   '/app/crm-settings/tags': typeof AppCrmSettingsTagsRoute
@@ -554,8 +624,10 @@ export interface FileRoutesById {
   '/app/products/new': typeof AppProductsNewRoute
   '/app/properties/$propertyId': typeof AppPropertiesPropertyIdRoute
   '/app/settings/audit': typeof AppSettingsAuditRoute
+  '/app/settings/developers': typeof AppSettingsDevelopersRoute
   '/app/settings/profile': typeof AppSettingsProfileRoute
   '/app/settings/security': typeof AppSettingsSecurityRoute
+  '/admin/accounts/': typeof AdminAccountsIndexRoute
   '/app/bots/': typeof AppBotsIndexRoute
   '/app/crm-settings/': typeof AppCrmSettingsIndexRoute
   '/app/integrations/': typeof AppIntegrationsIndexRoute
@@ -584,10 +656,14 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/app'
+    | '/forgot-password'
     | '/join'
     | '/login'
     | '/signup'
     | '/admin/llm'
+    | '/admin/payments'
+    | '/admin/plans'
+    | '/admin/settings'
     | '/app/accommodations'
     | '/app/analytics'
     | '/app/bookings'
@@ -603,9 +679,11 @@ export interface FileRouteTypes {
     | '/app/stays'
     | '/admin/'
     | '/app/'
+    | '/admin/accounts/$accountId'
     | '/app/bots/$botId'
     | '/app/businesses/new'
     | '/app/crm-settings/distribution'
+    | '/app/crm-settings/saas-plans'
     | '/app/crm-settings/sources'
     | '/app/crm-settings/statuses'
     | '/app/crm-settings/tags'
@@ -620,8 +698,10 @@ export interface FileRouteTypes {
     | '/app/products/new'
     | '/app/properties/$propertyId'
     | '/app/settings/audit'
+    | '/app/settings/developers'
     | '/app/settings/profile'
     | '/app/settings/security'
+    | '/admin/accounts/'
     | '/app/bots/'
     | '/app/crm-settings/'
     | '/app/integrations/'
@@ -646,10 +726,14 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/forgot-password'
     | '/join'
     | '/login'
     | '/signup'
     | '/admin/llm'
+    | '/admin/payments'
+    | '/admin/plans'
+    | '/admin/settings'
     | '/app/accommodations'
     | '/app/analytics'
     | '/app/bookings'
@@ -662,8 +746,10 @@ export interface FileRouteTypes {
     | '/app/stays'
     | '/admin'
     | '/app'
+    | '/admin/accounts/$accountId'
     | '/app/businesses/new'
     | '/app/crm-settings/distribution'
+    | '/app/crm-settings/saas-plans'
     | '/app/crm-settings/sources'
     | '/app/crm-settings/statuses'
     | '/app/crm-settings/tags'
@@ -678,8 +764,10 @@ export interface FileRouteTypes {
     | '/app/products/new'
     | '/app/properties/$propertyId'
     | '/app/settings/audit'
+    | '/app/settings/developers'
     | '/app/settings/profile'
     | '/app/settings/security'
+    | '/admin/accounts'
     | '/app/bots'
     | '/app/crm-settings'
     | '/app/integrations'
@@ -706,10 +794,14 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/app'
+    | '/forgot-password'
     | '/join'
     | '/login'
     | '/signup'
     | '/admin/llm'
+    | '/admin/payments'
+    | '/admin/plans'
+    | '/admin/settings'
     | '/app/accommodations'
     | '/app/analytics'
     | '/app/bookings'
@@ -725,9 +817,11 @@ export interface FileRouteTypes {
     | '/app/stays'
     | '/admin/'
     | '/app/'
+    | '/admin/accounts/$accountId'
     | '/app/bots/$botId'
     | '/app/businesses/new'
     | '/app/crm-settings/distribution'
+    | '/app/crm-settings/saas-plans'
     | '/app/crm-settings/sources'
     | '/app/crm-settings/statuses'
     | '/app/crm-settings/tags'
@@ -742,8 +836,10 @@ export interface FileRouteTypes {
     | '/app/products/new'
     | '/app/properties/$propertyId'
     | '/app/settings/audit'
+    | '/app/settings/developers'
     | '/app/settings/profile'
     | '/app/settings/security'
+    | '/admin/accounts/'
     | '/app/bots/'
     | '/app/crm-settings/'
     | '/app/integrations/'
@@ -771,6 +867,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRouteWithChildren
   AppRoute: typeof AppRouteWithChildren
+  ForgotPasswordRoute: typeof ForgotPasswordRoute
   JoinRoute: typeof JoinRoute
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
@@ -797,6 +894,13 @@ declare module '@tanstack/react-router' {
       path: '/app'
       fullPath: '/app'
       preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/join': {
@@ -832,6 +936,27 @@ declare module '@tanstack/react-router' {
       path: '/llm'
       fullPath: '/admin/llm'
       preLoaderRoute: typeof AdminLlmRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/payments': {
+      id: '/admin/payments'
+      path: '/payments'
+      fullPath: '/admin/payments'
+      preLoaderRoute: typeof AdminPaymentsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/plans': {
+      id: '/admin/plans'
+      path: '/plans'
+      fullPath: '/admin/plans'
+      preLoaderRoute: typeof AdminPlansRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/settings': {
+      id: '/admin/settings'
+      path: '/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminSettingsRouteImport
       parentRoute: typeof AdminRoute
     }
     '/app/': {
@@ -932,6 +1057,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppStaysRouteImport
       parentRoute: typeof AppRoute
     }
+    '/admin/accounts/': {
+      id: '/admin/accounts/'
+      path: '/accounts'
+      fullPath: '/admin/accounts/'
+      preLoaderRoute: typeof AdminAccountsIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/accounts/$accountId': {
+      id: '/admin/accounts/$accountId'
+      path: '/accounts/$accountId'
+      fullPath: '/admin/accounts/$accountId'
+      preLoaderRoute: typeof AdminAccountsAccountIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/app/bots/': {
       id: '/app/bots/'
       path: '/bots'
@@ -965,6 +1104,13 @@ declare module '@tanstack/react-router' {
       path: '/distribution'
       fullPath: '/app/crm-settings/distribution'
       preLoaderRoute: typeof AppCrmSettingsDistributionRouteImport
+      parentRoute: typeof AppCrmSettingsRoute
+    }
+    '/app/crm-settings/saas-plans': {
+      id: '/app/crm-settings/saas-plans'
+      path: '/saas-plans'
+      fullPath: '/app/crm-settings/saas-plans'
+      preLoaderRoute: typeof AppCrmSettingsSaasPlansRouteImport
       parentRoute: typeof AppCrmSettingsRoute
     }
     '/app/crm-settings/sources': {
@@ -1107,6 +1253,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsAuditRouteImport
       parentRoute: typeof AppSettingsRoute
     }
+    '/app/settings/developers': {
+      id: '/app/settings/developers'
+      path: '/developers'
+      fullPath: '/app/settings/developers'
+      preLoaderRoute: typeof AppSettingsDevelopersRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
     '/app/settings/profile': {
       id: '/app/settings/profile'
       path: '/profile'
@@ -1217,18 +1370,29 @@ declare module '@tanstack/react-router' {
 
 interface AdminRouteChildren {
   AdminLlmRoute: typeof AdminLlmRoute
+  AdminPaymentsRoute: typeof AdminPaymentsRoute
+  AdminPlansRoute: typeof AdminPlansRoute
+  AdminSettingsRoute: typeof AdminSettingsRoute
   AdminIndexRoute: typeof AdminIndexRoute
+  AdminAccountsAccountIdRoute: typeof AdminAccountsAccountIdRoute
+  AdminAccountsIndexRoute: typeof AdminAccountsIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminLlmRoute: AdminLlmRoute,
+  AdminPaymentsRoute: AdminPaymentsRoute,
+  AdminPlansRoute: AdminPlansRoute,
+  AdminSettingsRoute: AdminSettingsRoute,
   AdminIndexRoute: AdminIndexRoute,
+  AdminAccountsAccountIdRoute: AdminAccountsAccountIdRoute,
+  AdminAccountsIndexRoute: AdminAccountsIndexRoute,
 }
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 interface AppCrmSettingsRouteChildren {
   AppCrmSettingsDistributionRoute: typeof AppCrmSettingsDistributionRoute
+  AppCrmSettingsSaasPlansRoute: typeof AppCrmSettingsSaasPlansRoute
   AppCrmSettingsSourcesRoute: typeof AppCrmSettingsSourcesRoute
   AppCrmSettingsStatusesRoute: typeof AppCrmSettingsStatusesRoute
   AppCrmSettingsTagsRoute: typeof AppCrmSettingsTagsRoute
@@ -1237,6 +1401,7 @@ interface AppCrmSettingsRouteChildren {
 
 const AppCrmSettingsRouteChildren: AppCrmSettingsRouteChildren = {
   AppCrmSettingsDistributionRoute: AppCrmSettingsDistributionRoute,
+  AppCrmSettingsSaasPlansRoute: AppCrmSettingsSaasPlansRoute,
   AppCrmSettingsSourcesRoute: AppCrmSettingsSourcesRoute,
   AppCrmSettingsStatusesRoute: AppCrmSettingsStatusesRoute,
   AppCrmSettingsTagsRoute: AppCrmSettingsTagsRoute,
@@ -1266,6 +1431,7 @@ const AppOrderSettingsRouteWithChildren =
 
 interface AppSettingsRouteChildren {
   AppSettingsAuditRoute: typeof AppSettingsAuditRoute
+  AppSettingsDevelopersRoute: typeof AppSettingsDevelopersRoute
   AppSettingsProfileRoute: typeof AppSettingsProfileRoute
   AppSettingsSecurityRoute: typeof AppSettingsSecurityRoute
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute
@@ -1273,6 +1439,7 @@ interface AppSettingsRouteChildren {
 
 const AppSettingsRouteChildren: AppSettingsRouteChildren = {
   AppSettingsAuditRoute: AppSettingsAuditRoute,
+  AppSettingsDevelopersRoute: AppSettingsDevelopersRoute,
   AppSettingsProfileRoute: AppSettingsProfileRoute,
   AppSettingsSecurityRoute: AppSettingsSecurityRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,
@@ -1386,6 +1553,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
   AppRoute: AppRouteWithChildren,
+  ForgotPasswordRoute: ForgotPasswordRoute,
   JoinRoute: JoinRoute,
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,

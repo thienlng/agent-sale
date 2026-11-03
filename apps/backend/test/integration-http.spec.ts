@@ -27,6 +27,7 @@ import {
 } from '../src/modules/integration/domain/integration.errors.js';
 import { FakeKiotVietGateway } from '../src/modules/integration/__tests__/factories/fake-gateway.js';
 import { MemoryIntegrationStore } from '../src/modules/integration/__tests__/factories/memory-integration-store.js';
+import { signUpVerified } from './support/signup.js';
 
 let app: NestFastifyApplication | undefined;
 afterEach(async () => {
@@ -74,16 +75,12 @@ async function setup() {
   await app.init();
   const http = app.getHttpAdapter().getInstance();
   await http.ready();
-  const res = await http.inject({
-    method: 'POST',
-    url: '/api/v1/auth/signup',
-    payload: {
-      name: 'Owner',
-      email: 'kiotviet-owner@example.test',
-      password: 'correct horse battery',
-      workspaceName: 'Shop',
-      industry: 'retail',
-    },
+  const res = await signUpVerified(app, {
+    name: 'Owner',
+    email: 'kiotviet-owner@example.test',
+    password: 'correct horse battery',
+    workspaceName: 'Shop',
+    industry: 'retail',
   });
   const auth = AuthResponse.parse(res.json());
   const boot = BootstrapResponse.parse(

@@ -2,7 +2,7 @@ import { SaasLeadDetails, type SaasRequestKind } from '@agent-sales/contracts';
 import { normalizeAnyPhone, type WorkspaceId } from '@agent-sales/shared';
 import { Inject, Injectable } from '@nestjs/common';
 
-import { CRM_FACADE, type CrmFacade } from '../../crm/api/index.js';
+import { CRM_FACADE, type CrmFacade, websiteLeadName } from '../../crm/api/index.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
 import type { BotSaasRequestResult } from '../api/saas.facade.js';
 import { REQUESTED_STATUS, leadNote } from '../domain/saas-lead.js';
@@ -13,7 +13,8 @@ export const BOT_AUTHOR = 'Bot AI';
 
 /**
  * A demo / trial / consultation request is not a record of its own: the customer is found or
- * created by phone, moved forward to "requested" and the details land in a note (ADR-020).
+ * created by phone (a website placeholder name gives way to the name the customer gave), moved
+ * forward to "requested" and the details land in a note (ADR-020).
  */
 @Injectable()
 export class SaasLeadService {
@@ -51,6 +52,8 @@ export class SaasLeadService {
       sourceKey: 'bot',
       displayName: lead.name,
       firstUrl: null,
+      // A website visitor who left a phone first is still "Khách website ####".
+      renameFrom: websiteLeadName(phone),
     });
     // Never moves a trial, paying or churned customer back to "requested".
     await this.crm.moveContactStatus(ws, contactId, REQUESTED_STATUS, { forwardOnly: true });

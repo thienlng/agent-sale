@@ -15,3 +15,11 @@ export class AccountChoiceRequiredError extends DomainError {
     super('Choose the account that owns the new business', {});
   }
 }
+
+/** A platform operator asked for the status the account already has. */
+export class AccountStatusUnchangedError extends DomainError {
+  readonly code = 'CONFLICT';
+  constructor(status: string) {
+    super(`The account is already ${status}`, { status });
+  }
+}

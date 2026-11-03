@@ -1,24 +1,24 @@
-import { type Industry, SELECTABLE_INDUSTRIES } from '@agent-sales/contracts';
 import { Link } from '@tanstack/react-router';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { ApiClientError } from '@/lib/api-client';
-import { signup } from '@/lib/session';
+import { requestSignupCode, signup } from '@/lib/session';
 
 import { FormError } from './form-error';
 
-/** `defaultEmail`: prefilled when the visitor came from an invitation link. */
+/** The server lets a new code go out once a minute. */
+const RESEND_SECONDS = 60;
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * One page (ACC-01): name, email with "Send code", the emailed 6-digit code, password. The account
+ * is created only with a valid code; the business comes later (onboarding).
+ * `defaultEmail`: prefilled when the visitor came from an invitation link.
+ */
 export function SignupForm({
   onSuccess,
   defaultEmail,
@@ -27,14 +27,64 @@ export function SignupForm({
   defaultEmail?: string | undefined;
 }) {
   const { t } = useTranslation();
-  const [industry, setIndustry] = useState<Industry>('retail');
+  const formRef = useRef<HTMLFormElement>(null);
   const [pending, setPending] = useState(false);
+  const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  /** The address the latest code went to; changing the email asks for a new code. */
+  const [sentTo, setSentTo] = useState<string | null>(null);
+  const [wait, setWait] = useState(0);
+
+  useEffect(() => {
+    if (wait <= 0) return;
+    const id = setTimeout(() => setWait((w) => w - 1), 1000);
+    return () => clearTimeout(id);
+  }, [wait]);
+
+  function field(name: string): string {
+    const form = formRef.current;
+    return form ? String(new FormData(form).get(name) ?? '').trim() : '';
+  }
+
+  async function sendCode() {
+    const email = field('email').toLowerCase();
+    setError(null);
+    setNotice(null);
+    if (!EMAIL.test(email)) {
+      setError(t('auth.errors.invalidEmail'));
+      return;
+    }
+    setSending(true);
+    try {
+      await requestSignupCode(email, field('name') || undefined);
+      setNotice(t(sentTo === email ? 'auth.verify.resent' : 'auth.verify.sent', { email }));
+      setSentTo(email);
+      setWait(RESEND_SECONDS);
+    } catch (err) {
+      const code = err instanceof ApiClientError ? err.code : '';
+      const seconds =
+        err instanceof ApiClientError ? Number(err.details?.['retryAfterSeconds'] ?? 0) : 0;
+      if (code === 'CONFLICT') setError(t('auth.errors.emailTaken'));
+      else if (seconds > 0) {
+        setWait(seconds);
+        setError(t('auth.errors.tooManyCodes', { seconds }));
+      } else setError(t('auth.errors.generic'));
+    } finally {
+      setSending(false);
+    }
+  }
 
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
+    const email = String(form.get('email')).trim().toLowerCase();
+    const code = String(form.get('code') ?? '').replace(/\s/g, '');
     const password = String(form.get('password'));
+    if (sentTo !== email || !/^\d{6}$/.test(code)) {
+      setError(t(sentTo === email ? 'auth.verify.invalid' : 'auth.verify.needCode'));
+      return;
+    }
     if (password.length < 8) {
       setError(t('auth.errors.weakPassword'));
       return;
@@ -42,22 +92,21 @@ export function SignupForm({
     setPending(true);
     setError(null);
     try {
-      await signup({
-        name: String(form.get('name')),
-        email: String(form.get('email')),
-        password,
-        workspaceName: String(form.get('workspaceName')),
-        industry,
-      });
+      await signup({ name: String(form.get('name')), email, password, code });
       onSuccess();
     } catch (err) {
-      const code = err instanceof ApiClientError ? err.code : '';
+      const apiCode = err instanceof ApiClientError ? err.code : '';
+      const reason = err instanceof ApiClientError ? err.details?.['reason'] : undefined;
       setError(
-        code === 'CONFLICT'
-          ? t('auth.errors.emailTaken')
-          : code === 'VALIDATION_FAILED'
-            ? t('auth.errors.weakPassword')
-            : t('auth.errors.generic'),
+        reason === 'code_invalid'
+          ? t('auth.verify.invalid')
+          : reason === 'code_expired'
+            ? t('auth.verify.expired')
+            : apiCode === 'CONFLICT'
+              ? t('auth.errors.emailTaken')
+              : apiCode === 'VALIDATION_FAILED'
+                ? t('auth.errors.weakPassword')
+                : t('auth.errors.generic'),
       );
     } finally {
       setPending(false);
@@ -65,7 +114,7 @@ export function SignupForm({
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-5" noValidate>
+    <form ref={formRef} onSubmit={(e) => void submit(e)} className="flex flex-col gap-5" noValidate>
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">{t('auth.signupTitle')}</h1>
         <p className="mt-1.5 text-muted-foreground">{t('auth.signupSubtitle')}</p>
@@ -77,15 +126,53 @@ export function SignupForm({
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="email">{t('auth.email')}</Label>
+        <div className="flex gap-2">
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            required
+            defaultValue={defaultEmail}
+            className="h-10"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 shrink-0"
+            disabled={sending || wait > 0}
+            onClick={() => void sendCode()}
+          >
+            {sending
+              ? t('auth.verify.sending')
+              : wait > 0
+                ? t('auth.verify.resendIn', { seconds: wait })
+                : sentTo
+                  ? t('auth.verify.resend')
+                  : t('auth.verify.send')}
+          </Button>
+        </div>
+        {notice ? (
+          <p role="status" className="text-sm text-muted-foreground">
+            {notice}
+          </p>
+        ) : null}
+      </div>
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="code">{t('auth.verify.code')}</Label>
         <Input
-          id="email"
-          name="email"
-          type="email"
-          autoComplete="email"
+          id="code"
+          name="code"
+          autoComplete="one-time-code"
+          inputMode="numeric"
+          maxLength={6}
           required
-          defaultValue={defaultEmail}
-          className="h-10"
+          aria-describedby="code-hint"
+          className="h-10 tracking-[0.4em]"
         />
+        <p id="code-hint" className="text-sm text-muted-foreground">
+          {t('auth.verify.spamHint')}
+        </p>
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="password">{t('auth.password')}</Label>
@@ -102,27 +189,6 @@ export function SignupForm({
         <p id="password-hint" className="text-sm text-muted-foreground">
           {t('auth.passwordHint')}
         </p>
-      </div>
-      <div className="grid gap-5 sm:grid-cols-2">
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="workspaceName">{t('auth.workspaceName')}</Label>
-          <Input id="workspaceName" name="workspaceName" required className="h-10" />
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="industry">{t('auth.industry')}</Label>
-          <Select value={industry} onValueChange={(v) => setIndustry(v as Industry)}>
-            <SelectTrigger id="industry" className="h-10 w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {SELECTABLE_INDUSTRIES.map((i) => (
-                <SelectItem key={i} value={i}>
-                  {t(`industries.${i}`)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
       </div>
       <Button type="submit" size="lg" className="h-10" disabled={pending}>
         {pending ? t('auth.signingUp') : t('auth.signup')}

@@ -1,5 +1,5 @@
 import { Link, useRouterState } from '@tanstack/react-router';
-import { LayoutDashboard, Plus, ShieldCheck } from 'lucide-react';
+import { LayoutDashboard, Plus, ServerCog } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { BusinessAvatar } from '@/components/business-avatar';
@@ -118,13 +118,13 @@ export function AccountSidebar() {
           ))}
           {session?.user.isPlatformAdmin ? (
             <SidebarGroup>
-              <SidebarGroupLabel>{t('nav.admin')}</SidebarGroupLabel>
+              <SidebarGroupLabel>{t('nav.platform')}</SidebarGroupLabel>
               <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild tooltip={t('nav.adminLlm')}>
-                    <Link to="/admin/llm" onClick={close}>
-                      <ShieldCheck />
-                      <span>{t('nav.adminLlm')}</span>
+                  <SidebarMenuButton asChild tooltip={t('nav.admin')}>
+                    <Link to="/admin/accounts" onClick={close}>
+                      <ServerCog />
+                      <span>{t('nav.admin')}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

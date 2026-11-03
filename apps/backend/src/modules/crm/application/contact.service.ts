@@ -7,6 +7,7 @@ import {
   ContactQueryRequest,
   CreateContactNoteRequest,
   CreateContactRequest,
+  memberRoleOf,
   UpdateContactNoteRequest,
   UpdateContactRequest,
 } from '@agent-sales/contracts';
@@ -19,9 +20,11 @@ import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/inde
 import {
   ContactNotFoundError,
   DuplicateContactRequestError,
+  InvalidContactError,
   NoteNotFoundError,
   StaleVersionError,
 } from '../domain/crm.errors.js';
+import { lockedFields } from '../domain/external-contact.js';
 import { DEFAULT_SOURCES, defaultStatusesFor } from '../domain/crm-defaults.js';
 import { toContactDto, toHistoryDto, toNoteDto } from './crm.mappers.js';
 import { applyFields } from './contact-fields.js';
@@ -95,7 +98,7 @@ export class ContactService {
       // A scoped creator (Sales, CSKH) owns what they create, so they keep seeing it.
       const me = scopeOf(viewer);
       if (me && !fields.salesUserId && !fields.careUserId) {
-        if (viewer.role === 'care') fields.careUserId = me;
+        if (memberRoleOf(viewer.role) === 'care') fields.careUserId = me;
         else fields.salesUserId = me;
       }
       // No Sales given: the source's auto-assignment policy may pick one (T-033).
@@ -152,13 +155,43 @@ export class ContactService {
    */
   async upsertLead(
     ws: WorkspaceId,
-    input: { phoneE164: string; sourceKey: string; displayName: string; firstUrl: string | null },
+    input: {
+      phoneE164: string;
+      sourceKey: string;
+      displayName: string;
+      firstUrl: string | null;
+      renameFrom?: string;
+    },
   ): Promise<{ contactId: string; created: boolean }> {
     return this.store.run(ws, async (tx) => {
       await tx.lock(`phone/${input.phoneE164}`);
       const now = new Date();
       const found = await tx.contacts.findByPhone(input.phoneE164);
       if (found) {
+        const name = input.displayName.trim();
+        if (input.renameFrom !== undefined && found.name === input.renameFrom && name) {
+          // A placeholder an earlier capture generated gives way to the name the customer gave.
+          const next = { ...found, name, version: found.version + 1, updatedAt: now };
+          if (!(await tx.contacts.update(next, found.version))) {
+            throw new StaleVersionError('contact', next.version);
+          }
+          await this.#record(
+            tx,
+            ws,
+            next,
+            'contact.updated',
+            { name: { from: found.name, to: name } },
+            null,
+            null,
+            now,
+            { channel: input.sourceKey },
+          );
+          await tx.outbox(ws, {
+            type: 'crm.contact.updated.v1',
+            aggregateId: found.id,
+            payload: event(ws, found.id, null, now, { fields: ['name'], phoneCaptured: false }),
+          });
+        }
         // Repeated or racing captures from the same page leave one entry.
         const marker = input.firstUrl ?? input.sourceKey;
         const earlier = await tx.history.list(found.id, {
@@ -268,6 +301,7 @@ export class ContactService {
       await assertChoosable(tx, fields, before);
       const now = new Date();
       const after = applyFields(before, fields, now);
+      assertUnlocked(before, after);
       const changes = diff(before, after);
       if (!Object.keys(changes).length) return this.#dto(tx, before);
 
@@ -630,4 +664,17 @@ export function emptyContact(
     createdAt: now,
     updatedAt: now,
   };
+}
+
+/**
+ * The link keys of a customer linked to Rapiz HQ (phone, email) belong to the platform (ADR-021
+ * §3): staff may resend them unchanged (compared normalized) but not change them.
+ */
+function assertUnlocked(before: ContactRecord, after: ContactRecord): void {
+  const locked = lockedFields(before.externalId ? before.externalSource : null);
+  const key = { phone: 'phoneNormalized', email: 'emailNormalized' } as const;
+  const changed = locked.filter((f) => (before[key[f]] ?? null) !== (after[key[f]] ?? null));
+  if (changed.length) {
+    throw new InvalidContactError(Object.fromEntries(changed.map((f) => [f, 'LINKED_READ_ONLY'])));
+  }
 }

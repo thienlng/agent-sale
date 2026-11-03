@@ -1,5 +1,6 @@
 import {
   allRoutes,
+  apiKeyRoutes,
   buildOpenApiDocument,
   type HealthResponse,
   type ReadinessResponse,
@@ -42,5 +43,11 @@ export class HealthController {
   @Get('openapi.json')
   openapi(): Record<string, unknown> {
     return buildOpenApiDocument(allRoutes, { title: 'Rapiz API', version });
+  }
+
+  /** The public API (ADR-022): only the routes a workspace API key may call. */
+  @Get('public/openapi.json')
+  publicOpenapi(): Record<string, unknown> {
+    return buildOpenApiDocument(apiKeyRoutes(allRoutes), { title: 'Rapiz Public API', version });
   }
 }

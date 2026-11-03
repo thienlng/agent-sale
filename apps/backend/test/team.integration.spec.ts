@@ -30,6 +30,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
 import { createHttpApp } from '../src/bootstrap.js';
+import { signUpVerified } from './support/signup.js';
 
 /** Members, invitation links, role capabilities, customer scope and auto-assignment on Postgres. */
 let pg: TestPostgres;
@@ -69,21 +70,17 @@ const call = (h: Headers, method: Method, url: string, payload?: object) =>
 let signups = 0;
 /** A new user (with their own shop, as every signup creates one). */
 async function user(email: string, name: string) {
-  const signup = await app
-    .getHttpAdapter()
-    .getInstance()
-    .inject({
-      method: 'POST',
-      url: '/api/v1/auth/signup',
-      remoteAddress: `10.2.0.${++signups}`,
-      payload: {
-        name,
-        email,
-        password: 'a long enough password',
-        workspaceName: `Shop ${name}`,
-        industry: 'fashion',
-      },
-    });
+  const signup = await signUpVerified(
+    app,
+    {
+      name,
+      email,
+      password: 'a long enough password',
+      workspaceName: `Shop ${name}`,
+      industry: 'fashion',
+    },
+    { remoteAddress: `10.2.0.${++signups}` },
+  );
   const { accessToken } = AuthResponse.parse(signup.json());
   const authorization = `Bearer ${accessToken}`;
   const boot = BootstrapResponse.parse((await call({ authorization }, 'GET', '/bootstrap')).json());

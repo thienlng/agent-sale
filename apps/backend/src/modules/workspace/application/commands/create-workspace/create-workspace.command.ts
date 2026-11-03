@@ -7,4 +7,6 @@ export interface CreateWorkspaceCommand {
   /** Account that owns the business; omitted → resolved by the account module (ADR-012 §3). */
   accountId?: string | undefined;
   timezone?: string | undefined;
+  /** The owner's contact, when known (signup): carried by `account.account.created.v1`. */
+  owner?: { name: string; email: string; phone: string | null } | undefined;
 }

@@ -24,7 +24,13 @@
     "logout": "Log out",
     "language": "Language",
     "groupWork": "Sales",
+    "adminAccounts": "Accounts",
+    "adminPayments": "Payments",
+    "adminPlans": "Plans",
+    "adminSettings": "Billing settings",
     "adminLlm": "AI models",
+    "platform": "Platform",
+    "backToBusinesses": "Back to businesses",
     "toggleSidebar": "Open or collapse the sidebar",
     "ordersOverview": "Overview",
     "ordersList": "Order list",
@@ -66,7 +72,9 @@
       "emailTaken": "This email already has an account. Log in instead.",
       "weakPassword": "Password too weak: use 8+ characters that differ from your email and name.",
       "tooMany": "Too many failed attempts. Try again in a few minutes.",
-      "generic": "Can't reach the server. Check your connection and try again."
+      "generic": "Can't reach the server. Check your connection and try again.",
+      "invalidEmail": "Enter a valid email.",
+      "tooManyCodes": "You just asked for a code. Try again in {{seconds}}s."
     },
     "demo": {
       "customer": "ao thun trang con size L ko shop, gia bao nhieu",
@@ -85,6 +93,32 @@
       "verify": "Verify",
       "back": "Back",
       "invalid": "That code is wrong or already used. Try a fresh one."
+    },
+    "verify": {
+      "send": "Send code",
+      "sending": "Sending…",
+      "sent": "A 6-digit code was sent to {{email}}. It is valid for 15 minutes.",
+      "code": "Verification code",
+      "needCode": "Press \"Send code\" and enter the 6-digit code from the email to sign up.",
+      "resend": "Resend code",
+      "resendIn": "Resend code in {{seconds}}s",
+      "resent": "A new code was sent to {{email}}.",
+      "spamHint": "No email? Check your Spam or Promotions folder.",
+      "invalid": "That code is wrong. Check the latest email.",
+      "expired": "The code expired or had too many wrong tries. Press \"Resend code\"."
+    },
+    "reset": {
+      "title": "Forgot password",
+      "subtitle": "Enter the email you signed up with and Rapiz will send a code to set a new password.",
+      "send": "Send code",
+      "sending": "Sending…",
+      "codeSubtitle": "If {{email}} has an account, a 6-digit code was sent to it. It is valid for 15 minutes.",
+      "code": "Verification code",
+      "newPassword": "New password",
+      "submit": "Set new password",
+      "submitting": "Saving…",
+      "done": "Password changed. Log in again.",
+      "back": "Back to log in"
     }
   },
   "industries": {
@@ -1319,7 +1353,8 @@
     "tabs": {
       "profile": "Business profile",
       "security": "Security",
-      "audit": "Change log"
+      "audit": "Change log",
+      "developers": "Developers"
     },
     "profile": {
       "title": "Business information",
@@ -1676,7 +1711,7 @@
     "noAccount": "Other businesses",
     "lost": "You no longer have access to that business. Choose another one.",
     "welcomeTitle": "Create your first business",
-    "welcomeSubtitle": "You are not part of any business yet. Create one to start selling with an AI bot.",
+    "welcomeSubtitle": "Tell Rapiz your store name and industry so it can set up a bot, sample answers and customer statuses that fit.",
     "accountLabel": "Account",
     "createAction": "Create business"
   },
@@ -2252,7 +2287,7 @@
     "unnamed": "Unnamed customer",
     "saveSubscription": "Save plan",
     "subscriptionSaved": "Subscription saved",
-    "subscriptionInvalid": "Check the form: a plan name and a whole MRR ≥ 0 are required; a trial needs its end date, a cancellation its date.",
+    "subscriptionInvalid": "Check the form: a plan name and a whole MRR ≥ 0 are required (a catalog plan needs a price for the period); a trial needs its end date, a cancellation its date and reason.",
     "cancel": "Cancel",
     "loading": "Loading…",
     "loadError": "Could not load the data.",
@@ -2261,12 +2296,14 @@
       "trial": "Trial",
       "active": "Active",
       "past_due": "Past due",
-      "canceled": "Canceled"
+      "canceled": "Canceled",
+      "free": "Free plan"
     },
     "period": {
       "monthly": "Monthly",
       "quarterly": "Quarterly",
-      "yearly": "Yearly"
+      "yearly": "Yearly",
+      "semiannual": "Every 6 months"
     },
     "sub": {
       "title": "Subscription",
@@ -2285,7 +2322,18 @@
       "canceledOn": "Canceled on",
       "externalRef": "External reference",
       "nextDate": "Next date",
-      "note": "Note"
+      "note": "Note",
+      "catalogPlan": "Catalog plan",
+      "customPlan": "Other (type the name and MRR)",
+      "noPrice": "This plan has no price for this period",
+      "linkedHint": "Synced from the Rapiz account: plan, stage, period, MRR and dates are read-only.",
+      "linked": "Rapiz",
+      "linkedLabel": "Synced from a Rapiz account",
+      "upsell": "Upsell",
+      "usage": "AI replies used",
+      "churnReason": "Churn reason",
+      "churnReasonPick": "Choose a reason",
+      "churnNote": "Churn note"
     },
     "summary": {
       "mrr": "MRR",
@@ -2293,13 +2341,48 @@
       "trial": "On trial",
       "trialsEndingSoon": "Trials ending in 7 days",
       "past_due": "Past due",
-      "canceled": "Churned"
+      "canceled": "Churned",
+      "free": "Free plan"
     },
     "col": {
       "plan": "Plan",
       "mrr": "MRR",
       "next": "Next date"
     },
-    "noTrialsEndingSoon": "No trial ends in the next 7 days."
+    "noTrialsEndingSoon": "No trial ends in the next 7 days.",
+    "churn": {
+      "price": "Price",
+      "missing_feature": "Missing feature",
+      "competitor": "Moved to a competitor",
+      "no_longer_needed": "No longer needed",
+      "poor_support": "Poor support",
+      "business_closed": "Business closed",
+      "other": "Other"
+    },
+    "history": {
+      "toggle": "History",
+      "title": "Subscription history",
+      "none": "No changes yet.",
+      "source": {
+        "staff": "Staff",
+        "sync": "Rapiz sync",
+        "system": "System"
+      }
+    },
+    "plans": {
+      "tab": "Plans",
+      "hint": "Your plans and their prices. A subscription on a plan gets its MRR from the price of its billing period. Archive a plan to stop selling it; current subscribers keep it.",
+      "none": "No plans yet.",
+      "name": "Plan name",
+      "newName": "New plan name",
+      "add": "Add plan",
+      "save": "Save",
+      "saved": "Plan saved",
+      "archived": "Archived",
+      "archive": "Archive",
+      "restore": "Restore",
+      "price": "{{period}} price (VND)",
+      "from": "from {{mrr}}/month"
+    }
   }
 }

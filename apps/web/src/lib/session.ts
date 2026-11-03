@@ -4,6 +4,8 @@ import {
   BootstrapResponse,
   type LoginRequest,
   type MembershipDto,
+  type SignupBusinessRequest,
+  SignupBusinessResponse,
   type SignupRequest,
   type UserDto,
 } from '@agent-sales/contracts';
@@ -124,6 +126,25 @@ export async function signup(input: Omit<SignupRequest, 'client'>): Promise<Sess
     workspaceScoped: false,
   });
   return load(auth);
+}
+
+/** Emails the 6-digit signup code; signup needs it (ACC-01). 409 when the email has an account. */
+export async function requestSignupCode(email: string, name?: string): Promise<void> {
+  await api('/auth/signup/code', z.null(), {
+    method: 'POST',
+    body: name ? { email, name } : { email },
+    workspaceScoped: false,
+  });
+}
+
+/** Signup step 2: the first business (and the signup trial), then the session switches to it. */
+export async function createFirstBusiness(input: SignupBusinessRequest): Promise<string> {
+  const { workspaceId } = await api('/auth/signup/business', SignupBusinessResponse, {
+    method: 'POST',
+    body: input,
+    workspaceScoped: false,
+  });
+  return workspaceId;
 }
 
 /**

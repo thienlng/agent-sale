@@ -61,7 +61,8 @@ export const UpdateContactRequest = z.object({
 export type UpdateContactRequest = z.input<typeof UpdateContactRequest>;
 
 export const ContactExternalLink = z.object({
-  source: z.enum(['kiotviet']),
+  /** `kiotviet`: a PMS customer (ADR-017). `rapiz`: a platform account in Rapiz HQ (ADR-021). */
+  source: z.enum(['kiotviet', 'rapiz']),
   id: z.string().min(1),
 });
 export type ContactExternalLink = z.infer<typeof ContactExternalLink>;

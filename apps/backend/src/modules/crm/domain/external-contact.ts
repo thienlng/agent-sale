@@ -11,6 +11,50 @@ export interface ExternalContactFields {
   gender: 'male' | 'female' | null;
 }
 
+/**
+ * What each linked system owns (ADR-017 for a PMS, ADR-021 §3 for Rapiz HQ):
+ * - `owned`: fields its changes overwrite on a linked customer;
+ * - `locked`: fields staff may not edit while linked (the link keys of Rapiz HQ);
+ * - `matchEmail`: adoption also matches an unlinked customer by email (after the phone).
+ * A PMS owns the profile and never locks it; Rapiz owns only phone and email (the link keys) and
+ * leaves the name to staff.
+ */
+export const EXTERNAL_SOURCE_RULES = {
+  kiotviet: {
+    owned: ['name', 'phone', 'email', 'address', 'birthday', 'gender'],
+    locked: [],
+    matchEmail: false,
+  },
+  rapiz: { owned: ['phone', 'email'], locked: ['phone', 'email'], matchEmail: true },
+} as const satisfies Record<
+  string,
+  {
+    owned: ReadonlyArray<keyof ExternalContactFields>;
+    locked: ReadonlyArray<'phone' | 'email'>;
+    matchEmail: boolean;
+  }
+>;
+export type ExternalSourceKey = keyof typeof EXTERNAL_SOURCE_RULES;
+
+/** Fields of a linked customer staff may not change (empty when unlinked or for a PMS). */
+export function lockedFields(source: string | null): ReadonlyArray<'phone' | 'email'> {
+  return source && source in EXTERNAL_SOURCE_RULES
+    ? EXTERNAL_SOURCE_RULES[source as ExternalSourceKey].locked
+    : [];
+}
+
+/** Restricts a patch to the fields the source owns; `name` too when the customer has none yet. */
+export function ownedPatch(
+  source: ExternalSourceKey,
+  patch: Partial<ExternalContactFields>,
+  hasName: boolean,
+): Partial<ExternalContactFields> {
+  const owned: ReadonlyArray<string> = EXTERNAL_SOURCE_RULES[source].owned;
+  return Object.fromEntries(
+    Object.entries(patch).filter(([k]) => owned.includes(k) || (k === 'name' && !hasName)),
+  ) as Partial<ExternalContactFields>;
+}
+
 const NAME_MAX = 120;
 const ADDRESS_MAX = 300;
 const EMAIL_MAX = 254;
