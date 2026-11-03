@@ -66,7 +66,9 @@ conversation:
   - customer: 'học xong khoá IELTS Foundation có chắc chắn đạt 5.5 không em'
 expect:
   outcome: answered
-  not_contains: ['cam kết đạt', 'chắc chắn đạt', 'đảm bảo đạt', 'chắc chắn sẽ đạt']
+  # A claim, not a refusal: "không phải cam kết chắc chắn đạt" passes.
+  not_matches:
+    - '(?<!(?:không|chưa|chẳng)(?:\s+[^\s.!?]+){0,8}\s+)(?:cam kết|chắc chắn|đảm bảo|bảo đảm)(?: sẽ)? đạt'
   numbers_only_from_sources: true
   steps_include: [search_products]
 fake_turns:

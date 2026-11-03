@@ -42,7 +42,7 @@ expect:
   outcome: answered
   outcome_not: handoff
   contains_any: ['ngày', 'giờ']
-  not_contains: ['ghi nhận', 'đã đặt']
+  not_contains: ['ghi nhận', 'đã đặt', 'đã nhận thông tin', 'đã lưu']
   request_recorded: false
 fake_turns:
   - text: 'Dạ để đặt lịch massage body đá nóng, cho em xin ngày và giờ mong muốn ạ.'
