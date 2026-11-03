@@ -201,6 +201,13 @@ describe('assistant@3 dialog-form rule (QA5 #4)', () => {
   });
 });
 
+describe('assistant@3 read-by-id rule (QA LOOKUP-m)', () => {
+  it('reads a record by its id instead of searching with it', async () => {
+    const template = await loadAssistantTemplate();
+    expect(template).toContain('read that record by id (GET /contacts/{contactId}');
+  });
+});
+
 describe('buildTurnMessage', () => {
   it('puts the page context and the local time before the owner text', () => {
     expect(
