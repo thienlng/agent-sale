@@ -169,6 +169,15 @@ describe('assistant@2 navigate-then-fill rule (QA B-11)', () => {
   });
 });
 
+describe('assistant@2 dialog-form rule (QA5 #4)', () => {
+  it('fills an opensDialog form in the same turn instead of promising a later fill', async () => {
+    const template = await loadAssistantTemplate();
+    expect(template).toContain('A form marked `opensDialog: true` is a closed dialog');
+    expect(template).toContain('call ui_fill_form on it in this same turn');
+    expect(template).toContain('never only spotlight its button or promise to fill it later');
+  });
+});
+
 describe('buildTurnMessage', () => {
   it('puts the page context and the local time before the owner text', () => {
     expect(
