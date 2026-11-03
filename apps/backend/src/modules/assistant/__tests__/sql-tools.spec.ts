@@ -323,6 +323,8 @@ describe('sql_schema', () => {
     expect(text).toBe(renderSqlOverview());
     expect(text.length).toBeLessThan(6_000);
     expect(text.startsWith(SQL_RULES)).toBe(true);
+    // A hotel's revenue comes from its stays, not orders (QA Villas #6).
+    expect(SQL_RULES).toContain('its revenue = sum(total_sell) from lodging_bookings');
     for (const v of SQL_VIEWS) {
       expect(text).toContain(`${v.name}(${v.columns.map((c) => c.name).join(', ')}) — `);
     }

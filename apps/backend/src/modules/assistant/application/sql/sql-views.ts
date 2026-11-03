@@ -37,7 +37,7 @@ export const SQL_VIEWS: readonly SqlView[] = [
     [
       ['business_id', 'uuid', 'the business id'],
       ['name', 'text', 'business name'],
-      ['industry', 'text', 'industry key (fashion, lodging, …)'],
+      ['industry', 'text', 'industry key (retail, fashion, hotel, saas, …)'],
       ['timezone', 'text', 'IANA time zone of the business'],
       ['created_at', 'timestamptz', 'when the business was created'],
     ],
@@ -261,6 +261,8 @@ export const SQL_RULES = [
   '- Money is integer VND.',
   "- Times are local Asia/Ho_Chi_Minh: use placed_at::date for days; weeks start on Monday with date_trunc('week', …).",
   '- Revenue (doanh thu) = sum(total) where counts_as_revenue. Sales (doanh số) = sum(total) where not is_cancelled. Profit = sum(profit) where counts_as_revenue. Best sellers come from order_items where counts_as_revenue.',
+  "- A hotel business (businesses.industry = 'hotel') earns from stays, not orders: its revenue = sum(total_sell) from lodging_bookings where counts_as_revenue, dated by check_in; nights sold = sum(nights); profit = sum(total_sell - total_cost). When the owner asks for revenue without saying which, check the industry: a hotel's from lodging_bookings, a shop's from orders, and both (one line each) for an account with both.",
+  '- A total over a breakdown comes from the query (sum(...) over (), ROLLUP or a count), never from adding rows.',
   '- Always filter a date range and aggregate; never list raw rows when a total answers.',
   '- With more than one business, group by business_id and join businesses for the name.',
   '- One SELECT; WITH is fine. No comments, no quoted identifiers, no schema prefixes.',
