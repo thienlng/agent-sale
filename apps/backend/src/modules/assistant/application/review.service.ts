@@ -491,7 +491,7 @@ export class ReviewService {
         toolName: s.name ?? null,
         ok: s.ok ?? null,
         ms: s.ms === undefined ? null : Math.round(s.ms),
-        errorCode: null,
+        errorCode: s.errorCode ?? null,
       })),
     );
     return !lost;

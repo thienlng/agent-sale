@@ -717,7 +717,19 @@ describe('ChatTurnService', () => {
       reply({ text: 'Dạ em tóm tắt rồi ạ' }),
     ]);
     invoke.mockResolvedValue({ status: 200, body: { data: 'z'.repeat(20_000) } });
-    await service.send(scope, thread.id, { turnId: newId(), text: 'Xem sản phẩm' }, AUTH);
+    const out = await service.send(
+      scope,
+      thread.id,
+      { turnId: newId(), text: 'Xem sản phẩm' },
+      AUTH,
+    );
+    // The cut-off steps say why (QA OBS1); the reads that ran have no error code.
+    const toolSteps = out.run.steps.filter((st) => st.kind === 'tool');
+    expect(toolSteps.map((st) => [st.ok, st.errorCode])).toEqual([
+      ...Array.from({ length: 5 }, () => [true, null]),
+      [false, 'turn_budget_exhausted'],
+      [false, 'turn_budget_exhausted'],
+    ]);
 
     const tools = (await repo.listMessages(scope, thread.id)).filter((m) => m.role === 'tool');
     expect(tools).toHaveLength(7);

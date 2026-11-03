@@ -1,7 +1,13 @@
 import type { GenerateRequest, GenerateResponse, ToolCall } from '../gateway.js';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { AGENT_BUDGET_MS, AGENT_MAX_ROUNDS, WRAP_UP_NOTICE, runAgentLoop } from './loop.js';
+import {
+  AGENT_BUDGET_MS,
+  AGENT_MAX_ROUNDS,
+  WRAP_UP_NOTICE,
+  runAgentLoop,
+  toolErrorCode,
+} from './loop.js';
 import type { RunnableTool } from './tool-runner.js';
 
 const usage = { inputTokens: 1, outputTokens: 2, cachedInputTokens: 0 };
@@ -413,5 +419,17 @@ describe('runAgentLoop', () => {
       shouldInterrupt: async () => true,
     });
     expect(none.usage).toEqual({ inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 });
+  });
+});
+
+describe('toolErrorCode', () => {
+  it('reads a short error code from a failed tool result and nothing else', () => {
+    expect(toolErrorCode('{"ok":false,"errorCode":"turn_budget_exhausted"}')).toBe(
+      'turn_budget_exhausted',
+    );
+    expect(toolErrorCode('{"ok":false,"errorCode":"unsafe:url,phone"}')).toBe('unsafe:url,phone');
+    expect(toolErrorCode('{"ok":false,"errorCode":"has spaces and text"}')).toBeUndefined();
+    expect(toolErrorCode('{"ok":false}')).toBeUndefined();
+    expect(toolErrorCode('not json')).toBeUndefined();
   });
 });
