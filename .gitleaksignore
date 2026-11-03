@@ -21,3 +21,4 @@ a7115cb3dc428b2082e2a093e222c4a8981cb9d8:apps/backend/src/modules/assistant/__te
 bc4db73d6e608fc2e94ae354b0288aafa8299352:packages/ai-core/src/agent/safety.test.ts:curl-auth-header:110
 dc172529cf2e32d0925c211357f5df5df2e780c2:apps/backend/src/modules/assistant/__tests__/route-tools.spec.ts:generic-api-key:221
 dc172529cf2e32d0925c211357f5df5df2e780c2:apps/backend/src/modules/assistant/__tests__/route-tools.spec.ts:generic-api-key:405
+f39ee0f9ee0511cc90e39ba4ad8ddd652cc9f1a6:packages/ai-core/src/agent/safety.test.ts:jwt:182

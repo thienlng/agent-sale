@@ -395,21 +395,17 @@ describe('commerce on Postgres', () => {
     expect((await call(h1, 'POST', '/products/match-codes', {})).statusCode).toBe(400);
 
     // A member whose (legacy) role has no capability may not ask.
-    const signup = await app
-      .getHttpAdapter()
-      .getInstance()
-      .inject({
-        method: 'POST',
-        url: '/api/v1/auth/signup',
-        remoteAddress: `10.0.1.${++signups}`,
-        payload: {
-          name: 'Nhân viên',
-          email: 'match-staff@shop.vn',
-          password: 'a long enough password',
-          workspaceName: 'Shop NV',
-          industry: 'fashion',
-        },
-      });
+    const signup = await signUpVerified(
+      app,
+      {
+        name: 'Nhân viên',
+        email: 'match-staff@shop.vn',
+        password: 'a long enough password',
+        workspaceName: 'Shop NV',
+        industry: 'fashion',
+      },
+      { remoteAddress: `10.0.1.${++signups}` },
+    );
     const staff = AuthResponse.parse(signup.json());
     const ws = h1['x-workspace-id'];
     const owner_ = createDb({ url: pg.ownerUrl, max: 1 });
