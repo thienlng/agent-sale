@@ -8,6 +8,10 @@ import type { MessageSink, OutgoingMessage, QuickReply } from '../api/reply-opti
 import { safeJson } from './action-tools.js';
 import type { OutputState } from './output-tools.js';
 
+/** Commerce's problem for a course or service SKU: offerings are not sold through orders. */
+export const NOT_SOLD = 'not_sold';
+export const NOT_SOLD_HINT =
+  'not_sold: that item is a course or a service, not sold through an order. Do not prepare an order for it: tell the customer staff will arrange it, and record a request with record_request if your tools include it.';
 export const PREPARE_ORDER_TOOL = 'prepare_order';
 export const CONFIRM_ORDER_TOOL = 'confirm_order';
 export const CANCEL_ORDER_DRAFT_TOOL = 'cancel_order_draft';
@@ -272,7 +276,18 @@ export function orderTools(ctx: OrderToolContext): {
         ...(args.note?.trim() ? { note: args.note.trim() } : {}),
         shippingFeeVnd: ctx.bot.orderShippingFeeVnd ?? null,
       });
-      if (!res.ok) return reply({ ok: false, problems: res.problems }, false);
+      if (!res.ok)
+        return reply(
+          {
+            ok: false,
+            problems: res.problems,
+            // A course or service (commerce `not_sold`, T-187) is never sold through an order.
+            ...(res.problems.some((p) => (p.code as string) === NOT_SOLD)
+              ? { hint: NOT_SOLD_HINT }
+              : {}),
+          },
+          false,
+        );
       state.stored = true;
       // The server, not the model, delivers the summary with the confirm / edit buttons.
       const message: OutgoingMessage = {
