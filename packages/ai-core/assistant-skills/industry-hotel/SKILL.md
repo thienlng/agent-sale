@@ -29,6 +29,10 @@ Read the lodging properties (units and rates) first. Unit types and rates in the
 
 A hotel sells nights, not stock. When the owner names a villa or room by a short code or name ("A20 thì sao?", "căn nào có bể bơi?"), read the lodging properties (`GET /lodging/properties`, then `GET /lodging/properties/{id}` for units, rates and amenities) before anything else; the product catalog is for shops. Availability is in the calendar (`GET /lodging/calendar`, `POST /lodging/availability`), prices for given dates in `POST /lodging/quote`, bookings and bot holds in `GET /lodging/bookings`. Holds are built in: the bot checks the calendar and holds a villa itself, and the owner reviews holds on /app/bookings; it needs no API action for that.
 
+## Date-range prices (overrides)
+
+A date-range price (`POST /lodging/properties/{id}/overrides`) targets the whole property or one room. For a property sold whole (`sellMode: whole`, one villa rented as a unit), always send `unitId: null`; never the id of its whole-villa unit. Only a property sold by room (`sellMode: rooms`) takes a room's `unitId`, and only for a price of that room. When an approved write fails, the event gives the API's reason (code, message, field issues): fix that field and propose again.
+
 ## What guests ask
 
 Còn phòng ngày … không, giá một đêm bao nhiêu, cuối tuần có tăng giá không, phòng ở được mấy người, có bữa sáng không, có hồ bơi không, mấy giờ nhận phòng, có được nhận phòng sớm không, đặt cọc bao nhiêu, hủy phòng thế nào, có cho mang thú cưng không, đi đường nào. Most of these are profile fields; the FAQ is for the rest, and only with sourced answers.
