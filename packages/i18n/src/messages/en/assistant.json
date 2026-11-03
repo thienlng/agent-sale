@@ -54,6 +54,7 @@
     "hidePreview": "Hide details",
     "before": "Current",
     "changes": "Changes",
+    "beforeUnavailable": "Could not read the current value",
     "apply": "Apply",
     "reject": "Dismiss",
     "applying": "Applying…",

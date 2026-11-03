@@ -540,6 +540,34 @@ describe('AssistantPanel', () => {
     expect(screen.getByText(/"name": "Kho Quận 1"/)).toBeInTheDocument();
   });
 
+  it('says when the current value of an edited record could not be read', async () => {
+    useAssistantUi.setState({ open: true, workspaceId: WS, threadId: ASSISTANT_IDS.thread });
+    const proposal = proposalFixture({
+      routeKey: 'PATCH /lodging/properties/{id}/overrides/{rateId}',
+      summary: 'Đổi giá Noel',
+      preview: { body: { sell: 17000000 }, query: null, beforeUnavailable: true },
+    });
+    const { fetchStub } = stubFetch({
+      [`GET /assistant/threads/${ASSISTANT_IDS.thread}/messages`]: {
+        status: 200,
+        body: { data: turnFixture('giá').messages },
+      },
+      [`GET /assistant/threads/${ASSISTANT_IDS.thread}/proposals`]: {
+        status: 200,
+        body: { items: [proposal] },
+      },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderApp();
+
+    expect(await screen.findByText('Đổi giá Noel')).toBeInTheDocument();
+    expect(screen.getByTestId('proposal-before-unavailable')).toHaveTextContent(
+      'Không đọc được giá trị cũ',
+    );
+    expect(screen.getByText('Thay đổi')).toBeInTheDocument();
+    expect(screen.getByText(/"sell": 17000000/)).toBeInTheDocument();
+  });
+
   it('keeps the preview of a create closed and the apply button plain', async () => {
     useAssistantUi.setState({ open: true, workspaceId: WS, threadId: ASSISTANT_IDS.thread });
     const { fetchStub } = stubFetch({

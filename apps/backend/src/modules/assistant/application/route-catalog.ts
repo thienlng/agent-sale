@@ -25,6 +25,12 @@ export interface RouteCatalog {
   get(key: string): CatalogEntry | undefined;
   /** A GET on the same path (the current state shown before a PUT/PATCH/DELETE). */
   readerOf(entry: CatalogEntry): CatalogEntry | undefined;
+  /**
+   * For an item route without its own GET (`/properties/{id}/overrides/{rateId}`), the GETs of
+   * its ancestor paths that may list the item (`/properties/{id}/overrides`, `/properties/{id}`),
+   * nearest first. Empty when the path does not end in a parameter.
+   */
+  parentReadersOf(entry: CatalogEntry): CatalogEntry[];
 }
 
 /** `tool_search` returns at most this many entries. */
@@ -109,6 +115,16 @@ export function buildRouteCatalog(routes: readonly RouteContract[]): RouteCatalo
     readerOf: (entry) => {
       const reader = byKey.get(`GET ${entry.path}`);
       return reader?.use === 'read' ? reader : undefined;
+    },
+    parentReadersOf: (entry) => {
+      const segments = entry.path.split('/');
+      if (!/^\{\w+\}$/.test(segments.at(-1) ?? '')) return [];
+      const readers: CatalogEntry[] = [];
+      for (let n = segments.length - 1; n > 1; n--) {
+        const reader = byKey.get(`GET ${segments.slice(0, n).join('/')}`);
+        if (reader?.use === 'read') readers.push(reader);
+      }
+      return readers;
     },
   };
 }

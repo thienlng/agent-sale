@@ -341,6 +341,49 @@ describe('tool_call', () => {
   });
 });
 
+describe('the current state of an item without its own GET (QA M-4)', () => {
+  const PROPERTY = newId();
+  const RATE = newId();
+  const KEY = 'PATCH /lodging/properties/{id}/overrides/{rateId}';
+
+  it('reads a date-range price from its property, matched by its id', async () => {
+    const rate = { id: RATE, kind: 'override', sell: 15_000_000, version: 1 };
+    const property = { id: PROPERTY, name: 'A20', rates: [{ id: newId(), sell: 1 }, rate] };
+    const t = await setup((i) => ({ status: 200, body: i.method === 'get' ? property : null }));
+    await t.call({
+      key: KEY,
+      params: { id: PROPERTY, rateId: RATE },
+      body: { sell: 17_000_000, version: 1 },
+      summary: 'Đổi giá Noel',
+    });
+    expect(t.invoke).toHaveBeenCalledWith({
+      method: 'get',
+      path: `/lodging/properties/${PROPERTY}`,
+      businessId: BUSINESS,
+      authorization: AUTH,
+    });
+    const [stored] = await t.repo.listProposals(t.scope, t.thread.id);
+    expect(stored?.preview).toMatchObject({ before: rate });
+    expect(stored?.preview).not.toHaveProperty('beforeUnavailable');
+  });
+
+  it('marks the old value unreadable when the parent does not hold the item', async () => {
+    const t = await setup((i) => ({
+      status: 200,
+      body: i.method === 'get' ? { id: PROPERTY, rates: [{ id: newId() }] } : null,
+    }));
+    await t.call({
+      key: KEY,
+      params: { id: PROPERTY, rateId: RATE },
+      body: { sell: 17_000_000, version: 1 },
+      summary: 'Đổi giá Noel',
+    });
+    const [stored] = await t.repo.listProposals(t.scope, t.thread.id);
+    expect(stored?.preview).toMatchObject({ beforeUnavailable: true });
+    expect(stored?.preview).not.toHaveProperty('before');
+  });
+});
+
 describe('customer contact data in reads (spec 2-R4)', () => {
   const ID = newId();
 
