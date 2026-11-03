@@ -7,6 +7,7 @@ import { useWorkspaceId } from '@/lib/use-workspace';
 import { cn } from '@/lib/utils';
 
 import { useIsAccountOwner } from '../hooks/use-is-account-owner';
+import { useLauncherBottom } from '../hooks/use-launcher-bottom';
 import { useAssistantUi } from '../stores/assistant-ui.store';
 
 // The panel (Sheet, chat, steps, spotlight) and its strings load on first open (docs/16 §1).
@@ -28,9 +29,18 @@ export function AssistantBubble() {
   useEffect(() => syncWorkspace(workspaceId || null), [workspaceId, syncWorkspace]);
   // Once loaded the panel stays mounted, so a spotlight survives closing it.
   const [loaded, setLoaded] = useState(open);
+  // Steps over a page's bottom-right control marked `data-assistant-avoid` (a Send button).
+  const bottom = useLauncherBottom(isOwner && !open);
   if (!isOwner) return null;
   return (
     <>
+      {/* Room under the last control of a padded page, so the launcher never covers it; full-bleed
+          pages (data-content-padding=false) mark their controls instead. */}
+      <div
+        aria-hidden
+        data-assistant-spacer
+        className="h-20 shrink-0 [div:has([data-content-padding=false])>&]:hidden"
+      />
       {open ? null : (
         <button
           type="button"
@@ -40,8 +50,9 @@ export function AssistantBubble() {
             setLoaded(true);
             setOpen(true);
           }}
+          style={{ bottom }}
           className={cn(
-            'fixed right-4 bottom-4 z-40 grid size-14 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg transition hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
+            'fixed right-4 z-40 grid size-14 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg transition hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
           )}
         >
           <Rabbit className="size-7" aria-hidden />
