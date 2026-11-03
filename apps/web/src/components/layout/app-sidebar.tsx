@@ -84,6 +84,14 @@ const ORDER_PATHS = /^\/app\/(orders|order-settings)(\/|$)/;
 const PRODUCTS: readonly NavItem[] = [
   { to: '/app/products', key: 'nav.products', icon: Package, ready: true },
 ];
+/**
+ * Education and spa businesses (the `service` group) sell courses or services from the same
+ * catalog, named for what they sell; they take requests, not orders, and have no PMS.
+ */
+const SERVICE_CATALOG_LABEL: Readonly<Record<string, string>> = {
+  education: 'nav.courses',
+  spa: 'nav.services',
+};
 /** Point-of-sale / inventory software (KiotViet, …) feeding the catalog. */
 const PMS: readonly NavItem[] = [
   { to: '/app/integrations', key: 'nav.pms', icon: Blocks, ready: true, beta: true },
@@ -243,6 +251,7 @@ export function AppSidebar({
   const canSettings = useCan('settings.manage');
   const canCatalog = useCan('catalog.manage');
   const pms = canCatalog ? <NavItems items={PMS} /> : null;
+  const catalogLabel = industry ? SERVICE_CATALOG_LABEL[industry] : undefined;
   return (
     <Sidebar variant={prefs.sidebar_variant} collapsible={prefs.sidebar_collapsible}>
       <SidebarHeader>
@@ -285,7 +294,9 @@ export function AppSidebar({
               </>
             ) : industry === 'hotel' ? (
               <NavItems items={LODGING} counts={navCounts} />
-            ) : industry === 'saas' ? null : (
+            ) : industry === 'saas' ? null : catalogLabel ? (
+              <NavItems items={PRODUCTS.map((i) => ({ ...i, key: catalogLabel }))} />
+            ) : (
               <>
                 <SectionNav
                   label="nav.orders"

@@ -29,6 +29,7 @@ export function ContactSheet({
   lookups,
   renderConversations,
   renderOverviewExtra,
+  industry,
 }: {
   contactId: string | undefined;
   onClose: () => void;
@@ -37,6 +38,8 @@ export function ContactSheet({
   renderConversations?: ((contactId: string) => ReactNode) | undefined;
   /** Industry blocks under the overview (e.g. a SaaS customer's plan), composed by the route. */
   renderOverviewExtra?: ((contactId: string) => ReactNode) | undefined;
+  /** The business's industry: request kinds in the history use its words. */
+  industry?: string | undefined;
 }) {
   const { t } = useTranslation();
   const contact = useContact(contactId);
@@ -93,7 +96,7 @@ export function ContactSheet({
               </TabsContent>
             ) : null}
             <TabsContent value="history" className="pt-3">
-              <ContactHistoryTab contactId={c.id} lookups={lookups} />
+              <ContactHistoryTab contactId={c.id} lookups={lookups} industry={industry} />
             </TabsContent>
             <TabsContent value="files" className="pt-3">
               <p className="flex items-center gap-2 rounded-lg border border-dashed p-6 text-sm text-muted-foreground">

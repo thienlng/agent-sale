@@ -73,6 +73,43 @@ describe('ProductsList', () => {
     expect(row).not.toHaveTextContent('KiotViet');
   });
 
+  it('shows the length and sessions of a course or service instead of its stock', async () => {
+    const offering = (o: Record<string, unknown>) => ({
+      kind: 'service',
+      durationMinutes: null,
+      sessions: null,
+      period: '',
+      format: null,
+      level: '',
+      schedule: '',
+      audience: '',
+      outcomes: [],
+      priceNote: '',
+      ...o,
+    });
+    const FACIAL = {
+      ...product('0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9f03', 'DV01', 'Chăm sóc da', false),
+      offering: offering({ durationMinutes: 60, sessions: 10 }),
+    };
+    const COURSE = {
+      ...product('0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9f04', 'KH01', 'IELTS 6.5', false),
+      offering: offering({ kind: 'course', period: '3 tháng' }),
+    };
+    const { fetchStub } = stubFetch({
+      'GET /products?status=active&page=1&pageSize=20': page([FACIAL, COURSE, SHOE]),
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithRouter(() => <ProductsList pmsLink={undefined} />);
+    const facial = (await screen.findByText('Chăm sóc da')).closest('tr') as HTMLElement;
+    const cells = within(facial).getAllByRole('cell');
+    expect(cells.at(-1)).toHaveTextContent('60 phút · 10 buổi');
+    const course = screen.getByText('IELTS 6.5').closest('tr') as HTMLElement;
+    expect(within(course).getAllByRole('cell').at(-1)).toHaveTextContent('3 tháng');
+    const shoe = screen.getByText('Giày sneaker').closest('tr') as HTMLElement;
+    expect(within(shoe).getAllByRole('cell').at(-1)).toHaveTextContent('3');
+    expect(screen.getByRole('columnheader', { name: 'Có thể bán / Thời lượng' })).toBeVisible();
+  });
+
   it('filters by source once connected', async () => {
     const { calls } = setup(LINK);
     await screen.findByText('Giày sneaker');

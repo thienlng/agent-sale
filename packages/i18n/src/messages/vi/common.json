@@ -53,7 +53,9 @@
     "groupAccount": "Tài khoản",
     "groupBusinesses": "Business của tôi",
     "accountOverview": "Tổng quan các business",
-    "newBusiness": "Tạo business mới"
+    "newBusiness": "Tạo business mới",
+    "courses": "Khoá học",
+    "services": "Dịch vụ"
   },
   "auth": {
     "login": "Đăng nhập",
@@ -909,6 +911,37 @@
       "updated": "Đã cập nhật tồn kho"
     }
   },
+  "commerce": {
+    "offering": {
+      "titleCourse": "Chi tiết khoá học",
+      "titleService": "Chi tiết dịch vụ",
+      "hintCourse": "Bot dùng các thông tin này để tư vấn khoá học. Khoá học không có tồn kho.",
+      "hintService": "Bot dùng các thông tin này để tư vấn dịch vụ. Dịch vụ không có tồn kho.",
+      "retail": "Đây là sản phẩm bán lẻ",
+      "retailHint": "Bật cho hàng có tồn kho, như mỹ phẩm hay giáo trình. Bot sẽ tư vấn như một sản phẩm thường.",
+      "durationMinutes": "Thời lượng mỗi buổi (phút)",
+      "sessions": "Số buổi",
+      "period": "Thời gian khoá học",
+      "periodPlaceholder": "3 tháng",
+      "format": "Hình thức",
+      "formats": {
+        "none": "Chưa chọn",
+        "online": "Online",
+        "offline": "Tại cơ sở",
+        "hybrid": "Kết hợp"
+      },
+      "level": "Trình độ",
+      "schedule": "Lịch học hoặc khung giờ",
+      "audience": "Dành cho",
+      "outcomes": "Kết quả đạt được",
+      "outcomesHint": "Mỗi dòng một ý, tối đa 5 ý.",
+      "priceNote": "Ghi chú giá",
+      "priceNoteHint": "Hiện cạnh giá và thay cho giá 0, ví dụ: giá tham khảo, từ, liên hệ.",
+      "col": "Thời lượng",
+      "minutesCount": "{{count}} phút",
+      "sessionsCount": "{{count}} buổi"
+    }
+  },
   "warehouses": {
     "title": "Kho hàng",
     "hint": "Thông tin kho dùng làm thông tin gửi hàng khi gửi đơn sang đơn vị vận chuyển.",
@@ -1135,7 +1168,9 @@
         "note.edited": "Sửa ghi chú",
         "tag.added": "Gắn tag",
         "tag.updated": "Sửa thông tin tag",
-        "tag.removed": "Gỡ tag"
+        "tag.removed": "Gỡ tag",
+        "contact.request_recorded": "Yêu cầu mới",
+        "contact.request_updated": "Cập nhật yêu cầu"
       },
       "empty_value": "trống"
     },
@@ -1230,6 +1265,36 @@
         "instagram": "Instagram",
         "website": "Website"
       }
+    },
+    "requests": {
+      "title": "Yêu cầu",
+      "kind": {
+        "demo": "Xin demo",
+        "trial": "Xin dùng thử",
+        "consultation": "Xin tư vấn",
+        "placement_test": "Đăng ký kiểm tra trình độ",
+        "appointment": "Đặt lịch"
+      },
+      "kindEducation": {
+        "trial": "Đăng ký học thử",
+        "consultation": "Tư vấn lộ trình"
+      },
+      "strip": {
+        "label": "Yêu cầu của khách hàng",
+        "recorded7d": "Yêu cầu 7 ngày qua",
+        "open": "Đang chờ xử lý",
+        "noOpen": "Không có yêu cầu nào đang chờ.",
+        "statusHint": "Lọc khách hàng ở trạng thái {{name}}"
+      },
+      "card": {
+        "empty": "Khách chưa có yêu cầu nào.",
+        "updated": "Cập nhật",
+        "recordedAt": "Ghi nhận {{time}}"
+      },
+      "unnamed": "Khách chưa có tên",
+      "loading": "Đang tải yêu cầu…",
+      "loadError": "Không tải được yêu cầu.",
+      "retry": "Thử lại"
     }
   },
   "team": {
