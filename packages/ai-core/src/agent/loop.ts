@@ -24,6 +24,20 @@ export interface AgentStep {
   name?: string;
   ok?: boolean;
   ms?: number;
+  /** A failed tool step: the `errorCode` its JSON result names (e.g. `turn_budget_exhausted`). */
+  errorCode?: string;
+}
+
+const ERROR_CODE_RE = /^[a-z0-9_:,.-]{1,60}$/i;
+
+/** The `errorCode` of a failed tool result (`{"ok":false,"errorCode":"…"}`); only a short code. */
+export function toolErrorCode(content: string): string | undefined {
+  try {
+    const code = (JSON.parse(content) as { errorCode?: unknown } | null)?.errorCode;
+    return typeof code === 'string' && ERROR_CODE_RE.test(code) ? code : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export type AgentOutcome = 'done' | 'interrupted' | 'limit' | 'invalid_tools' | 'budget';
@@ -222,7 +236,14 @@ export async function runAgentLoop(input: AgentLoopInput): Promise<AgentLoopResu
       ...(input.onToolError ? { onError: input.onToolError } : {}),
     });
     for (const r of batch.results) {
-      step({ kind: 'tool', name: r.name ?? r.call.name, ok: r.ok, ms: r.ms });
+      const errorCode = r.ok ? undefined : toolErrorCode(r.content);
+      step({
+        kind: 'tool',
+        name: r.name ?? r.call.name,
+        ok: r.ok,
+        ms: r.ms,
+        ...(errorCode ? { errorCode } : {}),
+      });
     }
     trusted.push(...batch.trusted);
     for (const id of batch.productIds) productIds.add(id);

@@ -143,7 +143,10 @@ function toRow(m: ChatMessage, runId: string): NewMessage {
   });
 }
 
-/** Steps keep no arguments or results: kind, tool name, ok and duration only. */
+/**
+ * Steps keep no arguments or results: kind, tool name, ok, duration and, for a failed tool, the
+ * error code its result named (`turn_budget_exhausted`, `http_400`, …).
+ */
 const toStepRecord = (runId: string, idx: number, s: AgentStep): StepRecord => ({
   runId,
   idx,
@@ -151,7 +154,7 @@ const toStepRecord = (runId: string, idx: number, s: AgentStep): StepRecord => (
   toolName: s.name ?? null,
   ok: s.ok ?? null,
   ms: s.ms === undefined ? null : Math.round(s.ms),
-  errorCode: null,
+  errorCode: s.errorCode ?? null,
 });
 
 /** The last `max` messages, from the first user, event or compaction summary message on. */
