@@ -35,6 +35,8 @@ import {
 } from '@/components/ui/table';
 import { formatCompactVnd, formatDay, formatNumber, formatVnd } from '@/lib/format';
 
+import { statusLabel } from '../utils/status-labels';
+
 const SERIES_COLORS = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)'];
 const PIE_COLORS = [...SERIES_COLORS, 'var(--chart-5)'];
 const DAY = /^\d{4}-\d{2}-\d{2}/;
@@ -51,11 +53,14 @@ function formatTick(unit: AssistantChartUnit, v: number): string {
   return unit === 'vnd' ? formatCompactVnd(v) : formatValue(unit, v);
 }
 
-/** A category: a `yyyy-mm-dd…` value as a day, an empty one as a dash. */
-function formatCategory(v: string | number | null | undefined): string {
+/**
+ * A category: a `yyyy-mm-dd…` value as a day, a raw status (`cancelled`) as its label, an empty
+ * one as a dash.
+ */
+function formatCategory(t: (key: string) => string, v: string | number | null | undefined): string {
   if (v === null || v === undefined) return '—';
   const s = String(v);
-  return DAY.test(s) ? formatDay(s.slice(0, 10)) : s;
+  return DAY.test(s) ? formatDay(s.slice(0, 10)) : (statusLabel(t, s) ?? s);
 }
 
 /**
@@ -74,7 +79,7 @@ export default function AssistantChart({ chart }: { chart: AssistantChartSpec })
     ]),
   );
   const data = chart.rows.map((row) => ({
-    x: formatCategory(row[chart.x.key]),
+    x: formatCategory(t, row[chart.x.key]),
     ...Object.fromEntries(
       chart.series.map((s, i) => {
         const v = row[s.key];
@@ -149,7 +154,7 @@ export default function AssistantChart({ chart }: { chart: AssistantChartSpec })
             <TableBody>
               {chart.rows.map((row, i) => (
                 <TableRow key={i}>
-                  <TableCell>{formatCategory(row[chart.x.key])}</TableCell>
+                  <TableCell>{formatCategory(t, row[chart.x.key])}</TableCell>
                   {chart.series.map((s) => {
                     const v = row[s.key];
                     return (

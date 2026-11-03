@@ -25,6 +25,30 @@ const daily: AssistantChartSpec = {
 };
 
 describe('AssistantChart', () => {
+  it('shows status categories as labels, not raw codes', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <AssistantChart
+        chart={{
+          kind: 'bar',
+          title: 'Đơn theo trạng thái',
+          x: { key: 'status', label: 'Trạng thái' },
+          series: [{ key: 'count', label: 'Số đơn' }],
+          unit: 'count',
+          rows: [
+            { status: 'new', count: 1 },
+            { status: 'cancelled', count: 2 },
+          ],
+        }}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Xem bảng' }));
+    const table = screen.getByRole('table');
+    expect(within(table).getByText('Mới')).toBeInTheDocument();
+    expect(within(table).getByText('Đã huỷ')).toBeInTheDocument();
+    expect(within(table).queryByText('cancelled')).toBeNull();
+  });
+
   it('renders the title and, after the toggle, a table row per data row with VND', async () => {
     const user = userEvent.setup();
     const { container } = renderWithProviders(<AssistantChart chart={daily} />);
