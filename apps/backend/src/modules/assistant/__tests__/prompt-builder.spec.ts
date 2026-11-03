@@ -172,6 +172,35 @@ describe('assistant@3 navigate-then-fill rule (QA B-11)', () => {
   });
 });
 
+describe('assistant@3 dialog-form rule (QA5 #4)', () => {
+  it('fills an opensDialog form in the same turn instead of promising a later fill', async () => {
+    const template = await loadAssistantTemplate();
+    expect(template).toContain('A form marked `opensDialog: true` is a closed dialog');
+    expect(template).toContain('call ui_fill_form on it in this same turn');
+    expect(template).toContain('never only spotlight its button or promise to fill it later');
+  });
+
+  it('passes the opensDialog flag of a form to the model', () => {
+    const out = buildTurnMessage(
+      'Mở form tạo bot mới và điền tên Bot A',
+      {
+        route: '/app/bots',
+        targets: ['bots.new'],
+        forms: [
+          {
+            id: 'bot',
+            fields: [{ name: 'name', label: 'Tên bot', type: 'text', empty: true }],
+            opensDialog: true,
+          },
+        ],
+      },
+      AT,
+    );
+    expect(out).toContain('"id":"bot"');
+    expect(out).toContain('"opensDialog":true');
+  });
+});
+
 describe('buildTurnMessage', () => {
   it('puts the page context and the local time before the owner text', () => {
     expect(

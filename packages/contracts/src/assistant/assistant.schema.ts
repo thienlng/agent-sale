@@ -30,6 +30,8 @@ export const AssistantPageForm = z.object({
       }),
     )
     .max(30),
+  /** The form is a closed dialog: `fill_form` opens it with the values (QA5 #4). */
+  opensDialog: z.boolean().optional(),
 });
 export type AssistantPageForm = z.infer<typeof AssistantPageForm>;
 

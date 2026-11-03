@@ -271,7 +271,13 @@ export function collectPageContext(route: string): AssistantPageContext {
   const onScreen = [...forms.keys()].slice(0, MAX_FORMS).flatMap((id) => {
     const form = activeForm(id);
     return form && !form.busy()
-      ? [{ id, fields: sentFields(form.fields().slice(0, MAX_FIELDS), budget) }]
+      ? [
+          {
+            id,
+            fields: sentFields(form.fields().slice(0, MAX_FIELDS), budget),
+            ...(form.opensDialog ? { opensDialog: true } : {}),
+          },
+        ]
       : [];
   });
   const info = usePageInfo.getState().info;
