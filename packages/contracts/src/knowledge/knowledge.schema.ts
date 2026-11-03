@@ -75,6 +75,16 @@ export const TrainingItemDto = CreateTrainingItemRequest.extend({
 });
 export type TrainingItemDto = z.infer<typeof TrainingItemDto>;
 export const TrainingItemList = z.object({ data: z.array(TrainingItemDto) });
+/**
+ * Optional filter and page of `GET /bots/{botId}/training-items` (QA NB-1): one kind, and
+ * `limit` items from `offset` in list order. Without them every item comes back.
+ */
+export const TrainingItemListQuery = z.object({
+  kind: TrainingKind.optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  offset: z.coerce.number().int().min(0).max(10_000).default(0),
+});
+export type TrainingItemListQuery = z.infer<typeof TrainingItemListQuery>;
 /** One changed field of a history entry; values are the JSON stored before and after. */
 export const TrainingChange = z.object({
   field: z.string(),

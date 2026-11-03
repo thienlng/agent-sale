@@ -1,5 +1,6 @@
 import {
   CreateTrainingItemRequest,
+  TrainingItemListQuery,
   UpdateTrainingItemRequest,
   type TrainingItemDto,
   type TrainingHistoryDto,
@@ -15,6 +16,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import {
   type AuthState,
@@ -46,9 +48,13 @@ export class TrainingController {
   async list(
     @CurrentWorkspace() ws: WorkspaceId,
     @Param('botId') botId: string,
+    @Query(new ZodValidationPipe(TrainingItemListQuery)) query: TrainingItemListQuery,
   ): Promise<{ data: TrainingItemDto[] }> {
     await this.bots.getBot(ws, botId);
-    return { data: await this.training.list(ws, botId) };
+    const all = await this.training.list(ws, botId);
+    const items = query.kind ? all.filter((i) => i.kind === query.kind) : all;
+    const end = query.limit === undefined ? undefined : query.offset + query.limit;
+    return { data: items.slice(query.offset, end) };
   }
   @RequireCapability('bots.manage')
   @Post('training-items')

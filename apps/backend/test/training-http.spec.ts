@@ -88,6 +88,23 @@ describe('HTTP: bot training', () => {
     expect(
       TrainingItemList.parse((await http.inject({ method: 'GET', url, headers })).json()).data,
     ).toHaveLength(STARTER_RULES.length + 1); // a new bot starts with the starter pack
+    // QA NB-1: one kind, paged, so a long list is read whole in pages.
+    const list = async (qs: string) =>
+      TrainingItemList.parse(
+        (await http.inject({ method: 'GET', url: `${url}?${qs}`, headers })).json(),
+      ).data;
+    const scenarios = await list('kind=scenario');
+    expect(scenarios.length).toBeGreaterThan(2);
+    expect(scenarios.every((i) => i.kind === 'scenario')).toBe(true);
+    expect(await list('kind=quick_reply')).toEqual([]);
+    const pages = [
+      ...(await list('kind=scenario&limit=2')),
+      ...(await list('kind=scenario&limit=2&offset=2')),
+    ];
+    expect(pages.map((i) => i.id)).toEqual(scenarios.slice(0, 4).map((i) => i.id));
+    expect((await http.inject({ method: 'GET', url: `${url}?kind=faq`, headers })).statusCode).toBe(
+      400,
+    );
     expect(
       (await http.inject({ method: 'PATCH', url: `${url}/${item.id}`, headers, payload: {} }))
         .statusCode,
