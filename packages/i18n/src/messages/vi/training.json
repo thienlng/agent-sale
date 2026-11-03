@@ -374,7 +374,7 @@
       "empty": "Không tìm thấy câu hỏi phù hợp",
       "emptyStart": "Chưa có câu hỏi nào. Thêm câu hỏi đầu tiên để Bot trả lời khách hàng.",
       "total": "Tổng số {{count}} câu hỏi & trả lời",
-      "askSample": "Soạn giúp mình vài câu hỏi thường gặp mẫu cho shop."
+      "askSample": "Điền mẫu câu hỏi thường gặp cho bot này: soạn vài câu từ dữ liệu của shop rồi tạo đề xuất để mình duyệt."
     },
     "quick": {
       "title": "Quản lý tin nhắn nhanh",
@@ -405,7 +405,7 @@
       "deleteConfirm": "Xoá tin nhắn nhanh “/{{shortcut}}”?",
       "saved": "Đã lưu tin nhắn nhanh",
       "deleted": "Đã xoá tin nhắn nhanh",
-      "askSample": "Soạn giúp mình vài tin nhắn nhanh mẫu cho shop."
+      "askSample": "Điền mẫu tin nhắn nhanh cho bot này: soạn vài tin từ dữ liệu của shop rồi tạo đề xuất để mình duyệt."
     },
     "media": {
       "title": "Thư viện ảnh",
@@ -503,7 +503,7 @@
     "thenOnly": "Bot sẽ {{content}}",
     "showSystem": "Hiện các nguyên tắc hệ thống",
     "hideSystem": "Ẩn các nguyên tắc hệ thống",
-    "askSample": "Soạn giúp mình vài tình huống mẫu cho bot."
+    "askSample": "Điền mẫu tình huống cho bot này: soạn vài tình huống từ dữ liệu của shop rồi tạo đề xuất để mình duyệt."
   },
   "purpose": {
     "facts": {
@@ -619,7 +619,7 @@
       "dataSecurity": "Ví dụ: Máy chủ tại Việt Nam, sao lưu hằng ngày, không chia sẻ dữ liệu cho bên thứ ba",
       "refundPolicy": "Ví dụ: Huỷ gói bất kỳ lúc nào; hoàn tiền trong 7 ngày đầu nếu chưa dùng"
     },
-    "askFill": "Điền giúp mình các thông tin doanh nghiệp còn thiếu."
+    "askFill": "Điền mẫu thông tin doanh nghiệp: điền vào biểu mẫu các ô còn thiếu từ dữ liệu của shop để mình kiểm tra rồi lưu."
   },
   "personality": {
     "title": "Tính cách của Bot",

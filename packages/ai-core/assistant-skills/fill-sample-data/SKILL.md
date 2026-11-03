@@ -2,11 +2,13 @@
 name: fill-sample-data
 description: Fill an empty bot page with a small editable sample (FAQ, scenarios, quick replies, profile) from real sources
 toolsets: [ui, routes]
-version: 1
+version: 2
 ---
 # Fill sample data
 
-Use this when the owner pressed "Nhờ trợ lý điền mẫu" on a page (the button sends a fixed request such as "Soạn giúp mình vài câu hỏi thường gặp mẫu cho shop." or "Điền giúp mình các thông tin doanh nghiệp còn thiếu."), or asks you to "điền mẫu" or to fill a page with sample content.
+Use this when the owner pressed "Nhờ trợ lý điền mẫu" on a page (the button sends a fixed request that starts with "Điền mẫu", such as "Điền mẫu câu hỏi thường gặp cho bot này: …"), or asks you to "điền mẫu" or to fill a page with sample content.
+
+The result of this skill is always an action, never only text: one or more proposals (tool_call on the write route, with a summary), or a ui_fill_form on the page's form. Samples written only in the chat are a failure: the owner pressed a button to get drafts they can approve. Do the reads, then the writes, in this same turn; do not ask for permission first.
 
 1. Find the page from <page_context>: the route and the title tell you which page the owner is on, and the entity gives the bot id and its industry. Do not ask the owner which page it is.
 2. Sources first. Use tool_search to find the read tools and read the bot (profile facts, notes, personality), its FAQ, its training items, and the products, the SaaS plans (GET /saas-plans) or the lodging properties that apply. Load fill-shop-info or draft-reply-guidance for the page, and the industry skill (industry-retail, industry-hotel or industry-saas) when the industry has one.
@@ -17,6 +19,7 @@ Use this when the owner pressed "Nhờ trợ lý điền mẫu" on a page (the b
    - /app/bots/{botId}/instructions with no scenarios: the starter rules proposal first, then 3 to 5 scenarios beyond the starter rules, as proposals (at most 5 per turn). For a single scenario, fill the `scenario` form instead. An empty personality: fill the `bot-personality` form from the industry's mission and greeting.
    - /app/bots/{botId}/quick-replies with no quick replies: 3 to 5 quick replies as proposals; for a single one, fill the `quick-reply` form instead.
    - Another page: say what you can fill there, or offer to open /app/bots and choose the bot.
-5. Tell the owner, in two short lines: which parts are sample wording they should adapt to their shop, and which facts are still missing (one list). Ask for the missing facts.
+   - When no sourced fact exists for any item, still draft the items whose wording needs no fact (a greeting, "Khách hỏi còn hàng không" answered from the product data, a hand-over to staff), and list what is missing. Draft nothing only when the bot or page cannot be found.
+5. After the proposals or the fill, tell the owner, in two short lines: which parts are sample wording they should adapt to their shop, and which facts are still missing (one list). Ask for the missing facts.
 6. Never put template placeholders in double braces, links, images or customer data in a sample.
 7. A fill never saves, and a proposal waits for the owner's approval. Never say anything is saved until the event message says so.

@@ -56,6 +56,13 @@ describe('shop autofill skills (T-175)', () => {
     }
   });
 
+  it('makes "Nhờ trợ lý điền mẫu" end in proposals or a fill, not chat text (QA TinyMind B7)', () => {
+    const sample = skills.get('fill-sample-data')!;
+    expect(sample.version).toBe(2);
+    expect(sample.body).toContain('always an action, never only text');
+    expect(sample.body).toContain('starts with "Điền mẫu"');
+  });
+
   it('moves set-up-bot to version 2, pointing at the new skills', () => {
     const setUp = skills.get('set-up-bot')!;
     expect(setUp.version).toBe(2);

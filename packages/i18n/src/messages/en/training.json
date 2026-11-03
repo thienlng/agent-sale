@@ -374,7 +374,7 @@
       "empty": "No matching questions",
       "emptyStart": "No questions yet. Add the first one so the Bot can answer customers.",
       "total": "{{count}} questions & answers in total",
-      "askSample": "Draft a few sample FAQs for my shop."
+      "askSample": "Fill sample FAQs for this bot: draft a few from my shop's data and create proposals for me to approve."
     },
     "quick": {
       "title": "Quick replies",
@@ -405,7 +405,7 @@
       "deleteConfirm": "Delete quick reply “/{{shortcut}}”?",
       "saved": "Quick reply saved",
       "deleted": "Quick reply deleted",
-      "askSample": "Draft a few sample quick replies for my shop."
+      "askSample": "Fill sample quick replies for this bot: draft a few from my shop's data and create proposals for me to approve."
     },
     "media": {
       "title": "Image library",
@@ -503,7 +503,7 @@
     "thenOnly": "Bot will {{content}}",
     "showSystem": "Show system principles",
     "hideSystem": "Hide system principles",
-    "askSample": "Draft a few sample scenarios for my bot."
+    "askSample": "Fill sample scenarios for this bot: draft a few from my shop's data and create proposals for me to approve."
   },
   "purpose": {
     "facts": {
@@ -619,7 +619,7 @@
       "dataSecurity": "e.g. Servers in Vietnam, daily backups, no data shared with third parties",
       "refundPolicy": "e.g. Cancel any time; refund within the first 7 days if unused"
     },
-    "askFill": "Fill in the missing business information for me."
+    "askFill": "Fill sample business information: fill the missing fields of the form from my shop's data for me to check and save."
   },
   "personality": {
     "title": "Bot personality",
