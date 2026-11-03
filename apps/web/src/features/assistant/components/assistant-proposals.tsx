@@ -47,8 +47,16 @@ function proposalAction(routeKey: string): {
   };
 }
 
-/** The preview split for the card: the record now (`before`) and what is sent (body/query). */
-function previewParts(preview: unknown): { before: string; changes: string } {
+/**
+ * The preview split for the card: the record now (`before`) and what is sent (body/query).
+ * `beforeUnavailable`: the change touches an existing record whose current value could not be
+ * read, which the card says instead of showing nothing.
+ */
+function previewParts(preview: unknown): {
+  before: string;
+  changes: string;
+  beforeUnavailable: boolean;
+} {
   if (preview && typeof preview === 'object' && !Array.isArray(preview)) {
     const p = preview as Record<string, unknown>;
     if ('body' in p || 'query' in p || 'before' in p) {
@@ -58,10 +66,14 @@ function previewParts(preview: unknown): { before: string; changes: string } {
           : p['query'] !== undefined && p['query'] !== null
             ? p['query']
             : null;
-      return { before: previewText(p['before']), changes: previewText(sent) };
+      return {
+        before: previewText(p['before']),
+        changes: previewText(sent),
+        beforeUnavailable: p['beforeUnavailable'] === true,
+      };
     }
   }
-  return { before: '', changes: previewText(preview) };
+  return { before: '', changes: previewText(preview), beforeUnavailable: false };
 }
 
 /**
@@ -132,8 +144,8 @@ function PendingProposal({ proposal }: { proposal: AssistantProposalDto }) {
   const [showPreview, setShowPreview] = useState(action.changesExisting);
   // Keyed by the proposal id, so a card mounted again (another panel view and back) stays busy.
   const { inFlight, run } = useProposalDecision(proposal);
-  const { before, changes } = previewParts(proposal.preview);
-  const hasPreview = Boolean(before || changes);
+  const { before, changes, beforeUnavailable } = previewParts(proposal.preview);
+  const hasPreview = Boolean(before || changes || beforeUnavailable);
   const previewId = `proposal-preview-${proposal.id}`;
 
   const busy = inFlight !== null;
@@ -201,8 +213,19 @@ function PendingProposal({ proposal }: { proposal: AssistantProposalDto }) {
           {showPreview ? (
             <div id={previewId} className="flex min-w-0 flex-col gap-1.5">
               {before ? <PreviewBlock label={t('proposals.before')} text={before} /> : null}
+              {!before && beforeUnavailable ? (
+                <p
+                  className="text-xs text-muted-foreground"
+                  data-testid="proposal-before-unavailable"
+                >
+                  {t('proposals.beforeUnavailable')}
+                </p>
+              ) : null}
               {changes ? (
-                <PreviewBlock label={before ? t('proposals.changes') : null} text={changes} />
+                <PreviewBlock
+                  label={before || beforeUnavailable ? t('proposals.changes') : null}
+                  text={changes}
+                />
               ) : null}
             </div>
           ) : null}

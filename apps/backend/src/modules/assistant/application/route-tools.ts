@@ -33,6 +33,27 @@ export const FORBIDDEN_MESSAGE = 'Tài khoản của anh/chị không có quyề
 const MAX_ISSUES = 5;
 const PATH_PARAM = /^[A-Za-z0-9_-]{1,64}$/;
 const MUTATING_WITH_STATE = new Set(['patch', 'put', 'delete']);
+/** At most this many ancestor GETs are read to find an item's current state. */
+const MAX_PARENT_READS = 2;
+
+/** The first object (depth-first, ≤ 6 levels) whose `id` is exactly `id`. */
+function findById(value: unknown, id: string, depth: number): unknown {
+  if (value === null || typeof value !== 'object' || depth > 6) return undefined;
+  if (Array.isArray(value)) {
+    for (const x of value) {
+      const hit = findById(x, id, depth + 1);
+      if (hit !== undefined) return hit;
+    }
+    return undefined;
+  }
+  const o = value as Record<string, unknown>;
+  if (o['id'] === id) return o;
+  for (const x of Object.values(o)) {
+    const hit = findById(x, id, depth + 1);
+    if (hit !== undefined) return hit;
+  }
+  return undefined;
+}
 /**
  * Reads of the business's own content (its bots, FAQs, scenarios, profile and villas), where a
  * phone, e-mail or address is the shop's hotline or address, not a customer's. Every other read
@@ -274,18 +295,23 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
       return fail('too_many_pending', { max: MAX_PENDING_PROPOSALS });
     }
     let before: unknown;
-    const reader = MUTATING_WITH_STATE.has(p.entry.method)
-      ? ctx.catalog.readerOf(p.entry)
-      : undefined;
-    if (reader) {
+    let beforeUnavailable = false;
+    if (MUTATING_WITH_STATE.has(p.entry.method)) {
       // The current state, so the owner sees what changes (a PUT replaces it whole).
-      const current = await ctx.invoker.invoke({
-        method: 'get',
-        path: p.path,
-        businessId: p.businessId,
-        authorization: ctx.authorization,
-      });
-      if (current.status < 300) before = current.body;
+      const reader = ctx.catalog.readerOf(p.entry);
+      if (reader) {
+        const current = await ctx.invoker.invoke({
+          method: 'get',
+          path: p.path,
+          businessId: p.businessId,
+          authorization: ctx.authorization,
+        });
+        if (current.status < 300) before = current.body;
+      } else {
+        before = await itemFromParent(p);
+        // Said on the card instead of an empty "before" the owner could take for "nothing".
+        beforeUnavailable = before === undefined;
+      }
     }
     const proposal = await ctx.repo.createProposal(ctx.scope, {
       id: newId(),
@@ -301,11 +327,36 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
         body: p.body ?? null,
         query: p.query ?? null,
         ...(before !== undefined ? { before } : {}),
+        ...(beforeUnavailable ? { beforeUnavailable: true } : {}),
       },
       expiresAt: new Date(now().getTime() + PROPOSAL_TTL_MS),
     });
     ctx.proposalIds.push(proposal.id);
     return { content: json({ status: 'awaiting_owner_approval', proposalId: proposal.id }) };
+  }
+
+  /**
+   * The current state of an item whose route has no GET of its own (a date-range price under a
+   * property): read from the nearest ancestor GET that holds an object with exactly the item's
+   * id. Undefined when none does; never a guess.
+   */
+  async function itemFromParent(p: Extract<Prepared, { ok: true }>): Promise<unknown> {
+    const segments = p.path.split('/');
+    const id = segments.at(-1);
+    if (!id) return undefined;
+    for (const reader of ctx.catalog.parentReadersOf(p.entry).slice(0, MAX_PARENT_READS)) {
+      const depth = reader.path.split('/').length;
+      const current = await ctx.invoker.invoke({
+        method: 'get',
+        path: segments.slice(0, depth).join('/'),
+        businessId: p.businessId,
+        authorization: ctx.authorization,
+      });
+      if (current.status >= 300) continue;
+      const item = findById(current.body, id, 0);
+      if (item !== undefined) return item;
+    }
+    return undefined;
   }
 
   const search: RunnableTool = {
