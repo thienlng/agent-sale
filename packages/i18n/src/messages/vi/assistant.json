@@ -32,7 +32,7 @@
     "budget": "Hết ngân sách lượt"
   },
   "ms": "{{ms}} ms",
-  "busy": "Thỏ Rapiz đang trả lời câu trước, đợi chút nhé.",
+  "busy": "Thỏ Rapiz đang trả lời câu trước, anh/chị đợi chút nhé.",
   "unavailable": "Thỏ Rapiz tạm thời không trả lời được. Thử lại sau ít phút.",
   "sendError": "Không gửi được tin nhắn. Thử lại.",
   "spotlightDismiss": "Bấm bất kỳ đâu hoặc nhấn Esc để đóng",
