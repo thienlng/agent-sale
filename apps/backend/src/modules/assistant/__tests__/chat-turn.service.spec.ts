@@ -371,6 +371,27 @@ describe('ChatTurnService', () => {
     ]);
   });
 
+  it('merges fill_form calls per form: a later value wins, earlier fields stay (QA5 #1)', () => {
+    expect(
+      finalUiActions([
+        {
+          type: 'fill_form',
+          formId: 'product.form',
+          values: { name: 'Tàu gỗ', price: 150000, sku: 'RT4-TGK D01' },
+        },
+        { type: 'fill_form', formId: 'bot.create', values: { name: 'Bot' } },
+        { type: 'fill_form', formId: 'product.form', values: { sku: 'RT4-TGKD01' } },
+      ]),
+    ).toEqual([
+      {
+        type: 'fill_form',
+        formId: 'product.form',
+        values: { name: 'Tàu gỗ', price: 150000, sku: 'RT4-TGKD01' },
+      },
+      { type: 'fill_form', formId: 'bot.create', values: { name: 'Bot' } },
+    ]);
+  });
+
   it('keeps the last navigate, fill_form and spotlight, in that order', () => {
     const fill = (name: string) => ({
       type: 'fill_form' as const,
