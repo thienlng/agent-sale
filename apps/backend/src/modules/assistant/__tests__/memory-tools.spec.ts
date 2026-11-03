@@ -68,8 +68,10 @@ describe('memory tool', () => {
       match: 'buổi chiều',
       text: 'Shop giao hàng buổi sáng',
     });
-    expect(replaced).toMatchObject({ ok: true });
+    // Only the matched entry changes, and the result shows what it overwrote (QA Villas M-1).
+    expect(replaced).toMatchObject({ ok: true, replaced: 'Shop giao hàng buổi chiều' });
     expect(await entries('notes')).toEqual(['Shop giao hàng buổi sáng', 'Nghỉ chủ nhật']);
+    expect(MEMORY_TOOL_DEFINITION.description).toContain('never to save a different one');
 
     const removed = await call({ action: 'remove', store: 'notes', match: 'chủ nhật' });
     expect(removed).toMatchObject({ ok: true, used: 24, limit: NOTES_LIMIT });
