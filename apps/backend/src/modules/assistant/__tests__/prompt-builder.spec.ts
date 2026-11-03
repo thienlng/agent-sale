@@ -94,6 +94,11 @@ describe('buildSystemPrompt', () => {
       'Scheduled reports are computed by Rapiz; propose a schedule, never promise to remember to send something yourself.',
     );
     expect(a).not.toContain('You cannot change any data yet');
+    // Filling: empty fields by default, filled ones when the owner asks (QA TinyMind B4).
+    expect(a).toContain('By default fill the fields marked empty.');
+    expect(a).toContain('fill those fields too, whatever their empty flag');
+    // Customer contact data never comes out (QA Villas #3).
+    expect(a).toContain("Never write a customer's phone number, e-mail address or home address");
     expect(a).toContain('Today is 2026-11-02 (Asia/Ho_Chi_Minh).');
     expect(a).not.toContain('{{');
   });
