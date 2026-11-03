@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { AccommodationDetails, OfferingDetails, type ProductDto } from '@agent-sales/contracts';
-import { cleanDescription, compactProduct, productDetails } from '../domain/product-view.js';
+import {
+  cleanDescription,
+  compactProduct,
+  productDetails,
+  withDefaultOffering,
+} from '../domain/product-view.js';
 
 const TINYMIND =
   'Tên gốc: Wooden Balance Stacker\nNguồn: https://example.com/p/123\nTuổi khuyến nghị: 18 tháng trở lên\n\nBộ  thú gỗ   xếp thăng bằng giúp bé luyện tay.';
@@ -241,5 +246,33 @@ describe('course and service products (offering)', () => {
       instructions: 'Gợi ý cho bé từ 18 tháng',
       images: expect.any(Array),
     });
+  });
+});
+
+describe('withDefaultOffering (request businesses)', () => {
+  const untracked: ProductDto = {
+    ...base,
+    priceMin: 0,
+    priceMax: 0,
+    available: 0,
+    variants: base.variants.map((v) => ({ ...v, price: 0, stock: [] })),
+  };
+
+  it('reads an imported course without offering or stock as a course, not out-of-stock retail', () => {
+    const row = compactProduct(withDefaultOffering(untracked, 'course'));
+    expect(row.catalogKind).toBe('course');
+    expect(row).not.toHaveProperty('inStock');
+    expect(row).not.toHaveProperty('fromVnd');
+    expect(
+      productDetails(withDefaultOffering(untracked, 'service')).variants?.[0],
+    ).not.toHaveProperty('available');
+  });
+
+  it('keeps retail with tracked stock, accommodations, offerings and retail industries as they are', () => {
+    expect(withDefaultOffering(base, 'service')).toBe(base);
+    expect(withDefaultOffering(untracked, null)).toBe(untracked);
+    const offered = { ...untracked, offering: OfferingDetails.parse({ kind: 'service' }) };
+    expect(withDefaultOffering(offered, 'course')).toBe(offered);
+    expect(compactProduct(withDefaultOffering(untracked, null))).toMatchObject({ inStock: false });
   });
 });

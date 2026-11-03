@@ -7,6 +7,7 @@ import {
   runAgentLoop,
 } from '@agent-sales/ai-core';
 import {
+  defaultOfferingKind,
   isRequestIndustry,
   type PlaygroundRequest,
   type PlaygroundResponse,
@@ -96,6 +97,7 @@ import {
   PLAYGROUND_ORDER_CHANNEL,
 } from './order-tools.js';
 import { HANDOFF_TOOL, ImageAllowlist, newOutputState } from './output-tools.js';
+import { withDefaultOfferings } from './catalog-tools.js';
 import {
   carriedProductIds,
   compactHistory,
@@ -236,8 +238,11 @@ export class PlaygroundService implements AiFacade {
     const scope = { botId, catalogMode: bot.catalogMode };
     // Hotel bots sell lodging properties instead of commerce products (T-160): their selection
     // lives in lodging and catalogMode is ignored.
+    // In a request business a product without an offering reads as one of the industry's kind.
     const catalog: CatalogFacade | undefined =
-      bot.industry === 'hotel' ? this.lodgingCatalog : this.catalog;
+      bot.industry === 'hotel'
+        ? this.lodgingCatalog
+        : withDefaultOfferings(this.catalog, defaultOfferingKind(bot.industry));
 
     // Products already discussed (the last runs of this conversation) need no new search.
     // A comment reply has no conversation to remember, so it never shares one across customers.

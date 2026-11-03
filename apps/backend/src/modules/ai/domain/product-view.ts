@@ -1,4 +1,4 @@
-import type { ProductDto } from '@agent-sales/contracts';
+import { OfferingDetails, type ProductDto } from '@agent-sales/contracts';
 
 import { catalogProductContext } from './catalog-context.js';
 import { productImages } from './image-allowlist.js';
@@ -56,6 +56,21 @@ export interface ProductDetails extends CompactProduct {
 }
 
 const imageList = (p: ProductDto) => productImages([p]).map(({ id, label }) => ({ id, label }));
+
+/**
+ * A product of a request business (education, spa, saas) seen as an offering of the industry's
+ * kind when it has none, so the bot never reads it as out-of-stock retail with a price of 0. A
+ * product with tracked stock (an inventory row on any variant), an accommodation or an offering
+ * stays as it is: a spa may sell retail cosmetics.
+ */
+export function withDefaultOffering(
+  p: ProductDto,
+  kind: OfferingDetails['kind'] | null,
+): ProductDto {
+  if (!kind || p.offering || p.accommodation || p.variants.some((v) => v.stock.length > 0))
+    return p;
+  return { ...p, offering: OfferingDetails.parse({ kind }) };
+}
 
 export function compactProduct(p: ProductDto): CompactProduct {
   const base = {

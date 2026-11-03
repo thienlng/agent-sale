@@ -151,6 +151,16 @@ export const OfferingDetails = z.object({
 export type OfferingDetails = z.infer<typeof OfferingDetails>;
 export type OfferingDetailsInput = z.input<typeof OfferingDetails>;
 
+/**
+ * The offering kind of a product without one in a business that converts through requests
+ * (education: course; spa, saas: service); null for the industries that sell retail stock.
+ */
+export function defaultOfferingKind(industry: string): OfferingDetails['kind'] | null {
+  if (industry === 'education') return 'course';
+  if (industry === 'spa' || industry === 'saas') return 'service';
+  return null;
+}
+
 export const ProductDto = z.object({
   id: z.uuid(),
   code: z.string(),
