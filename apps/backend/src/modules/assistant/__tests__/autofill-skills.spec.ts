@@ -63,6 +63,13 @@ describe('shop autofill skills (T-175)', () => {
     expect(sample.body).toContain('starts with "Điền mẫu"');
   });
 
+  it('pages scenarios compactly, and only when drafting scenarios (QA5 #3)', () => {
+    const sample = skills.get('fill-sample-data')!.body;
+    expect(sample).toContain('FAQ samples read no training items');
+    expect(sample).toContain('kind=scenario, fields=summary, limit=20');
+    expect(sample).not.toContain('its training items');
+  });
+
   it('moves set-up-bot to version 2, pointing at the new skills', () => {
     const setUp = skills.get('set-up-bot')!;
     expect(setUp.version).toBe(2);

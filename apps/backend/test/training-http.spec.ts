@@ -9,6 +9,10 @@ import {
 } from '@agent-sales/contracts';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { afterEach, describe, expect, it } from 'vitest';
+import {
+  summaryItem,
+  TRAINING_SUMMARY_CHARS,
+} from '../src/modules/bot/interface/http/training.controller.js';
 import { STARTER_RULES } from '../src/modules/knowledge/domain/starter-rules.js';
 import { AppModule } from '../src/app.module.js';
 import { createHttpApp } from '../src/bootstrap.js';
@@ -102,6 +106,18 @@ describe('HTTP: bot training', () => {
       ...(await list('kind=scenario&limit=2&offset=2')),
     ];
     expect(pages.map((i) => i.id)).toEqual(scenarios.slice(0, 4).map((i) => i.id));
+    // QA5 #3: a compact page cuts the content and drops the notes.
+    const compact = await list('kind=scenario&limit=2&fields=summary');
+    expect(compact.map((i) => i.id)).toEqual(scenarios.slice(0, 2).map((i) => i.id));
+    for (const [i, c] of compact.entries()) {
+      expect(c.notes).toBe('');
+      expect(c.content.length).toBeLessThanOrEqual(161);
+      expect(scenarios[i]!.content.startsWith(c.content.replace(/…$/, ''))).toBe(true);
+    }
+    expect(summaryItem({ ...item, content: 'x'.repeat(200), notes: 'n' })).toMatchObject({
+      content: `${'x'.repeat(TRAINING_SUMMARY_CHARS)}…`,
+      notes: '',
+    });
     expect((await http.inject({ method: 'GET', url: `${url}?kind=faq`, headers })).statusCode).toBe(
       400,
     );
