@@ -236,6 +236,9 @@ export const AssistantSkillSummaryDto = z.object({
   id: z.uuid().nullable(),
   name: z.string(),
   description: z.string(),
+  /** Platform skills: the Vietnamese name and description the owner sees (the model reads `description`). */
+  title: z.string().optional(),
+  descriptionVi: z.string().optional(),
   provenance: AssistantSkillProvenance,
   /** The platform skill a `shadow` replaces; null otherwise. */
   shadowOf: z.string().nullable(),

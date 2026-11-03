@@ -1,6 +1,8 @@
 ---
 name: connect-channels
 description: Connect Facebook or Instagram pages and the website chat to a bot, and check the connections
+title: Kết nối kênh chat
+description_vi: Kết nối Fanpage, Instagram và chat trên website với bot, kiểm tra kết nối
 toolsets: [ui, routes]
 version: 1
 ---

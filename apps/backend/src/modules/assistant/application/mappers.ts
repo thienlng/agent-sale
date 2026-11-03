@@ -82,7 +82,7 @@ const iso = (d: Date | null): string | null => (d ? d.toISOString() : null);
 
 /** A platform skill on the skills page: always active, no counters. */
 export function toPlatformSkillSummary(
-  doc: Pick<SkillDoc, 'name' | 'description'>,
+  doc: Pick<SkillDoc, 'name' | 'description' | 'title' | 'descriptionVi'>,
   shadowed: boolean,
 ): AssistantSkillSummaryDto {
   return {
@@ -90,6 +90,8 @@ export function toPlatformSkillSummary(
     id: null,
     name: doc.name,
     description: doc.description,
+    ...(doc.title ? { title: doc.title } : {}),
+    ...(doc.descriptionVi ? { descriptionVi: doc.descriptionVi } : {}),
     provenance: 'platform',
     shadowOf: null,
     shadowed,

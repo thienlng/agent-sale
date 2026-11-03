@@ -23,7 +23,8 @@ export class SkillCatalog {
   }
 
   static async load(dir: string = ASSISTANT_SKILLS_DIR): Promise<SkillCatalog> {
-    return new SkillCatalog(await loadSkillDir(dir));
+    // Shipped skills must carry the owner's Vietnamese title and description (QA UX1).
+    return new SkillCatalog(await loadSkillDir(dir, { platform: dir === ASSISTANT_SKILLS_DIR }));
   }
 
   /** Sorted by name. */

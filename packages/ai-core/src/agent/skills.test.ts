@@ -167,8 +167,33 @@ describe('loadSkillDir', () => {
     await expect(loadSkillDir(dir)).rejects.toThrow('invalid_skill: bot-doctor: safety: injection');
   });
 
-  it('ships a loadable platform skills folder', async () => {
+  it('ships a loadable platform skills folder, each with Vietnamese owner texts', async () => {
     expect(existsSync(ASSISTANT_SKILLS_DIR)).toBe(true);
-    await expect(loadSkillDir(ASSISTANT_SKILLS_DIR)).resolves.toBeInstanceOf(Array);
+    const skills = await loadSkillDir(ASSISTANT_SKILLS_DIR, { platform: true });
+    const names = skills.map((s) => s.name);
+    expect(names).toContain('add-products');
+    expect(names).toContain('read-revenue');
+    for (const s of skills) {
+      expect(s.title).toMatch(/\S/);
+      expect(s.descriptionVi).toMatch(/\S/);
+    }
+    expect(skills.find((s) => s.name === 'add-products')?.title).toBe('Thêm sản phẩm');
+  });
+
+  it('requires title and description_vi only of a platform skill', async () => {
+    dir = await mkdtemp(path.join(os.tmpdir(), 'skills-'));
+    await put('bot-doctor', skill({ name: 'bot-doctor' }));
+    expect(await loadSkillDir(dir)).toHaveLength(1);
+    await expect(loadSkillDir(dir, { platform: true })).rejects.toThrow(
+      'title is required for a platform skill',
+    );
+    const doc = parseSkill(
+      '---\nname: a\ndescription: d\ntitle: Tiêu đề\ndescription_vi: Mô tả ngắn\ntoolsets: []\nversion: 1\n---\nBody',
+    );
+    expect(doc).toMatchObject({ title: 'Tiêu đề', descriptionVi: 'Mô tả ngắn' });
+    expect(lintSkill(doc, { platform: true })).toEqual([]);
+    expect(lintSkill({ ...doc, title: 'x'.repeat(61) })).toEqual([
+      'title must be one line of 1-60 chars',
+    ]);
   });
 });
