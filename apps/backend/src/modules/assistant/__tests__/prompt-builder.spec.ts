@@ -164,6 +164,14 @@ describe('buildSystemPrompt', () => {
   });
 });
 
+describe('assistant@3 navigate-then-fill rule (QA B-11)', () => {
+  it('fills on the hidden follow-up and never asks the owner to resend', async () => {
+    const template = await loadAssistantTemplate();
+    expect(template).toContain('(trang đã mở; tiếp tục điền form)');
+    expect(template).toContain('never ask the owner to send the request again');
+  });
+});
+
 describe('buildTurnMessage', () => {
   it('puts the page context and the local time before the owner text', () => {
     expect(
