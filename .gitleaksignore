@@ -13,3 +13,11 @@ a79b086d147940cf5659b3584d6481dfd4f40f51:apps/web/src/features/commerce/componen
 # Same fake KiotViet webhook secret after the #104 squash merge onto main (new commit sha).
 0a91a93ee8879aa1899622c4e1d048a7af203a92:apps/backend/src/modules/integration/__tests__/kiotviet-client.spec.ts:generic-api-key:195
 0a91a93ee8879aa1899622c4e1d048a7af203a92:apps/backend/src/modules/integration/__tests__/kiotviet-client.spec.ts:generic-api-key:204
+# Fake test tokens in owner-assistant tests (T-174 masking/redaction tests), not real secrets
+3399d9651b032f5d3d803e160e93d1b347e3c303:apps/backend/src/modules/assistant/__tests__/route-tools.spec.ts:generic-api-key:208
+3399d9651b032f5d3d803e160e93d1b347e3c303:apps/backend/test/assistant.integration.spec.ts:generic-api-key:992
+3fa290956793dc7cd9852050456425684c50ea3f:packages/ai-core/src/agent/safety.test.ts:jwt:175
+a7115cb3dc428b2082e2a093e222c4a8981cb9d8:apps/backend/src/modules/assistant/__tests__/chat-turn.service.spec.ts:generic-api-key:236
+bc4db73d6e608fc2e94ae354b0288aafa8299352:packages/ai-core/src/agent/safety.test.ts:curl-auth-header:110
+dc172529cf2e32d0925c211357f5df5df2e780c2:apps/backend/src/modules/assistant/__tests__/route-tools.spec.ts:generic-api-key:221
+dc172529cf2e32d0925c211357f5df5df2e780c2:apps/backend/src/modules/assistant/__tests__/route-tools.spec.ts:generic-api-key:405
