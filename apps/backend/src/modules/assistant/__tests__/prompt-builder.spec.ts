@@ -98,6 +98,58 @@ describe('buildSystemPrompt', () => {
     expect(a).not.toContain('{{');
   });
 
+  it('shows the dashboard map of the current business’s industry only (QA Villas #1, B11)', async () => {
+    const template = await loadAssistantTemplate();
+    const extras = { skillsIndex: SKILLS_INDEX, memory: [] };
+    const hotel = buildSystemPrompt(
+      template,
+      {
+        ...SNAP,
+        businesses: [SNAP.businesses[0]!, { ...SNAP.businesses[1]!, industry: 'hotel' }],
+        currentBusinessId: B2,
+      },
+      AT,
+      extras,
+    );
+    expect(hotel).toContain('Dashboard map of the current business (Villa Đà Lạt, hotel)');
+    for (const page of [
+      '/app/calendar',
+      '/app/bookings',
+      '/app/properties',
+      '/app/businesses/new',
+    ]) {
+      expect(hotel).toContain(`\n${page} — `);
+    }
+    expect(hotel).not.toContain('/app/orders');
+    expect(hotel).not.toContain('/app/products');
+
+    const shop = buildSystemPrompt(template, { ...SNAP, currentBusinessId: B1 }, AT, extras);
+    expect(shop).toContain('Dashboard map of the current business (Thời trang Mây, retail)');
+    for (const page of [
+      '/app/orders',
+      '/app/products/new',
+      '/app/businesses/new',
+      '/app/integrations',
+    ]) {
+      expect(shop).toContain(`\n${page} — `);
+    }
+    expect(shop).not.toContain('/app/calendar');
+    expect(shop).not.toContain('/app/crm-settings/saas-plans');
+
+    const saas = buildSystemPrompt(
+      template,
+      {
+        ...SNAP,
+        businesses: [{ id: B1, name: 'Phần mềm', industry: 'saas' }],
+        currentBusinessId: B1,
+      },
+      AT,
+      extras,
+    );
+    expect(saas).toContain('\n/app/crm-settings/saas-plans — ');
+    expect(saas).not.toMatch(/\n\/app\/(orders|products|calendar|integrations)\b/);
+  });
+
   it('leaves the memory section empty when nothing is remembered', async () => {
     const template = await loadAssistantTemplate();
     const out = buildSystemPrompt(template, SNAP, AT, { skillsIndex: SKILLS_INDEX, memory: [] });
