@@ -11,6 +11,7 @@ import type {
   ContactFigures,
   OrderFigures,
   ReportDataSource,
+  RequestFigures,
   RevenueFigures,
   StayFigures,
   StockFigures,
@@ -87,5 +88,9 @@ export class FacadeReportDataSource implements ReportDataSource {
 
   newContacts(ws: string, since: Date, until: Date): Promise<ContactFigures> {
     return this.crm.contactsCreated(workspaceId(ws), { since, until });
+  }
+
+  requests(ws: string, since: Date, until: Date): Promise<RequestFigures> {
+    return this.crm.requestsRecorded(workspaceId(ws), { since, until });
   }
 }

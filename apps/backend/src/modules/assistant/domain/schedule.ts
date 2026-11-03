@@ -8,6 +8,7 @@ export const SCHEDULE_TEMPLATES = [
   'low_stock',
   'unanswered_conversations',
   'new_customers',
+  'new_requests',
 ] as const;
 export type ScheduleTemplate = (typeof SCHEDULE_TEMPLATES)[number];
 
@@ -29,6 +30,7 @@ export const ALERT_TEMPLATES: readonly ScheduleTemplate[] = [
   'new_orders',
   'low_stock',
   'unanswered_conversations',
+  'new_requests',
 ];
 /** Intervals an alert may be checked at, in minutes. */
 export const ALERT_INTERVALS: readonly number[] = [15, 30, 60, 120, 180, 240, 360, 720];

@@ -94,8 +94,9 @@ export function scheduleErrorCode(e: unknown): string {
   throw e;
 }
 
-const isNewOrdersAlert = (d: Pick<ScheduleDraftInput, 'template' | 'mode'>) =>
-  d.template === 'new_orders' && d.mode === 'alert';
+/** A cursor alert (`new_orders`, `new_requests`): it counts what arrived since its cursor. */
+const isCursorAlert = (d: Pick<ScheduleDraftInput, 'template' | 'mode'>) =>
+  (d.template === 'new_orders' || d.template === 'new_requests') && d.mode === 'alert';
 
 /**
  * The owner's report and alert schedules (T-172): owner actions apply directly; the assistant's
@@ -299,7 +300,7 @@ export class SchedulesService {
       commentary: d.commentary,
       createdBy,
       nextRunAt: nextRunAt(d.cadence, now),
-      alertCursor: isNewOrdersAlert(d) ? now : null,
+      alertCursor: isCursorAlert(d) ? now : null,
     });
   }
 
@@ -366,7 +367,7 @@ export class SchedulesService {
       consecutiveFailures: 0,
       nextRunAt: nextRunAt(current.cadence, now),
       // A new-orders alert does not report what came in while it was paused.
-      ...(isNewOrdersAlert(current) ? { alertCursor: now } : {}),
+      ...(isCursorAlert(current) ? { alertCursor: now } : {}),
     });
     if (!s) throw new AssistantNotFoundError('schedule', id);
     return this.#dto(scope, s);

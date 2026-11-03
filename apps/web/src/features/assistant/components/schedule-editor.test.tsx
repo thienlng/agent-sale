@@ -6,7 +6,7 @@ import { loadNamespace } from '@/lib/i18n';
 import type { Session } from '@/lib/session';
 import { renderWithProviders, stubFetch } from '@/testing/render';
 
-import { intervalsFor, modesFor, ScheduleEditor } from './schedule-editor';
+import { intervalsFor, modesFor, ScheduleEditor, templatesFor } from './schedule-editor';
 
 const ACCOUNT = '0b9c3a52-5e3f-4c55-9a51-6a0f4b7d2c01';
 const WS = '3f0c1f0e-5b1c-4c1e-9d55-0a1b2c3d4e5f';
@@ -62,6 +62,28 @@ describe('ScheduleEditor', () => {
         .getAllByRole('radio')
         .map((b) => b.textContent),
     ).toEqual(['Báo cáo định kỳ', 'Cảnh báo']);
+  });
+
+  it('offers new requests only to a business whose bot records requests (T-187)', async () => {
+    for (const industry of ['education', 'spa', 'saas']) {
+      expect(templatesFor(industry)).toContain('new_requests');
+    }
+    expect(templatesFor('retail')).not.toContain('new_requests');
+    expect(templatesFor('retail', 'new_requests')).toContain('new_requests');
+    expect(modesFor('new_requests')).toEqual(['report', 'alert']);
+    const { user } = renderEditor();
+    await user.click(screen.getByRole('combobox', { name: 'Nội dung' }));
+    expect(await screen.findByRole('option', { name: 'Khách hàng mới' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Yêu cầu mới' })).not.toBeInTheDocument();
+  });
+
+  it('asks a new requests alert for its minimum count', () => {
+    renderEditor({
+      draft: { template: 'new_requests', mode: 'alert', cadence: { kind: 'every', minutes: 30 } },
+    });
+    expect(screen.getByRole('combobox', { name: 'Nội dung' })).toHaveTextContent('Yêu cầu mới');
+    expect(screen.getByRole('spinbutton', { name: 'Số lượng tối thiểu' })).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Khoảng thời gian' })).not.toBeInTheDocument();
   });
 
   it('limits the interval options by mode', async () => {
