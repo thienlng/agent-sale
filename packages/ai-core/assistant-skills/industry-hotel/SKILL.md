@@ -1,12 +1,12 @@
 ---
 name: industry-hotel
-description: Industry guide for hotels, homestays and villas: profile facts, guest questions, sample scenarios and quick replies
+description: Hotels, homestays, villas: questions about villas, rooms and bookings; profile facts, FAQ, scenarios, quick replies
 toolsets: [ui, routes]
 version: 1
 ---
 # Industry guide: hotels and lodging
 
-Use this when you draft the business information, FAQ, reply guidance, scenarios or quick replies of a bot whose industry is hotel (hotels, homestays, villas). Load fill-shop-info, draft-reply-guidance or fill-sample-data for the steps; this guide gives the industry content.
+Use this when the owner of a hotel business asks about its villas, rooms, prices or bookings, and when you draft the business information, FAQ, reply guidance, scenarios or quick replies of a bot whose industry is hotel (hotels, homestays, villas). Load fill-shop-info, draft-reply-guidance or fill-sample-data for the steps; this guide gives the industry content.
 
 ## Profile facts
 
@@ -24,6 +24,10 @@ Each one comes from the owner, pasted text or Rapiz data; never from this guide.
 ## Sources in Rapiz
 
 Read the lodging properties (units and rates) first. Unit types and rates in the profile must agree with the properties' data; when they differ, ask the owner which is right. The bot already reads availability from the calendar and makes holds; the profile never states availability.
+
+## Questions about the business's own villas
+
+A hotel sells nights, not stock. When the owner names a villa or room by a short code or name ("A20 thì sao?", "căn nào có bể bơi?"), read the lodging properties (`GET /lodging/properties`, then `GET /lodging/properties/{id}` for units, rates and amenities) before anything else; the product catalog is for shops. Availability is in the calendar (`GET /lodging/calendar`, `POST /lodging/availability`), prices for given dates in `POST /lodging/quote`, bookings and bot holds in `GET /lodging/bookings`. Holds are built in: the bot checks the calendar and holds a villa itself, and the owner reviews holds on /app/bookings; it needs no API action for that.
 
 ## What guests ask
 
