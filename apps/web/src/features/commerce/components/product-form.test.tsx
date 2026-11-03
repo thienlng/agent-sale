@@ -1,5 +1,5 @@
 import type { ProductDto } from '@agent-sales/contracts';
-import { act, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -202,21 +202,24 @@ describe('ProductForm of a spa or education business', () => {
     renderWithRouter(() => <ProductForm offeringKind={kind} />);
     return calls;
   }
+  const type = (label: string | RegExp, value: string) =>
+    fireEvent.change(screen.getByLabelText(label), { target: { value } });
   async function fillBasics() {
-    await userEvent.type(await screen.findByLabelText(/^Mã sản phẩm/), 'DV01');
-    await userEvent.type(screen.getByLabelText('Tên sản phẩm'), 'Chăm sóc da');
-    await userEvent.type(screen.getByLabelText(/^SKU/), 'DV01-60');
+    await screen.findByLabelText(/^Mã sản phẩm/);
+    type(/^Mã sản phẩm/, 'DV01');
+    type('Tên sản phẩm', 'Chăm sóc da');
+    type(/^SKU/, 'DV01-60');
   }
 
   it('sends the service details of a new spa service', async () => {
     const calls = renderNew('service');
     expect(await screen.findByRole('heading', { name: 'Chi tiết dịch vụ' })).toBeVisible();
     await fillBasics();
-    await userEvent.type(screen.getByLabelText('Thời lượng mỗi buổi (phút)'), '60');
-    await userEvent.type(screen.getByLabelText('Số buổi'), '10');
+    type('Thời lượng mỗi buổi (phút)', '60');
+    type('Số buổi', '10');
     await userEvent.click(screen.getByRole('radio', { name: 'Tại cơ sở' }));
-    await userEvent.type(screen.getByLabelText('Kết quả đạt được'), 'Da sáng\n\nGiảm mụn\n');
-    await userEvent.type(screen.getByLabelText('Ghi chú giá'), 'giá tham khảo');
+    type('Kết quả đạt được', 'Da sáng\n\nGiảm mụn\n');
+    type('Ghi chú giá', 'giá tham khảo');
     await userEvent.click(screen.getByRole('button', { name: 'Lưu sản phẩm' }));
     await waitFor(() => expect(calls.find((c) => c.key === 'POST /products')).toBeDefined());
     expect(calls.find((c) => c.key === 'POST /products')?.body).toMatchObject({
