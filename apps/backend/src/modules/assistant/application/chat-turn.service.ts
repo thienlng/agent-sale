@@ -31,6 +31,7 @@ import { ROUTE_INVOKER, type RouteInvoker } from '../domain/ports/route-invoker.
 import { CompactionService, threadCacheKey } from './compaction.service.js';
 import { CORE_TOOL_DEFINITIONS, coreTools, type ToolContext } from './core-tools.js';
 import { isVisibleMessage } from './mappers.js';
+import { currentIndustry } from './owner-access.js';
 import { MEMORY_TOOL_DEFINITION, memoryTool } from './memory-tools.js';
 import { buildTurnMessage } from './prompt-builder.js';
 import { ROUTE_CATALOG, type RouteCatalog } from './route-catalog.js';
@@ -261,6 +262,7 @@ export class ChatTurnService {
     };
     // The turn's proposals; the web reads them per thread, so the answer carries no field.
     const proposalIds: string[] = [];
+    const industry = currentIndustry(scope);
     const pending: Promise<void>[] = [];
     let idx = 0;
     let result: AgentLoopResult | undefined;
@@ -302,6 +304,7 @@ export class ChatTurnService {
               runId,
               proposalIds,
               ...(req.pageContext ? { page: req.pageContext } : {}),
+              ...(industry ? { industry } : {}),
             }),
           ].filter((tool) => !off.has(tool.name)),
         ),

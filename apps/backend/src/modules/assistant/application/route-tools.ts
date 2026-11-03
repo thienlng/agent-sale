@@ -94,6 +94,8 @@ export interface RouteToolContext {
   threadId: string;
   runId: string;
   page?: AssistantPageContext;
+  /** The current business's industry: its own routes rank first in `tool_search`. */
+  industry?: string;
   /** Proposals made during the turn, in order. */
   proposalIds: string[];
   now?: () => Date;
@@ -277,7 +279,7 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
     schema: ToolSearchInput,
     run(input) {
       const { query } = input as z.output<typeof ToolSearchInput>;
-      const hits = searchCatalog(ctx.catalog, query, ctx.page?.route).map((e) => ({
+      const hits = searchCatalog(ctx.catalog, query, ctx.page?.route, ctx.industry).map((e) => ({
         key: e.key,
         use: e.use,
         summary: e.summary,
