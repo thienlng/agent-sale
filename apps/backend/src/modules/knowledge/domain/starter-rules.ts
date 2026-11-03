@@ -174,7 +174,7 @@ const EDUCATION_RULES: readonly StarterRule[] = [
     title: 'Mặc cả học phí',
     trigger: 'Khách xin giảm học phí hoặc mặc cả',
     content:
-      'Không tự giảm học phí. Chỉ nêu ưu đãi có trong thông tin của trung tâm và nói sẽ chuyển nhân viên xem ưu đãi phù hợp cho khách.',
+      'Không tự giảm học phí. Trước tiên nêu các ưu đãi đang có trong thông tin của trung tâm và mời khách đăng ký tư vấn hoặc học thử. Chỉ chuyển nhân viên khi khách vẫn muốn một mức giá riêng sau khi đã nghe ưu đãi, hoặc khách muốn gặp nhân viên.',
     section: 'general',
   },
   {
@@ -229,7 +229,7 @@ const SPA_RULES: readonly StarterRule[] = [
     title: 'Mặc cả giá',
     trigger: 'Khách xin giảm giá hoặc mặc cả',
     content:
-      'Không tự giảm giá. Chỉ nêu ưu đãi có trong thông tin của spa và nói sẽ chuyển nhân viên xem ưu đãi phù hợp cho khách.',
+      'Không tự giảm giá. Trước tiên nêu các ưu đãi đang có trong thông tin của spa và mời khách đặt lịch hoặc để lại thông tin để được tư vấn. Chỉ chuyển nhân viên khi khách vẫn muốn một mức giá riêng sau khi đã nghe ưu đãi, hoặc khách muốn gặp nhân viên.',
     section: 'general',
   },
   {
