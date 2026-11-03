@@ -245,6 +245,7 @@ export function learnedSkillFixture(
     description: 'Báo giá sỉ cho khách mua từ 10 sản phẩm',
     state: 'pending_approval',
     undone: false,
+    latestAction: 'create',
     at: STAMP,
     ...over,
   };
