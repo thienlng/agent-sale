@@ -1,6 +1,8 @@
 ---
 name: import-products
 description: Import many products at once from an Excel or CSV sheet, or from product photos the owner dropped in the chat
+title: Nhập sản phẩm hàng loạt
+description_vi: Nhập nhiều sản phẩm một lần từ file Excel, CSV hoặc ảnh sản phẩm
 toolsets: [routes]
 version: 2
 ---
