@@ -28,7 +28,7 @@ const SPEC: ImportSpec = {
 
 type Invoke = (i: RouteInvocation) => Promise<RouteInvocationResult>;
 
-async function setup(invokeImpl?: Invoke) {
+async function setup(invokeImpl?: Invoke, industry?: string) {
   const repo = new InMemoryAssistantRepository();
   const scope: OwnerScope = {
     accountId: newId(),
@@ -54,6 +54,7 @@ async function setup(invokeImpl?: Invoke) {
     threadId: thread.id,
     runId: newId(),
     proposalIds,
+    ...(industry ? { industryOf: () => industry } : {}),
   });
   const run = async (name: string, input: unknown) => {
     const tool = tools.find((t) => t.name === name);
@@ -74,6 +75,33 @@ async function setup(invokeImpl?: Invoke) {
     });
   return { repo, scope, thread, invoke, run, sheet, proposalIds };
 }
+
+describe('a hotel business (QA Villas #5)', () => {
+  it('refuses to preview or propose villas as retail products and points to the properties page', async () => {
+    const { run, sheet, invoke, repo, scope, thread } = await setup(undefined, 'hotel');
+    const batch = await sheet();
+    const preview = await run(IMPORT_PREVIEW_TOOL, { batchId: batch.id, spec: SPEC });
+    expect(preview).toMatchObject({
+      ok: false,
+      errorCode: 'not_for_this_industry',
+      industry: 'hotel',
+      guidance: expect.stringContaining('/app/properties') as unknown,
+    });
+    expect(
+      await run(IMPORT_PROPOSE_TOOL, { batchId: batch.id, summary: 'Nhập 2 villa' }),
+    ).toMatchObject({ errorCode: 'not_for_this_industry' });
+    expect(invoke).not.toHaveBeenCalled();
+    expect(await repo.listProposals(scope, thread.id)).toEqual([]);
+  });
+
+  it('still imports for a shop', async () => {
+    const { run, sheet } = await setup(undefined, 'retail');
+    const batch = await sheet();
+    expect(await run(IMPORT_PREVIEW_TOOL, { batchId: batch.id, spec: SPEC })).toMatchObject({
+      ok: true,
+    });
+  });
+});
 
 describe('import_preview', () => {
   it('refuses a batch of another thread (unknown_batch)', async () => {

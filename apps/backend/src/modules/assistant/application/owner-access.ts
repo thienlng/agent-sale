@@ -32,6 +32,14 @@ export async function accountMemberships(
 }
 
 /**
+ * The industry of one of the scope's businesses, from the memberships read while resolving the
+ * scope (no query); undefined for a scope built elsewhere (tests, jobs) or a business not listed.
+ */
+export function industryOfBusiness(scope: OwnerScope, businessId: string): string | undefined {
+  return membershipsByScope.get(scope)?.find((m) => m.workspaceId === businessId)?.industry;
+}
+
+/**
  * The account of the business when the user is its active owner; ForbiddenError otherwise. The
  * scope lists the account's businesses the owner is a member of (always including `businessId`).
  * The three reads run in parallel; the membership list is kept for the rest of the request

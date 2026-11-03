@@ -86,7 +86,13 @@ export interface ImportToolContext {
   /** Proposals made during the turn, in order. */
   proposalIds: string[];
   now?: () => Date;
+  /** The industry of one of the scope's businesses (a hotel imports no retail products). */
+  industryOf?: (businessId: string) => string | undefined;
 }
+
+/** Told to the model when a hotel business is asked to import products (QA Villas #5). */
+export const NOT_FOR_HOTEL_GUIDANCE =
+  'Product import creates retail products only. A hotel adds its villas, homestays and rooms on the properties page (/app/properties), where rates and the calendar live; tell the owner so and offer to open it. Do not create the villas as products.';
 
 /** `<` is escaped so a result cannot open or close a prompt tag. */
 const json = (value: unknown): string => JSON.stringify(value).replaceAll('<', '\\u003c');
@@ -180,6 +186,13 @@ export async function rejectPendingImports(
 export function importTools(ctx: ImportToolContext): RunnableTool[] {
   const now = ctx.now ?? (() => new Date());
 
+  /** A refusal when the batch's business sells nights, not products (a hotel). */
+  function wrongIndustry(batch: ImportBatchRecord) {
+    return ctx.industryOf?.(batch.businessId) === 'hotel'
+      ? fail('not_for_this_industry', { industry: 'hotel', guidance: NOT_FOR_HOTEL_GUIDANCE })
+      : null;
+  }
+
   /** The batch of this turn's thread, for a business still in scope. */
   async function batchOf(batchId: string): Promise<ImportBatchRecord | null> {
     if (!z.uuid().safeParse(batchId).success) return null;
@@ -219,6 +232,8 @@ export function importTools(ctx: ImportToolContext): RunnableTool[] {
       const input = raw as z.output<typeof ImportPreviewArgs>;
       const batch = await batchOf(input.batchId);
       if (!batch) return fail('unknown_batch');
+      const refused = wrongIndustry(batch);
+      if (refused) return refused;
       const created = createdKeysOf(batch);
 
       let spec = batch.spec;
@@ -311,6 +326,8 @@ export function importTools(ctx: ImportToolContext): RunnableTool[] {
       const input = raw as z.output<typeof ImportProposeInput>;
       const batch = await batchOf(input.batchId);
       if (!batch) return fail('unknown_batch');
+      const refusedIndustry = wrongIndustry(batch);
+      if (refusedIndustry) return refusedIndustry;
       const summary = input.summary?.trim();
       if (!summary) return fail('summary_required');
       if (!batch.drafts || !batch.draftsHash) return fail('preview_required');

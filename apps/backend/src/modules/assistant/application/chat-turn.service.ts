@@ -31,6 +31,7 @@ import { CORE_TOOL_DEFINITIONS, coreTools, type ToolContext } from './core-tools
 import { buildImportBlock } from './import-block.js';
 import { IMPORT_TOOL_DEFINITIONS, importTools } from './import-tools.js';
 import { isVisibleMessage } from './mappers.js';
+import { industryOfBusiness } from './owner-access.js';
 import { MEMORY_TOOL_DEFINITION, memoryTool } from './memory-tools.js';
 import { buildTurnMessage } from './prompt-builder.js';
 import { ROUTE_CATALOG, type RouteCatalog } from './route-catalog.js';
@@ -337,6 +338,7 @@ export class ChatTurnService {
             threadId: thread.id,
             runId,
             proposalIds,
+            industryOf: (businessId) => industryOfBusiness(scope, businessId),
           }),
         ]),
         generate: (r) => this.gateway.generate(r),
