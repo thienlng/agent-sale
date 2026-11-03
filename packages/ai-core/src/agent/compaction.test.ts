@@ -150,7 +150,6 @@ describe('buildCompactionPrompt', () => {
     'Goal',
     'Owner preferences and constraints',
     'Completed actions',
-    'Pending proposals',
     'Key decisions',
     'Figures already given (with source tool)',
     'Open questions',
@@ -168,6 +167,9 @@ describe('buildCompactionPrompt', () => {
       at = next;
     }
     expect(p.system).toContain('N. ACTION target — outcome [tool]');
+    // The system appends the live pending proposals; a model-written list could be stale.
+    expect(p.system).not.toContain('## Pending proposals');
+    expect(p.system).toContain('the system appends their current list');
     expect(p.system).toContain("owner's language");
     expect(p.system).not.toContain('update it');
     expect(p.user).toContain('Doanh thu tháng này?');
