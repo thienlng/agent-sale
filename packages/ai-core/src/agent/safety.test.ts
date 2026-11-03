@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { maskOwnerSecrets, redactSensitive, scanUntrustedText, SECRET_REMOVED } from './safety.js';
+import {
+  containsPiiToken,
+  maskOwnerSecrets,
+  redactPii,
+  redactSensitive,
+  scanUntrustedText,
+  SECRET_REMOVED,
+} from './safety.js';
 
 const issues = (text: string) => scanUntrustedText(text).issues;
 
@@ -157,5 +164,38 @@ describe('maskOwnerSecrets', () => {
   it('is idempotent', () => {
     const once = maskOwnerSecrets(curl).text;
     expect(maskOwnerSecrets(once)).toEqual({ text: once, removed: 0 });
+  });
+});
+
+describe('redactPii', () => {
+  it('replaces contact-shaped keys and phones/e-mails in any string, keeping other values', () => {
+    const input = {
+      guestPhone: '0901234567',
+      customer_email: 'a@b.vn',
+      shippingAddress: { line: '1 Lê Lợi' },
+      hasPhone: true,
+      phoneVerifiedAt: null,
+      emptyPhone: '',
+      note: 'gọi +84 912 345 678 hoặc mail x.y@shop.vn',
+      items: [{ name: 'Áo', price: 150_000 }],
+    };
+    expect(redactPii(input)).toEqual({
+      guestPhone: '[phone]',
+      customer_email: '[email]',
+      shippingAddress: '[address]',
+      hasPhone: true,
+      phoneVerifiedAt: null,
+      emptyPhone: '',
+      note: 'gọi [phone] hoặc mail [email]',
+      items: [{ name: 'Áo', price: 150_000 }],
+    });
+    // The input is not changed.
+    expect(input.guestPhone).toBe('0901234567');
+  });
+
+  it('flags drafts that carry a redaction token', () => {
+    expect(containsPiiToken({ a: 'gọi [phone]' })).toBe(true);
+    expect(containsPiiToken({ a: 'gọi 0901' })).toBe(false);
+    expect(containsPiiToken(null)).toBe(false);
   });
 });

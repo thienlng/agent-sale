@@ -477,6 +477,102 @@ describe('tool_call', () => {
   });
 });
 
+describe('customer contact data in reads (spec 2-R4)', () => {
+  const ID = newId();
+
+  it('redacts guest phones and e-mails from bookings, even when asked to list them', async () => {
+    const t = await setup(() => ({
+      status: 200,
+      body: {
+        data: [
+          {
+            code: 'BK-0001',
+            guestName: 'Nam',
+            guestPhone: '0901234567',
+            guestEmail: 'nam@example.com',
+            note: 'Khách dặn gọi 0912.345.678 trước khi tới',
+            totalSell: 33_000_000,
+          },
+        ],
+      },
+    }));
+    const out = await t.call({ key: 'GET /lodging/bookings' });
+    expect(out.content).not.toContain('0901234567');
+    expect(out.content).not.toContain('0912.345.678');
+    expect(out.content).not.toContain('nam@example.com');
+    expect(out.json.body.data[0]).toEqual({
+      code: 'BK-0001',
+      guestName: 'Nam',
+      guestPhone: '[phone]',
+      guestEmail: '[email]',
+      note: 'Khách dặn gọi [phone] trước khi tới',
+      totalSell: 33_000_000,
+    });
+  });
+
+  it('redacts contact fields of a CRM contact and a contact query', async () => {
+    const contact = {
+      id: ID,
+      name: 'Lan',
+      phone: '+84 912 345 678',
+      email: 'lan@shop.vn',
+      address: { line1: '12 Lê Lợi', city: 'Hà Nội' },
+      hasPhone: true,
+      phones: ['0987654321'],
+    };
+    const t = await setup(() => ({ status: 200, body: contact }));
+    const one = await t.call({ key: 'GET /contacts/{contactId}', params: { contactId: ID } });
+    expect(one.json.body).toEqual({
+      id: ID,
+      name: 'Lan',
+      phone: '[phone]',
+      email: '[email]',
+      address: '[address]',
+      hasPhone: true,
+      phones: '[phone]',
+    });
+    const many = await t.call({ key: 'POST /contacts/query', body: {} });
+    expect(many.content).not.toMatch(/0912|0987|lan@shop|Lê Lợi/);
+  });
+
+  it('redacts the shipping address and phone of an order', async () => {
+    const t = await setup(() => ({
+      status: 200,
+      body: {
+        id: ID,
+        code: 'DH-1',
+        customer: { name: 'Hà', phone: '0355555555', shippingAddress: '5 Trần Phú, Đà Nẵng' },
+        total: 340_000,
+      },
+    }));
+    const out = await t.call({ key: 'GET /orders/{orderId}', params: { orderId: ID } });
+    expect(out.json.body).toEqual({
+      id: ID,
+      code: 'DH-1',
+      customer: { name: 'Hà', phone: '[phone]', shippingAddress: '[address]' },
+      total: 340_000,
+    });
+  });
+
+  it('keeps the shop’s own hotline and address in its bot profile', async () => {
+    const profile = { id: ID, profile: { hotline: '0901234567', address: '1 Tam Đảo' } };
+    const t = await setup(() => ({ status: 200, body: profile }));
+    const out = await t.call({ key: 'GET /bots/{botId}', params: { botId: ID } });
+    expect(out.json.body).toEqual(profile);
+  });
+
+  it('refuses a write drafted from redacted data', async () => {
+    const t = await setup();
+    const out = await t.call({
+      key: 'POST /products',
+      body: { ...PRODUCT, description: 'Gọi [phone] để đặt' },
+      summary: 'Thêm áo',
+    });
+    expect(out.json).toEqual({ ok: false, errorCode: 'redacted_value_in_body' });
+    expect(await t.repo.listProposals(t.scope, t.thread.id)).toEqual([]);
+  });
+});
+
 describe('native entries (sql_schema, sql_query)', () => {
   const withSql = (runner: FakeSqlRunner) => (scope: OwnerScope) =>
     sqlTools({ scope, runner, uiActions: [], charts: { count: 0 } });
