@@ -161,6 +161,33 @@ describe('maskOwnerSecrets', () => {
     expect(maskOwnerSecrets(q)).toEqual({ text: q, removed: 0 });
   });
 
+  it('never masks ids, dashboard links or ordinary url paths (NB-2)', () => {
+    const id = '01a19f41-06d8-7c2e-9a4b-3f2d1c0b9a87';
+    for (const q of [
+      `mã ${id}`,
+      `Xem /app/bots/${id}/knowledge giúp em`,
+      `/app/bots/${id}/instructions`,
+      `GET /api/v1/bots/${id}/training-items?kind=scenario`,
+      `đơn ${id} và ${id.toUpperCase()}`,
+      '/app/products/owner-catalog-statistics-2026-summary-view',
+    ]) {
+      expect(maskOwnerSecrets(q)).toEqual({ text: q, removed: 0 });
+      expect(scanUntrustedText(q).issues).not.toContain('secret');
+    }
+  });
+
+  it('still masks real tokens next to ids', () => {
+    const id = '01a19f41-06d8-7c2e-9a4b-3f2d1c0b9a87';
+    const { text, removed } = maskOwnerSecrets(
+      `bot ${id} gọi với Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abc123def456 nhé`,
+    );
+    expect(text).toBe(`bot ${id} gọi với ${SECRET_REMOVED} nhé`);
+    expect(removed).toBe(1);
+    expect(
+      maskOwnerSecrets(`token 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b /app/bots/${id}`).text,
+    ).toBe(`token ${SECRET_REMOVED} /app/bots/${id}`);
+  });
+
   it('is idempotent', () => {
     const once = maskOwnerSecrets(curl).text;
     expect(maskOwnerSecrets(once)).toEqual({ text: once, removed: 0 });

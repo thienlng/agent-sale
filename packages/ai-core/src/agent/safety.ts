@@ -43,15 +43,32 @@ export const SECRET_PATTERNS: readonly RegExp[] = [
   /sk-[A-Za-z0-9_-]{16,}/,
   /Bearer\s+[^\s'"]{16,}/,
 ];
-/** A 32+ char hex/base64 run; it counts only when it mixes letters and digits. */
+/**
+ * A 32+ char hex/base64-like run. It counts as a secret only through `isSecretRun`, which
+ * spares canonical UUIDs, URL paths (`/app/bots/<uuid>/knowledge`) and slugs.
+ */
 export const LONG_RUN_PATTERN = /[A-Za-z0-9+/=_-]{32,}/;
 
 function globalOf(re: RegExp): RegExp {
   return new RegExp(re.source, re.flags.includes('g') ? re.flags : `${re.flags}g`);
 }
 
+/** A canonical 8-4-4-4-12 UUID (any version); ids are never secrets. */
+const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+/** An unbroken token chunk: no path or slug separators. */
+const DENSE_CHUNK_RE = /[A-Za-z0-9+=]{20,}/g;
+
+/**
+ * True when a long run holds a real token: after dropping UUIDs, some unbroken chunk of 20+
+ * chars (no `/`, `-`, `_`) mixes letters and digits, like a hex digest, a base64 blob or an
+ * API key body. Paths and slugs are made of short segments, so they never qualify.
+ */
 function isSecretRun(run: string): boolean {
-  return /\d/.test(run) && /[A-Za-z]/.test(run);
+  const rest = run.replace(UUID_RE, ' ');
+  for (const m of rest.matchAll(DENSE_CHUNK_RE)) {
+    if (/\d/.test(m[0]) && /[A-Za-z]/.test(m[0])) return true;
+  }
+  return false;
 }
 
 function hasSecretRun(text: string): boolean {
