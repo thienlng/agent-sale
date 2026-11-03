@@ -16,3 +16,15 @@ export function isAiNotConfiguredError(e: unknown): boolean {
     e instanceof DomainError && e.code === 'AI_UNAVAILABLE' && e.name === 'AiNotConfiguredError'
   );
 }
+
+/**
+ * True when `generate` failed because the providers rate-limited the call (HTTP 429 after the
+ * gateway's retries), read from `AiProviderFailedError.kind`.
+ */
+export function isModelRateLimitedError(e: unknown): boolean {
+  return (
+    e instanceof DomainError &&
+    e.name === 'AiProviderFailedError' &&
+    (e as DomainError & { kind?: unknown }).kind === 'rate_limit'
+  );
+}
