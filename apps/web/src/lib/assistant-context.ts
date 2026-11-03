@@ -246,8 +246,12 @@ export function requestAssistant(text: string): void {
 
 // ─── Open requests (T-172) ────────────────────────────────────────────────────
 
-/** What another feature asks the assistant to open: a report run's thread, or a thread. */
-export type AssistantOpenRequest = { reportRunId: string } | { threadId: string };
+/**
+ * What another feature asks the assistant to open: a report run's thread, or a thread. A report
+ * request carries the notification's text, shown when the run is gone (its schedule deleted).
+ */
+export type AssistantOpenRequest =
+  { reportRunId: string; title?: string; body?: string } | { threadId: string };
 
 const useOpenRequest = create<{ request: (AssistantOpenRequest & { seq: number }) | null }>()(
   () => ({ request: null }),

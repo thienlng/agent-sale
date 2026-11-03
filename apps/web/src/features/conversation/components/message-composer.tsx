@@ -233,7 +233,11 @@ function ScopedComposer({
     }
   }
   return (
-    <div data-inbox-composer className="shrink-0 bg-background px-3 pt-1 pb-3 sm:px-4">
+    <div
+      data-inbox-composer
+      data-assistant-avoid
+      className="shrink-0 bg-background px-3 pt-1 pb-3 sm:px-4"
+    >
       <>
         {saved.conflict ? (
           <div role="status" className="mb-2 space-y-2 rounded-lg border p-2 text-sm">

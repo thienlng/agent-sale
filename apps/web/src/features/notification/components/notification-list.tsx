@@ -96,7 +96,7 @@ export function NotificationList({ onDone }: { onDone: () => void }) {
       void router.navigate({ href: to });
     } else {
       onDone();
-      requestAssistantOpen({ reportRunId: target.runId });
+      requestAssistantOpen({ reportRunId: target.runId, title: item.title, body: item.body });
     }
   }
 

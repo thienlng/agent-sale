@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { toast } from 'sonner';
 
+import { ApiClientError } from '@/lib/api-client';
 import { useAssistantOpenRequests, useAssistantRequest } from '@/lib/assistant-context';
 import { registerAssistantOpener } from '@/lib/assistant-launch';
 import { loadNamespace } from '@/lib/i18n';
@@ -12,6 +13,7 @@ import { useWorkspaceId } from '@/lib/use-workspace';
 import { cn } from '@/lib/utils';
 
 import { openReportThread } from '../api/report-thread';
+import { useLauncherBottom } from '../hooks/use-launcher-bottom';
 import { useAssistantUi } from '../stores/assistant-ui.store';
 
 // The panel (Sheet, chat, steps, spotlight) and its strings load on first open (docs/16 §1).
@@ -20,6 +22,9 @@ const AssistantPanel = lazy(() =>
     default: m.AssistantPanel,
   })),
 );
+
+/** Long enough to read a report body in the toast. */
+const REPORT_GONE_TOAST_MS = 15_000;
 
 /** The owner assistant ("Thỏ Rapiz"): a round launcher bottom-right, owners of the account only. */
 export function AssistantBubble() {
@@ -55,27 +60,49 @@ export function AssistantBubble() {
     if (!request || !isOwner || !workspaceId) return;
     consume(request.seq);
     setLoaded(true);
-    setOpen(true);
     if ('threadId' in request) {
+      setOpen(true);
       setThread(request.threadId);
       return;
     }
+    // Opens once the thread is known, so a failure never shows the panel's previous view.
     openReportThread(workspaceId, request.reportRunId).then(
-      (thread) => setThread(thread.id),
-      () => toast.error(t('app.reportThreadError')),
+      (thread) => {
+        setThread(thread.id);
+        setOpen(true);
+      },
+      (error: unknown) => {
+        if (error instanceof ApiClientError && error.status === 404) {
+          // The schedule was deleted with its runs; the notification still has the report.
+          toast.error(t('app.reportScheduleDeleted'), {
+            description: request.body,
+            duration: REPORT_GONE_TOAST_MS,
+          });
+        } else toast.error(t('app.reportThreadError'));
+      },
     );
   }, [request, isOwner, workspaceId, consume, setOpen, setThread, t]);
+  // Steps over a page's bottom-right control marked `data-assistant-avoid` (a Send button).
+  const bottom = useLauncherBottom(isOwner && !open);
   if (!isOwner) return null;
   return (
     <>
+      {/* Room under the last control of a padded page, so the launcher never covers it; full-bleed
+          pages (data-content-padding=false) mark their controls instead. */}
+      <div
+        aria-hidden
+        data-assistant-spacer
+        className="h-20 shrink-0 [div:has([data-content-padding=false])>&]:hidden"
+      />
       {open ? null : (
         <button
           type="button"
           aria-label={t('app.assistantLauncher')}
           title={t('app.assistantLauncher')}
           onClick={() => setOpen(true)}
+          style={{ bottom }}
           className={cn(
-            'fixed right-4 bottom-4 z-40 grid size-14 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg transition hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
+            'fixed right-4 z-40 grid size-14 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg transition hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
           )}
         >
           <Rabbit className="size-7" aria-hidden />
