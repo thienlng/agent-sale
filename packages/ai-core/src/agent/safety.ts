@@ -67,6 +67,14 @@ export const PII_TOKENS = { phone: '[phone]', email: '[email]', address: '[addre
  * `hasPhone` or `emailVerified` keep their (non-string) value.
  */
 const PII_KEY = /(phone|mobile|msisdn|sdt|zalo|e[-_]?mail|address|addr\b|street)/i;
+/**
+ * Keys that name a fact about a contact field rather than the contact itself: timestamps and
+ * ids (`phoneProvidedAt`, `address_updated_at`, `emailId`). Their value is never contact data.
+ */
+const PII_META_KEY = /(?:At|On|Id|Ids|[-_](?:at|on|id|ids))$/;
+/** An ISO date or date-time string (a timestamp under a contact-shaped key holds no PII). */
+const ISO_DATE =
+  /^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/;
 
 function piiTokenOf(key: string): string {
   const k = key.toLowerCase();
@@ -86,7 +94,8 @@ function redactPiiText(text: string): string {
  * Removes customer contact data from a JSON value before a model sees it (owner assistant,
  * spec 2-R4): a value under a contact-shaped key (phone, e-mail, address; a string, object or
  * array) becomes its token, and every other string has phones and e-mails replaced. Numbers,
- * booleans and null are kept. Pure; the input is not changed.
+ * booleans and null are kept, and so are timestamps and ids about a contact field
+ * (`phoneProvidedAt`, `addressProvidedAt`: the key ends in At/Id, or the value is an ISO date). Pure; the input is not changed.
  */
 export function redactPii(value: unknown): unknown {
   const walk = (v: unknown, depth: number): unknown => {
@@ -97,8 +106,11 @@ export function redactPii(value: unknown): unknown {
     for (const [k, x] of Object.entries(v as Record<string, unknown>)) {
       const contact =
         PII_KEY.test(k) &&
+        !PII_META_KEY.test(k) &&
         x !== null &&
-        (typeof x === 'string' ? x.trim() !== '' : typeof x === 'object');
+        (typeof x === 'string'
+          ? x.trim() !== '' && !ISO_DATE.test(x.trim())
+          : typeof x === 'object');
       out[k] = contact ? piiTokenOf(k) : walk(x, depth + 1);
     }
     return out;

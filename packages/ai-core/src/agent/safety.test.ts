@@ -99,6 +99,27 @@ describe('redactPii', () => {
     expect(input.guestPhone).toBe('0901234567');
   });
 
+  it('keeps timestamps, ids and flags about contact fields', () => {
+    const input = {
+      phone: '0901234567',
+      email: 'a@b.vn',
+      address: '1 Lê Lợi, Q1',
+      phoneProvidedAt: '2026-11-02T03:10:55.132Z',
+      addressProvidedAt: '2026-11-02T03:11:00.000Z',
+      email_verified_at: '2026-11-02 03:12:00+07',
+      phone_id: 'c1a2',
+      emailOptIn: false,
+      addressUpdated: '2026-11-02',
+      phoneVerified: true,
+    };
+    expect(redactPii(input)).toEqual({
+      ...input,
+      phone: '[phone]',
+      email: '[email]',
+      address: '[address]',
+    });
+  });
+
   it('flags drafts that carry a redaction token', () => {
     expect(containsPiiToken({ a: 'gọi [phone]' })).toBe(true);
     expect(containsPiiToken({ a: 'gọi 0901' })).toBe(false);
