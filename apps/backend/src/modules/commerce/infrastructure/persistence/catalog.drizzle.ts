@@ -264,19 +264,22 @@ export function catalogTx(
       },
       async save(rec) {
         // Undefined keeps the stored link; source and id are always written together.
-        const { external, ...fields } = rec;
+        const { external, offering: kind, ...fields } = rec;
         const link =
           external === undefined
             ? {}
             : { externalSource: external?.source ?? null, externalId: external?.id ?? null };
+        // Undefined keeps the stored course or service details (a PMS sync never sends them).
+        const offering = kind === undefined ? {} : { offering: kind };
         try {
           await tx
             .insert(p)
-            .values({ ...fields, ...link, workspaceId: ws })
+            .values({ ...fields, ...link, ...offering, workspaceId: ws })
             .onConflictDoUpdate({
               target: p.id,
               set: {
                 ...link,
+                ...offering,
                 code: rec.code,
                 name: rec.name,
                 description: rec.description,
@@ -467,6 +470,8 @@ export function catalogTx(
             join ${p} p on p.id = v.product_id
             join ${inv} i on i.variant_id = v.id
             where v.workspace_id = ${ws} and p.status = 'active' and v.archived_at is null
+              -- A course or a service has no stock to run low (T-187).
+              and p.offering is null
             group by p.id, v.id
             having sum(i.on_hand - i.reserved) <= ${threshold})
           select low.*, count(*) over ()::int as total from low

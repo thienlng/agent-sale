@@ -129,6 +129,7 @@ export class BotOrderService {
         const v = bySku.get(item.sku.toLowerCase());
         // Products the bot may not sell are not revealed as such, whatever their status.
         if (!v || !inScope(v)) problems.push({ code: 'unknown_sku', sku: item.sku });
+        else if (v.productOffering) problems.push({ code: 'not_sold', sku: item.sku });
         else if (v.archived || !v.productActive) problems.push({ code: 'inactive', sku: item.sku });
         else if (available(v.id) < item.qty)
           problems.push({

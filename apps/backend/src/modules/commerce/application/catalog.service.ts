@@ -109,8 +109,7 @@ function toProductDto(
       imageUrls: p.imageUrls,
       ...(p.accommodation ? { accommodation: p.accommodation } : {}),
     }),
-    // Persisted by T-187 Task 3; until then every product reads as retail.
-    offering: null,
+    offering: p.offering ?? null,
     variants: dtoVariants,
     priceMin: prices.length ? Math.min(...prices) : 0,
     priceMax: prices.length ? Math.max(...prices) : 0,
@@ -182,15 +181,24 @@ export class CatalogService {
         });
         const dtos = await this.#dtos(tx, rows);
         // An accommodation has no stock and a rate reference rather than a price: neither filter applies.
-        return dtos
-          .filter(
-            (d) =>
-              d.accommodation !== undefined ||
-              input.maxPriceVnd === undefined ||
-              d.priceMin <= input.maxPriceVnd,
-          )
-          .filter((d) => d.accommodation !== undefined || !input.inStockOnly || d.available > 0)
-          .slice(0, limit);
+        return (
+          dtos
+            .filter(
+              (d) =>
+                d.accommodation !== undefined ||
+                input.maxPriceVnd === undefined ||
+                d.priceMin <= input.maxPriceVnd,
+            )
+            // A course or a service has no stock either (T-187).
+            .filter(
+              (d) =>
+                d.accommodation !== undefined ||
+                d.offering !== null ||
+                !input.inStockOnly ||
+                d.available > 0,
+            )
+            .slice(0, limit)
+        );
       });
     } catch (error) {
       if (error instanceof CommerceUnavailableError) return [];
@@ -369,6 +377,7 @@ export class CatalogService {
         botInstructions: input.botInstructions,
         imageUrls: input.imageUrls,
         accommodation: input.accommodation ?? null,
+        offering: input.offering ?? null,
         external: null,
         searchText: productSearchText(input, input.variants),
         createdAt: now,
@@ -434,6 +443,15 @@ export class CatalogService {
         );
       if (current.accommodation && input.variants.length !== 1)
         throw new LodgingError('VALIDATION_FAILED', 'An entire property has one catalog unit');
+      // Omitted keeps the stored course or service details; null turns the product into retail.
+      const offering = input.offering === undefined ? (current.offering ?? null) : input.offering;
+      const accommodation =
+        input.accommodation === undefined ? (current.accommodation ?? null) : input.accommodation;
+      if (offering && accommodation)
+        throw new LodgingError(
+          'VALIDATION_FAILED',
+          'A product is a course or service, or an accommodation, never both',
+        );
       const existing = (await tx.products.variantsOf([id])).filter((v) => !v.archived);
       // A PMS-synced product: only the Rapiz-owned fields may change (ADR-017).
       if (current.external) {
@@ -472,8 +490,8 @@ export class CatalogService {
         visibleToBot: input.visibleToBot,
         botInstructions: input.botInstructions,
         imageUrls: input.imageUrls,
-        accommodation:
-          input.accommodation === undefined ? (current.accommodation ?? null) : input.accommodation,
+        accommodation,
+        offering,
         searchText: productSearchText(input, input.variants),
         updatedAt: new Date(),
       });
@@ -521,6 +539,8 @@ export class CatalogService {
         (v) => v.id === input.variantId && !v.archived,
       );
       if (!variant) throw new ProductNotFoundError(input.variantId);
+      if (product.offering)
+        throw new LodgingError('VALIDATION_FAILED', 'A course or a service has no stock');
       // The PMS owns the stock of a synced product.
       if (product.external) throw new ExternalSourceLockedError('stock');
       await this.#warehouse(tx, input.warehouseId);

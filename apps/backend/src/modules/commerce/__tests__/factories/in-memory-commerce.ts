@@ -74,6 +74,7 @@ export class InMemoryCommerce implements CommerceStore {
       productCode: p?.code ?? '',
       productActive: p?.status === 'active',
       productVisibleToBot: p?.visibleToBot ?? false,
+      productOffering: Boolean(p?.offering),
     };
   }
 
@@ -144,7 +145,7 @@ export class InMemoryCommerce implements CommerceStore {
             .flatMap((v) => {
               const product = this.products.find((p) => p.id === v.productId);
               const stock = this.stock.filter((s) => s.variantId === v.id);
-              if (product?.status !== 'active' || stock.length === 0) return [];
+              if (product?.status !== 'active' || product.offering || stock.length === 0) return [];
               const available = stock.reduce((n, s) => n + s.onHand - s.reserved, 0);
               return available <= threshold
                 ? [
