@@ -18,7 +18,8 @@ import {
 } from '../domain/ports/access-delegation.port.js';
 import { ROUTE_INVOKER, type RouteInvoker } from '../domain/ports/route-invoker.port.js';
 import { APPROVAL_DELEGATION_SECONDS, delegatedAuthorization } from './delegated-authorization.js';
-import { ROUTE_CATALOG, type RouteCatalog } from './route-catalog.js';
+import { readCurrentState } from './current-state.js';
+import { type CatalogEntry, ROUTE_CATALOG, type RouteCatalog } from './route-catalog.js';
 
 /** The stored result shown on a done proposal is at most this long. */
 export const RESULT_PREVIEW_CHARS = 1_000;
@@ -138,13 +139,14 @@ export class ProposalService {
       throw new AssistantProposalConflictError('proposal_expired');
     }
     // The route may have left the catalog (or stopped being a write) since it was proposed.
-    if (this.catalog.get(proposal.routeKey)?.use !== 'write') {
+    const entry = this.catalog.get(proposal.routeKey);
+    if (entry?.use !== 'write') {
       return this.#finish(scope, proposal, { ok: false, errorCode: 'route_not_allowed' });
     }
 
     // A stale draft must not undo a later edit (QA TinyMind B5): what it changes must still be
     // what the owner saw when it was drafted.
-    const stale = await this.#changedTarget(proposal, authorization);
+    const stale = await this.#changedTarget(proposal, entry, authorization);
     if (stale.length > 0) {
       return this.#finish(scope, proposal, {
         ok: false,
@@ -182,22 +184,30 @@ export class ProposalService {
 
   /**
    * For a PATCH/PUT proposal that stored a `before` snapshot, the fields it changes whose
-   * current value differs from that snapshot (re-read with the approver's token). Empty when the
-   * proposal has no snapshot or the target cannot be read (the write then answers for itself).
+   * current value differs from that snapshot (re-read with the approver's token, the same way the
+   * snapshot was read: the item's own GET, or the item inside its parent's GET for a date-range
+   * price). Empty when the proposal has no snapshot or the target cannot be read (the write then
+   * answers for itself).
    */
-  async #changedTarget(proposal: ProposalRecord, authorization: string): Promise<string[]> {
+  async #changedTarget(
+    proposal: ProposalRecord,
+    entry: CatalogEntry,
+    authorization: string,
+  ): Promise<string[]> {
     const method = methodOf(proposal.routeKey);
     const preview = proposal.preview as { before?: unknown } | null;
     if ((method !== 'patch' && method !== 'put') || preview?.before === undefined) return [];
     try {
-      const current = await this.invoker.invoke({
-        method: 'get',
+      const current = await readCurrentState({
+        catalog: this.catalog,
+        invoker: this.invoker,
+        entry,
         path: proposal.path,
         businessId: proposal.businessId,
         authorization,
       });
-      if (current.status < 200 || current.status >= 300) return [];
-      return changedSince(method, proposal.body, preview.before, current.body);
+      if (!current.found) return [];
+      return changedSince(method, proposal.body, preview.before, current.value);
     } catch (e) {
       this.#log.warn(`assistant proposal ${proposal.id}: target not re-read (${errorClass(e)})`);
       return [];
