@@ -24,6 +24,8 @@ export const AssistantPageForm = z.object({
         type: z.enum(['text', 'textarea', 'number', 'select']),
         options: z.array(z.string().max(80)).max(30).optional(),
         empty: z.boolean(),
+        /** The form cannot be saved while this field is empty (the assistant always fills it). */
+        required: z.boolean().optional(),
         value: z.string().max(ASSISTANT_FORM_VALUE_MAX).optional(),
       }),
     )

@@ -594,7 +594,7 @@ describe('AssistantFacade (contract)', () => {
 
     it('stores the created id as resultId when the response body has a uuid id', async () => {
       const botId = newId();
-      const { facade, me, p, invoke } = await withProposal({
+      const { facade, me, p, t, invoke, repo, scope } = await withProposal({
         routeKey: 'POST /bots/{botId}/actions',
         path: `/bots/${botId}/actions`,
         body: DRAFT,
@@ -605,6 +605,13 @@ describe('AssistantFacade (contract)', () => {
         status: 'done',
         resultId: actionId,
       });
+      // The event row carries the created id for the model only (QA N9).
+      const rows = await repo.listMessages(scope, t.id);
+      expect(rows.at(-1)).toMatchObject({
+        role: 'event',
+        pageContext: { routeKey: 'POST /bots/{botId}/actions', resultId: actionId },
+      });
+      expect((await facade.listMessages(me, t.id)).data.at(-1)).not.toHaveProperty('pageContext');
     });
 
     it('keeps resultId null when the response id is not a uuid', async () => {
