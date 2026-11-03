@@ -226,7 +226,7 @@ export const SQL_VIEWS: readonly SqlView[] = [
   ),
   view(
     'lodging_bookings',
-    'lodging stays (homestay, villa, hotel bookings)',
+    'lodging stays only (homestay, villa, hotel bookings); date blocks (chặn ngày) are not in this view: read them with GET /lodging/calendar',
     [
       ['booking_id', 'uuid', 'booking id'],
       ID('booking'),

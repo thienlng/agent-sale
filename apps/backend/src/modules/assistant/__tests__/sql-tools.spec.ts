@@ -325,6 +325,8 @@ describe('sql_schema', () => {
     expect(text.startsWith(SQL_RULES)).toBe(true);
     // A hotel's revenue comes from its stays, not orders (QA Villas #6).
     expect(SQL_RULES).toContain('its revenue = sum(total_sell) from lodging_bookings');
+    // Blocks are not stays: the model must not claim they are counted (QA SQL-1).
+    expect(text).toContain('date blocks (chặn ngày) are not in this view');
     for (const v of SQL_VIEWS) {
       expect(text).toContain(`${v.name}(${v.columns.map((c) => c.name).join(', ')}) — `);
     }
