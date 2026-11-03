@@ -61,6 +61,15 @@ export const scheduleDedupKey = (scheduleId: string, scheduledFor: Date, suffix 
  * commentary, render it in the owner's language and deliver it through `notification`. Alerts
  * fire on change only (S3-R13). Logs carry ids and error classes only.
  */
+/**
+ * A run row's own timestamps: the wall clock, never before the tick's `now`. The tick's `now`
+ * is taken before the run row exists, so writing it as `finished_at` put the finish before the
+ * row's `started_at` (QA M-6); both are now read from this clock, in order.
+ */
+function runClock(now: Date): Date {
+  return new Date(Math.max(Date.now(), now.getTime()));
+}
+
 @Injectable()
 export class ScheduleRunner implements AssistantScheduleRunner {
   readonly #log = new Logger('AssistantScheduleRunner');
@@ -102,17 +111,17 @@ export class ScheduleRunner implements AssistantScheduleRunner {
     try {
       if (!manual && isMissed(scheduledFor, now)) {
         await this.repo.insertScheduleRun({
-          ...this.#runKey(s, scheduledFor, 'cadence'),
+          ...this.#runKey(s, scheduledFor, 'cadence', now),
           status: 'skipped',
           errorCode: 'missed',
-          finishedAt: now,
+          finishedAt: runClock(now),
         });
         return;
       }
       // Reports and manual runs take the slot up front; an alert only once it fires (S3-R13).
       let run: ScheduleRunRecord | null = null;
       if (s.mode === 'report' || manual) {
-        run = await this.#takeSlot(s, scheduledFor, manual);
+        run = await this.#takeSlot(s, scheduledFor, manual, now);
         if (!run) return;
       }
 
@@ -129,7 +138,7 @@ export class ScheduleRunner implements AssistantScheduleRunner {
     }
   }
 
-  #runKey(s: ScheduleRecord, scheduledFor: Date, trigger: 'cadence' | 'manual') {
+  #runKey(s: ScheduleRecord, scheduledFor: Date, trigger: 'cadence' | 'manual', now: Date) {
     return {
       id: newId(),
       accountId: s.accountId,
@@ -137,6 +146,7 @@ export class ScheduleRunner implements AssistantScheduleRunner {
       scheduleId: s.id,
       trigger,
       scheduledFor,
+      startedAt: runClock(now),
     };
   }
 
@@ -148,9 +158,10 @@ export class ScheduleRunner implements AssistantScheduleRunner {
     s: ScheduleRecord,
     scheduledFor: Date,
     manual: boolean,
+    now: Date,
   ): Promise<ScheduleRunRecord | null> {
     const run = await this.repo.insertScheduleRun(
-      this.#runKey(s, scheduledFor, manual ? 'manual' : 'cadence'),
+      this.#runKey(s, scheduledFor, manual ? 'manual' : 'cadence', now),
     );
     if (run) return run;
     const existing = await this.repo.getScheduleRunAt(s.id, scheduledFor);
@@ -184,14 +195,14 @@ export class ScheduleRunner implements AssistantScheduleRunner {
       await this.repo.finishScheduleRun(run.id, {
         status: 'blocked',
         errorCode: reason,
-        finishedAt: now,
+        finishedAt: runClock(now),
       });
     } else {
       await this.repo.insertScheduleRun({
-        ...this.#runKey(s, scheduledFor, manual ? 'manual' : 'cadence'),
+        ...this.#runKey(s, scheduledFor, manual ? 'manual' : 'cadence', now),
         status: 'blocked',
         errorCode: reason,
-        finishedAt: now,
+        finishedAt: runClock(now),
       });
     }
     claim.pause = reason;
@@ -235,7 +246,7 @@ export class ScheduleRunner implements AssistantScheduleRunner {
           return;
         }
       }
-      run ??= await this.#takeSlot(s, scheduledFor, manual);
+      run ??= await this.#takeSlot(s, scheduledFor, manual, now);
       if (!run) return;
       await this.#deliver(s, run, computed, scheduledFor, now);
       Object.assign(state, alert, { lastRunAt: now, consecutiveFailures: 0 });
@@ -325,7 +336,7 @@ export class ScheduleRunner implements AssistantScheduleRunner {
       body,
       commentaryRunId,
       notificationId: id,
-      finishedAt: now,
+      finishedAt: runClock(now),
     });
   }
 
@@ -344,12 +355,13 @@ export class ScheduleRunner implements AssistantScheduleRunner {
     state: ScheduleStatePatch,
     claim: ScheduleClaimOutcome,
   ): Promise<void> {
-    const failed = { status: 'failed' as const, errorCode: 'compute_failed', finishedAt: now };
-    if (run) await this.repo.finishScheduleRun(run.id, failed);
+    const failed = { status: 'failed' as const, errorCode: 'compute_failed' };
+    if (run) await this.repo.finishScheduleRun(run.id, { ...failed, finishedAt: runClock(now) });
     else {
       await this.repo.insertScheduleRun({
-        ...this.#runKey(s, scheduledFor, manual ? 'manual' : 'cadence'),
+        ...this.#runKey(s, scheduledFor, manual ? 'manual' : 'cadence', now),
         ...failed,
+        finishedAt: runClock(now),
       });
     }
     const failures = s.consecutiveFailures + 1;
