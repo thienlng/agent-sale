@@ -60,9 +60,20 @@ export class ReportService {
     switch (s.template) {
       case 'revenue_summary': {
         const p = period();
-        const figures = await this.data.revenue(ws, p.from, p.to);
+        const [figures, industry] = await Promise.all([
+          this.data.revenue(ws, p.from, p.to),
+          this.data.industry(ws),
+        ]);
+        // A hotel's revenue is its stays (QA Villas #6).
+        const stays = industry === 'hotel' ? await this.data.stays(ws, p.from, p.to) : undefined;
         return {
-          result: { template: 'revenue_summary', mode: 'report', period: ref(p), figures },
+          result: {
+            template: 'revenue_summary',
+            mode: 'report',
+            period: ref(p),
+            figures,
+            ...(stays ? { stays } : {}),
+          },
           hit: true,
           hitIds: [],
         };

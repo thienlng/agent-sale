@@ -14,7 +14,9 @@
   "report": {
     "revenue_summary": {
       "title": "Revenue {{period}} · {{business}}",
-      "body": "Sales: {{sales}}\nRevenue: {{revenue}}\nClosed orders: {{closedOrders}}\nAverage order value: {{averageOrderValue}}\nProfit: {{profit}}"
+      "body": "Sales: {{sales}}\nRevenue: {{revenue}}\nClosed orders: {{closedOrders}}\nAverage order value: {{averageOrderValue}}\nProfit: {{profit}}",
+      "stays_title": "Stay revenue {{period}} · {{business}}",
+      "stays_body": "Stay revenue: {{revenue}}\nNights sold: {{nights}}\nBookings: {{bookings}}\nProfit: {{profit}}"
     },
     "new_orders": {
       "title": "New orders {{period}} · {{business}}",

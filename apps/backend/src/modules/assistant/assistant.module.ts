@@ -7,6 +7,7 @@ import { AiModule } from '../ai/ai.module.js';
 import { CommerceModule } from '../commerce/commerce.module.js';
 import { ConversationModule } from '../conversation/conversation.module.js';
 import { CrmModule } from '../crm/crm.module.js';
+import { LodgingModule } from '../lodging/lodging.module.js';
 import { NotificationModule } from '../notification/notification.module.js';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
 import { ASSISTANT_FACADE } from './api/assistant.facade.js';
@@ -36,7 +37,8 @@ import { SchedulesController } from './interface/http/schedules.controller.js';
  * Owner assistant (ADR-023): account-scoped threads of one owner. With a database the
  * repository is Drizzle-backed (`withAccount`); otherwise in-memory. Exports ONLY what api/
  * declares. `AiModule` provides the LLM gateway `ChatTurnService` runs chat turns on; `commerce`,
- * `conversation` and `crm` give scheduled reports their figures and `notification` delivers them.
+ * `conversation`, `crm` and `lodging` (a hotel's stays) give scheduled reports their figures and
+ * `notification` delivers them.
  */
 @Module({
   imports: [
@@ -47,6 +49,7 @@ import { SchedulesController } from './interface/http/schedules.controller.js';
     CommerceModule,
     ConversationModule,
     CrmModule,
+    LodgingModule,
     NotificationModule,
   ],
   controllers: [AssistantController, SchedulesController],

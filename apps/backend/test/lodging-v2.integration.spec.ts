@@ -384,6 +384,45 @@ describe('DrizzleLodgingStore', () => {
     expect(taken.map((t) => t.code)).toEqual([winner, winner]);
   });
 
+  it('sums the revenue stays checking in on the given nights (scheduled reports)', async () => {
+    const { p, u } = await seedProperty(ws, { code: 'REV1' });
+    const at = (checkIn: string, checkOut: string, over: Partial<BookingRecord> = {}) =>
+      booking(p.id, [u.id], { code: `BK-${checkIn}`, checkIn, checkOut, ...over });
+    const rows = [
+      at('2028-05-02', '2028-05-04'),
+      at('2028-05-05', '2028-05-06', {
+        status: 'checked_out',
+        totalSell: 15_000_000,
+        totalCost: 13_000_000,
+      }),
+      at('2028-05-03', '2028-05-04', { status: 'cancelled' }),
+      at('2028-05-06', '2028-05-07', {
+        status: 'hold',
+        holdExpiresAt: '2028-05-01T00:00:00.000Z',
+      }),
+      // A block is not a stay.
+      at('2028-05-04', '2028-05-05', { kind: 'block', status: 'active', blockReason: 'Sửa chữa' }),
+      // Checks in after the range.
+      at('2028-05-08', '2028-05-09'),
+    ];
+    await store.run(ws, async (tx) => {
+      for (const b of rows) await tx.insertBooking(b);
+    });
+    expect(await store.run(ws, (tx) => tx.stayTotals('2028-05-01', '2028-05-07'))).toEqual({
+      bookings: 2,
+      nights: 3,
+      revenue: 41_000_000,
+      cost: 37_000_000,
+    });
+    // Another business sees none of them.
+    expect(await store.run(otherWs, (tx) => tx.stayTotals('2028-05-01', '2028-05-07'))).toEqual({
+      bookings: 0,
+      nights: 0,
+      revenue: 0,
+      cost: 0,
+    });
+  });
+
   it('refuses to delete a unit that holds nights with CONFLICT', async () => {
     const { p, u } = await seedProperty(ws, { code: 'DEL', sellMode: 'rooms' });
     const b = booking(p.id, [u.id], { code: 'BK-DEL' });

@@ -14,7 +14,9 @@
   "report": {
     "revenue_summary": {
       "title": "Doanh thu {{period}} · {{business}}",
-      "body": "Doanh số: {{sales}}\nDoanh thu: {{revenue}}\nĐơn hoàn tất: {{closedOrders}}\nGiá trị trung bình mỗi đơn: {{averageOrderValue}}\nLợi nhuận: {{profit}}"
+      "body": "Doanh số: {{sales}}\nDoanh thu: {{revenue}}\nĐơn hoàn tất: {{closedOrders}}\nGiá trị trung bình mỗi đơn: {{averageOrderValue}}\nLợi nhuận: {{profit}}",
+      "stays_title": "Doanh thu lưu trú {{period}} · {{business}}",
+      "stays_body": "Doanh thu lưu trú: {{revenue}}\nSố đêm đã bán: {{nights}}\nLượt đặt: {{bookings}}\nLợi nhuận: {{profit}}"
     },
     "new_orders": {
       "title": "Đơn hàng mới {{period}} · {{business}}",

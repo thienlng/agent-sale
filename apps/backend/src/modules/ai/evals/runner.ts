@@ -273,6 +273,7 @@ export function buildService(c: EvalCase, llm: LlmRuntime) {
     // Every property the bot sells (the code lookup's fallback when the search misses).
     {
       listBotPropertyIds: async () => products.filter((p) => p.accommodation).map((p) => p.id),
+      stayRevenue: () => Promise.reject(new Error('not used by the bot evals')),
     } as LodgingFacade,
   );
   return { service, botId, runs };
