@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   CONSOLIDATE_HINT,
+  isNearDuplicate,
   MEMORY_TOOL,
   MEMORY_TOOL_DEFINITION,
   memoryTool,
@@ -94,6 +95,40 @@ describe('memory tool', () => {
     });
   });
 
+  it('refuses a review entry that repeats one the chat saved, near-duplicates included (QA B12b)', async () => {
+    const { scope, repo, turn, entries } = setup();
+    await turn()({ action: 'add', store: 'notes', text: '“Đơn mới” = trạng thái new' });
+    // The review reads the store at write time, so it sees the entry saved seconds earlier.
+    const review = () => {
+      const tool = memoryTool({ scope, repo, origin: 'review' });
+      return async (text: string) =>
+        JSON.parse(
+          (await tool.run(tool.schema.parse({ action: 'add', store: 'notes', text }))).content,
+        ) as Record<string, unknown>;
+    };
+    for (const text of [
+      '“Đơn mới” = trạng thái new',
+      'đơn mới  =  TRẠNG THÁI NEW',
+      '"don moi" = trang thai new.',
+      'Lưu ý: “đơn mới” = trạng thái new trong Rapiz',
+    ]) {
+      expect(await review()(text)).toMatchObject({
+        ok: false,
+        errorCode: 'duplicate',
+        entries: ['“Đơn mới” = trạng thái new'],
+      });
+    }
+    expect(await review()('Đơn đã giao = trạng thái delivered')).toMatchObject({ ok: true });
+    expect(await entries('notes')).toHaveLength(2);
+  });
+
+  it('counts containment only for texts of 8 chars or more, on word boundaries', () => {
+    expect(isNearDuplicate('COD', 'Shop có COD toàn quốc')).toBe(false);
+    expect(isNearDuplicate('Giao hàng', 'Giao hàng buổi chiều')).toBe(true);
+    expect(isNearDuplicate('giao hang chieu', 'Giao hàng chiều thứ 7')).toBe(true);
+    expect(isNearDuplicate('Màu cam', 'Màu camel')).toBe(false);
+  });
+
   it('answers each error code', async () => {
     const { turn } = setup();
     // A new turn per check so stop_retrying does not kick in.
@@ -134,8 +169,9 @@ describe('memory tool', () => {
     const { turn, entries } = setup();
     const call = turn();
     const big = 'a '.repeat(350).trim(); // 699 chars
+    const other = `b ${'c '.repeat(350).trim()}`; // 701 chars, not a near-duplicate of `big`
     await call({ action: 'add', store: 'owner_profile', text: big });
-    await call({ action: 'add', store: 'owner_profile', text: `b ${big}` });
+    await call({ action: 'add', store: 'owner_profile', text: other });
     const full = await turn()({
       action: 'add',
       store: 'owner_profile',
@@ -144,7 +180,7 @@ describe('memory tool', () => {
     expect(full).toEqual({
       ok: false,
       errorCode: 'store_full',
-      entries: [big, `b ${big}`],
+      entries: [big, other],
       hint: CONSOLIDATE_HINT,
       used: 1400,
       limit: OWNER_PROFILE_LIMIT,
@@ -152,7 +188,7 @@ describe('memory tool', () => {
     expect(await entries('owner_profile')).toHaveLength(2);
     // Replacing with a shorter text frees room.
     expect(
-      await turn()({ action: 'replace', store: 'owner_profile', match: 'b a', text: 'Ngắn gọn' }),
+      await turn()({ action: 'replace', store: 'owner_profile', match: 'b c', text: 'Ngắn gọn' }),
     ).toMatchObject({ ok: true, used: 707 });
   });
 
