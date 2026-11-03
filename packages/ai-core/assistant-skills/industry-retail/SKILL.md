@@ -1,6 +1,8 @@
 ---
 name: industry-retail
 description: Industry guide for shops selling products: profile facts, customer questions, sample scenarios and quick replies
+title: Ngành bán lẻ
+description_vi: Hướng dẫn cho shop bán hàng: thông tin, câu khách hay hỏi, tình huống và tin nhắn mẫu
 toolsets: [ui, routes]
 version: 1
 ---

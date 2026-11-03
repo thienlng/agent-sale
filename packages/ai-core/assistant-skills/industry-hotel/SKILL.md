@@ -1,6 +1,8 @@
 ---
 name: industry-hotel
 description: Hotels, homestays, villas: questions about villas, rooms and bookings; profile facts, FAQ, scenarios, quick replies
+title: Ngành lưu trú
+description_vi: Hướng dẫn cho khách sạn, homestay, villa: phòng, giá, đặt phòng và nội dung cho bot
 toolsets: [ui, routes]
 version: 1
 ---

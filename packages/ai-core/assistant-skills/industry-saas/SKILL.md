@@ -1,6 +1,8 @@
 ---
 name: industry-saas
 description: Industry guide for software (SaaS) businesses: profile facts, buyer questions, sample scenarios and quick replies
+title: Ngành phần mềm
+description_vi: Hướng dẫn cho doanh nghiệp phần mềm (SaaS): thông tin, câu hỏi, tình huống và tin nhắn mẫu
 toolsets: [ui, routes]
 version: 1
 ---
