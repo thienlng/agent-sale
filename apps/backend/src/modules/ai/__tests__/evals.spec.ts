@@ -97,7 +97,7 @@ products:
     expect(() => parseCase(both, 'b.yaml')).toThrow(/accommodation or offering/);
   });
 
-  it('pins the local dateLabel and isPastDate copies (crm writer output)', () => {
+  it('pins the dateLabel (shared with the crm writer) and the local isPastDate copy', () => {
     expect(
       [
         '2027-11-08',

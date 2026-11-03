@@ -1,4 +1,4 @@
-import { formatVnd } from '@agent-sales/shared';
+import { formatVnd, vietnameseWeekday } from '@agent-sales/shared';
 
 import { isoWeekday, nightsBetween } from './nights.js';
 
@@ -8,15 +8,6 @@ import { isoWeekday, nightsBetween } from './nights.js';
  * from the model.
  */
 
-const WEEKDAY_LABELS: Record<number, string> = {
-  1: 'Thứ Hai',
-  2: 'Thứ Ba',
-  3: 'Thứ Tư',
-  4: 'Thứ Năm',
-  5: 'Thứ Sáu',
-  6: 'Thứ Bảy',
-  7: 'Chủ Nhật',
-};
 const SHORT_WEEKDAY_LABELS: Record<number, string> = {
   1: 'T2',
   2: 'T3',
@@ -31,7 +22,7 @@ const MAX_NOTE_CHARS = 300;
 
 /** 'Thứ Sáu' for a Friday night ('YYYY-MM-DD'). */
 export function weekdayLabel(night: string): string {
-  return WEEKDAY_LABELS[isoWeekday(night)] ?? '';
+  return vietnameseWeekday(night);
 }
 
 /** 'T6' for a Friday, 'CN' for a Sunday. */

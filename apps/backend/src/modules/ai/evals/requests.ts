@@ -5,23 +5,18 @@ import {
   requestProfileFor,
   unmetRules,
 } from '@agent-sales/contracts';
-import { normalizeAnyPhone } from '@agent-sales/shared';
+import { normalizeAnyPhone, vietnameseDateLabel } from '@agent-sales/shared';
 
 import type { BotRequestResult, CrmFacade } from '../../crm/api/index.js';
 
 const SHOP_TIME_ZONE = 'Asia/Ho_Chi_Minh';
 const UPDATE_WINDOW_MS = 24 * 3_600_000;
-const WEEKDAYS = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
 
 /**
- * Local copy of the crm writer's label of a `preferredDate` (crm's domain is not importable from
- * ai): the Vietnamese weekday, then dd/mm/yyyy. Pinned by the eval format test.
+ * The crm writer's label of a `preferredDate` (the shared helper, so the spelling cannot drift):
+ * the Vietnamese weekday, then dd/mm/yyyy.
  */
-export function dateLabel(yyyyMmDd: string): string {
-  const [y, m, d] = yyyyMmDd.split('-');
-  const weekday = WEEKDAYS[new Date(`${yyyyMmDd}T00:00:00Z`).getUTCDay()] ?? '';
-  return `${weekday} ${d}/${m}/${y}`;
-}
+export const dateLabel = vietnameseDateLabel;
 
 /** Local copy of the crm writer's check: the day is before today in Asia/Ho_Chi_Minh. */
 export function isPastDate(yyyyMmDd: string, now: Date): boolean {

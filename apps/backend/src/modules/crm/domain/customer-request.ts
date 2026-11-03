@@ -3,6 +3,7 @@ import type {
   RequestProfile,
   RequestStatusMove,
 } from '@agent-sales/contracts';
+import { vietnameseDateLabel } from '@agent-sales/shared';
 
 /**
  * Pure rules of a bot-recorded customer request (ESV spec §5.1; ADR-020 generalised): the note
@@ -18,18 +19,11 @@ export const UPDATE_WINDOW_MS = 24 * 3_600_000;
 /** The business time zone of every request industry today (Vietnam). */
 const REQUEST_TIME_ZONE_OFFSET_MS = 7 * 3_600_000;
 
-const WEEKDAYS = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
-
-const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
-
-/** "Thứ Bảy 07/11/2026" for `2026-11-07`; null for a value that is not a YYYY-MM-DD date. */
-export function dateLabel(yyyyMmDd: string): string | null {
-  const m = DATE.exec(yyyyMmDd);
-  if (!m) return null;
-  const d = new Date(`${yyyyMmDd}T00:00:00.000Z`);
-  if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== yyyyMmDd) return null;
-  return `${WEEKDAYS[d.getUTCDay()]} ${m[3]}/${m[2]}/${m[1]}`;
-}
+/**
+ * "Thứ Bảy 07/11/2026" for `2026-11-07`; null for a value that is not a YYYY-MM-DD date. The
+ * shared helper keeps the spelling identical to lodging and the eval writer.
+ */
+export const dateLabel = vietnameseDateLabel;
 
 /** Today's calendar date in Asia/Ho_Chi_Minh (UTC+7, no daylight saving). */
 export function localToday(now: Date): string {
