@@ -246,7 +246,8 @@ describe('InMemoryAssistantRepository suggestions, settings, feedback, counters 
 describe('InMemoryAssistantRepository jobs and curator (1c)', () => {
   it('keeps one queued job per thread and kind, claims due jobs and fences finish', async () => {
     const { repo, s, t } = await setup();
-    const now = new Date('2026-11-02T10:00:00Z');
+    // In the future: a job that is already due is never pushed back by an enqueue.
+    const now = new Date(Date.now() + 60 * 60_000);
     const first = await repo.enqueueJob(s, {
       id: newId(),
       threadId: t.id,

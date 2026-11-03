@@ -829,9 +829,13 @@ export class InMemoryAssistantRepository implements AssistantRepository {
       (x) => mine(s, x) && x.status === 'queued' && x.kind === j.kind && x.threadId === j.threadId,
     );
     if (queued) {
-      queued.runAfter = j.runAfter;
-      queued.reviewScope = j.reviewScope;
-      queued.createdAt = this.#now();
+      const now = this.#now();
+      if (queued.runAfter.getTime() > now.getTime()) queued.runAfter = j.runAfter;
+      queued.reviewScope =
+        queued.reviewScope && j.reviewScope && queued.reviewScope !== j.reviewScope
+          ? 'combined'
+          : j.reviewScope;
+      queued.createdAt = now;
       return structuredClone(queued);
     }
     if (this.jobs.has(j.id)) throw new Error('assistant job id already used');

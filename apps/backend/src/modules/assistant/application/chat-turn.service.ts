@@ -31,12 +31,12 @@ import { ROUTE_INVOKER, type RouteInvoker } from '../domain/ports/route-invoker.
 import { CompactionService, threadCacheKey } from './compaction.service.js';
 import { CORE_TOOL_DEFINITIONS, coreTools, type ToolContext } from './core-tools.js';
 import { isVisibleMessage } from './mappers.js';
-import { MEMORY_TOOL, MEMORY_TOOL_DEFINITION, memoryTool } from './memory-tools.js';
+import { MEMORY_TOOL_DEFINITION, memoryTool } from './memory-tools.js';
 import { buildTurnMessage } from './prompt-builder.js';
 import { ROUTE_CATALOG, type RouteCatalog } from './route-catalog.js';
 import { ROUTE_TOOL_DEFINITIONS, routeTools } from './route-tools.js';
 import { planReview } from './review-trigger.js';
-import { SKILL_MANAGE_TOOL, SKILL_TOOL_DEFINITIONS, skillTools } from './skill-tools.js';
+import { SKILL_TOOL_DEFINITIONS, skillTools } from './skill-tools.js';
 import { SkillsService } from './skills.service.js';
 import { disabledTools, enabledDefinitions, toolsetCacheSuffix } from './toolsets.js';
 import { withTurnOutputBudget } from './turn-budget.js';
@@ -380,11 +380,12 @@ export class ChatTurnService {
 
   /**
    * The review triggers (spec §11), after a turn that answered: +1 owner turn and the turn's
-   * tool rounds on the thread's counters; a turn in which the assistant itself wrote memory or a
-   * skill resets them instead. `planReview` then enqueues at most one review job (an existing
-   * queued one is updated, so each turn pushes an idle review back); a review that runs now
-   * resets the counters. Never for schedule threads or when the owner turned review off. A
-   * failure here is logged and never fails the turn.
+   * tool rounds on the thread's counters, also when the assistant wrote memory or a skill in the
+   * turn (QA fix: resetting there lost the learning of correction threads). `planReview` then
+   * enqueues at most one review job (an existing queued one is updated, so each turn pushes an
+   * idle review back, but never a review that is already due); a review that runs now resets
+   * the counters, and later messages never cancel it. Never for schedule threads or when the
+   * owner turned review off. A failure here is logged and never fails the turn.
    */
   async #scheduleReview(
     scope: OwnerScope,
@@ -394,16 +395,6 @@ export class ChatTurnService {
   ): Promise<void> {
     if (thread.origin === 'schedule' || !settings.reviewEnabled) return;
     try {
-      const wrote = result.steps.some(
-        (s) =>
-          s.kind === 'tool' &&
-          s.ok === true &&
-          (s.name === MEMORY_TOOL || s.name === SKILL_MANAGE_TOOL),
-      );
-      if (wrote) {
-        await this.repo.resetReviewCounters(scope, thread.id);
-        return;
-      }
       const toolRounds = result.followUps.filter((m) => m.role === 'assistant').length;
       const counters = await this.repo.bumpReviewCounters(scope, thread.id, {
         ownerTurns: 1,

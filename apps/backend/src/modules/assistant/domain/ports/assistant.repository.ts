@@ -600,10 +600,11 @@ export interface AssistantRepository {
   // ─── Jobs (1c) ───
 
   /**
-   * At most one `queued` job per owner, thread and kind: when one exists its `run_after` and
-   * `review_scope` are updated and its `created_at` moves to now (its id is kept); otherwise `j`
-   * is inserted. `created_at` is therefore the last enqueue: the runner cancels a review whose
-   * thread got a message after it. The thread, when given, must be the owner's.
+   * At most one `queued` job per owner, thread and kind: when one exists it is updated (its id
+   * is kept): `created_at` moves to now; `run_after` takes the new value unless the job is
+   * already due (a due review triggered by a counter is never pushed back by a later idle
+   * enqueue); two different review scopes merge into `combined`. Otherwise `j` is inserted.
+   * The thread, when given, must be the owner's.
    */
   enqueueJob(s: OwnerKey, j: NewJob): Promise<JobRecord>;
   getJob(s: OwnerKey, id: string): Promise<JobRecord | null>;
