@@ -554,7 +554,7 @@ describe('review job retry and enqueue time on Postgres (1c)', () => {
     await repo.cancelJob(s, { id: first.id });
   });
 
-  it('re-queues a failed attempt once (fenced), or fails it when another job is queued', async () => {
+  it('re-queues a failed attempt once (fenced), or merges it into the job already queued', async () => {
     const { s, threadId } = await owner();
     const runAfter = new Date('2100-01-01T00:00:00.000Z');
     const retryAt = new Date('2100-01-01T00:10:00.000Z');
@@ -579,19 +579,25 @@ describe('review job retry and enqueue time on Postgres (1c)', () => {
       runAfter: retryAt,
     });
 
-    // Running again while a newer job of the thread is queued: failed, not a second queued row.
+    // Running again while a newer job of the thread is queued: merged into it, not a second
+    // queued row. The queued job takes the retry's earlier run_after and both scopes.
     await running(job.id, 2);
+    const later = new Date(retryAt.getTime() + 30 * 60_000);
     const newer = await repo.enqueueJob(s, {
       id: newId(),
       threadId,
       kind: 'review',
-      reviewScope: 'combined',
-      runAfter,
+      reviewScope: 'skills',
+      runAfter: later,
     });
     expect(newer.id).not.toBe(job.id);
     expect(await repo.retryJob(s, { id: job.id, attempts: 2 }, retry)).toBe(true);
     expect(await repo.getJob(s, job.id)).toMatchObject({ status: 'failed', leaseUntil: null });
-    expect((await repo.getJob(s, newer.id))?.status).toBe('queued');
+    expect(await repo.getJob(s, newer.id)).toMatchObject({
+      status: 'queued',
+      runAfter: retryAt,
+      reviewScope: 'combined',
+    });
     await repo.cancelJob(s, { id: newer.id });
   });
 });

@@ -1452,7 +1452,7 @@ export class DrizzleAssistantRepository implements AssistantRepository {
   ): Promise<boolean> {
     return this.#in(s, async (tx) => {
       const [row] = await tx
-        .select({ threadId: jb.threadId, kind: jb.kind })
+        .select({ threadId: jb.threadId, kind: jb.kind, reviewScope: jb.reviewScope })
         .from(jb)
         .where(
           and(
@@ -1466,7 +1466,7 @@ export class DrizzleAssistantRepository implements AssistantRepository {
       if (!row) return false;
       // The queued-job unique index allows one queued job per owner, thread and kind.
       const [sibling] = await tx
-        .select({ id: jb.id })
+        .select({ id: jb.id, reviewScope: jb.reviewScope })
         .from(jb)
         .where(
           and(
@@ -1475,7 +1475,23 @@ export class DrizzleAssistantRepository implements AssistantRepository {
             eq(jb.kind, row.kind),
             row.threadId === null ? isNull(jb.threadId) : eq(jb.threadId, row.threadId),
           ),
-        );
+        )
+        .for('update');
+      if (sibling) {
+        // Merged into the queued job: it runs no later than the retry, with both scopes, and is
+        // re-stamped so it no longer reads as an idle review that later messages push back.
+        await tx
+          .update(jb)
+          .set({
+            runAfter: sql`least(${jb.runAfter}, ${retry.runAfter.toISOString()}::timestamptz)`,
+            reviewScope:
+              sibling.reviewScope && row.reviewScope && sibling.reviewScope !== row.reviewScope
+                ? 'combined'
+                : (sibling.reviewScope ?? row.reviewScope),
+            createdAt: sql`now()`,
+          })
+          .where(and(eq(jb.id, sibling.id), eq(jb.status, 'queued')));
+      }
       await tx
         .update(jb)
         .set(
