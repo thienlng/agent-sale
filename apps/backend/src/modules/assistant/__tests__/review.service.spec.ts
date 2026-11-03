@@ -358,6 +358,37 @@ describe('review transcript', () => {
     );
   });
 
+  it("lists the owner's latest deleted facts, newest first, at most 10 (QA5 #2)", async () => {
+    const day = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString();
+    const instruction = await buildReviewInstruction([], 'memory', [
+      {
+        store: 'notes',
+        entries: [],
+        tombstones: [
+          { norm: 'doi tra trong 7 ngay', deletedAt: day(1) },
+          { norm: 'qua han', deletedAt: day(100) },
+        ],
+        updatedAt: new Date(),
+      },
+      {
+        store: 'owner_profile',
+        entries: [],
+        tombstones: Array.from({ length: 12 }, (_, i) => ({
+          norm: `fact ${i}`,
+          deletedAt: day(i + 2),
+        })),
+        updatedAt: new Date(),
+      },
+    ]);
+    expect(instruction).toContain(
+      '(nothing yet)\n\nThe owner deleted these; never save them or anything with the same meaning',
+    );
+    expect(instruction).toContain('\n- doi tra trong 7 ngay\n- fact 0\n');
+    expect(instruction).toContain('- fact 8\n</memory>');
+    expect(instruction).not.toContain('fact 9');
+    expect(instruction).not.toContain('qua han');
+  });
+
   it('offers exactly the review tools, sorted by name', () => {
     expect(REVIEW_TOOL_DEFINITIONS.map((d) => d.name)).toEqual([
       'load_skill',
