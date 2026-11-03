@@ -10,7 +10,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { act, cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AssistantAskButton } from '@/components/assistant-ask-button';
@@ -438,7 +438,14 @@ describe('AssistantPanel', () => {
    * "Open the new-product page and fill it" (B11): the first turn only navigates, because the form
    * was not on the page it was sent from. `ownerText` is what the owner typed.
    */
-  function navigateThenFillTurns(ownerText: string) {
+  function navigateThenFillTurns(
+    ownerText: string,
+    to = '/app/products/new',
+    fill: { formId: string; values: Record<string, string> } = {
+      formId: 'product',
+      values: { name: 'Áo thun' },
+    },
+  ) {
     const send = `POST /assistant/threads/${ASSISTANT_IDS.thread}/messages`;
     const routes: Parameters<typeof stubFetch>[0] = {
       'POST /assistant/threads': { status: 201, body: threadFixture() },
@@ -446,7 +453,7 @@ describe('AssistantPanel', () => {
         status: 200,
         body: turnFixture(ownerText, {
           content: 'Em mở trang tạo sản phẩm rồi.',
-          uiActions: [{ type: 'navigate', to: '/app/products/new' }],
+          uiActions: [{ type: 'navigate', to }],
         }),
       },
       [`GET /assistant/runs/${ASSISTANT_IDS.turn}`]: { status: 200, body: runFixture() },
@@ -469,7 +476,7 @@ describe('AssistantPanel', () => {
           status: 200,
           body: turnFixture('(trang đã mở; tiếp tục điền form)', {
             content: 'Em điền rồi nhé.',
-            uiActions: [{ type: 'fill_form', formId: 'product', values: { name: 'Áo thun' } }],
+            uiActions: [{ type: 'fill_form', ...fill }],
           }),
         };
       }
@@ -512,6 +519,70 @@ describe('AssistantPanel', () => {
     // Only once: the follow-up never chains another.
     await new Promise((r) => setTimeout(r, 200));
     expect(calls.filter((c) => c.key === send)).toHaveLength(2);
+  });
+
+  /** One-field form `formId` labelled `label`, registered while mounted. */
+  function OneFieldForm({ formId, label }: { formId: string; label: string }) {
+    const [name, setName] = useState('');
+    useAssistantForm(
+      formId,
+      () => [{ name: 'name', label, type: 'text', empty: !name }],
+      (values) => {
+        if (values['name'] !== undefined) setName(String(values['name']));
+      },
+    );
+    return <input aria-label={label} value={name} onChange={(e) => setName(e.target.value)} />;
+  }
+
+  /**
+   * /app/bots registers the `bot` form; /app/businesses/new registers `business`. The page shown
+   * lags the path by 300 ms, as a router transition does: the bots page (and its form) is still
+   * mounted after the path already says /app/businesses/new (B11b).
+   */
+  function LaggingPage() {
+    const path = useRouterState({ select: (s) => s.location.pathname });
+    const [shown, setShown] = useState(path);
+    useEffect(() => {
+      const timer = setTimeout(() => setShown(path), 300);
+      return () => clearTimeout(timer);
+    }, [path]);
+    if (shown === '/app/bots') return <OneFieldForm formId="bot" label="Tên bot" />;
+    if (shown === '/app/businesses/new') {
+      return <OneFieldForm formId="business" label="Tên doanh nghiệp" />;
+    }
+    return <p>page</p>;
+  }
+
+  it("continues with the new page's form, not the one left behind (B11b)", async () => {
+    const { fetch, calls, send } = navigateThenFillTurns(
+      'Mở trang tạo doanh nghiệp mới và điền sẵn giúp em',
+      '/app/businesses/new',
+      { formId: 'business', values: { name: '[TEST] Shop RT3' } },
+    );
+    vi.stubGlobal('fetch', fetch);
+    renderApp(LaggingPage, '/app/bots');
+    const user = userEvent.setup();
+
+    await screen.findByRole('textbox', { name: 'Tên bot' });
+    await user.click(await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' }));
+    await user.type(
+      await screen.findByRole('textbox', { name: 'Hỏi Thỏ Rapiz…' }),
+      'Mở trang tạo doanh nghiệp mới và điền sẵn giúp em{Enter}',
+    );
+
+    await waitFor(
+      () =>
+        expect(screen.getByRole('textbox', { name: 'Tên doanh nghiệp' })).toHaveValue(
+          '[TEST] Shop RT3',
+        ),
+      { timeout: 3000 },
+    );
+    const sends = calls.filter((c) => c.key === send);
+    expect(sends).toHaveLength(2);
+    const pageContext = (sends[1]?.body as { pageContext: { route: string; forms: unknown[] } })
+      .pageContext;
+    expect(pageContext.route).toBe('/app/businesses/new');
+    expect(pageContext.forms).toEqual([expect.objectContaining({ id: 'business' })]);
   });
 
   it('does not continue after a plain navigate (nothing to fill)', async () => {

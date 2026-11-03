@@ -61,6 +61,8 @@ interface RegisteredForm {
   busy: () => boolean;
   submitTarget: string | undefined;
   opensDialog: boolean;
+  /** Registration order (see `formRegistrationMark`): tells a new page's forms from the old's. */
+  seq: number;
 }
 
 /**
@@ -70,6 +72,29 @@ interface RegisteredForm {
  */
 const forms = new Map<string, RegisteredForm[]>();
 const listeners = new Set<() => void>();
+/** How many registrations happened so far; each entry keeps its own number as `seq`. */
+let registrations = 0;
+
+/**
+ * A mark of the registrations so far. Take it before a navigate: forms registered after it belong
+ * to the new page, the others to the page being left (which can stay mounted a moment, B11b).
+ */
+export function formRegistrationMark(): number {
+  return registrations;
+}
+
+/** Whether forms registered after `mark` (fresh) and at or before it (stale) are on screen. */
+export function formsSinceMark(mark: number): { fresh: boolean; stale: boolean } {
+  let fresh = false;
+  let stale = false;
+  for (const stack of forms.values()) {
+    for (const entry of stack) {
+      if (entry.seq > mark) fresh = true;
+      else stale = true;
+    }
+  }
+  return { fresh, stale };
+}
 
 /** The active (last) registration of `formId`, if any. */
 function activeForm(formId: string): RegisteredForm | undefined {
@@ -105,6 +130,7 @@ export function useAssistantForm(
       busy: () => latest.current.busy,
       submitTarget,
       opensDialog,
+      seq: ++registrations,
     };
     forms.set(formId, [...(forms.get(formId) ?? []), entry]);
     changed();
@@ -173,12 +199,24 @@ export function fillAssistantForm(formId: string, values: AssistantFormValues): 
   return { ok: true, submitTarget: form.submitTarget, opensDialog: form.opensDialog };
 }
 
-/** Resolves true once `formId` is registered (e.g. after a navigate), false after `timeoutMs`. */
-export function waitForAssistantForm(formId: string, timeoutMs: number): Promise<boolean> {
-  if (forms.has(formId)) return Promise.resolve(true);
+/**
+ * Resolves true once `formId` is registered (e.g. after a navigate), false after `timeoutMs`.
+ * With `sinceMark` (taken before the navigate), only a registration made after it counts, so the
+ * page being left never answers for the new one (B11b).
+ */
+export function waitForAssistantForm(
+  formId: string,
+  timeoutMs: number,
+  sinceMark?: number,
+): Promise<boolean> {
+  const found = () => {
+    const form = activeForm(formId);
+    return !!form && (sinceMark === undefined || form.seq > sinceMark);
+  };
+  if (found()) return Promise.resolve(true);
   return new Promise((resolve) => {
     const listener = () => {
-      if (!forms.has(formId)) return;
+      if (!found()) return;
       done(true);
     };
     const timer = setTimeout(() => done(false), timeoutMs);
