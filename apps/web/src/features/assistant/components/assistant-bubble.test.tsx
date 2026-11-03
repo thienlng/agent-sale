@@ -15,6 +15,8 @@ const OTHER_ACCOUNT = '7a1e5d4c-2b3f-4e6a-8d9c-0f1e2d3c4b5a';
 const WS = '3f0c1f0e-5b1c-4c1e-9d55-0a1b2c3d4e5f';
 
 const state = vi.hoisted(() => ({ session: null as Session | null }));
+const toast = vi.hoisted(() => Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }));
+vi.mock('sonner', () => ({ toast }));
 vi.mock('@/lib/session', () => ({ useSession: () => state.session }));
 
 function sessionWith(role: 'owner' | 'billing', workspaceAccount: string): Session {
@@ -91,5 +93,35 @@ describe('AssistantBubble open requests', () => {
       expect(useAssistantUi.getState()).toMatchObject({ open: true, threadId: thread.id }),
     );
     expect(calls.map((c) => c.key)).toContain(`POST /assistant/schedule-runs/${RUN}/thread`);
+  });
+
+  it('says the schedule was deleted and shows the report text when the run is gone (404)', async () => {
+    state.session = sessionWith('owner', ACCOUNT);
+    useAssistantUi.setState({ open: false, workspaceId: null, threadId: null, spotlight: null });
+    toast.error.mockClear();
+    const { fetchStub } = stubFetch({
+      [`POST /assistant/schedule-runs/${RUN}/thread`]: {
+        status: 404,
+        body: { error: { code: 'not_found', message: 'Not found' } },
+      },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderPage();
+    await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' });
+    act(() =>
+      requestAssistantOpen({
+        reportRunId: RUN,
+        title: 'Báo cáo sáng',
+        body: 'Doanh thu: 1.000.000 ₫',
+      }),
+    );
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        'Lịch này đã bị xoá',
+        expect.objectContaining({ description: 'Doanh thu: 1.000.000 ₫' }),
+      ),
+    );
+    // The panel does not open on whatever view it had before.
+    expect(useAssistantUi.getState()).toMatchObject({ open: false, threadId: null });
   });
 });
