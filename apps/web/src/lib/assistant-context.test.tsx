@@ -5,6 +5,8 @@ import { describe, expect, it } from 'vitest';
 import {
   collectPageContext,
   fillAssistantForm,
+  formRegistrationMark,
+  formsSinceMark,
   parseFormNumber,
   requestAssistant,
   useAssistantContext,
@@ -179,6 +181,19 @@ describe('useAssistantForm', () => {
     render(<FormPage />);
     await expect(waiting).resolves.toBe(true);
     await expect(waitForAssistantForm('order', 10)).resolves.toBe(false);
+  });
+
+  it('tells forms registered after a mark from the ones before it (B11b)', async () => {
+    const { unmount } = render(<FormPage />);
+    const mark = formRegistrationMark();
+    expect(formsSinceMark(mark)).toEqual({ fresh: false, stale: true });
+    // The page being left still has `product`: it does not count after the mark.
+    await expect(waitForAssistantForm('product', 30, mark)).resolves.toBe(false);
+    unmount();
+    const waiting = waitForAssistantForm('product', 1000, mark);
+    render(<FormPage />);
+    await expect(waiting).resolves.toBe(true);
+    expect(formsSinceMark(mark)).toEqual({ fresh: true, stale: false });
   });
 });
 

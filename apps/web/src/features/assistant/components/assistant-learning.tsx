@@ -99,6 +99,17 @@ function LearningNotice({
 }
 
 /**
+ * Whether a notice still says something true with an undo that means something. A skill change
+ * that was undone is gone; so is a review's "vừa học / vừa cập nhật" once the skill is archived
+ * or deleted, however it got there (N4b). The curator's own archive notices stay.
+ */
+function isLive(item: AssistantLearningItemDto): boolean {
+  if (item.kind !== 'skill') return true;
+  if (item.undone) return false;
+  return item.actor !== 'review' || (item.state !== 'archived' && item.state !== null);
+}
+
+/**
  * "💡 Trợ lý vừa học": one quiet line per recent change of the background review or the curator,
  * under the panel header, each with its undo. Closing hides what is shown until something newer.
  */
@@ -107,7 +118,7 @@ export function AssistantLearning({ onOpenSkills }: { onOpenSkills: () => void }
   const learning = useAssistantLearning();
   const [seen, setSeen] = useState(readSeen);
   const items = (learning.data ?? [])
-    .filter((item) => !(item.kind === 'skill' && item.undone))
+    .filter(isLive)
     .filter((item) => !seen || Date.parse(item.at) > Date.parse(seen))
     .slice(0, MAX_NOTICES);
   if (!items.length) return null;

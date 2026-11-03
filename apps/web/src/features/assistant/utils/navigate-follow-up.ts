@@ -1,6 +1,6 @@
 import type { AssistantStepDto } from '@agent-sales/contracts';
 
-import { collectPageContext } from '@/lib/assistant-context';
+import { formsSinceMark } from '@/lib/assistant-context';
 
 /**
  * The fixed text of the one turn the panel sends by itself after a navigate, so the model sees
@@ -30,23 +30,36 @@ function pathOf(href: string): string {
   return href.split(/[?#]/, 1)[0] ?? href;
 }
 
+/** How long the page being left may keep its forms registered once the new page has its own. */
+export const STALE_FORM_GRACE_MS = 500;
+
 /**
- * Resolves true once the router is on `href` and that page registered at least one form, false
- * after `timeoutMs`. Checks every 50 ms (the page mounts a moment after the navigate).
+ * Resolves true once the router is on `href` and the new page registered a form after `mark`
+ * (taken before the navigate), false after `timeoutMs`. Forms registered before the mark belong
+ * to the page being left, which can stay mounted a moment after the path changed (B11b): the
+ * wait also lets them unmount, up to `STALE_FORM_GRACE_MS`, so the follow-up's page context
+ * carries only the new page's forms. Checks every 50 ms.
  */
 export function waitForPageForm(
   href: string,
   currentPath: () => string,
   timeoutMs: number,
+  mark: number,
 ): Promise<boolean> {
   const target = pathOf(href);
-  const ready = () =>
-    currentPath() === target && (collectPageContext(target).forms?.length ?? 0) > 0;
   return new Promise((resolve) => {
     const started = Date.now();
+    let freshSince: number | null = null;
     const tick = () => {
-      if (ready()) resolve(true);
-      else if (Date.now() - started >= timeoutMs) resolve(false);
+      const now = Date.now();
+      const { fresh, stale } = formsSinceMark(mark);
+      if (currentPath() === target && fresh) {
+        freshSince ??= now;
+        if (!stale || now - freshSince >= STALE_FORM_GRACE_MS) return resolve(true);
+      } else {
+        freshSince = null;
+      }
+      if (now - started >= timeoutMs) resolve(false);
       else setTimeout(tick, 50);
     };
     setTimeout(tick, 50);

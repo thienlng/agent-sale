@@ -22,6 +22,7 @@ import {
   type AssistantRequest,
   collectPageContext,
   fillAssistantForm,
+  formRegistrationMark,
   useAssistantRequest,
   waitForAssistantForm,
 } from '@/lib/assistant-context';
@@ -138,11 +139,13 @@ export function AssistantPanel() {
   async function apply(
     answer: readonly AssistantMessageDto[],
     switched: () => boolean,
-  ): Promise<{ navigatedTo: string | null; filled: boolean }> {
+  ): Promise<{ navigatedTo: string | null; filled: boolean; mark: number }> {
     let navigated = false;
     let navigatedTo: string | null = null;
     let filled = false;
-    const result = () => ({ navigatedTo, filled });
+    // Forms registered after this belong to the page navigated to, not the one left (B11b).
+    let mark = formRegistrationMark();
+    const result = () => ({ navigatedTo, filled, mark });
     for (const action of answer.flatMap((m) => (m.role === 'assistant' ? m.uiActions : []))) {
       if (switched()) return result();
       if (action.type === 'navigate') {
@@ -150,6 +153,7 @@ export function AssistantPanel() {
         if (to) {
           navigated = true;
           navigatedTo = to;
+          mark = formRegistrationMark();
           void router.navigate({ href: to });
         }
       } else if (action.type === 'spotlight') {
@@ -159,7 +163,7 @@ export function AssistantPanel() {
       } else if (action.type === 'fill_form') {
         filled = true;
         // After a navigate the target page mounts a moment later: give it time to register.
-        if (navigated) await waitForAssistantForm(action.formId, FORM_WAIT_MS);
+        if (navigated) await waitForAssistantForm(action.formId, FORM_WAIT_MS, mark);
         if (switched()) return result();
         const fill = fillAssistantForm(action.formId, action.values);
         if (!fill.ok) {
@@ -183,8 +187,13 @@ export function AssistantPanel() {
    * from, so a turn that navigated and still owes a fill is continued once, by itself, when the
    * new page has registered its form. The follow-up's text is hidden in the conversation.
    */
-  async function continueAfterNavigate(to: string, switched: () => boolean): Promise<void> {
-    const ready = await waitForPageForm(to, () => router.state.location.pathname, FORM_WAIT_MS);
+  async function continueAfterNavigate(
+    to: string,
+    mark: number,
+    switched: () => boolean,
+  ): Promise<void> {
+    const path = () => router.state.location.pathname;
+    const ready = await waitForPageForm(to, path, FORM_WAIT_MS, mark);
     // The owner switched business or sent something else meanwhile: never talk over them.
     if (!ready || switched() || latest.current.sending) return;
     await latest.current.send(NAVIGATE_FOLLOW_UP_TEXT, true);
@@ -256,9 +265,9 @@ export function AssistantPanel() {
       if (!switched()) setSecretsRemoved(res.secretsRemoved);
       // Not awaited: a fill may wait for the next page, and the composer is free meanwhile.
       if (!switched()) {
-        void apply(res.messages, switched).then(({ navigatedTo, filled }) => {
+        void apply(res.messages, switched).then(({ navigatedTo, filled, mark }) => {
           if (followUp || !navigatedTo || !owesFill(text, res.run.steps, filled)) return;
-          return continueAfterNavigate(navigatedTo, switched);
+          return continueAfterNavigate(navigatedTo, mark, switched);
         });
       }
       return true;
