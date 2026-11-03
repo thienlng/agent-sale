@@ -8,6 +8,8 @@ version: 1
 
 Use this when the owner wants the bot to call their own system (order status, stock, booking, loyalty points) and pastes API docs, a curl command or describes an endpoint.
 
+An API action is for data Rapiz does not hold. The bot already does these without one: a hotel bot reads the calendar, quotes from the villa rates and holds a villa itself (the owner reviews holds on /app/bookings); a shop bot reads the products and creates orders. When the owner asks whether the bot can do one of these, say it is built in.
+
 The assistant never fetches a link. When the owner gives only a link, ask them to paste the endpoint's docs or a curl example.
 
 Keys never go through the chat. The owner's message is masked before you see it: a key shows as [secret removed]. Never ask the owner to type a key, token or password in the chat; they type it in the action form. Never repeat, guess or store one.

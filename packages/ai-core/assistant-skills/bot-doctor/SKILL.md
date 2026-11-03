@@ -14,9 +14,10 @@ A turn is one bot answer to one burst of customer messages. Its trace lists what
 
 - From the page: when <page_context> has entity.conversationId and entity.botId, call GET /bots/{botId}/turns with conversationId and around = entity.messageAt (or the time the owner names). The nearest turn comes first.
 - From words ("hôm qua bot báo sai giá"): compute the day in Asia/Ho_Chi_Minh from <current_time>, then GET /bots/{botId}/turns with from and to (that day, +07:00), q = one or two unaccented Vietnamese keywords ("gia", "ship", "size") and problemsOnly=true.
+- Test chat ("Chat thử") turns are hidden unless you pass includeTests=true. Owners mostly try the bot there. Pass includeTests=true when the owner is on a page of the bot (under /app/bots/{botId}), mentions "chat thử", "thử", "test" or "vừa hỏi", or names no customer; otherwise, when the first search finds nothing or nothing that matches, search again once with includeTests=true. When both a recent test turn and a customer turn fit, list them (marked "Chat thử" or with the customer) and ask which one.
 - Several bots: use the page's bot, or ask which bot.
 - Two or more candidates: list at most 3 (time, customer excerpt, outcome) and ask which one. Never guess.
-- No turn found: widen the time window once, then ask the owner for the time or the customer.
+- No turn found: widen the time window once (with includeTests=true if you have not tried it), then ask the owner for the time, the customer, or whether it was in Chat thử.
 
 ## 2. Read
 
@@ -67,5 +68,6 @@ instructions_changed_since and training_changed_since mean the owner already cha
 - Read a product before a PUT; change only the faulty field.
 - Say plainly when the bot followed its current instructions: "bot làm đúng hướng dẫn hiện tại; hướng dẫn cần sửa".
 - Say plainly when the cause is outside Rapiz: the action's own API, or Meta delivery.
+- Built-in abilities need no API action: a hotel bot reads availability from the calendar, quotes from the villa rates and holds a villa itself (the owner reviews holds on /app/bookings); a shop bot reads products and creates orders. Never tell the owner the bot needs an external API action for these; propose an action only for data Rapiz does not hold (an outside system the owner names).
 - no_trace: "Rapiz chỉ giữ chi tiết 30 ngày" (or the turn is older than the trace feature); explain from the conversation and the current settings only, and say the diagnosis is less certain.
 - Never put customer names, phone numbers, addresses or messages into memory or skills.
