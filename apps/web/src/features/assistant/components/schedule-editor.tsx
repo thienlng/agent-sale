@@ -45,17 +45,28 @@ const TEMPLATES: readonly ScheduleTemplate[] = [
   'new_customers',
   'new_requests',
 ];
+/** Templates about orders and stock, which a training centre or spa does not have. */
+const ORDER_TEMPLATES: readonly ScheduleTemplate[] = ['revenue_summary', 'new_orders', 'low_stock'];
+/** Businesses that sell courses or services rather than goods (T-187). */
+const sellsOfferings = (industry: string | undefined) =>
+  industry === 'education' || industry === 'spa';
+
 /**
  * The templates offered for a business: `new_requests` only where the bot records requests
- * (education, spa, saas; T-187), or when the schedule already uses it.
+ * (education, spa, saas; T-187), and no order or stock template for a training centre or spa.
+ * The schedule's current template is always kept.
  */
 export function templatesFor(industry: string | undefined, current?: ScheduleTemplate) {
-  return TEMPLATES.filter(
-    (tp) =>
-      tp !== 'new_requests' ||
-      current === 'new_requests' ||
-      (industry !== undefined && isRequestIndustry(industry)),
-  );
+  return TEMPLATES.filter((tp) => {
+    if (tp === current) return true;
+    if (tp === 'new_requests') return industry !== undefined && isRequestIndustry(industry);
+    return !(sellsOfferings(industry) && ORDER_TEMPLATES.includes(tp));
+  });
+}
+
+/** What a new schedule reports on first: new requests for a training centre or spa. */
+export function defaultTemplate(industry: string | undefined): ScheduleTemplate {
+  return sellsOfferings(industry) ? 'new_requests' : 'revenue_summary';
 }
 /** `every` intervals a report may use (at least an hour). */
 export const REPORT_INTERVALS = [60, 120, 180, 240, 360, 720, 1440] as const;
@@ -106,8 +117,9 @@ function fitCadence(c: Cadence, mode: ScheduleMode): Cadence {
 function initialForm(
   initial: ScheduleDto | Partial<ScheduleDraft> | undefined,
   businessId: string,
+  industry: string | undefined,
 ): Form {
-  const template = initial?.template ?? 'revenue_summary';
+  const template = initial?.template ?? defaultTemplate(industry);
   const mode = initial?.mode && modesFor(template).includes(initial.mode) ? initial.mode : 'report';
   return {
     name: initial?.name ?? '',
@@ -348,7 +360,11 @@ export function ScheduleEditor({
   const id = useId();
   const ws = useWorkspaceId();
   const businesses = useAccountBusinesses();
-  const [form, setForm] = useState<Form>(() => initialForm(schedule ?? draft, ws));
+  const [form, setForm] = useState<Form>(() => {
+    const initial = schedule ?? draft;
+    const businessId = initial?.businessId ?? ws;
+    return initialForm(initial, ws, businesses.find((b) => b.id === businessId)?.industry);
+  });
   const [problem, setProblem] = useState<string | null>(null);
   const [preview, setPreview] = useState<SchedulePreview | null>(null);
   const create = useCreateSchedule();
@@ -367,6 +383,24 @@ export function ScheduleEditor({
   function setTemplate(template: ScheduleTemplate): void {
     const mode = modesFor(template).includes(form.mode) ? form.mode : 'report';
     change({
+      template,
+      mode,
+      params: defaultParams(template, mode),
+      cadence: fitCadence(form.cadence, mode),
+    });
+  }
+
+  /** Another business; a template it does not offer gives way to its default one. */
+  function setBusiness(businessId: string): void {
+    const industry = businesses.find((b) => b.id === businessId)?.industry;
+    if (templatesFor(industry).includes(form.template)) {
+      change({ businessId });
+      return;
+    }
+    const template = defaultTemplate(industry);
+    const mode = modesFor(template).includes(form.mode) ? form.mode : 'report';
+    change({
+      businessId,
       template,
       mode,
       params: defaultParams(template, mode),
@@ -446,7 +480,7 @@ export function ScheduleEditor({
         />
       </Field>
       <Field id={`${id}-business`} label={t('schedules.fields.business')}>
-        <Select value={form.businessId} onValueChange={(v) => change({ businessId: v })}>
+        <Select value={form.businessId} onValueChange={setBusiness}>
           <SelectTrigger id={`${id}-business`} className="w-full min-w-0">
             <SelectValue />
           </SelectTrigger>
