@@ -36,7 +36,12 @@ export async function accountMemberships(
  * scope (no query); undefined for a scope built elsewhere (tests, jobs) or a business not listed.
  */
 export function currentIndustry(scope: OwnerScope): string | undefined {
-  return membershipsByScope.get(scope)?.find((m) => m.workspaceId === scope.businessId)?.industry;
+  return industryOfBusiness(scope, scope.businessId);
+}
+
+/** The industry of one of the scope's businesses, like `currentIndustry`. */
+export function industryOfBusiness(scope: OwnerScope, businessId: string): string | undefined {
+  return membershipsByScope.get(scope)?.find((m) => m.workspaceId === businessId)?.industry;
 }
 
 /** Remembers memberships for a scope built outside `resolveOwnerScope` (tests). */
