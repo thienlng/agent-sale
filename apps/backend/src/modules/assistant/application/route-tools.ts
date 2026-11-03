@@ -1,4 +1,9 @@
-import type { RunnableTool, ToolDefinition } from '@agent-sales/ai-core';
+import {
+  containsPiiToken,
+  redactPii,
+  type RunnableTool,
+  type ToolDefinition,
+} from '@agent-sales/ai-core';
 import type { AssistantPageContext } from '@agent-sales/contracts';
 import { newId } from '@agent-sales/shared';
 import { z } from 'zod';
@@ -27,6 +32,24 @@ export const FORBIDDEN_MESSAGE = 'Tài khoản của anh/chị không có quyề
 const MAX_ISSUES = 5;
 const PATH_PARAM = /^[A-Za-z0-9_-]{1,64}$/;
 const MUTATING_WITH_STATE = new Set(['patch', 'put', 'delete']);
+/**
+ * Reads of the business's own content (its bots, FAQs, scenarios, profile and villas), where a
+ * phone, e-mail or address is the shop's hotline or address, not a customer's. Every other read
+ * has customer contact data redacted before the model sees it (spec 2-R4, QA Villas #3).
+ */
+export const BUSINESS_OWNED_READS: ReadonlySet<string> = new Set([
+  'GET /bots',
+  'GET /bots/{botId}',
+  'GET /bots/{botId}/faqs',
+  'GET /bots/{botId}/training-items',
+  'GET /bots/{botId}/training-history',
+  'GET /workspace/profile',
+  'GET /workspaces/current',
+  'GET /lodging/properties',
+  'GET /lodging/properties/{id}',
+  'GET /products',
+  'GET /products/{productId}',
+]);
 
 const ToolSearchInput = z.object({ query: z.string().trim().min(1).max(200) });
 const ToolDescribeInput = z.object({ key: z.string().max(200) });
@@ -194,7 +217,8 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
       readChars += out.content.length;
       return out;
     }
-    const content = cut(json({ status: res.status, body: res.body }), room);
+    const body = BUSINESS_OWNED_READS.has(p.entry.key) ? res.body : redactPii(res.body);
+    const content = cut(json({ status: res.status, body }), room);
     readChars += content.length;
     return { content };
   }
@@ -203,6 +227,8 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
     if ((JSON.stringify(p.body ?? null) ?? '').length > MAX_PROPOSAL_BODY_CHARS) {
       return fail('body_too_large', { maxChars: MAX_PROPOSAL_BODY_CHARS });
     }
+    // A draft copied from a redacted read would write `[phone]` over the real value.
+    if (containsPiiToken(p.body ?? null)) return fail('redacted_value_in_body');
     const at = now().getTime();
     const waiting = (await ctx.repo.listProposals(ctx.scope, ctx.threadId)).filter(
       (x) => x.status === 'pending' && x.expiresAt.getTime() > at,

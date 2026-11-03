@@ -58,3 +58,56 @@ export function scanUntrustedText(text: string): SafetyResult {
   if (SECRET_PATTERNS.some((re) => re.test(text)) || hasSecretRun(text)) issues.push('secret');
   return { ok: issues.length === 0, issues };
 }
+
+/** Tokens that stand in for customer contact data the assistant must not see or repeat. */
+export const PII_TOKENS = { phone: '[phone]', email: '[email]', address: '[address]' } as const;
+/**
+ * Object keys whose value is contact data: phones, e-mails and addresses, in camel, snake or
+ * kebab case (`guestPhone`, `customer_email`, `shippingAddress`, `sdt`, `zalo`). Flags such as
+ * `hasPhone` or `emailVerified` keep their (non-string) value.
+ */
+const PII_KEY = /(phone|mobile|msisdn|sdt|zalo|e[-_]?mail|address|addr\b|street)/i;
+
+function piiTokenOf(key: string): string {
+  const k = key.toLowerCase();
+  if (/mail/.test(k)) return PII_TOKENS.email;
+  if (/address|addr|street/.test(k)) return PII_TOKENS.address;
+  return PII_TOKENS.phone;
+}
+
+/** Phones and e-mails inside free text become `[phone]` / `[email]`. */
+function redactPiiText(text: string): string {
+  return text
+    .replace(new RegExp(EMAIL.source, 'g'), PII_TOKENS.email)
+    .replace(new RegExp(PHONE.source, 'g'), PII_TOKENS.phone);
+}
+
+/**
+ * Removes customer contact data from a JSON value before a model sees it (owner assistant,
+ * spec 2-R4): a value under a contact-shaped key (phone, e-mail, address; a string, object or
+ * array) becomes its token, and every other string has phones and e-mails replaced. Numbers,
+ * booleans and null are kept. Pure; the input is not changed.
+ */
+export function redactPii(value: unknown): unknown {
+  const walk = (v: unknown, depth: number): unknown => {
+    if (typeof v === 'string') return redactPiiText(v);
+    if (v === null || typeof v !== 'object' || depth > 32) return v;
+    if (Array.isArray(v)) return v.map((x) => walk(x, depth + 1));
+    const out: Record<string, unknown> = {};
+    for (const [k, x] of Object.entries(v as Record<string, unknown>)) {
+      const contact =
+        PII_KEY.test(k) &&
+        x !== null &&
+        (typeof x === 'string' ? x.trim() !== '' : typeof x === 'object');
+      out[k] = contact ? piiTokenOf(k) : walk(x, depth + 1);
+    }
+    return out;
+  };
+  return walk(value, 0);
+}
+
+/** True when a value carries a redaction token (a draft built from redacted data). */
+export function containsPiiToken(value: unknown): boolean {
+  const text = JSON.stringify(value ?? null);
+  return Object.values(PII_TOKENS).some((t) => text.includes(t));
+}
