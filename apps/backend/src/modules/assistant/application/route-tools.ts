@@ -12,6 +12,7 @@ import type { OwnerScope } from '../domain/owner-scope.js';
 import type { AssistantRepository } from '../domain/ports/assistant.repository.js';
 import type { RouteInvoker } from '../domain/ports/route-invoker.port.js';
 import { readCurrentState } from './current-state.js';
+import { summariseRouteError } from './route-errors.js';
 import { type CatalogEntry, type RouteCatalog, searchCatalog } from './route-catalog.js';
 import type { NativeToolEntry } from './sql/sql-tools.js';
 
@@ -246,10 +247,10 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
       authorization: ctx.authorization,
     });
     if (res.status >= 400) {
-      const error = (res.body as { error?: { code?: unknown; message?: unknown } } | null)?.error;
+      const error = summariseRouteError(res.body);
       const out = fail(`http_${res.status}`, {
         ...(res.status === 403 ? { message: FORBIDDEN_MESSAGE } : {}),
-        ...(error ? { error: { code: error.code, message: error.message } } : {}),
+        ...(error ? { error } : {}),
       });
       out.content = cut(out.content, room);
       readChars += out.content.length;

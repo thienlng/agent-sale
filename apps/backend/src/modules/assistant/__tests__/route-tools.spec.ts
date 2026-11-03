@@ -366,6 +366,30 @@ describe('tool_call', () => {
     });
   });
 
+  it('gives the model the first validation issues of a 400, capped', async () => {
+    const issues = Array.from({ length: 8 }, (_, i) => ({
+      path: `items.${i}.price`,
+      message: 'Expected number',
+    }));
+    const t = await setup(() => ({
+      status: 400,
+      body: {
+        error: { code: 'VALIDATION_FAILED', message: 'Invalid body', details: { issues } },
+      },
+    }));
+    const out = await t.call({ key: 'GET /products' });
+    expect(out.json).toEqual({
+      ok: false,
+      errorCode: 'http_400',
+      error: {
+        code: 'VALIDATION_FAILED',
+        message: 'Invalid body',
+        issues: issues.slice(0, 5),
+      },
+    });
+    expect(JSON.stringify((out.json as { error: unknown }).error).length).toBeLessThanOrEqual(600);
+  });
+
   it('truncates a read and stops at the turn budget', async () => {
     const big = 'x'.repeat(20_000);
     const t = await setup(() => ({ status: 200, body: { big } }));

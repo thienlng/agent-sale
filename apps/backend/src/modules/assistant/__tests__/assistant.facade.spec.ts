@@ -559,7 +559,37 @@ describe('AssistantFacade (contract)', () => {
         errorCode: 'http_403',
       });
       const { data } = await facade.listMessages(me, t.id);
-      expect(data.at(-1)?.content).toBe('Không áp dụng được: Thêm sản phẩm Áo thun (http_403)');
+      expect(data.at(-1)?.content).toBe(
+        'Không áp dụng được: Thêm sản phẩm Áo thun (http_403: FORBIDDEN)',
+      );
+    });
+
+    it('tells the next turn why the API refused the write (QA NB-3)', async () => {
+      const { facade, me, p, t, invoke } = await withProposal();
+      invoke.mockResolvedValueOnce({
+        status: 400,
+        body: {
+          error: {
+            code: 'VALIDATION_FAILED',
+            message: 'A price must target the whole property or one of its rooms',
+            details: {
+              issues: [
+                { path: 'unitId', message: 'Expected null' },
+                { path: 'note', message: 'Gọi 0912345678 nhé' },
+              ],
+            },
+          },
+        },
+      });
+      expect(await facade.approveProposal(me, p.id, AUTH)).toMatchObject({
+        status: 'failed',
+        errorCode: 'http_400',
+      });
+      const { data } = await facade.listMessages(me, t.id);
+      expect(data.at(-1)?.content).toBe(
+        'Không áp dụng được: Thêm sản phẩm Áo thun (http_400: VALIDATION_FAILED: A price must ' +
+          'target the whole property or one of its rooms; unitId: Expected null; note: Gọi [phone] nhé)',
+      );
     });
 
     it('stores the created id as resultId when the response body has a uuid id', async () => {

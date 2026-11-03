@@ -21,6 +21,7 @@ import { APPROVAL_DELEGATION_SECONDS, delegatedAuthorization } from './delegated
 import { readCurrentState } from './current-state.js';
 import { ImportExecutor, type ImportOutcome, ImportRunError } from './import-executor.js';
 import { type CatalogEntry, ROUTE_CATALOG, type RouteCatalog } from './route-catalog.js';
+import { routeErrorLine, summariseRouteError } from './route-errors.js';
 import { type ScheduleProposalBody, SchedulesService } from './schedules.service.js';
 
 /** The stored result shown on a done proposal is at most this long. */
@@ -97,7 +98,9 @@ export const TARGET_CHANGED_EVENT =
   'dữ liệu này đã thay đổi sau khi em soạn đề xuất nên em không áp dụng, để khỏi ghi đè thay đổi mới; em sẽ đọc lại và đề xuất lại';
 
 /** How a proposal ended; an import brings its own result preview and event text. */
-type Outcome = ({ ok: true; body?: unknown } | { ok: false; errorCode: string }) & {
+type Outcome = (
+  { ok: true; body?: unknown } | { ok: false; errorCode: string; reason?: string }
+) & {
   resultPreview?: string;
   event?: string;
 };
@@ -250,7 +253,14 @@ export class ProposalService {
     return this.#finish(
       scope,
       proposal,
-      ok ? { ok, body } : { ok, errorCode: status === 0 ? 'invoke_failed' : `http_${status}` },
+      ok
+        ? { ok, body }
+        : {
+            ok,
+            errorCode: status === 0 ? 'invoke_failed' : `http_${status}`,
+            // The API's own reason, so the next turn can fix the draft (QA NB-3).
+            reason: routeErrorLine(summariseRouteError(body)),
+          },
     );
   }
 
@@ -318,7 +328,9 @@ export class ProposalService {
       outcome.event ??
         (outcome.ok
           ? `Đã áp dụng: ${proposal.summary}`
-          : `Không áp dụng được: ${proposal.summary} (${outcome.errorCode})`),
+          : `Không áp dụng được: ${proposal.summary} (${outcome.errorCode}${
+              outcome.reason ? `: ${outcome.reason}` : ''
+            })`),
     );
     if (!done) throw new AssistantNotFoundError('proposal', proposal.id);
     return toProposalDto(done);
