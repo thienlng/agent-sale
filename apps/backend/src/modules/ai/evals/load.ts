@@ -29,7 +29,9 @@ export function parseCase(source: string, file = 'case'): EvalCase {
   try {
     raw = parse(source);
   } catch (error) {
-    throw new Error(`${file}: invalid YAML (${error instanceof Error ? error.message : error})`);
+    throw new Error(`${file}: invalid YAML (${error instanceof Error ? error.message : error})`, {
+      cause: error,
+    });
   }
   const result = EvalCase.safeParse(raw);
   if (!result.success) {

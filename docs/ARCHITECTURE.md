@@ -108,7 +108,7 @@ Layout rules (T-017): build UI from shadcn/ui components in `components/ui` (add
 | `pnpm arch` | dependency-cruiser (`.dependency-cruiser.cjs`) | cycles; module public-API-only; layer direction; domain purity; apps never import other apps; web imports only `contracts/shared/ui/i18n` from packages |
 | `pnpm lint` | ESLint + `eslint-plugin-boundaries` | same rules with instant, file-level feedback (remediation text in the message); `no-console`; raw `fetch` in web |
 | `pnpm test` | Vitest incl. `apps/backend/test/architecture.spec.ts` | every module has `MODULE.md`, `api/`, `<name>.module.ts`; module exports ⊆ `api/` |
-| `pnpm typecheck` | `tsc` strict | — |
+| `pnpm typecheck` | `tsc` (TypeScript 7) strict | — |
 | CI `PR checks` | workflows | conventions, task reference |
 
 Adding a module: `pnpm gen module <name>` → fill `MODULE.md` → add its row to §3 → wire it in `app.module.ts`. Never hand-create the tree.

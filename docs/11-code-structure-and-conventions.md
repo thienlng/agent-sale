@@ -51,6 +51,7 @@ Inside `apps/backend/src/modules/<name>/`: the fixed shape from `docs/ARCHITECTU
 ## 3. Code conventions
 
 - TypeScript `strict`; ESLint + Prettier; no `any` except at external boundaries (raw webhooks), and it must be parsed with Zod immediately.
+- Compiler: TypeScript 7 (native `tsc`) in every app and package (`typecheck`, `build`). TypeScript 7.0 ships no JS API, so the root `typescript` dependency is an alias for `@typescript/typescript6` (the 6.0 API, as the TS 7 release notes recommend) for API consumers: typescript-eslint and dependency-cruiser. `tsconfig` has no `baseUrl`; `paths` entries are relative (`./src/*`).
 - Validate all input at the boundary (DTO/Zod); pure domain logic (billing, order formulas, state machines) has no framework dependency → easy unit testing.
 - Money/credit: only use `bigint`/integer helpers; floats are forbidden for money (lint rule).
 - Time: store in UTC (`timestamptz`), display in the workspace timezone; use `date-fns-tz`.
