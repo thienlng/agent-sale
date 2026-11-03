@@ -6,6 +6,7 @@ import {
 } from '@agent-sales/ai-core';
 import { AssistantPageContext } from '@agent-sales/contracts';
 
+import { renderDashboardMap } from '../domain/dashboard-map.js';
 import { compareStores, memoryLimit, memoryUsed } from '../domain/memory-store.js';
 import type { MemoryStoreRecord } from '../domain/ports/assistant.repository.js';
 
@@ -19,6 +20,8 @@ export const ASSISTANT_PROMPT = { name: 'assistant', version: 3 } as const satis
 export interface AccountSnapshot {
   ownerName: string;
   businesses: { id: string; name: string; industry: string }[];
+  /** The business the thread starts on: its industry picks the dashboard map. */
+  currentBusinessId?: string;
 }
 
 const registry = new PromptRegistry(PROMPTS_DIR);
@@ -70,7 +73,8 @@ export function renderMemoryBlock(memory: readonly MemoryStoreRecord[]): string 
  * The thread's system prompt, frozen when the thread starts so the provider prompt cache stays
  * warm: same inputs give a byte-identical string. Businesses render as
  * `- <name> (<industry>) — id <uuid>` lines (the id is what `tool_call` and `business:<id>`
- * memory take); `today` is the Asia/Ho_Chi_Minh calendar date (YYYY-MM-DD); the skills index and the
+ * memory take); the dashboard map lists the pages of the current business's industry
+ * (`renderDashboardMap`); `today` is the Asia/Ho_Chi_Minh calendar date (YYYY-MM-DD); the skills index and the
  * memory snapshot fill the template's `{{skills.index}}` and `{{memory.block}}` when it has them.
  */
 export function buildSystemPrompt(
@@ -79,8 +83,12 @@ export function buildSystemPrompt(
   today: Date,
   extras: PromptExtras,
 ): string {
+  const current =
+    snap.businesses.find((b) => b.id === snap.currentBusinessId) ?? snap.businesses[0];
   return registry.render(template, {
     'owner.name': snap.ownerName,
+    'business.current': current ? `${current.name}, ${current.industry}` : 'none',
+    'dashboard.map': renderDashboardMap(current?.industry),
     'account.businesses': snap.businesses
       .map((b) => `- ${b.name} (${b.industry}) — id ${b.id}`)
       .join('\n'),
