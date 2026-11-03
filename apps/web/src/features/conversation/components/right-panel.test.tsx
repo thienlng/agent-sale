@@ -111,6 +111,13 @@ describe('notes block', () => {
     finish();
   });
 
+  it('marks the note box so the owner-assistant launcher steps above it', () => {
+    render(<NotesBlock conversation={conv({ notes })} />);
+    expect(
+      screen.getByRole('textbox', { name: 'channelInbox.v2.panel.notes' }).parentElement,
+    ).toHaveAttribute('data-assistant-avoid');
+  });
+
   it('falls back to the old single note when there is no timeline yet', () => {
     render(<NotesBlock conversation={conv({ note: 'Khách quen' })} />);
     expect(screen.getByText('Khách quen')).toBeInTheDocument();
