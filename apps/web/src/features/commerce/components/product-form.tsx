@@ -98,21 +98,41 @@ export function ProductForm({
   useAssistantForm(
     'product',
     () => [
-      { name: 'code', label: t('products.form.code'), type: 'text', empty: !code.trim() },
-      { name: 'name', label: t('products.form.name'), type: 'text', empty: !name.trim() },
+      {
+        name: 'code',
+        label: t('products.form.code'),
+        type: 'text',
+        empty: !code.trim(),
+        value: code,
+      },
+      {
+        name: 'name',
+        label: t('products.form.name'),
+        type: 'text',
+        empty: !name.trim(),
+        value: name,
+      },
       {
         name: 'category',
         label: t('products.form.category'),
         type: 'text',
         empty: !category.trim(),
+        value: category,
       },
       {
         name: 'description',
         label: t('products.form.description'),
         type: 'textarea',
         empty: !description.trim(),
+        value: description,
       },
-      { name: 'sku', label: t('products.form.sku'), type: 'text', empty: !first?.sku.trim() },
+      {
+        name: 'sku',
+        label: t('products.form.sku'),
+        type: 'text',
+        empty: !first?.sku.trim(),
+        value: first?.sku ?? '',
+      },
       { name: 'price', label: t('products.form.price'), type: 'number', empty: !first?.price },
     ],
     (values) => {

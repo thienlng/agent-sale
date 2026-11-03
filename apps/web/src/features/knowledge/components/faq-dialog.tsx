@@ -75,6 +75,7 @@ export function FaqDialog({
       faqFormFields((key) => t(`faq.${key}`)).map((f) => ({
         ...f,
         empty: !(f.name === 'question' ? question : answer).trim(),
+        value: f.name === 'question' ? question : answer,
       })),
     (values) => {
       if (typeof values['question'] === 'string')

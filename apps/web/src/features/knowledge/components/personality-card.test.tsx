@@ -133,13 +133,25 @@ describe('PersonalityCard', () => {
     const form = () =>
       collectPageContext('/app/bots/b/instructions').forms?.find((f) => f.id === 'bot-personality');
 
-    it('offers the reply guidance with its choices', async () => {
+    it('offers the reply guidance with its choices and the current text of filled fields', async () => {
       await setup(bot({ greeting: '' }));
       expect(form()?.fields).toEqual([
-        { name: 'mission', label: 'Nhiệm vụ của bot', type: 'textarea', empty: false },
+        {
+          name: 'mission',
+          label: 'Nhiệm vụ của bot',
+          type: 'textarea',
+          empty: false,
+          value: 'Tư vấn bán hàng',
+        },
         { name: 'greeting', label: 'Lời chào', type: 'textarea', empty: true },
-        { name: 'selfPronoun', label: 'Bot xưng là', type: 'text', empty: false },
-        { name: 'customerPronoun', label: 'Gọi khách là', type: 'text', empty: false },
+        { name: 'selfPronoun', label: 'Bot xưng là', type: 'text', empty: false, value: 'em' },
+        {
+          name: 'customerPronoun',
+          label: 'Gọi khách là',
+          type: 'text',
+          empty: false,
+          value: 'anh/chị',
+        },
         {
           name: 'replyLength',
           label: 'Độ dài câu trả lời',

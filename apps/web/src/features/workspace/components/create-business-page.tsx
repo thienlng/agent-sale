@@ -45,7 +45,13 @@ export function CreateBusinessPage() {
   useAssistantForm(
     'business',
     () => [
-      { name: 'name', label: t('business.create.name'), type: 'text', empty: !name.trim() },
+      {
+        name: 'name',
+        label: t('business.create.name'),
+        type: 'text',
+        empty: !name.trim(),
+        value: name,
+      },
       {
         name: 'industry',
         label: t('auth.industry'),
