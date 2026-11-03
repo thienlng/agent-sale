@@ -5,16 +5,18 @@ import { foldVietnamese, newId, workspaceId } from '@agent-sales/shared';
 import type { ActionFacade } from '../../action/api/index.js';
 import type { BotFacade, BotView } from '../../bot/api/index.js';
 import type { BotCatalogScope, CatalogFacade } from '../../commerce/api/index.js';
+import type { CrmFacade } from '../../crm/api/index.js';
 import type { FaqHit, KnowledgeFacade, TrainingFacade } from '../../knowledge/api/index.js';
 import type { LodgingFacade } from '../../lodging/api/index.js';
 import type { WorkspaceFacade } from '../../workspace/api/index.js';
 import type { LlmRuntime } from '../application/llm-runtime.js';
-import { PlaygroundService } from '../application/playground.service.js';
+import { PlaygroundService, type SalesPromptVersion } from '../application/playground.service.js';
 import { DEV_FAKE_PROVIDER } from '../domain/llm-config.js';
 import { InMemoryAiRunRepository } from '../infrastructure/persistence/ai-run.repositories.js';
 import { type CheckResult, runChecks, type ToolStep } from './checks.js';
 import { evalCommerce } from './commerce.js';
 import { evalLodging } from './lodging.js';
+import { evalRequests } from './requests.js';
 import type { EvalCase, EvalOutcome } from './case.js';
 
 export interface CaseResult {
@@ -66,6 +68,7 @@ export function trustedTexts(c: EvalCase): string[] {
       p.description,
       p.instructions,
       ...(p.accommodation ? [JSON.stringify(p.accommodation)] : []),
+      ...(p.offering ? [JSON.stringify(p.offering)] : []),
       ...p.variants.flatMap((v) => [v.name, v.sku ?? '', String(v.price), String(v.stock)]),
     ]),
   ];
@@ -87,6 +90,7 @@ function productDtos(c: EvalCase) {
       botInstructions: p.instructions,
       imageUrls: p.images,
       ...(p.accommodation ? { accommodation: p.accommodation } : {}),
+      offering: p.offering ?? null,
       variants: p.variants.map((v, j) => ({
         id: newId(),
         sku: v.sku ?? `SKU-${i + 1}-${j + 1}`,
@@ -189,7 +193,8 @@ export function evalCatalog(products: ProductDto[]): CatalogFacade {
       let rows = visible(scope).filter(
         (p) =>
           (input.maxPriceVnd === undefined || p.priceMin <= input.maxPriceVnd) &&
-          (!input.inStockOnly || p.available > 0),
+          // Courses and services have no stock: an in-stock filter keeps them.
+          (!input.inStockOnly || p.available > 0 || p.offering),
       );
       const wanted = terms(input.query ?? '');
       if (wanted.length) {
@@ -215,8 +220,13 @@ export function evalCatalog(products: ProductDto[]): CatalogFacade {
   };
 }
 
+/** Options of a run: `promptVersion` forces the sales-agent prompt (`PROMPT_VERSION_OPTION`). */
+export interface RunOptions {
+  promptVersion?: SalesPromptVersion;
+}
+
 /** The production reply pipeline on in-memory facades built from the case. */
-export function buildService(c: EvalCase, llm: LlmRuntime) {
+export function buildService(c: EvalCase, llm: LlmRuntime, opts: RunOptions = {}) {
   const botId = newId();
   const bot = botFor(c, botId);
   const faqHits: FaqHit[] = c.faqs.map((f) => ({
@@ -256,6 +266,9 @@ export function buildService(c: EvalCase, llm: LlmRuntime) {
   const catalog = evalCatalog(products as unknown as ProductDto[]);
   // The calendar of a hotel case; the pipeline gives its tools to hotel bots only.
   const lodging = evalLodging(products as unknown as ProductDto[], c.lodging);
+  // The crm request writer of a request-industry case; the pipeline offers record_request to
+  // saas, education and spa bots only.
+  const requests = evalRequests(c.bot.industry, c.requests_before);
   const service = new PlaygroundService(
     { getBot: async () => bot } as BotFacade,
     { searchFaqs: async () => faqHits } as unknown as KnowledgeFacade,
@@ -265,7 +278,7 @@ export function buildService(c: EvalCase, llm: LlmRuntime) {
     { list: async () => scenarios } as unknown as TrainingFacade,
     catalog,
     { listForBot: async () => [] } as unknown as ActionFacade,
-    undefined,
+    opts.promptVersion,
     undefined,
     commerce,
     catalog,
@@ -275,8 +288,10 @@ export function buildService(c: EvalCase, llm: LlmRuntime) {
       listBotPropertyIds: async () => products.filter((p) => p.accommodation).map((p) => p.id),
       stayRevenue: () => Promise.reject(new Error('not used by the bot evals')),
     } as LodgingFacade,
+    undefined,
+    requests as unknown as CrmFacade,
   );
-  return { service, botId, runs };
+  return { service, botId, runs, requests };
 }
 
 const request = (c: EvalCase): PlaygroundRequest => ({
@@ -313,9 +328,13 @@ const errorResult = (c: EvalCase, error: string): CaseResult => ({
 });
 
 /** Runs one case through `PlaygroundService.playground()` (prompt build, guardrails, post-processing) and checks it. */
-export async function runCase(c: EvalCase, llm: LlmRuntime): Promise<CaseResult> {
+export async function runCase(
+  c: EvalCase,
+  llm: LlmRuntime,
+  opts: RunOptions = {},
+): Promise<CaseResult> {
   const customerTexts = customerTextsOf(c);
-  const { service, botId, runs } = buildService(c, llm);
+  const { service, botId, runs, requests } = buildService(c, llm, opts);
   // Count the model calls of the turn by wrapping the runtime the pipeline uses.
   const generate = llm.generate.bind(llm);
   let modelCalls = 0;
@@ -347,6 +366,7 @@ export async function runCase(c: EvalCase, llm: LlmRuntime): Promise<CaseResult>
       messages: delivered,
       steps: tools,
       orderCreated: (res as { orderCreated?: boolean }).orderCreated === true,
+      requests: requests.recorded.map((r) => ({ kind: r.kind, updated: r.updated })),
       customerTexts,
       trusted: trustedTexts(c),
     });

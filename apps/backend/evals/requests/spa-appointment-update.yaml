@@ -1,0 +1,62 @@
+id: spa-appointment-update
+group: requests
+tags: []
+bot:
+  industry: spa
+  name: Lotus Spa
+  profile:
+    fields:
+      displayName: Lotus Spa
+      address: '45 Lê Thánh Tôn, Quận 1, TP.HCM'
+      hotline: '028 3822 6666'
+      hours: '9h00 - 21h00 mỗi ngày'
+      payment: 'Tiền mặt, chuyển khoản, thẻ.'
+      servicePrices: 'Giá từng dịch vụ xem trong danh sách dịch vụ.'
+      booking: 'Khách đặt lịch trước, nhân viên gọi xác nhận lịch.'
+      reschedule: 'Đổi hoặc huỷ lịch trước 2 tiếng; đến trễ quá 15 phút lịch có thể bị lùi.'
+      branches: "Cơ sở Quận 1: 45 Lê Thánh Tôn, Quận 1, TP.HCM, 9h-21h\nCơ sở Quận 3: 210 Võ Văn Tần, Quận 3, TP.HCM, 9h-21h"
+      promotion: ''
+    notes: ''
+products:
+  - name: 'Gội đầu dưỡng sinh'
+    code: GOI
+    description: 'Gội đầu thảo dược kết hợp massage cổ vai gáy.'
+    variants:
+      - { name: 'Tiêu chuẩn', sku: GOI-STD, price: 180000 }
+    offering: { kind: service, durationMinutes: 60 }
+  - name: 'Massage body đá nóng'
+    code: MSG
+    description: 'Massage toàn thân với đá nóng giúp thư giãn.'
+    variants:
+      - { name: '90 phút', sku: MSG-90, price: 450000 }
+    offering: { kind: service, durationMinutes: 90 }
+  - name: 'Liệu trình trị mụn chuyên sâu'
+    code: MUN
+    description: 'Liệu trình làm sạch và chăm sóc da mụn, chuyên viên soi da trước khi làm.'
+    variants:
+      - { name: 'Liệu trình 10 buổi', sku: MUN-10, price: 0 }
+    offering: { kind: service, durationMinutes: 75, sessions: 10, priceNote: 'liên hệ' }
+requests_before: [appointment]
+conversation:
+  - customer: 'Chị Lan, 0901 222 333, đặt lịch gội đầu dưỡng sinh 3h chiều thứ Bảy 13/11/2027 ở Quận 3'
+  - bot: 'Dạ yêu cầu đặt lịch gội đầu dưỡng sinh lúc 15h Thứ Bảy 13/11/2027 tại cơ sở Quận 3 đã được ghi nhận ạ. Nhân viên sẽ liên hệ chị để xác nhận ạ.'
+  - customer: 'à chị đổi sang 5h chiều nhé, vẫn thứ Bảy đó'
+expect:
+  outcome: answered
+  outcome_not: handoff
+  contains_any: ['cập nhật', 'đổi']
+  not_contains: ['đã xác nhận', 'đã đặt lịch thành công']
+  steps_succeeded: [record_request]
+  request_updated: true
+fake_turns:
+  - tool_calls:
+      - name: record_request
+        input:
+          kind: appointment
+          name: 'Lan'
+          phone: '0901222333'
+          service: 'Gội đầu dưỡng sinh'
+          branch: 'Quận 3'
+          preferredDate: '2027-11-13'
+          preferredTime: '17h'
+  - text: 'Dạ em đã cập nhật yêu cầu đặt lịch gội đầu dưỡng sinh của chị sang 17h Thứ Bảy 13/11/2027 ạ. Nhân viên sẽ liên hệ để xác nhận lại ạ.'

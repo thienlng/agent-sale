@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AccommodationDetails } from '@agent-sales/contracts';
+import { AccommodationDetails, CustomerRequestKind, OfferingDetails } from '@agent-sales/contracts';
 
 const Outcome = z
   .enum(['answered', 'fallback', 'unknown', 'handoff'])
@@ -51,8 +51,14 @@ const Product = z
     /** https picture URLs the bot may send for this product. */
     images: z.array(z.string().url()).default([]),
     accommodation: AccommodationDetails.optional(),
+    /** A course or a service: no stock in the bot's view, a price of 0 = see `priceNote`. */
+    offering: OfferingDetails.optional(),
   })
-  .strict();
+  .strict()
+  .refine((p) => !(p.accommodation && p.offering), {
+    message: 'a product has accommodation or offering, never both',
+    path: ['offering'],
+  });
 
 const BotFixture = z
   .object({
@@ -143,6 +149,12 @@ const Expect = z
     quick_replies: z.array(z.string().min(1)).min(1).optional(),
     /** Whether the turn created an order (`confirm_order` succeeded). */
     order_created: z.boolean().optional(),
+    /** Whether `record_request` recorded a request this turn (the in-memory crm facade). */
+    request_recorded: z.boolean().optional(),
+    /** The kind of the last request recorded this turn. */
+    request_kind: CustomerRequestKind.optional(),
+    /** Whether the last request recorded this turn was an update (same kind within 24 h). */
+    request_updated: z.boolean().optional(),
   })
   .strict();
 
@@ -215,6 +227,11 @@ export const EvalCase = z
     order_draft: OrderDraft.optional(),
     /** Hotel cases: booked nights and a waiting hold summary for the lodging bot facade. */
     lodging: LodgingFixture.optional(),
+    /**
+     * Request industries: kinds the bot recorded for this customer an hour before the turn, so a
+     * new call of the same kind is an update (the 24 h rule).
+     */
+    requests_before: z.array(CustomerRequestKind).optional(),
     conversation: z
       .array(Turn)
       .min(1)
