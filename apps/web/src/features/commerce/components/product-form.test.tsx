@@ -192,3 +192,97 @@ describe('ProductForm and the owner assistant', () => {
     });
   });
 });
+
+describe('ProductForm of a spa or education business', () => {
+  function renderNew(kind: 'service' | 'course') {
+    const { fetchStub, calls } = stubFetch({
+      'POST /products': { status: 201, body: { ...product(false), offering: null } },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithRouter(() => <ProductForm offeringKind={kind} />);
+    return calls;
+  }
+  async function fillBasics() {
+    await userEvent.type(await screen.findByLabelText(/^Mã sản phẩm/), 'DV01');
+    await userEvent.type(screen.getByLabelText('Tên sản phẩm'), 'Chăm sóc da');
+    await userEvent.type(screen.getByLabelText(/^SKU/), 'DV01-60');
+  }
+
+  it('sends the service details of a new spa service', async () => {
+    const calls = renderNew('service');
+    expect(await screen.findByRole('heading', { name: 'Chi tiết dịch vụ' })).toBeVisible();
+    await fillBasics();
+    await userEvent.type(screen.getByLabelText('Thời lượng mỗi buổi (phút)'), '60');
+    await userEvent.type(screen.getByLabelText('Số buổi'), '10');
+    await userEvent.click(screen.getByRole('radio', { name: 'Tại cơ sở' }));
+    await userEvent.type(screen.getByLabelText('Kết quả đạt được'), 'Da sáng\n\nGiảm mụn\n');
+    await userEvent.type(screen.getByLabelText('Ghi chú giá'), 'giá tham khảo');
+    await userEvent.click(screen.getByRole('button', { name: 'Lưu sản phẩm' }));
+    await waitFor(() => expect(calls.find((c) => c.key === 'POST /products')).toBeDefined());
+    expect(calls.find((c) => c.key === 'POST /products')?.body).toMatchObject({
+      code: 'DV01',
+      offering: {
+        kind: 'service',
+        durationMinutes: 60,
+        sessions: 10,
+        format: 'offline',
+        outcomes: ['Da sáng', 'Giảm mụn'],
+        priceNote: 'giá tham khảo',
+        period: '',
+      },
+    });
+  });
+
+  it('sends offering null once marked as retail goods', async () => {
+    const calls = renderNew('course');
+    expect(await screen.findByRole('heading', { name: 'Chi tiết khoá học' })).toBeVisible();
+    await fillBasics();
+    const retail = screen.getByRole('switch', { name: 'Đây là sản phẩm bán lẻ' });
+    expect(retail).not.toBeChecked();
+    await userEvent.click(retail);
+    expect(screen.queryByLabelText('Số buổi')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Lưu sản phẩm' }));
+    await waitFor(() => expect(calls.find((c) => c.key === 'POST /products')).toBeDefined());
+    expect(calls.find((c) => c.key === 'POST /products')?.body).toMatchObject({ offering: null });
+  });
+
+  it('hides the stock editor of a service, and shows it once it is retail', async () => {
+    const service = {
+      ...product(false),
+      offering: {
+        kind: 'service' as const,
+        durationMinutes: 60,
+        sessions: null,
+        period: '',
+        format: null,
+        level: '',
+        schedule: '',
+        audience: '',
+        outcomes: [],
+        priceNote: '',
+      },
+    };
+    const { fetchStub, calls } = stubFetch({
+      'GET /warehouses': { status: 200, body: { data: [] } },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithRouter(() => <ProductForm product={service} offeringKind="service" />);
+    expect(await screen.findByLabelText('Thời lượng mỗi buổi (phút)')).toHaveValue(60);
+    expect(calls.some((c) => c.key === 'GET /warehouses')).toBe(false);
+    await userEvent.click(screen.getByRole('switch', { name: 'Đây là sản phẩm bán lẻ' }));
+    await waitFor(() => expect(calls.some((c) => c.key === 'GET /warehouses')).toBe(true));
+  });
+
+  it('keeps a shop product free of offering details', async () => {
+    const { fetchStub, calls } = stubFetch({
+      'POST /products': { status: 201, body: { ...product(false), offering: null } },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    renderWithRouter(() => <ProductForm />);
+    await fillBasics();
+    expect(screen.queryByRole('switch', { name: 'Đây là sản phẩm bán lẻ' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Lưu sản phẩm' }));
+    await waitFor(() => expect(calls.find((c) => c.key === 'POST /products')).toBeDefined());
+    expect(calls.find((c) => c.key === 'POST /products')?.body).not.toHaveProperty('offering');
+  });
+});

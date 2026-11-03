@@ -5,6 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useProduct } from '@/features/commerce/api/commerce';
 import { ProductForm } from '@/features/commerce/components/product-form';
 import { useCurrentWorkspace } from '@/features/workspace/api/use-current-workspace';
+import { offeringKindOf } from '@/features/workspace/utils/industry-group';
 import { usePmsLink } from '@/features/integration/api/integrations';
 import { ApiClientError } from '@/lib/api-client';
 
@@ -20,7 +21,12 @@ export const Route = createFileRoute('/app/products/$productId')({
     if (product.error instanceof ApiClientError && product.error.status === 404)
       return <NotFound />;
     return product.data && !workspace.isPending ? (
-      <ProductForm key={product.data.updatedAt} product={product.data} pmsLink={pmsLink} />
+      <ProductForm
+        key={product.data.updatedAt}
+        product={product.data}
+        pmsLink={pmsLink}
+        offeringKind={offeringKindOf(workspace.data?.industry)}
+      />
     ) : (
       <Skeleton className="h-96 rounded-xl" />
     );

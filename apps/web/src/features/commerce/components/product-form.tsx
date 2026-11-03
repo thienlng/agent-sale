@@ -19,6 +19,12 @@ import { cn } from '@/lib/utils';
 import { useSaveProduct, useSaveProductBotSettings } from '../api/commerce';
 import { FieldLabel, LOCKED_FIELD, LockedHint } from './locked-field';
 import { ProductImagesEditor } from './product-images-editor';
+import {
+  type OfferingKind,
+  offeringDraft,
+  ProductOfferingEditor,
+  toOffering,
+} from './product-offering-editor';
 import { StockEditor } from './product-stock-editor';
 import type { PmsLink } from './products-list';
 
@@ -49,15 +55,20 @@ const blankVariant = (code = ''): VariantDraft => ({
  * A product synced from KiotViet (`product.external`) is read-only except for its bot settings,
  * which save on their own; `pmsLink` (from the route) gives the store for the "edit in KiotViet"
  * link.
+ *
+ * `offeringKind` (an education or spa business, from the route) adds the course or service
+ * details; such a product has no stock unless it is marked as retail goods.
  */
 export function ProductForm({
   product,
   botId,
   pmsLink,
+  offeringKind,
 }: {
   product?: ProductDto;
   botId?: string;
   pmsLink?: PmsLink | null | undefined;
+  offeringKind?: OfferingKind | null | undefined;
 }) {
   const { t } = useTranslation();
   const { t: training } = useTranslation('training');
@@ -78,6 +89,13 @@ export function ProductForm({
   const [visibleToBot, setVisibleToBot] = useState(product?.visibleToBot ?? true);
   const [imageUrls, setImageUrls] = useState<string[]>(product?.imageUrls ?? []);
   const [archived, setArchived] = useState(product?.status === 'archived');
+  // A new course or service starts as an offering; an existing product keeps what it is.
+  const [retail, setRetail] = useState(product ? !product.offering : false);
+  const [offering, setOffering] = useState(() => offeringDraft(product?.offering));
+  /** The offering edited here; a KiotViet product keeps its stored one (bot settings save alone). */
+  const editKind = !locked && offeringKind ? (product?.offering?.kind ?? offeringKind) : null;
+  /** Courses and services have no stock: the stock editor stays hidden while one is set. */
+  const isOffering = editKind ? !retail : Boolean(product?.offering);
   const [variants, setVariants] = useState<VariantDraft[]>(
     product?.variants.map((v) => ({
       key: v.id,
@@ -185,6 +203,7 @@ export function ProductForm({
       imageUrls,
       status: archived ? 'archived' : 'active',
       ...(!product && botId ? { botId } : {}),
+      ...(editKind ? { offering: retail ? null : toOffering(offering, editKind) } : {}),
       variants: variants.map((v) => ({
         ...(v.id ? { id: v.id } : {}),
         sku: v.sku.trim(),
@@ -315,6 +334,16 @@ export function ProductForm({
           </div>
         </section>
 
+        {editKind ? (
+          <ProductOfferingEditor
+            kind={editKind}
+            retail={retail}
+            onRetailChange={setRetail}
+            value={offering}
+            onChange={setOffering}
+          />
+        ) : null}
+
         <ProductImagesEditor
           value={imageUrls}
           onChange={setImageUrls}
@@ -443,7 +472,7 @@ export function ProductForm({
         </div>
       </form>
 
-      {product ? (
+      {product && !isOffering ? (
         <StockEditor
           product={product}
           lockedHint={locked ? <LockedHint id="ps-locked-hint" retailer={retailer} /> : undefined}

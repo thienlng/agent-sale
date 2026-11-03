@@ -1,4 +1,6 @@
+import type { OfferingDetails } from '@agent-sales/contracts';
 import { Link, useNavigate } from '@tanstack/react-router';
+import type { TFunction } from 'i18next';
 import { ChevronLeft, ChevronRight, Package, Plus, RefreshCw, Search, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -64,6 +66,16 @@ function Segmented<T extends string>({
   );
 }
 
+/** A course or service has no stock: its length and sessions take the stock cell ("60 phút · 10 buổi"). */
+function offeringLength(o: OfferingDetails, t: TFunction): string {
+  const parts = [
+    o.durationMinutes ? t('commerce.offering.minutesCount', { count: o.durationMinutes }) : '',
+    o.sessions ? t('commerce.offering.sessionsCount', { count: o.sessions }) : '',
+    o.durationMinutes || o.sessions ? '' : o.period,
+  ].filter(Boolean);
+  return parts.length ? parts.join(' · ') : '—';
+}
+
 /** Not connected: a dismissible card that points to the PMS integrations hub. */
 function PmsHint({ onDismiss }: { onDismiss: () => void }) {
   const { t } = useTranslation();
@@ -120,6 +132,7 @@ export function ProductsList({ pmsLink }: { pmsLink?: PmsLink | null | undefined
   });
   const data = products.data;
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
+  const anyOffering = data?.data.some((p) => p.offering) ?? false;
 
   return (
     <section className="flex flex-col gap-5">
@@ -198,7 +211,11 @@ export function ProductsList({ pmsLink }: { pmsLink?: PmsLink | null | undefined
                 <TableHead>{t('products.col.name')}</TableHead>
                 <TableHead>{t('products.col.variants')}</TableHead>
                 <TableHead className="text-right">{t('products.col.price')}</TableHead>
-                <TableHead className="text-right">{t('products.col.available')}</TableHead>
+                <TableHead className="text-right">
+                  {anyOffering
+                    ? `${t('products.col.available')} / ${t('commerce.offering.col')}`
+                    : t('products.col.available')}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -247,14 +264,20 @@ export function ProductsList({ pmsLink }: { pmsLink?: PmsLink | null | undefined
                           ? formatVnd(p.priceMin)
                           : `${formatVnd(p.priceMin)} – ${formatVnd(p.priceMax)}`}
                       </TableCell>
-                      <TableCell
-                        className={cn(
-                          'text-right tabular-nums',
-                          p.available <= 0 && 'text-destructive',
-                        )}
-                      >
-                        {formatNumber(p.available)}
-                      </TableCell>
+                      {p.offering ? (
+                        <TableCell className="text-right text-muted-foreground tabular-nums">
+                          {offeringLength(p.offering, t)}
+                        </TableCell>
+                      ) : (
+                        <TableCell
+                          className={cn(
+                            'text-right tabular-nums',
+                            p.available <= 0 && 'text-destructive',
+                          )}
+                        >
+                          {formatNumber(p.available)}
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
               {data && !data.data.length ? (
