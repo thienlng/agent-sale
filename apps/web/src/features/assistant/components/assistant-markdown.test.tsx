@@ -71,6 +71,24 @@ describe('AssistantMarkdown', () => {
     expect(rows[2]?.textContent).toBe('DH-2Mới');
   });
 
+  it('keeps a raw status the owner asked to see as a code, never the label twice (ST2)', () => {
+    renderWithProviders(
+      <AssistantMarkdown
+        content={
+          '| Trạng thái | Mã trạng thái | Số đơn |\n|---|---|---|\n| Đã hủy | `cancelled` | 3 |\n| Mới | new | 1 |\n\n| Nhãn | Trạng thái |\n|---|---|\n| **Đã huỷ** | cancelled |'
+        }
+      />,
+    );
+    const [asked, both] = screen.getAllByRole('table') as [HTMLElement, HTMLElement];
+    const rows = within(asked).getAllByRole('row');
+    // The code column keeps the codes; the model's own label column is left as written.
+    expect(rows[1]?.textContent).toBe('Đã hủycancelled3');
+    expect(rows[2]?.textContent).toBe('Mớinew1');
+    expect(within(asked).getByText('cancelled').tagName).toBe('CODE');
+    // The row already shows the label (another spelling): the code is not relabelled.
+    expect(within(both).getAllByRole('row')[1]?.textContent).toBe('Đã huỷcancelled');
+  });
+
   it('keeps a one-word cell on one line and lets a wide table scroll', () => {
     render(
       <AssistantMarkdown

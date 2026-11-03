@@ -220,11 +220,45 @@ function Lines({ text }: { text: string }) {
 /** A cell that is one word (a code, a number): kept on one line. */
 const ONE_WORD = /^\S{1,32}$/;
 
-/** A table cell: a raw status as its label, else the cell's inline Markdown. */
-function Cell({ text }: { text: string }) {
-  const { t } = useTranslation('assistant');
-  const label = statusLabel(t, text.replace(/^`(.*)`$/, '$1'));
-  return label ?? <Inline text={text} />;
+/** Text compared without accents or case: "Đã hủy" and "Đã huỷ" are the same label. */
+function fold(text: string): string {
+  return text.normalize('NFD').replace(/\p{M}/gu, '').replace(/đ/giu, 'd').toLowerCase().trim();
+}
+
+/** A column the owner asked to see codes in ("Mã trạng thái", "Status code"). */
+const CODE_HEADER = /(^|[^\p{L}])(mã|ma|code)([^\p{L}]|$)/iu;
+
+/** What a table cell shows: a raw status's label, the raw code kept as code, or its Markdown. */
+type CellView = { label: string } | { code: string } | null;
+
+/**
+ * A raw status in a table cell shows its label, unless the raw code is what the row means to
+ * show (ST2): its column is a code column, or another cell of the row already shows the label,
+ * so the label never appears twice.
+ */
+function cellView(
+  t: (key: string) => string,
+  header: readonly string[],
+  row: readonly string[],
+  j: number,
+): CellView {
+  const raw = (row[j] ?? '').trim().replace(/^`(.*)`$/, '$1');
+  const label = statusLabel(t, raw);
+  if (label === null) return null;
+  if (CODE_HEADER.test(fold(header[j] ?? ''))) return { code: raw.trim() };
+  const folded = fold(label);
+  const shown = row.some((other, k) => k !== j && fold(other.replace(/[*_`]/g, '')) === folded);
+  return shown ? { code: raw.trim() } : { label };
+}
+
+function Cell({ view, text }: { view: CellView; text: string }) {
+  if (view && 'label' in view) return view.label;
+  if (view) {
+    return (
+      <code className="rounded bg-background/70 px-1 font-mono text-[0.85em]">{view.code}</code>
+    );
+  }
+  return <Inline text={text} />;
 }
 
 function cellClass(text: string, align: Align): string {
@@ -238,6 +272,7 @@ const ALIGN_CLASS: Record<Exclude<Align, null>, string> = {
 };
 
 export function AssistantMarkdown({ content }: { content: string }) {
+  const { t } = useTranslation('assistant');
   const blocks = parseBlocks(content);
   return (
     <div className="flex flex-col gap-2">
@@ -285,7 +320,7 @@ export function AssistantMarkdown({ content }: { content: string }) {
                           key={j}
                           className={`border-b px-2 py-1 font-semibold ${cellClass(cell, block.align[j] ?? null)}`}
                         >
-                          <Cell text={cell} />
+                          <Cell view={cellView(t, [], [cell], 0)} text={cell} />
                         </th>
                       ))}
                     </tr>
@@ -298,7 +333,7 @@ export function AssistantMarkdown({ content }: { content: string }) {
                             key={j}
                             className={`px-2 py-1 align-top ${cellClass(row[j] ?? '', block.align[j] ?? null)}`}
                           >
-                            <Cell text={row[j] ?? ''} />
+                            <Cell view={cellView(t, block.header, row, j)} text={row[j] ?? ''} />
                           </td>
                         ))}
                       </tr>
