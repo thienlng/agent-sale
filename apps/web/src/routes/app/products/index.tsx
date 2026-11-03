@@ -4,7 +4,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ProductsList } from '@/features/commerce/components/products-list';
 import { usePmsLink } from '@/features/integration/api/integrations';
 import { useCurrentWorkspace } from '@/features/workspace/api/use-current-workspace';
-import { industryGroup } from '@/features/workspace/utils/industry-group';
+import { industryGroup, offeringKindOf } from '@/features/workspace/utils/industry-group';
 
 export const Route = createFileRoute('/app/products/')({
   component: function ProductsRoute() {
@@ -16,6 +16,11 @@ export const Route = createFileRoute('/app/products/')({
     // Until the business is known the KiotViet hint stays hidden. Hotels never see it, nor do
     // education and spa businesses, which have no PMS.
     const service = industryGroup(workspace.data?.industry) === 'service';
-    return <ProductsList pmsLink={workspace.data && !service ? pmsLink : undefined} />;
+    return (
+      <ProductsList
+        pmsLink={workspace.data && !service ? pmsLink : undefined}
+        offeringKind={offeringKindOf(workspace.data?.industry)}
+      />
+    );
   },
 });

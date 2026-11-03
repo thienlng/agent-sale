@@ -105,10 +105,23 @@ function PmsHint({ onDismiss }: { onDismiss: () => void }) {
 /**
  * Product catalog (ORD-01): search, on-sale/archived, price range, stock available. With
  * `pmsLink` (KiotViet connected) it shows the sync bar and a source filter; with `null` (not
- * connected) it offers the integration; `undefined` (unknown yet) shows neither.
+ * connected) it offers the integration; `undefined` (unknown yet) shows neither. `offeringKind`
+ * (an education or spa business) names the page for what it sells, like the sidebar.
  */
-export function ProductsList({ pmsLink }: { pmsLink?: PmsLink | null | undefined }) {
+export function ProductsList({
+  pmsLink,
+  offeringKind,
+}: {
+  pmsLink?: PmsLink | null | undefined;
+  offeringKind?: 'course' | 'service' | null | undefined;
+}) {
   const { t } = useTranslation();
+  const title =
+    offeringKind === 'course'
+      ? t('nav.courses')
+      : offeringKind === 'service'
+        ? t('nav.services')
+        : t('products.title');
   const navigate = useNavigate();
   const canAdd = useCan('catalog.manage');
   const [hintDismissed, dismissHint] = usePmsHintDismissed();
@@ -137,7 +150,7 @@ export function ProductsList({ pmsLink }: { pmsLink?: PmsLink | null | undefined
   return (
     <section className="flex flex-col gap-5">
       <header className="flex flex-wrap items-end justify-between gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">{t('products.title')}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
         {canAdd ? (
           <Button size="lg" asChild data-assistant-target="products.new">
             <Link to="/app/products/new">

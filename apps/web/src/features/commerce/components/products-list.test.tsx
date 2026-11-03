@@ -54,6 +54,23 @@ function setup(pmsLink: PmsLink | null | undefined) {
 const LINK = { retailer: 'shopabc', lastSyncAt: new Date(Date.now() - 120_000).toISOString() };
 
 describe('ProductsList', () => {
+  it('names the page for what an education or spa business sells, like the sidebar', async () => {
+    const { fetchStub } = stubFetch({
+      'GET /products?status=active&page=1&pageSize=20': page([]),
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    const view = renderWithRouter(() => <ProductsList offeringKind="course" />);
+    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Khoá học');
+    view.unmount();
+    renderWithRouter(() => <ProductsList offeringKind="service" />);
+    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Dịch vụ');
+  });
+
+  it('keeps the products title for a shop', async () => {
+    setup(undefined);
+    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Sản phẩm');
+  });
+
   it('marks products synced from KiotViet with a badge', async () => {
     setup(LINK);
     const linkedRow = (await screen.findByText('Sơ mi trắng')).closest('tr');
