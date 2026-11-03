@@ -4,7 +4,8 @@
     "assistantLauncher": "Ask Thỏ Rapiz",
     "notifications": "Notifications",
     "notificationsUnread": "Notifications, {{count}} unread",
-    "reportThreadError": "Could not open the report in the assistant. Try again."
+    "reportThreadError": "Could not open the report in the assistant. Try again.",
+    "reportScheduleDeleted": "This schedule was deleted"
   },
   "nav": {
     "bots": "Bot training",
