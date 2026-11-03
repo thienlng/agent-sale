@@ -18,7 +18,7 @@ import { type ActionToolContext, playgroundConversationId, runActionTool } from 
 import { CALCULATE_TOOL, calculateTool } from './calculator.js';
 import { type HoldToolContext, holdTools } from './hold-tools.js';
 import { type OrderToolContext, orderTools } from './order-tools.js';
-import { type SaasToolContext, saasTools } from './saas-tools.js';
+import { type RequestToolContext, requestTools } from './request-tools.js';
 import { CATALOG_TOOLS, type CatalogToolContext, catalogRunnableTools } from './catalog-tools.js';
 import {
   type ImageAllowlist,
@@ -55,7 +55,7 @@ export function writeTools(
 
 /**
  * The tools of one turn, in the order the model sees them: catalog (read-only), `calculate` (read-only, always), `send_message`
- * (not for comment replies) and `handoff`, the order tools or the lodging hold tools, the SaaS request tool, then the owner's actions. Products whose details the
+ * (not for comment replies) and `handoff`, the order tools or the lodging hold tools, the request tool (saas, education, spa), then the owner's actions. Products whose details the
  * catalog returns make their pictures sendable.
  */
 export function turnTools(opts: {
@@ -71,8 +71,8 @@ export function turnTools(opts: {
   orders?: OrderToolContext | null;
   /** Present only for a hotel bot (availability always; holds with its order-taking switch). */
   holds?: HoldToolContext | null;
-  /** Present only for a bot of a `saas` business (ADR-020). */
-  saas?: SaasToolContext | null;
+  /** Present only for a bot of a request industry: saas, education, spa (ADR-020). */
+  requests?: RequestToolContext | null;
 }): ToolSet {
   const { catalog, allowlist, actions } = opts;
   return mergeToolSets(
@@ -97,7 +97,7 @@ export function turnTools(opts: {
     }),
     opts.orders ? orderTools(opts.orders) : { definitions: [], runnable: [] },
     opts.holds ? holdTools(opts.holds) : { definitions: [], runnable: [] },
-    opts.saas ? saasTools(opts.saas) : { definitions: [], runnable: [] },
+    opts.requests ? requestTools(opts.requests) : { definitions: [], runnable: [] },
     actions
       ? {
           definitions: actions.definitions,
