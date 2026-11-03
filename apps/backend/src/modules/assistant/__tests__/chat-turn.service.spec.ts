@@ -6,6 +6,7 @@ import {
   ChatTurnService,
   FALLBACK_REPLY,
   capHistory,
+  PROPOSAL_FALLBACK_REPLY,
   finalUiActions,
   HISTORY_MAX_MESSAGES,
   OWNER_WRAP_UP_NOTICE,
@@ -603,6 +604,30 @@ describe('ChatTurnService', () => {
     invoke.mockResolvedValue({ status: 200, body: { data: [] } });
     await service.send(scope, thread.id, { turnId: newId(), text: 'Xem' }, AUTH);
     expect(invoke.mock.calls[0]?.[0]).toMatchObject({ authorization: AUTH });
+  });
+
+  it('points at the drafted proposal when the model fails after drafting it (QA N5)', async () => {
+    const product = { code: 'AO-1', name: 'Áo thun', variants: [{ sku: 'AO-1-M', price: 1 }] };
+    const { service, scope, thread, repo } = await setup([
+      call('c1', 'tool_call', { key: 'POST /products', body: product, summary: 'Thêm Áo thun' }),
+      new Error('bridge 502'),
+    ]);
+    const out = await service.send(scope, thread.id, { turnId: newId(), text: 'Thêm áo' }, AUTH);
+    expect(out.messages.at(-1)).toMatchObject({
+      role: 'assistant',
+      content: PROPOSAL_FALLBACK_REPLY,
+    });
+    expect(await repo.listProposals(scope, thread.id)).toHaveLength(1);
+
+    // Without a proposal the apology stays.
+    const plain = await setup([new Error('bridge 502')]);
+    const failed = await plain.service.send(
+      plain.scope,
+      plain.thread.id,
+      { turnId: newId(), text: 'Chào' },
+      AUTH,
+    );
+    expect(failed.messages.at(-1)?.content).toBe(FALLBACK_REPLY);
   });
 
   it('shares one 40 000-char tool output budget across route reads and every other tool', async () => {
