@@ -51,6 +51,10 @@ The hotel industry has its own starter rules (availability questions, booking, b
 - checkin: giờ nhận và trả phòng, from `checkInOut`.
 - duongdi: hướng dẫn đường đi, from `directions`.
 
+## Facts per villa
+
+A villa's own data (beds, rooms, amenities, rates, location text) is said only of that villa. The profile address and directions are the business's; do not put them on one villa (for example "A20 ở khu …") unless that villa's own data gives its location. Samples cover the villas evenly and the general topics (booking, deposit, check-in, cancellation, directions).
+
 ## Never
 
 - promise that a room or unit is free: the calendar and the hold flow decide availability;
