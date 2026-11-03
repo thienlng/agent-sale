@@ -64,7 +64,7 @@ export const Route = createFileRoute('/app')({
       >
         <MessageUsageBanner />
         <Outlet />
-        {/* Owner assistant (ADR-023): owners of the account only; the panel loads on open. */}
+        {/* Owner assistant (ADR-024): owners of the account only; the panel loads on open. */}
         <AssistantBubble />
       </AppShell>
     );

@@ -5,7 +5,7 @@ import type { AiRunRecord } from './ai-run.repository.js';
 /** How the turn's agent loop ended; `error` = the model failed before the loop finished. */
 export type LoopOutcome = 'done' | 'interrupted' | 'limit' | 'invalid_tools' | 'budget' | 'error';
 
-/** What the shop bot saw in one turn (`ai_run_traces`, migration 0062). Excerpts are redacted. */
+/** What the shop bot saw in one turn (`ai_run_traces`, migration 0063). Excerpts are redacted. */
 export interface TurnTraceRecord {
   runId: string;
   botId: string;

@@ -18,7 +18,7 @@ import {
 import { withSystem } from './tenant.js';
 
 /**
- * Owner assistant import tables (0061, T-173): account RLS on `assistant_import_batches`, the
+ * Owner assistant import tables (0062, T-173): account RLS on `assistant_import_batches`, the
  * proposal kind/batch CHECKs, the cascade from the thread, per-key result writes under
  * concurrency, and the `import_vision` run kind. One connection per client (`max: 1`) mimics
  * PgBouncer.
@@ -99,7 +99,7 @@ const importProposal = (f: Fixture, importBatchId: string | null) => ({
   expiresAt: new Date(Date.now() + 86_400_000),
 });
 
-describe('assistant import tables (0061)', () => {
+describe('assistant import tables (0062)', () => {
   it('keeps batches per account under RLS on one pooled connection', async () => {
     const [a, b] = fixtures as [Fixture, Fixture];
     const rows = [batchRow(a), batchRow(b)];
@@ -233,7 +233,7 @@ describe('assistant import tables (0061)', () => {
           promptVersion: 'assistant-import-vision@1',
         }),
       );
-    // All migrations (0058–0062) applied in order: every capability's run kind is accepted.
+    // All migrations (0059–0063) applied in order: every capability's run kind is accepted.
     for (const kind of [
       'import_vision',
       'chat',

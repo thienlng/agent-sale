@@ -78,7 +78,9 @@
       "emailTaken": "This email already has an account. Log in instead.",
       "weakPassword": "Password too weak: use 8+ characters that differ from your email and name.",
       "tooMany": "Too many failed attempts. Try again in a few minutes.",
-      "generic": "Can't reach the server. Check your connection and try again."
+      "generic": "Can't reach the server. Check your connection and try again.",
+      "invalidEmail": "Enter a valid email.",
+      "tooManyCodes": "You just asked for a code. Try again in {{seconds}}s."
     },
     "demo": {
       "customer": "ao thun trang con size L ko shop, gia bao nhieu",
@@ -97,6 +99,32 @@
       "verify": "Verify",
       "back": "Back",
       "invalid": "That code is wrong or already used. Try a fresh one."
+    },
+    "verify": {
+      "send": "Send code",
+      "sending": "Sending…",
+      "sent": "A 6-digit code was sent to {{email}}. It is valid for 15 minutes.",
+      "code": "Verification code",
+      "needCode": "Press \"Send code\" and enter the 6-digit code from the email to sign up.",
+      "resend": "Resend code",
+      "resendIn": "Resend code in {{seconds}}s",
+      "resent": "A new code was sent to {{email}}.",
+      "spamHint": "No email? Check your Spam or Promotions folder.",
+      "invalid": "That code is wrong. Check the latest email.",
+      "expired": "The code expired or had too many wrong tries. Press \"Resend code\"."
+    },
+    "reset": {
+      "title": "Forgot password",
+      "subtitle": "Enter the email you signed up with and Rapiz will send a code to set a new password.",
+      "send": "Send code",
+      "sending": "Sending…",
+      "codeSubtitle": "If {{email}} has an account, a 6-digit code was sent to it. It is valid for 15 minutes.",
+      "code": "Verification code",
+      "newPassword": "New password",
+      "submit": "Set new password",
+      "submitting": "Saving…",
+      "done": "Password changed. Log in again.",
+      "back": "Back to log in"
     }
   },
   "industries": {
@@ -1689,7 +1717,7 @@
     "noAccount": "Other businesses",
     "lost": "You no longer have access to that business. Choose another one.",
     "welcomeTitle": "Create your first business",
-    "welcomeSubtitle": "You are not part of any business yet. Create one to start selling with an AI bot.",
+    "welcomeSubtitle": "Tell Rapiz your store name and industry so it can set up a bot, sample answers and customer statuses that fit.",
     "accountLabel": "Account",
     "createAction": "Create business"
   },

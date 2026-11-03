@@ -2,7 +2,7 @@
 
 **Purpose:** the bot's reply pipeline (today: the dashboard playground), the runtime LLM gateway built from the platform's LLM configuration, the back-office API that manages that configuration, and `ai_runs` metering.
 
-**Owned tables:** `ai_runs` (tenant, forced RLS), `conversation_summaries` (tenant, forced RLS, migration 0037), `ai_run_traces` and `ai_run_steps` (tenant, forced RLS, migration 0062, 30-day shop-bot turn traces, `TURN_TRACE_REPOSITORY`), `llm_providers` and `llm_tier_routes` (global, `app_system` only) — migration 0003; schema in `packages/db/src/schema/ai.ts`.
+**Owned tables:** `ai_runs` (tenant, forced RLS), `conversation_summaries` (tenant, forced RLS, migration 0037), `ai_run_traces` and `ai_run_steps` (tenant, forced RLS, migration 0063, 30-day shop-bot turn traces, `TURN_TRACE_REPOSITORY`), `llm_providers` and `llm_tier_routes` (global, `app_system` only) — migration 0003; schema in `packages/db/src/schema/ai.ts`.
 
 **Public API (`api/`):**
 

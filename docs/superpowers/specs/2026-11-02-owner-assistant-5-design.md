@@ -1,9 +1,9 @@
 # Owner assistant capability 5 — bot doctor and API action autofill
 
-- Task: T-174 · Date: 2026-11-02 · Status: shipped (T-174, migration 0062); rulings taken by the agent while the owner is unavailable (§12); what changed while building: §14
-- Parent: [owner assistant core design](2026-11-02-owner-assistant-core-design.md) (§6 proposals, §10 platform skills, §13 "the same `runs` + `run_steps` shape is reused for shop-bot turn traces"), [ADR-023](../../adr/ADR-023-owner-assistant.md)
+- Task: T-174 · Date: 2026-11-02 · Status: shipped (T-174, migration 0063); rulings taken by the agent while the owner is unavailable (§12); what changed while building: §14
+- Parent: [owner assistant core design](2026-11-02-owner-assistant-core-design.md) (§6 proposals, §10 platform skills, §13 "the same `runs` + `run_steps` shape is reused for shop-bot turn traces"), [ADR-024](../../adr/ADR-024-owner-assistant.md)
 - Related: ADR-014 / ADR-015 (shop-bot agent harness), `docs/actions.md`, spec `2026-10-25-bot-api-actions-design.md`
-- Migration: `0062` · One PR, 8 tasks (plan `docs/superpowers/plans/2026-11-02-owner-assistant-doctor.md`)
+- Migration: `0063` · One PR, 8 tasks (plan `docs/superpowers/plans/2026-11-02-owner-assistant-doctor.md`)
 
 ## 1. Goal
 
@@ -40,11 +40,11 @@ ai module (shop bot)                       assistant module (owner)
                                               autofill: POST /bots/{botId}/actions (write, narrowed body → proposal)
 ```
 
-No new module, no new process, no new module edge: the assistant reaches traces only through declared routes (ADR-023 lane b). The ai module gains two tables it owns.
+No new module, no new process, no new module edge: the assistant reaches traces only through declared routes (ADR-024 lane b). The ai module gains two tables it owns.
 
 ## 4. Turn traces (recording)
 
-### 4.1 Tables (migration 0062, additive, tenant tables with forced RLS)
+### 4.1 Tables (migration 0063, additive, tenant tables with forced RLS)
 
 `ai_run_traces` — one row per `ai_runs` row written after this deploy:
 
@@ -75,7 +75,7 @@ No new module, no new process, no new module edge: the assistant reaches traces 
 | `detail jsonb?` (≤ 2 000 chars as JSON) | per-tool facts from an **allowlist** (§4.2); never raw arguments or raw results |
 | `created_at` | |
 
-Indexes: traces `(workspace_id, bot_id, created_at DESC)`, `(workspace_id, conversation_id, created_at DESC) WHERE conversation_id IS NOT NULL`, `(created_at)`; steps `(created_at)`. Trigram index on `assistant_unaccent(query_excerpt)` for the `q` filter (0056's immutable wrapper).
+Indexes: traces `(workspace_id, bot_id, created_at DESC)`, `(workspace_id, conversation_id, created_at DESC) WHERE conversation_id IS NOT NULL`, `(created_at)`; steps `(created_at)`. Trigram index on `assistant_unaccent(query_excerpt)` for the `q` filter (0057's immutable wrapper).
 
 **Retention 30 days.** `AiTraceRunner.purgeExpired()` deletes traces and steps older than 30 days in batches of 5 000 on the `app_system` connection, under `pg_try_advisory_lock`, hourly from the `agent` process (which already boots the ai module). `ai_runs` keeps its own (longer, metering) retention; a run older than 30 days lists with `hasTrace: false`.
 
@@ -248,7 +248,7 @@ Replaying a turn against a fixed config; a trace viewer page for staff in the in
 
 The design above is kept as drafted; the shipped code differs here (T-174, tasks 1–8):
 
-- **File names.** This spec was drafted as `2026-11-02-owner-assistant-doctor-design.md` (migration 0062's header comment still cites that name). `trace-detail.ts` lives in `ai/application/`, not `ai/domain/`: the architecture test bans `@agent-sales/ai-core` in `domain/` and the detail calls `redactSensitive`.
+- **File names.** This spec was drafted as `2026-11-02-owner-assistant-doctor-design.md` (migration 0063's header comment still cites that name). `trace-detail.ts` lives in `ai/application/`, not `ai/domain/`: the architecture test bans `@agent-sales/ai-core` in `domain/` and the detail calls `redactSensitive`.
 - **Trace recording** (§4): the 60-step cap writes one `limit` step with error code `trace_steps_dropped`; undelivered counts come from the recorder's `send_message` details; an action's HTTP status is read from the turn's action state. Trace `created_at` is the DB time of the write (the purge key). Query datetimes accept offsets (`+07:00`). With `around`, the cursor is ignored and rows come nearest first. `problemsOnly` ignores the two informational `*_changed_since` signals. Full list: the Task 1–4 report.
 - **Playground link** (§6 step 5): the dashboard has no `/app/bots/{botId}/playground` page; the test chat ("Chat thử") is docked on every bot page. The `bot-doctor` skill navigates to `/app/bots/{botId}` and tells the owner to press "Chat thử".
 - **Route ranking** (§6 step 1): `tool_search` boosts routes of the page's section (1b). A page section can now map to routes under other paths (`route-catalog.ts#SECTION_ROUTES`): `/app/inbox` boosts `/conversations…` and `/bots/{botId}/turns…`, so "why did the bot answer" ranks `GET /bots/{botId}/turns` first on the inbox and on bot pages.

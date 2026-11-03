@@ -14,7 +14,7 @@
 
 **Tech Stack:** NestJS 12 on Fastify, Drizzle + PostgreSQL 16 (`withAccount`), Zod 4, Vitest, React 19 + TanStack Query, i18next. No new npm dependency.
 
-**Spec:** `cap4-spec.md`, to be committed as `docs/superpowers/specs/2026-11-02-owner-assistant-import-design.md` in Task 8. Core spec §1, §6, §19. ADR: `docs/adr/ADR-023-owner-assistant.md`.
+**Spec:** `cap4-spec.md`, to be committed as `docs/superpowers/specs/2026-11-02-owner-assistant-import-design.md` in Task 8. Core spec §1, §6, §19. ADR: `docs/adr/ADR-024-owner-assistant.md`.
 
 ## Global Constraints
 
@@ -30,7 +30,7 @@
   - ≤ 200 products per proposal;
   - vision: concurrency 4, 25 s per call, 55 s per batch;
   - execution: 60 s deadline.
-- New migration number: **`0061`**, additive only. Read 0058–0060 first: the `assistant_runs_kind_check` constraint must be re-created with the **current** list plus `import_vision`.
+- New migration number: **`0062`**, additive only. Read 0059–0061 first: the `assistant_runs_kind_check` constraint must be re-created with the **current** list plus `import_vision`.
 - `pnpm check` must pass at the end of every task. Never skip or delete a test. The backend contract-vs-served test (`apps/backend/test/http.spec.ts`) must stay green at every commit, so declare each route in the same task as its handler.
 - Commit messages: Conventional Commits, ending with `(T-173)`, then a blank line and `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 
@@ -155,13 +155,13 @@ export function photoSample(drafts: ImportDraft[]): string[];
 ### Task 3: Database and contract schemas
 
 **Files:**
-- Create: `packages/db/migrations/0061_assistant_import.sql`
+- Create: `packages/db/migrations/0062_assistant_import.sql`
 - Modify: `packages/db/src/schema/assistant.ts`; the assistant repository port and both implementations (Drizzle and in-memory); the db integration test next to the 1b one (`packages/db/src/*assistant*.integration.test.ts`)
 - Modify: `packages/contracts/src/assistant/assistant.schema.ts`, with schema tests
 
 **Migration** (spec §4):
 
-1. `CREATE TABLE assistant_import_batches (…)` with the columns, checks and index of spec §4, then the RLS loop (ENABLE + FORCE, `accountPolicies`, `app_system`) copied from 0057.
+1. `CREATE TABLE assistant_import_batches (…)` with the columns, checks and index of spec §4, then the RLS loop (ENABLE + FORCE, `accountPolicies`, `app_system`) copied from 0058.
 2. `ALTER TABLE assistant_proposals`:
    - add `kind text NOT NULL DEFAULT 'route'` with its CHECK;
    - add `import_batch_id uuid REFERENCES assistant_import_batches(id) ON DELETE CASCADE`;
@@ -419,7 +419,7 @@ pendingImportProposals(scope, batchId): Promise<ProposalRecord[]>;
 - Create: `docs/superpowers/specs/2026-11-02-owner-assistant-import-design.md` (this spec, with an "Adjustments made while building" section for anything the tasks changed).
 - Modify:
   - The core spec's capability table: mark row 4 shipped with a link to the new spec.
-  - `docs/adr/ADR-023-owner-assistant.md`: a consequences line for capability 4. Cover the one import proposal executed as per-route injects (C4-R1), the vision on `openai-compatible` (C4-R5), the browser-side parsing with no dependency (C4-R3), and migration 0061.
+  - `docs/adr/ADR-024-owner-assistant.md`: a consequences line for capability 4. Cover the one import proposal executed as per-route injects (C4-R1), the vision on `openai-compatible` (C4-R5), the browser-side parsing with no dependency (C4-R3), and migration 0062.
   - `apps/backend/src/modules/assistant/MODULE.md`: tables, routes, tools, the import skill.
   - `apps/backend/src/modules/commerce/MODULE.md`: match-codes (done in Task 4; check it).
   - `docs/05` (data model: the batch table and the proposal columns).

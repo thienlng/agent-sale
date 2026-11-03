@@ -8,7 +8,7 @@ import { ACCESS_TOKENS, type AccessTokens } from './ports/security.js';
 export const MAX_DELEGATED_TTL_SECONDS = 10 * 60;
 
 /**
- * Short-lived delegated access tokens (ADR-023): the same user and session as a valid access
+ * Short-lived delegated access tokens (ADR-024): the same user and session as a valid access
  * token, so the guard derives the same memberships and permissions, but with its own short
  * expiry. Only an access token can be delegated: an API key, an expired or invalid token, or a
  * token that is itself delegated gives null (no chains).

@@ -12,7 +12,7 @@ import {
 import { ensureLoginRoles, migrate, withCredentials } from './migrate.js';
 
 /**
- * The owner assistant's read-only SQL lane (0059, T-171) against a real Postgres: the login's
+ * The owner assistant's read-only SQL lane (0060, T-171) against a real Postgres: the login's
  * grants, the reader's column grants and RLS policies, account and business isolation on one
  * pooled connection, the read-only transaction, the timeout, the row cap and the extended
  * protocol. Seeded as the owner (superuser): accounts A (businesses A1, A2 and a deleted A3) and
@@ -297,7 +297,7 @@ async function sqlstate(p: Promise<unknown>): Promise<string> {
   throw new Error('expected the query to fail');
 }
 
-describe('assistant SQL lane: privileges (0059)', () => {
+describe('assistant SQL lane: privileges (0060)', () => {
   it('the login holds no privilege on any public relation, and SELECT only on every view', async () => {
     const leaks = await owner`
       select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace

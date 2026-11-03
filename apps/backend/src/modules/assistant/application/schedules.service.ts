@@ -186,7 +186,7 @@ export class SchedulesService {
 
   /**
    * An edit merged onto the owner's schedule (404 when not theirs). Email already on the
-   * schedule stays allowed while SMTP is off; only adding it needs the channel.
+   * schedule stays allowed while email is off; only adding it needs the channel.
    */
   async merge(
     scope: OwnerScope,

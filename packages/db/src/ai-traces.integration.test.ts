@@ -17,7 +17,7 @@ import {
 import { withSystem, withTenant } from './tenant.js';
 
 /**
- * Shop-bot turn traces (0062): forced RLS on `ai_run_traces` / `ai_run_steps`, cascade from
+ * Shop-bot turn traces (0063): forced RLS on `ai_run_traces` / `ai_run_steps`, cascade from
  * `ai_runs`, the CHECKs, the accent-insensitive excerpt expression and `assistant_proposals.result_id`.
  */
 let pg: TestPostgres;

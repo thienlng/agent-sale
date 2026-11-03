@@ -20,7 +20,7 @@ import {
 import { withSystem } from './tenant.js';
 
 /**
- * Schedules and notifications (0060, T-172): account RLS on the four new tables, their CHECK
+ * Schedules and notifications (0061, T-172): account RLS on the four new tables, their CHECK
  * constraints, the unique run slot, the per-user dedup key and the proposal `kind` column.
  * One connection per client (`max: 1`) mimics PgBouncer.
  */
@@ -103,7 +103,7 @@ const notificationRow = (f: Fixture, over: Partial<typeof notifications.$inferIn
   ...over,
 });
 
-describe('schedules and notifications tables (0060)', () => {
+describe('schedules and notifications tables (0061)', () => {
   it('isolates all four tables per account and hides them outside withAccount', async () => {
     const [a, b] = pair();
     for (const f of [a, b]) {

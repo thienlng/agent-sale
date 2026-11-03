@@ -17,6 +17,7 @@ import { AppModule } from '../src/app.module.js';
 import { createHttpApp } from '../src/bootstrap.js';
 import { SAAS_FACADE, type SaasFacade } from '../src/modules/saas/api/index.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../src/modules/workspace/api/index.js';
+import { signUpVerified } from './support/signup.js';
 
 let pg: TestPostgres, app: NestFastifyApplication;
 beforeAll(async () => {
@@ -57,21 +58,17 @@ const call = (
 let n = 0;
 async function owner(industry = 'saas') {
   const i = ++n;
-  const r = await app
-    .getHttpAdapter()
-    .getInstance()
-    .inject({
-      method: 'POST',
-      url: '/api/v1/auth/signup',
-      remoteAddress: `10.78.0.${i}`,
-      payload: {
-        name: 'Test owner',
-        email: `saas-owner-${i}@example.test`,
-        password: 'a long synthetic password',
-        workspaceName: 'Synthetic software business',
-        industry,
-      },
-    });
+  const r = await signUpVerified(
+    app,
+    {
+      name: 'Test owner',
+      email: `saas-owner-${i}@example.test`,
+      password: 'a long synthetic password',
+      workspaceName: 'Synthetic software business',
+      industry,
+    },
+    { remoteAddress: `10.78.0.${i}` },
+  );
   expect(r.statusCode).toBe(201);
   const auth = AuthResponse.parse(r.json());
   const boot = BootstrapResponse.parse(
@@ -248,7 +245,7 @@ describe('saas HTTP and PostgreSQL isolation', () => {
     expect(notes).toHaveLength(1);
     expect(notes[0]).toMatchObject({
       authorName: 'Bot AI',
-      body: 'Xin dùng thử (bot ghi nhận)\nNhu cầu: Quản lý bán hàng',
+      body: 'Xin dùng thử (bot ghi nhận)\nTên: Synthetic lead\nNhu cầu: Quản lý bán hàng',
     });
 
     // A paying customer asking for a demo stays paying; the note still lands.
@@ -262,7 +259,7 @@ describe('saas HTTP and PostgreSQL isolation', () => {
     expect(demo).toEqual({ outcome: 'recorded', contactId: paying, created: false });
     expect(await statusKey(a.headers, paying)).toBe('paying');
     expect((await call(a.headers, 'GET', `/contacts/${paying}/notes`)).json().data[0].body).toBe(
-      'Xin demo (bot ghi nhận)',
+      'Xin demo (bot ghi nhận)\nTên: Synthetic customer',
     );
   });
 });

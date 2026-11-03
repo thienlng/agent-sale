@@ -1,4 +1,4 @@
--- Owner assistant 1b (ADR-023): bounded memory, write proposals awaiting the owner's approval,
+-- Owner assistant 1b (ADR-024): bounded memory, write proposals awaiting the owner's approval,
 -- and the columns auto-compaction needs. Additive only.
 
 CREATE TABLE assistant_memory (

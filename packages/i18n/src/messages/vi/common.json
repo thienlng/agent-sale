@@ -78,7 +78,9 @@
       "emailTaken": "Email này đã có tài khoản. Hãy đăng nhập.",
       "weakPassword": "Mật khẩu quá yếu: dùng 8 ký tự trở lên, không trùng email hoặc tên.",
       "tooMany": "Đăng nhập sai quá nhiều lần. Thử lại sau ít phút.",
-      "generic": "Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại."
+      "generic": "Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.",
+      "invalidEmail": "Email không hợp lệ.",
+      "tooManyCodes": "Bạn vừa yêu cầu mã. Thử lại sau {{seconds}} giây."
     },
     "demo": {
       "customer": "ao thun trang con size L ko shop, gia bao nhieu",
@@ -97,6 +99,32 @@
       "verify": "Xác minh",
       "back": "Quay lại",
       "invalid": "Mã không đúng hoặc đã dùng. Thử mã mới."
+    },
+    "verify": {
+      "send": "Gửi mã",
+      "sending": "Đang gửi…",
+      "sent": "Đã gửi mã 6 số tới {{email}}. Mã có hiệu lực 15 phút.",
+      "code": "Mã xác minh",
+      "needCode": "Bấm \"Gửi mã\" và nhập mã 6 số trong email để đăng ký.",
+      "resend": "Gửi lại mã",
+      "resendIn": "Gửi lại mã sau {{seconds}} giây",
+      "resent": "Đã gửi mã mới tới {{email}}.",
+      "spamHint": "Không thấy email? Kiểm tra thư mục Spam hoặc Quảng cáo.",
+      "invalid": "Mã không đúng. Kiểm tra lại email mới nhất.",
+      "expired": "Mã đã hết hạn hoặc nhập sai quá nhiều lần. Bấm \"Gửi lại mã\"."
+    },
+    "reset": {
+      "title": "Quên mật khẩu",
+      "subtitle": "Nhập email đăng ký, Rapiz sẽ gửi mã để đặt mật khẩu mới.",
+      "send": "Gửi mã",
+      "sending": "Đang gửi…",
+      "codeSubtitle": "Nếu {{email}} đã có tài khoản, mã 6 số đã được gửi tới đó. Mã có hiệu lực 15 phút.",
+      "code": "Mã xác minh",
+      "newPassword": "Mật khẩu mới",
+      "submit": "Đặt mật khẩu mới",
+      "submitting": "Đang lưu…",
+      "done": "Đã đổi mật khẩu. Hãy đăng nhập lại.",
+      "back": "Quay lại đăng nhập"
     }
   },
   "industries": {
@@ -1684,7 +1712,7 @@
     "noAccount": "Business khác",
     "lost": "Bạn không còn quyền truy cập business đó. Hãy chọn business khác.",
     "welcomeTitle": "Tạo business đầu tiên",
-    "welcomeSubtitle": "Bạn chưa thuộc business nào. Tạo một business để bắt đầu bán hàng với bot AI.",
+    "welcomeSubtitle": "Cho Rapiz biết tên và lĩnh vực của cửa hàng để chuẩn bị bot, câu trả lời mẫu và trạng thái khách hàng phù hợp.",
     "accountLabel": "Tài khoản",
     "createAction": "Tạo business"
   },

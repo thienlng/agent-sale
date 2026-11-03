@@ -1,7 +1,7 @@
 # Owner assistant ("Thỏ Rapiz") — agent core design
 
 - Task: T-170 · Date: 2026-11-02 · Status: approved in brainstorming by the product owner (2026-11-02), awaiting review
-- ADR: [ADR-023](../../adr/ADR-023-owner-assistant.md)
+- ADR: [ADR-024](../../adr/ADR-024-owner-assistant.md)
 - Reference: Nous Research hermes-agent (local copy `~/Workspace/NetClaw_1.1.0/hermes-agent`, read 2026-11-02). Patterns are ported, the runtime is not reused. Dify was reviewed for ideas only: its licence (condition 1a) forbids using its source to operate a multi-tenant service.
 
 ## 1. Goal
@@ -17,7 +17,7 @@ It is harder than the shop bot: the shop bot answers one bounded customer turn. 
 | 1a | Core harness extracted to `ai-core`, threads, messages, search, traces, owner-only bubble, core UI actions (`ui_navigate`, `ui_spotlight`) and page context (shipped, see §18) | this document |
 | 1b | Proposals, route-derived tools, memory, platform skills, auto-compaction, `ui_fill_form` (shipped, see §19) | this document |
 | 1c | Background review, learned skills, skill ledger, curator, proactive suggestions, 👍/👎, owner settings (shipped, see §20) | this document |
-| 2 | Data questions: read-only SQL over a curated view schema, charts (shipped, migration 0059) | [own spec](2026-11-02-owner-assistant-data-questions-design.md) |
+| 2 | Data questions: read-only SQL over a curated view schema, charts (shipped, migration 0060) | [own spec](2026-11-02-owner-assistant-data-questions-design.md) |
 | 3 | Schedules (reports, alerts) and the `notification` module (in-app, email; mobile push later) (shipped, T-172) | [own spec](2026-11-02-owner-assistant-schedules-design.md) (§12 here fixes the shape) |
 | 4 | Bulk product import (Excel/CSV + images) (shipped, T-173) | [own spec](2026-11-02-owner-assistant-import-design.md) |
 | 5 | Bot doctor (shop-bot turn traces, diagnosis, fix drafts) and API action autofill (shipped, see capability 5 spec) | [capability 5 spec](2026-11-02-owner-assistant-5-design.md) |
@@ -55,7 +55,7 @@ The shop bot (`modules/ai`) switches to `ai-core/agent/loop.ts` in PR 1a with **
 ## 3. Tenancy and access
 
 - **Assistant data is account-scoped**, not workspace-scoped (an owner works across businesses). New tables carry `account_id` and `owner_user_id`.
-- **New helper `withAccount(accountId, fn)`** in `packages/db`: transaction-scoped `set_config('app.account_id', …, true)`, same rules as `withTenant` (ADR-004). New policy template `accountPolicies(table)` for role `app_tenant` with predicate `account_id = current_setting('app.account_id')`; `app_system` policy for workers as today. Every repository method also filters by `account_id` and `owner_user_id` explicitly. Amendment to ADR-004 (ADR-023 §Decision 2).
+- **New helper `withAccount(accountId, fn)`** in `packages/db`: transaction-scoped `set_config('app.account_id', …, true)`, same rules as `withTenant` (ADR-004). New policy template `accountPolicies(table)` for role `app_tenant` with predicate `account_id = current_setting('app.account_id')`; `app_system` policy for workers as today. Every repository method also filters by `account_id` and `owner_user_id` explicitly. Amendment to ADR-004 (ADR-024 §Decision 2).
 - **Owner guard** (`@AccountOwner()`): resolves the account from the current business, checks the active owner membership through the `account` facade, and rejects everyone else with 403. Applied to every assistant route, every SSE stream, every proposal execution and every scheduled run (preflight).
 - **Business data** is never read from assistant tables: route tools call the real routes (membership + capabilities + RLS apply), the SQL lane uses its own role (capability 2).
 
@@ -163,7 +163,7 @@ One `schedule` tool with actions `create | list | edit | pause | resume | run | 
 - `assistant_runs` + `assistant_run_steps` for every run (§4). Under each answer: "Xem các bước" (tool names, short argument summary, duration, ok/error; no raw secrets).
 - Back-office: per-account tokens, cost, cache-hit %, review outcomes, guardrail counts; OpenTelemetry spans and Langfuse traces for model calls (existing stack).
 - Logs: run id, tool name, error class only — never prompts, messages, memory or arguments (rule 07).
-- Shop-bot turn traces (capability 5) follow the same shape in the `ai` module: `ai_run_traces` (one row per `ai_runs` row) and `ai_run_steps` (migration 0062, 30 days), served by `GET /bots/{botId}/turns` and `GET /bots/{botId}/turns/{runId}`.
+- Shop-bot turn traces (capability 5) follow the same shape in the `ai` module: `ai_run_traces` (one row per `ai_runs` row) and `ai_run_steps` (migration 0063, 30 days), served by `GET /bots/{botId}/turns` and `GET /bots/{botId}/turns/{runId}`.
 
 ## 14. Cost and limits
 
@@ -200,7 +200,7 @@ What slice 1a shipped differs from the sections above in these points; the rest 
 - **Polling instead of SSE.** A chat turn runs synchronously inside `POST /assistant/threads/{threadId}/messages`; the bubble polls `GET /assistant/runs/{runId}` once a second for the steps while it waits. The `realtime` channel (§7) comes later.
 - **Synchronous turn (exception to docs/16 §2).** Exception (T-170, 1a): the owner assistant turn runs synchronously within 90 s, owners only, one turn per owner; it moves off the request with streaming in 1b.
 - **Turn budget 90 s in 1a**, not 180 s, so a synchronous turn ends before the reverse proxy's read timeout. Rounds (25), the wrap-up notice at 80 % and the per-call timeout (60 s) are unchanged. A newer message does not interrupt a running turn yet; a second turn of the same owner answers 409 `assistant_busy` at once instead of queueing.
-- **Tables:** 1a creates only `assistant_threads`, `assistant_messages`, `assistant_runs` and `assistant_run_steps` (migration 0056). `assistant_run_steps` has no `owner_user_id` (it is reached through its run) and stores no arguments or results in 1a: kind, tool name, ok, error code, duration only. `promptCacheKey` is `asst:<ownerUserId>:<threadId>` (no `cache_root_id` until compaction exists).
+- **Tables:** 1a creates only `assistant_threads`, `assistant_messages`, `assistant_runs` and `assistant_run_steps` (migration 0057). `assistant_run_steps` has no `owner_user_id` (it is reached through its run) and stores no arguments or results in 1a: kind, tool name, ok, error code, duration only. `promptCacheKey` is `asst:<ownerUserId>:<threadId>` (no `cache_root_id` until compaction exists).
 - **No monthly allowance or quota in 1a.** Tokens are recorded on `assistant_runs` (input, cached, output); the owner's monthly cap (§14) arrives with billing in a later slice. Until then the busy rule (one turn per owner) and the turn budget bound the spend.
 - **History cap instead of compaction.** The model sees at most the last 40 active messages of the thread, starting at a user (or event) message, so leading assistant/tool rows are dropped and a tool call is never split from its results. Full compaction (§9) is 1b.
 - **Owner wrap-up notice.** The loop's wrap-up notice is a parameter of `runAgentLoop` (`wrapUpNotice`, default the shop bot's customer text); the assistant passes "Time is almost up: answer the owner now with what you have."
@@ -231,7 +231,7 @@ What slice 1b shipped differs from the sections above in these points; §18 stil
 
 ### Other differences from the design
 
-- **Tables.** Migration 0057 adds `assistant_memory`, `assistant_proposals` and the compaction columns (`assistant_threads.cache_root_id`, `compacted_at`, `compaction_failed_at`, `compaction_saved_pcts`; `assistant_messages.sort_seq`, filled by a trigger for older binaries). `assistant_skills`, `assistant_skill_events`, `assistant_suggestions` and `assistant_settings` are not created. Proposals have no `message_id` or `params`; they store the concrete `path`, `query`, `body`, `preview`, `summary` and `result_preview`. Their status set is `pending`, `executing`, `done`, `failed`, `rejected`, `expired`: `executing` replaces `approved`, and the `pending → executing` step is the atomic approval guard. Run steps still store no arguments or results.
+- **Tables.** Migration 0058 adds `assistant_memory`, `assistant_proposals` and the compaction columns (`assistant_threads.cache_root_id`, `compacted_at`, `compaction_failed_at`, `compaction_saved_pcts`; `assistant_messages.sort_seq`, filled by a trigger for older binaries). `assistant_skills`, `assistant_skill_events`, `assistant_suggestions` and `assistant_settings` are not created. Proposals have no `message_id` or `params`; they store the concrete `path`, `query`, `body`, `preview`, `summary` and `result_preview`. Their status set is `pending`, `executing`, `done`, `failed`, `rejected`, `expired`: `executing` replaces `approved`, and the `pending → executing` step is the atomic approval guard. Run steps still store no arguments or results.
 - **Tools.** No generic registry, `todo` or `propose` tool, and no generated tool per route. The model gets `session_search`, `memory`, `skills_list`, `load_skill`, `tool_search`, `tool_describe`, `tool_call`, `ui_navigate`, `ui_spotlight` and `ui_fill_form`, sorted by name. The route catalog is built from `allRoutes` (workspace-scoped `read`/`write` routes, never `/assistant` or `/auth`). `tool_search` matches words of the route key, summary and `when`; those texts are English, so its description tells the model to search in English words. A `write` through `tool_call` becomes a pending proposal; the owner's approval runs it on the proposal's own business, whatever business the approving request names.
 - **Results are cut, not spilled.** A tool result is cut at 8 000 chars. One counter per turn covers the output of every tool and the validation errors the loop writes for bad arguments: the result that crosses 40 000 chars is cut to what is left, and every later call answers `{ok:false, errorCode:'turn_budget_exhausted'}` without running. There is no `resultRef` or full-table rendering for the owner yet.
 - **`Idempotency-Key` is sent but not enforced.** An approved proposal runs with `Idempotency-Key: asst:<id>`, but no route deduplicates on it yet. The atomic `pending → executing` transition is what prevents a double execution.
@@ -261,7 +261,7 @@ What slice 1c shipped differs from the sections above in these points; §18 and 
 
 ### Other differences from the design
 
-- **Tables.** Migration 0058 adds `assistant_skills`, `assistant_skill_events`, `assistant_suggestions`, `assistant_settings` (with `curator_ran_at`; no `usage_micros` yet, §18 still holds for the allowance) and `assistant_jobs`, plus `assistant_messages.feedback` and the thread review counters (`review_owner_turns`, `review_tool_rounds`, `last_review_at`). Memory entries gain the origin `review` inside the existing JSON, with no migration.
+- **Tables.** Migration 0059 adds `assistant_skills`, `assistant_skill_events`, `assistant_suggestions`, `assistant_settings` (with `curator_ran_at`; no `usage_micros` yet, §18 still holds for the allowance) and `assistant_jobs`, plus `assistant_messages.feedback` and the thread review counters (`review_owner_turns`, `review_tool_rounds`, `last_review_at`). Memory entries gain the origin `review` inside the existing JSON, with no migration.
 - **The curator logs its changes as `archive`.** The ledger has no `stale` action, so both of the curator's changes are `archive` entries; the resulting state (`after.state`, `stale` or `archived`) tells stale from archived. An undo brings the skill back to `active`.
 - **Curator details.** One step per run (an active skill goes stale before it can be archived on a later day). Idle time counts from `last_used_at`, or `created_at` when never used. An active skill the owner touched in the last 30 days (approve, restore, edit) is not made stale. Skills referenced by a schedule are not skipped yet, because schedules do not exist.
 - **Re-enqueue refreshes `created_at`.** Enqueuing a review for a thread that already has a queued one moves its `run_after` and `review_scope` and sets `created_at` to now, so `created_at` means "last enqueued". A due review never moves later, and two scopes merge into `combined`. An idle review whose thread's last message is newer than that, and less than 30 min old, is re-queued 30 min after that message (QA fix 2026-11-03). A review is cancelled at start when review is off, the thread is gone or a schedule thread, or the owner is no longer an active owner. A running review is not interrupted by a new message.

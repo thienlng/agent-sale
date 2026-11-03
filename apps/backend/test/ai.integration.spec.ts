@@ -25,6 +25,7 @@ import { createHttpApp } from '../src/bootstrap.js';
 import { DrizzleAiRunRepository } from '../src/modules/ai/infrastructure/persistence/ai-run.repositories.js';
 import { DrizzleConversationSummaryRepository } from '../src/modules/ai/infrastructure/persistence/conversation-summary.drizzle.js';
 import { DrizzleUserRepository } from '../src/modules/identity/infrastructure/persistence/identity.drizzle-repositories.js';
+import { signUpVerified } from './support/signup.js';
 
 /** Playground metering (ai_runs, RLS) and platform LLM config (system role, encrypted keys) on Postgres. */
 let pg: TestPostgres;
@@ -62,16 +63,12 @@ const inject = (opts: {
 }) => app.getHttpAdapter().getInstance().inject(opts);
 
 async function signup(email: string) {
-  const res = await inject({
-    method: 'POST',
-    url: '/api/v1/auth/signup',
-    payload: {
-      name: 'Admin',
-      email,
-      password: 'a long enough password',
-      workspaceName: 'Shop',
-      industry: 'retail',
-    },
+  const res = await signUpVerified(app, {
+    name: 'Admin',
+    email,
+    password: 'a long enough password',
+    workspaceName: 'Shop',
+    industry: 'retail',
   });
   const { accessToken } = AuthResponse.parse(res.json());
   const boot = BootstrapResponse.parse(

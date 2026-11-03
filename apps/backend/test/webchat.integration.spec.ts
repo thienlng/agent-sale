@@ -16,7 +16,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { DB_TENANT } from '../src/common/db/db.module.js';
 import { AI_FACADE, type AiFacade } from '../src/modules/ai/api/index.js';
-import { CRM_FACADE, type CrmFacade } from '../src/modules/crm/api/index.js';
+import { CRM_FACADE, type CrmFacade, websiteLeadName } from '../src/modules/crm/api/index.js';
 import {
   CONVERSATION_RUNNER,
   type ConversationRunner,
@@ -632,6 +632,31 @@ describe('website lead capture', () => {
     expect(
       history.data.filter((h) => h.changes['lead']?.to === 'https://shop.test/a'),
     ).toHaveLength(1);
+  });
+
+  it('renames a website placeholder customer, and only a placeholder, to the given name', async () => {
+    const crm = hx.app.get<CrmFacade>(CRM_FACADE, { strict: false });
+    const ws = owner.ownWorkspace as never;
+    const placeholder = websiteLeadName('+84944556677');
+    const first = await crm.upsertLeadByPhone(ws, {
+      phoneE164: '+84944556677',
+      sourceKey: 'website',
+      displayName: placeholder,
+      firstUrl: null,
+    });
+    const named = { phoneE164: '+84944556677', sourceKey: 'bot' as const, firstUrl: null };
+    await crm.upsertLeadByPhone(ws, { ...named, displayName: 'Chị Hoa', renameFrom: placeholder });
+    // A real name is never overwritten by a later capture.
+    await crm.upsertLeadByPhone(ws, { ...named, displayName: 'Hoa', renameFrom: placeholder });
+    const contact = (await hx.call(owner.h, 'GET', `/contacts/${first.contactId}`)).json() as {
+      name: string;
+    };
+    expect(contact.name).toBe('Chị Hoa');
+    const history = (
+      await hx.call(owner.h, 'GET', `/contacts/${first.contactId}/history`)
+    ).json() as { data: Array<{ changes: Record<string, { from?: unknown; to: unknown }> }> };
+    const renames = history.data.map((h) => h.changes['name']).filter((c) => c?.from);
+    expect(renames).toEqual([{ from: placeholder, to: 'Chị Hoa' }]);
   });
 });
 

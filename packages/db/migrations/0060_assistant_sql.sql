@@ -1,4 +1,4 @@
--- 0059_assistant_sql: the owner assistant's read-only SQL lane (T-171, ADR-023 lane a, ADR-004
+-- 0060_assistant_sql: the owner assistant's read-only SQL lane (T-171, ADR-024 lane a, ADR-004
 -- amendment 2026-11-02). The model writes one SELECT over the curated views of schema
 -- `assistant_sql`; Postgres is the sandbox.
 --

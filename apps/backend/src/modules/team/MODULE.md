@@ -20,7 +20,7 @@
 - Resending creates a new link for the same email and role; the old one stops working.
 - Removing a member is immediate (the guard checks membership on every request); their history and notes stay. If they own customers, the request must say `transfer` (to another active member) or `unassign`; `GET /members/{id}/removal-preview` counts what they own (via `CrmFacade`).
 - Every membership change writes an audit event (`member.invited|invitation_resent|invitation_revoked|joined|role_changed|removed`).
-- No email is sent yet: the owner shares the link (chat, email). Sending invitation emails comes with an SMTP/notification task; it can reuse the `notification` module's email channel (`SmtpEmailChannel`, `SMTP_URL`, T-172).
+- No email is sent yet: the owner shares the link (chat, email). Sending invitation emails comes with a notification task; it can reuse the backend `Mailer` (Resend, `RESEND_API_KEY`, ADR-023) that identity codes and `notification` emails (T-172) already use.
 
 **Depends on:** `workspace`, `identity`, `billing` and `crm` facades (so it sits in tier 3, docs/ARCHITECTURE §3).
 

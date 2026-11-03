@@ -28,7 +28,7 @@ export interface NotificationFacade {
   notify(i: NotifyInput): Promise<{ id: string; deduped: boolean }>;
   /** The recipient's UI language, so the producer renders in it. */
   recipientLocale(userId: string): Promise<'vi' | 'en'>;
-  /** False when `SMTP_URL` is unset: email deliveries are then skipped. */
+  /** False when `RESEND_API_KEY` is unset: email deliveries are then skipped. */
   emailAvailable(): boolean;
   /** Per notification id, the status of each delivery channel. */
   deliverySummary(

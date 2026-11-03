@@ -1,4 +1,4 @@
--- Owner assistant 1c (ADR-023): owner, learned and shadow skills with an append-only ledger,
+-- Owner assistant 1c (ADR-024): owner, learned and shadow skills with an append-only ledger,
 -- proactive suggestions, per-owner settings, Postgres-leased background jobs (review, curator),
 -- 👍/👎 feedback on answers and the review trigger counters. Additive only.
 

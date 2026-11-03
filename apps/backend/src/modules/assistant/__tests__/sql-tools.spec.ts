@@ -349,7 +349,7 @@ describe('sql_schema', () => {
 });
 
 describe('SQL views catalog', () => {
-  it('names the 11 views of migration 0059, each with 1–2 examples', () => {
+  it('names the 11 views of migration 0060, each with 1–2 examples', () => {
     expect([...SQL_VIEW_NAMES]).toEqual([
       'businesses',
       'orders',

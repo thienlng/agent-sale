@@ -12,7 +12,7 @@
 
 **Tech Stack:** NestJS 12, Drizzle + PostgreSQL 16 (RLS through `withAccount`, `app_system` for the worker), Zod 4, Vitest, React 19 + TanStack Query, i18next.
 
-**Spec:** `docs/superpowers/specs/2026-11-02-owner-assistant-core-design.md` §4, §10, §11, §13, §14, §19. ADR: `docs/adr/ADR-023-owner-assistant.md`.
+**Spec:** `docs/superpowers/specs/2026-11-02-owner-assistant-core-design.md` §4, §10, §11, §13, §14, §19. ADR: `docs/adr/ADR-024-owner-assistant.md`.
 
 ## Global Constraints
 
@@ -23,7 +23,7 @@
   - no prompt, memory or skill text in logs;
   - `pnpm check` must pass;
   - commit messages end with `(T-170)` and the Co-Authored-By line.
-- New migration number: `0058` (main owns 0055; the assistant has 0056 and 0057). Additive only.
+- New migration number: `0059` (main owns 0055; the assistant has 0057 and 0058). Additive only.
 - Approval gates (spec §1, constraint 5):
   - memory written by the review is saved automatically and can be undone;
   - a **new learned skill needs one owner tap** (`pending_approval`);
@@ -47,10 +47,10 @@
 
 ---
 
-### Task 1: Migration 0058 and repositories
+### Task 1: Migration 0059 and repositories
 
 **Files:**
-- Create: `packages/db/migrations/0058_assistant_1c.sql`
+- Create: `packages/db/migrations/0059_assistant_1c.sql`
 - Modify: `packages/db/src/schema/assistant.ts`, the repository port and both implementations (Drizzle and in-memory)
 - Add integration tests next to the 1b ones.
 
@@ -82,7 +82,7 @@
   - Index `(status, run_after)`.
 - `assistant_messages` add `feedback smallint` (−1 or 1, NULL means none).
 - `assistant_threads` add `review_owner_turns int default 0`, `review_tool_rounds int default 0`, `last_review_at timestamptz`.
-- RLS loop as in 0056/0057 for the five new tables.
+- RLS loop as in 0057/0058 for the five new tables.
 
 **Repository methods:**
 - Every method takes an `OwnerScope`.
@@ -225,7 +225,7 @@ Commit `feat(assistant): background review that learns memory and skills (T-170)
 ### Task 4: Curator, settings, toolsets, feedback, suggestions routes
 
 **Curator (`curator.service.ts`, run by the same runner):**
-- Once per day per owner with learned skills: track `last curator run` on `assistant_settings`, adding the column in 0058 if Task 1 forgot it.
+- Once per day per owner with learned skills: track `last curator run` on `assistant_settings`, adding the column in 0059 if Task 1 forgot it.
 - Rules for an `active` learned skill:
   - if `last_used_at` (or `created_at` when it was never used) is older than 30 days, it becomes `stale`;
   - if `stale` and older than 90 days, it becomes `archived`.
@@ -284,7 +284,7 @@ All strings go in the i18n `assistant` namespace (vi + en). Use the panel's exis
 ### Task 6: Docs
 
 - Spec: add §20 "Adjustments made while building 1c", with rulings 1c-R1…R5 and anything the tasks changed, and mark 1c shipped in the capability table.
-- ADR-023: a consequences line for 1c.
+- ADR-024: a consequences line for 1c.
 - `MODULE.md`: tables, routes, tools, the worker runner.
 - docs/04: routes and the worker runner.
 - docs/05: tables.

@@ -22,7 +22,7 @@ import { users } from './identity.js';
 import { accountPolicies, workspaces } from './workspace.js';
 
 /*
- * Owner assistant (0056, 0057, 0058, 0060 and 0061, ADR-023). ACCOUNT-scoped, not workspace-scoped: every row carries
+ * Owner assistant (0057, 0058, 0059, 0061 and 0062, ADR-024). ACCOUNT-scoped, not workspace-scoped: every row carries
  * `account_id` and RLS reads `app.account_id`, set by `withAccount`. `assistant_messages.search`
  * (a generated tsvector) and its GIN/trigram indexes exist only in SQL; repositories query them
  * with `sql`, so Drizzle never selects or writes the generated column.
@@ -60,9 +60,9 @@ export const assistantThreads = pgTable(
       .array()
       .notNull()
       .default(sql`'{}'`),
-    /** Owner turns since the last review (review trigger counter, 0058). */
+    /** Owner turns since the last review (review trigger counter, 0059). */
     reviewOwnerTurns: integer('review_owner_turns').notNull().default(0),
-    /** Tool-loop rounds since the last review (review trigger counter, 0058). */
+    /** Tool-loop rounds since the last review (review trigger counter, 0059). */
     reviewToolRounds: integer('review_tool_rounds').notNull().default(0),
     lastReviewAt: ts('last_review_at'),
   },
@@ -107,7 +107,7 @@ export const assistantMessages = pgTable(
      * omits it.
      */
     sortSeq: numeric('sort_seq', { mode: 'number' }).notNull(),
-    /** 👍 (1) or 👎 (-1) of the owner on an assistant answer; NULL = none (0058). */
+    /** 👍 (1) or 👎 (-1) of the owner on an assistant answer; NULL = none (0059). */
     feedback: smallint('feedback'),
     createdAt: ts('created_at').notNull().defaultNow(),
   },
@@ -200,7 +200,7 @@ export const assistantMemory = pgTable(
 );
 
 /**
- * An owner's product import (0061, T-173): the sheet rows or photo drafts, the model's mapping
+ * An owner's product import (0062, T-173): the sheet rows or photo drafts, the model's mapping
  * spec, the computed drafts and the per-draft results. Purged lazily after 30 days.
  */
 export const assistantImportBatches = pgTable(
@@ -271,12 +271,12 @@ export const assistantProposals = pgTable(
     status: text('status').notNull().default('pending'),
     errorCode: text('error_code'),
     resultPreview: text('result_preview'),
-    /** The `id` of the row the approved call created (2xx JSON body with a uuid `id`), migration 0062. */
+    /** The `id` of the row the approved call created (2xx JSON body with a uuid `id`), migration 0063. */
     resultId: uuid('result_id'),
     expiresAt: ts('expires_at').notNull(),
     decidedAt: ts('decided_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
-    /** `route` (1b), `schedule` (T-172, 0060) or `product_import` (T-173, 0061). */
+    /** `route` (1b), `schedule` (T-172, 0061) or `product_import` (T-173, 0062). */
     kind: text('kind').notNull().default('route'),
     /** The batch a `product_import` proposal imports; its data lives there, not in `body`. */
     importBatchId: uuid('import_batch_id').references(() => assistantImportBatches.id, {
@@ -309,7 +309,7 @@ export const assistantProposals = pgTable(
   ],
 );
 
-/** Owner, learned and shadow skills (0058); platform skills are files, never rows. */
+/** Owner, learned and shadow skills (0059); platform skills are files, never rows. */
 export const assistantSkills = pgTable(
   'assistant_skills',
   {
@@ -368,7 +368,7 @@ export const assistantSkills = pgTable(
   ],
 );
 
-/** Append-only ledger of skill changes (0058): `before`/`after` snapshot name, description, body, state. */
+/** Append-only ledger of skill changes (0059): `before`/`after` snapshot name, description, body, state. */
 export const assistantSkillEvents = pgTable(
   'assistant_skill_events',
   {
@@ -401,7 +401,7 @@ export const assistantSkillEvents = pgTable(
   ],
 );
 
-/** Proactive suggestion cards (0058); `dedup_key` stays taken in every status. */
+/** Proactive suggestion cards (0059); `dedup_key` stays taken in every status. */
 export const assistantSuggestions = pgTable(
   'assistant_suggestions',
   {
@@ -431,7 +431,7 @@ export const assistantSuggestions = pgTable(
   ],
 );
 
-/** Per-owner assistant settings (0058); no row = the defaults. */
+/** Per-owner assistant settings (0059); no row = the defaults. */
 export const assistantSettings = pgTable(
   'assistant_settings',
   {
@@ -455,7 +455,7 @@ export const assistantSettings = pgTable(
 );
 
 /**
- * Postgres-leased background jobs of the worker (0058): the review after a conversation and the
+ * Postgres-leased background jobs of the worker (0059): the review after a conversation and the
  * daily curator. The SQL index `assistant_jobs_queued_unique` is `NULLS NOT DISTINCT`, so a
  * curator job (no thread) is also unique per owner while queued.
  */
@@ -499,7 +499,7 @@ export const assistantJobs = pgTable(
 );
 
 /**
- * Code-computed scheduled reports and alerts of an owner (0060, T-172). `cadence` and `params`
+ * Code-computed scheduled reports and alerts of an owner (0061, T-172). `cadence` and `params`
  * are validated by the assistant domain; the runner leases due rows (`lease_until`).
  */
 export const assistantSchedules = pgTable(
@@ -574,7 +574,7 @@ export const assistantSchedules = pgTable(
   ],
 );
 
-/** One execution of a schedule (0060): unique per `(schedule_id, scheduled_for)`; no PII in `report`. */
+/** One execution of a schedule (0061): unique per `(schedule_id, scheduled_for)`; no PII in `report`. */
 export const assistantScheduleRuns = pgTable(
   'assistant_schedule_runs',
   {

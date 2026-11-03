@@ -8,7 +8,7 @@
 
 **Tech Stack:** React 19 + TanStack Router/Query, zustand, i18next, Vitest + Testing Library; Markdown skills loaded by `loadSkillDir` (`packages/ai-core`); Zod route contracts.
 
-**Spec:** `docs/superpowers/specs/2026-11-02-owner-assistant-shop-autofill-design.md` (written from `cap6-spec.md`; rulings T175-R1…R12). Core spec: `docs/superpowers/specs/2026-11-02-owner-assistant-core-design.md` (§10, §19). ADR: `docs/adr/ADR-023-owner-assistant.md`.
+**Spec:** `docs/superpowers/specs/2026-11-02-owner-assistant-shop-autofill-design.md` (written from `cap6-spec.md`; rulings T175-R1…R12). Core spec: `docs/superpowers/specs/2026-11-02-owner-assistant-core-design.md` (§10, §19). ADR: `docs/adr/ADR-024-owner-assistant.md`.
 
 **Branch:** `feat/T-175-assistant-shop-autofill`, from `main` **after the 1c PR is merged** (1c edits `assistant-panel.tsx` and `skill-tools.spec.ts`). One PR.
 
@@ -190,7 +190,7 @@ Industry skills list the profile keys of their industry in backticks, typical cu
 - Modify: `docs/03-screens-and-routes.md` "Owner assistant bubble": the registered forms, the new `data-assistant-target` ids, the ask button
 - Modify: `docs/training-workspace.md`: what the assistant can fill on the knowledge, instructions and quick-reply pages
 - Modify: `apps/backend/src/modules/assistant/MODULE.md`: the platform skill list
-- Modify: `docs/adr/ADR-023-owner-assistant.md`: one consequences line for capability 6 (no website fetch, no migration)
+- Modify: `docs/adr/ADR-024-owner-assistant.md`: one consequences line for capability 6 (no website fetch, no migration)
 - Modify: `apps/web/src/features/knowledge/README.md` (forms registered, `prefill` props)
 
 - [ ] Step 1: Write the docs. Step 2: `pnpm check`. Step 3: Commit `docs(assistant): record the shop information autofill capability (T-175)`.

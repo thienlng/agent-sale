@@ -6,7 +6,7 @@
 
 **Architecture:**
 
-- **Database.** Migration 0059 adds:
+- **Database.** Migration 0060 adds:
   - schema `assistant_sql` with 11 `security_barrier` views, owned by a NOLOGIN `app_assistant_reader`;
   - column-level grants and `FOR SELECT` RLS policies for the reader, through `assistant_sql_business_ids()`, which checks `app.account_id` together with `app.assistant_business_ids`;
   - a group role `app_assistant_sql` with `SELECT` on the views only. A dedicated login (`DATABASE_ASSISTANT_SQL_URL`) belongs to it.
@@ -20,9 +20,9 @@
 
 **Tech Stack:** NestJS 12 on Fastify, PostgreSQL 16 (RLS, column grants, `security_barrier` views), postgres.js, Drizzle (unchanged tables), Zod 4, Vitest, React 19, recharts 3.10.1 (already in `apps/web`), i18next.
 
-**Spec:** `docs/superpowers/specs/2026-11-02-owner-assistant-data-questions-design.md`. Parent: `docs/superpowers/specs/2026-11-02-owner-assistant-core-design.md` (§1, §3, §6, §18, §19). ADRs: `docs/adr/ADR-023-owner-assistant.md`, `docs/adr/ADR-004-multi-tenant-rls.md`.
+**Spec:** `docs/superpowers/specs/2026-11-02-owner-assistant-data-questions-design.md`. Parent: `docs/superpowers/specs/2026-11-02-owner-assistant-core-design.md` (§1, §3, §6, §18, §19). ADRs: `docs/adr/ADR-024-owner-assistant.md`, `docs/adr/ADR-004-multi-tenant-rls.md`.
 
-**Precondition:** start from `main` after the 1c PR (migration 0058, `assistant_settings.disabled_toolsets`) is merged. If 1c is not merged yet, branch from its branch and rebase later; the toolset step in Task 3 is the only part that touches 1c code.
+**Precondition:** start from `main` after the 1c PR (migration 0059, `assistant_settings.disabled_toolsets`) is merged. If 1c is not merged yet, branch from its branch and rebase later; the toolset step in Task 3 is the only part that touches 1c code.
 
 ## Global Constraints
 
@@ -40,7 +40,7 @@
 - **No PII columns** in any view: no phone, email, address, birthday, gender, free-text notes, message text, tokens, settings, external ids or staff names. Names of customers, guests, products, bots, channels and businesses are allowed.
 - **Limits:** statement_timeout 3 s; lock_timeout 1 s; idle_in_transaction_session_timeout 5 s; work_mem 16 MB; at most 500 rows (501 fetched to detect truncation); result to the model ≤ 8 000 chars; ≤ 8 `sql_query` calls and ≤ 3 charts per turn; SQL text ≤ 4 000 chars.
 - **Logs and steps carry no SQL text and no rows**, only the run id, `sqlstate` and error class.
-- New migration: `0059_assistant_sql.sql`. It is additive, idempotent where roles are concerned (`DO $$ … IF NOT EXISTS … $$`), and touches no existing column.
+- New migration: `0060_assistant_sql.sql`. It is additive, idempotent where roles are concerned (`DO $$ … IF NOT EXISTS … $$`), and touches no existing column.
 - No new runtime dependency. The repo has no SQL parser, so the guard is hand-written (Ruling 2-R2).
 - Commit messages: Conventional Commits, scope `assistant`, `db`, `contracts`, `web`, `ai-core` or `infra`, ending with `(T-171)`, then a blank line and `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 
@@ -57,7 +57,7 @@
 - **2-R9:** For lodging, `counts_as_revenue` = `kind = 'stay'` and status in (`confirmed`, `checked_in`, `checked_out`). `total_sell` and `adjustment` stay separate columns. This has not been verified against a dashboard figure, and a later view migration can change it.
 - **2-R10:** The lane runs in the `api` process only (the synchronous turn), on the primary. Cost if wrong: capability 3 (schedules) must wire the runner into the worker. A read replica needs only a different URL.
 - **2-R11:** The owner never sees the SQL text, and it is never stored in steps or logs. Cost if wrong: the owner cannot audit the query; the chart's "Xem bảng" shows the rows.
-- **2-R12:** ADR-004 gets an amendment and ADR-023 a consequence line in this PR, because rule 05 requires an ADR for a tenant-model change. The PR body flags this for the maintainer (rule 08: ADR files change only when a human asks). Cost if wrong: the maintainer asks for a separate ADR.
+- **2-R12:** ADR-004 gets an amendment and ADR-024 a consequence line in this PR, because rule 05 requires an ADR for a tenant-model change. The PR body flags this for the maintainer (rule 08: ADR files change only when a human asks). Cost if wrong: the maintainer asks for a separate ADR.
 
 ---
 
@@ -181,13 +181,13 @@ Rejected (assert the reason):
 - [ ] Run `pnpm --filter @agent-sales/contracts test build`, `pnpm --filter @agent-sales/backend test -- assistant`, `pnpm --filter @agent-sales/web test typecheck`, then `pnpm check`.
 - [ ] Commit `feat(assistant): add the SQL guard and the chart UI action contract (T-171)`.
 
-### Task 2: Database — migration 0059, the SQL runner helper and the login
+### Task 2: Database — migration 0060, the SQL runner helper and the login
 
 **Files:**
-- Create: `packages/db/migrations/0059_assistant_sql.sql`, `packages/db/src/assistant-sql.ts`, `packages/db/src/assistant-sql.integration.test.ts`
+- Create: `packages/db/migrations/0060_assistant_sql.sql`, `packages/db/src/assistant-sql.ts`, `packages/db/src/assistant-sql.integration.test.ts`
 - Modify: `packages/db/src/index.ts` (exports), `packages/db/src/migrate.ts` (`ensureLoginRoles` takes an optional `assistantSql` login), `packages/db/src/cli/migrate.ts` (read `DATABASE_ASSISTANT_SQL_URL` when set), `packages/testing/src/postgres.ts` (`assistantSqlLogin: { user: 'rapiz_assistant', password: 'assistant_test' }`), `packages/db/README.md` (roles and allowed processes)
 
-**Migration 0059** (one file, in this order):
+**Migration 0060** (one file, in this order):
 
 1. Roles, created only if missing:
    - `app_assistant_reader NOLOGIN`;
@@ -540,7 +540,7 @@ export async function runAssistantSql(
   - `app_assistant_sql` (`SELECT` on `assistant_sql` views only) and its own login;
   - the GUCs `app.account_id` + `app.assistant_business_ids`, transaction-local;
   - read-only transactions and the 3 s timeout.
-- Modify: `docs/adr/ADR-023-owner-assistant.md`, a consequence line: capability 2 shipped (migration 0059); the views are the module's one read path outside the declared routes; a base-column change must recreate its view. Flag both ADR edits in the PR body (Ruling 2-R12).
+- Modify: `docs/adr/ADR-024-owner-assistant.md`, a consequence line: capability 2 shipped (migration 0060); the views are the module's one read path outside the declared routes; a base-column change must recreate its view. Flag both ADR edits in the PR body (Ruling 2-R12).
 - Modify: `docs/ARCHITECTURE.md`. In the §3 `assistant` row, add the `assistant_sql` views (read-only, own login) as the exception to "only through declared routes". In §2 Tenancy, add a line on the SQL lane.
 - Modify: `docs/05-data-model.md`: schema `assistant_sql`, the 11 views and their columns, the two roles, and the rule that a migration changing a viewed column recreates the view.
 - Modify: `docs/09-security-and-compliance.md`: the SQL lane threat model (spec §3) and the PII exclusion list.

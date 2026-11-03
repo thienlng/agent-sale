@@ -93,7 +93,7 @@ Dedicated layout: back button, bot name, **bot on/off switch**, left menu, **tes
 
 | Screen | Route |
 |---|---|
-| Sign up / Log in / Forgot password / Verify email / Accept invitation | `/signup`, `/login`, `/login?mode=forgot`, `/verify-email`, `/invite/{token}` |
+| Sign up (email code on the same page) / Log in / Forgot password / Accept invitation | `/signup`, `/login`, `/forgot-password`, `/join?token=…` |
 | Choose a business (several, none remembered, or the current one lost) / Create a business | Account layer: `/app/overview` (`?lost=true` shows the notice; its sidebar lists businesses by account), `/app/businesses/new` (also the welcome step for a user with no business) (T-079, T-126, T-127) |
 | Channel OAuth callback | `/oauth/{provider}/callback` |
 | Payment: VNPAY result | `/billing/return` |
@@ -166,4 +166,4 @@ Dedicated layout: back button, bot name, **bot on/off switch**, left menu, **tes
 - **Nhờ trợ lý điền mẫu** (owner only): the empty FAQ, scenario and quick-reply lists, and the business-profile card while a required basic field is empty, show this button. It sends a fixed request to the assistant (the bubble opens and sends it, or puts it in the composer while a turn runs); the knowledge, instructions, quick-reply, create-business and business-settings pages describe themselves to the assistant (title, bot id and industry).
 - A change the assistant prepares (a write) shows as a card under its answer: summary, business, **Xem chi tiết** (the preview as JSON) and **Áp dụng** / **Bỏ**. Nothing changes until the owner presses **Áp dụng**. A decided card becomes one status line (applied, failed with its code, dismissed, expired), and the decision's event message appears in the thread.
 - **Trợ lý nhớ gì** (brain button in the panel header) lists what the assistant remembers: about the owner, general notes and one store per business, each with its character use against the limit. The owner can forget an entry (with an inline confirm).
-- Backend and flow: [04 §5](04-system-architecture.md), [ADR-023](adr/ADR-023-owner-assistant.md).
+- Backend and flow: [04 §5](04-system-architecture.md), [ADR-024](adr/ADR-024-owner-assistant.md).

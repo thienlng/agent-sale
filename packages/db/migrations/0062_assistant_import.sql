@@ -1,4 +1,4 @@
--- Owner assistant capability 4, bulk product import (T-173, ADR-023): import batches holding the
+-- Owner assistant capability 4, bulk product import (T-173, ADR-024): import batches holding the
 -- owner's sheet rows or photo drafts, one `product_import` proposal per batch, and the
 -- `import_vision` run kind. Additive only.
 

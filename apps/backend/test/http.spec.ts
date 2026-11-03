@@ -32,6 +32,7 @@ import {
   USER_REPOSITORY,
   type UserRepository,
 } from '../src/modules/identity/domain/ports/user.repository.js';
+import { signUpVerified, signupCode } from './support/signup.js';
 
 /** HTTP-level tests through Fastify inject; no DB configured → in-memory adapters. */
 let current: NestFastifyApplication | undefined;
@@ -75,11 +76,19 @@ const signupBody = {
   industry: 'retail',
 };
 
+/** A verified user with their first business ("Shop Lan"). */
 async function signup(a: NestFastifyApplication, email = signupBody.email) {
+  const res = await signUpVerified(a, { ...signupBody, email });
+  const body = AuthResponse.parse(res.json());
+  return { token: body.accessToken, body };
+}
+
+/** The raw browser signup: the refresh token rides in the cookie. */
+async function webSignup(a: NestFastifyApplication, email = signupBody.email) {
   const res = await inject(a, {
     method: 'POST',
     url: '/api/v1/auth/signup',
-    payload: { ...signupBody, email },
+    payload: { ...signupBody, email, code: await signupCode(a, email) },
   });
   expect(res.statusCode).toBe(201);
   const body = AuthResponse.parse(res.json());
@@ -163,10 +172,11 @@ describe('HTTP: auth and tenancy', () => {
 
   it('signup → bootstrap → current workspace, refresh cookie HttpOnly and scoped to /api/v1/auth', async () => {
     const a = await app();
-    const { token, cookie, body } = await signup(a);
-    expect(body.refreshToken).toBeUndefined();
-    expect(cookie).toMatchObject({ httpOnly: true, path: '/api/v1/auth', sameSite: 'Lax' });
+    const web = await webSignup(a, 'web@shop.vn');
+    expect(web.body.refreshToken).toBeUndefined();
+    expect(web.cookie).toMatchObject({ httpOnly: true, path: '/api/v1/auth', sameSite: 'Lax' });
 
+    const { token } = await signup(a);
     const boot = await bootstrap(a, token);
     expect(boot.memberships).toEqual([
       expect.objectContaining({ workspaceName: 'Shop Lan', role: 'owner' }),
@@ -199,7 +209,7 @@ describe('HTTP: auth and tenancy', () => {
 
   it('cookie refresh rotates the token and rejects foreign origins', async () => {
     const a = await app();
-    const { cookie } = await signup(a);
+    const { cookie } = await webSignup(a);
     const ok = await inject(a, {
       method: 'POST',
       url: '/api/v1/auth/refresh',
@@ -225,7 +235,7 @@ describe('HTTP: auth and tenancy', () => {
     const res = await inject(a, {
       method: 'POST',
       url: '/api/v1/auth/signup',
-      payload: { ...signupBody, client: 'native' },
+      payload: { ...signupBody, client: 'native', code: await signupCode(a, signupBody.email) },
     });
     const { refreshToken } = AuthResponse.parse(res.json());
     expect(refreshToken).toBeTruthy();
@@ -239,7 +249,7 @@ describe('HTTP: auth and tenancy', () => {
 
   it('logout revokes the session so the refresh cookie stops working', async () => {
     const a = await app();
-    const { token, cookie } = await signup(a);
+    const { token, cookie } = await webSignup(a);
     const out = await inject(a, {
       method: 'POST',
       url: '/api/v1/auth/logout',

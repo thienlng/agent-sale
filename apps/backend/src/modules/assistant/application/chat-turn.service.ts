@@ -61,7 +61,7 @@ import { type NativeToolEntry, SQL_TOOLSET, sqlTools } from './sql/sql-tools.js'
 import { disabledTools, enabledDefinitions, toolsetCacheSuffix } from './toolsets.js';
 import { withTurnOutputBudget } from './turn-budget.js';
 
-/** The assistant answers on the `pro` tier (ADR-023). */
+/** The assistant answers on the `pro` tier (ADR-024). */
 export const TURN_TIER = 'pro' as const;
 export const TURN_MAX_ROUNDS = 25;
 export const TURN_BUDGET_MS = 90_000;

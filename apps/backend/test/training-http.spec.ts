@@ -16,6 +16,7 @@ import {
 import { STARTER_RULES } from '../src/modules/knowledge/domain/starter-rules.js';
 import { AppModule } from '../src/app.module.js';
 import { createHttpApp } from '../src/bootstrap.js';
+import { signUpVerified } from './support/signup.js';
 
 let current: NestFastifyApplication | undefined;
 afterEach(async () => {
@@ -31,21 +32,22 @@ async function setup() {
   return current.getHttpAdapter().getInstance();
 }
 
+function currentApp(): NestFastifyApplication {
+  if (!current) throw new Error('setup() first');
+  return current;
+}
+
 // The HTTP guard and real facade are exercised together with deterministic in-memory persistence.
 describe('HTTP: bot training', () => {
   it('validates CRUD, authentication, workspace membership, bot ownership and change history', async () => {
     const http = await setup();
     const signup = async (email: string) => {
-      const response = await http.inject({
-        method: 'POST',
-        url: '/api/v1/auth/signup',
-        payload: {
-          name: 'Training Owner',
-          email,
-          password: 'correct horse battery',
-          workspaceName: 'Training Shop',
-          industry: 'retail',
-        },
+      const response = await signUpVerified(currentApp(), {
+        name: 'Training Owner',
+        email,
+        password: 'correct horse battery',
+        workspaceName: 'Training Shop',
+        industry: 'retail',
       });
       expect(response.statusCode).toBe(201);
       const auth = AuthResponse.parse(response.json());
@@ -280,16 +282,12 @@ describe('HTTP: starter rules', () => {
     const signup = async (email: string) => {
       const auth = AuthResponse.parse(
         (
-          await http.inject({
-            method: 'POST',
-            url: '/api/v1/auth/signup',
-            payload: {
-              name: 'Starter Owner',
-              email,
-              password: 'correct horse battery',
-              workspaceName: 'Starter Shop',
-              industry: 'retail',
-            },
+          await signUpVerified(currentApp(), {
+            name: 'Starter Owner',
+            email,
+            password: 'correct horse battery',
+            workspaceName: 'Starter Shop',
+            industry: 'retail',
           })
         ).json(),
       );

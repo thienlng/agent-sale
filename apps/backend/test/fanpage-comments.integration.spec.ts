@@ -13,6 +13,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module.js';
 import { createHttpApp } from '../src/bootstrap.js';
 import { FANPAGE_FACADE, type FanpageFacade } from '../src/modules/channel/api/index.js';
+import { signUpVerified } from './support/signup.js';
 
 /** T-106 comment reads and actions over HTTP on a real Postgres: permissions and tenancy. */
 let pg: TestPostgres;
@@ -52,21 +53,17 @@ const call = (h: Headers, method: 'GET' | 'POST' | 'PATCH', url: string, payload
 
 let signups = 0;
 async function shop(email: string, pageId: string) {
-  const signup = await app
-    .getHttpAdapter()
-    .getInstance()
-    .inject({
-      method: 'POST',
-      url: '/api/v1/auth/signup',
-      remoteAddress: `10.3.0.${++signups}`,
-      payload: {
-        name: 'Lan',
-        email,
-        password: 'a long enough password',
-        workspaceName: 'Shop',
-        industry: 'fashion',
-      },
-    });
+  const signup = await signUpVerified(
+    app,
+    {
+      name: 'Lan',
+      email,
+      password: 'a long enough password',
+      workspaceName: 'Shop',
+      industry: 'fashion',
+    },
+    { remoteAddress: `10.3.0.${++signups}` },
+  );
   const { accessToken } = AuthResponse.parse(signup.json());
   const authorization = `Bearer ${accessToken}`;
   const boot = BootstrapResponse.parse((await call({ authorization }, 'GET', '/bootstrap')).json());

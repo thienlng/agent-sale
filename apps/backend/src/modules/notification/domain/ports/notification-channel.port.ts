@@ -11,10 +11,10 @@ export interface OutgoingMessage {
   link: string | null;
 }
 
-/** A delivery channel adapter (S3-R8): email over SMTP now, push later. */
+/** A delivery channel adapter (S3-R8): email through the `Mailer` (Resend) now, push later. */
 export interface NotificationChannel {
   kind: NotificationChannelKind;
-  /** False when the channel is not configured (e.g. no `SMTP_URL`). */
+  /** False when the channel is not configured (e.g. no `RESEND_API_KEY`). */
   available(): boolean;
   send(m: OutgoingMessage): Promise<{ providerMessageId: string | null }>;
 }

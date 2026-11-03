@@ -10,7 +10,7 @@ import { accounts, assistantMessages, assistantThreads, users } from './schema/i
 import { withSystem } from './tenant.js';
 
 /**
- * Proves account-scoped RLS for the owner assistant tables (ADR-004 amendment, ADR-023).
+ * Proves account-scoped RLS for the owner assistant tables (ADR-004 amendment, ADR-024).
  * One connection per client (`max: 1`) mimics PgBouncer transaction pooling, so a
  * leaked session setting would show up as a cross-account read.
  */
@@ -69,7 +69,7 @@ afterAll(async () => {
   await pg?.stop();
 });
 
-describe('account-scoped assistant tables (ADR-023)', () => {
+describe('account-scoped assistant tables (ADR-024)', () => {
   it('each account sees only its own threads, alternating on one reused connection', async () => {
     const [a, b] = accountIds as [string, string];
     const [threadA, threadB] = threadIds as [string, string];

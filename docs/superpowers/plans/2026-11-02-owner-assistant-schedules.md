@@ -19,7 +19,7 @@ The assistant drafts them as proposals the owner approves. A new `notification` 
 
 **Tech Stack:** NestJS 12, Drizzle + PostgreSQL 16 (`withAccount`/`accountPolicies`, `app_system` in the worker), Zod 4, nodemailer, Vitest, React 19 + TanStack Query, shadcn/ui, i18next.
 
-**Spec:** `docs/superpowers/specs/2026-11-02-owner-assistant-schedules-design.md` (rulings S3-R1…R18). Parent: core spec §12, §18, §19. 1c plan: `docs/superpowers/plans/2026-11-02-owner-assistant-1c.md`. ADR: `docs/adr/ADR-023-owner-assistant.md`.
+**Spec:** `docs/superpowers/specs/2026-11-02-owner-assistant-schedules-design.md` (rulings S3-R1…R18). Parent: core spec §12, §18, §19. 1c plan: `docs/superpowers/plans/2026-11-02-owner-assistant-1c.md`. ADR: `docs/adr/ADR-024-owner-assistant.md`.
 
 **Prerequisite:** 1c is merged into the branch. This plan needs `assistant_jobs`, `ASSISTANT_RUNNER` in `entries/worker.ts`, `assistant_suggestions` and `assistant_settings`.
 
@@ -33,7 +33,7 @@ The assistant drafts them as proposals the owner approves. A new `notification` 
   - `pnpm check` passes at the end of every task;
   - never skip or delete a test.
 - Task id **T-172**. Commit messages: Conventional Commits, scope `assistant`, `notification`, `commerce`, `conversation`, `crm`, `db`, `contracts`, `i18n` or `web`, ending with `(T-172)`, then a blank line and `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
-- Migration number: **`0060`** only (0058 is 1c, 0059 is capability 2). Additive only.
+- Migration number: **`0061`** only (0059 is 1c, 0060 is capability 2). Additive only.
 - Create the module only with `pnpm gen module notification`. Then fill in `MODULE.md`, add its row to `docs/ARCHITECTURE.md` §3 and wire it in `app.module.ts` and `entries/worker.ts`.
 - **Schedules:**
   - code-only by default; a model call only for `commentary: true`, one tier-`basic` call per run, at most 600 output chars, safety-scanned;
@@ -62,10 +62,10 @@ The design rulings are S3-R1…R18 in the spec. These come from planning:
 
 ---
 
-### Task 1: Migration 0060, Drizzle schema and repositories
+### Task 1: Migration 0061, Drizzle schema and repositories
 
 **Files:**
-- Create: `packages/db/migrations/0060_schedules_notifications.sql`, `packages/db/src/schema/notification.ts`
+- Create: `packages/db/migrations/0061_schedules_notifications.sql`, `packages/db/src/schema/notification.ts`
 - Modify: `packages/db/src/schema/assistant.ts`, `packages/db/src/schema/index.ts`, the assistant repository port and both implementations (Drizzle and in-memory)
 - Create the notification repository port, its Drizzle and in-memory implementations, and the integration test `packages/db/src/schedules-notifications.integration.test.ts` (next to `account.integration.test.ts`)
 
@@ -79,7 +79,7 @@ The design rulings are S3-R1…R18 in the spec. These come from planning:
 - `assistant_proposals`: `ADD COLUMN kind text NOT NULL DEFAULT 'route' CHECK (kind IN ('route','schedule'))`.
 - `notifications`: `UNIQUE (user_id, dedup_key)`, partial on `dedup_key IS NOT NULL`.
 - `notification_deliveries`: `UNIQUE (notification_id, channel)`.
-- For all four new tables, the RLS loop of 0056/0057 (account policy + `app_system`), `FORCE ROW LEVEL SECURITY` and grants as in 0057.
+- For all four new tables, the RLS loop of 0057/0058 (account policy + `app_system`), `FORCE ROW LEVEL SECURITY` and grants as in 0058.
 
 **Repository methods (assistant):**
 - Owner scope:
@@ -495,7 +495,7 @@ Commit `feat(web): notification bell and scheduled reports in the assistant (T-1
 ### Task 8: Docs
 
 - **Spec:** move this capability's spec to `docs/superpowers/specs/2026-11-02-owner-assistant-schedules-design.md` (if not already there) and add a final section "Adjustments made while building", with anything the tasks changed. In the core spec's capability table, mark 3 shipped and link the spec.
-- **ADR-023:** a consequences line for capability 3. It needs the maintainer's approval, because `docs/adr/**` is protected.
+- **ADR-024:** a consequences line for capability 3. It needs the maintainer's approval, because `docs/adr/**` is protected.
   - `assistant` reads report figures through the `commerce`, `conversation` and `crm` facades in the worker (S3-R1), because a scheduled run has no owner token;
   - the new `notification` module (tier 0, account-scoped, facade-called).
 - **Module docs:**

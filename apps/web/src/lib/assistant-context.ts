@@ -7,7 +7,7 @@ import { useEffect, useRef } from 'react';
 import { create } from 'zustand';
 
 /**
- * The page-side half of the owner assistant (ADR-023). It lives in `lib/` because every feature's
+ * The page-side half of the owner assistant (ADR-024). It lives in `lib/` because every feature's
  * pages describe themselves here and features may not import `features/assistant`. It is tiny and
  * eager; the assistant panel itself stays a lazy chunk.
  */

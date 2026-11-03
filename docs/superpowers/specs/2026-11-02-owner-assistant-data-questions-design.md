@@ -1,8 +1,8 @@
 # Owner assistant capability 2: data questions (read-only SQL lane and charts)
 
 - Task: T-171 · Date: 2026-11-02 · Status: built (see §14 for what changed while building), awaiting review
-- Parent design: [owner assistant core](2026-11-02-owner-assistant-core-design.md) (§1 capability 2, §3, §6). ADR: [ADR-023](../../adr/ADR-023-owner-assistant.md) decision 4 (lane a), [ADR-004](../../adr/ADR-004-multi-tenant-rls.md) (amended by this slice, §11).
-- Builds on 1a, 1b and 1c (migrations 0056–0058). New migration: `0059`.
+- Parent design: [owner assistant core](2026-11-02-owner-assistant-core-design.md) (§1 capability 2, §3, §6). ADR: [ADR-024](../../adr/ADR-024-owner-assistant.md) decision 4 (lane a), [ADR-004](../../adr/ADR-004-multi-tenant-rls.md) (amended by this slice, §11).
+- Builds on 1a, 1b and 1c (migrations 0057–0059). New migration: `0060`.
 
 ## 1. Goal
 
@@ -40,7 +40,7 @@ Out of scope: schedules and reports (capability 3), exports and downloads, write
 | Leaking query text or results into logs | Logs carry the run id, `sqlstate` and error class only. The SQL text and the rows are never logged or stored in run steps. |
 | Multi-statement smuggling | The guard rejects `;` (except one trailing), and the driver uses the extended protocol (never `.simple()`), which refuses more than one statement. |
 
-## 4. Database design (migration 0059)
+## 4. Database design (migration 0060)
 
 ### 4.1 Roles
 
@@ -223,7 +223,7 @@ Error codes are `sql_rejected:<reason>`, for example `sql_rejected:function_not_
 ## 11. ADR changes
 
 - **ADR-004 amendment:** two new roles (`app_assistant_reader`, view owner, NOLOGIN; `app_assistant_sql`, SELECT on views only) and a third login. A multi-business predicate inlined in each policy, set by `app.account_id` + `app.assistant_business_ids`, both transaction-local. Reader policies are `FOR SELECT` only.
-- **ADR-023 consequence line:** lane (a) shipped. Like an analytics read model, the `assistant_sql` views are the one place where the `assistant` module reads other modules' data without their routes. The views are a published read contract in `packages/db`. A migration that changes a column a view reads must recreate the view in the same migration (Postgres refuses to drop it otherwise).
+- **ADR-024 consequence line:** lane (a) shipped. Like an analytics read model, the `assistant_sql` views are the one place where the `assistant` module reads other modules' data without their routes. The views are a published read contract in `packages/db`. A migration that changes a column a view reads must recreate the view in the same migration (Postgres refuses to drop it otherwise).
 
 ## 12. Testing
 
@@ -261,11 +261,11 @@ Each ruling lists its cost if it is wrong. The plan repeats them as 2-R1…R12.
 | 2-R9 | Lodging revenue = `kind = 'stay'` and status in `confirmed`, `checked_in`, `checked_out`, over `total_sell` (`adjustment` shown separately). | Not verified against a lodging figure; can be fixed by a view migration. |
 | 2-R10 | The lane runs in `api` only (synchronous turn) on the primary, with pool 4 and 8 queries per turn. | Schedules (capability 3) must add the worker as a caller. |
 | 2-R11 | SQL text and rows are never shown in steps, logs or the UI, except as a chart or the answer. | The owner cannot audit the query itself. |
-| 2-R12 | ADR-004 and ADR-023 are amended in this PR (rule 05 requires it for a tenant-model change), flagged for the maintainer in the PR body. | The maintainer may ask for a separate ADR. |
+| 2-R12 | ADR-004 and ADR-024 are amended in this PR (rule 05 requires it for a tenant-model change), flagged for the maintainer in the PR body. | The maintainer may ask for a separate ADR. |
 
 ## 14. Adjustments made while building (2026-11-02)
 
-### Database (migration 0059, `packages/db`)
+### Database (migration 0060, `packages/db`)
 
 - **The business filter is inlined, not a function.** With `assistant_sql_business_ids()` as designed, every view query failed with `permission denied for function`: Postgres runs a function in an RLS policy as the **calling login**, not as the view owner. The two fixes that follow from the design both break the model: grant the login `EXECUTE` and `SELECT` on `workspaces` (the function is `SECURITY INVOKER`), or make it `SECURITY DEFINER`, which the tests forbid. Each of the 14 policies now inlines the same sub-select (§4.2). It is checked as the view owner and planned as one InitPlan. The policy also needs a `::uuid[]` cast.
 - **2-R7: the cursor is used.** `tx.unsafe(sql).cursor(501)` works in postgres.js 3.4.9, so the `LIMIT` wrapper fallback is not used, and the model's SQL runs unchanged. Rows are read as arrays (`.values()`), so two output columns with the same name both survive. Under a cursor, postgres.js drops the rows of commands whose tag has no row count (`EXPLAIN`, `SHOW`); the guard only lets `SELECT`/`WITH` through.

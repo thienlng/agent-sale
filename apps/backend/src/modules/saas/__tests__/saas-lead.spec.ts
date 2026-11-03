@@ -34,6 +34,7 @@ describe('SaasLeadService.recordFromBot', () => {
       sourceKey: 'bot',
       displayName: 'Chị Lan',
       firstUrl: null,
+      renameFrom: 'Khách website 6721',
     });
     expect(crm.moveContactStatus).toHaveBeenCalledWith(WS, CONTACT, 'requested', {
       forwardOnly: true,
@@ -41,7 +42,7 @@ describe('SaasLeadService.recordFromBot', () => {
     expect(crm.addContactNote).toHaveBeenCalledWith(
       WS,
       CONTACT,
-      'Xin demo (bot ghi nhận)\nCông ty: Shop Lan\nQuy mô: 5',
+      'Xin demo (bot ghi nhận)\nTên: Chị Lan\nCông ty: Shop Lan\nQuy mô: 5',
       BOT_AUTHOR,
     );
   });
@@ -86,7 +87,7 @@ describe('SaasLeadService.recordFromBot', () => {
         planInterest: 'Pro',
       }),
     ).toBe(
-      'Xin tư vấn (bot ghi nhận)\nNhu cầu: Quản lý đơn\nGói quan tâm: Pro\nEmail: lan@example.test',
+      'Xin tư vấn (bot ghi nhận)\nTên: Lan\nNhu cầu: Quản lý đơn\nGói quan tâm: Pro\nEmail: lan@example.test',
     );
   });
 });

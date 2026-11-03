@@ -55,11 +55,11 @@ export const aiRuns = pgTable(
   ],
 );
 
-/** `ai_run_traces.loop_outcome` values (migration 0062). */
+/** `ai_run_traces.loop_outcome` values (migration 0063). */
 export type AiLoopOutcome = 'done' | 'interrupted' | 'limit' | 'invalid_tools' | 'budget' | 'error';
 
 /**
- * Tenant table (migration 0062). One row per `ai_runs` row written since T-174: what the shop
+ * Tenant table (migration 0063). One row per `ai_runs` row written since T-174: what the shop
  * bot saw and how its loop ended. Excerpts are redacted; kept 30 days (AiTraceRunner).
  */
 export const aiRunTraces = pgTable(
@@ -111,7 +111,7 @@ export const aiRunTraces = pgTable(
   ],
 );
 
-/** Tenant table (migration 0062). The loop steps of a traced turn, in order; `detail` is allowlisted. */
+/** Tenant table (migration 0063). The loop steps of a traced turn, in order; `detail` is allowlisted. */
 export const aiRunSteps = pgTable(
   'ai_run_steps',
   {

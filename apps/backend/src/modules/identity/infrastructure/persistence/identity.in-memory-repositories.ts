@@ -1,6 +1,11 @@
 import type { UserId } from '@agent-sales/shared';
 
 import { EmailTakenError } from '../../domain/identity.errors.js';
+import type {
+  EmailCodePurpose,
+  EmailCodeRecord,
+  EmailCodeRepository,
+} from '../../domain/ports/email-code.repository.js';
 import type { MfaRecord, MfaRepository } from '../../domain/ports/mfa.repository.js';
 import type { SessionRecord, SessionRepository } from '../../domain/ports/session.repository.js';
 import type { UserRepository } from '../../domain/ports/user.repository.js';
@@ -36,6 +41,16 @@ export class InMemoryUserRepository implements UserRepository {
   async insert(user: User): Promise<void> {
     if (await this.findByEmail(user.snapshot().email)) throw new EmailTakenError();
     this.#byId.set(user.id, user);
+  }
+
+  async setPassword(id: UserId, passwordHash: string, at: Date): Promise<void> {
+    const user = this.#byId.get(id);
+    if (!user) return;
+    const s = user.snapshot();
+    this.#byId.set(
+      id,
+      User.rehydrate({ ...s, passwordHash, emailVerifiedAt: s.emailVerifiedAt ?? at }),
+    );
   }
 
   async setPlatformAdmin(email: string, value: boolean): Promise<boolean> {
@@ -128,5 +143,27 @@ export class InMemoryMfaRepository implements MfaRepository {
 
   async remove(userId: UserId): Promise<boolean> {
     return this.rows.delete(userId);
+  }
+}
+
+export class InMemoryEmailCodeRepository implements EmailCodeRepository {
+  readonly rows = new Map<string, EmailCodeRecord>();
+
+  async find(email: string, purpose: EmailCodePurpose): Promise<EmailCodeRecord | null> {
+    const row = this.rows.get(`${email}:${purpose}`);
+    return row ? { ...row } : null;
+  }
+
+  async put(record: EmailCodeRecord): Promise<void> {
+    this.rows.set(`${record.email}:${record.purpose}`, { ...record });
+  }
+
+  async addAttempt(email: string, purpose: EmailCodePurpose): Promise<void> {
+    const row = this.rows.get(`${email}:${purpose}`);
+    if (row) row.attempts += 1;
+  }
+
+  async delete(email: string, purpose: EmailCodePurpose): Promise<void> {
+    this.rows.delete(`${email}:${purpose}`);
   }
 }

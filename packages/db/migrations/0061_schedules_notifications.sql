@@ -1,4 +1,4 @@
--- Owner assistant capability 3 (T-172, ADR-023): code-computed scheduled reports and alerts
+-- Owner assistant capability 3 (T-172, ADR-024): code-computed scheduled reports and alerts
 -- (`assistant_schedules`, `assistant_schedule_runs`), schedule proposals, and the tier-0
 -- `notification` module (`notifications`, `notification_deliveries`). Additive only.
 

@@ -49,7 +49,7 @@ import { AssistantController } from './interface/http/assistant.controller.js';
 import { SchedulesController } from './interface/http/schedules.controller.js';
 
 /**
- * Owner assistant (ADR-023): account-scoped threads of one owner. With a database the
+ * Owner assistant (ADR-024): account-scoped threads of one owner. With a database the
  * repository is Drizzle-backed (`withAccount`); otherwise in-memory. Exports ONLY what api/
  * declares. `AiModule` provides the LLM gateway `ChatTurnService` runs chat turns on and the
  * worker's review runs on; the worker needs both `DB_TENANT` and `DB_SYSTEM` (job claims).

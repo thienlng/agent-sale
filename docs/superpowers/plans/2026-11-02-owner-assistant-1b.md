@@ -8,7 +8,7 @@
 
 **Tech Stack:** NestJS 12 on Fastify, Drizzle + PostgreSQL 16 (RLS through `withAccount`), Zod 4, Vitest, React 19 + TanStack Query, zustand, i18next.
 
-**Spec:** `docs/superpowers/specs/2026-11-02-owner-assistant-core-design.md` (§4, §5, §6, §9, §10, §18). ADR: `docs/adr/ADR-023-owner-assistant.md`.
+**Spec:** `docs/superpowers/specs/2026-11-02-owner-assistant-core-design.md` (§4, §5, §6, §9, §10, §18). ADR: `docs/adr/ADR-024-owner-assistant.md`.
 
 ## Global Constraints
 
@@ -21,7 +21,7 @@
 - Each tool result the model sees is ≤ 8 000 chars, and tool output per turn is ≤ 40 000 chars.
 - The turn stays synchronous with a 90 s budget, as in 1a. Streaming is not part of 1b (Ruling 1b-R1).
 - Logs carry only ids, tool names and error classes. Never log or store a bearer token, prompt text, memory text or tool arguments.
-- New migration number: `0057`, additive only.
+- New migration number: `0058`, additive only.
 - `pnpm check` must pass at the end of every task. Never skip or delete a test.
 - Commit messages: Conventional Commits, scope `assistant` (or `ai-core`, `contracts`, `db`, `web`), ending with `(T-170)`, then a blank line and `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 
@@ -177,13 +177,13 @@ export const PRUNED_TOOL_TEXT = '[tool output cleared — use session_search]';
   - run `pnpm --filter @agent-sales/contracts test build`, then `pnpm typecheck`;
   - commit `feat(contracts): declare assistant use on every workspace route and add the 1b assistant schemas (T-170)`.
 
-### Task 3: Database — migration 0057, schema and repository methods
+### Task 3: Database — migration 0058, schema and repository methods
 
 **Files:**
-- Create: `packages/db/migrations/0057_assistant_1b.sql`
+- Create: `packages/db/migrations/0058_assistant_1b.sql`
 - Modify: `packages/db/src/schema/assistant.ts`, `apps/backend/src/modules/assistant/domain/ports/assistant.repository.ts`, both repository implementations (Drizzle and in-memory), and `packages/db/src/account.integration.test.ts` (or a new `assistant-1b.integration.test.ts` next to it)
 
-The migration does three things. Use the same RLS loop pattern as 0056 for the two new tables.
+The migration does three things. Use the same RLS loop pattern as 0057 for the two new tables.
 
 1. Create `assistant_memory`:
 
@@ -416,7 +416,7 @@ The migration does three things. Use the same RLS loop pattern as 0056 for the t
 - Modify:
   - spec: add §19 "Adjustments made while building 1b" with the rulings 1b-R1…R6 and anything the tasks changed;
   - the capability table: mark 1b shipped;
-  - `docs/adr/ADR-023-owner-assistant.md`: a consequences line for 1b;
+  - `docs/adr/ADR-024-owner-assistant.md`: a consequences line for 1b;
   - `apps/backend/src/modules/assistant/MODULE.md`: tools, tables, routes;
   - `docs/05` (data model: the new tables and columns);
   - `docs/06` (API: the new routes);

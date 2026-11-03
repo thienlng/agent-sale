@@ -23,6 +23,7 @@ import {
   type DeveloperSystemStore,
 } from '../src/modules/developer/application/ports/developer-store.js';
 import { WebhookDispatcher } from '../src/modules/developer/application/webhook-dispatcher.js';
+import { signUpVerified } from './support/signup.js';
 
 /** ADR-022 end to end on Postgres: API keys through the guard, idempotency, webhook dispatch. */
 let pg: TestPostgres,
@@ -69,21 +70,17 @@ const call = (
 let n = 0;
 async function shop() {
   const i = ++n;
-  const r = await app
-    .getHttpAdapter()
-    .getInstance()
-    .inject({
-      method: 'POST',
-      url: '/api/v1/auth/signup',
-      remoteAddress: `10.79.0.${i}`,
-      payload: {
-        name: 'Test owner',
-        email: `api-owner-${i}@example.test`,
-        password: 'a long synthetic password',
-        workspaceName: 'Synthetic shop',
-        industry: 'retail',
-      },
-    });
+  const r = await signUpVerified(
+    app,
+    {
+      name: 'Test owner',
+      email: `api-owner-${i}@example.test`,
+      password: 'a long synthetic password',
+      workspaceName: 'Synthetic shop',
+      industry: 'retail',
+    },
+    { remoteAddress: `10.79.0.${i}` },
+  );
   expect(r.statusCode).toBe(201);
   const auth = AuthResponse.parse(r.json());
   const boot = BootstrapResponse.parse(

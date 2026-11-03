@@ -15,6 +15,7 @@ import { beforeAll, afterAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module.js';
 import { createHttpApp } from '../src/bootstrap.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../src/modules/workspace/api/index.js';
+import { signUpVerified } from './support/signup.js';
 
 let pg: TestPostgres, app: NestFastifyApplication;
 beforeAll(async () => {
@@ -59,21 +60,17 @@ const call = (
 let number = 0;
 async function owner(industry = 'hotel') {
   const n = ++number;
-  const r = await app
-    .getHttpAdapter()
-    .getInstance()
-    .inject({
-      method: 'POST',
-      url: '/api/v1/auth/signup',
-      remoteAddress: `10.77.0.${n}`,
-      payload: {
-        name: 'Test owner',
-        email: `stay-owner-${n}@example.test`,
-        password: 'a long synthetic password',
-        workspaceName: 'Test lodging business',
-        industry,
-      },
-    });
+  const r = await signUpVerified(
+    app,
+    {
+      name: 'Test owner',
+      email: `stay-owner-${n}@example.test`,
+      password: 'a long synthetic password',
+      workspaceName: 'Test lodging business',
+      industry,
+    },
+    { remoteAddress: `10.77.0.${n}` },
+  );
   expect(r.statusCode).toBe(201);
   const auth = AuthResponse.parse(r.json());
   const bootstrap = BootstrapResponse.parse(

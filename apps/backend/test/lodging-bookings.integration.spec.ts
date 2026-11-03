@@ -26,6 +26,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../src/app.module.js';
 import { createHttpApp } from '../src/bootstrap.js';
 import { addNights, localToday } from '../src/modules/lodging/domain/nights.js';
+import { signUpVerified } from './support/signup.js';
 
 /** T-160 lodging v2 HTTP: bookings, holds, calendar, availability and quote. */
 let pg: TestPostgres;
@@ -78,22 +79,18 @@ const call = (h: Headers, method: Method, path: string, payload?: object) =>
 let signups = 0;
 async function signup(industry = 'hotel') {
   const n = ++signups;
-  const r = await app
-    .getHttpAdapter()
-    .getInstance()
-    .inject({
-      method: 'POST',
-      url: '/api/v1/auth/signup',
-      remoteAddress: `10.89.0.${n}`,
-      payload: {
-        name: 'Test owner',
-        email: `lodging-bookings-${n}@example.test`,
-        password: 'a long synthetic password',
-        workspaceName: 'Test lodging business',
-        industry,
-      },
-    });
-  expect(r.statusCode, r.body).toBe(201);
+  const r = await signUpVerified(
+    app,
+    {
+      name: 'Test owner',
+      email: `lodging-bookings-${n}@example.test`,
+      password: 'a long synthetic password',
+      workspaceName: 'Test lodging business',
+      industry,
+    },
+    { remoteAddress: `10.89.0.${n}` },
+  );
+  expect(r.statusCode).toBe(201);
   const auth = AuthResponse.parse(r.json());
   const authorization = `Bearer ${auth.accessToken}`;
   const boot = BootstrapResponse.parse((await call({ authorization }, 'GET', '/bootstrap')).json());

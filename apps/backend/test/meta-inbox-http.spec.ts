@@ -23,6 +23,7 @@ import {
   CONVERSATION_FACADE,
   type ConversationFacade,
 } from '../src/modules/conversation/api/index.js';
+import { signUpVerified } from './support/signup.js';
 let app: NestFastifyApplication | undefined;
 afterEach(async () => {
   await app?.close();
@@ -48,9 +49,10 @@ async function setup() {
       unsubscribe: async () => undefined,
     })
     .compile();
-  app = module.createNestApplication<NestFastifyApplication>(new FastifyAdapter(), {
+  const nest = module.createNestApplication<NestFastifyApplication>(new FastifyAdapter(), {
     logger: false,
   });
+  app = nest;
   await app.register(fastifyCookie);
   app.setGlobalPrefix('api/v1');
   app.useGlobalFilters(new HttpExceptionFilter(createLogger('silent')));
@@ -58,16 +60,12 @@ async function setup() {
   const http = app.getHttpAdapter().getInstance();
   await http.ready();
   const signup = async (email: string) => {
-    const res = await http.inject({
-      method: 'POST',
-      url: '/api/v1/auth/signup',
-      payload: {
-        name: 'Owner',
-        email,
-        password: 'correct horse battery',
-        workspaceName: 'Shop',
-        industry: 'retail',
-      },
+    const res = await signUpVerified(nest, {
+      name: 'Owner',
+      email,
+      password: 'correct horse battery',
+      workspaceName: 'Shop',
+      industry: 'retail',
     });
     expect(res.statusCode).toBe(201);
     const auth = AuthResponse.parse(res.json());

@@ -17,7 +17,7 @@ import { users } from './identity.js';
 import { accountPolicies, workspaces } from './workspace.js';
 
 /*
- * `notification` module (0060, T-172): in-app notifications and their email/push deliveries.
+ * `notification` module (0061, T-172): in-app notifications and their email/push deliveries.
  * ACCOUNT-scoped (RLS on `app.account_id`, set by `withAccount`); every query also filters on
  * `user_id`. In-app delivery is the `notifications` row itself.
  */

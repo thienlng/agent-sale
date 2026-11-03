@@ -11,7 +11,7 @@ export const PASSWORD_HASHER = Symbol('PASSWORD_HASHER');
 export interface AccessClaims {
   userId: UserId;
   sessionId: string;
-  /** True on a delegated token (claim `dlg`, ADR-023): it cannot be delegated again. */
+  /** True on a delegated token (claim `dlg`, ADR-024): it cannot be delegated again. */
   delegated?: boolean;
 }
 

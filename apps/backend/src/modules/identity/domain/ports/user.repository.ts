@@ -14,6 +14,8 @@ export interface UserRepository {
    * newest first.
    */
   search(q: string, limit: number): Promise<User[]>;
+  /** Replaces the password hash; the email counts as verified (the code proved it). */
+  setPassword(id: UserId, passwordHash: string, at: Date): Promise<void>;
   /** Grants or revokes platform admin (CLI only). False when no user has that email. */
   setPlatformAdmin(email: string, value: boolean): Promise<boolean>;
 }

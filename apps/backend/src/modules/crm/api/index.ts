@@ -3,6 +3,7 @@ export {
   type ConversationTagFilter,
   type ConversationTagMatch,
   type CrmFacade,
+  websiteLeadName,
 } from './crm.facade.js';
 export * from './crm.events.js';
 export {

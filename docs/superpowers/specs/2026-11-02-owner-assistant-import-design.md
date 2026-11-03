@@ -1,9 +1,9 @@
 # Owner assistant capability 4: bulk product import (Excel/CSV and photos)
 
 - Task: T-173 · Date: 2026-11-02 · Status: draft by @agent:claude. The owner was unavailable, so the rulings below were taken without them. Each one says what it costs if it is wrong.
-- Parent design: `docs/superpowers/specs/2026-11-02-owner-assistant-core-design.md` (core spec), mainly §1 (fixed constraints), §6 (tools and proposals) and §19 (what 1b shipped). ADR: `docs/adr/ADR-023-owner-assistant.md`.
-- Builds on: 1b (route tools, `RouteInvoker`, `assistant_proposals`, `ProposalService`, platform skills). It needs nothing from 1c, 2 or 3 apart from their migration numbers (0058 to 0060) and whatever check constraints they leave on `assistant_runs.kind`.
-- Migration: `0061`. One PR.
+- Parent design: `docs/superpowers/specs/2026-11-02-owner-assistant-core-design.md` (core spec), mainly §1 (fixed constraints), §6 (tools and proposals) and §19 (what 1b shipped). ADR: `docs/adr/ADR-024-owner-assistant.md`.
+- Builds on: 1b (route tools, `RouteInvoker`, `assistant_proposals`, `ProposalService`, platform skills). It needs nothing from 1c, 2 or 3 apart from their migration numbers (0059 to 0061) and whatever check constraints they leave on `assistant_runs.kind`.
+- Migration: `0062`. One PR.
 
 ## 1. Goal
 
@@ -24,7 +24,7 @@ The owner drops an Excel/CSV file or some product photos into the assistant bubb
 
 | # | Ruling | Why | Cost if wrong |
 |---|---|---|---|
-| C4-R1 | **One proposal of kind `product_import` per batch. On approval it is executed by calling the declared route `POST /products` once per product**, through the existing `RouteInvoker` with the approver's token. Per-row results are stored on the batch. It is **not** N route proposals, and it does **not** go through the commerce facade. | One tap for N products. A batch is not limited by the 1b cap of 20 pending proposals per thread. ADR-023 says the assistant reaches other modules only through their declared routes. Going through the route keeps auth, `catalog.manage`, Zod validation, the image-ownership check (`ownImageProblem`), the `DuplicateCodeError` mapping and future audit of `X-Actor`. Calling the commerce facade would add an `assistant → commerce` edge to the module graph and bypass all of that. | The loop of in-process injects is slower than one facade transaction (about 20–50 ms per product, ≤ 200 products, so ≤ 10 s). An import is not atomic: some rows can fail while others are created. That is surfaced per row, and the owner can propose the rest again (§7). |
+| C4-R1 | **One proposal of kind `product_import` per batch. On approval it is executed by calling the declared route `POST /products` once per product**, through the existing `RouteInvoker` with the approver's token. Per-row results are stored on the batch. It is **not** N route proposals, and it does **not** go through the commerce facade. | One tap for N products. A batch is not limited by the 1b cap of 20 pending proposals per thread. ADR-024 says the assistant reaches other modules only through their declared routes. Going through the route keeps auth, `catalog.manage`, Zod validation, the image-ownership check (`ownImageProblem`), the `DuplicateCodeError` mapping and future audit of `X-Actor`. Calling the commerce facade would add an `assistant → commerce` edge to the module graph and bypass all of that. | The loop of in-process injects is slower than one facade transaction (about 20–50 ms per product, ≤ 200 products, so ≤ 10 s). An import is not atomic: some rows can fail while others are created. That is surfaced per row, and the owner can propose the rest again (§7). |
 | C4-R2 | **Create only.** A row whose product code or any SKU already exists in the business is an error (`exists_code` / `exists_sku`) and is skipped. Updating existing products by import is out of scope. | Updating needs read-modify-write of whole products (`PUT` replaces variants) and diffs per row. That is a separate feature. | An owner who wants to bulk-update prices must use KiotViet sync or one `PUT` proposal per product. |
 | C4-R3 | **Parse Excel/CSV in the browser, with no new dependency.** CSV uses a generalised copy of the RFC-4180 reader in `knowledge/utils/faq-csv.ts`, with `,`/`;`/tab detection. `.xlsx` uses a small reader of our own (about 250 lines): the zip central directory, the native `DecompressionStream('deflate-raw')`, `DOMParser` for `sharedStrings.xml` and the first worksheet, and values only. `.xls` (BIFF) and `.ods` are rejected with "save as .xlsx or .csv". | No xlsx parser is installed anywhere in the monorepo. The disk is at 97 % (4.2 GB free). SheetJS on npm (0.18.5) is unmaintained and has known advisories, and ExcelJS is heavy. Native `DecompressionStream` covers every browser the dashboard supports, and Node 24 in Vitest. Parsing in the browser means the backend never receives a binary file. | Some unusual xlsx files may not parse (strict OOXML, inline rich text in odd shapes, files over the size guard). The owner is told to save as CSV. If this happens often, swap the reader for `read-excel-file` behind the same `readSpreadsheet()` function. The change stays inside `apps/web/src/lib/spreadsheet`. |
 | C4-R4 | **Vision drafting runs synchronously, when the photo batch is created** (`POST …/imports`, kind `photos`). Limits: ≤ 8 photos, concurrency 4, 25 s per call, 55 s in total. It runs on tier `pro` with structured output, and each call is recorded as an `assistant_runs` row of kind `import_vision`. This sits under the existing T-170 synchronous-assistant exception in docs/16 §2, which owners only can trigger. | It keeps one mechanism: no new job type, and nothing from the 1c job table. The bubble already waits on synchronous assistant requests. | A slow provider makes the drop wait up to 55 s. Moving it to a worker job is contained: the batch already has a `status` column (`drafting` → `ready`), so the web would poll the batch instead of waiting. |
@@ -58,9 +58,9 @@ The owner drops an Excel/CSV file or some product photos into the assistant bubb
 4. The message is sent with `importBatchId`, as in 3.1. The model shows the drafts, asks for prices (a photo never sets a price) and calls `import_preview` with overrides, then `import_propose`.
 5. Approval and the report work as in 3.1.
 
-## 4. Data model (migration 0061, additive)
+## 4. Data model (migration 0062, additive)
 
-`assistant_import_batches`, account-scoped. It uses the same `accountPolicies` and `app_system` RLS loop as 0057.
+`assistant_import_batches`, account-scoped. It uses the same `accountPolicies` and `app_system` RLS loop as 0058.
 
 | Column | Type | Notes |
 |---|---|---|

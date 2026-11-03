@@ -1,14 +1,15 @@
 # notification
 
-**Purpose:** Tier-0 delivery of notices to a user (T-172, S3-R5…R8): the in-app notification behind the dashboard bell, and its email (SMTP) and push deliveries. Producers render the text; this module stores, lists and delivers it.
+**Purpose:** Tier-0 delivery of notices to a user (T-172, S3-R5…R8): the in-app notification behind the dashboard bell, and its email (through the backend `Mailer`, Resend, ADR-023) and push deliveries. Producers render the text; this module stores, lists and delivers it.
 
-**Owned tables:** `notifications`, `notification_deliveries` (schema in `packages/db/src/schema/notification.ts`, migration 0060). Account-scoped: `accountPolicies` + `withAccount`, and every query also filters on `user_id`. The delivery runner works as `app_system`.
+**Owned tables:** `notifications`, `notification_deliveries` (schema in `packages/db/src/schema/notification.ts`, migration 0061). Account-scoped: `accountPolicies` + `withAccount`, and every query also filters on `user_id`. The delivery runner works as `app_system`.
 
 **Public API (`api/`):**
+
 - `NOTIFICATION_FACADE` → `NotificationFacade`:
   - `notify(input)` stores the in-app row and queues one delivery per other channel, in one transaction; a repeated `dedupKey` for the same user stores nothing (`{ deduped: true }`). An `email` delivery while email is off is stored `skipped` (`email_disabled`). A `path` target must stay inside the dashboard (`/app` or `/app/…`, the web `safeAppPath` rule).
   - `recipientLocale(userId)` (`vi` unless the user chose `en`), so the producer renders in it.
-  - `emailAvailable()`: false when `SMTP_URL` is unset.
+  - `emailAvailable()`: false when `RESEND_API_KEY` is unset.
   - `deliverySummary(accountId, userId, ids)`: per notification, the status of each channel.
 - `NOTIFICATION_RUNNER` → `NotificationRunner.tick(now?)`: run by the `worker` entry every 5 s.
 - HTTP (`@WorkspaceScoped()`, `assistant: never`): `GET /notifications` (keyset), `GET /notifications/unread-count`, `POST /notifications/{notificationId}/read`, `POST /notifications/read-all`. The current business gives the account (`workspace.accountOf`); any member may call them and only sees their own rows.
@@ -19,6 +20,7 @@
 **Events consumed:** none. Producers call the facade directly (synchronous, idempotent by `dedupKey`).
 
 **Invariants:**
+
 - A user only ever reads or changes their own rows; another user's (or account's) id behaves as absent (404).
 - One delivery per notification and channel; in-app delivery is the notification row itself.
 - Email goes only to the user's own login address, at most 20 per user per 24 h (`daily_cap`).

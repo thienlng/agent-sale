@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from 'react';
-import { Industry } from '@agent-sales/contracts';
+import { type Industry, SELECTABLE_INDUSTRIES } from '@agent-sales/contracts';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,7 @@ import { reloadSession } from '@/lib/session';
 
 import { useCreateBusiness } from '../api/create-business';
 
-const TEMPLATES = Industry.options;
+const TEMPLATES = SELECTABLE_INDUSTRIES;
 
 function createErrorKey(error: unknown): string {
   if (error instanceof ApiClientError) {

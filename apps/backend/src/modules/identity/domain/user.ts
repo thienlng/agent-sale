@@ -55,6 +55,8 @@ export class User {
     name: string;
     phone?: string | undefined;
     passwordHash: string;
+    /** Set when the address was proven before the user exists (signup code, ADR-023). */
+    emailVerifiedAt?: Date | undefined;
   }): User {
     return new User({
       id: userId(newId()),
@@ -62,7 +64,7 @@ export class User {
       name: input.name.trim(),
       phone: input.phone?.trim() || null,
       passwordHash: input.passwordHash,
-      emailVerifiedAt: null,
+      emailVerifiedAt: input.emailVerifiedAt ?? null,
       locale: 'vi',
       timezone: 'Asia/Ho_Chi_Minh',
       isPlatformAdmin: false,
@@ -80,6 +82,10 @@ export class User {
 
   get isPlatformAdmin(): boolean {
     return this.props.isPlatformAdmin;
+  }
+
+  get emailVerified(): boolean {
+    return this.props.emailVerifiedAt !== null;
   }
 
   get passwordHash(): string {

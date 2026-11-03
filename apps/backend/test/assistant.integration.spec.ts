@@ -35,6 +35,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
 import { createHttpApp } from '../src/bootstrap.js';
+import { signUpVerified } from './support/signup.js';
 import { AI_LLM_GATEWAY, type LlmGatewayPort } from '../src/modules/ai/api/index.js';
 import {
   AssistantNotFoundError,
@@ -86,22 +87,18 @@ const call = (h: Headers, method: Method, url: string, payload?: object) =>
 let signups = 0;
 /** A new user with their own business (every signup creates one, under their own account). */
 async function user(email: string, name: string) {
-  const signup = await app
-    .getHttpAdapter()
-    .getInstance()
-    .inject({
-      method: 'POST',
-      url: '/api/v1/auth/signup',
-      remoteAddress: `10.79.0.${++signups}`,
-      payload: {
-        name,
-        email,
-        password: 'a long enough password',
-        workspaceName: `Shop ${name}`,
-        industry: 'fashion',
-      },
-    });
-  expect(signup.statusCode, signup.body).toBe(201);
+  const signup = await signUpVerified(
+    app,
+    {
+      name,
+      email,
+      password: 'a long enough password',
+      workspaceName: `Shop ${name}`,
+      industry: 'fashion',
+    },
+    { remoteAddress: `10.79.0.${++signups}` },
+  );
+  expect(signup.statusCode).toBe(201);
   const { accessToken } = AuthResponse.parse(signup.json());
   const authorization = `Bearer ${accessToken}`;
   const boot = BootstrapResponse.parse((await call({ authorization }, 'GET', '/bootstrap')).json());

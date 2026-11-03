@@ -18,7 +18,7 @@ import type { NewNotification } from '../src/modules/notification/domain/ports/n
 import { DrizzleNotificationRepository } from '../src/modules/notification/infrastructure/persistence/notification.drizzle-repository.js';
 
 /**
- * Schedules and notifications on Postgres (0060, T-172) through the Drizzle repositories:
+ * Schedules and notifications on Postgres (0061, T-172) through the Drizzle repositories:
  * owner isolation, the leased schedule claim under concurrency, the unique run slot, the
  * notification dedup key, the keyset list and the delivery claim. Two repositories on two
  * system connections stand for two worker processes.

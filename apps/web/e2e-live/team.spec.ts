@@ -9,6 +9,8 @@ import {
   test,
 } from '@playwright/test';
 
+import { signUpOwner } from './support/signup';
+
 /**
  * Members and access against the real backend: an owner invites a Sales member
  * through the UI, the invitee joins through the link, sees only what a Sales
@@ -33,8 +35,12 @@ async function json<T>(res: Awaited<ReturnType<APIRequestContext['get']>>): Prom
 async function signUp(baseURL: string, email: string, name: string) {
   const anon = await playwrightRequest.newContext({ baseURL });
   const auth = await json<{ accessToken: string }>(
-    await anon.post('/api/v1/auth/signup', {
-      data: { name, email, password, workspaceName: `Shop ${name}`, industry: 'fashion' },
+    await signUpOwner(anon, {
+      name,
+      email,
+      password,
+      workspaceName: `Shop ${name}`,
+      industry: 'fashion',
     }),
   );
   const boot = await json<{ memberships: Array<{ workspaceId: string }> }>(

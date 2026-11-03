@@ -214,7 +214,7 @@ describe('checkSql: rejected', () => {
     ['select $1', 'dollar'],
     ["select E'\\x41'", 'string_prefix'],
     ["select e'a'", 'string_prefix'],
-    ["select U&'d\\0061t'", 'string_prefix'],
+    ["select U&'d\\0062t'", 'string_prefix'],
     ["select X'1F'", 'string_prefix'],
     ['select "Orders".total from orders', 'quoted_identifier'],
     ["select 'unterminated", 'syntax'],

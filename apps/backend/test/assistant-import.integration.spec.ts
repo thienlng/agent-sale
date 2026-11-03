@@ -19,7 +19,7 @@ import type { OwnerScope } from '../src/modules/assistant/domain/owner-scope.js'
 import { DrizzleAssistantRepository } from '../src/modules/assistant/infrastructure/persistence/assistant.drizzle-repository.js';
 
 /**
- * Owner assistant product import storage on Postgres (0061, T-173), through the Drizzle
+ * Owner assistant product import storage on Postgres (0062, T-173), through the Drizzle
  * repository under account RLS: the same cases as the in-memory repository. One connection per
  * client (`max: 1`) mimics PgBouncer; `repo2` uses its own connection for concurrent writes.
  */

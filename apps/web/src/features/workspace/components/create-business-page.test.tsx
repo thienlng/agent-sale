@@ -2,7 +2,7 @@ import { act, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { Industry } from '@agent-sales/contracts';
+import { SELECTABLE_INDUSTRIES } from '@agent-sales/contracts';
 
 import { collectPageContext, fillAssistantForm } from '@/lib/assistant-context';
 import type * as SessionModule from '@/lib/session';
@@ -71,6 +71,7 @@ describe('CreateBusinessPage', () => {
       'POST /workspaces': { status: 201, body: WORKSPACE },
     });
     vi.stubGlobal('fetch', fetchStub);
+    current = session();
     renderWithRouter(() => <CreateBusinessPage />);
 
     await userEvent.type(await screen.findByLabelText(/tên business/i), '  Shop Hoa ');
@@ -91,6 +92,7 @@ describe('CreateBusinessPage', () => {
       },
     });
     vi.stubGlobal('fetch', fetchStub);
+    current = session();
     renderWithRouter(() => <CreateBusinessPage />);
 
     await userEvent.type(await screen.findByLabelText(/tên business/i), 'Shop B');
@@ -116,6 +118,23 @@ describe('CreateBusinessPage', () => {
       await screen.findByRole('heading', { name: 'Tạo business đầu tiên' }),
     ).toBeInTheDocument();
     expect(screen.queryByLabelText('Tài khoản')).not.toBeInTheDocument();
+  });
+
+  it('creates the first business through the signup step when the user owns no account', async () => {
+    const { fetchStub, calls } = stubFetch({
+      'POST /auth/signup/business': { status: 201, body: { workspaceId: WORKSPACE.id } },
+    });
+    vi.stubGlobal('fetch', fetchStub);
+    current = session({ accounts: [], memberships: [], workspaceId: null });
+    renderWithRouter(() => <CreateBusinessPage />);
+
+    await userEvent.type(await screen.findByLabelText(/tên business/i), 'Shop Hoa');
+    await userEvent.click(screen.getByRole('button', { name: /tạo business/i }));
+
+    await vi.waitFor(() => expect(calls.length).toBeGreaterThan(0));
+    expect(calls[0]?.key).toBe('POST /auth/signup/business');
+    expect(calls[0]?.body).toEqual({ workspaceName: 'Shop Hoa', industry: 'retail' });
+    expect(calls.some((c) => c.key === 'POST /workspaces')).toBe(false);
   });
 
   it('asks which account when the user owns several, and sends it (ADR-012 §3)', async () => {
@@ -144,7 +163,7 @@ describe('CreateBusinessPage', () => {
     const form = () =>
       collectPageContext('/app/businesses/new').forms?.find((f) => f.id === 'business');
 
-    it('offers the name and exactly the industries the select renders, never the account', async () => {
+    it('offers the name and exactly the selectable industries the select renders, never the account', async () => {
       current = session({
         accounts: [
           { accountId: X, name: 'Hoa Group', role: 'owner' },
@@ -158,7 +177,7 @@ describe('CreateBusinessPage', () => {
       expect(fields.map((f) => f.name)).toEqual(['name', 'industry']);
       await userEvent.click(screen.getByRole('combobox', { name: 'Lĩnh vực kinh doanh' }));
       const rendered = (await screen.findAllByRole('option')).length;
-      expect(fields[1]?.options).toEqual([...Industry.options]);
+      expect(fields[1]?.options).toEqual([...SELECTABLE_INDUSTRIES]);
       expect(fields[1]?.options).toHaveLength(rendered);
       const context = collectPageContext('/app/businesses/new');
       expect(context.title).toBe('Tạo business mới');
@@ -175,6 +194,13 @@ describe('CreateBusinessPage', () => {
         fillAssistantForm('business', { name: 'Homestay Đà Lạt', industry: 'hotel' });
       });
       expect(screen.getByLabelText(/tên business/i)).toHaveValue('Homestay Đà Lạt');
+      expect(screen.getByRole('combobox', { name: 'Lĩnh vực kinh doanh' })).toHaveTextContent(
+        'Khách sạn / homestay',
+      );
+      // An industry outside the selectable ones is ignored.
+      act(() => {
+        fillAssistantForm('business', { industry: 'fashion' });
+      });
       expect(screen.getByRole('combobox', { name: 'Lĩnh vực kinh doanh' })).toHaveTextContent(
         'Khách sạn / homestay',
       );

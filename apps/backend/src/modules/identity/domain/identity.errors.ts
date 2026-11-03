@@ -84,3 +84,23 @@ export class PublicApiLockedError extends DomainError {
     super('The public API is not included in this plan', { feature: 'feature.public_api' });
   }
 }
+
+/** A wrong, used-up or expired emailed code (email verification, password reset). */
+export class EmailCodeError extends DomainError {
+  readonly code = 'VALIDATION_FAILED';
+  constructor(reason: 'code_invalid' | 'code_expired') {
+    super(reason === 'code_invalid' ? 'Invalid code' : 'The code has expired, request a new one', {
+      reason,
+    });
+  }
+}
+
+/** The first-business step is only for a user who owns no account yet. */
+export class SignupBusinessDoneError extends DomainError {
+  readonly code = 'CONFLICT';
+  constructor() {
+    super('This user already owns an account; create businesses there', {
+      reason: 'account_exists',
+    });
+  }
+}

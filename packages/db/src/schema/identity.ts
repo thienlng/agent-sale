@@ -1,5 +1,15 @@
 import { sql } from 'drizzle-orm';
-import { bigint, boolean, index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import {
+  bigint,
+  boolean,
+  index,
+  integer,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  uuid,
+} from 'drizzle-orm/pg-core';
 
 /** GLOBAL table (no workspace_id, no RLS). Only app_system may access it (migration 0001). */
 export const users = pgTable('users', {
@@ -53,3 +63,17 @@ export const userMfa = pgTable('user_mfa', {
     .default(sql`'{}'`),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+/** GLOBAL: emailed one-time codes, one live code per address and purpose (migration 0056). app_system only. */
+export const emailCodes = pgTable(
+  'email_codes',
+  {
+    email: text('email').notNull(),
+    purpose: text('purpose').$type<'signup' | 'reset_password'>().notNull(),
+    codeHash: text('code_hash').notNull(),
+    attempts: integer('attempts').notNull().default(0),
+    sentAt: timestamp('sent_at', { withTimezone: true }).notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.email, t.purpose] })],
+);

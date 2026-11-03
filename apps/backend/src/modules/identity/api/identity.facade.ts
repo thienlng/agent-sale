@@ -52,7 +52,7 @@ export interface IdentityApiKeysFacade {
 export const IDENTITY_API_KEYS_FACADE = Symbol('IDENTITY_API_KEYS_FACADE');
 
 /**
- * Delegated access (ADR-023): in-process callers whose work can outlive the caller's 15-min
+ * Delegated access (ADR-024): in-process callers whose work can outlive the caller's 15-min
  * access token (the owner assistant's route tools and approved proposals) trade a valid
  * `Authorization: Bearer <access token>` for a short-lived token of the same user and session.
  */

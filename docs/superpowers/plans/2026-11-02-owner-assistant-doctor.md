@@ -4,17 +4,17 @@
 
 **Goal:** Let the owner ask "vì sao bot trả lời ngu": record shop-bot turn traces, expose them as read routes with deterministic signals, and teach the assistant to diagnose a turn and draft fixes as proposals. Let the owner paste API docs or a curl command and get a disabled, secret-free bot API action drafted as a proposal.
 
-**Architecture:** The ai module records one `ai_run_traces` row and its `ai_run_steps` per turn (migration 0062, tenant RLS, 30-day retention) through a per-turn `TraceRecorder` that wraps the tools and collects the loop's steps; per-tool details come from an allowlist and pass through a redactor. Two workspace-scoped read routes (`GET /bots/{botId}/turns`, `/turns/{runId}`) return turns with signals computed by a pure function. The assistant reaches them only as 1b route tools; two new platform skills (`bot-doctor`, `set-up-api-action`) drive the work; fixes are 1b proposals on existing write routes. `POST /bots/{botId}/actions` becomes a `write` route with a narrowed assistant body (`enabled: false`, no `authSecret`). Owner messages are secret-masked before storage.
+**Architecture:** The ai module records one `ai_run_traces` row and its `ai_run_steps` per turn (migration 0063, tenant RLS, 30-day retention) through a per-turn `TraceRecorder` that wraps the tools and collects the loop's steps; per-tool details come from an allowlist and pass through a redactor. Two workspace-scoped read routes (`GET /bots/{botId}/turns`, `/turns/{runId}`) return turns with signals computed by a pure function. The assistant reaches them only as 1b route tools; two new platform skills (`bot-doctor`, `set-up-api-action`) drive the work; fixes are 1b proposals on existing write routes. `POST /bots/{botId}/actions` becomes a `write` route with a narrowed assistant body (`enabled: false`, no `authSecret`). Owner messages are secret-masked before storage.
 
 **Tech Stack:** NestJS 12 on Fastify, Drizzle + PostgreSQL 16 (RLS through `withTenant` / `withAccount`), Zod 4, Vitest, React 19 + TanStack Query, i18next.
 
-**Spec:** `docs/superpowers/specs/2026-11-02-owner-assistant-5-design.md` (copy of the drafted `cap5-spec.md`; commit it in Task 8). Core: `docs/superpowers/specs/2026-11-02-owner-assistant-core-design.md` §6, §10, §13, §18, §19. ADR: `docs/adr/ADR-023-owner-assistant.md`.
+**Spec:** `docs/superpowers/specs/2026-11-02-owner-assistant-5-design.md` (copy of the drafted `cap5-spec.md`; commit it in Task 8). Core: `docs/superpowers/specs/2026-11-02-owner-assistant-core-design.md` §6, §10, §13, §18, §19. ADR: `docs/adr/ADR-024-owner-assistant.md`.
 
 ## Global Constraints
 
 - English for code, comments, docs and commits. Vietnamese only in i18n files, skill example phrases and the assistant's answers.
 - Task id **T-174**; branch `feat/T-174-bot-doctor-action-autofill`; one PR.
-- Migration number **0062**, additive only (new tables, one nullable column).
+- Migration number **0063**, additive only (new tables, one nullable column).
 - The shop bot's behaviour does not change: same tools, prompts, outcomes and messages. `pnpm --filter @agent-sales/backend test -- ai` and the fake-mode evals stay green unchanged.
 - A trace write never fails the customer's reply (Ruling C5-R5). Logs carry run id, tool name and error class only — never excerpts, details, prompts, arguments or secrets.
 - Trace content is allowlisted (spec §4.2) and redacted (§4.3): never recipient/guest names, phones, addresses, action arguments or action responses.
@@ -63,10 +63,10 @@ export const SECRET_REMOVED = '[secret removed]';
 - [ ] Step 4: `pnpm --filter @agent-sales/ai-core test build typecheck lint`.
 - [ ] Step 5: Commit `feat(ai-core): add text redaction and owner secret masking (T-174)`.
 
-### Task 2: Migration 0062, schema and the trace repository
+### Task 2: Migration 0063, schema and the trace repository
 
 **Files:**
-- Create: `packages/db/migrations/0062_bot_turn_traces.sql`
+- Create: `packages/db/migrations/0063_bot_turn_traces.sql`
 - Modify: `packages/db/src/schema/ai.ts` (`aiRunTraces`, `aiRunSteps` with `tenantPolicies`), `packages/db/src/schema/assistant.ts` (`assistantProposals.resultId`)
 - Create: `apps/backend/src/modules/ai/domain/ports/turn-trace.repository.ts`, `apps/backend/src/modules/ai/infrastructure/persistence/turn-trace.repositories.ts` (Drizzle + in-memory)
 - Create: `packages/db/src/ai-traces.integration.test.ts`, `apps/backend/src/modules/ai/__tests__/turn-trace.in-memory.spec.ts`
@@ -76,7 +76,7 @@ export const SECRET_REMOVED = '[secret removed]';
 
 1. `ai_run_traces` exactly as spec §4.1, with `CHECK (char_length(query_excerpt) <= 300)`, same for `reply_excerpt`, `CHECK (loop_outcome IN ('done','interrupted','limit','invalid_tools','budget','error'))`, `CHECK (jsonb_array_length(scenario_ids) <= 50)`, `action_ids ≤ 20`, `focus_product_ids ≤ 3`. FK `run_id → ai_runs(id) ON DELETE CASCADE`, `workspace_id → workspaces(id)`, `bot_id → bots(id) ON DELETE CASCADE`.
 2. `ai_run_steps` as spec §4.1, `CHECK (char_length(detail::text) <= 2000)`, `CHECK (char_length(error_code) <= 60)`.
-3. Indexes from spec §4.1, including `CREATE INDEX ai_run_traces_q_idx ON ai_run_traces USING gin (assistant_unaccent(coalesce(query_excerpt,'') || ' ' || coalesce(reply_excerpt,'')) gin_trgm_ops)` (0056 created `assistant_unaccent` and `pg_trgm`).
+3. Indexes from spec §4.1, including `CREATE INDEX ai_run_traces_q_idx ON ai_run_traces USING gin (assistant_unaccent(coalesce(query_excerpt,'') || ' ' || coalesce(reply_excerpt,'')) gin_trgm_ops)` (0057 created `assistant_unaccent` and `pg_trgm`).
 4. RLS: the 0003 pattern (`ENABLE` + `FORCE`, `<t>_tenant` on `app.workspace_id` for `app_tenant`, `<t>_system` for `app_system`, grants), in a `DO` loop over both tables.
 5. `ALTER TABLE assistant_proposals ADD COLUMN IF NOT EXISTS result_id uuid;`
 
@@ -267,7 +267,7 @@ Routes (`ai.routes.ts`), both `auth`, `workspaceScoped`, tag `ai`:
 - Create: `docs/superpowers/specs/2026-11-02-owner-assistant-5-design.md` (from the drafted spec, updated with anything the tasks changed under a final "Adjustments made while building" section)
 - Modify:
   - core spec: capability table row 5 → "shipped, see capability 5 spec"; §13 last line → points to `ai_run_traces` / `ai_run_steps`;
-  - `docs/adr/ADR-023-owner-assistant.md`: a Consequences line for capability 5 (shop-bot traces with 30-day retention, `assistant.body` narrowing, secret masking);
+  - `docs/adr/ADR-024-owner-assistant.md`: a Consequences line for capability 5 (shop-bot traces with 30-day retention, `assistant.body` narrowing, secret masking);
   - `apps/backend/src/modules/ai/MODULE.md`: owned tables, the trace recorder invariant (best-effort, allowlisted, redacted), the two routes, `AI_TRACE_RUNNER`;
   - `apps/backend/src/modules/assistant/MODULE.md`: the two skills, masking, `result_id`, narrowed bodies;
   - `docs/05` (data model: both tables, retention, `assistant_proposals.result_id`);

@@ -112,7 +112,7 @@ const noFigures = (): Promise<never> => Promise.reject(new Error('no report data
 
 /**
  * Runs one case through the real chat turn (the current `assistant@N` prompt, the platform
- * skills, every tool) on in-memory stores with SMTP on, then checks the one pending proposal.
+ * skills, every tool) on in-memory stores with email on, then checks the one pending proposal.
  */
 export async function runAssistantCase(
   c: AssistantEvalCase,

@@ -26,6 +26,7 @@ import { AppModule } from '../src/app.module.js';
 import { createHttpApp } from '../src/bootstrap.js';
 import { LODGING_BOT_FACADE, type LodgingBotFacade } from '../src/modules/lodging/api/index.js';
 import { addNights, localToday } from '../src/modules/lodging/domain/nights.js';
+import { signUpVerified } from './support/signup.js';
 
 /** Bot availability, hold drafts and the review state of bot holds (T-161) on a real Postgres. */
 let pg: TestPostgres;
@@ -79,22 +80,18 @@ const facade = () => app.get<LodgingBotFacade>(LODGING_BOT_FACADE, { strict: fal
 let signups = 0;
 async function hotel() {
   const n = ++signups;
-  const r = await app
-    .getHttpAdapter()
-    .getInstance()
-    .inject({
-      method: 'POST',
-      url: '/api/v1/auth/signup',
-      remoteAddress: `10.88.0.${n}`,
-      payload: {
-        name: 'Test owner',
-        email: `lodging-bot-holds-${n}@example.test`,
-        password: 'a long synthetic password',
-        workspaceName: 'Test lodging business',
-        industry: 'hotel',
-      },
-    });
-  expect(r.statusCode, r.body).toBe(201);
+  const r = await signUpVerified(
+    app,
+    {
+      name: 'Test owner',
+      email: `lodging-bot-holds-${n}@example.test`,
+      password: 'a long synthetic password',
+      workspaceName: 'Test lodging business',
+      industry: 'hotel',
+    },
+    { remoteAddress: `10.88.0.${n}` },
+  );
+  expect(r.statusCode).toBe(201);
   const auth = AuthResponse.parse(r.json());
   const authorization = `Bearer ${auth.accessToken}`;
   const boot = BootstrapResponse.parse((await call({ authorization }, 'GET', '/bootstrap')).json());
@@ -350,7 +347,7 @@ describe('checkAvailabilityForBot', () => {
       cost: 10_000_000,
       minNights: 2,
     });
-    expect(r.statusCode, r.body).toBe(201);
+    expect(r.statusCode).toBe(201);
     const one = await facade().checkAvailabilityForBot(o.ws, {
       botId: o.botId,
       propertyId: a.id,

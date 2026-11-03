@@ -134,7 +134,7 @@ const assistantTimer = setInterval(() => {
       assistantBusy = false;
     });
 }, 15_000);
-// Notification deliveries (T-172): email over SMTP with retries; one tick at a time.
+// Notification deliveries (T-172): email through Resend with retries; one tick at a time.
 const notifications = ctx.get<NotificationRunner>(NOTIFICATION_RUNNER);
 let notifying = false;
 const notificationTimer = setInterval(() => {

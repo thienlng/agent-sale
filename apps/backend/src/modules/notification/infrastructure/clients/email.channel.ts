@@ -1,5 +1,6 @@
 import { notificationStrings } from '@agent-sales/i18n/notification';
-import nodemailer from 'nodemailer';
+
+import type { Mailer } from '../../../../common/email/mailer.js';
 
 import type {
   NotificationChannel,
@@ -8,23 +9,6 @@ import type {
 
 /** Rapiz orange (brand), the header bar of notification emails. */
 export const EMAIL_BRAND_COLOR = '#F97316';
-
-/** The part of nodemailer the channel uses (a fake in tests). */
-export interface MailTransport {
-  sendMail(m: {
-    from: string;
-    to: string;
-    subject: string;
-    text: string;
-    html: string;
-  }): Promise<{ messageId?: string }>;
-}
-
-export interface SmtpEmailConfig {
-  /** `smtp://` / `smtps://` URL with credentials; unset turns email off (S3-R7). */
-  smtpUrl: string | undefined;
-  from: string;
-}
 
 const escapeHtml = (s: string) =>
   s.replace(
@@ -54,35 +38,24 @@ export function renderEmail(m: OutgoingMessage): { text: string; html: string } 
 }
 
 /**
- * Email over SMTP (`nodemailer`, S3-R7). The transport is built once, and only when `SMTP_URL`
- * is set. Never logs the address, the title or the body.
+ * Email through the backend's transactional `Mailer` (Resend, ADR-023), the same provider as the
+ * signup codes. Built with no mailer (`RESEND_API_KEY` unset), the channel is off. Never logs the
+ * address, the title or the body; Resend gives no message id back through the port.
  */
-export class SmtpEmailChannel implements NotificationChannel {
+export class MailerEmailChannel implements NotificationChannel {
   readonly kind = 'email' as const;
-  readonly #transport: MailTransport | null;
 
-  constructor(
-    private readonly config: SmtpEmailConfig,
-    createTransport: (url: string) => MailTransport = (url) => nodemailer.createTransport(url),
-  ) {
-    this.#transport = config.smtpUrl ? createTransport(config.smtpUrl) : null;
-  }
+  constructor(private readonly mailer: Mailer | null) {}
 
   available(): boolean {
-    return this.#transport !== null;
+    return this.mailer !== null;
   }
 
   async send(m: OutgoingMessage): Promise<{ providerMessageId: string | null }> {
-    if (!this.#transport) throw new EmailDisabledError();
+    if (!this.mailer) throw new EmailDisabledError();
     const { text, html } = renderEmail(m);
-    const info = await this.#transport.sendMail({
-      from: this.config.from,
-      to: m.to,
-      subject: m.title,
-      text,
-      html,
-    });
-    return { providerMessageId: info.messageId ?? null };
+    await this.mailer.send({ to: m.to, subject: m.title, text, html });
+    return { providerMessageId: null };
   }
 }
 

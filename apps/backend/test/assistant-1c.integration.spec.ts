@@ -22,7 +22,7 @@ import type { NewSkill } from '../src/modules/assistant/domain/ports/assistant.r
 import { DrizzleAssistantRepository } from '../src/modules/assistant/infrastructure/persistence/assistant.drizzle-repository.js';
 
 /**
- * Owner assistant 1c storage on Postgres (0058, ADR-023): skills, the ledger, suggestions,
+ * Owner assistant 1c storage on Postgres (0059, ADR-024): skills, the ledger, suggestions,
  * settings, feedback, review counters and leased jobs, through the Drizzle repository under
  * account RLS. One connection per client (`max: 1`) mimics PgBouncer; two repositories on two
  * system connections stand for two worker processes.
