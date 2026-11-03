@@ -397,7 +397,23 @@ describe('AssistantFacade (contract)', () => {
   });
 
   describe('proposals', () => {
-    async function withProposal(over: { expiresAt?: Date; businessId?: string } = {}) {
+    /** A body `POST /products` accepts. */
+    const PRODUCT = {
+      code: 'AO-1',
+      name: 'Áo thun',
+      variants: [{ sku: 'AO-1-M', price: 150_000 }],
+    };
+
+    async function withProposal(
+      over: {
+        expiresAt?: Date;
+        businessId?: string;
+        routeKey?: string;
+        path?: string;
+        body?: unknown;
+        before?: unknown;
+      } = {},
+    ) {
       const ctx = setup();
       const scope = {
         accountId: ctx.accountId,
@@ -411,12 +427,16 @@ describe('AssistantFacade (contract)', () => {
         threadId: t.id,
         runId: null,
         businessId: over.businessId ?? ctx.me.businessId,
-        routeKey: 'POST /products',
-        path: '/products',
+        routeKey: over.routeKey ?? 'POST /products',
+        path: over.path ?? '/products',
         query: null,
-        body: { name: 'Áo thun' },
+        body: over.body ?? { name: 'Áo thun' },
         summary: 'Thêm sản phẩm Áo thun',
-        preview: { body: { name: 'Áo thun' }, query: null },
+        preview: {
+          body: over.body ?? { name: 'Áo thun' },
+          query: null,
+          ...(over.before !== undefined ? { before: over.before } : {}),
+        },
         expiresAt: over.expiresAt ?? new Date(Date.now() + 86_400_000),
       });
       return { ...ctx, scope, t, p };
@@ -476,6 +496,72 @@ describe('AssistantFacade (contract)', () => {
       expect(data.at(-1)?.content).toBe(
         'Không áp dụng được: Thêm sản phẩm Áo thun (route_not_allowed)',
       );
+    });
+
+    it('refuses a whole replace when the target changed since the draft (QA TinyMind B5)', async () => {
+      const productId = newId();
+      const before = { id: productId, ...PRODUCT, description: '', visibleToBot: true };
+      const { facade, me, p, t, invoke } = await withProposal({
+        routeKey: 'PUT /products/{productId}',
+        path: `/products/${productId}`,
+        body: { ...PRODUCT, variants: [{ sku: 'AO-1-M', price: 180_000 }] },
+        before,
+      });
+      // Edited elsewhere after the draft.
+      invoke.mockResolvedValueOnce({
+        status: 200,
+        body: { ...before, description: 'Vải cotton', visibleToBot: false },
+      });
+      expect(await facade.approveProposal(me, p.id, AUTH)).toMatchObject({
+        status: 'failed',
+        errorCode: 'target_changed',
+      });
+      // Only the re-read ran; the stale PUT never did.
+      expect(invoke).toHaveBeenCalledTimes(1);
+      expect(invoke).toHaveBeenCalledWith({
+        method: 'get',
+        path: `/products/${productId}`,
+        businessId: me.businessId,
+        authorization: AUTH,
+      });
+      const { data } = await facade.listMessages(me, t.id);
+      expect(data.at(-1)?.content).toContain('(target_changed)');
+      expect(data.at(-1)?.content).toContain('đề xuất lại');
+    });
+
+    it('applies a PATCH when only fields it does not touch changed', async () => {
+      const { facade, me, p, invoke } = await withProposal({
+        routeKey: 'PATCH /lodging/settings',
+        path: '/lodging/settings',
+        body: { holdMinutes: 90 },
+        before: { holdMinutes: 120, updatedAt: '2026-11-01T00:00:00Z' },
+      });
+      invoke
+        .mockResolvedValueOnce({
+          status: 200,
+          body: { holdMinutes: 120, updatedAt: '2026-11-03T00:00:00Z' },
+        })
+        .mockResolvedValueOnce({ status: 200, body: { holdMinutes: 90 } });
+      expect(await facade.approveProposal(me, p.id, AUTH)).toMatchObject({ status: 'done' });
+      expect(invoke.mock.calls[1]?.[0]).toMatchObject({
+        method: 'patch',
+        body: { holdMinutes: 90 },
+      });
+    });
+
+    it('refuses a PATCH when a field it changes moved since the draft', async () => {
+      const { facade, me, p, invoke } = await withProposal({
+        routeKey: 'PATCH /lodging/settings',
+        path: '/lodging/settings',
+        body: { holdMinutes: 90 },
+        before: { holdMinutes: 120 },
+      });
+      invoke.mockResolvedValueOnce({ status: 200, body: { holdMinutes: 60 } });
+      expect(await facade.approveProposal(me, p.id, AUTH)).toMatchObject({
+        status: 'failed',
+        errorCode: 'target_changed',
+      });
+      expect(invoke).toHaveBeenCalledTimes(1);
     });
 
     it('expires a stale proposal instead of running it', async () => {

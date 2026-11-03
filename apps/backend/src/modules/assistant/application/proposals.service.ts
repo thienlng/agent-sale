@@ -39,6 +39,50 @@ const errorClass = (e: unknown): string => (e instanceof Error ? e.name : typeof
 /** `PATCH /products/{productId}` → `patch`. */
 const methodOf = (routeKey: string): string => (routeKey.split(' ')[0] ?? '').toLowerCase();
 
+/** JSON with object keys sorted, so two reads of the same record compare equal. */
+function stableJson(value: unknown): string {
+  return JSON.stringify(value, (_k, v: unknown) =>
+    v && typeof v === 'object' && !Array.isArray(v)
+      ? Object.fromEntries(
+          Object.entries(v as Record<string, unknown>).sort(([a], [b]) => (a < b ? -1 : 1)),
+        )
+      : v,
+  );
+}
+
+/**
+ * The fields a PATCH/PUT proposal changes that are no longer what the owner saw (`before`): for
+ * a PATCH the body's top-level keys, for a PUT (a whole replace) every top-level key of either
+ * snapshot. Empty when nothing the proposal touches changed.
+ */
+export function changedSince(
+  method: string,
+  body: unknown,
+  before: unknown,
+  current: unknown,
+): string[] {
+  const obj = (v: unknown): Record<string, unknown> | null =>
+    v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
+  const was = obj(before);
+  const now = obj(current);
+  if (!was || !now) return stableJson(before) === stableJson(current) ? [] : ['*'];
+  const keys =
+    method === 'patch'
+      ? Object.keys(obj(body) ?? {}).filter((k) => k in was)
+      : [...new Set([...Object.keys(was), ...Object.keys(now)])];
+  return keys.filter((k) => stableJson(was[k]) !== stableJson(now[k])).sort();
+}
+
+/** Told to the assistant when a stale draft is refused, so it reads again and re-proposes. */
+export const TARGET_CHANGED_EVENT =
+  'dữ liệu này đã thay đổi sau khi em soạn đề xuất nên em không áp dụng, để khỏi ghi đè thay đổi mới; em sẽ đọc lại và đề xuất lại';
+
+/** How a proposal ended; a refusal may bring its own result preview and event text. */
+type Outcome = ({ ok: true; body?: unknown } | { ok: false; errorCode: string }) & {
+  resultPreview?: string;
+  event?: string;
+};
+
 /**
  * Owner decisions on proposals (spec §6). A proposal runs only on approval, through the same
  * in-process route path as a read, with the approver's own bearer token and idempotency key
@@ -84,6 +128,18 @@ export class ProposalService {
       return this.#finish(scope, proposal, { ok: false, errorCode: 'route_not_allowed' });
     }
 
+    // A stale draft must not undo a later edit (QA TinyMind B5): what it changes must still be
+    // what the owner saw when it was drafted.
+    const stale = await this.#changedTarget(proposal, authorization);
+    if (stale.length > 0) {
+      return this.#finish(scope, proposal, {
+        ok: false,
+        errorCode: 'target_changed',
+        resultPreview: JSON.stringify({ changed: stale }),
+        event: `Không áp dụng được: ${proposal.summary} (target_changed): ${TARGET_CHANGED_EVENT}`,
+      });
+    }
+
     let status: number;
     let body: unknown;
     try {
@@ -110,11 +166,38 @@ export class ProposalService {
     );
   }
 
-  /** executing → done | failed, then the event message the next turn sees. */
+  /**
+   * For a PATCH/PUT proposal that stored a `before` snapshot, the fields it changes whose
+   * current value differs from that snapshot (re-read with the approver's token). Empty when the
+   * proposal has no snapshot or the target cannot be read (the write then answers for itself).
+   */
+  async #changedTarget(proposal: ProposalRecord, authorization: string): Promise<string[]> {
+    const method = methodOf(proposal.routeKey);
+    const preview = proposal.preview as { before?: unknown } | null;
+    if ((method !== 'patch' && method !== 'put') || preview?.before === undefined) return [];
+    try {
+      const current = await this.invoker.invoke({
+        method: 'get',
+        path: proposal.path,
+        businessId: proposal.businessId,
+        authorization,
+      });
+      if (current.status < 200 || current.status >= 300) return [];
+      return changedSince(method, proposal.body, preview.before, current.body);
+    } catch (e) {
+      this.#log.warn(`assistant proposal ${proposal.id}: target not re-read (${errorClass(e)})`);
+      return [];
+    }
+  }
+
+  /**
+   * executing → done | failed, then the event message the next turn sees. A refusal may pass its
+   * own result preview and event text; otherwise they are derived from the answer.
+   */
   async #finish(
     scope: OwnerScope,
     proposal: ProposalRecord,
-    outcome: { ok: true; body: unknown } | { ok: false; errorCode: string },
+    outcome: Outcome,
   ): Promise<AssistantProposalDto> {
     const done = await this.repo.transitionProposal(
       scope,
@@ -124,17 +207,21 @@ export class ProposalService {
       {
         decidedAt: new Date(),
         errorCode: outcome.ok ? null : outcome.errorCode,
-        resultPreview: outcome.ok
-          ? (JSON.stringify(outcome.body) ?? '').slice(0, RESULT_PREVIEW_CHARS)
-          : null,
+        resultPreview:
+          outcome.resultPreview !== undefined
+            ? outcome.resultPreview.slice(0, RESULT_PREVIEW_CHARS)
+            : outcome.ok
+              ? (JSON.stringify(outcome.body) ?? '').slice(0, RESULT_PREVIEW_CHARS)
+              : null,
       },
     );
     await this.#event(
       scope,
       proposal,
-      outcome.ok
-        ? `Đã áp dụng: ${proposal.summary}`
-        : `Không áp dụng được: ${proposal.summary} (${outcome.errorCode})`,
+      outcome.event ??
+        (outcome.ok
+          ? `Đã áp dụng: ${proposal.summary}`
+          : `Không áp dụng được: ${proposal.summary} (${outcome.errorCode})`),
     );
     if (!done) throw new AssistantNotFoundError('proposal', proposal.id);
     return toProposalDto(done);
