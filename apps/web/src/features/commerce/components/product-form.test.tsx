@@ -146,6 +146,9 @@ describe('ProductForm and the owner assistant', () => {
       fields: expect.arrayContaining([
         expect.objectContaining({ name: 'name', type: 'text', empty: true }),
         expect.objectContaining({ name: 'price', type: 'number', empty: true }),
+        expect.objectContaining({ name: 'sku', type: 'text', empty: true }),
+        expect.objectContaining({ name: 'cost', type: 'number', empty: true }),
+        expect.objectContaining({ name: 'weightGram', type: 'number', empty: true }),
       ]),
     });
 
@@ -158,6 +161,8 @@ describe('ProductForm and the owner assistant', () => {
         description: 'Cotton 100%',
         sku: 'AT01-M',
         price: 150000,
+        cost: '90.000',
+        weightGram: 350,
       });
     });
 
@@ -168,6 +173,8 @@ describe('ProductForm and the owner assistant', () => {
     expect(screen.getByLabelText(/^Mô tả/)).toHaveValue('Cotton 100%');
     expect(screen.getByLabelText(/^SKU/)).toHaveValue('AT01-M');
     expect(screen.getByLabelText(/^Giá bán/)).toHaveValue('150.000');
+    expect(screen.getByLabelText(/^Giá vốn/)).toHaveValue('90.000');
+    expect(screen.getByLabelText(/^Cân nặng/)).toHaveValue('350');
     expect(collectPageContext('/app/products/new').forms?.[0]?.fields).not.toContainEqual(
       expect.objectContaining({ empty: true }),
     );

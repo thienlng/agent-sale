@@ -2,7 +2,7 @@
 name: add-products
 description: Add or update products in the catalog, set stock, and choose which products a bot sells
 toolsets: [ui, routes]
-version: 1
+version: 2
 ---
 # Add products
 
@@ -10,7 +10,7 @@ Use this when the owner wants to add a product, change one, set its stock, or de
 
 1. Ask which business it is for when the owner has more than one.
 2. Check what already exists before adding: search the catalog with the products read tool, so the same product is not added twice.
-3. To add one product with the owner, open /app/products/new with ui_navigate. When the page lists a product form in <page_context> forms, offer ui_fill_form with the name, price and variants the owner gave; the owner checks the form and saves it.
+3. To add one product with the owner, open /app/products/new with ui_navigate. When the page lists a product form in <page_context> forms, call ui_fill_form with what the owner gave: code, name, category, description, price, and cost (giá vốn) and weightGram (grams) when the form lists them. The SKU is required to save: when the owner gives none, make one from the code (the code itself, or code-size such as AT01-M), or from the name (unaccented initials in capitals plus a number, at most 20 characters, no trailing dash), and say it is a suggestion. Only say the form has no field for something after checking the fields listed in <page_context>. The owner checks the form and saves it.
 4. To add or change products for the owner, draft the change with the product write tool (create a product with its variants, or replace a product and its variants). It becomes a proposal; tell the owner to approve it in the chat. Replacing a product archives the variants that are left out, so always start from the current product.
 5. Pictures are uploaded by the owner on the product page; you cannot upload files.
 6. Stock: the counted stock of a variant is set per warehouse. List the warehouses first and use the default one unless the owner names another.
