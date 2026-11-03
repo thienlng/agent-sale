@@ -199,7 +199,42 @@ describe('toolDetail', () => {
     );
   });
 
-  it('the SaaS request tool: error code only', () => {
+  it('record_request: kind, updated and the error code, never the details', () => {
+    expect(
+      toolDetail(
+        'record_request',
+        { kind: 'appointment', name: 'Hoa', phone: '0983456721' },
+        j({ ok: true, recorded: true, updated: true, kind: 'appointment', missing: [] }),
+      ),
+    ).toEqual({ detail: { kind: 'appointment', updated: true }, errorCode: null });
+    const refused = toolDetail(
+      'record_request',
+      { kind: 'placement_test', phone: '0911222333' },
+      j({ ok: false, error: 'contact_not_from_customer' }),
+    );
+    expect(refused).toEqual({
+      detail: { kind: 'placement_test', errorCode: 'contact_not_from_customer' },
+      errorCode: 'contact_not_from_customer',
+    });
+    expect(JSON.stringify(refused)).not.toContain('0911');
+  });
+
+  it('a course or service with a price note and no stock is not missing price or stock', () => {
+    expect(
+      missingFields({
+        catalogKind: 'service',
+        priceNote: 'liên hệ',
+        description: 'Gội đầu',
+        images: [{ id: 'p:1:0', label: 'x' }],
+        variants: [{ sku: 'S1', name: 'Mặc định', priceVnd: 0 }],
+      }),
+    ).toEqual([]);
+    expect(
+      missingFields({ catalogKind: 'course', description: 'x', images: [], variants: [] }),
+    ).toEqual(['price', 'images', 'variants']);
+  });
+
+  it('the legacy SaaS request tool name stays readable: error code only', () => {
     expect(toolDetail('record_saas_request', { kind: 'demo' }, j({ ok: true }))).toEqual({
       detail: {},
       errorCode: null,

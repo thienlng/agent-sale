@@ -29,11 +29,17 @@ export interface CompactProduct {
   id: string;
   name: string;
   category: string | null;
-  /** Absent for accommodations (reference tariffs live in the details). */
+  /**
+   * Absent for accommodations (reference tariffs live in the details) and for a course or service
+   * whose every price is 0 (not published: `priceNote` says what to tell the customer).
+   */
   fromVnd?: number;
   toVnd?: number;
+  /** Retail products only: courses, services and accommodations have no stock. */
   inStock?: boolean;
-  catalogKind?: 'accommodation';
+  catalogKind?: 'accommodation' | 'course' | 'service';
+  /** A course or service's price wording ("liên hệ", "từ", "giá tham khảo"), when set. */
+  priceNote?: string;
   summary: string;
   imageCount: number;
 }
@@ -41,9 +47,11 @@ export interface CompactProduct {
 export interface ProductDetails extends CompactProduct {
   description: string;
   instructions: string;
-  variants?: { sku: string; name: string; priceVnd: number; available: number }[];
+  /** `available` is absent for a course or a service. */
+  variants?: { sku: string; name: string; priceVnd: number; available?: number }[];
   images: { id: string; label: string }[];
   accommodation?: unknown;
+  offering?: Record<string, unknown>;
   availability?: 'unverified';
 }
 
@@ -58,6 +66,21 @@ export function compactProduct(p: ProductDto): CompactProduct {
     imageCount: imageList(p).length,
   };
   if (p.accommodation) return { ...base, catalogKind: 'accommodation' };
+  if (p.offering) {
+    // A price of 0 is "not published": the range covers the published prices only.
+    const prices = p.variants.map((v) => v.price).filter((price) => price > 0);
+    const note = p.offering.priceNote.trim();
+    return {
+      id: base.id,
+      name: base.name,
+      category: base.category,
+      catalogKind: p.offering.kind,
+      ...(prices.length ? { fromVnd: Math.min(...prices), toVnd: Math.max(...prices) } : {}),
+      ...(note ? { priceNote: note } : {}),
+      summary: base.summary,
+      imageCount: base.imageCount,
+    };
+  }
   return {
     id: base.id,
     name: base.name,
@@ -75,6 +98,11 @@ export function productDetails(p: ProductDto): ProductDetails {
   const compact = compactProduct(p);
   const context = catalogProductContext(p);
   const { code: _code, description: _d, instructions, ...rest } = context;
+  // The compact row already carries the price note of a course or service.
+  if ('offering' in rest && rest.offering) {
+    const { priceNote: _note, ...facts } = rest.offering;
+    rest.offering = facts;
+  }
   return {
     ...compact,
     ...rest,
