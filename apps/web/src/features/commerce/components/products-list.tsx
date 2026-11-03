@@ -17,12 +17,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { formatNumber, formatRelativeTime, formatVnd } from '@/lib/format';
+import { formatNumber, formatRelativeTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { useCan } from '@/lib/permissions';
 
 import { useProducts } from '../api/commerce';
 import { usePmsHintDismissed } from '../hooks/pms-hint';
+import { priceLabel } from './product-price';
 
 /** The workspace's live KiotViet connection, as the route reads it from the integration feature. */
 export interface PmsLink {
@@ -273,9 +274,7 @@ export function ProductsList({
                         {t('products.variantsCount', { count: p.variants.length })}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
-                        {p.priceMin === p.priceMax
-                          ? formatVnd(p.priceMin)
-                          : `${formatVnd(p.priceMin)} – ${formatVnd(p.priceMax)}`}
+                        {priceLabel(p, Boolean(offeringKind), t)}
                       </TableCell>
                       {p.offering ? (
                         <TableCell className="text-right text-muted-foreground tabular-nums">

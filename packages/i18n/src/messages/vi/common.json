@@ -937,6 +937,7 @@
       "outcomesHint": "Mỗi dòng một ý, tối đa 5 ý.",
       "priceNote": "Ghi chú giá",
       "priceNoteHint": "Hiện cạnh giá và thay cho giá 0, ví dụ: giá tham khảo, từ, liên hệ.",
+      "priceOnRequest": "Liên hệ",
       "col": "Thời lượng",
       "minutesCount": "{{count}} phút",
       "sessionsCount": "{{count}} buổi"

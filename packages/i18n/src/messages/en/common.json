@@ -941,6 +941,7 @@
       "outcomesHint": "One per line, at most 5.",
       "priceNote": "Price note",
       "priceNoteHint": "Shown next to the price and instead of a 0 price, e.g. reference price, from, ask us.",
+      "priceOnRequest": "Ask us",
       "col": "Length",
       "minutesCount": "{{count}} min",
       "sessionsCount": "{{count}} sessions"
