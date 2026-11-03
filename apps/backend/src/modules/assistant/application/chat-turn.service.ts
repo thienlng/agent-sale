@@ -65,6 +65,9 @@ export const TURN_CALL_TIMEOUT_MS = 60_000;
 export const TITLE_CHARS = 60;
 /** Said when the turn ends without a usable answer, or the model failed. */
 export const FALLBACK_REPLY = 'Dạ em chưa trả lời được lúc này, anh/chị thử lại giúp em nhé.';
+/** The fallback when the turn drafted a proposal before the model failed (QA TinyMind N5). */
+export const PROPOSAL_FALLBACK_REPLY =
+  'Dạ em đã soạn đề xuất bên dưới, anh/chị xem và duyệt giúp em nhé.';
 /**
  * Safety cap on the active messages the model sees; compaction normally keeps the history far
  * shorter (ruling 1b-R5). The window starts at a user, event or summary message, so an assistant
@@ -185,6 +188,10 @@ export function finalUiActions(actions: AssistantUiAction[]): AssistantUiAction[
 }
 
 const errorClass = (e: unknown): string => (e instanceof Error ? e.name : typeof e);
+
+/** A turn with no answer: point at the proposal card it drafted, else apologise. */
+const fallback = (proposalIds: readonly string[]): string =>
+  proposalIds.length > 0 ? PROPOSAL_FALLBACK_REPLY : FALLBACK_REPLY;
 
 /**
  * One chat turn of the owner assistant: start the run (one at a time per owner, idempotent by
@@ -475,8 +482,8 @@ export class ChatTurnService {
         throw failure;
       }
       const [answer] = await this.repo.appendMessages(scope, thread.id, [
-        // No answer, so no UI action: the owner sees the apology only.
-        row({ role: 'assistant', content: FALLBACK_REPLY, runId }),
+        // No answer, so no UI action: the owner sees the apology, or the drafted card.
+        row({ role: 'assistant', content: fallback(proposalIds), runId }),
       ]);
       await this.repo.finishRun(scope, runId, {
         status: 'failed',
@@ -492,7 +499,7 @@ export class ChatTurnService {
       ...result.followUps.map((m) => toRow(m, runId)),
       row({
         role: 'assistant',
-        content: answered ? replyText : FALLBACK_REPLY,
+        content: answered ? replyText : fallback(proposalIds),
         uiActions: answered ? finalUiActions(ctx.uiActions) : [],
         runId,
       }),
