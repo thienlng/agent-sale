@@ -6,7 +6,9 @@ import { LlmRuntime } from '../application/llm-runtime.js';
 import { InMemoryLlmConfigRepository } from '../infrastructure/persistence/llm-config.in-memory-repository.js';
 import { loadCases, parseCase } from '../evals/load.js';
 import { buildReport, renderMarkdown, renderText } from '../evals/report.js';
+import { dateLabel, evalRequests, isPastDate } from '../evals/requests.js';
 import { evalCatalog, fakeRuntime, fakeScript, runCase, runCaseFake } from '../evals/runner.js';
+import { runChecks } from '../evals/checks.js';
 
 const cases = loadCases();
 
@@ -64,6 +66,137 @@ describe('eval case format', () => {
   });
 });
 
+describe('eval request cases: format and the in-memory crm writer', () => {
+  const REQUEST =
+    `${MINIMAL.replace('bot: {', 'bot: { industry: spa,')}requests_before: [appointment]
+products:
+  - name: 'Gội đầu'
+    variants: [{ name: 'Tiêu chuẩn', price: 0 }]
+    offering: { kind: service, durationMinutes: 60, priceNote: 'liên hệ' }
+`.replace(
+      'expect:\n',
+      'expect:\n  request_recorded: true\n  request_kind: appointment\n  request_updated: false\n',
+    );
+
+  it('parses offering products, the request expectations and requests_before', () => {
+    const c = parseCase(REQUEST);
+    expect(c.products[0]?.offering).toMatchObject({ kind: 'service', priceNote: 'liên hệ' });
+    expect(c.expect).toMatchObject({
+      request_recorded: true,
+      request_kind: 'appointment',
+      request_updated: false,
+    });
+    expect(c.requests_before).toEqual(['appointment']);
+    expect(() =>
+      parseCase(REQUEST.replace('kind: appointment', 'kind: meeting'), 'k.yaml'),
+    ).toThrow(/k\.yaml/);
+    const both = REQUEST.replace(
+      'offering: { kind: service',
+      'accommodation: { rentalType: entire_property, bedrooms: 1, standardAdults: 2, standardChildren: 0, childAgeBelow: 6, maxGuests: null, amenities: [], gallery: [], rateBasis: unconfirmed, rates: [{ days: [1, 2, 3, 4, 5, 6, 7], amount: 1 }], roomLayout: [{ name: R, beds: B }] }\n    offering: { kind: service',
+    );
+    expect(() => parseCase(both, 'b.yaml')).toThrow(/accommodation or offering/);
+  });
+
+  it('pins the local dateLabel and isPastDate copies (crm writer output)', () => {
+    expect(
+      [
+        '2027-11-08',
+        '2027-11-09',
+        '2027-11-10',
+        '2027-11-11',
+        '2027-11-12',
+        '2027-11-13',
+        '2027-11-14',
+      ].map(dateLabel),
+    ).toEqual([
+      'Thứ Hai 08/11/2027',
+      'Thứ Ba 09/11/2027',
+      'Thứ Tư 10/11/2027',
+      'Thứ Năm 11/11/2027',
+      'Thứ Sáu 12/11/2027',
+      'Thứ Bảy 13/11/2027',
+      'Chủ Nhật 14/11/2027',
+    ]);
+    // 2026-11-04 23:30 in Asia/Ho_Chi_Minh is 16:30 UTC.
+    const lateEvening = new Date('2026-11-04T16:30:00Z');
+    expect(isPastDate('2026-11-03', lateEvening)).toBe(true);
+    expect(isPastDate('2026-11-04', lateEvening)).toBe(false);
+    // 2026-11-05 00:30 local (17:30 UTC on the 4th): the 4th is now past.
+    expect(isPastDate('2026-11-04', new Date('2026-11-04T17:30:00Z'))).toBe(true);
+  });
+
+  it('records with the contracts rules: required groups, phone, past date, missing, update window', async () => {
+    const now = new Date('2026-11-04T03:00:00Z');
+    const fake = evalRequests('spa', [], () => now);
+    const ws = workspaceId(newId());
+    const base = { name: 'Hoa', phone: '0983456721', service: 'Gội đầu' };
+    const record = (details: Record<string, string>, kind = 'appointment' as const) =>
+      fake.recordBotRequest(ws, { kind, details, preview: true });
+    expect(await record({ name: 'Hoa', phone: '0983456721' })).toEqual({
+      outcome: 'invalid',
+      problems: ['missing:service', 'missing:preferredDate'],
+    });
+    expect(await record({ ...base, phone: '12', preferredTime: '15h' })).toEqual({
+      outcome: 'invalid',
+      problems: ['phone: not a phone number'],
+    });
+    expect(await record({ ...base, preferredDate: '2026-11-03' })).toEqual({
+      outcome: 'invalid',
+      problems: ['past_date'],
+    });
+    expect(
+      await fake.recordBotRequest(ws, { kind: 'demo', details: base, preview: false }),
+    ).toEqual({ outcome: 'invalid', problems: ['kind_not_offered'] });
+    expect(await record({ ...base, preferredDate: '2026-11-07' })).toMatchObject({
+      outcome: 'recorded',
+      missing: ['branch', 'preferredTime'],
+      dateLabel: 'Thứ Bảy 07/11/2026',
+    });
+    expect(await record({ ...base, preferredTime: '15h', branch: 'Quận 1' })).toMatchObject({
+      outcome: 'updated',
+      missing: [],
+      dateLabel: null,
+    });
+    expect(fake.recorded.map((r) => [r.kind, r.updated])).toEqual([
+      ['appointment', false],
+      ['appointment', true],
+    ]);
+    const seeded = evalRequests('spa', ['appointment'], () => now);
+    expect(
+      await seeded.recordBotRequest(ws, {
+        kind: 'appointment',
+        details: { ...base, preferredTime: '15h' },
+        preview: true,
+      }),
+    ).toMatchObject({ outcome: 'updated' });
+    expect(
+      await evalRequests('retail').recordBotRequest(ws, {
+        kind: 'demo',
+        details: base,
+        preview: true,
+      }),
+    ).toEqual({ outcome: 'invalid', problems: ['kind_not_offered'] });
+  });
+
+  it('checks request_recorded, request_kind and request_updated on the recorded requests', () => {
+    const input = { reply: '', outcome: 'answered' as const, customerTexts: [], trusted: [] };
+    const want = { request_recorded: true, request_kind: 'trial' as const, request_updated: true };
+    const failed = (requests: { kind: string; updated: boolean }[]) =>
+      runChecks(want, { ...input, requests })
+        .filter((x) => !x.pass)
+        .map((x) => x.name);
+    expect(failed([{ kind: 'trial', updated: true }])).toEqual([]);
+    expect(failed([])).toEqual(['request_recorded', 'request_kind', 'request_updated']);
+    expect(failed([{ kind: 'consultation', updated: false }])).toEqual([
+      'request_kind',
+      'request_updated',
+    ]);
+    expect(
+      runChecks({ request_recorded: false }, { ...input, requests: [] }).every((x) => x.pass),
+    ).toBe(true);
+  });
+});
+
 describe('eval suite (fake mode)', () => {
   it('has unique ids, a critical tag on the unknown, injection and harness v2 cases, and at least 20 cases', () => {
     expect(cases.length).toBeGreaterThanOrEqual(20);
@@ -84,6 +217,12 @@ describe('eval suite (fake mode)', () => {
       'tinymind-order-summary-quick-replies',
       'tinymind-order-confirm-gives-code',
       'tinymind-order-insufficient-stock',
+      'education-placement-test-recorded',
+      'request-phone-not-from-customer',
+      'spa-price-contact-note',
+      'spa-appointment-recorded',
+      'spa-phone-with-booking-no-handoff',
+      'saas-demo-recorded-no-handoff',
     ])
       expect(critical.has(id), id).toBe(true);
   });
@@ -104,6 +243,7 @@ describe('eval suite (fake mode)', () => {
     expect(report.gate).toBe('pass');
     expect(report.promptVersion).toContain('sales-agent@15');
     expect(report.promptVersion).toContain('sales-agent@18');
+    expect(report.promptVersion).toContain('sales-agent@19');
     expect(report.passed).toBe(report.total);
     expect(report.groups.map((g) => g.group)).toContain('safety');
     expect(renderText(report)).toContain('Critical:');

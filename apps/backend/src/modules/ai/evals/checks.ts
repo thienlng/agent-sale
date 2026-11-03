@@ -35,6 +35,8 @@ export interface CheckInput {
   steps?: readonly ToolStep[];
   /** The turn created an order. */
   orderCreated?: boolean;
+  /** The requests `record_request` recorded this turn, in order (the in-memory crm writer). */
+  requests?: readonly { kind: string; updated: boolean }[];
   customerTexts: readonly string[];
   /** Everything the reply may state figures from: profile, notes, FAQs, situations, products. */
   trusted: readonly string[];
@@ -111,6 +113,30 @@ export function runChecks(expected: EvalExpect, input: CheckInput): CheckResult[
       `expected orderCreated ${expected.order_created}, got ${created}`,
     );
   }
+  const requests = input.requests ?? [];
+  const last = requests.at(-1);
+  if (expected.request_recorded !== undefined) {
+    const recorded = requests.length > 0;
+    add(
+      'request_recorded',
+      recorded === expected.request_recorded,
+      `expected a recorded request ${expected.request_recorded}, got ${requests.length} recorded`,
+    );
+  }
+  if (expected.request_kind !== undefined)
+    add(
+      'request_kind',
+      last?.kind === expected.request_kind,
+      `expected kind ${expected.request_kind}, got ${last?.kind ?? 'no request'}`,
+    );
+  if (expected.request_updated !== undefined)
+    add(
+      'request_updated',
+      last !== undefined && last.updated === expected.request_updated,
+      last
+        ? `expected updated ${expected.request_updated}, got ${last.updated}`
+        : 'no request recorded',
+    );
   if (expected.contains_any) {
     const hit = expected.contains_any.find((s) => reply.includes(norm(s)));
     add(
