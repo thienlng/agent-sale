@@ -1,6 +1,8 @@
 ---
 name: set-up-api-action
 description: Draft a bot API action from pasted API docs or a curl example; it starts disabled and the owner types the key
+title: Thiết lập hành động API
+description_vi: Soạn hành động API cho bot từ tài liệu hoặc ví dụ curl; bật sau khi chủ shop nhập khoá
 toolsets: [routes, ui]
 version: 1
 ---
