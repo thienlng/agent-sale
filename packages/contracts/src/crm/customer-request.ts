@@ -368,16 +368,16 @@ const RequestDate = z
 function fieldSchema(def: RequestFieldDef): z.ZodType {
   if (def.key === 'email') return RequestEmail.nullable().default(null);
   if (def.key === 'preferredDate') return RequestDate;
-  const text = z.string().trim().max(def.max);
-  if (def.key === 'name' || def.key === 'phone') return text.min(1);
-  return text.default('');
+  // `name` and `phone` default to '' too: the required groups name them (`missing:name`).
+  return z.string().trim().max(def.max).default('');
 }
 
 const detailsCache = new Map<RequestIndustry, z.ZodObject<z.ZodRawShape>>();
 
 /**
  * Zod object of the industry's fields: free text on purpose ("10-20 người", "chiều thứ 5"),
- * `name` and `phone` required, `email` an address or null, `preferredDate` empty or YYYY-MM-DD.
+ * `name` and `phone` empty by default (the profile's required groups report them as
+ * `missing:<field>`), `email` an address or null, `preferredDate` empty or YYYY-MM-DD.
  * Unknown keys are stripped: the model may send extra ones.
  */
 export function requestDetailsSchema(industry: RequestIndustry): z.ZodObject<z.ZodRawShape> {

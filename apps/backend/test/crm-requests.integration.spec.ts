@@ -169,7 +169,14 @@ describe('saas requests (ported from saas.integration.spec.ts)', () => {
 
   it('answers invalid arguments instead of throwing, and previews without writing', async () => {
     const a = await owner('saas');
-    expect(await record(a.ws, 'demo', { name: 'Lan' })).toMatchObject({ outcome: 'invalid' });
+    expect(await record(a.ws, 'demo', { name: 'Lan' })).toEqual({
+      outcome: 'invalid',
+      problems: ['missing:phone'],
+    });
+    expect(await record(a.ws, 'demo', { phone: '0983456721' })).toEqual({
+      outcome: 'invalid',
+      problems: ['missing:name'],
+    });
     expect(await record(a.ws, 'demo', { name: 'Lan', phone: '12' })).toEqual({
       outcome: 'invalid',
       problems: ['phone: not a phone number'],

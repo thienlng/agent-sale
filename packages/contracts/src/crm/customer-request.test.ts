@@ -84,11 +84,23 @@ describe('the saas profile keeps ADR-020', () => {
     });
   });
 
+  it('leaves a missing name or phone to the required groups (missing:<field>)', () => {
+    const schema = requestDetailsSchema('saas');
+    const required = REQUEST_PROFILES.saas.required.demo;
+    for (const [input, unmet] of [
+      [{ phone: '0983456721' }, ['name']],
+      [{ name: 'Lan' }, ['phone']],
+      [{ ...fixture, name: '   ' }, ['name']],
+      [{}, ['name', 'phone']],
+    ] as const) {
+      const parsed = schema.safeParse(input);
+      expect(parsed.success).toBe(true);
+      expect(unmetRules(required, parsed.data as Record<string, unknown>)).toEqual(unmet);
+    }
+  });
+
   it('rejects what the ADR-020 details schema rejected', () => {
     const bad = [
-      { phone: '0983456721' },
-      { name: 'Lan' },
-      { ...fixture, name: '   ' },
       { ...fixture, email: 'not-an-email' },
       { ...fixture, need: 'x'.repeat(2001) },
       { ...fixture, teamSize: 'x'.repeat(61) },
