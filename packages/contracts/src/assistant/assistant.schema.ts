@@ -2,7 +2,14 @@ import { z } from 'zod';
 
 // ─── Page context and UI actions ──────────────────────────────────────────────
 
-/** A form on screen the assistant may fill (`fill_form`); `empty` marks fields with no value yet. */
+/** Longest current value of one form field in the page context (longer text is cut). */
+export const ASSISTANT_FORM_VALUE_MAX = 1_500;
+
+/**
+ * A form on screen the assistant may fill (`fill_form`); `empty` marks fields with no value yet.
+ * A non-empty text or textarea field carries its current `value` (cut to 1 500 chars), so an
+ * overwrite edits what the owner has instead of drafting from scratch (QA Villas N-5).
+ */
 export const AssistantPageForm = z.object({
   id: z.string().max(60),
   fields: z
@@ -13,6 +20,7 @@ export const AssistantPageForm = z.object({
         type: z.enum(['text', 'textarea', 'number', 'select']),
         options: z.array(z.string().max(80)).max(30).optional(),
         empty: z.boolean(),
+        value: z.string().max(ASSISTANT_FORM_VALUE_MAX).optional(),
       }),
     )
     .max(30),
