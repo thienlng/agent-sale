@@ -67,7 +67,8 @@ export class AiNotConfiguredError extends DomainError {
 /** Every provider of the tier failed (errors, timeouts). Details are logged, not returned. */
 export class AiProviderFailedError extends DomainError {
   readonly code = 'AI_UNAVAILABLE';
-  constructor() {
+  /** The classified cause of the last failure (`rate_limit`, `timeout`, …); never returned. */
+  constructor(readonly kind?: string) {
     super('The AI model is temporarily unavailable');
   }
 }

@@ -11,7 +11,12 @@ import type { AssistantUiAction, SendAssistantMessageRequest } from '@agent-sale
 import { newId } from '@agent-sales/shared';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
-import { AI_LLM_GATEWAY, isAiNotConfiguredError, type LlmGatewayPort } from '../../ai/api/index.js';
+import {
+  AI_LLM_GATEWAY,
+  isAiNotConfiguredError,
+  isModelRateLimitedError,
+  type LlmGatewayPort,
+} from '../../ai/api/index.js';
 import {
   AssistantBusyError,
   AssistantNotFoundError,
@@ -511,6 +516,20 @@ export class ChatTurnService {
         });
         throw failure;
       }
+      // The failed model call is a step too, so the run shows why it failed (QA ERR-m).
+      await this.repo
+        .addStep(scope, {
+          runId,
+          idx,
+          kind: 'model_call',
+          toolName: null,
+          ok: false,
+          ms: null,
+          errorCode: isModelRateLimitedError(failure) ? 'model_rate_limited' : 'model_unavailable',
+        })
+        .catch((e: unknown) => {
+          this.#log.warn(`assistant run ${runId}: step not saved (${errorClass(e)})`);
+        });
       const [answer] = await this.repo.appendMessages(scope, thread.id, [
         // No answer, so no UI action: the owner sees the apology, or the drafted card.
         row({ role: 'assistant', content: fallback(proposalIds), runId }),

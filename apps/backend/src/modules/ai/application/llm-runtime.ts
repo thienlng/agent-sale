@@ -1,4 +1,5 @@
 import {
+  classifyLlmError,
   type GenerateRequest,
   type GenerateResponse,
   LlmGateway,
@@ -71,7 +72,7 @@ export class LlmRuntime {
         `LLM call failed on every provider of tier ${request.tier} (workspace ${request.workspaceId}): ${err.message}`,
         err.stack,
       );
-      throw new AiProviderFailedError();
+      throw new AiProviderFailedError(classifyLlmError(error));
     }
   }
 

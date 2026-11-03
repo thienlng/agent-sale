@@ -31,6 +31,14 @@ import type { SqlRunner } from '../domain/ports/sql-runner.port.js';
 import { InMemoryAssistantRepository } from '../infrastructure/persistence/assistant.in-memory-repository.js';
 import { FakeSqlRunner } from './factories/fake-sql-runner.js';
 
+/** Same name, code and kind as the ai module's error (detected by `isModelRateLimitedError`). */
+class AiProviderFailedError extends DomainError {
+  readonly code = 'AI_UNAVAILABLE';
+  constructor(readonly kind: string) {
+    super('down');
+  }
+}
+
 /** Same name and code as the ai module's error (detected by `isAiNotConfiguredError`). */
 class AiNotConfiguredError extends DomainError {
   readonly code = 'AI_UNAVAILABLE';
@@ -296,6 +304,16 @@ describe('ChatTurnService', () => {
     ).rejects.toBeInstanceOf(AssistantRunIdTakenError);
   });
 
+  it('records a rate-limited model call as a failed step (QA ERR-m)', async () => {
+    const limited = new AiProviderFailedError('rate_limit');
+    const { service, scope, thread } = await setup([limited]);
+    const out = await service.send(scope, thread.id, { turnId: newId(), text: 'Chào em' }, AUTH);
+    expect(out.run).toMatchObject({ status: 'failed', guardrail: 'model_error' });
+    expect(out.run.steps.map((st) => [st.idx, st.kind, st.ok, st.errorCode])).toEqual([
+      [0, 'model_call', false, 'model_rate_limited'],
+    ]);
+  });
+
   it('answers with an apology and fails the run when the model throws', async () => {
     const { service, scope, thread } = await setup([new Error('provider down')]);
     const out = await service.send(scope, thread.id, { turnId: newId(), text: 'Chào em' }, AUTH);
@@ -305,6 +323,9 @@ describe('ChatTurnService', () => {
     ]);
     expect(out.run).toMatchObject({ status: 'failed', guardrail: 'model_error' });
     expect(out.run.finishedAt).toBeInstanceOf(Date);
+    expect(out.run.steps.map((st) => [st.kind, st.ok, st.errorCode])).toEqual([
+      ['model_call', false, 'model_unavailable'],
+    ]);
     // The owner is free to try again.
     expect(
       (await service.send(scope, thread.id, { turnId: newId(), text: 'Lại' }, AUTH)).run.status,
