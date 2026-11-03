@@ -94,6 +94,13 @@ const row = (over: Partial<NewMessage> & Pick<NewMessage, 'role' | 'content'>): 
   ...over,
 });
 
+/** The model-only tail of an approval event (QA N9): the route and the created record's id. */
+function eventMeta(meta: unknown): string {
+  const m = meta as { routeKey?: unknown; resultId?: unknown } | null;
+  if (typeof m?.routeKey !== 'string' || typeof m.resultId !== 'string') return '';
+  return ` (${m.routeKey} → id ${m.resultId})`;
+}
+
 /** A stored message as the model sees it; `event` rows read as user messages. */
 function toChatMessage(m: MessageRecord): ChatMessage {
   switch (m.role) {
@@ -111,7 +118,7 @@ function toChatMessage(m: MessageRecord): ChatMessage {
         name: m.toolName ?? '',
       };
     case 'event':
-      return { role: 'user', content: `[event] ${m.content}` };
+      return { role: 'user', content: `[event] ${m.content}${eventMeta(m.pageContext)}` };
     default:
       return { role: 'user', content: m.content };
   }

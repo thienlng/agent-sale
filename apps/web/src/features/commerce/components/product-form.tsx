@@ -132,6 +132,7 @@ export function ProductForm({
         label: t('products.form.sku'),
         type: 'text',
         empty: !first?.sku.trim(),
+        required: true,
         value: first?.sku ?? '',
       },
       { name: 'price', label: t('products.form.price'), type: 'number', empty: !first?.price },

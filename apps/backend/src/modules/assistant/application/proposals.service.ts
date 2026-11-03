@@ -84,6 +84,19 @@ export function changedSince(
 export const TARGET_CHANGED_EVENT =
   'dữ liệu này đã thay đổi sau khi em soạn đề xuất nên em không áp dụng, để khỏi ghi đè thay đổi mới; em sẽ đọc lại và đề xuất lại';
 
+/** The model-only part of an approval event: the route that ran and the record it created. */
+export interface EventMeta {
+  routeKey: string;
+  resultId: string;
+}
+
+/** The created record's id: the response body's `id` when it is a uuid; else null. */
+function resultIdOf(body: unknown): string | null {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) return null;
+  const id = (body as { id?: unknown }).id;
+  return typeof id === 'string' && isUuid(id) ? id : null;
+}
+
 /** How a proposal ended; a refusal may bring its own result preview and event text. */
 type Outcome = (
   { ok: true; body?: unknown } | { ok: false; errorCode: string; reason?: string }
@@ -249,6 +262,7 @@ export class ProposalService {
               : null,
       },
     );
+    const resultId = outcome.ok ? resultIdOf(outcome.body) : null;
     await this.#event(
       scope,
       proposal,
@@ -258,6 +272,8 @@ export class ProposalService {
           : `Không áp dụng được: ${proposal.summary} (${outcome.errorCode}${
               outcome.reason ? `: ${outcome.reason}` : ''
             })`),
+      // For the model only (QA N9): what was created, so a follow-up (stock) can target it.
+      resultId ? { routeKey: proposal.routeKey, resultId } : null,
     );
     if (!done) throw new AssistantNotFoundError('proposal', proposal.id);
     return toProposalDto(done);
@@ -294,7 +310,16 @@ export class ProposalService {
     );
   }
 
-  async #event(scope: OwnerScope, proposal: ProposalRecord, content: string): Promise<void> {
+  /**
+   * Appends the event row. `meta` (the route and the created record's id) rides in the row's
+   * `page_context`, which the owner never sees; the model reads it with the event.
+   */
+  async #event(
+    scope: OwnerScope,
+    proposal: ProposalRecord,
+    content: string,
+    meta: EventMeta | null = null,
+  ): Promise<void> {
     await this.repo.appendMessages(scope, proposal.threadId, [
       {
         id: newId(),
@@ -303,7 +328,7 @@ export class ProposalService {
         toolCalls: null,
         toolCallId: null,
         toolName: null,
-        pageContext: null,
+        pageContext: meta,
         uiActions: [],
         runId: null,
       },

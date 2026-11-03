@@ -191,7 +191,11 @@ describe('ChatTurnService', () => {
         toolCalls: null,
         toolCallId: null,
         toolName: null,
-        pageContext: null,
+        // The model-only tail of an approval event (QA N9).
+        pageContext: {
+          routeKey: 'POST /products',
+          resultId: '01a1a0df-6f8a-7000-8000-000000000001',
+        },
         uiActions: [],
         runId: null,
       },
@@ -211,7 +215,9 @@ describe('ChatTurnService', () => {
     expect(messages[1]?.content).toBe('Câu một');
     expect(messages[2]?.toolCalls).toEqual(NAVIGATE.toolCalls);
     expect(messages[3]).toMatchObject({ toolCallId: 'call_1', name: 'ui_navigate' });
-    expect(messages[5]?.content).toBe('[event] Đơn #12 đã giao');
+    expect(messages[5]?.content).toBe(
+      '[event] Đơn #12 đã giao (POST /products → id 01a1a0df-6f8a-7000-8000-000000000001)',
+    );
     expect(messages[6]?.content).toMatch(
       /^<current_business>[0-9a-f-]{36}<\/current_business>\n<current_time>\d{2}:\d{2}<\/current_time>\nCâu hai$/,
     );

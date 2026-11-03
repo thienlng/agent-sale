@@ -544,6 +544,29 @@ describe('AssistantFacade (contract)', () => {
       );
     });
 
+    it('puts the created id in the event row for the model only (QA N9)', async () => {
+      const { facade, me, p, t, invoke, repo, scope } = await withProposal();
+      const productId = newId();
+      invoke.mockResolvedValueOnce({ status: 201, body: { id: productId, name: 'Áo thun' } });
+      expect(await facade.approveProposal(me, p.id, AUTH)).toMatchObject({ status: 'done' });
+      const rows = await repo.listMessages(scope, t.id);
+      expect(rows.at(-1)).toMatchObject({
+        role: 'event',
+        pageContext: { routeKey: 'POST /products', resultId: productId },
+      });
+      expect((await facade.listMessages(me, t.id)).data.at(-1)).not.toHaveProperty('pageContext');
+    });
+
+    it('keeps the event row without page context when the response id is not a uuid', async () => {
+      const { facade, me, p, t, invoke, repo, scope } = await withProposal();
+      invoke.mockResolvedValueOnce({ status: 201, body: { id: 'AO-1' } });
+      await facade.approveProposal(me, p.id, AUTH);
+      expect((await repo.listMessages(scope, t.id)).at(-1)).toMatchObject({
+        role: 'event',
+        pageContext: null,
+      });
+    });
+
     it('fails a proposal whose route is no longer a write, without running it', async () => {
       const { facade, me, p, t, invoke, proposals } = await withProposal();
       // A deploy since the proposal turned POST /products into a route the assistant may not use.

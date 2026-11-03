@@ -146,7 +146,7 @@ describe('ProductForm and the owner assistant', () => {
       fields: expect.arrayContaining([
         expect.objectContaining({ name: 'name', type: 'text', empty: true }),
         expect.objectContaining({ name: 'price', type: 'number', empty: true }),
-        expect.objectContaining({ name: 'sku', type: 'text', empty: true }),
+        expect.objectContaining({ name: 'sku', type: 'text', empty: true, required: true }),
         expect.objectContaining({ name: 'cost', type: 'number', empty: true }),
         expect.objectContaining({ name: 'weightGram', type: 'number', empty: true }),
       ]),
