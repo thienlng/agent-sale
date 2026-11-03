@@ -13,6 +13,8 @@ export const ScheduleTemplate = z.enum([
   'low_stock',
   'unanswered_conversations',
   'new_customers',
+  /** Requests the bot recorded (education, spa, saas; T-187). */
+  'new_requests',
 ]);
 export type ScheduleTemplate = z.infer<typeof ScheduleTemplate>;
 
@@ -27,6 +29,7 @@ export const ALERT_TEMPLATES: readonly ScheduleTemplate[] = [
   'new_orders',
   'low_stock',
   'unanswered_conversations',
+  'new_requests',
 ];
 
 /** Intervals an alert may be checked at, in minutes. */
@@ -71,12 +74,16 @@ export type Cadence = z.infer<typeof Cadence>;
 export const SchedulePeriod = z.enum(['day', 'week', 'month']);
 export const ScheduleWindow = z.enum(['previous', 'to_date']);
 
-/** `revenue_summary`, `new_customers` and `new_orders` reports. */
+/** `revenue_summary`, `new_customers`, `new_orders` and `new_requests` reports. */
 export const PeriodParams = z.object({
   period: SchedulePeriod.default('day'),
   window: ScheduleWindow.default('previous'),
 });
 export const NewOrdersAlertParams = z.object({
+  minCount: z.number().int().min(1).max(1000).default(1),
+});
+/** A `new_requests` alert fires when at least `minCount` requests arrived since the last one. */
+export const NewRequestsAlertParams = z.object({
   minCount: z.number().int().min(1).max(1000).default(1),
 });
 export const LowStockParams = z.object({
@@ -99,6 +106,8 @@ export function scheduleParamsSchema(template: ScheduleTemplate, mode: ScheduleM
       return LowStockParams;
     case 'unanswered_conversations':
       return UnansweredParams;
+    case 'new_requests':
+      return mode === 'alert' ? NewRequestsAlertParams : PeriodParams;
   }
 }
 

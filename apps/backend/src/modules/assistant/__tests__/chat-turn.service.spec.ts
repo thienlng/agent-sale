@@ -945,7 +945,7 @@ describe('ChatTurnService with the SQL lane', () => {
       body: catalog.get('answer-data-questions')?.body,
     });
     expect(catalog.get('answer-data-questions')?.toolsets).toEqual(['sql']);
-    expect(catalog.get('read-revenue')).toMatchObject({ version: 2, toolsets: ['sql', 'routes'] });
+    expect(catalog.get('read-revenue')).toMatchObject({ version: 3, toolsets: ['sql', 'routes'] });
   });
 
   it('has no SQL tools without a runner', async () => {

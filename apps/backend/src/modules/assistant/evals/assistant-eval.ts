@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import type { GenerateRequest, GenerateResponse } from '@agent-sales/ai-core';
@@ -20,12 +21,15 @@ import { SkillsService } from '../application/skills.service.js';
 import { ThreadPromptService } from '../application/thread-prompt.service.js';
 import type { OwnerScope } from '../domain/owner-scope.js';
 import type { ReportStringsSource } from '../domain/ports/report-data-source.port.js';
+import type { SqlRunner } from '../domain/ports/sql-runner.port.js';
 import { InMemoryAssistantRepository } from '../infrastructure/persistence/assistant.in-memory-repository.js';
 
-/** `apps/backend/evals/assistant/schedules.yaml`, the same path from src/ (tests, tsx) and dist/. */
-export const ASSISTANT_EVALS_FILE = fileURLToPath(
-  new URL('../../../../evals/assistant/schedules.yaml', import.meta.url),
+/** `apps/backend/evals/assistant/`, the same path from src/ (tests, tsx) and dist/. */
+export const ASSISTANT_EVALS_DIR = fileURLToPath(
+  new URL('../../../../evals/assistant/', import.meta.url),
 );
+/** The original case file (T-172); every `*.yaml` of the folder is a case file. */
+export const ASSISTANT_EVALS_FILE = path.join(ASSISTANT_EVALS_DIR, 'schedules.yaml');
 
 const FakeTurn = z
   .object({
@@ -36,11 +40,16 @@ const FakeTurn = z
   })
   .strict();
 
-/** One owner message and the proposal it must leave (owner assistant eval, T-172). */
+/**
+ * One owner message and what it must leave (owner assistant eval, T-172): the proposal, or the
+ * read-only SQL it ran (T-187). A case without `proposal` must leave none.
+ */
 export const AssistantEvalCase = z
   .object({
     id: z.string().regex(/^[a-z0-9-]+$/),
     tags: z.array(z.string()).default([]),
+    /** The industry of the owner's one business (default retail). */
+    industry: z.string().default('retail'),
     message: z.string().min(1),
     expect: z
       .object({
@@ -50,18 +59,41 @@ export const AssistantEvalCase = z
             /** Subset of the proposed draft; `channels` compares as a set. */
             draft: z.record(z.string(), z.unknown()),
           })
-          .strict(),
+          .strict()
+          .optional(),
+        /** Fragments one SQL query of the turn must contain (lowercased, spaces collapsed). */
+        sql: z
+          .object({ contains: z.array(z.string().min(1)).min(1) })
+          .strict()
+          .optional(),
       })
-      .strict(),
+      .strict()
+      .refine((e) => e.proposal || e.sql, 'expect a proposal or sql'),
     /** The scripted model of fake mode: one entry per model call. */
     fake_turns: z.array(FakeTurn).min(1),
   })
   .strict();
 export type AssistantEvalCase = z.infer<typeof AssistantEvalCase>;
 
-export function loadAssistantCases(file = ASSISTANT_EVALS_FILE): AssistantEvalCase[] {
-  const raw = parse(readFileSync(file, 'utf8')) as { cases?: unknown };
-  return z.array(AssistantEvalCase).min(1).parse(raw.cases);
+/** The `*.yaml` case files of the folder, sorted by name. */
+export function assistantEvalFiles(dir = ASSISTANT_EVALS_DIR): string[] {
+  return readdirSync(dir)
+    .filter((f) => f.endsWith('.yaml'))
+    .sort()
+    .map((f) => path.join(dir, f));
+}
+
+export function loadAssistantCases(
+  files: string | readonly string[] = assistantEvalFiles(),
+): AssistantEvalCase[] {
+  const cases = (typeof files === 'string' ? [files] : files).flatMap((file) => {
+    const raw = parse(readFileSync(file, 'utf8')) as { cases?: unknown };
+    return z.array(AssistantEvalCase).min(1).parse(raw.cases);
+  });
+  const ids = cases.map((c) => c.id);
+  const dup = ids.find((id, i) => ids.indexOf(id) !== i);
+  if (dup) throw new Error(`duplicate assistant eval case id ${dup}`);
+  return cases;
 }
 
 export interface AssistantEvalResult {
@@ -109,6 +141,23 @@ function subsetProblems(expected: unknown, actual: unknown, path: string): strin
 }
 
 const noFigures = (): Promise<never> => Promise.reject(new Error('no report data in evals'));
+const squash = (sql: string) => sql.toLowerCase().replace(/\s+/g, ' ');
+
+/** A read-only SQL lane that records the queries and answers one row. */
+class RecordingSqlRunner implements SqlRunner {
+  readonly queries: string[] = [];
+  run(i: Parameters<SqlRunner['run']>[0]): ReturnType<SqlRunner['run']> {
+    this.queries.push(i.sql);
+    return Promise.resolve({
+      columns: [
+        { name: 'status_name', type: 'text' },
+        { name: 'n', type: 'number' },
+      ],
+      rows: [['Đăng ký kiểm tra', 2]],
+      truncated: false,
+    });
+  }
+}
 
 /**
  * Runs one case through the real chat turn (the current `assistant@N` prompt, the platform
@@ -126,7 +175,7 @@ export async function runAssistantCase(
       workspaceId: business,
       workspaceName: 'Shop Lan',
       role: 'owner',
-      industry: 'retail',
+      industry: c.industry,
       accountId,
     },
   ];
@@ -157,11 +206,13 @@ export async function runAssistantCase(
       newContacts: noFigures,
       industry: noFigures,
       stays: noFigures,
+      requests: noFigures,
     },
     strings,
   );
   const schedules = new SchedulesService(account, workspace, repo, notifications, reports, prompts);
   const invoker = { invoke: () => Promise.resolve({ status: 404, body: null }) };
+  const sql = c.expect.sql ? new RecordingSqlRunner() : null;
   const chat = new ChatTurnService(
     repo,
     gateway,
@@ -169,6 +220,7 @@ export async function runAssistantCase(
     invoker,
     new CompactionService(repo, gateway, prompts),
     schedules,
+    sql,
   );
   const scope: OwnerScope = {
     accountId,
@@ -190,13 +242,20 @@ export async function runAssistantCase(
     const proposals = (await repo.listProposals(scope, thread.id)).filter(
       (p) => p.status === 'pending',
     );
-    if (proposals.length !== 1)
-      problems.push(`expected 1 pending proposal, got ${proposals.length}`);
+    const expected = c.expect.proposal;
+    if (proposals.length !== (expected ? 1 : 0))
+      problems.push(`expected ${expected ? 1 : 0} pending proposal, got ${proposals.length}`);
     const p = proposals[0];
-    if (p) {
-      if (p.routeKey !== c.expect.proposal.routeKey) problems.push(`routeKey: ${p.routeKey}`);
+    if (p && expected) {
+      if (p.routeKey !== expected.routeKey) problems.push(`routeKey: ${p.routeKey}`);
       const draft = (p.preview as { draft?: unknown } | null)?.draft;
-      problems.push(...subsetProblems(c.expect.proposal.draft, draft, 'draft'));
+      problems.push(...subsetProblems(expected.draft, draft, 'draft'));
+    }
+    if (c.expect.sql && sql) {
+      const want = c.expect.sql.contains.map(squash);
+      if (!sql.queries.some((q) => want.every((w) => squash(q).includes(w)))) {
+        problems.push(`sql: no query contains ${JSON.stringify(c.expect.sql.contains)}`);
+      }
     }
     if (repo.schedules.size > 0) problems.push('a schedule was written before approval');
   } catch (e) {

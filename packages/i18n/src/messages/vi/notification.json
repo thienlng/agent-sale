@@ -16,7 +16,8 @@
       "title": "Doanh thu {{period}} · {{business}}",
       "body": "Doanh số: {{sales}}\nDoanh thu: {{revenue}}\nĐơn hoàn tất: {{closedOrders}}\nGiá trị trung bình mỗi đơn: {{averageOrderValue}}\nLợi nhuận: {{profit}}",
       "stays_title": "Doanh thu lưu trú {{period}} · {{business}}",
-      "stays_body": "Doanh thu lưu trú: {{revenue}}\nSố đêm đã bán: {{nights}}\nLượt đặt: {{bookings}}\nLợi nhuận: {{profit}}"
+      "stays_body": "Doanh thu lưu trú: {{revenue}}\nSố đêm đã bán: {{nights}}\nLượt đặt: {{bookings}}\nLợi nhuận: {{profit}}",
+      "requests_line": "Yêu cầu mới (đặt lịch, học thử, tư vấn): {{count}}"
     },
     "new_orders": {
       "title": "Đơn hàng mới {{period}} · {{business}}",
@@ -44,6 +45,24 @@
       "body": "Số khách mới: {{count}}",
       "source": "• {{source}}: {{count}}",
       "noSource": "Chưa rõ nguồn"
+    },
+    "new_requests": {
+      "title": "Yêu cầu mới {{period}} · {{business}}",
+      "body": "Số yêu cầu mới: {{count}}",
+      "byKind": "Theo loại:",
+      "byStatus": "Khách theo trạng thái hiện tại:",
+      "item": "• {{label}}: {{count}}",
+      "none": "Không có yêu cầu mới.",
+      "kind": {
+        "placement_test": "Kiểm tra trình độ",
+        "trial": "Học thử",
+        "consultation": "Tư vấn",
+        "appointment": "Đặt lịch",
+        "demo": "Demo",
+        "saas": {
+          "trial": "Dùng thử"
+        }
+      }
     }
   },
   "alert": {
@@ -56,6 +75,9 @@
     },
     "unanswered_conversations": {
       "title": "{{count}} khách đang chờ trả lời · {{business}}"
+    },
+    "new_requests": {
+      "title": "{{count}} yêu cầu mới · {{business}}"
     }
   },
   "channel": {

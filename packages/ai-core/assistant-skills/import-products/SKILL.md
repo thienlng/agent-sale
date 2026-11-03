@@ -4,7 +4,7 @@ description: Import many products at once from an Excel or CSV sheet, or from pr
 title: Nhập sản phẩm hàng loạt
 description_vi: Nhập nhiều sản phẩm một lần từ file Excel, CSV hoặc ảnh sản phẩm
 toolsets: [routes]
-version: 2
+version: 3
 ---
 # Import products
 
@@ -12,8 +12,10 @@ Use this when a message carries an <import_batch> block: the owner dropped a she
 
 Import creates retail products only. For a hotel business (its industry is hotel in the Account list), never import villas, homestays or rooms as products: the import tools answer not_for_this_industry. Tell the owner that villas and rooms are added on the properties page (/app/properties), where their rates and the calendar live, offer to open it, and read the sheet with them so they can enter each villa there.
 
+For an education or spa business, courses and services import as products too; tell the owner the import sets name, price and description only. The offering facts (duration, sessions, format, level, schedule, price note) are added afterwards, one product at a time, with the add-products skill, and a course or service gets no stock: leave a stock column out of the spec.
+
 1. Sheet: find the header row in the sample rows (often after one or more title rows). Data starts on the row after it.
-2. Map the columns by their Vietnamese headers, using 0-based column indexes of the raw rows: "tên", "tên sản phẩm", "tên hàng" → name; "giá", "giá bán", "đơn giá" → price (transform money_vnd); "giá vốn", "giá nhập" → cost; "mã", "mã hàng", "mã sp" → code; "sku", "mã vạch", "barcode" → sku; "danh mục", "nhóm hàng", "loại" → category; "mô tả" → description; "tồn", "tồn kho", "số lượng" → stock (number_vi); "khối lượng", "cân nặng" → weightGram (weight_grams); "màu", "size", "biến thể", "phân loại" → variantName or variant columns.
+2. Map the columns by their Vietnamese headers, using 0-based column indexes of the raw rows: "tên", "tên sản phẩm", "tên hàng" → name; "giá", "giá bán", "đơn giá" → price (transform money_vnd); "giá vốn", "giá nhập" → cost; "mã", "mã hàng", "mã sp" → code; "sku", "mã vạch", "barcode" → sku; "danh mục", "nhóm hàng", "loại" → category; "mô tả" → description; "tồn", "tồn kho", "số lượng" → stock (number_vi); "khối lượng", "cân nặng" → weightGram (weight_grams); "màu", "size", "biến thể", "phân loại", "gói", "cấp độ" → variantName or variant columns. "học phí" → price for a course.
 3. When several rows are sizes or colours of one product, group them with groupBy on the column that repeats (the product code or the name). Each row becomes one variant.
 4. Call import_preview with the batch id and the spec. Photo batches take no spec: call import_preview without it.
 5. Explain the problems briefly in Vietnamese: rows with errors are skipped, warnings are not. Ask the owner for anything missing, usually prices. Never invent a price, and photos never give one.

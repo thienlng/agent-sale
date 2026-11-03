@@ -327,7 +327,8 @@
       "new_orders": "New orders",
       "low_stock": "Low stock",
       "unanswered_conversations": "Customers waiting",
-      "new_customers": "New customers"
+      "new_customers": "New customers",
+      "new_requests": "New requests"
     },
     "modes": {
       "report": "Report",

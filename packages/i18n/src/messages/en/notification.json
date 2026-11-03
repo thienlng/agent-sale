@@ -16,7 +16,8 @@
       "title": "Revenue {{period}} · {{business}}",
       "body": "Sales: {{sales}}\nRevenue: {{revenue}}\nClosed orders: {{closedOrders}}\nAverage order value: {{averageOrderValue}}\nProfit: {{profit}}",
       "stays_title": "Stay revenue {{period}} · {{business}}",
-      "stays_body": "Stay revenue: {{revenue}}\nNights sold: {{nights}}\nBookings: {{bookings}}\nProfit: {{profit}}"
+      "stays_body": "Stay revenue: {{revenue}}\nNights sold: {{nights}}\nBookings: {{bookings}}\nProfit: {{profit}}",
+      "requests_line": "New requests (appointments, trials, consultations): {{count}}"
     },
     "new_orders": {
       "title": "New orders {{period}} · {{business}}",
@@ -44,6 +45,24 @@
       "body": "New customers: {{count}}",
       "source": "• {{source}}: {{count}}",
       "noSource": "Unknown source"
+    },
+    "new_requests": {
+      "title": "New requests {{period}} · {{business}}",
+      "body": "New requests: {{count}}",
+      "byKind": "By kind:",
+      "byStatus": "Customers by current status:",
+      "item": "• {{label}}: {{count}}",
+      "none": "No new requests.",
+      "kind": {
+        "placement_test": "Placement test",
+        "trial": "Trial class",
+        "consultation": "Consultation",
+        "appointment": "Appointment",
+        "demo": "Demo",
+        "saas": {
+          "trial": "Free trial"
+        }
+      }
     }
   },
   "alert": {
@@ -56,6 +75,9 @@
     },
     "unanswered_conversations": {
       "title": "{{count}} customers waiting for a reply · {{business}}"
+    },
+    "new_requests": {
+      "title": "{{count}} new requests · {{business}}"
     }
   },
   "channel": {

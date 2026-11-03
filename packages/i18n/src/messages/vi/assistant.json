@@ -325,7 +325,8 @@
       "new_orders": "Đơn hàng mới",
       "low_stock": "Sắp hết hàng",
       "unanswered_conversations": "Khách chờ trả lời",
-      "new_customers": "Khách hàng mới"
+      "new_customers": "Khách hàng mới",
+      "new_requests": "Yêu cầu mới"
     },
     "modes": {
       "report": "Báo cáo định kỳ",

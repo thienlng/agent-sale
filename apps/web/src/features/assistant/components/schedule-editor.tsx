@@ -8,6 +8,7 @@ import {
   type ScheduleMode,
   type SchedulePreview,
   type ScheduleTemplate,
+  isRequestIndustry,
   scheduleParamsSchema,
 } from '@agent-sales/contracts';
 import type { TFunction } from 'i18next';
@@ -42,7 +43,20 @@ const TEMPLATES: readonly ScheduleTemplate[] = [
   'low_stock',
   'unanswered_conversations',
   'new_customers',
+  'new_requests',
 ];
+/**
+ * The templates offered for a business: `new_requests` only where the bot records requests
+ * (education, spa, saas; T-187), or when the schedule already uses it.
+ */
+export function templatesFor(industry: string | undefined, current?: ScheduleTemplate) {
+  return TEMPLATES.filter(
+    (tp) =>
+      tp !== 'new_requests' ||
+      current === 'new_requests' ||
+      (industry !== undefined && isRequestIndustry(industry)),
+  );
+}
 /** `every` intervals a report may use (at least an hour). */
 export const REPORT_INTERVALS = [60, 120, 180, 240, 360, 720, 1440] as const;
 const WEEKDAYS = [1, 2, 3, 4, 5, 6, 7] as const;
@@ -165,7 +179,7 @@ function ParamsFields({
       </div>
     );
   }
-  if (template === 'new_orders' && mode === 'alert') {
+  if ((template === 'new_orders' || template === 'new_requests') && mode === 'alert') {
     return <NumberParam name="minCount" form={form} setParam={setParam} />;
   }
   return (
@@ -451,7 +465,10 @@ export function ScheduleEditor({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {TEMPLATES.map((tp) => (
+            {templatesFor(
+              businesses.find((b) => b.id === form.businessId)?.industry,
+              form.template,
+            ).map((tp) => (
               <SelectItem key={tp} value={tp}>
                 {t(`schedules.templates.${tp}`)}
               </SelectItem>

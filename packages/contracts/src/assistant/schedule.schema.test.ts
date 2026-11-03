@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { Cadence, ScheduleDraft, SchedulePatch, scheduleParamsSchema } from './schedule.schema.js';
+import {
+  ALERT_TEMPLATES,
+  Cadence,
+  ScheduleDraft,
+  SchedulePatch,
+  scheduleParamsSchema,
+} from './schedule.schema.js';
 
 const draft = {
   name: 'Doanh thu tuần trước',
@@ -21,6 +27,33 @@ describe('ScheduleDraft', () => {
       minutes: 30,
       minCount: 1,
     });
+  });
+
+  it('accepts new_requests as a report and as an alert (T-187)', () => {
+    expect(ALERT_TEMPLATES).toContain('new_requests');
+    const alert = ScheduleDraft.parse({
+      ...draft,
+      template: 'new_requests',
+      mode: 'alert',
+      params: {},
+      cadence: { kind: 'every', minutes: 30 },
+    });
+    expect(alert.params).toEqual({});
+    expect(scheduleParamsSchema('new_requests', 'alert').parse({})).toEqual({ minCount: 1 });
+    expect(scheduleParamsSchema('new_requests', 'alert').safeParse({ minCount: 0 }).success).toBe(
+      false,
+    );
+    expect(
+      scheduleParamsSchema('new_requests', 'alert').safeParse({ minCount: 1001 }).success,
+    ).toBe(false);
+    expect(scheduleParamsSchema('new_requests', 'report').parse({})).toEqual({
+      period: 'day',
+      window: 'previous',
+    });
+    expect(
+      ScheduleDraft.safeParse({ ...draft, template: 'new_requests', params: { period: 'year' } })
+        .success,
+    ).toBe(false);
   });
 
   it('validates the params of the template', () => {

@@ -23,9 +23,11 @@ const PLATFORM_SKILLS = [
   'fill-shop-info',
   'handle-orders',
   'import-products',
+  'industry-education',
   'industry-hotel',
   'industry-retail',
   'industry-saas',
+  'industry-spa',
   'read-revenue',
   'set-up-api-action',
   'set-up-bot',
@@ -56,7 +58,7 @@ describe('add-products fill (QA TinyMind B10)', () => {
   it('fills cost and weight and makes a SKU when the owner gives none', async () => {
     const skills = await loadSkillDir(ASSISTANT_SKILLS_DIR);
     const add = skills.find((s) => s.name === 'add-products')!;
-    expect(add.version).toBe(2);
+    expect(add.version).toBe(3);
     expect(add.body).toContain('cost (giá vốn) and weightGram');
     expect(add.body).toContain('The SKU is required to save');
   });
@@ -76,7 +78,7 @@ describe('capability 5 skills', () => {
     expect(action.body).toContain('say it is built in');
     expect(action.body).toContain('enabled: always false');
     expect(action.body).toContain('actions.secret');
-    expect(skills.find((s) => s.name === 'set-up-bot')).toMatchObject({ version: 2 });
+    expect(skills.find((s) => s.name === 'set-up-bot')).toMatchObject({ version: 3 });
   });
 });
 

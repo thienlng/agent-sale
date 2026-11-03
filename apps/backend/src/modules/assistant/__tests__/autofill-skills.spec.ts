@@ -8,6 +8,8 @@ const INDUSTRY_SKILLS = {
   retail: 'industry-retail',
   hotel: 'industry-hotel',
   saas: 'industry-saas',
+  education: 'industry-education',
+  spa: 'industry-spa',
 };
 
 /**
@@ -45,7 +47,7 @@ describe('shop autofill skills (T-175)', () => {
     return skill.body;
   };
 
-  it('loads the six new skills, lint clean, for the ui and routes toolsets', () => {
+  it('loads the new skills, lint clean, for the ui and routes toolsets', () => {
     for (const name of [...TASK_SKILLS, ...Object.values(INDUSTRY_SKILLS)]) {
       const skill = skills.get(name);
       expect(skill, name).toBeDefined();
@@ -58,7 +60,7 @@ describe('shop autofill skills (T-175)', () => {
 
   it('makes "Nhờ trợ lý điền mẫu" end in proposals or a fill, not chat text (QA TinyMind B7)', () => {
     const sample = skills.get('fill-sample-data')!;
-    expect(sample.version).toBe(2);
+    expect(sample.version).toBe(3);
     expect(sample.body).toContain('always an action, never only text');
     expect(sample.body).toContain('starts with "Điền mẫu"');
   });
@@ -70,9 +72,9 @@ describe('shop autofill skills (T-175)', () => {
     expect(sample).not.toContain('its training items');
   });
 
-  it('moves set-up-bot to version 2, pointing at the new skills', () => {
+  it('moves set-up-bot to version 3, pointing at the new skills', () => {
     const setUp = skills.get('set-up-bot')!;
-    expect(setUp.version).toBe(2);
+    expect(setUp.version).toBe(3);
     for (const name of ['draft-reply-guidance', 'fill-shop-info', 'fill-sample-data']) {
       expect(setUp.body).toContain(name);
     }
@@ -89,6 +91,36 @@ describe('shop autofill skills (T-175)', () => {
       expect(mentioned.has('mapsUrl')).toBe(false);
     },
   );
+
+  it('names the education and spa skills wherever the other industry skills are named (T-187)', () => {
+    for (const name of [
+      'set-up-bot',
+      'draft-reply-guidance',
+      'fill-shop-info',
+      'fill-sample-data',
+    ]) {
+      expect(body(name), name).toContain('industry-education or industry-spa');
+    }
+    for (const name of ['industry-education', 'industry-spa']) {
+      const text = body(name);
+      expect(text, name).toContain('## Sources in Rapiz');
+      expect(text, name).toContain('GET /products');
+      expect(text, name).toContain('`offering`');
+      expect(text, name).toContain('GET /crm/requests/summary');
+      expect(text, name).toContain('## Never');
+    }
+    // The quick-reply shortcuts of the demo seed contract (spec §9.6).
+    for (const s of ['hocphi', 'lichhoc', 'hocthu', 'coso', 'uudai']) {
+      expect(body('industry-education')).toContain(`- ${s}: `);
+    }
+    for (const s of ['banggia', 'datlich', 'doilich', 'coso', 'uudai']) {
+      expect(body('industry-spa')).toContain(`- ${s}: `);
+    }
+    expect(body('add-products')).toContain('priceNote');
+    expect(body('import-products')).toContain('a course or service gets no stock');
+    expect(body('answer-data-questions')).toContain('customer_requests where not is_update');
+    expect(body('read-revenue')).toContain('Never present requests as revenue');
+  });
 
   it('names only registered form ids, and every registered form somewhere', () => {
     const named = new Set<string>();

@@ -4,7 +4,7 @@ description: Fill an empty bot page with a small editable sample (FAQ, scenarios
 title: Điền dữ liệu mẫu
 description_vi: Điền mẫu câu hỏi thường gặp, tình huống, tin nhắn nhanh từ dữ liệu thật của shop
 toolsets: [ui, routes]
-version: 2
+version: 3
 ---
 # Fill sample data
 
@@ -13,7 +13,7 @@ Use this when the owner pressed "Nhờ trợ lý điền mẫu" on a page (the b
 The result of this skill is always an action, never only text: one or more proposals (tool_call on the write route, with a summary), or a ui_fill_form on the page's form. Samples written only in the chat are a failure: the owner pressed a button to get drafts they can approve. Do the reads, then the writes, in this same turn; do not ask for permission first.
 
 1. Find the page from <page_context>: the route and the title tell you which page the owner is on, and the entity gives the bot id and its industry. Do not ask the owner which page it is.
-2. Sources first. Use tool_search to find the read tools and read the bot (profile facts, notes, personality), its FAQ, and the products, the SaaS plans (GET /saas-plans) or the lodging properties that apply. Read the products with a small limit (at most 20), not every page. Load fill-shop-info or draft-reply-guidance for the page, and the industry skill (industry-retail, industry-hotel or industry-saas) when the industry has one.
+2. Sources first. Use tool_search to find the read tools and read the bot (profile facts, notes, personality), its FAQ, and the products (for an education or spa business the courses or services, with their offering), the SaaS plans (GET /saas-plans) or the lodging properties that apply. Read the products with a small limit (at most 20), not every page. Load fill-shop-info or draft-reply-guidance for the page, and the industry skill (industry-retail, industry-hotel, industry-saas, industry-education or industry-spa) when the industry has one.
 3. Sample means sample wording, never sample facts. The industry examples give the wording (questions, scenario titles, triggers and instructions, quick reply texts, greeting). Every fact (address, hotline, hours, prices, fees, policies, numbers) comes only from the owner, text the owner pasted, or Rapiz data. Leave out anything that would need a missing fact.
    - Spread the samples: across the products, villas or plans (at most 2 items about any one of them) and shop-wide topics (ordering, payment, shipping or check-in, returns or cancellation, contact). A sample set about one product is a failure.
    - No detail beyond the source. Say only what the source says of that exact item: never add an extra (an amenity, a bed, a size, a gift, "và đệm phụ"), a number or a promise, even one that other items or the industry usually have. Before writing each answer, check every detail in it against the item's own data; when the source does not say it, drop it.

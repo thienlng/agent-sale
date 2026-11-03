@@ -28,6 +28,8 @@ export type ReportResult =
       };
       /** A hotel's stays checking in during the period (QA Villas #6); absent for a shop. */
       stays?: { bookings: number; nights: number; revenue: number; profit: number };
+      /** An education or spa business's new requests of the period (T-187); absent otherwise. */
+      requests?: { count: number };
     }
   | {
       template: 'new_orders';
@@ -61,6 +63,20 @@ export type ReportResult =
       mode: 'report';
       period: PeriodRef;
       figures: { count: number; bySource: { source: string | null; count: number }[] };
+    }
+  | {
+      template: 'new_requests';
+      mode: 'report' | 'alert';
+      /** Reports only; an alert covers the requests since its last check. */
+      period: PeriodRef | null;
+      /** The business's industry: it picks the kind labels (a saas `trial` is "dùng thử"). */
+      industry: string;
+      figures: {
+        count: number;
+        byKind: { kind: string; count: number }[];
+        /** By the customer's current status; `label` is the business's own status name. */
+        byStatus: { key: string | null; label: string; count: number }[];
+      };
     };
 
 /** Flat `a.b.c` keys of the `notification` catalog, with `{{var}}` placeholders. */
@@ -105,6 +121,12 @@ function periodText(strings: ReportStrings, p: PeriodRef): string {
 const channelName = (strings: ReportStrings, channel: string) =>
   strings[`channel.${channel}`] ?? strings['channel.unknown'] ?? channel;
 
+/** A request kind in words: the industry's own label first (`kind.saas.trial`), then the kind's. */
+const kindLabel = (strings: ReportStrings, industry: string, kind: string) =>
+  strings[`report.new_requests.kind.${industry}.${kind}`] ??
+  strings[`report.new_requests.kind.${kind}`] ??
+  kind;
+
 /** The title and the plain-text body of a report in the strings' language. */
 export function renderReport(
   r: ReportResult,
@@ -124,9 +146,14 @@ export function renderReport(
       });
       const period = periodText(strings, r.period);
       if (!r.stays) {
+        const requests = r.requests
+          ? fill(strings, 'report.revenue_summary.requests_line', {
+              count: formatNumber(r.requests.count),
+            })
+          : '';
         return {
           title: fill(strings, 'report.revenue_summary.title', { period, business }),
-          body: orders,
+          body: requests ? `${orders}\n\n${requests}` : orders,
         };
       }
       // A hotel sells stays: those lead, and orders follow only when it has any.
@@ -225,6 +252,41 @@ export function renderReport(
             count: formatNumber(c.count),
           }),
         );
+      }
+      return { title, body: lines.join('\n') };
+    }
+    case 'new_requests': {
+      const f = r.figures;
+      const title =
+        r.mode === 'alert' || !r.period
+          ? fill(strings, 'alert.new_requests.title', { count: formatNumber(f.count), business })
+          : fill(strings, 'report.new_requests.title', {
+              period: periodText(strings, r.period),
+              business,
+            });
+      if (f.count === 0) return { title, body: fill(strings, 'report.new_requests.none') };
+      const lines = [fill(strings, 'report.new_requests.body', { count: formatNumber(f.count) })];
+      if (f.byKind.length) {
+        lines.push('', fill(strings, 'report.new_requests.byKind'));
+        for (const k of f.byKind) {
+          lines.push(
+            fill(strings, 'report.new_requests.item', {
+              label: kindLabel(strings, r.industry, k.kind),
+              count: formatNumber(k.count),
+            }),
+          );
+        }
+      }
+      if (f.byStatus.length) {
+        lines.push('', fill(strings, 'report.new_requests.byStatus'));
+        for (const st of f.byStatus) {
+          lines.push(
+            fill(strings, 'report.new_requests.item', {
+              label: st.label,
+              count: formatNumber(st.count),
+            }),
+          );
+        }
       }
       return { title, body: lines.join('\n') };
     }
