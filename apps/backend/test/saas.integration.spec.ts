@@ -15,7 +15,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { AppModule } from '../src/app.module.js';
 import { createHttpApp } from '../src/bootstrap.js';
-import { SAAS_FACADE, type SaasFacade } from '../src/modules/saas/api/index.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../src/modules/workspace/api/index.js';
 import { signUpVerified } from './support/signup.js';
 
@@ -228,38 +227,5 @@ describe('saas HTTP and PostgreSQL isolation', () => {
     } finally {
       await close();
     }
-  });
-
-  it('lets the bot record a request on the customer: found or created by phone, moved forward, noted', async () => {
-    const a = await owner();
-    const saas = app.get<SaasFacade>(SAAS_FACADE);
-    const ws = workspaceId(a.ws);
-    const details = { name: 'Synthetic lead', phone: '+84 983 456 721', need: 'Quản lý bán hàng' };
-    const first = await saas.recordBotRequest(ws, { kind: 'trial', details, preview: false });
-    expect(first).toMatchObject({ outcome: 'recorded', created: true });
-    const contactId = first.outcome === 'recorded' ? first.contactId : '';
-    expect(await statusKey(a.headers, contactId)).toBe('requested');
-    const again = await saas.recordBotRequest(ws, { kind: 'trial', details, preview: false });
-    expect(again).toEqual({ outcome: 'recorded', contactId, created: false });
-    const notes = (await call(a.headers, 'GET', `/contacts/${contactId}/notes`)).json().data;
-    expect(notes).toHaveLength(1);
-    expect(notes[0]).toMatchObject({
-      authorName: 'Bot AI',
-      body: 'Xin dùng thử (bot ghi nhận)\nTên: Synthetic lead\nNhu cầu: Quản lý bán hàng',
-    });
-
-    // A paying customer asking for a demo stays paying; the note still lands.
-    const paying = await contact(a.headers, '0983456799');
-    await call(a.headers, 'PUT', `/contacts/${paying}/saas-subscription`, subscription);
-    const demo = await saas.recordBotRequest(ws, {
-      kind: 'demo',
-      details: { name: 'Synthetic customer', phone: '0983456799' },
-      preview: false,
-    });
-    expect(demo).toEqual({ outcome: 'recorded', contactId: paying, created: false });
-    expect(await statusKey(a.headers, paying)).toBe('paying');
-    expect((await call(a.headers, 'GET', `/contacts/${paying}/notes`)).json().data[0].body).toBe(
-      'Xin demo (bot ghi nhận)\nTên: Synthetic customer',
-    );
   });
 });

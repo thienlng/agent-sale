@@ -30,7 +30,7 @@ export function isRequestIndustry(industry: string): industry is RequestIndustry
   return (REQUEST_INDUSTRIES as readonly string[]).includes(industry);
 }
 
-/** The saas kinds (ADR-020), kept as a literal tuple for `SaasRequestKind`. */
+/** The saas kinds (ADR-020), kept as a literal tuple. */
 export const SAAS_REQUEST_KINDS = [
   'demo',
   'trial',

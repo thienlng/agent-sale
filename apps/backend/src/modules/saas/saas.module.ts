@@ -8,7 +8,6 @@ import { BillingModule } from '../billing/billing.module.js';
 import { CrmModule } from '../crm/crm.module.js';
 import { IdentityModule } from '../identity/identity.module.js';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
-import { SAAS_FACADE } from './api/saas.facade.js';
 import { SAAS_RUNNER } from './api/saas.runner.js';
 import { HqSyncHandler } from './application/event-handlers/hq-sync.handler.js';
 import { HQ_WORKSPACE, HqContext } from './application/hq-context.js';
@@ -17,7 +16,6 @@ import { FacadePlatformDirectory } from './application/platform-directory.js';
 import { PLATFORM_DIRECTORY } from './application/ports/platform-directory.js';
 import { SAAS_STORE } from './application/ports/saas-store.js';
 import { SAAS_SYSTEM_STORE } from './application/ports/saas-system-store.js';
-import { SaasFacadeImpl } from './application/saas.facade.impl.js';
 import { SaasLeadService } from './application/saas-lead.service.js';
 import { SaasPlanService } from './application/saas-plan.service.js';
 import { SaasReminderService } from './application/saas-reminder.service.js';
@@ -31,8 +29,8 @@ import { SaasSubscriptionsController } from './interface/http/saas.controller.js
 const unavailable = () => Promise.reject(new SaasUnavailableError());
 
 /**
- * SaaS vertical (ADR-020): customer subscriptions, the plan catalog and the bot's request capture;
- * and the Rapiz HQ sync (ADR-021) when `RAPIZ_HQ_WORKSPACE_ID` is set. Needs a database.
+ * SaaS vertical (ADR-020): customer subscriptions and the plan catalog (bot requests are recorded
+ * by crm, ADR-025); and the Rapiz HQ sync (ADR-021) when `RAPIZ_HQ_WORKSPACE_ID` is set. Needs a database.
  */
 @Module({
   imports: [AccountModule, BillingModule, IdentityModule, WorkspaceModule, CrmModule],
@@ -67,9 +65,8 @@ const unavailable = () => Promise.reject(new SaasUnavailableError());
     HqSyncHandler,
     HqReconcileService,
     SaasRunnerImpl,
-    { provide: SAAS_FACADE, useClass: SaasFacadeImpl },
     { provide: SAAS_RUNNER, useExisting: SaasRunnerImpl },
   ],
-  exports: [SAAS_FACADE, SAAS_RUNNER],
+  exports: [SAAS_RUNNER],
 })
 export class SaasModule {}

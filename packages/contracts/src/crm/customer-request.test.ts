@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 
 import { Industry } from '../bot/industry.js';
 import { profileFieldsFor } from '../bot/profile.js';
-import { SaasLeadDetails, SaasRequestKind } from '../saas/saas.schema.js';
 import {
   CustomerRequestDto,
   CustomerRequestKind,
@@ -71,8 +70,7 @@ describe('the saas profile keeps ADR-020', () => {
   const fixture = { name: 'Chị Lan', phone: '0983 456 721', company: 'Shop Lan', teamSize: '5' };
 
   it('has the same kinds and details as before', () => {
-    expect(SaasRequestKind.options).toEqual(['demo', 'trial', 'consultation']);
-    expect(REQUEST_PROFILES.saas.kinds).toEqual(SaasRequestKind.options);
+    expect(REQUEST_PROFILES.saas.kinds).toEqual(['demo', 'trial', 'consultation']);
     const parsed = requestDetailsSchema('saas').parse({ ...fixture, extra: 'dropped' });
     expect(parsed).toEqual({
       name: 'Chị Lan',
@@ -84,10 +82,9 @@ describe('the saas profile keeps ADR-020', () => {
       preferredTime: '',
       planInterest: '',
     });
-    expect(SaasLeadDetails.parse(fixture)).toEqual(parsed);
   });
 
-  it('rejects what SaasLeadDetails rejected', () => {
+  it('rejects what the ADR-020 details schema rejected', () => {
     const bad = [
       { phone: '0983456721' },
       { name: 'Lan' },
@@ -96,14 +93,15 @@ describe('the saas profile keeps ADR-020', () => {
       { ...fixture, need: 'x'.repeat(2001) },
       { ...fixture, teamSize: 'x'.repeat(61) },
     ];
-    for (const b of bad) expect(SaasLeadDetails.safeParse(b).success).toBe(false);
-    expect(SaasLeadDetails.parse({ ...fixture, email: ' Lan@Example.TEST ' }).email).toBe(
+    const schema = requestDetailsSchema('saas');
+    for (const b of bad) expect(schema.safeParse(b).success).toBe(false);
+    expect(schema.parse({ ...fixture, email: ' Lan@Example.TEST ' }).email).toBe(
       'lan@example.test',
     );
   });
 
   it('moves every kind forward to requested', () => {
-    for (const kind of SaasRequestKind.options)
+    for (const kind of REQUEST_PROFILES.saas.kinds)
       expect(REQUEST_PROFILES.saas.status[kind]).toEqual({
         key: 'requested',
         move: 'forward_only',

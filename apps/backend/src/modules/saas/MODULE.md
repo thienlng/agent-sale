@@ -5,6 +5,7 @@
 **Owned tables:** `saas_subscriptions` (migration 0052), `saas_plans`, `saas_subscription_history`, `saas_hq_links` (tenant, forced RLS) and `saas_hq_checkpoints`, `saas_hq_dead_letters` (system only) — migration 0054; schema in `packages/db/src/schema/saas.ts`. Subscriptions reference `contacts` and `saas_plans` by same-workspace composite keys.
 
 **Public API (`api/`):**
+
 - `SAAS_FACADE` → `SaasFacade.recordBotRequest(ws, { kind, details, preview })` — the bot's built-in `record_saas_request` tool (`ai/application/saas-tools.ts`). Finds or creates the customer by phone, moves it forward to the `requested` status (never back) and adds a note with the details; `preview` validates without writing; bad arguments return `invalid`, never throw.
 - `SAAS_RUNNER` → `SaasRunner` for the worker and the CLIs: `tick()` (HQ outbox consumer), `daily(now)` (reminders and the nightly HQ reconcile, each claimed once per day), `reconcile({ dryRun })` (`hq-backfill`).
 - HTTP: `/saas-subscriptions` (filters `stage`, `contactIds`, `endingSoon`), `/saas-subscriptions/summary`, `/contacts/{id}/saas-subscription` (get, put) and `/history` with `contacts.view_all` (put also needs `contacts.edit`); `/saas-plans` (get: `contacts.view_all`; post, patch: `settings.manage`).
@@ -15,6 +16,7 @@
 **Depends on:** `workspace` (industry, timezone, the HQ business), the platform admin facades `account` (`listForAdmin`), `billing` (`BILLING_ADMIN_FACADE`: `subscriptionsOf`, `listPlans`) and `identity` (`IDENTITY_ADMIN_FACADE`: `usersByIds`) for the HQ backfill and reconcile only (`application/platform-directory.ts`, read only), `crm` (customer exists, names, lead capture by phone, system status move, system note; `CONTACT_SYNC_FACADE` with source `rapiz` for HQ adoption).
 
 **Invariants:**
+
 - Every route and the bot tool answer 404 for a business whose industry is not `saas`.
 - The subscription stage is the single writer of the customer statuses `trial`, `free_plan`, `paying`, `past_due`, `churned` (`STAGE_STATUS`); a bot request only moves a customer forward to `requested`.
 - One subscription per customer; a trial has its end date, a cancellation its date (and a churn reason when staff cancel). MRR is integer VND per month; with a catalog plan it is the plan's period price / months, never typed. The summary counts active and past-due MRR.
