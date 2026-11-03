@@ -327,6 +327,9 @@ describe('sql_schema', () => {
     expect(SQL_RULES).toContain('its revenue = sum(total_sell) from lodging_bookings');
     // Blocks are not stays: the model must not claim they are counted (QA SQL-1).
     expect(text).toContain('date blocks (chặn ngày) are not in this view');
+    // Education and spa convert through requests, not orders (T-187).
+    expect(SQL_RULES).toContain('Count new requests from customer_requests where not is_update');
+    expect(SQL_RULES).toContain("'Requests by status' = customers grouped by status_name");
     for (const v of SQL_VIEWS) {
       expect(text).toContain(`${v.name}(${v.columns.map((c) => c.name).join(', ')}) — `);
     }
@@ -349,7 +352,7 @@ describe('sql_schema', () => {
 });
 
 describe('SQL views catalog', () => {
-  it('names the 11 views of migration 0060, each with 1–2 examples', () => {
+  it('names the views of migrations 0060 and 0064, each with 1–2 examples', () => {
     expect([...SQL_VIEW_NAMES]).toEqual([
       'businesses',
       'orders',
@@ -357,6 +360,7 @@ describe('SQL views catalog', () => {
       'products',
       'product_variants',
       'customers',
+      'customer_requests',
       'conversations',
       'channels',
       'bots',

@@ -133,8 +133,8 @@ export const SQL_VIEWS: readonly SqlView[] = [
       ['price', 'bigint', 'selling price, VND'],
       ['cost', 'bigint', 'cost price, VND'],
       ['archived', 'boolean', 'the variant is archived'],
-      ['stock_on_hand', 'bigint', 'units in stock'],
-      ['stock_reserved', 'bigint', 'units reserved by open orders'],
+      ['stock_on_hand', 'bigint', 'units in stock (null for a course or service)'],
+      ['stock_reserved', 'bigint', 'units reserved by open orders (null for a course or service)'],
     ],
     [
       'select p.name, v.sku, v.stock_on_hand - v.stock_reserved as available from product_variants v join products p using (product_id) where not v.archived order by available limit 10',
@@ -158,6 +158,27 @@ export const SQL_VIEWS: readonly SqlView[] = [
     ],
     [
       "select coalesce(source_name, 'unknown') as source, count(*) as customers from customers where created_at >= date_trunc('month', now()) group by 1 order by 2 desc",
+    ],
+  ),
+  view(
+    'customer_requests',
+    'requests the bot recorded on a customer (education placement tests, trial classes, consultations; spa appointments; saas demos and trials); no name, phone or free text',
+    [
+      ['request_id', 'uuid', 'request id'],
+      ID('request'),
+      ['customer_id', 'uuid', 'the CRM customer'],
+      ['kind', 'text', 'placement_test, trial, consultation, appointment or demo'],
+      ['is_update', 'boolean', 'the same kind again within 24 h: not a new request'],
+      ['item', 'text', 'the course, service or plan asked for'],
+      ['branch', 'text', 'the branch asked for (or online)'],
+      ['preferred_date', 'date', 'the day the customer asked for'],
+      ['created_at', 'timestamptz', 'when it was recorded: use for date ranges'],
+      ['current_status_key', 'text', 'built-in key of the customer’s current CRM status'],
+      ['current_status_name', 'text', 'the customer’s current CRM status'],
+    ],
+    [
+      "select kind, count(*) as requests from customer_requests where not is_update and created_at >= date_trunc('week', now()) group by 1 order by 2 desc",
+      "select current_status_name, count(distinct customer_id) as customers from customer_requests where created_at >= now() - interval '30 days' group by 1 order by 2 desc",
     ],
   ),
   view(
@@ -263,6 +284,7 @@ export const SQL_RULES = [
   "- Times are local Asia/Ho_Chi_Minh: use placed_at::date for days; weeks start on Monday with date_trunc('week', …).",
   '- Revenue (doanh thu) = sum(total) where counts_as_revenue. Sales (doanh số) = sum(total) where not is_cancelled. Profit = sum(profit) where counts_as_revenue. Best sellers come from order_items where counts_as_revenue.',
   "- A hotel business (businesses.industry = 'hotel') earns from stays, not orders: its revenue = sum(total_sell) from lodging_bookings where counts_as_revenue, dated by check_in; nights sold = sum(nights); profit = sum(total_sell - total_cost). When the owner asks for revenue without saying which, check the industry: a hotel's from lodging_bookings, a shop's from orders, and both (one line each) for an account with both.",
+  "- An education or spa business (industry education | spa) converts through customer requests, not orders. Count new requests from customer_requests where not is_update. 'Requests by status' = customers grouped by status_name. Answer revenue from orders only if the business has orders, and say so.",
   '- A total over a breakdown comes from the query (sum(...) over (), ROLLUP or a count), never from adding rows.',
   '- Always filter a date range and aggregate; never list raw rows when a total answers.',
   '- With more than one business, group by business_id and join businesses for the name.',

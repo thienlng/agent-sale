@@ -3,18 +3,31 @@
  * TinyMind B11). The source of truth is `apps/web/src/routes/app/**` and the sidebar's industry
  * rules (`apps/web/src/components/layout/app-sidebar.tsx`): a hotel sells nights (calendar,
  * bookings, properties replace orders and products), a SaaS business sells plans (no orders,
- * products or POS integrations), every other industry is a shop. Pure.
+ * products or POS integrations), an education or spa business sells courses or services and
+ * converts through requests the bot records (products, no orders or POS integrations; T-187),
+ * every other industry is a shop. Pure.
  */
 
 /** Which businesses see a page. */
-export type PageAudience = 'all' | 'shop' | 'hotel' | 'saas' | 'not_saas';
+export type PageAudience = 'all' | 'shop' | 'hotel' | 'saas' | 'service' | 'shop_or_hotel';
+
+/** The audience group of a business. */
+export type IndustryGroup = 'shop' | 'hotel' | 'saas' | 'service';
+
+/**
+ * A page whose purpose depends on the group: the group's own text replaces `purpose`, and the
+ * page is shown to every group in `audience`.
+ */
+type PurposeByGroup = Partial<Record<IndustryGroup, string>>;
 
 export interface DashboardPage {
   /** Under `/app`, with `{param}` placeholders. */
   path: string;
   /** What it is for, in English (the prompt's language). */
   purpose: string;
-  audience: PageAudience;
+  /** A group's own purpose, when it differs from `purpose`. */
+  purposeFor?: PurposeByGroup;
+  audience: PageAudience | readonly IndustryGroup[];
 }
 
 /** Every page a business can use under `/app` (redirect-only addresses are left out). */
@@ -32,7 +45,15 @@ export const DASHBOARD_PAGES: readonly DashboardPage[] = [
     audience: 'all',
   },
   { path: '/app/channels', purpose: 'connected pages and channels', audience: 'all' },
-  { path: '/app/contacts', purpose: 'customers (CRM)', audience: 'all' },
+  {
+    path: '/app/contacts',
+    purpose: 'customers (CRM)',
+    purposeFor: {
+      service:
+        'customers (CRM) and the requests the bot recorded (placement tests, trial classes, consultations, appointments): the strip on top counts them per status',
+    },
+    audience: 'all',
+  },
   {
     path: '/app/crm-settings',
     purpose:
@@ -55,9 +76,18 @@ export const DASHBOARD_PAGES: readonly DashboardPage[] = [
   {
     path: '/app/products',
     purpose: 'product catalog; /app/products/{productId} — edit one product',
-    audience: 'shop',
+    purposeFor: {
+      service:
+        'courses (education) or services (spa) the business offers: duration, sessions, format, level, prices; /app/products/{productId} — edit one',
+    },
+    audience: ['shop', 'service'],
   },
-  { path: '/app/products/new', purpose: 'add a product', audience: 'shop' },
+  {
+    path: '/app/products/new',
+    purpose: 'add a product',
+    purposeFor: { service: 'add a course or a service' },
+    audience: ['shop', 'service'],
+  },
   {
     path: '/app/calendar',
     purpose: 'room calendar: availability per villa/room and day, block dates',
@@ -84,7 +114,7 @@ export const DASHBOARD_PAGES: readonly DashboardPage[] = [
   {
     path: '/app/integrations',
     purpose: 'external sales/POS systems (KiotViet); /app/integrations/kiotviet — its setup',
-    audience: 'not_saas',
+    audience: 'shop_or_hotel',
   },
   { path: '/app/members', purpose: 'team members', audience: 'all' },
   {
@@ -97,22 +127,31 @@ export const DASHBOARD_PAGES: readonly DashboardPage[] = [
   { path: '/app/settings/audit', purpose: 'activity log', audience: 'all' },
 ];
 
-/** The audience group of an industry (`hotel`, `saas`, anything else is a shop). */
-export function industryGroup(industry: string | undefined): 'shop' | 'hotel' | 'saas' {
+/**
+ * The audience group of an industry: `hotel`, `saas`, `service` (education and spa), anything
+ * else is a shop.
+ */
+export function industryGroup(industry: string | undefined): IndustryGroup {
   if (industry === 'hotel') return 'hotel';
   if (industry === 'saas') return 'saas';
+  if (industry === 'education' || industry === 'spa') return 'service';
   return 'shop';
 }
 
-/** The pages a business of `industry` has, in map order. */
+function seenBy(audience: DashboardPage['audience'], group: IndustryGroup): boolean {
+  if (typeof audience !== 'string') return audience.includes(group);
+  if (audience === 'all') return true;
+  if (audience === 'shop_or_hotel') return group === 'shop' || group === 'hotel';
+  return audience === group;
+}
+
+/** The pages a business of `industry` has, in map order, with the group's own purpose. */
 export function pagesFor(industry: string | undefined): DashboardPage[] {
   const group = industryGroup(industry);
-  return DASHBOARD_PAGES.filter(
-    (p) =>
-      p.audience === 'all' ||
-      p.audience === group ||
-      (p.audience === 'not_saas' && group !== 'saas'),
-  );
+  return DASHBOARD_PAGES.filter((p) => seenBy(p.audience, group)).map((p) => ({
+    ...p,
+    purpose: p.purposeFor?.[group] ?? p.purpose,
+  }));
 }
 
 /** `<path> — <purpose>` lines of the pages of `industry`. */
