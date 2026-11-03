@@ -7,6 +7,7 @@ import { AiModule } from '../ai/ai.module.js';
 import { CommerceModule } from '../commerce/commerce.module.js';
 import { ConversationModule } from '../conversation/conversation.module.js';
 import { CrmModule } from '../crm/crm.module.js';
+import { LodgingModule } from '../lodging/lodging.module.js';
 import { NotificationModule } from '../notification/notification.module.js';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
 import { ASSISTANT_FACADE } from './api/assistant.facade.js';
@@ -46,8 +47,8 @@ import { SchedulesController } from './interface/http/schedules.controller.js';
  * repository is Drizzle-backed (`withAccount`); otherwise in-memory. Exports ONLY what api/
  * declares. `AiModule` provides the LLM gateway `ChatTurnService` runs chat turns on and the
  * worker's review runs on; the worker needs both `DB_TENANT` and `DB_SYSTEM` (job claims).
- * `commerce`, `conversation` and `crm` give scheduled reports their figures and `notification`
- * delivers them.
+ * `commerce`, `conversation`, `crm` and `lodging` (a hotel's stays) give scheduled reports their
+ * figures and `notification` delivers them.
  */
 @Module({
   imports: [
@@ -58,6 +59,7 @@ import { SchedulesController } from './interface/http/schedules.controller.js';
     CommerceModule,
     ConversationModule,
     CrmModule,
+    LodgingModule,
     NotificationModule,
   ],
   controllers: [AssistantController, AssistantSettingsController, SchedulesController],

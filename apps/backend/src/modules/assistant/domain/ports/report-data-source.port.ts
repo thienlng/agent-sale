@@ -1,6 +1,6 @@
 /**
- * Where scheduled reports read their figures (S3-R1): the `commerce`, `conversation` and `crm`
- * facades behind one port, so the report service is testable with a fake. Every method reads
+ * Where scheduled reports read their figures (S3-R1): the `commerce`, `conversation`, `crm`,
+ * `lodging` and `workspace` facades behind one port, so the report service is testable with a fake. Every method reads
  * one business; none returns customer data. `ids` only feed an alert's fingerprint and are
  * never stored or delivered.
  */
@@ -38,7 +38,19 @@ export interface ContactFigures {
   bySource: { source: string | null; count: number }[];
 }
 
+/** A hotel's stays checking in during the period (S3-R1 via the `lodging` facade). */
+export interface StayFigures {
+  bookings: number;
+  nights: number;
+  revenue: number;
+  profit: number;
+}
+
 export interface ReportDataSource {
+  /** The business's industry key (`hotel`, `retail`, …): a hotel's revenue is its stays. */
+  industry(ws: string): Promise<string>;
+  /** Stays checking in on local dates `from`..`to`, inclusive. */
+  stays(ws: string, from: string, to: string): Promise<StayFigures>;
   /** Local dates `from`..`to`, inclusive. */
   revenue(ws: string, from: string, to: string): Promise<RevenueFigures>;
   orders(ws: string, since: Date, until: Date): Promise<OrderFigures>;

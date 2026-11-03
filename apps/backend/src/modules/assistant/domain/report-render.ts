@@ -26,6 +26,8 @@ export type ReportResult =
         averageOrderValue: number;
         profit: number;
       };
+      /** A hotel's stays checking in during the period (QA Villas #6); absent for a shop. */
+      stays?: { bookings: number; nights: number; revenue: number; profit: number };
     }
   | {
       template: 'new_orders';
@@ -113,18 +115,30 @@ export function renderReport(
   switch (r.template) {
     case 'revenue_summary': {
       const f = r.figures;
+      const orders = fill(strings, 'report.revenue_summary.body', {
+        sales: formatVnd(f.sales),
+        revenue: formatVnd(f.revenue),
+        closedOrders: formatNumber(f.closedOrders),
+        averageOrderValue: formatVnd(f.averageOrderValue),
+        profit: formatVnd(f.profit),
+      });
+      const period = periodText(strings, r.period);
+      if (!r.stays) {
+        return {
+          title: fill(strings, 'report.revenue_summary.title', { period, business }),
+          body: orders,
+        };
+      }
+      // A hotel sells stays: those lead, and orders follow only when it has any.
+      const stays = fill(strings, 'report.revenue_summary.stays_body', {
+        revenue: formatVnd(r.stays.revenue),
+        nights: formatNumber(r.stays.nights),
+        bookings: formatNumber(r.stays.bookings),
+        profit: formatVnd(r.stays.profit),
+      });
       return {
-        title: fill(strings, 'report.revenue_summary.title', {
-          period: periodText(strings, r.period),
-          business,
-        }),
-        body: fill(strings, 'report.revenue_summary.body', {
-          sales: formatVnd(f.sales),
-          revenue: formatVnd(f.revenue),
-          closedOrders: formatNumber(f.closedOrders),
-          averageOrderValue: formatVnd(f.averageOrderValue),
-          profit: formatVnd(f.profit),
-        }),
+        title: fill(strings, 'report.revenue_summary.stays_title', { period, business }),
+        body: f.sales > 0 || f.closedOrders > 0 ? `${stays}\n\n${orders}` : stays,
       };
     }
     case 'new_orders': {

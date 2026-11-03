@@ -4,12 +4,15 @@ import { Inject, Injectable } from '@nestjs/common';
 import { COMMERCE_FACADE, type CommerceFacade } from '../../../commerce/api/index.js';
 import { CONVERSATION_FACADE, type ConversationFacade } from '../../../conversation/api/index.js';
 import { CRM_FACADE, type CrmFacade } from '../../../crm/api/index.js';
+import { LODGING_FACADE, type LodgingFacade } from '../../../lodging/api/index.js';
+import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../../workspace/api/index.js';
 import type {
   AwaitingFigures,
   ContactFigures,
   OrderFigures,
   ReportDataSource,
   RevenueFigures,
+  StayFigures,
   StockFigures,
 } from '../../domain/ports/report-data-source.port.js';
 
@@ -30,7 +33,17 @@ export class FacadeReportDataSource implements ReportDataSource {
     @Inject(COMMERCE_FACADE) private readonly commerce: CommerceFacade,
     @Inject(CONVERSATION_FACADE) private readonly conversations: ConversationFacade,
     @Inject(CRM_FACADE) private readonly crm: CrmFacade,
+    @Inject(LODGING_FACADE) private readonly lodging: LodgingFacade,
+    @Inject(WORKSPACE_FACADE) private readonly workspace: WorkspaceFacade,
   ) {}
+
+  async industry(ws: string): Promise<string> {
+    return (await this.workspace.getById(workspaceId(ws))).industry;
+  }
+
+  stays(ws: string, from: string, to: string): Promise<StayFigures> {
+    return this.lodging.stayRevenue(workspaceId(ws), { from, to });
+  }
 
   async revenue(ws: string, from: string, to: string): Promise<RevenueFigures> {
     const { kpis } = await this.commerce.orderOverview(workspaceId(ws), { from, to });

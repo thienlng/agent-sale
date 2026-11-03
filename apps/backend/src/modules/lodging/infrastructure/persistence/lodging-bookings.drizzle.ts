@@ -38,6 +38,8 @@ type BookingStatusColumn = (typeof B.$inferSelect)['status'];
 const statuses = (list: readonly string[]) => list as BookingStatusColumn[];
 /** Stay statuses shown in the "today" view (arrivals and departures). */
 const TODAY_STATUSES = statuses(['confirmed', 'checked_in', 'checked_out']);
+/** Stay statuses that count as revenue (as the assistant's `lodging_bookings` view says). */
+const REVENUE_STATUSES = statuses(['confirmed', 'checked_in', 'checked_out']);
 /** Stay statuses still ahead of or in the house, for the "upcoming" view. */
 const UPCOMING_STATUSES = statuses(['hold', 'confirmed', 'checked_in']);
 const PAGE_PROBE = 101;
@@ -54,6 +56,7 @@ export type BookingPort = Pick<
   | 'findBookingByRequest'
   | 'listBookings'
   | 'bookingsInRange'
+  | 'stayTotals'
   | 'insertBooking'
   | 'updateBooking'
   | 'takeNights'
@@ -181,6 +184,32 @@ export function bookingPort(tx: TenantTx, ws: WorkspaceId): BookingPort {
         )
         .orderBy(asc(B.checkIn), asc(B.id));
       return hydrate(rows);
+    },
+
+    async stayTotals(from, to) {
+      const [row] = await tx
+        .select({
+          bookings: sql<number>`count(*)::int`,
+          nights: sql<number>`coalesce(sum(${B.checkOut} - ${B.checkIn}), 0)::int`,
+          revenue: sql<number>`coalesce(sum(${B.totalSell}), 0)::bigint`,
+          cost: sql<number>`coalesce(sum(${B.totalCost}), 0)::bigint`,
+        })
+        .from(B)
+        .where(
+          and(
+            eq(B.workspaceId, ws),
+            eq(B.kind, 'stay'),
+            inArray(B.status, REVENUE_STATUSES),
+            gte(B.checkIn, from),
+            lte(B.checkIn, to),
+          ),
+        );
+      return {
+        bookings: Number(row?.bookings ?? 0),
+        nights: Number(row?.nights ?? 0),
+        revenue: Number(row?.revenue ?? 0),
+        cost: Number(row?.cost ?? 0),
+      };
     },
 
     async insertBooking(b) {

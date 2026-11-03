@@ -10,7 +10,7 @@ Use this when the owner wants a figure sent on a rhythm ("mỗi sáng 8h gửi d
 
 1. Call schedule with action list first, so you do not create a duplicate and you know how many of the 10 places are used.
 2. Pick the template:
-   - revenue, sales, profit → revenue_summary (report only);
+   - revenue, sales, profit → revenue_summary (report only); for a hotel it reports the stays (stay revenue, nights sold, bookings, profit) checking in during the period, so "doanh thu lưu trú" is revenue_summary too;
    - new orders → new_orders (report: orders placed in the period; alert: minCount new orders since the last check);
    - products running out → low_stock (threshold, default 5);
    - customers waiting for a reply → unanswered_conversations (minutes, default 30; minCount, default 1);

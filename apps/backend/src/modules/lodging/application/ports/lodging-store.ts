@@ -47,6 +47,14 @@ export interface UnitRecord {
 }
 
 /** Every `BookingDto` field except the joined `propertyCode` / `propertyName` / `unitNames`. */
+/** Stays that count as revenue, summed (`stayTotals`). Money is integer VND. */
+export interface StayTotals {
+  bookings: number;
+  nights: number;
+  revenue: number;
+  cost: number;
+}
+
 export interface BookingRecord {
   id: string;
   code: string;
@@ -164,6 +172,11 @@ export interface LodgingTx {
   listBookings(q: BookingListQuery & { today: string }): Promise<BookingRecord[]>;
   /** Bookings in occupying statuses overlapping the nights [from, to). */
   bookingsInRange(propertyIds: string[], from: string, to: string): Promise<BookingRecord[]>;
+  /**
+   * Totals of the stays that count as revenue (confirmed, checked in or out; blocks excluded)
+   * whose check-in night is in [from, to] inclusive.
+   */
+  stayTotals(from: string, to: string): Promise<StayTotals>;
   /** Inserts the booking and its `unitIds` rows. */
   insertBooking(b: BookingRecord): Promise<void>;
   /** Updates the booking and replaces its `unitIds` rows. */

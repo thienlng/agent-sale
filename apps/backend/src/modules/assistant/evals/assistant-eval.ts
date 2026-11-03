@@ -155,6 +155,8 @@ export async function runAssistantCase(
       lowStock: noFigures,
       awaiting: noFigures,
       newContacts: noFigures,
+      industry: noFigures,
+      stays: noFigures,
     },
     strings,
   );
