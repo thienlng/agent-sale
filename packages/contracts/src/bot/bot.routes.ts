@@ -38,7 +38,7 @@ export const botRoutes = defineRoutes([
     path: '/bots/{botId}/training-items',
     assistant: {
       use: 'read',
-      when: "A bot's scenarios, quick replies and rules; filter kind=scenario, page with limit+offset.",
+      when: "A bot's scenarios, quick replies and rules; filter kind=scenario, page with limit+offset, fields=summary for a compact scan.",
     },
     summary: 'Training scenarios, quick replies and media references',
     tag: 'knowledge',

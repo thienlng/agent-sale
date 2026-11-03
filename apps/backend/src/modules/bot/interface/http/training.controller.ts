@@ -31,6 +31,18 @@ import { ZodValidationPipe } from '../../../../common/http/zod-validation.pipe.j
 import { BOT_FACADE, type BotFacade } from '../../api/index.js';
 import { TRAINING_FACADE, type TrainingFacade } from '../../../knowledge/api/index.js';
 
+/** Content kept by `fields=summary` (QA5 #3: paging scenarios must not eat the turn budget). */
+export const TRAINING_SUMMARY_CHARS = 160;
+
+/** A compact item: content cut to `TRAINING_SUMMARY_CHARS` with "…", notes dropped. */
+export function summaryItem(item: TrainingItemDto): TrainingItemDto {
+  const content =
+    item.content.length > TRAINING_SUMMARY_CHARS
+      ? `${item.content.slice(0, TRAINING_SUMMARY_CHARS)}…`
+      : item.content;
+  return { ...item, content, notes: '' };
+}
+
 @WorkspaceScoped()
 @Controller('bots/:botId')
 export class TrainingController {
@@ -54,7 +66,8 @@ export class TrainingController {
     const all = await this.training.list(ws, botId);
     const items = query.kind ? all.filter((i) => i.kind === query.kind) : all;
     const end = query.limit === undefined ? undefined : query.offset + query.limit;
-    return { data: items.slice(query.offset, end) };
+    const page = items.slice(query.offset, end);
+    return { data: query.fields === 'summary' ? page.map(summaryItem) : page };
   }
   @RequireCapability('bots.manage')
   @Post('training-items')
