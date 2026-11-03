@@ -22,3 +22,11 @@ bc4db73d6e608fc2e94ae354b0288aafa8299352:packages/ai-core/src/agent/safety.test.
 dc172529cf2e32d0925c211357f5df5df2e780c2:apps/backend/src/modules/assistant/__tests__/route-tools.spec.ts:generic-api-key:221
 dc172529cf2e32d0925c211357f5df5df2e780c2:apps/backend/src/modules/assistant/__tests__/route-tools.spec.ts:generic-api-key:405
 f39ee0f9ee0511cc90e39ba4ad8ddd652cc9f1a6:packages/ai-core/src/agent/safety.test.ts:jwt:182
+# Same fake owner-assistant test tokens after the #128 squash merge onto main (new commit sha).
+2d958d6c5e4bf0460821ecdbf9afc1ccc1fb4767:apps/backend/src/modules/assistant/__tests__/chat-turn.service.spec.ts:generic-api-key:273
+2d958d6c5e4bf0460821ecdbf9afc1ccc1fb4767:apps/backend/src/modules/assistant/__tests__/route-tools.spec.ts:generic-api-key:225
+2d958d6c5e4bf0460821ecdbf9afc1ccc1fb4767:apps/backend/src/modules/assistant/__tests__/route-tools.spec.ts:generic-api-key:238
+2d958d6c5e4bf0460821ecdbf9afc1ccc1fb4767:apps/backend/src/modules/assistant/__tests__/route-tools.spec.ts:generic-api-key:446
+2d958d6c5e4bf0460821ecdbf9afc1ccc1fb4767:apps/backend/test/assistant.integration.spec.ts:generic-api-key:1032
+2d958d6c5e4bf0460821ecdbf9afc1ccc1fb4767:packages/ai-core/src/agent/safety.test.ts:curl-auth-header:117
+2d958d6c5e4bf0460821ecdbf9afc1ccc1fb4767:packages/ai-core/src/agent/safety.test.ts:jwt:194
