@@ -12,10 +12,11 @@ import { SdkLlmProviderFactory } from '../modules/ai/infrastructure/llm/sdk-prov
 import { DrizzleLlmConfigRepository } from '../modules/ai/infrastructure/persistence/llm-config.drizzle-repository.js';
 import { loadCases } from '../modules/ai/evals/load.js';
 import { buildReport, renderMarkdown, renderText } from '../modules/ai/evals/report.js';
-import { runCase, runCaseFake } from '../modules/ai/evals/runner.js';
+import type { SalesPromptVersion } from '../modules/ai/application/playground.service.js';
+import { runCase, runCaseFake, type RunOptions } from '../modules/ai/evals/runner.js';
 
 /**
- * `pnpm --filter @agent-sales/backend eval [--live] [--group g] [--id x] [--out dir]`
+ * `pnpm --filter @agent-sales/backend eval [--live] [--group g] [--id x] [--prompt-version n] [--out dir]`
  *
  * T-145: runs the cases in `apps/backend/evals/` through the production reply pipeline
  * (`PlaygroundService`, the default prompt) and checks the outcome. Fake mode (default)
@@ -23,6 +24,8 @@ import { runCase, runCaseFake } from '../modules/ai/evals/runner.js';
  * configured in the database (DATABASE_SYSTEM_URL; the tier of each case's bot, `smart` by
  * default) and never falls back to the development fake. Writes report.json and report.md to
  * `--out` (default: a new temp directory). Exit code 1 when a critical case fails.
+ * `--prompt-version n` forces `sales-agent@n` for every case (default: the industry's prompt,
+ * `PROMPT_BY_INDUSTRY`), e.g. to compare saas on `@15` and `@19`.
  * Fixtures are synthetic; nothing but the case text and the reply is written.
  */
 const { values } = parseArgs({
@@ -31,8 +34,21 @@ const { values } = parseArgs({
     group: { type: 'string' },
     id: { type: 'string' },
     out: { type: 'string' },
+    'prompt-version': { type: 'string' },
   },
 });
+
+const PROMPT_VERSIONS: readonly SalesPromptVersion[] = [13, 14, 15, 16, 17, 18, 19];
+const forced = values['prompt-version'];
+const opts: RunOptions = {};
+if (forced !== undefined) {
+  const n = Number(forced);
+  if (!PROMPT_VERSIONS.includes(n as SalesPromptVersion)) {
+    console.error(`--prompt-version must be one of ${PROMPT_VERSIONS.join(', ')}`);
+    process.exit(1);
+  }
+  opts.promptVersion = n as SalesPromptVersion;
+}
 
 const cases = loadCases().filter(
   (c) => (!values.group || c.group === values.group) && (!values.id || c.id === values.id),
@@ -61,9 +77,9 @@ if (values.live) {
     new DrizzleLlmConfigRepository(db),
     new SdkLlmProviderFactory(secrets, true),
   );
-  runOne = (c) => runCase(c, llm);
+  runOne = (c) => runCase(c, llm, opts);
 } else {
-  runOne = runCaseFake;
+  runOne = (c) => runCaseFake(c, opts);
 }
 
 try {

@@ -399,7 +399,7 @@ export async function runCase(
 }
 
 /** Fake mode: the scripted model replays the case's `fake_turns`; no network. */
-export function runCaseFake(c: EvalCase): Promise<CaseResult> {
+export function runCaseFake(c: EvalCase, opts: RunOptions = {}): Promise<CaseResult> {
   if (!c.fake_turns) return Promise.resolve(errorResult(c, 'fake_turns is required in fake mode'));
-  return runCase(c, fakeRuntime(fakeScript(c)));
+  return runCase(c, fakeRuntime(fakeScript(c)), opts);
 }

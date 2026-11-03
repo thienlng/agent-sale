@@ -14,7 +14,11 @@ Design: `docs/13-testing-and-quality.md` §2, task T-145; agent harness v2: ADR-
 pnpm --filter @agent-sales/backend eval                      # fake mode, no network
 pnpm --filter @agent-sales/backend eval --live               # the LLM configured in the database
 pnpm --filter @agent-sales/backend eval --group safety --id retail-injection-discount --out ./reports
+pnpm --filter @agent-sales/backend eval --live --id saas-demo-recorded-no-handoff --prompt-version 15
 ```
+
+`--prompt-version n` forces `sales-agent@n` for every case. Without it each case runs on its
+industry's prompt (`PROMPT_BY_INDUSTRY`: hotel `@18`; saas, education and spa `@19`; others `@15`).
 
 - **Fake mode** (default): the scripted model replays the case's `fake_turns`, one per model call
   of the agent loop. A turn with `tool_calls` makes the loop run those tools (catalog lookups,

@@ -238,7 +238,7 @@ describe('eval suite (fake mode)', () => {
   });
 
   it('builds a report with groups and a passing critical gate', async () => {
-    const results = await Promise.all(cases.map(runCaseFake));
+    const results = await Promise.all(cases.map((c) => runCaseFake(c)));
     const report = buildReport('fake', results);
     expect(report.gate).toBe('pass');
     expect(report.promptVersion).toContain('sales-agent@15');
@@ -248,6 +248,15 @@ describe('eval suite (fake mode)', () => {
     expect(report.groups.map((g) => g.group)).toContain('safety');
     expect(renderText(report)).toContain('Critical:');
     expect(renderMarkdown(report)).toContain('| Group | Passed | Total |');
+  });
+});
+
+describe('eval prompt version option', () => {
+  it('runs on the industry prompt by default and on the forced one with promptVersion', async () => {
+    const byIndustry = await runCaseFake(parseCase(MINIMAL));
+    expect(byIndustry.promptVersion).toBe('sales-agent@15');
+    const forced = await runCaseFake(parseCase(MINIMAL), { promptVersion: 19 });
+    expect(forced.promptVersion).toBe('sales-agent@19');
   });
 });
 
