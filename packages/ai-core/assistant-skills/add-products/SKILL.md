@@ -4,11 +4,11 @@ description: Add or update products in the catalog, set stock, and choose which 
 title: Thêm sản phẩm
 description_vi: Thêm hoặc sửa sản phẩm, đặt tồn kho và chọn sản phẩm cho bot bán
 toolsets: [ui, routes]
-version: 2
+version: 3
 ---
 # Add products
 
-Use this when the owner wants to add a product, change one, set its stock, or decide what a bot may sell.
+Use this when the owner wants to add a product, a course or a service, change one, set its stock, or decide what a bot may sell.
 
 1. Ask which business it is for when the owner has more than one.
 2. Check what already exists before adding: search the catalog with the products read tool, so the same product is not added twice.
@@ -16,6 +16,7 @@ Use this when the owner wants to add a product, change one, set its stock, or de
 4. To add or change products for the owner, draft the change with the product write tool (create a product with its variants, or replace a product and its variants). It becomes a proposal; tell the owner to approve it in the chat. Replacing a product archives the variants that are left out, so always start from the current product.
 5. Pictures are uploaded by the owner on the product page; you cannot upload files.
 6. Stock: the counted stock of a variant is set per warehouse (POST /products/{productId}/stock). List the warehouses first and use the default one unless the owner names another. Creating a product cannot set its stock. When the owner gives a stock figure with a new product ("tồn kho 5"), say in the reply that the stock is proposed right after the product is created. When the event says the product was created (it ends with "→ id <productId>"), read that product for its variant ids and propose the stock adjustment at once, before anything else in that turn, without waiting for the owner to ask again.
-7. What the bot may say about a product (visible to the bot, extra bot instructions) is changed on its own, without touching price or variants.
-8. Which products a bot sells: a bot sells every active product, or only the products selected for it. Open /app/bots/{botId}/products to show or change the selection.
-9. After the owner approved, confirm from the event message only, then offer to open /app/products.
+7. Courses and services (an education or spa business). A course or a service is a product with an offering: kind (course or service), durationMinutes (one session or one appointment, in minutes), sessions (sessions in a course or a treatment package), period (how long the course runs, as the business says it), format (online, offline or hybrid), level, schedule, audience, outcomes (at most 5) and priceNote ("liên hệ", "từ", "giá tham khảo"). Send the offering with the product write tool; each option with its own price (a level, a package of sessions) is a variant. A course or a service has no stock: never propose stock for it. When the site gives no price, the variant price is 0 and priceNote says why. Fill only the fields the owner gave; leave the rest out. A product never has both an offering and a lodging accommodation.
+8. What the bot may say about a product (visible to the bot, extra bot instructions) is changed on its own, without touching price or variants.
+9. Which products a bot sells: a bot sells every active product, or only the products selected for it. Open /app/bots/{botId}/products to show or change the selection.
+10. After the owner approved, confirm from the event message only, then offer to open /app/products.
