@@ -181,7 +181,9 @@ export function AssistantPanel() {
           showCloseButton={false}
           // Non-modal: clicks on the page must not close the conversation.
           onInteractOutside={(event) => event.preventDefault()}
-          className="relative gap-0 p-0 data-[side=right]:w-full data-[side=right]:sm:w-[420px] data-[side=right]:sm:max-w-[420px]"
+          // No `relative` here: tailwind-merge would drop the sheet's `fixed`, and the panel would
+          // render in the page flow. `fixed` is already the containing block of the drop overlay.
+          className="gap-0 p-0 data-[side=right]:w-full data-[side=right]:sm:w-[420px] data-[side=right]:sm:max-w-[420px]"
           // Files dropped on the panel are attached to the next message (📎 does the same).
           onDragOver={(event) => {
             if (view !== 'chat' || !event.dataTransfer.types.includes('Files')) return;

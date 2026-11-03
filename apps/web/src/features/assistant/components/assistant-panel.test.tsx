@@ -112,6 +112,20 @@ describe('AssistantPanel', () => {
     expect(calls).toHaveLength(0);
   });
 
+  it('keeps the panel fixed on screen, not in the page flow', async () => {
+    useAssistantUi.setState({ open: true });
+    const { fetchStub } = stubFetch({});
+    vi.stubGlobal('fetch', fetchStub);
+    renderApp();
+
+    const panel = await screen.findByRole('dialog');
+    expect(panel).toHaveClass('fixed');
+    // A position class merged after it (relative, static, absolute…) would cancel `fixed`.
+    for (const other of ['relative', 'static', 'absolute', 'sticky']) {
+      expect(panel).not.toHaveClass(other);
+    }
+  });
+
   it('sends the message with the page context, renders the answer and navigates', async () => {
     const { fetchStub, calls } = stubFetch({
       'POST /assistant/threads': { status: 201, body: threadFixture() },
