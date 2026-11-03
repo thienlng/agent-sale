@@ -58,6 +58,20 @@ export interface HistoryRecord {
   createdAt: Date;
 }
 
+/** A request entry with its customer, for the summary's open list. */
+export interface OpenRequestRecord extends HistoryRecord {
+  contactName: string | null;
+  statusKey: string | null;
+}
+
+/** New requests of a period per kind and per the customer's current status (counts only). */
+export interface RequestCountRow {
+  kind: string;
+  statusKey: string | null;
+  statusName: string | null;
+  count: number;
+}
+
 export type OptionKind = 'source' | 'status';
 
 export interface OptionRecord {
@@ -177,6 +191,8 @@ export interface CrmTx {
       to: string | null,
       at: Date,
     ): Promise<string[]>;
+    /** Non-archived customers per status id (null = no status). */
+    countByStatus(): Promise<{ statusId: string | null; count: number }[]>;
     /**
      * Non-archived customers created in `[since, until)`, counted per first source name (the
      * current source when no first source is recorded; null = none), most first.
@@ -236,6 +252,24 @@ export interface CrmTx {
   };
   history: {
     add(h: HistoryRecord): Promise<void>;
+    /** The customer's newest request entry (recorded or updated) of `kind` at or after `since`. */
+    latestRequestEntry(contactId: string, kind: string, since: Date): Promise<HistoryRecord | null>;
+    /** The customer's request entries, newest first. */
+    requestEntries(contactId: string, limit: number): Promise<HistoryRecord[]>;
+    /**
+     * `contact.request_recorded` entries (updates left out) in `[since, until)` of live customers,
+     * counted per kind and per the customer's current status.
+     */
+    requestCounts(since: Date, until: Date): Promise<RequestCountRow[]>;
+    /**
+     * The newest request entry of each live customer since `since`, kept only when the customer is
+     * still at the target status of the entry's kind (`targets`), newest first.
+     */
+    openRequests(q: {
+      since: Date;
+      targets: ReadonlyArray<{ kind: string; statusKey: string }>;
+      limit: number;
+    }): Promise<OpenRequestRecord[]>;
     /** Many entries in few statements (bulk unlink). */
     addMany(h: readonly HistoryRecord[]): Promise<void>;
     list(

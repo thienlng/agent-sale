@@ -10,6 +10,7 @@ import type {
 } from '../api/crm.facade.js';
 import { ConversationTagsService } from './conversation-tags.service.js';
 import { ContactService } from './contact.service.js';
+import { CustomerRequestService } from './customer-request.service.js';
 import { OwnershipService } from './ownership.service.js';
 
 /** Delegates to the use-case services; no logic of its own. */
@@ -20,6 +21,7 @@ export class CrmFacadeImpl implements CrmFacade {
     @Inject(OwnershipService) private readonly ownership: OwnershipService,
     @Inject(ConversationTagsService)
     private readonly conversationTagsService: ConversationTagsService,
+    @Inject(CustomerRequestService) private readonly requests: CustomerRequestService,
   ) {}
 
   getContact(ws: WorkspaceId, id: string): Promise<ContactDto> {
@@ -50,7 +52,7 @@ export class CrmFacadeImpl implements CrmFacade {
     ws: WorkspaceId,
     contactId: string,
     statusKey: string,
-    opts: { forwardOnly: boolean },
+    opts: { forwardOnly: boolean; keep?: readonly string[] },
   ) {
     return this.contacts.moveStatusByKey(ws, contactId, statusKey, opts);
   }
@@ -79,15 +81,14 @@ export class CrmFacadeImpl implements CrmFacade {
     return this.conversationTagsService.assign(ws, conversationId, input, actor);
   }
 
-  // Stubs until the request writer lands (T-187 Task 2 replaces both).
   recordBotRequest(
-    _ws: WorkspaceId,
-    _input: { kind: CustomerRequestKind; details: unknown; preview: boolean },
+    ws: WorkspaceId,
+    input: { kind: CustomerRequestKind; details: unknown; preview: boolean },
   ): Promise<BotRequestResult> {
-    return Promise.reject(new Error('not implemented'));
+    return this.requests.recordFromBot(ws, input);
   }
 
-  requestsRecorded(_ws: WorkspaceId, _q: { since: Date; until: Date }): Promise<RequestsRecorded> {
-    return Promise.reject(new Error('not implemented'));
+  requestsRecorded(ws: WorkspaceId, q: { since: Date; until: Date }): Promise<RequestsRecorded> {
+    return this.requests.recorded(ws, q);
   }
 }

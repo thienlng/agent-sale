@@ -149,3 +149,11 @@ export class ShareNotAllowedError extends DomainError {
     super('Your role cannot share views with the whole shop');
   }
 }
+
+/** Customer requests exist only for the request industries (saas, education, spa); others see 404. */
+export class RequestsNotOfferedError extends DomainError {
+  readonly code = 'NOT_FOUND';
+  constructor() {
+    super('Customer requests are not available for this business');
+  }
+}
