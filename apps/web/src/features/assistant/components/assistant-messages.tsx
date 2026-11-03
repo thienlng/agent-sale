@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 
 import { useAssistantRun } from '../api/assistant';
 import { useMessageFeedback } from '../api/assistant-settings';
+import { AssistantMarkdown } from './assistant-markdown';
 import { AssistantProposal } from './assistant-proposals';
 import { AssistantStepList, AssistantSteps } from './assistant-steps';
 
@@ -53,8 +54,8 @@ function AssistantAnswer({ message }: { message: AssistantMessageDto }) {
   const [showSteps, setShowSteps] = useState(false);
   return (
     <li className="flex max-w-[85%] min-w-0 flex-col gap-1 self-start">
-      <div className="rounded-2xl rounded-bl-sm bg-muted px-3 py-2 break-words whitespace-pre-line">
-        {message.content}
+      <div className="min-w-0 rounded-2xl rounded-bl-sm bg-muted px-3 py-2 break-words">
+        <AssistantMarkdown content={message.content} />
       </div>
       <div className="flex items-center gap-2">
         {message.runId ? (
