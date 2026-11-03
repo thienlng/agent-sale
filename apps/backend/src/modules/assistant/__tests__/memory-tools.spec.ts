@@ -319,6 +319,39 @@ describe('memory tombstones (QA NB-4)', () => {
     expect(left).toEqual(['ban len']);
   });
 
+  it('refuses a reworded fact and the pieces of a split one (QA5 #2)', async () => {
+    const { scope, repo, entries } = setup();
+    await repo.saveMemoryStore(
+      scope,
+      'notes',
+      [],
+      [
+        tomb('tinymind chi nhan doi tra trong vong 7 ngay ke tu khi khach nhan hang'),
+        tomb('khi bao gia villa luon tach gia tung dem theo thu va in dam tong tien'),
+      ],
+    );
+    const review = memoryTool({ scope, repo, origin: 'review' });
+    const chat = memoryTool({ scope, repo });
+    const write = async (tool: typeof review, text: string) =>
+      JSON.parse(
+        (await tool.run(tool.schema.parse({ action: 'add', store: 'owner_profile', text })))
+          .content,
+      );
+    for (const text of [
+      'Shop TinyMind có chính sách đổi trả trong 7 ngày.',
+      'Khi báo giá villa, luôn tách giá từng đêm theo thứ.',
+      'Khi báo giá villa, luôn in đậm tổng tiền.',
+    ]) {
+      expect(await write(review, text)).toMatchObject({ errorCode: 'deleted_by_owner' });
+    }
+    const refused = await write(chat, 'Khi báo giá villa, luôn in đậm tổng tiền.');
+    expect(refused).toMatchObject({ errorCode: 'deleted_by_owner' });
+    expect(refused.hint).toContain('do not reword or split it');
+    // A different fact still saves.
+    expect(await write(chat, 'Shop giao hàng toàn quốc qua GHN.')).toMatchObject({ ok: true });
+    expect(await entries('owner_profile')).toEqual(['Shop giao hàng toàn quốc qua GHN.']);
+  });
+
   it('forgets tombstones older than 90 days', async () => {
     const { scope, repo, turn } = setup();
     const old = new Date(Date.now() - 91 * 86_400_000).toISOString();

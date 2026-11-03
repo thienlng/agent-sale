@@ -18,6 +18,7 @@ import { AI_LLM_GATEWAY, type LlmGatewayPort } from '../../ai/api/index.js';
 import { WORKSPACE_FACADE, type WorkspaceFacade } from '../../workspace/api/index.js';
 import { AssistantForbiddenError } from '../domain/assistant.errors.js';
 import { isKnownStore } from '../domain/memory-store.js';
+import { liveTombstones } from '../domain/memory-tombstones.js';
 import type { OwnerScope } from '../domain/owner-scope.js';
 import {
   ASSISTANT_REPOSITORY,
@@ -141,6 +142,27 @@ export function reviewTranscript(active: MessageRecord[]): string {
     .replaceAll('</transcript', '<\\/transcript');
 }
 
+/** The review sees at most this many of the owner's latest deleted facts (QA5 #2). */
+export const REVIEW_TOMBSTONES_MAX = 10;
+
+/**
+ * The owner's latest live tombstones (normalised text, newest first, ≤ 10) as a list the review
+ * must not save again in any wording; empty when there are none.
+ */
+export function deletedFactsBlock(memory: readonly MemoryStoreRecord[], now = new Date()): string {
+  const norms = memory
+    .flatMap((m) => liveTombstones(m.tombstones, now))
+    .sort((a, b) => b.deletedAt.localeCompare(a.deletedAt))
+    .map((t) => t.norm)
+    .filter((norm, i, all) => all.indexOf(norm) === i)
+    .slice(0, REVIEW_TOMBSTONES_MAX);
+  if (norms.length === 0) return '';
+  return [
+    'The owner deleted these; never save them or anything with the same meaning (reworded or split):',
+    ...norms.map((n) => `- ${n}`),
+  ].join('\n');
+}
+
 /**
  * The review's user instruction: the transcript, the owner's memory as it is now (the thread's
  * system prompt holds a snapshot from thread start or the last compaction) and the focus of the
@@ -152,10 +174,14 @@ export async function buildReviewInstruction(
   memory: readonly MemoryStoreRecord[] = [],
 ): Promise<string> {
   const template = await registry.load(REVIEW_PROMPT);
-  const block = renderMemoryBlock(memory).replaceAll('</memory', '<\\/memory');
+  const deleted = deletedFactsBlock(memory);
+  const block = [renderMemoryBlock(memory) || '(nothing yet)', deleted]
+    .filter(Boolean)
+    .join('\n\n')
+    .replaceAll('</memory', '<\\/memory');
   return registry.render(template, {
     transcript: reviewTranscript(active),
-    memory: block || '(nothing yet)',
+    memory: block,
     focus: FOCUS[scope],
   });
 }

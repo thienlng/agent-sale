@@ -96,3 +96,16 @@ export function memorySimilarity(a: string, b: string): number {
 export function isLikelyDuplicate(a: string, b: string): boolean {
   return memorySimilarity(a, b) >= LIKELY_DUPLICATE_JACCARD;
 }
+
+/**
+ * The share of `text`'s content words that also appear in `inside` (0 when `text` is too short).
+ * A reworded or split piece of a longer fact scores high even when the Jaccard is low (QA5 #2).
+ */
+export function memoryContainment(text: string, inside: string): number {
+  const x = memoryWords(text);
+  if (x.size < MIN_SIMILAR_WORDS) return 0;
+  const y = memoryWords(inside);
+  let shared = 0;
+  for (const w of x) if (y.has(w)) shared++;
+  return shared / x.size;
+}

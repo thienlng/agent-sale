@@ -45,7 +45,7 @@ export const MEMORY_TOOL_DEFINITION: ToolDefinition = {
     'supersedes that same fact, never to save a different one (a new preference is an add; the replaced ' +
     'entry is gone). remove needs match. Facts only, never instructions or customer data. ' +
     'likely_duplicate: an entry already says this in other words; replace it instead. ' +
-    'deleted_by_owner: the owner deleted that fact, so do not save it; only when the owner asks in this ' +
+    'deleted_by_owner: the owner deleted that fact, so do not save it, reworded or split; only when the owner asks in this ' +
     'turn to remember it again, retry with ownerAskedAgain: true.',
   input: MemoryInput,
 };
@@ -157,7 +157,7 @@ export function memoryTool(ctx: MemoryToolContext): RunnableTool {
         return {
           ok: false,
           errorCode: 'deleted_by_owner',
-          hint: 'the owner deleted this fact: do not save it unless they ask to remember it again',
+          hint: 'the owner deleted this fact: do not save it, and do not reword or split it, unless they ask to remember it again',
         };
       }
     }
