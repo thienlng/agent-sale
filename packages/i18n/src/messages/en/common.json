@@ -1014,6 +1014,7 @@
     "noName": "(no name)",
     "stale": "Someone else just edited this customer. The latest version is loaded; check it and save again.",
     "col": {
+      "lead": "Captured from",
       "name": "Customer",
       "phone": "Phone",
       "email": "Email",

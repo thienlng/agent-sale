@@ -1010,6 +1010,7 @@
     "noName": "(chưa có tên)",
     "stale": "Khách hàng này vừa được người khác sửa. Đã tải bản mới nhất, hãy kiểm tra rồi lưu lại.",
     "col": {
+      "lead": "Ghi nhận từ",
       "name": "Khách hàng",
       "phone": "Số điện thoại",
       "email": "Email",
