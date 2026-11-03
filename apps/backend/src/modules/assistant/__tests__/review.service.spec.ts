@@ -194,7 +194,8 @@ describe('review triggers in the chat turn', () => {
 
     for (let i = 0; i < 4; i++) await turn(s, thread.id);
     expect(jobs(s)).toHaveLength(1);
-    expect(jobs(s)[0]).toMatchObject({ reviewScope: 'memory', status: 'queued' });
+    // The queued idle (combined) review becomes due now; its scope stays combined.
+    expect(jobs(s)[0]).toMatchObject({ reviewScope: 'combined', status: 'queued' });
     expect(jobs(s)[0]!.runAfter.getTime()).toBeLessThanOrEqual(Date.now());
     // A review that runs now resets the counters.
     expect(await s.repo.getThread(s.scope, thread.id)).toMatchObject({
@@ -203,7 +204,7 @@ describe('review triggers in the chat turn', () => {
     });
   });
 
-  it('resets the counters when the assistant itself wrote memory in the turn', async () => {
+  it('still counts a turn in which the assistant itself wrote memory', async () => {
     const s = setup();
     const thread = await threadWithTalk(s);
     await s.repo.bumpReviewCounters(s.scope, thread.id, { ownerTurns: 2, toolRounds: 4 });
@@ -213,10 +214,45 @@ describe('review triggers in the chat turn', () => {
     );
     await turn(s, thread.id);
     expect(await s.repo.getThread(s.scope, thread.id)).toMatchObject({
-      reviewOwnerTurns: 0,
-      reviewToolRounds: 0,
+      reviewOwnerTurns: 3,
+      reviewToolRounds: 5,
     });
-    expect(jobs(s)).toHaveLength(0);
+    expect(jobs(s)).toEqual([expect.objectContaining({ reviewScope: 'combined' })]);
+  });
+
+  it('runs and writes after 8 owner turns with approvals in between (QA Villas #4)', async () => {
+    const s = setup();
+    const thread = await s.repo.createThread(s.scope, {
+      id: newId(),
+      title: 't',
+      systemPrompt: 'S',
+      promptVersion: 'assistant@2',
+    });
+    for (let i = 0; i < 8; i++) {
+      await turn(s, thread.id, `Lần sau báo giá đủ đơn vị ${i}`);
+      // An approval adds an event message after the turn.
+      await s.repo.appendMessages(s.scope, thread.id, [
+        message({ role: 'event', content: 'Đã áp dụng: đổi giá' }),
+      ]);
+    }
+    const [job] = jobs(s);
+    expect(job).toMatchObject({ status: 'queued', reviewScope: 'combined' });
+    expect(job!.runAfter.getTime()).toBeLessThanOrEqual(Date.now());
+    // The owner keeps chatting before the worker picks it up.
+    await turn(s, thread.id, 'Còn gì nữa không em');
+    expect(jobs(s)).toHaveLength(1);
+    expect(jobs(s)[0]!.runAfter.getTime()).toBeLessThanOrEqual(Date.now());
+
+    s.queue.push(
+      call('memory', { action: 'add', store: 'owner_profile', text: 'Báo giá luôn ghi đủ đơn vị' }),
+      reply({ text: 'Saved.' }),
+    );
+    await s.runner.tick();
+    expect(await s.repo.getJob(s.scope, job!.id)).toMatchObject({ status: 'done' });
+    const memory = await s.repo.getMemory(s.scope);
+    expect(memory.find((m) => m.store === 'owner_profile')!.entries).toEqual([
+      expect.objectContaining({ text: 'Báo giá luôn ghi đủ đơn vị', origin: 'review' }),
+    ]);
   });
 
   it('never counts a failed turn, a schedule thread, or when the owner turned review off', async () => {
@@ -433,16 +469,66 @@ describe('ReviewService and the runner', () => {
     expect(skill).toMatchObject({ body: patch.body, patchCount: 1 });
   });
 
-  it('cancels a job when the thread got a message after it was enqueued', async () => {
+  it('runs a due review although the thread got messages after it was enqueued', async () => {
     const s = setup();
     const thread = await threadWithTalk(s);
     const job = await enqueue(s, thread.id);
     await s.repo.appendMessages(s.scope, thread.id, [
       message({ role: 'user', content: 'Thêm một câu nữa' }),
+      message({ role: 'event', content: 'Đã áp dụng: đổi giá' }),
     ]);
     await s.runner.tick();
-    expect(await s.repo.getJob(s.scope, job.id)).toMatchObject({ status: 'cancelled' });
+    expect(await s.repo.getJob(s.scope, job.id)).toMatchObject({ status: 'done' });
+    expect(s.generate).toHaveBeenCalledTimes(1);
+  });
+
+  it('pushes an idle review back, keeping it, when the thread is not idle yet', async () => {
+    const s = setup();
+    const thread = await threadWithTalk(s);
+    const idle = await enqueue(s, thread.id, new Date(Date.now() + REVIEW_IDLE_MS));
+    await s.repo.appendMessages(s.scope, thread.id, [
+      message({ role: 'event', content: 'Đã áp dụng: đổi giá' }),
+    ]);
+    const lastAt = (await s.repo.getThread(s.scope, thread.id))!.lastMessageAt.getTime();
+    // The worker claims it (e.g. the due time came while the clock was skewed).
+    s.repo.jobs.get(idle.id)!.runAfter = new Date(Date.now() - 1);
+    s.repo.jobs.get(idle.id)!.createdAt = new Date(Date.now() - 1 - REVIEW_IDLE_MS);
+    await s.runner.tick();
     expect(s.generate).not.toHaveBeenCalled();
+    expect(await s.repo.getJob(s.scope, idle.id)).toMatchObject({ status: 'cancelled' });
+    const queued = [...s.repo.jobs.values()].filter((j) => j.status === 'queued');
+    expect(queued).toHaveLength(1);
+    expect(queued[0]).toMatchObject({ threadId: thread.id, reviewScope: 'combined' });
+    expect(queued[0]!.runAfter.getTime()).toBe(lastAt + REVIEW_IDLE_MS);
+  });
+
+  it('never pushes a due review back on a later idle enqueue; scopes merge', async () => {
+    const s = setup();
+    const thread = await threadWithTalk(s);
+    const due = await s.repo.enqueueJob(s.scope, {
+      id: newId(),
+      threadId: thread.id,
+      kind: 'review',
+      reviewScope: 'memory',
+      runAfter: new Date(Date.now() - 1),
+    });
+    const later = await s.repo.enqueueJob(s.scope, {
+      id: newId(),
+      threadId: thread.id,
+      kind: 'review',
+      reviewScope: 'combined',
+      runAfter: new Date(Date.now() + REVIEW_IDLE_MS),
+    });
+    expect(later.id).toBe(due.id);
+    expect(later.runAfter.getTime()).toBe(due.runAfter.getTime());
+    const skills = await s.repo.enqueueJob(s.scope, {
+      id: newId(),
+      threadId: thread.id,
+      kind: 'review',
+      reviewScope: 'skills',
+      runAfter: new Date(),
+    });
+    expect(skills.reviewScope).toBe('combined');
   });
 
   it('cancels when review is off or the user is no longer an active owner', async () => {

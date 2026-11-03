@@ -1357,14 +1357,22 @@ export class DrizzleAssistantRepository implements AssistantRepository {
     return this.#in(s, async (tx) => {
       if (j.threadId) await this.#ownThread(tx, s, j.threadId);
       // The partial unique index (NULLS NOT DISTINCT) keeps one queued job per owner, thread
-      // and kind; a concurrent enqueue lands on the conflict branch instead of a second row.
+      // and kind; a concurrent enqueue lands on the conflict branch instead of a second row. A
+      // due job keeps its run_after (an idle enqueue never pushes a counter-triggered review
+      // back), and two scopes merge into `combined`.
       const rows = await tx.execute<RawJob>(sql`
         insert into assistant_jobs
           (id, account_id, owner_user_id, thread_id, kind, review_scope, status, run_after)
         values (${j.id}, ${s.accountId}, ${s.ownerUserId}, ${j.threadId}, ${j.kind},
                 ${j.reviewScope}, 'queued', ${j.runAfter.toISOString()}::timestamptz)
         on conflict (account_id, owner_user_id, kind, thread_id) where status = 'queued'
-        do update set run_after = excluded.run_after, review_scope = excluded.review_scope,
+        do update set
+          run_after = case when assistant_jobs.run_after <= now()
+            then assistant_jobs.run_after else excluded.run_after end,
+          review_scope = case
+            when assistant_jobs.review_scope is not null and excluded.review_scope is not null
+              and assistant_jobs.review_scope <> excluded.review_scope then 'combined'
+            else excluded.review_scope end,
           created_at = now()
         returning *`);
       const [row] = [...rows];

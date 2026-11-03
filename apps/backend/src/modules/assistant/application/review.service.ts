@@ -35,6 +35,7 @@ import { CORE_TOOL_DEFINITIONS, coreTools, SESSION_SEARCH_TOOL } from './core-to
 import { MEMORY_TOOL_DEFINITION, memoryTool } from './memory-tools.js';
 import { resolveOwnerScope } from './owner-access.js';
 import { renderMemoryBlock } from './prompt-builder.js';
+import { REVIEW_IDLE_MS } from './review-trigger.js';
 import { SKILL_TOOL_DEFINITIONS, skillManageDefinition, skillTools } from './skill-tools.js';
 import { SkillsService } from './skills.service.js';
 
@@ -240,7 +241,16 @@ function fenced(tool: RunnableTool, holds: () => Promise<boolean>): RunnableTool
 }
 
 /** How one claimed review job ended. `lost`: another attempt holds it now; nothing is changed. */
-export type ReviewOutcome = 'done' | 'cancelled' | 'retry' | 'failed' | 'lost';
+export type ReviewOutcome = 'done' | 'cancelled' | 'deferred' | 'retry' | 'failed' | 'lost';
+
+/**
+ * An idle review (enqueued to run `REVIEW_IDLE_MS` after the last turn), as opposed to one a
+ * counter threshold made due at once. Half the delay absorbs the gap between the turn's clock
+ * and the enqueue's `created_at`; a retry moves `run_after` by less (`REVIEW_RETRY_DELAY_MS`).
+ */
+export function isIdleReview(job: Pick<JobRecord, 'runAfter' | 'createdAt'>): boolean {
+  return job.runAfter.getTime() - job.createdAt.getTime() >= REVIEW_IDLE_MS / 2;
+}
 
 /**
  * The background review (spec §11), one claimed job at a time: checks the job is still wanted
@@ -269,6 +279,7 @@ export class ReviewService {
   async run(job: JobRecord): Promise<ReviewOutcome> {
     const key: OwnerKey = { accountId: job.accountId, ownerUserId: job.ownerUserId as UserId };
     try {
+      if (await this.#deferIdle(key, job)) return 'deferred';
       const ready = await this.#prepare(key, job);
       if (!ready) {
         await this.repo.cancelJob(key, { id: job.id, attempts: job.attempts });
@@ -296,9 +307,34 @@ export class ReviewService {
   }
 
   /**
+   * An idle review whose thread got a message after it was enqueued, and has not been quiet for
+   * `REVIEW_IDLE_MS` since, is pushed back instead of run: this attempt is cancelled and a new
+   * idle job is queued for `REVIEW_IDLE_MS` after the last message, so its trigger is kept. A
+   * review a counter made due is never pushed back or cancelled by later messages (approvals,
+   * events, more turns): it reviews the thread as it is when it runs.
+   */
+  async #deferIdle(key: OwnerKey, job: JobRecord): Promise<boolean> {
+    if (job.kind !== 'review' || !job.threadId || !isIdleReview(job)) return false;
+    const thread = await this.repo.getThread(key, job.threadId);
+    if (!thread) return false;
+    const last = thread.lastMessageAt.getTime();
+    if (last <= job.createdAt.getTime() || Date.now() - last >= REVIEW_IDLE_MS) return false;
+    const cancelled = await this.repo.cancelJob(key, { id: job.id, attempts: job.attempts });
+    if (cancelled === 0) return true;
+    await this.repo.enqueueJob(key, {
+      id: newId(),
+      threadId: job.threadId,
+      kind: 'review',
+      reviewScope: job.reviewScope ?? 'combined',
+      runAfter: new Date(last + REVIEW_IDLE_MS),
+    });
+    return true;
+  }
+
+  /**
    * The thread and the owner's scope, or null when the job is no longer wanted: not a review,
-   * review turned off, thread gone or a schedule thread, a message after the job was enqueued,
-   * or the owner is no longer an active owner of the account.
+   * review turned off, thread gone or a schedule thread, or the owner is no longer an active
+   * owner of the account. A newer message does not cancel it (see `#deferIdle`).
    */
   async #prepare(
     key: OwnerKey,
@@ -309,7 +345,6 @@ export class ReviewService {
     if (!settings.reviewEnabled) return null;
     const thread = await this.repo.getThread(key, job.threadId);
     if (!thread || thread.origin === 'schedule') return null;
-    if (thread.lastMessageAt.getTime() > job.createdAt.getTime()) return null;
     const scope = await this.#ownerScope(key, thread);
     return scope ? { scope, thread } : null;
   }

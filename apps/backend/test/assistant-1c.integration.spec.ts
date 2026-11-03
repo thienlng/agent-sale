@@ -352,7 +352,7 @@ describe('assistant suggestions, settings, feedback and counters on Postgres (1c
 describe('assistant jobs and the curator on Postgres (1c)', () => {
   it('keeps one queued job per thread and kind, curator jobs included', async () => {
     const { s, threadId } = await owner();
-    const runAfter = new Date('2026-11-02T10:00:00.000Z');
+    const runAfter = new Date(Date.now() + 60 * 60_000);
     const first = await repo.enqueueJob(s, {
       id: newId(),
       threadId,
@@ -369,6 +369,25 @@ describe('assistant jobs and the curator on Postgres (1c)', () => {
     });
     expect(merged).toMatchObject({ id: first.id, reviewScope: 'combined', status: 'queued' });
     expect(merged.runAfter.getTime()).toBe(runAfter.getTime() + 60_000);
+    // A due review keeps its time on a later (idle) enqueue; two scopes merge into combined.
+    const busy = await owner();
+    const due = await repo.enqueueJob(busy.s, {
+      id: newId(),
+      threadId: busy.threadId,
+      kind: 'review',
+      reviewScope: 'memory',
+      runAfter: new Date(Date.now() - 1000),
+    });
+    const pushed = await repo.enqueueJob(busy.s, {
+      id: newId(),
+      threadId: busy.threadId,
+      kind: 'review',
+      reviewScope: 'skills',
+      runAfter: new Date(Date.now() + 30 * 60_000),
+    });
+    expect(pushed).toMatchObject({ id: due.id, reviewScope: 'combined' });
+    expect(pushed.runAfter.getTime()).toBe(due.runAfter.getTime());
+    expect(await repo.cancelJob(busy.s, { id: due.id })).toBe(1);
 
     const c1 = await repo.enqueueJob(s, {
       id: newId(),
