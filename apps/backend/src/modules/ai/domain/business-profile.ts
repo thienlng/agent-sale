@@ -37,6 +37,8 @@ export const PROFILE_LABELS: Record<ProfileFieldKey, string> = {
   support: 'Customer support',
   dataSecurity: 'Data security',
   refundPolicy: 'Refunds and cancellation',
+  branches: 'Branches',
+  reschedule: 'Rescheduling and cancellation',
 };
 
 const NOT_PROVIDED = '(not provided)';

@@ -1,8 +1,13 @@
-import type { ContactDto } from '@agent-sales/contracts';
+import type { ContactDto, CustomerRequestKind } from '@agent-sales/contracts';
 import { Inject, Injectable } from '@nestjs/common';
 import type { WorkspaceId } from '@agent-sales/shared';
 
-import type { CrmFacade, ConversationTagFilter } from '../api/crm.facade.js';
+import type {
+  BotRequestResult,
+  CrmFacade,
+  ConversationTagFilter,
+  RequestsRecorded,
+} from '../api/crm.facade.js';
 import { ConversationTagsService } from './conversation-tags.service.js';
 import { ContactService } from './contact.service.js';
 import { OwnershipService } from './ownership.service.js';
@@ -72,5 +77,17 @@ export class CrmFacadeImpl implements CrmFacade {
 
   assignConversationTag(ws: WorkspaceId, conversationId: string, input: unknown, actor: string) {
     return this.conversationTagsService.assign(ws, conversationId, input, actor);
+  }
+
+  // Stubs until the request writer lands (T-187 Task 2 replaces both).
+  recordBotRequest(
+    _ws: WorkspaceId,
+    _input: { kind: CustomerRequestKind; details: unknown; preview: boolean },
+  ): Promise<BotRequestResult> {
+    return Promise.reject(new Error('not implemented'));
+  }
+
+  requestsRecorded(_ws: WorkspaceId, _q: { since: Date; until: Date }): Promise<RequestsRecorded> {
+    return Promise.reject(new Error('not implemented'));
   }
 }

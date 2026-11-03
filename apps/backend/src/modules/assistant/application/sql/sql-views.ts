@@ -154,6 +154,7 @@ export const SQL_VIEWS: readonly SqlView[] = [
       ['has_phone', 'boolean', 'the customer gave a phone number'],
       ['archived', 'boolean', 'archived customer'],
       ['created_at', 'timestamptz', 'when the customer was created: use for new customers'],
+      ['status_key', 'text', 'built-in key of the CRM status (null for a custom status)'],
     ],
     [
       "select coalesce(source_name, 'unknown') as source, count(*) as customers from customers where created_at >= date_trunc('month', now()) group by 1 order by 2 desc",

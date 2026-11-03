@@ -15,6 +15,7 @@ const base: ProductDto = {
   visibleToBot: true,
   botInstructions: 'Gợi ý cho bé từ 18 tháng',
   imageUrls: Array.from({ length: 6 }, (_, i) => `https://cdn.example.com/${i}.jpg`),
+  offering: null,
   variants: [
     {
       id: '01900000-0000-7000-8000-0000000000a1',

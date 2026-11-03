@@ -109,6 +109,8 @@ function toProductDto(
       imageUrls: p.imageUrls,
       ...(p.accommodation ? { accommodation: p.accommodation } : {}),
     }),
+    // Persisted by T-187 Task 3; until then every product reads as retail.
+    offering: null,
     variants: dtoVariants,
     priceMin: prices.length ? Math.min(...prices) : 0,
     priceMax: prices.length ? Math.max(...prices) : 0,

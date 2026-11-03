@@ -1,8 +1,10 @@
 export {
+  type BotRequestResult,
   CRM_FACADE,
   type ConversationTagFilter,
   type ConversationTagMatch,
   type CrmFacade,
+  type RequestsRecorded,
   websiteLeadName,
 } from './crm.facade.js';
 export * from './crm.events.js';

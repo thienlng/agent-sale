@@ -169,6 +169,7 @@ export function toBotProduct(
     botInstructions: '',
     imageUrls: gallery.slice(0, MAX_IMAGE_URLS).map((g) => g.url),
     accommodation,
+    offering: null,
     // Lodging places are Rapiz-owned; they never come from a PMS.
     external: null,
     variants: [],

@@ -24,6 +24,7 @@ const product = (linked: boolean): ProductDto => ({
   visibleToBot: true,
   botInstructions: '',
   imageUrls: ['https://cdn.example.com/a.jpg'],
+  offering: null,
   variants: [
     {
       id: '0199f8c8-3b7a-7e6b-9a3e-2b1f6a8c9b01',
