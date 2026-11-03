@@ -123,6 +123,18 @@ describe('maskOwnerSecrets', () => {
     `  --data '{"password":"x","name":"Áo","apiKey": "zz"}'`,
   ].join('\n');
 
+  it('keeps a closing bracket right after a token (QA NB2-m)', () => {
+    expect(
+      maskOwnerSecrets('Gọi API (Authorization: Bearer sk_live_9fA3abcdefghij0Ye), xong nhé').text,
+    ).toBe(`Gọi API (Authorization: Bearer ${SECRET_REMOVED}), xong nhé`);
+    expect(maskOwnerSecrets('dùng (Bearer abcdefghijklmnopqrst) nhé').text).toBe(
+      `dùng (${SECRET_REMOVED}) nhé`,
+    );
+    expect(maskOwnerSecrets('[token=abc123xyz]').text).toBe(`[token=${SECRET_REMOVED}]`);
+    // A bracket inside a value is still masked with it.
+    expect(maskOwnerSecrets('password: ab)cd').text).toBe(`password: ${SECRET_REMOVED}`);
+  });
+
   it('masks every secret value and keeps the keys', () => {
     const { text, removed } = maskOwnerSecrets(curl);
     expect(text).toContain(`api_key=${SECRET_REMOVED}&page=2`);

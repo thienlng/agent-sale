@@ -41,7 +41,8 @@ export const PHONE_PATTERN = /(?<!\d)(?:\+84|0)[\s.]?[35789](?:[\s.]?\d){8}(?!\d
 export const EMAIL_PATTERN = /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/;
 export const SECRET_PATTERNS: readonly RegExp[] = [
   /sk-[A-Za-z0-9_-]{16,}/,
-  /Bearer\s+[^\s'"]{16,}/,
+  // A token never ends on a closing bracket or `,;.`: `(… Bearer abc…xyz)` keeps its `)` (QA NB2-m).
+  /Bearer\s+[^\s'"]{15,}[^\s'")\]}>,;.]/,
 ];
 /**
  * A 32+ char hex/base64-like run. It counts as a secret only through `isSecretRun`, which
@@ -137,11 +138,14 @@ const NOT_MASKED = '(?!\\[secret removed\\])';
 /** `Name: value` (header line, `-H '…'`, `--header "…"`); an auth scheme word is kept. */
 const AUTH_SCHEME = '(?:Bearer|Basic|Token|Digest|ApiKey|Key)\\s+';
 const HEADER_RE = new RegExp(
-  `(?<![A-Za-z0-9_-])(${SECRET_NAME})(\\s*:\\s*)(?!${AUTH_SCHEME}\\[secret removed\\])(${AUTH_SCHEME})?${NOT_MASKED}([^\\s'"]+)`,
+  `(?<![A-Za-z0-9_-])(${SECRET_NAME})(\\s*:\\s*)(?!${AUTH_SCHEME}\\[secret removed\\])(${AUTH_SCHEME})?${NOT_MASKED}([^\\s'"]*[^\\s'")\\]}>,;.])`,
   'gi',
 );
 /** `name=value` in a query string or form body. */
-const PARAM_RE = new RegExp(`(?<![A-Za-z0-9_-])(${SECRET_NAME})=${NOT_MASKED}([^&\\s'"#]+)`, 'gi');
+const PARAM_RE = new RegExp(
+  `(?<![A-Za-z0-9_-])(${SECRET_NAME})=${NOT_MASKED}([^&\\s'"#]*[^&\\s'"#)\\]}>,;.])`,
+  'gi',
+);
 /** `"name": "value"` JSON members with a string value. */
 const JSON_RE = new RegExp(
   `("${SECRET_NAME}"\\s*:\\s*")${NOT_MASKED}((?:[^"\\\\]|\\\\.)+)(")`,
