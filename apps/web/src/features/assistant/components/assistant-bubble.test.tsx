@@ -72,6 +72,61 @@ describe('AssistantBubble launcher', () => {
   });
 });
 
+describe('AssistantBubble placement', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  async function renderWith(rect: Partial<DOMRect>) {
+    state.session = sessionWith('owner', ACCOUNT);
+    useAssistantUi.setState({ open: false, workspaceId: null, threadId: null, spotlight: null });
+    renderWithRouter(() => (
+      <>
+        <form data-assistant-avoid data-testid="composer">
+          <button type="submit">Gửi</button>
+        </form>
+        <AssistantBubble />
+      </>
+    ));
+    const composer = await screen.findByTestId('composer');
+    const full = { left: 0, right: 0, top: 0, bottom: 0, width: 0, height: 0, ...rect };
+    vi.spyOn(composer, 'getBoundingClientRect').mockReturnValue(full as DOMRect);
+    // The page laid out: the launcher measures again.
+    act(() => void window.dispatchEvent(new Event('resize')));
+  }
+
+  it('moves the launcher above a marked control it would cover (Chat thử Gửi)', async () => {
+    const vh = window.innerHeight;
+    const vw = document.documentElement.clientWidth || window.innerWidth;
+    await renderWith({
+      left: vw - 380,
+      right: vw,
+      top: vh - 60,
+      bottom: vh,
+      width: 380,
+      height: 60,
+    });
+    const launcher = await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' });
+    // Above the composer's top edge, with a gap.
+    await waitFor(() => expect(launcher.style.bottom).toBe('68px'));
+  });
+
+  it('stays at rest when the marked control is elsewhere', async () => {
+    const vh = window.innerHeight;
+    await renderWith({ left: 0, right: 300, top: vh - 60, bottom: vh, width: 300, height: 60 });
+    const launcher = await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' });
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    expect(launcher.style.bottom).toBe('16px');
+  });
+
+  it('reserves room under a padded page so its last button stays reachable', async () => {
+    state.session = sessionWith('owner', ACCOUNT);
+    renderPage();
+    await screen.findByRole('button', { name: 'Hỏi Thỏ Rapiz' });
+    const spacer = document.querySelector('[data-assistant-spacer]');
+    expect(spacer).toHaveClass('h-20');
+    expect(spacer).toHaveAttribute('aria-hidden');
+  });
+});
+
 describe('AssistantBubble open requests', () => {
   const RUN = '01a19d25-57b8-7082-bbf9-35da4e0c3001';
   afterEach(() => vi.unstubAllGlobals());
