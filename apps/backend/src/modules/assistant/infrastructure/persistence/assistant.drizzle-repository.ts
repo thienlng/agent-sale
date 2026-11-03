@@ -65,6 +65,7 @@ import {
   type SuggestionStatus,
   type MemoryEntry,
   type MemoryStoreRecord,
+  type MemoryTombstone,
   type MessageRecord,
   type NewMessage,
   type NewProposal,
@@ -363,10 +364,24 @@ function rawJob(row: RawJob): JobRecord {
   };
 }
 
+/**
+ * Tombstones (owner-deleted texts, QA NB-4) share the store's `entries` jsonb as items marked
+ * `tombstone: true`, so no column is needed; only this mapper and `saveMemoryStore` see them.
+ */
+type StoredMemoryItem = MemoryEntry | (MemoryTombstone & { tombstone: true });
+
+const isTombstoneItem = (x: StoredMemoryItem): x is MemoryTombstone & { tombstone: true } =>
+  (x as { tombstone?: unknown }).tombstone === true;
+
 function toMemory(row: typeof mem.$inferSelect): MemoryStoreRecord {
+  const items = (row.entries as StoredMemoryItem[] | null) ?? [];
+  const tombstones = items
+    .filter(isTombstoneItem)
+    .map(({ norm, deletedAt }) => ({ norm, deletedAt }));
   return {
     store: row.store,
-    entries: (row.entries as MemoryEntry[] | null) ?? [],
+    entries: items.filter((x): x is MemoryEntry => !isTombstoneItem(x)),
+    ...(tombstones.length > 0 ? { tombstones } : {}),
     updatedAt: row.updatedAt,
   };
 }
@@ -811,14 +826,28 @@ export class DrizzleAssistantRepository implements AssistantRepository {
     s: OwnerScope,
     store: string,
     entries: MemoryEntry[],
+    tombstones?: MemoryTombstone[],
   ): Promise<MemoryStoreRecord> {
     return this.#in(s, async (tx) => {
+      let kept = tombstones;
+      if (kept === undefined) {
+        const [old] = await tx
+          .select()
+          .from(mem)
+          .where(and(ownsMemory(s), eq(mem.store, store)))
+          .for('update');
+        kept = old ? (toMemory(old).tombstones ?? []) : [];
+      }
+      const items: StoredMemoryItem[] = [
+        ...entries,
+        ...kept.map((t) => ({ tombstone: true as const, norm: t.norm, deletedAt: t.deletedAt })),
+      ];
       const [row] = await tx
         .insert(mem)
-        .values({ accountId: s.accountId, ownerUserId: s.ownerUserId, store, entries })
+        .values({ accountId: s.accountId, ownerUserId: s.ownerUserId, store, entries: items })
         .onConflictDoUpdate({
           target: [mem.accountId, mem.ownerUserId, mem.store],
-          set: { entries, updatedAt: sql`now()` },
+          set: { entries: items, updatedAt: sql`now()` },
         })
         .returning();
       if (!row) throw new Error('assistant memory upsert returned no row');
