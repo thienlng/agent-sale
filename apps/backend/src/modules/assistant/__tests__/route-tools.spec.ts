@@ -130,6 +130,19 @@ describe('route catalog', () => {
     expect(onInbox.slice(0, 3).map((e) => e.key)).toContain('GET /conversations/{id}');
   });
 
+  it('ranks a hotel’s own lodging routes first for a short reference (QA Villas #2)', () => {
+    for (const query of ['A20', 'product A20', 'find villa with pool', 'list items']) {
+      const top = searchCatalog(ROUTE_CATALOG, query, undefined, [], 'hotel')[0]?.key ?? '';
+      expect(top, query).toMatch(/ \/lodging\//);
+    }
+    // A shop still gets its products first.
+    expect(searchCatalog(ROUTE_CATALOG, 'product A20', undefined, [], 'retail')[0]?.key).toMatch(
+      / \/product/,
+    );
+    // Without an industry nothing changes.
+    expect(searchCatalog(ROUTE_CATALOG, 'A20')).toEqual([]);
+  });
+
   it('finds the GET twin of a write on the same path', () => {
     const put = ROUTE_CATALOG.get('PUT /products/{productId}');
     expect(put && ROUTE_CATALOG.readerOf(put)?.key).toBe('GET /products/{productId}');

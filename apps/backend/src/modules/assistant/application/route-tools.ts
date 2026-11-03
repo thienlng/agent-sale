@@ -103,6 +103,8 @@ export interface RouteToolContext {
    * described and called next to the routes. Their keys never start with an HTTP method.
    */
   native?: readonly NativeToolEntry[];
+  /** The current business's industry: its own routes rank first in `tool_search`. */
+  industry?: string;
 }
 
 /** `<` is escaped so a result cannot open or close a prompt tag. */
@@ -312,12 +314,14 @@ export function routeTools(ctx: RouteToolContext): RunnableTool[] {
     schema: ToolSearchInput,
     run(input) {
       const { query } = input as z.output<typeof ToolSearchInput>;
-      const hits = searchCatalog(ctx.catalog, query, ctx.page?.route, ctx.native).map((e) => ({
-        key: e.key,
-        use: e.use,
-        summary: e.summary,
-        when: e.when,
-      }));
+      const hits = searchCatalog(ctx.catalog, query, ctx.page?.route, ctx.native, ctx.industry).map(
+        (e) => ({
+          key: e.key,
+          use: e.use,
+          summary: e.summary,
+          when: e.when,
+        }),
+      );
       return Promise.resolve({ content: cut(json(hits), MAX_ROUTE_RESULT_CHARS) });
     },
   };

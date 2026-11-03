@@ -36,6 +36,7 @@ import { CORE_TOOL_DEFINITIONS, coreTools, type ToolContext } from './core-tools
 import { buildImportBlock } from './import-block.js';
 import { IMPORT_TOOL_DEFINITIONS, importTools } from './import-tools.js';
 import { isVisibleMessage } from './mappers.js';
+import { currentIndustry } from './owner-access.js';
 import { MEMORY_TOOL_DEFINITION, memoryTool } from './memory-tools.js';
 import { buildTurnMessage } from './prompt-builder.js';
 import { ROUTE_CATALOG, type RouteCatalog } from './route-catalog.js';
@@ -349,6 +350,7 @@ export class ChatTurnService {
     // The turn's proposals; the web reads them per thread, so the answer carries no field.
     const proposalIds: string[] = [];
     const native = this.#nativeTools(scope, runId, ctx.uiActions, settings.disabledToolsets);
+    const industry = currentIndustry(scope);
     // No schedule created from a schedule (core §12); the `schedule` toolset setting applies too.
     const withSchedule = thread.origin !== 'schedule';
     const pending: Promise<void>[] = [];
@@ -396,6 +398,7 @@ export class ChatTurnService {
               proposalIds,
               native,
               ...(req.pageContext ? { page: req.pageContext } : {}),
+              ...(industry ? { industry } : {}),
             }),
             // Product import (T-173): previews read; a proposal waits for the owner.
             ...importTools({
