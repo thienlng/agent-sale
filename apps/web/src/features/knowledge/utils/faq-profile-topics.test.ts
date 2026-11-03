@@ -22,6 +22,19 @@ describe('profileFieldForQuestion', () => {
     ['Bảng giá các gói thế nào', 'saas', 'plans'],
     ['Có tích hợp Zalo không', 'saas', 'integrations'],
     ['Huỷ gói có được hoàn tiền không', 'saas', 'refundPolicy'],
+    ['Cho con học thử được không', 'education', 'courseTrial'],
+    ['Có kiểm tra trình độ miễn phí không', 'education', 'courseTrial'],
+    ['Học phí khoá IELTS bao nhiêu', 'education', 'courseFees'],
+    ['Lịch khai giảng tháng này', 'education', 'courseSchedule'],
+    ['Nghỉ giữa chừng có được bảo lưu không', 'education', 'refundPolicy'],
+    ['Bên mình có chi nhánh ở Quận 7 không', 'education', 'branches'],
+    ['Cơ sở gần nhất ở đâu', 'spa', 'branches'],
+    ['Muốn đặt lịch gội đầu', 'spa', 'booking'],
+    ['Em muốn dời lịch sang mai', 'spa', 'reschedule'],
+    ['Đến trễ 15 phút có sao không', 'spa', 'reschedule'],
+    ['Bảng giá dịch vụ chăm sóc da', 'spa', 'servicePrices'],
+    ['Tháng này có ưu đãi gì không', 'spa', 'promotion'],
+    ['Đang có khuyến mãi không shop', 'retail', 'promotion'],
   ])('maps "%s" (%s) to %s', (question, industry, field) => {
     expect(profileFieldForQuestion(question, industry)).toBe(field);
   });
