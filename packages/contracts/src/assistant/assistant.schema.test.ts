@@ -278,6 +278,7 @@ describe('learning feed', () => {
           description: 'Báo cáo doanh thu tuần',
           state: 'pending_approval',
           undone: false,
+          latestAction: 'create',
           at,
         },
         {
