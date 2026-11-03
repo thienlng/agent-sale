@@ -47,6 +47,10 @@ describe('capability 5 skills', () => {
     for (const s of [doctor, action]) expect([...s.toolsets].sort()).toEqual(['routes', 'ui']);
     expect(doctor.body).toContain('GET /bots/{botId}/turns');
     expect(doctor.body).toContain('Rapiz chỉ giữ chi tiết 30 ngày');
+    // Test chat turns are searched too (QA TinyMind B6); holds need no API action (QA Villas M-2).
+    expect(doctor.body).toContain('includeTests=true');
+    expect(doctor.body).toContain('Never tell the owner the bot needs an external API action');
+    expect(action.body).toContain('say it is built in');
     expect(action.body).toContain('enabled: always false');
     expect(action.body).toContain('actions.secret');
     expect(skills.find((s) => s.name === 'set-up-bot')).toMatchObject({ version: 2 });
