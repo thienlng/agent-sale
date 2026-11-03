@@ -51,7 +51,11 @@ export class ThreadPromptService {
       );
     return buildSystemPrompt(
       template,
-      { ownerName: ownerName?.trim() || FALLBACK_OWNER_NAME, businesses },
+      {
+        ownerName: ownerName?.trim() || FALLBACK_OWNER_NAME,
+        businesses,
+        currentBusinessId: scope.businessId,
+      },
       today,
       {
         skillsIndex: skills.index(),
