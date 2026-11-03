@@ -601,6 +601,18 @@ describe('assistant memory, proposals and compaction on Postgres (1b)', () => {
     // Same owner id under the other account: RLS and the explicit filter both hide A's rows.
     expect(await repo().getMemory({ ...b.scope, ownerUserId: a.scope.ownerUserId })).toEqual([]);
     await expect(repo().saveMemoryStore(a.scope, 'secrets', [])).rejects.toThrow();
+
+    // Tombstones (QA NB-4) live in the same jsonb, are split out, and survive a plain save.
+    const tomb = { norm: 'thich bao cao ngan', deletedAt: new Date().toISOString() };
+    await repo().saveMemoryStore(a.scope, 'notes', [entry('Báo cáo sáng thứ Hai')], [tomb]);
+    await repo().saveMemoryStore(a.scope, 'notes', [entry('Nghỉ CN')]);
+    const notes = (await repo().getMemory(a.scope)).find((m) => m.store === 'notes');
+    expect(notes?.entries.map((e) => e.text)).toEqual(['Nghỉ CN']);
+    expect(notes?.tombstones).toEqual([tomb]);
+    await repo().saveMemoryStore(a.scope, 'notes', [], []);
+    expect((await repo().getMemory(a.scope)).find((m) => m.store === 'notes')?.tombstones).toBe(
+      undefined,
+    );
   });
 
   it('serves GET and DELETE /assistant/memory to the owner and refuses staff', async () => {
