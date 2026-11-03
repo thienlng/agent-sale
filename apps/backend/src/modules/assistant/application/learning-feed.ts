@@ -13,8 +13,8 @@ const DAY_MS = 24 * 60 * 60_000;
  * plus memory entries with origin `review` (saved or rewritten in the window), from the last
  * `days` days, newest first, at most 20. Each item carries its undo handle: the ledger entry id,
  * or the memory store and entry id (`undoReviewEntry`: a rewrite is restored, an addition is
- * forgotten). Memory in a business store
- * the owner no longer belongs to is left out (its delete would be 404).
+ * forgotten). A skill row shows the skill's current state, not its event's (QA N-4). Memory in a
+ * business store the owner no longer belongs to is left out (its delete would be 404).
  */
 export async function learningFeed(
   repo: AssistantRepository,
@@ -29,8 +29,16 @@ export async function learningFeed(
     repo.getMemory(scope),
   ]);
 
+  const events = [...review, ...curator];
+  const skillIds = [...new Set(events.map((e) => e.skillId))];
+  const current = new Map(
+    (await Promise.all(skillIds.map((id) => repo.getSkill(scope, id)))).flatMap((s) =>
+      s ? [[s.id, s.state] as const] : [],
+    ),
+  );
+
   const items: AssistantLearningItemDto[] = [];
-  for (const e of [...review, ...curator]) {
+  for (const e of events) {
     const shown = e.after ?? e.before;
     if (!shown || (e.actor !== 'review' && e.actor !== 'curator')) continue;
     items.push({
@@ -41,7 +49,7 @@ export async function learningFeed(
       skillId: e.skillId,
       name: shown.name,
       description: shown.description,
-      state: e.after?.state ?? null,
+      state: current.get(e.skillId) ?? null,
       undone: e.undoneAt !== null,
       at: e.createdAt.toISOString(),
     });
