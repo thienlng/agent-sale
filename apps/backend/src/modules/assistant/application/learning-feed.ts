@@ -36,6 +36,19 @@ export async function learningFeed(
       s ? [[s.id, s.state] as const] : [],
     ),
   );
+  // The skill's newest ledger action by anyone (an owner's restore or undo too), so a row
+  // whose own event was undone but whose skill came back reads clearly (QA feed state).
+  const latest = new Map(
+    await Promise.all(
+      skillIds.map(
+        async (id) =>
+          [
+            id,
+            (await repo.listSkillEvents(scope, { skillId: id, limit: 1 }))[0]?.action ?? null,
+          ] as const,
+      ),
+    ),
+  );
 
   const items: AssistantLearningItemDto[] = [];
   for (const e of events) {
@@ -51,6 +64,7 @@ export async function learningFeed(
       description: shown.description,
       state: current.get(e.skillId) ?? null,
       undone: e.undoneAt !== null,
+      latestAction: latest.get(e.skillId) ?? null,
       at: e.createdAt.toISOString(),
     });
   }

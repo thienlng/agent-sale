@@ -340,7 +340,13 @@ export const AssistantLearnedSkillDto = z.object({
    * says `active` on its `create` row too), or null when the skill is gone.
    */
   state: AssistantSkillState.nullable(),
+  /** This row's own event was undone (the skill may have been restored since: see below). */
   undone: z.boolean(),
+  /**
+   * The skill's newest ledger action by anyone (`restore` after an owner restored it, `undo`,
+   * `approve`, …), or null when the skill is gone. With `state`, it says what happened last.
+   */
+  latestAction: AssistantSkillEventDto.shape.action.nullable(),
   at: z.iso.datetime(),
 });
 export type AssistantLearnedSkillDto = z.infer<typeof AssistantLearnedSkillDto>;

@@ -700,6 +700,7 @@ describe('learning feed', () => {
       name: 'weekly-revenue',
       state: 'pending_approval',
       undone: false,
+      latestAction: 'create',
     });
     expect(skill && 'skillEventId' in skill && skill.skillEventId).toBeTruthy();
     expect(feed.items.find((i) => i.kind === 'memory' && i.entryId === 'm-new')).toMatchObject({
@@ -720,7 +721,12 @@ describe('learning feed', () => {
     await s.skills.approve(s.scope, row!.id, row!.updatedAt);
 
     const item = (await learningFeed(s.repo, s.scope, 7)).items.find((i) => i.kind === 'skill');
-    expect(item).toMatchObject({ action: 'create', state: 'active', undone: false });
+    expect(item).toMatchObject({
+      action: 'create',
+      state: 'active',
+      undone: false,
+      latestAction: 'approve',
+    });
     const eventId = item && 'skillEventId' in item ? item.skillEventId : '';
 
     // The approval came after the create: its undo still works and retires the skill.
@@ -728,11 +734,15 @@ describe('learning feed', () => {
     expect(undone).toMatchObject({ state: 'archived', body: 'Bước 1.' });
     expect(
       (await learningFeed(s.repo, s.scope, 7)).items.find((i) => i.kind === 'skill'),
-    ).toMatchObject({ state: 'archived', undone: true });
+    ).toMatchObject({ state: 'archived', undone: true, latestAction: 'undo' });
     await expect(s.skills.undo(s.scope, eventId)).rejects.toMatchObject({
       details: { reason: 'event_already_undone' },
     });
     // "Khôi phục" brings it back as it was.
     expect((await s.skills.restore(s.scope, row!.id)).state).toBe('active');
+    // After the restore the row says so: its own event stays undone, the latest action is restore.
+    expect(
+      (await learningFeed(s.repo, s.scope, 7)).items.find((i) => i.kind === 'skill'),
+    ).toMatchObject({ state: 'active', undone: true, latestAction: 'restore' });
   });
 });
