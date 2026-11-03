@@ -1,14 +1,19 @@
 import { useRouter } from '@tanstack/react-router';
 import { Fragment, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { safeAppPath } from '../utils/safe-app-path';
+
+import { statusLabel } from '../utils/status-labels';
 
 /**
  * A safe Markdown subset for assistant answers: paragraphs and line breaks, headings (as bold
  * lines), bullet and numbered lists, GFM tables, fenced code, **bold**, *italic*, `code` and
  * links. Everything becomes React elements, so raw HTML in an answer stays text. A link is a
  * link only when its target stays inside the dashboard (`safeAppPath`); any other target is
- * shown as its label alone.
+ * shown as its label alone. A raw status quoted as `code` or filling a table cell
+ * (`awaiting_owner_approval`) shows its Vietnamese label. In tables, a one-word cell (a code such
+ * as `JS-038`) never breaks; a table wider than the bubble scrolls sideways.
  */
 
 type Block =
@@ -139,6 +144,7 @@ const INLINE =
 
 function Inline({ text }: { text: string }): ReactNode {
   const router = useRouter({ warn: false });
+  const { t } = useTranslation('assistant');
   const out: ReactNode[] = [];
   let last = 0;
   for (const match of text.matchAll(INLINE)) {
@@ -146,7 +152,10 @@ function Inline({ text }: { text: string }): ReactNode {
     if (at > last) out.push(text.slice(last, at));
     const [, code, bold1, bold2, italic1, italic2, label, target] = match;
     const key = out.length;
-    if (code !== undefined) {
+    const status = code !== undefined ? statusLabel(t, code) : null;
+    if (status !== null) {
+      out.push(status);
+    } else if (code !== undefined) {
       out.push(
         <code key={key} className="rounded bg-background/70 px-1 font-mono text-[0.85em]">
           {code}
@@ -208,6 +217,20 @@ function Lines({ text }: { text: string }) {
   );
 }
 
+/** A cell that is one word (a code, a number): kept on one line. */
+const ONE_WORD = /^\S{1,32}$/;
+
+/** A table cell: a raw status as its label, else the cell's inline Markdown. */
+function Cell({ text }: { text: string }) {
+  const { t } = useTranslation('assistant');
+  const label = statusLabel(t, text.replace(/^`(.*)`$/, '$1'));
+  return label ?? <Inline text={text} />;
+}
+
+function cellClass(text: string, align: Align): string {
+  return `${ALIGN_CLASS[align ?? 'left']}${ONE_WORD.test(text.trim()) ? ' whitespace-nowrap' : ''}`;
+}
+
 const ALIGN_CLASS: Record<Exclude<Align, null>, string> = {
   left: 'text-left',
   center: 'text-center',
@@ -253,16 +276,16 @@ export function AssistantMarkdown({ content }: { content: string }) {
           }
           case 'table':
             return (
-              <div key={i} className="overflow-x-auto">
+              <div key={i} className="max-w-full overflow-x-auto">
                 <table className="w-full border-collapse text-xs">
                   <thead>
                     <tr>
                       {block.header.map((cell, j) => (
                         <th
                           key={j}
-                          className={`border-b px-2 py-1 font-semibold ${ALIGN_CLASS[block.align[j] ?? 'left']}`}
+                          className={`border-b px-2 py-1 font-semibold ${cellClass(cell, block.align[j] ?? null)}`}
                         >
-                          <Inline text={cell} />
+                          <Cell text={cell} />
                         </th>
                       ))}
                     </tr>
@@ -273,9 +296,9 @@ export function AssistantMarkdown({ content }: { content: string }) {
                         {block.header.map((_, j) => (
                           <td
                             key={j}
-                            className={`px-2 py-1 align-top ${ALIGN_CLASS[block.align[j] ?? 'left']}`}
+                            className={`px-2 py-1 align-top ${cellClass(row[j] ?? '', block.align[j] ?? null)}`}
                           >
-                            <Inline text={row[j] ?? ''} />
+                            <Cell text={row[j] ?? ''} />
                           </td>
                         ))}
                       </tr>
