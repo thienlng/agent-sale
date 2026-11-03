@@ -164,15 +164,36 @@ export function capHistory(messages: MessageRecord[], max = HISTORY_MAX_MESSAGES
   return start < 0 ? [] : window.slice(start);
 }
 
+/** A fill_form carries at most this many values (the contract's cap, like a form). */
+const MAX_FILL_VALUES = 30;
+
 /**
- * At most the last navigate, the last fill_form and the last spotlight of the turn, in that
- * order: the page opens, its form is filled, then a control is highlighted.
+ * One fill_form per form, in first-call order: a form's calls merge their values in call order,
+ * so a later value for the same field wins and a correcting call keeps the earlier fields (QA5 #1).
+ */
+function mergedFills(actions: AssistantUiAction[]): AssistantUiAction[] {
+  const byForm = new Map<string, Record<string, string | number>>();
+  for (const a of actions) {
+    if (a.type !== 'fill_form') continue;
+    byForm.set(a.formId, { ...byForm.get(a.formId), ...a.values });
+  }
+  return [...byForm].map(([formId, values]) => ({
+    type: 'fill_form' as const,
+    formId,
+    values: Object.fromEntries(Object.entries(values).slice(-MAX_FILL_VALUES)),
+  }));
+}
+
+/**
+ * The answer's UI actions: the last navigate, one merged fill_form per form, then the last
+ * spotlight. The page opens, its form is filled, then a control is highlighted.
  */
 export function finalUiActions(actions: AssistantUiAction[]): AssistantUiAction[] {
-  return (['navigate', 'fill_form', 'spotlight'] as const).flatMap((type) => {
-    const last = actions.findLast((a) => a.type === type);
-    return last ? [last] : [];
-  });
+  const last = (type: AssistantUiAction['type']) => {
+    const found = actions.findLast((a) => a.type === type);
+    return found ? [found] : [];
+  };
+  return [...last('navigate'), ...mergedFills(actions), ...last('spotlight')];
 }
 
 const errorClass = (e: unknown): string => (e instanceof Error ? e.name : typeof e);
