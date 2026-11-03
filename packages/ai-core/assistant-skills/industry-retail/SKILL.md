@@ -26,6 +26,8 @@ Read the products to learn the categories and what the shop sells. Product names
 
 Còn hàng không, có size/màu nào, giá bao nhiêu, phí ship và bao lâu nhận được, có ship COD không, có được kiểm tra hàng không, đổi trả thế nào, shop ở đâu, mấy giờ mở cửa. Most of these are profile fields; the FAQ is for the rest (for example how to choose between two product lines, or whether the shop sells wholesale), and only with sourced answers.
 
+Samples (FAQ, quick replies) cover several product groups, at most 2 items about one product, and the shop-wide topics above; a product's own data is said only of that product.
+
 ## Sample scenarios
 
 - Hỏi size, màu, còn hàng — Khi khách hỏi size, màu hoặc còn hàng — Trả lời theo dữ liệu sản phẩm; nếu sản phẩm có nhiều lựa chọn thì hỏi khách chọn loại nào. Không khẳng định còn hàng khi dữ liệu không có tồn kho.

@@ -34,6 +34,8 @@ Có những gói nào, giá bao nhiêu, tính theo tháng hay năm, có dùng th
 
 The saas industry has its own starter rules (how to quote plans, demo and trial requests, missing features, bargaining, data security, after a request). Propose them first; draft only scenarios they do not cover.
 
+Samples cover several plans and the general topics (trial, demo, integrations, data, support), at most 2 items about one plan; a plan's own data is said only of that plan.
+
 ## Sample scenarios
 
 - So sánh gói — Khi khách hỏi nên chọn gói nào — Hỏi quy mô và nhu cầu chính, rồi so sánh các gói theo đúng thông tin gói cước; không tự đưa giá riêng.
