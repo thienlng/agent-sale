@@ -17,6 +17,8 @@ export type BotOrderProblem = {
   code:
     | 'unknown_sku'
     | 'inactive'
+    /** A course or a service (T-187): booked as a request, never ordered. */
+    | 'not_sold'
     | 'insufficient_stock'
     | 'missing_name'
     | 'missing_phone'
