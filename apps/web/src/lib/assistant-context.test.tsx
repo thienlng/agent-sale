@@ -215,8 +215,13 @@ describe('useAssistantForm stack', () => {
   it('lets an open dialog take over its list registration, and gives it back on close', () => {
     const { rerender, unmount } = render(<FaqListPage dialogOpen={false} />);
     expect(labelOf()).toBe('Câu hỏi (danh sách)');
+    // QA5 #4: the model sees that a fill opens the closed dialog.
+    expect(collectPageContext('/app/bots/b/knowledge').forms?.[0]?.opensDialog).toBe(true);
     rerender(<FaqListPage dialogOpen />);
     expect(labelOf()).toBe('Câu hỏi (hộp thoại)');
+    expect(collectPageContext('/app/bots/b/knowledge').forms?.[0]).not.toHaveProperty(
+      'opensDialog',
+    );
     // Each id is listed once, with the active registration's fields.
     expect(collectPageContext('/app/bots/b/knowledge').forms).toHaveLength(1);
     let result: ReturnType<typeof fillAssistantForm> | undefined;

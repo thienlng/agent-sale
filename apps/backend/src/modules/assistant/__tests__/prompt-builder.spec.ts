@@ -102,6 +102,28 @@ describe('buildSystemPrompt', () => {
   });
 });
 
+describe('page context opensDialog flag (QA5 #4)', () => {
+  it('passes the opensDialog flag of a form to the model', () => {
+    const out = buildTurnMessage(
+      'Mở form tạo bot mới và điền tên Bot A',
+      {
+        route: '/app/bots',
+        targets: ['bots.new'],
+        forms: [
+          {
+            id: 'bot',
+            fields: [{ name: 'name', label: 'Tên bot', type: 'text', empty: true }],
+            opensDialog: true,
+          },
+        ],
+      },
+      AT,
+    );
+    expect(out).toContain('"id":"bot"');
+    expect(out).toContain('"opensDialog":true');
+  });
+});
+
 describe('buildTurnMessage', () => {
   it('puts the page context and the local time before the owner text', () => {
     expect(
