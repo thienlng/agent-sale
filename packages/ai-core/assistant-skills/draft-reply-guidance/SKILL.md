@@ -15,7 +15,7 @@ Use this when the owner asks you to write the bot's mission or greeting ("viết
    - greeting: one short sentence;
    - selfPronoun and customerPronoun: from the owner's own style ("em" and "anh/chị" by default);
    - replyLength (veryShort, short, detailed), tone (friendly, formal), allowEmoji (yes, no).
-   Tell the owner to check it and press Lưu. Off that page, open it with ui_navigate, or propose the change through the bot update tool.
+   The personality is never empty (its selects always have a value): when the owner asks to change the tone, length, greeting or mission ("trang trọng hơn", "viết lại lời chào"), fill the fields that change, filled or not. Tell the owner to check it and press Lưu. Off that page, open it with ui_navigate, or propose the change through the bot update tool.
 4. Scenarios. Each has a title, a trigger that starts with "Khi khách …" or "Khách …", an instruction, and a section: general, or after_order for what the bot says right after an order or a booking is created.
    - Read the existing training items first. When the bot is missing the Vietnamese starter rules, propose the starter rules first (POST /bots/{botId}/training-items/starter-rules); it adds only the missing ones.
    - One scenario, with the scenario list open: when <page_context> forms lists the `scenario` form, call ui_fill_form with title, trigger, content and section. The editor opens with the draft and the chat steps aside; tell the owner to check it and press Lưu.
