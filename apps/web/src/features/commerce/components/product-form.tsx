@@ -11,6 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { useAssistantForm } from '@/lib/assistant-context';
 import { errorMessage } from '@/lib/errors';
 import { productSaveErrorMessage } from '../hooks/lodging-errors';
 import { cn } from '@/lib/utils';
@@ -90,6 +91,77 @@ export function ProductForm({
   );
   const setVariant = (i: number, patch: Partial<VariantDraft>) =>
     setVariants((vs) => vs.map((v, idx) => (idx === i ? { ...v, ...patch } : v)));
+
+  // The owner assistant may fill a new product's main fields (the first variant's SKU, price,
+  // cost and weight; the SKU is required to save);
+  // the owner reviews them and saves. Editing an existing product is a proposal, not a fill.
+  const first = variants[0];
+  useAssistantForm(
+    'product',
+    () => [
+      {
+        name: 'code',
+        label: t('products.form.code'),
+        type: 'text',
+        empty: !code.trim(),
+        value: code,
+      },
+      {
+        name: 'name',
+        label: t('products.form.name'),
+        type: 'text',
+        empty: !name.trim(),
+        value: name,
+      },
+      {
+        name: 'category',
+        label: t('products.form.category'),
+        type: 'text',
+        empty: !category.trim(),
+        value: category,
+      },
+      {
+        name: 'description',
+        label: t('products.form.description'),
+        type: 'textarea',
+        empty: !description.trim(),
+        value: description,
+      },
+      {
+        name: 'sku',
+        label: t('products.form.sku'),
+        type: 'text',
+        empty: !first?.sku.trim(),
+        required: true,
+        value: first?.sku ?? '',
+      },
+      { name: 'price', label: t('products.form.price'), type: 'number', empty: !first?.price },
+      { name: 'cost', label: t('products.form.cost'), type: 'number', empty: !first?.cost },
+      {
+        name: 'weightGram',
+        label: t('products.form.weight'),
+        type: 'number',
+        empty: !first?.weightGram,
+      },
+    ],
+    (values) => {
+      if (typeof values['code'] === 'string') setCode(values['code'].slice(0, 64));
+      if (typeof values['name'] === 'string') setName(values['name'].slice(0, 200));
+      if (typeof values['category'] === 'string') setCategory(values['category'].slice(0, 120));
+      if (typeof values['description'] === 'string')
+        setDescription(values['description'].slice(0, 5000));
+      const patch: Partial<VariantDraft> = {};
+      if (typeof values['sku'] === 'string') patch.sku = values['sku'].slice(0, 64);
+      if (typeof values['price'] === 'number' && values['price'] >= 0)
+        patch.price = Math.round(values['price']);
+      if (typeof values['cost'] === 'number' && values['cost'] >= 0)
+        patch.cost = Math.round(values['cost']);
+      if (typeof values['weightGram'] === 'number' && values['weightGram'] >= 0)
+        patch.weightGram = Math.round(values['weightGram']);
+      if (Object.keys(patch).length) setVariant(0, patch);
+    },
+    { submitTarget: 'products.save', enabled: !product },
+  );
 
   function submit(e: FormEvent) {
     e.preventDefault();
@@ -365,7 +437,7 @@ export function ProductForm({
         </section>
 
         <div className="flex justify-end">
-          <Button type="submit" size="lg" disabled={saving}>
+          <Button type="submit" size="lg" disabled={saving} data-assistant-target="products.save">
             {saving ? t('products.form.saving') : t('products.form.save')}
           </Button>
         </div>

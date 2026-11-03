@@ -119,6 +119,14 @@ export interface CrmFacade {
     input: unknown,
     actorUserId: string,
   ): Promise<{ created: boolean; assignment: ConversationTagAssignmentDto }>;
+  /**
+   * Customers created in `[since, until)` (owner reports, T-172), archived ones left out, split
+   * by the name of their first source (`null` = no source). Counts only, no customer data.
+   */
+  contactsCreated(
+    workspaceId: WorkspaceId,
+    q: { since: Date; until: Date },
+  ): Promise<{ count: number; bySource: { source: string | null; count: number }[] }>;
 }
 
 export const CRM_FACADE = Symbol('CRM_FACADE');

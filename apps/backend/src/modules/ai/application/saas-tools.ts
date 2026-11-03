@@ -1,11 +1,10 @@
-import type { ToolDefinition } from '@agent-sales/ai-core';
+import type { RunnableTool, ToolDefinition } from '@agent-sales/ai-core';
 import { SaasRequestKind } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
 import { z } from 'zod';
 
 import type { SaasFacade } from '../../saas/api/index.js';
 import { type ActionCall, safeJson } from './action-tools.js';
-import type { RunnableTool } from './tool-runner.js';
 
 /**
  * The SaaS vertical's built-in tool (ADR-020): a bot of a `saas` business records a demo / trial /

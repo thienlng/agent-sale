@@ -37,6 +37,17 @@ const cut = (text: string, max: number): string =>
   text.length <= max ? text : `${text.slice(0, Math.max(0, max - 1)).trimEnd()}…`;
 
 /**
+ * The rules `situationsText` renders: enabled ones, the oldest {@link MAX_SITUATIONS} by creation
+ * time (stable for equal or missing times). Turn traces store their ids.
+ */
+export function activeSituations<T extends SituationItem>(items: readonly T[]): T[] {
+  return items
+    .filter((item) => item.enabled !== false)
+    .sort(byCreation) // Array.prototype.sort is stable
+    .slice(0, MAX_SITUATIONS);
+}
+
+/**
  * The text inside `<shop_situations>`: only enabled rules (a disabled rule never reaches the
  * model), the oldest {@link MAX_SITUATIONS} by creation time (stable for equal or missing
  * times), grouped under a header per section. A section with no rule has no header; no rule at
@@ -47,10 +58,7 @@ const cut = (text: string, max: number): string =>
  * rules always keeps its header and its rules.
  */
 export function situationsText(items: readonly SituationItem[]): string {
-  const active = items
-    .filter((item) => item.enabled !== false)
-    .sort(byCreation) // Array.prototype.sort is stable
-    .slice(0, MAX_SITUATIONS);
+  const active = activeSituations(items);
   const general = active.filter((item) => item.section !== 'after_order').map(render);
   const afterOrder = active.filter((item) => item.section === 'after_order').map(render);
   const full = build(general, afterOrder);

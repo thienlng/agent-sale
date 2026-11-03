@@ -1,4 +1,4 @@
-import type { ToolDefinition } from '@agent-sales/ai-core';
+import type { RunnableTool, ToolDefinition } from '@agent-sales/ai-core';
 import { z } from 'zod';
 
 import { absoluteMediaUrl } from '../../../common/storage/media-url.js';
@@ -6,7 +6,6 @@ import type { MessageSink, OutgoingMessage, QuickReply } from '../api/reply-opti
 import type { AllowedImage } from '../domain/image-allowlist.js';
 import { normalizeReplyText } from '../domain/reply-text.js';
 import { safeJson } from './action-tools.js';
-import type { RunnableTool } from './tool-runner.js';
 
 export const SEND_MESSAGE_TOOL = 'send_message';
 export const HANDOFF_TOOL = 'handoff';

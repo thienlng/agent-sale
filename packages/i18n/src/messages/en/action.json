@@ -139,5 +139,6 @@
   "chat": {
     "called": "Called API: {{name}}",
     "failed": "API call failed: {{name}}"
-  }
+  },
+  "needsSecret": "Key needed"
 }

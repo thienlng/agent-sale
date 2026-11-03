@@ -20,6 +20,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { type AssistantFormField, useAssistantForm } from '@/lib/assistant-context';
 import { errorMessage } from '@/lib/errors';
 import { useCan } from '@/lib/permissions';
 
@@ -42,6 +43,9 @@ const SELF_PRONOUNS = ['em', 'mình', 'shop'];
 const CUSTOMER_PRONOUNS = ['anh/chị', 'bạn', 'quý khách'];
 const LENGTHS = ['veryShort', 'short', 'detailed'] as const;
 const TONES = ['friendly', 'formal'] as const;
+/** Text limits of the form, also applied to what the owner assistant fills. */
+const MAX = { mission: 4000, greeting: 1000, selfPronoun: 20, customerPronoun: 20 } as const;
+const TEXT_KEYS = ['mission', 'greeting', 'selfPronoun', 'customerPronoun'] as const;
 
 const draftOf = (bot: BotDto): Draft => ({
   mission: bot.settings.mission,
@@ -121,6 +125,57 @@ function Form({ bot }: { bot: BotDto }) {
   const set = <K extends Key>(key: K, value: Draft[K]) =>
     setDraft((current) => ({ ...current, [key]: value }));
 
+  // The owner assistant drafts the reply guidance; the owner reviews it and presses Save.
+  useAssistantForm(
+    'bot-personality',
+    (): AssistantFormField[] => [
+      ...TEXT_KEYS.map((key) => ({
+        name: key,
+        label: t(`personality.${key}`),
+        type: key === 'mission' || key === 'greeting' ? ('textarea' as const) : ('text' as const),
+        empty: !draft[key].trim(),
+        value: draft[key],
+      })),
+      {
+        name: 'replyLength',
+        label: t('personality.replyLength'),
+        type: 'select',
+        options: [...LENGTHS],
+        empty: false,
+      },
+      {
+        name: 'tone',
+        label: t('personality.tone'),
+        type: 'select',
+        options: [...TONES],
+        empty: false,
+      },
+      {
+        name: 'allowEmoji',
+        label: t('personality.allowEmoji'),
+        type: 'select',
+        options: ['yes', 'no'],
+        empty: false,
+      },
+    ],
+    (values) =>
+      setDraft((current) => {
+        const next = { ...current };
+        for (const key of TEXT_KEYS) {
+          const value = values[key];
+          if (typeof value === 'string') next[key] = value.slice(0, MAX[key]);
+        }
+        const length = LENGTHS.find((o) => o === values['replyLength']);
+        if (length) next.replyLength = length;
+        const tone = TONES.find((o) => o === values['tone']);
+        if (tone) next.tone = tone;
+        if (values['allowEmoji'] === 'yes' || values['allowEmoji'] === 'no')
+          next.allowEmoji = values['allowEmoji'] === 'yes';
+        return next;
+      }),
+    { enabled: canEdit, submitTarget: 'bot-personality.save' },
+  );
+
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!dirty || !canEdit) return;
@@ -148,7 +203,7 @@ function Form({ bot }: { bot: BotDto }) {
             <Textarea
               id="personality-mission"
               rows={4}
-              maxLength={4000}
+              maxLength={MAX.mission}
               disabled={!canEdit}
               value={draft.mission}
               onChange={(e) => set('mission', e.target.value)}
@@ -226,7 +281,7 @@ function Form({ bot }: { bot: BotDto }) {
             <Textarea
               id="personality-greeting"
               rows={3}
-              maxLength={1000}
+              maxLength={MAX.greeting}
               disabled={!canEdit}
               value={draft.greeting}
               onChange={(e) => set('greeting', e.target.value)}
@@ -247,7 +302,11 @@ function Form({ bot }: { bot: BotDto }) {
               >
                 {t('personality.reset')}
               </Button>
-              <Button type="submit" disabled={!dirty || save.isPending}>
+              <Button
+                type="submit"
+                data-assistant-target="bot-personality.save"
+                disabled={!dirty || save.isPending}
+              >
                 {t('personality.save')}
               </Button>
             </div>

@@ -126,7 +126,7 @@ export function ProductsList({ pmsLink }: { pmsLink?: PmsLink | null | undefined
       <header className="flex flex-wrap items-end justify-between gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">{t('products.title')}</h1>
         {canAdd ? (
-          <Button size="lg" asChild>
+          <Button size="lg" asChild data-assistant-target="products.new">
             <Link to="/app/products/new">
               <Plus />
               {t('products.add')}

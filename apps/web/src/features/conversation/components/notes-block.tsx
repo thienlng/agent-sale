@@ -41,7 +41,8 @@ export function NotesBlock({ conversation: c }: { conversation: InboxConversatio
   return (
     <PanelBlock title={tr('notes')} summary={count ? String(count) : undefined}>
       {canEdit ? (
-        <div className="relative mb-3">
+        // At the panel's bottom the owner-assistant launcher steps above the note box.
+        <div data-assistant-avoid className="relative mb-3">
           <Textarea
             aria-label={tr('notes')}
             placeholder={tr('noteAdd')}

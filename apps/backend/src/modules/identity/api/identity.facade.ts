@@ -5,8 +5,11 @@ import type { UserId, WorkspaceId } from '@agent-sales/shared';
 export interface IdentityFacade {
   /** Display name of a user (snapshotted by modules that record who did what), or null. */
   displayName(userId: UserId): Promise<string | null>;
-  /** Name and email of a user (member lists, invitation checks), or null. */
-  profile(userId: UserId): Promise<{ name: string; email: string } | null>;
+  /**
+   * Name, login email and UI language of a user (member lists, invitation checks, notification
+   * delivery), or null. `locale` is `vi` unless the user chose `en`.
+   */
+  profile(userId: UserId): Promise<{ name: string; email: string; locale: 'vi' | 'en' } | null>;
 }
 
 /** Platform admin lookups (ADR-021). Callers must already have checked the platform admin flag. */
@@ -47,3 +50,18 @@ export interface IdentityApiKeysFacade {
 }
 
 export const IDENTITY_API_KEYS_FACADE = Symbol('IDENTITY_API_KEYS_FACADE');
+
+/**
+ * Delegated access (ADR-024): in-process callers whose work can outlive the caller's 15-min
+ * access token (the owner assistant's route tools and approved proposals) trade a valid
+ * `Authorization: Bearer <access token>` for a short-lived token of the same user and session.
+ */
+export interface IdentityDelegationFacade {
+  /**
+   * A bare token (no `Bearer ` prefix) valid for `ttlSeconds` (1 s to 10 min), or null when the
+   * header is not a valid, non-delegated access token. Hold it in memory only: never log or store it.
+   */
+  delegate(authorization: string, ttlSeconds: number): Promise<string | null>;
+}
+
+export const IDENTITY_DELEGATION_FACADE = Symbol('IDENTITY_DELEGATION_FACADE');

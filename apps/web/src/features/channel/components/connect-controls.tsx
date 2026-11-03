@@ -23,6 +23,7 @@ export function ConnectButtons({
         {providers.map((provider) => (
           <Button
             key={provider}
+            data-assistant-target="channels.connect"
             disabled={!canManage || loading || !configured(provider) || connect.pending}
             onClick={() => connect.connect(provider)}
           >

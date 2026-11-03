@@ -1,5 +1,6 @@
 export * from './client.js';
 export * from './tenant.js';
+export { accountContextSql, withAccount } from './account.js';
 export * from './outbox.js';
 export * from './audit.js';
 export * from './platform-audit.js';
@@ -9,7 +10,22 @@ export {
   type AccountSubscriptionBackfillReport,
 } from './account-subscription-backfill.js';
 export { backfillBotProfiles, type BotProfileBackfillReport } from './bot-profile-backfill.js';
-export { ensureLoginRoles, migrate, MIGRATIONS_DIR, withCredentials } from './migrate.js';
+export {
+  ensureLoginRoles,
+  migrate,
+  MIGRATIONS_DIR,
+  withCredentials,
+  type LoginCredentials,
+} from './migrate.js';
+export {
+  ASSISTANT_SQL_TIMEZONE,
+  AssistantSqlError,
+  createAssistantSqlClient,
+  runAssistantSql,
+  type AssistantSqlClient,
+  type AssistantSqlColumn,
+  type AssistantSqlResult,
+} from './assistant-sql.js';
 export * as schema from './schema/index.js';
 // Query operators re-exported so modules depend on @agent-sales/db only, never on drizzle-orm directly.
 export {

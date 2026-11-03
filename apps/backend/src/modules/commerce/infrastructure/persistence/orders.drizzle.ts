@@ -277,6 +277,41 @@ export function ordersTx(ws: WorkspaceId, tx: TenantTx): Pick<CommerceTx, 'order
           .where(and(isNull(o.deletedAt), pendingReview));
         return n(r?.c);
       },
+      async placedSummary({ since, until, limit }) {
+        const placed = and(
+          isNull(o.deletedAt),
+          sql`${o.status} <> 'cancelled'`,
+          sql`${o.placedAt} >= ${since.toISOString()}`,
+          sql`${o.placedAt} < ${until.toISOString()}`,
+        );
+        const [[agg], rows] = await Promise.all([
+          tx
+            .select({
+              count: sql<number>`count(*)::int`,
+              total: sql<number>`coalesce(sum(${o.total}), 0)`,
+            })
+            .from(o)
+            .where(placed),
+          tx
+            .select({
+              id: o.id,
+              code: o.code,
+              total: o.total,
+              status: o.status,
+              source: o.source,
+              placedAt: o.placedAt,
+            })
+            .from(o)
+            .where(placed)
+            .orderBy(desc(o.placedAt), desc(o.id))
+            .limit(Math.max(0, Math.min(limit, 10))),
+        ]);
+        return {
+          count: n(agg?.count),
+          total: n(agg?.total),
+          items: rows.map((r) => ({ ...r, total: n(r.total) })),
+        };
+      },
       async overview({ from, to, todayFrom, todayTo, timezone }): Promise<OverviewAggregates> {
         const localDay = sql<string>`to_char(${o.placedAt} at time zone ${timezone}, 'YYYY-MM-DD')`;
         const inRange = (a: Date, b: Date) =>

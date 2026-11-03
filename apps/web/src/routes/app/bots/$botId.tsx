@@ -1,6 +1,5 @@
 import { fillPlaceholders, placeholdersIn } from '@agent-sales/shared';
 import { createFileRoute, Outlet } from '@tanstack/react-router';
-import { MessageSquareText } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -16,7 +15,8 @@ import { ApiClientError } from '@/lib/api-client';
 
 /**
  * Bot space: its own training menu on the left, the section in the middle and
- * the test chat docked on the right (docs/03 §3). The app sidebar keeps the
+ * the test chat docked on the right (docs/03 §3), toggled from the training
+ * menu so the bottom-right corner stays free for the owner assistant. The app sidebar keeps the
  * state the user chose.
  */
 export const Route = createFileRoute('/app/bots/$botId')({
@@ -69,7 +69,14 @@ function BotSpace() {
     // Full-bleed in the shell; the test chat docks on the right from xl and is a sheet below.
     <div data-content-padding="false" className="flex min-h-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col lg:flex-row">
-        <TrainingNav bot={bot.data} />
+        <TrainingNav
+          bot={bot.data}
+          testChatOpen={chatOpen}
+          onTestChat={() => {
+            if (window.matchMedia('(min-width: 80rem)').matches) setChatOpen((v) => !v);
+            else setMobileChat(true);
+          }}
+        />
         <div className="min-w-0 flex-1 p-4 md:p-6">
           <Outlet />
         </div>
@@ -81,15 +88,6 @@ function BotSpace() {
         </aside>
       ) : null}
 
-      <Button
-        className={`fixed right-5 bottom-5 z-20 h-11 rounded-full px-4 shadow-lg ${chatOpen ? 'xl:hidden' : ''}`}
-        onClick={() =>
-          window.matchMedia('(min-width: 80rem)').matches ? setChatOpen(true) : setMobileChat(true)
-        }
-      >
-        <MessageSquareText />
-        {t('playground.show')}
-      </Button>
       <Sheet open={mobileChat} onOpenChange={setMobileChat}>
         <SheetContent side="right" className="w-full p-0 sm:max-w-md">
           <SheetTitle className="sr-only">{t('playground.title')}</SheetTitle>

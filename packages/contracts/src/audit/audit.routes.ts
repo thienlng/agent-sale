@@ -5,6 +5,7 @@ export const auditRoutes = defineRoutes([
   {
     method: 'get',
     path: '/audit-events',
+    assistant: { use: 'read', when: 'The owner asks who changed what in the business recently.' },
     summary: 'Who changed what in this workspace (newest first)',
     tag: 'audit',
     auth: true,

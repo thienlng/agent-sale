@@ -240,7 +240,7 @@ export function OrdersList({
           ) : null}
         </div>
         {canAdd ? (
-          <Button size="lg" asChild>
+          <Button size="lg" asChild data-assistant-target="orders.new">
             <Link to="/app/orders/new">
               <Plus />
               {t('orders.add')}

@@ -14,7 +14,8 @@
   },
   "files": [
     "dist",
-    "prompts"
+    "prompts",
+    "assistant-skills"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",

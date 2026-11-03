@@ -62,6 +62,17 @@ function foldedSql(expr: SQL): SQL {
 }
 
 /** Warehouses, products/variants and inventory inside one tenant transaction. */
+/** The values whose lowercase form is in `found`, as the caller spelled them, without repeats. */
+function asSent(values: string[], found: Set<string>): string[] {
+  const seen = new Set<string>();
+  return values.filter((x) => {
+    const key = x.toLowerCase();
+    if (!found.has(key) || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export function catalogTx(
   ws: WorkspaceId,
   tx: TenantTx,
@@ -151,6 +162,28 @@ export function catalogTx(
     },
 
     products: {
+      async matchCodes(codes, skus) {
+        const lowerCodes = [...new Set(codes.map((c) => c.toLowerCase()))];
+        const lowerSkus = [...new Set(skus.map((x) => x.toLowerCase()))];
+        const [codeRows, skuRows] = await Promise.all([
+          lowerCodes.length
+            ? tx
+                .selectDistinct({ k: sql<string>`lower(${p.code})` })
+                .from(p)
+                .where(inArray(sql`lower(${p.code})`, lowerCodes))
+            : [],
+          lowerSkus.length
+            ? tx
+                .selectDistinct({ k: sql<string>`lower(${v.sku})` })
+                .from(v)
+                .where(and(isNull(v.archivedAt), inArray(sql`lower(${v.sku})`, lowerSkus)))
+            : [],
+        ]);
+        return {
+          codes: asSent(codes, new Set(codeRows.map((r) => r.k))),
+          skus: asSent(skus, new Set(skuRows.map((r) => r.k))),
+        };
+      },
       async list({ q, status, selectedFor, source, offset, limit }) {
         const where = and(
           eq(p.status, status),
@@ -414,6 +447,42 @@ export function catalogTx(
           onHand: r.onHand,
           reserved: r.reserved,
         }));
+      },
+      async lowStock({ threshold, limit }) {
+        // RLS (withTenant) limits every table to the workspace; the filter is explicit too.
+        const rows = await tx.execute<{
+          product_id: string;
+          variant_id: string;
+          product_name: string;
+          variant_name: string;
+          sku: string;
+          available: number;
+          total: number;
+        }>(sql`
+          with low as (
+            select p.id as product_id, v.id as variant_id, p.name as product_name,
+                   v.name as variant_name, v.sku,
+                   sum(i.on_hand - i.reserved)::int as available
+            from ${v} v
+            join ${p} p on p.id = v.product_id
+            join ${inv} i on i.variant_id = v.id
+            where v.workspace_id = ${ws} and p.status = 'active' and v.archived_at is null
+            group by p.id, v.id
+            having sum(i.on_hand - i.reserved) <= ${threshold})
+          select low.*, count(*) over ()::int as total from low
+          order by available, product_name, variant_name, variant_id
+          limit ${Math.max(1, limit)}`);
+        const list = [...rows];
+        return {
+          count: limit > 0 ? Number(list[0]?.total ?? 0) : 0,
+          items: (limit > 0 ? list : []).map((r) => ({
+            productId: r.product_id,
+            variantId: r.variant_id,
+            name: r.variant_name ? `${r.product_name} - ${r.variant_name}` : r.product_name,
+            sku: r.sku || null,
+            available: Number(r.available),
+          })),
+        };
       },
       async ensureRow(workspaceId, variantId, warehouseId) {
         await tx

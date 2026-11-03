@@ -105,8 +105,8 @@ describe('TestChat', () => {
       <TestChat botId={botId} greeting="" suggestions={['Cửa hàng ở đâu?', 'Giờ mở cửa?']} />,
     );
     expect(
-      screen.getByText('Xem cách Bot phản hồi những câu hỏi thường gặp này'),
-    ).toBeInTheDocument();
+      screen.getByText('Xem cách Bot phản hồi những câu hỏi thường gặp này').parentElement,
+    ).toHaveAttribute('data-assistant-avoid');
     await userEvent.click(screen.getByRole('button', { name: 'Cửa hàng ở đâu?' }));
     expect(await screen.findByText('Dạ shop ở 12 Lê Lợi ạ')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Giờ mở cửa?' })).not.toBeInTheDocument();

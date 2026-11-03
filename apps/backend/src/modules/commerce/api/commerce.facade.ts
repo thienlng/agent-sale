@@ -1,4 +1,4 @@
-import type { OrderDto } from '@agent-sales/contracts';
+import type { OrderDto, OrderOverviewResponse } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
 
 /** One line the bot wants to order: a catalog SKU and a quantity (prices come from the catalog). */
@@ -66,6 +66,49 @@ export interface CommerceFacade {
     ws: WorkspaceId,
     conversationId: string,
   ): Promise<{ pending: boolean; storedAt: Date | null }>;
+
+  // ─── Owner reports (T-172): figures only, never customer data ───
+
+  /** The order overview of `GET /orders/overview` for local dates `from`..`to` (inclusive). */
+  orderOverview(ws: WorkspaceId, q: { from: string; to: string }): Promise<OrderOverviewResponse>;
+  /**
+   * Orders placed in `[since, until)`, deleted and cancelled ones left out: how many, their total
+   * (all of them, not only the listed ones) and the newest `limit` (≤ 10).
+   */
+  ordersPlaced(
+    ws: WorkspaceId,
+    q: { since: Date; until: Date; limit: number },
+  ): Promise<OrdersPlaced>;
+  /**
+   * Variants of active products whose available stock (Σ on hand − reserved over warehouses) is at
+   * most `threshold`, lowest first, at most `limit` (≤ 20). Variants without stock rows are not
+   * counted, so a business that keeps no inventory has none.
+   */
+  lowStock(ws: WorkspaceId, q: { threshold: number; limit: number }): Promise<LowStock>;
+}
+
+export interface OrdersPlaced {
+  count: number;
+  total: number;
+  items: {
+    id: string;
+    code: string;
+    total: number;
+    status: string;
+    source: string;
+    placedAt: string;
+  }[];
+}
+
+export interface LowStock {
+  count: number;
+  items: {
+    productId: string;
+    variantId: string;
+    name: string;
+    sku: string | null;
+    available: number;
+  }[];
 }
 
 export const COMMERCE_FACADE = Symbol('COMMERCE_FACADE');

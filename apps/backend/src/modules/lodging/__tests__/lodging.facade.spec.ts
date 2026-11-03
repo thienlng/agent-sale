@@ -34,4 +34,21 @@ describe('LodgingFacade (contract)', () => {
     expect(await new LodgingFacadeImpl(store(['p2'])).listBotPropertyIds(ws, 'b')).toEqual(['p2']);
     expect(await new LodgingFacadeImpl(store(null)).listBotPropertyIds(ws, 'b')).toEqual(['p1']);
   });
+
+  it('sums the revenue of the stays checking in on the given nights, with their profit', async () => {
+    const asked: string[][] = [];
+    const store = {
+      run: (_ws, fn) =>
+        fn({
+          stayTotals: async (from: string, to: string) => {
+            asked.push([from, to]);
+            return { bookings: 2, nights: 4, revenue: 63_000_000, cost: 56_000_000 };
+          },
+        } as never),
+    } as LodgingStore;
+    expect(
+      await new LodgingFacadeImpl(store).stayRevenue(ws, { from: '2026-11-01', to: '2026-11-07' }),
+    ).toEqual({ bookings: 2, nights: 4, revenue: 63_000_000, profit: 7_000_000 });
+    expect(asked).toEqual([['2026-11-01', '2026-11-07']]);
+  });
 });

@@ -8,12 +8,21 @@ import { DbModule } from '../common/db/db.module.js';
 import { createLogger, PinoNestLogger } from '../common/logger.js';
 import { ANALYTICS_RUNNER, type AnalyticsRunner } from '../modules/analytics/api/index.js';
 import { AnalyticsModule } from '../modules/analytics/analytics.module.js';
+import {
+  ASSISTANT_RUNNER,
+  ASSISTANT_SCHEDULE_RUNNER,
+  type AssistantRunner,
+  type AssistantScheduleRunner,
+} from '../modules/assistant/api/index.js';
+import { AssistantModule } from '../modules/assistant/assistant.module.js';
 import { BILLING_RUNNER, type BillingRunner } from '../modules/billing/api/index.js';
 import { BillingModule } from '../modules/billing/billing.module.js';
 import { DEVELOPER_RUNNER, type DeveloperRunner } from '../modules/developer/api/index.js';
 import { DeveloperModule } from '../modules/developer/developer.module.js';
 import { INTEGRATION_RUNNER, type IntegrationRunner } from '../modules/integration/api/index.js';
 import { IntegrationModule } from '../modules/integration/integration.module.js';
+import { NOTIFICATION_RUNNER, type NotificationRunner } from '../modules/notification/api/index.js';
+import { NotificationModule } from '../modules/notification/notification.module.js';
 import { SAAS_RUNNER, type SaasRunner } from '../modules/saas/api/index.js';
 import { SaasModule } from '../modules/saas/saas.module.js';
 
@@ -31,6 +40,8 @@ import { SaasModule } from '../modules/saas/saas.module.js';
     BillingModule,
     SaasModule,
     DeveloperModule,
+    NotificationModule,
+    AssistantModule,
   ],
 })
 class WorkerModule {}
@@ -110,6 +121,45 @@ const webhookTimer = setInterval(() => {
       webhooksBusy = false;
     });
 }, 2000);
+// Owner assistant background jobs (the review): Postgres-leased, up to 3 per tick (ruling 1c-R1).
+const assistant = ctx.get<AssistantRunner>(ASSISTANT_RUNNER);
+let assistantBusy = false;
+const assistantTimer = setInterval(() => {
+  if (assistantBusy) return;
+  assistantBusy = true;
+  void assistant
+    .tick()
+    .catch(() => logger.error('Assistant jobs tick failed'))
+    .finally(() => {
+      assistantBusy = false;
+    });
+}, 15_000);
+// Notification deliveries (T-172): email through Resend with retries; one tick at a time.
+const notifications = ctx.get<NotificationRunner>(NOTIFICATION_RUNNER);
+let notifying = false;
+const notificationTimer = setInterval(() => {
+  if (notifying) return;
+  notifying = true;
+  void notifications
+    .tick()
+    .catch(() => logger.error('Notification delivery tick failed'))
+    .finally(() => {
+      notifying = false;
+    });
+}, 5000);
+// Owner assistant schedules (T-172): due reports and alerts; one tick at a time.
+const schedules = ctx.get<AssistantScheduleRunner>(ASSISTANT_SCHEDULE_RUNNER);
+let scheduling = false;
+const scheduleTimer = setInterval(() => {
+  if (scheduling) return;
+  scheduling = true;
+  void schedules
+    .tick()
+    .catch(() => logger.error('Assistant schedule tick failed'))
+    .finally(() => {
+      scheduling = false;
+    });
+}, 15_000);
 let dailyRunning = false;
 const runDaily = () => {
   if (dailyRunning) return;
@@ -132,8 +182,11 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const)
     clearInterval(hqTimer);
     clearInterval(dailyTimer);
     clearInterval(webhookTimer);
+    clearInterval(assistantTimer);
+    clearInterval(notificationTimer);
+    clearInterval(scheduleTimer);
   });
 logger.info(
   { queues },
-  'worker started (analytics projection, PMS sync, billing lifecycle, HQ sync, webhooks; no queue processors registered yet)',
+  'worker started (analytics projection, PMS sync, billing lifecycle, HQ sync, webhooks, notifications, assistant jobs, assistant schedules; no queue processors registered yet)',
 );

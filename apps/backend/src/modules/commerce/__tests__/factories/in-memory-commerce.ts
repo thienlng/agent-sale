@@ -36,6 +36,8 @@ export class InMemoryCommerce implements CommerceStore {
   events: CommerceOutboxEvent[] = [];
   drafts = new Map<string, BotOrderDraftRecord>();
   lastListFilter: OrderListFilter | null = null;
+  /** Orders soft-deleted (the Drizzle store's `deleted_at`). */
+  deletedOrderIds = new Set<string>();
   codeCounter = 0;
 
   async run<T>(_ws: WorkspaceId, fn: (tx: CommerceTx) => Promise<T>): Promise<T> {
@@ -87,6 +89,28 @@ export class InMemoryCommerce implements CommerceStore {
         findDefault: async () => this.warehouses.find((w) => w.isDefault) ?? null,
       },
       products: {
+        matchCodes: async (codes: string[], skus: string[]) => {
+          const found = (values: string[], known: string[]) => {
+            const lower = new Set(known.map((k) => k.toLowerCase()));
+            const seen = new Set<string>();
+            return values.filter((x) => {
+              const key = x.toLowerCase();
+              if (!lower.has(key) || seen.has(key)) return false;
+              seen.add(key);
+              return true;
+            });
+          };
+          return {
+            codes: found(
+              codes,
+              this.products.map((p) => p.code),
+            ),
+            skus: found(
+              skus,
+              this.variants.filter((v) => !v.archived).map((v) => v.sku),
+            ),
+          };
+        },
         findForBot: async (ids: string[], selectedFor?: string) =>
           this.#botVisible(selectedFor).filter((p) => ids.includes(p.id)),
         variantsByIds: async (ids: string[]) =>
@@ -113,6 +137,29 @@ export class InMemoryCommerce implements CommerceStore {
             row.reserved += c.reservedDelta;
             this.movements.push(c);
           }
+        },
+        lowStock: async ({ threshold, limit }: { threshold: number; limit: number }) => {
+          const rows = this.variants
+            .filter((v) => !v.archived)
+            .flatMap((v) => {
+              const product = this.products.find((p) => p.id === v.productId);
+              const stock = this.stock.filter((s) => s.variantId === v.id);
+              if (product?.status !== 'active' || stock.length === 0) return [];
+              const available = stock.reduce((n, s) => n + s.onHand - s.reserved, 0);
+              return available <= threshold
+                ? [
+                    {
+                      productId: product.id,
+                      variantId: v.id,
+                      name: v.name ? `${product.name} - ${v.name}` : product.name,
+                      sku: v.sku || null,
+                      available,
+                    },
+                  ]
+                : [];
+            })
+            .sort((a, b) => a.available - b.available || a.name.localeCompare(b.name));
+          return { count: rows.length, items: rows.slice(0, limit) };
         },
       },
       orders: {
@@ -166,6 +213,37 @@ export class InMemoryCommerce implements CommerceStore {
               carriers: [],
               counts: { source: {}, creator: {}, carrier: {} },
             },
+          };
+        },
+        placedSummary: async ({
+          since,
+          until,
+          limit,
+        }: {
+          since: Date;
+          until: Date;
+          limit: number;
+        }) => {
+          const placed = this.orders
+            .filter(
+              (o) =>
+                !this.deletedOrderIds.has(o.id) &&
+                o.status !== 'cancelled' &&
+                o.placedAt.getTime() >= since.getTime() &&
+                o.placedAt.getTime() < until.getTime(),
+            )
+            .sort((a, b) => b.placedAt.getTime() - a.placedAt.getTime() || (a.id < b.id ? 1 : -1));
+          return {
+            count: placed.length,
+            total: placed.reduce((n, o) => n + o.total, 0),
+            items: placed.slice(0, limit).map((o) => ({
+              id: o.id,
+              code: o.code,
+              total: o.total,
+              status: o.status,
+              source: o.source,
+              placedAt: o.placedAt,
+            })),
           };
         },
         countPendingReview: async () =>

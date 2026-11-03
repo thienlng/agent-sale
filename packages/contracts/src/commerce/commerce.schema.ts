@@ -250,6 +250,28 @@ export const AdjustStockRequest = z.object({
 });
 export type AdjustStockRequest = z.infer<typeof AdjustStockRequest>;
 
+/**
+ * Which of these product codes and SKUs already exist (case-insensitive), e.g. before an import.
+ * Codes are matched against every product (active or archived), SKUs against live variants.
+ */
+export const MatchProductCodesRequest = z
+  .object({
+    codes: z.array(Code).max(500).default([]),
+    skus: z.array(z.string().trim().min(1).max(64)).max(1_000).default([]),
+  })
+  .refine((r) => r.codes.length + r.skus.length > 0, {
+    message: 'send at least one code or SKU',
+    path: ['codes'],
+  });
+export type MatchProductCodesRequest = z.input<typeof MatchProductCodesRequest>;
+
+/** The codes and SKUs that exist, spelled as the caller sent them. */
+export const MatchProductCodesResponse = z.object({
+  codes: z.array(z.string()),
+  skus: z.array(z.string()),
+});
+export type MatchProductCodesResponse = z.infer<typeof MatchProductCodesResponse>;
+
 /** The order form's product picker. */
 export const VariantSearchQuery = z.object({
   q: z.string().trim().max(100).optional(),

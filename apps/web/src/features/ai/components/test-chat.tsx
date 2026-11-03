@@ -205,7 +205,8 @@ export function TestChat({
                 </p>
               ) : null}
               {!turns.length && suggestions.length ? (
-                <div className="mt-auto flex flex-col gap-2 pt-6">
+                // The owner-assistant launcher steps above the chips instead of covering one.
+                <div data-assistant-avoid className="mt-auto flex flex-col gap-2 pt-6">
                   <p className="text-center text-sm text-muted-foreground">
                     {training('space.chat.suggestionsTitle')}
                   </p>

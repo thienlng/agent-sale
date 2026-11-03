@@ -5,6 +5,7 @@ export const workspaceRoutes = defineRoutes([
   {
     method: 'get',
     path: '/workspaces/current',
+    assistant: { use: 'read', when: 'Name, industry and basic facts of the current business.' },
     summary: 'The workspace selected by X-Workspace-Id',
     tag: 'workspace',
     auth: true,

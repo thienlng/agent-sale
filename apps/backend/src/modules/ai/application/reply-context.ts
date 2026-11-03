@@ -1,10 +1,17 @@
-import type { ChatMessage } from '@agent-sales/ai-core';
+import {
+  type ChatMessage,
+  PROMPTS_DIR,
+  type PromptRef,
+  PromptRegistry,
+} from '@agent-sales/ai-core';
 import type { PlaygroundRequest, ProductDto } from '@agent-sales/contracts';
 
 import type { BotActionView, PendingAction } from '../../action/api/index.js';
+import type { BotView } from '../../bot/api/index.js';
 import { knowledgeBlock, type KnowledgeSource } from '../domain/grounding.js';
 import type { ConversationSummaryValue } from '../domain/ports/conversation-summary.repository.js';
 import { productDetails } from '../domain/product-view.js';
+import { replyStyle } from '../domain/reply-style.js';
 import { safeJson } from './action-tools.js';
 import { COMPRESS_AT_TURNS, compressHistory, summaryMessage } from './context-compression.js';
 
@@ -23,6 +30,49 @@ export function carriedProductIds(carry: readonly ChatMessage[]): string[] {
     .filter((m) => m.role === 'tool')
     .flatMap((m) => [...m.content.matchAll(CARRY_IMAGE_ID)].map((x) => x[1] ?? ''));
   return [...new Set(ids.filter(Boolean))].slice(0, MAX_CARRY_PRODUCTS);
+}
+
+const RENDERER = new PromptRegistry(PROMPTS_DIR);
+
+/**
+ * The bot's system prompt: the prompt template filled with the bot's settings and style. Byte-stable
+ * per bot (everything per turn rides on the last user message); turn traces store its sha256 and
+ * the trace reader recomputes it to tell whether the instructions changed since.
+ */
+export function renderBotSystemPrompt(
+  bot: BotView,
+  workspace: { name: string },
+  template: string,
+): string {
+  return RENDERER.render(template, {
+    'bot.name': bot.name,
+    // The shop's own name beats the account's workspace name (the profile's display name first).
+    'workspace.name':
+      bot.profile.fields.displayName || bot.placeholders['store.name'] || workspace.name,
+    'bot.language': bot.language === 'en' ? 'English' : 'Vietnamese',
+    'bot.selfPronoun': bot.selfPronoun,
+    'bot.customerPronoun': bot.customerPronoun,
+    'bot.style': replyStyle(bot),
+    'bot.mission': bot.mission || '(not described yet)',
+  });
+}
+
+/** The prompt refs of a stored `ai_runs.prompt_version` (`sales-agent@15+fanpage-context@2`); null if malformed. */
+export function promptRefsOf(promptVersion: string): PromptRef[] | null {
+  const refs = promptVersion.split('+').map((part) => {
+    const m = /^([a-z0-9-]+)@(\d+)$/.exec(part);
+    return m?.[1] && m[2] ? { name: m[1], version: Number(m[2]) } : null;
+  });
+  return refs.length && refs.every((r) => r !== null) ? (refs as PromptRef[]) : null;
+}
+
+/** The reply template of the given prompts, as the reply path joins them. */
+export async function loadReplyTemplate(
+  prompts: PromptRegistry,
+  refs: readonly PromptRef[],
+): Promise<string> {
+  const texts = await Promise.all(refs.map((ref) => prompts.load(ref)));
+  return texts.filter(Boolean).join('\n\n');
 }
 
 /** Products already discussed in this conversation: their details, so follow-ups need no tool call. */

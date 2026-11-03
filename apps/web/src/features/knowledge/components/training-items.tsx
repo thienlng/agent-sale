@@ -30,32 +30,121 @@ import {
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  type AssistantFormField,
+  useAssistantContext,
+  useAssistantForm,
+} from '@/lib/assistant-context';
 import { errorMessage } from '@/lib/errors';
+import { useBotProfile } from '../api/bot-profile';
 import { useDeleteTrainingItem, useSaveTrainingItem, useTrainingItems } from '../api/training';
 import { matchesText } from '../utils/table-data';
 import { DataEmptyState, DataError, DataPageHeader, DataSearch, tableFrame } from './data-page';
 import { TrainingTable } from './training-table';
 
+/** Describes a bot training page to the owner assistant: its title, the bot and its industry. */
+export function useBotPageContext(botId: string, title: string): void {
+  const bot = useBotProfile(botId);
+  useAssistantContext({
+    title,
+    ...(bot.data ? { entity: { botId, industry: bot.data.industry } } : {}),
+  });
+}
+
+/** Limits of a scenario's texts, also applied to what the owner assistant fills. */
+const SCENARIO_MAX = { title: 2000, trigger: 500, content: 4000 } as const;
+const SECTIONS: TrainingSection[] = ['general', 'after_order'];
+
+/** The owner assistant's draft of one new scenario (never an image: T175-R6). */
+export interface ScenarioPrefill {
+  title?: string;
+  trigger?: string;
+  content?: string;
+  section?: TrainingSection;
+}
+
+/** The `scenario` form: the fields of one new scenario, `empty` from `current`. */
+export function scenarioFormFields(
+  t: (key: string) => string,
+  current: ScenarioPrefill = {},
+): AssistantFormField[] {
+  return [
+    {
+      name: 'title',
+      label: t('title'),
+      type: 'text',
+      empty: !current.title?.trim(),
+      value: current.title ?? '',
+    },
+    {
+      name: 'trigger',
+      label: t('trigger'),
+      type: 'text',
+      empty: !current.trigger?.trim(),
+      value: current.trigger ?? '',
+    },
+    {
+      name: 'content',
+      label: t('content'),
+      type: 'textarea',
+      empty: !current.content?.trim(),
+      value: current.content ?? '',
+    },
+    { name: 'section', label: t('rules.section'), type: 'select', options: SECTIONS, empty: false },
+  ];
+}
+
+/** Reads a fill of the `scenario` form, clamped to the editor's limits. */
+export function scenarioPrefill(values: Record<string, string | number>): ScenarioPrefill {
+  const text = (key: keyof typeof SCENARIO_MAX) =>
+    typeof values[key] === 'string' ? { [key]: values[key].slice(0, SCENARIO_MAX[key]) } : {};
+  const section = SECTIONS.find((s) => s === values['section']);
+  return {
+    ...text('title'),
+    ...text('trigger'),
+    ...text('content'),
+    ...(section ? { section } : {}),
+  };
+}
+
 export function TrainingItemEditor({
   botId,
   kind,
   item,
+  prefill,
   onClose,
 }: {
   botId: string;
   kind: TrainingKind;
   item: TrainingItemDto | null;
+  /** Initial values of a new item (the owner assistant's draft). */
+  prefill?: ScenarioPrefill | null;
   onClose: () => void;
 }) {
   const { t } = useTranslation('training');
   const { t: common } = useTranslation();
   const save = useSaveTrainingItem(botId);
-  const [title, setTitle] = useState(item?.title ?? '');
+  const [title, setTitle] = useState(item?.title ?? prefill?.title ?? '');
   const [notes, setNotes] = useState(item?.notes ?? '');
-  const [content, setContent] = useState(item?.content ?? '');
-  const [trigger, setTrigger] = useState(item?.trigger ?? '');
+  const [content, setContent] = useState(item?.content ?? prefill?.content ?? '');
+  const [trigger, setTrigger] = useState(item?.trigger ?? prefill?.trigger ?? '');
   const [mediaUrl, setMediaUrl] = useState(item?.mediaUrl ?? '');
-  const [section, setSection] = useState<TrainingSection>(item?.section ?? 'general');
+  const [section, setSection] = useState<TrainingSection>(
+    item?.section ?? prefill?.section ?? 'general',
+  );
+  // A new scenario on screen is the assistant's `scenario` form; an edit never is.
+  useAssistantForm(
+    'scenario',
+    () => scenarioFormFields(t, { title, trigger, content }),
+    (values) => {
+      const next = scenarioPrefill(values);
+      if (next.title !== undefined) setTitle(next.title);
+      if (next.trigger !== undefined) setTrigger(next.trigger);
+      if (next.content !== undefined) setContent(next.content);
+      if (next.section) setSection(next.section);
+    },
+    { enabled: kind === 'scenario' && !item },
+  );
   function submit(event: FormEvent) {
     event.preventDefault();
     const parsed = CreateTrainingItemRequest.safeParse({
@@ -95,7 +184,7 @@ export function TrainingItemEditor({
             id="training-title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            maxLength={kind === 'scenario' ? 2000 : 160}
+            maxLength={kind === 'scenario' ? SCENARIO_MAX.title : 160}
             required
           />
         </div>
@@ -106,7 +195,7 @@ export function TrainingItemEditor({
               id="training-trigger"
               value={trigger}
               onChange={(e) => setTrigger(e.target.value)}
-              maxLength={500}
+              maxLength={SCENARIO_MAX.trigger}
             />
           </div>
         ) : null}
@@ -116,7 +205,7 @@ export function TrainingItemEditor({
             id="training-content"
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            maxLength={kind === 'scenario' ? 4000 : 8000}
+            maxLength={kind === 'scenario' ? SCENARIO_MAX.content : 8000}
             rows={7}
             required
           />

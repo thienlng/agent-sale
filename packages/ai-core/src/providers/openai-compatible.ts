@@ -20,6 +20,7 @@ import {
 export type StructuredOutputMode = 'json_schema' | 'json_object' | 'none';
 
 const MAX_LISTED_MODELS = 500;
+const MAX_IMAGES = 3;
 
 export interface OpenAiCompatibleProviderOptions {
   /** Registry name used by tier policies, e.g. "openai" or "selfhost". */
@@ -68,17 +69,16 @@ export class OpenAiCompatibleProvider implements LlmProvider {
   }
 
   async generate(request: GenerateRequest, target: ModelTarget): Promise<GenerateResponse> {
-    if (request.images?.length)
-      throw new LlmCallError('invalid_request', `${this.name} provider: images are not supported`);
     if (request.tools?.length && this.#tools === 'emulated') {
       throw new LlmCallError('invalid_request', `${this.name} provider: tools must be emulated`);
     }
+    const messages = this.#withImages(request.messages.map(toOpenAiMessage), request.images);
     const started = performance.now();
     const response = await this.#client.chat.completions.create(
       {
         model: target.model,
         max_completion_tokens: request.maxOutputTokens ?? 2_000,
-        messages: request.messages.map(toOpenAiMessage),
+        messages,
         ...(request.tools?.length
           ? {
               tools: request.tools.map(toOpenAiTool),
@@ -120,6 +120,36 @@ export class OpenAiCompatibleProvider implements LlmProvider {
       if (ids.length >= MAX_LISTED_MODELS) break;
     }
     return ids.sort();
+  }
+
+  /** Puts the images on the last user message as low-detail data-URI parts (max 3). */
+  #withImages(
+    messages: OpenAI.Chat.ChatCompletionMessageParam[],
+    images: GenerateRequest['images'],
+  ): OpenAI.Chat.ChatCompletionMessageParam[] {
+    if (!images?.length) return messages;
+    if (images.length > MAX_IMAGES)
+      throw new LlmCallError(
+        'invalid_request',
+        `${this.name} provider: at most ${MAX_IMAGES} images`,
+      );
+    if (this.#tools === 'emulated')
+      throw new LlmCallError('invalid_request', `${this.name} provider: images need native tools`);
+    const index = messages.findLastIndex((m) => m.role === 'user');
+    const last = messages[index];
+    if (!last || last.role !== 'user' || typeof last.content !== 'string')
+      throw new LlmCallError(
+        'invalid_request',
+        `${this.name} provider: images need a user message`,
+      );
+    const content: OpenAI.Chat.ChatCompletionContentPart[] = [
+      { type: 'text', text: last.content },
+      ...images.map((i) => ({
+        type: 'image_url' as const,
+        image_url: { url: `data:${i.mimeType};base64,${i.base64}`, detail: 'low' as const },
+      })),
+    ];
+    return messages.map((m, i) => (i === index ? { role: 'user', content } : m));
   }
 
   #responseFormat(

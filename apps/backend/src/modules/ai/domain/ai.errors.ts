@@ -67,7 +67,24 @@ export class AiNotConfiguredError extends DomainError {
 /** Every provider of the tier failed (errors, timeouts). Details are logged, not returned. */
 export class AiProviderFailedError extends DomainError {
   readonly code = 'AI_UNAVAILABLE';
-  constructor() {
+  /** The classified cause of the last failure (`rate_limit`, `timeout`, …); never returned. */
+  constructor(readonly kind?: string) {
     super('The AI model is temporarily unavailable');
+  }
+}
+
+/** No turn with this run id for this bot in the workspace (or not a uuid). */
+export class TurnNotFoundError extends DomainError {
+  readonly code = 'NOT_FOUND';
+  constructor() {
+    super('Bot turn not found');
+  }
+}
+
+/** A `cursor` of GET /bots/{botId}/turns that this server did not issue. */
+export class InvalidTurnCursorError extends DomainError {
+  readonly code = 'VALIDATION_FAILED';
+  constructor() {
+    super('Invalid turns cursor');
   }
 }

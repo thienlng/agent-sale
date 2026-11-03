@@ -1,6 +1,9 @@
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
 
 import { AppShell } from '@/components/app-shell';
+import { AssistantBubble } from '@/features/assistant/components/assistant-bubble';
+import { useIsAccountOwner } from '@/lib/use-is-account-owner';
+import { NotificationBell } from '@/features/notification/components/notification-bell';
 import { MessageUsageBanner } from '@/features/billing/components/message-usage-banner';
 import { CreateBusinessDialog } from '@/features/workspace/components/create-business-dialog';
 import { PlanDialog } from '@/features/billing/components/plan-dialog';
@@ -37,6 +40,8 @@ export const Route = createFileRoute('/app')({
     const { t } = useTranslation();
     const workspace = useCurrentWorkspace();
     const canViewBookings = useCan('orders.view');
+    // The bell is for account owners, who get the scheduled reports and alerts (S3-R16).
+    const isOwner = useIsAccountOwner();
     // Bot holds waiting for staff, next to "Booking" (T-161); hotels with booking access only.
     const pendingHolds =
       useBookingReviewCount({
@@ -46,6 +51,7 @@ export const Route = createFileRoute('/app')({
       <AppShell
         planDialog={(props) => <PlanDialog {...props} />}
         createBusinessDialog={(props) => <CreateBusinessDialog {...props} />}
+        headerActions={isOwner ? <NotificationBell /> : undefined}
         // Undefined only while the business is loading, so the sidebar holds the industry entries
         // instead of flashing retail ones; without a business (or on error) it falls back to retail.
         industry={workspace.data?.industry ?? (workspace.isLoading ? undefined : '')}
@@ -58,6 +64,8 @@ export const Route = createFileRoute('/app')({
       >
         <MessageUsageBanner />
         <Outlet />
+        {/* Owner assistant (ADR-024): owners of the account only; the panel loads on open. */}
+        <AssistantBubble />
       </AppShell>
     );
   },

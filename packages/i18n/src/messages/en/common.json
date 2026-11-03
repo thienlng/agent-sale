@@ -1,6 +1,12 @@
 {
   "app": {
-    "name": "Rapiz"
+    "name": "Rapiz",
+    "assistantLauncher": "Ask Thỏ Rapiz",
+    "assistantAskSample": "Ask the assistant to fill it in",
+    "notifications": "Notifications",
+    "notificationsUnread": "Notifications, {{count}} unread",
+    "reportThreadError": "Could not open the report in the assistant. Try again.",
+    "reportScheduleDeleted": "This schedule was deleted"
   },
   "nav": {
     "bots": "Bot training",

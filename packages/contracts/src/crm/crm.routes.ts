@@ -53,6 +53,7 @@ const options = (kind: 'sources' | 'statuses', label: string) =>
     route({
       method: 'get',
       path: `/crm/${kind}`,
+      assistant: { use: 'read', when: `${label} of the business, archived ones included.` },
       apiKey: true,
       summary: `${label} (archived included)`,
       responses: { 200: CrmOptionList },
@@ -60,6 +61,7 @@ const options = (kind: 'sources' | 'statuses', label: string) =>
     route({
       method: 'post',
       path: `/crm/${kind}`,
+      assistant: { use: 'write', when: `The owner asks to add one of the ${label.toLowerCase()}.` },
       summary: `Add a ${label.toLowerCase().replace(/s$/, '')}`,
       body: CreateCrmOptionRequest,
       responses: { 201: CrmOptionDto },
@@ -67,6 +69,10 @@ const options = (kind: 'sources' | 'statuses', label: string) =>
     route({
       method: 'patch',
       path: `/crm/${kind}/{optionId}`,
+      assistant: {
+        use: 'write',
+        when: `The owner asks to rename, recolor or archive one of the ${label.toLowerCase()}.`,
+      },
       summary: `Rename, recolor or archive`,
       body: UpdateCrmOptionRequest,
       responses: { 200: CrmOptionDto },
@@ -74,6 +80,10 @@ const options = (kind: 'sources' | 'statuses', label: string) =>
     route({
       method: 'put',
       path: `/crm/${kind}/order`,
+      assistant: {
+        use: 'write',
+        when: `The owner asks to change the order of the ${label.toLowerCase()}.`,
+      },
       summary: `Reorder ${label.toLowerCase()}`,
       body: ReorderCrmOptionsRequest,
       responses: { 200: CrmOptionList },
@@ -84,6 +94,7 @@ export const crmRoutes = defineRoutes([
   route({
     method: 'post',
     path: '/contacts',
+    assistant: { use: 'write', when: 'The owner asks to add a customer.' },
     apiKey: true,
     summary: 'Create a customer',
     body: CreateContactRequest,
@@ -92,6 +103,11 @@ export const crmRoutes = defineRoutes([
   route({
     method: 'post',
     path: '/contacts/query',
+    assistant: {
+      use: 'read',
+      queryPost: true,
+      when: 'Search or filter customers by name, phone, status, source, tag, owner or date.',
+    },
     apiKey: true,
     summary: 'Search and filter customers (typed filter)',
     body: ContactQueryRequest,
@@ -100,6 +116,10 @@ export const crmRoutes = defineRoutes([
   route({
     method: 'get',
     path: '/contacts/{contactId}',
+    assistant: {
+      use: 'read',
+      when: 'One customer with contact details, status, source and owner.',
+    },
     apiKey: true,
     summary: 'One customer',
     responses: { 200: ContactDto },
@@ -107,6 +127,10 @@ export const crmRoutes = defineRoutes([
   route({
     method: 'patch',
     path: '/contacts/{contactId}',
+    assistant: {
+      use: 'write',
+      when: "The owner asks to change a customer's details, status, source or assignee.",
+    },
     apiKey: true,
     summary: 'Edit a customer (version-checked)',
     body: UpdateContactRequest,
@@ -115,6 +139,7 @@ export const crmRoutes = defineRoutes([
   route({
     method: 'get',
     path: '/contacts/{contactId}/notes',
+    assistant: { use: 'read', when: 'Notes about a customer, newest first.' },
     apiKey: true,
     summary: 'Notes, newest first',
     responses: { 200: ContactNoteList },
@@ -122,6 +147,10 @@ export const crmRoutes = defineRoutes([
   route({
     method: 'post',
     path: '/contacts/{contactId}/notes',
+    assistant: {
+      use: 'write',
+      when: 'The owner asks to add a note about a customer (never sent to the customer).',
+    },
     apiKey: true,
     summary: 'Add a note (never messages the customer)',
     body: CreateContactNoteRequest,
@@ -130,6 +159,7 @@ export const crmRoutes = defineRoutes([
   route({
     method: 'patch',
     path: '/contacts/{contactId}/notes/{noteId}',
+    assistant: { use: 'write', when: 'The owner asks to edit a note about a customer.' },
     summary: 'Edit a note (version-checked)',
     body: UpdateContactNoteRequest,
     responses: { 200: ContactNoteDto },
@@ -137,6 +167,7 @@ export const crmRoutes = defineRoutes([
   route({
     method: 'get',
     path: '/contacts/{contactId}/history',
+    assistant: { use: 'read', when: 'What changed on a customer and when.' },
     apiKey: true,
     summary: 'Audit timeline',
     query: ContactHistoryQuery,
@@ -145,6 +176,7 @@ export const crmRoutes = defineRoutes([
   route({
     method: 'get',
     path: '/contacts/{contactId}/tags',
+    assistant: { use: 'read', when: 'Which tags a customer has.' },
     apiKey: true,
     summary: 'Tag assignments (active and removed)',
     responses: { 200: TagAssignmentList },
@@ -152,6 +184,7 @@ export const crmRoutes = defineRoutes([
   route({
     method: 'post',
     path: '/contacts/{contactId}/tags',
+    assistant: { use: 'write', when: 'The owner asks to tag a customer.' },
     apiKey: true,
     summary: 'Tag a customer (idempotent per tag)',
     body: AssignTagRequest,
@@ -160,6 +193,10 @@ export const crmRoutes = defineRoutes([
   route({
     method: 'patch',
     path: '/tag-assignments/{assignmentId}',
+    assistant: {
+      use: 'write',
+      when: 'The owner asks to change the values of a tag on a customer.',
+    },
     summary: 'Change the values of a tag on a customer',
     body: UpdateTagAssignmentRequest,
     responses: { 200: TagAssignmentDto },
@@ -167,6 +204,10 @@ export const crmRoutes = defineRoutes([
   route({
     method: 'post',
     path: '/tag-assignments/{assignmentId}/remove',
+    assistant: {
+      use: 'write',
+      when: 'The owner asks to remove a tag from a customer or conversation.',
+    },
     apiKey: true,
     summary: 'Remove a tag (idempotent)',
     body: RemoveTagAssignmentRequest,
@@ -178,6 +219,7 @@ export const crmRoutes = defineRoutes([
   route({
     method: 'get',
     path: '/crm/tags',
+    assistant: { use: 'read', when: 'The tag definitions of the business.' },
     apiKey: true,
     summary: 'Tag definitions',
     responses: { 200: TagList },
@@ -185,6 +227,7 @@ export const crmRoutes = defineRoutes([
   route({
     method: 'post',
     path: '/crm/tags',
+    assistant: { use: 'write', when: 'The owner asks to create a new customer tag.' },
     summary: 'Create a tag',
     body: CreateTagRequest,
     responses: { 201: TagDto },
@@ -192,6 +235,7 @@ export const crmRoutes = defineRoutes([
   route({
     method: 'patch',
     path: '/crm/tags/{tagId}',
+    assistant: { use: 'write', when: 'The owner asks to rename, recolor or archive a tag.' },
     summary: 'Edit or archive a tag (version-checked)',
     body: UpdateTagRequest,
     responses: { 200: TagDto },
@@ -199,12 +243,17 @@ export const crmRoutes = defineRoutes([
   route({
     method: 'get',
     path: '/crm/assignment-policies',
+    assistant: { use: 'read', when: 'How new customers from each source are assigned to staff.' },
     summary: 'Auto-assignment policy of every source',
     responses: { 200: AssignmentPolicyList },
   }),
   route({
     method: 'put',
     path: '/crm/assignment-policies/{sourceId}',
+    assistant: {
+      use: 'write',
+      when: 'The owner asks to change how new customers from a source are assigned to staff.',
+    },
     summary: 'Set the auto-assignment policy of a source (version-checked)',
     body: PutAssignmentPolicyRequest,
     responses: { 200: AssignmentPolicyDto },
@@ -212,6 +261,7 @@ export const crmRoutes = defineRoutes([
   route({
     method: 'get',
     path: '/crm/assignees',
+    assistant: { use: 'read', when: 'Members who can be assigned customers as Sales or CSKH.' },
     apiKey: true,
     summary: 'Members who can be Sales or CSKH',
     responses: { 200: CrmAssigneeList },
@@ -220,12 +270,14 @@ export const crmRoutes = defineRoutes([
   route({
     method: 'get',
     path: '/saved-views',
+    assistant: { use: 'read', when: 'Saved customer list views.' },
     summary: 'Your views and shared views',
     responses: { 200: SavedViewList },
   }),
   route({
     method: 'post',
     path: '/saved-views',
+    assistant: { use: 'never' },
     summary: 'Save a view',
     body: CreateSavedViewRequest,
     responses: { 201: SavedViewDto },
@@ -233,6 +285,7 @@ export const crmRoutes = defineRoutes([
   route({
     method: 'patch',
     path: '/saved-views/{viewId}',
+    assistant: { use: 'never' },
     summary: 'Edit your view (version-checked)',
     body: UpdateSavedViewRequest,
     responses: { 200: SavedViewDto },
@@ -240,6 +293,7 @@ export const crmRoutes = defineRoutes([
   route({
     method: 'delete',
     path: '/saved-views/{viewId}',
+    assistant: { use: 'never' },
     summary: 'Delete your view',
     responses: { 204: null },
   }),

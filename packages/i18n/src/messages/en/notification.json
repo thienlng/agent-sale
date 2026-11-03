@@ -1,0 +1,87 @@
+{
+  "email": {
+    "footer": "Manage report schedules in Rapiz",
+    "open": "Open Rapiz"
+  },
+  "period": {
+    "day_previous": "yesterday ({{from}})",
+    "day_to_date": "today ({{from}})",
+    "week_previous": "last week ({{from}} – {{to}})",
+    "week_to_date": "this week ({{from}} – {{to}})",
+    "month_previous": "last month ({{from}} – {{to}})",
+    "month_to_date": "this month ({{from}} – {{to}})"
+  },
+  "report": {
+    "revenue_summary": {
+      "title": "Revenue {{period}} · {{business}}",
+      "body": "Sales: {{sales}}\nRevenue: {{revenue}}\nClosed orders: {{closedOrders}}\nAverage order value: {{averageOrderValue}}\nProfit: {{profit}}",
+      "stays_title": "Stay revenue {{period}} · {{business}}",
+      "stays_body": "Stay revenue: {{revenue}}\nNights sold: {{nights}}\nBookings: {{bookings}}\nProfit: {{profit}}"
+    },
+    "new_orders": {
+      "title": "New orders {{period}} · {{business}}",
+      "body": "Orders: {{count}}\nTotal value: {{total}}",
+      "latest": "Latest orders:",
+      "item": "• {{code}} — {{total}}",
+      "none": "No new orders."
+    },
+    "low_stock": {
+      "title": "Products running low · {{business}}",
+      "body": "{{count}} products have {{threshold}} or fewer left.",
+      "item": "• {{product}}{{sku}}: {{available}} left",
+      "sku": " ({{sku}})",
+      "more": "… and {{count}} more",
+      "none": "No product has {{threshold}} or fewer left."
+    },
+    "unanswered_conversations": {
+      "title": "Customers waiting for a reply · {{business}}",
+      "body": "{{count}} conversations have waited over {{minutes}} minutes.\nLongest wait: {{oldest}} minutes.",
+      "channel": "• {{channel}}: {{count}}",
+      "none": "No customer has waited over {{minutes}} minutes."
+    },
+    "new_customers": {
+      "title": "New customers {{period}} · {{business}}",
+      "body": "New customers: {{count}}",
+      "source": "• {{source}}: {{count}}",
+      "noSource": "Unknown source"
+    }
+  },
+  "alert": {
+    "new_orders": {
+      "title": "{{count}} new orders · {{business}}",
+      "body": "Total value: {{total}}"
+    },
+    "low_stock": {
+      "title": "{{count}} products running low · {{business}}"
+    },
+    "unanswered_conversations": {
+      "title": "{{count}} customers waiting for a reply · {{business}}"
+    }
+  },
+  "channel": {
+    "facebook": "Facebook",
+    "instagram": "Instagram",
+    "website": "Website",
+    "zalo": "Zalo",
+    "unknown": "Other channel"
+  },
+  "paused": {
+    "title": "Schedule \"{{name}}\" paused",
+    "failures": "The schedule failed 3 times in a row, so it was paused. Check it and turn it back on in the assistant.",
+    "business_unavailable": "The business of this schedule is no longer available, so the schedule was paused."
+  },
+  "commentary": "Assistant's comment:",
+  "emailUnavailable": "No email this time: email is not set up or the account has no email address.",
+  "bell": {
+    "title": "Notifications",
+    "markAll": "Mark all as read",
+    "empty": "No notifications yet.",
+    "loading": "Loading notifications",
+    "error": "Could not load notifications.",
+    "retry": "Try again",
+    "loadMore": "Show more notifications",
+    "more": "Show more",
+    "less": "Show less",
+    "unread": "unread"
+  }
+}

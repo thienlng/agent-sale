@@ -5,6 +5,20 @@ import type { WorkspaceId } from '@agent-sales/shared';
 export interface LodgingFacade {
   /** The properties a bot sells: its stored selection, or every active property when it has none. */
   listBotPropertyIds(workspaceId: WorkspaceId, botId: string): Promise<string[]>;
+  /**
+   * Revenue of the stays checking in on the local nights `from`..`to` (inclusive, `YYYY-MM-DD`):
+   * confirmed, checked-in and checked-out stays, blocks excluded. For scheduled reports; no
+   * guest data. Money is integer VND.
+   */
+  stayRevenue(workspaceId: WorkspaceId, range: { from: string; to: string }): Promise<StayRevenue>;
+}
+
+export interface StayRevenue {
+  bookings: number;
+  nights: number;
+  revenue: number;
+  /** revenue − cost of those stays. */
+  profit: number;
 }
 
 export const LODGING_FACADE = Symbol('LODGING_FACADE');

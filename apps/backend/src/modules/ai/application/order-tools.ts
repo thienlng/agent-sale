@@ -1,4 +1,4 @@
-import type { ToolDefinition } from '@agent-sales/ai-core';
+import type { RunnableTool, ToolDefinition } from '@agent-sales/ai-core';
 import type { AiOutcome } from '@agent-sales/contracts';
 import type { WorkspaceId } from '@agent-sales/shared';
 import { z } from 'zod';
@@ -7,7 +7,6 @@ import type { CommerceFacade } from '../../commerce/api/index.js';
 import type { MessageSink, OutgoingMessage, QuickReply } from '../api/reply-options.js';
 import { safeJson } from './action-tools.js';
 import type { OutputState } from './output-tools.js';
-import type { RunnableTool } from './tool-runner.js';
 
 export const PREPARE_ORDER_TOOL = 'prepare_order';
 export const CONFIRM_ORDER_TOOL = 'confirm_order';

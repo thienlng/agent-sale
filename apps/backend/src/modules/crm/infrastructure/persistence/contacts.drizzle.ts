@@ -112,6 +112,31 @@ export function contactsTx(
           .values({ workspaceId: ws, contactId, botId, firstSeenAt: at })
           .onConflictDoNothing();
       },
+      async createdBySource({ since, until }) {
+        const src = schema.crmSources;
+        const rows = await tx
+          .select({ source: src.name, count: sql<number>`count(*)::int` })
+          .from(c)
+          .leftJoin(
+            src,
+            and(
+              eq(src.id, sql`coalesce(${c.firstSourceId}, ${c.sourceId})`),
+              eq(src.workspaceId, ws),
+            ),
+          )
+          .where(
+            and(
+              eq(c.workspaceId, ws),
+              sql`${c.archivedAt} is null`,
+              sql`${c.createdAt} >= ${since.toISOString()}::timestamptz`,
+              sql`${c.createdAt} < ${until.toISOString()}::timestamptz`,
+            ),
+          )
+          .groupBy(src.name);
+        return rows
+          .map((r) => ({ source: r.source ?? null, count: Number(r.count) }))
+          .sort((a, b) => b.count - a.count || (a.source ?? '').localeCompare(b.source ?? ''));
+      },
       async countOwnedBy(userId) {
         const [r] = await tx
           .select({

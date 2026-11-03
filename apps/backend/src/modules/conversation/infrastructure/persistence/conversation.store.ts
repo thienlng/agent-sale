@@ -280,6 +280,41 @@ export class DrizzleConversationStore implements ConversationStore {
             .set({ botId: null })
             .where(and(eq(c.workspaceId, ws), eq(c.botId, botId)));
         },
+        async awaitingReply({ olderThan, limit }) {
+          const waiting = and(
+            eq(c.workspaceId, ws),
+            waitingNow,
+            sql`${c.awaitingSince} <= ${olderThan.toISOString()}::timestamptz`,
+          );
+          const [groups, ids] = await Promise.all([
+            tx
+              .select({
+                channel: sql<string>`coalesce(${c.data}->>'provider', 'unknown')`,
+                count: sql<number>`count(*)::int`,
+                oldest: sql<string | Date | null>`min(${c.awaitingSince})`,
+              })
+              .from(c)
+              .where(waiting)
+              .groupBy(sql`1`),
+            tx
+              .select({ id: c.id })
+              .from(c)
+              .where(waiting)
+              .orderBy(asc(c.awaitingSince), asc(c.id))
+              .limit(Math.max(0, Math.min(limit, 200))),
+          ]);
+          const oldest = groups
+            .map((g) => (g.oldest ? new Date(g.oldest).getTime() : Infinity))
+            .reduce((a, b) => Math.min(a, b), Infinity);
+          return {
+            count: groups.reduce((n, g) => n + Number(g.count), 0),
+            oldestSince: Number.isFinite(oldest) ? new Date(oldest).toISOString() : null,
+            byChannel: groups
+              .map((g) => ({ channel: g.channel, count: Number(g.count) }))
+              .sort((a, b) => b.count - a.count || a.channel.localeCompare(b.channel)),
+            ids: ids.map((r) => r.id),
+          };
+        },
       }),
     );
   }
