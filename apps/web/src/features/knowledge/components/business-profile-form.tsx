@@ -100,12 +100,14 @@ function ProfileForm({ bot }: { bot: BotDto }) {
         label: t(`profile.fields.${def.key}`),
         type: def.max > 200 ? ('textarea' as const) : ('text' as const),
         empty: !value(draft.fields, def.key),
+        value: value(draft.fields, def.key),
       })),
       {
         name: 'notes',
         label: t('profile.notesLabel'),
         type: 'textarea',
         empty: !draft.notes.trim(),
+        value: draft.notes,
       },
     ],
     (values) =>

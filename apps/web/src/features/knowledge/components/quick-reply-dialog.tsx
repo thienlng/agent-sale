@@ -77,12 +77,14 @@ export function quickReplyFormFields(
       label: t('data.quick.shortcut'),
       type: 'text',
       empty: !current.shortcut?.trim(),
+      value: current.shortcut ?? '',
     },
     {
       name: 'content',
       label: t('data.quick.content'),
       type: 'textarea',
       empty: !current.content?.trim(),
+      value: current.content ?? '',
     },
   ];
 }

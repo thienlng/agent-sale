@@ -59,7 +59,7 @@ export function CreateBotDialog({
   }
   useAssistantForm(
     'bot',
-    () => [{ name: 'name', label: t('bots.name'), type: 'text', empty: !name.trim() }],
+    () => [{ name: 'name', label: t('bots.name'), type: 'text', empty: !name.trim(), value: name }],
     (values) => {
       if (typeof values['name'] === 'string') setName(values['name'].slice(0, BOT_NAME_MAX));
     },

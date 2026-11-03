@@ -134,6 +134,7 @@ function Form({ bot }: { bot: BotDto }) {
         label: t(`personality.${key}`),
         type: key === 'mission' || key === 'greeting' ? ('textarea' as const) : ('text' as const),
         empty: !draft[key].trim(),
+        value: draft[key],
       })),
       {
         name: 'replyLength',

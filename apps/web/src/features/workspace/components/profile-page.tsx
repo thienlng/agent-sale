@@ -66,12 +66,19 @@ function ProfileForm({ profile }: { profile: WorkspaceProfileDto }) {
   useAssistantForm(
     'business-settings',
     () => [
-      { name: 'name', label: t('wsettings.profile.name'), type: 'text', empty: !draft.name.trim() },
+      {
+        name: 'name',
+        label: t('wsettings.profile.name'),
+        type: 'text',
+        empty: !draft.name.trim(),
+        value: draft.name,
+      },
       {
         name: 'companyName',
         label: t('wsettings.profile.companyName'),
         type: 'text',
         empty: !draft.companyName.trim(),
+        value: draft.companyName,
       },
     ],
     (values) => {

@@ -69,9 +69,27 @@ export function scenarioFormFields(
   current: ScenarioPrefill = {},
 ): AssistantFormField[] {
   return [
-    { name: 'title', label: t('title'), type: 'text', empty: !current.title?.trim() },
-    { name: 'trigger', label: t('trigger'), type: 'text', empty: !current.trigger?.trim() },
-    { name: 'content', label: t('content'), type: 'textarea', empty: !current.content?.trim() },
+    {
+      name: 'title',
+      label: t('title'),
+      type: 'text',
+      empty: !current.title?.trim(),
+      value: current.title ?? '',
+    },
+    {
+      name: 'trigger',
+      label: t('trigger'),
+      type: 'text',
+      empty: !current.trigger?.trim(),
+      value: current.trigger ?? '',
+    },
+    {
+      name: 'content',
+      label: t('content'),
+      type: 'textarea',
+      empty: !current.content?.trim(),
+      value: current.content ?? '',
+    },
     { name: 'section', label: t('rules.section'), type: 'select', options: SECTIONS, empty: false },
   ];
 }
