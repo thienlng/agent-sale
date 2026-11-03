@@ -24,7 +24,7 @@ export interface OfferingDraft {
   priceNote: string;
 }
 
-const FORMATS: readonly Format[] = ['online', 'offline', 'hybrid'];
+export const FORMATS: readonly Format[] = ['online', 'offline', 'hybrid'];
 const NO_FORMAT = 'none';
 const MAX_OUTCOMES = 5;
 /** Fields with their own label for a service (`<key>Service` in `commerce.offering`). */
@@ -37,6 +37,11 @@ const SERVICE_WORDS: ReadonlySet<string> = new Set([
   'audience',
   'outcomes',
 ]);
+
+/** The `commerce.offering` key of a field label, in the words of the business. */
+export function offeringLabelKey(kind: OfferingKind, key: string): string {
+  return `commerce.offering.${kind === 'service' && SERVICE_WORDS.has(key) ? `${key}Service` : key}`;
+}
 
 export function offeringDraft(offering: OfferingDetails | null | undefined): OfferingDraft {
   return {
